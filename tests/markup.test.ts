@@ -14,8 +14,7 @@ describe('course slot machine markup', () => {
     expect(markup).toContain('home-settings-button');
     expect(markup).toContain('aria-label="open settings"');
     expect(markup).toContain('local play');
-    expect(markup).toContain('class="title-golf-ball"');
-    expect(markup).toContain('class="title-cursing-emoji"');
+    expect(markup).toContain('GOLF <em>WITH YOUR</em> ENEMIES');
     expect(markup).toContain('class="title-menu panel"');
     expect(markup).toContain('choose local play');
     expect(markup).not.toContain('home-course-canvas');
@@ -186,7 +185,7 @@ describe('course slot machine markup', () => {
     expect(markup).not.toContain('DRAG BACK · RELEASE TO STRIKE');
     expect(markup).toContain('class="reaction-dock"');
     expect(markup).toContain('send cheer reaction');
-    expect(markup).toContain('🙌');
+    expect(markup).toContain('++');
     expect(markup).toContain('class="hud-leaderboard"');
     expect(markup).toContain('class="hud-course"');
     expect(markup).toContain('class="hud-timer"');

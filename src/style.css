@@ -444,3 +444,118 @@ dd { margin: 0; overflow-wrap: anywhere; color: var(--text); }
   .home-hero h1, .lobby-shell h1 { font-size: 2rem; }
   .home-actions { grid-template-columns: 1fr; }
 }
+
+/* Original low-resolution arcade presentation.  The canvas itself is rendered
+   at a fixed pixel framebuffer; these rules give the surrounding interface the
+   same sharp, cabinet-like language without imitating a specific game. */
+:root {
+  color-scheme: dark;
+  --ink: #090d1c;
+  --night: #111a33;
+  --panel: #172445f2;
+  --panel-raised: #263b67;
+  --line: #5d78a9;
+  --line-bright: #f4d36a;
+  --text: #f7f3d7;
+  --dim: #b7c7dc;
+  --gold: #f4c85b;
+  --green: #75d876;
+  --red: #fa6f73;
+  --blue: #72cbe0;
+  --chaos: #cf82ed;
+  background: var(--ink);
+  font-family: "Pixelify Sans", "BigBlueTerm437 Nerd Font Mono", ui-monospace, monospace;
+}
+
+body { background: #090d1c; image-rendering: pixelated; }
+button, input, select, textarea { font-family: inherit; border-radius: 0; }
+button { border: 2px solid #7894c2; padding: .38rem .52rem; color: var(--text); background: #1c3159; box-shadow: 3px 3px 0 #070b16; transition: none; }
+button:hover:not(:disabled), button.selected { border-color: var(--gold); color: #fffbe8; background: #35517e; box-shadow: 3px 3px 0 #070b16; transform: translate(-1px, -1px); }
+button.primary { border-color: #ffe58c; color: #1b1422; background: #f3ba4c; box-shadow: 3px 3px 0 #4b2a25; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #f9ec92; outline-offset: 3px; }
+input, select { border: 2px solid #526e9b; border-radius: 0; color: var(--text); background: #0c152d; }
+kbd { border-color: #f2ce67; border-radius: 0; color: #fff2aa; background: #121d38; }
+
+.panel, .overlay-card, .drawer, .pause-card, .party-guide > div, .party-briefing > div, .party-handoff > div { border: 2px solid #607eaf; border-radius: 0; box-shadow: 5px 5px 0 #070b16; }
+.app-shell { background: #060914; }
+.app-shell .topbar { min-height: 3.85rem; padding: .45rem .75rem; border-bottom: 2px solid #4e6795; background: #111b34; }
+.brand .eyebrow, .eyebrow { color: #72cbe0; font-size: .58rem; letter-spacing: .16em; }
+h1, h2, h3 { color: #f7f3d7; letter-spacing: .035em; text-transform: uppercase; }
+h1 { font-size: clamp(1rem, 2vw, 1.55rem); letter-spacing: .055em; }
+h1 em { color: #f4c85b; }
+.title-actions > button { color: var(--text); font-size: .62rem; }
+.hole { border-left-color: #526e9b; color: #72cbe0; font-size: .62rem; }
+
+.app-shell .board, .app-shell .course-stage { background: #060914; }
+.app-shell canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+.course-stage { background: #060914; }
+.app-shell .controls { bottom: .7rem; width: min(860px, calc(100% - 18rem)); min-height: 0; max-height: 32vh; overflow: auto; border: 2px solid #607eaf; border-radius: 0; padding: .45rem .55rem; background: #101a34f5; box-shadow: 4px 4px 0 #060914; }
+.controls label, .control-status, .muted, .hint, .legend { color: #c2d1e3; }
+.card-effects, .social-receipts, .placement-status, .party-diagnostics { border-color: #657fac; border-radius: 0; color: #d7e1eb; background: #172649; }
+
+/* Keep gameplay state in the side/bottom rails so the pixel world stays clear. */
+.hud-course, .hud-timer, .hud-leaderboard, .hud-strength, .reaction-dock, .hud-camera {
+  border: 2px solid #607eaf;
+  border-radius: 0;
+  background: #111c38ed;
+  box-shadow: 3px 3px 0 #070b16;
+  backdrop-filter: none;
+}
+.hud-course { top: 4.65rem; left: .7rem; min-width: 166px; width: 166px; padding: .42rem; }
+.hud-course p, .hud-timer p, .hud-camera > span, .hud-leaderboard header { color: #72cbe0; }
+.hud-course strong, .hud-timer strong, .hud-leaderboard li.active, .hud-leaderboard li b { color: #fff6d6; }
+.hud-course small, .hud-turn-status, .hud-leaderboard header small { color: #aebfd8; }
+.route-role-chip { border-radius: 0; background: #152342; }
+.hud-timer { top: 10.3rem; left: .7rem; min-width: 166px; width: 166px; padding: .42rem; }
+.hud-timer b { color: #f6c858; }
+.hud-leaderboard { top: 4.65rem; right: .7rem; width: 180px; max-height: 190px; padding: .35rem; }
+.hud-leaderboard li.active { background: #263c68; }
+.hud-strength { bottom: .7rem; width: min(360px, calc(100% - 27rem)); padding: .42rem .5rem; }
+.hud-strength-meter { border: 2px solid #607eaf; border-radius: 0; background: #0a1227; }
+.hud-strength-meter i { border-radius: 0; background: #f4c85b; box-shadow: none; }
+.reaction-dock { top: auto; right: .7rem; bottom: .7rem; padding: .3rem; }
+.reaction-dock button { border: 1px solid #6d87b4; border-radius: 0; background: #23385f; box-shadow: none; font-family: inherit; }
+.hud-camera { right: 12.65rem; bottom: .7rem; padding: .3rem; }
+.hud-camera button { border-color: #6d87b4; border-radius: 0; color: #f7f3d7; background: #23385f; }
+.callouts { padding-top: 4.3rem; }
+.callout { border: 2px solid currentColor; border-radius: 0; background: #101a34; box-shadow: 3px 3px 0 #070b16; font-size: .58rem; }
+
+.drawer { background: #111c38fa; backdrop-filter: none; }
+.drawer-heading, td, th, .rule-chip-grid { border-color: #4e6795; }
+.drawer-content, dt, .hint { color: #b9c9de; }
+.drawer-content h3, h3 { color: #f4c85b; }
+
+.die-overlay, .merchant-overlay, .results-overlay, .overlay, .pause-overlay, .party-guide, .party-briefing, .party-handoff {
+  background: #060914ed;
+  backdrop-filter: none;
+}
+.die-table, .die-face, .slot-reel-control, .merchant-card, .merchant-ledger, .results-panel, .pause-card { border-radius: 0; box-shadow: 5px 5px 0 #050812; }
+.die-table, .die-face, .slot-reel-control { border-color: #607eaf; background: #172445; color: #f7f3d7; }
+.slot-machine { border-radius: 0; box-shadow: 5px 5px 0 #2e1020; }
+.merchant-overlay { color: #f7f3d7; }
+.merchant-card { border-color: #f2c45c; background: #d3aa59; color: #142039; }
+.merchant-card h3, .merchant-card p { color: #142039; }
+.overlay-card, .pause-card, .party-guide > div, .party-briefing > div, .party-handoff > div { background: #172445; color: #f7f3d7; }
+.overlay-card h2, .pause-card h2, .party-guide h2, .party-briefing h2, .party-handoff h2 { color: #f4c85b; }
+
+.home-shell, .lobby-shell { background: #090d1c; }
+.home-shell { background-image: linear-gradient(135deg, #101a34 25%, transparent 25%), linear-gradient(315deg, #101a34 25%, transparent 25%); background-size: 24px 24px; }
+.home-card, .title-menu, .lobby-card, .home-settings { border-color: #607eaf; background: #172445; }
+.mode-card { border-color: #4e6795; border-radius: 0; background: #111c38; box-shadow: 4px 4px 0 #070b16; }
+.mode-card:hover { border-color: #f4c85b; transform: translate(-1px, -1px); box-shadow: 5px 5px 0 #070b16; }
+.home-hero h1, .lobby-shell h1 { color: #f7f3d7; text-shadow: 3px 3px 0 #070b16; }
+.home-notice, .room-code { border-color: #f4c85b; background: #172445; color: #f7f3d7; }
+
+@media (max-width: 720px) {
+  .app-shell .topbar { min-height: 3.4rem; }
+  .brand .eyebrow { display: none; }
+  .hud-course { top: 4rem; left: .4rem; width: 136px; min-width: 136px; }
+  .hud-course small, .route-role-key { display: none; }
+  .hud-timer { top: 7.8rem; left: .4rem; width: 136px; min-width: 136px; }
+  .hud-leaderboard { top: 4rem; right: .4rem; width: 134px; max-height: 130px; }
+  .hud-leaderboard li:nth-child(n + 5) { display: none; }
+  .app-shell .controls { bottom: 3.6rem; width: calc(100% - .8rem); max-height: 22vh; }
+  .hud-strength { bottom: .4rem; left: .4rem; width: calc(100% - 10rem); transform: none; }
+  .hud-camera { right: .4rem; bottom: .4rem; }
+  .reaction-dock { display: none; }
+}

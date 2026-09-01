@@ -93,6 +93,8 @@ export const startApp = (app: HTMLElement) => {
   let lastOnlineHazardSyncAt = performance.now();
   let botTimeout: number | undefined;
   let preferences = loadPreferences();
+  // Automated level captures should show the course, not first-run guidance.
+  if (captureMode) preferences = { ...preferences, partyGuideStep: 8 };
   let overlay: Overlay;
   let drawer: Drawer;
   let rebinding: ShortcutId | undefined;

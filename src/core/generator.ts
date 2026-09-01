@@ -129,7 +129,9 @@ const carve = (tiles: Tile[], point: Point, height: number, laneWidth: number, w
   const radius = Math.max(1, Math.min(2, laneWidth));
   for (let y = point.y - radius; y <= point.y + radius; y += 1) {
     for (let x = point.x - radius; x <= point.x + radius; x += 1) {
-      if (x > 0 && y > 0 && x < width - 1 && y < courseHeight - 1) writeTile(tiles, { x, y }, 'fairway', height, width, courseHeight);
+      // Keeping the route centerline but cutting the square corners turns the
+      // generated lawn into connected, exposed arcade platforms.
+      if (Math.abs(x - point.x) + Math.abs(y - point.y) <= radius && x > 0 && y > 0 && x < width - 1 && y < courseHeight - 1) writeTile(tiles, { x, y }, 'fairway', height, width, courseHeight);
     }
   }
 };

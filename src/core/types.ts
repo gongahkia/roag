@@ -24,11 +24,11 @@ export interface CardDurationRange {
   max: number;
 }
 export const EMOTES = [
-  { id: 'cheer', glyph: '🙌', label: 'cheer' },
-  { id: 'taunt', glyph: '😏', label: 'taunt' },
-  { id: 'panic', glyph: '😱', label: 'panic' },
-  { id: 'wow', glyph: '🤯', label: 'wow' },
-  { id: 'gg', glyph: '🤝', label: 'good game' },
+  { id: 'cheer', glyph: '++', label: 'cheer' },
+  { id: 'taunt', glyph: '>:)', label: 'taunt' },
+  { id: 'panic', glyph: '!!', label: 'panic' },
+  { id: 'wow', glyph: '**', label: 'wow' },
+  { id: 'gg', glyph: 'OK', label: 'good game' },
 ] as const;
 export type Emote = typeof EMOTES[number]['id'];
 
