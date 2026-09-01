@@ -100,6 +100,13 @@ export interface FidelityInstitutionAssignment {
   cadence: FidelityCadence
 }
 
+/** Accepted temporal action facts support simulation-outcome provenance only. */
+export interface FidelityActionEvidence {
+  id: string
+  startedAtWorldTime: number
+  atWorldTime: number
+}
+
 export interface FidelityPlan {
   version: typeof FIDELITY_PLANNING_CONTRACT_VERSION
   worldId: string
@@ -109,6 +116,8 @@ export interface FidelityPlan {
   budget: FidelityBudget
   jomon: FidelityJomonPlan
   activeCourier: FidelityActiveCourierPlan
+  /** Canonical action facts; no action detail or player-facing text is copied. */
+  actionEvidence: readonly FidelityActionEvidence[]
   /** Canonical set: Jomon, its current site when applicable, then context locations. */
   loadedLocations: readonly ({ kind: 'jomon'; id: 'vessel:jomon' } | FidelityLoadedLocation)[]
   individuals: readonly FidelityIndividualAssignment[]
@@ -162,7 +171,7 @@ const elapsedCadence = (intervalMinutes: 5 | 30 | 120 | 240, worldTime: number):
 })
 
 const validWorld = (value: unknown): value is FoundationWorld => {
-  if (!record(value) || value.version !== 5 || value.status !== 'active' || !record(value.manifest) || !record(value.manifest.creation) || !record(value.state)) return false
+  if (!record(value) || value.version !== 6 || value.status !== 'active' || !record(value.manifest) || !record(value.manifest.creation) || !record(value.state)) return false
   try {
     return foundationWorldInitialWorldMatchesManifest(value as unknown as FoundationWorld)
       && foundationWorldContentSatisfiesSafetyPolicy(value as unknown as FoundationWorld)
@@ -344,6 +353,9 @@ export const createFidelityPlan = (request: FidelityPlanningRequest | unknown): 
     budget,
     jomon: { vesselId: world.jomon.id, location: structuredClone(world.state.jomon.location), tier: 'loaded-place', cadence: { kind: 'every-time-bearing-action' } },
     activeCourier: { personId: activeCourierId, tier: 'loaded' },
+    actionEvidence: world.state.temporal.causalRecords
+      .filter(record => record.kind === 'action-completed')
+      .map(record => ({ id: record.actionId, startedAtWorldTime: record.startedAtWorldTime, atWorldTime: record.atWorldTime })),
     loadedLocations,
     individuals,
     places,

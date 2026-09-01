@@ -7,7 +7,8 @@ import { SeededRng } from './rng'
  * system. It records which already-known records have processed their assigned
  * fidelity cadence. Later slices own the concrete market and delegation rules.
  */
-export const SIMULATION_CATCH_UP_CONTRACT_VERSION = 1 as const
+export const SIMULATION_CATCH_UP_CONTRACT_VERSION = 2 as const
+export const SIMULATION_OUTCOME_CAUSE_VERSION = 1 as const
 
 export const SIMULATION_CATCH_UP_LIMITS = {
   cursors: 96,
@@ -17,6 +18,9 @@ export const SIMULATION_CATCH_UP_LIMITS = {
 
 export type SimulationCatchUpTargetKind = 'person' | 'market' | 'institution' | 'delegated-work'
 export type SimulationCatchUpTier = FidelityIndividualTier | FidelityPlaceTier | FidelityInstitutionTier
+export type SimulationOutcomeDetail = 'detailed' | 'summary'
+export type SimulationOutcomeCauseKind = 'fidelity-cadence'
+export type SimulationOutcomeEvidenceSource = 'known-world-record' | 'delegated-work-fact'
 
 export interface DelegatedWorkPlaceholder {
   id: string
@@ -38,6 +42,28 @@ export interface SimulationCatchUpCursor {
   outcomeToken: number
 }
 
+/** A closed link to facts that a future surface can inspect without hidden prose. */
+export interface SimulationOutcomeCauseEvidence {
+  source: SimulationOutcomeEvidenceSource
+  targetKind: SimulationCatchUpTargetKind
+  targetId: string
+  actionId: string
+  startedAtWorldTime: number
+  processedAtWorldTime: number
+  dueIntervals: number
+}
+
+/**
+ * Outcome causes carry no free text. They only point to a known world record
+ * (or the typed delegated-work fact), its accepted action, and cadence facts.
+ */
+export interface SimulationOutcomeCause {
+  version: typeof SIMULATION_OUTCOME_CAUSE_VERSION
+  kind: SimulationOutcomeCauseKind
+  evidence: SimulationOutcomeCauseEvidence
+  contentSafety: MedievalContentSafetyClassification
+}
+
 export interface SimulationCatchUpRecord {
   id: string
   actionId: string
@@ -48,6 +74,8 @@ export interface SimulationCatchUpRecord {
   processedAtWorldTime: number
   dueIntervals: number
   outcomeToken: number
+  outcomeDetail: SimulationOutcomeDetail
+  cause: SimulationOutcomeCause
   contentSafety: MedievalContentSafetyClassification
 }
 
@@ -60,10 +88,20 @@ export interface SimulationCatchUpState {
 }
 
 export interface SimulationCatchUpValidationContext {
+  worldId: string
+  creationDigest: string
   worldTime: number
   personIds: readonly string[]
   marketIds: readonly string[]
   institutionIds: readonly string[]
+  actionEvidence: readonly SimulationCatchUpActionEvidence[]
+}
+
+/** Minimal projection of an accepted temporal action; it contains no prose. */
+export interface SimulationCatchUpActionEvidence {
+  id: string
+  startedAtWorldTime: number
+  atWorldTime: number
 }
 
 export interface SimulationCatchUpTransition {
@@ -77,6 +115,10 @@ export type SimulationCatchUpDiagnosticCode =
   | 'simulation-catchup.invalid-cursor'
   | 'simulation-catchup.invalid-delegated-work'
   | 'simulation-catchup.invalid-record'
+  | 'simulation-catchup.invalid-cause'
+  | 'simulation-catchup.invalid-evidence'
+  | 'simulation-catchup.untraceable-cause'
+  | 'simulation-catchup.invalid-outcome-token'
   | 'simulation-catchup.invalid-reference'
   | 'simulation-catchup.duplicate-id'
   | 'simulation-catchup.noncanonical-order'
@@ -104,13 +146,24 @@ const targetKinds: readonly SimulationCatchUpTargetKind[] = ['person', 'market',
 const tiers: readonly SimulationCatchUpTier[] = ['loaded', 'nearby', 'recurring', 'distant-individual-summary', 'deferred', 'historical-only', 'loaded-place', 'distant-settlement-summary', 'loaded-institution', 'distant-institution-summary']
 const cursorIdFor = (targetKind: SimulationCatchUpTargetKind, targetId: string): string => `catch-up:${targetKind}:${targetId}`
 const summaryClassification = (): MedievalContentSafetyClassification => classifyMedievalContent('simulation-summary', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
+const causeClassification = (): MedievalContentSafetyClassification => classifyMedievalContent('data', ['adult-labour', 'navigation'], 'not-applicable', ['simulation-summary'])
 const validTier = (value: unknown): value is SimulationCatchUpTier => tiers.includes(value as SimulationCatchUpTier)
+const validOutcomeDetail = (value: unknown): value is SimulationOutcomeDetail => value === 'detailed' || value === 'summary'
+const detailForTier = (tier: SimulationCatchUpTier): SimulationOutcomeDetail => tier === 'distant-individual-summary' || tier === 'distant-settlement-summary' || tier === 'distant-institution-summary' ? 'summary' : 'detailed'
+const evidenceSourceFor = (targetKind: SimulationCatchUpTargetKind): SimulationOutcomeEvidenceSource => targetKind === 'delegated-work' ? 'delegated-work-fact' : 'known-world-record'
 
-export const simulationCatchUpContentRecords = (state: Pick<SimulationCatchUpState, 'records'>): readonly ClassifiedMedievalContent[] => state.records.map(item => ({
-  id: `simulation-catchup:${item.id}`,
-  domain: 'simulation-summary',
-  classification: item.contentSafety
-}))
+export const simulationCatchUpContentRecords = (state: Pick<SimulationCatchUpState, 'records'>): readonly ClassifiedMedievalContent[] => state.records.flatMap(item => [
+  {
+    id: `simulation-catchup:${item.id}`,
+    domain: 'simulation-summary' as const,
+    classification: item.contentSafety
+  },
+  {
+    id: `simulation-cause:${item.id}`,
+    domain: 'data' as const,
+    classification: item.cause?.contentSafety as MedievalContentSafetyClassification
+  }
+])
 
 const audit = (state: Pick<SimulationCatchUpState, 'records'>): MedievalContentSafetyAudit => {
   const result = auditMedievalContentSafety(simulationCatchUpContentRecords(state))
@@ -155,6 +208,53 @@ const targetExists = (context: SimulationCatchUpValidationContext, targetKind: S
   return delegatedWorkIds.has(targetId)
 }
 
+const actionEvidenceFor = (context: SimulationCatchUpValidationContext, actionId: string): SimulationCatchUpActionEvidence | undefined => context.actionEvidence.find(item => item.id === actionId)
+
+const validActionEvidence = (value: unknown): value is SimulationCatchUpActionEvidence => record(value)
+  && hasOnlyKeys(value, ['id', 'startedAtWorldTime', 'atWorldTime'])
+  && validId(value.id)
+  && safeInteger(value.startedAtWorldTime)
+  && safeInteger(value.atWorldTime)
+  && value.startedAtWorldTime < value.atWorldTime
+
+const validCauseEvidenceShape = (value: unknown): value is SimulationOutcomeCauseEvidence => record(value)
+  && hasOnlyKeys(value, ['source', 'targetKind', 'targetId', 'actionId', 'startedAtWorldTime', 'processedAtWorldTime', 'dueIntervals'])
+  && (value.source === 'known-world-record' || value.source === 'delegated-work-fact')
+  && targetKinds.includes(value.targetKind as SimulationCatchUpTargetKind)
+  && validId(value.targetId)
+  && validId(value.actionId)
+  && safeInteger(value.startedAtWorldTime)
+  && safeInteger(value.processedAtWorldTime)
+  && value.startedAtWorldTime < value.processedAtWorldTime
+  && safeInteger(value.dueIntervals)
+  && value.dueIntervals > 0
+
+const validCauseShape = (value: unknown): value is SimulationOutcomeCause => record(value)
+  && hasOnlyKeys(value, ['version', 'kind', 'evidence', 'contentSafety'])
+  && value.version === SIMULATION_OUTCOME_CAUSE_VERSION
+  && value.kind === 'fidelity-cadence'
+  && validCauseEvidenceShape(value.evidence)
+  && auditMedievalContentSafety([{ id: 'simulation-cause:validation', domain: 'data', classification: value.contentSafety }]).status === 'accepted'
+
+const causeMatchesRecord = (cause: SimulationOutcomeCause, value: Pick<SimulationCatchUpRecord, 'actionId' | 'targetKind' | 'targetId' | 'startedAtWorldTime' | 'processedAtWorldTime' | 'dueIntervals'>, context: SimulationCatchUpValidationContext, delegatedWorkIds: ReadonlySet<string>): boolean => {
+  const evidence = cause.evidence
+  const action = actionEvidenceFor(context, evidence.actionId)
+  return context.actionEvidence.every(validActionEvidence)
+    && evidence.source === evidenceSourceFor(value.targetKind)
+    && evidence.targetKind === value.targetKind
+    && evidence.targetId === value.targetId
+    && evidence.actionId === value.actionId
+    && evidence.startedAtWorldTime === value.startedAtWorldTime
+    && evidence.processedAtWorldTime === value.processedAtWorldTime
+    && evidence.dueIntervals === value.dueIntervals
+    && targetExists(context, evidence.targetKind, evidence.targetId, delegatedWorkIds)
+    && action !== undefined
+    && action.startedAtWorldTime === evidence.startedAtWorldTime
+    && action.atWorldTime === evidence.processedAtWorldTime
+}
+
+const outcomeTokenFor = (context: Pick<SimulationCatchUpValidationContext, 'worldId' | 'creationDigest'>, targetKind: SimulationCatchUpTargetKind, targetId: string, processedAtWorldTime: number): number => new SeededRng(`jomon-simulation-catchup-v${SIMULATION_CATCH_UP_CONTRACT_VERSION}|${context.creationDigest}|${context.worldId}|${targetKind}|${targetId}|${processedAtWorldTime}`).integer(1_000_000)
+
 const validDelegatedWork = (value: unknown, context: SimulationCatchUpValidationContext): value is DelegatedWorkPlaceholder => record(value)
   && ((value.status === 'active' && hasOnlyKeys(value, ['id', 'assigneePersonId', 'status', 'committedAtWorldTime', 'progressIntervals']))
     || (value.status === 'resolved' && hasOnlyKeys(value, ['id', 'assigneePersonId', 'status', 'committedAtWorldTime', 'progressIntervals', 'resolvedAtWorldTime']) && safeInteger(value.resolvedAtWorldTime) && Number(value.resolvedAtWorldTime) >= Number(value.committedAtWorldTime)))
@@ -180,7 +280,7 @@ const validCursor = (value: unknown, context: SimulationCatchUpValidationContext
   && safeInteger(value.outcomeToken)
 
 const validCatchUpRecord = (value: unknown, context: SimulationCatchUpValidationContext, delegatedWorkIds: ReadonlySet<string>): value is SimulationCatchUpRecord => record(value)
-  && hasOnlyKeys(value, ['id', 'actionId', 'targetKind', 'targetId', 'tier', 'startedAtWorldTime', 'processedAtWorldTime', 'dueIntervals', 'outcomeToken', 'contentSafety'])
+  && hasOnlyKeys(value, ['id', 'actionId', 'targetKind', 'targetId', 'tier', 'startedAtWorldTime', 'processedAtWorldTime', 'dueIntervals', 'outcomeToken', 'outcomeDetail', 'cause', 'contentSafety'])
   && validId(value.id)
   && validId(value.actionId)
   && targetKinds.includes(value.targetKind as SimulationCatchUpTargetKind)
@@ -195,6 +295,11 @@ const validCatchUpRecord = (value: unknown, context: SimulationCatchUpValidation
   && safeInteger(value.dueIntervals)
   && value.dueIntervals > 0
   && safeInteger(value.outcomeToken)
+  && validOutcomeDetail(value.outcomeDetail)
+  && value.outcomeDetail === detailForTier(value.tier as SimulationCatchUpTier)
+  && validCauseShape(value.cause)
+  && causeMatchesRecord(value.cause, value as unknown as SimulationCatchUpRecord, context, delegatedWorkIds)
+  && value.outcomeToken === outcomeTokenFor(context, value.targetKind as SimulationCatchUpTargetKind, value.targetId, value.processedAtWorldTime)
   && auditMedievalContentSafety([{ id: `simulation-catchup:${value.id}`, domain: 'simulation-summary', classification: value.contentSafety }]).status === 'accepted'
 
 /** Pure validation for the bounded durable catch-up cursor and outcome window. */
@@ -219,9 +324,25 @@ export const validateSimulationCatchUpState = (context: SimulationCatchUpValidat
   const records = Array.isArray(value.records) ? value.records : []
   if (new Set(records.filter(record).map(item => item.id)).size !== records.length) diagnostics.push(issue('simulation-catchup:records', 'simulation-catchup.duplicate-id'))
   if (!records.every(item => validCatchUpRecord(item, context, delegatedWorkIds))) diagnostics.push(issue('simulation-catchup:records', 'simulation-catchup.invalid-record'))
+  for (const item of records) {
+    if (!record(item)) continue
+    if (!validCauseShape(item.cause)) {
+      diagnostics.push(issue(validId(item.id) ? item.id : 'simulation-catchup:record', 'simulation-catchup.invalid-cause'))
+      continue
+    }
+    if (!validCauseEvidenceShape(item.cause.evidence)) {
+      diagnostics.push(issue(validId(item.id) ? item.id : 'simulation-catchup:record', 'simulation-catchup.invalid-evidence'))
+      continue
+    }
+    if (!validId(item.actionId) || !targetKinds.includes(item.targetKind as SimulationCatchUpTargetKind) || !validId(item.targetId) || !safeInteger(item.startedAtWorldTime) || !safeInteger(item.processedAtWorldTime) || !safeInteger(item.dueIntervals)) continue
+    if (!causeMatchesRecord(item.cause, item as unknown as SimulationCatchUpRecord, context, delegatedWorkIds)) diagnostics.push(issue(String(item.id), 'simulation-catchup.untraceable-cause'))
+    if (safeInteger(item.outcomeToken) && item.outcomeToken !== outcomeTokenFor(context, item.targetKind as SimulationCatchUpTargetKind, String(item.targetId), Number(item.processedAtWorldTime))) diagnostics.push(issue(String(item.id), 'simulation-catchup.invalid-outcome-token'))
+  }
   if (records.some((item, index) => index > 0 && record(item) && record(records[index - 1]) && (Number(records[index - 1]!.processedAtWorldTime) > Number(item.processedAtWorldTime) || (records[index - 1]!.processedAtWorldTime === item.processedAtWorldTime && String(records[index - 1]!.id) >= String(item.id))))) diagnostics.push(issue('simulation-catchup:records', 'simulation-catchup.noncanonical-order'))
   try {
-    if (!auditMedievalContentSafety(simulationCatchUpContentRecords({ records: records as SimulationCatchUpRecord[] })).status || !value.contentSafetyAudit || JSON.stringify(auditMedievalContentSafety(simulationCatchUpContentRecords({ records: records as SimulationCatchUpRecord[] }))) !== JSON.stringify(value.contentSafetyAudit)) diagnostics.push(issue('simulation-catchup:content-safety', 'simulation-catchup.invalid-content-audit'))
+    const contentAudit = auditMedievalContentSafety(simulationCatchUpContentRecords({ records: records as SimulationCatchUpRecord[] }))
+    if (contentAudit.status === 'rejected') diagnostics.push(...contentAudit.diagnostics.map(diagnostic => issue(diagnostic.contentId, diagnostic.code)))
+    if (contentAudit.status !== 'accepted' || !value.contentSafetyAudit || JSON.stringify(contentAudit) !== JSON.stringify(value.contentSafetyAudit)) diagnostics.push(issue('simulation-catchup:content-safety', 'simulation-catchup.invalid-content-audit'))
   } catch { diagnostics.push(issue('simulation-catchup:content-safety', 'simulation-catchup.invalid-content-audit')) }
   return canonicalIssues(diagnostics)
 }
@@ -251,7 +372,7 @@ const targetsFor = (plan: FidelityPlan, state: SimulationCatchUpState): readonly
   return [...people, ...markets, ...institutions, ...delegatedWork].sort((left, right) => compare(cursorIdFor(left.targetKind, left.targetId), cursorIdFor(right.targetKind, right.targetId)))
 }
 
-const tokenFor = (plan: FidelityPlan, target: CatchUpTarget, processedAtWorldTime: number): number => new SeededRng(`jomon-simulation-catchup-v${SIMULATION_CATCH_UP_CONTRACT_VERSION}|${plan.creationDigest}|${plan.worldId}|${target.targetKind}|${target.targetId}|${processedAtWorldTime}`).integer(1_000_000)
+const tokenFor = (plan: FidelityPlan, target: CatchUpTarget, processedAtWorldTime: number): number => outcomeTokenFor(plan, target.targetKind, target.targetId, processedAtWorldTime)
 
 /**
  * Processes each target at most once per player action. Elapsed tiers retain
@@ -259,11 +380,24 @@ const tokenFor = (plan: FidelityPlan, target: CatchUpTarget, processedAtWorldTim
  * preserving an inspectable deterministic result.
  */
 export const advanceSimulationCatchUpState = (state: SimulationCatchUpState, plan: FidelityPlan, action: { actionId: string; startedAtWorldTime: number; atWorldTime: number }): SimulationCatchUpTransition => {
+  const currentActionEvidence = {
+    id: action.actionId,
+    startedAtWorldTime: action.startedAtWorldTime,
+    atWorldTime: action.atWorldTime
+  } satisfies SimulationCatchUpActionEvidence
+  const existingActionEvidence = plan.actionEvidence.find(item => item.id === action.actionId)
+  if (existingActionEvidence !== undefined && (existingActionEvidence.startedAtWorldTime !== action.startedAtWorldTime || existingActionEvidence.atWorldTime !== action.atWorldTime)) throw new SimulationCatchUpContractError([issue('simulation-catchup:action', 'simulation-catchup.invalid-record')])
+  const actionEvidence = existingActionEvidence === undefined
+    ? [...plan.actionEvidence, currentActionEvidence]
+    : plan.actionEvidence
   const context: SimulationCatchUpValidationContext = {
+    worldId: plan.worldId,
+    creationDigest: plan.creationDigest,
     worldTime: action.atWorldTime,
     personIds: plan.individuals.map(item => item.personId),
     marketIds: plan.places.map(item => `market:${item.siteId}`),
-    institutionIds: plan.institutions.map(item => item.institutionId)
+    institutionIds: plan.institutions.map(item => item.institutionId),
+    actionEvidence
   }
   const beforeDiagnostics = validateSimulationCatchUpState({ ...context, worldTime: action.startedAtWorldTime }, state)
   if (beforeDiagnostics.length) throw new SimulationCatchUpContractError(beforeDiagnostics)
@@ -283,6 +417,21 @@ export const advanceSimulationCatchUpState = (state: SimulationCatchUpState, pla
       processedAtWorldTime: action.atWorldTime,
       dueIntervals: intervals,
       outcomeToken,
+      outcomeDetail: detailForTier(target.tier),
+      cause: {
+        version: SIMULATION_OUTCOME_CAUSE_VERSION,
+        kind: 'fidelity-cadence',
+        evidence: {
+          source: evidenceSourceFor(target.targetKind),
+          targetKind: target.targetKind,
+          targetId: target.targetId,
+          actionId: action.actionId,
+          startedAtWorldTime: action.startedAtWorldTime,
+          processedAtWorldTime: action.atWorldTime,
+          dueIntervals: intervals
+        },
+        contentSafety: causeClassification()
+      },
       contentSafety: summaryClassification()
     } satisfies SimulationCatchUpRecord]
   })

@@ -372,7 +372,7 @@ const worldFromCreationProvenance = (
   if (!state) throw new Error('creation provenance does not identify an eligible initial courier')
   const temporal = createMedievalTemporalState(temporalProvenanceForCreation(creation))
   return {
-    version: 5,
+    version: 6,
     id: idForCreationProvenance(creation),
     status: 'active',
     manifest: {
@@ -527,7 +527,7 @@ export const advanceFoundationWorldTime = (world: FoundationWorld, command: Temp
 }
 
 export const finalizeWorldAsChronicle = (world: FoundationWorld, reason: ChronicleReason): WorldChronicle => ({
-  version: 4,
+  version: 5,
   id: `chronicle:${world.id}`,
   status: 'finalized',
   reason,

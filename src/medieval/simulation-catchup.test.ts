@@ -50,10 +50,13 @@ describe('deterministic medieval fidelity catch-up', () => {
   it('advances a typed delegated-work placeholder at its assignee fidelity without adding delegation gameplay', () => {
     const world = selectedWorld('catch-up placeholder')
     const context = {
+      worldId: world.id,
+      creationDigest: world.manifest.creation.digest,
       worldTime: 0,
       personIds: world.state.people.records.map(person => person.id),
       marketIds: world.state.markets.markets.map(market => market.id),
-      institutionIds: world.state.institutions.registry.map(institution => institution.id)
+      institutionIds: world.state.institutions.registry.map(institution => institution.id),
+      actionEvidence: []
     }
     const state = withDelegatedWorkPlaceholder(createSimulationCatchUpState(), context, {
       id: 'delegated-work:repair-lines',
@@ -67,7 +70,7 @@ describe('deterministic medieval fidelity catch-up', () => {
 
     expect(transition.records).toContainEqual(expect.objectContaining({ targetKind: 'delegated-work', targetId: 'delegated-work:repair-lines', dueIntervals: 1 }))
     expect(transition.state.delegatedWork[0]).toMatchObject({ progressIntervals: 1 })
-    expect(validateSimulationCatchUpState({ ...context, worldTime: 1 }, transition.state)).toEqual([])
+    expect(validateSimulationCatchUpState({ ...context, worldTime: 1, actionEvidence: [{ id: 'movement:work', startedAtWorldTime: 0, atWorldTime: 1 }] }, transition.state)).toEqual([])
   })
 
   it('fails closed for malformed catch-up records and keeps the bounded audit tied to outcomes', () => {
@@ -77,10 +80,13 @@ describe('deterministic medieval fidelity catch-up', () => {
     forged.records[0]!.targetId = 'market:not-present'
 
     expect(validateSimulationCatchUpState({
+      worldId: advanced.id,
+      creationDigest: advanced.manifest.creation.digest,
       worldTime: advanced.state.temporal.worldTime,
       personIds: advanced.state.people.records.map(person => person.id),
       marketIds: advanced.state.markets.markets.map(market => market.id),
-      institutionIds: advanced.state.institutions.registry.map(institution => institution.id)
+      institutionIds: advanced.state.institutions.registry.map(institution => institution.id),
+      actionEvidence: advanced.state.temporal.causalRecords.filter(record => record.kind === 'action-completed').map(record => ({ id: record.actionId, startedAtWorldTime: record.startedAtWorldTime, atWorldTime: record.atWorldTime }))
     }, forged).map(diagnostic => diagnostic.code)).toContain('simulation-catchup.invalid-record')
   })
 })
