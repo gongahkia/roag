@@ -34,6 +34,8 @@ The documentation reset is complete. No medieval gameplay slice has been impleme
 - The player is not bound to a single protagonist. On an active courier’s death, control transfers to another eligible crew member; voluntary perspective changes occur at the tavern.
 - An active courier directly controls only themself. They can delegate work to crew and NPCs through conversation; delegation depends on the courier’s `conversation` stat and the other person’s relationship, role, capacity, interests, and current situation.
 - Failure is causal and diegetic. A courier death, lost cargo, unpaid debt, damaged route, broken relationship, or ruined vessel can permanently change the world; the irreversible collapse or loss of Jomon ends that world’s play.
+- Jomon can grow through new rooms, refitted workspaces, tools, crew capacity, and small craft. Every expansion is physical, persistent, grounded in available materials/labour, and balanced by upkeep, space, staffing, cargo, route, or social trade-offs.
+- A continuing world has escalating difficulty eras: base, NG+, and NG++. Active-play progression in the same persistent world moves it toward later eras without a reset or finite campaign ending. Each era adds durable, diegetic pressures and new possibilities rather than merely increasing enemy numbers.
 - The initial release target is a desktop browser game for players who enjoy ASCII graphics and keyboard-first control.
 - The reset is a clean persistence break. Do not migrate the superseded space-era saves or reinterpret them as medieval campaigns.
 - Do not copy lore, text, names, assets, or exact mechanics from other games. Historical and game references are influence constraints only.
@@ -62,6 +64,7 @@ Jomon’s world should feel alive in the sense of Dwarf Fortress Adventure Mode,
 - The world must surface change through physical places, conversations, ledgers, rumours, goods, routes, and visible work. A simulation that players cannot discover or act upon is out of scope.
 - Jomon expansion and exploration are the provisional long-term motivations. Every future vessel upgrade must add a physical space, a new material capability, or a meaningful new trade-off.
 - Short-term goals must always be available through local pressures, contracts, favours, shortages, discoveries, threats, or crew needs. They guide play without creating a mandatory campaign finish line.
+- Escalation must keep the world generative after NG++: later eras remix and extend the same systemic content families, change world conditions and relationships, and create new material problems, opportunities, and vessel choices. They do not require a new save or a campaign restart.
 - Shadow of Mordor is only a high-level reference for the feeling that remembered people can react and recur. Do not implement or market a “Nemesis System,” reproduce its hierarchy/vendetta design, or derive from its protected implementation. Use an original, documented social-memory model instead.
 
 ## Ordered implementation phases
@@ -102,10 +105,11 @@ Acceptance: the same seed and resolved configuration reproduce the same valid wo
 - [ ] Define the simulation clock, event ordering, seeded random streams, and deterministic scheduler. It must advance only during active play.
 - [ ] Define versioned world state and persistence contracts for geography, sites, routes, markets, people, institutions, history, and Jomon.
 - [ ] Define deterministic fidelity tiers for loaded places, nearby named people, recurring agents, and distant settlement summaries.
+- [ ] Define a versioned world-era model for base, NG+, and NG++ states; its active-play progression, transition conditions, inspectable causes, persistence, and configuration hooks must be deterministic.
 - [ ] Add event sourcing or an equivalent inspectable causal history so world changes can be explained, replayed, and persisted within bounded storage.
 - [ ] Add focused tests for reload equivalence, simulation determinism, paused/closed-session time, corruption recovery, and bounded state growth.
 
-Acceptance: equivalent active-play time produces the same world state across replay and reload; the world never advances while inactive; a visible change has an inspectable causal record.
+Acceptance: equivalent active-play time produces the same world state and era across replay and reload; the world never advances while inactive; a visible change or escalation has an inspectable causal record.
 
 #### 1.4 People, conversation, and delegated work foundation
 
@@ -222,6 +226,7 @@ Acceptance: a player can read a telegraphed tactical problem, choose a grounded 
 
 - [ ] Create reusable authored families for settlements, waterways, workshops, markets, hazards, wildlife, human groups, tools, cargo, contracts, crew roles, and guardians.
 - [ ] Create vessel-expansion families whose upgrades visibly alter Jomon’s deck, capabilities, upkeep, crew work, cargo decisions, or route options.
+- [ ] Create era-aware content variants and generative combinations so base, NG+, and NG++ create new pressures and possibilities from the same grounded systems without content exhaustion or numerical-only scaling.
 - [ ] Require generated places to declare material purpose, water/terrain/season relationship, local pressures, rewards, services, and downstream world links.
 - [ ] Add seeded fixtures, validity checks, encounter-readability checks, and reward-distribution checks for each family.
 - [ ] Grow content only after the family has a player-visible purpose in the vessel/trade/history simulation.
@@ -245,7 +250,8 @@ These decisions should be recorded here with their answer before work depends on
 - Decision — **World-generation settings:** which concrete world properties must users control in the first advanced settings screen, and which should remain generator-internal until their simulation meaning is proven?
 - Decision — **Delegation visibility:** how should pending delegated work be shown on the map and in vessel/settlement surfaces without turning Jomon into an omniscient management UI?
 - Decision — **Failure calibration:** which irreversible consequences should be common, rare, or guarded by explicit warning? Jomon’s collapse is terminal, so its causal chain must be readable and preventable in proportion to its severity.
-- Decision — **Vessel growth:** this asks how Jomon physically changes over a long world. For example, should success permit new rooms, refitted workspaces, better tools, more crew capacity, or small craft? Which changes must remain impossible so the vessel stays a grounded household rather than becoming an abstract upgrade tree?
+- Decision — **Escalation cadence:** which inspectable combination of active-play time, in-world time, household growth, discoveries, or world events advances a world into NG+ and NG++? How much should users be able to configure this at world creation?
+- Decision — **NG++ continuity:** after reaching NG++, how should ongoing escalation, recovery, and newly generated opportunities work without turning the world into unwinnable numerical inflation?
 
 ## Delivery and verification rules
 
