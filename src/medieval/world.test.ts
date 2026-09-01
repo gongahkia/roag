@@ -46,9 +46,9 @@ describe('medieval foundation worlds', () => {
     })
 
     expect(world.manifest).toMatchObject({
-      version: 3,
+      version: 4,
       seed: 'river ash',
-      generatorVersion: 'foundation-1',
+      generatorVersion: 'foundation-2',
       selectedConfiguration: {
         preset: 'far-coast',
         advanced: { climate: 'temperate', historyYears: 350 }
@@ -64,9 +64,17 @@ describe('medieval foundation worlds', () => {
       },
       generationDiagnostics: {
         validation: { status: 'accepted', issues: [] }
+      },
+      initialWorldGeneration: {
+        version: 1,
+        generatorVersion: 'initial-world-1',
+        contentSafetyPolicyVersion: MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION,
+        selectedAttempt: 0
       }
     })
     expect(world.manifest.generationDiagnostics.retryPlan).toEqual(generationRetryPlan('river ash', world.manifest.resolvedConfiguration))
+    expect(world.initialWorld.configurationFingerprint).toBeDefined()
+    expect(world.initialWorld.historyHorizonYears).toBe(350)
     expect(recreateFoundationWorld(world.manifest)).toEqual(world)
   })
 
@@ -86,6 +94,10 @@ describe('medieval foundation worlds', () => {
     ]))
     expect(world.manifest.contentSafetyAudit.reviewed.filter(record => record.domain === 'person')).toHaveLength(world.crew.length)
     expect(world.manifest.contentSafetyAudit.reviewed.filter(record => record.domain === 'history')).toHaveLength(world.crew.length)
+    expect(world.manifest.contentSafetyAudit.reviewed).toEqual(expect.arrayContaining([
+      { id: world.initialWorld.watershed.id, domain: 'place', classification: expect.any(Object) },
+      { id: world.initialWorld.routeHazards[0]!.id, domain: 'hazard', classification: expect.objectContaining({ domains: ['hazard', 'player-facing-text'] }) }
+    ]))
     expect(recreateFoundationWorld(world.manifest).manifest.contentSafetyAudit).toEqual(world.manifest.contentSafetyAudit)
 
     const forgedManifest = structuredClone(world.manifest)

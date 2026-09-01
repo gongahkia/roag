@@ -175,6 +175,19 @@ describe('medieval local persistence', () => {
     await expect(repository.loadWorld(world.id)).resolves.toBeUndefined()
   })
 
+  it('rejects a generated initial-world policy bypass and a safe-looking altered region at the local-save boundary', async () => {
+    const repository = new MedievalWorldRepository()
+    const world = createFoundationWorld({ seed: 'initial-world-storage-check' })
+    const unsafe = structuredClone(world)
+    ;(unsafe.initialWorld.history[0]!.contentSafety.exclusions as unknown as Record<string, string>).slavery = 'present'
+
+    await expect(repository.saveWorld(unsafe)).rejects.toThrow('invalid medieval world')
+
+    const altered = structuredClone(world)
+    altered.initialWorld.settlements[0]!.name = 'Altered Landing'
+    await expect(repository.saveWorld(altered)).rejects.toThrow('invalid medieval world')
+  })
+
   it('atomically replaces an active world with its read-only finalized chronicle', async () => {
     const repository = new MedievalWorldRepository()
     const world = chooseInitialCourier(createFoundationWorld({ seed: 'last-mooring' }), 'crew:0')
