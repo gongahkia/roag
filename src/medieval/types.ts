@@ -1,7 +1,8 @@
 import type { GenerationDiagnostics, WorldGenerationConfig, WorldGenerationConfigSelection } from './generation-config'
+import type { MedievalContentSafetyAudit, MedievalContentSafetyClassification } from './content-safety'
 
 export const FOUNDATION_GENERATOR_VERSION = 'foundation-1' as const
-export const FOUNDATION_MANIFEST_VERSION = 2 as const
+export const FOUNDATION_MANIFEST_VERSION = 3 as const
 export const MEDIEVAL_DATABASE_NAME = 'jomon-medieval-worlds-v1' as const
 
 export interface WorldManifest {
@@ -12,6 +13,8 @@ export interface WorldManifest {
   generationDiagnostics: GenerationDiagnostics
   generatorVersion: typeof FOUNDATION_GENERATOR_VERSION
   label: string
+  labelContentSafety: MedievalContentSafetyClassification
+  contentSafetyAudit: MedievalContentSafetyAudit
   initialCourierId?: string
 }
 
@@ -44,6 +47,7 @@ export interface FoundationVesselProp {
 export interface FoundationJomon {
   id: 'vessel:jomon'
   name: 'Jomon'
+  contentSafety: MedievalContentSafetyClassification
   deckPartitions: readonly JomonDeckPartition[]
   quays: readonly FoundationQuay[]
   props: readonly FoundationVesselProp[]
@@ -53,10 +57,12 @@ export interface FoundationJomon {
 export interface FoundationCrewMember {
   id: string
   name: string
+  contentSafety: MedievalContentSafetyClassification
   role: CrewRole
   conversation: number
   equipment: readonly string[]
   history: string
+  historyContentSafety: MedievalContentSafetyClassification
   relationships: readonly CrewRelationship[]
   eligible: boolean
 }
@@ -66,6 +72,7 @@ export interface CausalRecord {
   atWorldTime: number
   kind: 'world-created' | 'initial-courier-selected'
   detail: string
+  contentSafety: MedievalContentSafetyClassification
 }
 
 export interface FoundationWorld {
