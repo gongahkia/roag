@@ -53,8 +53,9 @@ describe('world manifest provenance', () => {
     const manifest = structuredClone(createFoundationWorld({ seed: 'candidate history' }).manifest)
     const history = manifest.creation.validationHistory
     const candidate = history.initialWorld.candidates[0]!
-    ;(candidate as { status: string }).status = 'rejected'
-    ;(candidate as { issues: unknown[] }).issues = [{ code: 'initial-world.invalid-root', recordId: 'initial:world' }]
+    const mutableCandidate = candidate as unknown as { status: string; issues: unknown[] }
+    mutableCandidate.status = 'rejected'
+    mutableCandidate.issues = [{ code: 'initial-world.invalid-root', recordId: 'initial:world' }]
 
     expect(isReproducibleWorldManifest(manifest)).toBe(false)
     expect(() => recreateFoundationWorld(manifest)).toThrow('does not reproduce')
@@ -63,7 +64,7 @@ describe('world manifest provenance', () => {
   it('fails closed on noncanonical ordering, mismatched identities, versions, safety provenance, and malformed data', () => {
     const source = createFoundationWorld({ seed: 'tamper evidence' }).manifest
     const reorderedRoots = structuredClone(source)
-    reorderedRoots.creation.frontier.roots.reverse()
+    ;(reorderedRoots.creation.frontier.roots as unknown as unknown[]).reverse()
     const mismatchedInitialWorld = structuredClone(source)
     mismatchedInitialWorld.creation.frontier.initialWorldId = 'initial:other'
     const changedContract = structuredClone(source)

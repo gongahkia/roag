@@ -151,6 +151,18 @@ describe('medieval local persistence', () => {
     await expect(repository.loadWorld('world:bad')).resolves.toBeUndefined()
   })
 
+  it('rejects the earlier medieval manifest schema instead of inferring or migrating its missing frontier provenance', async () => {
+    const repository = new MedievalWorldRepository()
+    const world = createFoundationWorld({ seed: 'clean-break-manifest' })
+    const legacy = structuredClone(world) as unknown as { manifest: unknown }
+    legacy.manifest = { version: 4, seed: 'clean-break-manifest' }
+
+    await repository.loadIndex()
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(world.id, legacy)
+
+    await expect(repository.loadWorld(world.id)).resolves.toBeUndefined()
+  })
+
   it('rejects a stored world whose manifest provenance does not reproduce its resolved configuration', async () => {
     const repository = new MedievalWorldRepository()
     const world = createFoundationWorld({ seed: 'provenance-check', configuration: { preset: 'far-coast' } })
