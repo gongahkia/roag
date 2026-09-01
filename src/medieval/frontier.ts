@@ -25,7 +25,7 @@ export type FrontierRegionKind = 'upper-reach' | 'coastal-reach' | 'branch-marsh
 export type FrontierConnectionKind = 'initial-world-link' | 'parent-region-link'
 export type FrontierKnowledgeSourceKind = 'rumour' | 'chart' | 'trader' | 'letter' | 'traveller' | 'cargo-mark' | 'institution-ledger'
 export type FrontierFactSubjectKind = 'region' | 'site' | 'route' | 'person' | 'institution'
-export type FrontierFactKind = 'region-name' | 'site-name' | 'route-link' | 'person-name' | 'person-role' | 'institution-role' | 'history-link'
+export type FrontierFactKind = 'region-name' | 'site-name' | 'route-link' | 'person-name' | 'person-role' | 'person-relationship' | 'institution-role' | 'history-link'
 export type FrontierAnonymousRole = 'boat-hand' | 'weir-tender' | 'market-clerk' | 'net-maker' | 'yard-worker'
 export type FrontierAnonymousInstitutionKind = 'quay-ward' | 'ferry-office' | 'market-stall' | 'weir-works' | 'yard-lease'
 export type FrontierDirection = 'upstream' | 'coastward' | 'branch-north' | 'branch-south'
@@ -92,7 +92,10 @@ export interface FrontierKnowledgeSource {
   contentSafety: MedievalContentSafetyClassification
 }
 
-/** Facts are immutable claims. Their subject/fact key prevents later changes of fact. */
+/**
+ * Facts are immutable claims. Their subject/fact key prevents later changes
+ * of fact; a relationship value is another stable named-person commitment ID.
+ */
 export interface FrontierRevealedFact {
   id: string
   regionId: string
@@ -398,7 +401,7 @@ export const frontierContentRecords = (state: FrontierState): readonly Classifie
     ...commitment.anonymousRoles.map(record => ({ id: record.id, domain: 'template' as const, classification: record.contentSafety })),
     ...commitment.anonymousInstitutions.map(record => ({ id: record.id, domain: 'template' as const, classification: record.contentSafety })),
     ...regionFacts(region).flatMap(record => [
-      { id: record.id, domain: 'rumour' as const, classification: record.contentSafety },
+      { id: record.id, domain: record.kind === 'history-link' ? 'history' as const : 'rumour' as const, classification: record.contentSafety },
       { id: `${record.id}:source`, domain: 'player-facing-text' as const, classification: record.source.contentSafety }
     ]),
     ...regionPeople(region).map(record => ({ id: record.id, domain: 'person' as const, classification: record.contentSafety })),
@@ -488,7 +491,7 @@ export const validateFrontierState = (context: FrontierGenerationContext, state:
     const connection = commitment.connection
     const parent = connection.parentRegionId === undefined ? undefined : byId(state.regions.map(candidate => ({ id: candidate.commitment.id, candidate })), connection.parentRegionId)?.candidate
     if (connection.id !== `${commitment.id}:connection` || connection.initialRouteId !== commitment.anchor.routeId || connection.initialWaterwayId !== commitment.anchor.waterwayId || (connection.kind === 'initial-world-link' && connection.parentRegionId !== undefined) || (connection.kind === 'parent-region-link' && (!parent || parent.commitment.generationOrder >= commitment.generationOrder))) issues.push(issue(connection.id, 'frontier.invalid-connection'))
-    if (region.status === 'ungenerated' && (regionFacts(region).length !== 0 || regionPeople(region).length !== 0)) issues.push(issue(commitment.id, 'frontier.invalid-state'))
+    if ((region.status === 'ungenerated' && (regionFacts(region).length !== 0 || regionPeople(region).length !== 0)) || (region.status === 'known-but-unvisited' && regionFacts(region).length === 0)) issues.push(issue(commitment.id, 'frontier.invalid-state'))
 
     for (const fact of [...regionFacts(region)].sort((left, right) => comparison(left.id, right.id))) {
       const sourceRecordIsKnown = initialIds.has(fact.source.sourceRecordId) || allKnownFactIds.has(fact.source.sourceRecordId)
@@ -498,8 +501,9 @@ export const validateFrontierState = (context: FrontierGenerationContext, state:
             : fact.subjectId
       const person = byId(regionPeople(region), fact.subjectId)
       const institution = byId(commitment.anonymousInstitutions, fact.subjectId)
-      const subjectValid = (fact.kind === 'region-name' && fact.subjectKind === 'region') || (fact.kind === 'site-name' && fact.subjectKind === 'site') || ((fact.kind === 'route-link' || fact.kind === 'history-link') && fact.subjectKind === 'route') || ((fact.kind === 'person-name' || fact.kind === 'person-role') && fact.subjectKind === 'person' && person !== undefined) || (fact.kind === 'institution-role' && fact.subjectKind === 'institution' && institution !== undefined)
-      if (fact.regionId !== commitment.id || !fact.id || !fact.value || fact.subjectId !== expectedSubject || !subjectValid) issues.push(issue(fact.id || commitment.id, 'frontier.invalid-fact'))
+      const subjectValid = (fact.kind === 'region-name' && fact.subjectKind === 'region') || (fact.kind === 'site-name' && fact.subjectKind === 'site') || ((fact.kind === 'route-link' || fact.kind === 'history-link') && fact.subjectKind === 'route') || ((fact.kind === 'person-name' || fact.kind === 'person-role' || fact.kind === 'person-relationship') && fact.subjectKind === 'person' && person !== undefined) || (fact.kind === 'institution-role' && fact.subjectKind === 'institution' && institution !== undefined)
+      const relationshipValid = fact.kind !== 'person-relationship' || (person !== undefined && fact.value !== person.id && has(regionPeople(region), fact.value))
+      if (fact.regionId !== commitment.id || !fact.id || !fact.value || fact.subjectId !== expectedSubject || !subjectValid || !relationshipValid) issues.push(issue(fact.id || commitment.id, 'frontier.invalid-fact'))
       if (!nonNegativeInteger(fact.knownAtWorldTime) || !nonNegativeInteger(fact.source.reportedAtWorldTime) || !nonNegativeInteger(fact.source.freshnessAtWorldTime) || fact.source.reportedAtWorldTime > fact.source.freshnessAtWorldTime || fact.source.freshnessAtWorldTime > fact.knownAtWorldTime || fact.source.label !== sourceLabels[fact.source.kind] || !sourceRecordIsKnown) issues.push(issue(fact.id || commitment.id, 'frontier.invalid-fact-timing'))
       const previousValue = factsByKey.get(factKey(fact))
       if (previousValue !== undefined && previousValue !== fact.value) issues.push(issue(fact.id, 'frontier.contradictory-fact'))
@@ -516,8 +520,8 @@ export const validateFrontierState = (context: FrontierGenerationContext, state:
       const regionName = regionFacts(region).find(fact => fact.kind === 'region-name')?.value
       const siteName = regionFacts(region).find(fact => fact.kind === 'site-name')?.value ?? `${regionName ?? regionNameFor(context, coordinate, 'materialized-name')} Landing`
       const expectedMaterializationStream = streamSeedFor(context, coordinate, 'materialization')
-      const planMatchesPeople = plan.namedPersonPlans.length === region.namedPeople.length && plan.namedPersonPlans.every((candidate: FrontierPersonInstantiationPlan) => region.namedPeople.some((person: FrontierNamedPersonCommitment) => person.id === candidate.commitmentId && person.futurePersonId === candidate.futurePersonId && person.name === candidate.name && person.role === candidate.role && person.institutionCommitmentId === candidate.institutionCommitmentId && candidate.trigger === 'region-materialized'))
-      if (!nonNegativeInteger(plan.materializedAtWorldTime) || plan.materializedAtWorldTime < Math.max(0, ...region.revealedFacts.map((fact: FrontierRevealedFact) => fact.knownAtWorldTime)) || plan.generatorStream !== expectedMaterializationStream || plan.site.id !== siteIdFor(commitment.id) || plan.site.regionId !== commitment.id || plan.site.name !== siteName || plan.site.kind !== commitment.kind || plan.site.initialWaterwayId !== commitment.anchor.waterwayId || plan.site.initialEcologyId !== commitment.anchor.ecologyId || plan.namedPersonPlans.length > FRONTIER_LIMITS.namedPeoplePerRegion || !planMatchesPeople) issues.push(issue(commitment.id, 'frontier.invalid-materialization'))
+      const planMatchesPeople = plan.namedPersonPlans.length === region.namedPeople.length && plan.namedPersonPlans.every((candidate: FrontierPersonInstantiationPlan) => region.namedPeople.some((person: FrontierNamedPersonCommitment) => candidate.id === `${person.id}:instantiation` && person.id === candidate.commitmentId && person.futurePersonId === candidate.futurePersonId && person.name === candidate.name && person.role === candidate.role && person.institutionCommitmentId === candidate.institutionCommitmentId && candidate.trigger === 'region-materialized'))
+      if (plan.version !== 1 || !nonNegativeInteger(plan.materializedAtWorldTime) || plan.materializedAtWorldTime < Math.max(0, ...region.revealedFacts.map((fact: FrontierRevealedFact) => fact.knownAtWorldTime)) || plan.generatorStream !== expectedMaterializationStream || plan.site.id !== siteIdFor(commitment.id) || plan.site.regionId !== commitment.id || plan.site.name !== siteName || plan.site.kind !== commitment.kind || plan.site.initialWaterwayId !== commitment.anchor.waterwayId || plan.site.initialEcologyId !== commitment.anchor.ecologyId || !materialPurposes.includes(plan.site.materialPurpose) || plan.namedPersonPlans.length > FRONTIER_LIMITS.namedPeoplePerRegion || !planMatchesPeople) issues.push(issue(commitment.id, 'frontier.invalid-materialization'))
     }
   }
 
@@ -525,6 +529,8 @@ export const validateFrontierState = (context: FrontierGenerationContext, state:
     if (seenIds.has(id)) issues.push(issue(id, 'frontier.duplicate-id'))
     seenIds.add(id)
   }
+  const generationOrders = [...seenGenerationOrders].sort((left, right) => left - right)
+  if (generationOrders.some((order, index) => order !== index)) issues.push(issue('frontier:state', 'frontier.invalid-generation-order'))
   const safety = auditMedievalContentSafety(frontierContentRecords(state))
   if (safety.status === 'rejected') issues.push(...safety.diagnostics.map(diagnostic => issue(diagnostic.contentId, diagnostic.code)))
   return issues
