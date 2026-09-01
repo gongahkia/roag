@@ -192,6 +192,9 @@ describe('course slot machine markup', () => {
     expect(markup).toContain('class="hud-timer"');
     expect(markup).toContain('id="hud-strength-meter"');
     expect(markup).toContain('class="hud-camera"');
+    expect(markup).toContain('class="route-role-key"');
+    expect(markup).toContain('wide, steady route');
+    expect(markup).toContain('right drag');
     expect(markup).toContain('data-camera-mode');
     expect(markup).toContain('data-camera-zoom="in"');
     expect(markup).not.toContain('power-cell');
