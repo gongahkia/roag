@@ -2,10 +2,10 @@ import type { GenerationDiagnostics, WorldGenerationConfig, WorldGenerationConfi
 import type { MedievalContentSafetyAudit, MedievalContentSafetyClassification } from './content-safety'
 import type { InitialWorld, InitialWorldGenerationDiagnostics } from './initial-world'
 import type { FrontierCausalAnchor, FrontierConnection, FrontierCoordinate, FrontierRegionKind } from './frontier'
-import type { MedievalTemporalState } from './temporal'
+import type { MedievalWorldState } from './world-state'
 
 export const FOUNDATION_GENERATOR_VERSION = 'foundation-2' as const
-export const FOUNDATION_MANIFEST_VERSION = 5 as const
+export const FOUNDATION_MANIFEST_VERSION = 6 as const
 export const WORLD_CREATION_PROVENANCE_VERSION = 1 as const
 export const WORLD_MANIFEST_VALIDATION_HISTORY_VERSION = 1 as const
 export const WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION = 1 as const
@@ -89,10 +89,6 @@ export interface WorldCreationProvenance {
 export interface WorldManifest {
   version: typeof FOUNDATION_MANIFEST_VERSION
   creation: WorldCreationProvenance
-  /** Later zero-time choice, kept outside immutable creation provenance. */
-  initialCourierId?: string
-  /** Safety audit for the bounded current state, including courier selection if made. */
-  currentContentSafetyAudit: MedievalContentSafetyAudit
 }
 
 export type CrewRole = 'bargemaster' | 'pilot' | 'factor' | 'carpenter' | 'guard' | 'cook' | 'healer' | 'scribe' | 'carter' | 'fisher' | 'bard'
@@ -153,24 +149,21 @@ export interface CausalRecord {
 }
 
 export interface FoundationWorld {
-  /** v2 adds the bounded, validated action-clock/scheduler state. */
-  version: 2
+  /** v3 separates immutable creation evidence from all validated mutable state. */
+  version: 3
   id: string
   status: 'active'
   manifest: WorldManifest
   jomon: FoundationJomon
   crew: readonly FoundationCrewMember[]
   initialWorld: InitialWorld
-  /** A projection of `temporal.worldTime`, retained for existing read-only UI callers. */
-  worldTime: number
-  temporal: MedievalTemporalState
-  causalHistory: readonly CausalRecord[]
+  state: MedievalWorldState
 }
 
 export type ChronicleReason = 'jomon-loss' | 'crew-extinction'
 
 export interface WorldChronicle {
-  version: 1
+  version: 2
   id: string
   status: 'finalized'
   reason: ChronicleReason

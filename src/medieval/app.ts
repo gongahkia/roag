@@ -291,7 +291,7 @@ export class MedievalApp {
       if (!world) throw new Error('Selected world is no longer present in local storage')
       this.session.open(world.id)
       this.world = world
-      this.route = world.manifest.initialCourierId ? 'world' : 'world-result'
+      this.route = world.state.courier.initialCourierId ? 'world' : 'world-result'
       this.resultPage = 'summary'
       this.selectedRow = 0
       this.persistence = 'saved'
@@ -555,7 +555,7 @@ export class MedievalApp {
     })
     if (this.world) {
       const candidate = this.world.manifest.creation.validationHistory.initialWorld.selectedAttempt
-      row(context, 15, `${cues.readyState} CANDIDATE ${candidate} ACCEPTED // WORLD TIME ${this.world.worldTime}`, palette.statusReady)
+      row(context, 15, `${cues.readyState} CANDIDATE ${candidate} ACCEPTED // WORLD TIME ${this.world.state.temporal.worldTime}`, palette.statusReady)
       return wrappedRows(context, 18, 'Enter inspects seed, configuration, diagnostics, provenance, and crew before courier confirmation. Esc returns to local worlds.', palette.actionText)
     }
     return wrappedRows(context, 18, 'Generator work is bounded and stage-based; no timer or in-world time is used.', palette.mutedText)
@@ -632,11 +632,11 @@ export class MedievalApp {
   private renderWorld(context: CanvasRenderingContext2D): number {
     const world = this.world
     if (!world) { this.route = 'worlds'; this.render(); return 0 }
-    const courier = world.crew.find(member => member.id === world.manifest.initialCourierId)
+    const courier = world.crew.find(member => member.id === world.state.courier.initialCourierId)
     this.canvas.setAttribute('aria-label', `Jomon foundation world ${world.manifest.creation.label}, active courier ${courier?.name ?? 'unassigned'}.`)
     row(context, 2, `${world.manifest.creation.label.toUpperCase()} // FOUNDATION WORLD`, palette.titleText)
     row(context, 4, `ACTIVE COURIER  ${courier?.name.toUpperCase() ?? 'UNASSIGNED'} // ${courier?.role.toUpperCase() ?? 'NONE'}`, palette.statusReady)
-    row(context, 5, `SEED  ${world.manifest.creation.seed} // WORLD TIME ${world.worldTime}`, palette.bodyText)
+    row(context, 5, `SEED  ${world.manifest.creation.seed} // WORLD TIME ${world.state.temporal.worldTime}`, palette.bodyText)
     let line = wrappedRows(context, 7, 'The household exists. Time has not advanced and no map has been generated yet.', palette.mutedText)
     line = wrappedRows(context, line, 'This is the clean persistence boundary before the walkable Jomon foundation.', palette.mutedText)
     rule(context, 14)
@@ -658,9 +658,9 @@ export class MedievalApp {
     this.canvas.setAttribute('aria-label', `Read-only Jomon chronicle ${chronicle.world.manifest.creation.label}, finalized by ${chronicle.reason}.`)
     row(context, 2, `${chronicle.world.manifest.creation.label.toUpperCase()} // READ-ONLY CHRONICLE`, palette.titleText)
     row(context, 4, `FINAL REASON  ${chronicle.reason.toUpperCase()}`, palette.statusRisk)
-    row(context, 5, `SEED  ${chronicle.world.manifest.creation.seed} // WORLD TIME ${chronicle.world.worldTime}`, palette.bodyText)
+    row(context, 5, `SEED  ${chronicle.world.manifest.creation.seed} // WORLD TIME ${chronicle.world.state.temporal.worldTime}`, palette.bodyText)
     let line = 7
-    chronicle.world.causalHistory.forEach(record => { line = wrappedRows(context, line, `${record.sequence}. ${record.detail}`, palette.mutedText) })
+    chronicle.world.state.history.records.forEach(record => { line = wrappedRows(context, line, `${record.sequence}. ${record.detail}`, palette.mutedText) })
     rule(context, 14)
     return wrappedRows(context, Math.max(16, line + 1), 'E exports JSON. Esc returns to finalized chronicles.', palette.actionText)
   }

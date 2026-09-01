@@ -16,7 +16,7 @@ export const emptyWorldIndex = (): WorldIndex => ({ version: 1, activeWorlds: []
 
 export const addWorldToIndex = (index: WorldIndex, world: FoundationWorld): WorldIndex => ({
   version: 1,
-  activeWorlds: [...index.activeWorlds.filter(entry => entry.id !== world.id), { id: world.id, label: world.manifest.creation.label, ...(world.manifest.initialCourierId === undefined ? {} : { initialCourierId: world.manifest.initialCourierId }) }].sort((left, right) => left.id.localeCompare(right.id)),
+  activeWorlds: [...index.activeWorlds.filter(entry => entry.id !== world.id), { id: world.id, label: world.manifest.creation.label, ...(world.state.courier.initialCourierId === undefined ? {} : { initialCourierId: world.state.courier.initialCourierId }) }].sort((left, right) => left.id.localeCompare(right.id)),
   chronicles: [...index.chronicles]
 })
 
@@ -41,13 +41,11 @@ const isManifest = (value: unknown): value is WorldManifest => isReproducibleWor
 const isCrewMember = (value: unknown): value is FoundationCrewMember => record(value) && string(value.id) && string(value.name) && crewRole(value.role) && nonNegativeInteger(value.conversation) && Array.isArray(value.equipment) && value.equipment.every(string) && string(value.history) && typeof value.eligible === 'boolean' && Array.isArray(value.relationships) && value.relationships.every(relationship => record(relationship) && string(relationship.personId) && [-2, -1, 0, 1, 2].includes(Number(relationship.standing)) && ['kinship', 'work', 'debt', 'friendship', 'rivalry'].includes(String(relationship.basis)))
 const isFoundationJomon = (value: unknown): value is FoundationJomon => record(value) && value.id === 'vessel:jomon' && value.name === 'Jomon' && Array.isArray(value.deckPartitions) && value.deckPartitions.every(deckPartition) && Array.isArray(value.quays) && value.quays.every(quay => record(quay) && string(quay.id) && string(quay.name)) && Array.isArray(value.props) && value.props.every(prop => record(prop) && string(prop.id) && vesselPropKind(prop.kind) && deckPartition(prop.partition))
 const isFoundationWorld = (value: unknown): value is FoundationWorld => {
-  if (!record(value) || value.version !== 2 || !string(value.id) || value.status !== 'active' || !isManifest(value.manifest) || value.id !== foundationWorldIdForManifest(value.manifest) || !isFoundationJomon(value.jomon) || !Array.isArray(value.crew) || value.crew.length === 0 || !value.crew.every(isCrewMember) || !isInitialWorld(value.initialWorld) || !nonNegativeInteger(value.worldTime) || !Array.isArray(value.causalHistory) || !value.causalHistory.every(event => record(event) && nonNegativeInteger(event.sequence) && nonNegativeInteger(event.atWorldTime) && (event.kind === 'world-created' || event.kind === 'initial-courier-selected' || event.kind === 'temporal-action' || event.kind === 'scheduled-event-resolved') && string(event.detail))) return false
+  if (!record(value) || value.version !== 3 || !string(value.id) || value.status !== 'active' || !isManifest(value.manifest) || value.id !== foundationWorldIdForManifest(value.manifest) || !isFoundationJomon(value.jomon) || !Array.isArray(value.crew) || value.crew.length === 0 || !value.crew.every(isCrewMember) || !isInitialWorld(value.initialWorld) || !record(value.state)) return false
 
-  const manifest = value.manifest
-  const crew = value.crew as FoundationCrewMember[]
-  return (manifest.initialCourierId === undefined || crew.some(member => member.id === manifest.initialCourierId && member.eligible)) && foundationWorldInitialWorldMatchesManifest(value as unknown as FoundationWorld) && foundationWorldContentSatisfiesSafetyPolicy(value as unknown as FoundationWorld) && foundationWorldTemporalStateMatches(value as unknown as FoundationWorld)
+  return foundationWorldInitialWorldMatchesManifest(value as unknown as FoundationWorld) && foundationWorldContentSatisfiesSafetyPolicy(value as unknown as FoundationWorld) && foundationWorldTemporalStateMatches(value as unknown as FoundationWorld)
 }
-const isChronicle = (value: unknown): value is WorldChronicle => record(value) && value.version === 1 && string(value.id) && value.status === 'finalized' && chronicleReason(value.reason) && isFoundationWorld(value.world)
+const isChronicle = (value: unknown): value is WorldChronicle => record(value) && value.version === 2 && string(value.id) && value.status === 'finalized' && chronicleReason(value.reason) && isFoundationWorld(value.world)
 const isActiveWorldIndexEntry = (value: unknown): boolean => record(value) && string(value.id) && string(value.label) && (value.initialCourierId === undefined || string(value.initialCourierId))
 const isChronicleIndexEntry = (value: unknown): boolean => record(value) && string(value.id) && string(value.label) && chronicleReason(value.reason)
 const isWorldIndex = (value: unknown): value is WorldIndex => record(value) && value.version === 1 && Array.isArray(value.activeWorlds) && value.activeWorlds.every(isActiveWorldIndexEntry) && Array.isArray(value.chronicles) && value.chronicles.every(isChronicleIndexEntry)
