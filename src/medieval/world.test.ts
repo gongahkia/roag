@@ -92,8 +92,8 @@ describe('medieval foundation worlds', () => {
       { id: 'vessel:jomon', domain: 'place', classification: expect.objectContaining({ domains: ['place', 'player-facing-text'] }) },
       { id: 'causal:0:world-created', domain: 'event', classification: expect.objectContaining({ domains: ['event', 'player-facing-text'] }) }
     ]))
-    expect(world.manifest.contentSafetyAudit.reviewed.filter(record => record.domain === 'person')).toHaveLength(world.crew.length)
-    expect(world.manifest.contentSafetyAudit.reviewed.filter(record => record.domain === 'history')).toHaveLength(world.crew.length)
+    expect(world.manifest.contentSafetyAudit.reviewed.filter(record => record.domain === 'person')).toHaveLength(world.crew.length + world.initialWorld.people.length)
+    expect(world.manifest.contentSafetyAudit.reviewed.filter(record => record.domain === 'history')).toHaveLength(world.crew.length + world.initialWorld.people.length + world.initialWorld.history.length)
     expect(world.manifest.contentSafetyAudit.reviewed).toEqual(expect.arrayContaining([
       { id: world.initialWorld.watershed.id, domain: 'place', classification: expect.any(Object) },
       { id: world.initialWorld.routeHazards[0]!.id, domain: 'hazard', classification: expect.objectContaining({ domains: ['hazard', 'player-facing-text'] }) }
