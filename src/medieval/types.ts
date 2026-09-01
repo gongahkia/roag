@@ -149,8 +149,8 @@ export interface CausalRecord {
 }
 
 export interface FoundationWorld {
-  /** v4 requires the v2 persistent-person mutable state; v3 cannot be migrated safely. */
-  version: 4
+  /** v5 requires the v3 mutable world with the persisted catch-up kernel. */
+  version: 5
   id: string
   status: 'active'
   manifest: WorldManifest
@@ -163,7 +163,7 @@ export interface FoundationWorld {
 export type ChronicleReason = 'jomon-loss' | 'crew-extinction'
 
 export interface WorldChronicle {
-  version: 3
+  version: 4
   id: string
   status: 'finalized'
   reason: ChronicleReason

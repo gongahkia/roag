@@ -6,6 +6,8 @@ import { INITIAL_WORLD_GENERATION_DIAGNOSTICS_VERSION, INITIAL_WORLD_GENERATOR_V
 import { normalizeCreationSeed } from './settings'
 import { advanceMedievalTemporalState, createMedievalTemporalState, isMedievalTemporalState, type TemporalCommand, type TemporalProvenance } from './temporal'
 import { createMedievalWorldState, isMedievalWorldState } from './world-state'
+import { createFidelityPlan } from './fidelity'
+import { advanceSimulationCatchUpState } from './simulation-catchup'
 import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
 
 const foundationJomon = (): FoundationJomon => ({
@@ -370,7 +372,7 @@ const worldFromCreationProvenance = (
   if (!state) throw new Error('creation provenance does not identify an eligible initial courier')
   const temporal = createMedievalTemporalState(temporalProvenanceForCreation(creation))
   return {
-    version: 4,
+    version: 5,
     id: idForCreationProvenance(creation),
     status: 'active',
     manifest: {
@@ -432,7 +434,8 @@ export const chooseInitialCourier = (world: FoundationWorld, courierId: string):
       temporal: world.state.temporal,
       initialCourierId: courierId,
       jomonState: world.state.jomon,
-      peopleState: world.state.people
+      peopleState: world.state.people,
+      simulationState: world.state.simulation
     })
   }
 }
@@ -474,9 +477,9 @@ export const foundationWorldTemporalStateMatches = (world: FoundationWorld): boo
 }
 
 /**
- * Applies the renderer-independent temporal contract and mirrors its causal
- * records into the world history. It intentionally leaves manifest creation
- * provenance and courier-selection state untouched.
+ * Applies the renderer-independent temporal contract, then catches every due
+ * fidelity tier up through the same action boundary. It intentionally leaves
+ * manifest creation provenance and courier-selection state untouched.
  */
 export const advanceFoundationWorldTime = (world: FoundationWorld, command: TemporalCommand | unknown): FoundationWorld => {
   if (world.status !== 'active') throw new Error('only an active world can advance time')
@@ -484,6 +487,26 @@ export const advanceFoundationWorldTime = (world: FoundationWorld, command: Temp
   const transition = advanceMedievalTemporalState(world.state.temporal, command)
   const staticState = expectedFoundationState(world.manifest.creation.seed, world.manifest.creation.resolvedConfiguration, world.state.courier.initialCourierId)
   if (!staticState) throw new Error('world has an invalid initial courier state')
+  const provisional = {
+    ...cloneWorld(world),
+    state: createMedievalWorldState({
+      seed: world.manifest.creation.seed,
+      configuration: world.manifest.creation.resolvedConfiguration,
+      initialWorld: world.initialWorld,
+      jomon: world.jomon,
+      crew: world.crew,
+      foundationHistory: staticState.causalHistory,
+      frontier: world.state.geography.frontier,
+      temporal: transition.state,
+      ...(world.state.courier.initialCourierId === undefined ? {} : { initialCourierId: world.state.courier.initialCourierId }),
+      jomonState: world.state.jomon,
+      peopleState: world.state.people,
+      simulationState: world.state.simulation
+    })
+  }
+  const courierId = provisional.state.courier.initialCourierId
+  if (courierId === undefined) throw new Error('time-bearing simulation requires an active courier')
+  const catchUp = advanceSimulationCatchUpState(provisional.state.simulation, createFidelityPlan({ world: provisional, activeCourierId: courierId, loadedLocations: [] }), transition.action)
   return {
     ...cloneWorld(world),
     state: createMedievalWorldState({
@@ -497,13 +520,14 @@ export const advanceFoundationWorldTime = (world: FoundationWorld, command: Temp
       temporal: transition.state,
       ...(world.state.courier.initialCourierId === undefined ? {} : { initialCourierId: world.state.courier.initialCourierId }),
       jomonState: world.state.jomon,
-      peopleState: world.state.people
+      peopleState: world.state.people,
+      simulationState: catchUp.state
     })
   }
 }
 
 export const finalizeWorldAsChronicle = (world: FoundationWorld, reason: ChronicleReason): WorldChronicle => ({
-  version: 3,
+  version: 4,
   id: `chronicle:${world.id}`,
   status: 'finalized',
   reason,

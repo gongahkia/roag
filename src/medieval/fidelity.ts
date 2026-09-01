@@ -162,7 +162,7 @@ const elapsedCadence = (intervalMinutes: 5 | 30 | 120 | 240, worldTime: number):
 })
 
 const validWorld = (value: unknown): value is FoundationWorld => {
-  if (!record(value) || value.version !== 4 || value.status !== 'active' || !record(value.manifest) || !record(value.manifest.creation) || !record(value.state)) return false
+  if (!record(value) || value.version !== 5 || value.status !== 'active' || !record(value.manifest) || !record(value.manifest.creation) || !record(value.state)) return false
   try {
     return foundationWorldInitialWorldMatchesManifest(value as unknown as FoundationWorld)
       && foundationWorldContentSatisfiesSafetyPolicy(value as unknown as FoundationWorld)
