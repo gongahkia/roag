@@ -7,7 +7,7 @@ const hash = (value: string, initial = 0x811c9dc5): number => {
   return current >>> 0
 }
 
-export const hashSeed = (value: string): number => hash(value)
+export const hashSeed = (value: string, initial?: number): number => hash(value, initial)
 
 export class SeededRng {
   private state: number

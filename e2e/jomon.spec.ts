@@ -9,7 +9,7 @@ const directionForCommand: Record<string, Direction> = { i: 'nw', o: 'n', p: 'ne
 
 const loadGame = async (page: Page): Promise<void> => {
   await page.addInitScript(() => { Math.random = () => 7 / 0x7fffffff })
-  await page.goto('/')
+  await page.goto('/?prototype')
   await expect(page.locator('#game')).toHaveAttribute('data-route', /splash|title/)
 }
 
