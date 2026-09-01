@@ -237,10 +237,8 @@ const drawPattern = (context: CanvasRenderingContext2D, tile: VisibleTile, offse
   context.clip();
   const inset = metrics.tileWidth * .19;
   if (tile.tile.surface === 'fairway') {
-    if ((tile.x * 5 + tile.y * 3) % 5 === 0) {
-      context.fillStyle = '#e9ffd83b';
-      context.fillRect(center.x - inset, center.y - 1, inset * 2, 2);
-    }
+    context.fillStyle = '#e9ffd82b';
+    for (let stripe = -2; stripe <= 2; stripe += 1) context.fillRect(center.x - inset, center.y + stripe * 4, inset * 2, 1.35);
   } else if (tile.tile.surface === 'rough') {
     context.fillStyle = '#1d5c2542';
     for (let dot = -1; dot <= 1; dot += 1) context.fillRect(center.x + dot * 5, center.y + (dot % 2) * 3, 2, 2);
@@ -289,6 +287,28 @@ const drawPattern = (context: CanvasRenderingContext2D, tile: VisibleTile, offse
     context.fillRect(center.x - size, center.y - size / 2, size, size / 2);
     context.fillRect(center.x, center.y, size, size / 2);
   }
+  context.restore();
+};
+
+const specialSurfaceSprite: Partial<Record<Surface, number>> = { booster: 0, conveyor: 1, cushion: 2, spring: 3, bumper: 4 };
+
+/** Generated art only decorates special terrain; procedural geometry remains the source of truth for every course shape. */
+const drawSpecialSurfaceSprite = (context: CanvasRenderingContext2D, image: HTMLImageElement, tile: VisibleTile, offset: Point, metrics: ProjectionMetrics, elapsedMs: number) => {
+  const frame = specialSurfaceSprite[tile.tile.surface];
+  if (frame === undefined || !image.complete || !image.naturalWidth || metrics.tileWidth < 22) return;
+  const center = withOffset(tile.center, offset);
+  const phase = elapsedMs / 420 + tile.x * .8 + tile.y * .55;
+  const bob = tile.tile.surface === 'spring' ? Math.sin(phase) * metrics.tileWidth * .024 : 0;
+  const pulse = tile.tile.surface === 'booster' ? .9 + Math.sin(phase) * .1 : 1;
+  const frameWidth = image.naturalWidth / 5;
+  const width = metrics.tileWidth * 1.16;
+  const height = metrics.tileWidth * .86;
+  context.save();
+  context.globalAlpha = pulse;
+  context.shadowColor = '#15231766';
+  context.shadowBlur = Math.max(2, metrics.tileWidth * .07);
+  context.shadowOffsetY = Math.max(1, metrics.tileWidth * .035);
+  context.drawImage(image, frame * frameWidth, 0, frameWidth, image.naturalHeight, center.x - width / 2, center.y - height * .56 + bob, width, height);
   context.restore();
 };
 
@@ -366,14 +386,21 @@ const drawRouteRoles = (context: CanvasRenderingContext2D, course: Course, offse
     const point = assignment.marker;
     const center = withOffset(project(point.x + .5, point.y + .5, floorHeightAt(course, point.x + .5, point.y + .5) + .14, metrics), offset);
     const text = assignment.role.toUpperCase();
-    const width = context.measureText(text).width + 8;
-    context.fillStyle = '#172419d9';
-    context.fillRect(center.x - width / 2, center.y - 7, width, 13);
-    context.strokeStyle = routeRoleColor[assignment.role];
+    const width = context.measureText(text).width + 17;
+    context.save();
+    context.shadowColor = '#1121158c';
+    context.shadowBlur = 5;
+    context.shadowOffsetY = 2;
+    context.fillStyle = '#172419e8';
+    context.fillRect(center.x - width / 2, center.y - 8, width, 15);
+    context.restore();
+    context.fillStyle = routeRoleColor[assignment.role];
+    context.fillRect(center.x - width / 2, center.y - 8, 3, 15);
+    context.strokeStyle = `${routeRoleColor[assignment.role]}cc`;
     context.lineWidth = 1;
-    context.strokeRect(center.x - width / 2, center.y - 7, width, 13);
+    context.strokeRect(center.x - width / 2, center.y - 8, width, 15);
     context.fillStyle = '#ffffff';
-    context.fillText(text, center.x, center.y);
+    context.fillText(text, center.x + 2, center.y);
   });
 };
 
@@ -488,21 +515,36 @@ const drawHazards = (context: CanvasRenderingContext2D, course: Course, hazardEl
   }
 };
 
-const drawItemPads = (context: CanvasRenderingContext2D, course: Course, offset: Point, metrics: ProjectionMetrics) => {
-  course.itemPads.filter((pad) => !pad.collected).forEach((pad) => {
+const drawItemPads = (context: CanvasRenderingContext2D, course: Course, offset: Point, metrics: ProjectionMetrics, elapsedMs: number) => {
+  course.itemPads.filter((pad) => !pad.collected).forEach((pad, index) => {
+    const float = Math.sin(elapsedMs / 360 + index * 1.7) * Math.max(1, metrics.tileWidth * .025);
     const center = withOffset(project(pad.point.x + .5, pad.point.y + .5, heightAt(course, pad.point) + .06, metrics), offset);
-    const size = metrics.tileWidth * .14;
-    polygon(context, [{ x: center.x, y: center.y - size }, { x: center.x + size, y: center.y }, { x: center.x, y: center.y + size }, { x: center.x - size, y: center.y }]);
+    center.y += float;
+    const size = metrics.tileWidth * .16;
+    const rise = Math.max(2, metrics.tileWidth * .065);
+    const top = [{ x: center.x, y: center.y - size * .72 - rise }, { x: center.x + size, y: center.y - rise }, { x: center.x, y: center.y + size * .72 - rise }, { x: center.x - size, y: center.y - rise }];
+    const lower = top.map((point) => ({ x: point.x, y: point.y + rise }));
+    polygon(context, [top[1]!, top[2]!, lower[2]!, lower[1]!]);
+    context.fillStyle = '#153820b3';
+    context.fill();
+    polygon(context, [top[2]!, top[3]!, lower[3]!, lower[2]!]);
+    context.fillStyle = '#0b2818a8';
+    context.fill();
+    polygon(context, top);
     context.fillStyle = pad.kind === 'recovery' ? '#73d9d5' : pad.kind === 'cash' ? '#e1ba57' : '#c88cf5';
     context.fill();
-    context.strokeStyle = '#ffffff';
+    context.strokeStyle = '#ffffffd9';
     context.lineWidth = 1.2;
     context.stroke();
+    context.beginPath();
+    context.ellipse(center.x, center.y - rise * .72, size * .38, size * .19, 0, 0, Math.PI * 2);
+    context.fillStyle = '#ffffff42';
+    context.fill();
     context.fillStyle = '#1c4321';
     context.font = `${Math.max(8, metrics.tileWidth * .16)}px Inter, ui-sans-serif, system-ui, sans-serif`;
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    context.fillText(pad.kind === 'recovery' ? '+' : pad.kind === 'cash' ? '$' : '!', center.x, center.y + 1);
+    context.fillText(pad.kind === 'recovery' ? '+' : pad.kind === 'cash' ? '$' : '!', center.x, center.y - rise + 1);
   });
 };
 
@@ -730,6 +772,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   type LatestFrame = CourseFrame | { kind: 'construction'; frame: CourseConstructionFrame };
   let latest: LatestFrame | undefined;
   let trackedCamera: { courseId: string; width: number; height: number; offset: Point; followsFocus: boolean; mode: CourseCamera['mode']; zoom: number; pan: Point; gliding: boolean } | undefined;
+  const specialTileSprites = new Image();
 
   const layoutFor = (course: Course, focus?: Ball, advanceCamera = false, camera?: CourseCamera, previousFocus?: Ball) => {
     const { width, height } = canvas.getBoundingClientRect();
@@ -763,9 +806,18 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     context.clearRect(0, 0, width, height);
     const voidGradient = context.createRadialGradient(width * .5, height * .4, 10, width * .5, height * .5, Math.max(width, height));
     voidGradient.addColorStop(0, '#ffffff');
-    voidGradient.addColorStop(1, '#edf7e8');
+    voidGradient.addColorStop(.52, '#f5faf1');
+    voidGradient.addColorStop(1, '#e6f1df');
     context.fillStyle = voidGradient;
     context.fillRect(0, 0, width, height);
+    context.strokeStyle = '#80a47712';
+    context.lineWidth = 1;
+    for (let x = -height; x < width + height; x += 56) {
+      context.beginPath();
+      context.moveTo(x, 0);
+      context.lineTo(x + height, height);
+      context.stroke();
+    }
     const overview = options.overviewProgress !== undefined;
     const overviewLayout = overview ? overviewCameraFor(course, width, height, options.overviewFocus, options.overviewProgress!) : undefined;
     const layout = overviewLayout
@@ -798,7 +850,18 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
       polygon(context, tile.corners.map((point) => withOffset(point, offset)));
       context.fillStyle = topColorFor(course, tile.tile.surface, tile.tile.theme);
       context.fill();
+      const surface = context.createLinearGradient(tile.corners[0]!.x + offset.x, tile.corners[0]!.y + offset.y, tile.corners[2]!.x + offset.x, tile.corners[2]!.y + offset.y);
+      surface.addColorStop(0, '#ffffff30');
+      surface.addColorStop(.48, '#ffffff08');
+      surface.addColorStop(1, '#142a1d24');
+      polygon(context, tile.corners.map((point) => withOffset(point, offset)));
+      context.fillStyle = surface;
+      context.fill();
+      context.strokeStyle = '#ffffff40';
+      context.lineWidth = Math.max(.5, metrics.tileWidth * .014);
+      context.stroke();
       drawPattern(context, tile, offset, metrics);
+      drawSpecialSurfaceSprite(context, specialTileSprites, tile, offset, metrics, hazardElapsedMs);
       context.restore();
     };
     tiles.forEach(drawTile);
@@ -810,7 +873,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     drawRouteRoles(context, course, offset, metrics);
     drawPortals(context, course, offset, metrics);
     drawCourseFeatures(context, course, offset, metrics);
-    if (showItems) drawItemPads(context, course, offset, metrics);
+    if (showItems) drawItemPads(context, course, offset, metrics, hazardElapsedMs);
     drawGadgets(context, course, gadgets, players, offset, metrics);
     if (placement) drawPlacement(context, course, placement, offset, metrics);
     drawHazards(context, course, hazardElapsedMs, offset, metrics, phaseCount);
@@ -875,6 +938,12 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   };
   const observer = new ResizeObserver(resize);
   observer.observe(canvas);
+  specialTileSprites.addEventListener('load', () => {
+    if (!latest) return;
+    if (latest.kind === 'construction') paintConstruction(latest.frame);
+    else paint(latest.course, latest.players, latest.hazardElapsedMs, latest.aim, latest.emotes, latest.showItems, latest.phaseCount, latest.buildProgress, latest.gadgets, latest.placement, latest.focus, latest.options, latest.camera);
+  });
+  specialTileSprites.src = '/assets/special-tile-sprites.png';
   resize();
 
   return {
