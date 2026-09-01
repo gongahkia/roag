@@ -138,6 +138,14 @@ const worldCreatedRecord = (label: string, seed: string): CausalRecord => ({
   contentSafety: classifyMedievalContent('event', ['civil-life', 'navigation'], 'not-applicable', ['player-facing-text'])
 })
 
+const initialCourierSelectedRecord = (sequence: number, name: string): CausalRecord => ({
+  sequence,
+  atWorldTime: 0,
+  kind: 'initial-courier-selected',
+  detail: `${name} chosen as the initial courier.`,
+  contentSafety: classifyMedievalContent('event', ['civil-life', 'travel'], 'adults-only', ['player-facing-text'])
+})
+
 const foundationContentRecords = (
   labelContentSafety: WorldManifest['labelContentSafety'],
   jomon: FoundationJomon,
@@ -164,6 +172,30 @@ const auditFoundationContent = (
   return audit
 }
 
+interface ExpectedFoundationContentProvenance {
+  label: string
+  labelContentSafety: WorldManifest['labelContentSafety']
+  contentSafetyAudit: MedievalContentSafetyAudit
+}
+
+const expectedFoundationContentProvenance = (
+  seed: string,
+  configuration: WorldGenerationConfig,
+  initialCourierId: string | undefined
+): ExpectedFoundationContentProvenance | undefined => {
+  const label = labelForSeed(seed, configuration)
+  const labelContentSafety = classifyMedievalContent('place', ['environment', 'settlement'], 'not-applicable', ['player-facing-text'])
+  const jomon = foundationJomon()
+  const crew = generateCrew(seed, configuration)
+  const causalHistory = [worldCreatedRecord(label, seed)]
+  if (initialCourierId !== undefined) {
+    const courier = crew.find(member => member.id === initialCourierId)
+    if (!courier?.eligible) return undefined
+    causalHistory.push(initialCourierSelectedRecord(causalHistory.length, courier.name))
+  }
+  return { label, labelContentSafety, contentSafetyAudit: auditFoundationContent(labelContentSafety, jomon, crew, causalHistory) }
+}
+
 const cloneWorld = (world: FoundationWorld): FoundationWorld => structuredClone(world)
 
 export const foundationWorldIdForManifest = (manifest: WorldManifest): string => idForManifest(manifest.seed, manifest.resolvedConfiguration)
@@ -174,8 +206,8 @@ export const isReproducibleWorldManifest = (value: unknown): value is WorldManif
   if (manifest.version !== FOUNDATION_MANIFEST_VERSION || typeof manifest.seed !== 'string' || !manifest.seed || normalizeSeed(manifest.seed) !== manifest.seed || manifest.generatorVersion !== FOUNDATION_GENERATOR_VERSION || typeof manifest.label !== 'string' || !manifest.label || !isMedievalContentSafetyAudit(manifest.contentSafetyAudit)) return false
   if (manifest.initialCourierId !== undefined && (typeof manifest.initialCourierId !== 'string' || !manifest.initialCourierId)) return false
   if (!isReproducibleGenerationDiagnostics(manifest.seed, manifest.selectedConfiguration, manifest.resolvedConfiguration, manifest.generationDiagnostics)) return false
-  const labelSafety = auditMedievalContentSafety([{ id: 'world:label', domain: 'place', classification: manifest.labelContentSafety }])
-  return labelSafety.status === 'accepted' && manifest.label === labelForSeed(manifest.seed, manifest.resolvedConfiguration as WorldGenerationConfig)
+  const expected = expectedFoundationContentProvenance(manifest.seed, manifest.resolvedConfiguration as WorldGenerationConfig, manifest.initialCourierId as string | undefined)
+  return expected !== undefined && manifest.label === expected.label && JSON.stringify(manifest.labelContentSafety) === JSON.stringify(expected.labelContentSafety) && JSON.stringify(manifest.contentSafetyAudit) === JSON.stringify(expected.contentSafetyAudit)
 }
 
 export const createFoundationWorld = (input: FoundationWorldInput = {}): FoundationWorld => {
@@ -225,13 +257,7 @@ export const chooseInitialCourier = (world: FoundationWorld, courierId: string):
   if (!candidate?.eligible) throw new Error('selected courier must be an eligible crew member')
   const next = cloneWorld(world)
   next.manifest.initialCourierId = courierId
-  next.causalHistory = [...next.causalHistory, {
-    sequence: next.causalHistory.length,
-    atWorldTime: 0,
-    kind: 'initial-courier-selected',
-    detail: `${candidate.name} chosen as the initial courier.`,
-    contentSafety: classifyMedievalContent('event', ['civil-life', 'travel'], 'adults-only', ['player-facing-text'])
-  }]
+  next.causalHistory = [...next.causalHistory, initialCourierSelectedRecord(next.causalHistory.length, candidate.name)]
   next.manifest.contentSafetyAudit = auditFoundationContent(next.manifest.labelContentSafety, next.jomon, next.crew, next.causalHistory)
   return next
 }

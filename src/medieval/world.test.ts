@@ -87,6 +87,12 @@ describe('medieval foundation worlds', () => {
     expect(world.manifest.contentSafetyAudit.reviewed.filter(record => record.domain === 'person')).toHaveLength(world.crew.length)
     expect(world.manifest.contentSafetyAudit.reviewed.filter(record => record.domain === 'history')).toHaveLength(world.crew.length)
     expect(recreateFoundationWorld(world.manifest).manifest.contentSafetyAudit).toEqual(world.manifest.contentSafetyAudit)
+
+    const forgedManifest = structuredClone(world.manifest)
+    const auditedHistory = forgedManifest.contentSafetyAudit.reviewed.find(record => record.domain === 'history')
+    if (!auditedHistory) throw new Error('foundation audit must include a generated history')
+    auditedHistory.classification.tags = ['commerce']
+    expect(() => recreateFoundationWorld(forgedManifest)).toThrow('does not reproduce')
   })
 
   it('uses resolved generation settings in the foundation world identity and household stream', () => {
