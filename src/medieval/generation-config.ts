@@ -85,7 +85,7 @@ const regionSizes = ['compact', 'standard', 'broad'] as const
 const climateProfiles = ['cool-wet', 'temperate', 'warm-dry'] as const
 const eraPaces = ['measured', 'brisk', 'pressing'] as const
 const simulationFidelities = ['focused', 'balanced', 'deep'] as const
-const advancedSettingNames = [
+export const WORLD_GENERATION_ADVANCED_SETTING_NAMES = [
   'regionSize',
   'historyYears',
   'climate',
@@ -100,7 +100,24 @@ const advancedSettingNames = [
   'eraPace',
   'simulationFidelity'
 ] as const satisfies readonly (keyof WorldGenerationAdvancedSettings)[]
-const resolvedConfigurationNames = ['version', 'preset', ...advancedSettingNames] as const
+const resolvedConfigurationNames = ['version', 'preset', ...WORLD_GENERATION_ADVANCED_SETTING_NAMES] as const
+
+/** UI and import consumers read these options instead of re-implementing configuration ranges. */
+export const WORLD_GENERATION_ADVANCED_SETTING_OPTIONS = {
+  regionSize: regionSizes,
+  historyYears: Array.from({ length: 21 }, (_, index) => 100 + index * 25),
+  climate: climateProfiles,
+  terrainRuggedness: scaleValues,
+  waterwayDensity: scaleValues,
+  settlementDensity: scaleValues,
+  populationDensity: scaleValues,
+  politicalFragmentation: scaleValues,
+  resourceScarcity: scaleValues,
+  ecologyComplexity: scaleValues,
+  dangerPressure: scaleValues,
+  eraPace: eraPaces,
+  simulationFidelity: simulationFidelities
+} as const satisfies Readonly<Record<keyof WorldGenerationAdvancedSettings, readonly (string | number)[]>>
 
 const presetDefinitions: Readonly<Record<WorldGenerationPreset, WorldGenerationPresetDefinition>> = {
   'sheltered-reach': {
@@ -164,20 +181,12 @@ export const GENERATION_CONFIG_PRESETS = presetDefinitions
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 const includes = <Value>(values: readonly Value[], value: unknown): value is Value => values.includes(value as Value)
 const isScale = (value: unknown): value is GenerationScale => includes(scaleValues, value)
-const isHistoryYears = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 100 && value <= 600 && value % 25 === 0
 const validPreset = (value: unknown): value is WorldGenerationPreset => typeof value === 'string' && Object.hasOwn(presetDefinitions, value)
 
 const issue = (field: string, code: WorldGenerationConfigIssue['code'], message: string): WorldGenerationConfigIssue => ({ field, code, message })
 const hasOnlyKeys = (value: Record<string, unknown>, keys: readonly string[]): boolean => Object.keys(value).every(key => keys.includes(key)) && keys.every(key => Object.hasOwn(value, key))
 
-const settingValueIsValid = (setting: keyof WorldGenerationAdvancedSettings, value: unknown): boolean => {
-  if (setting === 'regionSize') return includes(regionSizes, value)
-  if (setting === 'historyYears') return isHistoryYears(value)
-  if (setting === 'climate') return includes(climateProfiles, value)
-  if (setting === 'terrainRuggedness' || setting === 'waterwayDensity' || setting === 'settlementDensity' || setting === 'populationDensity' || setting === 'politicalFragmentation' || setting === 'resourceScarcity' || setting === 'ecologyComplexity' || setting === 'dangerPressure') return isScale(value)
-  if (setting === 'eraPace') return includes(eraPaces, value)
-  return includes(simulationFidelities, value)
-}
+const settingValueIsValid = (setting: keyof WorldGenerationAdvancedSettings, value: unknown): boolean => (WORLD_GENERATION_ADVANCED_SETTING_OPTIONS[setting] as readonly unknown[]).includes(value)
 
 const settingMessage = (setting: keyof WorldGenerationAdvancedSettings): string => {
   if (setting === 'historyYears') return 'historyYears must be an integer multiple of 25 from 100 through 600.'
@@ -219,7 +228,7 @@ export const resolveWorldGenerationConfig = (request: WorldGenerationConfigReque
   const defaults = presetDefinitions[presetValue].defaults
   const resolved: WorldGenerationConfig = { version: WORLD_GENERATION_CONFIG_VERSION, preset: presetValue, ...defaults }
   const selectedAdvanced: Partial<WorldGenerationAdvancedSettings> = {}
-  for (const setting of advancedSettingNames) {
+  for (const setting of WORLD_GENERATION_ADVANCED_SETTING_NAMES) {
     if (!Object.hasOwn(advancedValue, setting)) continue
     const value = advancedValue[setting]
     if (!settingValueIsValid(setting, value)) {
@@ -229,7 +238,7 @@ export const resolveWorldGenerationConfig = (request: WorldGenerationConfigReque
     Object.assign(resolved, { [setting]: value })
     Object.assign(selectedAdvanced, { [setting]: value })
   }
-  for (const setting of Object.keys(advancedValue).filter(name => !advancedSettingNames.includes(name as keyof WorldGenerationAdvancedSettings)).sort()) {
+  for (const setting of Object.keys(advancedValue).filter(name => !WORLD_GENERATION_ADVANCED_SETTING_NAMES.includes(name as keyof WorldGenerationAdvancedSettings)).sort()) {
     issues.push(issue(`advanced.${setting}`, 'unknown-setting', `${setting} is not a recognized world-generation setting.`))
   }
   const constraintIssues = constraintsFor(resolved)
@@ -277,7 +286,7 @@ export const isWorldGenerationConfigSelection = (value: unknown): value is World
 
 export const isResolvedWorldGenerationConfig = (value: unknown): value is WorldGenerationConfig => {
   if (!isRecord(value) || !hasOnlyKeys(value, resolvedConfigurationNames)) return false
-  const advanced = Object.fromEntries(advancedSettingNames.map(setting => [setting, value[setting]])) as Partial<WorldGenerationAdvancedSettings>
+  const advanced = Object.fromEntries(WORLD_GENERATION_ADVANCED_SETTING_NAMES.map(setting => [setting, value[setting]])) as Partial<WorldGenerationAdvancedSettings>
   const resolution = resolveWorldGenerationConfig({ preset: value.preset as WorldGenerationPreset, advanced })
   return resolution.status === 'valid' && generationConfigurationFingerprint(resolution.configuration) === generationConfigurationFingerprint(value as unknown as WorldGenerationConfig)
 }
