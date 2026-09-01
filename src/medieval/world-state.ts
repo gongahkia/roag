@@ -1,5 +1,5 @@
 import { auditMedievalContentSafety, contentSafetyAuditMatches, type ClassifiedMedievalContent, type MedievalContentSafetyAudit, type MedievalContentSafetyDiagnosticCode } from './content-safety'
-import { createInitialFrontierState, frontierContentRecords, validateFrontierState, type FrontierState } from './frontier'
+import { createInitialFrontierState, frontierContentRecords, validateFrontierState, type FrontierState, type FrontierValidationDiagnosticCode } from './frontier'
 import { INITIAL_WORLD_LIMITS, type InitialWorld } from './initial-world'
 import { isMedievalTemporalState, TEMPORAL_LIMITS, temporalContentRecords, type MedievalTemporalState } from './temporal'
 import type { WorldGenerationConfig } from './generation-config'
@@ -10,7 +10,15 @@ import type { CausalRecord, FoundationCrewMember, FoundationJomon } from './type
  * no renderer, storage, browser, or prototype dependency.
  */
 export const MEDIEVAL_WORLD_STATE_VERSION = 1 as const
-export const MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION = 1 as const
+export const WORLD_GEOGRAPHY_STATE_VERSION = 1 as const
+export const WORLD_SITES_STATE_VERSION = 1 as const
+export const WORLD_ROUTES_STATE_VERSION = 1 as const
+export const WORLD_MARKETS_STATE_VERSION = 1 as const
+export const WORLD_PEOPLE_STATE_VERSION = 1 as const
+export const WORLD_INSTITUTIONS_STATE_VERSION = 1 as const
+export const WORLD_HISTORY_STATE_VERSION = 1 as const
+export const WORLD_JOMON_STATE_VERSION = 1 as const
+export const WORLD_COURIER_STATE_VERSION = 1 as const
 
 /** Bounded containers keep the first persistent-state schema inspectable. */
 export const MEDIEVAL_WORLD_STATE_LIMITS = {
@@ -25,7 +33,7 @@ export const MEDIEVAL_WORLD_STATE_LIMITS = {
 } as const
 
 export interface WorldGeographyState {
-  version: typeof MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION
+  version: typeof WORLD_GEOGRAPHY_STATE_VERSION
   initialWorldId: string
   frontier: FrontierState
 }
@@ -48,7 +56,7 @@ export interface WorldQuayState {
 }
 
 export interface WorldSitesState {
-  version: typeof MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION
+  version: typeof WORLD_SITES_STATE_VERSION
   sites: readonly WorldSiteState[]
   quays: readonly WorldQuayState[]
 }
@@ -66,7 +74,7 @@ export interface WorldRouteConditionState {
 }
 
 export interface WorldRoutesState {
-  version: typeof MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION
+  version: typeof WORLD_ROUTES_STATE_VERSION
   conditions: readonly WorldRouteConditionState[]
 }
 
@@ -78,7 +86,7 @@ export interface WorldMarketState {
 }
 
 export interface WorldMarketsState {
-  version: typeof MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION
+  version: typeof WORLD_MARKETS_STATE_VERSION
   markets: readonly WorldMarketState[]
 }
 
@@ -98,7 +106,7 @@ export interface WorldPersonRegistryEntry {
 }
 
 export interface WorldPeopleState {
-  version: typeof MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION
+  version: typeof WORLD_PEOPLE_STATE_VERSION
   registry: readonly WorldPersonRegistryEntry[]
 }
 
@@ -109,12 +117,12 @@ export interface WorldInstitutionState {
 }
 
 export interface WorldInstitutionsState {
-  version: typeof MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION
+  version: typeof WORLD_INSTITUTIONS_STATE_VERSION
   registry: readonly WorldInstitutionState[]
 }
 
 export interface WorldHistoryState {
-  version: typeof MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION
+  version: typeof WORLD_HISTORY_STATE_VERSION
   records: readonly CausalRecord[]
 }
 
@@ -124,7 +132,7 @@ export interface WorldJomonLocation {
 }
 
 export interface WorldJomonState {
-  version: typeof MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION
+  version: typeof WORLD_JOMON_STATE_VERSION
   vesselId: 'vessel:jomon'
   operationalStatus: 'moored'
   location: WorldJomonLocation
@@ -133,7 +141,7 @@ export interface WorldJomonState {
 }
 
 export interface WorldCourierState {
-  version: typeof MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION
+  version: typeof WORLD_COURIER_STATE_VERSION
   initialCourierId?: string
 }
 
@@ -172,6 +180,7 @@ export type WorldStateValidationDiagnosticCode =
   | 'world-state.invalid-reference'
   | 'world-state.budget-exceeded'
   | 'world-state.invalid-content-audit'
+  | FrontierValidationDiagnosticCode
   | MedievalContentSafetyDiagnosticCode
 
 export interface WorldStateValidationIssue {
@@ -213,6 +222,12 @@ const canonicalIssues = (issues: readonly WorldStateValidationIssue[]): readonly
   .sort((left, right) => compare(left.recordId, right.recordId) || compare(left.code, right.code))
 const idsAreUnique = (values: readonly { id: string }[]): boolean => new Set(values.map(value => value.id)).size === values.length
 const stateLike = (value: unknown): value is MedievalWorldState => record(value) && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'history', 'jomon', 'courier', 'temporal', 'contentSafetyAudit'])
+const validateIdArrayOrder = (value: unknown, recordId: string, issues: WorldStateValidationIssue[]): void => {
+  if (!Array.isArray(value) || !value.every(candidate => record(candidate) && validWorldId(candidate.id))) return
+  const records = value as { id: string }[]
+  if (!idsAreUnique(records)) issues.push(issue(recordId, 'world-state.duplicate-id'))
+  if (!isSortedById(records)) issues.push(issue(recordId, 'world-state.noncanonical-order'))
+}
 
 const initialSiteRecords = (initialWorld: InitialWorld): readonly WorldSiteState[] => initialWorld.settlements.map(settlement => ({
   id: settlement.id,
@@ -275,7 +290,7 @@ const auditStateContent = (state: Pick<MedievalWorldState, 'geography' | 'histor
 }
 
 const initialJomonState = (jomon: FoundationJomon, sites: readonly WorldSiteState[], crew: readonly FoundationCrewMember[]): WorldJomonState => ({
-  version: MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION,
+  version: WORLD_JOMON_STATE_VERSION,
   vesselId: jomon.id,
   operationalStatus: 'moored',
   location: { kind: 'site', id: sites[0]!.id },
@@ -288,15 +303,15 @@ export const createMedievalWorldState = (context: WorldStateConstructionContext)
   const sites = siteRecordsFor(context.initialWorld, context.frontier)
   const stateWithoutAudit: Omit<MedievalWorldState, 'contentSafetyAudit'> = {
     version: MEDIEVAL_WORLD_STATE_VERSION,
-    geography: { version: MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION, initialWorldId: context.initialWorld.id, frontier: structuredClone(context.frontier) },
-    sites: { version: MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION, sites, quays: quayRecordsFor(context.jomon) },
-    routes: { version: MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION, conditions: routeRecordsFor(context.initialWorld) },
-    markets: { version: MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION, markets: marketRecordsFor(sites) },
-    people: { version: MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION, registry: peopleRecordsFor(context.initialWorld, context.jomon, context.crew) },
-    institutions: { version: MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION, registry: institutionRecordsFor(context.initialWorld) },
-    history: { version: MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION, records: causalHistoryWithTemporal(context.foundationHistory, context.temporal) },
+    geography: { version: WORLD_GEOGRAPHY_STATE_VERSION, initialWorldId: context.initialWorld.id, frontier: structuredClone(context.frontier) },
+    sites: { version: WORLD_SITES_STATE_VERSION, sites, quays: quayRecordsFor(context.jomon) },
+    routes: { version: WORLD_ROUTES_STATE_VERSION, conditions: routeRecordsFor(context.initialWorld) },
+    markets: { version: WORLD_MARKETS_STATE_VERSION, markets: marketRecordsFor(sites) },
+    people: { version: WORLD_PEOPLE_STATE_VERSION, registry: peopleRecordsFor(context.initialWorld, context.jomon, context.crew) },
+    institutions: { version: WORLD_INSTITUTIONS_STATE_VERSION, registry: institutionRecordsFor(context.initialWorld) },
+    history: { version: WORLD_HISTORY_STATE_VERSION, records: causalHistoryWithTemporal(context.foundationHistory, context.temporal) },
     jomon: structuredClone(context.jomonState ?? initialJomonState(context.jomon, sites, context.crew)),
-    courier: { version: MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION, ...(context.initialCourierId === undefined ? {} : { initialCourierId: context.initialCourierId }) },
+    courier: { version: WORLD_COURIER_STATE_VERSION, ...(context.initialCourierId === undefined ? {} : { initialCourierId: context.initialCourierId }) },
     temporal: structuredClone(context.temporal)
   }
   const state: MedievalWorldState = { ...stateWithoutAudit, contentSafetyAudit: auditStateContent(stateWithoutAudit) }
@@ -305,7 +320,7 @@ export const createMedievalWorldState = (context: WorldStateConstructionContext)
   return state
 }
 
-const validSubdomain = (value: unknown, keys: readonly string[]): value is Record<string, unknown> => record(value) && value.version === MEDIEVAL_WORLD_STATE_SUBDOMAIN_VERSION && hasOnlyKeys(value, keys)
+const validSubdomain = (value: unknown, version: number, keys: readonly string[]): value is Record<string, unknown> => record(value) && value.version === version && hasOnlyKeys(value, keys)
 const validWorldId = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 const validLocation = (value: unknown): value is WorldJomonLocation => record(value) && hasOnlyKeys(value, ['kind', 'id']) && (value.kind === 'site' || value.kind === 'quay') && validWorldId(value.id)
 const validCausalRecord = (value: unknown): value is CausalRecord => record(value) && hasOnlyKeys(value, ['sequence', 'atWorldTime', 'kind', 'detail', 'contentSafety']) && safeInteger(value.sequence) && safeInteger(value.atWorldTime) && ['world-created', 'initial-courier-selected', 'temporal-action', 'scheduled-event-resolved'].includes(String(value.kind)) && typeof value.detail === 'string'
@@ -324,53 +339,62 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
   if (!stateLike(value)) return [issue('world-state', 'world-state.malformed-state')]
   if (value.version !== MEDIEVAL_WORLD_STATE_VERSION) issues.push(issue('world-state', 'world-state.invalid-version'))
 
-  if (!validSubdomain(value.geography, ['version', 'initialWorldId', 'frontier']) || value.geography.initialWorldId !== context.initialWorld.id || !record(value.geography.frontier)) issues.push(issue('world-state:geography', 'world-state.invalid-geography'))
-  else {
-    const frontier = value.geography.frontier as FrontierState
-    const frontierIssues = validateFrontierState({ seed: context.seed, configuration: context.configuration, initialWorld: context.initialWorld }, frontier)
-    if (frontierIssues.length) issues.push(...frontierIssues.map(diagnostic => issue(diagnostic.recordId, diagnostic.code)))
-    if (!rootCommitmentsMatch(context, frontier)) issues.push(issue('world-state:frontier', 'world-state.invalid-frontier-root'))
+  let frontier: FrontierState | undefined
+  if (!validSubdomain(value.geography, WORLD_GEOGRAPHY_STATE_VERSION, ['version', 'initialWorldId', 'frontier']) || value.geography.initialWorldId !== context.initialWorld.id || !record(value.geography.frontier)) {
+    issues.push(issue('world-state:geography', 'world-state.invalid-geography'))
+  } else {
+    try {
+      const candidate = value.geography.frontier as FrontierState
+      const frontierIssues = validateFrontierState({ seed: context.seed, configuration: context.configuration, initialWorld: context.initialWorld }, candidate)
+      if (frontierIssues.length) issues.push(...frontierIssues.map(diagnostic => issue(diagnostic.recordId, diagnostic.code)))
+      if (!rootCommitmentsMatch(context, candidate)) issues.push(issue('world-state:frontier', 'world-state.invalid-frontier-root'))
+      if (!frontierIssues.length && rootCommitmentsMatch(context, candidate)) frontier = candidate
+    } catch {
+      issues.push(issue('world-state:geography', 'world-state.invalid-geography'))
+    }
   }
 
-  const frontier = validSubdomain(value.geography, ['version', 'initialWorldId', 'frontier']) && record(value.geography.frontier) ? value.geography.frontier as FrontierState : undefined
   const expectedSites = frontier === undefined ? [] : siteRecordsFor(context.initialWorld, frontier)
-  if (!validSubdomain(value.sites, ['version', 'sites', 'quays']) || !Array.isArray(value.sites.sites) || !Array.isArray(value.sites.quays) || value.sites.sites.length > MEDIEVAL_WORLD_STATE_LIMITS.sites || !same(value.sites.sites, expectedSites)) issues.push(issue('world-state:sites', value.sites && Array.isArray((value.sites as { sites?: unknown }).sites) && (value.sites as { sites: unknown[] }).sites.length > MEDIEVAL_WORLD_STATE_LIMITS.sites ? 'world-state.budget-exceeded' : 'world-state.invalid-sites'))
-  else if (!isSortedById(value.sites.sites as WorldSiteState[]) || !idsAreUnique(value.sites.sites as WorldSiteState[])) issues.push(issue('world-state:sites', 'world-state.noncanonical-order'))
+  validateIdArrayOrder(value.sites?.sites, 'world-state:sites', issues)
+  validateIdArrayOrder(value.sites?.quays, 'world-state:quays', issues)
+  validateIdArrayOrder(value.routes?.conditions, 'world-state:routes', issues)
+  validateIdArrayOrder(value.markets?.markets, 'world-state:markets', issues)
+  validateIdArrayOrder(value.people?.registry, 'world-state:people', issues)
+  validateIdArrayOrder(value.institutions?.registry, 'world-state:institutions', issues)
+  if (!validSubdomain(value.sites, WORLD_SITES_STATE_VERSION, ['version', 'sites', 'quays']) || !Array.isArray(value.sites.sites) || !Array.isArray(value.sites.quays) || value.sites.sites.length > MEDIEVAL_WORLD_STATE_LIMITS.sites || !same(value.sites.sites, expectedSites)) issues.push(issue('world-state:sites', value.sites && Array.isArray(value.sites.sites) && value.sites.sites.length > MEDIEVAL_WORLD_STATE_LIMITS.sites ? 'world-state.budget-exceeded' : 'world-state.invalid-sites'))
   const expectedQuays = quayRecordsFor(context.jomon)
-  if (!validSubdomain(value.sites, ['version', 'sites', 'quays']) || !Array.isArray(value.sites.quays) || value.sites.quays.length > MEDIEVAL_WORLD_STATE_LIMITS.quays || !same(value.sites.quays, expectedQuays)) issues.push(issue('world-state:quays', value.sites && Array.isArray((value.sites as { quays?: unknown }).quays) && (value.sites as { quays: unknown[] }).quays.length > MEDIEVAL_WORLD_STATE_LIMITS.quays ? 'world-state.budget-exceeded' : 'world-state.invalid-quays'))
-  else if (!isSortedById(value.sites.quays as WorldQuayState[]) || !idsAreUnique(value.sites.quays as WorldQuayState[])) issues.push(issue('world-state:quays', 'world-state.noncanonical-order'))
+  if (!validSubdomain(value.sites, WORLD_SITES_STATE_VERSION, ['version', 'sites', 'quays']) || !Array.isArray(value.sites.quays) || value.sites.quays.length > MEDIEVAL_WORLD_STATE_LIMITS.quays || !same(value.sites.quays, expectedQuays)) issues.push(issue('world-state:quays', value.sites && Array.isArray(value.sites.quays) && value.sites.quays.length > MEDIEVAL_WORLD_STATE_LIMITS.quays ? 'world-state.budget-exceeded' : 'world-state.invalid-quays'))
 
   const expectedRoutes = routeRecordsFor(context.initialWorld)
-  if (!validSubdomain(value.routes, ['version', 'conditions']) || !Array.isArray(value.routes.conditions) || value.routes.conditions.length > MEDIEVAL_WORLD_STATE_LIMITS.routeConditions || !same(value.routes.conditions, expectedRoutes)) issues.push(issue('world-state:routes', value.routes && Array.isArray((value.routes as { conditions?: unknown }).conditions) && (value.routes as { conditions: unknown[] }).conditions.length > MEDIEVAL_WORLD_STATE_LIMITS.routeConditions ? 'world-state.budget-exceeded' : 'world-state.invalid-routes'))
-  else if (!isSortedById(value.routes.conditions as WorldRouteConditionState[]) || !idsAreUnique(value.routes.conditions as WorldRouteConditionState[])) issues.push(issue('world-state:routes', 'world-state.noncanonical-order'))
+  if (!validSubdomain(value.routes, WORLD_ROUTES_STATE_VERSION, ['version', 'conditions']) || !Array.isArray(value.routes.conditions) || value.routes.conditions.length > MEDIEVAL_WORLD_STATE_LIMITS.routeConditions || !same(value.routes.conditions, expectedRoutes)) issues.push(issue('world-state:routes', value.routes && Array.isArray(value.routes.conditions) && value.routes.conditions.length > MEDIEVAL_WORLD_STATE_LIMITS.routeConditions ? 'world-state.budget-exceeded' : 'world-state.invalid-routes'))
 
   const expectedMarkets = marketRecordsFor(expectedSites)
-  if (!validSubdomain(value.markets, ['version', 'markets']) || !Array.isArray(value.markets.markets) || value.markets.markets.length > MEDIEVAL_WORLD_STATE_LIMITS.markets || !same(value.markets.markets, expectedMarkets)) issues.push(issue('world-state:markets', value.markets && Array.isArray((value.markets as { markets?: unknown }).markets) && (value.markets as { markets: unknown[] }).markets.length > MEDIEVAL_WORLD_STATE_LIMITS.markets ? 'world-state.budget-exceeded' : 'world-state.invalid-markets'))
-  else if (!isSortedById(value.markets.markets as WorldMarketState[]) || !idsAreUnique(value.markets.markets as WorldMarketState[])) issues.push(issue('world-state:markets', 'world-state.noncanonical-order'))
+  if (!validSubdomain(value.markets, WORLD_MARKETS_STATE_VERSION, ['version', 'markets']) || !Array.isArray(value.markets.markets) || value.markets.markets.length > MEDIEVAL_WORLD_STATE_LIMITS.markets || !same(value.markets.markets, expectedMarkets)) issues.push(issue('world-state:markets', value.markets && Array.isArray(value.markets.markets) && value.markets.markets.length > MEDIEVAL_WORLD_STATE_LIMITS.markets ? 'world-state.budget-exceeded' : 'world-state.invalid-markets'))
 
   const expectedPeople = peopleRecordsFor(context.initialWorld, context.jomon, context.crew)
-  if (!validSubdomain(value.people, ['version', 'registry']) || !Array.isArray(value.people.registry) || value.people.registry.length > MEDIEVAL_WORLD_STATE_LIMITS.people || !same(value.people.registry, expectedPeople)) issues.push(issue('world-state:people', value.people && Array.isArray((value.people as { registry?: unknown }).registry) && (value.people as { registry: unknown[] }).registry.length > MEDIEVAL_WORLD_STATE_LIMITS.people ? 'world-state.budget-exceeded' : 'world-state.invalid-people'))
-  else if (!isSortedById(value.people.registry as WorldPersonRegistryEntry[]) || !idsAreUnique(value.people.registry as WorldPersonRegistryEntry[])) issues.push(issue('world-state:people', 'world-state.noncanonical-order'))
+  if (!validSubdomain(value.people, WORLD_PEOPLE_STATE_VERSION, ['version', 'registry']) || !Array.isArray(value.people.registry) || value.people.registry.length > MEDIEVAL_WORLD_STATE_LIMITS.people || !same(value.people.registry, expectedPeople)) issues.push(issue('world-state:people', value.people && Array.isArray(value.people.registry) && value.people.registry.length > MEDIEVAL_WORLD_STATE_LIMITS.people ? 'world-state.budget-exceeded' : 'world-state.invalid-people'))
 
   const expectedInstitutions = institutionRecordsFor(context.initialWorld)
-  if (!validSubdomain(value.institutions, ['version', 'registry']) || !Array.isArray(value.institutions.registry) || value.institutions.registry.length > MEDIEVAL_WORLD_STATE_LIMITS.institutions || !same(value.institutions.registry, expectedInstitutions)) issues.push(issue('world-state:institutions', value.institutions && Array.isArray((value.institutions as { registry?: unknown }).registry) && (value.institutions as { registry: unknown[] }).registry.length > MEDIEVAL_WORLD_STATE_LIMITS.institutions ? 'world-state.budget-exceeded' : 'world-state.invalid-institutions'))
-  else if (!isSortedById(value.institutions.registry as WorldInstitutionState[]) || !idsAreUnique(value.institutions.registry as WorldInstitutionState[])) issues.push(issue('world-state:institutions', 'world-state.noncanonical-order'))
+  if (!validSubdomain(value.institutions, WORLD_INSTITUTIONS_STATE_VERSION, ['version', 'registry']) || !Array.isArray(value.institutions.registry) || value.institutions.registry.length > MEDIEVAL_WORLD_STATE_LIMITS.institutions || !same(value.institutions.registry, expectedInstitutions)) issues.push(issue('world-state:institutions', value.institutions && Array.isArray(value.institutions.registry) && value.institutions.registry.length > MEDIEVAL_WORLD_STATE_LIMITS.institutions ? 'world-state.budget-exceeded' : 'world-state.invalid-institutions'))
 
   const temporal = isMedievalTemporalState(value.temporal) ? value.temporal : undefined
   if (!temporal) issues.push(issue('world-state:temporal', 'world-state.invalid-temporal'))
-  const courierId = validSubdomain(value.courier, value.courier && record(value.courier) && value.courier.initialCourierId === undefined ? ['version'] : ['version', 'initialCourierId']) && (value.courier.initialCourierId === undefined || validWorldId(value.courier.initialCourierId)) ? value.courier.initialCourierId as string | undefined : undefined
-  if (!validSubdomain(value.courier, value.courier && record(value.courier) && value.courier.initialCourierId === undefined ? ['version'] : ['version', 'initialCourierId']) || (value.courier.initialCourierId !== undefined && !context.crew.some(member => member.id === value.courier.initialCourierId && member.eligible))) issues.push(issue('world-state:courier', 'world-state.invalid-courier'))
+  if (!validSubdomain(value.courier, WORLD_COURIER_STATE_VERSION, value.courier && record(value.courier) && value.courier.initialCourierId === undefined ? ['version'] : ['version', 'initialCourierId']) || (value.courier.initialCourierId !== undefined && !context.crew.some(member => member.id === value.courier.initialCourierId && member.eligible))) issues.push(issue('world-state:courier', 'world-state.invalid-courier'))
 
   const expectedHistory = temporal === undefined ? [] : causalHistoryWithTemporal(context.foundationHistory, temporal)
-  if (!validSubdomain(value.history, ['version', 'records']) || !Array.isArray(value.history.records) || value.history.records.length > MEDIEVAL_WORLD_STATE_LIMITS.historyRecords || !value.history.records.every(validCausalRecord) || !same(value.history.records, expectedHistory)) issues.push(issue('world-state:history', value.history && Array.isArray((value.history as { records?: unknown }).records) && (value.history as { records: unknown[] }).records.length > MEDIEVAL_WORLD_STATE_LIMITS.historyRecords ? 'world-state.budget-exceeded' : 'world-state.invalid-history'))
+  if (!validSubdomain(value.history, WORLD_HISTORY_STATE_VERSION, ['version', 'records']) || !Array.isArray(value.history.records) || value.history.records.length > MEDIEVAL_WORLD_STATE_LIMITS.historyRecords || !value.history.records.every(validCausalRecord) || !same(value.history.records, expectedHistory)) issues.push(issue('world-state:history', value.history && Array.isArray(value.history.records) && value.history.records.length > MEDIEVAL_WORLD_STATE_LIMITS.historyRecords ? 'world-state.budget-exceeded' : 'world-state.invalid-history'))
   else if ((value.history.records as CausalRecord[]).some((entry, index) => entry.sequence !== index)) issues.push(issue('world-state:history', 'world-state.noncanonical-order'))
 
   const sites = Array.isArray(value.sites?.sites) ? value.sites.sites as WorldSiteState[] : []
   const quays = Array.isArray(value.sites?.quays) ? value.sites.quays as WorldQuayState[] : []
   const jomon = value.jomon
-  if (!validSubdomain(jomon, ['version', 'vesselId', 'operationalStatus', 'location', 'integrity', 'capacity']) || jomon.vesselId !== context.jomon.id || jomon.operationalStatus !== 'moored' || !validLocation(jomon.location) || (jomon.location.kind === 'site' ? !sites.some(site => site.id === jomon.location.id) : !quays.some(quay => quay.id === jomon.location.id)) || !record(jomon.integrity) || !hasOnlyKeys(jomon.integrity, ['current', 'maximum']) || !safeInteger(jomon.integrity.current) || !safeInteger(jomon.integrity.maximum) || jomon.integrity.maximum < 1 || jomon.integrity.maximum > MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum || jomon.integrity.current > jomon.integrity.maximum || !record(jomon.capacity) || !hasOnlyKeys(jomon.capacity, ['cargoUnits', 'berthSlots', 'workSlots']) || !safeInteger(jomon.capacity.cargoUnits) || !safeInteger(jomon.capacity.berthSlots) || !safeInteger(jomon.capacity.workSlots) || jomon.capacity.cargoUnits > MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum || jomon.capacity.berthSlots > MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum || jomon.capacity.workSlots > MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum) issues.push(issue('world-state:jomon', 'world-state.invalid-jomon'))
+  if (!validSubdomain(jomon, WORLD_JOMON_STATE_VERSION, ['version', 'vesselId', 'operationalStatus', 'location', 'integrity', 'capacity']) || jomon.vesselId !== context.jomon.id || jomon.operationalStatus !== 'moored' || !validLocation(jomon.location) || (jomon.location.kind === 'site' ? !sites.some(site => site.id === jomon.location.id) : !quays.some(quay => quay.id === jomon.location.id)) || !record(jomon.integrity) || !hasOnlyKeys(jomon.integrity, ['current', 'maximum']) || !safeInteger(jomon.integrity.current) || !safeInteger(jomon.integrity.maximum) || jomon.integrity.maximum < 1 || jomon.integrity.maximum > MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum || jomon.integrity.current > jomon.integrity.maximum || !record(jomon.capacity) || !hasOnlyKeys(jomon.capacity, ['cargoUnits', 'berthSlots', 'workSlots']) || !safeInteger(jomon.capacity.cargoUnits) || !safeInteger(jomon.capacity.berthSlots) || !safeInteger(jomon.capacity.workSlots) || jomon.capacity.cargoUnits > MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum || jomon.capacity.berthSlots > MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum || jomon.capacity.workSlots > MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum) issues.push(issue('world-state:jomon', 'world-state.invalid-jomon'))
 
-  if (value.contentSafetyAudit === undefined || !contentSafetyAuditMatches(medievalWorldStateContentRecords(value), value.contentSafetyAudit)) issues.push(issue('world-state:content-safety', 'world-state.invalid-content-audit'))
+  try {
+    if (value.contentSafetyAudit === undefined || !contentSafetyAuditMatches(medievalWorldStateContentRecords(value), value.contentSafetyAudit)) issues.push(issue('world-state:content-safety', 'world-state.invalid-content-audit'))
+  } catch {
+    issues.push(issue('world-state:content-safety', 'world-state.invalid-content-audit'))
+  }
   return canonicalIssues(issues)
 }
 

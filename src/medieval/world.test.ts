@@ -13,7 +13,7 @@ describe('medieval foundation worlds', () => {
     expect(second).toEqual(first)
     expect(first.crew).toHaveLength(6)
     expect(new Set(first.crew.map(member => member.id)).size).toBe(first.crew.length)
-    expect(first.manifest.initialCourierId).toBeUndefined()
+    expect(first.state.courier.initialCourierId).toBeUndefined()
     expect(first.jomon).toMatchObject({ id: 'vessel:jomon', name: 'Jomon', deckPartitions: expect.arrayContaining(['tavern', 'chart-table', 'cargo-hold', 'gangplank']) })
   })
 
@@ -24,7 +24,7 @@ describe('medieval foundation worlds', () => {
 
     const selected = chooseInitialCourier(world, chosen!.id)
 
-    expect(selected.manifest.initialCourierId).toBe(chosen!.id)
+    expect(selected.state.courier.initialCourierId).toBe(chosen!.id)
     expect(selected.crew).toEqual(world.crew)
     expect(() => chooseInitialCourier(world, 'crew:not-present')).toThrow('eligible')
   })
@@ -45,8 +45,8 @@ describe('medieval foundation worlds', () => {
     expect(trace).toContain('routes-trade-history:completed')
     expect(trace.at(-1)).toBe('validation:accepted')
     expect(trace.filter(item => item.endsWith(':started'))).toHaveLength(INITIAL_WORLD_GENERATION_STAGES.length - 1)
-    expect(world.worldTime).toBe(0)
-    expect(world.manifest.initialCourierId).toBeUndefined()
+    expect(world.state.temporal.worldTime).toBe(0)
+    expect(world.state.courier.initialCourierId).toBeUndefined()
   })
 
   it('normalizes selected generation settings and preserves their resolved provenance in the manifest', () => {
@@ -59,7 +59,7 @@ describe('medieval foundation worlds', () => {
     })
 
     expect(world.manifest).toMatchObject({
-      version: 5,
+      version: 6,
       creation: {
         seed: 'river ash',
         contractVersions: {
@@ -106,7 +106,11 @@ describe('medieval foundation worlds', () => {
       status: 'accepted',
       diagnostics: []
     })
-    expect(world.manifest.currentContentSafetyAudit).toEqual(world.manifest.creation.contentSafetyAudit)
+    expect(world.state.contentSafetyAudit).toMatchObject({
+      policyVersion: MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION,
+      status: 'accepted',
+      diagnostics: []
+    })
     expect(world.manifest.creation.contentSafetyAudit.reviewed).toEqual(expect.arrayContaining([
       { id: 'world:label', domain: 'place', classification: expect.objectContaining({ domains: ['place', 'player-facing-text'] }) },
       { id: 'vessel:jomon', domain: 'place', classification: expect.objectContaining({ domains: ['place', 'player-facing-text'] }) },
@@ -118,7 +122,7 @@ describe('medieval foundation worlds', () => {
       { id: world.initialWorld.watershed.id, domain: 'place', classification: expect.any(Object) },
       { id: world.initialWorld.routeHazards[0]!.id, domain: 'hazard', classification: expect.objectContaining({ domains: ['hazard', 'player-facing-text'] }) }
     ]))
-    expect(recreateFoundationWorld(world.manifest).manifest.currentContentSafetyAudit).toEqual(world.manifest.currentContentSafetyAudit)
+    expect(recreateFoundationWorld(world.manifest).state.contentSafetyAudit).toEqual(world.state.contentSafetyAudit)
 
     const forgedManifest = structuredClone(world.manifest)
     const auditedHistory = forgedManifest.creation.contentSafetyAudit.reviewed.find(record => record.domain === 'history')
@@ -166,7 +170,7 @@ describe('medieval foundation worlds', () => {
 
     expect(chronicle.status).toBe('finalized')
     expect(chronicle.reason).toBe('crew-extinction')
-    expect(chronicle.world.manifest.initialCourierId).toBe('crew:0')
+    expect(chronicle.world.state.courier.initialCourierId).toBe('crew:0')
     expect(chronicle.world.crew).toEqual(selected.crew)
   })
 })

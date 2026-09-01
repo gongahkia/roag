@@ -38,8 +38,8 @@ describe('medieval action clock and deterministic scheduler', () => {
   it('creates and reconstructs a zero-time scheduler without an RNG cursor', () => {
     const world = createFoundationWorld({ seed: 'clock zero' })
 
-    expect(world.worldTime).toBe(0)
-    expect(world.temporal).toMatchObject({
+    expect(world.state.temporal.worldTime).toBe(0)
+    expect(world.state.temporal).toMatchObject({
       version: MEDIEVAL_TEMPORAL_CONTRACT_VERSION,
       timeUnit: MEDIEVAL_TIME_UNIT,
       worldTime: 0,
@@ -60,11 +60,11 @@ describe('medieval action clock and deterministic scheduler', () => {
     const nextSecond = advanceFoundationWorldTime(second, scheduled)
 
     expect(nextFirst).toEqual(nextSecond)
-    expect(nextFirst.worldTime).toBe(1)
-    expect(nextFirst.temporal.actionSequence).toBe(1)
-    expect(nextFirst.temporal.pendingEvents).toEqual([])
-    expect(nextFirst.temporal.causalRecords.map(record => record.kind)).toEqual(['action-completed', 'event-resolved'])
-    expect(nextFirst.causalHistory.map(record => record.kind)).toEqual(['world-created', 'initial-courier-selected', 'temporal-action', 'scheduled-event-resolved'])
+    expect(nextFirst.state.temporal.worldTime).toBe(1)
+    expect(nextFirst.state.temporal.actionSequence).toBe(1)
+    expect(nextFirst.state.temporal.pendingEvents).toEqual([])
+    expect(nextFirst.state.temporal.causalRecords.map(record => record.kind)).toEqual(['action-completed', 'event-resolved'])
+    expect(nextFirst.state.history.records.map(record => record.kind)).toEqual(['world-created', 'initial-courier-selected', 'temporal-action', 'scheduled-event-resolved'])
     expect(nextFirst.manifest).toEqual(first.manifest)
   })
 

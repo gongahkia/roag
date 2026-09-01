@@ -166,8 +166,23 @@ describe('medieval local persistence', () => {
 
     expect(index.activeWorlds.map(entry => entry.id)).toEqual([first.id, second.id].sort())
     expect(loadedFirst).toEqual(first)
+    if (!loadedFirst) throw new Error('saved medieval world should load')
+    loadedFirst.state.jomon.integrity.current = 1
+    expect(await repository.loadWorld(first.id)).toEqual(first)
     expect(await repository.loadWorld(second.id)).toEqual(second)
     expect(await repository.loadWorld('world:not-present')).toBeUndefined()
+  })
+
+  it('keeps valid local creation settings intact while saving and loading the v3 full-world record', async () => {
+    const repository = new MedievalWorldRepository()
+    const settings = { ...defaultCreationSettings(), seed: 'settings-survive-state', configuration: { preset: 'far-coast' as const, advanced: {} } }
+    const world = chooseInitialCourier(createFoundationWorld({ seed: 'settings-survive-state', configuration: settings.configuration }), 'crew:0')
+
+    await repository.saveLastUsedCreationSettings(settings)
+    await repository.saveWorld(world)
+
+    expect((await repository.loadCreationSettings()).lastUsed).toEqual(settings)
+    expect(await repository.loadWorld(world.id)).toEqual(world)
   })
 
   it('rejects malformed local records instead of treating them as a medieval world', async () => {
@@ -193,9 +208,9 @@ describe('medieval local persistence', () => {
   it('rejects the older medieval world envelope rather than inferring its missing scheduler state', async () => {
     const repository = new MedievalWorldRepository()
     const world = createFoundationWorld({ seed: 'clock-envelope-clean-break' })
-    const legacy = structuredClone(world) as unknown as { version: number; temporal?: unknown }
-    legacy.version = 1
-    delete legacy.temporal
+    const legacy = structuredClone(world) as unknown as { version: number; state?: unknown }
+    legacy.version = 2
+    delete legacy.state
 
     await repository.loadIndex()
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(world.id, legacy)
@@ -224,7 +239,7 @@ describe('medieval local persistence', () => {
 
     expect(await repository.loadWorld(advanced.id)).toEqual(advanced)
     expect(advanced.manifest).toEqual(world.manifest)
-    expect(advanced.temporal.pendingEvents.map(event => event.id)).toEqual(['event:moor'])
+    expect(advanced.state.temporal.pendingEvents.map(event => event.id)).toEqual(['event:moor'])
   })
 
   it('rejects a stored world whose manifest provenance does not reproduce its resolved configuration', async () => {

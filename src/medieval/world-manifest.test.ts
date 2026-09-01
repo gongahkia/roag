@@ -24,7 +24,8 @@ describe('world manifest provenance', () => {
 
     expect(selected.manifest.creation).toEqual(world.manifest.creation)
     expect(recreateFoundationWorld(world.manifest)).toEqual(world)
-    expect(recreateFoundationWorld(selected.manifest)).toEqual(selected)
+    expect(selected.manifest).toEqual(world.manifest)
+    expect(recreateFoundationWorld(selected.manifest)).toEqual(world)
   })
 
   it('records stable initial-world and frontier-root identities that reproduce the root commitments', () => {
