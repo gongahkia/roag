@@ -1,8 +1,9 @@
 import type { GenerationDiagnostics, WorldGenerationConfig, WorldGenerationConfigSelection } from './generation-config'
 import type { MedievalContentSafetyAudit, MedievalContentSafetyClassification } from './content-safety'
+import type { InitialWorld, InitialWorldGenerationDiagnostics } from './initial-world'
 
-export const FOUNDATION_GENERATOR_VERSION = 'foundation-1' as const
-export const FOUNDATION_MANIFEST_VERSION = 3 as const
+export const FOUNDATION_GENERATOR_VERSION = 'foundation-2' as const
+export const FOUNDATION_MANIFEST_VERSION = 4 as const
 export const MEDIEVAL_DATABASE_NAME = 'jomon-medieval-worlds-v1' as const
 
 export interface WorldManifest {
@@ -11,6 +12,7 @@ export interface WorldManifest {
   selectedConfiguration: WorldGenerationConfigSelection
   resolvedConfiguration: WorldGenerationConfig
   generationDiagnostics: GenerationDiagnostics
+  initialWorldGeneration: InitialWorldGenerationDiagnostics
   generatorVersion: typeof FOUNDATION_GENERATOR_VERSION
   label: string
   labelContentSafety: MedievalContentSafetyClassification
@@ -82,6 +84,7 @@ export interface FoundationWorld {
   manifest: WorldManifest
   jomon: FoundationJomon
   crew: readonly FoundationCrewMember[]
+  initialWorld: InitialWorld
   worldTime: 0
   causalHistory: readonly CausalRecord[]
 }
