@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION, PROHIBITED_MEDIEVAL_CONTENT_CLASSES } from './content-safety'
 import { generationRetryPlan, resolveWorldGenerationConfig } from './generation-config'
-import { INITIAL_WORLD_GENERATOR_VERSION, INITIAL_WORLD_LIMITS, generateInitialWorld, selectInitialWorldCandidate, validateInitialWorldCandidate } from './initial-world'
+import { INITIAL_WORLD_GENERATION_STAGES, INITIAL_WORLD_GENERATOR_VERSION, INITIAL_WORLD_LIMITS, generateInitialWorld, selectInitialWorldCandidate, validateInitialWorldCandidate } from './initial-world'
 
 const configurationFor = (request: Parameters<typeof resolveWorldGenerationConfig>[0] = {}) => {
   const resolution = resolveWorldGenerationConfig(request)
@@ -29,6 +29,22 @@ describe('medieval initial-world generation', () => {
       }]
     })
     expect(validateInitialWorldCandidate(first.world, configuration)).toEqual([])
+  })
+
+  it('reports only actual deterministic candidate stages without changing the generated world', () => {
+    const configuration = configurationFor()
+    const trace: { stage: string; status: string; candidateAttempt: number; completedStages: number; totalStages: number; streamSeed: string }[] = []
+    const generated = generateInitialWorld('progress-basin', configuration, progress => trace.push(progress))
+
+    expect(trace.map(({ streamSeed: _streamSeed, ...progress }) => progress)).toEqual([
+      ...INITIAL_WORLD_GENERATION_STAGES.slice(0, -1).flatMap((stage, index) => [
+        { stage, status: 'started', candidateAttempt: 0, completedStages: index, totalStages: INITIAL_WORLD_GENERATION_STAGES.length },
+        { stage, status: 'completed', candidateAttempt: 0, completedStages: index + 1, totalStages: INITIAL_WORLD_GENERATION_STAGES.length }
+      ]),
+      { stage: 'validation', status: 'accepted', candidateAttempt: 0, completedStages: INITIAL_WORLD_GENERATION_STAGES.length, totalStages: INITIAL_WORLD_GENERATION_STAGES.length }
+    ])
+    expect(trace.map(progress => progress.streamSeed)).toEqual(Array(trace.length).fill(generationRetryPlan('progress-basin', configuration)[0]!.streamSeed))
+    expect(generateInitialWorld('progress-basin', configuration)).toEqual(generated)
   })
 
   it('keeps every downstream record attached to a viable upstream place, resource, institution, route, and actor', () => {

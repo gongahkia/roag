@@ -179,8 +179,6 @@ const presetDefinitions: Readonly<Record<WorldGenerationPreset, WorldGenerationP
 export const GENERATION_CONFIG_PRESETS = presetDefinitions
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-const includes = <Value>(values: readonly Value[], value: unknown): value is Value => values.includes(value as Value)
-const isScale = (value: unknown): value is GenerationScale => includes(scaleValues, value)
 const validPreset = (value: unknown): value is WorldGenerationPreset => typeof value === 'string' && Object.hasOwn(presetDefinitions, value)
 
 const issue = (field: string, code: WorldGenerationConfigIssue['code'], message: string): WorldGenerationConfigIssue => ({ field, code, message })
@@ -213,7 +211,10 @@ const constraintsFor = (configuration: WorldGenerationConfig): readonly WorldGen
  * A malformed request is rejected rather than repaired, so sharing a manifest
  * never silently changes the intended world.
  */
-export const resolveWorldGenerationConfig = (request: WorldGenerationConfigRequest = {}): WorldGenerationConfigResolution => {
+export const resolveWorldGenerationConfig = (request: WorldGenerationConfigRequest | unknown = {}): WorldGenerationConfigResolution => {
+  if (!isRecord(request)) {
+    return { status: 'invalid', issues: [issue('configuration', 'invalid-value', 'world-generation configuration must be an object.')] }
+  }
   const presetValue = request.preset ?? DEFAULT_WORLD_GENERATION_PRESET
   if (!validPreset(presetValue)) {
     return { status: 'invalid', issues: [issue('preset', 'invalid-value', 'preset must name a known world-generation preset.')] }

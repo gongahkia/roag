@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION } from './content-safety'
 import { addChronicleToIndex, addWorldToIndex, emptyWorldIndex, removeWorldFromIndex } from './storage'
 import { generationRetryPlan } from './generation-config'
+import { INITIAL_WORLD_GENERATION_STAGES } from './initial-world'
 import { InvalidWorldGenerationConfigurationError, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, foundationWorldContentSatisfiesSafetyPolicy, recreateFoundationWorld, serializeWorldManifest } from './world'
 
 describe('medieval foundation worlds', () => {
@@ -34,6 +35,18 @@ describe('medieval foundation worlds', () => {
 
     expect(second.id).not.toBe(first.id)
     expect(second.crew).not.toEqual(first.crew)
+  })
+
+  it('passes actual bounded generator progress to creation UI callers without mutating zero-time state', () => {
+    const trace: string[] = []
+    const world = createFoundationWorld({ seed: 'observable-creation', onGenerationProgress: progress => trace.push(`${progress.stage}:${progress.status}`) })
+
+    expect(trace).toContain('watershed-hydrology:started')
+    expect(trace).toContain('routes-trade-history:completed')
+    expect(trace.at(-1)).toBe('validation:accepted')
+    expect(trace.filter(item => item.endsWith(':started'))).toHaveLength(INITIAL_WORLD_GENERATION_STAGES.length - 1)
+    expect(world.worldTime).toBe(0)
+    expect(world.manifest.initialCourierId).toBeUndefined()
   })
 
   it('normalizes selected generation settings and preserves their resolved provenance in the manifest', () => {

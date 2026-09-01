@@ -51,20 +51,23 @@ export const normalizeCreationSeed = (seed: string | undefined): string => {
   return normalized || DEFAULT_CREATION_SEED
 }
 
-export const resolveCreationSettings = (input: CreationSettingsInput = {}): CreationSettingsResolution => {
+export const resolveCreationSettings = (input: CreationSettingsInput | unknown = {}): CreationSettingsResolution => {
+  if (!record(input)) return { status: 'invalid', issues: [{ field: 'seed', code: 'invalid-value', message: 'creation settings must be an object.' }] }
   const issues: (CreationSettingsIssue | WorldGenerationConfigIssue)[] = []
   if (input.seed !== undefined && typeof input.seed !== 'string') issues.push({ field: 'seed', code: 'invalid-value', message: 'seed must be text.' })
   if (input.advancedMode !== undefined && typeof input.advancedMode !== 'boolean') issues.push({ field: 'advancedMode', code: 'invalid-value', message: 'advancedMode must be true or false.' })
   const configuration = resolveWorldGenerationConfig(input.configuration)
   if (configuration.status === 'invalid') issues.push(...configuration.issues)
   if (issues.length || configuration.status === 'invalid') return { status: 'invalid', issues }
+  const seed = typeof input.seed === 'string' ? input.seed : undefined
+  const advancedMode = typeof input.advancedMode === 'boolean' ? input.advancedMode : false
   return {
     status: 'valid',
     settings: {
       version: CREATION_SETTINGS_VERSION,
-      seed: normalizeCreationSeed(input.seed),
+      seed: normalizeCreationSeed(seed),
       configuration: configuration.selectedConfiguration,
-      advancedMode: input.advancedMode ?? false
+      advancedMode
     },
     resolvedConfiguration: configuration.configuration
   }

@@ -56,6 +56,7 @@ describe('medieval terminal palette', () => {
   it('requires textual or glyph state cues alongside every current and reserved terminal state colour', () => {
     expect(JOMON_NON_COLOR_STATE_CUES).toEqual({
       selectionMarker: '>',
+      readyState: '+',
       activeState: 'ACTIVE',
       awaitingCourierState: 'CHOOSE COURIER',
       actionKeys: 'KEY',

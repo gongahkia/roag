@@ -92,6 +92,7 @@ export const JOMON_PALETTE_CSS_PROPERTIES: Readonly<Record<string, string>> = Ob
 /** Text and glyph cues required alongside colour for terminal state readability. */
 export const JOMON_NON_COLOR_STATE_CUES = {
   selectionMarker: '>',
+  readyState: '+',
   activeState: 'ACTIVE',
   awaitingCourierState: 'CHOOSE COURIER',
   actionKeys: 'KEY',

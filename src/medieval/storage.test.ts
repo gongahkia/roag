@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MedievalWorldRepository } from './storage'
+import { CREATION_SETTINGS_PROFILE_LIMIT, defaultCreationSettings } from './settings'
 import { MEDIEVAL_DATABASE_NAME } from './types'
 import { chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle } from './world'
 
@@ -125,6 +126,31 @@ describe('medieval local persistence', () => {
 
     expect(fakeIndexedDB.openedNames).toEqual([MEDIEVAL_DATABASE_NAME])
     expect(fakeIndexedDB.openedNames).not.toContain('jomon-expedition-v2')
+  })
+
+  it('persists validated last-used settings and bounded named profiles only in the medieval settings store', async () => {
+    const repository = new MedievalWorldRepository()
+    const selected = { ...defaultCreationSettings(), seed: 'lower quay', configuration: { preset: 'far-coast' as const, advanced: { historyYears: 350 } }, advancedMode: true }
+
+    await expect(repository.loadCreationSettings()).resolves.toMatchObject({ version: 1, lastUsed: defaultCreationSettings(), profiles: [] })
+    await repository.saveLastUsedCreationSettings(selected)
+    for (let index = 0; index < CREATION_SETTINGS_PROFILE_LIMIT; index++) await repository.saveCreationSettingsProfile(`profile ${index}`, { ...selected, seed: `profile seed ${index}` })
+
+    const loaded = await repository.loadCreationSettings()
+    expect(loaded.lastUsed).toEqual({ ...selected, seed: 'profile seed 5' })
+    expect(loaded.profiles).toHaveLength(CREATION_SETTINGS_PROFILE_LIMIT)
+    await repository.saveCreationSettingsProfile('profile 2', { ...selected, seed: 'replacement' })
+    expect((await repository.loadCreationSettings()).profiles[2]).toMatchObject({ name: 'profile 2', settings: { seed: 'replacement' } })
+    await expect(repository.saveCreationSettingsProfile('seventh', selected)).rejects.toThrow('at most 6')
+    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'creation-settings').has('last-used-and-profiles')).toBe(true)
+  })
+
+  it('rejects malformed local creation settings rather than interpreting them as a usable profile', async () => {
+    const repository = new MedievalWorldRepository()
+    await repository.loadCreationSettings()
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'creation-settings').set('last-used-and-profiles', { version: 1, lastUsed: { seed: 'prototype' }, profiles: [] })
+
+    await expect(repository.loadCreationSettings()).resolves.toEqual({ version: 1, lastUsed: defaultCreationSettings(), profiles: [] })
   })
 
   it('persists separate active worlds without loading or mutating one through the other', async () => {
