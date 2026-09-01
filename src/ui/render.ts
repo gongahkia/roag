@@ -382,36 +382,6 @@ const drawRouteMarkers = (context: CanvasRenderingContext2D, course: Course, off
   }
 };
 
-const routeRoleColor: Record<NonNullable<Course['routeRoles']>[number]['role'], string> = { safe: '#69c779', skill: '#f0b34d', conflict: '#e76c72' };
-
-/** Small on-course labels expose the route choice without making players inspect recipe values. */
-const drawRouteRoles = (context: CanvasRenderingContext2D, course: Course, offset: Point, metrics: ProjectionMetrics) => {
-  if (!course.routeRoles?.length) return;
-  context.textAlign = 'center';
-  context.textBaseline = 'middle';
-  context.font = `${Math.max(8, metrics.tileWidth * .14)}px Inter, ui-sans-serif, system-ui, sans-serif`;
-  course.routeRoles.forEach((assignment) => {
-    const point = assignment.marker;
-    const center = withOffset(project(point.x + .5, point.y + .5, floorHeightAt(course, point.x + .5, point.y + .5) + .14, metrics), offset);
-    const text = assignment.role.toUpperCase();
-    const width = context.measureText(text).width + 17;
-    context.save();
-    context.shadowColor = '#1121158c';
-    context.shadowBlur = 5;
-    context.shadowOffsetY = 2;
-    context.fillStyle = '#172419e8';
-    context.fillRect(center.x - width / 2, center.y - 8, width, 15);
-    context.restore();
-    context.fillStyle = routeRoleColor[assignment.role];
-    context.fillRect(center.x - width / 2, center.y - 8, 3, 15);
-    context.strokeStyle = `${routeRoleColor[assignment.role]}cc`;
-    context.lineWidth = 1;
-    context.strokeRect(center.x - width / 2, center.y - 8, width, 15);
-    context.fillStyle = '#ffffff';
-    context.fillText(text, center.x + 2, center.y);
-  });
-};
-
 const heightAt = (course: Course, point: Point) => floorHeightAt(course, point.x + .5, point.y + .5);
 
 export interface AimPathPoint { x: number; y: number; z: number; }
