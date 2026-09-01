@@ -10,6 +10,21 @@ test('creates, selects, saves, and resumes a seeded medieval world through keybo
   const game = page.locator('#game')
 
   await expect.poll(() => page.evaluate(() => document.fonts.check('18px "BigBlueTerm"', 'JOMON'))).toBe(true)
+  await expect.poll(() => page.evaluate(() => ({
+    version: document.documentElement.dataset.medievalPaletteVersion,
+    ground: getComputedStyle(document.documentElement).getPropertyValue('--jomon-palette-console-ground').trim(),
+    bodyText: getComputedStyle(document.documentElement).getPropertyValue('--jomon-palette-body-text').trim(),
+    selected: getComputedStyle(document.documentElement).getPropertyValue('--jomon-palette-selected-text').trim(),
+    error: getComputedStyle(document.documentElement).getPropertyValue('--jomon-palette-error-text').trim(),
+    canvasGround: [...(document.querySelector<HTMLCanvasElement>('#game')?.getContext('2d')?.getImageData(0, 0, 1, 1).data ?? [])]
+  }))).toEqual({
+    version: '1',
+    ground: '#000000',
+    bodyText: '#c0c0c0',
+    selected: '#00ffff',
+    error: '#ff0000',
+    canvasGround: [0, 0, 0, 255]
+  })
   await expect(game).toHaveAttribute('data-route', 'worlds')
   await game.click()
   await page.keyboard.press('n')

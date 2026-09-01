@@ -66,7 +66,7 @@ Jomon takes clear, original inspiration from **Rogue (1980)**: a terminal-first,
 - The map communicates position, architecture, actors, cargo, props, hazards, routes, and discoveries directly. Every symbol must have a stable, original, documented meaning.
 - Use a compact, persistent status readout and terse message feedback. The player should normally understand the current danger and affordances without opening a separate screen.
 - Keep direct keyboard control and compact contextual prompts. Support familiar eight-direction movement where it improves play, alongside discoverable/remappable controls and accessible alternatives.
-- Use original glyph assignments, palette, layout, copy, assets, sounds, names, and mechanics. Do not reproduce the Epyx/DOS graphics, box art, interface layouts, source code, or Rogue’s fantasy fiction.
+- Use original glyph assignments, layout, copy, assets, sounds, names, and mechanics. Jomon deliberately uses a Dwarf Fortress Classic-inspired sixteen-colour console palette and its dark/bright pairing discipline, but retains original semantic colour assignments and does not reproduce any other game’s graphics, box art, interface layout, source code, or fiction.
 - The medieval material world is never weakened to imitate Rogue: Jomon’s readable symbols must describe vessels, work, people, weather, cargo, tools, grounded danger, and the rare uncanny phenomena that materially affect them—not default spellcasting or generic fantasy monsters.
 
 ## Emergent world and people direction
@@ -195,7 +195,21 @@ Creation generates and audits the initial world and frontier roots before derivi
 
 Verification for the completed reproducible-manifest contract: on 2026-09-01, `npx vitest run src/medieval/*.test.ts --maxWorkers=1 --no-file-parallelism` passed 49 tests in 8 files. `npm run build` passed (Vite transformed 149 modules and the bundle-size check passed), and `git diff --check` passed. npm emitted the existing unsupported `email` configuration warning; no required final command failed. Playwright was not run because this slice preserves browser-visible behaviour.
 
-- [-] Add settings UI for preset selection, advanced configuration, seed entry/display, world-creation progress, result inspection, and saving/loading settings.
+#### 1.2.a Dwarf Fortress Classic-inspired sixteen-colour palette `[-]`
+
+This intermediate visual task deliberately precedes the settings UI so every forthcoming creation/control surface shares one small, testable palette contract. It implements only colour and colour-dependent legibility—not a map, glyph vocabulary, settings screen, world-generation behaviour, or detailed renderer.
+
+- [ ] Define a versioned, renderer-independent palette module with the sixteen historical Dwarf Fortress Classic console colour values and dark/bright pairs: black/dark gray; blue/light blue; green/light green; cyan/light cyan; red/light red; magenta/light magenta; brown/yellow; and light gray/white. Use [the Dwarf Fortress Classic default scheme](https://dwarffortresswiki.org/index.php/Color_scheme) as the value reference, while Jomon owns its colour-role names and assignments.
+- [ ] Replace all current medieval canvas and stylesheet colour literals with semantic Jomon palette tokens. The foundation screen must use only the approved sixteen colours for its background, panel, border, body text, muted information, selected entry, action prompt, warning/error, and future water/route/status roles.
+- [ ] Preserve non-colour readability: selection, urgency, and state must retain textual, glyph, or layout cues; no consequential current or future terminal state may be distinguished by colour alone. Keep contrast and dark/bright pairing deliberate on the black console ground.
+- [ ] Add focused unit tests for exact palette membership/pairing, semantic-token completeness, and non-colour status cues. Add browser coverage and a manually inspected screenshot of the foundation screen confirming the actual rendered palette and readable wrapping at the existing reference viewport.
+- [ ] Document the palette as a Jomon presentation contract and a Dwarf Fortress Classic visual influence only. Do not copy Dwarf Fortress glyphs, layout, UI vocabulary, data, art, or gameplay semantics, and do not add a player palette-customisation UI in this task.
+
+Acceptance: the playable medieval foundation route visibly uses the coherent sixteen-colour console scheme; every rendered medieval colour comes from the palette contract; selection and error state remain readable without colour; automated/browser checks and a visual inspection are recorded.
+
+#### 1.2.b Settings UI and generation diagnostics
+
+- [ ] Add settings UI for preset selection, advanced configuration, seed entry/display, world-creation progress, result inspection, and saving/loading settings.
 - [ ] Add generation snapshots and property/fuzz tests for determinism, valid geography-to-settlement dependencies, constrained settings, content-boundary rejection, expanding-frontier continuity, bounded generation, and readable diagnostics.
 
 Acceptance: the same seed and resolved configuration reproduce the same initial world and explored frontier; changing a documented setting predictably changes the intended world property; prohibited content is absent from generated output; a player can inspect, share, and restore the world manifest.
