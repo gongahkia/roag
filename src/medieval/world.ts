@@ -1,12 +1,14 @@
 import { SeededRng, hashSeed } from './rng'
+import { auditMedievalContentSafety, classifyMedievalContent, contentSafetyAuditMatches, isMedievalContentSafetyAudit, type ClassifiedMedievalContent, type MedievalContentSafetyAudit, type MedievalContentSafetyDiagnostic } from './content-safety'
 import { generationConfigurationFingerprint, generationRetryPlan, isReproducibleGenerationDiagnostics, resolveWorldGenerationConfig, type WorldGenerationConfig, type WorldGenerationConfigIssue, type WorldGenerationConfigRequest } from './generation-config'
-import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type WorldChronicle, type WorldManifest } from './types'
+import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, type CausalRecord, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type WorldChronicle, type WorldManifest } from './types'
 
 const DEFAULT_SEED = 'jomon-foundation'
 
 const foundationJomon = (): FoundationJomon => ({
   id: 'vessel:jomon',
   name: 'Jomon',
+  contentSafety: classifyMedievalContent('place', ['navigation', 'settlement'], 'not-applicable', ['player-facing-text']),
   deckPartitions: ['tavern', 'chart-table', 'cargo-hold', 'repair-space', 'stores', 'berths', 'galley', 'gangplank'],
   quays: [],
   props: [
@@ -60,6 +62,13 @@ export class InvalidWorldGenerationConfigurationError extends Error {
   }
 }
 
+export class MedievalContentSafetyPolicyError extends Error {
+  constructor(readonly diagnostics: readonly MedievalContentSafetyDiagnostic[]) {
+    super(`generated medieval content violates policy: ${diagnostics.map(item => item.code).join(', ')}`)
+    this.name = 'MedievalContentSafetyPolicyError'
+  }
+}
+
 export const normalizeSeed = (seed: string | undefined): string => {
   const normalized = seed?.trim().replace(/\s+/g, ' ') ?? ''
   return normalized || DEFAULT_SEED
@@ -102,21 +111,57 @@ const shuffled = <T>(rng: SeededRng, values: readonly T[]): T[] => {
   return next
 }
 
-const generateCrew = (manifest: WorldManifest): readonly FoundationCrewMember[] => {
-  const rng = new SeededRng(`crew:${manifest.seed}:${manifest.generatorVersion}:${generationConfigurationFingerprint(manifest.resolvedConfiguration)}`)
+const generateCrew = (seed: string, configuration: WorldGenerationConfig): readonly FoundationCrewMember[] => {
+  const rng = new SeededRng(`crew:${seed}:${FOUNDATION_GENERATOR_VERSION}:${generationConfigurationFingerprint(configuration)}`)
   const usedNames = new Set<string>()
   const selectedRoles = shuffled(rng, roles).slice(0, 6)
   const crew = selectedRoles.map((role, index): FoundationCrewMember => ({
     id: `crew:${index}`,
     name: nameFor(rng, usedNames),
+    contentSafety: classifyMedievalContent('person', ['adult-labour', 'travel'], 'adults-only', ['player-facing-text']),
     role,
     conversation: rng.between(1, 5),
     equipment: [...equipmentByRole[role]],
     history: rng.pick(historyByRole[role]),
+    historyContentSafety: classifyMedievalContent('history', ['adult-labour', 'ordinary-hardship', 'travel'], 'adults-only', ['player-facing-text']),
     relationships: [],
     eligible: true
   }))
   return crew.map(member => ({ ...member, relationships: crew.filter(other => other.id !== member.id).map(other => relationship(rng, other.id)) }))
+}
+
+const worldCreatedRecord = (label: string, seed: string): CausalRecord => ({
+  sequence: 0,
+  atWorldTime: 0,
+  kind: 'world-created',
+  detail: `Foundation world ${label} created from seed ${seed}.`,
+  contentSafety: classifyMedievalContent('event', ['civil-life', 'navigation'], 'not-applicable', ['player-facing-text'])
+})
+
+const foundationContentRecords = (
+  labelContentSafety: WorldManifest['labelContentSafety'],
+  jomon: FoundationJomon,
+  crew: readonly FoundationCrewMember[],
+  causalHistory: readonly CausalRecord[]
+): readonly ClassifiedMedievalContent[] => [
+  { id: 'world:label', domain: 'place', classification: labelContentSafety },
+  { id: jomon.id, domain: 'place', classification: jomon.contentSafety },
+  ...crew.flatMap(member => [
+    { id: member.id, domain: 'person' as const, classification: member.contentSafety },
+    { id: `${member.id}:history`, domain: 'history' as const, classification: member.historyContentSafety }
+  ]),
+  ...causalHistory.map(record => ({ id: `causal:${record.sequence}:${record.kind}`, domain: 'event' as const, classification: record.contentSafety }))
+]
+
+const auditFoundationContent = (
+  labelContentSafety: WorldManifest['labelContentSafety'],
+  jomon: FoundationJomon,
+  crew: readonly FoundationCrewMember[],
+  causalHistory: readonly CausalRecord[]
+): MedievalContentSafetyAudit => {
+  const audit = auditMedievalContentSafety(foundationContentRecords(labelContentSafety, jomon, crew, causalHistory))
+  if (audit.status === 'rejected') throw new MedievalContentSafetyPolicyError(audit.diagnostics)
+  return audit
 }
 
 const cloneWorld = (world: FoundationWorld): FoundationWorld => structuredClone(world)
@@ -126,16 +171,23 @@ export const foundationWorldIdForManifest = (manifest: WorldManifest): string =>
 export const isReproducibleWorldManifest = (value: unknown): value is WorldManifest => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const manifest = value as Record<string, unknown>
-  if (manifest.version !== FOUNDATION_MANIFEST_VERSION || typeof manifest.seed !== 'string' || !manifest.seed || normalizeSeed(manifest.seed) !== manifest.seed || manifest.generatorVersion !== FOUNDATION_GENERATOR_VERSION || typeof manifest.label !== 'string' || !manifest.label) return false
+  if (manifest.version !== FOUNDATION_MANIFEST_VERSION || typeof manifest.seed !== 'string' || !manifest.seed || normalizeSeed(manifest.seed) !== manifest.seed || manifest.generatorVersion !== FOUNDATION_GENERATOR_VERSION || typeof manifest.label !== 'string' || !manifest.label || !isMedievalContentSafetyAudit(manifest.contentSafetyAudit)) return false
   if (manifest.initialCourierId !== undefined && (typeof manifest.initialCourierId !== 'string' || !manifest.initialCourierId)) return false
   if (!isReproducibleGenerationDiagnostics(manifest.seed, manifest.selectedConfiguration, manifest.resolvedConfiguration, manifest.generationDiagnostics)) return false
-  return manifest.label === labelForSeed(manifest.seed, manifest.resolvedConfiguration as WorldGenerationConfig)
+  const labelSafety = auditMedievalContentSafety([{ id: 'world:label', domain: 'place', classification: manifest.labelContentSafety }])
+  return labelSafety.status === 'accepted' && manifest.label === labelForSeed(manifest.seed, manifest.resolvedConfiguration as WorldGenerationConfig)
 }
 
 export const createFoundationWorld = (input: FoundationWorldInput = {}): FoundationWorld => {
   const seed = normalizeSeed(input.seed)
   const configurationResolution = resolveWorldGenerationConfig(input.configuration)
   if (configurationResolution.status !== 'valid') throw new InvalidWorldGenerationConfigurationError(configurationResolution.issues)
+  const label = labelForSeed(seed, configurationResolution.configuration)
+  const labelContentSafety = classifyMedievalContent('place', ['environment', 'settlement'], 'not-applicable', ['player-facing-text'])
+  const jomon = foundationJomon()
+  const crew = generateCrew(seed, configurationResolution.configuration)
+  const causalHistory = [worldCreatedRecord(label, seed)]
+  const contentSafetyAudit = auditFoundationContent(labelContentSafety, jomon, crew, causalHistory)
   const manifest: WorldManifest = {
     version: FOUNDATION_MANIFEST_VERSION,
     seed,
@@ -143,7 +195,9 @@ export const createFoundationWorld = (input: FoundationWorldInput = {}): Foundat
     resolvedConfiguration: configurationResolution.configuration,
     generationDiagnostics: { validation: { status: 'accepted', issues: [] }, retryPlan: generationRetryPlan(seed, configurationResolution.configuration) },
     generatorVersion: FOUNDATION_GENERATOR_VERSION,
-    label: labelForSeed(seed, configurationResolution.configuration)
+    label,
+    labelContentSafety,
+    contentSafetyAudit
   }
   const id = idForManifest(seed, configurationResolution.configuration)
   return {
@@ -151,14 +205,15 @@ export const createFoundationWorld = (input: FoundationWorldInput = {}): Foundat
     id,
     status: 'active',
     manifest,
-    jomon: foundationJomon(),
-    crew: generateCrew(manifest),
+    jomon,
+    crew,
     worldTime: 0,
-    causalHistory: [{ sequence: 0, atWorldTime: 0, kind: 'world-created', detail: `Foundation world ${manifest.label} created from seed ${seed}.` }]
+    causalHistory
   }
 }
 
 export const recreateFoundationWorld = (manifest: WorldManifest): FoundationWorld => {
+  if (!isReproducibleWorldManifest(manifest)) throw new Error('world manifest does not reproduce the current medieval generation contract')
   const recreated = createFoundationWorld({ seed: manifest.seed, configuration: manifest.selectedConfiguration })
   return manifest.initialCourierId === undefined ? recreated : chooseInitialCourier(recreated, manifest.initialCourierId)
 }
@@ -170,9 +225,22 @@ export const chooseInitialCourier = (world: FoundationWorld, courierId: string):
   if (!candidate?.eligible) throw new Error('selected courier must be an eligible crew member')
   const next = cloneWorld(world)
   next.manifest.initialCourierId = courierId
-  next.causalHistory = [...next.causalHistory, { sequence: next.causalHistory.length, atWorldTime: 0, kind: 'initial-courier-selected', detail: `${candidate.name} chosen as the initial courier.` }]
+  next.causalHistory = [...next.causalHistory, {
+    sequence: next.causalHistory.length,
+    atWorldTime: 0,
+    kind: 'initial-courier-selected',
+    detail: `${candidate.name} chosen as the initial courier.`,
+    contentSafety: classifyMedievalContent('event', ['civil-life', 'travel'], 'adults-only', ['player-facing-text'])
+  }]
+  next.manifest.contentSafetyAudit = auditFoundationContent(next.manifest.labelContentSafety, next.jomon, next.crew, next.causalHistory)
   return next
 }
+
+/** Storage uses this after structural validation so saved worlds cannot bypass the policy. */
+export const foundationWorldContentSatisfiesSafetyPolicy = (world: FoundationWorld): boolean => contentSafetyAuditMatches(
+  foundationContentRecords(world.manifest.labelContentSafety, world.jomon, world.crew, world.causalHistory),
+  world.manifest.contentSafetyAudit
+)
 
 export const finalizeWorldAsChronicle = (world: FoundationWorld, reason: ChronicleReason): WorldChronicle => ({
   version: 1,

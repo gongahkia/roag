@@ -1,4 +1,4 @@
-import { foundationWorldIdForManifest, isReproducibleWorldManifest } from './world'
+import { foundationWorldContentSatisfiesSafetyPolicy, foundationWorldIdForManifest, isReproducibleWorldManifest } from './world'
 import { MEDIEVAL_DATABASE_NAME, type ChronicleReason, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type JomonDeckPartition, type JomonVesselPropKind, type WorldChronicle, type WorldIndex, type WorldManifest } from './types'
 
 const CATALOG_STORE = 'catalog'
@@ -41,7 +41,7 @@ const isFoundationWorld = (value: unknown): value is FoundationWorld => {
 
   const manifest = value.manifest
   const crew = value.crew as FoundationCrewMember[]
-  return manifest.initialCourierId === undefined || crew.some(member => member.id === manifest.initialCourierId && member.eligible)
+  return (manifest.initialCourierId === undefined || crew.some(member => member.id === manifest.initialCourierId && member.eligible)) && foundationWorldContentSatisfiesSafetyPolicy(value as unknown as FoundationWorld)
 }
 const isChronicle = (value: unknown): value is WorldChronicle => record(value) && value.version === 1 && string(value.id) && value.status === 'finalized' && chronicleReason(value.reason) && isFoundationWorld(value.world)
 const isActiveWorldIndexEntry = (value: unknown): boolean => record(value) && string(value.id) && string(value.label) && (value.initialCourierId === undefined || string(value.initialCourierId))
@@ -105,6 +105,7 @@ export class MedievalWorldRepository {
   }
 
   async saveWorld(world: FoundationWorld): Promise<void> {
+    if (!isFoundationWorld(world)) throw new Error('refusing to save an invalid medieval world')
     const index = addWorldToIndex(await this.loadIndex(), world)
     const database = await this.open()
     const transaction = database.transaction([CATALOG_STORE, WORLD_STORE], 'readwrite')

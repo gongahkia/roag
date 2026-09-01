@@ -163,6 +163,18 @@ describe('medieval local persistence', () => {
     await expect(repository.loadWorld(world.id)).resolves.toBeUndefined()
   })
 
+  it('rejects foundation worlds whose generated content no longer matches the accepted safety audit', async () => {
+    const repository = new MedievalWorldRepository()
+    const world = createFoundationWorld({ seed: 'safety-check' })
+    const forged = structuredClone(world)
+    ;(forged.crew[0]!.historyContentSafety.exclusions as unknown as Record<string, string>).torture = 'present'
+
+    await expect(repository.saveWorld(forged)).rejects.toThrow('invalid medieval world')
+    await repository.loadIndex()
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(world.id, forged)
+    await expect(repository.loadWorld(world.id)).resolves.toBeUndefined()
+  })
+
   it('atomically replaces an active world with its read-only finalized chronicle', async () => {
     const repository = new MedievalWorldRepository()
     const world = chooseInitialCourier(createFoundationWorld({ seed: 'last-mooring' }), 'crew:0')

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION } from './content-safety'
 import { addChronicleToIndex, addWorldToIndex, emptyWorldIndex, removeWorldFromIndex } from './storage'
 import { generationRetryPlan } from './generation-config'
-import { InvalidWorldGenerationConfigurationError, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, recreateFoundationWorld } from './world'
+import { InvalidWorldGenerationConfigurationError, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, foundationWorldContentSatisfiesSafetyPolicy, recreateFoundationWorld } from './world'
 
 describe('medieval foundation worlds', () => {
   it('recreates the same world and generated household from its manifest inputs', () => {
@@ -45,7 +46,7 @@ describe('medieval foundation worlds', () => {
     })
 
     expect(world.manifest).toMatchObject({
-      version: 2,
+      version: 3,
       seed: 'river ash',
       generatorVersion: 'foundation-1',
       selectedConfiguration: {
@@ -67,6 +68,25 @@ describe('medieval foundation worlds', () => {
     })
     expect(world.manifest.generationDiagnostics.retryPlan).toEqual(generationRetryPlan('river ash', world.manifest.resolvedConfiguration))
     expect(recreateFoundationWorld(world.manifest)).toEqual(world)
+  })
+
+  it('audits generated foundation people, histories, places, events, and player-facing text under the versioned policy', () => {
+    const world = createFoundationWorld({ seed: 'policy-ledger' })
+
+    expect(foundationWorldContentSatisfiesSafetyPolicy(world)).toBe(true)
+    expect(world.manifest.contentSafetyAudit).toMatchObject({
+      policyVersion: MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION,
+      status: 'accepted',
+      diagnostics: []
+    })
+    expect(world.manifest.contentSafetyAudit.reviewed).toEqual(expect.arrayContaining([
+      { id: 'world:label', domain: 'place', domains: ['place', 'player-facing-text'] },
+      { id: 'vessel:jomon', domain: 'place', domains: ['place', 'player-facing-text'] },
+      { id: 'causal:0:world-created', domain: 'event', domains: ['event', 'player-facing-text'] }
+    ]))
+    expect(world.manifest.contentSafetyAudit.reviewed.filter(record => record.domain === 'person')).toHaveLength(world.crew.length)
+    expect(world.manifest.contentSafetyAudit.reviewed.filter(record => record.domain === 'history')).toHaveLength(world.crew.length)
+    expect(recreateFoundationWorld(world.manifest).manifest.contentSafetyAudit).toEqual(world.manifest.contentSafetyAudit)
   })
 
   it('uses resolved generation settings in the foundation world identity and household stream', () => {

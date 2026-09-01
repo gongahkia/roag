@@ -160,16 +160,18 @@ const classificationDiagnostic = (contentId: string, domain: MedievalContentDoma
   if (!isRecord(value)) return diagnostic(contentId, 'content-safety.missing-classification')
   if (!hasOnlyKeys(value, ['policyVersion', 'domains', 'participantScope', 'tags', 'exclusions'])) return diagnostic(contentId, 'content-safety.malformed-classification')
   if (value.policyVersion !== MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION) return diagnostic(contentId, 'content-safety.unknown-policy-version')
-  if (!Array.isArray(value.domains) || value.domains.length === 0) return diagnostic(contentId, 'content-safety.missing-classification-domains')
-  if (!value.domains.every(isDomain)) return diagnostic(contentId, 'content-safety.unknown-classification-domain')
-  if (new Set(value.domains).size !== value.domains.length) return diagnostic(contentId, 'content-safety.duplicate-classification-domain')
-  if (!value.domains.every((classifiedDomain, index) => index === 0 || compare(value.domains[index - 1]!, classifiedDomain) < 0)) return diagnostic(contentId, 'content-safety.noncanonical-classification-domain-order')
-  if (!value.domains.includes(domain)) return diagnostic(contentId, 'content-safety.content-domain-not-classified')
+  const domains = value.domains
+  if (!Array.isArray(domains) || domains.length === 0) return diagnostic(contentId, 'content-safety.missing-classification-domains')
+  if (!domains.every(isDomain)) return diagnostic(contentId, 'content-safety.unknown-classification-domain')
+  if (new Set(domains).size !== domains.length) return diagnostic(contentId, 'content-safety.duplicate-classification-domain')
+  if (!domains.every((classifiedDomain, index) => index === 0 || compare(domains[index - 1]!, classifiedDomain) < 0)) return diagnostic(contentId, 'content-safety.noncanonical-classification-domain-order')
+  if (!domains.includes(domain)) return diagnostic(contentId, 'content-safety.content-domain-not-classified')
   if (value.participantScope !== 'adults-only' && value.participantScope !== 'not-applicable') return diagnostic(contentId, 'content-safety.unknown-participant-scope')
-  if (!Array.isArray(value.tags) || value.tags.length === 0) return diagnostic(contentId, 'content-safety.missing-tags')
-  if (!value.tags.every(isTag)) return diagnostic(contentId, 'content-safety.unknown-tag')
-  if (new Set(value.tags).size !== value.tags.length) return diagnostic(contentId, 'content-safety.duplicate-tag')
-  if (!value.tags.every((tag, index) => index === 0 || compare(value.tags[index - 1]!, tag) < 0)) return diagnostic(contentId, 'content-safety.noncanonical-tag-order')
+  const tags = value.tags
+  if (!Array.isArray(tags) || tags.length === 0) return diagnostic(contentId, 'content-safety.missing-tags')
+  if (!tags.every(isTag)) return diagnostic(contentId, 'content-safety.unknown-tag')
+  if (new Set(tags).size !== tags.length) return diagnostic(contentId, 'content-safety.duplicate-tag')
+  if (!tags.every((tag, index) => index === 0 || compare(tags[index - 1]!, tag) < 0)) return diagnostic(contentId, 'content-safety.noncanonical-tag-order')
   if (!isRecord(value.exclusions) || !hasOnlyKeys(value.exclusions, PROHIBITED_MEDIEVAL_CONTENT_CLASSES)) return diagnostic(contentId, 'content-safety.malformed-exclusions')
   for (const prohibitedClass of PROHIBITED_MEDIEVAL_CONTENT_CLASSES) {
     if (value.exclusions[prohibitedClass] !== 'excluded') return diagnostic(contentId, `content-safety.prohibited.${prohibitedClass}`)
@@ -233,10 +235,16 @@ export const auditMedievalContentSafety = (content: readonly unknown[]): Medieva
   }
 }
 
+const isAuditRecord = (value: unknown): value is MedievalContentSafetyAuditRecord => {
+  if (!isRecord(value) || !hasOnlyKeys(value, ['id', 'domain', 'domains']) || typeof value.id !== 'string' || !value.id || !isDomain(value.domain) || !Array.isArray(value.domains) || value.domains.length === 0 || !value.domains.every(isDomain) || new Set(value.domains).size !== value.domains.length) return false
+  const domains = value.domains
+  return domains.every((domain, index) => index === 0 || compare(domains[index - 1]!, domain) < 0) && domains.includes(value.domain)
+}
+
 export const isMedievalContentSafetyAudit = (value: unknown): value is MedievalContentSafetyAudit => {
   if (!isRecord(value) || !hasOnlyKeys(value, ['policyVersion', 'status', 'reviewed', 'diagnostics']) || value.policyVersion !== MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION || value.status !== 'accepted' || !Array.isArray(value.reviewed) || !Array.isArray(value.diagnostics) || value.diagnostics.length !== 0) return false
-  const reviewed = value.reviewed
-  if (!reviewed.every(item => isRecord(item) && hasOnlyKeys(item, ['id', 'domain', 'domains']) && typeof item.id === 'string' && item.id && isDomain(item.domain) && Array.isArray(item.domains) && item.domains.length > 0 && item.domains.every(isDomain) && new Set(item.domains).size === item.domains.length && item.domains.every((domain, index) => index === 0 || compare(item.domains[index - 1]!, domain) < 0) && item.domains.includes(item.domain))) return false
+  const reviewed = value.reviewed as unknown[]
+  if (!reviewed.every(isAuditRecord)) return false
   return reviewed.every((item, index) => index === 0 || compare((reviewed[index - 1] as { id: string }).id, (item as { id: string }).id) < 0)
 }
 
