@@ -144,7 +144,6 @@ const hasOnlyKeys = (value: Record<string, unknown>, expected: readonly string[]
 const issue = (recordId: string, code: FidelityPlanningDiagnosticCode): FidelityPlanningDiagnostic => ({ recordId, code })
 const canonicalDiagnostics = (diagnostics: readonly FidelityPlanningDiagnostic[]): readonly FidelityPlanningDiagnostic[] => [...new Map(diagnostics.map(diagnostic => [`${diagnostic.recordId}\u0000${diagnostic.code}`, diagnostic])).values()].sort((left, right) => compare(left.recordId, right.recordId) || compare(left.code, right.code))
 const locationKey = (location: FidelityLoadedLocation): string => `${location.kind}:${location.id}`
-const sortedById = <Value extends { id: string }>(values: readonly Value[]): readonly Value[] => [...values].sort((left, right) => compare(left.id, right.id))
 
 const cadence = (tier: FidelityIndividualTier | FidelityPlaceTier | FidelityInstitutionTier, worldTime: number): FidelityCadence => {
   if (tier === 'loaded' || tier === 'loaded-place' || tier === 'loaded-institution') return { kind: 'every-time-bearing-action' }
@@ -164,9 +163,9 @@ const elapsedCadence = (intervalMinutes: 5 | 30 | 120 | 240, worldTime: number):
 const validWorld = (value: unknown): value is FoundationWorld => {
   if (!record(value) || value.version !== 4 || value.status !== 'active' || !record(value.manifest) || !record(value.manifest.creation) || !record(value.state)) return false
   try {
-    return foundationWorldInitialWorldMatchesManifest(value as FoundationWorld)
-      && foundationWorldContentSatisfiesSafetyPolicy(value as FoundationWorld)
-      && foundationWorldTemporalStateMatches(value as FoundationWorld)
+    return foundationWorldInitialWorldMatchesManifest(value as unknown as FoundationWorld)
+      && foundationWorldContentSatisfiesSafetyPolicy(value as unknown as FoundationWorld)
+      && foundationWorldTemporalStateMatches(value as unknown as FoundationWorld)
   } catch { return false }
 }
 
