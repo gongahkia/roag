@@ -7,6 +7,35 @@ export const INITIAL_WORLD_GENERATOR_VERSION = 'initial-world-1' as const
 export const INITIAL_WORLD_GENERATION_DIAGNOSTICS_VERSION = 1 as const
 
 /**
+ * Renderer-independent progress emitted by actual bounded candidate work.
+ * It is deliberately creation-only evidence: it neither advances world time
+ * nor becomes mutable world state.
+ */
+export const INITIAL_WORLD_GENERATION_STAGES = [
+  'watershed-hydrology',
+  'climate-seasons',
+  'resources-ecology',
+  'settlement-sites',
+  'institutions-people',
+  'routes-trade-history',
+  'validation'
+] as const
+
+export type InitialWorldGenerationStage = typeof INITIAL_WORLD_GENERATION_STAGES[number]
+export type InitialWorldGenerationProgressStatus = 'started' | 'completed' | 'accepted' | 'rejected'
+
+export interface InitialWorldGenerationProgress {
+  candidateAttempt: number
+  streamSeed: string
+  stage: InitialWorldGenerationStage
+  completedStages: number
+  totalStages: typeof INITIAL_WORLD_GENERATION_STAGES['length']
+  status: InitialWorldGenerationProgressStatus
+}
+
+export type InitialWorldGenerationProgressObserver = (progress: InitialWorldGenerationProgress) => void
+
+/**
  * These caps make the foundation region inspectable and keep its saved graph
  * intentionally smaller than the later expanding-frontier and simulation work.
  */
@@ -488,13 +517,32 @@ const generateRoutesTradeAndHistory = (
   return { routes, tradeLinks, routeHazards, history }
 }
 
-const buildInitialWorldCandidate = (configuration: WorldGenerationConfig, attempt: GenerationAttempt): InitialWorld => {
+const buildInitialWorldCandidate = (
+  configuration: WorldGenerationConfig,
+  attempt: GenerationAttempt,
+  onProgress: InitialWorldGenerationProgressObserver | undefined
+): InitialWorld => {
+  const report = (stage: InitialWorldGenerationStage, status: 'started' | 'completed', completedStages: number): void => {
+    onProgress?.({ candidateAttempt: attempt.attempt, streamSeed: attempt.streamSeed, stage, completedStages, totalStages: INITIAL_WORLD_GENERATION_STAGES.length, status })
+  }
+  report('watershed-hydrology', 'started', 0)
   const hydrology = generateWatershed(configuration, stageRng(attempt, 'watershed-hydrology'))
+  report('watershed-hydrology', 'completed', 1)
+  report('climate-seasons', 'started', 1)
   const climate = generateClimate(configuration, hydrology.watershed, stageRng(attempt, 'climate-seasons'))
+  report('climate-seasons', 'completed', 2)
+  report('resources-ecology', 'started', 2)
   const ecology = generateResourcesAndEcology(configuration, hydrology.waterways, climate.climate, stageRng(attempt, 'resources-ecology'))
+  report('resources-ecology', 'completed', 3)
+  report('settlement-sites', 'started', 3)
   const settlements = generateSettlements(configuration, hydrology.waterways, ecology.resources, ecology.ecologies, stageRng(attempt, 'settlement-sites'))
+  report('settlement-sites', 'completed', 4)
+  report('institutions-people', 'started', 4)
   const society = generateInstitutionsAndPeople(configuration, settlements, stageRng(attempt, 'institutions-people'))
+  report('institutions-people', 'completed', 5)
+  report('routes-trade-history', 'started', 5)
   const routes = generateRoutesTradeAndHistory(configuration, hydrology.waterways, climate.seasons, ecology.resources, settlements, society.institutions, society.people, stageRng(attempt, 'routes-trade-history'))
+  report('routes-trade-history', 'completed', 6)
   return {
     version: 1,
     id: `initial:world:${hashSeed(attempt.streamSeed).toString(36)}`,
@@ -656,7 +704,8 @@ export const isInitialWorld = (value: unknown): value is InitialWorld => {
 export const selectInitialWorldCandidate = (
   plan: readonly GenerationAttempt[],
   buildCandidate: (attempt: GenerationAttempt) => InitialWorld,
-  validateCandidate: (world: InitialWorld) => readonly InitialWorldValidationIssue[]
+  validateCandidate: (world: InitialWorld) => readonly InitialWorldValidationIssue[],
+  onValidated?: (diagnostic: InitialWorldCandidateDiagnostic) => void
 ): InitialWorldCandidateSelection | ExhaustedInitialWorldCandidateSelection => {
   const candidates: InitialWorldCandidateDiagnostic[] = []
   for (const attempt of plan) {
@@ -665,6 +714,7 @@ export const selectInitialWorldCandidate = (
     if (world.candidateAttempt !== attempt.attempt) issues.push(issue(world.id, 'initial-world.invalid-candidate-attempt'))
     const diagnostic: InitialWorldCandidateDiagnostic = { attempt: attempt.attempt, streamSeed: attempt.streamSeed, status: issues.length === 0 ? 'accepted' : 'rejected', issues }
     candidates.push(diagnostic)
+    onValidated?.(diagnostic)
     if (diagnostic.status === 'accepted') {
       return {
         status: 'selected',
@@ -698,12 +748,24 @@ export class InitialWorldGenerationExhaustedError extends Error {
 }
 
 /** Generates the first valid member of the existing bounded retry plan. */
-export const generateInitialWorld = (seed: string, configuration: WorldGenerationConfig): InitialWorldGeneration => {
+export const generateInitialWorld = (
+  seed: string,
+  configuration: WorldGenerationConfig,
+  onProgress?: InitialWorldGenerationProgressObserver
+): InitialWorldGeneration => {
   const plan = generationRetryPlan(seed, configuration)
   const selection = selectInitialWorldCandidate(
     plan,
-    attempt => buildInitialWorldCandidate(configuration, attempt),
-    world => validateInitialWorldCandidate(world, configuration)
+    attempt => buildInitialWorldCandidate(configuration, attempt, onProgress),
+    world => validateInitialWorldCandidate(world, configuration),
+    diagnostic => onProgress?.({
+      candidateAttempt: diagnostic.attempt,
+      streamSeed: diagnostic.streamSeed,
+      stage: 'validation',
+      completedStages: INITIAL_WORLD_GENERATION_STAGES.length,
+      totalStages: INITIAL_WORLD_GENERATION_STAGES.length,
+      status: diagnostic.status
+    })
   )
   if (selection.status === 'exhausted') throw new InitialWorldGenerationExhaustedError(selection.diagnostics)
   return { world: selection.world, diagnostics: selection.diagnostics }
