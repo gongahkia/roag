@@ -20,6 +20,8 @@ const lineHeight = 22
 const contentWidth = width - left * 2
 const terminalFont = '18px "BigBlueTerm", monospace'
 const presets = Object.keys(GENERATION_CONFIG_PRESETS) as WorldGenerationPreset[]
+const diagnosticFirstLine = 21
+const diagnosticLastLine = 23
 
 const errorMessage = (error: unknown): string => error instanceof Error ? error.message : 'Unknown local storage error'
 const uppercase = (value: string | number): string => String(value).replaceAll('-', ' ').toUpperCase()
@@ -31,7 +33,7 @@ const row = (context: CanvasRenderingContext2D, line: number, text: string, colo
   context.fillText(text, left, 78 + line * lineHeight)
 }
 
-const wrapText = (context: CanvasRenderingContext2D, text: string): readonly string[] => {
+export const wrapMedievalCanvasText = (context: Pick<CanvasRenderingContext2D, 'measureText'>, text: string): readonly string[] => {
   const words = text.trim().split(/\s+/u).filter(Boolean)
   if (!words.length) return ['']
   const splitLongWord = (word: string): readonly string[] => {
@@ -60,9 +62,35 @@ const wrapText = (context: CanvasRenderingContext2D, text: string): readonly str
 }
 
 const wrappedRows = (context: CanvasRenderingContext2D, line: number, text: string, color: string = palette.bodyText): number => {
-  const lines = wrapText(context, text)
+  const lines = wrapMedievalCanvasText(context, text)
   lines.forEach((wrapped, index) => row(context, line + index, wrapped, color))
   return line + lines.length
+}
+
+const shortenedToFit = (context: Pick<CanvasRenderingContext2D, 'measureText'>, text: string): string => {
+  if (context.measureText(text).width <= contentWidth) return text
+  let shortened = text
+  while (shortened && context.measureText(`${shortened}...`).width > contentWidth) shortened = shortened.slice(0, -1)
+  return `${shortened}...`
+}
+
+/** Error text has a fixed in-panel budget, so a stale local record cannot paint outside the canvas. */
+export const renderBoundedMedievalCanvasRows = (
+  context: CanvasRenderingContext2D,
+  line: number,
+  lastLine: number,
+  text: string,
+  color: string = palette.bodyText
+): number => {
+  const availableRows = Math.max(0, lastLine - line + 1)
+  if (!availableRows) return line
+  const lines = [...wrapMedievalCanvasText(context, text)]
+  const bounded = lines.length <= availableRows ? lines : [
+    ...lines.slice(0, Math.max(0, availableRows - 1)),
+    shortenedToFit(context, lines.slice(Math.max(0, availableRows - 1)).join(' '))
+  ]
+  bounded.forEach((wrapped, index) => row(context, line + index, wrapped, color))
+  return line + bounded.length
 }
 
 const rule = (context: CanvasRenderingContext2D, line: number): void => {
@@ -460,7 +488,7 @@ export class MedievalApp {
     }
     const lastProgress = this.generationProgress.at(-1)
     if (lastProgress) this.canvas.dataset.generationStage = lastProgress.stage
-    const nextLine = this.route === 'worlds' ? this.renderWorlds(context)
+    this.route === 'worlds' ? this.renderWorlds(context)
       : this.route === 'create-world' ? this.renderCreateWorld(context)
         : this.route === 'creation-profiles' ? this.renderCreationProfiles(context)
           : this.route === 'world-generation' ? this.renderGeneration(context)
@@ -469,7 +497,7 @@ export class MedievalApp {
                 : this.route === 'world' ? this.renderWorld(context)
                   : this.route === 'chronicles' ? this.renderChronicles(context)
                     : this.renderChronicle(context)
-    if (this.error) wrappedRows(context, Math.min(24, nextLine + 1), `${cues.errorPrefix} LOCAL STORAGE: ${this.error}`, palette.errorText)
+    if (this.error) renderBoundedMedievalCanvasRows(context, diagnosticFirstLine, diagnosticLastLine, `${cues.errorPrefix} LOCAL STORAGE: ${this.error}`, palette.errorText)
   }
 
   private renderWorlds(context: CanvasRenderingContext2D): number {
