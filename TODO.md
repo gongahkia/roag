@@ -22,8 +22,9 @@ The documentation reset is complete. No medieval gameplay slice has been impleme
 ## Non-negotiable product decisions
 
 - Jomon is a persistent itinerant household on a river-basin-to-coast network.
+- Every new world starts with a wholly generated Jomon household. Its roster, identities, roles, relationships, histories, equipment, and active-courier eligibility derive deterministically from that world’s seed and resolved configuration, so the same manifest recreates the same crew and world.
 - The player inhabits rotating Jomon crew members. Crew selection happens physically at Jomon’s tavern; a truly lost courier is permanent, subject only to exceptionally rare and explicit mystical safeguards.
-- Jomon’s tavern, chart table, cargo hold, repair space, stores, berths, galley, and gangplank are walkable map spaces. Physical props use compact contextual key-choice prompts. An always-available, deliberately comprehensive management screen complements these surfaces; it does not replace their direct action or situated information.
+- Jomon’s tavern, chart table, cargo hold, repair space, stores, berths, galley, and gangplank are walkable map spaces. Physical props use compact contextual key-choice prompts. A deliberately comprehensive management sidebar is visible by default, compact, and collapsible; it complements these surfaces without replacing their direct action or situated information, and the map remains primary.
 - Gangplanks and quays replace airlocks and landing terminals.
 - Trade uses physical commodities with capacity, condition, handling, loss, recovery, local supply, demand, and market consequences.
 - Human conflict, wilderness, and operational hazards must receive equal systemic depth.
@@ -33,13 +34,14 @@ The documentation reset is complete. No medieval gameplay slice has been impleme
 - Jomon is an open-ended persistent world simulation, not a finite campaign to be won. Short-term goals provide direction; exploration, relationships, and the changing household/world provide the long-term play.
 - The player is not bound to a single protagonist. On an active courier’s death, control transfers to another eligible crew member; voluntary perspective changes occur at the tavern.
 - An active courier directly controls only themself. They can delegate work to crew and NPCs through conversation; delegation depends on the courier’s `conversation` stat and the other person’s relationship, role, capacity, interests, and current situation.
-- Failure is causal and diegetic. A courier death, lost cargo, unpaid debt, damaged route, broken relationship, or ruined vessel can permanently change the world; the irreversible collapse or loss of Jomon ends that world’s play.
+- Failure is causal and diegetic. A courier death, lost cargo, unpaid debt, damaged route, broken relationship, or ruined vessel can permanently change the world. The irreversible collapse or loss of Jomon ends active play in that world and converts it to a read-only, exportable chronicle.
 - Jomon can grow through new rooms, refitted workspaces, tools, crew capacity, and small craft. Every expansion is physical, persistent, grounded in available materials/labour, and balanced by upkeep, space, staffing, cargo, route, or social trade-offs.
 - A continuing world has escalating difficulty eras: base, NG+, and NG++. Active-play progression in the same persistent world moves it toward later eras without a reset or finite campaign ending. Each era adds durable, diegetic pressures and new possibilities rather than merely increasing enemy numbers.
 - The initial release target is a desktop browser game for players who enjoy ASCII graphics and keyboard-first control.
 - Every instantiated person has a full individual persistent record—including family, work, needs, relationships, injury, possessions, birth, and death—while distant people advance through deterministic summary simulation at an appropriate fidelity level.
 - The world has an expanding procedural frontier. Newly explored regions are generated causally and become persistently explorable as Jomon travels; rumours, charts, travellers, and trade can establish their existence before arrival.
 - No user mod/content-pack compatibility is planned. Internal content remains data-driven and documented for maintainability, but does not promise a public extension API.
+- Do not include or procedurally generate sexual violence, slavery, torture, or harm/endangerment of children. This applies to player actions, events, histories, simulation summaries, enemy behaviour, contracts, hazards, rumours, and player-facing text.
 - The reset is a clean persistence break. Do not migrate the superseded space-era saves or reinterpret them as medieval campaigns.
 - Do not copy lore, text, names, assets, or exact mechanics from other games. Historical and game references are influence constraints only.
 
@@ -57,14 +59,15 @@ Jomon takes clear, original inspiration from **Rogue (1980)**: a terminal-first,
 
 ## Emergent world and people direction
 
-Jomon’s world should feel alive in the sense of Dwarf Fortress Adventure Mode, Caves of Qud, RimWorld, Rogue, and Risk of Rain: it has a remembered past, people pursue their own material and mystical goals, the player can build tactical power through legible combinations, and the player’s actions become part of later situations. The player experiences the world through a courier on Jomon, supported by both situated in-world surfaces and an always-available comprehensive management interface.
+Jomon’s world should feel alive in the sense of Dwarf Fortress Adventure Mode, Caves of Qud, RimWorld, Rogue, and Risk of Rain: it has a remembered past, people pursue their own material and mystical goals, the player can build tactical power through legible combinations, and the player’s actions become part of later situations. The player experiences the world through a courier on Jomon, supported by both situated in-world surfaces and a comprehensive management sidebar that is visible by default while keeping the map primary.
 
 - The world evolves only while the player is actively playing. It does not advance while the browser is closed or the game is paused.
 - A world begins with a causally generated history: geography and waterways first; then ecology, resources, settlements, institutions, people, routes, trade, and historical events. Its starting state must be inspectable. The world continues into a deterministic expanding frontier as Jomon travels rather than ending at that initial generated region.
 - World generation aims for Dwarf Fortress-like depth and configurability, adapted to Jomon’s scale. Advanced settings cover region size, history length, climate, terrain and waterways, settlement and population density, political fragmentation, resource scarcity, ecology, dangers, era pace, and simulation fidelity. Players can select, save, inspect, and reproduce presets and advanced settings; every generated world records its seed, resolved settings, generator version, and validation/rejection result.
+- Content-validation rules must reject sexual violence, slavery, torture, and harm/endangerment of children from generated history, people, places, events, contracts, hazards, rumours, and simulation summaries.
 - Every instantiated person has persistent identity, location or home, role, material interests, family, work, needs, relationships, injury, possessions, birth, death, memories, and a readable history of consequential encounters.
 - NPC actions must arise from original needs, opportunities, relationships, and local conditions—not an authored sequence disguised as simulation. Nearby and important people receive detailed simulation; every distant person retains full individual state and advances through deterministic scheduled summaries.
-- The world must surface change through physical places, conversations, ledgers, rumours, goods, routes, visible work, and the always-available management screen. These surfaces are complementary and must not merely duplicate one another. A simulation that players cannot discover or act upon is out of scope.
+- The world must surface change through physical places, conversations, ledgers, rumours, goods, routes, visible work, and the always-visible-by-default management sidebar. These surfaces are complementary and must not merely duplicate one another. A simulation that players cannot discover or act upon is out of scope.
 - Jomon expansion and exploration are the provisional long-term motivations. Every future vessel upgrade must add a physical space, a new material capability, or a meaningful new trade-off.
 - Short-term goals must always be available through local pressures, contracts, favours, shortages, discoveries, threats, or crew needs. They guide play without creating a mandatory campaign finish line.
 - Escalation must keep the world generative after NG++: later eras remix and extend the same systemic content families, change world conditions and relationships, and create new material problems, opportunities, and vessel choices. They do not require a new save or a campaign restart.
@@ -99,13 +102,14 @@ Acceptance: a fresh medieval game can be created deterministically; a prototype 
 
 - [ ] Define a versioned `WorldGenerationConfig`, named presets, advanced settings, validation constraints, and deterministic rejection/retry rules.
 - [ ] Define controls for region size, history length, climate, terrain and waterways, settlement and population density, political fragmentation, resource scarcity, ecology, dangers, era pace, and simulation fidelity; preserve every selected and resolved value in the manifest.
+- [ ] Define an enforceable content-boundary taxonomy and deterministic validation/rejection rules that exclude sexual violence, slavery, torture, and harm/endangerment of children from all generated world history and content.
 - [ ] Build the dependency-ordered initial-world pipeline: watershed geography and hydrology; climate and seasons; resources and ecology; settlement sites; institutions and people; then routes, trade, and pre-play history.
 - [ ] Define the deterministic expanding-frontier contract: regional coordinates, persistent identities, pre-arrival knowledge/rumours, causal links to known regions, region generation order, and no-contradiction guarantees.
 - [ ] Record a reproducible world manifest containing seed, resolved configuration, generator version, initial and frontier region identifiers, and validation/rejection history.
 - [ ] Add settings UI for preset selection, advanced configuration, seed entry/display, world-creation progress, result inspection, and saving/loading settings.
-- [ ] Add generation snapshots and property/fuzz tests for determinism, valid geography-to-settlement dependencies, constrained settings, expanding-frontier continuity, bounded generation, and readable diagnostics.
+- [ ] Add generation snapshots and property/fuzz tests for determinism, valid geography-to-settlement dependencies, constrained settings, content-boundary rejection, expanding-frontier continuity, bounded generation, and readable diagnostics.
 
-Acceptance: the same seed and resolved configuration reproduce the same initial world and explored frontier; changing a documented setting predictably changes the intended world property; a player can inspect, share, and restore the world manifest.
+Acceptance: the same seed and resolved configuration reproduce the same initial world and explored frontier; changing a documented setting predictably changes the intended world property; prohibited content is absent from generated output; a player can inspect, share, and restore the world manifest.
 
 #### 1.3 Active-play world simulation and persistence kernel
 
@@ -113,9 +117,10 @@ Acceptance: the same seed and resolved configuration reproduce the same initial 
 - [ ] Define versioned world state and persistence contracts for geography, sites, routes, markets, people, institutions, history, and Jomon.
 - [ ] Define persistent individual records for every instantiated person: family, work, needs, relationships, injury, possessions, birth, death, location, memory, and commitments.
 - [ ] Define deterministic fidelity tiers for loaded places, nearby people, recurring agents, and distant individual/settlement summaries without discarding individual state.
+- [ ] Ensure detailed and summary simulation cannot emit prohibited content or encode it as an undiscoverable background cause.
 - [ ] Define a versioned world-era model for base, NG+, and NG++ states. Accumulated in-world active-play time and Jomon’s growth advance it; transition conditions, inspectable causes, persistence, and configuration hooks must be deterministic.
 - [ ] Add event sourcing or an equivalent inspectable causal history so world changes can be explained, replayed, and persisted within bounded storage.
-- [ ] Add focused tests for reload equivalence, simulation determinism, paused/closed-session time, corruption recovery, and bounded state growth.
+- [ ] Add focused tests for reload equivalence, simulation determinism, prohibited-content rejection in detailed and summary ticks, paused/closed-session time, corruption recovery, and bounded state growth.
 
 Acceptance: equivalent active-play time produces the same world state and era across replay and reload; the world never advances while inactive; a visible change or escalation has an inspectable causal record.
 
@@ -125,8 +130,8 @@ Acceptance: equivalent active-play time produces the same world state and era ac
 - [ ] Define the active courier’s `conversation` stat and how it changes delegation eligibility, negotiation, task clarity, trust, risk, and outcome without becoming universal or mind-controlling persuasion.
 - [ ] Define a constrained task/delegation model for crew and NPCs: offer, agreement/refusal, assignment, progress, interruption, outcome, and later memory. Initial task families include maintenance, rigging, cooking, treatment, cargo handling, trade research, barter, bookkeeping, scouting, charting, gathering, hunting, guiding, watch duty, guarding, rescue, evacuation, recruitment, correspondence, witness work, and negotiation.
 - [ ] Make autonomous choices arise from original needs, opportunities, relationships, and local conditions. Distant people use deterministic summary simulation; nearby and recurring people use richer state and behaviour.
-- [ ] Define the always-available management screen for comprehensive task, people, work, risk, household, site, route, and history information; assign complementary, non-duplicative roles to map marks, physical notices, messages, ledgers, and tavern conversations.
-- [ ] Add original social-memory records and player-readable evidence through physical surfaces, messages, conversations, ledgers, rumours, goods, routes, visible work, and the management screen. Do not reproduce proprietary named-system hierarchies or vendettas.
+- [ ] Define the compact, collapsible management sidebar that is visible by default and provides comprehensive task, people, work, risk, household, site, route, and history information without displacing the primary map; assign complementary, non-duplicative roles to map marks, physical notices, messages, ledgers, and tavern conversations.
+- [ ] Add original social-memory records and player-readable evidence through physical surfaces, messages, conversations, ledgers, rumours, goods, routes, visible work, and the management sidebar. Do not reproduce proprietary named-system hierarchies or vendettas.
 - [ ] Add deterministic tests for delegation, refusal, task interruption, memory, recurrence, and no-player-control autonomy.
 
 Acceptance: the active courier can delegate a task through a conversation; the recipient’s response and outcome follow inspectable state; a later encounter visibly reflects the remembered result.
@@ -156,10 +161,10 @@ Acceptance: declared 8 GB baseline fixtures generate, simulate, save, reload, an
 - [ ] Define a renderer-independent effect model for health, injury, exhaustion, preparation, equipment, relics, totems, boons, curses, crew support, enemy weaknesses, environmental interactions, duration, stacking, chaining, and counterplay.
 - [ ] Define rarity, source, cost, condition, and audit rules for mystical effects. They must remain finite, legible, in-world, and compatible with low-mysticism tone; no generic mage class is introduced.
 - [ ] Define courier death, prevention, revival, and lasting-consequence rules. Revival safeguards are exceptional and explicit; the default outcome remains permanent loss.
-- [ ] Define Jomon integrity, partial disaster, repair, rescue, collapse, and loss rules. A relic or equivalent able to save Jomon from terminal loss is ultra-rare and must have a visible causal chain, cost, and recovery trade-off.
-- [ ] Add deterministic tests for effect combinations, cap/chain behavior, death prevention/revival, Jomon collapse, terminal-world handling, and state recovery.
+- [ ] Define Jomon integrity, partial disaster, repair, rescue, collapse, and loss rules. A relic or equivalent able to save Jomon from terminal loss is ultra-rare and must have a visible causal chain, cost, and recovery trade-off. Terminal loss ends active play and finalizes a read-only, exportable chronicle.
+- [ ] Add deterministic tests for effect combinations, cap/chain behavior, death prevention/revival, Jomon collapse, terminal-world finalization/chronicle export, and state recovery.
 
-Acceptance: a player can inspect why an effect or recovery occurred; every powerful safeguard has an explicit rarity/cost/counterplay contract; terminal Jomon loss ends the world cleanly without corrupting its history.
+Acceptance: a player can inspect why an effect or recovery occurred; every powerful safeguard has an explicit rarity/cost/counterplay contract; terminal Jomon loss ends active play cleanly, preserves its history as a read-only chronicle, and offers export without corrupting the record.
 
 ### 2. Physical Jomon foundation
 
@@ -174,12 +179,12 @@ Acceptance: the entire vessel/quay plan is navigable and every required space is
 
 #### 2.2 Crew continuity
 
-- [ ] Define the initial household roster, roles, personal equipment, eligibility, and active-crew representation.
+- [ ] Generate the initial household roster, roles, personal equipment, relationships, histories, eligibility, and active-crew representation wholly from the world seed and resolved configuration; define its reproducibility and validation contract.
 - [ ] Implement tavern-based voluntary switching through an operated physical prop.
 - [ ] Implement permanent courier death/departure and deterministic transfer of the active perspective to an eligible surviving courier.
 - [ ] Display crew availability and loss consequences in a physical vessel surface.
 
-Acceptance: switch active crew in the tavern; lose an active courier; continue as the same eligible successor after reload; observe the lasting household consequence.
+Acceptance: the same world manifest recreates the same valid initial household; switch active crew in the tavern; lose an active courier; continue as the same eligible successor after reload; observe the lasting household consequence.
 
 #### 2.3 Physical vessel interactions
 
@@ -280,7 +285,7 @@ The direction above is settled. These implementation values are intentionally de
 
 - `WorldGenerationConfig` preset names, defaults, ranges, validation/rejection rules, and user-facing descriptions for every advanced setting.
 - The initial world size, initial population, frontier-generation cadence, and storage/performance budgets that fit the 8 GB desktop-browser baseline.
-- The precise split of information among the always-available management screen, map marks, physical notices, messages, ledgers, and conversations.
+- The management sidebar’s exact information density, tab/layout rules, and the precise split of information among it, map marks, physical notices, messages, ledgers, and conversations.
 - Delegated-task risk policy: which tasks are safe, hazardous, or require an explicit player confirmation; what warnings protect a person or Jomon from a terminal outcome.
 - The base/NG+/NG++ thresholds and signatures: how active-play time and Jomon growth are weighted, which world pressures shift, and how the NG++ plateau remixes without raw numerical inflation.
 - The first mystical-effect families, their rarity bands, provenance, counterplay, and visual language; especially the ultra-rare rule for an effect that can save Jomon.

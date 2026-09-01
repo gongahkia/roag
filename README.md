@@ -1,8 +1,8 @@
 # Jomon
 
-Jomon is a browser-based, procedural, no-magic medieval river-and-coast roguelike. Jomon is both the game and a working vessel: an itinerant household carrying people, goods, debts, and news between river settlements and a contested coast.
+Jomon is a browser-based, procedural, low-mysticism medieval river-and-coast roguelike. Jomon is both the game and a working vessel: an itinerant household carrying people, goods, debts, and news between river settlements and a contested coast.
 
-The project is at a documented clean-break boundary. The checked-in prototype still contains superseded space-era implementation and is **not** the current game canon. The rebuild begins with a walkable Jomon deck, physical tavern crew switching, gangplank/quay access, and contextual vessel interactions.
+The project is at a documented clean-break boundary. The checked-in prototype still contains superseded space-era implementation and is **not** the current game canon. The rebuild begins with foundational world systems; the walkable Jomon deck, tavern crew switching, gangplank/quay access, and contextual vessel interactions follow those foundations.
 
 - [Lore and content reference](LORE.md)
 - [Authoritative roadmap](TODO.md)
