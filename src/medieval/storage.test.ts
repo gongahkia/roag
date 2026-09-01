@@ -151,6 +151,18 @@ describe('medieval local persistence', () => {
     await expect(repository.loadWorld('world:bad')).resolves.toBeUndefined()
   })
 
+  it('rejects a stored world whose manifest provenance does not reproduce its resolved configuration', async () => {
+    const repository = new MedievalWorldRepository()
+    const world = createFoundationWorld({ seed: 'provenance-check', configuration: { preset: 'far-coast' } })
+    const forged = structuredClone(world)
+    forged.manifest.resolvedConfiguration.terrainRuggedness = 1
+
+    await repository.loadIndex()
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(world.id, forged)
+
+    await expect(repository.loadWorld(world.id)).resolves.toBeUndefined()
+  })
+
   it('atomically replaces an active world with its read-only finalized chronicle', async () => {
     const repository = new MedievalWorldRepository()
     const world = chooseInitialCourier(createFoundationWorld({ seed: 'last-mooring' }), 'crew:0')

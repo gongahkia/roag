@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { addChronicleToIndex, addWorldToIndex, emptyWorldIndex, removeWorldFromIndex } from './storage'
-import { chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle } from './world'
+import { generationRetryPlan } from './generation-config'
+import { InvalidWorldGenerationConfigurationError, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, recreateFoundationWorld } from './world'
 
 describe('medieval foundation worlds', () => {
   it('recreates the same world and generated household from its manifest inputs', () => {
@@ -32,6 +33,58 @@ describe('medieval foundation worlds', () => {
 
     expect(second.id).not.toBe(first.id)
     expect(second.crew).not.toEqual(first.crew)
+  })
+
+  it('normalizes selected generation settings and preserves their resolved provenance in the manifest', () => {
+    const world = createFoundationWorld({
+      seed: '  river   ash  ',
+      configuration: {
+        preset: 'far-coast',
+        advanced: { climate: 'temperate', historyYears: 350 }
+      }
+    })
+
+    expect(world.manifest).toMatchObject({
+      version: 2,
+      seed: 'river ash',
+      generatorVersion: 'foundation-1',
+      selectedConfiguration: {
+        preset: 'far-coast',
+        advanced: { climate: 'temperate', historyYears: 350 }
+      },
+      resolvedConfiguration: {
+        version: 1,
+        preset: 'far-coast',
+        regionSize: 'broad',
+        climate: 'temperate',
+        historyYears: 350,
+        terrainRuggedness: 4,
+        simulationFidelity: 'deep'
+      },
+      generationDiagnostics: {
+        validation: { status: 'accepted', issues: [] }
+      }
+    })
+    expect(world.manifest.generationDiagnostics.retryPlan).toEqual(generationRetryPlan('river ash', world.manifest.resolvedConfiguration))
+    expect(recreateFoundationWorld(world.manifest)).toEqual(world)
+  })
+
+  it('uses resolved generation settings in the foundation world identity and household stream', () => {
+    const defaultConfiguration = createFoundationWorld({ seed: 'same-bank' })
+    const alteredConfiguration = createFoundationWorld({ seed: 'same-bank', configuration: { preset: 'far-coast' } })
+
+    expect(alteredConfiguration.id).not.toBe(defaultConfiguration.id)
+    expect(alteredConfiguration.crew).not.toEqual(defaultConfiguration.crew)
+  })
+
+  it('rejects invalid generation settings before it creates a world or manifest', () => {
+    expect(() => createFoundationWorld({
+      seed: 'broken-bank',
+      configuration: {
+        preset: 'far-coast',
+        advanced: { historyYears: 175 } as never
+      }
+    })).toThrow(InvalidWorldGenerationConfigurationError)
   })
 
   it('turns a terminal world into a read-only chronicle without losing its causal record', () => {

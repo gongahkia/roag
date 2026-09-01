@@ -7,6 +7,7 @@ describe('world generation configuration', () => {
 
     expect(resolution).toEqual({
       status: 'valid',
+      selectedConfiguration: { preset: 'watershed', advanced: {} },
       configuration: {
         version: 1,
         preset: 'watershed',
@@ -34,6 +35,7 @@ describe('world generation configuration', () => {
 
     expect(resolution).toEqual({
       status: 'valid',
+      selectedConfiguration: { preset: 'far-coast', advanced: { climate: 'cool-wet', terrainRuggedness: 4, historyYears: 350 } },
       configuration: expect.objectContaining({
         preset: 'far-coast',
         regionSize: 'broad',

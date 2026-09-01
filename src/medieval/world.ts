@@ -1,8 +1,8 @@
 import { SeededRng, hashSeed } from './rng'
-import { FOUNDATION_GENERATOR_VERSION, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FoundationWorldConfiguration, type WorldChronicle, type WorldManifest } from './types'
+import { generationConfigurationFingerprint, generationRetryPlan, isReproducibleGenerationDiagnostics, resolveWorldGenerationConfig, type WorldGenerationConfig, type WorldGenerationConfigIssue, type WorldGenerationConfigRequest } from './generation-config'
+import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type WorldChronicle, type WorldManifest } from './types'
 
 const DEFAULT_SEED = 'jomon-foundation'
-const foundationConfiguration = (): FoundationWorldConfiguration => ({ version: 1, profile: 'foundation' })
 
 const foundationJomon = (): FoundationJomon => ({
   id: 'vessel:jomon',
@@ -50,7 +50,14 @@ const relationshipBases: readonly CrewRelationship['basis'][] = ['kinship', 'wor
 
 export interface FoundationWorldInput {
   seed?: string
-  configuration?: FoundationWorldConfiguration
+  configuration?: WorldGenerationConfigRequest
+}
+
+export class InvalidWorldGenerationConfigurationError extends Error {
+  constructor(readonly issues: readonly WorldGenerationConfigIssue[]) {
+    super(`world generation configuration is invalid: ${issues.map(item => item.field).join(', ')}`)
+    this.name = 'InvalidWorldGenerationConfigurationError'
+  }
 }
 
 export const normalizeSeed = (seed: string | undefined): string => {
@@ -58,20 +65,15 @@ export const normalizeSeed = (seed: string | undefined): string => {
   return normalized || DEFAULT_SEED
 }
 
-const configurationFor = (configuration: FoundationWorldConfiguration | undefined): FoundationWorldConfiguration => {
-  if (!configuration || configuration.version !== 1 || configuration.profile !== 'foundation') return foundationConfiguration()
-  return { version: configuration.version, profile: configuration.profile }
-}
-
-const idForManifest = (seed: string, configuration: FoundationWorldConfiguration): string => {
-  const identity = `${FOUNDATION_GENERATOR_VERSION}|${configuration.version}|${configuration.profile}|${seed}`
+const idForManifest = (seed: string, configuration: WorldGenerationConfig): string => {
+  const identity = `${FOUNDATION_GENERATOR_VERSION}|${generationConfigurationFingerprint(configuration)}|${seed}`
   const forward = hashSeed(identity).toString(36)
   const reverse = hashSeed([...identity].reverse().join(''), 0x9e3779b9).toString(36)
   return `world:${forward}-${reverse}`
 }
 
-const labelForSeed = (seed: string): string => {
-  const rng = new SeededRng(`label:${seed}`)
+const labelForSeed = (seed: string, configuration: WorldGenerationConfig): string => {
+  const rng = new SeededRng(`label:${seed}:${generationConfigurationFingerprint(configuration)}`)
   return `${rng.pick(['Ash', 'Brackish', 'Candle', 'Drowned', 'Eel', 'Far', 'Grey', 'Hollow', 'Ivy', 'Low'])} ${rng.pick(['Basin', 'Current', 'Estuary', 'Ford', 'Mooring', 'Reach', 'Sound', 'Weir', 'Wick', 'Wold'])}`
 }
 
@@ -101,7 +103,7 @@ const shuffled = <T>(rng: SeededRng, values: readonly T[]): T[] => {
 }
 
 const generateCrew = (manifest: WorldManifest): readonly FoundationCrewMember[] => {
-  const rng = new SeededRng(`crew:${manifest.seed}:${manifest.generatorVersion}`)
+  const rng = new SeededRng(`crew:${manifest.seed}:${manifest.generatorVersion}:${generationConfigurationFingerprint(manifest.resolvedConfiguration)}`)
   const usedNames = new Set<string>()
   const selectedRoles = shuffled(rng, roles).slice(0, 6)
   const crew = selectedRoles.map((role, index): FoundationCrewMember => ({
@@ -119,11 +121,31 @@ const generateCrew = (manifest: WorldManifest): readonly FoundationCrewMember[] 
 
 const cloneWorld = (world: FoundationWorld): FoundationWorld => structuredClone(world)
 
+export const foundationWorldIdForManifest = (manifest: WorldManifest): string => idForManifest(manifest.seed, manifest.resolvedConfiguration)
+
+export const isReproducibleWorldManifest = (value: unknown): value is WorldManifest => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const manifest = value as Record<string, unknown>
+  if (manifest.version !== FOUNDATION_MANIFEST_VERSION || typeof manifest.seed !== 'string' || !manifest.seed || normalizeSeed(manifest.seed) !== manifest.seed || manifest.generatorVersion !== FOUNDATION_GENERATOR_VERSION || typeof manifest.label !== 'string' || !manifest.label) return false
+  if (manifest.initialCourierId !== undefined && (typeof manifest.initialCourierId !== 'string' || !manifest.initialCourierId)) return false
+  if (!isReproducibleGenerationDiagnostics(manifest.seed, manifest.selectedConfiguration, manifest.resolvedConfiguration, manifest.generationDiagnostics)) return false
+  return manifest.label === labelForSeed(manifest.seed, manifest.resolvedConfiguration as WorldGenerationConfig)
+}
+
 export const createFoundationWorld = (input: FoundationWorldInput = {}): FoundationWorld => {
   const seed = normalizeSeed(input.seed)
-  const configuration = configurationFor(input.configuration)
-  const manifest: WorldManifest = { version: 1, seed, configuration, generatorVersion: FOUNDATION_GENERATOR_VERSION, label: labelForSeed(seed) }
-  const id = idForManifest(seed, configuration)
+  const configurationResolution = resolveWorldGenerationConfig(input.configuration)
+  if (configurationResolution.status !== 'valid') throw new InvalidWorldGenerationConfigurationError(configurationResolution.issues)
+  const manifest: WorldManifest = {
+    version: FOUNDATION_MANIFEST_VERSION,
+    seed,
+    selectedConfiguration: configurationResolution.selectedConfiguration,
+    resolvedConfiguration: configurationResolution.configuration,
+    generationDiagnostics: { validation: { status: 'accepted', issues: [] }, retryPlan: generationRetryPlan(seed, configurationResolution.configuration) },
+    generatorVersion: FOUNDATION_GENERATOR_VERSION,
+    label: labelForSeed(seed, configurationResolution.configuration)
+  }
+  const id = idForManifest(seed, configurationResolution.configuration)
   return {
     version: 1,
     id,
@@ -134,6 +156,11 @@ export const createFoundationWorld = (input: FoundationWorldInput = {}): Foundat
     worldTime: 0,
     causalHistory: [{ sequence: 0, atWorldTime: 0, kind: 'world-created', detail: `Foundation world ${manifest.label} created from seed ${seed}.` }]
   }
+}
+
+export const recreateFoundationWorld = (manifest: WorldManifest): FoundationWorld => {
+  const recreated = createFoundationWorld({ seed: manifest.seed, configuration: manifest.selectedConfiguration })
+  return manifest.initialCourierId === undefined ? recreated : chooseInitialCourier(recreated, manifest.initialCourierId)
 }
 
 export const chooseInitialCourier = (world: FoundationWorld, courierId: string): FoundationWorld => {

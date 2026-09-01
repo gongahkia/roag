@@ -1,15 +1,15 @@
+import type { GenerationDiagnostics, WorldGenerationConfig, WorldGenerationConfigSelection } from './generation-config'
+
 export const FOUNDATION_GENERATOR_VERSION = 'foundation-1' as const
+export const FOUNDATION_MANIFEST_VERSION = 2 as const
 export const MEDIEVAL_DATABASE_NAME = 'jomon-medieval-worlds-v1' as const
 
-export interface FoundationWorldConfiguration {
-  version: 1
-  profile: 'foundation'
-}
-
 export interface WorldManifest {
-  version: 1
+  version: typeof FOUNDATION_MANIFEST_VERSION
   seed: string
-  configuration: FoundationWorldConfiguration
+  selectedConfiguration: WorldGenerationConfigSelection
+  resolvedConfiguration: WorldGenerationConfig
+  generationDiagnostics: GenerationDiagnostics
   generatorVersion: typeof FOUNDATION_GENERATOR_VERSION
   label: string
   initialCourierId?: string

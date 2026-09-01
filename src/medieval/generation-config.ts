@@ -40,6 +40,12 @@ export interface WorldGenerationConfigRequest {
   advanced?: Partial<WorldGenerationAdvancedSettings>
 }
 
+/** The canonical player-selected values retained in a world manifest. */
+export interface WorldGenerationConfigSelection {
+  preset: WorldGenerationPreset
+  advanced: Readonly<Partial<WorldGenerationAdvancedSettings>>
+}
+
 export interface WorldGenerationPresetDefinition {
   description: string
   defaults: Readonly<WorldGenerationAdvancedSettings>
@@ -52,7 +58,7 @@ export interface WorldGenerationConfigIssue {
 }
 
 export type WorldGenerationConfigResolution =
-  | { status: 'valid'; configuration: WorldGenerationConfig }
+  | { status: 'valid'; selectedConfiguration: WorldGenerationConfigSelection; configuration: WorldGenerationConfig }
   | { status: 'invalid'; issues: readonly WorldGenerationConfigIssue[] }
 
 export interface GenerationAttempt {
@@ -63,6 +69,16 @@ export interface GenerationAttempt {
 export type GenerationAttemptSelection =
   | { status: 'selected'; attempt: GenerationAttempt }
   | { status: 'exhausted'; attempted: number }
+
+/**
+ * A valid world keeps these diagnostics even before the region pipeline exists.
+ * This makes its accepted configuration and bounded candidate sequence
+ * inspectable instead of reconstructing them from implicit defaults.
+ */
+export interface GenerationDiagnostics {
+  validation: { status: 'accepted'; issues: readonly [] }
+  retryPlan: readonly GenerationAttempt[]
+}
 
 const scaleValues = [1, 2, 3, 4, 5] as const
 const regionSizes = ['compact', 'standard', 'broad'] as const
@@ -84,6 +100,7 @@ const advancedSettingNames = [
   'eraPace',
   'simulationFidelity'
 ] as const satisfies readonly (keyof WorldGenerationAdvancedSettings)[]
+const resolvedConfigurationNames = ['version', 'preset', ...advancedSettingNames] as const
 
 const presetDefinitions: Readonly<Record<WorldGenerationPreset, WorldGenerationPresetDefinition>> = {
   'sheltered-reach': {
@@ -151,6 +168,7 @@ const isHistoryYears = (value: unknown): value is number => typeof value === 'nu
 const validPreset = (value: unknown): value is WorldGenerationPreset => typeof value === 'string' && Object.hasOwn(presetDefinitions, value)
 
 const issue = (field: string, code: WorldGenerationConfigIssue['code'], message: string): WorldGenerationConfigIssue => ({ field, code, message })
+const hasOnlyKeys = (value: Record<string, unknown>, keys: readonly string[]): boolean => Object.keys(value).every(key => keys.includes(key)) && keys.every(key => Object.hasOwn(value, key))
 
 const settingValueIsValid = (setting: keyof WorldGenerationAdvancedSettings, value: unknown): boolean => {
   if (setting === 'regionSize') return includes(regionSizes, value)
@@ -200,6 +218,7 @@ export const resolveWorldGenerationConfig = (request: WorldGenerationConfigReque
   const issues: WorldGenerationConfigIssue[] = []
   const defaults = presetDefinitions[presetValue].defaults
   const resolved: WorldGenerationConfig = { version: WORLD_GENERATION_CONFIG_VERSION, preset: presetValue, ...defaults }
+  const selectedAdvanced: Partial<WorldGenerationAdvancedSettings> = {}
   for (const setting of advancedSettingNames) {
     if (!Object.hasOwn(advancedValue, setting)) continue
     const value = advancedValue[setting]
@@ -208,16 +227,17 @@ export const resolveWorldGenerationConfig = (request: WorldGenerationConfigReque
       continue
     }
     Object.assign(resolved, { [setting]: value })
+    Object.assign(selectedAdvanced, { [setting]: value })
   }
   for (const setting of Object.keys(advancedValue).filter(name => !advancedSettingNames.includes(name as keyof WorldGenerationAdvancedSettings)).sort()) {
     issues.push(issue(`advanced.${setting}`, 'unknown-setting', `${setting} is not a recognized world-generation setting.`))
   }
   const constraintIssues = constraintsFor(resolved)
   issues.push(...constraintIssues)
-  return issues.length ? { status: 'invalid', issues } : { status: 'valid', configuration: resolved }
+  return issues.length ? { status: 'invalid', issues } : { status: 'valid', selectedConfiguration: { preset: presetValue, advanced: selectedAdvanced }, configuration: resolved }
 }
 
-const configSignature = (configuration: WorldGenerationConfig): string => JSON.stringify([
+export const generationConfigurationFingerprint = (configuration: WorldGenerationConfig): string => JSON.stringify([
   configuration.version,
   configuration.preset,
   configuration.regionSize,
@@ -243,11 +263,31 @@ const configSignature = (configuration: WorldGenerationConfig): string => JSON.s
 export const generationRetryPlan = (seed: string, configuration: WorldGenerationConfig): readonly GenerationAttempt[] => {
   const normalizedSeed = seed.trim()
   if (!normalizedSeed) throw new Error('generation retry requires a non-empty seed')
-  const signature = configSignature(configuration)
+  const signature = generationConfigurationFingerprint(configuration)
   return Array.from({ length: MAX_GENERATION_ATTEMPTS }, (_, attempt) => ({
     attempt,
     streamSeed: `jomon-world-generation-v${WORLD_GENERATION_CONFIG_VERSION}|${normalizedSeed}|${signature}|attempt:${attempt}`
   }))
+}
+
+export const isWorldGenerationConfigSelection = (value: unknown): value is WorldGenerationConfigSelection => {
+  if (!isRecord(value) || !hasOnlyKeys(value, ['preset', 'advanced']) || !isRecord(value.advanced)) return false
+  return resolveWorldGenerationConfig({ preset: value.preset as WorldGenerationPreset, advanced: value.advanced as Partial<WorldGenerationAdvancedSettings> }).status === 'valid'
+}
+
+export const isResolvedWorldGenerationConfig = (value: unknown): value is WorldGenerationConfig => {
+  if (!isRecord(value) || !hasOnlyKeys(value, resolvedConfigurationNames)) return false
+  const advanced = Object.fromEntries(advancedSettingNames.map(setting => [setting, value[setting]])) as Partial<WorldGenerationAdvancedSettings>
+  const resolution = resolveWorldGenerationConfig({ preset: value.preset as WorldGenerationPreset, advanced })
+  return resolution.status === 'valid' && generationConfigurationFingerprint(resolution.configuration) === generationConfigurationFingerprint(value as unknown as WorldGenerationConfig)
+}
+
+export const isReproducibleGenerationDiagnostics = (seed: string, selectedConfiguration: unknown, resolvedConfiguration: unknown, diagnostics: unknown): diagnostics is GenerationDiagnostics => {
+  if (!isWorldGenerationConfigSelection(selectedConfiguration) || !isResolvedWorldGenerationConfig(resolvedConfiguration) || !isRecord(diagnostics) || !hasOnlyKeys(diagnostics, ['validation', 'retryPlan']) || !isRecord(diagnostics.validation) || diagnostics.validation.status !== 'accepted' || !Array.isArray(diagnostics.validation.issues) || diagnostics.validation.issues.length !== 0 || !Array.isArray(diagnostics.retryPlan)) return false
+  const resolution = resolveWorldGenerationConfig(selectedConfiguration)
+  if (resolution.status !== 'valid' || generationConfigurationFingerprint(resolution.configuration) !== generationConfigurationFingerprint(resolvedConfiguration)) return false
+  const expectedPlan = generationRetryPlan(seed, resolvedConfiguration)
+  return diagnostics.retryPlan.length === expectedPlan.length && diagnostics.retryPlan.every((attempt, index) => isRecord(attempt) && attempt.attempt === expectedPlan[index]!.attempt && attempt.streamSeed === expectedPlan[index]!.streamSeed)
 }
 
 export const selectFirstValidGenerationAttempt = (plan: readonly GenerationAttempt[], isValid: (attempt: GenerationAttempt) => boolean): GenerationAttemptSelection => {
