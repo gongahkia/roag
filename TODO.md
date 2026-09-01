@@ -15,7 +15,7 @@ At the end of every completed slice, update this document: mark only verified wo
 
 ## Current state
 
-Jomon is being rebuilt as an original, no-magic late-medieval river-and-coast roguelike. The checked-in game is a substantial but superseded space-fiction prototype. It may inform architecture and testing technique, but its user-facing lore, vocabulary, assets, progression, save migrations, routes, and content are not requirements for the medieval game.
+Jomon is being rebuilt as an original low-mysticism late-medieval river-and-coast roguelike. The checked-in game is a substantial but superseded space-fiction prototype. It may inform architecture and testing technique, but its user-facing lore, vocabulary, assets, progression, save migrations, routes, and content are not requirements for the medieval game.
 
 The documentation reset is complete. No medieval gameplay slice has been implemented or verified yet. The active implementation starting point is Phase 1.1.
 
@@ -53,7 +53,7 @@ Jomon takes clear, original inspiration from **Rogue (1980)**: a terminal-first,
 - Use a compact, persistent status readout and terse message feedback. The player should normally understand the current danger and affordances without opening a separate screen.
 - Keep direct keyboard control and compact contextual prompts. Support familiar eight-direction movement where it improves play, alongside discoverable/remappable controls and accessible alternatives.
 - Use original glyph assignments, palette, layout, copy, assets, sounds, names, and mechanics. Do not reproduce the Epyx/DOS graphics, box art, interface layouts, source code, or Rogue’s fantasy fiction.
-- The medieval material world is never weakened to imitate Rogue: Jomon’s readable symbols must describe vessels, work, people, weather, cargo, tools, and grounded danger rather than spells or monsters.
+- The medieval material world is never weakened to imitate Rogue: Jomon’s readable symbols must describe vessels, work, people, weather, cargo, tools, grounded danger, and the rare uncanny phenomena that materially affect them—not default spellcasting or generic fantasy monsters.
 
 ## Emergent world and people direction
 
