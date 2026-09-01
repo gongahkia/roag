@@ -2,6 +2,7 @@ import type { GenerationDiagnostics, WorldGenerationConfig, WorldGenerationConfi
 import type { MedievalContentSafetyAudit, MedievalContentSafetyClassification } from './content-safety'
 import type { InitialWorld, InitialWorldGenerationDiagnostics } from './initial-world'
 import type { FrontierCausalAnchor, FrontierConnection, FrontierCoordinate, FrontierRegionKind } from './frontier'
+import type { MedievalTemporalState } from './temporal'
 
 export const FOUNDATION_GENERATOR_VERSION = 'foundation-2' as const
 export const FOUNDATION_MANIFEST_VERSION = 5 as const
@@ -146,20 +147,23 @@ export interface FoundationCrewMember {
 export interface CausalRecord {
   sequence: number
   atWorldTime: number
-  kind: 'world-created' | 'initial-courier-selected'
+  kind: 'world-created' | 'initial-courier-selected' | 'temporal-action' | 'scheduled-event-resolved'
   detail: string
   contentSafety: MedievalContentSafetyClassification
 }
 
 export interface FoundationWorld {
-  version: 1
+  /** v2 adds the bounded, validated action-clock/scheduler state. */
+  version: 2
   id: string
   status: 'active'
   manifest: WorldManifest
   jomon: FoundationJomon
   crew: readonly FoundationCrewMember[]
   initialWorld: InitialWorld
-  worldTime: 0
+  /** A projection of `temporal.worldTime`, retained for existing read-only UI callers. */
+  worldTime: number
+  temporal: MedievalTemporalState
   causalHistory: readonly CausalRecord[]
 }
 

@@ -4,6 +4,7 @@ import { FRONTIER_CONTRACT_VERSION, createInitialFrontierState, frontierContentR
 import { generationConfigurationFingerprint, generationRetryPlan, isReproducibleGenerationDiagnostics, resolveWorldGenerationConfig, type WorldGenerationConfig, type WorldGenerationConfigIssue, type WorldGenerationConfigRequest } from './generation-config'
 import { INITIAL_WORLD_GENERATION_DIAGNOSTICS_VERSION, INITIAL_WORLD_GENERATOR_VERSION, generateInitialWorld, initialWorldContentRecords, type InitialWorld, type InitialWorldGenerationDiagnostics, type InitialWorldGenerationProgressObserver } from './initial-world'
 import { normalizeCreationSeed } from './settings'
+import { advanceMedievalTemporalState, createMedievalTemporalState, isMedievalTemporalState, type TemporalCommand, type TemporalProvenance } from './temporal'
 import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
 
 const foundationJomon = (): FoundationJomon => ({
@@ -324,6 +325,24 @@ const creationProvenanceFor = (
 
 const idForCreationProvenance = (creation: WorldCreationProvenance): string => `world:${creation.digest}`
 
+const temporalProvenanceForCreation = (creation: WorldCreationProvenance): TemporalProvenance => ({
+  version: 1,
+  worldId: idForCreationProvenance(creation),
+  creationDigest: creation.digest,
+  seed: creation.seed
+})
+
+const causalHistoryWithTemporal = (foundationRecords: readonly CausalRecord[], temporal: FoundationWorld['temporal']): readonly CausalRecord[] => [
+  ...foundationRecords,
+  ...temporal.causalRecords.map(record => ({
+    sequence: foundationRecords.length + record.sequence,
+    atWorldTime: record.atWorldTime,
+    kind: record.kind === 'action-completed' ? 'temporal-action' as const : 'scheduled-event-resolved' as const,
+    detail: record.detail,
+    contentSafety: record.contentSafety
+  }))
+]
+
 const expectedCreationProvenance = (seed: string, selectedConfiguration: WorldCreationProvenance['selectedConfiguration'], resolvedConfiguration: WorldGenerationConfig): WorldCreationProvenance | undefined => {
   const state = expectedFoundationState(seed, resolvedConfiguration, undefined)
   return state === undefined ? undefined : creationProvenanceFor(seed, selectedConfiguration, resolvedConfiguration, state)
@@ -361,8 +380,9 @@ const worldFromCreationProvenance = (
 ): FoundationWorld => {
   const state = precomputedState ?? expectedFoundationState(creation.seed, creation.resolvedConfiguration, initialCourierId)
   if (!state) throw new Error('creation provenance does not identify an eligible initial courier')
+  const temporal = createMedievalTemporalState(temporalProvenanceForCreation(creation))
   return {
-    version: 1,
+    version: 2,
     id: idForCreationProvenance(creation),
     status: 'active',
     manifest: {
@@ -375,7 +395,8 @@ const worldFromCreationProvenance = (
     crew: state.crew,
     initialWorld: state.initialWorld,
     worldTime: 0,
-    causalHistory: state.causalHistory
+    temporal,
+    causalHistory: causalHistoryWithTemporal(state.causalHistory, temporal)
   }
 }
 
@@ -397,11 +418,13 @@ export const recreateFoundationWorld = (manifest: WorldManifest): FoundationWorl
 export const chooseInitialCourier = (world: FoundationWorld, courierId: string): FoundationWorld => {
   if (world.status !== 'active') throw new Error('only an active world can select an initial courier')
   if (world.manifest.initialCourierId !== undefined) throw new Error('initial courier has already been selected')
+  if (world.temporal.worldTime !== 0 || world.temporal.actionSequence !== 0 || world.temporal.pendingEvents.length !== 0) throw new Error('initial courier must be selected before time-bearing actions')
   const candidate = world.crew.find(member => member.id === courierId)
   if (!candidate?.eligible) throw new Error('selected courier must be an eligible crew member')
   const next = cloneWorld(world)
   next.manifest.initialCourierId = courierId
-  next.causalHistory = [...next.causalHistory, initialCourierSelectedRecord(next.causalHistory.length, candidate.name)]
+  const foundationRecords = [...world.causalHistory.filter(record => record.kind === 'world-created' || record.kind === 'initial-courier-selected'), initialCourierSelectedRecord(1, candidate.name)]
+  next.causalHistory = causalHistoryWithTemporal(foundationRecords, next.temporal)
   const frontier = createInitialFrontierState({ seed: next.manifest.creation.seed, configuration: next.manifest.creation.resolvedConfiguration, initialWorld: next.initialWorld })
   next.manifest.currentContentSafetyAudit = auditFoundationContent(next.manifest.creation.labelContentSafety, next.jomon, next.crew, next.causalHistory, next.initialWorld, frontier)
   return next
@@ -411,8 +434,10 @@ export const chooseInitialCourier = (world: FoundationWorld, courierId: string):
 export const foundationWorldContentSatisfiesSafetyPolicy = (world: FoundationWorld): boolean => {
   try {
     const frontier = createInitialFrontierState({ seed: world.manifest.creation.seed, configuration: world.manifest.creation.resolvedConfiguration, initialWorld: world.initialWorld })
+    const staticState = expectedFoundationState(world.manifest.creation.seed, world.manifest.creation.resolvedConfiguration, world.manifest.initialCourierId)
+    if (!staticState) return false
     return contentSafetyAuditMatches(
-      foundationContentRecords(world.manifest.creation.labelContentSafety, world.jomon, world.crew, world.causalHistory, world.initialWorld, frontier),
+      foundationContentRecords(world.manifest.creation.labelContentSafety, world.jomon, world.crew, staticState.causalHistory, world.initialWorld, frontier),
       world.manifest.currentContentSafetyAudit
     )
   } catch { return false }
@@ -424,6 +449,34 @@ export const foundationWorldInitialWorldMatchesManifest = (world: FoundationWorl
     const expected = generateInitialWorld(world.manifest.creation.seed, world.manifest.creation.resolvedConfiguration)
     return equivalent(world.initialWorld, expected.world) && equivalent(world.manifest.creation.initialWorld, initialWorldIdentityFor(expected.world)) && equivalent(world.manifest.creation.validationHistory.initialWorld, expected.diagnostics)
   } catch { return false }
+}
+
+/** The mutable scheduler is bound to immutable creation evidence but never modifies it. */
+export const foundationWorldTemporalStateMatches = (world: FoundationWorld): boolean => {
+  try {
+    const provenance = temporalProvenanceForCreation(world.manifest.creation)
+    if (!isMedievalTemporalState(world.temporal, provenance) || world.worldTime !== world.temporal.worldTime) return false
+    const staticState = expectedFoundationState(world.manifest.creation.seed, world.manifest.creation.resolvedConfiguration, world.manifest.initialCourierId)
+    return staticState !== undefined && equivalent(world.causalHistory, causalHistoryWithTemporal(staticState.causalHistory, world.temporal))
+  } catch { return false }
+}
+
+/**
+ * Applies the renderer-independent temporal contract and mirrors its causal
+ * records into the world history. It intentionally leaves manifest creation
+ * provenance and courier-selection state untouched.
+ */
+export const advanceFoundationWorldTime = (world: FoundationWorld, command: TemporalCommand | unknown): FoundationWorld => {
+  if (world.status !== 'active') throw new Error('only an active world can advance time')
+  if (!foundationWorldTemporalStateMatches(world)) throw new Error('world temporal state does not match immutable creation provenance')
+  const transition = advanceMedievalTemporalState(world.temporal, command)
+  const staticState = expectedFoundationState(world.manifest.creation.seed, world.manifest.creation.resolvedConfiguration, world.manifest.initialCourierId)
+  if (!staticState) throw new Error('world has an invalid initial courier state')
+  const next = cloneWorld(world)
+  next.temporal = transition.state
+  next.worldTime = transition.state.worldTime
+  next.causalHistory = causalHistoryWithTemporal(staticState.causalHistory, transition.state)
+  return next
 }
 
 export const finalizeWorldAsChronicle = (world: FoundationWorld, reason: ChronicleReason): WorldChronicle => ({

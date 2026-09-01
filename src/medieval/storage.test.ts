@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MedievalWorldRepository } from './storage'
 import { CREATION_SETTINGS_PROFILE_LIMIT, defaultCreationSettings } from './settings'
 import { MEDIEVAL_DATABASE_NAME } from './types'
-import { chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle } from './world'
+import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle } from './world'
+import { classifyMedievalContent } from './content-safety'
 
 type Handler = (() => void) | null
 
@@ -187,6 +188,43 @@ describe('medieval local persistence', () => {
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(world.id, legacy)
 
     await expect(repository.loadWorld(world.id)).resolves.toBeUndefined()
+  })
+
+  it('rejects the older medieval world envelope rather than inferring its missing scheduler state', async () => {
+    const repository = new MedievalWorldRepository()
+    const world = createFoundationWorld({ seed: 'clock-envelope-clean-break' })
+    const legacy = structuredClone(world) as unknown as { version: number; temporal?: unknown }
+    legacy.version = 1
+    delete legacy.temporal
+
+    await repository.loadIndex()
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(world.id, legacy)
+
+    await expect(repository.loadWorld(world.id)).resolves.toBeUndefined()
+  })
+
+  it('persists and reloads a validated pending scheduler event without changing immutable manifest provenance', async () => {
+    const repository = new MedievalWorldRepository()
+    const world = chooseInitialCourier(createFoundationWorld({ seed: 'clock-persistence' }), 'crew:0')
+    const advanced = advanceFoundationWorldTime(world, {
+      id: 'movement:moor',
+      kind: 'movement',
+      durationMinutes: 1,
+      contentSafety: classifyMedievalContent('event', ['civil-life', 'navigation'], 'not-applicable', ['player-facing-text']),
+      events: [{
+        id: 'event:moor',
+        dueAtWorldTime: 2,
+        priority: 'ordinary',
+        payload: { kind: 'action-resolution', sourceActionId: 'movement:moor', creationDigest: world.manifest.creation.digest },
+        contentSafety: classifyMedievalContent('event', ['civil-life', 'navigation'], 'not-applicable', ['player-facing-text'])
+      }]
+    })
+
+    await repository.saveWorld(advanced)
+
+    expect(await repository.loadWorld(advanced.id)).toEqual(advanced)
+    expect(advanced.manifest).toEqual(world.manifest)
+    expect(advanced.temporal.pendingEvents.map(event => event.id)).toEqual(['event:moor'])
   })
 
   it('rejects a stored world whose manifest provenance does not reproduce its resolved configuration', async () => {
