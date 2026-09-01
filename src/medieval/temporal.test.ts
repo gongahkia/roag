@@ -29,6 +29,10 @@ const action = (id: string, kind: TimeBearingTemporalAction['kind'] = 'movement'
 })
 
 const codes = (error: unknown): readonly string[] => error instanceof TemporalContractError ? error.diagnostics.map(item => item.code) : []
+const rejectedCodes = (operation: () => unknown): readonly string[] => {
+  try { operation() } catch (error) { return codes(error) }
+  throw new Error('expected temporal contract rejection')
+}
 
 describe('medieval action clock and deterministic scheduler', () => {
   it('creates and reconstructs a zero-time scheduler without an RNG cursor', () => {
@@ -69,7 +73,7 @@ describe('medieval action clock and deterministic scheduler', () => {
     const before = structuredClone(initial)
 
     for (const kind of ['inspect', 'settings-opened', 'settings-closed', 'route-changed', 'browser-idle', 'browser-paused', 'browser-reloaded', 'ui-event'] as const) {
-      try { advanceMedievalTemporalState(initial, { kind }) } catch (error) { expect(codes(error)).toEqual(['temporal.pure-command']) }
+      expect(rejectedCodes(() => advanceMedievalTemporalState(initial, { kind }))).toEqual(['temporal.pure-command'])
       expect(initial).toEqual(before)
     }
   })
@@ -131,11 +135,11 @@ describe('medieval action clock and deterministic scheduler', () => {
       event('event:once', 'movement:duplicate', initial.provenance.creationDigest, 4),
       event('event:once', 'movement:duplicate', initial.provenance.creationDigest, 5)
     ])
-    try { advanceMedievalTemporalState(initial, duplicate) } catch (error) { expect(codes(error)).toContain('temporal.duplicate-event-id') }
+    expect(rejectedCodes(() => advanceMedievalTemporalState(initial, duplicate))).toContain('temporal.duplicate-event-id')
 
     const afterMove = advanceMedievalTemporalState(initial, action('movement:past', 'movement', 1))
-    try { advanceMedievalTemporalState(afterMove.state, action('work:past', 'work', 1, [event('event:past', 'work:past', initial.provenance.creationDigest, 0)])) } catch (error) { expect(codes(error)).toContain('temporal.past-event') }
-    try { advanceMedievalTemporalState(afterMove.state, action('movement:past', 'movement', 1)) } catch (error) { expect(codes(error)).toContain('temporal.duplicate-action-id') }
+    expect(rejectedCodes(() => advanceMedievalTemporalState(afterMove.state, action('work:past', 'work', 1, [event('event:past', 'work:past', initial.provenance.creationDigest, 0)])))).toContain('temporal.past-event')
+    expect(rejectedCodes(() => advanceMedievalTemporalState(afterMove.state, action('movement:past', 'movement', 1)))).toContain('temporal.duplicate-action-id')
 
     const pending = advanceMedievalTemporalState(initial, action('work:ordered', 'work', 1, [
       event('event:last', 'work:ordered', initial.provenance.creationDigest, 5, 'ordinary'),
@@ -156,11 +160,13 @@ describe('medieval action clock and deterministic scheduler', () => {
       { command: action('movement:zero', 'movement', 0), code: 'temporal.invalid-action-duration' },
       { command: action('movement:unsafe', 'movement', 1, [event('event:unsafe', 'movement:unsafe', initial.provenance.creationDigest, 1, 'ordinary'), { ...event('event:unsafe-content', 'movement:unsafe', initial.provenance.creationDigest), contentSafety: unsafe }]), code: 'content-safety.prohibited.torture' },
       { command: action('movement:wrong-proof', 'movement', 1, [event('event:wrong-proof', 'movement:wrong-proof', 'wrong-digest')]), code: 'temporal.invalid-event-provenance' },
+      { command: action('movement:wrong-source', 'movement', 1, [{ ...event('event:wrong-source', 'movement:wrong-source', initial.provenance.creationDigest), payload: { kind: 'action-resolution', sourceActionId: 'movement:other', creationDigest: initial.provenance.creationDigest } }]), code: 'temporal.invalid-event-payload' },
+      { command: action('movement:wrong-priority', 'movement', 1, [{ ...event('event:wrong-priority', 'movement:wrong-priority', initial.provenance.creationDigest), priority: 'unknown-priority' as never }]), code: 'temporal.invalid-event-priority' },
       { command: action('movement:queue', 'movement', 1, Array.from({ length: TEMPORAL_LIMITS.pendingEvents + 1 }, (_, index) => event(`event:queue:${index}`, 'movement:queue', initial.provenance.creationDigest, 100))), code: 'temporal.queue-limit' }
     ]
 
     for (const invalid of invalidCases) {
-      try { advanceMedievalTemporalState(initial, invalid.command) } catch (error) { expect(codes(error)).toContain(invalid.code) }
+      expect(rejectedCodes(() => advanceMedievalTemporalState(initial, invalid.command))).toContain(invalid.code)
       expect(initial.worldTime).toBe(0)
       expect(initial.pendingEvents).toEqual([])
     }
@@ -168,7 +174,7 @@ describe('medieval action clock and deterministic scheduler', () => {
     overflow.worldTime = Number.MAX_SAFE_INTEGER + 1
     expect(isMedievalTemporalState(overflow)).toBe(false)
     expect(() => temporalTimeAfterAction(Number.MAX_SAFE_INTEGER, 1)).toThrow(TemporalContractError)
-    try { temporalTimeAfterAction(Number.MAX_SAFE_INTEGER, 1) } catch (error) { expect(codes(error)).toEqual(['temporal.action-time-overflow']) }
+    expect(rejectedCodes(() => temporalTimeAfterAction(Number.MAX_SAFE_INTEGER, 1))).toEqual(['temporal.action-time-overflow'])
   })
 
   it('rejects an action that would exceed the bounded causal-record history before mutating state', () => {
@@ -179,7 +185,7 @@ describe('medieval action clock and deterministic scheduler', () => {
     expect(state.causalRecords).toHaveLength(7 * (TEMPORAL_LIMITS.pendingEvents + 1))
     const before = structuredClone(state)
 
-    try { advanceMedievalTemporalState(state, action('work:batch:7', 'work', 1, eventsFor(7))) } catch (error) { expect(codes(error)).toEqual(['temporal.causal-record-limit']) }
+    expect(rejectedCodes(() => advanceMedievalTemporalState(state, action('work:batch:7', 'work', 1, eventsFor(7))))).toEqual(['temporal.causal-record-limit'])
     expect(state).toEqual(before)
   })
 })

@@ -17,7 +17,7 @@ At the end of every completed slice, update this document: mark only verified wo
 
 Jomon is being rebuilt as an original low-mysticism late-medieval river-and-coast roguelike. The checked-in game is a substantial but superseded space-fiction prototype. It may inform architecture and testing technique, but its user-facing lore, vocabulary, assets, progression, save migrations, routes, and content are not requirements for the medieval game.
 
-The documentation reset and Phase 1.1 are complete. The rebuild now has a deliberately minimal, non-gameplay bootstrap: a deterministic foundation household, initial-courier choice, isolated local records, and an original keyboard canvas shell; its authored Chromium keyboard flow also passes. The generation-configuration, manifest-provenance, content-boundary, initial-world-pipeline, expanding-frontier, and sixteen-colour presentation contracts are complete; the settings UI is the active Phase 1.2 slice. No walkable map, deck interaction, trade, combat, travel, or simulation tick is being represented as complete.
+The documentation reset and Phase 1.1 are complete. The rebuild now has a deliberately minimal, non-gameplay bootstrap: a deterministic foundation household, initial-courier choice, isolated local records, and an original keyboard canvas shell; its authored Chromium keyboard flow also passes. The generation-configuration, manifest-provenance, content-boundary, initial-world-pipeline, expanding-frontier, sixteen-colour presentation, settings UI, generation-test, and action-clock contracts are complete. Versioned mutable world-state and persistence contracts are the sole active Phase 1.3 slice; no walkable map, deck interaction, trade, combat, travel, or simulation gameplay is represented as complete.
 
 ## Context-free implementation handoff
 
@@ -284,7 +284,7 @@ Verification for the completed content-boundary contract: on 2026-09-01, `npm ex
 
 - [x] Define the action-driven simulation clock, event ordering, seeded random streams, and deterministic scheduler. Only state-changing in-world commands advance time; pure UI inspection and idle/paused/closed browser time must be zero-time.
 
-Implementation design for the active action-clock and scheduler slice:
+Implementation design for the completed action-clock and scheduler slice:
 
 - `src/medieval/temporal.ts` will own temporal contract v1: integer in-world minutes, a zero-time clock, action sequence, bounded pending-event queue, canonical due-event results/causal records, command validation, and pure state transitions. `world.ts` will bind that state to immutable creation provenance and append its causal records; `types.ts` will own the versioned mutable envelope; `storage.ts` will reject any temporal state that does not reproduce those contracts. No renderer, browser timer, or gameplay system owns simulation authority.
 - Time-bearing action inputs are the closed future-compatible families `movement`, `wait`, `travel`, `work`, `rest`, `delegated-task-commitment`, and `delegated-task-resolution`. Each supplies a positive, safe integer minute duration within its documented family bound. Inspection, settings, routes, browser idle/pause/reload, and arbitrary UI inputs are explicit pure command kinds and are rejected by the advancing reducer with no partial mutation.
