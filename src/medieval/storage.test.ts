@@ -173,7 +173,7 @@ describe('medieval local persistence', () => {
     expect(await repository.loadWorld('world:not-present')).toBeUndefined()
   })
 
-  it('keeps valid local creation settings intact while saving and loading the v3 full-world record', async () => {
+  it('keeps valid local creation settings intact while saving and loading the v4 full-world record', async () => {
     const repository = new MedievalWorldRepository()
     const settings = { ...defaultCreationSettings(), seed: 'settings-survive-state', configuration: { preset: 'far-coast' as const, advanced: {} } }
     const world = chooseInitialCourier(createFoundationWorld({ seed: 'settings-survive-state', configuration: settings.configuration }), 'crew:0')
@@ -211,6 +211,22 @@ describe('medieval local persistence', () => {
     const legacy = structuredClone(world) as unknown as { version: number; state?: unknown }
     legacy.version = 2
     delete legacy.state
+
+    await repository.loadIndex()
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(world.id, legacy)
+
+    await expect(repository.loadWorld(world.id)).resolves.toBeUndefined()
+  })
+
+  it('rejects the v3 mutable-world envelope rather than inventing persistent person records', async () => {
+    const repository = new MedievalWorldRepository()
+    const world = createFoundationWorld({ seed: 'people-envelope-clean-break' })
+    const legacy = structuredClone(world) as unknown as { version: number; state: { version: number; people: { version: number; registry?: unknown[]; records?: unknown[] } } }
+    legacy.version = 3
+    legacy.state.version = 1
+    legacy.state.people.version = 1
+    legacy.state.people.registry = legacy.state.people.records
+    delete legacy.state.people.records
 
     await repository.loadIndex()
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(world.id, legacy)

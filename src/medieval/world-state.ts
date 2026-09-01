@@ -1,20 +1,21 @@
 import { auditMedievalContentSafety, contentSafetyAuditMatches, type ClassifiedMedievalContent, type MedievalContentSafetyAudit, type MedievalContentSafetyDiagnosticCode } from './content-safety'
 import { createInitialFrontierState, frontierContentRecords, validateFrontierState, type FrontierState, type FrontierValidationDiagnosticCode } from './frontier'
 import { INITIAL_WORLD_LIMITS, type InitialWorld } from './initial-world'
+import { instantiateFoundationCrewPeople, persistentPersonContentRecords, PERSISTENT_PERSON_LIMITS, validatePersistentPeople, type PersistentPersonRecord, type PersistentPersonValidationDiagnosticCode } from './persistent-person'
 import { isMedievalTemporalState, TEMPORAL_LIMITS, temporalContentRecords, type MedievalTemporalState } from './temporal'
-import type { WorldGenerationConfig } from './generation-config'
+import { generationConfigurationFingerprint, type WorldGenerationConfig } from './generation-config'
 import type { CausalRecord, FoundationCrewMember, FoundationJomon } from './types'
 
 /**
  * This is the durable mutable half of a medieval world. It deliberately has
  * no renderer, storage, browser, or prototype dependency.
  */
-export const MEDIEVAL_WORLD_STATE_VERSION = 1 as const
+export const MEDIEVAL_WORLD_STATE_VERSION = 2 as const
 export const WORLD_GEOGRAPHY_STATE_VERSION = 1 as const
 export const WORLD_SITES_STATE_VERSION = 1 as const
 export const WORLD_ROUTES_STATE_VERSION = 1 as const
 export const WORLD_MARKETS_STATE_VERSION = 1 as const
-export const WORLD_PEOPLE_STATE_VERSION = 1 as const
+export const WORLD_PEOPLE_STATE_VERSION = 2 as const
 export const WORLD_INSTITUTIONS_STATE_VERSION = 1 as const
 export const WORLD_HISTORY_STATE_VERSION = 1 as const
 export const WORLD_JOMON_STATE_VERSION = 1 as const
@@ -26,7 +27,7 @@ export const MEDIEVAL_WORLD_STATE_LIMITS = {
   quays: 8,
   routeConditions: INITIAL_WORLD_LIMITS.routes,
   markets: INITIAL_WORLD_LIMITS.settlements + 12,
-  people: INITIAL_WORLD_LIMITS.people + 6,
+  people: PERSISTENT_PERSON_LIMITS.records,
   institutions: INITIAL_WORLD_LIMITS.institutions,
   historyRecords: TEMPORAL_LIMITS.causalRecords + 2,
   capacityMaximum: 100
@@ -90,24 +91,9 @@ export interface WorldMarketsState {
   markets: readonly WorldMarketState[]
 }
 
-export type WorldPersonRegistryOrigin = 'foundation-crew' | 'initial-person-seed'
-
-export interface WorldPersonResidence {
-  kind: 'vessel' | 'site'
-  id: string
-}
-
-/** Registry entries identify existing generated people without inventing their later simulation fields. */
-export interface WorldPersonRegistryEntry {
-  id: string
-  origin: WorldPersonRegistryOrigin
-  sourceId: string
-  residence: WorldPersonResidence
-}
-
 export interface WorldPeopleState {
   version: typeof WORLD_PEOPLE_STATE_VERSION
-  registry: readonly WorldPersonRegistryEntry[]
+  records: readonly PersistentPersonRecord[]
 }
 
 export interface WorldInstitutionState {
@@ -181,6 +167,7 @@ export type WorldStateValidationDiagnosticCode =
   | 'world-state.budget-exceeded'
   | 'world-state.invalid-content-audit'
   | FrontierValidationDiagnosticCode
+  | PersistentPersonValidationDiagnosticCode
   | MedievalContentSafetyDiagnosticCode
 
 export interface WorldStateValidationIssue {
@@ -204,6 +191,8 @@ export interface WorldStateConstructionContext extends WorldStateValidationConte
   initialCourierId?: string
   /** Lets later reducers preserve Jomon values while retaining this v1 shape. */
   jomonState?: WorldJomonState
+  /** Later person reducers must supply validated records; creation instantiates only crew. */
+  peopleState?: WorldPeopleState
 }
 
 const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -259,10 +248,6 @@ const routeRecordsFor = (initialWorld: InitialWorld): readonly WorldRouteConditi
   assessedAtWorldTime: 0
 })))
 const marketRecordsFor = (sites: readonly WorldSiteState[]): readonly WorldMarketState[] => sortedById(sites.map(site => ({ id: `market:${site.id}`, siteId: site.id, commodityStates: [] as const })))
-const peopleRecordsFor = (initialWorld: InitialWorld, jomon: FoundationJomon, crew: readonly FoundationCrewMember[]): readonly WorldPersonRegistryEntry[] => sortedById([
-  ...crew.map(member => ({ id: member.id, origin: 'foundation-crew' as const, sourceId: member.id, residence: { kind: 'vessel' as const, id: jomon.id } })),
-  ...initialWorld.people.map(person => ({ id: person.id, origin: 'initial-person-seed' as const, sourceId: person.id, residence: { kind: 'site' as const, id: person.settlementId } }))
-])
 const institutionRecordsFor = (initialWorld: InitialWorld): readonly WorldInstitutionState[] => sortedById(initialWorld.institutions.map(institution => ({ id: institution.id, sourceInstitutionId: institution.id, siteId: institution.settlementId })))
 
 export const causalHistoryWithTemporal = (foundationRecords: readonly CausalRecord[], temporal: MedievalTemporalState): readonly CausalRecord[] => [
@@ -277,13 +262,14 @@ export const causalHistoryWithTemporal = (foundationRecords: readonly CausalReco
 ]
 
 /** Player-visible mutable texts are limited to safety-audited frontier/history/scheduler records. */
-export const medievalWorldStateContentRecords = (state: Pick<MedievalWorldState, 'geography' | 'history' | 'temporal'>): readonly ClassifiedMedievalContent[] => [
+export const medievalWorldStateContentRecords = (state: Pick<MedievalWorldState, 'geography' | 'people' | 'history' | 'temporal'>): readonly ClassifiedMedievalContent[] => [
   ...frontierContentRecords(state.geography.frontier),
+  ...persistentPersonContentRecords(state.people.records),
   ...state.history.records.map(record => ({ id: `world-state:causal:${record.sequence}:${record.kind}`, domain: 'event' as const, classification: record.contentSafety })),
   ...temporalContentRecords(state.temporal)
 ]
 
-const auditStateContent = (state: Pick<MedievalWorldState, 'geography' | 'history' | 'temporal'>): MedievalContentSafetyAudit => {
+const auditStateContent = (state: Pick<MedievalWorldState, 'geography' | 'people' | 'history' | 'temporal'>): MedievalContentSafetyAudit => {
   const audit = auditMedievalContentSafety(medievalWorldStateContentRecords(state))
   if (audit.status === 'rejected') throw new Error(`world state content rejected: ${audit.diagnostics.map(diagnostic => diagnostic.code).join(', ')}`)
   return audit
@@ -307,7 +293,15 @@ export const createMedievalWorldState = (context: WorldStateConstructionContext)
     sites: { version: WORLD_SITES_STATE_VERSION, sites, quays: quayRecordsFor(context.jomon) },
     routes: { version: WORLD_ROUTES_STATE_VERSION, conditions: routeRecordsFor(context.initialWorld) },
     markets: { version: WORLD_MARKETS_STATE_VERSION, markets: marketRecordsFor(sites) },
-    people: { version: WORLD_PEOPLE_STATE_VERSION, registry: peopleRecordsFor(context.initialWorld, context.jomon, context.crew) },
+    people: {
+      version: WORLD_PEOPLE_STATE_VERSION,
+      records: structuredClone(context.peopleState?.records ?? instantiateFoundationCrewPeople({
+        seed: context.seed,
+        configurationFingerprint: generationConfigurationFingerprint(context.configuration),
+        jomon: context.jomon,
+        crew: context.crew
+      }))
+    },
     institutions: { version: WORLD_INSTITUTIONS_STATE_VERSION, registry: institutionRecordsFor(context.initialWorld) },
     history: { version: WORLD_HISTORY_STATE_VERSION, records: causalHistoryWithTemporal(context.foundationHistory, context.temporal) },
     jomon: structuredClone(context.jomonState ?? initialJomonState(context.jomon, sites, context.crew)),
@@ -359,7 +353,7 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
   validateIdArrayOrder(value.sites?.quays, 'world-state:quays', issues)
   validateIdArrayOrder(value.routes?.conditions, 'world-state:routes', issues)
   validateIdArrayOrder(value.markets?.markets, 'world-state:markets', issues)
-  validateIdArrayOrder(value.people?.registry, 'world-state:people', issues)
+  validateIdArrayOrder(value.people?.records, 'world-state:people', issues)
   validateIdArrayOrder(value.institutions?.registry, 'world-state:institutions', issues)
   if (!validSubdomain(value.sites, WORLD_SITES_STATE_VERSION, ['version', 'sites', 'quays']) || !Array.isArray(value.sites.sites) || !Array.isArray(value.sites.quays) || value.sites.sites.length > MEDIEVAL_WORLD_STATE_LIMITS.sites || !same(value.sites.sites, expectedSites)) issues.push(issue('world-state:sites', value.sites && Array.isArray(value.sites.sites) && value.sites.sites.length > MEDIEVAL_WORLD_STATE_LIMITS.sites ? 'world-state.budget-exceeded' : 'world-state.invalid-sites'))
   const expectedQuays = quayRecordsFor(context.jomon)
@@ -371,15 +365,33 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
   const expectedMarkets = marketRecordsFor(expectedSites)
   if (!validSubdomain(value.markets, WORLD_MARKETS_STATE_VERSION, ['version', 'markets']) || !Array.isArray(value.markets.markets) || value.markets.markets.length > MEDIEVAL_WORLD_STATE_LIMITS.markets || !same(value.markets.markets, expectedMarkets)) issues.push(issue('world-state:markets', value.markets && Array.isArray(value.markets.markets) && value.markets.markets.length > MEDIEVAL_WORLD_STATE_LIMITS.markets ? 'world-state.budget-exceeded' : 'world-state.invalid-markets'))
 
-  const expectedPeople = peopleRecordsFor(context.initialWorld, context.jomon, context.crew)
-  if (!validSubdomain(value.people, WORLD_PEOPLE_STATE_VERSION, ['version', 'registry']) || !Array.isArray(value.people.registry) || value.people.registry.length > MEDIEVAL_WORLD_STATE_LIMITS.people || !same(value.people.registry, expectedPeople)) issues.push(issue('world-state:people', value.people && Array.isArray(value.people.registry) && value.people.registry.length > MEDIEVAL_WORLD_STATE_LIMITS.people ? 'world-state.budget-exceeded' : 'world-state.invalid-people'))
+  const temporal = isMedievalTemporalState(value.temporal) ? value.temporal : undefined
+  if (!temporal) issues.push(issue('world-state:temporal', 'world-state.invalid-temporal'))
+
+  if (!validSubdomain(value.people, WORLD_PEOPLE_STATE_VERSION, ['version', 'records']) || !Array.isArray(value.people.records) || value.people.records.length > MEDIEVAL_WORLD_STATE_LIMITS.people) {
+    issues.push(issue('world-state:people', value.people && Array.isArray(value.people.records) && value.people.records.length > MEDIEVAL_WORLD_STATE_LIMITS.people ? 'world-state.budget-exceeded' : 'world-state.invalid-people'))
+  } else if (frontier === undefined || temporal === undefined) {
+    issues.push(issue('world-state:people', 'world-state.invalid-people'))
+  } else {
+    const peopleIssues = validatePersistentPeople({
+      seed: context.seed,
+      configurationFingerprint: generationConfigurationFingerprint(context.configuration),
+      initialWorld: context.initialWorld,
+      frontier,
+      jomon: context.jomon,
+      crew: context.crew,
+      siteIds: expectedSites.map(site => site.id),
+      worldTime: temporal.worldTime
+    }, value.people.records)
+    if (peopleIssues.length) issues.push(...peopleIssues.map(diagnostic => issue(diagnostic.recordId, diagnostic.code)))
+  }
 
   const expectedInstitutions = institutionRecordsFor(context.initialWorld)
   if (!validSubdomain(value.institutions, WORLD_INSTITUTIONS_STATE_VERSION, ['version', 'registry']) || !Array.isArray(value.institutions.registry) || value.institutions.registry.length > MEDIEVAL_WORLD_STATE_LIMITS.institutions || !same(value.institutions.registry, expectedInstitutions)) issues.push(issue('world-state:institutions', value.institutions && Array.isArray(value.institutions.registry) && value.institutions.registry.length > MEDIEVAL_WORLD_STATE_LIMITS.institutions ? 'world-state.budget-exceeded' : 'world-state.invalid-institutions'))
 
-  const temporal = isMedievalTemporalState(value.temporal) ? value.temporal : undefined
-  if (!temporal) issues.push(issue('world-state:temporal', 'world-state.invalid-temporal'))
-  if (!validSubdomain(value.courier, WORLD_COURIER_STATE_VERSION, value.courier && record(value.courier) && value.courier.initialCourierId === undefined ? ['version'] : ['version', 'initialCourierId']) || (value.courier.initialCourierId !== undefined && !context.crew.some(member => member.id === value.courier.initialCourierId && member.eligible))) issues.push(issue('world-state:courier', 'world-state.invalid-courier'))
+  const selectedCourier = value.courier?.initialCourierId
+  const selectedCourierPerson = Array.isArray(value.people?.records) ? value.people.records.find(candidate => record(candidate) && candidate.id === selectedCourier) : undefined
+  if (!validSubdomain(value.courier, WORLD_COURIER_STATE_VERSION, value.courier && record(value.courier) && selectedCourier === undefined ? ['version'] : ['version', 'initialCourierId']) || (selectedCourier !== undefined && (!context.crew.some(member => member.id === selectedCourier && member.eligible) || !record(selectedCourierPerson) || !record(selectedCourierPerson.life) || selectedCourierPerson.life.status !== 'living' || !record(selectedCourierPerson.work) || selectedCourierPerson.work.availability !== 'available'))) issues.push(issue('world-state:courier', 'world-state.invalid-courier'))
 
   const expectedHistory = temporal === undefined ? [] : causalHistoryWithTemporal(context.foundationHistory, temporal)
   if (!validSubdomain(value.history, WORLD_HISTORY_STATE_VERSION, ['version', 'records']) || !Array.isArray(value.history.records) || value.history.records.length > MEDIEVAL_WORLD_STATE_LIMITS.historyRecords || !value.history.records.every(validCausalRecord) || !same(value.history.records, expectedHistory)) issues.push(issue('world-state:history', value.history && Array.isArray(value.history.records) && value.history.records.length > MEDIEVAL_WORLD_STATE_LIMITS.historyRecords ? 'world-state.budget-exceeded' : 'world-state.invalid-history'))

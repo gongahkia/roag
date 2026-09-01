@@ -370,7 +370,7 @@ const worldFromCreationProvenance = (
   if (!state) throw new Error('creation provenance does not identify an eligible initial courier')
   const temporal = createMedievalTemporalState(temporalProvenanceForCreation(creation))
   return {
-    version: 3,
+    version: 4,
     id: idForCreationProvenance(creation),
     status: 'active',
     manifest: {
@@ -415,7 +415,8 @@ export const chooseInitialCourier = (world: FoundationWorld, courierId: string):
   if (world.state.courier.initialCourierId !== undefined) throw new Error('initial courier has already been selected')
   if (world.state.temporal.worldTime !== 0 || world.state.temporal.actionSequence !== 0 || world.state.temporal.pendingEvents.length !== 0) throw new Error('initial courier must be selected before time-bearing actions')
   const candidate = world.crew.find(member => member.id === courierId)
-  if (!candidate?.eligible) throw new Error('selected courier must be an eligible crew member')
+  const person = world.state.people.records.find(candidatePerson => candidatePerson.id === courierId)
+  if (!candidate?.eligible || person?.life.status !== 'living' || person.work.availability !== 'available') throw new Error('selected courier must be an eligible living available crew member')
   const expected = expectedFoundationState(world.manifest.creation.seed, world.manifest.creation.resolvedConfiguration, courierId)
   if (!expected) throw new Error('selected courier cannot produce valid foundation history')
   return {
@@ -430,7 +431,8 @@ export const chooseInitialCourier = (world: FoundationWorld, courierId: string):
       frontier: world.state.geography.frontier,
       temporal: world.state.temporal,
       initialCourierId: courierId,
-      jomonState: world.state.jomon
+      jomonState: world.state.jomon,
+      peopleState: world.state.people
     })
   }
 }
@@ -494,13 +496,14 @@ export const advanceFoundationWorldTime = (world: FoundationWorld, command: Temp
       frontier: world.state.geography.frontier,
       temporal: transition.state,
       ...(world.state.courier.initialCourierId === undefined ? {} : { initialCourierId: world.state.courier.initialCourierId }),
-      jomonState: world.state.jomon
+      jomonState: world.state.jomon,
+      peopleState: world.state.people
     })
   }
 }
 
 export const finalizeWorldAsChronicle = (world: FoundationWorld, reason: ChronicleReason): WorldChronicle => ({
-  version: 2,
+  version: 3,
   id: `chronicle:${world.id}`,
   status: 'finalized',
   reason,

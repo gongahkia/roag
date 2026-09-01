@@ -24,11 +24,11 @@ describe('versioned medieval mutable world state', () => {
     expect(state.sites.sites.map(site => site.id)).toEqual([...state.sites.sites.map(site => site.id)].sort())
     expect(state.routes.conditions.map(route => route.id)).toEqual([...state.routes.conditions.map(route => route.id)].sort())
     expect(state.markets.markets.map(market => market.siteId)).toEqual(state.sites.sites.map(site => site.id))
-    expect(state.people.registry.map(person => person.id)).toEqual([...state.people.registry.map(person => person.id)].sort())
+    expect(state.people.records.map(person => person.id)).toEqual([...state.people.records.map(person => person.id)].sort())
     expect(state.institutions.registry.map(institution => institution.siteId)).toEqual([...world.initialWorld.institutions].sort((left, right) => left.id.localeCompare(right.id)).map(institution => institution.settlementId))
     expect(state.geography.frontier.regions).toHaveLength(3)
     expect(state.sites.sites.length).toBeLessThanOrEqual(MEDIEVAL_WORLD_STATE_LIMITS.sites)
-    expect(state.people.registry.length).toBeLessThanOrEqual(MEDIEVAL_WORLD_STATE_LIMITS.people)
+    expect(state.people.records.length).toBeLessThanOrEqual(MEDIEVAL_WORLD_STATE_LIMITS.people)
   })
 
   it('keeps immutable creation evidence separate while selection and scheduler history persist in state', () => {
@@ -55,7 +55,7 @@ describe('versioned medieval mutable world state', () => {
     const unknownVersion = structuredClone(world.state)
     unknownVersion.version = 99 as never
     const duplicatePerson = structuredClone(world.state)
-    duplicatePerson.people.registry = [...duplicatePerson.people.registry, structuredClone(duplicatePerson.people.registry[0]!)]
+    duplicatePerson.people.records = [...duplicatePerson.people.records, structuredClone(duplicatePerson.people.records[0]!)]
     const brokenRoute = structuredClone(world.state)
     brokenRoute.routes.conditions[0]!.originSiteId = 'site:not-present'
     const malformed = { ...structuredClone(world.state), extensionBag: {} }
@@ -76,5 +76,15 @@ describe('versioned medieval mutable world state', () => {
 
     expect(codes(world, changedAudit)).toContain('world-state.invalid-content-audit')
     expect(isMedievalWorldState(contextFor(world), changedRoot)).toBe(false)
+  })
+
+  it('rejects a dead persistent person as the selected active courier', () => {
+    const selected = chooseInitialCourier(createFoundationWorld({ seed: 'state-dead-courier' }), 'crew:0')
+    const forged = structuredClone(selected)
+    forged.state.people.records[0]!.life = { status: 'dead', birth: forged.state.people.records[0]!.life.birth, death: { atWorldTime: 0 } }
+    forged.state.people.records[0]!.work.availability = 'unavailable'
+
+    expect(codes(selected, forged.state)).toContain('world-state.invalid-courier')
+    expect(isMedievalWorldState(contextFor(selected), forged.state)).toBe(false)
   })
 })
