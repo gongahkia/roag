@@ -351,3 +351,14 @@ The direction above is settled. These implementation values are intentionally de
 - Browser coverage must execute the feature through actual UI input; task-ID mapping is not sufficient.
 - Record failed, skipped, unavailable, and incomplete verification plainly. A task is not complete merely because it compiles, has a test file, or resembles prototype capability.
 - Keep consequential randomness seeded and expose enough state to reproduce a reported play session.
+
+## Final legacy prototype retirement `[ ]`
+
+This is intentionally the final repository task. Do not start it while the isolated prototype is still useful for implementation comparison or regression diagnosis. Start only after every applicable medieval phase through Phase 9 is complete, the fully medieval browser build is verified, and no open task names a prototype module as a temporary diagnostic dependency.
+
+- [ ] Perform a final import, route, build-output, dependency, asset, script, and test audit. Identify the exact legacy files that are unused, unreachable from the completed medieval application, or no longer useful as diagnostics; keep only neutral tooling/configuration and any files still demonstrably required by the finished medieval build.
+- [ ] Remove the superseded space-fiction application and all now-irrelevant implementation, tests, browser routes, persistence migrations, assets, fonts, audio, generated sprite artefacts, autoplay/telemetry/campaign tooling, and package scripts. Remove `?prototype` and its browser coverage once its diagnostic purpose has ended.
+- [ ] Simplify the repository's public commands, documentation, ignore rules, and build configuration so they describe and execute only Jomon's completed medieval product and its current maintenance tooling.
+- [ ] Re-run the complete medieval verification suite, inspect the production output to confirm it contains no legacy chunks or assets, confirm no old save namespace is opened, and record every retained compatibility/tooling file with its reason.
+
+Acceptance: a clean checkout contains only the completed medieval game and neutral supporting tooling; the normal build, tests, documentation, browser routes, assets, and package commands contain no unreachable or obsolete prototype product code. This task is complete only after the removal audit and full verification are recorded here.
