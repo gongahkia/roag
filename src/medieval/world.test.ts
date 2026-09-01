@@ -80,9 +80,9 @@ describe('medieval foundation worlds', () => {
       diagnostics: []
     })
     expect(world.manifest.contentSafetyAudit.reviewed).toEqual(expect.arrayContaining([
-      { id: 'world:label', domain: 'place', domains: ['place', 'player-facing-text'] },
-      { id: 'vessel:jomon', domain: 'place', domains: ['place', 'player-facing-text'] },
-      { id: 'causal:0:world-created', domain: 'event', domains: ['event', 'player-facing-text'] }
+      { id: 'world:label', domain: 'place', classification: expect.objectContaining({ domains: ['place', 'player-facing-text'] }) },
+      { id: 'vessel:jomon', domain: 'place', classification: expect.objectContaining({ domains: ['place', 'player-facing-text'] }) },
+      { id: 'causal:0:world-created', domain: 'event', classification: expect.objectContaining({ domains: ['event', 'player-facing-text'] }) }
     ]))
     expect(world.manifest.contentSafetyAudit.reviewed.filter(record => record.domain === 'person')).toHaveLength(world.crew.length)
     expect(world.manifest.contentSafetyAudit.reviewed.filter(record => record.domain === 'history')).toHaveLength(world.crew.length)

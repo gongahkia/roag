@@ -29,8 +29,8 @@ describe('medieval content safety policy', () => {
       policyVersion: MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION,
       status: 'accepted',
       reviewed: [
-        { id: 'data:river-level', domain: 'data', domains: ['data'] },
-        { id: 'template:harbour-notice', domain: 'template', domains: ['player-facing-text', 'template'] }
+        { id: 'data:river-level', domain: 'data', classification: classifyMedievalContent('data', ['environment', 'navigation'], 'not-applicable') },
+        { id: 'template:harbour-notice', domain: 'template', classification: classifyMedievalContent('template', ['commerce', 'settlement'], 'not-applicable', ['player-facing-text']) }
       ],
       diagnostics: []
     })

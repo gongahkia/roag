@@ -112,7 +112,7 @@ export type MedievalContentSafetyValidation = AcceptedMedievalContentSafetyValid
 export interface MedievalContentSafetyAuditRecord {
   id: string
   domain: MedievalContentDomain
-  domains: readonly MedievalContentDomain[]
+  classification: MedievalContentSafetyClassification
 }
 
 /** Accepted audits are persisted as world-generation provenance. */
@@ -135,6 +135,14 @@ const exclusions = (): MedievalContentExclusions => ({
   slavery: 'excluded',
   torture: 'excluded',
   'child-harm-or-endangerment': 'excluded'
+})
+
+const cloneClassification = (classification: MedievalContentSafetyClassification): MedievalContentSafetyClassification => ({
+  policyVersion: classification.policyVersion,
+  domains: [...classification.domains],
+  participantScope: classification.participantScope,
+  tags: [...classification.tags],
+  exclusions: { ...classification.exclusions }
 })
 
 /**
@@ -229,16 +237,15 @@ export const auditMedievalContentSafety = (content: readonly unknown[]): Medieva
     status: 'accepted',
     reviewed: orderedContent(content).map(candidate => {
       const value = candidate.value as ClassifiedMedievalContent
-      return { id: value.id, domain: value.domain, domains: [...value.classification.domains] }
+      return { id: value.id, domain: value.domain, classification: cloneClassification(value.classification) }
     }),
     diagnostics: []
   }
 }
 
 const isAuditRecord = (value: unknown): value is MedievalContentSafetyAuditRecord => {
-  if (!isRecord(value) || !hasOnlyKeys(value, ['id', 'domain', 'domains']) || typeof value.id !== 'string' || !value.id || !isDomain(value.domain) || !Array.isArray(value.domains) || value.domains.length === 0 || !value.domains.every(isDomain) || new Set(value.domains).size !== value.domains.length) return false
-  const domains = value.domains
-  return domains.every((domain, index) => index === 0 || compare(domains[index - 1]!, domain) < 0) && domains.includes(value.domain)
+  if (!isRecord(value) || !hasOnlyKeys(value, ['id', 'domain', 'classification']) || typeof value.id !== 'string' || !value.id || !isDomain(value.domain)) return false
+  return validateMedievalContentSafety([value]).status === 'accepted'
 }
 
 export const isMedievalContentSafetyAudit = (value: unknown): value is MedievalContentSafetyAudit => {
