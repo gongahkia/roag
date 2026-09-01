@@ -17,7 +17,7 @@ At the end of every completed slice, update this document: mark only verified wo
 
 Jomon is being rebuilt as an original low-mysticism late-medieval river-and-coast roguelike. The checked-in game is a substantial but superseded space-fiction prototype. It may inform architecture and testing technique, but its user-facing lore, vocabulary, assets, progression, save migrations, routes, and content are not requirements for the medieval game.
 
-The documentation reset is complete. Phase 1.1 has a deliberately minimal, non-gameplay bootstrap: a deterministic foundation household, initial-courier choice, isolated local records, and an original keyboard canvas shell. Its browser acceptance test is authored but cannot yet run on this machine because the Playwright Chromium binary is absent; therefore Phase 1.1 remains active. No walkable map, deck interaction, trade, combat, travel, simulation tick, or medieval content slice is being represented as complete.
+The documentation reset and Phase 1.1 are complete. The rebuild now has a deliberately minimal, non-gameplay bootstrap: a deterministic foundation household, initial-courier choice, isolated local records, and an original keyboard canvas shell; its authored Chromium keyboard flow also passes. A versioned generation-configuration contract is complete; its manifest preservation is the active Phase 1.2 slice. No walkable map, deck interaction, trade, combat, travel, simulation tick, or medieval content slice is being represented as complete.
 
 ## Context-free implementation handoff
 
@@ -100,7 +100,7 @@ Verification: manual repository review on 2026-09-01; documentation only. No bui
 
 ### 1. Foundational world systems
 
-#### 1.1 Clean game boundary `[-]`
+#### 1.1 Clean game boundary `[x]`
 
 - [x] Define the new medieval save namespace, version, and invalid-save behavior. Existing prototype saves are ignored, never migrated: only `jomon-medieval-worlds-v1` is opened, and malformed records resolve as unavailable.
 - [x] Establish a clean `src/medieval/` root with renderer-independent foundation types for worlds, Jomon identity, deck partitions, quays, vessel props, crew, manifests, and zero-time action-clock seed state. It has no prototype gameplay/state imports.
@@ -109,7 +109,7 @@ Verification: manual repository review on 2026-09-01; documentation only. No bui
 - [x] Define the offline-first bootstrap contract in implementation: the medieval entry path has no account, remote telemetry, cloud, multiplayer, or network client; it uses local IndexedDB and packaged CSS only.
 - [x] Remove prototype terminology from every current medieval user-facing canvas surface.
 - [x] Add focused unit tests for clean creation, seed/manifest determinism, initial-courier selection, malformed-record invalidation/no migration, multiple-world indexing, finalized chronicles, and one-active-world ownership.
-- [ ] Run the authored Chromium browser test for the keyboard creation/select/save/resume flow and its no-external-request assertion. The test is blocked locally until the Playwright Chromium binary is installed; do not treat legacy browser tests as medieval evidence.
+- [x] Run the authored Chromium browser test for the keyboard creation/select/save/resume flow and its no-external-request assertion. On 2026-09-01, `npx playwright test e2e/medieval-foundation.spec.ts` passed its one Chromium test after installing the local Playwright Chromium binary. The flow uses keyboard input to create, select, save, and resume a world, and asserts that no request leaves the local preview origin.
 
 Acceptance: a fresh medieval world can be created and an initial courier selected deterministically; a prototype save cannot load as one; multiple local worlds can be indexed without loading each other; no network request or space-era term appears anywhere on the medieval new-game path.
 
@@ -144,12 +144,12 @@ Detailed disposition record (completed 2026-09-01):
 | `e2e/jomon.spec.ts` and legacy unit tests | Preserve behind `?prototype`; do not count as medieval verification | They protect unrelated existing work while the ordinary route is rebuilt. New coverage lives in `e2e/medieval-foundation.spec.ts` and `src/medieval/*.test.ts`. |
 | Vite, TypeScript, Vitest, Playwright, package-lock, `vite.config.ts`, `playwright.config.ts`, and generic `index.html`/`#game` mount | Reuse | They are neutral local build, type-check, test, and canvas-boot infrastructure only. `src/vite-env.d.ts` restores the standard Vite CSS-module declaration after the split. |
 
-Current verification for the implemented portion: on 2026-09-01, `npx vitest run src/medieval/world.test.ts src/medieval/storage.test.ts src/medieval/session.test.ts --maxWorkers=1 --no-file-parallelism` passed 10 tests; `npm run build` and `git diff --check` passed. `npx playwright test e2e/medieval-foundation.spec.ts` was attempted but zero tests ran because Playwright's Chromium headless-shell executable is not installed locally. The browser gate remains open.
+Verification: on 2026-09-01, `npx vitest run src/medieval/world.test.ts src/medieval/storage.test.ts src/medieval/session.test.ts --maxWorkers=1 --no-file-parallelism` passed 10 tests; `npx playwright test e2e/medieval-foundation.spec.ts` passed 1 Chromium browser test; `npm run build` and `git diff --check` passed. Playwright Chromium, its headless shell, and its FFmpeg support were installed in the user Playwright cache before the browser run. npm reported an existing unsupported `email` configuration warning; no verification command failed.
 
 #### 1.2 Deterministic world generation and configuration
 
-- [ ] Define a versioned `WorldGenerationConfig`, named presets, advanced settings, validation constraints, and deterministic rejection/retry rules.
-- [ ] Define controls for region size, history length, climate, terrain and waterways, settlement and population density, political fragmentation, resource scarcity, ecology, dangers, era pace, and simulation fidelity; preserve every selected and resolved value in the manifest.
+- [x] Define a versioned `WorldGenerationConfig`, named presets, advanced settings, validation constraints, and deterministic rejection/retry rules. `src/medieval/generation-config.ts` provides pure resolution, rejection diagnostics, and a four-attempt deterministic candidate plan with focused coverage.
+- [-] Define controls for region size, history length, climate, terrain and waterways, settlement and population density, political fragmentation, resource scarcity, ecology, dangers, era pace, and simulation fidelity; preserve every selected and resolved value in the manifest.
 - [ ] Define an enforceable content-boundary taxonomy and deterministic validation/rejection rules that exclude sexual violence, slavery, torture, and harm/endangerment of children from all generated world history and content.
 - [ ] Build the dependency-ordered initial-world pipeline: watershed geography and hydrology; climate and seasons; resources and ecology; settlement sites; institutions and people; then routes, trade, and pre-play history.
 - [ ] Define the deterministic expanding-frontier contract: regional coordinates, persistent identities, pre-arrival knowledge/rumours, causal links to known regions, region generation order, regional commitments before materialization, named-person instantiation, and no-contradiction guarantees.
@@ -158,6 +158,18 @@ Current verification for the implemented portion: on 2026-09-01, `npx vitest run
 - [ ] Add generation snapshots and property/fuzz tests for determinism, valid geography-to-settlement dependencies, constrained settings, content-boundary rejection, expanding-frontier continuity, bounded generation, and readable diagnostics.
 
 Acceptance: the same seed and resolved configuration reproduce the same initial world and explored frontier; changing a documented setting predictably changes the intended world property; prohibited content is absent from generated output; a player can inspect, share, and restore the world manifest.
+
+Completed configuration-contract decision (2026-09-01): `WorldGenerationConfig` v1 resolves one named preset plus explicit advanced overrides before any generation work. Its current preset defaults are:
+
+| Preset | Region / history / climate | Terrain / waterway | Settlement / population | Fragmentation / scarcity / ecology / danger | Era / fidelity |
+| --- | --- | --- | --- | --- | --- |
+| `sheltered-reach` | `compact` / 200 years / `temperate` | 2 / 4 | 3 / 2 | 2 / 2 / 3 / 2 | `measured` / `focused` |
+| `watershed` (default) | `standard` / 300 years / `temperate` | 3 / 4 | 3 / 3 | 3 / 3 / 3 / 3 | `measured` / `balanced` |
+| `far-coast` | `broad` / 400 years / `cool-wet` | 4 / 3 | 3 / 3 | 4 / 4 / 4 / 4 | `brisk` / `deep` |
+
+`regionSize` is `compact`, `standard`, or `broad`; `historyYears` is an integer from 100 through 600 in 25-year steps; `climate` is `cool-wet`, `temperate`, or `warm-dry`; `eraPace` is `measured`, `brisk`, or `pressing`; and `simulationFidelity` is `focused`, `balanced`, or `deep`. Terrain ruggedness, waterway density, settlement density, population density, political fragmentation, resource scarcity, ecology complexity, and danger pressure are integer levels 1–5. Inputs are never coerced or silently repaired: unknown/malformed settings and incompatible combinations are rejected with field diagnostics. Population density may be at most one level above settlement density, and a broad region requires at least 200 history years. Future generators must evaluate exactly four seed/config-derived candidates in attempt order 0–3, select the first valid result, and report bounded exhaustion if all are rejected; retries cannot alter the configuration or use non-seeded entropy.
+
+Verification for the completed configuration contract: on 2026-09-01, `npx vitest run src/medieval/world.test.ts src/medieval/storage.test.ts src/medieval/session.test.ts src/medieval/generation-config.test.ts --maxWorkers=1 --no-file-parallelism` passed 15 tests; `npx playwright test e2e/medieval-foundation.spec.ts` passed 1 Chromium browser test; and `npm run build` passed. npm reported the existing unsupported `email` configuration warning, but no verification command failed. The active manifest-preservation task has not changed the foundation manifest or creation UI yet.
 
 #### 1.3 Active-play world simulation and persistence kernel
 
