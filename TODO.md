@@ -79,6 +79,7 @@ Jomon’s world should feel alive in the sense of Dwarf Fortress Adventure Mode,
 - [x] Remove superseded active plans and obsolete playtest documentation rather than reviving or archiving them as current direction.
 - [x] Keep `README.md` truthful: the checked-in game is a prototype and the medieval implementation begins with a clean break.
 - [x] Record Rogue-inspired terminal presentation, emergent-world direction, and non-copying boundaries as product constraints.
+- [x] Supersede the no-magic setting constraint with the bounded low-mysticism direction in `LORE.md` and this plan.
 
 Verification: manual repository review on 2026-09-01; documentation only. No build, test, or browser execution was run for this documentation slice.
 
@@ -97,19 +98,22 @@ Acceptance: a fresh medieval game can be created deterministically; a prototype 
 #### 1.2 Deterministic world generation and configuration
 
 - [ ] Define a versioned `WorldGenerationConfig`, named presets, advanced settings, validation constraints, and deterministic rejection/retry rules.
-- [ ] Build the dependency-ordered generation pipeline: watershed geography and hydrology; climate and seasons; resources and ecology; settlement sites; institutions and people; then routes, trade, and pre-play history.
-- [ ] Record a reproducible world manifest containing seed, resolved configuration, generator version, generated-world identifiers, and validation/rejection history.
+- [ ] Define controls for region size, history length, climate, terrain and waterways, settlement and population density, political fragmentation, resource scarcity, ecology, dangers, era pace, and simulation fidelity; preserve every selected and resolved value in the manifest.
+- [ ] Build the dependency-ordered initial-world pipeline: watershed geography and hydrology; climate and seasons; resources and ecology; settlement sites; institutions and people; then routes, trade, and pre-play history.
+- [ ] Define the deterministic expanding-frontier contract: regional coordinates, persistent identities, pre-arrival knowledge/rumours, causal links to known regions, region generation order, and no-contradiction guarantees.
+- [ ] Record a reproducible world manifest containing seed, resolved configuration, generator version, initial and frontier region identifiers, and validation/rejection history.
 - [ ] Add settings UI for preset selection, advanced configuration, seed entry/display, world-creation progress, result inspection, and saving/loading settings.
-- [ ] Add generation snapshots and property/fuzz tests for determinism, valid geography-to-settlement dependencies, bounded generation, and readable diagnostics.
+- [ ] Add generation snapshots and property/fuzz tests for determinism, valid geography-to-settlement dependencies, constrained settings, expanding-frontier continuity, bounded generation, and readable diagnostics.
 
-Acceptance: the same seed and resolved configuration reproduce the same valid world; changing a documented setting predictably changes the intended world property; a player can inspect and share the world manifest.
+Acceptance: the same seed and resolved configuration reproduce the same initial world and explored frontier; changing a documented setting predictably changes the intended world property; a player can inspect, share, and restore the world manifest.
 
 #### 1.3 Active-play world simulation and persistence kernel
 
 - [ ] Define the simulation clock, event ordering, seeded random streams, and deterministic scheduler. It must advance only during active play.
 - [ ] Define versioned world state and persistence contracts for geography, sites, routes, markets, people, institutions, history, and Jomon.
-- [ ] Define deterministic fidelity tiers for loaded places, nearby named people, recurring agents, and distant settlement summaries.
-- [ ] Define a versioned world-era model for base, NG+, and NG++ states; its active-play progression, transition conditions, inspectable causes, persistence, and configuration hooks must be deterministic.
+- [ ] Define persistent individual records for every instantiated person: family, work, needs, relationships, injury, possessions, birth, death, location, memory, and commitments.
+- [ ] Define deterministic fidelity tiers for loaded places, nearby people, recurring agents, and distant individual/settlement summaries without discarding individual state.
+- [ ] Define a versioned world-era model for base, NG+, and NG++ states. Accumulated in-world active-play time and Jomon’s growth advance it; transition conditions, inspectable causes, persistence, and configuration hooks must be deterministic.
 - [ ] Add event sourcing or an equivalent inspectable causal history so world changes can be explained, replayed, and persisted within bounded storage.
 - [ ] Add focused tests for reload equivalence, simulation determinism, paused/closed-session time, corruption recovery, and bounded state growth.
 
@@ -118,10 +122,11 @@ Acceptance: equivalent active-play time produces the same world state and era ac
 #### 1.4 People, conversation, and delegated work foundation
 
 - [ ] Define persistent-person state: identity, household/site, role, material interests, skills, relationships, memories, current work, capacity, health, and commitments.
-- [ ] Define the active courier’s `conversation` stat and how it changes delegation eligibility, negotiation, task clarity, trust, risk, and outcome without becoming supernatural persuasion.
-- [ ] Define a constrained task/delegation model for crew and NPCs: offer, agreement/refusal, assignment, progress, interruption, outcome, and later memory.
+- [ ] Define the active courier’s `conversation` stat and how it changes delegation eligibility, negotiation, task clarity, trust, risk, and outcome without becoming universal or mind-controlling persuasion.
+- [ ] Define a constrained task/delegation model for crew and NPCs: offer, agreement/refusal, assignment, progress, interruption, outcome, and later memory. Initial task families include maintenance, rigging, cooking, treatment, cargo handling, trade research, barter, bookkeeping, scouting, charting, gathering, hunting, guiding, watch duty, guarding, rescue, evacuation, recruitment, correspondence, witness work, and negotiation.
 - [ ] Make autonomous choices arise from original needs, opportunities, relationships, and local conditions. Distant people use deterministic summary simulation; nearby and recurring people use richer state and behaviour.
-- [ ] Add original social-memory records and player-readable evidence through physical surfaces, messages, conversations, ledgers, rumours, goods, routes, and visible work. Do not reproduce proprietary named-system hierarchies or vendettas.
+- [ ] Define the always-available management screen for comprehensive task, people, work, risk, household, site, route, and history information; assign complementary, non-duplicative roles to map marks, physical notices, messages, ledgers, and tavern conversations.
+- [ ] Add original social-memory records and player-readable evidence through physical surfaces, messages, conversations, ledgers, rumours, goods, routes, visible work, and the management screen. Do not reproduce proprietary named-system hierarchies or vendettas.
 - [ ] Add deterministic tests for delegation, refusal, task interruption, memory, recurrence, and no-player-control autonomy.
 
 Acceptance: the active courier can delegate a task through a conversation; the recipient’s response and outcome follow inspectable state; a later encounter visibly reflects the remembered result.
@@ -131,17 +136,37 @@ Acceptance: the active courier can delegate a task through a conversation; the r
 - [ ] Define a renderer-independent map, glyph, palette, status, message, prompt, input, and accessibility contract.
 - [ ] Create an original ASCII glyph vocabulary for terrain, vessel parts, people, goods, work, hazards, weather, and routes; validate unique/legible use in a character cell.
 - [ ] Implement keyboard-first eight-direction movement, compact contextual prompts, remapping, focus handling, command help, and accessible text labels.
-- [ ] Implement the detailed renderer as an equal-information presentation of the same world state, with automated parity checks against ASCII output.
-- [ ] Add renderer and browser tests for glyph meaning, prompt cancellation, status/message visibility, keyboard control, and ASCII/detailed parity.
+- [ ] Specify the future detailed-renderer adapter and its equal-information parity contract, but defer its implementation until Phase 9.
+- [ ] Add renderer and browser tests for glyph meaning, prompt cancellation, status/message visibility, keyboard control, and renderer-contract compatibility.
 
-Acceptance: all consequential state can be understood through the ASCII map, status, and message surfaces; the detailed view neither hides nor invents gameplay information.
+Acceptance: all consequential state can be understood through the ASCII map, status, and message surfaces; the future detailed-view adapter has no authority to hide or invent gameplay information.
+
+#### 1.6 Performance, storage, and diagnostics foundation
+
+- [ ] Establish desktop-browser performance and storage budgets for an 8 GB RAM machine using current standard browsers; state the measurement hardware, world sizes, population settings, and acceptable interactive responsiveness in the repository.
+- [ ] Design compact, indexed persistence for world, person, event, region, task, and history records; use atomic short-lived storage writes, quota/error handling, recoverable snapshots, and explicit import/export backups.
+- [ ] Define profile-guided optimization boundaries: spatial indexing, incremental generation, deterministic scheduled summaries, packed/compact data where measured, memoization, and worker-based generation/simulation only when they preserve reproducibility and readable ownership.
+- [ ] Add performance fixtures across generation presets and simulation-fidelity settings, with regression checks for memory growth, persistence size, generation time, simulation time, and UI responsiveness.
+- [ ] Do not add user mod/content-pack compatibility. Keep internal content data-driven, validated, and documented without committing to a public extension surface.
+
+Acceptance: declared 8 GB baseline fixtures generate, simulate, save, reload, and remain responsive within recorded budgets; quota or write failure preserves the last good state and offers recovery/export.
+
+#### 1.7 Effects, recovery, and irreversible-loss foundation
+
+- [ ] Define a renderer-independent effect model for health, injury, exhaustion, preparation, equipment, relics, totems, boons, curses, crew support, enemy weaknesses, environmental interactions, duration, stacking, chaining, and counterplay.
+- [ ] Define rarity, source, cost, condition, and audit rules for mystical effects. They must remain finite, legible, in-world, and compatible with low-mysticism tone; no generic mage class is introduced.
+- [ ] Define courier death, prevention, revival, and lasting-consequence rules. Revival safeguards are exceptional and explicit; the default outcome remains permanent loss.
+- [ ] Define Jomon integrity, partial disaster, repair, rescue, collapse, and loss rules. A relic or equivalent able to save Jomon from terminal loss is ultra-rare and must have a visible causal chain, cost, and recovery trade-off.
+- [ ] Add deterministic tests for effect combinations, cap/chain behavior, death prevention/revival, Jomon collapse, terminal-world handling, and state recovery.
+
+Acceptance: a player can inspect why an effect or recovery occurred; every powerful safeguard has an explicit rarity/cost/counterplay contract; terminal Jomon loss ends the world cleanly without corrupting its history.
 
 ### 2. Physical Jomon foundation
 
 #### 2.1 Walkable Jomon and quay
 
 - [ ] Create a compact, original ASCII deck plan with a connected quay approach, gangplank, tavern, chart table, cargo hold, repair space, stores, berths, and galley.
-- [ ] Render the plan in both ASCII and detailed modes from the same map state; document its original glyph vocabulary.
+- [ ] Render the plan in the primary ASCII mode from the common map state; document its original glyph vocabulary and preserve the Phase 1 detailed-renderer adapter contract.
 - [ ] Implement grid movement, collision, camera/focus behavior, visibility rules if used, and inspectable seed state.
 - [ ] Add a player-visible map legend/help surface without replacing in-world readability.
 
@@ -169,7 +194,7 @@ Acceptance: every named space has a represented prop, an operation affordance, a
 
 - [ ] Start at a quay; board by gangplank; walk to the tavern; select another crew member; operate a vessel station; return to and leave through the gangplank.
 - [ ] Add actual-browser coverage for the full path and focused headless determinism coverage.
-- [ ] Verify the same flow in ASCII and detailed modes.
+- [ ] Verify the flow in ASCII mode and ensure its world-state/output contract is consumable by the later detailed renderer.
 
 Acceptance: the browser test completes this exact path through real user input with no abstract hub or terminal shortcut.
 
@@ -186,6 +211,7 @@ Acceptance: acquire cargo at one physical location, transport it, deliver or fai
 ### 4. Waterway routes and settlement network
 
 - [ ] Define the first connected river/canal/estuary/coastal settlement network with named route profiles.
+- [ ] Define how routes, travellers, charts, rumours, cargo marks, and institutions reveal frontier regions before Jomon reaches them; travel can then trigger deterministic generation and persistent exploration of those regions.
 - [ ] Add seeded route knowledge, river condition, weather/season constraint, toll/access condition, and competing traffic where relevant.
 - [ ] Make route comparison a chart-table action and departure/arrival a gangplank/quay action.
 - [ ] Implement active-play-only route time and an inspectable route-reckoning readout.
@@ -209,7 +235,7 @@ Acceptance: alter a place, leave it, reload, return through normal play, and fin
 - [ ] Exercise the active-play simulation scheduler through changing named people, settlements, markets, and routes.
 - [ ] Populate the foundation history surfaces at Jomon and settlements with witness accounts, ledgers, rumours, notices, cargo evidence, and changed work sites.
 - [ ] Implement one complete human-conflict contract: setup, readable intent, choice, resolution, persistent mutation, and later follow-up.
-- [ ] Implement one complete wilderness contract using weather, terrain, exposure, animal behavior, or disease without supernatural cause.
+- [ ] Implement one complete wilderness contract using weather, terrain, exposure, animal behavior, disease, or a specifically sourced mystical phenomenon with readable counterplay.
 - [ ] Implement one complete operational-hazard contract involving vessels, cargo, works, or infrastructure.
 - [ ] Establish common telegraph, consequence, and follow-up interfaces so all three danger families have comparable depth.
 - [ ] Add seasonal and local ecology state that changes trade, settlement life, routes, or tactics.
@@ -218,17 +244,18 @@ Acceptance: each danger family has a distinct playable scenario with readable co
 
 ### 7. Medieval tactical overhaul and grounded guardians
 
-- [ ] Define the player’s grounded action vocabulary: movement, exertion/stamina, commitment, guard, parry, posture, targeted components, retreat, recovery, and seeded chance.
+- [ ] Define a dense but fast tactical vocabulary: movement, exertion/stamina, commitment, guard, parry, posture, targeted components, retreat, recovery, health, injury, and seeded chance.
 - [ ] Implement renderer-independent intent data, target previews, and positional responses for both presentation modes.
-- [ ] Replace prototype magical abilities, monsters, and guardians in the new path with people, animals, machinery, wrecks, siege works, fortified positions, and industrial hazards.
-- [ ] Create procedural multi-cell grounded guardians from original body, component, attack, terrain, reward, and aftermath modules.
-- [ ] Test tactical determinism, readability, defeat/escape consequences, and interaction with crew/cargo/world state.
+- [ ] Implement bounded, legible power combinations through equipment, relics, learned techniques, temporary preparations, crew support, enemy weaknesses, and environmental interactions. Avoid numerical-only stacking and keep resolution fast.
+- [ ] Replace prototype content in the new path with original people, animals, machinery, wrecks, siege works, fortified positions, industrial hazards, and rare sourced mystical threats; do not add a generic mage class.
+- [ ] Create procedural multi-cell grounded or mystical guardians from original body, component, attack, terrain, reward, and aftermath modules.
+- [ ] Test tactical determinism, readability, combat-resolution speed, defeat/escape consequences, and interaction with crew/cargo/world state.
 
 Acceptance: a player can read a telegraphed tactical problem, choose a grounded response, and carry its material consequence back to Jomon or a settlement.
 
 ### 8. Content families and procedural composition
 
-- [ ] Create reusable authored families for settlements, waterways, workshops, markets, hazards, wildlife, human groups, tools, cargo, contracts, crew roles, and guardians.
+- [ ] Create reusable authored families for distinct regions, waterways, settlements, workshops, markets, hazards, wildlife, human groups, enemies, tools, cargo, contracts, crew roles, relics, and guardians.
 - [ ] Create vessel-expansion families whose upgrades visibly alter Jomon’s deck, capabilities, upkeep, crew work, cargo decisions, or route options.
 - [ ] Create era-aware content variants and generative combinations so base, NG+, and NG++ create new pressures and possibilities from the same grounded systems without content exhaustion or numerical-only scaling.
 - [ ] Require generated places to declare material purpose, water/terrain/season relationship, local pressures, rewards, services, and downstream world links.
@@ -242,20 +269,21 @@ Acceptance: generation sweeps produce valid, distinct locations whose content in
 - [ ] Cover every player-visible vessel, crew, trade, route, persistence, tactical, and death/replacement capability with focused tests and actual browser input.
 - [ ] Recreate the playtest protocol only after the relevant medieval player surfaces and content families are stable.
 - [ ] Produce original Rogue-inspired visual assets only after the map grammar, glyph taxonomy, and renderer requirements are stable.
-- [ ] Verify ASCII and detailed modes convey identical consequential information and meet accessibility requirements.
+- [ ] Implement the optional detailed renderer from the Phase 1 adapter contract only after the ASCII game and its systems are stable; verify it conveys identical consequential information and meets accessibility requirements.
 - [ ] Run full verification and record exact pass/fail/skip status for each completed slice.
 
 Acceptance: browser playtests and automation cover the complete core loop without prototype terminology or presentation dependencies.
 
-## Open product decisions
+## Deferred tuning decisions
 
-These decisions should be recorded here with their answer before work depends on them.
+The direction above is settled. These implementation values are intentionally delegated to system design and must be recorded here before the corresponding system is marked complete:
 
-- Decision — **World-generation settings:** which concrete world properties must users control in the first advanced settings screen, and which should remain generator-internal until their simulation meaning is proven?
-- Decision — **Delegation visibility:** how should pending delegated work be shown on the map and in vessel/settlement surfaces without turning Jomon into an omniscient management UI?
-- Decision — **Failure calibration:** which irreversible consequences should be common, rare, or guarded by explicit warning? Jomon’s collapse is terminal, so its causal chain must be readable and preventable in proportion to its severity.
-- Decision — **Escalation cadence:** which inspectable combination of active-play time, in-world time, household growth, discoveries, or world events advances a world into NG+ and NG++? How much should users be able to configure this at world creation?
-- Decision — **NG++ continuity:** after reaching NG++, how should ongoing escalation, recovery, and newly generated opportunities work without turning the world into unwinnable numerical inflation?
+- `WorldGenerationConfig` preset names, defaults, ranges, validation/rejection rules, and user-facing descriptions for every advanced setting.
+- The initial world size, initial population, frontier-generation cadence, and storage/performance budgets that fit the 8 GB desktop-browser baseline.
+- The precise split of information among the always-available management screen, map marks, physical notices, messages, ledgers, and conversations.
+- Delegated-task risk policy: which tasks are safe, hazardous, or require an explicit player confirmation; what warnings protect a person or Jomon from a terminal outcome.
+- The base/NG+/NG++ thresholds and signatures: how active-play time and Jomon growth are weighted, which world pressures shift, and how the NG++ plateau remixes without raw numerical inflation.
+- The first mystical-effect families, their rarity bands, provenance, counterplay, and visual language; especially the ultra-rare rule for an effect that can save Jomon.
 
 ## Delivery and verification rules
 
