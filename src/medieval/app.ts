@@ -1,4 +1,5 @@
 import { MedievalWorldRepository } from './storage'
+import { MutableWorldSession } from './session'
 import type { FoundationCrewMember, FoundationWorld, MedievalRoute, WorldChronicle, WorldIndex } from './types'
 import { chronicleExport, chooseInitialCourier, createFoundationWorld } from './world'
 
@@ -30,6 +31,7 @@ const activeCourier = (world: FoundationWorld): FoundationCrewMember | undefined
 export class MedievalApp {
   private readonly context: CanvasRenderingContext2D
   private readonly repository = new MedievalWorldRepository()
+  private readonly session = new MutableWorldSession()
   private route: MedievalRoute = 'worlds'
   private index: WorldIndex = { version: 1, activeWorlds: [], chronicles: [] }
   private world: FoundationWorld | undefined
@@ -76,6 +78,7 @@ export class MedievalApp {
     try {
       await this.repository.saveWorld(world)
       await this.refreshIndex()
+      this.session.open(world.id)
       this.route = 'choose-courier'
     } catch (error) {
       this.persistence = 'error'
@@ -91,6 +94,7 @@ export class MedievalApp {
     this.persistence = 'loading'
     this.render()
     try {
+      this.session.assertOwner(this.world.id)
       this.world = chooseInitialCourier(this.world, candidate.id)
       await this.repository.saveWorld(this.world)
       await this.refreshIndex()
@@ -111,6 +115,7 @@ export class MedievalApp {
     try {
       const world = await this.repository.loadWorld(entry.id)
       if (!world) throw new Error('Selected world is no longer present in local storage')
+      this.session.open(world.id)
       this.world = world
       this.route = world.manifest.initialCourierId ? 'world' : 'choose-courier'
       this.selectedRow = 0
@@ -175,14 +180,14 @@ export class MedievalApp {
     }
     if (this.route === 'choose-courier') {
       const eligible = this.world?.crew.filter(member => member.eligible) ?? []
-      if (key === 'Escape') { this.route = 'worlds'; this.world = undefined; this.render(); return }
+      if (key === 'Escape') { this.releaseWorld(); this.route = 'worlds'; this.world = undefined; this.render(); return }
       if (key === 'ArrowUp') { this.selectedRow = Math.max(0, this.selectedRow - 1); this.render(); return }
       if (key === 'ArrowDown') { this.selectedRow = Math.min(Math.max(0, eligible.length - 1), this.selectedRow + 1); this.render(); return }
       if (key === 'Enter') void this.selectCourier()
       return
     }
     if (this.route === 'world') {
-      if (key === 'Escape') { this.route = 'worlds'; this.world = undefined; this.selectedRow = 0; this.render() }
+      if (key === 'Escape') { this.releaseWorld(); this.route = 'worlds'; this.world = undefined; this.selectedRow = 0; this.render() }
       return
     }
     if (this.route === 'chronicles') {
@@ -196,6 +201,10 @@ export class MedievalApp {
       if (key === 'Escape') { this.route = 'chronicles'; this.chronicle = undefined; this.render(); return }
       if (key === 'e' || key === 'E') this.exportChronicle()
     }
+  }
+
+  private releaseWorld(): void {
+    if (this.world && this.session.current() === this.world.id) this.session.release(this.world.id)
   }
 
   private render(): void {

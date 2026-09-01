@@ -17,7 +17,7 @@ At the end of every completed slice, update this document: mark only verified wo
 
 Jomon is being rebuilt as an original low-mysticism late-medieval river-and-coast roguelike. The checked-in game is a substantial but superseded space-fiction prototype. It may inform architecture and testing technique, but its user-facing lore, vocabulary, assets, progression, save migrations, routes, and content are not requirements for the medieval game.
 
-The documentation reset is complete. No medieval gameplay slice has been implemented or verified yet. The active implementation starting point is Phase 1.1.
+The documentation reset is complete. Phase 1.1 has a deliberately minimal, non-gameplay bootstrap: a deterministic foundation household, initial-courier choice, isolated local records, and an original keyboard canvas shell. Its browser acceptance test is authored but cannot yet run on this machine because the Playwright Chromium binary is absent; therefore Phase 1.1 remains active. No walkable map, deck interaction, trade, combat, travel, simulation tick, or medieval content slice is being represented as complete.
 
 ## Context-free implementation handoff
 
@@ -102,13 +102,14 @@ Verification: manual repository review on 2026-09-01; documentation only. No bui
 
 #### 1.1 Clean game boundary `[-]`
 
-- [ ] Define the new medieval save namespace, version, and invalid-save behavior. Existing prototype saves must be ignored or explicitly invalidated, never migrated.
-- [ ] Establish a clean `src/medieval/` root with renderer-independent domain types for worlds, the vessel, crew, deck partitions, quays, vessel props, world manifests, and action-driven active-play time. Prohibit imports from prototype gameplay/state modules.
-- [ ] Define a medieval browser bootstrap path, root state, routing boundary, and temporary generic-tooling adapters. The default new-game path must enter only medieval state and must not share prototype save loaders or user-facing content.
-- [ ] Define seeded game creation, a multi-world/chronicle index, an initial-courier selection surface, and inspection surfaces for the first vessel slice. Only one world may be mutable in a browser session.
-- [ ] Define an offline-first contract: no account, server, network requirement, remote telemetry, cloud sync, or multiplayer authority; package gameplay assets locally.
-- [ ] Remove prototype terminology from all user-facing surfaces reached by the medieval new-game path.
-- [ ] Add focused unit tests for clean creation, seed/manifest determinism, initial-courier selection, invalidation/no migration, multiple-world indexing, one-active-world ownership, and offline-only bootstrap behaviour.
+- [x] Define the new medieval save namespace, version, and invalid-save behavior. Existing prototype saves are ignored, never migrated: only `jomon-medieval-worlds-v1` is opened, and malformed records resolve as unavailable.
+- [x] Establish a clean `src/medieval/` root with renderer-independent foundation types for worlds, Jomon identity, deck partitions, quays, vessel props, crew, manifests, and zero-time action-clock seed state. It has no prototype gameplay/state imports.
+- [x] Define a medieval browser bootstrap path, root state, routing boundary, and temporary generic-tooling adapters. `/` enters only medieval state; `?prototype` remains an explicitly isolated diagnostic path.
+- [x] Define seeded game creation, a multi-world/chronicle index, an initial-courier selection surface, and read-only chronicle inspection/export. `MutableWorldSession` makes single-world mutation ownership explicit within a browser root.
+- [x] Define the offline-first bootstrap contract in implementation: the medieval entry path has no account, remote telemetry, cloud, multiplayer, or network client; it uses local IndexedDB and packaged CSS only.
+- [x] Remove prototype terminology from every current medieval user-facing canvas surface.
+- [x] Add focused unit tests for clean creation, seed/manifest determinism, initial-courier selection, malformed-record invalidation/no migration, multiple-world indexing, finalized chronicles, and one-active-world ownership.
+- [ ] Run the authored Chromium browser test for the keyboard creation/select/save/resume flow and its no-external-request assertion. The test is blocked locally until the Playwright Chromium binary is installed; do not treat legacy browser tests as medieval evidence.
 
 Acceptance: a fresh medieval world can be created and an initial courier selected deterministically; a prototype save cannot load as one; multiple local worlds can be indexed without loading each other; no network request or space-era term appears anywhere on the medieval new-game path.
 
@@ -130,6 +131,20 @@ Implementation design for this slice:
 - [x] Isolate the legacy browser application behind `?prototype` so existing prototype browser tests can remain diagnostic without making it the ordinary product path. New browser coverage must open `/` and exercise only the medieval application.
 
 Verification: manual import/dependency audit on 2026-09-01. `src/medieval/` has no prototype domain imports; `src/entry.ts` selects the medieval bootstrap by default and legacy bootstrap only with `?prototype`.
+
+Detailed disposition record (completed 2026-09-01):
+
+| Existing codebase area | Disposition for medieval Jomon | Why |
+| --- | --- | --- |
+| `src/main.ts`, `src/renderer.ts`, root UI state and `src/style.css` | Do not reuse | They encode the prototype's space-era screen structure, vocabulary, font, and visual identity. |
+| `src/engine/**`, `src/world.ts`, `src/content.ts`, `src/props.ts`, `src/area-gates.ts`, `src/events.ts`, and adjacent progression/economy/escalation modules | Do not reuse | They encode the prototype's campaign, destinations, combat/content assumptions, and world model; importing them would create hidden medieval constraints. |
+| `src/storage.ts`, root types/RNG/geometry/input/shared modules, and all save migrations | Do not reuse | Medieval persistence has a new database/schema and deterministic contracts; it must never load or rewrite `jomon-expedition-v2`. |
+| `src/assets/**`, generated sprites, `src/audio.ts`, legacy CSS, and BigBlueTerm font | Do not reuse | They are prototype presentation/assets or carry an inherited visual/licensing identity; medieval gets original code-native ASCII presentation first. |
+| `src/autoplay*`, telemetry, campaign/balance reports, content validators, and product-specific scripts | Preserve only as legacy diagnostics; do not repurpose | Their metrics and fixtures assert a different game. Medieval gains its own focused fixtures as its systems exist. |
+| `e2e/jomon.spec.ts` and legacy unit tests | Preserve behind `?prototype`; do not count as medieval verification | They protect unrelated existing work while the ordinary route is rebuilt. New coverage lives in `e2e/medieval-foundation.spec.ts` and `src/medieval/*.test.ts`. |
+| Vite, TypeScript, Vitest, Playwright, package-lock, `vite.config.ts`, `playwright.config.ts`, and generic `index.html`/`#game` mount | Reuse | They are neutral local build, type-check, test, and canvas-boot infrastructure only. `src/vite-env.d.ts` restores the standard Vite CSS-module declaration after the split. |
+
+Current verification for the implemented portion: on 2026-09-01, `npx vitest run src/medieval/world.test.ts src/medieval/storage.test.ts src/medieval/session.test.ts --maxWorkers=1 --no-file-parallelism` passed 10 tests; `npm run build` and `git diff --check` passed. `npx playwright test e2e/medieval-foundation.spec.ts` was attempted but zero tests ran because Playwright's Chromium headless-shell executable is not installed locally. The browser gate remains open.
 
 #### 1.2 Deterministic world generation and configuration
 

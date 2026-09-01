@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test'
 
 test('creates, selects, saves, and resumes a seeded medieval world through keyboard input', async ({ page }) => {
+  const externalRequests: string[] = []
+  page.on('request', request => {
+    const url = new URL(request.url())
+    if (url.origin !== 'http://127.0.0.1:4173') externalRequests.push(url.toString())
+  })
   await page.goto('/')
   const game = page.locator('#game')
 
@@ -26,4 +31,5 @@ test('creates, selects, saves, and resumes a seeded medieval world through keybo
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-route', 'world')
   await expect(game).toHaveAttribute('data-world-id', worldId!)
+  expect(externalRequests).toEqual([])
 })

@@ -1,8 +1,20 @@
 import { SeededRng, hashSeed } from './rng'
-import { FOUNDATION_GENERATOR_VERSION, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationWorld, type FoundationWorldConfiguration, type WorldChronicle, type WorldManifest } from './types'
+import { FOUNDATION_GENERATOR_VERSION, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FoundationWorldConfiguration, type WorldChronicle, type WorldManifest } from './types'
 
 const DEFAULT_SEED = 'jomon-foundation'
 const foundationConfiguration = (): FoundationWorldConfiguration => ({ version: 1, profile: 'foundation' })
+
+const foundationJomon = (): FoundationJomon => ({
+  id: 'vessel:jomon',
+  name: 'Jomon',
+  deckPartitions: ['tavern', 'chart-table', 'cargo-hold', 'repair-space', 'stores', 'berths', 'galley', 'gangplank'],
+  quays: [],
+  props: [
+    { id: 'prop:chart-table', kind: 'table', partition: 'chart-table' },
+    { id: 'prop:task-ledger', kind: 'ledger', partition: 'tavern' },
+    { id: 'prop:gangplank', kind: 'gangplank', partition: 'gangplank' }
+  ]
+})
 
 const roles: readonly CrewRole[] = ['bargemaster', 'pilot', 'factor', 'carpenter', 'guard', 'cook', 'healer', 'scribe', 'carter', 'fisher', 'bard']
 const nameStarts = ['Ari', 'Bel', 'Caro', 'Dara', 'Eren', 'Fara', 'Galen', 'Hara', 'Iven', 'Jori', 'Kesa', 'Loran', 'Mira', 'Neris', 'Oren', 'Pava', 'Risa', 'Soren', 'Tavi', 'Vela'] as const
@@ -117,6 +129,7 @@ export const createFoundationWorld = (input: FoundationWorldInput = {}): Foundat
     id,
     status: 'active',
     manifest,
+    jomon: foundationJomon(),
     crew: generateCrew(manifest),
     worldTime: 0,
     causalHistory: [{ sequence: 0, atWorldTime: 0, kind: 'world-created', detail: `Foundation world ${manifest.label} created from seed ${seed}.` }]

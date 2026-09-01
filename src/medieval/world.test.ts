@@ -11,6 +11,7 @@ describe('medieval foundation worlds', () => {
     expect(first.crew).toHaveLength(6)
     expect(new Set(first.crew.map(member => member.id)).size).toBe(first.crew.length)
     expect(first.manifest.initialCourierId).toBeUndefined()
+    expect(first.jomon).toMatchObject({ id: 'vessel:jomon', name: 'Jomon', deckPartitions: expect.arrayContaining(['tavern', 'chart-table', 'cargo-hold', 'gangplank']) })
   })
 
   it('makes a generated eligible crew member the selected initial courier without rerolling the household', () => {

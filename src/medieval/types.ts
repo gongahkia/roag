@@ -23,6 +23,32 @@ export interface CrewRelationship {
   basis: 'kinship' | 'work' | 'debt' | 'friendship' | 'rivalry'
 }
 
+/**
+ * These are spatial contracts, not yet a map. Phase 2 makes them walkable
+ * from the same world data rather than inventing a second vessel model.
+ */
+export type JomonDeckPartition = 'tavern' | 'chart-table' | 'cargo-hold' | 'repair-space' | 'stores' | 'berths' | 'galley' | 'gangplank'
+export type JomonVesselPropKind = 'table' | 'ledger' | 'rack' | 'hearth' | 'berth' | 'gangplank'
+
+export interface FoundationQuay {
+  id: string
+  name: string
+}
+
+export interface FoundationVesselProp {
+  id: string
+  kind: JomonVesselPropKind
+  partition: JomonDeckPartition
+}
+
+export interface FoundationJomon {
+  id: 'vessel:jomon'
+  name: 'Jomon'
+  deckPartitions: readonly JomonDeckPartition[]
+  quays: readonly FoundationQuay[]
+  props: readonly FoundationVesselProp[]
+}
+
 /** Foundation representation only; Phase 1.3 expands this to full persistent-person state. */
 export interface FoundationCrewMember {
   id: string
@@ -47,6 +73,7 @@ export interface FoundationWorld {
   id: string
   status: 'active'
   manifest: WorldManifest
+  jomon: FoundationJomon
   crew: readonly FoundationCrewMember[]
   worldTime: 0
   causalHistory: readonly CausalRecord[]

@@ -1,4 +1,4 @@
-import { MEDIEVAL_DATABASE_NAME, type ChronicleReason, type FoundationCrewMember, type FoundationWorld, type WorldChronicle, type WorldIndex, type WorldManifest } from './types'
+import { MEDIEVAL_DATABASE_NAME, type ChronicleReason, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type JomonDeckPartition, type JomonVesselPropKind, type WorldChronicle, type WorldIndex, type WorldManifest } from './types'
 
 const CATALOG_STORE = 'catalog'
 const WORLD_STORE = 'worlds'
@@ -29,11 +29,14 @@ const string = (value: unknown): value is string => typeof value === 'string' &&
 const nonNegativeInteger = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 const chronicleReason = (value: unknown): value is ChronicleReason => value === 'jomon-loss' || value === 'crew-extinction'
 const crewRole = (value: unknown): boolean => ['bargemaster', 'pilot', 'factor', 'carpenter', 'guard', 'cook', 'healer', 'scribe', 'carter', 'fisher', 'bard'].includes(String(value))
+const deckPartition = (value: unknown): value is JomonDeckPartition => ['tavern', 'chart-table', 'cargo-hold', 'repair-space', 'stores', 'berths', 'galley', 'gangplank'].includes(String(value))
+const vesselPropKind = (value: unknown): value is JomonVesselPropKind => ['table', 'ledger', 'rack', 'hearth', 'berth', 'gangplank'].includes(String(value))
 
 const isManifest = (value: unknown): value is WorldManifest => record(value) && value.version === 1 && string(value.seed) && record(value.configuration) && value.configuration.version === 1 && value.configuration.profile === 'foundation' && value.generatorVersion === 'foundation-1' && string(value.label) && (value.initialCourierId === undefined || string(value.initialCourierId))
 const isCrewMember = (value: unknown): value is FoundationCrewMember => record(value) && string(value.id) && string(value.name) && crewRole(value.role) && nonNegativeInteger(value.conversation) && Array.isArray(value.equipment) && value.equipment.every(string) && string(value.history) && typeof value.eligible === 'boolean' && Array.isArray(value.relationships) && value.relationships.every(relationship => record(relationship) && string(relationship.personId) && [-2, -1, 0, 1, 2].includes(Number(relationship.standing)) && ['kinship', 'work', 'debt', 'friendship', 'rivalry'].includes(String(relationship.basis)))
+const isFoundationJomon = (value: unknown): value is FoundationJomon => record(value) && value.id === 'vessel:jomon' && value.name === 'Jomon' && Array.isArray(value.deckPartitions) && value.deckPartitions.every(deckPartition) && Array.isArray(value.quays) && value.quays.every(quay => record(quay) && string(quay.id) && string(quay.name)) && Array.isArray(value.props) && value.props.every(prop => record(prop) && string(prop.id) && vesselPropKind(prop.kind) && deckPartition(prop.partition))
 const isFoundationWorld = (value: unknown): value is FoundationWorld => {
-  if (!record(value) || value.version !== 1 || !string(value.id) || value.status !== 'active' || !isManifest(value.manifest) || !Array.isArray(value.crew) || value.crew.length === 0 || !value.crew.every(isCrewMember) || value.worldTime !== 0 || !Array.isArray(value.causalHistory) || !value.causalHistory.every(event => record(event) && nonNegativeInteger(event.sequence) && event.atWorldTime === 0 && (event.kind === 'world-created' || event.kind === 'initial-courier-selected') && string(event.detail))) return false
+  if (!record(value) || value.version !== 1 || !string(value.id) || value.status !== 'active' || !isManifest(value.manifest) || !isFoundationJomon(value.jomon) || !Array.isArray(value.crew) || value.crew.length === 0 || !value.crew.every(isCrewMember) || value.worldTime !== 0 || !Array.isArray(value.causalHistory) || !value.causalHistory.every(event => record(event) && nonNegativeInteger(event.sequence) && event.atWorldTime === 0 && (event.kind === 'world-created' || event.kind === 'initial-courier-selected') && string(event.detail))) return false
 
   const manifest = value.manifest
   const crew = value.crew as FoundationCrewMember[]
