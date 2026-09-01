@@ -2,10 +2,9 @@ import { SeededRng, hashSeed } from './rng'
 import { MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION, auditMedievalContentSafety, classifyMedievalContent, contentSafetyAuditMatches, isMedievalContentSafetyAudit, type ClassifiedMedievalContent, type MedievalContentSafetyAudit, type MedievalContentSafetyDiagnostic } from './content-safety'
 import { FRONTIER_CONTRACT_VERSION, createInitialFrontierState, frontierContentRecords, type FrontierState } from './frontier'
 import { generationConfigurationFingerprint, generationRetryPlan, isReproducibleGenerationDiagnostics, resolveWorldGenerationConfig, type WorldGenerationConfig, type WorldGenerationConfigIssue, type WorldGenerationConfigRequest } from './generation-config'
-import { INITIAL_WORLD_GENERATION_DIAGNOSTICS_VERSION, INITIAL_WORLD_GENERATOR_VERSION, generateInitialWorld, initialWorldContentRecords, type InitialWorld, type InitialWorldGenerationDiagnostics } from './initial-world'
+import { INITIAL_WORLD_GENERATION_DIAGNOSTICS_VERSION, INITIAL_WORLD_GENERATOR_VERSION, generateInitialWorld, initialWorldContentRecords, type InitialWorld, type InitialWorldGenerationDiagnostics, type InitialWorldGenerationProgressObserver } from './initial-world'
+import { normalizeCreationSeed } from './settings'
 import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
-
-const DEFAULT_SEED = 'jomon-foundation'
 
 const foundationJomon = (): FoundationJomon => ({
   id: 'vessel:jomon',
@@ -55,6 +54,8 @@ const relationshipBases: readonly CrewRelationship['basis'][] = ['kinship', 'wor
 export interface FoundationWorldInput {
   seed?: string
   configuration?: WorldGenerationConfigRequest
+  /** Actual initial-world generator progress for the local creation surface. */
+  onGenerationProgress?: InitialWorldGenerationProgressObserver
 }
 
 export class InvalidWorldGenerationConfigurationError extends Error {
@@ -71,10 +72,7 @@ export class MedievalContentSafetyPolicyError extends Error {
   }
 }
 
-export const normalizeSeed = (seed: string | undefined): string => {
-  const normalized = seed?.trim().replace(/\s+/g, ' ') ?? ''
-  return normalized || DEFAULT_SEED
-}
+export const normalizeSeed = normalizeCreationSeed
 
 const labelForSeed = (seed: string, configuration: WorldGenerationConfig): string => {
   const rng = new SeededRng(`label:${seed}:${generationConfigurationFingerprint(configuration)}`)
@@ -188,13 +186,14 @@ interface ExpectedFoundationState {
 const expectedFoundationState = (
   seed: string,
   configuration: WorldGenerationConfig,
-  initialCourierId: string | undefined
+  initialCourierId: string | undefined,
+  onGenerationProgress?: InitialWorldGenerationProgressObserver
 ): ExpectedFoundationState | undefined => {
   const label = labelForSeed(seed, configuration)
   const labelContentSafety = classifyMedievalContent('place', ['environment', 'settlement'], 'not-applicable', ['player-facing-text'])
   const jomon = foundationJomon()
   const crew = generateCrew(seed, configuration)
-  const initialWorldGeneration = generateInitialWorld(seed, configuration)
+  const initialWorldGeneration = generateInitialWorld(seed, configuration, onGenerationProgress)
   const frontier = createInitialFrontierState({ seed, configuration, initialWorld: initialWorldGeneration.world })
   const causalHistory = [worldCreatedRecord(label, seed)]
   if (initialCourierId !== undefined) {
@@ -355,8 +354,12 @@ export const isReproducibleWorldManifest = (value: unknown): value is WorldManif
   return expectedCreation !== undefined && expectedState !== undefined && equivalent(creation, expectedCreation) && equivalent(value.currentContentSafetyAudit, expectedState.contentSafetyAudit)
 }
 
-const worldFromCreationProvenance = (creation: WorldCreationProvenance, initialCourierId: string | undefined): FoundationWorld => {
-  const state = expectedFoundationState(creation.seed, creation.resolvedConfiguration, initialCourierId)
+const worldFromCreationProvenance = (
+  creation: WorldCreationProvenance,
+  initialCourierId: string | undefined,
+  precomputedState?: ExpectedFoundationState
+): FoundationWorld => {
+  const state = precomputedState ?? expectedFoundationState(creation.seed, creation.resolvedConfiguration, initialCourierId)
   if (!state) throw new Error('creation provenance does not identify an eligible initial courier')
   return {
     version: 1,
@@ -380,10 +383,10 @@ export const createFoundationWorld = (input: FoundationWorldInput = {}): Foundat
   const seed = normalizeSeed(input.seed)
   const configurationResolution = resolveWorldGenerationConfig(input.configuration)
   if (configurationResolution.status !== 'valid') throw new InvalidWorldGenerationConfigurationError(configurationResolution.issues)
-  const state = expectedFoundationState(seed, configurationResolution.configuration, undefined)
+  const state = expectedFoundationState(seed, configurationResolution.configuration, undefined, input.onGenerationProgress)
   if (!state) throw new Error('foundation world creation requires an unselected courier state')
   const creation = creationProvenanceFor(seed, configurationResolution.selectedConfiguration, configurationResolution.configuration, state)
-  return worldFromCreationProvenance(creation, undefined)
+  return worldFromCreationProvenance(creation, undefined, state)
 }
 
 export const recreateFoundationWorld = (manifest: WorldManifest): FoundationWorld => {

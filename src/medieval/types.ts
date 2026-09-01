@@ -191,4 +191,4 @@ export interface WorldIndex {
   chronicles: readonly ChronicleIndexEntry[]
 }
 
-export type MedievalRoute = 'worlds' | 'create-world' | 'choose-courier' | 'world' | 'chronicles' | 'chronicle'
+export type MedievalRoute = 'worlds' | 'create-world' | 'creation-profiles' | 'world-generation' | 'world-result' | 'choose-courier' | 'world' | 'chronicles' | 'chronicle'

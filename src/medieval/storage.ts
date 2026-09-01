@@ -1,12 +1,15 @@
 import { foundationWorldContentSatisfiesSafetyPolicy, foundationWorldIdForManifest, foundationWorldInitialWorldMatchesManifest, isReproducibleWorldManifest } from './world'
 import { isInitialWorld } from './initial-world'
+import { emptyCreationSettingsRecord, isCreationSettingsRecord, saveCreationSettingsProfile as saveNamedCreationSettingsProfile, withLastUsedCreationSettings, type CreationSettings, type CreationSettingsRecord } from './settings'
 import { MEDIEVAL_DATABASE_NAME, type ChronicleReason, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type JomonDeckPartition, type JomonVesselPropKind, type WorldChronicle, type WorldIndex, type WorldManifest } from './types'
 
 const CATALOG_STORE = 'catalog'
 const WORLD_STORE = 'worlds'
 const CHRONICLE_STORE = 'chronicles'
+const CREATION_SETTINGS_STORE = 'creation-settings'
 const INDEX_KEY = 'world-index'
-const DATABASE_VERSION = 1
+const CREATION_SETTINGS_KEY = 'last-used-and-profiles'
+const DATABASE_VERSION = 2
 const databaseName = MEDIEVAL_DATABASE_NAME
 
 export const emptyWorldIndex = (): WorldIndex => ({ version: 1, activeWorlds: [], chronicles: [] })
@@ -73,6 +76,7 @@ export class MedievalWorldRepository {
         if (!database.objectStoreNames.contains(CATALOG_STORE)) database.createObjectStore(CATALOG_STORE)
         if (!database.objectStoreNames.contains(WORLD_STORE)) database.createObjectStore(WORLD_STORE)
         if (!database.objectStoreNames.contains(CHRONICLE_STORE)) database.createObjectStore(CHRONICLE_STORE)
+        if (!database.objectStoreNames.contains(CREATION_SETTINGS_STORE)) database.createObjectStore(CREATION_SETTINGS_STORE)
       }
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error ?? new Error('could not open medieval world storage'))
@@ -103,6 +107,33 @@ export class MedievalWorldRepository {
     const value = await requestResult(transaction.objectStore(CHRONICLE_STORE).get(id))
     await transactionDone(transaction)
     return isChronicle(value) ? clone(value) : undefined
+  }
+
+  /** Invalid persisted settings are rejected to defaults; no prototype data is inspected. */
+  async loadCreationSettings(): Promise<CreationSettingsRecord> {
+    const database = await this.open()
+    const transaction = database.transaction(CREATION_SETTINGS_STORE, 'readonly')
+    const value = await requestResult(transaction.objectStore(CREATION_SETTINGS_STORE).get(CREATION_SETTINGS_KEY))
+    await transactionDone(transaction)
+    return isCreationSettingsRecord(value) ? clone(value) : emptyCreationSettingsRecord()
+  }
+
+  private async writeCreationSettings(recordValue: CreationSettingsRecord): Promise<CreationSettingsRecord> {
+    if (!isCreationSettingsRecord(recordValue)) throw new Error('refusing to save invalid medieval creation settings')
+    const database = await this.open()
+    const transaction = database.transaction(CREATION_SETTINGS_STORE, 'readwrite')
+    transaction.objectStore(CREATION_SETTINGS_STORE).put(clone(recordValue), CREATION_SETTINGS_KEY)
+    await transactionDone(transaction)
+    return clone(recordValue)
+  }
+
+  async saveLastUsedCreationSettings(settings: CreationSettings): Promise<CreationSettingsRecord> {
+    return this.writeCreationSettings(withLastUsedCreationSettings(await this.loadCreationSettings(), settings))
+  }
+
+  /** Six normalized names are retained; an existing name is replaced in place. */
+  async saveCreationSettingsProfile(name: string, settings: CreationSettings): Promise<CreationSettingsRecord> {
+    return this.writeCreationSettings(saveNamedCreationSettingsProfile(await this.loadCreationSettings(), name, settings))
   }
 
   async saveWorld(world: FoundationWorld): Promise<void> {
