@@ -229,10 +229,15 @@ const validCauseEvidenceShape = (value: unknown): value is SimulationOutcomeCaus
   && safeInteger(value.dueIntervals)
   && value.dueIntervals > 0
 
-const validCauseShape = (value: unknown): value is SimulationOutcomeCause => record(value)
-  && hasOnlyKeys(value, ['version', 'kind', 'evidence', 'contentSafety'])
+const validCauseEnvelope = (value: unknown): value is Record<string, unknown> => record(value)
+  && Object.keys(value).every(key => ['version', 'kind', 'evidence', 'contentSafety'].includes(key))
+  && Object.hasOwn(value, 'version')
+  && Object.hasOwn(value, 'kind')
+  && Object.hasOwn(value, 'contentSafety')
   && value.version === SIMULATION_OUTCOME_CAUSE_VERSION
   && value.kind === 'fidelity-cadence'
+
+const validCauseShape = (value: unknown): value is SimulationOutcomeCause => validCauseEnvelope(value)
   && validCauseEvidenceShape(value.evidence)
   && auditMedievalContentSafety([{ id: 'simulation-cause:validation', domain: 'data', classification: value.contentSafety }]).status === 'accepted'
 
@@ -278,6 +283,8 @@ const validCursor = (value: unknown, context: SimulationCatchUpValidationContext
   && safeInteger(value.processedIntervals)
   && validId(value.lastActionId)
   && safeInteger(value.outcomeToken)
+  && value.outcomeToken === outcomeTokenFor(context, value.targetKind as SimulationCatchUpTargetKind, value.targetId, value.processedAtWorldTime)
+  && actionEvidenceFor(context, value.lastActionId)?.atWorldTime === value.processedAtWorldTime
 
 const validCatchUpRecord = (value: unknown, context: SimulationCatchUpValidationContext, delegatedWorkIds: ReadonlySet<string>): value is SimulationCatchUpRecord => record(value)
   && hasOnlyKeys(value, ['id', 'actionId', 'targetKind', 'targetId', 'tier', 'startedAtWorldTime', 'processedAtWorldTime', 'dueIntervals', 'outcomeToken', 'outcomeDetail', 'cause', 'contentSafety'])
@@ -326,12 +333,16 @@ export const validateSimulationCatchUpState = (context: SimulationCatchUpValidat
   if (!records.every(item => validCatchUpRecord(item, context, delegatedWorkIds))) diagnostics.push(issue('simulation-catchup:records', 'simulation-catchup.invalid-record'))
   for (const item of records) {
     if (!record(item)) continue
-    if (!validCauseShape(item.cause)) {
+    if (!validCauseEnvelope(item.cause)) {
       diagnostics.push(issue(validId(item.id) ? item.id : 'simulation-catchup:record', 'simulation-catchup.invalid-cause'))
       continue
     }
     if (!validCauseEvidenceShape(item.cause.evidence)) {
       diagnostics.push(issue(validId(item.id) ? item.id : 'simulation-catchup:record', 'simulation-catchup.invalid-evidence'))
+      continue
+    }
+    if (!validCauseShape(item.cause)) {
+      diagnostics.push(issue(validId(item.id) ? item.id : 'simulation-catchup:record', 'simulation-catchup.invalid-cause'))
       continue
     }
     if (!validId(item.actionId) || !targetKinds.includes(item.targetKind as SimulationCatchUpTargetKind) || !validId(item.targetId) || !safeInteger(item.startedAtWorldTime) || !safeInteger(item.processedAtWorldTime) || !safeInteger(item.dueIntervals)) continue

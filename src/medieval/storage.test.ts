@@ -173,7 +173,7 @@ describe('medieval local persistence', () => {
     expect(await repository.loadWorld('world:not-present')).toBeUndefined()
   })
 
-  it('keeps valid local creation settings intact while saving and loading the v5 full-world record', async () => {
+  it('keeps valid local creation settings intact while saving and loading the v6 full-world record', async () => {
     const repository = new MedievalWorldRepository()
     const settings = { ...defaultCreationSettings(), seed: 'settings-survive-state', configuration: { preset: 'far-coast' as const, advanced: {} } }
     const world = chooseInitialCourier(createFoundationWorld({ seed: 'settings-survive-state', configuration: settings.configuration }), 'crew:0')
@@ -234,12 +234,12 @@ describe('medieval local persistence', () => {
     await expect(repository.loadWorld(world.id)).resolves.toBeUndefined()
   })
 
-  it('rejects the v4 mutable-world envelope rather than inventing catch-up cursors', async () => {
+  it('rejects the v5 mutable-world envelope rather than inventing traceable catch-up outcomes', async () => {
     const repository = new MedievalWorldRepository()
     const world = createFoundationWorld({ seed: 'catch-up-envelope-clean-break' })
     const legacy = structuredClone(world) as unknown as { version: number; state: { version: number; simulation?: unknown } }
-    legacy.version = 4
-    legacy.state.version = 2
+    legacy.version = 5
+    legacy.state.version = 3
     delete legacy.state.simulation
 
     await repository.loadIndex()
@@ -287,6 +287,24 @@ describe('medieval local persistence', () => {
     expect(await repository.loadWorld(advanced.id)).toEqual(advanced)
     expect(advanced.state.simulation.cursors.length).toBeGreaterThan(0)
     expect(advanced.state.simulation.records.length).toBeGreaterThan(0)
+  })
+
+  it('rejects a stored or submitted world with forged simulation cause evidence', async () => {
+    const repository = new MedievalWorldRepository()
+    const world = chooseInitialCourier(createFoundationWorld({ seed: 'forged-catch-up-cause' }), 'crew:0')
+    const advanced = advanceFoundationWorldTime(world, {
+      id: 'movement:forged-catch-up-cause',
+      kind: 'movement',
+      durationMinutes: 1,
+      contentSafety: classifyMedievalContent('event', ['civil-life', 'navigation'], 'not-applicable', ['player-facing-text'])
+    })
+    const forged = structuredClone(advanced)
+    forged.state.simulation.records[0]!.cause.evidence.targetId = 'person:not-known'
+
+    await expect(repository.saveWorld(forged)).rejects.toThrow('invalid medieval world')
+    await repository.loadIndex()
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(forged.id, forged)
+    await expect(repository.loadWorld(forged.id)).resolves.toBeUndefined()
   })
 
   it('rejects a stored world whose manifest provenance does not reproduce its resolved configuration', async () => {
