@@ -22,13 +22,13 @@ The documentation reset is complete. No medieval gameplay slice has been impleme
 ## Non-negotiable product decisions
 
 - Jomon is a persistent itinerant household on a river-basin-to-coast network.
-- The player inhabits rotating crew members. Crew selection happens physically at Jomon’s tavern; death and departure are permanent.
-- Jomon’s tavern, chart table, cargo hold, repair space, stores, berths, galley, and gangplank are walkable map spaces. Major actions begin by operating represented props and use compact contextual key-choice prompts, not abstract hub screens.
+- The player inhabits rotating Jomon crew members. Crew selection happens physically at Jomon’s tavern; a truly lost courier is permanent, subject only to exceptionally rare and explicit mystical safeguards.
+- Jomon’s tavern, chart table, cargo hold, repair space, stores, berths, galley, and gangplank are walkable map spaces. Physical props use compact contextual key-choice prompts. An always-available, deliberately comprehensive management screen complements these surfaces; it does not replace their direct action or situated information.
 - Gangplanks and quays replace airlocks and landing terminals.
 - Trade uses physical commodities with capacity, condition, handling, loss, recovery, local supply, demand, and market consequences.
 - Human conflict, wilderness, and operational hazards must receive equal systemic depth.
 - Combat remains turn-based and grid-based, but its old content and progression model will be redesigned.
-- There is no literal magic or supernatural causality. Religion is background culture only.
+- Jomon is low-mysticism medieval fantasy. Rare relics, totems, boons, curses, rites, omens, and other uncanny forces can have real mechanical effects, but there is no generic mage class or unlimited free-form spellcasting.
 - Simulation time advances only during active in-game play. All consequential randomness is seeded and inspectable.
 - Jomon is an open-ended persistent world simulation, not a finite campaign to be won. Short-term goals provide direction; exploration, relationships, and the changing household/world provide the long-term play.
 - The player is not bound to a single protagonist. On an active courier’s death, control transfers to another eligible crew member; voluntary perspective changes occur at the tavern.
@@ -37,6 +37,9 @@ The documentation reset is complete. No medieval gameplay slice has been impleme
 - Jomon can grow through new rooms, refitted workspaces, tools, crew capacity, and small craft. Every expansion is physical, persistent, grounded in available materials/labour, and balanced by upkeep, space, staffing, cargo, route, or social trade-offs.
 - A continuing world has escalating difficulty eras: base, NG+, and NG++. Active-play progression in the same persistent world moves it toward later eras without a reset or finite campaign ending. Each era adds durable, diegetic pressures and new possibilities rather than merely increasing enemy numbers.
 - The initial release target is a desktop browser game for players who enjoy ASCII graphics and keyboard-first control.
+- Every instantiated person has a full individual persistent record—including family, work, needs, relationships, injury, possessions, birth, and death—while distant people advance through deterministic summary simulation at an appropriate fidelity level.
+- The world has an expanding procedural frontier. Newly explored regions are generated causally and become persistently explorable as Jomon travels; rumours, charts, travellers, and trade can establish their existence before arrival.
+- No user mod/content-pack compatibility is planned. Internal content remains data-driven and documented for maintainability, but does not promise a public extension API.
 - The reset is a clean persistence break. Do not migrate the superseded space-era saves or reinterpret them as medieval campaigns.
 - Do not copy lore, text, names, assets, or exact mechanics from other games. Historical and game references are influence constraints only.
 
@@ -54,17 +57,18 @@ Jomon takes clear, original inspiration from **Rogue (1980)**: a terminal-first,
 
 ## Emergent world and people direction
 
-Jomon’s world should feel alive in the sense of Dwarf Fortress Adventure Mode, Caves of Qud, and RimWorld: it has a remembered past, people pursue their own material goals, and the player’s actions become part of later situations. The player experiences this through a courier on Jomon, not through an omniscient management interface.
+Jomon’s world should feel alive in the sense of Dwarf Fortress Adventure Mode, Caves of Qud, RimWorld, Rogue, and Risk of Rain: it has a remembered past, people pursue their own material and mystical goals, the player can build tactical power through legible combinations, and the player’s actions become part of later situations. The player experiences the world through a courier on Jomon, supported by both situated in-world surfaces and an always-available comprehensive management interface.
 
 - The world evolves only while the player is actively playing. It does not advance while the browser is closed or the game is paused.
-- A world is generated before the player arrives: geography and waterways first; then ecology, resources, settlements, institutions, people, routes, trade, and historical events. Its starting state must be causally inspectable.
-- World generation aims for Dwarf Fortress-like depth and configurability, adapted to Jomon’s grounded scale. Players can select, save, inspect, and reproduce generation presets and advanced settings; every generated world records its seed, resolved settings, generator version, and validation/rejection result.
-- Named crew, recurring rivals, employers, local authorities, workers, carriers, and witnesses need persistent identity, location or home, role, material interests, relationships, memories, and a readable history of consequential encounters.
-- NPC actions must arise from original needs, opportunities, relationships, and local conditions—not an authored sequence disguised as simulation. Distant people and settlements may use deterministic summary simulation; nearby and important people need richer state and behaviour.
-- The world must surface change through physical places, conversations, ledgers, rumours, goods, routes, and visible work. A simulation that players cannot discover or act upon is out of scope.
+- A world begins with a causally generated history: geography and waterways first; then ecology, resources, settlements, institutions, people, routes, trade, and historical events. Its starting state must be inspectable. The world continues into a deterministic expanding frontier as Jomon travels rather than ending at that initial generated region.
+- World generation aims for Dwarf Fortress-like depth and configurability, adapted to Jomon’s scale. Advanced settings cover region size, history length, climate, terrain and waterways, settlement and population density, political fragmentation, resource scarcity, ecology, dangers, era pace, and simulation fidelity. Players can select, save, inspect, and reproduce presets and advanced settings; every generated world records its seed, resolved settings, generator version, and validation/rejection result.
+- Every instantiated person has persistent identity, location or home, role, material interests, family, work, needs, relationships, injury, possessions, birth, death, memories, and a readable history of consequential encounters.
+- NPC actions must arise from original needs, opportunities, relationships, and local conditions—not an authored sequence disguised as simulation. Nearby and important people receive detailed simulation; every distant person retains full individual state and advances through deterministic scheduled summaries.
+- The world must surface change through physical places, conversations, ledgers, rumours, goods, routes, visible work, and the always-available management screen. These surfaces are complementary and must not merely duplicate one another. A simulation that players cannot discover or act upon is out of scope.
 - Jomon expansion and exploration are the provisional long-term motivations. Every future vessel upgrade must add a physical space, a new material capability, or a meaningful new trade-off.
 - Short-term goals must always be available through local pressures, contracts, favours, shortages, discoveries, threats, or crew needs. They guide play without creating a mandatory campaign finish line.
 - Escalation must keep the world generative after NG++: later eras remix and extend the same systemic content families, change world conditions and relationships, and create new material problems, opportunities, and vessel choices. They do not require a new save or a campaign restart.
+- Base, NG+, and NG++ are tracked world eras, not separate worlds. Accumulated in-world active-play time and Jomon’s growth advance the era; Jomon and surviving crew remain continuous while the wider world changes. NG++ plateaus in raw escalation and continues to remix systemic content instead of becoming numerical inflation.
 - Shadow of Mordor is only a high-level reference for the feeling that remembered people can react and recur. Do not implement or market a “Nemesis System,” reproduce its hierarchy/vendetta design, or derive from its protected implementation. Use an original, documented social-memory model instead.
 
 ## Ordered implementation phases

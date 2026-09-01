@@ -4,7 +4,7 @@
 
 ## Authority and purpose
 
-This is the authoritative setting and content reference for Jomon. It defines the game’s medieval direction, its material limits, and the content grammar used by later implementation work. The current codebase contains an earlier prototype whose space-fiction terminology and systems are not canon; it is an implementation reference only until replaced by the roadmap in [`TODO.md`](TODO.md).
+This is the authoritative setting and content reference for Jomon. It defines the game’s medieval direction, its material and mystical limits, and the content grammar used by later implementation work. `TODO.md` is the authoritative execution plan; it records the required systems, status, acceptance criteria, and implementation decisions. The current codebase contains an earlier prototype whose space-fiction terminology and systems are not canon; it is an implementation reference only until replaced by the roadmap in [`TODO.md`](TODO.md).
 
 Jomon is an original composite setting. Real medieval history may inform tools, labour, trade, law, and settlement life, but the game does not portray a real country, dynasty, religion, or language. Procedural history and materially grounded simulation are influences, not permission to copy another game’s lore, text, names, or designs.
 
@@ -13,19 +13,22 @@ Jomon is an original composite setting. Real medieval history may inform tools, 
 1. **Jomon** is the game’s name and the vessel’s name.
 2. Jomon is a river-and-coast trading vessel and the mobile home of an itinerant household.
 3. The world is late-medieval in material culture: sail and oar craft, quays, mills, windlasses, workshops, mail and plate, crossbows, paper records, and hand-made goods are ordinary. Gunpowder warfare is not the default frame.
-4. There is no magic, supernatural power, occult technology, miracle, monster, or hidden cosmological explanation. Claims about such things are beliefs, mistakes, metaphors, frauds, or incomplete accounts of material events.
-5. Religion exists as background culture—burials, vows, calendars, festivals, charity, and moral authority—but is not a source of literal power.
+4. Jomon is a low-mysticism medieval fantasy world. Rare relics, totems, boons, curses, rites, omens, and other uncanny forces can have real mechanical effects. They must be legible, finite, seeded where random, tied to an in-world source, and integrated with material people, places, labour, trade, and danger.
+5. There is no default mage class or free-form spellcasting profession. Mysticism is exceptional, costly, and embodied in objects, places, conditions, practices, and relationships rather than a generic source of unlimited power. Religions, folk practices, vows, and rituals may exist as original cultures and may sometimes interact with real mysticism, but do not reproduce a real religion.
 6. Trade is physical. Goods occupy space, spoil, break, can be stolen, can be delivered, and change what settlements can do.
 7. Human conflict, wilderness, and operational hazards are equally important sources of danger. None is merely flavour for another.
-8. The player inhabits one crew member at a time. Crew members may be switched voluntarily at Jomon’s tavern; death and departure are permanent for that person.
-9. Jomon, surviving crew, cargo losses, debts, market conditions, route damage, relationships, and local history persist after an expedition fails.
+8. The player inhabits one Jomon crew member at a time. Crew members may be switched voluntarily at Jomon’s tavern. When a courier is truly lost, control transfers to an eligible surviving crew member; new playable characters join only by joining Jomon’s household.
+9. Jomon, surviving crew, cargo losses, debts, market conditions, route damage, relationships, local history, and each persistent person’s individual state survive an expedition failure. A rare, explicit mystical safeguard may avert a death or disaster; the irreversible collapse or loss of Jomon ends that world’s play.
 10. Combat remains deterministic, turn-based, and grid-based. Its later redesign must be grounded in medieval weapons, injury, positioning, scarcity, and readable intent.
 11. The simulation advances only through explicit in-game time while the game is running. Closing or leaving the game does not advance the world.
-12. ASCII and detailed tiles are two renderings of the same world state. Neither may conceal consequential gameplay information.
+12. ASCII is Jomon’s primary, release-quality visual language. An optional detailed renderer is a second rendering of the same world state and may not conceal or invent consequential gameplay information.
+13. A world has no mandatory final campaign. It grows through exploration, Jomon’s physical expansion, individual and institutional history, and escalating base, NG+, and NG++ eras that preserve the same Jomon and surviving crew.
 
 ## The river-to-coast frontier
 
-The playable region is a watershed: tributaries, canals, floodplains, mill towns, ferry crossings, marshes, river cities, estuaries, and a contested coast. Inland and coastal worlds are linked by water, but passage is never automatic. River height, weather, seasonal work, war, tolls, shoals, quarantine, labour shortages, damaged locks, and local law determine which routes are practical.
+The known starting region is a watershed: tributaries, canals, floodplains, mill towns, ferry crossings, marshes, river cities, estuaries, and a contested coast. Inland and coastal worlds are linked by water, but passage is never automatic. River height, weather, seasonal work, war, tolls, shoals, quarantine, labour shortages, damaged locks, and local law determine which routes are practical.
+
+The world has an expanding frontier rather than an artificial map edge. As Jomon reaches new waterways and coasts, further regions are generated and become explorable; their identities may already be heard through rumours, charts, cargo marks, travellers, letters, trade, and old stories. Regions must have distinct geography, ecology, peoples, mystical pressures, architecture, goods, enemies, and practical problems. Expansion must remain causally connected to the known world and optimized so it never erases or contradicts remembered people or history.
 
 The setting has no universal state. Manors, free towns, guild halls, monasteries, river leagues, fishing communities, fortified estates, travelling companies, and local assemblies overlap. A charter may be valid at one quay and meaningless across the next bend. A household survives by knowing who can witness a contract, who controls a lock, who needs a cargo, and when it is safer to leave.
 
@@ -33,17 +36,23 @@ No settlement is a generic medieval backdrop. Each needs a purpose, a water rela
 
 ## Jomon and its household
 
-Jomon is a walkable deck plan, not an abstract hub screen. Its permanent spaces include a tavern, crew berths, chart table, cargo hold, galley, repair space, stores, and gangplank. Later play may expand or rearrange these spaces, but every major vessel function must occur at a represented location.
+Jomon is a walkable deck plan, not merely an abstract hub screen. Its permanent spaces include a tavern, crew berths, chart table, cargo hold, galley, repair space, stores, and gangplank. Later play may add rooms, refit workspaces, improve tools and rigging, increase crew capacity, and add small craft. Every expansion is a physical, persistent change with material, labour, capacity, upkeep, route, or social trade-offs.
 
-Operating a vessel prop opens a compact contextual key-choice prompt rather than a detached management screen. The chart table handles route work; the hold handles loading and unloading; the repair space handles vessel maintenance; and the tavern handles conversation, rest, crew selection, and succession. Gangplanks connect Jomon to quays, piers, shore landings, and small craft.
+Operating a vessel prop opens a compact contextual key-choice prompt. The chart table handles route work; the hold handles loading and unloading; the repair space handles vessel maintenance; and the tavern handles conversation, rest, crew selection, and succession. Gangplanks connect Jomon to quays, piers, shore landings, and small craft.
 
-Jomon is an itinerant household, not the private property of one chosen captain. Its people have different skills, obligations, loyalties, and reasons to stay. Useful recognisable roles include a bargemaster, pilot, factor, carpenter, guard, cook, healer, scribe, carter, fisher, and bard. A role describes labour and social access, not a class or supernatural ability.
+An always-available strategic management view complements these physical interactions. It provides a deliberately comprehensive view of known tasks, people, work, risks, households, sites, routes, and history; it is not a replacement for walking through Jomon or acting on props. The map, messages, conversations, ledgers, notices, and management view must each reveal useful, non-duplicative facets of the same world state.
+
+Jomon is an itinerant household, not the private property of one chosen captain. Its people have different skills, obligations, loyalties, needs, possessions, injuries, families, memories, and reasons to stay. Useful recognisable roles include a bargemaster, pilot, factor, carpenter, guard, cook, healer, scribe, carter, fisher, and bard. A role describes labour and social access, not a rigid character class; mystical aptitude, where present, is tied to a specific history, practice, place, or object.
 
 ## The player and crew continuity
 
-The player’s point of view rotates among crew members. While at Jomon’s tavern, the player may select any eligible living crew member as the active character. The current character carries their personal skills, injuries, equipment, relationships, and memories into an expedition.
+The player’s point of view rotates among Jomon’s crew members. While at Jomon’s tavern, the player may select any eligible living crew member as the active character. People become playable only after joining the household through employment, rescue, family ties, debt, persuasion, defection, contract, or another diegetic relationship. The current character carries their personal skills, injuries, equipment, relationships, obligations, and memories into an expedition.
 
-When a crew member dies, they do not return and their personal development does not transfer automatically. Another survivor may take over at the tavern. The household retains the consequences: a lost worker changes capacity, a debt may pass to the vessel, cargo may remain at a wreck, and witnesses may remember the dead person or the vessel that employed them.
+The active courier normally controls only themself. They can use conversation, trust, standing, shared goals, and material offers to delegate work to other crew and NPCs; people may agree, refuse, negotiate, delay, fail, succeed, or change their minds according to their own circumstances. Delegated tasks include repair, rigging, cooking, treatment, cargo handling, trade research, barter, bookkeeping, scouting, charting, gathering, hunting, guiding, watch duty, guarding, rescue, evacuation, recruitment, correspondence, witness work, and negotiation. These are real jobs with time, risk, cost, and visible outcomes—not free background buffs.
+
+When a crew member dies, they do not return and their personal development does not transfer automatically. Another eligible survivor takes over. Exceptionally rare relics, rites, or other safeguards may avert or reverse a death through an explicit and costly rule; these are neither routine nor a substitute for loss. The household retains the consequences: a lost worker changes capacity, a debt may pass to the vessel, cargo may remain at a wreck, and witnesses may remember the dead person or the vessel that employed them.
+
+Every person has an individual persistent record including family, work, needs, relationships, injury, possessions, birth, and death. Nearby people and people whose actions currently matter receive detailed simulation. Distant people retain their full individual records but advance through deterministic, scheduled summaries. Their resulting moves must be consistent with their known history and discoverable when they become relevant.
 
 ## Trade, contracts, and material consequence
 
@@ -58,10 +67,10 @@ Markets are local and persistent. Shortages, harvests, blockades, tolls, strikes
 All three danger families require equal authored and procedural support.
 
 - **Human conflict:** toll collectors, rival carriers, guards, deserters, bandits, soldiers, debt agents, smugglers, guild disputes, and local feuds. People have material goals and can negotiate, flee, deceive, arrest, trade, or fight; civilians are not disposable enemy dressing.
-- **Wilderness:** floods, ice, storms, fog, shoals, mud, hunger, disease, exposure, wild animals, insects, and difficult terrain. These create route, supply, and positional problems rather than magical curses.
+- **Wilderness:** floods, ice, storms, fog, shoals, mud, hunger, disease, exposure, wild animals, insects, difficult terrain, and rare uncanny places. These create route, supply, and positional problems; mystical effects, when present, need specific sources and readable counterplay.
 - **Operational hazards:** snapped lines, collapsing wharves, bad cargo, mill machinery, fire, damaged locks, fouled wells, unstable scaffolds, and neglected vessels. Their causes and counterplay must be legible before severe harm resolves.
 
-The intended atmosphere is tense material unease. Bodies are vulnerable, work is dangerous, and scarcity hurts, but ordinary humour, craftsmanship, music, rest, trade, and mutual aid remain visible.
+The intended atmosphere is tense material unease with rare genuine mystery. Bodies are vulnerable, work is dangerous, and scarcity hurts, but ordinary humour, craftsmanship, music, rest, trade, and mutual aid remain visible. The uncanny should make material life stranger and more dangerous, not replace it.
 
 ## Tactical and content grammar
 
@@ -78,14 +87,14 @@ Each authored or generated location should declare:
 - expedition objective, rewards, and later world consequence;
 - readable architecture, props, tools, hazards, and foes.
 
-Equipment must be material and multi-use where practical: lines, hooks, poles, shields, lamps, tools, medicine, provisions, weapons, documents, and trade goods can matter in combat, travel, cargo handling, repair, negotiation, or escape. The later guardian system uses grounded large threats such as war machines, siege works, wrecks, beasts, fortified positions, or dangerous industrial works—not magical bosses.
+Equipment must be material and multi-use where practical: lines, hooks, poles, shields, lamps, tools, medicine, provisions, weapons, documents, and trade goods can matter in combat, travel, cargo handling, repair, negotiation, or escape. Rare relics, totems, boons, curses, and preparations can add slightly fantastical effects. Combat power may chain through equipment, relics, learned techniques, temporary preparations, crew support, enemy weaknesses, and environmental interactions; each effect must be legible, bounded, and compatible with tactical speed. The later guardian system can use grounded large threats such as war machines, siege works, wrecks, beasts, fortified positions, or dangerous industrial works, and rare mystical threats where their cause, counterplay, and world consequence are equally concrete.
 
 ## Language boundaries
 
 New player-facing content must not use spaceflight, planets, hyperlight, carriers, airlocks, aliens, advanced machinery, or the former industrial-science-fiction canon. Use waterways, roads, quays, ports, settlements, holds, taverns, charts, contracts, ledgers, crews, and local institutions instead. Use gangplank and quay for ordinary vessel access.
 
-Do not use supernatural vocabulary as mechanical truth. “Curse,” “spirit,” “miracle,” and similar language may appear only as a person’s unsupported belief, proverb, accusation, or cultural expression, never as the game’s authoritative causal explanation.
+Use supernatural vocabulary precisely. “Curse,” “spirit,” “miracle,” “relic,” and similar terms may be mechanical truth when Jomon’s world establishes a real mystical source and readable rules; they may also remain belief, metaphor, fraud, or uncertainty when appropriate. Do not make ambiguity an excuse to hide consequential mechanics from the player.
 
 ## Implementation boundary
 
-This reference does not claim that the current prototype already implements the setting. The first code milestone is a clean save boundary and a walkable Jomon deck. New work must follow [`TODO.md`](TODO.md), keep randomness seeded and inspectable, and validate every player-facing path through focused tests, deterministic automation, browser coverage, and builds.
+This reference does not claim that the current prototype already implements the setting. The first code milestone is the clean game boundary and foundational world systems in [`TODO.md`](TODO.md); the walkable Jomon deck follows those foundations. New work must follow [`TODO.md`](TODO.md), keep randomness seeded and inspectable, and validate every player-facing path through focused tests, deterministic automation, browser coverage, and builds.
