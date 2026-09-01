@@ -497,7 +497,11 @@ export class MedievalApp {
                 : this.route === 'world' ? this.renderWorld(context)
                   : this.route === 'chronicles' ? this.renderChronicles(context)
                     : this.renderChronicle(context)
-    if (this.error) renderBoundedMedievalCanvasRows(context, diagnosticFirstLine, diagnosticLastLine, `${cues.errorPrefix} LOCAL STORAGE: ${this.error}`, palette.errorText)
+    if (this.error) {
+      context.fillStyle = palette.panelSurface
+      context.fillRect(left, 78 + diagnosticFirstLine * lineHeight, contentWidth, (diagnosticLastLine - diagnosticFirstLine + 1) * lineHeight)
+      renderBoundedMedievalCanvasRows(context, diagnosticFirstLine, diagnosticLastLine, `${cues.errorPrefix} LOCAL STORAGE: ${this.error}`, palette.errorText)
+    }
   }
 
   private renderWorlds(context: CanvasRenderingContext2D): number {

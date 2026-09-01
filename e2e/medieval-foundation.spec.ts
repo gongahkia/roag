@@ -95,3 +95,36 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-world-id', worldId!)
   expect(externalRequests).toEqual([])
 })
+
+test('keeps a missing-local-world diagnostic inside the fixed canvas panel', async ({ page }) => {
+  await page.goto('/')
+  const game = page.locator('#game')
+  await expect(game).toHaveAttribute('data-persistence', 'saved')
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('jomon-medieval-worlds-v1')
+      request.onerror = () => reject(request.error)
+      request.onsuccess = () => {
+        const database = request.result
+        const transaction = database.transaction('catalog', 'readwrite')
+        transaction.objectStore('catalog').put({
+          version: 1,
+          activeWorlds: [{ id: 'world:not-present', label: 'Missing Mooring' }],
+          chronicles: []
+        }, 'world-index')
+        transaction.oncomplete = () => { database.close(); resolve() }
+        transaction.onerror = () => reject(transaction.error)
+      }
+    })
+  })
+
+  await page.reload()
+  await game.click()
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-persistence', 'error')
+  await expect.poll(() => page.evaluate(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>('#game')
+    const pixels = canvas?.getContext('2d')?.getImageData(0, 610, 800, 20).data ?? []
+    return pixels.some((value, index) => index % 4 === 0 && value === 255 && pixels[index + 1] === 0 && pixels[index + 2] === 0)
+  })).toBe(false)
+})
