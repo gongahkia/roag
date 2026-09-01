@@ -2,7 +2,7 @@
 
 ## Authority and maintenance
 
-This file is the source of truth for Jomon’s delivery process: product constraints, work order, task status, acceptance criteria, and open decisions. `LORE.md` remains the canonical setting and content reference; if the two documents conflict on execution, update this file to record the resolved decision before implementing.
+This file is the source of truth for Jomon’s delivery process: product constraints, work order, task status, acceptance criteria, and open decisions. `LORE.md` is the canonical setting and content reference. If the documents conflict, do not implement the disputed behaviour; resolve and record the product decision in both documents first.
 
 Status markers have a strict meaning:
 
@@ -19,18 +19,29 @@ Jomon is being rebuilt as an original low-mysticism late-medieval river-and-coas
 
 The documentation reset is complete. No medieval gameplay slice has been implemented or verified yet. The active implementation starting point is Phase 1.1.
 
+## Context-free implementation handoff
+
+Any coding agent begins by reading `LORE.md`, this file, and `README.md`, in that order; then checks `git status` and preserves unrelated work. These three root documents define the medieval game without requiring chat history. This repository’s existing TypeScript application is a non-canon space-fiction prototype. It is useful only for narrow technical reference—especially its terminal canvas, test conventions, local persistence error handling, and the spatial idea of a walkable vessel with a sidebar.
+
+- Begin all new medieval domain code under `src/medieval/`, with small, named modules and colocated focused tests. The medieval domain must not import prototype gameplay, save schemas, lore, content, or progression types.
+- Do not rename, migrate, or reinterpret prototype modules into medieval systems. Keep the prototype isolated until a completed roadmap item specifically replaces a user-facing path; preserve unrelated prototype tests unless their removal is itself a verified task.
+- The medieval app receives its own root state, renderer-independent domain contracts, IndexedDB namespace, and browser bootstrap path. Its only temporary shared dependencies may be generic browser/tooling primitives that carry no prototype game meaning.
+- Treat a seed plus resolved `WorldGenerationConfig` plus generator version as the reproducibility boundary. Do not add per-person rerolls, unseeded randomness, wall-clock simulation, network authority, or hidden state mutations.
+- Add or update a focused test before each new behaviour. A passing prototype test suite is not evidence that a medieval feature exists. Keep exactly one `[-]` roadmap item active and update this file only after verification.
+
 ## Non-negotiable product decisions
 
 - Jomon is a persistent itinerant household on a river-basin-to-coast network.
 - Every new world starts with a wholly generated Jomon household. Its roster, identities, roles, relationships, histories, equipment, and active-courier eligibility derive deterministically from that world’s seed and resolved configuration, so the same manifest recreates the same crew and world.
-- The player inhabits rotating Jomon crew members. Crew selection happens physically at Jomon’s tavern; a truly lost courier is permanent, subject only to exceptionally rare and explicit mystical safeguards.
-- Jomon’s tavern, chart table, cargo hold, repair space, stores, berths, galley, and gangplank are walkable map spaces. Physical props use compact contextual key-choice prompts. A deliberately comprehensive management sidebar is visible by default, compact, and collapsible; it complements these surfaces without replacing their direct action or situated information, and the map remains primary.
+- New-world creation shows the generated eligible crew and lets the player choose one initial courier. There are no individual roster rerolls: changing the crew means changing the seed or generation settings. Later voluntary perspective changes happen physically at Jomon’s tavern.
+- The player inhabits rotating Jomon crew members. A truly lost courier is permanent, subject only to exceptionally rare and explicit mystical safeguards. If no living eligible crew member remains, active play ends and the world becomes a read-only, exportable chronicle even when Jomon still physically exists.
+- Jomon’s tavern, chart table, cargo hold, repair space, stores, berths, galley, and gangplank are walkable map spaces. Physical props use compact contextual key-choice prompts. A deliberately comprehensive management sidebar is visible by default, compact, and collapsible; it shows all facts known by the household—each with source and freshness where relevant—but never undiscovered global truth. It complements physical surfaces without replacing their direct action or situated information, and the map remains primary.
 - Gangplanks and quays replace airlocks and landing terminals.
 - Trade uses physical commodities with capacity, condition, handling, loss, recovery, local supply, demand, and market consequences.
 - Human conflict, wilderness, and operational hazards must receive equal systemic depth.
 - Combat remains turn-based and grid-based, but its old content and progression model will be redesigned.
 - Jomon is low-mysticism medieval fantasy. Rare relics, totems, boons, curses, rites, omens, and other uncanny forces can have real mechanical effects, but there is no generic mage class or unlimited free-form spellcasting.
-- Simulation time advances only during active in-game play. All consequential randomness is seeded and inspectable.
+- Simulation time is action-driven, not wall-clock-driven. It advances only when the player takes or confirms a time-bearing in-world action—such as movement, waiting, travel, work, rest, or delegated-task commitment/resolution. Pure inspection, sidebar use, and an idle open tab never advance it. All consequential randomness is seeded and inspectable.
 - Jomon is an open-ended persistent world simulation, not a finite campaign to be won. Short-term goals provide direction; exploration, relationships, and the changing household/world provide the long-term play.
 - The player is not bound to a single protagonist. On an active courier’s death, control transfers to another eligible crew member; voluntary perspective changes occur at the tavern.
 - An active courier directly controls only themself. They can delegate work to crew and NPCs through conversation; delegation depends on the courier’s `conversation` stat and the other person’s relationship, role, capacity, interests, and current situation.
@@ -38,8 +49,9 @@ The documentation reset is complete. No medieval gameplay slice has been impleme
 - Jomon can grow through new rooms, refitted workspaces, tools, crew capacity, and small craft. Every expansion is physical, persistent, grounded in available materials/labour, and balanced by upkeep, space, staffing, cargo, route, or social trade-offs.
 - A continuing world has escalating difficulty eras: base, NG+, and NG++. Active-play progression in the same persistent world moves it toward later eras without a reset or finite campaign ending. Each era adds durable, diegetic pressures and new possibilities rather than merely increasing enemy numbers.
 - The initial release target is a desktop browser game for players who enjoy ASCII graphics and keyboard-first control.
+- Jomon is single-player and offline-first. It requires no account, server, cloud sync, network connection, remote telemetry, or multiplayer authority. A local browser may retain multiple active worlds and read-only chronicles, subject to quota; only one world may be open and mutate in a browser session at a time.
 - Every instantiated person has a full individual persistent record—including family, work, needs, relationships, injury, possessions, birth, and death—while distant people advance through deterministic summary simulation at an appropriate fidelity level.
-- The world has an expanding procedural frontier. Newly explored regions are generated causally and become persistently explorable as Jomon travels; rumours, charts, travellers, and trade can establish their existence before arrival.
+- The world has an expanding procedural frontier. Newly explored regions are generated causally and become persistently explorable as Jomon travels; rumours, charts, travellers, and trade can establish their existence before arrival. An ungenerated frontier has deterministic regional commitments rather than latent mutable people; once a region or named person must exist, it is instantiated with its full persistent record and cannot later contradict prior knowledge.
 - No user mod/content-pack compatibility is planned. Internal content remains data-driven and documented for maintainability, but does not promise a public extension API.
 - Do not include or procedurally generate sexual violence, slavery, torture, or harm/endangerment of children. This applies to player actions, events, histories, simulation summaries, enemy behaviour, contracts, hazards, rumours, and player-facing text.
 - The reset is a clean persistence break. Do not migrate the superseded space-era saves or reinterpret them as medieval campaigns.
@@ -59,15 +71,15 @@ Jomon takes clear, original inspiration from **Rogue (1980)**: a terminal-first,
 
 ## Emergent world and people direction
 
-Jomon’s world should feel alive in the sense of Dwarf Fortress Adventure Mode, Caves of Qud, RimWorld, Rogue, and Risk of Rain: it has a remembered past, people pursue their own material and mystical goals, the player can build tactical power through legible combinations, and the player’s actions become part of later situations. The player experiences the world through a courier on Jomon, supported by both situated in-world surfaces and a comprehensive management sidebar that is visible by default while keeping the map primary.
+Jomon’s world should feel alive in the sense of Dwarf Fortress Adventure Mode, Caves of Qud, RimWorld, Rogue, and Risk of Rain: it has a remembered past, people pursue their own material and mystical goals, the player can build tactical power through legible combinations, and the player’s actions become part of later situations. The player experiences the world through a courier on Jomon, supported by both situated in-world surfaces and a comprehensive management sidebar that is visible by default while keeping the map primary. The sidebar provides complete household-known information, not supernatural knowledge of hidden world state.
 
-- The world evolves only while the player is actively playing. It does not advance while the browser is closed or the game is paused.
-- A world begins with a causally generated history: geography and waterways first; then ecology, resources, settlements, institutions, people, routes, trade, and historical events. Its starting state must be inspectable. The world continues into a deterministic expanding frontier as Jomon travels rather than ending at that initial generated region.
+- The world evolves only through action-driven in-world time. Each time-bearing action processes due deterministic events across all fidelity tiers, so distant people and institutions can advance while the courier acts elsewhere. Inspection, an idle browser tab, pause, and a closed browser do not advance time.
+- A world begins with a causally generated history: geography and waterways first; then ecology, resources, settlements, institutions, people, routes, trade, and historical events. Its starting state must be inspectable. The world continues into a deterministic expanding frontier as Jomon travels rather than ending at that initial generated region. Before a frontier region is materialized, persist only its deterministic regional commitments and any already revealed facts; materialize full people and mutable local state when a region or named person must exist.
 - World generation aims for Dwarf Fortress-like depth and configurability, adapted to Jomon’s scale. Advanced settings cover region size, history length, climate, terrain and waterways, settlement and population density, political fragmentation, resource scarcity, ecology, dangers, era pace, and simulation fidelity. Players can select, save, inspect, and reproduce presets and advanced settings; every generated world records its seed, resolved settings, generator version, and validation/rejection result.
 - Content-validation rules must reject sexual violence, slavery, torture, and harm/endangerment of children from generated history, people, places, events, contracts, hazards, rumours, and simulation summaries.
 - Every instantiated person has persistent identity, location or home, role, material interests, family, work, needs, relationships, injury, possessions, birth, death, memories, and a readable history of consequential encounters.
 - NPC actions must arise from original needs, opportunities, relationships, and local conditions—not an authored sequence disguised as simulation. Nearby and important people receive detailed simulation; every distant person retains full individual state and advances through deterministic scheduled summaries.
-- The world must surface change through physical places, conversations, ledgers, rumours, goods, routes, visible work, and the always-visible-by-default management sidebar. These surfaces are complementary and must not merely duplicate one another. A simulation that players cannot discover or act upon is out of scope.
+- The world must surface change through physical places, conversations, ledgers, rumours, goods, routes, visible work, and the always-visible-by-default management sidebar. The sidebar labels information source, discovery time, and freshness when relevant. These surfaces are complementary and must not merely duplicate one another. A simulation that players cannot discover or act upon is out of scope.
 - Jomon expansion and exploration are the provisional long-term motivations. Every future vessel upgrade must add a physical space, a new material capability, or a meaningful new trade-off.
 - Short-term goals must always be available through local pressures, contracts, favours, shortages, discoveries, threats, or crew needs. They guide play without creating a mandatory campaign finish line.
 - Escalation must keep the world generative after NG++: later eras remix and extend the same systemic content families, change world conditions and relationships, and create new material problems, opportunities, and vessel choices. They do not require a new save or a campaign restart.
@@ -91,12 +103,24 @@ Verification: manual repository review on 2026-09-01; documentation only. No bui
 #### 1.1 Clean game boundary `[-]`
 
 - [ ] Define the new medieval save namespace, version, and invalid-save behavior. Existing prototype saves must be ignored or explicitly invalidated, never migrated.
-- [ ] Establish medieval domain types for the vessel, crew, deck partitions, quay, vessel props, and active-play time.
-- [ ] Define seeded game creation and inspection surfaces for the first vessel slice.
-- [ ] Remove prototype terminology from all user-facing surfaces reached by the new-game path.
-- [ ] Add focused unit tests for creation, determinism, invalidation, and no-migration behavior.
+- [ ] Establish a clean `src/medieval/` root with renderer-independent domain types for worlds, the vessel, crew, deck partitions, quays, vessel props, world manifests, and action-driven active-play time. Prohibit imports from prototype gameplay/state modules.
+- [ ] Define a medieval browser bootstrap path, root state, routing boundary, and temporary generic-tooling adapters. The default new-game path must enter only medieval state and must not share prototype save loaders or user-facing content.
+- [ ] Define seeded game creation, a multi-world/chronicle index, an initial-courier selection surface, and inspection surfaces for the first vessel slice. Only one world may be mutable in a browser session.
+- [ ] Define an offline-first contract: no account, server, network requirement, remote telemetry, cloud sync, or multiplayer authority; package gameplay assets locally.
+- [ ] Remove prototype terminology from all user-facing surfaces reached by the medieval new-game path.
+- [ ] Add focused unit tests for clean creation, seed/manifest determinism, initial-courier selection, invalidation/no migration, multiple-world indexing, one-active-world ownership, and offline-only bootstrap behaviour.
 
-Acceptance: a fresh medieval game can be created deterministically; a prototype save cannot load as one; no space-era term appears anywhere on the new-game path.
+Acceptance: a fresh medieval world can be created and an initial courier selected deterministically; a prototype save cannot load as one; multiple local worlds can be indexed without loading each other; no network request or space-era term appears anywhere on the medieval new-game path.
+
+Implementation design for this slice:
+
+- Create `src/medieval/` as the only home for new medieval code. Start with `types.ts`, `rng.ts`, `world.ts`, `storage.ts`, `app.ts`, and colocated tests. Each domain module must be deterministic and renderer-independent; the app module is the only browser/UI coordinator.
+- Use a distinct IndexedDB database named `jomon-medieval-worlds-v1`. Keep a small world index separate from active-world records and finalized chronicles. Never open, read, migrate, delete, or rewrite `jomon-expedition-v2` as part of medieval bootstrapping.
+- Define a foundation manifest now—seed, resolved foundation configuration, generator version, creation metadata, and chosen initial courier ID—so Phase 1.2 can extend it without changing its identity. Create the foundation household deterministically from this manifest; the richer configurable geography/history pipeline remains Phase 1.2 work.
+- Implement a minimal keyboard-first medieval bootstrap only: list local worlds and chronicles, create a seeded foundation world, choose from its generated eligible crew, resume one selected world, or inspect/export a finalized chronicle. It is a state/persistence proof, not the walkable deck, trade loop, combat, map renderer, or content slice.
+- Change `src/entry.ts` to bootstrap the medieval app. Do not route ordinary users through the prototype. Prototype-specific browser tests must be replaced only by medieval coverage as the corresponding new path becomes implemented; direct prototype unit tests remain isolated until separately retired.
+- Do not share `src/main.ts`, `src/renderer.ts`, `src/storage.ts`, `src/types.ts`, prototype content, prototype game state, or prototype save keys with the new domain. A small generic browser canvas or DOM shell may be rebuilt from first principles; no UI surface may expose prototype language.
+- Verify this slice with new unit tests for manifests, generated crew, initial selection, catalog isolation, and save ownership; browser coverage for the keyboard creation/select/resume flow; `npm run build`; and `git diff --check`. Record any temporarily skipped legacy browser coverage plainly rather than treating it as medieval evidence.
 
 #### 1.2 Deterministic world generation and configuration
 
@@ -104,7 +128,7 @@ Acceptance: a fresh medieval game can be created deterministically; a prototype 
 - [ ] Define controls for region size, history length, climate, terrain and waterways, settlement and population density, political fragmentation, resource scarcity, ecology, dangers, era pace, and simulation fidelity; preserve every selected and resolved value in the manifest.
 - [ ] Define an enforceable content-boundary taxonomy and deterministic validation/rejection rules that exclude sexual violence, slavery, torture, and harm/endangerment of children from all generated world history and content.
 - [ ] Build the dependency-ordered initial-world pipeline: watershed geography and hydrology; climate and seasons; resources and ecology; settlement sites; institutions and people; then routes, trade, and pre-play history.
-- [ ] Define the deterministic expanding-frontier contract: regional coordinates, persistent identities, pre-arrival knowledge/rumours, causal links to known regions, region generation order, and no-contradiction guarantees.
+- [ ] Define the deterministic expanding-frontier contract: regional coordinates, persistent identities, pre-arrival knowledge/rumours, causal links to known regions, region generation order, regional commitments before materialization, named-person instantiation, and no-contradiction guarantees.
 - [ ] Record a reproducible world manifest containing seed, resolved configuration, generator version, initial and frontier region identifiers, and validation/rejection history.
 - [ ] Add settings UI for preset selection, advanced configuration, seed entry/display, world-creation progress, result inspection, and saving/loading settings.
 - [ ] Add generation snapshots and property/fuzz tests for determinism, valid geography-to-settlement dependencies, constrained settings, content-boundary rejection, expanding-frontier continuity, bounded generation, and readable diagnostics.
@@ -113,14 +137,15 @@ Acceptance: the same seed and resolved configuration reproduce the same initial 
 
 #### 1.3 Active-play world simulation and persistence kernel
 
-- [ ] Define the simulation clock, event ordering, seeded random streams, and deterministic scheduler. It must advance only during active play.
+- [ ] Define the action-driven simulation clock, event ordering, seeded random streams, and deterministic scheduler. Only state-changing in-world commands advance time; pure UI inspection and idle/paused/closed browser time must be zero-time.
 - [ ] Define versioned world state and persistence contracts for geography, sites, routes, markets, people, institutions, history, and Jomon.
 - [ ] Define persistent individual records for every instantiated person: family, work, needs, relationships, injury, possessions, birth, death, location, memory, and commitments.
 - [ ] Define deterministic fidelity tiers for loaded places, nearby people, recurring agents, and distant individual/settlement summaries without discarding individual state.
+- [ ] Define due-event catch-up for every fidelity tier on each time-bearing action so distant people, institutions, markets, and delegated work continue to advance deterministically while the courier is elsewhere.
 - [ ] Ensure detailed and summary simulation cannot emit prohibited content or encode it as an undiscoverable background cause.
 - [ ] Define a versioned world-era model for base, NG+, and NG++ states. Accumulated in-world active-play time and Jomon’s growth advance it; transition conditions, inspectable causes, persistence, and configuration hooks must be deterministic.
 - [ ] Add event sourcing or an equivalent inspectable causal history so world changes can be explained, replayed, and persisted within bounded storage.
-- [ ] Add focused tests for reload equivalence, simulation determinism, prohibited-content rejection in detailed and summary ticks, paused/closed-session time, corruption recovery, and bounded state growth.
+- [ ] Add focused tests for reload equivalence, simulation determinism, due-event catch-up, prohibited-content rejection in detailed and summary ticks, zero-time UI/idle/paused/closed sessions, corruption recovery, and bounded state growth.
 
 Acceptance: equivalent active-play time produces the same world state and era across replay and reload; the world never advances while inactive; a visible change or escalation has an inspectable causal record.
 
@@ -130,7 +155,7 @@ Acceptance: equivalent active-play time produces the same world state and era ac
 - [ ] Define the active courier’s `conversation` stat and how it changes delegation eligibility, negotiation, task clarity, trust, risk, and outcome without becoming universal or mind-controlling persuasion.
 - [ ] Define a constrained task/delegation model for crew and NPCs: offer, agreement/refusal, assignment, progress, interruption, outcome, and later memory. Initial task families include maintenance, rigging, cooking, treatment, cargo handling, trade research, barter, bookkeeping, scouting, charting, gathering, hunting, guiding, watch duty, guarding, rescue, evacuation, recruitment, correspondence, witness work, and negotiation.
 - [ ] Make autonomous choices arise from original needs, opportunities, relationships, and local conditions. Distant people use deterministic summary simulation; nearby and recurring people use richer state and behaviour.
-- [ ] Define the compact, collapsible management sidebar that is visible by default and provides comprehensive task, people, work, risk, household, site, route, and history information without displacing the primary map; assign complementary, non-duplicative roles to map marks, physical notices, messages, ledgers, and tavern conversations.
+- [ ] Define the compact, collapsible management sidebar that is visible by default and provides comprehensive household-known task, people, work, risk, site, route, and history information without displacing the primary map. Label source, discovery time, and freshness; do not expose hidden global state. Assign complementary, non-duplicative roles to map marks, physical notices, messages, ledgers, and tavern conversations.
 - [ ] Add original social-memory records and player-readable evidence through physical surfaces, messages, conversations, ledgers, rumours, goods, routes, visible work, and the management sidebar. Do not reproduce proprietary named-system hierarchies or vendettas.
 - [ ] Add deterministic tests for delegation, refusal, task interruption, memory, recurrence, and no-player-control autonomy.
 
@@ -148,10 +173,10 @@ Acceptance: all consequential state can be understood through the ASCII map, sta
 
 #### 1.6 Performance, storage, and diagnostics foundation
 
-- [ ] Establish desktop-browser performance and storage budgets for an 8 GB RAM machine using current standard browsers; state the measurement hardware, world sizes, population settings, and acceptable interactive responsiveness in the repository.
-- [ ] Design compact, indexed persistence for world, person, event, region, task, and history records; use atomic short-lived storage writes, quota/error handling, recoverable snapshots, and explicit import/export backups.
+- [ ] Establish desktop-browser performance and storage budgets for an 8 GB RAM machine. Support current stable desktop Chrome, Edge, Firefox, and Safari through standards-based browser APIs; Chromium is the automated-browser baseline. State the measurement hardware, browser versions, world sizes, population settings, and acceptable interactive responsiveness in the repository.
+- [ ] Design compact, indexed local persistence for a multi-world index, active worlds, read-only chronicles, world/person/event/region/task/history records, and exports. Use atomic short-lived writes, quota/error handling, recoverable snapshots, and explicit import/export backups; do not rely on a server, cloud, account, or network connection.
 - [ ] Define profile-guided optimization boundaries: spatial indexing, incremental generation, deterministic scheduled summaries, packed/compact data where measured, memoization, and worker-based generation/simulation only when they preserve reproducibility and readable ownership.
-- [ ] Add performance fixtures across generation presets and simulation-fidelity settings, with regression checks for memory growth, persistence size, generation time, simulation time, and UI responsiveness.
+- [ ] Add performance fixtures across generation presets and simulation-fidelity settings, with regression checks for memory growth, persistence size, generation time, due-event simulation time, UI responsiveness, and multi-world/chronicle index operations.
 - [ ] Do not add user mod/content-pack compatibility. Keep internal content data-driven, validated, and documented without committing to a public extension surface.
 
 Acceptance: declared 8 GB baseline fixtures generate, simulate, save, reload, and remain responsive within recorded budgets; quota or write failure preserves the last good state and offers recovery/export.
@@ -160,7 +185,7 @@ Acceptance: declared 8 GB baseline fixtures generate, simulate, save, reload, an
 
 - [ ] Define a renderer-independent effect model for health, injury, exhaustion, preparation, equipment, relics, totems, boons, curses, crew support, enemy weaknesses, environmental interactions, duration, stacking, chaining, and counterplay.
 - [ ] Define rarity, source, cost, condition, and audit rules for mystical effects. They must remain finite, legible, in-world, and compatible with low-mysticism tone; no generic mage class is introduced.
-- [ ] Define courier death, prevention, revival, and lasting-consequence rules. Revival safeguards are exceptional and explicit; the default outcome remains permanent loss.
+- [ ] Define courier death, prevention, revival, household-extinction, and lasting-consequence rules. Revival safeguards are exceptional and explicit; the default outcome remains permanent loss. When no eligible living crew member remains, finalise the world as a read-only, exportable chronicle.
 - [ ] Define Jomon integrity, partial disaster, repair, rescue, collapse, and loss rules. A relic or equivalent able to save Jomon from terminal loss is ultra-rare and must have a visible causal chain, cost, and recovery trade-off. Terminal loss ends active play and finalizes a read-only, exportable chronicle.
 - [ ] Add deterministic tests for effect combinations, cap/chain behavior, death prevention/revival, Jomon collapse, terminal-world finalization/chronicle export, and state recovery.
 
@@ -180,11 +205,12 @@ Acceptance: the entire vessel/quay plan is navigable and every required space is
 #### 2.2 Crew continuity
 
 - [ ] Generate the initial household roster, roles, personal equipment, relationships, histories, eligibility, and active-crew representation wholly from the world seed and resolved configuration; define its reproducibility and validation contract.
+- [ ] Implement initial-courier selection in world creation. It presents the deterministic eligible roster, changes no world time, permits no individual rerolls, and fixes the selected courier as active until a later tavern-based switch or succession.
 - [ ] Implement tavern-based voluntary switching through an operated physical prop.
 - [ ] Implement permanent courier death/departure and deterministic transfer of the active perspective to an eligible surviving courier.
 - [ ] Display crew availability and loss consequences in a physical vessel surface.
 
-Acceptance: the same world manifest recreates the same valid initial household; switch active crew in the tavern; lose an active courier; continue as the same eligible successor after reload; observe the lasting household consequence.
+Acceptance: the same world manifest recreates the same valid initial household; choose an initial courier without rerolling; switch active crew in the tavern; lose an active courier; continue as the same eligible successor after reload; observe the lasting household consequence; finalise a crewless household as a read-only chronicle.
 
 #### 2.3 Physical vessel interactions
 
@@ -285,7 +311,7 @@ The direction above is settled. These implementation values are intentionally de
 
 - `WorldGenerationConfig` preset names, defaults, ranges, validation/rejection rules, and user-facing descriptions for every advanced setting.
 - The initial world size, initial population, frontier-generation cadence, and storage/performance budgets that fit the 8 GB desktop-browser baseline.
-- The management sidebar’s exact information density, tab/layout rules, and the precise split of information among it, map marks, physical notices, messages, ledgers, and conversations.
+- The management sidebar’s exact information density, tab/layout rules, source/freshness labels, and the precise split of information among it, map marks, physical notices, messages, ledgers, and conversations.
 - Delegated-task risk policy: which tasks are safe, hazardous, or require an explicit player confirmation; what warnings protect a person or Jomon from a terminal outcome.
 - The base/NG+/NG++ thresholds and signatures: how active-play time and Jomon growth are weighted, which world pressures shift, and how the NG++ plateau remixes without raw numerical inflation.
 - The first mystical-effect families, their rarity bands, provenance, counterplay, and visual language; especially the ultra-rare rule for an effect that can save Jomon.
