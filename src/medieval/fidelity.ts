@@ -144,6 +144,7 @@ const hasOnlyKeys = (value: Record<string, unknown>, expected: readonly string[]
 const issue = (recordId: string, code: FidelityPlanningDiagnosticCode): FidelityPlanningDiagnostic => ({ recordId, code })
 const canonicalDiagnostics = (diagnostics: readonly FidelityPlanningDiagnostic[]): readonly FidelityPlanningDiagnostic[] => [...new Map(diagnostics.map(diagnostic => [`${diagnostic.recordId}\u0000${diagnostic.code}`, diagnostic])).values()].sort((left, right) => compare(left.recordId, right.recordId) || compare(left.code, right.code))
 const locationKey = (location: FidelityLoadedLocation): string => `${location.kind}:${location.id}`
+const budgetFor = (fidelity: SimulationFidelity): FidelityBudget => ({ ...FIDELITY_BUDGETS[fidelity] })
 
 const cadence = (tier: FidelityIndividualTier | FidelityPlaceTier | FidelityInstitutionTier, worldTime: number): FidelityCadence => {
   if (tier === 'loaded' || tier === 'loaded-place' || tier === 'loaded-institution') return { kind: 'every-time-bearing-action' }
@@ -295,16 +296,17 @@ export const validateFidelityPlanningRequest = (value: unknown): readonly Fideli
   if (!courier || courier.life.status !== 'living' || courier.work.availability !== 'available') diagnostics.push(issue('fidelity:courier', 'fidelity.invalid-active-courier'))
 
   const seen = new Set<string>()
+  const implicitJomonSite = currentJomonSite(world)
+  const implicitJomonSiteKey = implicitJomonSite === undefined ? undefined : locationKey(implicitJomonSite)
   for (const [index, location] of value.loadedLocations.entries()) {
     const id = `fidelity:loaded-location:${index}`
     if (!validLoadedLocationShape(location)) { diagnostics.push(issue(id, 'fidelity.malformed-loaded-location')); continue }
     const key = locationKey(location)
-    if (seen.has(key)) diagnostics.push(issue(key, 'fidelity.duplicate-loaded-location'))
+    if (seen.has(key) || key === implicitJomonSiteKey) diagnostics.push(issue(key, 'fidelity.duplicate-loaded-location'))
     seen.add(key)
     if (!loadedLocationIsValid(world, location)) diagnostics.push(issue(key, 'fidelity.invalid-loaded-location'))
   }
-  const budget = FIDELITY_BUDGETS[configuration.simulationFidelity]
-  const implicitJomonSite = currentJomonSite(world)
+  const budget = budgetFor(configuration.simulationFidelity)
   const totalLoadedPlaces = new Set([...(implicitJomonSite === undefined ? [] : [locationKey(implicitJomonSite)]), ...seen]).size
   if (totalLoadedPlaces > budget.loadedPlaces) diagnostics.push(issue('fidelity:loaded-locations', 'fidelity.loaded-location-budget-exceeded'))
   const allLoaded = new Set<string>(['jomon:vessel:jomon', ...(implicitJomonSite === undefined ? [] : [locationKey(implicitJomonSite)]), ...seen])
@@ -320,7 +322,7 @@ export const createFidelityPlan = (request: FidelityPlanningRequest | unknown): 
   const diagnostics = validateFidelityPlanningRequest(request)
   if (diagnostics.length) throw new FidelityPlanningContractError(diagnostics)
   const { world, activeCourierId } = request as FidelityPlanningRequest
-  const budget = FIDELITY_BUDGETS[world.manifest.creation.resolvedConfiguration.simulationFidelity]
+  const budget = budgetFor(world.manifest.creation.resolvedConfiguration.simulationFidelity)
   const implicitJomonSite = currentJomonSite(world)
   const additional = (request as FidelityPlanningRequest).loadedLocations.map(location => ({ kind: location.kind, id: location.id })).sort((left, right) => compare(locationKey(left), locationKey(right)))
   const loadedLocations = [
