@@ -9,6 +9,7 @@ test('creates, selects, saves, and resumes a seeded medieval world through keybo
   await page.goto('/')
   const game = page.locator('#game')
 
+  await expect.poll(() => page.evaluate(() => document.fonts.check('18px "BigBlueTerm"', 'JOMON'))).toBe(true)
   await expect(game).toHaveAttribute('data-route', 'worlds')
   await game.click()
   await page.keyboard.press('n')
