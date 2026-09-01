@@ -1,23 +1,97 @@
 import type { GenerationDiagnostics, WorldGenerationConfig, WorldGenerationConfigSelection } from './generation-config'
 import type { MedievalContentSafetyAudit, MedievalContentSafetyClassification } from './content-safety'
 import type { InitialWorld, InitialWorldGenerationDiagnostics } from './initial-world'
+import type { FrontierCausalAnchor, FrontierConnection, FrontierCoordinate, FrontierRegionKind } from './frontier'
 
 export const FOUNDATION_GENERATOR_VERSION = 'foundation-2' as const
-export const FOUNDATION_MANIFEST_VERSION = 4 as const
+export const FOUNDATION_MANIFEST_VERSION = 5 as const
+export const WORLD_CREATION_PROVENANCE_VERSION = 1 as const
+export const WORLD_MANIFEST_VALIDATION_HISTORY_VERSION = 1 as const
+export const WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION = 1 as const
 export const MEDIEVAL_DATABASE_NAME = 'jomon-medieval-worlds-v1' as const
 
-export interface WorldManifest {
-  version: typeof FOUNDATION_MANIFEST_VERSION
+/** All records here are immutable evidence from zero-time world creation. */
+export interface WorldManifestContractVersions {
+  foundationGenerator: typeof FOUNDATION_GENERATOR_VERSION
+  initialWorldGenerator: string
+  initialWorldDiagnostics: number
+  frontierContract: number
+  contentSafetyPolicy: number
+}
+
+/** A bounded ID index allows reconstruction to reject reordered or substituted initial data. */
+export interface InitialWorldManifestIdentity {
+  id: string
+  candidateAttempt: number
+  configurationFingerprint: string
+  digest: string
+  watershedId: string
+  waterwayIds: readonly string[]
+  climateId: string
+  seasonIds: readonly string[]
+  resourceIds: readonly string[]
+  ecologyIds: readonly string[]
+  settlementIds: readonly string[]
+  institutionIds: readonly string[]
+  personIds: readonly string[]
+  routeIds: readonly string[]
+  tradeLinkIds: readonly string[]
+  routeHazardIds: readonly string[]
+  historyEventIds: readonly string[]
+}
+
+/**
+ * Commitment data only: it reproduces the bounded initial frontier roots but
+ * deliberately excludes discovered facts, named people, and materialization.
+ */
+export interface FrontierRootManifestIdentity {
+  id: string
+  coordinate: FrontierCoordinate
+  kind: FrontierRegionKind
+  generationOrder: number
+  generatorStream: string
+  anchor: FrontierCausalAnchor
+  connection: FrontierConnection
+}
+
+export interface FrontierManifestProvenance {
+  version: typeof WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION
+  contractVersion: number
+  initialWorldId: string
+  roots: readonly FrontierRootManifestIdentity[]
+  digest: string
+}
+
+export interface WorldManifestValidationHistory {
+  version: typeof WORLD_MANIFEST_VALIDATION_HISTORY_VERSION
+  generation: GenerationDiagnostics
+  initialWorld: InitialWorldGenerationDiagnostics
+  frontier: { status: 'accepted'; issues: readonly [] }
+}
+
+export interface WorldCreationProvenance {
+  version: typeof WORLD_CREATION_PROVENANCE_VERSION
   seed: string
   selectedConfiguration: WorldGenerationConfigSelection
   resolvedConfiguration: WorldGenerationConfig
-  generationDiagnostics: GenerationDiagnostics
-  initialWorldGeneration: InitialWorldGenerationDiagnostics
-  generatorVersion: typeof FOUNDATION_GENERATOR_VERSION
+  configurationFingerprint: string
+  contractVersions: WorldManifestContractVersions
+  validationHistory: WorldManifestValidationHistory
+  initialWorld: InitialWorldManifestIdentity
+  frontier: FrontierManifestProvenance
   label: string
   labelContentSafety: MedievalContentSafetyClassification
   contentSafetyAudit: MedievalContentSafetyAudit
+  digest: string
+}
+
+export interface WorldManifest {
+  version: typeof FOUNDATION_MANIFEST_VERSION
+  creation: WorldCreationProvenance
+  /** Later zero-time choice, kept outside immutable creation provenance. */
   initialCourierId?: string
+  /** Safety audit for the bounded current state, including courier selection if made. */
+  currentContentSafetyAudit: MedievalContentSafetyAudit
 }
 
 export type CrewRole = 'bargemaster' | 'pilot' | 'factor' | 'carpenter' | 'guard' | 'cook' | 'healer' | 'scribe' | 'carter' | 'fisher' | 'bard'

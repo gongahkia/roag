@@ -13,7 +13,7 @@ export const emptyWorldIndex = (): WorldIndex => ({ version: 1, activeWorlds: []
 
 export const addWorldToIndex = (index: WorldIndex, world: FoundationWorld): WorldIndex => ({
   version: 1,
-  activeWorlds: [...index.activeWorlds.filter(entry => entry.id !== world.id), { id: world.id, label: world.manifest.label, ...(world.manifest.initialCourierId === undefined ? {} : { initialCourierId: world.manifest.initialCourierId }) }].sort((left, right) => left.id.localeCompare(right.id)),
+  activeWorlds: [...index.activeWorlds.filter(entry => entry.id !== world.id), { id: world.id, label: world.manifest.creation.label, ...(world.manifest.initialCourierId === undefined ? {} : { initialCourierId: world.manifest.initialCourierId }) }].sort((left, right) => left.id.localeCompare(right.id)),
   chronicles: [...index.chronicles]
 })
 
@@ -22,7 +22,7 @@ export const removeWorldFromIndex = (index: WorldIndex, worldId: string): WorldI
 export const addChronicleToIndex = (index: WorldIndex, chronicle: WorldChronicle): WorldIndex => ({
   version: 1,
   activeWorlds: [...index.activeWorlds],
-  chronicles: [...index.chronicles.filter(entry => entry.id !== chronicle.id), { id: chronicle.id, label: chronicle.world.manifest.label, reason: chronicle.reason }].sort((left, right) => left.id.localeCompare(right.id))
+  chronicles: [...index.chronicles.filter(entry => entry.id !== chronicle.id), { id: chronicle.id, label: chronicle.world.manifest.creation.label, reason: chronicle.reason }].sort((left, right) => left.id.localeCompare(right.id))
 })
 
 const clone = <T>(value: T): T => structuredClone(value)

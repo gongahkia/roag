@@ -192,7 +192,7 @@ export class MedievalApp {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `${this.chronicle.world.manifest.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-chronicle.json`
+    link.download = `${this.chronicle.world.manifest.creation.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-chronicle.json`
     link.click()
     URL.revokeObjectURL(url)
   }
@@ -306,9 +306,9 @@ export class MedievalApp {
   private renderCourierChoice(context: CanvasRenderingContext2D): number {
     const world = this.world
     if (!world) { this.route = 'worlds'; this.render(); return 0 }
-    this.canvas.setAttribute('aria-label', `Choose an initial courier for ${world.manifest.label}. ${world.crew.length} generated crew members are eligible.`)
-    row(context, 2, `CHOOSE INITIAL COURIER // ${world.manifest.label.toUpperCase()}`, colors.gold)
-    row(context, 3, `SEED ${world.manifest.seed} // time remains 0`, colors.dim)
+    this.canvas.setAttribute('aria-label', `Choose an initial courier for ${world.manifest.creation.label}. ${world.crew.length} generated crew members are eligible.`)
+    row(context, 2, `CHOOSE INITIAL COURIER // ${world.manifest.creation.label.toUpperCase()}`, colors.gold)
+    row(context, 3, `SEED ${world.manifest.creation.seed} // time remains 0`, colors.dim)
     let line = 5
     world.crew.filter(member => member.eligible).forEach((member, index) => {
       const color = index === this.selectedRow ? colors.green : colors.text
@@ -322,10 +322,10 @@ export class MedievalApp {
     const world = this.world
     if (!world) { this.route = 'worlds'; this.render(); return 0 }
     const courier = activeCourier(world)
-    this.canvas.setAttribute('aria-label', `Jomon foundation world ${world.manifest.label}, active courier ${courier?.name ?? 'unassigned'}.`)
-    row(context, 2, `${world.manifest.label.toUpperCase()} // FOUNDATION WORLD`, colors.gold)
+    this.canvas.setAttribute('aria-label', `Jomon foundation world ${world.manifest.creation.label}, active courier ${courier?.name ?? 'unassigned'}.`)
+    row(context, 2, `${world.manifest.creation.label.toUpperCase()} // FOUNDATION WORLD`, colors.gold)
     row(context, 4, `ACTIVE COURIER  ${courier?.name.toUpperCase() ?? 'UNASSIGNED'} // ${courier?.role.toUpperCase() ?? 'NONE'}`, colors.green)
-    row(context, 5, `SEED  ${world.manifest.seed} // WORLD TIME ${world.worldTime}`, colors.text)
+    row(context, 5, `SEED  ${world.manifest.creation.seed} // WORLD TIME ${world.worldTime}`, colors.text)
     let line = wrappedRows(context, 7, 'The household exists. Time has not advanced and no map has been generated yet.', colors.dim)
     line = wrappedRows(context, line, 'This is the clean persistence boundary before the walkable Jomon foundation.', colors.dim)
     rule(context, 14)
@@ -344,10 +344,10 @@ export class MedievalApp {
   private renderChronicle(context: CanvasRenderingContext2D): number {
     const chronicle = this.chronicle
     if (!chronicle) { this.route = 'chronicles'; this.render(); return 0 }
-    this.canvas.setAttribute('aria-label', `Read-only Jomon chronicle ${chronicle.world.manifest.label}, finalized by ${chronicle.reason}.`)
-    row(context, 2, `${chronicle.world.manifest.label.toUpperCase()} // READ-ONLY CHRONICLE`, colors.gold)
+    this.canvas.setAttribute('aria-label', `Read-only Jomon chronicle ${chronicle.world.manifest.creation.label}, finalized by ${chronicle.reason}.`)
+    row(context, 2, `${chronicle.world.manifest.creation.label.toUpperCase()} // READ-ONLY CHRONICLE`, colors.gold)
     row(context, 4, `FINAL REASON  ${chronicle.reason.toUpperCase()}`, colors.red)
-    row(context, 5, `SEED  ${chronicle.world.manifest.seed} // WORLD TIME ${chronicle.world.worldTime}`, colors.text)
+    row(context, 5, `SEED  ${chronicle.world.manifest.creation.seed} // WORLD TIME ${chronicle.world.worldTime}`, colors.text)
     let line = 7
     chronicle.world.causalHistory.forEach(record => { line = wrappedRows(context, line, `${record.sequence}. ${record.detail}`, colors.dim) })
     rule(context, 14)
