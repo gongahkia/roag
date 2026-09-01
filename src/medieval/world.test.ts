@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION } from './content-safety'
 import { addChronicleToIndex, addWorldToIndex, emptyWorldIndex, removeWorldFromIndex } from './storage'
 import { generationRetryPlan } from './generation-config'
-import { InvalidWorldGenerationConfigurationError, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, foundationWorldContentSatisfiesSafetyPolicy, recreateFoundationWorld } from './world'
+import { InvalidWorldGenerationConfigurationError, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, foundationWorldContentSatisfiesSafetyPolicy, recreateFoundationWorld, serializeWorldManifest } from './world'
 
 describe('medieval foundation worlds', () => {
   it('recreates the same world and generated household from its manifest inputs', () => {
@@ -46,33 +46,39 @@ describe('medieval foundation worlds', () => {
     })
 
     expect(world.manifest).toMatchObject({
-      version: 4,
-      seed: 'river ash',
-      generatorVersion: 'foundation-2',
-      selectedConfiguration: {
-        preset: 'far-coast',
-        advanced: { climate: 'temperate', historyYears: 350 }
-      },
-      resolvedConfiguration: {
-        version: 1,
-        preset: 'far-coast',
-        regionSize: 'broad',
-        climate: 'temperate',
-        historyYears: 350,
-        terrainRuggedness: 4,
-        simulationFidelity: 'deep'
-      },
-      generationDiagnostics: {
-        validation: { status: 'accepted', issues: [] }
-      },
-      initialWorldGeneration: {
-        version: 1,
-        generatorVersion: 'initial-world-1',
-        contentSafetyPolicyVersion: MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION,
-        selectedAttempt: 0
+      version: 5,
+      creation: {
+        seed: 'river ash',
+        contractVersions: {
+          foundationGenerator: 'foundation-2',
+          initialWorldGenerator: 'initial-world-1',
+          contentSafetyPolicy: MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION
+        },
+        selectedConfiguration: {
+          preset: 'far-coast',
+          advanced: { climate: 'temperate', historyYears: 350 }
+        },
+        resolvedConfiguration: {
+          version: 1,
+          preset: 'far-coast',
+          regionSize: 'broad',
+          climate: 'temperate',
+          historyYears: 350,
+          terrainRuggedness: 4,
+          simulationFidelity: 'deep'
+        },
+        validationHistory: {
+          generation: { validation: { status: 'accepted', issues: [] } },
+          initialWorld: {
+            version: 1,
+            generatorVersion: 'initial-world-1',
+            contentSafetyPolicyVersion: MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION,
+            selectedAttempt: 0
+          }
+        }
       }
     })
-    expect(world.manifest.generationDiagnostics.retryPlan).toEqual(generationRetryPlan('river ash', world.manifest.resolvedConfiguration))
+    expect(world.manifest.creation.validationHistory.generation.retryPlan).toEqual(generationRetryPlan('river ash', world.manifest.creation.resolvedConfiguration))
     expect(world.initialWorld.configurationFingerprint).toBeDefined()
     expect(world.initialWorld.historyHorizonYears).toBe(350)
     expect(recreateFoundationWorld(world.manifest)).toEqual(world)
@@ -82,26 +88,27 @@ describe('medieval foundation worlds', () => {
     const world = createFoundationWorld({ seed: 'policy-ledger' })
 
     expect(foundationWorldContentSatisfiesSafetyPolicy(world)).toBe(true)
-    expect(world.manifest.contentSafetyAudit).toMatchObject({
+    expect(world.manifest.creation.contentSafetyAudit).toMatchObject({
       policyVersion: MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION,
       status: 'accepted',
       diagnostics: []
     })
-    expect(world.manifest.contentSafetyAudit.reviewed).toEqual(expect.arrayContaining([
+    expect(world.manifest.currentContentSafetyAudit).toEqual(world.manifest.creation.contentSafetyAudit)
+    expect(world.manifest.creation.contentSafetyAudit.reviewed).toEqual(expect.arrayContaining([
       { id: 'world:label', domain: 'place', classification: expect.objectContaining({ domains: ['place', 'player-facing-text'] }) },
       { id: 'vessel:jomon', domain: 'place', classification: expect.objectContaining({ domains: ['place', 'player-facing-text'] }) },
       { id: 'causal:0:world-created', domain: 'event', classification: expect.objectContaining({ domains: ['event', 'player-facing-text'] }) }
     ]))
-    expect(world.manifest.contentSafetyAudit.reviewed.filter(record => record.domain === 'person')).toHaveLength(world.crew.length + world.initialWorld.people.length)
-    expect(world.manifest.contentSafetyAudit.reviewed.filter(record => record.domain === 'history')).toHaveLength(world.crew.length + world.initialWorld.people.length + world.initialWorld.history.length)
-    expect(world.manifest.contentSafetyAudit.reviewed).toEqual(expect.arrayContaining([
+    expect(world.manifest.creation.contentSafetyAudit.reviewed.filter(record => record.domain === 'person')).toHaveLength(world.crew.length + world.initialWorld.people.length)
+    expect(world.manifest.creation.contentSafetyAudit.reviewed.filter(record => record.domain === 'history')).toHaveLength(world.crew.length + world.initialWorld.people.length + world.initialWorld.history.length)
+    expect(world.manifest.creation.contentSafetyAudit.reviewed).toEqual(expect.arrayContaining([
       { id: world.initialWorld.watershed.id, domain: 'place', classification: expect.any(Object) },
       { id: world.initialWorld.routeHazards[0]!.id, domain: 'hazard', classification: expect.objectContaining({ domains: ['hazard', 'player-facing-text'] }) }
     ]))
-    expect(recreateFoundationWorld(world.manifest).manifest.contentSafetyAudit).toEqual(world.manifest.contentSafetyAudit)
+    expect(recreateFoundationWorld(world.manifest).manifest.currentContentSafetyAudit).toEqual(world.manifest.currentContentSafetyAudit)
 
     const forgedManifest = structuredClone(world.manifest)
-    const auditedHistory = forgedManifest.contentSafetyAudit.reviewed.find(record => record.domain === 'history')
+    const auditedHistory = forgedManifest.creation.contentSafetyAudit.reviewed.find(record => record.domain === 'history')
     if (!auditedHistory) throw new Error('foundation audit must include a generated history')
     auditedHistory.classification.tags = ['commerce']
     expect(() => recreateFoundationWorld(forgedManifest)).toThrow('does not reproduce')
@@ -113,6 +120,21 @@ describe('medieval foundation worlds', () => {
 
     expect(alteredConfiguration.id).not.toBe(defaultConfiguration.id)
     expect(alteredConfiguration.crew).not.toEqual(defaultConfiguration.crew)
+  })
+
+  it('serializes a valid manifest canonically and anchors world identity in immutable creation provenance', () => {
+    const world = createFoundationWorld({ seed: 'manifest-canonical', configuration: { preset: 'far-coast' } })
+    const reordered = Object.fromEntries(Object.entries(world.manifest).reverse()) as typeof world.manifest
+
+    expect(serializeWorldManifest(reordered)).toBe(serializeWorldManifest(world.manifest))
+    expect(world.id).toBe(`world:${world.manifest.creation.digest}`)
+    expect(world.manifest.creation.initialWorld.id).toBe(world.initialWorld.id)
+    expect(world.manifest.creation.frontier.initialWorldId).toBe(world.initialWorld.id)
+    expect(world.manifest.creation.frontier.roots.map(root => root.id)).toEqual([
+      `frontier:region:${world.initialWorld.id}:-1:0`,
+      `frontier:region:${world.initialWorld.id}:1:0`,
+      `frontier:region:${world.initialWorld.id}:2:0`
+    ])
   })
 
   it('rejects invalid generation settings before it creates a world or manifest', () => {
@@ -144,9 +166,9 @@ describe('medieval world index', () => {
     const active = addWorldToIndex(emptyWorldIndex(), world)
     const finalized = addChronicleToIndex(removeWorldFromIndex(active, world.id), chronicle)
 
-    expect(active.activeWorlds).toEqual([{ id: world.id, label: world.manifest.label, initialCourierId: 'crew:0' }])
+    expect(active.activeWorlds).toEqual([{ id: world.id, label: world.manifest.creation.label, initialCourierId: 'crew:0' }])
     expect(active.chronicles).toEqual([])
     expect(finalized.activeWorlds).toEqual([])
-    expect(finalized.chronicles).toEqual([{ id: chronicle.id, label: chronicle.world.manifest.label, reason: 'jomon-loss' }])
+    expect(finalized.chronicles).toEqual([{ id: chronicle.id, label: chronicle.world.manifest.creation.label, reason: 'jomon-loss' }])
   })
 })

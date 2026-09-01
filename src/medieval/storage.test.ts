@@ -155,7 +155,7 @@ describe('medieval local persistence', () => {
     const repository = new MedievalWorldRepository()
     const world = createFoundationWorld({ seed: 'provenance-check', configuration: { preset: 'far-coast' } })
     const forged = structuredClone(world)
-    forged.manifest.resolvedConfiguration.terrainRuggedness = 1
+    forged.manifest.creation.resolvedConfiguration.terrainRuggedness = 1
 
     await repository.loadIndex()
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(world.id, forged)
@@ -198,6 +198,6 @@ describe('medieval local persistence', () => {
 
     expect(await repository.loadWorld(world.id)).toBeUndefined()
     expect(await repository.loadChronicle(chronicle.id)).toEqual(chronicle)
-    await expect(repository.loadIndex()).resolves.toEqual({ version: 1, activeWorlds: [], chronicles: [{ id: chronicle.id, label: world.manifest.label, reason: 'jomon-loss' }] })
+    await expect(repository.loadIndex()).resolves.toEqual({ version: 1, activeWorlds: [], chronicles: [{ id: chronicle.id, label: world.manifest.creation.label, reason: 'jomon-loss' }] })
   })
 })
