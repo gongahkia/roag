@@ -30,6 +30,11 @@ The documentation reset is complete. No medieval gameplay slice has been impleme
 - Combat remains turn-based and grid-based, but its old content and progression model will be redesigned.
 - There is no literal magic or supernatural causality. Religion is background culture only.
 - Simulation time advances only during active in-game play. All consequential randomness is seeded and inspectable.
+- Jomon is an open-ended persistent world simulation, not a finite campaign to be won. Short-term goals provide direction; exploration, relationships, and the changing household/world provide the long-term play.
+- The player is not bound to a single protagonist. On an active courier’s death, control transfers to another eligible crew member; voluntary perspective changes occur at the tavern.
+- An active courier directly controls only themself. They can delegate work to crew and NPCs through conversation; delegation depends on the courier’s `conversation` stat and the other person’s relationship, role, capacity, interests, and current situation.
+- Failure is causal and diegetic. A courier death, lost cargo, unpaid debt, damaged route, broken relationship, or ruined vessel can permanently change the world; the irreversible collapse or loss of Jomon ends that world’s play.
+- The initial release target is a desktop browser game for players who enjoy ASCII graphics and keyboard-first control.
 - The reset is a clean persistence break. Do not migrate the superseded space-era saves or reinterpret them as medieval campaigns.
 - Do not copy lore, text, names, assets, or exact mechanics from other games. Historical and game references are influence constraints only.
 
@@ -45,6 +50,20 @@ Jomon takes clear, original inspiration from **Rogue (1980)**: a terminal-first,
 - Use original glyph assignments, palette, layout, copy, assets, sounds, names, and mechanics. Do not reproduce the Epyx/DOS graphics, box art, interface layouts, source code, or Rogue’s fantasy fiction.
 - The medieval material world is never weakened to imitate Rogue: Jomon’s readable symbols must describe vessels, work, people, weather, cargo, tools, and grounded danger rather than spells or monsters.
 
+## Emergent world and people direction
+
+Jomon’s world should feel alive in the sense of Dwarf Fortress Adventure Mode, Caves of Qud, and RimWorld: it has a remembered past, people pursue their own material goals, and the player’s actions become part of later situations. The player experiences this through a courier on Jomon, not through an omniscient management interface.
+
+- The world evolves only while the player is actively playing. It does not advance while the browser is closed or the game is paused.
+- A world is generated before the player arrives: geography and waterways first; then ecology, resources, settlements, institutions, people, routes, trade, and historical events. Its starting state must be causally inspectable.
+- World generation aims for Dwarf Fortress-like depth and configurability, adapted to Jomon’s grounded scale. Players can select, save, inspect, and reproduce generation presets and advanced settings; every generated world records its seed, resolved settings, generator version, and validation/rejection result.
+- Named crew, recurring rivals, employers, local authorities, workers, carriers, and witnesses need persistent identity, location or home, role, material interests, relationships, memories, and a readable history of consequential encounters.
+- NPC actions must arise from original needs, opportunities, relationships, and local conditions—not an authored sequence disguised as simulation. Distant people and settlements may use deterministic summary simulation; nearby and important people need richer state and behaviour.
+- The world must surface change through physical places, conversations, ledgers, rumours, goods, routes, and visible work. A simulation that players cannot discover or act upon is out of scope.
+- Jomon expansion and exploration are the provisional long-term motivations. Every future vessel upgrade must add a physical space, a new material capability, or a meaningful new trade-off.
+- Short-term goals must always be available through local pressures, contracts, favours, shortages, discoveries, threats, or crew needs. They guide play without creating a mandatory campaign finish line.
+- Shadow of Mordor is only a high-level reference for the feeling that remembered people can react and recur. Do not implement or market a “Nemesis System,” reproduce its hierarchy/vendetta design, or derive from its protected implementation. Use an original, documented social-memory model instead.
+
 ## Ordered implementation phases
 
 ### 0. Documentation reset `[x]`
@@ -52,11 +71,11 @@ Jomon takes clear, original inspiration from **Rogue (1980)**: a terminal-first,
 - [x] Replace the old canon with `LORE.md` and establish root `TODO.md` as the governing delivery plan.
 - [x] Remove superseded active plans and obsolete playtest documentation rather than reviving or archiving them as current direction.
 - [x] Keep `README.md` truthful: the checked-in game is a prototype and the medieval implementation begins with a clean break.
-- [x] Record Rogue-inspired terminal presentation, interaction, and non-copying boundaries as product constraints.
+- [x] Record Rogue-inspired terminal presentation, emergent-world direction, and non-copying boundaries as product constraints.
 
 Verification: manual repository review on 2026-09-01; documentation only. No build, test, or browser execution was run for this documentation slice.
 
-### 1. First playable vessel loop
+### 1. Foundational world systems
 
 #### 1.1 Clean game boundary `[-]`
 
@@ -68,7 +87,50 @@ Verification: manual repository review on 2026-09-01; documentation only. No bui
 
 Acceptance: a fresh medieval game can be created deterministically; a prototype save cannot load as one; no space-era term appears anywhere on the new-game path.
 
-#### 1.2 Walkable Jomon and quay
+#### 1.2 Deterministic world generation and configuration
+
+- [ ] Define a versioned `WorldGenerationConfig`, named presets, advanced settings, validation constraints, and deterministic rejection/retry rules.
+- [ ] Build the dependency-ordered generation pipeline: watershed geography and hydrology; climate and seasons; resources and ecology; settlement sites; institutions and people; then routes, trade, and pre-play history.
+- [ ] Record a reproducible world manifest containing seed, resolved configuration, generator version, generated-world identifiers, and validation/rejection history.
+- [ ] Add settings UI for preset selection, advanced configuration, seed entry/display, world-creation progress, result inspection, and saving/loading settings.
+- [ ] Add generation snapshots and property/fuzz tests for determinism, valid geography-to-settlement dependencies, bounded generation, and readable diagnostics.
+
+Acceptance: the same seed and resolved configuration reproduce the same valid world; changing a documented setting predictably changes the intended world property; a player can inspect and share the world manifest.
+
+#### 1.3 Active-play world simulation and persistence kernel
+
+- [ ] Define the simulation clock, event ordering, seeded random streams, and deterministic scheduler. It must advance only during active play.
+- [ ] Define versioned world state and persistence contracts for geography, sites, routes, markets, people, institutions, history, and Jomon.
+- [ ] Define deterministic fidelity tiers for loaded places, nearby named people, recurring agents, and distant settlement summaries.
+- [ ] Add event sourcing or an equivalent inspectable causal history so world changes can be explained, replayed, and persisted within bounded storage.
+- [ ] Add focused tests for reload equivalence, simulation determinism, paused/closed-session time, corruption recovery, and bounded state growth.
+
+Acceptance: equivalent active-play time produces the same world state across replay and reload; the world never advances while inactive; a visible change has an inspectable causal record.
+
+#### 1.4 People, conversation, and delegated work foundation
+
+- [ ] Define persistent-person state: identity, household/site, role, material interests, skills, relationships, memories, current work, capacity, health, and commitments.
+- [ ] Define the active courier’s `conversation` stat and how it changes delegation eligibility, negotiation, task clarity, trust, risk, and outcome without becoming supernatural persuasion.
+- [ ] Define a constrained task/delegation model for crew and NPCs: offer, agreement/refusal, assignment, progress, interruption, outcome, and later memory.
+- [ ] Make autonomous choices arise from original needs, opportunities, relationships, and local conditions. Distant people use deterministic summary simulation; nearby and recurring people use richer state and behaviour.
+- [ ] Add original social-memory records and player-readable evidence through physical surfaces, messages, conversations, ledgers, rumours, goods, routes, and visible work. Do not reproduce proprietary named-system hierarchies or vendettas.
+- [ ] Add deterministic tests for delegation, refusal, task interruption, memory, recurrence, and no-player-control autonomy.
+
+Acceptance: the active courier can delegate a task through a conversation; the recipient’s response and outcome follow inspectable state; a later encounter visibly reflects the remembered result.
+
+#### 1.5 Terminal presentation and interaction foundation
+
+- [ ] Define a renderer-independent map, glyph, palette, status, message, prompt, input, and accessibility contract.
+- [ ] Create an original ASCII glyph vocabulary for terrain, vessel parts, people, goods, work, hazards, weather, and routes; validate unique/legible use in a character cell.
+- [ ] Implement keyboard-first eight-direction movement, compact contextual prompts, remapping, focus handling, command help, and accessible text labels.
+- [ ] Implement the detailed renderer as an equal-information presentation of the same world state, with automated parity checks against ASCII output.
+- [ ] Add renderer and browser tests for glyph meaning, prompt cancellation, status/message visibility, keyboard control, and ASCII/detailed parity.
+
+Acceptance: all consequential state can be understood through the ASCII map, status, and message surfaces; the detailed view neither hides nor invents gameplay information.
+
+### 2. Physical Jomon foundation
+
+#### 2.1 Walkable Jomon and quay
 
 - [ ] Create a compact, original ASCII deck plan with a connected quay approach, gangplank, tavern, chart table, cargo hold, repair space, stores, berths, and galley.
 - [ ] Render the plan in both ASCII and detailed modes from the same map state; document its original glyph vocabulary.
@@ -77,25 +139,25 @@ Acceptance: a fresh medieval game can be created deterministically; a prototype 
 
 Acceptance: the entire vessel/quay plan is navigable and every required space is identifiable from map symbols alone.
 
-#### 1.3 Crew continuity
+#### 2.2 Crew continuity
 
 - [ ] Define the initial household roster, roles, personal equipment, eligibility, and active-crew representation.
 - [ ] Implement tavern-based voluntary switching through an operated physical prop.
-- [ ] Implement deterministic successor selection and permanent crew loss/departure state.
+- [ ] Implement permanent courier death/departure and deterministic transfer of the active perspective to an eligible surviving courier.
 - [ ] Display crew availability and loss consequences in a physical vessel surface.
 
-Acceptance: switch active crew in the tavern; mark one unavailable; reload; observe the same eligible successor and household consequence.
+Acceptance: switch active crew in the tavern; lose an active courier; continue as the same eligible successor after reload; observe the lasting household consequence.
 
-#### 1.4 Physical vessel interactions
+#### 2.3 Physical vessel interactions
 
-- [ ] Implement proximity/operation rules for every Phase 1 vessel prop.
+- [ ] Implement proximity/operation rules for every Phase 2 vessel prop.
 - [ ] Add compact contextual key-choice prompts, cancellation, keyboard remapping compatibility, and accessible text labels.
 - [ ] Make the chart table, hold, repair space, stores, berths, galley, tavern, and gangplank each expose a distinct minimal action or readout.
 - [ ] Persist prop state and show action feedback in the message/status surfaces.
 
 Acceptance: every named space has a represented prop, an operation affordance, an accessible label, and a tested outcome.
 
-#### 1.5 Quay-to-vessel browser proof
+#### 2.4 Quay-to-vessel browser proof
 
 - [ ] Start at a quay; board by gangplank; walk to the tavern; select another crew member; operate a vessel station; return to and leave through the gangplank.
 - [ ] Add actual-browser coverage for the full path and focused headless determinism coverage.
@@ -103,7 +165,7 @@ Acceptance: every named space has a represented prop, an operation affordance, a
 
 Acceptance: the browser test completes this exact path through real user input with no abstract hub or terminal shortcut.
 
-### 2. Physical trade and settlement economy
+### 3. Physical trade and settlement economy
 
 - [ ] Define a small, named commodity set with source, use, weight/bulk, condition, handling requirement, failure mode, and buyer for every entry.
 - [ ] Add cargo capacity, loading, unloading, spoilage/damage/loss, recovery, and vessel-hold interaction.
@@ -113,7 +175,7 @@ Acceptance: the browser test completes this exact path through real user input w
 
 Acceptance: acquire cargo at one physical location, transport it, deliver or fail it at another, and observe a durable market or relationship change on return.
 
-### 3. Waterway routes and settlement network
+### 4. Waterway routes and settlement network
 
 - [ ] Define the first connected river/canal/estuary/coastal settlement network with named route profiles.
 - [ ] Add seeded route knowledge, river condition, weather/season constraint, toll/access condition, and competing traffic where relevant.
@@ -123,26 +185,30 @@ Acceptance: acquire cargo at one physical location, transport it, deliver or fai
 
 Acceptance: choose a route for a visible reason, travel only while actively playing, arrive through a quay, and see a persistent consequence on a revisited route or settlement.
 
-### 4. Persistent world partitions and revisitation
+### 5. Persistent world partitions and revisitation
 
 - [ ] Give the vessel, quays, settlements, approaches, roads, waterways, and expedition sites stable world-space identities.
+- [ ] Apply the foundation simulation-fidelity tiers to partition streaming, including deterministic catch-up and replay of distant settlement summaries.
 - [ ] Persist crew, cargo, altered props, caches, actors, weather effects, route consequences, time, and camera direction within the new medieval schema.
 - [ ] Stream only distant partitions; specify and test the resident partition budget.
 - [ ] Define corruption recovery, incompatible-save behavior, and schema evolution before each persistence change.
 
-Acceptance: alter a place, leave it, reload, return through normal play, and find the same consequential state without loading unrelated partitions.
+Acceptance: alter a place, leave it, reload, return through normal play, and find the same consequential state while an unseen settlement and recurring agent have advanced deterministically without loading unrelated partitions.
 
-### 5. Equal-depth hazards, conflicts, and regional ecology
+### 6. Equal-depth hazards, conflicts, and regional ecology
 
+- [ ] Apply the social-memory model to human-conflict content so the same people can recur as allies, rivals, witnesses, employers, or consequences without scripted plot progression.
+- [ ] Exercise the active-play simulation scheduler through changing named people, settlements, markets, and routes.
+- [ ] Populate the foundation history surfaces at Jomon and settlements with witness accounts, ledgers, rumours, notices, cargo evidence, and changed work sites.
 - [ ] Implement one complete human-conflict contract: setup, readable intent, choice, resolution, persistent mutation, and later follow-up.
 - [ ] Implement one complete wilderness contract using weather, terrain, exposure, animal behavior, or disease without supernatural cause.
 - [ ] Implement one complete operational-hazard contract involving vessels, cargo, works, or infrastructure.
 - [ ] Establish common telegraph, consequence, and follow-up interfaces so all three danger families have comparable depth.
 - [ ] Add seasonal and local ecology state that changes trade, settlement life, routes, or tactics.
 
-Acceptance: each danger family has a distinct playable scenario with readable counterplay and a visible later-world effect.
+Acceptance: each danger family has a distinct playable scenario with readable counterplay and a visible later-world effect; at least one named person reacts to a remembered outcome through the original social-memory model.
 
-### 6. Medieval tactical overhaul and grounded guardians
+### 7. Medieval tactical overhaul and grounded guardians
 
 - [ ] Define the player’s grounded action vocabulary: movement, exertion/stamina, commitment, guard, parry, posture, targeted components, retreat, recovery, and seeded chance.
 - [ ] Implement renderer-independent intent data, target previews, and positional responses for both presentation modes.
@@ -152,16 +218,17 @@ Acceptance: each danger family has a distinct playable scenario with readable co
 
 Acceptance: a player can read a telegraphed tactical problem, choose a grounded response, and carry its material consequence back to Jomon or a settlement.
 
-### 7. Content families and procedural composition
+### 8. Content families and procedural composition
 
 - [ ] Create reusable authored families for settlements, waterways, workshops, markets, hazards, wildlife, human groups, tools, cargo, contracts, crew roles, and guardians.
+- [ ] Create vessel-expansion families whose upgrades visibly alter Jomon’s deck, capabilities, upkeep, crew work, cargo decisions, or route options.
 - [ ] Require generated places to declare material purpose, water/terrain/season relationship, local pressures, rewards, services, and downstream world links.
 - [ ] Add seeded fixtures, validity checks, encounter-readability checks, and reward-distribution checks for each family.
 - [ ] Grow content only after the family has a player-visible purpose in the vessel/trade/history simulation.
 
 Acceptance: generation sweeps produce valid, distinct locations whose content influences a real later choice.
 
-### 8. Coverage, playtesting, and art
+### 9. Coverage, playtesting, and art
 
 - [ ] Cover every player-visible vessel, crew, trade, route, persistence, tactical, and death/replacement capability with focused tests and actual browser input.
 - [ ] Recreate the playtest protocol only after the relevant medieval player surfaces and content families are stable.
@@ -175,16 +242,17 @@ Acceptance: browser playtests and automation cover the complete core loop withou
 
 These decisions should be recorded here with their answer before work depends on them.
 
-- Decision — **Campaign shape:** is the primary experience an open-ended household career, a finite campaign with a definite ending, or a hybrid? What constitutes a successful run?
-- Decision — **Failure contract:** when the active crew member dies, does play immediately continue as a selected successor, return to the vessel for succession, or offer another structure? What vessel/cargo loss is possible?
-- Decision — **Tactical scope:** is the player always one active crew member, or can expeditions eventually include controllable companions? If companions exist, how much direct control is desirable?
-- Decision — **First vertical-slice scope:** should Phase 1 remain vessel/quay only, or must it already include a short shore expedition and one hazardous return route to prove the game’s core feeling?
-- Decision — **Audience/platform:** is desktop keyboard-first browser play the target release platform, or should touch/controller support shape the initial interaction design?
+- Decision — **World-generation settings:** which concrete world properties must users control in the first advanced settings screen, and which should remain generator-internal until their simulation meaning is proven?
+- Decision — **Delegation visibility:** how should pending delegated work be shown on the map and in vessel/settlement surfaces without turning Jomon into an omniscient management UI?
+- Decision — **Failure calibration:** which irreversible consequences should be common, rare, or guarded by explicit warning? Jomon’s collapse is terminal, so its causal chain must be readable and preventable in proportion to its severity.
+- Decision — **Vessel growth:** this asks how Jomon physically changes over a long world. For example, should success permit new rooms, refitted workspaces, better tools, more crew capacity, or small craft? Which changes must remain impossible so the vessel stays a grounded household rather than becoming an abstract upgrade tree?
 
 ## Delivery and verification rules
 
-- Work in one small, playable vertical slice at a time. Keep exactly one roadmap item marked `[-]`.
+- Work in one cohesive, maintainable system unit at a time. Keep exactly one roadmap item marked `[-]`; build foundations and their tests before expanding player-facing content.
 - Before a high-risk save, renderer, world-streaming, or combat change, add a decision-complete implementation plan beneath the relevant item or in a narrowly scoped linked design document.
+- Prefer documented domain types, small modules with explicit ownership, deterministic/pure simulation functions, bounded state, and narrow public APIs. Do not add a content exception that bypasses a foundation contract.
+- Keep the code navigable for humans and AI agents: name data by its game meaning, state invariants beside their types, provide seeded fixtures, and update this plan when an architecture decision changes.
 - Preserve unrelated changes. Do not clean, migrate, or reuse old saves outside the explicit clean-break implementation.
 - Each implementation task needs focused tests first. Completed slices also run, when available: `npm test`, `npm run test:autoplay:tasks`, `npm run test:e2e`, `npm run build`, and `git diff --check`.
 - Browser coverage must execute the feature through actual UI input; task-ID mapping is not sufficient.
