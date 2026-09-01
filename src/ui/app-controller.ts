@@ -30,7 +30,9 @@ export const shouldScheduleBotAfterTick = (previous: BotScheduleSnapshot, next: 
 const MIN_POWER = 1;
 const MAX_POWER = 8;
 const POWER_STEP = .5;
-const DEFAULT_CAMERA_ZOOM = 1.7;
+// The fixed 320×180 framebuffer has less visible world area than the former
+// responsive canvas, so start at the fitted arcade view rather than a close-up.
+const DEFAULT_CAMERA_ZOOM = 1.3;
 const MIN_CAMERA_ZOOM = .8;
 const MAX_CAMERA_ZOOM = 3;
 const CAMERA_ZOOM_STEP = .2;

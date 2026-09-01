@@ -86,7 +86,9 @@ export const randomTerrainSettings = (seed: string, variation: number, dimension
     routeLength: stepped(.35, 1, .05),
     bendiness: stepped(0, 1, .05),
     laneWidth: random.int(1, 3),
-    branches: random.int(0, 3),
+    // Prefer a legible main run with occasional shortcuts over dense lawn-like
+    // side paths; each course still retains deterministic route roles.
+    branches: random.int(0, 2),
     chaos: stepped(0, 1, .05),
     theme,
     archetype: random.pick(archetypes),
@@ -553,13 +555,7 @@ const buildCourse = (seed: string, settings: TerrainSettings, phaseCount: number
   const route = routeFor(random, settings);
   let elevation = 0;
   for (const [index, point] of route.entries()) {
-    const before = route[index - 1];
-    const after = route[index + 1];
-    const changesDirection = Boolean(before && after && (before.x - point.x !== point.x - after.x || before.y - point.y !== point.y - after.y));
-    // Turns become deliberately terraced landmarks. It preserves the existing
-    // route and deterministic physics while giving generated courses clearer
-    // ramps, bridges, and cliff-side decision points.
-    const elevationChance = .06 + settings.elevation * .3 + (settings.theme === 'quarry' ? .06 : 0) + (changesDirection ? .14 : 0);
+    const elevationChance = .06 + settings.elevation * .3 + (settings.theme === 'quarry' ? .06 : 0);
     if (index > 2 && random.chance(elevationChance)) elevation = Math.max(0, Math.min(settings.maxElevation, elevation + random.pick([-1, 1])));
     carve(tiles, point, elevation, settings.laneWidth, settings.width, settings.height);
   }
