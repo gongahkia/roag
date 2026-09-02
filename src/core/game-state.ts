@@ -363,18 +363,18 @@ const applyChaos = (terrain: ReturnType<typeof defaultTerrainSettings>, rules: R
  * then deterministically try a handful of seed variants if the new course would
  * overlap an earlier track outside the shared cup-to-tee junction.
  */
-const appendSeedFor = (state: GameState, proposedSeed: string, terrain: ReturnType<typeof defaultTerrainSettings>, rules: ReturnType<typeof defaultHoleRules>) => {
-  if (state.hole === 1) return proposedSeed;
-  let best = { seed: proposedSeed, trackOverlapCount: Number.POSITIVE_INFINITY };
-  for (let attempt = 0; attempt < 8; attempt += 1) {
+const appendCourseFor = (state: GameState, proposedSeed: string, terrain: ReturnType<typeof defaultTerrainSettings>, rules: ReturnType<typeof defaultHoleRules>) => {
+  let best: { seed: string; course: Course; trackOverlapCount: number } | undefined;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
     const seed = attempt === 0 ? proposedSeed : `${proposedSeed}:append-${attempt}`;
     const candidate = generateCourse(seed, terrain, rules.hazardPhaseCount);
+    if (state.hole === 1) return { seed, course: candidate };
     const expansion = expandCourseAtCup(state.course, candidate);
-    if (expansion.trackOverlapCount < best.trackOverlapCount) best = { seed, trackOverlapCount: expansion.trackOverlapCount };
-    if (expansion.trackOverlapCount === 0) return seed;
+    if (!best || expansion.trackOverlapCount < best.trackOverlapCount) best = { seed, course: candidate, trackOverlapCount: expansion.trackOverlapCount };
+    if (expansion.trackOverlapCount === 0) return { seed, course: candidate };
   }
-  recordInstrumentation(state, { type: 'generation-failure', hole: state.hole, detail: `append overlap remained after 8 seeded candidates (${best.trackOverlapCount} tiles)` });
-  return best.seed;
+  recordInstrumentation(state, { type: 'generation-failure', hole: state.hole, detail: `append overlap remained after 4 seeded candidates (${best!.trackOverlapCount} tiles)` });
+  return { seed: best!.seed, course: best!.course };
 };
 
 const planFromRoll = (state: GameState, die: DieState): PlannedHole | undefined => {
@@ -387,7 +387,8 @@ const planFromRoll = (state: GameState, die: DieState): PlannedHole | undefined 
   const labels = [biome.label, layout.label, ...chaos.map((stop) => stop.label)];
   const ids = die.roll?.stopIds.join(':') ?? 'unknown';
   const proposedSeed = `${state.config.seed}:slots:${state.hole}:${die.rerolls}:${ids}`;
-  const courseSeed = appendSeedFor(state, proposedSeed, terrain, holeRules);
+  const selectedCourse = appendCourseFor(state, proposedSeed, terrain, holeRules);
+  const courseSeed = selectedCourse.seed;
   const planned: PlannedHole = {
     id: `hole-${state.hole}-slot-${die.rerolls}-${ids}`,
     label: labels.join(' · '),
@@ -404,7 +405,7 @@ const planFromRoll = (state: GameState, die: DieState): PlannedHole | undefined 
       },
     },
   };
-  const materializedCourse = courseForPlan(planned);
+  const materializedCourse = selectedCourse.course;
   const validation = validateCourse(materializedCourse, holeRules.hazardPhaseCount);
   if (!validation.valid) {
     recordInstrumentation(state, { type: 'generation-failure', hole: state.hole, detail: validation.failures.join('; ') });
