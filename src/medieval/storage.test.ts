@@ -8,7 +8,8 @@ import { classifyMedievalContent } from './content-safety'
 import { DELEGATION_CONTRACT_VERSION, DELEGATION_TASK_DEFINITIONS, delegationTaskIdForOffer, type DelegationOfferInput } from './delegation'
 import { SeededRng } from './rng'
 import { assessCourierConversation } from './conversation'
-import { SOCIAL_MEMORY_LIMITS, socialMemoryRecallForPair } from './social-memory'
+import { socialMemoryRecallForPair } from './social-memory'
+import { CAUSAL_HISTORY_LIMITS } from './causal-history'
 
 type Handler = (() => void) | null
 
@@ -270,14 +271,14 @@ describe('medieval local persistence', () => {
     expect(reloadedCompleted && replayFoundationWorldCausalHistory(reloadedCompleted)).toEqual(causalReplayProjectionForWorldState(completed.state))
   })
 
-  it('reloads bounded recurring social refusals after journal compaction and continues their real source-linked history', async () => {
+  it('reloads recurring social refusals after public journal compaction and continues their real source-linked history', async () => {
     const repository = new MedievalWorldRepository()
     let world = chooseInitialCourier(createFoundationWorld({ seed: 'storage-recurring-social-refusals', configuration: { preset: 'far-coast' } }), 'crew:0')
     const immutableFoundationMemories = world.state.people.records.map(person => ({ id: person.id, memories: person.memories.filter(memory => memory.kind === 'foundation-history') }))
     const personCount = world.state.people.records.length
     let recipientId: string | undefined
 
-    for (let index = 0; index < SOCIAL_MEMORY_LIMITS.retainedPersonalLinks + 2; index++) {
+    for (let index = 0; index < CAUSAL_HISTORY_LIMITS.retainedCommands; index++) {
       const offer = recurringRefusalOffer(world, `storage-recurring-refusal:${String(index).padStart(2, '0')}`, recipientId)
       recipientId ??= offer.recipientId
       world = offerFoundationWorldDelegatedTask(world, offer)
@@ -287,10 +288,10 @@ describe('medieval local persistence', () => {
     const courierId = world.state.courier.initialCourierId!
     const recurringRecipient = world.state.people.records.find(person => person.id === recipientId)!
 
-    expect(world.state.socialMemory.records).toHaveLength(SOCIAL_MEMORY_LIMITS.retainedPersonalLinks + 2)
+    expect(world.state.socialMemory.records).toHaveLength(CAUSAL_HISTORY_LIMITS.retainedCommands)
     expect(world.state.socialMemory.records.map(record => record.id)).toEqual([...world.state.socialMemory.records.map(record => record.id)].sort())
-    expect(world.state.socialMemory.records.filter(record => record.retention === 'household-record-only')).toHaveLength(2)
-    expect(recurringRecipient.memories.filter(memory => memory.kind === 'social-memory')).toHaveLength(SOCIAL_MEMORY_LIMITS.retainedPersonalLinks)
+    expect(world.state.socialMemory.records.every(record => record.retention === 'participant-retained')).toBe(true)
+    expect(recurringRecipient.memories.filter(memory => memory.kind === 'social-memory')).toHaveLength(CAUSAL_HISTORY_LIMITS.retainedCommands)
     expect(world.state.people.records.map(person => ({ id: person.id, memories: person.memories.filter(memory => memory.kind === 'foundation-history') }))).toEqual(immutableFoundationMemories)
     expect(world.state.people.records).toHaveLength(personCount)
     expect(world.state.causalHistory.checkpoint.sequence).toBeGreaterThan(0)
