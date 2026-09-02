@@ -8,7 +8,6 @@ export interface LobbyConfig {
   maxHumans: number;
   courseWidth: number;
   courseHeight: number;
-  skipDieBets: boolean;
   ruleset: NonNullable<GameConfig['ruleset']>;
 }
 
@@ -36,13 +35,6 @@ export interface RoomClock {
   status: GameState['status'];
   turnSecondsLeft?: number;
   hazardElapsedMs: number;
-  die?: {
-    phase: NonNullable<GameState['die']>['phase'];
-    secondsLeft: number;
-    rollSecondsLeft?: number;
-    revealedSecondsLeft?: number;
-    rerollPotSecondsLeft?: number;
-  };
 }
 
 export type ClientMessage =

@@ -77,7 +77,6 @@ export const partyAwardsFor = (state: GameState): PartyAward[] => {
     awards.push({ id, playerId: winner[0], title, detail: `${playerName(state, winner[0])} logged ${winner[1]} ${noun}${winner[1] === 1 ? '' : 's'}.` });
   };
   add('collision-artist', 'collision artist', countByPlayer(events, 'collision'), 'direct ball hit');
-  add('course-author', 'course author', countByPlayer(events, 'slot-action'), 'public slot choice');
   add('trick-artist', 'trick artist', countByPlayer(events, 'card'), 'Trick Card play');
   return awards;
 };

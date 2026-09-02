@@ -50,7 +50,6 @@ const powerUpIcon: Record<string, string> = { turbo: '↯', shield: '⬡', bomb:
 
 export const renderStatus = ({ state, shotInFlight }: Pick<ViewModel, 'state' | 'shotInFlight'>) => {
   if (state.paused) return 'match paused';
-  if (state.status === 'rolling') return state.die?.phase === 'spinning' ? `the ${state.die.reels.length}-reel course machine is spinning` : state.die?.phase === 'revealed' ? `course revealed · ${state.die.revealed?.secondsLeft.toFixed(0) ?? 0}s to fund a reroll` : `hole ${state.hole}/${state.config.holeCount} · slot wagers close in ${state.die?.secondsLeft.toFixed(0) ?? 0}s`;
   if (state.status === 'shopping') return `clubhouse merchant · ${state.shop?.secondsLeft.toFixed(0) ?? 0}s remaining`;
   if (state.status === 'transitioning') return `expanding the campaign to hole ${state.hole}/${state.config.holeCount}`;
   if (state.status === 'finished') return 'campaign complete — the full route is on display';
@@ -59,11 +58,7 @@ export const renderStatus = ({ state, shotInFlight }: Pick<ViewModel, 'state' | 
 };
 
 export const renderCallouts = (callouts: readonly Callout[]) => callouts.map((callout) => `<p class="callout ${callout.tone}">${escapeHtml(callout.message)}</p>`).join('');
-const renderLedger = (ledger: readonly LedgerEntry[]) => `<ul class="feed" aria-live="polite">${ledger.map((entry) => `<li class="${entry.tone}"><span>${escapeHtml(entry.message)}</span></li>`).join('') || '<li class="neutral"><span>waiting for the die</span></li>'}</ul>`;
-
-const renderDieControls = (state: GameState) => {
-  return `<div class="turn"><strong>course slots</strong><b>${state.hole}/${state.config.holeCount}</b><small class="phase">shared wager window</small></div><p class="control-status">${renderStatus({ state, shotInFlight: false })}</p>`;
-};
+const renderLedger = (ledger: readonly LedgerEntry[]) => `<ul class="feed" aria-live="polite">${ledger.map((entry) => `<li class="${entry.tone}"><span>${escapeHtml(entry.message)}</span></li>`).join('') || '<li class="neutral"><span>the shuffler is armed</span></li>'}</ul>`;
 
 const renderTransitionControls = (state: GameState) => `<div class="turn"><strong>next hole</strong><b>${state.hole}/${state.config.holeCount}</b><small class="phase">the route is building outward</small></div><p class="control-status">${renderStatus({ state, shotInFlight: false })}</p>`;
 const renderFinishedControls = (state: GameState) => `<div class="turn"><strong>campaign complete</strong><b>★</b><small class="phase">the full route has zoomed out behind the results</small></div><p class="control-status">${renderStatus({ state, shotInFlight: false })}</p>`;
@@ -84,9 +79,9 @@ const renderMatchHud = (view: ViewModel) => {
   const routeKey = (state.course.routeRoles?.map((assignment) => assignment.role) ?? ['safe', 'skill', 'conflict'] as const)
     .map((role) => `<span class="route-role-chip route-${role}" title="${routeRoleDetail[role].text}"><b aria-hidden="true">${routeRoleDetail[role].icon}</b>${role}</span>`)
     .join('');
-  const chaos = state.coursePlan[state.hole - 1]?.recipe.metadata?.resolvedReels.chaos;
+  const chaos = state.coursePlan[state.hole - 1]?.recipe.metadata?.resolvedReels.chaos ?? [];
   const cameraStatus = camera.mode === 'free' ? 'FREE ROAM · DRAG TO PAN' : `FOLLOW BALL · ${Math.round(camera.zoom * 100)}%`;
-  return `<section class="match-hud" aria-label="match heads-up display"><section class="hud-course"><p>COURSE</p><strong>${themeIcon[state.course.theme]} ${escapeHtml(themeDescriptor[state.course.theme])}</strong><small>hole ${state.hole} · ${escapeHtml(routeRoles)}${chaos ? ` · chaos: ${escapeHtml(chaos)}` : ''}</small><div class="route-role-key" aria-label="route role key: safe is wide and steady, skill rewards timing, banks, or chips, conflict is shared contested space">${routeKey}</div></section><section class="hud-timer"><p>ON THE TEE</p><strong>${escapeHtml(player.name)}</strong><b id="hud-turn-timer">${state.turn.secondsLeft.toFixed(0)}<small>s</small></b><small class="hud-turn-status">${shotInFlight ? 'ball in play · hazards live' : `${shotKind} ready · hazards live`}</small></section><section class="hud-leaderboard" aria-label="leaderboard"><header><span>LEADERBOARD</span><small>total</small></header><ol>${leaderboard}</ol></section><section class="reaction-dock" aria-label="reactions"><span>reactions</span><div>${EMOTES.map((emote) => `<button data-emote="${emote.id}" type="button" aria-label="send ${emote.label} reaction" title="${emote.label}" ${disabled ? 'disabled' : ''}>${emote.glyph}</button>`).join('')}</div></section><section class="hud-camera" aria-label="camera controls"><span id="hud-camera-status">${cameraStatus}</span><div><button data-camera-zoom="out" type="button" aria-label="zoom out" title="zoom out">−</button><button data-camera-mode type="button" aria-pressed="${camera.mode === 'free'}">${camera.mode === 'free' ? 'follow ball' : 'free roam'}</button><button data-camera-zoom="in" type="button" aria-label="zoom in" title="zoom in">+</button></div></section><section class="hud-strength" aria-label="${shotKind} strength; drag with the left button to putt or the right button to chip"><div class="hud-strength-heading"><span id="hud-shot-label">${shotKind === 'chip' ? 'CHIP' : 'PUTT'} STRENGTH</span><b id="hud-strength-value">${aim.power.toFixed(1)}</b></div><div id="hud-strength-meter" class="hud-strength-meter" style="--strength:${strength}%"><i></i></div><div class="hud-shot-help"><span><b>left drag</b> putt</span><span><b>right drag</b> chip</span></div></section></section>`;
+  return `<section class="match-hud" aria-label="match heads-up display"><section class="hud-course"><p>COURSE</p><strong>${themeIcon[state.course.theme]} ${escapeHtml(themeDescriptor[state.course.theme])}</strong><small>hole ${state.hole} · ${escapeHtml(routeRoles)}${chaos.length ? ` · chaos: ${escapeHtml(chaos.join(' + '))}` : ''}</small><div class="route-role-key" aria-label="route role key: safe is wide and steady, skill rewards timing, banks, or chips, conflict is shared contested space">${routeKey}</div></section><section class="hud-timer"><p>ON THE TEE</p><strong>${escapeHtml(player.name)}</strong><b id="hud-turn-timer">${state.turn.secondsLeft.toFixed(0)}<small>s</small></b><small class="hud-turn-status">${shotInFlight ? 'ball in play · hazards live' : `${shotKind} ready · hazards live`}</small></section><section class="hud-leaderboard" aria-label="leaderboard"><header><span>LEADERBOARD</span><small>total</small></header><ol>${leaderboard}</ol></section><section class="reaction-dock" aria-label="reactions"><span>reactions</span><div>${EMOTES.map((emote) => `<button data-emote="${emote.id}" type="button" aria-label="send ${emote.label}" title="${emote.label}" ${disabled ? 'disabled' : ''}>${emote.glyph}</button>`).join('')}</div></section><section class="hud-camera" aria-label="camera controls"><span id="hud-camera-status">${cameraStatus}</span><div><button data-camera-zoom="out" type="button" aria-label="zoom out" title="zoom out">−</button><button data-camera-mode type="button" aria-pressed="${camera.mode === 'free'}">${camera.mode === 'free' ? 'follow ball' : 'free roam'}</button><button data-camera-zoom="in" type="button" aria-label="zoom in" title="zoom in">+</button></div></section><section class="hud-strength" aria-label="${shotKind} strength; drag with the left button to putt or the right button to chip"><div class="hud-strength-heading"><span id="hud-shot-label">${shotKind === 'chip' ? 'CHIP' : 'PUTT'} STRENGTH</span><b id="hud-strength-value">${aim.power.toFixed(1)}</b></div><div id="hud-strength-meter" class="hud-strength-meter" style="--strength:${strength}%"><i></i></div><div class="hud-shot-help"><span><b>left drag</b> putt</span><span><b>right drag</b> chip</span></div></section></section>`;
 };
 
 export const renderControlsMarkup = (view: ViewModel) => {
@@ -185,62 +180,6 @@ const renderOverlay = (view: ViewModel) => {
 const renderRunDrawer = ({ state, config }: ViewModel) => {
   const scoreRows = state.players.map((player) => `<tr class="${player.id === current(state).id ? 'active' : ''}"><td><i style="background:${player.color}"></i>${escapeHtml(player.name)}</td><td>${player.ball.complete ? '✓' : player.ball.strokes}</td><td>${player.total}</td></tr>`).join('');
   return `<h3>campaign controls</h3><label>run seed <input id="seed" value="${escapeHtml(config.seed)}" maxlength="32"></label><div class="split"><label>humans <input id="humans" type="number" min="1" max="8" value="${config.humanCount}"></label><label>AI <input id="bots" type="number" min="0" max="4" value="${config.botCount}"></label></div><label>AI skill <select id="skill"><option value="adaptive" ${config.botSkill === 'adaptive' ? 'selected' : ''}>adaptive</option>${Array.from({ length: 10 }, (_, index) => `<option value="${index + 1}" ${config.botSkill === index + 1 ? 'selected' : ''}>${index + 1}</option>`).join('')}</select></label><button id="new-run">start new nine-hole run</button><p class="hint">Before every hole, the shared course slot machine lets each player add a new course-package stop or weight a visible stop before the spin.</p><h3>scorecard</h3><table><thead><tr><th>player</th><th>hole</th><th>total</th></tr></thead><tbody>${scoreRows}</tbody></table>`;
-};
-
-const renderDieOverlay = (view: ViewModel) => {
-  const { state, multiplayer } = view;
-  const die = state.die;
-  if (state.status !== 'rolling' || !die) return '';
-  const ownPlayer = multiplayer.online
-    ? state.players.find((player) => player.id === multiplayer.playerId)
-    : state.players.find((player) => player.kind === 'human' && (die.phase === 'revealed' || !die.wagers[player.id]?.ready));
-  const ownWager = ownPlayer ? die.wagers[ownPlayer.id] : undefined;
-  const canBet = Boolean(ownPlayer && (die.phase === 'wagering' || die.phase === 'reroll-wagering') && !ownWager?.ready);
-  const ruleset = rulesetFor(state.config);
-  const canInfluence = Boolean(canBet && ownWager && ownWager.influenceActions < ruleset.slot.maxInfluenceActions);
-  const stopIcon = (stop: typeof die.reels[number]['stops'][number], kind: typeof die.reels[number]['kind']) => {
-    if (kind === 'biome' && stop.theme) return themeIcon[stop.theme];
-    if (kind === 'layout') return '⌁';
-    if (kind === 'rules') return '⚑';
-    return '✦';
-  };
-  const totalWeight = (reel: typeof die.reels[number]) => reel.stops.reduce((total, stop) => total + stop.weight, 0);
-  const selectedStop = (reelIndex: number) => die.roll ? die.reels[reelIndex]?.stops.find((stop) => stop.id === die.roll?.stopIds[reelIndex]) : undefined;
-  const slotSymbol = (stop: typeof die.reels[number]['stops'][number], kind: typeof die.reels[number]['kind']) => `<span class="slot-stop"><span class="slot-symbol" aria-hidden="true">${stopIcon(stop, kind)}</span><span class="slot-symbol-label">${escapeHtml(stop.label)}</span></span>`;
-  const slotReel = (reel: typeof die.reels[number], reelIndex: number) => {
-    const landed = selectedStop(reelIndex);
-    const physicalStrip = reel.stops.flatMap((stop) => Array.from({ length: stop.weight }, () => stop));
-    const spinning = die.phase === 'spinning' && landed;
-    const visible = landed ?? physicalStrip[reelIndex % physicalStrip.length] ?? reel.stops[0]!;
-    const stops = spinning ? [...physicalStrip, landed] : [visible];
-    return `<div class="slot-reel ${spinning ? 'is-spinning' : ''}" style="--slot-stop:${stops.length * 5.1}rem;--slot-delay:${reelIndex * .1}s" aria-label="${escapeHtml(reel.label)} reel"><div class="slot-reel-track">${stops.map((stop) => slotSymbol(stop, reel.kind)).join('')}</div></div>`;
-  };
-  const reelControls = die.reels.map((reel) => {
-    const weight = totalWeight(reel);
-    const canAddWild = canInfluence && reel.kind !== 'chaos';
-    const wildCost = ownWager ? 1 + ownWager.addedStops : 1;
-    const stops = reel.stops.map((stop) => {
-      const odds = Math.round(stop.weight / weight * 100);
-      const key = `${reel.id}:${stop.id}`;
-      const ticketCost = ownWager ? 1 + Math.floor((ownWager.augmentations[key] ?? 0) / 2) : 1;
-      return `<li class="${selectedStop(die.reels.indexOf(reel))?.id === stop.id ? 'landed' : ''}"><span>${stopIcon(stop, reel.kind)}</span><strong>${escapeHtml(stop.label)}</strong><small>${stop.weight} ticket${stop.weight === 1 ? '' : 's'} · ${odds}%</small>${canInfluence ? `<button data-augment-slot-stop data-reel-id="${reel.id}" data-stop-id="${stop.id}" ${ownPlayer!.cash < ticketCost ? 'disabled' : ''}>hold +1 · $${ticketCost}</button>` : ''}</li>`;
-    }).join('');
-    return `<section class="slot-reel-control"><header><strong>${escapeHtml(reel.label)} reel</strong><small>${weight} physical tickets</small></header><ol>${stops}</ol>${canAddWild ? `<button data-add-slot-stop="${reel.id}" ${ownPlayer!.cash < wildCost ? 'disabled' : ''}>add wild stop · $${wildCost}</button>` : ''}</section>`;
-  }).join('');
-  const bettors = state.players.map((player) => {
-    const wager = die.wagers[player.id];
-    return `<li class="${wager?.ready ? 'ready' : ''}"><i style="background:${player.color}"></i><strong>${escapeHtml(player.name)}</strong><span>$${player.cash}</span><small>${wager?.ready ? 'ready' : ruleset.id === 'party' ? `${wager?.influenceActions ?? 0}/1 influence · ready when done` : `${wager?.addedStops ?? 0} wild stops · ${Object.values(wager?.augmentations ?? {}).reduce((total, amount) => total + amount, 0)} tickets`}</small></li>`;
-  }).join('');
-  const title = die.phase === 'spinning' ? 'the <em>course slots</em> spin' : die.phase === 'revealed' ? 'the <em>course</em> is revealed' : die.phase === 'reroll-wagering' ? 'reload the <em>chaos slots</em>' : 'load the <em>next hole</em>';
-  const prompt = die.phase === 'spinning' ? `spinning… ${die.roll?.secondsLeft.toFixed(1) ?? '0.0'}s`
-    : die.phase === 'revealed' ? `reroll pot: $${Object.values(die.rerollPot?.contributions ?? {}).reduce((total, amount) => total + amount, 0)}/$${die.rerollPot?.target ?? 0} · ${die.revealed?.secondsLeft.toFixed(0) ?? 0}s`
-      : canBet ? multiplayer.online ? canInfluence ? 'choose one influence, then pull the lever' : 'influence spent — pull the lever' : `pass the device to ${escapeHtml(ownPlayer!.name)} · ${canInfluence ? 'choose one influence or pass' : 'influence spent — pull the lever'}` : 'waiting for the other golfers';
-  const actions = die.phase === 'revealed'
-    ? die.rerollPot && ownPlayer ? `<button class="primary" data-contribute-reroll ${ownPlayer.cash < 1 ? 'disabled' : ''}>feed reroll pot · $1</button><small>reach $${die.rerollPot.target} to reopen the machine; an unfinished pot is refunded.</small>` : '<strong>final course locked</strong>'
-    : canBet ? `<button class="primary" data-ready-slot-spin>pull the lever</button>${die.phase === 'reroll-wagering' ? `<button data-add-chaos-reel ${!canInfluence || die.reels.filter((reel) => reel.kind === 'chaos').length >= ruleset.slot.maxChaosModifiers || ownPlayer!.cash < 2 + die.reels.filter((reel) => reel.kind === 'chaos').length ? 'disabled' : ''}>bolt on chaos reel · $${2 + die.reels.filter((reel) => reel.kind === 'chaos').length}</button>` : ''}<small>${ruleset.id === 'party' ? 'one influence each · the stopped reels build the hole.' : 'ticket duplicates are the displayed odds. Every stopped reel is used to build the hole.'}</small>` : `<strong>${die.phase === 'spinning' ? 'no more bets' : 'wager locked'}</strong>`;
-  const slotMachine = `<section class="slot-machine ${die.phase === 'spinning' ? 'is-spinning' : ''}" aria-label="course slot machine"><header class="slot-machine-marquee"><span aria-hidden="true">◆</span><strong>COURSE SLOTS</strong><span aria-hidden="true">◆</span></header><div class="slot-machine-cabinet"><div class="slot-machine-reels ${die.reels.length > 3 ? 'with-chaos' : ''}">${die.reels.map(slotReel).join('')}</div><i class="slot-payline" aria-hidden="true"></i><div class="slot-lever" aria-hidden="true"><span></span><i></i></div></div><footer><span>${die.phase === 'spinning' ? 'independent reels locking' : 'physical tickets set the odds'}</span><strong>${die.revealed ? escapeHtml(die.revealed.plan.label) : 'PULL TO SPIN'}</strong></footer></section>`;
-  const resultTicket = die.revealed ? `<section class="slot-result-ticket"><span>PAYLINE COURSE</span><strong>${escapeHtml(die.revealed.plan.label)}</strong><small>${escapeHtml(themeDescriptor[die.revealed.plan.recipe.terrain.theme])} · ${escapeHtml(die.revealed.plan.recipe.terrain.archetype)} · safe / skill / conflict routes</small></section>` : '';
-  return `<section class="die-overlay" role="dialog" aria-modal="true" aria-label="course slot machine for hole ${state.hole}"><div class="die-panel"><header class="die-panel-header"><p class="eyebrow">HOLE ${state.hole} / ${state.config.holeCount} · SHARED COURSE SLOTS</p><h1>${title}</h1><p id="die-prompt">${prompt}</p></header><section class="die-table"><section class="die-visual">${slotMachine}${resultTicket}<p>biome, layout, and rules stop independently; extra chaos reels modify the same generated hole.</p></section><div class="die-actions">${actions}</div><ol class="die-bettors">${bettors}</ol></section><section class="slot-reel-controls">${reelControls}</section><footer class="die-panel-footer"><span>${die.reels.length} reels · ${die.reels.reduce((total, reel) => total + totalWeight(reel), 0)} physical tickets</span><span id="die-timer">${die.phase === 'revealed' ? 'course commits when the reveal clock expires' : `${state.players.filter((player) => die.wagers[player.id]?.ready).length}/${state.players.length} ready · timer ${die.secondsLeft.toFixed(0)}s`}</span></footer></div></section>`;
 };
 
 const renderShopOverlay = (view: ViewModel) => {

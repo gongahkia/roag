@@ -1,4 +1,4 @@
-import { activePlayer, addMessage, cloneGameState, recordInstrumentation, tickDie } from './game-state';
+import { activePlayer, addMessage, cloneGameState, recordInstrumentation } from './game-state';
 import { distanceToCup, simulateShot, type BallPhysicsModifiers, type SimulationResult } from './physics';
 import { adjustedShotFor, caddyCount, canStorePowerUp, hasCaddy, physicsModifiersFor } from './player-effects';
 import { awardPowerUp } from './powerups';
@@ -224,13 +224,9 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
 };
 
 export const tickTurn = (current: GameState, elapsedSeconds: number): GameState => {
-  if ((current.status !== 'playing' && current.status !== 'shopping' && current.status !== 'rolling') || current.paused) return current;
+  if ((current.status !== 'playing' && current.status !== 'shopping') || current.paused) return current;
   const state = cloneGameState(current);
   const elapsed = Math.max(0, Number.isFinite(elapsedSeconds) ? elapsedSeconds : 0);
-  if (state.status === 'rolling') {
-    tickDie(state, elapsed);
-    return state;
-  }
   if (state.status === 'shopping') {
     tickShop(state, elapsed);
     return state;

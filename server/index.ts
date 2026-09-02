@@ -8,7 +8,6 @@ import { applyCommand, botMove, createGame, defaultConfig, tickTurn } from '../s
 import { CONTENT_BY_ID } from '../src/core/catalog';
 import { normalizeGameState } from '../src/core/game-state';
 import { chooseBotShopOffer } from '../src/core/shop';
-import { chooseBotDieAction } from '../src/core/bots';
 import type { CaddyId, Emote, GameCommand, GameState, PowerUp } from '../src/core/types';
 import type { ClientMessage, LobbyConfig, LobbyMember, RoomClock, RoomSnapshot, ServerMessage } from '../src/net/protocol';
 
@@ -94,10 +93,9 @@ const validConfig = (value: unknown): LobbyConfig | undefined => {
   const courseWidth = source.courseWidth === undefined ? 20 : Number(source.courseWidth);
   const courseHeight = source.courseHeight === undefined ? 14 : Number(source.courseHeight);
   const botSkill = source.botSkill === 'adaptive' ? 'adaptive' : Number(source.botSkill);
-  const skipDieBets = source.skipDieBets === true || source.skipVoting === true;
   const ruleset = source.ruleset === 'custom' ? 'custom' : 'party';
   if (!Number.isInteger(holeCount) || holeCount < 1 || holeCount > 18 || !Number.isInteger(botCount) || botCount < 0 || botCount > 4 || !Number.isInteger(maxHumans) || maxHumans < 1 || maxHumans > 8 || maxHumans + botCount > 12 || !Number.isSafeInteger(courseWidth) || courseWidth < 14 || !Number.isSafeInteger(courseHeight) || courseHeight < 10 || !Number.isSafeInteger(courseWidth * courseHeight) || courseWidth * courseHeight > maxCourseTiles || (botSkill !== 'adaptive' && (!Number.isInteger(botSkill) || botSkill < 1 || botSkill > 10))) return undefined;
-  return { seed, holeCount, botCount, botSkill, maxHumans, courseWidth, courseHeight, skipDieBets, ruleset };
+  return { seed, holeCount, botCount, botSkill, maxHumans, courseWidth, courseHeight, ruleset };
 };
 const validCommand = (value: unknown): GameCommand | undefined => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
@@ -107,11 +105,6 @@ const validCommand = (value: unknown): GameCommand | undefined => {
     const kind = shot.kind === 'chip' ? 'chip' : shot.kind === undefined || shot.kind === 'putt' ? 'putt' : undefined;
     return typeof shot.angle === 'number' && typeof shot.power === 'number' && Number.isFinite(shot.angle) && Number.isFinite(shot.power) && kind ? { type: 'shoot', shot: { angle: shot.angle, power: shot.power, kind } } : undefined;
   }
-  if (source.type === 'add-slot-stop' && typeof source.playerId === 'string' && typeof source.reelId === 'string' && source.playerId.length <= 24 && source.reelId.length <= 40) return { type: 'add-slot-stop', playerId: source.playerId, reelId: source.reelId };
-  if (source.type === 'augment-slot-stop' && typeof source.playerId === 'string' && typeof source.reelId === 'string' && typeof source.stopId === 'string' && source.playerId.length <= 24 && source.reelId.length <= 40 && source.stopId.length <= 96) return { type: 'augment-slot-stop', playerId: source.playerId, reelId: source.reelId, stopId: source.stopId };
-  if (source.type === 'add-chaos-reel' && typeof source.playerId === 'string' && source.playerId.length <= 24) return { type: 'add-chaos-reel', playerId: source.playerId };
-  if (source.type === 'contribute-reroll' && typeof source.playerId === 'string' && source.playerId.length <= 24) return { type: 'contribute-reroll', playerId: source.playerId };
-  if (source.type === 'ready-slot-spin' && typeof source.playerId === 'string' && source.playerId.length <= 24) return { type: 'ready-slot-spin', playerId: source.playerId };
   if (source.type === 'set-paused' && typeof source.paused === 'boolean') return { type: 'set-paused', paused: source.paused };
   if (source.type === 'arm-second-wind') return { type: 'arm-second-wind' };
   if (source.type === 'emote' && typeof source.playerId === 'string' && typeof source.emote === 'string' && emotes.has(source.emote)) return { type: 'emote', playerId: source.playerId, emote: source.emote as Emote };
@@ -169,13 +162,6 @@ const clockFor = (room: StoredRoom): RoomClock | undefined => {
     status: game.status,
     turnSecondsLeft: game.status === 'playing' ? game.turn.secondsLeft : undefined,
     hazardElapsedMs: game.hazardElapsedMs,
-    die: game.die ? {
-      phase: game.die.phase,
-      secondsLeft: game.die.secondsLeft,
-      rollSecondsLeft: game.die.roll?.secondsLeft,
-      revealedSecondsLeft: game.die.revealed?.secondsLeft,
-      rerollPotSecondsLeft: game.die.rerollPot?.secondsLeft,
-    } : undefined,
   };
 };
 
@@ -214,12 +200,10 @@ const updateGame = (room: StoredRoom, game: GameState) => {
 };
 
 const discreteStateChange = (previous: GameState, next: GameState) => {
-  const dieSignature = (game: GameState) => game.die ? `${game.die.phase}:${game.die.roll?.stopIds.join(',') ?? ''}:${game.die.revealed?.plan.id ?? ''}:${game.die.rerolls}` : '';
   return previous.status !== next.status
     || previous.paused !== next.paused
     || previous.turn.playerIndex !== next.turn.playerIndex
-    || previous.turn.shotInFlight !== next.turn.shotInFlight
-    || dieSignature(previous) !== dieSignature(next);
+    || previous.turn.shotInFlight !== next.turn.shotInFlight;
 };
 
 /** Advance elapsed gameplay time immediately before an authoritative action and on the room heartbeat. */
@@ -253,38 +237,6 @@ const scheduleAutomation = (room: StoredRoom) => {
         if (latest?.game?.status === 'transitioning' && !latest.game.paused) updateGame(latest, applyCommand(latest.game, { type: 'complete-transition' }));
       }, remaining);
     }
-    return;
-  }
-  if (game.status === 'rolling' && game.die && (game.die.phase === 'wagering' || game.die.phase === 'reroll-wagering')) {
-    const bot = game.players.find((player) => player.kind === 'bot' && !game.die!.wagers[player.id]?.ready);
-    if (!bot || current.botFor === `slot:${bot.id}`) return;
-    if (current.botTimeout) clearTimeout(current.botTimeout);
-    current.botFor = `slot:${bot.id}`;
-    current.botTimeout = setTimeout(() => {
-      current.botTimeout = undefined;
-      current.botFor = undefined;
-      const latest = rooms.get(room.code);
-      const die = latest?.game?.die;
-      if (!latest?.game || latest.game.paused || latest.game.status !== 'rolling' || !die || (die.phase !== 'wagering' && die.phase !== 'reroll-wagering') || die.wagers[bot.id]?.ready) return;
-      const action = chooseBotDieAction(latest.game.config.seed, latest.game.hole, bot, die);
-      updateGame(latest, applyCommand(latest.game, action));
-    }, 520);
-    return;
-  }
-  if (game.status === 'rolling' && game.die?.phase === 'revealed' && game.die.rerollPot) {
-    const bot = game.players.find((player) => player.kind === 'bot' && player.cash > 0 && !game.die!.rerollPot!.contributions[player.id]);
-    if (!bot || current.botFor === `reroll:${bot.id}`) return;
-    if (current.botTimeout) clearTimeout(current.botTimeout);
-    current.botFor = `reroll:${bot.id}`;
-    current.botTimeout = setTimeout(() => {
-      current.botTimeout = undefined;
-      current.botFor = undefined;
-      const latest = rooms.get(room.code);
-      const latestBot = latest?.game?.players.find((player) => player.id === bot.id);
-      if (!latest?.game || latest.game.paused || latest.game.status !== 'rolling' || latest.game.die?.phase !== 'revealed' || !latest.game.die.rerollPot || !latestBot || latestBot.cash < 1) return;
-      const wantsReroll = latest.game.holeRules.scoreMultiplier >= 1 || latestBot.skill === 'adaptive' || latestBot.skill >= 5;
-      if (wantsReroll) updateGame(latest, applyCommand(latest.game, { type: 'contribute-reroll', playerId: bot.id }));
-    }, 420);
     return;
   }
   if (game.status === 'shopping' && game.shop) {
@@ -347,7 +299,6 @@ const commandAllowed = (room: StoredRoom, session: Session, command: GameCommand
   if (command.type === 'set-paused') return session.playerId === room.hostId ? undefined : 'only the host can pause the room';
   if (game.paused) return 'the match is paused';
   const active = game.players[game.turn.playerIndex];
-  if (command.type === 'add-slot-stop' || command.type === 'augment-slot-stop' || command.type === 'add-chaos-reel' || command.type === 'contribute-reroll' || command.type === 'ready-slot-spin') return command.playerId === session.playerId ? undefined : 'you can only place your own slot wager';
   if (command.type === 'emote') return command.playerId === session.playerId ? undefined : 'you can only send your own emote';
   if (command.type === 'shop-vote-reroll') return command.playerId === session.playerId ? undefined : 'you can only cast your own merchant ballot';
   if (command.type === 'shop-buy' || command.type === 'shop-sell-caddy' || command.type === 'shop-skip') {
@@ -402,7 +353,7 @@ const startRoom = (session: Session) => {
   if (session.playerId !== room.hostId) return report(session, 'only the host can start the room');
   if (room.phase !== 'lobby') return report(session, 'room already started');
   if (room.members.some((member) => ![...sessions].some((candidate) => candidate.roomCode === room.code && candidate.playerId === member.id && candidate.socket.readyState === WebSocket.OPEN))) return report(session, 'wait for every player to reconnect');
-  const game = createGame({ seed: room.config.seed, holeCount: room.config.holeCount, botCount: room.config.botCount, botSkill: room.config.botSkill, humanCount: room.members.length, courseWidth: room.config.courseWidth, courseHeight: room.config.courseHeight, skipDieBets: room.config.skipDieBets === true, ruleset: room.config.ruleset });
+  const game = createGame({ seed: room.config.seed, holeCount: room.config.holeCount, botCount: room.config.botCount, botSkill: room.config.botSkill, humanCount: room.members.length, courseWidth: room.config.courseWidth, courseHeight: room.config.courseHeight, ruleset: room.config.ruleset });
   game.players.filter((player) => player.kind === 'human').forEach((player, index) => { player.name = room.members[index]!.name; });
   room.phase = 'game';
   roomTimersFor(room).clockAt = now();
@@ -457,10 +408,10 @@ const loadRooms = () => {
       if (room.code && room.config && room.members && room.reconnectTokens) {
         room.config.courseWidth ??= 20;
         room.config.courseHeight ??= 14;
-        const legacyConfig = room.config as LobbyConfig & { skipVoting?: boolean };
-        room.config.skipDieBets ??= legacyConfig.skipVoting === true;
+        const legacyConfig = room.config as LobbyConfig & { skipVoting?: boolean; skipDieBets?: boolean };
         room.config.ruleset ??= 'custom';
         delete legacyConfig.skipVoting;
+        delete legacyConfig.skipDieBets;
         if (room.game) room.game = normalizeGameState(room.game);
         rooms.set(room.code, room);
       }

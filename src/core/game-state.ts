@@ -73,15 +73,15 @@ export const normalizeGameState = (state: GameState): GameState => {
   state.config.courseHeight ??= COURSE_HEIGHT;
   const legacy = state as unknown as Omit<GameState, 'status' | 'config'> & {
     status: string;
-    vote?: { options?: CoursePackage[] };
+    vote?: unknown;
     assembly?: unknown;
-    config: GameConfig & { skipVoting?: boolean };
+    die?: unknown;
+    config: GameConfig & { skipVoting?: boolean; skipDieBets?: boolean };
   };
-  const hadLegacyVotingConfig = Object.hasOwn(legacy.config, 'skipVoting');
-  state.config.skipDieBets ??= legacy.config.skipVoting === true;
   // Existing saved campaigns retain their wider catalogue; new campaigns default to Party Rules.
   state.config.ruleset ??= 'custom';
   delete legacy.config.skipVoting;
+  delete legacy.config.skipDieBets;
   const normalizeTerrain = (terrain: ReturnType<typeof defaultTerrainSettings>) => {
     terrain.archetype ??= 'ribbon';
     terrain.sizeProfile ??= 'standard';
@@ -107,8 +107,6 @@ export const normalizeGameState = (state: GameState): GameState => {
     course.itemPads ??= [];
   };
   normalizeCourse(state.course);
-  const legacyDie = state.die as unknown as { faces?: CoursePackage[]; reels?: SlotReel[] } | undefined;
-  if (legacyDie?.faces && !legacyDie.reels) state.die = newDie(state.config, state.hole, state.players);
   state.gadgets ??= [];
   state.hazardElapsedMs ??= elapsedMsForPhase(state.coursePhase ?? 0);
   state.holeFinishSequence ??= 0;
@@ -125,9 +123,12 @@ export const normalizeGameState = (state: GameState): GameState => {
   });
   state.coursePlan ??= [];
   state.connections ??= [];
-  if (hadLegacyVotingConfig && !state.config.skipDieBets) state.coursePlan = state.coursePlan.slice(0, state.hole);
-  state.coursePlan.forEach((plan) => normalizeTerrain(plan.recipe.terrain));
-  if (state.status !== 'rolling' && state.coursePlan.length < state.hole) {
+  state.coursePlan.forEach((plan) => {
+    normalizeTerrain(plan.recipe.terrain);
+    const metadata = plan.recipe.metadata as (typeof plan.recipe.metadata & { resolvedReels?: { chaos?: ChaosModifier | ChaosModifier[] } }) | undefined;
+    if (metadata?.resolvedReels?.chaos && !Array.isArray(metadata.resolvedReels.chaos)) metadata.resolvedReels.chaos = [metadata.resolvedReels.chaos];
+  });
+  if (legacy.status !== 'rolling' && state.coursePlan.length < state.hole) {
     state.coursePlan.push({ id: `legacy-hole-${state.hole}`, label: `legacy hole ${state.hole}`, courseSeed: state.course.seed, recipe: { terrain: defaultTerrainSettings(), rules: { ...state.holeRules, sharedBoons: [...state.holeRules.sharedBoons] } } });
   }
   if (legacy.status === 'assembling') {
@@ -136,10 +137,18 @@ export const normalizeGameState = (state: GameState): GameState => {
   }
   if (legacy.status === 'voting') {
     delete legacy.vote;
-    state.status = 'rolling';
-    state.die = newDie(state.config, state.hole, state.players);
+    legacy.status = 'rolling';
   }
-  if (state.status === 'rolling' && !state.die) state.die = newDie(state.config, state.hole, state.players);
+  if (legacy.status === 'rolling') {
+    const plan = automaticPlanFor(state);
+    state.coursePlan = [...state.coursePlan.slice(0, state.hole - 1), plan];
+    delete legacy.die;
+    if (state.hole === 1) activatePlan(state, plan);
+    else {
+      state.transition = { next: clonePlan(plan) };
+      state.status = 'transitioning';
+    }
+  }
   state.emotes ??= [];
   state.emoteSequence ??= 0;
   state.instrumentation ??= { events: [] };
