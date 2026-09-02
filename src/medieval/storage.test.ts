@@ -7,6 +7,8 @@ import { causalReplayProjectionForWorldState } from './world-state'
 import { classifyMedievalContent } from './content-safety'
 import { DELEGATION_CONTRACT_VERSION, DELEGATION_TASK_DEFINITIONS, delegationTaskIdForOffer, type DelegationOfferInput } from './delegation'
 import { SeededRng } from './rng'
+import { assessCourierConversation } from './conversation'
+import { SOCIAL_MEMORY_LIMITS, socialMemoryRecallForPair } from './social-memory'
 
 type Handler = (() => void) | null
 
@@ -151,6 +153,32 @@ const delegatedWorld = (seed: string) => {
   throw new Error('fixture did not create an accepted delegated task')
 }
 
+/** Uses the public assessment/offer boundary; an interest mismatch always remains a real refusal. */
+const recurringRefusalOffer = (world: ReturnType<typeof createFoundationWorld>, id: string, recipientId?: string): DelegationOfferInput => {
+  const courierId = world.state.courier.initialCourierId
+  if (courierId === undefined) throw new Error('fixture requires a selected courier')
+  const recipients = [...world.state.people.records]
+    .filter(person => person.id !== courierId && (recipientId === undefined || person.id === recipientId))
+    .sort((left, right) => left.id.localeCompare(right.id))
+  for (const recipient of recipients) {
+    const definition = DELEGATION_TASK_DEFINITIONS.find(candidate => candidate.relevantMaterialInterests.every(interest => !recipient.materialInterests.includes(interest)))
+    if (!definition) continue
+    const proposal = {
+      version: DELEGATION_CONTRACT_VERSION,
+      kind: 'request' as const,
+      urgency: 'routine' as const,
+      complexity: 'routine' as const,
+      materialInterest: definition.relevantMaterialInterests[0]!,
+      contentSafety: classifyMedievalContent('contract', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
+    }
+    const assessment = assessCourierConversation(world, { version: DELEGATION_CONTRACT_VERSION, courierId, recipientId: recipient.id, proposal })
+    if (assessment.eligibility === 'eligible' && assessment.unlockedApproaches.includes('direct-request')) {
+      return { version: DELEGATION_CONTRACT_VERSION, id, courierId, recipientId: recipient.id, family: definition.family, approach: 'direct-request', proposal }
+    }
+  }
+  throw new Error('fixture did not find a public refusal offer')
+}
+
 describe('medieval local persistence', () => {
   it('uses only the medieval database and never reads or migrates the prototype database', async () => {
     const repository = new MedievalWorldRepository()
@@ -241,6 +269,46 @@ describe('medieval local persistence', () => {
     expect(reloadedCompleted?.state.autonomy).toEqual(completed.state.autonomy)
     expect(reloadedCompleted && replayFoundationWorldCausalHistory(reloadedCompleted)).toEqual(causalReplayProjectionForWorldState(completed.state))
   })
+
+  it('reloads bounded recurring social refusals after journal compaction and continues their real source-linked history', async () => {
+    const repository = new MedievalWorldRepository()
+    let world = chooseInitialCourier(createFoundationWorld({ seed: 'storage-recurring-social-refusals', configuration: { preset: 'far-coast' } }), 'crew:0')
+    const immutableFoundationMemories = world.state.people.records.map(person => ({ id: person.id, memories: person.memories.filter(memory => memory.kind === 'foundation-history') }))
+    const personCount = world.state.people.records.length
+    let recipientId: string | undefined
+
+    for (let index = 0; index < SOCIAL_MEMORY_LIMITS.retainedPersonalLinks + 2; index++) {
+      const offer = recurringRefusalOffer(world, `storage-recurring-refusal:${String(index).padStart(2, '0')}`, recipientId)
+      recipientId ??= offer.recipientId
+      world = offerFoundationWorldDelegatedTask(world, offer)
+      expect(world.state.delegation.tasks.find(task => task.offerId === offer.id)?.status).toBe('refused')
+    }
+    if (recipientId === undefined) throw new Error('fixture requires a repeated recipient')
+    const courierId = world.state.courier.initialCourierId!
+    const recurringRecipient = world.state.people.records.find(person => person.id === recipientId)!
+
+    expect(world.state.socialMemory.records).toHaveLength(SOCIAL_MEMORY_LIMITS.retainedPersonalLinks + 2)
+    expect(world.state.socialMemory.records.map(record => record.id)).toEqual([...world.state.socialMemory.records.map(record => record.id)].sort())
+    expect(world.state.socialMemory.records.filter(record => record.retention === 'household-record-only')).toHaveLength(2)
+    expect(recurringRecipient.memories.filter(memory => memory.kind === 'social-memory')).toHaveLength(SOCIAL_MEMORY_LIMITS.retainedPersonalLinks)
+    expect(world.state.people.records.map(person => ({ id: person.id, memories: person.memories.filter(memory => memory.kind === 'foundation-history') }))).toEqual(immutableFoundationMemories)
+    expect(world.state.people.records).toHaveLength(personCount)
+    expect(world.state.causalHistory.checkpoint.sequence).toBeGreaterThan(0)
+    expect(socialMemoryRecallForPair(world.state.socialMemory, courierId, recipientId)).toMatchObject({ band: 'unsettled' })
+    expect(replayFoundationWorldCausalHistory(world)).toEqual(causalReplayProjectionForWorldState(world.state))
+
+    await repository.saveWorld(world)
+    const loaded = await repository.loadWorld(world.id)
+    if (!loaded) throw new Error('valid recurring social history should reload')
+    expect(loaded).toEqual(world)
+
+    const continuedOffer = recurringRefusalOffer(loaded, 'storage-recurring-refusal:continued', recipientId)
+    const continued = offerFoundationWorldDelegatedTask(loaded, continuedOffer)
+    expect(continued.state.delegation.tasks.find(task => task.offerId === continuedOffer.id)?.status).toBe('refused')
+    expect(continued.state.people.records).toHaveLength(personCount)
+    expect(socialMemoryRecallForPair(continued.state.socialMemory, courierId, recipientId)).toMatchObject({ band: 'unsettled' })
+    expect(replayFoundationWorldCausalHistory(continued)).toEqual(causalReplayProjectionForWorldState(continued.state))
+  }, 20_000)
 
   it('rejects malformed local records instead of treating them as a medieval world', async () => {
     const repository = new MedievalWorldRepository()

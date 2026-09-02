@@ -204,12 +204,6 @@ describe('delegation/social/autonomy cross-contract regressions', () => {
     expect(cooperativeRecall.band).toBe('supportive')
 
     const refusalOffer = refusalOfferFor(completed, 'cross-recall-refusal', recipientId)
-    const beforeAssessment = assessCourierConversation(completed, {
-      version: DELEGATION_CONTRACT_VERSION,
-      courierId,
-      recipientId,
-      proposal: refusalOffer.proposal
-    })
     const relationships = structuredClone(completed.state.people.records.find(person => person.id === recipientId)?.relationships)
     const refused = offerFoundationWorldDelegatedTask(completed, refusalOffer)
     const refusedTask = refused.state.delegation.tasks.find(task => task.offerId === refusalOffer.id)
@@ -221,9 +215,6 @@ describe('delegation/social/autonomy cross-contract regressions', () => {
       recipientId,
       proposal: refusalOffer.proposal
     })
-    const readinessOrder = ['unlikely', 'conditional', 'open'] as const
-    const beforeReadiness = readinessOrder.indexOf(beforeAssessment.agreementReadiness as typeof readinessOrder[number])
-    const afterReadiness = readinessOrder.indexOf(afterAssessment.agreementReadiness as typeof readinessOrder[number])
     const sourceRecord = refused.state.socialMemory.records.find(record => record.id === recall.recordId)
     const sidebarRecord = createManagementSidebarModel(refused).sections
       .find(section => section.id === 'history')?.facts
@@ -233,7 +224,6 @@ describe('delegation/social/autonomy cross-contract regressions', () => {
     expect(recall).toMatchObject({ band: 'unsettled', occurredAtWorldTime: refusedTask.outcome?.atWorldTime })
     expect(afterAssessment.recipientRememberedContext).toBe('unsettled')
     expect(afterAssessment.factors).toContain('recipient-recall:unsettled')
-    expect(Math.abs(afterReadiness - beforeReadiness)).toBeLessThanOrEqual(1)
     expect(refused.state.people.records.find(person => person.id === recipientId)?.relationships).toEqual(relationships)
     expect(sourceRecord).toBeDefined()
     expect(sidebarRecord).toMatchObject({
@@ -243,6 +233,28 @@ describe('delegation/social/autonomy cross-contract regressions', () => {
       freshness: { kind: 'timeless' }
     })
     expect(sidebarRecord?.value).toMatchObject({ taskId: refusedTask.id, phase: 'offer-refused', disposition: 'declined' })
+
+    const unremembered = selectedWorld('delegation-cross-recall-step')
+    const stepOffer = refusalOfferFor(unremembered, 'cross-recall-step-refusal')
+    const baseline = assessCourierConversation(unremembered, {
+      version: DELEGATION_CONTRACT_VERSION,
+      courierId: stepOffer.courierId,
+      recipientId: stepOffer.recipientId,
+      proposal: stepOffer.proposal
+    })
+    const remembered = offerFoundationWorldDelegatedTask(unremembered, stepOffer)
+    const recalled = assessCourierConversation(remembered, {
+      version: DELEGATION_CONTRACT_VERSION,
+      courierId: stepOffer.courierId,
+      recipientId: stepOffer.recipientId,
+      proposal: stepOffer.proposal
+    })
+    const readinessOrder = ['unlikely', 'conditional', 'open'] as const
+    const baselineReadiness = readinessOrder.indexOf(baseline.agreementReadiness as typeof readinessOrder[number])
+    const recalledReadiness = readinessOrder.indexOf(recalled.agreementReadiness as typeof readinessOrder[number])
+    expect(baseline.recipientRememberedContext).toBe('none')
+    expect(recalled.recipientRememberedContext).toBe('unsettled')
+    expect(Math.abs(recalledReadiness - baselineReadiness)).toBeLessThanOrEqual(1)
   })
 
   it('derives autonomy only from time-bearing commands, gives active delegated work precedence, and rejects forged derived state', () => {
