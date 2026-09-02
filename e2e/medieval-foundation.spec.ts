@@ -123,6 +123,14 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-world-id', worldId!)
   await expect(game).toHaveAttribute('data-persistence', 'saved')
   await expect(game).toHaveAttribute('aria-label', /Jomon foundation world .* active courier/)
+  await expect(game).toHaveAttribute('data-terminal-presentation-version', '3')
+  await expect(game).toHaveAttribute('data-terminal-map-state', 'reserved-unmaterialized')
+  await expect(game).toHaveAttribute('data-terminal-status-count', '3')
+  await expect(game).toHaveAttribute('data-terminal-message-count', '0')
+  await expect(game).toHaveAttribute('data-terminal-message-state', 'empty')
+  await expect(game).toHaveAttribute('data-terminal-prompt-count', '0')
+  await expect(game).toHaveAttribute('aria-label', /Reserved unmaterialized map.*An active courier is selected.*Current world minute 0.*No current authoritative messages/i)
+  await page.screenshot({ path: '/tmp/jomon-phase15-terminal-status.png' })
   if (!worldId) throw new Error('created world should have a stable id')
 
   await expect(game).toHaveAttribute('data-management-visibility', 'expanded')
@@ -147,6 +155,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await page.keyboard.press('?')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'command-help')
   await expect(game).toHaveAttribute('aria-label', /Command help\. 13 remappable world controls/i)
+  await page.screenshot({ path: '/tmp/jomon-phase15-terminal-help.png' })
   await page.keyboard.press('Escape')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'overlay-dismissed')
@@ -156,13 +165,23 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('aria-label', /Context prompt open\. The only option is disabled/i)
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-option-disabled')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
+  await expect(game).toHaveAttribute('aria-label', /OPTION DISABLED.*NO CONTEXTUAL ACTION MATERIALIZED/i)
+  await page.screenshot({ path: '/tmp/jomon-phase15-terminal-prompt.png' })
   await page.keyboard.press('Escape')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-cancelled')
 
-  await page.keyboard.press('k')
-  await expect(game).toHaveAttribute('data-terminal-outcome', 'movement-unavailable')
-  await expect(game).toHaveAttribute('aria-label', /MAP RESERVED.*NORTH MOVEMENT UNAVAILABLE/i)
+  for (const movement of [
+    ['y', 'NORTH WEST'], ['k', 'NORTH'], ['u', 'NORTH EAST'], ['h', 'WEST'],
+    ['l', 'EAST'], ['b', 'SOUTH WEST'], ['j', 'SOUTH'], ['n', 'SOUTH EAST'],
+    ['ArrowUp', 'NORTH'], ['ArrowLeft', 'WEST'], ['ArrowRight', 'EAST'], ['ArrowDown', 'SOUTH']
+  ] as const) {
+    await page.keyboard.press(movement[0])
+    await expect(game).toHaveAttribute('data-terminal-outcome', 'movement-unavailable')
+    await expect(game).toHaveAttribute('aria-label', new RegExp(`MAP RESERVED.*${movement[1]} MOVEMENT UNAVAILABLE`, 'i'))
+  }
+  await page.screenshot({ path: '/tmp/jomon-phase15-terminal-movement.png' })
 
   await page.keyboard.press('F2')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'controls-editor')
@@ -171,6 +190,22 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-terminal-selected-control', 'move-north')
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-terminal-control-capture', 'pending')
+  await page.keyboard.press('l')
+  await expect(game).toHaveAttribute('data-terminal-control-capture', 'pending')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'controls-binding-rejected')
+  await expect(game).toHaveAttribute('aria-label', /BINDING REJECTED.*BINDING CONFLICT/i)
+  await page.keyboard.press('Escape')
+  await expect(game).toHaveAttribute('data-terminal-control-capture', 'idle')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'controls-capture-cancelled')
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('F2')
+  await expect(game).toHaveAttribute('data-terminal-control-capture', 'pending')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'controls-binding-rejected')
+  await expect(game).toHaveAttribute('aria-label', /BINDING REJECTED.*PROTECTED KEY/i)
+  await page.screenshot({ path: '/tmp/jomon-phase15-terminal-controls.png' })
+  await page.keyboard.press('Escape')
+  await expect(game).toHaveAttribute('data-terminal-control-capture', 'idle')
+  await page.keyboard.press('Enter')
   await page.keyboard.press('q')
   await expect(game).toHaveAttribute('data-terminal-control-capture', 'idle')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'controls-binding-saved')
@@ -183,12 +218,78 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
 
   await page.evaluate(() => document.querySelector<HTMLCanvasElement>('#game')?.blur())
   await expect.poll(() => page.evaluate(() => document.activeElement?.id ?? '')).toBe('')
+  await page.evaluate(() => {
+    const input = document.createElement('input')
+    input.id = 'outside-terminal-focus'
+    input.addEventListener('keydown', event => { document.documentElement.dataset.outsideTerminalKeyPrevented = String(event.defaultPrevented) })
+    document.body.append(input)
+    input.focus()
+  })
   await page.keyboard.press('?')
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.outsideTerminalKeyPrevented)).toBe('false')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
+  await page.evaluate(() => document.querySelector('#outside-terminal-focus')?.remove())
   await game.click()
   await page.waitForTimeout(300)
   await expect.poll(() => persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)
 
+  await page.evaluate(async id => new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open('jomon-medieval-worlds-v1')
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const database = request.result
+      const transaction = database.transaction(['catalog', 'worlds', 'chronicles'], 'readwrite')
+      const worldRead = transaction.objectStore('worlds').get(id)
+      const catalogRead = transaction.objectStore('catalog').get('world-index')
+      let pendingReads = 2
+      const writeChronicle = () => {
+        pendingReads -= 1
+        if (pendingReads !== 0) return
+        const world = worldRead.result as { manifest?: { creation?: { label?: string } } } | undefined
+        const catalog = catalogRead.result as { version?: number; activeWorlds?: unknown[]; chronicles?: Array<{ id: string }> } | undefined
+        if (!world?.manifest?.creation?.label || !catalog || !Array.isArray(catalog.activeWorlds) || !Array.isArray(catalog.chronicles)) {
+          transaction.abort()
+          reject(new Error('valid world and index are required for the chronicle keyboard fixture'))
+          return
+        }
+        transaction.objectStore('chronicles').put({
+          version: 12,
+          id: `chronicle:${id}`,
+          status: 'finalized',
+          reason: 'crew-extinction',
+          world
+        }, `chronicle:${id}`)
+        transaction.objectStore('catalog').put({
+          version: catalog.version,
+          activeWorlds: catalog.activeWorlds,
+          chronicles: [...catalog.chronicles.filter(entry => entry.id !== `chronicle:${id}`), {
+            id: `chronicle:${id}`,
+            label: world.manifest.creation.label,
+            reason: 'crew-extinction'
+          }].sort((left, right) => left.id.localeCompare(right.id))
+        }, 'world-index')
+      }
+      worldRead.onerror = () => { transaction.abort(); reject(worldRead.error) }
+      catalogRead.onerror = () => { transaction.abort(); reject(catalogRead.error) }
+      worldRead.onsuccess = writeChronicle
+      catalogRead.onsuccess = writeChronicle
+      transaction.oncomplete = () => { database.close(); resolve() }
+      transaction.onerror = () => { database.close(); reject(transaction.error) }
+      transaction.onabort = () => { database.close(); reject(transaction.error) }
+    }
+  }), worldId)
+  await page.reload()
+  await expect(game).toHaveAttribute('data-route', 'worlds')
+  await game.click()
+  await page.keyboard.press('c')
+  await expect(game).toHaveAttribute('data-route', 'chronicles')
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'chronicle')
+  const download = page.waitForEvent('download')
+  await page.keyboard.press('e')
+  await expect((await download).suggestedFilename()).toMatch(/-chronicle\.json$/u)
+  await page.keyboard.press('Escape')
+  await expect(game).toHaveAttribute('data-route', 'chronicles')
   await page.keyboard.press('Escape')
   await expect(game).toHaveAttribute('data-route', 'worlds')
   await page.keyboard.press('n')

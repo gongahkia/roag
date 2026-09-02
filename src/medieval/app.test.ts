@@ -20,6 +20,15 @@ describe('medieval canvas text bounds', () => {
     expect(lines.every(line => textWidth(line) <= 180)).toBe(true)
   })
 
+  it('keeps the explicit empty-message and disabled-prompt labels inside the reserved main-panel width', () => {
+    const context = { measureText: (text: string): TextMetrics => ({ width: textWidth(text) } as TextMetrics) }
+    const message = wrapMedievalCanvasText(context, 'MESSAGES // No current authoritative messages.', 445)
+    const prompt = wrapMedievalCanvasText(context, '! [ENTER] NO CONTEXTUAL ACTION // DISABLED', 445)
+
+    expect(message.every(line => textWidth(line) <= 445)).toBe(true)
+    expect(prompt.every(line => textWidth(line) <= 445)).toBe(true)
+  })
+
   it('keeps a long local-storage diagnostic within its reserved in-panel rows', () => {
     const drawn: { text: string; y: number }[] = []
     const context = {

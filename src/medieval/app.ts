@@ -5,7 +5,7 @@ import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE } from './palette'
 import { CREATION_SETTINGS_PROFILE_LIMIT, CREATION_SETTINGS_PROFILE_NAME_LIMIT, defaultCreationSettings, normalizeCreationSeed, resolveCreationSettings, type CreationSettings, type CreationSettingsProfile, type CreationSettingsRecord } from './settings'
 import { MedievalWorldRepository } from './storage'
 import { MutableWorldSession } from './session'
-import { cancelTerminalPrompt, createReservedMapContextualPrompt, type TerminalPrompt } from './terminal-presentation'
+import { cancelTerminalPrompt, createReservedMapContextualPrompt, createTerminalPresentationModel, type TerminalPrompt } from './terminal-presentation'
 import { TERMINAL_CONTROL_IDS, captureTerminalControlBinding, createTerminalCommandHelpModel, createTerminalControlsEditorModel, cycleTerminalControlSelection, defaultTerminalControlPreferences, resetAllTerminalControls, resetTerminalControl, resolveTerminalWorldCommand, type TerminalControlId, type TerminalControlPreferences, type TerminalMovementDirection } from './terminal-controls'
 import type { FoundationWorld, MedievalRoute, WorldChronicle, WorldIndex } from './types'
 import { chronicleExport, chooseInitialCourier, createFoundationWorld } from './world'
@@ -947,8 +947,8 @@ export class MedievalApp {
   private worldOverlayAccessibleSummary(): string {
     const outcome = this.terminalOutcomeText()
     if (this.worldOverlay === 'contextual-prompt') return `Context prompt open. The only option is disabled because no physical action surface is materialized. Escape cancels without changing time.${outcome ? ` ${outcome}` : ''}`
-    if (this.worldOverlay === 'command-help') return `${createTerminalCommandHelpModel(this.terminalControls).accessibilitySummary} Escape closes help.`
-    if (this.worldOverlay === 'controls-editor') return createTerminalControlsEditorModel(this.terminalControls, this.selectedTerminalControlId, this.terminalControlCapturePending).accessibilitySummary
+    if (this.worldOverlay === 'command-help') return `${createTerminalCommandHelpModel(this.terminalControls).accessibilitySummary} Escape closes help.${outcome ? ` ${outcome}` : ''}`
+    if (this.worldOverlay === 'controls-editor') return `${createTerminalControlsEditorModel(this.terminalControls, this.selectedTerminalControlId, this.terminalControlCapturePending).accessibilitySummary}${outcome ? ` ${outcome}` : ''}`
     return outcome ?? 'No terminal overlay is open.'
   }
 
@@ -957,7 +957,7 @@ export class MedievalApp {
     if (this.worldOverlay === 'contextual-prompt') {
       row(context, 2, 'CONTEXT PROMPT // MAP RESERVED', palette.titleText, panel.x)
       renderBoundedMedievalCanvasRows(context, 4, 6, 'No contextual action or physical prop is materialized at this reserved map viewport.', palette.mutedText, panel.x, panel.width)
-      row(context, 8, '! [ENTER] NO CONTEXTUAL ACTION // DISABLED', palette.warningText, panel.x)
+      renderBoundedMedievalCanvasRows(context, 8, 9, '! [ENTER] NO CONTEXTUAL ACTION // DISABLED', palette.warningText, panel.x, panel.width)
       renderBoundedMedievalCanvasRows(context, 10, 11, 'The option has no domain action and cannot advance world time.', palette.mutedText, panel.x, panel.width)
       rule(context, 18, panel.x, panel.x + panel.width)
       renderBoundedMedievalCanvasRows(context, 20, 22, outcome ?? 'ENTER acknowledges disabled option // ESC cancel prompt', outcome ? palette.warningText : palette.actionText, panel.x, panel.width)
@@ -979,7 +979,7 @@ export class MedievalApp {
     }
     const editor = createTerminalControlsEditorModel(this.terminalControls, this.selectedTerminalControlId, this.terminalControlCapturePending)
     row(context, 2, 'WORLD CONTROLS // LOCAL UI ONLY', palette.titleText, panel.x)
-    renderBoundedMedievalCanvasRows(context, 3, 3, this.terminalControlCapturePending ? 'CAPTURE ONE KEY // ESC CANCELS UNCHANGED' : 'SELECT A CONTROL // ARROWS MOVE', this.terminalControlCapturePending ? palette.warningText : palette.mutedText, panel.x, panel.width)
+    renderBoundedMedievalCanvasRows(context, 3, 3, this.terminalControlCapturePending ? 'CAPTURE KEY // ESC CANCELS' : 'SELECT A CONTROL // ARROWS MOVE', this.terminalControlCapturePending ? palette.warningText : palette.mutedText, panel.x, panel.width)
     let line = 5
     for (const entry of editor.entries) {
       if (line > 17) break
@@ -994,6 +994,9 @@ export class MedievalApp {
     const world = this.world
     if (!world) { this.route = 'worlds'; this.render(); return 0 }
     const courier = world.crew.find(member => member.id === world.state.courier.initialCourierId)
+    // The canvas is only an adapter: immediate status and the explicit empty
+    // message surface come from the renderer-neutral terminal model.
+    const terminal = createTerminalPresentationModel(world)
     if (!this.managementSidebar) this.resetManagementSidebar()
     const model = this.managementSidebar
     if (!model) throw new Error('management sidebar model is unavailable')
@@ -1010,7 +1013,13 @@ export class MedievalApp {
     this.canvas.dataset.terminalSelectedControl = this.selectedTerminalControlId
     this.canvas.dataset.terminalOutcome = this.terminalInteractionOutcome?.kind ?? 'none'
     this.canvas.dataset.terminalControlsVersion = String(this.terminalControls.version)
-    this.canvas.setAttribute('aria-label', `Jomon foundation world ${world.manifest.creation.label}, active courier ${courier?.name ?? 'unassigned'}. ${managementSidebarAccessibleSummary(model, selectedSection, this.managementExpanded)} ${this.worldOverlayAccessibleSummary()}`)
+    this.canvas.dataset.terminalPresentationVersion = String(terminal.version)
+    this.canvas.dataset.terminalMapState = terminal.map.state
+    this.canvas.dataset.terminalStatusCount = String(terminal.status.length)
+    this.canvas.dataset.terminalMessageCount = String(terminal.messages.length)
+    this.canvas.dataset.terminalMessageState = terminal.messages.length ? 'available' : 'empty'
+    this.canvas.dataset.terminalPromptCount = String(terminal.prompts.length)
+    this.canvas.setAttribute('aria-label', `Jomon foundation world ${world.manifest.creation.label}, active courier ${courier?.name ?? 'unassigned'}. ${terminal.accessibility.conciseSummary} ${terminal.accessibility.mapText} ${terminal.accessibility.statusText.join(' ')} ${terminal.accessibility.messageText.join(' ')} ${managementSidebarAccessibleSummary(model, selectedSection, this.managementExpanded)} ${this.worldOverlayAccessibleSummary()}`)
     const panels = worldPanels(this.managementExpanded)
     context.strokeStyle = palette.panelBorder
     context.strokeRect(panels.main.x - 8.5, 108.5, panels.main.width + 16, 480)
@@ -1018,7 +1027,8 @@ export class MedievalApp {
       row(context, 2, `${world.manifest.creation.label.toUpperCase()} // MAP RESERVED`, palette.titleText, panels.main.x)
       renderBoundedMedievalCanvasRows(context, 4, 5, `ACTIVE COURIER  ${courier?.name.toUpperCase() ?? 'UNASSIGNED'} // ${courier?.role.toUpperCase() ?? 'NONE'}`, palette.statusReady, panels.main.x, panels.main.width)
       renderBoundedMedievalCanvasRows(context, 6, 7, `SEED ${world.manifest.creation.seed} // WORLD TIME ${world.state.temporal.worldTime}`, palette.bodyText, panels.main.x, panels.main.width)
-      let line = renderBoundedMedievalCanvasRows(context, 9, 12, 'The primary panel is reserved for the future map. No spatial marks or hidden regional state are shown here.', palette.mutedText, panels.main.x, panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 8, 9, `MESSAGES // ${terminal.accessibility.messageText.join(' ')}`, palette.mutedText, panels.main.x, panels.main.width)
+      let line = renderBoundedMedievalCanvasRows(context, 10, 12, 'The primary panel is reserved for the future map. No spatial marks or hidden regional state are shown here.', palette.mutedText, panels.main.x, panels.main.width)
       line = renderBoundedMedievalCanvasRows(context, Math.max(14, line + 1), 17, 'Management lists household-known facts only. Direct actions, notices, messages, ledgers, and conversations remain separate surfaces.', palette.mutedText, panels.main.x, panels.main.width)
       rule(context, 18, panels.main.x, panels.main.x + panels.main.width)
       const defaultHelp = this.managementExpanded
