@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MedievalWorldRepository } from './storage'
 import { CREATION_SETTINGS_PROFILE_LIMIT, defaultCreationSettings } from './settings'
 import { MEDIEVAL_DATABASE_NAME } from './types'
-import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, offerFoundationWorldDelegatedTask, recordDurableJomonGrowth, replayFoundationWorldCausalHistory } from './world'
+import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, offerFoundationWorldDelegatedTask, recordDurableJomonGrowth, replayFoundationWorldCausalHistory, validateFoundationWorld } from './world'
 import { causalReplayProjectionForWorldState } from './world-state'
 import { classifyMedievalContent } from './content-safety'
 import { DELEGATION_CONTRACT_VERSION, DELEGATION_TASK_DEFINITIONS, delegationTaskIdForOffer, type DelegationOfferInput } from './delegation'
@@ -310,6 +310,31 @@ describe('medieval local persistence', () => {
     expect(socialMemoryRecallForPair(continued.state.socialMemory, courierId, recipientId)).toMatchObject({ band: 'unsettled' })
     expect(replayFoundationWorldCausalHistory(continued)).toEqual(causalReplayProjectionForWorldState(continued.state))
   }, 20_000)
+
+  it('contains forged autonomy, task, and social-memory state at both full-world and local-storage boundaries', async () => {
+    const repository = new MedievalWorldRepository()
+    const selected = chooseInitialCourier(createFoundationWorld({ seed: 'storage-forged-social-domains', configuration: { preset: 'far-coast' } }), 'crew:0')
+    const refused = offerFoundationWorldDelegatedTask(selected, recurringRefusalOffer(selected, 'storage-forged-social-domains:refusal'))
+    const valid = advanceFoundationWorldTime(refused, {
+      id: 'storage-forged-social-domains:observe', kind: 'wait', durationMinutes: 120,
+      contentSafety: classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
+    })
+    const forgedAutonomy = structuredClone(valid)
+    ;(forgedAutonomy.state.autonomy.observations[0] as { token: number }).token++
+    const forgedTask = structuredClone(valid)
+    ;(forgedTask.state.delegation.tasks[0] as { outcome: { token: number } }).outcome.token++
+    const forgedSocial = structuredClone(valid)
+    forgedSocial.state.socialMemory.records[0]!.token = 'forged'
+
+    await repository.saveWorld(valid)
+    for (const [kind, forged] of [['autonomy', forgedAutonomy], ['task', forgedTask], ['social', forgedSocial]] as const) {
+      expect(validateFoundationWorld(forged)).not.toEqual([])
+      await expect(repository.saveWorld(forged)).rejects.toThrow('invalid medieval world')
+      fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(`world:forged-${kind}`, forged)
+      await expect(repository.loadWorld(`world:forged-${kind}`)).resolves.toBeUndefined()
+    }
+    expect(await repository.loadWorld(valid.id)).toEqual(valid)
+  }, 15_000)
 
   it('rejects malformed local records instead of treating them as a medieval world', async () => {
     const repository = new MedievalWorldRepository()

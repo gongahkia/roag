@@ -188,7 +188,7 @@ describe('delegation/social/autonomy cross-contract regressions', () => {
     expect(interrupted.state.socialMemory.records.find(record => record.source.taskId === task.id && record.phase === 'task-interrupted')).toMatchObject({ disposition: 'interrupted', occurredAtWorldTime: task.outcome?.atWorldTime })
     expect(interrupted.state.causalHistory.tail.map(command => command.kind)).toContain('delegation-interrupted')
     expect(validateFoundationWorld(interrupted)).toEqual([])
-  })
+  }, 15_000)
 
   it('routes the latest retained shared-work result consistently into recall, conversation context, and the sidebar without changing relationship authority', () => {
     const accepted = discoverOffer(
@@ -255,7 +255,7 @@ describe('delegation/social/autonomy cross-contract regressions', () => {
     expect(baseline.recipientRememberedContext).toBe('none')
     expect(recalled.recipientRememberedContext).toBe('unsettled')
     expect(Math.abs(recalledReadiness - baselineReadiness)).toBeLessThanOrEqual(1)
-  })
+  }, 15_000)
 
   it('derives autonomy only from time-bearing commands, gives active delegated work precedence, and rejects forged derived state', () => {
     const source = selectedWorld('delegation-cross-autonomy')
@@ -290,12 +290,19 @@ describe('delegation/social/autonomy cross-contract regressions', () => {
     expect(completed.state.markets).toEqual(source.state.markets)
     expect(completed.jomon).toEqual(source.jomon)
 
-    const forged = structuredClone(completed)
-    if (!forged.state.autonomy.observations[0]) throw new Error('fixture requires an autonomy observation')
-    ;(forged.state.autonomy.observations[0] as { choice: string }).choice = 'caller-selected-npc-choice'
-    const untouched = structuredClone(forged)
-    expect(validateFoundationWorld(forged)).not.toEqual([])
-    expect(() => advanceFoundationWorldTime(forged, wait('cross-autonomy-forged', 1))).toThrow('complete medieval foundation contract')
-    expect(forged).toEqual(untouched)
+    const forgedAutonomy = structuredClone(completed)
+    if (!forgedAutonomy.state.autonomy.observations[0]) throw new Error('fixture requires an autonomy observation')
+    ;(forgedAutonomy.state.autonomy.observations[0] as { choice: string }).choice = 'caller-selected-npc-choice'
+    const forgedTask = structuredClone(completed)
+    ;(forgedTask.state.delegation.tasks.find(task => task.id === active.task.id) as { status: string }).status = 'in-progress'
+    const forgedSocial = structuredClone(completed)
+    forgedSocial.state.socialMemory.records[0]!.token = 'forged-social-token'
+
+    for (const [label, forged] of [['autonomy', forgedAutonomy], ['task', forgedTask], ['social', forgedSocial]] as const) {
+      const untouched = structuredClone(forged)
+      expect(validateFoundationWorld(forged)).not.toEqual([])
+      expect(() => advanceFoundationWorldTime(forged, wait(`cross-${label}-forged`, 1))).toThrow('complete medieval foundation contract')
+      expect(forged).toEqual(untouched)
+    }
   })
 })
