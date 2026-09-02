@@ -6,7 +6,7 @@ import { INITIAL_WORLD_GENERATION_DIAGNOSTICS_VERSION, INITIAL_WORLD_GENERATOR_V
 import { normalizeCreationSeed } from './settings'
 import { advanceMedievalTemporalState, createMedievalTemporalState, isMedievalTemporalState, type TemporalCommand, type TemporalProvenance, type TimeBearingTemporalAction } from './temporal'
 import { causalReplayProjectionForWorldState, createMedievalWorldState, isMedievalWorldState, type MedievalWorldState, type WorldAutonomyState, type WorldDelegationState, type WorldPeopleState } from './world-state'
-import { createFidelityPlan } from './fidelity'
+import { createFidelityPlanForVerifiedWorld } from './fidelity'
 import { advanceSimulationCatchUpState, reconcileSimulationCatchUpPlanState, resolveDelegatedWorkPlaceholder, validateSimulationCatchUpPlanState, withDelegatedWorkPlaceholder } from './simulation-catchup'
 import { advanceWorldEraForTemporalAction, recordDurableJomonGrowthEvidence, type DurableJomonGrowthEvidence, type WorldEraContext } from './world-era'
 import { appendCausalCommand, causalReplayProjection, createCausalCommand, replayCausalHistory, validateCausalHistoryReplay, type CausalCommandEvent, type CausalHistoryContext, type CausalReplayProjection } from './causal-history'
@@ -499,7 +499,7 @@ export const foundationWorldCatchUpStateMatches = (world: FoundationWorld): bool
         && world.state.simulation.delegatedWork.length === 0
         && world.state.simulation.records.length === 0
     }
-    const plan = createFidelityPlan({ world, activeCourierId: courierId, loadedLocations: [] })
+    const plan = createFidelityPlanForVerifiedWorld(world, courierId)
     return validateSimulationCatchUpPlanState(world.state.simulation, plan).length === 0
   } catch { return false }
 }
@@ -509,7 +509,7 @@ export const foundationWorldAutonomyStateMatches = (world: FoundationWorld): boo
   try {
     const courierId = world.state.courier.initialCourierId
     if (courierId === undefined) return world.state.autonomy.observations.length === 0
-    const plan = createFidelityPlan({ world, activeCourierId: courierId, loadedLocations: [] })
+    const plan = createFidelityPlanForVerifiedWorld(world, courierId)
     return validateAutonomyPlanState({
       worldId: world.id,
       creationDigest: world.manifest.creation.digest,
@@ -578,7 +578,7 @@ const advanceTimeProjection = (world: FoundationWorld, projection: CausalReplayP
   const beforeAction = worldFromProjection(world, projection)
   const courierId = beforeAction.state.courier.initialCourierId
   if (courierId === undefined) throw new Error('time-bearing simulation requires an active courier')
-  const beforePlan = createFidelityPlan({ world: beforeAction, activeCourierId: courierId, loadedLocations: [] })
+  const beforePlan = createFidelityPlanForVerifiedWorld(beforeAction, courierId)
   const catchUp = advanceSimulationCatchUpState(projection.simulation, beforePlan, transition.action)
   const delegation = advanceDelegatedTasks({
     worldId: world.id,
@@ -611,10 +611,10 @@ const advanceTimeProjection = (world: FoundationWorld, projection: CausalReplayP
   const finalWorld = worldFromProjection(world, finalProjection)
   const simulation = reconcileSimulationCatchUpPlanState(
     resolvedSimulation,
-    createFidelityPlan({ world: finalWorld, activeCourierId: courierId, loadedLocations: [] })
+    createFidelityPlanForVerifiedWorld(finalWorld, courierId)
   )
   const autonomyWorld = worldFromProjection(world, causalReplayProjection({ ...finalProjection, simulation }))
-  const finalPlan = createFidelityPlan({ world: autonomyWorld, activeCourierId: courierId, loadedLocations: [] })
+  const finalPlan = createFidelityPlanForVerifiedWorld(autonomyWorld, courierId)
   const autonomy = advanceAutonomyState(
     projection.autonomy,
     {
@@ -661,7 +661,7 @@ const recordGrowthProjection = (world: FoundationWorld, projection: CausalReplay
   // An era profile is an input to choice explanation, so zero-time durable
   // growth reprojects observations without advancing needs or scheduling work.
   const advancedWorld = worldFromProjection(world, advanced)
-  const plan = createFidelityPlan({ world: advancedWorld, activeCourierId: courierId, loadedLocations: [] })
+  const plan = createFidelityPlanForVerifiedWorld(advancedWorld, courierId)
   const autonomy = reconcileAutonomyState(advanced.autonomy, {
     worldId: world.id,
     creationDigest: world.manifest.creation.digest,
@@ -720,9 +720,9 @@ const offerDelegationProjection = (world: FoundationWorld, projection: CausalRep
     delegation: transition.state
   })
   const offeredWorld = worldFromProjection(world, offeredProjection)
-  const reconciledSimulation = reconcileSimulationCatchUpPlanState(simulation, createFidelityPlan({ world: offeredWorld, activeCourierId: offer.courierId, loadedLocations: [] }))
+  const reconciledSimulation = reconcileSimulationCatchUpPlanState(simulation, createFidelityPlanForVerifiedWorld(offeredWorld, offer.courierId))
   const autonomyWorld = worldFromProjection(world, causalReplayProjection({ ...offeredProjection, simulation: reconciledSimulation }))
-  const plan = createFidelityPlan({ world: autonomyWorld, activeCourierId: offer.courierId, loadedLocations: [] })
+  const plan = createFidelityPlanForVerifiedWorld(autonomyWorld, offer.courierId)
   const autonomy = reconcileAutonomyState(offeredProjection.autonomy, {
     worldId: world.id,
     creationDigest: world.manifest.creation.digest,
@@ -759,9 +759,9 @@ const interruptDelegationProjection = (world: FoundationWorld, projection: Causa
     delegation: transition.state
   })
   const interruptedWorld = worldFromProjection(world, interruptedProjection)
-  const reconciledSimulation = reconcileSimulationCatchUpPlanState(simulation, createFidelityPlan({ world: interruptedWorld, activeCourierId: interruption.courierId, loadedLocations: [] }))
+  const reconciledSimulation = reconcileSimulationCatchUpPlanState(simulation, createFidelityPlanForVerifiedWorld(interruptedWorld, interruption.courierId))
   const autonomyWorld = worldFromProjection(world, causalReplayProjection({ ...interruptedProjection, simulation: reconciledSimulation }))
-  const plan = createFidelityPlan({ world: autonomyWorld, activeCourierId: interruption.courierId, loadedLocations: [] })
+  const plan = createFidelityPlanForVerifiedWorld(autonomyWorld, interruption.courierId)
   const autonomy = reconcileAutonomyState(interruptedProjection.autonomy, {
     worldId: world.id,
     creationDigest: world.manifest.creation.digest,

@@ -320,13 +320,11 @@ export const validateFidelityPlanningRequest = (value: unknown): readonly Fideli
  * windows; it does not add temporal events or alter world records, so browser
  * idle/inspection cannot gain simulation authority.
  */
-export const createFidelityPlan = (request: FidelityPlanningRequest | unknown): FidelityPlan => {
-  const diagnostics = validateFidelityPlanningRequest(request)
-  if (diagnostics.length) throw new FidelityPlanningContractError(diagnostics)
-  const { world, activeCourierId } = request as FidelityPlanningRequest
+const planForValidatedRequest = (request: FidelityPlanningRequest): FidelityPlan => {
+  const { world, activeCourierId } = request
   const budget = budgetFor(world.manifest.creation.resolvedConfiguration.simulationFidelity)
   const implicitJomonSite = currentJomonSite(world)
-  const additional = (request as FidelityPlanningRequest).loadedLocations.map(location => ({ kind: location.kind, id: location.id })).sort((left, right) => compare(locationKey(left), locationKey(right)))
+  const additional = request.loadedLocations.map(location => ({ kind: location.kind, id: location.id })).sort((left, right) => compare(locationKey(left), locationKey(right)))
   const loadedLocations = [
     { kind: 'jomon' as const, id: world.jomon.id },
     ...(implicitJomonSite === undefined ? [] : [implicitJomonSite]),
@@ -356,6 +354,33 @@ export const createFidelityPlan = (request: FidelityPlanningRequest | unknown): 
     places,
     institutions
   }
+}
+
+/**
+ * Public fail-closed planner. It validates all immutable and mutable inputs
+ * before creating an ephemeral fidelity plan.
+ */
+export const createFidelityPlan = (request: FidelityPlanningRequest | unknown): FidelityPlan => {
+  const diagnostics = validateFidelityPlanningRequest(request)
+  if (diagnostics.length) throw new FidelityPlanningContractError(diagnostics)
+  return planForValidatedRequest(request as FidelityPlanningRequest)
+}
+
+/**
+ * Internal reducer/replay helper for an already fully validated foundation
+ * world. It deliberately accepts no UI locations and must not be used as a
+ * storage or public-input validation boundary. Rechecking immutable world
+ * generation for every replayed command is redundant and makes a bounded
+ * journal needlessly action-count expensive; public entry points still call
+ * `createFidelityPlan`/`validateFoundationWorld` first.
+ */
+export const createFidelityPlanForVerifiedWorld = (world: FoundationWorld, activeCourierId: string): FidelityPlan => {
+  if (!record(world) || world.version !== 12 || world.status !== 'active' || !record(world.manifest) || !record(world.manifest.creation) || !record(world.state)
+    || world.state.courier?.initialCourierId !== activeCourierId
+    || !world.state.people?.records.some(person => person.id === activeCourierId && person.life.status === 'living' && person.work.availability === 'available')) {
+    throw new FidelityPlanningContractError([issue('fidelity:verified-world', 'fidelity.invalid-world')])
+  }
+  return planForValidatedRequest({ world, activeCourierId, loadedLocations: [] })
 }
 
 export class FidelityPlanningContractError extends Error {
