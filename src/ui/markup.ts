@@ -1,6 +1,6 @@
 import { EMOTES, type ChronoCard, type CoursePackage, type GadgetKind, type GameConfig, type GameState, type HoleRules, type Point, type PowerUp, type ShotCommand } from '../core/types';
 import { definitionFor } from '../core/catalog';
-import { partyAwardsFor, partyPacingFor, partyReceiptsFor } from '../core/party-insights';
+import { partyAwardsFor, partyPacingFor } from '../core/party-insights';
 import { rulesetFor, trickCardDetails } from '../core/rulesets';
 import { bindingFor, type GamePreferences, type ShortcutId } from '../preferences';
 
@@ -123,7 +123,6 @@ export const renderControlsMarkup = (view: ViewModel) => {
     ${player.secondWindAvailable && !player.twoPuttsArmed ? `<button id="second-wind" ${disabled ? 'disabled' : ''}>use second wind: two putts</button>` : ''}
     ${state.turn.cardPlayed ? '<p class="control-status">one card committed this turn</p>' : ''}
     ${state.players.some((candidate) => candidate.attachments?.length) ? `<div class="card-effects"><strong>table cards</strong>${state.players.filter((candidate) => candidate.attachments?.length).map((candidate) => `<p><i style="background:${candidate.color}"></i>${escapeHtml(candidate.name)} · ${candidate.attachments!.map((attachment) => `${escapeHtml(attachment.cardId)} (${attachment.remaining} ${attachment.unit}${attachment.remaining === 1 ? '' : 's'})`).join(', ')}</p>`).join('')}</div>` : ''}
-    ${ruleset.id === 'party' ? renderSocialReceipts(state) : ''}
     ${preferences.showPartyDiagnostics && ruleset.id === 'party' ? (() => { const pacing = partyPacingFor(state); return `<p class="party-diagnostics">diagnostics · ${pacing.measuredTurns ? `${pacing.measuredTurns} measured turns · p90 ${pacing.p90TurnSeconds?.toFixed(1)}s` : 'waiting for completed decisions'} · active-hole median ${pacing.medianHoleSeconds?.toFixed(1) ?? '—'}s</p>`; })() : ''}`;
 };
 
@@ -141,24 +140,17 @@ export const partyGuidePanelFor = (state: GameState, preferences: GamePreference
     2: { step, eyebrow: 'COURSE BRIEFING', title: 'Read the three route roles.', body: 'Safe is wide and steady. Skill rewards timing or a clean chip. Conflict passes through contested space where balls and gadgets can matter.' },
     3: { step, eyebrow: 'YOUR SHOT', title: 'Pull, aim, commit.', body: 'Left-drag makes a grounded putt. Right-drag makes a chip. The line and strength meter are a preview—not a random accuracy roll.' },
     4: { step, eyebrow: 'TRICK CARDS', title: 'One visible trick per shot.', body: 'Cards say who or what they affect and when they expire. Self cards improve your line; attack cards must name a target or obstacle.' },
-    5: { step, eyebrow: 'SOCIAL RECEIPTS', title: 'Make chaos attributable.', body: 'Ball hits, cards, gadgets, and recoveries leave short receipts. If another golfer changes your line, the game names the cause.' },
-    6: { step, eyebrow: 'THE CLUBHOUSE', title: 'Choose one card or pass.', body: 'The shared shelf is deliberately small. Watch the table’s choices, then keep only the trick you want to carry forward.' },
-    7: { step, eyebrow: 'CONNECTED COURSE', title: 'The disaster keeps growing.', body: 'Each cup becomes the next tee. Earlier holes stay visible as an atlas, while only the current hole’s hazards stay active.' },
+    5: { step, eyebrow: 'THE CLUBHOUSE', title: 'Choose one card or pass.', body: 'The shared shelf is deliberately small. Watch the table’s choices, then keep only the trick you want to carry forward.' },
+    6: { step, eyebrow: 'CONNECTED COURSE', title: 'The disaster keeps growing.', body: 'Each cup becomes the next tee. Earlier holes stay visible as an atlas, while only the current hole’s hazards stay active.' },
   };
   const panel = panels[step];
   if (!panel) return undefined;
   if (step === 0 && state.status !== 'finished') return panel;
   if (step === 1 && state.status === 'playing') return panel;
-  if (step >= 2 && step <= 5 && state.status === 'playing') return panel;
-  if (step === 6 && state.status === 'shopping') return panel;
-  if (step === 7 && (state.status === 'transitioning' || state.hole > 1 || state.status === 'finished')) return panel;
+  if (step >= 2 && step <= 4 && state.status === 'playing') return panel;
+  if (step === 5 && state.status === 'shopping') return panel;
+  if (step === 6 && (state.status === 'transitioning' || state.hole > 1 || state.status === 'finished')) return panel;
   return undefined;
-};
-
-const renderSocialReceipts = (state: GameState) => {
-  const receipts = partyReceiptsFor(state);
-  if (!receipts.length) return '<section class="social-receipts"><strong>social receipts</strong><p>Clean shot so far. Ball contact, cards, and recoveries are named here.</p></section>';
-  return `<section class="social-receipts" aria-live="polite"><strong>social receipts</strong><ol>${receipts.map((receipt) => `<li class="${receipt.kind}">${escapeHtml(receipt.text)}</li>`).join('')}</ol></section>`;
 };
 
 const shortcutRows = (preferences: GamePreferences, rebinding: ShortcutId | undefined, interactive = false) => ['shoot', 'powerDown', 'powerUp', 'usePowerUp', 'pause', 'help', 'settings'].map((id) => {
@@ -281,7 +273,7 @@ const renderHandoff = (view: ViewModel) => {
 const renderPartyGuide = (view: ViewModel) => {
   const panel = partyGuidePanelFor(view.state, view.preferences);
   if (!panel) return '';
-  return `<section class="party-guide" role="dialog" aria-modal="true" aria-label="Party Rules guide"><div><p class="eyebrow">${escapeHtml(panel.eyebrow)}</p><h2>${escapeHtml(panel.title)}</h2><p>${escapeHtml(panel.body)}</p><footer><button data-skip-party-guide>skip guide</button><button class="primary" data-next-party-guide>${panel.step === 7 ? 'finish guide' : 'got it'}</button></footer></div></section>`;
+  return `<section class="party-guide" role="dialog" aria-modal="true" aria-label="Party Rules guide"><div><p class="eyebrow">${escapeHtml(panel.eyebrow)}</p><h2>${escapeHtml(panel.title)}</h2><p>${escapeHtml(panel.body)}</p><footer><button data-skip-party-guide>skip guide</button><button class="primary" data-next-party-guide>${panel.step === 6 ? 'finish guide' : 'got it'}</button></footer></div></section>`;
 };
 
 const renderInspector = (view: ViewModel) => {
@@ -308,5 +300,5 @@ export const renderAppMarkup = (view: ViewModel) => {
   const progress = `HOLE <b>${state.hole}</b> / ${state.config.holeCount}`;
   const shellState = state.status === 'shopping' ? 'shopping' : state.status === 'transitioning' ? 'transitioning' : state.status === 'finished' ? 'finished' : '';
   const roomLabel = view.multiplayer.online ? `ONLINE · ${escapeHtml(view.multiplayer.roomCode ?? 'connecting')}` : view.multiplayer.controllerName ? `LOCAL PLAY · PAD · ${escapeHtml(view.multiplayer.controllerName)}` : 'LOCAL PLAY';
-  return `<main class="app-shell ${shellState}"><section class="topbar"><div class="brand"><p class="eyebrow">${roomLabel}</p><h1>GOLF <em>WITH YOUR</em> ENEMIES</h1></div><div class="title-actions"><button data-toggle-pause ${state.status === 'finished' ? 'disabled' : ''}>pause</button><button data-drawer="run" class="${view.drawer === 'run' ? 'selected' : ''}" aria-expanded="${view.drawer === 'run'}">run</button><button data-drawer="intel" class="${view.drawer === 'intel' ? 'selected' : ''}" aria-expanded="${view.drawer === 'intel'}">intel</button><button data-open-overlay="help">? help</button><button class="icon-button" data-open-overlay="settings" aria-label="open settings" title="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="M19.4 13.5a7.7 7.7 0 0 0 .1-1.5 7.7 7.7 0 0 0-.1-1.5l2-1.5-2-3.4-2.4 1a8 8 0 0 0-2.6-1.5L14.1 2h-4l-.4 3.1a8 8 0 0 0-2.6 1.5l-2.4-1-2 3.4 2 1.5a7.7 7.7 0 0 0-.1 1.5c0 .5 0 1 .1 1.5l-2 1.5 2 3.4 2.4-1a8 8 0 0 0 2.6 1.5l.4 3.1h4l.4-3.1a8 8 0 0 0 2.6-1.5l2.4 1 2-3.4-2.1-1.5Z"/></svg></button><div class="hole">${progress}<br><small>${escapeHtml(state.course.seed)}</small></div></div></section><section class="layout"><section class="board panel"><div class="course-stage"><canvas id="course" aria-label="isometric arcade mini golf course"></canvas>${renderMatchHud(view)}<div id="callouts" class="callouts" aria-live="polite">${renderCallouts(view.callouts)}</div></div><div id="controls" class="controls"></div></section></section>${renderDrawer(view)}</main>${renderShopOverlay(view)}${renderResultsOverlay(view)}${renderPauseOverlay(view)}${renderOverlay(view)}`;
+  return `<main class="app-shell ${shellState}"><section class="topbar"><div class="brand"><p class="eyebrow">${roomLabel}</p><h1>GOLF <em>WITH YOUR</em> ENEMIES</h1></div><div class="title-actions"><button data-toggle-pause ${state.status === 'finished' ? 'disabled' : ''}>pause</button><button data-drawer="run" class="${view.drawer === 'run' ? 'selected' : ''}" aria-expanded="${view.drawer === 'run'}">run</button><button data-drawer="intel" class="${view.drawer === 'intel' ? 'selected' : ''}" aria-expanded="${view.drawer === 'intel'}">intel</button><button data-open-overlay="help">? help</button><button class="icon-button" data-open-overlay="settings" aria-label="open settings" title="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="M19.4 13.5a7.7 7.7 0 0 0 .1-1.5 7.7 7.7 0 0 0-.1-1.5l2-1.5-2-3.4-2.4 1a8 8 0 0 0-2.6-1.5L14.1 2h-4l-.4 3.1a8 8 0 0 0-2.6 1.5l-2.4-1-2 3.4 2 1.5a7.7 7.7 0 0 0-.1 1.5c0 .5 0 1 .1 1.5l-2 1.5 2 3.4 2.4-1a8 8 0 0 0 2.6 1.5l.4 3.1h4l.4-3.1a8 8 0 0 0 2.6-1.5l2.4 1 2-3.4-2.1-1.5Z"/></svg></button><div class="hole">${progress}<br><small>${escapeHtml(state.course.seed)}</small></div></div></section><section class="layout"><section class="board panel"><div class="course-stage"><canvas id="course" aria-label="isometric arcade mini golf course"></canvas><div id="callouts" class="callouts" aria-live="polite">${renderCallouts(view.callouts)}</div></div><section class="match-rail" aria-label="match status and controls">${renderMatchHud(view)}<div id="controls" class="controls"></div></section></section></section>${renderDrawer(view)}</main>${renderShopOverlay(view)}${renderResultsOverlay(view)}${renderPauseOverlay(view)}${renderOverlay(view)}`;
 };

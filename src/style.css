@@ -389,9 +389,7 @@ dd { margin: 0; overflow-wrap: anywhere; color: var(--text); }
   .home-actions { grid-template-columns: 1fr; }
 }
 
-/* Original low-resolution arcade presentation.  The canvas itself is rendered
-   at a fixed pixel framebuffer; these rules give the surrounding interface the
-   same sharp, cabinet-like language without imitating a specific game. */
+/* A compact arcade palette for the surrounding interface. */
 :root {
   color-scheme: dark;
   --ink: #070819;
@@ -411,7 +409,7 @@ dd { margin: 0; overflow-wrap: anywhere; color: var(--text); }
   font-family: "Pixelify Sans", "BigBlueTerm437 Nerd Font Mono", ui-monospace, monospace;
 }
 
-body { background: #070819; image-rendering: pixelated; }
+body { background: #070819; image-rendering: auto; }
 button, input, select, textarea { font-family: inherit; border-radius: 0; }
 button { border: 2px solid #697cc7; padding: .38rem .52rem; color: var(--text); background: #20295d; box-shadow: 3px 3px 0 #050611; transition: none; }
 button:hover:not(:disabled), button.selected { border-color: var(--gold); color: #fff8d8; background: #34458d; box-shadow: 3px 3px 0 #050611; transform: translate(-1px, -1px); }
@@ -431,7 +429,7 @@ h1 em { color: #f1d058; }
 .hole { border-left-color: #6274bc; color: #70cfd4; font-size: .62rem; }
 
 .app-shell .board, .app-shell .course-stage { background: #070819; }
-.app-shell canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+.app-shell canvas { image-rendering: auto; }
 .course-stage { background: #070819; }
 .app-shell .controls { bottom: .7rem; width: min(860px, calc(100% - 18rem)); min-height: 0; max-height: 32vh; overflow: auto; border: 2px solid #6274bc; border-radius: 0; padding: .45rem .55rem; background: #111744f5; box-shadow: 4px 4px 0 #050611; }
 .controls label, .control-status, .muted, .hint, .legend { color: #c2d1e3; }
@@ -509,6 +507,7 @@ h1 em { color: #f1d058; }
 .title-golf-ball, .match-loading-ball { border-color: #70cfd4; background: radial-gradient(circle at 32% 27%, #fff6cf 0 10%, transparent 11%), radial-gradient(circle at 65% 72%, #5066a8 0 7%, transparent 8%), radial-gradient(circle at 37% 67%, #33427f 0 6%, transparent 7%), linear-gradient(135deg, #b7e8e3, #4d68b2); box-shadow: inset -.5rem -.6rem .8rem #242b68, .35rem .52rem .7rem #050611; }
 .title-golf-ball::after, .match-loading-ball::after { border-color: #f1d058; }
 .course-intro, .home-notice { border-radius: 0; }
+.high-contrast { --ink: #02030d; --night: #090e31; --panel: #121947; --panel-raised: #35468f; --line: #9eb3ff; --line-bright: #fff39a; --text: #ffffff; --dim: #dce5ff; --gold: #fff39a; --green: #8ff8f0; --red: #ff9ea2; --blue: #b7c9ff; --chaos: #e1b1ff; }
 
 @media (max-width: 720px) {
   .app-shell .topbar { min-height: 3.4rem; }
@@ -523,3 +522,144 @@ h1 em { color: #f1d058; }
   .hud-camera { right: .4rem; bottom: .4rem; }
   .reaction-dock { display: none; }
 }
+
+/* The course owns the screen; all match information lives in one persistent,
+   visibly partitioned rail beneath it instead of floating over the playfield. */
+.app-shell .layout, .app-shell .board { height: 100svh; min-height: 100svh; }
+.app-shell .board { display: grid; grid-template-rows: minmax(0, 1fr) auto; overflow: hidden; }
+.app-shell .course-stage { min-height: 0; height: auto; }
+.app-shell .course-stage canvas { height: 100%; min-height: 0; image-rendering: auto; }
+
+.match-rail {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: minmax(152px, 1.1fr) minmax(118px, .75fr) minmax(162px, .95fr) minmax(220px, 1.55fr) auto auto;
+  grid-template-areas:
+    "course turn leaderboard strength camera reactions"
+    "controls controls controls controls controls controls";
+  max-height: min(36svh, 17rem);
+  overflow: auto;
+  border-top: 2px solid #f1d058;
+  background: #111744;
+  box-shadow: 0 -3px 0 #050611;
+}
+
+.match-hud { position: static; z-index: auto; inset: auto; display: contents; pointer-events: none; }
+.hud-course, .hud-timer, .hud-leaderboard, .hud-strength, .reaction-dock, .hud-camera {
+  position: static;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  align-self: stretch;
+  box-sizing: border-box;
+  min-width: 0;
+  width: auto;
+  max-height: none;
+  border: 0;
+  border-left: 1px solid #495b9d;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  transform: none;
+}
+.hud-course { grid-area: course; padding: .42rem .55rem; }
+.hud-timer { grid-area: turn; padding: .42rem .55rem; }
+.hud-leaderboard { grid-area: leaderboard; overflow: visible; padding: .35rem .45rem; }
+.hud-strength { grid-area: strength; padding: .42rem .55rem; }
+.hud-camera { grid-area: camera; display: grid; align-content: center; padding: .35rem .45rem; }
+.reaction-dock { grid-area: reactions; display: grid; align-content: center; padding: .35rem .45rem; pointer-events: auto; }
+.reaction-dock > div { display: flex; flex-wrap: wrap; }
+.hud-camera > div { grid-template-columns: 1.55rem minmax(4.5rem, auto) 1.55rem; }
+
+.app-shell .controls {
+  position: static;
+  z-index: auto;
+  grid-area: controls;
+  width: auto;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  overflow: visible;
+  border: 0;
+  border-top: 1px solid #495b9d;
+  border-radius: 0;
+  padding: .45rem .65rem;
+  background: #0d1130;
+  box-shadow: none;
+  transform: none;
+}
+
+.capture-mode .match-rail { display: none; }
+.capture-mode .board { grid-template-rows: minmax(0, 1fr); }
+
+@media (max-width: 980px) {
+  .match-rail {
+    grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1fr);
+    grid-template-areas:
+      "course turn leaderboard"
+      "strength strength camera"
+      "controls controls reactions";
+  }
+}
+
+@media (max-width: 720px) {
+  .match-rail {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "course turn"
+      "leaderboard camera"
+      "strength strength"
+      "controls controls"
+      "reactions reactions";
+    max-height: 46svh;
+  }
+  .reaction-dock { display: grid; }
+  .hud-course, .hud-timer, .hud-leaderboard, .hud-strength, .reaction-dock, .hud-camera { min-width: 0; }
+  .hud-leaderboard li:nth-child(n + 5) { display: grid; }
+}
+
+/* Merchant offers are physical arcade placards: a simple frame, a category
+   colour stripe, and an icon bay rather than a soft collectible-card treatment. */
+.merchant-shelf { perspective: none; }
+.merchant-card {
+  --merchant-accent: #f1d058;
+  padding: 0;
+  border: 3px solid var(--merchant-accent);
+  background: #171d4a;
+  color: #fff1c7;
+  box-shadow: 6px 6px 0 #050611, inset 0 0 0 2px #29346d;
+  transition: transform 90ms steps(2, end), box-shadow 90ms steps(2, end);
+}
+.merchant-card.merchant-reality { --merchant-accent: #b783e6; background: #24205b; }
+.merchant-card.merchant-chrono { --merchant-accent: #70cfd4; background: #143c55; }
+.merchant-card.merchant-gadget { --merchant-accent: #ef6f73; background: #4b2548; }
+.merchant-card.merchant-form { --merchant-accent: #df8a4f; background: #4a2e3e; }
+.merchant-card:hover:not(.sold) { transform: translate(-3px, -3px); box-shadow: 9px 9px 0 #050611, inset 0 0 0 2px #3e519c; }
+.merchant-card::before { position: absolute; z-index: 1; top: 2.1rem; right: 0; left: 0; height: .28rem; background: var(--merchant-accent); content: ''; }
+.merchant-card::after { inset: 5px; border-color: #8495d266; }
+.merchant-card-top { padding: .55rem .6rem .48rem; border-bottom: 0; background: #0d1130; }
+.merchant-card-top small, .merchant-card-top b { color: var(--merchant-accent); letter-spacing: .1em; }
+.merchant-card-icon {
+  flex: 0 0 clamp(4.9rem, 9vh, 6.7rem);
+  min-height: 0;
+  margin: .82rem .65rem .45rem;
+  border: 2px solid var(--merchant-accent);
+  border-radius: 0;
+  background: repeating-linear-gradient(135deg, #0b0e2a 0 8px, #151d4d 8px 16px);
+  color: #fff1c7;
+  font-size: clamp(3rem, 4.25vw, 4.6rem);
+  text-shadow: 3px 3px 0 #070819;
+  filter: none;
+}
+.merchant-card h3 { margin: .15rem .65rem .32rem; color: #fff1c7; font-size: .84rem; letter-spacing: .065em; text-transform: uppercase; }
+.merchant-card p { margin: 0 .65rem; color: #c9d5ec; font-size: .61rem; line-height: 1.38; }
+.card-lifetime { margin: .45rem .65rem 0; color: var(--merchant-accent); }
+.merchant-card footer { min-height: 2.15rem; margin-top: auto; padding: .48rem .65rem; border-top: 1px solid #4c5e9d; background: #0d1130; }
+.merchant-card footer button { border-color: var(--merchant-accent); color: #111633; background: var(--merchant-accent); box-shadow: 2px 2px 0 #050611; }
+.merchant-card footer button:hover:not(:disabled) { background: #fff1c7; }
+.merchant-card.sold { filter: none; transform: none; opacity: .72; }
+.merchant-card.sold .merchant-card-icon { color: #aebad7; border-color: #7181b6; background: #10153a; text-shadow: 2px 2px 0 #050611; }
+.merchant-card.sold footer { color: #d2dbef; font-size: .58rem; letter-spacing: .12em; text-shadow: none; }

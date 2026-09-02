@@ -745,14 +745,15 @@ interface PaintOptions { overviewProgress?: number; overviewFocus?: Ball; tileAn
 const tileKey = (tile: Pick<VisibleTile, 'x' | 'y'>) => `${tile.x}:${tile.y}`;
 const FRAME_WIDTH = 320;
 const FRAME_HEIGHT = 180;
+const FRAME_RESOLUTION_SCALE = 2;
 
 export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   const displayContext = canvas.getContext('2d')!;
   const framebuffer = document.createElement('canvas');
-  framebuffer.width = FRAME_WIDTH;
-  framebuffer.height = FRAME_HEIGHT;
+  framebuffer.width = FRAME_WIDTH * FRAME_RESOLUTION_SCALE;
+  framebuffer.height = FRAME_HEIGHT * FRAME_RESOLUTION_SCALE;
   const context = framebuffer.getContext('2d')!;
-  context.imageSmoothingEnabled = false;
+  context.imageSmoothingEnabled = true;
   type CourseFrame = { kind: 'course'; course: Course; players: Player[]; hazardElapsedMs: number; aim?: ShotCommand; emotes: readonly EmoteEvent[]; showItems: boolean; phaseCount: number; buildProgress?: number; gadgets: readonly Gadget[]; placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }; focus?: Ball; options?: PaintOptions; camera?: CourseCamera };
   type LatestFrame = CourseFrame | { kind: 'construction'; frame: CourseConstructionFrame };
   let latest: LatestFrame | undefined;
@@ -761,7 +762,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   const presentationFor = () => {
     const rect = canvas.getBoundingClientRect();
     const fit = Math.min(rect.width / FRAME_WIDTH, rect.height / FRAME_HEIGHT);
-    const scale = fit >= 1 ? Math.floor(fit) : fit;
+    const scale = fit;
     const width = FRAME_WIDTH * scale;
     const height = FRAME_HEIGHT * scale;
     return { rect, scale, x: (rect.width - width) / 2, y: (rect.height - height) / 2, width, height };
@@ -779,7 +780,8 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     const ratio = window.devicePixelRatio || 1;
     const presentation = presentationFor();
     displayContext.setTransform(1, 0, 0, 1, 0, 0);
-    displayContext.imageSmoothingEnabled = false;
+    displayContext.imageSmoothingEnabled = true;
+    displayContext.imageSmoothingQuality = 'high';
     displayContext.fillStyle = '#070819';
     displayContext.fillRect(0, 0, canvas.width, canvas.height);
     displayContext.drawImage(
@@ -822,7 +824,9 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
   const paint = (course: Course, players: Player[], hazardElapsedMs: number, aim: ShotCommand | undefined, emotes: readonly EmoteEvent[], showItems: boolean, phaseCount: number, buildProgress?: number, gadgets: readonly Gadget[] = [], placement?: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, focus?: Ball, options: PaintOptions = {}, camera?: CourseCamera, previousFocus?: Ball) => {
     const width = FRAME_WIDTH;
     const height = FRAME_HEIGHT;
-    context.clearRect(0, 0, width, height);
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, framebuffer.width, framebuffer.height);
+    context.setTransform(FRAME_RESOLUTION_SCALE, 0, 0, FRAME_RESOLUTION_SCALE, 0, 0);
     context.fillStyle = '#070819';
     context.fillRect(0, 0, width, height);
     context.fillStyle = '#121740';
@@ -840,7 +844,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     const layout = overviewLayout
       ? { ...overviewLayout, tiles: visibleTilesFor(course, overviewLayout.metrics) }
       : layoutFor(course, focus, true, camera, previousFocus);
-    const { metrics, offset, followsFocus, tiles: allTiles } = layout;
+    const { metrics, offset, tiles: allTiles } = layout;
     const tiles = allTiles.filter((tile) => visibleInViewport(tile, offset, width, height, metrics));
     const directions = [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }];
     const clampedBuild = buildProgress === undefined ? undefined : Math.max(0, Math.min(1, buildProgress));
@@ -911,13 +915,6 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     [...players].sort((left, right) => left.ball.y - right.ball.y).forEach((player) => drawBall(context, player, offset, metrics));
     drawEmotes(context, players, emotes, offset, metrics);
     context.restore();
-    if (followsFocus || camera?.mode === 'free') {
-      context.fillStyle = '#070c1de0';
-      context.font = '7px "Pixelify Sans", monospace';
-      context.textAlign = 'right';
-      context.textBaseline = 'bottom';
-      context.fillText(camera?.mode === 'free' ? 'FREE ROAM' : 'FOLLOW CAM', width - 12, height - 10);
-    }
     present();
   };
 
@@ -941,7 +938,8 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     const { width, height } = canvas.getBoundingClientRect();
     canvas.width = Math.max(1, Math.floor(width * ratio));
     canvas.height = Math.max(1, Math.floor(height * ratio));
-    displayContext.imageSmoothingEnabled = false;
+    displayContext.imageSmoothingEnabled = true;
+    displayContext.imageSmoothingQuality = 'high';
     if (!latest) return;
     if (latest.kind === 'construction') paintConstruction(latest.frame);
     else paint(latest.course, latest.players, latest.hazardElapsedMs, latest.aim, latest.emotes, latest.showItems, latest.phaseCount, latest.buildProgress, latest.gadgets, latest.placement, latest.focus, latest.options, latest.camera);
