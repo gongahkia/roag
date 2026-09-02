@@ -7,26 +7,26 @@ export interface ProjectionMetrics { tileWidth: number; tileHeight: number; elev
 interface VisibleTile { x: number; y: number; tile: Tile; heights: [number, number, number, number]; corners: Point[]; center: Point; }
 
 const topColors: Record<Surface, string> = {
-  void: '#10152b',
-  fairway: '#4fb16d',
-  rough: '#28734e',
-  sand: '#e7b959',
-  ice: '#6bd0d4',
-  wall: '#a97955',
-  tee: '#a8e279',
-  cup: '#d9f09e',
-  booster: '#f06b4d',
-  conveyor: '#4b83d2',
-  cushion: '#8ca85d',
-  spring: '#b66ddb',
-  bumper: '#dc4a6b',
+  void: '#070819',
+  fairway: '#5369ac',
+  rough: '#343e79',
+  sand: '#f0c95a',
+  ice: '#6fced4',
+  wall: '#e2764f',
+  tee: '#c6e27a',
+  cup: '#fff1b8',
+  booster: '#ef5e4d',
+  conveyor: '#71cad3',
+  cushion: '#8fb46d',
+  spring: '#b783e6',
+  bumper: '#e76470',
 };
 
 const faceColors = {
-  light: '#2c7c57',
-  dark: '#174937',
-  wallLight: '#c18b61',
-  wallDark: '#704731',
+  light: '#40529a',
+  dark: '#232b5a',
+  wallLight: '#ef9a55',
+  wallDark: '#ad4d45',
 };
 
 export interface Renderer {
@@ -58,16 +58,16 @@ export interface CourseConstructionFrame {
 
 const themeTopColors: Record<Course['theme'], Partial<Record<Surface, string>>> = {
   balanced: {},
-  speedway: { fairway: '#5577c6', rough: '#30498d', booster: '#ffbd4a', conveyor: '#65c7dd' },
-  'hazard-run': { fairway: '#b56b51', rough: '#743b42', sand: '#e8aa53', booster: '#f05b42' },
-  'ice-rink': { fairway: '#73cdd6', rough: '#3d92b6', ice: '#c3f1e6', sand: '#b3d2cf' },
-  quarry: { fairway: '#a99a63', rough: '#6b6845', sand: '#d8ad63', wall: '#89745f' },
-  drift: { fairway: '#c88d61', rough: '#96525a', sand: '#e7bd76', ice: '#86c6c5' },
-  bloom: { fairway: '#bd77b5', rough: '#713f7c', sand: '#edb3bf', booster: '#f37ca9' },
-  pulse: { fairway: '#4d6aa8', rough: '#293e78', sand: '#a3afd1', booster: '#ef5b8a', conveyor: '#a76bd7' },
-  carnival: { fairway: '#db7476', rough: '#a13f5c', spring: '#a969df', bumper: '#f24e69', booster: '#ffc14a' },
-  marsh: { fairway: '#769e61', rough: '#3f7043', cushion: '#a3b858', sand: '#b99b58', ice: '#6cb3a7' },
-  zephyr: { fairway: '#5da9c1', rough: '#397b94', ice: '#a9e5e1', conveyor: '#58b5d2', spring: '#8c87dc' },
+  speedway: { fairway: '#5a73c0', rough: '#344386', booster: '#f1d058', conveyor: '#74d6da' },
+  'hazard-run': { fairway: '#bd6c5b', rough: '#6b365d', sand: '#f0c95a', booster: '#ef5e4d' },
+  'ice-rink': { fairway: '#65bfcb', rough: '#395397', ice: '#a9e6df', sand: '#d7e3be' },
+  quarry: { fairway: '#8995a9', rough: '#4b5272', sand: '#f0c95a', wall: '#e78c56' },
+  drift: { fairway: '#746aa8', rough: '#3d376d', sand: '#f0c95a', ice: '#75cfd2' },
+  bloom: { fairway: '#946cbc', rough: '#4b397a', sand: '#f0c95a', booster: '#ef6f73' },
+  pulse: { fairway: '#546bb2', rough: '#29396f', sand: '#f0c95a', booster: '#ef6f73', conveyor: '#b783e6' },
+  carnival: { fairway: '#c66b85', rough: '#713858', spring: '#b783e6', bumper: '#ef6f73', booster: '#f1d058' },
+  marsh: { fairway: '#819c69', rough: '#405d50', cushion: '#a8c875', sand: '#f0c95a', ice: '#70c7c7' },
+  zephyr: { fairway: '#639ebd', rough: '#39718b', ice: '#9bddd7', conveyor: '#70cfd4', spring: '#9388d8' },
 };
 
 const topColorFor = (course: Course, surface: Surface, theme = course.theme) => themeTopColors[theme]?.[surface] ?? topColors[surface];
@@ -224,7 +224,7 @@ const drawSide = (context: CanvasRenderingContext2D, tile: VisibleTile, edge: nu
   const wall = tile.tile.surface === 'wall';
   context.fillStyle = wall ? (brighter ? faceColors.wallLight : faceColors.wallDark) : (brighter ? faceColors.light : faceColors.dark);
   context.fill();
-  context.fillStyle = brighter ? '#f7db8f55' : '#07142666';
+  context.fillStyle = brighter ? '#fff0b455' : '#07081988';
   for (let stripe = 4; stripe < Math.max(...depths); stripe += 6) {
     context.fillRect(Math.floor(Math.min(face[0].x, face[1].x)), Math.floor(Math.max(face[0].y, face[1].y) + stripe), Math.ceil(Math.abs(face[1].x - face[0].x)), 1);
   }
@@ -237,13 +237,13 @@ const drawPattern = (context: CanvasRenderingContext2D, tile: VisibleTile, offse
   context.clip();
   const inset = metrics.tileWidth * .19;
   if (tile.tile.surface === 'fairway') {
-    context.fillStyle = '#d7f27a38';
+    context.fillStyle = '#fff1a838';
     for (let stripe = -2; stripe <= 2; stripe += 1) context.fillRect(Math.floor(center.x - inset), Math.floor(center.y + stripe * 3), Math.ceil(inset * 2), 1);
   } else if (tile.tile.surface === 'rough') {
-    context.fillStyle = '#143d3c';
+    context.fillStyle = '#18235b';
     for (let dot = -1; dot <= 1; dot += 1) context.fillRect(Math.floor(center.x + dot * 4), Math.floor(center.y + (dot % 2) * 3), 2, 2);
   } else if (tile.tile.surface === 'sand') {
-    context.strokeStyle = '#fff0a0aa';
+    context.strokeStyle = '#fff1b8aa';
     context.lineWidth = 1;
     for (let line = -2; line <= 2; line += 1) {
       context.beginPath();
@@ -259,10 +259,10 @@ const drawPattern = (context: CanvasRenderingContext2D, tile: VisibleTile, offse
     context.lineTo(center.x + inset, center.y - 3);
     context.stroke();
   } else if (tile.tile.surface === 'cushion') {
-    context.fillStyle = '#e2ee8c55';
+    context.fillStyle = '#fff1a855';
     for (let stripe = -2; stripe <= 2; stripe += 1) context.fillRect(Math.floor(center.x - inset), Math.floor(center.y + stripe * 3), Math.ceil(inset * 2), 1);
   } else if (tile.tile.surface === 'spring') {
-    context.fillStyle = '#fff5ffcc';
+    context.fillStyle = '#fff1b8cc';
     for (let spring = -1; spring <= 1; spring += 1) {
       context.beginPath();
       context.moveTo(center.x + spring * 5 - 3, center.y + 4);
@@ -271,17 +271,17 @@ const drawPattern = (context: CanvasRenderingContext2D, tile: VisibleTile, offse
       context.fill();
     }
   } else if (tile.tile.surface === 'bumper') {
-    context.fillStyle = '#fff0f3';
+    context.fillStyle = '#fff1b8';
     context.fillRect(center.x - inset, center.y - 2, inset * 2, 4);
-    context.strokeStyle = '#702842';
+    context.strokeStyle = '#6b365d';
     context.lineWidth = 1.2;
     context.strokeRect(center.x - inset, center.y - 2, inset * 2, 4);
   } else if (tile.tile.surface === 'tee') {
-    context.fillStyle = '#f9fff4';
+    context.fillStyle = '#fff6cf';
     context.fillRect(center.x - inset, center.y - 2, inset * 2, 4);
   } else if (tile.tile.surface === 'cup') {
     const size = metrics.tileWidth * .16;
-    context.fillStyle = '#204e2a';
+    context.fillStyle = '#17245d';
     context.fillRect(center.x - size, center.y - size / 2, size * 2, size);
     context.fillStyle = '#ffffff';
     context.fillRect(center.x - size, center.y - size / 2, size, size / 2);
@@ -825,9 +825,9 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     context.clearRect(0, 0, width, height);
     context.fillStyle = '#10152b';
     context.fillRect(0, 0, width, height);
-    context.fillStyle = '#1a2444';
+    context.fillStyle = '#121740';
     for (let y = 4; y < height; y += 8) for (let x = (y / 8 % 2) * 4; x < width; x += 8) context.fillRect(x, y, 1, 1);
-    context.strokeStyle = '#30426166';
+    context.strokeStyle = '#303d7a88';
     context.lineWidth = 1;
     for (let x = -height; x < width + height; x += 32) {
       context.beginPath();
@@ -867,7 +867,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
       polygon(context, tile.corners.map((point) => withOffset(point, offset)));
       context.fillStyle = topColorFor(course, tile.tile.surface, tile.tile.theme);
       context.fill();
-      context.strokeStyle = '#0a1a29';
+      context.strokeStyle = '#12163d';
       context.lineWidth = Math.max(1, Math.floor(metrics.tileWidth * .03));
       context.stroke();
       drawPattern(context, tile, offset, metrics);
@@ -893,7 +893,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
         context.beginPath();
         context.moveTo(path[0]!.x, path[0]!.y);
         path.slice(1).forEach((point) => context.lineTo(point.x, point.y));
-        context.strokeStyle = aim.kind === 'chip' ? '#c87824' : '#1d5527';
+        context.strokeStyle = aim.kind === 'chip' ? '#ef6f73' : '#f1d058';
         context.setLineDash(aim.kind === 'chip' ? [3, 3] : [4, 4]);
         context.lineWidth = 2;
         context.stroke();
@@ -902,7 +902,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
           const landing = path.at(-1)!;
           context.beginPath();
           context.arc(landing.x, landing.y, Math.max(3, metrics.tileWidth * .07), 0, Math.PI * 2);
-          context.strokeStyle = '#c87824';
+          context.strokeStyle = '#ef6f73';
           context.lineWidth = 1.5;
           context.stroke();
         }
