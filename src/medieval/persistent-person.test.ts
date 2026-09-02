@@ -95,6 +95,25 @@ describe('persistent medieval people', () => {
     badCurrentWork[0]!.work.current = { status: 'committed', commitmentId: 'commitment:not-present', startedAtWorldTime: 0 }
     const badCapacity = structuredClone(people)
     badCapacity[0]!.work.capacity.current = 0
+    const duplicateInterests = structuredClone(people)
+    duplicateInterests[0]!.materialInterests = ['route-safety', 'route-safety']
+    const unknownInterest = structuredClone(people)
+    unknownInterest[0]!.materialInterests = ['not-a-material-interest'] as never
+    const missingHome = structuredClone(people) as unknown as Array<{ home?: unknown }>
+    delete missingHome[0]!.home
+
+    const recovering = structuredClone(people)
+    recovering[0]!.health = {
+      condition: 'recovering',
+      injuries: [{
+        id: `${recovering[0]!.id}:injury:watch`,
+        kind: 'minor-wound',
+        receivedAtWorldTime: 0,
+        recovery: 'recovering',
+        contentSafety: classifyMedievalContent('hazard', ['environment', 'ordinary-hardship'], 'adults-only', ['person'])
+      }],
+      recovery: { status: 'recovering', injuryId: `${recovering[0]!.id}:injury:watch`, completeAtWorldTime: 0 }
+    }
 
     expect(codes(contextFor(world), badHousehold)).toContain('persistent-person.invalid-household')
     expect(codes(contextFor(world), badHome)).toContain('persistent-person.invalid-home')
@@ -102,6 +121,10 @@ describe('persistent medieval people', () => {
     expect(codes(contextFor(world), badInterests)).toContain('persistent-person.invalid-material-interests')
     expect(codes(contextFor(world), badCurrentWork)).toContain('persistent-person.invalid-work')
     expect(codes(contextFor(world), badCapacity)).toContain('persistent-person.invalid-work')
+    expect(codes(contextFor(world), duplicateInterests)).toContain('persistent-person.invalid-material-interests')
+    expect(codes(contextFor(world), unknownInterest)).toContain('persistent-person.invalid-material-interests')
+    expect(codes(contextFor(world), missingHome)).toContain('persistent-person.malformed-record')
+    expect(validatePersistentPeople(contextFor(world), recovering)).toEqual([])
   })
 
   it('keeps uninstantiated initial seeds and frontier commitments outside the mutable registry while allowing a typed known-family reference', () => {

@@ -355,7 +355,15 @@ describe('medieval local persistence', () => {
     const repository = new MedievalWorldRepository()
     let world = chooseInitialCourier(createFoundationWorld({ seed: 'persistent-person-v2-storage' }), 'crew:0')
     const originalPeople = structuredClone(world.state.people.records)
-    for (let index = 0; index < 7; index++) {
+    for (const suffix of ['a', 'b'] as const) {
+      world = recordDurableJomonGrowth(world, {
+        id: `growth:persistent-person-v2-storage:small-craft:${suffix}`,
+        kind: 'small-craft',
+        source: { kind: 'jomon-vessel', id: 'vessel:jomon' },
+        atWorldTime: world.state.temporal.worldTime
+      })
+    }
+    for (let index = 0; index < 6; index++) {
       world = advanceFoundationWorldTime(world, {
         id: `wait:persistent-person-v2-storage:${index}`,
         kind: 'wait',
@@ -363,13 +371,6 @@ describe('medieval local persistence', () => {
         contentSafety: classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['simulation-summary'])
       })
     }
-    world = recordDurableJomonGrowth(world, {
-      id: 'growth:persistent-person-v2-storage:tool',
-      kind: 'tool-installation',
-      source: { kind: 'jomon-vessel', id: 'vessel:jomon' },
-      atWorldTime: 7
-    })
-
     await repository.saveWorld(world)
     const loaded = await repository.loadWorld(world.id)
     if (!loaded) throw new Error('valid enriched people should reload locally')
@@ -377,6 +378,7 @@ describe('medieval local persistence', () => {
     expect(loaded.state.people).toEqual({ version: 3, records: originalPeople })
     expect(loaded.state.causalHistory).toMatchObject({ tail: [], checkpoint: { sequence: 9 } })
     expect(replayFoundationWorldCausalHistory(loaded)).toEqual(causalReplayProjectionForWorldState(loaded.state))
+    expect(loaded.state.era.era).toBe('ng-plus')
     expect(loaded.state.people.records).toHaveLength(loaded.crew.length)
     expect(loaded.state.people.records.some(person => loaded.initialWorld.people.some(seed => seed.id === person.id))).toBe(false)
   })
