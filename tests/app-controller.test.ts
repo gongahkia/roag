@@ -33,6 +33,6 @@ describe('bot scheduling', () => {
 
   it('schedules a bot after a turn or game-phase transition', () => {
     expect(shouldScheduleBotAfterTick(snapshot('playing', 0), snapshot('playing', 1))).toBe(true);
-    expect(shouldScheduleBotAfterTick(snapshot('playing', 3), snapshot('rolling', 0))).toBe(true);
+    expect(shouldScheduleBotAfterTick(snapshot('playing', 3), snapshot('transitioning', 0))).toBe(true);
   });
 });

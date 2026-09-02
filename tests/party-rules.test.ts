@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyCommand, createGame, defaultConfig, tickTurn } from '../src/core/game';
+import { applyCommand, createGame, defaultConfig } from '../src/core/game';
 import { validateCourse } from '../src/core/generator';
 import { simulateShot } from '../src/core/physics';
 import { GENERATOR_VERSION, PARTY_BIOMES, PARTY_LAYOUTS, PARTY_TRICK_CARDS } from '../src/core/rulesets';
@@ -10,47 +10,33 @@ import { createArena as arena } from './fixtures';
 
 const partyConfig = (seed: string) => ({ ...defaultConfig(), seed, ruleset: 'party' as const, humanCount: 2, botCount: 0, holeCount: 1 });
 
-const resolveReveal = (state: ReturnType<typeof createGame>) => {
-  let current = state;
-  for (const player of current.players) current = applyCommand(current, { type: 'ready-slot-spin', playerId: player.id });
-  return tickTurn(current, 2);
-};
-
 describe('Party Rules vertical slice', () => {
-  it('is the default constrained ruleset with the selected biome and layout reels', () => {
+  it('is the default constrained ruleset with pre-shuffled biome and layout ingredients', () => {
     const game = createGame(partyConfig('party-reels'));
     expect(game.config.ruleset).toBe('party');
     expect(PARTY_TRICK_CARDS).toHaveLength(8);
-    expect(game.die?.reels.find((reel) => reel.kind === 'biome')?.stops.map((stop) => stop.theme)).toEqual(PARTY_BIOMES);
-    expect(game.die?.reels.find((reel) => reel.kind === 'layout')?.stops.map((stop) => stop.archetype)).toEqual(PARTY_LAYOUTS);
+    expect(PARTY_BIOMES).toContain(game.course.theme);
+    expect(PARTY_LAYOUTS).toContain(game.course.archetype as typeof PARTY_LAYOUTS[number]);
+    expect(game.status).toBe('playing');
   });
 
-  it('permits one influence action per player and one Party Rules chaos modifier', () => {
-    let game = createGame(partyConfig('party-influence'));
-    const player = game.players[0]!;
-    const before = game.die!.reels.find((reel) => reel.id === 'layout')!.stops.length;
-    game = applyCommand(game, { type: 'add-slot-stop', playerId: player.id, reelId: 'biome' });
-    game = applyCommand(game, { type: 'add-slot-stop', playerId: player.id, reelId: 'layout' });
-    expect(game.die!.wagers[player.id]!.influenceActions).toBe(1);
-    expect(game.die!.reels.find((reel) => reel.id === 'layout')!.stops).toHaveLength(before);
-
-    game.die!.phase = 'reroll-wagering';
-    game.die!.wagers[player.id]!.influenceActions = 0;
-    game = applyCommand(game, { type: 'add-chaos-reel', playerId: player.id });
-    game.die!.wagers[game.players[1]!.id]!.influenceActions = 0;
-    game = applyCommand(game, { type: 'add-chaos-reel', playerId: game.players[1]!.id });
-    expect(game.die!.reels.filter((reel) => reel.kind === 'chaos')).toHaveLength(1);
+  it('gives every Party Rules hole one or two distinct automatic chaos modifiers', () => {
+    const game = createGame({ ...partyConfig('party-chaos'), holeCount: 9 });
+    expect(game.coursePlan.every((plan) => {
+      const chaos = plan.recipe.metadata?.resolvedReels.chaos ?? [];
+      return chaos.length >= 1 && chaos.length <= 2 && new Set(chaos).size === chaos.length;
+    })).toBe(true);
   });
 
   it('materializes a versioned, replayable recipe and exposes valid route roles', () => {
-    const first = resolveReveal(createGame(partyConfig('party-recipe')));
-    const second = resolveReveal(createGame(partyConfig('party-recipe')));
-    const firstPlan = first.die!.revealed!.plan;
-    const secondPlan = second.die!.revealed!.plan;
+    const first = createGame(partyConfig('party-recipe'));
+    const second = createGame(partyConfig('party-recipe'));
+    const firstPlan = first.coursePlan[0]!;
+    const secondPlan = second.coursePlan[0]!;
     expect(firstPlan.recipe.metadata).toMatchObject({ schemaVersion: 1, generatorVersion: GENERATOR_VERSION, seed: firstPlan.courseSeed });
     expect(firstPlan.recipe.metadata).toEqual(secondPlan.recipe.metadata);
     const restored = normalizeGameState(JSON.parse(JSON.stringify(first)));
-    expect(restored.die?.revealed?.plan.recipe.metadata).toEqual(firstPlan.recipe.metadata);
+    expect(restored.coursePlan[0]?.recipe.metadata).toEqual(firstPlan.recipe.metadata);
     const generated = first.course;
     expect(validateCourse(generated)).toEqual({ valid: true, failures: [] });
     expect(generated.routeRoles?.map((assignment) => assignment.role)).toEqual(['safe', 'skill', 'conflict']);
@@ -100,14 +86,13 @@ describe('Party Rules vertical slice', () => {
     game.instrumentation = { events: [
       { type: 'collision', hole: 1, playerId: 'human-0', targetId: 'human-1', detail: 'ball collision' },
       { type: 'card', hole: 1, playerId: 'human-2', targetId: 'human-0', detail: 'airhorn' },
-      { type: 'slot-action', hole: 1, playerId: 'human-1', detail: 'hold:biome:ticket' },
       { type: 'turn-duration', hole: 1, playerId: 'human-0', detail: 'shot', value: 9 },
       { type: 'turn-duration', hole: 1, playerId: 'human-1', detail: 'shot', value: 14 },
       { type: 'turn-duration', hole: 1, playerId: 'human-1', detail: 'shot', value: 21 },
       { type: 'hole-duration', hole: 1, detail: 'active seconds', value: 118 },
     ] };
     expect(partyReceiptsFor(game).map((receipt) => receipt.text)).toEqual(['golfer-3 played airhorn on golfer-1', 'golfer-1 banked into golfer-2']);
-    expect(partyAwardsFor(game)).toHaveLength(3);
+    expect(partyAwardsFor(game)).toHaveLength(2);
     expect(partyPacingFor(game)).toMatchObject({ measuredTurns: 3, medianTurnSeconds: 14, p90TurnSeconds: 21, medianHoleSeconds: 118, withinTurnBudget: false, withinHoleBudget: true });
   });
 

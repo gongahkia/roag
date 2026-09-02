@@ -32,7 +32,6 @@ export const gameOn = (course: Course, options: Partial<GameConfig> = {}) => {
   game.course = course;
   game.config.ruleset = requestedRuleset;
   game.coursePlan = [];
-  game.die = undefined;
   game.status = 'playing';
   game.turn = { playerIndex: 0, secondsLeft: game.holeRules.timerSeconds, shotInFlight: false, cardPlayed: false };
   game.players.forEach((player) => { player.ball = newBall(course); });

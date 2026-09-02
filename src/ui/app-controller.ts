@@ -1,5 +1,4 @@
 import { presentFeedback } from '../feedback';
-import { chooseBotDieAction } from '../core/bots';
 import { COURSE_TRANSITION_DURATION_MS, type CourseExpansion } from '../core/campaign';
 import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn } from '../core/game';
 import { expansionForTransition } from '../core/game-state';
@@ -37,7 +36,6 @@ const MIN_CAMERA_ZOOM = .8;
 const MAX_CAMERA_ZOOM = 3;
 const CAMERA_ZOOM_STEP = .2;
 export const PULL_MAX_DISTANCE = 170;
-const QUICK_START_LAUNCH_DURATION_MS = 1_250;
 export const aimFromPull = (aim: ShotCommand, pullX: number, pullY: number): ShotCommand => {
   const distance = Math.hypot(pullX, pullY);
   if (!Number.isFinite(distance) || distance < .5) return aim;
@@ -358,16 +356,6 @@ export const startApp = (app: HTMLElement) => {
     lastOnlineHazardSyncAt = performance.now();
     setState(next);
   };
-  const autoResolveCaptureDie = (source: GameState) => {
-    let resolved = source;
-    while (resolved.status === 'rolling') {
-      if (resolved.die && (resolved.die.phase === 'wagering' || resolved.die.phase === 'reroll-wagering')) resolved = resolved.players.reduce((next, player) => applyCommand(next, { type: 'ready-slot-spin', playerId: player.id }), resolved);
-      resolved = tickTurn(resolved, 2);
-    }
-    return resolved;
-  };
-  if (captureMode) state = autoResolveCaptureDie(state);
-
   const readConfig = (prefix: 'local' | 'online'): LobbyConfig => {
     const fallback = lobbyConfigFromGame(config);
     const rawSkill = app.querySelector<HTMLSelectElement>(`#${prefix}-skill`)?.value;
@@ -380,15 +368,12 @@ export const startApp = (app: HTMLElement) => {
       courseHeight: readNumber(app, `${prefix}-course-height`, fallback.courseHeight),
       botCount: readNumber(app, `${prefix}-bots`, fallback.botCount),
       botSkill: rawSkill === 'adaptive' ? 'adaptive' : readNumber(app, `${prefix}-skill`, typeof fallback.botSkill === 'number' ? fallback.botSkill : 5),
-      skipDieBets: false,
       ruleset,
     };
   };
-  const launchLocalMatch = (quickStart: boolean) => {
+  const launchLocalMatch = () => {
     camera = { mode: 'follow', zoom: DEFAULT_CAMERA_ZOOM, pan: { x: 0, y: 0 } };
-    launch = quickStart
-      ? { quickStart: true, title: 'loading the course', detail: 'Preparing seeded automatic slot results for the round.' }
-      : { quickStart: false, title: 'building the opening hole', detail: 'Setting up players, course rules, and the opening tee.' };
+    launch = { quickStart: false, title: 'shuffling the campaign', detail: 'Locking every random course and chaos modifier before tee-off.' };
     screen = 'launching';
     render();
     window.clearTimeout(quickStartTimeout);
@@ -397,18 +382,17 @@ export const startApp = (app: HTMLElement) => {
       quickStartTimeout = undefined;
       if (screen !== 'launching') return;
       screen = 'game';
-      setState(captureMode ? autoResolveCaptureDie(createGame(config)) : createGame(config));
+      setState(createGame(config));
     };
     launchFrame = window.requestAnimationFrame(() => {
       launchFrame = window.requestAnimationFrame(() => {
         launchFrame = undefined;
-        const launchDelay = quickStart ? QUICK_START_LAUNCH_DURATION_MS : 320;
-        quickStartTimeout = window.setTimeout(begin, preferences.reducedMotion ? 80 : launchDelay);
+        quickStartTimeout = window.setTimeout(begin, preferences.reducedMotion ? 80 : 320);
       });
     });
   };
-  const startLocal = (skipDieBets = false) => {
-    const selected = { ...readConfig('local'), skipDieBets };
+  const startLocal = () => {
+    const selected = readConfig('local');
     if (selected.maxHumans + selected.botCount > 12 || selected.maxHumans < 1 || selected.botCount > 4) { notice = 'choose between one and twelve total players'; render(); return; }
     if (!validCourseDimensions(selected.courseWidth, selected.courseHeight)) { notice = 'choose whole-number level dimensions of at least 14×10 tiles'; render(); return; }
     onlineClient?.disconnect();
@@ -417,14 +401,14 @@ export const startApp = (app: HTMLElement) => {
     onlinePlayerId = undefined;
     pendingReconnectToken = undefined;
     onlineConnected = false;
-    config = { seed: selected.seed, holeCount: selected.holeCount, humanCount: selected.maxHumans, botCount: selected.botCount, botSkill: selected.botSkill, courseWidth: selected.courseWidth, courseHeight: selected.courseHeight, skipDieBets: selected.skipDieBets, ruleset: selected.ruleset };
+    config = { seed: selected.seed, holeCount: selected.holeCount, humanCount: selected.maxHumans, botCount: selected.botCount, botSkill: selected.botSkill, courseWidth: selected.courseWidth, courseHeight: selected.courseHeight, ruleset: selected.ruleset };
     partyDiagnosticsId = partyDiagnosticsIdFor();
     drawer = undefined;
     overlay = undefined;
     liveEmotes = [];
     seenEmoteIds = new Set();
     notice = undefined;
-    launchLocalMatch(skipDieBets);
+    launchLocalMatch();
   };
   const setupGame = () => {
     const seed = readText(app, 'seed', config.seed);
@@ -437,7 +421,7 @@ export const startApp = (app: HTMLElement) => {
     liveEmotes = [];
     seenEmoteIds = new Set();
     camera = { mode: 'follow', zoom: DEFAULT_CAMERA_ZOOM, pan: { x: 0, y: 0 } };
-    setState(captureMode ? autoResolveCaptureDie(createGame(config)) : createGame(config));
+    setState(createGame(config));
   };
   const dispatch = (command: GameCommand) => {
     if (online()) { onlineClient?.send({ type: 'command', command }); return; }
@@ -491,15 +475,7 @@ export const startApp = (app: HTMLElement) => {
         if (onlineClient !== client || !room?.game || room.code !== clock.roomCode || state.status !== clock.status) return;
         state.hazardElapsedMs = clock.hazardElapsedMs;
         if (clock.turnSecondsLeft !== undefined) state.turn.secondsLeft = clock.turnSecondsLeft;
-        if (state.die && clock.die) {
-          state.die.secondsLeft = clock.die.secondsLeft;
-          if (state.die.roll && clock.die.rollSecondsLeft !== undefined) state.die.roll.secondsLeft = clock.die.rollSecondsLeft;
-          if (state.die.revealed && clock.die.revealedSecondsLeft !== undefined) state.die.revealed.secondsLeft = clock.die.revealedSecondsLeft;
-          if (state.die.rerollPot && clock.die.rerollPotSecondsLeft !== undefined) state.die.rerollPot.secondsLeft = clock.die.rerollPotSecondsLeft;
-        }
         lastOnlineHazardSyncAt = performance.now();
-        const timer = app.querySelector<HTMLElement>('#die-timer');
-        if (timer && state.die) timer.textContent = state.die.phase === 'revealed' ? 'course commits when the reveal clock expires' : `${state.players.filter((player) => state.die?.wagers[player.id]?.ready).length}/${state.players.length} ready · timer ${state.die.secondsLeft.toFixed(0)}s`;
       },
       onJoined(playerId, reconnectToken) {
         if (onlineClient !== client) return;
@@ -529,13 +505,13 @@ export const startApp = (app: HTMLElement) => {
   };
   const startOnlineMatch = () => {
     if (!onlineClient || !room) return;
-    launch = { quickStart: room.config.skipDieBets, title: 'starting shared match', detail: 'The host server is assembling the opening course for the table.' };
+    launch = { quickStart: false, title: 'starting shared match', detail: 'The server is locking the campaign’s random courses for the table.' };
     screen = 'launching';
     render();
     onlineClient.send({ type: 'start-room' });
   };
-  const createOnlineRoom = (skipDieBets = false) => {
-    const selected = { ...readConfig('online'), skipDieBets };
+  const createOnlineRoom = () => {
+    const selected = readConfig('online');
     playerName = readText(app, 'player-name', playerName);
     roomPassphrase = readText(app, 'room-passphrase', roomPassphrase);
     serverUrl = readText(app, 'server-url', serverUrl);
@@ -576,12 +552,6 @@ export const startApp = (app: HTMLElement) => {
     if (timer) timer.innerHTML = `${state.turn.secondsLeft.toFixed(0)}<small>s</small>`;
   };
   const updatePhaseTimer = () => {
-    if (state.status === 'rolling' && state.die) {
-      const prompt = app.querySelector<HTMLElement>('#die-prompt');
-      if (prompt) prompt.textContent = state.die.roll ? `spinning… ${state.die.roll.secondsLeft.toFixed(1)}s` : 'place a wager or pull the lever';
-      const timer = app.querySelector<HTMLElement>('#die-timer');
-      if (timer) timer.textContent = state.die.roll ? 'the selected stop becomes this hole' : `${state.players.filter((player) => state.die!.wagers[player.id]?.ready).length}/${state.players.length} ready · timer ${state.die.secondsLeft.toFixed(0)}s`;
-    }
     if (state.status === 'shopping' && state.shop) app.querySelector<HTMLElement>('#merchant-timer')?.replaceChildren(`${state.shop.secondsLeft.toFixed(0)} seconds`);
   };
   const adjustPower = (amount: number) => {
@@ -771,29 +741,6 @@ export const startApp = (app: HTMLElement) => {
     if (shotAnimation || current().kind !== 'human' || !canControlCurrent()) return;
     dispatch({ type: 'emote', playerId: onlinePlayerId ?? current().id, emote });
   };
-  const diePlayer = () => online()
-    ? state.players.find((player) => player.id === onlinePlayerId && !state.die?.wagers[player.id]?.ready)
-    : state.players.find((player) => player.kind === 'human' && !state.die?.wagers[player.id]?.ready);
-  const addSlotStop = (reelId: string) => {
-    const player = diePlayer();
-    if (player) { playEffect(660, .06); dispatch({ type: 'add-slot-stop', playerId: player.id, reelId }); }
-  };
-  const augmentSlotStop = (reelId: string, stopId: string) => {
-    const player = diePlayer();
-    if (player) { playEffect(720, .06); dispatch({ type: 'augment-slot-stop', playerId: player.id, reelId, stopId }); }
-  };
-  const addChaosReel = () => {
-    const player = diePlayer();
-    if (player) { playEffect(310, .08); dispatch({ type: 'add-chaos-reel', playerId: player.id }); }
-  };
-  const contributeReroll = () => {
-    const player = online() ? state.players.find((candidate) => candidate.id === onlinePlayerId) : state.players.find((candidate) => candidate.kind === 'human');
-    if (player) { playEffect(580, .06); dispatch({ type: 'contribute-reroll', playerId: player.id }); }
-  };
-  const readySlotSpin = () => {
-    const player = diePlayer();
-    if (player) { playEffect(490, .08); dispatch({ type: 'ready-slot-spin', playerId: player.id }); }
-  };
   const togglePause = () => {
     if (state.status === 'finished' || (online() && room?.hostId !== onlinePlayerId)) return;
     playEffect(state.paused ? 570 : 330, .1);
@@ -802,15 +749,6 @@ export const startApp = (app: HTMLElement) => {
   const scheduleBot = () => {
     window.clearTimeout(botTimeout);
     if (online() || state.paused) return;
-    if (state.status === 'rolling' && state.die && (state.die.phase === 'wagering' || state.die.phase === 'reroll-wagering')) {
-      const bot = state.players.find((player) => player.kind === 'bot' && !state.die!.wagers[player.id]?.ready);
-      if (!bot) return;
-      botTimeout = window.setTimeout(() => {
-        if (state.status !== 'rolling' || !state.die || (state.die.phase !== 'wagering' && state.die.phase !== 'reroll-wagering') || state.die.wagers[bot.id]?.ready) return;
-        setState(applyCommand(state, chooseBotDieAction(state.config.seed, state.hole, bot, state.die)));
-      }, preferences.reducedMotion ? 100 : 520);
-      return;
-    }
     if (state.status === 'shopping' && state.shop) {
       if (!state.shop.rerollResolved) {
         const bot = state.players.find((player) => player.kind === 'bot' && state.shop!.rerollVotes[player.id] === undefined);
@@ -927,9 +865,7 @@ export const startApp = (app: HTMLElement) => {
         ? app.querySelector<HTMLElement>('.drawer')
         : state.paused
           ? app.querySelector<HTMLElement>('.pause-overlay')
-          : state.status === 'rolling'
-            ? app.querySelector<HTMLElement>('.die-overlay')
-            : state.status === 'shopping'
+          : state.status === 'shopping'
               ? app.querySelector<HTMLElement>('.merchant-overlay')
               : state.status === 'finished'
                 ? app.querySelector<HTMLElement>('.results-overlay')
@@ -1149,9 +1085,7 @@ export const startApp = (app: HTMLElement) => {
       return;
     }
     if (element.hasAttribute('data-start-local')) { startLocal(); return; }
-    if (element.hasAttribute('data-quick-start-local')) { startLocal(true); return; }
     if (element.hasAttribute('data-create-room')) { createOnlineRoom(); return; }
-    if (element.hasAttribute('data-create-quick-room')) { createOnlineRoom(true); return; }
     if (element.hasAttribute('data-join-room')) { joinOnlineRoom(); return; }
     if (element.hasAttribute('data-start-room')) { startOnlineMatch(); return; }
     if (element.hasAttribute('data-leave-lobby')) { cancelReconnect(); onlineClient?.send({ type: 'leave-room' }); onlineClient?.disconnect(); onlineClient = undefined; room = undefined; screen = 'home'; notice = undefined; render(); return; }
@@ -1170,17 +1104,6 @@ export const startApp = (app: HTMLElement) => {
     const drawerTarget = element.dataset.drawer as Exclude<Drawer, undefined> | undefined;
     if (drawerTarget) { drawer = drawer === drawerTarget ? undefined : drawerTarget; render(); return; }
     if (element.hasAttribute('data-close-drawer')) { drawer = undefined; render(); return; }
-    const slotReel = element.dataset.addSlotStop;
-    if (slotReel) { addSlotStop(slotReel); return; }
-    if (element.hasAttribute('data-augment-slot-stop')) {
-      const reelId = element.dataset.reelId;
-      const stopId = element.dataset.stopId;
-      if (reelId && stopId) augmentSlotStop(reelId, stopId);
-      return;
-    }
-    if (element.hasAttribute('data-add-chaos-reel')) { addChaosReel(); return; }
-    if (element.hasAttribute('data-contribute-reroll')) { contributeReroll(); return; }
-    if (element.hasAttribute('data-ready-slot-spin')) { readySlotSpin(); return; }
     const powerUp = element.dataset.usePowerup as (PowerUp | ChronoCard) | undefined;
     if (powerUp) { useHeldPowerUp(powerUp, element.dataset.cardId || undefined); return; }
     const reroll = element.dataset.shopReroll;
@@ -1267,7 +1190,7 @@ export const startApp = (app: HTMLElement) => {
     const previousEmoteCount = liveEmotes.length;
     liveEmotes = liveEmotes.filter((emote) => emote.expiresAt > now);
     if (liveEmotes.length !== previousEmoteCount && !shotAnimation) drawBoard();
-    if (!online() && screen === 'game' && (state.status === 'playing' || state.status === 'rolling' || state.status === 'shopping') && !state.paused) {
+    if (!online() && screen === 'game' && (state.status === 'playing' || state.status === 'shopping') && !state.paused) {
       const previousStatus = state.status;
       const previousPlayerIndex = state.turn.playerIndex;
       const next = tickTurn(state, elapsed);

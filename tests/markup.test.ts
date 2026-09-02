@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyCommand, createGame, defaultConfig, tickTurn } from '../src/core/game';
+import { createGame, defaultConfig } from '../src/core/game';
 import { openShop } from '../src/core/shop';
 import { renderAppMarkup, renderControlsMarkup } from '../src/ui/markup';
 import { defaultPreferences } from '../src/preferences';
@@ -35,7 +35,7 @@ describe('course slot machine markup', () => {
     const markup = renderHomeMarkup({ panel: 'play', mode: 'local', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
     expect(markup).toContain('id="local-seed"');
     expect(markup).toContain('data-start-local');
-    expect(markup).toContain('data-quick-start-local');
+    expect(markup).not.toContain('data-quick-start-local');
     expect(markup).toContain('solo play or add seats for pass-and-play');
     expect(markup).toContain('<option value="1" selected>1</option>');
     expect(markup).toContain('<option value="8" >8</option>');
@@ -59,7 +59,7 @@ describe('course slot machine markup', () => {
     expect(host).toContain('id="online-course-height"');
     expect(host).not.toContain('max="24"');
     expect(host).not.toContain('max="16"');
-    expect(host).toContain('data-create-quick-room');
+    expect(host).not.toContain('data-create-quick-room');
     expect(host).not.toContain('id="join-player-name"');
 
     const join = renderHomeMarkup({ ...view, mode: 'join' });
@@ -69,47 +69,32 @@ describe('course slot machine markup', () => {
     expect(join).not.toContain('id="online-seed"');
   });
 
-  it('offers local quick start and reports automatic slot rules to online guests', () => {
+  it('reports the automatic pre-shuffled campaign rules to local and online players', () => {
     const state = createGame(defaultConfig());
     const local = renderHomeMarkup({ panel: 'play', mode: 'local', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
-    expect(local).toContain('data-quick-start-local');
+    expect(local).not.toContain('data-quick-start-local');
     expect(local).toContain('class="home-actions"');
     expect(local).toContain('start local game');
-    expect(local).toContain('seeded automatic slot results');
+    expect(local).toContain('seed-shuffled in advance');
     expect(renderQuickStartLaunchMarkup()).toContain('class="match-loading-ball"');
     expect(renderQuickStartLaunchMarkup()).not.toContain('loading the course');
     const normalLaunch = renderMatchLaunchMarkup({ quickStart: false, title: 'building the opening hole', detail: 'Setting up players.' });
     expect(normalLaunch).toContain('class="match-loading-ball"');
     expect(normalLaunch).not.toContain('MATCH SETUP');
-    const lobby = renderLobbyMarkup({ code: 'ABC123', hostId: 'human-0', config: { ...lobbyConfigFromGame({ ...state.config, skipDieBets: true }), skipDieBets: true }, members: [{ id: 'human-0', name: 'golfer-1', slot: 0, connected: true, host: true }], phase: 'lobby', updatedAt: 0 }, 'human-0', true);
-    expect(lobby).toContain('seeded automatic slot results');
-    expect(lobby).toContain('start quick match');
+    const lobby = renderLobbyMarkup({ code: 'ABC123', hostId: 'human-0', config: lobbyConfigFromGame(state.config), members: [{ id: 'human-0', name: 'golfer-1', slot: 0, connected: true, host: true }], phase: 'lobby', updatedAt: 0 }, 'human-0', true);
+    expect(lobby).toContain('seeded course shuffler');
+    expect(lobby).toContain('start room');
   });
 
-  it('keeps the shared course slot machine in the foreground with physical component tickets', () => {
+  it('removes the shared course slot machine and starts directly on a shuffled course', () => {
     const state = createGame({ ...defaultConfig(), seed: 'overlay-markup', humanCount: 1, botCount: 1 });
     const markup = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
-    expect(markup).toContain('class="die-overlay"');
-    expect(markup).toContain('class="slot-machine');
-    expect(markup).toContain('COURSE SLOTS');
-    expect(markup).toContain('class="slot-lever"');
-    expect(markup).toContain('PULL TO SPIN');
-    expect(markup).not.toContain('course-die');
-    expect(markup).not.toContain('paper net');
-    expect(markup).toContain('class="slot-reel-control"');
-    expect(markup).toContain('biome reel');
-    expect(markup).toContain('layout reel');
-    expect(markup).toContain('rules reel');
-    expect(markup).toContain('data-add-slot-stop="biome"');
-    expect(markup).toContain('data-augment-slot-stop');
-    expect(markup).toContain('data-ready-slot-spin');
-    expect(markup).toContain('physical tickets');
-    expect(markup).toContain('app-shell rolling');
-
-    const spinning = state.players.reduce((next, player) => applyCommand(next, { type: 'ready-slot-spin', playerId: player.id }), state);
-    const spinningMarkup = renderAppMarkup({ state: spinning, config: spinning.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
-    expect(spinningMarkup).toContain('slot-machine is-spinning');
-    expect(spinningMarkup.match(/slot-reel is-spinning/g)).toHaveLength(3);
+    expect(state.status).toBe('playing');
+    expect(markup).not.toContain('die-overlay');
+    expect(markup).not.toContain('slot-machine');
+    expect(markup).not.toContain('COURSE SLOTS');
+    expect(markup).not.toContain('data-ready-slot-spin');
+    expect(markup).toContain('chaos:');
   });
 
   it('renders target selection and click-confirmed gadget placement guidance for new items', () => {
@@ -143,7 +128,7 @@ describe('course slot machine markup', () => {
   });
 
   it('renders the original clubhouse merchant with a shared seven-card shelf and table vote', () => {
-    const state = createGame({ ...defaultConfig(), ruleset: 'custom', seed: 'merchant-markup', holeCount: 1, humanCount: 2, botCount: 0, skipDieBets: true });
+    const state = createGame({ ...defaultConfig(), ruleset: 'custom', seed: 'merchant-markup', holeCount: 1, humanCount: 2, botCount: 0 });
     openShop(state);
     state.players[0]!.caddies = [{ id: 'heavy ball', stacks: 2 }];
     state.players[0]!.pockets = [{ id: 'future sight', source: 'shop', instanceId: 'future-sight-1', duration: { unit: 'round', amount: 2 } }];
@@ -167,7 +152,7 @@ describe('course slot machine markup', () => {
   });
 
   it('shows a strategy card’s rolled duration before the merchant purchase', () => {
-    const state = createGame({ ...defaultConfig(), seed: 'merchant-duration', holeCount: 1, humanCount: 1, botCount: 0, skipDieBets: true });
+    const state = createGame({ ...defaultConfig(), seed: 'merchant-duration', holeCount: 1, humanCount: 1, botCount: 0 });
     openShop(state);
     state.shop!.shelf[0] = { id: 'fairway-draft', contentId: 'fairway draft', category: 'pocket', price: 5, duration: { unit: 'round', amount: 3 } };
     const markup = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
@@ -208,11 +193,8 @@ describe('course slot machine markup', () => {
     expect(settings).toContain('data-preference="showMerchantHoldings"');
   });
 
-  it('removes the die overlay once the shared roll resolves', () => {
-    let state = createGame({ ...defaultConfig(), seed: 'plan-markup', holeCount: 1, humanCount: 1, botCount: 1 });
-    state = state.players.reduce((next, player) => applyCommand(next, { type: 'ready-slot-spin', playerId: player.id }), state);
-    state = tickTurn(state, 2);
-    state = tickTurn(state, 10);
+  it('does not render a die overlay for an already shuffled campaign', () => {
+    const state = createGame({ ...defaultConfig(), seed: 'plan-markup', holeCount: 1, humanCount: 1, botCount: 1 });
     const markup = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     expect(state.status).toBe('playing');
     expect(markup).not.toContain('die-overlay');
@@ -223,13 +205,13 @@ describe('course slot machine markup', () => {
     const state = createGame({ ...defaultConfig(), seed: 'party-guide', humanCount: 2, botCount: 0 });
     const guided = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     const optedOut = renderAppMarkup({ state, config: state.config, preferences: { ...defaultPreferences(), partyGuideStep: 8 }, overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
-    expect(guided).toContain('Build the problem together.');
+    expect(guided).toContain('Play the problem together.');
     expect(guided).toContain('data-skip-party-guide');
     expect(optedOut).not.toContain('class="party-guide"');
   });
 
   it('renders a skippable course briefing and local handoff without changing shared rules', () => {
-    const state = createGame({ ...defaultConfig(), seed: 'party-briefing', humanCount: 2, botCount: 0, skipDieBets: true });
+    const state = createGame({ ...defaultConfig(), seed: 'party-briefing', humanCount: 2, botCount: 0 });
     const briefing = renderAppMarkup({ state, config: state.config, preferences: { ...defaultPreferences(), partyGuideStep: 8 }, overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, briefingHole: 1, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     const handoff = renderAppMarkup({ state, config: state.config, preferences: { ...defaultPreferences(), partyGuideStep: 8 }, overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, handoff: { playerName: 'golfer-2', color: '#ffffff', hole: 1 }, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     expect(briefing).toContain('COURSE REVEAL');

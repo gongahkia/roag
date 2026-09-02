@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chooseBotDecision, chooseBotDieAction } from '../src/core/bots';
+import { chooseBotDecision } from '../src/core/bots';
 import { CAMPAIGN_EXCAVATION_RADIUS, expandCourseAtCup } from '../src/core/campaign';
 import { CONTENT } from '../src/core/catalog';
 import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn } from '../src/core/game';
@@ -14,14 +14,7 @@ import { buyShopOffer, chooseBotShopOffer, openShop } from '../src/core/shop';
 import type { GameState, PlannedHole } from '../src/core/types';
 import { createArena as arena, gameOn } from './fixtures';
 
-const resolveDie = (game: ReturnType<typeof createGame>) => {
-  let resolved = game;
-  while (resolved.status === 'rolling') {
-    if (resolved.die && (resolved.die.phase === 'wagering' || resolved.die.phase === 'reroll-wagering')) resolved = resolved.players.reduce((next, player) => applyCommand(next, { type: 'ready-slot-spin', playerId: player.id }), resolved);
-    resolved = tickTurn(resolved, 10);
-  }
-  return resolved;
-};
+const resolveDie = (game: ReturnType<typeof createGame>) => game;
 
 const resolveShop = (game: ReturnType<typeof createGame>) => {
   let resolved = game;
@@ -97,7 +90,7 @@ describe('course generation', () => {
 
     // This seed reaches the detached-bridge fallback late in the atlas, so it
     // protects against accepting the residual overlap it was introduced to fix.
-    let campaign = createGame({ ...defaultConfig(), seed: 'v3-append-stress-0', ruleset: 'party', holeCount: 9, humanCount: 1, botCount: 0, skipDieBets: true });
+    let campaign = createGame({ ...defaultConfig(), seed: 'v3-append-stress-0', ruleset: 'party', holeCount: 9, humanCount: 1, botCount: 0 });
     for (let hole = 2; hole <= campaign.config.holeCount; hole += 1) {
       beginCourseTransition(campaign);
       expect(expansionForTransition(campaign)?.trackOverlapCount).toBe(0);
@@ -424,109 +417,34 @@ describe('public voting flow', () => {
   });
 }); */
 
-describe('shared course slot flow', () => {
-  it('starts every match with three reproducible component reels', () => {
-    const first = createGame({ ...defaultConfig(), seed: 'die-seed', humanCount: 2, botCount: 1 });
-    const second = createGame({ ...defaultConfig(), seed: 'die-seed', humanCount: 2, botCount: 1 });
-    expect(first.status).toBe('rolling');
-    expect(first.die?.reels).toHaveLength(3);
-    expect(first.die?.reels.map((reel) => reel.stops.map((stop) => stop.id))).toEqual(second.die?.reels.map((reel) => reel.stops.map((stop) => stop.id)));
-    expect(first.die?.reels.map((reel) => reel.kind)).toEqual(['biome', 'layout', 'rules']);
-    expect(first.die?.reels.every((reel) => reel.stops.every((stop) => stop.weight === 1))).toBe(true);
+describe('automatic course shuffle', () => {
+  it('pre-shuffles a reproducible campaign and opens directly on the tee', () => {
+    const config = { ...defaultConfig(), seed: 'shuffle-seed', holeCount: 3, humanCount: 2, botCount: 1 };
+    const first = createGame(config);
+    const second = createGame(config);
+    expect(first.status).toBe('playing');
+    expect(first.coursePlan).toHaveLength(3);
+    expect(first.coursePlan.map((plan) => plan.recipe.metadata?.resolvedReels)).toEqual(second.coursePlan.map((plan) => plan.recipe.metadata?.resolvedReels));
+    expect(first.coursePlan.every((plan) => {
+      const chaos = plan.recipe.metadata?.resolvedReels.chaos ?? [];
+      return chaos.length >= 1 && chaos.length <= 2 && new Set(chaos).size === chaos.length;
+    })).toBe(true);
   });
 
-  it('loads generated stops and duplicate tickets before every shared spin', () => {
-    let game = createGame({ ...defaultConfig(), ruleset: 'custom', seed: 'weighted-die', holeCount: 1, humanCount: 1, botCount: 0 });
-    game.players[0]!.cash = 40;
-    const reelId = game.die!.reels[0]!.id;
-    const stopId = game.die!.reels[0]!.stops[0]!.id;
-    game = applyCommand(game, { type: 'add-slot-stop', playerId: 'human-0', reelId });
-    game = applyCommand(game, { type: 'add-slot-stop', playerId: 'human-0', reelId });
-    game = applyCommand(game, { type: 'augment-slot-stop', playerId: 'human-0', reelId, stopId });
-    game = applyCommand(game, { type: 'augment-slot-stop', playerId: 'human-0', reelId, stopId });
-    expect(game.die?.reels[0]?.stops).toHaveLength(5);
-    expect(game.die?.reels[0]?.stops.find((stop) => stop.id === stopId)?.weight).toBe(3);
-    expect(game.players[0]!.cash).toBe(35);
-    expect(game.die?.wagers['human-0']).toMatchObject({ addedStops: 2, augmentations: { [`${reelId}:${stopId}`]: 2 } });
-    game = applyCommand(game, { type: 'ready-slot-spin', playerId: 'human-0' });
-    expect(game.die?.roll).toBeDefined();
-    game = tickTurn(game, 2);
-    expect(game.die?.phase).toBe('revealed');
-    game = tickTurn(game, 10);
-    expect(game.status).toBe('playing');
-    expect(game.coursePlan).toHaveLength(1);
-  });
-
-  it('uses the same weighted result for the same wagers and makes bots deterministic participants', () => {
-    const config = { ...defaultConfig(), seed: 'deterministic-die', holeCount: 1, humanCount: 1, botCount: 1 };
-    const initial = createGame(config);
-    const bot = initial.players[1]!;
-    expect(chooseBotDieAction(initial.config.seed, 1, bot, initial.die!)).toEqual(chooseBotDieAction(initial.config.seed, 1, bot, initial.die!));
-    const reelId = initial.die!.reels[2]!.id;
-    const stopId = initial.die!.reels[2]!.stops[0]!.id;
-    const resolve = (game: ReturnType<typeof createGame>) => {
-      let next = applyCommand(game, { type: 'augment-slot-stop', playerId: 'human-0', reelId, stopId });
-      next = applyCommand(next, { type: 'ready-slot-spin', playerId: 'human-0' });
-      next = applyCommand(next, { type: 'ready-slot-spin', playerId: 'bot-0' });
-      next = tickTurn(next, 2);
-      return tickTurn(next, 10);
-    };
-    expect(resolve(initial).course.seed).toBe(resolve(createGame(config)).course.seed);
-  }, 15_000);
-
-  it('opens a fresh slot machine after the merchant instead of locking future holes up front', () => {
-    let game = resolveDie(createGame({ ...defaultConfig(), seed: 'per-hole-die', holeCount: 2, humanCount: 1, botCount: 0 }));
-    expect(game.coursePlan).toHaveLength(1);
+  it('uses the already shuffled next course after the clubhouse', () => {
+    let game = createGame({ ...defaultConfig(), seed: 'preplanned-holes', holeCount: 2, humanCount: 1, botCount: 0 });
+    const next = game.coursePlan[1]!;
     game.players[0]!.ball.complete = true;
     game.players[0]!.ball.strokes = 1;
     game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 1 } });
     game = resolveShop(game);
-    expect(game.status).toBe('rolling');
-    expect(game.die?.reels).toHaveLength(3);
-    expect(game.coursePlan).toHaveLength(1);
-    game = resolveDie(game);
     expect(game.status).toBe('transitioning');
-    expect(game.coursePlan).toHaveLength(2);
+    expect(game.transition?.next.id).toBe(next.id);
     const expansion = expansionForTransition(game)!;
     game = applyCommand(game, { type: 'complete-transition' });
     expect(game.status).toBe('playing');
     expect(game.course.tee).toEqual(expansion.anchor);
   }, 15_000);
-
-  it('rejects unknown slot bettors and stops', () => {
-    const game = createGame({ ...defaultConfig(), seed: 'invalid-die', botCount: 0 });
-    expect(applyCommand(game, { type: 'add-slot-stop', playerId: 'unknown', reelId: 'biome' })).toEqual(game);
-    expect(applyCommand(game, { type: 'augment-slot-stop', playerId: 'human-0', reelId: 'biome', stopId: 'missing' })).toEqual(game);
-  });
-
-  it('refunds an unfinished reroll pot and allows two funded rerolls with chaos reels', () => {
-    let game = createGame({ ...defaultConfig(), seed: 'reroll-slots', holeCount: 1, humanCount: 1, botCount: 0 });
-    game.players[0]!.cash = 20;
-    game = applyCommand(game, { type: 'ready-slot-spin', playerId: 'human-0' });
-    game = tickTurn(game, 2);
-    const beforeRefund = game.players[0]!.cash;
-    game = applyCommand(game, { type: 'contribute-reroll', playerId: 'human-0' });
-    game = tickTurn(game, 10);
-    expect(game.players[0]!.cash).toBe(beforeRefund);
-
-    game = createGame({ ...defaultConfig(), seed: 'reroll-slots', holeCount: 1, humanCount: 1, botCount: 0 });
-    game.players[0]!.cash = 20;
-    game = applyCommand(game, { type: 'ready-slot-spin', playerId: 'human-0' });
-    game = tickTurn(game, 2);
-    // This fixture tests Custom Rules' permissive reroll funding, without
-    // spending the test budget materializing an unrelated full-catalog hole.
-    game.config.ruleset = 'custom';
-    game = applyCommand(game, { type: 'contribute-reroll', playerId: 'human-0' });
-    game = applyCommand(game, { type: 'contribute-reroll', playerId: 'human-0' });
-    game = applyCommand(game, { type: 'contribute-reroll', playerId: 'human-0' });
-    expect(game.die?.phase).toBe('reroll-wagering');
-    game = applyCommand(game, { type: 'add-chaos-reel', playerId: 'human-0' });
-    expect(game.die?.reels.filter((reel) => reel.kind === 'chaos')).toHaveLength(1);
-    game.config.ruleset = 'party';
-    game = applyCommand(game, { type: 'ready-slot-spin', playerId: 'human-0' });
-    game = tickTurn(game, 2);
-    expect(game.die?.revealed?.plan.label).toContain('·');
-  });
 });
 
 describe('turns, shared rules, and bots', () => {
@@ -671,8 +589,6 @@ describe('turns, shared rules, and bots', () => {
     game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 1 } });
     expect(game.status).toBe('shopping');
     game = resolveShop(game);
-    expect(game.status).toBe('rolling');
-    game = resolveDie(game);
     expect(game.status).toBe('transitioning');
     expect(game.players[0]!.upgrades).toEqual(['heavy ball', 'bank shot']);
     game = applyCommand(game, { type: 'complete-transition' });
@@ -688,8 +604,7 @@ describe('turns, shared rules, and bots', () => {
       if (hole < 9) {
         expect(game.status).toBe('shopping');
         game = resolveShop(game);
-        expect(game.status).toBe('rolling');
-        game = resolveDie(game);
+        expect(game.status).toBe('transitioning');
         game = applyCommand(game, { type: 'complete-transition' });
       }
     }

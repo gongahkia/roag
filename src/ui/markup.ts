@@ -86,7 +86,6 @@ const renderMatchHud = (view: ViewModel) => {
 
 export const renderControlsMarkup = (view: ViewModel) => {
   const { state, preferences, shotInFlight, multiplayer, placement } = view;
-  if (state.status === 'rolling') return renderDieControls(state);
   if (state.status === 'shopping') return `<div class="turn merchant-turn"><strong>clubhouse merchant</strong><b>$${playerCash(state, current(state).id)}</b><small class="phase">the shared shelf is open</small></div><p class="control-status">${renderStatus({ state, shotInFlight: false })}</p>`;
   if (state.status === 'transitioning') return renderTransitionControls(state);
   if (state.status === 'finished') return renderFinishedControls(state);
@@ -137,8 +136,8 @@ export const partyGuidePanelFor = (state: GameState, preferences: GamePreference
   if (state.config.ruleset === 'custom' || preferences.partyGuideStep >= 8) return undefined;
   const step = preferences.partyGuideStep;
   const panels: Record<number, PartyGuidePanel> = {
-    0: { step, eyebrow: 'WELCOME TO PARTY RULES', title: 'Build the problem together.', body: 'The table shapes every hole, then plays the physical result. Your choices are public, so the group can remember who made the course strange.' },
-    1: { step, eyebrow: 'COURSE SLOTS', title: state.config.skipDieBets ? 'Quick Start chose the first problem.' : 'Take one public slot action.', body: state.config.skipDieBets ? 'Standard games let each golfer influence one reel before the lever is pulled. This quick campaign uses the same seeded recipes without the wager window.' : 'Hold a visible ticket or add one wild stop, then mark yourself ready. The stopped reels become the hole.' },
+    0: { step, eyebrow: 'WELCOME TO PARTY RULES', title: 'Play the problem together.', body: 'The shuffler locks each hole before the round starts. Everyone plays the same strange physical result, then owns the chaos that follows.' },
+    1: { step, eyebrow: 'COURSE SHUFFLER', title: 'No votes. No rerolls.', body: 'Every hole is locked from the campaign seed before tee-off. The shuffler throws one or two random chaos modifiers into the next problem.' },
     2: { step, eyebrow: 'COURSE BRIEFING', title: 'Read the three route roles.', body: 'Safe is wide and steady. Skill rewards timing or a clean chip. Conflict passes through contested space where balls and gadgets can matter.' },
     3: { step, eyebrow: 'YOUR SHOT', title: 'Pull, aim, commit.', body: 'Left-drag makes a grounded putt. Right-drag makes a chip. The line and strength meter are a preview—not a random accuracy roll.' },
     4: { step, eyebrow: 'TRICK CARDS', title: 'One visible trick per shot.', body: 'Cards say who or what they affect and when they expire. Self cards improve your line; attack cards must name a target or obstacle.' },
@@ -149,7 +148,7 @@ export const partyGuidePanelFor = (state: GameState, preferences: GamePreference
   const panel = panels[step];
   if (!panel) return undefined;
   if (step === 0 && state.status !== 'finished') return panel;
-  if (step === 1 && (state.status === 'rolling' || state.config.skipDieBets)) return panel;
+  if (step === 1 && state.status === 'playing') return panel;
   if (step >= 2 && step <= 5 && state.status === 'playing') return panel;
   if (step === 6 && state.status === 'shopping') return panel;
   if (step === 7 && (state.status === 'transitioning' || state.hole > 1 || state.status === 'finished')) return panel;
@@ -179,7 +178,7 @@ const renderOverlay = (view: ViewModel) => {
 
 const renderRunDrawer = ({ state, config }: ViewModel) => {
   const scoreRows = state.players.map((player) => `<tr class="${player.id === current(state).id ? 'active' : ''}"><td><i style="background:${player.color}"></i>${escapeHtml(player.name)}</td><td>${player.ball.complete ? '✓' : player.ball.strokes}</td><td>${player.total}</td></tr>`).join('');
-  return `<h3>campaign controls</h3><label>run seed <input id="seed" value="${escapeHtml(config.seed)}" maxlength="32"></label><div class="split"><label>humans <input id="humans" type="number" min="1" max="8" value="${config.humanCount}"></label><label>AI <input id="bots" type="number" min="0" max="4" value="${config.botCount}"></label></div><label>AI skill <select id="skill"><option value="adaptive" ${config.botSkill === 'adaptive' ? 'selected' : ''}>adaptive</option>${Array.from({ length: 10 }, (_, index) => `<option value="${index + 1}" ${config.botSkill === index + 1 ? 'selected' : ''}>${index + 1}</option>`).join('')}</select></label><button id="new-run">start new nine-hole run</button><p class="hint">Before every hole, the shared course slot machine lets each player add a new course-package stop or weight a visible stop before the spin.</p><h3>scorecard</h3><table><thead><tr><th>player</th><th>hole</th><th>total</th></tr></thead><tbody>${scoreRows}</tbody></table>`;
+  return `<h3>campaign controls</h3><label>run seed <input id="seed" value="${escapeHtml(config.seed)}" maxlength="32"></label><div class="split"><label>humans <input id="humans" type="number" min="1" max="8" value="${config.humanCount}"></label><label>AI <input id="bots" type="number" min="0" max="4" value="${config.botCount}"></label></div><label>AI skill <select id="skill"><option value="adaptive" ${config.botSkill === 'adaptive' ? 'selected' : ''}>adaptive</option>${Array.from({ length: 10 }, (_, index) => `<option value="${index + 1}" ${config.botSkill === index + 1 ? 'selected' : ''}>${index + 1}</option>`).join('')}</select></label><button id="new-run">start new nine-hole run</button><p class="hint">The campaign seed pre-shuffles every course with one or more random chaos modifiers. Play the result immediately.</p><h3>scorecard</h3><table><thead><tr><th>player</th><th>hole</th><th>total</th></tr></thead><tbody>${scoreRows}</tbody></table>`;
 };
 
 const renderShopOverlay = (view: ViewModel) => {
@@ -268,9 +267,9 @@ const renderCourseBriefing = (view: ViewModel) => {
   const { state, briefingHole, preferences } = view;
   if (briefingHole !== state.hole || partyGuidePanelFor(state, preferences) || view.handoff) return '';
   const metadata = state.coursePlan[state.hole - 1]?.recipe.metadata;
-  const chaos = metadata?.resolvedReels.chaos;
+  const chaos = metadata?.resolvedReels.chaos ?? [];
   const roles = state.course.routeRoles?.map((role) => `<li class="route-${role.role}"><strong>${escapeHtml(role.label)}</strong><span>${role.role === 'safe' ? 'wide and steady' : role.role === 'skill' ? 'timing, banks, or air' : 'contested space'}</span></li>`).join('') ?? '';
-  return `<section class="party-briefing" role="dialog" aria-modal="true" aria-label="hole ${state.hole} course briefing"><div><p class="eyebrow">HOLE ${state.hole} · COURSE REVEAL</p><h2>${themeIcon[state.course.theme]} ${escapeHtml(themeDescriptor[state.course.theme])}</h2><p>${escapeHtml(state.course.archetype ?? 'ribbon')} layout · ${chaos ? `headline: ${escapeHtml(chaos)}` : 'no extra chaos modifier'}</p><ol>${roles}</ol><footer><span>the slot built the problem; the group now owns the result</span><button class="primary" data-dismiss-briefing>tee off</button></footer></div></section>`;
+  return `<section class="party-briefing" role="dialog" aria-modal="true" aria-label="hole ${state.hole} course briefing"><div><p class="eyebrow">HOLE ${state.hole} · COURSE REVEAL</p><h2>${themeIcon[state.course.theme]} ${escapeHtml(themeDescriptor[state.course.theme])}</h2><p>${escapeHtml(state.course.archetype ?? 'ribbon')} layout · ${chaos.length ? `headline: ${escapeHtml(chaos.join(' + '))}` : 'no extra chaos modifier'}</p><ol>${roles}</ol><footer><span>the shuffler built the problem; the group now owns the result</span><button class="primary" data-dismiss-briefing>tee off</button></footer></div></section>`;
 };
 
 const renderHandoff = (view: ViewModel) => {
@@ -287,7 +286,6 @@ const renderPartyGuide = (view: ViewModel) => {
 
 const renderInspector = (view: ViewModel) => {
   const { state } = view;
-  if (state.status === 'rolling') return `${renderLedger(view.ledger)}<p class="hint">Every player may add a complete wild reel stop or pay to weight a visible stop before the shared course slot machine locks in.</p>`;
   if (state.status === 'shopping') return `${renderLedger(view.ledger)}<p class="hint">${state.config.ruleset === 'party' ? 'Three visible Trick Cards are shared. Each golfer chooses one or passes.' : 'The clubhouse merchant sells persistent Caddies, contraband, Reality Cards, and Chrono Cards.'}</p>`;
   if (state.status === 'transitioning') return `${renderLedger(view.ledger)}<p class="hint">${state.config.ruleset === 'party' ? 'The cup becomes the next tee. Earlier holes remain visible in the campaign atlas while only the newest hole stays active.' : 'The completed cup becomes the next tee while the arena expands into open terrain. Previous fairways stay playable.'}</p>`;
   const features = (state.course.features ?? []).map((feature) => feature.kind === 'sinkhole' ? '↻ paired sinkhole' : feature.kind === 'thorn' ? '✽ thorn knockback' : feature.kind === 'pulse' ? '⌁ pulse launch' : feature.kind === 'gust' ? '〰 gust lane' : '◯ air ring boost').join(' · ') || 'none';
@@ -301,14 +299,14 @@ const renderInspector = (view: ViewModel) => {
 
 const renderDrawer = (view: ViewModel) => {
   if (!view.drawer) return '';
-  const title = view.drawer === 'run' ? 'run controls' : view.state.status === 'rolling' ? 'course slots' : 'course intel';
+  const title = view.drawer === 'run' ? 'run controls' : 'course intel';
   return `<aside class="drawer drawer-${view.drawer} panel" aria-label="${title}"><div class="drawer-heading"><h2>${title}</h2><button data-close-drawer class="close" aria-label="close ${title}">×</button></div><div class="drawer-content">${view.drawer === 'run' ? renderRunDrawer(view) : renderInspector(view)}</div></aside>`;
 };
 
 export const renderAppMarkup = (view: ViewModel) => {
   const { state } = view;
   const progress = `HOLE <b>${state.hole}</b> / ${state.config.holeCount}`;
-  const shellState = state.status === 'rolling' ? 'rolling' : state.status === 'shopping' ? 'shopping' : state.status === 'transitioning' ? 'transitioning' : state.status === 'finished' ? 'finished' : '';
+  const shellState = state.status === 'shopping' ? 'shopping' : state.status === 'transitioning' ? 'transitioning' : state.status === 'finished' ? 'finished' : '';
   const roomLabel = view.multiplayer.online ? `ONLINE · ${escapeHtml(view.multiplayer.roomCode ?? 'connecting')}` : view.multiplayer.controllerName ? `LOCAL PLAY · PAD · ${escapeHtml(view.multiplayer.controllerName)}` : 'LOCAL PLAY';
-  return `<main class="app-shell ${shellState}"><section class="topbar"><div class="brand"><p class="eyebrow">${roomLabel}</p><h1>GOLF <em>WITH YOUR</em> ENEMIES</h1></div><div class="title-actions"><button data-toggle-pause ${state.status === 'finished' ? 'disabled' : ''}>pause</button><button data-drawer="run" class="${view.drawer === 'run' ? 'selected' : ''}" aria-expanded="${view.drawer === 'run'}">run</button><button data-drawer="intel" class="${view.drawer === 'intel' ? 'selected' : ''}" aria-expanded="${view.drawer === 'intel'}">${state.status === 'rolling' ? 'slots' : 'intel'}</button><button data-open-overlay="help">? help</button><button class="icon-button" data-open-overlay="settings" aria-label="open settings" title="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="M19.4 13.5a7.7 7.7 0 0 0 .1-1.5 7.7 7.7 0 0 0-.1-1.5l2-1.5-2-3.4-2.4 1a8 8 0 0 0-2.6-1.5L14.1 2h-4l-.4 3.1a8 8 0 0 0-2.6 1.5l-2.4-1-2 3.4 2 1.5a7.7 7.7 0 0 0-.1 1.5c0 .5 0 1 .1 1.5l-2 1.5 2 3.4 2.4-1a8 8 0 0 0 2.6 1.5l.4 3.1h4l.4-3.1a8 8 0 0 0 2.6-1.5l2.4 1 2-3.4-2.1-1.5Z"/></svg></button><div class="hole">${progress}<br><small>${escapeHtml(state.course.seed)}</small></div></div></section><section class="layout"><section class="board panel"><div class="course-stage"><canvas id="course" aria-label="isometric arcade mini golf course"></canvas>${renderMatchHud(view)}<div id="callouts" class="callouts" aria-live="polite">${renderCallouts(view.callouts)}</div></div><div id="controls" class="controls"></div></section></section>${renderDrawer(view)}</main>${renderDieOverlay(view)}${renderShopOverlay(view)}${renderResultsOverlay(view)}${renderPauseOverlay(view)}${renderOverlay(view)}`;
+  return `<main class="app-shell ${shellState}"><section class="topbar"><div class="brand"><p class="eyebrow">${roomLabel}</p><h1>GOLF <em>WITH YOUR</em> ENEMIES</h1></div><div class="title-actions"><button data-toggle-pause ${state.status === 'finished' ? 'disabled' : ''}>pause</button><button data-drawer="run" class="${view.drawer === 'run' ? 'selected' : ''}" aria-expanded="${view.drawer === 'run'}">run</button><button data-drawer="intel" class="${view.drawer === 'intel' ? 'selected' : ''}" aria-expanded="${view.drawer === 'intel'}">intel</button><button data-open-overlay="help">? help</button><button class="icon-button" data-open-overlay="settings" aria-label="open settings" title="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="M19.4 13.5a7.7 7.7 0 0 0 .1-1.5 7.7 7.7 0 0 0-.1-1.5l2-1.5-2-3.4-2.4 1a8 8 0 0 0-2.6-1.5L14.1 2h-4l-.4 3.1a8 8 0 0 0-2.6 1.5l-2.4-1-2 3.4 2 1.5a7.7 7.7 0 0 0-.1 1.5c0 .5 0 1 .1 1.5l-2 1.5 2 3.4 2.4-1a8 8 0 0 0 2.6 1.5l.4 3.1h4l.4-3.1a8 8 0 0 0 2.6-1.5l2.4 1 2-3.4-2.1-1.5Z"/></svg></button><div class="hole">${progress}<br><small>${escapeHtml(state.course.seed)}</small></div></div></section><section class="layout"><section class="board panel"><div class="course-stage"><canvas id="course" aria-label="isometric arcade mini golf course"></canvas>${renderMatchHud(view)}<div id="callouts" class="callouts" aria-live="polite">${renderCallouts(view.callouts)}</div></div><div id="controls" class="controls"></div></section></section>${renderDrawer(view)}</main>${renderShopOverlay(view)}${renderResultsOverlay(view)}${renderPauseOverlay(view)}${renderOverlay(view)}`;
 };
