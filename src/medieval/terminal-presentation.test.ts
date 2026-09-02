@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { classifyMedievalContent } from './content-safety'
 import { createManagementSidebarModel } from './management-sidebar'
 import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE } from './palette'
 import {
   TERMINAL_GLYPH_VOCABULARY_ID,
+  TERMINAL_INPUT_MODES,
   TERMINAL_KEYBOARD_COMMANDS,
   TERMINAL_PRESENTATION_LIMITS,
   TERMINAL_STATE_PRESENTATIONS,
   cancelTerminalPrompt,
   createTerminalPresentationModel,
   terminalNonColorCueFor,
+  validateTerminalInputModes,
   validateTerminalKeyboardCommands,
   validateTerminalMaterializedCells,
   validateTerminalMessages,
@@ -203,8 +206,9 @@ describe('terminal presentation contract', () => {
   })
 
   it('detects keyboard binding conflicts and distinguishes current navigation/management controls from reserved movement and interaction surfaces', () => {
+    expect(validateTerminalInputModes(TERMINAL_INPUT_MODES)).toEqual([])
     expect(validateTerminalKeyboardCommands(TERMINAL_KEYBOARD_COMMANDS)).toEqual([])
-    expect(TERMINAL_KEYBOARD_COMMANDS.filter(command => command.availability === 'implemented').every(command => command.surface === 'navigation' || command.surface === 'management')).toBe(true)
+    expect(TERMINAL_KEYBOARD_COMMANDS.filter(command => command.availability === 'implemented').every(command => ['navigation', 'management', 'settings', 'text-entry', 'export'].includes(command.surface))).toBe(true)
     expect(TERMINAL_KEYBOARD_COMMANDS.filter(command => command.surface === 'movement')).toHaveLength(8)
     expect(TERMINAL_KEYBOARD_COMMANDS.filter(command => command.surface === 'movement').every(command => command.availability === 'reserved')).toBe(true)
     expect(TERMINAL_KEYBOARD_COMMANDS.find(command => command.id === 'reserved-contextual-action')?.availability).toBe('reserved')
@@ -215,11 +219,44 @@ describe('terminal presentation contract', () => {
       id: 'zzz-binding-conflict',
       availability: 'implemented' as const,
       surface: 'navigation' as const,
-      contexts: ['worlds'] as const,
-      binding: { key: 'N' as const },
+      contexts: ['worlds-list'] as const,
+      bindings: [{ kind: 'key' as const, key: 'N' as const, caseHandling: 'ascii-case-insensitive' as const }],
       accessibilityLabel: 'Conflicting fixture binding'
     }]
     expect(validateTerminalKeyboardCommands(conflict).map(item => item.code)).toContain('terminal-presentation.input-binding-conflict')
+  })
+
+  it('covers the existing canvas input paths with focused modes, bounded text entry, and explicit case handling', () => {
+    const appSource = readFileSync(new URL('./app.ts', import.meta.url), 'utf8')
+    const command = (id: string) => TERMINAL_KEYBOARD_COMMANDS.find(candidate => candidate.id === id)
+
+    expect(TERMINAL_INPUT_MODES.find(mode => mode.id === 'settings-basic-seed-entry')?.textEntry).toEqual({ field: 'creation-seed', maximumLength: 64, characterPolicy: 'ascii-word-space-period-comma-apostrophe-hyphen' })
+    expect(TERMINAL_INPUT_MODES.find(mode => mode.id === 'creation-profiles-name-entry')?.textEntry).toEqual({ field: 'creation-profile-name', maximumLength: 32, characterPolicy: 'ascii-word-space-period-comma-apostrophe-hyphen' })
+    expect(command('chronicle-export')?.bindings).toEqual([{ kind: 'key', key: 'E', caseHandling: 'ascii-case-insensitive' }])
+    expect(command('settings-reset-advanced-value')?.bindings).toEqual([{ kind: 'key', key: 'R', caseHandling: 'ascii-case-insensitive' }])
+    expect(command('creation-profile-save')?.bindings).toEqual([
+      { kind: 'key', key: 'Enter', caseHandling: 'exact' },
+      { kind: 'key', key: 'S', caseHandling: 'ascii-case-insensitive' }
+    ])
+    expect(command('settings-edit-seed')?.bindings[0]).toMatchObject({ kind: 'bounded-text-entry', deletionKey: 'Backspace', caseHandling: 'preserve-typed-case' })
+    expect(command('settings-create-world')?.contexts).toEqual(['settings-basic-create-world'])
+    expect(command('settings-open-advanced')?.contexts).toEqual(['settings-basic-advanced-link'])
+    expect(command('settings-open-profiles')?.contexts).toEqual(['settings-basic-profiles-link'])
+
+    for (const sourceFragment of [
+      "key === 'e' || key === 'E'",
+      "key === 'r' || key === 'R'",
+      "key === 'Enter' || key === 's' || key === 'S'",
+      "key === 'Backspace'",
+      'this.creationSettings.seed.length < 64',
+      'this.profileName.length < CREATION_SETTINGS_PROFILE_NAME_LIMIT',
+      'if (this.selectedRow === 4 && key === \'Enter\') void this.createWorld()',
+      'if (this.selectedRow === 2 && key === \'Enter\') { this.toggleAdvanced(); return }'
+    ]) expect(appSource).toContain(sourceFragment)
+
+    const malformedModes = structuredClone(TERMINAL_INPUT_MODES)
+    ;(malformedModes[0] as { id: string }).id = 'unknown-mode'
+    expect(validateTerminalInputModes(malformedModes).map(item => item.code)).toContain('terminal-presentation.invalid-input-binding')
   })
 
   it('fails closed for a malformed world or any model that adds current spatial or strategic detail', () => {
