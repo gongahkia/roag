@@ -192,8 +192,10 @@ describe('terminal presentation contract', () => {
     expect(cancelTerminalPrompt(prompt)).toEqual({ id: 'terminal-prompt-cancel:terminal-prompt:fixture', promptId: prompt.id, outcome: 'cancelled-no-mutation', advancesWorldTime: false })
     expect(world).toEqual(before)
 
-    const sourceLess = structuredClone(message)
-    sourceLess.evidence.source.kind = 'presentation-contract'
+    const sourceLess = {
+      ...message,
+      evidence: { ...message.evidence, source: { ...message.evidence.source, kind: 'presentation-contract' } }
+    }
     expect(validateTerminalMessages([sourceLess]).map(item => item.code)).toContain('terminal-presentation.invalid-message')
     const unsafePrompt = structuredClone(prompt)
     ;(unsafePrompt.contentSafety.exclusions as unknown as Record<string, string>).slavery = 'present'
