@@ -2,9 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MedievalWorldRepository } from './storage'
 import { CREATION_SETTINGS_PROFILE_LIMIT, defaultCreationSettings } from './settings'
 import { MEDIEVAL_DATABASE_NAME } from './types'
-import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, recordDurableJomonGrowth, replayFoundationWorldCausalHistory } from './world'
+import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, offerFoundationWorldDelegatedTask, recordDurableJomonGrowth, replayFoundationWorldCausalHistory } from './world'
 import { causalReplayProjectionForWorldState } from './world-state'
 import { classifyMedievalContent } from './content-safety'
+import { DELEGATION_CONTRACT_VERSION, DELEGATION_TASK_DEFINITIONS, delegationTaskIdForOffer, type DelegationOfferInput } from './delegation'
+import { SeededRng } from './rng'
 
 type Handler = (() => void) | null
 
@@ -120,6 +122,35 @@ afterEach(() => {
   Object.defineProperty(globalThis, 'indexedDB', { configurable: true, value: originalIndexedDB })
 })
 
+const delegatedWorld = (seed: string) => {
+  const world = chooseInitialCourier(createFoundationWorld({ seed }), 'crew:0')
+  const courierId = world.state.courier.initialCourierId!
+  for (const recipient of world.state.people.records.filter(person => person.id !== courierId)) {
+    for (const definition of DELEGATION_TASK_DEFINITIONS) {
+      const interest = definition.relevantMaterialInterests.find(item => recipient.materialInterests.includes(item))
+      const skill = definition.relevantSkills.find(item => recipient.work.skills.some(candidate => candidate.kind === item && candidate.level >= 1))
+      if (!interest || !skill) continue
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const id = `storage-delegation:${recipient.id}:${definition.family}:${attempt}`
+        const roll = new SeededRng(`jomon-delegation:${DELEGATION_CONTRACT_VERSION}:${world.id}:${world.manifest.creation.digest}:agreement:${delegationTaskIdForOffer(id)}:1`).integer(6)
+        if (roll !== 0) continue
+        const proposal = {
+          version: 1 as const,
+          kind: 'request' as const,
+          urgency: 'routine' as const,
+          complexity: 'routine' as const,
+          materialInterest: interest,
+          contentSafety: classifyMedievalContent('contract', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
+        }
+        const offer: DelegationOfferInput = { version: 1, id, courierId, recipientId: recipient.id, family: definition.family, approach: 'direct-request', proposal }
+        const delegated = offerFoundationWorldDelegatedTask(world, offer)
+        if (delegated.state.delegation.tasks[0]!.status === 'in-progress') return delegated
+      }
+    }
+  }
+  throw new Error('fixture did not create an accepted delegated task')
+}
+
 describe('medieval local persistence', () => {
   it('uses only the medieval database and never reads or migrates the prototype database', async () => {
     const repository = new MedievalWorldRepository()
@@ -174,7 +205,7 @@ describe('medieval local persistence', () => {
     expect(await repository.loadWorld('world:not-present')).toBeUndefined()
   })
 
-  it('keeps valid local creation settings intact while saving and loading the v10 full-world record', async () => {
+  it('keeps valid local creation settings intact while saving and loading the v11 full-world record', async () => {
     const repository = new MedievalWorldRepository()
     const settings = { ...defaultCreationSettings(), seed: 'settings-survive-state', configuration: { preset: 'far-coast' as const, advanced: {} } }
     const world = chooseInitialCourier(createFoundationWorld({ seed: 'settings-survive-state', configuration: settings.configuration }), 'crew:0')
@@ -184,6 +215,27 @@ describe('medieval local persistence', () => {
 
     expect((await repository.loadCreationSettings()).lastUsed).toEqual(settings)
     expect(await repository.loadWorld(world.id)).toEqual(world)
+  })
+
+  it('round-trips delegated person/task state and replays a loaded active task through its canonical completion', async () => {
+    const repository = new MedievalWorldRepository()
+    const delegated = delegatedWorld('storage-delegation-round-trip')
+    const task = delegated.state.delegation.tasks[0]!
+
+    await repository.saveWorld(delegated)
+    const loaded = await repository.loadWorld(delegated.id)
+    expect(loaded).toEqual(delegated)
+    if (!loaded) throw new Error('saved delegated world should load')
+    expect(replayFoundationWorldCausalHistory(loaded)).toEqual(causalReplayProjectionForWorldState(loaded.state))
+
+    const completed = advanceFoundationWorldTime(loaded, {
+      id: 'wait:storage-delegation-completion',
+      kind: 'wait',
+      durationMinutes: task.plannedCompletionAtWorldTime! - loaded.state.temporal.worldTime,
+      contentSafety: classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
+    })
+    await repository.saveWorld(completed)
+    expect((await repository.loadWorld(completed.id))?.state.delegation.tasks[0]).toMatchObject({ id: task.id, status: 'completed' })
   })
 
   it('rejects malformed local records instead of treating them as a medieval world', async () => {

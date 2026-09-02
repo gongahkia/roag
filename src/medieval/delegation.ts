@@ -710,6 +710,7 @@ export const validateDelegationState = (context: DelegationContext, value: unkno
   if (tasks.some((task, index) => index > 0 && record(task) && record(tasks[index - 1]) && String(tasks[index - 1]!.id) >= String(task.id))) issues.push(issue('delegation:tasks', 'delegation.invalid-lifecycle'))
   try {
     const contentAudit = auditMedievalContentSafety(taskContentRecords({ tasks: tasks as DelegatedTaskRecord[] }))
+    if (contentAudit.status === 'rejected') issues.push(...contentAudit.diagnostics.map(diagnostic => issue(diagnostic.contentId, diagnostic.code)))
     if (contentAudit.status !== 'accepted' || !same(contentAudit, value.contentSafetyAudit)) issues.push(issue('delegation:content-safety', 'delegation.invalid-content-audit'))
   } catch { issues.push(issue('delegation:content-safety', 'delegation.invalid-content-audit')) }
   return canonicalIssues(issues)

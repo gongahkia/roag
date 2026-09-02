@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { assessCourierConversation } from './conversation'
-import { DELEGATION_CONTRACT_VERSION, DELEGATION_FACTOR_CODES, DELEGATION_LIMITS, DELEGATION_TASK_DEFINITIONS, DELEGATION_TASK_FAMILIES, delegationDefinitionFor, delegationTaskIdForOffer, validateDelegationState, validateDelegationTaskDefinitions, type DelegationOfferInput } from './delegation'
-import { classifyMedievalContent } from './content-safety'
+import { DELEGATION_CONTRACT_VERSION, DELEGATION_FACTOR_CODES, DELEGATION_LIMITS, DELEGATION_TASK_DEFINITIONS, DELEGATION_TASK_FAMILIES, delegationDefinitionFor, delegationTaskIdForOffer, offerDelegatedTask, validateDelegationState, validateDelegationTaskDefinitions, type DelegationOfferInput } from './delegation'
+import { auditMedievalContentSafety, classifyMedievalContent } from './content-safety'
 import { SeededRng } from './rng'
 import { simulationCatchUpProjection } from './simulation-catchup'
 import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, foundationWorldCausalHistoryMatches, interruptFoundationWorldDelegatedTask, offerFoundationWorldDelegatedTask, replayFoundationWorldCausalHistory, validateFoundationWorld } from './world'
-import { causalReplayProjectionForWorldState } from './world-state'
+import { causalReplayProjectionForWorldState, medievalWorldStateContentRecords } from './world-state'
 
 const selectedWorld = (seed: string) => chooseInitialCourier(createFoundationWorld({ seed }), 'crew:0')
 const wait = (id: string, durationMinutes: number) => ({
@@ -133,6 +133,39 @@ describe('constrained deterministic delegation', () => {
     expect(validateFoundationWorld(world)).toEqual([])
   })
 
+  it('retains immutable foundation history plus a canonical bounded task-evidence tail for both participants', () => {
+    const world = selectedWorld('delegation-memory-bound')
+    const courierId = world.state.courier.initialCourierId!
+    const recipient = world.state.people.records.find(person => person.id !== courierId)!
+    const definition = DELEGATION_TASK_DEFINITIONS.find(candidate => candidate.relevantMaterialInterests.every(interest => !recipient.materialInterests.includes(interest)))!
+    const proposal = proposalFor(definition.relevantMaterialInterests[0]!)
+    const assessment = assessCourierConversation(world, { version: 1, courierId, recipientId: recipient.id, proposal })
+    let state = world.state.delegation
+    let people = world.state.people.records
+
+    for (let index = 0; index < DELEGATION_LIMITS.taskMemoriesPerPerson + 2; index++) {
+      const offer: DelegationOfferInput = {
+        version: 1,
+        id: `memory-refusal:${String(index).padStart(2, '0')}`,
+        courierId,
+        recipientId: recipient.id,
+        family: definition.family,
+        approach: 'direct-request',
+        proposal
+      }
+      const transition = offerDelegatedTask({ worldId: world.id, creationDigest: world.manifest.creation.digest, worldTime: 0, people }, state, people, offer, assessment)
+      expect(transition.task.status).toBe('refused')
+      state = transition.state
+      people = transition.people
+    }
+
+    const retained = people.find(person => person.id === recipient.id)!
+    expect(retained.memories.filter(memory => memory.kind === 'foundation-history')).toHaveLength(1)
+    expect(retained.memories.filter(memory => memory.kind === 'task-evidence')).toHaveLength(DELEGATION_LIMITS.taskMemoriesPerPerson)
+    expect(retained.memories.map(memory => memory.id)).toEqual([...retained.memories.map(memory => memory.id)].sort())
+    expect(validateDelegationState({ worldId: world.id, creationDigest: world.manifest.creation.digest, worldTime: 0, people }, state)).toEqual([])
+  })
+
   it('completes at the canonical due minute, releases work, and preserves task/person/catch-up projections across time partitions', () => {
     const start = selectedWorld('delegation-completion-partition')
     const first = acceptedOffer(start, 'offer:partition')
@@ -174,6 +207,23 @@ describe('constrained deterministic delegation', () => {
     expect(validateFoundationWorld(interrupted)).toEqual([])
   })
 
+  it('keeps task-owned people and registry state authoritative through journal checkpoint compaction and continuation', () => {
+    const first = acceptedOffer(selectedWorld('delegation-checkpoint'), 'offer:checkpoint')
+    const remaining = first.task.plannedCompletionAtWorldTime! - first.world.state.temporal.worldTime
+    let compacted = advanceFoundationWorldTime(first.world, wait('wait:checkpoint-complete', remaining))
+    for (let index = 0; index < 6; index++) compacted = advanceFoundationWorldTime(compacted, wait(`wait:checkpoint:${index}`, 1))
+
+    expect(compacted.state.causalHistory.checkpoint.sequence).toBeGreaterThan(0)
+    expect(compacted.state.causalHistory.checkpoint.projection.people).toEqual(compacted.state.people)
+    expect(compacted.state.causalHistory.checkpoint.projection.delegation).toEqual(compacted.state.delegation)
+    expect(replayFoundationWorldCausalHistory(compacted)).toEqual(causalReplayProjectionForWorldState(compacted.state))
+
+    const continued = advanceFoundationWorldTime(compacted, wait('wait:checkpoint-continuation', 1))
+    expect(continued.state.delegation).toEqual(compacted.state.delegation)
+    expect(continued.state.people).toEqual(compacted.state.people)
+    expect(validateFoundationWorld(continued)).toEqual([])
+  }, 20_000)
+
   it('cannot use a high conversation value or an unlocked approach to bypass current committed work, and preserves caller state on rejection', () => {
     const maximum = selectedWorld('delegation-maximum:10')
     const original = structuredClone(maximum)
@@ -186,7 +236,7 @@ describe('constrained deterministic delegation', () => {
 
     const first = acceptedOffer(maximum, 'offer:maximum')
     const nextOffer: DelegationOfferInput = { ...first.offer, id: 'offer:second-committed' }
-    expect(() => offerFoundationWorldDelegatedTask(first.world, nextOffer)).toThrow('conversation assessment rejected')
+    expect(() => offerFoundationWorldDelegatedTask(first.world, nextOffer)).toThrow('delegation.conversation-blocked')
     expect(first.world.state.delegation.tasks).toHaveLength(1)
   })
 
@@ -196,7 +246,7 @@ describe('constrained deterministic delegation', () => {
     const duplicate = structuredClone(world.state.delegation)
     duplicate.tasks = [structuredClone(duplicate.tasks[0]!), structuredClone(duplicate.tasks[0]!)]
     const unordered = structuredClone(world.state.delegation)
-    unordered.tasks = [...unordered.tasks, { ...structuredClone(unordered.tasks[0]!), id: 'delegated-task:a-second', offerId: 'a-second' }].reverse()
+    unordered.tasks = [...unordered.tasks, { ...structuredClone(unordered.tasks[0]!), id: 'delegated-task:a-second', offerId: 'a-second' }]
     const unsafe = structuredClone(world.state.delegation)
     ;(unsafe.tasks[0]!.contentSafety.exclusions as unknown as Record<string, string>).torture = 'present'
     const excessive = structuredClone(world.state.delegation)
@@ -206,6 +256,10 @@ describe('constrained deterministic delegation', () => {
     expect(validateDelegationState(context, unordered).map(item => item.code)).toContain('delegation.invalid-lifecycle')
     expect(validateDelegationState(context, unsafe).map(item => item.code)).toContain('content-safety.prohibited.torture')
     expect(validateDelegationState(context, excessive).map(item => item.code)).toContain('delegation.task-limit')
+    const unsafeMemoryWorld = structuredClone(world)
+    ;(unsafeMemoryWorld.state.people.records.find(person => person.id === world.state.courier.initialCourierId!)!.memories.find(memory => memory.kind === 'task-evidence')!.contentSafety.exclusions as unknown as Record<string, string>).slavery = 'present'
+    expect(auditMedievalContentSafety(medievalWorldStateContentRecords(unsafeMemoryWorld.state)).diagnostics.map(item => item.code)).toContain('content-safety.prohibited.slavery')
+    expect(validateFoundationWorld(unsafeMemoryWorld).map(item => item.code)).toEqual(expect.arrayContaining(['foundation-world.invalid-mutable-state', 'foundation-world.invalid-causal-history']))
     expect(world.state.people.records.map(person => person.id)).toEqual(world.crew.map(member => member.id).sort())
   })
 })

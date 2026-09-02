@@ -35,39 +35,6 @@ const worldWithCourierLevel = (level: number): FoundationWorld => {
   throw new Error(`fixture did not find courier level ${level}`)
 }
 
-const withPeople = (world: FoundationWorld, change: (people: PersistentPersonRecord[]) => void): FoundationWorld => {
-  const next = structuredClone(world)
-  change(next.state.people.records as PersistentPersonRecord[])
-  const audit = auditMedievalContentSafety(medievalWorldStateContentRecords(next.state))
-  if (audit.status === 'rejected') throw new Error('test fixture must remain content-safe')
-  next.state.contentSafetyAudit = audit
-  expect(validateFoundationWorld(next)).toEqual([])
-  return next
-}
-
-const withRecipient = (world: FoundationWorld, change: (recipient: PersistentPersonRecord) => void): FoundationWorld => withPeople(world, people => change(people.find(person => person.id === recipientFor(world).id)!))
-
-const activeCommitment = (person: PersistentPersonRecord) => ({
-  id: `${person.id}:commitment:conversation`,
-  kind: 'vessel-duty' as const,
-  status: 'active' as const,
-  createdAtWorldTime: 0,
-  detail: 'Keep the mooring watch.',
-  contentSafety: classifyMedievalContent('contract', ['adult-labour', 'navigation'], 'adults-only', ['person'])
-})
-
-const injuredHealth = (person: PersistentPersonRecord) => ({
-  condition: 'injured' as const,
-  injuries: [{
-    id: `${person.id}:injury:conversation`,
-    kind: 'minor-wound' as const,
-    receivedAtWorldTime: 0,
-    recovery: 'none' as const,
-    contentSafety: classifyMedievalContent('hazard', ['environment', 'ordinary-hardship'], 'adults-only', ['person'])
-  }],
-  recovery: { status: 'none' as const }
-})
-
 const worldWithRecipientStanding = (standing: -2 | 0 | 2): { world: FoundationWorld; courierId: string; recipientId: string } => {
   for (let attempt = 0; attempt < 24; attempt++) {
     const initial = createFoundationWorld({ seed: `conversation-standing:${standing}:${attempt}` })
