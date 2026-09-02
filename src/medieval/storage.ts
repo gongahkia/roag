@@ -1,14 +1,17 @@
 import { isValidFoundationWorld } from './world'
 import { emptyCreationSettingsRecord, isCreationSettingsRecord, saveCreationSettingsProfile as saveNamedCreationSettingsProfile, withLastUsedCreationSettings, type CreationSettings, type CreationSettingsRecord } from './settings'
+import { defaultTerminalControlPreferences, isTerminalControlPreferences, type TerminalControlPreferences } from './terminal-controls'
 import { MEDIEVAL_DATABASE_NAME, type ChronicleReason, type FoundationWorld, type WorldChronicle, type WorldIndex } from './types'
 
 const CATALOG_STORE = 'catalog'
 const WORLD_STORE = 'worlds'
 const CHRONICLE_STORE = 'chronicles'
 const CREATION_SETTINGS_STORE = 'creation-settings'
+const TERMINAL_CONTROLS_STORE = 'terminal-controls'
 const INDEX_KEY = 'world-index'
 const CREATION_SETTINGS_KEY = 'last-used-and-profiles'
-const DATABASE_VERSION = 2
+const TERMINAL_CONTROLS_KEY = 'world-controls'
+const DATABASE_VERSION = 3
 const databaseName = MEDIEVAL_DATABASE_NAME
 
 export const emptyWorldIndex = (): WorldIndex => ({ version: 1, activeWorlds: [], chronicles: [] })
@@ -62,6 +65,7 @@ export class MedievalWorldRepository {
         if (!database.objectStoreNames.contains(WORLD_STORE)) database.createObjectStore(WORLD_STORE)
         if (!database.objectStoreNames.contains(CHRONICLE_STORE)) database.createObjectStore(CHRONICLE_STORE)
         if (!database.objectStoreNames.contains(CREATION_SETTINGS_STORE)) database.createObjectStore(CREATION_SETTINGS_STORE)
+        if (!database.objectStoreNames.contains(TERMINAL_CONTROLS_STORE)) database.createObjectStore(TERMINAL_CONTROLS_STORE)
       }
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error ?? new Error('could not open medieval world storage'))
@@ -119,6 +123,24 @@ export class MedievalWorldRepository {
   /** Six normalized names are retained; an existing name is replaced in place. */
   async saveCreationSettingsProfile(name: string, settings: CreationSettings): Promise<CreationSettingsRecord> {
     return this.writeCreationSettings(saveNamedCreationSettingsProfile(await this.loadCreationSettings(), name, settings))
+  }
+
+  /** UI-only world controls; malformed records fall back without being altered or deleted. */
+  async loadTerminalControls(): Promise<TerminalControlPreferences> {
+    const database = await this.open()
+    const transaction = database.transaction(TERMINAL_CONTROLS_STORE, 'readonly')
+    const value = await requestResult(transaction.objectStore(TERMINAL_CONTROLS_STORE).get(TERMINAL_CONTROLS_KEY))
+    await transactionDone(transaction)
+    return isTerminalControlPreferences(value) ? clone(value) : defaultTerminalControlPreferences()
+  }
+
+  async saveTerminalControls(preferences: TerminalControlPreferences): Promise<TerminalControlPreferences> {
+    if (!isTerminalControlPreferences(preferences)) throw new Error('refusing to save invalid medieval terminal controls')
+    const database = await this.open()
+    const transaction = database.transaction(TERMINAL_CONTROLS_STORE, 'readwrite')
+    transaction.objectStore(TERMINAL_CONTROLS_STORE).put(clone(preferences), TERMINAL_CONTROLS_KEY)
+    await transactionDone(transaction)
+    return clone(preferences)
   }
 
   async saveWorld(world: FoundationWorld): Promise<void> {

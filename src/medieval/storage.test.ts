@@ -10,6 +10,7 @@ import { SeededRng } from './rng'
 import { assessCourierConversation } from './conversation'
 import { socialMemoryRecallForPair } from './social-memory'
 import { CAUSAL_HISTORY_LIMITS } from './causal-history'
+import { captureTerminalControlBinding, defaultTerminalControlPreferences } from './terminal-controls'
 
 type Handler = (() => void) | null
 
@@ -213,6 +214,26 @@ describe('medieval local persistence', () => {
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'creation-settings').set('last-used-and-profiles', { version: 1, lastUsed: { seed: 'prototype' }, profiles: [] })
 
     await expect(repository.loadCreationSettings()).resolves.toEqual({ version: 1, lastUsed: defaultCreationSettings(), profiles: [] })
+  })
+
+  it('persists only validated terminal-control preferences and safely falls back from corrupt UI records without touching worlds or settings', async () => {
+    const repository = new MedievalWorldRepository()
+    const settings = { ...defaultCreationSettings(), seed: 'controls-independent' }
+    const world = chooseInitialCourier(createFoundationWorld({ seed: 'controls-independent' }), 'crew:0')
+    const captured = captureTerminalControlBinding(defaultTerminalControlPreferences(), 'move-west', { key: 'Q' })
+    if (captured.status !== 'accepted') throw new Error('controls fixture requires an accepted key capture')
+
+    await repository.saveLastUsedCreationSettings(settings)
+    await repository.saveWorld(world)
+    await repository.saveTerminalControls(captured.preferences)
+    expect(await repository.loadTerminalControls()).toEqual(captured.preferences)
+    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'terminal-controls').has('world-controls')).toBe(true)
+
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'terminal-controls').set('world-controls', { version: 999, bindings: [] })
+    await expect(repository.loadTerminalControls()).resolves.toEqual(defaultTerminalControlPreferences())
+    expect(await repository.loadWorld(world.id)).toEqual(world)
+    expect((await repository.loadCreationSettings()).lastUsed).toEqual(settings)
+    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'terminal-controls').get('world-controls')).toEqual({ version: 999, bindings: [] })
   })
 
   it('persists separate active worlds without loading or mutating one through the other', async () => {

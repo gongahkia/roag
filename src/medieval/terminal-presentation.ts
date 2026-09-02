@@ -10,7 +10,7 @@ import { validateFoundationWorld } from './world'
  * detailed adapter must consume the same model without omitting or inventing
  * consequential information.
  */
-export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 2 as const
+export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 3 as const
 
 export const TERMINAL_PRESENTATION_LIMITS = {
   viewportWidth: 120,
@@ -20,8 +20,8 @@ export const TERMINAL_PRESENTATION_LIMITS = {
   messages: 12,
   prompts: 1,
   promptOptions: 8,
-  inputCommands: 48,
-  inputModes: 20,
+  inputCommands: 64,
+  inputModes: 24,
   identityLength: 160,
   glyphReferenceLength: 96,
   textLength: 280
@@ -238,6 +238,10 @@ export const TERMINAL_INPUT_CONTEXTS = [
   'world-result',
   'choose-courier',
   'world',
+  'world-contextual-prompt',
+  'world-command-help',
+  'world-controls-editor',
+  'world-controls-capture',
   'chronicles-list',
   'chronicle',
   'future-contextual-prompt'
@@ -246,7 +250,7 @@ export type TerminalInputContext = typeof TERMINAL_INPUT_CONTEXTS[number]
 
 export const TERMINAL_KEYBOARD_KEYS = [
   'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Escape', 'Backspace',
-  'N', 'C', 'E', 'R', 'S', 'M', '[', ']', '?', 'F2', 'Y', 'U', 'H', 'J', 'K', 'L', 'B'
+  'A', 'N', 'C', 'E', 'R', 'S', 'M', '[', ']', '?', 'F2', 'Y', 'U', 'H', 'J', 'K', 'L', 'B'
 ] as const
 export type TerminalKeyboardKey = typeof TERMINAL_KEYBOARD_KEYS[number]
 
@@ -272,12 +276,20 @@ export interface TerminalBoundedTextBinding {
   caseHandling: 'preserve-typed-case'
 }
 
-export type TerminalKeyboardBinding = TerminalKeyBinding | TerminalBoundedTextBinding
+/** The controls editor accepts one closed, validated key without binding Escape/F2. */
+export interface TerminalKeyCaptureBinding {
+  kind: 'single-key-capture'
+  maximumKeys: 1
+  cancellationKey: 'Escape'
+  disallowsModifierChords: true
+}
+
+export type TerminalKeyboardBinding = TerminalKeyBinding | TerminalBoundedTextBinding | TerminalKeyCaptureBinding
 
 export interface TerminalInputMode {
   id: TerminalInputContext
   route: MedievalRoute
-  focus: 'list' | 'seed-entry' | 'preset' | 'settings-link' | 'advanced-setting' | 'profile-name-entry' | 'profile-save-action' | 'profile-load-action' | 'result' | 'management' | 'chronicle' | 'future-prompt'
+  focus: 'list' | 'seed-entry' | 'preset' | 'settings-link' | 'advanced-setting' | 'profile-name-entry' | 'profile-save-action' | 'profile-load-action' | 'result' | 'management' | 'contextual-prompt' | 'command-help' | 'controls-editor' | 'controls-capture' | 'chronicle' | 'future-prompt'
   textEntry?: { field: TerminalTextInputField; maximumLength: number; characterPolicy: TerminalTextCharacterPolicy }
 }
 
@@ -300,6 +312,10 @@ export const TERMINAL_INPUT_MODES: readonly TerminalInputMode[] = canonicalInput
   { id: 'world-result', route: 'world-result', focus: 'result' },
   { id: 'choose-courier', route: 'choose-courier', focus: 'list' },
   { id: 'world', route: 'world', focus: 'management' },
+  { id: 'world-contextual-prompt', route: 'world', focus: 'contextual-prompt' },
+  { id: 'world-command-help', route: 'world', focus: 'command-help' },
+  { id: 'world-controls-editor', route: 'world', focus: 'controls-editor' },
+  { id: 'world-controls-capture', route: 'world', focus: 'controls-capture' },
   { id: 'chronicles-list', route: 'chronicles', focus: 'list' },
   { id: 'chronicle', route: 'chronicle', focus: 'chronicle' },
   { id: 'future-contextual-prompt', route: 'world', focus: 'future-prompt' }
@@ -316,16 +332,17 @@ export interface TerminalKeyboardCommand {
 
 const canonicalCommands = (commands: readonly TerminalKeyboardCommand[]): readonly TerminalKeyboardCommand[] => [...commands]
   .map(command => ({ ...command, contexts: [...command.contexts].sort((left, right) => left.localeCompare(right)), bindings: [...command.bindings].sort((left, right) => {
-    const leftKey = left.kind === 'key' ? `key:${left.key}` : `text:${left.field}`
-    const rightKey = right.kind === 'key' ? `key:${right.key}` : `text:${right.field}`
+    const leftKey = left.kind === 'key' ? `key:${left.key}` : left.kind === 'bounded-text-entry' ? `text:${left.field}` : 'capture'
+    const rightKey = right.kind === 'key' ? `key:${right.key}` : right.kind === 'bounded-text-entry' ? `text:${right.field}` : 'capture'
     return inputCompare(leftKey, rightKey)
   }) }))
   .sort((left, right) => left.id.localeCompare(right.id))
 
 const key = (value: TerminalKeyboardKey, caseHandling: TerminalKeyBinding['caseHandling'] = 'exact'): TerminalKeyBinding => ({ kind: 'key', key: value, caseHandling })
 const textEntry = (field: TerminalTextInputField, maximumLength: number): TerminalBoundedTextBinding => ({ kind: 'bounded-text-entry', field, characterPolicy: 'ascii-word-space-period-comma-apostrophe-hyphen', maximumLength, deletionKey: 'Backspace', caseHandling: 'preserve-typed-case' })
+const keyCapture = (): TerminalKeyCaptureBinding => ({ kind: 'single-key-capture', maximumKeys: 1, cancellationKey: 'Escape', disallowsModifierChords: true })
 
-/** Implemented bindings mirror every current canvas key path; future controls remain explicitly reserved. */
+/** Implemented bindings mirror every current canvas key path; only later map actions remain reserved. */
 export const TERMINAL_KEYBOARD_COMMANDS: readonly TerminalKeyboardCommand[] = canonicalCommands([
   { id: 'canvas-cancel-return', availability: 'implemented', surface: 'navigation', contexts: ['settings-advanced-setting', 'settings-basic-seed-entry', 'settings-basic-preset', 'settings-basic-advanced-link', 'settings-basic-profiles-link', 'settings-basic-create-world', 'creation-profiles-name-entry', 'creation-profiles-save-action', 'creation-profiles-load-profile', 'world-generation', 'world-result', 'choose-courier', 'world', 'chronicles-list', 'chronicle'], bindings: [key('Escape')], accessibilityLabel: 'Return to the preceding canvas view' },
   { id: 'canvas-confirm-selection', availability: 'implemented', surface: 'navigation', contexts: ['worlds-list', 'world-generation', 'world-result', 'choose-courier'], bindings: [key('Enter')], accessibilityLabel: 'Confirm the current canvas selection' },
@@ -340,18 +357,25 @@ export const TERMINAL_KEYBOARD_COMMANDS: readonly TerminalKeyboardCommand[] = ca
   { id: 'management-toggle', availability: 'implemented', surface: 'management', contexts: ['world'], bindings: [key('M', 'ascii-case-insensitive')], accessibilityLabel: 'Expand or collapse the management sidebar' },
   { id: 'open-chronicles', availability: 'implemented', surface: 'navigation', contexts: ['worlds-list'], bindings: [key('C', 'ascii-case-insensitive')], accessibilityLabel: 'Open finalized chronicles' },
   { id: 'open-world-settings', availability: 'implemented', surface: 'navigation', contexts: ['worlds-list'], bindings: [key('N', 'ascii-case-insensitive')], accessibilityLabel: 'Open world settings' },
-  { id: 'reserved-contextual-action', availability: 'reserved', surface: 'contextual-action', contexts: ['world'], bindings: [key('Enter')], accessibilityLabel: 'Reserved future contextual action; not implemented' },
-  { id: 'reserved-help', availability: 'reserved', surface: 'help', contexts: ['world'], bindings: [key('?')], accessibilityLabel: 'Reserved future command help; not implemented' },
-  { id: 'reserved-move-east', availability: 'reserved', surface: 'movement', contexts: ['world'], bindings: [key('L', 'ascii-case-insensitive')], accessibilityLabel: 'Reserved future move east; not implemented' },
-  { id: 'reserved-move-north', availability: 'reserved', surface: 'movement', contexts: ['world'], bindings: [key('K', 'ascii-case-insensitive')], accessibilityLabel: 'Reserved future move north; not implemented' },
-  { id: 'reserved-move-north-east', availability: 'reserved', surface: 'movement', contexts: ['world'], bindings: [key('U', 'ascii-case-insensitive')], accessibilityLabel: 'Reserved future move north east; not implemented' },
-  { id: 'reserved-move-north-west', availability: 'reserved', surface: 'movement', contexts: ['world'], bindings: [key('Y', 'ascii-case-insensitive')], accessibilityLabel: 'Reserved future move north west; not implemented' },
-  { id: 'reserved-move-south', availability: 'reserved', surface: 'movement', contexts: ['world'], bindings: [key('J', 'ascii-case-insensitive')], accessibilityLabel: 'Reserved future move south; not implemented' },
-  { id: 'reserved-move-south-east', availability: 'reserved', surface: 'movement', contexts: ['world'], bindings: [key('N', 'ascii-case-insensitive')], accessibilityLabel: 'Reserved future move south east; not implemented' },
-  { id: 'reserved-move-south-west', availability: 'reserved', surface: 'movement', contexts: ['world'], bindings: [key('B', 'ascii-case-insensitive')], accessibilityLabel: 'Reserved future move south west; not implemented' },
-  { id: 'reserved-move-west', availability: 'reserved', surface: 'movement', contexts: ['world'], bindings: [key('H', 'ascii-case-insensitive')], accessibilityLabel: 'Reserved future move west; not implemented' },
-  { id: 'reserved-prompt-cancel', availability: 'reserved', surface: 'contextual-action', contexts: ['future-contextual-prompt'], bindings: [key('Escape')], accessibilityLabel: 'Reserved future prompt cancellation; never advances world time' },
-  { id: 'reserved-remap-controls', availability: 'reserved', surface: 'remapping', contexts: ['world'], bindings: [key('F2')], accessibilityLabel: 'Reserved future control remapping; not implemented' },
+  { id: 'controls-begin-key-capture', availability: 'implemented', surface: 'remapping', contexts: ['world-controls-editor'], bindings: [key('Enter')], accessibilityLabel: 'Capture one replacement key for the selected world control' },
+  { id: 'controls-capture-key', availability: 'implemented', surface: 'remapping', contexts: ['world-controls-capture'], bindings: [keyCapture()], accessibilityLabel: 'Capture one supported key; Escape cancels without changing a binding' },
+  { id: 'controls-editor-next', availability: 'implemented', surface: 'remapping', contexts: ['world-controls-editor'], bindings: [key('ArrowDown')], accessibilityLabel: 'Select the next remappable world control' },
+  { id: 'controls-editor-previous', availability: 'implemented', surface: 'remapping', contexts: ['world-controls-editor'], bindings: [key('ArrowUp')], accessibilityLabel: 'Select the previous remappable world control' },
+  { id: 'controls-open-editor', availability: 'implemented', surface: 'remapping', contexts: ['world'], bindings: [key('F2')], accessibilityLabel: 'Open world controls and remapping preferences' },
+  { id: 'controls-reset-all', availability: 'implemented', surface: 'remapping', contexts: ['world-controls-editor'], bindings: [key('A', 'ascii-case-insensitive')], accessibilityLabel: 'Reset every remappable world control to its default' },
+  { id: 'controls-reset-current', availability: 'implemented', surface: 'remapping', contexts: ['world-controls-editor'], bindings: [key('R', 'ascii-case-insensitive')], accessibilityLabel: 'Reset the selected world control to its default' },
+  { id: 'world-command-help', availability: 'implemented', surface: 'help', contexts: ['world'], bindings: [key('?')], accessibilityLabel: 'Open command help with current effective bindings' },
+  { id: 'world-contextual-prompt', availability: 'implemented', surface: 'contextual-action', contexts: ['world'], bindings: [key('Enter')], accessibilityLabel: 'Open the current contextual prompt' },
+  { id: 'world-move-east', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('ArrowRight'), key('L', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement east; unavailable until the map is materialized' },
+  { id: 'world-move-north', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('ArrowUp'), key('K', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement north; unavailable until the map is materialized' },
+  { id: 'world-move-north-east', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('U', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement north east; unavailable until the map is materialized' },
+  { id: 'world-move-north-west', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('Y', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement north west; unavailable until the map is materialized' },
+  { id: 'world-move-south', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('ArrowDown'), key('J', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement south; unavailable until the map is materialized' },
+  { id: 'world-move-south-east', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('N', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement south east; unavailable until the map is materialized' },
+  { id: 'world-move-south-west', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('B', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement south west; unavailable until the map is materialized' },
+  { id: 'world-move-west', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('ArrowLeft'), key('H', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement west; unavailable until the map is materialized' },
+  { id: 'world-overlay-cancel', availability: 'implemented', surface: 'navigation', contexts: ['world-contextual-prompt', 'world-command-help', 'world-controls-editor', 'world-controls-capture'], bindings: [key('Escape')], accessibilityLabel: 'Cancel the open terminal overlay without changing world state' },
+  { id: 'reserved-future-prompt-cancel', availability: 'reserved', surface: 'contextual-action', contexts: ['future-contextual-prompt'], bindings: [key('Escape')], accessibilityLabel: 'Reserved future materialized prompt cancellation; never advances world time' },
   { id: 'settings-create-world', availability: 'implemented', surface: 'settings', contexts: ['settings-basic-create-world'], bindings: [key('Enter')], accessibilityLabel: 'Create a world from the selected valid settings' },
   { id: 'settings-edit-seed', availability: 'implemented', surface: 'text-entry', contexts: ['settings-basic-seed-entry'], bindings: [textEntry('creation-seed', 64)], accessibilityLabel: 'Enter or delete the bounded creation seed' },
   { id: 'settings-open-advanced', availability: 'implemented', surface: 'settings', contexts: ['settings-basic-advanced-link'], bindings: [key('Enter')], accessibilityLabel: 'Open advanced generation settings' },
@@ -646,6 +670,42 @@ export const createTerminalPresentationModel = (world: FoundationWorld): Termina
   return rawTerminalPresentationModel(world)
 }
 
+/**
+ * The only current contextual prompt is deliberately disabled: the map and
+ * physical interaction surface are still reserved. Opening it is UI state,
+ * never a world action.
+ */
+export const createReservedMapContextualPrompt = (world: FoundationWorld): TerminalPrompt => {
+  ensureValidWorld(world)
+  const prompt: TerminalPrompt = {
+    id: `terminal-prompt:reserved-map:${world.id}`,
+    kind: 'future-contextual-choice',
+    accessibilityText: 'Context prompt. No physical prop or contextual action is materialized on the reserved map.',
+    evidence: {
+      source: { kind: 'authoritative-record', recordId: 'world-state:temporal' },
+      recordedAtWorldTime: world.state.temporal.worldTime,
+      knownAtWorldTime: world.state.temporal.worldTime,
+      freshness: { kind: 'current' }
+    },
+    contentDomain: 'player-facing-text',
+    contentSafety: baseClassification(),
+    options: [{
+      id: `terminal-prompt-option:reserved-map:${world.id}`,
+      key: 'Enter',
+      availability: 'disabled',
+      disabledReason: 'no-contextual-action-materialized',
+      intent: 'future-contextual-action',
+      requiresConfirmation: false,
+      nonColorCue: terminalNonColorCueFor('neutral'),
+      accessibilityText: 'No contextual action is available because no physical prop or map cell is materialized.'
+    }],
+    cancellation: { key: 'Escape', outcome: 'cancelled-no-mutation', advancesWorldTime: false }
+  }
+  const diagnostics = validateTerminalPrompt(prompt)
+  if (diagnostics.length) throw new TerminalPresentationContractError(diagnostics)
+  return prompt
+}
+
 /** Validates future message routing independently; the current projection has no messages. */
 export const validateTerminalMessages = (value: unknown): readonly TerminalPresentationDiagnostic[] => {
   if (!Array.isArray(value) || value.length > TERMINAL_PRESENTATION_LIMITS.messages) return [issue('terminal-messages', 'terminal-presentation.invalid-message')]
@@ -705,13 +765,13 @@ export const cancelTerminalPrompt = (prompt: TerminalPrompt): TerminalPromptCanc
 }
 
 const terminalRoutes = ['worlds', 'create-world', 'creation-profiles', 'world-generation', 'world-result', 'choose-courier', 'world', 'chronicles', 'chronicle'] as const satisfies readonly MedievalRoute[]
-const terminalInputFocuses = ['list', 'seed-entry', 'preset', 'settings-link', 'advanced-setting', 'profile-name-entry', 'profile-save-action', 'profile-load-action', 'result', 'management', 'chronicle', 'future-prompt'] as const satisfies readonly TerminalInputMode['focus'][]
+const terminalInputFocuses = ['list', 'seed-entry', 'preset', 'settings-link', 'advanced-setting', 'profile-name-entry', 'profile-save-action', 'profile-load-action', 'result', 'management', 'contextual-prompt', 'command-help', 'controls-editor', 'controls-capture', 'chronicle', 'future-prompt'] as const satisfies readonly TerminalInputMode['focus'][]
 const terminalInputSurfaces = ['navigation', 'management', 'settings', 'text-entry', 'export', 'movement', 'contextual-action', 'remapping', 'help'] as const satisfies readonly TerminalInputCommandSurface[]
 
 const textEntrySpecification = (field: TerminalTextInputField): TerminalBoundedTextBinding => field === 'creation-seed'
   ? textEntry('creation-seed', 64)
   : textEntry('creation-profile-name', 32)
-const bindingIdentity = (binding: TerminalKeyboardBinding): string => binding.kind === 'key' ? `key:${binding.key}` : `text:${binding.field}`
+const bindingIdentity = (binding: TerminalKeyboardBinding): string => binding.kind === 'key' ? `key:${binding.key}` : binding.kind === 'bounded-text-entry' ? `text:${binding.field}` : 'capture'
 const validTextEntryBinding = (value: unknown): value is TerminalBoundedTextBinding => record(value)
   && hasOnlyKeys(value, ['kind', 'field', 'characterPolicy', 'maximumLength', 'deletionKey', 'caseHandling'])
   && value.kind === 'bounded-text-entry'
@@ -723,7 +783,13 @@ const validKeyBinding = (value: unknown): value is TerminalKeyBinding => record(
   && value.kind === 'key'
   && oneOf(TERMINAL_KEYBOARD_KEYS, value.key)
   && (value.caseHandling === 'exact' || value.caseHandling === 'ascii-case-insensitive')
-const validKeyboardBinding = (value: unknown): value is TerminalKeyboardBinding => validKeyBinding(value) || validTextEntryBinding(value)
+const validKeyCaptureBinding = (value: unknown): value is TerminalKeyCaptureBinding => record(value)
+  && hasOnlyKeys(value, ['kind', 'maximumKeys', 'cancellationKey', 'disallowsModifierChords'])
+  && value.kind === 'single-key-capture'
+  && value.maximumKeys === 1
+  && value.cancellationKey === 'Escape'
+  && value.disallowsModifierChords === true
+const validKeyboardBinding = (value: unknown): value is TerminalKeyboardBinding => validKeyBinding(value) || validTextEntryBinding(value) || validKeyCaptureBinding(value)
 
 /** Ensures focused input modes remain an exact, bounded description of the canvas adapter. */
 export const validateTerminalInputModes = (value: unknown): readonly TerminalPresentationDiagnostic[] => {
@@ -766,6 +832,8 @@ export const validateTerminalKeyboardCommands = (value: unknown): readonly Termi
     }
     const textBindings = bindings.filter(binding => record(binding) && binding.kind === 'bounded-text-entry') as TerminalBoundedTextBinding[]
     if (textBindings.length > 0 && (bindings.length !== 1 || contexts.length !== 1 || (textBindings[0]!.field === 'creation-seed' ? contexts[0] !== 'settings-basic-seed-entry' : contexts[0] !== 'creation-profiles-name-entry'))) diagnostics.push(issue(id, 'terminal-presentation.invalid-input-binding'))
+    const captureBindings = bindings.filter(binding => record(binding) && binding.kind === 'single-key-capture') as TerminalKeyCaptureBinding[]
+    if (captureBindings.length > 0 && (bindings.length !== 1 || contexts.length !== 1 || contexts[0] !== 'world-controls-capture')) diagnostics.push(issue(id, 'terminal-presentation.invalid-input-binding'))
     if (ids.has(candidate.id)) diagnostics.push(issue(id, 'terminal-presentation.invalid-input-binding'))
     ids.add(candidate.id)
     for (const context of contexts as TerminalInputContext[]) {

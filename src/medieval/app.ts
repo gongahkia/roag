@@ -5,12 +5,25 @@ import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE } from './palette'
 import { CREATION_SETTINGS_PROFILE_LIMIT, CREATION_SETTINGS_PROFILE_NAME_LIMIT, defaultCreationSettings, normalizeCreationSeed, resolveCreationSettings, type CreationSettings, type CreationSettingsProfile, type CreationSettingsRecord } from './settings'
 import { MedievalWorldRepository } from './storage'
 import { MutableWorldSession } from './session'
+import { cancelTerminalPrompt, createReservedMapContextualPrompt, type TerminalPrompt } from './terminal-presentation'
+import { TERMINAL_CONTROL_IDS, captureTerminalControlBinding, createTerminalCommandHelpModel, createTerminalControlsEditorModel, cycleTerminalControlSelection, defaultTerminalControlPreferences, resetAllTerminalControls, resetTerminalControl, resolveTerminalWorldCommand, type TerminalControlId, type TerminalControlPreferences, type TerminalMovementDirection } from './terminal-controls'
 import type { FoundationWorld, MedievalRoute, WorldChronicle, WorldIndex } from './types'
 import { chronicleExport, chooseInitialCourier, createFoundationWorld } from './world'
 
 type PersistenceState = 'loading' | 'saved' | 'error'
 type SettingsPage = 'basic' | 'advanced'
 type ResultPage = 'summary' | 'configuration' | 'provenance'
+type WorldOverlay = 'none' | 'contextual-prompt' | 'command-help' | 'controls-editor'
+type TerminalInteractionOutcome =
+  | { kind: 'movement-unavailable'; direction: TerminalMovementDirection }
+  | { kind: 'prompt-cancelled' }
+  | { kind: 'prompt-option-disabled'; reason: 'no-contextual-action-materialized' }
+  | { kind: 'overlay-dismissed'; overlay: Exclude<WorldOverlay, 'none'> }
+  | { kind: 'controls-capture-cancelled' }
+  | { kind: 'controls-binding-saved'; controlId: TerminalControlId }
+  | { kind: 'controls-binding-rejected'; controlId: TerminalControlId; code: string }
+  | { kind: 'controls-reset-current'; controlId: TerminalControlId }
+  | { kind: 'controls-reset-all' }
 
 const palette = JOMON_PALETTE
 const cues = JOMON_NON_COLOR_STATE_CUES
@@ -177,6 +190,13 @@ export class MedievalApp {
   private managementSidebar: ManagementSidebarModel | undefined
   private managementExpanded = true
   private managementSectionIndex = 0
+  /** UI-only terminal state; none of it is part of a world save or causal history. */
+  private terminalControls: TerminalControlPreferences = defaultTerminalControlPreferences()
+  private worldOverlay: WorldOverlay = 'none'
+  private contextualPrompt: TerminalPrompt | undefined
+  private selectedTerminalControlId: TerminalControlId = TERMINAL_CONTROL_IDS[0]
+  private terminalControlCapturePending = false
+  private terminalInteractionOutcome: TerminalInteractionOutcome | undefined
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const context = canvas.getContext('2d')
@@ -184,8 +204,9 @@ export class MedievalApp {
     this.context = context
     canvas.width = width
     canvas.height = height
+    canvas.tabIndex = 0
     canvas.addEventListener('pointerdown', () => canvas.focus())
-    window.addEventListener('keydown', event => this.handleKey(event))
+    canvas.addEventListener('keydown', event => this.handleKey(event))
     if ('fonts' in document) void document.fonts.load(terminalFont, 'JOMON').then(() => this.render()).catch(() => undefined)
   }
 
@@ -193,9 +214,10 @@ export class MedievalApp {
     this.persistence = 'loading'
     this.render()
     try {
-      const [index, savedSettings] = await Promise.all([this.repository.loadIndex(), this.repository.loadCreationSettings()])
+      const [index, savedSettings, controls] = await Promise.all([this.repository.loadIndex(), this.repository.loadCreationSettings(), this.repository.loadTerminalControls()])
       this.index = index
       this.applyCreationSettingsRecord(savedSettings)
+      this.terminalControls = controls
       this.persistence = 'saved'
       this.error = undefined
     } catch (error) {
@@ -422,9 +444,13 @@ export class MedievalApp {
 
   private handleKey(event: KeyboardEvent): void {
     if (event.metaKey || event.ctrlKey || event.altKey) return
+    if (this.persistence === 'loading') return
+    if (this.route === 'world') {
+      if (this.handleWorldKey(event)) event.preventDefault()
+      return
+    }
     const key = event.key
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Escape', 'Backspace', 'n', 'N', 'c', 'C', 'e', 'E', 'r', 'R', 's', 'S'].includes(key) || key.length === 1) event.preventDefault()
-    if (this.persistence === 'loading') return
     if (this.route === 'worlds') {
       if (key === 'n' || key === 'N') { this.openSettings(); return }
       if (key === 'c' || key === 'C') { this.route = 'chronicles'; this.selectedRow = 0; this.render(); return }
@@ -460,21 +486,6 @@ export class MedievalApp {
       if (key === 'Enter') void this.selectCourier()
       return
     }
-    if (this.route === 'world') {
-      if (key === 'm' || key === 'M') {
-        this.managementExpanded = !this.managementExpanded
-        this.render()
-        return
-      }
-      if (this.managementExpanded && (key === '[' || key === ']')) {
-        const change = key === ']' ? 1 : -1
-        this.managementSectionIndex = (this.managementSectionIndex + change + MANAGEMENT_SIDEBAR_SECTION_IDS.length) % MANAGEMENT_SIDEBAR_SECTION_IDS.length
-        this.render()
-        return
-      }
-      if (key === 'Escape') { this.releaseWorld(); this.route = 'worlds'; this.world = undefined; this.selectedRow = 0; this.render() }
-      return
-    }
     if (this.route === 'chronicles') {
       if (key === 'Escape') { this.route = 'worlds'; this.selectedRow = 0; this.render(); return }
       if (key === 'ArrowUp') { this.selectedRow = Math.max(0, this.selectedRow - 1); this.render(); return }
@@ -485,6 +496,132 @@ export class MedievalApp {
     if (this.route === 'chronicle') {
       if (key === 'Escape') { this.route = 'chronicles'; this.chronicle = undefined; this.render(); return }
       if (key === 'e' || key === 'E') this.exportChronicle()
+    }
+  }
+
+  private terminalWorldInteractionContext() {
+    if (this.worldOverlay === 'contextual-prompt') return 'contextual-prompt' as const
+    if (this.worldOverlay === 'command-help') return 'command-help' as const
+    if (this.terminalControlCapturePending) return 'controls-key-capture' as const
+    if (this.worldOverlay === 'controls-editor') return 'controls-editor' as const
+    return 'world' as const
+  }
+
+  private saveTerminalControls(preferences: TerminalControlPreferences, outcome: TerminalInteractionOutcome): void {
+    this.terminalControls = preferences
+    this.terminalInteractionOutcome = outcome
+    this.render()
+    void this.repository.saveTerminalControls(preferences).then(saved => {
+      this.terminalControls = saved
+      this.error = undefined
+      this.render()
+    }).catch(error => {
+      this.error = errorMessage(error)
+      this.render()
+    })
+  }
+
+  /** World-view keys become typed UI intents before the canvas renders their zero-time result. */
+  private handleWorldKey(event: KeyboardEvent): boolean {
+    const command = resolveTerminalWorldCommand(this.terminalControls, {
+      key: event.key,
+      ctrlKey: event.ctrlKey,
+      altKey: event.altKey,
+      metaKey: event.metaKey,
+      canvasFocused: document.activeElement === this.canvas,
+      context: this.terminalWorldInteractionContext()
+    })
+    if (command.kind === 'ignored') return false
+    if (command.kind === 'capture-control-key') {
+      const capture = captureTerminalControlBinding(this.terminalControls, this.selectedTerminalControlId, event)
+      if (capture.status === 'accepted') {
+        this.terminalControlCapturePending = false
+        this.saveTerminalControls(capture.preferences, { kind: 'controls-binding-saved', controlId: capture.controlId })
+      } else if (capture.status === 'cancelled') {
+        this.terminalControlCapturePending = false
+        this.terminalInteractionOutcome = { kind: 'controls-capture-cancelled' }
+        this.render()
+      } else {
+        this.terminalInteractionOutcome = { kind: 'controls-binding-rejected', controlId: capture.controlId, code: capture.code }
+        this.render()
+      }
+      return true
+    }
+    switch (command.kind) {
+      case 'return-to-worlds':
+        this.releaseWorld()
+        this.route = 'worlds'
+        this.world = undefined
+        this.selectedRow = 0
+        this.render()
+        return true
+      case 'cancel-overlay':
+        if (command.overlay === 'contextual-prompt' && this.contextualPrompt) {
+          cancelTerminalPrompt(this.contextualPrompt)
+          this.terminalInteractionOutcome = { kind: 'prompt-cancelled' }
+        } else this.terminalInteractionOutcome = { kind: 'overlay-dismissed', overlay: this.worldOverlay === 'none' ? 'command-help' : this.worldOverlay }
+        this.worldOverlay = 'none'
+        this.contextualPrompt = undefined
+        this.terminalControlCapturePending = false
+        this.render()
+        return true
+      case 'controls-select':
+        this.selectedTerminalControlId = cycleTerminalControlSelection(this.selectedTerminalControlId, command.direction)
+        this.terminalInteractionOutcome = undefined
+        this.render()
+        return true
+      case 'controls-begin-capture':
+        this.terminalControlCapturePending = true
+        this.terminalInteractionOutcome = undefined
+        this.render()
+        return true
+      case 'controls-reset-current': {
+        const preferences = resetTerminalControl(this.terminalControls, this.selectedTerminalControlId)
+        this.saveTerminalControls(preferences, { kind: 'controls-reset-current', controlId: this.selectedTerminalControlId })
+        return true
+      }
+      case 'controls-reset-all':
+        this.saveTerminalControls(resetAllTerminalControls(this.terminalControls), { kind: 'controls-reset-all' })
+        return true
+      case 'open-controls-editor':
+        this.worldOverlay = 'controls-editor'
+        this.terminalControlCapturePending = false
+        this.terminalInteractionOutcome = undefined
+        this.render()
+        return true
+      case 'open-command-help':
+        this.worldOverlay = 'command-help'
+        this.contextualPrompt = undefined
+        this.terminalInteractionOutcome = undefined
+        this.render()
+        return true
+      case 'open-contextual-prompt':
+        if (!this.world) return false
+        this.contextualPrompt = createReservedMapContextualPrompt(this.world)
+        this.worldOverlay = 'contextual-prompt'
+        this.terminalInteractionOutcome = undefined
+        this.render()
+        return true
+      case 'prompt-disabled-option':
+        this.terminalInteractionOutcome = { kind: 'prompt-option-disabled', reason: command.reason }
+        this.render()
+        return true
+      case 'toggle-management':
+        this.managementExpanded = !this.managementExpanded
+        this.terminalInteractionOutcome = undefined
+        this.render()
+        return true
+      case 'previous-management-section':
+      case 'next-management-section':
+        if (!this.managementExpanded) return false
+        this.managementSectionIndex = (this.managementSectionIndex + (command.kind === 'next-management-section' ? 1 : -1) + MANAGEMENT_SIDEBAR_SECTION_IDS.length) % MANAGEMENT_SIDEBAR_SECTION_IDS.length
+        this.terminalInteractionOutcome = undefined
+        this.render()
+        return true
+      case 'movement-unavailable':
+        this.terminalInteractionOutcome = { kind: 'movement-unavailable', direction: command.direction }
+        this.render()
+        return true
     }
   }
 
@@ -528,6 +665,10 @@ export class MedievalApp {
     this.managementSidebar = undefined
     this.managementExpanded = true
     this.managementSectionIndex = 0
+    this.worldOverlay = 'none'
+    this.contextualPrompt = undefined
+    this.terminalControlCapturePending = false
+    this.terminalInteractionOutcome = undefined
   }
 
   private resetManagementSidebar(): void {
@@ -574,6 +715,11 @@ export class MedievalApp {
     delete this.canvas.dataset.managementItemCount
     delete this.canvas.dataset.managementKnownFactCount
     delete this.canvas.dataset.managementUrgentFactCount
+    delete this.canvas.dataset.terminalOverlay
+    delete this.canvas.dataset.terminalControlCapture
+    delete this.canvas.dataset.terminalSelectedControl
+    delete this.canvas.dataset.terminalOutcome
+    delete this.canvas.dataset.terminalControlsVersion
     if (this.world) {
       this.canvas.dataset.worldId = this.world.id
       this.canvas.dataset.crewCount = String(this.world.crew.length)
@@ -781,6 +927,69 @@ export class MedievalApp {
     renderBoundedMedievalCanvasRows(context, 22, 22, 'M COLLAPSE', palette.actionText, panel.x, panel.width)
   }
 
+  /** Compact, zero-time UI feedback for terminal intents; no world data is added here. */
+  private terminalOutcomeText(): string | undefined {
+    const outcome = this.terminalInteractionOutcome
+    if (!outcome) return undefined
+    switch (outcome.kind) {
+      case 'movement-unavailable': return `! MAP RESERVED // ${uppercase(outcome.direction)} MOVEMENT UNAVAILABLE`
+      case 'prompt-cancelled': return '+ CONTEXT PROMPT CANCELLED // ZERO TIME'
+      case 'prompt-option-disabled': return `! OPTION DISABLED // ${uppercase(outcome.reason)}`
+      case 'overlay-dismissed': return `+ ${uppercase(outcome.overlay)} CLOSED // ZERO TIME`
+      case 'controls-capture-cancelled': return '+ KEY CAPTURE CANCELLED // BINDING UNCHANGED'
+      case 'controls-binding-saved': return `+ ${uppercase(outcome.controlId)} BINDING SAVED // LOCAL UI ONLY`
+      case 'controls-binding-rejected': return `! BINDING REJECTED // ${uppercase(outcome.code)}`
+      case 'controls-reset-current': return `+ ${uppercase(outcome.controlId)} RESET TO DEFAULT`
+      case 'controls-reset-all': return '+ ALL WORLD CONTROLS RESET TO DEFAULTS'
+    }
+  }
+
+  private worldOverlayAccessibleSummary(): string {
+    const outcome = this.terminalOutcomeText()
+    if (this.worldOverlay === 'contextual-prompt') return `Context prompt open. The only option is disabled because no physical action surface is materialized. Escape cancels without changing time.${outcome ? ` ${outcome}` : ''}`
+    if (this.worldOverlay === 'command-help') return `${createTerminalCommandHelpModel(this.terminalControls).accessibilitySummary} Escape closes help.`
+    if (this.worldOverlay === 'controls-editor') return createTerminalControlsEditorModel(this.terminalControls, this.selectedTerminalControlId, this.terminalControlCapturePending).accessibilitySummary
+    return outcome ?? 'No terminal overlay is open.'
+  }
+
+  private renderWorldOverlay(context: CanvasRenderingContext2D, panel: WorldPanel): void {
+    const outcome = this.terminalOutcomeText()
+    if (this.worldOverlay === 'contextual-prompt') {
+      row(context, 2, 'CONTEXT PROMPT // MAP RESERVED', palette.titleText, panel.x)
+      renderBoundedMedievalCanvasRows(context, 4, 6, 'No contextual action or physical prop is materialized at this reserved map viewport.', palette.mutedText, panel.x, panel.width)
+      row(context, 8, '! [ENTER] NO CONTEXTUAL ACTION // DISABLED', palette.warningText, panel.x)
+      renderBoundedMedievalCanvasRows(context, 10, 11, 'The option has no domain action and cannot advance world time.', palette.mutedText, panel.x, panel.width)
+      rule(context, 18, panel.x, panel.x + panel.width)
+      renderBoundedMedievalCanvasRows(context, 20, 22, outcome ?? 'ENTER acknowledges disabled option // ESC cancel prompt', outcome ? palette.warningText : palette.actionText, panel.x, panel.width)
+      return
+    }
+    if (this.worldOverlay === 'command-help') {
+      const help = createTerminalCommandHelpModel(this.terminalControls)
+      row(context, 2, 'COMMAND HELP // WORLD CONTROLS', palette.titleText, panel.x)
+      let line = 4
+      for (const entry of help.entries) {
+        if (line > 17) break
+        const availability = entry.operationalState === 'movement-unavailable' ? 'MAP RESERVED' : entry.operationalState === 'opens-unavailable-prompt' ? 'PROMPT ONLY' : 'READY'
+        renderBoundedMedievalCanvasRows(context, line, line, `- ${entry.bindingText}  ${entry.label.toUpperCase()} // ${availability}`, entry.operationalState === 'movement-unavailable' ? palette.mutedText : palette.bodyText, panel.x, panel.width)
+        line += 1
+      }
+      rule(context, 18, panel.x, panel.x + panel.width)
+      renderBoundedMedievalCanvasRows(context, 20, 22, 'F2 controls // ESC close help // movement and contextual action remain unavailable', palette.actionText, panel.x, panel.width)
+      return
+    }
+    const editor = createTerminalControlsEditorModel(this.terminalControls, this.selectedTerminalControlId, this.terminalControlCapturePending)
+    row(context, 2, 'WORLD CONTROLS // LOCAL UI ONLY', palette.titleText, panel.x)
+    renderBoundedMedievalCanvasRows(context, 3, 3, this.terminalControlCapturePending ? 'CAPTURE ONE KEY // ESC CANCELS UNCHANGED' : 'SELECT A CONTROL // ARROWS MOVE', this.terminalControlCapturePending ? palette.warningText : palette.mutedText, panel.x, panel.width)
+    let line = 5
+    for (const entry of editor.entries) {
+      if (line > 17) break
+      renderBoundedMedievalCanvasRows(context, line, line, `${selectedMarker(entry.selected)} [${entry.key}] ${entry.label.toUpperCase()}`, entry.selected ? palette.selectedText : palette.bodyText, panel.x, panel.width)
+      line += 1
+    }
+    rule(context, 18, panel.x, panel.x + panel.width)
+    renderBoundedMedievalCanvasRows(context, 20, 22, outcome ?? (this.terminalControlCapturePending ? 'PRESS A SUPPORTED KEY // ESC CANCEL' : 'ENTER CAPTURE // R RESET // A ALL // ESC CLOSE'), outcome?.startsWith('!') ? palette.warningText : palette.actionText, panel.x, panel.width)
+  }
+
   private renderWorld(context: CanvasRenderingContext2D): number {
     const world = this.world
     if (!world) { this.route = 'worlds'; this.render(); return 0 }
@@ -796,17 +1005,27 @@ export class MedievalApp {
     this.canvas.dataset.managementItemCount = String(activeSection.facts.length)
     this.canvas.dataset.managementKnownFactCount = String(model.summary.knownFactCount)
     this.canvas.dataset.managementUrgentFactCount = String(model.summary.urgentFactCount)
-    this.canvas.setAttribute('aria-label', `Jomon foundation world ${world.manifest.creation.label}, active courier ${courier?.name ?? 'unassigned'}. ${managementSidebarAccessibleSummary(model, selectedSection, this.managementExpanded)}`)
+    this.canvas.dataset.terminalOverlay = this.worldOverlay
+    this.canvas.dataset.terminalControlCapture = this.terminalControlCapturePending ? 'pending' : 'idle'
+    this.canvas.dataset.terminalSelectedControl = this.selectedTerminalControlId
+    this.canvas.dataset.terminalOutcome = this.terminalInteractionOutcome?.kind ?? 'none'
+    this.canvas.dataset.terminalControlsVersion = String(this.terminalControls.version)
+    this.canvas.setAttribute('aria-label', `Jomon foundation world ${world.manifest.creation.label}, active courier ${courier?.name ?? 'unassigned'}. ${managementSidebarAccessibleSummary(model, selectedSection, this.managementExpanded)} ${this.worldOverlayAccessibleSummary()}`)
     const panels = worldPanels(this.managementExpanded)
     context.strokeStyle = palette.panelBorder
     context.strokeRect(panels.main.x - 8.5, 108.5, panels.main.width + 16, 480)
-    row(context, 2, `${world.manifest.creation.label.toUpperCase()} // MAP RESERVED`, palette.titleText, panels.main.x)
-    renderBoundedMedievalCanvasRows(context, 4, 5, `ACTIVE COURIER  ${courier?.name.toUpperCase() ?? 'UNASSIGNED'} // ${courier?.role.toUpperCase() ?? 'NONE'}`, palette.statusReady, panels.main.x, panels.main.width)
-    renderBoundedMedievalCanvasRows(context, 6, 7, `SEED ${world.manifest.creation.seed} // WORLD TIME ${world.state.temporal.worldTime}`, palette.bodyText, panels.main.x, panels.main.width)
-    let line = renderBoundedMedievalCanvasRows(context, 9, 12, 'The primary panel is reserved for the future map. No spatial marks or hidden regional state are shown here.', palette.mutedText, panels.main.x, panels.main.width)
-    line = renderBoundedMedievalCanvasRows(context, Math.max(14, line + 1), 17, 'Management lists household-known facts only. Direct actions, notices, messages, ledgers, and conversations remain separate surfaces.', palette.mutedText, panels.main.x, panels.main.width)
-    rule(context, 18, panels.main.x, panels.main.x + panels.main.width)
-    renderBoundedMedievalCanvasRows(context, Math.max(20, line + 1), 22, this.managementExpanded ? 'M collapse management // [ / ] sections // ESC local worlds' : 'M expand management // ESC local worlds', palette.actionText, panels.main.x, panels.main.width)
+    if (this.worldOverlay === 'none') {
+      row(context, 2, `${world.manifest.creation.label.toUpperCase()} // MAP RESERVED`, palette.titleText, panels.main.x)
+      renderBoundedMedievalCanvasRows(context, 4, 5, `ACTIVE COURIER  ${courier?.name.toUpperCase() ?? 'UNASSIGNED'} // ${courier?.role.toUpperCase() ?? 'NONE'}`, palette.statusReady, panels.main.x, panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 6, 7, `SEED ${world.manifest.creation.seed} // WORLD TIME ${world.state.temporal.worldTime}`, palette.bodyText, panels.main.x, panels.main.width)
+      let line = renderBoundedMedievalCanvasRows(context, 9, 12, 'The primary panel is reserved for the future map. No spatial marks or hidden regional state are shown here.', palette.mutedText, panels.main.x, panels.main.width)
+      line = renderBoundedMedievalCanvasRows(context, Math.max(14, line + 1), 17, 'Management lists household-known facts only. Direct actions, notices, messages, ledgers, and conversations remain separate surfaces.', palette.mutedText, panels.main.x, panels.main.width)
+      rule(context, 18, panels.main.x, panels.main.x + panels.main.width)
+      const defaultHelp = this.managementExpanded
+        ? 'M collapse // [ / ] sections // ENTER prompt // ? help // F2 controls // ESC worlds'
+        : 'M expand // ENTER prompt // ? help // F2 controls // ESC worlds'
+      renderBoundedMedievalCanvasRows(context, Math.max(20, line + 1), 22, this.terminalOutcomeText() ?? defaultHelp, this.terminalInteractionOutcome?.kind === 'movement-unavailable' ? palette.warningText : palette.actionText, panels.main.x, panels.main.width)
+    } else this.renderWorldOverlay(context, panels.main)
     this.renderManagementSidebar(context, model, panels.sidebar)
     return 22
   }
