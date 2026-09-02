@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MedievalWorldRepository } from './storage'
 import { CREATION_SETTINGS_PROFILE_LIMIT, defaultCreationSettings } from './settings'
 import { MEDIEVAL_DATABASE_NAME } from './types'
-import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, recordDurableJomonGrowth } from './world'
+import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, recordDurableJomonGrowth, replayFoundationWorldCausalHistory } from './world'
+import { causalReplayProjectionForWorldState } from './world-state'
 import { classifyMedievalContent } from './content-safety'
 
 type Handler = (() => void) | null
@@ -173,7 +174,7 @@ describe('medieval local persistence', () => {
     expect(await repository.loadWorld('world:not-present')).toBeUndefined()
   })
 
-  it('keeps valid local creation settings intact while saving and loading the v7 full-world record', async () => {
+  it('keeps valid local creation settings intact while saving and loading the v9 full-world record', async () => {
     const repository = new MedievalWorldRepository()
     const settings = { ...defaultCreationSettings(), seed: 'settings-survive-state', configuration: { preset: 'far-coast' as const, advanced: {} } }
     const world = chooseInitialCourier(createFoundationWorld({ seed: 'settings-survive-state', configuration: settings.configuration }), 'crew:0')
@@ -321,8 +322,26 @@ describe('medieval local persistence', () => {
 
     await repository.saveWorld(grown)
 
-    expect(await repository.loadWorld(grown.id)).toEqual(grown)
+    const loaded = await repository.loadWorld(grown.id)
+    expect(loaded).toEqual(grown)
+    if (!loaded) throw new Error('journalled world should reload locally')
+    expect(replayFoundationWorldCausalHistory(loaded)).toEqual(causalReplayProjectionForWorldState(loaded.state))
     expect(grown.state.era).toMatchObject({ era: 'ng-plus', activePlayMinutes: 4_800, durableGrowthUnits: 3_600 })
+    expect(grown.state.causalHistory.tail.map(command => command.kind)).toEqual(['initial-courier-selected', 'time-bearing-action', 'durable-jomon-growth'])
+  })
+
+  it('rejects the v8 mutable-world envelope rather than inventing a replay checkpoint or command journal', async () => {
+    const repository = new MedievalWorldRepository()
+    const world = createFoundationWorld({ seed: 'causal-history-envelope-clean-break' })
+    const legacy = structuredClone(world) as unknown as { version: number; state: { version: number; causalHistory?: unknown } }
+    legacy.version = 8
+    legacy.state.version = 6
+    delete legacy.state.causalHistory
+
+    await repository.loadIndex()
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(world.id, legacy)
+
+    await expect(repository.loadWorld(world.id)).resolves.toBeUndefined()
   })
 
   it('rejects a stored or submitted world with forged simulation cause evidence', async () => {

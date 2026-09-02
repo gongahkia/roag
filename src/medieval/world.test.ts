@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION } from './content-safety'
+import { MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION, classifyMedievalContent } from './content-safety'
 import { addChronicleToIndex, addWorldToIndex, emptyWorldIndex, removeWorldFromIndex } from './storage'
 import { generationRetryPlan } from './generation-config'
 import { INITIAL_WORLD_GENERATION_STAGES } from './initial-world'
 import { InvalidWorldGenerationConfigurationError, advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, foundationWorldContentSatisfiesSafetyPolicy, recordDurableJomonGrowth, recreateFoundationWorld, serializeWorldManifest, validateFoundationWorld } from './world'
 import { worldEraProjection } from './world-era'
+
+const safety = () => classifyMedievalContent('event', ['civil-life', 'navigation'], 'not-applicable', ['player-facing-text'])
 
 describe('medieval foundation worlds', () => {
   it('recreates the same world and generated household from its manifest inputs', () => {
@@ -185,7 +187,7 @@ describe('medieval foundation worlds', () => {
         id: 'wait:rejected-provenance',
         kind: 'wait',
         durationMinutes: 1,
-        contentSafety: source.state.history.records[0]!.contentSafety
+        contentSafety: safety()
       })).toThrow('complete medieval foundation contract')
       expect(tampered).toEqual(before)
     }
@@ -208,7 +210,7 @@ describe('medieval foundation worlds', () => {
 
   it('accounts only accepted time-bearing actions in a partition-invariant era projection', () => {
     const source = chooseInitialCourier(createFoundationWorld({ seed: 'era-partition' }), 'crew:0')
-    const contentSafety = source.state.history.records[0]!.contentSafety
+    const contentSafety = safety()
     const once = advanceFoundationWorldTime(source, { id: 'travel:five', kind: 'travel', durationMinutes: 5, contentSafety })
     let partitioned = source
     for (let minute = 1; minute <= 5; minute++) {
@@ -225,7 +227,7 @@ describe('medieval foundation worlds', () => {
 
   it('records typed durable Jomon growth at the current world minute without changing unrelated world state', () => {
     const source = chooseInitialCourier(createFoundationWorld({ seed: 'era-growth' }), 'crew:0')
-    const contentSafety = source.state.history.records[0]!.contentSafety
+    const contentSafety = safety()
     const advanced = advanceFoundationWorldTime(source, { id: 'travel:era-growth', kind: 'travel', durationMinutes: 4_800, contentSafety })
     const immutable = { manifest: structuredClone(advanced.manifest), jomon: structuredClone(advanced.jomon), crew: structuredClone(advanced.crew) }
     const simulation = structuredClone(advanced.state.simulation)

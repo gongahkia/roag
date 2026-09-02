@@ -2,7 +2,7 @@ import { auditMedievalContentSafety, contentSafetyAuditMatches, type ClassifiedM
 import { createInitialFrontierState, frontierContentRecords, validateFrontierState, type FrontierState, type FrontierValidationDiagnosticCode } from './frontier'
 import { INITIAL_WORLD_LIMITS, type InitialWorld } from './initial-world'
 import { instantiateFoundationCrewPeople, persistentPersonContentRecords, PERSISTENT_PERSON_LIMITS, validatePersistentPeople, type PersistentPersonRecord, type PersistentPersonValidationDiagnosticCode } from './persistent-person'
-import { isMedievalTemporalState, TEMPORAL_LIMITS, temporalContentRecords, type MedievalTemporalState } from './temporal'
+import { isMedievalTemporalState, temporalContentRecords, type MedievalTemporalState } from './temporal'
 import { generationConfigurationFingerprint, type WorldGenerationConfig } from './generation-config'
 import { createSimulationCatchUpState, simulationCatchUpContentRecords, validateSimulationCatchUpState, SIMULATION_CATCH_UP_LIMITS, type SimulationCatchUpState, type SimulationCatchUpDiagnosticCode } from './simulation-catchup'
 import { createWorldEraState, validateWorldEraState, WORLD_ERA_CONTRACT_VERSION, WORLD_ERA_LIMITS, type WorldEraDiagnosticCode, type WorldEraState } from './world-era'
@@ -37,7 +37,7 @@ export const MEDIEVAL_WORLD_STATE_LIMITS = {
   simulationRecords: SIMULATION_CATCH_UP_LIMITS.records,
   eraGrowthEvidence: WORLD_ERA_LIMITS.growthEvidence,
   eraTransitions: WORLD_ERA_LIMITS.transitions,
-  causalHistoryTail: 16,
+  causalHistoryTail: 8,
   capacityMaximum: 100
 } as const
 

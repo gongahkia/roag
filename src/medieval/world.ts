@@ -9,7 +9,7 @@ import { causalReplayProjectionForWorldState, createMedievalWorldState, isMediev
 import { createFidelityPlan } from './fidelity'
 import { advanceSimulationCatchUpState, validateSimulationCatchUpPlanState } from './simulation-catchup'
 import { advanceWorldEraForTemporalAction, recordDurableJomonGrowthEvidence, type DurableJomonGrowthEvidence, type WorldEraContext } from './world-era'
-import { appendCausalCommand, causalReplayProjection, createCausalCommand, validateCausalHistoryReplay, type CausalCommandEvent, type CausalHistoryContext, type CausalReplayProjection } from './causal-history'
+import { appendCausalCommand, causalReplayProjection, createCausalCommand, replayCausalHistory, validateCausalHistoryReplay, type CausalCommandEvent, type CausalHistoryContext, type CausalReplayProjection } from './causal-history'
 import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
 
 const foundationJomon = (): FoundationJomon => ({
@@ -564,6 +564,13 @@ const replayCommandProjection = (world: FoundationWorld, projection: CausalRepla
   if (command.kind === 'time-bearing-action') return advanceTimeProjection(world, projection, command.payload.action)
   return recordGrowthProjection(world, projection, command.payload.evidence)
 }
+
+/** Replays the authoritative journal through internal pure reducers for inspection/tests. */
+export const replayFoundationWorldCausalHistory = (world: FoundationWorld): CausalReplayProjection => replayCausalHistory(
+  causalHistoryContextFor(world),
+  world.state.causalHistory,
+  (projection, command) => replayCommandProjection(world, projection, command)
+)
 
 /**
  * Proves that the global journal reproduces the command-owned present state.

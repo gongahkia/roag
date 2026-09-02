@@ -64,7 +64,7 @@ describe('medieval action clock and deterministic scheduler', () => {
     expect(nextFirst.state.temporal.actionSequence).toBe(1)
     expect(nextFirst.state.temporal.pendingEvents).toEqual([])
     expect(nextFirst.state.temporal.causalRecords.map(record => record.kind)).toEqual(['action-completed', 'event-resolved'])
-    expect(nextFirst.state.history.records.map(record => record.kind)).toEqual(['world-created', 'initial-courier-selected', 'temporal-action', 'scheduled-event-resolved'])
+    expect(nextFirst.state.causalHistory.tail.map(record => record.kind)).toEqual(['initial-courier-selected', 'time-bearing-action'])
     expect(nextFirst.manifest).toEqual(first.manifest)
   })
 

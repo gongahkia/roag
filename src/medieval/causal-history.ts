@@ -14,7 +14,7 @@ export const CAUSAL_HISTORY_CHECKPOINT_VERSION = 1 as const
 export const CAUSAL_HISTORY_SEGMENT_VERSION = 1 as const
 
 export const CAUSAL_HISTORY_LIMITS = {
-  retainedCommands: 16,
+  retainedCommands: 8,
   checkpoints: 1,
   compactedSegments: 8,
   identityLength: 160
@@ -382,8 +382,10 @@ export const validateCausalHistoryState = (context: CausalHistoryContext, value:
     for (const command of value.tail) {
       const id = record(command) && typeof command.id === 'string' ? command.id : 'causal-history:command'
       if (!validCommand(context, command)) {
-        const tokenExpected = record(command) && typeof command.kind === 'string' && record(command.payload) && safeInteger(command.sequence) && ['initial-courier-selected', 'time-bearing-action', 'durable-jomon-growth'].includes(command.kind)
-        issues.push(issue(id, tokenExpected ? 'causal-history.invalid-command-token' : 'causal-history.invalid-command'))
+        const typedCommand = record(command) && typeof command.kind === 'string' && ['initial-courier-selected', 'time-bearing-action', 'durable-jomon-growth'].includes(command.kind)
+        const payloadShaped = typedCommand && commandPayloadIsShaped(command.kind as CausalCommandKind, command.payload)
+        const tokenExpected = typedCommand && payloadShaped && safeInteger(command.sequence)
+        issues.push(issue(id, !typedCommand ? 'causal-history.invalid-command' : !payloadShaped ? 'causal-history.invalid-command-payload' : tokenExpected ? 'causal-history.invalid-command-token' : 'causal-history.invalid-command'))
       }
       if (record(command) && typeof command.id === 'string') {
         if (ids.has(command.id)) issues.push(issue(command.id, 'causal-history.duplicate-command-id'))
