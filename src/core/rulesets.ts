@@ -13,7 +13,7 @@ export type GeneratorVersion = typeof LEGACY_GENERATOR_VERSION | typeof GENERATO
  * builder. Unknown future versions use the current builder until explicitly
  * added to this compatibility table.
  */
-export const generatorVersionFor = (version: string | undefined): GeneratorVersion => version === LEGACY_GENERATOR_VERSION
+export const generatorVersionFor = (version: string | undefined): GeneratorVersion => version === undefined || version === LEGACY_GENERATOR_VERSION
   ? LEGACY_GENERATOR_VERSION
   : GENERATOR_VERSION;
 
