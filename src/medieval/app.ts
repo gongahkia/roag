@@ -133,15 +133,17 @@ const sidebarFactTitle = (item: ManagementSidebarFact): string => {
   }
 }
 
-/** Compact canvas cues retain a source type, known-at time, and freshness. */
+/** Compact canvas source codes retain the typed source, known-at time, and freshness. */
 const sidebarSourceCue = (item: ManagementSidebarFact): string => {
   switch (item.source.label) {
-    case 'current-household-state': return 'HOUSEHOLD'
+    case 'current-household-state': return 'HSHLD'
     case 'crew-record': return 'CREW'
     case 'delegated-task-record': return 'TASK'
-    case 'autonomy-record': return 'AUTONOMY'
-    case 'household-journal': return 'JOURNAL'
-    case 'compacted-journal': return 'COMPACTED'
+    case 'autonomy-record': return 'AUTO'
+    case 'household-journal': return 'JOUR'
+    case 'compacted-journal': return 'CMPCT'
+    case 'institution-ledger': return 'INST'
+    case 'cargo-mark': return 'CARGO'
     default: return MANAGEMENT_SIDEBAR_SOURCE_LABELS[item.source.label]
   }
 }
@@ -150,7 +152,7 @@ const sidebarFreshnessCue = (item: ManagementSidebarFact): string => item.freshn
   : item.freshness.kind === 'timeless'
     ? 'TIMELESS'
     : `F${item.freshness.atWorldTime}M`
-const sidebarFactMetadata = (item: ManagementSidebarFact): string => `SRC ${sidebarSourceCue(item)} // KN${item.discoveredAtWorldTime}M // ${sidebarFreshnessCue(item)}`
+const sidebarFactMetadata = (item: ManagementSidebarFact): string => `SRC ${sidebarSourceCue(item)} K${item.discoveredAtWorldTime} ${sidebarFreshnessCue(item)}`
 
 export class MedievalApp {
   private readonly context: CanvasRenderingContext2D
@@ -774,7 +776,7 @@ export class MedievalApp {
       line = renderBoundedMedievalCanvasRows(context, line, line, sidebarFactMetadata(item), palette.mutedText, panel.x, panel.width)
       line += 1
     }
-    renderBoundedMedievalCanvasRows(context, 22, 22, 'M COLLAPSE // ESC WORLDS', palette.actionText, panel.x, panel.width)
+    renderBoundedMedievalCanvasRows(context, 22, 22, 'M COLLAPSE', palette.actionText, panel.x, panel.width)
   }
 
   private renderWorld(context: CanvasRenderingContext2D): number {
