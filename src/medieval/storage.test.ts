@@ -330,6 +330,143 @@ describe('medieval local persistence', () => {
     expect(grown.state.causalHistory.tail.map(command => command.kind)).toEqual(['initial-courier-selected', 'time-bearing-action', 'durable-jomon-growth'])
   })
 
+  it('reloads and continues compacted replay checkpoints after realistic temporal, due-event, and era commands for two configurations', async () => {
+    const repository = new MedievalWorldRepository()
+    const cases = [
+      { seed: 'reload-watershed', preset: 'watershed' as const },
+      { seed: 'reload-far-coast', preset: 'far-coast' as const }
+    ]
+
+    for (const specimen of cases) {
+      let world = chooseInitialCourier(createFoundationWorld({ seed: specimen.seed, configuration: { preset: specimen.preset } }), 'crew:0')
+      world = advanceFoundationWorldTime(world, {
+        id: `movement:${specimen.preset}`,
+        kind: 'movement',
+        durationMinutes: 1,
+        contentSafety: classifyMedievalContent('event', ['civil-life', 'navigation'], 'not-applicable', ['player-facing-text']),
+        events: [{
+          id: `event:${specimen.preset}`,
+          dueAtWorldTime: 2,
+          priority: 'ordinary',
+          payload: { kind: 'action-resolution', sourceActionId: `movement:${specimen.preset}`, creationDigest: world.manifest.creation.digest },
+          contentSafety: classifyMedievalContent('event', ['civil-life', 'navigation'], 'not-applicable', ['player-facing-text'])
+        }]
+      })
+      world = advanceFoundationWorldTime(world, {
+        id: `travel:${specimen.preset}`,
+        kind: 'travel',
+        durationMinutes: 7_199,
+        contentSafety: classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['simulation-summary'])
+      })
+      world = recordDurableJomonGrowth(world, {
+        id: `growth:${specimen.preset}:refit`,
+        kind: 'workspace-refit',
+        source: { kind: 'jomon-vessel', id: 'vessel:jomon' },
+        atWorldTime: 7_200
+      })
+      for (let index = 0; index < 5; index++) {
+        world = advanceFoundationWorldTime(world, {
+          id: `wait:${specimen.preset}:compact:${index}`,
+          kind: 'wait',
+          durationMinutes: 1,
+          contentSafety: classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['simulation-summary'])
+        })
+      }
+
+      expect(world.state.era.era).not.toBe('base')
+      expect(world.state.temporal.causalRecords.some(record => record.kind === 'event-resolved' && record.event.id === `event:${specimen.preset}`)).toBe(true)
+      expect(world.state.causalHistory).toMatchObject({ tail: [], checkpoint: { sequence: 9 } })
+      await repository.saveWorld(world)
+      const loaded = await repository.loadWorld(world.id)
+      if (!loaded) throw new Error('valid compacted world should reload')
+
+      expect(loaded).toEqual(world)
+      expect(replayFoundationWorldCausalHistory(loaded)).toEqual(causalReplayProjectionForWorldState(loaded.state))
+      expect(loaded.state.temporal).toEqual(world.state.temporal)
+      expect(loaded.state.simulation).toEqual(world.state.simulation)
+      expect(loaded.state.era).toEqual(world.state.era)
+      expect(loaded.state.courier).toEqual(world.state.courier)
+      expect(loaded.state.causalHistory).toEqual(world.state.causalHistory)
+
+      const continued = advanceFoundationWorldTime(loaded, {
+        id: `wait:${specimen.preset}:after-reload`, kind: 'wait', durationMinutes: 1,
+        contentSafety: classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['simulation-summary'])
+      })
+      expect(continued.state.causalHistory.tail).toHaveLength(1)
+      expect(replayFoundationWorldCausalHistory(continued)).toEqual(causalReplayProjectionForWorldState(continued.state))
+    }
+  })
+
+  it('contains corrupt worlds, chronicles, indices, and journal data without repair or deletion while independent valid records remain usable', async () => {
+    const repository = new MedievalWorldRepository()
+    const valid = chooseInitialCourier(createFoundationWorld({ seed: 'storage-containment-valid' }), 'crew:0')
+    const settings = { ...defaultCreationSettings(), seed: 'storage-containment-settings' }
+    await repository.saveLastUsedCreationSettings(settings)
+    await repository.saveWorld(valid)
+    const inMemory = structuredClone(valid)
+    const forgedCheckpoint = structuredClone(valid)
+    forgedCheckpoint.state.causalHistory.checkpoint.token = 'forged-checkpoint'
+    const forgedTail = structuredClone(valid)
+    forgedTail.state.causalHistory.tail[0]!.token = 'forged-tail'
+    const malformedWorld = { version: 9, id: 'world:malformed' }
+    const malformedChronicle = { version: 8, id: 'chronicle:malformed', status: 'finalized' }
+    const malformedIndex = { version: 1, activeWorlds: [{ id: 1 }], chronicles: [] }
+
+    await repository.loadIndex()
+    const worlds = fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds')
+    worlds.set('world:forged-checkpoint', forgedCheckpoint)
+    worlds.set('world:forged-tail', forgedTail)
+    worlds.set('world:malformed', malformedWorld)
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'chronicles').set('chronicle:malformed', malformedChronicle)
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'catalog').set('world-index', malformedIndex)
+
+    await expect(repository.loadWorld('world:forged-checkpoint')).resolves.toBeUndefined()
+    await expect(repository.loadWorld('world:forged-tail')).resolves.toBeUndefined()
+    await expect(repository.loadWorld('world:malformed')).resolves.toBeUndefined()
+    await expect(repository.loadChronicle('chronicle:malformed')).resolves.toBeUndefined()
+    await expect(repository.loadIndex()).resolves.toEqual({ version: 1, activeWorlds: [], chronicles: [] })
+    expect(worlds.get('world:forged-checkpoint')).toEqual(forgedCheckpoint)
+    expect(worlds.get('world:forged-tail')).toEqual(forgedTail)
+    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'catalog').get('world-index')).toEqual(malformedIndex)
+    expect(valid).toEqual(inMemory)
+    expect(await repository.loadCreationSettings()).toMatchObject({ lastUsed: settings })
+    expect(await repository.loadWorld(valid.id)).toEqual(valid)
+
+    const replacement = advanceFoundationWorldTime(valid, {
+      id: 'wait:storage-containment-replacement', kind: 'wait', durationMinutes: 1,
+      contentSafety: classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['simulation-summary'])
+    })
+    await repository.saveWorld(replacement)
+    expect(await repository.loadWorld(valid.id)).toEqual(replacement)
+    expect(worlds.get('world:forged-checkpoint')).toEqual(forgedCheckpoint)
+  })
+
+  it('rejects unsafe and unclassified detailed and summary scheduler records at both save and load boundaries', async () => {
+    const repository = new MedievalWorldRepository()
+    const source = advanceFoundationWorldTime(
+      chooseInitialCourier(createFoundationWorld({ seed: 'storage-scheduler-safety', configuration: { preset: 'sheltered-reach' } }), 'crew:0'),
+      { id: 'travel:storage-scheduler-safety', kind: 'travel', durationMinutes: 240, contentSafety: classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['simulation-summary']) }
+    )
+    const detailed = source.state.simulation.records.find(record => record.outcomeDetail === 'detailed')
+    const summary = source.state.simulation.records.find(record => record.outcomeDetail === 'summary')
+    if (!detailed || !summary) throw new Error('expected detailed and summary scheduler records')
+    const cases: readonly [(world: typeof source) => void][] = [
+      world => { (world.state.simulation.records.find(record => record.id === detailed.id)!.contentSafety.exclusions as unknown as Record<string, string>).torture = 'present' },
+      world => { delete (world.state.simulation.records.find(record => record.id === detailed.id)!.cause as { contentSafety?: unknown }).contentSafety },
+      world => { delete (world.state.simulation.records.find(record => record.id === summary.id)! as { contentSafety?: unknown }).contentSafety },
+      world => { (world.state.simulation.records.find(record => record.id === summary.id)!.cause.contentSafety.exclusions as unknown as Record<string, string>).slavery = 'present' }
+    ]
+
+    await repository.loadIndex()
+    for (const [index, tamper] of cases.entries()) {
+      const forged = structuredClone(source)
+      tamper(forged)
+      await expect(repository.saveWorld(forged)).rejects.toThrow('invalid medieval world')
+      fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(`world:unsafe-scheduler:${index}`, forged)
+      await expect(repository.loadWorld(`world:unsafe-scheduler:${index}`)).resolves.toBeUndefined()
+    }
+  })
+
   it('rejects the v8 mutable-world envelope rather than inventing a replay checkpoint or command journal', async () => {
     const repository = new MedievalWorldRepository()
     const world = createFoundationWorld({ seed: 'causal-history-envelope-clean-break' })
