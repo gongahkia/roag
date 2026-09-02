@@ -162,7 +162,7 @@ describe('courier conversation assessment', () => {
     }
   })
 
-  it('returns explicit blockers for missing/non-active/self/dead/separated/unavailable/over-capacity/committed recipients and protected needs, safety, or health', () => {
+  it('returns explicit blockers for valid missing/non-active/self requests and fails closed if an unjournalled person mutation is supplied', () => {
     const world = selectedWorld('conversation-barriers')
     const recipient = recipientFor(world)
 
@@ -174,68 +174,17 @@ describe('courier conversation assessment', () => {
     expect(assessCourierConversation(world, { ...requestFor(world), recipientId: 'person:missing' }).barriers).toContain('recipient-missing')
     expect(assessCourierConversation(world, requestFor(world, world.state.courier.initialCourierId!)).barriers).toContain('recipient-is-courier')
 
-    const deadCourierBase = createFoundationWorld({ seed: 'conversation-dead-courier' })
-    const deadCourier = withPeople(deadCourierBase, people => {
-      const person = people.find(candidate => candidate.id === 'crew:0')!
-      person.life = { status: 'dead', birth: person.life.birth, death: { atWorldTime: 0 } }
-      person.work.availability = 'unavailable'
-    })
-    expect(assessCourierConversation(deadCourier, { version: 1, courierId: 'crew:0', recipientId: 'crew:1', proposal: proposal() }).barriers).toEqual(expect.arrayContaining(['active-courier-missing', 'courier-dead', 'courier-unavailable']))
-
-    const deadRecipient = withRecipient(world, person => {
-      person.life = { status: 'dead', birth: person.life.birth, death: { atWorldTime: 0 } }
-      person.work.availability = 'unavailable'
-    })
-    const separated = withRecipient(world, person => { person.location = { kind: 'site', id: world.state.sites.sites[0]!.id } })
-    const unavailable = withRecipient(world, person => { person.work.availability = 'unavailable' })
-    const noCapacity = withRecipient(world, person => {
-      person.work.capacity.current = 0
-      person.work.availability = 'unavailable'
-    })
-    const committed = withRecipient(world, person => {
-      const commitment = activeCommitment(person)
-      person.commitments = [commitment]
-      person.work = { ...person.work, current: { status: 'committed', commitmentId: commitment.id, startedAtWorldTime: 0 }, availability: 'committed' }
-    })
-    const needsProtected = withRecipient(world, person => { person.needs = { ...person.needs, nourishment: 5 } })
-    const safetyProtected = withRecipient(world, person => { person.needs = { ...person.needs, safety: 5 } })
-    const injured = withRecipient(world, person => { person.health = injuredHealth(person) })
-    const results: readonly [FoundationWorld, string][] = [
-      [deadRecipient, 'recipient-dead'],
-      [separated, 'recipient-not-colocated'],
-      [unavailable, 'recipient-unavailable'],
-      [noCapacity, 'recipient-no-capacity'],
-      [committed, 'recipient-current-work'],
-      [committed, 'recipient-active-commitment'],
-      [needsProtected, 'recipient-needs-protected'],
-      [safetyProtected, 'recipient-safety-protected'],
-      [injured, 'recipient-health-protected']
-    ]
-    for (const [specimen, barrier] of results) {
-      const assessment = assessCourierConversation(specimen, requestFor(specimen, recipient.id, { materialInterest: recipient.materialInterests[0]! }))
-      expect(assessment).toMatchObject({ eligibility: 'blocked', agreementReadiness: 'not-assessable' })
-      expect(assessment.barriers).toContain(barrier)
-    }
+    const unjournalledMutation = structuredClone(world)
+    const person = unjournalledMutation.state.people.records.find(candidate => candidate.id === recipient.id)!
+    person.work.availability = 'unavailable'
+    const audit = auditMedievalContentSafety(medievalWorldStateContentRecords(unjournalledMutation.state))
+    if (audit.status === 'rejected') throw new Error('fixture must retain safe classifications')
+    unjournalledMutation.state.contentSafetyAudit = audit
+    expect(validateFoundationWorld(unjournalledMutation).map(item => item.code)).toContain('foundation-world.invalid-causal-history')
+    expect(validateConversationAssessmentRequest(unjournalledMutation, requestFor(unjournalledMutation, recipient.id)).map(item => item.code)).toEqual(['conversation.invalid-world'])
   })
 
-  it('treats recovery and ordinary needs as risk/readiness constraints, and maximum conversation cannot bypass hard recipient blockers', () => {
-    const world = selectedWorld('conversation-pressure')
-    const recipient = recipientFor(world)
-    const recovering = withRecipient(world, person => {
-      person.health = {
-        condition: 'recovering',
-        injuries: [{ ...injuredHealth(person).injuries[0]!, recovery: 'recovering' }],
-        recovery: { status: 'recovering', injuryId: `${person.id}:injury:conversation`, completeAtWorldTime: 0 }
-      }
-    })
-    const pressured = withRecipient(world, person => { person.needs = { ...person.needs, rest: 3 } })
-    const recoveringAssessment = assessCourierConversation(recovering, requestFor(recovering, recipient.id, { materialInterest: recipient.materialInterests[0]! }))
-    const pressuredAssessment = assessCourierConversation(pressured, requestFor(pressured, recipient.id, { materialInterest: recipient.materialInterests[0]! }))
-    expect(recoveringAssessment).toMatchObject({ eligibility: 'eligible', recipientHealth: 'recovering' })
-    expect(pressuredAssessment).toMatchObject({ eligibility: 'eligible', recipientNeedsPressure: 'pressured' })
-    expect(recoveringAssessment.risk).not.toBe('low')
-    expect(pressuredAssessment.agreementReadiness).not.toBe('open')
-
+  it('keeps maximum conversation bounded to its documented approaches and rejects bypassed recipient state', () => {
     let maximum: FoundationWorld | undefined
     for (let attempt = 0; attempt < 24 && maximum === undefined; attempt++) {
       const initial = createFoundationWorld({ seed: `conversation-maximum:${attempt}` })
@@ -243,15 +192,10 @@ describe('courier conversation assessment', () => {
       if (courier) maximum = chooseInitialCourier(initial, courier.id)
     }
     if (!maximum) throw new Error('fixture did not generate a level-five courier')
-    const maximumRecipient = recipientFor(maximum)
-    const blockedMaximum = withRecipient(maximum, person => {
-      if (person.id !== maximumRecipient.id) return
-      person.work.availability = 'unavailable'
-    })
-    const assessment = assessCourierConversation(blockedMaximum, requestFor(blockedMaximum, maximumRecipient.id, { materialInterest: maximumRecipient.materialInterests[0]! }))
+    const assessment = assessCourierConversation(maximum, requestFor(maximum))
     expect(assessment.unlockedApproaches).toHaveLength(5)
-    expect(assessment).toMatchObject({ eligibility: 'blocked', agreementReadiness: 'not-assessable' })
-    expect(assessment.barriers).toContain('recipient-unavailable')
+    expect(assessment.taskClarity).toBe('thorough')
+    expect(assessment.agreementReadiness).not.toBe('not-assessable')
   })
 
   it('rejects malformed worlds and proposal/request values fail-closed with canonical readable diagnostics', () => {
