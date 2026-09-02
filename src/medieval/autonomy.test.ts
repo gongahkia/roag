@@ -172,11 +172,17 @@ describe('deterministic medieval autonomy', () => {
     ;(unsafe.observations[0]!.contentSafety.exclusions as unknown as Record<string, string>).torture = 'present'
     const duplicate = structuredClone(world.state.autonomy)
     duplicate.observations = [structuredClone(duplicate.observations[0]!), structuredClone(duplicate.observations[0]!)]
+    const invalidReference = structuredClone(world.state.autonomy)
+    invalidReference.observations[0]!.cursorId = 'catch-up:person:not-present'
+    const invalidTier = structuredClone(world.state.autonomy)
+    ;(invalidTier.observations[0] as { tier: string }).tier = 'deferred'
 
     expect(validateAutonomyState(context, forgedToken).map(item => item.code)).toContain('autonomy.invalid-observation')
     expect(validateAutonomyState(context, unknownFactor).map(item => item.code)).toContain('autonomy.invalid-observation')
     expect(validateAutonomyState(context, unsafe).map(item => item.code)).toContain('content-safety.prohibited.torture')
     expect(validateAutonomyState(context, duplicate).map(item => item.code)).toContain('autonomy.duplicate-id')
+    expect(validateAutonomyState(context, invalidReference).map(item => item.code)).toContain('autonomy.invalid-observation')
+    expect(validateAutonomyState(context, invalidTier).map(item => item.code)).toContain('autonomy.invalid-observation')
     expect(validateAutonomyPlanState(context, { ...world.state.autonomy, observations: [] }).map(item => item.code)).toContain('autonomy.invalid-plan-projection')
   })
 

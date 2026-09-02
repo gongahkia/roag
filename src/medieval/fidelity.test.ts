@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { FIDELITY_BUDGETS, FIDELITY_PLANNING_CONTRACT_VERSION, FidelityPlanningContractError, createFidelityPlan, validateFidelityPlanningRequest, type FidelityPlanningRequest } from './fidelity'
 import { chooseInitialCourier, createFoundationWorld } from './world'
+import { createAutonomyState } from './autonomy'
 
 const selectedWorld = (seed: string, preset: 'sheltered-reach' | 'watershed' | 'far-coast' = 'watershed') => chooseInitialCourier(createFoundationWorld({ seed, configuration: { preset } }), 'crew:0')
 const requestFor = (world: ReturnType<typeof selectedWorld>, loadedLocations: FidelityPlanningRequest['loadedLocations'] = []): FidelityPlanningRequest => ({ world, activeCourierId: 'crew:0', loadedLocations })
@@ -99,6 +100,7 @@ describe('deterministic medieval fidelity plans', () => {
     const historical = structuredClone(world)
     historical.state.people.records[1]!.life = { status: 'dead', birth: historical.state.people.records[1]!.life.birth, death: { atWorldTime: 0 } }
     historical.state.people.records[1]!.work.availability = 'unavailable'
+    historical.state.autonomy = createAutonomyState(historical.state.people.records, 0)
     const plan = createFidelityPlan(requestFor(historical))
     const seededIds = new Set(world.initialWorld.people.map(person => person.id))
     const commitmentIds = new Set(world.state.geography.frontier.regions.map(region => region.commitment.id))
