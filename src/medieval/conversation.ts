@@ -354,16 +354,8 @@ const factorCodesFor = (
   ...(readiness === 'not-assessable' ? [] : [`readiness:${readiness}` as ConversationFactorCode])
 ])
 
-/**
- * Assesses a future conversation without creating an offer or changing the
- * world. Recipient conditions remain authoritative; conversation only expands
- * approaches, clarity, and bounded readiness support after hard barriers pass.
- */
-export const assessCourierConversation = (world: FoundationWorld | unknown, request: ConversationAssessmentRequest | unknown): ConversationAssessment => {
-  const diagnostics = validateConversationAssessmentRequest(world, request)
-  if (diagnostics.length) throw new ConversationContractError(diagnostics)
-  const validWorld = world as FoundationWorld
-  const validRequest = request as ConversationAssessmentRequest
+/** The shared evaluator has no mutation or time authority. */
+const assessValidCourierConversation = (validWorld: FoundationWorld, validRequest: ConversationAssessmentRequest): ConversationAssessment => {
   const courier = validWorld.state.people.records.find(person => person.id === validRequest.courierId)
   const recipient = validWorld.state.people.records.find(person => person.id === validRequest.recipientId)
   const capability = courier === undefined ? undefined : conversationCapabilitiesForLevel(courier.identity.conversation)
@@ -430,6 +422,25 @@ export const assessCourierConversation = (world: FoundationWorld | unknown, requ
     contentSafety: assessmentClassification()
   }
 }
+
+/**
+ * Assesses a future conversation without creating an offer or changing the
+ * world. Recipient conditions remain authoritative; conversation only expands
+ * approaches, clarity, and bounded readiness support after hard barriers pass.
+ */
+export const assessCourierConversation = (world: FoundationWorld | unknown, request: ConversationAssessmentRequest | unknown): ConversationAssessment => {
+  const diagnostics = validateConversationAssessmentRequest(world, request)
+  if (diagnostics.length) throw new ConversationContractError(diagnostics)
+  return assessValidCourierConversation(world as FoundationWorld, request as ConversationAssessmentRequest)
+}
+
+/**
+ * Internal replay hook. The world reducer reaches it only after the public
+ * transition validated the complete foundation world; replay cannot call the
+ * public wrapper because validating an intermediate journal projection would
+ * recursively replay that same journal.
+ */
+export const assessCourierConversationForValidatedReplay = (world: FoundationWorld, request: ConversationAssessmentRequest): ConversationAssessment => assessValidCourierConversation(world, request)
 
 export class ConversationContractError extends Error {
   constructor(readonly diagnostics: readonly ConversationDiagnostic[]) {

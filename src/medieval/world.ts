@@ -10,7 +10,7 @@ import { createFidelityPlan } from './fidelity'
 import { advanceSimulationCatchUpState, resolveDelegatedWorkPlaceholder, validateSimulationCatchUpPlanState, withDelegatedWorkPlaceholder } from './simulation-catchup'
 import { advanceWorldEraForTemporalAction, recordDurableJomonGrowthEvidence, type DurableJomonGrowthEvidence, type WorldEraContext } from './world-era'
 import { appendCausalCommand, causalReplayProjection, createCausalCommand, replayCausalHistory, validateCausalHistoryReplay, type CausalCommandEvent, type CausalHistoryContext, type CausalReplayProjection } from './causal-history'
-import { assessCourierConversation, type ConversationAssessment } from './conversation'
+import { assessCourierConversation, assessCourierConversationForValidatedReplay, type ConversationAssessment } from './conversation'
 import { advanceDelegatedTasks, delegatedWorkPlaceholderForTask, delegationInterruptionTemporalAction, delegationOfferTemporalAction, interruptDelegatedTask, isDelegationInterruptionInput, isDelegationOfferInput, offerDelegatedTask as offerDelegationTransition, type DelegationInterruptionInput, type DelegationOfferInput } from './delegation'
 import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
 
@@ -599,15 +599,18 @@ const delegationContextFor = (world: FoundationWorld, projection: CausalReplayPr
 })
 
 /** Shared pure offer reducer: conversation gates the one-minute commitment action. */
-const offerDelegationProjection = (world: FoundationWorld, projection: CausalReplayProjection, offer: DelegationOfferInput | unknown): CausalReplayProjection => {
+const offerDelegationProjection = (world: FoundationWorld, projection: CausalReplayProjection, offer: DelegationOfferInput | unknown, replay = false): CausalReplayProjection => {
   if (!isDelegationOfferInput(offer)) throw new Error('delegation offer is invalid')
   const beforeOffer = worldFromProjection(world, projection)
-  const assessment: ConversationAssessment = assessCourierConversation(beforeOffer, {
+  const assessmentRequest = {
     version: 1,
     courierId: offer.courierId,
     recipientId: offer.recipientId,
     proposal: offer.proposal
-  })
+  } as const
+  const assessment: ConversationAssessment = replay
+    ? assessCourierConversationForValidatedReplay(beforeOffer, assessmentRequest)
+    : assessCourierConversation(beforeOffer, assessmentRequest)
   const afterAction = advanceTimeProjection(world, projection, delegationOfferTemporalAction(offer))
   const transition = offerDelegationTransition(delegationContextFor(world, afterAction), afterAction.delegation, afterAction.people.records, offer, assessment)
   const simulation = transition.task.status === 'in-progress'
@@ -655,7 +658,7 @@ const replayCommandProjection = (world: FoundationWorld, projection: CausalRepla
   if (command.kind === 'initial-courier-selected') return selectCourierProjection(world, projection, command.payload.courierId)
   if (command.kind === 'time-bearing-action') return advanceTimeProjection(world, projection, command.payload.action)
   if (command.kind === 'durable-jomon-growth') return recordGrowthProjection(world, projection, command.payload.evidence)
-  if (command.kind === 'delegation-offered') return offerDelegationProjection(world, projection, command.payload.offer)
+  if (command.kind === 'delegation-offered') return offerDelegationProjection(world, projection, command.payload.offer, true)
   return interruptDelegationProjection(world, projection, command.payload.interruption)
 }
 
