@@ -278,7 +278,11 @@ export const causalHistoryWithTemporal = (foundationRecords: readonly CausalReco
   }))
 ]
 
-/** Player-visible mutable texts are limited to safety-audited frontier/history/scheduler records. */
+/**
+ * Player-visible mutable texts are limited to safety-audited frontier/history/
+ * scheduler records. The era subdomain carries only closed semantic tags and
+ * no displayable text; its exact-shape validator rejects a text-bearing bypass.
+ */
 export const medievalWorldStateContentRecords = (state: Pick<MedievalWorldState, 'geography' | 'people' | 'history' | 'temporal' | 'simulation'>): readonly ClassifiedMedievalContent[] => [
   ...frontierContentRecords(state.geography.frontier),
   ...persistentPersonContentRecords(state.people.records),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, foundationWorldTemporalStateMatches } from './world'
-import { isMedievalWorldState, MEDIEVAL_WORLD_STATE_LIMITS, MEDIEVAL_WORLD_STATE_VERSION, WORLD_COURIER_STATE_VERSION, WORLD_GEOGRAPHY_STATE_VERSION, WORLD_HISTORY_STATE_VERSION, WORLD_INSTITUTIONS_STATE_VERSION, WORLD_JOMON_STATE_VERSION, WORLD_MARKETS_STATE_VERSION, WORLD_PEOPLE_STATE_VERSION, WORLD_ROUTES_STATE_VERSION, WORLD_SITES_STATE_VERSION, validateMedievalWorldState, type WorldStateValidationContext } from './world-state'
+import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, foundationWorldTemporalStateMatches, recordDurableJomonGrowth } from './world'
+import { isMedievalWorldState, MEDIEVAL_WORLD_STATE_LIMITS, MEDIEVAL_WORLD_STATE_VERSION, WORLD_COURIER_STATE_VERSION, WORLD_ERA_STATE_VERSION, WORLD_GEOGRAPHY_STATE_VERSION, WORLD_HISTORY_STATE_VERSION, WORLD_INSTITUTIONS_STATE_VERSION, WORLD_JOMON_STATE_VERSION, WORLD_MARKETS_STATE_VERSION, WORLD_PEOPLE_STATE_VERSION, WORLD_ROUTES_STATE_VERSION, WORLD_SITES_STATE_VERSION, validateMedievalWorldState, type WorldStateValidationContext } from './world-state'
 
 const contextFor = (world: ReturnType<typeof createFoundationWorld>): WorldStateValidationContext => ({
   seed: world.manifest.creation.seed,
@@ -19,7 +19,7 @@ describe('versioned medieval mutable world state', () => {
     const state = world.state
 
     expect(state.version).toBe(MEDIEVAL_WORLD_STATE_VERSION)
-    expect({ geography: state.geography.version, sites: state.sites.version, routes: state.routes.version, markets: state.markets.version, people: state.people.version, institutions: state.institutions.version, history: state.history.version, jomon: state.jomon.version, courier: state.courier.version }).toEqual({ geography: WORLD_GEOGRAPHY_STATE_VERSION, sites: WORLD_SITES_STATE_VERSION, routes: WORLD_ROUTES_STATE_VERSION, markets: WORLD_MARKETS_STATE_VERSION, people: WORLD_PEOPLE_STATE_VERSION, institutions: WORLD_INSTITUTIONS_STATE_VERSION, history: WORLD_HISTORY_STATE_VERSION, jomon: WORLD_JOMON_STATE_VERSION, courier: WORLD_COURIER_STATE_VERSION })
+    expect({ geography: state.geography.version, sites: state.sites.version, routes: state.routes.version, markets: state.markets.version, people: state.people.version, institutions: state.institutions.version, history: state.history.version, jomon: state.jomon.version, courier: state.courier.version, era: state.era.version }).toEqual({ geography: WORLD_GEOGRAPHY_STATE_VERSION, sites: WORLD_SITES_STATE_VERSION, routes: WORLD_ROUTES_STATE_VERSION, markets: WORLD_MARKETS_STATE_VERSION, people: WORLD_PEOPLE_STATE_VERSION, institutions: WORLD_INSTITUTIONS_STATE_VERSION, history: WORLD_HISTORY_STATE_VERSION, jomon: WORLD_JOMON_STATE_VERSION, courier: WORLD_COURIER_STATE_VERSION, era: WORLD_ERA_STATE_VERSION })
     expect(validateMedievalWorldState(contextFor(world), state)).toEqual([])
     expect(state.sites.sites.map(site => site.id)).toEqual([...state.sites.sites.map(site => site.id)].sort())
     expect(state.routes.conditions.map(route => route.id)).toEqual([...state.routes.conditions.map(route => route.id)].sort())
@@ -29,6 +29,7 @@ describe('versioned medieval mutable world state', () => {
     expect(state.geography.frontier.regions).toHaveLength(3)
     expect(state.sites.sites.length).toBeLessThanOrEqual(MEDIEVAL_WORLD_STATE_LIMITS.sites)
     expect(state.people.records.length).toBeLessThanOrEqual(MEDIEVAL_WORLD_STATE_LIMITS.people)
+    expect(state.era).toMatchObject({ era: 'base', activePlayMinutes: 0, durableGrowthEvidence: [], transitions: [] })
   })
 
   it('keeps immutable creation evidence separate while selection and scheduler history persist in state', () => {
@@ -86,5 +87,34 @@ describe('versioned medieval mutable world state', () => {
 
     expect(codes(selected, forged.state)).toContain('world-state.invalid-courier')
     expect(isMedievalWorldState(contextFor(selected), forged.state)).toBe(false)
+  })
+
+  it('rejects forged era totals, transitions, tokens, model versions, and growth records', () => {
+    const selected = chooseInitialCourier(createFoundationWorld({ seed: 'state-era-rejection' }), 'crew:0')
+    const advanced = advanceFoundationWorldTime(selected, {
+      id: 'travel:state-era-rejection',
+      kind: 'travel',
+      durationMinutes: 7_200,
+      contentSafety: selected.state.history.records[0]!.contentSafety
+    })
+    const grown = recordDurableJomonGrowth(advanced, {
+      id: 'growth:state-era-rejection:refit',
+      kind: 'workspace-refit',
+      source: { kind: 'jomon-vessel', id: 'vessel:jomon' },
+      atWorldTime: 7_200
+    })
+    const badTotal = structuredClone(grown.state)
+    badTotal.era.progressUnits++
+    const badToken = structuredClone(grown.state)
+    badToken.era.transitions[0]!.token++
+    const badModel = structuredClone(grown.state)
+    badModel.era.modelVersion = 99 as never
+    const badGrowth = structuredClone(grown.state)
+    badGrowth.era.durableGrowthEvidence[0]!.source.id = 'prop:not-jomon'
+
+    expect(codes(grown, badTotal)).toContain('world-era.invalid-progress-units')
+    expect(codes(grown, badToken)).toContain('world-era.invalid-transition-token')
+    expect(codes(grown, badModel)).toContain('world-era.invalid-model-version')
+    expect(codes(grown, badGrowth)).toContain('world-era.invalid-growth-source')
   })
 })

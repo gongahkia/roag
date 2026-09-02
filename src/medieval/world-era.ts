@@ -183,6 +183,9 @@ const validIdentity = (value: unknown): value is string => typeof value === 'str
   && value.length > 0
   && value.length <= WORLD_ERA_LIMITS.identityLength
   && /^[a-z][a-z0-9:._-]*$/.test(value)
+const validOpaqueIdentity = (value: unknown): value is string => typeof value === 'string'
+  && value.length > 0
+  && value.length <= WORLD_ERA_LIMITS.identityLength
 const canonicalIssues = (issues: readonly WorldEraDiagnostic[]): readonly WorldEraDiagnostic[] => [...new Map(issues.map(item => [`${item.recordId}\u0000${item.code}`, item])).values()]
   .sort((left, right) => compare(left.recordId, right.recordId) || compare(left.code, right.code))
 const issue = (recordId: string, code: WorldEraDiagnosticCode): WorldEraDiagnostic => ({ recordId, code })
@@ -192,9 +195,10 @@ const validGrowthKind = (value: unknown): value is DurableJomonGrowthKind => DUR
 const sortedGrowthEvidence = (evidence: readonly DurableJomonGrowthEvidence[]): readonly DurableJomonGrowthEvidence[] => [...evidence].sort((left, right) => compare(left.id, right.id))
 const chronologicalGrowthEvidence = (evidence: readonly DurableJomonGrowthEvidence[]): readonly DurableJomonGrowthEvidence[] => [...evidence].sort((left, right) => left.atWorldTime - right.atWorldTime || compare(left.id, right.id))
 const validContext = (context: WorldEraContext): boolean => validIdentity(context.worldId)
-  && validIdentity(context.creationDigest)
+  && validOpaqueIdentity(context.creationDigest)
   && validEraPace(context.eraPace)
   && safeInteger(context.worldTime)
+  && context.worldTime <= Math.floor(Number.MAX_SAFE_INTEGER / WORLD_ERA_PACE_MULTIPLIERS[context.eraPace])
   && validIdentity(context.jomonVesselId)
   && Array.isArray(context.jomonPropIds)
   && context.jomonPropIds.every(validIdentity)
@@ -209,13 +213,16 @@ const validGrowthSource = (context: WorldEraContext, value: unknown): value is D
   && ((value.kind === 'jomon-vessel' && value.id === context.jomonVesselId)
     || (value.kind === 'jomon-prop' && context.jomonPropIds.includes(value.id)))
 
-const validGrowthEvidence = (context: WorldEraContext, value: unknown): value is DurableJomonGrowthEvidence => record(value)
-  && hasOnlyKeys(value, ['id', 'kind', 'source', 'atWorldTime'])
-  && validIdentity(value.id)
-  && validGrowthKind(value.kind)
-  && validGrowthSource(context, value.source)
-  && safeInteger(value.atWorldTime)
-  && value.atWorldTime <= context.worldTime
+const growthEvidenceIssuesFor = (context: WorldEraContext, value: unknown): readonly WorldEraDiagnostic[] => {
+  const id = record(value) && typeof value.id === 'string' ? value.id : 'world-era:growth'
+  const issues: WorldEraDiagnostic[] = []
+  if (!record(value) || !hasOnlyKeys(value, ['id', 'kind', 'source', 'atWorldTime'])) issues.push(issue(id, 'world-era.malformed-growth-evidence'))
+  if (!record(value) || !validIdentity(value.id)) issues.push(issue(id, 'world-era.invalid-growth-id'))
+  if (!record(value) || !validGrowthKind(value.kind)) issues.push(issue(id, 'world-era.invalid-growth-kind'))
+  if (!record(value) || !validGrowthSource(context, value.source)) issues.push(issue(id, 'world-era.invalid-growth-source'))
+  if (!record(value) || !safeInteger(value.atWorldTime) || value.atWorldTime > context.worldTime) issues.push(issue(id, 'world-era.invalid-growth-time'))
+  return issues
+}
 
 const progressFor = (activePlayMinutes: number, evidence: readonly DurableJomonGrowthEvidence[], eraPace: EraPace): { pacedActivePlayUnits: number; durableGrowthUnits: number; progressUnits: number } => {
   const pacedActivePlayUnits = activePlayMinutes * worldEraPaceMultiplier(eraPace)
@@ -396,13 +403,10 @@ export const validateWorldEraState = (context: WorldEraContext, value: unknown):
     const ids = new Set<string>()
     for (const candidate of value.durableGrowthEvidence) {
       const id = record(candidate) && typeof candidate.id === 'string' ? candidate.id : 'world-era:growth'
-      if (!record(candidate) || !hasOnlyKeys(candidate, ['id', 'kind', 'source', 'atWorldTime'])) issues.push(issue(id, 'world-era.malformed-growth-evidence'))
+      issues.push(...growthEvidenceIssuesFor(context, candidate))
       if (!record(candidate) || !validIdentity(candidate.id)) issues.push(issue(id, 'world-era.invalid-growth-id'))
       else if (ids.has(candidate.id)) issues.push(issue(candidate.id, 'world-era.duplicate-growth-id'))
       else ids.add(candidate.id)
-      if (!record(candidate) || !validGrowthKind(candidate.kind)) issues.push(issue(id, 'world-era.invalid-growth-kind'))
-      if (!record(candidate) || !validGrowthSource(context, candidate.source)) issues.push(issue(id, 'world-era.invalid-growth-source'))
-      if (!record(candidate) || !safeInteger(candidate.atWorldTime) || candidate.atWorldTime > context.worldTime) issues.push(issue(id, 'world-era.invalid-growth-time'))
     }
     const evidence = value.durableGrowthEvidence as DurableJomonGrowthEvidence[]
     if (!same(evidence, sortedGrowthEvidence(evidence))) issues.push(issue('world-era:growth', 'world-era.noncanonical-growth-order'))
@@ -460,6 +464,7 @@ export const advanceWorldEraForTemporalAction = (
   context: WorldEraContext,
   action: { startedAtWorldTime: number; atWorldTime: number; durationMinutes: number }
 ): WorldEraState => {
+  if (!validContext(context)) throw new WorldEraContractError([issue('world-era:context', 'world-era.invalid-context')])
   const beforeContext = { ...context, worldTime: action.startedAtWorldTime }
   const diagnostics = validateWorldEraState(beforeContext, state)
   if (diagnostics.length) throw new WorldEraContractError(diagnostics)
@@ -473,9 +478,10 @@ export const advanceWorldEraForTemporalAction = (
 export const recordDurableJomonGrowthEvidence = (state: WorldEraState, context: WorldEraContext, evidence: DurableJomonGrowthEvidence): WorldEraState => {
   const diagnostics = validateWorldEraState(context, state)
   if (diagnostics.length) throw new WorldEraContractError(diagnostics)
-  if (!validGrowthEvidence(context, evidence) || evidence.atWorldTime !== context.worldTime || state.durableGrowthEvidence.some(item => item.id === evidence.id)) {
-    throw new WorldEraContractError([issue(validIdentity(evidence?.id) ? evidence.id : 'world-era:growth', state.durableGrowthEvidence.some(item => item.id === evidence?.id) ? 'world-era.duplicate-growth-id' : 'world-era.malformed-growth-evidence')])
-  }
+  const evidenceIssues = growthEvidenceIssuesFor(context, evidence)
+  if (evidenceIssues.length) throw new WorldEraContractError(evidenceIssues)
+  if (evidence.atWorldTime !== context.worldTime) throw new WorldEraContractError([issue(evidence.id, 'world-era.invalid-growth-time')])
+  if (state.durableGrowthEvidence.some(item => item.id === evidence.id)) throw new WorldEraContractError([issue(evidence.id, 'world-era.duplicate-growth-id')])
   if (state.durableGrowthEvidence.length >= WORLD_ERA_LIMITS.growthEvidence) throw new WorldEraContractError([issue('world-era:growth', 'world-era.growth-limit')])
   return stateFor(context, state.activePlayMinutes, [...state.durableGrowthEvidence, evidence])
 }

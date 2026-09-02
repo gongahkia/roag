@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MedievalWorldRepository } from './storage'
 import { CREATION_SETTINGS_PROFILE_LIMIT, defaultCreationSettings } from './settings'
 import { MEDIEVAL_DATABASE_NAME } from './types'
-import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle } from './world'
+import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, recordDurableJomonGrowth } from './world'
 import { classifyMedievalContent } from './content-safety'
 
 type Handler = (() => void) | null
@@ -248,6 +248,20 @@ describe('medieval local persistence', () => {
     await expect(repository.loadWorld(world.id)).resolves.toBeUndefined()
   })
 
+  it('rejects the v7 mutable-world envelope rather than inventing durable era evidence', async () => {
+    const repository = new MedievalWorldRepository()
+    const world = createFoundationWorld({ seed: 'era-envelope-clean-break' })
+    const legacy = structuredClone(world) as unknown as { version: number; state: { version: number; era?: unknown } }
+    legacy.version = 7
+    legacy.state.version = 5
+    delete legacy.state.era
+
+    await repository.loadIndex()
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(world.id, legacy)
+
+    await expect(repository.loadWorld(world.id)).resolves.toBeUndefined()
+  })
+
   it('persists and reloads a validated pending scheduler event without changing immutable manifest provenance', async () => {
     const repository = new MedievalWorldRepository()
     const world = chooseInitialCourier(createFoundationWorld({ seed: 'clock-persistence' }), 'crew:0')
@@ -287,6 +301,28 @@ describe('medieval local persistence', () => {
     expect(await repository.loadWorld(advanced.id)).toEqual(advanced)
     expect(advanced.state.simulation.cursors.length).toBeGreaterThan(0)
     expect(advanced.state.simulation.records.length).toBeGreaterThan(0)
+  })
+
+  it('persists canonical era growth and transition evidence across a local reload', async () => {
+    const repository = new MedievalWorldRepository()
+    const selected = chooseInitialCourier(createFoundationWorld({ seed: 'era-reload' }), 'crew:0')
+    const advanced = advanceFoundationWorldTime(selected, {
+      id: 'travel:era-reload',
+      kind: 'travel',
+      durationMinutes: 4_800,
+      contentSafety: classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['simulation-summary'])
+    })
+    const grown = recordDurableJomonGrowth(advanced, {
+      id: 'growth:era-reload:small-craft',
+      kind: 'small-craft',
+      source: { kind: 'jomon-vessel', id: 'vessel:jomon' },
+      atWorldTime: 4_800
+    })
+
+    await repository.saveWorld(grown)
+
+    expect(await repository.loadWorld(grown.id)).toEqual(grown)
+    expect(grown.state.era).toMatchObject({ era: 'ng-plus', activePlayMinutes: 4_800, durableGrowthUnits: 3_600 })
   })
 
   it('rejects a stored or submitted world with forged simulation cause evidence', async () => {

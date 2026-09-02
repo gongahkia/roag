@@ -3,7 +3,8 @@ import { MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION } from './content-safety'
 import { addChronicleToIndex, addWorldToIndex, emptyWorldIndex, removeWorldFromIndex } from './storage'
 import { generationRetryPlan } from './generation-config'
 import { INITIAL_WORLD_GENERATION_STAGES } from './initial-world'
-import { InvalidWorldGenerationConfigurationError, advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, foundationWorldContentSatisfiesSafetyPolicy, recreateFoundationWorld, serializeWorldManifest, validateFoundationWorld } from './world'
+import { InvalidWorldGenerationConfigurationError, advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, foundationWorldContentSatisfiesSafetyPolicy, recordDurableJomonGrowth, recreateFoundationWorld, serializeWorldManifest, validateFoundationWorld } from './world'
+import { worldEraProjection } from './world-era'
 
 describe('medieval foundation worlds', () => {
   it('recreates the same world and generated household from its manifest inputs', () => {
@@ -203,6 +204,46 @@ describe('medieval foundation worlds', () => {
     expect(chronicle.reason).toBe('crew-extinction')
     expect(chronicle.world.state.courier.initialCourierId).toBe('crew:0')
     expect(chronicle.world.crew).toEqual(selected.crew)
+  })
+
+  it('accounts only accepted time-bearing actions in a partition-invariant era projection', () => {
+    const source = chooseInitialCourier(createFoundationWorld({ seed: 'era-partition' }), 'crew:0')
+    const contentSafety = source.state.history.records[0]!.contentSafety
+    const once = advanceFoundationWorldTime(source, { id: 'travel:five', kind: 'travel', durationMinutes: 5, contentSafety })
+    let partitioned = source
+    for (let minute = 1; minute <= 5; minute++) {
+      partitioned = advanceFoundationWorldTime(partitioned, { id: `wait:${minute}`, kind: 'wait', durationMinutes: 1, contentSafety })
+    }
+
+    expect(worldEraProjection(once.state.era)).toEqual(worldEraProjection(partitioned.state.era))
+    expect(once.state.era.activePlayMinutes).toBe(5)
+    expect(partitioned.state.temporal.actionSequence).toBe(5)
+    expect(once.state.temporal.actionSequence).toBe(1)
+    expect(() => advanceFoundationWorldTime(source, { kind: 'inspect' })).toThrow('temporal contract rejected')
+    expect(source.state.era).toEqual(createFoundationWorld({ seed: 'era-partition' }).state.era)
+  })
+
+  it('records typed durable Jomon growth at the current world minute without changing unrelated world state', () => {
+    const source = chooseInitialCourier(createFoundationWorld({ seed: 'era-growth' }), 'crew:0')
+    const contentSafety = source.state.history.records[0]!.contentSafety
+    const advanced = advanceFoundationWorldTime(source, { id: 'travel:era-growth', kind: 'travel', durationMinutes: 4_800, contentSafety })
+    const immutable = { manifest: structuredClone(advanced.manifest), jomon: structuredClone(advanced.jomon), crew: structuredClone(advanced.crew) }
+    const simulation = structuredClone(advanced.state.simulation)
+    const grown = recordDurableJomonGrowth(advanced, {
+      id: 'growth:era-growth:deck',
+      kind: 'physical-expansion',
+      source: { kind: 'jomon-vessel', id: 'vessel:jomon' },
+      atWorldTime: 4_800
+    })
+
+    expect(grown.state.temporal).toEqual(advanced.state.temporal)
+    expect(grown.state.simulation).toEqual(simulation)
+    expect(grown.manifest).toEqual(immutable.manifest)
+    expect(grown.jomon).toEqual(immutable.jomon)
+    expect(grown.crew).toEqual(immutable.crew)
+    expect(grown.state.era).toMatchObject({ era: 'ng-plus', activePlayMinutes: 4_800, durableGrowthUnits: 2_400 })
+    expect(grown.state.era.transitions[0]).toMatchObject({ atWorldTime: 4_800, evidence: { trigger: 'durable-jomon-growth', growthEvidenceId: 'growth:era-growth:deck' } })
+    expect(() => recordDurableJomonGrowth(grown, { id: 'growth:era-growth:deck', kind: 'small-craft', source: { kind: 'jomon-vessel', id: 'vessel:jomon' }, atWorldTime: 4_800 })).toThrow('duplicate-growth-id')
   })
 })
 

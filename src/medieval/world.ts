@@ -8,6 +8,7 @@ import { advanceMedievalTemporalState, createMedievalTemporalState, isMedievalTe
 import { createMedievalWorldState, isMedievalWorldState } from './world-state'
 import { createFidelityPlan } from './fidelity'
 import { advanceSimulationCatchUpState, validateSimulationCatchUpPlanState } from './simulation-catchup'
+import { advanceWorldEraForTemporalAction, recordDurableJomonGrowthEvidence, type DurableJomonGrowthEvidence, type WorldEraContext } from './world-era'
 import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
 
 const foundationJomon = (): FoundationJomon => ({
@@ -370,7 +371,7 @@ export const validateFoundationWorld = (value: unknown): readonly FoundationWorl
   if (!record(value)) return [foundationWorldIssue('foundation-world', 'foundation-world.malformed-record')]
   if (!hasOnlyKeys(value, ['version', 'id', 'status', 'manifest', 'jomon', 'crew', 'initialWorld', 'state'])) return [foundationWorldIssue('foundation-world', 'foundation-world.malformed-record')]
   const issues: FoundationWorldValidationIssue[] = []
-  if (value.version !== 7) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-version'))
+  if (value.version !== 8) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-version'))
   if (typeof value.id !== 'string' || !value.id) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-id'))
   if (value.status !== 'active') issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-status'))
   if (!isReproducibleWorldManifest(value.manifest)) {
@@ -422,7 +423,7 @@ const worldFromCreationProvenance = (
   if (!state) throw new Error('creation provenance does not identify an eligible initial courier')
   const temporal = createMedievalTemporalState(temporalProvenanceForCreation(creation))
   return {
-    version: 7,
+    version: 8,
     id: idForCreationProvenance(creation),
     status: 'active',
     manifest: {
@@ -485,7 +486,8 @@ export const chooseInitialCourier = (world: FoundationWorld, courierId: string):
       initialCourierId: courierId,
       jomonState: world.state.jomon,
       peopleState: world.state.people,
-      simulationState: world.state.simulation
+      simulationState: world.state.simulation,
+      eraState: world.state.era
     })
   }
 }
@@ -543,6 +545,15 @@ export const foundationWorldCatchUpStateMatches = (world: FoundationWorld): bool
   } catch { return false }
 }
 
+const worldEraContextFor = (world: FoundationWorld, worldTime = world.state.temporal.worldTime): WorldEraContext => ({
+  worldId: world.id,
+  creationDigest: world.manifest.creation.digest,
+  eraPace: world.manifest.creation.resolvedConfiguration.eraPace,
+  worldTime,
+  jomonVesselId: world.jomon.id,
+  jomonPropIds: world.jomon.props.map(prop => prop.id)
+})
+
 /**
  * Applies the renderer-independent temporal contract, then catches every due
  * fidelity tier up through the same action boundary. It intentionally leaves
@@ -554,6 +565,9 @@ export const advanceFoundationWorldTime = (world: FoundationWorld, command: Temp
   const transition = advanceMedievalTemporalState(world.state.temporal, command)
   const staticState = expectedFoundationState(world.manifest.creation.seed, world.manifest.creation.resolvedConfiguration, world.state.courier.initialCourierId)
   if (!staticState) throw new Error('world has an invalid initial courier state')
+  // The temporary projection is needed to validate the fidelity-plan input.
+  // The authoritative era reducer runs only after catch-up succeeds below.
+  const eraPlan = advanceWorldEraForTemporalAction(world.state.era, worldEraContextFor(world, transition.state.worldTime), transition.action)
   const provisional = {
     ...cloneWorld(world),
     state: createMedievalWorldState({
@@ -568,12 +582,14 @@ export const advanceFoundationWorldTime = (world: FoundationWorld, command: Temp
       ...(world.state.courier.initialCourierId === undefined ? {} : { initialCourierId: world.state.courier.initialCourierId }),
       jomonState: world.state.jomon,
       peopleState: world.state.people,
-      simulationState: world.state.simulation
+      simulationState: world.state.simulation,
+      eraState: eraPlan
     })
   }
   const courierId = provisional.state.courier.initialCourierId
   if (courierId === undefined) throw new Error('time-bearing simulation requires an active courier')
   const catchUp = advanceSimulationCatchUpState(provisional.state.simulation, createFidelityPlan({ world: provisional, activeCourierId: courierId, loadedLocations: [] }), transition.action)
+  const era = advanceWorldEraForTemporalAction(world.state.era, worldEraContextFor(world, transition.state.worldTime), transition.action)
   return {
     ...cloneWorld(world),
     state: createMedievalWorldState({
@@ -588,7 +604,38 @@ export const advanceFoundationWorldTime = (world: FoundationWorld, command: Temp
       ...(world.state.courier.initialCourierId === undefined ? {} : { initialCourierId: world.state.courier.initialCourierId }),
       jomonState: world.state.jomon,
       peopleState: world.state.people,
-      simulationState: catchUp.state
+      simulationState: catchUp.state,
+      eraState: era
+    })
+  }
+}
+
+/**
+ * Records a future physical Jomon expansion/refit/capacity/tool/small-craft
+ * completion. The record is zero-time; its caller owns any prior work action.
+ */
+export const recordDurableJomonGrowth = (world: FoundationWorld, evidence: DurableJomonGrowthEvidence): FoundationWorld => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  if (world.status !== 'active') throw new Error('only an active world can record durable Jomon growth')
+  const staticState = expectedFoundationState(world.manifest.creation.seed, world.manifest.creation.resolvedConfiguration, world.state.courier.initialCourierId)
+  if (!staticState) throw new Error('world has an invalid initial courier state')
+  const era = recordDurableJomonGrowthEvidence(world.state.era, worldEraContextFor(world), evidence)
+  return {
+    ...cloneWorld(world),
+    state: createMedievalWorldState({
+      seed: world.manifest.creation.seed,
+      configuration: world.manifest.creation.resolvedConfiguration,
+      initialWorld: world.initialWorld,
+      jomon: world.jomon,
+      crew: world.crew,
+      foundationHistory: staticState.causalHistory,
+      frontier: world.state.geography.frontier,
+      temporal: world.state.temporal,
+      ...(world.state.courier.initialCourierId === undefined ? {} : { initialCourierId: world.state.courier.initialCourierId }),
+      jomonState: world.state.jomon,
+      peopleState: world.state.people,
+      simulationState: world.state.simulation,
+      eraState: era
     })
   }
 }
@@ -596,7 +643,7 @@ export const advanceFoundationWorldTime = (world: FoundationWorld, command: Temp
 export const finalizeWorldAsChronicle = (world: FoundationWorld, reason: ChronicleReason): WorldChronicle => {
   if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
   return {
-    version: 6,
+    version: 7,
     id: `chronicle:${world.id}`,
     status: 'finalized',
     reason,
