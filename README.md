@@ -7,6 +7,7 @@ The project is at a documented clean-break boundary. The checked-in prototype st
 - [Lore and content reference](LORE.md)
 - [Authoritative roadmap](TODO.md)
 - [Desktop-browser performance and storage baseline](docs/performance-storage-baseline.md)
+- [Medieval local persistence layout](docs/persistence-layout.md)
 
 ## Development
 

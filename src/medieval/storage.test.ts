@@ -11,6 +11,7 @@ import { assessCourierConversation } from './conversation'
 import { socialMemoryRecallForPair } from './social-memory'
 import { CAUSAL_HISTORY_LIMITS } from './causal-history'
 import { captureTerminalControlBinding, defaultTerminalControlPreferences } from './terminal-controls'
+import { createActiveWorldBackupBundle, serializePersistenceBackupBundle } from './persistence-layout'
 
 type Handler = (() => void) | null
 
@@ -30,7 +31,7 @@ class FakeTransaction {
   private finished = false
   private readonly stores: Map<string, Map<unknown, unknown>>
 
-  constructor(private readonly database: FakeDatabase) {
+  constructor(private readonly database: FakeDatabase, private failure: 'abort' | 'quota' | undefined) {
     this.stores = new Map([...database.stores].map(([name, values]) => [name, new Map([...values].map(([key, value]) => [key, structuredClone(value)]))]))
   }
 
@@ -39,13 +40,25 @@ class FakeTransaction {
     return new FakeObjectStore(this, name)
   }
 
-  request<T>(operation: () => T): FakeRequest<T> {
+  request<T>(operation: () => T, isWrite = false): FakeRequest<T> {
     const request = new FakeRequest<T>()
     this.pending++
     queueMicrotask(() => {
       if (this.finished) return
-      request.result = operation()
-      request.onsuccess?.()
+      try {
+        if (isWrite && this.failure !== undefined) {
+          const kind = this.failure
+          this.failure = undefined
+          throw new DOMException(kind === 'quota' ? 'quota' : 'aborted', kind === 'quota' ? 'QuotaExceededError' : 'AbortError')
+        }
+        request.result = operation()
+        request.onsuccess?.()
+      } catch (error) {
+        request.error = error instanceof Error ? error : new Error('fake IndexedDB write failed')
+        this.error = request.error
+        request.onerror?.()
+        this.abort()
+      }
       this.pending--
       this.completeWhenIdle()
     })
@@ -56,29 +69,39 @@ class FakeTransaction {
   put(store: string, key: unknown, value: unknown): void { this.stores.get(store)?.set(key, structuredClone(value)) }
   delete(store: string, key: unknown): void { this.stores.get(store)?.delete(key) }
 
+  abort(): void {
+    if (this.finished) return
+    this.finished = true
+    this.onabort?.()
+  }
+
   private completeWhenIdle(): void {
     if (this.finished || this.pending > 0) return
-    queueMicrotask(() => {
+    // IndexedDB stays active through the current task. A later macrotask lets
+    // the repository read the current records and enqueue its atomic writes.
+    setTimeout(() => {
       if (this.finished || this.pending > 0) return
       this.finished = true
       this.database.stores = this.stores
       this.oncomplete?.()
-    })
+    }, 0)
   }
 }
 
 class FakeObjectStore {
   constructor(private readonly transaction: FakeTransaction, private readonly name: string) { }
   get(key: unknown): IDBRequest<unknown> { return this.transaction.request(() => this.transaction.get(this.name, key)) as unknown as IDBRequest<unknown> }
-  put(value: unknown, key: unknown): IDBRequest<unknown> { return this.transaction.request(() => { this.transaction.put(this.name, key, value); return key }) as unknown as IDBRequest<unknown> }
-  delete(key: unknown): IDBRequest<undefined> { return this.transaction.request(() => { this.transaction.delete(this.name, key); return undefined }) as unknown as IDBRequest<undefined> }
+  put(value: unknown, key: unknown): IDBRequest<unknown> { return this.transaction.request(() => { this.transaction.put(this.name, key, value); return key }, true) as unknown as IDBRequest<unknown> }
+  delete(key: unknown): IDBRequest<undefined> { return this.transaction.request(() => { this.transaction.delete(this.name, key); return undefined }, true) as unknown as IDBRequest<undefined> }
 }
 
 class FakeDatabase {
   stores = new Map<string, Map<unknown, unknown>>()
+  version = 0
+  nextWriteFailure: 'abort' | 'quota' | undefined
   readonly objectStoreNames = { contains: (name: string): boolean => this.stores.has(name) }
 
-  transaction(): IDBTransaction { return new FakeTransaction(this) as unknown as IDBTransaction }
+  transaction(): IDBTransaction { const failure = this.nextWriteFailure; this.nextWriteFailure = undefined; return new FakeTransaction(this, failure) as unknown as IDBTransaction }
   createObjectStore(name: string): IDBObjectStore {
     this.stores.set(name, new Map())
     return {} as IDBObjectStore
@@ -89,17 +112,19 @@ class FakeIndexedDB {
   readonly openedNames: string[] = []
   private readonly databases = new Map<string, FakeDatabase>()
 
-  open(name: string): IDBOpenDBRequest {
+  open(name: string, version?: number): IDBOpenDBRequest {
     this.openedNames.push(name)
     const request = new FakeRequest<FakeDatabase>() as FakeRequest<FakeDatabase> & { onupgradeneeded: Handler; onblocked: Handler }
     request.onupgradeneeded = null
     request.onblocked = null
     const existing = this.databases.get(name)
     const database = existing ?? new FakeDatabase()
+    const upgrading = !existing || (version !== undefined && version > database.version)
+    if (version !== undefined && version > database.version) database.version = version
     this.databases.set(name, database)
     request.result = database
     queueMicrotask(() => {
-      if (!existing) request.onupgradeneeded?.()
+      if (upgrading) request.onupgradeneeded?.()
       request.onsuccess?.()
     })
     return request as unknown as IDBOpenDBRequest
@@ -111,6 +136,20 @@ class FakeIndexedDB {
     const records = database.stores.get(store)
     if (!records) throw new Error(`store ${store} was not created`)
     return records
+  }
+
+  failNextWrite(name: string, kind: 'abort' | 'quota'): void {
+    const database = this.databases.get(name)
+    if (!database) throw new Error(`database ${name} was not opened`)
+    database.nextWriteFailure = kind
+  }
+
+  seedV3(name: string): FakeDatabase {
+    const database = new FakeDatabase()
+    database.version = 3
+    for (const store of ['catalog', 'worlds', 'chronicles', 'creation-settings', 'terminal-controls']) database.createObjectStore(store)
+    this.databases.set(name, database)
+    return database
   }
 }
 
@@ -809,5 +848,68 @@ describe('medieval local persistence', () => {
     expect(await repository.loadWorld(world.id)).toBeUndefined()
     expect(await repository.loadChronicle(chronicle.id)).toEqual(chronicle)
     await expect(repository.loadIndex()).resolves.toEqual({ version: 1, activeWorlds: [], chronicles: [{ id: chronicle.id, label: world.manifest.creation.label, reason: 'jomon-loss' }] })
+  })
+
+  it('writes a derived source-bound index and bounded deterministic snapshot ring with the active envelope', async () => {
+    const repository = new MedievalWorldRepository()
+    let world = chooseInitialCourier(createFoundationWorld({ seed: 'layout-atomic' }), 'crew:0')
+    await repository.saveWorld(world)
+    expect(await repository.loadWorldRecordIndex(world.id)).toBeDefined()
+    expect(await repository.inspectWorldSnapshots(world.id)).toEqual({ status: 'absent' })
+
+    for (let index = 0; index < 4; index++) {
+      world = advanceFoundationWorldTime(world, { id: `layout-save-${index}`, kind: 'wait', durationMinutes: 1, contentSafety: classifyMedievalContent('event', ['adult-labour'], 'adults-only', ['data']) })
+      await repository.saveWorld(world)
+    }
+    const snapshots = await repository.inspectWorldSnapshots(world.id)
+    expect(snapshots.status).toBe('available')
+    if (snapshots.status !== 'available') throw new Error('snapshot ring should be inspectable')
+    expect(snapshots.ring.snapshots).toHaveLength(3)
+    expect(snapshots.ring.snapshots.map(snapshot => snapshot.sequence)).toEqual([2, 3, 4])
+    expect(await repository.inspectSnapshot(world.id, 4)).toEqual(snapshots.ring.snapshots[2]!.world)
+  }, 20_000)
+
+  it('contains quota/abort failures and corrupt active records without overwriting a valid prior envelope or metadata', async () => {
+    const repository = new MedievalWorldRepository()
+    const before = chooseInitialCourier(createFoundationWorld({ seed: 'layout-failure' }), 'crew:0')
+    const next = advanceFoundationWorldTime(before, { id: 'layout-failure-wait', kind: 'wait', durationMinutes: 1, contentSafety: classifyMedievalContent('event', ['adult-labour'], 'adults-only', ['data']) })
+    await repository.saveWorld(before)
+    const index = await repository.loadWorldRecordIndex(before.id)
+    fakeIndexedDB.failNextWrite(MEDIEVAL_DATABASE_NAME, 'quota')
+    await expect(repository.saveWorld(next)).rejects.toThrow('storage-quota-exceeded')
+    expect(await repository.loadWorld(before.id)).toEqual(before)
+    expect(await repository.loadWorldRecordIndex(before.id)).toEqual(index)
+
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(before.id, { version: 999 })
+    await expect(repository.saveWorld(next)).rejects.toThrow('corrupt-existing-world')
+    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(before.id)).toEqual({ version: 999 })
+  })
+
+  it('upgrades valid v3 envelopes without forced rewrites and adds metadata only on an explicit save', async () => {
+    const legacy = fakeIndexedDB.seedV3(MEDIEVAL_DATABASE_NAME)
+    const world = chooseInitialCourier(createFoundationWorld({ seed: 'layout-v3' }), 'crew:0')
+    legacy.stores.get('worlds')!.set(world.id, structuredClone(world))
+    legacy.stores.get('catalog')!.set('world-index', { version: 1, activeWorlds: [{ id: world.id, label: world.manifest.creation.label, initialCourierId: 'crew:0' }], chronicles: [] })
+    const repository = new MedievalWorldRepository()
+    expect(await repository.loadWorld(world.id)).toEqual(world)
+    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'world-record-indexes').has(world.id)).toBe(false)
+    expect(await repository.inspectWorldSnapshots(world.id)).toEqual({ status: 'absent' })
+    await repository.saveWorld(world)
+    expect(await repository.loadWorldRecordIndex(world.id)).toBeDefined()
+  })
+
+  it('uses explicit canonical backup collision/replacement rules and preserves the replaced active record as a snapshot', async () => {
+    const repository = new MedievalWorldRepository()
+    const base = chooseInitialCourier(createFoundationWorld({ seed: 'layout-import' }), 'crew:0')
+    const replacement = advanceFoundationWorldTime(base, { id: 'layout-import-wait', kind: 'wait', durationMinutes: 1, contentSafety: classifyMedievalContent('event', ['adult-labour'], 'adults-only', ['data']) })
+    await repository.saveWorld(base)
+    const bundle = serializePersistenceBackupBundle(createActiveWorldBackupBundle(replacement))
+    await expect(repository.importActiveWorldBackup(bundle)).rejects.toThrow('backup-collision')
+    await repository.importActiveWorldBackup(bundle, { collision: 'replace' })
+    expect(await repository.loadWorld(base.id)).toEqual(replacement)
+    const snapshots = await repository.inspectWorldSnapshots(base.id)
+    expect(snapshots.status).toBe('available')
+    expect(await repository.importActiveWorldBackup('{bad JSON')).rejects.toThrow('backup-malformed')
+    expect(await repository.loadWorld(base.id)).toEqual(replacement)
   })
 })
