@@ -7,7 +7,7 @@ import { Random } from './random';
 import { GENERATOR_VERSION, LEGACY_GENERATOR_VERSION, PARTY_TRICK_CARDS, RECIPE_SCHEMA_VERSION, generatorVersionFor, rulesetFor } from './rulesets';
 import { COURSE_HEIGHT, COURSE_WIDTH, type ChaosModifier, type Course, type GameConfig, type GameState, type PlannedHole, type Player } from './types';
 
-const colors = ['#f6c26b', '#8bd5ca', '#f38ba8', '#cba6f7', '#a6e3a1', '#89b4fa', '#fab387', '#f9e2af', '#94e2d5', '#eba0ac', '#b4befe', '#f5c2e7'];
+const colors = ['#f1d058', '#70cfd4', '#ef6f73', '#b783e6', '#c6e27a', '#8ca6ec', '#e78c56', '#fff1b8', '#75d6c8', '#d86e97', '#899ce8', '#e49abf'];
 
 export const defaultConfig = (): GameConfig => ({
   seed: `enemy-${Math.random().toString(36).slice(2, 8)}`,

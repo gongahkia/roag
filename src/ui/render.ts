@@ -732,7 +732,7 @@ const drawEmotes = (context: CanvasRenderingContext2D, players: Player[], emotes
     context.lineWidth = 1;
     context.fillRect(x, y, width, 15);
     context.strokeRect(x + .5, y + .5, width - 1, 14);
-    context.fillStyle = '#17311b';
+    context.fillStyle = '#171432';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     context.fillText(definition.glyph, x + width / 2, y + 8);
@@ -780,7 +780,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     const presentation = presentationFor();
     displayContext.setTransform(1, 0, 0, 1, 0, 0);
     displayContext.imageSmoothingEnabled = false;
-    displayContext.fillStyle = '#060914';
+    displayContext.fillStyle = '#070819';
     displayContext.fillRect(0, 0, canvas.width, canvas.height);
     displayContext.drawImage(
       framebuffer,
@@ -823,7 +823,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     const width = FRAME_WIDTH;
     const height = FRAME_HEIGHT;
     context.clearRect(0, 0, width, height);
-    context.fillStyle = '#10152b';
+    context.fillStyle = '#070819';
     context.fillRect(0, 0, width, height);
     context.fillStyle = '#121740';
     for (let y = 4; y < height; y += 8) for (let x = (y / 8 % 2) * 4; x < width; x += 8) context.fillRect(x, y, 1, 1);
