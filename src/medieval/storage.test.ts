@@ -135,14 +135,14 @@ const delegatedWorld = (seed: string) => {
         const roll = new SeededRng(`jomon-delegation:${DELEGATION_CONTRACT_VERSION}:${world.id}:${world.manifest.creation.digest}:agreement:${delegationTaskIdForOffer(id)}:1`).integer(6)
         if (roll !== 0) continue
         const proposal = {
-          version: 1 as const,
+          version: DELEGATION_CONTRACT_VERSION,
           kind: 'request' as const,
           urgency: 'routine' as const,
           complexity: 'routine' as const,
           materialInterest: interest,
           contentSafety: classifyMedievalContent('contract', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
         }
-        const offer: DelegationOfferInput = { version: 1, id, courierId, recipientId: recipient.id, family: definition.family, approach: 'direct-request', proposal }
+        const offer: DelegationOfferInput = { version: DELEGATION_CONTRACT_VERSION, id, courierId, recipientId: recipient.id, family: definition.family, approach: 'direct-request', proposal }
         const delegated = offerFoundationWorldDelegatedTask(world, offer)
         if (delegated.state.delegation.tasks[0]!.status === 'in-progress') return delegated
       }
@@ -205,7 +205,7 @@ describe('medieval local persistence', () => {
     expect(await repository.loadWorld('world:not-present')).toBeUndefined()
   })
 
-  it('keeps valid local creation settings intact while saving and loading the v12 full-world record', async () => {
+  it('keeps valid local creation settings intact while saving and loading the v13 full-world record', async () => {
     const repository = new MedievalWorldRepository()
     const settings = { ...defaultCreationSettings(), seed: 'settings-survive-state', configuration: { preset: 'far-coast' as const, advanced: {} } }
     const world = chooseInitialCourier(createFoundationWorld({ seed: 'settings-survive-state', configuration: settings.configuration }), 'crew:0')
@@ -237,6 +237,7 @@ describe('medieval local persistence', () => {
     await repository.saveWorld(completed)
     const reloadedCompleted = await repository.loadWorld(completed.id)
     expect(reloadedCompleted?.state.delegation.tasks[0]).toMatchObject({ id: task.id, status: 'completed' })
+    expect(reloadedCompleted?.state.socialMemory).toEqual(completed.state.socialMemory)
     expect(reloadedCompleted?.state.autonomy).toEqual(completed.state.autonomy)
     expect(reloadedCompleted && replayFoundationWorldCausalHistory(reloadedCompleted)).toEqual(causalReplayProjectionForWorldState(completed.state))
   })
@@ -355,6 +356,22 @@ describe('medieval local persistence', () => {
     await expect(repository.loadWorld(world.id)).resolves.toBeUndefined()
   })
 
+  it('rejects the immediate pre-social-memory world envelope instead of inventing linked recall', async () => {
+    const repository = new MedievalWorldRepository()
+    const world = createFoundationWorld({ seed: 'social-memory-envelope-clean-break' })
+    const legacy = structuredClone(world) as unknown as { version: number; state: { version: number; people: { version: number }; socialMemory?: unknown; causalHistory: { version: number } } }
+    legacy.version = 12
+    legacy.state.version = 10
+    legacy.state.people.version = 4
+    legacy.state.causalHistory.version = 3
+    delete legacy.state.socialMemory
+
+    await repository.loadIndex()
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(world.id, legacy)
+
+    await expect(repository.loadWorld(world.id)).resolves.toBeUndefined()
+  })
+
   it('persists and reloads a validated pending scheduler event without changing immutable manifest provenance', async () => {
     const repository = new MedievalWorldRepository()
     const world = chooseInitialCourier(createFoundationWorld({ seed: 'clock-persistence' }), 'crew:0')
@@ -446,7 +463,7 @@ describe('medieval local persistence', () => {
     const loaded = await repository.loadWorld(world.id)
     if (!loaded) throw new Error('valid enriched people should reload locally')
 
-    expect(loaded.state.people).toEqual({ version: 4, records: originalPeople })
+    expect(loaded.state.people).toEqual({ version: 5, records: originalPeople })
     expect(loaded.state.causalHistory).toMatchObject({ tail: [], checkpoint: { sequence: 9 } })
     expect(replayFoundationWorldCausalHistory(loaded)).toEqual(causalReplayProjectionForWorldState(loaded.state))
     expect(loaded.state.era.era).toBe('ng-plus')

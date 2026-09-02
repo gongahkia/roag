@@ -8,7 +8,7 @@ import type { CrewRole, FoundationCrewMember, FoundationJomon } from './types'
  * Persistent people are deliberately separate from generation seeds and frontier
  * commitments. A record exists only once somebody has actually been instantiated.
  */
-export const PERSISTENT_PERSON_CONTRACT_VERSION = 3 as const
+export const PERSISTENT_PERSON_CONTRACT_VERSION = 4 as const
 
 export const PERSISTENT_PERSON_LIMITS = {
   records: 24,
@@ -37,7 +37,9 @@ export type PersistentPersonRecoveryStatus = 'none' | 'recovering'
 export type PersistentPersonPossessionCondition = 'sound' | 'worn' | 'broken'
 export type PersistentPersonFamilyRelation = 'parent' | 'child' | 'sibling' | 'partner' | 'kin'
 export type PersistentPersonRelationshipBasis = 'kinship' | 'work' | 'debt' | 'friendship' | 'rivalry'
-export type PersistentPersonMemoryKind = 'foundation-history' | 'observed-event' | 'reported-fact' | 'task-evidence'
+export type PersistentPersonMemoryKind = 'foundation-history' | 'observed-event' | 'reported-fact' | 'social-memory'
+/** Who holds a source-linked mutable social-memory reference. */
+export type PersistentPersonSocialMemoryRelation = 'participant' | 'recipient' | 'courier' | 'witness' | 'household-record'
 export type PersistentPersonCommitmentKind = 'vessel-duty' | 'personal-agreement' | 'delegated-task'
 export type PersistentPersonCommitmentStatus = 'active' | 'resolved' | 'cancelled'
 export type PersistentPersonSkillKind = 'navigation' | 'commerce' | 'craft' | 'care' | 'record-keeping' | 'guarding' | 'provisioning' | 'hauling' | 'fishing' | 'performance' | 'command'
@@ -186,13 +188,25 @@ export interface PersistentPersonRelationship {
   contentSafety: MedievalContentSafetyClassification
 }
 
-export interface PersistentPersonMemory {
+export interface PersistentPersonNarrativeMemory {
   id: string
-  kind: PersistentPersonMemoryKind
+  kind: Exclude<PersistentPersonMemoryKind, 'social-memory'>
   atWorldTime: number
   detail: string
   contentSafety: MedievalContentSafetyClassification
 }
+
+/** Mutable social recall carries a record link and no competing prose history. */
+export interface PersistentPersonSocialMemory {
+  id: string
+  kind: 'social-memory'
+  socialMemoryId: string
+  relation: PersistentPersonSocialMemoryRelation
+  atWorldTime: number
+  contentSafety: MedievalContentSafetyClassification
+}
+
+export type PersistentPersonMemory = PersistentPersonNarrativeMemory | PersistentPersonSocialMemory
 
 export interface PersistentPersonCommitment {
   id: string
@@ -299,7 +313,8 @@ const skillKinds: readonly PersistentPersonSkillKind[] = ['navigation', 'commerc
 const householdKinds: readonly PersistentPersonHouseholdKind[] = ['jomon-household', 'site-household', 'frontier-household']
 const relationshipBases: readonly PersistentPersonRelationshipBasis[] = ['kinship', 'work', 'debt', 'friendship', 'rivalry']
 const familyRelations: readonly PersistentPersonFamilyRelation[] = ['parent', 'child', 'sibling', 'partner', 'kin']
-const memoryKinds: readonly PersistentPersonMemoryKind[] = ['foundation-history', 'observed-event', 'reported-fact', 'task-evidence']
+const memoryKinds: readonly PersistentPersonMemoryKind[] = ['foundation-history', 'observed-event', 'reported-fact', 'social-memory']
+const socialMemoryRelations: readonly PersistentPersonSocialMemoryRelation[] = ['participant', 'recipient', 'courier', 'witness', 'household-record']
 const commitmentKinds: readonly PersistentPersonCommitmentKind[] = ['vessel-duty', 'personal-agreement', 'delegated-task']
 const commitmentStatuses: readonly PersistentPersonCommitmentStatus[] = ['active', 'resolved', 'cancelled']
 const injuryKinds: readonly PersistentPersonInjury['kind'][] = ['strain', 'minor-wound']
@@ -444,6 +459,14 @@ const validCommitment = (value: unknown, worldTime: number): value is Persistent
   return hasOnlyKeys(value, ['id', 'kind', 'status', 'createdAtWorldTime', 'resolvedAtWorldTime', 'detail', 'contentSafety']) && nonNegativeInteger(value.resolvedAtWorldTime) && value.resolvedAtWorldTime >= value.createdAtWorldTime
 }
 
+const validMemory = (value: unknown, worldTime: number): value is PersistentPersonMemory => {
+  if (!record(value) || !validId(value.id) || !oneOf(memoryKinds, value.kind) || !nonNegativeInteger(value.atWorldTime) || value.atWorldTime > worldTime || !validClassificationRecord(`memory:${value.id}`, 'history', value.contentSafety)) return false
+  if (value.kind === 'social-memory') return hasOnlyKeys(value, ['id', 'kind', 'socialMemoryId', 'relation', 'atWorldTime', 'contentSafety'])
+    && validId(value.socialMemoryId)
+    && oneOf(socialMemoryRelations, value.relation)
+  return hasOnlyKeys(value, ['id', 'kind', 'atWorldTime', 'detail', 'contentSafety']) && typeof value.detail === 'string'
+}
+
 const validatePerson = (candidate: PersistentPersonRecord, context: PersistentPersonValidationContext, personIds: ReadonlySet<string>, allPeople: readonly PersistentPersonRecord[], issues: PersistentPersonValidationIssue[]): void => {
   const id = candidate.id
   const source = context.crew.find(member => member.id === candidate.sourceCrewId)
@@ -495,7 +518,7 @@ const validatePerson = (candidate: PersistentPersonRecord, context: PersistentPe
   if (!Array.isArray(relationships) || relationships.length > PERSISTENT_PERSON_LIMITS.relationshipsPerPerson || !isSortedById(relationships) || new Set(relationships.map(relationship => relationship.id)).size !== relationships.length || !relationships.every(relationship => validRelationship(relationship, id, personIds)) || !reciprocalValid || (source !== undefined && (!same(relationships.map(relationship => ({ targetPersonId: relationship.targetPersonId, standing: relationship.standing, basis: relationship.basis })), sourceRelationships.map(relationship => ({ targetPersonId: relationship.personId, standing: relationship.standing, basis: relationship.basis }))))) ) issues.push(issue(id, 'persistent-person.invalid-relationship'))
 
   const memories = candidate.memories
-  if (!Array.isArray(memories) || memories.length > PERSISTENT_PERSON_LIMITS.memoriesPerPerson || !isSortedById(memories) || new Set(memories.map(memory => memory.id)).size !== memories.length || !memories.every(memory => record(memory) && hasOnlyKeys(memory, ['id', 'kind', 'atWorldTime', 'detail', 'contentSafety']) && validId(memory.id) && oneOf(memoryKinds, memory.kind) && nonNegativeInteger(memory.atWorldTime) && memory.atWorldTime <= context.worldTime && typeof memory.detail === 'string' && validClassificationRecord(`memory:${memory.id}`, 'history', memory.contentSafety)) || (source !== undefined && !memories.some(memory => memory.id === `${id}:memory:foundation-history` && memory.kind === 'foundation-history' && memory.atWorldTime === 0 && memory.detail === source.history && same(memory.contentSafety, source.historyContentSafety)))) issues.push(issue(id, 'persistent-person.invalid-memory'))
+  if (!Array.isArray(memories) || memories.length > PERSISTENT_PERSON_LIMITS.memoriesPerPerson || !isSortedById(memories) || new Set(memories.map(memory => memory.id)).size !== memories.length || !memories.every(memory => validMemory(memory, context.worldTime)) || (source !== undefined && !memories.some(memory => memory.id === `${id}:memory:foundation-history` && memory.kind === 'foundation-history' && memory.atWorldTime === 0 && memory.detail === source.history && same(memory.contentSafety, source.historyContentSafety)))) issues.push(issue(id, 'persistent-person.invalid-memory'))
 
   const commitments = candidate.commitments
   if (!Array.isArray(commitments) || commitments.length > PERSISTENT_PERSON_LIMITS.commitmentsPerPerson || !isSortedById(commitments) || new Set(commitments.map(commitment => commitment.id)).size !== commitments.length || !commitments.every(commitment => validCommitment(commitment, context.worldTime))) issues.push(issue(id, 'persistent-person.invalid-commitment'))

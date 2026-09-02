@@ -130,6 +130,7 @@ const sidebarFactTitle = (item: ManagementSidebarFact): string => {
     case 'frontier-revealed-fact': return `KNOWN ${item.value.factKind.toUpperCase()} // ${item.value.value.toUpperCase()}`
     case 'causal-command': return `#${item.value.sequence} // ${item.value.commandKind.toUpperCase()}`
     case 'compacted-history-segment': return `#${item.value.sequenceStart}-${item.value.sequenceEnd} // COMPACTED ${item.value.commandCount}`
+    case 'social-memory': return `MEMORY // ${item.value.phase.toUpperCase()} // ${item.value.disposition.toUpperCase()}`
   }
 }
 
@@ -140,6 +141,7 @@ const sidebarSourceCue = (item: ManagementSidebarFact): string => {
     case 'crew-record': return 'CREW'
     case 'delegated-task-record': return 'TASK'
     case 'autonomy-record': return 'AUTO'
+    case 'social-memory': return 'MEM'
     case 'household-journal': return 'JOUR'
     case 'compacted-journal': return 'CMPCT'
     case 'institution-ledger': return 'INST'

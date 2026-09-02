@@ -23,7 +23,7 @@ const taskOfferFor = (world: ReturnType<typeof selectedWorld>): DelegationOfferI
         materialInterest,
         contentSafety: classifyMedievalContent('contract', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
       }
-      const assessment = assessCourierConversation(world, { version: 1, courierId, recipientId: recipient.id, proposal })
+      const assessment = assessCourierConversation(world, { version: DELEGATION_CONTRACT_VERSION, courierId, recipientId: recipient.id, proposal })
       if (assessment.eligibility === 'eligible' && assessment.unlockedApproaches.includes('direct-request')) {
         return { version: DELEGATION_CONTRACT_VERSION, id: `sidebar:offer:${recipient.id}:${definition.family}`, courierId, recipientId: recipient.id, family: definition.family, approach: 'direct-request', proposal }
       }
@@ -71,6 +71,7 @@ describe('management sidebar projection', () => {
     expect(model.sections.find(section => section.id === 'tasks')?.facts.some(item => item.value.kind === 'delegated-task')).toBe(true)
     expect(model.sections.find(section => section.id === 'risks')?.facts.length).toBeGreaterThan(0)
     expect(model.sections.find(section => section.id === 'history')?.facts.some(item => item.value.kind === 'causal-command')).toBe(true)
+    expect(model.sections.find(section => section.id === 'history')?.facts.some(item => item.value.kind === 'social-memory' && item.source.label === 'social-memory' && item.freshness.kind === 'timeless')).toBe(true)
     expect(model.sections.find(section => section.id === 'people-work')?.facts.some(item => item.value.kind === 'household-person-work' && item.value.autonomyChoice !== undefined)).toBe(true)
     expect(world).toEqual(before)
   })

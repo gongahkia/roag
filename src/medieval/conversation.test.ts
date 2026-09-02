@@ -109,14 +109,14 @@ describe('courier conversation assessment', () => {
       const specimen = worldWithRecipientStanding(standing)
       const recipient = specimen.world.state.people.records.find(person => person.id === specimen.recipientId)!
       const aligned = assessCourierConversation(specimen.world, {
-        version: 1,
+        version: CONVERSATION_CONTRACT_VERSION,
         courierId: specimen.courierId,
         recipientId: recipient.id,
         proposal: proposal({ materialInterest: recipient.materialInterests[0]! })
       })
       const notAlignedInterest = PERSISTENT_PERSON_MATERIAL_INTERESTS.find(interest => !recipient.materialInterests.includes(interest))!
       const notAligned = assessCourierConversation(specimen.world, {
-        version: 1,
+        version: CONVERSATION_CONTRACT_VERSION,
         courierId: specimen.courierId,
         recipientId: recipient.id,
         proposal: proposal({ materialInterest: notAlignedInterest })
@@ -134,7 +134,7 @@ describe('courier conversation assessment', () => {
     const recipient = recipientFor(world)
 
     expect(assessCourierConversation(createFoundationWorld({ seed: 'conversation-unselected' }), {
-      version: 1, courierId: 'crew:0', recipientId: 'crew:1', proposal: proposal()
+      version: CONVERSATION_CONTRACT_VERSION, courierId: 'crew:0', recipientId: 'crew:1', proposal: proposal()
     }).barriers).toContain('active-courier-missing')
     expect(assessCourierConversation(world, { ...requestFor(world), courierId: 'crew:2' }).barriers).toContain('courier-not-active')
     expect(assessCourierConversation(world, { ...requestFor(world), courierId: 'crew:missing' }).barriers).toContain('courier-missing')

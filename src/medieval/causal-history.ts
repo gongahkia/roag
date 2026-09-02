@@ -6,15 +6,16 @@ import type { DurableJomonGrowthEvidence, WorldEraState } from './world-era'
 import { isDelegationInterruptionInput, isDelegationOfferInput, type DelegationInterruptionInput, type DelegationOfferInput, type DelegationState } from './delegation'
 import type { PersistentPersonRecord } from './persistent-person'
 import type { AutonomyState } from './autonomy'
+import type { SocialMemoryState } from './social-memory'
 
 /**
  * The global mutable command journal. Domain-local temporal and catch-up
  * evidence remains in its owning subdomain; this records only reducer inputs.
  */
-export const CAUSAL_HISTORY_CONTRACT_VERSION = 3 as const
-export const CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION = 3 as const
-export const CAUSAL_HISTORY_CHECKPOINT_VERSION = 3 as const
-export const CAUSAL_HISTORY_SEGMENT_VERSION = 3 as const
+export const CAUSAL_HISTORY_CONTRACT_VERSION = 4 as const
+export const CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION = 4 as const
+export const CAUSAL_HISTORY_CHECKPOINT_VERSION = 4 as const
+export const CAUSAL_HISTORY_SEGMENT_VERSION = 4 as const
 
 export const CAUSAL_HISTORY_LIMITS = {
   retainedCommands: 8,
@@ -35,9 +36,9 @@ export interface CausalHistoryCourierProjection {
   initialCourierId?: string
 }
 
-/** People become journalled only because delegation now mutates their work/memory state. */
+/** People become journalled because delegation mutates work and source-linked recall. */
 export interface CausalHistoryPeopleProjection {
-  version: 4
+  version: 5
   records: readonly PersistentPersonRecord[]
 }
 
@@ -51,6 +52,8 @@ export interface CausalReplayProjection {
   era: WorldEraState
   delegation: DelegationState
   autonomy: AutonomyState
+  /** Delegation-derived recall is replayed with its source task/person mutations. */
+  socialMemory: SocialMemoryState
 }
 
 export interface InitialCourierSelectedCommand {
@@ -248,7 +251,7 @@ const segmentIdFor = (context: CausalHistoryContext, start: number, end: number,
 const segmentTokenFor = (context: CausalHistoryContext, summary: Omit<CausalHistoryCompactedSegment, 'id' | 'token'>): string => causalDigestFor('causal-segment-token', { worldId: context.worldId, creationDigest: context.creationDigest, ...summary })
 
 const projectionShape = (value: unknown): value is CausalReplayProjection => record(value)
-  && hasOnlyKeys(value, ['version', 'courier', 'people', 'temporal', 'simulation', 'era', 'delegation', 'autonomy'])
+  && hasOnlyKeys(value, ['version', 'courier', 'people', 'temporal', 'simulation', 'era', 'delegation', 'autonomy', 'socialMemory'])
   && value.version === CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION
   && record(value.courier)
   && (hasOnlyKeys(value.courier, ['version']) || hasOnlyKeys(value.courier, ['version', 'initialCourierId']))
@@ -256,15 +259,16 @@ const projectionShape = (value: unknown): value is CausalReplayProjection => rec
   && (value.courier.initialCourierId === undefined || validId(value.courier.initialCourierId))
   && record(value.people)
   && hasOnlyKeys(value.people, ['version', 'records'])
-  && value.people.version === 4
+  && value.people.version === 5
   && Array.isArray(value.people.records)
   && record(value.temporal)
   && record(value.simulation)
   && record(value.era)
   && record(value.delegation)
   && record(value.autonomy)
+  && record(value.socialMemory)
 
-export const causalReplayProjection = (value: Pick<CausalReplayProjection, 'courier' | 'people' | 'temporal' | 'simulation' | 'era' | 'delegation' | 'autonomy'>): CausalReplayProjection => ({
+export const causalReplayProjection = (value: Pick<CausalReplayProjection, 'courier' | 'people' | 'temporal' | 'simulation' | 'era' | 'delegation' | 'autonomy' | 'socialMemory'>): CausalReplayProjection => ({
   version: CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION,
   courier: structuredClone(value.courier),
   people: structuredClone(value.people),
@@ -272,7 +276,8 @@ export const causalReplayProjection = (value: Pick<CausalReplayProjection, 'cour
   simulation: structuredClone(value.simulation),
   era: structuredClone(value.era),
   delegation: structuredClone(value.delegation),
-  autonomy: structuredClone(value.autonomy)
+  autonomy: structuredClone(value.autonomy),
+  socialMemory: structuredClone(value.socialMemory)
 })
 
 export const causalReplayProjectionDigest = (projection: CausalReplayProjection): string => causalDigestFor('causal-replay-projection', projection)

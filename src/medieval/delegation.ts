@@ -1,16 +1,17 @@
 import { auditMedievalContentSafety, classifyMedievalContent, type ClassifiedMedievalContent, type MedievalContentSafetyAudit, type MedievalContentSafetyClassification, type MedievalContentSafetyDiagnosticCode } from './content-safety'
-import type { ConversationApproach, ConversationAssessment, ConversationComplexityBand, ConversationProposal, ConversationProposalKind, ConversationUrgencyBand } from './conversation'
+import { CONVERSATION_CONTRACT_VERSION, type ConversationApproach, type ConversationAssessment, type ConversationComplexityBand, type ConversationProposal, type ConversationProposalKind, type ConversationUrgencyBand } from './conversation'
 import type { PersistentPersonMaterialInterest, PersistentPersonRecord, PersistentPersonSkillKind } from './persistent-person'
 import { SeededRng, hashSeed } from './rng'
 import type { DelegatedWorkPlaceholder } from './simulation-catchup'
+import { reconcileDelegationSocialMemory, type SocialMemoryState } from './social-memory'
 
 /**
- * Delegation describes work agreements and their person-history evidence only.
+ * Delegation describes work agreements and their source-linked social evidence only.
  * Its v1 outcomes deliberately do not alter Jomon, cargo, markets, routes,
  * health, people beyond work reservations, or any later gameplay domain.
  */
-export const DELEGATION_CONTRACT_VERSION = 1 as const
-export const DELEGATION_STATE_VERSION = 1 as const
+export const DELEGATION_CONTRACT_VERSION = 2 as const
+export const DELEGATION_STATE_VERSION = 2 as const
 
 export const DELEGATION_LIMITS = {
   tasks: 24,
@@ -18,8 +19,7 @@ export const DELEGATION_LIMITS = {
   terminalTasks: 18,
   identityLength: 96,
   offerIdentityLength: 48,
-  agreementRollExclusive: 6,
-  taskMemoriesPerPerson: 11
+  agreementRollExclusive: 6
 } as const
 
 export const DELEGATION_TASK_FAMILIES = [
@@ -179,12 +179,14 @@ export interface DelegationOfferTransition {
   state: DelegationState
   people: readonly PersistentPersonRecord[]
   task: DelegatedTaskRecord
+  socialMemory: SocialMemoryState
 }
 
 export interface DelegationProgressTransition {
   state: DelegationState
   people: readonly PersistentPersonRecord[]
   resolvedTaskIds: readonly string[]
+  socialMemory: SocialMemoryState
 }
 
 export type DelegationFactorCode =
@@ -338,9 +340,6 @@ export const delegationInterruptionActionId = (taskId: string, reason: Delegatio
 
 const taskClassification = (): MedievalContentSafetyClassification => classifyMedievalContent('contract', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
 const taskActionClassification = (): MedievalContentSafetyClassification => classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
-const taskMemoryClassification = (): MedievalContentSafetyClassification => classifyMedievalContent('history', ['adult-labour', 'civil-life'], 'adults-only', ['player-facing-text'])
-const taskMemoryDetail = (taskId: string, phase: 'agreement' | 'refusal' | 'completion' | 'interruption'): string => `Delegated task ${taskId} ${phase}.`
-const taskMemoryId = (taskId: string, personId: string, phase: 'agreement' | 'refusal' | 'completion' | 'interruption'): string => `task-memory:${hashSeed(`jomon-delegation-memory:${taskId}:${personId}:${phase}`).toString(16)}`
 const taskToken = (context: Pick<DelegationContext, 'worldId' | 'creationDigest'>, scope: string, taskId: string, boundary: number): number => hashSeed(`jomon-delegation:${DELEGATION_CONTRACT_VERSION}:${context.worldId}:${context.creationDigest}:${scope}:${taskId}:${boundary}`)
 const taskRoll = (context: Pick<DelegationContext, 'worldId' | 'creationDigest'>, scope: string, taskId: string, boundary: number): number => new SeededRng(`jomon-delegation:${DELEGATION_CONTRACT_VERSION}:${context.worldId}:${context.creationDigest}:${scope}:${taskId}:${boundary}`).integer(DELEGATION_LIMITS.agreementRollExclusive)
 const validFactors = (value: unknown): value is readonly DelegationFactorCode[] => Array.isArray(value)
@@ -369,7 +368,7 @@ export const validateDelegationTaskDefinitions = (value: unknown = DELEGATION_TA
 
 const validProposal = (value: unknown): value is ConversationProposal => record(value)
   && hasOnlyKeys(value, ['version', 'kind', 'urgency', 'complexity', 'materialInterest', 'contentSafety'])
-  && value.version === 1
+  && value.version === CONVERSATION_CONTRACT_VERSION
   && oneOf(proposalKinds, value.kind)
   && oneOf(urgencies, value.urgency)
   && oneOf(complexities, value.complexity)
@@ -415,7 +414,7 @@ const validContext = (value: DelegationContext): boolean => validId(value.worldI
   && safeInteger(value.worldTime)
   && Array.isArray(value.people)
 
-const assessmentMatchesOffer = (assessment: ConversationAssessment, offer: DelegationOfferInput): boolean => assessment.version === 1
+const assessmentMatchesOffer = (assessment: ConversationAssessment, offer: DelegationOfferInput): boolean => assessment.version === CONVERSATION_CONTRACT_VERSION
   && assessment.courierId === offer.courierId
   && assessment.recipientId === offer.recipientId
   && Array.isArray(assessment.unlockedApproaches)
@@ -476,25 +475,6 @@ const agreementFor = (context: DelegationContext, offer: DelegationOfferInput, a
   ] as DelegationFactorCode[])
   return { status: accepted ? 'accepted' : 'refused', roll, threshold, token: taskToken(context, 'agreement', taskId, context.worldTime), factors }
 }
-
-const appendMemory = (person: PersistentPersonRecord, task: DelegatedTaskRecord, phase: 'agreement' | 'refusal' | 'completion' | 'interruption', atWorldTime: number): PersistentPersonRecord => {
-  const memory = {
-    id: taskMemoryId(task.id, person.id, phase),
-    kind: 'task-evidence' as const,
-    atWorldTime,
-    detail: taskMemoryDetail(task.id, phase),
-    contentSafety: taskMemoryClassification()
-  }
-  const memories = person.memories.some(existing => existing.id === memory.id) ? person.memories : [...person.memories, memory]
-  const foundation = memories.filter(item => item.kind === 'foundation-history')
-  const retained = memories
-    .filter(item => item.kind !== 'foundation-history')
-    .sort((left, right) => right.atWorldTime - left.atWorldTime || compare(right.id, left.id))
-    .slice(0, Math.max(0, DELEGATION_LIMITS.taskMemoriesPerPerson))
-  return { ...person, memories: [...foundation, ...retained].sort((left, right) => compare(left.id, right.id)) }
-}
-
-const appendTaskMemories = (people: readonly PersistentPersonRecord[], task: DelegatedTaskRecord, phase: 'agreement' | 'refusal' | 'completion' | 'interruption', atWorldTime: number): readonly PersistentPersonRecord[] => people.map(person => person.id === task.courierId || person.id === task.recipientId ? appendMemory(person, task, phase, atWorldTime) : structuredClone(person)).sort((left, right) => compare(left.id, right.id))
 
 const reserveWorker = (people: readonly PersistentPersonRecord[], task: DelegatedTaskRecord): readonly PersistentPersonRecord[] => people.map(person => {
   if (person.id !== task.recipientId) return structuredClone(person)
@@ -591,8 +571,8 @@ export const validateDelegationSchedulerLinks = (state: DelegationState, placeho
 }
 
 const validAssessmentShape = (value: unknown): value is ConversationAssessment => record(value)
-  && hasOnlyKeys(value, ['version', 'courierId', 'recipientId', 'eligibility', 'barriers', 'unlockedApproaches', 'taskClarity', 'recipientRapport', 'recipientInterestAlignment', 'recipientCapacity', 'recipientCurrentWork', 'recipientCommitment', 'recipientNeedsPressure', 'recipientHealth', 'recipientSafetyPressure', 'risk', 'agreementReadiness', 'factors', 'contentSafety'])
-  && value.version === 1
+  && hasOnlyKeys(value, ['version', 'courierId', 'recipientId', 'eligibility', 'barriers', 'unlockedApproaches', 'taskClarity', 'recipientRapport', 'recipientInterestAlignment', 'recipientCapacity', 'recipientCurrentWork', 'recipientCommitment', 'recipientNeedsPressure', 'recipientHealth', 'recipientSafetyPressure', 'recipientRememberedContext', 'risk', 'agreementReadiness', 'factors', 'contentSafety'])
+  && value.version === CONVERSATION_CONTRACT_VERSION
   && validId(value.courierId)
   && validId(value.recipientId)
   && (value.eligibility === 'eligible' || value.eligibility === 'blocked')
@@ -675,7 +655,7 @@ export const validateDelegationState = (context: DelegationContext, value: unkno
     const courier = context.people.find(person => person.id === task.courierId)
     const recipient = context.people.find(person => person.id === task.recipientId)
     if (!definition || !courier || !recipient || !courier.identity.adult || !recipient.identity.adult) issues.push(issue(task.id, 'delegation.invalid-reference'))
-    if (!assessmentMatchesOffer(task.assessment, { version: 1, id: task.offerId, courierId: task.courierId, recipientId: task.recipientId, family: task.family, approach: task.approach, proposal: task.proposal })) issues.push(issue(task.id, 'delegation.invalid-assessment'))
+    if (!assessmentMatchesOffer(task.assessment, { version: DELEGATION_CONTRACT_VERSION, id: task.offerId, courierId: task.courierId, recipientId: task.recipientId, family: task.family, approach: task.approach, proposal: task.proposal })) issues.push(issue(task.id, 'delegation.invalid-assessment'))
     if (!definition || !definition.relevantMaterialInterests.includes(task.proposal.materialInterest) || !definition.allowedComplexities.includes(task.proposal.complexity) || !definition.allowedUrgencies.includes(task.proposal.urgency)) issues.push(issue(task.id, 'delegation.invalid-family-context'))
     if (task.offeredAtWorldTime > context.worldTime || !validAgreement(context, task, task.agreement)) issues.push(issue(task.id, 'delegation.invalid-agreement'))
     else if (definition && recipient) {
@@ -722,7 +702,7 @@ export const validateDelegationState = (context: DelegationContext, value: unkno
 }
 
 /** Creates one deterministic agreement/refusal after the required conversation gate. */
-export const offerDelegatedTask = (context: DelegationContext, state: DelegationState, people: readonly PersistentPersonRecord[], offer: DelegationOfferInput, assessment: ConversationAssessment): DelegationOfferTransition => {
+export const offerDelegatedTask = (context: DelegationContext, state: DelegationState, people: readonly PersistentPersonRecord[], socialMemory: SocialMemoryState, offer: DelegationOfferInput, assessment: ConversationAssessment): DelegationOfferTransition => {
   const stateDiagnostics = validateDelegationState({ ...context, people }, state)
   if (stateDiagnostics.length) throw new DelegationContractError(stateDiagnostics)
   if (!isDelegationOfferInput(offer)) throw new DelegationContractError([issue('delegation:offer', 'delegation.invalid-offer')])
@@ -769,14 +749,18 @@ export const offerDelegatedTask = (context: DelegationContext, state: Delegation
         progressMinutes: 0,
         outcome: null
       }
-  const updatedPeople = agreement.status === 'accepted'
-    ? appendTaskMemories(reserveWorker(people, task), task, 'agreement', context.worldTime)
-    : appendTaskMemories(people, task, 'refusal', context.worldTime)
+  const updatedPeople = agreement.status === 'accepted' ? reserveWorker(people, task) : structuredClone(people)
   const nextWithoutAudit = { version: DELEGATION_STATE_VERSION, tasks: [...state.tasks, task].sort((left, right) => compare(left.id, right.id)) } satisfies Omit<DelegationState, 'contentSafetyAudit'>
   const next = { ...nextWithoutAudit, contentSafetyAudit: audit(nextWithoutAudit) }
-  const diagnostics = validateDelegationState({ ...context, people: updatedPeople }, next)
+  const social = reconcileDelegationSocialMemory(
+    { ...context, people, tasks: state.tasks },
+    { ...context, people: updatedPeople, tasks: next.tasks },
+    socialMemory,
+    updatedPeople
+  )
+  const diagnostics = validateDelegationState({ ...context, people: social.people }, next)
   if (diagnostics.length) throw new DelegationContractError(diagnostics)
-  return { state: next, people: updatedPeople, task }
+  return { state: next, people: social.people, task, socialMemory: social.state }
 }
 
 const completedTask = (context: DelegationContext, task: DelegatedTaskRecord): DelegatedTaskRecord => {
@@ -799,7 +783,7 @@ const completedTask = (context: DelegationContext, task: DelegatedTaskRecord): D
 }
 
 /** Folds only tasks whose canonical due minute lies in this action interval. */
-export const advanceDelegatedTasks = (context: DelegationContext, state: DelegationState, people: readonly PersistentPersonRecord[], action: { startedAtWorldTime: number; atWorldTime: number }): DelegationProgressTransition => {
+export const advanceDelegatedTasks = (context: DelegationContext, state: DelegationState, people: readonly PersistentPersonRecord[], socialMemory: SocialMemoryState, action: { startedAtWorldTime: number; atWorldTime: number }): DelegationProgressTransition => {
   if (!safeInteger(action.startedAtWorldTime) || !safeInteger(action.atWorldTime) || action.startedAtWorldTime >= action.atWorldTime || action.atWorldTime !== context.worldTime) throw new DelegationContractError([issue('delegation:action', 'delegation.invalid-lifecycle')])
   const before = validateDelegationState({ ...context, worldTime: action.startedAtWorldTime, people }, state)
   if (before.length) throw new DelegationContractError(before)
@@ -812,18 +796,24 @@ export const advanceDelegatedTasks = (context: DelegationContext, state: Delegat
     : { ...structuredClone(task), progressMinutes: action.atWorldTime - task.acceptedAtWorldTime! }]))
   for (const task of due) {
     const completed = byId.get(task.id)!
-    nextPeople = appendTaskMemories(releaseWorker(nextPeople, completed, 'resolved', completed.outcome!.atWorldTime), completed, 'completion', completed.outcome!.atWorldTime)
+    nextPeople = releaseWorker(nextPeople, completed, 'resolved', completed.outcome!.atWorldTime)
   }
   const tasks = state.tasks.map(task => byId.get(task.id) ?? structuredClone(task)).sort((left, right) => compare(left.id, right.id))
   const nextWithoutAudit = { version: DELEGATION_STATE_VERSION, tasks } satisfies Omit<DelegationState, 'contentSafetyAudit'>
   const next = { ...nextWithoutAudit, contentSafetyAudit: audit(nextWithoutAudit) }
-  const diagnostics = validateDelegationState({ ...context, people: nextPeople }, next)
+  const social = reconcileDelegationSocialMemory(
+    { ...context, worldTime: action.startedAtWorldTime, people, tasks: state.tasks },
+    { ...context, people: nextPeople, tasks: next.tasks },
+    socialMemory,
+    nextPeople
+  )
+  const diagnostics = validateDelegationState({ ...context, people: social.people }, next)
   if (diagnostics.length) throw new DelegationContractError(diagnostics)
-  return { state: next, people: nextPeople, resolvedTaskIds: due.map(task => task.id) }
+  return { state: next, people: social.people, resolvedTaskIds: due.map(task => task.id), socialMemory: social.state }
 }
 
 /** Applies a v1 courier recall/cancellation after its one-minute resolution action. */
-export const interruptDelegatedTask = (context: DelegationContext, state: DelegationState, people: readonly PersistentPersonRecord[], interruption: DelegationInterruptionInput): DelegationProgressTransition => {
+export const interruptDelegatedTask = (context: DelegationContext, state: DelegationState, people: readonly PersistentPersonRecord[], socialMemory: SocialMemoryState, interruption: DelegationInterruptionInput): DelegationProgressTransition => {
   const diagnostics = validateDelegationState(context, state)
   if (diagnostics.length) throw new DelegationContractError(diagnostics)
   if (!isDelegationInterruptionInput(interruption)) throw new DelegationContractError([issue('delegation:interruption', 'delegation.malformed-interruption')])
@@ -843,10 +833,16 @@ export const interruptDelegatedTask = (context: DelegationContext, state: Delega
       factors: canonical([...task.agreement.factors, interruption.reason === 'courier-recall' ? 'outcome-interrupted-courier-recall' : 'outcome-interrupted-courier-cancellation'])
     }
   }
-  const nextPeople = appendTaskMemories(releaseWorker(people, interrupted, 'cancelled', context.worldTime), interrupted, 'interruption', context.worldTime)
+  const nextPeople = releaseWorker(people, interrupted, 'cancelled', context.worldTime)
   const nextWithoutAudit = { version: DELEGATION_STATE_VERSION, tasks: state.tasks.map(candidate => candidate.id === task.id ? interrupted : structuredClone(candidate)).sort((left, right) => compare(left.id, right.id)) } satisfies Omit<DelegationState, 'contentSafetyAudit'>
   const next = { ...nextWithoutAudit, contentSafetyAudit: audit(nextWithoutAudit) }
-  const nextDiagnostics = validateDelegationState({ ...context, people: nextPeople }, next)
+  const social = reconcileDelegationSocialMemory(
+    { ...context, people, tasks: state.tasks },
+    { ...context, people: nextPeople, tasks: next.tasks },
+    socialMemory,
+    nextPeople
+  )
+  const nextDiagnostics = validateDelegationState({ ...context, people: social.people }, next)
   if (nextDiagnostics.length) throw new DelegationContractError(nextDiagnostics)
-  return { state: next, people: nextPeople, resolvedTaskIds: [task.id] }
+  return { state: next, people: social.people, resolvedTaskIds: [task.id], socialMemory: social.state }
 }

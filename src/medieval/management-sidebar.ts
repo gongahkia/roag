@@ -4,6 +4,7 @@ import type { CausalCommandEvent, CausalHistoryCompactedSegment } from './causal
 import type { DelegatedTaskRecord } from './delegation'
 import type { FrontierKnowledgeSourceKind, FrontierRevealedFact } from './frontier'
 import type { PersistentPersonRecord } from './persistent-person'
+import type { SocialMemoryRecord } from './social-memory'
 import type { FoundationWorld } from './types'
 import { validateFoundationWorld } from './world'
 
@@ -49,14 +50,15 @@ export const MANAGEMENT_SIDEBAR_LIMITS = {
 
 export type ManagementSidebarFactPriority = 'urgent' | 'essential' | 'standard'
 export type ManagementSidebarFactCategory = ManagementSidebarSectionId
-export type ManagementSidebarSourceType = 'household-state' | 'household-person-record' | 'delegation-record' | 'autonomy-observation' | 'household-journal' | 'compacted-household-journal' | 'frontier-knowledge'
-export type ManagementSidebarSourceLabel = 'current-household-state' | 'crew-record' | 'delegated-task-record' | 'autonomy-record' | 'household-journal' | 'compacted-journal' | FrontierKnowledgeSourceKind
+export type ManagementSidebarSourceType = 'household-state' | 'household-person-record' | 'delegation-record' | 'autonomy-observation' | 'social-memory-record' | 'household-journal' | 'compacted-household-journal' | 'frontier-knowledge'
+export type ManagementSidebarSourceLabel = 'current-household-state' | 'crew-record' | 'delegated-task-record' | 'autonomy-record' | 'social-memory' | 'household-journal' | 'compacted-journal' | FrontierKnowledgeSourceKind
 
 export const MANAGEMENT_SIDEBAR_SOURCE_LABELS: Readonly<Record<ManagementSidebarSourceLabel, string>> = {
   'current-household-state': 'HOUSEHOLD STATE',
   'crew-record': 'CREW RECORD',
   'delegated-task-record': 'TASK RECORD',
   'autonomy-record': 'AUTONOMY RECORD',
+  'social-memory': 'SHARED MEMORY',
   'household-journal': 'HOUSEHOLD JOURNAL',
   'compacted-journal': 'COMPACTED JOURNAL',
   rumour: 'RUMOUR',
@@ -93,6 +95,7 @@ export type ManagementSidebarFactValue =
   | { kind: 'frontier-revealed-fact'; regionId: string; subjectKind: FrontierRevealedFact['subjectKind']; subjectId: string; factKind: FrontierRevealedFact['kind']; value: string }
   | { kind: 'causal-command'; sequence: number; commandKind: CausalCommandEvent['kind'] }
   | { kind: 'compacted-history-segment'; sequenceStart: number; sequenceEnd: number; worldTimeStart: number; worldTimeEnd: number; commandCount: number }
+  | { kind: 'social-memory'; socialMemoryId: string; taskId: string; phase: SocialMemoryRecord['phase']; disposition: SocialMemoryRecord['disposition']; significance: SocialMemoryRecord['significance']; participantPersonIds: readonly string[] }
 
 export type ManagementSidebarFactKind = ManagementSidebarFactValue['kind']
 
@@ -160,6 +163,7 @@ const householdStateSource = (recordId: string): ManagementSidebarFactSource => 
 const personSource = (recordId: string): ManagementSidebarFactSource => ({ type: 'household-person-record', label: 'crew-record', recordId })
 const taskSource = (recordId: string): ManagementSidebarFactSource => ({ type: 'delegation-record', label: 'delegated-task-record', recordId })
 const autonomySource = (recordId: string): ManagementSidebarFactSource => ({ type: 'autonomy-observation', label: 'autonomy-record', recordId })
+const socialMemorySource = (recordId: string): ManagementSidebarFactSource => ({ type: 'social-memory-record', label: 'social-memory', recordId })
 const journalSource = (recordId: string): ManagementSidebarFactSource => ({ type: 'household-journal', label: 'household-journal', recordId })
 const segmentSource = (recordId: string): ManagementSidebarFactSource => ({ type: 'compacted-household-journal', label: 'compacted-journal', recordId })
 const frontierSource = (fact: FrontierRevealedFact): ManagementSidebarFactSource => ({ type: 'frontier-knowledge', label: fact.source.kind, recordId: fact.source.sourceRecordId })
@@ -243,6 +247,28 @@ const segmentFacts = (world: FoundationWorld): readonly ManagementSidebarFact[] 
   },
   contentDomain: 'data',
   contentSafety: stateClassification()
+}))
+
+/** Household-owned social records are known directly; no generated world truth is added. */
+const socialMemoryFacts = (world: FoundationWorld): readonly ManagementSidebarFact[] => world.state.socialMemory.records.map(memory => fact({
+  id: `management:history:social:${memory.id}`,
+  category: 'history',
+  priority: memory.significance === 'notable' ? 'essential' : 'standard',
+  source: socialMemorySource(memory.id),
+  recordedAtWorldTime: memory.occurredAtWorldTime,
+  discoveredAtWorldTime: memory.knownAtWorldTime,
+  freshness: { kind: 'timeless' },
+  value: {
+    kind: 'social-memory',
+    socialMemoryId: memory.id,
+    taskId: memory.source.taskId,
+    phase: memory.phase,
+    disposition: memory.disposition,
+    significance: memory.significance,
+    participantPersonIds: [...memory.participantPersonIds]
+  },
+  contentDomain: 'history',
+  contentSafety: memory.contentSafety
 }))
 
 const frontierFacts = (world: FoundationWorld): readonly ManagementSidebarFact[] => world.state.geography.frontier.regions.flatMap(region => region.status === 'ungenerated'
@@ -376,7 +402,7 @@ const rawModel = (world: FoundationWorld): ManagementSidebarModel => {
     section('tasks', taskFacts(world)),
     section('risks', riskFacts(world)),
     section('known-sites-routes', frontierFacts(world)),
-    section('history', [...commandFacts(world), ...segmentFacts(world)])
+    section('history', [...socialMemoryFacts(world), ...commandFacts(world), ...segmentFacts(world)])
   ] as const
   const allFacts = sections.flatMap(item => item.facts)
   const contentSafetyAudit = auditMedievalContentSafety(factContentRecords(allFacts))

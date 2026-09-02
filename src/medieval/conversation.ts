@@ -1,5 +1,6 @@
 import { auditMedievalContentSafety, classifyMedievalContent, type MedievalContentSafetyClassification, type MedievalContentSafetyDiagnosticCode } from './content-safety'
 import type { PersistentPersonMaterialInterest, PersistentPersonRecord } from './persistent-person'
+import { socialMemoryRecallForPair, type SocialMemoryRecallBand } from './social-memory'
 import { isValidFoundationWorld } from './world'
 import type { FoundationWorld } from './types'
 
@@ -8,7 +9,7 @@ import type { FoundationWorld } from './types'
  * assesses communication readiness only; it does not create an offer, change
  * a relationship, assign work, advance time, or resolve an outcome.
  */
-export const CONVERSATION_CONTRACT_VERSION = 1 as const
+export const CONVERSATION_CONTRACT_VERSION = 2 as const
 
 export const CONVERSATION_LEVELS = [1, 2, 3, 4, 5] as const
 export type ConversationLevel = typeof CONVERSATION_LEVELS[number]
@@ -42,6 +43,8 @@ export type ConversationHealthBand = 'steady' | 'strained' | 'injured' | 'recove
 export type ConversationSafetyPressure = 'settled' | 'elevated' | 'urgent' | 'not-assessable'
 export type ConversationRiskBand = 'low' | 'guarded' | 'high' | 'not-assessable'
 export type ConversationAgreementReadiness = 'unlikely' | 'conditional' | 'open' | 'not-assessable'
+/** Retained shared work is context only; it is never a second trust stat. */
+export type ConversationRememberedContextBand = SocialMemoryRecallBand | 'not-assessable'
 
 /** Hard barriers mean no ask or coordination attempt is presently assessable. */
 export const CONVERSATION_BARRIERS = [
@@ -80,6 +83,7 @@ export type ConversationFactorCode =
   | `recipient-needs:${Exclude<ConversationNeedsPressure, 'not-assessable'>}`
   | `recipient-health:${Exclude<ConversationHealthBand, 'not-assessable'>}`
   | `recipient-safety:${Exclude<ConversationSafetyPressure, 'not-assessable'>}`
+  | `recipient-recall:${Exclude<ConversationRememberedContextBand, 'not-assessable'>}`
   | `eligibility:${ConversationEligibility}`
   | `risk:${Exclude<ConversationRiskBand, 'not-assessable'>}`
   | `readiness:${Exclude<ConversationAgreementReadiness, 'not-assessable'>}`
@@ -101,6 +105,7 @@ export const CONVERSATION_FACTOR_CODES: readonly ConversationFactorCode[] = [
   ...(['settled', 'pressured', 'urgent'] as const).map(needs => `recipient-needs:${needs}` as ConversationFactorCode),
   ...(['steady', 'strained', 'injured', 'recovering'] as const).map(health => `recipient-health:${health}` as ConversationFactorCode),
   ...(['settled', 'elevated', 'urgent'] as const).map(safety => `recipient-safety:${safety}` as ConversationFactorCode),
+  ...(['none', 'supportive', 'unsettled'] as const).map(recall => `recipient-recall:${recall}` as ConversationFactorCode),
   'eligibility:eligible',
   'eligibility:blocked',
   'risk:low',
@@ -150,6 +155,7 @@ export interface ConversationAssessment {
   recipientNeedsPressure: ConversationNeedsPressure
   recipientHealth: ConversationHealthBand
   recipientSafetyPressure: ConversationSafetyPressure
+  recipientRememberedContext: ConversationRememberedContextBand
   risk: ConversationRiskBand
   agreementReadiness: ConversationAgreementReadiness
   factors: readonly ConversationFactorCode[]
@@ -329,6 +335,7 @@ const factorCodesFor = (
   needs: ConversationNeedsPressure,
   health: ConversationHealthBand,
   safety: ConversationSafetyPressure,
+  recall: ConversationRememberedContextBand,
   risk: ConversationRiskBand,
   readiness: ConversationAgreementReadiness
 ): readonly ConversationFactorCode[] => canonicalCodes([
@@ -350,9 +357,16 @@ const factorCodesFor = (
   ...(needs === 'not-assessable' ? [] : [`recipient-needs:${needs}` as ConversationFactorCode]),
   ...(health === 'not-assessable' ? [] : [`recipient-health:${health}` as ConversationFactorCode]),
   ...(safety === 'not-assessable' ? [] : [`recipient-safety:${safety}` as ConversationFactorCode]),
+  ...(recall === 'not-assessable' ? [] : [`recipient-recall:${recall}` as ConversationFactorCode]),
   ...(risk === 'not-assessable' ? [] : [`risk:${risk}` as ConversationFactorCode]),
   ...(readiness === 'not-assessable' ? [] : [`readiness:${readiness}` as ConversationFactorCode])
 ])
+
+const applyRecallToReadiness = (readiness: ConversationAgreementReadiness, recall: ConversationRememberedContextBand): ConversationAgreementReadiness => {
+  if (readiness === 'not-assessable' || recall === 'none' || recall === 'not-assessable') return readiness
+  if (recall === 'supportive') return readiness === 'unlikely' ? 'conditional' : 'open'
+  return readiness === 'open' ? 'conditional' : 'unlikely'
+}
 
 /** The shared evaluator has no mutation or time authority. */
 const assessValidCourierConversation = (validWorld: FoundationWorld, validRequest: ConversationAssessmentRequest): ConversationAssessment => {
@@ -393,12 +407,14 @@ const assessValidCourierConversation = (validWorld: FoundationWorld, validReques
   const needs = recipient ? needsPressureFor(recipient) : 'not-assessable'
   const health = recipient ? recipient.health.condition : 'not-assessable'
   const safety = recipient ? safetyPressureFor(recipient) : 'not-assessable'
+  const recall = courier && recipient ? socialMemoryRecallForPair(validWorld.state.socialMemory, courier.id, recipient.id).band : 'not-assessable'
   const risk = eligibility === 'blocked' || rapport === 'not-assessable' || capacity === 'not-assessable' || needs === 'not-assessable' || health === 'not-assessable' || safety === 'not-assessable'
     ? 'not-assessable'
     : riskFor(rapport, capacity, needs, health, safety, validRequest.proposal)
-  const agreementReadiness = capability === undefined || eligibility === 'blocked' || rapport === 'not-assessable' || alignment === 'not-assessable' || capacity === 'not-assessable' || needs === 'not-assessable' || health === 'not-assessable' || safety === 'not-assessable'
+  const baseReadiness = capability === undefined || eligibility === 'blocked' || rapport === 'not-assessable' || alignment === 'not-assessable' || capacity === 'not-assessable' || needs === 'not-assessable' || health === 'not-assessable' || safety === 'not-assessable'
     ? 'not-assessable'
     : readinessFor(capability, rapport, alignment, capacity, needs, health, safety, validRequest.proposal)
+  const agreementReadiness = applyRecallToReadiness(baseReadiness, recall)
 
   return {
     version: CONVERSATION_CONTRACT_VERSION,
@@ -416,9 +432,10 @@ const assessValidCourierConversation = (validWorld: FoundationWorld, validReques
     recipientNeedsPressure: needs,
     recipientHealth: health,
     recipientSafetyPressure: safety,
+    recipientRememberedContext: recall,
     risk,
     agreementReadiness,
-    factors: factorCodesFor(capability, validRequest.proposal, eligibility, canonicalBarriers, clarity, rapport, alignment, capacity, currentWork, commitment, needs, health, safety, risk, agreementReadiness),
+    factors: factorCodesFor(capability, validRequest.proposal, eligibility, canonicalBarriers, clarity, rapport, alignment, capacity, currentWork, commitment, needs, health, safety, recall, risk, agreementReadiness),
     contentSafety: assessmentClassification()
   }
 }

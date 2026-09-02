@@ -24,7 +24,7 @@ describe('persistent medieval people', () => {
     const second = createFoundationWorld({ seed: 'persistent crew' })
     const restored = recreateFoundationWorld(first.manifest)
 
-    expect(first.state.people.version).toBe(4)
+    expect(first.state.people.version).toBe(5)
     expect(first.state.people.records).toEqual(second.state.people.records)
     expect(restored.state.people.records).toEqual(first.state.people.records)
     expect(instantiateFoundationCrewPeople(contextFor(first))).toEqual(first.state.people.records)
