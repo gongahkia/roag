@@ -353,18 +353,24 @@ describe('medieval local persistence', () => {
         }]
       })
       world = advanceFoundationWorldTime(world, {
-        id: `travel:${specimen.preset}`,
-        kind: 'travel',
-        durationMinutes: 7_199,
+        id: `wait:${specimen.preset}:resolve`,
+        kind: 'wait',
+        durationMinutes: 1,
         contentSafety: classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['simulation-summary'])
       })
       world = recordDurableJomonGrowth(world, {
-        id: `growth:${specimen.preset}:refit`,
-        kind: 'workspace-refit',
+        id: `growth:${specimen.preset}:small-craft:a`,
+        kind: 'small-craft',
         source: { kind: 'jomon-vessel', id: 'vessel:jomon' },
-        atWorldTime: 7_200
+        atWorldTime: 2
       })
-      for (let index = 0; index < 5; index++) {
+      world = recordDurableJomonGrowth(world, {
+        id: `growth:${specimen.preset}:small-craft:b`,
+        kind: 'small-craft',
+        source: { kind: 'jomon-vessel', id: 'vessel:jomon' },
+        atWorldTime: 2
+      })
+      for (let index = 0; index < 4; index++) {
         world = advanceFoundationWorldTime(world, {
           id: `wait:${specimen.preset}:compact:${index}`,
           kind: 'wait',

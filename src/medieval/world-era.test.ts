@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { WORLD_ERA_MODEL_VERSION, WORLD_ERA_PACE_MULTIPLIERS, WORLD_ERA_REMIX_CYCLE_UNITS, WORLD_ERA_THRESHOLDS, WorldEraContractError, advanceWorldEraForTemporalAction, createWorldEraState, recordDurableJomonGrowthEvidence, validateWorldEraState, worldEraProjection, type DurableJomonGrowthEvidence, type WorldEraContext } from './world-era'
+import { WORLD_ERA_LIMITS, WORLD_ERA_MODEL_VERSION, WORLD_ERA_PACE_MULTIPLIERS, WORLD_ERA_REMIX_CYCLE_UNITS, WORLD_ERA_THRESHOLDS, WorldEraContractError, advanceWorldEraForTemporalAction, createWorldEraState, recordDurableJomonGrowthEvidence, validateWorldEraState, worldEraProjection, type DurableJomonGrowthEvidence, type WorldEraContext } from './world-era'
 
 const contextFor = (eraPace: WorldEraContext['eraPace'] = 'measured', worldTime = 0): WorldEraContext => ({
   worldId: 'world:era-test',
@@ -111,6 +111,20 @@ describe('versioned world-era contract', () => {
 
     expect(worldEraProjection(partitioned)).toEqual(worldEraProjection(once))
     expect(partitioned.transitions).toEqual(once.transitions)
+  })
+
+  it('bounds the canonical durable-growth ledger and its two transition records without evicting accepted evidence', () => {
+    let state = createWorldEraState(contextFor())
+    for (let index = 0; index < WORLD_ERA_LIMITS.growthEvidence; index++) {
+      state = recordDurableJomonGrowthEvidence(state, contextFor(), evidence(`growth:bound:${index.toString().padStart(2, '0')}`, 'tool-installation', 0))
+    }
+    const beforeOverflow = structuredClone(state)
+
+    expect(state.durableGrowthEvidence).toHaveLength(WORLD_ERA_LIMITS.growthEvidence)
+    expect(state.durableGrowthEvidence.map(item => item.id)).toEqual([...state.durableGrowthEvidence.map(item => item.id)].sort())
+    expect(state.transitions).toHaveLength(WORLD_ERA_LIMITS.transitions)
+    expect(() => recordDurableJomonGrowthEvidence(state, contextFor(), evidence('growth:bound:overflow', 'tool-installation', 0))).toThrow('world-era.growth-limit')
+    expect(state).toEqual(beforeOverflow)
   })
 
   it('rejects malformed time, source, tokens, model versions, and derived totals fail-closed', () => {

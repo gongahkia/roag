@@ -2,10 +2,34 @@ import { expect, test } from '@playwright/test'
 
 test('configures, saves, inspects, selects, and resumes a medieval world through keyboard input', async ({ page }) => {
   const externalRequests: string[] = []
-  page.on('request', request => {
+  const captureExternalRequest = (request: { url: () => string }) => {
     const url = new URL(request.url())
     if (url.origin !== 'http://127.0.0.1:4173') externalRequests.push(url.toString())
-  })
+  }
+  const persistedTemporalState = async (target: typeof page, worldId: string) => target.evaluate(async id => new Promise<{
+    worldTime: number
+    actionSequence: number
+    causalKinds: string[]
+  }>((resolve, reject) => {
+    const request = indexedDB.open('jomon-medieval-worlds-v1')
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const database = request.result
+      const read = database.transaction('worlds', 'readonly').objectStore('worlds').get(id)
+      read.onerror = () => { database.close(); reject(read.error) }
+      read.onsuccess = () => {
+        const world = read.result as { state?: { temporal?: { worldTime?: number; actionSequence?: number }; causalHistory?: { tail?: Array<{ kind?: string }> } } } | undefined
+        database.close()
+        if (!world?.state?.temporal || !world.state.causalHistory?.tail) return reject(new Error('saved medieval world was not available'))
+        resolve({
+          worldTime: world.state.temporal.worldTime ?? -1,
+          actionSequence: world.state.temporal.actionSequence ?? -1,
+          causalKinds: world.state.causalHistory.tail.map(command => command.kind ?? '')
+        })
+      }
+    }
+  }))
+  page.on('request', captureExternalRequest)
   await page.goto('/')
   const game = page.locator('#game')
 
@@ -84,15 +108,43 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-world-id', worldId!)
   await expect(game).toHaveAttribute('data-persistence', 'saved')
   await expect(game).toHaveAttribute('aria-label', /Jomon foundation world .* active courier/)
+  if (!worldId) throw new Error('created world should have a stable id')
+
+  const expectedZeroTime = { worldTime: 0, actionSequence: 0, causalKinds: ['initial-courier-selected'] }
+  await expect.poll(() => persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)
+  await page.waitForTimeout(300)
+  await expect.poll(() => persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)
 
   await page.keyboard.press('Escape')
   await expect(game).toHaveAttribute('data-route', 'worlds')
+  await page.keyboard.press('n')
+  await expect(game).toHaveAttribute('data-route', 'create-world')
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('ArrowUp')
+  await page.keyboard.press('Escape')
+  await expect(game).toHaveAttribute('data-route', 'worlds')
+  await expect.poll(() => persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)
+
   await page.reload()
   await expect(game).toHaveAttribute('data-route', 'worlds')
   await game.click()
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-route', 'world')
-  await expect(game).toHaveAttribute('data-world-id', worldId!)
+  await expect(game).toHaveAttribute('data-world-id', worldId)
+  await expect.poll(() => persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)
+
+  const browserContext = page.context()
+  await page.close()
+  const replacement = await browserContext.newPage()
+  replacement.on('request', captureExternalRequest)
+  await replacement.goto('/')
+  const replacementGame = replacement.locator('#game')
+  await expect(replacementGame).toHaveAttribute('data-route', 'worlds')
+  await replacementGame.click()
+  await replacement.keyboard.press('Enter')
+  await expect(replacementGame).toHaveAttribute('data-route', 'world')
+  await expect(replacementGame).toHaveAttribute('data-world-id', worldId)
+  await expect.poll(() => persistedTemporalState(replacement, worldId)).toEqual(expectedZeroTime)
   expect(externalRequests).toEqual([])
 })
 
