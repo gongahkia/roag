@@ -47,7 +47,8 @@
     "generation:report": "tsx scripts/generation-report.ts",
     "test:combat-readability": "tsx scripts/combat-readability.ts",
     "playtest:check": "tsx scripts/check-playtests.ts",
-    "playtest:check:complete": "PLAYTEST_REQUIRE_COMPLETE=1 tsx scripts/check-playtests.ts"
+    "playtest:check:complete": "PLAYTEST_REQUIRE_COMPLETE=1 tsx scripts/check-playtests.ts",
+    "benchmark:medieval-foundation": "tsx scripts/medieval-foundation-benchmark.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
