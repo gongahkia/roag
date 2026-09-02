@@ -1,4 +1,4 @@
-import { auditMedievalContentSafety, classifyMedievalContent, type ClassifiedMedievalContent, type MedievalContentDomain, type MedievalContentSafetyAudit, type MedievalContentSafetyClassification, type MedievalContentSafetyDiagnosticCode } from './content-safety'
+import { auditMedievalContentSafety, classifyMedievalContent, contentSafetyAuditMatches, type ClassifiedMedievalContent, type MedievalContentDomain, type MedievalContentSafetyAudit, type MedievalContentSafetyClassification, type MedievalContentSafetyDiagnosticCode } from './content-safety'
 import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE, type JomonPaletteToken } from './palette'
 import type { FoundationWorld, MedievalRoute } from './types'
 import { validateFoundationWorld } from './world'
@@ -636,7 +636,7 @@ const modelContentRecords = (map: TerminalMapSurface, status: readonly TerminalS
 
 const accessibilityFor = (map: TerminalMapSurface, status: readonly TerminalStatusItem[], messages: readonly TerminalMessage[], prompts: readonly TerminalPrompt[]): TerminalAccessibilityModel => ({
   accessibleName: 'Jomon terminal presentation',
-  conciseSummary: `Reserved unmaterialized map. ${status.length} immediate local status entries. ${messages.length} authoritative messages. ${prompts.length} contextual prompts.`,
+  conciseSummary: `${map.state === 'reserved-unmaterialized' ? 'Reserved unmaterialized' : 'Materialized'} map. ${status.length} immediate local status entries. ${messages.length} authoritative messages. ${prompts.length} contextual prompts.`,
   focusContext: 'keyboard-first-canvas',
   mapText: map.accessibilityText,
   statusText: status.map(item => item.accessibilityText),
@@ -879,6 +879,80 @@ export const validateTerminalPresentationModel = (world: FoundationWorld, value:
     if (error instanceof TerminalPresentationContractError) return error.diagnostics
     return [issue('terminal-presentation:model', 'terminal-presentation.malformed-model')]
   }
+}
+
+/**
+ * Validates a renderer-neutral presentation model without receiving world
+ * state. This is deliberately structural and safety-focused: adapters may
+ * consume this projection, but only world-facing creation validates it
+ * against a FoundationWorld through `validateTerminalPresentationModel`.
+ */
+export const validateTerminalPresentationProjection = (
+  value: unknown,
+  glyphCatalog: TerminalGlyphCatalog
+): readonly TerminalPresentationDiagnostic[] => {
+  if (!record(value) || !hasOnlyKeys(value, ['version', 'worldId', 'map', 'status', 'messages', 'prompts', 'input', 'accessibility', 'sidebarBoundary', 'rendererParity', 'contentSafetyAudit'])) {
+    return [issue('terminal-presentation:projection', 'terminal-presentation.malformed-model')]
+  }
+  const diagnostics: TerminalPresentationDiagnostic[] = []
+  if (value.version !== TERMINAL_PRESENTATION_CONTRACT_VERSION || !validId(value.worldId)) diagnostics.push(issue('terminal-presentation:projection', 'terminal-presentation.invalid-model'))
+
+  const map = value.map
+  if (!record(map) || !hasOnlyKeys(map, ['state', 'viewport', 'cells', 'textEquivalent', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety']) || !validText(map.textEquivalent) || !validText(map.accessibilityText) || validateTerminalEvidence(map.evidence).length !== 0) {
+    diagnostics.push(issue('terminal-presentation:map', 'terminal-presentation.invalid-model'))
+  } else if (map.state === 'reserved-unmaterialized') {
+    if (!Array.isArray(map.cells) || map.cells.length !== 0 || !record(map.viewport) || (map.viewport as { context?: unknown }).context !== 'reserved-unmaterialized' || validateTerminalMapViewport(map.viewport).length) diagnostics.push(issue('terminal-presentation:map', 'terminal-presentation.invalid-model'))
+  } else if (map.state === 'materialized') {
+    if (!record(map.viewport) || (map.viewport as { context?: unknown }).context !== 'future-materialized') diagnostics.push(issue('terminal-presentation:map', 'terminal-presentation.invalid-model'))
+    else diagnostics.push(...validateTerminalMaterializedCells(map.viewport as unknown as TerminalMapViewport, map.cells, glyphCatalog))
+  } else diagnostics.push(issue('terminal-presentation:map', 'terminal-presentation.invalid-model'))
+  if (record(map)) {
+    const safety = auditMedievalContentSafety([{ id: 'terminal-presentation:map', domain: map.contentDomain as MedievalContentDomain, classification: map.contentSafety as MedievalContentSafetyClassification }])
+    if (safety.status === 'rejected') diagnostics.push(...safety.diagnostics.map(item => issue(item.contentId, item.code)))
+  }
+
+  const status = Array.isArray(value.status) ? value.status : []
+  if (!Array.isArray(value.status) || status.length > TERMINAL_PRESENTATION_LIMITS.statusItems) diagnostics.push(issue('terminal-presentation:status', 'terminal-presentation.invalid-model'))
+  const statusIds = new Set<string>()
+  for (const candidate of status) {
+    const id = record(candidate) && typeof candidate.id === 'string' ? candidate.id : 'terminal-status'
+    if (!record(candidate) || !hasOnlyKeys(candidate, ['id', 'state', 'paletteToken', 'nonColorCue', 'value', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety']) || !validId(candidate.id) || !oneOf(TERMINAL_PRESENTATION_STATES, candidate.state) || !paletteToken(candidate.paletteToken) || candidate.paletteToken !== TERMINAL_STATE_PRESENTATIONS[candidate.state].paletteToken || !validCue(candidate.nonColorCue, candidate.state) || !record(candidate.value) || !hasOnlyKeys(candidate.value, candidate.value.kind === 'courier-selection' ? ['kind', 'selected'] : candidate.value.kind === 'world-minute' ? ['kind', 'minutes'] : ['kind']) || (candidate.value.kind !== 'map-reserved' && candidate.value.kind !== 'courier-selection' && candidate.value.kind !== 'world-minute') || (candidate.value.kind === 'courier-selection' && typeof candidate.value.selected !== 'boolean') || (candidate.value.kind === 'world-minute' && !safeInteger(candidate.value.minutes)) || !validText(candidate.accessibilityText) || validateTerminalEvidence(candidate.evidence).length) diagnostics.push(issue(id, 'terminal-presentation.invalid-model'))
+    if (statusIds.has(id)) diagnostics.push(issue(id, 'terminal-presentation.invalid-model'))
+    statusIds.add(id)
+  }
+  const typedStatus = status.filter(record) as unknown as TerminalStatusItem[]
+  if (typedStatus.some((item, index) => index > 0 && compare(typedStatus[index - 1]!.id, item.id) >= 0)) diagnostics.push(issue('terminal-presentation:status', 'terminal-presentation.invalid-model'))
+  const statusSafety = auditMedievalContentSafety(typedStatus.map(item => ({ id: `terminal-presentation:status:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })))
+  if (statusSafety.status === 'rejected') diagnostics.push(...statusSafety.diagnostics.map(item => issue(item.contentId, item.code)))
+
+  diagnostics.push(...validateTerminalMessages(value.messages))
+  if (!Array.isArray(value.prompts) || value.prompts.length > TERMINAL_PRESENTATION_LIMITS.prompts) diagnostics.push(issue('terminal-presentation:prompts', 'terminal-presentation.invalid-prompt'))
+  else {
+    const promptIds = new Set<string>()
+    for (const prompt of value.prompts) {
+      diagnostics.push(...validateTerminalPrompt(prompt))
+      const id = record(prompt) && typeof prompt.id === 'string' ? prompt.id : 'terminal-prompt'
+      if (promptIds.has(id)) diagnostics.push(issue(id, 'terminal-presentation.invalid-prompt'))
+      promptIds.add(id)
+    }
+    const prompts = value.prompts.filter(record) as unknown as TerminalPrompt[]
+    if (prompts.some((prompt, index) => index > 0 && compare(prompts[index - 1]!.id, prompt.id) >= 0)) diagnostics.push(issue('terminal-presentation:prompts', 'terminal-presentation.invalid-prompt'))
+  }
+
+  if (!record(value.input) || !hasOnlyKeys(value.input, ['canvasFocus', 'modes', 'worldBindingPreferences', 'commands']) || !same(value.input.canvasFocus, { keyboardFirst: true, pointerFocusAssist: true }) || !same(value.input.modes, TERMINAL_INPUT_MODES) || !same(value.input.worldBindingPreferences, { contract: 'terminal-controls-v1', scope: 'browser-ui-only', remappableCommands: 'world-movement-context-management-help', protectedCancellation: 'Escape', protectedEditorEntry: 'F2' }) || !same(value.input.commands, TERMINAL_KEYBOARD_COMMANDS)) diagnostics.push(issue('terminal-presentation:input', 'terminal-presentation.invalid-input-binding'))
+  else {
+    diagnostics.push(...validateTerminalInputModes(value.input.modes))
+    diagnostics.push(...validateTerminalKeyboardCommands(value.input.commands))
+  }
+  if (!same(value.sidebarBoundary, { relationship: 'separate-household-known-strategic-surface', duplicatedStrategicFactCategories: [] }) || !same(value.rendererParity, { asciiCanvas: 'current-adapter', detailedRenderer: 'future-adapter', requirements: TERMINAL_RENDERER_PARITY_RULES })) diagnostics.push(issue('terminal-presentation:parity', 'terminal-presentation.invalid-model'))
+
+  if (record(map) && Array.isArray(value.status) && Array.isArray(value.messages) && Array.isArray(value.prompts)) {
+    const expectedAccessibility = accessibilityFor(map as unknown as TerminalMapSurface, typedStatus, value.messages as TerminalMessage[], value.prompts as TerminalPrompt[])
+    if (!same(value.accessibility, expectedAccessibility)) diagnostics.push(issue('terminal-presentation:accessibility', 'terminal-presentation.invalid-model'))
+    const contentRecords = modelContentRecords(map as unknown as TerminalMapSurface, typedStatus, value.messages as TerminalMessage[], value.prompts as TerminalPrompt[])
+    if (!contentSafetyAuditMatches(contentRecords, value.contentSafetyAudit)) diagnostics.push(issue('terminal-presentation:audit', 'terminal-presentation.invalid-content-audit'))
+  } else diagnostics.push(issue('terminal-presentation:accessibility', 'terminal-presentation.invalid-model'))
+  return canonicalDiagnostics(diagnostics)
 }
 
 /** A type-level reminder that current route metadata is renderer input, not world authority. */

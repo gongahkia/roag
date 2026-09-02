@@ -1,4 +1,4 @@
-import { auditMedievalContentSafety, classifyMedievalContent, type ClassifiedMedievalContent, type MedievalContentDomain, type MedievalContentSafetyAudit, type MedievalContentSafetyClassification, type MedievalContentSafetyDiagnosticCode } from './content-safety'
+import { auditMedievalContentSafety, classifyMedievalContent, contentSafetyAuditMatches, type ClassifiedMedievalContent, type MedievalContentDomain, type MedievalContentSafetyAudit, type MedievalContentSafetyClassification, type MedievalContentSafetyDiagnosticCode } from './content-safety'
 import type { AutonomyObservation } from './autonomy'
 import type { CausalCommandEvent, CausalHistoryCompactedSegment } from './causal-history'
 import type { DelegatedTaskRecord } from './delegation'
@@ -155,6 +155,16 @@ export class ManagementSidebarContractError extends Error {
 
 const compare = (left: string, right: string): number => left === right ? 0 : left < right ? -1 : 1
 const same = (left: unknown, right: unknown): boolean => JSON.stringify(left) === JSON.stringify(right)
+const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+const hasOnlyKeys = (value: Record<string, unknown>, expected: readonly string[]): boolean => {
+  const keys = Object.keys(value).sort(compare)
+  const expectedKeys = [...expected].sort(compare)
+  return keys.length === expectedKeys.length && keys.every((key, index) => key === expectedKeys[index])
+}
+const safeInteger = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+const validId = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= MANAGEMENT_SIDEBAR_LIMITS.identityLength && /^[a-z][a-z0-9:._-]*$/iu.test(value)
+const validText = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 280
+const oneOf = <Value>(values: readonly Value[], value: unknown): value is Value => values.includes(value as Value)
 const priorityRank = (priority: ManagementSidebarFactPriority): number => priority === 'urgent' ? 0 : priority === 'essential' ? 1 : 2
 const stateClassification = (): MedievalContentSafetyClassification => classifyMedievalContent('player-facing-text', ['adult-labour', 'civil-life', 'navigation'], 'adults-only', ['data'])
 const noRiskClassification = (): MedievalContentSafetyClassification => classifyMedievalContent('player-facing-text', ['civil-life', 'navigation'], 'not-applicable', ['data'])
@@ -443,6 +453,103 @@ export const validateManagementSidebarModel = (world: FoundationWorld, value: un
     return [{ id: 'management-sidebar:model', code: 'management-sidebar.malformed-model' }]
   }
 }
+
+/**
+ * Presentation-only validation for a sidebar already derived from a valid
+ * world. It deliberately receives no FoundationWorld, which lets a second
+ * renderer validate the permitted household-known projection without gaining
+ * world-state access. World-facing callers still use the exact reconstruction
+ * validator above.
+ */
+export const validateManagementSidebarProjection = (value: unknown): readonly ManagementSidebarDiagnostic[] => {
+  const invalid = (id: string): ManagementSidebarDiagnostic => ({ id, code: 'management-sidebar.invalid-model' })
+  if (!record(value) || !hasOnlyKeys(value, ['version', 'worldId', 'worldTime', 'sections', 'summary', 'contentSafetyAudit'])) return [{ id: 'management-sidebar:projection', code: 'management-sidebar.malformed-model' }]
+  const diagnostics: ManagementSidebarDiagnostic[] = []
+  if (value.version !== MANAGEMENT_SIDEBAR_CONTRACT_VERSION || !validId(value.worldId) || !safeInteger(value.worldTime) || !Array.isArray(value.sections) || value.sections.length !== MANAGEMENT_SIDEBAR_SECTION_IDS.length) diagnostics.push(invalid('management-sidebar:projection'))
+  const allFacts: ManagementSidebarFact[] = []
+  const sections = Array.isArray(value.sections) ? value.sections : []
+  for (let index = 0; index < MANAGEMENT_SIDEBAR_SECTION_IDS.length; index += 1) {
+    const candidate = sections[index]
+    const expectedSection = MANAGEMENT_SIDEBAR_SECTION_IDS[index]!
+    if (!record(candidate) || !hasOnlyKeys(candidate, ['id', 'facts']) || candidate.id !== expectedSection || !Array.isArray(candidate.facts) || candidate.facts.length > factLimitFor(expectedSection)) {
+      diagnostics.push(invalid(`management-sidebar:section:${expectedSection}`))
+      continue
+    }
+    const facts = candidate.facts
+    for (const rawFact of facts) {
+      const id = record(rawFact) && typeof rawFact.id === 'string' ? rawFact.id : `management-sidebar:fact:${expectedSection}`
+      if (!validProjectionFact(rawFact, expectedSection)) diagnostics.push(invalid(id))
+      else allFacts.push(rawFact)
+    }
+    const typedFacts = facts.filter((fact): fact is ManagementSidebarFact => validProjectionFact(fact, expectedSection))
+    if (typedFacts.some((fact, factIndex) => factIndex > 0 && canonicalFactCompare(typedFacts[factIndex - 1]!, fact) > 0)) diagnostics.push(invalid(`management-sidebar:section:${expectedSection}`))
+  }
+  const ids = new Set<string>()
+  for (const fact of allFacts) {
+    if (ids.has(fact.id)) diagnostics.push(invalid(fact.id))
+    ids.add(fact.id)
+  }
+  if (!record(value.summary) || !hasOnlyKeys(value.summary, ['knownFactCount', 'urgentFactCount', 'sectionItemCounts']) || value.summary.knownFactCount !== allFacts.length || value.summary.urgentFactCount !== allFacts.filter(fact => fact.priority === 'urgent').length || !same(value.summary.sectionItemCounts, MANAGEMENT_SIDEBAR_SECTION_IDS.map(sectionId => ({ sectionId, count: sections.find(section => record(section) && section.id === sectionId && Array.isArray(section.facts))?.facts.length ?? 0 })))) diagnostics.push(invalid('management-sidebar:summary'))
+  const records = factContentRecords(allFacts)
+  if (!contentSafetyAuditMatches(records, value.contentSafetyAudit)) diagnostics.push({ id: 'management-sidebar:audit', code: 'management-sidebar.invalid-content-audit' })
+  const safety = auditMedievalContentSafety(records)
+  if (safety.status === 'rejected') diagnostics.push(...safety.diagnostics.map(diagnostic => ({ id: diagnostic.contentId, code: diagnostic.code })))
+  return [...new Map(diagnostics.map(diagnostic => [`${diagnostic.id}\u0000${diagnostic.code}`, diagnostic])).values()].sort((left, right) => compare(left.id, right.id) || compare(left.code, right.code))
+}
+
+const canonicalFactCompare = (left: ManagementSidebarFact, right: ManagementSidebarFact): number => priorityRank(left.priority) - priorityRank(right.priority)
+  || right.recordedAtWorldTime - left.recordedAtWorldTime
+  || right.discoveredAtWorldTime - left.discoveredAtWorldTime
+  || compare(left.id, right.id)
+
+const validProjectionFreshness = (value: unknown, discoveredAtWorldTime: number): value is ManagementSidebarFreshness => record(value)
+  && ((hasOnlyKeys(value, ['kind']) && (value.kind === 'current' || value.kind === 'timeless'))
+    || (hasOnlyKeys(value, ['kind', 'atWorldTime']) && value.kind === 'reported-freshness' && safeInteger(value.atWorldTime) && value.atWorldTime <= discoveredAtWorldTime))
+
+const validProjectionSource = (value: unknown): value is ManagementSidebarFactSource => record(value)
+  && hasOnlyKeys(value, ['type', 'label', 'recordId'])
+  && validId(value.recordId)
+  && ((value.type === 'household-state' && value.label === 'current-household-state')
+    || (value.type === 'household-person-record' && value.label === 'crew-record')
+    || (value.type === 'delegation-record' && value.label === 'delegated-task-record')
+    || (value.type === 'autonomy-observation' && value.label === 'autonomy-record')
+    || (value.type === 'social-memory-record' && value.label === 'social-memory')
+    || (value.type === 'household-journal' && value.label === 'household-journal')
+    || (value.type === 'compacted-household-journal' && value.label === 'compacted-journal')
+    || (value.type === 'frontier-knowledge' && oneOf(['rumour', 'chart', 'trader', 'letter', 'traveller', 'cargo-mark', 'institution-ledger'] as const, value.label)))
+
+const validProjectionValue = (value: unknown): value is ManagementSidebarFactValue => {
+  if (!record(value) || typeof value.kind !== 'string') return false
+  const ids = (...items: unknown[]): boolean => items.every(validId)
+  if (value.kind === 'jomon-status') return hasOnlyKeys(value, ['kind', 'vesselId', 'operationalStatus', 'locationKind', 'locationId']) && ids(value.vesselId, value.locationId) && value.operationalStatus === 'moored' && (value.locationKind === 'site' || value.locationKind === 'quay')
+  if (value.kind === 'active-courier') return hasOnlyKeys(value, Object.hasOwn(value, 'personId') ? ['kind', 'personId', 'name', 'role'] : ['kind']) && (value.personId === undefined || (ids(value.personId) && validText(value.name) && validText(value.role)))
+  if (value.kind === 'world-time') return hasOnlyKeys(value, ['kind', 'minutes']) && safeInteger(value.minutes)
+  if (value.kind === 'world-era') return hasOnlyKeys(value, ['kind', 'era', 'remixCycle']) && oneOf(['base', 'ng-plus', 'ng-plus-plus'] as const, value.era) && safeInteger(value.remixCycle)
+  if (value.kind === 'household-person-work') return hasOnlyKeys(value, ['kind', 'personId', 'name', 'role', 'availability', 'currentWork', 'capacityCurrent', 'capacityMaximum', 'needsMaximum', 'health', 'autonomyChoice', 'autonomyDetail'].filter(key => key !== 'autonomyChoice' || Object.hasOwn(value, key)).filter(key => key !== 'autonomyDetail' || Object.hasOwn(value, key))) && ids(value.personId) && validText(value.name) && validText(value.role) && oneOf(['available', 'committed', 'unavailable'] as const, value.availability) && oneOf(['idle', 'committed'] as const, value.currentWork) && safeInteger(value.capacityCurrent) && safeInteger(value.capacityMaximum) && value.capacityCurrent <= value.capacityMaximum && safeInteger(value.needsMaximum) && value.needsMaximum <= 5 && oneOf(['steady', 'strained', 'injured', 'recovering'] as const, value.health)
+  if (value.kind === 'delegated-task') return hasOnlyKeys(value, ['kind', 'taskId', 'family', 'status', 'courierId', 'recipientId', 'risk', 'plannedCompletionAtWorldTime'].filter(key => key !== 'plannedCompletionAtWorldTime' || Object.hasOwn(value, key))) && ids(value.taskId, value.courierId, value.recipientId) && validText(value.family) && oneOf(['offered', 'in-progress', 'completed', 'interrupted', 'refused'] as const, value.status) && oneOf(['low', 'guarded', 'high'] as const, value.risk) && (value.plannedCompletionAtWorldTime === undefined || safeInteger(value.plannedCompletionAtWorldTime))
+  if (value.kind === 'person-need-risk') return hasOnlyKeys(value, ['kind', 'personId', 'name', 'needsMaximum']) && ids(value.personId) && validText(value.name) && safeInteger(value.needsMaximum) && value.needsMaximum <= 5
+  if (value.kind === 'person-health-risk') return hasOnlyKeys(value, ['kind', 'personId', 'name', 'health']) && ids(value.personId) && validText(value.name) && oneOf(['strained', 'injured', 'recovering'] as const, value.health)
+  if (value.kind === 'delegated-task-risk') return hasOnlyKeys(value, ['kind', 'taskId', 'family', 'risk', 'status']) && ids(value.taskId) && validText(value.family) && oneOf(['low', 'guarded', 'high'] as const, value.risk) && oneOf(['offered', 'in-progress', 'completed', 'interrupted', 'refused'] as const, value.status)
+  if (value.kind === 'no-known-active-risk') return hasOnlyKeys(value, ['kind'])
+  if (value.kind === 'frontier-revealed-fact') return hasOnlyKeys(value, ['kind', 'regionId', 'subjectKind', 'subjectId', 'factKind', 'value']) && ids(value.regionId, value.subjectId) && validText(value.value) && oneOf(['region', 'site', 'route', 'person', 'institution'] as const, value.subjectKind) && oneOf(['region-name', 'site-name', 'route-link', 'person-name', 'person-role', 'person-relationship', 'institution-role', 'history-link'] as const, value.factKind)
+  if (value.kind === 'causal-command') return hasOnlyKeys(value, ['kind', 'sequence', 'commandKind']) && safeInteger(value.sequence) && oneOf(['initial-courier-selected', 'time-bearing-action', 'durable-jomon-growth', 'delegation-offered', 'delegation-interrupted'] as const, value.commandKind)
+  if (value.kind === 'compacted-history-segment') return hasOnlyKeys(value, ['kind', 'sequenceStart', 'sequenceEnd', 'worldTimeStart', 'worldTimeEnd', 'commandCount']) && safeInteger(value.sequenceStart) && safeInteger(value.sequenceEnd) && value.sequenceStart <= value.sequenceEnd && safeInteger(value.worldTimeStart) && safeInteger(value.worldTimeEnd) && value.worldTimeStart <= value.worldTimeEnd && safeInteger(value.commandCount)
+  if (value.kind === 'social-memory') return hasOnlyKeys(value, ['kind', 'socialMemoryId', 'taskId', 'phase', 'disposition', 'significance', 'participantPersonIds']) && ids(value.socialMemoryId, value.taskId) && Array.isArray(value.participantPersonIds) && value.participantPersonIds.length === 2 && value.participantPersonIds.every(validId) && value.participantPersonIds[0] < value.participantPersonIds[1] && oneOf(['offer-accepted', 'offer-refused', 'task-completed', 'task-interrupted'] as const, value.phase) && oneOf(['cooperative', 'declined', 'interrupted'] as const, value.disposition) && oneOf(['routine', 'notable'] as const, value.significance)
+  return false
+}
+
+const validProjectionFact = (value: unknown, sectionId: ManagementSidebarSectionId): value is ManagementSidebarFact => record(value)
+  && hasOnlyKeys(value, ['id', 'category', 'kind', 'priority', 'source', 'recordedAtWorldTime', 'discoveredAtWorldTime', 'freshness', 'value', 'contentDomain', 'contentSafety'])
+  && validId(value.id)
+  && value.category === sectionId
+  && oneOf(['urgent', 'essential', 'standard'] as const, value.priority)
+  && validProjectionSource(value.source)
+  && safeInteger(value.recordedAtWorldTime)
+  && safeInteger(value.discoveredAtWorldTime)
+  && value.recordedAtWorldTime <= value.discoveredAtWorldTime
+  && validProjectionFreshness(value.freshness, value.discoveredAtWorldTime)
+  && validProjectionValue(value.value)
+  && value.kind === value.value.kind
 
 /** Compact counts for canvas ARIA; it intentionally contains no hidden world detail. */
 export const managementSidebarAccessibleSummary = (model: ManagementSidebarModel, selectedSection: ManagementSidebarSectionId, expanded: boolean): string => {
