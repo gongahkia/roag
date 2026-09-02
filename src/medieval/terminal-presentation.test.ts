@@ -10,6 +10,7 @@ import {
   TERMINAL_PRESENTATION_LIMITS,
   TERMINAL_STATE_PRESENTATIONS,
   cancelTerminalPrompt,
+  createReservedMapContextualPrompt,
   createTerminalPresentationModel,
   terminalNonColorCueFor,
   validateTerminalInputModes,
@@ -193,6 +194,9 @@ describe('terminal presentation contract', () => {
     expect(validateTerminalMessages([message])).toEqual([])
     expect(validateTerminalPrompt(prompt)).toEqual([])
     expect(cancelTerminalPrompt(prompt)).toEqual({ id: 'terminal-prompt-cancel:terminal-prompt:fixture', promptId: prompt.id, outcome: 'cancelled-no-mutation', advancesWorldTime: false })
+    const reserved = createReservedMapContextualPrompt(world)
+    expect(reserved.options).toEqual([expect.objectContaining({ key: 'Enter', availability: 'disabled', disabledReason: 'no-contextual-action-materialized', requiresConfirmation: false })])
+    expect(validateTerminalPrompt(reserved)).toEqual([])
     expect(world).toEqual(before)
 
     const sourceLess = {
@@ -243,6 +247,13 @@ describe('terminal presentation contract', () => {
     expect(command('settings-create-world')?.contexts).toEqual(['settings-basic-create-world'])
     expect(command('settings-open-advanced')?.contexts).toEqual(['settings-basic-advanced-link'])
     expect(command('settings-open-profiles')?.contexts).toEqual(['settings-basic-profiles-link'])
+    expect(createTerminalPresentationModel(selectedWorld('terminal-controls-boundary')).input.worldBindingPreferences).toEqual({
+      contract: 'terminal-controls-v1',
+      scope: 'browser-ui-only',
+      remappableCommands: 'world-movement-context-management-help',
+      protectedCancellation: 'Escape',
+      protectedEditorEntry: 'F2'
+    })
 
     for (const sourceFragment of [
       "if (key === 'n' || key === 'N') { this.openSettings(); return }",

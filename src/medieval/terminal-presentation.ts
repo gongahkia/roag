@@ -390,6 +390,14 @@ export const TERMINAL_KEYBOARD_COMMANDS: readonly TerminalKeyboardCommand[] = ca
 export interface TerminalInputContract {
   canvasFocus: { keyboardFirst: true; pointerFocusAssist: true }
   modes: readonly TerminalInputMode[]
+  /** Static commands show defaults; effective world bindings come from this isolated UI preference contract. */
+  worldBindingPreferences: {
+    contract: 'terminal-controls-v1'
+    scope: 'browser-ui-only'
+    remappableCommands: 'world-movement-context-management-help'
+    protectedCancellation: 'Escape'
+    protectedEditorEntry: 'F2'
+  }
   commands: readonly TerminalKeyboardCommand[]
 }
 
@@ -651,7 +659,18 @@ const rawTerminalPresentationModel = (world: FoundationWorld): TerminalPresentat
     status,
     messages,
     prompts,
-    input: { canvasFocus: { keyboardFirst: true, pointerFocusAssist: true }, modes: TERMINAL_INPUT_MODES, commands: TERMINAL_KEYBOARD_COMMANDS },
+    input: {
+      canvasFocus: { keyboardFirst: true, pointerFocusAssist: true },
+      modes: TERMINAL_INPUT_MODES,
+      worldBindingPreferences: {
+        contract: 'terminal-controls-v1',
+        scope: 'browser-ui-only',
+        remappableCommands: 'world-movement-context-management-help',
+        protectedCancellation: 'Escape',
+        protectedEditorEntry: 'F2'
+      },
+      commands: TERMINAL_KEYBOARD_COMMANDS
+    },
     accessibility: accessibilityFor(map, status, messages, prompts),
     sidebarBoundary: { relationship: 'separate-household-known-strategic-surface', duplicatedStrategicFactCategories: [] },
     rendererParity: { asciiCanvas: 'current-adapter', detailedRenderer: 'future-adapter', requirements: TERMINAL_RENDERER_PARITY_RULES },
