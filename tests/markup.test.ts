@@ -174,6 +174,7 @@ describe('course shuffler markup', () => {
     expect(markup).toContain('class="hud-leaderboard"');
     expect(markup).toContain('class="hud-course"');
     expect(markup).toContain('class="hud-timer"');
+    expect(markup).toContain('class="match-rail"');
     expect(markup).toContain('id="hud-strength-meter"');
     expect(markup).toContain('class="hud-camera"');
     expect(markup).toContain('class="route-role-key"');
@@ -181,6 +182,7 @@ describe('course shuffler markup', () => {
     expect(markup).toContain('right drag');
     expect(markup).toContain('data-camera-mode');
     expect(markup).toContain('data-camera-zoom="in"');
+    expect(markup).not.toContain('social-receipts');
     expect(markup).not.toContain('power-cell');
     const inspector = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: 'intel', aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     expect(inspector).toContain('blue: slow mover');

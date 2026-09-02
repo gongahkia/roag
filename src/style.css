@@ -320,12 +320,6 @@ dd { margin: 0; overflow-wrap: anywhere; color: var(--text); }
 .placement-status.valid { border-color: #79b86c; color: #315f35; }
 .placement-status.invalid { border-color: #dd8874; color: #9b4339; }
 .placement-status button { margin-left: auto; padding: .16rem .3rem; font-size: .56rem; }
-.social-receipts { display: grid; gap: .28rem; min-width: 185px; max-width: 280px; margin-left: auto; padding: .4rem .5rem; border: 1px solid #cadcca; background: #f9fcf6; color: var(--dim); font-size: .6rem; }
-.social-receipts strong { color: var(--text); font-size: .56rem; letter-spacing: .08em; text-transform: uppercase; }
-.social-receipts p { margin: 0; line-height: 1.4; }
-.social-receipts ol { display: grid; gap: .18rem; list-style: none; margin: 0; padding: 0; }
-.social-receipts li { padding-left: .48rem; border-left: 2px solid var(--line); line-height: 1.35; }
-.social-receipts li.collision { border-color: #e76c72; }.social-receipts li.card { border-color: #a987ec; }.social-receipts li.recovery { border-color: #73d9d5; }
 .party-diagnostics { margin: 0 0 0 auto; padding: .33rem .46rem; border: 1px dashed #b9ccb5; color: var(--dim); background: #f8fcf4; font-size: .56rem; }
 .developer-controls { margin-top: .75rem; padding: .58rem; border: 1px dashed var(--line-bright); background: #f8fcf3; }
 .developer-controls strong { display: block; color: var(--text); font-size: .62rem; letter-spacing: .07em; text-transform: uppercase; }
@@ -377,7 +371,6 @@ dd { margin: 0; overflow-wrap: anywhere; color: var(--text); }
   .final-standings { padding-left: .5rem; padding-right: .5rem; }
   .final-standings li { grid-template-columns: 1.8rem .55rem minmax(0, 1fr) auto 2.7rem; gap: .24rem; }
   .final-standings li em { font-size: .5rem; }
-  .social-receipts { order: 4; flex-basis: 100%; max-width: none; margin-left: 0; }
   .party-briefing ol { grid-template-columns: 1fr; }
   .party-guide footer, .party-briefing footer { align-items: stretch; flex-direction: column; }.party-guide footer button, .party-briefing footer button { width: 100%; }
   .capture-mode .layout, .capture-mode .board { min-height: 100vh; }
@@ -433,7 +426,7 @@ h1 em { color: #f1d058; }
 .course-stage { background: #070819; }
 .app-shell .controls { bottom: .7rem; width: min(860px, calc(100% - 18rem)); min-height: 0; max-height: 32vh; overflow: auto; border: 2px solid #6274bc; border-radius: 0; padding: .45rem .55rem; background: #111744f5; box-shadow: 4px 4px 0 #050611; }
 .controls label, .control-status, .muted, .hint, .legend { color: #c2d1e3; }
-.card-effects, .social-receipts, .placement-status, .party-diagnostics { border-color: #657fac; border-radius: 0; color: #d7e1eb; background: #172649; }
+.card-effects, .placement-status, .party-diagnostics { border-color: #657fac; border-radius: 0; color: #d7e1eb; background: #172649; }
 
 /* Keep gameplay state in the side/bottom rails so the pixel world stays clear. */
 .hud-course, .hud-timer, .hud-leaderboard, .hud-strength, .reaction-dock, .hud-camera {
