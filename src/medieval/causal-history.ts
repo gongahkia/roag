@@ -3,15 +3,17 @@ import { hashSeed } from './rng'
 import type { SimulationCatchUpState } from './simulation-catchup'
 import type { MedievalTemporalState, TimeBearingTemporalAction } from './temporal'
 import type { DurableJomonGrowthEvidence, WorldEraState } from './world-era'
+import { isDelegationInterruptionInput, isDelegationOfferInput, type DelegationInterruptionInput, type DelegationOfferInput, type DelegationState } from './delegation'
+import type { PersistentPersonRecord } from './persistent-person'
 
 /**
  * The global mutable command journal. Domain-local temporal and catch-up
  * evidence remains in its owning subdomain; this records only reducer inputs.
  */
-export const CAUSAL_HISTORY_CONTRACT_VERSION = 1 as const
-export const CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION = 1 as const
-export const CAUSAL_HISTORY_CHECKPOINT_VERSION = 1 as const
-export const CAUSAL_HISTORY_SEGMENT_VERSION = 1 as const
+export const CAUSAL_HISTORY_CONTRACT_VERSION = 2 as const
+export const CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION = 2 as const
+export const CAUSAL_HISTORY_CHECKPOINT_VERSION = 2 as const
+export const CAUSAL_HISTORY_SEGMENT_VERSION = 2 as const
 
 export const CAUSAL_HISTORY_LIMITS = {
   retainedCommands: 8,
@@ -20,7 +22,7 @@ export const CAUSAL_HISTORY_LIMITS = {
   identityLength: 160
 } as const
 
-export type CausalCommandKind = 'initial-courier-selected' | 'time-bearing-action' | 'durable-jomon-growth'
+export type CausalCommandKind = 'initial-courier-selected' | 'time-bearing-action' | 'durable-jomon-growth' | 'delegation-offered' | 'delegation-interrupted'
 
 export interface CausalHistoryContext {
   worldId: string
@@ -32,13 +34,21 @@ export interface CausalHistoryCourierProjection {
   initialCourierId?: string
 }
 
+/** People become journalled only because delegation now mutates their work/memory state. */
+export interface CausalHistoryPeopleProjection {
+  version: 4
+  records: readonly PersistentPersonRecord[]
+}
+
 /** The intentionally narrow mutable result of currently journalled commands. */
 export interface CausalReplayProjection {
   version: typeof CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION
   courier: CausalHistoryCourierProjection
+  people: CausalHistoryPeopleProjection
   temporal: MedievalTemporalState
   simulation: SimulationCatchUpState
   era: WorldEraState
+  delegation: DelegationState
 }
 
 export interface InitialCourierSelectedCommand {
@@ -71,7 +81,27 @@ export interface DurableJomonGrowthCommand {
   contentSafety: MedievalContentSafetyClassification
 }
 
-export type CausalCommandEvent = InitialCourierSelectedCommand | TimeBearingActionCommand | DurableJomonGrowthCommand
+export interface DelegationOfferedCommand {
+  version: typeof CAUSAL_HISTORY_CONTRACT_VERSION
+  sequence: number
+  id: string
+  token: string
+  kind: 'delegation-offered'
+  payload: { offer: DelegationOfferInput }
+  contentSafety: MedievalContentSafetyClassification
+}
+
+export interface DelegationInterruptedCommand {
+  version: typeof CAUSAL_HISTORY_CONTRACT_VERSION
+  sequence: number
+  id: string
+  token: string
+  kind: 'delegation-interrupted'
+  payload: { interruption: DelegationInterruptionInput }
+  contentSafety: MedievalContentSafetyClassification
+}
+
+export type CausalCommandEvent = InitialCourierSelectedCommand | TimeBearingActionCommand | DurableJomonGrowthCommand | DelegationOfferedCommand | DelegationInterruptedCommand
 
 export interface CausalHistoryCheckpoint {
   version: typeof CAUSAL_HISTORY_CHECKPOINT_VERSION
@@ -88,6 +118,8 @@ export interface CausalHistoryCommandKindCounts {
   initialCourierSelected: number
   timeBearingAction: number
   durableJomonGrowth: number
+  delegationOffered: number
+  delegationInterrupted: number
 }
 
 /** A typed accounting record for commands no longer retained in the replay tail. */
@@ -184,10 +216,14 @@ const validContext = (context: CausalHistoryContext): boolean => validId(context
 const commandCountFor = (events: readonly CausalCommandEvent[]): CausalHistoryCommandKindCounts => ({
   initialCourierSelected: events.filter(event => event.kind === 'initial-courier-selected').length,
   timeBearingAction: events.filter(event => event.kind === 'time-bearing-action').length,
-  durableJomonGrowth: events.filter(event => event.kind === 'durable-jomon-growth').length
+  durableJomonGrowth: events.filter(event => event.kind === 'durable-jomon-growth').length,
+  delegationOffered: events.filter(event => event.kind === 'delegation-offered').length,
+  delegationInterrupted: events.filter(event => event.kind === 'delegation-interrupted').length
 })
-const commandClassification = (kind: CausalCommandKind, payload: InitialCourierSelectedCommand['payload'] | TimeBearingActionCommand['payload'] | DurableJomonGrowthCommand['payload']): MedievalContentSafetyClassification => {
+const commandClassification = (kind: CausalCommandKind, payload: InitialCourierSelectedCommand['payload'] | TimeBearingActionCommand['payload'] | DurableJomonGrowthCommand['payload'] | DelegationOfferedCommand['payload'] | DelegationInterruptedCommand['payload']): MedievalContentSafetyClassification => {
   if (kind === 'time-bearing-action') return structuredClone((payload as TimeBearingActionCommand['payload']).action.contentSafety)
+  if (kind === 'delegation-offered') return structuredClone((payload as DelegationOfferedCommand['payload']).offer.proposal.contentSafety)
+  if (kind === 'delegation-interrupted') return classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
   return kind === 'initial-courier-selected'
     ? classifyMedievalContent('event', ['civil-life', 'travel'], 'adults-only', ['data'])
     : classifyMedievalContent('event', ['adult-labour', 'navigation'], 'adults-only', ['data'])
@@ -196,7 +232,9 @@ const commandPayloadIsShaped = (kind: CausalCommandKind, value: unknown): boolea
   if (!record(value)) return false
   if (kind === 'initial-courier-selected') return hasOnlyKeys(value, ['courierId']) && validId(value.courierId)
   if (kind === 'time-bearing-action') return hasOnlyKeys(value, ['action']) && record(value.action) && typeof value.action.id === 'string' && typeof value.action.kind === 'string' && typeof value.action.durationMinutes === 'number' && value.action.contentSafety !== undefined
-  return hasOnlyKeys(value, ['evidence']) && record(value.evidence) && typeof value.evidence.id === 'string' && typeof value.evidence.kind === 'string' && value.evidence.source !== undefined && typeof value.evidence.atWorldTime === 'number'
+  if (kind === 'durable-jomon-growth') return hasOnlyKeys(value, ['evidence']) && record(value.evidence) && typeof value.evidence.id === 'string' && typeof value.evidence.kind === 'string' && value.evidence.source !== undefined && typeof value.evidence.atWorldTime === 'number'
+  if (kind === 'delegation-offered') return hasOnlyKeys(value, ['offer']) && isDelegationOfferInput(value.offer)
+  return hasOnlyKeys(value, ['interruption']) && isDelegationInterruptionInput(value.interruption)
 }
 const commandIdFor = (context: CausalHistoryContext, sequence: number, kind: CausalCommandKind, payload: unknown): string => `causal-command:${sequence}:${causalDigestFor('causal-command-id', { worldId: context.worldId, creationDigest: context.creationDigest, sequence, kind, payload })}`
 const commandTokenFor = (context: CausalHistoryContext, sequence: number, kind: CausalCommandKind, payload: unknown): string => causalDigestFor('causal-command-token', { worldId: context.worldId, creationDigest: context.creationDigest, sequence, kind, payload })
@@ -206,22 +244,29 @@ const segmentIdFor = (context: CausalHistoryContext, start: number, end: number,
 const segmentTokenFor = (context: CausalHistoryContext, summary: Omit<CausalHistoryCompactedSegment, 'id' | 'token'>): string => causalDigestFor('causal-segment-token', { worldId: context.worldId, creationDigest: context.creationDigest, ...summary })
 
 const projectionShape = (value: unknown): value is CausalReplayProjection => record(value)
-  && hasOnlyKeys(value, ['version', 'courier', 'temporal', 'simulation', 'era'])
+  && hasOnlyKeys(value, ['version', 'courier', 'people', 'temporal', 'simulation', 'era', 'delegation'])
   && value.version === CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION
   && record(value.courier)
   && (hasOnlyKeys(value.courier, ['version']) || hasOnlyKeys(value.courier, ['version', 'initialCourierId']))
   && value.courier.version === 1
   && (value.courier.initialCourierId === undefined || validId(value.courier.initialCourierId))
+  && record(value.people)
+  && hasOnlyKeys(value.people, ['version', 'records'])
+  && value.people.version === 4
+  && Array.isArray(value.people.records)
   && record(value.temporal)
   && record(value.simulation)
   && record(value.era)
+  && record(value.delegation)
 
-export const causalReplayProjection = (value: Pick<CausalReplayProjection, 'courier' | 'temporal' | 'simulation' | 'era'>): CausalReplayProjection => ({
+export const causalReplayProjection = (value: Pick<CausalReplayProjection, 'courier' | 'people' | 'temporal' | 'simulation' | 'era' | 'delegation'>): CausalReplayProjection => ({
   version: CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION,
   courier: structuredClone(value.courier),
+  people: structuredClone(value.people),
   temporal: structuredClone(value.temporal),
   simulation: structuredClone(value.simulation),
-  era: structuredClone(value.era)
+  era: structuredClone(value.era),
+  delegation: structuredClone(value.delegation)
 })
 
 export const causalReplayProjectionDigest = (projection: CausalReplayProjection): string => causalDigestFor('causal-replay-projection', projection)
