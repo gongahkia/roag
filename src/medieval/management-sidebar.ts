@@ -152,8 +152,6 @@ export class ManagementSidebarContractError extends Error {
 
 const compare = (left: string, right: string): number => left === right ? 0 : left < right ? -1 : 1
 const same = (left: unknown, right: unknown): boolean => JSON.stringify(left) === JSON.stringify(right)
-const safeInteger = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
-const validId = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= MANAGEMENT_SIDEBAR_LIMITS.identityLength && /^[a-z][a-z0-9:._-]*$/i.test(value)
 const priorityRank = (priority: ManagementSidebarFactPriority): number => priority === 'urgent' ? 0 : priority === 'essential' ? 1 : 2
 const stateClassification = (): MedievalContentSafetyClassification => classifyMedievalContent('player-facing-text', ['adult-labour', 'civil-life', 'navigation'], 'adults-only', ['data'])
 const noRiskClassification = (): MedievalContentSafetyClassification => classifyMedievalContent('player-facing-text', ['civil-life', 'navigation'], 'not-applicable', ['data'])
@@ -433,4 +431,3 @@ export const managementSidebarFreshnessLabel = (freshness: ManagementSidebarFres
   : freshness.kind === 'timeless'
     ? 'TIMELESS'
     : `FRESH ${freshness.atWorldTime}M`
-
