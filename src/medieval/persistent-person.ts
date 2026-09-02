@@ -8,7 +8,7 @@ import type { CrewRole, FoundationCrewMember, FoundationJomon } from './types'
  * Persistent people are deliberately separate from generation seeds and frontier
  * commitments. A record exists only once somebody has actually been instantiated.
  */
-export const PERSISTENT_PERSON_CONTRACT_VERSION = 2 as const
+export const PERSISTENT_PERSON_CONTRACT_VERSION = 3 as const
 
 export const PERSISTENT_PERSON_LIMITS = {
   records: 24,
@@ -37,8 +37,8 @@ export type PersistentPersonRecoveryStatus = 'none' | 'recovering'
 export type PersistentPersonPossessionCondition = 'sound' | 'worn' | 'broken'
 export type PersistentPersonFamilyRelation = 'parent' | 'child' | 'sibling' | 'partner' | 'kin'
 export type PersistentPersonRelationshipBasis = 'kinship' | 'work' | 'debt' | 'friendship' | 'rivalry'
-export type PersistentPersonMemoryKind = 'foundation-history' | 'observed-event' | 'reported-fact'
-export type PersistentPersonCommitmentKind = 'vessel-duty' | 'personal-agreement'
+export type PersistentPersonMemoryKind = 'foundation-history' | 'observed-event' | 'reported-fact' | 'task-evidence'
+export type PersistentPersonCommitmentKind = 'vessel-duty' | 'personal-agreement' | 'delegated-task'
 export type PersistentPersonCommitmentStatus = 'active' | 'resolved' | 'cancelled'
 export type PersistentPersonSkillKind = 'navigation' | 'commerce' | 'craft' | 'care' | 'record-keeping' | 'guarding' | 'provisioning' | 'hauling' | 'fishing' | 'performance' | 'command'
 
@@ -299,8 +299,8 @@ const skillKinds: readonly PersistentPersonSkillKind[] = ['navigation', 'commerc
 const householdKinds: readonly PersistentPersonHouseholdKind[] = ['jomon-household', 'site-household', 'frontier-household']
 const relationshipBases: readonly PersistentPersonRelationshipBasis[] = ['kinship', 'work', 'debt', 'friendship', 'rivalry']
 const familyRelations: readonly PersistentPersonFamilyRelation[] = ['parent', 'child', 'sibling', 'partner', 'kin']
-const memoryKinds: readonly PersistentPersonMemoryKind[] = ['foundation-history', 'observed-event', 'reported-fact']
-const commitmentKinds: readonly PersistentPersonCommitmentKind[] = ['vessel-duty', 'personal-agreement']
+const memoryKinds: readonly PersistentPersonMemoryKind[] = ['foundation-history', 'observed-event', 'reported-fact', 'task-evidence']
+const commitmentKinds: readonly PersistentPersonCommitmentKind[] = ['vessel-duty', 'personal-agreement', 'delegated-task']
 const commitmentStatuses: readonly PersistentPersonCommitmentStatus[] = ['active', 'resolved', 'cancelled']
 const injuryKinds: readonly PersistentPersonInjury['kind'][] = ['strain', 'minor-wound']
 const possessionConditions: readonly PersistentPersonPossessionCondition[] = ['sound', 'worn', 'broken']
