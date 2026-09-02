@@ -16,7 +16,8 @@ export const DELEGATION_LIMITS = {
   tasks: 24,
   activeTasks: 6,
   terminalTasks: 18,
-  identityLength: 48,
+  identityLength: 96,
+  offerIdentityLength: 48,
   agreementRollExclusive: 6,
   taskMemoriesPerPerson: 11
 } as const
@@ -317,6 +318,7 @@ const record = (value: unknown): value is Record<string, unknown> => Boolean(val
 const safeInteger = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 const compare = (left: string, right: string): number => left === right ? 0 : left < right ? -1 : 1
 const validId = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= DELEGATION_LIMITS.identityLength && /^[a-z][a-z0-9:._-]*$/i.test(value)
+const validOfferId = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= DELEGATION_LIMITS.offerIdentityLength && /^[a-z][a-z0-9:._-]*$/i.test(value)
 const oneOf = <Value>(values: readonly Value[], value: unknown): value is Value => values.includes(value as Value)
 const canonical = <Value extends string>(values: readonly Value[]): readonly Value[] => [...new Set(values)].sort(compare)
 const hasOnlyKeys = (value: Record<string, unknown>, expected: readonly string[]): boolean => {
@@ -332,13 +334,13 @@ const same = (left: unknown, right: unknown): boolean => JSON.stringify(left) ==
 export const delegationTaskIdForOffer = (offerId: string): string => `delegated-task:${offerId}`
 export const delegationCommitmentIdForTask = (taskId: string): string => `delegated-task-commitment:${taskId}`
 export const delegationOfferActionId = (offerId: string): string => `delegation-offer:${offerId}`
-export const delegationInterruptionActionId = (taskId: string, reason: DelegationInterruptionReason): string => `delegation-interruption:${taskId}:${reason}`
+export const delegationInterruptionActionId = (taskId: string, reason: DelegationInterruptionReason): string => `delegation-interruption:${hashSeed(`jomon-delegation-interruption:${taskId}:${reason}`).toString(16)}`
 
 const taskClassification = (): MedievalContentSafetyClassification => classifyMedievalContent('contract', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
 const taskActionClassification = (): MedievalContentSafetyClassification => classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
 const taskMemoryClassification = (): MedievalContentSafetyClassification => classifyMedievalContent('history', ['adult-labour', 'civil-life'], 'adults-only', ['player-facing-text'])
 const taskMemoryDetail = (taskId: string, phase: 'agreement' | 'refusal' | 'completion' | 'interruption'): string => `Delegated task ${taskId} ${phase}.`
-const taskMemoryId = (taskId: string, personId: string, phase: 'agreement' | 'refusal' | 'completion' | 'interruption'): string => `task-memory:${taskId}:${personId}:${phase}`
+const taskMemoryId = (taskId: string, personId: string, phase: 'agreement' | 'refusal' | 'completion' | 'interruption'): string => `task-memory:${hashSeed(`jomon-delegation-memory:${taskId}:${personId}:${phase}`).toString(16)}`
 const taskToken = (context: Pick<DelegationContext, 'worldId' | 'creationDigest'>, scope: string, taskId: string, boundary: number): number => hashSeed(`jomon-delegation:${DELEGATION_CONTRACT_VERSION}:${context.worldId}:${context.creationDigest}:${scope}:${taskId}:${boundary}`)
 const taskRoll = (context: Pick<DelegationContext, 'worldId' | 'creationDigest'>, scope: string, taskId: string, boundary: number): number => new SeededRng(`jomon-delegation:${DELEGATION_CONTRACT_VERSION}:${context.worldId}:${context.creationDigest}:${scope}:${taskId}:${boundary}`).integer(DELEGATION_LIMITS.agreementRollExclusive)
 const validFactors = (value: unknown): value is readonly DelegationFactorCode[] => Array.isArray(value)
@@ -377,7 +379,7 @@ const validProposal = (value: unknown): value is ConversationProposal => record(
 export const isDelegationOfferInput = (value: unknown): value is DelegationOfferInput => record(value)
   && hasOnlyKeys(value, ['version', 'id', 'courierId', 'recipientId', 'family', 'approach', 'proposal'])
   && value.version === DELEGATION_CONTRACT_VERSION
-  && validId(value.id)
+  && validOfferId(value.id)
   && validId(value.courierId)
   && validId(value.recipientId)
   && value.courierId !== value.recipientId
@@ -619,7 +621,7 @@ const validTaskShape = (value: unknown): value is DelegatedTaskRecord => record(
     : ['version', 'id', 'offerId', 'family', 'courierId', 'recipientId', 'approach', 'proposal', 'assessment', 'status', 'offeredAtWorldTime', 'acceptedAtWorldTime', 'plannedCompletionAtWorldTime', 'progressMinutes', 'agreement', 'outcome', 'contentSafety'])
   && value.version === DELEGATION_CONTRACT_VERSION
   && validId(value.id)
-  && validId(value.offerId)
+  && validOfferId(value.offerId)
   && validId(value.courierId)
   && validId(value.recipientId)
   && value.courierId !== value.recipientId
@@ -795,10 +797,13 @@ export const advanceDelegatedTasks = (context: DelegationContext, state: Delegat
   if (!safeInteger(action.startedAtWorldTime) || !safeInteger(action.atWorldTime) || action.startedAtWorldTime >= action.atWorldTime || action.atWorldTime !== context.worldTime) throw new DelegationContractError([issue('delegation:action', 'delegation.invalid-lifecycle')])
   const before = validateDelegationState({ ...context, worldTime: action.startedAtWorldTime, people }, state)
   if (before.length) throw new DelegationContractError(before)
-  const due = state.tasks.filter(task => task.status === 'in-progress' && task.plannedCompletionAtWorldTime! <= action.atWorldTime)
+  const active = state.tasks.filter(task => task.status === 'in-progress')
+  const due = active.filter(task => task.plannedCompletionAtWorldTime! <= action.atWorldTime)
     .sort((left, right) => left.plannedCompletionAtWorldTime! - right.plannedCompletionAtWorldTime! || compare(left.id, right.id))
   let nextPeople = structuredClone(people)
-  const byId = new Map(due.map(task => [task.id, completedTask(context, task)]))
+  const byId = new Map(active.map(task => [task.id, task.plannedCompletionAtWorldTime! <= action.atWorldTime
+    ? completedTask(context, task)
+    : { ...structuredClone(task), progressMinutes: action.atWorldTime - task.acceptedAtWorldTime! }]))
   for (const task of due) {
     const completed = byId.get(task.id)!
     nextPeople = appendTaskMemories(releaseWorker(nextPeople, completed, 'resolved', completed.outcome!.atWorldTime), completed, 'completion', completed.outcome!.atWorldTime)

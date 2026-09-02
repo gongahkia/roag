@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { assessCourierConversation } from './conversation'
 import { DELEGATION_CONTRACT_VERSION, DELEGATION_FACTOR_CODES, DELEGATION_LIMITS, DELEGATION_TASK_DEFINITIONS, DELEGATION_TASK_FAMILIES, delegationDefinitionFor, delegationTaskIdForOffer, validateDelegationState, validateDelegationTaskDefinitions, type DelegationOfferInput } from './delegation'
 import { classifyMedievalContent } from './content-safety'
+import { SeededRng } from './rng'
 import { simulationCatchUpProjection } from './simulation-catchup'
 import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, foundationWorldCausalHistoryMatches, interruptFoundationWorldDelegatedTask, offerFoundationWorldDelegatedTask, replayFoundationWorldCausalHistory, validateFoundationWorld } from './world'
 import { causalReplayProjectionForWorldState } from './world-state'
@@ -44,10 +45,25 @@ const offersFor = (world: ReturnType<typeof selectedWorld>, prefix: string): rea
 }
 
 const acceptedOffer = (world: ReturnType<typeof selectedWorld>, prefix: string) => {
-  for (const offer of offersFor(world, prefix)) {
-    const candidate = offerFoundationWorldDelegatedTask(world, offer)
-    const task = candidate.state.delegation.tasks.find(item => item.offerId === offer.id)!
-    if (task.status === 'in-progress') return { world: candidate, offer, task }
+  const courierId = world.state.courier.initialCourierId!
+  for (const recipient of world.state.people.records.filter(person => person.id !== courierId)) {
+    for (const definition of DELEGATION_TASK_DEFINITIONS) {
+      const interest = definition.relevantMaterialInterests.find(item => recipient.materialInterests.includes(item))
+      const skill = definition.relevantSkills.find(item => recipient.work.skills.some(candidate => candidate.kind === item && candidate.level >= 1))
+      if (!interest || !skill) continue
+      const assessment = assessCourierConversation(world, { version: 1, courierId, recipientId: recipient.id, proposal: proposalFor(interest) })
+      if (assessment.eligibility !== 'eligible') continue
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const id = `${prefix}:${recipient.id}:${definition.family}:${attempt}`
+        const taskId = delegationTaskIdForOffer(id)
+        const roll = new SeededRng(`jomon-delegation:${DELEGATION_CONTRACT_VERSION}:${world.id}:${world.manifest.creation.digest}:agreement:${taskId}:1`).integer(6)
+        if (roll !== 0) continue
+        const offer: DelegationOfferInput = { version: 1, id, courierId, recipientId: recipient.id, family: definition.family, approach: 'direct-request', proposal: proposalFor(interest) }
+        const candidate = offerFoundationWorldDelegatedTask(world, offer)
+        const task = candidate.state.delegation.tasks.find(item => item.offerId === offer.id)!
+        if (task.status === 'in-progress') return { world: candidate, offer, task }
+      }
+    }
   }
   throw new Error(`fixture did not produce an accepted delegation offer for ${prefix}`)
 }
@@ -159,8 +175,7 @@ describe('constrained deterministic delegation', () => {
   })
 
   it('cannot use a high conversation value or an unlocked approach to bypass current committed work, and preserves caller state on rejection', () => {
-    let maximum = selectedWorld('delegation-maximum:0')
-    for (let index = 1; index < 24 && maximum.state.people.records.find(person => person.id === 'crew:0')!.identity.conversation !== 5; index++) maximum = selectedWorld(`delegation-maximum:${index}`)
+    const maximum = selectedWorld('delegation-maximum:10')
     const original = structuredClone(maximum)
     const locked = offersFor(maximum, 'offer:locked')[0]!
     const blockedApproach: DelegationOfferInput = { ...locked, id: 'offer:locked-approach', approach: 'reciprocal-options' }
@@ -170,8 +185,7 @@ describe('constrained deterministic delegation', () => {
     }
 
     const first = acceptedOffer(maximum, 'offer:maximum')
-    const nextOffer = offersFor(first.world, 'offer:second').find(offer => offer.recipientId === first.task.recipientId)
-    if (!nextOffer) throw new Error('fixture must retain a matching family offer')
+    const nextOffer: DelegationOfferInput = { ...first.offer, id: 'offer:second-committed' }
     expect(() => offerFoundationWorldDelegatedTask(first.world, nextOffer)).toThrow('conversation assessment rejected')
     expect(first.world.state.delegation.tasks).toHaveLength(1)
   })
