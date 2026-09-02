@@ -368,6 +368,7 @@ const foundationWorldIssue = (recordId: string, code: FoundationWorldValidationC
  */
 export const validateFoundationWorld = (value: unknown): readonly FoundationWorldValidationIssue[] => {
   if (!record(value)) return [foundationWorldIssue('foundation-world', 'foundation-world.malformed-record')]
+  if (!hasOnlyKeys(value, ['version', 'id', 'status', 'manifest', 'jomon', 'crew', 'initialWorld', 'state'])) return [foundationWorldIssue('foundation-world', 'foundation-world.malformed-record')]
   const issues: FoundationWorldValidationIssue[] = []
   if (value.version !== 7) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-version'))
   if (typeof value.id !== 'string' || !value.id) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-id'))
