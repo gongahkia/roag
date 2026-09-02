@@ -468,6 +468,54 @@ export const validateSimulationCatchUpPlanState = (state: SimulationCatchUpState
 }
 
 /**
+ * Rebinds scheduler cursors after a validated non-temporal state transition
+ * changes fidelity eligibility at the current minute. It creates no outcome
+ * observation and never advances time: cursors remain the canonical folded
+ * cadence projection of the current plan.
+ */
+export const reconcileSimulationCatchUpPlanState = (state: SimulationCatchUpState, plan: FidelityPlan): SimulationCatchUpState => {
+  const context = validationContextForPlan(plan, plan.worldTime)
+  const diagnostics = validateSimulationCatchUpState(context, state)
+  if (diagnostics.length) throw new SimulationCatchUpContractError(diagnostics)
+  const delegatedById = new Map(state.delegatedWork.map(item => [item.id, item]))
+  const cursors = targetsFor(plan, state).flatMap(target => {
+    const cadence = target.cadence.intervalMinutes
+    const delegated = target.targetKind === 'delegated-work' ? delegatedById.get(target.targetId) : undefined
+    const intervals = target.targetKind === 'delegated-work'
+      ? Math.max(0, Math.floor(plan.worldTime / cadence) - Math.floor((delegated?.committedAtWorldTime ?? plan.worldTime) / cadence))
+      : Math.floor(plan.worldTime / cadence)
+    if (intervals === 0) return []
+    const processedThroughWorldTime = Math.floor(plan.worldTime / cadence) * cadence
+    return [{
+      id: cursorIdFor(target.targetKind, target.targetId),
+      targetKind: target.targetKind,
+      targetId: target.targetId,
+      tier: target.tier,
+      cadenceMinutes: cadence,
+      processedThroughWorldTime,
+      processedIntervals: intervals,
+      outcomeToken: tokenFor(plan, target, processedThroughWorldTime)
+    } satisfies SimulationCatchUpCursor]
+  })
+  const delegatedWork = state.delegatedWork.map(item => ({
+    ...structuredClone(item),
+    progressIntervals: item.status === 'active'
+      ? cursors.find(cursor => cursor.id === cursorIdFor('delegated-work', item.id))?.processedIntervals ?? 0
+      : item.progressIntervals
+  })).sort((left, right) => compare(left.id, right.id))
+  const nextWithoutAudit = {
+    version: SIMULATION_CATCH_UP_CONTRACT_VERSION,
+    cursors: cursors.sort((left, right) => compare(left.id, right.id)),
+    delegatedWork,
+    records: structuredClone(state.records)
+  } satisfies Omit<SimulationCatchUpState, 'contentSafetyAudit'>
+  const next = { ...nextWithoutAudit, contentSafetyAudit: audit(nextWithoutAudit) }
+  const nextDiagnostics = validateSimulationCatchUpPlanState(next, plan)
+  if (nextDiagnostics.length) throw new SimulationCatchUpContractError(nextDiagnostics)
+  return next
+}
+
+/**
  * Returns the projection future domain rules must consume. It intentionally
  * omits bounded observation records, whose count depends on player action
  * partitioning, so equivalent elapsed time has the same projection.

@@ -7,7 +7,7 @@ import { normalizeCreationSeed } from './settings'
 import { advanceMedievalTemporalState, createMedievalTemporalState, isMedievalTemporalState, type TemporalCommand, type TemporalProvenance, type TimeBearingTemporalAction } from './temporal'
 import { causalReplayProjectionForWorldState, createMedievalWorldState, isMedievalWorldState, type MedievalWorldState, type WorldDelegationState, type WorldPeopleState } from './world-state'
 import { createFidelityPlan } from './fidelity'
-import { advanceSimulationCatchUpState, resolveDelegatedWorkPlaceholder, validateSimulationCatchUpPlanState, withDelegatedWorkPlaceholder } from './simulation-catchup'
+import { advanceSimulationCatchUpState, reconcileSimulationCatchUpPlanState, resolveDelegatedWorkPlaceholder, validateSimulationCatchUpPlanState, withDelegatedWorkPlaceholder } from './simulation-catchup'
 import { advanceWorldEraForTemporalAction, recordDurableJomonGrowthEvidence, type DurableJomonGrowthEvidence, type WorldEraContext } from './world-era'
 import { appendCausalCommand, causalReplayProjection, createCausalCommand, replayCausalHistory, validateCausalHistoryReplay, type CausalCommandEvent, type CausalHistoryContext, type CausalReplayProjection } from './causal-history'
 import { assessCourierConversation, assessCourierConversationForValidatedReplay, type ConversationAssessment } from './conversation'
@@ -559,7 +559,7 @@ const advanceTimeProjection = (world: FoundationWorld, projection: CausalReplayP
     worldTime: transition.state.worldTime,
     people: projection.people.records
   }, projection.delegation, projection.people.records, transition.action)
-  const simulation = delegation.resolvedTaskIds.reduce((state, taskId) => {
+  const resolvedSimulation = delegation.resolvedTaskIds.reduce((state, taskId) => {
     const task = delegation.state.tasks.find(candidate => candidate.id === taskId)!
     return resolveDelegatedWorkPlaceholder(state, {
       worldId: world.id,
@@ -570,6 +570,19 @@ const advanceTimeProjection = (world: FoundationWorld, projection: CausalReplayP
       institutionIds: world.state.institutions.registry.map(institution => institution.id)
     }, taskId, task.outcome!.atWorldTime)
   }, catchUp.state)
+  const finalProjection = causalReplayProjection({
+    courier: projection.courier,
+    people: { version: 4, records: delegation.people },
+    temporal: transition.state,
+    simulation: resolvedSimulation,
+    era: eraPlan,
+    delegation: delegation.state
+  })
+  const finalWorld = worldFromProjection(world, finalProjection)
+  const simulation = reconcileSimulationCatchUpPlanState(
+    resolvedSimulation,
+    createFidelityPlan({ world: finalWorld, activeCourierId: courierId, loadedLocations: [] })
+  )
   return causalReplayProjection({
     courier: projection.courier,
     people: { version: 4, records: delegation.people },
@@ -623,11 +636,16 @@ const offerDelegationProjection = (world: FoundationWorld, projection: CausalRep
         institutionIds: world.state.institutions.registry.map(institution => institution.id)
       }, delegatedWorkPlaceholderForTask(transition.task))
     : afterAction.simulation
-  return causalReplayProjection({
+  const offeredProjection = causalReplayProjection({
     ...afterAction,
     people: { version: 4, records: transition.people },
     simulation,
     delegation: transition.state
+  })
+  const offeredWorld = worldFromProjection(world, offeredProjection)
+  return causalReplayProjection({
+    ...offeredProjection,
+    simulation: reconcileSimulationCatchUpPlanState(simulation, createFidelityPlan({ world: offeredWorld, activeCourierId: offer.courierId, loadedLocations: [] }))
   })
 }
 
@@ -646,11 +664,16 @@ const interruptDelegationProjection = (world: FoundationWorld, projection: Causa
     marketIds: world.state.markets.markets.map(market => market.id),
     institutionIds: world.state.institutions.registry.map(institution => institution.id)
   }, task.id, task.outcome!.atWorldTime)
-  return causalReplayProjection({
+  const interruptedProjection = causalReplayProjection({
     ...afterAction,
     people: { version: 4, records: transition.people },
     simulation,
     delegation: transition.state
+  })
+  const interruptedWorld = worldFromProjection(world, interruptedProjection)
+  return causalReplayProjection({
+    ...interruptedProjection,
+    simulation: reconcileSimulationCatchUpPlanState(simulation, createFidelityPlan({ world: interruptedWorld, activeCourierId: interruption.courierId, loadedLocations: [] }))
   })
 }
 
