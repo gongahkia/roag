@@ -28,7 +28,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
         })
       }
     }
-  }))
+  }), worldId)
   page.on('request', captureExternalRequest)
   await page.goto('/')
   const game = page.locator('#game')
@@ -111,7 +111,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   if (!worldId) throw new Error('created world should have a stable id')
 
   const expectedZeroTime = { worldTime: 0, actionSequence: 0, causalKinds: ['initial-courier-selected'] }
-  await expect.poll(() => persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)
+  expect(await persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)
   await page.waitForTimeout(300)
   await expect.poll(() => persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)
 
@@ -121,6 +121,8 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-route', 'create-world')
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('ArrowUp')
+  await page.keyboard.press('Escape')
+  await expect(game).toHaveAttribute('data-settings-page', 'basic')
   await page.keyboard.press('Escape')
   await expect(game).toHaveAttribute('data-route', 'worlds')
   await expect.poll(() => persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)

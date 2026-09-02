@@ -456,7 +456,7 @@ describe('medieval local persistence', () => {
     const detailed = source.state.simulation.records.find(record => record.outcomeDetail === 'detailed')
     const summary = source.state.simulation.records.find(record => record.outcomeDetail === 'summary')
     if (!detailed || !summary) throw new Error('expected detailed and summary scheduler records')
-    const cases: readonly [(world: typeof source) => void][] = [
+    const cases: readonly ((world: typeof source) => void)[] = [
       world => { (world.state.simulation.records.find(record => record.id === detailed.id)!.contentSafety.exclusions as unknown as Record<string, string>).torture = 'present' },
       world => { delete (world.state.simulation.records.find(record => record.id === detailed.id)!.cause as { contentSafety?: unknown }).contentSafety },
       world => { delete (world.state.simulation.records.find(record => record.id === summary.id)! as { contentSafety?: unknown }).contentSafety },
