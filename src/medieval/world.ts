@@ -5,13 +5,14 @@ import { generationConfigurationFingerprint, generationRetryPlan, isReproducible
 import { INITIAL_WORLD_GENERATION_DIAGNOSTICS_VERSION, INITIAL_WORLD_GENERATOR_VERSION, generateInitialWorld, initialWorldContentRecords, isInitialWorld, type InitialWorld, type InitialWorldGenerationDiagnostics, type InitialWorldGenerationProgressObserver } from './initial-world'
 import { normalizeCreationSeed } from './settings'
 import { advanceMedievalTemporalState, createMedievalTemporalState, isMedievalTemporalState, type TemporalCommand, type TemporalProvenance, type TimeBearingTemporalAction } from './temporal'
-import { causalReplayProjectionForWorldState, createMedievalWorldState, isMedievalWorldState, type MedievalWorldState, type WorldDelegationState, type WorldPeopleState } from './world-state'
+import { causalReplayProjectionForWorldState, createMedievalWorldState, isMedievalWorldState, type MedievalWorldState, type WorldAutonomyState, type WorldDelegationState, type WorldPeopleState } from './world-state'
 import { createFidelityPlan } from './fidelity'
 import { advanceSimulationCatchUpState, reconcileSimulationCatchUpPlanState, resolveDelegatedWorkPlaceholder, validateSimulationCatchUpPlanState, withDelegatedWorkPlaceholder } from './simulation-catchup'
 import { advanceWorldEraForTemporalAction, recordDurableJomonGrowthEvidence, type DurableJomonGrowthEvidence, type WorldEraContext } from './world-era'
 import { appendCausalCommand, causalReplayProjection, createCausalCommand, replayCausalHistory, validateCausalHistoryReplay, type CausalCommandEvent, type CausalHistoryContext, type CausalReplayProjection } from './causal-history'
 import { assessCourierConversation, assessCourierConversationForValidatedReplay, type ConversationAssessment } from './conversation'
 import { advanceDelegatedTasks, delegatedWorkPlaceholderForTask, delegationInterruptionTemporalAction, delegationOfferTemporalAction, interruptDelegatedTask, isDelegationInterruptionInput, isDelegationOfferInput, offerDelegatedTask as offerDelegationTransition, type DelegationInterruptionInput, type DelegationOfferInput } from './delegation'
+import { advanceAutonomyState, createAutonomyState, reconcileAutonomyState, validateAutonomyPlanState } from './autonomy'
 import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
 
 const foundationJomon = (): FoundationJomon => ({
@@ -343,6 +344,7 @@ export type FoundationWorldValidationCode =
   | 'foundation-world.invalid-immutable-content'
   | 'foundation-world.invalid-mutable-state'
   | 'foundation-world.invalid-catch-up'
+  | 'foundation-world.invalid-autonomy'
   | 'foundation-world.invalid-causal-history'
 
 export interface FoundationWorldValidationIssue {
@@ -361,7 +363,7 @@ export const validateFoundationWorld = (value: unknown): readonly FoundationWorl
   if (!record(value)) return [foundationWorldIssue('foundation-world', 'foundation-world.malformed-record')]
   if (!hasOnlyKeys(value, ['version', 'id', 'status', 'manifest', 'jomon', 'crew', 'initialWorld', 'state'])) return [foundationWorldIssue('foundation-world', 'foundation-world.malformed-record')]
   const issues: FoundationWorldValidationIssue[] = []
-  if (value.version !== 11) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-version'))
+  if (value.version !== 12) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-version'))
   if (typeof value.id !== 'string' || !value.id) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-id'))
   if (value.status !== 'active') issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-status'))
   if (!isReproducibleWorldManifest(value.manifest)) {
@@ -376,6 +378,7 @@ export const validateFoundationWorld = (value: unknown): readonly FoundationWorl
     if (!foundationWorldContentSatisfiesSafetyPolicy(world)) issues.push(foundationWorldIssue('foundation-world:immutable-content', 'foundation-world.invalid-immutable-content'))
     if (!foundationWorldTemporalStateMatches(world)) issues.push(foundationWorldIssue('foundation-world:mutable-state', 'foundation-world.invalid-mutable-state'))
     if (!foundationWorldCatchUpStateMatches(world)) issues.push(foundationWorldIssue('foundation-world:catch-up', 'foundation-world.invalid-catch-up'))
+    if (!foundationWorldAutonomyStateMatches(world)) issues.push(foundationWorldIssue('foundation-world:autonomy', 'foundation-world.invalid-autonomy'))
     if (!foundationWorldCausalHistoryMatches(world)) issues.push(foundationWorldIssue('foundation-world:causal-history', 'foundation-world.invalid-causal-history'))
   } catch {
     issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-mutable-state'))
@@ -413,7 +416,7 @@ const worldFromCreationProvenance = (
   if (!state) throw new Error('creation provenance does not identify a valid foundation world')
   const temporal = createMedievalTemporalState(temporalProvenanceForCreation(creation))
   return {
-    version: 11,
+    version: 12,
     id: idForCreationProvenance(creation),
     status: 'active',
     manifest: {
@@ -501,6 +504,26 @@ export const foundationWorldCatchUpStateMatches = (world: FoundationWorld): bool
   } catch { return false }
 }
 
+/** Autonomy observations are a canonical view of current fidelity/catch-up state. */
+export const foundationWorldAutonomyStateMatches = (world: FoundationWorld): boolean => {
+  try {
+    const courierId = world.state.courier.initialCourierId
+    if (courierId === undefined) return world.state.autonomy.observations.length === 0
+    const plan = createFidelityPlan({ world, activeCourierId: courierId, loadedLocations: [] })
+    return validateAutonomyPlanState({
+      worldId: world.id,
+      creationDigest: world.manifest.creation.digest,
+      worldTime: world.state.temporal.worldTime,
+      activeCourierId: courierId,
+      people: world.state.people.records,
+      delegation: world.state.delegation,
+      era: world.state.era,
+      simulation: world.state.simulation,
+      plan
+    }, world.state.autonomy).length === 0
+  } catch { return false }
+}
+
 const worldEraContextFor = (world: FoundationWorld, worldTime = world.state.temporal.worldTime): WorldEraContext => ({
   worldId: world.id,
   creationDigest: world.manifest.creation.digest,
@@ -526,6 +549,7 @@ const stateFromProjection = (world: FoundationWorld, projection: CausalReplayPro
   simulationState: projection.simulation,
   eraState: projection.era,
   delegationState: projection.delegation as WorldDelegationState,
+  autonomyState: projection.autonomy as WorldAutonomyState,
   causalHistoryState
 })
 
@@ -554,7 +578,8 @@ const advanceTimeProjection = (world: FoundationWorld, projection: CausalReplayP
   const beforeAction = worldFromProjection(world, projection)
   const courierId = beforeAction.state.courier.initialCourierId
   if (courierId === undefined) throw new Error('time-bearing simulation requires an active courier')
-  const catchUp = advanceSimulationCatchUpState(projection.simulation, createFidelityPlan({ world: beforeAction, activeCourierId: courierId, loadedLocations: [] }), transition.action)
+  const beforePlan = createFidelityPlan({ world: beforeAction, activeCourierId: courierId, loadedLocations: [] })
+  const catchUp = advanceSimulationCatchUpState(projection.simulation, beforePlan, transition.action)
   const delegation = advanceDelegatedTasks({
     worldId: world.id,
     creationDigest: world.manifest.creation.digest,
@@ -578,28 +603,78 @@ const advanceTimeProjection = (world: FoundationWorld, projection: CausalReplayP
     temporal: transition.state,
     simulation: resolvedSimulation,
     era: eraPlan,
-    delegation: delegation.state
+    delegation: delegation.state,
+    // This transient planning view must carry end-time processing cursors;
+    // the real reducer below folds the prior autonomy state before return.
+    autonomy: createAutonomyState(delegation.people, transition.state.worldTime)
   })
   const finalWorld = worldFromProjection(world, finalProjection)
   const simulation = reconcileSimulationCatchUpPlanState(
     resolvedSimulation,
     createFidelityPlan({ world: finalWorld, activeCourierId: courierId, loadedLocations: [] })
   )
+  const autonomyWorld = worldFromProjection(world, causalReplayProjection({ ...finalProjection, simulation }))
+  const finalPlan = createFidelityPlan({ world: autonomyWorld, activeCourierId: courierId, loadedLocations: [] })
+  const autonomy = advanceAutonomyState(
+    projection.autonomy,
+    {
+      worldId: world.id,
+      creationDigest: world.manifest.creation.digest,
+      worldTime: transition.action.startedAtWorldTime,
+      activeCourierId: courierId,
+      people: projection.people.records,
+      delegation: projection.delegation,
+      era: projection.era,
+      simulation: projection.simulation,
+      plan: beforePlan
+    },
+    {
+      worldId: world.id,
+      creationDigest: world.manifest.creation.digest,
+      worldTime: transition.action.atWorldTime,
+      activeCourierId: courierId,
+      people: delegation.people,
+      delegation: delegation.state,
+      era: eraPlan,
+      simulation,
+      plan: finalPlan
+    },
+    transition.action
+  )
   return causalReplayProjection({
     courier: projection.courier,
-    people: { version: 4, records: delegation.people },
+    people: { version: 4, records: autonomy.people },
     temporal: transition.state,
     simulation,
     era: eraPlan,
-    delegation: delegation.state
+    delegation: delegation.state,
+    autonomy: autonomy.state
   })
 }
 
 /** The shared pure reducer for a completed physical Jomon-growth command. */
-const recordGrowthProjection = (world: FoundationWorld, projection: CausalReplayProjection, evidence: DurableJomonGrowthEvidence): CausalReplayProjection => causalReplayProjection({
-  ...projection,
-  era: recordDurableJomonGrowthEvidence(projection.era, worldEraContextFor(world, projection.temporal.worldTime), evidence)
-})
+const recordGrowthProjection = (world: FoundationWorld, projection: CausalReplayProjection, evidence: DurableJomonGrowthEvidence): CausalReplayProjection => {
+  const era = recordDurableJomonGrowthEvidence(projection.era, worldEraContextFor(world, projection.temporal.worldTime), evidence)
+  const advanced = causalReplayProjection({ ...projection, era })
+  const courierId = advanced.courier.initialCourierId
+  if (courierId === undefined) return advanced
+  // An era profile is an input to choice explanation, so zero-time durable
+  // growth reprojects observations without advancing needs or scheduling work.
+  const advancedWorld = worldFromProjection(world, advanced)
+  const plan = createFidelityPlan({ world: advancedWorld, activeCourierId: courierId, loadedLocations: [] })
+  const autonomy = reconcileAutonomyState(advanced.autonomy, {
+    worldId: world.id,
+    creationDigest: world.manifest.creation.digest,
+    worldTime: advanced.temporal.worldTime,
+    activeCourierId: courierId,
+    people: advanced.people.records,
+    delegation: advanced.delegation,
+    era,
+    simulation: advanced.simulation,
+    plan
+  })
+  return causalReplayProjection({ ...advanced, autonomy })
+}
 
 const delegationContextFor = (world: FoundationWorld, projection: CausalReplayProjection): {
   worldId: string
@@ -645,10 +720,21 @@ const offerDelegationProjection = (world: FoundationWorld, projection: CausalRep
     delegation: transition.state
   })
   const offeredWorld = worldFromProjection(world, offeredProjection)
-  return causalReplayProjection({
-    ...offeredProjection,
-    simulation: reconcileSimulationCatchUpPlanState(simulation, createFidelityPlan({ world: offeredWorld, activeCourierId: offer.courierId, loadedLocations: [] }))
+  const reconciledSimulation = reconcileSimulationCatchUpPlanState(simulation, createFidelityPlan({ world: offeredWorld, activeCourierId: offer.courierId, loadedLocations: [] }))
+  const autonomyWorld = worldFromProjection(world, causalReplayProjection({ ...offeredProjection, simulation: reconciledSimulation }))
+  const plan = createFidelityPlan({ world: autonomyWorld, activeCourierId: offer.courierId, loadedLocations: [] })
+  const autonomy = reconcileAutonomyState(offeredProjection.autonomy, {
+    worldId: world.id,
+    creationDigest: world.manifest.creation.digest,
+    worldTime: offeredProjection.temporal.worldTime,
+    activeCourierId: offer.courierId,
+    people: transition.people,
+    delegation: transition.state,
+    era: offeredProjection.era,
+    simulation: reconciledSimulation,
+    plan
   })
+  return causalReplayProjection({ ...offeredProjection, simulation: reconciledSimulation, autonomy })
 }
 
 /** Shared pure interruption reducer. Completion wins if its due minute is crossed. */
@@ -673,10 +759,21 @@ const interruptDelegationProjection = (world: FoundationWorld, projection: Causa
     delegation: transition.state
   })
   const interruptedWorld = worldFromProjection(world, interruptedProjection)
-  return causalReplayProjection({
-    ...interruptedProjection,
-    simulation: reconcileSimulationCatchUpPlanState(simulation, createFidelityPlan({ world: interruptedWorld, activeCourierId: interruption.courierId, loadedLocations: [] }))
+  const reconciledSimulation = reconcileSimulationCatchUpPlanState(simulation, createFidelityPlan({ world: interruptedWorld, activeCourierId: interruption.courierId, loadedLocations: [] }))
+  const autonomyWorld = worldFromProjection(world, causalReplayProjection({ ...interruptedProjection, simulation: reconciledSimulation }))
+  const plan = createFidelityPlan({ world: autonomyWorld, activeCourierId: interruption.courierId, loadedLocations: [] })
+  const autonomy = reconcileAutonomyState(interruptedProjection.autonomy, {
+    worldId: world.id,
+    creationDigest: world.manifest.creation.digest,
+    worldTime: interruptedProjection.temporal.worldTime,
+    activeCourierId: interruption.courierId,
+    people: transition.people,
+    delegation: transition.state,
+    era: interruptedProjection.era,
+    simulation: reconciledSimulation,
+    plan
   })
+  return causalReplayProjection({ ...interruptedProjection, simulation: reconciledSimulation, autonomy })
 }
 
 const replayCommandProjection = (world: FoundationWorld, projection: CausalReplayProjection, command: CausalCommandEvent): CausalReplayProjection => {
@@ -770,7 +867,7 @@ export const interruptFoundationWorldDelegatedTask = (world: FoundationWorld, in
 export const finalizeWorldAsChronicle = (world: FoundationWorld, reason: ChronicleReason): WorldChronicle => {
   if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
   return {
-    version: 10,
+    version: 11,
     id: `chronicle:${world.id}`,
     status: 'finalized',
     reason,

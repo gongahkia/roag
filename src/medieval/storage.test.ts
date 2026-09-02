@@ -205,7 +205,7 @@ describe('medieval local persistence', () => {
     expect(await repository.loadWorld('world:not-present')).toBeUndefined()
   })
 
-  it('keeps valid local creation settings intact while saving and loading the v11 full-world record', async () => {
+  it('keeps valid local creation settings intact while saving and loading the v12 full-world record', async () => {
     const repository = new MedievalWorldRepository()
     const settings = { ...defaultCreationSettings(), seed: 'settings-survive-state', configuration: { preset: 'far-coast' as const, advanced: {} } }
     const world = chooseInitialCourier(createFoundationWorld({ seed: 'settings-survive-state', configuration: settings.configuration }), 'crew:0')
@@ -235,7 +235,10 @@ describe('medieval local persistence', () => {
       contentSafety: classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
     })
     await repository.saveWorld(completed)
-    expect((await repository.loadWorld(completed.id))?.state.delegation.tasks[0]).toMatchObject({ id: task.id, status: 'completed' })
+    const reloadedCompleted = await repository.loadWorld(completed.id)
+    expect(reloadedCompleted?.state.delegation.tasks[0]).toMatchObject({ id: task.id, status: 'completed' })
+    expect(reloadedCompleted?.state.autonomy).toEqual(completed.state.autonomy)
+    expect(reloadedCompleted && replayFoundationWorldCausalHistory(reloadedCompleted)).toEqual(causalReplayProjectionForWorldState(completed.state))
   })
 
   it('rejects malformed local records instead of treating them as a medieval world', async () => {

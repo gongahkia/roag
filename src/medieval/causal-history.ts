@@ -5,15 +5,16 @@ import type { MedievalTemporalState, TimeBearingTemporalAction } from './tempora
 import type { DurableJomonGrowthEvidence, WorldEraState } from './world-era'
 import { isDelegationInterruptionInput, isDelegationOfferInput, type DelegationInterruptionInput, type DelegationOfferInput, type DelegationState } from './delegation'
 import type { PersistentPersonRecord } from './persistent-person'
+import type { AutonomyState } from './autonomy'
 
 /**
  * The global mutable command journal. Domain-local temporal and catch-up
  * evidence remains in its owning subdomain; this records only reducer inputs.
  */
-export const CAUSAL_HISTORY_CONTRACT_VERSION = 2 as const
-export const CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION = 2 as const
-export const CAUSAL_HISTORY_CHECKPOINT_VERSION = 2 as const
-export const CAUSAL_HISTORY_SEGMENT_VERSION = 2 as const
+export const CAUSAL_HISTORY_CONTRACT_VERSION = 3 as const
+export const CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION = 3 as const
+export const CAUSAL_HISTORY_CHECKPOINT_VERSION = 3 as const
+export const CAUSAL_HISTORY_SEGMENT_VERSION = 3 as const
 
 export const CAUSAL_HISTORY_LIMITS = {
   retainedCommands: 8,
@@ -49,6 +50,7 @@ export interface CausalReplayProjection {
   simulation: SimulationCatchUpState
   era: WorldEraState
   delegation: DelegationState
+  autonomy: AutonomyState
 }
 
 export interface InitialCourierSelectedCommand {
@@ -246,7 +248,7 @@ const segmentIdFor = (context: CausalHistoryContext, start: number, end: number,
 const segmentTokenFor = (context: CausalHistoryContext, summary: Omit<CausalHistoryCompactedSegment, 'id' | 'token'>): string => causalDigestFor('causal-segment-token', { worldId: context.worldId, creationDigest: context.creationDigest, ...summary })
 
 const projectionShape = (value: unknown): value is CausalReplayProjection => record(value)
-  && hasOnlyKeys(value, ['version', 'courier', 'people', 'temporal', 'simulation', 'era', 'delegation'])
+  && hasOnlyKeys(value, ['version', 'courier', 'people', 'temporal', 'simulation', 'era', 'delegation', 'autonomy'])
   && value.version === CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION
   && record(value.courier)
   && (hasOnlyKeys(value.courier, ['version']) || hasOnlyKeys(value.courier, ['version', 'initialCourierId']))
@@ -260,15 +262,17 @@ const projectionShape = (value: unknown): value is CausalReplayProjection => rec
   && record(value.simulation)
   && record(value.era)
   && record(value.delegation)
+  && record(value.autonomy)
 
-export const causalReplayProjection = (value: Pick<CausalReplayProjection, 'courier' | 'people' | 'temporal' | 'simulation' | 'era' | 'delegation'>): CausalReplayProjection => ({
+export const causalReplayProjection = (value: Pick<CausalReplayProjection, 'courier' | 'people' | 'temporal' | 'simulation' | 'era' | 'delegation' | 'autonomy'>): CausalReplayProjection => ({
   version: CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION,
   courier: structuredClone(value.courier),
   people: structuredClone(value.people),
   temporal: structuredClone(value.temporal),
   simulation: structuredClone(value.simulation),
   era: structuredClone(value.era),
-  delegation: structuredClone(value.delegation)
+  delegation: structuredClone(value.delegation),
+  autonomy: structuredClone(value.autonomy)
 })
 
 export const causalReplayProjectionDigest = (projection: CausalReplayProjection): string => causalDigestFor('causal-replay-projection', projection)

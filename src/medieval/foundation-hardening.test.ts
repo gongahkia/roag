@@ -27,6 +27,7 @@ describe('foundation cross-contract hardening', () => {
       expect(selected.state.causalHistory.tail).toEqual(before.state.causalHistory.tail)
       expect(selected.state.era).toEqual(before.state.era)
       expect(selected.state.simulation).toEqual(before.state.simulation)
+      expect(selected.state.autonomy).toEqual(before.state.autonomy)
     }
   })
 
