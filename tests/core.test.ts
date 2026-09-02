@@ -7,9 +7,9 @@ import { courseHashFor, defaultHoleRules, defaultTerrainSettings, generateCandid
 import { newBall, simulateShot, tileAt, tileCornerHeights } from '../src/core/physics';
 import { powerUpFor } from '../src/core/powerups';
 import { physicsModifiersFor } from '../src/core/player-effects';
-import { courseForPlan, expansionForTransition, normalizeGameState } from '../src/core/game-state';
+import { beginCourseTransition, courseForPlan, expansionForTransition, normalizeGameState } from '../src/core/game-state';
 import { Random } from '../src/core/random';
-import { GENERATOR_VERSION, LEGACY_GENERATOR_VERSION } from '../src/core/rulesets';
+import { GENERATOR_VERSION, LEGACY_GENERATOR_VERSION, PREVIOUS_GENERATOR_VERSION } from '../src/core/rulesets';
 import { buyShopOffer, chooseBotShopOffer, openShop } from '../src/core/shop';
 import type { GameState, PlannedHole } from '../src/core/types';
 import { createArena as arena, gameOn } from './fixtures';
@@ -50,7 +50,8 @@ describe('course generation', () => {
     const terrain = { ...defaultTerrainSettings(), laneWidth: 1, branches: 1, theme: 'balanced' as const };
     const rules = defaultHoleRules();
     const v1 = generateCourse(seed, terrain, rules.hazardPhaseCount, LEGACY_GENERATOR_VERSION);
-    const v2 = generateCourse(seed, terrain, rules.hazardPhaseCount, GENERATOR_VERSION);
+    const v2 = generateCourse(seed, terrain, rules.hazardPhaseCount, PREVIOUS_GENERATOR_VERSION);
+    const v3 = generateCourse(seed, terrain, rules.hazardPhaseCount, GENERATOR_VERSION);
     const legacyPlan: PlannedHole = {
       id: 'legacy-generator-plan',
       label: 'legacy generator plan',
@@ -70,10 +71,37 @@ describe('course generation', () => {
 
     expect(courseHashFor(v1)).toBe('gwye-1a18f901');
     expect(courseHashFor(v2)).toBe('gwye-4d087f19');
+    expect(courseHashFor(v3)).toBe('gwye-8c12dafe');
     expect(courseHashFor(v1)).not.toBe(courseHashFor(v2));
+    expect(courseHashFor(v2)).not.toBe(courseHashFor(v3));
     expect(courseHashFor(courseForPlan(legacyPlan))).toBe(courseHashFor(v1));
     expect(courseHashFor(courseForPlan({ ...legacyPlan, recipe: { ...legacyPlan.recipe, metadata: undefined } }))).toBe(courseHashFor(v1));
+    expect(courseHashFor(courseForPlan({ ...legacyPlan, recipe: { ...legacyPlan.recipe, metadata: { ...legacyPlan.recipe.metadata!, generatorVersion: PREVIOUS_GENERATOR_VERSION } } }))).toBe(courseHashFor(v2));
   });
+
+  it('uses coherent terrain noise, cardinal routes, and clean campaign appends in v3', () => {
+    const base = { ...defaultTerrainSettings(), branches: 0, wallCount: 0, sweeperCount: 0, gateCount: 0, portalPairs: 0, recoveryPads: 0, chaosPads: 0, sinkholePairs: 0, thornCount: 0, pulseCount: 0, updraftCount: 0, lowBarCount: 0, airRingCount: 0, gustCount: 0 };
+    const noiseBase = { ...base, width: 64, height: 36, routeLength: .8 };
+    const flat = generateCourse('v3-terrain-noise', { ...noiseBase, noiseAmplitude: 0 });
+    const noisy = generateCourse('v3-terrain-noise', { ...noiseBase, noiseAmplitude: .5 });
+    expect(noisy.route).toEqual(flat.route);
+    expect(noisy.tiles.some((tile, index) => Math.abs(tile.height - flat.tiles[index]!.height) > .001)).toBe(true);
+
+    const headings = ['v3-heading-0', 'v3-heading-1', 'v3-heading-2'].map((seed) => {
+      const course = generateCourse(seed, base);
+      return `${Math.sign(course.cup.x - course.tee.x)}:${Math.sign(course.cup.y - course.tee.y)}`;
+    });
+    expect(headings).toContain('0:-1');
+    expect(headings).toContain('-1:0');
+    expect(headings.some((heading) => heading.startsWith('1:'))).toBe(true);
+
+    let campaign = createGame({ ...defaultConfig(), seed: 'v3-clean-campaign', ruleset: 'party', holeCount: 5, humanCount: 1, botCount: 0, skipDieBets: true });
+    for (let hole = 2; hole <= campaign.config.holeCount; hole += 1) {
+      beginCourseTransition(campaign);
+      expect(expansionForTransition(campaign)?.trackOverlapCount).toBe(0);
+      campaign = applyCommand(campaign, { type: 'complete-transition' });
+    }
+  }, 30_000);
 
   it('stitches the next generated hole onto the completed cup without rebuilding the prior course', () => {
     const previous = arena('campaign-previous');
@@ -136,7 +164,7 @@ describe('course generation', () => {
     const course = generateCourse('large-course', { ...defaultTerrainSettings(), ...dimensions });
     const options = generateCoursePackages('large-options', 1, dimensions);
     expect(course).toMatchObject(dimensions);
-    expect(course.cup.x).toBeGreaterThan(24);
+    expect(Math.max(Math.abs(course.cup.x - course.tee.x), Math.abs(course.cup.y - course.tee.y))).toBeGreaterThan(24);
     expect(options.map((option) => option.recipe.terrain.sizeProfile)).toEqual(['compact', 'standard', 'full']);
     expect(options[2]!.course).toMatchObject(dimensions);
     expect(options.every((option) => option.course.width <= dimensions.width && option.course.height <= dimensions.height)).toBe(true);
