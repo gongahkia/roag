@@ -174,7 +174,7 @@ describe('medieval local persistence', () => {
     expect(await repository.loadWorld('world:not-present')).toBeUndefined()
   })
 
-  it('keeps valid local creation settings intact while saving and loading the v9 full-world record', async () => {
+  it('keeps valid local creation settings intact while saving and loading the v10 full-world record', async () => {
     const repository = new MedievalWorldRepository()
     const settings = { ...defaultCreationSettings(), seed: 'settings-survive-state', configuration: { preset: 'far-coast' as const, advanced: {} } }
     const world = chooseInitialCourier(createFoundationWorld({ seed: 'settings-survive-state', configuration: settings.configuration }), 'crew:0')
@@ -228,6 +228,27 @@ describe('medieval local persistence', () => {
     legacy.state.people.version = 1
     legacy.state.people.registry = legacy.state.people.records
     delete legacy.state.people.records
+
+    await repository.loadIndex()
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(world.id, legacy)
+
+    await expect(repository.loadWorld(world.id)).resolves.toBeUndefined()
+  })
+
+  it('rejects the immediately prior world/person envelopes rather than migrating incomplete v1 people', async () => {
+    const repository = new MedievalWorldRepository()
+    const world = createFoundationWorld({ seed: 'persistent-person-v2-clean-break' })
+    const legacy = structuredClone(world) as unknown as {
+      version: number
+      state: { version: number; people: { version: number; records: Array<Record<string, unknown>> } }
+    }
+    legacy.version = 9
+    legacy.state.version = 7
+    legacy.state.people.version = 2
+    legacy.state.people.records[0]!.version = 1
+    delete legacy.state.people.records[0]!.household
+    delete legacy.state.people.records[0]!.home
+    delete legacy.state.people.records[0]!.materialInterests
 
     await repository.loadIndex()
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(world.id, legacy)
@@ -330,6 +351,36 @@ describe('medieval local persistence', () => {
     expect(grown.state.causalHistory.tail.map(command => command.kind)).toEqual(['initial-courier-selected', 'time-bearing-action', 'durable-jomon-growth'])
   })
 
+  it('persists enriched v2 people unchanged through journal compaction, replay, and local reload', async () => {
+    const repository = new MedievalWorldRepository()
+    let world = chooseInitialCourier(createFoundationWorld({ seed: 'persistent-person-v2-storage' }), 'crew:0')
+    const originalPeople = structuredClone(world.state.people.records)
+    for (let index = 0; index < 7; index++) {
+      world = advanceFoundationWorldTime(world, {
+        id: `wait:persistent-person-v2-storage:${index}`,
+        kind: 'wait',
+        durationMinutes: 1,
+        contentSafety: classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['simulation-summary'])
+      })
+    }
+    world = recordDurableJomonGrowth(world, {
+      id: 'growth:persistent-person-v2-storage:tool',
+      kind: 'tool-installation',
+      source: { kind: 'jomon-vessel', id: 'vessel:jomon' },
+      atWorldTime: 7
+    })
+
+    await repository.saveWorld(world)
+    const loaded = await repository.loadWorld(world.id)
+    if (!loaded) throw new Error('valid enriched people should reload locally')
+
+    expect(loaded.state.people).toEqual({ version: 3, records: originalPeople })
+    expect(loaded.state.causalHistory).toMatchObject({ tail: [], checkpoint: { sequence: 9 } })
+    expect(replayFoundationWorldCausalHistory(loaded)).toEqual(causalReplayProjectionForWorldState(loaded.state))
+    expect(loaded.state.people.records).toHaveLength(loaded.crew.length)
+    expect(loaded.state.people.records.some(person => loaded.initialWorld.people.some(seed => seed.id === person.id))).toBe(false)
+  })
+
   it('reloads and continues compacted replay checkpoints after realistic temporal, due-event, and era commands for two configurations', async () => {
     const repository = new MedievalWorldRepository()
     const cases = [
@@ -414,8 +465,8 @@ describe('medieval local persistence', () => {
     forgedCheckpoint.state.causalHistory.checkpoint.token = 'forged-checkpoint'
     const forgedTail = structuredClone(valid)
     forgedTail.state.causalHistory.tail[0]!.token = 'forged-tail'
-    const malformedWorld = { version: 9, id: 'world:malformed' }
-    const malformedChronicle = { version: 8, id: 'chronicle:malformed', status: 'finalized' }
+    const malformedWorld = { version: 10, id: 'world:malformed' }
+    const malformedChronicle = { version: 9, id: 'chronicle:malformed', status: 'finalized' }
     const malformedIndex = { version: 1, activeWorlds: [{ id: 1 }], chronicles: [] }
 
     await repository.loadIndex()

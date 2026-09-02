@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { classifyMedievalContent } from './content-safety'
 import { revealNamedFrontierPerson } from './frontier'
-import { PERSISTENT_PERSON_CONTRACT_VERSION, PERSISTENT_PERSON_LIMITS, instantiateFoundationCrewPeople, persistentPersonContentRecords, validatePersistentPeople, type PersistentPersonValidationContext } from './persistent-person'
-import { chooseInitialCourier, createFoundationWorld, recreateFoundationWorld } from './world'
+import { PERSISTENT_PERSON_CONTRACT_VERSION, PERSISTENT_PERSON_LIMITS, PERSISTENT_PERSON_MATERIAL_INTERESTS, instantiateFoundationCrewPeople, persistentPersonContentRecords, validatePersistentPeople, type PersistentPersonValidationContext } from './persistent-person'
+import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, recordDurableJomonGrowth, recreateFoundationWorld, replayFoundationWorldCausalHistory } from './world'
+import { causalReplayProjectionForWorldState } from './world-state'
 
 const contextFor = (world: ReturnType<typeof createFoundationWorld>): PersistentPersonValidationContext => ({
   seed: world.manifest.creation.seed,
@@ -23,7 +24,7 @@ describe('persistent medieval people', () => {
     const second = createFoundationWorld({ seed: 'persistent crew' })
     const restored = recreateFoundationWorld(first.manifest)
 
-    expect(first.state.people.version).toBe(2)
+    expect(first.state.people.version).toBe(3)
     expect(first.state.people.records).toEqual(second.state.people.records)
     expect(restored.state.people.records).toEqual(first.state.people.records)
     expect(instantiateFoundationCrewPeople(contextFor(first))).toEqual(first.state.people.records)
@@ -31,6 +32,8 @@ describe('persistent medieval people', () => {
     expect(first.state.people.records).toHaveLength(first.crew.length)
     expect(first.state.people.records).toHaveLength(6)
     expect(first.state.people.records.every(person => person.origin === 'foundation-crew' && person.location.id === 'vessel:jomon')).toBe(true)
+    expect(createFoundationWorld({ seed: 'persistent crew different seed' }).state.people.records).not.toEqual(first.state.people.records)
+    expect(createFoundationWorld({ seed: 'persistent crew', configuration: { preset: 'far-coast' } }).state.people.records).not.toEqual(first.state.people.records)
   })
 
   it('preserves each crew member’s name, role, conversation, history, relationships, and equipment in complete records', () => {
@@ -43,7 +46,9 @@ describe('persistent medieval people', () => {
         version: PERSISTENT_PERSON_CONTRACT_VERSION,
         sourceCrewId: crew.id,
         identity: { name: crew.name, adult: true, conversation: crew.conversation },
-        work: { role: crew.role, assignment: { status: 'unassigned' }, availability: 'available' },
+        household: { kind: 'jomon-household', anchor: { kind: 'jomon', id: 'vessel:jomon' } },
+        home: { kind: 'jomon', id: 'vessel:jomon' },
+        work: { role: { kind: 'jomon-crew-role', role: crew.role }, current: { status: 'idle' }, availability: 'available' },
         health: { condition: 'steady', injuries: [], recovery: { status: 'none' } },
         family: [],
         commitments: []
@@ -51,10 +56,52 @@ describe('persistent medieval people', () => {
       expect(person?.possessions.map(possession => possession.name)).toEqual(crew.equipment)
       expect(person?.memories).toContainEqual(expect.objectContaining({ kind: 'foundation-history', detail: crew.history }))
       expect(person?.relationships.map(relationship => ({ personId: relationship.targetPersonId, standing: relationship.standing, basis: relationship.basis }))).toEqual(crew.relationships)
+      expect(person?.materialInterests.length).toBeGreaterThan(0)
+      expect(person?.materialInterests.length).toBeLessThanOrEqual(PERSISTENT_PERSON_LIMITS.interestsPerPerson)
+      expect(person?.materialInterests.every(interest => PERSISTENT_PERSON_MATERIAL_INTERESTS.includes(interest))).toBe(true)
+      expect(person?.materialInterests).toEqual([...person!.materialInterests].sort())
       expect(person?.life.birth.yearsBeforeWorldCreation).toBeGreaterThanOrEqual(PERSISTENT_PERSON_LIMITS.minimumAdultYears)
       expect(person?.life.birth.yearsBeforeWorldCreation).toBeLessThanOrEqual(PERSISTENT_PERSON_LIMITS.maximumAdultYears)
     }
     expect(validatePersistentPeople(contextFor(world), world.state.people.records)).toEqual([])
+  })
+
+  it('keeps typed households, homes, occupations, interests, and commitment-linked current work internally consistent', () => {
+    const world = createFoundationWorld({ seed: 'person-v2-work' })
+    const people = structuredClone(world.state.people.records)
+    const person = people[0]!
+    person.commitments = [{
+      id: `${person.id}:commitment:watch`, kind: 'vessel-duty', status: 'active', createdAtWorldTime: 0,
+      detail: 'Keep the mooring watch.',
+      contentSafety: classifyMedievalContent('contract', ['adult-labour', 'navigation'], 'adults-only', ['person'])
+    }]
+    person.work = {
+      ...person.work,
+      current: { status: 'committed', commitmentId: `${person.id}:commitment:watch`, startedAtWorldTime: 0 },
+      availability: 'committed'
+    }
+
+    expect(validatePersistentPeople(contextFor(world), people)).toEqual([])
+
+    const badHousehold = structuredClone(people)
+    badHousehold[0]!.household = { kind: 'site-household', anchor: { kind: 'site', id: world.state.sites.sites[0]!.id } }
+    const badHome = structuredClone(people)
+    badHome[0]!.home = { kind: 'site', id: 'site:not-real' }
+    const badRole = structuredClone(people)
+    badRole[0]!.work.role = { kind: 'local-occupation', occupation: 'warden' }
+    const badInterests = structuredClone(people)
+    badInterests[0]!.materialInterests = ['route-safety', 'craft-work']
+    const badCurrentWork = structuredClone(people)
+    badCurrentWork[0]!.work.current = { status: 'committed', commitmentId: 'commitment:not-present', startedAtWorldTime: 0 }
+    const badCapacity = structuredClone(people)
+    badCapacity[0]!.work.capacity.current = 0
+
+    expect(codes(contextFor(world), badHousehold)).toContain('persistent-person.invalid-household')
+    expect(codes(contextFor(world), badHome)).toContain('persistent-person.invalid-home')
+    expect(codes(contextFor(world), badRole)).toContain('persistent-person.invalid-work')
+    expect(codes(contextFor(world), badInterests)).toContain('persistent-person.invalid-material-interests')
+    expect(codes(contextFor(world), badCurrentWork)).toContain('persistent-person.invalid-work')
+    expect(codes(contextFor(world), badCapacity)).toContain('persistent-person.invalid-work')
   })
 
   it('keeps uninstantiated initial seeds and frontier commitments outside the mutable registry while allowing a typed known-family reference', () => {
@@ -150,6 +197,7 @@ describe('persistent medieval people', () => {
       detail: 'An active duty.',
       contentSafety: classifyMedievalContent('contract', ['adult-labour', 'civil-life'], 'adults-only', ['person'])
     }]
+    dead[0]!.work.current = { status: 'committed', commitmentId: 'commitment:dead', startedAtWorldTime: 0 }
     expect(codes(context, dead)).toContain('persistent-person.dead-restriction')
 
     const noCourier = createFoundationWorld({ seed: 'dead courier' })
@@ -169,5 +217,25 @@ describe('persistent medieval people', () => {
     expect(codes(contextFor(world), unsafe)).toContain('content-safety.prohibited.torture')
     expect(codes(contextFor(world), unclassified)).toContain('content-safety.missing-classification')
     expect(persistentPersonContentRecords(world.state.people.records).length).toBeGreaterThan(world.state.people.records.length)
+  })
+
+  it('preserves enriched people through selection, time, era growth, checkpoint compaction, and replay without instantiating seeds', () => {
+    let world = chooseInitialCourier(createFoundationWorld({ seed: 'person-v2-replay' }), 'crew:0')
+    const originalPeople = structuredClone(world.state.people.records)
+    for (let index = 0; index < 7; index++) {
+      world = advanceFoundationWorldTime(world, {
+        id: `wait:person-v2-replay:${index}`, kind: 'wait', durationMinutes: 1,
+        contentSafety: classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['simulation-summary'])
+      })
+    }
+    world = recordDurableJomonGrowth(world, {
+      id: 'growth:person-v2-replay:tool', kind: 'tool-installation', source: { kind: 'jomon-vessel', id: 'vessel:jomon' }, atWorldTime: 7
+    })
+
+    expect(world.state.causalHistory.checkpoint.sequence).toBe(9)
+    expect(world.state.people.records).toEqual(originalPeople)
+    expect(world.state.people.records).toHaveLength(world.crew.length)
+    expect(world.state.people.records.some(person => world.initialWorld.people.some(seed => seed.id === person.id))).toBe(false)
+    expect(replayFoundationWorldCausalHistory(world)).toEqual(causalReplayProjectionForWorldState(world.state))
   })
 })

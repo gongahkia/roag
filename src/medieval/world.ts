@@ -359,7 +359,7 @@ export const validateFoundationWorld = (value: unknown): readonly FoundationWorl
   if (!record(value)) return [foundationWorldIssue('foundation-world', 'foundation-world.malformed-record')]
   if (!hasOnlyKeys(value, ['version', 'id', 'status', 'manifest', 'jomon', 'crew', 'initialWorld', 'state'])) return [foundationWorldIssue('foundation-world', 'foundation-world.malformed-record')]
   const issues: FoundationWorldValidationIssue[] = []
-  if (value.version !== 9) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-version'))
+  if (value.version !== 10) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-version'))
   if (typeof value.id !== 'string' || !value.id) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-id'))
   if (value.status !== 'active') issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-status'))
   if (!isReproducibleWorldManifest(value.manifest)) {
@@ -411,7 +411,7 @@ const worldFromCreationProvenance = (
   if (!state) throw new Error('creation provenance does not identify a valid foundation world')
   const temporal = createMedievalTemporalState(temporalProvenanceForCreation(creation))
   return {
-    version: 9,
+    version: 10,
     id: idForCreationProvenance(creation),
     status: 'active',
     manifest: {
@@ -628,7 +628,7 @@ export const recordDurableJomonGrowth = (world: FoundationWorld, evidence: Durab
 export const finalizeWorldAsChronicle = (world: FoundationWorld, reason: ChronicleReason): WorldChronicle => {
   if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
   return {
-    version: 8,
+    version: 9,
     id: `chronicle:${world.id}`,
     status: 'finalized',
     reason,

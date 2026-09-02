@@ -149,8 +149,8 @@ export interface CausalRecord {
 }
 
 export interface FoundationWorld {
-  /** v9 requires v7 mutable state with a replayable bounded command journal. */
-  version: 9
+  /** v10 requires v8 mutable state with persistent-person contract v2. */
+  version: 10
   id: string
   status: 'active'
   manifest: WorldManifest
@@ -163,7 +163,7 @@ export interface FoundationWorld {
 export type ChronicleReason = 'jomon-loss' | 'crew-extinction'
 
 export interface WorldChronicle {
-  version: 8
+  version: 9
   id: string
   status: 'finalized'
   reason: ChronicleReason

@@ -13,12 +13,12 @@ import type { FoundationCrewMember, FoundationJomon } from './types'
  * This is the durable mutable half of a medieval world. It deliberately has
  * no renderer, storage, browser, or prototype dependency.
  */
-export const MEDIEVAL_WORLD_STATE_VERSION = 7 as const
+export const MEDIEVAL_WORLD_STATE_VERSION = 8 as const
 export const WORLD_GEOGRAPHY_STATE_VERSION = 1 as const
 export const WORLD_SITES_STATE_VERSION = 1 as const
 export const WORLD_ROUTES_STATE_VERSION = 1 as const
 export const WORLD_MARKETS_STATE_VERSION = 1 as const
-export const WORLD_PEOPLE_STATE_VERSION = 2 as const
+export const WORLD_PEOPLE_STATE_VERSION = 3 as const
 export const WORLD_INSTITUTIONS_STATE_VERSION = 1 as const
 export const WORLD_CAUSAL_HISTORY_STATE_VERSION = 1 as const
 export const WORLD_JOMON_STATE_VERSION = 1 as const
@@ -101,6 +101,11 @@ export interface WorldMarketsState {
 
 export interface WorldPeopleState {
   version: typeof WORLD_PEOPLE_STATE_VERSION
+  /**
+   * People have no public mutation command yet. The causal replay projection
+   * intentionally excludes these immutable-after-creation records until a
+   * later person reducer adds a closed journal command and replay support.
+   */
   records: readonly PersistentPersonRecord[]
 }
 

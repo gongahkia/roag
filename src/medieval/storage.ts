@@ -32,7 +32,7 @@ const record = (value: unknown): value is Record<string, unknown> => Boolean(val
 const string = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 const chronicleReason = (value: unknown): value is ChronicleReason => value === 'jomon-loss' || value === 'crew-extinction'
 const isFoundationWorld = (value: unknown): value is FoundationWorld => isValidFoundationWorld(value)
-const isChronicle = (value: unknown): value is WorldChronicle => record(value) && value.version === 8 && string(value.id) && value.status === 'finalized' && chronicleReason(value.reason) && isFoundationWorld(value.world)
+const isChronicle = (value: unknown): value is WorldChronicle => record(value) && value.version === 9 && string(value.id) && value.status === 'finalized' && chronicleReason(value.reason) && isFoundationWorld(value.world)
 const isActiveWorldIndexEntry = (value: unknown): boolean => record(value) && string(value.id) && string(value.label) && (value.initialCourierId === undefined || string(value.initialCourierId))
 const isChronicleIndexEntry = (value: unknown): boolean => record(value) && string(value.id) && string(value.label) && chronicleReason(value.reason)
 const isWorldIndex = (value: unknown): value is WorldIndex => record(value) && value.version === 1 && Array.isArray(value.activeWorlds) && value.activeWorlds.every(isActiveWorldIndexEntry) && Array.isArray(value.chronicles) && value.chronicles.every(isChronicleIndexEntry)

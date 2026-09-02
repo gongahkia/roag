@@ -8,7 +8,7 @@ import type { CrewRole, FoundationCrewMember, FoundationJomon } from './types'
  * Persistent people are deliberately separate from generation seeds and frontier
  * commitments. A record exists only once somebody has actually been instantiated.
  */
-export const PERSISTENT_PERSON_CONTRACT_VERSION = 1 as const
+export const PERSISTENT_PERSON_CONTRACT_VERSION = 2 as const
 
 export const PERSISTENT_PERSON_LIMITS = {
   records: 24,
@@ -19,17 +19,19 @@ export const PERSISTENT_PERSON_LIMITS = {
   memoriesPerPerson: 12,
   commitmentsPerPerson: 8,
   injuriesPerPerson: 6,
+  interestsPerPerson: 3,
   needMaximum: 5,
   capacityMaximum: 5,
   minimumAdultYears: 18,
-  maximumAdultYears: 90
+  maximumAdultYears: 90,
+  identityLength: 96
 } as const
 
 export type PersistentPersonOrigin = 'foundation-crew'
 export type PersistentPersonLifeStatus = 'living' | 'dead'
 export type PersistentPersonLocationKind = 'jomon' | 'site' | 'frontier-region'
+export type PersistentPersonHouseholdKind = 'jomon-household' | 'site-household' | 'frontier-household'
 export type PersistentPersonAvailability = 'available' | 'committed' | 'unavailable'
-export type PersistentPersonAssignmentStatus = 'unassigned' | 'assigned'
 export type PersistentPersonHealthCondition = 'steady' | 'strained' | 'injured' | 'recovering'
 export type PersistentPersonRecoveryStatus = 'none' | 'recovering'
 export type PersistentPersonPossessionCondition = 'sound' | 'worn' | 'broken'
@@ -39,6 +41,25 @@ export type PersistentPersonMemoryKind = 'foundation-history' | 'observed-event'
 export type PersistentPersonCommitmentKind = 'vessel-duty' | 'personal-agreement'
 export type PersistentPersonCommitmentStatus = 'active' | 'resolved' | 'cancelled'
 export type PersistentPersonSkillKind = 'navigation' | 'commerce' | 'craft' | 'care' | 'record-keeping' | 'guarding' | 'provisioning' | 'hauling' | 'fishing' | 'performance' | 'command'
+
+/** Closed, material concerns used by future choice and task systems. */
+export const PERSISTENT_PERSON_MATERIAL_INTERESTS = [
+  'waterway-knowledge',
+  'route-safety',
+  'trade-ledgers',
+  'goods-care',
+  'craft-work',
+  'vessel-upkeep',
+  'household-upkeep',
+  'household-security',
+  'provisions',
+  'care-work',
+  'records'
+] as const
+export type PersistentPersonMaterialInterest = typeof PERSISTENT_PERSON_MATERIAL_INTERESTS[number]
+
+export const PERSISTENT_PERSON_LOCAL_OCCUPATIONS = ['warden', 'factor', 'pilot', 'keeper', 'carter'] as const
+export type PersistentPersonLocalOccupation = typeof PERSISTENT_PERSON_LOCAL_OCCUPATIONS[number]
 
 export interface PersistentPersonIdentity {
   name: string
@@ -67,6 +88,12 @@ export interface PersistentPersonLocation {
   id: string
 }
 
+/** Durable affiliation is distinct from the place where somebody currently is. */
+export interface PersistentPersonHousehold {
+  kind: PersistentPersonHouseholdKind
+  anchor: PersistentPersonLocation
+}
+
 export interface PersistentPersonSkill {
   id: string
   kind: PersistentPersonSkillKind
@@ -78,17 +105,24 @@ export interface PersistentPersonCapacity {
   maximum: number
 }
 
-export interface PersistentPersonAssignment {
-  status: PersistentPersonAssignmentStatus
-  assignmentId?: string
-  assignedAtWorldTime?: number
-}
+export type PersistentPersonRole =
+  | { kind: 'jomon-crew-role'; role: CrewRole }
+  | { kind: 'local-occupation'; occupation: PersistentPersonLocalOccupation }
+
+/**
+ * This is intentionally narrower than the later task system. A person can
+ * only name an active self-owned commitment here; delegation assignments and
+ * outcomes require their own future domain contract and journal commands.
+ */
+export type PersistentPersonCurrentWork =
+  | { status: 'idle' }
+  | { status: 'committed'; commitmentId: string; startedAtWorldTime: number }
 
 export interface PersistentPersonWork {
-  role: CrewRole
+  role: PersistentPersonRole
   skills: readonly PersistentPersonSkill[]
   capacity: PersistentPersonCapacity
-  assignment: PersistentPersonAssignment
+  current: PersistentPersonCurrentWork
   availability: PersistentPersonAvailability
 }
 
@@ -177,8 +211,11 @@ export interface PersistentPersonRecord {
   sourceCrewId: string
   identity: PersistentPersonIdentity
   life: PersistentPersonLife
+  household: PersistentPersonHousehold
+  home: PersistentPersonLocation
   location: PersistentPersonLocation
   work: PersistentPersonWork
+  materialInterests: readonly PersistentPersonMaterialInterest[]
   needs: PersistentPersonNeeds
   health: PersistentPersonHealth
   possessions: readonly PersistentPersonPossession[]
@@ -210,8 +247,11 @@ export type PersistentPersonValidationDiagnosticCode =
   | 'persistent-person.missing-crew-person'
   | 'persistent-person.invalid-identity'
   | 'persistent-person.invalid-life'
+  | 'persistent-person.invalid-household'
+  | 'persistent-person.invalid-home'
   | 'persistent-person.invalid-location'
   | 'persistent-person.invalid-work'
+  | 'persistent-person.invalid-material-interests'
   | 'persistent-person.invalid-needs'
   | 'persistent-person.invalid-health'
   | 'persistent-person.invalid-possession'
@@ -241,8 +281,22 @@ const crewSkills: Readonly<Record<CrewRole, readonly PersistentPersonSkillKind[]
   fisher: ['fishing', 'navigation'],
   bard: ['performance', 'record-keeping']
 }
+const crewMaterialInterests: Readonly<Record<CrewRole, readonly PersistentPersonMaterialInterest[]>> = {
+  bargemaster: ['household-upkeep', 'route-safety'],
+  pilot: ['route-safety', 'waterway-knowledge'],
+  factor: ['goods-care', 'trade-ledgers'],
+  carpenter: ['craft-work', 'vessel-upkeep'],
+  guard: ['household-security', 'route-safety'],
+  cook: ['household-upkeep', 'provisions'],
+  healer: ['care-work', 'provisions'],
+  scribe: ['records', 'trade-ledgers'],
+  carter: ['goods-care', 'route-safety'],
+  fisher: ['provisions', 'waterway-knowledge'],
+  bard: ['household-upkeep', 'records']
+}
 const crewRoles: readonly CrewRole[] = ['bargemaster', 'pilot', 'factor', 'carpenter', 'guard', 'cook', 'healer', 'scribe', 'carter', 'fisher', 'bard']
 const skillKinds: readonly PersistentPersonSkillKind[] = ['navigation', 'commerce', 'craft', 'care', 'record-keeping', 'guarding', 'provisioning', 'hauling', 'fishing', 'performance', 'command']
+const householdKinds: readonly PersistentPersonHouseholdKind[] = ['jomon-household', 'site-household', 'frontier-household']
 const relationshipBases: readonly PersistentPersonRelationshipBasis[] = ['kinship', 'work', 'debt', 'friendship', 'rivalry']
 const familyRelations: readonly PersistentPersonFamilyRelation[] = ['parent', 'child', 'sibling', 'partner', 'kin']
 const memoryKinds: readonly PersistentPersonMemoryKind[] = ['foundation-history', 'observed-event', 'reported-fact']
@@ -254,7 +308,7 @@ const possessionConditions: readonly PersistentPersonPossessionCondition[] = ['s
 const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 const same = (left: unknown, right: unknown): boolean => JSON.stringify(left) === JSON.stringify(right)
 const compare = (left: string, right: string): number => left === right ? 0 : left < right ? -1 : 1
-const validId = (value: unknown): value is string => typeof value === 'string' && value.length > 0
+const validId = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= PERSISTENT_PERSON_LIMITS.identityLength && /^[a-z][a-z0-9:._-]*$/i.test(value)
 const nonNegativeInteger = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 const boundedInteger = (value: unknown, maximum: number): value is number => nonNegativeInteger(value) && value <= maximum
 const oneOf = <Value>(values: readonly Value[], value: unknown): value is Value => values.includes(value as Value)
@@ -300,14 +354,17 @@ export const instantiateFoundationCrewPeople = (context: Pick<PersistentPersonVa
     sourceCrewId: member.id,
     identity: { name: member.name, adult: true as const, conversation: member.conversation, contentSafety: member.contentSafety },
     life: { status: 'living' as const, birth: { yearsBeforeWorldCreation: PERSISTENT_PERSON_LIMITS.minimumAdultYears + rng.integer(48) }, death: null },
+    household: { kind: 'jomon-household' as const, anchor: { kind: 'jomon' as const, id: context.jomon.id } },
+    home: { kind: 'jomon' as const, id: context.jomon.id },
     location: { kind: 'jomon' as const, id: context.jomon.id },
     work: {
-      role: member.role,
+      role: { kind: 'jomon-crew-role' as const, role: member.role },
       skills: sortedById(skills),
       capacity: { current: 2 + rng.integer(3), maximum: PERSISTENT_PERSON_LIMITS.capacityMaximum },
-      assignment: { status: 'unassigned' as const },
+      current: { status: 'idle' as const },
       availability: 'available' as const
     },
+    materialInterests: [...crewMaterialInterests[member.role]],
     needs: { nourishment: rng.integer(3), rest: rng.integer(3), shelter: rng.integer(2), safety: rng.integer(2) },
     health: { condition: 'steady' as const, injuries: [], recovery: { status: 'none' as const } },
     possessions: sortedById(member.equipment.map((name, index) => ({ id: `${member.id}:possession:${index}`, ownerPersonId: member.id, name, condition: 'sound' as const, contentSafety: possessionClassification() }))),
@@ -340,6 +397,24 @@ const validLocation = (value: unknown, context: PersistentPersonValidationContex
         : false
 )
 
+const validHousehold = (value: unknown, context: PersistentPersonValidationContext): value is PersistentPersonHousehold => record(value)
+  && hasOnlyKeys(value, ['kind', 'anchor'])
+  && oneOf(householdKinds, value.kind)
+  && validLocation(value.anchor, context)
+  && (value.kind === 'jomon-household' ? value.anchor.kind === 'jomon'
+    : value.kind === 'site-household' ? value.anchor.kind === 'site'
+      : value.anchor.kind === 'frontier-region')
+
+const validRole = (value: unknown): value is PersistentPersonRole => record(value) && (
+  (hasOnlyKeys(value, ['kind', 'role']) && value.kind === 'jomon-crew-role' && oneOf(crewRoles, value.role))
+  || (hasOnlyKeys(value, ['kind', 'occupation']) && value.kind === 'local-occupation' && oneOf(PERSISTENT_PERSON_LOCAL_OCCUPATIONS, value.occupation))
+)
+
+const validCurrentWorkShape = (value: unknown, worldTime: number): value is PersistentPersonCurrentWork => record(value) && (
+  (hasOnlyKeys(value, ['status']) && value.status === 'idle')
+  || (hasOnlyKeys(value, ['status', 'commitmentId', 'startedAtWorldTime']) && value.status === 'committed' && validId(value.commitmentId) && nonNegativeInteger(value.startedAtWorldTime) && value.startedAtWorldTime <= worldTime)
+)
+
 const validKnownReference = (value: unknown, context: PersistentPersonValidationContext): value is KnownUninstantiatedPersonReference => {
   if (!record(value) || !hasOnlyKeys(value, ['kind', 'source', 'sourceId', 'personId', 'name', 'contentSafety']) || value.kind !== 'known-uninstantiated-person' || !validId(value.sourceId) || !validId(value.personId) || typeof value.name !== 'string' || !validClassificationRecord(`known-reference:${value.sourceId}`, 'person', value.contentSafety)) return false
   if (value.source === 'initial-person-seed') {
@@ -361,7 +436,7 @@ const validFamily = (value: unknown, personIds: ReadonlySet<string>, context: Pe
 
 const validRelationship = (value: unknown, personId: string, personIds: ReadonlySet<string>): value is PersistentPersonRelationship => record(value) && hasOnlyKeys(value, ['id', 'targetPersonId', 'reciprocalId', 'standing', 'basis', 'contentSafety']) && validId(value.id) && validId(value.targetPersonId) && value.targetPersonId !== personId && personIds.has(value.targetPersonId) && validId(value.reciprocalId) && [-2, -1, 0, 1, 2].includes(value.standing as number) && oneOf(relationshipBases, value.basis) && validClassificationRecord(`relationship:${value.id}`, 'person', value.contentSafety)
 
-const validRecordShape = (value: unknown): value is PersistentPersonRecord => record(value) && hasOnlyKeys(value, ['version', 'id', 'origin', 'sourceCrewId', 'identity', 'life', 'location', 'work', 'needs', 'health', 'possessions', 'family', 'relationships', 'memories', 'commitments']) && validId(value.id)
+const validRecordShape = (value: unknown): value is PersistentPersonRecord => record(value) && hasOnlyKeys(value, ['version', 'id', 'origin', 'sourceCrewId', 'identity', 'life', 'household', 'home', 'location', 'work', 'materialInterests', 'needs', 'health', 'possessions', 'family', 'relationships', 'memories', 'commitments']) && validId(value.id)
 
 const validCommitment = (value: unknown, worldTime: number): value is PersistentPersonCommitment => {
   if (!record(value) || !validId(value.id) || !oneOf(commitmentKinds, value.kind) || !oneOf(commitmentStatuses, value.status) || !nonNegativeInteger(value.createdAtWorldTime) || value.createdAtWorldTime > worldTime || typeof value.detail !== 'string' || !validClassificationRecord(`commitment:${value.id}`, 'contract', value.contentSafety)) return false
@@ -379,16 +454,18 @@ const validatePerson = (candidate: PersistentPersonRecord, context: PersistentPe
 
   const life = candidate.life
   if (!record(life) || !hasOnlyKeys(life, ['status', 'birth', 'death']) || (life.status !== 'living' && life.status !== 'dead') || !record(life.birth) || !hasOnlyKeys(life.birth, ['yearsBeforeWorldCreation']) || !nonNegativeInteger(life.birth.yearsBeforeWorldCreation) || life.birth.yearsBeforeWorldCreation < PERSISTENT_PERSON_LIMITS.minimumAdultYears || life.birth.yearsBeforeWorldCreation > PERSISTENT_PERSON_LIMITS.maximumAdultYears || (life.status === 'living' ? life.death !== null : !record(life.death) || !hasOnlyKeys(life.death, ['atWorldTime']) || !nonNegativeInteger(life.death.atWorldTime) || life.death.atWorldTime > context.worldTime)) issues.push(issue(id, 'persistent-person.invalid-life'))
+  if (!validHousehold(candidate.household, context) || candidate.household.kind !== 'jomon-household' || candidate.household.anchor.kind !== 'jomon' || candidate.household.anchor.id !== context.jomon.id) issues.push(issue(id, 'persistent-person.invalid-household'))
+  if (!validLocation(candidate.home, context) || candidate.home.kind !== 'jomon' || candidate.home.id !== context.jomon.id) issues.push(issue(id, 'persistent-person.invalid-home'))
   if (!validLocation(candidate.location, context)) issues.push(issue(id, 'persistent-person.invalid-location'))
 
   const work = candidate.work
-  const assignmentValid = record(work) && record(work.assignment) && (
-    (hasOnlyKeys(work.assignment, ['status']) && work.assignment.status === 'unassigned') ||
-    (hasOnlyKeys(work.assignment, ['status', 'assignmentId', 'assignedAtWorldTime']) && work.assignment.status === 'assigned' && validId(work.assignment.assignmentId) && nonNegativeInteger(work.assignment.assignedAtWorldTime) && work.assignment.assignedAtWorldTime <= context.worldTime)
-  )
+  const currentWorkValid = record(work) && validCurrentWorkShape(work.current, context.worldTime)
   const skillsValid = record(work) && Array.isArray(work.skills) && work.skills.length > 0 && work.skills.length <= PERSISTENT_PERSON_LIMITS.skillsPerPerson && isSortedById(work.skills as PersistentPersonSkill[]) && new Set((work.skills as PersistentPersonSkill[]).map(skill => skill.id)).size === work.skills.length && work.skills.every(skill => record(skill) && hasOnlyKeys(skill, ['id', 'kind', 'level']) && validId(skill.id) && oneOf(skillKinds, skill.kind) && [1, 2, 3].includes(skill.level as number))
   const capacityValid = record(work) && record(work.capacity) && hasOnlyKeys(work.capacity, ['current', 'maximum']) && boundedInteger(work.capacity.current, PERSISTENT_PERSON_LIMITS.capacityMaximum) && boundedInteger(work.capacity.maximum, PERSISTENT_PERSON_LIMITS.capacityMaximum) && work.capacity.maximum > 0 && work.capacity.current <= work.capacity.maximum
-  if (!record(work) || !hasOnlyKeys(work, ['role', 'skills', 'capacity', 'assignment', 'availability']) || !oneOf(crewRoles, work.role) || (source !== undefined && work.role !== source.role) || !skillsValid || !capacityValid || !assignmentValid || !oneOf(['available', 'committed', 'unavailable'] as const, work.availability) || (work.assignment.status === 'assigned' && work.availability !== 'committed') || (work.assignment.status === 'unassigned' && work.availability === 'committed')) issues.push(issue(id, 'persistent-person.invalid-work'))
+  if (!record(work) || !hasOnlyKeys(work, ['role', 'skills', 'capacity', 'current', 'availability']) || !validRole(work.role) || (source !== undefined && (!record(work.role) || work.role.kind !== 'jomon-crew-role' || work.role.role !== source.role)) || !skillsValid || !capacityValid || !currentWorkValid || !oneOf(['available', 'committed', 'unavailable'] as const, work.availability) || (work.current.status === 'committed' && (work.availability !== 'committed' || work.capacity.current === 0)) || (work.current.status === 'idle' && work.availability === 'committed') || (work.availability === 'unavailable' && work.current.status !== 'idle') || (work.availability !== 'unavailable' && work.capacity.current === 0)) issues.push(issue(id, 'persistent-person.invalid-work'))
+
+  const interests = candidate.materialInterests
+  if (!Array.isArray(interests) || interests.length === 0 || interests.length > PERSISTENT_PERSON_LIMITS.interestsPerPerson || !interests.every(interest => oneOf(PERSISTENT_PERSON_MATERIAL_INTERESTS, interest)) || new Set(interests).size !== interests.length || !interests.every((interest, index) => index === 0 || compare(interests[index - 1]!, interest) < 0) || (source !== undefined && !same(interests, crewMaterialInterests[source.role]))) issues.push(issue(id, 'persistent-person.invalid-material-interests'))
 
   const needs = candidate.needs
   if (!record(needs) || !hasOnlyKeys(needs, ['nourishment', 'rest', 'shelter', 'safety']) || !boundedInteger(needs.nourishment, PERSISTENT_PERSON_LIMITS.needMaximum) || !boundedInteger(needs.rest, PERSISTENT_PERSON_LIMITS.needMaximum) || !boundedInteger(needs.shelter, PERSISTENT_PERSON_LIMITS.needMaximum) || !boundedInteger(needs.safety, PERSISTENT_PERSON_LIMITS.needMaximum)) issues.push(issue(id, 'persistent-person.invalid-needs'))
@@ -422,7 +499,9 @@ const validatePerson = (candidate: PersistentPersonRecord, context: PersistentPe
   const commitments = candidate.commitments
   if (!Array.isArray(commitments) || commitments.length > PERSISTENT_PERSON_LIMITS.commitmentsPerPerson || !isSortedById(commitments) || new Set(commitments.map(commitment => commitment.id)).size !== commitments.length || !commitments.every(commitment => validCommitment(commitment, context.worldTime))) issues.push(issue(id, 'persistent-person.invalid-commitment'))
 
-  if (life?.status === 'dead' && (work?.availability !== 'unavailable' || work?.assignment?.status !== 'unassigned' || commitments?.some(commitment => commitment.status === 'active'))) issues.push(issue(id, 'persistent-person.dead-restriction'))
+  if (record(work) && validCurrentWorkShape(work.current, context.worldTime) && work.current.status === 'committed' && (!Array.isArray(commitments) || !commitments.some(commitment => commitment.id === work.current.commitmentId && commitment.status === 'active' && commitment.createdAtWorldTime <= work.current.startedAtWorldTime))) issues.push(issue(id, 'persistent-person.invalid-work'))
+
+  if (life?.status === 'dead' && (work?.availability !== 'unavailable' || work?.current?.status !== 'idle' || commitments?.some(commitment => commitment.status === 'active'))) issues.push(issue(id, 'persistent-person.dead-restriction'))
 }
 
 /** Pure, fail-closed validation for the bounded mutable person registry. */

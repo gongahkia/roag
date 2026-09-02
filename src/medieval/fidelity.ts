@@ -163,7 +163,7 @@ const windowCadence = (intervalMinutes: 1 | 5 | 30 | 120 | 240, worldTime: numbe
 })
 
 const validWorld = (value: unknown): value is FoundationWorld => {
-  if (!record(value) || value.version !== 9 || value.status !== 'active' || !record(value.manifest) || !record(value.manifest.creation) || !record(value.state)) return false
+  if (!record(value) || value.version !== 10 || value.status !== 'active' || !record(value.manifest) || !record(value.manifest.creation) || !record(value.state)) return false
   try {
     return foundationWorldInitialWorldMatchesManifest(value as unknown as FoundationWorld)
       && foundationWorldContentSatisfiesSafetyPolicy(value as unknown as FoundationWorld)
@@ -194,9 +194,9 @@ const isNearJomonOrCourier = (person: PersistentPersonRecord, courier: Persisten
 }
 
 const recurrenceReasonsFor = (person: PersistentPersonRecord, courier: PersistentPersonRecord, worldTime: number): readonly FidelityRecurrenceReason[] => {
-  const sharedAssignment = person.work.assignment.status === 'assigned'
-    && courier.work.assignment.status === 'assigned'
-    && person.work.assignment.assignmentId === courier.work.assignment.assignmentId
+  const sharedAssignment = person.work.current.status === 'committed'
+    && courier.work.current.status === 'committed'
+    && person.work.current.commitmentId === courier.work.current.commitmentId
   const relationship = person.relationships.some(item => item.targetPersonId === courier.id)
   const family = person.family.some(link => link.relative.kind === 'instantiated-person' && link.relative.personId === courier.id)
   const memory = person.memories.some(item => item.atWorldTime <= worldTime)
@@ -220,7 +220,7 @@ interface IndividualCandidate {
 const compareCandidates = (activeCourierId: string) => (left: IndividualCandidate, right: IndividualCandidate): number => {
   const active = Number(right.person.id === activeCourierId) - Number(left.person.id === activeCourierId)
   if (active) return active
-  const assigned = Number(right.person.work.assignment.status === 'assigned') - Number(left.person.work.assignment.status === 'assigned')
+  const assigned = Number(right.person.work.current.status === 'committed') - Number(left.person.work.current.status === 'committed')
   if (assigned) return assigned
   const recurrence = right.recurrenceReasons.length - left.recurrenceReasons.length
   if (recurrence) return recurrence
