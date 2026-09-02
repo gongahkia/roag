@@ -205,15 +205,16 @@ describe('terminal presentation contract', () => {
     expect(validateTerminalPrompt(unsafePrompt).map(item => item.code)).toContain('content-safety.prohibited.slavery')
   })
 
-  it('detects keyboard binding conflicts and distinguishes current navigation/management controls from reserved movement and interaction surfaces', () => {
+  it('detects keyboard binding conflicts and distinguishes implemented reserved-map controls from later-only prompt surfaces', () => {
     expect(validateTerminalInputModes(TERMINAL_INPUT_MODES)).toEqual([])
     expect(validateTerminalKeyboardCommands(TERMINAL_KEYBOARD_COMMANDS)).toEqual([])
-    expect(TERMINAL_KEYBOARD_COMMANDS.filter(command => command.availability === 'implemented').every(command => ['navigation', 'management', 'settings', 'text-entry', 'export'].includes(command.surface))).toBe(true)
+    expect(TERMINAL_KEYBOARD_COMMANDS.filter(command => command.availability === 'implemented').every(command => ['navigation', 'management', 'settings', 'text-entry', 'export', 'movement', 'contextual-action', 'remapping', 'help'].includes(command.surface))).toBe(true)
     expect(TERMINAL_KEYBOARD_COMMANDS.filter(command => command.surface === 'movement')).toHaveLength(8)
-    expect(TERMINAL_KEYBOARD_COMMANDS.filter(command => command.surface === 'movement').every(command => command.availability === 'reserved')).toBe(true)
-    expect(TERMINAL_KEYBOARD_COMMANDS.find(command => command.id === 'reserved-contextual-action')?.availability).toBe('reserved')
-    expect(TERMINAL_KEYBOARD_COMMANDS.find(command => command.id === 'reserved-remap-controls')?.availability).toBe('reserved')
-    expect(TERMINAL_KEYBOARD_COMMANDS.find(command => command.id === 'reserved-help')?.availability).toBe('reserved')
+    expect(TERMINAL_KEYBOARD_COMMANDS.filter(command => command.surface === 'movement').every(command => command.availability === 'implemented')).toBe(true)
+    expect(TERMINAL_KEYBOARD_COMMANDS.find(command => command.id === 'world-contextual-prompt')?.availability).toBe('implemented')
+    expect(TERMINAL_KEYBOARD_COMMANDS.find(command => command.id === 'controls-open-editor')?.availability).toBe('implemented')
+    expect(TERMINAL_KEYBOARD_COMMANDS.find(command => command.id === 'world-command-help')?.availability).toBe('implemented')
+    expect(TERMINAL_KEYBOARD_COMMANDS.find(command => command.id === 'reserved-future-prompt-cancel')?.availability).toBe('reserved')
 
     const conflict = [...TERMINAL_KEYBOARD_COMMANDS, {
       id: 'zzz-binding-conflict',
@@ -251,8 +252,6 @@ describe('terminal presentation contract', () => {
       "if (key === 'ArrowLeft' || key === 'ArrowRight') {",
       "if (key === 'Enter' && this.world) { this.route = 'choose-courier'; this.selectedRow = 0; this.render() }",
       "if (key === 'Enter') void this.selectCourier()",
-      "if (key === 'm' || key === 'M') {",
-      "if (this.managementExpanded && (key === '[' || key === ']')) {",
       "if (key === 'Enter') void this.openSelectedChronicle()",
       "key === 'e' || key === 'E'",
       "key === 'r' || key === 'R'",
@@ -265,6 +264,10 @@ describe('terminal presentation contract', () => {
       'if (this.selectedRow === 2 && key === \'Enter\') { this.toggleAdvanced(); return }',
       'if (this.selectedRow === 3 && key === \'Enter\') { this.route = \'creation-profiles\'; this.selectedRow = 0; this.render(); return }'
     ]) expect(appSource).toContain(sourceFragment)
+    expect(appSource).toContain("canvas.addEventListener('keydown', event => this.handleKey(event))")
+    expect(appSource).toContain('resolveTerminalWorldCommand(this.terminalControls')
+    expect(appSource).toContain('createReservedMapContextualPrompt(this.world)')
+    expect(appSource).toContain('captureTerminalControlBinding(this.terminalControls')
 
     const malformedModes = structuredClone(TERMINAL_INPUT_MODES)
     ;(malformedModes[0] as { id: string }).id = 'unknown-mode'
