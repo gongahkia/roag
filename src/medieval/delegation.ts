@@ -421,13 +421,13 @@ const assessmentMatchesOffer = (assessment: ConversationAssessment, offer: Deleg
   && auditMedievalContentSafety([{ id: 'delegation:assessment', domain: 'contract', classification: assessment.contentSafety }]).status === 'accepted'
 
 const recipientSkill = (recipient: PersistentPersonRecord, definition: DelegationTaskDefinition): boolean => recipient.work.skills.some(skill => definition.relevantSkills.includes(skill.kind) && skill.level >= 1)
-const rapportFactor = (assessment: ConversationAssessment): DelegationFactorCode => `recipient-rapport:${assessment.recipientRapport === 'not-assessable' ? 'unformed' : assessment.recipientRapport}` as DelegationFactorCode
+const rapportFactor = (assessment: ConversationAssessment): DelegationFactorCode => `recipient-rapport-${assessment.recipientRapport === 'not-assessable' ? 'unformed' : assessment.recipientRapport}` as DelegationFactorCode
 const capacityFactor = (assessment: ConversationAssessment): DelegationFactorCode => assessment.recipientCapacity === 'ready' ? 'recipient-capacity-ready' : 'recipient-capacity-limited'
 const needsFactor = (assessment: ConversationAssessment): DelegationFactorCode => assessment.recipientNeedsPressure === 'settled' ? 'recipient-needs-settled' : 'recipient-needs-pressured'
 const healthFactor = (assessment: ConversationAssessment): DelegationFactorCode => assessment.recipientHealth === 'recovering' ? 'recipient-health-recovering' : 'recipient-health-steady'
-const riskFactor = (risk: DelegationTaskRiskBand): DelegationFactorCode => `task-risk:${risk}` as DelegationFactorCode
-const urgencyFactor = (urgency: ConversationUrgencyBand): DelegationFactorCode => `task-urgency:${urgency}` as DelegationFactorCode
-const complexityFactor = (complexity: ConversationComplexityBand): DelegationFactorCode => `task-complexity:${complexity}` as DelegationFactorCode
+const riskFactor = (risk: DelegationTaskRiskBand): DelegationFactorCode => `task-risk-${risk}` as DelegationFactorCode
+const urgencyFactor = (urgency: ConversationUrgencyBand): DelegationFactorCode => `task-urgency-${urgency}` as DelegationFactorCode
+const complexityFactor = (complexity: ConversationComplexityBand): DelegationFactorCode => `task-complexity-${complexity}` as DelegationFactorCode
 const rollFactor = (roll: number): DelegationFactorCode => `agreement-roll:${roll as 0 | 1 | 2 | 3 | 4 | 5}`
 const thresholdFactor = (threshold: number): DelegationFactorCode => `agreement-threshold:${threshold as 0 | 1 | 2 | 3 | 4 | 5}`
 const completionRollFactor = (roll: number): DelegationFactorCode => `completion-roll:${roll as 0 | 1 | 2 | 3 | 4 | 5}`
@@ -684,10 +684,7 @@ export const validateDelegationState = (context: DelegationContext, value: unkno
         approach: task.approach,
         proposal: task.proposal
       }, task.assessment, recipient, definition)
-      if (!same(task.agreement, expectedAgreement)) {
-        console.log('delegation agreement diagnostic', { actual: task.agreement, expected: expectedAgreement })
-        issues.push(issue(task.id, 'delegation.invalid-agreement'))
-      }
+      if (!same(task.agreement, expectedAgreement)) issues.push(issue(task.id, 'delegation.invalid-agreement'))
     }
     const duration = definition?.durationMinutes[task.proposal.complexity]
     if (task.status === 'refused') {
