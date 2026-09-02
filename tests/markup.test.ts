@@ -234,6 +234,8 @@ describe('course shuffler markup', () => {
     expect(markup).toContain('Clubhouse champion');
     expect(markup).toContain('class="podium-card podium-place-1"');
     expect(markup).toContain('full standings');
+    expect(markup).toContain('titles earned in the chaos');
+    expect(markup).toContain('Scorecard Scare');
     expect(markup).toContain('complete the route');
     expect(markup).toContain('data-copy-replay');
     expect(markup).not.toContain('data-export-party-diagnostics');

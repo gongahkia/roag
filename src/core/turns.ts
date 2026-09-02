@@ -1,5 +1,5 @@
 import { activePlayer, addMessage, cloneGameState, recordInstrumentation } from './game-state';
-import { distanceToCup, simulateShot, type BallPhysicsModifiers, type SimulationResult } from './physics';
+import { distanceToCup, simulateShot, tileAt, type BallPhysicsModifiers, type SimulationResult } from './physics';
 import { adjustedShotFor, caddyCount, canStorePowerUp, hasCaddy, physicsModifiersFor } from './player-effects';
 import { awardPowerUp } from './powerups';
 import { rulesetFor } from './rulesets';
@@ -10,6 +10,23 @@ import type { Ball, GameState, ShotCommand } from './types';
 /** Preserves seeded legacy item and gadget identity; moving hazards use hazardElapsedMs instead. */
 const advanceLegacyCoursePhase = (state: GameState) => {
   state.coursePhase = (state.coursePhase + 1) % state.holeRules.hazardPhaseCount;
+};
+
+/** Keep superlatives grounded in shot results, not a UI-side interpretation of the replay. */
+const recordShotAnalysis = (state: GameState, player: GameState['players'][number], result: SimulationResult) => {
+  const record = (detail: string, value: number) => recordInstrumentation(state, { type: 'shot-analysis', hole: state.hole, playerId: player.id, detail, value });
+  if (result.ricochetCount) record('ricochet', result.ricochetCount);
+  if (result.hazardContactCount) record('hazard', result.hazardContactCount);
+  if (result.airtimeSeconds >= .2) record('airtime', result.airtimeSeconds);
+  if (!result.holed) {
+    record('whiff', 1);
+    if (result.closestCupDistance <= .8) record('near-miss', result.closestCupDistance);
+  }
+  const sandTiles = new Set(result.frames.flatMap((frame) => {
+    const tile = tileAt(state.course, frame.ball.x, frame.ball.y);
+    return tile?.surface === 'sand' ? [`${Math.floor(frame.ball.x)}:${Math.floor(frame.ball.y)}`] : [];
+  }));
+  if (sandTiles.size) record('sand', sandTiles.size);
 };
 
 const simulatePlayerShot = (state: GameState, playerIndex: number, shot: ShotCommand) => {
@@ -165,6 +182,7 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   }, undefined)?.role ?? 'unknown';
   recordInstrumentation(state, { type: 'turn-duration', hole: state.hole, playerId: player.id, detail: 'shot', value: turnSeconds });
   recordInstrumentation(state, { type: 'shot', hole: state.hole, playerId: player.id, detail: `${shot.kind ?? 'putt'}:${routeRole}`, value: shot.power });
+  recordShotAnalysis(state, player, result);
   result.collidedOtherIndexes.forEach((otherIndex) => {
     const target = state.players.filter((_, index) => index !== playerIndex)[otherIndex];
     if (!target) return;

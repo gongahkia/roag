@@ -26,7 +26,10 @@ export const addMessage = (state: GameState, message: string) => {
 
 export const recordInstrumentation = (state: GameState, event: NonNullable<GameState['instrumentation']>['events'][number]) => {
   state.instrumentation ??= { events: [] };
-  state.instrumentation.events = [...state.instrumentation.events, event].slice(-512);
+  // A full campaign can now produce several small physics facts per shot for
+  // the end-of-match ceremony, so retain the whole practical run rather than
+  // dropping its opening holes from the superlative tally.
+  state.instrumentation.events = [...state.instrumentation.events, event].slice(-4_096);
 };
 
 export const activePlayer = (state: GameState) => state.players[state.turn.playerIndex]!;

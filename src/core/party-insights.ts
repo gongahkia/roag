@@ -12,6 +12,7 @@ export interface PartyReceipt {
 export interface PartyAward {
   id: string;
   playerId: string;
+  glyph: string;
   title: string;
   detail: string;
 }
@@ -44,9 +45,21 @@ const currentEvents = (state: GameState, hole?: number) => (state.instrumentatio
 const countByPlayer = (events: readonly InstrumentationEvent[], type: InstrumentationEvent['type']) => events
   .filter((event) => event.type === type && event.playerId)
   .reduce<Record<string, number>>((counts, event) => ({ ...counts, [event.playerId!]: (counts[event.playerId!] ?? 0) + 1 }), {});
+const sumValuesByPlayer = (events: readonly InstrumentationEvent[], predicate: (event: InstrumentationEvent) => boolean) => events
+  .filter((event) => predicate(event) && event.playerId)
+  .reduce<Record<string, number>>((counts, event) => ({ ...counts, [event.playerId!]: (counts[event.playerId!] ?? 0) + (event.value ?? 1) }), {});
+const peakValuesByPlayer = (events: readonly InstrumentationEvent[], predicate: (event: InstrumentationEvent) => boolean) => events
+  .filter((event) => predicate(event) && event.playerId && event.value !== undefined)
+  .reduce<Record<string, number>>((peaks, event) => ({ ...peaks, [event.playerId!]: Math.max(peaks[event.playerId!] ?? -Infinity, event.value!) }), {});
+const lowestValuesByPlayer = (events: readonly InstrumentationEvent[], predicate: (event: InstrumentationEvent) => boolean) => events
+  .filter((event) => predicate(event) && event.playerId && event.value !== undefined)
+  .reduce<Record<string, number>>((lows, event) => ({ ...lows, [event.playerId!]: Math.min(lows[event.playerId!] ?? Infinity, event.value!) }), {});
 const highestUnused = (counts: Record<string, number>, used: Set<string>) => Object.entries(counts)
   .filter(([id, value]) => value > 0 && !used.has(id))
   .sort(([leftId, leftValue], [rightId, rightValue]) => rightValue - leftValue || leftId.localeCompare(rightId))[0];
+const lowestUnused = (counts: Record<string, number>, used: Set<string>) => Object.entries(counts)
+  .filter(([id, value]) => Number.isFinite(value) && value >= 0 && !used.has(id))
+  .sort(([leftId, leftValue], [rightId, rightValue]) => leftValue - rightValue || leftId.localeCompare(rightId))[0];
 
 /** Turns structured instrumentation into short, attributable social receipts. */
 export const partyReceiptsFor = (state: GameState, hole = state.hole): PartyReceipt[] => currentEvents(state, hole)
@@ -65,19 +78,46 @@ export const partyReceiptsFor = (state: GameState, hole = state.hole): PartyRece
   .slice(-4)
   .reverse();
 
-/** Keeps final awards factual and positive: at most one receipt-backed award per golfer. */
+/**
+ * End-of-match titles deliberately use recorded physics and game events. A
+ * golfer can win only one title, so the final screen celebrates the table
+ * instead of repeatedly congratulating a single runaway winner.
+ */
 export const partyAwardsFor = (state: GameState): PartyAward[] => {
   const events = currentEvents(state);
   const used = new Set<string>();
   const awards: PartyAward[] = [];
-  const add = (id: string, title: string, counts: Record<string, number>, noun: string) => {
+  const limit = Math.min(6, state.players.length);
+  const addHighest = (id: string, glyph: string, title: string, counts: Record<string, number>, detail: (name: string, value: number) => string) => {
     const winner = highestUnused(counts, used);
-    if (!winner || awards.length >= 3) return;
+    if (!winner || awards.length >= limit) return;
     used.add(winner[0]);
-    awards.push({ id, playerId: winner[0], title, detail: `${playerName(state, winner[0])} logged ${winner[1]} ${noun}${winner[1] === 1 ? '' : 's'}.` });
+    awards.push({ id, playerId: winner[0], glyph, title, detail: detail(playerName(state, winner[0]), winner[1]) });
   };
-  add('collision-artist', 'collision artist', countByPlayer(events, 'collision'), 'direct ball hit');
-  add('trick-artist', 'trick artist', countByPlayer(events, 'card'), 'Trick Card play');
+  const addLowest = (id: string, glyph: string, title: string, counts: Record<string, number>, detail: (name: string, value: number) => string) => {
+    const winner = lowestUnused(counts, used);
+    if (!winner || awards.length >= limit) return;
+    used.add(winner[0]);
+    awards.push({ id, playerId: winner[0], glyph, title, detail: detail(playerName(state, winner[0]), winner[1]) });
+  };
+  const analysis = (detail: string) => (event: InstrumentationEvent) => event.type === 'shot-analysis' && event.detail === detail;
+  const routeShots = (route: string) => events.filter((event) => event.type === 'shot' && event.detail.endsWith(`:${route}`));
+
+  addHighest('pinball-wizard', '✦', 'Pinball Wizard', sumValuesByPlayer(events, analysis('ricochet')), (name, value) => `${name} racked up ${value} wall-and-bumper ricochet${value === 1 ? '' : 's'}.`);
+  addHighest('cart-path-menace', '⚑', 'Cart Path Menace', sumValuesByPlayer(events, analysis('hazard')), (name, value) => `${name} set off ${value} course hazard${value === 1 ? '' : 's'}.`);
+  addHighest('air-time-champion', '↑', 'Air Time Champion', peakValuesByPlayer(events, analysis('airtime')), (name, value) => `${name} kept one ball airborne for ${value.toFixed(1)} seconds.`);
+  addHighest('sand-trap-regular', '▧', 'Sand Trap Regular', sumValuesByPlayer(events, analysis('sand')), (name, value) => `${name} toured ${value} sand tile${value === 1 ? '' : 's'} on purpose. Probably.`);
+  addLowest('almost-had-it', '◎', 'Almost Had It', lowestValuesByPlayer(events, analysis('near-miss')), (name, value) => `${name} missed the cup by only ${value.toFixed(2)} tile${value === 1 ? '' : 's'}.`);
+  addHighest('bank-shot-bandit', '↯', 'Bank Shot Bandit', countByPlayer(events, 'collision'), (name, value) => `${name} rearranged ${value} rival ball${value === 1 ? '' : 's'}.`);
+  addHighest('pocket-menace', '✹', 'Pocket Menace', countByPlayer(events, 'card'), (name, value) => `${name} deployed ${value} Trick Card${value === 1 ? '' : 's'}.`);
+  addHighest('whiff-wizard', '◌', 'Whiff Wizard', sumValuesByPlayer(events, analysis('whiff')), (name, value) => `${name} left ${value} shot${value === 1 ? '' : 's'} gloriously unholed.`);
+  addHighest('full-send-scientist', '➤', 'Full Send Scientist', peakValuesByPlayer(events, (event) => event.type === 'shot'), (name, value) => `${name} committed to a ${value.toFixed(1)}-power launch.`);
+  addHighest('traffic-cone-tourist', '⌁', 'Traffic Cone Tourist', countByPlayer(routeShots('conflict'), 'shot'), (name, value) => `${name} volunteered for contested traffic ${value} time${value === 1 ? '' : 's'}.`);
+  addHighest('clubhouse-regular', '¤', 'Clubhouse Regular', countByPlayer(events, 'shop'), (name, value) => `${name} adopted ${value} suspicious merchant bargain${value === 1 ? '' : 's'}.`);
+  addHighest('committee-putter', '…', 'Committee Putter', peakValuesByPlayer(events, (event) => event.type === 'turn-duration' && event.detail === 'shot'), (name, value) => `${name} spent ${value.toFixed(1)} seconds consulting the green.`);
+
+  const scorecards = Object.fromEntries(state.players.map((player) => [player.id, player.total]));
+  addHighest('scorecard-scare', '☄', 'Scorecard Scare', scorecards, (name, value) => `${name} survived the route with ${value} very memorable strokes.`);
   return awards;
 };
 

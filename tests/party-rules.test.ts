@@ -81,7 +81,7 @@ describe('Party Rules vertical slice', () => {
     expect(result.collidedOtherIndexes).toContain(0);
   });
 
-  it('turns structured Party Rules telemetry into bounded social receipts and factual awards', () => {
+  it('turns structured Party Rules telemetry into bounded social receipts and earned superlatives', () => {
     const game = createGame({ ...partyConfig('party-receipts'), humanCount: 3 });
     game.instrumentation = { events: [
       { type: 'collision', hole: 1, playerId: 'human-0', targetId: 'human-1', detail: 'ball collision' },
@@ -92,8 +92,23 @@ describe('Party Rules vertical slice', () => {
       { type: 'hole-duration', hole: 1, detail: 'active seconds', value: 118 },
     ] };
     expect(partyReceiptsFor(game).map((receipt) => receipt.text)).toEqual(['golfer-3 played airhorn on golfer-1', 'golfer-1 banked into golfer-2']);
-    expect(partyAwardsFor(game)).toHaveLength(2);
+    expect(partyAwardsFor(game).map((award) => award.title)).toEqual(['Bank Shot Bandit', 'Pocket Menace', 'Committee Putter']);
     expect(partyPacingFor(game)).toMatchObject({ measuredTurns: 3, medianTurnSeconds: 14, p90TurnSeconds: 21, medianHoleSeconds: 118, withinTurnBudget: false, withinHoleBudget: true });
+  });
+
+  it('gives distinct golfers the core physics-backed mini-golf superlatives', () => {
+    const game = createGame({ ...partyConfig('party-superlatives'), humanCount: 6 });
+    game.instrumentation = { events: [
+      { type: 'shot-analysis', hole: 1, playerId: 'human-0', detail: 'ricochet', value: 7 },
+      { type: 'shot-analysis', hole: 1, playerId: 'human-1', detail: 'hazard', value: 4 },
+      { type: 'shot-analysis', hole: 1, playerId: 'human-2', detail: 'airtime', value: 2.4 },
+      { type: 'shot-analysis', hole: 1, playerId: 'human-3', detail: 'sand', value: 5 },
+      { type: 'shot-analysis', hole: 1, playerId: 'human-4', detail: 'near-miss', value: .18 },
+      { type: 'collision', hole: 1, playerId: 'human-5', targetId: 'human-0', detail: 'ball collision' },
+    ] };
+    const awards = partyAwardsFor(game);
+    expect(awards.map((award) => award.title)).toEqual(['Pinball Wizard', 'Cart Path Menace', 'Air Time Champion', 'Sand Trap Regular', 'Almost Had It', 'Bank Shot Bandit']);
+    expect(new Set(awards.map((award) => award.playerId)).size).toBe(6);
   });
 
   it('exports local diagnostics without player display names', () => {

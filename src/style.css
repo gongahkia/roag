@@ -656,3 +656,81 @@ h1 em { color: #f1d058; }
 .merchant-card.sold { filter: none; transform: none; opacity: .72; }
 .merchant-card.sold .merchant-card-icon { color: #aebad7; border-color: #7181b6; background: #10153a; text-shadow: 2px 2px 0 #050611; }
 .merchant-card.sold footer { color: #d2dbef; font-size: .58rem; letter-spacing: .12em; text-shadow: none; }
+
+/* End-of-match is a small arcade ceremony: the podium rises first, then the
+   earned titles fill in below it. */
+.results-overlay {
+  align-content: center;
+  padding: clamp(.7rem, 2vw, 1.6rem);
+  background:
+    radial-gradient(circle at 50% 8%, #6274bc42 0 5%, transparent 25%),
+    repeating-linear-gradient(135deg, #070819 0 17px, #101541 17px 18px, #070819 18px 35px);
+}
+.results-panel {
+  width: min(960px, 100%);
+  margin: auto;
+  border: 3px solid #f1d058;
+  padding: clamp(.8rem, 2vw, 1.45rem);
+  background: #111744;
+  box-shadow: 8px 8px 0 #050611, inset 0 0 0 2px #27336e;
+}
+.results-header { position: relative; padding: .1rem .5rem .75rem; }
+.results-header::after { display: block; width: min(22rem, 76%); height: .22rem; margin: .72rem auto 0; background: linear-gradient(90deg, #70cfd4 0 33%, #f1d058 33% 66%, #ef6f73 66%); content: ''; }
+.results-header .eyebrow { color: #70cfd4; letter-spacing: .15em; }
+.results-header h1 { color: #fff1c7; font-size: clamp(1.55rem, 4vw, 3.25rem); letter-spacing: -.055em; text-shadow: 4px 4px 0 #050611; }
+.campaign-atlas-note { color: #f1d058; }
+.podium { max-width: 820px; margin: 1.35rem auto 1rem; gap: .7rem; }
+.podium-card {
+  border: 2px solid #6274bc;
+  background: #182052;
+  box-shadow: 4px 4px 0 #050611, inset 0 0 0 1px #293a7c;
+  animation: podium-rise 420ms steps(5, end) both;
+}
+.podium-card > i { box-shadow: 0 0 0 2px #111744, 0 0 0 4px currentColor; }
+.podium-card > strong { color: #fff1c7; }
+.podium-place-1 { border-color: #f1d058; box-shadow: 5px 5px 0 #050611, 0 0 22px #f1d0584d, inset 0 0 0 1px #806f35; animation-delay: 220ms; }
+.podium-place-2 { animation-delay: 70ms; }
+.podium-place-3 { animation-delay: 135ms; }
+.podium-plinth { width: calc(100% + .9rem); color: #111633; }
+
+.party-awards {
+  max-width: 820px;
+  margin: 1rem auto 0;
+  padding: 0;
+  border: 2px solid #6274bc;
+  background: #0d1130;
+  box-shadow: 4px 4px 0 #050611;
+}
+.party-awards header { padding: .62rem .72rem .55rem; border-bottom: 1px solid #4d5f9f; background: #171d4a; text-align: center; }
+.party-awards header p { margin: 0 0 .18rem; color: #70cfd4; font-size: .5rem; font-weight: 800; letter-spacing: .15em; }
+.party-awards h2 { margin: 0; color: #fff1c7; font-size: clamp(.82rem, 2vw, 1.05rem); letter-spacing: .07em; }
+.party-awards header > span { display: block; margin-top: .24rem; color: #b5c0e6; font-size: .5rem; letter-spacing: .055em; text-transform: uppercase; }
+.party-awards ol { grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 0; margin: 0; }
+.party-awards li {
+  display: grid;
+  grid-template-columns: 2.45rem minmax(0, 1fr);
+  gap: .5rem;
+  align-items: center;
+  min-height: 4.3rem;
+  padding: .48rem .55rem;
+  border: 0;
+  border-right: 1px solid #465894;
+  border-top: 1px solid #465894;
+  background: #111744;
+  animation: award-pop 250ms steps(4, end) both;
+}
+.party-awards li:nth-child(2) { animation-delay: 90ms; }.party-awards li:nth-child(3) { animation-delay: 180ms; }.party-awards li:nth-child(4) { animation-delay: 270ms; }.party-awards li:nth-child(5) { animation-delay: 360ms; }.party-awards li:nth-child(6) { animation-delay: 450ms; }
+.party-awards li > i { display: grid; width: 2.05rem; height: 2.05rem; place-items: center; border: 2px solid #fff1c7; color: #111633; box-shadow: 2px 2px 0 #050611; font-size: 1rem; font-style: normal; font-weight: 900; }
+.party-awards li > div { display: grid; gap: .12rem; min-width: 0; }
+.party-awards strong { color: #fff1c7; font-size: .63rem; letter-spacing: .075em; }
+.party-awards li span { color: #c5d1ec; font-size: .55rem; line-height: 1.32; }
+.results-actions { max-width: 820px; margin-right: auto; margin-left: auto; }
+
+@keyframes podium-rise { from { opacity: 0; transform: translateY(1.5rem); } to { opacity: 1; transform: translateY(0); } }
+@keyframes award-pop { from { opacity: 0; transform: translateY(.55rem) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+@media (max-width: 720px) {
+  .results-panel { padding: .72rem; }
+  .podium { gap: .32rem; }
+  .party-awards li { grid-template-columns: 2.15rem minmax(0, 1fr); min-height: 3.85rem; }
+}

@@ -113,6 +113,11 @@ export interface SimulationResult {
   gadgetIds: string[];
   /** Other-ball indexes deliberately struck by the active ball during this simulation. */
   collidedOtherIndexes: number[];
+  /** Gameplay facts retained for end-of-match superlatives. */
+  ricochetCount: number;
+  hazardContactCount: number;
+  airtimeSeconds: number;
+  closestCupDistance: number;
   /** false means the safety ceiling stopped an otherwise active simulation */
   settled: boolean;
 }
@@ -126,6 +131,8 @@ interface Participant {
   portalCooldown: number;
   fallFramesRemaining: number;
   featureCooldown: number;
+  ricochetCount: number;
+  hazardContacts: Set<string>;
   lastLegalBall?: Ball;
   returnBall?: Ball;
 }
@@ -438,6 +445,7 @@ const applyCourseInteractions = (course: Course, participant: Participant, gadge
     ? Math.hypot(ball.x - candidate.entrance.x - .5, ball.y - candidate.entrance.y - .5) < .34
     : Math.hypot(ball.x - candidate.point.x - .5, ball.y - candidate.point.y - .5) < (candidate.kind === 'thorn' ? candidate.radius : .4)));
   if (feature?.kind === 'sinkhole') {
+    participant.hazardContacts.add(`feature:${(course.features ?? []).indexOf(feature)}`);
     ball.x = feature.exit.x + .5;
     ball.y = feature.exit.y + .5;
     ball.z = floorHeightAt(course, ball.x, ball.y) + BALL_RADIUS;
@@ -445,6 +453,7 @@ const applyCourseInteractions = (course: Course, participant: Participant, gadge
     return true;
   }
   if (feature?.kind === 'thorn') {
+    participant.hazardContacts.add(`feature:${(course.features ?? []).indexOf(feature)}`);
     const dx = participant.modifiers.thornmail ? course.cup.x + .5 - ball.x : ball.x - feature.point.x - .5;
     const dy = participant.modifiers.thornmail ? course.cup.y + .5 - ball.y : ball.y - feature.point.y - .5;
     const distance = Math.hypot(dx, dy) || 1;
@@ -453,6 +462,7 @@ const applyCourseInteractions = (course: Course, participant: Participant, gadge
     participant.featureCooldown = 12;
   }
   if (feature?.kind === 'pulse') {
+    participant.hazardContacts.add(`feature:${(course.features ?? []).indexOf(feature)}`);
     ball.vx += feature.direction.x * feature.strength;
     ball.vy += feature.direction.y * feature.strength;
     participant.featureCooldown = 12;
@@ -465,6 +475,7 @@ const applyCourseInteractions = (course: Course, participant: Participant, gadge
     return false;
   }
   triggeredGadgets.add(gadget.id);
+  participant.hazardContacts.add(`gadget:${gadget.id}`);
   const dx = ball.x - gadget.point.x - .5;
   const dy = ball.y - gadget.point.y - .5;
   const distance = Math.hypot(dx, dy) || 1;
@@ -566,6 +577,9 @@ const stepGroundTerrain = (course: Course, participant: Participant, hazardElaps
       return;
     }
     const normal = bounceNormal(previous, ball);
+    participant.ricochetCount += 1;
+    if (tile.surface === 'bumper') participant.hazardContacts.add(`bumper:${Math.floor(ball.x)}:${Math.floor(ball.y)}`);
+    if (closedGate) participant.hazardContacts.add(`gate:${gate?.id ?? `${Math.floor(ball.x)}:${Math.floor(ball.y)}`}`);
     const baseRestitution = tile.surface === 'bumper' ? .84 : participant.modifiers.bouncy ? .94 : participant.modifiers.reboundRig ? .9 : participant.modifiers.bankShot ? .82 : .52;
     const restitution = Math.min(.98, baseRestitution * (participant.modifiers.mirrorBall ? 1.18 : 1) * (participant.modifiers.wallRestitutionMultiplier ?? 1) * (tile.surface === 'bumper' ? (participant.modifiers.bumperRestitutionMultiplier ?? 1) : 1));
     const velocity = reflect(previous, normal, restitution);
@@ -576,6 +590,7 @@ const stepGroundTerrain = (course: Course, participant: Participant, hazardElaps
   ball.z = floorHeightAt(course, ball.x, ball.y) + BALL_RADIUS;
   if (applyCourseInteractions(course, participant, gadgets, triggeredGadgets)) return;
   if (tile.surface === 'spring' && participant.featureCooldown === 0) {
+    participant.hazardContacts.add(`spring:${Math.floor(ball.x)}:${Math.floor(ball.y)}`);
     ball.vz = 3.25 * (participant.modifiers.springLiftMultiplier ?? 1);
     ball.vx *= 1.08;
     ball.vy *= 1.08;
@@ -585,6 +600,7 @@ const stepGroundTerrain = (course: Course, participant: Participant, hazardElaps
 };
 
 const bounceAirborneBall = (course: Course, participant: Participant, previous: Ball) => {
+  participant.ricochetCount += 1;
   const normal = bounceNormal(previous, participant.ball);
   const velocity = reflect(previous, normal, .38);
   participant.ball = {
@@ -603,6 +619,7 @@ const applyAirborneInteractions = (course: Course, participant: Participant, pre
   if (lowBar?.kind === 'low-bar') {
     const height = floorHeightAt(course, lowBar.point.x + .5, lowBar.point.y + .5) + lowBar.clearance;
     if (ball.z - BALL_RADIUS < height && ball.z + BALL_RADIUS > height) {
+      participant.hazardContacts.add(`low-bar:${lowBar.id}`);
       bounceAirborneBall(course, participant, previous);
       return true;
     }
@@ -611,6 +628,7 @@ const applyAirborneInteractions = (course: Course, participant: Participant, pre
     if (hazard.kind !== 'updraft') continue;
     const distance = Math.hypot(ball.x - hazard.point.x - .5, ball.y - hazard.point.y - .5);
     if (distance > hazard.radius) continue;
+    participant.hazardContacts.add(`updraft:${hazard.id}`);
     const force = hazard.strength * (1 - distance / hazard.radius) * STEP;
     ball.vx += hazard.direction.x * force;
     ball.vy += hazard.direction.y * force;
@@ -659,6 +677,8 @@ const stepAirborne = (course: Course, participant: Participant, hazardElapsedMs:
   if (blocked) {
     const obstructionHeight = floorHeightAt(course, ball.x, ball.y) + (tile.surface === 'wall' ? WALL_CLEARANCE_HEIGHT : tile.surface === 'bumper' ? .26 : GATE_CLEARANCE_HEIGHT);
     if (ball.z - BALL_RADIUS > obstructionHeight) return;
+    if (tile.surface === 'bumper') participant.hazardContacts.add(`bumper:${Math.floor(ball.x)}:${Math.floor(ball.y)}`);
+    if (gate) participant.hazardContacts.add(`gate:${gate.id}`);
     bounceAirborneBall(course, participant, previous);
     return;
   }
@@ -708,6 +728,7 @@ const collideWithSweepers = (course: Course, participants: Participant[], hazard
       participant.ball.vx += (normal.x * 1.55 + direction.x * .45) * impulse;
       participant.ball.vy += (normal.y * 1.55 + direction.y * .45) * impulse;
       limitPlanarSpeed(participant.ball);
+      participant.hazardContacts.add(`sweeper:${hazard.id}`);
     }
   }
 };
@@ -758,8 +779,8 @@ const allSettled = (course: Course, participants: Participant[]) => participants
 
 const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, options: SimulationOptions): SimulationResult => {
   const participants: Participant[] = [
-    { ball: { ...initial }, modifiers: options.modifiers ?? {}, reset: false, shieldUsed: false, ghostUsed: false, portalCooldown: 0, fallFramesRemaining: 0, featureCooldown: 0, lastLegalBall: { ...initial } },
-    ...(options.otherBalls ?? []).map(({ ball, modifiers }) => ({ ball: { ...ball }, modifiers: modifiers ?? {}, reset: false, shieldUsed: false, ghostUsed: false, portalCooldown: 0, fallFramesRemaining: 0, featureCooldown: 0, lastLegalBall: { ...ball } })),
+    { ball: { ...initial }, modifiers: options.modifiers ?? {}, reset: false, shieldUsed: false, ghostUsed: false, portalCooldown: 0, fallFramesRemaining: 0, featureCooldown: 0, ricochetCount: 0, hazardContacts: new Set(), lastLegalBall: { ...initial } },
+    ...(options.otherBalls ?? []).map(({ ball, modifiers }) => ({ ball: { ...ball }, modifiers: modifiers ?? {}, reset: false, shieldUsed: false, ghostUsed: false, portalCooldown: 0, fallFramesRemaining: 0, featureCooldown: 0, ricochetCount: 0, hazardContacts: new Set<string>(), lastLegalBall: { ...ball } })),
   ];
   const frames: SimulationFrame[] = [];
   const cups = [tileCenter(course.cup), ...(options.reality === 'cups are many' ? course.itemPads.map((pad) => tileCenter(pad.point)) : [])];
@@ -769,6 +790,9 @@ const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, optio
   const gadgetIds = new Set<string>();
   const activeCollisions = new Set<number>();
   const settleAtEnd = maxSeconds >= MAX_SETTLE_SECONDS;
+  const cup = tileCenter(course.cup);
+  let closestCupDistance = Math.hypot(initial.x - cup.x, initial.y - cup.y);
+  let airborneFrames = 0;
   let holed = false;
   let settled = false;
 
@@ -782,6 +806,8 @@ const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, optio
 
     const active = participants[0]!;
     const activeTile = tileAt(course, active.ball.x, active.ball.y);
+    closestCupDistance = Math.min(closestCupDistance, Math.hypot(active.ball.x - cup.x, active.ball.y - cup.y));
+    if (active.ball.z > (activeTile ? floorHeightAt(course, active.ball.x, active.ball.y) : 0) + BALL_RADIUS + .01) airborneFrames += 1;
     const captureCup = cups.find((cup) => cupCoverageAt(Math.hypot(active.ball.x - cup.x, active.ball.y - cup.y), active.modifiers.cupRadius ?? .28) >= CUP_CAPTURE_COVERAGE);
     if (!active.ball.complete && activeTile && activeTile.surface !== 'void' && isOnGround(course, active.ball) && captureCup && planarSpeed(active.ball) < 1.9) {
       active.ball = { ...active.ball, x: captureCup.x, y: captureCup.y, z: floorHeightAt(course, captureCup.x, captureCup.y) + BALL_RADIUS, vx: 0, vy: 0, vz: 0, complete: true };
@@ -818,6 +844,10 @@ const simulateMotion = (course: Course, initial: Ball, maxSeconds: number, optio
     itemPadIds: [...itemPadIds],
     gadgetIds: [...gadgetIds],
     collidedOtherIndexes: [...activeCollisions],
+    ricochetCount: participants[0]!.ricochetCount,
+    hazardContactCount: participants[0]!.hazardContacts.size,
+    airtimeSeconds: airborneFrames * STEP,
+    closestCupDistance,
     settled,
   };
 };
