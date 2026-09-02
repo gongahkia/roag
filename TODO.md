@@ -371,7 +371,15 @@ Completed simulation-outcome safety/provenance decision (2026-09-02): catch-up c
 
 Verification for the completed simulation-outcome safety/provenance slice: on 2026-09-02, `npx tsc --noEmit` passed. `npx vitest run src/medieval/simulation-catchup.test.ts src/medieval/world-state.test.ts src/medieval/storage.test.ts src/medieval/fidelity.test.ts --maxWorkers=1 --no-file-parallelism` passed 37 tests in 4 files. `npx vitest run src/medieval/*.test.ts --maxWorkers=1 --no-file-parallelism` passed 115 tests in 18 files. `npm run build` passed (Vite transformed 156 modules and the bundle-size check passed), and `git diff --check` passed before this documentation update. Playwright was not run because this renderer-independent schema contract makes no browser-visible change.
 
-- [-] Define a versioned world-era model for base, NG+, and NG++ states. Accumulated in-world active-play time and Jomon’s growth advance it; transition conditions, inspectable causes, persistence, and configuration hooks must be deterministic.
+- [ ] Define a versioned world-era model for base, NG+, and NG++ states. Accumulated in-world active-play time and Jomon’s growth advance it; transition conditions, inspectable causes, persistence, and configuration hooks must be deterministic.
+- [-] Correct catch-up provenance validation and time-partition invariance; define the current layer honestly as a deterministic scheduling/provenance kernel pending domain simulation.
+
+Implementation design for the active catch-up integrity correction:
+
+- `world.ts` will expose one complete foundation-world validation path for storage and every mutable transition: reproducible manifest, immutable initial-world/Jomon/crew evidence, content-safety audits, mutable-state schema, temporal integrity, and catch-up provenance must all pass before a clone is advanced or finalized. Invalid input remains untouched.
+- `fidelity.ts` and `simulation-catchup.ts` will replace action-batched global processing with canonical cadence windows. Each target’s stable token derives only from immutable world provenance, target identity, cadence, and the final crossed canonical window; cursors aggregate the bounded interval count rather than iterating per minute. Temporal action history may differ between equivalent partitions, but the exported canonical simulation projection must not.
+- The persisted layer continues to record validated scheduling/provenance and delegated-work placeholder progress only. It does not claim to mutate needs, relationships, markets, or institutions: later domain simulations consume these canonical windows and cursors.
+- Focused regressions will compare one long wait, unit waits, and mixed partitions; cover cadence crossings, all relevant fidelity tiers, delegated work, bounded long spans, malformed provenance/token/cause/safety data, and action-boundary rejection of tampered immutable evidence.
 - [ ] Add event sourcing or an equivalent inspectable causal history so world changes can be explained, replayed, and persisted within bounded storage.
 - [ ] Add focused tests for reload equivalence, simulation determinism, due-event catch-up, prohibited-content rejection in detailed and summary ticks, zero-time UI/idle/paused/closed sessions, corruption recovery, and bounded state growth.
 

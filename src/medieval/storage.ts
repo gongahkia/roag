@@ -1,7 +1,6 @@
-import { foundationWorldContentSatisfiesSafetyPolicy, foundationWorldIdForManifest, foundationWorldInitialWorldMatchesManifest, foundationWorldTemporalStateMatches, isReproducibleWorldManifest } from './world'
-import { isInitialWorld } from './initial-world'
+import { isValidFoundationWorld } from './world'
 import { emptyCreationSettingsRecord, isCreationSettingsRecord, saveCreationSettingsProfile as saveNamedCreationSettingsProfile, withLastUsedCreationSettings, type CreationSettings, type CreationSettingsRecord } from './settings'
-import { MEDIEVAL_DATABASE_NAME, type ChronicleReason, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type JomonDeckPartition, type JomonVesselPropKind, type WorldChronicle, type WorldIndex, type WorldManifest } from './types'
+import { MEDIEVAL_DATABASE_NAME, type ChronicleReason, type FoundationWorld, type WorldChronicle, type WorldIndex } from './types'
 
 const CATALOG_STORE = 'catalog'
 const WORLD_STORE = 'worlds'
@@ -31,21 +30,9 @@ export const addChronicleToIndex = (index: WorldIndex, chronicle: WorldChronicle
 const clone = <T>(value: T): T => structuredClone(value)
 const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 const string = (value: unknown): value is string => typeof value === 'string' && value.length > 0
-const nonNegativeInteger = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 const chronicleReason = (value: unknown): value is ChronicleReason => value === 'jomon-loss' || value === 'crew-extinction'
-const crewRole = (value: unknown): boolean => ['bargemaster', 'pilot', 'factor', 'carpenter', 'guard', 'cook', 'healer', 'scribe', 'carter', 'fisher', 'bard'].includes(String(value))
-const deckPartition = (value: unknown): value is JomonDeckPartition => ['tavern', 'chart-table', 'cargo-hold', 'repair-space', 'stores', 'berths', 'galley', 'gangplank'].includes(String(value))
-const vesselPropKind = (value: unknown): value is JomonVesselPropKind => ['table', 'ledger', 'rack', 'hearth', 'berth', 'gangplank'].includes(String(value))
-
-const isManifest = (value: unknown): value is WorldManifest => isReproducibleWorldManifest(value)
-const isCrewMember = (value: unknown): value is FoundationCrewMember => record(value) && string(value.id) && string(value.name) && crewRole(value.role) && nonNegativeInteger(value.conversation) && Array.isArray(value.equipment) && value.equipment.every(string) && string(value.history) && typeof value.eligible === 'boolean' && Array.isArray(value.relationships) && value.relationships.every(relationship => record(relationship) && string(relationship.personId) && [-2, -1, 0, 1, 2].includes(Number(relationship.standing)) && ['kinship', 'work', 'debt', 'friendship', 'rivalry'].includes(String(relationship.basis)))
-const isFoundationJomon = (value: unknown): value is FoundationJomon => record(value) && value.id === 'vessel:jomon' && value.name === 'Jomon' && Array.isArray(value.deckPartitions) && value.deckPartitions.every(deckPartition) && Array.isArray(value.quays) && value.quays.every(quay => record(quay) && string(quay.id) && string(quay.name)) && Array.isArray(value.props) && value.props.every(prop => record(prop) && string(prop.id) && vesselPropKind(prop.kind) && deckPartition(prop.partition))
-const isFoundationWorld = (value: unknown): value is FoundationWorld => {
-  if (!record(value) || value.version !== 6 || !string(value.id) || value.status !== 'active' || !isManifest(value.manifest) || value.id !== foundationWorldIdForManifest(value.manifest) || !isFoundationJomon(value.jomon) || !Array.isArray(value.crew) || value.crew.length === 0 || !value.crew.every(isCrewMember) || !isInitialWorld(value.initialWorld) || !record(value.state)) return false
-
-  return foundationWorldInitialWorldMatchesManifest(value as unknown as FoundationWorld) && foundationWorldContentSatisfiesSafetyPolicy(value as unknown as FoundationWorld) && foundationWorldTemporalStateMatches(value as unknown as FoundationWorld)
-}
-const isChronicle = (value: unknown): value is WorldChronicle => record(value) && value.version === 5 && string(value.id) && value.status === 'finalized' && chronicleReason(value.reason) && isFoundationWorld(value.world)
+const isFoundationWorld = (value: unknown): value is FoundationWorld => isValidFoundationWorld(value)
+const isChronicle = (value: unknown): value is WorldChronicle => record(value) && value.version === 6 && string(value.id) && value.status === 'finalized' && chronicleReason(value.reason) && isFoundationWorld(value.world)
 const isActiveWorldIndexEntry = (value: unknown): boolean => record(value) && string(value.id) && string(value.label) && (value.initialCourierId === undefined || string(value.initialCourierId))
 const isChronicleIndexEntry = (value: unknown): boolean => record(value) && string(value.id) && string(value.label) && chronicleReason(value.reason)
 const isWorldIndex = (value: unknown): value is WorldIndex => record(value) && value.version === 1 && Array.isArray(value.activeWorlds) && value.activeWorlds.every(isActiveWorldIndexEntry) && Array.isArray(value.chronicles) && value.chronicles.every(isChronicleIndexEntry)

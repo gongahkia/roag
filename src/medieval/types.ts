@@ -149,8 +149,8 @@ export interface CausalRecord {
 }
 
 export interface FoundationWorld {
-  /** v6 requires v4 mutable state with traceable simulation-outcome causes. */
-  version: 6
+  /** v7 requires v5 mutable state with canonical catch-up cadence windows. */
+  version: 7
   id: string
   status: 'active'
   manifest: WorldManifest
@@ -163,7 +163,7 @@ export interface FoundationWorld {
 export type ChronicleReason = 'jomon-loss' | 'crew-extinction'
 
 export interface WorldChronicle {
-  version: 5
+  version: 6
   id: string
   status: 'finalized'
   reason: ChronicleReason

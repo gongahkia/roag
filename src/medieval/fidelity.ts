@@ -6,9 +6,11 @@ import { foundationWorldContentSatisfiesSafetyPolicy, foundationWorldInitialWorl
 /**
  * A fidelity plan is an ephemeral, deterministic view of durable world data.
  * It deliberately has no reducer and no persisted cursor: the following
- * scheduler slice owns when its cadence is actually processed.
+ * scheduler slice owns when its cadence is actually processed. Cadence is
+ * always a canonical time window: action boundaries never define a global
+ * simulation window.
  */
-export const FIDELITY_PLANNING_CONTRACT_VERSION = 1 as const
+export const FIDELITY_PLANNING_CONTRACT_VERSION = 2 as const
 
 export const FIDELITY_BUDGETS = {
   focused: {
@@ -64,15 +66,14 @@ export interface FidelityPlanningRequest {
 }
 
 export type FidelityCadence =
-  | { kind: 'every-time-bearing-action' }
-  | { kind: 'elapsed-summary'; intervalMinutes: 5 | 30 | 120 | 240; nextEligibleAtWorldTime: number }
+  | { kind: 'time-window'; intervalMinutes: 1 | 5 | 30 | 120 | 240; nextEligibleAtWorldTime: number }
   | { kind: 'not-scheduled' }
 
 export interface FidelityJomonPlan {
   vesselId: 'vessel:jomon'
   location: { kind: 'site' | 'quay'; id: string }
   tier: 'loaded-place'
-  cadence: { kind: 'every-time-bearing-action' }
+  cadence: { kind: 'time-window'; intervalMinutes: 1; nextEligibleAtWorldTime: number }
 }
 
 export interface FidelityActiveCourierPlan {
@@ -100,13 +101,6 @@ export interface FidelityInstitutionAssignment {
   cadence: FidelityCadence
 }
 
-/** Accepted temporal action facts support simulation-outcome provenance only. */
-export interface FidelityActionEvidence {
-  id: string
-  startedAtWorldTime: number
-  atWorldTime: number
-}
-
 export interface FidelityPlan {
   version: typeof FIDELITY_PLANNING_CONTRACT_VERSION
   worldId: string
@@ -116,8 +110,6 @@ export interface FidelityPlan {
   budget: FidelityBudget
   jomon: FidelityJomonPlan
   activeCourier: FidelityActiveCourierPlan
-  /** Canonical action facts; no action detail or player-facing text is copied. */
-  actionEvidence: readonly FidelityActionEvidence[]
   /** Canonical set: Jomon, its current site when applicable, then context locations. */
   loadedLocations: readonly ({ kind: 'jomon'; id: 'vessel:jomon' } | FidelityLoadedLocation)[]
   individuals: readonly FidelityIndividualAssignment[]
@@ -156,16 +148,16 @@ const locationKey = (location: FidelityLoadedLocation): string => `${location.ki
 const budgetFor = (fidelity: SimulationFidelity): FidelityBudget => ({ ...FIDELITY_BUDGETS[fidelity] })
 
 const cadence = (tier: FidelityIndividualTier | FidelityPlaceTier | FidelityInstitutionTier, worldTime: number): FidelityCadence => {
-  if (tier === 'loaded' || tier === 'loaded-place' || tier === 'loaded-institution') return { kind: 'every-time-bearing-action' }
-  if (tier === 'nearby') return elapsedCadence(5, worldTime)
-  if (tier === 'recurring') return elapsedCadence(30, worldTime)
-  if (tier === 'distant-individual-summary') return elapsedCadence(120, worldTime)
-  if (tier === 'distant-settlement-summary' || tier === 'distant-institution-summary') return elapsedCadence(240, worldTime)
+  if (tier === 'loaded' || tier === 'loaded-place' || tier === 'loaded-institution') return windowCadence(1, worldTime)
+  if (tier === 'nearby') return windowCadence(5, worldTime)
+  if (tier === 'recurring') return windowCadence(30, worldTime)
+  if (tier === 'distant-individual-summary') return windowCadence(120, worldTime)
+  if (tier === 'distant-settlement-summary' || tier === 'distant-institution-summary') return windowCadence(240, worldTime)
   return { kind: 'not-scheduled' }
 }
 
-const elapsedCadence = (intervalMinutes: 5 | 30 | 120 | 240, worldTime: number): FidelityCadence => ({
-  kind: 'elapsed-summary',
+const windowCadence = (intervalMinutes: 1 | 5 | 30 | 120 | 240, worldTime: number): FidelityCadence => ({
+  kind: 'time-window',
   intervalMinutes,
   nextEligibleAtWorldTime: (Math.floor(worldTime / intervalMinutes) + 1) * intervalMinutes
 })
@@ -324,8 +316,9 @@ export const validateFidelityPlanningRequest = (value: unknown): readonly Fideli
 }
 
 /**
- * Produces an inspectable plan only. It does not add temporal events or alter
- * world records, so browser idle/inspection cannot gain simulation authority.
+ * Produces an inspectable plan only. Its cadences identify canonical elapsed
+ * windows; it does not add temporal events or alter world records, so browser
+ * idle/inspection cannot gain simulation authority.
  */
 export const createFidelityPlan = (request: FidelityPlanningRequest | unknown): FidelityPlan => {
   const diagnostics = validateFidelityPlanningRequest(request)
@@ -351,11 +344,13 @@ export const createFidelityPlan = (request: FidelityPlanningRequest | unknown): 
     worldTime: world.state.temporal.worldTime,
     simulationFidelity: world.manifest.creation.resolvedConfiguration.simulationFidelity,
     budget,
-    jomon: { vesselId: world.jomon.id, location: structuredClone(world.state.jomon.location), tier: 'loaded-place', cadence: { kind: 'every-time-bearing-action' } },
+    jomon: {
+      vesselId: world.jomon.id,
+      location: structuredClone(world.state.jomon.location),
+      tier: 'loaded-place',
+      cadence: { kind: 'time-window', intervalMinutes: 1, nextEligibleAtWorldTime: (world.state.temporal.worldTime + 1) }
+    },
     activeCourier: { personId: activeCourierId, tier: 'loaded' },
-    actionEvidence: world.state.temporal.causalRecords
-      .filter(record => record.kind === 'action-completed')
-      .map(record => ({ id: record.actionId, startedAtWorldTime: record.startedAtWorldTime, atWorldTime: record.atWorldTime })),
     loadedLocations,
     individuals,
     places,

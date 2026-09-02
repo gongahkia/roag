@@ -2,7 +2,7 @@ import { SeededRng, hashSeed } from './rng'
 import { MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION, auditMedievalContentSafety, classifyMedievalContent, contentSafetyAuditMatches, isMedievalContentSafetyAudit, type ClassifiedMedievalContent, type MedievalContentSafetyAudit, type MedievalContentSafetyDiagnostic } from './content-safety'
 import { FRONTIER_CONTRACT_VERSION, createInitialFrontierState, frontierContentRecords, type FrontierState } from './frontier'
 import { generationConfigurationFingerprint, generationRetryPlan, isReproducibleGenerationDiagnostics, resolveWorldGenerationConfig, type WorldGenerationConfig, type WorldGenerationConfigIssue, type WorldGenerationConfigRequest } from './generation-config'
-import { INITIAL_WORLD_GENERATION_DIAGNOSTICS_VERSION, INITIAL_WORLD_GENERATOR_VERSION, generateInitialWorld, initialWorldContentRecords, type InitialWorld, type InitialWorldGenerationDiagnostics, type InitialWorldGenerationProgressObserver } from './initial-world'
+import { INITIAL_WORLD_GENERATION_DIAGNOSTICS_VERSION, INITIAL_WORLD_GENERATOR_VERSION, generateInitialWorld, initialWorldContentRecords, isInitialWorld, type InitialWorld, type InitialWorldGenerationDiagnostics, type InitialWorldGenerationProgressObserver } from './initial-world'
 import { normalizeCreationSeed } from './settings'
 import { advanceMedievalTemporalState, createMedievalTemporalState, isMedievalTemporalState, type TemporalCommand, type TemporalProvenance } from './temporal'
 import { createMedievalWorldState, isMedievalWorldState } from './world-state'
@@ -343,6 +343,53 @@ const expectedCreationProvenance = (seed: string, selectedConfiguration: WorldCr
 const cloneWorld = (world: FoundationWorld): FoundationWorld => structuredClone(world)
 const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
+export type FoundationWorldValidationCode =
+  | 'foundation-world.malformed-record'
+  | 'foundation-world.invalid-version'
+  | 'foundation-world.invalid-id'
+  | 'foundation-world.invalid-status'
+  | 'foundation-world.invalid-manifest'
+  | 'foundation-world.invalid-initial-world'
+  | 'foundation-world.invalid-immutable-content'
+  | 'foundation-world.invalid-mutable-state'
+
+export interface FoundationWorldValidationIssue {
+  code: FoundationWorldValidationCode
+  recordId: string
+}
+
+const foundationWorldIssue = (recordId: string, code: FoundationWorldValidationCode): FoundationWorldValidationIssue => ({ recordId, code })
+
+/**
+ * One fail-closed boundary for repository reads and public mutable-world
+ * transitions. Keeping this evidence together prevents action-time checks
+ * from accepting a world that local persistence would reject.
+ */
+export const validateFoundationWorld = (value: unknown): readonly FoundationWorldValidationIssue[] => {
+  if (!record(value)) return [foundationWorldIssue('foundation-world', 'foundation-world.malformed-record')]
+  const issues: FoundationWorldValidationIssue[] = []
+  if (value.version !== 7) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-version'))
+  if (typeof value.id !== 'string' || !value.id) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-id'))
+  if (value.status !== 'active') issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-status'))
+  if (!isReproducibleWorldManifest(value.manifest)) {
+    issues.push(foundationWorldIssue('foundation-world:manifest', 'foundation-world.invalid-manifest'))
+    return issues
+  }
+  const world = value as unknown as FoundationWorld
+  if (world.id !== foundationWorldIdForManifest(world.manifest)) issues.push(foundationWorldIssue('foundation-world:id', 'foundation-world.invalid-id'))
+  if (!isInitialWorld(world.initialWorld)) issues.push(foundationWorldIssue('foundation-world:initial-world', 'foundation-world.invalid-initial-world'))
+  try {
+    if (!foundationWorldInitialWorldMatchesManifest(world)) issues.push(foundationWorldIssue('foundation-world:initial-world', 'foundation-world.invalid-initial-world'))
+    if (!foundationWorldContentSatisfiesSafetyPolicy(world)) issues.push(foundationWorldIssue('foundation-world:immutable-content', 'foundation-world.invalid-immutable-content'))
+    if (!foundationWorldTemporalStateMatches(world)) issues.push(foundationWorldIssue('foundation-world:mutable-state', 'foundation-world.invalid-mutable-state'))
+  } catch {
+    issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-mutable-state'))
+  }
+  return issues
+}
+
+export const isValidFoundationWorld = (value: unknown): value is FoundationWorld => validateFoundationWorld(value).length === 0
+
 export const foundationWorldIdForManifest = (manifest: WorldManifest): string => idForCreationProvenance(manifest.creation)
 
 /** Stable JSON for sharing/export; it refuses a manifest outside the current contract. */
@@ -372,7 +419,7 @@ const worldFromCreationProvenance = (
   if (!state) throw new Error('creation provenance does not identify an eligible initial courier')
   const temporal = createMedievalTemporalState(temporalProvenanceForCreation(creation))
   return {
-    version: 6,
+    version: 7,
     id: idForCreationProvenance(creation),
     status: 'active',
     manifest: {
@@ -412,8 +459,8 @@ export const recreateFoundationWorld = (manifest: WorldManifest): FoundationWorl
 }
 
 export const chooseInitialCourier = (world: FoundationWorld, courierId: string): FoundationWorld => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
   if (world.status !== 'active') throw new Error('only an active world can select an initial courier')
-  if (!foundationWorldTemporalStateMatches(world)) throw new Error('world state does not match immutable creation provenance')
   if (world.state.courier.initialCourierId !== undefined) throw new Error('initial courier has already been selected')
   if (world.state.temporal.worldTime !== 0 || world.state.temporal.actionSequence !== 0 || world.state.temporal.pendingEvents.length !== 0) throw new Error('initial courier must be selected before time-bearing actions')
   const candidate = world.crew.find(member => member.id === courierId)
@@ -482,8 +529,8 @@ export const foundationWorldTemporalStateMatches = (world: FoundationWorld): boo
  * manifest creation provenance and courier-selection state untouched.
  */
 export const advanceFoundationWorldTime = (world: FoundationWorld, command: TemporalCommand | unknown): FoundationWorld => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
   if (world.status !== 'active') throw new Error('only an active world can advance time')
-  if (!foundationWorldTemporalStateMatches(world)) throw new Error('world temporal state does not match immutable creation provenance')
   const transition = advanceMedievalTemporalState(world.state.temporal, command)
   const staticState = expectedFoundationState(world.manifest.creation.seed, world.manifest.creation.resolvedConfiguration, world.state.courier.initialCourierId)
   if (!staticState) throw new Error('world has an invalid initial courier state')
@@ -526,12 +573,15 @@ export const advanceFoundationWorldTime = (world: FoundationWorld, command: Temp
   }
 }
 
-export const finalizeWorldAsChronicle = (world: FoundationWorld, reason: ChronicleReason): WorldChronicle => ({
-  version: 5,
-  id: `chronicle:${world.id}`,
-  status: 'finalized',
-  reason,
-  world: cloneWorld(world)
-})
+export const finalizeWorldAsChronicle = (world: FoundationWorld, reason: ChronicleReason): WorldChronicle => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  return {
+    version: 6,
+    id: `chronicle:${world.id}`,
+    status: 'finalized',
+    reason,
+    world: cloneWorld(world)
+  }
+}
 
 export const chronicleExport = (chronicle: WorldChronicle): string => JSON.stringify(chronicle, null, 2)

@@ -3,12 +3,14 @@ import type { FidelityCadence, FidelityIndividualTier, FidelityInstitutionTier, 
 import { SeededRng } from './rng'
 
 /**
- * The catch-up state is deliberately a kernel rather than an economy or task
- * system. It records which already-known records have processed their assigned
- * fidelity cadence. Later slices own the concrete market and delegation rules.
+ * This is a deterministic scheduling/provenance kernel, not a domain
+ * simulation. Its canonical output says which stable cadence windows have
+ * become due. Later people, market, and institution systems consume those
+ * windows to apply their own rules.
  */
-export const SIMULATION_CATCH_UP_CONTRACT_VERSION = 2 as const
-export const SIMULATION_OUTCOME_CAUSE_VERSION = 1 as const
+export const SIMULATION_CATCH_UP_CONTRACT_VERSION = 3 as const
+export const SIMULATION_OUTCOME_CAUSE_VERSION = 2 as const
+export const SIMULATION_CATCH_UP_PROJECTION_VERSION = 1 as const
 
 export const SIMULATION_CATCH_UP_LIMITS = {
   cursors: 96,
@@ -21,6 +23,7 @@ export type SimulationCatchUpTier = FidelityIndividualTier | FidelityPlaceTier |
 export type SimulationOutcomeDetail = 'detailed' | 'summary'
 export type SimulationOutcomeCauseKind = 'fidelity-cadence'
 export type SimulationOutcomeEvidenceSource = 'known-world-record' | 'delegated-work-fact'
+export type SimulationCadenceMinutes = 1 | 5 | 30 | 120 | 240
 
 export interface DelegatedWorkPlaceholder {
   id: string
@@ -31,32 +34,29 @@ export interface DelegatedWorkPlaceholder {
   resolvedAtWorldTime?: number
 }
 
+/** A durable cursor aggregates a target's complete canonical windows. */
 export interface SimulationCatchUpCursor {
   id: string
   targetKind: SimulationCatchUpTargetKind
   targetId: string
   tier: SimulationCatchUpTier
-  processedAtWorldTime: number
+  cadenceMinutes: SimulationCadenceMinutes
+  processedThroughWorldTime: number
   processedIntervals: number
-  lastActionId: string
   outcomeToken: number
 }
 
-/** A closed link to facts that a future surface can inspect without hidden prose. */
+/** A closed link to a stable cadence window; it deliberately has no action ID. */
 export interface SimulationOutcomeCauseEvidence {
   source: SimulationOutcomeEvidenceSource
   targetKind: SimulationCatchUpTargetKind
   targetId: string
-  actionId: string
-  startedAtWorldTime: number
-  processedAtWorldTime: number
+  cadenceMinutes: SimulationCadenceMinutes
+  windowStartWorldTime: number
+  windowEndWorldTime: number
   dueIntervals: number
 }
 
-/**
- * Outcome causes carry no free text. They only point to a known world record
- * (or the typed delegated-work fact), its accepted action, and cadence facts.
- */
 export interface SimulationOutcomeCause {
   version: typeof SIMULATION_OUTCOME_CAUSE_VERSION
   kind: SimulationOutcomeCauseKind
@@ -64,14 +64,18 @@ export interface SimulationOutcomeCause {
   contentSafety: MedievalContentSafetyClassification
 }
 
+/**
+ * A bounded audit observation of a target's due windows. The identity and
+ * token name the final canonical window, never the action that observed it.
+ */
 export interface SimulationCatchUpRecord {
   id: string
-  actionId: string
   targetKind: SimulationCatchUpTargetKind
   targetId: string
   tier: SimulationCatchUpTier
-  startedAtWorldTime: number
-  processedAtWorldTime: number
+  cadenceMinutes: SimulationCadenceMinutes
+  windowStartWorldTime: number
+  windowEndWorldTime: number
   dueIntervals: number
   outcomeToken: number
   outcomeDetail: SimulationOutcomeDetail
@@ -94,14 +98,16 @@ export interface SimulationCatchUpValidationContext {
   personIds: readonly string[]
   marketIds: readonly string[]
   institutionIds: readonly string[]
-  actionEvidence: readonly SimulationCatchUpActionEvidence[]
 }
 
-/** Minimal projection of an accepted temporal action; it contains no prose. */
-export interface SimulationCatchUpActionEvidence {
-  id: string
-  startedAtWorldTime: number
-  atWorldTime: number
+/** The partition-invariant input future domain systems must consume. */
+export interface SimulationCatchUpProjection {
+  version: typeof SIMULATION_CATCH_UP_PROJECTION_VERSION
+  worldId: string
+  creationDigest: string
+  worldTime: number
+  cursors: readonly SimulationCatchUpCursor[]
+  delegatedWork: readonly DelegatedWorkPlaceholder[]
 }
 
 export interface SimulationCatchUpTransition {
@@ -144,25 +150,28 @@ const issue = (recordId: string, code: SimulationCatchUpDiagnosticCode): Simulat
 const canonicalIssues = (issues: readonly SimulationCatchUpDiagnostic[]): readonly SimulationCatchUpDiagnostic[] => [...new Map(issues.map(value => [`${value.recordId}\u0000${value.code}`, value])).values()].sort((left, right) => compare(left.recordId, right.recordId) || compare(left.code, right.code))
 const targetKinds: readonly SimulationCatchUpTargetKind[] = ['person', 'market', 'institution', 'delegated-work']
 const tiers: readonly SimulationCatchUpTier[] = ['loaded', 'nearby', 'recurring', 'distant-individual-summary', 'deferred', 'historical-only', 'loaded-place', 'distant-settlement-summary', 'loaded-institution', 'distant-institution-summary']
+const cadenceMinutes: readonly SimulationCadenceMinutes[] = [1, 5, 30, 120, 240]
 const cursorIdFor = (targetKind: SimulationCatchUpTargetKind, targetId: string): string => `catch-up:${targetKind}:${targetId}`
+const recordIdFor = (targetKind: SimulationCatchUpTargetKind, targetId: string, cadence: SimulationCadenceMinutes, windowEndWorldTime: number): string => `catch-up:${targetKind}:${targetId}:cadence:${cadence}:window:${windowEndWorldTime}`
 const summaryClassification = (): MedievalContentSafetyClassification => classifyMedievalContent('simulation-summary', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
 const causeClassification = (): MedievalContentSafetyClassification => classifyMedievalContent('data', ['adult-labour', 'navigation'], 'not-applicable', ['simulation-summary'])
 const validTier = (value: unknown): value is SimulationCatchUpTier => tiers.includes(value as SimulationCatchUpTier)
+const validCadenceMinutes = (value: unknown): value is SimulationCadenceMinutes => cadenceMinutes.includes(value as SimulationCadenceMinutes)
 const validOutcomeDetail = (value: unknown): value is SimulationOutcomeDetail => value === 'detailed' || value === 'summary'
 const detailForTier = (tier: SimulationCatchUpTier): SimulationOutcomeDetail => tier === 'distant-individual-summary' || tier === 'distant-settlement-summary' || tier === 'distant-institution-summary' ? 'summary' : 'detailed'
 const evidenceSourceFor = (targetKind: SimulationCatchUpTargetKind): SimulationOutcomeEvidenceSource => targetKind === 'delegated-work' ? 'delegated-work-fact' : 'known-world-record'
+const cadenceForTier = (tier: SimulationCatchUpTier): SimulationCadenceMinutes | undefined => {
+  if (tier === 'loaded' || tier === 'loaded-place' || tier === 'loaded-institution') return 1
+  if (tier === 'nearby') return 5
+  if (tier === 'recurring') return 30
+  if (tier === 'distant-individual-summary') return 120
+  if (tier === 'distant-settlement-summary' || tier === 'distant-institution-summary') return 240
+  return undefined
+}
 
 export const simulationCatchUpContentRecords = (state: Pick<SimulationCatchUpState, 'records'>): readonly ClassifiedMedievalContent[] => state.records.flatMap(item => [
-  {
-    id: `simulation-catchup:${item.id}`,
-    domain: 'simulation-summary' as const,
-    classification: item.contentSafety
-  },
-  {
-    id: `simulation-cause:${item.id}`,
-    domain: 'data' as const,
-    classification: item.cause?.contentSafety as MedievalContentSafetyClassification
-  }
+  { id: `simulation-catchup:${item.id}`, domain: 'simulation-summary' as const, classification: item.contentSafety },
+  { id: `simulation-cause:${item.id}`, domain: 'data' as const, classification: item.cause?.contentSafety as MedievalContentSafetyClassification }
 ])
 
 const audit = (state: Pick<SimulationCatchUpState, 'records'>): MedievalContentSafetyAudit => {
@@ -172,12 +181,7 @@ const audit = (state: Pick<SimulationCatchUpState, 'records'>): MedievalContentS
 }
 
 export const createSimulationCatchUpState = (): SimulationCatchUpState => {
-  const state = {
-    version: SIMULATION_CATCH_UP_CONTRACT_VERSION,
-    cursors: [],
-    delegatedWork: [],
-    records: []
-  } satisfies Omit<SimulationCatchUpState, 'contentSafetyAudit'>
+  const state = { version: SIMULATION_CATCH_UP_CONTRACT_VERSION, cursors: [], delegatedWork: [], records: [] } satisfies Omit<SimulationCatchUpState, 'contentSafetyAudit'>
   return { ...state, contentSafetyAudit: audit(state) }
 }
 
@@ -208,32 +212,21 @@ const targetExists = (context: SimulationCatchUpValidationContext, targetKind: S
   return delegatedWorkIds.has(targetId)
 }
 
-const actionEvidenceFor = (context: SimulationCatchUpValidationContext, actionId: string): SimulationCatchUpActionEvidence | undefined => context.actionEvidence.find(item => item.id === actionId)
-
-const validActionEvidence = (value: unknown): value is SimulationCatchUpActionEvidence => record(value)
-  && hasOnlyKeys(value, ['id', 'startedAtWorldTime', 'atWorldTime'])
-  && validId(value.id)
-  && safeInteger(value.startedAtWorldTime)
-  && safeInteger(value.atWorldTime)
-  && value.startedAtWorldTime < value.atWorldTime
-
 const validCauseEvidenceShape = (value: unknown): value is SimulationOutcomeCauseEvidence => record(value)
-  && hasOnlyKeys(value, ['source', 'targetKind', 'targetId', 'actionId', 'startedAtWorldTime', 'processedAtWorldTime', 'dueIntervals'])
+  && hasOnlyKeys(value, ['source', 'targetKind', 'targetId', 'cadenceMinutes', 'windowStartWorldTime', 'windowEndWorldTime', 'dueIntervals'])
   && (value.source === 'known-world-record' || value.source === 'delegated-work-fact')
   && targetKinds.includes(value.targetKind as SimulationCatchUpTargetKind)
   && validId(value.targetId)
-  && validId(value.actionId)
-  && safeInteger(value.startedAtWorldTime)
-  && safeInteger(value.processedAtWorldTime)
-  && value.startedAtWorldTime < value.processedAtWorldTime
+  && validCadenceMinutes(value.cadenceMinutes)
+  && safeInteger(value.windowStartWorldTime)
+  && safeInteger(value.windowEndWorldTime)
+  && value.windowStartWorldTime > 0
+  && value.windowStartWorldTime <= value.windowEndWorldTime
   && safeInteger(value.dueIntervals)
   && value.dueIntervals > 0
 
 const validCauseEnvelope = (value: unknown): value is Record<string, unknown> => record(value)
-  && Object.keys(value).every(key => ['version', 'kind', 'evidence', 'contentSafety'].includes(key))
-  && Object.hasOwn(value, 'version')
-  && Object.hasOwn(value, 'kind')
-  && Object.hasOwn(value, 'contentSafety')
+  && hasOnlyKeys(value, ['version', 'kind', 'evidence', 'contentSafety'])
   && value.version === SIMULATION_OUTCOME_CAUSE_VERSION
   && value.kind === 'fidelity-cadence'
 
@@ -241,24 +234,13 @@ const validCauseShape = (value: unknown): value is SimulationOutcomeCause => val
   && validCauseEvidenceShape(value.evidence)
   && auditMedievalContentSafety([{ id: 'simulation-cause:validation', domain: 'data', classification: value.contentSafety }]).status === 'accepted'
 
-const causeMatchesRecord = (cause: SimulationOutcomeCause, value: Pick<SimulationCatchUpRecord, 'actionId' | 'targetKind' | 'targetId' | 'startedAtWorldTime' | 'processedAtWorldTime' | 'dueIntervals'>, context: SimulationCatchUpValidationContext, delegatedWorkIds: ReadonlySet<string>): boolean => {
-  const evidence = cause.evidence
-  const action = actionEvidenceFor(context, evidence.actionId)
-  return context.actionEvidence.every(validActionEvidence)
-    && evidence.source === evidenceSourceFor(value.targetKind)
-    && evidence.targetKind === value.targetKind
-    && evidence.targetId === value.targetId
-    && evidence.actionId === value.actionId
-    && evidence.startedAtWorldTime === value.startedAtWorldTime
-    && evidence.processedAtWorldTime === value.processedAtWorldTime
-    && evidence.dueIntervals === value.dueIntervals
-    && targetExists(context, evidence.targetKind, evidence.targetId, delegatedWorkIds)
-    && action !== undefined
-    && action.startedAtWorldTime === evidence.startedAtWorldTime
-    && action.atWorldTime === evidence.processedAtWorldTime
-}
-
-const outcomeTokenFor = (context: Pick<SimulationCatchUpValidationContext, 'worldId' | 'creationDigest'>, targetKind: SimulationCatchUpTargetKind, targetId: string, processedAtWorldTime: number): number => new SeededRng(`jomon-simulation-catchup-v${SIMULATION_CATCH_UP_CONTRACT_VERSION}|${context.creationDigest}|${context.worldId}|${targetKind}|${targetId}|${processedAtWorldTime}`).integer(1_000_000)
+const outcomeTokenFor = (
+  context: Pick<SimulationCatchUpValidationContext, 'worldId' | 'creationDigest'>,
+  targetKind: SimulationCatchUpTargetKind,
+  targetId: string,
+  cadence: SimulationCadenceMinutes,
+  windowEndWorldTime: number
+): number => new SeededRng(`jomon-simulation-catchup-v${SIMULATION_CATCH_UP_CONTRACT_VERSION}|${context.creationDigest}|${context.worldId}|${targetKind}|${targetId}|cadence:${cadence}|window:${windowEndWorldTime}`).integer(1_000_000)
 
 const validDelegatedWork = (value: unknown, context: SimulationCatchUpValidationContext): value is DelegatedWorkPlaceholder => record(value)
   && ((value.status === 'active' && hasOnlyKeys(value, ['id', 'assigneePersonId', 'status', 'committedAtWorldTime', 'progressIntervals']))
@@ -271,45 +253,65 @@ const validDelegatedWork = (value: unknown, context: SimulationCatchUpValidation
   && safeInteger(value.progressIntervals)
 
 const validCursor = (value: unknown, context: SimulationCatchUpValidationContext, delegatedWorkIds: ReadonlySet<string>): value is SimulationCatchUpCursor => record(value)
-  && hasOnlyKeys(value, ['id', 'targetKind', 'targetId', 'tier', 'processedAtWorldTime', 'processedIntervals', 'lastActionId', 'outcomeToken'])
+  && hasOnlyKeys(value, ['id', 'targetKind', 'targetId', 'tier', 'cadenceMinutes', 'processedThroughWorldTime', 'processedIntervals', 'outcomeToken'])
   && validId(value.id)
   && targetKinds.includes(value.targetKind as SimulationCatchUpTargetKind)
   && validId(value.targetId)
   && value.id === cursorIdFor(value.targetKind as SimulationCatchUpTargetKind, value.targetId)
   && targetExists(context, value.targetKind as SimulationCatchUpTargetKind, value.targetId, delegatedWorkIds)
   && validTier(value.tier)
-  && safeInteger(value.processedAtWorldTime)
-  && value.processedAtWorldTime <= context.worldTime
+  && validCadenceMinutes(value.cadenceMinutes)
+  && cadenceForTier(value.tier as SimulationCatchUpTier) === value.cadenceMinutes
+  && safeInteger(value.processedThroughWorldTime)
+  && value.processedThroughWorldTime > 0
+  && value.processedThroughWorldTime <= context.worldTime
+  && value.processedThroughWorldTime % value.cadenceMinutes === 0
   && safeInteger(value.processedIntervals)
-  && validId(value.lastActionId)
+  && value.processedIntervals > 0
   && safeInteger(value.outcomeToken)
-  && value.outcomeToken === outcomeTokenFor(context, value.targetKind as SimulationCatchUpTargetKind, value.targetId, value.processedAtWorldTime)
-  && actionEvidenceFor(context, value.lastActionId)?.atWorldTime === value.processedAtWorldTime
+  && value.outcomeToken === outcomeTokenFor(context, value.targetKind as SimulationCatchUpTargetKind, value.targetId, value.cadenceMinutes as SimulationCadenceMinutes, value.processedThroughWorldTime)
+
+const causeMatchesRecord = (cause: SimulationOutcomeCause, value: Pick<SimulationCatchUpRecord, 'targetKind' | 'targetId' | 'cadenceMinutes' | 'windowStartWorldTime' | 'windowEndWorldTime' | 'dueIntervals'>, context: SimulationCatchUpValidationContext, delegatedWorkIds: ReadonlySet<string>): boolean => {
+  const evidence = cause.evidence
+  return evidence.source === evidenceSourceFor(value.targetKind)
+    && evidence.targetKind === value.targetKind
+    && evidence.targetId === value.targetId
+    && evidence.cadenceMinutes === value.cadenceMinutes
+    && evidence.windowStartWorldTime === value.windowStartWorldTime
+    && evidence.windowEndWorldTime === value.windowEndWorldTime
+    && evidence.dueIntervals === value.dueIntervals
+    && targetExists(context, evidence.targetKind, evidence.targetId, delegatedWorkIds)
+}
 
 const validCatchUpRecord = (value: unknown, context: SimulationCatchUpValidationContext, delegatedWorkIds: ReadonlySet<string>): value is SimulationCatchUpRecord => record(value)
-  && hasOnlyKeys(value, ['id', 'actionId', 'targetKind', 'targetId', 'tier', 'startedAtWorldTime', 'processedAtWorldTime', 'dueIntervals', 'outcomeToken', 'outcomeDetail', 'cause', 'contentSafety'])
+  && hasOnlyKeys(value, ['id', 'targetKind', 'targetId', 'tier', 'cadenceMinutes', 'windowStartWorldTime', 'windowEndWorldTime', 'dueIntervals', 'outcomeToken', 'outcomeDetail', 'cause', 'contentSafety'])
   && validId(value.id)
-  && validId(value.actionId)
   && targetKinds.includes(value.targetKind as SimulationCatchUpTargetKind)
   && validId(value.targetId)
-  && value.id === `catch-up:${value.actionId}:${value.targetKind}:${value.targetId}`
-  && targetExists(context, value.targetKind as SimulationCatchUpTargetKind, value.targetId, delegatedWorkIds)
   && validTier(value.tier)
-  && safeInteger(value.startedAtWorldTime)
-  && safeInteger(value.processedAtWorldTime)
-  && value.startedAtWorldTime < value.processedAtWorldTime
-  && value.processedAtWorldTime <= context.worldTime
+  && validCadenceMinutes(value.cadenceMinutes)
+  && cadenceForTier(value.tier as SimulationCatchUpTier) === value.cadenceMinutes
+  && safeInteger(value.windowStartWorldTime)
+  && safeInteger(value.windowEndWorldTime)
+  && value.windowStartWorldTime > 0
+  && value.windowStartWorldTime <= value.windowEndWorldTime
+  && value.windowEndWorldTime <= context.worldTime
+  && value.windowStartWorldTime % value.cadenceMinutes === 0
+  && value.windowEndWorldTime % value.cadenceMinutes === 0
   && safeInteger(value.dueIntervals)
   && value.dueIntervals > 0
+  && value.windowStartWorldTime === value.windowEndWorldTime - (value.dueIntervals - 1) * value.cadenceMinutes
+  && value.id === recordIdFor(value.targetKind as SimulationCatchUpTargetKind, value.targetId, value.cadenceMinutes as SimulationCadenceMinutes, value.windowEndWorldTime)
+  && targetExists(context, value.targetKind as SimulationCatchUpTargetKind, value.targetId, delegatedWorkIds)
   && safeInteger(value.outcomeToken)
   && validOutcomeDetail(value.outcomeDetail)
   && value.outcomeDetail === detailForTier(value.tier as SimulationCatchUpTier)
   && validCauseShape(value.cause)
   && causeMatchesRecord(value.cause, value as unknown as SimulationCatchUpRecord, context, delegatedWorkIds)
-  && value.outcomeToken === outcomeTokenFor(context, value.targetKind as SimulationCatchUpTargetKind, value.targetId, value.processedAtWorldTime)
+  && value.outcomeToken === outcomeTokenFor(context, value.targetKind as SimulationCatchUpTargetKind, value.targetId, value.cadenceMinutes as SimulationCadenceMinutes, value.windowEndWorldTime)
   && auditMedievalContentSafety([{ id: `simulation-catchup:${value.id}`, domain: 'simulation-summary', classification: value.contentSafety }]).status === 'accepted'
 
-/** Pure validation for the bounded durable catch-up cursor and outcome window. */
+/** Pure validation for bounded durable scheduling/provenance state. */
 export const validateSimulationCatchUpState = (context: SimulationCatchUpValidationContext, value: unknown): readonly SimulationCatchUpDiagnostic[] => {
   const diagnostics: SimulationCatchUpDiagnostic[] = []
   if (!record(value) || !hasOnlyKeys(value, ['version', 'cursors', 'delegatedWork', 'records', 'contentSafetyAudit'])) return [issue('simulation-catchup', 'simulation-catchup.malformed-state')]
@@ -333,23 +335,20 @@ export const validateSimulationCatchUpState = (context: SimulationCatchUpValidat
   if (!records.every(item => validCatchUpRecord(item, context, delegatedWorkIds))) diagnostics.push(issue('simulation-catchup:records', 'simulation-catchup.invalid-record'))
   for (const item of records) {
     if (!record(item)) continue
-    if (!validCauseEnvelope(item.cause)) {
-      diagnostics.push(issue(validId(item.id) ? item.id : 'simulation-catchup:record', 'simulation-catchup.invalid-cause'))
-      continue
-    }
-    if (!validCauseEvidenceShape(item.cause.evidence)) {
-      diagnostics.push(issue(validId(item.id) ? item.id : 'simulation-catchup:record', 'simulation-catchup.invalid-evidence'))
-      continue
-    }
-    if (!validCauseShape(item.cause)) {
-      diagnostics.push(issue(validId(item.id) ? item.id : 'simulation-catchup:record', 'simulation-catchup.invalid-cause'))
-      continue
-    }
-    if (!validId(item.actionId) || !targetKinds.includes(item.targetKind as SimulationCatchUpTargetKind) || !validId(item.targetId) || !safeInteger(item.startedAtWorldTime) || !safeInteger(item.processedAtWorldTime) || !safeInteger(item.dueIntervals)) continue
+    if (!validCauseEnvelope(item.cause)) { diagnostics.push(issue(validId(item.id) ? item.id : 'simulation-catchup:record', 'simulation-catchup.invalid-cause')); continue }
+    if (!validCauseEvidenceShape(item.cause.evidence)) { diagnostics.push(issue(validId(item.id) ? item.id : 'simulation-catchup:record', 'simulation-catchup.invalid-evidence')); continue }
+    if (!validCauseShape(item.cause)) { diagnostics.push(issue(validId(item.id) ? item.id : 'simulation-catchup:record', 'simulation-catchup.invalid-cause')); continue }
+    if (!validId(item.targetId) || !targetKinds.includes(item.targetKind as SimulationCatchUpTargetKind) || !validCadenceMinutes(item.cadenceMinutes) || !safeInteger(item.windowEndWorldTime)) continue
     if (!causeMatchesRecord(item.cause, item as unknown as SimulationCatchUpRecord, context, delegatedWorkIds)) diagnostics.push(issue(String(item.id), 'simulation-catchup.untraceable-cause'))
-    if (safeInteger(item.outcomeToken) && item.outcomeToken !== outcomeTokenFor(context, item.targetKind as SimulationCatchUpTargetKind, String(item.targetId), Number(item.processedAtWorldTime))) diagnostics.push(issue(String(item.id), 'simulation-catchup.invalid-outcome-token'))
+    if (safeInteger(item.outcomeToken) && item.outcomeToken !== outcomeTokenFor(context, item.targetKind as SimulationCatchUpTargetKind, String(item.targetId), item.cadenceMinutes as SimulationCadenceMinutes, Number(item.windowEndWorldTime))) diagnostics.push(issue(String(item.id), 'simulation-catchup.invalid-outcome-token'))
   }
-  if (records.some((item, index) => index > 0 && record(item) && record(records[index - 1]) && (Number(records[index - 1]!.processedAtWorldTime) > Number(item.processedAtWorldTime) || (records[index - 1]!.processedAtWorldTime === item.processedAtWorldTime && String(records[index - 1]!.id) >= String(item.id))))) diagnostics.push(issue('simulation-catchup:records', 'simulation-catchup.noncanonical-order'))
+  if (records.some((item, index) => index > 0 && record(item) && record(records[index - 1]) && (Number(records[index - 1]!.windowEndWorldTime) > Number(item.windowEndWorldTime) || (records[index - 1]!.windowEndWorldTime === item.windowEndWorldTime && String(records[index - 1]!.id) >= String(item.id))))) diagnostics.push(issue('simulation-catchup:records', 'simulation-catchup.noncanonical-order'))
+
+  const cursorById = new Map(cursors.filter(item => validCursor(item, context, delegatedWorkIds)).map(item => [item.id, item]))
+  for (const delegated of delegatedWork.filter(item => validDelegatedWork(item, context))) {
+    const cursor = cursorById.get(cursorIdFor('delegated-work', delegated.id))
+    if (delegated.status === 'active' && delegated.progressIntervals !== (cursor?.processedIntervals ?? 0)) diagnostics.push(issue(delegated.id, 'simulation-catchup.invalid-delegated-work'))
+  }
   try {
     const contentAudit = auditMedievalContentSafety(simulationCatchUpContentRecords({ records: records as SimulationCatchUpRecord[] }))
     if (contentAudit.status === 'rejected') diagnostics.push(...contentAudit.diagnostics.map(diagnostic => issue(diagnostic.contentId, diagnostic.code)))
@@ -362,70 +361,84 @@ interface CatchUpTarget {
   targetKind: SimulationCatchUpTargetKind
   targetId: string
   tier: SimulationCatchUpTier
-  cadence: FidelityCadence
-}
-
-const dueIntervals = (cadence: FidelityCadence, startedAtWorldTime: number, processedAtWorldTime: number): number => {
-  if (cadence.kind === 'every-time-bearing-action') return 1
-  if (cadence.kind === 'not-scheduled') return 0
-  return Math.floor(processedAtWorldTime / cadence.intervalMinutes) - Math.floor(startedAtWorldTime / cadence.intervalMinutes)
+  cadence: { kind: 'time-window'; intervalMinutes: SimulationCadenceMinutes; nextEligibleAtWorldTime: number }
 }
 
 const targetsFor = (plan: FidelityPlan, state: SimulationCatchUpState): readonly CatchUpTarget[] => {
-  const people = plan.individuals.map(item => ({ targetKind: 'person' as const, targetId: item.personId, tier: item.tier, cadence: item.cadence }))
-  const markets = plan.places.map(item => ({ targetKind: 'market' as const, targetId: `market:${item.siteId}`, tier: item.tier, cadence: item.cadence }))
-  const institutions = plan.institutions.map(item => ({ targetKind: 'institution' as const, targetId: item.institutionId, tier: item.tier, cadence: item.cadence }))
+  const scheduled = <Tier extends SimulationCatchUpTier>(targetKind: SimulationCatchUpTargetKind, targetId: string, tier: Tier, cadence: FidelityCadence): CatchUpTarget | undefined => cadence.kind === 'time-window' ? { targetKind, targetId, tier, cadence } : undefined
+  const people = plan.individuals.flatMap(item => {
+    const target = scheduled('person', item.personId, item.tier, item.cadence)
+    return target === undefined ? [] : [target]
+  })
+  const markets = plan.places.flatMap(item => {
+    const target = scheduled('market', `market:${item.siteId}`, item.tier, item.cadence)
+    return target === undefined ? [] : [target]
+  })
+  const institutions = plan.institutions.flatMap(item => {
+    const target = scheduled('institution', item.institutionId, item.tier, item.cadence)
+    return target === undefined ? [] : [target]
+  })
   const individualById = new Map(plan.individuals.map(item => [item.personId, item]))
   const delegatedWork = state.delegatedWork.filter(item => item.status === 'active').flatMap(item => {
     const assignment = individualById.get(item.assigneePersonId)
-    return assignment === undefined ? [] : [{ targetKind: 'delegated-work' as const, targetId: item.id, tier: assignment.tier, cadence: assignment.cadence }]
+    const target = assignment === undefined ? undefined : scheduled('delegated-work', item.id, assignment.tier, assignment.cadence)
+    return target === undefined ? [] : [target]
   })
   return [...people, ...markets, ...institutions, ...delegatedWork].sort((left, right) => compare(cursorIdFor(left.targetKind, left.targetId), cursorIdFor(right.targetKind, right.targetId)))
 }
 
-const tokenFor = (plan: FidelityPlan, target: CatchUpTarget, processedAtWorldTime: number): number => outcomeTokenFor(plan, target.targetKind, target.targetId, processedAtWorldTime)
+const tokenFor = (plan: FidelityPlan, target: CatchUpTarget, windowEndWorldTime: number): number => outcomeTokenFor(plan, target.targetKind, target.targetId, target.cadence.intervalMinutes, windowEndWorldTime)
 
 /**
- * Processes each target at most once per player action. Elapsed tiers retain
- * how many cadence boundaries were crossed, so long actions are bounded while
- * preserving an inspectable deterministic result.
+ * Returns the projection future domain rules must consume. It intentionally
+ * omits bounded observation records, whose count depends on player action
+ * partitioning, so equivalent elapsed time has the same projection.
+ */
+export const simulationCatchUpProjection = (context: Pick<SimulationCatchUpValidationContext, 'worldId' | 'creationDigest' | 'worldTime'>, state: SimulationCatchUpState): SimulationCatchUpProjection => ({
+  version: SIMULATION_CATCH_UP_PROJECTION_VERSION,
+  worldId: context.worldId,
+  creationDigest: context.creationDigest,
+  worldTime: context.worldTime,
+  cursors: [...structuredClone(state.cursors)].sort((left, right) => compare(left.id, right.id)),
+  delegatedWork: [...structuredClone(state.delegatedWork)].sort((left, right) => compare(left.id, right.id))
+})
+
+/**
+ * Folds crossed cadence windows per target. Work is O(planned targets), never
+ * O(elapsed minutes × population); action IDs/timestamps have no role in a
+ * generated window identity or token.
  */
 export const advanceSimulationCatchUpState = (state: SimulationCatchUpState, plan: FidelityPlan, action: { actionId: string; startedAtWorldTime: number; atWorldTime: number }): SimulationCatchUpTransition => {
-  const currentActionEvidence = {
-    id: action.actionId,
-    startedAtWorldTime: action.startedAtWorldTime,
-    atWorldTime: action.atWorldTime
-  } satisfies SimulationCatchUpActionEvidence
-  const existingActionEvidence = plan.actionEvidence.find(item => item.id === action.actionId)
-  if (existingActionEvidence !== undefined && (existingActionEvidence.startedAtWorldTime !== action.startedAtWorldTime || existingActionEvidence.atWorldTime !== action.atWorldTime)) throw new SimulationCatchUpContractError([issue('simulation-catchup:action', 'simulation-catchup.invalid-record')])
-  const actionEvidence = existingActionEvidence === undefined
-    ? [...plan.actionEvidence, currentActionEvidence]
-    : plan.actionEvidence
+  if (!validId(action.actionId) || !safeInteger(action.startedAtWorldTime) || !safeInteger(action.atWorldTime) || action.startedAtWorldTime >= action.atWorldTime || plan.worldTime !== action.atWorldTime) throw new SimulationCatchUpContractError([issue('simulation-catchup:action', 'simulation-catchup.invalid-record')])
   const context: SimulationCatchUpValidationContext = {
     worldId: plan.worldId,
     creationDigest: plan.creationDigest,
     worldTime: action.atWorldTime,
     personIds: plan.individuals.map(item => item.personId),
     marketIds: plan.places.map(item => `market:${item.siteId}`),
-    institutionIds: plan.institutions.map(item => item.institutionId),
-    actionEvidence
+    institutionIds: plan.institutions.map(item => item.institutionId)
   }
   const beforeDiagnostics = validateSimulationCatchUpState({ ...context, worldTime: action.startedAtWorldTime }, state)
   if (beforeDiagnostics.length) throw new SimulationCatchUpContractError(beforeDiagnostics)
-  if (!validId(action.actionId) || !safeInteger(action.startedAtWorldTime) || !safeInteger(action.atWorldTime) || action.startedAtWorldTime >= action.atWorldTime) throw new SimulationCatchUpContractError([issue('simulation-catchup:action', 'simulation-catchup.invalid-record')])
 
+  const cursorById = new Map(state.cursors.map(item => [item.id, item]))
   const records = targetsFor(plan, state).flatMap(target => {
-    const intervals = dueIntervals(target.cadence, action.startedAtWorldTime, action.atWorldTime)
+    const cadence = target.cadence.intervalMinutes
+    const startIndex = Math.floor(action.startedAtWorldTime / cadence)
+    const endIndex = Math.floor(action.atWorldTime / cadence)
+    const intervals = endIndex - startIndex
     if (!intervals) return []
-    const outcomeToken = tokenFor(plan, target, action.atWorldTime)
-    return [{
-      id: `catch-up:${action.actionId}:${target.targetKind}:${target.targetId}`,
-      actionId: action.actionId,
+    const windowStartWorldTime = (startIndex + 1) * cadence
+    const windowEndWorldTime = endIndex * cadence
+    const outcomeToken = tokenFor(plan, target, windowEndWorldTime)
+    const item: SimulationCatchUpRecord = {
+      id: recordIdFor(target.targetKind, target.targetId, cadence, windowEndWorldTime),
       targetKind: target.targetKind,
       targetId: target.targetId,
       tier: target.tier,
-      startedAtWorldTime: action.startedAtWorldTime,
-      processedAtWorldTime: action.atWorldTime,
+      cadenceMinutes: cadence,
+      windowStartWorldTime,
+      windowEndWorldTime,
       dueIntervals: intervals,
       outcomeToken,
       outcomeDetail: detailForTier(target.tier),
@@ -436,18 +449,15 @@ export const advanceSimulationCatchUpState = (state: SimulationCatchUpState, pla
           source: evidenceSourceFor(target.targetKind),
           targetKind: target.targetKind,
           targetId: target.targetId,
-          actionId: action.actionId,
-          startedAtWorldTime: action.startedAtWorldTime,
-          processedAtWorldTime: action.atWorldTime,
+          cadenceMinutes: cadence,
+          windowStartWorldTime,
+          windowEndWorldTime,
           dueIntervals: intervals
         },
         contentSafety: causeClassification()
       },
       contentSafety: summaryClassification()
-    } satisfies SimulationCatchUpRecord]
-  })
-  const cursorById = new Map(state.cursors.map(item => [item.id, item]))
-  for (const item of records) {
+    }
     const id = cursorIdFor(item.targetKind, item.targetId)
     const previous = cursorById.get(id)
     cursorById.set(id, {
@@ -455,15 +465,18 @@ export const advanceSimulationCatchUpState = (state: SimulationCatchUpState, pla
       targetKind: item.targetKind,
       targetId: item.targetId,
       tier: item.tier,
-      processedAtWorldTime: item.processedAtWorldTime,
+      cadenceMinutes: item.cadenceMinutes,
+      processedThroughWorldTime: item.windowEndWorldTime,
       processedIntervals: (previous?.processedIntervals ?? 0) + item.dueIntervals,
-      lastActionId: item.actionId,
       outcomeToken: item.outcomeToken
     })
-  }
+    return [item]
+  })
   const progressByTaskId = new Map(records.filter(item => item.targetKind === 'delegated-work').map(item => [item.targetId, item.dueIntervals]))
   const delegatedWork = state.delegatedWork.map(item => ({ ...item, progressIntervals: item.progressIntervals + (progressByTaskId.get(item.id) ?? 0) }))
-  const retainedRecords = [...state.records, ...records].sort((left, right) => left.processedAtWorldTime - right.processedAtWorldTime || compare(left.id, right.id)).slice(-SIMULATION_CATCH_UP_LIMITS.records)
+  const retainedRecords = [...state.records, ...records]
+    .sort((left, right) => left.windowEndWorldTime - right.windowEndWorldTime || compare(left.id, right.id))
+    .slice(-SIMULATION_CATCH_UP_LIMITS.records)
   const nextWithoutAudit = {
     version: SIMULATION_CATCH_UP_CONTRACT_VERSION,
     cursors: [...cursorById.values()].sort((left, right) => compare(left.id, right.id)),

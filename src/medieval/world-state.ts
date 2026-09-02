@@ -11,7 +11,7 @@ import type { CausalRecord, FoundationCrewMember, FoundationJomon } from './type
  * This is the durable mutable half of a medieval world. It deliberately has
  * no renderer, storage, browser, or prototype dependency.
  */
-export const MEDIEVAL_WORLD_STATE_VERSION = 4 as const
+export const MEDIEVAL_WORLD_STATE_VERSION = 5 as const
 export const WORLD_GEOGRAPHY_STATE_VERSION = 1 as const
 export const WORLD_SITES_STATE_VERSION = 1 as const
 export const WORLD_ROUTES_STATE_VERSION = 1 as const
@@ -384,10 +384,7 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
     worldTime: temporal.worldTime,
     personIds: Array.isArray(value.people?.records) ? value.people.records.filter(record).map(item => String(item.id)) : [],
     marketIds: Array.isArray(value.markets?.markets) ? value.markets.markets.filter(record).map(item => String(item.id)) : [],
-    institutionIds: Array.isArray(value.institutions?.registry) ? value.institutions.registry.filter(record).map(item => String(item.id)) : [],
-    actionEvidence: temporal.causalRecords
-      .filter(record => record.kind === 'action-completed')
-      .map(record => ({ id: record.actionId, startedAtWorldTime: record.startedAtWorldTime, atWorldTime: record.atWorldTime }))
+    institutionIds: Array.isArray(value.institutions?.registry) ? value.institutions.registry.filter(record).map(item => String(item.id)) : []
   }
   if (simulationContext === undefined) {
     issues.push(issue('world-state:simulation', 'world-state.invalid-simulation'))
