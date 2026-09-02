@@ -20,6 +20,8 @@ export interface CourseExpansion {
   /** Converts balls and UI focus from the prior course into the stitched course. */
   offset: Point;
   rotation: Rotation;
+  /** Overlap outside the shared cup-to-tee junction; new plans must keep this at zero. */
+  trackOverlapCount: number;
 }
 
 const isPlayable = (tile: Tile | undefined) => Boolean(tile && tile.surface !== 'void');
@@ -109,7 +111,12 @@ const transformedBounds = (course: Course, anchor: Point, rotation: Rotation) =>
   };
 };
 
-const rotationFor = (previous: Course, next: Course, anchor: Point) => {
+interface RotationPlacement {
+  rotation: Rotation;
+  trackOverlapCount: number;
+}
+
+const rotationFor = (previous: Course, next: Course, anchor: Point): RotationPlacement => {
   const preferred = hashFor(`${previous.seed}:${next.seed}`) % 4;
   const approach = finalApproachDirection(previous.route);
   const score = (rotation: Rotation) => {
@@ -129,11 +136,13 @@ const rotationFor = (previous: Course, next: Course, anchor: Point) => {
     const sidePenalty = approach ? Math.abs(heading.x * approach.x + heading.y * approach.y) : 0;
     return [collision, sidePenalty, localPressure, (rotation - preferred + 4) % 4] as const;
   };
-  return ([0, 1, 2, 3] as Rotation[]).sort((left, right) => {
+  const rotation = ([0, 1, 2, 3] as Rotation[]).sort((left, right) => {
     const leftScore = score(left);
     const rightScore = score(right);
-    return leftScore[1] - rightScore[1] || leftScore[0] - rightScore[0] || leftScore[2] - rightScore[2] || leftScore[3] - rightScore[3];
+    // A clear append is always more important than visual heading preference.
+    return leftScore[0] - rightScore[0] || leftScore[1] - rightScore[1] || leftScore[2] - rightScore[2] || leftScore[3] - rightScore[3];
   })[0]!;
+  return { rotation, trackOverlapCount: score(rotation)[0] };
 };
 
 const translateHazards = (hazards: readonly CourseHazard[], point: (point: Point) => Point, direction: (value: Point) => Point, prefix = ''): CourseHazard[] => hazards.map((hazard) => hazard.kind === 'updraft'
@@ -177,7 +186,8 @@ const embeddedPrevious = (course: Course, width: number, height: number, offset:
  */
 export const expandCourseAtCup = (previous: Course, next: Course): CourseExpansion => {
   const rawAnchor = { ...previous.cup };
-  const rotation = rotationFor(previous, next, rawAnchor);
+  const placement = rotationFor(previous, next, rawAnchor);
+  const { rotation } = placement;
   const bounds = transformedBounds(next, rawAnchor, rotation);
   const minX = Math.min(0, bounds.minX);
   const minY = Math.min(0, bounds.minY);
@@ -279,5 +289,5 @@ export const expandCourseAtCup = (previous: Course, next: Course): CourseExpansi
     ],
   };
   smoothTerrain(course.tiles, width, height);
-  return { previous: previousEmbedded, course, added, excavated, anchor, offset, rotation };
+  return { previous: previousEmbedded, course, added, excavated, anchor, offset, rotation, trackOverlapCount: placement.trackOverlapCount };
 };

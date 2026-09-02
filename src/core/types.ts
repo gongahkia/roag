@@ -158,6 +158,8 @@ export interface TerrainSettings {
   width: number;
   height: number;
   density: number;
+  /** Coherent, seeded height variation applied after the course grammar is carved. */
+  noiseAmplitude: number;
   elevation: number;
   maxElevation: number;
   routeLength: number;

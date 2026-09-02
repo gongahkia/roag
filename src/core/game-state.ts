@@ -250,6 +250,7 @@ const partyTerrain = (config: GameConfig, hole: number, kind: SlotReelKind, inde
     laneWidth: archetype === 'ribbon' ? 2 : 1,
     branches: archetype === 'fork' ? 1 : 0,
     density: .44,
+    noiseAmplitude: theme === 'quarry' ? .38 : theme === 'carnival' ? .32 : .24,
     chaos: .32,
     elevation: theme === 'quarry' ? .72 : .36,
     maxElevation: theme === 'quarry' ? 3 : 2,
@@ -357,6 +358,25 @@ const applyChaos = (terrain: ReturnType<typeof defaultTerrainSettings>, rules: R
   }
 };
 
+/**
+ * A post-hole course must attach cleanly to the accumulated atlas. Rotate first,
+ * then deterministically try a handful of seed variants if the new course would
+ * overlap an earlier track outside the shared cup-to-tee junction.
+ */
+const appendSeedFor = (state: GameState, proposedSeed: string, terrain: ReturnType<typeof defaultTerrainSettings>, rules: ReturnType<typeof defaultHoleRules>) => {
+  if (state.hole === 1) return proposedSeed;
+  let best = { seed: proposedSeed, trackOverlapCount: Number.POSITIVE_INFINITY };
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const seed = attempt === 0 ? proposedSeed : `${proposedSeed}:append-${attempt}`;
+    const candidate = generateCourse(seed, terrain, rules.hazardPhaseCount);
+    const expansion = expandCourseAtCup(state.course, candidate);
+    if (expansion.trackOverlapCount < best.trackOverlapCount) best = { seed, trackOverlapCount: expansion.trackOverlapCount };
+    if (expansion.trackOverlapCount === 0) return seed;
+  }
+  recordInstrumentation(state, { type: 'generation-failure', hole: state.hole, detail: `append overlap remained after 8 seeded candidates (${best.trackOverlapCount} tiles)` });
+  return best.seed;
+};
+
 const planFromRoll = (state: GameState, die: DieState): PlannedHole | undefined => {
   const [biome, layout, rules, ...selectedChaos] = selectedStops(die);
   if (!biome?.theme || !layout?.terrain || !rules?.rules) return undefined;
@@ -366,7 +386,8 @@ const planFromRoll = (state: GameState, die: DieState): PlannedHole | undefined 
   chaos.forEach((stop) => { if (stop.chaos) applyChaos(terrain, holeRules, stop.chaos); });
   const labels = [biome.label, layout.label, ...chaos.map((stop) => stop.label)];
   const ids = die.roll?.stopIds.join(':') ?? 'unknown';
-  const courseSeed = `${state.config.seed}:slots:${state.hole}:${die.rerolls}:${ids}`;
+  const proposedSeed = `${state.config.seed}:slots:${state.hole}:${die.rerolls}:${ids}`;
+  const courseSeed = appendSeedFor(state, proposedSeed, terrain, holeRules);
   const planned: PlannedHole = {
     id: `hole-${state.hole}-slot-${die.rerolls}-${ids}`,
     label: labels.join(' · '),
@@ -393,13 +414,21 @@ const planFromRoll = (state: GameState, die: DieState): PlannedHole | undefined 
   return planned;
 };
 
-const quickStartPlan = (config: GameConfig): PlannedHole[] => Array.from({ length: config.holeCount }, (_, index) => {
-  const hole = index + 1;
-  const die = newDie(config, hole, []);
-  die.roll = { stopIds: die.reels.map((reel, reelIndex) => reel.stops[new Random(`${config.seed}:quick-slot:${hole}:${reelIndex}`).int(0, reel.stops.length - 1)]!.id), secondsLeft: 0 };
-  const state = { config, hole } as GameState;
-  return planFromRoll(state, die)!;
-});
+const quickStartPlan = (config: GameConfig): PlannedHole[] => {
+  const plans: PlannedHole[] = [];
+  let atlas: Course | undefined;
+  for (let index = 0; index < config.holeCount; index += 1) {
+    const hole = index + 1;
+    const die = newDie(config, hole, []);
+    die.roll = { stopIds: die.reels.map((reel, reelIndex) => reel.stops[new Random(`${config.seed}:quick-slot:${hole}:${reelIndex}`).int(0, reel.stops.length - 1)]!.id), secondsLeft: 0 };
+    const state = { config, hole, course: atlas } as GameState;
+    const plan = planFromRoll(state, die)!;
+    plans.push(plan);
+    const course = courseForPlan(plan);
+    atlas = atlas ? expandCourseAtCup(atlas, course).course : course;
+  }
+  return plans;
+};
 
 export const createGameState = (config: GameConfig): GameState => {
   const resolvedConfig = { ...config, skipDieBets: config.skipDieBets === true, ruleset: config.ruleset ?? 'party' };

@@ -4,9 +4,11 @@ export const PARTY_RULESET_VERSION = 'party-rules-v1';
 export const RECIPE_SCHEMA_VERSION = 1;
 /** Recipes made before the wider fairway carving shipped with this version. */
 export const LEGACY_GENERATOR_VERSION = 'party-slice-v1';
+/** Recipes made with wider fairways but before directional routes and terrain noise. */
+export const PREVIOUS_GENERATOR_VERSION = 'party-slice-v2';
 /** Bump this whenever a generator change can alter a materialized course. */
-export const GENERATOR_VERSION = 'party-slice-v2';
-export type GeneratorVersion = typeof LEGACY_GENERATOR_VERSION | typeof GENERATOR_VERSION;
+export const GENERATOR_VERSION = 'party-slice-v3';
+export type GeneratorVersion = typeof LEGACY_GENERATOR_VERSION | typeof PREVIOUS_GENERATOR_VERSION | typeof GENERATOR_VERSION;
 
 /**
  * Missing metadata predates versioned recipes, so preserve the oldest known
@@ -15,7 +17,9 @@ export type GeneratorVersion = typeof LEGACY_GENERATOR_VERSION | typeof GENERATO
  */
 export const generatorVersionFor = (version: string | undefined): GeneratorVersion => version === undefined || version === LEGACY_GENERATOR_VERSION
   ? LEGACY_GENERATOR_VERSION
-  : GENERATOR_VERSION;
+  : version === PREVIOUS_GENERATOR_VERSION
+    ? PREVIOUS_GENERATOR_VERSION
+    : GENERATOR_VERSION;
 
 export const PARTY_BIOMES = ['speedway', 'quarry', 'carnival'] as const satisfies readonly CourseTheme[];
 export const PARTY_LAYOUTS = ['ribbon', 'fork', 'courtyard'] as const satisfies readonly CourseArchetype[];

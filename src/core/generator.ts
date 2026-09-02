@@ -20,6 +20,7 @@ export const defaultTerrainSettings = (): TerrainSettings => ({
   width: COURSE_WIDTH,
   height: COURSE_HEIGHT,
   density: .55,
+  noiseAmplitude: .28,
   elevation: .55,
   maxElevation: 3,
   routeLength: .7,
@@ -82,6 +83,7 @@ export const randomTerrainSettings = (seed: string, variation: number, dimension
   return {
     ...size,
     density: stepped(.1, 1, .05),
+    noiseAmplitude: stepped(.08, .5, .02),
     elevation: stepped(0, 1, .05),
     maxElevation: random.int(1, 3),
     routeLength: stepped(.35, 1, .05),
@@ -170,7 +172,40 @@ const smoothRampHeights = (course: Course) => {
   }
 };
 
-const routeFor = (random: Random, settings: TerrainSettings): Point[] => {
+const lerp = (from: number, to: number, amount: number) => from + (to - from) * amount;
+const smooth = (value: number) => value * value * (3 - 2 * value);
+const noiseValueAt = (seed: string, x: number, y: number) => new Random(`${seed}:terrain-noise:${x}:${y}`).next() * 2 - 1;
+
+/** Bilinearly interpolated value noise: varied terrain without single-tile spikes. */
+const coherentNoiseAt = (seed: string, x: number, y: number, scale: number) => {
+  const sampleX = x / scale;
+  const sampleY = y / scale;
+  const cellX = Math.floor(sampleX);
+  const cellY = Math.floor(sampleY);
+  const localX = smooth(sampleX - cellX);
+  const localY = smooth(sampleY - cellY);
+  const north = lerp(noiseValueAt(seed, cellX, cellY), noiseValueAt(seed, cellX + 1, cellY), localX);
+  const south = lerp(noiseValueAt(seed, cellX, cellY + 1), noiseValueAt(seed, cellX + 1, cellY + 1), localX);
+  return lerp(north, south, localY);
+};
+
+const applyTerrainNoise = (course: Course, settings: TerrainSettings, generatorVersion: GeneratorVersion) => {
+  if (generatorVersion !== GENERATOR_VERSION || settings.noiseAmplitude <= 0) return;
+  const routeCells = new Set(course.route.map((point) => `${point.x}:${point.y}`));
+  course.tiles.forEach((tile, index) => {
+    if (tile.surface === 'void') return;
+    const x = index % course.width;
+    const y = Math.floor(index / course.width);
+    const broad = coherentNoiseAt(course.seed, x + .5, y + .5, 4.5);
+    const detail = coherentNoiseAt(course.seed, x + .5, y + .5, 2.25);
+    const routeMultiplier = routeCells.has(`${x}:${y}`) ? .45 : 1;
+    const delta = (broad * .72 + detail * .28) * settings.noiseAmplitude * routeMultiplier;
+    tile.height = clamped(tile.height + delta, 0, settings.maxElevation);
+  });
+};
+
+/** Original left-to-right grammar, retained for v1/v2 replay compatibility. */
+const horizontalRouteFor = (random: Random, settings: TerrainSettings): Point[] => {
   const verticalPadding = Math.max(2, Math.round(settings.height * .21));
   const minY = verticalPadding;
   const maxY = Math.max(minY, settings.height - verticalPadding - 1);
@@ -206,15 +241,93 @@ const routeFor = (random: Random, settings: TerrainSettings): Point[] => {
   return route;
 };
 
+const clamped = (value: number, minimum: number, maximum: number) => Math.max(minimum, Math.min(maximum, value));
+
+/**
+ * V3 chooses any cardinal travel direction. The route still begins one tile in
+ * from an edge and terminates toward the opposite edge, which gives campaign
+ * stitching a clear direction in which to place the next course.
+ */
+const directionalRouteFor = (random: Random, settings: TerrainSettings): Point[] => {
+  const horizontal = random.chance(settings.width >= settings.height ? .68 : .32);
+  const forward = random.chance(.5) ? 1 : -1;
+  const primaryLimit = horizontal ? settings.width : settings.height;
+  const crossLimit = horizontal ? settings.height : settings.width;
+  const padding = Math.max(2, Math.round(crossLimit * .21));
+  const minCross = padding;
+  const maxCross = Math.max(minCross, crossLimit - padding - 1);
+  const startPrimary = forward > 0 ? 1 : primaryLimit - 2;
+  const minimumEnd = Math.min(primaryLimit - 2, Math.max(6, Math.floor(primaryLimit / 2)));
+  const positiveEnd = clamped(Math.round(minimumEnd + settings.routeLength * (primaryLimit - 2 - minimumEnd)), minimumEnd, primaryLimit - 2);
+  const targetPrimary = forward > 0 ? positiveEnd : primaryLimit - 1 - positiveEnd;
+  const pointFor = (primary: number, cross: number): Point => horizontal ? { x: primary, y: cross } : { x: cross, y: primary };
+  const route: Point[] = [pointFor(startPrimary, random.int(minCross, maxCross))];
+  let primary = startPrimary;
+  let cross = horizontal ? route[0]!.y : route[0]!.x;
+  const bendChance = .05 + settings.bendiness * .34 + (settings.archetype === 'slalom' ? .34 : 0);
+  const lateralChance = settings.bendiness * .14 + (settings.archetype === 'switchback' ? .32 : 0);
+  const reachedTarget = () => forward > 0 ? primary >= targetPrimary : primary <= targetPrimary;
+  while (!reachedTarget()) {
+    let deltaCross = random.chance(bendChance) ? random.pick([-1, 1]) : 0;
+    if (settings.theme === 'speedway' && random.chance(.65)) deltaCross = 0;
+    if (settings.theme === 'drift' && random.chance(.32)) deltaCross = random.pick([-1, 1]);
+    if (settings.theme === 'pulse' && settings.archetype !== 'slalom' && random.chance(.7)) deltaCross = 0;
+    if (settings.theme === 'hazard-run' && random.chance(.16 + settings.bendiness * .18)) deltaCross = random.pick([-1, 1]);
+    primary = forward > 0 ? Math.min(targetPrimary, primary + 1) : Math.max(targetPrimary, primary - 1);
+    cross = clamped(cross + deltaCross, minCross, maxCross);
+    route.push(pointFor(primary, cross));
+    if (!reachedTarget() && random.chance(lateralChance)) {
+      const direction = cross <= minCross ? 1 : cross >= maxCross ? -1 : random.pick([-1, 1]);
+      const steps = settings.archetype === 'switchback' ? random.int(2, 4) : 1;
+      for (let step = 0; step < steps; step += 1) {
+        const nextCross = clamped(cross + direction, minCross, maxCross);
+        if (nextCross === cross) break;
+        cross = nextCross;
+        route.push(pointFor(primary, cross));
+      }
+    }
+  }
+  return route;
+};
+
+const routeFor = (random: Random, settings: TerrainSettings, generatorVersion: GeneratorVersion) => generatorVersion === GENERATOR_VERSION
+  ? directionalRouteFor(random, settings)
+  : horizontalRouteFor(random, settings);
+
 const carveBranches = (tiles: Tile[], route: readonly Point[], random: Random, settings: TerrainSettings, generatorVersion: GeneratorVersion) => {
+  // Keep the random-call order and side-path shape exact for replayed v1/v2 recipes.
+  if (generatorVersion !== GENERATOR_VERSION) {
+    for (let index = 0; index < settings.branches; index += 1) {
+      const base = random.pick(route.slice(Math.min(2, route.length - 1), Math.max(3, route.length - 2)));
+      const direction = random.pick([-1, 1]);
+      const length = random.int(2, 3 + Math.round(settings.chaos * 3));
+      const baseHeight = tiles[base.y * settings.width + base.x]!.height;
+      let point = { ...base };
+      for (let step = 0; step < length; step += 1) {
+        point = { x: Math.max(1, Math.min(settings.width - 2, point.x + (random.chance(.35) ? 1 : 0))), y: Math.max(1, Math.min(settings.height - 2, point.y + direction)) };
+        carve(tiles, point, baseHeight, Math.max(1, settings.laneWidth - 1), settings.width, settings.height, generatorVersion);
+      }
+    }
+    return;
+  }
   for (let index = 0; index < settings.branches; index += 1) {
-    const base = random.pick(route.slice(Math.min(2, route.length - 1), Math.max(3, route.length - 2)));
+    const startIndex = Math.min(2, route.length - 1);
+    const endIndex = Math.max(startIndex, route.length - 2);
+    const baseIndex = random.int(startIndex, endIndex);
+    const base = route[baseIndex]!;
+    const next = route[Math.min(route.length - 1, baseIndex + 1)] ?? route[Math.max(0, baseIndex - 1)]!;
+    const horizontal = Math.abs(next.x - base.x) >= Math.abs(next.y - base.y);
     const direction = random.pick([-1, 1]);
+    const lateral = horizontal ? { x: 0, y: direction } : { x: direction, y: 0 };
+    const forward = horizontal ? { x: Math.sign(next.x - base.x) || 1, y: 0 } : { x: 0, y: Math.sign(next.y - base.y) || 1 };
     const length = random.int(2, 3 + Math.round(settings.chaos * 3));
     const baseHeight = tiles[base.y * settings.width + base.x]!.height;
     let point = { ...base };
     for (let step = 0; step < length; step += 1) {
-      point = { x: Math.max(1, Math.min(settings.width - 2, point.x + (random.chance(.35) ? 1 : 0))), y: Math.max(1, Math.min(settings.height - 2, point.y + direction)) };
+      point = {
+        x: clamped(point.x + lateral.x + (random.chance(.35) ? forward.x : 0), 1, settings.width - 2),
+        y: clamped(point.y + lateral.y + (random.chance(.35) ? forward.y : 0), 1, settings.height - 2),
+      };
       carve(tiles, point, baseHeight, Math.max(1, settings.laneWidth - 1), settings.width, settings.height, generatorVersion);
     }
   }
@@ -228,16 +341,38 @@ const carveArchetype = (tiles: Tile[], route: readonly Point[], random: Random, 
     return;
   }
   if (settings.archetype !== 'fork' || route.length < 7) return;
-  const start = route[Math.floor(route.length * .27)]!;
-  const end = route[Math.floor(route.length * .73)]!;
-  const side = start.y < settings.height / 2 ? 1 : -1;
+  if (generatorVersion !== GENERATOR_VERSION) {
+    const start = route[Math.floor(route.length * .27)]!;
+    const end = route[Math.floor(route.length * .73)]!;
+    const side = start.y < settings.height / 2 ? 1 : -1;
+    const height = tiles[indexOf({ width: settings.width }, start)]!.height;
+    const span = Math.max(1, end.x - start.x);
+    for (let x = start.x; x <= end.x; x += 1) {
+      const progress = (x - start.x) / span;
+      const arc = Math.sin(progress * Math.PI) * side * Math.max(2, Math.round(1 + settings.chaos * 3));
+      const y = Math.max(1, Math.min(settings.height - 2, Math.round(start.y + (end.y - start.y) * progress + arc)));
+      carve(tiles, { x, y }, height, Math.max(1, settings.laneWidth - 1), settings.width, settings.height, generatorVersion);
+    }
+    if (random.chance(.5)) carveBranches(tiles, route.slice(Math.floor(route.length / 3), Math.floor(route.length * .75)), random, { ...settings, branches: 1 }, generatorVersion);
+    return;
+  }
+  const startIndex = Math.floor(route.length * .27);
+  const endIndex = Math.floor(route.length * .73);
+  const start = route[startIndex]!;
+  const side = Math.abs(route[endIndex]!.x - start.x) >= Math.abs(route[endIndex]!.y - start.y)
+    ? (start.y < settings.height / 2 ? 1 : -1)
+    : (start.x < settings.width / 2 ? 1 : -1);
   const height = tiles[indexOf({ width: settings.width }, start)]!.height;
-  const span = Math.max(1, end.x - start.x);
-  for (let x = start.x; x <= end.x; x += 1) {
-    const progress = (x - start.x) / span;
+  for (let index = startIndex; index <= endIndex; index += 1) {
+    const anchor = route[index]!;
+    const next = route[Math.min(route.length - 1, index + 1)] ?? route[Math.max(0, index - 1)]!;
+    const horizontal = Math.abs(next.x - anchor.x) >= Math.abs(next.y - anchor.y);
+    const progress = (index - startIndex) / Math.max(1, endIndex - startIndex);
     const arc = Math.sin(progress * Math.PI) * side * Math.max(2, Math.round(1 + settings.chaos * 3));
-    const y = Math.max(1, Math.min(settings.height - 2, Math.round(start.y + (end.y - start.y) * progress + arc)));
-    carve(tiles, { x, y }, height, Math.max(1, settings.laneWidth - 1), settings.width, settings.height, generatorVersion);
+    const point = horizontal
+      ? { x: anchor.x, y: clamped(Math.round(anchor.y + arc), 1, settings.height - 2) }
+      : { x: clamped(Math.round(anchor.x + arc), 1, settings.width - 2), y: anchor.y };
+    carve(tiles, point, height, Math.max(1, settings.laneWidth - 1), settings.width, settings.height, generatorVersion);
   }
   if (random.chance(.5)) carveBranches(tiles, route.slice(Math.floor(route.length / 3), Math.floor(route.length * .75)), random, { ...settings, branches: 1 }, generatorVersion);
 };
@@ -554,7 +689,7 @@ const decorate = (course: Course, random: Random, settings: TerrainSettings, pha
 const buildCourse = (seed: string, settings: TerrainSettings, phaseCount: number, generatorVersion: GeneratorVersion): Course => {
   const random = new Random(seed);
   const tiles = Array.from({ length: settings.width * settings.height }, baseTile);
-  const route = routeFor(random, settings);
+  const route = routeFor(random, settings, generatorVersion);
   let elevation = 0;
   for (const [index, point] of route.entries()) {
     const elevationChance = .06 + settings.elevation * .3 + (settings.theme === 'quarry' ? .06 : 0);
@@ -569,6 +704,7 @@ const buildCourse = (seed: string, settings: TerrainSettings, phaseCount: number
   writeTile(tiles, cup, 'cup', tiles[indexOf({ width: settings.width }, cup)]!.height, settings.width, settings.height);
   const course: Course = { id: `course-${seed}`, seed, theme: settings.theme, archetype: settings.archetype, sizeProfile: settings.sizeProfile, width: settings.width, height: settings.height, tiles, tee, cup, route, hazards: [], features: [], portals: [], itemPads: [], score: {} as CourseScore };
   decorate(course, random, settings, phaseCount);
+  applyTerrainNoise(course, settings, generatorVersion);
   smoothRampHeights(course);
   course.routeRoles = routeRolesFor(course);
   course.score = scoreCourse(course, phaseCount);
