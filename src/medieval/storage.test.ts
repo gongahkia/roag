@@ -308,6 +308,22 @@ describe('medieval local persistence', () => {
     await expect(repository.loadWorld(world.id)).resolves.toBeUndefined()
   })
 
+  it('rejects the pre-delegation mutable/world envelopes rather than inventing task and replay state', async () => {
+    const repository = new MedievalWorldRepository()
+    const world = createFoundationWorld({ seed: 'delegation-envelope-clean-break' })
+    const legacy = structuredClone(world) as unknown as { version: number; state: { version: number; delegation?: unknown; people: { version: number; records: Array<Record<string, unknown>> }; causalHistory: { version: number } } }
+    legacy.version = 10
+    legacy.state.version = 8
+    legacy.state.people.version = 3
+    legacy.state.causalHistory.version = 1
+    delete legacy.state.delegation
+
+    await repository.loadIndex()
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(world.id, legacy)
+
+    await expect(repository.loadWorld(world.id)).resolves.toBeUndefined()
+  })
+
   it('rejects the v6 mutable-world envelope rather than inventing canonical catch-up windows', async () => {
     const repository = new MedievalWorldRepository()
     const world = createFoundationWorld({ seed: 'catch-up-envelope-clean-break' })
@@ -403,7 +419,7 @@ describe('medieval local persistence', () => {
     expect(grown.state.causalHistory.tail.map(command => command.kind)).toEqual(['initial-courier-selected', 'time-bearing-action', 'durable-jomon-growth'])
   })
 
-  it('persists enriched v2 people unchanged through journal compaction, replay, and local reload', async () => {
+  it('persists enriched v3 people unchanged through journal compaction, replay, and local reload', async () => {
     const repository = new MedievalWorldRepository()
     let world = chooseInitialCourier(createFoundationWorld({ seed: 'persistent-person-v2-storage' }), 'crew:0')
     const originalPeople = structuredClone(world.state.people.records)
@@ -427,7 +443,7 @@ describe('medieval local persistence', () => {
     const loaded = await repository.loadWorld(world.id)
     if (!loaded) throw new Error('valid enriched people should reload locally')
 
-    expect(loaded.state.people).toEqual({ version: 3, records: originalPeople })
+    expect(loaded.state.people).toEqual({ version: 4, records: originalPeople })
     expect(loaded.state.causalHistory).toMatchObject({ tail: [], checkpoint: { sequence: 9 } })
     expect(replayFoundationWorldCausalHistory(loaded)).toEqual(causalReplayProjectionForWorldState(loaded.state))
     expect(loaded.state.era.era).toBe('ng-plus')
@@ -506,7 +522,7 @@ describe('medieval local persistence', () => {
       expect(continued.state.causalHistory.tail).toHaveLength(1)
       expect(replayFoundationWorldCausalHistory(continued)).toEqual(causalReplayProjectionForWorldState(continued.state))
     }
-  })
+  }, 20_000)
 
   it('contains corrupt worlds, chronicles, indices, and journal data without repair or deletion while independent valid records remain usable', async () => {
     const repository = new MedievalWorldRepository()

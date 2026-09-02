@@ -92,6 +92,7 @@ describe('constrained deterministic delegation', () => {
     expect(validateDelegationTaskDefinitions()).toEqual([])
     expect(DELEGATION_TASK_DEFINITIONS.every(definition => definition.progressBasis === 'elapsed-in-world-minutes' && definition.durationMinutes.routine >= 5 && definition.futureDomainHooks.length > 0)).toBe(true)
     expect(delegationDefinitionFor('maintenance')).toMatchObject({ riskBand: 'guarded', durationMinutes: { routine: 30, involved: 60 } })
+    expect(() => delegationDefinitionFor('unapproved-work' as never)).toThrow('delegation.invalid-definition')
     const malformed = structuredClone(DELEGATION_TASK_DEFINITIONS)
     ;(malformed[0]!.futureDomainHooks as string[]).push('economy-that-does-not-exist')
     expect(validateDelegationTaskDefinitions(malformed).map(item => item.code)).toContain('delegation.invalid-definition')
@@ -238,6 +239,15 @@ describe('constrained deterministic delegation', () => {
     const nextOffer: DelegationOfferInput = { ...first.offer, id: 'offer:second-committed' }
     expect(() => offerFoundationWorldDelegatedTask(first.world, nextOffer)).toThrow('delegation.conversation-blocked')
     expect(first.world.state.delegation.tasks).toHaveLength(1)
+  })
+
+  it('does not offer, progress, resolve, or journal delegated work from a pure UI command', () => {
+    const first = acceptedOffer(selectedWorld('delegation-pure-command'), 'offer:pure-command')
+    const before = structuredClone(first.world)
+
+    expect(() => advanceFoundationWorldTime(first.world, { kind: 'inspect' })).toThrow('temporal contract rejected')
+    expect(first.world).toEqual(before)
+    expect(first.world.state.delegation.tasks[0]!.status).toBe('in-progress')
   })
 
   it('rejects malformed, unsafe, duplicate, unordered, and bounded task registry state without instantiating another person', () => {
