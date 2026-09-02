@@ -5,7 +5,7 @@ import { renderAppMarkup, renderControlsMarkup } from '../src/ui/markup';
 import { defaultPreferences } from '../src/preferences';
 import { lobbyConfigFromGame, renderHomeMarkup, renderLobbyMarkup, renderMatchLaunchMarkup, renderQuickStartLaunchMarkup } from '../src/ui/home-markup';
 
-describe('course slot machine markup', () => {
+describe('course shuffler markup', () => {
   it('keeps the title menu focused on choosing a play mode before exposing setup forms', () => {
     const state = createGame(defaultConfig());
     const markup = renderHomeMarkup({ panel: 'play', mode: 'modes', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
@@ -75,7 +75,7 @@ describe('course slot machine markup', () => {
     expect(local).not.toContain('data-quick-start-local');
     expect(local).toContain('class="home-actions"');
     expect(local).toContain('start local game');
-    expect(local).toContain('seed-shuffled in advance');
+    expect(local).toContain('seed-shuffled automatically');
     expect(renderQuickStartLaunchMarkup()).toContain('class="match-loading-ball"');
     expect(renderQuickStartLaunchMarkup()).not.toContain('loading the course');
     const normalLaunch = renderMatchLaunchMarkup({ quickStart: false, title: 'building the opening hole', detail: 'Setting up players.' });
@@ -169,7 +169,7 @@ describe('course slot machine markup', () => {
     expect(markup).not.toContain('id="pull-ball"');
     expect(markup).not.toContain('DRAG BACK · RELEASE TO STRIKE');
     expect(markup).toContain('class="reaction-dock"');
-    expect(markup).toContain('send cheer reaction');
+    expect(markup).toContain('aria-label="send cheer"');
     expect(markup).toContain('++');
     expect(markup).toContain('class="hud-leaderboard"');
     expect(markup).toContain('class="hud-course"');

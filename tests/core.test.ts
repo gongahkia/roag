@@ -418,12 +418,12 @@ describe('public voting flow', () => {
 }); */
 
 describe('automatic course shuffle', () => {
-  it('pre-shuffles a reproducible campaign and opens directly on the tee', () => {
+  it('shuffles a reproducible opening course and opens directly on the tee', () => {
     const config = { ...defaultConfig(), seed: 'shuffle-seed', holeCount: 3, humanCount: 2, botCount: 1 };
     const first = createGame(config);
     const second = createGame(config);
     expect(first.status).toBe('playing');
-    expect(first.coursePlan).toHaveLength(3);
+    expect(first.coursePlan).toHaveLength(1);
     expect(first.coursePlan.map((plan) => plan.recipe.metadata?.resolvedReels)).toEqual(second.coursePlan.map((plan) => plan.recipe.metadata?.resolvedReels));
     expect(first.coursePlan.every((plan) => {
       const chaos = plan.recipe.metadata?.resolvedReels.chaos ?? [];
@@ -433,13 +433,13 @@ describe('automatic course shuffle', () => {
 
   it('uses the already shuffled next course after the clubhouse', () => {
     let game = createGame({ ...defaultConfig(), seed: 'preplanned-holes', holeCount: 2, humanCount: 1, botCount: 0 });
-    const next = game.coursePlan[1]!;
     game.players[0]!.ball.complete = true;
     game.players[0]!.ball.strokes = 1;
     game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 1 } });
     game = resolveShop(game);
     expect(game.status).toBe('transitioning');
-    expect(game.transition?.next.id).toBe(next.id);
+    expect(game.coursePlan).toHaveLength(2);
+    expect(game.transition?.next.id).toBe(game.coursePlan[1]?.id);
     const expansion = expansionForTransition(game)!;
     game = applyCommand(game, { type: 'complete-transition' });
     expect(game.status).toBe('playing');

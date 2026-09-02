@@ -373,7 +373,7 @@ export const startApp = (app: HTMLElement) => {
   };
   const launchLocalMatch = () => {
     camera = { mode: 'follow', zoom: DEFAULT_CAMERA_ZOOM, pan: { x: 0, y: 0 } };
-    launch = { quickStart: false, title: 'shuffling the campaign', detail: 'Locking every random course and chaos modifier before tee-off.' };
+    launch = { quickStart: false, title: 'shuffling the opening hole', detail: 'Locking the first random course and chaos modifier before tee-off.' };
     screen = 'launching';
     render();
     window.clearTimeout(quickStartTimeout);
@@ -505,7 +505,7 @@ export const startApp = (app: HTMLElement) => {
   };
   const startOnlineMatch = () => {
     if (!onlineClient || !room) return;
-    launch = { quickStart: false, title: 'starting shared match', detail: 'The server is locking the campaign’s random courses for the table.' };
+    launch = { quickStart: false, title: 'starting shared match', detail: 'The server is locking the opening random course for the table.' };
     screen = 'launching';
     render();
     onlineClient.send({ type: 'start-room' });

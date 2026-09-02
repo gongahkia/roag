@@ -337,8 +337,8 @@ const automaticChaosFor = (random: Random, ruleset: ReturnType<typeof rulesetFor
 
 /**
  * The course shuffler is intentionally not a player action. It makes the
- * campaign a seeded arcade gauntlet: every hole is random, reproducible, and
- * already known to the stitcher before the first putt.
+ * campaign a seeded arcade gauntlet: each incoming hole is random,
+ * reproducible, and decided without player influence.
  */
 const automaticPlanFor = (state: GameState): PlannedHole => {
   const random = new Random(`${state.config.seed}:course-shuffle:${state.hole}`);
@@ -392,24 +392,10 @@ const automaticPlanFor = (state: GameState): PlannedHole => {
   return planned;
 };
 
-const campaignPlan = (config: GameConfig): PlannedHole[] => {
-  const plans: PlannedHole[] = [];
-  let atlas: Course | undefined;
-  for (let index = 0; index < config.holeCount; index += 1) {
-    const hole = index + 1;
-    const state = { config, hole, course: atlas } as GameState;
-    const plan = automaticPlanFor(state);
-    plans.push(plan);
-    const course = courseForPlan(plan);
-    atlas = atlas ? expandCourseAtCup(atlas, course).course : course;
-  }
-  return plans;
-};
-
 export const createGameState = (config: GameConfig): GameState => {
   const resolvedConfig = { ...config, ruleset: config.ruleset ?? 'party' };
-  const coursePlan = campaignPlan(resolvedConfig);
-  const firstPlan = coursePlan[0]!;
+  const firstPlan = automaticPlanFor({ config: resolvedConfig, hole: 1 } as GameState);
+  const coursePlan = [firstPlan];
   const course = cloneCourse(courseForPlan(firstPlan));
   const holeRules = { ...firstPlan.recipe.rules, sharedBoons: [...firstPlan.recipe.rules.sharedBoons] };
   const players = Array.from({ length: config.humanCount }, (_, index) => emptyPlayer(`human-${index}`, index, 'human', 0, course));
@@ -433,7 +419,7 @@ export const createGameState = (config: GameConfig): GameState => {
     turn: { playerIndex: 0, secondsLeft: holeRules.timerSeconds, shotInFlight: false, cardPlayed: false },
     paused: false,
     status: 'playing',
-    messages: [`the course shuffler locked ${coursePlan.length} random hazards — tee off`],
+    messages: ['the course shuffler threw a random opening hazard — tee off'],
     instrumentation: { events: [{ type: 'recipe', hole: 1, detail: firstPlan.recipe.metadata?.courseHash ?? firstPlan.courseSeed }, { type: 'reveal', hole: 1, detail: firstPlan.label }] },
   };
   return state;
@@ -474,8 +460,8 @@ export const beginCourseTransition = (state: GameState) => {
   state.hole = nextHole;
   state.gadgets = [];
   state.paused = false;
-  const next = state.coursePlan[nextHole - 1];
-  if (!next) return;
+  const next = automaticPlanFor(state);
+  state.coursePlan = [...state.coursePlan.slice(0, nextHole - 1), next];
   state.transition = { next: clonePlan(next) };
   state.status = 'transitioning';
   recordInstrumentation(state, { type: 'recipe', hole: nextHole, detail: next.recipe.metadata?.courseHash ?? next.courseSeed });
