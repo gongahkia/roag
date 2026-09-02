@@ -2,7 +2,20 @@ import type { CourseArchetype, CourseTheme, GameConfig, PowerUp, RulesetId } fro
 
 export const PARTY_RULESET_VERSION = 'party-rules-v1';
 export const RECIPE_SCHEMA_VERSION = 1;
-export const GENERATOR_VERSION = 'party-slice-v1';
+/** Recipes made before the wider fairway carving shipped with this version. */
+export const LEGACY_GENERATOR_VERSION = 'party-slice-v1';
+/** Bump this whenever a generator change can alter a materialized course. */
+export const GENERATOR_VERSION = 'party-slice-v2';
+export type GeneratorVersion = typeof LEGACY_GENERATOR_VERSION | typeof GENERATOR_VERSION;
+
+/**
+ * Missing metadata predates versioned recipes, so preserve the oldest known
+ * builder. Unknown future versions use the current builder until explicitly
+ * added to this compatibility table.
+ */
+export const generatorVersionFor = (version: string | undefined): GeneratorVersion => version === LEGACY_GENERATOR_VERSION
+  ? LEGACY_GENERATOR_VERSION
+  : GENERATOR_VERSION;
 
 export const PARTY_BIOMES = ['speedway', 'quarry', 'carnival'] as const satisfies readonly CourseTheme[];
 export const PARTY_LAYOUTS = ['ribbon', 'fork', 'courtyard'] as const satisfies readonly CourseArchetype[];

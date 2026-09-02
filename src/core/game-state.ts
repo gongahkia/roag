@@ -4,7 +4,7 @@ import { elapsedMsForPhase } from './hazards';
 import { resetPlayerForCourse } from './player-effects';
 import { newBall } from './physics';
 import { Random } from './random';
-import { GENERATOR_VERSION, PARTY_TRICK_CARDS, RECIPE_SCHEMA_VERSION, rulesetFor } from './rulesets';
+import { GENERATOR_VERSION, LEGACY_GENERATOR_VERSION, PARTY_TRICK_CARDS, RECIPE_SCHEMA_VERSION, generatorVersionFor, rulesetFor } from './rulesets';
 import { COURSE_HEIGHT, COURSE_WIDTH, type ChaosModifier, type Course, type CoursePackage, type DieState, type GameConfig, type GameState, type PlannedHole, type Player, type SlotReel, type SlotReelKind, type SlotStop, type SlotWager } from './types';
 
 const colors = ['#f6c26b', '#8bd5ca', '#f38ba8', '#cba6f7', '#a6e3a1', '#89b4fa', '#fab387', '#f9e2af', '#94e2d5', '#eba0ac', '#b4befe', '#f5c2e7'];
@@ -156,7 +156,13 @@ const clonePlan = (plan: PlannedHole): PlannedHole => ({
   },
 });
 
-export const courseForPlan = (plan: PlannedHole) => generateCourse(plan.courseSeed, plan.recipe.terrain, plan.recipe.rules.hazardPhaseCount);
+/** Rebuild a planned hole with the generator that created its recorded recipe. */
+export const courseForPlan = (plan: PlannedHole) => generateCourse(
+  plan.courseSeed,
+  plan.recipe.terrain,
+  plan.recipe.rules.hazardPhaseCount,
+  generatorVersionFor(plan.recipe.metadata?.generatorVersion ?? LEGACY_GENERATOR_VERSION),
+);
 
 const applyReality = (course: Course, reality: GameState['queuedReality']) => {
   if (reality === 'void is fairway') course.tiles.forEach((tile) => { if (tile.surface === 'void') tile.surface = 'fairway'; });

@@ -1,6 +1,7 @@
 import { distanceToCup, newBall, simulateShot, tileAt } from './physics';
 import { closedGateAt, COURSE_PHASES, elapsedMsForPhase } from './hazards';
 import { Random } from './random';
+import { GENERATOR_VERSION, LEGACY_GENERATOR_VERSION, type GeneratorVersion } from './rulesets';
 import type { Course, CourseArchetype, CoursePackage, CourseScore, CourseSizeProfile, CourseTheme, HoleRules, Point, RouteRoleAssignment, ShotCommand, Surface, TerrainSettings, Tile } from './types';
 import { COURSE_HEIGHT, COURSE_WIDTH } from './types';
 
@@ -127,11 +128,12 @@ const writeTile = (tiles: Tile[], point: Point, surface: Surface, height: number
   tiles[point.y * width + point.x] = { surface, height };
 };
 
-const carve = (tiles: Tile[], point: Point, height: number, laneWidth: number, width: number, courseHeight: number) => {
+const carve = (tiles: Tile[], point: Point, height: number, laneWidth: number, width: number, courseHeight: number, generatorVersion: GeneratorVersion) => {
   const radius = Math.max(1, Math.min(2, laneWidth));
   for (let y = point.y - radius; y <= point.y + radius; y += 1) {
     for (let x = point.x - radius; x <= point.x + radius; x += 1) {
-      if (x > 0 && y > 0 && x < width - 1 && y < courseHeight - 1) writeTile(tiles, { x, y }, 'fairway', height, width, courseHeight);
+      const insideCarve = generatorVersion !== LEGACY_GENERATOR_VERSION || Math.abs(x - point.x) + Math.abs(y - point.y) <= radius;
+      if (insideCarve && x > 0 && y > 0 && x < width - 1 && y < courseHeight - 1) writeTile(tiles, { x, y }, 'fairway', height, width, courseHeight);
     }
   }
 };
@@ -204,7 +206,7 @@ const routeFor = (random: Random, settings: TerrainSettings): Point[] => {
   return route;
 };
 
-const carveBranches = (tiles: Tile[], route: readonly Point[], random: Random, settings: TerrainSettings) => {
+const carveBranches = (tiles: Tile[], route: readonly Point[], random: Random, settings: TerrainSettings, generatorVersion: GeneratorVersion) => {
   for (let index = 0; index < settings.branches; index += 1) {
     const base = random.pick(route.slice(Math.min(2, route.length - 1), Math.max(3, route.length - 2)));
     const direction = random.pick([-1, 1]);
@@ -213,16 +215,16 @@ const carveBranches = (tiles: Tile[], route: readonly Point[], random: Random, s
     let point = { ...base };
     for (let step = 0; step < length; step += 1) {
       point = { x: Math.max(1, Math.min(settings.width - 2, point.x + (random.chance(.35) ? 1 : 0))), y: Math.max(1, Math.min(settings.height - 2, point.y + direction)) };
-      carve(tiles, point, baseHeight, Math.max(1, settings.laneWidth - 1), settings.width, settings.height);
+      carve(tiles, point, baseHeight, Math.max(1, settings.laneWidth - 1), settings.width, settings.height, generatorVersion);
     }
   }
 };
 
-const carveArchetype = (tiles: Tile[], route: readonly Point[], random: Random, settings: TerrainSettings) => {
+const carveArchetype = (tiles: Tile[], route: readonly Point[], random: Random, settings: TerrainSettings, generatorVersion: GeneratorVersion) => {
   if (settings.archetype === 'courtyard') {
     const center = route[Math.floor(route.length / 2)]!;
     const height = tiles[indexOf({ width: settings.width }, center)]!.height;
-    carve(tiles, center, height, 3, settings.width, settings.height);
+    carve(tiles, center, height, 3, settings.width, settings.height, generatorVersion);
     return;
   }
   if (settings.archetype !== 'fork' || route.length < 7) return;
@@ -235,9 +237,9 @@ const carveArchetype = (tiles: Tile[], route: readonly Point[], random: Random, 
     const progress = (x - start.x) / span;
     const arc = Math.sin(progress * Math.PI) * side * Math.max(2, Math.round(1 + settings.chaos * 3));
     const y = Math.max(1, Math.min(settings.height - 2, Math.round(start.y + (end.y - start.y) * progress + arc)));
-    carve(tiles, { x, y }, height, Math.max(1, settings.laneWidth - 1), settings.width, settings.height);
+    carve(tiles, { x, y }, height, Math.max(1, settings.laneWidth - 1), settings.width, settings.height, generatorVersion);
   }
-  if (random.chance(.5)) carveBranches(tiles, route.slice(Math.floor(route.length / 3), Math.floor(route.length * .75)), random, { ...settings, branches: 1 });
+  if (random.chance(.5)) carveBranches(tiles, route.slice(Math.floor(route.length / 3), Math.floor(route.length * .75)), random, { ...settings, branches: 1 }, generatorVersion);
 };
 
 const reachable = (course: Course, phase = 0, phaseCount = COURSE_PHASES): boolean => {
@@ -549,7 +551,7 @@ const decorate = (course: Course, random: Random, settings: TerrainSettings, pha
   addBarrierWalls(course);
 };
 
-const buildCourse = (seed: string, settings: TerrainSettings, phaseCount: number): Course => {
+const buildCourse = (seed: string, settings: TerrainSettings, phaseCount: number, generatorVersion: GeneratorVersion): Course => {
   const random = new Random(seed);
   const tiles = Array.from({ length: settings.width * settings.height }, baseTile);
   const route = routeFor(random, settings);
@@ -557,10 +559,10 @@ const buildCourse = (seed: string, settings: TerrainSettings, phaseCount: number
   for (const [index, point] of route.entries()) {
     const elevationChance = .06 + settings.elevation * .3 + (settings.theme === 'quarry' ? .06 : 0);
     if (index > 2 && random.chance(elevationChance)) elevation = Math.max(0, Math.min(settings.maxElevation, elevation + random.pick([-1, 1])));
-    carve(tiles, point, elevation, settings.laneWidth, settings.width, settings.height);
+    carve(tiles, point, elevation, settings.laneWidth, settings.width, settings.height, generatorVersion);
   }
-  carveBranches(tiles, route, random, settings);
-  carveArchetype(tiles, route, random, settings);
+  carveBranches(tiles, route, random, settings, generatorVersion);
+  carveArchetype(tiles, route, random, settings, generatorVersion);
   const tee = route[0]!;
   const cup = route.at(-1)!;
   writeTile(tiles, tee, 'tee', tiles[indexOf({ width: settings.width }, tee)]!.height, settings.width, settings.height);
@@ -597,12 +599,16 @@ export const courseHashFor = (course: Course) => {
   return `gwye-${(hash >>> 0).toString(16).padStart(8, '0')}`;
 };
 
-export const generateCourse = (seed: string, settings: Partial<TerrainSettings> = {}, phaseCount = COURSE_PHASES): Course => {
+/**
+ * Build a course with the requested historical geometry. New callers use v2;
+ * replay plans pass their recorded version so old course hashes stay stable.
+ */
+export const generateCourse = (seed: string, settings: Partial<TerrainSettings> = {}, phaseCount = COURSE_PHASES, generatorVersion: GeneratorVersion = GENERATOR_VERSION): Course => {
   const resolvedSettings = { ...defaultTerrainSettings(), ...settings, ...normalizeDimensions(settings) };
-  let fallback = buildCourse(seed, resolvedSettings, phaseCount);
+  let fallback = buildCourse(seed, resolvedSettings, phaseCount, generatorVersion);
   if (fallback.score.playable) return fallback;
   for (let attempt = 1; attempt <= 40; attempt += 1) {
-    const candidate = buildCourse(`${seed}-retry-${attempt}`, resolvedSettings, phaseCount);
+    const candidate = buildCourse(`${seed}-retry-${attempt}`, resolvedSettings, phaseCount, generatorVersion);
     if (candidate.score.playable) return candidate;
     if (candidate.score.total > fallback.score.total) fallback = candidate;
   }

@@ -3,14 +3,15 @@ import { chooseBotDecision, chooseBotDieAction } from '../src/core/bots';
 import { CAMPAIGN_EXCAVATION_RADIUS, expandCourseAtCup } from '../src/core/campaign';
 import { CONTENT } from '../src/core/catalog';
 import { applyCommand, botMove, createGame, defaultConfig, previewShot, tickTurn } from '../src/core/game';
-import { defaultHoleRules, defaultTerrainSettings, generateCandidates, generateCourse, generateCoursePackages, randomTerrainSettings } from '../src/core/generator';
+import { courseHashFor, defaultHoleRules, defaultTerrainSettings, generateCandidates, generateCourse, generateCoursePackages, randomTerrainSettings } from '../src/core/generator';
 import { newBall, simulateShot, tileAt, tileCornerHeights } from '../src/core/physics';
 import { powerUpFor } from '../src/core/powerups';
 import { physicsModifiersFor } from '../src/core/player-effects';
-import { expansionForTransition, normalizeGameState } from '../src/core/game-state';
+import { courseForPlan, expansionForTransition, normalizeGameState } from '../src/core/game-state';
 import { Random } from '../src/core/random';
+import { GENERATOR_VERSION, LEGACY_GENERATOR_VERSION } from '../src/core/rulesets';
 import { buyShopOffer, chooseBotShopOffer, openShop } from '../src/core/shop';
-import type { GameState } from '../src/core/types';
+import type { GameState, PlannedHole } from '../src/core/types';
 import { createArena as arena, gameOn } from './fixtures';
 
 const resolveDie = (game: ReturnType<typeof createGame>) => {
@@ -42,6 +43,36 @@ describe('course generation', () => {
     expect(first.score.playable).toBe(true);
     expect(candidates).toHaveLength(3);
     expect(candidates.every((course) => course.score.playable && course.score.solverShots.length > 0)).toBe(true);
+  });
+
+  it('rebuilds historical recipes with their recorded generator geometry', () => {
+    const seed = 'generator-v1-compatibility';
+    const terrain = { ...defaultTerrainSettings(), laneWidth: 1, branches: 1, theme: 'balanced' as const };
+    const rules = defaultHoleRules();
+    const v1 = generateCourse(seed, terrain, rules.hazardPhaseCount, LEGACY_GENERATOR_VERSION);
+    const v2 = generateCourse(seed, terrain, rules.hazardPhaseCount, GENERATOR_VERSION);
+    const legacyPlan: PlannedHole = {
+      id: 'legacy-generator-plan',
+      label: 'legacy generator plan',
+      courseSeed: seed,
+      recipe: {
+        terrain,
+        rules,
+        metadata: {
+          schemaVersion: 1,
+          generatorVersion: LEGACY_GENERATOR_VERSION,
+          seed,
+          resolvedReels: { biome: 'biome', layout: 'layout', rules: 'rules' },
+          contentIds: [],
+        },
+      },
+    };
+
+    expect(courseHashFor(v1)).toBe('gwye-1a18f901');
+    expect(courseHashFor(v2)).toBe('gwye-4d087f19');
+    expect(courseHashFor(v1)).not.toBe(courseHashFor(v2));
+    expect(courseHashFor(courseForPlan(legacyPlan))).toBe(courseHashFor(v1));
+    expect(courseHashFor(courseForPlan({ ...legacyPlan, recipe: { ...legacyPlan.recipe, metadata: undefined } }))).toBe(courseHashFor(v1));
   });
 
   it('stitches the next generated hole onto the completed cup without rebuilding the prior course', () => {

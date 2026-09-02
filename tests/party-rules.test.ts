@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyCommand, createGame, defaultConfig, tickTurn } from '../src/core/game';
 import { validateCourse } from '../src/core/generator';
 import { simulateShot } from '../src/core/physics';
-import { PARTY_BIOMES, PARTY_LAYOUTS, PARTY_TRICK_CARDS } from '../src/core/rulesets';
+import { GENERATOR_VERSION, PARTY_BIOMES, PARTY_LAYOUTS, PARTY_TRICK_CARDS } from '../src/core/rulesets';
 import { openShop } from '../src/core/shop';
 import { normalizeGameState } from '../src/core/game-state';
 import { partyAwardsFor, partyDiagnosticsReportFor, partyPacingFor, partyReceiptsFor } from '../src/core/party-insights';
@@ -47,7 +47,7 @@ describe('Party Rules vertical slice', () => {
     const second = resolveReveal(createGame(partyConfig('party-recipe')));
     const firstPlan = first.die!.revealed!.plan;
     const secondPlan = second.die!.revealed!.plan;
-    expect(firstPlan.recipe.metadata).toMatchObject({ schemaVersion: 1, generatorVersion: 'party-slice-v1', seed: firstPlan.courseSeed });
+    expect(firstPlan.recipe.metadata).toMatchObject({ schemaVersion: 1, generatorVersion: GENERATOR_VERSION, seed: firstPlan.courseSeed });
     expect(firstPlan.recipe.metadata).toEqual(secondPlan.recipe.metadata);
     const restored = normalizeGameState(JSON.parse(JSON.stringify(first)));
     expect(restored.die?.revealed?.plan.recipe.metadata).toEqual(firstPlan.recipe.metadata);
