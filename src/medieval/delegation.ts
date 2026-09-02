@@ -684,7 +684,10 @@ export const validateDelegationState = (context: DelegationContext, value: unkno
         approach: task.approach,
         proposal: task.proposal
       }, task.assessment, recipient, definition)
-      if (!same(task.agreement, expectedAgreement)) issues.push(issue(task.id, 'delegation.invalid-agreement'))
+      if (!same(task.agreement, expectedAgreement)) {
+        console.log('delegation agreement diagnostic', { actual: task.agreement, expected: expectedAgreement })
+        issues.push(issue(task.id, 'delegation.invalid-agreement'))
+      }
     }
     const duration = definition?.durationMinutes[task.proposal.complexity]
     if (task.status === 'refused') {
