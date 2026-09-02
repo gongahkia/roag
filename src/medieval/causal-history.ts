@@ -319,7 +319,7 @@ export const createCausalCommand = (
   context: CausalHistoryContext,
   state: CausalHistoryState,
   kind: CausalCommandKind,
-  payload: InitialCourierSelectedCommand['payload'] | TimeBearingActionCommand['payload'] | DurableJomonGrowthCommand['payload']
+  payload: InitialCourierSelectedCommand['payload'] | TimeBearingActionCommand['payload'] | DurableJomonGrowthCommand['payload'] | DelegationOfferedCommand['payload'] | DelegationInterruptedCommand['payload']
 ): CausalCommandEvent => {
   const diagnostics = validateCausalHistoryState(context, state)
   if (diagnostics.length) throw new CausalHistoryContractError(diagnostics)
@@ -336,7 +336,9 @@ export const createCausalCommand = (
   } as const
   if (kind === 'initial-courier-selected') return { ...common, kind, payload: structuredClone(payload as InitialCourierSelectedCommand['payload']) }
   if (kind === 'time-bearing-action') return { ...common, kind, payload: structuredClone(payload as TimeBearingActionCommand['payload']) }
-  return { ...common, kind, payload: structuredClone(payload as DurableJomonGrowthCommand['payload']) }
+  if (kind === 'durable-jomon-growth') return { ...common, kind, payload: structuredClone(payload as DurableJomonGrowthCommand['payload']) }
+  if (kind === 'delegation-offered') return { ...common, kind, payload: structuredClone(payload as DelegationOfferedCommand['payload']) }
+  return { ...common, kind, payload: structuredClone(payload as DelegationInterruptedCommand['payload']) }
 }
 
 const segmentFor = (context: CausalHistoryContext, checkpoint: CausalHistoryCheckpoint, events: readonly CausalCommandEvent[], projection: CausalReplayProjection): CausalHistoryCompactedSegment => {
@@ -363,7 +365,9 @@ const mergeSegments = (context: CausalHistoryContext, left: CausalHistoryCompact
     commandKinds: {
       initialCourierSelected: left.commandKinds.initialCourierSelected + right.commandKinds.initialCourierSelected,
       timeBearingAction: left.commandKinds.timeBearingAction + right.commandKinds.timeBearingAction,
-      durableJomonGrowth: left.commandKinds.durableJomonGrowth + right.commandKinds.durableJomonGrowth
+      durableJomonGrowth: left.commandKinds.durableJomonGrowth + right.commandKinds.durableJomonGrowth,
+      delegationOffered: left.commandKinds.delegationOffered + right.commandKinds.delegationOffered,
+      delegationInterrupted: left.commandKinds.delegationInterrupted + right.commandKinds.delegationInterrupted
     },
     provenanceDigest: context.creationDigest,
     stateDigest: right.stateDigest
@@ -392,7 +396,7 @@ export const appendCausalCommand = (context: CausalHistoryContext, state: Causal
 }
 
 const validCommand = (context: CausalHistoryContext, value: unknown): value is CausalCommandEvent => {
-  if (!record(value) || !hasOnlyKeys(value, ['version', 'sequence', 'id', 'token', 'kind', 'payload', 'contentSafety']) || value.version !== CAUSAL_HISTORY_CONTRACT_VERSION || !safeInteger(value.sequence) || !validId(value.id) || typeof value.token !== 'string' || !['initial-courier-selected', 'time-bearing-action', 'durable-jomon-growth'].includes(String(value.kind)) || !commandPayloadIsShaped(value.kind as CausalCommandKind, value.payload)) return false
+  if (!record(value) || !hasOnlyKeys(value, ['version', 'sequence', 'id', 'token', 'kind', 'payload', 'contentSafety']) || value.version !== CAUSAL_HISTORY_CONTRACT_VERSION || !safeInteger(value.sequence) || !validId(value.id) || typeof value.token !== 'string' || !['initial-courier-selected', 'time-bearing-action', 'durable-jomon-growth', 'delegation-offered', 'delegation-interrupted'].includes(String(value.kind)) || !commandPayloadIsShaped(value.kind as CausalCommandKind, value.payload)) return false
   const kind = value.kind as CausalCommandKind
   const payload = value.payload as InitialCourierSelectedCommand['payload'] | TimeBearingActionCommand['payload'] | DurableJomonGrowthCommand['payload']
   const expectedId = commandIdFor(context, value.sequence, kind, value.payload)
@@ -406,7 +410,7 @@ const validCheckpoint = (context: CausalHistoryContext, value: unknown): value i
   return value.id === checkpointIdFor(context, value.sequence, value.stateDigest) && value.token === checkpointTokenFor(context, value.sequence, value.atWorldTime, value.stateDigest)
 }
 
-const validCounts = (value: unknown): value is CausalHistoryCommandKindCounts => record(value) && hasOnlyKeys(value, ['initialCourierSelected', 'timeBearingAction', 'durableJomonGrowth']) && safeInteger(value.initialCourierSelected) && safeInteger(value.timeBearingAction) && safeInteger(value.durableJomonGrowth)
+const validCounts = (value: unknown): value is CausalHistoryCommandKindCounts => record(value) && hasOnlyKeys(value, ['initialCourierSelected', 'timeBearingAction', 'durableJomonGrowth', 'delegationOffered', 'delegationInterrupted']) && safeInteger(value.initialCourierSelected) && safeInteger(value.timeBearingAction) && safeInteger(value.durableJomonGrowth) && safeInteger(value.delegationOffered) && safeInteger(value.delegationInterrupted)
 const validSegment = (context: CausalHistoryContext, value: unknown): value is CausalHistoryCompactedSegment => {
   if (!record(value) || !hasOnlyKeys(value, ['version', 'id', 'token', 'sequenceStart', 'sequenceEnd', 'worldTimeStart', 'worldTimeEnd', 'commandKinds', 'provenanceDigest', 'stateDigest']) || value.version !== CAUSAL_HISTORY_SEGMENT_VERSION || !validId(value.id) || typeof value.token !== 'string' || !safeInteger(value.sequenceStart) || !safeInteger(value.sequenceEnd) || value.sequenceStart < 1 || value.sequenceEnd < value.sequenceStart || !safeInteger(value.worldTimeStart) || !safeInteger(value.worldTimeEnd) || value.worldTimeEnd < value.worldTimeStart || !validCounts(value.commandKinds) || value.provenanceDigest !== context.creationDigest || typeof value.stateDigest !== 'string') return false
   const draft: Omit<CausalHistoryCompactedSegment, 'id' | 'token'> = { version: value.version, sequenceStart: value.sequenceStart, sequenceEnd: value.sequenceEnd, worldTimeStart: value.worldTimeStart, worldTimeEnd: value.worldTimeEnd, commandKinds: value.commandKinds, provenanceDigest: value.provenanceDigest, stateDigest: value.stateDigest }
@@ -427,7 +431,7 @@ export const validateCausalHistoryState = (context: CausalHistoryContext, value:
     for (const command of value.tail) {
       const id = record(command) && typeof command.id === 'string' ? command.id : 'causal-history:command'
       if (!validCommand(context, command)) {
-        const typedCommand = record(command) && typeof command.kind === 'string' && ['initial-courier-selected', 'time-bearing-action', 'durable-jomon-growth'].includes(command.kind)
+        const typedCommand = record(command) && typeof command.kind === 'string' && ['initial-courier-selected', 'time-bearing-action', 'durable-jomon-growth', 'delegation-offered', 'delegation-interrupted'].includes(command.kind)
         const payloadShaped = typedCommand && commandPayloadIsShaped(command.kind as CausalCommandKind, command.payload)
         const tokenExpected = typedCommand && payloadShaped && safeInteger(command.sequence)
         issues.push(issue(id, !typedCommand ? 'causal-history.invalid-command' : !payloadShaped ? 'causal-history.invalid-command-payload' : tokenExpected ? 'causal-history.invalid-command-token' : 'causal-history.invalid-command'))

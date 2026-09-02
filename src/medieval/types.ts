@@ -149,8 +149,8 @@ export interface CausalRecord {
 }
 
 export interface FoundationWorld {
-  /** v10 requires v8 mutable state with persistent-person contract v2. */
-  version: 10
+  /** v11 requires v9 mutable state with replayed delegation/person authority. */
+  version: 11
   id: string
   status: 'active'
   manifest: WorldManifest
@@ -163,7 +163,7 @@ export interface FoundationWorld {
 export type ChronicleReason = 'jomon-loss' | 'crew-extinction'
 
 export interface WorldChronicle {
-  version: 9
+  version: 10
   id: string
   status: 'finalized'
   reason: ChronicleReason

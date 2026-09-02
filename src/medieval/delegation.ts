@@ -2,6 +2,7 @@ import { auditMedievalContentSafety, classifyMedievalContent, type ClassifiedMed
 import type { ConversationApproach, ConversationAssessment, ConversationComplexityBand, ConversationProposal, ConversationProposalKind, ConversationUrgencyBand } from './conversation'
 import type { PersistentPersonMaterialInterest, PersistentPersonRecord, PersistentPersonSkillKind } from './persistent-person'
 import { SeededRng, hashSeed } from './rng'
+import type { DelegatedWorkPlaceholder } from './simulation-catchup'
 
 /**
  * Delegation describes work agreements and their person-history evidence only.
@@ -548,6 +549,42 @@ export const createDelegationState = (): DelegationState => {
   return { ...state, contentSafetyAudit: audit(state) }
 }
 
+/** The catch-up kernel receives one exact placeholder for each accepted task. */
+export const delegatedWorkPlaceholderForTask = (task: DelegatedTaskRecord): DelegatedWorkPlaceholder => {
+  if (task.status !== 'in-progress') throw new DelegationContractError([issue(task.id, 'delegation.task-not-active')])
+  return {
+    id: task.id,
+    assigneePersonId: task.recipientId,
+    status: 'active',
+    committedAtWorldTime: task.acceptedAtWorldTime!,
+    progressIntervals: 0
+  }
+}
+
+/** Cross-domain check: scheduler placeholders cannot become a second task registry. */
+export const validateDelegationSchedulerLinks = (state: DelegationState, placeholders: readonly DelegatedWorkPlaceholder[]): readonly DelegationDiagnostic[] => {
+  const issues: DelegationDiagnostic[] = []
+  const byId = new Map(placeholders.map(item => [item.id, item]))
+  for (const task of state.tasks) {
+    const placeholder = byId.get(task.id)
+    if (task.status === 'refused') {
+      if (placeholder !== undefined) issues.push(issue(task.id, 'delegation.invalid-work-link'))
+      continue
+    }
+    if (!placeholder || placeholder.assigneePersonId !== task.recipientId || placeholder.committedAtWorldTime !== task.acceptedAtWorldTime) {
+      issues.push(issue(task.id, 'delegation.invalid-work-link'))
+      continue
+    }
+    if (task.status === 'in-progress' && placeholder.status !== 'active') issues.push(issue(task.id, 'delegation.invalid-work-link'))
+    if (task.status !== 'in-progress' && (placeholder.status !== 'resolved' || placeholder.resolvedAtWorldTime !== task.outcome?.atWorldTime)) issues.push(issue(task.id, 'delegation.invalid-work-link'))
+  }
+  for (const placeholder of placeholders) {
+    const task = state.tasks.find(item => item.id === placeholder.id)
+    if (!task) issues.push(issue(placeholder.id, 'delegation.invalid-work-link'))
+  }
+  return canonicalIssues(issues)
+}
+
 const validAssessmentShape = (value: unknown): value is ConversationAssessment => record(value)
   && hasOnlyKeys(value, ['version', 'courierId', 'recipientId', 'eligibility', 'barriers', 'unlockedApproaches', 'taskClarity', 'recipientRapport', 'recipientInterestAlignment', 'recipientCapacity', 'recipientCurrentWork', 'recipientCommitment', 'recipientNeedsPressure', 'recipientHealth', 'recipientSafetyPressure', 'risk', 'agreementReadiness', 'factors', 'contentSafety'])
   && value.version === 1
@@ -652,15 +689,18 @@ export const validateDelegationState = (context: DelegationContext, value: unkno
     if (task.status === 'refused') {
       if (task.agreement.status !== 'refused' || task.acceptedAtWorldTime !== undefined || task.plannedCompletionAtWorldTime !== undefined || task.progressMinutes !== 0 || !validOutcome(context, task, task.outcome) || task.outcome?.kind !== 'refused') issues.push(issue(task.id, 'delegation.invalid-lifecycle'))
     } else {
-      if (task.agreement.status !== 'accepted' || !safeInteger(task.acceptedAtWorldTime) || task.acceptedAtWorldTime !== task.offeredAtWorldTime || !safeInteger(task.plannedCompletionAtWorldTime) || task.plannedCompletionAtWorldTime !== task.acceptedAtWorldTime + duration || task.plannedCompletionAtWorldTime > Number.MAX_SAFE_INTEGER || task.progressMinutes > duration) issues.push(issue(task.id, 'delegation.invalid-lifecycle'))
-      if (task.status === 'in-progress') {
-        if (task.outcome !== null || task.progressMinutes !== context.worldTime - task.acceptedAtWorldTime || task.progressMinutes >= duration || task.plannedCompletionAtWorldTime <= context.worldTime || !recipient || !validActiveWorkLink(recipient, task)) issues.push(issue(task.id, 'delegation.invalid-work-link'))
+      const acceptedAt = task.acceptedAtWorldTime
+      const plannedCompletion = task.plannedCompletionAtWorldTime
+      if (task.agreement.status !== 'accepted' || !safeInteger(acceptedAt) || acceptedAt !== task.offeredAtWorldTime || !safeInteger(plannedCompletion) || duration === undefined || plannedCompletion !== acceptedAt + duration || plannedCompletion > Number.MAX_SAFE_INTEGER || task.progressMinutes > duration) {
+        issues.push(issue(task.id, 'delegation.invalid-lifecycle'))
+      } else if (task.status === 'in-progress') {
+        if (task.outcome !== null || task.progressMinutes !== context.worldTime - acceptedAt || task.progressMinutes >= duration || plannedCompletion <= context.worldTime || !recipient || !validActiveWorkLink(recipient, task)) issues.push(issue(task.id, 'delegation.invalid-work-link'))
         if (recipients.has(task.recipientId)) issues.push(issue(task.id, 'delegation.invalid-work-link'))
         recipients.add(task.recipientId)
       } else if (task.status === 'completed') {
         if (task.progressMinutes !== duration || !validOutcome(context, task, task.outcome) || task.outcome?.kind !== 'completed' || !recipient || !validTerminalWorkLink(recipient, task, 'resolved')) issues.push(issue(task.id, 'delegation.invalid-lifecycle'))
       } else if (task.status === 'interrupted') {
-        if (!validOutcome(context, task, task.outcome) || task.outcome?.kind !== 'interrupted' || task.progressMinutes !== task.outcome.atWorldTime - task.acceptedAtWorldTime || !recipient || !validTerminalWorkLink(recipient, task, 'cancelled')) issues.push(issue(task.id, 'delegation.invalid-lifecycle'))
+        if (!validOutcome(context, task, task.outcome) || task.outcome?.kind !== 'interrupted' || task.progressMinutes !== task.outcome.atWorldTime - acceptedAt || !recipient || !validTerminalWorkLink(recipient, task, 'cancelled')) issues.push(issue(task.id, 'delegation.invalid-lifecycle'))
       }
     }
   }

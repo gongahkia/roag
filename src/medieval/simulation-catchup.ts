@@ -205,6 +205,32 @@ export const withDelegatedWorkPlaceholder = (
   return next
 }
 
+/** Marks one task-linked placeholder terminal and removes only its live cursor. */
+export const resolveDelegatedWorkPlaceholder = (
+  state: SimulationCatchUpState,
+  context: SimulationCatchUpValidationContext,
+  delegatedWorkId: string,
+  resolvedAtWorldTime: number
+): SimulationCatchUpState => {
+  const diagnostics = validateSimulationCatchUpState(context, state)
+  if (diagnostics.length) throw new SimulationCatchUpContractError(diagnostics)
+  if (!validId(delegatedWorkId) || !safeInteger(resolvedAtWorldTime) || resolvedAtWorldTime > context.worldTime) throw new SimulationCatchUpContractError([issue('simulation-catchup:delegated-work', 'simulation-catchup.invalid-delegated-work')])
+  const placeholder = state.delegatedWork.find(item => item.id === delegatedWorkId)
+  if (!placeholder || placeholder.status !== 'active') throw new SimulationCatchUpContractError([issue(delegatedWorkId, 'simulation-catchup.invalid-delegated-work')])
+  const nextWithoutAudit = {
+    version: SIMULATION_CATCH_UP_CONTRACT_VERSION,
+    cursors: state.cursors.filter(cursor => cursor.id !== cursorIdFor('delegated-work', delegatedWorkId)).map(cursor => structuredClone(cursor)),
+    delegatedWork: state.delegatedWork.map(item => item.id === delegatedWorkId
+      ? { ...item, status: 'resolved' as const, resolvedAtWorldTime }
+      : structuredClone(item)).sort((left, right) => compare(left.id, right.id)),
+    records: structuredClone(state.records)
+  } satisfies Omit<SimulationCatchUpState, 'contentSafetyAudit'>
+  const next = { ...nextWithoutAudit, contentSafetyAudit: audit(nextWithoutAudit) }
+  const nextDiagnostics = validateSimulationCatchUpState(context, next)
+  if (nextDiagnostics.length) throw new SimulationCatchUpContractError(nextDiagnostics)
+  return next
+}
+
 const targetExists = (context: SimulationCatchUpValidationContext, targetKind: SimulationCatchUpTargetKind, targetId: string, delegatedWorkIds: ReadonlySet<string>): boolean => {
   if (targetKind === 'person') return context.personIds.includes(targetId)
   if (targetKind === 'market') return context.marketIds.includes(targetId)
