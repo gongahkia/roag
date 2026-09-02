@@ -20,7 +20,7 @@ const main = async () => {
   const themes = new Map<string, number>();
   for (let index = 0; index < count; index += 1) {
     const seed = `${seedPrefix}-${String(index + 1).padStart(5, '0')}`;
-    const state = createGame({ ...defaultConfig(), seed, ruleset: 'party', holeCount: 1, humanCount: 2, botCount: 0, skipDieBets: true });
+    const state = createGame({ ...defaultConfig(), seed, ruleset: 'party', holeCount: 1, humanCount: 2, botCount: 0 });
     const metadata = state.coursePlan[0]?.recipe.metadata;
     if (!state.course.score.playable || !metadata?.courseHash) failures.push({ seed, detail: state.course.score.rejection ?? 'missing playable score or course hash' });
     for (const event of state.instrumentation?.events ?? []) if (event.type === 'generation-failure') failures.push({ seed, detail: event.detail });

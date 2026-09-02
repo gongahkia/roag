@@ -20,10 +20,6 @@ const options = (): Options => {
   return { seed: argument('--seed') ?? 'party-simulation', players, holes, out: argument('--out') ?? path.join('output', 'simulations', 'party-simulation.json') };
 };
 
-const readyEveryPlayer = (state: GameState) => state.players.reduce((next, player) => next.die?.wagers[player.id]?.ready
-  ? next
-  : applyCommand(next, { type: 'ready-slot-spin', playerId: player.id }), state);
-
 const playablePlacement = (state: GameState, ownerId: string): Point | undefined => state.course.route.find((point) => canPlaceGadget(state, ownerId, point));
 
 const playHeldCard = (state: GameState) => {
@@ -50,38 +46,9 @@ const actionCounts = (state: GameState) => Object.fromEntries((state.instrumenta
 }, new Map<string, number>()));
 
 const run = (options: Options) => {
-  let state = createGame({ ...defaultConfig(), seed: options.seed, ruleset: 'party', humanCount: options.players, botCount: 0, holeCount: options.holes, skipDieBets: false });
+  let state = createGame({ ...defaultConfig(), seed: options.seed, ruleset: 'party', humanCount: options.players, botCount: 0, holeCount: options.holes });
   let steps = 0;
-  let firstRevealFunded = false;
   while (state.status !== 'finished' && steps++ < 2_000) {
-    if (state.status === 'rolling') {
-      const die = state.die!;
-      if (die.phase === 'wagering') {
-        if (state.hole !== 1 || die.rerolls > 0) {
-          state.players.forEach((player, index) => {
-            if (die.wagers[player.id]!.influenceActions === 0 && index % 2 === state.hole % 2) state = applyCommand(state, { type: 'augment-slot-stop', playerId: player.id, reelId: die.reels[index % 3]!.id, stopId: die.reels[index % 3]!.stops[0]!.id });
-          });
-        }
-        state = readyEveryPlayer(state);
-        continue;
-      }
-      if (die.phase === 'spinning') { state = tickTurn(state, 2); continue; }
-      if (die.phase === 'revealed') {
-        if (state.hole === 1 && !firstRevealFunded && die.rerollPot) {
-          state.players.slice(1, 4).forEach((player) => { state = applyCommand(state, { type: 'contribute-reroll', playerId: player.id }); });
-          firstRevealFunded = true;
-          continue;
-        }
-        state = tickTurn(state, 10);
-        continue;
-      }
-      if (die.phase === 'reroll-wagering') {
-        const chaosAuthor = state.players[0]!;
-        if (die.wagers[chaosAuthor.id]!.influenceActions === 0) state = applyCommand(state, { type: 'add-chaos-reel', playerId: chaosAuthor.id });
-        state = readyEveryPlayer(state);
-        continue;
-      }
-    }
     if (state.status === 'playing') {
       state = tickTurn(state, 6);
       if (state.status !== 'playing') continue;

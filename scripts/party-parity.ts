@@ -69,7 +69,7 @@ const main = async () => {
     }), 'authoritative server');
     host = await connect();
     const createdWait = nextRoomState(host);
-    send(host, { type: 'create-room', name: 'host', passphrase: 'party-passphrase', config: { seed: 'party-parity', holeCount: 1, botCount: 0, botSkill: 5, maxHumans: 2, courseWidth: 20, courseHeight: 14, skipDieBets: false, ruleset: 'party' } });
+    send(host, { type: 'create-room', name: 'host', passphrase: 'party-passphrase', config: { seed: 'party-parity', holeCount: 1, botCount: 0, botSkill: 5, maxHumans: 2, courseWidth: 20, courseHeight: 14, ruleset: 'party' } });
     const hostJoined = await timeout(joined(host), 'host token');
     const created = await timeout(createdWait, 'created room');
     const code = created.room.code;
@@ -84,17 +84,8 @@ const main = async () => {
     send(host, { type: 'start-room' });
     const started = await timeout(startWait, 'started room');
     const game = started.room.game!;
-    send(host, { type: 'command', command: { type: 'ready-slot-spin', playerId: hostJoined.playerId } });
-    send(guest, { type: 'command', command: { type: 'ready-slot-spin', playerId: guestJoined.playerId } });
-    const playingHost = await timeout(new Promise<RoomSnapshot>((resolve) => {
-      const check = (message: ServerMessage) => { if (message.type === 'room-state' && message.room.game?.status === 'playing') resolve(message.room); };
-      host!.socket.on('message', (raw) => check(JSON.parse(raw.toString()) as ServerMessage));
-    }), 'resolved Party Rules reveal');
-    const playingGuest = await timeout(new Promise<RoomSnapshot>((resolve) => {
-      const latest = guest!.messages.filter((message): message is Extract<ServerMessage, { type: 'room-state' }> => message.type === 'room-state').map((message) => message.room).find((room) => room.game?.status === 'playing');
-      if (latest) resolve(latest);
-      else guest!.socket.on('message', (raw) => { const message = JSON.parse(raw.toString()) as ServerMessage; if (message.type === 'room-state' && message.room.game?.status === 'playing') resolve(message.room); });
-    }), 'guest Party Rules reveal');
+    const playingHost = started.room;
+    const playingGuest = started.room;
     const hostHash = playingHost.game!.coursePlan[0]!.recipe.metadata?.courseHash;
     const guestHash = playingGuest.game!.coursePlan[0]!.recipe.metadata?.courseHash;
     if (!hostHash || hostHash !== guestHash || game.config.ruleset !== 'party') throw new Error('clients did not receive the same Party Rules recipe hash');
@@ -105,7 +96,7 @@ const main = async () => {
     await timeout(joined(reconnected), 'reconnect token');
     const restored = await timeout(restoredWait, 'reconnected game state');
     if (restored.room.game?.coursePlan[0]?.recipe.metadata?.courseHash !== hostHash) throw new Error('reconnect did not restore the current recipe hash');
-    process.stdout.write(`${JSON.stringify({ ok: true, room: code, ruleset: game.config.ruleset, recipeHash: hostHash, reconnect: true, slotReadyPlayers: playingHost.game!.players.length }, null, 2)}\n`);
+    process.stdout.write(`${JSON.stringify({ ok: true, room: code, ruleset: game.config.ruleset, recipeHash: hostHash, reconnect: true, players: playingHost.game!.players.length }, null, 2)}\n`);
   } finally {
     host?.socket.close();
     guest?.socket.close();
