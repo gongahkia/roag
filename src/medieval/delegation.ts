@@ -335,6 +335,7 @@ export const delegationOfferActionId = (offerId: string): string => `delegation-
 export const delegationInterruptionActionId = (taskId: string, reason: DelegationInterruptionReason): string => `delegation-interruption:${taskId}:${reason}`
 
 const taskClassification = (): MedievalContentSafetyClassification => classifyMedievalContent('contract', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
+const taskActionClassification = (): MedievalContentSafetyClassification => classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
 const taskMemoryClassification = (): MedievalContentSafetyClassification => classifyMedievalContent('history', ['adult-labour', 'civil-life'], 'adults-only', ['player-facing-text'])
 const taskMemoryDetail = (taskId: string, phase: 'agreement' | 'refusal' | 'completion' | 'interruption'): string => `Delegated task ${taskId} ${phase}.`
 const taskMemoryId = (taskId: string, personId: string, phase: 'agreement' | 'refusal' | 'completion' | 'interruption'): string => `task-memory:${taskId}:${personId}:${phase}`
@@ -395,14 +396,14 @@ export const delegationOfferTemporalAction = (offer: DelegationOfferInput) => ({
   id: delegationOfferActionId(offer.id),
   kind: 'delegated-task-commitment' as const,
   durationMinutes: 1,
-  contentSafety: taskClassification()
+  contentSafety: taskActionClassification()
 })
 
 export const delegationInterruptionTemporalAction = (interruption: DelegationInterruptionInput) => ({
   id: delegationInterruptionActionId(interruption.taskId, interruption.reason),
   kind: 'delegated-task-resolution' as const,
   durationMinutes: 1,
-  contentSafety: taskClassification()
+  contentSafety: taskActionClassification()
 })
 
 const validContext = (value: DelegationContext): boolean => validId(value.worldId)
