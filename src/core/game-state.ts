@@ -5,7 +5,7 @@ import { resetPlayerForCourse } from './player-effects';
 import { newBall } from './physics';
 import { Random } from './random';
 import { GENERATOR_VERSION, LEGACY_GENERATOR_VERSION, PARTY_TRICK_CARDS, RECIPE_SCHEMA_VERSION, generatorVersionFor, rulesetFor } from './rulesets';
-import { COURSE_HEIGHT, COURSE_WIDTH, type ChaosModifier, type Course, type CoursePackage, type DieState, type GameConfig, type GameState, type PlannedHole, type Player, type SlotReel, type SlotReelKind, type SlotStop, type SlotWager } from './types';
+import { COURSE_HEIGHT, COURSE_WIDTH, type ChaosModifier, type Course, type GameConfig, type GameState, type PlannedHole, type Player } from './types';
 
 const colors = ['#f6c26b', '#8bd5ca', '#f38ba8', '#cba6f7', '#a6e3a1', '#89b4fa', '#fab387', '#f9e2af', '#94e2d5', '#eba0ac', '#b4befe', '#f5c2e7'];
 
@@ -17,7 +17,6 @@ export const defaultConfig = (): GameConfig => ({
   botSkill: 5,
   courseWidth: COURSE_WIDTH,
   courseHeight: COURSE_HEIGHT,
-  skipDieBets: false,
   ruleset: 'party',
 });
 
@@ -227,20 +226,15 @@ const activateExpansion = (state: GameState, plan: PlannedHole) => {
 
 const courseDimensionsFor = (config: GameConfig) => ({ width: config.courseWidth ?? COURSE_WIDTH, height: config.courseHeight ?? COURSE_HEIGHT });
 
-const SLOT_SPIN_SECONDS = 1.15;
-const REROLL_TARGETS = [3, 5] as const;
 const CHAOS_MODIFIERS: readonly ChaosModifier[] = ['fast greens', 'bumper bank', 'weather front', 'hazard bloom'];
-const reelLabel: Record<SlotReelKind, string> = { biome: 'biome', layout: 'layout', rules: 'rules', chaos: 'chaos' };
 
 const cloneRules = (rules: ReturnType<typeof defaultHoleRules>) => ({ ...rules, sharedBoons: [...rules.sharedBoons] });
-const cloneStop = (stop: SlotStop): SlotStop => ({ ...stop, terrain: stop.terrain ? { ...stop.terrain } : undefined, rules: stop.rules ? cloneRules(stop.rules) : undefined, augmentations: { ...stop.augmentations } });
-const cloneReel = (reel: SlotReel): SlotReel => ({ ...reel, stops: reel.stops.map(cloneStop) });
 
-const partyTerrain = (config: GameConfig, hole: number, kind: SlotReelKind, index: number) => {
+const partyTerrain = (config: GameConfig, hole: number, themeIndex: number, layoutIndex: number) => {
   const ruleset = rulesetFor(config);
   const dimensions = courseDimensionsFor(config);
-  const theme = ruleset.biomes?.[index % ruleset.biomes.length] ?? 'speedway';
-  const archetype = ruleset.layouts?.[(kind === 'layout' ? index : hole + index) % ruleset.layouts.length] ?? 'ribbon';
+  const theme = ruleset.biomes?.[themeIndex % ruleset.biomes.length] ?? 'speedway';
+  const archetype = ruleset.layouts?.[layoutIndex % ruleset.layouts.length] ?? 'ribbon';
   return {
     ...defaultTerrainSettings(),
     ...dimensions,
@@ -269,7 +263,7 @@ const partyTerrain = (config: GameConfig, hole: number, kind: SlotReelKind, inde
     lowBarCount: 0,
     airRingCount: theme === 'quarry' ? 1 : 0,
     gustCount: 0,
-    variation: hole * 10 + index,
+    variation: hole * 10 + themeIndex * 3 + layoutIndex,
   };
 };
 
@@ -283,59 +277,6 @@ const partyHoleRules = (config: GameConfig, index: number) => ({
   scoreMultiplier: 1,
 });
 
-const sourcePackage = (config: GameConfig, hole: number, kind: SlotReelKind, index: number) => {
-  if (rulesetFor(config).id === 'party') {
-    const terrain = partyTerrain(config, hole, kind, index);
-    const rules = partyHoleRules(config, index);
-    return {
-      id: `party-${hole}-${kind}-${index}`,
-      label: `${terrain.theme} · ${terrain.archetype}`,
-      recipe: { terrain, rules },
-      course: generateCourse(`${config.seed}:party:${hole}:${kind}:${index}`, terrain, rules.hazardPhaseCount),
-    } satisfies CoursePackage;
-  }
-  const packages = generateCoursePackages(`${config.seed}:slots:${hole}:${kind}:batch:${Math.floor(index / 3)}`, hole, courseDimensionsFor(config));
-  return packages[index % packages.length]!;
-};
-
-const stopFromPackage = (config: GameConfig, hole: number, kind: Exclude<SlotReelKind, 'chaos'>, index: number, addedBy?: string): SlotStop => {
-  const source = sourcePackage(config, hole, kind, index);
-  if (kind === 'biome') return { id: `hole-${hole}-${kind}-${index + 1}`, label: source.recipe.terrain.theme.replace(/-/g, ' '), theme: source.recipe.terrain.theme, weight: 1, addedBy, augmentations: {} };
-  if (kind === 'layout') return { id: `hole-${hole}-${kind}-${index + 1}`, label: `${source.recipe.terrain.archetype} · ${source.recipe.terrain.sizeProfile}`, terrain: { ...source.recipe.terrain }, archetype: source.recipe.terrain.archetype, sizeProfile: source.recipe.terrain.sizeProfile, weight: 1, addedBy, augmentations: {} };
-  return { id: `hole-${hole}-${kind}-${index + 1}`, label: `${source.recipe.rules.timerSeconds}s · cap ${source.recipe.rules.strokeCap}`, rules: cloneRules(source.recipe.rules), weight: 1, addedBy, augmentations: {} };
-};
-
-const chaosStop = (hole: number, reelIndex: number, index: number): SlotStop => {
-  const chaos = CHAOS_MODIFIERS[index % CHAOS_MODIFIERS.length]!;
-  return { id: `hole-${hole}-chaos-${reelIndex + 1}-${index + 1}`, label: chaos, chaos, weight: 1, augmentations: {} };
-};
-
-const reelFor = (config: GameConfig, hole: number, kind: Exclude<SlotReelKind, 'chaos'>): SlotReel => ({
-  id: kind,
-  kind,
-  label: reelLabel[kind],
-  stops: Array.from({ length: 3 }, (_, index) => stopFromPackage(config, hole, kind, index)),
-});
-
-const chaosReel = (hole: number, index: number): SlotReel => ({
-  id: `chaos-${index + 1}`,
-  kind: 'chaos',
-  label: `chaos ${index + 1}`,
-  stops: Array.from({ length: CHAOS_MODIFIERS.length }, (_, stopIndex) => chaosStop(hole, index, stopIndex)),
-});
-
-const wagersFor = (players: readonly Player[]) => Object.fromEntries(players.map((player) => [player.id, { addedStops: 0, augmentations: {}, influenceActions: 0, ready: false } satisfies SlotWager]));
-
-const newDie = (config: GameConfig, hole: number, players: readonly Player[]): DieState => ({
-  reels: [reelFor(config, hole, 'biome'), reelFor(config, hole, 'layout'), reelFor(config, hole, 'rules')],
-  wagers: wagersFor(players),
-  secondsLeft: rulesetFor(config).slot.seconds,
-  phase: 'wagering',
-  rerolls: 0,
-});
-
-const selectedStop = (die: DieState, reelId: string, stopId: string) => die.reels.find((reel) => reel.id === reelId)?.stops.find((stop) => stop.id === stopId);
-const selectedStops = (die: DieState) => die.roll?.stopIds.map((stopId, index) => selectedStop(die, die.reels[index]?.id ?? '', stopId)).filter((stop): stop is SlotStop => Boolean(stop)) ?? [];
 
 const applyChaos = (terrain: ReturnType<typeof defaultTerrainSettings>, rules: ReturnType<typeof defaultHoleRules>, chaos: ChaosModifier) => {
   if (chaos === 'fast greens') {

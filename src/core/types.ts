@@ -226,7 +226,8 @@ export interface RecipeMetadata {
   schemaVersion: number;
   generatorVersion: string;
   seed: string;
-  resolvedReels: { biome: string; layout: string; rules: string; chaos?: ChaosModifier };
+  /** Randomly resolved course ingredients retained for replay and the course reveal. */
+  resolvedReels: { biome: string; layout: string; rules: string; chaos?: ChaosModifier[] };
   contentIds: string[];
   routeRoles?: RouteRoleAssignment[];
   courseHash?: string;
@@ -247,63 +248,7 @@ export interface PlannedHole {
   courseSeed: string;
 }
 
-export type SlotReelKind = 'biome' | 'layout' | 'rules' | 'chaos';
 export type ChaosModifier = 'fast greens' | 'bumper bank' | 'weather front' | 'hazard bloom';
-
-/** A physical ticket on one reel. Its weight is the number of matching tickets loaded on that strip. */
-export interface SlotStop {
-  id: string;
-  label: string;
-  weight: number;
-  addedBy?: string;
-  augmentations: Record<string, number>;
-  terrain?: TerrainSettings;
-  theme?: CourseTheme;
-  archetype?: CourseArchetype;
-  sizeProfile?: CourseSizeProfile;
-  rules?: HoleRules;
-  chaos?: ChaosModifier;
-}
-
-export interface SlotReel {
-  id: string;
-  kind: SlotReelKind;
-  label: string;
-  stops: SlotStop[];
-}
-
-export interface SlotWager {
-  /** Used to scale a player's successive generated stops. */
-  addedStops: number;
-  /** Paid duplicate-ticket additions keyed by reel stop. */
-  augmentations: Record<string, number>;
-  /** The Party Rules ceremony permits one influence choice, then a ready action. */
-  influenceActions: number;
-  ready: boolean;
-}
-
-export interface SlotRoll {
-  stopIds: string[];
-  secondsLeft: number;
-}
-
-export interface RerollPot {
-  target: number;
-  contributions: Record<string, number>;
-  secondsLeft: number;
-}
-
-/** Authoritative state for the pre-hole machine. `DieState` remains the field name for saved-game compatibility. */
-export interface DieState {
-  reels: SlotReel[];
-  wagers: Record<string, SlotWager>;
-  secondsLeft: number;
-  phase: 'wagering' | 'spinning' | 'revealed' | 'reroll-wagering';
-  rerolls: number;
-  roll?: SlotRoll;
-  revealed?: { plan: PlannedHole; secondsLeft: number };
-  rerollPot?: RerollPot;
-}
 
 export interface CourseTransition {
   next: PlannedHole;
@@ -497,8 +442,6 @@ export interface GameConfig {
   botSkill: number | 'adaptive';
   courseWidth?: number;
   courseHeight?: number;
-  /** Skip the shared die window and use seed-selected automatic rolls. */
-  skipDieBets?: boolean;
   /** Party Rules is the ordinary, deliberately constrained local campaign. */
   ruleset?: RulesetId;
 }
@@ -527,7 +470,6 @@ export interface GameState {
   hazardElapsedMs: number;
   /** Deterministic turn counter retained for saved-game compatibility and seeded item IDs; hazard movement uses hazardElapsedMs. */
   coursePhase: number;
-  die?: DieState;
   coursePlan: PlannedHole[];
   transition?: CourseTransition;
   /** Materialized transforms used to reconstruct the campaign atlas. */
@@ -544,13 +486,13 @@ export interface GameState {
   forcedNextPlayerId?: string;
   turn: TurnState;
   paused: boolean;
-  status: 'rolling' | 'shopping' | 'transitioning' | 'playing' | 'finished';
+  status: 'shopping' | 'transitioning' | 'playing' | 'finished';
   messages: string[];
   instrumentation?: GameInstrumentation;
 }
 
 export interface InstrumentationEvent {
-  type: 'recipe' | 'generation-failure' | 'slot-action' | 'shot' | 'turn-duration' | 'hole-duration' | 'card' | 'shop' | 'collision' | 'recovery' | 'hole-complete' | 'reveal' | 'cause' | 'pacing' | 'final-overview';
+  type: 'recipe' | 'generation-failure' | 'shot' | 'turn-duration' | 'hole-duration' | 'card' | 'shop' | 'collision' | 'recovery' | 'hole-complete' | 'reveal' | 'cause' | 'pacing' | 'final-overview';
   hole: number;
   playerId?: string;
   /** Actor or system target makes social cause chains inspectable without parsing prose. */
@@ -567,11 +509,6 @@ export interface GameInstrumentation {
 
 export type GameCommand =
   | { type: 'shoot'; shot: ShotCommand }
-  | { type: 'add-slot-stop'; playerId: string; reelId: string }
-  | { type: 'augment-slot-stop'; playerId: string; reelId: string; stopId: string }
-  | { type: 'add-chaos-reel'; playerId: string }
-  | { type: 'contribute-reroll'; playerId: string }
-  | { type: 'ready-slot-spin'; playerId: string }
   | { type: 'complete-transition' }
   | { type: 'set-paused'; paused: boolean }
   | { type: 'use-power-up'; powerUp: PowerUp | ChronoCard; cardId?: string; targetId?: string; hazardId?: string; portalExitId?: string; placement?: Point }

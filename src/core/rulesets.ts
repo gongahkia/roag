@@ -30,12 +30,6 @@ export type PartyTrickCard = typeof PARTY_TRICK_CARDS[number];
 export interface RulesetConfig {
   id: RulesetId;
   label: string;
-  slot: {
-    maxInfluenceActions: number;
-    maxChaosModifiers: number;
-    seconds: number;
-    revealSeconds: number;
-  };
   cards: {
     handLimit: number;
     perShotLimit: number;
@@ -54,7 +48,6 @@ export interface RulesetConfig {
 export const PARTY_RULES: RulesetConfig = {
   id: 'party',
   label: 'Party Rules',
-  slot: { maxInfluenceActions: 1, maxChaosModifiers: 1, seconds: 20, revealSeconds: 6 },
   cards: {
     handLimit: 2,
     perShotLimit: 1,
@@ -69,7 +62,6 @@ export const PARTY_RULES: RulesetConfig = {
 const CUSTOM_RULES: RulesetConfig = {
   id: 'custom',
   label: 'Custom Rules',
-  slot: { maxInfluenceActions: Number.POSITIVE_INFINITY, maxChaosModifiers: 2, seconds: 18, revealSeconds: 8 },
   cards: {
     handLimit: Number.POSITIVE_INFINITY,
     perShotLimit: 1,
