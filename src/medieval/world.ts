@@ -548,11 +548,13 @@ const selectCourierProjection = (world: FoundationWorld, projection: CausalRepla
 const advanceTimeProjection = (world: FoundationWorld, projection: CausalReplayProjection, command: TemporalCommand | unknown): CausalReplayProjection => {
   const transition = advanceMedievalTemporalState(projection.temporal, command)
   const eraPlan = advanceWorldEraForTemporalAction(projection.era, worldEraContextFor(world, transition.state.worldTime), transition.action)
-  const provisionalProjection = causalReplayProjection({ ...projection, temporal: transition.state, era: eraPlan })
-  const provisional = worldFromProjection(world, provisionalProjection)
-  const courierId = provisional.state.courier.initialCourierId
+  // Fidelity is selected from the valid state at the action boundary. The
+  // reducer then folds its windows through the action; task completion and
+  // any resulting tier change are reconciled at the action's end below.
+  const beforeAction = worldFromProjection(world, projection)
+  const courierId = beforeAction.state.courier.initialCourierId
   if (courierId === undefined) throw new Error('time-bearing simulation requires an active courier')
-  const catchUp = advanceSimulationCatchUpState(projection.simulation, createFidelityPlan({ world: provisional, activeCourierId: courierId, loadedLocations: [] }), transition.action)
+  const catchUp = advanceSimulationCatchUpState(projection.simulation, createFidelityPlan({ world: beforeAction, activeCourierId: courierId, loadedLocations: [] }), transition.action)
   const delegation = advanceDelegatedTasks({
     worldId: world.id,
     creationDigest: world.manifest.creation.digest,
