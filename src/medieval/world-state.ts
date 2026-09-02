@@ -5,13 +5,14 @@ import { instantiateFoundationCrewPeople, persistentPersonContentRecords, PERSIS
 import { isMedievalTemporalState, TEMPORAL_LIMITS, temporalContentRecords, type MedievalTemporalState } from './temporal'
 import { generationConfigurationFingerprint, type WorldGenerationConfig } from './generation-config'
 import { createSimulationCatchUpState, simulationCatchUpContentRecords, validateSimulationCatchUpState, SIMULATION_CATCH_UP_LIMITS, type SimulationCatchUpState, type SimulationCatchUpDiagnosticCode } from './simulation-catchup'
+import { createWorldEraState, validateWorldEraState, WORLD_ERA_CONTRACT_VERSION, WORLD_ERA_LIMITS, type WorldEraDiagnosticCode, type WorldEraState } from './world-era'
 import type { CausalRecord, FoundationCrewMember, FoundationJomon } from './types'
 
 /**
  * This is the durable mutable half of a medieval world. It deliberately has
  * no renderer, storage, browser, or prototype dependency.
  */
-export const MEDIEVAL_WORLD_STATE_VERSION = 5 as const
+export const MEDIEVAL_WORLD_STATE_VERSION = 6 as const
 export const WORLD_GEOGRAPHY_STATE_VERSION = 1 as const
 export const WORLD_SITES_STATE_VERSION = 1 as const
 export const WORLD_ROUTES_STATE_VERSION = 1 as const
@@ -21,6 +22,7 @@ export const WORLD_INSTITUTIONS_STATE_VERSION = 1 as const
 export const WORLD_HISTORY_STATE_VERSION = 1 as const
 export const WORLD_JOMON_STATE_VERSION = 1 as const
 export const WORLD_COURIER_STATE_VERSION = 1 as const
+export const WORLD_ERA_STATE_VERSION = WORLD_ERA_CONTRACT_VERSION
 
 /** Bounded containers keep the first persistent-state schema inspectable. */
 export const MEDIEVAL_WORLD_STATE_LIMITS = {
@@ -32,6 +34,8 @@ export const MEDIEVAL_WORLD_STATE_LIMITS = {
   institutions: INITIAL_WORLD_LIMITS.institutions,
   simulationCursors: SIMULATION_CATCH_UP_LIMITS.cursors,
   simulationRecords: SIMULATION_CATCH_UP_LIMITS.records,
+  eraGrowthEvidence: WORLD_ERA_LIMITS.growthEvidence,
+  eraTransitions: WORLD_ERA_LIMITS.transitions,
   historyRecords: TEMPORAL_LIMITS.causalRecords + 2,
   capacityMaximum: 100
 } as const
@@ -147,6 +151,7 @@ export interface MedievalWorldState {
   courier: WorldCourierState
   temporal: MedievalTemporalState
   simulation: SimulationCatchUpState
+  era: WorldEraState
   contentSafetyAudit: MedievalContentSafetyAudit
 }
 
@@ -166,6 +171,7 @@ export type WorldStateValidationDiagnosticCode =
   | 'world-state.invalid-courier'
   | 'world-state.invalid-temporal'
   | 'world-state.invalid-simulation'
+  | 'world-state.invalid-era'
   | 'world-state.duplicate-id'
   | 'world-state.noncanonical-order'
   | 'world-state.invalid-reference'
@@ -174,6 +180,7 @@ export type WorldStateValidationDiagnosticCode =
   | FrontierValidationDiagnosticCode
   | PersistentPersonValidationDiagnosticCode
   | SimulationCatchUpDiagnosticCode
+  | WorldEraDiagnosticCode
   | MedievalContentSafetyDiagnosticCode
 
 export interface WorldStateValidationIssue {
@@ -201,6 +208,8 @@ export interface WorldStateConstructionContext extends WorldStateValidationConte
   peopleState?: WorldPeopleState
   /** The catch-up kernel owns its own bounded cursor and outcome state. */
   simulationState?: SimulationCatchUpState
+  /** The era reducer owns its derived totals and transition history. */
+  eraState?: WorldEraState
 }
 
 const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -218,7 +227,7 @@ const issue = (recordId: string, code: WorldStateValidationDiagnosticCode): Worl
 const canonicalIssues = (issues: readonly WorldStateValidationIssue[]): readonly WorldStateValidationIssue[] => [...new Map(issues.map(value => [`${value.recordId}\u0000${value.code}`, value])).values()]
   .sort((left, right) => compare(left.recordId, right.recordId) || compare(left.code, right.code))
 const idsAreUnique = (values: readonly { id: string }[]): boolean => new Set(values.map(value => value.id)).size === values.length
-const stateLike = (value: unknown): value is MedievalWorldState => record(value) && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'history', 'jomon', 'courier', 'temporal', 'simulation', 'contentSafetyAudit'])
+const stateLike = (value: unknown): value is MedievalWorldState => record(value) && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'history', 'jomon', 'courier', 'temporal', 'simulation', 'era', 'contentSafetyAudit'])
 const validateIdArrayOrder = (value: unknown, recordId: string, issues: WorldStateValidationIssue[]): void => {
   if (!Array.isArray(value) || !value.every(candidate => record(candidate) && validWorldId(candidate.id))) return
   const records = value as { id: string }[]
@@ -296,6 +305,14 @@ const initialJomonState = (jomon: FoundationJomon, sites: readonly WorldSiteStat
 /** Constructs only derived bounded containers; it cannot mutate creation evidence. */
 export const createMedievalWorldState = (context: WorldStateConstructionContext): MedievalWorldState => {
   const sites = siteRecordsFor(context.initialWorld, context.frontier)
+  const eraContext = {
+    worldId: context.temporal.provenance.worldId,
+    creationDigest: context.temporal.provenance.creationDigest,
+    eraPace: context.configuration.eraPace,
+    worldTime: context.temporal.worldTime,
+    jomonVesselId: context.jomon.id,
+    jomonPropIds: context.jomon.props.map(prop => prop.id)
+  } as const
   const stateWithoutAudit: Omit<MedievalWorldState, 'contentSafetyAudit'> = {
     version: MEDIEVAL_WORLD_STATE_VERSION,
     geography: { version: WORLD_GEOGRAPHY_STATE_VERSION, initialWorldId: context.initialWorld.id, frontier: structuredClone(context.frontier) },
@@ -316,7 +333,8 @@ export const createMedievalWorldState = (context: WorldStateConstructionContext)
     jomon: structuredClone(context.jomonState ?? initialJomonState(context.jomon, sites, context.crew)),
     courier: { version: WORLD_COURIER_STATE_VERSION, ...(context.initialCourierId === undefined ? {} : { initialCourierId: context.initialCourierId }) },
     temporal: structuredClone(context.temporal),
-    simulation: structuredClone(context.simulationState ?? createSimulationCatchUpState())
+    simulation: structuredClone(context.simulationState ?? createSimulationCatchUpState()),
+    era: structuredClone(context.eraState ?? createWorldEraState(eraContext))
   }
   const state: MedievalWorldState = { ...stateWithoutAudit, contentSafetyAudit: auditStateContent(stateWithoutAudit) }
   const validation = validateMedievalWorldState(context, state)
@@ -391,6 +409,20 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
   } else {
     const simulationIssues = validateSimulationCatchUpState(simulationContext, value.simulation)
     if (simulationIssues.length) issues.push(...simulationIssues.map(diagnostic => issue(diagnostic.recordId, diagnostic.code)))
+  }
+
+  if (temporal === undefined) {
+    issues.push(issue('world-state:era', 'world-state.invalid-era'))
+  } else {
+    const eraIssues = validateWorldEraState({
+      worldId: temporal.provenance.worldId,
+      creationDigest: temporal.provenance.creationDigest,
+      eraPace: context.configuration.eraPace,
+      worldTime: temporal.worldTime,
+      jomonVesselId: context.jomon.id,
+      jomonPropIds: context.jomon.props.map(prop => prop.id)
+    }, value.era)
+    if (eraIssues.length) issues.push(...eraIssues.map(diagnostic => issue(diagnostic.recordId, diagnostic.code)))
   }
 
   if (!validSubdomain(value.people, WORLD_PEOPLE_STATE_VERSION, ['version', 'records']) || !Array.isArray(value.people.records) || value.people.records.length > MEDIEVAL_WORLD_STATE_LIMITS.people) {
