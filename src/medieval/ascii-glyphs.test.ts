@@ -66,6 +66,14 @@ describe('Jomon ASCII glyph catalogue', () => {
   })
 
   it('fails closed for catalogue identity, character, category, palette, cue, text, viewport, and safety violations', () => {
+    const malformedCatalog = structuredClone(JOMON_ASCII_GLYPH_CATALOG) as unknown as Record<string, unknown>
+    delete malformedCatalog.factAuthority
+    expect(validateAsciiGlyphCatalog(malformedCatalog).map(item => item.code)).toContain('ascii-glyphs.malformed-catalog')
+
+    const unknownVersion = structuredClone(JOMON_ASCII_GLYPH_CATALOG)
+    unknownVersion.version = 99 as never
+    expect(validateAsciiGlyphCatalog(unknownVersion).map(item => item.code)).toContain('ascii-glyphs.unknown-catalog-version')
+
     const duplicateCharacter = structuredClone(JOMON_ASCII_GLYPH_CATALOG)
     duplicateCharacter.entries[1]!.character = duplicateCharacter.entries[0]!.character
     expect(validateAsciiGlyphCatalog(duplicateCharacter).map(item => item.code)).toContain('ascii-glyphs.duplicate-character')
@@ -85,6 +93,14 @@ describe('Jomon ASCII glyph catalogue', () => {
     const missingTerrain = structuredClone(JOMON_ASCII_GLYPH_CATALOG)
     missingTerrain.entries = missingTerrain.entries.filter(entry => entry.category !== 'terrain')
     expect(validateAsciiGlyphCatalog(missingTerrain).map(item => item.code)).toContain('ascii-glyphs.missing-required-category')
+
+    const noncanonical = structuredClone(JOMON_ASCII_GLYPH_CATALOG)
+    noncanonical.entries = [...noncanonical.entries].reverse()
+    expect(validateAsciiGlyphCatalog(noncanonical).map(item => item.code)).toContain('ascii-glyphs.noncanonical-order')
+
+    const malformedId = structuredClone(JOMON_ASCII_GLYPH_CATALOG)
+    malformedId.entries[0]!.id = ' Bad id '
+    expect(validateAsciiGlyphCatalog(malformedId).map(item => item.code)).toContain('ascii-glyphs.invalid-entry')
 
     const rawPalette = structuredClone(JOMON_ASCII_GLYPH_CATALOG)
     rawPalette.entries[0]!.paletteToken = '#ffffff' as never
@@ -119,6 +135,7 @@ describe('Jomon ASCII glyph catalogue', () => {
   it('keeps the current terminal map reserved, empty, deterministic, and free of generated world facts', () => {
     const world = selectedWorld()
     const before = structuredClone(world)
+    const catalogueBefore = structuredClone(JOMON_ASCII_GLYPH_CATALOG)
     const first = createTerminalPresentationModel(world)
     const second = createTerminalPresentationModel(world)
     const encoded = JSON.stringify(first)
@@ -130,5 +147,6 @@ describe('Jomon ASCII glyph catalogue', () => {
     expect(encoded).not.toContain(world.initialWorld.settlements[0]!.id)
     expect(encoded).not.toContain(world.state.geography.frontier.regions[0]!.commitment.id)
     expect(world).toEqual(before)
+    expect(JOMON_ASCII_GLYPH_CATALOG).toEqual(catalogueBefore)
   })
 })

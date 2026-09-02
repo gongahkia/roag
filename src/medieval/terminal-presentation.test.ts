@@ -244,14 +244,26 @@ describe('terminal presentation contract', () => {
     expect(command('settings-open-profiles')?.contexts).toEqual(['settings-basic-profiles-link'])
 
     for (const sourceFragment of [
+      "if (key === 'n' || key === 'N') { this.openSettings(); return }",
+      "if (key === 'c' || key === 'C') { this.route = 'chronicles'; this.selectedRow = 0; this.render(); return }",
+      "if (key === 'Enter') void this.resumeSelectedWorld()",
+      "if (key === 'Enter' && this.world) this.inspectResult()",
+      "if (key === 'ArrowLeft' || key === 'ArrowRight') {",
+      "if (key === 'Enter' && this.world) { this.route = 'choose-courier'; this.selectedRow = 0; this.render() }",
+      "if (key === 'Enter') void this.selectCourier()",
+      "if (key === 'm' || key === 'M') {",
+      "if (this.managementExpanded && (key === '[' || key === ']')) {",
+      "if (key === 'Enter') void this.openSelectedChronicle()",
       "key === 'e' || key === 'E'",
       "key === 'r' || key === 'R'",
       "key === 'Enter' || key === 's' || key === 'S'",
       "key === 'Backspace'",
       'this.creationSettings.seed.length < 64',
       'this.profileName.length < CREATION_SETTINGS_PROFILE_NAME_LIMIT',
+      "if (this.selectedRow === 1 && (key === 'ArrowLeft' || key === 'ArrowRight' || key === 'Enter'))",
       'if (this.selectedRow === 4 && key === \'Enter\') void this.createWorld()',
-      'if (this.selectedRow === 2 && key === \'Enter\') { this.toggleAdvanced(); return }'
+      'if (this.selectedRow === 2 && key === \'Enter\') { this.toggleAdvanced(); return }',
+      'if (this.selectedRow === 3 && key === \'Enter\') { this.route = \'creation-profiles\'; this.selectedRow = 0; this.render(); return }'
     ]) expect(appSource).toContain(sourceFragment)
 
     const malformedModes = structuredClone(TERMINAL_INPUT_MODES)

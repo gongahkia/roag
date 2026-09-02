@@ -1,9 +1,8 @@
 import { auditMedievalContentSafety, classifyMedievalContent, contentSafetyAuditMatches, type MedievalContentDomain, type MedievalContentSafetyAudit, type MedievalContentSafetyClassification, type MedievalContentSafetyDiagnosticCode, type MedievalContentSafetyTag } from './content-safety'
-import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE, type JomonPaletteToken } from './palette'
+import { JOMON_PALETTE, type JomonPaletteToken } from './palette'
 import {
   TERMINAL_GLYPH_VOCABULARY_ID,
   TERMINAL_PRESENTATION_STATES,
-  TERMINAL_STATE_PRESENTATIONS,
   terminalNonColorCueFor,
   type TerminalGlyphCatalog,
   type TerminalGlyphReference,
@@ -202,7 +201,9 @@ const authoredEntries = [
   glyph('route:quay-approach', 'route', ')', 'Quay approach', 'Known quay approach route.', 'Known quay approach route; ready state cue is present.', 'route', 'ready', ['future-jomon-deck', 'future-settlement-map', 'future-route-map'], ['navigation', 'travel'])
 ].sort((left, right) => compare(left.id, right.id))
 
-const authoredAudit = auditMedievalContentSafety(authoredEntries)
+const glyphContentRecords = (entries: readonly AsciiGlyphEntry[]) => entries.map(entry => ({ id: entry.id, domain: entry.contentDomain, classification: entry.contentSafety }))
+
+const authoredAudit = auditMedievalContentSafety(glyphContentRecords(authoredEntries))
 if (authoredAudit.status === 'rejected') throw new AsciiGlyphCatalogError(authoredAudit.diagnostics.map(diagnostic => issue(diagnostic.contentId, diagnostic.code)))
 
 /** The single closed Jomon catalogue. It does not create any current map cells. */
@@ -261,8 +262,9 @@ export const validateAsciiGlyphCatalog = (value: unknown): readonly AsciiGlyphDi
   for (const category of ASCII_GLYPH_CATEGORIES) {
     if ((categoryCounts.get(category) ?? 0) < ASCII_GLYPH_LIMITS.entriesPerCategoryMinimum) diagnostics.push(issue(`ascii-glyph-category:${category}`, 'ascii-glyphs.missing-required-category'))
   }
-  if (!contentSafetyAuditMatches(typedEntries, value.contentSafetyAudit)) diagnostics.push(issue('ascii-glyph-catalog', 'ascii-glyphs.invalid-safety-audit'))
-  const safety = auditMedievalContentSafety(typedEntries)
+  const contentRecords = glyphContentRecords(typedEntries)
+  if (!contentSafetyAuditMatches(contentRecords, value.contentSafetyAudit)) diagnostics.push(issue('ascii-glyph-catalog', 'ascii-glyphs.invalid-safety-audit'))
+  const safety = auditMedievalContentSafety(contentRecords)
   if (safety.status === 'rejected') diagnostics.push(...safety.diagnostics.map(diagnostic => issue(diagnostic.contentId, diagnostic.code)))
   return canonicalDiagnostics(diagnostics)
 }
