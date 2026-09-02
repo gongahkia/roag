@@ -20,7 +20,7 @@ describe('deterministic medieval fidelity plans', () => {
       creationDigest: first.manifest.creation.digest,
       worldTime: 0,
       simulationFidelity: 'balanced',
-      jomon: { vesselId: 'vessel:jomon', tier: 'loaded-place', cadence: { kind: 'every-time-bearing-action' } },
+      jomon: { vesselId: 'vessel:jomon', tier: 'loaded-place', cadence: { kind: 'time-window', intervalMinutes: 1, nextEligibleAtWorldTime: 1 } },
       activeCourier: { personId: 'crew:0', tier: 'loaded' }
     })
   })
@@ -73,9 +73,9 @@ describe('deterministic medieval fidelity plans', () => {
     expect(world.state.people.records).toEqual(before)
     expect(plan.individuals.map(assignment => assignment.personId)).toEqual(before.map(person => person.id))
     expect(new Set(plan.individuals.map(assignment => assignment.tier))).toEqual(new Set(['loaded', 'nearby', 'recurring', 'distant-individual-summary', 'deferred']))
-    expect(plan.individuals.find(assignment => assignment.tier === 'nearby')?.cadence).toEqual({ kind: 'elapsed-summary', intervalMinutes: 5, nextEligibleAtWorldTime: 5 })
+    expect(plan.individuals.find(assignment => assignment.tier === 'nearby')?.cadence).toEqual({ kind: 'time-window', intervalMinutes: 5, nextEligibleAtWorldTime: 5 })
     expect(plan.individuals.find(assignment => assignment.tier === 'recurring')?.recurrenceReasons).toEqual(expect.arrayContaining(['relationship', 'memory']))
-    expect(plan.individuals.find(assignment => assignment.tier === 'distant-individual-summary')?.cadence).toEqual({ kind: 'elapsed-summary', intervalMinutes: 120, nextEligibleAtWorldTime: 120 })
+    expect(plan.individuals.find(assignment => assignment.tier === 'distant-individual-summary')?.cadence).toEqual({ kind: 'time-window', intervalMinutes: 120, nextEligibleAtWorldTime: 120 })
   })
 
   it('makes Jomon, the courier, loaded sites, and materialized-region context explicit and rejects invalid courier/location context', () => {

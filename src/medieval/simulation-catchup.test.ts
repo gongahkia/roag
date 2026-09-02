@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest'
+import { classifyMedievalContent } from './content-safety'
 import { createFidelityPlan } from './fidelity'
-import { advanceSimulationCatchUpState, createSimulationCatchUpState, validateSimulationCatchUpState, withDelegatedWorkPlaceholder } from './simulation-catchup'
-import { chooseInitialCourier, createFoundationWorld, advanceFoundationWorldTime } from './world'
+import { advanceSimulationCatchUpState, createSimulationCatchUpState, simulationCatchUpProjection, validateSimulationCatchUpPlanState, validateSimulationCatchUpState, withDelegatedWorkPlaceholder } from './simulation-catchup'
+import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld } from './world'
 
 const selectedWorld = (seed: string, preset: 'sheltered-reach' | 'watershed' = 'watershed') => chooseInitialCourier(createFoundationWorld({ seed, configuration: { preset } }), 'crew:0')
-const action = (id: string, kind: 'movement' | 'wait' = 'movement', durationMinutes = 1) => ({
+const action = (id: string, durationMinutes = 1) => ({
   id,
-  kind,
+  kind: 'wait' as const,
   durationMinutes,
-  contentSafety: createFoundationWorld({ seed: 'catch-up classification' }).state.history.records[0]!.contentSafety
+  contentSafety: classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['simulation-summary'])
 })
 const simulationContext = (world: ReturnType<typeof selectedWorld>) => ({
   worldId: world.id,
@@ -16,122 +17,121 @@ const simulationContext = (world: ReturnType<typeof selectedWorld>) => ({
   worldTime: world.state.temporal.worldTime,
   personIds: world.state.people.records.map(person => person.id),
   marketIds: world.state.markets.markets.map(market => market.id),
-  institutionIds: world.state.institutions.registry.map(institution => institution.id),
-  actionEvidence: world.state.temporal.causalRecords.filter(record => record.kind === 'action-completed').map(record => ({ id: record.actionId, startedAtWorldTime: record.startedAtWorldTime, atWorldTime: record.atWorldTime }))
+  institutionIds: world.state.institutions.registry.map(institution => institution.id)
 })
+const projectionOf = (world: ReturnType<typeof selectedWorld>) => simulationCatchUpProjection(simulationContext(world), world.state.simulation)
+const runPartition = (seed: string, durations: readonly number[], preset: 'sheltered-reach' | 'watershed' = 'watershed') => durations.reduce((world, duration, index) => advanceFoundationWorldTime(world, action(`wait:partition:${index}`, duration)), selectedWorld(seed, preset))
 
 describe('deterministic medieval fidelity catch-up', () => {
-  it('processes loaded tiers on every action and elapsed tiers only after their cadence boundary', () => {
-    const world = selectedWorld('catch-up cadence')
-    const first = advanceFoundationWorldTime(world, action('movement:one'))
-    const fifth = advanceFoundationWorldTime(first, action('wait:to-five', 'wait', 4))
+  it('uses canonical windows so one long wait, unit waits, and a 2+3 split have the same simulation projection', () => {
+    const long = runPartition('catch-up partition five', [5])
+    const units = runPartition('catch-up partition five', [1, 1, 1, 1, 1])
+    const mixed = runPartition('catch-up partition five', [2, 3])
 
-    expect(first.state.simulation.records.length).toBeGreaterThan(0)
-    expect(first.state.simulation.records.every(record => record.tier === 'loaded' || record.tier === 'loaded-place' || record.tier === 'loaded-institution')).toBe(true)
-    expect(fifth.state.simulation.records.some(record => record.tier === 'nearby' && record.dueIntervals === 1)).toBe(true)
-    expect(fifth.state.simulation.cursors.every(cursor => cursor.processedAtWorldTime <= fifth.state.temporal.worldTime)).toBe(true)
+    expect(projectionOf(units)).toEqual(projectionOf(long))
+    expect(projectionOf(mixed)).toEqual(projectionOf(long))
+    expect(units.state.temporal.causalRecords).not.toEqual(long.state.temporal.causalRecords)
+    expect(long.state.simulation.records.some(record => record.tier === 'nearby' && record.windowEndWorldTime === 5 && record.dueIntervals === 1)).toBe(true)
+    expect(long.state.simulation.cursors.every(cursor => cursor.processedThroughWorldTime <= long.state.temporal.worldTime)).toBe(true)
   })
 
-  it('batches long actions by crossed cadence boundaries without growing the outcome window unboundedly', () => {
-    const world = selectedWorld('catch-up long action', 'sheltered-reach')
-    const advanced = advanceFoundationWorldTime(world, action('travel:two-days', 'wait', 1_440))
+  it('preserves the projection across all scheduled fidelity tiers without treating player action boundaries as simulation boundaries', () => {
+    const long = runPartition('catch-up partition tiers', [240], 'sheltered-reach')
+    const partitioned = runPartition('catch-up partition tiers', [120, 120], 'sheltered-reach')
+    const longProjection = projectionOf(long)
+
+    expect(projectionOf(partitioned)).toEqual(longProjection)
+    expect([...new Set(longProjection.cursors.map(cursor => cursor.tier))]).toEqual(expect.arrayContaining([
+      'loaded', 'nearby', 'recurring', 'distant-individual-summary', 'loaded-place', 'distant-settlement-summary', 'loaded-institution', 'distant-institution-summary'
+    ]))
+    const longLoaded = long.state.simulation.records.find(record => record.targetKind === 'person' && record.tier === 'loaded' && record.windowEndWorldTime === 240)
+    const shortLoaded = partitioned.state.simulation.records.find(record => record.targetKind === 'person' && record.tier === 'loaded' && record.windowEndWorldTime === 240)
+    expect(shortLoaded).toMatchObject({ id: longLoaded?.id, outcomeToken: longLoaded?.outcomeToken, cadenceMinutes: 1 })
+  })
+
+  it('folds a bounded long action by canonical cadence windows rather than minutes times population', () => {
+    const advanced = runPartition('catch-up long action', [1_440], 'sheltered-reach')
 
     expect(advanced.state.simulation.records.length).toBeLessThanOrEqual(96)
-    expect(advanced.state.simulation.records.every(record => record.cause.evidence.targetId === record.targetId && record.cause.evidence.dueIntervals === record.dueIntervals)).toBe(true)
-    expect(advanced.state.simulation.records.some(record => record.tier === 'nearby' && record.dueIntervals === 288)).toBe(true)
-    expect(advanced.state.simulation.records.some(record => record.tier === 'distant-individual-summary' && record.dueIntervals === 12)).toBe(true)
-    expect(advanced.state.simulation.records.some(record => record.tier === 'distant-settlement-summary' && record.dueIntervals === 6)).toBe(true)
+    expect(advanced.state.simulation.records.every(record => record.cause.evidence.targetId === record.targetId && record.cause.evidence.windowEndWorldTime === record.windowEndWorldTime)).toBe(true)
+    expect(advanced.state.simulation.cursors.some(cursor => cursor.tier === 'nearby' && cursor.processedIntervals === 288)).toBe(true)
+    expect(advanced.state.simulation.cursors.some(cursor => cursor.tier === 'distant-individual-summary' && cursor.processedIntervals === 12)).toBe(true)
+    expect(advanced.state.simulation.cursors.some(cursor => cursor.tier === 'distant-settlement-summary' && cursor.processedIntervals === 6)).toBe(true)
   })
 
-  it('replays equivalent action sequences identically while preserving immutable creation evidence', () => {
-    const run = () => {
-      let world = selectedWorld('catch-up replay')
-      world = advanceFoundationWorldTime(world, action('movement:a'))
-      return advanceFoundationWorldTime(world, action('wait:b', 'wait', 239))
-    }
-    const first = run()
-    const second = run()
-
-    expect(second).toEqual(first)
-    expect(first.manifest).toEqual(selectedWorld('catch-up replay').manifest)
-    expect(first.state.simulation.records.some(record => record.tier === 'distant-institution-summary')).toBe(true)
-    expect(first.state.simulation.records).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        outcomeDetail: 'detailed',
-        cause: expect.objectContaining({
-          version: 1,
-          kind: 'fidelity-cadence',
-          evidence: expect.objectContaining({ source: 'known-world-record' })
-        })
-      })
-    ]))
-    expect(first.state.simulation.records.every(record => record.cause.evidence.actionId === record.actionId && record.cause.evidence.targetId === record.targetId && record.cause.evidence.processedAtWorldTime === record.processedAtWorldTime)).toBe(true)
-  })
-
-  it('advances a typed delegated-work placeholder at its assignee fidelity without adding delegation gameplay', () => {
-    const world = selectedWorld('catch-up placeholder')
-    const context = {
-      worldId: world.id,
-      creationDigest: world.manifest.creation.digest,
-      worldTime: 0,
-      personIds: world.state.people.records.map(person => person.id),
-      marketIds: world.state.markets.markets.map(market => market.id),
-      institutionIds: world.state.institutions.registry.map(institution => institution.id),
-      actionEvidence: []
-    }
-    const state = withDelegatedWorkPlaceholder(createSimulationCatchUpState(), context, {
+  it('gives delegated-work placeholders the same partition-invariant cadence projection', () => {
+    const world = selectedWorld('catch-up delegated partition')
+    const context = simulationContext(world)
+    const plan = createFidelityPlan({ world, activeCourierId: 'crew:0', loadedLocations: [] })
+    const assigneePersonId = plan.individuals.find(item => item.tier === 'loaded' && item.personId !== 'crew:0')?.personId ?? 'crew:0'
+    const initial = withDelegatedWorkPlaceholder(createSimulationCatchUpState(), context, {
       id: 'delegated-work:repair-lines',
-      assigneePersonId: 'crew:1',
+      assigneePersonId,
       status: 'active',
       committedAtWorldTime: 0,
       progressIntervals: 0
     })
-    const plan = createFidelityPlan({ world, activeCourierId: 'crew:0', loadedLocations: [] })
-    const transition = advanceSimulationCatchUpState(state, plan, { actionId: 'movement:work', startedAtWorldTime: 0, atWorldTime: 1 })
+    const run = (durations: readonly number[]) => {
+      let state = initial
+      let elapsed = 0
+      for (const [index, duration] of durations.entries()) {
+        state = advanceSimulationCatchUpState(state, plan, { actionId: `delegated:${index}`, startedAtWorldTime: elapsed, atWorldTime: elapsed + duration }).state
+        elapsed += duration
+      }
+      return { state, elapsed }
+    }
+    const long = run([5])
+    const mixed = run([2, 3])
 
-    expect(transition.records).toContainEqual(expect.objectContaining({ targetKind: 'delegated-work', targetId: 'delegated-work:repair-lines', dueIntervals: 1 }))
-    expect(transition.state.delegatedWork[0]).toMatchObject({ progressIntervals: 1 })
-    expect(validateSimulationCatchUpState({ ...context, worldTime: 1, actionEvidence: [{ id: 'movement:work', startedAtWorldTime: 0, atWorldTime: 1 }] }, transition.state)).toEqual([])
+    expect(simulationCatchUpProjection({ ...context, worldTime: mixed.elapsed }, mixed.state)).toEqual(simulationCatchUpProjection({ ...context, worldTime: long.elapsed }, long.state))
+    expect(long.state.delegatedWork[0]).toMatchObject({ progressIntervals: 5 })
+    expect(validateSimulationCatchUpPlanState(long.state, plan, 5)).toEqual([])
   })
 
-  it('fails closed for malformed catch-up records and keeps the bounded audit tied to outcomes', () => {
-    const world = selectedWorld('catch-up validation')
-    const advanced = advanceFoundationWorldTime(world, action('movement:validation'))
-    const forged = structuredClone(advanced.state.simulation)
-    forged.records[0]!.targetId = 'market:not-present'
+  it('keeps action-derived observation records bounded and keeps the full mutable world valid after reloadable scheduling', () => {
+    const first = runPartition('catch-up replay', [1, 239])
+    const second = runPartition('catch-up replay', [1, 239])
 
-    expect(validateSimulationCatchUpState(simulationContext(advanced), forged).map(diagnostic => diagnostic.code)).toContain('simulation-catchup.invalid-record')
+    expect(second).toEqual(first)
+    expect(first.state.simulation.records.some(record => record.tier === 'distant-institution-summary')).toBe(true)
+    expect(first.state.simulation.records).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        outcomeDetail: 'detailed',
+        cause: expect.objectContaining({ version: 2, kind: 'fidelity-cadence', evidence: expect.objectContaining({ source: 'known-world-record' }) })
+      })
+    ]))
   })
 
-  it('rejects missing or prohibited outcome/cause classifications instead of trusting a stored audit', () => {
-    const advanced = advanceFoundationWorldTime(selectedWorld('catch-up outcome safety'), action('movement:safety'))
+  it('fails closed for malformed scheduling, token, cause, provenance, and safety evidence', () => {
+    const advanced = runPartition('catch-up validation', [5])
+    const malformed = structuredClone(advanced.state.simulation)
+    malformed.records[0]!.targetId = 'market:not-present'
+    const forgedToken = structuredClone(advanced.state.simulation)
+    forgedToken.records[0]!.outcomeToken++
+    const forgedCause = structuredClone(advanced.state.simulation)
+    forgedCause.records[0]!.cause.evidence.cadenceMinutes = 5
+    const missingCause = structuredClone(advanced.state.simulation)
+    delete (missingCause.records[0] as { cause?: unknown }).cause
     const missingOutcomeClassification = structuredClone(advanced.state.simulation)
     delete (missingOutcomeClassification.records[0] as { contentSafety?: unknown }).contentSafety
     const prohibitedCause = structuredClone(advanced.state.simulation)
     ;(prohibitedCause.records[0]!.cause.contentSafety.exclusions as unknown as Record<string, string>).torture = 'present'
+    const skippedCursor = structuredClone(advanced.state.simulation)
+    skippedCursor.cursors = skippedCursor.cursors.filter(cursor => cursor.tier !== 'nearby')
+    const wrongProvenance = { ...simulationContext(advanced), creationDigest: 'forged-provenance' }
+    const plan = createFidelityPlan({ world: advanced, activeCourierId: 'crew:0', loadedLocations: [] })
 
+    expect(validateSimulationCatchUpState(simulationContext(advanced), malformed).map(diagnostic => diagnostic.code)).toContain('simulation-catchup.invalid-record')
+    expect(validateSimulationCatchUpState(simulationContext(advanced), forgedToken).map(diagnostic => diagnostic.code)).toContain('simulation-catchup.invalid-outcome-token')
+    expect(validateSimulationCatchUpState(simulationContext(advanced), forgedCause).map(diagnostic => diagnostic.code)).toContain('simulation-catchup.untraceable-cause')
+    expect(validateSimulationCatchUpState(simulationContext(advanced), missingCause).map(diagnostic => diagnostic.code)).toContain('simulation-catchup.invalid-cause')
     expect(validateSimulationCatchUpState(simulationContext(advanced), missingOutcomeClassification).map(diagnostic => diagnostic.code)).toContain('content-safety.missing-classification')
     expect(validateSimulationCatchUpState(simulationContext(advanced), prohibitedCause).map(diagnostic => diagnostic.code)).toContain('content-safety.prohibited.torture')
+    expect(validateSimulationCatchUpState(wrongProvenance, advanced.state.simulation).map(diagnostic => diagnostic.code)).toContain('simulation-catchup.invalid-outcome-token')
+    expect(validateSimulationCatchUpPlanState(skippedCursor, plan)).toContainEqual({ recordId: expect.stringContaining('catch-up:'), code: 'simulation-catchup.invalid-cursor' })
   })
 
-  it('rejects missing, untraceable, or token-forged causal evidence', () => {
-    const advanced = advanceFoundationWorldTime(selectedWorld('catch-up evidence safety'), action('movement:evidence'))
-    const missingCause = structuredClone(advanced.state.simulation)
-    delete (missingCause.records[0] as { cause?: unknown }).cause
-    const missingEvidence = structuredClone(advanced.state.simulation)
-    delete (missingEvidence.records[0]!.cause as { evidence?: unknown }).evidence
-    const untraceableCause = structuredClone(advanced.state.simulation)
-    untraceableCause.records[0]!.cause.evidence.actionId = 'movement:not-accepted'
-    const forgedToken = structuredClone(advanced.state.simulation)
-    forgedToken.records[0]!.outcomeToken++
-
-    expect(validateSimulationCatchUpState(simulationContext(advanced), missingCause).map(diagnostic => diagnostic.code)).toContain('simulation-catchup.invalid-cause')
-    expect(validateSimulationCatchUpState(simulationContext(advanced), missingEvidence).map(diagnostic => diagnostic.code)).toContain('simulation-catchup.invalid-evidence')
-    expect(validateSimulationCatchUpState(simulationContext(advanced), untraceableCause).map(diagnostic => diagnostic.code)).toContain('simulation-catchup.untraceable-cause')
-    expect(validateSimulationCatchUpState(simulationContext(advanced), forgedToken).map(diagnostic => diagnostic.code)).toContain('simulation-catchup.invalid-outcome-token')
-  })
-
-  it('does not mutate simulation state for a pure zero-time command', () => {
+  it('does not mutate scheduling state for pure zero-time commands', () => {
     const world = selectedWorld('catch-up pure command')
     const before = structuredClone(world)
 

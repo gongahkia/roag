@@ -3,7 +3,7 @@ import { MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION } from './content-safety'
 import { addChronicleToIndex, addWorldToIndex, emptyWorldIndex, removeWorldFromIndex } from './storage'
 import { generationRetryPlan } from './generation-config'
 import { INITIAL_WORLD_GENERATION_STAGES } from './initial-world'
-import { InvalidWorldGenerationConfigurationError, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, foundationWorldContentSatisfiesSafetyPolicy, recreateFoundationWorld, serializeWorldManifest } from './world'
+import { InvalidWorldGenerationConfigurationError, advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, foundationWorldContentSatisfiesSafetyPolicy, recreateFoundationWorld, serializeWorldManifest, validateFoundationWorld } from './world'
 
 describe('medieval foundation worlds', () => {
   it('recreates the same world and generated household from its manifest inputs', () => {
@@ -162,6 +162,37 @@ describe('medieval foundation worlds', () => {
         advanced: { historyYears: 175 } as never
       }
     })).toThrow(InvalidWorldGenerationConfigurationError)
+  })
+
+  it('rejects immutable provenance tampering at every mutable-world boundary without altering the submitted world', () => {
+    const source = chooseInitialCourier(createFoundationWorld({ seed: 'action-boundary-provenance' }), 'crew:0')
+    const cases: readonly [string, (world: typeof source) => void][] = [
+      ['initial-world', world => { world.initialWorld.watershed.spanLeagues++ }],
+      ['jomon', world => { world.jomon.props[0]!.partition = 'berths' }],
+      ['crew', world => { world.crew[0]!.name = 'Altered Crew' }],
+      ['persistent-person', world => { world.state.people.records[0]!.identity.name = 'Altered Person' }],
+      ['manifest-linked', world => { world.manifest.creation.initialWorld.digest = 'forged-initial-world-digest' }]
+    ]
+
+    for (const [, tamper] of cases) {
+      const tampered = structuredClone(source)
+      tamper(tampered)
+      const before = structuredClone(tampered)
+
+      expect(validateFoundationWorld(tampered)).not.toEqual([])
+      expect(() => advanceFoundationWorldTime(tampered, {
+        id: 'wait:rejected-provenance',
+        kind: 'wait',
+        durationMinutes: 1,
+        contentSafety: source.state.history.records[0]!.contentSafety
+      })).toThrow('complete medieval foundation contract')
+      expect(tampered).toEqual(before)
+    }
+
+    const malformed = structuredClone(source)
+    ;(malformed.jomon as { name: string }).name = 'Not Jomon'
+    expect(() => chooseInitialCourier(malformed, 'crew:1')).toThrow('complete medieval foundation contract')
+    expect(() => finalizeWorldAsChronicle(malformed, 'jomon-loss')).toThrow('complete medieval foundation contract')
   })
 
   it('turns a terminal world into a read-only chronicle without losing its causal record', () => {

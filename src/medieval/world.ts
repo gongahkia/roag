@@ -7,7 +7,7 @@ import { normalizeCreationSeed } from './settings'
 import { advanceMedievalTemporalState, createMedievalTemporalState, isMedievalTemporalState, type TemporalCommand, type TemporalProvenance } from './temporal'
 import { createMedievalWorldState, isMedievalWorldState } from './world-state'
 import { createFidelityPlan } from './fidelity'
-import { advanceSimulationCatchUpState } from './simulation-catchup'
+import { advanceSimulationCatchUpState, validateSimulationCatchUpPlanState } from './simulation-catchup'
 import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
 
 const foundationJomon = (): FoundationJomon => ({
@@ -352,6 +352,7 @@ export type FoundationWorldValidationCode =
   | 'foundation-world.invalid-initial-world'
   | 'foundation-world.invalid-immutable-content'
   | 'foundation-world.invalid-mutable-state'
+  | 'foundation-world.invalid-catch-up'
 
 export interface FoundationWorldValidationIssue {
   code: FoundationWorldValidationCode
@@ -382,6 +383,7 @@ export const validateFoundationWorld = (value: unknown): readonly FoundationWorl
     if (!foundationWorldInitialWorldMatchesManifest(world)) issues.push(foundationWorldIssue('foundation-world:initial-world', 'foundation-world.invalid-initial-world'))
     if (!foundationWorldContentSatisfiesSafetyPolicy(world)) issues.push(foundationWorldIssue('foundation-world:immutable-content', 'foundation-world.invalid-immutable-content'))
     if (!foundationWorldTemporalStateMatches(world)) issues.push(foundationWorldIssue('foundation-world:mutable-state', 'foundation-world.invalid-mutable-state'))
+    if (!foundationWorldCatchUpStateMatches(world)) issues.push(foundationWorldIssue('foundation-world:catch-up', 'foundation-world.invalid-catch-up'))
   } catch {
     issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-mutable-state'))
   }
@@ -520,6 +522,23 @@ export const foundationWorldTemporalStateMatches = (world: FoundationWorld): boo
       crew: world.crew,
       foundationHistory: staticState.causalHistory
     }, world.state)
+  } catch { return false }
+}
+
+/**
+ * Catch-up is a separate proof from temporal shape: it must account for each
+ * canonical cadence window implied by the current deterministic fidelity plan.
+ */
+export const foundationWorldCatchUpStateMatches = (world: FoundationWorld): boolean => {
+  try {
+    const courierId = world.state.courier.initialCourierId
+    if (courierId === undefined) {
+      return world.state.simulation.cursors.length === 0
+        && world.state.simulation.delegatedWork.length === 0
+        && world.state.simulation.records.length === 0
+    }
+    const plan = createFidelityPlan({ world, activeCourierId: courierId, loadedLocations: [] })
+    return validateSimulationCatchUpPlanState(world.state.simulation, plan).length === 0
   } catch { return false }
 }
 

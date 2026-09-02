@@ -389,6 +389,58 @@ const targetsFor = (plan: FidelityPlan, state: SimulationCatchUpState): readonly
 
 const tokenFor = (plan: FidelityPlan, target: CatchUpTarget, windowEndWorldTime: number): number => outcomeTokenFor(plan, target.targetKind, target.targetId, target.cadence.intervalMinutes, windowEndWorldTime)
 
+const validationContextForPlan = (plan: FidelityPlan, worldTime: number): SimulationCatchUpValidationContext => ({
+  worldId: plan.worldId,
+  creationDigest: plan.creationDigest,
+  worldTime,
+  personIds: plan.individuals.map(item => item.personId),
+  marketIds: plan.places.map(item => `market:${item.siteId}`),
+  institutionIds: plan.institutions.map(item => item.institutionId)
+})
+
+/**
+ * Validates that a persisted cursor is the complete canonical projection for
+ * this plan and world minute. This deliberately checks no player action IDs:
+ * a 5-minute wait and a 2+3-minute wait must arrive at the same cursors.
+ */
+export const validateSimulationCatchUpPlanState = (state: SimulationCatchUpState, plan: FidelityPlan, worldTime = plan.worldTime): readonly SimulationCatchUpDiagnostic[] => {
+  const context = validationContextForPlan(plan, worldTime)
+  const diagnostics = [...validateSimulationCatchUpState(context, state)]
+  if (!safeInteger(worldTime)) return canonicalIssues([...diagnostics, issue('simulation-catchup:plan', 'simulation-catchup.invalid-record')])
+  const targetByCursorId = new Map(targetsFor(plan, state).map(target => [cursorIdFor(target.targetKind, target.targetId), target]))
+  const delegatedById = new Map(state.delegatedWork.map(item => [item.id, item]))
+  const cursorById = new Map(state.cursors.map(item => [item.id, item]))
+  for (const [id, target] of targetByCursorId) {
+    const cursor = cursorById.get(id)
+    const cadence = target.cadence.intervalMinutes
+    const expectedThroughWorldTime = Math.floor(worldTime / cadence) * cadence
+    const delegated = target.targetKind === 'delegated-work' ? delegatedById.get(target.targetId) : undefined
+    const expectedIntervals = target.targetKind === 'delegated-work'
+      ? Math.max(0, Math.floor(worldTime / cadence) - Math.floor((delegated?.committedAtWorldTime ?? worldTime) / cadence))
+      : Math.floor(worldTime / cadence)
+    if (expectedIntervals === 0) {
+      if (cursor !== undefined) diagnostics.push(issue(id, 'simulation-catchup.invalid-cursor'))
+      continue
+    }
+    if (!cursor
+      || cursor.tier !== target.tier
+      || cursor.cadenceMinutes !== cadence
+      || cursor.processedThroughWorldTime !== expectedThroughWorldTime
+      || cursor.processedIntervals !== expectedIntervals
+      || cursor.outcomeToken !== tokenFor(plan, target, expectedThroughWorldTime)) diagnostics.push(issue(id, 'simulation-catchup.invalid-cursor'))
+  }
+  for (const cursor of state.cursors) {
+    const target = targetByCursorId.get(cursor.id)
+    if (!target || target.tier !== cursor.tier || target.cadence.intervalMinutes !== cursor.cadenceMinutes) diagnostics.push(issue(cursor.id, 'simulation-catchup.invalid-reference'))
+  }
+  for (const delegated of state.delegatedWork) {
+    if (delegated.status !== 'active') continue
+    const cursor = cursorById.get(cursorIdFor('delegated-work', delegated.id))
+    if (delegated.progressIntervals !== (cursor?.processedIntervals ?? 0)) diagnostics.push(issue(delegated.id, 'simulation-catchup.invalid-delegated-work'))
+  }
+  return canonicalIssues(diagnostics)
+}
+
 /**
  * Returns the projection future domain rules must consume. It intentionally
  * omits bounded observation records, whose count depends on player action
@@ -409,16 +461,8 @@ export const simulationCatchUpProjection = (context: Pick<SimulationCatchUpValid
  * generated window identity or token.
  */
 export const advanceSimulationCatchUpState = (state: SimulationCatchUpState, plan: FidelityPlan, action: { actionId: string; startedAtWorldTime: number; atWorldTime: number }): SimulationCatchUpTransition => {
-  if (!validId(action.actionId) || !safeInteger(action.startedAtWorldTime) || !safeInteger(action.atWorldTime) || action.startedAtWorldTime >= action.atWorldTime || plan.worldTime !== action.atWorldTime) throw new SimulationCatchUpContractError([issue('simulation-catchup:action', 'simulation-catchup.invalid-record')])
-  const context: SimulationCatchUpValidationContext = {
-    worldId: plan.worldId,
-    creationDigest: plan.creationDigest,
-    worldTime: action.atWorldTime,
-    personIds: plan.individuals.map(item => item.personId),
-    marketIds: plan.places.map(item => `market:${item.siteId}`),
-    institutionIds: plan.institutions.map(item => item.institutionId)
-  }
-  const beforeDiagnostics = validateSimulationCatchUpState({ ...context, worldTime: action.startedAtWorldTime }, state)
+  if (!validId(action.actionId) || !safeInteger(action.startedAtWorldTime) || !safeInteger(action.atWorldTime) || action.startedAtWorldTime >= action.atWorldTime) throw new SimulationCatchUpContractError([issue('simulation-catchup:action', 'simulation-catchup.invalid-record')])
+  const beforeDiagnostics = validateSimulationCatchUpPlanState(state, plan, action.startedAtWorldTime)
   if (beforeDiagnostics.length) throw new SimulationCatchUpContractError(beforeDiagnostics)
 
   const cursorById = new Map(state.cursors.map(item => [item.id, item]))
@@ -484,7 +528,7 @@ export const advanceSimulationCatchUpState = (state: SimulationCatchUpState, pla
     records: retainedRecords
   } satisfies Omit<SimulationCatchUpState, 'contentSafetyAudit'>
   const next: SimulationCatchUpState = { ...nextWithoutAudit, contentSafetyAudit: audit(nextWithoutAudit) }
-  const diagnostics = validateSimulationCatchUpState(context, next)
+  const diagnostics = validateSimulationCatchUpPlanState(next, plan, action.atWorldTime)
   if (diagnostics.length) throw new SimulationCatchUpContractError(diagnostics)
   return { state: next, records }
 }
