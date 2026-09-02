@@ -222,7 +222,9 @@ const commandCountFor = (events: readonly CausalCommandEvent[]): CausalHistoryCo
 })
 const commandClassification = (kind: CausalCommandKind, payload: InitialCourierSelectedCommand['payload'] | TimeBearingActionCommand['payload'] | DurableJomonGrowthCommand['payload'] | DelegationOfferedCommand['payload'] | DelegationInterruptedCommand['payload']): MedievalContentSafetyClassification => {
   if (kind === 'time-bearing-action') return structuredClone((payload as TimeBearingActionCommand['payload']).action.contentSafety)
-  if (kind === 'delegation-offered') return structuredClone((payload as DelegationOfferedCommand['payload']).offer.proposal.contentSafety)
+  // The offer remains a classified contract in its payload; the journal entry
+  // itself is an event, so it must carry an event-domain classification too.
+  if (kind === 'delegation-offered') return classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
   if (kind === 'delegation-interrupted') return classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
   return kind === 'initial-courier-selected'
     ? classifyMedievalContent('event', ['civil-life', 'travel'], 'adults-only', ['data'])
