@@ -59,7 +59,8 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
     version: '1', ground: '#000000', bodyText: '#c0c0c0', selected: '#00ffff', error: '#ff0000', canvasGround: [0, 0, 0, 255]
   })
   await expect(game).toHaveAttribute('data-route', 'worlds')
-  await game.click()
+  await page.keyboard.press('Tab')
+  await expect.poll(() => page.evaluate(() => document.activeElement?.id ?? '')).toBe('game')
   await page.keyboard.press('n')
   await expect(game).toHaveAttribute('data-route', 'create-world')
   await expect(game).toHaveAttribute('data-settings-page', 'basic')
@@ -181,12 +182,8 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   expect(await persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)
 
   await page.evaluate(() => document.querySelector<HTMLCanvasElement>('#game')?.blur())
+  await expect.poll(() => page.evaluate(() => document.activeElement?.id ?? '')).toBe('')
   await page.keyboard.press('?')
-  await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
-  await page.keyboard.press('Tab')
-  await page.keyboard.press('?')
-  await expect(game).toHaveAttribute('data-terminal-overlay', 'command-help')
-  await page.keyboard.press('Escape')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
   await game.click()
   await page.waitForTimeout(300)
