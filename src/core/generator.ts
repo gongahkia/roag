@@ -736,7 +736,7 @@ export const courseHashFor = (course: Course) => {
 };
 
 /**
- * Build a course with the requested historical geometry. New callers use v2;
+ * Build a course with the requested historical geometry. New callers use v3;
  * replay plans pass their recorded version so old course hashes stay stable.
  */
 export const generateCourse = (seed: string, settings: Partial<TerrainSettings> = {}, phaseCount = COURSE_PHASES, generatorVersion: GeneratorVersion = GENERATOR_VERSION): Course => {

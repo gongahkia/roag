@@ -95,13 +95,15 @@ describe('course generation', () => {
     expect(headings).toContain('-1:0');
     expect(headings.some((heading) => heading.startsWith('1:'))).toBe(true);
 
-    let campaign = createGame({ ...defaultConfig(), seed: 'v3-clean-campaign', ruleset: 'party', holeCount: 5, humanCount: 1, botCount: 0, skipDieBets: true });
+    // This seed reaches the detached-bridge fallback late in the atlas, so it
+    // protects against accepting the residual overlap it was introduced to fix.
+    let campaign = createGame({ ...defaultConfig(), seed: 'v3-append-stress-0', ruleset: 'party', holeCount: 9, humanCount: 1, botCount: 0, skipDieBets: true });
     for (let hole = 2; hole <= campaign.config.holeCount; hole += 1) {
       beginCourseTransition(campaign);
       expect(expansionForTransition(campaign)?.trackOverlapCount).toBe(0);
       campaign = applyCommand(campaign, { type: 'complete-transition' });
     }
-  }, 30_000);
+  }, 45_000);
 
   it('stitches the next generated hole onto the completed cup without rebuilding the prior course', () => {
     const previous = arena('campaign-previous');

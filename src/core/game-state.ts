@@ -359,9 +359,9 @@ const applyChaos = (terrain: ReturnType<typeof defaultTerrainSettings>, rules: R
 };
 
 /**
- * A post-hole course must attach cleanly to the accumulated atlas. Rotate first,
- * then deterministically try a handful of seed variants if the new course would
- * overlap an earlier track outside the shared cup-to-tee junction.
+ * A post-hole course must attach cleanly to the accumulated atlas. The expansion
+ * selects a collision-free rotation or, for a crowded late atlas, a narrow
+ * connector to a separated board. Seed variants remain a deterministic fallback.
  */
 const appendCourseFor = (state: GameState, proposedSeed: string, terrain: ReturnType<typeof defaultTerrainSettings>, rules: ReturnType<typeof defaultHoleRules>) => {
   let best: { seed: string; course: Course; trackOverlapCount: number } | undefined;

@@ -15,7 +15,7 @@ export interface CourseExpansion {
   added: Point[];
   /** Prior-course tiles rebuilt as the next hole arrives. */
   excavated: Point[];
-  /** The shared old-cup/new-tee tile in the stitched coordinate system. */
+  /** The new tee in the stitched coordinate system; it normally shares the old cup. */
   anchor: Point;
   /** Converts balls and UI focus from the prior course into the stitched course. */
   offset: Point;
@@ -59,6 +59,7 @@ const pointFor = (point: Point, tee: Point, anchor: Point, rotation: Rotation): 
 const shifted = (point: Point, offset: Point): Point => ({ x: point.x + offset.x, y: point.y + offset.y });
 const pointKey = (point: Point) => `${point.x}:${point.y}`;
 const hashFor = (value: string) => [...value].reduce((hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0, 0);
+const cardinalDirections: readonly Point[] = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
 const finalApproachDirection = (route: readonly Point[]) => {
   const end = route.at(-1);
   if (!end) return undefined;
@@ -115,6 +116,100 @@ interface RotationPlacement {
   rotation: Rotation;
   trackOverlapCount: number;
 }
+
+const departureDirection = (route: readonly Point[]) => {
+  const start = route[0];
+  if (!start) return { x: 1, y: 0 };
+  for (const point of route.slice(1)) {
+    const direction = { x: Math.sign(point.x - start.x), y: Math.sign(point.y - start.y) };
+    if (direction.x || direction.y) return direction;
+  }
+  return { x: 1, y: 0 };
+};
+
+/**
+ * Find a fairway-only connector around the old atlas. It may share the small
+ * rebuilt apron at the old cup, but otherwise cannot walk through old terrain.
+ */
+const bridgeFor = (previous: Course, start: Point, target: Point) => {
+  const margin = CAMPAIGN_EXCAVATION_RADIUS + 2;
+  const minX = Math.min(-margin, start.x - margin, target.x - margin);
+  const maxX = Math.max(previous.width - 1 + margin, start.x + margin, target.x + margin);
+  const minY = Math.min(-margin, start.y - margin, target.y - margin);
+  const maxY = Math.max(previous.height - 1 + margin, start.y + margin, target.y + margin);
+  const startKey = pointKey(start);
+  const targetKey = pointKey(target);
+  const previousByKey = new Map<string, string | undefined>([[startKey, undefined]]);
+  const queue = [{ ...start }];
+  let cursor = 0;
+  while (cursor < queue.length) {
+    const current = queue[cursor++]!;
+    const currentKey = pointKey(current);
+    if (currentKey === targetKey) {
+      const path: Point[] = [];
+      let key: string | undefined = currentKey;
+      while (key) {
+        const [x, y] = key.split(':').map(Number);
+        path.push({ x, y });
+        key = previousByKey.get(key);
+      }
+      return path.reverse();
+    }
+    for (const direction of cardinalDirections) {
+      const point = { x: current.x + direction.x, y: current.y + direction.y };
+      if (point.x < minX || point.x > maxX || point.y < minY || point.y > maxY) continue;
+      const key = pointKey(point);
+      if (previousByKey.has(key)) continue;
+      if (isPlayable(tileAt(previous, point)) && distanceFrom(point, start) > CAMPAIGN_EXCAVATION_RADIUS) continue;
+      previousByKey.set(key, currentKey);
+      queue.push(point);
+    }
+  }
+  return undefined;
+};
+
+interface DetachedPlacement {
+  rotation: Rotation;
+  anchor: Point;
+  bridge: Point[];
+}
+
+interface DetachedCandidate extends DetachedPlacement {
+  edgeDistance: number;
+  preference: number;
+}
+
+/**
+ * A rare, late-campaign fallback. Move the next board beyond the current atlas
+ * and connect it by a narrow fairway, rather than accepting two tracks on top
+ * of one another. The new board's bounding box is separated on its chosen side.
+ */
+const detachedPlacementFor = (previous: Course, next: Course, cup: Point): DetachedPlacement => {
+  const span = Math.max(next.width, next.height) + CAMPAIGN_EXCAVATION_RADIUS + 2;
+  const departure = departureDirection(next.route);
+  const preferred = hashFor(`${previous.seed}:${next.seed}:detached`) % cardinalDirections.length;
+  const candidates: DetachedCandidate[] = [];
+  cardinalDirections.forEach((direction, index) => {
+    const anchor = direction.x > 0
+      ? { x: previous.width + span, y: cup.y }
+      : direction.x < 0
+        ? { x: -span, y: cup.y }
+        : direction.y > 0
+          ? { x: cup.x, y: previous.height + span }
+          : { x: cup.x, y: -span };
+    const rotation = ([0, 1, 2, 3] as Rotation[]).sort((left, right) => {
+      const leftAlignment = rotateDirection(departure, left).x * direction.x + rotateDirection(departure, left).y * direction.y;
+      const rightAlignment = rotateDirection(departure, right).x * direction.x + rotateDirection(departure, right).y * direction.y;
+      return rightAlignment - leftAlignment || (left - preferred + 4) % 4 - (right - preferred + 4) % 4;
+    })[0]!;
+    const bridge = bridgeFor(previous, cup, anchor);
+    const edgeDistance = direction.x > 0 ? previous.width - 1 - cup.x : direction.x < 0 ? cup.x : direction.y > 0 ? previous.height - 1 - cup.y : cup.y;
+    if (bridge) candidates.push({ rotation, anchor, bridge, edgeDistance, preference: (index - preferred + cardinalDirections.length) % cardinalDirections.length });
+  });
+  const best = candidates.sort((left, right) => left.bridge.length - right.bridge.length || left.edgeDistance - right.edgeDistance || left.preference - right.preference)[0];
+  if (!best) throw new Error('could not route a collision-free campaign connector');
+  return best;
+};
 
 const rotationFor = (previous: Course, next: Course, anchor: Point): RotationPlacement => {
   const preferred = hashFor(`${previous.seed}:${next.seed}`) % 4;
@@ -185,32 +280,41 @@ const embeddedPrevious = (course: Course, width: number, height: number, offset:
  * by minimising overlap outside the small shared junction around that cup.
  */
 export const expandCourseAtCup = (previous: Course, next: Course): CourseExpansion => {
-  const rawAnchor = { ...previous.cup };
-  const placement = rotationFor(previous, next, rawAnchor);
+  const junction = { ...previous.cup };
+  let rawAnchor = { ...junction };
+  let placement = rotationFor(previous, next, rawAnchor);
+  let bridge: Point[] = [];
+  if (placement.trackOverlapCount > 0) {
+    const detached = detachedPlacementFor(previous, next, junction);
+    rawAnchor = detached.anchor;
+    placement = { rotation: detached.rotation, trackOverlapCount: 0 };
+    bridge = detached.bridge;
+  }
   const { rotation } = placement;
   const bounds = transformedBounds(next, rawAnchor, rotation);
-  const minX = Math.min(0, bounds.minX);
-  const minY = Math.min(0, bounds.minY);
-  const maxX = Math.max(previous.width - 1, bounds.maxX);
-  const maxY = Math.max(previous.height - 1, bounds.maxY);
+  const minX = Math.min(0, bounds.minX, ...bridge.map((point) => point.x));
+  const minY = Math.min(0, bounds.minY, ...bridge.map((point) => point.y));
+  const maxX = Math.max(previous.width - 1, bounds.maxX, ...bridge.map((point) => point.x));
+  const maxY = Math.max(previous.height - 1, bounds.maxY, ...bridge.map((point) => point.y));
   const offset = { x: -minX, y: -minY };
   const width = maxX - minX + 1;
   const height = maxY - minY + 1;
   const previousEmbedded = embeddedPrevious(previous, width, height, offset);
   const anchor = shifted(rawAnchor, offset);
+  const sharedJunction = shifted(junction, offset);
   const tiles: Tile[] = previousEmbedded.tiles.map((tile): Tile => ({ ...tile, corners: tile.corners ? [...tile.corners] as [number, number, number, number] : undefined, direction: tile.direction ? { ...tile.direction } : undefined }));
-  const anchorIndex = anchor.y * width + anchor.x;
-  const excavated: Point[] = isPlayable(tiles[anchorIndex]) ? [{ ...anchor }] : [];
+  const junctionIndex = sharedJunction.y * width + sharedJunction.x;
+  const excavated: Point[] = isPlayable(tiles[junctionIndex]) ? [{ ...sharedJunction }] : [];
   for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
     const point = { x, y };
     const index = y * width + x;
-    if (distanceFrom(point, anchor) > CAMPAIGN_EXCAVATION_RADIUS || tiles[index]!.surface !== 'wall') continue;
+    if (distanceFrom(point, sharedJunction) > CAMPAIGN_EXCAVATION_RADIUS || tiles[index]!.surface !== 'wall') continue;
     excavated.push(point);
     tiles[index] = { surface: 'void', height: 0 };
   }
 
   const transform = (point: Point) => shifted(pointFor(point, next.tee, rawAnchor, rotation), offset);
-  const elevationOffset = tiles[anchorIndex]!.height - next.tiles[next.tee.y * next.width + next.tee.x]!.height;
+  const elevationOffset = tiles[junctionIndex]!.height - next.tiles[next.tee.y * next.width + next.tee.x]!.height;
   const routeTiles = new Set(next.route.map(pointKey));
   const added: Point[] = [];
   const addedKeys = new Set<string>();
@@ -227,7 +331,7 @@ export const expandCourseAtCup = (previous: Course, next: Course): CourseExpansi
     const index = destination.y * width + destination.x;
     const existing = previousEmbedded.tiles[index]!;
     const transformed = raisedTile(source, next.theme, rotation, elevationOffset);
-    if (destination.x === anchor.x && destination.y === anchor.y) {
+    if (destination.x === anchor.x && destination.y === anchor.y && rawAnchor.x === junction.x && rawAnchor.y === junction.y) {
       tiles[index] = isPlayable(existing)
         ? { ...transformed, height: existing.height, corners: existing.corners ? [...existing.corners] as [number, number, number, number] : undefined }
         : transformed;
@@ -241,9 +345,17 @@ export const expandCourseAtCup = (previous: Course, next: Course): CourseExpansi
   // Leave their cells as playable terrain in the finished course so the shared tee
   // is an expanding junction rather than a thin, jagged gap between two boards.
   // New-course tiles still take priority where they overlap this apron.
-  const junctionHeight = tiles[anchorIndex]!.height;
+  const junctionHeight = tiles[junctionIndex]!.height;
   for (const point of excavated) {
-    if (point.x === anchor.x && point.y === anchor.y) continue;
+    if (point.x === sharedJunction.x && point.y === sharedJunction.y) continue;
+    const index = point.y * width + point.x;
+    if (isPlayable(tiles[index])) continue;
+    tiles[index] = { surface: 'fairway', height: junctionHeight, theme: next.theme };
+    addTile(point);
+  }
+  for (const rawPoint of bridge) {
+    const point = shifted(rawPoint, offset);
+    if ((point.x === sharedJunction.x && point.y === sharedJunction.y) || (point.x === anchor.x && point.y === anchor.y)) continue;
     const index = point.y * width + point.x;
     if (isPlayable(tiles[index])) continue;
     tiles[index] = { surface: 'fairway', height: junctionHeight, theme: next.theme };
