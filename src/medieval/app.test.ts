@@ -12,6 +12,14 @@ describe('medieval canvas text bounds', () => {
     expect(lines.every(line => textWidth(line) <= 724)).toBe(true)
   })
 
+  it('uses the supplied panel width for compact management text', () => {
+    const context = { measureText: (text: string): TextMetrics => ({ width: textWidth(text) } as TextMetrics) }
+    const lines = wrapMedievalCanvasText(context, 'KNOWN REGION NAME // FROM TRADER // KNOWN 120M // FRESH 120M', 180)
+
+    expect(lines.length).toBeGreaterThan(1)
+    expect(lines.every(line => textWidth(line) <= 180)).toBe(true)
+  })
+
   it('keeps a long local-storage diagnostic within its reserved in-panel rows', () => {
     const drawn: { text: string; y: number }[] = []
     const context = {

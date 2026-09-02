@@ -10,6 +10,9 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
     worldTime: number
     actionSequence: number
     causalKinds: string[]
+    tasks: unknown
+    autonomy: unknown
+    era: unknown
   }>((resolve, reject) => {
     const request = indexedDB.open('jomon-medieval-worlds-v1')
     request.onerror = () => reject(request.error)
@@ -18,13 +21,24 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
       const read = database.transaction('worlds', 'readonly').objectStore('worlds').get(id)
       read.onerror = () => { database.close(); reject(read.error) }
       read.onsuccess = () => {
-        const world = read.result as { state?: { temporal?: { worldTime?: number; actionSequence?: number }; causalHistory?: { tail?: Array<{ kind?: string }> } } } | undefined
+        const world = read.result as {
+          state?: {
+            temporal?: { worldTime?: number; actionSequence?: number }
+            causalHistory?: { tail?: Array<{ kind?: string }> }
+            delegation?: { tasks?: unknown }
+            autonomy?: unknown
+            era?: unknown
+          }
+        } | undefined
         database.close()
         if (!world?.state?.temporal || !world.state.causalHistory?.tail) return reject(new Error('saved medieval world was not available'))
         resolve({
           worldTime: world.state.temporal.worldTime ?? -1,
           actionSequence: world.state.temporal.actionSequence ?? -1,
-          causalKinds: world.state.causalHistory.tail.map(command => command.kind ?? '')
+          causalKinds: world.state.causalHistory.tail.map(command => command.kind ?? ''),
+          tasks: world.state.delegation?.tasks,
+          autonomy: world.state.autonomy,
+          era: world.state.era
         })
       }
     }
@@ -110,7 +124,23 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('aria-label', /Jomon foundation world .* active courier/)
   if (!worldId) throw new Error('created world should have a stable id')
 
-  const expectedZeroTime = { worldTime: 0, actionSequence: 0, causalKinds: ['initial-courier-selected'] }
+  await expect(game).toHaveAttribute('data-management-visibility', 'expanded')
+  await expect(game).toHaveAttribute('data-management-section', 'overview')
+  await expect(game).toHaveAttribute('data-management-item-count', '4')
+  await expect(game).toHaveAttribute('aria-label', /Management expanded\. OVERVIEW, 4 household-known facts\./)
+  const expectedZeroTime = await persistedTemporalState(page, worldId)
+  expect(expectedZeroTime).toMatchObject({ worldTime: 0, actionSequence: 0, causalKinds: ['initial-courier-selected'], tasks: [] })
+  await page.keyboard.press(']')
+  await expect(game).toHaveAttribute('data-management-section', 'people-work')
+  await expect(game).toHaveAttribute('data-management-item-count', '6')
+  await expect(game).toHaveAttribute('aria-label', /Management expanded\. PEOPLE \/ WORK, 6 household-known facts\./)
+  await page.keyboard.press('m')
+  await expect(game).toHaveAttribute('data-management-visibility', 'collapsed')
+  await expect(game).toHaveAttribute('aria-label', /Management collapsed\. PEOPLE \/ WORK/)
+  await page.keyboard.press('m')
+  await expect(game).toHaveAttribute('data-management-visibility', 'expanded')
+  await page.keyboard.press('[')
+  await expect(game).toHaveAttribute('data-management-section', 'overview')
   expect(await persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)
   await page.waitForTimeout(300)
   await expect.poll(() => persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)

@@ -1,5 +1,6 @@
 import { GENERATION_CONFIG_PRESETS, WORLD_GENERATION_ADVANCED_SETTING_NAMES, WORLD_GENERATION_ADVANCED_SETTING_OPTIONS, type WorldGenerationAdvancedSettings, type WorldGenerationPreset } from './generation-config'
 import { INITIAL_WORLD_GENERATION_STAGES, type InitialWorldGenerationProgress } from './initial-world'
+import { MANAGEMENT_SIDEBAR_SECTION_IDS, MANAGEMENT_SIDEBAR_SECTION_LABELS, MANAGEMENT_SIDEBAR_SOURCE_LABELS, createManagementSidebarModel, managementSidebarAccessibleSummary, type ManagementSidebarFact, type ManagementSidebarModel } from './management-sidebar'
 import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE } from './palette'
 import { CREATION_SETTINGS_PROFILE_LIMIT, CREATION_SETTINGS_PROFILE_NAME_LIMIT, defaultCreationSettings, normalizeCreationSeed, resolveCreationSettings, type CreationSettings, type CreationSettingsProfile, type CreationSettingsRecord } from './settings'
 import { MedievalWorldRepository } from './storage'
@@ -28,19 +29,19 @@ const uppercase = (value: string | number): string => String(value).replaceAll('
 const settingLabel = (setting: keyof WorldGenerationAdvancedSettings): string => uppercase(setting.replace(/([A-Z])/gu, ' $1'))
 const shortDigest = (value: string): string => value.length > 32 ? `${value.slice(0, 29)}...` : value
 
-const row = (context: CanvasRenderingContext2D, line: number, text: string, color: string = palette.bodyText): void => {
+const row = (context: CanvasRenderingContext2D, line: number, text: string, color: string = palette.bodyText, x: number = left): void => {
   context.fillStyle = color
-  context.fillText(text, left, 78 + line * lineHeight)
+  context.fillText(text, x, 78 + line * lineHeight)
 }
 
-export const wrapMedievalCanvasText = (context: Pick<CanvasRenderingContext2D, 'measureText'>, text: string): readonly string[] => {
+export const wrapMedievalCanvasText = (context: Pick<CanvasRenderingContext2D, 'measureText'>, text: string, maximumWidth: number = contentWidth): readonly string[] => {
   const words = text.trim().split(/\s+/u).filter(Boolean)
   if (!words.length) return ['']
   const splitLongWord = (word: string): readonly string[] => {
     const pieces: string[] = []
     let piece = ''
     for (const character of word) {
-      if (!piece || context.measureText(`${piece}${character}`).width <= contentWidth) piece += character
+      if (!piece || context.measureText(`${piece}${character}`).width <= maximumWidth) piece += character
       else { pieces.push(piece); piece = character }
     }
     if (piece) pieces.push(piece)
@@ -50,9 +51,9 @@ export const wrapMedievalCanvasText = (context: Pick<CanvasRenderingContext2D, '
   let current = ''
   for (const word of words) {
     const next = current ? `${current} ${word}` : word
-    if (context.measureText(next).width <= contentWidth) { current = next; continue }
+    if (context.measureText(next).width <= maximumWidth) { current = next; continue }
     if (current) { lines.push(current); current = '' }
-    if (context.measureText(word).width <= contentWidth) { current = word; continue }
+    if (context.measureText(word).width <= maximumWidth) { current = word; continue }
     const pieces = splitLongWord(word)
     lines.push(...pieces.slice(0, -1))
     current = pieces.at(-1) ?? ''
@@ -61,16 +62,16 @@ export const wrapMedievalCanvasText = (context: Pick<CanvasRenderingContext2D, '
   return lines
 }
 
-const wrappedRows = (context: CanvasRenderingContext2D, line: number, text: string, color: string = palette.bodyText): number => {
-  const lines = wrapMedievalCanvasText(context, text)
-  lines.forEach((wrapped, index) => row(context, line + index, wrapped, color))
+const wrappedRows = (context: CanvasRenderingContext2D, line: number, text: string, color: string = palette.bodyText, x: number = left, maximumWidth: number = contentWidth): number => {
+  const lines = wrapMedievalCanvasText(context, text, maximumWidth)
+  lines.forEach((wrapped, index) => row(context, line + index, wrapped, color, x))
   return line + lines.length
 }
 
-const shortenedToFit = (context: Pick<CanvasRenderingContext2D, 'measureText'>, text: string): string => {
-  if (context.measureText(text).width <= contentWidth) return text
+const shortenedToFit = (context: Pick<CanvasRenderingContext2D, 'measureText'>, text: string, maximumWidth: number = contentWidth): string => {
+  if (context.measureText(text).width <= maximumWidth) return text
   let shortened = text
-  while (shortened && context.measureText(`${shortened}...`).width > contentWidth) shortened = shortened.slice(0, -1)
+  while (shortened && context.measureText(`${shortened}...`).width > maximumWidth) shortened = shortened.slice(0, -1)
   return `${shortened}...`
 }
 
@@ -80,28 +81,76 @@ export const renderBoundedMedievalCanvasRows = (
   line: number,
   lastLine: number,
   text: string,
-  color: string = palette.bodyText
+  color: string = palette.bodyText,
+  x: number = left,
+  maximumWidth: number = contentWidth
 ): number => {
   const availableRows = Math.max(0, lastLine - line + 1)
   if (!availableRows) return line
-  const lines = [...wrapMedievalCanvasText(context, text)]
+  const lines = [...wrapMedievalCanvasText(context, text, maximumWidth)]
   const bounded = lines.length <= availableRows ? lines : [
     ...lines.slice(0, Math.max(0, availableRows - 1)),
-    shortenedToFit(context, lines.slice(Math.max(0, availableRows - 1)).join(' '))
+    shortenedToFit(context, lines.slice(Math.max(0, availableRows - 1)).join(' '), maximumWidth)
   ]
-  bounded.forEach((wrapped, index) => row(context, line + index, wrapped, color))
+  bounded.forEach((wrapped, index) => row(context, line + index, wrapped, color, x))
   return line + bounded.length
 }
 
-const rule = (context: CanvasRenderingContext2D, line: number): void => {
+const rule = (context: CanvasRenderingContext2D, line: number, startX: number = left, endX: number = width - left): void => {
   context.strokeStyle = palette.panelBorder
   context.beginPath()
-  context.moveTo(left, 86 + line * lineHeight)
-  context.lineTo(width - left, 86 + line * lineHeight)
+  context.moveTo(startX, 86 + line * lineHeight)
+  context.lineTo(endX, 86 + line * lineHeight)
   context.stroke()
 }
 
 const selectedMarker = (selected: boolean): string => selected ? cues.selectionMarker : ' '
+
+interface WorldPanel {
+  x: number
+  width: number
+}
+
+const worldPanels = (expanded: boolean): { main: WorldPanel; sidebar: WorldPanel } => expanded
+  ? { main: { x: 38, width: 445 }, sidebar: { x: 510, width: 252 } }
+  : { main: { x: 38, width: 558 }, sidebar: { x: 620, width: 142 } }
+
+const sidebarFactTitle = (item: ManagementSidebarFact): string => {
+  switch (item.value.kind) {
+    case 'jomon-status': return 'JOMON // MOORED'
+    case 'active-courier': return item.value.name === undefined ? 'COURIER // UNASSIGNED' : `COURIER ${item.value.name.toUpperCase()}`
+    case 'world-time': return `TIME // ${item.value.minutes}M`
+    case 'world-era': return `ERA ${item.value.era.toUpperCase()} // ${item.value.remixCycle}`
+    case 'household-person-work': return `${item.value.name.toUpperCase()} // ${item.value.currentWork.toUpperCase()}`
+    case 'delegated-task': return `TASK ${uppercase(item.value.family)} // ${item.value.status.toUpperCase()}`
+    case 'person-need-risk': return `! NEEDS // ${item.value.name.toUpperCase()} // ${item.value.needsMaximum}/5`
+    case 'person-health-risk': return `! HEALTH // ${item.value.name.toUpperCase()} // ${item.value.health.toUpperCase()}`
+    case 'delegated-task-risk': return `! TASK RISK // ${uppercase(item.value.family)} // ${item.value.risk.toUpperCase()}`
+    case 'no-known-active-risk': return '+ NO KNOWN ACTIVE RISK'
+    case 'frontier-revealed-fact': return `KNOWN ${item.value.factKind.toUpperCase()} // ${item.value.value.toUpperCase()}`
+    case 'causal-command': return `#${item.value.sequence} // ${item.value.commandKind.toUpperCase()}`
+    case 'compacted-history-segment': return `#${item.value.sequenceStart}-${item.value.sequenceEnd} // COMPACTED ${item.value.commandCount}`
+  }
+}
+
+/** Compact canvas cues retain a source type, known-at time, and freshness. */
+const sidebarSourceCue = (item: ManagementSidebarFact): string => {
+  switch (item.source.label) {
+    case 'current-household-state': return 'HOUSEHOLD'
+    case 'crew-record': return 'CREW'
+    case 'delegated-task-record': return 'TASK'
+    case 'autonomy-record': return 'AUTONOMY'
+    case 'household-journal': return 'JOURNAL'
+    case 'compacted-journal': return 'COMPACTED'
+    default: return MANAGEMENT_SIDEBAR_SOURCE_LABELS[item.source.label]
+  }
+}
+const sidebarFreshnessCue = (item: ManagementSidebarFact): string => item.freshness.kind === 'current'
+  ? 'NOW'
+  : item.freshness.kind === 'timeless'
+    ? 'TIMELESS'
+    : `F${item.freshness.atWorldTime}M`
+const sidebarFactMetadata = (item: ManagementSidebarFact): string => `SRC ${sidebarSourceCue(item)} // KN${item.discoveredAtWorldTime}M // ${sidebarFreshnessCue(item)}`
 
 export class MedievalApp {
   private readonly context: CanvasRenderingContext2D
@@ -120,6 +169,10 @@ export class MedievalApp {
   private profileName = 'new basin'
   private resultPage: ResultPage = 'summary'
   private generationProgress: readonly InitialWorldGenerationProgress[] = []
+  /** Ephemeral presentation state only; the sidebar never writes the world. */
+  private managementSidebar: ManagementSidebarModel | undefined
+  private managementExpanded = true
+  private managementSectionIndex = 0
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const context = canvas.getContext('2d')
@@ -300,6 +353,7 @@ export class MedievalApp {
       this.world = chooseInitialCourier(this.world, candidate.id)
       await this.repository.saveWorld(this.world)
       await this.refreshIndex()
+      this.resetManagementSidebar()
       this.route = 'world'
       this.error = undefined
     } catch (error) {
@@ -320,6 +374,7 @@ export class MedievalApp {
       this.session.open(world.id)
       this.world = world
       this.route = world.state.courier.initialCourierId ? 'world' : 'world-result'
+      if (this.route === 'world') this.resetManagementSidebar()
       this.resultPage = 'summary'
       this.selectedRow = 0
       this.persistence = 'saved'
@@ -402,6 +457,17 @@ export class MedievalApp {
       return
     }
     if (this.route === 'world') {
+      if (key === 'm' || key === 'M') {
+        this.managementExpanded = !this.managementExpanded
+        this.render()
+        return
+      }
+      if (this.managementExpanded && (key === '[' || key === ']')) {
+        const change = key === ']' ? 1 : -1
+        this.managementSectionIndex = (this.managementSectionIndex + change + MANAGEMENT_SIDEBAR_SECTION_IDS.length) % MANAGEMENT_SIDEBAR_SECTION_IDS.length
+        this.render()
+        return
+      }
       if (key === 'Escape') { this.releaseWorld(); this.route = 'worlds'; this.world = undefined; this.selectedRow = 0; this.render() }
       return
     }
@@ -455,6 +521,23 @@ export class MedievalApp {
 
   private releaseWorld(): void {
     if (this.world && this.session.current() === this.world.id) this.session.release(this.world.id)
+    this.managementSidebar = undefined
+    this.managementExpanded = true
+    this.managementSectionIndex = 0
+  }
+
+  private resetManagementSidebar(): void {
+    if (!this.world) {
+      this.managementSidebar = undefined
+      return
+    }
+    this.managementSidebar = createManagementSidebarModel(this.world)
+    this.managementExpanded = true
+    this.managementSectionIndex = 0
+  }
+
+  private activeManagementSection() {
+    return MANAGEMENT_SIDEBAR_SECTION_IDS[this.managementSectionIndex] ?? MANAGEMENT_SIDEBAR_SECTION_IDS[0]
   }
 
   private render(): void {
@@ -482,6 +565,11 @@ export class MedievalApp {
     delete this.canvas.dataset.worldId
     delete this.canvas.dataset.crewCount
     delete this.canvas.dataset.generationStage
+    delete this.canvas.dataset.managementVisibility
+    delete this.canvas.dataset.managementSection
+    delete this.canvas.dataset.managementItemCount
+    delete this.canvas.dataset.managementKnownFactCount
+    delete this.canvas.dataset.managementUrgentFactCount
     if (this.world) {
       this.canvas.dataset.worldId = this.world.id
       this.canvas.dataset.crewCount = String(this.world.crew.length)
@@ -661,18 +749,62 @@ export class MedievalApp {
     return wrappedRows(context, Math.max(19, line + 1), 'Arrow keys choose. Enter confirms. Esc returns to the creation result.', palette.actionText)
   }
 
+  private renderManagementSidebar(context: CanvasRenderingContext2D, model: ManagementSidebarModel, panel: WorldPanel): void {
+    const selectedSection = this.activeManagementSection()
+    const selected = model.sections.find(section => section.id === selectedSection)
+    if (!selected) throw new Error('management sidebar selection is unavailable')
+    context.strokeStyle = palette.panelBorder
+    context.strokeRect(panel.x - 8.5, 108.5, panel.width + 16, 480)
+    if (!this.managementExpanded) {
+      renderBoundedMedievalCanvasRows(context, 2, 3, '[M] MANAGEMENT', palette.actionText, panel.x, panel.width)
+      renderBoundedMedievalCanvasRows(context, 5, 6, `[${this.managementSectionIndex + 1}/6] ${MANAGEMENT_SIDEBAR_SECTION_LABELS[selected.id]}`, palette.selectedText, panel.x, panel.width)
+      renderBoundedMedievalCanvasRows(context, 8, 10, `${selected.facts.length} KNOWN // ${model.summary.urgentFactCount} URGENT`, palette.mutedText, panel.x, panel.width)
+      renderBoundedMedievalCanvasRows(context, 12, 13, 'M EXPAND', palette.actionText, panel.x, panel.width)
+      return
+    }
+    renderBoundedMedievalCanvasRows(context, 2, 2, '[M] MANAGEMENT', palette.titleText, panel.x, panel.width)
+    renderBoundedMedievalCanvasRows(context, 3, 3, `${this.managementSectionIndex + 1}/6 ${MANAGEMENT_SIDEBAR_SECTION_LABELS[selected.id]} // ${selected.facts.length}`, palette.actionText, panel.x, panel.width)
+    rule(context, 4, panel.x, panel.x + panel.width)
+    let line = 5
+    for (const item of selected.facts) {
+      if (line > 19) break
+      const marker = item.priority === 'urgent' ? '!' : item.priority === 'essential' ? '*' : '-'
+      line = renderBoundedMedievalCanvasRows(context, line, line, `${marker} ${sidebarFactTitle(item)}`, item.priority === 'urgent' ? palette.warningText : item.priority === 'essential' ? palette.bodyText : palette.mutedText, panel.x, panel.width)
+      if (line > 20) break
+      line = renderBoundedMedievalCanvasRows(context, line, line, sidebarFactMetadata(item), palette.mutedText, panel.x, panel.width)
+      line += 1
+    }
+    renderBoundedMedievalCanvasRows(context, 22, 22, 'M COLLAPSE // ESC WORLDS', palette.actionText, panel.x, panel.width)
+  }
+
   private renderWorld(context: CanvasRenderingContext2D): number {
     const world = this.world
     if (!world) { this.route = 'worlds'; this.render(); return 0 }
     const courier = world.crew.find(member => member.id === world.state.courier.initialCourierId)
-    this.canvas.setAttribute('aria-label', `Jomon foundation world ${world.manifest.creation.label}, active courier ${courier?.name ?? 'unassigned'}.`)
-    row(context, 2, `${world.manifest.creation.label.toUpperCase()} // FOUNDATION WORLD`, palette.titleText)
-    row(context, 4, `ACTIVE COURIER  ${courier?.name.toUpperCase() ?? 'UNASSIGNED'} // ${courier?.role.toUpperCase() ?? 'NONE'}`, palette.statusReady)
-    row(context, 5, `SEED  ${world.manifest.creation.seed} // WORLD TIME ${world.state.temporal.worldTime}`, palette.bodyText)
-    let line = wrappedRows(context, 7, 'The household exists. Time has not advanced and no map has been generated yet.', palette.mutedText)
-    line = wrappedRows(context, line, 'This is the clean persistence boundary before the walkable Jomon foundation.', palette.mutedText)
-    rule(context, 14)
-    return wrappedRows(context, Math.max(16, line + 1), 'Esc returns to local worlds. All gameplay actions are still roadmap work.', palette.actionText)
+    if (!this.managementSidebar) this.resetManagementSidebar()
+    const model = this.managementSidebar
+    if (!model) throw new Error('management sidebar model is unavailable')
+    const selectedSection = this.activeManagementSection()
+    const activeSection = model.sections.find(section => section.id === selectedSection)
+    if (!activeSection) throw new Error('management sidebar section is unavailable')
+    this.canvas.dataset.managementVisibility = this.managementExpanded ? 'expanded' : 'collapsed'
+    this.canvas.dataset.managementSection = selectedSection
+    this.canvas.dataset.managementItemCount = String(activeSection.facts.length)
+    this.canvas.dataset.managementKnownFactCount = String(model.summary.knownFactCount)
+    this.canvas.dataset.managementUrgentFactCount = String(model.summary.urgentFactCount)
+    this.canvas.setAttribute('aria-label', `Jomon foundation world ${world.manifest.creation.label}, active courier ${courier?.name ?? 'unassigned'}. ${managementSidebarAccessibleSummary(model, selectedSection, this.managementExpanded)}`)
+    const panels = worldPanels(this.managementExpanded)
+    context.strokeStyle = palette.panelBorder
+    context.strokeRect(panels.main.x - 8.5, 108.5, panels.main.width + 16, 480)
+    row(context, 2, `${world.manifest.creation.label.toUpperCase()} // MAP RESERVED`, palette.titleText, panels.main.x)
+    renderBoundedMedievalCanvasRows(context, 4, 5, `ACTIVE COURIER  ${courier?.name.toUpperCase() ?? 'UNASSIGNED'} // ${courier?.role.toUpperCase() ?? 'NONE'}`, palette.statusReady, panels.main.x, panels.main.width)
+    renderBoundedMedievalCanvasRows(context, 6, 7, `SEED ${world.manifest.creation.seed} // WORLD TIME ${world.state.temporal.worldTime}`, palette.bodyText, panels.main.x, panels.main.width)
+    let line = renderBoundedMedievalCanvasRows(context, 9, 12, 'The primary panel is reserved for the future map. No spatial marks or hidden regional state are shown here.', palette.mutedText, panels.main.x, panels.main.width)
+    line = renderBoundedMedievalCanvasRows(context, Math.max(14, line + 1), 17, 'Management lists household-known facts only. Direct actions, notices, messages, ledgers, and conversations remain separate surfaces.', palette.mutedText, panels.main.x, panels.main.width)
+    rule(context, 18, panels.main.x, panels.main.x + panels.main.width)
+    renderBoundedMedievalCanvasRows(context, Math.max(20, line + 1), 22, this.managementExpanded ? 'M collapse management // [ / ] sections // ESC local worlds' : 'M expand management // ESC local worlds', palette.actionText, panels.main.x, panels.main.width)
+    this.renderManagementSidebar(context, model, panels.sidebar)
+    return 22
   }
 
   private renderChronicles(context: CanvasRenderingContext2D): number {
