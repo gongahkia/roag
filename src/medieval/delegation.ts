@@ -454,7 +454,9 @@ const agreementFor = (context: DelegationContext, offer: DelegationOfferInput, a
   const skillMatches = recipientSkill(recipient, definition)
   const roll = taskRoll(context, 'agreement', taskId, context.worldTime)
   const threshold = agreementThresholdFor(assessment, interestMatches, skillMatches, definition)
-  const accepted = interestMatches && skillMatches && roll <= threshold
+  // One unit is reserved on acceptance, so a final available unit remains a
+  // conditional/refusal result rather than an invalid zero-capacity worker.
+  const accepted = interestMatches && skillMatches && recipient.work.capacity.current >= 2 && roll <= threshold
   const factors = canonical([
     'conversation-eligible',
     'approach-unlocked',
@@ -677,6 +679,9 @@ export const validateDelegationState = (context: DelegationContext, value: unkno
     if (!definition || !definition.relevantMaterialInterests.includes(task.proposal.materialInterest) || !definition.allowedComplexities.includes(task.proposal.complexity) || !definition.allowedUrgencies.includes(task.proposal.urgency)) issues.push(issue(task.id, 'delegation.invalid-family-context'))
     if (task.offeredAtWorldTime > context.worldTime || !validAgreement(context, task, task.agreement)) issues.push(issue(task.id, 'delegation.invalid-agreement'))
     else if (definition && recipient) {
+      const agreementRecipient = task.status === 'in-progress'
+        ? { ...recipient, work: { ...recipient.work, capacity: { ...recipient.work.capacity, current: recipient.work.capacity.current + 1 } } }
+        : recipient
       const expectedAgreement = agreementFor({ ...context, worldTime: task.offeredAtWorldTime }, {
         version: DELEGATION_CONTRACT_VERSION,
         id: task.offerId,
@@ -685,7 +690,7 @@ export const validateDelegationState = (context: DelegationContext, value: unkno
         family: task.family,
         approach: task.approach,
         proposal: task.proposal
-      }, task.assessment, recipient, definition)
+      }, task.assessment, agreementRecipient, definition)
       if (!same(task.agreement, expectedAgreement)) issues.push(issue(task.id, 'delegation.invalid-agreement'))
     }
     const duration = definition?.durationMinutes[task.proposal.complexity]
