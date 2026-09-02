@@ -24,7 +24,7 @@ describe('persistent medieval people', () => {
     const second = createFoundationWorld({ seed: 'persistent crew' })
     const restored = recreateFoundationWorld(first.manifest)
 
-    expect(first.state.people.version).toBe(3)
+    expect(first.state.people.version).toBe(4)
     expect(first.state.people.records).toEqual(second.state.people.records)
     expect(restored.state.people.records).toEqual(first.state.people.records)
     expect(instantiateFoundationCrewPeople(contextFor(first))).toEqual(first.state.people.records)
@@ -227,7 +227,7 @@ describe('persistent medieval people', () => {
     const unavailable = structuredClone(noCourier)
     unavailable.state.people.records[0]!.life = { status: 'dead', birth: unavailable.state.people.records[0]!.life.birth, death: { atWorldTime: 0 } }
     unavailable.state.people.records[0]!.work.availability = 'unavailable'
-    expect(() => chooseInitialCourier(unavailable, unavailable.state.people.records[0]!.id)).toThrow('eligible living available')
+    expect(() => chooseInitialCourier(unavailable, unavailable.state.people.records[0]!.id)).toThrow('complete medieval foundation contract')
   })
 
   it('fails closed when persistent text is unsafe or unclassified, and includes every classified value in the safety audit', () => {
