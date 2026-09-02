@@ -6,20 +6,21 @@ import { isMedievalTemporalState, TEMPORAL_LIMITS, temporalContentRecords, type 
 import { generationConfigurationFingerprint, type WorldGenerationConfig } from './generation-config'
 import { createSimulationCatchUpState, simulationCatchUpContentRecords, validateSimulationCatchUpState, SIMULATION_CATCH_UP_LIMITS, type SimulationCatchUpState, type SimulationCatchUpDiagnosticCode } from './simulation-catchup'
 import { createWorldEraState, validateWorldEraState, WORLD_ERA_CONTRACT_VERSION, WORLD_ERA_LIMITS, type WorldEraDiagnosticCode, type WorldEraState } from './world-era'
-import type { CausalRecord, FoundationCrewMember, FoundationJomon } from './types'
+import { causalHistoryContentRecords, causalReplayProjection, createCausalHistoryState, validateCausalHistoryState, type CausalHistoryDiagnosticCode, type CausalHistoryState, type CausalReplayProjection } from './causal-history'
+import type { FoundationCrewMember, FoundationJomon } from './types'
 
 /**
  * This is the durable mutable half of a medieval world. It deliberately has
  * no renderer, storage, browser, or prototype dependency.
  */
-export const MEDIEVAL_WORLD_STATE_VERSION = 6 as const
+export const MEDIEVAL_WORLD_STATE_VERSION = 7 as const
 export const WORLD_GEOGRAPHY_STATE_VERSION = 1 as const
 export const WORLD_SITES_STATE_VERSION = 1 as const
 export const WORLD_ROUTES_STATE_VERSION = 1 as const
 export const WORLD_MARKETS_STATE_VERSION = 1 as const
 export const WORLD_PEOPLE_STATE_VERSION = 2 as const
 export const WORLD_INSTITUTIONS_STATE_VERSION = 1 as const
-export const WORLD_HISTORY_STATE_VERSION = 1 as const
+export const WORLD_CAUSAL_HISTORY_STATE_VERSION = 1 as const
 export const WORLD_JOMON_STATE_VERSION = 1 as const
 export const WORLD_COURIER_STATE_VERSION = 1 as const
 export const WORLD_ERA_STATE_VERSION = WORLD_ERA_CONTRACT_VERSION
@@ -36,7 +37,7 @@ export const MEDIEVAL_WORLD_STATE_LIMITS = {
   simulationRecords: SIMULATION_CATCH_UP_LIMITS.records,
   eraGrowthEvidence: WORLD_ERA_LIMITS.growthEvidence,
   eraTransitions: WORLD_ERA_LIMITS.transitions,
-  historyRecords: TEMPORAL_LIMITS.causalRecords + 2,
+  causalHistoryTail: 16,
   capacityMaximum: 100
 } as const
 
@@ -114,11 +115,6 @@ export interface WorldInstitutionsState {
   registry: readonly WorldInstitutionState[]
 }
 
-export interface WorldHistoryState {
-  version: typeof WORLD_HISTORY_STATE_VERSION
-  records: readonly CausalRecord[]
-}
-
 export interface WorldJomonLocation {
   kind: 'site' | 'quay'
   id: string
@@ -146,7 +142,8 @@ export interface MedievalWorldState {
   markets: WorldMarketsState
   people: WorldPeopleState
   institutions: WorldInstitutionsState
-  history: WorldHistoryState
+  /** The sole authoritative mutable command journal; local evidence stays local. */
+  causalHistory: CausalHistoryState
   jomon: WorldJomonState
   courier: WorldCourierState
   temporal: MedievalTemporalState
@@ -166,7 +163,7 @@ export type WorldStateValidationDiagnosticCode =
   | 'world-state.invalid-markets'
   | 'world-state.invalid-people'
   | 'world-state.invalid-institutions'
-  | 'world-state.invalid-history'
+  | 'world-state.invalid-causal-history'
   | 'world-state.invalid-jomon'
   | 'world-state.invalid-courier'
   | 'world-state.invalid-temporal'
@@ -181,6 +178,7 @@ export type WorldStateValidationDiagnosticCode =
   | PersistentPersonValidationDiagnosticCode
   | SimulationCatchUpDiagnosticCode
   | WorldEraDiagnosticCode
+  | CausalHistoryDiagnosticCode
   | MedievalContentSafetyDiagnosticCode
 
 export interface WorldStateValidationIssue {
@@ -194,8 +192,6 @@ export interface WorldStateValidationContext {
   initialWorld: InitialWorld
   jomon: FoundationJomon
   crew: readonly FoundationCrewMember[]
-  /** The deterministic creation records for the current courier choice. */
-  foundationHistory: readonly CausalRecord[]
 }
 
 export interface WorldStateConstructionContext extends WorldStateValidationContext {
@@ -210,6 +206,8 @@ export interface WorldStateConstructionContext extends WorldStateValidationConte
   simulationState?: SimulationCatchUpState
   /** The era reducer owns its derived totals and transition history. */
   eraState?: WorldEraState
+  /** Public command reducers supply their append/compaction result. */
+  causalHistoryState?: CausalHistoryState
 }
 
 const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -227,7 +225,7 @@ const issue = (recordId: string, code: WorldStateValidationDiagnosticCode): Worl
 const canonicalIssues = (issues: readonly WorldStateValidationIssue[]): readonly WorldStateValidationIssue[] => [...new Map(issues.map(value => [`${value.recordId}\u0000${value.code}`, value])).values()]
   .sort((left, right) => compare(left.recordId, right.recordId) || compare(left.code, right.code))
 const idsAreUnique = (values: readonly { id: string }[]): boolean => new Set(values.map(value => value.id)).size === values.length
-const stateLike = (value: unknown): value is MedievalWorldState => record(value) && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'history', 'jomon', 'courier', 'temporal', 'simulation', 'era', 'contentSafetyAudit'])
+const stateLike = (value: unknown): value is MedievalWorldState => record(value) && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'causalHistory', 'jomon', 'courier', 'temporal', 'simulation', 'era', 'contentSafetyAudit'])
 const validateIdArrayOrder = (value: unknown, recordId: string, issues: WorldStateValidationIssue[]): void => {
   if (!Array.isArray(value) || !value.every(candidate => record(candidate) && validWorldId(candidate.id))) return
   const records = value as { id: string }[]
@@ -267,31 +265,20 @@ const routeRecordsFor = (initialWorld: InitialWorld): readonly WorldRouteConditi
 const marketRecordsFor = (sites: readonly WorldSiteState[]): readonly WorldMarketState[] => sortedById(sites.map(site => ({ id: `market:${site.id}`, siteId: site.id, commodityStates: [] as const })))
 const institutionRecordsFor = (initialWorld: InitialWorld): readonly WorldInstitutionState[] => sortedById(initialWorld.institutions.map(institution => ({ id: institution.id, sourceInstitutionId: institution.id, siteId: institution.settlementId })))
 
-export const causalHistoryWithTemporal = (foundationRecords: readonly CausalRecord[], temporal: MedievalTemporalState): readonly CausalRecord[] => [
-  ...foundationRecords,
-  ...temporal.causalRecords.map(record => ({
-    sequence: foundationRecords.length + record.sequence,
-    atWorldTime: record.atWorldTime,
-    kind: record.kind === 'action-completed' ? 'temporal-action' as const : 'scheduled-event-resolved' as const,
-    detail: record.detail,
-    contentSafety: record.contentSafety
-  }))
-]
-
 /**
- * Player-visible mutable texts are limited to safety-audited frontier/history/
- * scheduler records. The era subdomain carries only closed semantic tags and
+ * Player-visible mutable texts are limited to safety-audited frontier,
+ * journal, and scheduler records. The era subdomain carries only closed semantic tags and
  * no displayable text; its exact-shape validator rejects a text-bearing bypass.
  */
-export const medievalWorldStateContentRecords = (state: Pick<MedievalWorldState, 'geography' | 'people' | 'history' | 'temporal' | 'simulation'>): readonly ClassifiedMedievalContent[] => [
+export const medievalWorldStateContentRecords = (state: Pick<MedievalWorldState, 'geography' | 'people' | 'causalHistory' | 'temporal' | 'simulation'>): readonly ClassifiedMedievalContent[] => [
   ...frontierContentRecords(state.geography.frontier),
   ...persistentPersonContentRecords(state.people.records),
-  ...state.history.records.map(record => ({ id: `world-state:causal:${record.sequence}:${record.kind}`, domain: 'event' as const, classification: record.contentSafety })),
+  ...causalHistoryContentRecords(state.causalHistory),
   ...temporalContentRecords(state.temporal),
   ...simulationCatchUpContentRecords(state.simulation)
 ]
 
-const auditStateContent = (state: Pick<MedievalWorldState, 'geography' | 'people' | 'history' | 'temporal' | 'simulation'>): MedievalContentSafetyAudit => {
+const auditStateContent = (state: Pick<MedievalWorldState, 'geography' | 'people' | 'causalHistory' | 'temporal' | 'simulation'>): MedievalContentSafetyAudit => {
   const audit = auditMedievalContentSafety(medievalWorldStateContentRecords(state))
   if (audit.status === 'rejected') throw new Error(`world state content rejected: ${audit.diagnostics.map(diagnostic => diagnostic.code).join(', ')}`)
   return audit
@@ -333,12 +320,17 @@ export const createMedievalWorldState = (context: WorldStateConstructionContext)
       }))
     },
     institutions: { version: WORLD_INSTITUTIONS_STATE_VERSION, registry: institutionRecordsFor(context.initialWorld) },
-    history: { version: WORLD_HISTORY_STATE_VERSION, records: causalHistoryWithTemporal(context.foundationHistory, context.temporal) },
     jomon: structuredClone(context.jomonState ?? initialJomonState(context.jomon, sites, context.crew)),
     courier: { version: WORLD_COURIER_STATE_VERSION, ...(context.initialCourierId === undefined ? {} : { initialCourierId: context.initialCourierId }) },
     temporal: structuredClone(context.temporal),
     simulation: structuredClone(context.simulationState ?? createSimulationCatchUpState()),
-    era: structuredClone(context.eraState ?? createWorldEraState(eraContext))
+    era: structuredClone(context.eraState ?? createWorldEraState(eraContext)),
+    causalHistory: structuredClone(context.causalHistoryState ?? createCausalHistoryState({ worldId: context.temporal.provenance.worldId, creationDigest: context.temporal.provenance.creationDigest }, causalReplayProjection({
+      courier: { version: WORLD_COURIER_STATE_VERSION, ...(context.initialCourierId === undefined ? {} : { initialCourierId: context.initialCourierId }) },
+      temporal: context.temporal,
+      simulation: context.simulationState ?? createSimulationCatchUpState(),
+      era: context.eraState ?? createWorldEraState(eraContext)
+    })))
   }
   const state: MedievalWorldState = { ...stateWithoutAudit, contentSafetyAudit: auditStateContent(stateWithoutAudit) }
   const validation = validateMedievalWorldState(context, state)
@@ -349,8 +341,6 @@ export const createMedievalWorldState = (context: WorldStateConstructionContext)
 const validSubdomain = (value: unknown, version: number, keys: readonly string[]): value is Record<string, unknown> => record(value) && value.version === version && hasOnlyKeys(value, keys)
 const validWorldId = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 const validLocation = (value: unknown): value is WorldJomonLocation => record(value) && hasOnlyKeys(value, ['kind', 'id']) && (value.kind === 'site' || value.kind === 'quay') && validWorldId(value.id)
-const validCausalRecord = (value: unknown): value is CausalRecord => record(value) && hasOnlyKeys(value, ['sequence', 'atWorldTime', 'kind', 'detail', 'contentSafety']) && safeInteger(value.sequence) && safeInteger(value.atWorldTime) && ['world-created', 'initial-courier-selected', 'temporal-action', 'scheduled-event-resolved'].includes(String(value.kind)) && typeof value.detail === 'string'
-
 const rootCommitmentsMatch = (context: WorldStateValidationContext, frontier: FrontierState): boolean => {
   const roots = createInitialFrontierState({ seed: context.seed, configuration: context.configuration, initialWorld: context.initialWorld }).regions
   return roots.every(root => {
@@ -454,9 +444,12 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
   const selectedCourierPerson = Array.isArray(value.people?.records) ? value.people.records.find(candidate => record(candidate) && candidate.id === selectedCourier) : undefined
   if (!validSubdomain(value.courier, WORLD_COURIER_STATE_VERSION, value.courier && record(value.courier) && selectedCourier === undefined ? ['version'] : ['version', 'initialCourierId']) || (selectedCourier !== undefined && (!context.crew.some(member => member.id === selectedCourier && member.eligible) || !record(selectedCourierPerson) || !record(selectedCourierPerson.life) || selectedCourierPerson.life.status !== 'living' || !record(selectedCourierPerson.work) || selectedCourierPerson.work.availability !== 'available'))) issues.push(issue('world-state:courier', 'world-state.invalid-courier'))
 
-  const expectedHistory = temporal === undefined ? [] : causalHistoryWithTemporal(context.foundationHistory, temporal)
-  if (!validSubdomain(value.history, WORLD_HISTORY_STATE_VERSION, ['version', 'records']) || !Array.isArray(value.history.records) || value.history.records.length > MEDIEVAL_WORLD_STATE_LIMITS.historyRecords || !value.history.records.every(validCausalRecord) || !same(value.history.records, expectedHistory)) issues.push(issue('world-state:history', value.history && Array.isArray(value.history.records) && value.history.records.length > MEDIEVAL_WORLD_STATE_LIMITS.historyRecords ? 'world-state.budget-exceeded' : 'world-state.invalid-history'))
-  else if ((value.history.records as CausalRecord[]).some((entry, index) => entry.sequence !== index)) issues.push(issue('world-state:history', 'world-state.noncanonical-order'))
+  if (temporal === undefined) {
+    issues.push(issue('world-state:causal-history', 'world-state.invalid-causal-history'))
+  } else {
+    const causalIssues = validateCausalHistoryState({ worldId: temporal.provenance.worldId, creationDigest: temporal.provenance.creationDigest }, value.causalHistory)
+    if (causalIssues.length) issues.push(...causalIssues.map(diagnostic => issue(diagnostic.recordId, diagnostic.code)))
+  }
 
   const sites = Array.isArray(value.sites?.sites) ? value.sites.sites as WorldSiteState[] : []
   const quays = Array.isArray(value.sites?.quays) ? value.sites.quays as WorldQuayState[] : []
@@ -472,6 +465,9 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
 }
 
 export const isMedievalWorldState = (context: WorldStateValidationContext, value: unknown): value is MedievalWorldState => validateMedievalWorldState(context, value).length === 0
+
+/** The exact command-owned mutable projection used by the global journal. */
+export const causalReplayProjectionForWorldState = (state: Pick<MedievalWorldState, 'courier' | 'temporal' | 'simulation' | 'era'>): CausalReplayProjection => causalReplayProjection(state)
 
 export class WorldStateContractError extends Error {
   constructor(readonly diagnostics: readonly WorldStateValidationIssue[]) {

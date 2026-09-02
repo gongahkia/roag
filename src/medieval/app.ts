@@ -692,7 +692,7 @@ export class MedievalApp {
     row(context, 4, `FINAL REASON  ${chronicle.reason.toUpperCase()}`, palette.statusRisk)
     row(context, 5, `SEED  ${chronicle.world.manifest.creation.seed} // WORLD TIME ${chronicle.world.state.temporal.worldTime}`, palette.bodyText)
     let line = 7
-    chronicle.world.state.history.records.forEach(record => { line = wrappedRows(context, line, `${record.sequence}. ${record.detail}`, palette.mutedText) })
+    chronicle.world.state.temporal.causalRecords.forEach(record => { line = wrappedRows(context, line, `${record.sequence}. ${record.detail}`, palette.mutedText) })
     rule(context, 14)
     return wrappedRows(context, Math.max(16, line + 1), 'E exports JSON. Esc returns to finalized chronicles.', palette.actionText)
   }

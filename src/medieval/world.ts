@@ -4,11 +4,12 @@ import { FRONTIER_CONTRACT_VERSION, createInitialFrontierState, frontierContentR
 import { generationConfigurationFingerprint, generationRetryPlan, isReproducibleGenerationDiagnostics, resolveWorldGenerationConfig, type WorldGenerationConfig, type WorldGenerationConfigIssue, type WorldGenerationConfigRequest } from './generation-config'
 import { INITIAL_WORLD_GENERATION_DIAGNOSTICS_VERSION, INITIAL_WORLD_GENERATOR_VERSION, generateInitialWorld, initialWorldContentRecords, isInitialWorld, type InitialWorld, type InitialWorldGenerationDiagnostics, type InitialWorldGenerationProgressObserver } from './initial-world'
 import { normalizeCreationSeed } from './settings'
-import { advanceMedievalTemporalState, createMedievalTemporalState, isMedievalTemporalState, type TemporalCommand, type TemporalProvenance } from './temporal'
-import { createMedievalWorldState, isMedievalWorldState } from './world-state'
+import { advanceMedievalTemporalState, createMedievalTemporalState, isMedievalTemporalState, type TemporalCommand, type TemporalProvenance, type TimeBearingTemporalAction } from './temporal'
+import { causalReplayProjectionForWorldState, createMedievalWorldState, isMedievalWorldState, type MedievalWorldState } from './world-state'
 import { createFidelityPlan } from './fidelity'
 import { advanceSimulationCatchUpState, validateSimulationCatchUpPlanState } from './simulation-catchup'
 import { advanceWorldEraForTemporalAction, recordDurableJomonGrowthEvidence, type DurableJomonGrowthEvidence, type WorldEraContext } from './world-era'
+import { appendCausalCommand, causalReplayProjection, createCausalCommand, validateCausalHistoryReplay, type CausalCommandEvent, type CausalHistoryContext, type CausalReplayProjection } from './causal-history'
 import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
 
 const foundationJomon = (): FoundationJomon => ({
@@ -136,14 +137,6 @@ const worldCreatedRecord = (label: string, seed: string): CausalRecord => ({
   contentSafety: classifyMedievalContent('event', ['civil-life', 'navigation'], 'not-applicable', ['player-facing-text'])
 })
 
-const initialCourierSelectedRecord = (sequence: number, name: string): CausalRecord => ({
-  sequence,
-  atWorldTime: 0,
-  kind: 'initial-courier-selected',
-  detail: `${name} chosen as the initial courier.`,
-  contentSafety: classifyMedievalContent('event', ['civil-life', 'travel'], 'adults-only', ['player-facing-text'])
-})
-
 const foundationContentRecords = (
   labelContentSafety: WorldCreationProvenance['labelContentSafety'],
   jomon: FoundationJomon,
@@ -191,7 +184,6 @@ interface ExpectedFoundationState {
 const expectedFoundationState = (
   seed: string,
   configuration: WorldGenerationConfig,
-  initialCourierId: string | undefined,
   onGenerationProgress?: InitialWorldGenerationProgressObserver
 ): ExpectedFoundationState | undefined => {
   const label = labelForSeed(seed, configuration)
@@ -201,11 +193,6 @@ const expectedFoundationState = (
   const initialWorldGeneration = generateInitialWorld(seed, configuration, onGenerationProgress)
   const frontier = createInitialFrontierState({ seed, configuration, initialWorld: initialWorldGeneration.world })
   const causalHistory = [worldCreatedRecord(label, seed)]
-  if (initialCourierId !== undefined) {
-    const courier = crew.find(member => member.id === initialCourierId)
-    if (!courier?.eligible) return undefined
-    causalHistory.push(initialCourierSelectedRecord(causalHistory.length, courier.name))
-  }
   return {
     label,
     labelContentSafety,
@@ -337,7 +324,7 @@ const temporalProvenanceForCreation = (creation: WorldCreationProvenance): Tempo
 })
 
 const expectedCreationProvenance = (seed: string, selectedConfiguration: WorldCreationProvenance['selectedConfiguration'], resolvedConfiguration: WorldGenerationConfig): WorldCreationProvenance | undefined => {
-  const state = expectedFoundationState(seed, resolvedConfiguration, undefined)
+  const state = expectedFoundationState(seed, resolvedConfiguration)
   return state === undefined ? undefined : creationProvenanceFor(seed, selectedConfiguration, resolvedConfiguration, state)
 }
 
@@ -354,6 +341,7 @@ export type FoundationWorldValidationCode =
   | 'foundation-world.invalid-immutable-content'
   | 'foundation-world.invalid-mutable-state'
   | 'foundation-world.invalid-catch-up'
+  | 'foundation-world.invalid-causal-history'
 
 export interface FoundationWorldValidationIssue {
   code: FoundationWorldValidationCode
@@ -371,7 +359,7 @@ export const validateFoundationWorld = (value: unknown): readonly FoundationWorl
   if (!record(value)) return [foundationWorldIssue('foundation-world', 'foundation-world.malformed-record')]
   if (!hasOnlyKeys(value, ['version', 'id', 'status', 'manifest', 'jomon', 'crew', 'initialWorld', 'state'])) return [foundationWorldIssue('foundation-world', 'foundation-world.malformed-record')]
   const issues: FoundationWorldValidationIssue[] = []
-  if (value.version !== 8) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-version'))
+  if (value.version !== 9) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-version'))
   if (typeof value.id !== 'string' || !value.id) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-id'))
   if (value.status !== 'active') issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-status'))
   if (!isReproducibleWorldManifest(value.manifest)) {
@@ -386,6 +374,7 @@ export const validateFoundationWorld = (value: unknown): readonly FoundationWorl
     if (!foundationWorldContentSatisfiesSafetyPolicy(world)) issues.push(foundationWorldIssue('foundation-world:immutable-content', 'foundation-world.invalid-immutable-content'))
     if (!foundationWorldTemporalStateMatches(world)) issues.push(foundationWorldIssue('foundation-world:mutable-state', 'foundation-world.invalid-mutable-state'))
     if (!foundationWorldCatchUpStateMatches(world)) issues.push(foundationWorldIssue('foundation-world:catch-up', 'foundation-world.invalid-catch-up'))
+    if (!foundationWorldCausalHistoryMatches(world)) issues.push(foundationWorldIssue('foundation-world:causal-history', 'foundation-world.invalid-causal-history'))
   } catch {
     issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-mutable-state'))
   }
@@ -416,14 +405,13 @@ export const isReproducibleWorldManifest = (value: unknown): value is WorldManif
 
 const worldFromCreationProvenance = (
   creation: WorldCreationProvenance,
-  initialCourierId: string | undefined,
   precomputedState?: ExpectedFoundationState
 ): FoundationWorld => {
-  const state = precomputedState ?? expectedFoundationState(creation.seed, creation.resolvedConfiguration, initialCourierId)
-  if (!state) throw new Error('creation provenance does not identify an eligible initial courier')
+  const state = precomputedState ?? expectedFoundationState(creation.seed, creation.resolvedConfiguration)
+  if (!state) throw new Error('creation provenance does not identify a valid foundation world')
   const temporal = createMedievalTemporalState(temporalProvenanceForCreation(creation))
   return {
-    version: 8,
+    version: 9,
     id: idForCreationProvenance(creation),
     status: 'active',
     manifest: {
@@ -439,10 +427,8 @@ const worldFromCreationProvenance = (
       initialWorld: state.initialWorld,
       jomon: state.jomon,
       crew: state.crew,
-      foundationHistory: state.causalHistory,
       frontier: state.frontier,
-      temporal,
-      ...(initialCourierId === undefined ? {} : { initialCourierId })
+      temporal
     })
   }
 }
@@ -451,51 +437,21 @@ export const createFoundationWorld = (input: FoundationWorldInput = {}): Foundat
   const seed = normalizeSeed(input.seed)
   const configurationResolution = resolveWorldGenerationConfig(input.configuration)
   if (configurationResolution.status !== 'valid') throw new InvalidWorldGenerationConfigurationError(configurationResolution.issues)
-  const state = expectedFoundationState(seed, configurationResolution.configuration, undefined, input.onGenerationProgress)
+  const state = expectedFoundationState(seed, configurationResolution.configuration, input.onGenerationProgress)
   if (!state) throw new Error('foundation world creation requires an unselected courier state')
   const creation = creationProvenanceFor(seed, configurationResolution.selectedConfiguration, configurationResolution.configuration, state)
-  return worldFromCreationProvenance(creation, undefined, state)
+  return worldFromCreationProvenance(creation, state)
 }
 
 export const recreateFoundationWorld = (manifest: WorldManifest): FoundationWorld => {
   if (!isReproducibleWorldManifest(manifest)) throw new Error('world manifest does not reproduce the current medieval generation contract')
-  return worldFromCreationProvenance(manifest.creation, undefined)
-}
-
-export const chooseInitialCourier = (world: FoundationWorld, courierId: string): FoundationWorld => {
-  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
-  if (world.status !== 'active') throw new Error('only an active world can select an initial courier')
-  if (world.state.courier.initialCourierId !== undefined) throw new Error('initial courier has already been selected')
-  if (world.state.temporal.worldTime !== 0 || world.state.temporal.actionSequence !== 0 || world.state.temporal.pendingEvents.length !== 0) throw new Error('initial courier must be selected before time-bearing actions')
-  const candidate = world.crew.find(member => member.id === courierId)
-  const person = world.state.people.records.find(candidatePerson => candidatePerson.id === courierId)
-  if (!candidate?.eligible || person?.life.status !== 'living' || person.work.availability !== 'available') throw new Error('selected courier must be an eligible living available crew member')
-  const expected = expectedFoundationState(world.manifest.creation.seed, world.manifest.creation.resolvedConfiguration, courierId)
-  if (!expected) throw new Error('selected courier cannot produce valid foundation history')
-  return {
-    ...cloneWorld(world),
-    state: createMedievalWorldState({
-      seed: world.manifest.creation.seed,
-      configuration: world.manifest.creation.resolvedConfiguration,
-      initialWorld: world.initialWorld,
-      jomon: world.jomon,
-      crew: world.crew,
-      foundationHistory: expected.causalHistory,
-      frontier: world.state.geography.frontier,
-      temporal: world.state.temporal,
-      initialCourierId: courierId,
-      jomonState: world.state.jomon,
-      peopleState: world.state.people,
-      simulationState: world.state.simulation,
-      eraState: world.state.era
-    })
-  }
+  return worldFromCreationProvenance(manifest.creation)
 }
 
 /** Storage uses this after structural validation so saved worlds cannot bypass the policy. */
 export const foundationWorldContentSatisfiesSafetyPolicy = (world: FoundationWorld): boolean => {
   try {
-    const staticState = expectedFoundationState(world.manifest.creation.seed, world.manifest.creation.resolvedConfiguration, undefined)
+    const staticState = expectedFoundationState(world.manifest.creation.seed, world.manifest.creation.resolvedConfiguration)
     if (!staticState) return false
     return equivalent(world.jomon, staticState.jomon)
       && equivalent(world.crew, staticState.crew)
@@ -516,14 +472,12 @@ export const foundationWorldTemporalStateMatches = (world: FoundationWorld): boo
   try {
     const provenance = temporalProvenanceForCreation(world.manifest.creation)
     if (!isMedievalTemporalState(world.state.temporal, provenance)) return false
-    const staticState = expectedFoundationState(world.manifest.creation.seed, world.manifest.creation.resolvedConfiguration, world.state.courier.initialCourierId)
-    return staticState !== undefined && isMedievalWorldState({
+    return isMedievalWorldState({
       seed: world.manifest.creation.seed,
       configuration: world.manifest.creation.resolvedConfiguration,
       initialWorld: world.initialWorld,
       jomon: world.jomon,
-      crew: world.crew,
-      foundationHistory: staticState.causalHistory
+      crew: world.crew
     }, world.state)
   } catch { return false }
 }
@@ -554,96 +508,120 @@ const worldEraContextFor = (world: FoundationWorld, worldTime = world.state.temp
   jomonPropIds: world.jomon.props.map(prop => prop.id)
 })
 
-/**
- * Applies the renderer-independent temporal contract, then catches every due
- * fidelity tier up through the same action boundary. It intentionally leaves
- * manifest creation provenance and courier-selection state untouched.
- */
-export const advanceFoundationWorldTime = (world: FoundationWorld, command: TemporalCommand | unknown): FoundationWorld => {
-  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
-  if (world.status !== 'active') throw new Error('only an active world can advance time')
-  const transition = advanceMedievalTemporalState(world.state.temporal, command)
-  const staticState = expectedFoundationState(world.manifest.creation.seed, world.manifest.creation.resolvedConfiguration, world.state.courier.initialCourierId)
-  if (!staticState) throw new Error('world has an invalid initial courier state')
-  // The temporary projection is needed to validate the fidelity-plan input.
-  // The authoritative era reducer runs only after catch-up succeeds below.
-  const eraPlan = advanceWorldEraForTemporalAction(world.state.era, worldEraContextFor(world, transition.state.worldTime), transition.action)
-  const provisional = {
-    ...cloneWorld(world),
-    state: createMedievalWorldState({
-      seed: world.manifest.creation.seed,
-      configuration: world.manifest.creation.resolvedConfiguration,
-      initialWorld: world.initialWorld,
-      jomon: world.jomon,
-      crew: world.crew,
-      foundationHistory: staticState.causalHistory,
-      frontier: world.state.geography.frontier,
-      temporal: transition.state,
-      ...(world.state.courier.initialCourierId === undefined ? {} : { initialCourierId: world.state.courier.initialCourierId }),
-      jomonState: world.state.jomon,
-      peopleState: world.state.people,
-      simulationState: world.state.simulation,
-      eraState: eraPlan
-    })
-  }
+const causalHistoryContextFor = (world: FoundationWorld): CausalHistoryContext => ({ worldId: world.id, creationDigest: world.manifest.creation.digest })
+
+const stateFromProjection = (world: FoundationWorld, projection: CausalReplayProjection, causalHistoryState = world.state.causalHistory): MedievalWorldState => createMedievalWorldState({
+  seed: world.manifest.creation.seed,
+  configuration: world.manifest.creation.resolvedConfiguration,
+  initialWorld: world.initialWorld,
+  jomon: world.jomon,
+  crew: world.crew,
+  frontier: world.state.geography.frontier,
+  temporal: projection.temporal,
+  ...(projection.courier.initialCourierId === undefined ? {} : { initialCourierId: projection.courier.initialCourierId }),
+  jomonState: world.state.jomon,
+  peopleState: world.state.people,
+  simulationState: projection.simulation,
+  eraState: projection.era,
+  causalHistoryState
+})
+
+const worldFromProjection = (world: FoundationWorld, projection: CausalReplayProjection, causalHistoryState = world.state.causalHistory): FoundationWorld => ({
+  ...cloneWorld(world),
+  state: stateFromProjection(world, projection, causalHistoryState)
+})
+
+/** The shared pure reducer for an initial-courier journal command. */
+const selectCourierProjection = (world: FoundationWorld, projection: CausalReplayProjection, courierId: string): CausalReplayProjection => {
+  if (projection.courier.initialCourierId !== undefined) throw new Error('initial courier has already been selected')
+  if (projection.temporal.worldTime !== 0 || projection.temporal.actionSequence !== 0 || projection.temporal.pendingEvents.length !== 0) throw new Error('initial courier must be selected before time-bearing actions')
+  const candidate = world.crew.find(member => member.id === courierId)
+  const person = world.state.people.records.find(candidatePerson => candidatePerson.id === courierId)
+  if (!candidate?.eligible || person?.life.status !== 'living' || person.work.availability !== 'available') throw new Error('selected courier must be an eligible living available crew member')
+  return causalReplayProjection({ ...projection, courier: { version: 1, initialCourierId: courierId } })
+}
+
+/** The shared pure reducer for an accepted time-bearing journal command. */
+const advanceTimeProjection = (world: FoundationWorld, projection: CausalReplayProjection, command: TemporalCommand | unknown): CausalReplayProjection => {
+  const transition = advanceMedievalTemporalState(projection.temporal, command)
+  const eraPlan = advanceWorldEraForTemporalAction(projection.era, worldEraContextFor(world, transition.state.worldTime), transition.action)
+  const provisionalProjection = causalReplayProjection({ ...projection, temporal: transition.state, era: eraPlan })
+  const provisional = worldFromProjection(world, provisionalProjection)
   const courierId = provisional.state.courier.initialCourierId
   if (courierId === undefined) throw new Error('time-bearing simulation requires an active courier')
-  const catchUp = advanceSimulationCatchUpState(provisional.state.simulation, createFidelityPlan({ world: provisional, activeCourierId: courierId, loadedLocations: [] }), transition.action)
-  const era = advanceWorldEraForTemporalAction(world.state.era, worldEraContextFor(world, transition.state.worldTime), transition.action)
-  return {
-    ...cloneWorld(world),
-    state: createMedievalWorldState({
-      seed: world.manifest.creation.seed,
-      configuration: world.manifest.creation.resolvedConfiguration,
-      initialWorld: world.initialWorld,
-      jomon: world.jomon,
-      crew: world.crew,
-      foundationHistory: staticState.causalHistory,
-      frontier: world.state.geography.frontier,
-      temporal: transition.state,
-      ...(world.state.courier.initialCourierId === undefined ? {} : { initialCourierId: world.state.courier.initialCourierId }),
-      jomonState: world.state.jomon,
-      peopleState: world.state.people,
-      simulationState: catchUp.state,
-      eraState: era
-    })
-  }
+  const catchUp = advanceSimulationCatchUpState(projection.simulation, createFidelityPlan({ world: provisional, activeCourierId: courierId, loadedLocations: [] }), transition.action)
+  return causalReplayProjection({ courier: projection.courier, temporal: transition.state, simulation: catchUp.state, era: eraPlan })
+}
+
+/** The shared pure reducer for a completed physical Jomon-growth command. */
+const recordGrowthProjection = (world: FoundationWorld, projection: CausalReplayProjection, evidence: DurableJomonGrowthEvidence): CausalReplayProjection => causalReplayProjection({
+  ...projection,
+  era: recordDurableJomonGrowthEvidence(projection.era, worldEraContextFor(world, projection.temporal.worldTime), evidence)
+})
+
+const replayCommandProjection = (world: FoundationWorld, projection: CausalReplayProjection, command: CausalCommandEvent): CausalReplayProjection => {
+  if (command.kind === 'initial-courier-selected') return selectCourierProjection(world, projection, command.payload.courierId)
+  if (command.kind === 'time-bearing-action') return advanceTimeProjection(world, projection, command.payload.action)
+  return recordGrowthProjection(world, projection, command.payload.evidence)
 }
 
 /**
- * Records a future physical Jomon expansion/refit/capacity/tool/small-craft
- * completion. The record is zero-time; its caller owns any prior work action.
+ * Proves that the global journal reproduces the command-owned present state.
+ * A sequence-zero checkpoint is additionally bound to immutable world genesis.
  */
+export const foundationWorldCausalHistoryMatches = (world: FoundationWorld): boolean => {
+  try {
+    const context = causalHistoryContextFor(world)
+    if (world.state.causalHistory.checkpoint.sequence === 0) {
+      const genesisTemporal = createMedievalTemporalState(temporalProvenanceForCreation(world.manifest.creation))
+      const genesis = createMedievalWorldState({
+        seed: world.manifest.creation.seed,
+        configuration: world.manifest.creation.resolvedConfiguration,
+        initialWorld: world.initialWorld,
+        jomon: world.jomon,
+        crew: world.crew,
+        frontier: world.state.geography.frontier,
+        temporal: genesisTemporal
+      })
+      if (!equivalent(world.state.causalHistory.checkpoint.projection, causalReplayProjectionForWorldState(genesis))) return false
+    }
+    return validateCausalHistoryReplay(context, world.state.causalHistory, causalReplayProjectionForWorldState(world.state), (projection, command) => replayCommandProjection(world, projection, command)).length === 0
+  } catch { return false }
+}
+
+export const chooseInitialCourier = (world: FoundationWorld, courierId: string): FoundationWorld => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  if (world.status !== 'active') throw new Error('only an active world can select an initial courier')
+  const projection = selectCourierProjection(world, causalReplayProjectionForWorldState(world.state), courierId)
+  const command = createCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, 'initial-courier-selected', { courierId })
+  const history = appendCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, command, projection)
+  return worldFromProjection(world, projection, history)
+}
+
+/** Applies the temporal contract and its canonical catch-up/era reducers, then journals one command. */
+export const advanceFoundationWorldTime = (world: FoundationWorld, command: TemporalCommand | unknown): FoundationWorld => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  if (world.status !== 'active') throw new Error('only an active world can advance time')
+  const projection = advanceTimeProjection(world, causalReplayProjectionForWorldState(world.state), command)
+  const journalCommand = createCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, 'time-bearing-action', { action: command as TimeBearingTemporalAction })
+  const history = appendCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, journalCommand, projection)
+  return worldFromProjection(world, projection, history)
+}
+
+/** Records a completed durable Jomon change without advancing time, then journals it. */
 export const recordDurableJomonGrowth = (world: FoundationWorld, evidence: DurableJomonGrowthEvidence): FoundationWorld => {
   if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
   if (world.status !== 'active') throw new Error('only an active world can record durable Jomon growth')
-  const staticState = expectedFoundationState(world.manifest.creation.seed, world.manifest.creation.resolvedConfiguration, world.state.courier.initialCourierId)
-  if (!staticState) throw new Error('world has an invalid initial courier state')
-  const era = recordDurableJomonGrowthEvidence(world.state.era, worldEraContextFor(world), evidence)
-  return {
-    ...cloneWorld(world),
-    state: createMedievalWorldState({
-      seed: world.manifest.creation.seed,
-      configuration: world.manifest.creation.resolvedConfiguration,
-      initialWorld: world.initialWorld,
-      jomon: world.jomon,
-      crew: world.crew,
-      foundationHistory: staticState.causalHistory,
-      frontier: world.state.geography.frontier,
-      temporal: world.state.temporal,
-      ...(world.state.courier.initialCourierId === undefined ? {} : { initialCourierId: world.state.courier.initialCourierId }),
-      jomonState: world.state.jomon,
-      peopleState: world.state.people,
-      simulationState: world.state.simulation,
-      eraState: era
-    })
-  }
+  const projection = recordGrowthProjection(world, causalReplayProjectionForWorldState(world.state), evidence)
+  const command = createCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, 'durable-jomon-growth', { evidence })
+  const history = appendCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, command, projection)
+  return worldFromProjection(world, projection, history)
 }
 
 export const finalizeWorldAsChronicle = (world: FoundationWorld, reason: ChronicleReason): WorldChronicle => {
   if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
   return {
-    version: 7,
+    version: 8,
     id: `chronicle:${world.id}`,
     status: 'finalized',
     reason,
