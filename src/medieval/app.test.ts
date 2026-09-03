@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { JOMON_PALETTE } from './palette'
 import { renderBoundedMedievalCanvasRows, wrapMedievalCanvasText } from './app'
 
 const textWidth = (text: string): number => text.length * 10
@@ -37,7 +38,7 @@ describe('medieval canvas text bounds', () => {
       fillText: (text: string, _x: number, y: number): void => { drawn.push({ text, y }) }
     } as unknown as CanvasRenderingContext2D
 
-    const nextLine = renderBoundedMedievalCanvasRows(context, 21, 23, `ERROR // LOCAL STORAGE: ${'selected-world-is-no-longer-present '.repeat(80)}`, '#ff0000')
+    const nextLine = renderBoundedMedievalCanvasRows(context, 21, 23, `ERROR // LOCAL STORAGE: ${'selected-world-is-no-longer-present '.repeat(80)}`, JOMON_PALETTE.errorText)
 
     expect(nextLine).toBe(24)
     expect(drawn).toHaveLength(3)

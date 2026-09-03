@@ -54,9 +54,12 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
     bodyText: getComputedStyle(document.documentElement).getPropertyValue('--jomon-palette-body-text').trim(),
     selected: getComputedStyle(document.documentElement).getPropertyValue('--jomon-palette-selected-text').trim(),
     error: getComputedStyle(document.documentElement).getPropertyValue('--jomon-palette-error-text').trim(),
-    canvasGround: [...(document.querySelector<HTMLCanvasElement>('#game')?.getContext('2d')?.getImageData(0, 0, 1, 1).data ?? [])]
+    themeColor: document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content,
+    canvasGround: [...(document.querySelector<HTMLCanvasElement>('#game')?.getContext('2d')?.getImageData(0, 0, 1, 1).data ?? [])],
+    canvasPanel: [...(document.querySelector<HTMLCanvasElement>('#game')?.getContext('2d')?.getImageData(30, 30, 1, 1).data ?? [])]
   }))).toEqual({
-    version: '1', ground: '#000000', bodyText: '#c0c0c0', selected: '#00ffff', error: '#ff0000', canvasGround: [0, 0, 0, 255]
+    version: '2', ground: '#1c1b14', bodyText: '#f0dfb4', selected: '#83cbc3', error: '#de8065', themeColor: '#1c1b14',
+    canvasGround: [28, 27, 20, 255], canvasPanel: [41, 39, 28, 255]
   })
   await expect(game).toHaveAttribute('data-route', 'worlds')
   await page.keyboard.press('Tab')
@@ -285,6 +288,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-route', 'chronicles')
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-route', 'chronicle')
+  await page.screenshot({ path: '/tmp/jomon-semantic-palette-chronicle.png' })
   const download = page.waitForEvent('download')
   await page.keyboard.press('e')
   await expect((await download).suggestedFilename()).toMatch(/-chronicle\.json$/u)

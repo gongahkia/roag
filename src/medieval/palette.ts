@@ -1,85 +1,85 @@
-/**
- * Jomon's terminal palette contract, versioned independently of any renderer.
- *
- * The exact source colours are the historical pre-v50 Dwarf Fortress Classic
- * default scheme: https://dwarffortresswiki.org/index.php/Color_scheme
- * Jomon uses only the values and dark/bright pairing discipline; its semantic
- * roles, text, layout, glyphs, and game systems remain original.
- */
-export const MEDIEVAL_PALETTE_VERSION = 1 as const
+/** Browser-only and renderer-independent; it is never world or save data. */
+export const MEDIEVAL_PALETTE_VERSION = 2 as const
 
-export type DwarfFortressClassicColorName =
-  | 'black' | 'darkGray'
-  | 'blue' | 'lightBlue'
-  | 'green' | 'lightGreen'
-  | 'cyan' | 'lightCyan'
-  | 'red' | 'lightRed'
-  | 'magenta' | 'lightMagenta'
-  | 'brown' | 'yellow'
-  | 'lightGray' | 'white'
-
-export interface TerminalPaletteColor {
-  readonly rgb: readonly [red: number, green: number, blue: number]
-  readonly hex: `#${string}`
-}
-
-const color = (red: number, green: number, blue: number): TerminalPaletteColor => ({
-  rgb: [red, green, blue],
-  hex: `#${[red, green, blue].map(channel => channel.toString(16).padStart(2, '0')).join('')}`
-})
-
-/** Exact historical pre-v50 default values, retained as plain serializable data. */
-export const DWARF_FORTRESS_CLASSIC_PALETTE: Readonly<Record<DwarfFortressClassicColorName, TerminalPaletteColor>> = {
-  black: color(0, 0, 0),
-  darkGray: color(128, 128, 128),
-  blue: color(0, 0, 128),
-  lightBlue: color(0, 0, 255),
-  green: color(0, 128, 0),
-  lightGreen: color(0, 255, 0),
-  cyan: color(0, 128, 128),
-  lightCyan: color(0, 255, 255),
-  red: color(128, 0, 0),
-  lightRed: color(255, 0, 0),
-  magenta: color(128, 0, 128),
-  lightMagenta: color(255, 0, 255),
-  brown: color(128, 128, 0),
-  yellow: color(255, 255, 0),
-  lightGray: color(192, 192, 192),
-  white: color(255, 255, 255)
-}
-
-export const DWARF_FORTRESS_CLASSIC_DARK_BRIGHT_PAIRS = [
-  { dark: 'black', bright: 'darkGray' },
-  { dark: 'blue', bright: 'lightBlue' },
-  { dark: 'green', bright: 'lightGreen' },
-  { dark: 'cyan', bright: 'lightCyan' },
-  { dark: 'red', bright: 'lightRed' },
-  { dark: 'magenta', bright: 'lightMagenta' },
-  { dark: 'brown', bright: 'yellow' },
-  { dark: 'lightGray', bright: 'white' }
-] as const satisfies readonly { dark: DwarfFortressClassicColorName; bright: DwarfFortressClassicColorName }[]
-
-/** Original Jomon role names; values always resolve through the sixteen-colour contract. */
+/** Original soot/olive surfaces, parchment text, moss readiness, and river accents. */
 export const JOMON_PALETTE = {
-  consoleGround: DWARF_FORTRESS_CLASSIC_PALETTE.black.hex,
-  panelSurface: DWARF_FORTRESS_CLASSIC_PALETTE.black.hex,
-  panelBorder: DWARF_FORTRESS_CLASSIC_PALETTE.darkGray.hex,
-  bodyText: DWARF_FORTRESS_CLASSIC_PALETTE.lightGray.hex,
-  mutedText: DWARF_FORTRESS_CLASSIC_PALETTE.darkGray.hex,
-  titleText: DWARF_FORTRESS_CLASSIC_PALETTE.yellow.hex,
-  selectedText: DWARF_FORTRESS_CLASSIC_PALETTE.lightCyan.hex,
-  actionText: DWARF_FORTRESS_CLASSIC_PALETTE.lightGreen.hex,
-  warningText: DWARF_FORTRESS_CLASSIC_PALETTE.yellow.hex,
-  errorText: DWARF_FORTRESS_CLASSIC_PALETTE.lightRed.hex,
-  water: DWARF_FORTRESS_CLASSIC_PALETTE.lightBlue.hex,
-  route: DWARF_FORTRESS_CLASSIC_PALETTE.cyan.hex,
-  statusReady: DWARF_FORTRESS_CLASSIC_PALETTE.lightGreen.hex,
-  statusWaiting: DWARF_FORTRESS_CLASSIC_PALETTE.lightMagenta.hex,
-  statusRisk: DWARF_FORTRESS_CLASSIC_PALETTE.lightRed.hex,
-  statusNeutral: DWARF_FORTRESS_CLASSIC_PALETTE.lightGray.hex
+  consoleGround: '#1c1b14',
+  panelSurface: '#29271c',
+  panelBorder: '#a79a6a',
+  bodyText: '#f0dfb4',
+  mutedText: '#c9bd92',
+  titleText: '#f2cf7c',
+  selectedText: '#83cbc3',
+  actionText: '#adce80',
+  warningText: '#eba94d',
+  errorText: '#de8065',
+  water: '#86bed1',
+  route: '#73c1ad',
+  statusReady: '#a7ca70',
+  statusWaiting: '#c2add2',
+  statusRisk: '#db765c',
+  statusNeutral: '#ded0aa'
 } as const
 
 export type JomonPaletteToken = keyof typeof JOMON_PALETTE
+
+export type JomonPaletteContrastKind = 'small-text' | 'non-text-cue'
+
+export interface JomonPaletteContrastRequirement {
+  foreground: JomonPaletteToken
+  background: JomonPaletteToken
+  kind: JomonPaletteContrastKind
+  minimumRatio: number
+}
+
+const smallTextAgainstPanel = (foreground: JomonPaletteToken): JomonPaletteContrastRequirement => ({
+  foreground,
+  background: 'panelSurface',
+  kind: 'small-text',
+  minimumRatio: 4.5
+})
+
+/** Canvas text uses panelSurface; semantic marks may occur against either dark surface. */
+export const JOMON_PALETTE_CONTRAST_REQUIREMENTS: readonly JomonPaletteContrastRequirement[] = [
+  ...([
+    'bodyText', 'mutedText', 'titleText', 'selectedText', 'actionText', 'warningText', 'errorText',
+    'statusReady', 'statusWaiting', 'statusRisk', 'statusNeutral'
+  ] as const).map(smallTextAgainstPanel),
+  { foreground: 'panelBorder', background: 'consoleGround', kind: 'non-text-cue', minimumRatio: 3 },
+  { foreground: 'panelBorder', background: 'panelSurface', kind: 'non-text-cue', minimumRatio: 3 },
+  ...(['selectedText', 'water', 'route', 'statusReady', 'statusWaiting', 'statusRisk'] as const).flatMap(foreground => [
+    { foreground, background: 'consoleGround' as const, kind: 'non-text-cue' as const, minimumRatio: 3 },
+    { foreground, background: 'panelSurface' as const, kind: 'non-text-cue' as const, minimumRatio: 3 }
+  ])
+]
+
+export interface JomonPaletteContrastDiagnostic extends JomonPaletteContrastRequirement {
+  actualRatio: number
+}
+
+const channel = (hex: string): number => {
+  const normalized = Number.parseInt(hex, 16) / 255
+  return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4
+}
+
+const relativeLuminance = (hex: string): number => {
+  const red = channel(hex.slice(1, 3))
+  const green = channel(hex.slice(3, 5))
+  const blue = channel(hex.slice(5, 7))
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+}
+
+/** Deterministic WCAG contrast calculation for the closed semantic palette. */
+export const jomonPaletteContrastRatio = (foreground: JomonPaletteToken, background: JomonPaletteToken): number => {
+  const foregroundLuminance = relativeLuminance(JOMON_PALETTE[foreground])
+  const backgroundLuminance = relativeLuminance(JOMON_PALETTE[background])
+  return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05) / (Math.min(foregroundLuminance, backgroundLuminance) + 0.05)
+}
+
+/** Returns all failed authored requirements; an empty list is an accessibility pass. */
+export const validateJomonPaletteContrast = (): readonly JomonPaletteContrastDiagnostic[] => JOMON_PALETTE_CONTRAST_REQUIREMENTS
+  .map(requirement => ({ ...requirement, actualRatio: jomonPaletteContrastRatio(requirement.foreground, requirement.background) }))
+  .filter(requirement => requirement.actualRatio < requirement.minimumRatio)
 
 /** Pure data for the browser adapter; CSS never owns a duplicate set of values. */
 export const JOMON_PALETTE_CSS_PROPERTIES: Readonly<Record<string, string>> = Object.fromEntries(
