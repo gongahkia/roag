@@ -332,6 +332,30 @@ const checkpointFor = (context: CausalHistoryContext, sequence: number, projecti
   }
 }
 
+/**
+ * Rebinds only a validated checkpoint projection during an explicit world
+ * schema conversion. Commands, their tokens, and compacted evidence remain
+ * untouched; callers must still prove full replay after conversion.
+ */
+export const rebaseCausalHistoryCheckpoint = (
+  context: CausalHistoryContext,
+  state: CausalHistoryState,
+  projection: CausalReplayProjection
+): CausalHistoryState => {
+  const diagnostics = validateCausalHistoryState(context, state)
+  if (diagnostics.length || !projectionShape(projection)) throw new CausalHistoryContractError(diagnostics.length ? diagnostics : [issue('causal-history:checkpoint', 'causal-history.invalid-checkpoint')])
+  const rebased = {
+    version: CAUSAL_HISTORY_CONTRACT_VERSION,
+    checkpoint: checkpointFor(context, state.checkpoint.sequence, projection),
+    tail: structuredClone(state.tail),
+    compactedSegments: structuredClone(state.compactedSegments),
+    contentSafetyAudit: structuredClone(state.contentSafetyAudit)
+  } satisfies CausalHistoryState
+  const result = validateCausalHistoryState(context, rebased)
+  if (result.length) throw new CausalHistoryContractError(result)
+  return rebased
+}
+
 const contentRecordsFor = (events: readonly CausalCommandEvent[]): readonly ClassifiedMedievalContent[] => events.map(event => ({
   id: `causal-history:${event.id}`,
   domain: 'event' as const,

@@ -101,8 +101,12 @@ describe('terminal presentation contract', () => {
     expect(validateTerminalPresentationModel(world, first)).toEqual([])
     expect(world).toEqual(before)
     expect(first.map).toMatchObject({ state: 'materialized', viewport: { context: 'jomon-deck-plan', width: 18, height: 8 } })
-    expect(first.map.cells).toHaveLength(113)
-    expect(first.map.accessibilityText).toMatch(/static Jomon deck map.*no courier, cargo, person, terrain, route-travel, or interaction state/i)
+    expect(first.map.cells).toHaveLength(114)
+    expect(first.map.camera).toEqual({ mode: 'fixed-full-deck', focus: { courierId: world.state.courier.initialCourierId, coordinate: { column: 4, row: 4 } }, visibility: 'all-static-deck-known' })
+    expect(first.map.cells.filter(cell => cell.id === 'terminal-marker:active-courier')).toEqual([expect.objectContaining({ glyph: expect.objectContaining({ id: 'person:active-courier' }), coordinate: { column: 4, row: 4 }, paletteToken: 'selectedText', presentationState: 'ready', contentDomain: 'person' })])
+    expect(first.map.cells.filter(cell => cell.id !== 'terminal-marker:active-courier')).toHaveLength(113)
+    expect(first.map.cells.filter(cell => cell.coordinate.column === 4 && cell.coordinate.row === 4)).toHaveLength(2)
+    expect(first.map.accessibilityText).toMatch(/static Jomon deck map.*active courier marker.*full deck known.*no cargo, other people, hazards, travel, or prop actions/i)
     expect(first.messages).toEqual([])
     expect(first.prompts).toEqual([])
     expect(first.sidebarBoundary).toEqual({ relationship: 'separate-household-known-strategic-surface', duplicatedStrategicFactCategories: [] })
@@ -124,7 +128,7 @@ describe('terminal presentation contract', () => {
     expect(model.status.every(item => item.accessibilityText.includes(item.nonColorCue.text) && item.accessibilityText.includes(item.state))).toBe(true)
     expect(model.accessibility.mapText).toEqual(model.map.accessibilityText)
     expect(model.accessibility.statusText).toEqual(model.status.map(item => item.accessibilityText))
-    expect(model.accessibility.conciseSummary).toMatch(/materialized static Jomon deck map with 113 source-backed cells.*0 authoritative messages.*0 contextual prompts/i)
+    expect(model.accessibility.conciseSummary).toMatch(/materialized static Jomon deck map with 114 source-backed cells.*0 authoritative messages.*0 contextual prompts/i)
     expect(model.rendererParity.requirements).toEqual([
       'same-authoritative-terminal-model',
       'no-consequential-omission',
@@ -144,7 +148,7 @@ describe('terminal presentation contract', () => {
     const reordered = structuredClone(model)
     reordered.map.cells = [...reordered.map.cells].reverse()
 
-    expect(model.map.cells).toHaveLength(plan.areas.flatMap(area => area.footprint).length + plan.structuralCells.length)
+    expect(model.map.cells).toHaveLength(plan.areas.flatMap(area => area.footprint).length + plan.structuralCells.length + 1)
     expect(validateTerminalPresentationModel(world, missing).map(item => item.code)).toContain('terminal-presentation.invalid-model')
     expect(validateTerminalPresentationModel(world, extra).map(item => item.code)).toContain('terminal-presentation.invalid-model')
     expect(validateTerminalPresentationModel(world, reordered).map(item => item.code)).toContain('terminal-presentation.invalid-model')
@@ -227,7 +231,7 @@ describe('terminal presentation contract', () => {
     expect(validateTerminalPrompt(unsafePrompt).map(item => item.code)).toContain('content-safety.prohibited.slavery')
   })
 
-  it('detects keyboard binding conflicts and distinguishes implemented reserved-map controls from later-only prompt surfaces', () => {
+  it('detects keyboard binding conflicts and distinguishes implemented deck controls from later-only prompt surfaces', () => {
     expect(validateTerminalInputModes(TERMINAL_INPUT_MODES)).toEqual([])
     expect(validateTerminalKeyboardCommands(TERMINAL_KEYBOARD_COMMANDS)).toEqual([])
     expect(TERMINAL_KEYBOARD_COMMANDS.filter(command => command.availability === 'implemented').every(command => ['navigation', 'management', 'settings', 'text-entry', 'export', 'movement', 'contextual-action', 'remapping', 'help'].includes(command.surface))).toBe(true)

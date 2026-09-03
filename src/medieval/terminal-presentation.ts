@@ -705,7 +705,7 @@ export const createJomonDeckTerminalMap = (world: FoundationWorld): TerminalMate
     },
     cells,
     textEquivalent: 'Jomon deck plan with a known active courier position, quay approach, gangplank, hull boundary, and deck spaces.',
-    accessibilityText: `Known static Jomon deck map. Fixed ${plan.bounds.width} by ${plan.bounds.height} full-deck viewport with ${staticCells.length} source-backed deck and hull cells${marker === undefined ? '' : ' and one active courier marker'}. Symbols are # hull planking, = open deck spaces, / gangplank, ) quay approach, and @ active adult courier. The whole static deck is known; visibility rules, cargo, other people, hazards, travel, and prop actions are not shown.`,
+    accessibilityText: `Known static Jomon deck map. Fixed ${plan.bounds.width} by ${plan.bounds.height} viewport with ${staticCells.length} deck and hull cells${marker === undefined ? '' : ' and one active courier marker'}. Symbols: # hull, = deck, / gangplank, ) quay, @ active adult courier. Full deck known; no cargo, other people, hazards, travel, or prop actions.`,
     evidence: presentationEvidence('terminal-presentation:jomon-deck-plan'),
     contentDomain: 'player-facing-text',
     contentSafety: baseClassification()

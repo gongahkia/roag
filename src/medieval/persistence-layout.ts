@@ -1,7 +1,7 @@
 import { auditMedievalContentSafety, classifyMedievalContent, contentSafetyAuditMatches, type MedievalContentSafetyAudit, type MedievalContentSafetyClassification } from './content-safety'
 import { causalDigestFor } from './causal-history'
 import { canonicalSerializedByteLength, canonicalSerializedJson, MEDIEVAL_PERFORMANCE_STORAGE_BUDGETS } from './performance-budget'
-import { isValidFoundationWorld } from './world'
+import { isValidFoundationWorld, upgradeFoundationWorldV13 } from './world'
 import type { FoundationWorld, WorldChronicle } from './types'
 
 /**
@@ -291,11 +291,43 @@ export const serializePersistenceBackupBundle = (bundle: PersistenceBackupBundle
   return serialized
 }
 
+/** Verifies the old full-envelope source before the explicit world conversion. */
+const legacyWorldSourceMatches = (source: unknown, world: unknown): boolean => {
+  if (!record(world) || !record(world.state) || !record(world.state.causalHistory) || !record(world.state.causalHistory.checkpoint) || !safeInteger(world.state.causalHistory.checkpoint.sequence) || !Array.isArray(world.state.causalHistory.tail) || !validSource(source)) return false
+  const expected = {
+    worldId: world.id,
+    revision: world.state.causalHistory.checkpoint.sequence + world.state.causalHistory.tail.length,
+    digest: persistenceDigestFor('foundation-world', world),
+    canonicalBytes: canonicalSerializedByteLength(world)
+  }
+  return same(source, expected)
+}
+
+/** Converts only canonical v13 backups; malformed legacy bytes remain rejected. */
+const upgradeLegacyPersistenceBackupBundle = (value: unknown): PersistenceBackupBundle | undefined => {
+  if (!record(value) || value.version !== PERSISTENCE_BACKUP_VERSION || (value.kind !== 'active-world' && value.kind !== 'read-only-chronicle')) return undefined
+  try {
+    if (value.kind === 'active-world') {
+      if (!hasOnlyKeys(value, ['version', 'kind', 'source', 'world']) || !legacyWorldSourceMatches(value.source, value.world)) return undefined
+      return createActiveWorldBackupBundle(upgradeFoundationWorldV13(value.world))
+    }
+    if (!hasOnlyKeys(value, ['version', 'kind', 'source', 'chronicle']) || !record(value.chronicle) || !hasOnlyKeys(value.chronicle, ['version', 'id', 'status', 'reason', 'world']) || value.chronicle.version !== 12 || value.chronicle.status !== 'finalized' || (value.chronicle.reason !== 'jomon-loss' && value.chronicle.reason !== 'crew-extinction')) return undefined
+    const chronicleWorld = upgradeFoundationWorldV13(value.chronicle.world)
+    const legacyChronicleSource = { chronicleId: value.chronicle.id, worldId: chronicleWorld.id, digest: persistenceDigestFor('read-only-chronicle', value.chronicle), canonicalBytes: canonicalSerializedByteLength(value.chronicle) }
+    if (!same(value.source, legacyChronicleSource) || value.chronicle.id !== `chronicle:${chronicleWorld.id}`) return undefined
+    return createChronicleBackupBundle({ version: 12, id: value.chronicle.id, status: 'finalized', reason: value.chronicle.reason, world: chronicleWorld })
+  } catch { return undefined }
+}
+
 export const parsePersistenceBackupBundle = (serialized: string): PersistenceBackupBundle => {
   if (typeof serialized !== 'string' || new TextEncoder().encode(serialized).byteLength > PERSISTENCE_LAYOUT_LIMITS.backupBytes) throw new MedievalPersistenceLayoutError('backup-incompatible', 'backup size limit')
   let value: unknown
   try { value = JSON.parse(serialized) } catch { throw new MedievalPersistenceLayoutError('backup-malformed', 'invalid JSON') }
-  if (!validatePersistenceBackupBundle(value)) throw new MedievalPersistenceLayoutError('backup-incompatible', 'invalid bundle')
+  if (!validatePersistenceBackupBundle(value)) {
+    const upgraded = upgradeLegacyPersistenceBackupBundle(value)
+    if (upgraded === undefined || serialized !== JSON.stringify(value)) throw new MedievalPersistenceLayoutError('backup-incompatible', 'invalid bundle')
+    return upgraded
+  }
   const canonicalBundle = value.kind === 'active-world' ? createActiveWorldBackupBundle(value.world) : createChronicleBackupBundle(value.chronicle)
   if (serialized !== JSON.stringify(canonicalBundle)) throw new MedievalPersistenceLayoutError('backup-incompatible', 'noncanonical bundle')
   return structuredClone(value)

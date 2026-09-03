@@ -5,16 +5,16 @@ import { generationConfigurationFingerprint, generationRetryPlan, isReproducible
 import { INITIAL_WORLD_GENERATION_DIAGNOSTICS_VERSION, INITIAL_WORLD_GENERATOR_VERSION, generateInitialWorld, initialWorldContentRecords, isInitialWorld, type InitialWorld, type InitialWorldGenerationDiagnostics, type InitialWorldGenerationProgressObserver } from './initial-world'
 import { normalizeCreationSeed } from './settings'
 import { advanceMedievalTemporalState, createMedievalTemporalState, isMedievalTemporalState, type TemporalCommand, type TemporalProvenance, type TimeBearingTemporalAction } from './temporal'
-import { causalReplayProjectionForWorldState, createMedievalWorldState, isMedievalWorldState, type MedievalWorldState, type WorldAutonomyState, type WorldDelegationState, type WorldPeopleState, type WorldSocialMemoryState } from './world-state'
+import { causalReplayProjectionForWorldState, createMedievalWorldState, isMedievalWorldState, WORLD_DECK_NAVIGATION_STATE_VERSION, type MedievalWorldState, type WorldAutonomyState, type WorldDeckNavigationState, type WorldDelegationState, type WorldPeopleState, type WorldSocialMemoryState } from './world-state'
 import { createFidelityPlanForVerifiedWorld } from './fidelity'
 import { advanceSimulationCatchUpState, reconcileSimulationCatchUpPlanState, resolveDelegatedWorkPlaceholder, validateSimulationCatchUpPlanState, withDelegatedWorkPlaceholder } from './simulation-catchup'
 import { advanceWorldEraForTemporalAction, recordDurableJomonGrowthEvidence, type DurableJomonGrowthEvidence, type WorldEraContext } from './world-era'
-import { appendCausalCommand, causalReplayProjection, createCausalCommand, replayCausalHistory, validateCausalHistoryReplay, type CausalCommandEvent, type CausalHistoryContext, type CausalReplayProjection } from './causal-history'
+import { appendCausalCommand, causalReplayProjection, createCausalCommand, rebaseCausalHistoryCheckpoint, replayCausalHistory, validateCausalHistoryReplay, type CausalCommandEvent, type CausalHistoryContext, type CausalReplayProjection } from './causal-history'
 import { CONVERSATION_CONTRACT_VERSION, assessCourierConversation, assessCourierConversationForValidatedReplay, type ConversationAssessment } from './conversation'
 import { advanceDelegatedTasks, delegatedWorkPlaceholderForTask, delegationInterruptionTemporalAction, delegationOfferTemporalAction, interruptDelegatedTask, isDelegationInterruptionInput, isDelegationOfferInput, offerDelegatedTask as offerDelegationTransition, type DelegationInterruptionInput, type DelegationOfferInput } from './delegation'
 import { advanceAutonomyState, createAutonomyState, reconcileAutonomyState, validateAutonomyPlanState } from './autonomy'
 import { assessJomonDeckStep, canonicalJomonDeckSpawn, isWalkableJomonDeckCoordinate, jomonDeckCoordinateId, type JomonDeckCollision, type JomonDeckCoordinate, type JomonDeckMovementDirection } from './jomon-navigation'
-import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
+import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type LegacyFoundationWorldV13, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
 
 const foundationJomon = (): FoundationJomon => ({
   id: 'vessel:jomon',
@@ -390,6 +390,56 @@ export const validateFoundationWorld = (value: unknown): readonly FoundationWorl
 }
 
 export const isValidFoundationWorld = (value: unknown): value is FoundationWorld => validateFoundationWorld(value).length === 0
+
+/**
+ * Explicit v13 -> v14 conversion for the local courier coordinate. It reads
+ * only the old full envelope, changes no immutable provenance or IDs, and
+ * rebuilds the affected replay checkpoint before the normal v14 validator
+ * accepts it. Invalid or ambiguous input throws and is left for storage to
+ * preserve unchanged.
+ */
+export const upgradeFoundationWorldV13 = (value: unknown): FoundationWorld => {
+  if (!record(value) || !hasOnlyKeys(value, ['version', 'id', 'status', 'manifest', 'jomon', 'crew', 'initialWorld', 'state']) || value.version !== 13 || value.status !== 'active') throw new Error('foundation world is not a v13 active envelope')
+  const legacy = value as unknown as LegacyFoundationWorldV13
+  if (!isReproducibleWorldManifest(legacy.manifest) || !isInitialWorld(legacy.initialWorld)
+    || !foundationWorldInitialWorldMatchesManifest(legacy as unknown as FoundationWorld)
+    || !foundationWorldContentSatisfiesSafetyPolicy(legacy as unknown as FoundationWorld)
+    || !foundationWorldTemporalStateMatches(legacy as unknown as FoundationWorld)) throw new Error('foundation world v13 envelope is invalid')
+  const selectedCourierId = legacy.state.courier.initialCourierId
+  const navigation: WorldDeckNavigationState = selectedCourierId === undefined
+    ? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }
+    : { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: selectedCourierId, coordinate: canonicalJomonDeckSpawn(legacy as unknown as FoundationWorld) }
+  const context = causalHistoryContextFor(legacy as unknown as FoundationWorld)
+  const rebasedHistory = rebaseCausalHistoryCheckpoint(context, legacy.state.causalHistory, causalReplayProjection({
+    ...legacy.state.causalHistory.checkpoint.projection,
+    navigation: legacy.state.causalHistory.checkpoint.projection.courier.initialCourierId === undefined
+      ? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }
+      : { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: legacy.state.causalHistory.checkpoint.projection.courier.initialCourierId, coordinate: canonicalJomonDeckSpawn(legacy as unknown as FoundationWorld) }
+  }))
+  const state = createMedievalWorldState({
+    seed: legacy.manifest.creation.seed,
+    configuration: legacy.manifest.creation.resolvedConfiguration,
+    initialWorld: legacy.initialWorld,
+    jomon: legacy.jomon,
+    crew: legacy.crew,
+    frontier: legacy.state.geography.frontier,
+    temporal: legacy.state.temporal,
+    ...(selectedCourierId === undefined ? {} : { initialCourierId: selectedCourierId }),
+    navigationState: navigation,
+    jomonState: legacy.state.jomon,
+    peopleState: legacy.state.people,
+    simulationState: legacy.state.simulation,
+    eraState: legacy.state.era,
+    delegationState: legacy.state.delegation,
+    autonomyState: legacy.state.autonomy,
+    socialMemoryState: legacy.state.socialMemory,
+    causalHistoryState: rebasedHistory
+  })
+  const upgraded: FoundationWorld = { ...structuredClone(legacy), version: 14, state }
+  const validation = validateFoundationWorld(upgraded)
+  if (validation.length) throw new Error(`foundation world v13 conversion did not reproduce a valid v14 envelope: ${validation.map(item => item.code).join(', ')}`)
+  return upgraded
+}
 
 export const foundationWorldIdForManifest = (manifest: WorldManifest): string => idForCreationProvenance(manifest.creation)
 

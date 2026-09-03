@@ -81,6 +81,7 @@ const futureCellBundle = (): DetailedRendererSourceBundle => {
   terminal.map = {
     state: 'materialized',
     viewport: { id: 'terminal-viewport:future-detail', context: 'future-materialized', origin: { column: 0, row: 0 }, width: 4, height: 4 },
+    camera: { mode: 'fixed-full-deck', focus: {}, visibility: 'all-static-deck-known' },
     cells: [{
       id: 'terminal-cell:future-detail',
       coordinate: { column: 1, row: 1 },
@@ -158,8 +159,8 @@ describe('detailed renderer adapter contract', () => {
     const encoded = JSON.stringify(model)
 
     expect(model.map.map).toMatchObject({ state: 'materialized', viewport: { context: 'jomon-deck-plan', width: 18, height: 8 } })
-    expect(model.map.cells).toHaveLength(113)
-    expect(model.map.map.cells).toHaveLength(113)
+    expect(model.map.cells).toHaveLength(114)
+    expect(model.map.map.cells).toHaveLength(114)
     expect(model.sidebar.sourceItemId).toBe('management-sidebar')
     expect(model.status.map(item => item.sourceItemId)).toEqual(bundle.terminal.status.map(item => item.id))
     expect(model.commands.map(item => item.sourceItemId)).toEqual(bundle.terminal.input.commands.map(item => item.id))
@@ -199,7 +200,7 @@ describe('detailed renderer adapter contract', () => {
     expect(model.map.cells[0]!.glyph).toEqual(terminalGlyphReferenceFor('terrain:river-channel'))
     expect(model.map.cells[0]!.metadata.nonColorCue).toEqual(terminalNonColorCueFor('neutral'))
     expect(current.map.map.state).toBe('materialized')
-    expect(current.map.cells).toHaveLength(113)
+    expect(current.map.cells).toHaveLength(114)
   })
 
   it('fails closed for malformed, direct-world, mixed/stale, unsafe, and invalid source bundles', () => {

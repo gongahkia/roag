@@ -1,6 +1,6 @@
 # Jomon deck-plan contract
 
-`src/medieval/jomon-deck-plan.ts` is the v1, compiled, renderer-independent static layout contract for the visible-but-not-yet-walkable Jomon deck. It derives a small fixed plan from a validated `FoundationWorld` and its existing `FoundationJomon`; it does not create a second vessel, world, map, or mutable authority.
+`src/medieval/jomon-deck-plan.ts` is the v1, compiled, renderer-independent static layout contract for Jomon's bounded local deck. It derives a small fixed plan from a validated `FoundationWorld` and its existing `FoundationJomon`; it does not create a second vessel, world, map, or mutable authority.
 
 ## Layout and ownership
 
@@ -10,11 +10,11 @@
 - `gangplank`, `tavern`, `chart-table`, `cargo-hold`, `repair-space`, `stores`, `berths`, and `galley` each bind to their existing partition.
 - `prop:gangplank`, `prop:task-ledger`, and `prop:chart-table` bind to their existing kind, partition/area, and a bounded anchor. The contract invents no other props and no prop operation.
 
-Areas, hull-boundary cells, and access edges are canonical ordinal-ID and row/column order. The quay joins the gangplank, and all vessel areas are reachable through explicitly verified orthogonal adjacency. Those edges are future movement input only: v1 implements neither movement nor collision, camera, interaction, task assignment, travel, cargo, repair, or crew switching.
+Areas, hull-boundary cells, and access edges are canonical ordinal-ID and row/column order. The quay joins the gangplank, and all vessel areas are reachable through explicitly verified orthogonal adjacency. `jomon-navigation.ts` v1 consumes those edges as the only local movement geometry; it owns no geometry itself. Movement is cardinal or diagonal only when both orthogonal paths are valid, so it cannot cut corners or bypass the gangplank.
 
 ## Primary ASCII projection and glyph vocabulary
 
-`createTerminalPresentationModel()` v4 derives one common, renderer-independent terminal map from this validated plan. Its 18 by 8 materialized viewport contains exactly the plan's area and hull cells in canonical row/column order. The browser canvas consumes those cells; it owns no deck geometry, glyph character, world fact, or map-state authority. The Phase 1 detailed-renderer adapter receives the exact same terminal projection and remains a deferred parity adapter, not a detailed renderer.
+`createTerminalPresentationModel()` v5 derives one common, renderer-independent terminal map from this validated plan. Its 18 by 8 materialized viewport retains exactly 113 static plan area/hull cells in canonical row/column order and, after zero-time courier selection, overlays one source-backed `@` active-courier marker at the persisted local coordinate. The browser canvas consumes that projection; it owns no deck geometry, glyph character, world fact, or map-state authority. The Phase 1 detailed-renderer adapter receives the exact same projection, including marker, focus, accessibility text, and safety data, and remains a deferred parity adapter, not a detailed renderer.
 
 The closed `JOMON_ASCII_GLYPH_CATALOG` remains authoritative. Only these existing `future-jomon-deck` entries appear in the current plan:
 
@@ -24,17 +24,18 @@ The closed `JOMON_ASCII_GLYPH_CATALOG` remains authoritative. Only these existin
 | `/` | Gangplank | `route` | `READY` | Vessel gangplank; source-backed vessel access area | Glyph catalogue and existing Jomon prop/partition |
 | `=` | Open deck space | `bodyText` | `KEY` | Named static deck space | Glyph catalogue and existing Jomon partition |
 | `#` | Hull planking boundary | `mutedText` | `KEY` | Hull boundary, structural static deck cell | Glyph catalogue and deck plan |
+| `@` | Active adult courier | `selectedText` | `ACTIVE` | Known active courier position and fixed camera focus | Glyph catalogue; authoritative `WorldDeckNavigationState` |
 
-These characters are semantic references with paired textual accessibility descriptions and affirmative content-safety classifications; colour never carries their meaning alone. Raw colours remain owned by the v2 semantic palette, while glyph characters and authored text remain owned by the closed glyph catalogue. The map explicitly contains no courier position, cargo, person, terrain, route-travel, or interaction state.
+These characters are semantic references with paired textual accessibility descriptions and affirmative content-safety classifications; colour never carries their meaning alone. Raw colours remain owned by the v2 semantic palette, while glyph characters and authored text remain owned by the closed glyph catalogue. The map contains only the active-courier marker in addition to static deck structure: no cargo, other people, terrain, route-travel, hazard, or interaction state is materialized.
 
 ## Validation and known-facts boundary
 
 Derivation first validates the entire existing `FoundationWorld`, then verifies the Jomon partitions, prop identities, kinds, and partition bindings. The derived plan itself is fail-closed: it rejects malformed or stale source data; missing, unknown, duplicate, or noncanonical identifiers; unsafe classifications; unrecognised glyph references; invalid/out-of-bounds/overlapping coordinates; unexpected fields that could carry hidden world data; broken anchors; and disconnected or diagonal-only topology.
 
-The plan contains no world time, manifest, initial-world, causal-history, known-fact, save, persistence, browser, randomness, worker, cache, or storage authority. It is deterministic, discardable derived data. No timing, locale, or random input participates in its output.
+The plan contains no world time, manifest, initial-world, causal-history, known-fact, save, persistence, browser, randomness, worker, cache, or storage authority. It is deterministic, discardable derived data. `WorldDeckNavigationState` v1 is instead part of the full authoritative `FoundationWorld` envelope and causal replay projection. It holds only the selected courier ID and a validated walkable coordinate; it has no copied geometry or browser-only state. Selection assigns the canonical tavern anchor at zero action time. Each accepted step journals typed `deck-moved` evidence and advances exactly one canonical action minute. A blocked step returns a bounded collision reason and changes neither state, time, history, nor storage.
 
 ## Compatibility and deferred work
 
-Terminal-presentation v4 is a derived rendering-contract change only; it changes no `FoundationWorld` or `WorldJomonState` field, manifest, replay, causal history, save envelope, IndexedDB v4 layout, valid-v3 loading behaviour, storage transaction, content catalogue, or migration path. It adds no gameplay content or public extension/mod surface.
+The movement addition changes the medieval envelope from `FoundationWorld` v13 / `MedievalWorldState` v11 to v14 / v12. It retains the same immutable ID, seed, manifest, and generation provenance and keeps IndexedDB layout v4. A strict read-only v13-to-v14 conversion accepts only a validated full v13 envelope, adds no coordinate for an unselected courier, and adds only the canonical tavern spawn for a selected courier; it deterministically rebinds the affected causal checkpoint and then proves current replay. Corrupt, stale, ambiguous, or incompatible data fails closed and is not overwritten. Valid older layout-v3 envelope storage remains untouched by this schema conversion until an explicit normal v14 save.
 
-Future movement, collision/camera/visibility, prop interaction, map legend/help, and any world/persistence integration remain with their respective roadmap owners. The current visible map is not navigable or interactive, and it must not be treated as a world site, travel route, or mutable spatial state. Those owners must retain the current semantic, accessibility, content-safety, provenance, and no-hidden-facts boundaries.
+The current fixed full-deck camera follows the active courier without panning, streaming, or a larger grid. All static cells are already known; fog/visibility rules are deliberately deferred. Prop interaction, map legend/help, tavern crew switching, cargo, repair, travel, quay departure, other actors, tactical play, and any wider spatial state remain with later roadmap owners. The quay remains a local layout area, not a world site or travel route. Those owners must retain the current semantic, accessibility, content-safety, provenance, and no-hidden-facts boundaries.

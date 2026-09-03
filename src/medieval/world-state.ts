@@ -428,7 +428,11 @@ const rootCommitmentsMatch = (context: WorldStateValidationContext, frontier: Fr
 /** Pure, canonical validation for storage and reconstruction. */
 export const validateMedievalWorldState = (context: WorldStateValidationContext, value: unknown): readonly WorldStateValidationIssue[] => {
   const issues: WorldStateValidationIssue[] = []
-  if (!stateLike(value)) return [issue('world-state', 'world-state.malformed-state')]
+  if (!stateLike(value)) {
+    const currentShape = record(value) && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'causalHistory', 'jomon', 'courier', 'navigation', 'temporal', 'simulation', 'era', 'contentSafetyAudit'])
+    const legacyShape = record(value) && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'causalHistory', 'jomon', 'courier', 'temporal', 'simulation', 'era', 'contentSafetyAudit'])
+    return [issue('world-state', currentShape || legacyShape ? 'world-state.invalid-version' : 'world-state.malformed-state')]
+  }
   if (value.version !== MEDIEVAL_WORLD_STATE_VERSION && value.version !== LEGACY_MEDIEVAL_WORLD_STATE_VERSION) issues.push(issue('world-state', 'world-state.invalid-version'))
 
   let frontier: FrontierState | undefined

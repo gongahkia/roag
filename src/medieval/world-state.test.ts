@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { classifyMedievalContent } from './content-safety'
 import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, foundationWorldTemporalStateMatches, recordDurableJomonGrowth } from './world'
-import { isMedievalWorldState, MEDIEVAL_WORLD_STATE_LIMITS, MEDIEVAL_WORLD_STATE_VERSION, WORLD_CAUSAL_HISTORY_STATE_VERSION, WORLD_COURIER_STATE_VERSION, WORLD_DELEGATION_STATE_VERSION, WORLD_ERA_STATE_VERSION, WORLD_GEOGRAPHY_STATE_VERSION, WORLD_INSTITUTIONS_STATE_VERSION, WORLD_JOMON_STATE_VERSION, WORLD_MARKETS_STATE_VERSION, WORLD_PEOPLE_STATE_VERSION, WORLD_ROUTES_STATE_VERSION, WORLD_SITES_STATE_VERSION, WORLD_SOCIAL_MEMORY_STATE_VERSION, validateMedievalWorldState, type WorldStateValidationContext } from './world-state'
+import { isMedievalWorldState, MEDIEVAL_WORLD_STATE_LIMITS, MEDIEVAL_WORLD_STATE_VERSION, WORLD_CAUSAL_HISTORY_STATE_VERSION, WORLD_COURIER_STATE_VERSION, WORLD_DECK_NAVIGATION_STATE_VERSION, WORLD_DELEGATION_STATE_VERSION, WORLD_ERA_STATE_VERSION, WORLD_GEOGRAPHY_STATE_VERSION, WORLD_INSTITUTIONS_STATE_VERSION, WORLD_JOMON_STATE_VERSION, WORLD_MARKETS_STATE_VERSION, WORLD_PEOPLE_STATE_VERSION, WORLD_ROUTES_STATE_VERSION, WORLD_SITES_STATE_VERSION, WORLD_SOCIAL_MEMORY_STATE_VERSION, validateMedievalWorldState, type WorldStateValidationContext } from './world-state'
 
 const safety = () => classifyMedievalContent('event', ['civil-life', 'navigation'], 'not-applicable', ['player-facing-text'])
 
@@ -21,7 +21,7 @@ describe('versioned medieval mutable world state', () => {
     const state = world.state
 
     expect(state.version).toBe(MEDIEVAL_WORLD_STATE_VERSION)
-    expect({ geography: state.geography.version, sites: state.sites.version, routes: state.routes.version, markets: state.markets.version, people: state.people.version, institutions: state.institutions.version, delegation: state.delegation.version, socialMemory: state.socialMemory.version, causalHistory: state.causalHistory.version, jomon: state.jomon.version, courier: state.courier.version, era: state.era.version }).toEqual({ geography: WORLD_GEOGRAPHY_STATE_VERSION, sites: WORLD_SITES_STATE_VERSION, routes: WORLD_ROUTES_STATE_VERSION, markets: WORLD_MARKETS_STATE_VERSION, people: WORLD_PEOPLE_STATE_VERSION, institutions: WORLD_INSTITUTIONS_STATE_VERSION, delegation: WORLD_DELEGATION_STATE_VERSION, socialMemory: WORLD_SOCIAL_MEMORY_STATE_VERSION, causalHistory: WORLD_CAUSAL_HISTORY_STATE_VERSION, jomon: WORLD_JOMON_STATE_VERSION, courier: WORLD_COURIER_STATE_VERSION, era: WORLD_ERA_STATE_VERSION })
+    expect({ geography: state.geography.version, sites: state.sites.version, routes: state.routes.version, markets: state.markets.version, people: state.people.version, institutions: state.institutions.version, delegation: state.delegation.version, socialMemory: state.socialMemory.version, causalHistory: state.causalHistory.version, jomon: state.jomon.version, courier: state.courier.version, navigation: state.navigation.version, era: state.era.version }).toEqual({ geography: WORLD_GEOGRAPHY_STATE_VERSION, sites: WORLD_SITES_STATE_VERSION, routes: WORLD_ROUTES_STATE_VERSION, markets: WORLD_MARKETS_STATE_VERSION, people: WORLD_PEOPLE_STATE_VERSION, institutions: WORLD_INSTITUTIONS_STATE_VERSION, delegation: WORLD_DELEGATION_STATE_VERSION, socialMemory: WORLD_SOCIAL_MEMORY_STATE_VERSION, causalHistory: WORLD_CAUSAL_HISTORY_STATE_VERSION, jomon: WORLD_JOMON_STATE_VERSION, courier: WORLD_COURIER_STATE_VERSION, navigation: WORLD_DECK_NAVIGATION_STATE_VERSION, era: WORLD_ERA_STATE_VERSION })
     expect(validateMedievalWorldState(contextFor(world), state)).toEqual([])
     expect(state.sites.sites.map(site => site.id)).toEqual([...state.sites.sites.map(site => site.id)].sort())
     expect(state.routes.conditions.map(route => route.id)).toEqual([...state.routes.conditions.map(route => route.id)].sort())
@@ -89,6 +89,17 @@ describe('versioned medieval mutable world state', () => {
 
     expect(codes(selected, forged.state)).toContain('world-state.invalid-courier')
     expect(isMedievalWorldState(contextFor(selected), forged.state)).toBe(false)
+  })
+
+  it('rejects malformed or mismatched durable local navigation state without inventing a coordinate', () => {
+    const selected = chooseInitialCourier(createFoundationWorld({ seed: 'state-navigation-rejection' }), 'crew:0')
+    const malformed = structuredClone(selected.state)
+    malformed.navigation.coordinate = { column: -1, row: 4 }
+    const mismatchedCourier = structuredClone(selected.state)
+    mismatchedCourier.navigation.courierId = 'crew:1'
+
+    expect(codes(selected, malformed)).toContain('world-state.invalid-reference')
+    expect(codes(selected, mismatchedCourier)).toContain('world-state.invalid-reference')
   })
 
   it('rejects forged era totals, transitions, tokens, model versions, and growth records', () => {

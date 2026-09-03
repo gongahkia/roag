@@ -9,7 +9,7 @@ import { DELEGATION_CONTRACT_VERSION, DELEGATION_TASK_DEFINITIONS, delegationTas
 import { SeededRng } from './rng'
 import { assessCourierConversation } from './conversation'
 import { socialMemoryRecallForPair } from './social-memory'
-import { CAUSAL_HISTORY_LIMITS } from './causal-history'
+import { CAUSAL_HISTORY_LIMITS, createCausalHistoryState } from './causal-history'
 import { captureTerminalControlBinding, defaultTerminalControlPreferences } from './terminal-controls'
 import { createActiveWorldBackupBundle, createChronicleBackupBundle, serializePersistenceBackupBundle } from './persistence-layout'
 
@@ -221,6 +221,33 @@ const recurringRefusalOffer = (world: ReturnType<typeof createFoundationWorld>, 
 }
 
 describe('medieval local persistence', () => {
+  it('reads a valid v13 full envelope through the strict v14 navigation conversion without overwriting corrupt input', async () => {
+    const repository = new MedievalWorldRepository()
+    await repository.loadIndex()
+    const selected = chooseInitialCourier(createFoundationWorld({ seed: 'storage-navigation-upgrade' }), 'crew:0')
+    const legacy = structuredClone(selected) as unknown as Record<string, any>
+    legacy.version = 13
+    legacy.state.version = 11
+    delete legacy.state.navigation
+    const checkpointProjection = structuredClone(legacy.state.causalHistory.checkpoint.projection)
+    delete checkpointProjection.navigation
+    legacy.state.causalHistory = {
+      ...legacy.state.causalHistory,
+      checkpoint: createCausalHistoryState({ worldId: legacy.id, creationDigest: legacy.manifest.creation.digest }, checkpointProjection).checkpoint
+    }
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(selected.id, structuredClone(legacy))
+
+    const loaded = await repository.loadWorld(selected.id)
+    expect(loaded).toMatchObject({ version: 14, state: { version: 12, navigation: { courierId: 'crew:0', coordinate: { column: 4, row: 4 } } } })
+    expect((fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(selected.id) as { version: number }).version).toBe(13)
+
+    const corrupt = structuredClone(legacy)
+    corrupt.state.courier.initialCourierId = 'crew:unknown'
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(selected.id, corrupt)
+    expect(await repository.loadWorld(selected.id)).toBeUndefined()
+    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(selected.id)).toEqual(corrupt)
+  }, 15_000)
+
   it('uses only the medieval database and never reads or migrates the prototype database', async () => {
     const repository = new MedievalWorldRepository()
 

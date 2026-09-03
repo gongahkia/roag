@@ -1007,7 +1007,7 @@ export class MedievalApp {
         line += 1
       }
       rule(context, 18, panel.x, panel.x + panel.width)
-      renderBoundedMedievalCanvasRows(context, 20, 22, 'F2 controls // ESC close help // movement and contextual action remain unavailable', palette.actionText, panel.x, panel.width)
+      renderBoundedMedievalCanvasRows(context, 20, 22, 'F2 controls // ESC close help // movement is local; contextual action remains unavailable', palette.actionText, panel.x, panel.width)
       return
     }
     const editor = createTerminalControlsEditorModel(this.terminalControls, this.selectedTerminalControlId, this.terminalControlCapturePending)
@@ -1067,6 +1067,12 @@ export class MedievalApp {
     this.canvas.dataset.terminalPresentationVersion = String(terminal.version)
     this.canvas.dataset.terminalMapState = terminal.map.state
     this.canvas.dataset.terminalMapCellCount = String(terminal.map.cells.length)
+    this.canvas.dataset.terminalStaticMapCellCount = String(terminal.map.cells.filter(cell => cell.id !== 'terminal-marker:active-courier').length)
+    this.canvas.dataset.terminalCourierMarkerCount = String(terminal.map.cells.filter(cell => cell.id === 'terminal-marker:active-courier').length)
+    this.canvas.dataset.terminalFocus = terminal.map.camera.focus.coordinate === undefined
+      ? 'unassigned'
+      : `${terminal.map.camera.focus.coordinate.column},${terminal.map.camera.focus.coordinate.row}`
+    this.canvas.dataset.terminalVisibility = terminal.map.camera.visibility
     this.canvas.dataset.terminalStatusCount = String(terminal.status.length)
     this.canvas.dataset.terminalMessageCount = String(terminal.messages.length)
     this.canvas.dataset.terminalMessageState = terminal.messages.length ? 'available' : 'empty'

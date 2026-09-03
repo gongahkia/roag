@@ -29,6 +29,8 @@ Transaction abort, request failure, unavailable storage, blocked upgrade, and qu
 
 Snapshots can be inspected without mutation. Restore is explicit; it uses the same replacement transaction and snapshots a different valid record being replaced. Current recovery is containment plus explicit inspection/restore/import APIs, not automatic repair or a browser recovery screen.
 
+`FoundationWorld` v14 adds the bounded `WorldDeckNavigationState` v1 inside the same authoritative full envelope. IndexedDB remains layout v4: there is no new store, split record, or database migration. On an explicit v13-to-v14 world conversion, a validated unselected courier retains no coordinate; a validated selected courier receives only the canonical deck-plan spawn. The causal checkpoint is deterministically rebound and current replay must validate before the result is returned. A corrupt, ambiguous, stale, or incompatible old envelope is neither repaired in place nor overwritten; repository reads leave it stored and fail closed. A successful later normal save writes the current full v14 envelope and refreshes only derived index/snapshot metadata.
+
 Focused cross-contract coverage uses a deterministic active-world replacement to create a valid snapshot, then proves that a stale finalization source and a forged snapshot source both fail closed without changing the current active envelope, catalog entry, or corrupt stored record. It does not connect a courier-loss or Jomon-integrity policy intent to repository finalization: callers must still explicitly invoke their owning world and repository operations.
 
 ## Offline backups

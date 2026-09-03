@@ -59,15 +59,15 @@ describe('medieval performance fixture contract', () => {
       scenario.retainedStateGrowth.delta.causalHistoryTail,
       scenario.dueEvents.singleProjectionCanonicalBytes
     ])).toEqual([
-      ['sheltered-reach-focused', 190704, 255631, 64927, 12, 19, 2, 2796],
-      ['sheltered-reach-balanced', 190954, 273730, 82776, 16, 25, 2, 3716],
-      ['sheltered-reach-deep', 190686, 279218, 88532, 18, 27, 2, 4212],
-      ['watershed-focused', 194798, 259672, 64874, 12, 19, 2, 2806],
-      ['watershed-balanced', 194667, 282952, 88285, 17, 27, 2, 3959],
-      ['watershed-deep', 194672, 294397, 99725, 21, 31, 2, 4950],
-      ['far-coast-focused', 208732, 273525, 64793, 12, 19, 2, 2805],
-      ['far-coast-balanced', 208351, 302156, 93805, 18, 29, 2, 4199],
-      ['far-coast-deep', 208080, 313434, 105354, 22, 33, 2, 5196]
+      ['sheltered-reach-focused', 190814, 255741, 64927, 12, 19, 2, 2796],
+      ['sheltered-reach-balanced', 191062, 273838, 82776, 16, 25, 2, 3716],
+      ['sheltered-reach-deep', 190790, 279322, 88532, 18, 27, 2, 4212],
+      ['watershed-focused', 194907, 259781, 64874, 12, 19, 2, 2806],
+      ['watershed-balanced', 194777, 283062, 88285, 17, 27, 2, 3959],
+      ['watershed-deep', 194779, 294504, 99725, 21, 31, 2, 4950],
+      ['far-coast-focused', 208844, 273637, 64793, 12, 19, 2, 2805],
+      ['far-coast-balanced', 208462, 302267, 93805, 18, 29, 2, 4199],
+      ['far-coast-deep', 208187, 313541, 105354, 22, 33, 2, 5196]
     ])
     expect(scenarios.every(scenario => scenario.envelopeSizes.before.withinBudget && scenario.envelopeSizes.after.withinBudget)).toBe(true)
     expect(scenarios.every(scenario => scenario.dueEvents.partitionInvariant && scenario.dueEvents.partitionedProjectionCanonicalBytes === scenario.dueEvents.singleProjectionCanonicalBytes)).toBe(true)
@@ -75,7 +75,7 @@ describe('medieval performance fixture contract', () => {
     expect(PERFORMANCE_FIXTURE_DUE_EVENT_SEQUENCE_MINUTES).toEqual([60, 180])
     expect(PERFORMANCE_FIXTURE_DUE_EVENT_TOTAL_MINUTES).toBe(240)
     expect([MEDIEVAL_FOUNDATION_SCHEDULER_CADENCE_MINUTES.loaded, MEDIEVAL_FOUNDATION_SCHEDULER_CADENCE_MINUTES.nearby, MEDIEVAL_FOUNDATION_SCHEDULER_CADENCE_MINUTES.recurring, MEDIEVAL_FOUNDATION_SCHEDULER_CADENCE_MINUTES.distantIndividualSummary, MEDIEVAL_FOUNDATION_SCHEDULER_CADENCE_MINUTES.distantSettlementSummary]).toEqual([1, 5, 30, 120, 240])
-    expect(scenarios.every(scenario => scenario.presentation.terminalMapCells === 113 && scenario.presentation.detailedAdapterMapCells === 113 && scenario.presentation.worldTimeBefore === 0 && scenario.presentation.worldTimeAfter === 0 && scenario.presentation.sidebarKnownFactCount === 13)).toBe(true)
+    expect(scenarios.every(scenario => scenario.presentation.terminalMapCells === 114 && scenario.presentation.detailedAdapterMapCells === 114 && scenario.presentation.worldTimeBefore === 0 && scenario.presentation.worldTimeAfter === 0 && scenario.presentation.sidebarKnownFactCount === 13)).toBe(true)
   }, 20_000)
 
   it('keeps terminal, sidebar, and detailed-adapter projections deterministic and zero-time without claiming browser responsiveness', () => {
@@ -86,7 +86,7 @@ describe('medieval performance fixture contract', () => {
 
     expect(first).toEqual(second)
     expect(world).toEqual(before)
-    expect(first.metrics).toMatchObject({ terminalMapCells: 113, detailedAdapterMapCells: 113, worldTimeBefore: 0, worldTimeAfter: 0 })
+    expect(first.metrics).toMatchObject({ terminalMapCells: 114, detailedAdapterMapCells: 114, worldTimeBefore: 0, worldTimeAfter: 0 })
     expect(PERFORMANCE_FIXTURE_MEASUREMENT_BOUNDARIES.reviewOnlyObservations).toContain('Node wall-clock operation and projection timing')
     expect(PERFORMANCE_FIXTURE_MEASUREMENT_BOUNDARIES.nonClaims).toContain('no browser responsiveness percentile is measured')
   })

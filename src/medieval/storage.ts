@@ -1,4 +1,4 @@
-import { isValidFoundationWorld } from './world'
+import { isValidFoundationWorld, upgradeFoundationWorldV13 } from './world'
 import { emptyCreationSettingsRecord, isCreationSettingsRecord, saveCreationSettingsProfile as saveNamedCreationSettingsProfile, withLastUsedCreationSettings, type CreationSettings, type CreationSettingsRecord } from './settings'
 import { defaultTerminalControlPreferences, isTerminalControlPreferences, type TerminalControlPreferences } from './terminal-controls'
 import { createActiveWorldBackupBundle, createChronicleBackupBundle, createWorldRecordIndex, MedievalPersistenceLayoutError, MEDIEVAL_PERSISTENCE_DATABASE_VERSION, parsePersistenceBackupBundle, persistenceWorldSourceFor, serializePersistenceBackupBundle, snapshotRingAfterReplacement, validateFoundationWorldSnapshotRing, validateWorldRecordIndex, type FoundationWorldSnapshotRing, type WorldRecordIndex } from './persistence-layout'
@@ -26,7 +26,19 @@ const record = (value: unknown): value is Record<string, unknown> => Boolean(val
 const string = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 const chronicleReason = (value: unknown): value is ChronicleReason => value === 'jomon-loss' || value === 'crew-extinction'
 const isFoundationWorld = (value: unknown): value is FoundationWorld => isValidFoundationWorld(value)
+/** Read-only conversion; callers explicitly save a returned v14 envelope to persist it. */
+const loadedFoundationWorld = (value: unknown): FoundationWorld | undefined => {
+  if (isFoundationWorld(value)) return clone(value)
+  try { return upgradeFoundationWorldV13(value) } catch { return undefined }
+}
 const isChronicle = (value: unknown): value is WorldChronicle => record(value) && value.version === 12 && string(value.id) && value.id === `chronicle:${(value.world as { id?: unknown })?.id ?? ''}` && value.status === 'finalized' && chronicleReason(value.reason) && isFoundationWorld(value.world)
+const loadedChronicle = (value: unknown): WorldChronicle | undefined => {
+  if (isChronicle(value)) return clone(value)
+  if (!record(value) || value.version !== 12 || !string(value.id) || value.status !== 'finalized' || !chronicleReason(value.reason)) return undefined
+  const world = loadedFoundationWorld(value.world)
+  if (!world || value.id !== `chronicle:${world.id}`) return undefined
+  return { version: 12, id: value.id, status: 'finalized', reason: value.reason, world }
+}
 const isActiveWorldIndexEntry = (value: unknown): boolean => record(value) && string(value.id) && string(value.label) && (value.initialCourierId === undefined || string(value.initialCourierId))
 const isChronicleIndexEntry = (value: unknown): boolean => record(value) && string(value.id) && string(value.label) && chronicleReason(value.reason)
 const isWorldIndex = (value: unknown): value is WorldIndex => record(value) && value.version === 1 && Array.isArray(value.activeWorlds) && value.activeWorlds.every(isActiveWorldIndexEntry) && Array.isArray(value.chronicles) && value.chronicles.every(isChronicleIndexEntry)
@@ -56,8 +68,8 @@ export class MedievalWorldRepository {
     return this.connection
   }
   async loadIndex(): Promise<WorldIndex> { const database = await this.open(); const transaction = database.transaction(CATALOG_STORE, 'readonly'); const value = await requestResult(transaction.objectStore(CATALOG_STORE).get(INDEX_KEY)); await transactionDone(transaction); return isWorldIndex(value) ? clone(value) : emptyWorldIndex() }
-  async loadWorld(id: string): Promise<FoundationWorld | undefined> { const database = await this.open(); const transaction = database.transaction(WORLD_STORE, 'readonly'); const value = await requestResult(transaction.objectStore(WORLD_STORE).get(id)); await transactionDone(transaction); return isFoundationWorld(value) ? clone(value) : undefined }
-  async loadChronicle(id: string): Promise<WorldChronicle | undefined> { const database = await this.open(); const transaction = database.transaction(CHRONICLE_STORE, 'readonly'); const value = await requestResult(transaction.objectStore(CHRONICLE_STORE).get(id)); await transactionDone(transaction); return isChronicle(value) ? clone(value) : undefined }
+  async loadWorld(id: string): Promise<FoundationWorld | undefined> { const database = await this.open(); const transaction = database.transaction(WORLD_STORE, 'readonly'); const value = await requestResult(transaction.objectStore(WORLD_STORE).get(id)); await transactionDone(transaction); return loadedFoundationWorld(value) }
+  async loadChronicle(id: string): Promise<WorldChronicle | undefined> { const database = await this.open(); const transaction = database.transaction(CHRONICLE_STORE, 'readonly'); const value = await requestResult(transaction.objectStore(CHRONICLE_STORE).get(id)); await transactionDone(transaction); return loadedChronicle(value) }
   async loadWorldRecordIndex(worldId: string): Promise<WorldRecordIndex | undefined> {
     const database = await this.open(); const transaction = database.transaction([WORLD_STORE, RECORD_INDEX_STORE], 'readonly'); const [world, index] = await Promise.all([requestResult(transaction.objectStore(WORLD_STORE).get(worldId)), requestResult(transaction.objectStore(RECORD_INDEX_STORE).get(worldId))]); await transactionDone(transaction)
     return isFoundationWorld(world) && validateWorldRecordIndex(index, world) ? clone(index as WorldRecordIndex) : undefined

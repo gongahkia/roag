@@ -104,17 +104,17 @@ The v1 fixture contract checks the nine-row matrix below in ordinary tests. Thes
 
 | Fixture | Initial canonical bytes | After due events | Growth |
 | --- | ---: | ---: | ---: |
-| sheltered-reach-focused | 190,704 | 255,631 | 64,927 |
-| sheltered-reach-balanced | 190,954 | 273,730 | 82,776 |
-| sheltered-reach-deep | 190,686 | 279,218 | 88,532 |
-| watershed-focused | 194,798 | 259,672 | 64,874 |
-| watershed-balanced | 194,667 | 282,952 | 88,285 |
-| watershed-deep | 194,672 | 294,397 | 99,725 |
-| far-coast-focused | 208,732 | 273,525 | 64,793 |
-| far-coast-balanced | 208,351 | 302,156 | 93,805 |
-| far-coast-deep | 208,080 | 313,434 | 105,354 |
+| sheltered-reach-focused | 190,814 | 255,741 | 64,927 |
+| sheltered-reach-balanced | 191,062 | 273,838 | 82,776 |
+| sheltered-reach-deep | 190,790 | 279,322 | 88,532 |
+| watershed-focused | 194,907 | 259,781 | 64,874 |
+| watershed-balanced | 194,777 | 283,062 | 88,285 |
+| watershed-deep | 194,779 | 294,504 | 99,725 |
+| far-coast-focused | 208,844 | 273,637 | 64,793 |
+| far-coast-balanced | 208,462 | 302,267 | 93,805 |
+| far-coast-deep | 208,187 | 313,541 | 105,354 |
 
-The same contract fixes the resulting catch-up cursor/record deltas, causal-history growth, canonical scheduled-summary projection bytes, zero terminal/detailed-adapter map cells, zero-time pure projection behavior, and a 3-active/4-chronicle catalogue index of 635 canonical bytes (within its 64 KiB ceiling). These assertions intentionally do not assert process memory, garbage collection, timing, browser response p95, browser storage quota, or fake/real IndexedDB timing.
+The same contract fixes the resulting catch-up cursor/record deltas, causal-history growth, canonical scheduled-summary projection bytes, and zero-time pure projection behavior. A selected fixture now projects the 113 static deck/hull cells plus its source-backed active-courier marker (114 terminal and detailed-adapter cells); this is not RAM, browser responsiveness, or navigation-performance evidence. The 3-active/4-chronicle catalogue index remains 635 canonical bytes (within its 64 KiB ceiling). These assertions intentionally do not assert process memory, garbage collection, timing, browser response p95, browser storage quota, or fake/real IndexedDB timing.
 
 ## 2026-09-03 Node review observations
 

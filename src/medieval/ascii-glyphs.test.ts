@@ -132,7 +132,7 @@ describe('Jomon ASCII glyph catalogue', () => {
     expect(() => terminalGlyphReferenceFor('terrain:not-present')).toThrow('ASCII glyph catalogue rejected')
   })
 
-  it('keeps the current terminal map reserved, empty, deterministic, and free of generated world facts', () => {
+  it('keeps the current materialized terminal map deterministic and free of generated world facts', () => {
     const world = selectedWorld()
     const before = structuredClone(world)
     const catalogueBefore = structuredClone(JOMON_ASCII_GLYPH_CATALOG)
@@ -142,7 +142,7 @@ describe('Jomon ASCII glyph catalogue', () => {
 
     expect(first).toEqual(second)
     expect(first.map).toMatchObject({ state: 'materialized', viewport: { context: 'jomon-deck-plan', width: 18, height: 8 } })
-    expect(first.map.cells).toHaveLength(113)
+    expect(first.map.cells).toHaveLength(114)
     expect(encoded).not.toContain(world.initialWorld.watershed.id)
     expect(encoded).not.toContain(world.initialWorld.settlements[0]!.id)
     expect(encoded).not.toContain(world.state.geography.frontier.regions[0]!.commitment.id)

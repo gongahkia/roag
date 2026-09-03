@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { classifyMedievalContent } from './content-safety'
-import { createActiveWorldBackupBundle, createChronicleBackupBundle, createPersistencePreflight, createWorldRecordIndex, emptySnapshotRing, parsePersistenceBackupBundle, persistenceWorldSourceFor, serializePersistenceBackupBundle, snapshotRingAfterReplacement, validateFoundationWorldSnapshotRing, validatePersistenceBackupBundle, validateWorldRecordIndex } from './persistence-layout'
+import { createActiveWorldBackupBundle, createChronicleBackupBundle, createPersistencePreflight, createWorldRecordIndex, emptySnapshotRing, parsePersistenceBackupBundle, persistenceDigestFor, persistenceWorldSourceFor, serializePersistenceBackupBundle, snapshotRingAfterReplacement, validateFoundationWorldSnapshotRing, validatePersistenceBackupBundle, validateWorldRecordIndex } from './persistence-layout'
+import { canonicalSerializedByteLength } from './performance-budget'
+import { createCausalHistoryState } from './causal-history'
 import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle } from './world'
 
 const selected = (seed = 'layout-contract'): ReturnType<typeof chooseInitialCourier> => chooseInitialCourier(createFoundationWorld({ seed }), 'crew:0')
@@ -60,6 +62,36 @@ describe('compact medieval persistence layout', () => {
     const chronicle = finalizeWorldAsChronicle(world, 'jomon-loss')
     const chronicleBundle = createChronicleBackupBundle(chronicle)
     expect(parsePersistenceBackupBundle(serializePersistenceBackupBundle(chronicleBundle))).toEqual(chronicleBundle)
+  })
+
+  it('imports only a canonical, source-verified v13 active-world backup through the explicit navigation conversion', () => {
+    const world = selected('legacy-backup-layout')
+    const legacy = structuredClone(world) as unknown as Record<string, any>
+    legacy.version = 13
+    legacy.state.version = 11
+    delete legacy.state.navigation
+    const checkpointProjection = structuredClone(legacy.state.causalHistory.checkpoint.projection)
+    delete checkpointProjection.navigation
+    legacy.state.causalHistory = {
+      ...legacy.state.causalHistory,
+      checkpoint: createCausalHistoryState({ worldId: legacy.id, creationDigest: legacy.manifest.creation.digest }, checkpointProjection).checkpoint
+    }
+    const legacyBundle = {
+      version: 1,
+      kind: 'active-world',
+      source: {
+        worldId: legacy.id,
+        revision: legacy.state.causalHistory.checkpoint.sequence + legacy.state.causalHistory.tail.length,
+        digest: persistenceDigestFor('foundation-world', legacy),
+        canonicalBytes: canonicalSerializedByteLength(legacy)
+      },
+      world: legacy
+    }
+
+    expect(parsePersistenceBackupBundle(JSON.stringify(legacyBundle))).toMatchObject({ kind: 'active-world', world: { version: 14, state: { version: 12, navigation: { coordinate: { column: 4, row: 4 } } } } })
+    const corrupt = structuredClone(legacyBundle)
+    corrupt.source.digest = 'layout:forged'
+    expect(() => parsePersistenceBackupBundle(JSON.stringify(corrupt))).toThrow('invalid bundle')
   })
 
   it('reports advisory byte preflight without treating it as a quota reservation or mutating a world', () => {

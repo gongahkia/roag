@@ -58,6 +58,7 @@ const terminalWithEveryRealGlyph = (world = selectedWorld('renderer-browser-real
       width,
       height: Math.ceil(cells.length / width)
     },
+    camera: { mode: 'fixed-full-deck', focus: {}, visibility: 'all-static-deck-known' },
     cells,
     textEquivalent: 'Future source-backed glyph catalogue fixture.',
     accessibilityText: 'Future materialized glyph catalogue fixture. Each cell has a source and text equivalent.',
@@ -138,10 +139,10 @@ describe('renderer/browser presentation boundary', () => {
     const ungeneratedCommitment = world.state.geography.frontier.regions.find(region => region.status === 'ungenerated')
 
     expect(terminal.map).toMatchObject({ state: 'materialized', viewport: { context: 'jomon-deck-plan', width: 18, height: 8 } })
-    expect(terminal.map.cells).toHaveLength(113)
+    expect(terminal.map.cells).toHaveLength(114)
     expect(detailed.map.map).toEqual(terminal.map)
-    expect(detailed.map.cells).toHaveLength(113)
-    expect(terminal.status.map(item => item.value.kind)).toEqual(['courier-selection', 'jomon-deck-materialized', 'world-minute'])
+    expect(detailed.map.cells).toHaveLength(114)
+    expect(terminal.status.map(item => item.value.kind)).toEqual(['courier-selection', 'deck-focus', 'jomon-deck-materialized', 'creation-provenance', 'world-minute'])
     expect(terminal.accessibility.messageText).toEqual(['No current authoritative messages.'])
     expect(detailed.accessibility.messageText).toEqual(terminal.accessibility.messageText)
     expect(detailed.interactionBoundary).toEqual({ sharesEffectiveCommandIds: true, promptCancellation: 'cancelled-no-mutation', executesInput: false, advancesWorldTime: false, mutatesWorld: false })

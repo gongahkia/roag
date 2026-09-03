@@ -10,6 +10,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
     worldTime: number
     actionSequence: number
     causalKinds: string[]
+    coordinate: { column?: number; row?: number } | undefined
     tasks: unknown
     autonomy: unknown
     era: unknown
@@ -25,6 +26,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
           state?: {
             temporal?: { worldTime?: number; actionSequence?: number }
             causalHistory?: { tail?: Array<{ kind?: string }> }
+            navigation?: { coordinate?: { column?: number; row?: number } }
             delegation?: { tasks?: unknown }
             autonomy?: unknown
             era?: unknown
@@ -36,6 +38,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
           worldTime: world.state.temporal.worldTime ?? -1,
           actionSequence: world.state.temporal.actionSequence ?? -1,
           causalKinds: world.state.causalHistory.tail.map(command => command.kind ?? ''),
+          coordinate: world.state.navigation?.coordinate,
           tasks: world.state.delegation?.tasks,
           autonomy: world.state.autonomy,
           era: world.state.era
@@ -126,14 +129,18 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-world-id', worldId!)
   await expect(game).toHaveAttribute('data-persistence', 'saved')
   await expect(game).toHaveAttribute('aria-label', /Jomon foundation world .* active courier/)
-  await expect(game).toHaveAttribute('data-terminal-presentation-version', '4')
+  await expect(game).toHaveAttribute('data-terminal-presentation-version', '5')
   await expect(game).toHaveAttribute('data-terminal-map-state', 'materialized')
-  await expect(game).toHaveAttribute('data-terminal-map-cell-count', '113')
-  await expect(game).toHaveAttribute('data-terminal-status-count', '3')
+  await expect(game).toHaveAttribute('data-terminal-map-cell-count', '114')
+  await expect(game).toHaveAttribute('data-terminal-static-map-cell-count', '113')
+  await expect(game).toHaveAttribute('data-terminal-courier-marker-count', '1')
+  await expect(game).toHaveAttribute('data-terminal-focus', '4,4')
+  await expect(game).toHaveAttribute('data-terminal-visibility', 'all-static-deck-known')
+  await expect(game).toHaveAttribute('data-terminal-status-count', '5')
   await expect(game).toHaveAttribute('data-terminal-message-count', '0')
   await expect(game).toHaveAttribute('data-terminal-message-state', 'empty')
   await expect(game).toHaveAttribute('data-terminal-prompt-count', '0')
-  await expect(game).toHaveAttribute('aria-label', /Static Jomon deck map.*113 source-backed cells.*An active courier is selected.*Current world minute 0.*No current authoritative messages/i)
+  await expect(game).toHaveAttribute('aria-label', /Known static Jomon deck map.*113 deck and hull cells and one active courier marker.*An active courier is selected.*Fixed full-deck camera follows.*Current world minute 0.*No current authoritative messages/i)
   await page.screenshot({ path: '/tmp/jomon-phase15-terminal-status.png' })
   if (!worldId) throw new Error('created world should have a stable id')
 
@@ -142,7 +149,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-management-item-count', '4')
   await expect(game).toHaveAttribute('aria-label', /Management expanded\. OVERVIEW, 4 household-known facts\./)
   const expectedZeroTime = await persistedTemporalState(page, worldId)
-  expect(expectedZeroTime).toMatchObject({ worldTime: 0, actionSequence: 0, causalKinds: ['initial-courier-selected'], tasks: [] })
+  expect(expectedZeroTime).toMatchObject({ worldTime: 0, actionSequence: 0, causalKinds: ['initial-courier-selected'], coordinate: { column: 4, row: 4 }, tasks: [] })
   await page.keyboard.press(']')
   await expect(game).toHaveAttribute('data-management-section', 'people-work')
   await expect(game).toHaveAttribute('data-management-item-count', '6')
@@ -176,15 +183,15 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-cancelled')
 
-  for (const movement of [
-    ['y', 'NORTH WEST'], ['k', 'NORTH'], ['u', 'NORTH EAST'], ['h', 'WEST'],
-    ['l', 'EAST'], ['b', 'SOUTH WEST'], ['j', 'SOUTH'], ['n', 'SOUTH EAST'],
-    ['ArrowUp', 'NORTH'], ['ArrowLeft', 'WEST'], ['ArrowRight', 'EAST'], ['ArrowDown', 'SOUTH']
-  ] as const) {
-    await page.keyboard.press(movement[0])
-    await expect(game).toHaveAttribute('data-terminal-outcome', 'movement-unavailable')
-    await expect(game).toHaveAttribute('aria-label', new RegExp(`STATIC DECK.*${movement[1]} MOVEMENT UNAVAILABLE`, 'i'))
-  }
+  await page.keyboard.press('k')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'movement-completed')
+  await expect(game).toHaveAttribute('data-terminal-focus', '4,3')
+  await expect(game).toHaveAttribute('aria-label', /MOVED NORTH.*DECK 4,3.*1 ACTION MINUTE/i)
+  await expect.poll(() => persistedTemporalState(page, worldId)).toMatchObject({ worldTime: 1, actionSequence: 1, causalKinds: ['initial-courier-selected', 'deck-moved'], coordinate: { column: 4, row: 3 } })
+  await page.keyboard.press('h')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'movement-blocked')
+  await expect(game).toHaveAttribute('aria-label', /MOVE BLOCKED.*WEST.*HULL BOUNDARY.*ZERO TIME/i)
+  await expect.poll(() => persistedTemporalState(page, worldId)).toMatchObject({ worldTime: 1, actionSequence: 1, coordinate: { column: 4, row: 3 } })
   await page.screenshot({ path: '/tmp/jomon-phase15-terminal-movement.png' })
 
   await page.keyboard.press('F2')
@@ -216,9 +223,9 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await page.keyboard.press('Escape')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
   await page.keyboard.press('q')
-  await expect(game).toHaveAttribute('data-terminal-outcome', 'movement-unavailable')
-  await expect(game).toHaveAttribute('aria-label', /STATIC DECK.*NORTH MOVEMENT UNAVAILABLE/i)
-  expect(await persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'movement-completed')
+  await expect(game).toHaveAttribute('data-terminal-focus', '4,2')
+  await expect.poll(() => persistedTemporalState(page, worldId)).toMatchObject({ worldTime: 2, actionSequence: 2, coordinate: { column: 4, row: 2 } })
 
   await page.evaluate(() => document.querySelector<HTMLCanvasElement>('#game')?.blur())
   await expect.poll(() => page.evaluate(() => document.activeElement?.id ?? '')).toBe('')
@@ -235,7 +242,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await page.evaluate(() => document.querySelector('#outside-terminal-focus')?.remove())
   await game.click()
   await page.waitForTimeout(300)
-  await expect.poll(() => persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)
+  await expect.poll(() => persistedTemporalState(page, worldId)).toMatchObject({ worldTime: 2, actionSequence: 2, coordinate: { column: 4, row: 2 } })
 
   await page.evaluate(async id => new Promise<void>((resolve, reject) => {
     const request = indexedDB.open('jomon-medieval-worlds-v1')
@@ -305,7 +312,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-settings-page', 'basic')
   await page.keyboard.press('Escape')
   await expect(game).toHaveAttribute('data-route', 'worlds')
-  await expect.poll(() => persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)
+  await expect.poll(() => persistedTemporalState(page, worldId)).toMatchObject({ worldTime: 2, actionSequence: 2, coordinate: { column: 4, row: 2 } })
 
   await page.reload()
   await expect(game).toHaveAttribute('data-route', 'worlds')
@@ -314,8 +321,8 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-route', 'world')
   await expect(game).toHaveAttribute('data-world-id', worldId)
   await page.keyboard.press('q')
-  await expect(game).toHaveAttribute('data-terminal-outcome', 'movement-unavailable')
-  await expect(game).toHaveAttribute('aria-label', /STATIC DECK.*NORTH MOVEMENT UNAVAILABLE/i)
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'movement-completed')
+  await expect(game).toHaveAttribute('data-terminal-focus', '4,1')
   await page.keyboard.press('F2')
   for (let index = 0; index < 6; index++) await page.keyboard.press('ArrowDown')
   await expect(game).toHaveAttribute('data-terminal-selected-control', 'move-north')
@@ -323,8 +330,8 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-terminal-outcome', 'controls-reset-current')
   await page.keyboard.press('Escape')
   await page.keyboard.press('k')
-  await expect(game).toHaveAttribute('data-terminal-outcome', 'movement-unavailable')
-  await expect.poll(() => persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'movement-blocked')
+  await expect.poll(() => persistedTemporalState(page, worldId)).toMatchObject({ worldTime: 3, actionSequence: 3, coordinate: { column: 4, row: 1 } })
 
   const browserContext = page.context()
   await page.close()
@@ -337,7 +344,8 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await replacement.keyboard.press('Enter')
   await expect(replacementGame).toHaveAttribute('data-route', 'world')
   await expect(replacementGame).toHaveAttribute('data-world-id', worldId)
-  await expect.poll(() => persistedTemporalState(replacement, worldId)).toEqual(expectedZeroTime)
+  await expect(replacementGame).toHaveAttribute('data-terminal-focus', '4,1')
+  await expect.poll(() => persistedTemporalState(replacement, worldId)).toMatchObject({ worldTime: 3, actionSequence: 3, coordinate: { column: 4, row: 1 } })
   expect(externalRequests).toEqual([])
 })
 
