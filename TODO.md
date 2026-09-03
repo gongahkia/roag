@@ -719,7 +719,6 @@ Acceptance: declared 8 GB baseline fixtures generate, simulate, save, reload, an
   Verification (2026-09-03): `npx vitest run src/medieval/effects-loss-recovery.test.ts src/medieval/effects.test.ts src/medieval/mystical-effect-policy.test.ts src/medieval/courier-loss-policy.test.ts src/medieval/jomon-integrity-policy.test.ts src/medieval/world.test.ts src/medieval/world-state.test.ts src/medieval/storage.test.ts src/medieval/persistence-layout.test.ts src/medieval/causal-history.test.ts src/medieval/temporal.test.ts src/medieval/content-safety.test.ts --maxWorkers=1 --no-file-parallelism` passed 114 tests in 12 files (80.67s). `npx vitest run src/medieval/*.test.ts --maxWorkers=1 --no-file-parallelism` passed 279 tests in 42 files (158.93s). `npm run build` passed TypeScript, Vite (167 modules), and bundle-size checks; `git diff --check` passed. Playwright was correctly skipped because no browser-visible production behavior changed; `npm run benchmark:medieval-foundation` was correctly skipped because no material performance or persistence behavior changed.
 
   Warnings and limitations: npm emitted the existing unsupported `email` configuration warning. An interim ad-hoc storage run hit the pre-existing 20-second timeout in the recurring social-refusal compaction test; the required focused command and final full serial suite passed unchanged. These tests do not implement the deferred actions or claim browser/IndexedDB timing coverage.
-- [-] Create a compact, original ASCII deck plan with a connected quay approach, gangplank, tavern, chart table, cargo hold, repair space, stores, berths, and galley.
 
 Acceptance: a player can inspect why an effect or recovery occurred; every powerful safeguard has an explicit rarity/cost/counterplay contract; terminal Jomon loss ends active play cleanly, preserves its history as a read-only chronicle, and offers export without corrupting the record.
 
@@ -727,7 +726,7 @@ Acceptance: a player can inspect why an effect or recovery occurred; every power
 
 #### 2.1 Walkable Jomon and quay
 
-- [ ] Create a compact, original ASCII deck plan with a connected quay approach, gangplank, tavern, chart table, cargo hold, repair space, stores, berths, and galley.
+- [-] Create a compact, original ASCII deck plan with a connected quay approach, gangplank, tavern, chart table, cargo hold, repair space, stores, berths, and galley.
 - [ ] Render the plan in the primary ASCII mode from the common map state; document its original glyph vocabulary and preserve the Phase 1 detailed-renderer adapter contract.
 - [ ] Implement grid movement, collision, camera/focus behavior, visibility rules if used, and inspectable seed state.
 - [ ] Add a player-visible map legend/help surface without replacing in-world readability.
