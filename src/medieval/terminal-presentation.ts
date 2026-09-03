@@ -1,5 +1,5 @@
 import { auditMedievalContentSafety, classifyMedievalContent, contentSafetyAuditMatches, type ClassifiedMedievalContent, type MedievalContentDomain, type MedievalContentSafetyAudit, type MedievalContentSafetyClassification, type MedievalContentSafetyDiagnosticCode } from './content-safety'
-import { JOMON_ASCII_GLYPH_CATALOG, terminalGlyphCatalog, terminalGlyphReferenceFor } from './ascii-glyphs'
+import { JOMON_ASCII_GLYPH_CATALOG, findAsciiGlyph, terminalGlyphCatalog, terminalGlyphReferenceFor } from './ascii-glyphs'
 import { deriveJomonDeckPlan } from './jomon-deck-plan'
 import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE, type JomonPaletteToken } from './palette'
 import {
@@ -37,7 +37,8 @@ export type {
  * future detailed adapter consume that same projection without omitting or
  * inventing consequential information.
  */
-export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 5 as const
+export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 6 as const
+export const TERMINAL_MAP_LEGEND_CONTRACT_VERSION = 1 as const
 
 export const TERMINAL_PRESENTATION_LIMITS = {
   viewportWidth: 120,
@@ -47,18 +48,20 @@ export const TERMINAL_PRESENTATION_LIMITS = {
   messages: 12,
   prompts: 1,
   promptOptions: 8,
+  legendEntries: 5,
   inputCommands: 64,
   inputModes: 24,
   identityLength: 160,
   glyphReferenceLength: 96,
-  textLength: 280
+  textLength: 1_200
 } as const
 
 export const TERMINAL_RENDERER_PARITY_RULES = [
   'same-authoritative-terminal-model',
   'no-consequential-omission',
   'no-consequential-invention',
-  'text-equivalent-required'
+  'text-equivalent-required',
+  'legend-help-information-required'
 ] as const
 export type TerminalRendererParityRule = typeof TERMINAL_RENDERER_PARITY_RULES[number]
 
@@ -123,6 +126,36 @@ export interface TerminalMaterializedMap {
 }
 
 export type TerminalMapSurface = TerminalMaterializedMap
+
+/**
+ * A compact legend is derived only from the already materialized, source-backed
+ * map cells and their closed glyph references. It adds no map geometry or
+ * world fact, and remains a zero-time presentation surface.
+ */
+export interface TerminalMapLegendEntry {
+  id: string
+  glyph: TerminalGlyphReference
+  label: string
+  paletteToken: JomonPaletteToken
+  presentationState: TerminalPresentationState
+  nonColorCue: TerminalNonColorCue
+  textEquivalent: string
+  accessibilityText: string
+  evidence: TerminalEvidenceProvenance
+  contentDomain: MedievalContentDomain
+  contentSafety: MedievalContentSafetyClassification
+}
+
+export interface TerminalMapLegend {
+  version: typeof TERMINAL_MAP_LEGEND_CONTRACT_VERSION
+  entries: readonly TerminalMapLegendEntry[]
+  movementText: string
+  limitationsText: string
+  accessibilityText: string
+  evidence: TerminalEvidenceProvenance
+  contentDomain: MedievalContentDomain
+  contentSafety: MedievalContentSafetyClassification
+}
 
 export type TerminalStatusValue =
   | { kind: 'jomon-deck-materialized'; cells: number }
@@ -386,6 +419,7 @@ export interface TerminalAccessibilityModel {
   conciseSummary: string
   focusContext: 'keyboard-first-canvas'
   mapText: string
+  legendText: string
   statusText: readonly string[]
   messageText: readonly string[]
   promptText: readonly string[]
@@ -407,6 +441,7 @@ export interface TerminalPresentationModel {
   version: typeof TERMINAL_PRESENTATION_CONTRACT_VERSION
   worldId: string
   map: TerminalMapSurface
+  legend: TerminalMapLegend
   status: readonly TerminalStatusItem[]
   messages: readonly TerminalMessage[]
   prompts: readonly TerminalPrompt[]
@@ -717,6 +752,65 @@ export const createJomonDeckTerminalMap = (world: FoundationWorld): TerminalMate
 
 const staticCellsFor = (map: TerminalMaterializedMap): number => map.cells.filter(cell => !activeCourierMarker(cell)).length
 
+const legendFreshnessText = (evidence: TerminalEvidenceProvenance): string => evidence.freshness.kind === 'current'
+  ? 'current'
+  : evidence.freshness.kind === 'timeless'
+    ? 'timeless'
+    : `reported at world minute ${evidence.freshness.atWorldTime}`
+
+const legendEntryFor = (map: TerminalMaterializedMap, glyphId: string): TerminalMapLegendEntry => {
+  const cell = map.cells.filter(candidate => candidate.glyph.id === glyphId).sort(cellOrder)[0]
+  const glyph = findAsciiGlyph(glyphId)
+  if (!cell || !glyph || !same(cell.glyph, terminalGlyphReferenceFor(glyphId)) || cell.paletteToken !== glyph.paletteToken
+    || cell.presentationState !== glyph.presentationState || !same(cell.nonColorCue, glyph.nonColorCue)
+    || cell.textEquivalent !== glyph.textEquivalent) throw new Error('terminal map legend source is invalid')
+  const evidence = structuredClone(cell.evidence)
+  return {
+    id: `terminal-map-legend:${glyph.id}`,
+    glyph: terminalGlyphReferenceFor(glyph.id),
+    label: glyph.label,
+    paletteToken: glyph.paletteToken,
+    presentationState: glyph.presentationState,
+    nonColorCue: structuredClone(glyph.nonColorCue),
+    textEquivalent: glyph.textEquivalent,
+    accessibilityText: `${glyph.accessibilityText} Source ${evidence.source.kind} ${evidence.source.recordId}; known at world minute ${evidence.knownAtWorldTime}; ${legendFreshnessText(evidence)}.`,
+    evidence,
+    contentDomain: glyph.contentDomain,
+    contentSafety: structuredClone(glyph.contentSafety)
+  }
+}
+
+const rawTerminalMapLegend = (map: TerminalMaterializedMap): TerminalMapLegend => {
+  const cellDiagnostics = validateTerminalMaterializedCells(map.viewport, map.cells, terminalGlyphCatalog(JOMON_ASCII_GLYPH_CATALOG))
+  if (cellDiagnostics.length) throw new TerminalPresentationContractError(cellDiagnostics)
+  const glyphIds = [...new Set(map.cells.map(cell => cell.glyph.id))].sort(compare)
+  if (!glyphIds.length || glyphIds.length > TERMINAL_PRESENTATION_LIMITS.legendEntries) throw new Error('terminal map legend has an invalid visible glyph set')
+  const entries = glyphIds.map(glyphId => legendEntryFor(map, glyphId))
+  const movementText = 'Known fixed local deck only. A successful local step advances one action minute; a blocked hull, boundary, non-walkable, or diagonal-corner step changes no world state or time.'
+  const limitationsText = 'Current map limits: all static deck cells are known. No cargo, NPC, hazard, travel, fog, or prop-action state is materialized.'
+  return {
+    version: TERMINAL_MAP_LEGEND_CONTRACT_VERSION,
+    entries,
+    movementText,
+    limitationsText,
+    accessibilityText: `Map legend. ${entries.map(entry => entry.accessibilityText).join(' ')} ${movementText} ${limitationsText}`,
+    evidence: structuredClone(map.evidence),
+    contentDomain: 'player-facing-text',
+    contentSafety: baseClassification()
+  }
+}
+
+/** Validates the complete, canonical legend against only its source-backed map projection. */
+export const validateTerminalMapLegend = (map: TerminalMaterializedMap, value: unknown): readonly TerminalPresentationDiagnostic[] => {
+  try {
+    const expected = rawTerminalMapLegend(map)
+    return same(value, expected) ? [] : [issue('terminal-map-legend', 'terminal-presentation.invalid-model')]
+  } catch (error) {
+    if (error instanceof TerminalPresentationContractError) return error.diagnostics
+    return [issue('terminal-map-legend', 'terminal-presentation.invalid-model')]
+  }
+}
+
 const orderedStatus = (world: FoundationWorld, map: TerminalMaterializedMap): readonly TerminalStatusItem[] => canonicalById([
   statusItem('terminal-status:courier', world.state.courier.initialCourierId ? 'ready' : 'waiting', { kind: 'courier-selection', selected: Boolean(world.state.courier.initialCourierId) }, currentWorldEvidence('world-state:courier', world.state.temporal.worldTime)),
   statusItem('terminal-status:focus', world.state.navigation.coordinate === undefined ? 'waiting' : 'ready', { kind: 'deck-focus', ...(world.state.navigation.coordinate === undefined ? {} : { courierId: world.state.navigation.courierId, coordinate: structuredClone(world.state.navigation.coordinate) }) }, currentWorldEvidence('world-state:navigation', world.state.temporal.worldTime)),
@@ -727,19 +821,22 @@ const orderedStatus = (world: FoundationWorld, map: TerminalMaterializedMap): re
 
 const canonicalById = <Value extends { id: string }>(values: readonly Value[]): readonly Value[] => [...values].sort((left, right) => compare(left.id, right.id))
 
-const modelContentRecords = (map: TerminalMapSurface, status: readonly TerminalStatusItem[], messages: readonly TerminalMessage[], prompts: readonly TerminalPrompt[]): readonly ClassifiedMedievalContent[] => [
+const modelContentRecords = (map: TerminalMapSurface, legend: TerminalMapLegend, status: readonly TerminalStatusItem[], messages: readonly TerminalMessage[], prompts: readonly TerminalPrompt[]): readonly ClassifiedMedievalContent[] => [
   { id: 'terminal-presentation:map', domain: map.contentDomain, classification: map.contentSafety },
   ...map.cells.map(cell => ({ id: `terminal-presentation:map-cell:${cell.id}`, domain: cell.contentDomain, classification: cell.contentSafety })),
+  { id: 'terminal-presentation:legend', domain: legend.contentDomain, classification: legend.contentSafety },
+  ...legend.entries.map(entry => ({ id: `terminal-presentation:legend-entry:${entry.id}`, domain: entry.contentDomain, classification: entry.contentSafety })),
   ...status.map(item => ({ id: `terminal-presentation:status:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...messages.map(item => ({ id: `terminal-presentation:message:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...prompts.map(item => ({ id: `terminal-presentation:prompt:${item.id}`, domain: item.contentDomain, classification: item.contentSafety }))
 ]
 
-const accessibilityFor = (map: TerminalMapSurface, status: readonly TerminalStatusItem[], messages: readonly TerminalMessage[], prompts: readonly TerminalPrompt[]): TerminalAccessibilityModel => ({
+const accessibilityFor = (map: TerminalMapSurface, legend: TerminalMapLegend, status: readonly TerminalStatusItem[], messages: readonly TerminalMessage[], prompts: readonly TerminalPrompt[]): TerminalAccessibilityModel => ({
   accessibleName: 'Jomon terminal presentation',
   conciseSummary: `Materialized static Jomon deck map with ${map.cells.length} source-backed cells. ${status.length} immediate local status entries. ${messages.length} authoritative messages. ${prompts.length} contextual prompts.`,
   focusContext: 'keyboard-first-canvas',
   mapText: map.accessibilityText,
+  legendText: legend.accessibilityText,
   statusText: status.map(item => item.accessibilityText),
   messageText: messages.length ? messages.map(item => item.accessibilityText) : ['No current authoritative messages.'],
   promptText: prompts.length ? prompts.map(item => item.accessibilityText) : ['No current contextual prompt.'],
@@ -748,15 +845,17 @@ const accessibilityFor = (map: TerminalMapSurface, status: readonly TerminalStat
 
 const rawTerminalPresentationModel = (world: FoundationWorld): TerminalPresentationModel => {
   const map = createJomonDeckTerminalMap(world)
+  const legend = rawTerminalMapLegend(map)
   const status = orderedStatus(world, map)
   const messages: readonly TerminalMessage[] = []
   const prompts: readonly TerminalPrompt[] = []
-  const contentSafetyAudit = auditMedievalContentSafety(modelContentRecords(map, status, messages, prompts))
+  const contentSafetyAudit = auditMedievalContentSafety(modelContentRecords(map, legend, status, messages, prompts))
   if (contentSafetyAudit.status === 'rejected') throw new TerminalPresentationContractError(contentSafetyAudit.diagnostics.map(item => issue(item.contentId, item.code)))
   return {
     version: TERMINAL_PRESENTATION_CONTRACT_VERSION,
     worldId: world.id,
     map,
+    legend,
     status,
     messages,
     prompts,
@@ -772,7 +871,7 @@ const rawTerminalPresentationModel = (world: FoundationWorld): TerminalPresentat
       },
       commands: TERMINAL_KEYBOARD_COMMANDS
     },
-    accessibility: accessibilityFor(map, status, messages, prompts),
+    accessibility: accessibilityFor(map, legend, status, messages, prompts),
     sidebarBoundary: { relationship: 'separate-household-known-strategic-surface', duplicatedStrategicFactCategories: [] },
     rendererParity: { asciiCanvas: 'current-adapter', detailedRenderer: 'future-adapter', requirements: TERMINAL_RENDERER_PARITY_RULES },
     contentSafetyAudit
@@ -991,7 +1090,7 @@ export const validateTerminalPresentationProjection = (
   value: unknown,
   glyphCatalog: TerminalGlyphCatalog
 ): readonly TerminalPresentationDiagnostic[] => {
-  if (!record(value) || !hasOnlyKeys(value, ['version', 'worldId', 'map', 'status', 'messages', 'prompts', 'input', 'accessibility', 'sidebarBoundary', 'rendererParity', 'contentSafetyAudit'])) {
+  if (!record(value) || !hasOnlyKeys(value, ['version', 'worldId', 'map', 'legend', 'status', 'messages', 'prompts', 'input', 'accessibility', 'sidebarBoundary', 'rendererParity', 'contentSafetyAudit'])) {
     return [issue('terminal-presentation:projection', 'terminal-presentation.malformed-model')]
   }
   const diagnostics: TerminalPresentationDiagnostic[] = []
@@ -1012,6 +1111,11 @@ export const validateTerminalPresentationProjection = (
     const safety = auditMedievalContentSafety([{ id: 'terminal-presentation:map', domain: map.contentDomain as MedievalContentDomain, classification: map.contentSafety as MedievalContentSafetyClassification }])
     if (safety.status === 'rejected') diagnostics.push(...safety.diagnostics.map(item => issue(item.contentId, item.code)))
   }
+
+  const legendDiagnostics = !record(map) || map.state !== 'materialized'
+    ? [issue('terminal-map-legend', 'terminal-presentation.invalid-model')]
+    : validateTerminalMapLegend(map as unknown as TerminalMaterializedMap, value.legend)
+  diagnostics.push(...legendDiagnostics)
 
   const status = Array.isArray(value.status) ? value.status : []
   if (!Array.isArray(value.status) || status.length > TERMINAL_PRESENTATION_LIMITS.statusItems) diagnostics.push(issue('terminal-presentation:status', 'terminal-presentation.invalid-model'))
@@ -1051,10 +1155,11 @@ export const validateTerminalPresentationProjection = (
   }
   if (!same(value.sidebarBoundary, { relationship: 'separate-household-known-strategic-surface', duplicatedStrategicFactCategories: [] }) || !same(value.rendererParity, { asciiCanvas: 'current-adapter', detailedRenderer: 'future-adapter', requirements: TERMINAL_RENDERER_PARITY_RULES })) diagnostics.push(issue('terminal-presentation:parity', 'terminal-presentation.invalid-model'))
 
-  if (record(map) && Array.isArray(value.status) && Array.isArray(value.messages) && Array.isArray(value.prompts)) {
-    const expectedAccessibility = accessibilityFor(map as unknown as TerminalMapSurface, typedStatus, value.messages as TerminalMessage[], value.prompts as TerminalPrompt[])
+  if (record(map) && legendDiagnostics.length === 0 && Array.isArray(value.status) && Array.isArray(value.messages) && Array.isArray(value.prompts)) {
+    const legend = value.legend as unknown as TerminalMapLegend
+    const expectedAccessibility = accessibilityFor(map as unknown as TerminalMapSurface, legend, typedStatus, value.messages as TerminalMessage[], value.prompts as TerminalPrompt[])
     if (!same(value.accessibility, expectedAccessibility)) diagnostics.push(issue('terminal-presentation:accessibility', 'terminal-presentation.invalid-model'))
-    const contentRecords = modelContentRecords(map as unknown as TerminalMapSurface, typedStatus, value.messages as TerminalMessage[], value.prompts as TerminalPrompt[])
+    const contentRecords = modelContentRecords(map as unknown as TerminalMapSurface, legend, typedStatus, value.messages as TerminalMessage[], value.prompts as TerminalPrompt[])
     if (!contentSafetyAuditMatches(contentRecords, value.contentSafetyAudit)) diagnostics.push(issue('terminal-presentation:audit', 'terminal-presentation.invalid-content-audit'))
   } else diagnostics.push(issue('terminal-presentation:accessibility', 'terminal-presentation.invalid-model'))
   return canonicalDiagnostics(diagnostics)

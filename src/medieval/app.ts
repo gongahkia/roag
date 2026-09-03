@@ -6,7 +6,7 @@ import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE } from './palette'
 import { CREATION_SETTINGS_PROFILE_LIMIT, CREATION_SETTINGS_PROFILE_NAME_LIMIT, defaultCreationSettings, normalizeCreationSeed, resolveCreationSettings, type CreationSettings, type CreationSettingsProfile, type CreationSettingsRecord } from './settings'
 import { MedievalWorldRepository } from './storage'
 import { MutableWorldSession } from './session'
-import { cancelTerminalPrompt, createJomonDeckContextualPrompt, createTerminalPresentationModel, type TerminalMaterializedMap, type TerminalPrompt } from './terminal-presentation'
+import { cancelTerminalPrompt, createJomonDeckContextualPrompt, createTerminalPresentationModel, type TerminalMapLegend, type TerminalMaterializedMap, type TerminalPrompt } from './terminal-presentation'
 import { TERMINAL_CONTROL_IDS, captureTerminalControlBinding, createTerminalCommandHelpModel, createTerminalControlsEditorModel, cycleTerminalControlSelection, defaultTerminalControlPreferences, resetAllTerminalControls, resetTerminalControl, resolveTerminalWorldCommand, type TerminalControlId, type TerminalControlPreferences, type TerminalMovementDirection } from './terminal-controls'
 import type { FoundationWorld, MedievalRoute, WorldChronicle, WorldIndex } from './types'
 import { chronicleExport, chooseInitialCourier, createFoundationWorld, moveFoundationWorldCourier } from './world'
@@ -170,6 +170,13 @@ const sidebarFreshnessCue = (item: ManagementSidebarFact): string => item.freshn
     ? 'TIMELESS'
     : `F${item.freshness.atWorldTime}M`
 const sidebarFactMetadata = (item: ManagementSidebarFact): string => `SRC ${sidebarSourceCue(item)} K${item.discoveredAtWorldTime} ${sidebarFreshnessCue(item)}`
+
+/** The canvas resolves glyph characters from the supplied legend references; it owns no symbol meanings. */
+const terminalMapLegendText = (legend: TerminalMapLegend): string => legend.entries.map(entry => {
+  const glyph = findAsciiGlyph(entry.glyph.id)
+  if (!glyph) throw new Error(`terminal legend glyph is unavailable: ${entry.glyph.id}`)
+  return `${glyph.character} ${entry.label.toUpperCase()}`
+}).join(' // ')
 
 export class MedievalApp {
   private readonly context: CanvasRenderingContext2D

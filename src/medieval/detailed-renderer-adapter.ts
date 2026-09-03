@@ -1,7 +1,7 @@
 import { JOMON_ASCII_GLYPH_CATALOG, terminalGlyphCatalog, validateAsciiGlyphCatalog, type AsciiGlyphCatalog } from './ascii-glyphs'
 import { auditMedievalContentSafety, classifyMedievalContent, type MedievalContentDomain, type MedievalContentSafetyClassification } from './content-safety'
 import { MANAGEMENT_SIDEBAR_SECTION_LABELS, managementSidebarFreshnessLabel, validateManagementSidebarProjection, type ManagementSidebarFact, type ManagementSidebarModel } from './management-sidebar'
-import { terminalNonColorCueFor, validateTerminalPresentationProjection, type TerminalEvidenceProvenance, type TerminalGlyphReference, type TerminalMapSurface, type TerminalMessage, type TerminalNonColorCue, type TerminalPresentationModel, type TerminalPresentationState, type TerminalPrompt, type TerminalStatusItem } from './terminal-presentation'
+import { terminalNonColorCueFor, validateTerminalPresentationProjection, type TerminalEvidenceProvenance, type TerminalGlyphReference, type TerminalMapLegend, type TerminalMapLegendEntry, type TerminalMapSurface, type TerminalMessage, type TerminalNonColorCue, type TerminalPresentationModel, type TerminalPresentationState, type TerminalPrompt, type TerminalStatusItem } from './terminal-presentation'
 import { createTerminalCommandHelpModel, validateTerminalControlPreferences, type TerminalControlPreferences, type TerminalHelpEntry } from './terminal-controls'
 import type { JomonPaletteToken } from './palette'
 
@@ -10,7 +10,7 @@ import type { JomonPaletteToken } from './palette'
  * renderer may only consume this already-permitted presentation bundle; it
  * never receives foundation state, persistence, or commands.
  */
-export const DETAILED_RENDERER_ADAPTER_CONTRACT_VERSION = 1 as const
+export const DETAILED_RENDERER_ADAPTER_CONTRACT_VERSION = 2 as const
 export const DETAILED_RENDERER_SOURCE_BUNDLE_VERSION = 1 as const
 
 export const DETAILED_RENDERER_ADAPTER_LIMITS = {
@@ -27,6 +27,7 @@ export const DETAILED_RENDERER_PARITY_RULES = [
   'same-source-time-freshness',
   'same-or-equivalent-accessibility-text',
   'glyph-semantics-identifiable',
+  'map-legend-help-required',
   'effective-input-contract-only',
   'non-authoritative-nontextual-decoration-only'
 ] as const
@@ -76,11 +77,26 @@ export interface DetailedRendererMapCell {
   metadata: DetailedRendererSourceMetadata
 }
 
+export interface DetailedRendererMapLegendEntry {
+  sourceItemId: string
+  entry: TerminalMapLegendEntry
+  glyph: TerminalGlyphReference
+  metadata: DetailedRendererSourceMetadata
+}
+
+export interface DetailedRendererMapLegend {
+  sourceItemId: 'terminal-map-legend'
+  legend: TerminalMapLegend
+  metadata: DetailedRendererSourceMetadata
+  entries: readonly DetailedRendererMapLegendEntry[]
+}
+
 export interface DetailedRendererMapSurface {
   sourceItemId: 'terminal-map'
   map: TerminalMapSurface
   metadata: DetailedRendererSourceMetadata
   cells: readonly DetailedRendererMapCell[]
+  legend: DetailedRendererMapLegend
 }
 
 export interface DetailedRendererStatusItem {
@@ -131,6 +147,7 @@ export interface DetailedRendererDecoration {
 export interface DetailedRendererAccessibilityProjection {
   conciseSummary: string
   mapText: string
+  legendText: string
   statusText: readonly string[]
   messageText: readonly string[]
   promptText: readonly string[]
@@ -203,6 +220,7 @@ export interface DetailedRendererParityReport {
   source: DetailedRendererSourceIdentity | undefined
   checked: {
     mapCells: number
+    legendEntries: number
     status: number
     messages: number
     prompts: number
@@ -302,6 +320,22 @@ const mapMetadata = (map: TerminalMapSurface): DetailedRendererSourceMetadata =>
   contentDomain: map.contentDomain,
   contentSafety: map.contentSafety
 })
+const legendMetadata = (legend: TerminalMapLegend): DetailedRendererSourceMetadata => ({
+  ...neutralMetadata('terminal-map-legend', legend.accessibilityText),
+  evidence: legend.evidence,
+  contentDomain: legend.contentDomain,
+  contentSafety: legend.contentSafety
+})
+const legendEntryMetadata = (entry: TerminalMapLegendEntry): DetailedRendererSourceMetadata => ({
+  sourceItemId: entry.id,
+  paletteToken: entry.paletteToken,
+  presentationState: entry.presentationState,
+  nonColorCue: entry.nonColorCue,
+  accessibilityText: entry.accessibilityText,
+  evidence: entry.evidence,
+  contentDomain: entry.contentDomain,
+  contentSafety: entry.contentSafety
+})
 
 const canonicalJson = (value: unknown): string => {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
@@ -386,6 +420,17 @@ const buildDetailedRendererAdapterModel = (bundle: DetailedRendererSourceBundle)
   const sidebar = bundle.sidebar
   const map = terminal.map
   const help = createTerminalCommandHelpModel(bundle.controls)
+  const legend: DetailedRendererMapLegend = {
+    sourceItemId: 'terminal-map-legend',
+    legend: clone(terminal.legend),
+    metadata: legendMetadata(terminal.legend),
+    entries: terminal.legend.entries.map(entry => ({
+      sourceItemId: entry.id,
+      entry: clone(entry),
+      glyph: clone(entry.glyph),
+      metadata: legendEntryMetadata(entry)
+    }))
+  }
   const detailedMap: DetailedRendererMapSurface = {
     sourceItemId: 'terminal-map',
     map: clone(map),
@@ -401,7 +446,8 @@ const buildDetailedRendererAdapterModel = (bundle: DetailedRendererSourceBundle)
           contentDomain: cell.contentDomain,
           contentSafety: clone(cell.contentSafety)
         } }))
-      : []
+      : [],
+    legend
   }
   const status = terminal.status.map(item => ({ sourceItemId: item.id, status: clone(item), metadata: statusMetadata(item) }))
   const messages = terminal.messages.map(item => ({ sourceItemId: item.id, message: clone(item), metadata: messageMetadata(item) }))
@@ -438,6 +484,7 @@ const buildDetailedRendererAdapterModel = (bundle: DetailedRendererSourceBundle)
     accessibility: {
       conciseSummary: `${terminal.accessibility.conciseSummary} ${sidebar.summary.knownFactCount} household-known sidebar facts remain separately addressable.`,
       mapText: terminal.accessibility.mapText,
+      legendText: terminal.accessibility.legendText,
       statusText: terminal.accessibility.statusText,
       messageText: terminal.accessibility.messageText,
       promptText: terminal.accessibility.promptText,
@@ -458,6 +505,7 @@ export const createDetailedRendererAdapterModel = (bundle: DetailedRendererSourc
 
 const checked = (model: DetailedRendererAdapterModel | undefined): DetailedRendererParityReport['checked'] => ({
   mapCells: model?.map.cells.length ?? 0,
+  legendEntries: model?.map.legend.entries.length ?? 0,
   status: model?.status.length ?? 0,
   messages: model?.messages.length ?? 0,
   prompts: model?.prompts.length ?? 0,
@@ -468,6 +516,8 @@ const checked = (model: DetailedRendererAdapterModel | undefined): DetailedRende
 
 const sourceItems = (model: DetailedRendererAdapterModel): readonly { id: string; payload: unknown; accessibility: string; semantic: unknown; glyph?: unknown }[] => [
   ...model.map.cells.map(item => ({ id: `map:${item.sourceItemId}`, payload: item.cell, accessibility: item.metadata.accessibilityText, semantic: { paletteToken: item.metadata.paletteToken, presentationState: item.metadata.presentationState, nonColorCue: item.metadata.nonColorCue }, glyph: item.glyph })),
+  { id: `legend:${model.map.legend.sourceItemId}`, payload: model.map.legend.legend, accessibility: model.map.legend.metadata.accessibilityText, semantic: { paletteToken: model.map.legend.metadata.paletteToken, presentationState: model.map.legend.metadata.presentationState, nonColorCue: model.map.legend.metadata.nonColorCue } },
+  ...model.map.legend.entries.map(item => ({ id: `legend-entry:${item.sourceItemId}`, payload: item.entry, accessibility: item.metadata.accessibilityText, semantic: { paletteToken: item.metadata.paletteToken, presentationState: item.metadata.presentationState, nonColorCue: item.metadata.nonColorCue }, glyph: item.glyph })),
   ...model.status.map(item => ({ id: `status:${item.sourceItemId}`, payload: item.status, accessibility: item.metadata.accessibilityText, semantic: { paletteToken: item.metadata.paletteToken, presentationState: item.metadata.presentationState, nonColorCue: item.metadata.nonColorCue } })),
   ...model.messages.map(item => ({ id: `message:${item.sourceItemId}`, payload: item.message, accessibility: item.metadata.accessibilityText, semantic: { paletteToken: item.metadata.paletteToken, presentationState: item.metadata.presentationState, nonColorCue: item.metadata.nonColorCue } })),
   ...model.prompts.map(item => ({ id: `prompt:${item.sourceItemId}`, payload: item.prompt, accessibility: item.metadata.accessibilityText, semantic: { paletteToken: item.metadata.paletteToken, presentationState: item.metadata.presentationState, nonColorCue: item.metadata.nonColorCue } })),
@@ -479,6 +529,8 @@ const sourceItems = (model: DetailedRendererAdapterModel): readonly { id: string
 const modelMetadata = (model: DetailedRendererAdapterModel): readonly DetailedRendererSourceMetadata[] => [
   model.map.metadata,
   ...model.map.cells.map(item => item.metadata),
+  model.map.legend.metadata,
+  ...model.map.legend.entries.map(item => item.metadata),
   ...model.status.map(item => item.metadata),
   ...model.messages.map(item => item.metadata),
   ...model.prompts.map(item => item.metadata),
@@ -515,7 +567,7 @@ const reportDetailedRendererParityUnchecked = (bundle: DetailedRendererSourceBun
   const expected = buildDetailedRendererAdapterModel(bundle)
   if (!record(value) || !hasOnlyKeys(value, ['version', 'source', 'parityRules', 'glyphCatalog', 'map', 'status', 'messages', 'prompts', 'commands', 'controls', 'sidebar', 'accessibility', 'decorations', 'interactionBoundary'])) return { status: 'rejected', source: expected.source, checked: checked(undefined), diagnostics: [issue('detailed-model', record(value) && isDirectWorldShape(value) ? 'detailed-renderer.direct-world-input' : 'detailed-renderer.malformed-model')] }
   const candidate = value as unknown as DetailedRendererAdapterModel
-  if (!record(candidate.map) || !Array.isArray(candidate.map.cells) || !Array.isArray(candidate.status) || !Array.isArray(candidate.messages) || !Array.isArray(candidate.prompts) || !Array.isArray(candidate.commands) || !Array.isArray(candidate.controls) || !record(candidate.sidebar) || !Array.isArray(candidate.sidebar.sections) || !record(candidate.accessibility) || !record(candidate.interactionBoundary)) {
+  if (!record(candidate.map) || !Array.isArray(candidate.map.cells) || !record(candidate.map.legend) || !Array.isArray(candidate.map.legend.entries) || !Array.isArray(candidate.status) || !Array.isArray(candidate.messages) || !Array.isArray(candidate.prompts) || !Array.isArray(candidate.commands) || !Array.isArray(candidate.controls) || !record(candidate.sidebar) || !Array.isArray(candidate.sidebar.sections) || !record(candidate.accessibility) || !record(candidate.interactionBoundary)) {
     return { status: 'rejected', source: expected.source, checked: checked(undefined), diagnostics: [issue('detailed-model', 'detailed-renderer.malformed-model')] }
   }
   const diagnostics: DetailedRendererAdapterDiagnostic[] = []
