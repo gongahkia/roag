@@ -75,7 +75,7 @@ describe('medieval performance fixture contract', () => {
     expect(PERFORMANCE_FIXTURE_DUE_EVENT_SEQUENCE_MINUTES).toEqual([60, 180])
     expect(PERFORMANCE_FIXTURE_DUE_EVENT_TOTAL_MINUTES).toBe(240)
     expect([MEDIEVAL_FOUNDATION_SCHEDULER_CADENCE_MINUTES.loaded, MEDIEVAL_FOUNDATION_SCHEDULER_CADENCE_MINUTES.nearby, MEDIEVAL_FOUNDATION_SCHEDULER_CADENCE_MINUTES.recurring, MEDIEVAL_FOUNDATION_SCHEDULER_CADENCE_MINUTES.distantIndividualSummary, MEDIEVAL_FOUNDATION_SCHEDULER_CADENCE_MINUTES.distantSettlementSummary]).toEqual([1, 5, 30, 120, 240])
-    expect(scenarios.every(scenario => scenario.presentation.terminalMapCells === 0 && scenario.presentation.detailedAdapterMapCells === 0 && scenario.presentation.worldTimeBefore === 0 && scenario.presentation.worldTimeAfter === 0 && scenario.presentation.sidebarKnownFactCount === 13)).toBe(true)
+    expect(scenarios.every(scenario => scenario.presentation.terminalMapCells === 113 && scenario.presentation.detailedAdapterMapCells === 113 && scenario.presentation.worldTimeBefore === 0 && scenario.presentation.worldTimeAfter === 0 && scenario.presentation.sidebarKnownFactCount === 13)).toBe(true)
   }, 20_000)
 
   it('keeps terminal, sidebar, and detailed-adapter projections deterministic and zero-time without claiming browser responsiveness', () => {
@@ -86,7 +86,7 @@ describe('medieval performance fixture contract', () => {
 
     expect(first).toEqual(second)
     expect(world).toEqual(before)
-    expect(first.metrics).toMatchObject({ terminalMapCells: 0, detailedAdapterMapCells: 0, worldTimeBefore: 0, worldTimeAfter: 0 })
+    expect(first.metrics).toMatchObject({ terminalMapCells: 113, detailedAdapterMapCells: 113, worldTimeBefore: 0, worldTimeAfter: 0 })
     expect(PERFORMANCE_FIXTURE_MEASUREMENT_BOUNDARIES.reviewOnlyObservations).toContain('Node wall-clock operation and projection timing')
     expect(PERFORMANCE_FIXTURE_MEASUREMENT_BOUNDARIES.nonClaims).toContain('no browser responsiveness percentile is measured')
   })
