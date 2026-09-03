@@ -1,6 +1,6 @@
 # Desktop browser performance and storage baseline
 
-Reviewed 2026-09-02. This is Phase 1.6's reproducible planning baseline for the current medieval foundation. It is not evidence that Jomon already supports a materialized map, large populations, trade, combat, a detailed renderer, or future persistence scale.
+Reviewed 2026-09-02; the deterministic fixture layer below was extended on 2026-09-03. This is Phase 1.6's reproducible planning baseline for the current medieval foundation. It is not evidence that Jomon already supports a materialized map, large populations, trade, combat, a detailed renderer, or future persistence scale.
 
 ## Browser support policy
 
@@ -34,11 +34,25 @@ Run `npm run benchmark:medieval-foundation`. The script uses real public medieva
 
 For each fixture/operation it performs two warm-ups, then nine measured samples. It uses Node `performance.now()` solely as a benchmark wall-clock source. p50 and p95 are linear interpolation over the sorted sample set; min and max are also reported. Timing is deliberately not asserted in Vitest or CI because hardware, thermal state, and browser scheduling vary.
 
-The benchmark measures real foundation generation, initial-courier selection, terminal/sidebar/deferred-adapter pure projections, one valid 240-minute `wait` action, and deterministic UTF-8 canonical JSON byte sizes. It does not fabricate a map, large population, trade, combat, detailed rendering, or a real save/load timing. Browser-ready/focus, IndexedDB save/load, and multi-world/chronicle measurements below are future browser targets for the persistence/fixture slices.
+The benchmark measures real foundation generation, initial-courier selection, terminal/sidebar/deferred-adapter pure projections, one valid 240-minute `wait` action, the fixture layer's valid `60 + 180`-minute due-event sequence, and deterministic UTF-8 canonical JSON byte sizes. It does not fabricate a map, large population, trade, combat, detailed rendering, or a real save/load timing. Node wall-clock results are review observations only; they are never canonical state or CI timing gates. Node heap/RSS is deliberately not recorded because it is GC-sensitive and non-portable. Browser-ready/focus, actual browser input responsiveness, and IndexedDB save/load timing remain unmeasured future browser targets.
 
-## Present deterministic fixtures and scale
+## Deterministic fixture matrix and scale
 
-The source of truth is `src/medieval/performance-budget.ts` v1. Each fixture uses the real `WorldGenerationConfig` resolver and is intentionally a current-foundation specimen, not a future capacity claim. Abbreviations below are terrain/waterway/settlement/population/political/scarcity/ecology/danger scales.
+The source of truth is `src/medieval/performance-budget.ts` v1 and `src/medieval/performance-fixtures.ts` v1. The original diagonal fixtures remain unchanged for historical comparison; the fixture layer crosses every supported generation preset with focused, balanced, and deep fidelity. Every row resolves through the real `WorldGenerationConfig` resolver and is intentionally a current-foundation specimen, not a future capacity claim.
+
+| Fixture | Stable seed | Preset | Fidelity |
+| --- | --- | --- | --- |
+| `sheltered-reach-focused` | `performance-sheltered-reach` | sheltered reach | focused |
+| `sheltered-reach-balanced` | `performance-sheltered-reach-balanced` | sheltered reach | balanced |
+| `sheltered-reach-deep` | `performance-sheltered-reach-deep` | sheltered reach | deep |
+| `watershed-focused` | `performance-watershed-focused` | watershed | focused |
+| `watershed-balanced` | `performance-watershed` | watershed | balanced |
+| `watershed-deep` | `performance-watershed-deep` | watershed | deep |
+| `far-coast-focused` | `performance-far-coast-focused` | far coast | focused |
+| `far-coast-balanced` | `performance-far-coast-balanced` | far coast | balanced |
+| `far-coast-deep` | `performance-far-coast` | far coast | deep |
+
+The three original diagonal rows have the following documented current-foundation records. Abbreviations are terrain/waterway/settlement/population/political/scarcity/ecology/danger scales.
 
 | Fixture / deterministic seed | Resolved configuration | Measured initial records | Persistent people |
 | --- | --- | --- | --- |
@@ -54,11 +68,11 @@ Initial-world deterministic caps are: 7 waterways, 4 seasons, 7 resources, 5 eco
 | balanced | 4 / 3 | 2 / 2 | 4 | 4 | 4 / 4 |
 | deep | 8 / 4 | 3 / 3 | 8 | 8 | 8 / 8 |
 
-Current scheduler cadence is one minute for loaded people/places/institutions, five for nearby people, 30 for recurring people, 120 for distant individual summaries, and 240 for distant settlement/institution summaries. Deferred and historical-only entries are not scheduled. The benchmark's one action is a bounded 240-minute wait specifically to cross every current cadence family without implying real travel or player gameplay.
+Current scheduler cadence is one minute for loaded people/places/institutions, five for nearby people, 30 for recurring people, 120 for distant individual summaries, and 240 for distant settlement/institution summaries. Deferred and historical-only entries are not scheduled. The fixture regression runs valid `60` then `180` minute waits (240 minutes total), while retaining the original comparable one-action 240-minute observation. Both cross every current cadence family without implying real travel or player gameplay; the fixture test proves canonical scheduled-summary projection equivalence across those partitions.
 
-The future storage measurement shape is deliberately small: three independently valid active-world records plus up to four read-only chronicle records. It is a target shape only; no chronicle fixture is fabricated in this benchmark because creation of a chronicle requires real world-finalization authority and no loss/recovery scenario is being benchmarked here.
+The fixture catalogue is deliberately small and entirely in memory: three independently valid active-world envelopes plus four read-only chronicles produced through the real finalization authority. It uses the current pure catalogue helpers only and checks its bounded ordering and canonical index size. It does not open IndexedDB, create a persistent cache, or time a browser persistence operation.
 
-## 2026-09-02 Node baseline results
+## 2026-09-02 historical diagonal Node baseline results
 
 All values are milliseconds, p50 / p95, from the documented two warm-ups and nine measured samples. They are observed measurements, not CI limits and not browser responsiveness claims.
 
@@ -84,9 +98,33 @@ The current projections validate full foundation state by design; their measured
 
 “Enforced” means the deterministic fixture ceiling is checked in the performance-budget unit test. It is not an IndexedDB quota forecast or a new runtime save-rejection rule.
 
+## 2026-09-03 deterministic fixture assertions
+
+The v1 fixture contract checks the nine-row matrix below in ordinary tests. These are deterministic retained-state and canonical-byte proxies, not measurements of RAM, browser quota, or IndexedDB capacity. The after value is the selected full envelope after the `60 + 180` minute sequence; all values remain within the existing 512 KiB full-envelope ceiling.
+
+| Fixture | Initial canonical bytes | After due events | Growth |
+| --- | ---: | ---: | ---: |
+| sheltered-reach-focused | 190,704 | 255,631 | 64,927 |
+| sheltered-reach-balanced | 190,954 | 273,730 | 82,776 |
+| sheltered-reach-deep | 190,686 | 279,218 | 88,532 |
+| watershed-focused | 194,798 | 259,672 | 64,874 |
+| watershed-balanced | 194,667 | 282,952 | 88,285 |
+| watershed-deep | 194,672 | 294,397 | 99,725 |
+| far-coast-focused | 208,732 | 273,525 | 64,793 |
+| far-coast-balanced | 208,351 | 302,156 | 93,805 |
+| far-coast-deep | 208,080 | 313,434 | 105,354 |
+
+The same contract fixes the resulting catch-up cursor/record deltas, causal-history growth, canonical scheduled-summary projection bytes, zero terminal/detailed-adapter map cells, zero-time pure projection behavior, and a 3-active/4-chronicle catalogue index of 635 canonical bytes (within its 64 KiB ceiling). These assertions intentionally do not assert process memory, garbage collection, timing, browser response p95, browser storage quota, or fake/real IndexedDB timing.
+
+## 2026-09-03 Node review observations
+
+`npm run benchmark:medieval-foundation` completed on the documented 8 GB measurement machine with two warm-ups and nine samples for every one of the nine fixtures and seven operations. Its p95 ranges were generation 19.734–102.377 ms, initial courier selection 66.899–259.972 ms, terminal projection 102.772–518.112 ms, sidebar projection 103.199–433.617 ms, detailed-adapter projection 147.948–712.280 ms, one bounded 240-minute wait 146.316–620.512 ms, and the `60 + 180`-minute due-event sequence 267.288–2,250.234 ms. The structured `RESULT_JSON` records each individual observation, fixture resolution, deterministic scenario, and catalogue result.
+
+These values are Node wall-clock review observations only. They are not CI thresholds, browser responsiveness p95 figures, a process-memory measurement, an IndexedDB measurement, or a fact about any canonical or persisted world. The run recorded no heap/RSS value by design.
+
 ## Review targets and storage planning bands
 
-These are conservative Phase 1.6 review targets. They are intentionally not normal-test wall-clock assertions. The later performance-fixtures slice may introduce platform-aware regression policy after real browser measurements exist.
+These are conservative Phase 1.6 review targets. They are intentionally not normal-test wall-clock assertions. The fixture layer records deterministic inputs and output proxies only; a later platform-aware policy still requires real browser measurements.
 
 | Category | p95 / maximum target | Classification |
 | --- | ---: | --- |
@@ -105,4 +143,4 @@ Quota is browser-, origin-, device-, and private-mode-dependent, so these bands 
 
 ## Optimization eligibility
 
-[Profile-guided optimization boundaries](optimization-boundaries.md) separates the current reproducible workload and recorded review observations from future eligibility. It makes the current foundation ineligible for spatial grids, packed/binary authority data, workers, and broad incremental generation: terminal presentation has zero materialized map cells, frontier commitments are bounded, and catch-up is scheduling/provenance rather than domain simulation. Any later optimization needs identity-bound, fail-closed measurement evidence and must preserve deterministic canonical output; no wall-clock value becomes a simulation input or persisted world fact.
+[The performance fixture matrix](#deterministic-fixture-matrix-and-scale) now supplies the complete reproducible current workload to [profile-guided optimization boundaries](optimization-boundaries.md). It does not alter that contract's fail-closed decision: the foundation remains ineligible for spatial grids, packed/binary authority data, workers, durable caches, and broad incremental generation because terminal presentation has zero materialized map cells, frontier commitments are bounded, and catch-up is scheduling/provenance rather than domain simulation. Any later optimization needs identity-bound evidence and must preserve deterministic canonical output; no wall-clock value becomes a simulation input or persisted world fact.

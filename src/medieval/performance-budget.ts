@@ -18,7 +18,8 @@ export const MEDIEVAL_FOUNDATION_BENCHMARK_OPERATION_IDS = [
   'terminal-presentation-projection',
   'management-sidebar-projection',
   'detailed-adapter-projection',
-  'bounded-temporal-action'
+  'bounded-temporal-action',
+  'scheduled-summary-due-event-sequence'
 ] as const
 export type MedievalFoundationBenchmarkOperationId = typeof MEDIEVAL_FOUNDATION_BENCHMARK_OPERATION_IDS[number]
 
@@ -28,11 +29,23 @@ export const MEDIEVAL_FOUNDATION_BENCHMARK_OPERATION_LABELS: Readonly<Record<Med
   'terminal-presentation-projection': 'Terminal presentation projection',
   'management-sidebar-projection': 'Management sidebar projection',
   'detailed-adapter-projection': 'Deferred detailed-adapter projection',
-  'bounded-temporal-action': 'Bounded 240-minute wait action'
+  'bounded-temporal-action': 'Bounded 240-minute wait action',
+  'scheduled-summary-due-event-sequence': 'Deterministic 60 + 180 minute due-event sequence'
 }
 
+export type MedievalFoundationBenchmarkFixtureId =
+  | 'sheltered-reach-focused'
+  | 'sheltered-reach-balanced'
+  | 'sheltered-reach-deep'
+  | 'watershed-focused'
+  | 'watershed-balanced'
+  | 'watershed-deep'
+  | 'far-coast-focused'
+  | 'far-coast-balanced'
+  | 'far-coast-deep'
+
 export interface MedievalFoundationBenchmarkFixture {
-  id: 'sheltered-reach-focused' | 'watershed-balanced' | 'far-coast-deep'
+  id: MedievalFoundationBenchmarkFixtureId
   label: string
   seed: string
   configuration: WorldGenerationConfigRequest

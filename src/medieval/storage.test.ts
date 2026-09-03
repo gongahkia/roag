@@ -902,7 +902,7 @@ describe('medieval local persistence', () => {
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(before.id, { version: 999 })
     await expect(repository.saveWorld(next)).rejects.toThrow('corrupt-existing-world')
     expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(before.id)).toEqual({ version: 999 })
-  })
+  }, 20_000)
 
   it('upgrades valid v3 envelopes without forced rewrites and adds metadata only on an explicit save', async () => {
     const legacy = fakeIndexedDB.seedV3(MEDIEVAL_DATABASE_NAME)

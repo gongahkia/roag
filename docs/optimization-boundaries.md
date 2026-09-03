@@ -4,9 +4,9 @@ This is the Phase 1.6 v1 decision boundary for future optimization. It is delibe
 
 ## Current measured foundation
 
-The only current profiling inputs are the three deterministic fixtures from `performance-budget.ts`: sheltered reach/focused, watershed/balanced, and far coast/deep. Each resolves through production generation configuration and uses its fixed seed, initial-world caps, six instantiated Jomon crew, fidelity plan, terminal/sidebar/deferred-adapter projections, and one bounded 240-minute action crossing the 1/5/30/120/240-minute scheduler cadences. The benchmark's 2026-09-02 timing observations and deterministic UTF-8 byte accounting are in [the performance/storage baseline](performance-storage-baseline.md).
+The reproducible current profiling inputs are the nine deterministic `performance-fixtures.ts` rows: every supported sheltered-reach, watershed, and far-coast preset crossed with focused, balanced, and deep fidelity. The original sheltered/focused, watershed/balanced, and far-coast/deep rows remain unchanged for historical comparison. Each resolves through production generation configuration and uses its fixed seed, initial-world caps, six instantiated Jomon crew, fidelity plan, terminal/sidebar/deferred-adapter pure projections, and a valid `60 + 180` minute partition checked against one bounded 240-minute action across the 1/5/30/120/240-minute scheduler cadences. The benchmark's Node timing observations and deterministic UTF-8 byte accounting are in [the performance/storage baseline](performance-storage-baseline.md).
 
-Timing observations are review evidence only. They are neither CI timing gates nor world inputs. The enforced facts are the deterministic fixture byte ceilings; the 16/24/32 MiB values are planning bands; browser-response figures are future targets. No browser/quota measurement is invented by this contract.
+Timing observations are review evidence only. They are neither CI timing gates nor world inputs. The enforced facts are the deterministic fixture byte ceilings and retained-state growth proxies; the 16/24/32 MiB values are planning bands; browser-response figures are future targets. The fixture contract intentionally collects neither process-memory values nor browser/quota measurements.
 
 Current facts deliberately make every strategy below **not yet eligible**:
 

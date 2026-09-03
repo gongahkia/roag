@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { classifyMedievalContent } from './content-safety'
 import { MEDIEVAL_FOUNDATION_BENCHMARK_FIXTURES } from './performance-budget'
-import { CANONICAL_EXECUTION_BOUNDARIES, OPTIONAL_WORKER_FAILURE_BOUNDARY, OPTIMIZATION_STRATEGY_BOUNDARIES, SCHEDULED_SUMMARY_BATCH_BOUNDARY, createDerivedRepresentationBinding, createMemoizationBoundary, createOptionalWorkerExecutionRequest, createOptionalWorkerExecutionResult, currentFoundationOptimizationEvidenceFor, derivedRepresentationIsUsable, memoizationBoundaryIsUsable, optimizationDecisionRecordsFor, validateCurrentFoundationOptimizationEvidence, validateOptionalWorkerExecutionResult } from './optimization-boundaries'
+import { CANONICAL_EXECUTION_BOUNDARIES, OPTIONAL_WORKER_FAILURE_BOUNDARY, OPTIMIZATION_STRATEGY_BOUNDARIES, SCHEDULED_SUMMARY_BATCH_BOUNDARY, canonicalWorkerRngStreamNames, createDerivedRepresentationBinding, createMemoizationBoundary, createOptionalWorkerExecutionRequest, createOptionalWorkerExecutionResult, currentFoundationOptimizationEvidenceFor, derivedRepresentationIsUsable, memoizationBoundaryIsUsable, optimizationDecisionRecordsFor, validateCurrentFoundationOptimizationEvidence, validateOptionalWorkerExecutionResult } from './optimization-boundaries'
 import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld } from './world'
 
 const fixtureWorld = (fixture = MEDIEVAL_FOUNDATION_BENCHMARK_FIXTURES[0]) => chooseInitialCourier(createFoundationWorld({ seed: fixture.seed, configuration: fixture.configuration }), 'crew:0')
@@ -103,6 +103,12 @@ describe('profile-guided optimization boundaries', () => {
     expect(validateOptionalWorkerExecutionResult(request, mismatch, world, { materialized: false, result: 'canonical' })).toEqual({ status: 'rejected', reason: 'main-thread-output-mismatch' })
     expect(validateOptionalWorkerExecutionResult(malformedRng, result, world, { materialized: false, result: 'canonical' })).toEqual({ status: 'rejected', reason: 'malformed-request-or-result' })
   }, 20_000)
+
+  it('uses a locale-independent ordinal order for valid mixed-case worker RNG stream identifiers', () => {
+    const streams = ['rng_a', 'rng:0', 'rng-A', 'rng.a', 'rng-Z']
+    expect(canonicalWorkerRngStreamNames(streams)).toEqual(['rng-A', 'rng-Z', 'rng.a', 'rng:0', 'rng_a'])
+    expect(canonicalWorkerRngStreamNames([...streams].reverse())).toEqual(['rng-A', 'rng-Z', 'rng.a', 'rng:0', 'rng_a'])
+  })
 
   it('states that no derived path is an alternative authority and wall-clock data cannot become world state', () => {
     expect(CANONICAL_EXECUTION_BOUNDARIES).toMatchObject({

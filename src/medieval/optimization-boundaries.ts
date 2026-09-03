@@ -422,7 +422,8 @@ export const OPTIONAL_WORKER_FAILURE_BOUNDARY = {
   authority: 'normal-validated-main-thread-path-remains-authoritative'
 } as const
 
-const canonicalWorkerStreams = (streams: readonly string[]): readonly string[] => [...streams].sort((left, right) => left.localeCompare(right))
+/** Canonical request bytes must not depend on the runtime's default locale. */
+export const canonicalWorkerRngStreamNames = (streams: readonly string[]): readonly string[] => [...streams].sort((left, right) => left === right ? 0 : left < right ? -1 : 1)
 const workerResultDigestFor = (request: Pick<OptionalWorkerExecutionRequest, 'requestId' | 'authority' | 'operation'>, canonicalOutput: string): string => persistenceDigestFor('optimization-worker-result', { requestId: request.requestId, authority: request.authority, operation: request.operation, canonicalOutput })
 
 /** A future adapter may serialize this value; this module never constructs or starts a Worker. */
@@ -434,7 +435,7 @@ export const createOptionalWorkerExecutionRequest = (
   rngStreamNames: readonly string[] = []
 ): OptionalWorkerExecutionRequest => {
   if (!safeIdentifier(requestId) || rngStreamNames.some(name => !safeIdentifier(name)) || new Set(rngStreamNames).size !== rngStreamNames.length) throw new Error('worker request identity or RNG stream is invalid')
-  const streamNames = canonicalWorkerStreams(rngStreamNames)
+  const streamNames = canonicalWorkerRngStreamNames(rngStreamNames)
   return {
     version: OPTIONAL_WORKER_ADAPTER_CONTRACT_VERSION,
     requestId,
@@ -484,7 +485,7 @@ export const validateOptionalWorkerExecutionResult = (
   const rng = typedRequest.rng
   const validRng = record(rng)
     && ((rng.kind === 'none' && exactKeys(rng, ['kind']))
-      || (rng.kind === 'named-deterministic-streams' && exactKeys(rng, ['kind', 'streamNames']) && Array.isArray(rng.streamNames) && rng.streamNames.every(safeIdentifier) && new Set(rng.streamNames).size === rng.streamNames.length && same(rng.streamNames, canonicalWorkerStreams(rng.streamNames))))
+      || (rng.kind === 'named-deterministic-streams' && exactKeys(rng, ['kind', 'streamNames']) && Array.isArray(rng.streamNames) && rng.streamNames.every(safeIdentifier) && new Set(rng.streamNames).size === rng.streamNames.length && same(rng.streamNames, canonicalWorkerRngStreamNames(rng.streamNames))))
   if (!validRng) return { status: 'rejected', reason: 'malformed-request-or-result' }
   if (!same(typedRequest.authority, currentAuthority) || !same(typedResult.authority, currentAuthority)) return { status: 'rejected', reason: 'stale-authority' }
   if (typedResult.output.digest !== workerResultDigestFor(typedRequest, typedResult.output.canonicalJson) || typedResult.output.canonicalJson !== canonicalSerializedJson(canonicalMainThreadOutput)) return { status: 'rejected', reason: 'main-thread-output-mismatch' }

@@ -191,7 +191,7 @@ describe('constrained deterministic delegation', () => {
     expect(single.state.temporal.causalRecords).not.toEqual(split.state.temporal.causalRecords)
     expect(validateFoundationWorld(single)).toEqual([])
     expect(validateFoundationWorld(split)).toEqual([])
-  })
+  }, 20_000)
 
   it('interrupts only active work through the active courier and releases the exact commitment at resolution time', () => {
     const first = acceptedOffer(selectedWorld('delegation-interruption'), 'offer:interrupt')

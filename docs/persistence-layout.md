@@ -37,8 +37,10 @@ Exports are read-only and deterministic for the same supplied record. Imports re
 
 UI affordances for preflight warnings, backup download/upload, and recovery choice are deliberately deferred. This contract does not yet split envelopes, add optimization, or claim large-world persistence capacity.
 
-## Future derived optimization forms
+## Fixture coverage and future derived optimization forms
 
-[Profile-guided optimization boundaries](optimization-boundaries.md) defines the only permitted future design shape for derived indexes, compact/packed projections, memoization, and optional worker results. Each durable derived form must bind the authoritative full-envelope ID, causal revision, digest, canonical byte count, and its relevant contract version; any mismatch invalidates and rebuilds it. It remains read-only, known-facts-only, and never becomes a second mutable authority or a hidden-frontier discovery surface.
+`performance-fixtures.ts` v1 constructs three valid active envelopes and four read-only chronicles through existing pure world/finalization and catalogue APIs, then checks the bounded canonical index ordering and byte size in memory. This is fixture coverage only: it opens no database, adds no store, persists no cache, and does not treat canonical bytes as browser quota or IndexedDB timing.
+
+[Profile-guided optimization boundaries](optimization-boundaries.md) defines the only permitted future design shape for derived indexes, compact/packed projections, memoization, and optional worker results. The [performance fixture matrix](performance-storage-baseline.md#deterministic-fixture-matrix-and-scale) supplies reproducible current inputs, not optimization authorization. Each durable derived form must bind the authoritative full-envelope ID, causal revision, digest, canonical byte count, and its relevant contract version; any mismatch invalidates and rebuilds it. It remains read-only, known-facts-only, and never becomes a second mutable authority or a hidden-frontier discovery surface.
 
 This design adds no derived cache store and does not alter layout v4. `FoundationWorld` remains the sole mutable authority, valid v3 envelopes continue to load without a metadata rewrite, and layout metadata remains explicit-save-only.
