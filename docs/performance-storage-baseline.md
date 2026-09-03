@@ -1,6 +1,6 @@
 # Desktop browser performance and storage baseline
 
-Reviewed 2026-09-02; the deterministic fixture layer below was extended on 2026-09-03. This is Phase 1.6's reproducible planning baseline for the current medieval foundation. It is not evidence that Jomon already supports a materialized map, large populations, trade, combat, a detailed renderer, or future persistence scale.
+Reviewed 2026-09-02; the deterministic fixture layer below was extended on 2026-09-03. This is Phase 1.6's reproducible planning baseline for the current medieval foundation. It is not evidence that Jomon already supports large populations, trade, combat, a detailed renderer, or future persistence scale.
 
 ## Browser support policy
 
@@ -34,7 +34,7 @@ Run `npm run benchmark:medieval-foundation`. The script uses real public medieva
 
 For each fixture/operation it performs two warm-ups, then nine measured samples. It uses Node `performance.now()` solely as a benchmark wall-clock source. p50 and p95 are linear interpolation over the sorted sample set; min and max are also reported. Timing is deliberately not asserted in Vitest or CI because hardware, thermal state, and browser scheduling vary.
 
-The benchmark measures real foundation generation, initial-courier selection, terminal/sidebar/deferred-adapter pure projections, one valid 240-minute `wait` action, the fixture layer's valid `60 + 180`-minute due-event sequence, and deterministic UTF-8 canonical JSON byte sizes. It does not fabricate a map, large population, trade, combat, detailed rendering, or a real save/load timing. Node wall-clock results are review observations only; they are never canonical state or CI timing gates. Node heap/RSS is deliberately not recorded because it is GC-sensitive and non-portable. Browser-ready/focus, actual browser input responsiveness, and IndexedDB save/load timing remain unmeasured future browser targets.
+The benchmark measures real foundation generation, initial-courier selection, terminal/sidebar/deferred-adapter pure projections, one valid 240-minute `wait` action, the fixture layer's valid `60 + 180`-minute due-event sequence, and deterministic UTF-8 canonical JSON byte sizes. Its selected-world projections include the current 113 static deck/hull cells plus one source-backed active-courier marker; it does not fabricate a large population, trade, combat, detailed rendering, or a real save/load timing. Node wall-clock results are review observations only; they are never canonical state or CI timing gates. Node heap/RSS is deliberately not recorded because it is GC-sensitive and non-portable. Browser-ready/focus, actual browser input responsiveness, and IndexedDB save/load timing remain unmeasured future browser targets.
 
 ## Deterministic fixture matrix and scale
 
@@ -143,4 +143,4 @@ Quota is browser-, origin-, device-, and private-mode-dependent, so these bands 
 
 ## Optimization eligibility
 
-[The performance fixture matrix](#deterministic-fixture-matrix-and-scale) now supplies the complete reproducible current workload to [profile-guided optimization boundaries](optimization-boundaries.md). It does not alter that contract's fail-closed decision: the foundation remains ineligible for spatial grids, packed/binary authority data, workers, durable caches, and broad incremental generation because terminal presentation has zero materialized map cells, frontier commitments are bounded, and catch-up is scheduling/provenance rather than domain simulation. Any later optimization needs identity-bound evidence and must preserve deterministic canonical output; no wall-clock value becomes a simulation input or persisted world fact.
+[The performance fixture matrix](#deterministic-fixture-matrix-and-scale) now supplies the complete reproducible current workload to [profile-guided optimization boundaries](optimization-boundaries.md). It does not alter that contract's fail-closed decision: the foundation remains ineligible for spatial grids, packed/binary authority data, workers, durable caches, and broad incremental generation because terminal presentation materializes only 113 static deck/hull cells plus a source-backed active-courier marker, frontier commitments are bounded, and catch-up is scheduling/provenance rather than domain simulation. Any later optimization needs identity-bound evidence and must preserve deterministic canonical output; no wall-clock value becomes a simulation input or persisted world fact.

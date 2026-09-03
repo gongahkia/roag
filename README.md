@@ -2,7 +2,7 @@
 
 Jomon is a single-player, offline-first, browser-based procedural low-mysticism medieval river-and-coast roguelike. Jomon is both the game and a working vessel: an itinerant household carrying people, goods, debts, and news between river settlements and a contested coast.
 
-The project is at a documented clean-break boundary. The checked-in prototype still contains superseded space-era implementation and is **not** the current game canon. The rebuild now includes bounded local movement on Jomon's full known deck; tavern crew switching, gangplank/quay departure, and contextual vessel interactions remain deferred.
+The project is at a documented clean-break boundary. The checked-in prototype still contains superseded space-era implementation and is **not** the current game canon. The rebuild now includes bounded local movement on Jomon's full known deck and a zero-time map legend through remappable command help; tavern crew switching, gangplank/quay departure, and contextual vessel interactions remain deferred.
 
 - [Lore and content reference](LORE.md)
 - [Authoritative roadmap](TODO.md)
@@ -14,7 +14,7 @@ The project is at a documented clean-break boundary. The checked-in prototype st
 - [Courier loss policy assessment boundary](docs/courier-loss-policy.md)
 - [Jomon integrity policy assessment boundary](docs/jomon-integrity-policy.md)
 - [Semantic palette and accessibility contract](docs/semantic-palette.md)
-- [Static Jomon deck-plan and primary ASCII projection](docs/jomon-deck-plan.md)
+- [Static Jomon deck-plan, map legend, and primary ASCII projection](docs/jomon-deck-plan.md)
 
 ## Development
 
