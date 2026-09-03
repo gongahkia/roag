@@ -102,3 +102,7 @@ These are conservative Phase 1.6 review targets. They are intentionally not norm
 | Elevated storage-pressure review point | 32 MiB total | Planning band |
 
 Quota is browser-, origin-, device-, and private-mode-dependent, so these bands are not a reservation. The application must not fill quota while measuring. Valid active worlds and finalized chronicles are retention priorities and must never be silently deleted by Jomon. Quota/write recovery, snapshots, and explicit import/export backup UX belong to the next persistence task.
+
+## Optimization eligibility
+
+[Profile-guided optimization boundaries](optimization-boundaries.md) separates the current reproducible workload and recorded review observations from future eligibility. It makes the current foundation ineligible for spatial grids, packed/binary authority data, workers, and broad incremental generation: terminal presentation has zero materialized map cells, frontier commitments are bounded, and catch-up is scheduling/provenance rather than domain simulation. Any later optimization needs identity-bound, fail-closed measurement evidence and must preserve deterministic canonical output; no wall-clock value becomes a simulation input or persisted world fact.

@@ -36,3 +36,9 @@ Snapshots can be inspected without mutation. Restore is explicit; it uses the sa
 Exports are read-only and deterministic for the same supplied record. Imports reject malformed, noncanonical, incompatible, unsafe, replay-invalid, mixed-ID, digest-mismatched, oversized (over 1 MiB), or collision records before mutation. Active-world import rejects an existing ID by default; explicit `replace` snapshots the valid old active envelope atomically. Chronicle imports remain read-only and reject collisions; they never become active worlds. The existing chronicle-export API remains unchanged.
 
 UI affordances for preflight warnings, backup download/upload, and recovery choice are deliberately deferred. This contract does not yet split envelopes, add optimization, or claim large-world persistence capacity.
+
+## Future derived optimization forms
+
+[Profile-guided optimization boundaries](optimization-boundaries.md) defines the only permitted future design shape for derived indexes, compact/packed projections, memoization, and optional worker results. Each durable derived form must bind the authoritative full-envelope ID, causal revision, digest, canonical byte count, and its relevant contract version; any mismatch invalidates and rebuilds it. It remains read-only, known-facts-only, and never becomes a second mutable authority or a hidden-frontier discovery surface.
+
+This design adds no derived cache store and does not alter layout v4. `FoundationWorld` remains the sole mutable authority, valid v3 envelopes continue to load without a metadata rewrite, and layout metadata remains explicit-save-only.
