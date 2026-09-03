@@ -150,6 +150,7 @@ export type JomonIntegrityPolicyDiagnosticCode =
   | 'jomon-integrity-policy.unknown-causal-evidence-kind'
   | 'jomon-integrity-policy.unknown-causal-fact'
   | 'jomon-integrity-policy.stale-causal-fact'
+  | 'jomon-integrity-policy.ineligible-causal-fact'
   | 'jomon-integrity-policy.invalid-causal-chain'
   | 'jomon-integrity-policy.missing-grounded-cause'
   | 'jomon-integrity-policy.missing-recovery-cost'
@@ -306,6 +307,22 @@ export const jomonIntegrityBand = (integrity: Pick<WorldJomonState['integrity'],
 
 const incidentRecordId = (value: unknown): string => record(value) && typeof value.id === 'string' ? value.id : 'jomon-incident:assessment'
 const recoveryCostKinds: readonly JomonIntegrityEvidenceKind[] = ['material-cost', 'labour-cost', 'action-time-cost', 'risk-cost']
+const causalEvidenceFactKinds: Readonly<Record<JomonIntegrityEvidenceKind, readonly EffectKnownFact['kind'][]>> = {
+  'grounded-cause': ['condition', 'environment', 'grounded-object', 'grounded-practice'],
+  'material-cost': ['equipment', 'grounded-object'],
+  'labour-cost': ['crew-support'],
+  'action-time-cost': ['condition', 'preparation'],
+  'risk-cost': ['condition', 'environment'],
+  'recovery-trade-off': ['condition', 'preparation', 'equipment', 'grounded-object', 'environment'],
+  'adverse-counterplay': ['preparation', 'equipment', 'grounded-object', 'crew-support', 'environment'],
+  'collapse-evidence': ['condition', 'environment', 'grounded-object', 'grounded-practice']
+}
+const safeguardSourceFactKinds: Readonly<Record<MysticalEffectPolicyAuditRecord['sourceClass'], readonly EffectKnownFact['kind'][]>> = {
+  'material-object': ['grounded-object'],
+  'specific-place': ['grounded-practice'],
+  'bounded-practice': ['grounded-practice'],
+  'relationship-condition': ['crew-support']
+}
 
 /**
  * Validates only input evidence and future policy eligibility. Existing world,
@@ -356,6 +373,7 @@ export const validateJomonIntegrityAssessmentRequest = (value: unknown): JomonIn
       const fact = facts.get(item.factId)
       if (!validId(item.factId, 'fact:') || !positiveInteger(item.factRevision) || !fact) issues.push(diagnostic(item.id, 'jomon-integrity-policy.unknown-causal-fact'))
       else if (fact.revision !== item.factRevision) issues.push(diagnostic(item.id, 'jomon-integrity-policy.stale-causal-fact'))
+      else if (oneOf(JOMON_INTEGRITY_EVIDENCE_KINDS, item.kind) && !causalEvidenceFactKinds[item.kind].includes(fact.kind)) issues.push(diagnostic(item.id, 'jomon-integrity-policy.ineligible-causal-fact'))
     }
     if (new Set(ids).size !== ids.length) issues.push(diagnostic(incidentId, 'jomon-integrity-policy.duplicate-causal-evidence-id'))
     if (!canonical(ids)) issues.push(diagnostic(incidentId, 'jomon-integrity-policy.noncanonical-causal-evidence-order'))
@@ -403,6 +421,7 @@ export const validateJomonIntegrityAssessmentRequest = (value: unknown): JomonIn
         if (!record(reservation.source) || reservation.source.factId !== reservation.policyRecord.sourceFactId) issues.push(diagnostic(recordId, 'jomon-integrity-policy.ungrounded-safeguard'))
         const source = record(reservation.source) && typeof reservation.source.factId === 'string' ? facts.get(reservation.source.factId) : undefined
         if (!source || !record(reservation.source) || source.revision !== reservation.source.factRevision) issues.push(diagnostic(recordId, 'jomon-integrity-policy.stale-safeguard-source'))
+        else if (!safeguardSourceFactKinds[reservation.policyRecord.sourceClass].includes(source.kind)) issues.push(diagnostic(recordId, 'jomon-integrity-policy.ungrounded-safeguard'))
         if (reservation.policyRecord.rarity !== 'ultra-rare' || reservation.policyRecord.futureReservation?.kind !== 'future-jomon-loss-safeguard' || reservation.policyRecord.futureReservation?.status !== 'deferred-no-authority') issues.push(diagnostic(recordId, 'jomon-integrity-policy.unauthorized-safeguard'))
       }
       if (!boundedCanonicalIds(reservation.causalEvidenceIds, JOMON_INTEGRITY_POLICY_LIMITS.causalEvidence) || !reservation.causalEvidenceIds.every(id => evidence.some(item => item.id === id))) issues.push(diagnostic(recordId, 'jomon-integrity-policy.invalid-safeguard-chain'))

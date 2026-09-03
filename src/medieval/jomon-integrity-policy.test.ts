@@ -232,6 +232,8 @@ describe('Jomon integrity policy assessment boundary', () => {
     ;(unsafe.incident.contentSafety.exclusions as unknown as Record<string, string>).torture = 'present'
     const ungrounded = request()
     ungrounded.causalEvidence[0]!.factId = 'fact:environment:not-known'
+    const ineligibleCause = request()
+    ineligibleCause.causalEvidence[0]!.factId = 'fact:actor:jomon'
     const contradictory = request()
     contradictory.jomon.integrity.current = 100
     const missingCollapse = request({ incident: { id: 'jomon-incident:missing-collapse', kind: 'terminal-collapse', contentSafety: incidentSafety() } })
@@ -250,6 +252,7 @@ describe('Jomon integrity policy assessment boundary', () => {
     expect(codes(noncanonical)).toContain('jomon-integrity-policy.noncanonical-causal-evidence-order')
     expect(codes(unsafe)).toContain('jomon-integrity-policy.invalid-incident-safety')
     expect(codes(ungrounded)).toContain('jomon-integrity-policy.unknown-causal-fact')
+    expect(codes(ineligibleCause)).toContain('jomon-integrity-policy.ineligible-causal-fact')
     expect(codes(contradictory)).toContain('jomon-integrity-policy.contradictory-integrity-incident')
     expect(codes(missingCollapse)).toContain('jomon-integrity-policy.missing-collapse-evidence')
     expect(codes(unauthorized)).toContain('jomon-integrity-policy.unauthorized-safeguard')
