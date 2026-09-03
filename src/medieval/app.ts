@@ -1,7 +1,7 @@
 import { GENERATION_CONFIG_PRESETS, WORLD_GENERATION_ADVANCED_SETTING_NAMES, WORLD_GENERATION_ADVANCED_SETTING_OPTIONS, type WorldGenerationAdvancedSettings, type WorldGenerationPreset } from './generation-config'
 import { INITIAL_WORLD_GENERATION_STAGES, type InitialWorldGenerationProgress } from './initial-world'
 import { MANAGEMENT_SIDEBAR_SECTION_IDS, MANAGEMENT_SIDEBAR_SECTION_LABELS, MANAGEMENT_SIDEBAR_SOURCE_LABELS, createManagementSidebarModel, managementSidebarAccessibleSummary, type ManagementSidebarFact, type ManagementSidebarModel } from './management-sidebar'
-import { findAsciiGlyph } from './ascii-glyphs'
+import { JOMON_ASCII_GLYPH_CATALOG } from './ascii-glyphs'
 import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE } from './palette'
 import { CREATION_SETTINGS_PROFILE_LIMIT, CREATION_SETTINGS_PROFILE_NAME_LIMIT, defaultCreationSettings, normalizeCreationSeed, resolveCreationSettings, type CreationSettings, type CreationSettingsProfile, type CreationSettingsRecord } from './settings'
 import { MedievalWorldRepository } from './storage'
@@ -173,7 +173,7 @@ const sidebarFactMetadata = (item: ManagementSidebarFact): string => `SRC ${side
 
 /** The canvas resolves glyph characters from the supplied legend references; it owns no symbol meanings. */
 const terminalMapLegendText = (legend: TerminalMapLegend): string => legend.entries.map(entry => {
-  const glyph = findAsciiGlyph(entry.glyph.id)
+  const glyph = JOMON_ASCII_GLYPH_CATALOG.entries.find(candidate => candidate.id === entry.glyph.id)
   if (!glyph) throw new Error(`terminal legend glyph is unavailable: ${entry.glyph.id}`)
   return `${glyph.character} ${entry.label.toUpperCase()}`
 }).join(' // ')
@@ -1048,7 +1048,7 @@ export class MedievalApp {
     context.strokeStyle = palette.panelBorder
     context.strokeRect(originX - 10.5, originY - 10.5, mapWidth + 20, mapHeight + 20)
     for (const cell of map.cells) {
-      const glyph = findAsciiGlyph(cell.glyph.id)
+      const glyph = JOMON_ASCII_GLYPH_CATALOG.entries.find(candidate => candidate.id === cell.glyph.id)
       if (!glyph) throw new Error(`terminal map glyph is unavailable: ${cell.glyph.id}`)
       context.fillStyle = palette[cell.paletteToken]
       context.fillText(glyph.character, originX + (cell.coordinate.column - map.viewport.origin.column) * cellWidth, originY + (cell.coordinate.row - map.viewport.origin.row + 1) * cellHeight)
