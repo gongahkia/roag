@@ -321,7 +321,7 @@ describe('medieval local persistence', () => {
     expect(await repository.loadWorld('world:not-present')).toBeUndefined()
   })
 
-  it('keeps valid local creation settings intact while saving and loading the v13 full-world record', async () => {
+  it('keeps valid local creation settings intact while saving and loading the current full-world record', async () => {
     const repository = new MedievalWorldRepository()
     const settings = { ...defaultCreationSettings(), seed: 'settings-survive-state', configuration: { preset: 'far-coast' as const, advanced: {} } }
     const world = chooseInitialCourier(createFoundationWorld({ seed: 'settings-survive-state', configuration: settings.configuration }), 'crew:0')

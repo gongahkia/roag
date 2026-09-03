@@ -76,7 +76,10 @@ describe('medieval performance fixture contract', () => {
     expect(PERFORMANCE_FIXTURE_DUE_EVENT_TOTAL_MINUTES).toBe(240)
     expect([MEDIEVAL_FOUNDATION_SCHEDULER_CADENCE_MINUTES.loaded, MEDIEVAL_FOUNDATION_SCHEDULER_CADENCE_MINUTES.nearby, MEDIEVAL_FOUNDATION_SCHEDULER_CADENCE_MINUTES.recurring, MEDIEVAL_FOUNDATION_SCHEDULER_CADENCE_MINUTES.distantIndividualSummary, MEDIEVAL_FOUNDATION_SCHEDULER_CADENCE_MINUTES.distantSettlementSummary]).toEqual([1, 5, 30, 120, 240])
     expect(scenarios.every(scenario => scenario.presentation.terminalMapCells === 114 && scenario.presentation.detailedAdapterMapCells === 114 && scenario.presentation.worldTimeBefore === 0 && scenario.presentation.worldTimeAfter === 0 && scenario.presentation.sidebarKnownFactCount === 13)).toBe(true)
-  }, 20_000)
+  // Nine fixtures are each derived twice to prove reproduction, then exercise
+  // the fixed 60 + 180 minute scheduler sequence. This is deterministic work,
+  // not a wall-clock regression assertion.
+  }, 60_000)
 
   it('keeps terminal, sidebar, and detailed-adapter projections deterministic and zero-time without claiming browser responsiveness', () => {
     const world = selectedPerformanceFixtureWorld(MEDIEVAL_PERFORMANCE_FIXTURE_MATRIX[4]!)

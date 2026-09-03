@@ -6,8 +6,9 @@ import type { FoundationJomon, FoundationWorld, JomonDeckPartition, JomonVesselP
 import { validateFoundationWorld } from './world'
 
 /**
- * A static, renderer-independent future-map input. This contract deliberately
- * does not materialize terminal cells or add spatial state to FoundationWorld.
+ * A static, renderer-independent map input. This contract does not materialize
+ * terminal cells itself; terminal presentation projects it without adding a
+ * second geometry or mutable-world authority.
  */
 export const JOMON_DECK_PLAN_CONTRACT_VERSION = 1 as const
 
