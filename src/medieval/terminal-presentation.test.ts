@@ -15,6 +15,7 @@ import {
   terminalNonColorCueFor,
   validateTerminalInputModes,
   validateTerminalKeyboardCommands,
+  validateTerminalMapLegend,
   validateTerminalMaterializedCells,
   validateTerminalMessages,
   validateTerminalPresentationModel,
@@ -107,6 +108,14 @@ describe('terminal presentation contract', () => {
     expect(first.map.cells.filter(cell => cell.id !== 'terminal-marker:active-courier')).toHaveLength(113)
     expect(first.map.cells.filter(cell => cell.coordinate.column === 4 && cell.coordinate.row === 4)).toHaveLength(2)
     expect(first.map.accessibilityText).toMatch(/static Jomon deck map.*active courier marker.*full deck known.*no cargo, other people, hazards, travel, or prop actions/i)
+    expect(first.legend.entries.map(entry => entry.glyph.id)).toEqual([
+      'person:active-courier', 'route:quay-approach', 'vessel:gangplank', 'vessel:hull-planking', 'vessel:open-deck'
+    ])
+    expect(first.legend.entries.map(entry => entry.id)).toEqual([...first.legend.entries.map(entry => entry.id)].sort())
+    expect(first.legend.entries.every(entry => entry.accessibilityText.includes('Source ') && entry.accessibilityText.includes('known at world minute'))).toBe(true)
+    expect(first.legend.movementText).toMatch(/successful local step advances one action minute.*blocked.*no world state or time/i)
+    expect(first.legend.limitationsText).toMatch(/fixed known deck.*no cargo, NPC, hazard, travel, fog, or prop actions/i)
+    expect(first.accessibility.legendText).toEqual(first.legend.accessibilityText)
     expect(first.messages).toEqual([])
     expect(first.prompts).toEqual([])
     expect(first.sidebarBoundary).toEqual({ relationship: 'separate-household-known-strategic-surface', duplicatedStrategicFactCategories: [] })
@@ -141,7 +150,8 @@ describe('terminal presentation contract', () => {
       'same-authoritative-terminal-model',
       'no-consequential-omission',
       'no-consequential-invention',
-      'text-equivalent-required'
+      'text-equivalent-required',
+      'legend-help-information-required'
     ])
   })
 
@@ -160,6 +170,28 @@ describe('terminal presentation contract', () => {
     expect(validateTerminalPresentationModel(world, missing).map(item => item.code)).toContain('terminal-presentation.invalid-model')
     expect(validateTerminalPresentationModel(world, extra).map(item => item.code)).toContain('terminal-presentation.invalid-model')
     expect(validateTerminalPresentationModel(world, reordered).map(item => item.code)).toContain('terminal-presentation.invalid-model')
+  })
+
+  it('derives a canonical, source-backed visible-glyph legend without hidden world facts and rejects altered legend data', () => {
+    const world = selectedWorld('terminal-map-legend')
+    const before = structuredClone(world)
+    const model = createTerminalPresentationModel(world)
+    const encoded = JSON.stringify(model.legend)
+    const reordered = structuredClone(model.legend)
+    reordered.entries = [...reordered.entries].reverse()
+    const invented = structuredClone(model.legend) as unknown as { entries: unknown[] }
+    invented.entries.push({ id: 'terminal-map-legend:invented', glyph: { vocabulary: 'jomon-original-ascii-glyphs', vocabularyVersion: 1, id: 'terrain:river-channel' } })
+    const staleEvidence = structuredClone(model.legend)
+    staleEvidence.entries[0]!.evidence.knownAtWorldTime = 1
+
+    expect(validateTerminalMapLegend(model.map, model.legend)).toEqual([])
+    expect(validateTerminalMapLegend(model.map, reordered).map(item => item.code)).toContain('terminal-presentation.invalid-model')
+    expect(validateTerminalMapLegend(model.map, invented).map(item => item.code)).toContain('terminal-presentation.invalid-model')
+    expect(validateTerminalMapLegend(model.map, staleEvidence).map(item => item.code)).toContain('terminal-presentation.invalid-model')
+    expect(encoded).not.toContain(world.initialWorld.id)
+    expect(encoded).not.toContain(world.initialWorld.people[0]!.id)
+    expect(encoded).not.toContain(world.state.geography.frontier.regions[0]!.commitment.id)
+    expect(world).toEqual(before)
   })
 
   it('rejects invalid materialized-cell coordinates, ordering, glyphs, palette roles, cues, evidence, and safety classifications', () => {

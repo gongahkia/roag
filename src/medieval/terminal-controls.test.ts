@@ -73,6 +73,13 @@ describe('terminal controls preferences and zero-time world intents', () => {
     expect(resetTerminalControl(accepted.preferences, 'move-west')).toEqual(defaults)
     expect(resetAllTerminalControls(accepted.preferences)).toEqual(defaults)
     expect(cycleTerminalControlSelection('move-west', 1)).toBe('command-help')
+
+    const remappedHelp = captureTerminalControlBinding(defaults, 'command-help', { key: 'p' })
+    expect(remappedHelp).toMatchObject({ status: 'accepted', controlId: 'command-help', key: 'P' })
+    if (remappedHelp.status !== 'accepted') throw new Error('command help remap should be accepted')
+    expect(resolveTerminalWorldCommand(remappedHelp.preferences, { key: 'p', canvasFocused: true, context: 'world' })).toEqual({ kind: 'open-command-help' })
+    expect(resolveTerminalWorldCommand(remappedHelp.preferences, { key: '?', canvasFocused: true, context: 'world' })).toEqual({ kind: 'ignored', reason: 'unbound-key' })
+    expect(createTerminalCommandHelpModel(remappedHelp.preferences).entries.find(entry => entry.controlId === 'command-help')?.bindingText).toBe('P')
   })
 
   it('rejects malformed, unordered, duplicated, conflicting, and stale preference records fail closed', () => {

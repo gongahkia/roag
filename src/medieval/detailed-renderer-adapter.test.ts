@@ -17,7 +17,7 @@ import {
 } from './detailed-renderer-adapter'
 import { createManagementSidebarModel } from './management-sidebar'
 import { defaultTerminalControlPreferences } from './terminal-controls'
-import { createJomonDeckContextualPrompt, createTerminalPresentationModel, terminalNonColorCueFor, type TerminalMessage, type TerminalPresentationModel } from './terminal-presentation'
+import { createJomonDeckContextualPrompt, createTerminalMapLegend, createTerminalPresentationModel, terminalNonColorCueFor, type TerminalMessage, type TerminalPresentationModel } from './terminal-presentation'
 import { chooseInitialCourier, createFoundationWorld } from './world'
 
 const selectedWorld = (seed: string = 'detailed-renderer-adapter') => chooseInitialCourier(createFoundationWorld({ seed, configuration: { preset: 'watershed' } }), 'crew:0')
@@ -36,6 +36,8 @@ const sourceBundle = (seed?: string): DetailedRendererSourceBundle => {
 const auditTerminal = (terminal: TerminalPresentationModel) => auditMedievalContentSafety([
   { id: 'terminal-presentation:map', domain: terminal.map.contentDomain, classification: terminal.map.contentSafety },
   ...terminal.map.cells.map(item => ({ id: `terminal-presentation:map-cell:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
+  { id: 'terminal-presentation:legend', domain: terminal.legend.contentDomain, classification: terminal.legend.contentSafety },
+  ...terminal.legend.entries.map(item => ({ id: `terminal-presentation:legend-entry:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...terminal.status.map(item => ({ id: `terminal-presentation:status:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...terminal.messages.map(item => ({ id: `terminal-presentation:message:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...terminal.prompts.map(item => ({ id: `terminal-presentation:prompt:${item.id}`, domain: item.contentDomain, classification: item.contentSafety }))
@@ -102,10 +104,12 @@ const futureCellBundle = (): DetailedRendererSourceBundle => {
     contentDomain: 'player-facing-text',
     contentSafety: classifyMedievalContent('player-facing-text', ['civil-life', 'navigation'], 'not-applicable', ['data'])
   }
+  terminal.legend = createTerminalMapLegend(terminal.map)
   terminal.accessibility = {
     ...terminal.accessibility,
     conciseSummary: `Materialized static Jomon deck map with ${terminal.map.cells.length} source-backed cells. ${terminal.status.length} immediate local status entries. 0 authoritative messages. 0 contextual prompts.`,
-    mapText: terminal.map.accessibilityText
+    mapText: terminal.map.accessibilityText,
+    legendText: terminal.legend.accessibilityText
   }
   const audit = auditTerminal(terminal)
   if (audit.status === 'rejected') throw new Error('test fixture content safety rejected')
@@ -161,6 +165,9 @@ describe('detailed renderer adapter contract', () => {
     expect(model.map.map).toMatchObject({ state: 'materialized', viewport: { context: 'jomon-deck-plan', width: 18, height: 8 } })
     expect(model.map.cells).toHaveLength(114)
     expect(model.map.map.cells).toHaveLength(114)
+    expect(model.map.legend.legend).toEqual(bundle.terminal.legend)
+    expect(model.map.legend.entries.map(item => item.entry.id)).toEqual(bundle.terminal.legend.entries.map(entry => entry.id))
+    expect(model.map.legend.entries.every(item => item.metadata.accessibilityText.includes('Source '))).toBe(true)
     expect(model.sidebar.sourceItemId).toBe('management-sidebar')
     expect(model.status.map(item => item.sourceItemId)).toEqual(bundle.terminal.status.map(item => item.id))
     expect(model.commands.map(item => item.sourceItemId)).toEqual(bundle.terminal.input.commands.map(item => item.id))
@@ -187,7 +194,7 @@ describe('detailed renderer adapter contract', () => {
     expect(model.accessibility.messageText).toEqual(terminal.accessibility.messageText)
     expect(model.accessibility.promptText).toEqual(terminal.accessibility.promptText)
     expect(model.accessibility.commandText).toContain(model.controls[0]!.entry.accessibilityText)
-    expect(reportDetailedRendererParity(bundle, model).checked).toMatchObject({ messages: 1, prompts: 1, controls: 13 })
+    expect(reportDetailedRendererParity(bundle, model).checked).toMatchObject({ messages: 1, prompts: 1, controls: 13, legendEntries: 5 })
   })
 
   it('supports a source-backed future glyph-cell fixture alongside the current materialized deck', () => {
@@ -236,6 +243,10 @@ describe('detailed renderer adapter contract', () => {
     const duplicate = structuredClone(expected)
     ;(duplicate.status as unknown as Array<(typeof duplicate.status)[number]>).push(structuredClone(duplicate.status[0]!))
     expect(validateDetailedRendererAdapterModel(source, duplicate).map(item => item.code)).toContain('detailed-renderer.duplicate-source-item')
+
+    const missingLegend = structuredClone(expected)
+    missingLegend.map.legend.entries = []
+    expect(validateDetailedRendererAdapterModel(source, missingLegend).map(item => item.code)).toContain('detailed-renderer.missing-source-item')
 
     const alteredSource = structuredClone(expected)
     alteredSource.status[0]!.status.id = 'terminal-status:altered'

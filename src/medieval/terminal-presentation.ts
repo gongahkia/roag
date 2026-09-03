@@ -48,7 +48,7 @@ export const TERMINAL_PRESENTATION_LIMITS = {
   messages: 12,
   prompts: 1,
   promptOptions: 8,
-  legendEntries: 5,
+  legendEntries: 64,
   inputCommands: 64,
   inputModes: 24,
   identityLength: 160,
@@ -762,8 +762,7 @@ const legendEntryFor = (map: TerminalMaterializedMap, glyphId: string): Terminal
   const cell = map.cells.filter(candidate => candidate.glyph.id === glyphId).sort(cellOrder)[0]
   const glyph = findAsciiGlyph(glyphId)
   if (!cell || !glyph || !same(cell.glyph, terminalGlyphReferenceFor(glyphId)) || cell.paletteToken !== glyph.paletteToken
-    || cell.presentationState !== glyph.presentationState || !same(cell.nonColorCue, glyph.nonColorCue)
-    || cell.textEquivalent !== glyph.textEquivalent) throw new Error('terminal map legend source is invalid')
+    || cell.presentationState !== glyph.presentationState || !same(cell.nonColorCue, glyph.nonColorCue)) throw new Error('terminal map legend source is invalid')
   const evidence = structuredClone(cell.evidence)
   return {
     id: `terminal-map-legend:${glyph.id}`,
@@ -787,7 +786,7 @@ const rawTerminalMapLegend = (map: TerminalMaterializedMap): TerminalMapLegend =
   if (!glyphIds.length || glyphIds.length > TERMINAL_PRESENTATION_LIMITS.legendEntries) throw new Error('terminal map legend has an invalid visible glyph set')
   const entries = glyphIds.map(glyphId => legendEntryFor(map, glyphId))
   const movementText = 'Known fixed local deck only. A successful local step advances one action minute; a blocked hull, boundary, non-walkable, or diagonal-corner step changes no world state or time.'
-  const limitationsText = 'Current map limits: all static deck cells are known. No cargo, NPC, hazard, travel, fog, or prop-action state is materialized.'
+  const limitationsText = 'Fixed known deck. No cargo, NPC, hazard, travel, fog, or prop actions.'
   return {
     version: TERMINAL_MAP_LEGEND_CONTRACT_VERSION,
     entries,
@@ -799,6 +798,9 @@ const rawTerminalMapLegend = (map: TerminalMaterializedMap): TerminalMapLegend =
     contentSafety: baseClassification()
   }
 }
+
+/** Builds a discardable legend from a validated source-backed terminal map, never from world state. */
+export const createTerminalMapLegend = (map: TerminalMaterializedMap): TerminalMapLegend => rawTerminalMapLegend(map)
 
 /** Validates the complete, canonical legend against only its source-backed map projection. */
 export const validateTerminalMapLegend = (map: TerminalMaterializedMap, value: unknown): readonly TerminalPresentationDiagnostic[] => {

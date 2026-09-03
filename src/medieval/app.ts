@@ -759,6 +759,8 @@ export class MedievalApp {
     delete this.canvas.dataset.terminalSelectedControl
     delete this.canvas.dataset.terminalOutcome
     delete this.canvas.dataset.terminalControlsVersion
+    delete this.canvas.dataset.terminalLegendVersion
+    delete this.canvas.dataset.terminalLegendEntryCount
     if (this.world) {
       this.canvas.dataset.worldId = this.world.id
       this.canvas.dataset.crewCount = String(this.world.crew.length)
@@ -984,15 +986,15 @@ export class MedievalApp {
     }
   }
 
-  private worldOverlayAccessibleSummary(): string {
+  private worldOverlayAccessibleSummary(legend?: TerminalMapLegend): string {
     const outcome = this.terminalOutcomeText()
     if (this.worldOverlay === 'contextual-prompt') return `Context prompt open. The only option is disabled because the visible static deck has no operated action rule. Escape cancels without changing time.${outcome ? ` ${outcome}` : ''}`
-    if (this.worldOverlay === 'command-help') return `${createTerminalCommandHelpModel(this.terminalControls).accessibilitySummary} Escape closes help.${outcome ? ` ${outcome}` : ''}`
+    if (this.worldOverlay === 'command-help') return `${legend?.accessibilityText ?? 'Map legend unavailable.'} ${createTerminalCommandHelpModel(this.terminalControls).accessibilitySummary} Escape closes help.${outcome ? ` ${outcome}` : ''}`
     if (this.worldOverlay === 'controls-editor') return `${createTerminalControlsEditorModel(this.terminalControls, this.selectedTerminalControlId, this.terminalControlCapturePending).accessibilitySummary}${outcome ? ` ${outcome}` : ''}`
     return outcome ?? 'No terminal overlay is open.'
   }
 
-  private renderWorldOverlay(context: CanvasRenderingContext2D, panel: WorldPanel): void {
+  private renderWorldOverlay(context: CanvasRenderingContext2D, panel: WorldPanel, legend: TerminalMapLegend): void {
     const outcome = this.terminalOutcomeText()
     if (this.worldOverlay === 'contextual-prompt') {
       row(context, 2, 'CONTEXT PROMPT // STATIC DECK', palette.titleText, panel.x)
@@ -1005,8 +1007,11 @@ export class MedievalApp {
     }
     if (this.worldOverlay === 'command-help') {
       const help = createTerminalCommandHelpModel(this.terminalControls)
+      const legendEntries = terminalMapLegendText(legend).split(' // ')
       row(context, 2, 'COMMAND HELP // WORLD CONTROLS', palette.titleText, panel.x)
-      let line = 4
+      renderBoundedMedievalCanvasRows(context, 3, 3, `MAP ${legendEntries.slice(0, 2).join(' ')}`, palette.bodyText, panel.x, panel.width)
+      renderBoundedMedievalCanvasRows(context, 4, 4, `MAP ${legendEntries.slice(2).join(' ')}`, palette.bodyText, panel.x, panel.width)
+      let line = 5
       for (const entry of help.entries) {
         if (line > 17) break
         const availability = entry.operationalState === 'movement-available' ? 'LOCAL STEP +1M' : entry.operationalState === 'opens-unavailable-prompt' ? 'PROMPT ONLY' : 'READY'
@@ -1014,7 +1019,9 @@ export class MedievalApp {
         line += 1
       }
       rule(context, 18, panel.x, panel.x + panel.width)
-      renderBoundedMedievalCanvasRows(context, 20, 22, 'F2 controls // ESC close help // movement is local; contextual action remains unavailable', palette.actionText, panel.x, panel.width)
+      renderBoundedMedievalCanvasRows(context, 20, 20, 'FIXED KNOWN DECK // MOVED +1M', palette.actionText, panel.x, panel.width)
+      renderBoundedMedievalCanvasRows(context, 21, 21, 'BLOCKED ZERO TIME // NO CARGO, NPC, HAZARD', palette.actionText, panel.x, panel.width)
+      renderBoundedMedievalCanvasRows(context, 22, 22, 'NO TRAVEL, FOG, OR PROP ACTION // ESC CLOSE', palette.actionText, panel.x, panel.width)
       return
     }
     const editor = createTerminalControlsEditorModel(this.terminalControls, this.selectedTerminalControlId, this.terminalControlCapturePending)
@@ -1076,6 +1083,8 @@ export class MedievalApp {
     this.canvas.dataset.terminalMapCellCount = String(terminal.map.cells.length)
     this.canvas.dataset.terminalStaticMapCellCount = String(terminal.map.cells.filter(cell => cell.id !== 'terminal-marker:active-courier').length)
     this.canvas.dataset.terminalCourierMarkerCount = String(terminal.map.cells.filter(cell => cell.id === 'terminal-marker:active-courier').length)
+    this.canvas.dataset.terminalLegendVersion = String(terminal.legend.version)
+    this.canvas.dataset.terminalLegendEntryCount = String(terminal.legend.entries.length)
     this.canvas.dataset.terminalFocus = terminal.map.camera.focus.coordinate === undefined
       ? 'unassigned'
       : `${terminal.map.camera.focus.coordinate.column},${terminal.map.camera.focus.coordinate.row}`
@@ -1084,7 +1093,7 @@ export class MedievalApp {
     this.canvas.dataset.terminalMessageCount = String(terminal.messages.length)
     this.canvas.dataset.terminalMessageState = terminal.messages.length ? 'available' : 'empty'
     this.canvas.dataset.terminalPromptCount = String(terminal.prompts.length)
-    this.canvas.setAttribute('aria-label', `Jomon foundation world ${world.manifest.creation.label}, active courier ${courier?.name ?? 'unassigned'}. ${terminal.accessibility.conciseSummary} ${terminal.accessibility.mapText} ${terminal.accessibility.statusText.join(' ')} ${terminal.accessibility.messageText.join(' ')} ${managementSidebarAccessibleSummary(model, selectedSection, this.managementExpanded)} ${this.worldOverlayAccessibleSummary()}`)
+    this.canvas.setAttribute('aria-label', `Jomon foundation world ${world.manifest.creation.label}, active courier ${courier?.name ?? 'unassigned'}. ${terminal.accessibility.conciseSummary} ${terminal.accessibility.mapText} ${terminal.accessibility.legendText} ${terminal.accessibility.statusText.join(' ')} ${terminal.accessibility.messageText.join(' ')} ${managementSidebarAccessibleSummary(model, selectedSection, this.managementExpanded)} ${this.worldOverlayAccessibleSummary(terminal.legend)}`)
     const panels = worldPanels(this.managementExpanded)
     context.strokeStyle = palette.panelBorder
     context.strokeRect(panels.main.x - 8.5, 108.5, panels.main.width + 16, 480)
@@ -1093,15 +1102,15 @@ export class MedievalApp {
       this.renderTerminalMap(context, terminal.map, panels.main)
       renderBoundedMedievalCanvasRows(context, 12, 13, `ACTIVE COURIER  ${courier?.name.toUpperCase() ?? 'UNASSIGNED'} // ${courier?.role.toUpperCase() ?? 'NONE'}`, palette.statusReady, panels.main.x, panels.main.width)
       renderBoundedMedievalCanvasRows(context, 14, 14, `DECK FOCUS ${world.state.navigation.coordinate ? `${world.state.navigation.coordinate.column},${world.state.navigation.coordinate.row}` : 'UNASSIGNED'} // WORLD TIME ${world.state.temporal.worldTime}`, palette.bodyText, panels.main.x, panels.main.width)
-      renderBoundedMedievalCanvasRows(context, 15, 15, `SEED ${world.manifest.creation.seed} // PROVENANCE ${shortDigest(world.manifest.creation.digest)}`, palette.mutedText, panels.main.x, panels.main.width)
-      renderBoundedMedievalCanvasRows(context, 16, 16, 'FULL KNOWN DECK // NO CARGO, NPC, HAZARD, TRAVEL, OR PROP ACTION STATE', palette.mutedText, panels.main.x, panels.main.width)
-      const line = renderBoundedMedievalCanvasRows(context, 17, 18, `MESSAGES // ${terminal.accessibility.messageText.join(' ')}`, palette.mutedText, panels.main.x, panels.main.width)
-      rule(context, Math.max(19, line + 1), panels.main.x, panels.main.x + panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 15, 16, `MAP ${terminalMapLegendText(terminal.legend)}`, palette.bodyText, panels.main.x, panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 17, 18, terminal.legend.limitationsText, palette.mutedText, panels.main.x, panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 19, 19, `MESSAGES // ${terminal.accessibility.messageText.join(' ')}`, palette.mutedText, panels.main.x, panels.main.width)
+      rule(context, 20, panels.main.x, panels.main.x + panels.main.width)
       const defaultHelp = this.managementExpanded
         ? 'ARROWS / HJKL / YUBN move // M collapse // [ / ] sections // ENTER prompt // ? help // F2 controls // ESC worlds'
         : 'ARROWS / HJKL / YUBN move // M expand // ENTER prompt // ? help // F2 controls // ESC worlds'
       renderBoundedMedievalCanvasRows(context, 21, 22, this.terminalOutcomeText() ?? defaultHelp, this.terminalInteractionOutcome?.kind === 'movement-blocked' ? palette.warningText : palette.actionText, panels.main.x, panels.main.width)
-    } else this.renderWorldOverlay(context, panels.main)
+    } else this.renderWorldOverlay(context, panels.main, terminal.legend)
     this.renderManagementSidebar(context, model, panels.sidebar)
     return 22
   }

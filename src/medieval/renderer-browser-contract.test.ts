@@ -10,6 +10,7 @@ import { createManagementSidebarModel } from './management-sidebar'
 import { defaultTerminalControlPreferences } from './terminal-controls'
 import {
   createTerminalPresentationModel,
+  createTerminalMapLegend,
   validateTerminalMaterializedCells,
   validateTerminalPresentationProjection,
   type TerminalMaterializedCell,
@@ -22,6 +23,8 @@ const selectedWorld = (seed: string) => chooseInitialCourier(createFoundationWor
 const terminalAudit = (terminal: TerminalPresentationModel) => auditMedievalContentSafety([
   { id: 'terminal-presentation:map', domain: terminal.map.contentDomain, classification: terminal.map.contentSafety },
   ...terminal.map.cells.map(item => ({ id: `terminal-presentation:map-cell:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
+  { id: 'terminal-presentation:legend', domain: terminal.legend.contentDomain, classification: terminal.legend.contentSafety },
+  ...terminal.legend.entries.map(item => ({ id: `terminal-presentation:legend-entry:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...terminal.status.map(item => ({ id: `terminal-presentation:status:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...terminal.messages.map(item => ({ id: `terminal-presentation:message:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...terminal.prompts.map(item => ({ id: `terminal-presentation:prompt:${item.id}`, domain: item.contentDomain, classification: item.contentSafety }))
@@ -71,10 +74,12 @@ const terminalWithEveryRealGlyph = (world = selectedWorld('renderer-browser-real
     contentDomain: 'player-facing-text',
     contentSafety: structuredClone(terminal.map.contentSafety)
   }
+  terminal.legend = createTerminalMapLegend(terminal.map)
   terminal.accessibility = {
     ...terminal.accessibility,
     conciseSummary: `Materialized static Jomon deck map with ${terminal.map.cells.length} source-backed cells. ${terminal.status.length} immediate local status entries. 0 authoritative messages. 0 contextual prompts.`,
-    mapText: terminal.map.accessibilityText
+    mapText: terminal.map.accessibilityText,
+    legendText: terminal.legend.accessibilityText
   }
   const audit = terminalAudit(terminal)
   if (audit.status === 'rejected') throw new Error('real glyph fixture must remain content-safe')
@@ -140,8 +145,14 @@ describe('renderer/browser presentation boundary', () => {
 
     expect(terminal.map).toMatchObject({ state: 'materialized', viewport: { context: 'jomon-deck-plan', width: 18, height: 8 } })
     expect(terminal.map.cells).toHaveLength(114)
+    expect(terminal.legend.entries.map(entry => entry.glyph.id)).toEqual([
+      'person:active-courier', 'route:quay-approach', 'vessel:gangplank', 'vessel:hull-planking', 'vessel:open-deck'
+    ])
     expect(detailed.map.map).toEqual(terminal.map)
     expect(detailed.map.cells).toHaveLength(114)
+    expect(detailed.map.legend.legend).toEqual(terminal.legend)
+    expect(detailed.map.legend.entries).toHaveLength(5)
+    expect(detailed.accessibility.legendText).toEqual(terminal.accessibility.legendText)
     expect(terminal.status.map(item => item.value.kind)).toEqual(['courier-selection', 'deck-focus', 'jomon-deck-materialized', 'creation-provenance', 'world-minute'])
     expect(terminal.accessibility.messageText).toEqual(['No current authoritative messages.'])
     expect(detailed.accessibility.messageText).toEqual(terminal.accessibility.messageText)
