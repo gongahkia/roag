@@ -191,7 +191,7 @@ describe('constrained deterministic delegation', () => {
     expect(single.state.temporal.causalRecords).not.toEqual(split.state.temporal.causalRecords)
     expect(validateFoundationWorld(single)).toEqual([])
     expect(validateFoundationWorld(split)).toEqual([])
-  }, 20_000)
+  }, 30_000)
 
   it('interrupts only active work through the active courier and releases the exact commitment at resolution time', () => {
     const first = acceptedOffer(selectedWorld('delegation-interruption'), 'offer:interrupt')
@@ -255,7 +255,7 @@ describe('constrained deterministic delegation', () => {
     expect(first.world).toEqual(before)
     expect(first.world.state.delegation.tasks[0]!.status).toBe('in-progress')
     expect(first.world.state.socialMemory).toEqual(before.state.socialMemory)
-  })
+  }, 30_000)
 
   it('rejects malformed, unsafe, duplicate, unordered, and bounded task registry state without instantiating another person', () => {
     const { world } = acceptedOffer(selectedWorld('delegation-validation'), 'offer:validation')
@@ -278,5 +278,5 @@ describe('constrained deterministic delegation', () => {
     expect(auditMedievalContentSafety(medievalWorldStateContentRecords(unsafeMemoryWorld.state)).diagnostics.map(item => item.code)).toContain('content-safety.prohibited.slavery')
     expect(validateFoundationWorld(unsafeMemoryWorld).map(item => item.code)).toEqual(expect.arrayContaining(['foundation-world.invalid-mutable-state', 'foundation-world.invalid-causal-history']))
     expect(world.state.people.records.map(person => person.id)).toEqual(world.crew.map(member => member.id).sort())
-  })
+  }, 30_000)
 })

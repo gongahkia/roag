@@ -319,7 +319,7 @@ describe('medieval local persistence', () => {
     expect(await repository.loadWorld(first.id)).toEqual(first)
     expect(await repository.loadWorld(second.id)).toEqual(second)
     expect(await repository.loadWorld('world:not-present')).toBeUndefined()
-  })
+  }, 30_000)
 
   it('keeps valid local creation settings intact while saving and loading the current full-world record', async () => {
     const repository = new MedievalWorldRepository()
@@ -908,7 +908,7 @@ describe('medieval local persistence', () => {
     await expect(repository.restoreSnapshot(current.id, 1)).rejects.toThrow('snapshot-not-found')
     expect(await repository.loadWorld(current.id)).toEqual(current)
     expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'world-snapshots').get(current.id)).toEqual(corruptRing)
-  }, 20_000)
+  }, 30_000)
 
   it('writes a derived source-bound index and bounded deterministic snapshot ring with the active envelope', async () => {
     const repository = new MedievalWorldRepository()

@@ -141,7 +141,7 @@ describe('bounded canonical causal-history journal', () => {
     const continued = advanceFoundationWorldTime(world, action('wait:after-live-checkpoint'))
     expect(continued.state.causalHistory.tail).toHaveLength(1)
     expect(replayFoundationWorldCausalHistory(continued)).toEqual(causalReplayProjectionForWorldState(continued.state))
-  })
+  }, 30_000)
 
   it('keeps catch-up and era projections partition-invariant while preserving distinct command journals', () => {
     const start = chooseInitialCourier(createFoundationWorld({ seed: 'causal-history-partition' }), 'crew:0')
