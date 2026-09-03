@@ -8,6 +8,7 @@ The project is at a documented clean-break boundary. The checked-in prototype st
 - [Authoritative roadmap](TODO.md)
 - [Desktop-browser performance and storage baseline](docs/performance-storage-baseline.md)
 - [Medieval local persistence layout](docs/persistence-layout.md)
+- [Closed internal-content boundary for maintainers (no public mod/content-pack API)](docs/internal-content-boundary.md)
 
 ## Development
 
