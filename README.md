@@ -14,6 +14,7 @@ The project is at a documented clean-break boundary. The checked-in prototype st
 - [Courier loss policy assessment boundary](docs/courier-loss-policy.md)
 - [Jomon integrity policy assessment boundary](docs/jomon-integrity-policy.md)
 - [Semantic palette and accessibility contract](docs/semantic-palette.md)
+- [Static Jomon deck-plan contract (unrendered future-map input)](docs/jomon-deck-plan.md)
 
 ## Development
 
