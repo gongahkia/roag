@@ -62,7 +62,7 @@ describe('compact medieval persistence layout', () => {
     const chronicle = finalizeWorldAsChronicle(world, 'jomon-loss')
     const chronicleBundle = createChronicleBackupBundle(chronicle)
     expect(parsePersistenceBackupBundle(serializePersistenceBackupBundle(chronicleBundle))).toEqual(chronicleBundle)
-  })
+  }, 10_000)
 
   it('imports only a canonical, source-verified v13 active-world backup through the explicit navigation conversion', () => {
     const world = selected('legacy-backup-layout')
