@@ -95,4 +95,16 @@ describe('Jomon deck navigation', () => {
     expect(validateFoundationWorld(upgraded)).toEqual([])
     expect(() => upgradeFoundationWorldV13({ ...legacy, id: 'world:forged' })).toThrow('invalid')
   })
+
+  it('keeps an unselected v13 courier coordinate absent through the strict conversion', () => {
+    const source = createFoundationWorld({ seed: 'navigation-upgrade-unselected' })
+    const legacy = v13Envelope(source as ReturnType<typeof selectedWorld>)
+
+    const upgraded = upgradeFoundationWorldV13(legacy)
+
+    expect(upgraded.state.courier).toEqual({ version: 1 })
+    expect(upgraded.state.navigation).toEqual({ version: 1 })
+    expect(upgraded.state.temporal).toMatchObject({ worldTime: 0, actionSequence: 0 })
+    expect(validateFoundationWorld(upgraded)).toEqual([])
+  })
 })
