@@ -126,13 +126,14 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-world-id', worldId!)
   await expect(game).toHaveAttribute('data-persistence', 'saved')
   await expect(game).toHaveAttribute('aria-label', /Jomon foundation world .* active courier/)
-  await expect(game).toHaveAttribute('data-terminal-presentation-version', '3')
-  await expect(game).toHaveAttribute('data-terminal-map-state', 'reserved-unmaterialized')
+  await expect(game).toHaveAttribute('data-terminal-presentation-version', '4')
+  await expect(game).toHaveAttribute('data-terminal-map-state', 'materialized')
+  await expect(game).toHaveAttribute('data-terminal-map-cell-count', '113')
   await expect(game).toHaveAttribute('data-terminal-status-count', '3')
   await expect(game).toHaveAttribute('data-terminal-message-count', '0')
   await expect(game).toHaveAttribute('data-terminal-message-state', 'empty')
   await expect(game).toHaveAttribute('data-terminal-prompt-count', '0')
-  await expect(game).toHaveAttribute('aria-label', /Reserved unmaterialized map.*An active courier is selected.*Current world minute 0.*No current authoritative messages/i)
+  await expect(game).toHaveAttribute('aria-label', /Static Jomon deck map.*113 source-backed cells.*An active courier is selected.*Current world minute 0.*No current authoritative messages/i)
   await page.screenshot({ path: '/tmp/jomon-phase15-terminal-status.png' })
   if (!worldId) throw new Error('created world should have a stable id')
 
@@ -165,7 +166,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
 
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
-  await expect(game).toHaveAttribute('aria-label', /Context prompt open\. The only option is disabled/i)
+  await expect(game).toHaveAttribute('aria-label', /Context prompt open\. The only option is disabled because the visible static deck has no operated action rule/i)
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-option-disabled')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
@@ -182,7 +183,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   ] as const) {
     await page.keyboard.press(movement[0])
     await expect(game).toHaveAttribute('data-terminal-outcome', 'movement-unavailable')
-    await expect(game).toHaveAttribute('aria-label', new RegExp(`MAP RESERVED.*${movement[1]} MOVEMENT UNAVAILABLE`, 'i'))
+    await expect(game).toHaveAttribute('aria-label', new RegExp(`STATIC DECK.*${movement[1]} MOVEMENT UNAVAILABLE`, 'i'))
   }
   await page.screenshot({ path: '/tmp/jomon-phase15-terminal-movement.png' })
 
@@ -216,7 +217,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
   await page.keyboard.press('q')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'movement-unavailable')
-  await expect(game).toHaveAttribute('aria-label', /MAP RESERVED.*NORTH MOVEMENT UNAVAILABLE/i)
+  await expect(game).toHaveAttribute('aria-label', /STATIC DECK.*NORTH MOVEMENT UNAVAILABLE/i)
   expect(await persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)
 
   await page.evaluate(() => document.querySelector<HTMLCanvasElement>('#game')?.blur())
@@ -314,7 +315,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-world-id', worldId)
   await page.keyboard.press('q')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'movement-unavailable')
-  await expect(game).toHaveAttribute('aria-label', /MAP RESERVED.*NORTH MOVEMENT UNAVAILABLE/i)
+  await expect(game).toHaveAttribute('aria-label', /STATIC DECK.*NORTH MOVEMENT UNAVAILABLE/i)
   await page.keyboard.press('F2')
   for (let index = 0; index < 6; index++) await page.keyboard.press('ArrowDown')
   await expect(game).toHaveAttribute('data-terminal-selected-control', 'move-north')

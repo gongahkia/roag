@@ -449,8 +449,8 @@ const same = (left: unknown, right: unknown): boolean => JSON.stringify(left) ==
 const oneOf = <Value>(values: readonly Value[], value: unknown): value is Value => values.includes(value as Value)
 const validId = (value: unknown, limit: number = TERMINAL_PRESENTATION_LIMITS.identityLength): value is string => typeof value === 'string' && value.length > 0 && value.length <= limit && /^[a-z][a-z0-9:._-]*$/iu.test(value)
 const hasOnlyKeys = (value: Record<string, unknown>, expected: readonly string[]): boolean => {
-  const keys = Object.keys(value).sort()
-  const expectedKeys = [...expected].sort()
+  const keys = Object.keys(value).sort(compare)
+  const expectedKeys = [...expected].sort(compare)
   return keys.length === expectedKeys.length && keys.every((key, index) => key === expectedKeys[index])
 }
 const issue = (recordId: string, code: TerminalPresentationDiagnosticCode): TerminalPresentationDiagnostic => ({ recordId, code })

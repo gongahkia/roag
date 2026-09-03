@@ -164,11 +164,43 @@ describe('Jomon deck plan contract', () => {
   it('projects this plan into the current terminal model without changing its authoritative input', () => {
     const source = world()
     const before = structuredClone(source)
-    deriveJomonDeckPlan(source)
+    const plan = deriveJomonDeckPlan(source)
     const terminal = createTerminalPresentationModel(source)
 
     expect(terminal.map).toMatchObject({ state: 'materialized', viewport: { context: 'jomon-deck-plan', width: plan.bounds.width, height: plan.bounds.height } })
     expect(terminal.map.cells).toHaveLength(plan.areas.flatMap(area => area.footprint).length + plan.structuralCells.length)
+    const expected = [
+      ...plan.areas.flatMap(area => area.footprint.map(cell => ({
+        id: `terminal-cell:${cell.id}`,
+        coordinate: cell.coordinate,
+        glyph: area.semantic.glyph,
+        paletteToken: area.semantic.paletteToken,
+        nonColorCue: area.semantic.nonColorCue,
+        textEquivalent: area.semantic.textEquivalent,
+        accessibilityText: area.semantic.accessibilityText,
+        contentSafety: area.semantic.contentSafety
+      }))),
+      ...plan.structuralCells.map(cell => ({
+        id: `terminal-cell:${cell.id}`,
+        coordinate: cell.coordinate,
+        glyph: cell.semantic.glyph,
+        paletteToken: cell.semantic.paletteToken,
+        nonColorCue: cell.semantic.nonColorCue,
+        textEquivalent: cell.semantic.textEquivalent,
+        accessibilityText: cell.semantic.accessibilityText,
+        contentSafety: cell.semantic.contentSafety
+      }))
+    ].sort((left, right) => left.coordinate.row - right.coordinate.row || left.coordinate.column - right.coordinate.column || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0))
+    expect(terminal.map.cells.map(cell => ({
+      id: cell.id,
+      coordinate: cell.coordinate,
+      glyph: cell.glyph,
+      paletteToken: cell.paletteToken,
+      nonColorCue: cell.nonColorCue,
+      textEquivalent: cell.textEquivalent,
+      accessibilityText: cell.accessibilityText,
+      contentSafety: cell.contentSafety
+    }))).toEqual(expected)
     expect(source).toEqual(before)
   })
 })

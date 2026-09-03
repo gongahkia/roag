@@ -21,6 +21,7 @@ const selectedWorld = (seed: string) => chooseInitialCourier(createFoundationWor
 
 const terminalAudit = (terminal: TerminalPresentationModel) => auditMedievalContentSafety([
   { id: 'terminal-presentation:map', domain: terminal.map.contentDomain, classification: terminal.map.contentSafety },
+  ...terminal.map.cells.map(item => ({ id: `terminal-presentation:map-cell:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...terminal.status.map(item => ({ id: `terminal-presentation:status:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...terminal.messages.map(item => ({ id: `terminal-presentation:message:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...terminal.prompts.map(item => ({ id: `terminal-presentation:prompt:${item.id}`, domain: item.contentDomain, classification: item.contentSafety }))
@@ -71,7 +72,7 @@ const terminalWithEveryRealGlyph = (world = selectedWorld('renderer-browser-real
   }
   terminal.accessibility = {
     ...terminal.accessibility,
-    conciseSummary: `Materialized map. ${terminal.status.length} immediate local status entries. 0 authoritative messages. 0 contextual prompts.`,
+    conciseSummary: `Materialized static Jomon deck map with ${terminal.map.cells.length} source-backed cells. ${terminal.status.length} immediate local status entries. 0 authoritative messages. 0 contextual prompts.`,
     mapText: terminal.map.accessibilityText
   }
   const audit = terminalAudit(terminal)
@@ -119,8 +120,8 @@ describe('renderer/browser presentation boundary', () => {
     expect(world).toEqual(before)
   })
 
-  it('keeps current selected worlds reserved and exposes only immediate terminal status plus explicit message absence', () => {
-    const world = selectedWorld('renderer-browser-reserved')
+  it('keeps current selected worlds on the source-backed static deck and exposes only immediate terminal status plus explicit message absence', () => {
+    const world = selectedWorld('renderer-browser-materialized-deck')
     const before = structuredClone(world)
     const terminal = createTerminalPresentationModel(world)
     const bundle = createDetailedRendererSourceBundle({
@@ -136,10 +137,11 @@ describe('renderer/browser presentation boundary', () => {
     const undisclosedSettlement = world.initialWorld.settlements.find(site => site.id !== jomonLocationId)
     const ungeneratedCommitment = world.state.geography.frontier.regions.find(region => region.status === 'ungenerated')
 
-    expect(terminal.map).toMatchObject({ state: 'reserved-unmaterialized', cells: [] })
-    expect(detailed.map.map).toMatchObject({ state: 'reserved-unmaterialized', cells: [] })
-    expect(detailed.map.cells).toEqual([])
-    expect(terminal.status.map(item => item.value.kind)).toEqual(['courier-selection', 'map-reserved', 'world-minute'])
+    expect(terminal.map).toMatchObject({ state: 'materialized', viewport: { context: 'jomon-deck-plan', width: 18, height: 8 } })
+    expect(terminal.map.cells).toHaveLength(113)
+    expect(detailed.map.map).toEqual(terminal.map)
+    expect(detailed.map.cells).toHaveLength(113)
+    expect(terminal.status.map(item => item.value.kind)).toEqual(['courier-selection', 'jomon-deck-materialized', 'world-minute'])
     expect(terminal.accessibility.messageText).toEqual(['No current authoritative messages.'])
     expect(detailed.accessibility.messageText).toEqual(terminal.accessibility.messageText)
     expect(detailed.interactionBoundary).toEqual({ sharesEffectiveCommandIds: true, promptCancellation: 'cancelled-no-mutation', executesInput: false, advancesWorldTime: false, mutatesWorld: false })

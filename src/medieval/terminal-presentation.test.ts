@@ -24,6 +24,7 @@ import {
   type TerminalMaterializedCell,
   type TerminalPrompt
 } from './terminal-presentation'
+import { deriveJomonDeckPlan } from './jomon-deck-plan'
 import { chooseInitialCourier, createFoundationWorld } from './world'
 
 const selectedWorld = (seed: string) => chooseInitialCourier(createFoundationWorld({ seed, configuration: { preset: 'watershed' } }), 'crew:0')
@@ -130,6 +131,23 @@ describe('terminal presentation contract', () => {
       'no-consequential-invention',
       'text-equivalent-required'
     ])
+  })
+
+  it('accepts only the complete canonical deck-plan projection for a current world', () => {
+    const world = selectedWorld('terminal-deck-exactness')
+    const plan = deriveJomonDeckPlan(world)
+    const model = createTerminalPresentationModel(world)
+    const missing = structuredClone(model)
+    missing.map.cells = missing.map.cells.slice(1)
+    const extra = structuredClone(model)
+    ;(extra.map.cells as TerminalMaterializedCell[]).push(structuredClone(extra.map.cells[0]!))
+    const reordered = structuredClone(model)
+    reordered.map.cells = [...reordered.map.cells].reverse()
+
+    expect(model.map.cells).toHaveLength(plan.areas.flatMap(area => area.footprint).length + plan.structuralCells.length)
+    expect(validateTerminalPresentationModel(world, missing).map(item => item.code)).toContain('terminal-presentation.invalid-model')
+    expect(validateTerminalPresentationModel(world, extra).map(item => item.code)).toContain('terminal-presentation.invalid-model')
+    expect(validateTerminalPresentationModel(world, reordered).map(item => item.code)).toContain('terminal-presentation.invalid-model')
   })
 
   it('rejects invalid materialized-cell coordinates, ordering, glyphs, palette roles, cues, evidence, and safety classifications', () => {

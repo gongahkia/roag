@@ -17,7 +17,7 @@ import {
 } from './detailed-renderer-adapter'
 import { createManagementSidebarModel } from './management-sidebar'
 import { defaultTerminalControlPreferences } from './terminal-controls'
-import { createReservedMapContextualPrompt, createTerminalPresentationModel, terminalNonColorCueFor, type TerminalMessage, type TerminalPresentationModel } from './terminal-presentation'
+import { createJomonDeckContextualPrompt, createTerminalPresentationModel, terminalNonColorCueFor, type TerminalMessage, type TerminalPresentationModel } from './terminal-presentation'
 import { chooseInitialCourier, createFoundationWorld } from './world'
 
 const selectedWorld = (seed: string = 'detailed-renderer-adapter') => chooseInitialCourier(createFoundationWorld({ seed, configuration: { preset: 'watershed' } }), 'crew:0')
@@ -35,6 +35,7 @@ const sourceBundle = (seed?: string): DetailedRendererSourceBundle => {
 
 const auditTerminal = (terminal: TerminalPresentationModel) => auditMedievalContentSafety([
   { id: 'terminal-presentation:map', domain: terminal.map.contentDomain, classification: terminal.map.contentSafety },
+  ...terminal.map.cells.map(item => ({ id: `terminal-presentation:map-cell:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...terminal.status.map(item => ({ id: `terminal-presentation:status:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...terminal.messages.map(item => ({ id: `terminal-presentation:message:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...terminal.prompts.map(item => ({ id: `terminal-presentation:prompt:${item.id}`, domain: item.contentDomain, classification: item.contentSafety }))
@@ -59,12 +60,12 @@ const terminalWithFutureShapes = (world = selectedWorld('detailed-future-shapes'
     contentDomain: 'event',
     contentSafety: classifyMedievalContent('event', ['civil-life', 'navigation'], 'not-applicable', ['player-facing-text'])
   }
-  const prompt = createReservedMapContextualPrompt(world)
+  const prompt = createJomonDeckContextualPrompt(world)
   terminal.messages = [message]
   terminal.prompts = [prompt]
   terminal.accessibility = {
     ...terminal.accessibility,
-    conciseSummary: `Reserved unmaterialized map. ${terminal.status.length} immediate local status entries. 1 authoritative messages. 1 contextual prompts.`,
+    conciseSummary: `Materialized static Jomon deck map with ${terminal.map.cells.length} source-backed cells. ${terminal.status.length} immediate local status entries. 1 authoritative messages. 1 contextual prompts.`,
     messageText: [message.accessibilityText],
     promptText: [prompt.accessibilityText]
   }
@@ -102,7 +103,7 @@ const futureCellBundle = (): DetailedRendererSourceBundle => {
   }
   terminal.accessibility = {
     ...terminal.accessibility,
-    conciseSummary: `Materialized map. ${terminal.status.length} immediate local status entries. 0 authoritative messages. 0 contextual prompts.`,
+    conciseSummary: `Materialized static Jomon deck map with ${terminal.map.cells.length} source-backed cells. ${terminal.status.length} immediate local status entries. 0 authoritative messages. 0 contextual prompts.`,
     mapText: terminal.map.accessibilityText
   }
   const audit = auditTerminal(terminal)
@@ -151,14 +152,14 @@ describe('detailed renderer adapter contract', () => {
     expect(reordered.source).toEqual(first.source)
   })
 
-  it('keeps the current detailed map honestly reserved and includes only separately-addressable household-known sidebar facts', () => {
-    const bundle = sourceBundle('detailed-reserved-map')
+  it('carries the current materialized deck through detailed parity and includes only separately-addressable household-known sidebar facts', () => {
+    const bundle = sourceBundle('detailed-materialized-map')
     const model = createDetailedRendererAdapterModel(bundle)
     const encoded = JSON.stringify(model)
 
-    expect(model.map.map.state).toBe('reserved-unmaterialized')
-    expect(model.map.cells).toEqual([])
-    expect(model.map.map.cells).toEqual([])
+    expect(model.map.map).toMatchObject({ state: 'materialized', viewport: { context: 'jomon-deck-plan', width: 18, height: 8 } })
+    expect(model.map.cells).toHaveLength(113)
+    expect(model.map.map.cells).toHaveLength(113)
     expect(model.sidebar.sourceItemId).toBe('management-sidebar')
     expect(model.status.map(item => item.sourceItemId)).toEqual(bundle.terminal.status.map(item => item.id))
     expect(model.commands.map(item => item.sourceItemId)).toEqual(bundle.terminal.input.commands.map(item => item.id))
@@ -188,17 +189,17 @@ describe('detailed renderer adapter contract', () => {
     expect(reportDetailedRendererParity(bundle, model).checked).toMatchObject({ messages: 1, prompts: 1, controls: 13 })
   })
 
-  it('supports a source-backed future glyph-cell fixture without materializing the current world', () => {
+  it('supports a source-backed future glyph-cell fixture alongside the current materialized deck', () => {
     const future = futureCellBundle()
     const model = createDetailedRendererAdapterModel(future)
-    const current = createDetailedRendererAdapterModel(sourceBundle('detailed-still-reserved'))
+    const current = createDetailedRendererAdapterModel(sourceBundle('detailed-current-deck'))
 
     expect(model.map.map.state).toBe('materialized')
     expect(model.map.cells).toHaveLength(1)
     expect(model.map.cells[0]!.glyph).toEqual(terminalGlyphReferenceFor('terrain:river-channel'))
     expect(model.map.cells[0]!.metadata.nonColorCue).toEqual(terminalNonColorCueFor('neutral'))
-    expect(current.map.map.state).toBe('reserved-unmaterialized')
-    expect(current.map.cells).toHaveLength(0)
+    expect(current.map.map.state).toBe('materialized')
+    expect(current.map.cells).toHaveLength(113)
   })
 
   it('fails closed for malformed, direct-world, mixed/stale, unsafe, and invalid source bundles', () => {
@@ -266,7 +267,7 @@ describe('detailed renderer adapter contract', () => {
     const hidden = structuredClone(expected)
     ;(hidden.map.map as unknown as { cells: unknown[] }).cells = [{ concealed: 'not a presentation cell' }]
     ;(hidden.map as unknown as { cells: unknown[] }).cells = [{ sourceItemId: 'concealed', cell: {}, glyph: {}, metadata: {} }]
-    expect(validateDetailedRendererAdapterModel(source, hidden).map(item => item.code)).toContain('detailed-renderer.hidden-data-attempt')
+    expect(validateDetailedRendererAdapterModel(source, hidden).map(item => item.code)).toContain('detailed-renderer.source-mismatch')
 
     const decoration = structuredClone(expected)
     ;(decoration.decorations as unknown as unknown[]).push({ id: 'detailed-decoration:bad', kind: 'frame', nonAuthoritative: true, text: 'concealed world fact' })
