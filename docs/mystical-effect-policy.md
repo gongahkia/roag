@@ -40,6 +40,8 @@ Malformed, unknown, common, ungrounded, stale, free, unlimited, noncanonical, du
 
 Ultra-rare definitions may carry only a `deferred-no-authority` reservation for a future courier-loss or Jomon-loss safeguard. A reservation has no effect result and cannot implement or authorize death prevention, revival, Jomon rescue, collapse prevention, or an override of terminal loss. Those rules remain later roadmap tasks.
 
+The companion [Jomon integrity policy assessment](jomon-integrity-policy.md) may inspect the `future-jomon-loss-safeguard` audit output as unavailable provenance only. It cannot turn that reservation into repair, rescue, revival, collapse prevention, or an exception to terminal loss.
+
 The policy explicitly excludes generic mage classes, spell lists, arbitrary casting, unlimited supernatural power, coercive social control, courier revival/death prevention, and Jomon-saving behavior. It preserves the project-wide metadata-first rejection of sexual violence, slavery, torture, and harm/endangerment of children; it creates no child participant or player-facing mystical catalogue.
 
 ## Compatibility and non-goals

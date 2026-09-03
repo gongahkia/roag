@@ -49,3 +49,5 @@ This slice changes no `FoundationWorld`, world/manifest/replay schema, save enve
 Before a later owner stores or uses an effect candidate, it must make that owner's explicit provenance, replay, safety, and schema/version decision. The companion policy audit is not that implementation decision. Neither contract authorizes combat, recovery, death/revival, Jomon loss, social control, or any other simulation behavior.
 
 The companion [courier loss policy assessment](courier-loss-policy.md) consumes only the mystical policy's explicit ultra-rare courier-safeguard reservation as unavailable future provenance. It neither resolves an effect nor authorizes prevention, revival, succession, or chronicle finalization.
+
+The companion [Jomon integrity policy assessment](jomon-integrity-policy.md) likewise consumes only the unavailable ultra-rare Jomon-loss reservation. It never resolves an effect or authorizes repair, rescue, collapse prevention, or terminal-loss override.

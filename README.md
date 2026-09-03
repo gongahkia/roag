@@ -12,6 +12,7 @@ The project is at a documented clean-break boundary. The checked-in prototype st
 - [Renderer-independent effect model (foundation only)](docs/effects-model.md)
 - [Mystical effect policy and audit boundary](docs/mystical-effect-policy.md)
 - [Courier loss policy assessment boundary](docs/courier-loss-policy.md)
+- [Jomon integrity policy assessment boundary](docs/jomon-integrity-policy.md)
 - [Semantic palette and accessibility contract](docs/semantic-palette.md)
 
 ## Development
