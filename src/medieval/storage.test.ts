@@ -11,7 +11,7 @@ import { assessCourierConversation } from './conversation'
 import { socialMemoryRecallForPair } from './social-memory'
 import { CAUSAL_HISTORY_LIMITS } from './causal-history'
 import { captureTerminalControlBinding, defaultTerminalControlPreferences } from './terminal-controls'
-import { createActiveWorldBackupBundle, serializePersistenceBackupBundle } from './persistence-layout'
+import { createActiveWorldBackupBundle, createChronicleBackupBundle, serializePersistenceBackupBundle } from './persistence-layout'
 
 type Handler = (() => void) | null
 
@@ -867,6 +867,21 @@ describe('medieval local persistence', () => {
     expect(snapshots.ring.snapshots).toHaveLength(3)
     expect(snapshots.ring.snapshots.map(snapshot => snapshot.sequence)).toEqual([2, 3, 4])
     expect(await repository.inspectSnapshot(world.id, 4)).toEqual(snapshots.ring.snapshots[2]!.world)
+    await repository.restoreSnapshot(world.id, 2)
+    expect(await repository.loadWorld(world.id)).toEqual(snapshots.ring.snapshots[0]!.world)
+  }, 20_000)
+
+  it('derives task, event, person, and history locators from a validated delegated world without indexing generation seeds', async () => {
+    const repository = new MedievalWorldRepository()
+    const world = delegatedWorld('layout-derived-records')
+    await repository.saveWorld(world)
+    const index = await repository.loadWorldRecordIndex(world.id)
+    expect(index?.locators.some(locator => locator.kind === 'task')).toBe(true)
+    expect(index?.locators.some(locator => locator.kind === 'event')).toBe(true)
+    expect(index?.locators.some(locator => locator.kind === 'history')).toBe(true)
+    expect(index?.locators.some(locator => locator.container === 'social-memory')).toBe(true)
+    expect(index?.locators.filter(locator => locator.kind === 'person').map(locator => locator.targetId)).toEqual(world.state.people.records.map(person => person.id))
+    expect(index?.locators.some(locator => locator.targetId.startsWith('initial:person:'))).toBe(false)
   }, 20_000)
 
   it('contains quota/abort failures and corrupt active records without overwriting a valid prior envelope or metadata', async () => {
@@ -879,6 +894,10 @@ describe('medieval local persistence', () => {
     await expect(repository.saveWorld(next)).rejects.toThrow('storage-quota-exceeded')
     expect(await repository.loadWorld(before.id)).toEqual(before)
     expect(await repository.loadWorldRecordIndex(before.id)).toEqual(index)
+
+    fakeIndexedDB.failNextWrite(MEDIEVAL_DATABASE_NAME, 'abort')
+    await expect(repository.saveWorld(next)).rejects.toThrow('storage-transaction-aborted')
+    expect(await repository.loadWorld(before.id)).toEqual(before)
 
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(before.id, { version: 999 })
     await expect(repository.saveWorld(next)).rejects.toThrow('corrupt-existing-world')
@@ -909,7 +928,21 @@ describe('medieval local persistence', () => {
     expect(await repository.loadWorld(base.id)).toEqual(replacement)
     const snapshots = await repository.inspectWorldSnapshots(base.id)
     expect(snapshots.status).toBe('available')
-    expect(await repository.importActiveWorldBackup('{bad JSON')).rejects.toThrow('backup-malformed')
+    await expect(repository.importActiveWorldBackup('{bad JSON')).rejects.toMatchObject({ code: 'backup-malformed' })
     expect(await repository.loadWorld(base.id)).toEqual(replacement)
+  })
+
+  it('imports a canonical chronicle only as a read-only chronicle and rejects its collision without touching active worlds', async () => {
+    const repository = new MedievalWorldRepository()
+    const active = chooseInitialCourier(createFoundationWorld({ seed: 'layout-chronicle-active' }), 'crew:0')
+    const historic = chooseInitialCourier(createFoundationWorld({ seed: 'layout-chronicle' }), 'crew:0')
+    const chronicle = finalizeWorldAsChronicle(historic, 'crew-extinction')
+    const bundle = serializePersistenceBackupBundle(createChronicleBackupBundle(chronicle))
+    await repository.saveWorld(active)
+    await repository.importChronicleBackup(bundle)
+    expect(await repository.loadChronicle(chronicle.id)).toEqual(chronicle)
+    expect(await repository.loadWorld(active.id)).toEqual(active)
+    await expect(repository.importChronicleBackup(bundle)).rejects.toThrow('backup-collision')
+    expect(await repository.loadWorld(historic.id)).toBeUndefined()
   })
 })

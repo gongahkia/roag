@@ -21,6 +21,12 @@ describe('compact medieval persistence layout', () => {
     const unsafe = structuredClone(index)
     ;(unsafe.locators[0]!.contentSafety.exclusions as unknown as Record<string, string>).slavery = 'permitted'
     expect(validateWorldRecordIndex(unsafe)).toBe(false)
+    const duplicate = structuredClone(index)
+    duplicate.locators = [...duplicate.locators, structuredClone(duplicate.locators[0]!)]
+    expect(validateWorldRecordIndex(duplicate)).toBe(false)
+    const malformed = structuredClone(index)
+    malformed.locators[0]!.container = 'hidden-world' as never
+    expect(validateWorldRecordIndex(malformed)).toBe(false)
   })
 
   it('rotates bounded complete-envelope snapshots deterministically without changing their source', () => {
@@ -50,6 +56,7 @@ describe('compact medieval persistence layout', () => {
     const tampered = structuredClone(active)
     tampered.source.digest = 'layout:tampered'
     expect(validatePersistenceBackupBundle(tampered)).toBe(false)
+    expect(() => parsePersistenceBackupBundle('x'.repeat(1_048_577))).toThrow('backup size limit')
     const chronicle = finalizeWorldAsChronicle(world, 'jomon-loss')
     const chronicleBundle = createChronicleBackupBundle(chronicle)
     expect(parsePersistenceBackupBundle(serializePersistenceBackupBundle(chronicleBundle))).toEqual(chronicleBundle)
