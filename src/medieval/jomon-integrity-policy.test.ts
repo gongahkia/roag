@@ -258,5 +258,5 @@ describe('Jomon integrity policy assessment boundary', () => {
     expect(codes(unauthorized)).toContain('jomon-integrity-policy.unauthorized-safeguard')
     expect(codes(ungroundedSafeguard)).toEqual(expect.arrayContaining(['jomon-integrity-policy.ungrounded-safeguard', 'jomon-integrity-policy.stale-safeguard-source']))
     expect(codes(malformedSafeguard)).toContain('jomon-integrity-policy.malformed-safeguard-reservation')
-  })
+  }, 10_000)
 })

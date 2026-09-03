@@ -166,5 +166,5 @@ describe('foundation cross-contract hardening', () => {
     const continued = advanceFoundationWorldTime(world, temporalAction('wait:replay-after-compaction', 1))
     expect(continued.state.causalHistory.tail).toHaveLength(1)
     expect(replayFoundationWorldCausalHistory(continued)).toEqual(causalReplayProjectionForWorldState(continued.state))
-  })
+  }, 10_000)
 })

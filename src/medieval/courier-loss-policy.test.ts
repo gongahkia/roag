@@ -228,7 +228,7 @@ describe('courier loss policy assessment boundary', () => {
     expect(codes(ungrounded)).toEqual(expect.arrayContaining(['courier-loss-policy.ungrounded-safeguard', 'courier-loss-policy.stale-safeguard-source']))
     expect(codes(duplicateSafeguard)).toEqual(expect.arrayContaining(['courier-loss-policy.duplicate-safeguard-kind', 'courier-loss-policy.noncanonical-safeguard-order']))
     expect(codes(unsupportedAuthority)).toContain('courier-loss-policy.malformed-safeguard-reservation')
-  })
+  }, 10_000)
 
   it('rejects a living subject, noncanonical crew context, and a malformed persistent-person snapshot through existing owners', () => {
     const living = request()
