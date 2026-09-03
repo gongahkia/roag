@@ -478,7 +478,7 @@ export const validateEffectResolutionRequest = (value: unknown): EffectResolutio
     else issues.push(...validateMedievalContentSafety([{ id: candidate.id, domain: 'data', classification: candidate.contentSafety }]).diagnostics.map(item => diagnostic(recordId, item.code)))
 
     const category = oneOf(EFFECT_SOURCE_CATEGORIES, candidate.category) ? candidate.category : undefined
-    if (category !== undefined) sourceAndTargetIssues(issues, candidate as EffectCandidate, facts)
+    if (category !== undefined) sourceAndTargetIssues(issues, candidate as unknown as EffectCandidate, facts)
     else if (!plainRecord(candidate.source) || !hasOnlyKeys(candidate.source, ['factId', 'factRevision', 'grounding'])) issues.push(diagnostic(recordId, 'effects.malformed-source'))
 
     if (!Array.isArray(candidate.evidence)) issues.push(diagnostic(recordId, 'effects.malformed-evidence'))
@@ -529,7 +529,7 @@ export const validateEffectResolutionRequest = (value: unknown): EffectResolutio
       referenceIssue(issues, recordId, { factId: candidate.counterplay.factId, factRevision: candidate.counterplay.factRevision }, facts, ['preparation', 'equipment', 'grounded-object', 'crew-support', 'environment'], 'effects.malformed-counterplay', 'effects.ineligible-counterplay')
     }
 
-    if (validIdentity(candidate.id, 'effect:') && !effects.has(candidate.id)) effects.set(candidate.id, candidate as EffectCandidate)
+    if (validIdentity(candidate.id, 'effect:') && !effects.has(candidate.id)) effects.set(candidate.id, candidate as unknown as EffectCandidate)
     else if (typeof candidate.id === 'string' && effects.has(candidate.id)) issues.push(diagnostic(candidate.id, 'effects.duplicate-effect-id'))
   }
 
