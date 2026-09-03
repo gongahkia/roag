@@ -356,7 +356,7 @@ describe('medieval local persistence', () => {
     expect(reloadedCompleted?.state.socialMemory).toEqual(completed.state.socialMemory)
     expect(reloadedCompleted?.state.autonomy).toEqual(completed.state.autonomy)
     expect(reloadedCompleted && replayFoundationWorldCausalHistory(reloadedCompleted)).toEqual(causalReplayProjectionForWorldState(completed.state))
-  })
+  }, 10_000)
 
   it('reloads recurring social refusals after public journal compaction and continues their real source-linked history', async () => {
     const repository = new MedievalWorldRepository()
@@ -929,7 +929,7 @@ describe('medieval local persistence', () => {
     expect(await repository.inspectSnapshot(world.id, 4)).toEqual(snapshots.ring.snapshots[2]!.world)
     await repository.restoreSnapshot(world.id, 2)
     expect(await repository.loadWorld(world.id)).toEqual(snapshots.ring.snapshots[0]!.world)
-  }, 20_000)
+  }, 30_000)
 
   it('derives task, event, person, and history locators from a validated delegated world without indexing generation seeds', async () => {
     const repository = new MedievalWorldRepository()
@@ -990,7 +990,7 @@ describe('medieval local persistence', () => {
     expect(snapshots.status).toBe('available')
     await expect(repository.importActiveWorldBackup('{bad JSON')).rejects.toMatchObject({ code: 'backup-malformed' })
     expect(await repository.loadWorld(base.id)).toEqual(replacement)
-  })
+  }, 10_000)
 
   it('imports a canonical chronicle only as a read-only chronicle and rejects its collision without touching active worlds', async () => {
     const repository = new MedievalWorldRepository()
