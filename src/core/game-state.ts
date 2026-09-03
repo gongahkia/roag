@@ -4,20 +4,21 @@ import { elapsedMsForPhase } from './hazards';
 import { resetPlayerForCourse } from './player-effects';
 import { newBall } from './physics';
 import { Random } from './random';
+import { activeBuilderId, buildShellFor, canPlaceBuildPiece, constructionFor, installBuildPiece } from './construction';
 import { GENERATOR_VERSION, LEGACY_GENERATOR_VERSION, PARTY_TRICK_CARDS, RECIPE_SCHEMA_VERSION, generatorVersionFor, rulesetFor } from './rulesets';
-import { COURSE_HEIGHT, COURSE_WIDTH, type ChaosModifier, type Course, type GameConfig, type GameState, type PlannedHole, type Player } from './types';
+import { COURSE_HEIGHT, COURSE_WIDTH, type BuildPieceId, type ChaosModifier, type Course, type GameConfig, type GameState, type PlannedHole, type Player } from './types';
 
 const colors = ['#f1d058', '#70cfd4', '#ef6f73', '#b783e6', '#c6e27a', '#8ca6ec', '#e78c56', '#fff1b8', '#75d6c8', '#d86e97', '#899ce8', '#e49abf'];
 
 export const defaultConfig = (): GameConfig => ({
   seed: `enemy-${Math.random().toString(36).slice(2, 8)}`,
-  holeCount: 9,
+  holeCount: 6,
   botCount: 3,
   humanCount: 1,
   botSkill: 5,
   courseWidth: COURSE_WIDTH,
   courseHeight: COURSE_HEIGHT,
-  ruleset: 'party',
+  ruleset: 'coursewright',
 });
 
 export const addMessage = (state: GameState, message: string) => {
@@ -168,12 +169,18 @@ const clonePlan = (plan: PlannedHole): PlannedHole => ({
 });
 
 /** Rebuild a planned hole with the generator that created its recorded recipe. */
-export const courseForPlan = (plan: PlannedHole) => generateCourse(
-  plan.courseSeed,
-  plan.recipe.terrain,
-  plan.recipe.rules.hazardPhaseCount,
-  generatorVersionFor(plan.recipe.metadata?.generatorVersion ?? LEGACY_GENERATOR_VERSION),
-);
+export const courseForPlan = (plan: PlannedHole) => {
+  if (plan.recipe.metadata?.generatorVersion === 'coursewright-v1') {
+    const hole = Number(plan.id.match(/hole-(\d+)/)?.[1] ?? 1);
+    return buildShellFor(plan.courseSeed, hole, plan.recipe.terrain.width, plan.recipe.terrain.height, 4);
+  }
+  return generateCourse(
+    plan.courseSeed,
+    plan.recipe.terrain,
+    plan.recipe.rules.hazardPhaseCount,
+    generatorVersionFor(plan.recipe.metadata?.generatorVersion ?? LEGACY_GENERATOR_VERSION),
+  );
+};
 
 const applyReality = (course: Course, reality: GameState['queuedReality']) => {
   if (reality === 'void is fairway') course.tiles.forEach((tile) => { if (tile.surface === 'void') tile.surface = 'fairway'; });
@@ -395,11 +402,107 @@ const automaticPlanFor = (state: GameState): PlannedHole => {
   return planned;
 };
 
+const coursewrightRulesFor = (config: GameConfig, hole: number) => ({
+  ...defaultHoleRules(),
+  timerSeconds: 18,
+  strokeCap: Math.max(7, Math.ceil((config.courseWidth ?? COURSE_WIDTH) / 5) + 2),
+  collisions: true,
+  powerUps: false,
+  recoveryBias: 0,
+  sharedBoons: [],
+});
+
+/** Coursewright holes are deterministic empty shells. The group supplies the
+ * visible obstacles during the build phase rather than receiving a random
+ * card stack or a pre-filled hazard course. */
+const coursewrightPlanFor = (config: GameConfig, hole: number): PlannedHole => {
+  const random = new Random(`${config.seed}:coursewright:shell:${hole}`);
+  const terrain = {
+    ...defaultTerrainSettings(),
+    ...courseDimensionsFor(config),
+    theme: random.pick(['speedway', 'quarry', 'carnival'] as const),
+    archetype: 'fork' as const,
+    sizeProfile: 'standard' as const,
+    density: .36,
+    noiseAmplitude: .18,
+    elevation: .2,
+    maxElevation: 1,
+    variation: hole,
+  };
+  const rules = coursewrightRulesFor(config, hole);
+  const courseSeed = `${config.seed}:coursewright:${hole}`;
+  return {
+    id: `hole-${hole}-coursewright`,
+    label: `${terrain.theme} construction shell`,
+    courseSeed,
+    recipe: {
+      terrain,
+      rules,
+      metadata: {
+        schemaVersion: RECIPE_SCHEMA_VERSION,
+        generatorVersion: 'coursewright-v1',
+        seed: courseSeed,
+        resolvedReels: { biome: terrain.theme, layout: 'socket shell', rules: `${rules.timerSeconds}s · cap ${rules.strokeCap}`, chaos: [] },
+        contentIds: [],
+      },
+    },
+  };
+};
+
+const initializeConstruction = (state: GameState) => {
+  state.construction = constructionFor(state.config.seed, state.hole, state.players);
+  const builderId = activeBuilderId(state);
+  const playerIndex = state.players.findIndex((player) => player.id === builderId);
+  state.turn = { playerIndex: Math.max(0, playerIndex), secondsLeft: 28, shotInFlight: false, cardPlayed: false };
+  state.status = 'building';
+  addMessage(state, `${state.players[state.turn.playerIndex]!.name} places the opening module`);
+};
+
+const activateCoursewrightPlan = (state: GameState, plan: PlannedHole) => {
+  state.course = buildShellFor(plan.courseSeed, state.hole, plan.recipe.terrain.width, plan.recipe.terrain.height, state.players.length);
+  state.holeRules = { ...plan.recipe.rules, sharedBoons: [] };
+  state.hazardElapsedMs = 0;
+  state.coursePhase = 0;
+  state.holeFinishSequence = 0;
+  state.gadgets = [];
+  state.players.forEach((player) => resetPlayerForCourse(player, state.course, state.holeRules));
+  initializeConstruction(state);
+};
+
+export const placeBuildPiece = (state: GameState, pieceId: BuildPieceId, socketId: string) => {
+  if (state.status !== 'building' || state.paused || !state.construction) return;
+  const builderId = activeBuilderId(state);
+  if (!builderId || !canPlaceBuildPiece(state, builderId, pieceId, socketId)) return;
+  const socket = state.course.buildSockets?.find((candidate) => candidate.id === socketId);
+  if (!socket) return;
+  installBuildPiece(state.course, socket, pieceId, builderId);
+  const hand = state.construction.hands[builderId]!;
+  hand.splice(hand.indexOf(pieceId), 1);
+  recordInstrumentation(state, { type: 'build', hole: state.hole, playerId: builderId, targetId: socketId, detail: pieceId });
+  state.construction.placementIndex += 1;
+  if (state.construction.placementIndex < state.construction.placementOrder.length) {
+    const nextBuilderId = activeBuilderId(state)!;
+    const playerIndex = state.players.findIndex((player) => player.id === nextBuilderId);
+    state.turn = { playerIndex: Math.max(0, playerIndex), secondsLeft: 28, shotInFlight: false, cardPlayed: false };
+    addMessage(state, `${state.players[state.turn.playerIndex]!.name}'s turn to build`);
+    return;
+  }
+  state.status = 'playing';
+  state.turn = { playerIndex: (state.hole - 1) % Math.max(1, state.players.length), secondsLeft: state.holeRules.timerSeconds, shotInFlight: false, cardPlayed: false };
+  addMessage(state, 'the hole is live — play what you built');
+  recordInstrumentation(state, { type: 'reveal', hole: state.hole, detail: 'construction complete' });
+};
+
 export const createGameState = (config: GameConfig): GameState => {
-  const resolvedConfig = { ...config, ruleset: config.ruleset ?? 'party' };
-  const firstPlan = automaticPlanFor({ config: resolvedConfig, hole: 1 } as GameState);
+  const resolvedConfig = { ...config, ruleset: config.ruleset ?? 'coursewright' };
+  const firstPlan = resolvedConfig.ruleset === 'coursewright'
+    ? coursewrightPlanFor(resolvedConfig, 1)
+    : automaticPlanFor({ config: resolvedConfig, hole: 1 } as GameState);
   const coursePlan = [firstPlan];
-  const course = cloneCourse(courseForPlan(firstPlan));
+  const playerCount = config.humanCount + config.botCount;
+  const course = resolvedConfig.ruleset === 'coursewright'
+    ? buildShellFor(firstPlan.courseSeed, 1, firstPlan.recipe.terrain.width, firstPlan.recipe.terrain.height, playerCount)
+    : cloneCourse(courseForPlan(firstPlan));
   const holeRules = { ...firstPlan.recipe.rules, sharedBoons: [...firstPlan.recipe.rules.sharedBoons] };
   const players = Array.from({ length: config.humanCount }, (_, index) => emptyPlayer(`human-${index}`, index, 'human', 0, course));
   players.push(...Array.from({ length: config.botCount }, (_, index) => emptyPlayer(`bot-${index}`, players.length + index, 'bot', config.botSkill, course)));
@@ -421,10 +524,11 @@ export const createGameState = (config: GameConfig): GameState => {
     gadgets: [],
     turn: { playerIndex: 0, secondsLeft: holeRules.timerSeconds, shotInFlight: false, cardPlayed: false },
     paused: false,
-    status: 'playing',
-    messages: ['the course shuffler threw a random opening hazard — tee off'],
+    status: resolvedConfig.ruleset === 'coursewright' ? 'building' : 'playing',
+    messages: resolvedConfig.ruleset === 'coursewright' ? ['the shell is open — build the hole together'] : ['the course shuffler threw a random opening hazard — tee off'],
     instrumentation: { events: [{ type: 'recipe', hole: 1, detail: firstPlan.recipe.metadata?.courseHash ?? firstPlan.courseSeed }, { type: 'reveal', hole: 1, detail: firstPlan.label }] },
   };
+  if (resolvedConfig.ruleset === 'coursewright') initializeConstruction(state);
   return state;
 };
 

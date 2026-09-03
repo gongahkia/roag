@@ -10,7 +10,9 @@ export type Upgrade = CaddyId;
 export type RealityCard = 'wall is cup' | 'void is fairway' | 'fairway is ice' | 'gravity is sideways' | 'cup walks' | 'everybody is ghost' | 'two is one' | 'portals are plenty' | 'turns are backwards' | 'gates are open' | 'cups are many' | 'ball is cup' | 'bank holiday' | 'spring fling' | 'high winds' | 'cushion league';
 export type ChronoCard = 'undo drive' | 'second chance' | 'echo putt' | 'future sight' | 'time theft' | 'frozen frame' | 'parallel parking' | 'grandfather clause';
 export type ContentId = CaddyId | PowerUp | RealityCard | ChronoCard;
-export type RulesetId = 'party' | 'custom';
+/** Coursewright is the ordinary build-then-play party game. Party and custom
+ * remain readable for older saves and developer experiments. */
+export type RulesetId = 'coursewright' | 'party' | 'custom';
 export type RouteRole = 'safe' | 'skill' | 'conflict';
 export type ContentCategory = 'caddy' | 'pocket' | 'form' | 'gadget' | 'reality' | 'chrono';
 export type CardTiming = 'immediate' | 'putt' | 'round' | 'hole';
@@ -289,7 +291,39 @@ export interface Course {
   /** portal overlays remain optional so saved pre-portal courses stay readable. */
   portals?: PortalPair[];
   itemPads: ItemPad[];
+  /** Constrained build sockets keep the shared construction phase readable and
+   * guarantee that every completed board retains a route to the cup. */
+  buildSockets?: BuildSocket[];
   score: CourseScore;
+}
+
+export type BuildPieceId = 'bank' | 'spring' | 'bridge' | 'gate' | 'splitter' | 'cushion';
+export type ArchitectContractKind = 'traffic' | 'bank' | 'airtime' | 'shortcut';
+
+export interface BuildSocket {
+  id: string;
+  point: Point;
+  /** Filled only after the owning architect commits a legal piece. */
+  ownerId?: string;
+  pieceId?: BuildPieceId;
+}
+
+export interface ArchitectContract {
+  id: string;
+  ownerId: string;
+  kind: ArchitectContractKind;
+  label?: string;
+  description?: string;
+  completed?: boolean;
+  revealed?: boolean;
+}
+
+export interface ConstructionState {
+  /** Two module placements per golfer, then the board is played immediately. */
+  placementOrder: string[];
+  placementIndex: number;
+  hands: Record<string, BuildPieceId[]>;
+  contracts: ArchitectContract[];
 }
 
 export interface RouteRoleAssignment {
@@ -479,6 +513,7 @@ export interface GameState {
   cardSequence: number;
   players: Player[];
   gadgets: Gadget[];
+  construction?: ConstructionState;
   shop?: ShopState;
   queuedReality?: RealityCard;
   activeReality?: RealityCard;
@@ -486,13 +521,13 @@ export interface GameState {
   forcedNextPlayerId?: string;
   turn: TurnState;
   paused: boolean;
-  status: 'shopping' | 'transitioning' | 'playing' | 'finished';
+  status: 'building' | 'shopping' | 'transitioning' | 'playing' | 'finished';
   messages: string[];
   instrumentation?: GameInstrumentation;
 }
 
 export interface InstrumentationEvent {
-  type: 'recipe' | 'generation-failure' | 'shot' | 'shot-analysis' | 'turn-duration' | 'hole-duration' | 'card' | 'shop' | 'collision' | 'recovery' | 'hole-complete' | 'reveal' | 'cause' | 'pacing' | 'final-overview';
+  type: 'recipe' | 'generation-failure' | 'shot' | 'shot-analysis' | 'turn-duration' | 'hole-duration' | 'card' | 'shop' | 'build' | 'contract' | 'collision' | 'recovery' | 'hole-complete' | 'reveal' | 'cause' | 'pacing' | 'final-overview';
   hole: number;
   playerId?: string;
   /** Actor or system target makes social cause chains inspectable without parsing prose. */
@@ -508,6 +543,7 @@ export interface GameInstrumentation {
 }
 
 export type GameCommand =
+  | { type: 'place-build-piece'; pieceId: BuildPieceId; socketId: string }
   | { type: 'shoot'; shot: ShotCommand }
   | { type: 'complete-transition' }
   | { type: 'set-paused'; paused: boolean }

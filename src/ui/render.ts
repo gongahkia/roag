@@ -780,8 +780,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     const ratio = window.devicePixelRatio || 1;
     const presentation = presentationFor();
     displayContext.setTransform(1, 0, 0, 1, 0, 0);
-    displayContext.imageSmoothingEnabled = true;
-    displayContext.imageSmoothingQuality = 'high';
+    displayContext.imageSmoothingEnabled = false;
     displayContext.fillStyle = '#070819';
     displayContext.fillRect(0, 0, canvas.width, canvas.height);
     displayContext.drawImage(
@@ -938,8 +937,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     const { width, height } = canvas.getBoundingClientRect();
     canvas.width = Math.max(1, Math.floor(width * ratio));
     canvas.height = Math.max(1, Math.floor(height * ratio));
-    displayContext.imageSmoothingEnabled = true;
-    displayContext.imageSmoothingQuality = 'high';
+    displayContext.imageSmoothingEnabled = false;
     if (!latest) return;
     if (latest.kind === 'construction') paintConstruction(latest.frame);
     else paint(latest.course, latest.players, latest.hazardElapsedMs, latest.aim, latest.emotes, latest.showItems, latest.phaseCount, latest.buildProgress, latest.gadgets, latest.placement, latest.focus, latest.options, latest.camera);

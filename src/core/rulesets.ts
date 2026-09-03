@@ -45,6 +45,17 @@ export interface RulesetConfig {
   layouts?: readonly CourseArchetype[];
 }
 
+/** The public game: a group builds one constrained physical hole, then plays
+ * it immediately. There is intentionally no card or merchant layer. */
+export const COURSEWRIGHT_RULES: RulesetConfig = {
+  id: 'coursewright',
+  label: 'Coursewright Rules',
+  cards: { handLimit: 0, perShotLimit: 0, allowed: [], durations: [] },
+  shop: { offerCount: 0, seconds: 0, allowsRerollVote: false },
+  biomes: PARTY_BIOMES,
+  layouts: ['fork'],
+};
+
 export const PARTY_RULES: RulesetConfig = {
   id: 'party',
   label: 'Party Rules',
@@ -71,8 +82,13 @@ const CUSTOM_RULES: RulesetConfig = {
   shop: { offerCount: 7, seconds: 20, allowsRerollVote: true },
 };
 
-export const rulesetFor = (config: Pick<GameConfig, 'ruleset'>): RulesetConfig => config.ruleset === 'custom' ? CUSTOM_RULES : PARTY_RULES;
+export const rulesetFor = (config: Pick<GameConfig, 'ruleset'>): RulesetConfig => config.ruleset === 'custom'
+  ? CUSTOM_RULES
+  : config.ruleset === 'party'
+    ? PARTY_RULES
+    : COURSEWRIGHT_RULES;
 export const isPartyRules = (config: Pick<GameConfig, 'ruleset'>) => rulesetFor(config).id === 'party';
+export const isCoursewrightRules = (config: Pick<GameConfig, 'ruleset'>) => rulesetFor(config).id === 'coursewright';
 export const isPartyTrickCard = (value: PowerUp): value is PartyTrickCard => PARTY_TRICK_CARDS.includes(value as PartyTrickCard);
 
 export const trickCardDetails: Record<PartyTrickCard, { target: string; duration: 'shot' | 'hole'; expiry: string }> = {

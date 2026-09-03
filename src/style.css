@@ -516,29 +516,37 @@ h1 em { color: #f1d058; }
   .reaction-dock { display: none; }
 }
 
-/* The course owns the screen; all match information lives in one persistent,
-   visibly partitioned rail beneath it instead of floating over the playfield. */
+/* Keep the world generous, but reserve a real arcade console beneath it. The
+   renderer letterboxes a 320 × 180 framebuffer, so an unbounded stage merely
+   increases empty surround while a cramped rail makes the useful information
+   unreadable. */
 .app-shell .layout, .app-shell .board { height: 100svh; min-height: 100svh; }
-.app-shell .board { display: grid; grid-template-rows: minmax(0, 1fr) auto; overflow: hidden; }
+.app-shell .board {
+  display: grid;
+  grid-template-rows: minmax(18rem, 1fr) clamp(18rem, 28svh, 22rem);
+  overflow: hidden;
+}
 .app-shell .course-stage { min-height: 0; height: auto; }
-.app-shell .course-stage canvas { height: 100%; min-height: 0; image-rendering: auto; }
+.app-shell .course-stage canvas { height: 100%; min-height: 0; image-rendering: pixelated; }
 
 .match-rail {
   position: relative;
   z-index: 4;
   display: grid;
-  grid-template-columns: minmax(152px, 1.1fr) minmax(118px, .75fr) minmax(162px, .95fr) minmax(220px, 1.55fr) auto auto;
+  grid-template-columns: minmax(13rem, 1.1fr) minmax(11rem, .78fr) minmax(14rem, .95fr) minmax(23rem, 1.6fr) minmax(11rem, .78fr) minmax(12rem, .88fr);
   grid-template-areas:
     "course turn leaderboard strength camera reactions"
     "controls controls controls controls controls controls";
-  max-height: min(36svh, 17rem);
-  overflow: auto;
+  grid-template-rows: minmax(10rem, 1fr) auto;
+  min-height: clamp(18rem, 28svh, 22rem);
+  overflow: hidden;
   border-top: 2px solid #f1d058;
   background: #111744;
   box-shadow: 0 -3px 0 #050611;
+  font-size: clamp(.75rem, .72vw, .92rem);
 }
 
-.match-hud { position: static; z-index: auto; inset: auto; display: contents; pointer-events: none; }
+.match-hud { position: static; z-index: auto; inset: auto; display: contents; font-size: inherit; pointer-events: none; }
 .hud-course, .hud-timer, .hud-leaderboard, .hud-strength, .reaction-dock, .hud-camera {
   position: static;
   top: auto;
@@ -558,47 +566,89 @@ h1 em { color: #f1d058; }
   backdrop-filter: none;
   transform: none;
 }
-.hud-course { grid-area: course; padding: .42rem .55rem; }
-.hud-timer { grid-area: turn; padding: .42rem .55rem; }
-.hud-leaderboard { grid-area: leaderboard; overflow: visible; padding: .35rem .45rem; }
-.hud-strength { grid-area: strength; padding: .42rem .55rem; }
-.hud-camera { grid-area: camera; display: grid; align-content: center; padding: .35rem .45rem; }
-.reaction-dock { grid-area: reactions; display: grid; align-content: center; padding: .35rem .45rem; pointer-events: auto; }
-.reaction-dock > div { display: flex; flex-wrap: wrap; }
-.hud-camera > div { grid-template-columns: 1.55rem minmax(4.5rem, auto) 1.55rem; }
+.hud-course { grid-area: course; padding: .72rem .82rem; }
+.hud-timer { grid-area: turn; padding: .72rem .82rem; }
+.hud-leaderboard { grid-area: leaderboard; overflow: hidden; padding: .62rem .72rem; }
+.hud-strength { grid-area: strength; padding: .72rem .82rem; }
+.hud-camera { grid-area: camera; display: grid; align-content: center; padding: .62rem .72rem; }
+.reaction-dock { grid-area: reactions; display: grid; align-content: center; padding: .62rem .72rem; pointer-events: auto; }
+.reaction-dock > div { display: flex; flex-wrap: wrap; gap: .35rem; }
+.hud-camera > div { grid-template-columns: 2.05rem minmax(6.2rem, auto) 2.05rem; gap: .35rem; }
+
+.hud-course, .hud-timer { gap: .38rem; }
+.hud-course p, .hud-timer p { font-size: .68rem; }
+.hud-course strong { font-size: .9rem; }
+.hud-course small { font-size: .68rem; line-height: 1.35; }
+.route-role-key { gap: .3rem; margin-top: .16rem; }
+.route-role-chip { gap: .22rem; padding: .18rem .34rem; font-size: .58rem; }
+.route-role-chip b { font-size: .66rem; }
+.hud-timer { gap: .24rem .72rem; }
+.hud-timer strong { font-size: .86rem; }
+.hud-timer b { font-size: 1.65rem; line-height: .9; }
+.hud-timer b small { font-size: .72rem; }
+.hud-turn-status { font-size: .62rem; line-height: 1.3; }
+.hud-leaderboard header { padding: 0 .22rem .4rem; font-size: .68rem; }
+.hud-leaderboard header small { font-size: .62rem; }
+.hud-leaderboard ol { gap: .16rem; margin-top: .38rem; }
+.hud-leaderboard li { min-height: 1.65rem; padding: .18rem .22rem; }
+.hud-leaderboard li strong { font-size: .72rem; }
+.hud-leaderboard li b { font-size: .78rem; }
+.hud-leaderboard li i { width: .54rem; height: .54rem; }
+.hud-strength { gap: .52rem; }
+.hud-strength-heading { font-size: .72rem; }
+.hud-strength-heading b { font-size: 1.1rem; }
+.hud-strength-meter { height: .9rem; }
+.hud-shot-help { font-size: .62rem; }
+.hud-camera { gap: .45rem; }
+.hud-camera > span { font-size: .62rem; line-height: 1.35; }
+.hud-camera button { min-height: 2.15rem; padding: .28rem .4rem; font-size: .68rem; }
+.hud-camera button[data-camera-zoom] { font-size: 1.3rem; }
+.reaction-dock { gap: .42rem; }
+.reaction-dock > span { font-size: .62rem; }
+.reaction-dock button { width: 2.3rem; height: 2.3rem; font-size: 1.08rem; }
 
 .app-shell .controls {
   position: static;
   z-index: auto;
   grid-area: controls;
   width: auto;
-  min-height: 0;
+  min-height: 4.8rem;
   max-height: none;
   margin: 0;
   overflow: visible;
   border: 0;
   border-top: 1px solid #495b9d;
   border-radius: 0;
-  padding: .45rem .65rem;
+  padding: .68rem .82rem;
   background: #0d1130;
   box-shadow: none;
   transform: none;
 }
+.controls { gap: .58rem .82rem; font-size: .78rem; }
+.controls > button { min-height: 2.2rem; font-size: .76rem; }
+.controls > button small { font-size: .64rem; }
+.controls label { font-size: .74rem; }
+.control-status { font-size: .7rem; }
 
 .capture-mode .match-rail { display: none; }
 .capture-mode .board { grid-template-rows: minmax(0, 1fr); }
 
 @media (max-width: 980px) {
+  .app-shell .board { grid-template-rows: minmax(17rem, 1fr) clamp(20rem, 40svh, 25rem); }
   .match-rail {
     grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1fr);
     grid-template-areas:
       "course turn leaderboard"
       "strength strength camera"
       "controls controls reactions";
+    grid-template-rows: minmax(5.7rem, auto) minmax(5.8rem, auto) minmax(5rem, auto);
+    min-height: clamp(20rem, 40svh, 25rem);
+    overflow-y: auto;
   }
 }
 
 @media (max-width: 720px) {
+  .app-shell .board { grid-template-rows: minmax(14rem, 1fr) minmax(0, 48svh); }
   .match-rail {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas:
@@ -607,8 +657,16 @@ h1 em { color: #f1d058; }
       "strength strength"
       "controls controls"
       "reactions reactions";
-    max-height: 46svh;
+    grid-template-rows: auto auto auto auto auto;
+    min-height: 0;
+    max-height: 48svh;
+    overflow-y: auto;
   }
+  .hud-course, .hud-timer, .hud-leaderboard, .hud-strength, .hud-camera, .reaction-dock { padding: .52rem .58rem; }
+  .hud-course small { display: block; }
+  .route-role-key { display: flex; }
+  .hud-timer b { font-size: 1.35rem; }
+  .reaction-dock button { width: 2.1rem; height: 2.1rem; }
   .reaction-dock { display: grid; }
   .hud-course, .hud-timer, .hud-leaderboard, .hud-strength, .reaction-dock, .hud-camera { min-width: 0; }
   .hud-leaderboard li:nth-child(n + 5) { display: grid; }
