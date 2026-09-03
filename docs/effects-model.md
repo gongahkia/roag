@@ -47,3 +47,5 @@ Each result exposes active and suppressed effect IDs, semantic category/polarity
 This slice changes no `FoundationWorld`, world/manifest/replay schema, save envelope, IndexedDB layout v4, derived index, valid v3 envelope loading, or explicit-save-only metadata. It adds no migration, compatibility shim, persistent cache, worker, packed data, spatial system, random stream, browser feature, gameplay action, or public mod/content-pack surface.
 
 Before a later owner stores or uses an effect candidate, it must make that owner's explicit provenance, replay, safety, and schema/version decision. The companion policy audit is not that implementation decision. Neither contract authorizes combat, recovery, death/revival, Jomon loss, social control, or any other simulation behavior.
+
+The companion [courier loss policy assessment](courier-loss-policy.md) consumes only the mystical policy's explicit ultra-rare courier-safeguard reservation as unavailable future provenance. It neither resolves an effect nor authorizes prevention, revival, succession, or chronicle finalization.
