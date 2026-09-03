@@ -1,5 +1,5 @@
 import { auditMedievalContentSafety, classifyMedievalContent, contentSafetyAuditMatches, type ClassifiedMedievalContent, type MedievalContentDomain, type MedievalContentSafetyAudit, type MedievalContentSafetyClassification, type MedievalContentSafetyDiagnosticCode } from './content-safety'
-import { JOMON_ASCII_GLYPH_CATALOG, findAsciiGlyph, terminalGlyphCatalog, terminalGlyphReferenceFor } from './ascii-glyphs'
+import { JOMON_ASCII_GLYPH_CATALOG, terminalGlyphCatalog, terminalGlyphReferenceFor } from './ascii-glyphs'
 import { deriveJomonDeckPlan } from './jomon-deck-plan'
 import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE, type JomonPaletteToken } from './palette'
 import {
@@ -760,7 +760,7 @@ const legendFreshnessText = (evidence: TerminalEvidenceProvenance): string => ev
 
 const legendEntryFor = (map: TerminalMaterializedMap, glyphId: string): TerminalMapLegendEntry => {
   const cell = map.cells.filter(candidate => candidate.glyph.id === glyphId).sort(cellOrder)[0]
-  const glyph = findAsciiGlyph(glyphId)
+  const glyph = JOMON_ASCII_GLYPH_CATALOG.entries.find(entry => entry.id === glyphId)
   if (!cell || !glyph || !same(cell.glyph, terminalGlyphReferenceFor(glyphId)) || cell.paletteToken !== glyph.paletteToken
     || cell.presentationState !== glyph.presentationState || !same(cell.nonColorCue, glyph.nonColorCue)) throw new Error('terminal map legend source is invalid')
   const evidence = structuredClone(cell.evidence)
@@ -780,8 +780,6 @@ const legendEntryFor = (map: TerminalMaterializedMap, glyphId: string): Terminal
 }
 
 const rawTerminalMapLegend = (map: TerminalMaterializedMap): TerminalMapLegend => {
-  const cellDiagnostics = validateTerminalMaterializedCells(map.viewport, map.cells, terminalGlyphCatalog(JOMON_ASCII_GLYPH_CATALOG))
-  if (cellDiagnostics.length) throw new TerminalPresentationContractError(cellDiagnostics)
   const glyphIds = [...new Set(map.cells.map(cell => cell.glyph.id))].sort(compare)
   if (!glyphIds.length || glyphIds.length > TERMINAL_PRESENTATION_LIMITS.legendEntries) throw new Error('terminal map legend has an invalid visible glyph set')
   const entries = glyphIds.map(glyphId => legendEntryFor(map, glyphId))
@@ -800,11 +798,17 @@ const rawTerminalMapLegend = (map: TerminalMaterializedMap): TerminalMapLegend =
 }
 
 /** Builds a discardable legend from a validated source-backed terminal map, never from world state. */
-export const createTerminalMapLegend = (map: TerminalMaterializedMap): TerminalMapLegend => rawTerminalMapLegend(map)
+export const createTerminalMapLegend = (map: TerminalMaterializedMap): TerminalMapLegend => {
+  const diagnostics = validateTerminalMaterializedCells(map.viewport, map.cells, terminalGlyphCatalog(JOMON_ASCII_GLYPH_CATALOG))
+  if (diagnostics.length) throw new TerminalPresentationContractError(diagnostics)
+  return rawTerminalMapLegend(map)
+}
 
 /** Validates the complete, canonical legend against only its source-backed map projection. */
 export const validateTerminalMapLegend = (map: TerminalMaterializedMap, value: unknown): readonly TerminalPresentationDiagnostic[] => {
   try {
+    const mapDiagnostics = validateTerminalMaterializedCells(map.viewport, map.cells, terminalGlyphCatalog(JOMON_ASCII_GLYPH_CATALOG))
+    if (mapDiagnostics.length) return mapDiagnostics
     const expected = rawTerminalMapLegend(map)
     return same(value, expected) ? [] : [issue('terminal-map-legend', 'terminal-presentation.invalid-model')]
   } catch (error) {

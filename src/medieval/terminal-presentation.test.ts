@@ -19,12 +19,14 @@ import {
   validateTerminalMaterializedCells,
   validateTerminalMessages,
   validateTerminalPresentationModel,
+  validateTerminalPresentationProjection,
   validateTerminalPrompt,
   type TerminalGlyphCatalog,
   type TerminalMapViewport,
   type TerminalMaterializedCell,
   type TerminalPrompt
 } from './terminal-presentation'
+import { terminalGlyphCatalog } from './ascii-glyphs'
 import { deriveJomonDeckPlan } from './jomon-deck-plan'
 import { chooseInitialCourier, createFoundationWorld } from './world'
 
@@ -99,7 +101,7 @@ describe('terminal presentation contract', () => {
     const encoded = JSON.stringify(first)
 
     expect(second).toEqual(first)
-    expect(validateTerminalPresentationModel(world, first)).toEqual([])
+    expect(validateTerminalPresentationProjection(first, terminalGlyphCatalog())).toEqual([])
     expect(world).toEqual(before)
     expect(first.map).toMatchObject({ state: 'materialized', viewport: { context: 'jomon-deck-plan', width: 18, height: 8 } })
     expect(first.map.cells).toHaveLength(114)
@@ -168,8 +170,8 @@ describe('terminal presentation contract', () => {
 
     expect(model.map.cells).toHaveLength(plan.areas.flatMap(area => area.footprint).length + plan.structuralCells.length + 1)
     expect(validateTerminalPresentationModel(world, missing).map(item => item.code)).toContain('terminal-presentation.invalid-model')
-    expect(validateTerminalPresentationModel(world, extra).map(item => item.code)).toContain('terminal-presentation.invalid-model')
-    expect(validateTerminalPresentationModel(world, reordered).map(item => item.code)).toContain('terminal-presentation.invalid-model')
+    expect(validateTerminalPresentationProjection(extra, terminalGlyphCatalog()).map(item => item.code)).toContain('terminal-presentation.duplicate-cell')
+    expect(validateTerminalPresentationProjection(reordered, terminalGlyphCatalog()).map(item => item.code)).toContain('terminal-presentation.noncanonical-cell-order')
   })
 
   it('derives a canonical, source-backed visible-glyph legend without hidden world facts and rejects altered legend data', () => {
