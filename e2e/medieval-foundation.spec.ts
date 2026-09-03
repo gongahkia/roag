@@ -140,7 +140,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-terminal-message-count', '0')
   await expect(game).toHaveAttribute('data-terminal-message-state', 'empty')
   await expect(game).toHaveAttribute('data-terminal-prompt-count', '0')
-  await expect(game).toHaveAttribute('aria-label', /Known static Jomon deck map.*113 deck and hull cells and one active courier marker.*An active courier is selected.*Fixed full-deck camera follows.*Current world minute 0.*No current authoritative messages/i)
+  await expect(game).toHaveAttribute('aria-label', /Known static Jomon deck map.*113 deck and hull cells and one active courier marker.*An active courier is selected.*Fixed full-deck camera follows.*Creation provenance seed lower quay.*Current world minute 0.*No current authoritative messages/i)
   await page.screenshot({ path: '/tmp/jomon-phase15-terminal-status.png' })
   if (!worldId) throw new Error('created world should have a stable id')
 
