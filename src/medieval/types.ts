@@ -149,8 +149,8 @@ export interface CausalRecord {
 }
 
 export interface FoundationWorld {
-  /** v13 requires v11 mutable state with replayed source-linked social memory. */
-  version: 13
+  /** v14 adds replayed local deck navigation to the validated mutable state. */
+  version: 14
   id: string
   status: 'active'
   manifest: WorldManifest
@@ -158,6 +158,12 @@ export interface FoundationWorld {
   crew: readonly FoundationCrewMember[]
   initialWorld: InitialWorld
   state: MedievalWorldState
+}
+
+/** Read-only import shape accepted only by the deterministic v13-to-v14 upgrader. */
+export interface LegacyFoundationWorldV13 extends Omit<FoundationWorld, 'version' | 'state'> {
+  version: 13
+  state: Omit<MedievalWorldState, 'version' | 'navigation'> & { version: 11 }
 }
 
 export type ChronicleReason = 'jomon-loss' | 'crew-extinction'

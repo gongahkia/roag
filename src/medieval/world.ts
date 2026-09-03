@@ -13,6 +13,7 @@ import { appendCausalCommand, causalReplayProjection, createCausalCommand, repla
 import { CONVERSATION_CONTRACT_VERSION, assessCourierConversation, assessCourierConversationForValidatedReplay, type ConversationAssessment } from './conversation'
 import { advanceDelegatedTasks, delegatedWorkPlaceholderForTask, delegationInterruptionTemporalAction, delegationOfferTemporalAction, interruptDelegatedTask, isDelegationInterruptionInput, isDelegationOfferInput, offerDelegatedTask as offerDelegationTransition, type DelegationInterruptionInput, type DelegationOfferInput } from './delegation'
 import { advanceAutonomyState, createAutonomyState, reconcileAutonomyState, validateAutonomyPlanState } from './autonomy'
+import { assessJomonDeckStep, canonicalJomonDeckSpawn, jomonDeckCoordinateId, type JomonDeckCollision, type JomonDeckCoordinate, type JomonDeckMovementDirection } from './jomon-navigation'
 import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
 
 const foundationJomon = (): FoundationJomon => ({
@@ -416,7 +417,7 @@ const worldFromCreationProvenance = (
   if (!state) throw new Error('creation provenance does not identify a valid foundation world')
   const temporal = createMedievalTemporalState(temporalProvenanceForCreation(creation))
   return {
-    version: 13,
+    version: 14,
     id: idForCreationProvenance(creation),
     status: 'active',
     manifest: {
@@ -544,6 +545,7 @@ const stateFromProjection = (world: FoundationWorld, projection: CausalReplayPro
   frontier: world.state.geography.frontier,
   temporal: projection.temporal,
   ...(projection.courier.initialCourierId === undefined ? {} : { initialCourierId: projection.courier.initialCourierId }),
+  ...(projection.navigation === undefined ? {} : { navigationState: projection.navigation }),
   jomonState: world.state.jomon,
   peopleState: projection.people as WorldPeopleState,
   simulationState: projection.simulation,
@@ -566,7 +568,7 @@ const selectCourierProjection = (world: FoundationWorld, projection: CausalRepla
   const candidate = world.crew.find(member => member.id === courierId)
   const person = world.state.people.records.find(candidatePerson => candidatePerson.id === courierId)
   if (!candidate?.eligible || person?.life.status !== 'living' || person.work.availability !== 'available') throw new Error('selected courier must be an eligible living available crew member')
-  return causalReplayProjection({ ...projection, courier: { version: 1, initialCourierId: courierId } })
+  return causalReplayProjection({ ...projection, courier: { version: 1, initialCourierId: courierId }, navigation: { version: 1, courierId, coordinate: canonicalJomonDeckSpawn(world) } })
 }
 
 /** The shared pure reducer for an accepted time-bearing journal command. */
@@ -600,6 +602,7 @@ const advanceTimeProjection = (world: FoundationWorld, projection: CausalReplayP
   }, catchUp.state)
   const finalProjection = causalReplayProjection({
     courier: projection.courier,
+    ...(projection.navigation === undefined ? {} : { navigation: projection.navigation }),
     people: { version: 5, records: delegation.people },
     temporal: transition.state,
     simulation: resolvedSimulation,
@@ -645,6 +648,7 @@ const advanceTimeProjection = (world: FoundationWorld, projection: CausalReplayP
   )
   return causalReplayProjection({
     courier: projection.courier,
+    ...(projection.navigation === undefined ? {} : { navigation: projection.navigation }),
     people: { version: 5, records: autonomy.people },
     temporal: transition.state,
     simulation,
@@ -677,6 +681,22 @@ const recordGrowthProjection = (world: FoundationWorld, projection: CausalReplay
     plan
   })
   return causalReplayProjection({ ...advanced, autonomy })
+}
+
+/** Shared pure reducer for a successful one-minute local deck step. */
+const moveDeckProjection = (world: FoundationWorld, projection: CausalReplayProjection, payload: { actionId: string; courierId: string; direction: JomonDeckMovementDirection; from: JomonDeckCoordinate; to: JomonDeckCoordinate }): CausalReplayProjection => {
+  const navigation = projection.navigation
+  if (!navigation?.coordinate || navigation.courierId !== payload.courierId || projection.courier.initialCourierId !== payload.courierId) throw new Error('deck movement requires the active courier position')
+  if (navigation.coordinate.column !== payload.from.column || navigation.coordinate.row !== payload.from.row) throw new Error('deck movement source position does not match replay state')
+  const assessment = assessJomonDeckStep(world, navigation.coordinate, payload.direction)
+  if (assessment.status !== 'moved' || assessment.to.column !== payload.to.column || assessment.to.row !== payload.to.row) throw new Error('deck movement is not a valid plan step')
+  const advanced = advanceTimeProjection(world, projection, {
+    id: payload.actionId,
+    kind: 'movement',
+    durationMinutes: 1,
+    contentSafety: classifyMedievalContent('event', ['adult-labour', 'navigation'], 'adults-only', ['data'])
+  })
+  return causalReplayProjection({ ...advanced, navigation: { version: 1, courierId: payload.courierId, coordinate: structuredClone(payload.to) } })
 }
 
 const delegationContextFor = (world: FoundationWorld, projection: CausalReplayProjection): {
@@ -784,6 +804,7 @@ const interruptDelegationProjection = (world: FoundationWorld, projection: Causa
 const replayCommandProjection = (world: FoundationWorld, projection: CausalReplayProjection, command: CausalCommandEvent): CausalReplayProjection => {
   if (command.kind === 'initial-courier-selected') return selectCourierProjection(world, projection, command.payload.courierId)
   if (command.kind === 'time-bearing-action') return advanceTimeProjection(world, projection, command.payload.action)
+  if (command.kind === 'deck-moved') return moveDeckProjection(world, projection, command.payload)
   if (command.kind === 'durable-jomon-growth') return recordGrowthProjection(world, projection, command.payload.evidence)
   if (command.kind === 'delegation-offered') return offerDelegationProjection(world, projection, command.payload.offer, true)
   return interruptDelegationProjection(world, projection, command.payload.interruption)
@@ -827,6 +848,33 @@ export const chooseInitialCourier = (world: FoundationWorld, courierId: string):
   const command = createCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, 'initial-courier-selected', { courierId })
   const history = appendCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, command, projection)
   return worldFromProjection(world, projection, history)
+}
+
+export type FoundationDeckMovementResult =
+  | { status: 'moved'; world: FoundationWorld; direction: JomonDeckMovementDirection; from: JomonDeckCoordinate; to: JomonDeckCoordinate }
+  | { status: 'blocked'; direction: JomonDeckMovementDirection; from: JomonDeckCoordinate; collision: JomonDeckCollision }
+
+/** Attempts one canonical local deck move. Blocked results intentionally have no world write. */
+export const moveFoundationWorldCourier = (world: FoundationWorld, direction: JomonDeckMovementDirection): FoundationDeckMovementResult => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  if (world.status !== 'active') throw new Error('only an active world can move its courier')
+  const courierId = world.state.courier.initialCourierId
+  const navigation = world.state.navigation
+  if (courierId === undefined || navigation.courierId !== courierId || navigation.coordinate === undefined) throw new Error('an active courier with a deck coordinate is required')
+  const assessment = assessJomonDeckStep(world, navigation.coordinate, direction)
+  if (assessment.status === 'blocked') return assessment
+  const nextSequence = world.state.causalHistory.checkpoint.sequence + world.state.causalHistory.tail.length + 1
+  const payload = {
+    actionId: `deck-move:${nextSequence}:${courierId}:${jomonDeckCoordinateId(assessment.from)}:${jomonDeckCoordinateId(assessment.to)}`,
+    courierId,
+    direction,
+    from: assessment.from,
+    to: assessment.to
+  }
+  const projection = moveDeckProjection(world, causalReplayProjectionForWorldState(world.state), payload)
+  const command = createCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, 'deck-moved', payload)
+  const history = appendCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, command, projection)
+  return { status: 'moved', world: worldFromProjection(world, projection, history), direction, from: assessment.from, to: assessment.to }
 }
 
 /** Applies the temporal contract and its canonical catch-up/era reducers, then journals one command. */

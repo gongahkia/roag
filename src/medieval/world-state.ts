@@ -16,7 +16,8 @@ import type { FoundationCrewMember, FoundationJomon } from './types'
  * This is the durable mutable half of a medieval world. It deliberately has
  * no renderer, storage, browser, or prototype dependency.
  */
-export const MEDIEVAL_WORLD_STATE_VERSION = 11 as const
+export const MEDIEVAL_WORLD_STATE_VERSION = 12 as const
+export const LEGACY_MEDIEVAL_WORLD_STATE_VERSION = 11 as const
 export const WORLD_GEOGRAPHY_STATE_VERSION = 1 as const
 export const WORLD_SITES_STATE_VERSION = 1 as const
 export const WORLD_ROUTES_STATE_VERSION = 1 as const
@@ -29,6 +30,7 @@ export const WORLD_SOCIAL_MEMORY_STATE_VERSION = 1 as const
 export const WORLD_CAUSAL_HISTORY_STATE_VERSION = 4 as const
 export const WORLD_JOMON_STATE_VERSION = 1 as const
 export const WORLD_COURIER_STATE_VERSION = 1 as const
+export const WORLD_DECK_NAVIGATION_STATE_VERSION = 1 as const
 export const WORLD_ERA_STATE_VERSION = WORLD_ERA_CONTRACT_VERSION
 
 /** Bounded containers keep the first persistent-state schema inspectable. */
@@ -161,6 +163,13 @@ export interface WorldCourierState {
   initialCourierId?: string
 }
 
+/** The sole durable local-position owner; deck geometry remains in jomon-deck-plan. */
+export interface WorldDeckNavigationState {
+  version: typeof WORLD_DECK_NAVIGATION_STATE_VERSION
+  courierId?: string
+  coordinate?: { column: number; row: number }
+}
+
 export interface MedievalWorldState {
   version: typeof MEDIEVAL_WORLD_STATE_VERSION
   geography: WorldGeographyState
@@ -176,6 +185,7 @@ export interface MedievalWorldState {
   causalHistory: CausalHistoryState
   jomon: WorldJomonState
   courier: WorldCourierState
+  navigation: WorldDeckNavigationState
   temporal: MedievalTemporalState
   simulation: SimulationCatchUpState
   era: WorldEraState
@@ -234,6 +244,8 @@ export interface WorldStateConstructionContext extends WorldStateValidationConte
   frontier: FrontierState
   temporal: MedievalTemporalState
   initialCourierId?: string
+  /** Replayed local navigation, never browser-only focus state. */
+  navigationState?: WorldDeckNavigationState
   /** Lets later reducers preserve Jomon values while retaining this v1 shape. */
   jomonState?: WorldJomonState
   /** Later person reducers must supply validated records; creation instantiates only crew. */
@@ -267,7 +279,9 @@ const issue = (recordId: string, code: WorldStateValidationDiagnosticCode): Worl
 const canonicalIssues = (issues: readonly WorldStateValidationIssue[]): readonly WorldStateValidationIssue[] => [...new Map(issues.map(value => [`${value.recordId}\u0000${value.code}`, value])).values()]
   .sort((left, right) => compare(left.recordId, right.recordId) || compare(left.code, right.code))
 const idsAreUnique = (values: readonly { id: string }[]): boolean => new Set(values.map(value => value.id)).size === values.length
-const stateLike = (value: unknown): value is MedievalWorldState => record(value) && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'causalHistory', 'jomon', 'courier', 'temporal', 'simulation', 'era', 'contentSafetyAudit'])
+const stateLike = (value: unknown): value is MedievalWorldState => record(value)
+  && ((value.version === LEGACY_MEDIEVAL_WORLD_STATE_VERSION && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'causalHistory', 'jomon', 'courier', 'temporal', 'simulation', 'era', 'contentSafetyAudit']))
+    || (value.version === MEDIEVAL_WORLD_STATE_VERSION && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'causalHistory', 'jomon', 'courier', 'navigation', 'temporal', 'simulation', 'era', 'contentSafetyAudit'])))
 const validateIdArrayOrder = (value: unknown, recordId: string, issues: WorldStateValidationIssue[]): void => {
   if (!Array.isArray(value) || !value.every(candidate => record(candidate) && validWorldId(candidate.id))) return
   const records = value as { id: string }[]
@@ -364,6 +378,7 @@ export const createMedievalWorldState = (context: WorldStateConstructionContext)
   const autonomy: WorldAutonomyState = structuredClone(context.autonomyState ?? createAutonomyState(people.records, context.temporal.worldTime))
   const socialMemory: WorldSocialMemoryState = structuredClone(context.socialMemoryState ?? createSocialMemoryState())
   const courier: WorldCourierState = { version: WORLD_COURIER_STATE_VERSION, ...(context.initialCourierId === undefined ? {} : { initialCourierId: context.initialCourierId }) }
+  const navigation: WorldDeckNavigationState = structuredClone(context.navigationState ?? { version: WORLD_DECK_NAVIGATION_STATE_VERSION })
   const stateWithoutAudit: Omit<MedievalWorldState, 'contentSafetyAudit'> = {
     version: MEDIEVAL_WORLD_STATE_VERSION,
     geography: { version: WORLD_GEOGRAPHY_STATE_VERSION, initialWorldId: context.initialWorld.id, frontier: structuredClone(context.frontier) },
@@ -377,11 +392,13 @@ export const createMedievalWorldState = (context: WorldStateConstructionContext)
     socialMemory,
     jomon: structuredClone(context.jomonState ?? initialJomonState(context.jomon, sites, context.crew)),
     courier,
+    navigation,
     temporal: structuredClone(context.temporal),
     simulation,
     era,
     causalHistory: structuredClone(context.causalHistoryState ?? createCausalHistoryState({ worldId: context.temporal.provenance.worldId, creationDigest: context.temporal.provenance.creationDigest }, causalReplayProjection({
       courier,
+      navigation,
       people,
       temporal: context.temporal,
       simulation,
@@ -412,7 +429,7 @@ const rootCommitmentsMatch = (context: WorldStateValidationContext, frontier: Fr
 export const validateMedievalWorldState = (context: WorldStateValidationContext, value: unknown): readonly WorldStateValidationIssue[] => {
   const issues: WorldStateValidationIssue[] = []
   if (!stateLike(value)) return [issue('world-state', 'world-state.malformed-state')]
-  if (value.version !== MEDIEVAL_WORLD_STATE_VERSION) issues.push(issue('world-state', 'world-state.invalid-version'))
+  if (value.version !== MEDIEVAL_WORLD_STATE_VERSION && value.version !== LEGACY_MEDIEVAL_WORLD_STATE_VERSION) issues.push(issue('world-state', 'world-state.invalid-version'))
 
   let frontier: FrontierState | undefined
   if (!validSubdomain(value.geography, WORLD_GEOGRAPHY_STATE_VERSION, ['version', 'initialWorldId', 'frontier']) || value.geography.initialWorldId !== context.initialWorld.id || !record(value.geography.frontier)) {
@@ -548,6 +565,11 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
   const selectedCourierPerson = Array.isArray(value.people?.records) ? value.people.records.find(candidate => record(candidate) && candidate.id === selectedCourier) : undefined
   if (!validSubdomain(value.courier, WORLD_COURIER_STATE_VERSION, value.courier && record(value.courier) && selectedCourier === undefined ? ['version'] : ['version', 'initialCourierId']) || (selectedCourier !== undefined && (!context.crew.some(member => member.id === selectedCourier && member.eligible) || !record(selectedCourierPerson) || !record(selectedCourierPerson.life) || selectedCourierPerson.life.status !== 'living' || !record(selectedCourierPerson.work) || selectedCourierPerson.work.availability !== 'available'))) issues.push(issue('world-state:courier', 'world-state.invalid-courier'))
 
+  const navigation = value.navigation
+  const hasNavigation = value.version === MEDIEVAL_WORLD_STATE_VERSION
+  const validCoordinate = (coordinate: unknown): coordinate is { column: number; row: number } => record(coordinate) && hasOnlyKeys(coordinate, ['column', 'row']) && safeInteger(coordinate.column) && safeInteger(coordinate.row)
+  if (hasNavigation && (!validSubdomain(navigation, WORLD_DECK_NAVIGATION_STATE_VERSION, selectedCourier === undefined ? ['version'] : ['version', 'courierId', 'coordinate']) || (selectedCourier === undefined ? navigation.courierId !== undefined || navigation.coordinate !== undefined : navigation.courierId !== selectedCourier || !validCoordinate(navigation.coordinate)))) issues.push(issue('world-state:navigation', 'world-state.invalid-reference'))
+
   if (temporal === undefined) {
     issues.push(issue('world-state:causal-history', 'world-state.invalid-causal-history'))
   } else {
@@ -571,7 +593,7 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
 export const isMedievalWorldState = (context: WorldStateValidationContext, value: unknown): value is MedievalWorldState => validateMedievalWorldState(context, value).length === 0
 
 /** The exact command-owned mutable projection used by the global journal. */
-export const causalReplayProjectionForWorldState = (state: Pick<MedievalWorldState, 'courier' | 'people' | 'temporal' | 'simulation' | 'era' | 'delegation' | 'autonomy' | 'socialMemory'>): CausalReplayProjection => causalReplayProjection(state)
+export const causalReplayProjectionForWorldState = (state: Pick<MedievalWorldState, 'courier' | 'people' | 'temporal' | 'simulation' | 'era' | 'delegation' | 'autonomy' | 'socialMemory'> & Partial<Pick<MedievalWorldState, 'navigation'>>): CausalReplayProjection => causalReplayProjection(state)
 
 export class WorldStateContractError extends Error {
   constructor(readonly diagnostics: readonly WorldStateValidationIssue[]) {
