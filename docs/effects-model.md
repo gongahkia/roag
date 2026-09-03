@@ -19,7 +19,7 @@ Every candidate has content-safety metadata that is validated by the existing `c
 | Enemy weakness | Known enemy | Ordinary condition |
 | Environmental interaction | Known environment | Environmental condition |
 
-This is a closed semantic vocabulary. It has no mage, spell, arbitrary target, public content, extension hook, or user-authored source. Relics, totems, boons, and curses are only explicitly grounded references here; their rarity, source, cost, condition, and audit policy remain the next task's decision.
+This is a closed semantic vocabulary. It has no mage, spell, arbitrary target, public content, extension hook, or user-authored source. Relics, totems, boons, and curses are only explicitly grounded references here; the companion [mystical effect policy and audit](mystical-effect-policy.md) constrains their future rarity, source, cost, condition, availability, and audit evidence without adding authored mystical content.
 
 The model inherits the project-wide exclusion of sexual violence, slavery, torture, and harm/endangerment of children. It creates no child participant category or player-facing content.
 
@@ -46,4 +46,4 @@ Each result exposes active and suppressed effect IDs, semantic category/polarity
 
 This slice changes no `FoundationWorld`, world/manifest/replay schema, save envelope, IndexedDB layout v4, derived index, valid v3 envelope loading, or explicit-save-only metadata. It adds no migration, compatibility shim, persistent cache, worker, packed data, spatial system, random stream, browser feature, gameplay action, or public mod/content-pack surface.
 
-Before a later owner stores or uses an effect candidate, it must make that owner's explicit provenance, replay, safety, and schema/version decision. This model itself is not authorization for combat, recovery, death/revival, Jomon loss, social control, or any other simulation behavior.
+Before a later owner stores or uses an effect candidate, it must make that owner's explicit provenance, replay, safety, and schema/version decision. The companion policy audit is not that implementation decision. Neither contract authorizes combat, recovery, death/revival, Jomon loss, social control, or any other simulation behavior.

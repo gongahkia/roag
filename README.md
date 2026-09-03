@@ -10,6 +10,7 @@ The project is at a documented clean-break boundary. The checked-in prototype st
 - [Medieval local persistence layout](docs/persistence-layout.md)
 - [Closed internal-content boundary for maintainers (no public mod/content-pack API)](docs/internal-content-boundary.md)
 - [Renderer-independent effect model (foundation only)](docs/effects-model.md)
+- [Mystical effect policy and audit boundary](docs/mystical-effect-policy.md)
 - [Semantic palette and accessibility contract](docs/semantic-palette.md)
 
 ## Development
