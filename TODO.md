@@ -726,8 +726,16 @@ Acceptance: a player can inspect why an effect or recovery occurred; every power
 
 #### 2.1 Walkable Jomon and quay
 
-- [-] Create a compact, original ASCII deck plan with a connected quay approach, gangplank, tavern, chart table, cargo hold, repair space, stores, berths, and galley.
-- [ ] Render the plan in the primary ASCII mode from the common map state; document its original glyph vocabulary and preserve the Phase 1 detailed-renderer adapter contract.
+- [x] Create a compact, original ASCII deck plan with a connected quay approach, gangplank, tavern, chart table, cargo hold, repair space, stores, berths, and galley.
+
+  Decision (2026-09-03): `src/medieval/jomon-deck-plan.ts` v1 derives a pure, bounded 18 by 8 static future-map input only from a validated `FoundationWorld`/existing `FoundationJomon`. It has exactly nine canonical ordinal-ID areas (`quay-approach`, gangplank, tavern, chart table, cargo hold, repair space, stores, berths, and galley), a non-overlapping hull boundary, and verified orthogonal quay-to-gangplank-to-vessel access. It binds only the existing `prop:gangplank`, `prop:task-ledger`, and `prop:chart-table` to their existing partition/kind and static anchor; it creates no other prop or operation. The local quay approach is deliberately neither a site, route, frontier fact, travel destination, nor persistent partition. [`docs/jomon-deck-plan.md`](docs/jomon-deck-plan.md) records its ownership, semantic references, validation, and deferred work.
+
+  Boundaries and compatibility: the plan reuses closed `future-jomon-deck` glyph references, semantic palette tokens, paired non-colour cues, existing accessible/text equivalents, and affirmative content-safety classifications. It remains a discardable derived contract, not a terminal-cell map: `createTerminalPresentationModel()` is unchanged and still returns the zero-cell `reserved-unmaterialized` map; detailed-renderer parity remains deferred. No `FoundationWorld`, `WorldJomonState`, manifest, replay, causal history, save envelope, IndexedDB v4 layout, valid-v3 load, migration, browser UI, renderer, world time, RNG, worker, cache, persistence, gameplay, content catalogue, or public extension/mod surface changed.
+
+  Verification (2026-09-03): `npx vitest run src/medieval/jomon-deck-plan.test.ts src/medieval/world.test.ts src/medieval/world-state.test.ts src/medieval/ascii-glyphs.test.ts src/medieval/terminal-presentation.test.ts src/medieval/detailed-renderer-adapter.test.ts src/medieval/content-safety.test.ts --maxWorkers=1 --no-file-parallelism` passed 51 tests in 7 files (10.68s). `npx vitest run src/medieval/*.test.ts --maxWorkers=1 --no-file-parallelism` passed 284 tests in 43 files (156.52s). `npm run build` passed TypeScript, Vite (167 modules), and bundle-size checks; `git diff --check` passed. Playwright was skipped because this layout-only contract makes no browser-visible production change. `npm run benchmark:medieval-foundation` was skipped because neither performance nor persistence behavior changed.
+
+  Warnings and limitations: npm emitted the existing unsupported `email` configuration warning. This task does not materialize/render map cells, implement movement/collision/camera/visibility, operate props, prompt, travel, crew switching, cargo/repair actions, or create any quay/world record; those remain future owners.
+- [-] Render the plan in the primary ASCII mode from the common map state; document its original glyph vocabulary and preserve the Phase 1 detailed-renderer adapter contract.
 - [ ] Implement grid movement, collision, camera/focus behavior, visibility rules if used, and inspectable seed state.
 - [ ] Add a player-visible map legend/help surface without replacing in-world readability.
 
