@@ -482,8 +482,11 @@ export const validateOptionalWorkerExecutionResult = (
   const typedRequest = request as unknown as OptionalWorkerExecutionRequest
   const typedResult = result as unknown as OptionalWorkerExecutionResult
   const rng = typedRequest.rng
-  if ((rng.kind !== 'none' && (rng.kind !== 'named-deterministic-streams' || !Array.isArray(rng.streamNames) || !rng.streamNames.every(safeIdentifier) || new Set(rng.streamNames).size !== rng.streamNames.length || !same(rng.streamNames, canonicalWorkerStreams(rng.streamNames))))
-    || !same(typedRequest.authority, currentAuthority) || !same(typedResult.authority, currentAuthority)) return { status: 'rejected', reason: 'stale-authority' }
+  const validRng = record(rng)
+    && ((rng.kind === 'none' && exactKeys(rng, ['kind']))
+      || (rng.kind === 'named-deterministic-streams' && exactKeys(rng, ['kind', 'streamNames']) && Array.isArray(rng.streamNames) && rng.streamNames.every(safeIdentifier) && new Set(rng.streamNames).size === rng.streamNames.length && same(rng.streamNames, canonicalWorkerStreams(rng.streamNames))))
+  if (!validRng) return { status: 'rejected', reason: 'malformed-request-or-result' }
+  if (!same(typedRequest.authority, currentAuthority) || !same(typedResult.authority, currentAuthority)) return { status: 'rejected', reason: 'stale-authority' }
   if (typedResult.output.digest !== workerResultDigestFor(typedRequest, typedResult.output.canonicalJson) || typedResult.output.canonicalJson !== canonicalSerializedJson(canonicalMainThreadOutput)) return { status: 'rejected', reason: 'main-thread-output-mismatch' }
   return { status: 'accepted', canonicalOutput: typedResult.output.canonicalJson }
 }

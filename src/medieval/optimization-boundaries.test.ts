@@ -93,12 +93,15 @@ describe('profile-guided optimization boundaries', () => {
     const result = createOptionalWorkerExecutionResult(request, { materialized: false, result: 'canonical' })
     const advanced = advanceFoundationWorldTime(world, wait('optimization-worker-stale'))
     const mismatch = createOptionalWorkerExecutionResult(request, { materialized: true, result: 'different' })
+    const malformedRng = structuredClone(request)
+    malformedRng.rng = { kind: 'named-deterministic-streams', streamNames: ['rng:frontier', 'rng:frontier'] }
 
     expect(request.rng).toEqual({ kind: 'named-deterministic-streams', streamNames: ['rng:frontier', 'rng:initial-world'] })
     expect(request.permissions).toEqual({ indexedDb: 'forbidden', persistenceAuthority: 'forbidden', simulationAuthority: 'forbidden', mutableWorldAccess: 'forbidden' })
     expect(validateOptionalWorkerExecutionResult(request, result, world, { materialized: false, result: 'canonical' })).toMatchObject({ status: 'accepted' })
     expect(validateOptionalWorkerExecutionResult(request, result, advanced, { materialized: false, result: 'canonical' })).toEqual({ status: 'rejected', reason: 'stale-authority' })
     expect(validateOptionalWorkerExecutionResult(request, mismatch, world, { materialized: false, result: 'canonical' })).toEqual({ status: 'rejected', reason: 'main-thread-output-mismatch' })
+    expect(validateOptionalWorkerExecutionResult(malformedRng, result, world, { materialized: false, result: 'canonical' })).toEqual({ status: 'rejected', reason: 'malformed-request-or-result' })
   }, 20_000)
 
   it('states that no derived path is an alternative authority and wall-clock data cannot become world state', () => {
