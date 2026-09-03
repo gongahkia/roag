@@ -1,7 +1,7 @@
 import { findAsciiGlyph, terminalGlyphReferenceFor } from './ascii-glyphs'
 import { auditMedievalContentSafety, contentSafetyAuditMatches, validateMedievalContentSafety, type MedievalContentSafetyAudit, type MedievalContentSafetyClassification, type MedievalContentSafetyDiagnosticCode } from './content-safety'
 import type { JomonPaletteToken } from './palette'
-import { terminalNonColorCueFor, type TerminalGlyphReference, type TerminalNonColorCue, type TerminalPresentationState } from './terminal-presentation'
+import { terminalNonColorCueFor, type TerminalGlyphReference, type TerminalNonColorCue, type TerminalPresentationState } from './terminal-semantics'
 import type { FoundationJomon, FoundationWorld, JomonDeckPartition, JomonVesselPropKind } from './types'
 import { validateFoundationWorld } from './world'
 

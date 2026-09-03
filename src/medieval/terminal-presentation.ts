@@ -1,16 +1,44 @@
 import { auditMedievalContentSafety, classifyMedievalContent, contentSafetyAuditMatches, type ClassifiedMedievalContent, type MedievalContentDomain, type MedievalContentSafetyAudit, type MedievalContentSafetyClassification, type MedievalContentSafetyDiagnosticCode } from './content-safety'
+import { JOMON_ASCII_GLYPH_CATALOG, terminalGlyphCatalog } from './ascii-glyphs'
+import { deriveJomonDeckPlan } from './jomon-deck-plan'
 import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE, type JomonPaletteToken } from './palette'
+import {
+  TERMINAL_GLYPH_VOCABULARY_ID,
+  TERMINAL_PRESENTATION_STATES,
+  TERMINAL_STATE_PRESENTATIONS,
+  terminalNonColorCueFor,
+  type TerminalGlyphCatalog,
+  type TerminalGlyphReference,
+  type TerminalNonColorCue,
+  type TerminalNonColorCueKey,
+  type TerminalPresentationState,
+  type TerminalStatePresentation
+} from './terminal-semantics'
 import type { FoundationWorld, MedievalRoute } from './types'
 import { validateFoundationWorld } from './world'
 
+export {
+  TERMINAL_GLYPH_VOCABULARY_ID,
+  TERMINAL_PRESENTATION_STATES,
+  TERMINAL_STATE_PRESENTATIONS,
+  terminalNonColorCueFor
+} from './terminal-semantics'
+export type {
+  TerminalGlyphCatalog,
+  TerminalGlyphReference,
+  TerminalNonColorCue,
+  TerminalNonColorCueKey,
+  TerminalPresentationState,
+  TerminalStatePresentation
+} from './terminal-semantics'
+
 /**
- * Renderer-neutral terminal information contract. The current world has no
- * materialized spatial cells, so this module represents that absence rather
- * than leaking generator data or inventing a deck/map. ASCII and a future
- * detailed adapter must consume the same model without omitting or inventing
- * consequential information.
+ * Renderer-neutral terminal information contract. The current world projects
+ * its validated static Jomon deck into source-backed ASCII cells. ASCII and a
+ * future detailed adapter consume that same projection without omitting or
+ * inventing consequential information.
  */
-export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 3 as const
+export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 4 as const
 
 export const TERMINAL_PRESENTATION_LIMITS = {
   viewportWidth: 120,
@@ -27,8 +55,6 @@ export const TERMINAL_PRESENTATION_LIMITS = {
   textLength: 280
 } as const
 
-export const TERMINAL_GLYPH_VOCABULARY_ID = 'jomon-original-ascii-glyphs' as const
-
 export const TERMINAL_RENDERER_PARITY_RULES = [
   'same-authoritative-terminal-model',
   'no-consequential-omission',
@@ -36,34 +62,6 @@ export const TERMINAL_RENDERER_PARITY_RULES = [
   'text-equivalent-required'
 ] as const
 export type TerminalRendererParityRule = typeof TERMINAL_RENDERER_PARITY_RULES[number]
-
-export const TERMINAL_PRESENTATION_STATES = ['ready', 'waiting', 'warning', 'risk', 'neutral'] as const
-export type TerminalPresentationState = typeof TERMINAL_PRESENTATION_STATES[number]
-export type TerminalNonColorCueKey = keyof typeof JOMON_NON_COLOR_STATE_CUES
-
-export interface TerminalStatePresentation {
-  paletteToken: JomonPaletteToken
-  nonColorCueKey: TerminalNonColorCueKey
-}
-
-/** Every consequential visual state has both a semantic palette role and a textual/glyph cue. */
-export const TERMINAL_STATE_PRESENTATIONS: Readonly<Record<TerminalPresentationState, TerminalStatePresentation>> = {
-  ready: { paletteToken: 'statusReady', nonColorCueKey: 'readyState' },
-  waiting: { paletteToken: 'statusWaiting', nonColorCueKey: 'awaitingCourierState' },
-  warning: { paletteToken: 'warningText', nonColorCueKey: 'warningPrefix' },
-  risk: { paletteToken: 'statusRisk', nonColorCueKey: 'errorPrefix' },
-  neutral: { paletteToken: 'statusNeutral', nonColorCueKey: 'actionKeys' }
-}
-
-export interface TerminalNonColorCue {
-  key: TerminalNonColorCueKey
-  text: string
-}
-
-export const terminalNonColorCueFor = (state: TerminalPresentationState): TerminalNonColorCue => {
-  const presentation = TERMINAL_STATE_PRESENTATIONS[state]
-  return { key: presentation.nonColorCueKey, text: JOMON_NON_COLOR_STATE_CUES[presentation.nonColorCueKey] }
-}
 
 export type TerminalEvidenceSourceKind = 'presentation-contract' | 'household-state' | 'authoritative-record'
 export type TerminalEvidenceFreshness =
@@ -84,7 +82,7 @@ export interface TerminalCellCoordinate {
   row: number
 }
 
-export type TerminalMapViewportContext = 'reserved-unmaterialized' | 'future-materialized'
+export type TerminalMapViewportContext = 'jomon-deck-plan' | 'future-materialized'
 
 export interface TerminalMapViewport {
   id: string
@@ -94,20 +92,6 @@ export interface TerminalMapViewport {
   height: number
 }
 
-/** This is a reference seam only; the following roadmap item owns glyph assignments. */
-export interface TerminalGlyphReference {
-  vocabulary: typeof TERMINAL_GLYPH_VOCABULARY_ID
-  vocabularyVersion: number
-  id: string
-}
-
-/** A future glyph vocabulary supplies its own closed ID set to this validator. */
-export interface TerminalGlyphCatalog {
-  vocabulary: typeof TERMINAL_GLYPH_VOCABULARY_ID
-  version: number
-  glyphIds: readonly string[]
-}
-
 export interface TerminalMaterializedCell {
   id: string
   coordinate: TerminalCellCoordinate
@@ -115,17 +99,6 @@ export interface TerminalMaterializedCell {
   paletteToken: JomonPaletteToken
   presentationState: TerminalPresentationState
   nonColorCue: TerminalNonColorCue
-  textEquivalent: string
-  accessibilityText: string
-  evidence: TerminalEvidenceProvenance
-  contentDomain: MedievalContentDomain
-  contentSafety: MedievalContentSafetyClassification
-}
-
-export interface TerminalReservedMap {
-  state: 'reserved-unmaterialized'
-  viewport: TerminalMapViewport
-  cells: readonly []
   textEquivalent: string
   accessibilityText: string
   evidence: TerminalEvidenceProvenance
@@ -144,10 +117,10 @@ export interface TerminalMaterializedMap {
   contentSafety: MedievalContentSafetyClassification
 }
 
-export type TerminalMapSurface = TerminalReservedMap | TerminalMaterializedMap
+export type TerminalMapSurface = TerminalMaterializedMap
 
 export type TerminalStatusValue =
-  | { kind: 'map-reserved' }
+  | { kind: 'jomon-deck-materialized'; cells: number }
   | { kind: 'courier-selection'; selected: boolean }
   | { kind: 'world-minute'; minutes: number }
 
@@ -331,12 +304,12 @@ export interface TerminalKeyboardCommand {
 }
 
 const canonicalCommands = (commands: readonly TerminalKeyboardCommand[]): readonly TerminalKeyboardCommand[] => [...commands]
-  .map(command => ({ ...command, contexts: [...command.contexts].sort((left, right) => left.localeCompare(right)), bindings: [...command.bindings].sort((left, right) => {
+  .map(command => ({ ...command, contexts: [...command.contexts].sort(inputCompare), bindings: [...command.bindings].sort((left, right) => {
     const leftKey = left.kind === 'key' ? `key:${left.key}` : left.kind === 'bounded-text-entry' ? `text:${left.field}` : 'capture'
     const rightKey = right.kind === 'key' ? `key:${right.key}` : right.kind === 'bounded-text-entry' ? `text:${right.field}` : 'capture'
     return inputCompare(leftKey, rightKey)
   }) }))
-  .sort((left, right) => left.id.localeCompare(right.id))
+  .sort((left, right) => inputCompare(left.id, right.id))
 
 const key = (value: TerminalKeyboardKey, caseHandling: TerminalKeyBinding['caseHandling'] = 'exact'): TerminalKeyBinding => ({ kind: 'key', key: value, caseHandling })
 const textEntry = (field: TerminalTextInputField, maximumLength: number): TerminalBoundedTextBinding => ({ kind: 'bounded-text-entry', field, characterPolicy: 'ascii-word-space-period-comma-apostrophe-hyphen', maximumLength, deletionKey: 'Backspace', caseHandling: 'preserve-typed-case' })
@@ -366,14 +339,14 @@ export const TERMINAL_KEYBOARD_COMMANDS: readonly TerminalKeyboardCommand[] = ca
   { id: 'controls-reset-current', availability: 'implemented', surface: 'remapping', contexts: ['world-controls-editor'], bindings: [key('R', 'ascii-case-insensitive')], accessibilityLabel: 'Reset the selected world control to its default' },
   { id: 'world-command-help', availability: 'implemented', surface: 'help', contexts: ['world'], bindings: [key('?')], accessibilityLabel: 'Open command help with current effective bindings' },
   { id: 'world-contextual-prompt', availability: 'implemented', surface: 'contextual-action', contexts: ['world'], bindings: [key('Enter')], accessibilityLabel: 'Open the current contextual prompt' },
-  { id: 'world-move-east', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('ArrowRight'), key('L', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement east; unavailable until the map is materialized' },
-  { id: 'world-move-north', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('ArrowUp'), key('K', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement north; unavailable until the map is materialized' },
-  { id: 'world-move-north-east', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('U', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement north east; unavailable until the map is materialized' },
-  { id: 'world-move-north-west', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('Y', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement north west; unavailable until the map is materialized' },
-  { id: 'world-move-south', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('ArrowDown'), key('J', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement south; unavailable until the map is materialized' },
-  { id: 'world-move-south-east', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('N', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement south east; unavailable until the map is materialized' },
-  { id: 'world-move-south-west', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('B', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement south west; unavailable until the map is materialized' },
-  { id: 'world-move-west', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('ArrowLeft'), key('H', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement west; unavailable until the map is materialized' },
+  { id: 'world-move-east', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('ArrowRight'), key('L', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement east; unavailable until movement rules are implemented' },
+  { id: 'world-move-north', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('ArrowUp'), key('K', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement north; unavailable until movement rules are implemented' },
+  { id: 'world-move-north-east', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('U', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement north east; unavailable until movement rules are implemented' },
+  { id: 'world-move-north-west', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('Y', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement north west; unavailable until movement rules are implemented' },
+  { id: 'world-move-south', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('ArrowDown'), key('J', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement south; unavailable until movement rules are implemented' },
+  { id: 'world-move-south-east', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('N', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement south east; unavailable until movement rules are implemented' },
+  { id: 'world-move-south-west', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('B', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement south west; unavailable until movement rules are implemented' },
+  { id: 'world-move-west', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('ArrowLeft'), key('H', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt movement west; unavailable until movement rules are implemented' },
   { id: 'world-overlay-cancel', availability: 'implemented', surface: 'navigation', contexts: ['world-contextual-prompt', 'world-command-help', 'world-controls-editor', 'world-controls-capture'], bindings: [key('Escape')], accessibilityLabel: 'Cancel the open terminal overlay without changing world state' },
   { id: 'reserved-future-prompt-cancel', availability: 'reserved', surface: 'contextual-action', contexts: ['future-contextual-prompt'], bindings: [key('Escape')], accessibilityLabel: 'Reserved future materialized prompt cancellation; never advances world time' },
   { id: 'settings-create-world', availability: 'implemented', surface: 'settings', contexts: ['settings-basic-create-world'], bindings: [key('Enter')], accessibilityLabel: 'Create a world from the selected valid settings' },
@@ -439,6 +412,7 @@ export interface TerminalPresentationModel {
 
 export type TerminalPresentationDiagnosticCode =
   | 'terminal-presentation.invalid-world'
+  | 'terminal-presentation.invalid-deck-plan'
   | 'terminal-presentation.malformed-model'
   | 'terminal-presentation.invalid-model'
   | 'terminal-presentation.invalid-viewport'
@@ -508,7 +482,7 @@ const validCue = (value: unknown, state: TerminalPresentationState): value is Te
 
 export const validateTerminalMapViewport = (value: unknown): readonly TerminalPresentationDiagnostic[] => {
   if (!record(value) || !hasOnlyKeys(value, ['id', 'context', 'origin', 'width', 'height'])) return [issue('terminal-viewport', 'terminal-presentation.invalid-viewport')]
-  if (!validId(value.id) || !oneOf(['reserved-unmaterialized', 'future-materialized'] as const, value.context) || !record(value.origin) || !hasOnlyKeys(value.origin, ['column', 'row']) || !safeInteger(value.origin.column) || !safeInteger(value.origin.row) || !safeInteger(value.width) || !safeInteger(value.height) || value.width < 1 || value.height < 1 || value.width > TERMINAL_PRESENTATION_LIMITS.viewportWidth || value.height > TERMINAL_PRESENTATION_LIMITS.viewportHeight || value.width * value.height > TERMINAL_PRESENTATION_LIMITS.viewportCells) return [issue('terminal-viewport', 'terminal-presentation.invalid-viewport')]
+  if (!validId(value.id) || !oneOf(['jomon-deck-plan', 'future-materialized'] as const, value.context) || !record(value.origin) || !hasOnlyKeys(value.origin, ['column', 'row']) || !safeInteger(value.origin.column) || !safeInteger(value.origin.row) || !safeInteger(value.width) || !safeInteger(value.height) || value.width < 1 || value.height < 1 || value.width > TERMINAL_PRESENTATION_LIMITS.viewportWidth || value.height > TERMINAL_PRESENTATION_LIMITS.viewportHeight || value.width * value.height > TERMINAL_PRESENTATION_LIMITS.viewportCells) return [issue('terminal-viewport', 'terminal-presentation.invalid-viewport')]
   return []
 }
 
@@ -534,7 +508,7 @@ export const validateTerminalMaterializedCells = (
   glyphCatalog: TerminalGlyphCatalog
 ): readonly TerminalPresentationDiagnostic[] => {
   const diagnostics: TerminalPresentationDiagnostic[] = [...validateTerminalMapViewport(viewport), ...glyphCatalogIssues(glyphCatalog)]
-  if (viewport.context !== 'future-materialized') diagnostics.push(issue(viewport.id, 'terminal-presentation.invalid-viewport'))
+  if (viewport.context !== 'jomon-deck-plan' && viewport.context !== 'future-materialized') diagnostics.push(issue(viewport.id, 'terminal-presentation.invalid-viewport'))
   if (!Array.isArray(value) || value.length > TERMINAL_PRESENTATION_LIMITS.viewportCells) return canonicalDiagnostics([...diagnostics, issue('terminal-cells', 'terminal-presentation.invalid-cell')])
   const ids = new Set<string>()
   const coordinates = new Set<string>()
@@ -572,7 +546,7 @@ export const validateTerminalMaterializedCells = (
 }
 
 const statusText = (item: TerminalStatusItem): string => {
-  if (item.value.kind === 'map-reserved') return 'Map reserved; no spatial cells are materialized.'
+  if (item.value.kind === 'jomon-deck-materialized') return `Static Jomon deck map visible with ${item.value.cells} source-backed cells; movement and prop actions remain unavailable.`
   if (item.value.kind === 'courier-selection') return item.value.selected ? 'An active courier is selected.' : 'Choose an initial courier before active play.'
   return `Current world minute ${item.value.minutes}.`
 }
@@ -608,20 +582,77 @@ const currentWorldEvidence = (recordId: string, worldTime: number): TerminalEvid
   freshness: { kind: 'current' }
 })
 
-const currentReservedMap = (world: FoundationWorld): TerminalReservedMap => ({
-  state: 'reserved-unmaterialized',
-  viewport: { id: `terminal-viewport:${world.id}:reserved`, context: 'reserved-unmaterialized', origin: { column: 0, row: 0 }, width: 64, height: 24 },
-  cells: [],
-  textEquivalent: 'Reserved map area. No spatial cells are materialized.',
-  accessibilityText: 'Reserved map viewport. No terrain, deck, actor, route, site, or hidden-world cells are materialized.',
-  evidence: presentationEvidence('terminal-presentation:reserved-map'),
-  contentDomain: 'player-facing-text',
-  contentSafety: baseClassification()
+const terminalCellFromDeckPlan = (
+  id: string,
+  coordinate: TerminalCellCoordinate,
+  semantic: {
+    glyph: TerminalGlyphReference
+    paletteToken: JomonPaletteToken
+    presentationState: TerminalPresentationState
+    nonColorCue: TerminalNonColorCue
+    textEquivalent: string
+    accessibilityText: string
+    contentSafety: MedievalContentSafetyClassification
+  }
+): TerminalMaterializedCell => ({
+  id: `terminal-cell:${id}`,
+  coordinate: { ...coordinate },
+  glyph: structuredClone(semantic.glyph),
+  paletteToken: semantic.paletteToken,
+  presentationState: semantic.presentationState,
+  nonColorCue: structuredClone(semantic.nonColorCue),
+  textEquivalent: semantic.textEquivalent,
+  accessibilityText: semantic.accessibilityText,
+  evidence: {
+    source: { kind: 'authoritative-record', recordId: 'vessel:jomon' },
+    recordedAtWorldTime: 0,
+    knownAtWorldTime: 0,
+    freshness: { kind: 'timeless' }
+  },
+  contentDomain: 'template',
+  contentSafety: structuredClone(semantic.contentSafety)
 })
 
-const orderedStatus = (world: FoundationWorld): readonly TerminalStatusItem[] => canonicalById([
+const terminalCellOrder = (left: TerminalMaterializedCell, right: TerminalMaterializedCell): number => left.coordinate.row - right.coordinate.row
+  || left.coordinate.column - right.coordinate.column
+  || compare(left.id, right.id)
+
+/** The sole current common map projection derives every visible cell from the validated static deck plan. */
+export const createJomonDeckTerminalMap = (world: FoundationWorld): TerminalMaterializedMap => {
+  let plan: ReturnType<typeof deriveJomonDeckPlan>
+  try {
+    plan = deriveJomonDeckPlan(world)
+  } catch {
+    throw new TerminalPresentationContractError([issue('jomon-deck-plan', 'terminal-presentation.invalid-deck-plan')])
+  }
+  const cells = [
+    ...plan.areas.flatMap(area => area.footprint.map(cell => terminalCellFromDeckPlan(cell.id, cell.coordinate, area.semantic))),
+    ...plan.structuralCells.map(cell => terminalCellFromDeckPlan(cell.id, cell.coordinate, cell.semantic))
+  ].sort(terminalCellOrder)
+  const map: TerminalMaterializedMap = {
+    state: 'materialized',
+    viewport: {
+      id: `terminal-viewport:${world.id}:jomon-deck`,
+      context: 'jomon-deck-plan',
+      origin: { column: 0, row: 0 },
+      width: plan.bounds.width,
+      height: plan.bounds.height
+    },
+    cells,
+    textEquivalent: 'Static Jomon deck plan with quay approach, gangplank, hull boundary, and deck spaces.',
+    accessibilityText: `Static Jomon deck map. ${plan.bounds.width} by ${plan.bounds.height} viewport with ${cells.length} source-backed cells. Symbols are # hull planking, = open deck spaces, / gangplank, and ) quay approach. No courier, cargo, person, terrain, route-travel, or interaction state is shown. Movement and prop actions remain unavailable.`,
+    evidence: presentationEvidence('terminal-presentation:jomon-deck-plan'),
+    contentDomain: 'player-facing-text',
+    contentSafety: baseClassification()
+  }
+  const cellDiagnostics = validateTerminalMaterializedCells(map.viewport, map.cells, terminalGlyphCatalog(JOMON_ASCII_GLYPH_CATALOG))
+  if (cellDiagnostics.length) throw new TerminalPresentationContractError(cellDiagnostics)
+  return map
+}
+
+const orderedStatus = (world: FoundationWorld, map: TerminalMaterializedMap): readonly TerminalStatusItem[] => canonicalById([
   statusItem('terminal-status:courier', world.state.courier.initialCourierId ? 'ready' : 'waiting', { kind: 'courier-selection', selected: Boolean(world.state.courier.initialCourierId) }, currentWorldEvidence('world-state:courier', world.state.temporal.worldTime)),
-  statusItem('terminal-status:map', 'neutral', { kind: 'map-reserved' }, presentationEvidence('terminal-presentation:reserved-map-status')),
+  statusItem('terminal-status:map', 'neutral', { kind: 'jomon-deck-materialized', cells: map.cells.length }, presentationEvidence('terminal-presentation:jomon-deck-plan-status')),
   statusItem('terminal-status:time', 'neutral', { kind: 'world-minute', minutes: world.state.temporal.worldTime }, currentWorldEvidence('world-state:temporal', world.state.temporal.worldTime))
 ])
 
@@ -629,6 +660,7 @@ const canonicalById = <Value extends { id: string }>(values: readonly Value[]): 
 
 const modelContentRecords = (map: TerminalMapSurface, status: readonly TerminalStatusItem[], messages: readonly TerminalMessage[], prompts: readonly TerminalPrompt[]): readonly ClassifiedMedievalContent[] => [
   { id: 'terminal-presentation:map', domain: map.contentDomain, classification: map.contentSafety },
+  ...map.cells.map(cell => ({ id: `terminal-presentation:map-cell:${cell.id}`, domain: cell.contentDomain, classification: cell.contentSafety })),
   ...status.map(item => ({ id: `terminal-presentation:status:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...messages.map(item => ({ id: `terminal-presentation:message:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...prompts.map(item => ({ id: `terminal-presentation:prompt:${item.id}`, domain: item.contentDomain, classification: item.contentSafety }))
@@ -636,7 +668,7 @@ const modelContentRecords = (map: TerminalMapSurface, status: readonly TerminalS
 
 const accessibilityFor = (map: TerminalMapSurface, status: readonly TerminalStatusItem[], messages: readonly TerminalMessage[], prompts: readonly TerminalPrompt[]): TerminalAccessibilityModel => ({
   accessibleName: 'Jomon terminal presentation',
-  conciseSummary: `${map.state === 'reserved-unmaterialized' ? 'Reserved unmaterialized' : 'Materialized'} map. ${status.length} immediate local status entries. ${messages.length} authoritative messages. ${prompts.length} contextual prompts.`,
+  conciseSummary: `Materialized static Jomon deck map with ${map.cells.length} source-backed cells. ${status.length} immediate local status entries. ${messages.length} authoritative messages. ${prompts.length} contextual prompts.`,
   focusContext: 'keyboard-first-canvas',
   mapText: map.accessibilityText,
   statusText: status.map(item => item.accessibilityText),
@@ -646,8 +678,8 @@ const accessibilityFor = (map: TerminalMapSurface, status: readonly TerminalStat
 })
 
 const rawTerminalPresentationModel = (world: FoundationWorld): TerminalPresentationModel => {
-  const map = currentReservedMap(world)
-  const status = orderedStatus(world)
+  const map = createJomonDeckTerminalMap(world)
+  const status = orderedStatus(world, map)
   const messages: readonly TerminalMessage[] = []
   const prompts: readonly TerminalPrompt[] = []
   const contentSafetyAudit = auditMedievalContentSafety(modelContentRecords(map, status, messages, prompts))
@@ -690,16 +722,15 @@ export const createTerminalPresentationModel = (world: FoundationWorld): Termina
 }
 
 /**
- * The only current contextual prompt is deliberately disabled: the map and
- * physical interaction surface are still reserved. Opening it is UI state,
- * never a world action.
+ * The visible deck still has no operated prop or contextual action. Opening
+ * this disabled prompt is UI state only, never a world action.
  */
-export const createReservedMapContextualPrompt = (world: FoundationWorld): TerminalPrompt => {
+export const createJomonDeckContextualPrompt = (world: FoundationWorld): TerminalPrompt => {
   ensureValidWorld(world)
   const prompt: TerminalPrompt = {
-    id: `terminal-prompt:reserved-map:${world.id}`,
+    id: `terminal-prompt:jomon-deck:${world.id}`,
     kind: 'future-contextual-choice',
-    accessibilityText: 'Context prompt. No physical prop or contextual action is materialized on the reserved map.',
+    accessibilityText: 'Context prompt. The visible static deck has no operated prop or contextual action yet.',
     evidence: {
       source: { kind: 'authoritative-record', recordId: 'world-state:temporal' },
       recordedAtWorldTime: world.state.temporal.worldTime,
@@ -709,14 +740,14 @@ export const createReservedMapContextualPrompt = (world: FoundationWorld): Termi
     contentDomain: 'player-facing-text',
     contentSafety: baseClassification(),
     options: [{
-      id: `terminal-prompt-option:reserved-map:${world.id}`,
+      id: `terminal-prompt-option:jomon-deck:${world.id}`,
       key: 'Enter',
       availability: 'disabled',
       disabledReason: 'no-contextual-action-materialized',
       intent: 'future-contextual-action',
       requiresConfirmation: false,
       nonColorCue: terminalNonColorCueFor('neutral'),
-      accessibilityText: 'No contextual action is available because no physical prop or map cell is materialized.'
+      accessibilityText: 'No contextual action is available because the visible deck has no operated prop rule.'
     }],
     cancellation: { key: 'Escape', outcome: 'cancelled-no-mutation', advancesWorldTime: false }
   }
@@ -900,10 +931,8 @@ export const validateTerminalPresentationProjection = (
   const map = value.map
   if (!record(map) || !hasOnlyKeys(map, ['state', 'viewport', 'cells', 'textEquivalent', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety']) || !validText(map.textEquivalent) || !validText(map.accessibilityText) || validateTerminalEvidence(map.evidence).length !== 0) {
     diagnostics.push(issue('terminal-presentation:map', 'terminal-presentation.invalid-model'))
-  } else if (map.state === 'reserved-unmaterialized') {
-    if (!Array.isArray(map.cells) || map.cells.length !== 0 || !record(map.viewport) || (map.viewport as { context?: unknown }).context !== 'reserved-unmaterialized' || validateTerminalMapViewport(map.viewport).length) diagnostics.push(issue('terminal-presentation:map', 'terminal-presentation.invalid-model'))
   } else if (map.state === 'materialized') {
-    if (!record(map.viewport) || (map.viewport as { context?: unknown }).context !== 'future-materialized') diagnostics.push(issue('terminal-presentation:map', 'terminal-presentation.invalid-model'))
+    if (!record(map.viewport) || ((map.viewport as { context?: unknown }).context !== 'jomon-deck-plan' && (map.viewport as { context?: unknown }).context !== 'future-materialized')) diagnostics.push(issue('terminal-presentation:map', 'terminal-presentation.invalid-model'))
     else diagnostics.push(...validateTerminalMaterializedCells(map.viewport as unknown as TerminalMapViewport, map.cells, glyphCatalog))
   } else diagnostics.push(issue('terminal-presentation:map', 'terminal-presentation.invalid-model'))
   if (record(map)) {
@@ -916,7 +945,7 @@ export const validateTerminalPresentationProjection = (
   const statusIds = new Set<string>()
   for (const candidate of status) {
     const id = record(candidate) && typeof candidate.id === 'string' ? candidate.id : 'terminal-status'
-    if (!record(candidate) || !hasOnlyKeys(candidate, ['id', 'state', 'paletteToken', 'nonColorCue', 'value', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety']) || !validId(candidate.id) || !oneOf(TERMINAL_PRESENTATION_STATES, candidate.state) || !paletteToken(candidate.paletteToken) || candidate.paletteToken !== TERMINAL_STATE_PRESENTATIONS[candidate.state].paletteToken || !validCue(candidate.nonColorCue, candidate.state) || !record(candidate.value) || !hasOnlyKeys(candidate.value, candidate.value.kind === 'courier-selection' ? ['kind', 'selected'] : candidate.value.kind === 'world-minute' ? ['kind', 'minutes'] : ['kind']) || (candidate.value.kind !== 'map-reserved' && candidate.value.kind !== 'courier-selection' && candidate.value.kind !== 'world-minute') || (candidate.value.kind === 'courier-selection' && typeof candidate.value.selected !== 'boolean') || (candidate.value.kind === 'world-minute' && !safeInteger(candidate.value.minutes)) || !validText(candidate.accessibilityText) || validateTerminalEvidence(candidate.evidence).length) diagnostics.push(issue(id, 'terminal-presentation.invalid-model'))
+    if (!record(candidate) || !hasOnlyKeys(candidate, ['id', 'state', 'paletteToken', 'nonColorCue', 'value', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety']) || !validId(candidate.id) || !oneOf(TERMINAL_PRESENTATION_STATES, candidate.state) || !paletteToken(candidate.paletteToken) || candidate.paletteToken !== TERMINAL_STATE_PRESENTATIONS[candidate.state].paletteToken || !validCue(candidate.nonColorCue, candidate.state) || !record(candidate.value) || !hasOnlyKeys(candidate.value, candidate.value.kind === 'courier-selection' ? ['kind', 'selected'] : candidate.value.kind === 'world-minute' ? ['kind', 'minutes'] : candidate.value.kind === 'jomon-deck-materialized' ? ['kind', 'cells'] : ['kind']) || (candidate.value.kind !== 'jomon-deck-materialized' && candidate.value.kind !== 'courier-selection' && candidate.value.kind !== 'world-minute') || (candidate.value.kind === 'jomon-deck-materialized' && (!safeInteger(candidate.value.cells) || candidate.value.cells === 0)) || (candidate.value.kind === 'courier-selection' && typeof candidate.value.selected !== 'boolean') || (candidate.value.kind === 'world-minute' && !safeInteger(candidate.value.minutes)) || !validText(candidate.accessibilityText) || validateTerminalEvidence(candidate.evidence).length) diagnostics.push(issue(id, 'terminal-presentation.invalid-model'))
     if (statusIds.has(id)) diagnostics.push(issue(id, 'terminal-presentation.invalid-model'))
     statusIds.add(id)
   }

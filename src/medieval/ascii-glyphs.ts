@@ -8,7 +8,7 @@ import {
   type TerminalGlyphReference,
   type TerminalNonColorCue,
   type TerminalPresentationState
-} from './terminal-presentation'
+} from './terminal-semantics'
 
 /**
  * Jomon's authored, renderer-neutral ASCII vocabulary. A glyph is only a
