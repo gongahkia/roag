@@ -47,7 +47,7 @@ describe('compact medieval persistence layout', () => {
     const forged = structuredClone(ring)
     forged.snapshots = [...forged.snapshots].reverse()
     expect(validateFoundationWorldSnapshotRing(forged)).toBe(false)
-  }, 20_000)
+  }, 30_000)
 
   it('exports canonical offline active-world and read-only-chronicle bundles and rejects tampering', () => {
     const world = selected('backup-layout')

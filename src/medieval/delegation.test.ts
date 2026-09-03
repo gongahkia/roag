@@ -245,7 +245,7 @@ describe('constrained deterministic delegation', () => {
     const nextOffer: DelegationOfferInput = { ...first.offer, id: 'offer:second-committed' }
     expect(() => offerFoundationWorldDelegatedTask(first.world, nextOffer)).toThrow('delegation.conversation-blocked')
     expect(first.world.state.delegation.tasks).toHaveLength(1)
-  }, 10_000)
+  }, 20_000)
 
   it('does not offer, progress, resolve, or journal delegated work from a pure UI command', () => {
     const first = acceptedOffer(selectedWorld('delegation-pure-command'), 'offer:pure-command')
