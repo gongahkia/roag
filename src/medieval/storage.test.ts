@@ -850,6 +850,39 @@ describe('medieval local persistence', () => {
     await expect(repository.loadIndex()).resolves.toEqual({ version: 1, activeWorlds: [], chronicles: [{ id: chronicle.id, label: world.manifest.creation.label, reason: 'jomon-loss' }] })
   })
 
+  it('requires explicit validated snapshot recovery and contains stale finalization or corrupt recovery records without overwriting the active envelope', async () => {
+    const repository = new MedievalWorldRepository()
+    const original = chooseInitialCourier(createFoundationWorld({ seed: 'loss-recovery-containment' }), 'crew:0')
+    const current = advanceFoundationWorldTime(original, {
+      id: 'wait:loss-recovery-containment', kind: 'wait', durationMinutes: 1,
+      contentSafety: classifyMedievalContent('event', ['adult-labour'], 'adults-only', ['data'])
+    })
+    await repository.saveWorld(original)
+    await repository.saveWorld(current)
+
+    const staleChronicle = finalizeWorldAsChronicle(original, 'jomon-loss')
+    await expect(repository.finalize(original, staleChronicle)).rejects.toThrow('corrupt-existing-world')
+    expect(await repository.loadWorld(current.id)).toEqual(current)
+    expect(await repository.loadChronicle(staleChronicle.id)).toBeUndefined()
+    expect(await repository.loadIndex()).toEqual({
+      version: 1,
+      activeWorlds: [{ id: current.id, label: current.manifest.creation.label, initialCourierId: 'crew:0' }],
+      chronicles: []
+    })
+
+    const snapshots = await repository.inspectWorldSnapshots(current.id)
+    expect(snapshots.status).toBe('available')
+    if (snapshots.status !== 'available') throw new Error('fixture requires a valid snapshot ring')
+    const corruptRing = structuredClone(snapshots.ring)
+    corruptRing.snapshots[0]!.source.digest = 'layout:forged-recovery-source'
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'world-snapshots').set(current.id, corruptRing)
+
+    await expect(repository.inspectWorldSnapshots(current.id)).resolves.toEqual({ status: 'corrupt' })
+    await expect(repository.restoreSnapshot(current.id, 1)).rejects.toThrow('snapshot-not-found')
+    expect(await repository.loadWorld(current.id)).toEqual(current)
+    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'world-snapshots').get(current.id)).toEqual(corruptRing)
+  }, 20_000)
+
   it('writes a derived source-bound index and bounded deterministic snapshot ring with the active envelope', async () => {
     const repository = new MedievalWorldRepository()
     let world = chooseInitialCourier(createFoundationWorld({ seed: 'layout-atomic' }), 'crew:0')

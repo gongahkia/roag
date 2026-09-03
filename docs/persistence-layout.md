@@ -29,6 +29,8 @@ Transaction abort, request failure, unavailable storage, blocked upgrade, and qu
 
 Snapshots can be inspected without mutation. Restore is explicit; it uses the same replacement transaction and snapshots a different valid record being replaced. Current recovery is containment plus explicit inspection/restore/import APIs, not automatic repair or a browser recovery screen.
 
+Focused cross-contract coverage uses a deterministic active-world replacement to create a valid snapshot, then proves that a stale finalization source and a forged snapshot source both fail closed without changing the current active envelope, catalog entry, or corrupt stored record. It does not connect a courier-loss or Jomon-integrity policy intent to repository finalization: callers must still explicitly invoke their owning world and repository operations.
+
 ## Offline backups
 
 `persistence-layout.ts` defines deterministic v1 ordered-JSON backup bundles for an active world and for a read-only chronicle. A bundle includes only its validated complete source record plus source identity/digest/byte metadata. It contains no browser quota, host, path, machine, clock, user, or random export data.
