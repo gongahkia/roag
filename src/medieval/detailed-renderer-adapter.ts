@@ -523,7 +523,6 @@ const reportDetailedRendererParityUnchecked = (bundle: DetailedRendererSourceBun
   if (!same(candidate.source, expected.source)) diagnostics.push(issue('detailed-source', same(candidate.source?.id, expected.source.id) ? 'detailed-renderer.stale-source' : 'detailed-renderer.source-mismatch'))
   if (!same(candidate.glyphCatalog, expected.glyphCatalog) || validateAsciiGlyphCatalog(candidate.glyphCatalog).length) diagnostics.push(issue('detailed-glyph-catalog', 'detailed-renderer.invalid-glyph-mapping'))
   if (!same(candidate.map.map, expected.map.map) || !same(candidate.map.sourceItemId, expected.map.sourceItemId)) diagnostics.push(issue('terminal-map', 'detailed-renderer.source-mismatch'))
-  if (candidate.map.map?.state === 'reserved-unmaterialized' && candidate.map.cells.length !== 0) diagnostics.push(issue('terminal-map', 'detailed-renderer.hidden-data-attempt'))
   const expectedItems = sourceItems(expected)
   const candidateItems = sourceItems(candidate)
   if (candidateItems.length > DETAILED_RENDERER_ADAPTER_LIMITS.visualItems) diagnostics.push(issue('detailed-model', 'detailed-renderer.malformed-model'))

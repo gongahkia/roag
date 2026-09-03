@@ -1,5 +1,5 @@
 /**
- * Versioned browser-UI controls for the current reserved terminal map. These
+ * Versioned browser-UI controls for the current visible static deck map. These
  * preferences are deliberately outside FoundationWorld and have no world-time,
  * causal-history, or gameplay authority.
  */
@@ -156,7 +156,7 @@ export type TerminalWorldCommand =
   | { kind: 'toggle-management' }
   | { kind: 'previous-management-section' }
   | { kind: 'next-management-section' }
-  | { kind: 'movement-unavailable'; direction: TerminalMovementDirection; mapState: 'reserved-unmaterialized'; outcomeCode: 'map-reserved.movement-unavailable' }
+  | { kind: 'movement-unavailable'; direction: TerminalMovementDirection; mapState: 'materialized-jomon-deck'; outcomeCode: 'jomon-deck.movement-unavailable' }
 
 export interface TerminalHelpEntry {
   controlId: TerminalControlId
@@ -331,7 +331,7 @@ export const resolveTerminalWorldCommand = (preferences: TerminalControlPreferen
   const controlId = controlForKey(preferences, key)
   if (!controlId) return { kind: 'ignored', reason: 'unbound-key' }
   const definition = definitionFor(controlId)
-  if (definition.operationalState === 'movement-unavailable') return { kind: 'movement-unavailable', direction: definition.direction!, mapState: 'reserved-unmaterialized', outcomeCode: 'map-reserved.movement-unavailable' }
+  if (definition.operationalState === 'movement-unavailable') return { kind: 'movement-unavailable', direction: definition.direction!, mapState: 'materialized-jomon-deck', outcomeCode: 'jomon-deck.movement-unavailable' }
   switch (controlId) {
     case 'contextual-prompt': return { kind: 'open-contextual-prompt' }
     case 'command-help': return { kind: 'open-command-help' }
@@ -355,13 +355,13 @@ export const createTerminalCommandHelpModel = (preferences: TerminalControlPrefe
     const alias = TERMINAL_FIXED_MOVEMENT_ALIASES.find(item => item.controlId === definition.id)?.key
     const bindingText = alias === undefined ? key : `${key} / ${alias}`
     const state = definition.operationalState === 'movement-unavailable'
-      ? 'Movement unavailable: the map is reserved.'
+      ? 'Movement unavailable: the static Jomon deck is visible, but no movement rule is implemented.'
       : definition.operationalState === 'opens-unavailable-prompt'
-        ? 'Opens a disabled prompt: no action surface is materialized.'
+        ? 'Opens a disabled prompt: the visible deck has no operated action surface.'
         : 'Operational browser UI control.'
     return { controlId: definition.id, label: definition.label, bindingText, operationalState: definition.operationalState, accessibilityText: `${definition.label}: ${bindingText}. ${state}` }
   })
-  return { entries, accessibilitySummary: `Command help. ${entries.length} remappable world controls. Movement and contextual actions remain unavailable on the reserved map.` }
+  return { entries, accessibilitySummary: `Command help. ${entries.length} remappable world controls. The static Jomon deck is visible; movement and contextual actions remain unavailable.` }
 }
 
 export const createTerminalControlsEditorModel = (preferences: TerminalControlPreferences, selectedControlId: TerminalControlId, capturePending: boolean): TerminalControlsEditorModel => {
