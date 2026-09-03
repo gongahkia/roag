@@ -68,6 +68,7 @@ export const cloneCourse = (course: Course): Course => ({
       : { ...feature, point: { ...feature.point } }),
   portals: course.portals?.map((pair) => ({ ...pair, entrance: pair.entrance ? { point: { ...pair.entrance.point }, direction: { ...pair.entrance.direction } } : undefined, exit: pair.exit ? { point: { ...pair.exit.point }, direction: { ...pair.exit.direction } } : undefined })),
   itemPads: course.itemPads.map((pad) => ({ ...pad, point: { ...pad.point } })),
+  buildSockets: course.buildSockets?.map((socket) => ({ ...socket, point: { ...socket.point } })),
   routeRoles: course.routeRoles?.map((assignment) => ({ ...assignment, marker: { ...assignment.marker }, points: assignment.points.map((point) => ({ ...point })) })),
 });
 
@@ -109,6 +110,7 @@ export const normalizeGameState = (state: GameState): GameState => {
     course.features ??= [];
     course.portals ??= [];
     course.itemPads ??= [];
+    course.buildSockets ??= [];
   };
   normalizeCourse(state.course);
   state.gadgets ??= [];
@@ -402,7 +404,7 @@ const automaticPlanFor = (state: GameState): PlannedHole => {
   return planned;
 };
 
-const coursewrightRulesFor = (config: GameConfig, hole: number) => ({
+const coursewrightRulesFor = (config: GameConfig) => ({
   ...defaultHoleRules(),
   timerSeconds: 18,
   strokeCap: Math.max(7, Math.ceil((config.courseWidth ?? COURSE_WIDTH) / 5) + 2),
@@ -429,7 +431,7 @@ const coursewrightPlanFor = (config: GameConfig, hole: number): PlannedHole => {
     maxElevation: 1,
     variation: hole,
   };
-  const rules = coursewrightRulesFor(config, hole);
+  const rules = coursewrightRulesFor(config);
   const courseSeed = `${config.seed}:coursewright:${hole}`;
   return {
     id: `hole-${hole}-coursewright`,
@@ -542,6 +544,12 @@ export const cloneGameState = (state: GameState): GameState => ({
   emotes: state.emotes.map((emote) => ({ ...emote })),
   players: state.players.map((player) => ({ ...player, ball: { ...player.ball }, upgrades: [...player.upgrades], caddies: player.caddies.map((caddy) => ({ ...caddy })), pockets: player.pockets.map((pocket) => ({ ...pocket, duration: pocket.duration ? { ...pocket.duration } : undefined })), attachments: (player.attachments ?? []).map((attachment) => ({ ...attachment })), shotHistory: player.shotHistory.map((entry) => ({ ...entry, before: { ...entry.before }, after: { ...entry.after } })) })),
   gadgets: (state.gadgets ?? []).map((gadget) => ({ ...gadget, point: { ...gadget.point } })),
+  construction: state.construction ? {
+    ...state.construction,
+    placementOrder: [...state.construction.placementOrder],
+    hands: Object.fromEntries(Object.entries(state.construction.hands).map(([playerId, hand]) => [playerId, [...hand]])),
+    contracts: state.construction.contracts.map((contract) => ({ ...contract })),
+  } : undefined,
   shop: state.shop ? { ...state.shop, shelf: state.shop.shelf.map((offer) => ({ ...offer })), buyerOrder: [...state.shop.buyerOrder], completedBuyerIds: [...state.shop.completedBuyerIds], rerollVotes: { ...state.shop.rerollVotes } } : undefined,
   turn: { ...state.turn },
   messages: [...state.messages],
@@ -567,6 +575,15 @@ export const beginCourseTransition = (state: GameState) => {
   state.hole = nextHole;
   state.gadgets = [];
   state.paused = false;
+  if (state.config.ruleset === 'coursewright') {
+    const next = coursewrightPlanFor(state.config, nextHole);
+    state.coursePlan = [...state.coursePlan.slice(0, nextHole - 1), next];
+    activateCoursewrightPlan(state, next);
+    recordInstrumentation(state, { type: 'recipe', hole: nextHole, detail: next.courseSeed });
+    recordInstrumentation(state, { type: 'reveal', hole: nextHole, detail: next.label });
+    addMessage(state, `hole ${nextHole - 1} scored — the next shell is open`);
+    return;
+  }
   const next = automaticPlanFor(state);
   state.coursePlan = [...state.coursePlan.slice(0, nextHole - 1), next];
   state.transition = { next: clonePlan(next) };

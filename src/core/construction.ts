@@ -1,5 +1,5 @@
 import { Random } from './random';
-import type { ArchitectContract, ArchitectContractKind, BuildPieceId, BuildSocket, ConstructionState, Course, CourseTheme, GameState, Player, Point, Tile } from './types';
+import type { ArchitectContract, ArchitectContractKind, BuildPieceId, BuildSocket, ConstructionState, Course, GameState, Player, Point, Tile } from './types';
 
 export const BUILD_PIECES = ['bank', 'spring', 'bridge', 'gate', 'splitter', 'cushion'] as const satisfies readonly BuildPieceId[];
 
@@ -190,7 +190,7 @@ export const resolveArchitectContracts = (state: GameState, shooterId: string, r
   const sockets = state.course.buildSockets ?? [];
   const completed: ArchitectContract[] = [];
   state.construction?.contracts.forEach((contract) => {
-    if (contract.completed) return;
+    if (contract.completed || !contract.kind) return;
     const ownedSockets = sockets.filter((socket) => socket.ownerId === contract.ownerId && touched.has(socket.id));
     if (!ownedSockets.length) return;
     const success = contract.kind === 'traffic'
@@ -208,4 +208,4 @@ export const resolveArchitectContracts = (state: GameState, shooterId: string, r
   return completed;
 };
 
-export const architectContractDetail = (contract: ArchitectContract) => contract.kind in contractDetail ? contractDetail[contract.kind] : undefined;
+export const architectContractDetail = (contract: ArchitectContract) => contract.kind && contract.kind in contractDetail ? contractDetail[contract.kind] : undefined;

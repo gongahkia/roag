@@ -311,11 +311,13 @@ export interface BuildSocket {
 export interface ArchitectContract {
   id: string;
   ownerId: string;
-  kind: ArchitectContractKind;
+  /** Opponents receive an unrevealed contract without its condition. */
+  kind?: ArchitectContractKind;
   label?: string;
   description?: string;
   completed?: boolean;
   revealed?: boolean;
+  hidden?: boolean;
 }
 
 export interface ConstructionState {

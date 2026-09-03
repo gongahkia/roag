@@ -1,5 +1,5 @@
 import { chooseBotDecision, type BotDecision } from './bots';
-import { activePlayer, cloneGameState, completeTransition, createGameState, defaultConfig, setPaused } from './game-state';
+import { activePlayer, cloneGameState, completeTransition, createGameState, defaultConfig, placeBuildPiece, setPaused } from './game-state';
 import { UPGRADE_DESCRIPTIONS } from './player-effects';
 import { armSecondWind, usePowerUp } from './powerups';
 import { buyShopOffer, sellShopCaddy, skipShopBuyer, voteShopReroll } from './shop';
@@ -18,6 +18,10 @@ export const applyCommand = (current: GameState, command: GameCommand): GameStat
   }
   if (command.type === 'set-paused') {
     setPaused(state, command.paused);
+    return state;
+  }
+  if (command.type === 'place-build-piece') {
+    placeBuildPiece(state, command.pieceId, command.socketId);
     return state;
   }
   if (command.type === 'shoot') {

@@ -1,4 +1,5 @@
-import { activePlayer, addMessage, cloneGameState, recordInstrumentation } from './game-state';
+import { activePlayer, addMessage, beginCourseTransition, cloneGameState, placeBuildPiece, recordInstrumentation } from './game-state';
+import { activeBuilderId, resolveArchitectContracts } from './construction';
 import { distanceToCup, simulateShot, tileAt, type BallPhysicsModifiers, type SimulationResult } from './physics';
 import { adjustedShotFor, caddyCount, canStorePowerUp, hasCaddy, physicsModifiersFor } from './player-effects';
 import { awardPowerUp } from './powerups';
@@ -104,13 +105,19 @@ export const previewShot = (state: GameState, shot: ShotCommand): Ball[][] | und
 const finishHole = (state: GameState) => {
   for (const player of state.players) {
     const strokes = player.ball.complete ? player.ball.strokes : state.holeRules.strokeCap;
-    player.total += Math.max(1, Math.round(strokes * state.holeRules.scoreMultiplier));
-    recordInstrumentation(state, { type: 'hole-complete', hole: state.hole, playerId: player.id, detail: 'strokes', value: strokes });
+    const contractComplete = state.config.ruleset === 'coursewright' && state.construction?.contracts.some((contract) => contract.ownerId === player.id && contract.completed);
+    const scored = Math.max(1, Math.round(strokes * state.holeRules.scoreMultiplier) - (contractComplete ? 1 : 0));
+    player.total += scored;
+    recordInstrumentation(state, { type: 'hole-complete', hole: state.hole, playerId: player.id, detail: contractComplete ? 'strokes minus contract' : 'strokes', value: scored });
   }
   recordInstrumentation(state, { type: 'hole-duration', hole: state.hole, detail: 'active seconds', value: state.hazardElapsedMs / 1_000 });
   if (state.hole >= state.config.holeCount) {
     state.status = 'finished';
-    addMessage(state, 'nine holes scored — campaign complete');
+    addMessage(state, `${state.config.holeCount} holes scored — campaign complete`);
+    return;
+  }
+  if (state.config.ruleset === 'coursewright') {
+    beginCourseTransition(state);
     return;
   }
   awardHoleCash(state);
@@ -183,6 +190,11 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
   recordInstrumentation(state, { type: 'turn-duration', hole: state.hole, playerId: player.id, detail: 'shot', value: turnSeconds });
   recordInstrumentation(state, { type: 'shot', hole: state.hole, playerId: player.id, detail: `${shot.kind ?? 'putt'}:${routeRole}`, value: shot.power });
   recordShotAnalysis(state, player, result);
+  resolveArchitectContracts(state, player.id, result).forEach((contract) => {
+    recordInstrumentation(state, { type: 'contract', hole: state.hole, playerId: contract.ownerId, targetId: player.id, detail: contract.label ?? contract.kind ?? 'hidden contract' });
+    const owner = state.players.find((candidate) => candidate.id === contract.ownerId);
+    if (owner) addMessage(state, `${owner.name} reveals ${contract.label ?? 'an architect contract'} — one stroke off this hole`);
+  });
   result.collidedOtherIndexes.forEach((otherIndex) => {
     const target = state.players.filter((_, index) => index !== playerIndex)[otherIndex];
     if (!target) return;
@@ -242,11 +254,24 @@ export const resolveShot = (state: GameState, shot: ShotCommand) => {
 };
 
 export const tickTurn = (current: GameState, elapsedSeconds: number): GameState => {
-  if ((current.status !== 'playing' && current.status !== 'shopping') || current.paused) return current;
+  if ((current.status !== 'building' && current.status !== 'playing' && current.status !== 'shopping') || current.paused) return current;
   const state = cloneGameState(current);
   const elapsed = Math.max(0, Number.isFinite(elapsedSeconds) ? elapsedSeconds : 0);
   if (state.status === 'shopping') {
     tickShop(state, elapsed);
+    return state;
+  }
+  if (state.status === 'building') {
+    state.turn.secondsLeft = Math.max(0, state.turn.secondsLeft - elapsed);
+    if (state.turn.secondsLeft === 0) {
+      const builderId = activeBuilderId(state);
+      const pieceId = builderId ? state.construction?.hands[builderId]?.[0] : undefined;
+      const socketId = state.course.buildSockets?.find((socket) => !socket.pieceId)?.id;
+      if (builderId && pieceId && socketId) {
+        addMessage(state, `${activePlayer(state).name}'s build timer chose a module`);
+        placeBuildPiece(state, pieceId, socketId);
+      }
+    }
     return state;
   }
   state.hazardElapsedMs += elapsed * 1_000;
