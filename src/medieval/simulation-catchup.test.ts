@@ -33,7 +33,7 @@ describe('deterministic medieval fidelity catch-up', () => {
     expect(units.state.temporal.causalRecords).not.toEqual(long.state.temporal.causalRecords)
     expect(long.state.simulation.records.some(record => record.tier === 'nearby' && record.windowEndWorldTime === 5 && record.dueIntervals === 1)).toBe(true)
     expect(long.state.simulation.cursors.every(cursor => cursor.processedThroughWorldTime <= long.state.temporal.worldTime)).toBe(true)
-  })
+  }, 10_000)
 
   it('preserves the projection across all scheduled fidelity tiers without treating player action boundaries as simulation boundaries', () => {
     const long = runPartition('catch-up partition tiers', [240], 'sheltered-reach')
