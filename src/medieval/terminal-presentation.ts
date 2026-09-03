@@ -1,6 +1,6 @@
 import { auditMedievalContentSafety, classifyMedievalContent, contentSafetyAuditMatches, type ClassifiedMedievalContent, type MedievalContentDomain, type MedievalContentSafetyAudit, type MedievalContentSafetyClassification, type MedievalContentSafetyDiagnosticCode } from './content-safety'
 import { JOMON_ASCII_GLYPH_CATALOG, terminalGlyphCatalog, terminalGlyphReferenceFor } from './ascii-glyphs'
-import { deriveJomonDeckPlan } from './jomon-deck-plan'
+import { deriveJomonDeckPlan, deriveJomonDeckPlanForVerifiedWorld } from './jomon-deck-plan'
 import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE, type JomonPaletteToken } from './palette'
 import {
   TERMINAL_GLYPH_VOCABULARY_ID,
@@ -710,14 +710,7 @@ const courierMarkerFor = (world: FoundationWorld): TerminalMaterializedCell | un
   }
 }
 
-/** The sole current common map projection derives every visible cell from the validated static deck plan. */
-export const createJomonDeckTerminalMap = (world: FoundationWorld): TerminalMaterializedMap => {
-  let plan: ReturnType<typeof deriveJomonDeckPlan>
-  try {
-    plan = deriveJomonDeckPlan(world)
-  } catch {
-    throw new TerminalPresentationContractError([issue('jomon-deck-plan', 'terminal-presentation.invalid-deck-plan')])
-  }
+const mapForDeckPlan = (world: FoundationWorld, plan: ReturnType<typeof deriveJomonDeckPlan>): TerminalMaterializedMap => {
   const staticCells = [
     ...plan.areas.flatMap(area => area.footprint.map(cell => terminalCellFromDeckPlan(cell.id, cell.coordinate, area.semantic))),
     ...plan.structuralCells.map(cell => terminalCellFromDeckPlan(cell.id, cell.coordinate, cell.semantic))
@@ -748,6 +741,24 @@ export const createJomonDeckTerminalMap = (world: FoundationWorld): TerminalMate
   const cellDiagnostics = validateTerminalMaterializedCells(map.viewport, map.cells, terminalGlyphCatalog(JOMON_ASCII_GLYPH_CATALOG))
   if (cellDiagnostics.length) throw new TerminalPresentationContractError(cellDiagnostics)
   return map
+}
+
+/** The sole current common map projection derives every visible cell from the validated static deck plan. */
+export const createJomonDeckTerminalMap = (world: FoundationWorld): TerminalMaterializedMap => {
+  try {
+    return mapForDeckPlan(world, deriveJomonDeckPlan(world))
+  } catch {
+    throw new TerminalPresentationContractError([issue('jomon-deck-plan', 'terminal-presentation.invalid-deck-plan')])
+  }
+}
+
+/** Reuses a complete FoundationWorld validation already performed by the terminal presentation boundary. */
+const createJomonDeckTerminalMapForVerifiedWorld = (world: FoundationWorld): TerminalMaterializedMap => {
+  try {
+    return mapForDeckPlan(world, deriveJomonDeckPlanForVerifiedWorld(world))
+  } catch {
+    throw new TerminalPresentationContractError([issue('jomon-deck-plan', 'terminal-presentation.invalid-deck-plan')])
+  }
 }
 
 const staticCellsFor = (map: TerminalMaterializedMap): number => map.cells.filter(cell => !activeCourierMarker(cell)).length
@@ -850,7 +861,7 @@ const accessibilityFor = (map: TerminalMapSurface, legend: TerminalMapLegend, st
 })
 
 const rawTerminalPresentationModel = (world: FoundationWorld): TerminalPresentationModel => {
-  const map = createJomonDeckTerminalMap(world)
+  const map = createJomonDeckTerminalMapForVerifiedWorld(world)
   const legend = rawTerminalMapLegend(map)
   const status = orderedStatus(world, map)
   const messages: readonly TerminalMessage[] = []

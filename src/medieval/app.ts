@@ -172,11 +172,13 @@ const sidebarFreshnessCue = (item: ManagementSidebarFact): string => item.freshn
 const sidebarFactMetadata = (item: ManagementSidebarFact): string => `SRC ${sidebarSourceCue(item)} K${item.discoveredAtWorldTime} ${sidebarFreshnessCue(item)}`
 
 /** The canvas resolves glyph characters from the supplied legend references; it owns no symbol meanings. */
-const terminalMapLegendText = (legend: TerminalMapLegend): string => legend.entries.map(entry => {
+const terminalMapLegendEntries = (legend: TerminalMapLegend): readonly string[] => legend.entries.map(entry => {
   const glyph = JOMON_ASCII_GLYPH_CATALOG.entries.find(candidate => candidate.id === entry.glyph.id)
   if (!glyph) throw new Error(`terminal legend glyph is unavailable: ${entry.glyph.id}`)
   return `${glyph.character} ${entry.label.toUpperCase()}`
-}).join(' // ')
+})
+
+const terminalMapLegendText = (legend: TerminalMapLegend): string => terminalMapLegendEntries(legend).join(' // ')
 
 export class MedievalApp {
   private readonly context: CanvasRenderingContext2D
@@ -1100,9 +1102,12 @@ export class MedievalApp {
     if (this.worldOverlay === 'none') {
       row(context, 2, `${world.manifest.creation.label.toUpperCase()} // JOMON DECK`, palette.titleText, panels.main.x)
       this.renderTerminalMap(context, terminal.map, panels.main)
-      renderBoundedMedievalCanvasRows(context, 12, 13, `ACTIVE COURIER  ${courier?.name.toUpperCase() ?? 'UNASSIGNED'} // ${courier?.role.toUpperCase() ?? 'NONE'}`, palette.statusReady, panels.main.x, panels.main.width)
-      renderBoundedMedievalCanvasRows(context, 14, 14, `DECK FOCUS ${world.state.navigation.coordinate ? `${world.state.navigation.coordinate.column},${world.state.navigation.coordinate.row}` : 'UNASSIGNED'} // WORLD TIME ${world.state.temporal.worldTime}`, palette.bodyText, panels.main.x, panels.main.width)
-      renderBoundedMedievalCanvasRows(context, 15, 16, `MAP ${terminalMapLegendText(terminal.legend)}`, palette.bodyText, panels.main.x, panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 12, 12, `ACTIVE COURIER  ${courier?.name.toUpperCase() ?? 'UNASSIGNED'} // ${courier?.role.toUpperCase() ?? 'NONE'}`, palette.statusReady, panels.main.x, panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 13, 13, `DECK FOCUS ${world.state.navigation.coordinate ? `${world.state.navigation.coordinate.column},${world.state.navigation.coordinate.row}` : 'UNASSIGNED'} // WORLD TIME ${world.state.temporal.worldTime}`, palette.bodyText, panels.main.x, panels.main.width)
+      const legendEntries = terminalMapLegendEntries(terminal.legend)
+      renderBoundedMedievalCanvasRows(context, 14, 14, `MAP ${legendEntries.slice(0, 2).join(' // ')}`, palette.bodyText, panels.main.x, panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 15, 15, `MAP ${legendEntries.slice(2, 4).join(' // ')}`, palette.bodyText, panels.main.x, panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 16, 16, `MAP ${legendEntries.slice(4).join(' // ')}`, palette.bodyText, panels.main.x, panels.main.width)
       renderBoundedMedievalCanvasRows(context, 17, 18, terminal.legend.limitationsText, palette.mutedText, panels.main.x, panels.main.width)
       renderBoundedMedievalCanvasRows(context, 19, 19, `MESSAGES // ${terminal.accessibility.messageText.join(' ')}`, palette.mutedText, panels.main.x, panels.main.width)
       rule(context, 20, panels.main.x, panels.main.x + panels.main.width)
