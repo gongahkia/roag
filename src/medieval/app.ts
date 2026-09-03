@@ -9,14 +9,15 @@ import { MutableWorldSession } from './session'
 import { cancelTerminalPrompt, createJomonDeckContextualPrompt, createTerminalPresentationModel, type TerminalMaterializedMap, type TerminalPrompt } from './terminal-presentation'
 import { TERMINAL_CONTROL_IDS, captureTerminalControlBinding, createTerminalCommandHelpModel, createTerminalControlsEditorModel, cycleTerminalControlSelection, defaultTerminalControlPreferences, resetAllTerminalControls, resetTerminalControl, resolveTerminalWorldCommand, type TerminalControlId, type TerminalControlPreferences, type TerminalMovementDirection } from './terminal-controls'
 import type { FoundationWorld, MedievalRoute, WorldChronicle, WorldIndex } from './types'
-import { chronicleExport, chooseInitialCourier, createFoundationWorld } from './world'
+import { chronicleExport, chooseInitialCourier, createFoundationWorld, moveFoundationWorldCourier } from './world'
 
 type PersistenceState = 'loading' | 'saved' | 'error'
 type SettingsPage = 'basic' | 'advanced'
 type ResultPage = 'summary' | 'configuration' | 'provenance'
 type WorldOverlay = 'none' | 'contextual-prompt' | 'command-help' | 'controls-editor'
 type TerminalInteractionOutcome =
-  | { kind: 'movement-unavailable'; direction: TerminalMovementDirection }
+  | { kind: 'movement-completed'; direction: TerminalMovementDirection; column: number; row: number }
+  | { kind: 'movement-blocked'; direction: TerminalMovementDirection; collision: string }
   | { kind: 'prompt-cancelled' }
   | { kind: 'prompt-option-disabled'; reason: 'no-contextual-action-materialized' }
   | { kind: 'overlay-dismissed'; overlay: Exclude<WorldOverlay, 'none'> }
@@ -522,7 +523,38 @@ export class MedievalApp {
     })
   }
 
-  /** World-view keys become typed UI intents before the canvas renders their zero-time result. */
+  private moveCourier(direction: TerminalMovementDirection): void {
+    if (!this.world) return
+    try {
+      this.session.assertOwner(this.world.id)
+      const result = moveFoundationWorldCourier(this.world, direction)
+      if (result.status === 'blocked') {
+        this.terminalInteractionOutcome = { kind: 'movement-blocked', direction, collision: result.collision }
+        this.render()
+        return
+      }
+      this.persistence = 'loading'
+      this.render()
+      void this.repository.saveWorld(result.world).then(async () => {
+        this.world = result.world
+        await this.refreshIndex()
+        this.resetManagementSidebar()
+        this.persistence = 'saved'
+        this.error = undefined
+        this.terminalInteractionOutcome = { kind: 'movement-completed', direction, column: result.to.column, row: result.to.row }
+        this.render()
+      }).catch(error => {
+        this.persistence = 'error'
+        this.error = errorMessage(error)
+        this.render()
+      })
+    } catch (error) {
+      this.error = errorMessage(error)
+      this.render()
+    }
+  }
+
+  /** World-view keys become typed UI intents before the canvas performs an owned transition. */
   private handleWorldKey(event: KeyboardEvent): boolean {
     const command = resolveTerminalWorldCommand(this.terminalControls, {
       key: event.key,
@@ -619,9 +651,8 @@ export class MedievalApp {
         this.terminalInteractionOutcome = undefined
         this.render()
         return true
-      case 'movement-unavailable':
-        this.terminalInteractionOutcome = { kind: 'movement-unavailable', direction: command.direction }
-        this.render()
+      case 'move-courier':
+        this.moveCourier(command.direction)
         return true
     }
   }
@@ -933,7 +964,8 @@ export class MedievalApp {
     const outcome = this.terminalInteractionOutcome
     if (!outcome) return undefined
     switch (outcome.kind) {
-      case 'movement-unavailable': return `! STATIC DECK // ${uppercase(outcome.direction)} MOVEMENT UNAVAILABLE`
+      case 'movement-completed': return `+ MOVED ${uppercase(outcome.direction)} // DECK ${outcome.column},${outcome.row} // +1 ACTION MINUTE`
+      case 'movement-blocked': return `! MOVE BLOCKED // ${uppercase(outcome.direction)} // ${uppercase(outcome.collision)} // ZERO TIME`
       case 'prompt-cancelled': return '+ CONTEXT PROMPT CANCELLED // ZERO TIME'
       case 'prompt-option-disabled': return `! OPTION DISABLED // ${uppercase(outcome.reason)}`
       case 'overlay-dismissed': return `+ ${uppercase(outcome.overlay)} CLOSED // ZERO TIME`
@@ -970,8 +1002,8 @@ export class MedievalApp {
       let line = 4
       for (const entry of help.entries) {
         if (line > 17) break
-        const availability = entry.operationalState === 'movement-unavailable' ? 'NO MOVEMENT RULE' : entry.operationalState === 'opens-unavailable-prompt' ? 'PROMPT ONLY' : 'READY'
-        renderBoundedMedievalCanvasRows(context, line, line, `- ${entry.bindingText}  ${entry.label.toUpperCase()} // ${availability}`, entry.operationalState === 'movement-unavailable' ? palette.mutedText : palette.bodyText, panel.x, panel.width)
+        const availability = entry.operationalState === 'movement-available' ? 'LOCAL STEP +1M' : entry.operationalState === 'opens-unavailable-prompt' ? 'PROMPT ONLY' : 'READY'
+        renderBoundedMedievalCanvasRows(context, line, line, `- ${entry.bindingText}  ${entry.label.toUpperCase()} // ${availability}`, entry.operationalState === 'movement-available' ? palette.bodyText : palette.mutedText, panel.x, panel.width)
         line += 1
       }
       rule(context, 18, panel.x, panel.x + panel.width)
@@ -1044,17 +1076,18 @@ export class MedievalApp {
     context.strokeStyle = palette.panelBorder
     context.strokeRect(panels.main.x - 8.5, 108.5, panels.main.width + 16, 480)
     if (this.worldOverlay === 'none') {
-      row(context, 2, `${world.manifest.creation.label.toUpperCase()} // STATIC JOMON DECK`, palette.titleText, panels.main.x)
+      row(context, 2, `${world.manifest.creation.label.toUpperCase()} // JOMON DECK`, palette.titleText, panels.main.x)
       this.renderTerminalMap(context, terminal.map, panels.main)
       renderBoundedMedievalCanvasRows(context, 12, 13, `ACTIVE COURIER  ${courier?.name.toUpperCase() ?? 'UNASSIGNED'} // ${courier?.role.toUpperCase() ?? 'NONE'}`, palette.statusReady, panels.main.x, panels.main.width)
-      renderBoundedMedievalCanvasRows(context, 14, 14, `SEED ${world.manifest.creation.seed} // WORLD TIME ${world.state.temporal.worldTime}`, palette.bodyText, panels.main.x, panels.main.width)
-      renderBoundedMedievalCanvasRows(context, 16, 16, 'STATIC DECK // NO COURIER, CARGO, NPC, HAZARD, TRAVEL, OR PROP ACTION STATE', palette.mutedText, panels.main.x, panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 14, 14, `DECK FOCUS ${world.state.navigation.coordinate ? `${world.state.navigation.coordinate.column},${world.state.navigation.coordinate.row}` : 'UNASSIGNED'} // WORLD TIME ${world.state.temporal.worldTime}`, palette.bodyText, panels.main.x, panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 15, 15, `SEED ${world.manifest.creation.seed} // PROVENANCE ${shortDigest(world.manifest.creation.digest)}`, palette.mutedText, panels.main.x, panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 16, 16, 'FULL KNOWN DECK // NO CARGO, NPC, HAZARD, TRAVEL, OR PROP ACTION STATE', palette.mutedText, panels.main.x, panels.main.width)
       const line = renderBoundedMedievalCanvasRows(context, 17, 18, `MESSAGES // ${terminal.accessibility.messageText.join(' ')}`, palette.mutedText, panels.main.x, panels.main.width)
       rule(context, Math.max(19, line + 1), panels.main.x, panels.main.x + panels.main.width)
       const defaultHelp = this.managementExpanded
-        ? 'M collapse // [ / ] sections // ENTER prompt // ? help // F2 controls // ESC worlds'
-        : 'M expand // ENTER prompt // ? help // F2 controls // ESC worlds'
-      renderBoundedMedievalCanvasRows(context, 21, 22, this.terminalOutcomeText() ?? defaultHelp, this.terminalInteractionOutcome?.kind === 'movement-unavailable' ? palette.warningText : palette.actionText, panels.main.x, panels.main.width)
+        ? 'ARROWS / HJKL / YUBN move // M collapse // [ / ] sections // ENTER prompt // ? help // F2 controls // ESC worlds'
+        : 'ARROWS / HJKL / YUBN move // M expand // ENTER prompt // ? help // F2 controls // ESC worlds'
+      renderBoundedMedievalCanvasRows(context, 21, 22, this.terminalOutcomeText() ?? defaultHelp, this.terminalInteractionOutcome?.kind === 'movement-blocked' ? palette.warningText : palette.actionText, panels.main.x, panels.main.width)
     } else this.renderWorldOverlay(context, panels.main)
     this.renderManagementSidebar(context, model, panels.sidebar)
     return 22

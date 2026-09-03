@@ -44,7 +44,7 @@ export interface TerminalControlDefinition {
   id: TerminalControlId
   label: string
   direction?: TerminalMovementDirection
-  operationalState: 'movement-unavailable' | 'opens-unavailable-prompt' | 'operational-ui'
+  operationalState: 'movement-available' | 'opens-unavailable-prompt' | 'operational-ui'
 }
 
 export const TERMINAL_CONTROL_DEFINITIONS: readonly TerminalControlDefinition[] = [
@@ -53,14 +53,14 @@ export const TERMINAL_CONTROL_DEFINITIONS: readonly TerminalControlDefinition[] 
   { id: 'management-next-section', label: 'Next management section', operationalState: 'operational-ui' },
   { id: 'management-previous-section', label: 'Previous management section', operationalState: 'operational-ui' },
   { id: 'management-toggle', label: 'Toggle management', operationalState: 'operational-ui' },
-  { id: 'move-east', label: 'Move east', direction: 'east', operationalState: 'movement-unavailable' },
-  { id: 'move-north', label: 'Move north', direction: 'north', operationalState: 'movement-unavailable' },
-  { id: 'move-north-east', label: 'Move north east', direction: 'north-east', operationalState: 'movement-unavailable' },
-  { id: 'move-north-west', label: 'Move north west', direction: 'north-west', operationalState: 'movement-unavailable' },
-  { id: 'move-south', label: 'Move south', direction: 'south', operationalState: 'movement-unavailable' },
-  { id: 'move-south-east', label: 'Move south east', direction: 'south-east', operationalState: 'movement-unavailable' },
-  { id: 'move-south-west', label: 'Move south west', direction: 'south-west', operationalState: 'movement-unavailable' },
-  { id: 'move-west', label: 'Move west', direction: 'west', operationalState: 'movement-unavailable' }
+  { id: 'move-east', label: 'Move east', direction: 'east', operationalState: 'movement-available' },
+  { id: 'move-north', label: 'Move north', direction: 'north', operationalState: 'movement-available' },
+  { id: 'move-north-east', label: 'Move north east', direction: 'north-east', operationalState: 'movement-available' },
+  { id: 'move-north-west', label: 'Move north west', direction: 'north-west', operationalState: 'movement-available' },
+  { id: 'move-south', label: 'Move south', direction: 'south', operationalState: 'movement-available' },
+  { id: 'move-south-east', label: 'Move south east', direction: 'south-east', operationalState: 'movement-available' },
+  { id: 'move-south-west', label: 'Move south west', direction: 'south-west', operationalState: 'movement-available' },
+  { id: 'move-west', label: 'Move west', direction: 'west', operationalState: 'movement-available' }
 ]
 
 export interface TerminalControlBinding {
@@ -156,7 +156,7 @@ export type TerminalWorldCommand =
   | { kind: 'toggle-management' }
   | { kind: 'previous-management-section' }
   | { kind: 'next-management-section' }
-  | { kind: 'movement-unavailable'; direction: TerminalMovementDirection; mapState: 'materialized-jomon-deck'; outcomeCode: 'jomon-deck.movement-unavailable' }
+  | { kind: 'move-courier'; direction: TerminalMovementDirection }
 
 export interface TerminalHelpEntry {
   controlId: TerminalControlId
@@ -331,7 +331,7 @@ export const resolveTerminalWorldCommand = (preferences: TerminalControlPreferen
   const controlId = controlForKey(preferences, key)
   if (!controlId) return { kind: 'ignored', reason: 'unbound-key' }
   const definition = definitionFor(controlId)
-  if (definition.operationalState === 'movement-unavailable') return { kind: 'movement-unavailable', direction: definition.direction!, mapState: 'materialized-jomon-deck', outcomeCode: 'jomon-deck.movement-unavailable' }
+  if (definition.operationalState === 'movement-available') return { kind: 'move-courier', direction: definition.direction! }
   switch (controlId) {
     case 'contextual-prompt': return { kind: 'open-contextual-prompt' }
     case 'command-help': return { kind: 'open-command-help' }
@@ -354,14 +354,14 @@ export const createTerminalCommandHelpModel = (preferences: TerminalControlPrefe
     const key = bindingFor(current, definition.id)
     const alias = TERMINAL_FIXED_MOVEMENT_ALIASES.find(item => item.controlId === definition.id)?.key
     const bindingText = alias === undefined ? key : `${key} / ${alias}`
-    const state = definition.operationalState === 'movement-unavailable'
-      ? 'Movement unavailable: the static Jomon deck is visible, but no movement rule is implemented.'
+    const state = definition.operationalState === 'movement-available'
+      ? 'Attempts one local deck step. A successful step advances one action minute; a blocked step changes no world state or time.'
       : definition.operationalState === 'opens-unavailable-prompt'
         ? 'Opens a disabled prompt: the visible deck has no operated action surface.'
         : 'Operational browser UI control.'
     return { controlId: definition.id, label: definition.label, bindingText, operationalState: definition.operationalState, accessibilityText: `${definition.label}: ${bindingText}. ${state}` }
   })
-  return { entries, accessibilitySummary: `Command help. ${entries.length} remappable world controls. The static Jomon deck is visible; movement and contextual actions remain unavailable.` }
+  return { entries, accessibilitySummary: `Command help. ${entries.length} remappable world controls. The static Jomon deck is visible; movement is local and collision-checked, while contextual actions remain unavailable.` }
 }
 
 export const createTerminalControlsEditorModel = (preferences: TerminalControlPreferences, selectedControlId: TerminalControlId, capturePending: boolean): TerminalControlsEditorModel => {
