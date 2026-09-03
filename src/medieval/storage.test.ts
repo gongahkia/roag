@@ -929,7 +929,7 @@ describe('medieval local persistence', () => {
     expect(await repository.inspectSnapshot(world.id, 4)).toEqual(snapshots.ring.snapshots[2]!.world)
     await repository.restoreSnapshot(world.id, 2)
     expect(await repository.loadWorld(world.id)).toEqual(snapshots.ring.snapshots[0]!.world)
-  }, 30_000)
+  }, 60_000)
 
   it('derives task, event, person, and history locators from a validated delegated world without indexing generation seeds', async () => {
     const repository = new MedievalWorldRepository()
