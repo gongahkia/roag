@@ -242,6 +242,17 @@ describe('persistent medieval people', () => {
     expect(persistentPersonContentRecords(world.state.people.records).length).toBeGreaterThan(world.state.people.records.length)
   })
 
+  it('rejects a forged immutable household source without changing supplied people', () => {
+    const world = createFoundationWorld({ seed: 'person-forged-household' })
+    const crew = structuredClone(world.crew)
+    crew[0]!.conversation = crew[0]!.conversation === 5 ? 4 : 5
+    const people = structuredClone(world.state.people.records)
+    const before = structuredClone(people)
+
+    expect(validatePersistentPeople({ ...contextFor(world), crew }, people).map(issue => issue.code)).toContain('initial-household.non-reproducible-roster')
+    expect(people).toEqual(before)
+  })
+
   it('preserves enriched people through selection, time, era growth, checkpoint compaction, and replay without instantiating seeds', () => {
     let world = chooseInitialCourier(createFoundationWorld({ seed: 'person-v2-replay' }), 'crew:0')
     const originalPeople = structuredClone(world.state.people.records)

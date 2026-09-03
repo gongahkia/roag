@@ -851,6 +851,20 @@ describe('medieval local persistence', () => {
     await expect(repository.loadWorld(world.id)).resolves.toBeUndefined()
   })
 
+  it('rejects a structurally valid but non-reproducible household at save and load without changing the supplied record', async () => {
+    const repository = new MedievalWorldRepository()
+    const source = createFoundationWorld({ seed: 'storage-forged-household' })
+    const forged = structuredClone(source)
+    forged.crew[0]!.relationships[0]!.basis = forged.crew[0]!.relationships[0]!.basis === 'debt' ? 'work' : 'debt'
+    const before = structuredClone(forged)
+
+    await expect(repository.saveWorld(forged)).rejects.toThrow('invalid medieval world')
+    await repository.loadIndex()
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(forged.id, forged)
+    await expect(repository.loadWorld(forged.id)).resolves.toBeUndefined()
+    expect(forged).toEqual(before)
+  })
+
   it('rejects a generated initial-world policy bypass and a safe-looking altered region at the local-save boundary', async () => {
     const repository = new MedievalWorldRepository()
     const world = createFoundationWorld({ seed: 'initial-world-storage-check' })

@@ -10,6 +10,7 @@ import { causalHistoryContentRecords, causalReplayProjection, createCausalHistor
 import { createDelegationState, delegationContentRecords, validateDelegationSchedulerLinks, validateDelegationState, type DelegationDiagnosticCode, type DelegationState } from './delegation'
 import { autonomyContentRecords, createAutonomyState, validateAutonomyState, type AutonomyDiagnosticCode, type AutonomyState } from './autonomy'
 import { createSocialMemoryState, socialMemoryContentRecords, validateSocialMemoryState, type SocialMemoryDiagnosticCode, type SocialMemoryState } from './social-memory'
+import { validateInitialHouseholdRoster, type InitialHouseholdValidationCode } from './initial-household'
 import type { FoundationCrewMember, FoundationJomon } from './types'
 
 /**
@@ -225,6 +226,7 @@ export type WorldStateValidationDiagnosticCode =
   | AutonomyDiagnosticCode
   | SocialMemoryDiagnosticCode
   | CausalHistoryDiagnosticCode
+  | InitialHouseholdValidationCode
   | MedievalContentSafetyDiagnosticCode
 
 export interface WorldStateValidationIssue {
@@ -434,6 +436,8 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
     return [issue('world-state', currentShape || legacyShape ? 'world-state.invalid-version' : 'world-state.malformed-state')]
   }
   if (value.version !== MEDIEVAL_WORLD_STATE_VERSION && value.version !== LEGACY_MEDIEVAL_WORLD_STATE_VERSION) issues.push(issue('world-state', 'world-state.invalid-version'))
+  issues.push(...validateInitialHouseholdRoster({ seed: context.seed, configurationFingerprint: generationConfigurationFingerprint(context.configuration) }, context.crew)
+    .map(diagnostic => issue(diagnostic.recordId, diagnostic.code)))
 
   let frontier: FrontierState | undefined
   if (!validSubdomain(value.geography, WORLD_GEOGRAPHY_STATE_VERSION, ['version', 'initialWorldId', 'frontier']) || value.geography.initialWorldId !== context.initialWorld.id || !record(value.geography.frontier)) {

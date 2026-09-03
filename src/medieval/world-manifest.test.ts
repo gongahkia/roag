@@ -28,6 +28,17 @@ describe('world manifest provenance', () => {
     expect(recreateFoundationWorld(selected.manifest)).toEqual(world)
   })
 
+  it('recreates the household from seed/configuration evidence without embedding a second roster or active-crew state in the manifest', () => {
+    const world = createFoundationWorld({ seed: 'manifest household recreation', configuration: { preset: 'far-coast' } })
+    const restored = recreateFoundationWorld(world.manifest)
+
+    expect(restored.crew).toEqual(world.crew)
+    expect(restored.state.courier.initialCourierId).toBeUndefined()
+    expect(restored.state.navigation).toEqual({ version: 1 })
+    expect(JSON.stringify(world.manifest)).not.toContain('crew:0')
+    expect(JSON.stringify(world.manifest)).not.toContain('initialCourierId')
+  })
+
   it('records stable initial-world and frontier-root identities that reproduce the root commitments', () => {
     const first = createFoundationWorld({ seed: 'root identities' })
     const second = createFoundationWorld({ seed: 'root identities' })

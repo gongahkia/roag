@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION, PROHIBITED_MEDIEVAL_CONTENT_CLASSES, auditMedievalContentSafety, classifyMedievalContent, validateMedievalContentSafety, type ClassifiedMedievalContent, type ProhibitedMedievalContentClass } from './content-safety'
+import { createInitialHousehold, initialHouseholdContentRecords } from './initial-household'
+import { resolveWorldGenerationConfig } from './generation-config'
 
 const safeHistory = (id = 'history:river-worker'): ClassifiedMedievalContent => ({
   id,
@@ -82,5 +84,18 @@ describe('medieval content safety policy', () => {
         { contentId: 'history:second', code: 'content-safety.prohibited.slavery' }
       ]
     })
+  })
+
+  it('audits every generated household identity and history and rejects a forged classification', () => {
+    const resolved = resolveWorldGenerationConfig({ preset: 'watershed' })
+    if (resolved.status !== 'valid') throw new Error('test configuration must resolve')
+    const household = createInitialHousehold({ seed: 'household content audit', configuration: resolved.configuration })
+    const records = initialHouseholdContentRecords(household.roster)
+    const unsafe = structuredClone(records)
+    ;(unsafe[1]!.classification.exclusions as unknown as Record<string, string>).torture = 'present'
+
+    expect(records).toHaveLength(household.roster.length * 2)
+    expect(auditMedievalContentSafety(records).status).toBe('accepted')
+    expect(validateMedievalContentSafety(unsafe)).toMatchObject({ status: 'rejected', diagnostics: [{ contentId: household.roster[0]!.id + ':history', code: 'content-safety.prohibited.torture' }] })
   })
 })

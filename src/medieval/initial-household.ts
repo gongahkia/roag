@@ -224,7 +224,7 @@ export const validateInitialHouseholdStructure = (value: unknown): readonly Init
     const memberId = typeof member.id === 'string' ? member.id : 'initial-household'
     if (!Array.isArray(member.relationships) || member.relationships.length !== Math.max(0, roster.length - 1)) { issues.push(issue(memberId, 'initial-household.invalid-relationship')); return }
     const targets = new Set<string>()
-    const expectedTargets = roster.map(candidate => candidate.id).filter(id => id !== member.id)
+    const expectedTargets = roster.map(candidate => candidate.id).filter((id): id is string => typeof id === 'string' && id !== member.id)
     member.relationships.forEach((link, relationshipIndex) => {
       if (!record(link) || typeof link.personId !== 'string' || !memberIds.has(link.personId) || link.personId === member.id || targets.has(link.personId)
         || link.personId !== expectedTargets[relationshipIndex]
@@ -239,7 +239,7 @@ export const validateInitialHouseholdStructure = (value: unknown): readonly Init
     }
   })
   try {
-    const audit = auditMedievalContentSafety(initialHouseholdContentRecords(roster as FoundationCrewMember[]))
+    const audit = auditMedievalContentSafety(initialHouseholdContentRecords(roster as unknown as FoundationCrewMember[]))
     if (audit.status === 'rejected') issues.push(...audit.diagnostics.map(diagnostic => issue(diagnostic.contentId, diagnostic.code)))
   } catch {
     issues.push(issue('initial-household', 'initial-household.malformed-household'))

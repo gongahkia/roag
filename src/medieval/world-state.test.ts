@@ -102,6 +102,17 @@ describe('versioned medieval mutable world state', () => {
     expect(codes(selected, mismatchedCourier)).toContain('world-state.invalid-reference')
   })
 
+  it('rejects a forged immutable household supplied through its validation context without changing state', () => {
+    const world = createFoundationWorld({ seed: 'state-forged-household' })
+    const crew = structuredClone(world.crew)
+    crew[0]!.relationships[0]!.standing = crew[0]!.relationships[0]!.standing === 2 ? 1 : 2
+    const state = structuredClone(world.state)
+    const before = structuredClone(state)
+
+    expect(validateMedievalWorldState({ ...contextFor(world), crew }, state).map(issue => issue.code)).toContain('initial-household.non-reproducible-roster')
+    expect(state).toEqual(before)
+  })
+
   it('rejects forged era totals, transitions, tokens, model versions, and growth records', () => {
     const selected = chooseInitialCourier(createFoundationWorld({ seed: 'state-era-rejection' }), 'crew:0')
     const advanced = advanceFoundationWorldTime(selected, {

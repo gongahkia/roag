@@ -4,6 +4,7 @@ import { FRONTIER_CONTRACT_VERSION, createInitialFrontierState, frontierContentR
 import { generationConfigurationFingerprint, generationRetryPlan, isReproducibleGenerationDiagnostics, resolveWorldGenerationConfig, type WorldGenerationConfig, type WorldGenerationConfigIssue, type WorldGenerationConfigRequest } from './generation-config'
 import { INITIAL_WORLD_GENERATION_DIAGNOSTICS_VERSION, INITIAL_WORLD_GENERATOR_VERSION, generateInitialWorld, initialWorldContentRecords, isInitialWorld, type InitialWorld, type InitialWorldGenerationDiagnostics, type InitialWorldGenerationProgressObserver } from './initial-world'
 import { normalizeCreationSeed } from './settings'
+import { createInitialHousehold, initialHouseholdActiveCrew, initialHouseholdContentRecords, validateInitialHouseholdRoster } from './initial-household'
 import { advanceMedievalTemporalState, createMedievalTemporalState, isMedievalTemporalState, type TemporalCommand, type TemporalProvenance, type TimeBearingTemporalAction } from './temporal'
 import { causalReplayProjectionForWorldState, createMedievalWorldState, isMedievalWorldState, WORLD_DECK_NAVIGATION_STATE_VERSION, type MedievalWorldState, type WorldAutonomyState, type WorldDeckNavigationState, type WorldDelegationState, type WorldPeopleState, type WorldSocialMemoryState } from './world-state'
 import { createFidelityPlanForVerifiedWorld } from './fidelity'
@@ -14,7 +15,7 @@ import { CONVERSATION_CONTRACT_VERSION, assessCourierConversation, assessCourier
 import { advanceDelegatedTasks, delegatedWorkPlaceholderForTask, delegationInterruptionTemporalAction, delegationOfferTemporalAction, interruptDelegatedTask, isDelegationInterruptionInput, isDelegationOfferInput, offerDelegatedTask as offerDelegationTransition, type DelegationInterruptionInput, type DelegationOfferInput } from './delegation'
 import { advanceAutonomyState, createAutonomyState, reconcileAutonomyState, validateAutonomyPlanState } from './autonomy'
 import { assessJomonDeckStep, canonicalJomonDeckSpawn, isWalkableJomonDeckCoordinate, jomonDeckCoordinateId, type JomonDeckCollision, type JomonDeckCoordinate, type JomonDeckMovementDirection } from './jomon-navigation'
-import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type LegacyFoundationWorldV13, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
+import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type LegacyFoundationWorldV13, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
 
 const foundationJomon = (): FoundationJomon => ({
   id: 'vessel:jomon',
@@ -28,38 +29,6 @@ const foundationJomon = (): FoundationJomon => ({
     { id: 'prop:gangplank', kind: 'gangplank', partition: 'gangplank' }
   ]
 })
-
-const roles: readonly CrewRole[] = ['bargemaster', 'pilot', 'factor', 'carpenter', 'guard', 'cook', 'healer', 'scribe', 'carter', 'fisher', 'bard']
-const nameStarts = ['Ari', 'Bel', 'Caro', 'Dara', 'Eren', 'Fara', 'Galen', 'Hara', 'Iven', 'Jori', 'Kesa', 'Loran', 'Mira', 'Neris', 'Oren', 'Pava', 'Risa', 'Soren', 'Tavi', 'Vela'] as const
-const nameEnds = ['n', 'ra', 'en', 'a', 'is', 'or', 'et', 'i', 'an', 'el'] as const
-const familyNames = ['Ash', 'Barrow', 'Cairn', 'Dike', 'Elm', 'Ford', 'Gull', 'Hearth', 'Ivy', 'Keel', 'Lark', 'Moss', 'Nettle', 'Pike', 'Quill', 'Reed', 'Silt', 'Thorn', 'Vale', 'Wren'] as const
-const equipmentByRole: Readonly<Record<CrewRole, readonly string[]>> = {
-  bargemaster: ['river pole', 'waxed chart'],
-  pilot: ['lead line', 'signal whistle'],
-  factor: ['ledger', 'seal case'],
-  carpenter: ['adze', 'oakum roll'],
-  guard: ['buckler', 'hooked staff'],
-  cook: ['iron pot', 'spice pouch'],
-  healer: ['bandage roll', 'herb case'],
-  scribe: ['paper folio', 'ink horn'],
-  carter: ['harness knife', 'load straps'],
-  fisher: ['net needle', 'line spool'],
-  bard: ['small lute', 'songbook']
-}
-const historyByRole: Readonly<Record<CrewRole, readonly string[]>> = {
-  bargemaster: ['kept a flood-season barge from striking the lock gates', 'learned the river by carrying mill flour through fog'],
-  pilot: ['mapped shoals for a ferry owner who never paid in full', 'served as a canal guide during a winter thaw'],
-  factor: ['balanced a market house ledger after a failed harvest', 'carried sealed prices between rival quays'],
-  carpenter: ['rebuilt a fishing skiff from storm-broken planks', 'worked a yard where every nail was counted'],
-  guard: ['escorted grain carts through a disputed ford', 'kept watch on a night crossing during a toll dispute'],
-  cook: ['fed a repair crew through a week of rain', 'learned preservation from a coastal smokehouse'],
-  healer: ['treated rope burns and winter coughs at a ferry inn', 'kept a travelling medicine chest for river workers'],
-  scribe: ['copied contracts for a waterside court', 'kept weather records for a merchant household'],
-  carter: ['moved timber between wet roads and narrow quays', 'worked pack animals along an estuary causeway'],
-  fisher: ['worked eel traps in a reed marsh', 'sailed a small net boat beyond the river mouth'],
-  bard: ['collected work songs from lock crews', 'earned passage by keeping a crowded quay awake']
-}
-const relationshipBases: readonly CrewRelationship['basis'][] = ['kinship', 'work', 'debt', 'friendship', 'rivalry']
 
 export interface FoundationWorldInput {
   seed?: string
@@ -89,50 +58,6 @@ const labelForSeed = (seed: string, configuration: WorldGenerationConfig): strin
   return `${rng.pick(['Ash', 'Brackish', 'Candle', 'Drowned', 'Eel', 'Far', 'Grey', 'Hollow', 'Ivy', 'Low'])} ${rng.pick(['Basin', 'Current', 'Estuary', 'Ford', 'Mooring', 'Reach', 'Sound', 'Weir', 'Wick', 'Wold'])}`
 }
 
-const nameFor = (rng: SeededRng, used: Set<string>): string => {
-  for (let attempts = 0; attempts < 100; attempts++) {
-    const name = `${rng.pick(nameStarts)}${rng.pick(nameEnds)} ${rng.pick(familyNames)}`
-    if (!used.has(name)) { used.add(name); return name }
-  }
-  throw new Error('could not generate a unique foundation crew name')
-}
-
-const relationship = (rng: SeededRng, personId: string): CrewRelationship => ({
-  personId,
-  standing: rng.pick([-2, -1, 0, 1, 2] as const),
-  basis: rng.pick(relationshipBases)
-})
-
-const shuffled = <T>(rng: SeededRng, values: readonly T[]): T[] => {
-  const next = [...values]
-  for (let index = next.length - 1; index > 0; index--) {
-    const swap = rng.integer(index + 1)
-    const current = next[index]!
-    next[index] = next[swap]!
-    next[swap] = current
-  }
-  return next
-}
-
-const generateCrew = (seed: string, configuration: WorldGenerationConfig): readonly FoundationCrewMember[] => {
-  const rng = new SeededRng(`crew:${seed}:${FOUNDATION_GENERATOR_VERSION}:${generationConfigurationFingerprint(configuration)}`)
-  const usedNames = new Set<string>()
-  const selectedRoles = shuffled(rng, roles).slice(0, 6)
-  const crew = selectedRoles.map((role, index): FoundationCrewMember => ({
-    id: `crew:${index}`,
-    name: nameFor(rng, usedNames),
-    contentSafety: classifyMedievalContent('person', ['adult-labour', 'travel'], 'adults-only', ['player-facing-text']),
-    role,
-    conversation: rng.between(1, 5),
-    equipment: [...equipmentByRole[role]],
-    history: rng.pick(historyByRole[role]),
-    historyContentSafety: classifyMedievalContent('history', ['adult-labour', 'ordinary-hardship', 'travel'], 'adults-only', ['player-facing-text']),
-    relationships: [],
-    eligible: true
-  }))
-  return crew.map(member => ({ ...member, relationships: crew.filter(other => other.id !== member.id).map(other => relationship(rng, other.id)) }))
-}
-
 const worldCreatedRecord = (label: string, seed: string): CausalRecord => ({
   sequence: 0,
   atWorldTime: 0,
@@ -151,10 +76,7 @@ const foundationContentRecords = (
 ): readonly ClassifiedMedievalContent[] => [
   { id: 'world:label', domain: 'place', classification: labelContentSafety },
   { id: jomon.id, domain: 'place', classification: jomon.contentSafety },
-  ...crew.flatMap(member => [
-    { id: member.id, domain: 'person' as const, classification: member.contentSafety },
-    { id: `${member.id}:history`, domain: 'history' as const, classification: member.historyContentSafety }
-  ]),
+  ...initialHouseholdContentRecords(crew),
   ...causalHistory.map(record => ({ id: `causal:${record.sequence}:${record.kind}`, domain: 'event' as const, classification: record.contentSafety })),
   ...initialWorldContentRecords(initialWorld),
   ...frontierContentRecords(frontier)
@@ -193,7 +115,8 @@ const expectedFoundationState = (
   const label = labelForSeed(seed, configuration)
   const labelContentSafety = classifyMedievalContent('place', ['environment', 'settlement'], 'not-applicable', ['player-facing-text'])
   const jomon = foundationJomon()
-  const crew = generateCrew(seed, configuration)
+  const household = createInitialHousehold({ seed, configuration })
+  const crew = household.roster
   const initialWorldGeneration = generateInitialWorld(seed, configuration, onGenerationProgress)
   const frontier = createInitialFrontierState({ seed, configuration, initialWorld: initialWorldGeneration.world })
   const causalHistory = [worldCreatedRecord(label, seed)]
@@ -341,6 +264,7 @@ export type FoundationWorldValidationCode =
   | 'foundation-world.invalid-id'
   | 'foundation-world.invalid-status'
   | 'foundation-world.invalid-manifest'
+  | 'foundation-world.invalid-household'
   | 'foundation-world.invalid-initial-world'
   | 'foundation-world.invalid-immutable-content'
   | 'foundation-world.invalid-mutable-state'
@@ -374,6 +298,7 @@ export const validateFoundationWorld = (value: unknown): readonly FoundationWorl
   }
   const world = value as unknown as FoundationWorld
   if (world.id !== foundationWorldIdForManifest(world.manifest)) issues.push(foundationWorldIssue('foundation-world:id', 'foundation-world.invalid-id'))
+  if (validateInitialHouseholdRoster({ seed: world.manifest.creation.seed, configurationFingerprint: world.manifest.creation.configurationFingerprint }, world.crew).length) issues.push(foundationWorldIssue('foundation-world:household', 'foundation-world.invalid-household'))
   if (!isInitialWorld(world.initialWorld)) issues.push(foundationWorldIssue('foundation-world:initial-world', 'foundation-world.invalid-initial-world'))
   try {
     if (!foundationWorldInitialWorldMatchesManifest(world)) issues.push(foundationWorldIssue('foundation-world:initial-world', 'foundation-world.invalid-initial-world'))
@@ -511,7 +436,8 @@ export const foundationWorldContentSatisfiesSafetyPolicy = (world: FoundationWor
   try {
     const staticState = expectedFoundationState(world.manifest.creation.seed, world.manifest.creation.resolvedConfiguration)
     if (!staticState) return false
-    return equivalent(world.jomon, staticState.jomon)
+    return validateInitialHouseholdRoster({ seed: world.manifest.creation.seed, configurationFingerprint: world.manifest.creation.configurationFingerprint }, world.crew).length === 0
+      && equivalent(world.jomon, staticState.jomon)
       && equivalent(world.crew, staticState.crew)
       && contentSafetyAuditMatches(foundationContentRecords(world.manifest.creation.labelContentSafety, world.jomon, world.crew, staticState.causalHistory, world.initialWorld, staticState.frontier), world.manifest.creation.contentSafetyAudit)
   } catch { return false }
@@ -627,9 +553,9 @@ const worldFromProjection = (world: FoundationWorld, projection: CausalReplayPro
 const selectCourierProjection = (world: FoundationWorld, projection: CausalReplayProjection, courierId: string): CausalReplayProjection => {
   if (projection.courier.initialCourierId !== undefined) throw new Error('initial courier has already been selected')
   if (projection.temporal.worldTime !== 0 || projection.temporal.actionSequence !== 0 || projection.temporal.pendingEvents.length !== 0) throw new Error('initial courier must be selected before time-bearing actions')
-  const candidate = world.crew.find(member => member.id === courierId)
+  const candidate = initialHouseholdActiveCrew(world.crew).find(member => member.id === courierId)
   const person = world.state.people.records.find(candidatePerson => candidatePerson.id === courierId)
-  if (!candidate?.eligible || person?.life.status !== 'living' || person.work.availability !== 'available') throw new Error('selected courier must be an eligible living available crew member')
+  if (!candidate || person?.life.status !== 'living' || person.work.availability !== 'available') throw new Error('selected courier must be an eligible living available crew member')
   return causalReplayProjection({ ...projection, courier: { version: 1, initialCourierId: courierId }, navigation: { version: 1, courierId, coordinate: canonicalJomonDeckSpawn(world) } })
 }
 
@@ -885,6 +811,7 @@ export const replayFoundationWorldCausalHistory = (world: FoundationWorld): Caus
  */
 export const foundationWorldCausalHistoryMatches = (world: FoundationWorld): boolean => {
   try {
+    if (validateInitialHouseholdRoster({ seed: world.manifest.creation.seed, configurationFingerprint: world.manifest.creation.configurationFingerprint }, world.crew).length) return false
     const context = causalHistoryContextFor(world)
     if (world.state.causalHistory.checkpoint.sequence === 0) {
       const genesisTemporal = createMedievalTemporalState(temporalProvenanceForCreation(world.manifest.creation))

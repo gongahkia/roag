@@ -3,7 +3,7 @@ import { MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION, classifyMedievalContent } from 
 import { addChronicleToIndex, addWorldToIndex, emptyWorldIndex, removeWorldFromIndex } from './storage'
 import { generationRetryPlan } from './generation-config'
 import { INITIAL_WORLD_GENERATION_STAGES } from './initial-world'
-import { InvalidWorldGenerationConfigurationError, advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, foundationWorldContentSatisfiesSafetyPolicy, recordDurableJomonGrowth, recreateFoundationWorld, serializeWorldManifest, validateFoundationWorld } from './world'
+import { InvalidWorldGenerationConfigurationError, advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, foundationWorldCausalHistoryMatches, foundationWorldContentSatisfiesSafetyPolicy, recordDurableJomonGrowth, recreateFoundationWorld, serializeWorldManifest, validateFoundationWorld } from './world'
 import { worldEraProjection } from './world-era'
 
 const safety = () => classifyMedievalContent('event', ['civil-life', 'navigation'], 'not-applicable', ['player-facing-text'])
@@ -196,6 +196,18 @@ describe('medieval foundation worlds', () => {
     ;(malformed.jomon as { name: string }).name = 'Not Jomon'
     expect(() => chooseInitialCourier(malformed, 'crew:1')).toThrow('complete medieval foundation contract')
     expect(() => finalizeWorldAsChronicle(malformed, 'jomon-loss')).toThrow('complete medieval foundation contract')
+  })
+
+  it('rejects a forged household at the foundation and replay boundaries without changing supplied records', () => {
+    const source = chooseInitialCourier(createFoundationWorld({ seed: 'forged-household-world' }), 'crew:0')
+    const forged = structuredClone(source)
+    forged.crew[0]!.equipment = ['forged equipment']
+    const before = structuredClone(forged)
+
+    expect(validateFoundationWorld(forged).map(issue => issue.code)).toContain('foundation-world.invalid-household')
+    expect(foundationWorldCausalHistoryMatches(forged)).toBe(false)
+    expect(() => advanceFoundationWorldTime(forged, { id: 'wait:forged-household', kind: 'wait', durationMinutes: 1, contentSafety: safety() })).toThrow('complete medieval foundation contract')
+    expect(forged).toEqual(before)
   })
 
   it('turns a terminal world into a read-only chronicle without losing its causal record', () => {
