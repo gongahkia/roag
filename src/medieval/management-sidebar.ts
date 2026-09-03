@@ -214,6 +214,7 @@ const commandTime = (world: FoundationWorld, command: CausalCommandEvent): numbe
   if (command.kind === 'time-bearing-action') return world.state.temporal.causalRecords.find(record => record.kind === 'action-completed' && record.actionId === command.payload.action.id)?.atWorldTime
   if (command.kind === 'durable-jomon-growth') return command.payload.evidence.atWorldTime
   if (command.kind === 'delegation-offered') return world.state.delegation.tasks.find(task => task.offerId === command.payload.offer.id)?.offeredAtWorldTime
+  if (command.kind === 'deck-moved') return world.state.temporal.causalRecords.find(record => record.kind === 'action-completed' && record.actionId === command.payload.actionId)?.atWorldTime
   return world.state.delegation.tasks.find(task => task.id === command.payload.interruption.taskId)?.outcome?.atWorldTime
 }
 

@@ -21,7 +21,6 @@ export type JomonDeckStepAssessment =
   | { status: 'blocked'; from: JomonDeckCoordinate; direction: JomonDeckMovementDirection; collision: JomonDeckCollision }
 
 const compare = (left: string, right: string): number => left === right ? 0 : left < right ? -1 : 1
-const coordinateKey = (coordinate: JomonDeckCoordinate): string => `${coordinate.column}:${coordinate.row}`
 const sameCoordinate = (left: JomonDeckCoordinate, right: JomonDeckCoordinate): boolean => left.column === right.column && left.row === right.row
 const offsetFor = (direction: JomonDeckMovementDirection): JomonDeckCoordinate => ({
   'north-west': { column: -1, row: -1 }, north: { column: 0, row: -1 }, 'north-east': { column: 1, row: -1 }, west: { column: -1, row: 0 }, east: { column: 1, row: 0 }, 'south-west': { column: -1, row: 1 }, south: { column: 0, row: 1 }, 'south-east': { column: 1, row: 1 }
