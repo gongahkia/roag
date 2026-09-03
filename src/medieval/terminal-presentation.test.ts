@@ -131,11 +131,11 @@ describe('terminal presentation contract', () => {
     expect(model.accessibility.conciseSummary).toMatch(/materialized static Jomon deck map with 114 source-backed cells.*0 authoritative messages.*0 contextual prompts/i)
     expect(model.status.find(item => item.value.kind === 'deck-focus')).toMatchObject({
       value: { kind: 'deck-focus', coordinate: { column: 4, row: 4 } },
-      evidence: { source: { kind: 'current-world-state', id: 'world-state:navigation' }, worldTime: 0 }
+      evidence: { source: { kind: 'household-state', recordId: 'world-state:navigation' }, recordedAtWorldTime: 0, knownAtWorldTime: 0 }
     })
     expect(model.status.find(item => item.value.kind === 'creation-provenance')).toMatchObject({
       value: { kind: 'creation-provenance', seed: 'terminal-accessibility' },
-      evidence: { source: { kind: 'presentation-contract', id: 'world-manifest:creation' } }
+      evidence: { source: { kind: 'presentation-contract', recordId: 'world-manifest:creation' } }
     })
     expect(model.rendererParity.requirements).toEqual([
       'same-authoritative-terminal-model',
