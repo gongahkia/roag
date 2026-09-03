@@ -48,6 +48,15 @@ export const canonicalJomonDeckSpawn = (world: FoundationWorld): JomonDeckCoordi
   return structuredClone(tavern.anchor)
 }
 
+/** Position validation is derived from the plan authority, never a copied cell list. */
+export const isWalkableJomonDeckCoordinate = (world: FoundationWorld, coordinate: unknown): coordinate is JomonDeckCoordinate => {
+  if (!coordinate || typeof coordinate !== 'object' || Array.isArray(coordinate)) return false
+  const candidate = coordinate as Record<string, unknown>
+  if (Object.keys(candidate).length !== 2 || !Object.hasOwn(candidate, 'column') || !Object.hasOwn(candidate, 'row')
+    || !Number.isSafeInteger(candidate.column) || !Number.isSafeInteger(candidate.row)) return false
+  try { return areaAt(deriveJomonDeckPlan(world), { column: candidate.column, row: candidate.row }) !== undefined } catch { return false }
+}
+
 /** Resolves one orthogonal/diagonal local step without mutating a world or advancing time. */
 export const assessJomonDeckStep = (world: FoundationWorld, from: JomonDeckCoordinate, direction: JomonDeckMovementDirection): JomonDeckStepAssessment => {
   const plan = deriveJomonDeckPlan(world)

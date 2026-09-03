@@ -31,7 +31,7 @@ export interface OptimizationAuthorityIdentity {
   digest: string
   canonicalBytes: number
   contractVersions: {
-    worldEnvelope: 13
+    worldEnvelope: 14
     performanceStorageBaseline: typeof MEDIEVAL_PERFORMANCE_STORAGE_BASELINE_VERSION
     persistenceLayout: typeof PERSISTENCE_LAYOUT_CONTRACT_VERSION
     frontier: typeof FRONTIER_CONTRACT_VERSION

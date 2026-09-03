@@ -13,7 +13,7 @@ import { appendCausalCommand, causalReplayProjection, createCausalCommand, repla
 import { CONVERSATION_CONTRACT_VERSION, assessCourierConversation, assessCourierConversationForValidatedReplay, type ConversationAssessment } from './conversation'
 import { advanceDelegatedTasks, delegatedWorkPlaceholderForTask, delegationInterruptionTemporalAction, delegationOfferTemporalAction, interruptDelegatedTask, isDelegationInterruptionInput, isDelegationOfferInput, offerDelegatedTask as offerDelegationTransition, type DelegationInterruptionInput, type DelegationOfferInput } from './delegation'
 import { advanceAutonomyState, createAutonomyState, reconcileAutonomyState, validateAutonomyPlanState } from './autonomy'
-import { assessJomonDeckStep, canonicalJomonDeckSpawn, jomonDeckCoordinateId, type JomonDeckCollision, type JomonDeckCoordinate, type JomonDeckMovementDirection } from './jomon-navigation'
+import { assessJomonDeckStep, canonicalJomonDeckSpawn, isWalkableJomonDeckCoordinate, jomonDeckCoordinateId, type JomonDeckCollision, type JomonDeckCoordinate, type JomonDeckMovementDirection } from './jomon-navigation'
 import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type CrewRelationship, type CrewRole, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
 
 const foundationJomon = (): FoundationJomon => ({
@@ -346,6 +346,7 @@ export type FoundationWorldValidationCode =
   | 'foundation-world.invalid-mutable-state'
   | 'foundation-world.invalid-catch-up'
   | 'foundation-world.invalid-autonomy'
+  | 'foundation-world.invalid-navigation'
   | 'foundation-world.invalid-causal-history'
 
 export interface FoundationWorldValidationIssue {
@@ -378,6 +379,7 @@ export const validateFoundationWorld = (value: unknown): readonly FoundationWorl
     if (!foundationWorldInitialWorldMatchesManifest(world)) issues.push(foundationWorldIssue('foundation-world:initial-world', 'foundation-world.invalid-initial-world'))
     if (!foundationWorldContentSatisfiesSafetyPolicy(world)) issues.push(foundationWorldIssue('foundation-world:immutable-content', 'foundation-world.invalid-immutable-content'))
     if (!foundationWorldTemporalStateMatches(world)) issues.push(foundationWorldIssue('foundation-world:mutable-state', 'foundation-world.invalid-mutable-state'))
+    if (!foundationWorldNavigationStateMatches(world)) issues.push(foundationWorldIssue('foundation-world:navigation', 'foundation-world.invalid-navigation'))
     if (!foundationWorldCatchUpStateMatches(world)) issues.push(foundationWorldIssue('foundation-world:catch-up', 'foundation-world.invalid-catch-up'))
     if (!foundationWorldAutonomyStateMatches(world)) issues.push(foundationWorldIssue('foundation-world:autonomy', 'foundation-world.invalid-autonomy'))
     if (!foundationWorldCausalHistoryMatches(world)) issues.push(foundationWorldIssue('foundation-world:causal-history', 'foundation-world.invalid-causal-history'))
@@ -486,6 +488,16 @@ export const foundationWorldTemporalStateMatches = (world: FoundationWorld): boo
       crew: world.crew
     }, world.state)
   } catch { return false }
+}
+
+/** The mutable coordinate belongs to state, while valid cells remain plan-derived. */
+export const foundationWorldNavigationStateMatches = (world: FoundationWorld): boolean => {
+  const courierId = world.state.courier.initialCourierId
+  const navigation = world.state.navigation
+  if (courierId === undefined) return navigation.courierId === undefined && navigation.coordinate === undefined
+  return navigation.courierId === courierId
+    && navigation.coordinate !== undefined
+    && isWalkableJomonDeckCoordinate(world, navigation.coordinate)
 }
 
 /**
