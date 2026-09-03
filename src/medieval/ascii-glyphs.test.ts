@@ -141,8 +141,8 @@ describe('Jomon ASCII glyph catalogue', () => {
     const encoded = JSON.stringify(first)
 
     expect(first).toEqual(second)
-    expect(first.map).toMatchObject({ state: 'reserved-unmaterialized', cells: [] })
-    expect(first.map.cells).toHaveLength(0)
+    expect(first.map).toMatchObject({ state: 'materialized', viewport: { context: 'jomon-deck-plan', width: 18, height: 8 } })
+    expect(first.map.cells).toHaveLength(113)
     expect(encoded).not.toContain(world.initialWorld.watershed.id)
     expect(encoded).not.toContain(world.initialWorld.settlements[0]!.id)
     expect(encoded).not.toContain(world.state.geography.frontier.regions[0]!.commitment.id)

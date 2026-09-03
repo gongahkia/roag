@@ -115,7 +115,7 @@ describe('medieval performance and storage baseline contract', () => {
     const bundle = createDetailedRendererSourceBundle({ version: 1, terminal, sidebar, glyphCatalog: JOMON_ASCII_GLYPH_CATALOG, controls: defaultTerminalControlPreferences() })
     const detailed = createDetailedRendererAdapterModel(bundle)
 
-    expect([terminal.map.state, sidebar.worldId, detailed.source.id]).toEqual(['reserved-unmaterialized', world.id, expect.stringMatching(/^detailed-source:/)])
+    expect([terminal.map.state, sidebar.worldId, detailed.source.id]).toEqual(['materialized', world.id, expect.stringMatching(/^detailed-source:/)])
     expect(world).toEqual(before)
   })
 })

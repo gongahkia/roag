@@ -11,8 +11,7 @@ import {
   type TerminalGlyphReference,
   type TerminalNonColorCue,
   type TerminalNonColorCueKey,
-  type TerminalPresentationState,
-  type TerminalStatePresentation
+  type TerminalPresentationState
 } from './terminal-semantics'
 import type { FoundationWorld, MedievalRoute } from './types'
 import { validateFoundationWorld } from './world'

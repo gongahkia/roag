@@ -10,7 +10,7 @@ import {
   TERMINAL_PRESENTATION_LIMITS,
   TERMINAL_STATE_PRESENTATIONS,
   cancelTerminalPrompt,
-  createReservedMapContextualPrompt,
+  createJomonDeckContextualPrompt,
   createTerminalPresentationModel,
   terminalNonColorCueFor,
   validateTerminalInputModes,
@@ -99,9 +99,9 @@ describe('terminal presentation contract', () => {
     expect(second).toEqual(first)
     expect(validateTerminalPresentationModel(world, first)).toEqual([])
     expect(world).toEqual(before)
-    expect(first.map.state).toBe('reserved-unmaterialized')
-    expect(first.map.cells).toEqual([])
-    expect(first.map.accessibilityText).toMatch(/no terrain, deck, actor, route, site, or hidden-world cells/i)
+    expect(first.map).toMatchObject({ state: 'materialized', viewport: { context: 'jomon-deck-plan', width: 18, height: 8 } })
+    expect(first.map.cells).toHaveLength(113)
+    expect(first.map.accessibilityText).toMatch(/static Jomon deck map.*no courier, cargo, person, terrain, route-travel, or interaction state/i)
     expect(first.messages).toEqual([])
     expect(first.prompts).toEqual([])
     expect(first.sidebarBoundary).toEqual({ relationship: 'separate-household-known-strategic-surface', duplicatedStrategicFactCategories: [] })
@@ -123,7 +123,7 @@ describe('terminal presentation contract', () => {
     expect(model.status.every(item => item.accessibilityText.includes(item.nonColorCue.text) && item.accessibilityText.includes(item.state))).toBe(true)
     expect(model.accessibility.mapText).toEqual(model.map.accessibilityText)
     expect(model.accessibility.statusText).toEqual(model.status.map(item => item.accessibilityText))
-    expect(model.accessibility.conciseSummary).toMatch(/reserved unmaterialized map.*0 authoritative messages.*0 contextual prompts/i)
+    expect(model.accessibility.conciseSummary).toMatch(/materialized static Jomon deck map with 113 source-backed cells.*0 authoritative messages.*0 contextual prompts/i)
     expect(model.rendererParity.requirements).toEqual([
       'same-authoritative-terminal-model',
       'no-consequential-omission',
@@ -194,7 +194,7 @@ describe('terminal presentation contract', () => {
     expect(validateTerminalMessages([message])).toEqual([])
     expect(validateTerminalPrompt(prompt)).toEqual([])
     expect(cancelTerminalPrompt(prompt)).toEqual({ id: 'terminal-prompt-cancel:terminal-prompt:fixture', promptId: prompt.id, outcome: 'cancelled-no-mutation', advancesWorldTime: false })
-    const reserved = createReservedMapContextualPrompt(world)
+    const reserved = createJomonDeckContextualPrompt(world)
     expect(reserved.options).toEqual([expect.objectContaining({ key: 'Enter', availability: 'disabled', disabledReason: 'no-contextual-action-materialized', requiresConfirmation: false })])
     expect(validateTerminalPrompt(reserved)).toEqual([])
     expect(world).toEqual(before)
@@ -277,7 +277,7 @@ describe('terminal presentation contract', () => {
     ]) expect(appSource).toContain(sourceFragment)
     expect(appSource).toContain("canvas.addEventListener('keydown', event => this.handleKey(event))")
     expect(appSource).toContain('resolveTerminalWorldCommand(this.terminalControls')
-    expect(appSource).toContain('createReservedMapContextualPrompt(this.world)')
+    expect(appSource).toContain('createJomonDeckContextualPrompt(this.world)')
     expect(appSource).toContain('captureTerminalControlBinding(this.terminalControls')
 
     const malformedModes = structuredClone(TERMINAL_INPUT_MODES)

@@ -36,7 +36,7 @@ describe('terminal controls preferences and zero-time world intents', () => {
     const preferences = defaultTerminalControlPreferences()
     const input = (key: string, context: 'world' | 'contextual-prompt' | 'command-help' | 'controls-editor' | 'controls-key-capture' = 'world') => resolveTerminalWorldCommand(preferences, { key, canvasFocused: true, context })
 
-    expect(input('Y')).toMatchObject({ kind: 'movement-unavailable', direction: 'north-west', mapState: 'reserved-unmaterialized', outcomeCode: 'map-reserved.movement-unavailable' })
+    expect(input('Y')).toMatchObject({ kind: 'movement-unavailable', direction: 'north-west', mapState: 'materialized-jomon-deck', outcomeCode: 'jomon-deck.movement-unavailable' })
     expect(input('K')).toMatchObject({ kind: 'movement-unavailable', direction: 'north' })
     expect(input('U')).toMatchObject({ kind: 'movement-unavailable', direction: 'north-east' })
     expect(input('H')).toMatchObject({ kind: 'movement-unavailable', direction: 'west' })

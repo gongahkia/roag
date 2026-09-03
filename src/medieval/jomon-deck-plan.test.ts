@@ -161,14 +161,14 @@ describe('Jomon deck plan contract', () => {
     expect(codes({})).toContain('jomon-deck-plan.malformed-plan')
   })
 
-  it('leaves the current terminal model reserved and zero-cell; this plan is not terminal map materialization', () => {
+  it('projects this plan into the current terminal model without changing its authoritative input', () => {
     const source = world()
     const before = structuredClone(source)
     deriveJomonDeckPlan(source)
     const terminal = createTerminalPresentationModel(source)
 
-    expect(terminal.map.state).toBe('reserved-unmaterialized')
-    expect(terminal.map.cells).toEqual([])
+    expect(terminal.map).toMatchObject({ state: 'materialized', viewport: { context: 'jomon-deck-plan', width: plan.bounds.width, height: plan.bounds.height } })
+    expect(terminal.map.cells).toHaveLength(plan.areas.flatMap(area => area.footprint).length + plan.structuralCells.length)
     expect(source).toEqual(before)
   })
 })
