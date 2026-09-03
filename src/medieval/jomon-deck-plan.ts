@@ -349,10 +349,10 @@ const areOrthogonallyAdjacent = (left: readonly JomonDeckPlanFootprintCell[], ri
   return columnDistance + rowDistance === 1
 }))
 
-const sourceDiagnostics = (world: unknown): readonly JomonDeckPlanDiagnostic[] => {
+const sourceDiagnostics = (world: unknown, verifyFoundationWorld = true): readonly JomonDeckPlanDiagnostic[] => {
   const diagnostics: JomonDeckPlanDiagnostic[] = []
   if (!record(world)) return [issue('foundation-world', 'jomon-deck-plan.malformed-world')]
-  if (validateFoundationWorld(world).length) diagnostics.push(issue('foundation-world', 'jomon-deck-plan.invalid-foundation-world'))
+  if (verifyFoundationWorld && validateFoundationWorld(world).length) diagnostics.push(issue('foundation-world', 'jomon-deck-plan.invalid-foundation-world'))
   const jomon = world.jomon
   if (!record(jomon) || !hasOnlyKeys(jomon, ['id', 'name', 'contentSafety', 'deckPartitions', 'quays', 'props'])) return canonicalDiagnostics([...diagnostics, issue('foundation-world:jomon', 'jomon-deck-plan.malformed-jomon')])
   if (validateMedievalContentSafety([{ id: 'vessel:jomon', domain: 'place', classification: jomon.contentSafety }]).status === 'rejected') diagnostics.push(issue('foundation-world:jomon', 'jomon-deck-plan.invalid-jomon-safety'))
@@ -418,8 +418,8 @@ const validSemantic = (value: unknown, recordId: string, diagnostics: JomonDeckP
  * Validates both the authoritative source and a derived, non-authoritative
  * static plan. It intentionally refuses every unknown field or stale shape.
  */
-export const validateJomonDeckPlan = (world: unknown, plan: unknown): JomonDeckPlanValidation => {
-  const diagnostics: JomonDeckPlanDiagnostic[] = [...sourceDiagnostics(world)]
+export const validateJomonDeckPlan = (world: unknown, plan: unknown, verifyFoundationWorld = true): JomonDeckPlanValidation => {
+  const diagnostics: JomonDeckPlanDiagnostic[] = [...sourceDiagnostics(world, verifyFoundationWorld)]
   if (!record(plan)) return { version: JOMON_DECK_PLAN_CONTRACT_VERSION, status: 'rejected', diagnostics: canonicalDiagnostics([...diagnostics, issue('jomon-deck-plan', 'jomon-deck-plan.malformed-plan')]) }
   if (Object.keys(plan).some(key => hiddenWorldKeys.has(key))) diagnostics.push(issue('jomon-deck-plan', 'jomon-deck-plan.unexpected-hidden-world-data'))
   if (!hasOnlyKeys(plan, ['version', 'state', 'vesselId', 'bounds', 'areas', 'structuralCells', 'accessEdges', 'propBindings', 'contentSafetyAudit'])) diagnostics.push(issue('jomon-deck-plan', 'jomon-deck-plan.malformed-plan'))
@@ -550,6 +550,20 @@ export const deriveJomonDeckPlan = (world: FoundationWorld): JomonDeckPlan => {
   if (source.length) throw new JomonDeckPlanContractError(source)
   const plan = planForValidatedJomon(world.jomon)
   const validation = validateJomonDeckPlan(world, plan)
+  if (validation.status === 'rejected') throw new JomonDeckPlanContractError(validation.diagnostics)
+  return plan
+}
+
+/**
+ * Internal reducer seam for callers that have already passed the complete
+ * FoundationWorld validator. It avoids recursive validation while replaying
+ * a command whose geometry is still owned by this module.
+ */
+export const deriveJomonDeckPlanForVerifiedWorld = (world: FoundationWorld): JomonDeckPlan => {
+  const source = sourceDiagnostics(world, false)
+  if (source.length) throw new JomonDeckPlanContractError(source)
+  const plan = planForValidatedJomon(world.jomon)
+  const validation = validateJomonDeckPlan(world, plan, false)
   if (validation.status === 'rejected') throw new JomonDeckPlanContractError(validation.diagnostics)
   return plan
 }

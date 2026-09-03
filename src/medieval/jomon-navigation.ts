@@ -1,4 +1,4 @@
-import { deriveJomonDeckPlan, type JomonDeckPlan, type JomonDeckPlanAreaId } from './jomon-deck-plan'
+import { deriveJomonDeckPlanForVerifiedWorld, type JomonDeckPlan, type JomonDeckPlanAreaId } from './jomon-deck-plan'
 import type { FoundationWorld } from './types'
 
 /** Pure movement geometry derived from the deck-plan authority; it owns no world state. */
@@ -42,7 +42,7 @@ const cardinalStep = (plan: JomonDeckPlan, from: JomonDeckCoordinate, to: JomonD
 
 /** The tavern anchor is the sole canonical zero-time initial courier spawn. */
 export const canonicalJomonDeckSpawn = (world: FoundationWorld): JomonDeckCoordinate => {
-  const plan = deriveJomonDeckPlan(world)
+  const plan = deriveJomonDeckPlanForVerifiedWorld(world)
   const tavern = plan.areas.find(area => area.id === 'tavern')
   if (!tavern) throw new Error('validated Jomon deck plan has no tavern spawn')
   return structuredClone(tavern.anchor)
@@ -54,12 +54,15 @@ export const isWalkableJomonDeckCoordinate = (world: FoundationWorld, coordinate
   const candidate = coordinate as Record<string, unknown>
   if (Object.keys(candidate).length !== 2 || !Object.hasOwn(candidate, 'column') || !Object.hasOwn(candidate, 'row')
     || !Number.isSafeInteger(candidate.column) || !Number.isSafeInteger(candidate.row)) return false
-  try { return areaAt(deriveJomonDeckPlan(world), { column: candidate.column, row: candidate.row }) !== undefined } catch { return false }
+  const column = candidate.column
+  const row = candidate.row
+  if (typeof column !== 'number' || typeof row !== 'number') return false
+  try { return areaAt(deriveJomonDeckPlanForVerifiedWorld(world), { column, row }) !== undefined } catch { return false }
 }
 
 /** Resolves one orthogonal/diagonal local step without mutating a world or advancing time. */
 export const assessJomonDeckStep = (world: FoundationWorld, from: JomonDeckCoordinate, direction: JomonDeckMovementDirection): JomonDeckStepAssessment => {
-  const plan = deriveJomonDeckPlan(world)
+  const plan = deriveJomonDeckPlanForVerifiedWorld(world)
   if (!areaAt(plan, from)) throw new Error('courier deck coordinate is not a walkable plan cell')
   const offset = offsetFor(direction)
   const to = { column: from.column + offset.column, row: from.row + offset.row }

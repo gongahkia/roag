@@ -1,5 +1,5 @@
 import { auditMedievalContentSafety, classifyMedievalContent, contentSafetyAuditMatches, type ClassifiedMedievalContent, type MedievalContentDomain, type MedievalContentSafetyAudit, type MedievalContentSafetyClassification, type MedievalContentSafetyDiagnosticCode } from './content-safety'
-import { JOMON_ASCII_GLYPH_CATALOG, terminalGlyphCatalog } from './ascii-glyphs'
+import { JOMON_ASCII_GLYPH_CATALOG, terminalGlyphCatalog, terminalGlyphReferenceFor } from './ascii-glyphs'
 import { deriveJomonDeckPlan } from './jomon-deck-plan'
 import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE, type JomonPaletteToken } from './palette'
 import {
@@ -37,13 +37,13 @@ export type {
  * future detailed adapter consume that same projection without omitting or
  * inventing consequential information.
  */
-export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 4 as const
+export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 5 as const
 
 export const TERMINAL_PRESENTATION_LIMITS = {
   viewportWidth: 120,
   viewportHeight: 80,
   viewportCells: 9_600,
-  statusItems: 3,
+  statusItems: 5,
   messages: 12,
   prompts: 1,
   promptOptions: 8,
@@ -108,6 +108,12 @@ export interface TerminalMaterializedCell {
 export interface TerminalMaterializedMap {
   state: 'materialized'
   viewport: TerminalMapViewport
+  /** The whole bounded deck stays visible; this has no panning or visibility authority. */
+  camera: {
+    mode: 'fixed-full-deck'
+    focus: { courierId?: string; coordinate?: TerminalCellCoordinate }
+    visibility: 'all-static-deck-known'
+  }
   cells: readonly TerminalMaterializedCell[]
   textEquivalent: string
   accessibilityText: string
@@ -122,6 +128,8 @@ export type TerminalStatusValue =
   | { kind: 'jomon-deck-materialized'; cells: number }
   | { kind: 'courier-selection'; selected: boolean }
   | { kind: 'world-minute'; minutes: number }
+  | { kind: 'deck-focus'; courierId?: string; coordinate?: TerminalCellCoordinate }
+  | { kind: 'creation-provenance'; seed: string; digest: string }
 
 /** Status is only immediate local/action context, never a second household ledger. */
 export interface TerminalStatusItem {
@@ -485,9 +493,30 @@ export const validateTerminalMapViewport = (value: unknown): readonly TerminalPr
   return []
 }
 
+const validCamera = (value: unknown, viewport: TerminalMapViewport): boolean => {
+  if (!record(value) || !hasOnlyKeys(value, ['mode', 'focus', 'visibility']) || value.mode !== 'fixed-full-deck' || value.visibility !== 'all-static-deck-known' || !record(value.focus)) return false
+  const focus = value.focus
+  if (!hasOnlyKeys(focus, focus.coordinate === undefined ? [] : ['courierId', 'coordinate'])) return false
+  if (focus.coordinate === undefined) return focus.courierId === undefined
+  return typeof focus.courierId === 'string' && validId(focus.courierId)
+    && record(focus.coordinate)
+    && hasOnlyKeys(focus.coordinate, ['column', 'row'])
+    && safeInteger(focus.coordinate.column)
+    && safeInteger(focus.coordinate.row)
+    && focus.coordinate.column >= viewport.origin.column
+    && focus.coordinate.column < viewport.origin.column + viewport.width
+    && focus.coordinate.row >= viewport.origin.row
+    && focus.coordinate.row < viewport.origin.row + viewport.height
+}
+
 const cellOrder = (left: TerminalMaterializedCell, right: TerminalMaterializedCell): number => left.coordinate.row - right.coordinate.row
   || left.coordinate.column - right.coordinate.column
   || compare(left.id, right.id)
+
+const activeCourierMarker = (value: unknown): value is TerminalMaterializedCell => record(value)
+  && value.id === 'terminal-marker:active-courier'
+  && record(value.glyph)
+  && value.glyph.id === 'person:active-courier'
 
 const glyphCatalogIssues = (value: unknown): readonly TerminalPresentationDiagnostic[] => {
   if (!record(value) || !hasOnlyKeys(value, ['vocabulary', 'version', 'glyphIds']) || value.vocabulary !== TERMINAL_GLYPH_VOCABULARY_ID || !safeInteger(value.version) || value.version < 1 || !Array.isArray(value.glyphIds)) return [issue('terminal-glyph-catalog', 'terminal-presentation.invalid-glyph-reference')]
@@ -510,7 +539,7 @@ export const validateTerminalMaterializedCells = (
   if (viewport.context !== 'jomon-deck-plan' && viewport.context !== 'future-materialized') diagnostics.push(issue(viewport.id, 'terminal-presentation.invalid-viewport'))
   if (!Array.isArray(value) || value.length > TERMINAL_PRESENTATION_LIMITS.viewportCells) return canonicalDiagnostics([...diagnostics, issue('terminal-cells', 'terminal-presentation.invalid-cell')])
   const ids = new Set<string>()
-  const coordinates = new Set<string>()
+  const coordinates = new Map<string, TerminalMaterializedCell[]>()
   const cells: TerminalMaterializedCell[] = []
   for (const candidate of value) {
     const id = record(candidate) && typeof candidate.id === 'string' ? candidate.id : 'terminal-cell'
@@ -523,8 +552,6 @@ export const validateTerminalMaterializedCells = (
     if (ids.has(cellId)) diagnostics.push(issue(id, 'terminal-presentation.duplicate-cell'))
     ids.add(cellId)
     const coordinateId = record(candidate.coordinate) ? `${candidate.coordinate.column}:${candidate.coordinate.row}` : 'invalid'
-    if (coordinates.has(coordinateId)) diagnostics.push(issue(id, 'terminal-presentation.duplicate-cell'))
-    coordinates.add(coordinateId)
     if (!record(candidate.glyph) || !hasOnlyKeys(candidate.glyph, ['vocabulary', 'vocabularyVersion', 'id']) || candidate.glyph.vocabulary !== TERMINAL_GLYPH_VOCABULARY_ID || !safeInteger(candidate.glyph.vocabularyVersion) || candidate.glyph.vocabularyVersion !== glyphCatalog.version || !validId(candidate.glyph.id, TERMINAL_PRESENTATION_LIMITS.glyphReferenceLength)) {
       diagnostics.push(issue(id, 'terminal-presentation.invalid-glyph-reference'))
     } else if (candidate.glyph.id.startsWith('reserved:')) {
@@ -538,6 +565,15 @@ export const validateTerminalMaterializedCells = (
     diagnostics.push(...validateTerminalEvidence(candidate.evidence).map(item => ({ ...item, recordId: id })))
     cells.push(candidate as unknown as TerminalMaterializedCell)
   }
+  for (const cell of cells) {
+    const coordinateId = `${cell.coordinate.column}:${cell.coordinate.row}`
+    coordinates.set(coordinateId, [...(coordinates.get(coordinateId) ?? []), cell])
+  }
+  for (const cellsAtCoordinate of coordinates.values()) {
+    if (cellsAtCoordinate.length <= 1) continue
+    const marker = cellsAtCoordinate.find(activeCourierMarker)
+    if (cellsAtCoordinate.length !== 2 || !marker || cellsAtCoordinate.filter(cell => activeCourierMarker(cell)).length !== 1) diagnostics.push(issue(marker?.id ?? 'terminal-cell', 'terminal-presentation.duplicate-cell'))
+  }
   if (cells.some((cell, index) => index > 0 && cellOrder(cells[index - 1]!, cell) >= 0)) diagnostics.push(issue('terminal-cells', 'terminal-presentation.noncanonical-cell-order'))
   const content = auditMedievalContentSafety(cells.map(cell => ({ id: `terminal-cell:${cell.id}`, domain: cell.contentDomain, classification: cell.contentSafety })))
   if (content.status === 'rejected') diagnostics.push(...content.diagnostics.map(item => issue(item.contentId, item.code)))
@@ -545,9 +581,13 @@ export const validateTerminalMaterializedCells = (
 }
 
 const statusText = (item: TerminalStatusItem): string => {
-  if (item.value.kind === 'jomon-deck-materialized') return `Static Jomon deck map visible with ${item.value.cells} source-backed cells; movement and prop actions remain unavailable.`
+  if (item.value.kind === 'jomon-deck-materialized') return `Static Jomon deck map visible with ${item.value.cells} source-backed deck and hull cells; local movement is available while prop actions remain unavailable.`
   if (item.value.kind === 'courier-selection') return item.value.selected ? 'An active courier is selected.' : 'Choose an initial courier before active play.'
-  return `Current world minute ${item.value.minutes}.`
+  if (item.value.kind === 'world-minute') return `Current world minute ${item.value.minutes}.`
+  if (item.value.kind === 'deck-focus') return item.value.coordinate === undefined
+    ? 'Fixed full-deck camera has no courier focus until selection.'
+    : `Fixed full-deck camera follows the active courier at column ${item.value.coordinate.column}, row ${item.value.coordinate.row}.`
+  return `Creation provenance seed ${item.value.seed}; digest ${item.value.digest}.`
 }
 
 const statusItem = (
@@ -616,6 +656,26 @@ const terminalCellOrder = (left: TerminalMaterializedCell, right: TerminalMateri
   || left.coordinate.column - right.coordinate.column
   || compare(left.id, right.id)
 
+const courierMarkerFor = (world: FoundationWorld): TerminalMaterializedCell | undefined => {
+  const courierId = world.state.courier.initialCourierId
+  const coordinate = world.state.navigation.coordinate
+  if (courierId === undefined || world.state.navigation.courierId !== courierId || coordinate === undefined) return undefined
+  const glyph = terminalGlyphReferenceFor('person:active-courier')
+  return {
+    id: 'terminal-marker:active-courier',
+    coordinate: structuredClone(coordinate),
+    glyph,
+    paletteToken: 'selectedText',
+    presentationState: 'ready',
+    nonColorCue: terminalNonColorCueFor('ready'),
+    textEquivalent: 'Active adult courier position.',
+    accessibilityText: `Active adult courier marker at deck column ${coordinate.column}, row ${coordinate.row}; focus follows this known local position.`,
+    evidence: currentWorldEvidence('world-state:navigation', world.state.temporal.worldTime),
+    contentDomain: 'person',
+    contentSafety: classifyMedievalContent('person', ['adult-labour', 'civil-life', 'navigation'], 'adults-only', ['data'])
+  }
+}
+
 /** The sole current common map projection derives every visible cell from the validated static deck plan. */
 export const createJomonDeckTerminalMap = (world: FoundationWorld): TerminalMaterializedMap => {
   let plan: ReturnType<typeof deriveJomonDeckPlan>
@@ -624,10 +684,12 @@ export const createJomonDeckTerminalMap = (world: FoundationWorld): TerminalMate
   } catch {
     throw new TerminalPresentationContractError([issue('jomon-deck-plan', 'terminal-presentation.invalid-deck-plan')])
   }
-  const cells = [
+  const staticCells = [
     ...plan.areas.flatMap(area => area.footprint.map(cell => terminalCellFromDeckPlan(cell.id, cell.coordinate, area.semantic))),
     ...plan.structuralCells.map(cell => terminalCellFromDeckPlan(cell.id, cell.coordinate, cell.semantic))
   ].sort(terminalCellOrder)
+  const marker = courierMarkerFor(world)
+  const cells = [...staticCells, ...(marker === undefined ? [] : [marker])].sort(terminalCellOrder)
   const map: TerminalMaterializedMap = {
     state: 'materialized',
     viewport: {
@@ -637,9 +699,14 @@ export const createJomonDeckTerminalMap = (world: FoundationWorld): TerminalMate
       width: plan.bounds.width,
       height: plan.bounds.height
     },
+    camera: {
+      mode: 'fixed-full-deck',
+      focus: marker === undefined ? {} : { courierId: world.state.courier.initialCourierId, coordinate: structuredClone(marker.coordinate) },
+      visibility: 'all-static-deck-known'
+    },
     cells,
-    textEquivalent: 'Static Jomon deck plan with quay approach, gangplank, hull boundary, and deck spaces.',
-    accessibilityText: `Static Jomon deck map. ${plan.bounds.width} by ${plan.bounds.height} viewport with ${cells.length} source-backed cells. Symbols are # hull planking, = open deck spaces, / gangplank, and ) quay approach. No courier, cargo, person, terrain, route-travel, or interaction state is shown. Movement and prop actions remain unavailable.`,
+    textEquivalent: 'Jomon deck plan with a known active courier position, quay approach, gangplank, hull boundary, and deck spaces.',
+    accessibilityText: `Known static Jomon deck map. Fixed ${plan.bounds.width} by ${plan.bounds.height} full-deck viewport with ${staticCells.length} source-backed deck and hull cells${marker === undefined ? '' : ' and one active courier marker'}. Symbols are # hull planking, = open deck spaces, / gangplank, ) quay approach, and @ active adult courier. The whole static deck is known; visibility rules, cargo, other people, hazards, travel, and prop actions are not shown.`,
     evidence: presentationEvidence('terminal-presentation:jomon-deck-plan'),
     contentDomain: 'player-facing-text',
     contentSafety: baseClassification()
@@ -649,9 +716,13 @@ export const createJomonDeckTerminalMap = (world: FoundationWorld): TerminalMate
   return map
 }
 
+const staticCellsFor = (map: TerminalMaterializedMap): number => map.cells.filter(cell => !activeCourierMarker(cell)).length
+
 const orderedStatus = (world: FoundationWorld, map: TerminalMaterializedMap): readonly TerminalStatusItem[] => canonicalById([
   statusItem('terminal-status:courier', world.state.courier.initialCourierId ? 'ready' : 'waiting', { kind: 'courier-selection', selected: Boolean(world.state.courier.initialCourierId) }, currentWorldEvidence('world-state:courier', world.state.temporal.worldTime)),
-  statusItem('terminal-status:map', 'neutral', { kind: 'jomon-deck-materialized', cells: map.cells.length }, presentationEvidence('terminal-presentation:jomon-deck-plan-status')),
+  statusItem('terminal-status:focus', world.state.navigation.coordinate === undefined ? 'waiting' : 'ready', { kind: 'deck-focus', ...(world.state.navigation.coordinate === undefined ? {} : { courierId: world.state.navigation.courierId, coordinate: structuredClone(world.state.navigation.coordinate) }) }, currentWorldEvidence('world-state:navigation', world.state.temporal.worldTime)),
+  statusItem('terminal-status:map', 'neutral', { kind: 'jomon-deck-materialized', cells: staticCellsFor(map) }, presentationEvidence('terminal-presentation:jomon-deck-plan-status')),
+  statusItem('terminal-status:provenance', 'neutral', { kind: 'creation-provenance', seed: world.manifest.creation.seed, digest: world.manifest.creation.digest }, presentationEvidence('world-manifest:creation')),
   statusItem('terminal-status:time', 'neutral', { kind: 'world-minute', minutes: world.state.temporal.worldTime }, currentWorldEvidence('world-state:temporal', world.state.temporal.worldTime))
 ])
 
@@ -928,11 +999,15 @@ export const validateTerminalPresentationProjection = (
   if (value.version !== TERMINAL_PRESENTATION_CONTRACT_VERSION || !validId(value.worldId)) diagnostics.push(issue('terminal-presentation:projection', 'terminal-presentation.invalid-model'))
 
   const map = value.map
-  if (!record(map) || !hasOnlyKeys(map, ['state', 'viewport', 'cells', 'textEquivalent', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety']) || !validText(map.textEquivalent) || !validText(map.accessibilityText) || validateTerminalEvidence(map.evidence).length !== 0) {
+  if (!record(map) || !hasOnlyKeys(map, ['state', 'viewport', 'camera', 'cells', 'textEquivalent', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety']) || !validText(map.textEquivalent) || !validText(map.accessibilityText) || validateTerminalEvidence(map.evidence).length !== 0) {
     diagnostics.push(issue('terminal-presentation:map', 'terminal-presentation.invalid-model'))
   } else if (map.state === 'materialized') {
     if (!record(map.viewport) || ((map.viewport as { context?: unknown }).context !== 'jomon-deck-plan' && (map.viewport as { context?: unknown }).context !== 'future-materialized')) diagnostics.push(issue('terminal-presentation:map', 'terminal-presentation.invalid-model'))
-    else diagnostics.push(...validateTerminalMaterializedCells(map.viewport as unknown as TerminalMapViewport, map.cells, glyphCatalog))
+    else {
+      const viewport = map.viewport as unknown as TerminalMapViewport
+      if (!validCamera(map.camera, viewport)) diagnostics.push(issue('terminal-presentation:map', 'terminal-presentation.invalid-model'))
+      diagnostics.push(...validateTerminalMaterializedCells(viewport, map.cells, glyphCatalog))
+    }
   } else diagnostics.push(issue('terminal-presentation:map', 'terminal-presentation.invalid-model'))
   if (record(map)) {
     const safety = auditMedievalContentSafety([{ id: 'terminal-presentation:map', domain: map.contentDomain as MedievalContentDomain, classification: map.contentSafety as MedievalContentSafetyClassification }])
@@ -944,7 +1019,10 @@ export const validateTerminalPresentationProjection = (
   const statusIds = new Set<string>()
   for (const candidate of status) {
     const id = record(candidate) && typeof candidate.id === 'string' ? candidate.id : 'terminal-status'
-    if (!record(candidate) || !hasOnlyKeys(candidate, ['id', 'state', 'paletteToken', 'nonColorCue', 'value', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety']) || !validId(candidate.id) || !oneOf(TERMINAL_PRESENTATION_STATES, candidate.state) || !paletteToken(candidate.paletteToken) || candidate.paletteToken !== TERMINAL_STATE_PRESENTATIONS[candidate.state].paletteToken || !validCue(candidate.nonColorCue, candidate.state) || !record(candidate.value) || !hasOnlyKeys(candidate.value, candidate.value.kind === 'courier-selection' ? ['kind', 'selected'] : candidate.value.kind === 'world-minute' ? ['kind', 'minutes'] : candidate.value.kind === 'jomon-deck-materialized' ? ['kind', 'cells'] : ['kind']) || (candidate.value.kind !== 'jomon-deck-materialized' && candidate.value.kind !== 'courier-selection' && candidate.value.kind !== 'world-minute') || (candidate.value.kind === 'jomon-deck-materialized' && (!safeInteger(candidate.value.cells) || candidate.value.cells === 0)) || (candidate.value.kind === 'courier-selection' && typeof candidate.value.selected !== 'boolean') || (candidate.value.kind === 'world-minute' && !safeInteger(candidate.value.minutes)) || !validText(candidate.accessibilityText) || validateTerminalEvidence(candidate.evidence).length) diagnostics.push(issue(id, 'terminal-presentation.invalid-model'))
+    const statusValue = record(candidate) && record(candidate.value) ? candidate.value : undefined
+    const focusIsValid = statusValue?.kind !== 'deck-focus' || (hasOnlyKeys(statusValue, statusValue.coordinate === undefined ? ['kind'] : ['kind', 'courierId', 'coordinate']) && (statusValue.coordinate === undefined || (typeof statusValue.courierId === 'string' && validId(statusValue.courierId) && record(statusValue.coordinate) && hasOnlyKeys(statusValue.coordinate, ['column', 'row']) && safeInteger(statusValue.coordinate.column) && safeInteger(statusValue.coordinate.row))))
+    const provenanceIsValid = statusValue?.kind !== 'creation-provenance' || (hasOnlyKeys(statusValue, ['kind', 'seed', 'digest']) && typeof statusValue.seed === 'string' && statusValue.seed.length > 0 && typeof statusValue.digest === 'string' && statusValue.digest.length > 0)
+    if (!record(candidate) || !hasOnlyKeys(candidate, ['id', 'state', 'paletteToken', 'nonColorCue', 'value', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety']) || !validId(candidate.id) || !oneOf(TERMINAL_PRESENTATION_STATES, candidate.state) || !paletteToken(candidate.paletteToken) || candidate.paletteToken !== TERMINAL_STATE_PRESENTATIONS[candidate.state].paletteToken || !validCue(candidate.nonColorCue, candidate.state) || !statusValue || !hasOnlyKeys(statusValue, statusValue.kind === 'courier-selection' ? ['kind', 'selected'] : statusValue.kind === 'world-minute' ? ['kind', 'minutes'] : statusValue.kind === 'jomon-deck-materialized' ? ['kind', 'cells'] : statusValue.kind === 'deck-focus' ? statusValue.coordinate === undefined ? ['kind'] : ['kind', 'courierId', 'coordinate'] : statusValue.kind === 'creation-provenance' ? ['kind', 'seed', 'digest'] : ['kind']) || !oneOf(['jomon-deck-materialized', 'courier-selection', 'world-minute', 'deck-focus', 'creation-provenance'] as const, statusValue.kind) || (statusValue.kind === 'jomon-deck-materialized' && (!safeInteger(statusValue.cells) || statusValue.cells === 0)) || (statusValue.kind === 'courier-selection' && typeof statusValue.selected !== 'boolean') || (statusValue.kind === 'world-minute' && !safeInteger(statusValue.minutes)) || !focusIsValid || !provenanceIsValid || !validText(candidate.accessibilityText) || validateTerminalEvidence(candidate.evidence).length) diagnostics.push(issue(id, 'terminal-presentation.invalid-model'))
     if (statusIds.has(id)) diagnostics.push(issue(id, 'terminal-presentation.invalid-model'))
     statusIds.add(id)
   }
