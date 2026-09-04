@@ -5,7 +5,7 @@ import { expansionForTransition } from '../core/game-state';
 import { tileAt } from '../core/physics';
 import { canPlaceGadget } from '../core/powerups';
 import { chooseBotShopOffer } from '../core/shop';
-import type { Ball, ChronoCard, Emote, EmoteEvent, GadgetKind, GameCommand, GameConfig, GameState, Point, PowerUp, ShotCommand } from '../core/types';
+import type { Ball, BuildPieceId, ChronoCard, Emote, EmoteEvent, GadgetKind, GameCommand, GameConfig, GameState, Point, PowerUp, ShotCommand } from '../core/types';
 import { partyDiagnosticsReportFor } from '../core/party-insights';
 import { OnlineClient } from '../net/online-client';
 import type { ClientMessage, LobbyConfig, RoomSnapshot } from '../net/protocol';
@@ -136,6 +136,7 @@ export const startApp = (app: HTMLElement) => {
   let controllerFocusIndex = 0;
   let controllerTextEntry: ControllerTextEntry | undefined;
   let placement: PlacementState | undefined;
+  let buildPiece: BuildPieceId | undefined;
   let audioContext: AudioContext | undefined;
   let quickStartTimeout: number | undefined;
   let launchFrame: number | undefined;
@@ -158,6 +159,7 @@ export const startApp = (app: HTMLElement) => {
     drawer,
     rebinding,
     aim,
+    buildPiece,
     camera: { mode: camera.mode, zoom: camera.zoom },
     placement,
     shotInFlight: Boolean(shotAnimation),
@@ -359,7 +361,8 @@ export const startApp = (app: HTMLElement) => {
   const readConfig = (prefix: 'local' | 'online'): LobbyConfig => {
     const fallback = lobbyConfigFromGame(config);
     const rawSkill = app.querySelector<HTMLSelectElement>(`#${prefix}-skill`)?.value;
-    const ruleset = app.querySelector<HTMLSelectElement>(`#${prefix}-ruleset`)?.value === 'custom' ? 'custom' : 'party';
+    const selectedRuleset = app.querySelector<HTMLSelectElement>(`#${prefix}-ruleset`)?.value;
+    const ruleset = selectedRuleset === 'custom' ? 'custom' : selectedRuleset === 'party' ? 'party' : 'coursewright';
     return {
       seed: readText(app, `${prefix}-seed`, fallback.seed),
       holeCount: readNumber(app, `${prefix}-holes`, fallback.holeCount),
@@ -373,7 +376,7 @@ export const startApp = (app: HTMLElement) => {
   };
   const launchLocalMatch = () => {
     camera = { mode: 'follow', zoom: DEFAULT_CAMERA_ZOOM, pan: { x: 0, y: 0 } };
-    launch = { quickStart: false, title: 'shuffling the opening hole', detail: 'Locking the first random course and chaos modifier before tee-off.' };
+    launch = { quickStart: false, title: 'opening the first shell', detail: 'Setting up the opening build round and its secret architect contracts.' };
     screen = 'launching';
     render();
     window.clearTimeout(quickStartTimeout);
@@ -394,6 +397,7 @@ export const startApp = (app: HTMLElement) => {
   const startLocal = () => {
     const selected = readConfig('local');
     if (selected.maxHumans + selected.botCount > 12 || selected.maxHumans < 1 || selected.botCount > 4) { notice = 'choose between one and twelve total players'; render(); return; }
+    if (selected.ruleset === 'coursewright' && (selected.maxHumans + selected.botCount < 2 || selected.maxHumans + selected.botCount > 4)) { notice = 'Coursewright needs two to four total golfers; add or remove an AI enemy'; render(); return; }
     if (!validCourseDimensions(selected.courseWidth, selected.courseHeight)) { notice = 'choose whole-number level dimensions of at least 14×10 tiles'; render(); return; }
     onlineClient?.disconnect();
     onlineClient = undefined;
@@ -517,6 +521,7 @@ export const startApp = (app: HTMLElement) => {
     serverUrl = readText(app, 'server-url', serverUrl);
     if (roomPassphrase.length < 4) { notice = 'choose a room passphrase of at least four characters'; render(); return; }
     if (selected.maxHumans + selected.botCount > 12) { notice = 'choose between one and twelve total players'; render(); return; }
+    if (selected.ruleset === 'coursewright' && (selected.maxHumans + selected.botCount < 2 || selected.maxHumans + selected.botCount > 4)) { notice = 'Coursewright needs two to four total golfers; add or remove an AI enemy'; render(); return; }
     if (!validCourseDimensions(selected.courseWidth, selected.courseHeight)) { notice = 'choose whole-number level dimensions of at least 14×10 tiles'; render(); return; }
     connectOnline({ type: 'create-room', name: playerName, config: selected, passphrase: roomPassphrase });
   };
@@ -653,6 +658,7 @@ export const startApp = (app: HTMLElement) => {
     canvas.addEventListener('contextmenu', (event) => event.preventDefault());
     canvas.addEventListener('pointerdown', (event) => {
       if (placement) { selectPlacement(event); return; }
+      if (state.status === 'building') { if (event.button === 0) selectBuildSocket(event); return; }
       if (camera.mode === 'free') {
         if (event.button !== 0) return;
         event.preventDefault();
@@ -737,6 +743,21 @@ export const startApp = (app: HTMLElement) => {
     drawBoard();
     renderControls();
   };
+  const placeBuildPieceAt = (socketId: string) => {
+    if (state.status !== 'building' || state.paused || !buildPiece || current().kind !== 'human' || !canControlCurrent()) return;
+    const socket = state.course.buildSockets?.find((candidate) => candidate.id === socketId && !candidate.pieceId);
+    if (!socket) return;
+    const selected = buildPiece;
+    buildPiece = undefined;
+    playEffect(610, .075);
+    dispatch({ type: 'place-build-piece', pieceId: selected, socketId });
+  };
+  const selectBuildSocket = (event: PointerEvent) => {
+    if (state.status !== 'building' || !buildPiece) return;
+    const point = renderer?.tileFromPointer(event, state.course, camera);
+    const socket = state.course.buildSockets?.find((candidate) => !candidate.pieceId && candidate.point.x === point?.x && candidate.point.y === point?.y);
+    if (socket) placeBuildPieceAt(socket.id);
+  };
   const sendEmote = (emote: Emote) => {
     if (shotAnimation || current().kind !== 'human' || !canControlCurrent()) return;
     dispatch({ type: 'emote', playerId: onlinePlayerId ?? current().id, emote });
@@ -749,6 +770,14 @@ export const startApp = (app: HTMLElement) => {
   const scheduleBot = () => {
     window.clearTimeout(botTimeout);
     if (online() || state.paused) return;
+    if (state.status === 'building') {
+      const builder = current();
+      const pieceId = builder.kind === 'bot' ? state.construction?.hands[builder.id]?.[0] : undefined;
+      const socketId = state.course.buildSockets?.find((socket) => !socket.pieceId)?.id;
+      if (!pieceId || !socketId) return;
+      botTimeout = window.setTimeout(() => setState(applyCommand(state, { type: 'place-build-piece', pieceId, socketId })), preferences.reducedMotion ? 100 : 450);
+      return;
+    }
     if (state.status === 'shopping' && state.shop) {
       if (!state.shop.rerollResolved) {
         const bot = state.players.find((player) => player.kind === 'bot' && state.shop!.rerollVotes[player.id] === undefined);
@@ -1106,6 +1135,15 @@ export const startApp = (app: HTMLElement) => {
     if (element.hasAttribute('data-close-drawer')) { drawer = undefined; render(); return; }
     const powerUp = element.dataset.usePowerup as (PowerUp | ChronoCard) | undefined;
     if (powerUp) { useHeldPowerUp(powerUp, element.dataset.cardId || undefined); return; }
+    const selectedBuildPiece = element.dataset.buildPiece as BuildPieceId | undefined;
+    if (selectedBuildPiece && state.construction?.hands[current().id]?.includes(selectedBuildPiece)) {
+      buildPiece = buildPiece === selectedBuildPiece ? undefined : selectedBuildPiece;
+      drawBoard(undefined, null);
+      renderControls();
+      return;
+    }
+    const buildSocket = element.dataset.buildSocket;
+    if (buildSocket) { placeBuildPieceAt(buildSocket); return; }
     const reroll = element.dataset.shopReroll;
     if (reroll && state.shop && !state.shop.rerollResolved) {
       const voter = online() ? state.players.find((player) => player.id === onlinePlayerId && state.shop!.rerollVotes[player.id] === undefined) : state.players.find((player) => player.kind === 'human' && state.shop!.rerollVotes[player.id] === undefined);
@@ -1190,7 +1228,7 @@ export const startApp = (app: HTMLElement) => {
     const previousEmoteCount = liveEmotes.length;
     liveEmotes = liveEmotes.filter((emote) => emote.expiresAt > now);
     if (liveEmotes.length !== previousEmoteCount && !shotAnimation) drawBoard();
-    if (!online() && screen === 'game' && (state.status === 'playing' || state.status === 'shopping') && !state.paused) {
+    if (!online() && screen === 'game' && (state.status === 'building' || state.status === 'playing' || state.status === 'shopping') && !state.paused) {
       const previousStatus = state.status;
       const previousPlayerIndex = state.turn.playerIndex;
       const next = tickTurn(state, elapsed);
@@ -1198,7 +1236,7 @@ export const startApp = (app: HTMLElement) => {
         const playerOrPhaseChanged = previousStatus !== next.status || previousPlayerIndex !== next.turn.playerIndex;
         if (!playerOrPhaseChanged) {
           state = next;
-          if (next.status === 'playing') {
+          if (next.status === 'playing' || next.status === 'building') {
             updateLiveMatchHud();
             if (!shotAnimation) drawBoard();
           } else updatePhaseTimer();
@@ -1206,7 +1244,7 @@ export const startApp = (app: HTMLElement) => {
         if (shouldScheduleBotAfterTick({ status: previousStatus, turn: { playerIndex: previousPlayerIndex } }, next)) scheduleBot();
       }
     }
-    if (online() && screen === 'game' && state.status === 'playing' && !state.paused) drawBoard();
+    if (online() && screen === 'game' && (state.status === 'building' || state.status === 'playing') && !state.paused) drawBoard();
     pollController();
     requestAnimationFrame(loop);
   };

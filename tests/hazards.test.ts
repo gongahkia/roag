@@ -47,7 +47,7 @@ describe('real-time moving hazards', () => {
   });
 
   it('advances only during unpaused active play and keeps legacy snapshots readable', () => {
-    const game = createGame({ ...defaultConfig(), seed: 'live-clock', holeCount: 1, humanCount: 1, botCount: 0 });
+    const game = createGame({ ...defaultConfig(), seed: 'live-clock', ruleset: 'party', holeCount: 1, humanCount: 1, botCount: 0 });
     const running = tickTurn(game, .5);
     expect(running.hazardElapsedMs).toBeCloseTo(500);
     expect(running.coursePhase).toBe(0);

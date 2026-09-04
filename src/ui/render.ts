@@ -633,6 +633,34 @@ const drawGadgets = (context: CanvasRenderingContext2D, course: Course, gadgets:
   });
 };
 
+const buildGlyph: Record<NonNullable<Course['buildSockets']>[number]['pieceId'] & string, string> = { bank: '◇', spring: '⌃', bridge: '═', gate: '▥', splitter: '⇄', cushion: '▤' };
+
+/** Construction sockets are part of the world, not an HTML overlay, so the
+ * choice remains legible while players pan, zoom, or pass the device. */
+const drawBuildSockets = (context: CanvasRenderingContext2D, course: Course, players: readonly Player[], offset: Point, metrics: ProjectionMetrics) => {
+  course.buildSockets?.forEach((socket, index) => {
+    const center = withOffset(project(socket.point.x + .5, socket.point.y + .5, heightAt(course, socket.point) + .09, metrics), offset);
+    const radius = Math.max(5, metrics.tileWidth * .18);
+    const ownerColor = players.find((player) => player.id === socket.ownerId)?.color ?? '#70cfd4';
+    context.save();
+    context.translate(center.x, center.y);
+    context.rotate(Math.PI / 4);
+    context.fillStyle = socket.pieceId ? '#151b49' : '#0c1237cc';
+    context.strokeStyle = socket.pieceId ? ownerColor : '#70cfd4';
+    context.lineWidth = Math.max(1.25, metrics.tileWidth * .045);
+    context.setLineDash(socket.pieceId ? [] : [3, 2]);
+    context.fillRect(-radius, -radius, radius * 2, radius * 2);
+    context.strokeRect(-radius, -radius, radius * 2, radius * 2);
+    context.restore();
+    context.setLineDash([]);
+    context.font = `700 ${Math.max(7, metrics.tileWidth * .2)}px monospace`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillStyle = socket.pieceId ? '#fff1c7' : '#70cfd4';
+    context.fillText(socket.pieceId ? buildGlyph[socket.pieceId] : String.fromCharCode(65 + index), center.x, center.y + 1);
+  });
+};
+
 const drawPlacement = (context: CanvasRenderingContext2D, course: Course, placement: { kind: GadgetKind; point?: WorldPoint; valid: boolean }, offset: Point, metrics: ProjectionMetrics) => {
   if (!placement.point) return;
   const center = withOffset(project(placement.point.x + .5, placement.point.y + .5, heightAt(course, placement.point) + .1, metrics), offset);
@@ -885,6 +913,7 @@ export const createRenderer = (canvas: HTMLCanvasElement): Renderer => {
     drawRouteMarkers(context, course, offset, metrics);
     drawPortals(context, course, offset, metrics);
     drawCourseFeatures(context, course, offset, metrics);
+    drawBuildSockets(context, course, players, offset, metrics);
     if (showItems) drawItemPads(context, course, offset, metrics, hazardElapsedMs);
     drawGadgets(context, course, gadgets, players, offset, metrics);
     if (placement) drawPlacement(context, course, placement, offset, metrics);

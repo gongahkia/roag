@@ -5,7 +5,7 @@ import { renderAppMarkup, renderControlsMarkup } from '../src/ui/markup';
 import { defaultPreferences } from '../src/preferences';
 import { lobbyConfigFromGame, renderHomeMarkup, renderLobbyMarkup, renderMatchLaunchMarkup, renderQuickStartLaunchMarkup } from '../src/ui/home-markup';
 
-describe('course shuffler markup', () => {
+describe('Coursewright and legacy rules markup', () => {
   it('keeps the title menu focused on choosing a play mode before exposing setup forms', () => {
     const state = createGame(defaultConfig());
     const markup = renderHomeMarkup({ panel: 'play', mode: 'modes', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
@@ -30,15 +30,16 @@ describe('course shuffler markup', () => {
     expect(settings).toContain('data-reset-party-guide');
   });
 
-  it('uses one local setup for solo play and pass-and-play', () => {
+  it('uses one local setup for constrained build-then-play pass-and-play', () => {
     const state = createGame(defaultConfig());
     const markup = renderHomeMarkup({ panel: 'play', mode: 'local', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
     expect(markup).toContain('id="local-seed"');
     expect(markup).toContain('data-start-local');
     expect(markup).not.toContain('data-quick-start-local');
-    expect(markup).toContain('solo play or add seats for pass-and-play');
+    expect(markup).toContain('Build one shared hole, then play it immediately.');
     expect(markup).toContain('<option value="1" selected>1</option>');
-    expect(markup).toContain('<option value="8" >8</option>');
+    expect(markup).toContain('<option value="4" >4</option>');
+    expect(markup).toContain('Coursewright Rules');
 
     const game = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     expect(game).toContain('LOCAL PLAY');
@@ -69,32 +70,33 @@ describe('course shuffler markup', () => {
     expect(join).not.toContain('id="online-seed"');
   });
 
-  it('reports the automatic pre-shuffled campaign rules to local and online players', () => {
+  it('reports the deterministic build shell to local and online players', () => {
     const state = createGame(defaultConfig());
     const local = renderHomeMarkup({ panel: 'play', mode: 'local', config: lobbyConfigFromGame(state.config), preferences: defaultPreferences(), playerName: 'golfer-1', roomCode: '', serverUrl: 'ws://localhost:8787', connected: false });
     expect(local).not.toContain('data-quick-start-local');
     expect(local).toContain('class="home-actions"');
     expect(local).toContain('start local game');
-    expect(local).toContain('seed-shuffled automatically');
+    expect(local).toContain('deterministic shell');
     expect(renderQuickStartLaunchMarkup()).toContain('class="match-loading-ball"');
     expect(renderQuickStartLaunchMarkup()).not.toContain('loading the course');
     const normalLaunch = renderMatchLaunchMarkup({ quickStart: false, title: 'building the opening hole', detail: 'Setting up players.' });
     expect(normalLaunch).toContain('class="match-loading-ball"');
     expect(normalLaunch).not.toContain('MATCH SETUP');
     const lobby = renderLobbyMarkup({ code: 'ABC123', hostId: 'human-0', config: lobbyConfigFromGame(state.config), members: [{ id: 'human-0', name: 'golfer-1', slot: 0, connected: true, host: true }], phase: 'lobby', updatedAt: 0 }, 'human-0', true);
-    expect(lobby).toContain('seeded course shuffler');
+    expect(lobby).toContain('fixed fairway shell');
     expect(lobby).toContain('start room');
   });
 
-  it('removes the shared course slot machine and starts directly on a shuffled course', () => {
+  it('removes the shared course slot machine and starts directly in construction', () => {
     const state = createGame({ ...defaultConfig(), seed: 'overlay-markup', humanCount: 1, botCount: 1 });
     const markup = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
-    expect(state.status).toBe('playing');
+    expect(state.status).toBe('building');
     expect(markup).not.toContain('die-overlay');
     expect(markup).not.toContain('slot-machine');
     expect(markup).not.toContain('COURSE SLOTS');
     expect(markup).not.toContain('data-ready-slot-spin');
-    expect(markup).toContain('chaos:');
+    expect(markup).toContain('COURSEWRIGHT ROUND');
+    expect(markup).toContain('SECRET CONTRACT');
   });
 
   it('renders target selection and click-confirmed gadget placement guidance for new items', () => {
@@ -195,16 +197,16 @@ describe('course shuffler markup', () => {
     expect(settings).toContain('data-preference="showMerchantHoldings"');
   });
 
-  it('does not render a die overlay for an already shuffled campaign', () => {
+  it('does not render a die overlay for an already opened build shell', () => {
     const state = createGame({ ...defaultConfig(), seed: 'plan-markup', holeCount: 1, humanCount: 1, botCount: 1 });
     const markup = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
-    expect(state.status).toBe('playing');
+    expect(state.status).toBe('building');
     expect(markup).not.toContain('die-overlay');
     expect(markup).not.toContain('app-shell rolling');
   }, 15_000);
 
   it('shows only the current contextual Party Rules guide step and supports a clean opt-out', () => {
-    const state = createGame({ ...defaultConfig(), seed: 'party-guide', humanCount: 2, botCount: 0 });
+    const state = createGame({ ...defaultConfig(), seed: 'party-guide', ruleset: 'party', humanCount: 2, botCount: 0 });
     const guided = renderAppMarkup({ state, config: state.config, preferences: defaultPreferences(), overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     const optedOut = renderAppMarkup({ state, config: state.config, preferences: { ...defaultPreferences(), partyGuideStep: 8 }, overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     expect(guided).toContain('Play the problem together.');
@@ -213,7 +215,7 @@ describe('course shuffler markup', () => {
   });
 
   it('renders a skippable course briefing and local handoff without changing shared rules', () => {
-    const state = createGame({ ...defaultConfig(), seed: 'party-briefing', humanCount: 2, botCount: 0 });
+    const state = createGame({ ...defaultConfig(), seed: 'party-briefing', ruleset: 'party', humanCount: 2, botCount: 0 });
     const briefing = renderAppMarkup({ state, config: state.config, preferences: { ...defaultPreferences(), partyGuideStep: 8 }, overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, briefingHole: 1, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     const handoff = renderAppMarkup({ state, config: state.config, preferences: { ...defaultPreferences(), partyGuideStep: 8 }, overlay: undefined, drawer: undefined, aim: { angle: 0, power: 4 }, shotInFlight: false, handoff: { playerName: 'golfer-2', color: '#ffffff', hole: 1 }, multiplayer: { online: false, connected: false, host: true }, ledger: [], callouts: [] });
     expect(briefing).toContain('COURSE REVEAL');

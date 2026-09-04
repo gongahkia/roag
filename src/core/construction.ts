@@ -112,6 +112,12 @@ export const buildShellFor = (seed: string, hole: number, width: number, height:
   setTile(course, tee, tile('tee'));
   setTile(course, cup, tile('cup'));
   course.route = Array.from({ length: cup.x - tee.x + 1 }, (_, index) => ({ x: tee.x + index, y: middle }));
+  const marker = (fraction: number) => course.route[Math.min(course.route.length - 2, Math.max(1, Math.round((course.route.length - 1) * fraction)))]!;
+  course.routeRoles = [
+    { role: 'safe', label: 'safe spine', marker: { ...marker(.22) }, points: course.route.slice(0, Math.max(2, Math.round(course.route.length * .56))).map((point) => ({ ...point })) },
+    { role: 'skill', label: 'module lane', marker: { ...marker(.5) }, points: course.route.slice(Math.max(1, Math.round(course.route.length * .24)), Math.max(3, Math.round(course.route.length * .82))).map((point) => ({ ...point })) },
+    { role: 'conflict', label: 'shared finish', marker: { ...marker(.72) }, points: course.route.slice(Math.max(1, Math.round(course.route.length * .48))).map((point) => ({ ...point })) },
+  ];
   return course;
 };
 

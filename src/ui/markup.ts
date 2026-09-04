@@ -1,4 +1,5 @@
-import { EMOTES, type ChronoCard, type CoursePackage, type GadgetKind, type GameConfig, type GameState, type HoleRules, type Point, type PowerUp, type ShotCommand } from '../core/types';
+import { EMOTES, type BuildPieceId, type ChronoCard, type CoursePackage, type GadgetKind, type GameConfig, type GameState, type HoleRules, type Point, type PowerUp, type ShotCommand } from '../core/types';
+import { buildPieceDetail } from '../core/construction';
 import { definitionFor } from '../core/catalog';
 import { partyAwardsFor, partyPacingFor } from '../core/party-insights';
 import { rulesetFor, trickCardDetails } from '../core/rulesets';
@@ -19,6 +20,7 @@ export interface ViewModel {
   drawer: Drawer;
   rebinding?: ShortcutId;
   aim: ShotCommand;
+  buildPiece?: BuildPieceId;
   placement?: { kind: GadgetKind; point?: Point; valid: boolean; confirmed?: boolean };
   shotInFlight: boolean;
   camera?: { mode: 'follow' | 'free'; zoom: number };
@@ -50,6 +52,7 @@ const powerUpIcon: Record<string, string> = { turbo: '↯', shield: '⬡', bomb:
 
 export const renderStatus = ({ state, shotInFlight }: Pick<ViewModel, 'state' | 'shotInFlight'>) => {
   if (state.paused) return 'match paused';
+  if (state.status === 'building') return `${escapeHtml(current(state).name)} is placing a course module · ${state.turn.secondsLeft.toFixed(0)}s remaining`;
   if (state.status === 'shopping') return `clubhouse merchant · ${state.shop?.secondsLeft.toFixed(0) ?? 0}s remaining`;
   if (state.status === 'transitioning') return `expanding the campaign to hole ${state.hole}/${state.config.holeCount}`;
   if (state.status === 'finished') return 'campaign complete — the full route is on display';
@@ -63,9 +66,21 @@ const renderLedger = (ledger: readonly LedgerEntry[]) => `<ul class="feed" aria-
 const renderTransitionControls = (state: GameState) => `<div class="turn"><strong>next hole</strong><b>${state.hole}/${state.config.holeCount}</b><small class="phase">the route is building outward</small></div><p class="control-status">${renderStatus({ state, shotInFlight: false })}</p>`;
 const renderFinishedControls = (state: GameState) => `<div class="turn"><strong>campaign complete</strong><b>★</b><small class="phase">the full route has zoomed out behind the results</small></div><p class="control-status">${renderStatus({ state, shotInFlight: false })}</p>`;
 
+const renderBuildHud = (view: ViewModel) => {
+  const { state, multiplayer, buildPiece } = view;
+  const builder = current(state);
+  const viewerId = multiplayer.online ? multiplayer.playerId : builder.id;
+  const contract = state.construction?.contracts.find((candidate) => candidate.ownerId === viewerId);
+  const placed = state.course.buildSockets?.filter((socket) => socket.pieceId).length ?? 0;
+  const total = state.course.buildSockets?.length ?? 0;
+  const ownContract = contract?.hidden ? undefined : contract;
+  return `<section class="match-hud build-hud" aria-label="course construction status"><section class="hud-course"><p>COURSEWRIGHT ROUND</p><strong>${themeIcon[state.course.theme]} build the hole</strong><small>hole ${state.hole}/${state.config.holeCount} · ${placed}/${total} modules installed · the fairway spine stays open</small></section><section class="hud-timer"><p>ON THE WORKBENCH</p><strong>${escapeHtml(builder.name)}</strong><b id="hud-turn-timer">${state.turn.secondsLeft.toFixed(0)}<small>s</small></b><small class="hud-turn-status">choose one of your two modules</small></section><section class="hud-leaderboard" aria-label="scoreboard"><header><span>SCOREBOARD</span><small>total</small></header><ol>${[...state.players].sort((left, right) => left.total - right.total || left.name.localeCompare(right.name)).map((player, index) => `<li class="${player.id === builder.id ? 'active' : ''}"><span>${index + 1}</span><i style="background:${player.color}"></i><strong>${escapeHtml(player.name)}</strong><b>${player.total}</b></li>`).join('')}</ol></section><section class="hud-strength build-contract"><div class="hud-strength-heading"><span>SECRET CONTRACT</span><b>${ownContract?.completed ? '+1' : '—'}</b></div><p>${ownContract ? `${escapeHtml(ownContract.label ?? 'architect contract')} · ${escapeHtml(ownContract.description ?? 'complete it during play for −1 stroke')}` : 'Pass the device when prompted. Your contract is private until it resolves.'}</p><small>${buildPiece ? `selected: ${escapeHtml(buildPieceDetail[buildPiece].label)}` : 'select a module, then click an open socket'}</small></section></section>`;
+};
+
 const renderMatchHud = (view: ViewModel) => {
   const { state, aim, multiplayer, shotInFlight } = view;
   const camera = view.camera ?? { mode: 'follow' as const, zoom: 1 };
+  if (state.status === 'building') return renderBuildHud(view);
   if (state.status !== 'playing') return '';
   const player = current(state);
   const disabled = state.paused || player.kind !== 'human' || shotInFlight || (multiplayer.online && multiplayer.playerId !== player.id);
@@ -85,11 +100,17 @@ const renderMatchHud = (view: ViewModel) => {
 };
 
 export const renderControlsMarkup = (view: ViewModel) => {
-  const { state, preferences, shotInFlight, multiplayer, placement } = view;
+  const { state, preferences, shotInFlight, multiplayer, placement, buildPiece } = view;
   if (state.status === 'shopping') return `<div class="turn merchant-turn"><strong>clubhouse merchant</strong><b>$${playerCash(state, current(state).id)}</b><small class="phase">the shared shelf is open</small></div><p class="control-status">${renderStatus({ state, shotInFlight: false })}</p>`;
   if (state.status === 'transitioning') return renderTransitionControls(state);
   if (state.status === 'finished') return renderFinishedControls(state);
   const player = current(state);
+  if (state.status === 'building') {
+    const hand = state.construction?.hands[player.id] ?? [];
+    const canBuild = !state.paused && player.kind === 'human' && (!multiplayer.online || multiplayer.playerId === player.id);
+    const sockets = state.course.buildSockets?.filter((socket) => !socket.pieceId) ?? [];
+    return `<div class="build-controls"><div class="turn"><strong>build turn</strong><b>${escapeHtml(player.name)}</b><small class="phase">place one module in an open cyan socket</small></div><div class="build-piece-list">${hand.map((pieceId) => `<button class="build-piece ${buildPiece === pieceId ? 'selected' : ''}" data-build-piece="${pieceId}" ${canBuild ? '' : 'disabled'}><b>${buildPieceDetail[pieceId].glyph}</b><span>${escapeHtml(buildPieceDetail[pieceId].label)}<small>${escapeHtml(buildPieceDetail[pieceId].description)}</small></span></button>`).join('') || '<p class="control-status">your modules are installed</p>'}</div>${buildPiece && sockets.length ? `<div class="build-socket-list"><small>or choose a socket</small>${sockets.map((socket, index) => `<button data-build-socket="${socket.id}" ${canBuild ? '' : 'disabled'}>${String.fromCharCode(65 + index)}</button>`).join('')}</div>` : ''}<p class="control-status">${renderStatus({ state, shotInFlight: false })}</p></div>`;
+  }
   const ruleset = rulesetFor(state.config);
   const disabled = state.status !== 'playing' || state.paused || player.kind !== 'human' || shotInFlight || (multiplayer.online && multiplayer.playerId !== player.id);
   const cardDisabled = disabled || state.turn.cardPlayed;
@@ -132,7 +153,7 @@ interface PartyGuidePanel { step: number; eyebrow: string; title: string; body: 
 
 /** One contextual instruction at a time; it is local preference state, never match state. */
 export const partyGuidePanelFor = (state: GameState, preferences: GamePreferences): PartyGuidePanel | undefined => {
-  if (state.config.ruleset === 'custom' || preferences.partyGuideStep >= 8) return undefined;
+  if (state.config.ruleset !== 'party' || preferences.partyGuideStep >= 8) return undefined;
   const step = preferences.partyGuideStep;
   const panels: Record<number, PartyGuidePanel> = {
     0: { step, eyebrow: 'WELCOME TO PARTY RULES', title: 'Play the problem together.', body: 'The shuffler locks each hole before the round starts. Everyone plays the same strange physical result, then owns the chaos that follows.' },

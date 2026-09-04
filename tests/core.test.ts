@@ -556,7 +556,7 @@ describe('turns, shared rules, and bots', () => {
   });
 
   it('freezes turns and shots while paused, then resumes the same match state', () => {
-    let game = resolveDie(createGame({ ...defaultConfig(), seed: 'pause-state', holeCount: 1, humanCount: 1, botCount: 0 }));
+    let game = resolveDie(createGame({ ...defaultConfig(), seed: 'pause-state', ruleset: 'party', holeCount: 1, humanCount: 1, botCount: 0 }));
     const secondsLeft = game.turn.secondsLeft;
     game = applyCommand(game, { type: 'set-paused', paused: true });
     expect(game.paused).toBe(true);
@@ -569,7 +569,7 @@ describe('turns, shared rules, and bots', () => {
   });
 
   it('accepts legal shots and keeps previews equal to committed physics', () => {
-    const game = resolveDie(createGame({ ...defaultConfig(), seed: 'animation-seed', holeCount: 1, botCount: 1 }));
+    const game = resolveDie(createGame({ ...defaultConfig(), seed: 'animation-seed', ruleset: 'party', holeCount: 1, botCount: 1 }));
     const shot = { angle: 0, power: 3 };
     const frames = previewShot(game, shot)!;
     const committed = applyCommand(game, { type: 'shoot', shot });
@@ -596,7 +596,7 @@ describe('turns, shared rules, and bots', () => {
   }, 30_000);
 
   it('scores each resolved hole and finishes after the configured ninth hole', () => {
-    let game = resolveDie(createGame({ ...defaultConfig(), seed: 'nine-hole', humanCount: 1, botCount: 0 }));
+    let game = resolveDie(createGame({ ...defaultConfig(), seed: 'nine-hole', ruleset: 'party', humanCount: 1, botCount: 0 }));
     for (let hole = 1; hole <= 9; hole += 1) {
       game.players[0]!.ball.complete = true;
       game.players[0]!.ball.strokes = 1;

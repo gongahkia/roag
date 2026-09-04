@@ -787,6 +787,28 @@ h1 em { color: #f1d058; }
 @keyframes podium-rise { from { opacity: 0; transform: translateY(1.5rem); } to { opacity: 1; transform: translateY(0); } }
 @keyframes award-pop { from { opacity: 0; transform: translateY(.55rem) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
+/* Coursewright construction uses the same physical console rail as putting:
+   the build choice is prominent without covering the actual socket board. */
+.build-contract p { margin: 0; color: #d5dff1; font-size: .57rem; line-height: 1.4; }
+.build-contract small { color: #70cfd4; font-size: .5rem; letter-spacing: .045em; text-transform: uppercase; }
+.build-controls { display: flex; flex: 1 1 100%; flex-wrap: wrap; align-items: center; gap: .46rem; }
+.build-piece-list { display: flex; flex: 1 1 330px; gap: .38rem; }
+.build-piece { display: grid; grid-template-columns: 1.8rem minmax(0, 1fr); flex: 1 1 145px; gap: .36rem; min-width: 0; border: 2px solid #5369ac; border-radius: 0; padding: .38rem; color: #fff1c7; background: #182052; text-align: left; box-shadow: 2px 2px 0 #050611; }
+.build-piece:hover:not(:disabled), .build-piece.selected { border-color: #f1d058; color: #fff1c7; background: #303c80; box-shadow: 2px 2px 0 #050611, inset 0 0 0 1px #fff1a8; transform: translate(-1px, -1px); }
+.build-piece > b { display: grid; place-items: center; min-height: 1.75rem; border: 1px solid #70cfd4; color: #70cfd4; font-size: 1rem; }
+.build-piece > span { display: grid; gap: .12rem; font-size: .62rem; font-weight: 800; letter-spacing: .045em; text-transform: uppercase; }
+.build-piece small { color: #b9c7e6; font-size: .5rem; font-weight: 500; letter-spacing: 0; line-height: 1.25; text-transform: none; }
+.build-socket-list { display: flex; align-items: center; gap: .26rem; color: #70cfd4; font-size: .55rem; letter-spacing: .08em; text-transform: uppercase; }
+.build-socket-list button { min-width: 1.7rem; border: 1px solid #70cfd4; border-radius: 0; padding: .28rem; color: #70cfd4; background: #10163d; font-weight: 900; }
+.build-socket-list button:hover:not(:disabled) { border-color: #f1d058; color: #f1d058; background: #283674; }
+
+@media (max-width: 720px) {
+  .build-piece-list { flex-basis: 100%; }
+  .build-piece { grid-template-columns: 1.45rem minmax(0, 1fr); padding: .28rem; }
+  .build-piece > span { font-size: .54rem; }
+  .build-piece small { display: none; }
+}
+
 @media (max-width: 720px) {
   .results-panel { padding: .72rem; }
   .podium { gap: .32rem; }

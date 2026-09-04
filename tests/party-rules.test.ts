@@ -11,7 +11,7 @@ import { createArena as arena } from './fixtures';
 const partyConfig = (seed: string) => ({ ...defaultConfig(), seed, ruleset: 'party' as const, humanCount: 2, botCount: 0, holeCount: 1 });
 
 describe('Party Rules vertical slice', () => {
-  it('is the default constrained ruleset with pre-shuffled biome and layout ingredients', () => {
+  it('keeps the legacy constrained ruleset with pre-shuffled biome and layout ingredients', () => {
     const game = createGame(partyConfig('party-reels'));
     expect(game.config.ruleset).toBe('party');
     expect(PARTY_TRICK_CARDS).toHaveLength(8);
