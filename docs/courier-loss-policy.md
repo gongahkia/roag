@@ -1,6 +1,6 @@
 # Courier loss policy assessment
 
-`src/medieval/courier-loss-policy.ts` is a pure, compiled-TypeScript v1 assessment contract for a future owner that has already confirmed a courier loss. It produces policy intent only. It does not record a death, choose a courier, transfer a task or possession, change a relationship, create a person, append causal history, finalize a chronicle, or mutate `FoundationWorld`.
+`src/medieval/courier-loss-policy.ts` is a pure, compiled-TypeScript v1 assessment contract. It remains policy-only. `src/medieval/courier-continuity.ts` now consumes its death obligations within the separately documented permanent-loss reducer; this policy itself does not record a death, choose a courier, transfer a task or possession, change a relationship, create a person, append causal history, finalize a chronicle, or mutate `FoundationWorld`.
 
 ## Ownership and canonical inputs
 
@@ -39,6 +39,6 @@ Loss metadata remains subject to the project-wide metadata-first content-safety 
 
 ## Compatibility and deferred work
 
-This design changes no `FoundationWorld`, `WorldChronicle`, manifest, replay, causal-history record, save envelope, IndexedDB v4 layout, valid-v3 loading behavior, schema, or migration. It adds no causal command, health/death/revival action, RNG, worker, cache, UI, renderer, browser path, combat, generated content, or prototype behavior.
+This policy module itself changes no `FoundationWorld`, manifest, RNG, IndexedDB v4 layout, generated content, UI, renderer, browser path, combat, or prototype behavior. The continuity implementation has its own explicitly versioned mutable/replay contract (`MedievalWorldState` v14 / courier v3, replay projection v6) while retaining `FoundationWorld` v14 and layout v4; see [`courier-continuity-contract.md`](courier-continuity-contract.md).
 
 Courier death mutation, explicit prevention/revival actions, voluntary succession, household consequence reducers, and actual chronicle finalization remain future owners. Jomon integrity, disaster, rescue, collapse, and terminal vessel loss remain a separate later policy task.

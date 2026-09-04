@@ -246,7 +246,7 @@ export const assessCourierContinuityLoss = (value: CourierContinuityAssessmentRe
     try {
       assessCourierLoss({
         version: 1,
-        actionTime: { timeUnit: 'world-minute', worldTime: confirmation.atWorldTime },
+        actionTime: { timeUnit: 'minute', worldTime: confirmation.atWorldTime },
         peopleContext: request.peopleContext,
         people,
         loss: {
@@ -284,7 +284,6 @@ export const assessCourierContinuityLoss = (value: CourierContinuityAssessmentRe
 /** Canonical no-free-text metadata for a caller constructing a confirmation. */
 export const courierContinuityContentSafety = (): MedievalContentSafetyClassification => classifyMedievalContent(
   'event',
-  ['adult-labour', 'ordinary-hardship'],
-  'adults-only',
-  ['data']
+  ['ordinary-hardship'],
+  'adults-only'
 )

@@ -365,7 +365,7 @@ const segmentIdFor = (context: CausalHistoryContext, start: number, end: number,
 const segmentTokenFor = (context: CausalHistoryContext, summary: Omit<CausalHistoryCompactedSegment, 'id' | 'token'>): string => causalDigestFor('causal-segment-token', { worldId: context.worldId, creationDigest: context.creationDigest, ...summary })
 
 const validProjectionCourier = (value: unknown): boolean => {
-  if (!record(value) || !(hasOnlyKeys(value, ['version']) || hasOnlyKeys(value, ['version', 'initialCourierId', 'activeCourierId', 'departedCourierIds'])) || value.version !== 3) return false
+  if (!record(value) || !(hasOnlyKeys(value, ['version']) || hasOnlyKeys(value, ['version', 'initialCourierId', 'activeCourierId', 'departedCourierIds']) || hasOnlyKeys(value, ['version', 'initialCourierId', 'departedCourierIds'])) || value.version !== 3) return false
   if ((value.initialCourierId !== undefined && !validId(value.initialCourierId)) || (value.activeCourierId !== undefined && !validId(value.activeCourierId))) return false
   if (value.initialCourierId === undefined) return value.activeCourierId === undefined
   if (!Array.isArray(value.departedCourierIds) || !value.departedCourierIds.every(item => validId(item)) || new Set(value.departedCourierIds).size !== value.departedCourierIds.length || !value.departedCourierIds.every((item, index) => index === 0 || String(value.departedCourierIds[index - 1]) < String(item))) return false

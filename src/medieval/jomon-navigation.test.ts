@@ -120,7 +120,7 @@ describe('Jomon deck navigation', () => {
 
     const upgraded = upgradeFoundationWorldV13(legacy)
 
-    expect(upgraded.state.courier).toEqual({ version: 2 })
+    expect(upgraded.state.courier).toEqual({ version: 3 })
     expect(upgraded.state.navigation).toEqual({ version: 1 })
     expect(upgraded.state.temporal).toMatchObject({ worldTime: 0, actionSequence: 0 })
     expect(validateFoundationWorld(upgraded)).toEqual([])

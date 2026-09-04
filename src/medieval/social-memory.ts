@@ -309,7 +309,10 @@ export const validateSocialMemoryState = (context: SocialMemoryContext, value: u
     }
     if (!candidate.participantPersonIds.every(personId => {
       const participant = peopleById.get(personId)
-      return participant !== undefined && record(participant.identity) && participant.identity.adult === true && record(participant.life) && participant.life.status === 'living'
+      // Social-memory records describe a completed adult interaction. A later
+      // permanent death preserves that source-linked history; it is not an
+      // eligibility or present-location assertion.
+      return participant !== undefined && record(participant.identity) && participant.identity.adult === true && record(participant.life) && (participant.life.status === 'living' || participant.life.status === 'dead')
     })) issues.push(issue(candidate.id, 'social-memory.invalid-participant'))
     const sourceTask = context.tasks.find(task => task.id === expectedRecord.source.taskId)
     if (!sourceTask) {

@@ -12,6 +12,7 @@ import { socialMemoryRecallForPair } from './social-memory'
 import { CAUSAL_HISTORY_LIMITS, causalDigestFor, causalReplayProjectionDigest } from './causal-history'
 import { captureTerminalControlBinding, defaultTerminalControlPreferences } from './terminal-controls'
 import { createActiveWorldBackupBundle, createChronicleBackupBundle, serializePersistenceBackupBundle } from './persistence-layout'
+import { courierContinuityConfirmationIdFor, courierContinuityContentSafety } from './courier-continuity'
 
 type Handler = (() => void) | null
 
@@ -156,6 +157,21 @@ class FakeIndexedDB {
 const originalIndexedDB = globalThis.indexedDB
 let fakeIndexedDB: FakeIndexedDB
 
+// Immutable fixtures are constructed outside individual timeout windows; each
+// test still clones its submitted envelope before a repository transition.
+const continuityStorageSource = chooseInitialCourier(createFoundationWorld({ seed: 'storage-courier-continuity' }), 'crew:0')
+const continuityStorageAlternate = switchTavernCourier(continuityStorageSource, 'crew:1')
+const continuityStorageConfirmation = {
+  version: 1 as const,
+  id: courierContinuityConfirmationIdFor('departure', 'crew:0', 0),
+  kind: 'confirmed-courier-continuity-loss' as const,
+  outcome: 'departure' as const,
+  courierId: 'crew:0',
+  atWorldTime: 0,
+  evidenceIds: ['loss-evidence:storage-continuity'] as const,
+  contentSafety: courierContinuityContentSafety()
+}
+
 beforeEach(() => {
   fakeIndexedDB = new FakeIndexedDB()
   Object.defineProperty(globalThis, 'indexedDB', { configurable: true, value: fakeIndexedDB })
@@ -246,6 +262,28 @@ describe('medieval local persistence', () => {
     expect(loaded?.state.courier).toEqual({ version: 3, initialCourierId: 'crew:0', activeCourierId: 'crew:1', departedCourierIds: [] })
     expect(loaded?.state.navigation).toEqual({ version: 1, courierId: 'crew:1', coordinate: { column: 4, row: 4 } })
     expect(loaded && replayFoundationWorldCausalHistory(loaded)).toEqual(causalReplayProjectionForWorldState(switched.state))
+  })
+
+  it('atomically persists a validated courier-continuity successor', async () => {
+    const repository = new MedievalWorldRepository()
+    const source = structuredClone(continuityStorageSource)
+    await repository.loadIndex()
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(source.id, structuredClone(source))
+    const result = await repository.resolveCourierContinuityLoss(source, continuityStorageConfirmation)
+
+    expect(result).toMatchObject({ status: 'continued', world: { state: { courier: { initialCourierId: 'crew:0', activeCourierId: 'crew:1', departedCourierIds: ['crew:0'] }, navigation: { courierId: 'crew:1', coordinate: { column: 4, row: 4 } } } } })
+    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(source.id)).toEqual(result.status === 'continued' ? result.world : undefined)
+  })
+
+  it('rejects a stale courier-continuity source without overwriting the active envelope', async () => {
+    const repository = new MedievalWorldRepository()
+    const source = structuredClone(continuityStorageSource)
+    const alternate = structuredClone(continuityStorageAlternate)
+    await repository.loadIndex()
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(source.id, structuredClone(alternate))
+
+    await expect(repository.resolveCourierContinuityLoss(source, continuityStorageConfirmation)).rejects.toMatchObject({ code: 'corrupt-existing-world' })
+    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(source.id)).toEqual(alternate)
   })
 
   it('reads a valid v13 full envelope through the strict v14 navigation conversion without overwriting corrupt input', async () => {

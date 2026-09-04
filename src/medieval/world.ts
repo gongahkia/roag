@@ -628,7 +628,7 @@ const selectCourierProjection = (world: FoundationWorld, projection: CausalRepla
   if (projection.courier.initialCourierId !== undefined) throw new Error('initial courier has already been selected')
   if (projection.temporal.worldTime !== 0 || projection.temporal.actionSequence !== 0 || projection.temporal.pendingEvents.length !== 0) throw new Error('initial courier must be selected before time-bearing actions')
   const candidate = initialHouseholdActiveCrew(world.crew).find(member => member.id === courierId)
-  const person = world.state.people.records.find(candidatePerson => candidatePerson.id === courierId)
+  const person = projection.people.records.find(candidatePerson => candidatePerson.id === courierId)
   if (!candidate || person?.life.status !== 'living' || person.work.availability !== 'available') throw new Error('selected courier must be an eligible living available crew member')
   return causalReplayProjection({ ...projection, courier: { version: 3, initialCourierId: courierId, activeCourierId: courierId, departedCourierIds: [] }, navigation: { version: 1, courierId, coordinate: canonicalJomonDeckSpawn(world) } })
 }
@@ -836,7 +836,12 @@ const continuityAssessmentFor = (
     ...(projection.courier.activeCourierId === undefined ? {} : { activeCourierId: projection.courier.activeCourierId }),
     departedCourierIds: projection.courier.departedCourierIds ?? []
   },
-  navigation: projection.navigation === undefined ? {} : projection.navigation,
+  navigation: projection.navigation === undefined
+    ? {}
+    : {
+        ...(projection.navigation.courierId === undefined ? {} : { courierId: projection.navigation.courierId }),
+        ...(projection.navigation.coordinate === undefined ? {} : { coordinate: projection.navigation.coordinate })
+      },
   confirmation
 })
 
@@ -1087,11 +1092,11 @@ export type CourierContinuityResolution =
  * or storage authority: callers must provide the bounded evidence at the
  * current canonical minute and persist the returned authoritative result.
  */
-export const resolveCourierContinuityLoss = (
+/** Internal repository/reducer entry for a source already accepted by the full boundary. */
+export const resolveCourierContinuityLossForVerifiedWorld = (
   world: FoundationWorld,
   confirmation: CourierContinuityConfirmation
 ): CourierContinuityResolution => {
-  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
   if (world.status !== 'active') throw new Error('only an active world can resolve courier continuity')
   const projection = causalReplayProjectionForWorldState(world.state)
   const assessment = continuityAssessmentFor(world, projection, confirmation)
@@ -1104,6 +1109,14 @@ export const resolveCourierContinuityLoss = (
   const next = worldFromProjection(world, resolved, history)
   if (assessment.finalization.kind === 'continue') return { status: 'continued', world: next }
   return { status: 'crew-extinction', chronicle: finalizeWorldAsChronicle(next, 'crew-extinction') }
+}
+
+export const resolveCourierContinuityLoss = (
+  world: FoundationWorld,
+  confirmation: CourierContinuityConfirmation
+): CourierContinuityResolution => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  return resolveCourierContinuityLossForVerifiedWorld(world, confirmation)
 }
 
 const requirePlayableActiveCourier = (world: FoundationWorld, operation: string): string => {

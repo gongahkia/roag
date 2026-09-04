@@ -630,7 +630,11 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
     ? value.courier.departedCourierIds
     : []
   const activeCourierPerson = Array.isArray(value.people?.records) ? value.people.records.find(candidate => record(candidate) && candidate.id === activeCourierId) : undefined
-  const currentCourierKeys = initialCourierId === undefined ? ['version'] : ['version', 'initialCourierId', 'activeCourierId', 'departedCourierIds']
+  const currentCourierKeys = initialCourierId === undefined
+    ? ['version']
+    : activeCourierId === undefined
+      ? ['version', 'initialCourierId', 'departedCourierIds']
+      : ['version', 'initialCourierId', 'activeCourierId', 'departedCourierIds']
   const legacyCourierKeys = initialCourierId === undefined ? ['version'] : ['version', 'initialCourierId']
   const activeCourierLegacyKeys = initialCourierId === undefined ? ['version'] : ['version', 'initialCourierId', 'activeCourierId']
   const courierShapeValid = value.version === MEDIEVAL_WORLD_STATE_VERSION

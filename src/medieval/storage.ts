@@ -1,4 +1,4 @@
-import { isValidFoundationWorld, resolveCourierContinuityLoss as resolveCourierContinuityTransition, upgradeFoundationWorldV13, upgradeFoundationWorldV14, type CourierContinuityResolution } from './world'
+import { isValidFoundationWorld, resolveCourierContinuityLossForVerifiedWorld as resolveCourierContinuityTransition, upgradeFoundationWorldV13, upgradeFoundationWorldV14, type CourierContinuityResolution } from './world'
 import type { CourierContinuityConfirmation } from './courier-continuity'
 import { emptyCreationSettingsRecord, isCreationSettingsRecord, saveCreationSettingsProfile as saveNamedCreationSettingsProfile, withLastUsedCreationSettings, type CreationSettings, type CreationSettingsRecord } from './settings'
 import { defaultTerminalControlPreferences, isTerminalControlPreferences, type TerminalControlPreferences } from './terminal-controls'
