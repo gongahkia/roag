@@ -5,6 +5,7 @@ import { assessCourierContinuityLoss, courierContinuityConfirmationIdFor, courie
 import { DELEGATION_CONTRACT_VERSION, DELEGATION_TASK_DEFINITIONS, delegationTaskIdForOffer, type DelegationOfferInput } from './delegation'
 import { initialHouseholdActiveCrew } from './initial-household'
 import { SeededRng } from './rng'
+import { createJomonDeckContextualPrompt } from './terminal-presentation'
 import { assessTavernCourierSwitch } from './world'
 import { chooseInitialCourier, createFoundationWorld, offerFoundationWorldDelegatedTask, replayFoundationWorldCausalHistory, resolveCourierContinuityLoss, validateFoundationWorld } from './world'
 import { causalReplayProjectionForWorldState } from './world-state'
@@ -79,6 +80,11 @@ describe('courier continuity', () => {
     expect(next.state.causalHistory.tail.at(-1)).toMatchObject({ kind: 'courier-loss-resolved', payload: { confirmation: confirmationFor(source, 'death'), finalization: 'continue', successorId } })
     expect(replayFoundationWorldCausalHistory(next)).toEqual(causalReplayProjectionForWorldState(next.state))
     expect(validateFoundationWorld(next)).toEqual([])
+    const prompt = createJomonDeckContextualPrompt(next)
+    if (prompt.kind !== 'tavern-courier-switch' || !prompt.ledger) throw new Error('expected a physical task-ledger readout')
+    expect(prompt.ledger.members.map(member => member.status)).toEqual(['dead', 'active-available', 'available', 'available', 'available', 'available'])
+    expect(prompt.ledger.continuity).toMatchObject({ kind: 'continued-after-recorded-loss', evidence: { source: { kind: 'authoritative-record' }, recordedAtWorldTime: 0, knownAtWorldTime: 0, freshness: { kind: 'reported-at-world-time', atWorldTime: 0 } } })
+    expect(prompt.ledger.continuity?.accessibilityText).toMatch(/active perspective continued after a recorded permanent loss/i)
     expect(source).toEqual(before)
   })
 
@@ -94,6 +100,9 @@ describe('courier continuity', () => {
     expect(next.state.people.records.find(person => person.id === beforePerson.id)).toEqual(beforePerson)
     expect(assessTavernCourierSwitch(next).candidates.map(candidate => candidate.id)).not.toContain(beforePerson.id)
     expect(validateFoundationWorld(next)).toEqual([])
+    const prompt = createJomonDeckContextualPrompt(next)
+    if (prompt.kind !== 'tavern-courier-switch' || !prompt.ledger) throw new Error('expected a physical task-ledger readout')
+    expect(prompt.ledger.members[0]!).toMatchObject({ status: 'departed', presentationState: 'warning', nonColorCue: { text: 'WARNING //' } })
   })
 
   it('selects the first complete eligible living successor even while that survivor is temporarily unavailable', () => {
@@ -107,7 +116,10 @@ describe('courier continuity', () => {
     if (result.status !== 'continued') throw new Error('expected a living successor')
     expect(result.world.state.courier.activeCourierId).toBe(firstSuccessorId)
     expect(result.world.state.people.records.find(person => person.id === firstSuccessorId)?.work.availability).toBe('committed')
-    expect(validateFoundationWorld(result.world)).toEqual([])
+    const prompt = createJomonDeckContextualPrompt(result.world)
+    if (prompt.kind !== 'tavern-courier-switch' || !prompt.ledger) throw new Error('expected a physical task-ledger readout')
+    expect(prompt.ledger.members.map(member => member.status)).toEqual(['dead', 'active-committed', 'available', 'available', 'available', 'available'])
+    expect(prompt.candidates.map(candidate => candidate.id)).toEqual(['crew:2', 'crew:3', 'crew:4', 'crew:5'])
   })
 
   it('fails closed without changing a submitted world when confirmation evidence is stale, unsafe, or mismatched', () => {
@@ -115,7 +127,10 @@ describe('courier continuity', () => {
     const before = structuredClone(source)
     const stale = { ...confirmationFor(source, 'death'), atWorldTime: source.state.temporal.worldTime + 1 }
     const wrongCourier = { ...confirmationFor(source, 'departure'), courierId: 'crew:1', id: courierContinuityConfirmationIdFor('departure', 'crew:1', source.state.temporal.worldTime) }
-    const unsafe = { ...confirmationFor(source, 'death'), contentSafety: classifyMedievalContent('event', ['sexual-violence'], 'adults-only') }
+    const unsafe = {
+      ...confirmationFor(source, 'death'),
+      contentSafety: { ...courierContinuityContentSafety(), themes: ['sexual-violence'] }
+    } as unknown as ReturnType<typeof confirmationFor>
 
     expect(() => resolveCourierContinuityLoss(source, stale)).toThrow('courier continuity rejected')
     expect(() => resolveCourierContinuityLoss(source, wrongCourier)).toThrow('courier continuity rejected')

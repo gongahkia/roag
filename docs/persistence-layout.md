@@ -33,6 +33,8 @@ Snapshots can be inspected without mutation. Restore is explicit; it uses the sa
 
 `MedievalWorldRepository.resolveCourierContinuityLoss()` is the narrow transactional bridge for the renderer-independent loss reducer. A continuing result validates and atomically replaces the exact stored active source, updates its derived index/snapshot ring, and rejects stale or forged submitted source without touching the stored world. A crew-extinction result uses the existing active-to-read-only-chronicle finalization transaction, atomically deleting the matching active source and adding its chronicle. No browser record is rewritten on read, and no mutable household/person/departure side record exists.
 
+Terminal presentation v9 and detailed-renderer adapter v3 add only discardable source-backed physical task-ledger readout data after a world is validated. The readout is neither an envelope field nor a browser persistence record: it creates no store, index, snapshot, migration, layout change, or read-time rewrite.
+
 Focused cross-contract coverage uses a deterministic active-world replacement to create a valid snapshot, then proves that a stale finalization source and a forged snapshot source both fail closed without changing the current active envelope, catalog entry, or corrupt stored record. It does not connect a courier-loss or Jomon-integrity policy intent to repository finalization: callers must still explicitly invoke their owning world and repository operations.
 
 ## Offline backups

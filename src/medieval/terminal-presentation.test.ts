@@ -21,6 +21,7 @@ import {
   validateTerminalPresentationModel,
   validateTerminalPresentationProjection,
   validateTerminalPrompt,
+  validateTerminalTavernLedgerReadout,
   type TerminalGlyphCatalog,
   type TerminalMapViewport,
   type TerminalMaterializedCell,
@@ -110,21 +111,25 @@ describe('terminal presentation contract', () => {
     expect(first.map.cells.filter(cell => cell.id === 'terminal-marker:active-courier')).toEqual([expect.objectContaining({ glyph: expect.objectContaining({ id: 'person:active-courier' }), coordinate: { column: 4, row: 4 }, paletteToken: 'selectedText', presentationState: 'ready', contentDomain: 'person' })])
     expect(first.map.cells.filter(cell => cell.id !== 'terminal-marker:active-courier')).toHaveLength(113)
     expect(first.map.cells.filter(cell => cell.coordinate.column === 4 && cell.coordinate.row === 4)).toHaveLength(2)
-    expect(first.map.accessibilityText).toMatch(/static Jomon deck map.*active courier marker.*full deck known.*tavern task ledger supports courier switching.*no cargo, other people, hazards, travel, rest, conversation, loss, or succession/i)
+    expect(first.map.accessibilityText).toMatch(/static Jomon deck map.*active courier marker.*full deck known.*tavern task ledger supports zero-time courier switching.*availability\/loss readout.*no cargo, other people, hazards, travel, rest, or conversation.*loss continuity is read-only/i)
     expect(first.legend.entries.map(entry => entry.glyph.id)).toEqual([
       'person:active-courier', 'route:quay-approach', 'vessel:gangplank', 'vessel:hull-planking', 'vessel:open-deck'
     ])
     expect(first.legend.entries.map(entry => entry.id)).toEqual([...first.legend.entries.map(entry => entry.id)].sort())
     expect(first.legend.entries.every(entry => entry.accessibilityText.includes('Source ') && entry.accessibilityText.includes('known at world minute'))).toBe(true)
     expect(first.legend.movementText).toMatch(/successful local step advances one action minute.*blocked.*no world state or time/i)
-    expect(first.legend.limitationsText).toMatch(/fixed known deck.*tavern task ledger.*zero-time courier switch.*no cargo, NPC, hazard, travel, fog, rest, conversation, loss, succession, or other prop action/i)
+    expect(first.legend.limitationsText).toMatch(/fixed known deck.*tavern task ledger.*availability\/loss readout.*zero-time courier switch.*no cargo, NPC, hazard, travel, fog, rest, conversation, succession, or other prop action/i)
     expect(first.accessibility.legendText).toEqual(first.legend.accessibilityText)
     expect(first.messages).toEqual([])
     expect(first.prompts).toEqual([expect.objectContaining({
       kind: 'tavern-courier-switch',
       source: { propBindingId: 'deck-prop-binding:prop:task-ledger', propId: 'prop:task-ledger', areaId: 'tavern', coordinate: { column: 4, row: 4 } },
       current: expect.objectContaining({ id: world.state.courier.activeCourierId }),
-      candidates: initialHouseholdActiveCrew(world.crew).filter(candidate => candidate.id !== world.state.courier.activeCourierId)
+      candidates: initialHouseholdActiveCrew(world.crew).filter(candidate => candidate.id !== world.state.courier.activeCourierId),
+      ledger: expect.objectContaining({
+        id: 'terminal-ledger:task-ledger',
+        members: initialHouseholdActiveCrew(world.crew).map((member, index) => expect.objectContaining({ id: member.id, status: index === 0 ? 'active-available' : 'available' }))
+      })
     })])
     expect(first.sidebarBoundary).toEqual({ relationship: 'separate-household-known-strategic-surface', duplicatedStrategicFactCategories: [] })
     expect(encoded).not.toContain(world.initialWorld.id)
@@ -281,6 +286,56 @@ describe('terminal presentation contract', () => {
     const unsafePrompt = structuredClone(prompt)
     ;(unsafePrompt.contentSafety.exclusions as unknown as Record<string, string>).slavery = 'present'
     expect(validateTerminalPrompt(unsafePrompt).map(item => item.code)).toContain('content-safety.prohibited.slavery')
+  })
+
+  it('shows only the canonical physical ledger readout at its anchor and rejects forged status, identity, semantic, evidence, and safety data', () => {
+    const world = selectedWorld('terminal-ledger-readout')
+    const before = structuredClone(world)
+    const prompt = createJomonDeckContextualPrompt(world)
+    if (prompt.kind !== 'tavern-courier-switch' || !prompt.ledger) throw new Error('expected the task-ledger readout at its anchor')
+    const ledger = prompt.ledger
+    const encoded = JSON.stringify(ledger)
+
+    expect(validateTerminalTavernLedgerReadout(ledger)).toEqual([])
+    expect(ledger.members.map(member => member.id)).toEqual(initialHouseholdActiveCrew(world.crew).map(member => member.id))
+    expect(ledger.members.map(member => member.status)).toEqual(['active-available', 'available', 'available', 'available', 'available', 'available'])
+    expect(ledger.members[0]).toMatchObject({ paletteToken: 'selectedText', presentationState: 'ready', nonColorCue: { key: 'activeState', text: 'ACTIVE' } })
+    expect(ledger.members.slice(1).every(member => member.paletteToken === 'statusReady' && member.nonColorCue.text === '+')).toBe(true)
+    expect(ledger.members.every(member => member.accessibilityText.includes('Source household state') && member.accessibilityText.includes('current at world minute 0'))).toBe(true)
+    expect(ledger.accessibilityText).toMatch(/physical tavern task ledger readout.*6 canonical household members.*inspection and selection are zero-time/i)
+    expect(encoded).not.toContain(world.initialWorld.id)
+    expect(encoded).not.toContain(world.initialWorld.people[0]!.id)
+    expect(encoded).not.toContain(world.state.geography.frontier.regions[0]!.commitment.id)
+    expect(encoded).not.toContain('possessions')
+    expect(encoded).not.toContain('relationships')
+    expect(encoded).not.toContain('memories')
+
+    const reordered = structuredClone(ledger)
+    reordered.members = [...reordered.members].reverse()
+    expect(validateTerminalTavernLedgerReadout(reordered).map(item => item.code)).toContain('terminal-presentation.invalid-prompt')
+    const duplicate = structuredClone(ledger)
+    duplicate.members[1]!.id = duplicate.members[0]!.id
+    expect(validateTerminalTavernLedgerReadout(duplicate).map(item => item.code)).toContain('terminal-presentation.invalid-prompt')
+    const invented = structuredClone(ledger) as unknown as { members: Array<Record<string, unknown>> }
+    invented.members[0]!.hiddenPersonId = 'initial:forged'
+    expect(validateTerminalTavernLedgerReadout(invented).map(item => item.code)).toContain('terminal-presentation.invalid-prompt')
+    const wrongSemantic = structuredClone(ledger)
+    wrongSemantic.members[0]!.nonColorCue = terminalNonColorCueFor('ready')
+    expect(validateTerminalTavernLedgerReadout(wrongSemantic).map(item => item.code)).toContain('terminal-presentation.invalid-prompt')
+    const wrongPalette = structuredClone(ledger)
+    wrongPalette.members[0]!.paletteToken = 'statusRisk'
+    expect(validateTerminalTavernLedgerReadout(wrongPalette).map(item => item.code)).toContain('terminal-presentation.invalid-prompt')
+    const stale = structuredClone(ledger)
+    stale.members[0]!.evidence.freshness = { kind: 'timeless' }
+    expect(validateTerminalTavernLedgerReadout(stale).map(item => item.code)).toContain('terminal-presentation.invalid-prompt')
+    const unsafe = structuredClone(ledger)
+    ;(unsafe.members[0]!.contentSafety.exclusions as unknown as Record<string, string>).torture = 'present'
+    expect(validateTerminalTavernLedgerReadout(unsafe).map(item => item.code)).toContain('content-safety.prohibited.torture')
+    const forgedPrompt = structuredClone(prompt)
+    forgedPrompt.ledger!.members[0]!.status = 'dead'
+    expect(validateTerminalPrompt(forgedPrompt).map(item => item.code)).toContain('terminal-presentation.invalid-prompt')
+
+    expect(world).toEqual(before)
   })
 
   it('detects keyboard binding conflicts and distinguishes implemented deck controls from later-only prompt surfaces', () => {

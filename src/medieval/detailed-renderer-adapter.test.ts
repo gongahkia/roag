@@ -40,7 +40,14 @@ const auditTerminal = (terminal: TerminalPresentationModel) => auditMedievalCont
   ...terminal.legend.entries.map(item => ({ id: `terminal-presentation:legend-entry:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...terminal.status.map(item => ({ id: `terminal-presentation:status:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...terminal.messages.map(item => ({ id: `terminal-presentation:message:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
-  ...terminal.prompts.map(item => ({ id: `terminal-presentation:prompt:${item.id}`, domain: item.contentDomain, classification: item.contentSafety }))
+  ...terminal.prompts.flatMap(item => [
+    { id: `terminal-presentation:prompt:${item.id}`, domain: item.contentDomain, classification: item.contentSafety },
+    ...(item.kind !== 'tavern-courier-switch' || item.ledger === undefined ? [] : [
+      { id: `terminal-presentation:ledger:${item.ledger.id}`, domain: item.ledger.contentDomain, classification: item.ledger.contentSafety },
+      ...item.ledger.members.map(member => ({ id: `terminal-presentation:ledger-member:${member.id}`, domain: member.contentDomain, classification: member.contentSafety })),
+      ...(item.ledger.continuity === undefined ? [] : [{ id: `terminal-presentation:ledger-continuity:${item.ledger.continuity.kind}`, domain: item.ledger.continuity.contentDomain, classification: item.ledger.continuity.contentSafety }])
+    ])
+  ])
 ])
 
 const terminalWithFutureShapes = (world = selectedWorld('detailed-future-shapes')): TerminalPresentationModel => {
@@ -177,6 +184,21 @@ describe('detailed renderer adapter contract', () => {
     expect(encoded).not.toContain('anonymousRoles')
     expect(model.accessibility.mapText).toEqual(bundle.terminal.accessibility.mapText)
     expect(model.accessibility.sidebarText.every(text => /Source .*Known at world minute/u.test(text))).toBe(true)
+  })
+
+  it('forwards the exact source-backed physical ledger readout through parity without admitting world or input authority', () => {
+    const bundle = sourceBundle('detailed-ledger-readout')
+    const model = createDetailedRendererAdapterModel(bundle)
+    const terminalPrompt = bundle.terminal.prompts[0]
+    const detailedPrompt = model.prompts[0]
+    if (!terminalPrompt || terminalPrompt.kind !== 'tavern-courier-switch' || !terminalPrompt.ledger || !detailedPrompt) throw new Error('expected a task-ledger presentation prompt')
+
+    expect(detailedPrompt.prompt).toEqual(terminalPrompt)
+    expect(detailedPrompt.metadata).toMatchObject({ sourceItemId: terminalPrompt.id, evidence: terminalPrompt.evidence, contentDomain: 'player-facing-text' })
+    expect((detailedPrompt.prompt as typeof terminalPrompt).ledger).toEqual(terminalPrompt.ledger)
+    expect(model.interactionBoundary).toEqual({ sharesEffectiveCommandIds: true, promptCancellation: 'cancelled-no-mutation', executesInput: false, advancesWorldTime: false, mutatesWorld: false })
+    expect(JSON.stringify(model)).not.toContain('initial:watershed')
+    expect(reportDetailedRendererParity(bundle, model)).toMatchObject({ status: 'accepted', diagnostics: [] })
   })
 
   it('preserves source-to-detailed one-to-one mappings for empty and future typed message/prompt shapes, effective controls, and accessibility', () => {

@@ -59,15 +59,15 @@ describe('medieval performance fixture contract', () => {
       scenario.retainedStateGrowth.delta.causalHistoryTail,
       scenario.dueEvents.singleProjectionCanonicalBytes
     ])).toEqual([
-      ['sheltered-reach-focused', 190842, 255769, 64927, 12, 19, 2, 2796],
-      ['sheltered-reach-balanced', 191092, 273868, 82776, 16, 25, 2, 3716],
-      ['sheltered-reach-deep', 190821, 279353, 88532, 18, 27, 2, 4212],
-      ['watershed-focused', 194934, 259808, 64874, 12, 19, 2, 2806],
-      ['watershed-balanced', 194803, 283088, 88285, 17, 27, 2, 3959],
-      ['watershed-deep', 194808, 294533, 99725, 21, 31, 2, 4950],
-      ['far-coast-focused', 208866, 273659, 64793, 12, 19, 2, 2805],
-      ['far-coast-balanced', 208488, 302293, 93805, 18, 29, 2, 4199],
-      ['far-coast-deep', 208216, 313570, 105354, 22, 33, 2, 5196]
+      ['sheltered-reach-focused', 190864, 255791, 64927, 12, 19, 2, 2796],
+      ['sheltered-reach-balanced', 191114, 273890, 82776, 16, 25, 2, 3716],
+      ['sheltered-reach-deep', 190844, 279376, 88532, 18, 27, 2, 4212],
+      ['watershed-focused', 194959, 259833, 64874, 12, 19, 2, 2806],
+      ['watershed-balanced', 194829, 283114, 88285, 17, 27, 2, 3959],
+      ['watershed-deep', 194830, 294555, 99725, 21, 31, 2, 4950],
+      ['far-coast-focused', 208892, 273685, 64793, 12, 19, 2, 2805],
+      ['far-coast-balanced', 208513, 302318, 93805, 18, 29, 2, 4199],
+      ['far-coast-deep', 208236, 313590, 105354, 22, 33, 2, 5196]
     ])
     expect(scenarios.every(scenario => scenario.envelopeSizes.before.withinBudget && scenario.envelopeSizes.after.withinBudget)).toBe(true)
     expect(scenarios.every(scenario => scenario.dueEvents.partitionInvariant && scenario.dueEvents.partitionedProjectionCanonicalBytes === scenario.dueEvents.singleProjectionCanonicalBytes)).toBe(true)

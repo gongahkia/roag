@@ -1,7 +1,9 @@
 import { auditMedievalContentSafety, classifyMedievalContent, contentSafetyAuditMatches, type ClassifiedMedievalContent, type MedievalContentDomain, type MedievalContentSafetyAudit, type MedievalContentSafetyClassification, type MedievalContentSafetyDiagnosticCode } from './content-safety'
 import { JOMON_ASCII_GLYPH_CATALOG, terminalGlyphCatalog, terminalGlyphReferenceFor } from './ascii-glyphs'
+import { INITIAL_HOUSEHOLD_EQUIPMENT_BY_ROLE, INITIAL_HOUSEHOLD_ROSTER_SIZE, initialHouseholdActiveCrew } from './initial-household'
 import { deriveJomonDeckPlan, deriveJomonDeckPlanForVerifiedWorld } from './jomon-deck-plan'
 import { assessTavernCourierSwitchForVerifiedWorld, type TavernCourierSwitchSource } from './tavern-courier-switch'
+import type { CourierLossResolvedCommand } from './causal-history'
 import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE, type JomonPaletteToken } from './palette'
 import {
   TERMINAL_GLYPH_VOCABULARY_ID,
@@ -38,8 +40,8 @@ export type {
  * future detailed adapter consume that same projection without omitting or
  * inventing consequential information.
  */
-/** v8 distinguishes unselected creation from a validated read-only crew-extinction state. */
-export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 8 as const
+/** v9 adds the source-backed physical task-ledger availability/loss readout. */
+export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 9 as const
 export const TERMINAL_MAP_LEGEND_CONTRACT_VERSION = 1 as const
 
 export const TERMINAL_PRESENTATION_LIMITS = {
@@ -236,6 +238,56 @@ export interface TerminalCourierSwitchCandidate {
   conversation: 1 | 2 | 3 | 4 | 5
 }
 
+export const TERMINAL_TAVERN_LEDGER_MEMBER_STATUSES = [
+  'active-available',
+  'active-committed',
+  'active-temporarily-unavailable',
+  'available',
+  'committed',
+  'temporarily-unavailable',
+  'departed',
+  'dead'
+] as const
+export type TerminalTavernLedgerMemberStatus = typeof TERMINAL_TAVERN_LEDGER_MEMBER_STATUSES[number]
+
+/**
+ * A member fact deliberately contains only canonical household selection data
+ * plus a bounded current status. It is not a persistent-person copy.
+ */
+export interface TerminalTavernLedgerMember extends TerminalCourierSwitchCandidate {
+  status: TerminalTavernLedgerMemberStatus
+  paletteToken: JomonPaletteToken
+  presentationState: TerminalPresentationState
+  nonColorCue: TerminalNonColorCue
+  accessibilityText: string
+  evidence: TerminalEvidenceProvenance
+  contentDomain: 'person'
+  contentSafety: MedievalContentSafetyClassification
+}
+
+/** A direct retained causal command may establish this concise consequence. */
+export interface TerminalTavernLedgerContinuity {
+  kind: 'continued-after-recorded-loss'
+  accessibilityText: string
+  evidence: TerminalEvidenceProvenance
+  contentDomain: 'event'
+  contentSafety: MedievalContentSafetyClassification
+}
+
+/**
+ * The ledger is shown only at its physical anchor. It has no reducer, location,
+ * persistence, or roster authority; the prompt remains its presentation owner.
+ */
+export interface TerminalTavernLedgerReadout {
+  id: 'terminal-ledger:task-ledger'
+  members: readonly TerminalTavernLedgerMember[]
+  continuity?: TerminalTavernLedgerContinuity
+  accessibilityText: string
+  evidence: TerminalEvidenceProvenance
+  contentDomain: 'player-facing-text'
+  contentSafety: MedievalContentSafetyClassification
+}
+
 /** The presentation-only counterpart of the source-backed tavern operation. */
 export interface TerminalTavernCourierSwitchPrompt {
   id: string
@@ -247,6 +299,8 @@ export interface TerminalTavernCourierSwitchPrompt {
   source: TavernCourierSwitchSource
   current: TerminalCourierSwitchCandidate
   candidates: readonly TerminalCourierSwitchCandidate[]
+  /** Present only at the verified physical task-ledger anchor. */
+  ledger?: TerminalTavernLedgerReadout
   options: readonly TerminalPromptOption[]
   cancellation: { key: 'Escape'; outcome: 'cancelled-no-mutation'; advancesWorldTime: false }
 }
@@ -769,7 +823,7 @@ const mapForDeckPlan = (world: FoundationWorld, plan: ReturnType<typeof deriveJo
     },
     cells,
     textEquivalent: 'Jomon deck plan with a known active courier position, quay approach, gangplank, hull boundary, and deck spaces.',
-    accessibilityText: `Known static Jomon deck map. Fixed ${plan.bounds.width} by ${plan.bounds.height} viewport with ${staticCells.length} deck and hull cells${marker === undefined ? '' : ' and one active courier marker'}. Symbols: # hull, = deck, / gangplank, ) quay, @ active adult courier. Full deck known; ${marker === undefined && world.state.courier.initialCourierId !== undefined ? 'no active courier remains and crew-extinction is read-only.' : 'the tavern task ledger supports courier switching only when the active courier stands at its anchor.'} No cargo, other people, hazards, travel, rest, conversation, loss, or succession.`,
+    accessibilityText: `Known static Jomon deck map. Fixed ${plan.bounds.width} by ${plan.bounds.height} viewport with ${staticCells.length} deck and hull cells${marker === undefined ? '' : ' and one active courier marker'}. Symbols: # hull, = deck, / gangplank, ) quay, @ active adult courier. Full deck known; ${marker === undefined && world.state.courier.initialCourierId !== undefined ? 'no active courier remains and crew-extinction is read-only.' : 'the tavern task ledger supports zero-time courier switching and its source-backed availability/loss readout only when the active courier stands at its anchor.'} No cargo, other people, hazards, travel, rest, or conversation; recorded loss continuity is read-only.`,
     evidence: presentationEvidence('terminal-presentation:jomon-deck-plan'),
     contentDomain: 'player-facing-text',
     contentSafety: baseClassification()
@@ -831,7 +885,7 @@ const rawTerminalMapLegend = (map: TerminalMaterializedMap): TerminalMapLegend =
   if (!glyphIds.length || glyphIds.length > TERMINAL_PRESENTATION_LIMITS.legendEntries) throw new Error('terminal map legend has an invalid visible glyph set')
   const entries = glyphIds.map(glyphId => legendEntryFor(map, glyphId))
   const movementText = 'Known fixed local deck only. A successful local step advances one action minute; a blocked hull, boundary, non-walkable, or diagonal-corner step changes no world state or time.'
-  const limitationsText = 'Fixed known deck. The tavern task ledger alone supports a zero-time courier switch at its anchor; no cargo, NPC, hazard, travel, fog, rest, conversation, loss, succession, or other prop action.'
+  const limitationsText = 'Fixed known deck. At its anchor, the tavern task ledger shows a zero-time availability/loss readout and supports a zero-time courier switch; no cargo, NPC, hazard, travel, fog, rest, conversation, succession, or other prop action.'
   return {
     version: TERMINAL_MAP_LEGEND_CONTRACT_VERSION,
     entries,
@@ -877,6 +931,16 @@ const orderedStatus = (world: FoundationWorld, map: TerminalMaterializedMap): re
 
 const canonicalById = <Value extends { id: string }>(values: readonly Value[]): readonly Value[] => [...values].sort((left, right) => compare(left.id, right.id))
 
+const ledgerContentRecordsForPrompt = (item: TerminalPrompt): readonly ClassifiedMedievalContent[] => {
+  if (item.kind !== 'tavern-courier-switch' || item.ledger === undefined) return []
+  const ledger = item.ledger
+  return [
+    { id: `terminal-presentation:ledger:${ledger.id}`, domain: ledger.contentDomain, classification: ledger.contentSafety },
+    ...ledger.members.map(member => ({ id: `terminal-presentation:ledger-member:${member.id}`, domain: member.contentDomain, classification: member.contentSafety })),
+    ...(ledger.continuity === undefined ? [] : [{ id: `terminal-presentation:ledger-continuity:${ledger.continuity.kind}`, domain: ledger.continuity.contentDomain, classification: ledger.continuity.contentSafety }])
+  ]
+}
+
 const modelContentRecords = (map: TerminalMapSurface, legend: TerminalMapLegend, status: readonly TerminalStatusItem[], messages: readonly TerminalMessage[], prompts: readonly TerminalPrompt[]): readonly ClassifiedMedievalContent[] => [
   { id: 'terminal-presentation:map', domain: map.contentDomain, classification: map.contentSafety },
   ...map.cells.map(cell => ({ id: `terminal-presentation:map-cell:${cell.id}`, domain: cell.contentDomain, classification: cell.contentSafety })),
@@ -884,7 +948,10 @@ const modelContentRecords = (map: TerminalMapSurface, legend: TerminalMapLegend,
   ...legend.entries.map(entry => ({ id: `terminal-presentation:legend-entry:${entry.id}`, domain: entry.contentDomain, classification: entry.contentSafety })),
   ...status.map(item => ({ id: `terminal-presentation:status:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...messages.map(item => ({ id: `terminal-presentation:message:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
-  ...prompts.map(item => ({ id: `terminal-presentation:prompt:${item.id}`, domain: item.contentDomain, classification: item.contentSafety }))
+  ...prompts.flatMap(item => [
+    { id: `terminal-presentation:prompt:${item.id}`, domain: item.contentDomain, classification: item.contentSafety },
+    ...ledgerContentRecordsForPrompt(item)
+  ])
 ]
 
 const accessibilityFor = (map: TerminalMapSurface, legend: TerminalMapLegend, status: readonly TerminalStatusItem[], messages: readonly TerminalMessage[], prompts: readonly TerminalPrompt[]): TerminalAccessibilityModel => ({
@@ -952,6 +1019,133 @@ const promptCandidate = (candidate: { id: string; name: string; role: string; co
   conversation: candidate.conversation
 })
 
+const ledgerPresentation = (status: TerminalTavernLedgerMemberStatus): Pick<TerminalTavernLedgerMember, 'paletteToken' | 'presentationState' | 'nonColorCue'> => {
+  if (status.startsWith('active-')) return {
+    paletteToken: 'selectedText',
+    presentationState: 'ready',
+    nonColorCue: { key: 'activeState', text: JOMON_NON_COLOR_STATE_CUES.activeState }
+  }
+  if (status === 'available') return {
+    paletteToken: TERMINAL_STATE_PRESENTATIONS.ready.paletteToken,
+    presentationState: 'ready',
+    nonColorCue: terminalNonColorCueFor('ready')
+  }
+  if (status === 'committed') return {
+    paletteToken: TERMINAL_STATE_PRESENTATIONS.waiting.paletteToken,
+    presentationState: 'waiting',
+    nonColorCue: terminalNonColorCueFor('waiting')
+  }
+  if (status === 'temporarily-unavailable' || status === 'departed') return {
+    paletteToken: TERMINAL_STATE_PRESENTATIONS.warning.paletteToken,
+    presentationState: 'warning',
+    nonColorCue: terminalNonColorCueFor('warning')
+  }
+  return {
+    paletteToken: TERMINAL_STATE_PRESENTATIONS.risk.paletteToken,
+    presentationState: 'risk',
+    nonColorCue: terminalNonColorCueFor('risk')
+  }
+}
+
+const ledgerStatusFor = (
+  memberId: string,
+  activeCourierId: string,
+  departedCourierIds: ReadonlySet<string>,
+  person: FoundationWorld['state']['people']['records'][number] | undefined
+): TerminalTavernLedgerMemberStatus => {
+  if (memberId === activeCourierId) {
+    if (person?.work.availability === 'committed') return 'active-committed'
+    if (person?.work.availability === 'unavailable') return 'active-temporarily-unavailable'
+    return 'active-available'
+  }
+  if (person?.life.status === 'dead') return 'dead'
+  if (departedCourierIds.has(memberId)) return 'departed'
+  if (person?.work.availability === 'committed') return 'committed'
+  if (person?.work.availability === 'unavailable') return 'temporarily-unavailable'
+  return 'available'
+}
+
+const ledgerStatusText = (status: TerminalTavernLedgerMemberStatus): string => {
+  if (status === 'active-available') return 'ACTIVE // AVAILABLE'
+  if (status === 'active-committed') return 'ACTIVE // COMMITTED'
+  if (status === 'active-temporarily-unavailable') return 'ACTIVE // TEMPORARILY UNAVAILABLE'
+  if (status === 'available') return 'AVAILABLE'
+  if (status === 'committed') return 'COMMITTED'
+  if (status === 'temporarily-unavailable') return 'TEMPORARILY UNAVAILABLE'
+  if (status === 'departed') return 'PERMANENTLY DEPARTED'
+  return 'DEAD'
+}
+
+const ledgerMemberClassification = (world: FoundationWorld, memberId: string): MedievalContentSafetyClassification => {
+  const source = world.crew.find(member => member.id === memberId)
+  if (!source) throw new Error(`missing immutable household source for ${memberId}`)
+  return structuredClone(source.contentSafety)
+}
+
+const continuedLossCommandFor = (world: FoundationWorld): CourierLossResolvedCommand | undefined => {
+  const activeCourierId = world.state.courier.activeCourierId
+  if (activeCourierId === undefined) return undefined
+  return [...world.state.causalHistory.tail].reverse().find((command): command is CourierLossResolvedCommand => command.kind === 'courier-loss-resolved'
+    && command.payload.finalization === 'continue'
+    && command.payload.successorId === activeCourierId)
+}
+
+const ledgerContinuityFor = (world: FoundationWorld): TerminalTavernLedgerContinuity | undefined => {
+  const command = continuedLossCommandFor(world)
+  if (!command) return undefined
+  const recordedAtWorldTime = command.payload.confirmation.atWorldTime
+  return {
+    kind: 'continued-after-recorded-loss',
+    accessibilityText: `The active perspective continued after a recorded permanent loss. Source-backed record at world minute ${recordedAtWorldTime}; known current at world minute ${world.state.temporal.worldTime}.`,
+    evidence: {
+      source: { kind: 'authoritative-record', recordId: `causal-command:${command.id}` },
+      recordedAtWorldTime,
+      knownAtWorldTime: world.state.temporal.worldTime,
+      freshness: { kind: 'reported-at-world-time', atWorldTime: recordedAtWorldTime }
+    },
+    contentDomain: 'event',
+    contentSafety: structuredClone(command.contentSafety)
+  }
+}
+
+const ledgerReadoutForVerifiedWorld = (world: FoundationWorld): TerminalTavernLedgerReadout => {
+  const activeCourierId = world.state.courier.activeCourierId
+  if (activeCourierId === undefined) throw new Error('a physical ledger needs an active courier')
+  const people = new Map(world.state.people.records.map(person => [person.id, person]))
+  const departed = new Set(world.state.courier.departedCourierIds)
+  const knownAtWorldTime = world.state.temporal.worldTime
+  const members = initialHouseholdActiveCrew(world.crew).map(member => {
+    const status = ledgerStatusFor(member.id, activeCourierId, departed, people.get(member.id))
+    const semantic = ledgerPresentation(status)
+    const statusText = ledgerStatusText(status)
+    return {
+      ...promptCandidate(member),
+      status,
+      ...semantic,
+      accessibilityText: `${member.name}, ${member.role}: ${statusText}. ${semantic.nonColorCue.text} cue; ${semantic.presentationState} semantic state. Source household state; current at world minute ${knownAtWorldTime}.`,
+      evidence: currentWorldEvidence(`person:${member.id}`, knownAtWorldTime),
+      contentDomain: 'person' as const,
+      contentSafety: ledgerMemberClassification(world, member.id)
+    } satisfies TerminalTavernLedgerMember
+  })
+  const continuity = ledgerContinuityFor(world)
+  const statusSummary = members.map(member => `${member.name}: ${ledgerStatusText(member.status)}`).join('; ')
+  return {
+    id: 'terminal-ledger:task-ledger',
+    members,
+    ...(continuity === undefined ? {} : { continuity }),
+    accessibilityText: `Physical tavern task ledger readout. ${members.length} canonical household members in household order: ${statusSummary}. ${continuity?.accessibilityText ?? 'No retained continuity-transfer summary is currently displayed.'} Inspection and selection are zero-time; Escape cancels without mutation.`,
+    evidence: {
+      source: { kind: 'authoritative-record', recordId: 'deck-prop-binding:prop:task-ledger' },
+      recordedAtWorldTime: knownAtWorldTime,
+      knownAtWorldTime,
+      freshness: { kind: 'current' }
+    },
+    contentDomain: 'player-facing-text',
+    contentSafety: baseClassification()
+  }
+}
+
 /** Reuses complete world validation already performed by the presentation boundary. */
 const createJomonDeckContextualPromptForVerifiedWorld = (world: FoundationWorld): TerminalPrompt => {
   if (world.state.courier.initialCourierId === undefined) {
@@ -1013,6 +1207,10 @@ const createJomonDeckContextualPromptForVerifiedWorld = (world: FoundationWorld)
     return prompt
   }
   const assessment = assessTavernCourierSwitchForVerifiedWorld(world, world.state)
+  const atLedgerAnchor = world.state.navigation.coordinate?.column === assessment.source.coordinate.column
+    && world.state.navigation.coordinate?.row === assessment.source.coordinate.row
+    && world.state.navigation.courierId === world.state.courier.activeCourierId
+  const ledger = atLedgerAnchor ? ledgerReadoutForVerifiedWorld(world) : undefined
   const disabledReason = assessment.status === 'unavailable' ? assessment.reason : undefined
   const option: TerminalPromptOption = {
     id: `terminal-prompt-option:tavern-ledger:${world.id}`,
@@ -1032,7 +1230,7 @@ const createJomonDeckContextualPromptForVerifiedWorld = (world: FoundationWorld)
     id: `terminal-prompt:jomon-deck:${world.id}`,
     kind: 'tavern-courier-switch',
     accessibilityText: assessment.status === 'available'
-      ? `Tavern task ledger courier switch. Current courier ${assessment.current.name}, ${assessment.current.role}; ${assessment.candidates.length} alternate eligible living available household member${assessment.candidates.length === 1 ? '' : 's'} in canonical household order. Arrow keys select, Enter confirms a zero-time viewpoint switch, Escape cancels. Cargo, travel, rest, conversation, loss, and succession remain unavailable.`
+      ? `Tavern task ledger courier switch. Current courier ${assessment.current.name}, ${assessment.current.role}; ${assessment.candidates.length} alternate eligible living available household member${assessment.candidates.length === 1 ? '' : 's'} in canonical household order. ${ledger?.accessibilityText ?? 'The physical ledger availability readout is unavailable away from its anchor.'} Arrow keys select, Enter confirms a zero-time viewpoint switch, Escape cancels. Cargo, travel, rest, conversation, and other prop actions remain unavailable; recorded loss continuity is read-only.`
       : `Tavern task ledger courier switch unavailable: ${option.accessibilityText} Current courier ${assessment.current.name}, ${assessment.current.role}.`,
     evidence: {
       source: { kind: 'authoritative-record', recordId: assessment.source.propBindingId },
@@ -1045,6 +1243,7 @@ const createJomonDeckContextualPromptForVerifiedWorld = (world: FoundationWorld)
     source: structuredClone(assessment.source),
     current: promptCandidate(assessment.current),
     candidates: assessment.candidates.map(promptCandidate),
+    ...(ledger === undefined ? {} : { ledger }),
     options: [option],
     cancellation: { key: 'Escape', outcome: 'cancelled-no-mutation', advancesWorldTime: false }
   }
@@ -1091,20 +1290,84 @@ const validPromptOption = (value: unknown): value is TerminalPromptOption => rec
   && validText(value.accessibilityText)
   && (value.availability === 'disabled' ? oneOf(TERMINAL_PROMPT_DISABLED_REASONS, value.disabledReason) : value.disabledReason === undefined)
 
+const validCourierIdentity = (value: unknown): value is TerminalCourierSwitchCandidate => record(value)
+  && validId(value.id) && typeof value.name === 'string' && value.name.length <= 96 && /^[A-Za-z]+ [A-Za-z]+$/u.test(value.name)
+  && typeof value.role === 'string' && Object.hasOwn(INITIAL_HOUSEHOLD_EQUIPMENT_BY_ROLE, value.role)
+  && typeof value.conversation === 'number' && Number.isSafeInteger(value.conversation) && value.conversation >= 1 && value.conversation <= 5
+
 const validCourierSwitchCandidate = (value: unknown): value is TerminalCourierSwitchCandidate => record(value)
   && hasOnlyKeys(value, ['id', 'name', 'role', 'conversation'])
-  && validId(value.id) && validText(value.name)
-  && ['bargemaster', 'pilot', 'factor', 'carpenter', 'guard', 'cook', 'healer', 'scribe', 'carter', 'fisher', 'bard'].includes(String(value.role))
-  && typeof value.conversation === 'number' && Number.isSafeInteger(value.conversation) && value.conversation >= 1 && value.conversation <= 5
+  && validCourierIdentity(value)
 
 const validTavernSource = (value: unknown): value is TavernCourierSwitchSource => record(value)
   && hasOnlyKeys(value, ['propBindingId', 'propId', 'areaId', 'coordinate'])
   && value.propBindingId === 'deck-prop-binding:prop:task-ledger' && value.propId === 'prop:task-ledger' && value.areaId === 'tavern'
   && record(value.coordinate) && hasOnlyKeys(value.coordinate, ['column', 'row']) && value.coordinate.column === 4 && value.coordinate.row === 4
 
-export const validateTerminalPrompt = (value: unknown): readonly TerminalPresentationDiagnostic[] => {
+const ledgerMemberSemanticMatches = (member: Record<string, unknown>): boolean => {
+  if (!oneOf(TERMINAL_TAVERN_LEDGER_MEMBER_STATUSES, member.status)) return false
+  const expected = ledgerPresentation(member.status)
+  return member.paletteToken === expected.paletteToken
+    && member.presentationState === expected.presentationState
+    && same(member.nonColorCue, expected.nonColorCue)
+}
+
+const validLedgerMember = (value: unknown): value is TerminalTavernLedgerMember => {
+  if (!record(value) || !hasOnlyKeys(value, ['id', 'name', 'role', 'conversation', 'status', 'paletteToken', 'presentationState', 'nonColorCue', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety']) || !validCourierIdentity(value) || !ledgerMemberSemanticMatches(value) || !validText(value.accessibilityText) || value.contentDomain !== 'person') return false
+  const evidence = record(value.evidence) ? value.evidence : undefined
+  const source = evidence && record(evidence.source) ? evidence.source : undefined
+  const freshness = evidence && record(evidence.freshness) ? evidence.freshness : undefined
+  if (validateTerminalEvidence(value.evidence).length || !source || !freshness || source.kind !== 'household-state' || source.recordId !== `person:${value.id}` || freshness.kind !== 'current') return false
+  return true
+}
+
+const validLedgerContinuity = (value: unknown): value is TerminalTavernLedgerContinuity => {
+  if (!record(value) || !hasOnlyKeys(value, ['kind', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety']) || value.kind !== 'continued-after-recorded-loss' || !validText(value.accessibilityText) || value.contentDomain !== 'event') return false
+  const evidence = record(value.evidence) ? value.evidence : undefined
+  const source = evidence && record(evidence.source) ? evidence.source : undefined
+  const freshness = evidence && record(evidence.freshness) ? evidence.freshness : undefined
+  if (validateTerminalEvidence(value.evidence).length || !source || !freshness || source.kind !== 'authoritative-record' || typeof source.recordId !== 'string' || !source.recordId.startsWith('causal-command:') || freshness.kind !== 'reported-at-world-time') return false
+  return true
+}
+
+/** Structural boundary for the compact physical readout; world comparison stays at the full terminal boundary. */
+export const validateTerminalTavernLedgerReadout = (value: unknown, includeContentSafety: boolean = true): readonly TerminalPresentationDiagnostic[] => {
+  if (!record(value) || !hasOnlyKeys(value, ['id', 'members', 'continuity', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety'].filter(key => key !== 'continuity' || Object.hasOwn(value, key))) || value.id !== 'terminal-ledger:task-ledger' || !Array.isArray(value.members) || value.members.length !== INITIAL_HOUSEHOLD_ROSTER_SIZE || !validText(value.accessibilityText) || value.contentDomain !== 'player-facing-text') return [issue('terminal-ledger:task-ledger', 'terminal-presentation.invalid-prompt')]
+  const diagnostics: TerminalPresentationDiagnostic[] = []
+  const evidence = record(value.evidence) ? value.evidence : undefined
+  const source = evidence && record(evidence.source) ? evidence.source : undefined
+  const freshness = evidence && record(evidence.freshness) ? evidence.freshness : undefined
+  if (validateTerminalEvidence(value.evidence).length || !source || !freshness || source.kind !== 'authoritative-record' || source.recordId !== 'deck-prop-binding:prop:task-ledger' || freshness.kind !== 'current') diagnostics.push(issue(value.id, 'terminal-presentation.invalid-prompt'))
+  const members = value.members as unknown[]
+  const names = new Set<string>()
+  const roles = new Set<string>()
+  for (const [index, candidate] of members.entries()) {
+    const id = record(candidate) && typeof candidate.id === 'string' ? candidate.id : `terminal-ledger-member:${index}`
+    if (!validLedgerMember(candidate) || !record(candidate) || candidate.id !== `crew:${index}`) {
+      diagnostics.push(issue(id, 'terminal-presentation.invalid-prompt'))
+      continue
+    }
+    if (names.has(candidate.name) || roles.has(candidate.role)) diagnostics.push(issue(id, 'terminal-presentation.invalid-prompt'))
+    names.add(candidate.name)
+    roles.add(candidate.role)
+  }
+  if (names.size !== INITIAL_HOUSEHOLD_ROSTER_SIZE || roles.size !== INITIAL_HOUSEHOLD_ROSTER_SIZE) diagnostics.push(issue(value.id, 'terminal-presentation.invalid-prompt'))
+  if (Object.hasOwn(value, 'continuity') && !validLedgerContinuity(value.continuity)) diagnostics.push(issue(value.id, 'terminal-presentation.invalid-prompt'))
+  const records: ClassifiedMedievalContent[] = [
+    { id: 'terminal-ledger:task-ledger', domain: value.contentDomain, classification: value.contentSafety as MedievalContentSafetyClassification },
+    ...members.filter(record).map(member => ({ id: `terminal-ledger-member:${typeof member.id === 'string' ? member.id : 'unknown'}`, domain: member.contentDomain as MedievalContentDomain, classification: member.contentSafety as MedievalContentSafetyClassification })),
+    ...(validLedgerContinuity(value.continuity) ? [{ id: 'terminal-ledger-continuity', domain: value.continuity.contentDomain, classification: value.continuity.contentSafety }] : [])
+  ]
+  if (includeContentSafety) {
+    const safety = auditMedievalContentSafety(records)
+    if (safety.status === 'rejected') diagnostics.push(...safety.diagnostics.map(item => issue(item.contentId, item.code)))
+  }
+  return canonicalDiagnostics(diagnostics)
+}
+
+export const validateTerminalPrompt = (value: unknown, includeContentSafety: boolean = true): readonly TerminalPresentationDiagnostic[] => {
   const baseKeys = ['id', 'kind', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety', 'options', 'cancellation']
-  const tavernKeys = [...baseKeys, 'source', 'current', 'candidates']
+  const tavernKeys = [...baseKeys, 'source', 'current', 'candidates', ...(record(value) && Object.hasOwn(value, 'ledger') ? ['ledger'] : [])]
   if (!record(value) || !hasOnlyKeys(value, value.kind === 'tavern-courier-switch' ? tavernKeys : baseKeys) || !validId(value.id) || (value.kind !== 'future-contextual-choice' && value.kind !== 'tavern-courier-switch') || !validText(value.accessibilityText) || !Array.isArray(value.options) || value.options.length > TERMINAL_PRESENTATION_LIMITS.promptOptions || !value.options.every(validPromptOption) || !record(value.cancellation) || !hasOnlyKeys(value.cancellation, ['key', 'outcome', 'advancesWorldTime']) || value.cancellation.key !== 'Escape' || value.cancellation.outcome !== 'cancelled-no-mutation' || value.cancellation.advancesWorldTime !== false) return [issue('terminal-prompt', 'terminal-presentation.invalid-prompt')]
   const evidence = validateTerminalEvidence(value.evidence)
   if (evidence.length || !record(value.evidence) || !record(value.evidence.source) || value.evidence.source.kind !== 'authoritative-record') return [issue(value.id, 'terminal-presentation.invalid-prompt')]
@@ -1122,11 +1385,25 @@ export const validateTerminalPrompt = (value: unknown): readonly TerminalPresent
       ? value.candidates as TerminalCourierSwitchCandidate[]
       : undefined
     const current = validCourierSwitchCandidate(value.current) ? value.current : undefined
-    if (!validTavernSource(value.source) || !current || !candidates || candidates.length > TERMINAL_PRESENTATION_LIMITS.promptOptions || candidates.some(candidate => candidate.id === current.id) || new Set(candidates.map(candidate => candidate.id)).size !== candidates.length || options.length !== 1 || options[0]!.intent !== 'tavern-courier-switch' || (options[0]!.availability === 'available' && (!options[0]!.requiresConfirmation || candidates.length === 0)) || (options[0]!.availability === 'disabled' && options[0]!.requiresConfirmation)) diagnostics.push(issue(value.id, 'terminal-presentation.invalid-prompt'))
+    const ledger = Object.hasOwn(value, 'ledger') ? value.ledger : undefined
+    const ledgerDiagnostics = ledger === undefined ? [] : validateTerminalTavernLedgerReadout(ledger, includeContentSafety)
+    if (!validTavernSource(value.source) || !current || !candidates || candidates.length > TERMINAL_PRESENTATION_LIMITS.promptOptions || candidates.some(candidate => candidate.id === current.id) || new Set(candidates.map(candidate => candidate.id)).size !== candidates.length || options.length !== 1 || options[0]!.intent !== 'tavern-courier-switch' || (options[0]!.availability === 'available' && (!options[0]!.requiresConfirmation || candidates.length === 0)) || (options[0]!.availability === 'disabled' && options[0]!.requiresConfirmation) || (record(value.evidence) && record(value.evidence.source) && value.evidence.source.recordId !== (value.source as TavernCourierSwitchSource).propBindingId)) diagnostics.push(issue(value.id, 'terminal-presentation.invalid-prompt'))
+    diagnostics.push(...ledgerDiagnostics)
+    if (ledger !== undefined && !ledgerDiagnostics.length && current && candidates) {
+      const members = (ledger as TerminalTavernLedgerReadout).members
+      const currentMember = members.find(member => member.id === current.id)
+      const candidateIndexes = candidates.map(candidate => members.findIndex(member => member.id === candidate.id))
+      if (!currentMember || !same(promptCandidate(currentMember), current) || !currentMember.status.startsWith('active-') || candidateIndexes.some(index => index < 0) || candidateIndexes.some((index, itemIndex) => itemIndex > 0 && candidateIndexes[itemIndex - 1]! >= index) || candidates.some((candidate, index) => {
+        const member = members[candidateIndexes[index]!]
+        return !member || member.status !== 'available' || !same(promptCandidate(member), candidate)
+      })) diagnostics.push(issue(value.id, 'terminal-presentation.invalid-prompt'))
+    }
   }
   if (options.some((option, index) => index > 0 && compare(options[index - 1]!.id, option.id) >= 0)) diagnostics.push(issue(value.id, 'terminal-presentation.invalid-prompt'))
-  const content = auditMedievalContentSafety([{ id: `terminal-prompt:${value.id}`, domain: value.contentDomain as MedievalContentDomain, classification: value.contentSafety as MedievalContentSafetyClassification }])
-  if (content.status === 'rejected') diagnostics.push(...content.diagnostics.map(item => issue(item.contentId, item.code)))
+  if (includeContentSafety) {
+    const content = auditMedievalContentSafety([{ id: `terminal-prompt:${value.id}`, domain: value.contentDomain as MedievalContentDomain, classification: value.contentSafety as MedievalContentSafetyClassification }])
+    if (content.status === 'rejected') diagnostics.push(...content.diagnostics.map(item => issue(item.contentId, item.code)))
+  }
   return canonicalDiagnostics(diagnostics)
 }
 
@@ -1294,7 +1571,10 @@ export const validateTerminalPresentationProjection = (
   else {
     const promptIds = new Set<string>()
     for (const prompt of value.prompts) {
-      diagnostics.push(...validateTerminalPrompt(prompt))
+      // The complete projection audit below covers prompts and every ledger
+      // member, so this pass keeps strict shape/evidence checks without
+      // repeating the same content-safety audit for each adapter validation.
+      diagnostics.push(...validateTerminalPrompt(prompt, false))
       const id = record(prompt) && typeof prompt.id === 'string' ? prompt.id : 'terminal-prompt'
       if (promptIds.has(id)) diagnostics.push(issue(id, 'terminal-presentation.invalid-prompt'))
       promptIds.add(id)

@@ -988,10 +988,10 @@ export class MedievalApp {
     const world = this.world
     if (!world) { this.route = 'worlds'; this.render(); return 0 }
     const candidates = initialCourierSelectionCandidates(world)
-    this.canvas.setAttribute('aria-label', `Choose an initial courier for ${world.manifest.creation.label}. ${candidates.length} deterministic eligible household members are available in canonical order. Arrow keys choose; Enter confirms a zero-time active courier; Escape returns without selection. Tavern switching is available only at Jomon's task ledger; succession is not implemented.`)
+    this.canvas.setAttribute('aria-label', `Choose an initial courier for ${world.manifest.creation.label}. ${candidates.length} deterministic eligible household members are available in canonical order. Arrow keys choose; Enter confirms a zero-time active courier; Escape returns without selection. Tavern switching is available only at Jomon's task ledger; permanent continuity remains an authoritative read-only outcome, not a creation choice.`)
     row(context, 2, `CHOOSE INITIAL COURIER // ${world.manifest.creation.label.toUpperCase()}`, palette.titleText)
     row(context, 3, `SEED ${world.manifest.creation.seed} // ZERO-TIME CONFIRMATION`, palette.mutedText)
-    row(context, 4, 'CONFIRM FIXES INITIAL COURIER // TAVERN SWITCHING LATER // NO SUCCESSION', palette.actionText)
+    row(context, 4, 'CONFIRM FIXES INITIAL COURIER // TAVERN SWITCHING LATER // CONTINUITY IS NOT A CREATION CHOICE', palette.actionText)
     let line = 6
     candidates.forEach((candidate, index) => {
       const member = world.crew.find(crewMember => crewMember.id === candidate.id)
@@ -1062,23 +1062,37 @@ export class MedievalApp {
     const outcome = this.terminalOutcomeText()
     if (this.worldOverlay === 'contextual-prompt') {
       const prompt = this.contextualPrompt
-      if (!prompt || prompt.kind !== 'tavern-courier-switch') throw new Error('tavern courier prompt is unavailable')
+      if (!prompt) throw new Error('contextual prompt is unavailable')
+      if (prompt.kind !== 'tavern-courier-switch') {
+        row(context, 2, 'CONTEXTUAL PROMPT // UNAVAILABLE', palette.titleText, panel.x)
+        renderBoundedMedievalCanvasRows(context, 4, 9, prompt.accessibilityText, palette.mutedText, panel.x, panel.width)
+        rule(context, 18, panel.x, panel.x + panel.width)
+        renderBoundedMedievalCanvasRows(context, 20, 22, outcome ?? 'ENTER REPORTS UNAVAILABLE // ESC CANCELS // NO MUTATION OR TIME', outcome?.startsWith('!') ? palette.warningText : palette.actionText, panel.x, panel.width)
+        return
+      }
       const option = prompt.options[0]!
       row(context, 2, 'TAVERN TASK LEDGER // COURIER SWITCH', palette.titleText, panel.x)
       renderBoundedMedievalCanvasRows(context, 4, 4, `SOURCE ${prompt.source.propId.toUpperCase()} // TAVERN ${prompt.source.coordinate.column},${prompt.source.coordinate.row} // WORLD TIME ${prompt.evidence.knownAtWorldTime}`, palette.mutedText, panel.x, panel.width)
-      renderBoundedMedievalCanvasRows(context, 5, 5, `CURRENT  ${prompt.current.name.toUpperCase()} // ${prompt.current.role.toUpperCase()} // CONVERSATION ${prompt.current.conversation}`, palette.bodyText, panel.x, panel.width)
-      if (option.availability === 'available') {
-        renderBoundedMedievalCanvasRows(context, 7, 7, 'SELECT ELIGIBLE LIVING AVAILABLE HOUSEHOLD COURIER // CANONICAL ORDER', palette.actionText, panel.x, panel.width)
-        prompt.candidates.slice(0, 7).forEach((candidate, index) => {
-          const selected = index === this.selectedTavernCandidateIndex
-          renderBoundedMedievalCanvasRows(context, 8 + index, 8 + index, `${selectedMarker(selected)} ${candidate.name.toUpperCase()} // ${candidate.role.toUpperCase()} // CONV ${candidate.conversation}`, selected ? palette.selectedText : palette.bodyText, panel.x, panel.width)
+      if (prompt.ledger) {
+        renderBoundedMedievalCanvasRows(context, 5, 5, 'HOUSEHOLD AVAILABILITY // CANONICAL ORDER // SOURCE-BACKED', palette.actionText, panel.x, panel.width)
+        prompt.ledger.members.forEach((member, index) => {
+          renderBoundedMedievalCanvasRows(context, 6 + index, 6 + index, `${member.nonColorCue.text} ${member.name.toUpperCase()} // ${member.role.toUpperCase()} // ${member.status.toUpperCase()}`, palette[member.paletteToken], panel.x, panel.width)
         })
+        if (prompt.ledger.continuity) renderBoundedMedievalCanvasRows(context, 12, 12, 'CONTINUITY // ACTIVE PERSPECTIVE CONTINUED AFTER RECORDED LOSS // READ-ONLY', palette.warningText, panel.x, panel.width)
+        const candidate = prompt.candidates[this.selectedTavernCandidateIndex]
+        if (option.availability === 'available' && candidate) {
+          renderBoundedMedievalCanvasRows(context, 14, 14, `SELECT ${selectedMarker(true)} ${candidate.name.toUpperCase()} // ${candidate.role.toUpperCase()} // ${this.selectedTavernCandidateIndex + 1}/${prompt.candidates.length} // LIVING AVAILABLE`, palette.selectedText, panel.x, panel.width)
+        } else {
+          renderBoundedMedievalCanvasRows(context, 14, 14, `! SWITCH UNAVAILABLE // ${uppercase(option.disabledReason ?? 'requires-future-domain-rule')}`, palette.warningText, panel.x, panel.width)
+        }
+        rule(context, 16, panel.x, panel.x + panel.width)
+        renderBoundedMedievalCanvasRows(context, 18, 20, outcome ?? (option.availability === 'available' ? 'ARROWS SELECT // ENTER CONFIRMS ZERO-TIME SWITCH // ESC CANCELS // LOSS READ-ONLY' : 'ENTER REPORTS UNAVAILABLE // ESC CANCELS // NO MUTATION OR TIME'), outcome?.startsWith('!') ? palette.warningText : palette.actionText, panel.x, panel.width)
       } else {
-        renderBoundedMedievalCanvasRows(context, 7, 9, `! SWITCH UNAVAILABLE // ${uppercase(option.disabledReason ?? 'requires-future-domain-rule')}`, palette.warningText, panel.x, panel.width)
-        renderBoundedMedievalCanvasRows(context, 10, 11, option.accessibilityText, palette.mutedText, panel.x, panel.width)
+        renderBoundedMedievalCanvasRows(context, 6, 8, `! SWITCH UNAVAILABLE // ${uppercase(option.disabledReason ?? 'not-at-tavern-ledger')}`, palette.warningText, panel.x, panel.width)
+        renderBoundedMedievalCanvasRows(context, 9, 11, option.accessibilityText, palette.mutedText, panel.x, panel.width)
+        rule(context, 18, panel.x, panel.x + panel.width)
+        renderBoundedMedievalCanvasRows(context, 20, 22, outcome ?? 'RETURN TO THE PHYSICAL LEDGER FOR AVAILABILITY AND LOSS READOUT // ESC CANCELS // NO MUTATION OR TIME', outcome?.startsWith('!') ? palette.warningText : palette.actionText, panel.x, panel.width)
       }
-      rule(context, 18, panel.x, panel.x + panel.width)
-      renderBoundedMedievalCanvasRows(context, 20, 22, outcome ?? (option.availability === 'available' ? 'ARROWS SELECT // ENTER CONFIRMS ZERO-TIME SWITCH // ESC CANCELS // NO CARGO, TRAVEL, REST, CONVERSATION, LOSS, OR SUCCESSION' : 'ENTER REPORTS UNAVAILABLE // ESC CANCELS // NO MUTATION OR TIME'), outcome?.startsWith('!') ? palette.warningText : palette.actionText, panel.x, panel.width)
       return
     }
     if (this.worldOverlay === 'command-help') {

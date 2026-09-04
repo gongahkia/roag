@@ -134,6 +134,30 @@ The tavern ledger transition adds the explicit current `activeCourierId` to muta
 
 `npm run benchmark:medieval-foundation` completed on Node v22.22.2/linux-x64 with the normal two warm-ups and nine measured samples. Its wall-clock results remain review-only Node observations; no browser responsiveness, IndexedDB timing, cache, worker, or persistent storage measurement was added.
 
+## 2026-09-04 courier-continuity replay revision
+
+The permanent death/departure continuation contract adds the versioned departure set to selected mutable/replay state. It does not change generation, the immutable household, fixture caps, growth deltas, the 512 KiB ceiling, or IndexedDB layout. The following current deterministic byte assertions supersede the immediately preceding active-courier values; the earlier dated rows remain historical records.
+
+| Fixture | Initial canonical bytes | After due events | Growth |
+| --- | ---: | ---: | ---: |
+| sheltered-reach-focused | 190,864 | 255,791 | 64,927 |
+| sheltered-reach-balanced | 191,114 | 273,890 | 82,776 |
+| sheltered-reach-deep | 190,844 | 279,376 | 88,532 |
+| watershed-focused | 194,959 | 259,833 | 64,874 |
+| watershed-balanced | 194,829 | 283,114 | 88,285 |
+| watershed-deep | 194,830 | 294,555 | 99,725 |
+| far-coast-focused | 208,892 | 273,685 | 64,793 |
+| far-coast-balanced | 208,513 | 302,318 | 93,805 |
+| far-coast-deep | 208,236 | 313,590 | 105,354 |
+
+The required `npm run benchmark:medieval-foundation` run completed on Node v22.22.2/linux-x64 with two warm-ups and nine measured samples for every fixture/operation. Its p95 ranges were 30.548–90.292 ms for generation, 299.844–717.238 ms for initial selection, 998.452–2,786.919 ms for terminal projection, 759.755–1,842.533 ms for sidebar projection, 1,467.915–3,600.192 ms for detailed-adapter projection, 782.037–1,915.807 ms for the bounded wait, and 1,357.575–2,911.486 ms for the due-event sequence. These are review-only Node observations, not CI timing limits, browser responsiveness, IndexedDB timing, cache/worker evidence, or persisted facts.
+
+## 2026-09-04 physical task-ledger readout observation
+
+The physical task-ledger availability/loss readout is a bounded terminal v9 and detailed-adapter v3 projection. It adds no persisted record, no mutable-state/replay field, no cache, and no IndexedDB layout change. The current canonical full-envelope byte assertions therefore remain exactly the courier-continuity rows above: 190,844–208,892 initial bytes and 255,791–313,590 after due events, all within the existing 512 KiB ceiling.
+
+The required `npm run benchmark:medieval-foundation` run completed on Node v22.22.2/linux-x64 with two warm-ups and nine measured samples for every fixture/operation. Its p95 ranges were 29.143–82.245 ms for generation, 256.590–912.663 ms for initial selection, 951.446–1,998.228 ms for terminal projection, 641.204–1,589.999 ms for sidebar projection, 1,408.272–3,456.593 ms for detailed-adapter projection, 735.678–1,689.903 ms for the bounded wait, and 1,274.441–3,192.594 ms for the due-event sequence. These review-only Node measurements are not deterministic assertions, CI limits, browser responsiveness, IndexedDB timing, cache/worker evidence, or persisted facts.
+
 ## 2026-09-03 Node review observations
 
 `npm run benchmark:medieval-foundation` completed on the documented 8 GB measurement machine with two warm-ups and nine samples for every one of the nine fixtures and seven operations. Its p95 ranges were generation 19.734–102.377 ms, initial courier selection 66.899–259.972 ms, terminal projection 102.772–518.112 ms, sidebar projection 103.199–433.617 ms, detailed-adapter projection 147.948–712.280 ms, one bounded 240-minute wait 146.316–620.512 ms, and the `60 + 180`-minute due-event sequence 267.288–2,250.234 ms. The structured `RESULT_JSON` records each individual observation, fixture resolution, deterministic scenario, and catalogue result.

@@ -27,7 +27,14 @@ const terminalAudit = (terminal: TerminalPresentationModel) => auditMedievalCont
   ...terminal.legend.entries.map(item => ({ id: `terminal-presentation:legend-entry:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...terminal.status.map(item => ({ id: `terminal-presentation:status:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
   ...terminal.messages.map(item => ({ id: `terminal-presentation:message:${item.id}`, domain: item.contentDomain, classification: item.contentSafety })),
-  ...terminal.prompts.map(item => ({ id: `terminal-presentation:prompt:${item.id}`, domain: item.contentDomain, classification: item.contentSafety }))
+  ...terminal.prompts.flatMap(item => [
+    { id: `terminal-presentation:prompt:${item.id}`, domain: item.contentDomain, classification: item.contentSafety },
+    ...(item.kind !== 'tavern-courier-switch' || item.ledger === undefined ? [] : [
+      { id: `terminal-presentation:ledger:${item.ledger.id}`, domain: item.ledger.contentDomain, classification: item.ledger.contentSafety },
+      ...item.ledger.members.map(member => ({ id: `terminal-presentation:ledger-member:${member.id}`, domain: member.contentDomain, classification: member.contentSafety })),
+      ...(item.ledger.continuity === undefined ? [] : [{ id: `terminal-presentation:ledger-continuity:${item.ledger.continuity.kind}`, domain: item.ledger.continuity.contentDomain, classification: item.ledger.continuity.contentSafety }])
+    ])
+  ])
 ])
 
 /** A future-only seam fixture: it exercises catalogue parity without materializing the selected world. */

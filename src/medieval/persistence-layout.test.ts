@@ -103,7 +103,7 @@ describe('compact medieval persistence layout', () => {
       world: legacy
     }
 
-    expect(parsePersistenceBackupBundle(JSON.stringify(legacyBundle))).toMatchObject({ kind: 'active-world', world: { version: 14, state: { version: 13, courier: { version: 2, initialCourierId: 'crew:0', activeCourierId: 'crew:0' }, navigation: { coordinate: { column: 4, row: 4 } } } } })
+    expect(parsePersistenceBackupBundle(JSON.stringify(legacyBundle))).toMatchObject({ kind: 'active-world', world: { version: 14, state: { version: 14, courier: { version: 3, initialCourierId: 'crew:0', activeCourierId: 'crew:0', departedCourierIds: [] }, navigation: { coordinate: { column: 4, row: 4 } } } } })
     const corrupt = structuredClone(legacyBundle)
     corrupt.source.digest = 'layout:forged'
     expect(() => parsePersistenceBackupBundle(JSON.stringify(corrupt))).toThrow('invalid bundle')

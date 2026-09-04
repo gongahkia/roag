@@ -1,5 +1,5 @@
 import { initialHouseholdActiveCrew, type InitialHouseholdActiveCrewMember } from './initial-household'
-import { deriveJomonDeckPlanForVerifiedWorld } from './jomon-deck-plan'
+import { assessVesselPropOperationForVerifiedWorld, vesselPropOperationSourceForVerifiedWorld, type VesselProximityOperationSource } from './vessel-proximity-operation'
 import type { CausalReplayProjection } from './causal-history'
 import type { PersistentPersonRecord } from './persistent-person'
 import type { FoundationWorld } from './types'
@@ -50,14 +50,13 @@ export class TavernCourierSwitchContractError extends Error {
 
 type CourierProjection = Pick<CausalReplayProjection, 'courier' | 'people'> & Partial<Pick<CausalReplayProjection, 'navigation'>>
 
-const sameCoordinate = (left: { column: number; row: number }, right: { column: number; row: number }): boolean => left.column === right.column && left.row === right.row
 const issue = (recordId: string, code: TavernCourierSwitchDiagnosticCode): TavernCourierSwitchDiagnostic => ({ recordId, code })
 const switchable = (person: PersistentPersonRecord | undefined): boolean => person?.life.status === 'living' && person.work.availability === 'available'
+const eligibleCurrentCourier = (person: PersistentPersonRecord | undefined): boolean => person?.life.status === 'living'
 
-/** The one physical operation source is derived from the validated static deck plan. */
-export const tavernCourierSwitchSourceForVerifiedWorld = (world: FoundationWorld): TavernCourierSwitchSource => {
-  const binding = deriveJomonDeckPlanForVerifiedWorld(world).propBindings.find(candidate => candidate.propId === 'prop:task-ledger')
-  if (!binding || binding.id !== 'deck-prop-binding:prop:task-ledger' || binding.propKind !== 'ledger' || binding.areaId !== 'tavern' || binding.anchor.column !== 4 || binding.anchor.row !== 4) {
+/** Existing replay source shape, now derived through the common prop contract. */
+const tavernSourceForOperation = (binding: VesselProximityOperationSource): TavernCourierSwitchSource => {
+  if (binding.propBindingId !== 'deck-prop-binding:prop:task-ledger' || binding.propId !== 'prop:task-ledger' || binding.propKind !== 'ledger' || binding.areaId !== 'tavern') {
     throw new TavernCourierSwitchContractError([issue('prop:task-ledger', 'tavern-courier-switch.invalid-ledger-binding')])
   }
   return {
@@ -68,13 +67,17 @@ export const tavernCourierSwitchSourceForVerifiedWorld = (world: FoundationWorld
   }
 }
 
+/** The one physical operation source is derived from the shared validated prop contract. */
+export const tavernCourierSwitchSourceForVerifiedWorld = (world: FoundationWorld): TavernCourierSwitchSource => tavernSourceForOperation(vesselPropOperationSourceForVerifiedWorld(world, 'prop:task-ledger'))
+
 /**
  * Assesses only an already validated immutable world plus a reducer projection.
  * It deliberately returns only selection-safe household fields and never makes
  * a roster, persistence, location, or browser-state authority.
  */
 export const assessTavernCourierSwitchForVerifiedWorld = (world: FoundationWorld, projection: CourierProjection): TavernCourierSwitchAssessment => {
-  const source = tavernCourierSwitchSourceForVerifiedWorld(world)
+  const ledgerOperation = assessVesselPropOperationForVerifiedWorld(world, projection, 'prop:task-ledger')
+  const source = tavernSourceForOperation(ledgerOperation.source)
   const initialCourierId = projection.courier.initialCourierId
   const activeCourierId = projection.courier.activeCourierId
   if (!initialCourierId) throw new TavernCourierSwitchContractError([issue('world-state:courier', 'tavern-courier-switch.invalid-initial-courier')])
@@ -83,11 +86,14 @@ export const assessTavernCourierSwitchForVerifiedWorld = (world: FoundationWorld
   const departed = new Set(projection.courier.departedCourierIds ?? [])
   const current = household.find(candidate => candidate.id === activeCourierId)
   const people = new Map(projection.people.records.map(person => [person.id, person]))
-  if (!current || departed.has(activeCourierId) || !switchable(people.get(activeCourierId))) throw new TavernCourierSwitchContractError([issue(`person:${activeCourierId}`, 'tavern-courier-switch.invalid-current-person')])
+  // A continuity successor can be actively inhabited while temporarily committed
+  // or unavailable. That state remains visible at the ledger; only a voluntary
+  // switch target must be living and currently available.
+  if (!current || departed.has(activeCourierId) || !eligibleCurrentCourier(people.get(activeCourierId))) throw new TavernCourierSwitchContractError([issue(`person:${activeCourierId}`, 'tavern-courier-switch.invalid-current-person')])
   const navigation = projection.navigation
   if (!navigation?.coordinate || navigation.courierId !== activeCourierId) throw new TavernCourierSwitchContractError([issue('world-state:navigation', 'tavern-courier-switch.invalid-navigation')])
   const candidates = household.filter(candidate => candidate.id !== activeCourierId && !departed.has(candidate.id) && switchable(people.get(candidate.id)))
-  if (!sameCoordinate(navigation.coordinate, source.coordinate)) return {
+  if (ledgerOperation.availability === 'unavailable') return {
     version: TAVERN_COURIER_SWITCH_CONTRACT_VERSION,
     source,
     current,
