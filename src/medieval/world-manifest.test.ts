@@ -35,7 +35,8 @@ describe('world manifest provenance', () => {
     expect(restored.crew).toEqual(world.crew)
     expect(restored.state.courier.initialCourierId).toBeUndefined()
     expect(restored.state.navigation).toEqual({ version: 1 })
-    expect(JSON.stringify(world.manifest)).not.toContain('crew:0')
+    expect(Object.hasOwn(world.manifest.creation, 'crew')).toBe(false)
+    expect(Object.hasOwn(world.manifest.creation, 'activeCrew')).toBe(false)
     expect(JSON.stringify(world.manifest)).not.toContain('initialCourierId')
   })
 

@@ -4,6 +4,8 @@ Jomon is a single-player, offline-first, browser-based procedural low-mysticism 
 
 The project is at a documented clean-break boundary. The checked-in prototype still contains superseded space-era implementation and is **not** the current game canon. The rebuild now includes bounded local movement on Jomon's full known deck and a zero-time map legend through remappable command help; tavern crew switching, gangplank/quay departure, and contextual vessel interactions remain deferred.
 
+The initial six-member household is immutable deterministic creation evidence: normalized world seed plus resolved configuration reproduce its roster, roles, equipment, histories, directional relationships, and zero-time eligible active-crew projection exactly. It has no individual rerolls or selected courier. The mutable selected courier remains `state.courier.initialCourierId`; selection, switching, and succession remain separate work. The household contract preserves FoundationWorld v14, MedievalWorldState v12, manifest/replay behavior, and IndexedDB layout v4.
+
 - [Lore and content reference](LORE.md)
 - [Authoritative roadmap](TODO.md)
 - [Desktop-browser performance and storage baseline](docs/performance-storage-baseline.md)
@@ -15,6 +17,7 @@ The project is at a documented clean-break boundary. The checked-in prototype st
 - [Jomon integrity policy assessment boundary](docs/jomon-integrity-policy.md)
 - [Semantic palette and accessibility contract](docs/semantic-palette.md)
 - [Static Jomon deck-plan, map legend, and primary ASCII projection](docs/jomon-deck-plan.md)
+- [Initial immutable household and active-crew contract](docs/initial-household-contract.md)
 
 ## Development
 
