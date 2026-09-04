@@ -10,6 +10,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
     worldTime: number
     actionSequence: number
     causalKinds: string[]
+    initialCourierId: string | undefined
     coordinate: { column?: number; row?: number } | undefined
     tasks: unknown
     autonomy: unknown
@@ -27,6 +28,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
             temporal?: { worldTime?: number; actionSequence?: number }
             causalHistory?: { tail?: Array<{ kind?: string }> }
             navigation?: { coordinate?: { column?: number; row?: number } }
+            courier?: { initialCourierId?: string }
             delegation?: { tasks?: unknown }
             autonomy?: unknown
             era?: unknown
@@ -35,9 +37,10 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
         database.close()
         if (!world?.state?.temporal || !world.state.causalHistory?.tail) return reject(new Error('saved medieval world was not available'))
         resolve({
-          worldTime: world.state.temporal.worldTime ?? -1,
-          actionSequence: world.state.temporal.actionSequence ?? -1,
-          causalKinds: world.state.causalHistory.tail.map(command => command.kind ?? ''),
+            worldTime: world.state.temporal.worldTime ?? -1,
+            actionSequence: world.state.temporal.actionSequence ?? -1,
+            causalKinds: world.state.causalHistory.tail.map(command => command.kind ?? ''),
+            initialCourierId: world.state.courier?.initialCourierId,
           coordinate: world.state.navigation?.coordinate,
           tasks: world.state.delegation?.tasks,
           autonomy: world.state.autonomy,
@@ -123,6 +126,12 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-result-page', 'provenance')
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-route', 'choose-courier')
+  await expect(game).toHaveAttribute('aria-label', /6 deterministic eligible household members.*Arrow keys choose.*Enter confirms a zero-time active courier.*Escape returns without selection.*Tavern switching and succession are not implemented/i)
+  await page.keyboard.press('Escape')
+  await expect(game).toHaveAttribute('data-route', 'world-result')
+  expect(await persistedTemporalState(page, worldId!)).toMatchObject({ worldTime: 0, actionSequence: 0, causalKinds: [], initialCourierId: undefined })
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'choose-courier')
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-route', 'world')
@@ -151,7 +160,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-management-item-count', '4')
   await expect(game).toHaveAttribute('aria-label', /Management expanded\. OVERVIEW, 4 household-known facts\./)
   const expectedZeroTime = await persistedTemporalState(page, worldId)
-  expect(expectedZeroTime).toMatchObject({ worldTime: 0, actionSequence: 0, causalKinds: ['initial-courier-selected'], coordinate: { column: 4, row: 4 }, tasks: [] })
+  expect(expectedZeroTime).toMatchObject({ worldTime: 0, actionSequence: 0, causalKinds: ['initial-courier-selected'], initialCourierId: 'crew:1', coordinate: { column: 4, row: 4 }, tasks: [] })
   await page.keyboard.press(']')
   await expect(game).toHaveAttribute('data-management-section', 'people-work')
   await expect(game).toHaveAttribute('data-management-item-count', '6')

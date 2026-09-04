@@ -221,6 +221,19 @@ const recurringRefusalOffer = (world: ReturnType<typeof createFoundationWorld>, 
 }
 
 describe('medieval local persistence', () => {
+  it('round-trips the selected zero-time courier and canonical deck spawn through the full authoritative envelope', async () => {
+    const repository = new MedievalWorldRepository()
+    const selected = chooseInitialCourier(createFoundationWorld({ seed: 'storage-initial-courier-selection' }), 'crew:1')
+
+    await repository.saveWorld(selected)
+    const loaded = await repository.loadWorld(selected.id)
+
+    expect(loaded).toEqual(selected)
+    expect(loaded?.state.courier.initialCourierId).toBe('crew:1')
+    expect(loaded?.state.navigation).toEqual({ version: 1, courierId: 'crew:1', coordinate: { column: 4, row: 4 } })
+    expect(loaded && replayFoundationWorldCausalHistory(loaded)).toEqual(causalReplayProjectionForWorldState(selected.state))
+  })
+
   it('reads a valid v13 full envelope through the strict v14 navigation conversion without overwriting corrupt input', async () => {
     const repository = new MedievalWorldRepository()
     await repository.loadIndex()

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION, classifyMedievalContent } from './content-safety'
+import { initialHouseholdActiveCrew } from './initial-household'
 import { addChronicleToIndex, addWorldToIndex, emptyWorldIndex, removeWorldFromIndex } from './storage'
 import { generationRetryPlan } from './generation-config'
 import { INITIAL_WORLD_GENERATION_STAGES } from './initial-world'
-import { InvalidWorldGenerationConfigurationError, advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, foundationWorldCausalHistoryMatches, foundationWorldContentSatisfiesSafetyPolicy, recordDurableJomonGrowth, recreateFoundationWorld, serializeWorldManifest, validateFoundationWorld } from './world'
+import { InvalidWorldGenerationConfigurationError, advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, foundationWorldCausalHistoryMatches, foundationWorldContentSatisfiesSafetyPolicy, recordDurableJomonGrowth, recreateFoundationWorld, replayFoundationWorldCausalHistory, serializeWorldManifest, validateFoundationWorld } from './world'
+import { causalReplayProjectionForWorldState } from './world-state'
 import { worldEraProjection } from './world-era'
 
 const safety = () => classifyMedievalContent('event', ['civil-life', 'navigation'], 'not-applicable', ['player-facing-text'])
@@ -22,14 +24,24 @@ describe('medieval foundation worlds', () => {
 
   it('makes a generated eligible crew member the selected initial courier without rerolling the household', () => {
     const world = createFoundationWorld({ seed: 'reed-sky-22' })
-    const chosen = world.crew.find(member => member.eligible)
+    const before = structuredClone(world)
+    const chosen = initialHouseholdActiveCrew(world.crew)[1]
     expect(chosen).toBeDefined()
 
     const selected = chooseInitialCourier(world, chosen!.id)
 
     expect(selected.state.courier.initialCourierId).toBe(chosen!.id)
     expect(selected.crew).toEqual(world.crew)
+    expect(selected.manifest).toEqual(world.manifest)
+    expect(selected.initialWorld).toEqual(world.initialWorld)
+    expect(selected.state.temporal).toEqual(world.state.temporal)
+    expect(selected.state.navigation).toEqual({ version: 1, courierId: chosen!.id, coordinate: { column: 4, row: 4 } })
+    expect(selected.state.causalHistory.tail.map(command => command.kind)).toEqual(['initial-courier-selected'])
+    expect(replayFoundationWorldCausalHistory(selected)).toEqual(causalReplayProjectionForWorldState(selected.state))
+    expect(foundationWorldCausalHistoryMatches(selected)).toBe(true)
+    expect(world).toEqual(before)
     expect(() => chooseInitialCourier(world, 'crew:not-present')).toThrow('eligible')
+    expect(() => chooseInitialCourier(selected, chosen!.id)).toThrow('already been selected')
   })
 
   it('changes deterministically when the seed changes', () => {

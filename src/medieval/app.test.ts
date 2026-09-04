@@ -1,10 +1,25 @@
 import { describe, expect, it } from 'vitest'
+import { initialHouseholdActiveCrew } from './initial-household'
 import { JOMON_PALETTE } from './palette'
-import { renderBoundedMedievalCanvasRows, wrapMedievalCanvasText } from './app'
+import { initialCourierSelectionCandidates, renderBoundedMedievalCanvasRows, wrapMedievalCanvasText } from './app'
+import { createFoundationWorld } from './world'
 
 const textWidth = (text: string): number => text.length * 10
 
 describe('medieval canvas text bounds', () => {
+  it('uses the validated household candidate projection without carrying hidden world data', () => {
+    const world = createFoundationWorld({ seed: 'canvas-courier-candidates' })
+    const before = structuredClone(world)
+    const candidates = initialCourierSelectionCandidates(world)
+
+    expect(candidates).toEqual(initialHouseholdActiveCrew(world.crew))
+    expect(candidates.map(candidate => candidate.id)).toEqual(world.crew.map(member => member.id))
+    expect(candidates.every(candidate => Object.keys(candidate).sort().join(',') === 'conversation,id,name,role')).toBe(true)
+    expect(JSON.stringify(candidates)).not.toContain(world.initialWorld.id)
+    expect(JSON.stringify(candidates)).not.toContain(world.state.geography.frontier.regions[0]!.commitment.id)
+    expect(world).toEqual(before)
+  })
+
   it('wraps long words to the fixed canvas content width', () => {
     const context = { measureText: (text: string): TextMetrics => ({ width: textWidth(text) } as TextMetrics) }
     const lines = wrapMedievalCanvasText(context, 'x'.repeat(200))

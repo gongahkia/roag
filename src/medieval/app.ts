@@ -2,6 +2,7 @@ import { GENERATION_CONFIG_PRESETS, WORLD_GENERATION_ADVANCED_SETTING_NAMES, WOR
 import { INITIAL_WORLD_GENERATION_STAGES, type InitialWorldGenerationProgress } from './initial-world'
 import { MANAGEMENT_SIDEBAR_SECTION_IDS, MANAGEMENT_SIDEBAR_SECTION_LABELS, MANAGEMENT_SIDEBAR_SOURCE_LABELS, createManagementSidebarModel, managementSidebarAccessibleSummary, type ManagementSidebarFact, type ManagementSidebarModel } from './management-sidebar'
 import { JOMON_ASCII_GLYPH_CATALOG } from './ascii-glyphs'
+import { initialHouseholdActiveCrew } from './initial-household'
 import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE } from './palette'
 import { CREATION_SETTINGS_PROFILE_LIMIT, CREATION_SETTINGS_PROFILE_NAME_LIMIT, defaultCreationSettings, normalizeCreationSeed, resolveCreationSettings, type CreationSettings, type CreationSettingsProfile, type CreationSettingsRecord } from './settings'
 import { MedievalWorldRepository } from './storage'
@@ -43,6 +44,9 @@ const errorMessage = (error: unknown): string => error instanceof Error ? error.
 const uppercase = (value: string | number): string => String(value).replaceAll('-', ' ').toUpperCase()
 const settingLabel = (setting: keyof WorldGenerationAdvancedSettings): string => uppercase(setting.replace(/([A-Z])/gu, ' $1'))
 const shortDigest = (value: string): string => value.length > 32 ? `${value.slice(0, 29)}...` : value
+
+/** The canvas consumes the household-owned projection without retaining a second roster. */
+export const initialCourierSelectionCandidates = (world: FoundationWorld) => initialHouseholdActiveCrew(world.crew)
 
 const row = (context: CanvasRenderingContext2D, line: number, text: string, color: string = palette.bodyText, x: number = left): void => {
   context.fillStyle = color
@@ -381,7 +385,7 @@ export class MedievalApp {
 
   private async selectCourier(): Promise<void> {
     if (!this.world) return
-    const candidate = this.world.crew.filter(member => member.eligible)[this.selectedRow]
+    const candidate = initialCourierSelectionCandidates(this.world)[this.selectedRow]
     if (!candidate) return
     this.persistence = 'loading'
     this.render()
@@ -490,7 +494,7 @@ export class MedievalApp {
       return
     }
     if (this.route === 'choose-courier') {
-      const eligible = this.world?.crew.filter(member => member.eligible) ?? []
+      const eligible = this.world ? initialCourierSelectionCandidates(this.world) : []
       if (key === 'Escape') { this.route = 'world-result'; this.selectedRow = 0; this.render(); return }
       if (key === 'ArrowUp') { this.selectedRow = Math.max(0, this.selectedRow - 1); this.render(); return }
       if (key === 'ArrowDown') { this.selectedRow = Math.min(Math.max(0, eligible.length - 1), this.selectedRow + 1); this.render(); return }
@@ -930,16 +934,20 @@ export class MedievalApp {
   private renderCourierChoice(context: CanvasRenderingContext2D): number {
     const world = this.world
     if (!world) { this.route = 'worlds'; this.render(); return 0 }
-    this.canvas.setAttribute('aria-label', `Choose an initial courier for ${world.manifest.creation.label}. ${world.crew.length} generated crew members are eligible.`)
+    const candidates = initialCourierSelectionCandidates(world)
+    this.canvas.setAttribute('aria-label', `Choose an initial courier for ${world.manifest.creation.label}. ${candidates.length} deterministic eligible household members are available in canonical order. Arrow keys choose; Enter confirms a zero-time active courier; Escape returns without selection. Tavern switching and succession are not implemented.`)
     row(context, 2, `CHOOSE INITIAL COURIER // ${world.manifest.creation.label.toUpperCase()}`, palette.titleText)
-    row(context, 3, `SEED ${world.manifest.creation.seed} // time remains 0`, palette.mutedText)
-    let line = 5
-    world.crew.filter(member => member.eligible).forEach((member, index) => {
+    row(context, 3, `SEED ${world.manifest.creation.seed} // ZERO-TIME CONFIRMATION`, palette.mutedText)
+    row(context, 4, 'CONFIRM FIXES ACTIVE COURIER // NO SWITCHING OR SUCCESSION YET', palette.actionText)
+    let line = 6
+    candidates.forEach((candidate, index) => {
+      const member = world.crew.find(crewMember => crewMember.id === candidate.id)
+      if (!member) throw new Error('validated courier candidate is missing immutable household history')
       const color = index === this.selectedRow ? palette.selectedText : palette.bodyText
-      line = wrappedRows(context, line, `${selectedMarker(index === this.selectedRow)} ${member.name.toUpperCase()} // ${member.role.toUpperCase()} // CONVERSATION ${member.conversation}`, color)
+      line = wrappedRows(context, line, `${selectedMarker(index === this.selectedRow)} ${candidate.name.toUpperCase()} // ${candidate.role.toUpperCase()} // CONVERSATION ${candidate.conversation}`, color)
       line = wrappedRows(context, line, `   ${member.history}.`, palette.mutedText)
     })
-    return wrappedRows(context, Math.max(19, line + 1), 'Arrow keys choose. Enter confirms. Esc returns to the creation result.', palette.actionText)
+    return wrappedRows(context, Math.max(19, line + 1), 'Arrow keys choose. Enter fixes the active courier. Esc cancels to the creation result.', palette.actionText)
   }
 
   private renderManagementSidebar(context: CanvasRenderingContext2D, model: ManagementSidebarModel, panel: WorldPanel): void {
