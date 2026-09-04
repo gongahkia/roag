@@ -17,8 +17,10 @@ import type { FoundationCrewMember, FoundationJomon } from './types'
  * This is the durable mutable half of a medieval world. It deliberately has
  * no renderer, storage, browser, or prototype dependency.
  */
+/** v14 retains permanent departure exclusion independently from life records. */
+export const MEDIEVAL_WORLD_STATE_VERSION = 14 as const
 /** v13 separates immutable creation selection from the mutable active courier. */
-export const MEDIEVAL_WORLD_STATE_VERSION = 13 as const
+export const LEGACY_ACTIVE_COURIER_WORLD_STATE_VERSION = 13 as const
 /** v12 added local navigation but still overloaded the selected courier as active. */
 export const LEGACY_MEDIEVAL_WORLD_STATE_VERSION = 12 as const
 export const EARLIER_MEDIEVAL_WORLD_STATE_VERSION = 11 as const
@@ -33,7 +35,7 @@ export const WORLD_AUTONOMY_STATE_VERSION = 1 as const
 export const WORLD_SOCIAL_MEMORY_STATE_VERSION = 1 as const
 export const WORLD_CAUSAL_HISTORY_STATE_VERSION = 4 as const
 export const WORLD_JOMON_STATE_VERSION = 1 as const
-export const WORLD_COURIER_STATE_VERSION = 2 as const
+export const WORLD_COURIER_STATE_VERSION = 3 as const
 export const WORLD_DECK_NAVIGATION_STATE_VERSION = 1 as const
 export const WORLD_ERA_STATE_VERSION = WORLD_ERA_CONTRACT_VERSION
 
@@ -167,12 +169,21 @@ export interface WorldCourierState {
   initialCourierId?: string
   /** Current perspective only; it can change at a later source-backed transition. */
   activeCourierId?: string
+  /** Permanent Jomon departures retain person records but cannot become couriers again. */
+  departedCourierIds?: readonly string[]
 }
 
 /** Read-only v12 input accepted solely by the explicit FoundationWorld upgrader. */
 export interface LegacyWorldCourierStateV1 {
   version: 1
   initialCourierId?: string
+}
+
+/** Read-only v13 input accepted solely by the explicit FoundationWorld upgrader. */
+export interface LegacyWorldCourierStateV2 {
+  version: 2
+  initialCourierId?: string
+  activeCourierId?: string
 }
 
 /** The sole durable local-position owner; deck geometry remains in jomon-deck-plan. */
@@ -208,6 +219,12 @@ export interface MedievalWorldState {
 export interface LegacyMedievalWorldStateV12 extends Omit<MedievalWorldState, 'version' | 'courier'> {
   version: 12
   courier: LegacyWorldCourierStateV1
+}
+
+/** Read-only v13 input accepted solely by the explicit courier-continuity upgrader. */
+export interface LegacyMedievalWorldStateV13 extends Omit<MedievalWorldState, 'version' | 'courier'> {
+  version: 13
+  courier: LegacyWorldCourierStateV2
 }
 
 /** Read-only v11 input accepted by the existing navigation conversion. */
@@ -269,6 +286,9 @@ export interface WorldStateConstructionContext extends WorldStateValidationConte
   temporal: MedievalTemporalState
   initialCourierId?: string
   activeCourierId?: string
+  /** Only the courier-continuity reducer may construct selected/no-active terminal state. */
+  terminalCrewExtinct?: true
+  departedCourierIds?: readonly string[]
   /** Replayed local navigation, never browser-only focus state. */
   navigationState?: WorldDeckNavigationState
   /** Lets later reducers preserve Jomon values while retaining this v1 shape. */
@@ -304,9 +324,9 @@ const issue = (recordId: string, code: WorldStateValidationDiagnosticCode): Worl
 const canonicalIssues = (issues: readonly WorldStateValidationIssue[]): readonly WorldStateValidationIssue[] => [...new Map(issues.map(value => [`${value.recordId}\u0000${value.code}`, value])).values()]
   .sort((left, right) => compare(left.recordId, right.recordId) || compare(left.code, right.code))
 const idsAreUnique = (values: readonly { id: string }[]): boolean => new Set(values.map(value => value.id)).size === values.length
-const stateLike = (value: unknown): value is MedievalWorldState | LegacyMedievalWorldStateV12 | LegacyMedievalWorldStateV11 => record(value)
+const stateLike = (value: unknown): value is MedievalWorldState | LegacyMedievalWorldStateV13 | LegacyMedievalWorldStateV12 | LegacyMedievalWorldStateV11 => record(value)
   && ((value.version === EARLIER_MEDIEVAL_WORLD_STATE_VERSION && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'causalHistory', 'jomon', 'courier', 'temporal', 'simulation', 'era', 'contentSafetyAudit']))
-    || ((value.version === LEGACY_MEDIEVAL_WORLD_STATE_VERSION || value.version === MEDIEVAL_WORLD_STATE_VERSION) && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'causalHistory', 'jomon', 'courier', 'navigation', 'temporal', 'simulation', 'era', 'contentSafetyAudit'])))
+    || ((value.version === LEGACY_MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_ACTIVE_COURIER_WORLD_STATE_VERSION || value.version === MEDIEVAL_WORLD_STATE_VERSION) && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'causalHistory', 'jomon', 'courier', 'navigation', 'temporal', 'simulation', 'era', 'contentSafetyAudit'])))
 const validateIdArrayOrder = (value: unknown, recordId: string, issues: WorldStateValidationIssue[]): void => {
   if (!Array.isArray(value) || !value.every(candidate => record(candidate) && validWorldId(candidate.id))) return
   const records = value as { id: string }[]
@@ -407,7 +427,8 @@ export const createMedievalWorldState = (context: WorldStateConstructionContext)
     : {
         version: WORLD_COURIER_STATE_VERSION,
         initialCourierId: context.initialCourierId,
-        activeCourierId: context.activeCourierId ?? context.initialCourierId
+        ...(context.terminalCrewExtinct ? {} : { activeCourierId: context.activeCourierId ?? context.initialCourierId }),
+        departedCourierIds: structuredClone(context.departedCourierIds ?? [])
       }
   const navigation: WorldDeckNavigationState = structuredClone(context.navigationState ?? { version: WORLD_DECK_NAVIGATION_STATE_VERSION })
   const stateWithoutAudit: Omit<MedievalWorldState, 'contentSafetyAudit'> = {
@@ -464,7 +485,7 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
     const legacyShape = record(value) && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'causalHistory', 'jomon', 'courier', 'temporal', 'simulation', 'era', 'contentSafetyAudit'])
     return [issue('world-state', currentShape || legacyShape ? 'world-state.invalid-version' : 'world-state.malformed-state')]
   }
-  if (value.version !== MEDIEVAL_WORLD_STATE_VERSION && value.version !== LEGACY_MEDIEVAL_WORLD_STATE_VERSION && value.version !== EARLIER_MEDIEVAL_WORLD_STATE_VERSION) issues.push(issue('world-state', 'world-state.invalid-version'))
+  if (value.version !== MEDIEVAL_WORLD_STATE_VERSION && value.version !== LEGACY_ACTIVE_COURIER_WORLD_STATE_VERSION && value.version !== LEGACY_MEDIEVAL_WORLD_STATE_VERSION && value.version !== EARLIER_MEDIEVAL_WORLD_STATE_VERSION) issues.push(issue('world-state', 'world-state.invalid-version'))
   issues.push(...validateInitialHouseholdStructure(context.crew)
     .map(diagnostic => issue(diagnostic.recordId, diagnostic.code)))
 
@@ -586,7 +607,7 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
       worldId: temporal.provenance.worldId,
       creationDigest: temporal.provenance.creationDigest,
       worldTime: temporal.worldTime,
-      activeCourierId: value.courier?.version === WORLD_COURIER_STATE_VERSION && typeof value.courier.activeCourierId === 'string'
+      activeCourierId: (value.courier?.version === WORLD_COURIER_STATE_VERSION || value.courier?.version === 2) && typeof value.courier.activeCourierId === 'string'
         ? value.courier.activeCourierId
         : typeof value.courier?.initialCourierId === 'string' ? value.courier.initialCourierId : undefined,
       people: value.people.records as PersistentPersonRecord[],
@@ -601,27 +622,50 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
   if (!validSubdomain(value.institutions, WORLD_INSTITUTIONS_STATE_VERSION, ['version', 'registry']) || !Array.isArray(value.institutions.registry) || value.institutions.registry.length > MEDIEVAL_WORLD_STATE_LIMITS.institutions || !same(value.institutions.registry, expectedInstitutions)) issues.push(issue('world-state:institutions', value.institutions && Array.isArray(value.institutions.registry) && value.institutions.registry.length > MEDIEVAL_WORLD_STATE_LIMITS.institutions ? 'world-state.budget-exceeded' : 'world-state.invalid-institutions'))
 
   const initialCourierId = value.courier?.initialCourierId
-  const activeCourierId = value.version === MEDIEVAL_WORLD_STATE_VERSION && value.courier.version === WORLD_COURIER_STATE_VERSION
+  const currentCourierContract = value.version === MEDIEVAL_WORLD_STATE_VERSION && value.courier.version === WORLD_COURIER_STATE_VERSION
+  const activeCourierId = currentCourierContract
     ? value.courier?.activeCourierId
     : initialCourierId
+  const departedCourierIds = currentCourierContract && Array.isArray(value.courier?.departedCourierIds)
+    ? value.courier.departedCourierIds
+    : []
   const activeCourierPerson = Array.isArray(value.people?.records) ? value.people.records.find(candidate => record(candidate) && candidate.id === activeCourierId) : undefined
-  const currentCourierKeys = initialCourierId === undefined ? ['version'] : ['version', 'initialCourierId', 'activeCourierId']
+  const currentCourierKeys = initialCourierId === undefined ? ['version'] : ['version', 'initialCourierId', 'activeCourierId', 'departedCourierIds']
   const legacyCourierKeys = initialCourierId === undefined ? ['version'] : ['version', 'initialCourierId']
+  const activeCourierLegacyKeys = initialCourierId === undefined ? ['version'] : ['version', 'initialCourierId', 'activeCourierId']
   const courierShapeValid = value.version === MEDIEVAL_WORLD_STATE_VERSION
     ? validSubdomain(value.courier, WORLD_COURIER_STATE_VERSION, currentCourierKeys)
-    : validSubdomain(value.courier, 1, legacyCourierKeys)
+    : value.version === LEGACY_ACTIVE_COURIER_WORLD_STATE_VERSION
+      ? validSubdomain(value.courier, 2, activeCourierLegacyKeys)
+      : validSubdomain(value.courier, 1, legacyCourierKeys)
   const initialCourierValid = initialCourierId === undefined
     ? activeCourierId === undefined
     : context.crew.some(member => member.id === initialCourierId && member.eligible)
+  const canonicalDepartures = context.crew.filter(member => departedCourierIds.includes(member.id)).map(member => member.id)
+  const departuresValid = currentCourierContract
+    ? Array.isArray(value.courier?.departedCourierIds)
+      && departedCourierIds.length === canonicalDepartures.length
+      && departedCourierIds.every((id, index) => id === canonicalDepartures[index])
+      && departedCourierIds.every(id => context.crew.some(member => member.id === id && member.eligible))
+      && Array.isArray(value.people?.records)
+      && departedCourierIds.every(id => {
+        const person = value.people.records.find(candidate => record(candidate) && candidate.id === id)
+        return record(person) && record(person.life) && person.life.status === 'living'
+      })
+    : departedCourierIds.length === 0
+  const eligibleLivingNonDeparted = Array.isArray(value.people?.records)
+    ? context.crew.some(member => member.eligible && !departedCourierIds.includes(member.id)
+      && value.people.records.some(candidate => record(candidate) && candidate.id === member.id && record(candidate.life) && candidate.life.status === 'living'))
+    : false
   const activeCourierValid = activeCourierId === undefined
-    ? initialCourierId === undefined
+    ? initialCourierId === undefined || !eligibleLivingNonDeparted
     : context.crew.some(member => member.id === activeCourierId && member.eligible)
+      && !departedCourierIds.includes(activeCourierId)
       && record(activeCourierPerson) && record(activeCourierPerson.life) && activeCourierPerson.life.status === 'living'
-      && record(activeCourierPerson.work) && activeCourierPerson.work.availability === 'available'
-  if (!courierShapeValid || !initialCourierValid || !activeCourierValid) issues.push(issue('world-state:courier', 'world-state.invalid-courier'))
+  if (!courierShapeValid || !initialCourierValid || !departuresValid || !activeCourierValid) issues.push(issue('world-state:courier', 'world-state.invalid-courier'))
 
   const navigation = 'navigation' in value ? value.navigation : undefined
-  const hasNavigation = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_MEDIEVAL_WORLD_STATE_VERSION
+  const hasNavigation = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_ACTIVE_COURIER_WORLD_STATE_VERSION || value.version === LEGACY_MEDIEVAL_WORLD_STATE_VERSION
   const validCoordinate = (coordinate: unknown): coordinate is { column: number; row: number } => record(coordinate) && hasOnlyKeys(coordinate, ['column', 'row']) && safeInteger(coordinate.column) && safeInteger(coordinate.row)
   if (hasNavigation && (!validSubdomain(navigation, WORLD_DECK_NAVIGATION_STATE_VERSION, activeCourierId === undefined ? ['version'] : ['version', 'courierId', 'coordinate']) || (activeCourierId === undefined ? navigation.courierId !== undefined || navigation.coordinate !== undefined : navigation.courierId !== activeCourierId || !validCoordinate(navigation.coordinate)))) issues.push(issue('world-state:navigation', 'world-state.invalid-reference'))
 

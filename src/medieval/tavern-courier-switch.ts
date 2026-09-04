@@ -80,12 +80,13 @@ export const assessTavernCourierSwitchForVerifiedWorld = (world: FoundationWorld
   if (!initialCourierId) throw new TavernCourierSwitchContractError([issue('world-state:courier', 'tavern-courier-switch.invalid-initial-courier')])
   if (!activeCourierId) throw new TavernCourierSwitchContractError([issue('world-state:courier', 'tavern-courier-switch.invalid-active-courier')])
   const household = initialHouseholdActiveCrew(world.crew)
+  const departed = new Set(projection.courier.departedCourierIds)
   const current = household.find(candidate => candidate.id === activeCourierId)
   const people = new Map(projection.people.records.map(person => [person.id, person]))
-  if (!current || !switchable(people.get(activeCourierId))) throw new TavernCourierSwitchContractError([issue(`person:${activeCourierId}`, 'tavern-courier-switch.invalid-current-person')])
+  if (!current || departed.has(activeCourierId) || !switchable(people.get(activeCourierId))) throw new TavernCourierSwitchContractError([issue(`person:${activeCourierId}`, 'tavern-courier-switch.invalid-current-person')])
   const navigation = projection.navigation
   if (!navigation?.coordinate || navigation.courierId !== activeCourierId) throw new TavernCourierSwitchContractError([issue('world-state:navigation', 'tavern-courier-switch.invalid-navigation')])
-  const candidates = household.filter(candidate => candidate.id !== activeCourierId && switchable(people.get(candidate.id)))
+  const candidates = household.filter(candidate => candidate.id !== activeCourierId && !departed.has(candidate.id) && switchable(people.get(candidate.id)))
   if (!sameCoordinate(navigation.coordinate, source.coordinate)) return {
     version: TAVERN_COURIER_SWITCH_CONTRACT_VERSION,
     source,
