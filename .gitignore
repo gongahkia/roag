@@ -1,7 +1,9 @@
 node_modules/
 dist/
-server-dist/
 coverage/
-AGENTS.md
 .playwright-cli/
 output/
+test-results/
+clearance/
+generation-reports/
+AGENTS.md

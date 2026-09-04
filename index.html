@@ -3,14 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#070819" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet" />
-    <title>Golf With Your Enemies</title>
+    <link rel="preload" href="./fonts/BigBlueTerm437NerdFontMono-Regular.ttf" as="font" type="font/ttf" crossorigin />
+    <title>Jomon</title>
   </head>
   <body>
-    <main id="app"></main>
-    <script type="module" src="/src/main.ts"></script>
+    <main aria-label="Jomon"><canvas id="game" width="800" height="630" tabindex="0" aria-label="Jomon courier game"></canvas></main>
+    <script type="module" src="/src/entry.ts"></script>
   </body>
 </html>

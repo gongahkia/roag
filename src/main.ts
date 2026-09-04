@@ -1,4 +1,1633 @@
-import './style.css';
-import { startApp } from './ui/app-controller';
+import { AudioBus } from './audio'
+import type { AutoplayContext, AutoplayDecision } from './autoplay'
+import { latestAutoplayDiagnostic, saveAutoplayDiagnostic } from './autoplay-log'
+import { findStructurallyPlayableCampaignSeed } from './campaign-validation'
+import { ITEM, biomeName } from './content'
+import { nextCourierSelection } from './courier-menu'
+import { abandonGalaxyCargo, abandonSealedPackage, acceptGalaxyContract, acceptSealedPackageContract, addCompanionLeads, advanceGalaxyRouteReckoning, advanceTransitWindow, applyGalaxySiteConditions, beginCompanionRecovery, buyHubItem, campaignContinuationPending, changeCampaignCompanionControlMode, changeCompanionRoster, clearRouteBoardConnectionSelection, cloneCompanions, commitRouteBoardTransit, companionLodgeAction, completeCampaignArea, completeCampaignTier, completeCompanionRecovery, continueCampaignRoute, createGalaxy, createHubState, decideGalaxyInstitutionRequest, declineSealedPackageContract, deliverGalaxyContracts, deliverSealedPackage, destinationReportFreshness, discoverLinkedSites, equipHubItem, event, formatRouteReckoning, galaxyRouteLength, galaxyRouteSituation, galaxySnapshot, hasEvent, hubCampaignStatus, hubCarryoverSummary, hubEquipment, hubStock, hubView, hydrateEncyclopediaLegacy, initialCampaignRoute, initialRoute, inspectGalaxyDestination, inspectSealedPackage, installGalaxyNeridaBypass, loseGalaxyCourier, loseSealedPackagesForCourier, markSealedPackageDestinationReached, moveOutpost, navigate, newHero, newRun, newTransitRun, nextArea, outpostInteraction, outpostSpawn, perform, quickCast, recordCampaignSacrifice, recordDeath, recordGalaxyLanding, recordGalaxyNeridaTacticalConsequence, recordGalaxyRouteSituations, recoverGalaxyRouteCaches, recoverSealedPackageRouteCaches, refuseSealedPackage, resolveGalaxyRouteSituations, resolveRouteBoardTransit, routeBoardConnectionAvailable, routeBoardConnectionsFor, routeBoardDestination, routeBoardDestinationForSite, routeBoardOtherDestination, saveGalaxySite, selectGalaxyCourier, selectRouteBoardConnection, setActiveGalaxySite, snapshotCampaignCarryover, transferCampaignCarryover, unlockCampaignArea, violateSealedPackageSeal, type ScreenRoute } from './engine'
+import { beginDeliveryExpedition, courierModificationChoices, deliveryItemDescription, deliveryRunContext, installCourierModification, selectDeliveryOffer, synchronizeDeliveryExpedition, synchronizeDeliveryRunEquipment } from './engine/delivery-buildcraft'
+import { materializeNeridaIntakeExpedition } from './engine/delivery-tactics'
+import { shouldPreventKeyboardDefault } from './input-policy'
+import { outpostAutoplayCommand } from './outpost-autoplay'
+import { TerminalRenderer } from './renderer'
+import { advanceStory, createStory, endingLore, openingLore, successionLore, type LoadingState, type StoryState, type TransitState } from './lore'
+import { LORE_CODEX_PAGES } from './lore-codex'
+import { commandForKey, loadSettings, saveSettings, setKeyBinding, settingChoices, settingsPageCount, type GameSettings } from './settings'
+import { courierMenuEntries, deleteCourier, flushCourierWrites, loadCouriers, saveCourier, selectCourier } from './storage'
+import { analysisFor, observeTelemetryTurn, telemetrySnapshot } from './telemetry'
+import { type AutoplayDiagnostic, type AutoplayTerminal, type AutoplayTraceEntry, type CampaignRouteState, type CourierDraft, type CourierSave, type Direction, type GalaxyState, type Hero, type HubState, type LegacyRecord, type Records, type RunAnalysis, type RunState } from './types'
+import { getTile } from './world'
+import { nextVisualMode, normalizeVisualMode } from './visual-mode'
+import { ActiveSessionRouteClock } from './route-reckoning-runtime'
 
-startApp(document.querySelector<HTMLElement>('#app')!);
+const canvas = document.querySelector<HTMLCanvasElement>('#game')!
+const renderer = new TerminalRenderer(canvas)
+const audio = new AudioBus()
+let settings: GameSettings = loadSettings()
+let state: RunState | undefined
+let saved: RunState | undefined
+let couriers: CourierSave[] = []
+let selectedCourierId: string | undefined
+let activeCourier: CourierSave | undefined
+let courierDraft: CourierDraft | undefined
+let confirmingCourierDelete = false
+let inheritedCampaign: CampaignRouteState | undefined
+let successorParentId: string | undefined
+let createAfterStory = false
+let courierCreationPending = false
+let records: Records = { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] }
+let recordedEnd = false
+let route: ScreenRoute = initialRoute()
+let hub: HubState = createHubState(0)
+let hubPosition = outpostSpawn()
+let hubNotice: string | undefined
+let heir: Hero | undefined
+let campaign: CampaignRouteState = initialCampaignRoute()
+let gameZoom = loadGameZoom()
+let story: StoryState | undefined
+let storyExit: 'hub' | 'analysis' = 'hub'
+let loading: LoadingState | undefined
+let transit: TransitState | undefined
+let finishTransit: (() => void) | undefined
+let pendingSuccessor: { record: LegacyRecord; seed: number } | undefined
+let analysis: RunAnalysis | undefined
+let analysisNext: 'checkpoint' | 'succession' | 'session' | 'victory' | undefined
+let autoplayTimer: number | undefined
+type AutoplayFeature = typeof import('./autoplay-runtime')
+let autoplayFeature: AutoplayFeature | undefined
+let autoplayFeatureLoad: Promise<AutoplayFeature> | undefined
+let autoplayContext: AutoplayContext | undefined
+let autoplayTrace: AutoplayTraceEntry[] = []
+let autoplayLogged = false
+let autoplayDiagnostic: AutoplayDiagnostic | undefined = latestAutoplayDiagnostic()
+let bootstrapState: 'loading' | 'ready' | 'error' = 'loading'
+let persistenceState: 'saved' | 'saving' | 'error' = 'saved'
+let pendingPersistence = 0
+const failedPersistence = new Map<string, { operation: () => Promise<void>; clearKeys: string[] }>()
+const routeClock = new ActiveSessionRouteClock()
+let lastRouteClockPersistence = 0
+
+const loadAutoplayFeature = (): Promise<AutoplayFeature> => {
+  if (autoplayFeature) return Promise.resolve(autoplayFeature)
+  autoplayFeatureLoad ??= import('./autoplay-runtime').then(feature => {
+    autoplayFeature = feature
+    return feature
+  }).catch(error => {
+    autoplayFeatureLoad = undefined
+    throw error
+  })
+  return autoplayFeatureLoad
+}
+
+const showSessionSplash = (): boolean => {
+  try {
+    if (sessionStorage.getItem('jomon-session-splash')) return false
+    sessionStorage.setItem('jomon-session-splash', '1')
+    return true
+  } catch { return false }
+}
+const loadVisualMode = () => { try { return normalizeVisualMode(localStorage.getItem('jomon-visual-mode')) } catch { return 'ascii' as const } }
+if (showSessionSplash()) route = { ...route, screen: 'splash' }
+renderer.setVisualMode(loadVisualMode())
+renderer.setSettings(settings)
+renderer.setAutoplayDiagnostic(autoplayDiagnostic)
+renderer.setBootstrapState('loading')
+renderer.setPersistenceState(persistenceState)
+applyGameZoom()
+canvas.addEventListener('wheel', mouseEvent => {
+  mouseEvent.preventDefault()
+  setGameZoom(gameZoom + (mouseEvent.deltaY < 0 ? .25 : -.25))
+}, { passive: false })
+let cameraDrag: { x: number; y: number } | undefined
+canvas.addEventListener('pointerdown', mouseEvent => {
+  if (mouseEvent.button !== 1 || route.screen !== 'level' || state?.status !== 'playing') return
+  mouseEvent.preventDefault()
+  cameraDrag = { x: mouseEvent.clientX, y: mouseEvent.clientY }
+  canvas.setPointerCapture(mouseEvent.pointerId)
+})
+canvas.addEventListener('pointermove', mouseEvent => {
+  if (!cameraDrag) return
+  const dx = Math.trunc((cameraDrag.x - mouseEvent.clientX) / 10)
+  const dy = Math.trunc((cameraDrag.y - mouseEvent.clientY) / 12)
+  if (!dx && !dy) return
+  cameraDrag = { x: mouseEvent.clientX, y: mouseEvent.clientY }
+  renderer.panCamera(dx, dy)
+})
+canvas.addEventListener('pointerup', mouseEvent => {
+  if (!cameraDrag) return
+  cameraDrag = undefined
+  if (canvas.hasPointerCapture(mouseEvent.pointerId)) canvas.releasePointerCapture(mouseEvent.pointerId)
+})
+
+void bootstrapCouriers()
+window.requestAnimationFrame(tickRouteReckoning)
+
+window.addEventListener('keydown', keyboardEvent => {
+  if (keyboardEvent.ctrlKey && route.screen === 'level' && state?.status === 'playing') {
+    const delta = ({ ArrowUp: [0, -4], ArrowDown: [0, 4], ArrowLeft: [-4, 0], ArrowRight: [4, 0] } as const)[keyboardEvent.key]
+    if (delta) { keyboardEvent.preventDefault(); renderer.panCamera(delta[0], delta[1]); return }
+  }
+  if (keyboardEvent.metaKey || keyboardEvent.ctrlKey) return
+  if (route.screen === 'transit') {
+    keyboardEvent.preventDefault()
+    finishTransit?.()
+    return
+  }
+  if (bootstrapState !== 'ready') {
+    keyboardEvent.preventDefault()
+    if (bootstrapState === 'error' && keyboardEvent.key === 'F2') void bootstrapCouriers()
+    return
+  }
+  if (keyboardEvent.key === 'F2' && persistenceState === 'error') { keyboardEvent.preventDefault(); retryFailedPersistence(); return }
+  if (keyboardEvent.key === 'Tab' && shouldPreventKeyboardDefault(keyboardEvent.key)) keyboardEvent.preventDefault()
+  if ((route.screen === 'hub' || route.screen === 'area' || route.screen === 'level' && state?.status === 'playing') && keyboardEvent.key.toLowerCase() === 'f') { keyboardEvent.preventDefault(); keyboardEvent.shiftKey ? toggleAutoplayPolicy() : toggleAutoplay(); return }
+  const command = commandForKey(keyboardEvent.key, settings)
+  if (route.screen === 'level' && state?.status === 'playing' && settings.autoplayMode !== 'off' && keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { keyboardEvent.preventDefault(); toggleVisualMode(); return }
+  if (zoomForKey(keyboardEvent)) { keyboardEvent.preventDefault(); return }
+  if (canAutoplay() && (keyboardEvent.key === 'Escape' || keyboardEvent.key === '`')) {
+    settings = { ...settings, autoplayMode: 'off' }
+    saveSettings(settings)
+  }
+  if (canAutoplay()) { keyboardEvent.preventDefault(); return }
+  if (keyboardEvent.key.toLowerCase() === 'v' && command === 'v') { keyboardEvent.preventDefault(); toggleVisualMode(); return }
+  if (route.screen === 'analysis') {
+    if (!keyboardEvent.repeat) { keyboardEvent.preventDefault(); continueAnalysis() }
+    return
+  }
+  if (route.screen === 'loading') { keyboardEvent.preventDefault(); return }
+  if (route.screen === 'approach' && story) { handleStoryInput(keyboardEvent); return }
+  if (route.screen === 'codex') { handleCodexInput(keyboardEvent); return }
+  if (route.screen === 'splash' || route.screen === 'title') { handleCourierTitle(keyboardEvent); return }
+  if (route.screen === 'createCourier') { handleCourierCreation(keyboardEvent); return }
+  if (state?.modal?.kind === 'settings') { keyboardEvent.preventDefault(); handleSettingsInput(keyboardEvent.key); return }
+  if (shouldPreventKeyboardDefault(command ?? keyboardEvent.key)) keyboardEvent.preventDefault()
+  if (route.screen !== 'level') {
+    const input = command ?? keyboardEvent.key
+    if (route.screen === 'hub' && handleHubInput(input, keyboardEvent.shiftKey)) { audio.play([event('menu')]); redraw(); return }
+    if (route.screen === 'sector' && handleSectorInput(input)) { audio.play([event('menu')]); redraw(); return }
+    let nextRoute = navigate(route, input, Boolean(saved))
+    if (nextRoute === route) return
+    if (nextRoute.screen === 'title') { nextRoute = { ...nextRoute, heirSeed: undefined }; story = undefined }
+    if (nextRoute.screen === 'hub' && route.screen !== 'hub') hubPosition = outpostSpawn()
+    if (nextRoute.screen === 'level') {
+      if (route.screen === 'area') start()
+      else if (saved) { state = structuredClone(saved); recordedEnd = false }
+      else return
+    }
+    route = nextRoute
+    audio.play([event('menu')])
+    redraw()
+    return
+  }
+  if (!state || state.status === 'dead' || state.status === 'victory' || !command) return
+  const direction = directionFor(command)
+  executeGameplayCommand(command, { quickCast: Boolean(keyboardEvent.altKey && direction && direction !== 'wait'), run: Boolean(keyboardEvent.shiftKey && direction && direction !== 'wait' && !state.modal), spellEffect: spellEffectForInput(state, keyboardEvent, direction) })
+})
+
+async function bootstrapCouriers(): Promise<void> {
+  bootstrapState = 'loading'
+  renderer.setBootstrapState('loading', 'Loading courier records…')
+  redraw()
+  try {
+    const loaded = await loadCouriers()
+    couriers = loaded.couriers
+    selectedCourierId = loaded.selectedId
+    activateCourier(selectedCourierId, false)
+    bootstrapState = 'ready'
+    renderer.setBootstrapState('ready')
+  } catch {
+    bootstrapState = 'error'
+    renderer.setBootstrapState('error', 'Courier records unavailable')
+  }
+  redraw()
+}
+
+function updatePersistenceState(): void {
+  persistenceState = failedPersistence.size ? 'error' : pendingPersistence ? 'saving' : 'saved'
+  renderer.setPersistenceState(persistenceState)
+}
+
+function recordPersistence(key: string, operation: () => Promise<void>, clearKeys: string[] = []): void {
+  pendingPersistence++
+  updatePersistenceState()
+  void operation().then(() => {
+    pendingPersistence--
+    failedPersistence.delete(key)
+    for (const clearKey of clearKeys) failedPersistence.delete(clearKey)
+    updatePersistenceState()
+    redraw()
+  }).catch(() => {
+    pendingPersistence--
+    failedPersistence.set(key, { operation, clearKeys })
+    updatePersistenceState()
+    redraw()
+  })
+}
+
+function persistCourier(courier: CourierSave, selectedId?: string): void {
+  const snapshot = structuredClone(courier)
+  recordPersistence(`courier:${snapshot.identity.id}`, () => saveCourier(snapshot, selectedId), selectedId ? ['selection'] : [])
+}
+
+function retryFailedPersistence(): void {
+  if (pendingPersistence) return
+  const retries = [...failedPersistence]
+  failedPersistence.clear()
+  for (const [key, retry] of retries) recordPersistence(key, retry.operation, retry.clearKeys)
+}
+
+const flushCourierPersistence = (): void => { void flushCourierWrites() }
+document.addEventListener('visibilitychange', () => {
+  routeClock.reset(performance.now())
+  if (document.visibilityState === 'hidden') {
+    persistActiveCourier()
+    flushCourierPersistence()
+  }
+})
+window.addEventListener('blur', () => routeClock.reset(performance.now()))
+window.addEventListener('focus', () => routeClock.reset(performance.now()))
+window.addEventListener('pagehide', () => {
+  routeClock.reset(performance.now())
+  persistActiveCourier()
+  flushCourierPersistence()
+})
+
+function routeReckoningCanAdvance(): boolean {
+  if (bootstrapState !== 'ready' || !activeCourier || !campaign.galaxy || !heir) return false
+  if (document.visibilityState !== 'visible' || !document.hasFocus()) return false
+  if (loading || transit || story) return false
+  if (route.screen === 'hub') return !route.hubAction
+  if (route.screen === 'sector') return true
+  return route.screen === 'level' && state?.status === 'playing' && !state.modal
+}
+
+function tickRouteReckoning(runtimeMs: number): void {
+  const steps = routeClock.requestSteps(runtimeMs, routeReckoningCanAdvance())
+  if (steps && campaign.galaxy) {
+    const previous = campaign.galaxy
+    const galaxy = advanceGalaxyRouteReckoning(previous, steps)
+    campaign = { ...campaign, galaxy }
+    synchronizeDeliveryContext()
+    const historyChanged = galaxy.generalManifest.entries.length !== previous.generalManifest.entries.length
+    if (historyChanged || galaxy.routeReckoning - lastRouteClockPersistence >= 10) {
+      lastRouteClockPersistence = galaxy.routeReckoning
+      persistActiveCourier()
+    }
+    redraw()
+  }
+  window.requestAnimationFrame(tickRouteReckoning)
+}
+
+function activateCourier(id: string | undefined, persistSelection = true): void {
+  selectedCourierId = id
+  activeCourier = couriers.find(courier => courier.identity.id === id && !courier.archived)
+  if (!activeCourier) { saved = undefined; state = undefined; records = { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] }; campaign = initialCampaignRoute(); hub = createHubState(0); hubPosition = outpostSpawn(); return }
+  saved = activeCourier.run ? structuredClone(activeCourier.run) : undefined
+  records = activeCourier.records
+  campaign = activeCourier.campaign
+  if (saved) hydrateEncyclopediaLegacy(saved, campaign.legacyRecords)
+  hub = { ...createHubState(saved?.seed ?? 0), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
+  hubPosition = outpostSpawn()
+  route = { screen: route.screen === 'splash' ? 'splash' : 'title', biome: campaign.selectedBiome }
+  if (persistSelection) {
+    const selectedId = activeCourier.identity.id
+    recordPersistence('selection', () => selectCourier(selectedId))
+  }
+}
+
+function courierMenu() {
+  return { entries: courierMenuEntries(couriers), selectedId: selectedCourierId, confirmingDelete: confirmingCourierDelete }
+}
+
+function handleCourierTitle(keyboardEvent: KeyboardEvent): void {
+  const key = keyboardEvent.key
+  const command = key.toLowerCase()
+  if (route.screen === 'splash' && !['n', 'N', 'l', 'L', 'w', 'W', 'Enter', 'ArrowUp', 'ArrowDown', 'd', 'D'].includes(key)) { route = { ...route, screen: 'title' }; redraw(); return }
+  route = { ...route, screen: 'title' }
+  const entries = courierMenuEntries(couriers)
+  if (confirmingCourierDelete) {
+    if (command === 'd') {
+      const id = selectedCourierId
+      if (id) { couriers = couriers.filter(courier => courier.identity.id !== id); recordPersistence(`courier-delete:${id}`, () => deleteCourier(id), ['selection']) }
+      confirmingCourierDelete = false
+      activateCourier(courierMenuEntries(couriers)[0]?.id)
+    } else if (key === 'Escape' || key === '`') confirmingCourierDelete = false
+    redraw()
+    return
+  }
+  if (key === 'ArrowUp' || key === 'ArrowDown') {
+    const nextId = nextCourierSelection(entries, selectedCourierId, key)
+    if (nextId) activateCourier(nextId)
+  } else if (command === 'n') {
+    courierDraft = { name: '', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', companionControlMode: 'autonomous', companionDeathMode: 'injury', companionDeathConfirmed: false, focus: 0 }
+    inheritedCampaign = undefined
+    successorParentId = undefined
+    route = { ...route, screen: 'createCourier' }
+  } else if ((command === 'l' || key === 'Enter') && activeCourier) resumeCourier()
+  else if (command === 'w') route = { ...route, screen: 'codex', codexPage: 0 }
+  else if (command === 'd' && activeCourier) confirmingCourierDelete = true
+  audio.play([event('menu')])
+  redraw()
+}
+
+function handleCodexInput(keyboardEvent: KeyboardEvent): void {
+  const key = keyboardEvent.key
+  if (key === 'Escape' || key.toLowerCase() === 'w') route = { ...route, screen: 'title', codexPage: undefined }
+  else if (key === 'ArrowRight' || key === 'Enter' || key === ' ') route = { ...route, codexPage: Math.min(LORE_CODEX_PAGES.length - 1, (route.codexPage ?? 0) + 1) }
+  else if (key === 'ArrowLeft' || key === 'Backspace') route = { ...route, codexPage: Math.max(0, (route.codexPage ?? 0) - 1) }
+  else return
+  keyboardEvent.preventDefault()
+  audio.play([event('menu')])
+  redraw()
+}
+
+function handleCourierCreation(keyboardEvent: KeyboardEvent): void {
+  if (!courierDraft) return
+  const key = keyboardEvent.key
+  if (key === 'Escape' || key === '`') { courierDraft = undefined; route = { ...route, screen: 'title' }; redraw(); return }
+  if (key === 'Tab') { courierDraft = { ...courierDraft, focus: ((courierDraft.focus + (keyboardEvent.shiftKey ? 5 : 1)) % 6) as CourierDraft['focus'] }; redraw(); return }
+  if (key === 'ArrowUp' || key === 'ArrowDown') { courierDraft = { ...courierDraft, focus: ((courierDraft.focus + (key === 'ArrowUp' ? 5 : 1)) % 6) as CourierDraft['focus'] }; redraw(); return }
+  if (key === 'Enter') {
+    if (courierDraft.companionDeathMode === 'permadeath' && !courierDraft.companionDeathConfirmed) { courierDraft = { ...courierDraft, companionDeathConfirmed: true }; redraw(); return }
+    createCourierFromDraft(); return
+  }
+  if ((key === 'ArrowLeft' || key === 'ArrowRight') && courierDraft.focus > 0) {
+    const forward = key === 'ArrowRight'
+    if (courierDraft.focus === 1) {
+      const options: CourierDraft['origin'][] = ['mineborn', 'mosswalker', 'cavernSeeker', 'tidebound']
+      const index = options.indexOf(courierDraft.origin)
+      courierDraft = { ...courierDraft, origin: options[(index + (forward ? 1 : options.length - 1)) % options.length] }
+    } else if (courierDraft.focus === 2) {
+      const options: CourierDraft['calling'][] = ['trailguard', 'pathmaker', 'spiritbearer']
+      const index = options.indexOf(courierDraft.calling)
+      courierDraft = { ...courierDraft, calling: options[(index + (forward ? 1 : options.length - 1)) % options.length] }
+    } else if (courierDraft.focus === 3) courierDraft = { ...courierDraft, deathMode: courierDraft.deathMode === 'checkpoint' ? 'ironTrail' : 'checkpoint' }
+    else if (courierDraft.focus === 4) courierDraft = { ...courierDraft, companionControlMode: courierDraft.companionControlMode === 'autonomous' ? 'direct' : 'autonomous' }
+    else courierDraft = { ...courierDraft, companionDeathMode: courierDraft.companionDeathMode === 'injury' ? 'permadeath' : 'injury', companionDeathConfirmed: false }
+    redraw(); return
+  }
+  if (courierDraft.focus === 0) {
+    if (key === 'Backspace' || key === 'Delete') courierDraft = { ...courierDraft, name: courierDraft.name.slice(0, -1) }
+    else if (/^[a-zA-Z0-9 ]$/.test(key) && courierDraft.name.length < 20) courierDraft = { ...courierDraft, name: `${courierDraft.name}${key}` }
+  }
+  redraw()
+}
+
+function createCourierFromDraft(): void {
+  if (!courierDraft || courierCreationPending) return
+  const name = courierDraft.name.trim()
+  if (!name || name.toLowerCase() === 'unnamed courier') { redraw(); return }
+  const draft = { ...courierDraft, name }
+  const startedAt = performance.now()
+  courierCreationPending = true
+  courierDraft = undefined
+  route = { screen: 'loading', biome: campaign.selectedBiome }
+  loading = { kind: 'trailhead', startedAt }
+  audio.play([event('menu')])
+  redraw()
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+    const id = crypto.randomUUID()
+    const identity = { id, name: draft.name, origin: draft.origin, calling: draft.calling, deathMode: draft.deathMode, companionControlMode: draft.companionControlMode, companionDeathMode: draft.companionDeathMode, createdAt: new Date().toISOString(), ...(successorParentId ? { parentId: successorParentId } : {}) }
+    const seed = acceptedCampaignSeed(Math.floor(Math.random() * 0x7fffffff))
+    const courier: CourierSave = { version: 1, identity, heir: newHero(identity), campaign: structuredClone(inheritedCampaign ?? initialCampaignRoute(seed, draft.companionControlMode)), records: { bestDepth: 0, wins: 0, deaths: 0, runs: [], analyses: [] } }
+    const nextHeir = structuredClone(courier.heir)
+    couriers = [...couriers, courier]
+    activeCourier = courier
+    selectedCourierId = id
+    records = courier.records
+    campaign = courier.campaign
+    heir = nextHeir
+    galaxyForVoyager(seed)
+    courier.campaign = campaign
+    inheritedCampaign = undefined
+    successorParentId = undefined
+    persistCourier(courier, id)
+    const loadingStartedAt = performance.now()
+    loading = { kind: 'trailhead', startedAt: loadingStartedAt }
+    redraw()
+    window.setTimeout(() => {
+      if (!courierCreationPending) return
+      courierCreationPending = false
+      loading = undefined
+      beginTrailhead(seed, openingLore(seed, courier.identity.name), nextHeir)
+      redraw()
+    }, 1800)
+  }))
+}
+
+function resumeCourier(): void {
+  if (!activeCourier) return
+  records = activeCourier.records
+  campaign = activeCourier.campaign
+  hub = { ...createHubState(activeCourier.run?.seed ?? 0), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
+  if (activeCourier.run) { state = structuredClone(activeCourier.run); saved = structuredClone(activeCourier.run); heir = structuredClone(state.hero); galaxyForVoyager(state.seed); synchronizeDeliveryContext(); route = { screen: 'level', biome: campaign.selectedBiome }; recordedEnd = false; resetAutoplaySession() }
+  else { state = undefined; saved = undefined; heir = activeCourier.heir ? structuredClone(activeCourier.heir) : newHero(activeCourier.identity); galaxyForVoyager(campaign.galaxy?.seed ?? 1); hubPosition = outpostSpawn(); route = { screen: 'hub', biome: campaign.selectedBiome } }
+  if (!activeCourier.run && campaign.galaxy?.routeBoard.transit) beginRouteBoardTransitPresentation(campaign.galaxy)
+  const selectedId = activeCourier.identity.id
+  recordPersistence('selection', () => selectCourier(selectedId))
+}
+
+function persistActiveCourier(restoreCheckpoint = false): void {
+  if (!activeCourier) return
+  if (state?.status === 'playing' && state.alignment) campaign = { ...campaign, alignment: { ...state.alignment } }
+  if (state?.status === 'playing' && state.reputation) campaign = { ...campaign, reputation: { ...state.reputation } }
+  if (state?.status === 'playing') campaign = { ...campaign, companions: cloneCompanions(state.companions ?? campaign.companions, campaign.rescuedNpcs) }
+  synchronizeActiveGalaxyCourier()
+  activeCourier.run = state && state.status === 'playing' ? structuredClone(state) : restoreCheckpoint && activeCourier.checkpoint ? structuredClone(activeCourier.checkpoint) : undefined
+  if (state?.status === 'playing') activeCourier.heir = structuredClone(state.hero)
+  activeCourier.campaign = campaign
+  activeCourier.records = records
+  saved = activeCourier.run ? structuredClone(activeCourier.run) : undefined
+  couriers = couriers.map(courier => courier.identity.id === activeCourier!.identity.id ? activeCourier! : courier)
+  persistCourier(activeCourier, selectedCourierId)
+}
+
+function stripArchivedDeliveryEquipment(hero: Hero, galaxy: GalaxyState): Hero {
+  const run = galaxy.deliveryRun
+  if (!run?.resolution || run.courierId !== galaxy.activeCourierId) return hero
+  const inventory = [...hero.inventory]
+  for (const stack of run.equipment) {
+    let remaining = stack.count
+    for (let index = inventory.length - 1; index >= 0 && remaining > 0; index--) if (inventory[index] === stack.itemId) { inventory.splice(index, 1); remaining-- }
+  }
+  return { ...hero, inventory }
+}
+
+function synchronizeActiveGalaxyCourier(): void {
+  const galaxy = campaign.galaxy
+  let currentHero = state?.status === 'playing' ? state.hero : heir
+  if (!galaxy || !currentHero) return
+  const current = galaxy.couriers.find(courier => courier.id === galaxy.activeCourierId)
+  if (!current) return
+  currentHero = stripArchivedDeliveryEquipment(currentHero, galaxy)
+  if (state?.status === 'playing') state.hero = currentHero
+  else heir = currentHero
+  const nextGalaxy = {
+    ...galaxy,
+    couriers: galaxy.couriers.map(courier => courier.id === current.id ? { ...courier, name: currentHero.name, origin: currentHero.origin, calling: currentHero.calling, hero: structuredClone(currentHero), personalItems: [...courier.personalItems] } : courier),
+    ...(galaxy.deliveryRun ? { deliveryRun: structuredClone(galaxy.deliveryRun) } : {})
+  }
+  synchronizeDeliveryRunEquipment(nextGalaxy)
+  campaign = { ...campaign, galaxy: nextGalaxy }
+}
+
+function synchronizeDeliveryContext(): void {
+  if (!state || state.status !== 'playing') return
+  const context = deliveryRunContext(campaign.galaxy?.deliveryRun, campaign.galaxy?.routeReckoning)
+  if (context) state.deliveryContext = context
+  else delete state.deliveryContext
+}
+
+function checkpointActiveCourier(): void {
+  if (!activeCourier || !state) return
+  activeCourier.checkpoint = structuredClone(state)
+  persistActiveCourier()
+}
+
+function loadGameZoom(): number {
+  try {
+    const stored = localStorage.getItem('jomon-board-zoom')
+    const value = stored === null ? Number.NaN : Number(stored)
+    return Number.isFinite(value) ? Math.max(.5, Math.min(5, value)) : 1
+  } catch { return 1 }
+}
+
+function setGameZoom(value: number): void {
+  gameZoom = Math.max(.5, Math.min(5, Math.round(value * 4) / 4))
+  try { localStorage.setItem('jomon-board-zoom', String(gameZoom)) } catch { }
+  applyGameZoom()
+  redraw()
+}
+
+function applyGameZoom(): void {
+  renderer.setBoardZoom(gameZoom)
+}
+
+function zoomForKey(keyboardEvent: KeyboardEvent): boolean {
+  if (keyboardEvent.key === '+' || keyboardEvent.key === '=' || keyboardEvent.code === 'NumpadAdd') { setGameZoom(gameZoom + .25); return true }
+  if (keyboardEvent.key === '-' || keyboardEvent.key === '_' || keyboardEvent.code === 'NumpadSubtract') { setGameZoom(gameZoom - .25); return true }
+  if (keyboardEvent.key === '0' || keyboardEvent.code === 'Numpad0') { setGameZoom(1); return true }
+  return false
+}
+
+function handleSettingsInput(key: string): void {
+  if (!state?.modal || state.modal.kind !== 'settings') return
+  const modal = state.modal
+  if (key === 'Escape' || key === '`') {
+    if (modal.awaiting) state.modal = { kind: 'settings', page: modal.page }
+    else state.modal = undefined
+  } else if (modal.awaiting) {
+    const next = setKeyBinding(settings, modal.awaiting, key)
+    if (next === settings) state.messages.unshift('That key is already bound.')
+    else { settings = next; saveSettings(settings); renderer.setSettings(settings) }
+    state.modal = { kind: 'settings', page: modal.page }
+  } else if (key === '[' || key === 'ArrowLeft') state.modal = { kind: 'settings', page: Math.max(0, (modal.page ?? 0) - 1) }
+  else if (key === ']' || key === 'ArrowRight') state.modal = { kind: 'settings', page: Math.min(settingsPageCount() - 1, (modal.page ?? 0) + 1) }
+  else {
+    const choice = settingChoices(settings, modal.page ?? 0)[Number(key) - 1]
+    if (choice?.kind === 'reducedFlash') { settings = { ...settings, reducedFlash: !settings.reducedFlash }; saveSettings(settings); renderer.setSettings(settings) }
+    if (choice?.kind === 'binding') state.modal = { kind: 'settings', page: modal.page, awaiting: choice.binding.id }
+  }
+  audio.play([event('menu')])
+  redraw()
+}
+
+function start(): void {
+  if (!activeCourier) return
+  const galaxy = galaxyForVoyager(route.heirSeed ?? state?.seed ?? campaign.galaxy?.seed ?? 1)
+  const siteId = route.siteId ?? galaxy?.activeSiteId
+  const site = galaxy && siteId ? galaxy.sites[siteId] : undefined
+  if (galaxy && (!site || !site.discovered)) { hubNotice = 'That landing approach has not been physically surveyed.'; route = { ...route, screen: 'hub' }; return }
+  if (campaign.cycle.completedCap) { hubNotice = 'NG++ is complete. No further escalation is available.'; route = { ...route, screen: 'hub' }; return }
+  if (campaignContinuationPending(campaign.cycle)) { hubNotice = 'Confirm the next campaign tier at the route board first.'; route = { ...route, screen: 'hub' }; return }
+  const biome = site?.biome ?? route.biome
+  const activatedGalaxy = galaxy && siteId ? markSealedPackageDestinationReached(setActiveGalaxySite(galaxy, siteId), siteId) : undefined
+  campaign = { ...campaign, selectedBiome: biome, ...(activatedGalaxy ? { galaxy: activatedGalaxy } : {}) }
+  hubNotice = undefined
+  const snapshot = campaign.galaxy && siteId ? galaxySnapshot(campaign.galaxy, siteId) : undefined
+  state = snapshot ?? newRun(route.heirSeed, biome, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle, campaign.companions, activeCourier.identity.companionDeathMode)
+  if (snapshot && heir) {
+    state.hero = structuredClone(heir)
+    state.hero.x = state.floor.start.x
+    state.hero.y = state.floor.start.y
+    state.status = 'playing'
+    state.modal = undefined
+    state.messages.unshift(`Returning to the evolving ${site?.name ?? biome} landing.`)
+  }
+  state.area = biome
+  state.alignment = { ...campaign.alignment }
+  state.reputation = { trailfolk: campaign.reputation?.trailfolk ?? 0, kami: campaign.reputation?.kami ?? 0 }
+  if (!snapshot && site) applyGalaxySiteConditions(state, site)
+  if (site && galaxy) attachGalaxyAirlocks(state, galaxy, site.id)
+  if (campaign.galaxy?.routeBoard.currentDestinationId === 'destination:nerida') {
+    const expeditionGalaxy = structuredClone(campaign.galaxy)
+    const deliveryRun = beginDeliveryExpedition(expeditionGalaxy, 'destination:nerida')
+    campaign = { ...campaign, galaxy: expeditionGalaxy }
+    if (deliveryRun) materializeNeridaIntakeExpedition(state, expeditionGalaxy, deliveryRun)
+  }
+  synchronizeDeliveryContext()
+  renderer.setHeroFacingLeft(false)
+  heir = state.hero
+  activeCourier.heir = structuredClone(state.hero)
+  saved = structuredClone(state)
+  recordedEnd = false
+  resetAutoplaySession()
+  activeCourier.checkpoint = structuredClone(state)
+  persistActiveCourier()
+  audio.play([event('menu')])
+  renderer.trigger([event('floor')], state)
+}
+
+function attachGalaxyAirlocks(game: RunState, galaxy: GalaxyState, siteId: string): void {
+  const site = galaxy.sites[siteId]
+  if (!site || game.floor.airlocks?.length) return
+  const destinations = site.links.filter(id => galaxy.sites[id]?.discovered)
+  const candidates = game.floor.tiles.flatMap((tile, index) => tile.kind === 'floor' && Math.max(Math.abs(index % game.floor.width - game.floor.start.x), Math.abs(Math.floor(index / game.floor.width) - game.floor.start.y)) <= 8 ? [{ x: index % game.floor.width, y: Math.floor(index / game.floor.width) }] : [])
+  const returnPoint = candidates.find(point => Math.max(Math.abs(point.x - game.floor.start.x), Math.abs(point.y - game.floor.start.y)) === 1)
+  const targets = [...destinations, 'voyager']
+  game.floor.airlocks = targets.flatMap((destination, index) => {
+    const point = destination === 'voyager' ? returnPoint : candidates[index * 2 + 1]
+    if (!point) return []
+    game.floor.tiles[point.y * game.floor.width + point.x]!.kind = 'airlock'
+    return [{ id: `airlock:${siteId}:${destination}`, x: point.x, y: point.y, ...(destination === 'voyager' ? {} : { destinationSiteId: destination }), label: destination === 'voyager' ? 'Jomon return airlock' : `Route airlock to ${galaxy.sites[destination]!.name}` }]
+  })
+}
+
+function galaxyForVoyager(seed: number): GalaxyState | undefined {
+  if (!heir) return campaign.galaxy
+  const galaxy = campaign.galaxy ?? createGalaxy(seed, heir)
+  campaign = { ...campaign, galaxy }
+  return galaxy
+}
+
+function beginTrailhead(seed: number, scene: ReturnType<typeof openingLore> | ReturnType<typeof successionLore>, nextHero?: Hero): void {
+  route = { screen: 'approach', biome: campaign.selectedBiome, heirSeed: seed }
+  heir = nextHero
+  hub = { ...createHubState(seed), unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
+  hubPosition = outpostSpawn()
+  story = createStory(scene, performance.now())
+  storyExit = 'hub'
+}
+
+function beginLoadingTransition(nextRoute: ScreenRoute, transition: Omit<LoadingState, 'startedAt'>, onComplete: () => void): void {
+  route = nextRoute
+  const startedAt = performance.now()
+  loading = { ...transition, startedAt }
+  redraw()
+  window.setTimeout(() => {
+    if (loading?.startedAt !== startedAt) return
+    loading = undefined
+    onComplete()
+    redraw()
+  }, 1750)
+}
+
+function beginTrailheadAfterLoading(seed: number, scene: ReturnType<typeof openingLore> | ReturnType<typeof successionLore>, nextHero?: Hero): void {
+  beginLoadingTransition({ screen: 'loading', biome: campaign.selectedBiome, heirSeed: seed }, { kind: 'trailhead' }, () => beginTrailhead(seed, scene, nextHero))
+}
+
+function beginVoyagerTransit(fromBiome: ScreenRoute['biome'], toBiome: ScreenRoute['biome'] | undefined, onComplete: () => void, labels: Pick<TransitState, 'fromLabel' | 'toLabel'> = {}): void {
+  route = { ...route, screen: 'transit', biome: toBiome ?? fromBiome }
+  transit = { fromBiome, toBiome, startedAt: performance.now(), ...labels }
+  const complete = () => {
+    if (finishTransit !== complete) return
+    finishTransit = undefined
+    transit = undefined
+    onComplete()
+    redraw()
+  }
+  finishTransit = complete
+  window.setTimeout(complete, 3400)
+  redraw()
+}
+
+function beginRouteBoardTransitPresentation(galaxy: GalaxyState): void {
+  const operation = galaxy.routeBoard.transit
+  if (!operation) return
+  const origin = routeBoardDestination(operation.fromDestinationId)
+  const destination = routeBoardDestination(operation.toDestinationId)
+  const originSite = origin ? galaxy.sites[origin.siteId] : undefined
+  const destinationSite = destination ? galaxy.sites[destination.siteId] : undefined
+  if (!origin || !destination || !originSite || !destinationSite) return
+  beginVoyagerTransit(originSite.biome, destinationSite.biome, () => {
+    const resolved = campaign.galaxy ? resolveRouteBoardTransit(campaign.galaxy) : undefined
+    if (!resolved) return
+    campaign = { ...campaign, galaxy: resolved.galaxy, selectedBiome: destinationSite.biome }
+    hubPosition = outpostSpawn()
+    hubNotice = resolved.message
+    route = { screen: 'hub', biome: destinationSite.biome, siteId: destinationSite.id }
+    if (resolved.changed) persistActiveCourier()
+  }, { fromLabel: origin.label, toLabel: destination.label })
+}
+
+function acceptedCampaignSeed(requestedSeed: number): number {
+  const validation = findStructurallyPlayableCampaignSeed(requestedSeed)
+  if (!validation.accepted) throw new Error(`no playable campaign seed after ${validation.errors.at(-1) ?? 'validation failure'}`)
+  return validation.seed
+}
+
+function handleStoryInput(keyboardEvent: KeyboardEvent): void {
+  if (!story || keyboardEvent.repeat) return
+  if (keyboardEvent.key === 'Escape') {
+    if (storyExit === 'analysis') finishStory()
+    else {
+      story = undefined
+      route = { ...route, screen: 'title', heirSeed: undefined }
+      audio.play([event('menu')])
+      redraw()
+    }
+    return
+  }
+  if (!isStoryKey(keyboardEvent)) return
+  keyboardEvent.preventDefault()
+  if (keyboardEvent.code === 'Space') finishStory()
+  else {
+    const next = advanceStory(story, performance.now())
+    story = next.story
+    if (next.finished) finishStory()
+    else { audio.play([event('menu')]); redraw() }
+  }
+}
+
+function isStoryKey(keyboardEvent: KeyboardEvent): boolean {
+  return !['Shift', 'Alt', 'Control', 'Meta', 'CapsLock', 'Tab'].includes(keyboardEvent.key)
+}
+
+function finishStory(): void {
+  const exit = storyExit
+  story = undefined
+  storyExit = 'hub'
+  if (exit === 'analysis') {
+    route = { ...route, screen: 'analysis' }
+    audio.play([event('menu')])
+    redraw()
+    return
+  }
+  if (createAfterStory) {
+    createAfterStory = false
+    courierDraft = { name: '', origin: 'mineborn', calling: 'trailguard', deathMode: 'checkpoint', companionControlMode: 'autonomous', companionDeathMode: 'injury', companionDeathConfirmed: false, focus: 0 }
+    route = { ...route, screen: 'createCourier' }
+  } else { hubPosition = outpostSpawn(); route = { ...route, screen: 'hub', hubAction: undefined } }
+  audio.play([event('menu')])
+  redraw()
+}
+
+function beginSuccession(): void {
+  if (!pendingSuccessor || loading) return
+  story = undefined
+  const successor = pendingSuccessor
+  pendingSuccessor = undefined
+  createAfterStory = true
+  const seed = acceptedCampaignSeed(successor.seed)
+  beginTrailheadAfterLoading(seed, successionLore(successor.record, seed))
+}
+
+function completeArea(): 'finished' | 'returned' | 'transitioning' {
+  if (!state) return 'returned'
+  const completedState = state
+  const completed = completedState.area ?? completedState.floor.biome
+  heir = structuredClone(completedState.hero)
+  campaign = { ...campaign, companions: cloneCompanions(completedState.companions ?? campaign.companions, campaign.rescuedNpcs) }
+  synchronizeActiveGalaxyCourier()
+  const galaxy = galaxyForVoyager(completedState.seed)
+  const siteId = route.siteId ?? galaxy?.activeSiteId
+  if (galaxy && siteId) {
+    const landed = recordGalaxyLanding(galaxy, siteId, completedState)
+    completedState.messages.unshift(`Landing yield secured: ${completedState.hero.gold} credits carried by ${activeCourier?.identity.name ?? completedState.hero.name}.`)
+    const savedSite = saveGalaxySite(landed, siteId, completedState)
+    campaign = { ...campaign, galaxy: discoverLinkedSites(savedSite, siteId) }
+    hub = { ...hub, rescued: campaign.rescuedNpcs }
+    beginVoyagerTransit(completed, undefined, () => {
+      state = undefined
+      saved = undefined
+      hubPosition = outpostSpawn()
+      route = { screen: 'hub', biome: completed }
+      persistActiveCourier()
+    })
+    return 'transitioning'
+  }
+  campaign = completeCampaignArea(campaign, completed)
+  hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
+  const successor = settings.autoplayMode === 'off' ? undefined : nextArea(completed, campaign.areaOrder)
+  if (successor) {
+    campaign = unlockCampaignArea(campaign, successor)
+    hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
+    beginVoyagerTransit(completed, successor, () => {
+      const next = newRun(completedState.seed, successor, 0, heir, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle, campaign.companions, completedState.companionDeathMode ?? activeCourier?.identity.companionDeathMode ?? 'injury')
+      next.turn = completedState.turn
+      next.lineageEvents = structuredClone(completedState.lineageEvents ?? [])
+      next.telemetry = structuredClone(completedState.telemetry!)
+      next.alignment = { ...(completedState.alignment ?? campaign.alignment) }
+      next.reputation = { ...(completedState.reputation ?? campaign.reputation ?? { trailfolk: 0, kami: 0 }) }
+      state = next
+      saved = structuredClone(next)
+      route = { ...route, screen: 'level', biome: successor }
+      resetAutoplaySession()
+      if (activeCourier) activeCourier.checkpoint = structuredClone(next)
+      persistActiveCourier()
+    })
+    return 'transitioning'
+  }
+  beginVoyagerTransit(completed, undefined, () => {
+    if (!state) return
+    state.status = 'victory'
+    finish(true)
+  })
+  return 'transitioning'
+}
+
+function beginConnectorTravel(galaxy: GalaxyState, originId: string, destinationId: string): void {
+  const origin = galaxy.sites[originId]
+  const destination = galaxy.sites[destinationId]
+  if (!origin || !destination || !heir) return
+  const savedOrigin = state ? saveGalaxySite(galaxy, originId, state) : galaxy
+  const accepted = acceptGalaxyContract(savedOrigin, origin.id, destination.id)
+  const linkId = [origin.id, destination.id].sort().join('::')
+  const chunkCount = galaxyRouteLength(accepted.galaxy, origin.id, destination.id)
+  const situations = Array.from({ length: chunkCount }, (_, chunk) => galaxyRouteSituation(accepted.galaxy, origin.id, destination.id, chunk))
+  const routedGalaxy = recordGalaxyRouteSituations(accepted.galaxy, linkId, situations)
+  campaign = { ...campaign, galaxy: routedGalaxy }
+  const routeCacheChunks = routedGalaxy.routeCaches.filter(cache => cache.linkId === linkId && !cache.recovered).map(cache => cache.chunk)
+  const travel = newTransitRun(routedGalaxy.seed, destination.biome, heir, { version: 1, fromSiteId: origin.id, toSiteId: destination.id, linkId, chunkCount, residentStart: 0, activeChunk: 0, situations, ...(routeCacheChunks.length ? { routeCacheChunks } : {}) }, campaign.rescuedNpcs, campaign.legacyRecords, campaign.areaOrder, campaign.cycle, campaign.companions, activeCourier?.identity.companionDeathMode ?? 'injury')
+  if (routeCacheChunks.length) {
+    travel.messages.unshift('A recoverable cargo cache is marked in this route window. Operate beside it to retrieve its contents.')
+  }
+  travel.messages.unshift(accepted.message)
+  travel.alignment = { ...campaign.alignment }
+  travel.reputation = { trailfolk: campaign.reputation?.trailfolk ?? 0, kami: campaign.reputation?.kami ?? 0 }
+  state = travel
+  saved = structuredClone(travel)
+  route = { screen: 'level', biome: destination.biome, siteId: destination.id }
+  renderer.setHeroFacingLeft(false)
+  resetAutoplaySession()
+  if (activeCourier) activeCourier.checkpoint = structuredClone(travel)
+  persistActiveCourier()
+  audio.play([event('floor')])
+}
+
+function completeConnector(): void {
+  if (!state?.travel) return
+  const travel = state.travel
+  const destination = travel.toSiteId
+  heir = structuredClone(state.hero)
+  if (activeCourier) activeCourier.heir = structuredClone(heir)
+  if (campaign.galaxy) campaign = { ...campaign, galaxy: resolveGalaxyRouteSituations(campaign.galaxy, travel.linkId, travel.situations) }
+  state = undefined
+  saved = undefined
+  route = { screen: 'level', biome: campaign.galaxy?.sites[destination]?.biome ?? route.biome, siteId: destination }
+  start()
+  const landed = state as RunState | undefined
+  if (landed && campaign.galaxy) {
+    const delivered = deliverGalaxyContracts(campaign.galaxy, destination, landed.hero)
+    campaign = { ...campaign, galaxy: delivered.galaxy }
+    if (delivered.message) landed.messages.unshift(delivered.message)
+    persistActiveCourier()
+  }
+}
+
+function unlockGateDestination(): void {
+  if (!state?.gateDestination) return
+  for (const lineageEvent of state.lineageEvents ?? []) campaign = recordCampaignSacrifice(campaign, lineageEvent)
+  campaign = unlockCampaignArea(campaign, state.gateDestination)
+  hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
+  route = { ...route, biome: campaign.selectedBiome }
+  state.gateDestination = undefined
+  if (state.status === 'playing') persistActiveCourier()
+}
+
+function persistRescuedRoster(): void {
+  if (!state?.rescuedNpcs?.length) return
+  const rescuedNpcs = [...campaign.rescuedNpcs]
+  for (const npc of state.rescuedNpcs) if (!rescuedNpcs.some(existing => existing.id === npc.id)) rescuedNpcs.push({ ...npc })
+  campaign = { ...campaign, rescuedNpcs, companions: addCompanionLeads(campaign.companions, rescuedNpcs, campaign.companionControlMode) }
+  hub = { ...hub, rescued: rescuedNpcs }
+  if (state.status === 'playing') persistActiveCourier()
+}
+
+function toggleVisualMode(): void {
+  const mode = nextVisualMode(renderer.visualMode)
+  renderer.setVisualMode(mode)
+  try { localStorage.setItem('jomon-visual-mode', mode) } catch { }
+  redraw()
+}
+
+function toggleAutoplay(): void {
+  const apply = (feature: AutoplayFeature) => {
+    if (settings.autoplayMode !== 'off') finalizeAutoplay('manual', 'mode toggled off')
+    settings = { ...settings, autoplayMode: feature.nextAutoplayMode(settings.autoplayMode) }
+    if (settings.autoplayMode !== 'off') resetAutoplaySession()
+    saveSettings(settings)
+    if (state) state.messages.unshift(`Autoplay: ${feature.autoplayModeLabel(settings.autoplayMode)} · ${feature.autoplayPolicyLabel(settings.autoplayPolicy)}.`)
+    audio.play([event('menu')])
+    redraw()
+  }
+  if (autoplayFeature) { apply(autoplayFeature); return }
+  if (state) state.messages.unshift('Loading autoplay systems…')
+  redraw()
+  void loadAutoplayFeature().then(apply).catch(() => {
+    if (state) state.messages.unshift('Autoplay systems failed to load. Try again.')
+    redraw()
+  })
+}
+
+function toggleAutoplayPolicy(): void {
+  const apply = (feature: AutoplayFeature) => {
+    if (settings.autoplayMode !== 'off') finalizeAutoplay('manual', 'policy changed')
+    settings = { ...settings, autoplayPolicy: feature.nextAutoplayPolicy(settings.autoplayPolicy) }
+    resetAutoplaySession()
+    saveSettings(settings)
+    if (state) state.messages.unshift(`Autoplay policy: ${feature.autoplayPolicyLabel(settings.autoplayPolicy)}.`)
+    audio.play([event('menu')])
+    redraw()
+  }
+  if (autoplayFeature) { apply(autoplayFeature); return }
+  if (state) state.messages.unshift('Loading autoplay systems…')
+  redraw()
+  void loadAutoplayFeature().then(apply).catch(() => {
+    if (state) state.messages.unshift('Autoplay systems failed to load. Try again.')
+    redraw()
+  })
+}
+
+function resetAutoplaySession(): void {
+  autoplayContext = autoplayFeature?.createAutoplayContext()
+  autoplayTrace = []
+  autoplayLogged = false
+}
+
+function finalizeAutoplay(outcome: AutoplayTerminal, reason: string): void {
+  if (autoplayLogged || !state || settings.autoplayMode === 'off' || !autoplayTrace.length && outcome !== 'unsupported') return
+  autoplayLogged = true
+  autoplayDiagnostic = { id: `${state.seed}:${state.floor.seed}:${Date.now()}`, date: new Date().toISOString(), seed: state.seed, biome: state.area ?? state.floor.biome, floor: (state.areaFloor ?? state.floor.index % 4) + 1, mode: settings.autoplayMode, policy: settings.autoplayPolicy, outcome, turns: state.turn, reason, trace: structuredClone(autoplayTrace) }
+  saveAutoplayDiagnostic(autoplayDiagnostic)
+  renderer.setAutoplayDiagnostic(autoplayDiagnostic)
+}
+
+function canAutoplay(): boolean {
+  if (settings.autoplayMode === 'off') return false
+  return route.screen === 'level' && state?.status === 'playing' || route.screen === 'hub' && !route.hubAction || route.screen === 'area'
+}
+
+function syncAutoplay(): void {
+  if (!canAutoplay()) {
+    if (autoplayTimer !== undefined) window.clearTimeout(autoplayTimer)
+    autoplayTimer = undefined
+    return
+  }
+  const feature = autoplayFeature
+  if (!feature) {
+    void loadAutoplayFeature().then(() => {
+      if (!canAutoplay()) return
+      resetAutoplaySession()
+      redraw()
+    }).catch(() => {
+      settings = { ...settings, autoplayMode: 'off' }
+      saveSettings(settings)
+      if (state) state.messages.unshift('Autoplay systems failed to load.')
+      redraw()
+    })
+    return
+  }
+  if (autoplayTimer !== undefined) return
+  autoplayTimer = window.setTimeout(() => {
+    autoplayTimer = undefined
+    if (!canAutoplay()) return
+    if (route.screen === 'hub') {
+      const command = outpostAutoplayCommand(hubPosition)
+      if (!command) {
+        settings = { ...settings, autoplayMode: 'off' }
+        saveSettings(settings)
+        hubNotice = 'Autoplay halted: route board is unreachable.'
+        redraw()
+        return
+      }
+      handleHubInput(command)
+      audio.play([event('menu')])
+      redraw()
+      return
+    }
+    if (route.screen === 'area') {
+      const nextRoute = navigate(route, 'Enter', Boolean(saved))
+      if (nextRoute.screen !== 'level') return
+      start()
+      route = nextRoute
+      audio.play([event('menu')])
+      redraw()
+      return
+    }
+    if (!state) return
+    const context = autoplayContext ??= feature.createAutoplayContext()
+    const decision = feature.autoplayDecision(state, settings.autoplayMode, settings.autoplayPolicy, context)
+    if (!decision) {
+      const reason = context.lastReason ?? 'no legal progress action'
+      const unsupported = reason === 'unsupported direct companion control'
+      finalizeAutoplay(unsupported ? 'unsupported' : 'stalled', reason)
+      settings = { ...settings, autoplayMode: 'off' }
+      saveSettings(settings)
+      state.messages.unshift(unsupported ? 'Autoplay unavailable: direct companion control needs player commands.' : `Autoplay halted (${reason}); trace saved locally.`)
+      redraw()
+      return
+    }
+    executeGameplayCommand(decision.command, { autoplay: decision })
+  }, feature.AUTOPLAY_TURN_MS)
+}
+
+function redraw(): void {
+  canvas.dataset.route = route.screen
+  canvas.dataset.status = state?.status ?? 'none'
+  canvas.dataset.autoplay = settings.autoplayMode
+  canvas.dataset.autoplayPolicy = settings.autoplayPolicy
+  canvas.dataset.hubAction = route.hubAction ?? ''
+  canvas.dataset.notice = hubNotice ?? ''
+  const campaignStatus = hubCampaignStatus(campaign.cycle)
+  const galaxy = campaign.galaxy
+  const sealedContract = galaxy?.sealedPackageContracts[0]
+  const currentDestination = galaxy ? routeBoardDestination(galaxy.routeBoard.currentDestinationId) : undefined
+  const destinationReport = galaxy && currentDestination ? galaxy.destinationWorld.reports[currentDestination.id as keyof typeof galaxy.destinationWorld.reports] : undefined
+  const routeBoardSelection = galaxy && route.screen === 'sector' ? routeBoardDestinationForSite(route.siteId ?? currentDestination?.siteId ?? '') ?? currentDestination : undefined
+  const routeBoardReport = galaxy && routeBoardSelection ? galaxy.destinationWorld.reports[routeBoardSelection.id as keyof typeof galaxy.destinationWorld.reports] : undefined
+  const manifestEntry = route.hubAction === 'manifest' ? galaxy?.generalManifest.entries.at(-1) : undefined
+  const deliveryRun = galaxy?.deliveryRun
+  const deliveryOffer = deliveryRun?.offers.find(offer => offer.state === 'pending')
+  const deliveryLoadout = deliveryRun?.equipment.map(stack => `${ITEM[stack.itemId]?.name ?? stack.itemId} ×${stack.count}: ${deliveryItemDescription(stack.itemId) ?? 'field behavior unavailable'}`).join(' ') ?? ''
+  const deliveryExpedition = state?.floor.deliveryExpedition
+  const deliveryElite = state?.floor.actors.find(actor => actor.deliveryElite && actor.hostile && actor.health > 0)
+  const tacticalIntent = state?.floor.telegraphs?.find(telegraph => (telegraph.state ?? 'pending') === 'pending')
+  const rival = galaxy?.institutionWorld.rival
+  const rivalActor = rival && galaxy ? galaxy.institutionWorld.actors.find(actor => actor.id === rival.actorId) : undefined
+  const rivalMemory = rivalActor?.memories.at(-1)
+  canvas.dataset.sealedPackage = sealedContract?.status ?? 'none'
+  canvas.dataset.routeReckoning = galaxy ? String(galaxy.routeReckoning) : ''
+  canvas.dataset.currentDestination = currentDestination?.id ?? ''
+  canvas.dataset.routeBoardSelection = routeBoardSelection?.id ?? ''
+  canvas.dataset.routeTransit = galaxy?.routeBoard.transit?.id ?? ''
+  canvas.dataset.routeBoardConfirmation = route.routeBoardConfirmation ?? ''
+  canvas.dataset.destinationStatus = route.hubAction === 'destination' ? destinationReport?.reportedCondition ?? '' : ''
+  canvas.dataset.destinationReportFreshness = destinationReport ? String(Math.max(0, (galaxy?.routeReckoning ?? 0) - destinationReport.observedAtRouteReckoning)) : ''
+  canvas.dataset.destinationIntervention = route.destinationIntervention ?? ''
+  canvas.dataset.institutionCount = galaxy ? String(Object.keys(galaxy.institutionWorld.states).length) : '0'
+  canvas.dataset.rivalId = rival?.id ?? ''
+  canvas.dataset.rivalStatus = rival?.status ?? ''
+  canvas.dataset.rivalName = rivalActor?.name ?? ''
+  canvas.dataset.rivalMemory = rivalMemory?.kind ?? ''
+  canvas.dataset.institutionDecision = route.institutionDecision ?? ''
+  canvas.dataset.routeBoardReport = routeBoardReport?.reportedCondition ?? ''
+  canvas.dataset.routeBoardReportFreshness = routeBoardReport && galaxy ? destinationReportFreshness(routeBoardReport, galaxy.routeReckoning) : ''
+  canvas.dataset.deliveryRun = deliveryRun?.id ?? ''
+  canvas.dataset.deliveryPressure = deliveryRun?.pressureTier ?? ''
+  canvas.dataset.deliveryOffer = deliveryOffer?.id ?? ''
+  canvas.dataset.deliveryOfferChoices = deliveryOffer?.choices.join(',') ?? ''
+  canvas.dataset.deliveryLoadout = deliveryLoadout
+  canvas.dataset.deliveryExpedition = deliveryExpedition?.id ?? ''
+  canvas.dataset.deliveryElite = deliveryElite?.deliveryElite?.id ?? ''
+  canvas.dataset.deliveryEliteTraits = deliveryElite?.deliveryElite?.traitIds.join(',') ?? ''
+  canvas.dataset.tacticalIntent = tacticalIntent?.id ?? ''
+  canvas.dataset.tacticalIntentCategory = tacticalIntent?.category ?? ''
+  canvas.setAttribute('aria-label', `Jomon living sector. ${galaxy ? `${currentDestination?.label ?? 'unresolved location'}; ${Object.values(galaxy.sites).filter(site => site.discovered).length} physical landings charted; ${formatRouteReckoning(galaxy.routeReckoning)}.` : campaignStatus.accessibleLabel}${routeBoardSelection ? ` Route Board selection: ${routeBoardSelection.label}.` : ''}${routeBoardReport && galaxy ? ` Route report: ${routeBoardReport.reportedCondition}, ${destinationReportFreshness(routeBoardReport, galaxy.routeReckoning)}.` : ''}${route.hubAction === 'destination' && destinationReport ? ` Destination status: ${destinationReport.reportedCondition}, ${destinationReport.confidence} report.` : ''}${route.hubAction === 'institutions' && galaxy ? ` Institutions: ${rival && rivalActor ? `${rivalActor.name}, ${rival.status}. Known file: ${rivalMemory?.summary ?? 'no recorded personal cause'}` : 'no known rival.'}` : ''}${deliveryRun && !deliveryRun.resolution ? ` Delivery pressure: ${deliveryRun.pressureTier}, ${deliveryRun.elapsedMarks} marks.${deliveryOffer ? ` Field offer: ${deliveryOffer.choices.join(', ')}.` : ''}${deliveryLoadout ? ` Field equipment: ${deliveryLoadout}` : ''}` : ''}${deliveryExpedition ? ` Nerida expedition: ${deliveryExpedition.status}.` : ''}${tacticalIntent ? ` Declared tactical intent: ${tacticalIntent.category ?? tacticalIntent.actionId}.` : ''}${manifestEntry ? ` General Manifest: ${manifestEntry.detail}` : ''}${sealedContract ? ` Sealed package ${sealedContract.definitionId} is ${sealedContract.status}.` : ''}${heir ? ` ${hubCarryoverSummary(heir, campaign.companions).accessibleLabel}` : ''}`)
+  renderer.render(route, state, records, hubView(heir?.name ?? activeCourier?.identity.name ?? 'Unassigned', hub, { hero: heir, biome: route.biome, notice: hubNotice, position: hubPosition, cycle: campaign.cycle, ...(heir ? { carryover: hubCarryoverSummary(heir, campaign.companions) } : {}), companions: campaign.companions, companionControlMode: campaign.companionControlMode, companionDeathMode: activeCourier?.identity.companionDeathMode, galaxy }), story, loading, analysis, courierMenu(), courierDraft, settings.autoplayMode, transit)
+  syncAutoplay()
+}
+
+function handleHubInput(key: string, run = false): boolean {
+  const action = route.hubAction
+  if (action) {
+    if (action === 'delivery') {
+      const galaxy = galaxyForVoyager(campaign.galaxy?.seed ?? 1)
+      const close = () => { route = { ...route, hubAction: undefined, deliveryModification: undefined } }
+      const run = galaxy?.deliveryRun
+      const currentHero = run && galaxy ? galaxy.couriers.find(courier => courier.id === run.courierId)?.hero : undefined
+      if (!galaxy || !run || !currentHero || run.resolution) { hubNotice = 'No active sealed delivery has a field-build record.'; close(); return true }
+      if (route.deliveryModification) {
+        if (key === 'Escape' || key.toLowerCase() === 'c') { route = { ...route, deliveryModification: undefined }; hubNotice = 'Courier modification review cancelled.'; return true }
+        if (key !== 'Enter') { hubNotice = 'ENTER installs the stated permanent modification using one Vital Gel treatment. C / ESC cancels.'; return true }
+        const edited = structuredClone(galaxy)
+        const result = installCourierModification(edited, route.deliveryModification)
+        campaign = { ...campaign, galaxy: edited }
+        const courier = edited.couriers.find(candidate => candidate.id === edited.activeCourierId)
+        if (courier) { heir = structuredClone(courier.hero); if (activeCourier) activeCourier.heir = structuredClone(courier.hero) }
+        route = { ...route, deliveryModification: undefined }
+        hubNotice = result.message
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (key === 'Escape' || key.toLowerCase() === 'c' || key === 'Enter') { close(); return true }
+      const offer = run.offers.find(candidate => candidate.state === 'pending')
+      const command = key.toLowerCase()
+      const index = Number(key) - 1
+      if (offer && Number.isInteger(index) && index >= 0 && index < offer.choices.length) {
+        const edited = structuredClone(galaxy)
+        const result = selectDeliveryOffer(edited, offer.id, offer.choices[index])
+        campaign = { ...campaign, galaxy: edited }
+        const courier = edited.couriers.find(candidate => candidate.id === edited.activeCourierId)
+        if (courier) { heir = structuredClone(courier.hero); if (activeCourier) activeCourier.heir = structuredClone(courier.hero) }
+        hubNotice = result.message
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (offer && command === 'd') {
+        const edited = structuredClone(galaxy)
+        const result = selectDeliveryOffer(edited, offer.id, undefined)
+        campaign = { ...campaign, galaxy: edited }
+        hubNotice = result.message
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (command === 'b' || command === 'r') {
+        const modification = command === 'b' ? 'pressure-baffles' : 'relay-marrow-conduit'
+        if (!courierModificationChoices(currentHero).includes(modification)) { hubNotice = 'That modification is incompatible with this courier’s current field record.'; return true }
+        route = { ...route, deliveryModification: modification }
+        hubNotice = undefined
+        return true
+      }
+      hubNotice = offer ? '1-3 requisition field equipment · D decline · B/R review a permanent modification.' : 'B/R review a permanent modification. C / ESC returns to carrier duties.'
+      return true
+    }
+    if (action === 'manifest') {
+      if (key === 'Escape' || key.toLowerCase() === 'c' || key.toLowerCase() === 'm' || key === 'Enter') route = { ...route, hubAction: undefined }
+      return true
+    }
+    if (action === 'destination') {
+      const galaxy = galaxyForVoyager(campaign.galaxy?.seed ?? 1)
+      const close = () => { route = { ...route, hubAction: undefined, destinationIntervention: undefined } }
+      if (!galaxy) { hubNotice = 'No destination partition is available while Jomon has no active route record.'; close(); return true }
+      if (route.destinationIntervention) {
+        if (key === 'Escape' || key.toLowerCase() === 'c') { route = { ...route, destinationIntervention: undefined }; hubNotice = 'Nerida bypass installation cancelled.'; return true }
+        if (key !== 'Enter') { hubNotice = 'ENTER confirms the sixty-mark Nerida bypass installation. C / ESC cancels.'; return true }
+        const result = installGalaxyNeridaBypass(galaxy)
+        campaign = { ...campaign, galaxy: result.galaxy }
+        route = { ...route, destinationIntervention: undefined }
+        hubNotice = result.message
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (key === 'Escape' || key.toLowerCase() === 'c' || key === 'Enter') { close(); return true }
+      if (key.toLowerCase() === 'i') {
+        const result = inspectGalaxyDestination(galaxy)
+        campaign = { ...campaign, galaxy: result.galaxy }
+        hubNotice = result.message
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (key.toLowerCase() === 'b') {
+        if (galaxy.routeBoard.currentDestinationId !== 'destination:nerida' || galaxy.destinationWorld.partitions['destination:nerida'].condition !== 'cavitation-restriction') { hubNotice = 'No physical intervention is currently available at this destination.'; return true }
+        route = { ...route, destinationIntervention: 'nerida-bypass' }
+        hubNotice = undefined
+        return true
+      }
+      hubNotice = 'I inspect local instruments. B prepares the Nerida bypass when available.'
+      return true
+    }
+    if (action === 'institutions') {
+      const galaxy = galaxyForVoyager(campaign.galaxy?.seed ?? 1)
+      const close = () => { route = { ...route, hubAction: undefined, institutionDecision: undefined } }
+      if (!galaxy) { hubNotice = 'Institutional records are unavailable while Jomon has no active route record.'; close(); return true }
+      if (route.institutionDecision) {
+        if (key === 'Escape') { route = { ...route, institutionDecision: undefined }; hubNotice = 'Institutional response cancelled.'; return true }
+        if (key !== 'Enter') { hubNotice = 'ENTER files the selected response. ESC cancels.'; return true }
+        const result = decideGalaxyInstitutionRequest(galaxy, route.institutionDecision)
+        campaign = { ...campaign, galaxy: result.galaxy }
+        route = { ...route, institutionDecision: undefined }
+        hubNotice = result.message
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (key === 'Escape' || key.toLowerCase() === 'n' || key === 'Enter') { close(); return true }
+      const command = key.toLowerCase()
+      if (command === 'e') { hubNotice = 'At Nerida: C complies, R refuses, or A authorizes Closure Eight assistance (sixty marks). Choose a response, then ENTER confirms.'; return true }
+      if (command === 'c' || command === 'r' || command === 'a') {
+        route = { ...route, institutionDecision: command === 'c' ? 'comply' : command === 'r' ? 'refuse' : 'assist' }
+        hubNotice = undefined
+        return true
+      }
+      hubNotice = 'E lists the known Nerida response. C comply · R refuse · A assist Closure Eight.'
+      return true
+    }
+    if (action === 'custody') {
+      const galaxy = galaxyForVoyager(campaign.galaxy?.seed ?? 1)
+      const contract = galaxy?.sealedPackageContracts[0]
+      const close = () => { route = { ...route, hubAction: undefined, sealedPackageAction: undefined } }
+      if (!galaxy || !contract) { hubNotice = 'The Jomon custody terminal has no sealed package record.'; close(); return true }
+      const pending = route.sealedPackageAction
+      if (pending) {
+        if (key === 'Escape' || key.toLowerCase() === 'c') { route = { ...route, sealedPackageAction: undefined }; hubNotice = 'Custody action cancelled.'; return true }
+        if (key !== 'Enter') { hubNotice = 'ENTER confirms this custody action. C / ESC cancels.'; return true }
+        const result = pending === 'open'
+          ? violateSealedPackageSeal(galaxy, contract.id)
+          : pending === 'deliver'
+            ? heir ? deliverSealedPackage(galaxy, contract.id, heir) : { galaxy, changed: false, message: 'A courier record is required for settlement.' }
+            : pending === 'refuse'
+              ? refuseSealedPackage(galaxy, contract.id)
+              : abandonSealedPackage(galaxy, contract.id)
+        campaign = { ...campaign, galaxy: result.galaxy }
+        hubNotice = result.message
+        route = { ...route, sealedPackageAction: undefined }
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (key === 'Escape' || key.toLowerCase() === 'c') { close(); return true }
+      const command = key.toLowerCase()
+      if (command === 'i') {
+        const result = inspectSealedPackage(galaxy, contract.id)
+        campaign = { ...campaign, galaxy: result.galaxy }
+        hubNotice = result.message
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (command === 'a') {
+        const result = acceptSealedPackageContract(galaxy, contract.id, galaxy.activeCourierId)
+        campaign = { ...campaign, galaxy: result.galaxy }
+        hubNotice = result.message
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (command === 'd') {
+        const result = declineSealedPackageContract(galaxy, contract.id)
+        campaign = { ...campaign, galaxy: result.galaxy }
+        hubNotice = result.message
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (command === 'o' || command === 'e' || command === 'r' || command === 'b') {
+        const sealedPackageAction = command === 'o' ? 'open' : command === 'e' ? 'deliver' : command === 'r' ? 'refuse' : 'abandon'
+        route = { ...route, sealedPackageAction }
+        hubNotice = undefined
+        return true
+      }
+      hubNotice = 'I inspect · A accept · D decline · O/E/R/B choose a custody action.'
+      return true
+    }
+    if (action === 'crew') {
+      if (key === 'Escape' || key.toLowerCase() === 'c' || key === 'Enter') { route = { ...route, hubAction: undefined }; return true }
+      const index = Number(key) - 1
+      const galaxy = galaxyForVoyager(campaign.galaxy?.seed ?? 1)
+      const courier = galaxy?.couriers[index]
+      if (!galaxy || !courier) { hubNotice = 'Choose a listed Voyager specialist (1-5).'; return true }
+      const selected = selectGalaxyCourier(galaxy, courier.id)
+      if (!selected.hero) { hubNotice = `${courier.name} is unavailable (${courier.status}).`; return true }
+      campaign = { ...campaign, galaxy: selected.galaxy }
+      heir = selected.hero
+      if (activeCourier) activeCourier.heir = structuredClone(heir)
+      hubNotice = `${heir.name} takes the landing watch. Their previous duty resumes autonomously.`
+      persistActiveCourier()
+      return true
+    }
+    if (action === 'continuation') {
+      if (key === 'Escape' || key.toLowerCase() === 'c') { route = { ...route, hubAction: undefined }; return true }
+      if (key === 'Enter' || key.toLowerCase() === 'e') {
+        if (!heir || !activeCourier) { hubNotice = 'Courier carryover is unavailable.'; return true }
+        const before = campaign.cycle.currentTier
+        const snapshot = snapshotCampaignCarryover(heir, campaign, records)
+        const advanced = continueCampaignRoute(campaign)
+        if (advanced.cycle.currentTier === before) { hubNotice = 'No campaign continuation is pending.'; route = { ...route, hubAction: undefined }; return true }
+        const transfer = transferCampaignCarryover(advanced, snapshot)
+        campaign = transfer.campaign
+        heir = transfer.hero
+        records = transfer.records
+        activeCourier.heir = structuredClone(heir)
+        hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
+        hubNotice = `${campaign.cycle.currentTier === 'ngPlus' ? 'NG+' : 'NG++'} revised route recorded. Press E / ENTER to launch.`
+        route = { screen: 'area', biome: campaign.selectedBiome }
+        persistActiveCourier()
+        return true
+      }
+      hubNotice = 'ENTER / E accepts the revised route. C / ESC returns to the carrier deck.'
+      return true
+    }
+    if (action === 'roster') {
+      if (key === 'Escape' || key.toLowerCase() === 'c') { route = { ...route, hubAction: undefined, companionAction: undefined, companionControlMode: undefined }; return true }
+      const pendingControlMode = route.companionControlMode
+      if (pendingControlMode) {
+        if (key !== 'Enter') { hubNotice = 'ENTER confirms. C / ESC cancels.'; return true }
+        const result = changeCampaignCompanionControlMode(campaign, pendingControlMode, 'lodge')
+        campaign = result.state
+        hubNotice = result.message
+        route = { ...route, companionControlMode: undefined }
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      const pending = route.companionAction
+      if (pending) {
+        if (key !== 'Enter') { hubNotice = 'ENTER confirms. C / ESC cancels.'; return true }
+        if ((pending.action === 'beginRecovery' || pending.action === 'completeRecovery') && !heir) { hubNotice = 'Courier funds are unavailable.'; return true }
+        const result = pending.action === 'beginRecovery'
+          ? beginCompanionRecovery(campaign.companions, campaign.rescuedNpcs, pending.id, heir!.gold)
+          : pending.action === 'completeRecovery'
+            ? completeCompanionRecovery(campaign.companions, campaign.rescuedNpcs, pending.id)
+            : changeCompanionRoster(campaign.companions, campaign.rescuedNpcs, pending.id, pending.action)
+        campaign = { ...campaign, companions: result.companions }
+        if (result.changed && result.cashSpent && heir) heir.gold -= result.cashSpent
+        hubNotice = result.message
+        route = { ...route, companionAction: undefined }
+        if (result.changed) persistActiveCourier()
+        return true
+      }
+      if (key === 'Enter') { route = { ...route, hubAction: undefined }; return true }
+      if (key === '0') { route = { ...route, companionControlMode: campaign.companionControlMode === 'autonomous' ? 'direct' : 'autonomous' }; hubNotice = undefined; return true }
+      const choice = Number(key) - 1
+      const companion = campaign.companions[choice]
+      if (!Number.isInteger(choice) || !companion || choice > 4) { hubNotice = 'Choose a listed companion (1-5).'; return true }
+      const next = companionLodgeAction(companion)
+      if (!next) { hubNotice = `${companion.name} is unavailable (${companion.permanentlyLost ? 'permanently lost' : companion.injury === 'recovering' ? `${companion.recoveryFloors ?? 0} cleared floor remaining` : companion.injury}).`; return true }
+      route = { ...route, companionAction: { id: companion.id, action: next } }
+      hubNotice = undefined
+      return true
+    }
+    if (key === 'Escape' || key.toLowerCase() === 'c' || key === 'Enter') { route = { ...route, hubAction: undefined }; return true }
+    const choice = Number(key) - 1
+    if (!heir || !activeCourier) { hubNotice = 'Courier record is unavailable.'; return true }
+    if (!Number.isInteger(choice) || choice < 0 || choice > 5) { hubNotice = 'Choose a listed option (1-6).'; return true }
+    const result = action === 'shop'
+      ? buyHubItem(heir, hubStock(route.biome)[choice] ?? '')
+      : action === 'outfitter'
+        ? equipHubItem(heir, hubEquipment(heir)[choice] ?? '')
+        : undefined
+    if (!result) { hubNotice = 'That service cannot complete this action.'; return true }
+    hubNotice = result.message
+    if (result.changed) { activeCourier.heir = structuredClone(heir); persistActiveCourier() }
+    return true
+  }
+  if (key.toLowerCase() === 'm') {
+    if (!campaign.galaxy) { hubNotice = 'The Jomon General Manifest is unavailable until a route is loaded.'; return true }
+    route = { ...route, hubAction: 'manifest' }
+    hubNotice = undefined
+    return true
+  }
+  if (key.toLowerCase() === 'p') {
+    if (!campaign.galaxy?.deliveryRun || campaign.galaxy.deliveryRun.resolution) { hubNotice = 'No active sealed delivery has a field-build record.'; return true }
+    route = { ...route, hubAction: 'delivery' }
+    hubNotice = undefined
+    return true
+  }
+  if (key.toLowerCase() === 'd') {
+    if (!campaign.galaxy) { hubNotice = 'The Jomon destination status is unavailable until a route is loaded.'; return true }
+    route = { ...route, hubAction: 'destination' }
+    hubNotice = undefined
+    return true
+  }
+  if (key.toLowerCase() === 'n') {
+    if (!campaign.galaxy) { hubNotice = 'Institutional records are unavailable until a route is loaded.'; return true }
+    route = { ...route, hubAction: 'institutions' }
+    hubNotice = undefined
+    return true
+  }
+  if (key.toLowerCase() === 'c' || key === 'Enter') {
+    const interaction = outpostInteraction(hubPosition)
+    if (!interaction) { hubNotice = 'No service is within reach.'; return true }
+    hubNotice = undefined
+    if (interaction.destination === 'routes') {
+      const galaxy = galaxyForVoyager(state?.seed ?? campaign.galaxy?.seed ?? 1)
+      const site = galaxy?.sites[galaxy.activeSiteId]
+      if (!galaxy || !site) hubNotice = 'The flight console cannot recover a galaxy route.'
+      else route = { screen: 'sector', biome: site.biome, siteId: site.id }
+    }
+    else route = { ...route, hubAction: interaction.destination }
+    return true
+  }
+  const direction = directionFor(key)
+  if (!direction) return false
+  const previous = hubPosition
+  let moved = false
+  for (let step = 0; step < (run ? 5 : 1); step++) {
+    const move = moveOutpost(hubPosition, direction)
+    if (!move.moved) break
+    hubPosition = move.position
+    moved = true
+  }
+  if (moved) {
+    renderer.setHeroFacingLeft(hubPosition.x < previous.x)
+    renderer.setHubMoved()
+    hubNotice = undefined
+  } else if (direction !== 'wait') hubNotice = 'The way is blocked.'
+  return true
+}
+
+function handleSectorInput(key: string): boolean {
+  const galaxy = galaxyForVoyager(state?.seed ?? campaign.galaxy?.seed ?? 1)
+  if (!galaxy) { route = { ...route, screen: 'hub' }; return true }
+  const currentDestination = routeBoardDestination(galaxy.routeBoard.currentDestinationId)
+  if (!currentDestination) { route = { ...route, screen: 'hub', siteId: undefined }; return true }
+  const connections = routeBoardConnectionsFor(currentDestination.id)
+  const destinations = [currentDestination, ...connections.map(connection => routeBoardOtherDestination(connection, currentDestination.id)).filter((destination): destination is NonNullable<typeof destination> => Boolean(destination))]
+  const current = Math.max(0, destinations.findIndex(destination => destination.siteId === (route.siteId ?? currentDestination.siteId)))
+  if (route.routeBoardConfirmation) {
+    if (key === 'Escape' || key.toLowerCase() === 'c') {
+      const confirmation = route.routeBoardConfirmation
+      const cleared = confirmation === 'transit' ? clearRouteBoardConnectionSelection(galaxy) : undefined
+      if (cleared?.changed) { campaign = { ...campaign, galaxy: cleared.galaxy }; persistActiveCourier() }
+      route = { ...route, routeBoardConfirmation: undefined }
+      hubNotice = confirmation === 'transit' ? 'Transit confirmation cancelled. Jomon remains docked.' : 'Landing confirmation cancelled.'
+      return true
+    }
+    if (key !== 'Enter' && key.toLowerCase() !== 'e') { hubNotice = 'ENTER confirms. C / ESC cancels.'; return true }
+    if (route.routeBoardConfirmation === 'landing') {
+      route = { screen: 'level', biome: currentDestination ? galaxy.sites[currentDestination.siteId]!.biome : route.biome, siteId: currentDestination.siteId }
+      start()
+      return true
+    }
+    const committed = commitRouteBoardTransit(galaxy)
+    campaign = { ...campaign, galaxy: committed.galaxy }
+    hubNotice = committed.message
+    if (!committed.changed) { route = { ...route, routeBoardConfirmation: undefined }; return true }
+    persistActiveCourier()
+    beginRouteBoardTransitPresentation(committed.galaxy)
+    return true
+  }
+  if (key === 'Escape' || key.toLowerCase() === 'c') { route = { ...route, screen: 'hub', siteId: undefined }; return true }
+  if (!destinations.length) return true
+  if (key === 'ArrowUp' || key === 'ArrowLeft' || key === 'ArrowDown' || key === 'ArrowRight') {
+    const delta = key === 'ArrowUp' || key === 'ArrowLeft' ? -1 : 1
+    const next = destinations[(current + delta + destinations.length) % destinations.length]!
+    route = { ...route, biome: galaxy.sites[next.siteId]!.biome, siteId: next.siteId }
+    return true
+  }
+  if (key === 'Enter' || key.toLowerCase() === 'e') {
+    const selected = destinations[current]!
+    route = { ...route, biome: galaxy.sites[selected.siteId]!.biome, siteId: selected.siteId }
+    if (selected.id === currentDestination.id) {
+      route = { ...route, routeBoardConfirmation: 'landing' }
+      hubNotice = 'Confirm physical landing at Kestrel or the current destination.'
+      return true
+    }
+    const connection = connections.find(candidate => routeBoardOtherDestination(candidate, currentDestination.id)?.id === selected.id)
+    if (!connection || !routeBoardConnectionAvailable(galaxy.routeBoard, connection)) { hubNotice = connection?.unavailableReason ?? 'That route is unavailable from Jomon’s current location.'; return true }
+    const preview = selectRouteBoardConnection(galaxy, connection.id)
+    campaign = { ...campaign, galaxy: preview.galaxy }
+    hubNotice = preview.message
+    if (!preview.changed) return true
+    persistActiveCourier()
+    route = { ...route, routeBoardConfirmation: 'transit' }
+    return true
+  }
+  return true
+}
+
+function finish(won: boolean): void {
+  if (!state) return
+  if (state.alignment) campaign = { ...campaign, alignment: { ...state.alignment } }
+  if (state.reputation) campaign = { ...campaign, reputation: { ...state.reputation } }
+  if (won) {
+    heir = structuredClone(state.hero)
+    if (activeCourier) activeCourier.heir = structuredClone(heir)
+    if (!campaign.cycle.completedTiers.includes(campaign.cycle.currentTier)) campaign = { ...campaign, cycle: completeCampaignTier(campaign.cycle) }
+    state.campaignCycle = structuredClone(campaign.cycle)
+    state.messages.unshift(`Campaign tier complete. ${hubCampaignStatus(campaign.cycle).nextLabel}`)
+  }
+  finalizeAutoplay(won ? 'complete' : 'dead', won ? 'campaign complete' : 'courier defeated')
+  if (settings.autoplayMode !== 'off') {
+    settings = { ...settings, autoplayMode: 'off' }
+    saveSettings(settings)
+  }
+  recordedEnd = true
+  const checkpointDeath = !won && state.hero.deathMode === 'checkpoint'
+  if (!won && !checkpointDeath) {
+    campaign = recordDeath(campaign, state, state.hero.name)
+    if (campaign.galaxy) {
+      const liveGalaxy = structuredClone(campaign.galaxy)
+      const liveCourier = liveGalaxy.couriers.find(courier => courier.id === liveGalaxy.activeCourierId)
+      if (liveCourier) liveCourier.hero = structuredClone(state.hero)
+      synchronizeDeliveryRunEquipment(liveGalaxy)
+      const linkId = state.travel?.linkId ?? `landing:${liveGalaxy.activeSiteId}`
+      const chunk = state.travel ? Math.max(0, Math.floor(state.hero.x / Math.max(1, state.floor.width / state.travel.chunkCount))) : 0
+      const cargoAbandoned = state.travel ? abandonGalaxyCargo(liveGalaxy, linkId, chunk) : liveGalaxy
+      const abandoned = loseSealedPackagesForCourier(cargoAbandoned, cargoAbandoned.activeCourierId, linkId, chunk)
+      const lostGalaxy = loseGalaxyCourier(abandoned, abandoned.activeCourierId, `${state.hero.name} fell during a landing on ${biomeName[state.area ?? state.floor.biome]}.`)
+      heir = structuredClone(lostGalaxy.couriers.find(courier => courier.id === lostGalaxy.activeCourierId)?.hero ?? state.hero)
+      campaign = { ...campaign, galaxy: lostGalaxy }
+      hubNotice = `${state.hero.name}'s death is recorded. Another Voyager specialist can continue the sector.`
+    } else {
+      const record = campaign.legacyRecords.at(-1)
+      if (!record) throw new Error('missing death legacy record')
+      pendingSuccessor = { record, seed: Math.floor(Math.random() * 0x7fffffff) }
+      inheritedCampaign = structuredClone(campaign)
+      successorParentId = activeCourier?.identity.id
+    }
+  }
+  records.bestDepth = Math.max(records.bestDepth, state.floor.index + 1)
+  if (won) records.wins++
+  else records.deaths++
+  records.runs.unshift({ seed: state.seed, floor: state.floor.index + 1, score: state.hero.gold, won, date: new Date().toISOString() })
+  records.runs = records.runs.slice(0, 20)
+  analysis = analysisFor(state, won ? 'complete' : 'lost')
+  records.analyses.unshift(analysis)
+  records.analyses = records.analyses.slice(0, 20)
+  analysisNext = won || Boolean(campaign.galaxy) ? 'victory' : checkpointDeath ? 'checkpoint' : 'succession'
+  if (checkpointDeath && activeCourier?.checkpoint) saved = structuredClone(activeCourier.checkpoint)
+  else saved = undefined
+  if (!won && !checkpointDeath && activeCourier) { activeCourier.run = undefined; activeCourier.archived = !campaign.galaxy }
+  if (won) {
+    story = createStory(endingLore(state, campaign.completedAreas, campaign.alignment), performance.now())
+    storyExit = 'analysis'
+    route = { ...route, screen: 'approach' }
+  } else route = { ...route, screen: 'analysis' }
+  persistActiveCourier(checkpointDeath)
+}
+
+function run(game: RunState, command: string): ReturnType<typeof perform> {
+  const events = [] as ReturnType<typeof perform>
+  for (let i = 0; i < 18; i++) {
+    const x = game.hero.x
+    const y = game.hero.y
+    const next = performTracked(game, command)
+    events.push(...next)
+    const threats = game.floor.actors.some(actor => actor.hostile && Math.max(Math.abs(actor.x - game.hero.x), Math.abs(actor.y - game.hero.y)) <= 7 && getTile(game.floor, actor.x, actor.y)?.visible)
+    if (game.status !== 'playing' || game.modal || (x === game.hero.x && y === game.hero.y) || threats) break
+  }
+  return events
+}
+
+type GameplayCommandOptions = { quickCast?: boolean; run?: boolean; spellEffect?: string; autoplay?: AutoplayDecision }
+
+function executeGameplayCommand(command: string, options: GameplayCommandOptions = {}): void {
+  if (!state || route.screen !== 'level' || state.status !== 'playing') return
+  const game = state
+  const autoplayBefore = options.autoplay ? structuredClone(game) : undefined
+  const autoplayFingerprint = options.autoplay && autoplayFeature ? autoplayFeature.autoplayTraceFingerprint(game) : undefined
+  const previousX = game.hero.x
+  const previousY = game.hero.y
+  const previousLevel = game.hero.level
+  let events = [] as ReturnType<typeof perform>
+  if (options.quickCast) {
+    const direction = directionFor(command)
+    if (direction && direction !== 'wait') {
+      const before = telemetrySnapshot(game)
+      events = quickCast(game, direction)
+      observeTelemetryTurn(game, before, events, command)
+    }
+  } else if (options.run && !game.modal) events = run(game, command)
+  else events = performTracked(game, command)
+  if (campaign.galaxy) {
+    const deliveryGalaxy = structuredClone(campaign.galaxy)
+    if (synchronizeDeliveryExpedition(deliveryGalaxy, game)) campaign = { ...campaign, galaxy: deliveryGalaxy }
+    const deliveryRunId = (campaign.galaxy ?? deliveryGalaxy).deliveryRun?.id
+    if (deliveryRunId) {
+      const consequence = recordGalaxyNeridaTacticalConsequence(campaign.galaxy ?? deliveryGalaxy, deliveryRunId)
+      if (consequence.changed) {
+        campaign = { ...campaign, galaxy: consequence.galaxy }
+        game.messages.unshift(consequence.message)
+      }
+    }
+  }
+  const rebased = advanceTransitWindow(game)
+  if (rebased) renderer.shiftCameraWindow(game.hero.x - previousX, game.hero.y - previousY)
+  if (game.hero.level > previousLevel) events.push(event('level'))
+  if (game.hero.x !== previousX) renderer.setHeroFacingLeft(game.hero.x < previousX)
+  if (!rebased && (game.hero.x !== previousX || game.hero.y !== previousY)) renderer.recenterCamera()
+  if (options.autoplay && autoplayBefore && autoplayFingerprint && autoplayFeature && autoplayContext) {
+    autoplayFeature.recordAutoplayTransition(autoplayContext, autoplayBefore, command, game)
+    autoplayTrace.push({
+      turn: autoplayBefore.turn,
+      replay: autoplayFeature.autoplayReplayMetadata(autoplayBefore),
+      fingerprint: autoplayFingerprint,
+      command,
+      reason: options.autoplay.reason,
+      candidates: options.autoplay.candidates,
+      events: events.map(entry => entry.type),
+      nextFingerprint: autoplayFeature.autoplayTraceFingerprint(game),
+      before: { x: autoplayBefore.hero.x, y: autoplayBefore.hero.y, health: autoplayBefore.hero.health, focus: autoplayBefore.hero.focus, bombs: autoplayBefore.hero.bombs, ropes: autoplayBefore.hero.ropes, objective: autoplayBefore.floor.objective.status },
+      after: { x: game.hero.x, y: game.hero.y, health: game.hero.health, focus: game.hero.focus, bombs: game.hero.bombs, ropes: game.hero.ropes, objective: game.floor.objective.status, ...(game.modal ? { modal: game.modal.kind } : {}) }
+    })
+    if (autoplayTrace.length > 600) autoplayTrace = autoplayTrace.slice(-600)
+    if (hasEvent(events, 'death') || game.status === 'dead') finalizeAutoplay('dead', 'courier defeated')
+  }
+  audio.play(events)
+  renderer.trigger(events, game, options.spellEffect)
+  if (hasEvent(events, 'suspend')) { suspendRun(); return }
+  if (hasEvent(events, 'floor')) {
+    const galaxy = campaign.galaxy
+    const siteId = route.siteId ?? galaxy?.activeSiteId
+    if (galaxy && siteId) attachGalaxyAirlocks(game, galaxy, siteId)
+    saved = structuredClone(game); checkpointActiveCourier()
+  }
+  if (hasEvent(events, 'rescue')) persistRescuedRoster()
+  if (hasEvent(events, 'connectorComplete')) { completeConnector(); redraw(); return }
+  const cache = events.find(entry => entry.type === 'routeCache')
+  if (cache?.id && campaign.galaxy) {
+    const recoveredPackages = recoverSealedPackageRouteCaches(campaign.galaxy, cache.id)
+    const recovered = recoverGalaxyRouteCaches(recoveredPackages.galaxy, cache.id)
+    campaign = { ...campaign, galaxy: recovered.galaxy }
+    game.floor.routeCache = undefined
+    if (game.travel) game.travel = { ...game.travel, routeCacheChunks: [] }
+    if (recovered.message !== 'No recoverable cargo cache is recorded on this route.') game.messages.unshift(recovered.message)
+    if (recoveredPackages.changed) game.messages.unshift(recoveredPackages.message)
+  }
+  const departure = events.find(entry => entry.type === 'routeDeparture')
+  if (departure) {
+    const galaxy = campaign.galaxy
+    const origin = galaxy?.activeSiteId
+    if (departure.id === 'voyager') {
+      state = undefined; saved = undefined; hubPosition = outpostSpawn(); route = { screen: 'hub', biome: game.floor.biome }; persistActiveCourier(); redraw(); return
+    }
+    if (galaxy && origin && departure.id && galaxy.sites[departure.id]) { beginConnectorTravel(galaxy, origin, departure.id); redraw(); return }
+  }
+  const areaResult = hasEvent(events, 'areaComplete') ? completeArea() : undefined
+  if (hasEvent(events, 'gateResolved')) unlockGateDestination()
+  if (areaResult === 'transitioning') { redraw(); return }
+  if (areaResult === 'finished' && state) {
+    state.status = 'victory'
+    finish(true)
+    redraw()
+    return
+  }
+  if ((hasEvent(events, 'death') || hasEvent(events, 'win')) && !recordedEnd) finish(hasEvent(events, 'win'))
+  else persistActiveCourier()
+  redraw()
+}
+
+function performTracked(game: RunState, command: string): ReturnType<typeof perform> {
+  const before = telemetrySnapshot(game)
+  const events = perform(game, command)
+  observeTelemetryTurn(game, before, events, command)
+  return events
+}
+
+function suspendRun(): void {
+  if (!state) return
+  finalizeAutoplay('manual', 'run suspended')
+  saved = structuredClone(state)
+  analysis = analysisFor(state, 'suspended')
+  records.analyses.unshift(analysis)
+  records.analyses = records.analyses.slice(0, 20)
+  analysisNext = 'session'
+  route = { ...route, screen: 'analysis' }
+  persistActiveCourier()
+  redraw()
+}
+
+function continueAnalysis(): void {
+  const next = analysisNext
+  analysis = undefined
+  analysisNext = undefined
+  if (next === 'succession') { beginSuccession(); return }
+  if (next === 'checkpoint' && activeCourier?.checkpoint) {
+    state = structuredClone(activeCourier.checkpoint)
+    saved = structuredClone(activeCourier.checkpoint)
+    persistActiveCourier()
+    route = { screen: 'level', biome: campaign.selectedBiome }
+    recordedEnd = false
+    redraw()
+    return
+  }
+  if (next === 'victory') {
+    state = undefined
+    saved = undefined
+    hub = { ...hub, unlockedAreas: campaign.unlockedAreas, completedAreas: campaign.completedAreas, rescued: campaign.rescuedNpcs }
+    hubPosition = outpostSpawn()
+    route = { screen: 'hub', biome: campaign.selectedBiome }
+    redraw()
+    return
+  }
+  state = undefined
+  route = { screen: 'splash', biome: campaign.selectedBiome }
+  redraw()
+}
+
+function directionFor(command: string): Direction | undefined {
+  const directions: Record<string, Direction> = { i: 'nw', o: 'n', p: 'ne', k: 'w', ';': 'e', ',': 'sw', '.': 's', '/': 'se', ArrowUp: 'n', ArrowDown: 's', ArrowLeft: 'w', ArrowRight: 'e', Numpad7: 'nw', Numpad8: 'n', Numpad9: 'ne', Numpad4: 'w', Numpad5: 'wait', Numpad6: 'e', Numpad1: 'sw', Numpad2: 's', Numpad3: 'se', l: 'wait', Enter: 'wait' }
+  return directions[command] ?? directions[command.toLowerCase()]
+}
+
+function spellEffectForInput(game: RunState, keyboardEvent: KeyboardEvent, direction: Direction | undefined): string | undefined {
+  const modalItem = game.modal?.kind === 'target' && game.modal.action === 'spell' ? game.modal.item : undefined
+  const quickCastItem = keyboardEvent.altKey && direction && direction !== 'wait' ? game.hero.inventory.find(id => ITEM[id]?.use === 'spell') : undefined
+  return ITEM[modalItem ?? quickCastItem ?? '']?.spell
+}

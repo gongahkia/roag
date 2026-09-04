@@ -1,62 +1,40 @@
-# Golf With Your Enemies
+# Jomon
 
-An isometric arcade mini-golf party game. The default mode, **Coursewright Rules**, is a build-then-play format for two to four golfers: everyone installs two constrained modules into a shared hole, then plays the physical result immediately.
+Jomon is a single-player, offline-first, browser-based procedural low-mysticism medieval river-and-coast roguelike. Jomon is both the game and a working vessel: an itinerant household carrying people, goods, debts, and news between river settlements and a contested coast.
 
-Lowest adjusted stroke total wins a six-hole match. Each golfer receives one hidden architect contract; completing it during the hole removes one stroke from that hole’s score. The fixed fairway spine always remains playable, so a legal build cannot dead-end the course.
+The project is at a documented clean-break boundary. The checked-in prototype still contains superseded space-era implementation and is **not** the current game canon. The rebuild now includes bounded local movement on Jomon's full known deck and a zero-time map legend through remappable command help; tavern crew switching, gangplank/quay departure, and contextual vessel interactions remain deferred.
 
-`Party Rules` and `custom` remain available as legacy/experimental presets with the earlier generated-course, card, and merchant systems.
+The initial six-member household is immutable deterministic creation evidence: normalized world seed plus resolved configuration reproduce its roster, roles, equipment, histories, directional relationships, and zero-time eligible active-crew projection exactly. It has no individual rerolls or selected courier. The mutable selected courier remains `state.courier.initialCourierId`; selection, switching, and succession remain separate work. The household contract preserves FoundationWorld v14, MedievalWorldState v12, manifest/replay behavior, and IndexedDB layout v4.
 
-## Run locally
+- [Lore and content reference](LORE.md)
+- [Authoritative roadmap](TODO.md)
+- [Desktop-browser performance and storage baseline](docs/performance-storage-baseline.md)
+- [Medieval local persistence layout](docs/persistence-layout.md)
+- [Closed internal-content boundary for maintainers (no public mod/content-pack API)](docs/internal-content-boundary.md)
+- [Renderer-independent effect model (foundation only)](docs/effects-model.md)
+- [Mystical effect policy and audit boundary](docs/mystical-effect-policy.md)
+- [Courier loss policy assessment boundary](docs/courier-loss-policy.md)
+- [Jomon integrity policy assessment boundary](docs/jomon-integrity-policy.md)
+- [Semantic palette and accessibility contract](docs/semantic-palette.md)
+- [Static Jomon deck-plan, map legend, and primary ASCII projection](docs/jomon-deck-plan.md)
+- [Initial immutable household and active-crew contract](docs/initial-household-contract.md)
 
-```sh
-npm install
-npm run dev
+## Development
+
+```console
+$ npm ci
+$ npm run dev
+$ npm run build
+$ npm run preview
 ```
 
-Open the local URL printed by Vite. For an online private room, start the authoritative server in a second terminal:
+## Current verification commands
 
-```sh
-npm run server
+```console
+$ npm test
+$ npm run test:autoplay:tasks
+$ npm run test:e2e
+$ npm run build
 ```
 
-The server listens on `ws://localhost:8787`, stores room snapshots in `data/golf-with-your-enemies.sqlite`, and requires Node 22.5+ for the built-in SQLite driver.
-
-## Coursewright flow
-
-1. Start a two-to-four-player local game or private room. AI can fill empty seats.
-2. A deterministic Speedway, Quarry, or Carnival shell opens with two build sockets per golfer.
-3. Players place one module at a time in snake order. A builder has 28 seconds; an expired timer makes a deterministic legal placement.
-4. The hole goes live. Putts and chips use the existing shared physics, collisions, and turn timer.
-5. A completed secret contract is revealed and subtracts one stroke from its owner’s hole score.
-6. The next hole immediately opens as a new construction shell. There is no merchant or random course reroll in Coursewright Rules.
-
-Available build pieces are bank walls, springboards, high bridges, timed gates, splitters, and cushion runs. Socket markers are rendered in the game world; choose a module in the control rail, then click an open marker or its letter button.
-
-## Online authority and privacy
-
-The WebSocket server owns game time, bot turns, scores, construction commands, pause state, and course transitions. It validates module and socket identifiers and accepts construction commands only from the active human builder. Before a contract is revealed, snapshots sent to opponents omit its condition and description.
-
-Private rooms require a host-selected passphrase. Only salted passphrase hashes and reconnect-token hashes are stored. Configure `HOST`, `PORT`, `GAME_DATABASE`, the comma-separated `APP_ORIGINS` allowlist, `VITE_GAME_SERVER_URL`, and optionally `MAX_COURSE_TILES` for deployment. Production clients should use `wss://`.
-
-## Verification
-
-```sh
-npm run build
-npm test
-```
-
-`npm run check` additionally runs the server type check. The focused Coursewright tests verify deterministic shells, legal placement completion, timeout fallback, contract resolution, and fresh-shell transitions. Legacy Party Rules tests remain explicit about that preset rather than relying on the default.
-
-## Controls and accessibility
-
-During construction, click a module then an open cyan socket. During play, left-drag to putt and right-drag to chip; release to strike. Space shoots, `-`/`=` adjust power, `C` changes putt/chip, and `P` uses a held legacy item where that preset permits it. Host-only pause applies to online rooms.
-
-Settings persist locally and include reduced motion, high contrast, master/effects volume, controller vibration, stick deadzone, aim sensitivity, and keyboard remapping. Controller support follows the standard mapping: left stick aims, A shoots, B uses a held item, Y switches putt/chip, D-pad adjusts power, and Menu/Start pauses.
-
-## Deployment
-
-Build both artifacts with `npm run build`. Serve `dist/` as static frontend assets and run `npm run start:server` on one persistent process/VM. The repository’s deployment files include examples for Caddy, systemd, backups, and health checks. The game server exposes `/healthz`, `/readyz`, and `/metrics`.
-
-## Naming note
-
-The repository currently retains its working title. It must be renamed before a public commercial release: an itch.io game already uses “Golf With Your Enemies,” and Steam also uses the same phrase for a bundle. No replacement public title has been selected in this repository.
+These commands currently validate the superseded prototype while the medieval implementation is built. They must not be cited as evidence that the new setting or its planned mechanics are already implemented.
