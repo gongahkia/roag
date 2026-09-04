@@ -375,8 +375,8 @@ const assessValidCourierConversation = (validWorld: FoundationWorld, validReques
   const capability = courier === undefined ? undefined : conversationCapabilitiesForLevel(courier.identity.conversation)
   const barriers: ConversationBarrier[] = []
 
-  if (validWorld.state.courier.initialCourierId === undefined) barriers.push('active-courier-missing')
-  else if (validWorld.state.courier.initialCourierId !== validRequest.courierId) barriers.push('courier-not-active')
+  if (validWorld.state.courier.activeCourierId === undefined) barriers.push('active-courier-missing')
+  else if (validWorld.state.courier.activeCourierId !== validRequest.courierId) barriers.push('courier-not-active')
   if (!courier) barriers.push('courier-missing')
   else {
     if (courier.life.status !== 'living') barriers.push('courier-dead')

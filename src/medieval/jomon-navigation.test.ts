@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createCausalHistoryState } from './causal-history'
+import { causalDigestFor, causalReplayProjectionDigest } from './causal-history'
 import { assessJomonDeckStep, canonicalJomonDeckSpawn, isWalkableJomonDeckCoordinate } from './jomon-navigation'
 import { causalReplayProjectionForWorldState } from './world-state'
 import { chooseInitialCourier, createFoundationWorld, moveFoundationWorldCourier, replayFoundationWorldCausalHistory, upgradeFoundationWorldV13, validateFoundationWorld } from './world'
@@ -15,11 +15,29 @@ const v13Envelope = (world: ReturnType<typeof selectedWorld>) => {
   legacy.version = 13
   legacy.state.version = 11
   delete legacy.state.navigation
+  legacy.state.courier = legacy.state.courier.initialCourierId === undefined
+    ? { version: 1 }
+    : { version: 1, initialCourierId: legacy.state.courier.initialCourierId }
   const checkpointProjection = structuredClone(legacy.state.causalHistory.checkpoint.projection)
+  checkpointProjection.version = 4
+  checkpointProjection.courier = checkpointProjection.courier.initialCourierId === undefined
+    ? { version: 1 }
+    : { version: 1, initialCourierId: checkpointProjection.courier.initialCourierId }
   delete checkpointProjection.navigation
+  const stateDigest = causalReplayProjectionDigest(checkpointProjection)
+  const checkpoint = {
+    version: 4,
+    id: `causal-checkpoint:0:${causalDigestFor('causal-checkpoint-id', { worldId: legacy.id, creationDigest: legacy.manifest.creation.digest, sequence: 0, stateDigest })}`,
+    token: causalDigestFor('causal-checkpoint-token', { worldId: legacy.id, creationDigest: legacy.manifest.creation.digest, sequence: 0, atWorldTime: 0, stateDigest }),
+    sequence: 0,
+    atWorldTime: 0,
+    provenanceDigest: legacy.manifest.creation.digest,
+    stateDigest,
+    projection: checkpointProjection
+  }
   legacy.state.causalHistory = {
     ...legacy.state.causalHistory,
-    checkpoint: createCausalHistoryState({ worldId: legacy.id, creationDigest: legacy.manifest.creation.digest }, checkpointProjection).checkpoint
+    checkpoint
   }
   return legacy
 }
@@ -89,7 +107,7 @@ describe('Jomon deck navigation', () => {
 
     const legacy = v13Envelope(selected)
     const upgraded = upgradeFoundationWorldV13(legacy)
-    expect(upgraded).toMatchObject({ version: 14, state: { version: 12, navigation: { courierId: selected.state.courier.initialCourierId, coordinate: { column: 4, row: 4 } } } })
+    expect(upgraded).toMatchObject({ version: 14, state: { version: 13, courier: { version: 2, initialCourierId: selected.state.courier.initialCourierId, activeCourierId: selected.state.courier.initialCourierId }, navigation: { courierId: selected.state.courier.initialCourierId, coordinate: { column: 4, row: 4 } } } })
     expect(upgraded.id).toBe(selected.id)
     expect(upgraded.manifest).toEqual(selected.manifest)
     expect(validateFoundationWorld(upgraded)).toEqual([])
@@ -102,7 +120,7 @@ describe('Jomon deck navigation', () => {
 
     const upgraded = upgradeFoundationWorldV13(legacy)
 
-    expect(upgraded.state.courier).toEqual({ version: 1 })
+    expect(upgraded.state.courier).toEqual({ version: 2 })
     expect(upgraded.state.navigation).toEqual({ version: 1 })
     expect(upgraded.state.temporal).toMatchObject({ worldTime: 0, actionSequence: 0 })
     expect(validateFoundationWorld(upgraded)).toEqual([])

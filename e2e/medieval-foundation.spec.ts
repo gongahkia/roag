@@ -11,6 +11,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
     actionSequence: number
     causalKinds: string[]
     initialCourierId: string | undefined
+    activeCourierId: string | undefined
     coordinate: { column?: number; row?: number } | undefined
     tasks: unknown
     autonomy: unknown
@@ -28,7 +29,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
             temporal?: { worldTime?: number; actionSequence?: number }
             causalHistory?: { tail?: Array<{ kind?: string }> }
             navigation?: { coordinate?: { column?: number; row?: number } }
-            courier?: { initialCourierId?: string }
+            courier?: { initialCourierId?: string; activeCourierId?: string }
             delegation?: { tasks?: unknown }
             autonomy?: unknown
             era?: unknown
@@ -41,6 +42,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
           actionSequence: world.state.temporal.actionSequence ?? -1,
           causalKinds: world.state.causalHistory.tail.map(command => command.kind ?? ''),
           initialCourierId: world.state.courier?.initialCourierId,
+          activeCourierId: world.state.courier?.activeCourierId,
           coordinate: world.state.navigation?.coordinate,
           tasks: world.state.delegation?.tasks,
           autonomy: world.state.autonomy,
@@ -126,7 +128,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-result-page', 'provenance')
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-route', 'choose-courier')
-  await expect(game).toHaveAttribute('aria-label', /6 deterministic eligible household members.*Arrow keys choose.*Enter confirms a zero-time active courier.*Escape returns without selection.*Tavern switching and succession are not implemented/i)
+  await expect(game).toHaveAttribute('aria-label', /6 deterministic eligible household members.*Arrow keys choose.*Enter confirms a zero-time active courier.*Escape returns without selection.*Tavern switching is available only at Jomon's task ledger; succession is not implemented/i)
   await page.keyboard.press('Escape')
   await expect(game).toHaveAttribute('data-route', 'world-result')
   expect(await persistedTemporalState(page, worldId!)).toMatchObject({ worldTime: 0, actionSequence: 0, causalKinds: [], initialCourierId: undefined })
@@ -139,7 +141,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-world-id', worldId!)
   await expect(game).toHaveAttribute('data-persistence', 'saved')
   await expect(game).toHaveAttribute('aria-label', /Jomon foundation world .* active courier/)
-  await expect(game).toHaveAttribute('data-terminal-presentation-version', '6')
+  await expect(game).toHaveAttribute('data-terminal-presentation-version', '7')
   await expect(game).toHaveAttribute('data-terminal-map-state', 'materialized')
   await expect(game).toHaveAttribute('data-terminal-map-cell-count', '114')
   await expect(game).toHaveAttribute('data-terminal-static-map-cell-count', '113')
@@ -151,8 +153,8 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-terminal-status-count', '5')
   await expect(game).toHaveAttribute('data-terminal-message-count', '0')
   await expect(game).toHaveAttribute('data-terminal-message-state', 'empty')
-  await expect(game).toHaveAttribute('data-terminal-prompt-count', '0')
-  await expect(game).toHaveAttribute('aria-label', /Known static Jomon deck map.*113 deck and hull cells and one active courier marker.*Map legend.*Source authoritative-record vessel:jomon.*Known fixed local deck only.*No cargo, NPC, hazard, travel, fog, or prop actions.*An active courier is selected.*Fixed full-deck camera follows.*Creation provenance seed lower quay.*Current world minute 0.*No current authoritative messages/i)
+  await expect(game).toHaveAttribute('data-terminal-prompt-count', '1')
+  await expect(game).toHaveAttribute('aria-label', /Known static Jomon deck map.*113 deck and hull cells and one active courier marker.*tavern task ledger supports courier switching.*Map legend.*Source authoritative-record vessel:jomon.*tavern task ledger alone supports a zero-time courier switch.*An active courier is selected.*Fixed full-deck camera follows.*Creation provenance seed lower quay.*Current world minute 0.*No current authoritative messages.*Tavern task ledger courier switch/i)
   await page.screenshot({ path: '/tmp/jomon-phase15-terminal-status.png' })
   if (!worldId) throw new Error('created world should have a stable id')
 
@@ -161,7 +163,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-management-item-count', '4')
   await expect(game).toHaveAttribute('aria-label', /Management expanded\. OVERVIEW, 4 household-known facts\./)
   const expectedZeroTime = await persistedTemporalState(page, worldId)
-  expect(expectedZeroTime).toMatchObject({ worldTime: 0, actionSequence: 0, causalKinds: ['initial-courier-selected'], initialCourierId: 'crew:1', coordinate: { column: 4, row: 4 }, tasks: [] })
+  expect(expectedZeroTime).toMatchObject({ worldTime: 0, actionSequence: 0, causalKinds: ['initial-courier-selected'], initialCourierId: 'crew:1', activeCourierId: 'crew:1', coordinate: { column: 4, row: 4 }, tasks: [] })
   await page.keyboard.press(']')
   await expect(game).toHaveAttribute('data-management-section', 'people-work')
   await expect(game).toHaveAttribute('data-management-item-count', '6')
@@ -195,28 +197,25 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
   await page.keyboard.press('p')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'command-help')
-  await expect(game).toHaveAttribute('aria-label', /Map legend.*Known fixed local deck only.*No cargo, NPC, hazard, travel, fog, or prop actions/i)
+  await expect(game).toHaveAttribute('aria-label', /Map legend.*Known fixed local deck only.*tavern task ledger alone supports a zero-time courier switch.*no cargo, NPC, hazard, travel, fog, rest, conversation, loss, succession, or other prop action/i)
   await page.keyboard.press('Escape')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
   expect(await persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)
 
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
-  await expect(game).toHaveAttribute('aria-label', /Context prompt open\. The only option is disabled because the visible static deck has no operated action rule/i)
-  await page.keyboard.press('Enter')
-  await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-option-disabled')
-  await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
-  await expect(game).toHaveAttribute('aria-label', /OPTION DISABLED.*NO CONTEXTUAL ACTION MATERIALIZED/i)
-  await page.screenshot({ path: '/tmp/jomon-phase15-terminal-prompt.png' })
+  await expect(game).toHaveAttribute('aria-label', /Tavern task ledger courier switch.*Arrow keys select.*Enter confirms a zero-time viewpoint switch.*Escape cancels/i)
   await page.keyboard.press('Escape')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-cancelled')
+  expect(await persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)
 
   await page.keyboard.press('k')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'movement-completed')
   await expect(game).toHaveAttribute('data-terminal-focus', '4,3')
   await expect(game).toHaveAttribute('aria-label', /MOVED NORTH.*DECK 4,3.*1 ACTION MINUTE/i)
   await expect.poll(() => persistedTemporalState(page, worldId)).toMatchObject({ worldTime: 1, actionSequence: 1, causalKinds: ['initial-courier-selected', 'deck-moved'], coordinate: { column: 4, row: 3 } })
+
   await page.keyboard.press('h')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'movement-blocked')
   await expect(game).toHaveAttribute('aria-label', /MOVE BLOCKED.*WEST.*HULL BOUNDARY.*ZERO TIME/i)
@@ -376,6 +375,91 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(replacementGame).toHaveAttribute('data-terminal-focus', '4,1')
   await expect.poll(() => persistedTemporalState(replacement, worldId)).toMatchObject({ worldTime: 3, actionSequence: 3, coordinate: { column: 4, row: 1 } })
   expect(externalRequests).toEqual([])
+})
+
+test('switches a selected courier only through the remappable tavern ledger operation', async ({ page }) => {
+  const persistedCourier = async (worldId: string) => page.evaluate(async id => new Promise<{
+    worldTime: number
+    actionSequence: number
+    causalKinds: string[]
+    initialCourierId: string | undefined
+    activeCourierId: string | undefined
+    coordinate: { column?: number; row?: number } | undefined
+  }>((resolve, reject) => {
+    const request = indexedDB.open('jomon-medieval-worlds-v1')
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const database = request.result
+      const read = database.transaction('worlds', 'readonly').objectStore('worlds').get(id)
+      read.onerror = () => { database.close(); reject(read.error) }
+      read.onsuccess = () => {
+        const state = (read.result as { state?: { temporal?: { worldTime?: number; actionSequence?: number }; causalHistory?: { tail?: Array<{ kind?: string }> }; courier?: { initialCourierId?: string; activeCourierId?: string }; navigation?: { coordinate?: { column?: number; row?: number } } } } | undefined)?.state
+        database.close()
+        if (!state?.temporal || !state.causalHistory?.tail) return reject(new Error('saved courier world was not available'))
+        resolve({ worldTime: state.temporal.worldTime ?? -1, actionSequence: state.temporal.actionSequence ?? -1, causalKinds: state.causalHistory.tail.map(command => command.kind ?? ''), initialCourierId: state.courier?.initialCourierId, activeCourierId: state.courier?.activeCourierId, coordinate: state.navigation?.coordinate })
+      }
+    }
+  }), worldId)
+
+  await page.goto('/')
+  const game = page.locator('#game')
+  await game.click()
+  await page.keyboard.press('n')
+  await expect(game).toHaveAttribute('data-route', 'create-world')
+  for (let index = 0; index < 4; index++) await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'world-generation')
+  await expect(game).toHaveAttribute('data-persistence', 'saved')
+  const worldId = await game.getAttribute('data-world-id')
+  await expect(worldId).toBeTruthy()
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'world-result')
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'choose-courier')
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'world')
+  await expect.poll(() => persistedCourier(worldId!)).toMatchObject({ worldTime: 0, actionSequence: 0, initialCourierId: 'crew:1', activeCourierId: 'crew:1', coordinate: { column: 4, row: 4 } })
+
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
+  await expect(game).toHaveAttribute('aria-label', /Tavern task ledger courier switch.*Current courier.*Arrow keys select.*Escape cancels/i)
+  await page.keyboard.press('Escape')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-cancelled')
+  await expect.poll(() => persistedCourier(worldId!)).toMatchObject({ worldTime: 0, actionSequence: 0, causalKinds: ['initial-courier-selected'], initialCourierId: 'crew:1', activeCourierId: 'crew:1' })
+
+  await page.keyboard.press('k')
+  await expect(game).toHaveAttribute('data-terminal-focus', '4,3')
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('aria-label', /Courier switching is unavailable away from the task ledger anchor/i)
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-option-disabled')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('j')
+  await expect.poll(() => persistedCourier(worldId!)).toMatchObject({ worldTime: 2, actionSequence: 2, coordinate: { column: 4, row: 4 } })
+
+  await page.keyboard.press('F2')
+  await expect(game).toHaveAttribute('data-terminal-selected-control', 'command-help')
+  await page.keyboard.press('ArrowDown')
+  await expect(game).toHaveAttribute('data-terminal-selected-control', 'contextual-prompt')
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('o')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'controls-binding-saved')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('o')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'courier-switched')
+  await expect.poll(() => persistedCourier(worldId!)).toMatchObject({ worldTime: 2, actionSequence: 2, causalKinds: ['initial-courier-selected', 'deck-moved', 'deck-moved', 'tavern-courier-switched'], initialCourierId: 'crew:1', activeCourierId: 'crew:2', coordinate: { column: 4, row: 4 } })
+
+  await page.reload()
+  await expect(game).toHaveAttribute('data-route', 'worlds')
+  await game.click()
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'world')
+  await expect.poll(() => persistedCourier(worldId!)).toMatchObject({ worldTime: 2, actionSequence: 2, initialCourierId: 'crew:1', activeCourierId: 'crew:2', coordinate: { column: 4, row: 4 } })
 })
 
 test('keeps a missing-local-world diagnostic inside the fixed canvas panel', async ({ page }) => {

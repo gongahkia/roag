@@ -107,7 +107,7 @@ const futureCellBundle = (): DetailedRendererSourceBundle => {
   terminal.legend = createTerminalMapLegend(terminal.map)
   terminal.accessibility = {
     ...terminal.accessibility,
-    conciseSummary: `Materialized static Jomon deck map with ${terminal.map.cells.length} source-backed cells. ${terminal.status.length} immediate local status entries. 0 authoritative messages. 0 contextual prompts.`,
+    conciseSummary: `Materialized static Jomon deck map with ${terminal.map.cells.length} source-backed cells. ${terminal.status.length} immediate local status entries. 0 authoritative messages. 1 contextual prompts.`,
     mapText: terminal.map.accessibilityText,
     legendText: terminal.legend.accessibilityText
   }

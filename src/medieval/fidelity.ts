@@ -292,7 +292,7 @@ export const validateFidelityPlanningRequest = (value: unknown): readonly Fideli
   const configuration: WorldGenerationConfig = world.manifest.creation.resolvedConfiguration
   if (!isResolvedWorldGenerationConfig(configuration) || configuration.simulationFidelity !== world.manifest.creation.resolvedConfiguration.simulationFidelity) diagnostics.push(issue('fidelity:configuration', 'fidelity.invalid-configuration'))
   if (world.state.temporal.worldTime > Number.MAX_SAFE_INTEGER - 240) diagnostics.push(issue('fidelity:clock', 'fidelity.time-overflow'))
-  if (world.state.courier.initialCourierId !== value.activeCourierId) diagnostics.push(issue('fidelity:courier', 'fidelity.invalid-active-courier'))
+  if (world.state.courier.activeCourierId !== value.activeCourierId) diagnostics.push(issue('fidelity:courier', 'fidelity.invalid-active-courier'))
   const courier = world.state.people.records.find(person => person.id === value.activeCourierId)
   if (!courier || courier.life.status !== 'living' || courier.work.availability !== 'available') diagnostics.push(issue('fidelity:courier', 'fidelity.invalid-active-courier'))
 
@@ -376,7 +376,7 @@ export const createFidelityPlan = (request: FidelityPlanningRequest | unknown): 
  */
 export const createFidelityPlanForVerifiedWorld = (world: FoundationWorld, activeCourierId: string): FidelityPlan => {
   if (!record(world) || world.version !== 14 || world.status !== 'active' || !record(world.manifest) || !record(world.manifest.creation) || !record(world.state)
-    || world.state.courier?.initialCourierId !== activeCourierId
+    || world.state.courier?.activeCourierId !== activeCourierId
     || !world.state.people?.records.some(person => person.id === activeCourierId && person.life.status === 'living' && person.work.availability === 'available')) {
     throw new FidelityPlanningContractError([issue('fidelity:verified-world', 'fidelity.invalid-world')])
   }

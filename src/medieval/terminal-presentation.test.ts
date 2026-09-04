@@ -29,6 +29,7 @@ import {
 import { terminalGlyphCatalog } from './ascii-glyphs'
 import { deriveJomonDeckPlan } from './jomon-deck-plan'
 import { chooseInitialCourier, createFoundationWorld } from './world'
+import { initialHouseholdActiveCrew } from './initial-household'
 
 const selectedWorld = (seed: string) => chooseInitialCourier(createFoundationWorld({ seed, configuration: { preset: 'watershed' } }), 'crew:0')
 const safety = (domain: 'place' | 'event' | 'player-facing-text' = 'player-facing-text') => classifyMedievalContent(domain, ['civil-life', 'navigation'], 'not-applicable', ['data'])
@@ -109,17 +110,22 @@ describe('terminal presentation contract', () => {
     expect(first.map.cells.filter(cell => cell.id === 'terminal-marker:active-courier')).toEqual([expect.objectContaining({ glyph: expect.objectContaining({ id: 'person:active-courier' }), coordinate: { column: 4, row: 4 }, paletteToken: 'selectedText', presentationState: 'ready', contentDomain: 'person' })])
     expect(first.map.cells.filter(cell => cell.id !== 'terminal-marker:active-courier')).toHaveLength(113)
     expect(first.map.cells.filter(cell => cell.coordinate.column === 4 && cell.coordinate.row === 4)).toHaveLength(2)
-    expect(first.map.accessibilityText).toMatch(/static Jomon deck map.*active courier marker.*full deck known.*no cargo, other people, hazards, travel, or prop actions/i)
+    expect(first.map.accessibilityText).toMatch(/static Jomon deck map.*active courier marker.*full deck known.*tavern task ledger supports courier switching.*no cargo, other people, hazards, travel, rest, conversation, loss, or succession/i)
     expect(first.legend.entries.map(entry => entry.glyph.id)).toEqual([
       'person:active-courier', 'route:quay-approach', 'vessel:gangplank', 'vessel:hull-planking', 'vessel:open-deck'
     ])
     expect(first.legend.entries.map(entry => entry.id)).toEqual([...first.legend.entries.map(entry => entry.id)].sort())
     expect(first.legend.entries.every(entry => entry.accessibilityText.includes('Source ') && entry.accessibilityText.includes('known at world minute'))).toBe(true)
     expect(first.legend.movementText).toMatch(/successful local step advances one action minute.*blocked.*no world state or time/i)
-    expect(first.legend.limitationsText).toMatch(/fixed known deck.*no cargo, NPC, hazard, travel, fog, or prop actions/i)
+    expect(first.legend.limitationsText).toMatch(/fixed known deck.*tavern task ledger.*zero-time courier switch.*no cargo, NPC, hazard, travel, fog, rest, conversation, loss, succession, or other prop action/i)
     expect(first.accessibility.legendText).toEqual(first.legend.accessibilityText)
     expect(first.messages).toEqual([])
-    expect(first.prompts).toEqual([])
+    expect(first.prompts).toEqual([expect.objectContaining({
+      kind: 'tavern-courier-switch',
+      source: { propBindingId: 'deck-prop-binding:prop:task-ledger', propId: 'prop:task-ledger', areaId: 'tavern', coordinate: { column: 4, row: 4 } },
+      current: expect.objectContaining({ id: world.state.courier.activeCourierId }),
+      candidates: initialHouseholdActiveCrew(world.crew).filter(candidate => candidate.id !== world.state.courier.activeCourierId)
+    })])
     expect(first.sidebarBoundary).toEqual({ relationship: 'separate-household-known-strategic-surface', duplicatedStrategicFactCategories: [] })
     expect(encoded).not.toContain(world.initialWorld.id)
     expect(encoded).not.toContain(world.initialWorld.settlements[0]!.id)
@@ -139,7 +145,7 @@ describe('terminal presentation contract', () => {
     expect(model.status.every(item => item.accessibilityText.includes(item.nonColorCue.text) && item.accessibilityText.includes(item.state))).toBe(true)
     expect(model.accessibility.mapText).toEqual(model.map.accessibilityText)
     expect(model.accessibility.statusText).toEqual(model.status.map(item => item.accessibilityText))
-    expect(model.accessibility.conciseSummary).toMatch(/materialized static Jomon deck map with 114 source-backed cells.*0 authoritative messages.*0 contextual prompts/i)
+    expect(model.accessibility.conciseSummary).toMatch(/materialized static Jomon deck map with 114 source-backed cells.*0 authoritative messages.*1 contextual prompts/i)
     expect(model.status.find(item => item.value.kind === 'deck-focus')).toMatchObject({
       value: { kind: 'deck-focus', coordinate: { column: 4, row: 4 } },
       evidence: { source: { kind: 'household-state', recordId: 'world-state:navigation' }, recordedAtWorldTime: 0, knownAtWorldTime: 0 }
@@ -233,7 +239,7 @@ describe('terminal presentation contract', () => {
     expect(validateTerminalMaterializedCells(viewport, [unsafe], glyphCatalog).map(item => item.code)).toContain('content-safety.prohibited.torture')
   })
 
-  it('keeps messages and prompts source-backed, bounded, and cancellation-only until future contextual actions exist', () => {
+  it('keeps messages and prompts source-backed, bounded, and cancellation-safe while exposing the ledger switch', () => {
     const message = {
       id: 'terminal-message:fixture',
       kind: 'authoritative-attention' as const,
@@ -258,9 +264,13 @@ describe('terminal presentation contract', () => {
     expect(validateTerminalMessages([message])).toEqual([])
     expect(validateTerminalPrompt(prompt)).toEqual([])
     expect(cancelTerminalPrompt(prompt)).toEqual({ id: 'terminal-prompt-cancel:terminal-prompt:fixture', promptId: prompt.id, outcome: 'cancelled-no-mutation', advancesWorldTime: false })
-    const reserved = createJomonDeckContextualPrompt(world)
-    expect(reserved.options).toEqual([expect.objectContaining({ key: 'Enter', availability: 'disabled', disabledReason: 'no-contextual-action-materialized', requiresConfirmation: false })])
-    expect(validateTerminalPrompt(reserved)).toEqual([])
+    const ledger = createJomonDeckContextualPrompt(world)
+    expect(ledger).toMatchObject({
+      kind: 'tavern-courier-switch',
+      source: { propBindingId: 'deck-prop-binding:prop:task-ledger', propId: 'prop:task-ledger', areaId: 'tavern', coordinate: { column: 4, row: 4 } },
+      options: [expect.objectContaining({ key: 'Enter', availability: 'available', intent: 'tavern-courier-switch', requiresConfirmation: true })]
+    })
+    expect(validateTerminalPrompt(ledger)).toEqual([])
     expect(world).toEqual(before)
 
     const sourceLess = {

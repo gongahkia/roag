@@ -34,7 +34,7 @@ Run `npm run benchmark:medieval-foundation`. The script uses real public medieva
 
 For each fixture/operation it performs two warm-ups, then nine measured samples. It uses Node `performance.now()` solely as a benchmark wall-clock source. p50 and p95 are linear interpolation over the sorted sample set; min and max are also reported. Timing is deliberately not asserted in Vitest or CI because hardware, thermal state, and browser scheduling vary.
 
-The benchmark measures real foundation generation, initial-courier selection, terminal/sidebar/deferred-adapter pure projections, one valid 240-minute `wait` action, the fixture layer's valid `60 + 180`-minute due-event sequence, and deterministic UTF-8 canonical JSON byte sizes. Its selected-world projections include the current 113 static deck/hull cells plus one source-backed active-courier marker; it does not fabricate a large population, trade, combat, detailed rendering, or a real save/load timing. Node wall-clock results are review observations only; they are never canonical state or CI timing gates. Node heap/RSS is deliberately not recorded because it is GC-sensitive and non-portable. Browser-ready/focus, actual browser input responsiveness, and IndexedDB save/load timing remain unmeasured future browser targets.
+The benchmark measures real foundation generation, initial-courier selection, terminal/sidebar/deferred-adapter pure projections, one valid 240-minute `wait` action, the fixture layer's valid `60 + 180`-minute due-event sequence, and deterministic UTF-8 canonical JSON byte sizes. Its selected-world projections include the current 113 static deck/hull cells plus one source-backed active-courier marker; it does not fabricate a large population, trade, combat, detailed rendering, or a real save/load timing. The tavern courier switch changes the current-courier replay/persistence shape but adds no benchmark-specific cache, worker, or persistence timing measurement; the next recorded benchmark run must be read as a new observation rather than compared as a CI threshold. Node wall-clock results are review observations only; they are never canonical state or CI timing gates. Node heap/RSS is deliberately not recorded because it is GC-sensitive and non-portable. Browser-ready/focus, actual browser input responsiveness, and IndexedDB save/load timing remain unmeasured future browser targets.
 
 ## Deterministic fixture matrix and scale
 
@@ -115,6 +115,24 @@ The v1 fixture contract checks the nine-row matrix below in ordinary tests. Thes
 | far-coast-deep | 208,187 | 313,541 | 105,354 |
 
 The same contract fixes the resulting catch-up cursor/record deltas, causal-history growth, canonical scheduled-summary projection bytes, and zero-time pure projection behavior. A selected fixture now projects the 113 static deck/hull cells plus its source-backed active-courier marker (114 terminal and detailed-adapter cells); this is not RAM, browser responsiveness, or navigation-performance evidence. The 3-active/4-chronicle catalogue index remains 635 canonical bytes (within its 64 KiB ceiling). These assertions intentionally do not assert process memory, garbage collection, timing, browser response p95, browser storage quota, or fake/real IndexedDB timing.
+
+## 2026-09-04 active-courier storage revision
+
+The tavern ledger transition adds the explicit current `activeCourierId` to mutable state and replay projection while retaining `initialCourierId` as creation provenance. The resulting deterministic full-envelope bytes below supersede the preceding current-fixture values; historical 2026-09-03 observations above remain unchanged as records of that earlier shape. The growth deltas, fixture caps, 512 KiB ceiling, catalogue index (635 bytes), terminal-control record (575 bytes), and creation-settings record (620 bytes) are unchanged.
+
+| Fixture | Initial canonical bytes | After due events | Growth |
+| --- | ---: | ---: | ---: |
+| sheltered-reach-focused | 190,842 | 255,769 | 64,927 |
+| sheltered-reach-balanced | 191,092 | 273,868 | 82,776 |
+| sheltered-reach-deep | 190,821 | 279,353 | 88,532 |
+| watershed-focused | 194,934 | 259,808 | 64,874 |
+| watershed-balanced | 194,803 | 283,088 | 88,285 |
+| watershed-deep | 194,808 | 294,533 | 99,725 |
+| far-coast-focused | 208,866 | 273,659 | 64,793 |
+| far-coast-balanced | 208,488 | 302,293 | 93,805 |
+| far-coast-deep | 208,216 | 313,570 | 105,354 |
+
+`npm run benchmark:medieval-foundation` completed on Node v22.22.2/linux-x64 with the normal two warm-ups and nine measured samples. Its wall-clock results remain review-only Node observations; no browser responsiveness, IndexedDB timing, cache, worker, or persistent storage measurement was added.
 
 ## 2026-09-03 Node review observations
 

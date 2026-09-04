@@ -44,12 +44,12 @@ export interface TerminalControlDefinition {
   id: TerminalControlId
   label: string
   direction?: TerminalMovementDirection
-  operationalState: 'movement-available' | 'opens-unavailable-prompt' | 'operational-ui'
+  operationalState: 'movement-available' | 'opens-contextual-prompt' | 'operational-ui'
 }
 
 export const TERMINAL_CONTROL_DEFINITIONS: readonly TerminalControlDefinition[] = [
   { id: 'command-help', label: 'Command help', operationalState: 'operational-ui' },
-  { id: 'contextual-prompt', label: 'Context prompt', operationalState: 'opens-unavailable-prompt' },
+  { id: 'contextual-prompt', label: 'Context prompt', operationalState: 'opens-contextual-prompt' },
   { id: 'management-next-section', label: 'Next management section', operationalState: 'operational-ui' },
   { id: 'management-previous-section', label: 'Previous management section', operationalState: 'operational-ui' },
   { id: 'management-toggle', label: 'Toggle management', operationalState: 'operational-ui' },
@@ -152,7 +152,8 @@ export type TerminalWorldCommand =
   | { kind: 'open-controls-editor' }
   | { kind: 'open-command-help' }
   | { kind: 'open-contextual-prompt' }
-  | { kind: 'prompt-disabled-option'; reason: 'no-contextual-action-materialized' }
+  | { kind: 'prompt-select'; direction: -1 | 1 }
+  | { kind: 'prompt-confirm' }
   | { kind: 'toggle-management' }
   | { kind: 'previous-management-section' }
   | { kind: 'next-management-section' }
@@ -313,7 +314,9 @@ export const resolveTerminalWorldCommand = (preferences: TerminalControlPreferen
     ? { kind: 'return-to-worlds' }
     : { kind: 'cancel-overlay', overlay: input.context }
   if (input.context === 'contextual-prompt') {
-    if (input.key === 'Enter') return { kind: 'prompt-disabled-option', reason: 'no-contextual-action-materialized' }
+    if (input.key === 'ArrowUp') return { kind: 'prompt-select', direction: -1 }
+    if (input.key === 'ArrowDown') return { kind: 'prompt-select', direction: 1 }
+    if (input.key === 'Enter') return { kind: 'prompt-confirm' }
     return { kind: 'ignored', reason: 'unbound-key' }
   }
   if (input.context === 'command-help') return { kind: 'ignored', reason: 'unbound-key' }
@@ -356,12 +359,12 @@ export const createTerminalCommandHelpModel = (preferences: TerminalControlPrefe
     const bindingText = alias === undefined ? key : `${key} / ${alias}`
     const state = definition.operationalState === 'movement-available'
       ? 'Attempts one local deck step. A successful step advances one action minute; a blocked step changes no world state or time.'
-      : definition.operationalState === 'opens-unavailable-prompt'
-        ? 'Opens a disabled prompt: the visible deck has no operated action surface.'
+      : definition.operationalState === 'opens-contextual-prompt'
+        ? 'Opens the contextual prompt. At the tavern task ledger it can switch the active courier; elsewhere it reports why switching is unavailable.'
         : 'Operational browser UI control.'
     return { controlId: definition.id, label: definition.label, bindingText, operationalState: definition.operationalState, accessibilityText: `${definition.label}: ${bindingText}. ${state}` }
   })
-  return { entries, accessibilitySummary: `Command help. ${entries.length} remappable world controls. The static Jomon deck is visible; movement is local and collision-checked, while contextual actions remain unavailable.` }
+  return { entries, accessibilitySummary: `Command help. ${entries.length} remappable world controls. The static Jomon deck is visible; movement is local and collision-checked. The contextual control opens the source-backed tavern ledger courier-switch prompt when available.` }
 }
 
 export const createTerminalControlsEditorModel = (preferences: TerminalControlPreferences, selectedControlId: TerminalControlId, capturePending: boolean): TerminalControlsEditorModel => {

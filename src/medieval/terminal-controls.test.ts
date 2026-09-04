@@ -27,7 +27,7 @@ describe('terminal controls preferences and zero-time world intents', () => {
       { controlId: 'move-north-west', key: 'Y' }, { controlId: 'move-north-east', key: 'U' }, { controlId: 'move-south-west', key: 'B' }, { controlId: 'move-south-east', key: 'N' }
     ]))
     expect(help.entries.find(entry => entry.controlId === 'move-north')?.bindingText).toBe('K / ArrowUp')
-    expect(help.accessibilitySummary).toMatch(/movement is local and collision-checked.*contextual actions remain unavailable/i)
+    expect(help.accessibilitySummary).toMatch(/movement is local and collision-checked.*contextual control opens the source-backed tavern ledger courier-switch prompt/i)
     expect(editor.entries).toHaveLength(13)
     expect(editor.entries.find(entry => entry.controlId === 'move-north')).toMatchObject({ selected: true, fixedAliases: ['ArrowUp'] })
   })
@@ -53,7 +53,7 @@ describe('terminal controls preferences and zero-time world intents', () => {
     expect(input('F2')).toEqual({ kind: 'open-controls-editor' })
     expect(input('Escape')).toEqual({ kind: 'return-to-worlds' })
     expect(input('Escape', 'contextual-prompt')).toEqual({ kind: 'cancel-overlay', overlay: 'contextual-prompt' })
-    expect(input('Enter', 'contextual-prompt')).toEqual({ kind: 'prompt-disabled-option', reason: 'no-contextual-action-materialized' })
+    expect(input('Enter', 'contextual-prompt')).toEqual({ kind: 'prompt-confirm' })
     expect(input('ArrowDown', 'controls-editor')).toEqual({ kind: 'controls-select', direction: 1 })
     expect(input('Enter', 'controls-editor')).toEqual({ kind: 'controls-begin-capture' })
   })

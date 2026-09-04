@@ -211,6 +211,7 @@ const factContentRecords = (facts: readonly ManagementSidebarFact[]): readonly C
 
 const commandTime = (world: FoundationWorld, command: CausalCommandEvent): number | undefined => {
   if (command.kind === 'initial-courier-selected') return 0
+  if (command.kind === 'tavern-courier-switched') return world.state.temporal.worldTime
   if (command.kind === 'time-bearing-action') return world.state.temporal.causalRecords.find(record => record.kind === 'action-completed' && record.actionId === command.payload.action.id)?.atWorldTime
   if (command.kind === 'durable-jomon-growth') return command.payload.evidence.atWorldTime
   if (command.kind === 'delegation-offered') return world.state.delegation.tasks.find(task => task.offerId === command.payload.offer.id)?.offeredAtWorldTime
@@ -305,7 +306,7 @@ const frontierFacts = (world: FoundationWorld): readonly ManagementSidebarFact[]
     })))
 
 const overviewFacts = (world: FoundationWorld): readonly ManagementSidebarFact[] => {
-  const courier = world.state.courier.initialCourierId === undefined ? undefined : world.state.people.records.find(person => person.id === world.state.courier.initialCourierId)
+  const courier = world.state.courier.activeCourierId === undefined ? undefined : world.state.people.records.find(person => person.id === world.state.courier.activeCourierId)
   const time = world.state.temporal.worldTime
   return [
     fact({
@@ -331,7 +332,7 @@ const overviewFacts = (world: FoundationWorld): readonly ManagementSidebarFact[]
 
 const peopleFacts = (world: FoundationWorld): readonly ManagementSidebarFact[] => world.state.people.records.map(person => {
   const observation = world.state.autonomy.observations.find(candidate => candidate.personId === person.id)
-  const essential = person.id === world.state.courier.initialCourierId || person.work.current.status === 'committed'
+  const essential = person.id === world.state.courier.activeCourierId || person.work.current.status === 'committed'
   const urgent = person.life.status === 'living' && (maximumNeed(person) >= 4 || person.health.condition === 'injured')
   return fact({
     id: `management:person:${person.id}`,

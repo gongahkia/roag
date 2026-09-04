@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { classifyMedievalContent } from './content-safety'
 import { createActiveWorldBackupBundle, createChronicleBackupBundle, createPersistencePreflight, createWorldRecordIndex, emptySnapshotRing, parsePersistenceBackupBundle, persistenceDigestFor, persistenceWorldSourceFor, serializePersistenceBackupBundle, snapshotRingAfterReplacement, validateFoundationWorldSnapshotRing, validatePersistenceBackupBundle, validateWorldRecordIndex } from './persistence-layout'
 import { canonicalSerializedByteLength } from './performance-budget'
-import { createCausalHistoryState } from './causal-history'
+import { causalDigestFor, causalReplayProjectionDigest } from './causal-history'
 import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle } from './world'
 
 const selected = (seed = 'layout-contract'): ReturnType<typeof chooseInitialCourier> => chooseInitialCourier(createFoundationWorld({ seed }), 'crew:0')
@@ -70,11 +70,26 @@ describe('compact medieval persistence layout', () => {
     legacy.version = 13
     legacy.state.version = 11
     delete legacy.state.navigation
+    legacy.state.courier = { version: 1, initialCourierId: world.state.courier.initialCourierId }
     const checkpointProjection = structuredClone(legacy.state.causalHistory.checkpoint.projection)
+    checkpointProjection.version = 4
+    checkpointProjection.courier = checkpointProjection.courier.initialCourierId === undefined
+      ? { version: 1 }
+      : { version: 1, initialCourierId: checkpointProjection.courier.initialCourierId }
     delete checkpointProjection.navigation
+    const stateDigest = causalReplayProjectionDigest(checkpointProjection)
     legacy.state.causalHistory = {
       ...legacy.state.causalHistory,
-      checkpoint: createCausalHistoryState({ worldId: legacy.id, creationDigest: legacy.manifest.creation.digest }, checkpointProjection).checkpoint
+      checkpoint: {
+        version: 4,
+        id: `causal-checkpoint:0:${causalDigestFor('causal-checkpoint-id', { worldId: legacy.id, creationDigest: legacy.manifest.creation.digest, sequence: 0, stateDigest })}`,
+        token: causalDigestFor('causal-checkpoint-token', { worldId: legacy.id, creationDigest: legacy.manifest.creation.digest, sequence: 0, atWorldTime: 0, stateDigest }),
+        sequence: 0,
+        atWorldTime: 0,
+        provenanceDigest: legacy.manifest.creation.digest,
+        stateDigest,
+        projection: checkpointProjection
+      }
     }
     const legacyBundle = {
       version: 1,
@@ -88,7 +103,7 @@ describe('compact medieval persistence layout', () => {
       world: legacy
     }
 
-    expect(parsePersistenceBackupBundle(JSON.stringify(legacyBundle))).toMatchObject({ kind: 'active-world', world: { version: 14, state: { version: 12, navigation: { coordinate: { column: 4, row: 4 } } } } })
+    expect(parsePersistenceBackupBundle(JSON.stringify(legacyBundle))).toMatchObject({ kind: 'active-world', world: { version: 14, state: { version: 13, courier: { version: 2, initialCourierId: 'crew:0', activeCourierId: 'crew:0' }, navigation: { coordinate: { column: 4, row: 4 } } } } })
     const corrupt = structuredClone(legacyBundle)
     corrupt.source.digest = 'layout:forged'
     expect(() => parsePersistenceBackupBundle(JSON.stringify(corrupt))).toThrow('invalid bundle')

@@ -2,14 +2,14 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MedievalWorldRepository } from './storage'
 import { CREATION_SETTINGS_PROFILE_LIMIT, defaultCreationSettings } from './settings'
 import { MEDIEVAL_DATABASE_NAME } from './types'
-import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, offerFoundationWorldDelegatedTask, recordDurableJomonGrowth, replayFoundationWorldCausalHistory, validateFoundationWorld } from './world'
+import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, offerFoundationWorldDelegatedTask, recordDurableJomonGrowth, replayFoundationWorldCausalHistory, switchTavernCourier, validateFoundationWorld } from './world'
 import { causalReplayProjectionForWorldState } from './world-state'
 import { classifyMedievalContent } from './content-safety'
 import { DELEGATION_CONTRACT_VERSION, DELEGATION_TASK_DEFINITIONS, delegationTaskIdForOffer, type DelegationOfferInput } from './delegation'
 import { SeededRng } from './rng'
 import { assessCourierConversation } from './conversation'
 import { socialMemoryRecallForPair } from './social-memory'
-import { CAUSAL_HISTORY_LIMITS, createCausalHistoryState } from './causal-history'
+import { CAUSAL_HISTORY_LIMITS, causalDigestFor, causalReplayProjectionDigest } from './causal-history'
 import { captureTerminalControlBinding, defaultTerminalControlPreferences } from './terminal-controls'
 import { createActiveWorldBackupBundle, createChronicleBackupBundle, serializePersistenceBackupBundle } from './persistence-layout'
 
@@ -234,6 +234,20 @@ describe('medieval local persistence', () => {
     expect(loaded && replayFoundationWorldCausalHistory(loaded)).toEqual(causalReplayProjectionForWorldState(selected.state))
   })
 
+  it('round-trips a zero-time tavern courier switch through the full authoritative envelope', async () => {
+    const repository = new MedievalWorldRepository()
+    const selected = chooseInitialCourier(createFoundationWorld({ seed: 'storage-tavern-courier-switch' }), 'crew:0')
+    const switched = switchTavernCourier(selected, 'crew:1')
+
+    await repository.saveWorld(switched)
+    const loaded = await repository.loadWorld(switched.id)
+
+    expect(loaded).toEqual(switched)
+    expect(loaded?.state.courier).toEqual({ version: 2, initialCourierId: 'crew:0', activeCourierId: 'crew:1' })
+    expect(loaded?.state.navigation).toEqual({ version: 1, courierId: 'crew:1', coordinate: { column: 4, row: 4 } })
+    expect(loaded && replayFoundationWorldCausalHistory(loaded)).toEqual(causalReplayProjectionForWorldState(switched.state))
+  })
+
   it('reads a valid v13 full envelope through the strict v14 navigation conversion without overwriting corrupt input', async () => {
     const repository = new MedievalWorldRepository()
     await repository.loadIndex()
@@ -242,16 +256,31 @@ describe('medieval local persistence', () => {
     legacy.version = 13
     legacy.state.version = 11
     delete legacy.state.navigation
+    legacy.state.courier = { version: 1, initialCourierId: selected.state.courier.initialCourierId }
     const checkpointProjection = structuredClone(legacy.state.causalHistory.checkpoint.projection)
+    checkpointProjection.version = 4
+    checkpointProjection.courier = checkpointProjection.courier.initialCourierId === undefined
+      ? { version: 1 }
+      : { version: 1, initialCourierId: checkpointProjection.courier.initialCourierId }
     delete checkpointProjection.navigation
+    const stateDigest = causalReplayProjectionDigest(checkpointProjection)
     legacy.state.causalHistory = {
       ...legacy.state.causalHistory,
-      checkpoint: createCausalHistoryState({ worldId: legacy.id, creationDigest: legacy.manifest.creation.digest }, checkpointProjection).checkpoint
+      checkpoint: {
+        version: 4,
+        id: `causal-checkpoint:0:${causalDigestFor('causal-checkpoint-id', { worldId: legacy.id, creationDigest: legacy.manifest.creation.digest, sequence: 0, stateDigest })}`,
+        token: causalDigestFor('causal-checkpoint-token', { worldId: legacy.id, creationDigest: legacy.manifest.creation.digest, sequence: 0, atWorldTime: 0, stateDigest }),
+        sequence: 0,
+        atWorldTime: 0,
+        provenanceDigest: legacy.manifest.creation.digest,
+        stateDigest,
+        projection: checkpointProjection
+      }
     }
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(selected.id, structuredClone(legacy))
 
     const loaded = await repository.loadWorld(selected.id)
-    expect(loaded).toMatchObject({ version: 14, state: { version: 12, navigation: { courierId: 'crew:0', coordinate: { column: 4, row: 4 } } } })
+    expect(loaded).toMatchObject({ version: 14, state: { version: 13, courier: { version: 2, initialCourierId: 'crew:0', activeCourierId: 'crew:0' }, navigation: { courierId: 'crew:0', coordinate: { column: 4, row: 4 } } } })
     expect((fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(selected.id) as { version: number }).version).toBe(13)
 
     const corrupt = structuredClone(legacy)

@@ -339,7 +339,7 @@ const legacyProjectionShape = (value: unknown): boolean => record(value)
   && value.version === 4
   && record(value.courier)
   && (hasOnlyKeys(value.courier, ['version']) || hasOnlyKeys(value.courier, ['version', 'initialCourierId']))
-  && (value.courier as LegacyCausalHistoryCourierProjectionV1).version === 1
+  && (value.courier as unknown as LegacyCausalHistoryCourierProjectionV1).version === 1
   && (value.courier.initialCourierId === undefined || validId(value.courier.initialCourierId))
   && (value.navigation === undefined || (record(value.navigation) && (hasOnlyKeys(value.navigation, ['version']) || hasOnlyKeys(value.navigation, ['version', 'courierId', 'coordinate'])) && value.navigation.version === 1 && (value.navigation.courierId === undefined || validId(value.navigation.courierId)) && (value.navigation.coordinate === undefined || (record(value.navigation.coordinate) && hasOnlyKeys(value.navigation.coordinate, ['column', 'row']) && safeInteger(value.navigation.coordinate.column) && safeInteger(value.navigation.coordinate.row)))))
   && record(value.people) && hasOnlyKeys(value.people, ['version', 'records']) && value.people.version === 5 && Array.isArray(value.people.records)
@@ -526,7 +526,8 @@ const validCommand = (context: CausalHistoryContext, value: unknown): value is C
 }
 
 const validCheckpoint = (context: CausalHistoryContext, value: unknown): value is CausalHistoryCheckpoint => {
-  if (!record(value) || !hasOnlyKeys(value, ['version', 'id', 'token', 'sequence', 'atWorldTime', 'provenanceDigest', 'stateDigest', 'projection']) || value.version !== CAUSAL_HISTORY_CHECKPOINT_VERSION || !validId(value.id) || typeof value.token !== 'string' || !safeInteger(value.sequence) || !safeInteger(value.atWorldTime) || value.provenanceDigest !== context.creationDigest || typeof value.stateDigest !== 'string' || !replayProjectionShape(value.projection) || value.projection.temporal.worldTime !== value.atWorldTime || causalReplayProjectionDigest(value.projection) !== value.stateDigest) return false
+  const projection = record(value) ? value.projection : undefined
+  if (!record(value) || !hasOnlyKeys(value, ['version', 'id', 'token', 'sequence', 'atWorldTime', 'provenanceDigest', 'stateDigest', 'projection']) || value.version !== CAUSAL_HISTORY_CHECKPOINT_VERSION || !validId(value.id) || typeof value.token !== 'string' || !safeInteger(value.sequence) || !safeInteger(value.atWorldTime) || value.provenanceDigest !== context.creationDigest || typeof value.stateDigest !== 'string' || !replayProjectionShape(projection) || !record(projection) || !record(projection.temporal) || projection.temporal.worldTime !== value.atWorldTime || causalDigestFor('causal-replay-projection', projection) !== value.stateDigest) return false
   return value.id === checkpointIdFor(context, value.sequence, value.stateDigest) && value.token === checkpointTokenFor(context, value.sequence, value.atWorldTime, value.stateDigest)
 }
 

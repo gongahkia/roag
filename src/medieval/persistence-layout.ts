@@ -1,7 +1,7 @@
 import { auditMedievalContentSafety, classifyMedievalContent, contentSafetyAuditMatches, type MedievalContentSafetyAudit, type MedievalContentSafetyClassification } from './content-safety'
 import { causalDigestFor } from './causal-history'
 import { canonicalSerializedByteLength, canonicalSerializedJson, MEDIEVAL_PERFORMANCE_STORAGE_BUDGETS } from './performance-budget'
-import { isValidFoundationWorld, upgradeFoundationWorldV13 } from './world'
+import { isValidFoundationWorld, upgradeFoundationWorldV13, upgradeFoundationWorldV14 } from './world'
 import type { FoundationWorld, WorldChronicle } from './types'
 
 /**
@@ -232,6 +232,41 @@ export const validateWorldRecordIndex = (value: unknown, world?: FoundationWorld
   } catch { return false }
 }
 
+/**
+ * Checks the exact derived index against a source envelope that has already
+ * passed an explicit historical world upgrader. It exists only so an explicit
+ * later save may replace that valid old envelope; read paths never write it.
+ */
+export const validateLegacyWorldRecordIndex = (value: unknown, world: unknown): boolean => {
+  const rawState = record(world) && record(world.state) ? world.state : undefined
+  const rawHistory = rawState !== undefined && record(rawState.causalHistory) ? rawState.causalHistory : undefined
+  const rawCheckpoint = rawHistory !== undefined && record(rawHistory.checkpoint) ? rawHistory.checkpoint : undefined
+  if (!record(world) || !validString(world.id) || !rawState || !rawHistory || !rawCheckpoint || !safeInteger(rawCheckpoint.sequence) || !Array.isArray(rawHistory.tail) || !record(rawState.people) || !Array.isArray(rawState.people.records) || !record(rawState.geography) || !record(rawState.geography.frontier) || !Array.isArray(rawState.geography.frontier.regions) || !record(rawState.delegation) || !Array.isArray(rawState.delegation.tasks) || !record(rawState.temporal) || !Array.isArray(rawState.temporal.pendingEvents) || !Array.isArray(rawState.temporal.causalRecords) || !record(rawState.socialMemory) || !Array.isArray(rawState.socialMemory.records)) return false
+  try {
+    const source = {
+      worldId: world.id,
+      revision: rawCheckpoint.sequence + rawHistory.tail.length,
+      digest: persistenceDigestFor('foundation-world', world),
+      canonicalBytes: canonicalSerializedByteLength(world)
+    }
+    const legacy = world as unknown as FoundationWorld
+    const locators = canonicalLocators([
+      locator('world', 'foundation-world', legacy.id),
+      ...legacy.state.people.records.map(person => locator('person', 'persistent-people', person.id)),
+      ...knownRegionsFor(legacy).map(regionId => locator('region', 'known-frontier-regions', regionId)),
+      ...legacy.state.delegation.tasks.map(task => locator('task', 'delegation-tasks', task.id)),
+      ...legacy.state.temporal.pendingEvents.map(event => locator('event', 'temporal-events', event.id)),
+      ...legacy.state.temporal.causalRecords.map(event => locator('event', 'temporal-events', event.id)),
+      ...legacy.state.causalHistory.tail.map(event => locator('history', 'causal-tail', event.id)),
+      locator('history', 'causal-checkpoint', legacy.state.causalHistory.checkpoint.id),
+      ...legacy.state.causalHistory.compactedSegments.map(segment => locator('history', 'causal-segment', segment.id)),
+      ...legacy.state.socialMemory.records.map(memory => locator('history', 'social-memory', memory.id))
+    ])
+    const expected = { version: PERSISTENCE_LAYOUT_CONTRACT_VERSION, worldId: legacy.id, source, locators, contentSafetyAudit: undefined as unknown as MedievalContentSafetyAudit }
+    return same(value, { ...expected, contentSafetyAudit: recordIndexAudit(expected) })
+  } catch { return false }
+}
+
 export const emptySnapshotRing = (worldId: string): FoundationWorldSnapshotRing => ({ version: PERSISTENCE_SNAPSHOT_VERSION, parentWorldId: worldId, snapshots: [] })
 const snapshotIdFor = (worldId: string, sequence: number, source: PersistenceWorldSource): string => `snapshot:${worldId}:${sequence}:${source.digest}`
 const snapshotFor = (world: FoundationWorld, sequence: number): FoundationWorldSnapshot => {
@@ -303,16 +338,19 @@ const legacyWorldSourceMatches = (source: unknown, world: unknown): boolean => {
   return same(source, expected)
 }
 
-/** Converts only canonical v13 backups; malformed legacy bytes remain rejected. */
+/** Converts only canonical v13 or v14/v12 backups; malformed legacy bytes remain rejected. */
 const upgradeLegacyPersistenceBackupBundle = (value: unknown): PersistenceBackupBundle | undefined => {
   if (!record(value) || value.version !== PERSISTENCE_BACKUP_VERSION || (value.kind !== 'active-world' && value.kind !== 'read-only-chronicle')) return undefined
   try {
     if (value.kind === 'active-world') {
       if (!hasOnlyKeys(value, ['version', 'kind', 'source', 'world']) || !legacyWorldSourceMatches(value.source, value.world)) return undefined
-      return createActiveWorldBackupBundle(upgradeFoundationWorldV13(value.world))
+      let world: FoundationWorld
+      try { world = upgradeFoundationWorldV14(value.world) } catch { world = upgradeFoundationWorldV13(value.world) }
+      return createActiveWorldBackupBundle(world)
     }
     if (!hasOnlyKeys(value, ['version', 'kind', 'source', 'chronicle']) || !record(value.chronicle) || !hasOnlyKeys(value.chronicle, ['version', 'id', 'status', 'reason', 'world']) || value.chronicle.version !== 12 || value.chronicle.status !== 'finalized' || (value.chronicle.reason !== 'jomon-loss' && value.chronicle.reason !== 'crew-extinction')) return undefined
-    const chronicleWorld = upgradeFoundationWorldV13(value.chronicle.world)
+    let chronicleWorld: FoundationWorld
+    try { chronicleWorld = upgradeFoundationWorldV14(value.chronicle.world) } catch { chronicleWorld = upgradeFoundationWorldV13(value.chronicle.world) }
     const legacyChronicleSource = { chronicleId: value.chronicle.id, worldId: chronicleWorld.id, digest: persistenceDigestFor('read-only-chronicle', value.chronicle), canonicalBytes: canonicalSerializedByteLength(value.chronicle) }
     if (!same(value.source, legacyChronicleSource) || value.chronicle.id !== `chronicle:${chronicleWorld.id}`) return undefined
     return createChronicleBackupBundle({ version: 12, id: value.chronicle.id, status: 'finalized', reason: value.chronicle.reason, world: chronicleWorld })

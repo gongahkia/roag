@@ -10,7 +10,7 @@ import { MutableWorldSession } from './session'
 import { cancelTerminalPrompt, createJomonDeckContextualPrompt, createTerminalPresentationModel, type TerminalMapLegend, type TerminalMaterializedMap, type TerminalPrompt } from './terminal-presentation'
 import { TERMINAL_CONTROL_IDS, captureTerminalControlBinding, createTerminalCommandHelpModel, createTerminalControlsEditorModel, cycleTerminalControlSelection, defaultTerminalControlPreferences, resetAllTerminalControls, resetTerminalControl, resolveTerminalWorldCommand, type TerminalControlId, type TerminalControlPreferences, type TerminalMovementDirection } from './terminal-controls'
 import type { FoundationWorld, MedievalRoute, WorldChronicle, WorldIndex } from './types'
-import { chronicleExport, chooseInitialCourier, createFoundationWorld, moveFoundationWorldCourier } from './world'
+import { chronicleExport, chooseInitialCourier, createFoundationWorld, moveFoundationWorldCourier, switchTavernCourier } from './world'
 
 type PersistenceState = 'loading' | 'saved' | 'error'
 type SettingsPage = 'basic' | 'advanced'
@@ -20,7 +20,8 @@ type TerminalInteractionOutcome =
   | { kind: 'movement-completed'; direction: TerminalMovementDirection; column: number; row: number }
   | { kind: 'movement-blocked'; direction: TerminalMovementDirection; collision: string }
   | { kind: 'prompt-cancelled' }
-  | { kind: 'prompt-option-disabled'; reason: 'no-contextual-action-materialized' }
+  | { kind: 'prompt-option-disabled'; reason: string }
+  | { kind: 'courier-switched'; fromName: string; toName: string }
   | { kind: 'overlay-dismissed'; overlay: Exclude<WorldOverlay, 'none'> }
   | { kind: 'controls-capture-cancelled' }
   | { kind: 'controls-binding-saved'; controlId: TerminalControlId }
@@ -209,6 +210,7 @@ export class MedievalApp {
   private terminalControls: TerminalControlPreferences = defaultTerminalControlPreferences()
   private worldOverlay: WorldOverlay = 'none'
   private contextualPrompt: TerminalPrompt | undefined
+  private selectedTavernCandidateIndex = 0
   private selectedTerminalControlId: TerminalControlId = TERMINAL_CONTROL_IDS[0]
   private terminalControlCapturePending = false
   private terminalInteractionOutcome: TerminalInteractionOutcome | undefined
@@ -567,6 +569,36 @@ export class MedievalApp {
     }
   }
 
+  /** The adapter persists only the authoritative envelope returned by the pure reducer. */
+  private switchCourierAtTavern(courierId: string, fromName: string, toName: string): void {
+    if (!this.world) return
+    try {
+      this.session.assertOwner(this.world.id)
+      const next = switchTavernCourier(this.world, courierId)
+      this.persistence = 'loading'
+      this.render()
+      void this.repository.saveWorld(next).then(async () => {
+        this.world = next
+        await this.refreshIndex()
+        this.resetManagementSidebar()
+        this.worldOverlay = 'none'
+        this.contextualPrompt = undefined
+        this.selectedTavernCandidateIndex = 0
+        this.persistence = 'saved'
+        this.error = undefined
+        this.terminalInteractionOutcome = { kind: 'courier-switched', fromName, toName }
+        this.render()
+      }).catch(error => {
+        this.persistence = 'error'
+        this.error = errorMessage(error)
+        this.render()
+      })
+    } catch (error) {
+      this.error = errorMessage(error)
+      this.render()
+    }
+  }
+
   /** World-view keys become typed UI intents before the canvas performs an owned transition. */
   private handleWorldKey(event: KeyboardEvent): boolean {
     const command = resolveTerminalWorldCommand(this.terminalControls, {
@@ -608,6 +640,7 @@ export class MedievalApp {
         } else this.terminalInteractionOutcome = { kind: 'overlay-dismissed', overlay: this.worldOverlay === 'none' ? 'command-help' : this.worldOverlay }
         this.worldOverlay = 'none'
         this.contextualPrompt = undefined
+        this.selectedTavernCandidateIndex = 0
         this.terminalControlCapturePending = false
         this.render()
         return true
@@ -644,14 +677,33 @@ export class MedievalApp {
       case 'open-contextual-prompt':
         if (!this.world) return false
         this.contextualPrompt = createJomonDeckContextualPrompt(this.world)
+        this.selectedTavernCandidateIndex = 0
         this.worldOverlay = 'contextual-prompt'
         this.terminalInteractionOutcome = undefined
         this.render()
         return true
-      case 'prompt-disabled-option':
-        this.terminalInteractionOutcome = { kind: 'prompt-option-disabled', reason: command.reason }
+      case 'prompt-select': {
+        const prompt = this.contextualPrompt
+        if (!prompt || prompt.kind !== 'tavern-courier-switch' || prompt.options[0]?.availability !== 'available' || !prompt.candidates.length) return true
+        this.selectedTavernCandidateIndex = (this.selectedTavernCandidateIndex + command.direction + prompt.candidates.length) % prompt.candidates.length
+        this.terminalInteractionOutcome = undefined
         this.render()
         return true
+      }
+      case 'prompt-confirm': {
+        const prompt = this.contextualPrompt
+        if (!prompt || prompt.kind !== 'tavern-courier-switch') return true
+        if (prompt.options[0]?.availability !== 'available') {
+          this.terminalInteractionOutcome = { kind: 'prompt-option-disabled', reason: prompt.options[0]?.disabledReason ?? 'requires-future-domain-rule' }
+          this.render()
+          return true
+        }
+        const candidate = prompt.candidates[this.selectedTavernCandidateIndex]
+        if (!candidate) return true
+        this.switchCourierAtTavern(candidate.id, prompt.current.name, candidate.name)
+        this.render()
+        return true
+      }
       case 'toggle-management':
         this.managementExpanded = !this.managementExpanded
         this.terminalInteractionOutcome = undefined
@@ -712,6 +764,7 @@ export class MedievalApp {
     this.managementSectionIndex = 0
     this.worldOverlay = 'none'
     this.contextualPrompt = undefined
+    this.selectedTavernCandidateIndex = 0
     this.terminalControlCapturePending = false
     this.terminalInteractionOutcome = undefined
   }
@@ -935,10 +988,10 @@ export class MedievalApp {
     const world = this.world
     if (!world) { this.route = 'worlds'; this.render(); return 0 }
     const candidates = initialCourierSelectionCandidates(world)
-    this.canvas.setAttribute('aria-label', `Choose an initial courier for ${world.manifest.creation.label}. ${candidates.length} deterministic eligible household members are available in canonical order. Arrow keys choose; Enter confirms a zero-time active courier; Escape returns without selection. Tavern switching and succession are not implemented.`)
+    this.canvas.setAttribute('aria-label', `Choose an initial courier for ${world.manifest.creation.label}. ${candidates.length} deterministic eligible household members are available in canonical order. Arrow keys choose; Enter confirms a zero-time active courier; Escape returns without selection. Tavern switching is available only at Jomon's task ledger; succession is not implemented.`)
     row(context, 2, `CHOOSE INITIAL COURIER // ${world.manifest.creation.label.toUpperCase()}`, palette.titleText)
     row(context, 3, `SEED ${world.manifest.creation.seed} // ZERO-TIME CONFIRMATION`, palette.mutedText)
-    row(context, 4, 'CONFIRM FIXES ACTIVE COURIER // NO SWITCHING OR SUCCESSION YET', palette.actionText)
+    row(context, 4, 'CONFIRM FIXES INITIAL COURIER // TAVERN SWITCHING LATER // NO SUCCESSION', palette.actionText)
     let line = 6
     candidates.forEach((candidate, index) => {
       const member = world.crew.find(crewMember => crewMember.id === candidate.id)
@@ -987,6 +1040,7 @@ export class MedievalApp {
       case 'movement-blocked': return `! MOVE BLOCKED // ${uppercase(outcome.direction)} // ${uppercase(outcome.collision)} // ZERO TIME`
       case 'prompt-cancelled': return '+ CONTEXT PROMPT CANCELLED // ZERO TIME'
       case 'prompt-option-disabled': return `! OPTION DISABLED // ${uppercase(outcome.reason)}`
+      case 'courier-switched': return `+ ACTIVE COURIER ${outcome.fromName.toUpperCase()} -> ${outcome.toName.toUpperCase()} // TAVERN LEDGER // ZERO TIME`
       case 'overlay-dismissed': return `+ ${uppercase(outcome.overlay)} CLOSED // ZERO TIME`
       case 'controls-capture-cancelled': return '+ KEY CAPTURE CANCELLED // BINDING UNCHANGED'
       case 'controls-binding-saved': return `+ ${uppercase(outcome.controlId)} BINDING SAVED // LOCAL UI ONLY`
@@ -998,7 +1052,7 @@ export class MedievalApp {
 
   private worldOverlayAccessibleSummary(legend?: TerminalMapLegend): string {
     const outcome = this.terminalOutcomeText()
-    if (this.worldOverlay === 'contextual-prompt') return `Context prompt open. The only option is disabled because the visible static deck has no operated action rule. Escape cancels without changing time.${outcome ? ` ${outcome}` : ''}`
+    if (this.worldOverlay === 'contextual-prompt') return `${this.contextualPrompt?.accessibilityText ?? 'Context prompt unavailable.'}${outcome ? ` ${outcome}` : ''}`
     if (this.worldOverlay === 'command-help') return `${legend?.accessibilityText ?? 'Map legend unavailable.'} ${createTerminalCommandHelpModel(this.terminalControls).accessibilitySummary} Escape closes help.${outcome ? ` ${outcome}` : ''}`
     if (this.worldOverlay === 'controls-editor') return `${createTerminalControlsEditorModel(this.terminalControls, this.selectedTerminalControlId, this.terminalControlCapturePending).accessibilitySummary}${outcome ? ` ${outcome}` : ''}`
     return outcome ?? 'No terminal overlay is open.'
@@ -1007,12 +1061,24 @@ export class MedievalApp {
   private renderWorldOverlay(context: CanvasRenderingContext2D, panel: WorldPanel, legend: TerminalMapLegend): void {
     const outcome = this.terminalOutcomeText()
     if (this.worldOverlay === 'contextual-prompt') {
-      row(context, 2, 'CONTEXT PROMPT // STATIC DECK', palette.titleText, panel.x)
-      renderBoundedMedievalCanvasRows(context, 4, 6, 'The visible deck has no operated prop or contextual action rule yet.', palette.mutedText, panel.x, panel.width)
-      renderBoundedMedievalCanvasRows(context, 8, 9, '! [ENTER] NO CONTEXTUAL ACTION // DISABLED', palette.warningText, panel.x, panel.width)
-      renderBoundedMedievalCanvasRows(context, 10, 11, 'The option has no domain action and cannot advance world time.', palette.mutedText, panel.x, panel.width)
+      const prompt = this.contextualPrompt
+      if (!prompt || prompt.kind !== 'tavern-courier-switch') throw new Error('tavern courier prompt is unavailable')
+      const option = prompt.options[0]!
+      row(context, 2, 'TAVERN TASK LEDGER // COURIER SWITCH', palette.titleText, panel.x)
+      renderBoundedMedievalCanvasRows(context, 4, 4, `SOURCE ${prompt.source.propId.toUpperCase()} // TAVERN ${prompt.source.coordinate.column},${prompt.source.coordinate.row} // WORLD TIME ${prompt.evidence.knownAtWorldTime}`, palette.mutedText, panel.x, panel.width)
+      renderBoundedMedievalCanvasRows(context, 5, 5, `CURRENT  ${prompt.current.name.toUpperCase()} // ${prompt.current.role.toUpperCase()} // CONVERSATION ${prompt.current.conversation}`, palette.bodyText, panel.x, panel.width)
+      if (option.availability === 'available') {
+        renderBoundedMedievalCanvasRows(context, 7, 7, 'SELECT ELIGIBLE LIVING AVAILABLE HOUSEHOLD COURIER // CANONICAL ORDER', palette.actionText, panel.x, panel.width)
+        prompt.candidates.slice(0, 7).forEach((candidate, index) => {
+          const selected = index === this.selectedTavernCandidateIndex
+          renderBoundedMedievalCanvasRows(context, 8 + index, 8 + index, `${selectedMarker(selected)} ${candidate.name.toUpperCase()} // ${candidate.role.toUpperCase()} // CONV ${candidate.conversation}`, selected ? palette.selectedText : palette.bodyText, panel.x, panel.width)
+        })
+      } else {
+        renderBoundedMedievalCanvasRows(context, 7, 9, `! SWITCH UNAVAILABLE // ${uppercase(option.disabledReason ?? 'requires-future-domain-rule')}`, palette.warningText, panel.x, panel.width)
+        renderBoundedMedievalCanvasRows(context, 10, 11, option.accessibilityText, palette.mutedText, panel.x, panel.width)
+      }
       rule(context, 18, panel.x, panel.x + panel.width)
-      renderBoundedMedievalCanvasRows(context, 20, 22, outcome ?? 'ENTER acknowledges disabled option // ESC cancel prompt', outcome ? palette.warningText : palette.actionText, panel.x, panel.width)
+      renderBoundedMedievalCanvasRows(context, 20, 22, outcome ?? (option.availability === 'available' ? 'ARROWS SELECT // ENTER CONFIRMS ZERO-TIME SWITCH // ESC CANCELS // NO CARGO, TRAVEL, REST, CONVERSATION, LOSS, OR SUCCESSION' : 'ENTER REPORTS UNAVAILABLE // ESC CANCELS // NO MUTATION OR TIME'), outcome?.startsWith('!') ? palette.warningText : palette.actionText, panel.x, panel.width)
       return
     }
     if (this.worldOverlay === 'command-help') {
@@ -1024,14 +1090,14 @@ export class MedievalApp {
       let line = 5
       for (const entry of help.entries) {
         if (line > 17) break
-        const availability = entry.operationalState === 'movement-available' ? 'LOCAL STEP +1M' : entry.operationalState === 'opens-unavailable-prompt' ? 'PROMPT ONLY' : 'READY'
+        const availability = entry.operationalState === 'movement-available' ? 'LOCAL STEP +1M' : entry.operationalState === 'opens-contextual-prompt' ? 'LEDGER PROMPT' : 'READY'
         renderBoundedMedievalCanvasRows(context, line, line, `- ${entry.bindingText}  ${entry.label.toUpperCase()} // ${availability}`, entry.operationalState === 'movement-available' ? palette.bodyText : palette.mutedText, panel.x, panel.width)
         line += 1
       }
       rule(context, 18, panel.x, panel.x + panel.width)
       renderBoundedMedievalCanvasRows(context, 20, 20, 'FIXED KNOWN DECK // MOVED +1M', palette.actionText, panel.x, panel.width)
       renderBoundedMedievalCanvasRows(context, 21, 21, 'BLOCKED ZERO TIME // NO CARGO, NPC, HAZARD', palette.actionText, panel.x, panel.width)
-      renderBoundedMedievalCanvasRows(context, 22, 22, 'NO TRAVEL, FOG, OR PROP ACTION // ESC CLOSE', palette.actionText, panel.x, panel.width)
+      renderBoundedMedievalCanvasRows(context, 22, 22, 'LEDGER SWITCH ONLY // NO TRAVEL, FOG, OR OTHER PROP ACTION // ESC CLOSE', palette.actionText, panel.x, panel.width)
       return
     }
     const editor = createTerminalControlsEditorModel(this.terminalControls, this.selectedTerminalControlId, this.terminalControlCapturePending)
@@ -1068,7 +1134,7 @@ export class MedievalApp {
   private renderWorld(context: CanvasRenderingContext2D): number {
     const world = this.world
     if (!world) { this.route = 'worlds'; this.render(); return 0 }
-    const courier = world.crew.find(member => member.id === world.state.courier.initialCourierId)
+    const courier = world.crew.find(member => member.id === world.state.courier.activeCourierId)
     // The canvas is only an adapter: immediate status and the explicit empty
     // message surface come from the renderer-neutral terminal model.
     const terminal = createTerminalPresentationModel(world)
@@ -1103,7 +1169,7 @@ export class MedievalApp {
     this.canvas.dataset.terminalMessageCount = String(terminal.messages.length)
     this.canvas.dataset.terminalMessageState = terminal.messages.length ? 'available' : 'empty'
     this.canvas.dataset.terminalPromptCount = String(terminal.prompts.length)
-    this.canvas.setAttribute('aria-label', `Jomon foundation world ${world.manifest.creation.label}, active courier ${courier?.name ?? 'unassigned'}. ${terminal.accessibility.conciseSummary} ${terminal.accessibility.mapText} ${terminal.accessibility.legendText} ${terminal.accessibility.statusText.join(' ')} ${terminal.accessibility.messageText.join(' ')} ${managementSidebarAccessibleSummary(model, selectedSection, this.managementExpanded)} ${this.worldOverlayAccessibleSummary(terminal.legend)}`)
+    this.canvas.setAttribute('aria-label', `Jomon foundation world ${world.manifest.creation.label}, active courier ${courier?.name ?? 'unassigned'}. ${terminal.accessibility.conciseSummary} ${terminal.accessibility.mapText} ${terminal.accessibility.legendText} ${terminal.accessibility.statusText.join(' ')} ${terminal.accessibility.messageText.join(' ')} ${terminal.accessibility.promptText.join(' ')} ${managementSidebarAccessibleSummary(model, selectedSection, this.managementExpanded)} ${this.worldOverlayAccessibleSummary(terminal.legend)}`)
     const panels = worldPanels(this.managementExpanded)
     context.strokeStyle = palette.panelBorder
     context.strokeRect(panels.main.x - 8.5, 108.5, panels.main.width + 16, 480)

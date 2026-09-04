@@ -2,9 +2,9 @@
 
 Jomon is a single-player, offline-first, browser-based procedural low-mysticism medieval river-and-coast roguelike. Jomon is both the game and a working vessel: an itinerant household carrying people, goods, debts, and news between river settlements and a contested coast.
 
-The project is at a documented clean-break boundary. The checked-in prototype still contains superseded space-era implementation and is **not** the current game canon. The rebuild now includes bounded local movement on Jomon's full known deck and a zero-time map legend through remappable command help; tavern crew switching, gangplank/quay departure, and contextual vessel interactions remain deferred.
+The project is at a documented clean-break boundary. The checked-in prototype still contains superseded space-era implementation and is **not** the current game canon. The rebuild now includes bounded local movement on Jomon's full known deck, a zero-time map legend through remappable command help, and one operated tavern task-ledger action for voluntary courier switching. Gangplank/quay departure and every other contextual vessel interaction remain deferred.
 
-The initial six-member household is immutable deterministic creation evidence: normalized world seed plus resolved configuration reproduce its roster, roles, equipment, histories, directional relationships, and zero-time eligible active-crew projection exactly. It has no individual rerolls or selected courier. The creation chooser consumes that projection in canonical order; Enter confirms the zero-time active courier in the existing mutable `state.courier.initialCourierId`, while Escape returns without selection. Tavern switching and succession remain separate work. The household contract preserves FoundationWorld v14, MedievalWorldState v12, manifest/replay behavior, and IndexedDB layout v4.
+The initial six-member household is immutable deterministic creation evidence: normalized world seed plus resolved configuration reproduce its roster, roles, equipment, histories, directional relationships, and zero-time eligible active-crew projection exactly. It has no individual rerolls or selected courier. The creation chooser consumes that projection in canonical order; Enter fixes immutable-in-practice `state.courier.initialCourierId` and initializes `state.courier.activeCourierId`, while Escape returns without selection. At the existing `prop:task-ledger` anchor in Jomon's tavern, the remappable contextual control opens a keyboard-first, zero-time switch list of distinct living and available eligible household members. It retains the initial selection, journals the current perspective change, and persists the usual full envelope; switching, rest, conversation, cargo, loss, and succession remain otherwise separate work. FoundationWorld remains v14, mutable state is v13, navigation remains v1, the manifest remains v6, IndexedDB layout remains v4, and old v14/v12 envelopes upgrade only on read without a storage rewrite.
 
 - [Lore and content reference](LORE.md)
 - [Authoritative roadmap](TODO.md)
@@ -18,6 +18,7 @@ The initial six-member household is immutable deterministic creation evidence: n
 - [Semantic palette and accessibility contract](docs/semantic-palette.md)
 - [Static Jomon deck-plan, map legend, and primary ASCII projection](docs/jomon-deck-plan.md)
 - [Initial immutable household and active-crew contract](docs/initial-household-contract.md)
+- [Tavern courier-switch contract](docs/tavern-courier-switch-contract.md)
 
 ## Development
 

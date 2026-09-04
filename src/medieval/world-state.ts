@@ -586,7 +586,7 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
       worldId: temporal.provenance.worldId,
       creationDigest: temporal.provenance.creationDigest,
       worldTime: temporal.worldTime,
-      activeCourierId: typeof value.courier?.activeCourierId === 'string'
+      activeCourierId: value.courier?.version === WORLD_COURIER_STATE_VERSION && typeof value.courier.activeCourierId === 'string'
         ? value.courier.activeCourierId
         : typeof value.courier?.initialCourierId === 'string' ? value.courier.initialCourierId : undefined,
       people: value.people.records as PersistentPersonRecord[],
@@ -601,7 +601,7 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
   if (!validSubdomain(value.institutions, WORLD_INSTITUTIONS_STATE_VERSION, ['version', 'registry']) || !Array.isArray(value.institutions.registry) || value.institutions.registry.length > MEDIEVAL_WORLD_STATE_LIMITS.institutions || !same(value.institutions.registry, expectedInstitutions)) issues.push(issue('world-state:institutions', value.institutions && Array.isArray(value.institutions.registry) && value.institutions.registry.length > MEDIEVAL_WORLD_STATE_LIMITS.institutions ? 'world-state.budget-exceeded' : 'world-state.invalid-institutions'))
 
   const initialCourierId = value.courier?.initialCourierId
-  const activeCourierId = value.version === MEDIEVAL_WORLD_STATE_VERSION
+  const activeCourierId = value.version === MEDIEVAL_WORLD_STATE_VERSION && value.courier.version === WORLD_COURIER_STATE_VERSION
     ? value.courier?.activeCourierId
     : initialCourierId
   const activeCourierPerson = Array.isArray(value.people?.records) ? value.people.records.find(candidate => record(candidate) && candidate.id === activeCourierId) : undefined
@@ -620,7 +620,7 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
       && record(activeCourierPerson.work) && activeCourierPerson.work.availability === 'available'
   if (!courierShapeValid || !initialCourierValid || !activeCourierValid) issues.push(issue('world-state:courier', 'world-state.invalid-courier'))
 
-  const navigation = value.navigation
+  const navigation = 'navigation' in value ? value.navigation : undefined
   const hasNavigation = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_MEDIEVAL_WORLD_STATE_VERSION
   const validCoordinate = (coordinate: unknown): coordinate is { column: number; row: number } => record(coordinate) && hasOnlyKeys(coordinate, ['column', 'row']) && safeInteger(coordinate.column) && safeInteger(coordinate.row)
   if (hasNavigation && (!validSubdomain(navigation, WORLD_DECK_NAVIGATION_STATE_VERSION, activeCourierId === undefined ? ['version'] : ['version', 'courierId', 'coordinate']) || (activeCourierId === undefined ? navigation.courierId !== undefined || navigation.coordinate !== undefined : navigation.courierId !== activeCourierId || !validCoordinate(navigation.coordinate)))) issues.push(issue('world-state:navigation', 'world-state.invalid-reference'))

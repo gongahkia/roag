@@ -15,7 +15,8 @@ import { CONVERSATION_CONTRACT_VERSION, assessCourierConversation, assessCourier
 import { advanceDelegatedTasks, delegatedWorkPlaceholderForTask, delegationInterruptionTemporalAction, delegationOfferTemporalAction, interruptDelegatedTask, isDelegationInterruptionInput, isDelegationOfferInput, offerDelegatedTask as offerDelegationTransition, type DelegationInterruptionInput, type DelegationOfferInput } from './delegation'
 import { advanceAutonomyState, createAutonomyState, reconcileAutonomyState, validateAutonomyPlanState } from './autonomy'
 import { assessJomonDeckStep, canonicalJomonDeckSpawn, isWalkableJomonDeckCoordinate, jomonDeckCoordinateId, type JomonDeckCollision, type JomonDeckCoordinate, type JomonDeckMovementDirection } from './jomon-navigation'
-import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type LegacyFoundationWorldV13, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
+import { assessTavernCourierSwitchForVerifiedWorld, type TavernCourierSwitchAssessment } from './tavern-courier-switch'
+import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type LegacyFoundationWorldV13, type LegacyFoundationWorldV14, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
 
 const foundationJomon = (): FoundationJomon => ({
   id: 'vessel:jomon',
@@ -335,11 +336,16 @@ export const upgradeFoundationWorldV13 = (value: unknown): FoundationWorld => {
     ? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }
     : { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: selectedCourierId, coordinate: canonicalJomonDeckSpawn(legacy as unknown as FoundationWorld) }
   const context = causalHistoryContextFor(legacy as unknown as FoundationWorld)
+  const checkpoint = legacy.state.causalHistory.checkpoint.projection
+  const checkpointInitialCourierId = checkpoint.courier.initialCourierId
   const rebasedHistory = rebaseCausalHistoryCheckpoint(context, legacy.state.causalHistory, causalReplayProjection({
-    ...legacy.state.causalHistory.checkpoint.projection,
-    navigation: legacy.state.causalHistory.checkpoint.projection.courier.initialCourierId === undefined
+    ...checkpoint,
+    courier: checkpointInitialCourierId === undefined
+      ? { version: 2 }
+      : { version: 2, initialCourierId: checkpointInitialCourierId, activeCourierId: checkpointInitialCourierId },
+    navigation: checkpointInitialCourierId === undefined
       ? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }
-      : { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: legacy.state.causalHistory.checkpoint.projection.courier.initialCourierId, coordinate: canonicalJomonDeckSpawn(legacy as unknown as FoundationWorld) }
+      : { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: checkpointInitialCourierId, coordinate: canonicalJomonDeckSpawn(legacy as unknown as FoundationWorld) }
   }))
   const state = createMedievalWorldState({
     seed: legacy.manifest.creation.seed,
@@ -350,6 +356,7 @@ export const upgradeFoundationWorldV13 = (value: unknown): FoundationWorld => {
     frontier: legacy.state.geography.frontier,
     temporal: legacy.state.temporal,
     ...(selectedCourierId === undefined ? {} : { initialCourierId: selectedCourierId }),
+    ...(selectedCourierId === undefined ? {} : { activeCourierId: selectedCourierId }),
     navigationState: navigation,
     jomonState: legacy.state.jomon,
     peopleState: legacy.state.people,
@@ -363,6 +370,62 @@ export const upgradeFoundationWorldV13 = (value: unknown): FoundationWorld => {
   const upgraded: FoundationWorld = { ...structuredClone(legacy), version: 14, state }
   const validation = validateFoundationWorld(upgraded)
   if (validation.length) throw new Error(`foundation world v13 conversion did not reproduce a valid v14 envelope: ${validation.map(item => item.code).join(', ')}`)
+  return upgraded
+}
+
+/**
+ * Explicit read-only v14/v12 conversion. It retains the selected courier as
+ * the initial and current active courier, preserves its validated local
+ * coordinate, and rebases only the replay checkpoint's versioned projection.
+ */
+export const upgradeFoundationWorldV14 = (value: unknown): FoundationWorld => {
+  if (!record(value) || !hasOnlyKeys(value, ['version', 'id', 'status', 'manifest', 'jomon', 'crew', 'initialWorld', 'state']) || value.version !== 14 || value.status !== 'active') throw new Error('foundation world is not a v14 active envelope')
+  const legacy = value as unknown as LegacyFoundationWorldV14
+  if (!isReproducibleWorldManifest(legacy.manifest) || !isInitialWorld(legacy.initialWorld)
+    || !foundationWorldInitialWorldMatchesManifest(legacy as unknown as FoundationWorld)
+    || !foundationWorldContentSatisfiesSafetyPolicy(legacy as unknown as FoundationWorld)
+    || !foundationWorldTemporalStateMatches(legacy as unknown as FoundationWorld)) throw new Error('foundation world v14 envelope is invalid')
+  const selectedCourierId = legacy.state.courier.initialCourierId
+  const navigation = legacy.state.navigation
+  if (selectedCourierId === undefined
+    ? navigation.courierId !== undefined || navigation.coordinate !== undefined
+    : navigation.courierId !== selectedCourierId || navigation.coordinate === undefined || !isWalkableJomonDeckCoordinate(legacy as unknown as FoundationWorld, navigation.coordinate)) throw new Error('foundation world v14 navigation is invalid')
+  const checkpoint = legacy.state.causalHistory.checkpoint.projection
+  const checkpointInitialCourierId = checkpoint.courier.initialCourierId
+  const checkpointNavigation = checkpoint.navigation
+  const rebasedHistory = rebaseCausalHistoryCheckpoint(causalHistoryContextFor(legacy as unknown as FoundationWorld), legacy.state.causalHistory, causalReplayProjection({
+    ...checkpoint,
+    courier: checkpointInitialCourierId === undefined
+      ? { version: 2 }
+      : { version: 2, initialCourierId: checkpointInitialCourierId, activeCourierId: checkpointInitialCourierId },
+    navigation: checkpointInitialCourierId === undefined
+      ? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }
+      : checkpointNavigation?.courierId === checkpointInitialCourierId && checkpointNavigation.coordinate !== undefined
+        ? structuredClone(checkpointNavigation)
+        : { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: checkpointInitialCourierId, coordinate: canonicalJomonDeckSpawn(legacy as unknown as FoundationWorld) }
+  }))
+  const state = createMedievalWorldState({
+    seed: legacy.manifest.creation.seed,
+    configuration: legacy.manifest.creation.resolvedConfiguration,
+    initialWorld: legacy.initialWorld,
+    jomon: legacy.jomon,
+    crew: legacy.crew,
+    frontier: legacy.state.geography.frontier,
+    temporal: legacy.state.temporal,
+    ...(selectedCourierId === undefined ? {} : { initialCourierId: selectedCourierId, activeCourierId: selectedCourierId }),
+    navigationState: navigation,
+    jomonState: legacy.state.jomon,
+    peopleState: legacy.state.people,
+    simulationState: legacy.state.simulation,
+    eraState: legacy.state.era,
+    delegationState: legacy.state.delegation,
+    autonomyState: legacy.state.autonomy,
+    socialMemoryState: legacy.state.socialMemory,
+    causalHistoryState: rebasedHistory
+  })
+  const upgraded: FoundationWorld = { ...structuredClone(legacy), state }
+  const validation = validateFoundationWorld(upgraded)
+  if (validation.length) throw new Error(`foundation world v14 conversion did not reproduce a valid envelope: ${validation.map(item => item.code).join(', ')}`)
   return upgraded
 }
 
@@ -467,7 +530,7 @@ export const foundationWorldTemporalStateMatches = (world: FoundationWorld): boo
 
 /** The mutable coordinate belongs to state, while valid cells remain plan-derived. */
 export const foundationWorldNavigationStateMatches = (world: FoundationWorld): boolean => {
-  const courierId = world.state.courier.initialCourierId
+  const courierId = world.state.courier.activeCourierId
   const navigation = world.state.navigation
   if (courierId === undefined) return navigation.courierId === undefined && navigation.coordinate === undefined
   return navigation.courierId === courierId
@@ -481,7 +544,7 @@ export const foundationWorldNavigationStateMatches = (world: FoundationWorld): b
  */
 export const foundationWorldCatchUpStateMatches = (world: FoundationWorld): boolean => {
   try {
-    const courierId = world.state.courier.initialCourierId
+    const courierId = world.state.courier.activeCourierId
     if (courierId === undefined) {
       return world.state.simulation.cursors.length === 0
         && world.state.simulation.delegatedWork.length === 0
@@ -495,7 +558,7 @@ export const foundationWorldCatchUpStateMatches = (world: FoundationWorld): bool
 /** Autonomy observations are a canonical view of current fidelity/catch-up state. */
 export const foundationWorldAutonomyStateMatches = (world: FoundationWorld): boolean => {
   try {
-    const courierId = world.state.courier.initialCourierId
+    const courierId = world.state.courier.activeCourierId
     if (courierId === undefined) return world.state.autonomy.observations.length === 0
     const plan = createFidelityPlanForVerifiedWorld(world, courierId)
     return validateAutonomyPlanState({
@@ -532,6 +595,7 @@ const stateFromProjection = (world: FoundationWorld, projection: CausalReplayPro
   frontier: world.state.geography.frontier,
   temporal: projection.temporal,
   ...(projection.courier.initialCourierId === undefined ? {} : { initialCourierId: projection.courier.initialCourierId }),
+  ...(projection.courier.activeCourierId === undefined ? {} : { activeCourierId: projection.courier.activeCourierId }),
   ...(projection.navigation === undefined ? {} : { navigationState: projection.navigation }),
   jomonState: world.state.jomon,
   peopleState: projection.people as WorldPeopleState,
@@ -555,7 +619,7 @@ const selectCourierProjection = (world: FoundationWorld, projection: CausalRepla
   const candidate = initialHouseholdActiveCrew(world.crew).find(member => member.id === courierId)
   const person = world.state.people.records.find(candidatePerson => candidatePerson.id === courierId)
   if (!candidate || person?.life.status !== 'living' || person.work.availability !== 'available') throw new Error('selected courier must be an eligible living available crew member')
-  return causalReplayProjection({ ...projection, courier: { version: 1, initialCourierId: courierId }, navigation: { version: 1, courierId, coordinate: canonicalJomonDeckSpawn(world) } })
+  return causalReplayProjection({ ...projection, courier: { version: 2, initialCourierId: courierId, activeCourierId: courierId }, navigation: { version: 1, courierId, coordinate: canonicalJomonDeckSpawn(world) } })
 }
 
 /** The shared pure reducer for an accepted time-bearing journal command. */
@@ -566,7 +630,7 @@ const advanceTimeProjection = (world: FoundationWorld, projection: CausalReplayP
   // reducer then folds its windows through the action; task completion and
   // any resulting tier change are reconciled at the action's end below.
   const beforeAction = worldFromProjection(world, projection)
-  const courierId = beforeAction.state.courier.initialCourierId
+  const courierId = beforeAction.state.courier.activeCourierId
   if (courierId === undefined) throw new Error('time-bearing simulation requires an active courier')
   const beforePlan = createFidelityPlanForVerifiedWorld(beforeAction, courierId)
   const catchUp = advanceSimulationCatchUpState(projection.simulation, beforePlan, transition.action)
@@ -650,7 +714,7 @@ const advanceTimeProjection = (world: FoundationWorld, projection: CausalReplayP
 const recordGrowthProjection = (world: FoundationWorld, projection: CausalReplayProjection, evidence: DurableJomonGrowthEvidence): CausalReplayProjection => {
   const era = recordDurableJomonGrowthEvidence(projection.era, worldEraContextFor(world, projection.temporal.worldTime), evidence)
   const advanced = causalReplayProjection({ ...projection, era })
-  const courierId = advanced.courier.initialCourierId
+  const courierId = advanced.courier.activeCourierId
   if (courierId === undefined) return advanced
   // An era profile is an input to choice explanation, so zero-time durable
   // growth reprojects observations without advancing needs or scheduling work.
@@ -670,10 +734,62 @@ const recordGrowthProjection = (world: FoundationWorld, projection: CausalReplay
   return causalReplayProjection({ ...advanced, autonomy })
 }
 
+/** Shared pure reducer for the zero-time tavern-ledger perspective transfer. */
+const switchTavernCourierProjection = (
+  world: FoundationWorld,
+  projection: CausalReplayProjection,
+  payload: { fromCourierId: string; toCourierId: string; propId: 'prop:task-ledger'; coordinate: { column: number; row: number } }
+): CausalReplayProjection => {
+  const assessment = assessTavernCourierSwitchForVerifiedWorld(world, projection)
+  if (assessment.status !== 'available') throw new Error(`tavern courier switch is unavailable: ${assessment.reason}`)
+  if (payload.fromCourierId !== assessment.current.id
+    || !assessment.candidates.some(candidate => candidate.id === payload.toCourierId)
+    || payload.propId !== assessment.source.propId
+    || payload.coordinate.column !== assessment.source.coordinate.column
+    || payload.coordinate.row !== assessment.source.coordinate.row) throw new Error('tavern courier switch does not match the validated ledger operation')
+  const switched = causalReplayProjection({
+    ...projection,
+    courier: { version: 2, initialCourierId: projection.courier.initialCourierId!, activeCourierId: payload.toCourierId },
+    navigation: { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: payload.toCourierId, coordinate: structuredClone(assessment.source.coordinate) }
+  })
+  // Fidelity and autonomy are current-courier projections. Reconcile them at
+  // this zero-time boundary so no old-courier planning state survives.
+  const projectedWorld = (next: CausalReplayProjection): FoundationWorld => ({
+    ...world,
+    state: {
+      ...world.state,
+      courier: structuredClone(next.courier),
+      navigation: structuredClone(next.navigation!),
+      people: structuredClone(next.people),
+      temporal: structuredClone(next.temporal),
+      simulation: structuredClone(next.simulation),
+      era: structuredClone(next.era),
+      delegation: structuredClone(next.delegation),
+      autonomy: structuredClone(next.autonomy),
+      socialMemory: structuredClone(next.socialMemory)
+    }
+  })
+  const simulation = reconcileSimulationCatchUpPlanState(switched.simulation, createFidelityPlanForVerifiedWorld(projectedWorld(switched), payload.toCourierId))
+  const reconciledWorld = projectedWorld(causalReplayProjection({ ...switched, simulation }))
+  const plan = createFidelityPlanForVerifiedWorld(reconciledWorld, payload.toCourierId)
+  const autonomy = reconcileAutonomyState(switched.autonomy, {
+    worldId: world.id,
+    creationDigest: world.manifest.creation.digest,
+    worldTime: switched.temporal.worldTime,
+    activeCourierId: payload.toCourierId,
+    people: switched.people.records,
+    delegation: switched.delegation,
+    era: switched.era,
+    simulation,
+    plan
+  })
+  return causalReplayProjection({ ...switched, simulation, autonomy })
+}
+
 /** Shared pure reducer for a successful one-minute local deck step. */
 const moveDeckProjection = (world: FoundationWorld, projection: CausalReplayProjection, payload: { actionId: string; courierId: string; direction: JomonDeckMovementDirection; from: JomonDeckCoordinate; to: JomonDeckCoordinate }): CausalReplayProjection => {
   const navigation = projection.navigation
-  if (!navigation?.coordinate || navigation.courierId !== payload.courierId || projection.courier.initialCourierId !== payload.courierId) throw new Error('deck movement requires the active courier position')
+  if (!navigation?.coordinate || navigation.courierId !== payload.courierId || projection.courier.activeCourierId !== payload.courierId) throw new Error('deck movement requires the active courier position')
   if (navigation.coordinate.column !== payload.from.column || navigation.coordinate.row !== payload.from.row) throw new Error('deck movement source position does not match replay state')
   const assessment = assessJomonDeckStep(world, navigation.coordinate, payload.direction)
   if (assessment.status !== 'moved' || assessment.to.column !== payload.to.column || assessment.to.row !== payload.to.row) throw new Error('deck movement is not a valid plan step')
@@ -751,7 +867,7 @@ const offerDelegationProjection = (world: FoundationWorld, projection: CausalRep
 /** Shared pure interruption reducer. Completion wins if its due minute is crossed. */
 const interruptDelegationProjection = (world: FoundationWorld, projection: CausalReplayProjection, interruption: DelegationInterruptionInput | unknown): CausalReplayProjection => {
   if (!isDelegationInterruptionInput(interruption)) throw new Error('delegation interruption is invalid')
-  if (projection.courier.initialCourierId !== interruption.courierId) throw new Error('only the active courier can interrupt delegated work')
+  if (projection.courier.activeCourierId !== interruption.courierId) throw new Error('only the active courier can interrupt delegated work')
   const afterAction = advanceTimeProjection(world, projection, delegationInterruptionTemporalAction(interruption))
   const transition = interruptDelegatedTask(delegationContextFor(world, afterAction), afterAction.delegation, afterAction.people.records, afterAction.socialMemory, interruption)
   const task = transition.state.tasks.find(candidate => candidate.id === interruption.taskId)!
@@ -790,6 +906,7 @@ const interruptDelegationProjection = (world: FoundationWorld, projection: Causa
 
 const replayCommandProjection = (world: FoundationWorld, projection: CausalReplayProjection, command: CausalCommandEvent): CausalReplayProjection => {
   if (command.kind === 'initial-courier-selected') return selectCourierProjection(world, projection, command.payload.courierId)
+  if (command.kind === 'tavern-courier-switched') return switchTavernCourierProjection(world, projection, command.payload)
   if (command.kind === 'time-bearing-action') return advanceTimeProjection(world, projection, command.payload.action)
   if (command.kind === 'deck-moved') return moveDeckProjection(world, projection, command.payload)
   if (command.kind === 'durable-jomon-growth') return recordGrowthProjection(world, projection, command.payload.evidence)
@@ -838,6 +955,31 @@ export const chooseInitialCourier = (world: FoundationWorld, courierId: string):
   return worldFromProjection(world, projection, history)
 }
 
+/** Renderer-independent assessment for the existing task-ledger operation. */
+export const assessTavernCourierSwitch = (world: FoundationWorld): TavernCourierSwitchAssessment => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  return assessTavernCourierSwitchForVerifiedWorld(world, causalReplayProjectionForWorldState(world.state))
+}
+
+/** Applies exactly one source-bound, zero-time current-courier transition. */
+export const switchTavernCourier = (world: FoundationWorld, courierId: string): FoundationWorld => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  if (world.status !== 'active') throw new Error('only an active world can switch its courier at the tavern ledger')
+  const projection = causalReplayProjectionForWorldState(world.state)
+  const assessment = assessTavernCourierSwitchForVerifiedWorld(world, projection)
+  if (assessment.status !== 'available') throw new Error(`tavern courier switch is unavailable: ${assessment.reason}`)
+  const payload = {
+    fromCourierId: assessment.current.id,
+    toCourierId: courierId,
+    propId: assessment.source.propId,
+    coordinate: assessment.source.coordinate
+  } as const
+  const switched = switchTavernCourierProjection(world, projection, payload)
+  const command = createCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, 'tavern-courier-switched', payload)
+  const history = appendCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, command, switched)
+  return worldFromProjection(world, switched, history)
+}
+
 export type FoundationDeckMovementResult =
   | { status: 'moved'; world: FoundationWorld; direction: JomonDeckMovementDirection; from: JomonDeckCoordinate; to: JomonDeckCoordinate }
   | { status: 'blocked'; direction: JomonDeckMovementDirection; from: JomonDeckCoordinate; collision: JomonDeckCollision }
@@ -846,7 +988,7 @@ export type FoundationDeckMovementResult =
 export const moveFoundationWorldCourier = (world: FoundationWorld, direction: JomonDeckMovementDirection): FoundationDeckMovementResult => {
   if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
   if (world.status !== 'active') throw new Error('only an active world can move its courier')
-  const courierId = world.state.courier.initialCourierId
+  const courierId = world.state.courier.activeCourierId
   const navigation = world.state.navigation
   if (courierId === undefined || navigation.courierId !== courierId || navigation.coordinate === undefined) throw new Error('an active courier with a deck coordinate is required')
   const assessment = assessJomonDeckStep(world, navigation.coordinate, direction)

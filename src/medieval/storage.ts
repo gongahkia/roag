@@ -1,7 +1,7 @@
-import { isValidFoundationWorld, upgradeFoundationWorldV13 } from './world'
+import { isValidFoundationWorld, upgradeFoundationWorldV13, upgradeFoundationWorldV14 } from './world'
 import { emptyCreationSettingsRecord, isCreationSettingsRecord, saveCreationSettingsProfile as saveNamedCreationSettingsProfile, withLastUsedCreationSettings, type CreationSettings, type CreationSettingsRecord } from './settings'
 import { defaultTerminalControlPreferences, isTerminalControlPreferences, type TerminalControlPreferences } from './terminal-controls'
-import { createActiveWorldBackupBundle, createChronicleBackupBundle, createWorldRecordIndex, MedievalPersistenceLayoutError, MEDIEVAL_PERSISTENCE_DATABASE_VERSION, parsePersistenceBackupBundle, persistenceWorldSourceFor, serializePersistenceBackupBundle, snapshotRingAfterReplacement, validateFoundationWorldSnapshotRing, validateWorldRecordIndex, type FoundationWorldSnapshotRing, type WorldRecordIndex } from './persistence-layout'
+import { createActiveWorldBackupBundle, createChronicleBackupBundle, createWorldRecordIndex, MedievalPersistenceLayoutError, MEDIEVAL_PERSISTENCE_DATABASE_VERSION, parsePersistenceBackupBundle, persistenceWorldSourceFor, serializePersistenceBackupBundle, snapshotRingAfterReplacement, validateFoundationWorldSnapshotRing, validateLegacyWorldRecordIndex, validateWorldRecordIndex, type FoundationWorldSnapshotRing, type WorldRecordIndex } from './persistence-layout'
 import { MEDIEVAL_DATABASE_NAME, type ChronicleReason, type FoundationWorld, type WorldChronicle, type WorldIndex } from './types'
 
 const CATALOG_STORE = 'catalog'
@@ -26,9 +26,10 @@ const record = (value: unknown): value is Record<string, unknown> => Boolean(val
 const string = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 const chronicleReason = (value: unknown): value is ChronicleReason => value === 'jomon-loss' || value === 'crew-extinction'
 const isFoundationWorld = (value: unknown): value is FoundationWorld => isValidFoundationWorld(value)
-/** Read-only conversion; callers explicitly save a returned v14 envelope to persist it. */
+/** Read-only conversion; callers explicitly save a returned current envelope to persist it. */
 const loadedFoundationWorld = (value: unknown): FoundationWorld | undefined => {
   if (isFoundationWorld(value)) return clone(value)
+  try { return upgradeFoundationWorldV14(value) } catch { }
   try { return upgradeFoundationWorldV13(value) } catch { return undefined }
 }
 const isChronicle = (value: unknown): value is WorldChronicle => record(value) && value.version === 12 && string(value.id) && value.id === `chronicle:${(value.world as { id?: unknown })?.id ?? ''}` && value.status === 'finalized' && chronicleReason(value.reason) && isFoundationWorld(value.world)
@@ -91,11 +92,12 @@ export class MedievalWorldRepository {
       const [catalogValue, previousValue, indexValue, snapshotsValue] = await Promise.all([requestResult(transaction.objectStore(CATALOG_STORE).get(INDEX_KEY)), requestResult(transaction.objectStore(WORLD_STORE).get(world.id)), requestResult(transaction.objectStore(RECORD_INDEX_STORE).get(world.id)), requestResult(transaction.objectStore(SNAPSHOT_STORE).get(world.id))])
       // Catalog metadata is derived and non-authoritative. A caller's explicit
       // save may rebuild it; corrupt full envelopes/indexes are never overwritten.
-      if (previousValue !== undefined && !isFoundationWorld(previousValue)) throw new MedievalPersistenceLayoutError('corrupt-existing-world')
-      if (indexValue !== undefined && (previousValue === undefined || !validateWorldRecordIndex(indexValue, previousValue as FoundationWorld))) throw new MedievalPersistenceLayoutError('corrupt-existing-index')
+      const previous = previousValue === undefined ? undefined : loadedFoundationWorld(previousValue)
+      if (previousValue !== undefined && previous === undefined) throw new MedievalPersistenceLayoutError('corrupt-existing-world')
+      const previousIsCurrent = previousValue !== undefined && isFoundationWorld(previousValue)
+      if (indexValue !== undefined && (previousValue === undefined || !(previousIsCurrent ? validateWorldRecordIndex(indexValue, previousValue as FoundationWorld) : validateLegacyWorldRecordIndex(indexValue, previousValue)))) throw new MedievalPersistenceLayoutError('corrupt-existing-index')
       if (snapshotsValue !== undefined && !validateFoundationWorldSnapshotRing(snapshotsValue)) throw new MedievalPersistenceLayoutError('corrupt-existing-snapshots')
       if (previousValue !== undefined && collision === 'reject') throw new MedievalPersistenceLayoutError('backup-collision')
-      const previous = previousValue as FoundationWorld | undefined
       const nextSnapshots = previous !== undefined && persistenceWorldSourceFor(previous).digest !== persistenceWorldSourceFor(world).digest ? snapshotRingAfterReplacement(snapshotsValue as FoundationWorldSnapshotRing | undefined, previous) : snapshotsValue as FoundationWorldSnapshotRing | undefined
       transaction.objectStore(WORLD_STORE).put(clone(world), world.id)
       transaction.objectStore(CATALOG_STORE).put(addWorldToIndex(isWorldIndex(catalogValue) ? catalogValue : emptyWorldIndex(), world), INDEX_KEY)

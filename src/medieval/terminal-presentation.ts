@@ -1,6 +1,7 @@
 import { auditMedievalContentSafety, classifyMedievalContent, contentSafetyAuditMatches, type ClassifiedMedievalContent, type MedievalContentDomain, type MedievalContentSafetyAudit, type MedievalContentSafetyClassification, type MedievalContentSafetyDiagnosticCode } from './content-safety'
 import { JOMON_ASCII_GLYPH_CATALOG, terminalGlyphCatalog, terminalGlyphReferenceFor } from './ascii-glyphs'
 import { deriveJomonDeckPlan, deriveJomonDeckPlanForVerifiedWorld } from './jomon-deck-plan'
+import { assessTavernCourierSwitchForVerifiedWorld, type TavernCourierSwitchSource } from './tavern-courier-switch'
 import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE, type JomonPaletteToken } from './palette'
 import {
   TERMINAL_GLYPH_VOCABULARY_ID,
@@ -37,7 +38,7 @@ export type {
  * future detailed adapter consume that same projection without omitting or
  * inventing consequential information.
  */
-export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 6 as const
+export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 7 as const
 export const TERMINAL_MAP_LEGEND_CONTRACT_VERSION = 1 as const
 
 export const TERMINAL_PRESENTATION_LIMITS = {
@@ -197,7 +198,9 @@ export interface TerminalMessage {
 export const TERMINAL_PROMPT_DISABLED_REASONS = [
   'no-contextual-action-materialized',
   'missing-required-location',
-  'requires-future-domain-rule'
+  'requires-future-domain-rule',
+  'not-at-tavern-ledger',
+  'no-alternate-switchable-courier'
 ] as const
 export type TerminalPromptDisabledReason = typeof TERMINAL_PROMPT_DISABLED_REASONS[number]
 
@@ -206,14 +209,14 @@ export interface TerminalPromptOption {
   key: TerminalKeyboardKey
   availability: 'available' | 'disabled'
   disabledReason?: TerminalPromptDisabledReason
-  intent: 'future-contextual-action'
+  intent: 'future-contextual-action' | 'tavern-courier-switch'
   requiresConfirmation: boolean
   nonColorCue: TerminalNonColorCue
   accessibilityText: string
 }
 
 /** Prompt options express intent only. They have no reducer or time authority. */
-export interface TerminalPrompt {
+export interface TerminalFuturePrompt {
   id: string
   kind: 'future-contextual-choice'
   accessibilityText: string
@@ -223,6 +226,31 @@ export interface TerminalPrompt {
   options: readonly TerminalPromptOption[]
   cancellation: { key: 'Escape'; outcome: 'cancelled-no-mutation'; advancesWorldTime: false }
 }
+
+/** Deliberately bounded selection data copied from the immutable household view. */
+export interface TerminalCourierSwitchCandidate {
+  id: string
+  name: string
+  role: string
+  conversation: 1 | 2 | 3 | 4 | 5
+}
+
+/** The presentation-only counterpart of the source-backed tavern operation. */
+export interface TerminalTavernCourierSwitchPrompt {
+  id: string
+  kind: 'tavern-courier-switch'
+  accessibilityText: string
+  evidence: TerminalEvidenceProvenance
+  contentDomain: MedievalContentDomain
+  contentSafety: MedievalContentSafetyClassification
+  source: TavernCourierSwitchSource
+  current: TerminalCourierSwitchCandidate
+  candidates: readonly TerminalCourierSwitchCandidate[]
+  options: readonly TerminalPromptOption[]
+  cancellation: { key: 'Escape'; outcome: 'cancelled-no-mutation'; advancesWorldTime: false }
+}
+
+export type TerminalPrompt = TerminalFuturePrompt | TerminalTavernCourierSwitchPrompt
 
 export interface TerminalPromptCancellation {
   id: string
@@ -355,7 +383,7 @@ const key = (value: TerminalKeyboardKey, caseHandling: TerminalKeyBinding['caseH
 const textEntry = (field: TerminalTextInputField, maximumLength: number): TerminalBoundedTextBinding => ({ kind: 'bounded-text-entry', field, characterPolicy: 'ascii-word-space-period-comma-apostrophe-hyphen', maximumLength, deletionKey: 'Backspace', caseHandling: 'preserve-typed-case' })
 const keyCapture = (): TerminalKeyCaptureBinding => ({ kind: 'single-key-capture', maximumKeys: 1, cancellationKey: 'Escape', disallowsModifierChords: true })
 
-/** Implemented bindings mirror every current canvas key path; only later map actions remain reserved. */
+/** Implemented bindings mirror every current canvas key path. */
 export const TERMINAL_KEYBOARD_COMMANDS: readonly TerminalKeyboardCommand[] = canonicalCommands([
   { id: 'canvas-cancel-return', availability: 'implemented', surface: 'navigation', contexts: ['settings-advanced-setting', 'settings-basic-seed-entry', 'settings-basic-preset', 'settings-basic-advanced-link', 'settings-basic-profiles-link', 'settings-basic-create-world', 'creation-profiles-name-entry', 'creation-profiles-save-action', 'creation-profiles-load-profile', 'world-generation', 'world-result', 'choose-courier', 'world', 'chronicles-list', 'chronicle'], bindings: [key('Escape')], accessibilityLabel: 'Return to the preceding canvas view' },
   { id: 'canvas-confirm-selection', availability: 'implemented', surface: 'navigation', contexts: ['worlds-list', 'world-generation', 'world-result', 'choose-courier'], bindings: [key('Enter')], accessibilityLabel: 'Confirm the current canvas selection' },
@@ -379,6 +407,9 @@ export const TERMINAL_KEYBOARD_COMMANDS: readonly TerminalKeyboardCommand[] = ca
   { id: 'controls-reset-current', availability: 'implemented', surface: 'remapping', contexts: ['world-controls-editor'], bindings: [key('R', 'ascii-case-insensitive')], accessibilityLabel: 'Reset the selected world control to its default' },
   { id: 'world-command-help', availability: 'implemented', surface: 'help', contexts: ['world'], bindings: [key('?')], accessibilityLabel: 'Open command help with current effective bindings' },
   { id: 'world-contextual-prompt', availability: 'implemented', surface: 'contextual-action', contexts: ['world'], bindings: [key('Enter')], accessibilityLabel: 'Open the current contextual prompt' },
+  { id: 'tavern-courier-switch-confirm', availability: 'implemented', surface: 'contextual-action', contexts: ['world-contextual-prompt'], bindings: [key('Enter')], accessibilityLabel: 'Confirm the selected available tavern-ledger courier switch; it is zero-time' },
+  { id: 'tavern-courier-switch-next', availability: 'implemented', surface: 'contextual-action', contexts: ['world-contextual-prompt'], bindings: [key('ArrowDown')], accessibilityLabel: 'Select the next switchable tavern-ledger courier candidate' },
+  { id: 'tavern-courier-switch-previous', availability: 'implemented', surface: 'contextual-action', contexts: ['world-contextual-prompt'], bindings: [key('ArrowUp')], accessibilityLabel: 'Select the previous switchable tavern-ledger courier candidate' },
   { id: 'world-move-east', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('ArrowRight'), key('L', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt one known deck step east; blocked steps do not advance time' },
   { id: 'world-move-north', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('ArrowUp'), key('K', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt one known deck step north; blocked steps do not advance time' },
   { id: 'world-move-north-east', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('U', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt one known deck step north east; blocked steps do not advance time' },
@@ -615,7 +646,7 @@ export const validateTerminalMaterializedCells = (
 }
 
 const statusText = (item: TerminalStatusItem): string => {
-  if (item.value.kind === 'jomon-deck-materialized') return `Static Jomon deck map visible with ${item.value.cells} source-backed deck and hull cells; local movement is available while prop actions remain unavailable.`
+  if (item.value.kind === 'jomon-deck-materialized') return `Static Jomon deck map visible with ${item.value.cells} source-backed deck and hull cells; local movement is available and the tavern task ledger alone supports courier switching.`
   if (item.value.kind === 'courier-selection') return item.value.selected ? 'An active courier is selected.' : 'Choose an initial courier before active play.'
   if (item.value.kind === 'world-minute') return `Current world minute ${item.value.minutes}.`
   if (item.value.kind === 'deck-focus') return item.value.coordinate === undefined
@@ -691,7 +722,7 @@ const terminalCellOrder = (left: TerminalMaterializedCell, right: TerminalMateri
   || compare(left.id, right.id)
 
 const courierMarkerFor = (world: FoundationWorld): TerminalMaterializedCell | undefined => {
-  const courierId = world.state.courier.initialCourierId
+  const courierId = world.state.courier.activeCourierId
   const coordinate = world.state.navigation.coordinate
   if (courierId === undefined || world.state.navigation.courierId !== courierId || coordinate === undefined) return undefined
   const glyph = terminalGlyphReferenceFor('person:active-courier')
@@ -728,12 +759,12 @@ const mapForDeckPlan = (world: FoundationWorld, plan: ReturnType<typeof deriveJo
     },
     camera: {
       mode: 'fixed-full-deck',
-      focus: marker === undefined ? {} : { courierId: world.state.courier.initialCourierId, coordinate: structuredClone(marker.coordinate) },
+      focus: marker === undefined ? {} : { courierId: world.state.courier.activeCourierId, coordinate: structuredClone(marker.coordinate) },
       visibility: 'all-static-deck-known'
     },
     cells,
     textEquivalent: 'Jomon deck plan with a known active courier position, quay approach, gangplank, hull boundary, and deck spaces.',
-    accessibilityText: `Known static Jomon deck map. Fixed ${plan.bounds.width} by ${plan.bounds.height} viewport with ${staticCells.length} deck and hull cells${marker === undefined ? '' : ' and one active courier marker'}. Symbols: # hull, = deck, / gangplank, ) quay, @ active adult courier. Full deck known; no cargo, other people, hazards, travel, or prop actions.`,
+    accessibilityText: `Known static Jomon deck map. Fixed ${plan.bounds.width} by ${plan.bounds.height} viewport with ${staticCells.length} deck and hull cells${marker === undefined ? '' : ' and one active courier marker'}. Symbols: # hull, = deck, / gangplank, ) quay, @ active adult courier. Full deck known; the tavern task ledger supports courier switching only when the active courier stands at its anchor. No cargo, other people, hazards, travel, rest, conversation, loss, or succession.`,
     evidence: presentationEvidence('terminal-presentation:jomon-deck-plan'),
     contentDomain: 'player-facing-text',
     contentSafety: baseClassification()
@@ -795,7 +826,7 @@ const rawTerminalMapLegend = (map: TerminalMaterializedMap): TerminalMapLegend =
   if (!glyphIds.length || glyphIds.length > TERMINAL_PRESENTATION_LIMITS.legendEntries) throw new Error('terminal map legend has an invalid visible glyph set')
   const entries = glyphIds.map(glyphId => legendEntryFor(map, glyphId))
   const movementText = 'Known fixed local deck only. A successful local step advances one action minute; a blocked hull, boundary, non-walkable, or diagonal-corner step changes no world state or time.'
-  const limitationsText = 'Fixed known deck. No cargo, NPC, hazard, travel, fog, or prop actions.'
+  const limitationsText = 'Fixed known deck. The tavern task ledger alone supports a zero-time courier switch at its anchor; no cargo, NPC, hazard, travel, fog, rest, conversation, loss, succession, or other prop action.'
   return {
     version: TERMINAL_MAP_LEGEND_CONTRACT_VERSION,
     entries,
@@ -829,7 +860,7 @@ export const validateTerminalMapLegend = (map: TerminalMaterializedMap, value: u
 }
 
 const orderedStatus = (world: FoundationWorld, map: TerminalMaterializedMap): readonly TerminalStatusItem[] => canonicalById([
-  statusItem('terminal-status:courier', world.state.courier.initialCourierId ? 'ready' : 'waiting', { kind: 'courier-selection', selected: Boolean(world.state.courier.initialCourierId) }, currentWorldEvidence('world-state:courier', world.state.temporal.worldTime)),
+  statusItem('terminal-status:courier', world.state.courier.activeCourierId ? 'ready' : 'waiting', { kind: 'courier-selection', selected: Boolean(world.state.courier.initialCourierId) }, currentWorldEvidence('world-state:courier', world.state.temporal.worldTime)),
   statusItem('terminal-status:focus', world.state.navigation.coordinate === undefined ? 'waiting' : 'ready', { kind: 'deck-focus', ...(world.state.navigation.coordinate === undefined ? {} : { courierId: world.state.navigation.courierId, coordinate: structuredClone(world.state.navigation.coordinate) }) }, currentWorldEvidence('world-state:navigation', world.state.temporal.worldTime)),
   statusItem('terminal-status:map', 'neutral', { kind: 'jomon-deck-materialized', cells: staticCellsFor(map) }, presentationEvidence('terminal-presentation:jomon-deck-plan-status')),
   statusItem('terminal-status:provenance', 'neutral', { kind: 'creation-provenance', seed: world.manifest.creation.seed, digest: world.manifest.creation.digest }, presentationEvidence('world-manifest:creation')),
@@ -865,7 +896,7 @@ const rawTerminalPresentationModel = (world: FoundationWorld): TerminalPresentat
   const legend = rawTerminalMapLegend(map)
   const status = orderedStatus(world, map)
   const messages: readonly TerminalMessage[] = []
-  const prompts: readonly TerminalPrompt[] = []
+  const prompts: readonly TerminalPrompt[] = [createJomonDeckContextualPromptForVerifiedWorld(world)]
   const contentSafetyAudit = auditMedievalContentSafety(modelContentRecords(map, legend, status, messages, prompts))
   if (contentSafetyAudit.status === 'rejected') throw new TerminalPresentationContractError(contentSafetyAudit.diagnostics.map(item => issue(item.contentId, item.code)))
   return {
@@ -906,39 +937,89 @@ export const createTerminalPresentationModel = (world: FoundationWorld): Termina
   return rawTerminalPresentationModel(world)
 }
 
-/**
- * The visible deck still has no operated prop or contextual action. Opening
- * this disabled prompt is UI state only, never a world action.
- */
-export const createJomonDeckContextualPrompt = (world: FoundationWorld): TerminalPrompt => {
-  ensureValidWorld(world)
-  const prompt: TerminalPrompt = {
+const promptCandidate = (candidate: { id: string; name: string; role: string; conversation: 1 | 2 | 3 | 4 | 5 }): TerminalCourierSwitchCandidate => ({
+  id: candidate.id,
+  name: candidate.name,
+  role: candidate.role,
+  conversation: candidate.conversation
+})
+
+/** Reuses complete world validation already performed by the presentation boundary. */
+const createJomonDeckContextualPromptForVerifiedWorld = (world: FoundationWorld): TerminalPrompt => {
+  if (world.state.courier.initialCourierId === undefined) {
+    const prompt: TerminalFuturePrompt = {
+      id: `terminal-prompt:jomon-deck:${world.id}`,
+      kind: 'future-contextual-choice',
+      accessibilityText: 'Context prompt unavailable until initial courier selection completes. Escape cancels without mutation.',
+      evidence: {
+        source: { kind: 'authoritative-record', recordId: 'deck-prop-binding:prop:task-ledger' },
+        recordedAtWorldTime: world.state.temporal.worldTime,
+        knownAtWorldTime: world.state.temporal.worldTime,
+        freshness: { kind: 'current' }
+      },
+      contentDomain: 'player-facing-text',
+      contentSafety: baseClassification(),
+      options: [{
+        id: `terminal-prompt-option:jomon-deck:${world.id}`,
+        key: 'Enter',
+        availability: 'disabled',
+        disabledReason: 'missing-required-location',
+        intent: 'future-contextual-action',
+        requiresConfirmation: false,
+        nonColorCue: terminalNonColorCueFor('neutral'),
+        accessibilityText: 'Select an initial courier before a local contextual operation can be available.'
+      }],
+      cancellation: { key: 'Escape', outcome: 'cancelled-no-mutation', advancesWorldTime: false }
+    }
+    const diagnostics = validateTerminalPrompt(prompt)
+    if (diagnostics.length) throw new TerminalPresentationContractError(diagnostics)
+    return prompt
+  }
+  const assessment = assessTavernCourierSwitchForVerifiedWorld(world, world.state)
+  const disabledReason = assessment.status === 'unavailable' ? assessment.reason : undefined
+  const option: TerminalPromptOption = {
+    id: `terminal-prompt-option:tavern-ledger:${world.id}`,
+    key: 'Enter',
+    availability: assessment.status === 'available' ? 'available' : 'disabled',
+    ...(disabledReason === undefined ? {} : { disabledReason }),
+    intent: 'tavern-courier-switch',
+    requiresConfirmation: assessment.status === 'available',
+    nonColorCue: terminalNonColorCueFor(assessment.status === 'available' ? 'ready' : 'neutral'),
+    accessibilityText: assessment.status === 'available'
+      ? 'Switch courier at the task ledger. Arrow keys select an eligible available adult; Enter confirms a zero-time switch; Escape cancels without mutation.'
+      : assessment.reason === 'not-at-tavern-ledger'
+        ? 'Courier switching is unavailable away from the task ledger anchor. Return to the tavern ledger; Escape cancels without mutation.'
+        : 'Courier switching is unavailable because no alternate eligible living available household member exists; Escape cancels without mutation.'
+  }
+  const prompt: TerminalTavernCourierSwitchPrompt = {
     id: `terminal-prompt:jomon-deck:${world.id}`,
-    kind: 'future-contextual-choice',
-    accessibilityText: 'Context prompt. The visible static deck has no operated prop or contextual action yet.',
+    kind: 'tavern-courier-switch',
+    accessibilityText: assessment.status === 'available'
+      ? `Tavern task ledger courier switch. Current courier ${assessment.current.name}, ${assessment.current.role}; ${assessment.candidates.length} alternate eligible living available household member${assessment.candidates.length === 1 ? '' : 's'} in canonical household order. Arrow keys select, Enter confirms a zero-time viewpoint switch, Escape cancels. Cargo, travel, rest, conversation, loss, and succession remain unavailable.`
+      : `Tavern task ledger courier switch unavailable: ${option.accessibilityText} Current courier ${assessment.current.name}, ${assessment.current.role}.`,
     evidence: {
-      source: { kind: 'authoritative-record', recordId: 'world-state:temporal' },
+      source: { kind: 'authoritative-record', recordId: assessment.source.propBindingId },
       recordedAtWorldTime: world.state.temporal.worldTime,
       knownAtWorldTime: world.state.temporal.worldTime,
       freshness: { kind: 'current' }
     },
     contentDomain: 'player-facing-text',
     contentSafety: baseClassification(),
-    options: [{
-      id: `terminal-prompt-option:jomon-deck:${world.id}`,
-      key: 'Enter',
-      availability: 'disabled',
-      disabledReason: 'no-contextual-action-materialized',
-      intent: 'future-contextual-action',
-      requiresConfirmation: false,
-      nonColorCue: terminalNonColorCueFor('neutral'),
-      accessibilityText: 'No contextual action is available because the visible deck has no operated prop rule.'
-    }],
+    source: structuredClone(assessment.source),
+    current: promptCandidate(assessment.current),
+    candidates: assessment.candidates.map(promptCandidate),
+    options: [option],
     cancellation: { key: 'Escape', outcome: 'cancelled-no-mutation', advancesWorldTime: false }
   }
   const diagnostics = validateTerminalPrompt(prompt)
   if (diagnostics.length) throw new TerminalPresentationContractError(diagnostics)
   return prompt
+}
+
+/** Public prompt creation validates world evidence before yielding a renderer-only object. */
+export const createJomonDeckContextualPrompt = (world: FoundationWorld): TerminalPrompt => {
+  ensureValidWorld(world)
+  return createJomonDeckContextualPromptForVerifiedWorld(world)
 }
 
 /** Validates future message routing independently; the current projection has no messages. */
@@ -967,14 +1048,27 @@ const validPromptOption = (value: unknown): value is TerminalPromptOption => rec
   && validId(value.id)
   && oneOf(TERMINAL_KEYBOARD_KEYS, value.key)
   && (value.availability === 'available' || value.availability === 'disabled')
-  && value.intent === 'future-contextual-action'
+  && (value.intent === 'future-contextual-action' || value.intent === 'tavern-courier-switch')
   && typeof value.requiresConfirmation === 'boolean'
-  && validCue(value.nonColorCue, 'neutral')
+  && validCue(value.nonColorCue, value.availability === 'available' ? 'ready' : 'neutral')
   && validText(value.accessibilityText)
   && (value.availability === 'disabled' ? oneOf(TERMINAL_PROMPT_DISABLED_REASONS, value.disabledReason) : value.disabledReason === undefined)
 
+const validCourierSwitchCandidate = (value: unknown): value is TerminalCourierSwitchCandidate => record(value)
+  && hasOnlyKeys(value, ['id', 'name', 'role', 'conversation'])
+  && validId(value.id) && validText(value.name)
+  && ['bargemaster', 'pilot', 'factor', 'carpenter', 'guard', 'cook', 'healer', 'scribe', 'carter', 'fisher', 'bard'].includes(String(value.role))
+  && typeof value.conversation === 'number' && Number.isSafeInteger(value.conversation) && value.conversation >= 1 && value.conversation <= 5
+
+const validTavernSource = (value: unknown): value is TavernCourierSwitchSource => record(value)
+  && hasOnlyKeys(value, ['propBindingId', 'propId', 'areaId', 'coordinate'])
+  && value.propBindingId === 'deck-prop-binding:prop:task-ledger' && value.propId === 'prop:task-ledger' && value.areaId === 'tavern'
+  && record(value.coordinate) && hasOnlyKeys(value.coordinate, ['column', 'row']) && value.coordinate.column === 4 && value.coordinate.row === 4
+
 export const validateTerminalPrompt = (value: unknown): readonly TerminalPresentationDiagnostic[] => {
-  if (!record(value) || !hasOnlyKeys(value, ['id', 'kind', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety', 'options', 'cancellation']) || !validId(value.id) || value.kind !== 'future-contextual-choice' || !validText(value.accessibilityText) || !Array.isArray(value.options) || value.options.length > TERMINAL_PRESENTATION_LIMITS.promptOptions || !value.options.every(validPromptOption) || !record(value.cancellation) || !hasOnlyKeys(value.cancellation, ['key', 'outcome', 'advancesWorldTime']) || value.cancellation.key !== 'Escape' || value.cancellation.outcome !== 'cancelled-no-mutation' || value.cancellation.advancesWorldTime !== false) return [issue('terminal-prompt', 'terminal-presentation.invalid-prompt')]
+  const baseKeys = ['id', 'kind', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety', 'options', 'cancellation']
+  const tavernKeys = [...baseKeys, 'source', 'current', 'candidates']
+  if (!record(value) || !hasOnlyKeys(value, value.kind === 'tavern-courier-switch' ? tavernKeys : baseKeys) || !validId(value.id) || (value.kind !== 'future-contextual-choice' && value.kind !== 'tavern-courier-switch') || !validText(value.accessibilityText) || !Array.isArray(value.options) || value.options.length > TERMINAL_PRESENTATION_LIMITS.promptOptions || !value.options.every(validPromptOption) || !record(value.cancellation) || !hasOnlyKeys(value.cancellation, ['key', 'outcome', 'advancesWorldTime']) || value.cancellation.key !== 'Escape' || value.cancellation.outcome !== 'cancelled-no-mutation' || value.cancellation.advancesWorldTime !== false) return [issue('terminal-prompt', 'terminal-presentation.invalid-prompt')]
   const evidence = validateTerminalEvidence(value.evidence)
   if (evidence.length || !record(value.evidence) || !record(value.evidence.source) || value.evidence.source.kind !== 'authoritative-record') return [issue(value.id, 'terminal-presentation.invalid-prompt')]
   const options = value.options as TerminalPromptOption[]
@@ -985,6 +1079,13 @@ export const validateTerminalPrompt = (value: unknown): readonly TerminalPresent
     if (optionIds.has(option.id) || keys.has(option.key)) diagnostics.push(issue(option.id, 'terminal-presentation.invalid-prompt'))
     optionIds.add(option.id)
     keys.add(option.key)
+  }
+  if (value.kind === 'tavern-courier-switch') {
+    const candidates = Array.isArray(value.candidates) && value.candidates.every(validCourierSwitchCandidate)
+      ? value.candidates as TerminalCourierSwitchCandidate[]
+      : undefined
+    const current = validCourierSwitchCandidate(value.current) ? value.current : undefined
+    if (!validTavernSource(value.source) || !current || !candidates || candidates.length > TERMINAL_PRESENTATION_LIMITS.promptOptions || candidates.some(candidate => candidate.id === current.id) || new Set(candidates.map(candidate => candidate.id)).size !== candidates.length || options.length !== 1 || options[0]!.intent !== 'tavern-courier-switch' || (options[0]!.availability === 'available' && (!options[0]!.requiresConfirmation || candidates.length === 0)) || (options[0]!.availability === 'disabled' && options[0]!.requiresConfirmation)) diagnostics.push(issue(value.id, 'terminal-presentation.invalid-prompt'))
   }
   if (options.some((option, index) => index > 0 && compare(options[index - 1]!.id, option.id) >= 0)) diagnostics.push(issue(value.id, 'terminal-presentation.invalid-prompt'))
   const content = auditMedievalContentSafety([{ id: `terminal-prompt:${value.id}`, domain: value.contentDomain as MedievalContentDomain, classification: value.contentSafety as MedievalContentSafetyClassification }])
