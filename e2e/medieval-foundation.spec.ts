@@ -37,10 +37,10 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
         database.close()
         if (!world?.state?.temporal || !world.state.causalHistory?.tail) return reject(new Error('saved medieval world was not available'))
         resolve({
-            worldTime: world.state.temporal.worldTime ?? -1,
-            actionSequence: world.state.temporal.actionSequence ?? -1,
-            causalKinds: world.state.causalHistory.tail.map(command => command.kind ?? ''),
-            initialCourierId: world.state.courier?.initialCourierId,
+          worldTime: world.state.temporal.worldTime ?? -1,
+          actionSequence: world.state.temporal.actionSequence ?? -1,
+          causalKinds: world.state.causalHistory.tail.map(command => command.kind ?? ''),
+          initialCourierId: world.state.courier?.initialCourierId,
           coordinate: world.state.navigation?.coordinate,
           tasks: world.state.delegation?.tasks,
           autonomy: world.state.autonomy,
@@ -132,6 +132,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   expect(await persistedTemporalState(page, worldId!)).toMatchObject({ worldTime: 0, actionSequence: 0, causalKinds: [], initialCourierId: undefined })
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-route', 'choose-courier')
+  await page.keyboard.press('ArrowUp')
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-route', 'world')
