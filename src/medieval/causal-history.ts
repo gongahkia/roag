@@ -13,7 +13,8 @@ import type { SocialMemoryState } from './social-memory'
  * evidence remains in its owning subdomain; this records only reducer inputs.
  */
 export const CAUSAL_HISTORY_CONTRACT_VERSION = 4 as const
-export const CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION = 4 as const
+/** v5 records initial selection separately from the current active perspective. */
+export const CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION = 5 as const
 export const CAUSAL_HISTORY_CHECKPOINT_VERSION = 4 as const
 export const CAUSAL_HISTORY_SEGMENT_VERSION = 4 as const
 
@@ -24,7 +25,7 @@ export const CAUSAL_HISTORY_LIMITS = {
   identityLength: 160
 } as const
 
-export type CausalCommandKind = 'initial-courier-selected' | 'time-bearing-action' | 'deck-moved' | 'durable-jomon-growth' | 'delegation-offered' | 'delegation-interrupted'
+export type CausalCommandKind = 'initial-courier-selected' | 'tavern-courier-switched' | 'time-bearing-action' | 'deck-moved' | 'durable-jomon-growth' | 'delegation-offered' | 'delegation-interrupted'
 
 export interface CausalHistoryContext {
   worldId: string
@@ -32,6 +33,13 @@ export interface CausalHistoryContext {
 }
 
 export interface CausalHistoryCourierProjection {
+  version: 2
+  initialCourierId?: string
+  activeCourierId?: string
+}
+
+/** Read-only v4 projection accepted only while rebasing a valid older envelope. */
+interface LegacyCausalHistoryCourierProjectionV1 {
   version: 1
   initialCourierId?: string
 }
@@ -71,6 +79,22 @@ export interface InitialCourierSelectedCommand {
   token: string
   kind: 'initial-courier-selected'
   payload: { courierId: string }
+  contentSafety: MedievalContentSafetyClassification
+}
+
+/** A zero-time, source-bound transfer of the inhabited courier perspective. */
+export interface TavernCourierSwitchedCommand {
+  version: typeof CAUSAL_HISTORY_CONTRACT_VERSION
+  sequence: number
+  id: string
+  token: string
+  kind: 'tavern-courier-switched'
+  payload: {
+    fromCourierId: string
+    toCourierId: string
+    propId: 'prop:task-ledger'
+    coordinate: { column: number; row: number }
+  }
   contentSafety: MedievalContentSafetyClassification
 }
 
@@ -130,7 +154,7 @@ export interface DelegationInterruptedCommand {
   contentSafety: MedievalContentSafetyClassification
 }
 
-export type CausalCommandEvent = InitialCourierSelectedCommand | TimeBearingActionCommand | DeckMovedCommand | DurableJomonGrowthCommand | DelegationOfferedCommand | DelegationInterruptedCommand
+export type CausalCommandEvent = InitialCourierSelectedCommand | TavernCourierSwitchedCommand | TimeBearingActionCommand | DeckMovedCommand | DurableJomonGrowthCommand | DelegationOfferedCommand | DelegationInterruptedCommand
 
 export interface CausalHistoryCheckpoint {
   version: typeof CAUSAL_HISTORY_CHECKPOINT_VERSION
@@ -145,6 +169,7 @@ export interface CausalHistoryCheckpoint {
 
 export interface CausalHistoryCommandKindCounts {
   initialCourierSelected: number
+  tavernCourierSwitched?: number
   timeBearingAction: number
   durableJomonGrowth: number
   delegationOffered: number
@@ -245,19 +270,21 @@ export const causalDigestFor = (scope: string, value: unknown): string => {
 const validContext = (context: CausalHistoryContext): boolean => validId(context.worldId) && typeof context.creationDigest === 'string' && context.creationDigest.length > 0 && context.creationDigest.length <= CAUSAL_HISTORY_LIMITS.identityLength
 const commandCountFor = (events: readonly CausalCommandEvent[]): CausalHistoryCommandKindCounts => ({
   initialCourierSelected: events.filter(event => event.kind === 'initial-courier-selected').length,
+  tavernCourierSwitched: events.filter(event => event.kind === 'tavern-courier-switched').length,
   timeBearingAction: events.filter(event => event.kind === 'time-bearing-action').length,
   durableJomonGrowth: events.filter(event => event.kind === 'durable-jomon-growth').length,
   delegationOffered: events.filter(event => event.kind === 'delegation-offered').length,
   delegationInterrupted: events.filter(event => event.kind === 'delegation-interrupted').length,
   deckMoved: events.filter(event => event.kind === 'deck-moved').length
 })
-const commandClassification = (kind: CausalCommandKind, payload: InitialCourierSelectedCommand['payload'] | TimeBearingActionCommand['payload'] | DeckMovedCommand['payload'] | DurableJomonGrowthCommand['payload'] | DelegationOfferedCommand['payload'] | DelegationInterruptedCommand['payload']): MedievalContentSafetyClassification => {
+const commandClassification = (kind: CausalCommandKind, payload: InitialCourierSelectedCommand['payload'] | TavernCourierSwitchedCommand['payload'] | TimeBearingActionCommand['payload'] | DeckMovedCommand['payload'] | DurableJomonGrowthCommand['payload'] | DelegationOfferedCommand['payload'] | DelegationInterruptedCommand['payload']): MedievalContentSafetyClassification => {
   if (kind === 'time-bearing-action') return structuredClone((payload as TimeBearingActionCommand['payload']).action.contentSafety)
   // The offer remains a classified contract in its payload; the journal entry
   // itself is an event, so it must carry an event-domain classification too.
   if (kind === 'delegation-offered') return classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
   if (kind === 'delegation-interrupted') return classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
   if (kind === 'deck-moved') return classifyMedievalContent('event', ['adult-labour', 'navigation'], 'adults-only', ['data'])
+  if (kind === 'tavern-courier-switched') return classifyMedievalContent('event', ['adult-labour', 'civil-life', 'navigation'], 'adults-only', ['data'])
   return kind === 'initial-courier-selected'
     ? classifyMedievalContent('event', ['civil-life', 'travel'], 'adults-only', ['data'])
     : classifyMedievalContent('event', ['adult-labour', 'navigation'], 'adults-only', ['data'])
@@ -265,6 +292,10 @@ const commandClassification = (kind: CausalCommandKind, payload: InitialCourierS
 const commandPayloadIsShaped = (kind: CausalCommandKind, value: unknown): boolean => {
   if (!record(value)) return false
   if (kind === 'initial-courier-selected') return hasOnlyKeys(value, ['courierId']) && validId(value.courierId)
+  if (kind === 'tavern-courier-switched') return hasOnlyKeys(value, ['fromCourierId', 'toCourierId', 'propId', 'coordinate'])
+    && validId(value.fromCourierId) && validId(value.toCourierId) && value.fromCourierId !== value.toCourierId
+    && value.propId === 'prop:task-ledger'
+    && record(value.coordinate) && hasOnlyKeys(value.coordinate, ['column', 'row']) && safeInteger(value.coordinate.column) && safeInteger(value.coordinate.row)
   if (kind === 'time-bearing-action') return hasOnlyKeys(value, ['action']) && record(value.action) && typeof value.action.id === 'string' && typeof value.action.kind === 'string' && typeof value.action.durationMinutes === 'number' && value.action.contentSafety !== undefined
   if (kind === 'deck-moved') return hasOnlyKeys(value, ['actionId', 'courierId', 'direction', 'from', 'to'])
     && validId(value.actionId) && validId(value.courierId)
@@ -286,9 +317,11 @@ const projectionShape = (value: unknown): value is CausalReplayProjection => rec
   && (hasOnlyKeys(value, ['version', 'courier', 'people', 'temporal', 'simulation', 'era', 'delegation', 'autonomy', 'socialMemory']) || hasOnlyKeys(value, ['version', 'courier', 'navigation', 'people', 'temporal', 'simulation', 'era', 'delegation', 'autonomy', 'socialMemory']))
   && value.version === CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION
   && record(value.courier)
-  && (hasOnlyKeys(value.courier, ['version']) || hasOnlyKeys(value.courier, ['version', 'initialCourierId']))
-  && value.courier.version === 1
+  && (hasOnlyKeys(value.courier, ['version']) || hasOnlyKeys(value.courier, ['version', 'initialCourierId', 'activeCourierId']))
+  && value.courier.version === 2
   && (value.courier.initialCourierId === undefined || validId(value.courier.initialCourierId))
+  && (value.courier.activeCourierId === undefined || validId(value.courier.activeCourierId))
+  && (value.courier.initialCourierId === undefined ? value.courier.activeCourierId === undefined : value.courier.activeCourierId !== undefined)
   && (value.navigation === undefined || (record(value.navigation) && (hasOnlyKeys(value.navigation, ['version']) || hasOnlyKeys(value.navigation, ['version', 'courierId', 'coordinate'])) && value.navigation.version === 1 && (value.navigation.courierId === undefined || validId(value.navigation.courierId)) && (value.navigation.coordinate === undefined || (record(value.navigation.coordinate) && hasOnlyKeys(value.navigation.coordinate, ['column', 'row']) && safeInteger(value.navigation.coordinate.column) && safeInteger(value.navigation.coordinate.row)))))
   && record(value.people)
   && hasOnlyKeys(value.people, ['version', 'records'])
@@ -300,6 +333,20 @@ const projectionShape = (value: unknown): value is CausalReplayProjection => rec
   && record(value.delegation)
   && record(value.autonomy)
   && record(value.socialMemory)
+
+const legacyProjectionShape = (value: unknown): boolean => record(value)
+  && (hasOnlyKeys(value, ['version', 'courier', 'people', 'temporal', 'simulation', 'era', 'delegation', 'autonomy', 'socialMemory']) || hasOnlyKeys(value, ['version', 'courier', 'navigation', 'people', 'temporal', 'simulation', 'era', 'delegation', 'autonomy', 'socialMemory']))
+  && value.version === 4
+  && record(value.courier)
+  && (hasOnlyKeys(value.courier, ['version']) || hasOnlyKeys(value.courier, ['version', 'initialCourierId']))
+  && (value.courier as LegacyCausalHistoryCourierProjectionV1).version === 1
+  && (value.courier.initialCourierId === undefined || validId(value.courier.initialCourierId))
+  && (value.navigation === undefined || (record(value.navigation) && (hasOnlyKeys(value.navigation, ['version']) || hasOnlyKeys(value.navigation, ['version', 'courierId', 'coordinate'])) && value.navigation.version === 1 && (value.navigation.courierId === undefined || validId(value.navigation.courierId)) && (value.navigation.coordinate === undefined || (record(value.navigation.coordinate) && hasOnlyKeys(value.navigation.coordinate, ['column', 'row']) && safeInteger(value.navigation.coordinate.column) && safeInteger(value.navigation.coordinate.row)))))
+  && record(value.people) && hasOnlyKeys(value.people, ['version', 'records']) && value.people.version === 5 && Array.isArray(value.people.records)
+  && record(value.temporal) && record(value.simulation) && record(value.era) && record(value.delegation) && record(value.autonomy) && record(value.socialMemory)
+
+/** Old checkpoint projections are structurally accepted only for explicit rebasing. */
+const replayProjectionShape = (value: unknown): boolean => projectionShape(value) || legacyProjectionShape(value)
 
 export const causalReplayProjection = (value: Pick<CausalReplayProjection, 'courier' | 'people' | 'temporal' | 'simulation' | 'era' | 'delegation' | 'autonomy' | 'socialMemory'> & Partial<Pick<CausalReplayProjection, 'navigation'>>): CausalReplayProjection => ({
   version: CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION,
@@ -388,7 +435,7 @@ export const createCausalCommand = (
   context: CausalHistoryContext,
   state: CausalHistoryState,
   kind: CausalCommandKind,
-  payload: InitialCourierSelectedCommand['payload'] | TimeBearingActionCommand['payload'] | DeckMovedCommand['payload'] | DurableJomonGrowthCommand['payload'] | DelegationOfferedCommand['payload'] | DelegationInterruptedCommand['payload']
+  payload: InitialCourierSelectedCommand['payload'] | TavernCourierSwitchedCommand['payload'] | TimeBearingActionCommand['payload'] | DeckMovedCommand['payload'] | DurableJomonGrowthCommand['payload'] | DelegationOfferedCommand['payload'] | DelegationInterruptedCommand['payload']
 ): CausalCommandEvent => {
   const diagnostics = validateCausalHistoryState(context, state)
   if (diagnostics.length) throw new CausalHistoryContractError(diagnostics)
@@ -404,6 +451,7 @@ export const createCausalCommand = (
     contentSafety: commandClassification(kind, payload)
   } as const
   if (kind === 'initial-courier-selected') return { ...common, kind, payload: structuredClone(payload as InitialCourierSelectedCommand['payload']) }
+  if (kind === 'tavern-courier-switched') return { ...common, kind, payload: structuredClone(payload as TavernCourierSwitchedCommand['payload']) }
   if (kind === 'time-bearing-action') return { ...common, kind, payload: structuredClone(payload as TimeBearingActionCommand['payload']) }
   if (kind === 'deck-moved') return { ...common, kind, payload: structuredClone(payload as DeckMovedCommand['payload']) }
   if (kind === 'durable-jomon-growth') return { ...common, kind, payload: structuredClone(payload as DurableJomonGrowthCommand['payload']) }
@@ -434,6 +482,7 @@ const mergeSegments = (context: CausalHistoryContext, left: CausalHistoryCompact
     worldTimeEnd: right.worldTimeEnd,
     commandKinds: {
       initialCourierSelected: left.commandKinds.initialCourierSelected + right.commandKinds.initialCourierSelected,
+      tavernCourierSwitched: (left.commandKinds.tavernCourierSwitched ?? 0) + (right.commandKinds.tavernCourierSwitched ?? 0),
       timeBearingAction: left.commandKinds.timeBearingAction + right.commandKinds.timeBearingAction,
       durableJomonGrowth: left.commandKinds.durableJomonGrowth + right.commandKinds.durableJomonGrowth,
       delegationOffered: left.commandKinds.delegationOffered + right.commandKinds.delegationOffered,
@@ -467,7 +516,7 @@ export const appendCausalCommand = (context: CausalHistoryContext, state: Causal
 }
 
 const validCommand = (context: CausalHistoryContext, value: unknown): value is CausalCommandEvent => {
-  if (!record(value) || !hasOnlyKeys(value, ['version', 'sequence', 'id', 'token', 'kind', 'payload', 'contentSafety']) || value.version !== CAUSAL_HISTORY_CONTRACT_VERSION || !safeInteger(value.sequence) || !validId(value.id) || typeof value.token !== 'string' || !['initial-courier-selected', 'time-bearing-action', 'deck-moved', 'durable-jomon-growth', 'delegation-offered', 'delegation-interrupted'].includes(String(value.kind)) || !commandPayloadIsShaped(value.kind as CausalCommandKind, value.payload)) return false
+  if (!record(value) || !hasOnlyKeys(value, ['version', 'sequence', 'id', 'token', 'kind', 'payload', 'contentSafety']) || value.version !== CAUSAL_HISTORY_CONTRACT_VERSION || !safeInteger(value.sequence) || !validId(value.id) || typeof value.token !== 'string' || !['initial-courier-selected', 'tavern-courier-switched', 'time-bearing-action', 'deck-moved', 'durable-jomon-growth', 'delegation-offered', 'delegation-interrupted'].includes(String(value.kind)) || !commandPayloadIsShaped(value.kind as CausalCommandKind, value.payload)) return false
   const kind = value.kind as CausalCommandKind
   const payload = value.payload as InitialCourierSelectedCommand['payload'] | TimeBearingActionCommand['payload'] | DurableJomonGrowthCommand['payload']
   const expectedId = commandIdFor(context, value.sequence, kind, value.payload)
@@ -477,11 +526,11 @@ const validCommand = (context: CausalHistoryContext, value: unknown): value is C
 }
 
 const validCheckpoint = (context: CausalHistoryContext, value: unknown): value is CausalHistoryCheckpoint => {
-  if (!record(value) || !hasOnlyKeys(value, ['version', 'id', 'token', 'sequence', 'atWorldTime', 'provenanceDigest', 'stateDigest', 'projection']) || value.version !== CAUSAL_HISTORY_CHECKPOINT_VERSION || !validId(value.id) || typeof value.token !== 'string' || !safeInteger(value.sequence) || !safeInteger(value.atWorldTime) || value.provenanceDigest !== context.creationDigest || typeof value.stateDigest !== 'string' || !projectionShape(value.projection) || value.projection.temporal.worldTime !== value.atWorldTime || causalReplayProjectionDigest(value.projection) !== value.stateDigest) return false
+  if (!record(value) || !hasOnlyKeys(value, ['version', 'id', 'token', 'sequence', 'atWorldTime', 'provenanceDigest', 'stateDigest', 'projection']) || value.version !== CAUSAL_HISTORY_CHECKPOINT_VERSION || !validId(value.id) || typeof value.token !== 'string' || !safeInteger(value.sequence) || !safeInteger(value.atWorldTime) || value.provenanceDigest !== context.creationDigest || typeof value.stateDigest !== 'string' || !replayProjectionShape(value.projection) || value.projection.temporal.worldTime !== value.atWorldTime || causalReplayProjectionDigest(value.projection) !== value.stateDigest) return false
   return value.id === checkpointIdFor(context, value.sequence, value.stateDigest) && value.token === checkpointTokenFor(context, value.sequence, value.atWorldTime, value.stateDigest)
 }
 
-const validCounts = (value: unknown): value is CausalHistoryCommandKindCounts => record(value) && (hasOnlyKeys(value, ['initialCourierSelected', 'timeBearingAction', 'durableJomonGrowth', 'delegationOffered', 'delegationInterrupted']) || hasOnlyKeys(value, ['initialCourierSelected', 'timeBearingAction', 'durableJomonGrowth', 'delegationOffered', 'delegationInterrupted', 'deckMoved'])) && safeInteger(value.initialCourierSelected) && safeInteger(value.timeBearingAction) && safeInteger(value.durableJomonGrowth) && safeInteger(value.delegationOffered) && safeInteger(value.delegationInterrupted) && (value.deckMoved === undefined || safeInteger(value.deckMoved))
+const validCounts = (value: unknown): value is CausalHistoryCommandKindCounts => record(value) && (hasOnlyKeys(value, ['initialCourierSelected', 'timeBearingAction', 'durableJomonGrowth', 'delegationOffered', 'delegationInterrupted']) || hasOnlyKeys(value, ['initialCourierSelected', 'timeBearingAction', 'durableJomonGrowth', 'delegationOffered', 'delegationInterrupted', 'deckMoved']) || hasOnlyKeys(value, ['initialCourierSelected', 'tavernCourierSwitched', 'timeBearingAction', 'durableJomonGrowth', 'delegationOffered', 'delegationInterrupted', 'deckMoved'])) && safeInteger(value.initialCourierSelected) && safeInteger(value.timeBearingAction) && safeInteger(value.durableJomonGrowth) && safeInteger(value.delegationOffered) && safeInteger(value.delegationInterrupted) && (value.deckMoved === undefined || safeInteger(value.deckMoved)) && (value.tavernCourierSwitched === undefined || safeInteger(value.tavernCourierSwitched))
 const validSegment = (context: CausalHistoryContext, value: unknown): value is CausalHistoryCompactedSegment => {
   if (!record(value) || !hasOnlyKeys(value, ['version', 'id', 'token', 'sequenceStart', 'sequenceEnd', 'worldTimeStart', 'worldTimeEnd', 'commandKinds', 'provenanceDigest', 'stateDigest']) || value.version !== CAUSAL_HISTORY_SEGMENT_VERSION || !validId(value.id) || typeof value.token !== 'string' || !safeInteger(value.sequenceStart) || !safeInteger(value.sequenceEnd) || value.sequenceStart < 1 || value.sequenceEnd < value.sequenceStart || !safeInteger(value.worldTimeStart) || !safeInteger(value.worldTimeEnd) || value.worldTimeEnd < value.worldTimeStart || !validCounts(value.commandKinds) || value.provenanceDigest !== context.creationDigest || typeof value.stateDigest !== 'string') return false
   const draft: Omit<CausalHistoryCompactedSegment, 'id' | 'token'> = { version: value.version, sequenceStart: value.sequenceStart, sequenceEnd: value.sequenceEnd, worldTimeStart: value.worldTimeStart, worldTimeEnd: value.worldTimeEnd, commandKinds: value.commandKinds, provenanceDigest: value.provenanceDigest, stateDigest: value.stateDigest }
@@ -502,7 +551,7 @@ export const validateCausalHistoryState = (context: CausalHistoryContext, value:
     for (const command of value.tail) {
       const id = record(command) && typeof command.id === 'string' ? command.id : 'causal-history:command'
       if (!validCommand(context, command)) {
-        const typedCommand = record(command) && typeof command.kind === 'string' && ['initial-courier-selected', 'time-bearing-action', 'deck-moved', 'durable-jomon-growth', 'delegation-offered', 'delegation-interrupted'].includes(command.kind)
+        const typedCommand = record(command) && typeof command.kind === 'string' && ['initial-courier-selected', 'tavern-courier-switched', 'time-bearing-action', 'deck-moved', 'durable-jomon-growth', 'delegation-offered', 'delegation-interrupted'].includes(command.kind)
         const payloadShaped = typedCommand && commandPayloadIsShaped(command.kind as CausalCommandKind, command.payload)
         const tokenExpected = typedCommand && payloadShaped && safeInteger(command.sequence)
         issues.push(issue(id, !typedCommand ? 'causal-history.invalid-command' : !payloadShaped ? 'causal-history.invalid-command-payload' : tokenExpected ? 'causal-history.invalid-command-token' : 'causal-history.invalid-command'))

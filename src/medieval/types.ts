@@ -2,7 +2,7 @@ import type { GenerationDiagnostics, WorldGenerationConfig, WorldGenerationConfi
 import type { MedievalContentSafetyAudit, MedievalContentSafetyClassification } from './content-safety'
 import type { InitialWorld, InitialWorldGenerationDiagnostics } from './initial-world'
 import type { FrontierCausalAnchor, FrontierConnection, FrontierCoordinate, FrontierRegionKind } from './frontier'
-import type { MedievalWorldState } from './world-state'
+import type { LegacyMedievalWorldStateV11, LegacyMedievalWorldStateV12, MedievalWorldState } from './world-state'
 
 export const FOUNDATION_GENERATOR_VERSION = 'foundation-2' as const
 export const FOUNDATION_MANIFEST_VERSION = 6 as const
@@ -149,7 +149,7 @@ export interface CausalRecord {
 }
 
 export interface FoundationWorld {
-  /** v14 adds replayed local deck navigation to the validated mutable state. */
+  /** v14 keeps the foundation envelope while mutable state evolves independently. */
   version: 14
   id: string
   status: 'active'
@@ -160,10 +160,16 @@ export interface FoundationWorld {
   state: MedievalWorldState
 }
 
-/** Read-only import shape accepted only by the deterministic v13-to-v14 upgrader. */
+/** Read-only import shape accepted only by the deterministic v13 conversion. */
 export interface LegacyFoundationWorldV13 extends Omit<FoundationWorld, 'version' | 'state'> {
   version: 13
-  state: Omit<MedievalWorldState, 'version' | 'navigation'> & { version: 11 }
+  state: LegacyMedievalWorldStateV11
+}
+
+/** Read-only v14/v12 envelope accepted only by the active-courier upgrader. */
+export interface LegacyFoundationWorldV14 extends Omit<FoundationWorld, 'state'> {
+  version: 14
+  state: LegacyMedievalWorldStateV12
 }
 
 export type ChronicleReason = 'jomon-loss' | 'crew-extinction'
