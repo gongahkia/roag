@@ -1,4 +1,5 @@
-import { isValidFoundationWorld, upgradeFoundationWorldV13, upgradeFoundationWorldV14 } from './world'
+import { isValidFoundationWorld, resolveCourierContinuityLoss as resolveCourierContinuityTransition, upgradeFoundationWorldV13, upgradeFoundationWorldV14, type CourierContinuityResolution } from './world'
+import type { CourierContinuityConfirmation } from './courier-continuity'
 import { emptyCreationSettingsRecord, isCreationSettingsRecord, saveCreationSettingsProfile as saveNamedCreationSettingsProfile, withLastUsedCreationSettings, type CreationSettings, type CreationSettingsRecord } from './settings'
 import { defaultTerminalControlPreferences, isTerminalControlPreferences, type TerminalControlPreferences } from './terminal-controls'
 import { createActiveWorldBackupBundle, createChronicleBackupBundle, createWorldRecordIndex, MedievalPersistenceLayoutError, MEDIEVAL_PERSISTENCE_DATABASE_VERSION, parsePersistenceBackupBundle, persistenceWorldSourceFor, serializePersistenceBackupBundle, snapshotRingAfterReplacement, validateFoundationWorldSnapshotRing, validateLegacyWorldRecordIndex, validateWorldRecordIndex, type FoundationWorldSnapshotRing, type WorldRecordIndex } from './persistence-layout'
@@ -108,6 +109,34 @@ export class MedievalWorldRepository {
   }
   /** Catalog, full envelope, exact derived index, and snapshot rotation share one transaction. */
   async saveWorld(world: FoundationWorld): Promise<void> { return this.writeActiveWorld(world, 'allow') }
+  /**
+   * The loss reducer remains pure; this is its only repository bridge. A
+   * continuation atomically replaces the exact submitted active source, and
+   * crew-extinction reuses the chronicle finalization transaction below.
+   */
+  async resolveCourierContinuityLoss(world: FoundationWorld, confirmation: CourierContinuityConfirmation): Promise<CourierContinuityResolution> {
+    if (!isFoundationWorld(world)) throw new MedievalPersistenceLayoutError('invalid-submitted-world', 'refusing to resolve courier continuity for an invalid world')
+    const resolution = resolveCourierContinuityTransition(world, confirmation)
+    if (resolution.status === 'crew-extinction') {
+      await this.finalize(world, resolution.chronicle)
+      return resolution
+    }
+    const next = resolution.world
+    const database = await this.open(); const transaction = database.transaction([CATALOG_STORE, WORLD_STORE, RECORD_INDEX_STORE, SNAPSHOT_STORE], 'readwrite'); const completed = transactionDone(transaction)
+    try {
+      const [active, catalogValue, index, snapshots] = await Promise.all([requestResult(transaction.objectStore(WORLD_STORE).get(world.id)), requestResult(transaction.objectStore(CATALOG_STORE).get(INDEX_KEY)), requestResult(transaction.objectStore(RECORD_INDEX_STORE).get(world.id)), requestResult(transaction.objectStore(SNAPSHOT_STORE).get(world.id))])
+      if (!isFoundationWorld(active) || persistenceWorldSourceFor(active).digest !== persistenceWorldSourceFor(world).digest) throw new MedievalPersistenceLayoutError('corrupt-existing-world', 'stale source')
+      if (index !== undefined && !validateWorldRecordIndex(index, active)) throw new MedievalPersistenceLayoutError('corrupt-existing-index')
+      if (snapshots !== undefined && !validateFoundationWorldSnapshotRing(snapshots)) throw new MedievalPersistenceLayoutError('corrupt-existing-snapshots')
+      const nextSnapshots = persistenceWorldSourceFor(active).digest === persistenceWorldSourceFor(next).digest ? snapshots as FoundationWorldSnapshotRing | undefined : snapshotRingAfterReplacement(snapshots as FoundationWorldSnapshotRing | undefined, active)
+      transaction.objectStore(WORLD_STORE).put(clone(next), next.id)
+      transaction.objectStore(CATALOG_STORE).put(addWorldToIndex(isWorldIndex(catalogValue) ? catalogValue : emptyWorldIndex(), next), INDEX_KEY)
+      transaction.objectStore(RECORD_INDEX_STORE).put(createWorldRecordIndex(next), next.id)
+      if (nextSnapshots !== undefined) transaction.objectStore(SNAPSHOT_STORE).put(nextSnapshots, next.id)
+      await completed
+      return resolution
+    } catch (error) { void completed.catch(() => undefined); try { transaction.abort() } catch { } throw persistenceError(error) }
+  }
   async restoreSnapshot(worldId: string, sequence: number): Promise<FoundationWorld> { const snapshot = await this.inspectSnapshot(worldId, sequence); if (snapshot === undefined) throw new MedievalPersistenceLayoutError('snapshot-not-found'); await this.writeActiveWorld(snapshot, 'allow'); return clone(snapshot) }
   async exportActiveWorldBackup(worldId: string): Promise<string> { const world = await this.loadWorld(worldId); if (world === undefined) throw new MedievalPersistenceLayoutError('backup-malformed', 'active world unavailable'); return serializePersistenceBackupBundle(createActiveWorldBackupBundle(world)) }
   async exportChronicleBackup(chronicleId: string): Promise<string> { const chronicle = await this.loadChronicle(chronicleId); if (chronicle === undefined) throw new MedievalPersistenceLayoutError('backup-malformed', 'chronicle unavailable'); return serializePersistenceBackupBundle(createChronicleBackupBundle(chronicle)) }

@@ -75,7 +75,7 @@ describe('tavern courier switch contract', () => {
     const target = initialHouseholdActiveCrew(source.crew)[1]!
     const switched = switchTavernCourier(source, target.id)
 
-    expect(switched.state.courier).toEqual({ version: 2, initialCourierId: source.state.courier.initialCourierId, activeCourierId: target.id })
+    expect(switched.state.courier).toEqual({ version: 3, initialCourierId: source.state.courier.initialCourierId, activeCourierId: target.id, departedCourierIds: [] })
     expect(switched.state.navigation).toEqual({ version: 1, courierId: target.id, coordinate: { column: 4, row: 4 } })
     expect(switched.state.temporal).toEqual(source.state.temporal)
     expect(switched.manifest).toEqual(source.manifest)
@@ -102,7 +102,7 @@ describe('tavern courier switch contract', () => {
       const toCourierId = fromCourierId === 'crew:0' ? 'crew:1' : 'crew:0'
       projection = {
         ...projection,
-        courier: { version: 2, initialCourierId: projection.courier.initialCourierId, activeCourierId: toCourierId },
+        courier: { version: 3, initialCourierId: projection.courier.initialCourierId, activeCourierId: toCourierId, departedCourierIds: [] },
         navigation: { version: 1, courierId: toCourierId, coordinate: { column: 4, row: 4 } }
       }
       const command = createCausalCommand(context, history, 'tavern-courier-switched', { fromCourierId, toCourierId, propId: 'prop:task-ledger', coordinate: { column: 4, row: 4 } })
@@ -110,7 +110,7 @@ describe('tavern courier switch contract', () => {
     }
 
     expect(projection.temporal.worldTime).toBe(0)
-    expect(projection.courier).toEqual({ version: 2, initialCourierId: 'crew:0', activeCourierId: 'crew:1' })
+    expect(projection.courier).toEqual({ version: 3, initialCourierId: 'crew:0', activeCourierId: 'crew:1', departedCourierIds: [] })
     expect(history.compactedSegments.at(-1)?.commandKinds).toMatchObject({ initialCourierSelected: 1, tavernCourierSwitched: 8 })
     expect(history.tail).toEqual([expect.objectContaining({ kind: 'tavern-courier-switched' })])
     expect(validateCausalHistoryState(context, history)).toEqual([])
@@ -141,8 +141,8 @@ describe('tavern courier switch contract', () => {
     expect(upgraded).toMatchObject({
       version: 14,
       state: {
-        version: 13,
-        courier: { version: 2, initialCourierId: source.state.courier.initialCourierId, activeCourierId: source.state.courier.initialCourierId },
+        version: 14,
+        courier: { version: 3, initialCourierId: source.state.courier.initialCourierId, activeCourierId: source.state.courier.initialCourierId, departedCourierIds: [] },
         navigation: source.state.navigation
       }
     })

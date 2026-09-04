@@ -333,7 +333,7 @@ const commandPayloadIsShaped = (kind: CausalCommandKind, value: unknown): boolea
       && confirmation.kind === 'confirmed-courier-continuity-loss'
       && (confirmation.outcome === 'death' || confirmation.outcome === 'departure')
       && validId(confirmation.id)
-      && confirmation.id === courierContinuityConfirmationIdFor(confirmation.outcome, confirmation.courierId, confirmation.atWorldTime)
+      && confirmation.id === courierContinuityConfirmationIdFor(confirmation.outcome as 'death' | 'departure', confirmation.courierId as string, confirmation.atWorldTime as number)
       && validId(confirmation.courierId)
       && safeInteger(confirmation.atWorldTime)
       && Array.isArray(evidenceIds)
@@ -364,21 +364,18 @@ const checkpointTokenFor = (context: CausalHistoryContext, sequence: number, atW
 const segmentIdFor = (context: CausalHistoryContext, start: number, end: number, stateDigest: string): string => `causal-segment:${start}-${end}:${causalDigestFor('causal-segment-id', { worldId: context.worldId, creationDigest: context.creationDigest, start, end, stateDigest })}`
 const segmentTokenFor = (context: CausalHistoryContext, summary: Omit<CausalHistoryCompactedSegment, 'id' | 'token'>): string => causalDigestFor('causal-segment-token', { worldId: context.worldId, creationDigest: context.creationDigest, ...summary })
 
+const validProjectionCourier = (value: unknown): boolean => {
+  if (!record(value) || !(hasOnlyKeys(value, ['version']) || hasOnlyKeys(value, ['version', 'initialCourierId', 'activeCourierId', 'departedCourierIds'])) || value.version !== 3) return false
+  if ((value.initialCourierId !== undefined && !validId(value.initialCourierId)) || (value.activeCourierId !== undefined && !validId(value.activeCourierId))) return false
+  if (value.initialCourierId === undefined) return value.activeCourierId === undefined
+  if (!Array.isArray(value.departedCourierIds) || !value.departedCourierIds.every(item => validId(item)) || new Set(value.departedCourierIds).size !== value.departedCourierIds.length || !value.departedCourierIds.every((item, index) => index === 0 || String(value.departedCourierIds[index - 1]) < String(item))) return false
+  return value.activeCourierId === undefined || !value.departedCourierIds.includes(value.activeCourierId)
+}
+
 const projectionShape = (value: unknown): value is CausalReplayProjection => record(value)
   && (hasOnlyKeys(value, ['version', 'courier', 'people', 'temporal', 'simulation', 'era', 'delegation', 'autonomy', 'socialMemory']) || hasOnlyKeys(value, ['version', 'courier', 'navigation', 'people', 'temporal', 'simulation', 'era', 'delegation', 'autonomy', 'socialMemory']))
   && value.version === CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION
-  && record(value.courier)
-  && (hasOnlyKeys(value.courier, ['version']) || hasOnlyKeys(value.courier, ['version', 'initialCourierId', 'activeCourierId', 'departedCourierIds']))
-  && value.courier.version === 3
-  && (value.courier.initialCourierId === undefined || validId(value.courier.initialCourierId))
-  && (value.courier.activeCourierId === undefined || validId(value.courier.activeCourierId))
-  && (value.courier.initialCourierId === undefined
-    ? value.courier.activeCourierId === undefined
-    : Array.isArray(value.courier.departedCourierIds)
-      && value.courier.departedCourierIds.every(item => validId(item))
-      && new Set(value.courier.departedCourierIds).size === value.courier.departedCourierIds.length
-      && value.courier.departedCourierIds.every((item, index) => index === 0 || String(value.courier.departedCourierIds[index - 1]) < String(item))
-      && (value.courier.activeCourierId === undefined || !value.courier.departedCourierIds.includes(value.courier.activeCourierId)))
+  && validProjectionCourier(value.courier)
   && (value.navigation === undefined || (record(value.navigation) && (hasOnlyKeys(value.navigation, ['version']) || hasOnlyKeys(value.navigation, ['version', 'courierId', 'coordinate'])) && value.navigation.version === 1 && (value.navigation.courierId === undefined || validId(value.navigation.courierId)) && (value.navigation.coordinate === undefined || (record(value.navigation.coordinate) && hasOnlyKeys(value.navigation.coordinate, ['column', 'row']) && safeInteger(value.navigation.coordinate.column) && safeInteger(value.navigation.coordinate.row)))))
   && record(value.people)
   && hasOnlyKeys(value.people, ['version', 'records'])

@@ -243,7 +243,7 @@ describe('medieval local persistence', () => {
     const loaded = await repository.loadWorld(switched.id)
 
     expect(loaded).toEqual(switched)
-    expect(loaded?.state.courier).toEqual({ version: 2, initialCourierId: 'crew:0', activeCourierId: 'crew:1' })
+    expect(loaded?.state.courier).toEqual({ version: 3, initialCourierId: 'crew:0', activeCourierId: 'crew:1', departedCourierIds: [] })
     expect(loaded?.state.navigation).toEqual({ version: 1, courierId: 'crew:1', coordinate: { column: 4, row: 4 } })
     expect(loaded && replayFoundationWorldCausalHistory(loaded)).toEqual(causalReplayProjectionForWorldState(switched.state))
   })
@@ -280,7 +280,7 @@ describe('medieval local persistence', () => {
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(selected.id, structuredClone(legacy))
 
     const loaded = await repository.loadWorld(selected.id)
-    expect(loaded).toMatchObject({ version: 14, state: { version: 13, courier: { version: 2, initialCourierId: 'crew:0', activeCourierId: 'crew:0' }, navigation: { courierId: 'crew:0', coordinate: { column: 4, row: 4 } } } })
+    expect(loaded).toMatchObject({ version: 14, state: { version: 14, courier: { version: 3, initialCourierId: 'crew:0', activeCourierId: 'crew:0', departedCourierIds: [] }, navigation: { courierId: 'crew:0', coordinate: { column: 4, row: 4 } } } })
     expect((fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(selected.id) as { version: number }).version).toBe(13)
 
     const corrupt = structuredClone(legacy)

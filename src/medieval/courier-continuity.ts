@@ -275,7 +275,9 @@ export const assessCourierContinuityLoss = (value: CourierContinuityAssessmentRe
     departedCourierIds,
     successorIds,
     finalization,
-    lastingConsequenceObligations: [...COURIER_LOSS_LASTING_CONSEQUENCE_OBLIGATIONS]
+    lastingConsequenceObligations: confirmation.outcome === 'death'
+      ? [...COURIER_LOSS_LASTING_CONSEQUENCE_OBLIGATIONS]
+      : COURIER_LOSS_LASTING_CONSEQUENCE_OBLIGATIONS.filter(obligation => obligation !== 'retain-confirmed-death-record')
   }
 }
 

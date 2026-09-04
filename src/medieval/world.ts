@@ -337,7 +337,7 @@ export const upgradeFoundationWorldV13 = (value: unknown): FoundationWorld => {
     ? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }
     : { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: selectedCourierId, coordinate: canonicalJomonDeckSpawn(legacy as unknown as FoundationWorld) }
   const context = causalHistoryContextFor(legacy as unknown as FoundationWorld)
-  const checkpoint = legacy.state.causalHistory.checkpoint.projection
+  const checkpoint = legacy.state.causalHistory.checkpoint.projection as unknown as { courier: { version: number; initialCourierId?: string; activeCourierId?: string }; navigation?: WorldDeckNavigationState } & Omit<CausalReplayProjection, 'courier' | 'navigation'>
   const checkpointInitialCourierId = checkpoint.courier.initialCourierId
   const rebasedHistory = rebaseCausalHistoryCheckpoint(context, legacy.state.causalHistory, causalReplayProjection({
     ...checkpoint,
@@ -403,7 +403,7 @@ export const upgradeFoundationWorldV14 = (value: unknown): FoundationWorld => {
       : { version: 3, initialCourierId: checkpointInitialCourierId, activeCourierId: checkpointActiveCourierId!, departedCourierIds: [] },
     navigation: checkpointInitialCourierId === undefined
       ? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }
-      : checkpointNavigation?.courierId === checkpointActiveCourierId && checkpointNavigation.coordinate !== undefined
+      : checkpointNavigation !== undefined && checkpointNavigation.courierId === checkpointActiveCourierId && checkpointNavigation.coordinate !== undefined
         ? structuredClone(checkpointNavigation)
         : { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: checkpointActiveCourierId!, coordinate: canonicalJomonDeckSpawn(legacy as unknown as FoundationWorld) }
   }))

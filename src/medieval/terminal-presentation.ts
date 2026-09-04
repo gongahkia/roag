@@ -38,7 +38,8 @@ export type {
  * future detailed adapter consume that same projection without omitting or
  * inventing consequential information.
  */
-export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 7 as const
+/** v8 distinguishes unselected creation from a validated read-only crew-extinction state. */
+export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 8 as const
 export const TERMINAL_MAP_LEGEND_CONTRACT_VERSION = 1 as const
 
 export const TERMINAL_PRESENTATION_LIMITS = {
@@ -160,7 +161,7 @@ export interface TerminalMapLegend {
 
 export type TerminalStatusValue =
   | { kind: 'jomon-deck-materialized'; cells: number }
-  | { kind: 'courier-selection'; selected: boolean }
+  | { kind: 'courier-selection'; state: 'awaiting-initial' | 'active' | 'crew-extinct' }
   | { kind: 'world-minute'; minutes: number }
   | { kind: 'deck-focus'; courierId?: string; coordinate?: TerminalCellCoordinate }
   | { kind: 'creation-provenance'; seed: string; digest: string }
@@ -647,7 +648,11 @@ export const validateTerminalMaterializedCells = (
 
 const statusText = (item: TerminalStatusItem): string => {
   if (item.value.kind === 'jomon-deck-materialized') return `Static Jomon deck map visible with ${item.value.cells} source-backed deck and hull cells; local movement is available and the tavern task ledger alone supports courier switching.`
-  if (item.value.kind === 'courier-selection') return item.value.selected ? 'An active courier is selected.' : 'Choose an initial courier before active play.'
+  if (item.value.kind === 'courier-selection') return item.value.state === 'active'
+    ? 'An active courier is selected.'
+    : item.value.state === 'crew-extinct'
+      ? 'No active courier remains; crew-extinction is read-only.'
+      : 'Choose an initial courier before active play.'
   if (item.value.kind === 'world-minute') return `Current world minute ${item.value.minutes}.`
   if (item.value.kind === 'deck-focus') return item.value.coordinate === undefined
     ? 'Fixed full-deck camera has no courier focus until selection.'
@@ -764,7 +769,7 @@ const mapForDeckPlan = (world: FoundationWorld, plan: ReturnType<typeof deriveJo
     },
     cells,
     textEquivalent: 'Jomon deck plan with a known active courier position, quay approach, gangplank, hull boundary, and deck spaces.',
-    accessibilityText: `Known static Jomon deck map. Fixed ${plan.bounds.width} by ${plan.bounds.height} viewport with ${staticCells.length} deck and hull cells${marker === undefined ? '' : ' and one active courier marker'}. Symbols: # hull, = deck, / gangplank, ) quay, @ active adult courier. Full deck known; the tavern task ledger supports courier switching only when the active courier stands at its anchor. No cargo, other people, hazards, travel, rest, conversation, loss, or succession.`,
+    accessibilityText: `Known static Jomon deck map. Fixed ${plan.bounds.width} by ${plan.bounds.height} viewport with ${staticCells.length} deck and hull cells${marker === undefined ? '' : ' and one active courier marker'}. Symbols: # hull, = deck, / gangplank, ) quay, @ active adult courier. Full deck known; ${marker === undefined && world.state.courier.initialCourierId !== undefined ? 'no active courier remains and crew-extinction is read-only.' : 'the tavern task ledger supports courier switching only when the active courier stands at its anchor.'} No cargo, other people, hazards, travel, rest, conversation, loss, or succession.`,
     evidence: presentationEvidence('terminal-presentation:jomon-deck-plan'),
     contentDomain: 'player-facing-text',
     contentSafety: baseClassification()
@@ -860,7 +865,10 @@ export const validateTerminalMapLegend = (map: TerminalMaterializedMap, value: u
 }
 
 const orderedStatus = (world: FoundationWorld, map: TerminalMaterializedMap): readonly TerminalStatusItem[] => canonicalById([
-  statusItem('terminal-status:courier', world.state.courier.activeCourierId ? 'ready' : 'waiting', { kind: 'courier-selection', selected: Boolean(world.state.courier.initialCourierId) }, currentWorldEvidence('world-state:courier', world.state.temporal.worldTime)),
+  statusItem('terminal-status:courier', world.state.courier.activeCourierId ? 'ready' : world.state.courier.initialCourierId ? 'warning' : 'waiting', {
+    kind: 'courier-selection',
+    state: world.state.courier.activeCourierId ? 'active' : world.state.courier.initialCourierId ? 'crew-extinct' : 'awaiting-initial'
+  }, currentWorldEvidence('world-state:courier', world.state.temporal.worldTime)),
   statusItem('terminal-status:focus', world.state.navigation.coordinate === undefined ? 'waiting' : 'ready', { kind: 'deck-focus', ...(world.state.navigation.coordinate === undefined ? {} : { courierId: world.state.navigation.courierId, coordinate: structuredClone(world.state.navigation.coordinate) }) }, currentWorldEvidence('world-state:navigation', world.state.temporal.worldTime)),
   statusItem('terminal-status:map', 'neutral', { kind: 'jomon-deck-materialized', cells: staticCellsFor(map) }, presentationEvidence('terminal-presentation:jomon-deck-plan-status')),
   statusItem('terminal-status:provenance', 'neutral', { kind: 'creation-provenance', seed: world.manifest.creation.seed, digest: world.manifest.creation.digest }, presentationEvidence('world-manifest:creation')),
@@ -968,6 +976,35 @@ const createJomonDeckContextualPromptForVerifiedWorld = (world: FoundationWorld)
         requiresConfirmation: false,
         nonColorCue: terminalNonColorCueFor('neutral'),
         accessibilityText: 'Select an initial courier before a local contextual operation can be available.'
+      }],
+      cancellation: { key: 'Escape', outcome: 'cancelled-no-mutation', advancesWorldTime: false }
+    }
+    const diagnostics = validateTerminalPrompt(prompt)
+    if (diagnostics.length) throw new TerminalPresentationContractError(diagnostics)
+    return prompt
+  }
+  if (world.state.courier.activeCourierId === undefined) {
+    const prompt: TerminalFuturePrompt = {
+      id: `terminal-prompt:jomon-deck:${world.id}`,
+      kind: 'future-contextual-choice',
+      accessibilityText: 'No active courier remains after crew-extinction. The read-only chronicle has no contextual operation; Escape cancels without mutation.',
+      evidence: {
+        source: { kind: 'household-state', recordId: 'world-state:courier' },
+        recordedAtWorldTime: world.state.temporal.worldTime,
+        knownAtWorldTime: world.state.temporal.worldTime,
+        freshness: { kind: 'current' }
+      },
+      contentDomain: 'player-facing-text',
+      contentSafety: baseClassification(),
+      options: [{
+        id: `terminal-prompt-option:jomon-deck:${world.id}`,
+        key: 'Enter',
+        availability: 'disabled',
+        disabledReason: 'requires-future-domain-rule',
+        intent: 'future-contextual-action',
+        requiresConfirmation: false,
+        nonColorCue: terminalNonColorCueFor('neutral'),
+        accessibilityText: 'Crew-extinction leaves no active courier or contextual operation.'
       }],
       cancellation: { key: 'Escape', outcome: 'cancelled-no-mutation', advancesWorldTime: false }
     }
@@ -1243,7 +1280,7 @@ export const validateTerminalPresentationProjection = (
     const statusValue = record(candidate) && record(candidate.value) ? candidate.value : undefined
     const focusIsValid = statusValue?.kind !== 'deck-focus' || (hasOnlyKeys(statusValue, statusValue.coordinate === undefined ? ['kind'] : ['kind', 'courierId', 'coordinate']) && (statusValue.coordinate === undefined || (typeof statusValue.courierId === 'string' && validId(statusValue.courierId) && record(statusValue.coordinate) && hasOnlyKeys(statusValue.coordinate, ['column', 'row']) && safeInteger(statusValue.coordinate.column) && safeInteger(statusValue.coordinate.row))))
     const provenanceIsValid = statusValue?.kind !== 'creation-provenance' || (hasOnlyKeys(statusValue, ['kind', 'seed', 'digest']) && typeof statusValue.seed === 'string' && statusValue.seed.length > 0 && typeof statusValue.digest === 'string' && statusValue.digest.length > 0)
-    if (!record(candidate) || !hasOnlyKeys(candidate, ['id', 'state', 'paletteToken', 'nonColorCue', 'value', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety']) || !validId(candidate.id) || !oneOf(TERMINAL_PRESENTATION_STATES, candidate.state) || !paletteToken(candidate.paletteToken) || candidate.paletteToken !== TERMINAL_STATE_PRESENTATIONS[candidate.state].paletteToken || !validCue(candidate.nonColorCue, candidate.state) || !statusValue || !hasOnlyKeys(statusValue, statusValue.kind === 'courier-selection' ? ['kind', 'selected'] : statusValue.kind === 'world-minute' ? ['kind', 'minutes'] : statusValue.kind === 'jomon-deck-materialized' ? ['kind', 'cells'] : statusValue.kind === 'deck-focus' ? statusValue.coordinate === undefined ? ['kind'] : ['kind', 'courierId', 'coordinate'] : statusValue.kind === 'creation-provenance' ? ['kind', 'seed', 'digest'] : ['kind']) || !oneOf(['jomon-deck-materialized', 'courier-selection', 'world-minute', 'deck-focus', 'creation-provenance'] as const, statusValue.kind) || (statusValue.kind === 'jomon-deck-materialized' && (!safeInteger(statusValue.cells) || statusValue.cells === 0)) || (statusValue.kind === 'courier-selection' && typeof statusValue.selected !== 'boolean') || (statusValue.kind === 'world-minute' && !safeInteger(statusValue.minutes)) || !focusIsValid || !provenanceIsValid || !validText(candidate.accessibilityText) || validateTerminalEvidence(candidate.evidence).length) diagnostics.push(issue(id, 'terminal-presentation.invalid-model'))
+  if (!record(candidate) || !hasOnlyKeys(candidate, ['id', 'state', 'paletteToken', 'nonColorCue', 'value', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety']) || !validId(candidate.id) || !oneOf(TERMINAL_PRESENTATION_STATES, candidate.state) || !paletteToken(candidate.paletteToken) || candidate.paletteToken !== TERMINAL_STATE_PRESENTATIONS[candidate.state].paletteToken || !validCue(candidate.nonColorCue, candidate.state) || !statusValue || !hasOnlyKeys(statusValue, statusValue.kind === 'courier-selection' ? ['kind', 'state'] : statusValue.kind === 'world-minute' ? ['kind', 'minutes'] : statusValue.kind === 'jomon-deck-materialized' ? ['kind', 'cells'] : statusValue.kind === 'deck-focus' ? statusValue.coordinate === undefined ? ['kind'] : ['kind', 'courierId', 'coordinate'] : statusValue.kind === 'creation-provenance' ? ['kind', 'seed', 'digest'] : ['kind']) || !oneOf(['jomon-deck-materialized', 'courier-selection', 'world-minute', 'deck-focus', 'creation-provenance'] as const, statusValue.kind) || (statusValue.kind === 'jomon-deck-materialized' && (!safeInteger(statusValue.cells) || statusValue.cells === 0)) || (statusValue.kind === 'courier-selection' && !oneOf(['awaiting-initial', 'active', 'crew-extinct'] as const, statusValue.state)) || (statusValue.kind === 'world-minute' && !safeInteger(statusValue.minutes)) || !focusIsValid || !provenanceIsValid || !validText(candidate.accessibilityText) || validateTerminalEvidence(candidate.evidence).length) diagnostics.push(issue(id, 'terminal-presentation.invalid-model'))
     if (statusIds.has(id)) diagnostics.push(issue(id, 'terminal-presentation.invalid-model'))
     statusIds.add(id)
   }

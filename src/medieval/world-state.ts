@@ -643,7 +643,9 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
     : context.crew.some(member => member.id === initialCourierId && member.eligible)
   const canonicalDepartures = context.crew.filter(member => departedCourierIds.includes(member.id)).map(member => member.id)
   const departuresValid = currentCourierContract
-    ? Array.isArray(value.courier?.departedCourierIds)
+    ? initialCourierId === undefined
+      ? value.courier?.departedCourierIds === undefined
+      : Array.isArray(value.courier?.departedCourierIds)
       && departedCourierIds.length === canonicalDepartures.length
       && departedCourierIds.every((id, index) => id === canonicalDepartures[index])
       && departedCourierIds.every(id => context.crew.some(member => member.id === id && member.eligible))

@@ -107,7 +107,7 @@ describe('Jomon deck navigation', () => {
 
     const legacy = v13Envelope(selected)
     const upgraded = upgradeFoundationWorldV13(legacy)
-    expect(upgraded).toMatchObject({ version: 14, state: { version: 13, courier: { version: 2, initialCourierId: selected.state.courier.initialCourierId, activeCourierId: selected.state.courier.initialCourierId }, navigation: { courierId: selected.state.courier.initialCourierId, coordinate: { column: 4, row: 4 } } } })
+    expect(upgraded).toMatchObject({ version: 14, state: { version: 14, courier: { version: 3, initialCourierId: selected.state.courier.initialCourierId, activeCourierId: selected.state.courier.initialCourierId, departedCourierIds: [] }, navigation: { courierId: selected.state.courier.initialCourierId, coordinate: { column: 4, row: 4 } } } })
     expect(upgraded.id).toBe(selected.id)
     expect(upgraded.manifest).toEqual(selected.manifest)
     expect(validateFoundationWorld(upgraded)).toEqual([])
