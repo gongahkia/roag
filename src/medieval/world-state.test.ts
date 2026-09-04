@@ -109,7 +109,9 @@ describe('versioned medieval mutable world state', () => {
     const state = structuredClone(world.state)
     const before = structuredClone(state)
 
-    expect(validateMedievalWorldState({ ...contextFor(world), crew }, state).map(issue => issue.code)).toContain('initial-household.non-reproducible-roster')
+    const diagnostics = validateMedievalWorldState({ ...contextFor(world), crew }, state).map(issue => issue.code)
+    expect(diagnostics).toContain('persistent-person.invalid-relationship')
+    expect(diagnostics).not.toContain('initial-household.non-reproducible-roster')
     expect(state).toEqual(before)
   })
 

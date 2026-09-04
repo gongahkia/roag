@@ -4,7 +4,7 @@ import { FRONTIER_CONTRACT_VERSION, createInitialFrontierState, frontierContentR
 import { generationConfigurationFingerprint, generationRetryPlan, isReproducibleGenerationDiagnostics, resolveWorldGenerationConfig, type WorldGenerationConfig, type WorldGenerationConfigIssue, type WorldGenerationConfigRequest } from './generation-config'
 import { INITIAL_WORLD_GENERATION_DIAGNOSTICS_VERSION, INITIAL_WORLD_GENERATOR_VERSION, generateInitialWorld, initialWorldContentRecords, isInitialWorld, type InitialWorld, type InitialWorldGenerationDiagnostics, type InitialWorldGenerationProgressObserver } from './initial-world'
 import { normalizeCreationSeed } from './settings'
-import { createInitialHousehold, initialHouseholdActiveCrew, initialHouseholdContentRecords, validateInitialHouseholdRoster } from './initial-household'
+import { createInitialHousehold, initialHouseholdActiveCrew, initialHouseholdContentRecords, validateInitialHouseholdRoster, validateInitialHouseholdStructure } from './initial-household'
 import { advanceMedievalTemporalState, createMedievalTemporalState, isMedievalTemporalState, type TemporalCommand, type TemporalProvenance, type TimeBearingTemporalAction } from './temporal'
 import { causalReplayProjectionForWorldState, createMedievalWorldState, isMedievalWorldState, WORLD_DECK_NAVIGATION_STATE_VERSION, type MedievalWorldState, type WorldAutonomyState, type WorldDeckNavigationState, type WorldDelegationState, type WorldPeopleState, type WorldSocialMemoryState } from './world-state'
 import { createFidelityPlanForVerifiedWorld } from './fidelity'
@@ -436,8 +436,7 @@ export const foundationWorldContentSatisfiesSafetyPolicy = (world: FoundationWor
   try {
     const staticState = expectedFoundationState(world.manifest.creation.seed, world.manifest.creation.resolvedConfiguration)
     if (!staticState) return false
-    return validateInitialHouseholdRoster({ seed: world.manifest.creation.seed, configurationFingerprint: world.manifest.creation.configurationFingerprint }, world.crew).length === 0
-      && equivalent(world.jomon, staticState.jomon)
+    return equivalent(world.jomon, staticState.jomon)
       && equivalent(world.crew, staticState.crew)
       && contentSafetyAuditMatches(foundationContentRecords(world.manifest.creation.labelContentSafety, world.jomon, world.crew, staticState.causalHistory, world.initialWorld, staticState.frontier), world.manifest.creation.contentSafetyAudit)
   } catch { return false }
@@ -811,7 +810,7 @@ export const replayFoundationWorldCausalHistory = (world: FoundationWorld): Caus
  */
 export const foundationWorldCausalHistoryMatches = (world: FoundationWorld): boolean => {
   try {
-    if (validateInitialHouseholdRoster({ seed: world.manifest.creation.seed, configurationFingerprint: world.manifest.creation.configurationFingerprint }, world.crew).length) return false
+    if (validateInitialHouseholdStructure(world.crew).length) return false
     const context = causalHistoryContextFor(world)
     if (world.state.causalHistory.checkpoint.sequence === 0) {
       const genesisTemporal = createMedievalTemporalState(temporalProvenanceForCreation(world.manifest.creation))

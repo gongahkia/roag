@@ -109,6 +109,11 @@ export const INITIAL_HOUSEHOLD_HISTORY_BY_ROLE: Readonly<Record<CrewRole, readon
 const relationshipBases: readonly CrewRelationship['basis'][] = ['kinship', 'work', 'debt', 'friendship', 'rivalry']
 const canonicalRosterIds = Array.from({ length: INITIAL_HOUSEHOLD_ROSTER_SIZE }, (_, index) => `crew:${index}`)
 const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+const hasOnlyKeys = (value: Record<string, unknown>, expected: readonly string[]): boolean => {
+  const keys = Object.keys(value).sort()
+  const expectedKeys = [...expected].sort()
+  return keys.length === expectedKeys.length && keys.every((key, index) => key === expectedKeys[index])
+}
 const same = (left: unknown, right: unknown): boolean => JSON.stringify(left) === JSON.stringify(right)
 const compare = (left: string, right: string): number => left === right ? 0 : left < right ? -1 : 1
 const issue = (recordId: string, code: InitialHouseholdValidationCode): InitialHouseholdValidationIssue => ({ recordId, code })
@@ -204,6 +209,7 @@ export const validateInitialHouseholdStructure = (value: unknown): readonly Init
   roster.forEach((member, index) => {
     const expectedId = rosterIdAt(index)
     const memberId = typeof member.id === 'string' ? member.id : `initial-household:${index}`
+    if (!hasOnlyKeys(member, ['id', 'name', 'contentSafety', 'role', 'conversation', 'equipment', 'history', 'historyContentSafety', 'relationships', 'eligible'])) issues.push(issue(memberId, 'initial-household.malformed-household'))
     if (member.id !== expectedId) issues.push(issue(memberId, knownIds.has(member.id as string) ? 'initial-household.noncanonical-roster-order' : 'initial-household.invalid-roster-id'))
     if (typeof member.name !== 'string' || !member.name || member.name !== member.name.trim() || member.name.length > 96 || !/^[A-Za-z]+ [A-Za-z]+$/u.test(member.name)) issues.push(issue(memberId, 'initial-household.invalid-name'))
     else if (names.has(member.name)) issues.push(issue(memberId, 'initial-household.duplicate-name'))
@@ -226,7 +232,7 @@ export const validateInitialHouseholdStructure = (value: unknown): readonly Init
     const targets = new Set<string>()
     const expectedTargets = roster.map(candidate => candidate.id).filter((id): id is string => typeof id === 'string' && id !== member.id)
     member.relationships.forEach((link, relationshipIndex) => {
-      if (!record(link) || typeof link.personId !== 'string' || !memberIds.has(link.personId) || link.personId === member.id || targets.has(link.personId)
+      if (!record(link) || !hasOnlyKeys(link, ['personId', 'standing', 'basis']) || typeof link.personId !== 'string' || !memberIds.has(link.personId) || link.personId === member.id || targets.has(link.personId)
         || link.personId !== expectedTargets[relationshipIndex]
         || ![-2, -1, 0, 1, 2].includes(link.standing as number)
         || !relationshipBases.includes(link.basis as CrewRelationship['basis'])) issues.push(issue(memberId, 'initial-household.invalid-relationship'))

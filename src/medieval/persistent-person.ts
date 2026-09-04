@@ -2,7 +2,7 @@ import { auditMedievalContentSafety, classifyMedievalContent, type ClassifiedMed
 import type { FrontierNamedPersonCommitment, FrontierState } from './frontier'
 import type { InitialWorld } from './initial-world'
 import { SeededRng } from './rng'
-import { validateInitialHouseholdRoster, type InitialHouseholdValidationCode } from './initial-household'
+import { validateInitialHouseholdStructure, type InitialHouseholdValidationCode } from './initial-household'
 import type { CrewRole, FoundationCrewMember, FoundationJomon } from './types'
 
 /**
@@ -533,7 +533,7 @@ const validatePerson = (candidate: PersistentPersonRecord, context: PersistentPe
 /** Pure, fail-closed validation for the bounded mutable person registry. */
 export const validatePersistentPeople = (context: PersistentPersonValidationContext, value: unknown): readonly PersistentPersonValidationIssue[] => {
   const issues: PersistentPersonValidationIssue[] = []
-  issues.push(...validateInitialHouseholdRoster({ seed: context.seed, configurationFingerprint: context.configurationFingerprint }, context.crew)
+  issues.push(...validateInitialHouseholdStructure(context.crew)
     .map(diagnostic => issue(diagnostic.recordId, diagnostic.code)))
   if (!Array.isArray(value)) return [issue('persistent-people', 'persistent-person.malformed-record')]
   if (value.length > PERSISTENT_PERSON_LIMITS.records) issues.push(issue('persistent-people', 'persistent-person.budget-exceeded'))

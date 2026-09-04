@@ -249,7 +249,9 @@ describe('persistent medieval people', () => {
     const people = structuredClone(world.state.people.records)
     const before = structuredClone(people)
 
-    expect(validatePersistentPeople({ ...contextFor(world), crew }, people).map(issue => issue.code)).toContain('initial-household.non-reproducible-roster')
+    const diagnostics = validatePersistentPeople({ ...contextFor(world), crew }, people).map(issue => issue.code)
+    expect(diagnostics).toContain('persistent-person.invalid-identity')
+    expect(diagnostics).not.toContain('initial-household.non-reproducible-roster')
     expect(people).toEqual(before)
   })
 

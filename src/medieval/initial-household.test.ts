@@ -76,6 +76,12 @@ describe('initial household contract', () => {
     ;(unsafe[0]!.historyContentSafety.exclusions as unknown as Record<string, string>).torture = 'present'
     const unclassified = structuredClone(household.roster)
     unclassified[0]!.contentSafety = undefined as never
+    const unexpectedMemberField = structuredClone(household.roster)
+    ;(unexpectedMemberField[0] as unknown as Record<string, unknown>).unexpected = true
+    const missingMemberField = structuredClone(household.roster)
+    delete (missingMemberField[0] as unknown as Record<string, unknown>).history
+    const unexpectedRelationshipField = structuredClone(household.roster)
+    ;(unexpectedRelationshipField[0]!.relationships[0] as unknown as Record<string, unknown>).unexpected = true
 
     expect(validateInitialHouseholdStructure(malformed).map(issue => issue.code)).toContain('initial-household.invalid-roster-size')
     expect(validateInitialHouseholdRoster({ seed: 'other household rejection', configurationFingerprint: context.configurationFingerprint }, household.roster).map(issue => issue.code)).toEqual(['initial-household.non-reproducible-roster'])
@@ -84,6 +90,9 @@ describe('initial household contract', () => {
     expect(validateInitialHouseholdRoster({ seed: context.seed, configurationFingerprint: context.configurationFingerprint }, changedName).map(issue => issue.code)).toEqual(['initial-household.non-reproducible-roster'])
     expect(validateInitialHouseholdStructure(unsafe).map(issue => issue.code)).toContain('content-safety.prohibited.torture')
     expect(validateInitialHouseholdStructure(unclassified).map(issue => issue.code)).toContain('content-safety.missing-classification')
+    expect(validateInitialHouseholdStructure(unexpectedMemberField).map(issue => issue.code)).toContain('initial-household.malformed-household')
+    expect(validateInitialHouseholdStructure(missingMemberField).map(issue => issue.code)).toContain('initial-household.malformed-household')
+    expect(validateInitialHouseholdStructure(unexpectedRelationshipField).map(issue => issue.code)).toContain('initial-household.invalid-relationship')
   })
 
   it('is a zero-time, no-hidden-data projection and does not select or mutate a courier', () => {
