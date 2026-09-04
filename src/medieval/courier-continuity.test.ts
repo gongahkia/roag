@@ -115,9 +115,11 @@ describe('courier continuity', () => {
     const before = structuredClone(source)
     const stale = { ...confirmationFor(source, 'death'), atWorldTime: source.state.temporal.worldTime + 1 }
     const wrongCourier = { ...confirmationFor(source, 'departure'), courierId: 'crew:1', id: courierContinuityConfirmationIdFor('departure', 'crew:1', source.state.temporal.worldTime) }
+    const unsafe = { ...confirmationFor(source, 'death'), contentSafety: classifyMedievalContent('event', ['sexual-violence'], 'adults-only') }
 
     expect(() => resolveCourierContinuityLoss(source, stale)).toThrow('courier continuity rejected')
     expect(() => resolveCourierContinuityLoss(source, wrongCourier)).toThrow('courier continuity rejected')
+    expect(() => resolveCourierContinuityLoss(source, unsafe)).toThrow('courier continuity rejected')
     expect(source).toEqual(before)
   })
 

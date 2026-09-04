@@ -392,7 +392,7 @@ export const upgradeFoundationWorldV14 = (value: unknown): FoundationWorld => {
   if (selectedCourierId === undefined
     ? navigation.courierId !== undefined || navigation.coordinate !== undefined
     : activeCourierId === undefined || navigation.courierId !== activeCourierId || navigation.coordinate === undefined || !isWalkableJomonDeckCoordinate(legacy as unknown as FoundationWorld, navigation.coordinate)) throw new Error('foundation world v14 navigation is invalid')
-  const checkpoint = legacy.state.causalHistory.checkpoint.projection
+  const checkpoint = legacy.state.causalHistory.checkpoint.projection as unknown as { courier: { version: number; initialCourierId?: string; activeCourierId?: string }; navigation?: WorldDeckNavigationState } & Omit<CausalReplayProjection, 'courier' | 'navigation'>
   const checkpointInitialCourierId = checkpoint.courier.initialCourierId
   const checkpointActiveCourierId = checkpoint.courier.version === 2 ? checkpoint.courier.activeCourierId : checkpointInitialCourierId
   const checkpointNavigation = checkpoint.navigation

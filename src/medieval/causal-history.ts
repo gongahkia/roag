@@ -368,8 +368,10 @@ const validProjectionCourier = (value: unknown): boolean => {
   if (!record(value) || !(hasOnlyKeys(value, ['version']) || hasOnlyKeys(value, ['version', 'initialCourierId', 'activeCourierId', 'departedCourierIds']) || hasOnlyKeys(value, ['version', 'initialCourierId', 'departedCourierIds'])) || value.version !== 3) return false
   if ((value.initialCourierId !== undefined && !validId(value.initialCourierId)) || (value.activeCourierId !== undefined && !validId(value.activeCourierId))) return false
   if (value.initialCourierId === undefined) return value.activeCourierId === undefined
-  if (!Array.isArray(value.departedCourierIds) || !value.departedCourierIds.every(item => validId(item)) || new Set(value.departedCourierIds).size !== value.departedCourierIds.length || !value.departedCourierIds.every((item, index) => index === 0 || String(value.departedCourierIds[index - 1]) < String(item))) return false
-  return value.activeCourierId === undefined || !value.departedCourierIds.includes(value.activeCourierId)
+  const departedCourierIds = value.departedCourierIds
+  if (!Array.isArray(departedCourierIds)) return false
+  if (!departedCourierIds.every(item => validId(item)) || new Set(departedCourierIds).size !== departedCourierIds.length || !departedCourierIds.every((item, index) => index === 0 || String(departedCourierIds[index - 1]) < String(item))) return false
+  return value.activeCourierId === undefined || !departedCourierIds.includes(value.activeCourierId)
 }
 
 const projectionShape = (value: unknown): value is CausalReplayProjection => record(value)
