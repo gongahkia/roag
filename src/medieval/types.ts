@@ -2,7 +2,7 @@ import type { GenerationDiagnostics, WorldGenerationConfig, WorldGenerationConfi
 import type { MedievalContentSafetyAudit, MedievalContentSafetyClassification } from './content-safety'
 import type { InitialWorld, InitialWorldGenerationDiagnostics } from './initial-world'
 import type { FrontierCausalAnchor, FrontierConnection, FrontierCoordinate, FrontierRegionKind } from './frontier'
-import type { LegacyMedievalWorldStateV11, LegacyMedievalWorldStateV12, MedievalWorldState } from './world-state'
+import type { LegacyMedievalWorldStateV11, LegacyMedievalWorldStateV12, LegacyMedievalWorldStateV13, MedievalWorldState } from './world-state'
 
 export const FOUNDATION_GENERATOR_VERSION = 'foundation-2' as const
 export const FOUNDATION_MANIFEST_VERSION = 6 as const
@@ -170,6 +170,12 @@ export interface LegacyFoundationWorldV13 extends Omit<FoundationWorld, 'version
 export interface LegacyFoundationWorldV14 extends Omit<FoundationWorld, 'state'> {
   version: 14
   state: LegacyMedievalWorldStateV12
+}
+
+/** Read-only v14/v13 envelope accepted only by the courier-continuity upgrader. */
+export interface LegacyFoundationWorldV14V13 extends Omit<FoundationWorld, 'state'> {
+  version: 14
+  state: LegacyMedievalWorldStateV13
 }
 
 export type ChronicleReason = 'jomon-loss' | 'crew-extinction'

@@ -115,7 +115,6 @@ const canonical = (values: readonly string[]): boolean => values.every((value, i
 const diagnostic = (recordId: string, code: CourierContinuityDiagnostic['code']): CourierContinuityDiagnostic => ({ recordId, code })
 const canonicalDiagnostics = (diagnostics: readonly CourierContinuityDiagnostic[]): readonly CourierContinuityDiagnostic[] => [...new Map(diagnostics.map(item => [`${item.recordId}\u0000${item.code}`, item])).values()]
   .sort((left, right) => compare(left.recordId, right.recordId) || compare(left.code, right.code))
-const sameCoordinate = (left: { column: number; row: number }, right: { column: number; row: number }): boolean => left.column === right.column && left.row === right.row
 
 /** The ID is derived solely from the bounded outcome subject and canonical minute. */
 export const courierContinuityConfirmationIdFor = (outcome: CourierLossOutcome, courierId: string, atWorldTime: number): string => `courier-loss:${outcome}:${courierId}:${atWorldTime}`
@@ -188,22 +187,23 @@ export const assessCourierContinuityLoss = (value: CourierContinuityAssessmentRe
   if (!record(value) || !hasOnlyKeys(value, ['version', 'peopleContext', 'people', 'courier', 'navigation', 'confirmation'])) {
     throw new CourierContinuityContractError([diagnostic('courier-continuity:request', 'courier-continuity.malformed-request')])
   }
-  const request = value as CourierContinuityAssessmentRequest
+  const request = value as unknown as CourierContinuityAssessmentRequest
+  const rawConfirmation: unknown = value.confirmation
   const issues: CourierContinuityDiagnostic[] = []
   if (request.version !== COURIER_CONTINUITY_CONTRACT_VERSION) issues.push(diagnostic('courier-continuity:request', 'courier-continuity.invalid-contract-version'))
   if (!validCourierState(request.courier)) issues.push(diagnostic('world-state:courier', 'courier-continuity.invalid-courier-state'))
   if (!validNavigation(request.navigation)) issues.push(diagnostic('world-state:navigation', 'courier-continuity.invalid-navigation'))
-  if (!validConfirmation(request.confirmation)) {
-    const candidate = record(request.confirmation) && typeof request.confirmation.id === 'string' ? request.confirmation.id : 'courier-loss:confirmation'
+  if (!validConfirmation(rawConfirmation)) {
+    const candidate = record(rawConfirmation) && typeof rawConfirmation.id === 'string' ? rawConfirmation.id : 'courier-loss:confirmation'
     issues.push(diagnostic(candidate, 'courier-continuity.invalid-confirmation'))
-    if (record(request.confirmation) && typeof request.confirmation.id === 'string' && (!validId(request.confirmation.id, 'courier-loss:') || request.confirmation.id !== courierContinuityConfirmationIdFor(request.confirmation.outcome as CourierLossOutcome, String(request.confirmation.courierId), request.confirmation.atWorldTime as number))) issues.push(diagnostic(candidate, 'courier-continuity.invalid-confirmation-id'))
-    if (record(request.confirmation) && request.confirmation.atWorldTime !== request.peopleContext?.worldTime) issues.push(diagnostic(candidate, 'courier-continuity.invalid-confirmation-time'))
-    if (record(request.confirmation) && Array.isArray(request.confirmation.evidenceIds)) {
-      if (new Set(request.confirmation.evidenceIds).size !== request.confirmation.evidenceIds.length) issues.push(diagnostic(candidate, 'courier-continuity.duplicate-evidence'))
-      if (!canonical(request.confirmation.evidenceIds.filter((item): item is string => typeof item === 'string'))) issues.push(diagnostic(candidate, 'courier-continuity.noncanonical-evidence-order'))
+    if (record(rawConfirmation) && typeof rawConfirmation.id === 'string' && (!validId(rawConfirmation.id, 'courier-loss:') || rawConfirmation.id !== courierContinuityConfirmationIdFor(rawConfirmation.outcome as CourierLossOutcome, String(rawConfirmation.courierId), rawConfirmation.atWorldTime as number))) issues.push(diagnostic(candidate, 'courier-continuity.invalid-confirmation-id'))
+    if (record(rawConfirmation) && rawConfirmation.atWorldTime !== request.peopleContext?.worldTime) issues.push(diagnostic(candidate, 'courier-continuity.invalid-confirmation-time'))
+    if (record(rawConfirmation) && Array.isArray(rawConfirmation.evidenceIds)) {
+      if (new Set(rawConfirmation.evidenceIds).size !== rawConfirmation.evidenceIds.length) issues.push(diagnostic(candidate, 'courier-continuity.duplicate-evidence'))
+      if (!canonical(rawConfirmation.evidenceIds.filter((item): item is string => typeof item === 'string'))) issues.push(diagnostic(candidate, 'courier-continuity.noncanonical-evidence-order'))
     } else issues.push(diagnostic(candidate, 'courier-continuity.invalid-evidence'))
-    if (record(request.confirmation) && (!record(request.confirmation.contentSafety) || request.confirmation.contentSafety.participantScope !== 'adults-only')) issues.push(diagnostic(candidate, 'courier-continuity.child-related-input'))
-    if (record(request.confirmation) && request.confirmation.contentSafety !== undefined && validateMedievalContentSafety([{ id: candidate, domain: 'event', classification: request.confirmation.contentSafety }]).status === 'rejected') issues.push(diagnostic(candidate, 'courier-continuity.invalid-content-safety'))
+    if (record(rawConfirmation) && (!record(rawConfirmation.contentSafety) || rawConfirmation.contentSafety.participantScope !== 'adults-only')) issues.push(diagnostic(candidate, 'courier-continuity.child-related-input'))
+    if (record(rawConfirmation) && rawConfirmation.contentSafety !== undefined && validateMedievalContentSafety([{ id: candidate, domain: 'event', classification: rawConfirmation.contentSafety }]).status === 'rejected') issues.push(diagnostic(candidate, 'courier-continuity.invalid-content-safety'))
   }
 
   try {

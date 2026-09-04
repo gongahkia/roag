@@ -7,7 +7,7 @@ import { isDelegationInterruptionInput, isDelegationOfferInput, type DelegationI
 import type { PersistentPersonRecord } from './persistent-person'
 import type { AutonomyState } from './autonomy'
 import type { SocialMemoryState } from './social-memory'
-import type { CourierContinuityConfirmation } from './courier-continuity'
+import { courierContinuityConfirmationIdFor, type CourierContinuityConfirmation } from './courier-continuity'
 
 /**
  * The global mutable command journal. Domain-local temporal and catch-up
@@ -38,7 +38,7 @@ export interface CausalHistoryCourierProjection {
   version: 3
   initialCourierId?: string
   activeCourierId?: string
-  departedCourierIds: readonly string[]
+  departedCourierIds?: readonly string[]
 }
 
 /** Read-only v4 projection accepted only while rebasing a valid older envelope. */
@@ -333,6 +333,7 @@ const commandPayloadIsShaped = (kind: CausalCommandKind, value: unknown): boolea
       && confirmation.kind === 'confirmed-courier-continuity-loss'
       && (confirmation.outcome === 'death' || confirmation.outcome === 'departure')
       && validId(confirmation.id)
+      && confirmation.id === courierContinuityConfirmationIdFor(confirmation.outcome, confirmation.courierId, confirmation.atWorldTime)
       && validId(confirmation.courierId)
       && safeInteger(confirmation.atWorldTime)
       && Array.isArray(evidenceIds)

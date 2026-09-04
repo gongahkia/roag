@@ -80,7 +80,7 @@ export const assessTavernCourierSwitchForVerifiedWorld = (world: FoundationWorld
   if (!initialCourierId) throw new TavernCourierSwitchContractError([issue('world-state:courier', 'tavern-courier-switch.invalid-initial-courier')])
   if (!activeCourierId) throw new TavernCourierSwitchContractError([issue('world-state:courier', 'tavern-courier-switch.invalid-active-courier')])
   const household = initialHouseholdActiveCrew(world.crew)
-  const departed = new Set(projection.courier.departedCourierIds)
+  const departed = new Set(projection.courier.departedCourierIds ?? [])
   const current = household.find(candidate => candidate.id === activeCourierId)
   const people = new Map(projection.people.records.map(person => [person.id, person]))
   if (!current || departed.has(activeCourierId) || !switchable(people.get(activeCourierId))) throw new TavernCourierSwitchContractError([issue(`person:${activeCourierId}`, 'tavern-courier-switch.invalid-current-person')])

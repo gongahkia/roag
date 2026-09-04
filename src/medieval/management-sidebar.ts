@@ -212,6 +212,7 @@ const factContentRecords = (facts: readonly ManagementSidebarFact[]): readonly C
 const commandTime = (world: FoundationWorld, command: CausalCommandEvent): number | undefined => {
   if (command.kind === 'initial-courier-selected') return 0
   if (command.kind === 'tavern-courier-switched') return world.state.temporal.worldTime
+  if (command.kind === 'courier-loss-resolved') return command.payload.confirmation.atWorldTime
   if (command.kind === 'time-bearing-action') return world.state.temporal.causalRecords.find(record => record.kind === 'action-completed' && record.actionId === command.payload.action.id)?.atWorldTime
   if (command.kind === 'durable-jomon-growth') return command.payload.evidence.atWorldTime
   if (command.kind === 'delegation-offered') return world.state.delegation.tasks.find(task => task.offerId === command.payload.offer.id)?.offeredAtWorldTime
