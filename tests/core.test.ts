@@ -417,9 +417,9 @@ describe('public voting flow', () => {
   });
 }); */
 
-describe('automatic course shuffle', () => {
+describe('legacy automatic course shuffle', () => {
   it('shuffles a reproducible opening course and opens directly on the tee', () => {
-    const config = { ...defaultConfig(), seed: 'shuffle-seed', holeCount: 3, humanCount: 2, botCount: 1 };
+    const config = { ...defaultConfig(), seed: 'shuffle-seed', ruleset: 'party' as const, holeCount: 3, humanCount: 2, botCount: 1 };
     const first = createGame(config);
     const second = createGame(config);
     expect(first.status).toBe('playing');
@@ -432,7 +432,7 @@ describe('automatic course shuffle', () => {
   });
 
   it('uses the already shuffled next course after the clubhouse', () => {
-    let game = createGame({ ...defaultConfig(), seed: 'preplanned-holes', holeCount: 2, humanCount: 1, botCount: 0 });
+    let game = createGame({ ...defaultConfig(), seed: 'preplanned-holes', ruleset: 'party', holeCount: 2, humanCount: 1, botCount: 0 });
     game.players[0]!.ball.complete = true;
     game.players[0]!.ball.strokes = 1;
     game = applyCommand(game, { type: 'shoot', shot: { angle: 0, power: 1 } });
@@ -596,7 +596,7 @@ describe('turns, shared rules, and bots', () => {
   }, 30_000);
 
   it('scores each resolved hole and finishes after the configured ninth hole', () => {
-    let game = resolveDie(createGame({ ...defaultConfig(), seed: 'nine-hole', ruleset: 'party', humanCount: 1, botCount: 0 }));
+    let game = resolveDie(createGame({ ...defaultConfig(), seed: 'nine-hole', ruleset: 'party', holeCount: 9, humanCount: 1, botCount: 0 }));
     for (let hole = 1; hole <= 9; hole += 1) {
       game.players[0]!.ball.complete = true;
       game.players[0]!.ball.strokes = 1;

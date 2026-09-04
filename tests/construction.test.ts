@@ -63,4 +63,14 @@ describe('Coursewright construction', () => {
     expect(completed.map((candidate) => candidate.id)).toContain(contract.id);
     expect(contract).toMatchObject({ completed: true, revealed: true });
   });
+
+  it('starts the next hole as a fresh deterministic shell instead of opening the legacy merchant', () => {
+    let state = finishBuild(createGame(coursewrightConfig('next-shell')));
+    state.players.forEach((player) => { player.ball.complete = true; player.ball.strokes = 2; });
+    state = applyCommand(state, { type: 'shoot', shot: { angle: 0, power: 1 } });
+    expect(state).toMatchObject({ hole: 2, status: 'building' });
+    expect(state.shop).toBeUndefined();
+    expect(state.course.buildSockets?.every((socket) => !socket.pieceId)).toBe(true);
+    expect(state.construction?.placementIndex).toBe(0);
+  });
 });
