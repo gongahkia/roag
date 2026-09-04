@@ -6,9 +6,9 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { COURSE_TRANSITION_DURATION_MS } from '../src/core/campaign';
 import { applyCommand, botMove, createGame, defaultConfig, tickTurn } from '../src/core/game';
 import { CONTENT_BY_ID } from '../src/core/catalog';
-import { normalizeGameState } from '../src/core/game-state';
+import { cloneGameState, normalizeGameState } from '../src/core/game-state';
 import { chooseBotShopOffer } from '../src/core/shop';
-import type { CaddyId, Emote, GameCommand, GameState, PowerUp } from '../src/core/types';
+import type { BuildPieceId, CaddyId, Emote, GameCommand, GameState, PowerUp } from '../src/core/types';
 import type { ClientMessage, LobbyConfig, LobbyMember, RoomClock, RoomSnapshot, ServerMessage } from '../src/net/protocol';
 
 const port = Number(process.env.PORT ?? 8787);
@@ -80,6 +80,7 @@ const passphraseMatches = (passphrase: string, encoded: string | undefined) => {
 };
 const powerUps = new Set([...CONTENT_BY_ID.values()].filter((definition) => definition.category !== 'caddy' && definition.category !== 'reality').map((definition) => definition.id));
 const emotes = new Set(['cheer', 'taunt', 'panic', 'wow', 'gg']);
+const buildPieces = new Set<BuildPieceId>(['bank', 'spring', 'bridge', 'gate', 'splitter', 'cushion']);
 
 const safeName = (value: unknown) => typeof value === 'string' && value.trim().length >= 1 && value.trim().length <= 16 ? value.trim().replace(/[^a-zA-Z0-9 _-]/g, '') : undefined;
 const safePassphrase = (value: unknown) => typeof value === 'string' && value.trim().length >= 4 && value.trim().length <= 128 ? value : undefined;
@@ -93,13 +94,14 @@ const validConfig = (value: unknown): LobbyConfig | undefined => {
   const courseWidth = source.courseWidth === undefined ? 20 : Number(source.courseWidth);
   const courseHeight = source.courseHeight === undefined ? 14 : Number(source.courseHeight);
   const botSkill = source.botSkill === 'adaptive' ? 'adaptive' : Number(source.botSkill);
-  const ruleset = source.ruleset === 'custom' ? 'custom' : 'party';
-  if (!Number.isInteger(holeCount) || holeCount < 1 || holeCount > 18 || !Number.isInteger(botCount) || botCount < 0 || botCount > 4 || !Number.isInteger(maxHumans) || maxHumans < 1 || maxHumans > 8 || maxHumans + botCount > 12 || !Number.isSafeInteger(courseWidth) || courseWidth < 14 || !Number.isSafeInteger(courseHeight) || courseHeight < 10 || !Number.isSafeInteger(courseWidth * courseHeight) || courseWidth * courseHeight > maxCourseTiles || (botSkill !== 'adaptive' && (!Number.isInteger(botSkill) || botSkill < 1 || botSkill > 10))) return undefined;
+  const ruleset = source.ruleset === 'custom' ? 'custom' : source.ruleset === 'party' ? 'party' : 'coursewright';
+  if (!Number.isInteger(holeCount) || holeCount < 1 || holeCount > 18 || !Number.isInteger(botCount) || botCount < 0 || botCount > 4 || !Number.isInteger(maxHumans) || maxHumans < 1 || maxHumans > 8 || maxHumans + botCount > 12 || (ruleset === 'coursewright' && (maxHumans + botCount < 2 || maxHumans + botCount > 4)) || !Number.isSafeInteger(courseWidth) || courseWidth < 14 || !Number.isSafeInteger(courseHeight) || courseHeight < 10 || !Number.isSafeInteger(courseWidth * courseHeight) || courseWidth * courseHeight > maxCourseTiles || (botSkill !== 'adaptive' && (!Number.isInteger(botSkill) || botSkill < 1 || botSkill > 10))) return undefined;
   return { seed, holeCount, botCount, botSkill, maxHumans, courseWidth, courseHeight, ruleset };
 };
 const validCommand = (value: unknown): GameCommand | undefined => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
   const source = value as Record<string, unknown>;
+  if (source.type === 'place-build-piece' && typeof source.pieceId === 'string' && buildPieces.has(source.pieceId as BuildPieceId) && typeof source.socketId === 'string' && /^socket-\d+-\d+$/.test(source.socketId)) return { type: 'place-build-piece', pieceId: source.pieceId as BuildPieceId, socketId: source.socketId };
   if (source.type === 'shoot' && source.shot && typeof source.shot === 'object') {
     const shot = source.shot as Record<string, unknown>;
     const kind = shot.kind === 'chip' ? 'chip' : shot.kind === undefined || shot.kind === 'putt' ? 'putt' : undefined;
@@ -130,13 +132,24 @@ const validCommand = (value: unknown): GameCommand | undefined => {
   return undefined;
 };
 
-const publicRoom = (room: StoredRoom): RoomSnapshot => ({
+const gameForViewer = (game: GameState | undefined, viewerId: string | undefined) => {
+  if (!game) return undefined;
+  const visible = cloneGameState(game);
+  if (visible.construction) {
+    visible.construction.contracts = visible.construction.contracts.map((contract) => contract.ownerId === viewerId || contract.revealed
+      ? contract
+      : { ...contract, kind: undefined, label: undefined, description: undefined, hidden: true });
+  }
+  return visible;
+};
+
+const publicRoom = (room: StoredRoom, viewerId?: string): RoomSnapshot => ({
   code: room.code,
   hostId: room.hostId,
   config: room.config,
   members: room.members.map((member) => ({ ...member, connected: [...sessions].some((session) => session.roomCode === room.code && session.playerId === member.id && session.socket.readyState === WebSocket.OPEN) })),
   phase: room.phase,
-  game: room.game,
+  game: gameForViewer(room.game, viewerId),
   updatedAt: room.updatedAt,
 });
 
@@ -150,8 +163,9 @@ const send = (session: Session, message: ServerMessage) => {
 };
 
 const broadcast = (room: StoredRoom) => {
-  const message: ServerMessage = { type: 'room-state', room: publicRoom(room) };
-  sessions.forEach((session) => { if (session.roomCode === room.code) send(session, message); });
+  sessions.forEach((session) => {
+    if (session.roomCode === room.code) send(session, { type: 'room-state', room: publicRoom(room, session.playerId) });
+  });
 };
 
 const clockFor = (room: StoredRoom): RoomClock | undefined => {
@@ -160,7 +174,7 @@ const clockFor = (room: StoredRoom): RoomClock | undefined => {
   return {
     roomCode: room.code,
     status: game.status,
-    turnSecondsLeft: game.status === 'playing' ? game.turn.secondsLeft : undefined,
+    turnSecondsLeft: game.status === 'playing' || game.status === 'building' ? game.turn.secondsLeft : undefined,
     hazardElapsedMs: game.hazardElapsedMs,
   };
 };
@@ -269,6 +283,24 @@ const scheduleAutomation = (room: StoredRoom) => {
     }, 550);
     return;
   }
+  if (game.status === 'building') {
+    const builder = game.players[game.turn.playerIndex];
+    const pieceId = builder ? game.construction?.hands[builder.id]?.[0] : undefined;
+    const socketId = game.course.buildSockets?.find((socket) => !socket.pieceId)?.id;
+    if (!builder || builder.kind !== 'bot' || !pieceId || !socketId || current.botFor === `build:${builder.id}`) return;
+    if (current.botTimeout) clearTimeout(current.botTimeout);
+    current.botFor = `build:${builder.id}`;
+    current.botTimeout = setTimeout(() => {
+      current.botTimeout = undefined;
+      current.botFor = undefined;
+      const latest = rooms.get(room.code);
+      if (!latest?.game || latest.game.status !== 'building' || latest.game.paused || latest.game.players[latest.game.turn.playerIndex]?.id !== builder.id) return;
+      const latestPiece = latest.game.construction?.hands[builder.id]?.[0];
+      const latestSocket = latest.game.course.buildSockets?.find((socket) => !socket.pieceId)?.id;
+      if (latestPiece && latestSocket) updateGame(latest, applyCommand(latest.game, { type: 'place-build-piece', pieceId: latestPiece, socketId: latestSocket }));
+    }, 450);
+    return;
+  }
   if (game.status !== 'playing') return;
   const bot = game.players[game.turn.playerIndex];
   if (!bot || bot.kind !== 'bot' || current.botFor === `shot:${bot.id}`) return;
@@ -304,6 +336,10 @@ const commandAllowed = (room: StoredRoom, session: Session, command: GameCommand
   if (command.type === 'shop-buy' || command.type === 'shop-sell-caddy' || command.type === 'shop-skip') {
     if (command.playerId !== session.playerId) return 'you can only act for your own golfer';
     if (game.status !== 'shopping' || game.shop?.buyerOrder[game.shop.buyerIndex] !== session.playerId) return 'it is not your merchant turn';
+    return undefined;
+  }
+  if (command.type === 'place-build-piece') {
+    if (game.status !== 'building' || !active || active.id !== session.playerId || active.kind !== 'human') return 'it is not your construction turn';
     return undefined;
   }
   if (!active || active.id !== session.playerId || active.kind !== 'human') return 'it is not your turn';
