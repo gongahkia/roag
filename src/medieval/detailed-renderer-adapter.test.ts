@@ -18,9 +18,14 @@ import {
 import { createManagementSidebarModel } from './management-sidebar'
 import { defaultTerminalControlPreferences } from './terminal-controls'
 import { createJomonDeckContextualPrompt, createTerminalMapLegend, createTerminalPresentationModel, terminalNonColorCueFor, type TerminalMessage, type TerminalPresentationModel } from './terminal-presentation'
-import { chooseInitialCourier, createFoundationWorld } from './world'
+import { chooseInitialCourier, createFoundationWorld, moveFoundationWorldCourier } from './world'
 
 const selectedWorld = (seed: string = 'detailed-renderer-adapter') => chooseInitialCourier(createFoundationWorld({ seed, configuration: { preset: 'watershed' } }), 'crew:0')
+const moved = (world: ReturnType<typeof selectedWorld>, direction: Parameters<typeof moveFoundationWorldCourier>[1]) => {
+  const result = moveFoundationWorldCourier(world, direction)
+  if (result.status !== 'moved') throw new Error(`expected canonical ${direction} step`)
+  return result.world
+}
 
 const sourceBundle = (seed?: string): DetailedRendererSourceBundle => {
   const world = selectedWorld(seed)
@@ -198,6 +203,23 @@ describe('detailed renderer adapter contract', () => {
     expect((detailedPrompt.prompt as typeof terminalPrompt).ledger).toEqual(terminalPrompt.ledger)
     expect(model.interactionBoundary).toEqual({ sharesEffectiveCommandIds: true, promptCancellation: 'cancelled-no-mutation', executesInput: false, advancesWorldTime: false, mutatesWorld: false })
     expect(JSON.stringify(model)).not.toContain('initial:watershed')
+    expect(reportDetailedRendererParity(bundle, model)).toMatchObject({ status: 'accepted', diagnostics: [] })
+  })
+
+  it('forwards an exact bounded reserved vessel prompt without adding detailed-renderer authority', () => {
+    const chartWorld = moved(moved(moved(selectedWorld('detailed-reserved-chart-prompt'), 'east'), 'east'), 'east')
+    const terminal = createTerminalPresentationModel(chartWorld)
+    const bundle = createDetailedRendererSourceBundle({ version: 1, terminal, sidebar: createManagementSidebarModel(chartWorld), glyphCatalog: JOMON_ASCII_GLYPH_CATALOG, controls: defaultTerminalControlPreferences() })
+    const model = createDetailedRendererAdapterModel(bundle)
+    const terminalPrompt = terminal.prompts[0]
+    const detailedPrompt = model.prompts[0]
+    if (!terminalPrompt || terminalPrompt.kind !== 'vessel-prop-reserved' || !detailedPrompt) throw new Error('expected a reserved chart-table prompt')
+
+    expect(detailedPrompt.prompt).toEqual(terminalPrompt)
+    expect(detailedPrompt.metadata).toMatchObject({ sourceItemId: terminalPrompt.id, evidence: terminalPrompt.evidence, contentDomain: 'player-facing-text' })
+    expect(terminalPrompt).toMatchObject({ source: { propId: 'prop:chart-table', areaId: 'chart-table' }, operation: { proximity: 'at-anchor', availability: 'reserved', reason: 'route-comparison-not-implemented' } })
+    expect(JSON.stringify(detailedPrompt)).not.toContain('coordinate')
+    expect(model.interactionBoundary).toEqual({ sharesEffectiveCommandIds: true, promptCancellation: 'cancelled-no-mutation', executesInput: false, advancesWorldTime: false, mutatesWorld: false })
     expect(reportDetailedRendererParity(bundle, model)).toMatchObject({ status: 'accepted', diagnostics: [] })
   })
 

@@ -141,7 +141,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-world-id', worldId!)
   await expect(game).toHaveAttribute('data-persistence', 'saved')
   await expect(game).toHaveAttribute('aria-label', /Jomon foundation world .* active courier/)
-  await expect(game).toHaveAttribute('data-terminal-presentation-version', '9')
+  await expect(game).toHaveAttribute('data-terminal-presentation-version', '10')
   await expect(game).toHaveAttribute('data-terminal-map-state', 'materialized')
   await expect(game).toHaveAttribute('data-terminal-map-cell-count', '114')
   await expect(game).toHaveAttribute('data-terminal-static-map-cell-count', '113')
@@ -431,7 +431,7 @@ test('switches a selected courier only through the remappable tavern ledger oper
   await page.keyboard.press('k')
   await expect(game).toHaveAttribute('data-terminal-focus', '4,3')
   await page.keyboard.press('Enter')
-  await expect(game).toHaveAttribute('aria-label', /Courier switching is unavailable away from the task ledger anchor/i)
+  await expect(game).toHaveAttribute('aria-label', /No physical vessel prop is at the active courier's exact anchor.*Contextual operation is unavailable/i)
   await expect(game).not.toHaveAttribute('aria-label', /6 canonical household members in household order/i)
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-option-disabled')
@@ -462,6 +462,86 @@ test('switches a selected courier only through the remappable tavern ledger oper
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-route', 'world')
   await expect.poll(() => persistedCourier(worldId!)).toMatchObject({ worldTime: 2, actionSequence: 2, initialCourierId: 'crew:1', activeCourierId: 'crew:2', coordinate: { column: 4, row: 4 } })
+})
+
+test('opens remapped bounded chart-table and gangplank prompts through real keyboard movement', async ({ page }) => {
+  const persistedTemporal = async (worldId: string) => page.evaluate(async id => new Promise<{ worldTime: number; actionSequence: number }>((resolve, reject) => {
+    const request = indexedDB.open('jomon-medieval-worlds-v1')
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const database = request.result
+      const read = database.transaction('worlds', 'readonly').objectStore('worlds').get(id)
+      read.onerror = () => { database.close(); reject(read.error) }
+      read.onsuccess = () => {
+        const temporal = (read.result as { state?: { temporal?: { worldTime?: number; actionSequence?: number } } } | undefined)?.state?.temporal
+        database.close()
+        if (!temporal) return reject(new Error('saved contextual-prompt world was not available'))
+        resolve({ worldTime: temporal.worldTime ?? -1, actionSequence: temporal.actionSequence ?? -1 })
+      }
+    }
+  }), worldId)
+
+  await page.goto('/')
+  const game = page.locator('#game')
+  await game.click()
+  await page.keyboard.press('n')
+  await expect(game).toHaveAttribute('data-route', 'create-world')
+  for (let index = 0; index < 4; index++) await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'world-generation')
+  const worldId = await game.getAttribute('data-world-id')
+  await expect(worldId).toBeTruthy()
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'world-result')
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'choose-courier')
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'world')
+  await expect(game).toHaveAttribute('data-terminal-presentation-version', '10')
+
+  await page.keyboard.press('F2')
+  await expect(game).toHaveAttribute('data-terminal-selected-control', 'command-help')
+  await page.keyboard.press('ArrowDown')
+  await expect(game).toHaveAttribute('data-terminal-selected-control', 'contextual-prompt')
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('o')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'controls-binding-saved')
+  await page.keyboard.press('Escape')
+
+  const move = async (key: string, focus: string) => {
+    await page.keyboard.press(key)
+    await expect(game).toHaveAttribute('data-persistence', 'saved')
+    await expect(game).toHaveAttribute('data-terminal-focus', focus)
+  }
+  await move('l', '5,4')
+  await move('l', '6,4')
+  await move('l', '7,4')
+  const chartBefore = await persistedTemporal(worldId!)
+  await page.keyboard.press('o')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
+  await expect(game).toHaveAttribute('aria-label', /Chart table contextual prompt.*Route comparison is not yet implemented.*Enter reports the disabled option.*Escape cancels without mutation or world-time change/i)
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-option-disabled')
+  await page.keyboard.press('Escape')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-cancelled')
+  expect(await persistedTemporal(worldId!)).toEqual(chartBefore)
+
+  await move('h', '6,4')
+  await move('h', '5,4')
+  await move('h', '4,4')
+  await move('j', '4,5')
+  await move('h', '3,5')
+  const gangplankBefore = await persistedTemporal(worldId!)
+  await page.keyboard.press('o')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
+  await expect(game).toHaveAttribute('aria-label', /Gangplank contextual prompt.*Quay travel is not yet implemented.*Enter reports the disabled option.*Escape cancels without mutation or world-time change/i)
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-option-disabled')
+  await page.keyboard.press('Escape')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-cancelled')
+  expect(await persistedTemporal(worldId!)).toEqual(gangplankBefore)
 })
 
 test('keeps a missing-local-world diagnostic inside the fixed canvas panel', async ({ page }) => {

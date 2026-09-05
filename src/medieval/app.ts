@@ -692,7 +692,12 @@ export class MedievalApp {
       }
       case 'prompt-confirm': {
         const prompt = this.contextualPrompt
-        if (!prompt || prompt.kind !== 'tavern-courier-switch') return true
+        if (!prompt) return true
+        if (prompt.kind !== 'tavern-courier-switch') {
+          this.terminalInteractionOutcome = { kind: 'prompt-option-disabled', reason: prompt.options[0]?.disabledReason ?? 'requires-future-domain-rule' }
+          this.render()
+          return true
+        }
         if (prompt.options[0]?.availability !== 'available') {
           this.terminalInteractionOutcome = { kind: 'prompt-option-disabled', reason: prompt.options[0]?.disabledReason ?? 'requires-future-domain-rule' }
           this.render()
@@ -1063,6 +1068,16 @@ export class MedievalApp {
     if (this.worldOverlay === 'contextual-prompt') {
       const prompt = this.contextualPrompt
       if (!prompt) throw new Error('contextual prompt is unavailable')
+      if (prompt.kind === 'vessel-prop-reserved') {
+        const option = prompt.options[0]!
+        row(context, 2, `${prompt.label.toUpperCase()} // RESERVED`, palette[prompt.paletteToken], panel.x)
+        renderBoundedMedievalCanvasRows(context, 4, 4, `SOURCE ${prompt.source.propId.toUpperCase()} // ${prompt.source.areaId.toUpperCase()} // WORLD TIME ${prompt.evidence.knownAtWorldTime}`, palette.mutedText, panel.x, panel.width)
+        renderBoundedMedievalCanvasRows(context, 6, 8, prompt.accessibilityText, palette[prompt.paletteToken], panel.x, panel.width)
+        renderBoundedMedievalCanvasRows(context, 10, 11, `${prompt.nonColorCue.text} ${uppercase(prompt.operation.availability)} // ${uppercase(prompt.operation.reason ?? 'requires-future-domain-rule')}`, palette[prompt.paletteToken], panel.x, panel.width)
+        rule(context, 18, panel.x, panel.x + panel.width)
+        renderBoundedMedievalCanvasRows(context, 20, 22, outcome ?? `${option.nonColorCue.text} ENTER REPORTS UNAVAILABLE // ESC CANCELS // NO MUTATION OR TIME`, outcome?.startsWith('!') ? palette.warningText : palette.actionText, panel.x, panel.width)
+        return
+      }
       if (prompt.kind !== 'tavern-courier-switch') {
         row(context, 2, 'CONTEXTUAL PROMPT // UNAVAILABLE', palette.titleText, panel.x)
         renderBoundedMedievalCanvasRows(context, 4, 9, prompt.accessibilityText, palette.mutedText, panel.x, panel.width)

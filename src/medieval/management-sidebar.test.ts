@@ -3,7 +3,7 @@ import { assessCourierConversation } from './conversation'
 import { classifyMedievalContent } from './content-safety'
 import { DELEGATION_CONTRACT_VERSION, DELEGATION_TASK_DEFINITIONS, type DelegationOfferInput } from './delegation'
 import { MANAGEMENT_SIDEBAR_LIMITS, MANAGEMENT_SIDEBAR_SECTION_IDS, createManagementSidebarModel, managementSidebarAccessibleSummary, managementSidebarFreshnessLabel, validateManagementSidebarModel } from './management-sidebar'
-import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, offerFoundationWorldDelegatedTask } from './world'
+import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, moveFoundationWorldCourier, offerFoundationWorldDelegatedTask } from './world'
 
 const selectedWorld = (seed: string, preset: 'sheltered-reach' | 'watershed' | 'far-coast' = 'sheltered-reach') => chooseInitialCourier(createFoundationWorld({ seed, configuration: { preset } }), 'crew:0')
 const safety = () => classifyMedievalContent('event', ['adult-labour', 'civil-life'], 'adults-only', ['data'])
@@ -74,6 +74,17 @@ describe('management sidebar projection', () => {
     expect(model.sections.find(section => section.id === 'history')?.facts.some(item => item.value.kind === 'social-memory' && item.source.label === 'social-memory' && item.freshness.kind === 'timeless')).toBe(true)
     expect(model.sections.find(section => section.id === 'people-work')?.facts.some(item => item.value.kind === 'household-person-work' && item.value.autonomyChoice !== undefined)).toBe(true)
     expect(world).toEqual(before)
+  })
+
+  it('accepts current facts recorded after their initial discovery', () => {
+    const advanced = advanceFoundationWorldTime(selectedWorld('management-current-freshness'), wait('wait:sidebar-current-freshness', 1))
+    const result = moveFoundationWorldCourier(advanced, 'north')
+    if (result.status !== 'moved') throw new Error('expected a canonical movement step')
+    const world = result.world
+    const model = createManagementSidebarModel(world)
+
+    expect(model.sections.flatMap(section => section.facts).some(fact => fact.freshness.kind === 'current' && fact.recordedAtWorldTime > fact.discoveredAtWorldTime)).toBe(true)
+    expect(validateManagementSidebarModel(world, model)).toEqual([])
   })
 
   it('shows existing revealed frontier knowledge only and omits generated but undiscovered places, people, institutions, routes, counts, and commitments', () => {

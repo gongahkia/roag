@@ -29,10 +29,19 @@ import {
 } from './terminal-presentation'
 import { terminalGlyphCatalog } from './ascii-glyphs'
 import { deriveJomonDeckPlan } from './jomon-deck-plan'
-import { chooseInitialCourier, createFoundationWorld } from './world'
+import { chooseInitialCourier, createFoundationWorld, moveFoundationWorldCourier } from './world'
 import { initialHouseholdActiveCrew } from './initial-household'
 
 const selectedWorld = (seed: string) => chooseInitialCourier(createFoundationWorld({ seed, configuration: { preset: 'watershed' } }), 'crew:0')
+const moved = (world: ReturnType<typeof selectedWorld>, direction: Parameters<typeof moveFoundationWorldCourier>[1]) => {
+  const result = moveFoundationWorldCourier(world, direction)
+  if (result.status !== 'moved') throw new Error(`expected canonical ${direction} deck step`)
+  return result.world
+}
+const contextualPromptFixture = selectedWorld('terminal-contextual-prompt-fixture')
+const chartTablePromptWorld = moved(moved(moved(contextualPromptFixture, 'east'), 'east'), 'east')
+const gangplankPromptWorld = moved(moved(contextualPromptFixture, 'south'), 'west')
+const offPropPromptWorld = moved(contextualPromptFixture, 'north')
 const safety = (domain: 'place' | 'event' | 'player-facing-text' = 'player-facing-text') => classifyMedievalContent(domain, ['civil-life', 'navigation'], 'not-applicable', ['data'])
 
 const viewport: TerminalMapViewport = {
@@ -336,6 +345,75 @@ describe('terminal presentation contract', () => {
     expect(validateTerminalPrompt(forgedPrompt).map(item => item.code)).toContain('terminal-presentation.invalid-prompt')
 
     expect(world).toEqual(before)
+  })
+
+  it('routes a compact exact-anchor chart-table prompt without copying geometry', () => {
+    const chartWorld = chartTablePromptWorld
+    const chartBefore = structuredClone(chartWorld)
+    const chart = createJomonDeckContextualPrompt(chartWorld)
+    if (chart.kind !== 'vessel-prop-reserved') throw new Error('expected chart-table reserved prompt')
+
+    expect(chart).toMatchObject({
+      label: 'Chart table',
+      source: { propBindingId: 'deck-prop-binding:prop:chart-table', propId: 'prop:chart-table', propKind: 'table', areaId: 'chart-table' },
+      operation: { proximity: 'at-anchor', availability: 'reserved', reason: 'route-comparison-not-implemented' },
+      paletteToken: 'warningText', presentationState: 'warning', nonColorCue: terminalNonColorCueFor('warning'),
+      options: [expect.objectContaining({ key: 'Enter', availability: 'disabled', disabledReason: 'requires-future-domain-rule', intent: 'future-contextual-action', requiresConfirmation: false })],
+      cancellation: { key: 'Escape', outcome: 'cancelled-no-mutation', advancesWorldTime: false }
+    })
+    expect(validateTerminalPrompt(chart)).toEqual([])
+    expect(cancelTerminalPrompt(chart)).toMatchObject({ promptId: chart.id, outcome: 'cancelled-no-mutation', advancesWorldTime: false })
+    expect(JSON.stringify(chart)).not.toContain('coordinate')
+    expect(JSON.stringify(chart)).not.toContain(chartWorld.initialWorld.id)
+    expect(JSON.stringify(chart)).not.toContain(chartWorld.crew[0]!.name)
+    expect(chartWorld).toEqual(chartBefore)
+  })
+
+  it('routes the gangplank prompt and keeps off-prop context unavailable', () => {
+    const gangplankWorld = gangplankPromptWorld
+    const gangplank = createJomonDeckContextualPrompt(gangplankWorld)
+    if (gangplank.kind !== 'vessel-prop-reserved') throw new Error('expected gangplank reserved prompt')
+    expect(gangplank).toMatchObject({
+      label: 'Gangplank',
+      source: { propBindingId: 'deck-prop-binding:prop:gangplank', propId: 'prop:gangplank', propKind: 'gangplank', areaId: 'gangplank' },
+      operation: { proximity: 'at-anchor', availability: 'reserved', reason: 'quay-travel-not-implemented' }
+    })
+
+    const away = offPropPromptWorld
+    const unavailable = createJomonDeckContextualPrompt(away)
+    expect(unavailable).toMatchObject({
+      kind: 'future-contextual-choice',
+      evidence: { source: { kind: 'authoritative-record', recordId: 'world-state:navigation' } },
+      options: [expect.objectContaining({ availability: 'disabled', disabledReason: 'no-contextual-action-materialized', intent: 'future-contextual-action' })]
+    })
+    expect(JSON.stringify(unavailable)).not.toContain('task-ledger')
+    expect(JSON.stringify(unavailable)).not.toContain('chart-table')
+    expect(JSON.stringify(unavailable)).not.toContain('gangplank')
+  })
+
+  it('fails closed for forged reserved prompt identity, source, operation, evidence, option, semantic, and hidden data', () => {
+    const world = chartTablePromptWorld
+    const prompt = createJomonDeckContextualPrompt(world)
+    if (prompt.kind !== 'vessel-prop-reserved') throw new Error('expected chart-table reserved prompt')
+
+    const wrongSource = structuredClone(prompt)
+    wrongSource.source.propId = 'prop:task-ledger' as never
+    const forgedImplemented = structuredClone(prompt)
+    forgedImplemented.operation = { proximity: 'at-anchor', availability: 'implemented' }
+    const stale = structuredClone(prompt)
+    stale.evidence.freshness = { kind: 'timeless' }
+    const wrongOption = structuredClone(prompt)
+    wrongOption.options[0]!.key = 'Escape'
+    const wrongSemantic = structuredClone(prompt)
+    wrongSemantic.nonColorCue = terminalNonColorCueFor('ready')
+    const hidden = { ...structuredClone(prompt), coordinate: { column: 7, row: 4 } }
+    const unsafe = structuredClone(prompt)
+    ;(unsafe.contentSafety.exclusions as unknown as Record<string, string>).torture = 'present'
+
+    for (const forged of [wrongSource, forgedImplemented, stale, wrongOption, wrongSemantic, hidden]) {
+      expect(validateTerminalPrompt(forged).map(item => item.code)).toEqual(expect.arrayContaining(['terminal-presentation.invalid-prompt']))
+    }
+    expect(validateTerminalPrompt(unsafe).map(item => item.code)).toEqual(expect.arrayContaining(['content-safety.prohibited.torture']))
   })
 
   it('detects keyboard binding conflicts and distinguishes implemented deck controls from later-only prompt surfaces', () => {

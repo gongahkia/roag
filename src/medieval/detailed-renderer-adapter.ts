@@ -10,8 +10,8 @@ import type { JomonPaletteToken } from './palette'
  * renderer may only consume this already-permitted presentation bundle; it
  * never receives foundation state, persistence, or commands.
  */
-/** v3 forwards the consequential task-ledger availability/loss readout verbatim. */
-export const DETAILED_RENDERER_ADAPTER_CONTRACT_VERSION = 3 as const
+/** v4 forwards all consequential vessel contextual prompts verbatim. */
+export const DETAILED_RENDERER_ADAPTER_CONTRACT_VERSION = 4 as const
 export const DETAILED_RENDERER_SOURCE_BUNDLE_VERSION = 1 as const
 
 export const DETAILED_RENDERER_ADAPTER_LIMITS = {

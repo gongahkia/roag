@@ -814,8 +814,15 @@ Acceptance: the same world manifest recreates the same valid initial household; 
 
 #### 2.3 Physical vessel interactions
 
-- [-] Implement proximity/operation rules for every Phase 2 vessel prop.
-- [ ] Add compact contextual key-choice prompts, cancellation, keyboard remapping compatibility, and accessible text labels.
+- [x] Implement proximity/operation rules for every Phase 2 vessel prop.
+
+  Decision and compatibility (2026-09-05): `vessel-proximity-operation.ts` v1 is the pure renderer-independent owner of exact-anchor proximity and closed operation classification for the three canonical deck-plan bindings, in their existing order: chart table, gangplank, then task ledger. Its bounded public assessment exposes only source identity/kind/area, at-anchor state, closed availability, bounded reason, and safety classification. The chart table and gangplank are truthfully reserved for route comparison and quay travel respectively; the ledger remains the sole implemented operation. Tavern switching now consumes the shared ledger source/proximity assessment while retaining its existing candidate, causal, replay, persistence, zero-time, and terminal-v9 behavior. Strict validation fails closed for malformed or noncanonical bindings, assessments, active-courier/navigation correspondence, and unsafe content; it exposes no geometry, roster/person, persistence, replay, timer, or hidden-world data.
+
+  Compatibility: FoundationWorld v14, MedievalWorldState v14/courier v3, deck navigation v1, causal replay projection v6, manifest/save-envelope shapes, generation/RNG output, migrations, IndexedDB layout v4, terminal presentation v9, and detailed-renderer adapter v3 are unchanged. There is no new UI, operation, prop, deck geometry, persistent field, store, migration, cache, worker, or browser authority.
+
+  Verification (2026-09-05): focused proximity/deck-plan/tavern-switch/terminal coverage passed 27/27 tests in 4 files (29.94s), and the focused blocked-navigation invariant passed 1/1 (4 skipped; 2.62s). `npx vitest run src/medieval/*.test.ts --maxWorkers=1 --no-file-parallelism` did not pass: 317/330 tests passed in 42/48 files (660.60s), with 13 timeout-only failures and no assertion or TypeScript failure—delegation/social hardening (1), delegation (2), performance fixtures (1), persistent person (1), social memory (2), and storage (6). No timeout budget changed; the new proximity test passed in that serial run. `npm run build` passed TypeScript, Vite (178 modules), and bundle-size checks. Playwright was skipped because this pure rule slice does not change browser-visible behavior beyond preserving the existing ledger path. `npm run benchmark:medieval-foundation` was skipped because it changes neither persistence nor normal presentation/performance projection and reuses existing deck-plan derivation. Limitations remain deliberate: chart-table and gangplank operations/readouts are unavailable, and the broad timeout audit remains non-green.
+
+- [-] Add compact contextual key-choice prompts, cancellation, keyboard remapping compatibility, and accessible text labels.
 - [ ] Make the chart table, hold, repair space, stores, berths, galley, tavern, and gangplank each expose a distinct minimal action or readout.
 - [ ] Persist prop state and show action feedback in the message/status surfaces.
 

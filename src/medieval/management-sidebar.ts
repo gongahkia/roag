@@ -535,7 +535,7 @@ const validProjectionValue = (value: unknown): value is ManagementSidebarFactVal
   if (value.kind === 'delegated-task-risk') return hasOnlyKeys(value, ['kind', 'taskId', 'family', 'risk', 'status']) && ids(value.taskId) && validText(value.family) && oneOf(['low', 'guarded', 'high'] as const, value.risk) && oneOf(['offered', 'in-progress', 'completed', 'interrupted', 'refused'] as const, value.status)
   if (value.kind === 'no-known-active-risk') return hasOnlyKeys(value, ['kind'])
   if (value.kind === 'frontier-revealed-fact') return hasOnlyKeys(value, ['kind', 'regionId', 'subjectKind', 'subjectId', 'factKind', 'value']) && ids(value.regionId, value.subjectId) && validText(value.value) && oneOf(['region', 'site', 'route', 'person', 'institution'] as const, value.subjectKind) && oneOf(['region-name', 'site-name', 'route-link', 'person-name', 'person-role', 'person-relationship', 'institution-role', 'history-link'] as const, value.factKind)
-  if (value.kind === 'causal-command') return hasOnlyKeys(value, ['kind', 'sequence', 'commandKind']) && safeInteger(value.sequence) && oneOf(['initial-courier-selected', 'time-bearing-action', 'durable-jomon-growth', 'delegation-offered', 'delegation-interrupted'] as const, value.commandKind)
+  if (value.kind === 'causal-command') return hasOnlyKeys(value, ['kind', 'sequence', 'commandKind']) && safeInteger(value.sequence) && oneOf(['initial-courier-selected', 'tavern-courier-switched', 'courier-loss-resolved', 'time-bearing-action', 'deck-moved', 'durable-jomon-growth', 'delegation-offered', 'delegation-interrupted'] as const, value.commandKind)
   if (value.kind === 'compacted-history-segment') return hasOnlyKeys(value, ['kind', 'sequenceStart', 'sequenceEnd', 'worldTimeStart', 'worldTimeEnd', 'commandCount']) && safeInteger(value.sequenceStart) && safeInteger(value.sequenceEnd) && value.sequenceStart <= value.sequenceEnd && safeInteger(value.worldTimeStart) && safeInteger(value.worldTimeEnd) && value.worldTimeStart <= value.worldTimeEnd && safeInteger(value.commandCount)
   if (value.kind === 'social-memory') return hasOnlyKeys(value, ['kind', 'socialMemoryId', 'taskId', 'phase', 'disposition', 'significance', 'participantPersonIds']) && ids(value.socialMemoryId, value.taskId) && Array.isArray(value.participantPersonIds) && value.participantPersonIds.length === 2 && value.participantPersonIds.every(validId) && value.participantPersonIds[0] < value.participantPersonIds[1] && oneOf(['offer-accepted', 'offer-refused', 'task-completed', 'task-interrupted'] as const, value.phase) && oneOf(['cooperative', 'declined', 'interrupted'] as const, value.disposition) && oneOf(['routine', 'notable'] as const, value.significance)
   return false
@@ -549,7 +549,7 @@ const validProjectionFact = (value: unknown, sectionId: ManagementSidebarSection
   && validProjectionSource(value.source)
   && safeInteger(value.recordedAtWorldTime)
   && safeInteger(value.discoveredAtWorldTime)
-  && value.recordedAtWorldTime <= value.discoveredAtWorldTime
+  && value.discoveredAtWorldTime <= value.recordedAtWorldTime
   && validProjectionFreshness(value.freshness, value.discoveredAtWorldTime)
   && validProjectionValue(value.value)
   && value.kind === value.value.kind

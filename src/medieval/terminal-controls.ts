@@ -360,11 +360,11 @@ export const createTerminalCommandHelpModel = (preferences: TerminalControlPrefe
     const state = definition.operationalState === 'movement-available'
       ? 'Attempts one local deck step. A successful step advances one action minute; a blocked step changes no world state or time.'
       : definition.operationalState === 'opens-contextual-prompt'
-        ? 'Opens the contextual prompt. At the tavern task ledger it can switch the active courier; elsewhere it reports why switching is unavailable.'
+        ? 'Opens the source-backed contextual prompt. The tavern task ledger can switch the active courier; chart table and gangplank prompts are reserved and report their bounded unavailable domain.'
         : 'Operational browser UI control.'
     return { controlId: definition.id, label: definition.label, bindingText, operationalState: definition.operationalState, accessibilityText: `${definition.label}: ${bindingText}. ${state}` }
   })
-  return { entries, accessibilitySummary: `Command help. ${entries.length} remappable world controls. The static Jomon deck is visible; movement is local and collision-checked. The contextual control opens the source-backed tavern ledger courier-switch prompt when available.` }
+  return { entries, accessibilitySummary: `Command help. ${entries.length} remappable world controls. The static Jomon deck is visible; movement is local and collision-checked. The contextual control opens the source-backed prompt at the current physical prop: task ledger switching, or a bounded reserved chart-table or gangplank prompt.` }
 }
 
 export const createTerminalControlsEditorModel = (preferences: TerminalControlPreferences, selectedControlId: TerminalControlId, capturePending: boolean): TerminalControlsEditorModel => {

@@ -3,6 +3,7 @@ import { JOMON_ASCII_GLYPH_CATALOG, terminalGlyphCatalog, terminalGlyphReference
 import { INITIAL_HOUSEHOLD_EQUIPMENT_BY_ROLE, INITIAL_HOUSEHOLD_ROSTER_SIZE, initialHouseholdActiveCrew } from './initial-household'
 import { deriveJomonDeckPlan, deriveJomonDeckPlanForVerifiedWorld } from './jomon-deck-plan'
 import { assessTavernCourierSwitchForVerifiedWorld, type TavernCourierSwitchSource } from './tavern-courier-switch'
+import { assessVesselProximityOperationsForVerifiedWorld, type VesselProximityOperation, type VesselProximityOperationReason, type VesselProximityOperationSource } from './vessel-proximity-operation'
 import type { CourierLossResolvedCommand } from './causal-history'
 import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE, type JomonPaletteToken } from './palette'
 import {
@@ -40,8 +41,8 @@ export type {
  * future detailed adapter consume that same projection without omitting or
  * inventing consequential information.
  */
-/** v9 adds the source-backed physical task-ledger availability/loss readout. */
-export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 9 as const
+/** v10 adds source-backed reserved prompts for the chart table and gangplank. */
+export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 10 as const
 export const TERMINAL_MAP_LEGEND_CONTRACT_VERSION = 1 as const
 
 export const TERMINAL_PRESENTATION_LIMITS = {
@@ -230,6 +231,35 @@ export interface TerminalFuturePrompt {
   cancellation: { key: 'Escape'; outcome: 'cancelled-no-mutation'; advancesWorldTime: false }
 }
 
+/** A physical source and operation fact with no coordinate, map, or world-state copy. */
+export interface TerminalVesselPromptOperation {
+  proximity: 'at-anchor'
+  availability: 'implemented' | 'reserved'
+  reason?: Extract<VesselProximityOperationReason, 'route-comparison-not-implemented' | 'quay-travel-not-implemented'>
+}
+
+/**
+ * A compact, presentation-only prompt for an exact-anchor prop whose domain is
+ * intentionally reserved. The terminal owns the label; deck-plan geometry and
+ * operation policy remain with their existing owners.
+ */
+export interface TerminalReservedVesselPropPrompt {
+  id: string
+  kind: 'vessel-prop-reserved'
+  label: 'Chart table' | 'Gangplank'
+  accessibilityText: string
+  evidence: TerminalEvidenceProvenance
+  contentDomain: MedievalContentDomain
+  contentSafety: MedievalContentSafetyClassification
+  source: VesselProximityOperationSource
+  operation: TerminalVesselPromptOperation
+  paletteToken: JomonPaletteToken
+  presentationState: TerminalPresentationState
+  nonColorCue: TerminalNonColorCue
+  options: readonly TerminalPromptOption[]
+  cancellation: { key: 'Escape'; outcome: 'cancelled-no-mutation'; advancesWorldTime: false }
+}
+
 /** Deliberately bounded selection data copied from the immutable household view. */
 export interface TerminalCourierSwitchCandidate {
   id: string
@@ -297,6 +327,7 @@ export interface TerminalTavernCourierSwitchPrompt {
   contentDomain: MedievalContentDomain
   contentSafety: MedievalContentSafetyClassification
   source: TavernCourierSwitchSource
+  operation: TerminalVesselPromptOperation
   current: TerminalCourierSwitchCandidate
   candidates: readonly TerminalCourierSwitchCandidate[]
   /** Present only at the verified physical task-ledger anchor. */
@@ -305,7 +336,7 @@ export interface TerminalTavernCourierSwitchPrompt {
   cancellation: { key: 'Escape'; outcome: 'cancelled-no-mutation'; advancesWorldTime: false }
 }
 
-export type TerminalPrompt = TerminalFuturePrompt | TerminalTavernCourierSwitchPrompt
+export type TerminalPrompt = TerminalFuturePrompt | TerminalReservedVesselPropPrompt | TerminalTavernCourierSwitchPrompt
 
 export interface TerminalPromptCancellation {
   id: string
@@ -462,7 +493,7 @@ export const TERMINAL_KEYBOARD_COMMANDS: readonly TerminalKeyboardCommand[] = ca
   { id: 'controls-reset-current', availability: 'implemented', surface: 'remapping', contexts: ['world-controls-editor'], bindings: [key('R', 'ascii-case-insensitive')], accessibilityLabel: 'Reset the selected world control to its default' },
   { id: 'world-command-help', availability: 'implemented', surface: 'help', contexts: ['world'], bindings: [key('?')], accessibilityLabel: 'Open command help with current effective bindings' },
   { id: 'world-contextual-prompt', availability: 'implemented', surface: 'contextual-action', contexts: ['world'], bindings: [key('Enter')], accessibilityLabel: 'Open the current contextual prompt' },
-  { id: 'tavern-courier-switch-confirm', availability: 'implemented', surface: 'contextual-action', contexts: ['world-contextual-prompt'], bindings: [key('Enter')], accessibilityLabel: 'Confirm the selected available tavern-ledger courier switch; it is zero-time' },
+  { id: 'tavern-courier-switch-confirm', availability: 'implemented', surface: 'contextual-action', contexts: ['world-contextual-prompt'], bindings: [key('Enter')], accessibilityLabel: 'Confirm the selected available tavern-ledger courier switch, or report the current reserved contextual option as unavailable; this is zero-time' },
   { id: 'tavern-courier-switch-next', availability: 'implemented', surface: 'contextual-action', contexts: ['world-contextual-prompt'], bindings: [key('ArrowDown')], accessibilityLabel: 'Select the next switchable tavern-ledger courier candidate' },
   { id: 'tavern-courier-switch-previous', availability: 'implemented', surface: 'contextual-action', contexts: ['world-contextual-prompt'], bindings: [key('ArrowUp')], accessibilityLabel: 'Select the previous switchable tavern-ledger courier candidate' },
   { id: 'world-move-east', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('ArrowRight'), key('L', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt one known deck step east; blocked steps do not advance time' },
@@ -1146,71 +1177,110 @@ const ledgerReadoutForVerifiedWorld = (world: FoundationWorld): TerminalTavernLe
   }
 }
 
+const currentPromptEvidence = (recordId: string, worldMinute: number): TerminalEvidenceProvenance => ({
+  source: { kind: 'authoritative-record', recordId },
+  recordedAtWorldTime: worldMinute,
+  knownAtWorldTime: worldMinute,
+  freshness: { kind: 'current' }
+})
+
+const futureContextualPrompt = (
+  world: FoundationWorld,
+  recordId: string,
+  disabledReason: TerminalPromptDisabledReason,
+  accessibilityText: string
+): TerminalFuturePrompt => {
+  const prompt: TerminalFuturePrompt = {
+    id: `terminal-prompt:jomon-deck:${world.id}`,
+    kind: 'future-contextual-choice',
+    accessibilityText,
+    evidence: currentPromptEvidence(recordId, world.state.temporal.worldTime),
+    contentDomain: 'player-facing-text',
+    contentSafety: baseClassification(),
+    options: [{
+      id: `terminal-prompt-option:contextual-unavailable:${world.id}`,
+      key: 'Enter',
+      availability: 'disabled',
+      disabledReason,
+      intent: 'future-contextual-action',
+      requiresConfirmation: false,
+      nonColorCue: terminalNonColorCueFor('neutral'),
+      accessibilityText: 'This contextual option is unavailable. Enter reports the bounded unavailable result; Escape cancels without mutation.'
+    }],
+    cancellation: { key: 'Escape', outcome: 'cancelled-no-mutation', advancesWorldTime: false }
+  }
+  const diagnostics = validateTerminalPrompt(prompt)
+  if (diagnostics.length) throw new TerminalPresentationContractError(diagnostics)
+  return prompt
+}
+
+const vesselOperationForPrompt = (operation: VesselProximityOperation): TerminalVesselPromptOperation => {
+  if (operation.proximity !== 'at-anchor' || (operation.availability !== 'implemented' && operation.availability !== 'reserved')) {
+    throw new TerminalPresentationContractError([issue(operation.source.propId, 'terminal-presentation.invalid-prompt')])
+  }
+  if (operation.availability === 'implemented') {
+    if (operation.reason !== undefined || operation.source.propId !== 'prop:task-ledger') throw new TerminalPresentationContractError([issue(operation.source.propId, 'terminal-presentation.invalid-prompt')])
+    return { proximity: 'at-anchor', availability: 'implemented' }
+  }
+  if ((operation.source.propId === 'prop:chart-table' && operation.reason === 'route-comparison-not-implemented') || (operation.source.propId === 'prop:gangplank' && operation.reason === 'quay-travel-not-implemented')) {
+    return { proximity: 'at-anchor', availability: 'reserved', reason: operation.reason }
+  }
+  throw new TerminalPresentationContractError([issue(operation.source.propId, 'terminal-presentation.invalid-prompt')])
+}
+
+const reservedVesselPromptFor = (world: FoundationWorld, operation: VesselProximityOperation): TerminalReservedVesselPropPrompt => {
+  const promptOperation = vesselOperationForPrompt(operation)
+  if (promptOperation.availability !== 'reserved') throw new TerminalPresentationContractError([issue(operation.source.propId, 'terminal-presentation.invalid-prompt')])
+  const label = operation.source.propId === 'prop:chart-table' ? 'Chart table' : operation.source.propId === 'prop:gangplank' ? 'Gangplank' : undefined
+  if (!label) throw new TerminalPresentationContractError([issue(operation.source.propId, 'terminal-presentation.invalid-prompt')])
+  const unavailableText = promptOperation.reason === 'route-comparison-not-implemented'
+    ? 'Route comparison is not yet implemented.'
+    : 'Quay travel is not yet implemented.'
+  const prompt: TerminalReservedVesselPropPrompt = {
+    id: `terminal-prompt:jomon-deck:${world.id}`,
+    kind: 'vessel-prop-reserved',
+    label,
+    accessibilityText: `${label} contextual prompt. ${unavailableText} This exact physical source is reserved. Enter reports the disabled option; Escape cancels without mutation or world-time change.`,
+    evidence: currentPromptEvidence(operation.source.propBindingId, world.state.temporal.worldTime),
+    contentDomain: 'player-facing-text',
+    contentSafety: baseClassification(),
+    source: structuredClone(operation.source),
+    operation: promptOperation,
+    paletteToken: TERMINAL_STATE_PRESENTATIONS.warning.paletteToken,
+    presentationState: 'warning',
+    nonColorCue: terminalNonColorCueFor('warning'),
+    options: [{
+      id: `terminal-prompt-option:${operation.source.propId}:${world.id}`,
+      key: 'Enter',
+      availability: 'disabled',
+      disabledReason: 'requires-future-domain-rule',
+      intent: 'future-contextual-action',
+      requiresConfirmation: false,
+      nonColorCue: terminalNonColorCueFor('neutral'),
+      accessibilityText: `${label} is reserved. ${unavailableText} Enter reports unavailable; Escape cancels without mutation.`
+    }],
+    cancellation: { key: 'Escape', outcome: 'cancelled-no-mutation', advancesWorldTime: false }
+  }
+  const diagnostics = validateTerminalPrompt(prompt)
+  if (diagnostics.length) throw new TerminalPresentationContractError(diagnostics)
+  return prompt
+}
+
 /** Reuses complete world validation already performed by the presentation boundary. */
 const createJomonDeckContextualPromptForVerifiedWorld = (world: FoundationWorld): TerminalPrompt => {
   if (world.state.courier.initialCourierId === undefined) {
-    const prompt: TerminalFuturePrompt = {
-      id: `terminal-prompt:jomon-deck:${world.id}`,
-      kind: 'future-contextual-choice',
-      accessibilityText: 'Context prompt unavailable until initial courier selection completes. Escape cancels without mutation.',
-      evidence: {
-        source: { kind: 'authoritative-record', recordId: 'deck-prop-binding:prop:task-ledger' },
-        recordedAtWorldTime: world.state.temporal.worldTime,
-        knownAtWorldTime: world.state.temporal.worldTime,
-        freshness: { kind: 'current' }
-      },
-      contentDomain: 'player-facing-text',
-      contentSafety: baseClassification(),
-      options: [{
-        id: `terminal-prompt-option:jomon-deck:${world.id}`,
-        key: 'Enter',
-        availability: 'disabled',
-        disabledReason: 'missing-required-location',
-        intent: 'future-contextual-action',
-        requiresConfirmation: false,
-        nonColorCue: terminalNonColorCueFor('neutral'),
-        accessibilityText: 'Select an initial courier before a local contextual operation can be available.'
-      }],
-      cancellation: { key: 'Escape', outcome: 'cancelled-no-mutation', advancesWorldTime: false }
-    }
-    const diagnostics = validateTerminalPrompt(prompt)
-    if (diagnostics.length) throw new TerminalPresentationContractError(diagnostics)
-    return prompt
+    return futureContextualPrompt(world, 'world-state:courier', 'missing-required-location', 'Context prompt unavailable until initial courier selection completes. Escape cancels without mutation.')
   }
   if (world.state.courier.activeCourierId === undefined) {
-    const prompt: TerminalFuturePrompt = {
-      id: `terminal-prompt:jomon-deck:${world.id}`,
-      kind: 'future-contextual-choice',
-      accessibilityText: 'No active courier remains after crew-extinction. The read-only chronicle has no contextual operation; Escape cancels without mutation.',
-      evidence: {
-        source: { kind: 'household-state', recordId: 'world-state:courier' },
-        recordedAtWorldTime: world.state.temporal.worldTime,
-        knownAtWorldTime: world.state.temporal.worldTime,
-        freshness: { kind: 'current' }
-      },
-      contentDomain: 'player-facing-text',
-      contentSafety: baseClassification(),
-      options: [{
-        id: `terminal-prompt-option:jomon-deck:${world.id}`,
-        key: 'Enter',
-        availability: 'disabled',
-        disabledReason: 'requires-future-domain-rule',
-        intent: 'future-contextual-action',
-        requiresConfirmation: false,
-        nonColorCue: terminalNonColorCueFor('neutral'),
-        accessibilityText: 'Crew-extinction leaves no active courier or contextual operation.'
-      }],
-      cancellation: { key: 'Escape', outcome: 'cancelled-no-mutation', advancesWorldTime: false }
-    }
-    const diagnostics = validateTerminalPrompt(prompt)
-    if (diagnostics.length) throw new TerminalPresentationContractError(diagnostics)
-    return prompt
+    return futureContextualPrompt(world, 'world-state:courier', 'requires-future-domain-rule', 'No active courier remains after crew-extinction. The read-only chronicle has no contextual operation; Escape cancels without mutation.')
   }
+  const vesselAssessment = assessVesselProximityOperationsForVerifiedWorld(world, world.state)
+  const activeOperation = vesselAssessment.operations.find(operation => operation.proximity === 'at-anchor')
+  if (!activeOperation) return futureContextualPrompt(world, 'world-state:navigation', 'no-contextual-action-materialized', 'No physical vessel prop is at the active courier\'s exact anchor. Contextual operation is unavailable; Escape cancels without mutation.')
+  if (activeOperation.availability === 'reserved') return reservedVesselPromptFor(world, activeOperation)
+  if (activeOperation.source.propId !== 'prop:task-ledger') throw new TerminalPresentationContractError([issue(activeOperation.source.propId, 'terminal-presentation.invalid-prompt')])
   const assessment = assessTavernCourierSwitchForVerifiedWorld(world, world.state)
-  const atLedgerAnchor = world.state.navigation.coordinate?.column === assessment.source.coordinate.column
-    && world.state.navigation.coordinate?.row === assessment.source.coordinate.row
-    && world.state.navigation.courierId === world.state.courier.activeCourierId
-  const ledger = atLedgerAnchor ? ledgerReadoutForVerifiedWorld(world) : undefined
+  const ledger = ledgerReadoutForVerifiedWorld(world)
   const disabledReason = assessment.status === 'unavailable' ? assessment.reason : undefined
   const option: TerminalPromptOption = {
     id: `terminal-prompt-option:tavern-ledger:${world.id}`,
@@ -1241,6 +1311,7 @@ const createJomonDeckContextualPromptForVerifiedWorld = (world: FoundationWorld)
     contentDomain: 'player-facing-text',
     contentSafety: baseClassification(),
     source: structuredClone(assessment.source),
+    operation: vesselOperationForPrompt(activeOperation),
     current: promptCandidate(assessment.current),
     candidates: assessment.candidates.map(promptCandidate),
     ...(ledger === undefined ? {} : { ledger }),
@@ -1303,6 +1374,32 @@ const validTavernSource = (value: unknown): value is TavernCourierSwitchSource =
   && hasOnlyKeys(value, ['propBindingId', 'propId', 'areaId', 'coordinate'])
   && value.propBindingId === 'deck-prop-binding:prop:task-ledger' && value.propId === 'prop:task-ledger' && value.areaId === 'tavern'
   && record(value.coordinate) && hasOnlyKeys(value.coordinate, ['column', 'row']) && value.coordinate.column === 4 && value.coordinate.row === 4
+
+const reservedVesselDefinition = (value: unknown): { label: TerminalReservedVesselPropPrompt['label']; reason: Extract<VesselProximityOperationReason, 'route-comparison-not-implemented' | 'quay-travel-not-implemented'> } | undefined => {
+  if (!record(value) || !hasOnlyKeys(value, ['propBindingId', 'propId', 'propKind', 'areaId']) || typeof value.propBindingId !== 'string' || typeof value.propId !== 'string' || typeof value.propKind !== 'string' || typeof value.areaId !== 'string') return undefined
+  if (value.propBindingId === 'deck-prop-binding:prop:chart-table' && value.propId === 'prop:chart-table' && value.propKind === 'table' && value.areaId === 'chart-table') return { label: 'Chart table', reason: 'route-comparison-not-implemented' }
+  if (value.propBindingId === 'deck-prop-binding:prop:gangplank' && value.propId === 'prop:gangplank' && value.propKind === 'gangplank' && value.areaId === 'gangplank') return { label: 'Gangplank', reason: 'quay-travel-not-implemented' }
+  return undefined
+}
+
+const validVesselPromptOperation = (value: unknown, availability: 'implemented' | 'reserved', reason?: TerminalVesselPromptOperation['reason']): value is TerminalVesselPromptOperation => record(value)
+  && hasOnlyKeys(value, ['proximity', 'availability', 'reason'].filter(key => key !== 'reason' || Object.hasOwn(value, key)))
+  && value.proximity === 'at-anchor'
+  && value.availability === availability
+  && (availability === 'implemented' ? !Object.hasOwn(value, 'reason') : value.reason === reason)
+
+const validCurrentPromptEvidence = (value: unknown, sourceRecordId: string): boolean => record(value)
+  && validateTerminalEvidence(value).length === 0
+  && record(value.source)
+  && value.source.kind === 'authoritative-record'
+  && value.source.recordId === sourceRecordId
+  && value.recordedAtWorldTime === value.knownAtWorldTime
+  && record(value.freshness)
+  && value.freshness.kind === 'current'
+
+const promptWorldId = (id: string): string | undefined => id.startsWith('terminal-prompt:jomon-deck:')
+  ? id.slice('terminal-prompt:jomon-deck:'.length)
+  : undefined
 
 const ledgerMemberSemanticMatches = (member: Record<string, unknown>): boolean => {
   if (!oneOf(TERMINAL_TAVERN_LEDGER_MEMBER_STATUSES, member.status)) return false
@@ -1367,8 +1464,9 @@ export const validateTerminalTavernLedgerReadout = (value: unknown, includeConte
 
 export const validateTerminalPrompt = (value: unknown, includeContentSafety: boolean = true): readonly TerminalPresentationDiagnostic[] => {
   const baseKeys = ['id', 'kind', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety', 'options', 'cancellation']
-  const tavernKeys = [...baseKeys, 'source', 'current', 'candidates', ...(record(value) && Object.hasOwn(value, 'ledger') ? ['ledger'] : [])]
-  if (!record(value) || !hasOnlyKeys(value, value.kind === 'tavern-courier-switch' ? tavernKeys : baseKeys) || !validId(value.id) || (value.kind !== 'future-contextual-choice' && value.kind !== 'tavern-courier-switch') || !validText(value.accessibilityText) || !Array.isArray(value.options) || value.options.length > TERMINAL_PRESENTATION_LIMITS.promptOptions || !value.options.every(validPromptOption) || !record(value.cancellation) || !hasOnlyKeys(value.cancellation, ['key', 'outcome', 'advancesWorldTime']) || value.cancellation.key !== 'Escape' || value.cancellation.outcome !== 'cancelled-no-mutation' || value.cancellation.advancesWorldTime !== false) return [issue('terminal-prompt', 'terminal-presentation.invalid-prompt')]
+  const tavernKeys = [...baseKeys, 'source', 'operation', 'current', 'candidates', ...(record(value) && Object.hasOwn(value, 'ledger') ? ['ledger'] : [])]
+  const reservedKeys = [...baseKeys, 'label', 'source', 'operation', 'paletteToken', 'presentationState', 'nonColorCue']
+  if (!record(value) || !hasOnlyKeys(value, value.kind === 'tavern-courier-switch' ? tavernKeys : value.kind === 'vessel-prop-reserved' ? reservedKeys : baseKeys) || !validId(value.id) || (value.kind !== 'future-contextual-choice' && value.kind !== 'vessel-prop-reserved' && value.kind !== 'tavern-courier-switch') || !validText(value.accessibilityText) || !Array.isArray(value.options) || value.options.length > TERMINAL_PRESENTATION_LIMITS.promptOptions || !value.options.every(validPromptOption) || !record(value.cancellation) || !hasOnlyKeys(value.cancellation, ['key', 'outcome', 'advancesWorldTime']) || value.cancellation.key !== 'Escape' || value.cancellation.outcome !== 'cancelled-no-mutation' || value.cancellation.advancesWorldTime !== false) return [issue('terminal-prompt', 'terminal-presentation.invalid-prompt')]
   const evidence = validateTerminalEvidence(value.evidence)
   if (evidence.length || !record(value.evidence) || !record(value.evidence.source) || value.evidence.source.kind !== 'authoritative-record') return [issue(value.id, 'terminal-presentation.invalid-prompt')]
   const options = value.options as TerminalPromptOption[]
@@ -1380,6 +1478,12 @@ export const validateTerminalPrompt = (value: unknown, includeContentSafety: boo
     optionIds.add(option.id)
     keys.add(option.key)
   }
+  if (value.kind === 'vessel-prop-reserved') {
+    const definition = reservedVesselDefinition(value.source)
+    const worldId = promptWorldId(value.id)
+    const option = options[0]
+    if (!definition || value.label !== definition.label || !validVesselPromptOperation(value.operation, 'reserved', definition.reason) || value.paletteToken !== TERMINAL_STATE_PRESENTATIONS.warning.paletteToken || value.presentationState !== 'warning' || !validCue(value.nonColorCue, 'warning') || !validCurrentPromptEvidence(value.evidence, (value.source as VesselProximityOperationSource).propBindingId) || worldId === undefined || options.length !== 1 || !option || option.id !== `terminal-prompt-option:${(value.source as VesselProximityOperationSource).propId}:${worldId}` || option.key !== 'Enter' || option.availability !== 'disabled' || option.disabledReason !== 'requires-future-domain-rule' || option.intent !== 'future-contextual-action' || option.requiresConfirmation !== false || !validCue(option.nonColorCue, 'neutral')) diagnostics.push(issue(value.id, 'terminal-presentation.invalid-prompt'))
+  }
   if (value.kind === 'tavern-courier-switch') {
     const candidates = Array.isArray(value.candidates) && value.candidates.every(validCourierSwitchCandidate)
       ? value.candidates as TerminalCourierSwitchCandidate[]
@@ -1387,7 +1491,8 @@ export const validateTerminalPrompt = (value: unknown, includeContentSafety: boo
     const current = validCourierSwitchCandidate(value.current) ? value.current : undefined
     const ledger = Object.hasOwn(value, 'ledger') ? value.ledger : undefined
     const ledgerDiagnostics = ledger === undefined ? [] : validateTerminalTavernLedgerReadout(ledger, includeContentSafety)
-    if (!validTavernSource(value.source) || !current || !candidates || candidates.length > TERMINAL_PRESENTATION_LIMITS.promptOptions || candidates.some(candidate => candidate.id === current.id) || new Set(candidates.map(candidate => candidate.id)).size !== candidates.length || options.length !== 1 || options[0]!.intent !== 'tavern-courier-switch' || (options[0]!.availability === 'available' && (!options[0]!.requiresConfirmation || candidates.length === 0)) || (options[0]!.availability === 'disabled' && options[0]!.requiresConfirmation) || (record(value.evidence) && record(value.evidence.source) && value.evidence.source.recordId !== (value.source as TavernCourierSwitchSource).propBindingId)) diagnostics.push(issue(value.id, 'terminal-presentation.invalid-prompt'))
+    const worldId = promptWorldId(value.id)
+    if (!validTavernSource(value.source) || !validVesselPromptOperation(value.operation, 'implemented') || !current || !candidates || candidates.length > TERMINAL_PRESENTATION_LIMITS.promptOptions || candidates.some(candidate => candidate.id === current.id) || new Set(candidates.map(candidate => candidate.id)).size !== candidates.length || options.length !== 1 || options[0]!.id !== `terminal-prompt-option:tavern-ledger:${worldId}` || options[0]!.intent !== 'tavern-courier-switch' || (options[0]!.availability === 'available' && (!options[0]!.requiresConfirmation || candidates.length === 0)) || (options[0]!.availability === 'disabled' && options[0]!.requiresConfirmation) || !validCurrentPromptEvidence(value.evidence, (value.source as TavernCourierSwitchSource).propBindingId)) diagnostics.push(issue(value.id, 'terminal-presentation.invalid-prompt'))
     diagnostics.push(...ledgerDiagnostics)
     if (ledger !== undefined && !ledgerDiagnostics.length && current && candidates) {
       const members = (ledger as TerminalTavernLedgerReadout).members

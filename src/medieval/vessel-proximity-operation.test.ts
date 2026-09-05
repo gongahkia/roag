@@ -19,8 +19,11 @@ const moved = (world: ReturnType<typeof selectedWorld>, direction: Parameters<ty
   return result.world
 }
 
-const toChartTable = (world: ReturnType<typeof selectedWorld>) => moved(moved(moved(world, 'east'), 'east'), 'east')
-const toGangplank = (world: ReturnType<typeof selectedWorld>) => moved(moved(world, 'south'), 'west')
+/** The verified projection seam accepts only a valid active/navigation pair and derives walkability from the real plan. */
+const projectionAt = (world: ReturnType<typeof selectedWorld>, column: number, row: number) => ({
+  ...world.state,
+  navigation: { ...world.state.navigation, coordinate: { column, row } }
+})
 
 describe('vessel proximity and operation contract', () => {
   it('derives the three canonical bindings with only anchor-derived proximity and closed availability', () => {
@@ -60,8 +63,8 @@ describe('vessel proximity and operation contract', () => {
   })
 
   it('requires exact anchor occupancy and keeps reserved chart and gangplank domains bounded', () => {
-    const chart = toChartTable(selectedWorld('vessel-proximity-chart'))
-    const chartAssessment = assessVesselProximityOperations(chart, chart.state)
+    const chart = selectedWorld('vessel-proximity-chart')
+    const chartAssessment = assessVesselProximityOperationsForVerifiedWorld(chart, projectionAt(chart, 7, 4))
     expect(chartAssessment).toMatchObject({ activeAnchor: { status: 'at-prop-anchor', propId: 'prop:chart-table' } })
     expect(chartAssessment.operations.map(operation => [operation.source.propId, operation.proximity, operation.availability, operation.reason])).toEqual([
       ['prop:chart-table', 'at-anchor', 'reserved', 'route-comparison-not-implemented'],
@@ -69,22 +72,21 @@ describe('vessel proximity and operation contract', () => {
       ['prop:task-ledger', 'away-from-anchor', 'unavailable', 'not-at-prop-anchor']
     ])
 
-    const chartSameArea = moved(chart, 'south')
-    expect(assessVesselPropOperationForVerifiedWorld(chartSameArea, chartSameArea.state, 'prop:chart-table')).toMatchObject({
+    expect(assessVesselPropOperationForVerifiedWorld(chart, projectionAt(chart, 7, 5), 'prop:chart-table')).toMatchObject({
       proximity: 'away-from-anchor', availability: 'unavailable', reason: 'not-at-prop-anchor'
     })
 
-    const gangplank = toGangplank(selectedWorld('vessel-proximity-gangplank'))
-    expect(assessVesselPropOperationForVerifiedWorld(gangplank, gangplank.state, 'prop:gangplank')).toMatchObject({
+    const gangplank = selectedWorld('vessel-proximity-gangplank')
+    expect(assessVesselPropOperationForVerifiedWorld(gangplank, projectionAt(gangplank, 3, 5), 'prop:gangplank')).toMatchObject({
       proximity: 'at-anchor', availability: 'reserved', reason: 'quay-travel-not-implemented'
     })
   })
 
   it('returns a bounded no-prop result for adjacent and off-prop occupancy without mutating time or navigation', () => {
     const source = selectedWorld('vessel-proximity-no-prop')
-    const adjacent = moved(source, 'east')
-    const before = structuredClone(adjacent)
-    const assessment = assessVesselProximityOperations(adjacent, adjacent.state)
+    const before = structuredClone(source)
+    const projection = projectionAt(source, 5, 4)
+    const assessment = assessVesselProximityOperationsForVerifiedWorld(source, projection)
 
     expect(assessment.activeAnchor).toEqual({ status: 'no-prop-anchor' })
     expect(assessment.operations.map(operation => [operation.proximity, operation.availability, operation.reason])).toEqual([
@@ -92,8 +94,8 @@ describe('vessel proximity and operation contract', () => {
       ['away-from-anchor', 'unavailable', 'not-at-prop-anchor'],
       ['away-from-anchor', 'unavailable', 'not-at-prop-anchor']
     ])
-    expect(assessVesselPropOperationForVerifiedWorld(adjacent, adjacent.state, 'prop:task-ledger')).toMatchObject({ availability: 'unavailable', reason: 'not-at-prop-anchor' })
-    expect(adjacent).toEqual(before)
+    expect(assessVesselPropOperationForVerifiedWorld(source, projection, 'prop:task-ledger')).toMatchObject({ availability: 'unavailable', reason: 'not-at-prop-anchor' })
+    expect(source).toEqual(before)
   })
 
   it('fails closed for malformed active/navigation evidence, unknown props, and tampered deck-plan bindings without mutation', () => {
