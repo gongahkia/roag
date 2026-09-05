@@ -120,14 +120,14 @@ describe('terminal presentation contract', () => {
     expect(first.map.cells.filter(cell => cell.id === 'terminal-marker:active-courier')).toEqual([expect.objectContaining({ glyph: expect.objectContaining({ id: 'person:active-courier' }), coordinate: { column: 4, row: 4 }, paletteToken: 'selectedText', presentationState: 'ready', contentDomain: 'person' })])
     expect(first.map.cells.filter(cell => cell.id !== 'terminal-marker:active-courier')).toHaveLength(113)
     expect(first.map.cells.filter(cell => cell.coordinate.column === 4 && cell.coordinate.row === 4)).toHaveLength(2)
-    expect(first.map.accessibilityText).toMatch(/static Jomon deck map.*active courier marker.*full deck known.*tavern task ledger supports zero-time courier switching.*availability\/loss readout.*no cargo, other people, hazards, travel, rest, or conversation.*loss continuity is read-only/i)
+    expect(first.map.accessibilityText).toMatch(/static Jomon deck map.*active courier marker.*full deck known.*each exact physical station.*zero-time contextual readout.*tavern task ledger alone.*zero-time courier switching.*availability\/loss readout.*cargo contents, other people, hazards, travel, rest, and conversation.*loss continuity is read-only/i)
     expect(first.legend.entries.map(entry => entry.glyph.id)).toEqual([
       'person:active-courier', 'route:quay-approach', 'vessel:gangplank', 'vessel:hull-planking', 'vessel:open-deck'
     ])
     expect(first.legend.entries.map(entry => entry.id)).toEqual([...first.legend.entries.map(entry => entry.id)].sort())
     expect(first.legend.entries.every(entry => entry.accessibilityText.includes('Source ') && entry.accessibilityText.includes('known at world minute'))).toBe(true)
     expect(first.legend.movementText).toMatch(/successful local step advances one action minute.*blocked.*no world state or time/i)
-    expect(first.legend.limitationsText).toMatch(/fixed known deck.*tavern task ledger.*availability\/loss readout.*zero-time courier switch.*no cargo, NPC, hazard, travel, fog, rest, conversation, succession, or other prop action/i)
+    expect(first.legend.limitationsText).toMatch(/fixed known deck.*each exact station anchor.*zero-time bounded readout.*tavern task ledger.*zero-time courier switch.*no cargo contents, NPCs, hazards, travel, fog, rest, conversation, succession, or mutable prop action/i)
     expect(first.accessibility.legendText).toEqual(first.legend.accessibilityText)
     expect(first.messages).toEqual([])
     expect(first.prompts).toEqual([expect.objectContaining({
@@ -347,18 +347,18 @@ describe('terminal presentation contract', () => {
     expect(world).toEqual(before)
   })
 
-  it('routes a compact exact-anchor chart-table prompt without copying geometry', () => {
+  it('routes a compact exact-anchor chart-table readout without copying geometry', () => {
     const chartWorld = chartTablePromptWorld
     const chartBefore = structuredClone(chartWorld)
     const chart = createJomonDeckContextualPrompt(chartWorld)
-    if (chart.kind !== 'vessel-prop-reserved') throw new Error('expected chart-table reserved prompt')
+    if (chart.kind !== 'vessel-station-readout') throw new Error('expected chart-table station prompt')
 
     expect(chart).toMatchObject({
       label: 'Chart table',
       source: { propBindingId: 'deck-prop-binding:prop:chart-table', propId: 'prop:chart-table', propKind: 'table', areaId: 'chart-table' },
-      operation: { proximity: 'at-anchor', availability: 'reserved', reason: 'route-comparison-not-implemented' },
-      paletteToken: 'warningText', presentationState: 'warning', nonColorCue: terminalNonColorCueFor('warning'),
-      options: [expect.objectContaining({ key: 'Enter', availability: 'disabled', disabledReason: 'requires-future-domain-rule', intent: 'future-contextual-action', requiresConfirmation: false })],
+      operation: { proximity: 'at-anchor', availability: 'readout', reason: 'route-comparison-not-implemented' },
+      readout: expect.objectContaining({ value: { kind: 'route-comparison-unavailable' }, paletteToken: 'warningText', presentationState: 'warning', nonColorCue: terminalNonColorCueFor('warning') }),
+      options: [expect.objectContaining({ key: 'Enter', availability: 'disabled', disabledReason: 'inspection-readout-only', intent: 'future-contextual-action', requiresConfirmation: false })],
       cancellation: { key: 'Escape', outcome: 'cancelled-no-mutation', advancesWorldTime: false }
     })
     expect(validateTerminalPrompt(chart)).toEqual([])
@@ -372,11 +372,12 @@ describe('terminal presentation contract', () => {
   it('routes the gangplank prompt and keeps off-prop context unavailable', () => {
     const gangplankWorld = gangplankPromptWorld
     const gangplank = createJomonDeckContextualPrompt(gangplankWorld)
-    if (gangplank.kind !== 'vessel-prop-reserved') throw new Error('expected gangplank reserved prompt')
+    if (gangplank.kind !== 'vessel-station-readout') throw new Error('expected gangplank station prompt')
     expect(gangplank).toMatchObject({
       label: 'Gangplank',
       source: { propBindingId: 'deck-prop-binding:prop:gangplank', propId: 'prop:gangplank', propKind: 'gangplank', areaId: 'gangplank' },
-      operation: { proximity: 'at-anchor', availability: 'reserved', reason: 'quay-travel-not-implemented' }
+      operation: { proximity: 'at-anchor', availability: 'readout', reason: 'quay-travel-not-implemented' },
+      readout: expect.objectContaining({ value: { kind: 'quay-travel-unavailable', operationalStatus: 'moored' } })
     })
 
     const away = offPropPromptWorld
@@ -391,10 +392,10 @@ describe('terminal presentation contract', () => {
     expect(JSON.stringify(unavailable)).not.toContain('gangplank')
   })
 
-  it('fails closed for forged reserved prompt identity, source, operation, evidence, option, semantic, and hidden data', () => {
+  it('fails closed for forged station prompt identity, source, operation, evidence, option, semantic, and hidden data', () => {
     const world = chartTablePromptWorld
     const prompt = createJomonDeckContextualPrompt(world)
-    if (prompt.kind !== 'vessel-prop-reserved') throw new Error('expected chart-table reserved prompt')
+    if (prompt.kind !== 'vessel-station-readout') throw new Error('expected chart-table station prompt')
 
     const wrongSource = structuredClone(prompt)
     wrongSource.source.propId = 'prop:task-ledger' as never
@@ -405,7 +406,7 @@ describe('terminal presentation contract', () => {
     const wrongOption = structuredClone(prompt)
     wrongOption.options[0]!.key = 'Escape'
     const wrongSemantic = structuredClone(prompt)
-    wrongSemantic.nonColorCue = terminalNonColorCueFor('ready')
+    wrongSemantic.readout.nonColorCue = terminalNonColorCueFor('ready')
     const hidden = { ...structuredClone(prompt), coordinate: { column: 7, row: 4 } }
     const unsafe = structuredClone(prompt)
     ;(unsafe.contentSafety.exclusions as unknown as Record<string, string>).torture = 'present'

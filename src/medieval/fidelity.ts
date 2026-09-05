@@ -163,7 +163,7 @@ const windowCadence = (intervalMinutes: 1 | 5 | 30 | 120 | 240, worldTime: numbe
 })
 
 const validWorld = (value: unknown): value is FoundationWorld => {
-  if (!record(value) || value.version !== 14 || value.status !== 'active' || !record(value.manifest) || !record(value.manifest.creation) || !record(value.state)) return false
+  if (!record(value) || value.version !== 15 || value.status !== 'active' || !record(value.manifest) || !record(value.manifest.creation) || !record(value.state)) return false
   try {
     return foundationWorldInitialWorldMatchesManifest(value as unknown as FoundationWorld)
       && foundationWorldContentSatisfiesSafetyPolicy(value as unknown as FoundationWorld)
@@ -375,7 +375,7 @@ export const createFidelityPlan = (request: FidelityPlanningRequest | unknown): 
  * `createFidelityPlan`/`validateFoundationWorld` first.
  */
 export const createFidelityPlanForVerifiedWorld = (world: FoundationWorld, activeCourierId: string): FidelityPlan => {
-  if (!record(world) || world.version !== 14 || world.status !== 'active' || !record(world.manifest) || !record(world.manifest.creation) || !record(world.state)
+  if (!record(world) || world.version !== 15 || world.status !== 'active' || !record(world.manifest) || !record(world.manifest.creation) || !record(world.state)
     || world.state.courier?.activeCourierId !== activeCourierId
     || !world.state.people?.records.some(person => person.id === activeCourierId && person.life.status === 'living')) {
     throw new FidelityPlanningContractError([issue('fidelity:verified-world', 'fidelity.invalid-world')])

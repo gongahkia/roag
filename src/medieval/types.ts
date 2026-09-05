@@ -106,6 +106,23 @@ export interface CrewRelationship {
 export type JomonDeckPartition = 'tavern' | 'chart-table' | 'cargo-hold' | 'repair-space' | 'stores' | 'berths' | 'galley' | 'gangplank'
 export type JomonVesselPropKind = 'table' | 'ledger' | 'rack' | 'hearth' | 'berth' | 'gangplank'
 
+/**
+ * Immutable, canonical vessel provenance. These are static vessel fixtures,
+ * not mutable prop state or an interaction registry.
+ */
+export const FOUNDATION_JOMON_PROP_DEFINITIONS = [
+  { id: 'prop:berth', kind: 'berth', partition: 'berths' },
+  { id: 'prop:cargo-hold-rack', kind: 'rack', partition: 'cargo-hold' },
+  { id: 'prop:chart-table', kind: 'table', partition: 'chart-table' },
+  { id: 'prop:galley-hearth', kind: 'hearth', partition: 'galley' },
+  { id: 'prop:gangplank', kind: 'gangplank', partition: 'gangplank' },
+  { id: 'prop:repair-space-rack', kind: 'rack', partition: 'repair-space' },
+  { id: 'prop:stores-rack', kind: 'rack', partition: 'stores' },
+  { id: 'prop:task-ledger', kind: 'ledger', partition: 'tavern' }
+] as const satisfies readonly { id: string; kind: JomonVesselPropKind; partition: JomonDeckPartition }[]
+
+export type FoundationJomonPropId = typeof FOUNDATION_JOMON_PROP_DEFINITIONS[number]['id']
+
 export interface FoundationQuay {
   id: string
   name: string
@@ -149,8 +166,8 @@ export interface CausalRecord {
 }
 
 export interface FoundationWorld {
-  /** v14 keeps the foundation envelope while mutable state evolves independently. */
-  version: 14
+  /** v15 adds the complete immutable eight-prop Jomon provenance. */
+  version: 15
   id: string
   status: 'active'
   manifest: WorldManifest
@@ -167,13 +184,13 @@ export interface LegacyFoundationWorldV13 extends Omit<FoundationWorld, 'version
 }
 
 /** Read-only v14/v12 envelope accepted only by the active-courier upgrader. */
-export interface LegacyFoundationWorldV14 extends Omit<FoundationWorld, 'state'> {
+export interface LegacyFoundationWorldV14 extends Omit<FoundationWorld, 'version' | 'state'> {
   version: 14
   state: LegacyMedievalWorldStateV12
 }
 
 /** Read-only v14/v13 envelope accepted only by the courier-continuity upgrader. */
-export interface LegacyFoundationWorldV14V13 extends Omit<FoundationWorld, 'state'> {
+export interface LegacyFoundationWorldV14V13 extends Omit<FoundationWorld, 'version' | 'state'> {
   version: 14
   state: LegacyMedievalWorldStateV13
 }

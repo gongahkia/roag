@@ -292,6 +292,7 @@ describe('medieval local persistence', () => {
     const selected = chooseInitialCourier(createFoundationWorld({ seed: 'storage-navigation-upgrade' }), 'crew:0')
     const legacy = structuredClone(selected) as unknown as Record<string, any>
     legacy.version = 13
+    legacy.jomon.props = ['prop:chart-table', 'prop:task-ledger', 'prop:gangplank'].map(id => structuredClone(selected.jomon.props.find(prop => prop.id === id)!))
     legacy.state.version = 11
     delete legacy.state.navigation
     legacy.state.courier = { version: 1, initialCourierId: selected.state.courier.initialCourierId }
@@ -318,7 +319,7 @@ describe('medieval local persistence', () => {
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(selected.id, structuredClone(legacy))
 
     const loaded = await repository.loadWorld(selected.id)
-    expect(loaded).toMatchObject({ version: 14, state: { version: 14, courier: { version: 3, initialCourierId: 'crew:0', activeCourierId: 'crew:0', departedCourierIds: [] }, navigation: { courierId: 'crew:0', coordinate: { column: 4, row: 4 } } } })
+    expect(loaded).toMatchObject({ version: 15, state: { version: 14, courier: { version: 3, initialCourierId: 'crew:0', activeCourierId: 'crew:0', departedCourierIds: [] }, navigation: { courierId: 'crew:0', coordinate: { column: 4, row: 4 } } } })
     expect((fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(selected.id) as { version: number }).version).toBe(13)
 
     const corrupt = structuredClone(legacy)
@@ -327,6 +328,34 @@ describe('medieval local persistence', () => {
     expect(await repository.loadWorld(selected.id)).toBeUndefined()
     expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(selected.id)).toEqual(corrupt)
   }, 15_000)
+
+  it('reads only exact v14 three-prop active worlds and chronicles through the v15 static-prop conversion without rewriting either record', async () => {
+    const repository = new MedievalWorldRepository()
+    await repository.loadIndex()
+    const selected = chooseInitialCourier(createFoundationWorld({ seed: 'storage-v15-static-prop-upgrade' }), 'crew:0')
+    const legacy = structuredClone(selected) as unknown as Record<string, any>
+    legacy.version = 14
+    legacy.jomon.props = ['prop:chart-table', 'prop:task-ledger', 'prop:gangplank'].map(id => structuredClone(selected.jomon.props.find(prop => prop.id === id)!))
+    const legacyChronicle = { version: 12, id: `chronicle:${selected.id}`, status: 'finalized' as const, reason: 'jomon-loss' as const, world: structuredClone(legacy) }
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(selected.id, structuredClone(legacy))
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'chronicles').set(legacyChronicle.id, structuredClone(legacyChronicle))
+
+    const loadedWorld = await repository.loadWorld(selected.id)
+    const loadedChronicle = await repository.loadChronicle(legacyChronicle.id)
+    expect(loadedWorld?.version).toBe(15)
+    expect(loadedWorld?.jomon.props.map(prop => prop.id)).toEqual(expect.arrayContaining(['prop:galley-hearth', 'prop:repair-space-rack']))
+    expect(loadedChronicle?.version).toBe(12)
+    expect(loadedChronicle?.world.version).toBe(15)
+    expect(loadedChronicle?.world.jomon.props.map(prop => prop.id)).toEqual(expect.arrayContaining(['prop:stores-rack', 'prop:berth']))
+    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(selected.id)).toEqual(legacy)
+    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'chronicles').get(legacyChronicle.id)).toEqual(legacyChronicle)
+
+    const corrupt = structuredClone(legacy)
+    corrupt.jomon.props[0].kind = 'ledger'
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(selected.id, corrupt)
+    expect(await repository.loadWorld(selected.id)).toBeUndefined()
+    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(selected.id)).toEqual(corrupt)
+  })
 
   it('uses only the medieval database and never reads or migrates the prototype database', async () => {
     const repository = new MedievalWorldRepository()

@@ -39,6 +39,6 @@ Loss metadata remains subject to the project-wide metadata-first content-safety 
 
 ## Compatibility and deferred work
 
-This policy module itself changes no `FoundationWorld`, manifest, RNG, IndexedDB v4 layout, generated content, UI, renderer, browser path, combat, or prototype behavior. The continuity implementation has its own explicitly versioned mutable/replay contract (`MedievalWorldState` v14 / courier v3, replay projection v6) while retaining `FoundationWorld` v14 and layout v4; see [`courier-continuity-contract.md`](courier-continuity-contract.md).
+This policy module itself changes no `FoundationWorld`, manifest, RNG, IndexedDB v4 layout, generated content, UI, renderer, browser path, combat, or prototype behavior. The continuity implementation has its own explicitly versioned mutable/replay contract (`MedievalWorldState` v14 / courier v3, replay projection v6) while `FoundationWorld` v15 retains its immutable household and adds only static prop provenance; see [`courier-continuity-contract.md`](courier-continuity-contract.md).
 
 Courier death mutation, explicit prevention/revival actions, voluntary succession, household consequence reducers, and actual chronicle finalization remain future owners. Jomon integrity, disaster, rescue, collapse, and terminal vessel loss remain a separate later policy task.

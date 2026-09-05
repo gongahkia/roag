@@ -1,7 +1,7 @@
 import { auditMedievalContentSafety, classifyMedievalContent, contentSafetyAuditMatches, type MedievalContentSafetyAudit, type MedievalContentSafetyClassification } from './content-safety'
 import { causalDigestFor } from './causal-history'
 import { canonicalSerializedByteLength, canonicalSerializedJson, MEDIEVAL_PERFORMANCE_STORAGE_BUDGETS } from './performance-budget'
-import { isValidFoundationWorld, upgradeFoundationWorldV13, upgradeFoundationWorldV14 } from './world'
+import { isValidFoundationWorld, upgradeFoundationWorldV13, upgradeFoundationWorldV14, upgradeFoundationWorldV15 } from './world'
 import type { FoundationWorld, WorldChronicle } from './types'
 
 /**
@@ -338,19 +338,19 @@ const legacyWorldSourceMatches = (source: unknown, world: unknown): boolean => {
   return same(source, expected)
 }
 
-/** Converts only canonical v13 or v14/v12 backups; malformed legacy bytes remain rejected. */
+/** Converts only canonical v13 or original-three-prop v14 backups; malformed legacy bytes remain rejected. */
 const upgradeLegacyPersistenceBackupBundle = (value: unknown): PersistenceBackupBundle | undefined => {
   if (!record(value) || value.version !== PERSISTENCE_BACKUP_VERSION || (value.kind !== 'active-world' && value.kind !== 'read-only-chronicle')) return undefined
   try {
     if (value.kind === 'active-world') {
       if (!hasOnlyKeys(value, ['version', 'kind', 'source', 'world']) || !legacyWorldSourceMatches(value.source, value.world)) return undefined
       let world: FoundationWorld
-      try { world = upgradeFoundationWorldV14(value.world) } catch { world = upgradeFoundationWorldV13(value.world) }
+      try { world = upgradeFoundationWorldV15(value.world) } catch { try { world = upgradeFoundationWorldV14(value.world) } catch { world = upgradeFoundationWorldV13(value.world) } }
       return createActiveWorldBackupBundle(world)
     }
     if (!hasOnlyKeys(value, ['version', 'kind', 'source', 'chronicle']) || !record(value.chronicle) || !hasOnlyKeys(value.chronicle, ['version', 'id', 'status', 'reason', 'world']) || value.chronicle.version !== 12 || value.chronicle.status !== 'finalized' || (value.chronicle.reason !== 'jomon-loss' && value.chronicle.reason !== 'crew-extinction')) return undefined
     let chronicleWorld: FoundationWorld
-    try { chronicleWorld = upgradeFoundationWorldV14(value.chronicle.world) } catch { chronicleWorld = upgradeFoundationWorldV13(value.chronicle.world) }
+    try { chronicleWorld = upgradeFoundationWorldV15(value.chronicle.world) } catch { try { chronicleWorld = upgradeFoundationWorldV14(value.chronicle.world) } catch { chronicleWorld = upgradeFoundationWorldV13(value.chronicle.world) } }
     const legacyChronicleSource = { chronicleId: value.chronicle.id, worldId: chronicleWorld.id, digest: persistenceDigestFor('read-only-chronicle', value.chronicle), canonicalBytes: canonicalSerializedByteLength(value.chronicle) }
     if (!same(value.source, legacyChronicleSource) || value.chronicle.id !== `chronicle:${chronicleWorld.id}`) return undefined
     return createChronicleBackupBundle({ version: 12, id: value.chronicle.id, status: 'finalized', reason: value.chronicle.reason, world: chronicleWorld })

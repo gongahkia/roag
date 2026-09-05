@@ -4,11 +4,23 @@ import { initialHouseholdActiveCrew } from './initial-household'
 import { addChronicleToIndex, addWorldToIndex, emptyWorldIndex, removeWorldFromIndex } from './storage'
 import { generationRetryPlan } from './generation-config'
 import { INITIAL_WORLD_GENERATION_STAGES } from './initial-world'
-import { InvalidWorldGenerationConfigurationError, advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, foundationWorldCausalHistoryMatches, foundationWorldContentSatisfiesSafetyPolicy, recordDurableJomonGrowth, recreateFoundationWorld, replayFoundationWorldCausalHistory, serializeWorldManifest, validateFoundationWorld } from './world'
+import { InvalidWorldGenerationConfigurationError, advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, foundationWorldCausalHistoryMatches, foundationWorldContentSatisfiesSafetyPolicy, recordDurableJomonGrowth, recreateFoundationWorld, replayFoundationWorldCausalHistory, serializeWorldManifest, upgradeFoundationWorldV15, validateFoundationWorld } from './world'
 import { causalReplayProjectionForWorldState } from './world-state'
 import { worldEraProjection } from './world-era'
 
 const safety = () => classifyMedievalContent('event', ['civil-life', 'navigation'], 'not-applicable', ['player-facing-text'])
+
+/** A token-valid legacy v14 source has the original three static vessel props. */
+const v14Envelope = (world: ReturnType<typeof createFoundationWorld>) => {
+  const legacy = structuredClone(world) as unknown as { version: number; jomon: { props: unknown[] } }
+  legacy.version = 14
+  legacy.jomon.props = [
+    { id: 'prop:chart-table', kind: 'table', partition: 'chart-table' },
+    { id: 'prop:task-ledger', kind: 'ledger', partition: 'tavern' },
+    { id: 'prop:gangplank', kind: 'gangplank', partition: 'gangplank' }
+  ]
+  return legacy
+}
 
 describe('medieval foundation worlds', () => {
   it('recreates the same world and generated household from its manifest inputs', () => {
@@ -20,6 +32,41 @@ describe('medieval foundation worlds', () => {
     expect(new Set(first.crew.map(member => member.id)).size).toBe(first.crew.length)
     expect(first.state.courier.initialCourierId).toBeUndefined()
     expect(first.jomon).toMatchObject({ id: 'vessel:jomon', name: 'Jomon', deckPartitions: expect.arrayContaining(['tavern', 'chart-table', 'cargo-hold', 'gangplank']) })
+  })
+
+  it('read-only upgrades only an exact valid v14 source to deterministic eight-prop v15 provenance', () => {
+    const source = chooseInitialCourier(createFoundationWorld({ seed: 'v15-static-prop-upgrade' }), 'crew:0')
+    const legacy = v14Envelope(source)
+    const before = structuredClone(legacy)
+
+    const upgraded = upgradeFoundationWorldV15(legacy)
+
+    expect(upgraded).toMatchObject({
+      version: 15,
+      id: source.id,
+      manifest: source.manifest,
+      state: source.state,
+      jomon: {
+        props: [
+          { id: 'prop:berth', kind: 'berth', partition: 'berths' },
+          { id: 'prop:cargo-hold-rack', kind: 'rack', partition: 'cargo-hold' },
+          { id: 'prop:chart-table', kind: 'table', partition: 'chart-table' },
+          { id: 'prop:galley-hearth', kind: 'hearth', partition: 'galley' },
+          { id: 'prop:gangplank', kind: 'gangplank', partition: 'gangplank' },
+          { id: 'prop:repair-space-rack', kind: 'rack', partition: 'repair-space' },
+          { id: 'prop:stores-rack', kind: 'rack', partition: 'stores' },
+          { id: 'prop:task-ledger', kind: 'ledger', partition: 'tavern' }
+        ]
+      }
+    })
+    expect(validateFoundationWorld(upgraded)).toEqual([])
+    expect(legacy).toEqual(before)
+
+    const forged = structuredClone(legacy)
+    ;(forged.jomon.props[0] as { partition: string }).partition = 'tavern'
+    const forgedBefore = structuredClone(forged)
+    expect(() => upgradeFoundationWorldV15(forged)).toThrow('v14 envelope is invalid')
+    expect(forged).toEqual(forgedBefore)
   })
 
   it('makes a generated eligible crew member the selected initial courier without rerolling the household', () => {
@@ -183,7 +230,7 @@ describe('medieval foundation worlds', () => {
     const source = chooseInitialCourier(createFoundationWorld({ seed: 'action-boundary-provenance' }), 'crew:0')
     const cases: readonly [string, (world: typeof source) => void][] = [
       ['initial-world', world => { world.initialWorld.watershed.spanLeagues++ }],
-      ['jomon', world => { world.jomon.props[0]!.partition = 'berths' }],
+      ['jomon', world => { world.jomon.props[0]!.partition = 'tavern' }],
       ['crew', world => { world.crew[0]!.name = 'Altered Crew' }],
       ['persistent-person', world => { world.state.people.records[0]!.identity.name = 'Altered Person' }],
       ['manifest-linked', world => { world.manifest.creation.initialWorld.digest = 'forged-initial-world-digest' }]

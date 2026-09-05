@@ -2,7 +2,7 @@ import { findAsciiGlyph, terminalGlyphReferenceFor } from './ascii-glyphs'
 import { auditMedievalContentSafety, contentSafetyAuditMatches, validateMedievalContentSafety, type MedievalContentSafetyAudit, type MedievalContentSafetyClassification, type MedievalContentSafetyDiagnosticCode } from './content-safety'
 import type { JomonPaletteToken } from './palette'
 import { terminalNonColorCueFor, type TerminalGlyphReference, type TerminalNonColorCue, type TerminalPresentationState } from './terminal-semantics'
-import type { FoundationJomon, FoundationWorld, JomonDeckPartition, JomonVesselPropKind } from './types'
+import { FOUNDATION_JOMON_PROP_DEFINITIONS, type FoundationJomon, type FoundationJomonPropId, type FoundationWorld, type JomonDeckPartition, type JomonVesselPropKind } from './types'
 import { validateFoundationWorld } from './world'
 
 /**
@@ -16,7 +16,7 @@ export const JOMON_DECK_PLAN_LIMITS = {
   width: 18,
   height: 8,
   areas: 9,
-  props: 3,
+  props: 8,
   accessEdges: 9,
   areaCells: 12,
   structuralCells: 37,
@@ -231,17 +231,23 @@ const ACCESS_AREA_PAIRS: readonly (readonly [JomonDeckPlanAreaId, JomonDeckPlanA
 ]
 
 interface PropBlueprint {
-  propId: string
+  propId: FoundationJomonPropId
   propKind: JomonVesselPropKind
   areaId: JomonDeckPlanAreaId
-  anchor: JomonDeckPlanCoordinate
 }
 
-const PROP_BLUEPRINTS: readonly PropBlueprint[] = [
-  { propId: 'prop:chart-table', propKind: 'table', areaId: 'chart-table', anchor: { column: 7, row: 4 } },
-  { propId: 'prop:gangplank', propKind: 'gangplank', areaId: 'gangplank', anchor: { column: 3, row: 5 } },
-  { propId: 'prop:task-ledger', propKind: 'ledger', areaId: 'tavern', anchor: { column: 4, row: 4 } }
-]
+const PROP_BLUEPRINTS: readonly PropBlueprint[] = FOUNDATION_JOMON_PROP_DEFINITIONS.map(prop => ({
+  propId: prop.id,
+  propKind: prop.kind,
+  areaId: prop.partition
+}))
+
+/** Bind every immutable prop to its already-owned named-area anchor. */
+const anchorForAreaId = (areaId: JomonDeckPlanAreaId): JomonDeckPlanCoordinate => {
+  const area = AREA_BLUEPRINTS.find(candidate => candidate.id === areaId)
+  if (!area?.cells[0]) throw new Error(`deck-plan prop area has no anchor: ${areaId}`)
+  return { ...area.cells[0] }
+}
 
 const foundationPartitionOrder: readonly JomonDeckPartition[] = ['tavern', 'chart-table', 'cargo-hold', 'repair-space', 'stores', 'berths', 'galley', 'gangplank']
 const hiddenWorldKeys = new Set(['worldTime', 'manifest', 'initialWorld', 'causalHistory', 'knownFacts', 'save', 'persistence'])
@@ -308,7 +314,7 @@ const planForValidatedJomon = (jomon: FoundationJomon): JomonDeckPlan => {
         propId: prop.id,
         propKind: prop.kind,
         areaId: blueprint.areaId,
-        anchor: { ...blueprint.anchor }
+        anchor: anchorForAreaId(blueprint.areaId)
       }
     }).sort((left, right) => compare(left.id, right.id))
   }
@@ -372,10 +378,10 @@ const sourceDiagnostics = (world: unknown, verifyFoundationWorld = true): readon
   if (!Array.isArray(jomon.props)) {
     diagnostics.push(issue('foundation-world:jomon:props', 'jomon-deck-plan.missing-prop'))
   } else {
-    const expectedById = new Map(PROP_BLUEPRINTS.map(blueprint => [blueprint.propId, blueprint]))
+    const expectedById = new Map<string, PropBlueprint>(PROP_BLUEPRINTS.map(blueprint => [blueprint.propId, blueprint]))
     const seen = new Set<string>()
     for (const candidate of jomon.props) {
-      if (!record(candidate) || !stableId(candidate.id)) {
+      if (!record(candidate) || !hasOnlyKeys(candidate, ['id', 'kind', 'partition']) || !stableId(candidate.id)) {
         diagnostics.push(issue('foundation-world:jomon:prop', 'jomon-deck-plan.invalid-prop'))
         continue
       }
@@ -389,6 +395,7 @@ const sourceDiagnostics = (world: unknown, verifyFoundationWorld = true): readon
       if (candidate.kind !== expected.propKind || candidate.partition !== expected.areaId) diagnostics.push(issue(candidate.id, 'jomon-deck-plan.invalid-prop'))
     }
     for (const prop of PROP_BLUEPRINTS) if (!seen.has(prop.propId)) diagnostics.push(issue(prop.propId, 'jomon-deck-plan.missing-prop'))
+    if (!same(jomon.props, FOUNDATION_JOMON_PROP_DEFINITIONS)) diagnostics.push(issue('foundation-world:jomon:props', 'jomon-deck-plan.noncanonical-prop-binding-order'))
   }
   return canonicalDiagnostics(diagnostics)
 }
@@ -522,7 +529,7 @@ export const validateJomonDeckPlan = (world: unknown, plan: unknown, verifyFound
     const blueprint = PROP_BLUEPRINTS.find(prop => prop.propId === candidate.propId)
     const sourceProp = sourcePropById.get(candidate.propId)
     if (!blueprint) diagnostics.push(issue(candidate.propId, 'jomon-deck-plan.unknown-prop-binding'))
-    if (!blueprint || !sourceProp || candidate.id !== `deck-prop-binding:${candidate.propId}` || candidate.propKind !== blueprint.propKind || candidate.areaId !== blueprint.areaId || !same(candidate.anchor, blueprint.anchor) || sourceProp.kind !== blueprint.propKind || sourceProp.partition !== blueprint.areaId) diagnostics.push(issue(candidate.propId, 'jomon-deck-plan.invalid-prop-binding'))
+    if (!blueprint || !sourceProp || candidate.id !== `deck-prop-binding:${candidate.propId}` || candidate.propKind !== blueprint.propKind || candidate.areaId !== blueprint.areaId || !same(candidate.anchor, anchorForAreaId(blueprint.areaId)) || sourceProp.kind !== blueprint.propKind || sourceProp.partition !== blueprint.areaId) diagnostics.push(issue(candidate.propId, 'jomon-deck-plan.invalid-prop-binding'))
     const area = areaById.get(candidate.areaId)
     if (!area || !area.footprint.some(cell => same(cell.coordinate, candidate.anchor))) diagnostics.push(issue(candidate.propId, 'jomon-deck-plan.invalid-prop-binding'))
   }

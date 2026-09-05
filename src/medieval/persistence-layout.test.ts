@@ -68,6 +68,7 @@ describe('compact medieval persistence layout', () => {
     const world = selected('legacy-backup-layout')
     const legacy = structuredClone(world) as unknown as Record<string, any>
     legacy.version = 13
+    legacy.jomon.props = ['prop:chart-table', 'prop:task-ledger', 'prop:gangplank'].map(id => structuredClone(world.jomon.props.find(prop => prop.id === id)!))
     legacy.state.version = 11
     delete legacy.state.navigation
     legacy.state.courier = { version: 1, initialCourierId: world.state.courier.initialCourierId }
@@ -103,7 +104,7 @@ describe('compact medieval persistence layout', () => {
       world: legacy
     }
 
-    expect(parsePersistenceBackupBundle(JSON.stringify(legacyBundle))).toMatchObject({ kind: 'active-world', world: { version: 14, state: { version: 14, courier: { version: 3, initialCourierId: 'crew:0', activeCourierId: 'crew:0', departedCourierIds: [] }, navigation: { coordinate: { column: 4, row: 4 } } } } })
+    expect(parsePersistenceBackupBundle(JSON.stringify(legacyBundle))).toMatchObject({ kind: 'active-world', world: { version: 15, state: { version: 14, courier: { version: 3, initialCourierId: 'crew:0', activeCourierId: 'crew:0', departedCourierIds: [] }, navigation: { coordinate: { column: 4, row: 4 } } } } })
     const corrupt = structuredClone(legacyBundle)
     corrupt.source.digest = 'layout:forged'
     expect(() => parsePersistenceBackupBundle(JSON.stringify(corrupt))).toThrow('invalid bundle')

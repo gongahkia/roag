@@ -61,8 +61,13 @@ describe('Jomon deck plan contract', () => {
       'berths', 'cargo-hold', 'chart-table', 'galley', 'gangplank', 'repair-space', 'stores', 'tavern'
     ])
     expect(plan.propBindings.map(binding => [binding.propId, binding.propKind, binding.areaId])).toEqual([
+      ['prop:berth', 'berth', 'berths'],
+      ['prop:cargo-hold-rack', 'rack', 'cargo-hold'],
       ['prop:chart-table', 'table', 'chart-table'],
+      ['prop:galley-hearth', 'hearth', 'galley'],
       ['prop:gangplank', 'gangplank', 'gangplank'],
+      ['prop:repair-space-rack', 'rack', 'repair-space'],
+      ['prop:stores-rack', 'rack', 'stores'],
       ['prop:task-ledger', 'ledger', 'tavern']
     ])
     expect(plan.bounds).toEqual({ width: JOMON_DECK_PLAN_LIMITS.width, height: JOMON_DECK_PLAN_LIMITS.height })

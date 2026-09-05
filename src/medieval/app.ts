@@ -1068,14 +1068,14 @@ export class MedievalApp {
     if (this.worldOverlay === 'contextual-prompt') {
       const prompt = this.contextualPrompt
       if (!prompt) throw new Error('contextual prompt is unavailable')
-      if (prompt.kind === 'vessel-prop-reserved') {
+      if (prompt.kind === 'vessel-station-readout') {
         const option = prompt.options[0]!
-        row(context, 2, `${prompt.label.toUpperCase()} // RESERVED`, palette[prompt.paletteToken], panel.x)
+        row(context, 2, `${prompt.label.toUpperCase()} // READOUT`, palette[prompt.readout.paletteToken], panel.x)
         renderBoundedMedievalCanvasRows(context, 4, 4, `SOURCE ${prompt.source.propId.toUpperCase()} // ${prompt.source.areaId.toUpperCase()} // WORLD TIME ${prompt.evidence.knownAtWorldTime}`, palette.mutedText, panel.x, panel.width)
-        renderBoundedMedievalCanvasRows(context, 6, 8, prompt.accessibilityText, palette[prompt.paletteToken], panel.x, panel.width)
-        renderBoundedMedievalCanvasRows(context, 10, 11, `${prompt.nonColorCue.text} ${uppercase(prompt.operation.availability)} // ${uppercase(prompt.operation.reason ?? 'requires-future-domain-rule')}`, palette[prompt.paletteToken], panel.x, panel.width)
+        renderBoundedMedievalCanvasRows(context, 6, 8, prompt.readout.text, palette[prompt.readout.paletteToken], panel.x, panel.width)
+        renderBoundedMedievalCanvasRows(context, 10, 11, `${prompt.readout.nonColorCue.text} ${uppercase(prompt.operation.availability)} // ${uppercase(prompt.operation.reason ?? 'inspection-readout-only')}`, palette[prompt.readout.paletteToken], panel.x, panel.width)
         rule(context, 18, panel.x, panel.x + panel.width)
-        renderBoundedMedievalCanvasRows(context, 20, 22, outcome ?? `${option.nonColorCue.text} ENTER REPORTS UNAVAILABLE // ESC CANCELS // NO MUTATION OR TIME`, outcome?.startsWith('!') ? palette.warningText : palette.actionText, panel.x, panel.width)
+        renderBoundedMedievalCanvasRows(context, 20, 22, outcome ?? `${option.nonColorCue.text} ENTER REPORTS READOUT // ESC CANCELS // NO MUTATION OR TIME`, outcome?.startsWith('!') ? palette.warningText : palette.actionText, panel.x, panel.width)
         return
       }
       if (prompt.kind !== 'tavern-courier-switch') {
@@ -1119,14 +1119,14 @@ export class MedievalApp {
       let line = 5
       for (const entry of help.entries) {
         if (line > 17) break
-        const availability = entry.operationalState === 'movement-available' ? 'LOCAL STEP +1M' : entry.operationalState === 'opens-contextual-prompt' ? 'LEDGER PROMPT' : 'READY'
+        const availability = entry.operationalState === 'movement-available' ? 'LOCAL STEP +1M' : entry.operationalState === 'opens-contextual-prompt' ? 'STATION PROMPT' : 'READY'
         renderBoundedMedievalCanvasRows(context, line, line, `- ${entry.bindingText}  ${entry.label.toUpperCase()} // ${availability}`, entry.operationalState === 'movement-available' ? palette.bodyText : palette.mutedText, panel.x, panel.width)
         line += 1
       }
       rule(context, 18, panel.x, panel.x + panel.width)
       renderBoundedMedievalCanvasRows(context, 20, 20, 'FIXED KNOWN DECK // MOVED +1M', palette.actionText, panel.x, panel.width)
       renderBoundedMedievalCanvasRows(context, 21, 21, 'BLOCKED ZERO TIME // NO CARGO, NPC, HAZARD', palette.actionText, panel.x, panel.width)
-      renderBoundedMedievalCanvasRows(context, 22, 22, 'LEDGER SWITCH ONLY // NO TRAVEL, FOG, OR OTHER PROP ACTION // ESC CLOSE', palette.actionText, panel.x, panel.width)
+      renderBoundedMedievalCanvasRows(context, 22, 22, 'STATION READOUTS // LEDGER SWITCH ONLY // NO TRAVEL, FOG, OR MUTABLE PROP ACTION // ESC CLOSE', palette.actionText, panel.x, panel.width)
       return
     }
     const editor = createTerminalControlsEditorModel(this.terminalControls, this.selectedTerminalControlId, this.terminalControlCapturePending)

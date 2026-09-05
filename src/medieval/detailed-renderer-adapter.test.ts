@@ -26,6 +26,7 @@ const moved = (world: ReturnType<typeof selectedWorld>, direction: Parameters<ty
   if (result.status !== 'moved') throw new Error(`expected canonical ${direction} step`)
   return result.world
 }
+const reservedChartPromptWorld = moved(moved(moved(selectedWorld('detailed-reserved-chart-prompt'), 'east'), 'east'), 'east')
 
 const sourceBundle = (seed?: string): DetailedRendererSourceBundle => {
   const world = selectedWorld(seed)
@@ -206,18 +207,18 @@ describe('detailed renderer adapter contract', () => {
     expect(reportDetailedRendererParity(bundle, model)).toMatchObject({ status: 'accepted', diagnostics: [] })
   })
 
-  it('forwards an exact bounded reserved vessel prompt without adding detailed-renderer authority', () => {
-    const chartWorld = moved(moved(moved(selectedWorld('detailed-reserved-chart-prompt'), 'east'), 'east'), 'east')
+  it('forwards an exact bounded station readout prompt without adding detailed-renderer authority', () => {
+    const chartWorld = reservedChartPromptWorld
     const terminal = createTerminalPresentationModel(chartWorld)
     const bundle = createDetailedRendererSourceBundle({ version: 1, terminal, sidebar: createManagementSidebarModel(chartWorld), glyphCatalog: JOMON_ASCII_GLYPH_CATALOG, controls: defaultTerminalControlPreferences() })
     const model = createDetailedRendererAdapterModel(bundle)
     const terminalPrompt = terminal.prompts[0]
     const detailedPrompt = model.prompts[0]
-    if (!terminalPrompt || terminalPrompt.kind !== 'vessel-prop-reserved' || !detailedPrompt) throw new Error('expected a reserved chart-table prompt')
+    if (!terminalPrompt || terminalPrompt.kind !== 'vessel-station-readout' || !detailedPrompt) throw new Error('expected a chart-table station prompt')
 
     expect(detailedPrompt.prompt).toEqual(terminalPrompt)
     expect(detailedPrompt.metadata).toMatchObject({ sourceItemId: terminalPrompt.id, evidence: terminalPrompt.evidence, contentDomain: 'player-facing-text' })
-    expect(terminalPrompt).toMatchObject({ source: { propId: 'prop:chart-table', areaId: 'chart-table' }, operation: { proximity: 'at-anchor', availability: 'reserved', reason: 'route-comparison-not-implemented' } })
+    expect(terminalPrompt).toMatchObject({ source: { propId: 'prop:chart-table', areaId: 'chart-table' }, operation: { proximity: 'at-anchor', availability: 'readout', reason: 'route-comparison-not-implemented' }, readout: { value: { kind: 'route-comparison-unavailable' } } })
     expect(JSON.stringify(detailedPrompt)).not.toContain('coordinate')
     expect(model.interactionBoundary).toEqual({ sharesEffectiveCommandIds: true, promptCancellation: 'cancelled-no-mutation', executesInput: false, advancesWorldTime: false, mutatesWorld: false })
     expect(reportDetailedRendererParity(bundle, model)).toMatchObject({ status: 'accepted', diagnostics: [] })

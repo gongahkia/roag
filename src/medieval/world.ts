@@ -17,19 +17,21 @@ import { advanceAutonomyState, createAutonomyState, reconcileAutonomyState, vali
 import { assessJomonDeckStep, canonicalJomonDeckSpawn, isWalkableJomonDeckCoordinate, jomonDeckCoordinateId, type JomonDeckCollision, type JomonDeckCoordinate, type JomonDeckMovementDirection } from './jomon-navigation'
 import { assessTavernCourierSwitchForVerifiedWorld, type TavernCourierSwitchAssessment } from './tavern-courier-switch'
 import { assessCourierContinuityLoss, type CourierContinuityAssessment, type CourierContinuityConfirmation } from './courier-continuity'
-import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type LegacyFoundationWorldV13, type LegacyFoundationWorldV14, type LegacyFoundationWorldV14V13, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
+import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_JOMON_PROP_DEFINITIONS, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type LegacyFoundationWorldV13, type LegacyFoundationWorldV14, type LegacyFoundationWorldV14V13, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
 
-const foundationJomon = (): FoundationJomon => ({
+const LEGACY_FOUNDATION_JOMON_PROPS = [
+  { id: 'prop:chart-table', kind: 'table', partition: 'chart-table' },
+  { id: 'prop:task-ledger', kind: 'ledger', partition: 'tavern' },
+  { id: 'prop:gangplank', kind: 'gangplank', partition: 'gangplank' }
+] as const satisfies readonly FoundationJomon['props'][number][]
+
+const foundationJomon = (legacy = false): FoundationJomon => ({
   id: 'vessel:jomon',
   name: 'Jomon',
   contentSafety: classifyMedievalContent('place', ['navigation', 'settlement'], 'not-applicable', ['player-facing-text']),
   deckPartitions: ['tavern', 'chart-table', 'cargo-hold', 'repair-space', 'stores', 'berths', 'galley', 'gangplank'],
   quays: [],
-  props: [
-    { id: 'prop:chart-table', kind: 'table', partition: 'chart-table' },
-    { id: 'prop:task-ledger', kind: 'ledger', partition: 'tavern' },
-    { id: 'prop:gangplank', kind: 'gangplank', partition: 'gangplank' }
-  ]
+  props: structuredClone(legacy ? LEGACY_FOUNDATION_JOMON_PROPS : FOUNDATION_JOMON_PROP_DEFINITIONS)
 })
 
 export interface FoundationWorldInput {
@@ -112,11 +114,12 @@ interface ExpectedFoundationState {
 const expectedFoundationState = (
   seed: string,
   configuration: WorldGenerationConfig,
-  onGenerationProgress?: InitialWorldGenerationProgressObserver
+  onGenerationProgress?: InitialWorldGenerationProgressObserver,
+  legacyJomon = false
 ): ExpectedFoundationState | undefined => {
   const label = labelForSeed(seed, configuration)
   const labelContentSafety = classifyMedievalContent('place', ['environment', 'settlement'], 'not-applicable', ['player-facing-text'])
-  const jomon = foundationJomon()
+  const jomon = foundationJomon(legacyJomon)
   const household = createInitialHousehold({ seed, configuration })
   const crew = household.roster
   const initialWorldGeneration = generateInitialWorld(seed, configuration, onGenerationProgress)
@@ -291,7 +294,7 @@ export const validateFoundationWorld = (value: unknown): readonly FoundationWorl
   if (!record(value)) return [foundationWorldIssue('foundation-world', 'foundation-world.malformed-record')]
   if (!hasOnlyKeys(value, ['version', 'id', 'status', 'manifest', 'jomon', 'crew', 'initialWorld', 'state'])) return [foundationWorldIssue('foundation-world', 'foundation-world.malformed-record')]
   const issues: FoundationWorldValidationIssue[] = []
-  if (value.version !== 14) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-version'))
+  if (value.version !== 15) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-version'))
   if (typeof value.id !== 'string' || !value.id) issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-id'))
   if (value.status !== 'active') issues.push(foundationWorldIssue('foundation-world', 'foundation-world.invalid-status'))
   if (!isReproducibleWorldManifest(value.manifest)) {
@@ -319,6 +322,60 @@ export const validateFoundationWorld = (value: unknown): readonly FoundationWorl
 export const isValidFoundationWorld = (value: unknown): value is FoundationWorld => validateFoundationWorld(value).length === 0
 
 /**
+ * v14 has the same immutable manifest and mutable schema but only the three
+ * then-existing static props. This proof intentionally runs before adding the
+ * v15 provenance so a forged old envelope cannot become valid by conversion.
+ */
+const legacyFoundationWorldContentSatisfiesSafetyPolicy = (world: FoundationWorld): boolean => {
+  try {
+    const staticState = expectedFoundationState(world.manifest.creation.seed, world.manifest.creation.resolvedConfiguration, undefined, true)
+    if (!staticState) return false
+    return equivalent(world.jomon, staticState.jomon)
+      && equivalent(world.crew, staticState.crew)
+      && contentSafetyAuditMatches(foundationContentRecords(world.manifest.creation.labelContentSafety, world.jomon, world.crew, staticState.causalHistory, world.initialWorld, staticState.frontier), world.manifest.creation.contentSafetyAudit)
+  } catch { return false }
+}
+
+/** A local v15 static façade is used only to prove unchanged plan-derived replay/navigation. */
+const v15StaticFacadeForLegacy = (world: FoundationWorld): FoundationWorld => ({
+  ...structuredClone(world),
+  version: 15,
+  jomon: foundationJomon()
+})
+
+const legacyFoundationWorldV14IsValid = (world: FoundationWorld): boolean => {
+  try {
+    return isReproducibleWorldManifest(world.manifest)
+      && isInitialWorld(world.initialWorld)
+      && world.id === foundationWorldIdForManifest(world.manifest)
+      && validateInitialHouseholdRoster({ seed: world.manifest.creation.seed, configurationFingerprint: world.manifest.creation.configurationFingerprint }, world.crew).length === 0
+      && foundationWorldInitialWorldMatchesManifest(world)
+      && legacyFoundationWorldContentSatisfiesSafetyPolicy(world)
+      && foundationWorldTemporalStateMatches(world)
+  } catch { return false }
+}
+
+/**
+ * Strict read-only v14 -> v15 conversion for the deterministic eight-prop
+ * fixture. It replaces no mutable state and the final current validator proves
+ * replay, navigation, catch-up, autonomy, and immutable recreation again.
+ */
+export const upgradeFoundationWorldV15 = (value: unknown): FoundationWorld => {
+  if (!record(value) || !hasOnlyKeys(value, ['version', 'id', 'status', 'manifest', 'jomon', 'crew', 'initialWorld', 'state']) || value.version !== 14 || value.status !== 'active') throw new Error('foundation world is not a v14 active envelope')
+  const legacy = value as unknown as FoundationWorld
+  if (!legacyFoundationWorldV14IsValid(legacy)) throw new Error('foundation world v14 envelope is invalid')
+  const staticFacade = v15StaticFacadeForLegacy(legacy)
+  if (!foundationWorldNavigationStateMatches(staticFacade)
+    || !foundationWorldCatchUpStateMatches(staticFacade)
+    || !foundationWorldAutonomyStateMatches(staticFacade)
+    || !foundationWorldCausalHistoryMatches(staticFacade)) throw new Error('foundation world v14 replay evidence is invalid')
+  const upgraded: FoundationWorld = staticFacade
+  const validation = validateFoundationWorld(upgraded)
+  if (validation.length) throw new Error(`foundation world v14 conversion did not reproduce a valid v15 envelope: ${validation.map(item => item.code).join(', ')}`)
+  return upgraded
+}
+
+/**
  * Explicit v13 -> v14 conversion for the local courier coordinate. It reads
  * only the old full envelope, changes no immutable provenance or IDs, and
  * rebuilds the affected replay checkpoint before the normal v14 validator
@@ -330,12 +387,13 @@ export const upgradeFoundationWorldV13 = (value: unknown): FoundationWorld => {
   const legacy = value as unknown as LegacyFoundationWorldV13
   if (!isReproducibleWorldManifest(legacy.manifest) || !isInitialWorld(legacy.initialWorld)
     || !foundationWorldInitialWorldMatchesManifest(legacy as unknown as FoundationWorld)
-    || !foundationWorldContentSatisfiesSafetyPolicy(legacy as unknown as FoundationWorld)
+    || !legacyFoundationWorldContentSatisfiesSafetyPolicy(legacy as unknown as FoundationWorld)
     || !foundationWorldTemporalStateMatches(legacy as unknown as FoundationWorld)) throw new Error('foundation world v13 envelope is invalid')
+  const planFacade = v15StaticFacadeForLegacy(legacy as unknown as FoundationWorld)
   const selectedCourierId = legacy.state.courier.initialCourierId
   const navigation: WorldDeckNavigationState = selectedCourierId === undefined
     ? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }
-    : { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: selectedCourierId, coordinate: canonicalJomonDeckSpawn(legacy as unknown as FoundationWorld) }
+    : { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: selectedCourierId, coordinate: canonicalJomonDeckSpawn(planFacade) }
   const context = causalHistoryContextFor(legacy as unknown as FoundationWorld)
   const checkpoint = legacy.state.causalHistory.checkpoint.projection as unknown as { courier: { version: number; initialCourierId?: string; activeCourierId?: string }; navigation?: WorldDeckNavigationState } & Omit<CausalReplayProjection, 'courier' | 'navigation'>
   const checkpointInitialCourierId = checkpoint.courier.initialCourierId
@@ -346,7 +404,7 @@ export const upgradeFoundationWorldV13 = (value: unknown): FoundationWorld => {
       : { version: 3, initialCourierId: checkpointInitialCourierId, activeCourierId: checkpointInitialCourierId, departedCourierIds: [] },
     navigation: checkpointInitialCourierId === undefined
       ? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }
-      : { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: checkpointInitialCourierId, coordinate: canonicalJomonDeckSpawn(legacy as unknown as FoundationWorld) }
+      : { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: checkpointInitialCourierId, coordinate: canonicalJomonDeckSpawn(planFacade) }
   }))
   const state = createMedievalWorldState({
     seed: legacy.manifest.creation.seed,
@@ -368,10 +426,7 @@ export const upgradeFoundationWorldV13 = (value: unknown): FoundationWorld => {
     socialMemoryState: legacy.state.socialMemory,
     causalHistoryState: rebasedHistory
   })
-  const upgraded: FoundationWorld = { ...structuredClone(legacy), version: 14, state }
-  const validation = validateFoundationWorld(upgraded)
-  if (validation.length) throw new Error(`foundation world v13 conversion did not reproduce a valid v14 envelope: ${validation.map(item => item.code).join(', ')}`)
-  return upgraded
+  return upgradeFoundationWorldV15({ ...structuredClone(legacy), version: 14, state })
 }
 
 /**
@@ -384,14 +439,17 @@ export const upgradeFoundationWorldV14 = (value: unknown): FoundationWorld => {
   const legacy = value as unknown as LegacyFoundationWorldV14 | LegacyFoundationWorldV14V13
   if (!isReproducibleWorldManifest(legacy.manifest) || !isInitialWorld(legacy.initialWorld)
     || !foundationWorldInitialWorldMatchesManifest(legacy as unknown as FoundationWorld)
-    || !foundationWorldContentSatisfiesSafetyPolicy(legacy as unknown as FoundationWorld)
+    || !legacyFoundationWorldContentSatisfiesSafetyPolicy(legacy as unknown as FoundationWorld)
     || !foundationWorldTemporalStateMatches(legacy as unknown as FoundationWorld)) throw new Error('foundation world v14 envelope is invalid')
+  const currentState = value as unknown as FoundationWorld
+  if (currentState.state.version === 14 && currentState.state.courier.version === 3) return upgradeFoundationWorldV15(value)
+  const planFacade = v15StaticFacadeForLegacy(legacy as unknown as FoundationWorld)
   const selectedCourierId = legacy.state.courier.initialCourierId
   const activeCourierId = legacy.state.version === 13 ? legacy.state.courier.activeCourierId : selectedCourierId
   const navigation = legacy.state.navigation
   if (selectedCourierId === undefined
     ? navigation.courierId !== undefined || navigation.coordinate !== undefined
-    : activeCourierId === undefined || navigation.courierId !== activeCourierId || navigation.coordinate === undefined || !isWalkableJomonDeckCoordinate(legacy as unknown as FoundationWorld, navigation.coordinate)) throw new Error('foundation world v14 navigation is invalid')
+    : activeCourierId === undefined || navigation.courierId !== activeCourierId || navigation.coordinate === undefined || !isWalkableJomonDeckCoordinate(planFacade, navigation.coordinate)) throw new Error('foundation world v14 navigation is invalid')
   const checkpoint = legacy.state.causalHistory.checkpoint.projection as unknown as { courier: { version: number; initialCourierId?: string; activeCourierId?: string }; navigation?: WorldDeckNavigationState } & Omit<CausalReplayProjection, 'courier' | 'navigation'>
   const checkpointInitialCourierId = checkpoint.courier.initialCourierId
   const checkpointActiveCourierId = checkpoint.courier.version === 2 ? checkpoint.courier.activeCourierId : checkpointInitialCourierId
@@ -405,7 +463,7 @@ export const upgradeFoundationWorldV14 = (value: unknown): FoundationWorld => {
       ? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }
       : checkpointNavigation !== undefined && checkpointNavigation.courierId === checkpointActiveCourierId && checkpointNavigation.coordinate !== undefined
         ? structuredClone(checkpointNavigation)
-        : { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: checkpointActiveCourierId!, coordinate: canonicalJomonDeckSpawn(legacy as unknown as FoundationWorld) }
+        : { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: checkpointActiveCourierId!, coordinate: canonicalJomonDeckSpawn(planFacade) }
   }))
   const state = createMedievalWorldState({
     seed: legacy.manifest.creation.seed,
@@ -427,10 +485,7 @@ export const upgradeFoundationWorldV14 = (value: unknown): FoundationWorld => {
     socialMemoryState: legacy.state.socialMemory,
     causalHistoryState: rebasedHistory
   })
-  const upgraded: FoundationWorld = { ...structuredClone(legacy), state }
-  const validation = validateFoundationWorld(upgraded)
-  if (validation.length) throw new Error(`foundation world v14 conversion did not reproduce a valid envelope: ${validation.map(item => item.code).join(', ')}`)
-  return upgraded
+  return upgradeFoundationWorldV15({ ...structuredClone(legacy), version: 14, state })
 }
 
 export const foundationWorldIdForManifest = (manifest: WorldManifest): string => idForCreationProvenance(manifest.creation)
@@ -461,7 +516,7 @@ const worldFromCreationProvenance = (
   if (!state) throw new Error('creation provenance does not identify a valid foundation world')
   const temporal = createMedievalTemporalState(temporalProvenanceForCreation(creation))
   return {
-    version: 14,
+    version: 15,
     id: idForCreationProvenance(creation),
     status: 'active',
     manifest: {

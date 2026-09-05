@@ -1,21 +1,26 @@
 import { classifyMedievalContent, validateMedievalContentSafety, type MedievalContentSafetyClassification, type MedievalContentSafetyDiagnosticCode } from './content-safety'
 import { deriveJomonDeckPlan, deriveJomonDeckPlanForVerifiedWorld, type JomonDeckPlan, type JomonDeckPlanCoordinate, type JomonDeckPlanPropBinding } from './jomon-deck-plan'
-import type { FoundationWorld, JomonVesselPropKind } from './types'
+import { type FoundationJomonPropId, type FoundationWorld, type JomonVesselPropKind } from './types'
 
 /**
- * Pure availability assessment for the three existing deck-plan prop bindings.
+ * Pure availability assessment for the complete static deck-plan prop set.
  * It never owns geometry, input, mutable state, replay, persistence, or time.
  */
-export const VESSEL_PROXIMITY_OPERATION_CONTRACT_VERSION = 1 as const
+export const VESSEL_PROXIMITY_OPERATION_CONTRACT_VERSION = 2 as const
 
 export const VESSEL_PROXIMITY_OPERATION_PROP_IDS = [
+  'prop:berth',
+  'prop:cargo-hold-rack',
   'prop:chart-table',
+  'prop:galley-hearth',
   'prop:gangplank',
+  'prop:repair-space-rack',
+  'prop:stores-rack',
   'prop:task-ledger'
-] as const
+] as const satisfies readonly FoundationJomonPropId[]
 export type VesselProximityOperationPropId = typeof VESSEL_PROXIMITY_OPERATION_PROP_IDS[number]
 
-export const VESSEL_PROXIMITY_OPERATION_AVAILABILITY = ['implemented', 'reserved', 'unavailable'] as const
+export const VESSEL_PROXIMITY_OPERATION_AVAILABILITY = ['implemented', 'readout', 'unavailable'] as const
 export type VesselProximityOperationAvailability = typeof VESSEL_PROXIMITY_OPERATION_AVAILABILITY[number]
 
 export const VESSEL_PROXIMITY_OPERATION_REASONS = [
@@ -119,8 +124,13 @@ interface VesselPropOperationDefinition {
 }
 
 const DEFINITIONS: readonly VesselPropOperationDefinition[] = [
-  { propId: 'prop:chart-table', propKind: 'table', areaId: 'chart-table', atAnchorAvailability: 'reserved', reason: 'route-comparison-not-implemented' },
-  { propId: 'prop:gangplank', propKind: 'gangplank', areaId: 'gangplank', atAnchorAvailability: 'reserved', reason: 'quay-travel-not-implemented' },
+  { propId: 'prop:berth', propKind: 'berth', areaId: 'berths', atAnchorAvailability: 'readout' },
+  { propId: 'prop:cargo-hold-rack', propKind: 'rack', areaId: 'cargo-hold', atAnchorAvailability: 'readout' },
+  { propId: 'prop:chart-table', propKind: 'table', areaId: 'chart-table', atAnchorAvailability: 'readout', reason: 'route-comparison-not-implemented' },
+  { propId: 'prop:galley-hearth', propKind: 'hearth', areaId: 'galley', atAnchorAvailability: 'readout' },
+  { propId: 'prop:gangplank', propKind: 'gangplank', areaId: 'gangplank', atAnchorAvailability: 'readout', reason: 'quay-travel-not-implemented' },
+  { propId: 'prop:repair-space-rack', propKind: 'rack', areaId: 'repair-space', atAnchorAvailability: 'readout' },
+  { propId: 'prop:stores-rack', propKind: 'rack', areaId: 'stores', atAnchorAvailability: 'readout' },
   { propId: 'prop:task-ledger', propKind: 'ledger', areaId: 'tavern', atAnchorAvailability: 'implemented' }
 ]
 

@@ -11,9 +11,11 @@ const selectedWorld = (seed: string) => {
   return chooseInitialCourier(world, initialHouseholdActiveCrew(world.crew)[0]!.id)
 }
 
-/** Produces a token-valid v14/v12 envelope without writing it to storage. */
+/** Produces a token-valid three-prop v14/v12 envelope without writing it to storage. */
 const v14Envelope = (world: ReturnType<typeof selectedWorld>) => {
   const legacy = structuredClone(world) as unknown as Record<string, any>
+  legacy.version = 14
+  legacy.jomon.props = ['prop:chart-table', 'prop:task-ledger', 'prop:gangplank'].map(id => structuredClone(world.jomon.props.find(prop => prop.id === id)!))
   legacy.state.version = 12
   legacy.state.courier = { version: 1, initialCourierId: world.state.courier.initialCourierId }
   const checkpointProjection = structuredClone(legacy.state.causalHistory.checkpoint.projection)
@@ -132,14 +134,14 @@ describe('tavern courier switch contract', () => {
     expect(forged).toEqual(forgedBefore)
   })
 
-  it('upgrades only valid v14/v12 envelopes by retaining selected courier as the initial and active courier', () => {
+  it('upgrades only valid v14/v12 envelopes through current state and static-prop conversion', () => {
     const source = selectedWorld('tavern-v14-upgrade')
     const legacy = v14Envelope(source)
     const before = structuredClone(legacy)
     const upgraded = upgradeFoundationWorldV14(legacy)
 
     expect(upgraded).toMatchObject({
-      version: 14,
+      version: 15,
       state: {
         version: 14,
         courier: { version: 3, initialCourierId: source.state.courier.initialCourierId, activeCourierId: source.state.courier.initialCourierId, departedCourierIds: [] },

@@ -26,12 +26,12 @@ const projectionAt = (world: ReturnType<typeof selectedWorld>, column: number, r
 })
 
 describe('vessel proximity and operation contract', () => {
-  it('derives the three canonical bindings with only anchor-derived proximity and closed availability', () => {
+  it('derives all eight canonical bindings with only anchor-derived proximity and closed availability', () => {
     const world = selectedWorld('vessel-proximity-canonical')
     const before = structuredClone(world)
     const assessment = assessVesselProximityOperations(world, world.state)
 
-    expect(assessment).toMatchObject({ version: 1, activeAnchor: { status: 'at-prop-anchor', propId: 'prop:task-ledger' } })
+    expect(assessment).toMatchObject({ version: 2, activeAnchor: { status: 'at-prop-anchor', propId: 'prop:task-ledger' } })
     expect(assessment.operations.map(operation => ({
       source: operation.source,
       proximity: operation.proximity,
@@ -39,11 +39,31 @@ describe('vessel proximity and operation contract', () => {
       reason: operation.reason
     }))).toEqual([
       {
+        source: { propBindingId: 'deck-prop-binding:prop:berth', propId: 'prop:berth', propKind: 'berth', areaId: 'berths' },
+        proximity: 'away-from-anchor', availability: 'unavailable', reason: 'not-at-prop-anchor'
+      },
+      {
+        source: { propBindingId: 'deck-prop-binding:prop:cargo-hold-rack', propId: 'prop:cargo-hold-rack', propKind: 'rack', areaId: 'cargo-hold' },
+        proximity: 'away-from-anchor', availability: 'unavailable', reason: 'not-at-prop-anchor'
+      },
+      {
         source: { propBindingId: 'deck-prop-binding:prop:chart-table', propId: 'prop:chart-table', propKind: 'table', areaId: 'chart-table' },
         proximity: 'away-from-anchor', availability: 'unavailable', reason: 'not-at-prop-anchor'
       },
       {
+        source: { propBindingId: 'deck-prop-binding:prop:galley-hearth', propId: 'prop:galley-hearth', propKind: 'hearth', areaId: 'galley' },
+        proximity: 'away-from-anchor', availability: 'unavailable', reason: 'not-at-prop-anchor'
+      },
+      {
         source: { propBindingId: 'deck-prop-binding:prop:gangplank', propId: 'prop:gangplank', propKind: 'gangplank', areaId: 'gangplank' },
+        proximity: 'away-from-anchor', availability: 'unavailable', reason: 'not-at-prop-anchor'
+      },
+      {
+        source: { propBindingId: 'deck-prop-binding:prop:repair-space-rack', propId: 'prop:repair-space-rack', propKind: 'rack', areaId: 'repair-space' },
+        proximity: 'away-from-anchor', availability: 'unavailable', reason: 'not-at-prop-anchor'
+      },
+      {
+        source: { propBindingId: 'deck-prop-binding:prop:stores-rack', propId: 'prop:stores-rack', propKind: 'rack', areaId: 'stores' },
         proximity: 'away-from-anchor', availability: 'unavailable', reason: 'not-at-prop-anchor'
       },
       {
@@ -62,15 +82,14 @@ describe('vessel proximity and operation contract', () => {
     expect(world).toEqual(before)
   })
 
-  it('requires exact anchor occupancy and keeps reserved chart and gangplank domains bounded', () => {
+  it('requires exact anchor occupancy and keeps chart and gangplank deferred domains bounded', () => {
     const chart = selectedWorld('vessel-proximity-chart')
     const chartAssessment = assessVesselProximityOperationsForVerifiedWorld(chart, projectionAt(chart, 7, 4))
     expect(chartAssessment).toMatchObject({ activeAnchor: { status: 'at-prop-anchor', propId: 'prop:chart-table' } })
-    expect(chartAssessment.operations.map(operation => [operation.source.propId, operation.proximity, operation.availability, operation.reason])).toEqual([
-      ['prop:chart-table', 'at-anchor', 'reserved', 'route-comparison-not-implemented'],
-      ['prop:gangplank', 'away-from-anchor', 'unavailable', 'not-at-prop-anchor'],
-      ['prop:task-ledger', 'away-from-anchor', 'unavailable', 'not-at-prop-anchor']
-    ])
+    expect(chartAssessment.operations.find(operation => operation.source.propId === 'prop:chart-table')).toMatchObject({
+      proximity: 'at-anchor', availability: 'readout', reason: 'route-comparison-not-implemented'
+    })
+    expect(chartAssessment.operations.filter(operation => operation.source.propId !== 'prop:chart-table').every(operation => operation.proximity === 'away-from-anchor' && operation.availability === 'unavailable')).toBe(true)
 
     expect(assessVesselPropOperationForVerifiedWorld(chart, projectionAt(chart, 7, 5), 'prop:chart-table')).toMatchObject({
       proximity: 'away-from-anchor', availability: 'unavailable', reason: 'not-at-prop-anchor'
@@ -78,7 +97,7 @@ describe('vessel proximity and operation contract', () => {
 
     const gangplank = selectedWorld('vessel-proximity-gangplank')
     expect(assessVesselPropOperationForVerifiedWorld(gangplank, projectionAt(gangplank, 3, 5), 'prop:gangplank')).toMatchObject({
-      proximity: 'at-anchor', availability: 'reserved', reason: 'quay-travel-not-implemented'
+      proximity: 'at-anchor', availability: 'readout', reason: 'quay-travel-not-implemented'
     })
   })
 
@@ -89,11 +108,8 @@ describe('vessel proximity and operation contract', () => {
     const assessment = assessVesselProximityOperationsForVerifiedWorld(source, projection)
 
     expect(assessment.activeAnchor).toEqual({ status: 'no-prop-anchor' })
-    expect(assessment.operations.map(operation => [operation.proximity, operation.availability, operation.reason])).toEqual([
-      ['away-from-anchor', 'unavailable', 'not-at-prop-anchor'],
-      ['away-from-anchor', 'unavailable', 'not-at-prop-anchor'],
-      ['away-from-anchor', 'unavailable', 'not-at-prop-anchor']
-    ])
+    expect(assessment.operations).toHaveLength(8)
+    expect(assessment.operations.every(operation => operation.proximity === 'away-from-anchor' && operation.availability === 'unavailable' && operation.reason === 'not-at-prop-anchor')).toBe(true)
     expect(assessVesselPropOperationForVerifiedWorld(source, projection, 'prop:task-ledger')).toMatchObject({ availability: 'unavailable', reason: 'not-at-prop-anchor' })
     expect(source).toEqual(before)
   })

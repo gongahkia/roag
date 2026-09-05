@@ -13,6 +13,7 @@ const selectedWorld = (seed: string) => {
 const v13Envelope = (world: ReturnType<typeof selectedWorld>) => {
   const legacy = structuredClone(world) as unknown as Record<string, any>
   legacy.version = 13
+  legacy.jomon.props = ['prop:chart-table', 'prop:task-ledger', 'prop:gangplank'].map(id => structuredClone(world.jomon.props.find(prop => prop.id === id)!))
   legacy.state.version = 11
   delete legacy.state.navigation
   legacy.state.courier = legacy.state.courier.initialCourierId === undefined
@@ -107,7 +108,7 @@ describe('Jomon deck navigation', () => {
 
     const legacy = v13Envelope(selected)
     const upgraded = upgradeFoundationWorldV13(legacy)
-    expect(upgraded).toMatchObject({ version: 14, state: { version: 14, courier: { version: 3, initialCourierId: selected.state.courier.initialCourierId, activeCourierId: selected.state.courier.initialCourierId, departedCourierIds: [] }, navigation: { courierId: selected.state.courier.initialCourierId, coordinate: { column: 4, row: 4 } } } })
+    expect(upgraded).toMatchObject({ version: 15, state: { version: 14, courier: { version: 3, initialCourierId: selected.state.courier.initialCourierId, activeCourierId: selected.state.courier.initialCourierId, departedCourierIds: [] }, navigation: { courierId: selected.state.courier.initialCourierId, coordinate: { column: 4, row: 4 } } } })
     expect(upgraded.id).toBe(selected.id)
     expect(upgraded.manifest).toEqual(selected.manifest)
     expect(validateFoundationWorld(upgraded)).toEqual([])

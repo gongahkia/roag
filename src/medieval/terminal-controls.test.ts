@@ -27,7 +27,7 @@ describe('terminal controls preferences and zero-time world intents', () => {
       { controlId: 'move-north-west', key: 'Y' }, { controlId: 'move-north-east', key: 'U' }, { controlId: 'move-south-west', key: 'B' }, { controlId: 'move-south-east', key: 'N' }
     ]))
     expect(help.entries.find(entry => entry.controlId === 'move-north')?.bindingText).toBe('K / ArrowUp')
-    expect(help.accessibilitySummary).toMatch(/movement is local and collision-checked.*contextual control opens the source-backed prompt.*task ledger switching.*reserved chart-table or gangplank prompt/i)
+    expect(help.accessibilitySummary).toMatch(/movement is local and collision-checked.*contextual control opens the source-backed zero-time readout.*only the task ledger also provides courier switching/i)
     expect(editor.entries).toHaveLength(13)
     expect(editor.entries.find(entry => entry.controlId === 'move-north')).toMatchObject({ selected: true, fixedAliases: ['ArrowUp'] })
   })
