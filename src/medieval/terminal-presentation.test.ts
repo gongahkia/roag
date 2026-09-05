@@ -127,7 +127,7 @@ describe('terminal presentation contract', () => {
     expect(first.legend.entries.map(entry => entry.id)).toEqual([...first.legend.entries.map(entry => entry.id)].sort())
     expect(first.legend.entries.every(entry => entry.accessibilityText.includes('Source ') && entry.accessibilityText.includes('known at world minute'))).toBe(true)
     expect(first.legend.movementText).toMatch(/successful local step advances one action minute.*blocked.*no world state or time/i)
-    expect(first.legend.limitationsText).toMatch(/fixed known deck.*each exact station anchor.*zero-time bounded readout.*tavern task ledger.*zero-time courier switch.*no cargo contents, NPCs, hazards, travel, fog, rest, conversation, succession, or mutable prop action/i)
+    expect(first.legend.limitationsText).toMatch(/fixed known deck.*each exact station anchor.*zero-time bounded readout record.*tavern task ledger.*zero-time courier switching.*no cargo contents, NPCs, hazards, travel, fog, rest, conversation, or succession/i)
     expect(first.accessibility.legendText).toEqual(first.legend.accessibilityText)
     expect(first.messages).toEqual([])
     expect(first.prompts).toEqual([expect.objectContaining({
@@ -151,7 +151,7 @@ describe('terminal presentation contract', () => {
   it('uses only semantic palette tokens and paired non-colour cues in bounded, canonical local status and accessible text', () => {
     const model = createTerminalPresentationModel(selectedWorld('terminal-accessibility'))
 
-    expect(model.status).toHaveLength(TERMINAL_PRESENTATION_LIMITS.statusItems)
+    expect(model.status).toHaveLength(TERMINAL_PRESENTATION_LIMITS.statusItems - 1)
     expect(model.status.map(item => item.id)).toEqual([...model.status.map(item => item.id)].sort())
     expect(model.status.every(item => Object.hasOwn(JOMON_PALETTE, item.paletteToken))).toBe(true)
     expect(model.status.every(item => item.paletteToken === TERMINAL_STATE_PRESENTATIONS[item.state].paletteToken)).toBe(true)
@@ -358,7 +358,7 @@ describe('terminal presentation contract', () => {
       source: { propBindingId: 'deck-prop-binding:prop:chart-table', propId: 'prop:chart-table', propKind: 'table', areaId: 'chart-table' },
       operation: { proximity: 'at-anchor', availability: 'readout', reason: 'route-comparison-not-implemented' },
       readout: expect.objectContaining({ value: { kind: 'route-comparison-unavailable' }, paletteToken: 'warningText', presentationState: 'warning', nonColorCue: terminalNonColorCueFor('warning') }),
-      options: [expect.objectContaining({ key: 'Enter', availability: 'disabled', disabledReason: 'inspection-readout-only', intent: 'future-contextual-action', requiresConfirmation: false })],
+      options: [expect.objectContaining({ key: 'Enter', availability: 'available', intent: 'vessel-station-readout-record', requiresConfirmation: true })],
       cancellation: { key: 'Escape', outcome: 'cancelled-no-mutation', advancesWorldTime: false }
     })
     expect(validateTerminalPrompt(chart)).toEqual([])

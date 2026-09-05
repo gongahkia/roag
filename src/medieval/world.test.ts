@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION, classifyMedievalContent } from './content-safety'
+import { causalDigestFor } from './causal-history'
 import { initialHouseholdActiveCrew } from './initial-household'
 import { addChronicleToIndex, addWorldToIndex, emptyWorldIndex, removeWorldFromIndex } from './storage'
 import { generationRetryPlan } from './generation-config'
@@ -12,13 +13,29 @@ const safety = () => classifyMedievalContent('event', ['civil-life', 'navigation
 
 /** A token-valid legacy v14 source has the original three static vessel props. */
 const v14Envelope = (world: ReturnType<typeof createFoundationWorld>) => {
-  const legacy = structuredClone(world) as unknown as { version: number; jomon: { props: unknown[] } }
+  const legacy = structuredClone(world) as unknown as Record<string, any>
   legacy.version = 14
   legacy.jomon.props = [
     { id: 'prop:chart-table', kind: 'table', partition: 'chart-table' },
     { id: 'prop:task-ledger', kind: 'ledger', partition: 'tavern' },
     { id: 'prop:gangplank', kind: 'gangplank', partition: 'gangplank' }
   ]
+  const oldProjection = structuredClone(legacy.state.causalHistory.checkpoint.projection)
+  delete oldProjection.jomon
+  oldProjection.version = 6
+  const checkpoint = legacy.state.causalHistory.checkpoint
+  const stateDigest = causalDigestFor('causal-replay-projection', oldProjection)
+  const sequence = checkpoint.sequence
+  checkpoint.version = 4
+  checkpoint.stateDigest = stateDigest
+  checkpoint.id = `causal-checkpoint:${sequence}:${causalDigestFor('causal-checkpoint-id', { worldId: legacy.id, creationDigest: legacy.manifest.creation.digest, sequence, stateDigest })}`
+  checkpoint.token = causalDigestFor('causal-checkpoint-token', { worldId: legacy.id, creationDigest: legacy.manifest.creation.digest, sequence, atWorldTime: checkpoint.atWorldTime, stateDigest })
+  checkpoint.projection = oldProjection
+  legacy.state.causalHistory.version = 4
+  legacy.state.causalHistory.tail = legacy.state.causalHistory.tail.map((command: Record<string, unknown>) => ({ ...command, version: 4 }))
+  legacy.state.jomon.version = 1
+  delete legacy.state.jomon.propActions
+  legacy.state.version = 14
   return legacy
 }
 

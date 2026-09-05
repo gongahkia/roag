@@ -10,7 +10,7 @@ import { MutableWorldSession } from './session'
 import { cancelTerminalPrompt, createJomonDeckContextualPrompt, createTerminalPresentationModel, type TerminalMapLegend, type TerminalMaterializedMap, type TerminalPrompt } from './terminal-presentation'
 import { TERMINAL_CONTROL_IDS, captureTerminalControlBinding, createTerminalCommandHelpModel, createTerminalControlsEditorModel, cycleTerminalControlSelection, defaultTerminalControlPreferences, resetAllTerminalControls, resetTerminalControl, resolveTerminalWorldCommand, type TerminalControlId, type TerminalControlPreferences, type TerminalMovementDirection } from './terminal-controls'
 import type { FoundationWorld, MedievalRoute, WorldChronicle, WorldIndex } from './types'
-import { chronicleExport, chooseInitialCourier, createFoundationWorld, moveFoundationWorldCourier, switchTavernCourier } from './world'
+import { chronicleExport, chooseInitialCourier, createFoundationWorld, moveFoundationWorldCourier, recordVesselStationReadout, switchTavernCourier } from './world'
 
 type PersistenceState = 'loading' | 'saved' | 'error'
 type SettingsPage = 'basic' | 'advanced'
@@ -21,6 +21,7 @@ type TerminalInteractionOutcome =
   | { kind: 'movement-blocked'; direction: TerminalMovementDirection; collision: string }
   | { kind: 'prompt-cancelled' }
   | { kind: 'prompt-option-disabled'; reason: string }
+  | { kind: 'station-readout-recorded'; label: string }
   | { kind: 'courier-switched'; fromName: string; toName: string }
   | { kind: 'overlay-dismissed'; overlay: Exclude<WorldOverlay, 'none'> }
   | { kind: 'controls-capture-cancelled' }
@@ -599,6 +600,35 @@ export class MedievalApp {
     }
   }
 
+  /** The canvas saves only the typed zero-time transition returned by the world reducer. */
+  private recordStationReadout(propId: Parameters<typeof recordVesselStationReadout>[1], label: string): void {
+    if (!this.world) return
+    try {
+      this.session.assertOwner(this.world.id)
+      const next = recordVesselStationReadout(this.world, propId)
+      this.persistence = 'loading'
+      this.render()
+      void this.repository.saveWorld(next).then(async () => {
+        this.world = next
+        await this.refreshIndex()
+        this.resetManagementSidebar()
+        this.worldOverlay = 'none'
+        this.contextualPrompt = undefined
+        this.persistence = 'saved'
+        this.error = undefined
+        this.terminalInteractionOutcome = { kind: 'station-readout-recorded', label }
+        this.render()
+      }).catch(error => {
+        this.persistence = 'error'
+        this.error = errorMessage(error)
+        this.render()
+      })
+    } catch (error) {
+      this.error = errorMessage(error)
+      this.render()
+    }
+  }
+
   /** World-view keys become typed UI intents before the canvas performs an owned transition. */
   private handleWorldKey(event: KeyboardEvent): boolean {
     const command = resolveTerminalWorldCommand(this.terminalControls, {
@@ -693,6 +723,15 @@ export class MedievalApp {
       case 'prompt-confirm': {
         const prompt = this.contextualPrompt
         if (!prompt) return true
+        if (prompt.kind === 'vessel-station-readout') {
+          if (prompt.options[0]?.availability !== 'available') {
+            this.terminalInteractionOutcome = { kind: 'prompt-option-disabled', reason: prompt.options[0]?.disabledReason ?? 'requires-future-domain-rule' }
+            this.render()
+            return true
+          }
+          this.recordStationReadout(prompt.source.propId as Parameters<typeof recordVesselStationReadout>[1], prompt.label)
+          return true
+        }
         if (prompt.kind !== 'tavern-courier-switch') {
           this.terminalInteractionOutcome = { kind: 'prompt-option-disabled', reason: prompt.options[0]?.disabledReason ?? 'requires-future-domain-rule' }
           this.render()
@@ -1045,6 +1084,7 @@ export class MedievalApp {
       case 'movement-blocked': return `! MOVE BLOCKED // ${uppercase(outcome.direction)} // ${uppercase(outcome.collision)} // ZERO TIME`
       case 'prompt-cancelled': return '+ CONTEXT PROMPT CANCELLED // ZERO TIME'
       case 'prompt-option-disabled': return `! OPTION DISABLED // ${uppercase(outcome.reason)}`
+      case 'station-readout-recorded': return `+ ${outcome.label.toUpperCase()} READOUT RECORDED // ZERO TIME`
       case 'courier-switched': return `+ ACTIVE COURIER ${outcome.fromName.toUpperCase()} -> ${outcome.toName.toUpperCase()} // TAVERN LEDGER // ZERO TIME`
       case 'overlay-dismissed': return `+ ${uppercase(outcome.overlay)} CLOSED // ZERO TIME`
       case 'controls-capture-cancelled': return '+ KEY CAPTURE CANCELLED // BINDING UNCHANGED'
@@ -1075,7 +1115,7 @@ export class MedievalApp {
         renderBoundedMedievalCanvasRows(context, 6, 8, prompt.readout.text, palette[prompt.readout.paletteToken], panel.x, panel.width)
         renderBoundedMedievalCanvasRows(context, 10, 11, `${prompt.readout.nonColorCue.text} ${uppercase(prompt.operation.availability)} // ${uppercase(prompt.operation.reason ?? 'inspection-readout-only')}`, palette[prompt.readout.paletteToken], panel.x, panel.width)
         rule(context, 18, panel.x, panel.x + panel.width)
-        renderBoundedMedievalCanvasRows(context, 20, 22, outcome ?? `${option.nonColorCue.text} ENTER REPORTS READOUT // ESC CANCELS // NO MUTATION OR TIME`, outcome?.startsWith('!') ? palette.warningText : palette.actionText, panel.x, panel.width)
+        renderBoundedMedievalCanvasRows(context, 20, 22, outcome ?? `${option.nonColorCue.text} ENTER RECORDS READOUT // ESC CANCELS // ZERO TIME`, outcome?.startsWith('!') ? palette.warningText : palette.actionText, panel.x, panel.width)
         return
       }
       if (prompt.kind !== 'tavern-courier-switch') {
@@ -1126,7 +1166,7 @@ export class MedievalApp {
       rule(context, 18, panel.x, panel.x + panel.width)
       renderBoundedMedievalCanvasRows(context, 20, 20, 'FIXED KNOWN DECK // MOVED +1M', palette.actionText, panel.x, panel.width)
       renderBoundedMedievalCanvasRows(context, 21, 21, 'BLOCKED ZERO TIME // NO CARGO, NPC, HAZARD', palette.actionText, panel.x, panel.width)
-      renderBoundedMedievalCanvasRows(context, 22, 22, 'STATION READOUTS // LEDGER SWITCH ONLY // NO TRAVEL, FOG, OR MUTABLE PROP ACTION // ESC CLOSE', palette.actionText, panel.x, panel.width)
+      renderBoundedMedievalCanvasRows(context, 22, 22, 'STATION READOUTS RECORD LATEST FEEDBACK // LEDGER SWITCH ONLY // NO TRAVEL OR FOG // ESC CLOSE', palette.actionText, panel.x, panel.width)
       return
     }
     const editor = createTerminalControlsEditorModel(this.terminalControls, this.selectedTerminalControlId, this.terminalControlCapturePending)
@@ -1212,7 +1252,9 @@ export class MedievalApp {
       renderBoundedMedievalCanvasRows(context, 15, 15, `MAP ${legendEntries.slice(2, 4).join(' // ')}`, palette.bodyText, panels.main.x, panels.main.width)
       renderBoundedMedievalCanvasRows(context, 16, 16, `MAP ${legendEntries.slice(4).join(' // ')}`, palette.bodyText, panels.main.x, panels.main.width)
       renderBoundedMedievalCanvasRows(context, 17, 18, terminal.legend.limitationsText, palette.mutedText, panels.main.x, panels.main.width)
-      renderBoundedMedievalCanvasRows(context, 19, 19, `MESSAGES // ${terminal.accessibility.messageText.join(' ')}`, palette.mutedText, panels.main.x, panels.main.width)
+      const latestAction = terminal.status.find(item => item.value.kind === 'vessel-prop-action')
+      renderBoundedMedievalCanvasRows(context, 19, 19, latestAction ? `STATUS // ${latestAction.accessibilityText}` : 'STATUS // NO RECORDED VESSEL PROP ACTION', palette.mutedText, panels.main.x, panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 20, 20, `MESSAGES // ${terminal.messages.length ? terminal.messages.map(item => item.text).join(' // ') : 'NO CURRENT AUTHORITATIVE MESSAGES.'}`, palette.mutedText, panels.main.x, panels.main.width)
       rule(context, 20, panels.main.x, panels.main.x + panels.main.width)
       const defaultHelp = this.managementExpanded
         ? 'ARROWS / HJKL / YUBN move // M collapse // [ / ] sections // ENTER prompt // ? help // F2 controls // ESC worlds'
