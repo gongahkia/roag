@@ -164,6 +164,24 @@ The chart-table and gangplank reserved prompts advance only the discardable term
 
 The required Node v22.22.2/linux-x64 benchmark (two warm-ups and nine measured samples per fixture/operation) recorded p95 ranges of 20.676–72.100 ms for generation, 176.073–617.278 ms for initial selection, 738.571–2,432.096 ms for terminal presentation, 444.241–1,192.713 ms for sidebar projection, 1,136.897–2,119.954 ms for detailed-adapter projection, 499.666–1,462.966 ms for the bounded wait, and 872.686–2,763.701 ms for the due-event sequence. These are review-only Node observations, not deterministic assertions, CI limits, browser-responsiveness figures, IndexedDB timings, cache/worker evidence, or persisted facts.
 
+## 2026-09-05 eight-static-prop v15 observation
+
+`FoundationWorld` v15 adds the fixed canonical five static Jomon props to the prior three-prop provenance. The seven non-ledger station readouts are discardable terminal v11/detailed-adapter v5 projections; they add no mutable prop record, causal command, store, migration, cache, or IndexedDB-layout change. The static source adds 324 canonical UTF-8 bytes to every current full-envelope observation, while the deterministic growth deltas remain unchanged.
+
+| Fixture | Initial canonical bytes | After due events | Growth |
+| --- | ---: | ---: | ---: |
+| sheltered-reach-focused | 191,188 | 256,115 | 64,927 |
+| sheltered-reach-balanced | 191,438 | 274,214 | 82,776 |
+| sheltered-reach-deep | 191,168 | 279,700 | 88,532 |
+| watershed-focused | 195,283 | 260,157 | 64,874 |
+| watershed-balanced | 195,153 | 283,438 | 88,285 |
+| watershed-deep | 195,154 | 294,879 | 99,725 |
+| far-coast-focused | 209,216 | 274,009 | 64,793 |
+| far-coast-balanced | 208,837 | 302,642 | 93,805 |
+| far-coast-deep | 208,560 | 313,914 | 105,354 |
+
+The required Node v22.22.2/linux-x64 benchmark (two warm-ups and nine measured samples per fixture/operation) recorded p95 ranges of 19.432–62.730 ms for generation, 177.343–460.750 ms for initial selection, 755.830–1,812.962 ms for terminal presentation, 451.683–1,114.325 ms for sidebar projection, 1,034.282–2,081.213 ms for detailed-adapter projection, 511.574–996.004 ms for the bounded wait, and 836.277–2,290.436 ms for the due-event sequence. All active envelopes remain within the existing 512 KiB ceiling; terminal-controls (575 bytes), creation-settings (620 bytes), and the three-active/four-chronicle index (635 bytes) remain within their existing budgets. These are review-only Node observations, not deterministic assertions, CI limits, browser-responsiveness figures, IndexedDB timings, cache/worker evidence, or persisted facts.
+
 ## 2026-09-03 Node review observations
 
 `npm run benchmark:medieval-foundation` completed on the documented 8 GB measurement machine with two warm-ups and nine samples for every one of the nine fixtures and seven operations. Its p95 ranges were generation 19.734–102.377 ms, initial courier selection 66.899–259.972 ms, terminal projection 102.772–518.112 ms, sidebar projection 103.199–433.617 ms, detailed-adapter projection 147.948–712.280 ms, one bounded 240-minute wait 146.316–620.512 ms, and the `60 + 180`-minute due-event sequence 267.288–2,250.234 ms. The structured `RESULT_JSON` records each individual observation, fixture resolution, deterministic scenario, and catalogue result.

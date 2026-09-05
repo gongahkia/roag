@@ -1,29 +1,74 @@
-import { expect, test } from '@playwright/test'
-import { chooseInitialCourier, createFoundationWorld, moveFoundationWorldCourier } from '../src/medieval/world'
+import { expect, test, type Page } from '@playwright/test'
+import { appendCausalCommand, createCausalCommand } from '../src/medieval/causal-history'
+import { assessJomonDeckStep, jomonDeckCoordinateId, type JomonDeckMovementDirection } from '../src/medieval/jomon-navigation'
+import { causalReplayProjectionForWorldState, createMedievalWorldState } from '../src/medieval/world-state'
+import { createFoundationWorld, moveFoundationWorldCourier, replayFoundationWorldCausalHistory } from '../src/medieval/world'
+import type { CausalReplayProjection, CausalHistoryState } from '../src/medieval/causal-history'
+import type { FoundationWorld } from '../src/medieval/types'
 
-const stationFixtureWorlds = () => {
-  let world = chooseInitialCourier(createFoundationWorld({ seed: 'all-station-keyboard-fixtures', configuration: { preset: 'watershed' } }), 'crew:0')
-  const fixtures: Record<string, typeof world> = { 'prop:task-ledger': world }
-  const move = (key: Parameters<typeof moveFoundationWorldCourier>[1]) => {
-    const result = moveFoundationWorldCourier(world, key)
-    if (result.status !== 'moved') throw new Error(`station fixture expected a ${key} deck step`)
-    world = result.world
+const stationFixtureStateFromProjection = (world: FoundationWorld, projection: CausalReplayProjection, causalHistoryState: CausalHistoryState) => createMedievalWorldState({
+  seed: world.manifest.creation.seed,
+  configuration: world.manifest.creation.resolvedConfiguration,
+  initialWorld: world.initialWorld,
+  jomon: world.jomon,
+  crew: world.crew,
+  frontier: world.state.geography.frontier,
+  temporal: projection.temporal,
+  ...(projection.courier.initialCourierId === undefined ? {} : { initialCourierId: projection.courier.initialCourierId }),
+  ...(projection.courier.activeCourierId === undefined ? {} : { activeCourierId: projection.courier.activeCourierId }),
+  ...(projection.courier.initialCourierId === undefined ? {} : { departedCourierIds: projection.courier.departedCourierIds ?? [] }),
+  ...(projection.courier.initialCourierId !== undefined && projection.courier.activeCourierId === undefined ? { terminalCrewExtinct: true as const } : {}),
+  ...(projection.navigation === undefined ? {} : { navigationState: projection.navigation }),
+  jomonState: world.state.jomon,
+  peopleState: projection.people,
+  simulationState: projection.simulation,
+  eraState: projection.era,
+  delegationState: projection.delegation,
+  autonomyState: projection.autonomy,
+  socialMemoryState: projection.socialMemory,
+  causalHistoryState
+})
+
+/**
+ * Builds valid, replay-proven saved movement worlds without turning the browser
+ * test into a second movement-performance audit. The final one-minute steps for
+ * long paths use the public reducer, including normal compaction.
+ */
+const stationFixtureWorld = (directions: readonly JomonDeckMovementDirection[]): FoundationWorld => {
+  const foundation = createFoundationWorld({ seed: 'all-station-keyboard-fixtures', configuration: { preset: 'watershed' } })
+  const context = { worldId: foundation.id, creationDigest: foundation.manifest.creation.digest }
+  const courierId = 'crew:0'
+  let history = foundation.state.causalHistory
+  let coordinate = { column: 4, row: 4 }
+  const append = (kind: 'initial-courier-selected' | 'deck-moved', payload: unknown) => {
+    const command = createCausalCommand(context, history, kind, payload)
+    history = appendCausalCommand(context, history, command, causalReplayProjectionForWorldState(foundation.state))
   }
-  ;(['north', 'north', 'north'] as const).forEach(move)
-  fixtures['prop:stores-rack'] = world
-  ;(['south', 'south', 'south', 'east', 'east', 'east'] as const).forEach(move)
-  fixtures['prop:chart-table'] = world
-  ;(['east', 'east', 'east'] as const).forEach(move)
-  fixtures['prop:cargo-hold-rack'] = world
-  ;(['east', 'east', 'east', 'east'] as const).forEach(move)
-  fixtures['prop:repair-space-rack'] = world
-  ;(['west', 'west', 'west', 'west', 'west', 'west', 'west', 'north', 'north', 'north'] as const).forEach(move)
-  fixtures['prop:berth'] = world
-  ;(['east', 'east', 'east', 'east'] as const).forEach(move)
-  fixtures['prop:galley-hearth'] = world
-  ;(['west', 'west', 'west', 'west', 'south', 'south', 'south', 'west', 'west', 'west', 'south', 'west'] as const).forEach(move)
-  fixtures['prop:gangplank'] = world
-  return fixtures
+
+  append('initial-courier-selected', { courierId })
+  const retainedDirections = directions.slice(0, 7)
+  for (const direction of retainedDirections) {
+    const assessment = assessJomonDeckStep(foundation, coordinate, direction)
+    if (assessment.status !== 'moved') throw new Error(`station fixture expected a ${direction} deck step`)
+    const sequence = history.checkpoint.sequence + history.tail.length + 1
+    append('deck-moved', {
+      actionId: `deck-move:${sequence}:${courierId}:${jomonDeckCoordinateId(assessment.from)}:${jomonDeckCoordinateId(assessment.to)}`,
+      courierId,
+      direction,
+      from: assessment.from,
+      to: assessment.to
+    })
+    coordinate = assessment.to
+  }
+  const staged = { ...foundation, state: { ...foundation.state, causalHistory: history } }
+  const projection = replayFoundationWorldCausalHistory(staged)
+  let world: FoundationWorld = { ...foundation, state: stationFixtureStateFromProjection(foundation, projection, history) }
+  for (const direction of directions.slice(retainedDirections.length)) {
+    const moved = moveFoundationWorldCourier(world, direction)
+    if (moved.status !== 'moved') throw new Error(`station fixture expected a ${direction} deck step`)
+    world = moved.world
+  }
+  return world
 }
 
 test('configures, saves, inspects, selects, and resumes a medieval world through keyboard input', async ({ page }) => {
@@ -544,7 +589,7 @@ test('opens a remapped bounded chart-table prompt through real keyboard movement
   const chartBefore = await persistedTemporal(worldId!)
   await page.keyboard.press('o')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
-  await expect(game).toHaveAttribute('aria-label', /Chart table.*Route comparison is not yet implemented.*inspection-only.*Enter reports the same bounded zero-time readout.*Escape cancels without mutation/i)
+  await expect(game).toHaveAttribute('aria-label', /Chart table.*Route comparison is not yet implemented.*Enter reports the same bounded station result.*Escape cancels without mutation/i)
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-option-disabled')
   await page.keyboard.press('Escape')
@@ -576,7 +621,7 @@ test('opens a bounded gangplank prompt through real keyboard movement', async ({
   await expect(game).toHaveAttribute('data-terminal-focus', '3,5')
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
-  await expect(game).toHaveAttribute('aria-label', /Gangplank.*Jomon is moored.*Quay departure and travel are not yet implemented.*inspection-only.*Enter reports the same bounded zero-time readout.*Escape cancels without mutation/i)
+  await expect(game).toHaveAttribute('aria-label', /Gangplank.*Jomon is moored.*Quay departure and travel are not yet implemented.*Enter reports the same bounded station result.*Escape cancels without mutation/i)
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-option-disabled')
   await page.keyboard.press('Escape')
@@ -584,69 +629,67 @@ test('opens a bounded gangplank prompt through real keyboard movement', async ({
   await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-cancelled')
 })
 
-test('renders every canonical station surface from valid saved movement fixtures through real keyboard input', async ({ page }) => {
-  const fixtures = stationFixtureWorlds()
-  const stations = [
-    { propId: 'prop:task-ledger', text: /Tavern task ledger courier switch.*Physical tavern task ledger readout.*Arrow keys select.*Escape cancels/i, confirm: false },
-    { propId: 'prop:berth', text: /Berth.*Berth capacity: 6 slots.*Rest and recovery are not modeled.*inspection-only.*Escape cancels without mutation/i, confirm: true },
-    { propId: 'prop:cargo-hold-rack', text: /Cargo hold rack.*Cargo capacity: 12 units.*Cargo contents are not modeled.*inspection-only.*Escape cancels without mutation/i, confirm: true },
-    { propId: 'prop:chart-table', text: /Chart table.*Route comparison is not yet implemented.*inspection-only.*Escape cancels without mutation/i, confirm: true },
-    { propId: 'prop:galley-hearth', text: /Galley hearth.*Meals, rations, and cooking are not modeled.*inspection-only.*Escape cancels without mutation/i, confirm: true },
-    { propId: 'prop:gangplank', text: /Gangplank.*Jomon is moored.*Quay departure and travel are not yet implemented.*inspection-only.*Escape cancels without mutation/i, confirm: true },
-    { propId: 'prop:repair-space-rack', text: /Repair-space rack.*Jomon integrity: 100\/100.*Repair work is not yet implemented.*inspection-only.*Escape cancels without mutation/i, confirm: true },
-    { propId: 'prop:stores-rack', text: /Stores rack.*Onboard provisions and inventory are not yet modeled.*inspection-only.*Escape cancels without mutation/i, confirm: true }
-  ] as const
+const stationKeyboardCases = [
+  { propId: 'prop:task-ledger', directions: [], text: /Tavern task ledger courier switch.*Physical tavern task ledger readout.*Arrow keys select.*Escape cancels/i, confirm: false },
+  { propId: 'prop:berth', directions: ['east', 'east', 'east', 'north', 'north', 'north'], text: /Berth.*Berth capacity: 6 slots.*Rest and recovery are not modeled.*Enter reports the same bounded station result.*Escape cancels without mutation/i, confirm: true },
+  { propId: 'prop:cargo-hold-rack', directions: ['east', 'east', 'east', 'east', 'east', 'east'], text: /Cargo hold rack.*Cargo capacity: 12 units.*Cargo contents are not modeled.*Enter reports the same bounded station result.*Escape cancels without mutation/i, confirm: true },
+  { propId: 'prop:chart-table', directions: ['east', 'east', 'east'], text: /Chart table.*Route comparison is not yet implemented.*Enter reports the same bounded station result.*Escape cancels without mutation/i, confirm: true },
+  { propId: 'prop:galley-hearth', directions: ['east', 'east', 'east', 'north', 'north', 'north', 'east', 'east', 'east', 'east'], text: /Galley hearth.*Meals, rations, and cooking are not modeled.*Enter reports the same bounded station result.*Escape cancels without mutation/i, confirm: true },
+  { propId: 'prop:gangplank', directions: ['south', 'west'], text: /Gangplank.*Jomon is moored.*Quay departure and travel are not yet implemented.*Enter reports the same bounded station result.*Escape cancels without mutation/i, confirm: true },
+  { propId: 'prop:repair-space-rack', directions: ['east', 'east', 'east', 'east', 'east', 'east', 'east', 'east', 'east', 'east'], text: /Repair-space rack.*Jomon integrity: 100\/100.*Repair work is not yet implemented.*Enter reports the same bounded station result.*Escape cancels without mutation/i, confirm: true },
+  { propId: 'prop:stores-rack', directions: ['north', 'north', 'north'], text: /Stores rack.*Onboard provisions and inventory are not yet modeled.*Enter reports the same bounded station result.*Escape cancels without mutation/i, confirm: true }
+] as const satisfies readonly { propId: string; directions: readonly JomonDeckMovementDirection[]; text: RegExp; confirm: boolean }[]
 
-  const temporal = async (worldId: string) => page.evaluate(async id => new Promise<{ worldTime: number; actionSequence: number }>((resolve, reject) => {
+const stationFixtureTemporal = async (page: Page, worldId: string) => page.evaluate(async id => new Promise<{ worldTime: number; actionSequence: number }>((resolve, reject) => {
+  const request = indexedDB.open('jomon-medieval-worlds-v1')
+  request.onerror = () => reject(request.error)
+  request.onsuccess = () => {
+    const database = request.result
+    const read = database.transaction('worlds', 'readonly').objectStore('worlds').get(id)
+    read.onerror = () => { database.close(); reject(read.error) }
+    read.onsuccess = () => {
+      const state = (read.result as { state?: { temporal?: { worldTime?: number; actionSequence?: number } } } | undefined)?.state?.temporal
+      database.close()
+      if (!state) return reject(new Error('station fixture was not persisted'))
+      resolve({ worldTime: state.worldTime ?? -1, actionSequence: state.actionSequence ?? -1 })
+    }
+  }
+}), worldId)
+
+for (const station of stationKeyboardCases) test(`renders ${station.propId} from a valid saved movement fixture through real keyboard input`, async ({ page }) => {
+  const world = stationFixtureWorld(station.directions)
+  await page.goto('/')
+  await page.evaluate(async source => new Promise<void>((resolve, reject) => {
     const request = indexedDB.open('jomon-medieval-worlds-v1')
     request.onerror = () => reject(request.error)
     request.onsuccess = () => {
       const database = request.result
-      const read = database.transaction('worlds', 'readonly').objectStore('worlds').get(id)
-      read.onerror = () => { database.close(); reject(read.error) }
-      read.onsuccess = () => {
-        const state = (read.result as { state?: { temporal?: { worldTime?: number; actionSequence?: number } } } | undefined)?.state?.temporal
-        database.close()
-        if (!state) return reject(new Error('station fixture was not persisted'))
-        resolve({ worldTime: state.worldTime ?? -1, actionSequence: state.actionSequence ?? -1 })
-      }
+      const transaction = database.transaction(['worlds', 'catalog'], 'readwrite')
+      transaction.onerror = () => { database.close(); reject(transaction.error) }
+      transaction.oncomplete = () => { database.close(); resolve() }
+      transaction.objectStore('worlds').put(source, source.id)
+      transaction.objectStore('catalog').put({ version: 1, activeWorlds: [{ id: source.id, label: source.manifest.creation.label, initialCourierId: source.state.courier.initialCourierId }], chronicles: [] }, 'world-index')
     }
-  }), worldId)
-
-  for (const station of stations) {
-    const world = fixtures[station.propId]
-    if (!world) throw new Error(`missing valid movement fixture for ${station.propId}`)
-    await page.goto('/')
-    await page.evaluate(async source => new Promise<void>((resolve, reject) => {
-      const request = indexedDB.open('jomon-medieval-worlds-v1')
-      request.onerror = () => reject(request.error)
-      request.onsuccess = () => {
-        const database = request.result
-        const transaction = database.transaction(['worlds', 'catalog'], 'readwrite')
-        transaction.onerror = () => { database.close(); reject(transaction.error) }
-        transaction.oncomplete = () => { database.close(); resolve() }
-        transaction.objectStore('worlds').put(source, source.id)
-        transaction.objectStore('catalog').put({ version: 1, activeWorlds: [{ id: source.id, label: source.manifest.creation.label, initialCourierId: source.state.courier.initialCourierId }], chronicles: [] }, 'world-index')
-      }
-    }), world)
-    await page.reload()
-    const game = page.locator('#game')
-    await game.click()
+  }), world)
+  await page.reload()
+  const game = page.locator('#game')
+  await expect(game).toHaveAttribute('data-persistence', 'saved')
+  await expect(game).toHaveAttribute('data-route', 'worlds')
+  await game.click()
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'world')
+  const before = await stationFixtureTemporal(page, world.id)
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
+  await expect(game).toHaveAttribute('aria-label', station.text)
+  if (station.confirm) {
     await page.keyboard.press('Enter')
-    await expect(game).toHaveAttribute('data-route', 'world')
-    const before = await temporal(world.id)
-    await page.keyboard.press('Enter')
-    await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
-    await expect(game).toHaveAttribute('aria-label', station.text)
-    if (station.confirm) {
-      await page.keyboard.press('Enter')
-      await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-option-disabled')
-    }
-    await page.keyboard.press('Escape')
-    await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
-    await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-cancelled')
-    expect(await temporal(world.id)).toEqual(before)
+    await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-option-disabled')
   }
+  await page.keyboard.press('Escape')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-cancelled')
+  expect(await stationFixtureTemporal(page, world.id)).toEqual(before)
 })
 
 test('keeps a missing-local-world diagnostic inside the fixed canvas panel', async ({ page }) => {
