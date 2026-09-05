@@ -18,7 +18,7 @@ import {
 import { createManagementSidebarModel } from './management-sidebar'
 import { defaultTerminalControlPreferences } from './terminal-controls'
 import { createJomonDeckContextualPrompt, createTerminalMapLegend, createTerminalPresentationModel, terminalNonColorCueFor, type TerminalMessage, type TerminalPresentationModel } from './terminal-presentation'
-import { chooseInitialCourier, createFoundationWorld, moveFoundationWorldCourier } from './world'
+import { chooseInitialCourier, createFoundationWorld, moveFoundationWorldCourier, switchTavernCourier } from './world'
 
 const selectedWorld = (seed: string = 'detailed-renderer-adapter') => chooseInitialCourier(createFoundationWorld({ seed, configuration: { preset: 'watershed' } }), 'crew:0')
 const moved = (world: ReturnType<typeof selectedWorld>, direction: Parameters<typeof moveFoundationWorldCourier>[1]) => {
@@ -204,6 +204,22 @@ describe('detailed renderer adapter contract', () => {
     expect((detailedPrompt.prompt as typeof terminalPrompt).ledger).toEqual(terminalPrompt.ledger)
     expect(model.interactionBoundary).toEqual({ sharesEffectiveCommandIds: true, promptCancellation: 'cancelled-no-mutation', executesInput: false, advancesWorldTime: false, mutatesWorld: false })
     expect(JSON.stringify(model)).not.toContain('initial:watershed')
+    expect(reportDetailedRendererParity(bundle, model)).toMatchObject({ status: 'accepted', diagnostics: [] })
+  })
+
+  it('forwards persisted vessel-prop action status and feedback through the presentation-only parity bundle', () => {
+    const source = selectedWorld('detailed-persisted-prop-action')
+    const target = source.crew.find(member => member.id !== source.state.courier.activeCourierId && member.eligible)!
+    const world = switchTavernCourier(source, target.id)
+    const terminal = createTerminalPresentationModel(world)
+    const bundle = createDetailedRendererSourceBundle({ version: 1, terminal, sidebar: createManagementSidebarModel(world), glyphCatalog: JOMON_ASCII_GLYPH_CATALOG, controls: defaultTerminalControlPreferences() })
+    const model = createDetailedRendererAdapterModel(bundle)
+
+    expect(terminal.messages).toHaveLength(1)
+    expect(model.messages).toEqual([expect.objectContaining({ sourceItemId: terminal.messages[0]!.id, message: terminal.messages[0] })])
+    expect(model.status.find(item => item.status.value.kind === 'vessel-prop-action')).toEqual(expect.objectContaining({ status: terminal.status.find(item => item.value.kind === 'vessel-prop-action') }))
+    expect(model.accessibility.messageText).toEqual(terminal.accessibility.messageText)
+    expect(model.interactionBoundary).toEqual({ sharesEffectiveCommandIds: true, promptCancellation: 'cancelled-no-mutation', executesInput: false, advancesWorldTime: false, mutatesWorld: false })
     expect(reportDetailedRendererParity(bundle, model)).toMatchObject({ status: 'accepted', diagnostics: [] })
   })
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { chooseInitialCourier, createFoundationWorld } from './world'
-import { createVesselStationReadoutForVerifiedWorld, validateVesselStationReadout, vesselStationReadoutMatchesVerifiedWorld } from './vessel-station-readout'
+import { createVesselStationReadoutForVerifiedWorld, VESSEL_STATION_READOUT_CONTRACT_VERSION, validateVesselStationReadout, vesselStationReadoutMatchesVerifiedWorld } from './vessel-station-readout'
 
 const selectedWorld = (seed: string) => chooseInitialCourier(createFoundationWorld({ seed, configuration: { preset: 'watershed' } }), 'crew:0')
 
@@ -14,7 +14,7 @@ const atAnchor = (seed: string, coordinate: { column: number; row: number }) => 
 describe('vessel station readouts', () => {
   const stations = [
     { propId: 'prop:berth' as const, coordinate: { column: 7, row: 1 }, label: 'Berth', value: { kind: 'berth-capacity', berthSlots: 6 }, source: 'world-state:jomon' },
-    { propId: 'prop:cargo-hold-rack' as const, coordinate: { column: 10, row: 4 }, label: 'Cargo hold rack', value: { kind: 'cargo-capacity', cargoUnits: 12 }, source: 'world-state:jomon' },
+    { propId: 'prop:cargo-hold-rack' as const, coordinate: { column: 10, row: 4 }, label: 'Cargo hold rack', value: { kind: 'cargo-capacity', cargoUnits: 12, usedUnits: 0, lots: [] }, source: 'world-state:jomon:cargo' },
     { propId: 'prop:chart-table' as const, coordinate: { column: 7, row: 4 }, label: 'Chart table', value: { kind: 'route-comparison-unavailable' }, source: 'deck-prop-binding:prop:chart-table' },
     { propId: 'prop:galley-hearth' as const, coordinate: { column: 11, row: 1 }, label: 'Galley hearth', value: { kind: 'galley-unmodeled' }, source: 'deck-prop-binding:prop:galley-hearth' },
     { propId: 'prop:gangplank' as const, coordinate: { column: 3, row: 5 }, label: 'Gangplank', value: { kind: 'quay-travel-unavailable', operationalStatus: 'moored' }, source: 'world-state:jomon' },
@@ -28,7 +28,7 @@ describe('vessel station readouts', () => {
       const readout = createVesselStationReadoutForVerifiedWorld(world, station.propId)
 
       expect(readout).toMatchObject({
-        version: 1,
+        version: VESSEL_STATION_READOUT_CONTRACT_VERSION,
         source: { propId: station.propId },
         label: station.label,
         value: station.value,

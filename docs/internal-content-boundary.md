@@ -1,6 +1,6 @@
 # Closed internal content boundary
 
-`src/medieval/internal-content.ts` v1 records the closed ownership policy for medieval content. It is a pure, compiled TypeScript maintainer contract. It is not a mod API, content-pack format, registry, loader, import/export path, plugin hook, or compatibility promise.
+`src/medieval/internal-content.ts` v3 records the closed ownership policy for medieval content. It is a pure, compiled TypeScript maintainer contract. It is not a mod API, content-pack format, registry, loader, import/export path, plugin hook, or compatibility promise.
 
 ## Content families and owners
 
@@ -8,6 +8,8 @@ The catalogue references owner data and invokes owner validation only. It does n
 
 | Family | Authoritative owner | Source category | Required safety and visibility | Change impact / rule |
 | --- | --- | --- | --- | --- |
+| Commodity definitions | `commodity-catalogue.ts` | Developer-authored, compiled TypeScript data | Exact bounded material records are classified and fail closed; not a cargo/market world fact | Policy validation; persist a later economy only after its owning replay/provenance decision |
+| Named settlement profile | `settlement-profile.ts` | Developer-authored, compiled TypeScript data | Exact bounded Hearthford material profile is classified and fail closed; not a generated site/market/contract world fact | Policy validation; establish situated player knowledge and persistent economy facts only under a later owner |
 | Content-safety policy | `content-safety.ts` | Developer-authored, compiled TypeScript data | Canonical owner classification; every prohibited class affirmatively excluded | Policy validation; use the policy-version and replay decision |
 | World-generation configuration | `generation-config.ts` | Deterministic generator input | Generated records must pass owner safety audit; not a world fact itself | Generator provenance/recreation; make an explicit generator/provenance decision first |
 | Initial-world generation | `initial-world.ts` | Deterministic generator input | Every generated/player-facing record is classified and fail-closed | Generator provenance/recreation; make an explicit generator/provenance decision first |
@@ -21,7 +23,7 @@ The current owner versions are recorded only as references to their owner contra
 
 ## Validation and maintenance
 
-`internalContentCatalogue()` returns a fresh copy of the fixed eight-family catalogue. `validateInternalContentCatalogue()` accepts only that closed, canonical descriptor set and fails closed for malformed fields, noncanonical or duplicate identifiers/order, unknown owners/categories, absent or unsafe safety requirements, invalid impact/change rules, and extension-shaped sources. `validateCurrentInternalContentOwners()` calls the existing owner validators/resolvers to ensure those references remain current.
+`internalContentCatalogue()` v3 returns a fresh copy of the fixed ten-family catalogue. `validateInternalContentCatalogue()` accepts only that closed, canonical descriptor set and fails closed for malformed fields, noncanonical or duplicate identifiers/order, unknown owners/categories, absent or unsafe safety requirements, invalid impact/change rules, and extension-shaped sources. `validateCurrentInternalContentOwners()` calls the existing owner validators/resolvers to ensure those references remain current.
 
 When changing developer-authored content:
 
@@ -34,4 +36,4 @@ When changing developer-authored content:
 
 There is no user-authored content input, JSON/runtime loader, dynamic import, plugin discovery, script/callback hook, browser fetch, network source, persistence registry, cache, world/manifest field, or hidden-frontier/player-knowledge channel. The catalogue contains no executable values and never mutates a world.
 
-This design leaves `FoundationWorld`, world/manifest schemas, replay behavior, IndexedDB layout v4, valid v3 envelope loading, and explicit-save-only metadata unchanged. It creates no migration and no public extension commitment.
+The commodity catalogue remains compiled content only: the separate cargo-hold owner may reference its closed IDs and material semantics in mutable state v16/replay v8, while `FoundationWorld` v15, manifest v6, generation/RNG, IndexedDB layout v4, valid envelope loading, and explicit-save-only metadata remain unchanged. The named settlement profile is likewise compiled data only: it may reference catalogue IDs but does not instantiate a site, market, person, contract, route, price, stock, or player knowledge. Neither creates a public extension commitment.

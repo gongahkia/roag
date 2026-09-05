@@ -10,7 +10,7 @@ import { causalReplayProjectionForWorldState, createMedievalWorldState, isMediev
 import { createFidelityPlanForVerifiedWorld } from './fidelity'
 import { advanceSimulationCatchUpState, reconcileSimulationCatchUpPlanState, resolveDelegatedWorkPlaceholder, validateSimulationCatchUpPlanState, validateSimulationCatchUpState, withDelegatedWorkPlaceholder } from './simulation-catchup'
 import { advanceWorldEraForTemporalAction, recordDurableJomonGrowthEvidence, type DurableJomonGrowthEvidence, type WorldEraContext } from './world-era'
-import { appendCausalCommand, causalReplayProjection, createCausalCommand, rebaseCausalHistoryCheckpoint, replayCausalHistory, upgradeLegacyCausalHistoryStateV4, validateCausalHistoryReplay, type CausalCommandEvent, type CausalHistoryContext, type CausalReplayProjection } from './causal-history'
+import { appendCausalCommand, causalReplayProjection, createCausalCommand, rebaseLegacyCausalHistoryCheckpointV4, replayCausalHistory, upgradeLegacyCausalHistoryStateV4, upgradeLegacyCausalHistoryStateV5, validateCausalHistoryReplay, type CausalCommandEvent, type CausalHistoryContext, type CausalReplayProjection } from './causal-history'
 import { CONVERSATION_CONTRACT_VERSION, assessCourierConversation, assessCourierConversationForValidatedReplay, type ConversationAssessment } from './conversation'
 import { advanceDelegatedTasks, delegatedWorkPlaceholderForTask, delegationInterruptionTemporalAction, delegationOfferTemporalAction, interruptDelegatedTask, isDelegationInterruptionInput, isDelegationOfferInput, offerDelegatedTask as offerDelegationTransition, type DelegationInterruptionInput, type DelegationOfferInput } from './delegation'
 import { advanceAutonomyState, createAutonomyState, reconcileAutonomyState, validateAutonomyPlanState } from './autonomy'
@@ -20,6 +20,8 @@ import { assessCourierContinuityLoss, type CourierContinuityAssessment, type Cou
 import { initialVesselPropActionState, recordVesselPropAction } from './vessel-prop-action'
 import { createVesselStationReadoutForVerifiedWorld, type VesselStationReadoutPropId } from './vessel-station-readout'
 import { assessVesselPropOperationForVerifiedWorld } from './vessel-proximity-operation'
+import { initialVesselCargoState, loadVesselCargo, recoverVesselCargo, resolveVesselCargoFailure, unloadVesselCargo, type VesselCargoFailureOutcome } from './cargo-hold'
+import type { JomonCommodityId } from './commodity-catalogue'
 import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_JOMON_PROP_DEFINITIONS, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type LegacyFoundationWorldV13, type LegacyFoundationWorldV14, type LegacyFoundationWorldV14V13, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
 
 const LEGACY_FOUNDATION_JOMON_PROPS = [
@@ -398,9 +400,10 @@ export const upgradeFoundationWorldStateV15 = (value: unknown): FoundationWorld 
   const checkpointProjection = causalReplayProjection({
     ...checkpoint,
     jomon: {
-      ...(legacy.state.jomon as unknown as Omit<MedievalWorldState['jomon'], 'version' | 'propActions'>),
-      version: 2,
-      propActions: initialVesselPropActionState(legacy.jomon)
+      ...(legacy.state.jomon as unknown as Omit<MedievalWorldState['jomon'], 'version' | 'propActions' | 'cargo'>),
+      version: 3,
+      propActions: initialVesselPropActionState(legacy.jomon),
+      cargo: initialVesselCargoState()
     }
   })
   const history = upgradeLegacyCausalHistoryStateV4(context, legacy.state.causalHistory, checkpointProjection)
@@ -408,11 +411,11 @@ export const upgradeFoundationWorldStateV15 = (value: unknown): FoundationWorld 
     ...structuredClone(legacy),
     state: {
       ...structuredClone(legacy.state),
-      version: 15,
+      version: 16,
       jomon: structuredClone(checkpointProjection.jomon),
       causalHistory: history
     }
-  } as FoundationWorld
+  } as unknown as FoundationWorld
   const replayed = replayCausalHistory(context, history, (projection, command) => replayCommandProjection(provisional, projection, command))
   const legacyProjection = legacy.state as unknown as Pick<MedievalWorldState, 'courier' | 'navigation' | 'people' | 'temporal' | 'simulation' | 'era' | 'delegation' | 'autonomy' | 'socialMemory'>
   if (!equivalent(replayed.courier, legacyProjection.courier)
@@ -428,7 +431,7 @@ export const upgradeFoundationWorldStateV15 = (value: unknown): FoundationWorld 
     ...structuredClone(legacy),
     state: {
       ...structuredClone(legacy.state),
-      version: 15,
+      version: 16,
       courier: structuredClone(replayed.courier),
       navigation: structuredClone(replayed.navigation ?? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }),
       people: structuredClone(replayed.people),
@@ -443,7 +446,80 @@ export const upgradeFoundationWorldStateV15 = (value: unknown): FoundationWorld 
     }
   }
   const validation = validateFoundationWorld(upgraded)
-  if (validation.length) throw new Error(`foundation world v15/state-v14 conversion did not reproduce a valid v15 envelope: ${validation.map(item => item.code).join(', ')}`)
+  if (validation.length) throw new Error(`foundation world v15/state-v14 conversion did not reproduce a valid v16 envelope: ${validation.map(item => item.code).join(', ')}`)
+  return upgraded
+}
+
+/**
+ * Strict read-only state-v15 -> state-v16 conversion. The v15 envelope is
+ * first validated with its no-cargo replay evidence; then an empty bounded
+ * hold is added to its checkpoint and full replay proves the upgraded result.
+ */
+export const upgradeFoundationWorldStateV16 = (value: unknown): FoundationWorld => {
+  if (!record(value) || !hasOnlyKeys(value, ['version', 'id', 'status', 'manifest', 'jomon', 'crew', 'initialWorld', 'state']) || value.version !== 15 || value.status !== 'active') throw new Error('foundation world is not a v15/state-v15 active envelope')
+  const legacy = value as unknown as FoundationWorld
+  if ((legacy.state as unknown as { version?: unknown }).version !== 15
+    || !isReproducibleWorldManifest(legacy.manifest)
+    || !isInitialWorld(legacy.initialWorld)
+    || !foundationWorldInitialWorldMatchesManifest(legacy)
+    || !foundationWorldContentSatisfiesSafetyPolicy(legacy)
+    || !foundationWorldTemporalStateMatches(legacy)
+    || !foundationWorldNavigationStateMatches(legacy)
+    || !foundationWorldCatchUpStateMatches(legacy)
+    || !foundationWorldAutonomyStateMatches(legacy)) throw new Error('foundation world v15/state-v15 envelope is invalid')
+
+  const context = causalHistoryContextFor(legacy)
+  const checkpoint = legacy.state.causalHistory.checkpoint.projection as unknown as Omit<CausalReplayProjection, 'version' | 'jomon'>
+  const checkpointProjection = causalReplayProjection({
+    ...checkpoint,
+    jomon: {
+      ...(legacy.state.jomon as unknown as Omit<MedievalWorldState['jomon'], 'version' | 'cargo'>),
+      version: 3,
+      cargo: initialVesselCargoState()
+    }
+  })
+  const history = upgradeLegacyCausalHistoryStateV5(context, legacy.state.causalHistory, checkpointProjection)
+  const provisional = {
+    ...structuredClone(legacy),
+    state: {
+      ...structuredClone(legacy.state),
+      version: 16,
+      jomon: structuredClone(checkpointProjection.jomon),
+      causalHistory: history
+    }
+  } as unknown as FoundationWorld
+  const replayed = replayCausalHistory(context, history, (projection, command) => replayCommandProjection(provisional, projection, command))
+  const legacyProjection = legacy.state as unknown as Pick<MedievalWorldState, 'courier' | 'navigation' | 'people' | 'temporal' | 'simulation' | 'era' | 'delegation' | 'autonomy' | 'socialMemory'>
+  if (!equivalent(replayed.courier, legacyProjection.courier)
+    || !equivalent(replayed.navigation, legacyProjection.navigation)
+    || !equivalent(replayed.people, legacyProjection.people)
+    || !equivalent(replayed.temporal, legacyProjection.temporal)
+    || !equivalent(replayed.simulation, legacyProjection.simulation)
+    || !equivalent(replayed.era, legacyProjection.era)
+    || !equivalent(replayed.delegation, legacyProjection.delegation)
+    || !equivalent(replayed.autonomy, legacyProjection.autonomy)
+    || !equivalent(replayed.socialMemory, legacyProjection.socialMemory)
+    || !equivalent(replayed.jomon.cargo, initialVesselCargoState())) throw new Error('foundation world v15/state-v15 replay evidence is invalid')
+  const upgraded: FoundationWorld = {
+    ...structuredClone(legacy),
+    state: {
+      ...structuredClone(legacy.state),
+      version: 16,
+      courier: structuredClone(replayed.courier),
+      navigation: structuredClone(replayed.navigation ?? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }),
+      people: structuredClone(replayed.people),
+      temporal: structuredClone(replayed.temporal),
+      simulation: structuredClone(replayed.simulation),
+      era: structuredClone(replayed.era),
+      delegation: structuredClone(replayed.delegation),
+      autonomy: structuredClone(replayed.autonomy),
+      socialMemory: structuredClone(replayed.socialMemory),
+      jomon: structuredClone(replayed.jomon),
+      causalHistory: history
+    }
+  }
+  const validation = validateFoundationWorld(upgraded)
+  if (validation.length) throw new Error(`foundation world v15/state-v15 conversion did not reproduce a valid v16 envelope: ${validation.map(item => item.code).join(', ')}`)
   return upgraded
 }
 
@@ -454,6 +530,47 @@ export const upgradeFoundationWorldStateV15 = (value: unknown): FoundationWorld 
  * accepts it. Invalid or ambiguous input throws and is left for storage to
  * preserve unchanged.
  */
+const rebaseLegacyStateToV14 = (
+  world: FoundationWorld,
+  courier: { version: 3; initialCourierId?: string; activeCourierId?: string; departedCourierIds?: readonly string[] },
+  navigation: WorldDeckNavigationState
+): unknown => {
+  const checkpoint = world.state.causalHistory.checkpoint.projection as unknown as Record<string, unknown>
+  const checkpointCourierSource = record(checkpoint.courier) ? checkpoint.courier : undefined
+  const checkpointInitialCourierId = typeof checkpointCourierSource?.initialCourierId === 'string' ? checkpointCourierSource.initialCourierId : undefined
+  const checkpointActiveCourierId = checkpointCourierSource?.version === 2 && typeof checkpointCourierSource.activeCourierId === 'string'
+    ? checkpointCourierSource.activeCourierId
+    : checkpointInitialCourierId
+  const checkpointCourier = checkpointInitialCourierId === undefined
+    ? { version: 3 as const }
+    : { version: 3 as const, initialCourierId: checkpointInitialCourierId, activeCourierId: checkpointActiveCourierId!, departedCourierIds: [] as const }
+  const checkpointNavigationSource = record(checkpoint.navigation) ? checkpoint.navigation : undefined
+  const checkpointNavigation: WorldDeckNavigationState = checkpointActiveCourierId !== undefined
+    && checkpointNavigationSource?.courierId === checkpointActiveCourierId
+    && record(checkpointNavigationSource.coordinate)
+    && typeof checkpointNavigationSource.coordinate.column === 'number'
+    && typeof checkpointNavigationSource.coordinate.row === 'number'
+    ? { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: checkpointActiveCourierId, coordinate: { column: checkpointNavigationSource.coordinate.column, row: checkpointNavigationSource.coordinate.row } }
+    : checkpointActiveCourierId === undefined
+      ? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }
+      : { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: checkpointActiveCourierId, coordinate: canonicalJomonDeckSpawn(world) }
+  const projection: Record<string, unknown> = {
+    ...structuredClone(checkpoint),
+    version: 6,
+    courier: checkpointCourier,
+    navigation: checkpointNavigation
+  }
+  delete projection.jomon
+  const history = rebaseLegacyCausalHistoryCheckpointV4(causalHistoryContextFor(world), world.state.causalHistory, projection)
+  return {
+    ...structuredClone(world.state),
+    version: 14,
+    courier: structuredClone(courier),
+    navigation: structuredClone(navigation),
+    causalHistory: history
+  }
+}
+
 export const upgradeFoundationWorldV13 = (value: unknown): FoundationWorld => {
   if (!record(value) || !hasOnlyKeys(value, ['version', 'id', 'status', 'manifest', 'jomon', 'crew', 'initialWorld', 'state']) || value.version !== 13 || value.status !== 'active') throw new Error('foundation world is not a v13 active envelope')
   const legacy = value as unknown as LegacyFoundationWorldV13
@@ -466,39 +583,12 @@ export const upgradeFoundationWorldV13 = (value: unknown): FoundationWorld => {
   const navigation: WorldDeckNavigationState = selectedCourierId === undefined
     ? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }
     : { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: selectedCourierId, coordinate: canonicalJomonDeckSpawn(planFacade) }
-  const context = causalHistoryContextFor(legacy as unknown as FoundationWorld)
-  const checkpoint = legacy.state.causalHistory.checkpoint.projection as unknown as { courier: { version: number; initialCourierId?: string; activeCourierId?: string }; navigation?: WorldDeckNavigationState } & Omit<CausalReplayProjection, 'courier' | 'navigation'>
-  const checkpointInitialCourierId = checkpoint.courier.initialCourierId
-  const rebasedHistory = rebaseCausalHistoryCheckpoint(context, legacy.state.causalHistory, causalReplayProjection({
-    ...checkpoint,
-    courier: checkpointInitialCourierId === undefined
+  const state = rebaseLegacyStateToV14(legacy as unknown as FoundationWorld,
+    selectedCourierId === undefined
       ? { version: 3 }
-      : { version: 3, initialCourierId: checkpointInitialCourierId, activeCourierId: checkpointInitialCourierId, departedCourierIds: [] },
-    navigation: checkpointInitialCourierId === undefined
-      ? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }
-      : { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: checkpointInitialCourierId, coordinate: canonicalJomonDeckSpawn(planFacade) }
-  }))
-  const state = createMedievalWorldState({
-    seed: legacy.manifest.creation.seed,
-    configuration: legacy.manifest.creation.resolvedConfiguration,
-    initialWorld: legacy.initialWorld,
-    jomon: legacy.jomon,
-    crew: legacy.crew,
-    frontier: legacy.state.geography.frontier,
-    temporal: legacy.state.temporal,
-    ...(selectedCourierId === undefined ? {} : { initialCourierId: selectedCourierId }),
-    ...(selectedCourierId === undefined ? {} : { activeCourierId: selectedCourierId }),
-    navigationState: navigation,
-    jomonState: legacy.state.jomon,
-    peopleState: legacy.state.people,
-    simulationState: legacy.state.simulation,
-    eraState: legacy.state.era,
-    delegationState: legacy.state.delegation,
-    autonomyState: legacy.state.autonomy,
-    socialMemoryState: legacy.state.socialMemory,
-    causalHistoryState: rebasedHistory
-  })
-  return upgradeFoundationWorldV15({ ...structuredClone(legacy), version: 14, state })
+      : { version: 3, initialCourierId: selectedCourierId, activeCourierId: selectedCourierId, departedCourierIds: [] },
+    navigation)
+  return upgradeFoundationWorldStateV15({ ...planFacade, state })
 }
 
 /**
@@ -522,42 +612,12 @@ export const upgradeFoundationWorldV14 = (value: unknown): FoundationWorld => {
   if (selectedCourierId === undefined
     ? navigation.courierId !== undefined || navigation.coordinate !== undefined
     : activeCourierId === undefined || navigation.courierId !== activeCourierId || navigation.coordinate === undefined || !isWalkableJomonDeckCoordinate(planFacade, navigation.coordinate)) throw new Error('foundation world v14 navigation is invalid')
-  const checkpoint = legacy.state.causalHistory.checkpoint.projection as unknown as { courier: { version: number; initialCourierId?: string; activeCourierId?: string }; navigation?: WorldDeckNavigationState } & Omit<CausalReplayProjection, 'courier' | 'navigation'>
-  const checkpointInitialCourierId = checkpoint.courier.initialCourierId
-  const checkpointActiveCourierId = checkpoint.courier.version === 2 ? checkpoint.courier.activeCourierId : checkpointInitialCourierId
-  const checkpointNavigation = checkpoint.navigation
-  const rebasedHistory = rebaseCausalHistoryCheckpoint(causalHistoryContextFor(legacy as unknown as FoundationWorld), legacy.state.causalHistory, causalReplayProjection({
-    ...checkpoint,
-    courier: checkpointInitialCourierId === undefined
+  const state = rebaseLegacyStateToV14(legacy as unknown as FoundationWorld,
+    selectedCourierId === undefined
       ? { version: 3 }
-      : { version: 3, initialCourierId: checkpointInitialCourierId, activeCourierId: checkpointActiveCourierId!, departedCourierIds: [] },
-    navigation: checkpointInitialCourierId === undefined
-      ? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }
-      : checkpointNavigation !== undefined && checkpointNavigation.courierId === checkpointActiveCourierId && checkpointNavigation.coordinate !== undefined
-        ? structuredClone(checkpointNavigation)
-        : { version: WORLD_DECK_NAVIGATION_STATE_VERSION, courierId: checkpointActiveCourierId!, coordinate: canonicalJomonDeckSpawn(planFacade) }
-  }))
-  const state = createMedievalWorldState({
-    seed: legacy.manifest.creation.seed,
-    configuration: legacy.manifest.creation.resolvedConfiguration,
-    initialWorld: legacy.initialWorld,
-    jomon: legacy.jomon,
-    crew: legacy.crew,
-    frontier: legacy.state.geography.frontier,
-    temporal: legacy.state.temporal,
-    ...(selectedCourierId === undefined ? {} : { initialCourierId: selectedCourierId, activeCourierId: activeCourierId! }),
-    ...(selectedCourierId === undefined ? {} : { departedCourierIds: [] }),
-    navigationState: navigation,
-    jomonState: legacy.state.jomon,
-    peopleState: legacy.state.people,
-    simulationState: legacy.state.simulation,
-    eraState: legacy.state.era,
-    delegationState: legacy.state.delegation,
-    autonomyState: legacy.state.autonomy,
-    socialMemoryState: legacy.state.socialMemory,
-    causalHistoryState: rebasedHistory
-  })
-  return upgradeFoundationWorldV15({ ...structuredClone(legacy), version: 14, state })
+      : { version: 3, initialCourierId: selectedCourierId, activeCourierId: activeCourierId!, departedCourierIds: [] },
+    navigation)
+  return upgradeFoundationWorldStateV15({ ...planFacade, state })
 }
 
 export const foundationWorldIdForManifest = (manifest: WorldManifest): string => idForCreationProvenance(manifest.creation)
@@ -1069,6 +1129,59 @@ const recordVesselStationReadoutProjection = (
   })
 }
 
+/** All physical cargo handling stays at the existing source-backed hold rack. */
+const cargoHoldProjection = (world: FoundationWorld, projection: CausalReplayProjection) => {
+  const projected = projectedFoundationWorld(world, projection)
+  const operation = assessVesselPropOperationForVerifiedWorld(projected, projection, 'prop:cargo-hold-rack')
+  if (operation.proximity !== 'at-anchor' || operation.availability !== 'readout') throw new Error('cargo handling requires exact cargo-hold anchor occupancy')
+  const readout = createVesselStationReadoutForVerifiedWorld(projected, 'prop:cargo-hold-rack')
+  if (readout.source.propId !== 'prop:cargo-hold-rack' || readout.source.propBindingId !== operation.source.propBindingId) throw new Error('cargo hold source does not match current prop operation')
+  return projected
+}
+
+const withCargoAction = (
+  world: FoundationWorld,
+  projection: CausalReplayProjection,
+  cargo: CausalReplayProjection['jomon']['cargo'],
+  kind: 'vessel-cargo-loaded' | 'vessel-cargo-unloaded' | 'vessel-cargo-failure-resolved' | 'vessel-cargo-recovered',
+  causalSequence: number
+): CausalReplayProjection => causalReplayProjection({
+  ...projection,
+  jomon: {
+    ...projection.jomon,
+    cargo,
+    propActions: recordVesselPropAction(world.jomon, projection.jomon.propActions, 'prop:cargo-hold-rack', {
+      kind,
+      recordedAtWorldTime: projection.temporal.worldTime,
+      causalSequence
+    })
+  }
+})
+
+const loadVesselCargoProjection = (world: FoundationWorld, projection: CausalReplayProjection, payload: { propId: 'prop:cargo-hold-rack'; commodityId: JomonCommodityId; quantity: number }, causalSequence: number): CausalReplayProjection => {
+  if (payload.propId !== 'prop:cargo-hold-rack') throw new Error('cargo loading requires the cargo hold rack')
+  cargoHoldProjection(world, projection)
+  return withCargoAction(world, projection, loadVesselCargo(projection.jomon.cargo, projection.jomon.capacity.cargoUnits, causalSequence, payload.commodityId, payload.quantity), 'vessel-cargo-loaded', causalSequence)
+}
+
+const unloadVesselCargoProjection = (world: FoundationWorld, projection: CausalReplayProjection, payload: { propId: 'prop:cargo-hold-rack'; cargoId: string }, causalSequence: number): CausalReplayProjection => {
+  if (payload.propId !== 'prop:cargo-hold-rack') throw new Error('cargo unloading requires the cargo hold rack')
+  cargoHoldProjection(world, projection)
+  return withCargoAction(world, projection, unloadVesselCargo(projection.jomon.cargo, projection.jomon.capacity.cargoUnits, payload.cargoId), 'vessel-cargo-unloaded', causalSequence)
+}
+
+const resolveVesselCargoFailureProjection = (world: FoundationWorld, projection: CausalReplayProjection, payload: { propId: 'prop:cargo-hold-rack'; cargoId: string; outcome: VesselCargoFailureOutcome }, causalSequence: number): CausalReplayProjection => {
+  if (payload.propId !== 'prop:cargo-hold-rack') throw new Error('cargo failure requires the cargo hold rack')
+  cargoHoldProjection(world, projection)
+  return withCargoAction(world, projection, resolveVesselCargoFailure(projection.jomon.cargo, projection.jomon.capacity.cargoUnits, payload.cargoId, payload.outcome), 'vessel-cargo-failure-resolved', causalSequence)
+}
+
+const recoverVesselCargoProjection = (world: FoundationWorld, projection: CausalReplayProjection, payload: { propId: 'prop:cargo-hold-rack'; cargoId: string }, causalSequence: number): CausalReplayProjection => {
+  if (payload.propId !== 'prop:cargo-hold-rack') throw new Error('cargo recovery requires the cargo hold rack')
+  cargoHoldProjection(world, projection)
+  return withCargoAction(world, projection, recoverVesselCargo(projection.jomon.cargo, projection.jomon.capacity.cargoUnits, payload.cargoId), 'vessel-cargo-recovered', causalSequence)
+}
+
 const delegationContextFor = (world: FoundationWorld, projection: CausalReplayProjection): {
   worldId: string
   creationDigest: string
@@ -1175,6 +1288,10 @@ const replayCommandProjection = (world: FoundationWorld, projection: CausalRepla
   if (command.kind === 'initial-courier-selected') return selectCourierProjection(world, projection, command.payload.courierId)
   if (command.kind === 'tavern-courier-switched') return switchTavernCourierProjection(world, projection, command.payload, command.sequence)
   if (command.kind === 'vessel-station-readout-recorded') return recordVesselStationReadoutProjection(world, projection, command.payload.propId, command.sequence)
+  if (command.kind === 'vessel-cargo-loaded') return loadVesselCargoProjection(world, projection, command.payload, command.sequence)
+  if (command.kind === 'vessel-cargo-unloaded') return unloadVesselCargoProjection(world, projection, command.payload, command.sequence)
+  if (command.kind === 'vessel-cargo-failure-resolved') return resolveVesselCargoFailureProjection(world, projection, command.payload, command.sequence)
+  if (command.kind === 'vessel-cargo-recovered') return recoverVesselCargoProjection(world, projection, command.payload, command.sequence)
   if (command.kind === 'courier-loss-resolved') return resolveCourierLossProjection(world, projection, command.payload)
   if (command.kind === 'time-bearing-action') return advanceTimeProjection(world, projection, command.payload.action)
   if (command.kind === 'deck-moved') return moveDeckProjection(world, projection, command.payload)
@@ -1261,6 +1378,27 @@ export const recordVesselStationReadout = (world: FoundationWorld, propId: Vesse
   const history = appendCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, command, recorded)
   return worldFromProjection(world, recorded, history)
 }
+
+/** Zero-time physical hold handling. Acquisition, trade, and travel stay outside this contract. */
+const recordVesselCargoCommand = (
+  world: FoundationWorld,
+  kind: 'vessel-cargo-loaded' | 'vessel-cargo-unloaded' | 'vessel-cargo-failure-resolved' | 'vessel-cargo-recovered',
+  payload: { propId: 'prop:cargo-hold-rack'; commodityId: JomonCommodityId; quantity: number } | { propId: 'prop:cargo-hold-rack'; cargoId: string } | { propId: 'prop:cargo-hold-rack'; cargoId: string; outcome: VesselCargoFailureOutcome }
+): FoundationWorld => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  if (world.status !== 'active') throw new Error('only an active world can handle vessel cargo')
+  requirePlayableActiveCourier(world, 'vessel cargo handling')
+  const projection = causalReplayProjectionForWorldState(world.state)
+  const command = createCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, kind, payload)
+  const next = replayCommandProjection(world, projection, command)
+  const history = appendCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, command, next)
+  return worldFromProjection(world, next, history)
+}
+
+export const loadCargoHold = (world: FoundationWorld, commodityId: JomonCommodityId, quantity: number): FoundationWorld => recordVesselCargoCommand(world, 'vessel-cargo-loaded', { propId: 'prop:cargo-hold-rack', commodityId, quantity })
+export const unloadCargoHold = (world: FoundationWorld, cargoId: string): FoundationWorld => recordVesselCargoCommand(world, 'vessel-cargo-unloaded', { propId: 'prop:cargo-hold-rack', cargoId })
+export const recordCargoHoldFailure = (world: FoundationWorld, cargoId: string, outcome: VesselCargoFailureOutcome): FoundationWorld => recordVesselCargoCommand(world, 'vessel-cargo-failure-resolved', { propId: 'prop:cargo-hold-rack', cargoId, outcome })
+export const recoverCargoHold = (world: FoundationWorld, cargoId: string): FoundationWorld => recordVesselCargoCommand(world, 'vessel-cargo-recovered', { propId: 'prop:cargo-hold-rack', cargoId })
 
 export type CourierContinuityResolution =
   | { status: 'continued'; world: FoundationWorld }

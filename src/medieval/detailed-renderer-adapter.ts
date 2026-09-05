@@ -11,7 +11,7 @@ import type { JomonPaletteToken } from './palette'
  * never receives foundation state, persistence, or commands.
  */
 /** v6 forwards persisted vessel-prop action status and message feedback. */
-export const DETAILED_RENDERER_ADAPTER_CONTRACT_VERSION = 6 as const
+export const DETAILED_RENDERER_ADAPTER_CONTRACT_VERSION = 7 as const
 export const DETAILED_RENDERER_SOURCE_BUNDLE_VERSION = 1 as const
 
 export const DETAILED_RENDERER_ADAPTER_LIMITS = {

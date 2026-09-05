@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { JOMON_ASCII_GLYPH_CATALOG, validateAsciiGlyphCatalog } from './ascii-glyphs'
 import { classifyMedievalContent, validateMedievalContentSafety } from './content-safety'
+import { commodityCatalogue, validateCommodityCatalogue } from './commodity-catalogue'
+import { namedSettlementProfile, validateNamedSettlementProfile } from './settlement-profile'
 import { DELEGATION_TASK_DEFINITIONS, DELEGATION_TASK_FAMILIES, validateDelegationTaskDefinitions } from './delegation'
 import { createInitialFrontierState, validateFrontierState } from './frontier'
 import { resolveWorldGenerationConfig } from './generation-config'
@@ -26,10 +28,11 @@ describe('closed internal medieval content boundary', () => {
 
     expect(first).toEqual(second)
     expect(catalogue()).toEqual(first)
-    expect(INTERNAL_CONTENT_CATALOGUE_VERSION).toBe(1)
+    expect(INTERNAL_CONTENT_CATALOGUE_VERSION).toBe(3)
     expect(validateInternalContentCatalogue(first)).toEqual([])
     expect(first.extensionPolicy).toEqual(INTERNAL_CONTENT_EXTENSION_POLICY)
     expect(first.families.map(family => [family.id, family.owner, family.sourceCategory])).toEqual([
+      ['commodity-definitions', 'commodity-catalogue', 'developer-authored-compiled-typescript'],
       ['content-safety-policy', 'content-safety', 'developer-authored-compiled-typescript'],
       ['delegation-task-definitions', 'delegation', 'runtime-task-definition-data'],
       ['forbidden-user-public-extension-inputs', 'application-internal-boundary', 'forbidden-user-public-extension-input'],
@@ -37,6 +40,7 @@ describe('closed internal medieval content boundary', () => {
       ['generated-world-records', 'world', 'generated-world-record'],
       ['initial-world-generation', 'initial-world', 'deterministic-generator-input'],
       ['renderer-semantic-glyphs', 'ascii-glyphs', 'renderer-semantic-data'],
+      ['settlement-profiles', 'settlement-profile', 'developer-authored-compiled-typescript'],
       ['world-generation-config', 'generation-config', 'deterministic-generator-input']
     ])
   })
@@ -45,7 +49,7 @@ describe('closed internal medieval content boundary', () => {
     const first = catalogue()
 
     expect(validateCurrentInternalContentOwners()).toEqual([])
-    expect(first.families).toHaveLength(8)
+    expect(first.families).toHaveLength(10)
     expect(first.families.map(family => family.id)).toEqual([...first.families.map(family => family.id)].sort())
     expect(first.families.every(family => family.ownerVersion.length > 0 && family.safety.policyVersion === 1 && family.safety.classification === 'owner-validated-canonical-classification-required' && family.safety.prohibitedContent === 'all-policy-prohibited-classes-affirmatively-excluded')).toBe(true)
     expect(first.families.find(family => family.id === 'forbidden-user-public-extension-inputs')).toMatchObject({ sourceImpact: 'forbidden-no-runtime-effect', changeRule: 'no-public-compatibility-or-extension-surface', visibility: 'forbidden' })
@@ -91,7 +95,7 @@ describe('closed internal medieval content boundary', () => {
 
     const extension = catalogue() as unknown as { families: Record<string, unknown>[] }
     extension.families[0] = {
-      ...extension.families[2]!,
+      ...extension.families[3]!,
       id: 'community-content-pack'
     }
     expect(codes(extension)).toEqual(expect.arrayContaining([
@@ -112,6 +116,8 @@ describe('closed internal medieval content boundary', () => {
     expect(validateFrontierState({ seed: 'internal-content-owner-fixture', configuration: resolved.configuration, initialWorld: initial }, frontier)).toEqual([])
     expect(validateAsciiGlyphCatalog(JOMON_ASCII_GLYPH_CATALOG)).toEqual([])
     expect(validateDelegationTaskDefinitions()).toEqual([])
+    expect(validateCommodityCatalogue(commodityCatalogue())).toEqual([])
+    expect(validateNamedSettlementProfile(namedSettlementProfile())).toEqual([])
     expect(DELEGATION_TASK_DEFINITIONS.map(definition => definition.family)).toEqual([...DELEGATION_TASK_FAMILIES].sort())
     expect(validateMedievalContentSafety([{ id: 'internal-content:safety-fixture', domain: 'data', classification: classifyMedievalContent('data', ['craft', 'navigation'], 'not-applicable') }])).toMatchObject({ status: 'accepted', diagnostics: [] })
     expect(isValidFoundationWorld(world)).toBe(true)

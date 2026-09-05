@@ -1,4 +1,4 @@
-import { isValidFoundationWorld, resolveCourierContinuityLossForVerifiedWorld as resolveCourierContinuityTransition, upgradeFoundationWorldStateV15, upgradeFoundationWorldV13, upgradeFoundationWorldV14, upgradeFoundationWorldV15, type CourierContinuityResolution } from './world'
+import { isValidFoundationWorld, resolveCourierContinuityLossForVerifiedWorld as resolveCourierContinuityTransition, upgradeFoundationWorldStateV15, upgradeFoundationWorldStateV16, upgradeFoundationWorldV13, upgradeFoundationWorldV14, upgradeFoundationWorldV15, type CourierContinuityResolution } from './world'
 import type { CourierContinuityConfirmation } from './courier-continuity'
 import { emptyCreationSettingsRecord, isCreationSettingsRecord, saveCreationSettingsProfile as saveNamedCreationSettingsProfile, withLastUsedCreationSettings, type CreationSettings, type CreationSettingsRecord } from './settings'
 import { defaultTerminalControlPreferences, isTerminalControlPreferences, type TerminalControlPreferences } from './terminal-controls'
@@ -30,6 +30,7 @@ const isFoundationWorld = (value: unknown): value is FoundationWorld => isValidF
 /** Read-only conversion; callers explicitly save a returned current envelope to persist it. */
 const loadedFoundationWorld = (value: unknown): FoundationWorld | undefined => {
   if (isFoundationWorld(value)) return clone(value)
+  try { return upgradeFoundationWorldStateV16(value) } catch { }
   try { return upgradeFoundationWorldStateV15(value) } catch { }
   try { return upgradeFoundationWorldV15(value) } catch { }
   try { return upgradeFoundationWorldV14(value) } catch { }

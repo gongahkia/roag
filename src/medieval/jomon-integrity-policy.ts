@@ -3,6 +3,8 @@ import { EFFECT_MODEL_CONTRACT_VERSION, validateEffectResolutionRequest, type Ef
 import { MYSTICAL_EFFECT_FORMS, MYSTICAL_EFFECT_POLICY_VERSION, MYSTICAL_EFFECT_RARITIES, MYSTICAL_EFFECT_RARITY_AVAILABILITY, MYSTICAL_EFFECT_SOURCE_CLASSES, MYSTICAL_EFFECT_ULTRA_RARE_RESERVATIONS, type MysticalEffectPolicyAuditRecord } from './mystical-effect-policy'
 import { MEDIEVAL_TIME_UNIT } from './temporal'
 import type { ChronicleReason } from './types'
+import { validateCanonicalVesselPropActionState } from './vessel-prop-action'
+import { validateVesselCargoState } from './cargo-hold'
 import { MEDIEVAL_WORLD_STATE_LIMITS, WORLD_JOMON_STATE_VERSION, type WorldJomonState } from './world-state'
 
 /**
@@ -213,7 +215,7 @@ const validActionTime = (value: unknown): value is EffectActionTime => record(va
 
 /** Uses the exact existing Jomon state shape, but does not construct or mutate it. */
 const validJomonState = (value: unknown): value is WorldJomonState => record(value)
-  && hasOnlyKeys(value, ['version', 'vesselId', 'operationalStatus', 'location', 'integrity', 'capacity'])
+  && hasOnlyKeys(value, ['version', 'vesselId', 'operationalStatus', 'location', 'integrity', 'capacity', 'propActions', 'cargo'])
   && value.version === WORLD_JOMON_STATE_VERSION
   && value.vesselId === 'vessel:jomon'
   && value.operationalStatus === 'moored'
@@ -235,6 +237,8 @@ const validJomonState = (value: unknown): value is WorldJomonState => record(val
   && value.capacity.cargoUnits <= MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum
   && value.capacity.berthSlots <= MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum
   && value.capacity.workSlots <= MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum
+  && validateCanonicalVesselPropActionState(value.propActions).length === 0
+  && validateVesselCargoState(value.cargo, value.capacity.cargoUnits).length === 0
 
 const incidentShape = (value: unknown): value is Record<string, unknown> => record(value) && hasOnlyKeys(value, ['id', 'kind', 'contentSafety'])
 const evidenceShape = (value: unknown): value is Record<string, unknown> => record(value) && hasRequiredAndOnlyOptionalKeys(value, ['id', 'kind', 'factId', 'factRevision'], ['afterEvidenceId'])

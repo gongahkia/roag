@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MedievalWorldRepository } from './storage'
 import { CREATION_SETTINGS_PROFILE_LIMIT, defaultCreationSettings } from './settings'
 import { MEDIEVAL_DATABASE_NAME } from './types'
-import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, offerFoundationWorldDelegatedTask, recordDurableJomonGrowth, replayFoundationWorldCausalHistory, switchTavernCourier, validateFoundationWorld } from './world'
+import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, loadCargoHold, moveFoundationWorldCourier, offerFoundationWorldDelegatedTask, recordDurableJomonGrowth, replayFoundationWorldCausalHistory, switchTavernCourier, validateFoundationWorld } from './world'
 import { causalReplayProjectionForWorldState } from './world-state'
 import { classifyMedievalContent } from './content-safety'
 import { DELEGATION_CONTRACT_VERSION, DELEGATION_TASK_DEFINITIONS, delegationTaskIdForOffer, type DelegationOfferInput } from './delegation'
@@ -13,6 +13,28 @@ import { CAUSAL_HISTORY_LIMITS, causalDigestFor, causalReplayProjectionDigest } 
 import { captureTerminalControlBinding, defaultTerminalControlPreferences } from './terminal-controls'
 import { createActiveWorldBackupBundle, createChronicleBackupBundle, serializePersistenceBackupBundle } from './persistence-layout'
 import { courierContinuityConfirmationIdFor, courierContinuityContentSafety } from './courier-continuity'
+
+/** A fully token-valid state-v15 source for the read-only cargo bridge. */
+const stateV15Envelope = () => {
+  const legacy = structuredClone(chooseInitialCourier(createFoundationWorld({ seed: 'storage-cargo-v15' }), 'crew:0')) as unknown as Record<string, any>
+  const checkpoint = legacy.state.causalHistory.checkpoint
+  const projection = structuredClone(checkpoint.projection)
+  projection.version = 7
+  projection.jomon.version = 2
+  delete projection.jomon.cargo
+  const stateDigest = causalDigestFor('causal-replay-projection', projection)
+  checkpoint.version = 5
+  checkpoint.stateDigest = stateDigest
+  checkpoint.id = `causal-checkpoint:${checkpoint.sequence}:${causalDigestFor('causal-checkpoint-id', { worldId: legacy.id, creationDigest: legacy.manifest.creation.digest, sequence: checkpoint.sequence, stateDigest })}`
+  checkpoint.token = causalDigestFor('causal-checkpoint-token', { worldId: legacy.id, creationDigest: legacy.manifest.creation.digest, sequence: checkpoint.sequence, atWorldTime: checkpoint.atWorldTime, stateDigest })
+  checkpoint.projection = projection
+  legacy.state.causalHistory.version = 5
+  legacy.state.causalHistory.tail = legacy.state.causalHistory.tail.map((command: Record<string, unknown>) => ({ ...command, version: 5 }))
+  legacy.state.jomon.version = 2
+  delete legacy.state.jomon.cargo
+  legacy.state.version = 15
+  return legacy
+}
 
 type Handler = (() => void) | null
 
@@ -161,6 +183,16 @@ let fakeIndexedDB: FakeIndexedDB
 // test still clones its submitted envelope before a repository transition.
 const continuityStorageSource = chooseInitialCourier(createFoundationWorld({ seed: 'storage-courier-continuity' }), 'crew:0')
 const continuityStorageAlternate = switchTavernCourier(continuityStorageSource, 'crew:1')
+/** Built outside test windows; the repository still receives only a cloned full envelope. */
+const cargoStorageSource = (() => {
+  let world = chooseInitialCourier(createFoundationWorld({ seed: 'storage-cargo-round-trip' }), 'crew:0')
+  for (const direction of ['east', 'east', 'east', 'east', 'east', 'east'] as const) {
+    const moved = moveFoundationWorldCourier(world, direction)
+    if (moved.status !== 'moved') throw new Error('cargo storage fixture could not reach the hold')
+    world = moved.world
+  }
+  return loadCargoHold(world, 'commodity:paper', 1)
+})()
 const continuityStorageConfirmation = {
   version: 1 as const,
   id: courierContinuityConfirmationIdFor('departure', 'crew:0', 0),
@@ -237,6 +269,37 @@ const recurringRefusalOffer = (world: ReturnType<typeof createFoundationWorld>, 
 }
 
 describe('medieval local persistence', () => {
+  it('persists bounded cargo only through the complete authoritative envelope', async () => {
+    const repository = new MedievalWorldRepository()
+    const source = structuredClone(cargoStorageSource)
+
+    await repository.saveWorld(source)
+    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(source.id)).toEqual(source)
+  })
+
+  it('reloads bounded cargo through the full authoritative envelope', async () => {
+    const repository = new MedievalWorldRepository()
+    const source = structuredClone(cargoStorageSource)
+    await repository.loadIndex()
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(source.id, structuredClone(source))
+
+    const loaded = await repository.loadWorld(source.id)
+    expect(loaded).toEqual(source)
+    expect(loaded?.state.jomon.cargo).toEqual({ version: 1, lots: [{ id: 'cargo:8:commodity:paper', commodityId: 'commodity:paper', quantity: 1, condition: 'sound', status: 'in-hold' }] })
+    expect(loaded && replayFoundationWorldCausalHistory(loaded)).toEqual(causalReplayProjectionForWorldState(source.state))
+  })
+
+  it('rejects forged cargo lots without rewriting the submitted record', async () => {
+    const repository = new MedievalWorldRepository()
+    const source = structuredClone(cargoStorageSource)
+    await repository.loadIndex()
+    const forged = structuredClone(source)
+    forged.state.jomon.cargo.lots[0]!.quantity = 0
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(source.id, forged)
+    expect(await repository.loadWorld(source.id)).toBeUndefined()
+    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(source.id)).toEqual(forged)
+  })
+
   it('round-trips the selected zero-time courier and canonical deck spawn through the full authoritative envelope', async () => {
     const repository = new MedievalWorldRepository()
     const selected = chooseInitialCourier(createFoundationWorld({ seed: 'storage-initial-courier-selection' }), 'crew:1')
@@ -261,6 +324,7 @@ describe('medieval local persistence', () => {
     expect(loaded).toEqual(switched)
     expect(loaded?.state.courier).toEqual({ version: 3, initialCourierId: 'crew:0', activeCourierId: 'crew:1', departedCourierIds: [] })
     expect(loaded?.state.navigation).toEqual({ version: 1, courierId: 'crew:1', coordinate: { column: 4, row: 4 } })
+    expect(loaded?.state.jomon.propActions.records.find(record => record.propId === 'prop:task-ledger')).toMatchObject({ latestAction: { kind: 'tavern-courier-switched', recordedAtWorldTime: 0, causalSequence: 2 } })
     expect(loaded && replayFoundationWorldCausalHistory(loaded)).toEqual(causalReplayProjectionForWorldState(switched.state))
   })
 
@@ -297,6 +361,7 @@ describe('medieval local persistence', () => {
     delete legacy.state.navigation
     legacy.state.courier = { version: 1, initialCourierId: selected.state.courier.initialCourierId }
     const checkpointProjection = structuredClone(legacy.state.causalHistory.checkpoint.projection)
+    delete checkpointProjection.jomon
     checkpointProjection.version = 4
     checkpointProjection.courier = checkpointProjection.courier.initialCourierId === undefined
       ? { version: 1 }
@@ -305,6 +370,8 @@ describe('medieval local persistence', () => {
     const stateDigest = causalReplayProjectionDigest(checkpointProjection)
     legacy.state.causalHistory = {
       ...legacy.state.causalHistory,
+      version: 4,
+      tail: legacy.state.causalHistory.tail.map((command: Record<string, unknown>) => ({ ...command, version: 4 })),
       checkpoint: {
         version: 4,
         id: `causal-checkpoint:0:${causalDigestFor('causal-checkpoint-id', { worldId: legacy.id, creationDigest: legacy.manifest.creation.digest, sequence: 0, stateDigest })}`,
@@ -316,10 +383,13 @@ describe('medieval local persistence', () => {
         projection: checkpointProjection
       }
     }
+    legacy.state.jomon.version = 1
+    delete legacy.state.jomon.propActions
+    delete legacy.state.jomon.cargo
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(selected.id, structuredClone(legacy))
 
     const loaded = await repository.loadWorld(selected.id)
-    expect(loaded).toMatchObject({ version: 15, state: { version: 14, courier: { version: 3, initialCourierId: 'crew:0', activeCourierId: 'crew:0', departedCourierIds: [] }, navigation: { courierId: 'crew:0', coordinate: { column: 4, row: 4 } } } })
+    expect(loaded).toMatchObject({ version: 15, state: { version: 16, jomon: { version: 3, cargo: { version: 1, lots: [] } }, courier: { version: 3, initialCourierId: 'crew:0', activeCourierId: 'crew:0', departedCourierIds: [] }, navigation: { courierId: 'crew:0', coordinate: { column: 4, row: 4 } } } })
     expect((fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(selected.id) as { version: number }).version).toBe(13)
 
     const corrupt = structuredClone(legacy)
@@ -329,6 +399,25 @@ describe('medieval local persistence', () => {
     expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(selected.id)).toEqual(corrupt)
   }, 15_000)
 
+  it('reads only an exact state-v15 cargo source into state-v16 without rewriting storage', async () => {
+    const repository = new MedievalWorldRepository()
+    await repository.loadIndex()
+    const legacy = stateV15Envelope()
+    const before = structuredClone(legacy)
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(legacy.id, structuredClone(legacy))
+
+    const loaded = await repository.loadWorld(legacy.id)
+    expect(loaded).toMatchObject({ version: 15, state: { version: 16, jomon: { version: 3, cargo: { version: 1, lots: [] } } } })
+    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(legacy.id)).toEqual(before)
+
+    const forged = stateV15Envelope()
+    forged.state.jomon.propActions.records.reverse()
+    const forgedBefore = structuredClone(forged)
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(forged.id, forged)
+    expect(await repository.loadWorld(forged.id)).toBeUndefined()
+    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(forged.id)).toEqual(forgedBefore)
+  })
+
   it('reads only exact v14 three-prop active worlds and chronicles through the v15 static-prop conversion without rewriting either record', async () => {
     const repository = new MedievalWorldRepository()
     await repository.loadIndex()
@@ -336,6 +425,23 @@ describe('medieval local persistence', () => {
     const legacy = structuredClone(selected) as unknown as Record<string, any>
     legacy.version = 14
     legacy.jomon.props = ['prop:chart-table', 'prop:task-ledger', 'prop:gangplank'].map(id => structuredClone(selected.jomon.props.find(prop => prop.id === id)!))
+    const checkpointProjection = structuredClone(legacy.state.causalHistory.checkpoint.projection)
+    delete checkpointProjection.jomon
+    checkpointProjection.version = 6
+    const checkpoint = legacy.state.causalHistory.checkpoint
+    const stateDigest = causalDigestFor('causal-replay-projection', checkpointProjection)
+    const sequence = checkpoint.sequence
+    checkpoint.version = 4
+    checkpoint.stateDigest = stateDigest
+    checkpoint.id = `causal-checkpoint:${sequence}:${causalDigestFor('causal-checkpoint-id', { worldId: legacy.id, creationDigest: legacy.manifest.creation.digest, sequence, stateDigest })}`
+    checkpoint.token = causalDigestFor('causal-checkpoint-token', { worldId: legacy.id, creationDigest: legacy.manifest.creation.digest, sequence, atWorldTime: checkpoint.atWorldTime, stateDigest })
+    checkpoint.projection = checkpointProjection
+    legacy.state.causalHistory.version = 4
+    legacy.state.causalHistory.tail = legacy.state.causalHistory.tail.map((command: Record<string, unknown>) => ({ ...command, version: 4 }))
+    legacy.state.jomon.version = 1
+    delete legacy.state.jomon.propActions
+    delete legacy.state.jomon.cargo
+    legacy.state.version = 14
     const legacyChronicle = { version: 12, id: `chronicle:${selected.id}`, status: 'finalized' as const, reason: 'jomon-loss' as const, world: structuredClone(legacy) }
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(selected.id, structuredClone(legacy))
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'chronicles').set(legacyChronicle.id, structuredClone(legacyChronicle))

@@ -4,7 +4,7 @@
 
 ## Authority and bands
 
-`WorldJomonState` remains the sole source of the vessel ID, operational status, location, capacity, and bounded integer integrity. The policy validates only the exact existing read-only state shape needed for assessment; it does not make a second Jomon model. Its input action time uses the existing `minute` shape accepted by `effects.ts`; wall-clock and browser-shaped input reject.
+`WorldJomonState` remains the sole source of the vessel ID, operational status, location, capacity, bounded integer integrity, and the canonical bounded vessel-prop latest-action projection. The policy strictly validates that projection against immutable canonical prop identities, but neither interprets an action as an integrity result nor constructs a second Jomon model. Its input action time uses the existing `minute` shape accepted by `effects.ts`; wall-clock and browser-shaped input reject.
 
 Bands use integer-only comparisons, in this order:
 

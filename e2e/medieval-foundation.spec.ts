@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { appendCausalCommand, createCausalCommand } from '../src/medieval/causal-history'
 import { assessJomonDeckStep, jomonDeckCoordinateId, type JomonDeckMovementDirection } from '../src/medieval/jomon-navigation'
 import { causalReplayProjectionForWorldState, createMedievalWorldState } from '../src/medieval/world-state'
-import { createFoundationWorld, moveFoundationWorldCourier, replayFoundationWorldCausalHistory } from '../src/medieval/world'
+import { createFoundationWorld, loadCargoHold, moveFoundationWorldCourier, replayFoundationWorldCausalHistory } from '../src/medieval/world'
 import type { CausalReplayProjection, CausalHistoryState } from '../src/medieval/causal-history'
 import type { FoundationWorld } from '../src/medieval/types'
 
@@ -215,7 +215,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-world-id', worldId!)
   await expect(game).toHaveAttribute('data-persistence', 'saved')
   await expect(game).toHaveAttribute('aria-label', /Jomon foundation world .* active courier/)
-  await expect(game).toHaveAttribute('data-terminal-presentation-version', '11')
+  await expect(game).toHaveAttribute('data-terminal-presentation-version', '13')
   await expect(game).toHaveAttribute('data-terminal-map-state', 'materialized')
   await expect(game).toHaveAttribute('data-terminal-map-cell-count', '114')
   await expect(game).toHaveAttribute('data-terminal-static-map-cell-count', '113')
@@ -271,7 +271,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
   await page.keyboard.press('p')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'command-help')
-  await expect(game).toHaveAttribute('aria-label', /Map legend.*Known fixed local deck only.*each exact station anchor has a zero-time bounded readout.*tavern task ledger alone also supports zero-time courier switching.*no cargo contents, NPCs, hazards, travel, fog, rest, conversation, succession, or mutable prop action/i)
+  await expect(game).toHaveAttribute('aria-label', /Map legend.*Known fixed local deck only.*each exact station anchor has a zero-time bounded readout record.*tavern task ledger alone also supports zero-time courier switching.*cargo-hold lots.*physical readout.*no NPCs, hazards, travel, fog, rest, conversation, or succession/i)
   await page.keyboard.press('Escape')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
   expect(await persistedTemporalState(page, worldId)).toEqual(expectedZeroTime)
@@ -538,40 +538,29 @@ test('switches a selected courier only through the remappable tavern ledger oper
   await expect.poll(() => persistedCourier(worldId!)).toMatchObject({ worldTime: 2, actionSequence: 2, initialCourierId: 'crew:1', activeCourierId: 'crew:2', coordinate: { column: 4, row: 4 } })
 })
 
-test('opens a remapped bounded chart-table prompt through real keyboard movement', async ({ page }) => {
-  const persistedTemporal = async (worldId: string) => page.evaluate(async id => new Promise<{ worldTime: number; actionSequence: number }>((resolve, reject) => {
+test('records a remapped chart-table readout through real keyboard input and reload', async ({ page }) => {
+  const world = stationFixtureWorld(['east', 'east', 'east'])
+  await page.goto('/')
+  await page.evaluate(async source => new Promise<void>((resolve, reject) => {
     const request = indexedDB.open('jomon-medieval-worlds-v1')
     request.onerror = () => reject(request.error)
     request.onsuccess = () => {
       const database = request.result
-      const read = database.transaction('worlds', 'readonly').objectStore('worlds').get(id)
-      read.onerror = () => { database.close(); reject(read.error) }
-      read.onsuccess = () => {
-        const temporal = (read.result as { state?: { temporal?: { worldTime?: number; actionSequence?: number } } } | undefined)?.state?.temporal
-        database.close()
-        if (!temporal) return reject(new Error('saved contextual-prompt world was not available'))
-        resolve({ worldTime: temporal.worldTime ?? -1, actionSequence: temporal.actionSequence ?? -1 })
-      }
+      const transaction = database.transaction(['worlds', 'catalog'], 'readwrite')
+      transaction.onerror = () => { database.close(); reject(transaction.error) }
+      transaction.oncomplete = () => { database.close(); resolve() }
+      transaction.objectStore('worlds').put(source, source.id)
+      transaction.objectStore('catalog').put({ version: 1, activeWorlds: [{ id: source.id, label: source.manifest.creation.label, initialCourierId: source.state.courier.initialCourierId }], chronicles: [] }, 'world-index')
     }
-  }), worldId)
-
-  await page.goto('/')
+  }), world)
+  await page.reload()
   const game = page.locator('#game')
+  await expect(game).toHaveAttribute('data-route', 'worlds')
   await game.click()
-  await page.keyboard.press('n')
-  await expect(game).toHaveAttribute('data-route', 'create-world')
-  for (let index = 0; index < 4; index++) await page.keyboard.press('ArrowDown')
-  await page.keyboard.press('Enter')
-  await expect(game).toHaveAttribute('data-route', 'world-generation')
-  const worldId = await game.getAttribute('data-world-id')
-  await expect(worldId).toBeTruthy()
-  await page.keyboard.press('Enter')
-  await expect(game).toHaveAttribute('data-route', 'world-result')
-  await page.keyboard.press('Enter')
-  await expect(game).toHaveAttribute('data-route', 'choose-courier')
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-route', 'world')
-  await expect(game).toHaveAttribute('data-terminal-presentation-version', '11')
+  await expect(game).toHaveAttribute('data-terminal-presentation-version', '13')
+  await expect(game).toHaveAttribute('data-terminal-focus', '7,4')
 
   await page.keyboard.press('F2')
   await expect(game).toHaveAttribute('data-terminal-selected-control', 'command-help')
@@ -582,23 +571,31 @@ test('opens a remapped bounded chart-table prompt through real keyboard movement
   await expect(game).toHaveAttribute('data-terminal-outcome', 'controls-binding-saved')
   await page.keyboard.press('Escape')
 
-  const move = async (key: string, focus: string) => {
-    await page.keyboard.press(key)
-    await expect(game).toHaveAttribute('data-terminal-focus', focus)
-  }
-  await move('l', '5,4')
-  await move('l', '6,4')
-  await move('l', '7,4')
-  const chartBefore = await persistedTemporal(worldId!)
+  const chartBefore = await stationFixtureTemporal(page, world.id)
   await page.keyboard.press('o')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
-  await expect(game).toHaveAttribute('aria-label', /Chart table.*Route comparison is not yet implemented.*Enter reports the same bounded station result.*Escape cancels without mutation/i)
-  await page.keyboard.press('Enter')
-  await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-option-disabled')
+  await expect(game).toHaveAttribute('aria-label', /Chart table.*Route comparison is not yet implemented.*Enter records this bounded station readout at zero world time.*Escape cancels without mutation/i)
   await page.keyboard.press('Escape')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-cancelled')
-  expect(await persistedTemporal(worldId!)).toEqual(chartBefore)
+  expect(await stationFixtureTemporal(page, world.id)).toEqual(chartBefore)
+
+  await page.keyboard.press('o')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
+  await page.keyboard.press('Enter')
+  await expect.poll(() => game.getAttribute('data-persistence')).toBe('saved')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'station-readout-recorded')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
+  expect(await stationFixtureTemporal(page, world.id)).toEqual(chartBefore)
+
+  await page.reload()
+  await expect(game).toHaveAttribute('data-route', 'worlds')
+  await game.click()
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'world')
+  await expect(game).toHaveAttribute('data-terminal-message-count', '1')
+  await expect(game).toHaveAttribute('data-terminal-message-state', 'available')
+  await expect(game).toHaveAttribute('aria-label', /Chart table: bounded station readout recorded.*Source world-state:jomon:prop-actions:prop:chart-table.*recorded at world minute 3/i)
 })
 
 test('opens a bounded gangplank prompt through real keyboard movement', async ({ page }) => {
@@ -624,23 +621,79 @@ test('opens a bounded gangplank prompt through real keyboard movement', async ({
   await expect(game).toHaveAttribute('data-terminal-focus', '3,5')
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
-  await expect(game).toHaveAttribute('aria-label', /Gangplank.*Jomon is moored.*Quay departure and travel are not yet implemented.*Enter reports the same bounded station result.*Escape cancels without mutation/i)
-  await page.keyboard.press('Enter')
-  await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-option-disabled')
+  await expect(game).toHaveAttribute('aria-label', /Gangplank.*Jomon is moored.*Quay departure and travel are not yet implemented.*Enter records this bounded station readout at zero world time.*Escape cancels without mutation/i)
   await page.keyboard.press('Escape')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-cancelled')
 })
 
+test('starts at the quay, crosses the gangplank, switches at the tavern, records a station, and returns through the gangplank with keyboard input', async ({ page }) => {
+  /** The source is replay-valid public movement from the canonical tavern spawn to quay cell 2,5. */
+  const world = stationFixtureWorld(['south', 'west', 'west'])
+  await page.goto('/')
+  await page.evaluate(async source => new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open('jomon-medieval-worlds-v1')
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const database = request.result
+      const transaction = database.transaction(['worlds', 'catalog'], 'readwrite')
+      transaction.onerror = () => { database.close(); reject(transaction.error) }
+      transaction.oncomplete = () => { database.close(); resolve() }
+      transaction.objectStore('worlds').put(source, source.id)
+      transaction.objectStore('catalog').put({ version: 1, activeWorlds: [{ id: source.id, label: source.manifest.creation.label, initialCourierId: source.state.courier.initialCourierId }], chronicles: [] }, 'world-index')
+    }
+  }), world)
+  await page.reload()
+  const game = page.locator('#game')
+  await game.focus()
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'world')
+  await expect(game).toHaveAttribute('data-terminal-focus', '2,5')
+
+  const moveAndSave = async (key: string, focus: string) => {
+    await page.keyboard.press(key)
+    await expect(game).toHaveAttribute('data-terminal-focus', focus)
+  }
+
+  // Board the physical gangplank and walk to the task ledger.
+  await moveAndSave('l', '3,5')
+  await moveAndSave('l', '4,5')
+  await moveAndSave('k', '4,4')
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
+  await expect(game).toHaveAttribute('aria-label', /Tavern task ledger courier switch.*Physical tavern task ledger readout/i)
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'courier-switched')
+  await expect(game).toHaveAttribute('data-terminal-focus', '4,4')
+
+  // Return to and operate the bounded gangplank acknowledgement, not travel.
+  await moveAndSave('j', '4,5')
+  await moveAndSave('h', '3,5')
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
+  await expect(game).toHaveAttribute('aria-label', /Gangplank.*Jomon is moored.*Quay departure and travel are not yet implemented.*Enter records this bounded station readout at zero world time/i)
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'station-readout-recorded')
+
+  // Leave through that same physical gangplank onto the local quay approach.
+  await moveAndSave('h', '2,5')
+  expect(await stationFixtureTemporal(page, world.id)).toEqual({ worldTime: 9, actionSequence: 9 })
+  await expect(game).toHaveAttribute('data-terminal-message-count', '2')
+  await expect(game).toHaveAttribute('aria-label', /Gangplank: bounded station readout recorded.*Tavern task ledger: courier switch recorded/i)
+})
+
 const stationKeyboardCases = [
   { propId: 'prop:task-ledger', directions: [], text: /Tavern task ledger courier switch.*Physical tavern task ledger readout.*Arrow keys select.*Escape cancels/i, confirm: false },
-  { propId: 'prop:berth', directions: ['east', 'east', 'east', 'north', 'north', 'north'], text: /Berth.*Berth capacity: 6 slots.*Rest and recovery are not modeled.*Enter reports the same bounded station result.*Escape cancels without mutation/i, confirm: true },
-  { propId: 'prop:cargo-hold-rack', directions: ['east', 'east', 'east', 'east', 'east', 'east'], text: /Cargo hold rack.*Cargo capacity: 12 units.*Cargo contents are not modeled.*Enter reports the same bounded station result.*Escape cancels without mutation/i, confirm: true },
-  { propId: 'prop:chart-table', directions: ['east', 'east', 'east'], text: /Chart table.*Route comparison is not yet implemented.*Enter reports the same bounded station result.*Escape cancels without mutation/i, confirm: true },
-  { propId: 'prop:galley-hearth', directions: ['east', 'east', 'east', 'north', 'north', 'north', 'east', 'east', 'east', 'east'], text: /Galley hearth.*Meals, rations, and cooking are not modeled.*Enter reports the same bounded station result.*Escape cancels without mutation/i, confirm: true },
-  { propId: 'prop:gangplank', directions: ['south', 'west'], text: /Gangplank.*Jomon is moored.*Quay departure and travel are not yet implemented.*Enter reports the same bounded station result.*Escape cancels without mutation/i, confirm: true },
-  { propId: 'prop:repair-space-rack', directions: ['east', 'east', 'east', 'east', 'east', 'east', 'east', 'east', 'east', 'east'], text: /Repair-space rack.*Jomon integrity: 100\/100.*Repair work is not yet implemented.*Enter reports the same bounded station result.*Escape cancels without mutation/i, confirm: true },
-  { propId: 'prop:stores-rack', directions: ['north', 'north', 'north'], text: /Stores rack.*Onboard provisions and inventory are not yet modeled.*Enter reports the same bounded station result.*Escape cancels without mutation/i, confirm: true }
+  { propId: 'prop:berth', directions: ['east', 'east', 'east', 'north', 'north', 'north'], text: /Berth.*Berth capacity: 6 slots.*Rest and recovery are not modeled.*Enter records this bounded station readout at zero world time.*Escape cancels without mutation/i, confirm: true },
+  { propId: 'prop:cargo-hold-rack', directions: ['east', 'east', 'east', 'east', 'east', 'east'], text: /Cargo hold rack.*Cargo hold: 0\/12 units occupied.*No cargo lots are recorded.*Enter records this bounded station readout at zero world time.*Escape cancels without mutation/i, confirm: true },
+  { propId: 'prop:chart-table', directions: ['east', 'east', 'east'], text: /Chart table.*Route comparison is not yet implemented.*Enter records this bounded station readout at zero world time.*Escape cancels without mutation/i, confirm: true },
+  { propId: 'prop:galley-hearth', directions: ['east', 'east', 'east', 'north', 'north', 'north', 'east', 'east', 'east', 'east'], text: /Galley hearth.*Meals, rations, and cooking are not modeled.*Enter records this bounded station readout at zero world time.*Escape cancels without mutation/i, confirm: true },
+  { propId: 'prop:gangplank', directions: ['south', 'west'], text: /Gangplank.*Jomon is moored.*Quay departure and travel are not yet implemented.*Enter records this bounded station readout at zero world time.*Escape cancels without mutation/i, confirm: true },
+  { propId: 'prop:repair-space-rack', directions: ['east', 'east', 'east', 'east', 'east', 'east', 'east', 'east', 'east', 'east'], text: /Repair-space rack.*Jomon integrity: 100\/100.*Repair work is not yet implemented.*Enter records this bounded station readout at zero world time.*Escape cancels without mutation/i, confirm: true },
+  { propId: 'prop:stores-rack', directions: ['north', 'north', 'north'], text: /Stores rack.*Onboard provisions and inventory are not yet modeled.*Enter records this bounded station readout at zero world time.*Escape cancels without mutation/i, confirm: true }
 ] as const satisfies readonly { propId: string; directions: readonly JomonDeckMovementDirection[]; text: RegExp; confirm: boolean }[]
 
 const stationFixtureTemporal = async (page: Page, worldId: string) => page.evaluate(async id => new Promise<{ worldTime: number; actionSequence: number }>((resolve, reject) => {
@@ -687,12 +740,43 @@ for (const station of stationKeyboardCases) test(`renders ${station.propId} from
   await expect(game).toHaveAttribute('aria-label', station.text)
   if (station.confirm) {
     await page.keyboard.press('Enter')
-    await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-option-disabled')
+    await expect.poll(() => game.getAttribute('data-persistence')).toBe('saved')
+    await expect(game).toHaveAttribute('data-terminal-outcome', 'station-readout-recorded')
+    await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
+    expect(await stationFixtureTemporal(page, world.id)).toEqual(before)
+  } else {
+    await page.keyboard.press('Escape')
+    await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
+    await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-cancelled')
+    expect(await stationFixtureTemporal(page, world.id)).toEqual(before)
   }
+})
+
+test('renders validated persisted cargo-hold feedback and summary without browser cargo authority', async ({ page }) => {
+  const world = loadCargoHold(stationFixtureWorld(['east', 'east', 'east', 'east', 'east', 'east']), 'commodity:grain', 1)
+  await page.goto('/')
+  await page.evaluate(async source => new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open('jomon-medieval-worlds-v1')
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const database = request.result
+      const transaction = database.transaction(['worlds', 'catalog'], 'readwrite')
+      transaction.objectStore('worlds').put(source, source.id)
+      transaction.objectStore('catalog').put({ version: 1, activeWorlds: [{ id: source.id, label: source.manifest.creation.label, initialCourierId: 'crew:0' }], chronicles: [] }, 'world-index')
+      transaction.oncomplete = () => { database.close(); resolve() }
+      transaction.onerror = () => { database.close(); reject(transaction.error) }
+    }
+  }), world)
+  await page.reload()
+  const game = page.locator('#game')
+  await game.click()
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'world')
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
+  await expect(game).toHaveAttribute('aria-label', /Cargo hold rack: cargo loaded.*Source world-state:jomon:prop-actions:prop:cargo-hold-rack.*Cargo hold rack.*Cargo hold: 4\/12 units occupied.*Grain ×1: sound, in-hold/i)
   await page.keyboard.press('Escape')
-  await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-cancelled')
-  expect(await stationFixtureTemporal(page, world.id)).toEqual(before)
 })
 
 test('keeps a missing-local-world diagnostic inside the fixed canvas panel', async ({ page }) => {

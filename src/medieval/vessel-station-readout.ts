@@ -2,6 +2,8 @@ import { auditMedievalContentSafety, classifyMedievalContent, type MedievalConte
 import type { JomonPaletteToken } from './palette'
 import { TERMINAL_STATE_PRESENTATIONS, terminalNonColorCueFor, type TerminalNonColorCue, type TerminalPresentationState } from './terminal-semantics'
 import { assessVesselPropOperationForVerifiedWorld, type VesselProximityOperationReason, type VesselProximityOperationSource, type VesselProximityOperationPropId } from './vessel-proximity-operation'
+import { commodityCatalogue, type JomonCommodityId } from './commodity-catalogue'
+import { vesselCargoUsedUnits, type VesselCargoCondition, type VesselCargoStatus } from './cargo-hold'
 import type { FoundationWorld } from './types'
 
 /**
@@ -9,7 +11,7 @@ import type { FoundationWorld } from './types'
  * It is derived after world validation and neither records a prop action nor
  * becomes mutable prop state.
  */
-export const VESSEL_STATION_READOUT_CONTRACT_VERSION = 1 as const
+export const VESSEL_STATION_READOUT_CONTRACT_VERSION = 2 as const
 
 export const VESSEL_STATION_READOUT_PROP_IDS = [
   'prop:berth',
@@ -24,7 +26,7 @@ export type VesselStationReadoutPropId = typeof VESSEL_STATION_READOUT_PROP_IDS[
 
 export type VesselStationReadoutValue =
   | { kind: 'berth-capacity'; berthSlots: number }
-  | { kind: 'cargo-capacity'; cargoUnits: number }
+  | { kind: 'cargo-capacity'; cargoUnits: number; usedUnits: number; lots: readonly { commodityId: JomonCommodityId; quantity: number; condition: VesselCargoCondition; status: VesselCargoStatus }[] }
   | { kind: 'route-comparison-unavailable' }
   | { kind: 'galley-unmodeled' }
   | { kind: 'quay-travel-unavailable'; operationalStatus: 'moored' }
@@ -85,9 +87,20 @@ const DEFINITIONS: readonly Definition[] = [
     text: value => `Berth capacity: ${(value as Extract<VesselStationReadoutValue, { kind: 'berth-capacity' }>).berthSlots} slots. Rest and recovery are not modeled.`
   },
   {
-    propId: 'prop:cargo-hold-rack', propKind: 'rack', areaId: 'cargo-hold', valueKind: 'cargo-capacity', label: 'Cargo hold rack', state: 'neutral', factSourceId: 'world-state:jomon',
-    value: world => ({ kind: 'cargo-capacity', cargoUnits: world.state.jomon.capacity.cargoUnits }),
-    text: value => `Cargo capacity: ${(value as Extract<VesselStationReadoutValue, { kind: 'cargo-capacity' }>).cargoUnits} units. Cargo contents are not modeled.`
+    propId: 'prop:cargo-hold-rack', propKind: 'rack', areaId: 'cargo-hold', valueKind: 'cargo-capacity', label: 'Cargo hold rack', state: 'neutral', factSourceId: 'world-state:jomon:cargo',
+    value: world => ({
+      kind: 'cargo-capacity',
+      cargoUnits: world.state.jomon.capacity.cargoUnits,
+      usedUnits: vesselCargoUsedUnits(world.state.jomon.cargo),
+      lots: world.state.jomon.cargo.lots.map(lot => ({ commodityId: lot.commodityId, quantity: lot.quantity, condition: lot.condition, status: lot.status }))
+    }),
+    text: value => {
+      const cargo = value as Extract<VesselStationReadoutValue, { kind: 'cargo-capacity' }>
+      if (!cargo.lots.length) return `Cargo hold: ${cargo.usedUnits}/${cargo.cargoUnits} units occupied. No cargo lots are recorded.`
+      const nameFor = (commodityId: JomonCommodityId): string => commodityCatalogue().commodities.find(commodity => commodity.id === commodityId)?.name ?? 'Unknown commodity'
+      const lots = cargo.lots.map(lot => `${nameFor(lot.commodityId)} ×${lot.quantity}: ${lot.condition}, ${lot.status}.`).join(' ')
+      return `Cargo hold: ${cargo.usedUnits}/${cargo.cargoUnits} units occupied. ${lots}`
+    }
   },
   {
     propId: 'prop:chart-table', propKind: 'table', areaId: 'chart-table', valueKind: 'route-comparison-unavailable', label: 'Chart table', state: 'warning', factSourceId: 'deck-prop-binding:prop:chart-table', reason: 'route-comparison-not-implemented',
@@ -160,7 +173,7 @@ export const validateVesselStationReadout = (value: unknown): value is VesselSta
   if (value.reason !== definition.reason || !record(value.value)) return false
   const readoutValue = value.value
   const valueValid = readoutValue.kind === definition.valueKind && (readoutValue.kind === 'berth-capacity' && keys(readoutValue, ['kind', 'berthSlots']) && safeInteger(readoutValue.berthSlots)
-    || readoutValue.kind === 'cargo-capacity' && keys(readoutValue, ['kind', 'cargoUnits']) && safeInteger(readoutValue.cargoUnits)
+    || readoutValue.kind === 'cargo-capacity' && keys(readoutValue, ['kind', 'cargoUnits', 'usedUnits', 'lots']) && safeInteger(readoutValue.cargoUnits) && safeInteger(readoutValue.usedUnits) && readoutValue.usedUnits <= readoutValue.cargoUnits && Array.isArray(readoutValue.lots) && readoutValue.lots.length <= 24 && readoutValue.lots.every(lot => record(lot) && keys(lot, ['commodityId', 'quantity', 'condition', 'status']) && typeof lot.commodityId === 'string' && commodityCatalogue().commodities.some(commodity => commodity.id === lot.commodityId) && safeInteger(lot.quantity) && lot.quantity >= 1 && lot.quantity <= 12 && ['sound', 'spoiled', 'damaged'].includes(String(lot.condition)) && ['in-hold', 'lost'].includes(String(lot.status)))
     || readoutValue.kind === 'route-comparison-unavailable' && keys(readoutValue, ['kind'])
     || readoutValue.kind === 'galley-unmodeled' && keys(readoutValue, ['kind'])
     || readoutValue.kind === 'quay-travel-unavailable' && keys(readoutValue, ['kind', 'operationalStatus']) && readoutValue.operationalStatus === 'moored'

@@ -120,14 +120,14 @@ describe('terminal presentation contract', () => {
     expect(first.map.cells.filter(cell => cell.id === 'terminal-marker:active-courier')).toEqual([expect.objectContaining({ glyph: expect.objectContaining({ id: 'person:active-courier' }), coordinate: { column: 4, row: 4 }, paletteToken: 'selectedText', presentationState: 'ready', contentDomain: 'person' })])
     expect(first.map.cells.filter(cell => cell.id !== 'terminal-marker:active-courier')).toHaveLength(113)
     expect(first.map.cells.filter(cell => cell.coordinate.column === 4 && cell.coordinate.row === 4)).toHaveLength(2)
-    expect(first.map.accessibilityText).toMatch(/static Jomon deck map.*active courier marker.*full deck known.*each exact physical station.*zero-time contextual readout.*tavern task ledger alone.*zero-time courier switching.*availability\/loss readout.*cargo contents, other people, hazards, travel, rest, and conversation.*loss continuity is read-only/i)
+    expect(first.map.accessibilityText).toMatch(/static Jomon deck map.*active courier marker.*full deck known.*each exact physical station.*zero-time contextual readout.*tavern task ledger alone.*zero-time courier switching.*availability\/loss readout.*cargo-hold lots.*physical readout.*other people, hazards, travel, rest, and conversation.*loss continuity is read-only/i)
     expect(first.legend.entries.map(entry => entry.glyph.id)).toEqual([
       'person:active-courier', 'route:quay-approach', 'vessel:gangplank', 'vessel:hull-planking', 'vessel:open-deck'
     ])
     expect(first.legend.entries.map(entry => entry.id)).toEqual([...first.legend.entries.map(entry => entry.id)].sort())
     expect(first.legend.entries.every(entry => entry.accessibilityText.includes('Source ') && entry.accessibilityText.includes('known at world minute'))).toBe(true)
     expect(first.legend.movementText).toMatch(/successful local step advances one action minute.*blocked.*no world state or time/i)
-    expect(first.legend.limitationsText).toMatch(/fixed known deck.*each exact station anchor.*zero-time bounded readout record.*tavern task ledger.*zero-time courier switching.*no cargo contents, NPCs, hazards, travel, fog, rest, conversation, or succession/i)
+    expect(first.legend.limitationsText).toMatch(/fixed known deck.*each exact station anchor.*zero-time bounded readout record.*tavern task ledger.*zero-time courier switching.*cargo-hold lots.*physical readout.*no NPCs, hazards, travel, fog, rest, conversation, or succession/i)
     expect(first.accessibility.legendText).toEqual(first.legend.accessibilityText)
     expect(first.messages).toEqual([])
     expect(first.prompts).toEqual([expect.objectContaining({

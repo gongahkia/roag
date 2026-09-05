@@ -19,6 +19,7 @@ const v14Envelope = (world: ReturnType<typeof selectedWorld>) => {
   legacy.state.version = 12
   legacy.state.courier = { version: 1, initialCourierId: world.state.courier.initialCourierId }
   const checkpointProjection = structuredClone(legacy.state.causalHistory.checkpoint.projection)
+  delete checkpointProjection.jomon
   checkpointProjection.version = 4
   checkpointProjection.courier = checkpointProjection.courier.initialCourierId === undefined
     ? { version: 1 }
@@ -26,6 +27,8 @@ const v14Envelope = (world: ReturnType<typeof selectedWorld>) => {
   const stateDigest = causalReplayProjectionDigest(checkpointProjection)
   legacy.state.causalHistory = {
     ...legacy.state.causalHistory,
+    version: 4,
+    tail: legacy.state.causalHistory.tail.map((command: Record<string, unknown>) => ({ ...command, version: 4 })),
     checkpoint: {
       version: 4,
       id: `causal-checkpoint:0:${causalDigestFor('causal-checkpoint-id', { worldId: legacy.id, creationDigest: legacy.manifest.creation.digest, sequence: 0, stateDigest })}`,
@@ -37,6 +40,9 @@ const v14Envelope = (world: ReturnType<typeof selectedWorld>) => {
       projection: checkpointProjection
     }
   }
+  legacy.state.jomon.version = 1
+  delete legacy.state.jomon.propActions
+  delete legacy.state.jomon.cargo
   return legacy
 }
 
@@ -143,7 +149,8 @@ describe('tavern courier switch contract', () => {
     expect(upgraded).toMatchObject({
       version: 15,
       state: {
-        version: 14,
+        version: 16,
+        jomon: { version: 3, cargo: { version: 1, lots: [] } },
         courier: { version: 3, initialCourierId: source.state.courier.initialCourierId, activeCourierId: source.state.courier.initialCourierId, departedCourierIds: [] },
         navigation: source.state.navigation
       }

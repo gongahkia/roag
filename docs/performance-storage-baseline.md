@@ -188,6 +188,50 @@ The required Node v22.22.2/linux-x64 benchmark (two warm-ups and nine measured s
 
 These values are Node wall-clock review observations only. They are not CI thresholds, browser responsiveness p95 figures, a process-memory measurement, an IndexedDB measurement, or a fact about any canonical or persisted world. The run recorded no heap/RSS value by design.
 
+## 2026-09-05 bounded vessel-prop action-state observation
+
+`MedievalWorldState` v15 / Jomon v2 adds the exact eight-record latest-action projection, while causal history v5/replay projection v7 retain its typed evidence. The bounded empty records add 799–803 canonical UTF-8 bytes per active envelope; the established due-event growth deltas remain unchanged because the records replace no time-bearing simulation state. Terminal presentation v12 and detailed-renderer adapter v6 project status/messages only from this persisted source. FoundationWorld v15, manifest v6, navigation v1, and IndexedDB layout v4 are unchanged.
+
+| Fixture | Initial canonical bytes | After due events | Growth |
+| --- | ---: | ---: | ---: |
+| sheltered-reach-focused | 191,990 | 256,917 | 64,927 |
+| sheltered-reach-balanced | 192,237 | 275,013 | 82,776 |
+| sheltered-reach-deep | 191,969 | 280,501 | 88,532 |
+| watershed-focused | 196,084 | 260,958 | 64,874 |
+| watershed-balanced | 195,954 | 284,239 | 88,285 |
+| watershed-deep | 195,955 | 295,680 | 99,725 |
+| far-coast-focused | 210,016 | 274,809 | 64,793 |
+| far-coast-balanced | 209,638 | 303,443 | 93,805 |
+| far-coast-deep | 209,363 | 314,717 | 105,354 |
+
+The required Node v22.22.2/linux-x64 benchmark completed with two warm-ups and nine measured samples per fixture/operation. Its p95 ranges were 14.004–47.829 ms for generation, 125.951–389.262 ms for initial selection, 551.513–1,560.281 ms for terminal presentation, 317.240–872.373 ms for sidebar projection, 686.315–2,029.240 ms for detailed-adapter projection, 338.209–1,056.795 ms for the bounded wait, and 577.406–1,335.850 ms for the due-event sequence. All active envelopes remained within the existing 512 KiB ceiling; terminal-controls (575 bytes), creation-settings (620 bytes), and the index (635 bytes) remained within their existing budgets. These are review-only Node observations, not deterministic assertions, CI limits, browser-responsiveness figures, IndexedDB timings, cache/worker evidence, or persisted facts.
+
+## 2026-09-05 quay-to-vessel browser-proof observation
+
+The quay-to-vessel proof adds no world, replay, persistence, or envelope field. It resumes a valid saved quay-side source, then performs existing movement, tavern switching, and gangplank-readout transitions through real keyboard input. The canvas publishes movement/switch/readout feedback immediately after `saveWorld()` succeeds; the non-authoritative local catalog refresh remains background-derived. No cache, store, worker, or alternate persistence path was added.
+
+The required Node v22.22.2/linux-x64 benchmark again completed with two warm-ups and nine measured samples. Canonical byte assertions remain exactly the bounded vessel-prop action-state rows above: 191,969–210,016 initial bytes and 256,917–314,717 after due events, all below 512 KiB. Its p95 ranges were 12.564–17.380 ms for generation, 111.938–144.332 ms for initial selection, 458.665–1,134.031 ms for terminal projection, 269.769–899.907 ms for sidebar projection, 645.825–1,678.175 ms for detailed-adapter projection, 308.302–449.042 ms for the bounded wait, and 543.319–875.153 ms for the due-event sequence. These remain review-only Node observations; they neither measure nor set a browser/IndexedDB timing target.
+
+The full Chromium suite’s single new physical-flow test passed in 59.1 seconds under its unchanged 60-second Playwright test budget. That is a verification warning, not a browser responsiveness percentile, a new performance threshold, or a reason to change a timeout.
+
+## 2026-09-05 bounded cargo-hold v16 observation
+
+`MedievalWorldState` v16 / Jomon v3 adds the empty bounded cargo-lot projection beside the existing eight latest-action records. Causal history v6 and replay projection v8 retain typed cargo transition evidence. The empty projection adds 61–66 canonical UTF-8 bytes to the current active envelopes while preserving every established due-event growth delta, FoundationWorld v15, manifest v6, navigation v1, and IndexedDB layout v4.
+
+| Fixture | Initial canonical bytes | After due events | Growth |
+| --- | ---: | ---: | ---: |
+| sheltered-reach-focused | 192,055 | 256,982 | 64,927 |
+| sheltered-reach-balanced | 192,301 | 275,077 | 82,776 |
+| sheltered-reach-deep | 192,033 | 280,565 | 88,532 |
+| watershed-focused | 196,146 | 261,020 | 64,874 |
+| watershed-balanced | 196,016 | 284,301 | 88,285 |
+| watershed-deep | 196,018 | 295,743 | 99,725 |
+| far-coast-focused | 210,082 | 274,875 | 64,793 |
+| far-coast-balanced | 209,699 | 303,504 | 93,805 |
+| far-coast-deep | 209,424 | 314,778 | 105,354 |
+
+The required Node v22.22.2/linux-x64 benchmark completed with two warm-ups and nine measured samples per fixture/operation. Its p95 ranges were 12.656–22.248 ms for generation, 109.287–376.543 ms for initial selection, 436.896–840.454 ms for terminal presentation, 256.016–796.838 ms for sidebar projection, 671.239–1,737.427 ms for detailed-adapter projection, 314.415–1,066.003 ms for the bounded wait, and 533.133–2,240.046 ms for the due-event sequence. Every active envelope remained below the existing 512 KiB ceiling; terminal-controls (575 bytes), creation-settings (620 bytes), and the index (635 bytes) remain within their budgets. These are review-only Node observations, not deterministic assertions, CI limits, browser-responsiveness figures, IndexedDB timings, cache/worker evidence, or persisted facts.
+
 ## Review targets and storage planning bands
 
 These are conservative Phase 1.6 review targets. They are intentionally not normal-test wall-clock assertions. The fixture layer records deterministic inputs and output proxies only; a later platform-aware policy still requires real browser measurements.

@@ -9,7 +9,11 @@ export const VESSEL_PROP_ACTION_STATE_VERSION = 1 as const
 
 export const VESSEL_PROP_ACTION_KINDS = [
   'station-readout-recorded',
-  'tavern-courier-switched'
+  'tavern-courier-switched',
+  'vessel-cargo-loaded',
+  'vessel-cargo-unloaded',
+  'vessel-cargo-failure-resolved',
+  'vessel-cargo-recovered'
 ] as const
 export type VesselPropActionKind = typeof VESSEL_PROP_ACTION_KINDS[number]
 
@@ -66,7 +70,7 @@ const keys = (value: Record<string, unknown>, expected: readonly string[]): bool
 }
 const same = (left: unknown, right: unknown): boolean => JSON.stringify(left) === JSON.stringify(right)
 const propIds = (): readonly FoundationJomonPropId[] => FOUNDATION_JOMON_PROP_DEFINITIONS.map(prop => prop.id)
-const actionSafety = (): MedievalContentSafetyClassification => classifyMedievalContent('event', ['adult-labour', 'civil-life', 'navigation'], 'adults-only', ['data'])
+const actionSafety = (): MedievalContentSafetyClassification => classifyMedievalContent('event', ['adult-labour', 'civil-life', 'commerce', 'navigation'], 'adults-only', ['data'])
 
 const labelFor = (propId: FoundationJomonPropId): string => {
   if (propId === 'prop:berth') return 'Berth'
@@ -81,11 +85,13 @@ const labelFor = (propId: FoundationJomonPropId): string => {
 
 const actionAllowedFor = (propId: FoundationJomonPropId, action: VesselPropLatestAction): boolean => action.kind === 'tavern-courier-switched'
   ? propId === 'prop:task-ledger'
-  : propId !== 'prop:task-ledger'
+  : action.kind === 'vessel-cargo-loaded' || action.kind === 'vessel-cargo-unloaded' || action.kind === 'vessel-cargo-failure-resolved' || action.kind === 'vessel-cargo-recovered'
+    ? propId === 'prop:cargo-hold-rack'
+    : propId !== 'prop:task-ledger'
 
 const validAction = (propId: FoundationJomonPropId, value: unknown, worldTime?: number, causalSequence?: number): value is VesselPropLatestAction => record(value)
   && keys(value, ['kind', 'recordedAtWorldTime', 'causalSequence'])
-  && (value.kind === 'station-readout-recorded' || value.kind === 'tavern-courier-switched')
+  && VESSEL_PROP_ACTION_KINDS.includes(value.kind as VesselPropActionKind)
   && safeInteger(value.recordedAtWorldTime)
   && positiveInteger(value.causalSequence)
   && (worldTime === undefined || value.recordedAtWorldTime <= worldTime)
@@ -132,6 +138,23 @@ export const validateVesselPropActionState = (
   return [...new Set(diagnostics)].sort()
 }
 
+/**
+ * Consumers that receive only current mutable Jomon state can still validate
+ * the bounded prop-action projection against the immutable canonical prop
+ * identity set. Full world validation additionally proves those identities
+ * against the particular world's immutable Jomon provenance.
+ */
+export const validateCanonicalVesselPropActionState = (
+  value: unknown,
+  worldTime?: number,
+  causalSequence?: number
+): readonly VesselPropActionDiagnostic[] => validateVesselPropActionState(
+  { props: FOUNDATION_JOMON_PROP_DEFINITIONS },
+  value,
+  worldTime,
+  causalSequence
+)
+
 export const recordVesselPropAction = (
   jomon: Pick<FoundationJomon, 'props'>,
   state: VesselPropActionState,
@@ -157,13 +180,21 @@ export const vesselPropActionFeedback = (record: VesselPropActionRecord): Vessel
   const label = labelFor(record.propId)
   const text = action.kind === 'tavern-courier-switched'
     ? `${label}: courier switch recorded.`
-    : `${label}: bounded station readout recorded.`
+    : action.kind === 'vessel-cargo-loaded'
+      ? `${label}: cargo loaded.`
+      : action.kind === 'vessel-cargo-unloaded'
+        ? `${label}: cargo unloaded.`
+        : action.kind === 'vessel-cargo-failure-resolved'
+          ? `${label}: cargo condition recorded.`
+          : action.kind === 'vessel-cargo-recovered'
+            ? `${label}: cargo recovered.`
+            : `${label}: bounded station readout recorded.`
   const feedback: VesselPropActionFeedback = {
     propId: record.propId,
     action,
     label,
     text,
-    presentationState: action.kind === 'tavern-courier-switched' ? 'ready' : 'neutral',
+    presentationState: action.kind === 'tavern-courier-switched' || action.kind === 'vessel-cargo-loaded' || action.kind === 'vessel-cargo-recovered' ? 'ready' : 'neutral',
     contentSafety: actionSafety()
   }
   if (validateMedievalContentSafety([{ id: `vessel-prop-action:${record.propId}`, domain: 'event', classification: feedback.contentSafety }]).status === 'rejected') {

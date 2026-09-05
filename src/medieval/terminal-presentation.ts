@@ -5,7 +5,7 @@ import { deriveJomonDeckPlan, deriveJomonDeckPlanForVerifiedWorld } from './jomo
 import { assessTavernCourierSwitchForVerifiedWorld, type TavernCourierSwitchSource } from './tavern-courier-switch'
 import { assessVesselProximityOperationsForVerifiedWorld, type VesselProximityOperation, type VesselProximityOperationReason, type VesselProximityOperationSource } from './vessel-proximity-operation'
 import { createVesselStationReadoutForVerifiedWorld, validateVesselStationReadout, type VesselStationReadout } from './vessel-station-readout'
-import { vesselPropActionFeedbacks, type VesselPropActionFeedback, type VesselPropActionKind } from './vessel-prop-action'
+import { vesselPropActionFeedback, vesselPropActionFeedbacks, type VesselPropActionFeedback, type VesselPropActionKind } from './vessel-prop-action'
 import type { CourierLossResolvedCommand } from './causal-history'
 import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE, type JomonPaletteToken } from './palette'
 import {
@@ -19,7 +19,7 @@ import {
   type TerminalNonColorCueKey,
   type TerminalPresentationState
 } from './terminal-semantics'
-import type { FoundationWorld, MedievalRoute } from './types'
+import type { FoundationJomonPropId, FoundationWorld, MedievalRoute } from './types'
 import { validateFoundationWorld } from './world'
 
 export {
@@ -43,8 +43,8 @@ export type {
  * future detailed adapter consume that same projection without omitting or
  * inventing consequential information.
  */
-/** v12 adds persisted bounded vessel-prop action feedback to status/messages. */
-export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 12 as const
+/** v13 adds bounded live cargo-hold evidence to the existing station readout. */
+export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 13 as const
 export const TERMINAL_MAP_LEGEND_CONTRACT_VERSION = 1 as const
 
 export const TERMINAL_PRESENTATION_LIMITS = {
@@ -860,7 +860,7 @@ const mapForDeckPlan = (world: FoundationWorld, plan: ReturnType<typeof deriveJo
     },
     cells,
     textEquivalent: 'Jomon deck plan with a known active courier position, quay approach, gangplank, hull boundary, and deck spaces.',
-    accessibilityText: `Known static Jomon deck map. Fixed ${plan.bounds.width} by ${plan.bounds.height} viewport with ${staticCells.length} deck and hull cells${marker === undefined ? '' : ' and one active courier marker'}. Symbols: # hull, = deck, / gangplank, ) quay, @ active adult courier. Full deck known; ${marker === undefined && world.state.courier.initialCourierId !== undefined ? 'no active courier remains and crew-extinction is read-only.' : 'each exact physical station provides a source-backed zero-time contextual readout. The tavern task ledger alone also supports zero-time courier switching and its availability/loss readout.'} Cargo contents, other people, hazards, travel, rest, and conversation remain unavailable; recorded loss continuity is read-only.`,
+    accessibilityText: `Known static Jomon deck map. Fixed ${plan.bounds.width} by ${plan.bounds.height} viewport with ${staticCells.length} deck and hull cells${marker === undefined ? '' : ' and one active courier marker'}. Symbols: # hull, = deck, / gangplank, ) quay, @ active adult courier. Full deck known; ${marker === undefined && world.state.courier.initialCourierId !== undefined ? 'no active courier remains and crew-extinction is read-only.' : 'each exact physical station provides a source-backed zero-time contextual readout. The tavern task ledger alone also supports zero-time courier switching and its availability/loss readout.'} Bounded cargo-hold lots are available only at their physical readout; other people, hazards, travel, rest, and conversation remain unavailable; recorded loss continuity is read-only.`,
     evidence: presentationEvidence('terminal-presentation:jomon-deck-plan'),
     contentDomain: 'player-facing-text',
     contentSafety: baseClassification()
@@ -922,7 +922,7 @@ const rawTerminalMapLegend = (map: TerminalMaterializedMap): TerminalMapLegend =
   if (!glyphIds.length || glyphIds.length > TERMINAL_PRESENTATION_LIMITS.legendEntries) throw new Error('terminal map legend has an invalid visible glyph set')
   const entries = glyphIds.map(glyphId => legendEntryFor(map, glyphId))
   const movementText = 'Known fixed local deck only. A successful local step advances one action minute; a blocked hull, boundary, non-walkable, or diagonal-corner step changes no world state or time.'
-  const limitationsText = 'Fixed known deck. Each exact station anchor has a zero-time bounded readout record; the tavern task ledger alone also supports zero-time courier switching. No cargo contents, NPCs, hazards, travel, fog, rest, conversation, or succession.'
+  const limitationsText = 'Fixed known deck. Each exact station anchor has a zero-time bounded readout record; the tavern task ledger alone also supports zero-time courier switching. Bounded cargo-hold lots appear only at their physical readout; no NPCs, hazards, travel, fog, rest, conversation, or succession.'
   return {
     version: TERMINAL_MAP_LEGEND_CONTRACT_VERSION,
     entries,
@@ -972,6 +972,18 @@ const actionValue = (feedback: VesselPropActionFeedback): Extract<TerminalStatus
   causalSequence: feedback.action.causalSequence
 })
 
+const messageActionValue = (feedback: VesselPropActionFeedback): NonNullable<TerminalMessage['value']> => ({
+  propId: feedback.propId,
+  action: feedback.action.kind,
+  recordedAtWorldTime: feedback.action.recordedAtWorldTime,
+  causalSequence: feedback.action.causalSequence
+})
+
+const feedbackForActionValue = (value: { propId: string; action: VesselPropActionKind; recordedAtWorldTime: number; causalSequence: number }): VesselPropActionFeedback | undefined => vesselPropActionFeedback({
+  propId: value.propId as FoundationJomonPropId,
+  latestAction: { kind: value.action, recordedAtWorldTime: value.recordedAtWorldTime, causalSequence: value.causalSequence }
+})
+
 const latestVesselPropAction = (world: FoundationWorld): VesselPropActionFeedback | undefined => {
   const feedback = vesselPropActionFeedbacks(world.state.jomon.propActions)
   return [...feedback].sort((left, right) => right.action.recordedAtWorldTime - left.action.recordedAtWorldTime
@@ -989,12 +1001,12 @@ const terminalVesselPropActionMessages = (world: FoundationWorld): readonly Term
     paletteToken: TERMINAL_STATE_PRESENTATIONS[state].paletteToken,
     nonColorCue: terminalNonColorCueFor(state),
     sourceRecordKind: 'vessel-prop-action',
-    value: actionValue(feedback),
+    value: messageActionValue(feedback),
     text: feedback.text,
     accessibilityText: `${feedback.text} Source ${evidence.source.recordId}; recorded at world minute ${feedback.action.recordedAtWorldTime}; known at world minute ${world.state.temporal.worldTime}; ${terminalNonColorCueFor(state).text} cue.`,
     evidence,
     contentDomain: 'player-facing-text' as const,
-    contentSafety: structuredClone(feedback.contentSafety)
+    contentSafety: baseClassification()
   } satisfies TerminalMessage
 }).sort((left, right) => compare(left.id, right.id))
 
@@ -1400,15 +1412,16 @@ export const validateTerminalMessages = (value: unknown): readonly TerminalPrese
     const validActionValue = vesselActionValid
       ? actionValue as { propId: string; action: VesselPropActionKind; recordedAtWorldTime: number; causalSequence: number }
       : undefined
+    const actionFeedback = validActionValue === undefined ? undefined : feedbackForActionValue(validActionValue)
     const vesselMessage = record(candidate) && candidate.kind === 'vessel-prop-action'
     const expectedKeys = vesselMessage
       ? ['id', 'kind', 'state', 'paletteToken', 'nonColorCue', 'sourceRecordKind', 'value', 'text', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety']
       : ['id', 'kind', 'state', 'paletteToken', 'nonColorCue', 'sourceRecordKind', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety']
-    if (!record(candidate) || !hasOnlyKeys(candidate, expectedKeys) || !validId(candidate.id) || !oneOf(TERMINAL_MESSAGE_KINDS, candidate.kind) || !oneOf(TERMINAL_PRESENTATION_STATES, candidate.state) || !paletteToken(candidate.paletteToken) || candidate.paletteToken !== TERMINAL_STATE_PRESENTATIONS[candidate.state].paletteToken || !validCue(candidate.nonColorCue, candidate.state) || !oneOf(['causal-command', 'delegation-record', 'social-memory-record', 'future-authoritative-record', 'vessel-prop-action'] as const, candidate.sourceRecordKind) || (vesselMessage && (!validText(candidate.text) || validActionValue === undefined || candidate.sourceRecordKind !== 'vessel-prop-action' || candidate.id !== `terminal-message:vessel-prop-action:${validActionValue.propId}`)) || !validText(candidate.accessibilityText)) diagnostics.push(issue(id, 'terminal-presentation.invalid-message'))
+    if (!record(candidate) || !hasOnlyKeys(candidate, expectedKeys) || !validId(candidate.id) || !oneOf(TERMINAL_MESSAGE_KINDS, candidate.kind) || !oneOf(TERMINAL_PRESENTATION_STATES, candidate.state) || !paletteToken(candidate.paletteToken) || candidate.paletteToken !== TERMINAL_STATE_PRESENTATIONS[candidate.state].paletteToken || !validCue(candidate.nonColorCue, candidate.state) || !oneOf(['causal-command', 'delegation-record', 'social-memory-record', 'future-authoritative-record', 'vessel-prop-action'] as const, candidate.sourceRecordKind) || (vesselMessage && (!validText(candidate.text) || validActionValue === undefined || actionFeedback === undefined || candidate.sourceRecordKind !== 'vessel-prop-action' || candidate.id !== `terminal-message:vessel-prop-action:${validActionValue.propId}` || candidate.text !== actionFeedback.text || candidate.state !== actionFeedback.presentationState || !same(candidate.contentSafety, baseClassification()) || candidate.contentDomain !== 'player-facing-text')) || !validText(candidate.accessibilityText)) diagnostics.push(issue(id, 'terminal-presentation.invalid-message'))
     if (ids.has(id)) diagnostics.push(issue(id, 'terminal-presentation.invalid-message'))
     ids.add(id)
     const evidenceIssues = validateTerminalEvidence(candidate.evidence)
-    if (evidenceIssues.length || !record(candidate.evidence) || !record(candidate.evidence.source) || candidate.evidence.source.kind !== 'authoritative-record' || (candidate.kind === 'vessel-prop-action' && (validActionValue === undefined || candidate.evidence.source.recordId !== `world-state:jomon:prop-actions:${validActionValue.propId}` || candidate.evidence.recordedAtWorldTime !== validActionValue.recordedAtWorldTime || candidate.evidence.knownAtWorldTime < validActionValue.recordedAtWorldTime))) diagnostics.push(issue(id, 'terminal-presentation.invalid-message'))
+    if (evidenceIssues.length || !record(candidate.evidence) || !record(candidate.evidence.source) || candidate.evidence.source.kind !== 'authoritative-record' || (candidate.kind === 'vessel-prop-action' && (validActionValue === undefined || candidate.evidence.source.recordId !== `world-state:jomon:prop-actions:${validActionValue.propId}` || candidate.evidence.recordedAtWorldTime !== validActionValue.recordedAtWorldTime || candidate.evidence.knownAtWorldTime < validActionValue.recordedAtWorldTime || !same(candidate.evidence.freshness, candidate.evidence.knownAtWorldTime === validActionValue.recordedAtWorldTime ? { kind: 'current' } : { kind: 'reported-at-world-time', atWorldTime: validActionValue.recordedAtWorldTime })))) diagnostics.push(issue(id, 'terminal-presentation.invalid-message'))
     else diagnostics.push(...evidenceIssues.map(item => ({ ...item, recordId: id })))
   }
   const messages = value.filter(record) as unknown as TerminalMessage[]
@@ -1724,7 +1737,25 @@ export const validateTerminalPresentationProjection = (
     const focusIsValid = statusValue?.kind !== 'deck-focus' || (hasOnlyKeys(statusValue, statusValue.coordinate === undefined ? ['kind'] : ['kind', 'courierId', 'coordinate']) && (statusValue.coordinate === undefined || (typeof statusValue.courierId === 'string' && validId(statusValue.courierId) && record(statusValue.coordinate) && hasOnlyKeys(statusValue.coordinate, ['column', 'row']) && safeInteger(statusValue.coordinate.column) && safeInteger(statusValue.coordinate.row))))
     const provenanceIsValid = statusValue?.kind !== 'creation-provenance' || (hasOnlyKeys(statusValue, ['kind', 'seed', 'digest']) && typeof statusValue.seed === 'string' && statusValue.seed.length > 0 && typeof statusValue.digest === 'string' && statusValue.digest.length > 0)
     const vesselActionIsValid = statusValue?.kind !== 'vessel-prop-action' || (hasOnlyKeys(statusValue, ['kind', 'propId', 'action', 'recordedAtWorldTime', 'causalSequence']) && typeof statusValue.propId === 'string' && (statusValue.action === 'station-readout-recorded' || statusValue.action === 'tavern-courier-switched') && safeInteger(statusValue.recordedAtWorldTime) && safeInteger(statusValue.causalSequence) && statusValue.causalSequence > 0)
-  if (!record(candidate) || !hasOnlyKeys(candidate, ['id', 'state', 'paletteToken', 'nonColorCue', 'value', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety']) || !validId(candidate.id) || !oneOf(TERMINAL_PRESENTATION_STATES, candidate.state) || !paletteToken(candidate.paletteToken) || candidate.paletteToken !== TERMINAL_STATE_PRESENTATIONS[candidate.state].paletteToken || !validCue(candidate.nonColorCue, candidate.state) || !statusValue || !hasOnlyKeys(statusValue, statusValue.kind === 'courier-selection' ? ['kind', 'state'] : statusValue.kind === 'world-minute' ? ['kind', 'minutes'] : statusValue.kind === 'jomon-deck-materialized' ? ['kind', 'cells'] : statusValue.kind === 'deck-focus' ? statusValue.coordinate === undefined ? ['kind'] : ['kind', 'courierId', 'coordinate'] : statusValue.kind === 'creation-provenance' ? ['kind', 'seed', 'digest'] : statusValue.kind === 'vessel-prop-action' ? ['kind', 'propId', 'action', 'recordedAtWorldTime', 'causalSequence'] : ['kind']) || !oneOf(['jomon-deck-materialized', 'courier-selection', 'world-minute', 'deck-focus', 'creation-provenance', 'vessel-prop-action'] as const, statusValue.kind) || (statusValue.kind === 'jomon-deck-materialized' && (!safeInteger(statusValue.cells) || statusValue.cells === 0)) || (statusValue.kind === 'courier-selection' && !oneOf(['awaiting-initial', 'active', 'crew-extinct'] as const, statusValue.state)) || (statusValue.kind === 'world-minute' && !safeInteger(statusValue.minutes)) || !focusIsValid || !provenanceIsValid || !vesselActionIsValid || !validText(candidate.accessibilityText) || validateTerminalEvidence(candidate.evidence).length) diagnostics.push(issue(id, 'terminal-presentation.invalid-model'))
+    const validStatusAction = vesselActionIsValid && statusValue?.kind === 'vessel-prop-action'
+      ? statusValue as Extract<TerminalStatusValue, { kind: 'vessel-prop-action' }>
+      : undefined
+    const statusActionFeedback = validStatusAction === undefined ? undefined : feedbackForActionValue(validStatusAction)
+    const statusEvidence = record(candidate) && record(candidate.evidence)
+      ? candidate.evidence as { source: { kind?: unknown; recordId?: unknown }; recordedAtWorldTime?: unknown; knownAtWorldTime?: unknown; freshness?: unknown }
+      : undefined
+    const statusActionEvidenceValid = validStatusAction === undefined || (record(candidate) && statusEvidence !== undefined
+      && candidate.id === 'terminal-status:vessel-prop-action'
+      && candidate.state === statusActionFeedback?.presentationState
+      && statusEvidence.source.kind === 'authoritative-record'
+      && statusEvidence.source.recordId === `world-state:jomon:prop-actions:${validStatusAction.propId}`
+      && statusEvidence.recordedAtWorldTime === validStatusAction.recordedAtWorldTime
+      && typeof statusEvidence.knownAtWorldTime === 'number'
+      && statusEvidence.knownAtWorldTime >= validStatusAction.recordedAtWorldTime
+      && same(statusEvidence.freshness, statusEvidence.knownAtWorldTime === validStatusAction.recordedAtWorldTime ? { kind: 'current' } : { kind: 'reported-at-world-time', atWorldTime: validStatusAction.recordedAtWorldTime })
+      && candidate.contentDomain === 'player-facing-text'
+      && same(candidate.contentSafety, baseClassification()))
+    if (!record(candidate) || !hasOnlyKeys(candidate, ['id', 'state', 'paletteToken', 'nonColorCue', 'value', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety']) || !validId(candidate.id) || !oneOf(TERMINAL_PRESENTATION_STATES, candidate.state) || !paletteToken(candidate.paletteToken) || candidate.paletteToken !== TERMINAL_STATE_PRESENTATIONS[candidate.state].paletteToken || !validCue(candidate.nonColorCue, candidate.state) || !statusValue || !hasOnlyKeys(statusValue, statusValue.kind === 'courier-selection' ? ['kind', 'state'] : statusValue.kind === 'world-minute' ? ['kind', 'minutes'] : statusValue.kind === 'jomon-deck-materialized' ? ['kind', 'cells'] : statusValue.kind === 'deck-focus' ? statusValue.coordinate === undefined ? ['kind'] : ['kind', 'courierId', 'coordinate'] : statusValue.kind === 'creation-provenance' ? ['kind', 'seed', 'digest'] : statusValue.kind === 'vessel-prop-action' ? ['kind', 'propId', 'action', 'recordedAtWorldTime', 'causalSequence'] : ['kind']) || !oneOf(['jomon-deck-materialized', 'courier-selection', 'world-minute', 'deck-focus', 'creation-provenance', 'vessel-prop-action'] as const, statusValue.kind) || (statusValue.kind === 'jomon-deck-materialized' && (!safeInteger(statusValue.cells) || statusValue.cells === 0)) || (statusValue.kind === 'courier-selection' && !oneOf(['awaiting-initial', 'active', 'crew-extinct'] as const, statusValue.state)) || (statusValue.kind === 'world-minute' && !safeInteger(statusValue.minutes)) || !focusIsValid || !provenanceIsValid || !vesselActionIsValid || statusActionFeedback === undefined && statusValue.kind === 'vessel-prop-action' || !statusActionEvidenceValid || !validText(candidate.accessibilityText) || validateTerminalEvidence(candidate.evidence).length) diagnostics.push(issue(id, 'terminal-presentation.invalid-model'))
     if (statusIds.has(id)) diagnostics.push(issue(id, 'terminal-presentation.invalid-model'))
     statusIds.add(id)
   }

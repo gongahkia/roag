@@ -551,14 +551,14 @@ export class MedievalApp {
       }
       this.persistence = 'loading'
       this.render()
-      void this.repository.saveWorld(result.world).then(async () => {
+      void this.repository.saveWorld(result.world).then(() => {
         this.world = result.world
-        await this.refreshIndex()
         this.resetManagementSidebar()
         this.persistence = 'saved'
         this.error = undefined
         this.terminalInteractionOutcome = { kind: 'movement-completed', direction, column: result.to.column, row: result.to.row }
         this.render()
+        void this.refreshIndex().then(() => this.render())
       }).catch(error => {
         this.persistence = 'error'
         this.error = errorMessage(error)
@@ -578,9 +578,8 @@ export class MedievalApp {
       const next = switchTavernCourier(this.world, courierId)
       this.persistence = 'loading'
       this.render()
-      void this.repository.saveWorld(next).then(async () => {
+      void this.repository.saveWorld(next).then(() => {
         this.world = next
-        await this.refreshIndex()
         this.resetManagementSidebar()
         this.worldOverlay = 'none'
         this.contextualPrompt = undefined
@@ -589,6 +588,7 @@ export class MedievalApp {
         this.error = undefined
         this.terminalInteractionOutcome = { kind: 'courier-switched', fromName, toName }
         this.render()
+        void this.refreshIndex().then(() => this.render())
       }).catch(error => {
         this.persistence = 'error'
         this.error = errorMessage(error)
@@ -608,9 +608,8 @@ export class MedievalApp {
       const next = recordVesselStationReadout(this.world, propId)
       this.persistence = 'loading'
       this.render()
-      void this.repository.saveWorld(next).then(async () => {
+      void this.repository.saveWorld(next).then(() => {
         this.world = next
-        await this.refreshIndex()
         this.resetManagementSidebar()
         this.worldOverlay = 'none'
         this.contextualPrompt = undefined
@@ -618,6 +617,7 @@ export class MedievalApp {
         this.error = undefined
         this.terminalInteractionOutcome = { kind: 'station-readout-recorded', label }
         this.render()
+        void this.refreshIndex().then(() => this.render())
       }).catch(error => {
         this.persistence = 'error'
         this.error = errorMessage(error)
@@ -1204,8 +1204,8 @@ export class MedievalApp {
     const world = this.world
     if (!world) { this.route = 'worlds'; this.render(); return 0 }
     const courier = world.crew.find(member => member.id === world.state.courier.activeCourierId)
-    // The canvas is only an adapter: immediate status and the explicit empty
-    // message surface come from the renderer-neutral terminal model.
+    // The canvas is only an adapter: status and bounded persisted action
+    // feedback come from the renderer-neutral terminal model.
     const terminal = createTerminalPresentationModel(world)
     if (!this.managementSidebar) this.resetManagementSidebar()
     const model = this.managementSidebar

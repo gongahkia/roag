@@ -73,6 +73,7 @@ describe('compact medieval persistence layout', () => {
     delete legacy.state.navigation
     legacy.state.courier = { version: 1, initialCourierId: world.state.courier.initialCourierId }
     const checkpointProjection = structuredClone(legacy.state.causalHistory.checkpoint.projection)
+    delete checkpointProjection.jomon
     checkpointProjection.version = 4
     checkpointProjection.courier = checkpointProjection.courier.initialCourierId === undefined
       ? { version: 1 }
@@ -81,6 +82,8 @@ describe('compact medieval persistence layout', () => {
     const stateDigest = causalReplayProjectionDigest(checkpointProjection)
     legacy.state.causalHistory = {
       ...legacy.state.causalHistory,
+      version: 4,
+      tail: legacy.state.causalHistory.tail.map((command: Record<string, unknown>) => ({ ...command, version: 4 })),
       checkpoint: {
         version: 4,
         id: `causal-checkpoint:0:${causalDigestFor('causal-checkpoint-id', { worldId: legacy.id, creationDigest: legacy.manifest.creation.digest, sequence: 0, stateDigest })}`,
@@ -92,6 +95,9 @@ describe('compact medieval persistence layout', () => {
         projection: checkpointProjection
       }
     }
+    legacy.state.jomon.version = 1
+    delete legacy.state.jomon.propActions
+    delete legacy.state.jomon.cargo
     const legacyBundle = {
       version: 1,
       kind: 'active-world',
@@ -104,7 +110,7 @@ describe('compact medieval persistence layout', () => {
       world: legacy
     }
 
-    expect(parsePersistenceBackupBundle(JSON.stringify(legacyBundle))).toMatchObject({ kind: 'active-world', world: { version: 15, state: { version: 14, courier: { version: 3, initialCourierId: 'crew:0', activeCourierId: 'crew:0', departedCourierIds: [] }, navigation: { coordinate: { column: 4, row: 4 } } } } })
+    expect(parsePersistenceBackupBundle(JSON.stringify(legacyBundle))).toMatchObject({ kind: 'active-world', world: { version: 15, state: { version: 16, jomon: { version: 3, cargo: { version: 1, lots: [] } }, courier: { version: 3, initialCourierId: 'crew:0', activeCourierId: 'crew:0', departedCourierIds: [] }, navigation: { coordinate: { column: 4, row: 4 } } } } })
     const corrupt = structuredClone(legacyBundle)
     corrupt.source.digest = 'layout:forged'
     expect(() => parsePersistenceBackupBundle(JSON.stringify(corrupt))).toThrow('invalid bundle')

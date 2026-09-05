@@ -35,6 +35,7 @@ const v14Envelope = (world: ReturnType<typeof createFoundationWorld>) => {
   legacy.state.causalHistory.tail = legacy.state.causalHistory.tail.map((command: Record<string, unknown>) => ({ ...command, version: 4 }))
   legacy.state.jomon.version = 1
   delete legacy.state.jomon.propActions
+  delete legacy.state.jomon.cargo
   legacy.state.version = 14
   return legacy
 }
@@ -51,7 +52,7 @@ describe('medieval foundation worlds', () => {
     expect(first.jomon).toMatchObject({ id: 'vessel:jomon', name: 'Jomon', deckPartitions: expect.arrayContaining(['tavern', 'chart-table', 'cargo-hold', 'gangplank']) })
   })
 
-  it('read-only upgrades only an exact valid v14 source to deterministic eight-prop v15 provenance', () => {
+  it('read-only upgrades only an exact valid v14 source to deterministic eight-prop v15 provenance and current cargo state', () => {
     const source = chooseInitialCourier(createFoundationWorld({ seed: 'v15-static-prop-upgrade' }), 'crew:0')
     const legacy = v14Envelope(source)
     const before = structuredClone(legacy)
@@ -62,7 +63,7 @@ describe('medieval foundation worlds', () => {
       version: 15,
       id: source.id,
       manifest: source.manifest,
-      state: source.state,
+      state: { version: 16, jomon: { version: 3, cargo: { version: 1, lots: [] } }, courier: source.state.courier },
       jomon: {
         props: [
           { id: 'prop:berth', kind: 'berth', partition: 'berths' },

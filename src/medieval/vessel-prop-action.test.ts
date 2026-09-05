@@ -1,9 +1,11 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { causalReplayProjectionForWorldState } from './world-state'
 import { initialVesselPropActionState, recordVesselPropAction, validateVesselPropActionState, vesselPropActionFeedbacks } from './vessel-prop-action'
-import { causalDigestFor } from './causal-history'
+import { appendCausalCommand, causalDigestFor, causalReplayProjection, createCausalCommand, validateCausalHistoryState } from './causal-history'
 import { chooseInitialCourier, createFoundationWorld, moveFoundationWorldCourier, recordVesselStationReadout, replayFoundationWorldCausalHistory, switchTavernCourier, upgradeFoundationWorldStateV15, validateFoundationWorld } from './world'
 import { initialHouseholdActiveCrew } from './initial-household'
+import { JOMON_ASCII_GLYPH_CATALOG, terminalGlyphCatalog } from './ascii-glyphs'
+import { createTerminalPresentationModel, validateTerminalPresentationModel, validateTerminalPresentationProjection } from './terminal-presentation'
 
 let selected = chooseInitialCourier(createFoundationWorld({ seed: 'vessel-prop-action-fixture' }), 'crew:0')
 let gangplankWorld = selected
@@ -34,6 +36,7 @@ const stateV14Envelope = () => {
   legacy.state.causalHistory.tail = legacy.state.causalHistory.tail.map((command: Record<string, unknown>) => ({ ...command, version: 4 }))
   legacy.state.jomon.version = 1
   delete legacy.state.jomon.propActions
+  delete legacy.state.jomon.cargo
   legacy.state.version = 14
   return legacy
 }
@@ -95,6 +98,28 @@ describe('bounded vessel prop actions', () => {
     expect(replayFoundationWorldCausalHistory(switched)).toEqual(causalReplayProjectionForWorldState(switched.state))
   })
 
+  it('projects canonical persisted action feedback into bounded status and messages with source evidence', () => {
+    const recorded = recordVesselStationReadout(gangplankWorld, 'prop:gangplank')
+    const terminal = createTerminalPresentationModel(recorded)
+    const message = terminal.messages.find(item => item.kind === 'vessel-prop-action')
+    const status = terminal.status.find(item => item.value.kind === 'vessel-prop-action')
+
+    expect(message).toMatchObject({
+      id: 'terminal-message:vessel-prop-action:prop:gangplank',
+      state: 'neutral',
+      value: { propId: 'prop:gangplank', action: 'station-readout-recorded', recordedAtWorldTime: 2 },
+      text: 'Gangplank: bounded station readout recorded.',
+      evidence: { source: { recordId: 'world-state:jomon:prop-actions:prop:gangplank' }, recordedAtWorldTime: 2, knownAtWorldTime: 2, freshness: { kind: 'current' } }
+    })
+    expect(status).toMatchObject({ value: { kind: 'vessel-prop-action', propId: 'prop:gangplank', action: 'station-readout-recorded' } })
+    expect(validateTerminalPresentationModel(recorded, terminal)).toEqual([])
+    expect(validateTerminalPresentationProjection(terminal, terminalGlyphCatalog(JOMON_ASCII_GLYPH_CATALOG))).toEqual([])
+
+    const forged = structuredClone(terminal)
+    ;(forged.messages[0] as { text?: string }).text = 'forged action feedback'
+    expect(validateTerminalPresentationProjection(forged, terminalGlyphCatalog(JOMON_ASCII_GLYPH_CATALOG)).map(item => item.code)).toContain('terminal-presentation.invalid-message')
+  })
+
   it('fails closed for reordered, unknown, unsafe-shape, stale-sequence, and impossible prop/action records', () => {
     const initial = initialVesselPropActionState(selected.jomon)
     const valid = recordVesselPropAction(selected.jomon, initial, 'prop:chart-table', { kind: 'station-readout-recorded', recordedAtWorldTime: 0, causalSequence: 1 })
@@ -112,14 +137,48 @@ describe('bounded vessel prop actions', () => {
     expect(vesselPropActionFeedbacks(valid)).toMatchObject([{ propId: 'prop:chart-table', text: 'Chart table: bounded station readout recorded.' }])
   })
 
+  it('rejects unsafe typed action evidence without changing a valid source', () => {
+    const recorded = recordVesselStationReadout(gangplankWorld, 'prop:gangplank')
+    const forged = structuredClone(recorded)
+    const before = structuredClone(recorded)
+    ;(forged.state.causalHistory.tail.at(-1)!.contentSafety.exclusions as unknown as Record<string, string>).torture = 'present'
+
+    expect(validateFoundationWorld(forged)).not.toEqual([])
+    expect(() => replayFoundationWorldCausalHistory(forged)).toThrow()
+    expect(recorded).toEqual(before)
+  })
+
+  it('keeps latest prop actions exact through bounded command-tail compaction', () => {
+    const context = { worldId: gangplankWorld.id, creationDigest: gangplankWorld.manifest.creation.digest }
+    let history = gangplankWorld.state.causalHistory
+    let projection = causalReplayProjectionForWorldState(gangplankWorld.state)
+    for (let index = 0; index < 9; index++) {
+      const command = createCausalCommand(context, history, 'vessel-station-readout-recorded', { propId: 'prop:gangplank' })
+      const jomon = {
+        ...projection.jomon,
+        propActions: recordVesselPropAction(gangplankWorld.jomon, projection.jomon.propActions, 'prop:gangplank', {
+          kind: 'station-readout-recorded',
+          recordedAtWorldTime: projection.temporal.worldTime,
+          causalSequence: command.sequence
+        })
+      }
+      projection = causalReplayProjection({ ...projection, jomon })
+      history = appendCausalCommand(context, history, command, projection)
+    }
+
+    expect(history.compactedSegments.some(segment => (segment.commandKinds.vesselStationReadoutRecorded ?? 0) > 0)).toBe(true)
+    expect(projection.jomon.propActions.records.find(item => item.propId === 'prop:gangplank')!.latestAction?.causalSequence).toBe(history.checkpoint.sequence + history.tail.length)
+    expect(validateCausalHistoryState(context, history)).toEqual([])
+  })
+
   it('read-only upgrades an exact v15/state-v14 envelope and leaves forged legacy data untouched', () => {
     const legacy = stateV14Envelope()
     const before = structuredClone(legacy)
 
     const upgraded = upgradeFoundationWorldStateV15(legacy)
 
-    expect(upgraded.state.version).toBe(15)
-    expect(upgraded.state.jomon).toMatchObject({ version: 2, propActions: initialVesselPropActionState(upgraded.jomon) })
+    expect(upgraded.state.version).toBe(16)
+    expect(upgraded.state.jomon).toMatchObject({ version: 3, propActions: initialVesselPropActionState(upgraded.jomon), cargo: { version: 1, lots: [] } })
     expect(validateFoundationWorld(upgraded)).toEqual([])
     expect(legacy).toEqual(before)
 

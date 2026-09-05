@@ -1,5 +1,7 @@
 import { ASCII_GLYPH_CATALOG_VERSION, JOMON_ASCII_GLYPH_CATALOG, validateAsciiGlyphCatalog } from './ascii-glyphs'
 import { DELEGATION_CONTRACT_VERSION, DELEGATION_TASK_DEFINITIONS, DELEGATION_TASK_FAMILIES, validateDelegationTaskDefinitions } from './delegation'
+import { COMMODITY_CATALOGUE_VERSION, validateCommodityCatalogue, commodityCatalogue } from './commodity-catalogue'
+import { SETTLEMENT_PROFILE_VERSION, namedSettlementProfile, validateNamedSettlementProfile } from './settlement-profile'
 import { FRONTIER_CONTRACT_VERSION, FRONTIER_LIMITS } from './frontier'
 import { GENERATION_CONFIG_PRESETS, WORLD_GENERATION_CONFIG_VERSION, resolveWorldGenerationConfig } from './generation-config'
 import { INITIAL_WORLD_GENERATOR_VERSION, INITIAL_WORLD_GENERATION_STAGES } from './initial-world'
@@ -10,7 +12,7 @@ import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_MANIFEST_VERSION } from './typ
  * This version owns only the closed catalogue policy, never the data owned by
  * the referenced domain modules. It is not a content-pack format or loader.
  */
-export const INTERNAL_CONTENT_CATALOGUE_VERSION = 1 as const
+export const INTERNAL_CONTENT_CATALOGUE_VERSION = 3 as const
 
 export const INTERNAL_CONTENT_SOURCE_CATEGORIES = [
   'developer-authored-compiled-typescript',
@@ -24,6 +26,8 @@ export type InternalContentSourceCategory = typeof INTERNAL_CONTENT_SOURCE_CATEG
 
 export const INTERNAL_CONTENT_OWNERS = [
   'content-safety',
+  'commodity-catalogue',
+  'settlement-profile',
   'generation-config',
   'initial-world',
   'frontier',
@@ -114,7 +118,7 @@ export interface InternalContentDiagnostic {
   code: InternalContentDiagnosticCode
 }
 
-const MAXIMUM_INTERNAL_CONTENT_FAMILIES = 8
+const MAXIMUM_INTERNAL_CONTENT_FAMILIES = 10
 const compare = (left: string, right: string): number => left === right ? 0 : left < right ? -1 : 1
 const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 const oneOf = <Value>(values: readonly Value[], value: unknown): value is Value => values.includes(value as Value)
@@ -139,6 +143,16 @@ const canonicalCatalogue: InternalContentCatalogue = {
   version: INTERNAL_CONTENT_CATALOGUE_VERSION,
   extensionPolicy: INTERNAL_CONTENT_EXTENSION_POLICY,
   families: [
+    {
+      id: 'commodity-definitions',
+      owner: 'commodity-catalogue',
+      ownerVersion: `commodity-catalogue-v${COMMODITY_CATALOGUE_VERSION}`,
+      sourceCategory: 'developer-authored-compiled-typescript',
+      safety: safetyRequirement(),
+      sourceImpact: 'policy-validation',
+      changeRule: 'owner-policy-version-and-replay-decision-required',
+      visibility: 'not-a-world-fact'
+    },
     {
       id: 'content-safety-policy',
       owner: 'content-safety',
@@ -207,6 +221,16 @@ const canonicalCatalogue: InternalContentCatalogue = {
       safety: safetyRequirement(),
       sourceImpact: 'renderer-semantic-contract',
       changeRule: 'owner-renderer-contract-version-and-replay-decision-required',
+      visibility: 'not-a-world-fact'
+    },
+    {
+      id: 'settlement-profiles',
+      owner: 'settlement-profile',
+      ownerVersion: `settlement-profile-v${SETTLEMENT_PROFILE_VERSION}`,
+      sourceCategory: 'developer-authored-compiled-typescript',
+      safety: safetyRequirement(),
+      sourceImpact: 'policy-validation',
+      changeRule: 'owner-policy-version-and-replay-decision-required',
       visibility: 'not-a-world-fact'
     },
     {
@@ -288,6 +312,8 @@ export const validateCurrentInternalContentOwners = (): readonly InternalContent
   const catalogue = internalContentCatalogue()
   const family = (id: string): InternalContentFamilyDescriptor => catalogue.families.find(candidate => candidate.id === id)!
   if (family('content-safety-policy').ownerVersion !== `policy-v${MEDIEVAL_CONTENT_SAFETY_POLICY_VERSION}` || PROHIBITED_MEDIEVAL_CONTENT_CLASSES.length !== 4) diagnostics.push(diagnostic('content-safety-policy', 'internal-content.owner-data-invalid'))
+  if (family('commodity-definitions').ownerVersion !== `commodity-catalogue-v${COMMODITY_CATALOGUE_VERSION}` || validateCommodityCatalogue(commodityCatalogue()).length !== 0) diagnostics.push(diagnostic('commodity-definitions', 'internal-content.owner-data-invalid'))
+  if (family('settlement-profiles').ownerVersion !== `settlement-profile-v${SETTLEMENT_PROFILE_VERSION}` || validateNamedSettlementProfile(namedSettlementProfile()).length !== 0) diagnostics.push(diagnostic('settlement-profiles', 'internal-content.owner-data-invalid'))
   if (family('world-generation-config').ownerVersion !== `generation-config-v${WORLD_GENERATION_CONFIG_VERSION}` || Object.keys(GENERATION_CONFIG_PRESETS).some(preset => resolveWorldGenerationConfig({ preset: preset as keyof typeof GENERATION_CONFIG_PRESETS }).status !== 'valid')) diagnostics.push(diagnostic('world-generation-config', 'internal-content.owner-data-invalid'))
   if (family('initial-world-generation').ownerVersion !== INITIAL_WORLD_GENERATOR_VERSION || (INITIAL_WORLD_GENERATION_STAGES as readonly string[]).length === 0) diagnostics.push(diagnostic('initial-world-generation', 'internal-content.owner-data-invalid'))
   if (family('frontier-generation').ownerVersion !== `frontier-v${FRONTIER_CONTRACT_VERSION}` || FRONTIER_LIMITS.regions <= 0) diagnostics.push(diagnostic('frontier-generation', 'internal-content.owner-data-invalid'))
