@@ -167,6 +167,8 @@ class GameEngine:
     def from_snapshot(cls, catalog: Catalog, snapshot: dict[str, Any]) -> GameEngine:
         if snapshot.get("save_version") != cls.SAVE_VERSION:
             raise RuleError("unsupported save version")
+        if snapshot.get("content_schema_version") != catalog.raw["schema_version"]:
+            raise RuleError("save was created for a different content schema")
         raw = snapshot.get("state")
         if not isinstance(raw, dict):
             raise RuleError("save has no game state")
@@ -197,6 +199,11 @@ class GameEngine:
             rng.setstate(_tuples(snapshot["rng_state"]))
         except (KeyError, TypeError, ValueError) as exc:
             raise RuleError(f"invalid save data: {exc}") from exc
+        if {hero.id for hero in state.heroes} != set(catalog.heroes):
+            raise RuleError("save contains an unexpected crew roster")
+        piles = state.deck + state.hand + state.draw_pile + state.discard_pile
+        if any(card.card_id not in catalog.cards for card in piles):
+            raise RuleError("save references an unknown card")
         return cls(catalog, state, rng)
 
     def snapshot(self) -> dict[str, Any]:
@@ -337,7 +344,8 @@ class GameEngine:
         definition = self.card_definition(card)
         actor = self._actor(definition["hero"])
         delta = int(self._affliction_modifiers(actor).get("card_cost_delta", 0))
-        return max(0, definition.get("upgrade_cost", definition["cost"]) + delta)
+        base = definition.get("upgrade_cost", definition["cost"]) if card.upgraded else definition["cost"]
+        return max(0, base + delta)
 
     def valid_targets(self, hand_index: int) -> list[str]:
         if not 0 <= hand_index < len(self.state.hand):
@@ -422,6 +430,8 @@ class GameEngine:
             self.state.energy += amount
         else:
             for target in list(targets):
+                if not target.alive and op != "heal":
+                    continue
                 if op == "damage":
                     adjusted = amount
                     if effect.get("bonus_status") in target.statuses:
@@ -450,13 +460,14 @@ class GameEngine:
         self.state.hand = []
         for hero in self.living_heroes():
             self._decay_statuses(hero)
+        self._enemy_phase()
+        if self.state.phase != "combat":
+            return
+        for hero in self.living_heroes():
             if hero.guard_turns:
                 hero.guard_turns -= 1
                 if hero.guard_turns <= 0:
                     hero.guarded_by = None
-        self._enemy_phase()
-        if self.state.phase != "combat":
-            return
         self.state.round += 1
         self.state.intents = self._choose_intents()
         self._start_player_turn()
@@ -474,15 +485,21 @@ class GameEngine:
         for intent in intents:
             if self.state.phase != "combat":
                 return
-            enemy = next((item for item in self.living_enemies() if item.rank == intent["enemy_rank"]), None)
+            enemy = next((item for item in self.living_enemies() if item.id == intent["enemy_id"]), None)
             if enemy is None:
                 continue
             enemy.block = 0
             self._tick_wound(enemy)
             if enemy.hp <= 0:
                 self._normalize_ranks("enemy")
+                if not self.living_enemies():
+                    self._combat_victory()
+                    return
                 continue
-            if enemy.statuses.pop("stun", 0):
+            if enemy.statuses.get("stun", 0):
+                enemy.statuses["stun"] -= 1
+                if enemy.statuses["stun"] <= 0:
+                    del enemy.statuses["stun"]
                 self.add_log(f"{enemy.name} is stunned.")
                 self._decay_statuses(enemy)
                 continue
@@ -538,13 +555,13 @@ class GameEngine:
         return max(0, round(amount * multiplier))
 
     def _damage(self, target: Actor, amount: int) -> None:
-        if target.statuses.get("vulnerable"):
-            amount = round(amount * 1.5)
         if target.side == "hero" and target.guarded_by:
             guard = next((item for item in self.living_heroes() if item.id == target.guarded_by), None)
             if guard and guard.id != target.id:
                 self.add_log(f"{guard.name} intercepts the hit.")
                 target = guard
+        if target.statuses.get("vulnerable"):
+            amount = round(amount * 1.5)
         absorbed = min(target.block, amount)
         target.block -= absorbed
         amount -= absorbed

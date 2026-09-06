@@ -46,6 +46,7 @@ EVENT_EFFECTS = {
     "card_reward",
 }
 TARGETS = {"enemy", "all_enemies", "self", "ally", "all_allies"}
+ENEMY_TARGETS = {"front", "back", "random", "stressed", "self", "all_heroes", "weakest_enemy"}
 
 
 def _indexed(items: Any, section: str) -> dict[str, dict[str, Any]]:
@@ -76,6 +77,10 @@ def _effects(value: Any, allowed: set[str], context: str) -> None:
             raise ContentError(f"{context}[{index}] has an unknown effect operation")
         if "amount" in effect and not isinstance(effect["amount"], (int, float)):
             raise ContentError(f"{context}[{index}].amount must be numeric")
+        if effect.get("target") not in {None, "self", "all_enemies", "all_allies"}:
+            raise ContentError(f"{context}[{index}].target is invalid")
+        if effect["op"] == "status" and not isinstance(effect.get("status"), str):
+            raise ContentError(f"{context}[{index}] status effect needs a status name")
 
 
 def load_catalog(path: Path | None = None) -> Catalog:
@@ -113,6 +118,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
         raise ContentError("this release requires exactly four heroes")
 
     for card in cards.values():
+        if not isinstance(card.get("name"), str) or not isinstance(card.get("description"), str):
+            raise ContentError(f"card {card['id']} needs a name and description")
         if card.get("hero") not in heroes:
             raise ContentError(f"card {card['id']} references an unknown hero")
         if card.get("target") not in TARGETS:
@@ -132,6 +139,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
         if not isinstance(actions, list) or not actions:
             raise ContentError(f"enemy {enemy['id']} needs actions")
         for action in actions:
+            if not isinstance(action.get("name"), str) or action.get("target") not in ENEMY_TARGETS:
+                raise ContentError(f"enemy {enemy['id']} has an invalid action")
             _effects(action.get("effects"), CARD_EFFECTS, f"enemy {enemy['id']} action")
 
     for encounter in encounters.values():
@@ -149,6 +158,10 @@ def load_catalog(path: Path | None = None) -> Catalog:
         if not isinstance(choices, list) or len(choices) < 2:
             raise ContentError(f"event {event['id']} needs at least two choices")
         for choice in choices:
+            if not isinstance(choice.get("label"), str):
+                raise ContentError(f"event {event['id']} choice needs a label")
+            if not isinstance(choice.get("cost_supplies", 0), int) or choice.get("cost_supplies", 0) < 0:
+                raise ContentError(f"event {event['id']} choice has an invalid supply cost")
             _effects(choice.get("effects"), EVENT_EFFECTS, f"event {event['id']} choice")
 
     required_balance = {
@@ -161,5 +174,10 @@ def load_catalog(path: Path | None = None) -> Catalog:
     missing = required_balance - balance.keys()
     if missing:
         raise ContentError(f"balance is missing: {', '.join(sorted(missing))}")
+    for name in required_balance:
+        if not isinstance(balance[name], (int, float)) or balance[name] < 0:
+            raise ContentError(f"balance.{name} must be a non-negative number")
+    if not 0 <= balance["death_chance"] <= 1:
+        raise ContentError("balance.death_chance must be between 0 and 1")
 
     return Catalog(raw, heroes, cards, enemies, encounters, events, afflictions, balance)
