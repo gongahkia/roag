@@ -553,3 +553,40 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         steps=2 if storm_delay else 1,
         priority=3 if messages else 0,
     )
+
+
+def can_alter_objective(state: GameState) -> bool:
+    courier = state.courier
+    return bool(
+        state.gear == "repair tools"
+        or state.support in {"route survey", "carpenter rig"}
+        or (courier and courier.technique == "lever craft")
+        or state.contact.disposition >= 2
+    )
+
+
+def decide_objective(state: GameState, decision: str) -> ActionResult:
+    available = (
+        state.location == "region"
+        and state.position == state.region.landmarks["contact"]
+        and state.objective_status in {"unoffered", "failed"}
+    )
+    if not available:
+        return _plain(state, "No open material request can be decided here.")
+    if decision == "alter" and not can_alter_objective(state):
+        return _plain(state, "Alteration needs tools, route support, lever craft, or trust.")
+    if decision == "accept":
+        state.objective_status = "accepted"
+        text = f"{state.courier.name} accepts the material recovery."
+    elif decision == "refuse":
+        state.objective_status = "refused"
+        state.contact.disposition = max(-3, state.contact.disposition - 1)
+        text = f"{state.courier.name} refuses Hearthford's difficult request."
+    elif decision == "alter":
+        state.objective_status = "altered"
+        text = f"{state.courier.name} alters the request to flood-control work."
+    else:
+        return _plain(state, "Unknown objective decision.")
+    _remember_contact(state, text)
+    state.remember(text)
+    return _time_result(state, text, priority=3)
