@@ -2,40 +2,32 @@
 
 ## Current State
 
-- The medieval foundation is retained: deterministic creation, action-driven time, persistent household records, physical Jomon, local persistence, deck interaction, bounded cargo, a named Hearthford market/worksite consequence, and contextual courier loss are implemented.
-- The v19 Mill Lease slice is complete: an accepted ironwork case can be delivered to Jomon, then fitted to relieve the lease or retained for lease credit. Both browser paths persist.
-- The first authored expedition is playable: one courier prepares at Jomon's chart table, crosses the gangplank into Hearthford, accepts Mara Venn's seal-cord request, fights or evades one marsh hound, returns physically, and persists the outcome. It remains deliberately small rather than a general expedition system.
+- The active product is a standard-library Python 3.11 `curses` roguelike; the browser version is archived in Git.
+- One deterministic Hearthford expedition is complete: six-adult household, physical preparation and gangplanks, three loadouts, three supports, generated material pressure, accept/refuse/alter choices, combat, negotiation, positional evasion, environmental repair, cargo, contextual defeat, succession, return, and atomic save/load.
+- Automated checks cover the complete state loop. PTY play verified the keyboard UI at 100x32 and 80x24 plus the minimum-size message at 70x20.
 
 ## Now
 
-- The project owner completes and evaluates three full expeditions before scope expands.
-- Record only demonstrated friction, unclear choices, or missing consequences from those runs; do not generalise the authored slice speculatively.
+- The project owner plays and evaluates the bounded loop for clarity, pace, and enjoyment.
+- Record only demonstrated friction, unclear choices, or missing consequences.
 
 ## Next
 
-- Evaluate the three owner-completed expeditions and revise only demonstrated friction, missing choices, or unclear consequences in the bounded loop.
-- Add capture or rescue only if the played loop makes a specific contextual need clear.
+- Improve the smallest problem demonstrated by owner play; do not expand the architecture.
 
 ## Later
 
-- Grow locations, contacts, equipment combinations, threats, and return consequences only from evidence gathered in the first expedition and its evaluations.
-- Reconsider wider simulation, frontier, management, and era work only after the owner gate is met.
+- Add another compact expedition only after the current loop's decisions and return consequences are proven enjoyable.
+- Add capture or rescue only if play exposes a specific contextual need.
 
 ## Frozen
 
-- expanding-frontier development and advanced generation expansion;
-- full-person, distant-person, fidelity, and catch-up simulation expansion;
-- delegation, autonomy, and social-memory generalisation;
-- era, NG+, and NG++ work;
-- detailed-renderer work and management-sidebar expansion;
-- broad content-family frameworks;
-- further provenance/schema sophistication; and
-- speculative large-world optimisation.
-
-Frozen systems remain in the repository and must keep their existing behaviour; they receive no new scope until the first expedition has been personally played and evaluated.
+- expanding-frontier, distant-person, fidelity, catch-up, delegation, and universal NPC simulation;
+- eras, NG+, NG++, alternate renderers, management UI, broad content frameworks, save migrations, replay infrastructure, and speculative optimization;
+- server, network, telemetry, database, plugin, ECS, generic dialogue, generic encounter, and global economy systems.
 
 ## Done
 
-- Medieval foundation slices and their detailed records are retained in [`docs/archive/medieval-foundation-2026-09/`](docs/archive/medieval-foundation-2026-09/).
-- Live implementation contracts remain in `docs/` while production code relies on them.
-- The first authored Hearthford expedition skeleton and its verification record are in [`docs/first-expedition-skeleton.md`](docs/first-expedition-skeleton.md).
+- The web v19 tree is preserved at branch `archive/web-v19` and annotated tag `jomon-web-v19-final`, both targeting `de1c1e8`.
+- Browser runtime, dependencies, tests, generated assets, and active contracts were removed after the terminal loop passed tests and PTY play.
+- The implemented causal chain and loop are recorded in [`docs/causal-generation-and-loop.md`](docs/causal-generation-and-loop.md).

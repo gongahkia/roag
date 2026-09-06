@@ -361,8 +361,10 @@ def interact(state: GameState) -> ActionResult:
             return ActionResult(False, False, "Choose a two-item loadout.", "loadout")
         if tile == "P":
             return ActionResult(False, False, "Choose crew support.", "support")
-        if tile in {"H", "T", "b", "s"}:
-            return inspect(state, "cargo" if tile == "H" else "household")
+        if tile == "H":
+            return ActionResult(False, False, "Inspect Jomon's cargo and Hearthford's problem.", "hold")
+        if tile in {"T", "b", "s"}:
+            return ActionResult(False, False, "Inspect the persistent household.", "household")
         return _result(state, "Nothing here needs handling.", changed=False)
     if tile == "+":
         return return_to_jomon(state)
@@ -379,7 +381,7 @@ def interact(state: GameState) -> ActionResult:
         if state.objective_status == "altered" and state.flood_control == "lowered":
             message = _complete_objective(state, True)
             return _result(state, message, time=True)
-        return inspect(state, "area")
+        return ActionResult(False, False, f"Inspect {state.contact.name}'s interests and memories.", "contact")
     if state.position == state.region.resource_position and not state.resource_taken:
         if state.objective_status != "accepted":
             return _result(state, "The stranded cargo is accountable to Hearthford's contact.", changed=False)

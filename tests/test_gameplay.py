@@ -21,7 +21,7 @@ from jomon.actions import (
     negotiate,
     use_gear,
 )
-from jomon.content import COMMODITIES
+from jomon.content import COMMODITIES, JOMON_MAP
 from jomon.save import SaveError, load_game, save_game, save_path
 from jomon.state import CommodityStack, Position, create_world
 from jomon.world import JOMON_GANGPLANK, capacity, connected_required_map, find_tile, pressure
@@ -80,6 +80,18 @@ class TimeAndPressureTests(unittest.TestCase):
         self.assertEqual(before, state.to_dict())
         blocked = move(state, -20, 0)
         self.assertFalse(blocked.changed)
+        self.assertEqual(state.world_time, 0)
+
+    def test_household_and_hold_interactions_open_zero_time_inspection(self):
+        state = create_world("inspectable household")
+        state.position = find_tile(JOMON_MAP, "T")
+        household = interact(state)
+        self.assertEqual(household.overlay, "household")
+        self.assertFalse(household.time_advanced)
+        state.position = find_tile(JOMON_MAP, "H")
+        hold = interact(state)
+        self.assertEqual(hold.overlay, "hold")
+        self.assertFalse(hold.time_advanced)
         self.assertEqual(state.world_time, 0)
 
     def test_movement_and_accepted_actions_advance_once(self):

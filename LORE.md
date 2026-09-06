@@ -4,7 +4,7 @@
 
 ## Authority and purpose
 
-This is the authoritative setting and content reference for Jomon. It defines the medieval world, its material and mystical limits, and its content grammar. [`PRODUCT.md`](PRODUCT.md) owns permanent product and technical constraints; [`TODO.md`](TODO.md) owns current scope. The current codebase contains an earlier prototype whose space-fiction terminology and systems are not canon.
+This is the authoritative setting and content reference for Jomon. It defines the medieval world, its material and mystical limits, and its content grammar. [`PRODUCT.md`](PRODUCT.md) owns permanent product and technical constraints; [`TODO.md`](TODO.md) owns current scope. Earlier browser prototypes remain historical and their space-fiction terminology and systems are not canon.
 
 Jomon is an original composite setting. Real medieval history may inform tools, labour, trade, law, and settlement life, but the game does not portray a real country, dynasty, religion, or language. Procedural history and materially grounded simulation are influences, not permission to copy another game’s lore, text, names, or designs.
 
@@ -17,15 +17,15 @@ Jomon is an original composite setting. Real medieval history may inform tools, 
 5. There is no default mage class or free-form spellcasting profession. Mysticism is exceptional, costly, and embodied in objects, places, conditions, practices, and relationships rather than a generic source of unlimited power. Religions, folk practices, vows, and rituals may exist as original cultures and may sometimes interact with real mysticism, but do not reproduce a real religion.
 6. Trade is physical. Goods occupy space, spoil, break, can be stolen, can be delivered, and change what settlements can do.
 7. Human conflict, wilderness, and operational hazards are equally important sources of danger. None is merely flavour for another.
-8. Every new world’s initial Jomon household is wholly generated from the world seed and resolved configuration. Roster, identities, roles, relationships, histories, equipment, and eligibility must reproduce exactly from the same world manifest.
+8. Every new world’s initial Jomon household is wholly generated from the world seed. Roster, identities, roles, relationships, equipment, and eligibility must reproduce exactly from the same seed and saved state.
 9. At world creation, the player chooses one eligible generated crew member as the initial courier. The choice advances no world time and permits no individual roster rerolls; changing the household requires a different seed or resolved configuration.
 10. The player inhabits one Jomon crew member at a time. Crew members may be switched voluntarily at Jomon’s tavern. When a courier is truly lost, control transfers to an eligible surviving crew member; new playable characters join only by joining Jomon’s household. If no eligible living crew member remains, active play ends and the world is finalized as a read-only, exportable chronicle.
 11. Jomon, surviving crew, cargo losses, debts, market conditions, route damage, relationships, local history, and each persistent person’s individual state survive an expedition failure. A rare, explicit mystical safeguard may avert a death or disaster; the irreversible collapse or loss of Jomon ends active play in that world and finalizes it as a read-only, exportable chronicle.
 12. Combat remains deterministic, turn-based, and grid-based. Its later redesign must be grounded in medieval weapons, injury, positioning, scarcity, and readable intent.
-13. The simulation is action-driven, not wall-clock-driven. Only time-bearing in-world actions advance it; pure inspection, an idle open tab, pause, and a closed browser do not. Every due world event then advances deterministically, even while the courier is elsewhere.
-14. ASCII is Jomon’s primary, release-quality visual language. An optional detailed renderer is a second rendering of the same world state and may not conceal or invent consequential gameplay information.
-15. A world has no mandatory final campaign. It grows through exploration, Jomon’s physical expansion, individual and institutional history, and escalating base, NG+, and NG++ eras that preserve the same Jomon and surviving crew.
-16. Jomon is a single-player, offline-first desktop browser game. It needs no account, server, cloud sync, network connection, remote telemetry, or multiplayer authority. A browser may retain multiple active worlds and read-only chronicles subject to local storage quota, but only one world is mutable in a browser session.
+13. The simulation is action-driven, not wall-clock-driven. Only time-bearing in-world actions advance it; waiting for input, help, inspection, cancelled choices, and a closed game do not.
+14. Single-cell ASCII is Jomon’s authoritative map language. Colour may assist readability but may not be the only signal for consequential information.
+15. A world has no mandatory final campaign. It grows through expeditions and persistent changes to Jomon, its household, and the places they visit.
+16. Jomon is a single-player, local, offline terminal game. It needs no account, server, cloud sync, network connection, remote telemetry, or multiplayer authority. The current product keeps one active JSON save per user data directory.
 17. Jomon does not include or procedurally generate sexual violence, slavery, torture, or harm/endangerment of children. These are not background texture, simulation events, player actions, contracts, hazards, enemy behaviour, rumours, histories, or player-facing content.
 
 ## The river-to-coast frontier

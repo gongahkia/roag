@@ -2,7 +2,7 @@
 
 Jomon is a turn-based roguelike about sending one member of a persistent vessel-household into dangerous medieval settlements and wilderness. A courier trades, investigates, negotiates, and fights under pressure, then returns—or fails to return—with consequences that reshape Jomon, its people, and the local world.
 
-The first product milestone is one complete expedition, specified in [`TODO.md`](TODO.md). It must feel playable before scope expands: a prepared courier leaves Jomon, faces a material problem and escalating pressure, resolves a tactical or non-combat threat using situated tools, and returns or suffers a contextual outcome that persists.
+The current product is a fullscreen Python 3.11 terminal game using the standard-library `curses` module. Its first complete vertical slice is a prepared courier leaving Jomon, facing Hearthford's generated material problem and escalating pressure, resolving a tactical or non-combat threat using situated tools, and returning or suffering a contextual outcome that persists.
 
 The permanent constraints are:
 
@@ -15,6 +15,8 @@ The permanent constraints are:
 - original low-mysticism medieval content, with no copied lore, assets, or mechanics; and
 - no sexual violence, slavery, torture, or harm/endangerment of children in authored or generated content.
 
-Technical boundaries are equally permanent: new gameplay must remain local, deterministic, testable, and proportionate to its exercised state. Do not add a server, account, telemetry, multiplayer authority, wall-clock simulation, hidden mutation, or public modding promise. Retain live contracts while code depends on them; use ordinary bounded state where it is sufficient.
+Technical boundaries are equally permanent: new gameplay must remain local, deterministic, testable without initializing `curses`, and proportionate to its exercised state. The game targets Linux, macOS terminals, and Windows through WSL; uses Python's standard library only; and runs with `python -m jomon`. Do not add a web runtime, server, account, telemetry, database, multiplayer authority, wall-clock simulation, plugin framework, or public modding promise.
 
-`LORE.md` owns setting, tone, and content canon. `TODO.md` owns current scope and frozen work. Historical foundation narratives and detailed verification records live under `docs/archive/medieval-foundation-2026-09/`.
+Prefer one primary game state, small dataclasses with actual gameplay state, direct action functions, one turn-resolution path, one atomic JSON save, authored content tables, small causal generators, and bounded significant history. Do not rebuild the browser-era event, replay, fidelity, provenance, dialogue, economy, or frontier frameworks in Python.
+
+`LORE.md` owns setting, tone, and content canon. `TODO.md` owns current scope and frozen work. The causal chain is documented in [`docs/causal-generation-and-loop.md`](docs/causal-generation-and-loop.md); browser history is recorded under [`docs/archive/`](docs/archive/).

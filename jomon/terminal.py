@@ -132,11 +132,12 @@ def _status_lines(state: GameState) -> list[str]:
     objective = state.objective_status
     return [
         "COURIER", identity, f"Health: {health}", f"Injury: {injury}",
-        f"Technique: {technique}", f"Loadout: {state.loadout or '-'}", f"Support: {state.support or '-'}", "",
+        f"Loadout: {state.loadout or '-'}", f"Support: {state.support or '-'}",
         "PRESSURE", f"Elapsed: {p.elapsed}", f"Depth: {p.depth}", f"Noise: {p.noise}",
-        f"Valuables: {p.valuables}", f"Band: {p.band} ({p.score})", "",
-        "HEARTHFORD", f"Objective: {objective}", f"{commodity}: stock {market.stock}", f"Demand: {market.demand}",
-        f"Threat: {state.threat.status}", _clip(state.threat.intent, 25),
+        f"Valuables: {p.valuables}", f"Band: {p.band} ({p.score})",
+        "HEARTHFORD", f"Objective: {objective}", f"Need: {commodity}",
+        f"Stock {market.stock}; demand {market.demand}", f"Threat: {state.threat.status}",
+        _clip(state.threat.intent, 25), f"Technique: {technique}",
     ]
 
 
@@ -191,6 +192,29 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         goods = [f"{name}: {stack.quantity}, {stack.condition} ({COMMODITIES[name]['bulk']} bulk each)" for name, stack in state.carried_goods.items()]
         lines = [f"Capacity: {carried_bulk(state)}/{capacity(state)} bulk", "Equipment: " + (", ".join(state.inventory) or "none"), "Goods:"] + (goods or ["none"])
         return "INVENTORY", lines + ["Escape closes this inspection without advancing time."]
+    if kind == "household":
+        lines: list[str] = []
+        for person in state.household:
+            strongest = max(person.relationships.items(), key=lambda item: (item[1], item[0]))
+            related = next(candidate.name for candidate in state.household if candidate.id == strongest[0])
+            lines.extend((
+                f"{person.name} — {person.role}; {person.technique}; {person.injury}",
+                f"  gear: {', '.join(person.equipment)}; closest standing: {related} ({strongest[1]:+d})",
+            ))
+        return "JOMON HOUSEHOLD", lines + ["Escape closes this inspection without advancing time."]
+    if kind == "hold":
+        cargo = [f"{name}: {stack.quantity}, {stack.condition}" for name, stack in state.vessel_cargo.items()]
+        return "HOLD AND LOCAL PROBLEM", cargo + ["", state.region.condition, state.region.pressure, state.region.objective_text, "Escape closes without time."]
+    if kind == "contact":
+        memories = state.contact.memories or ["No significant shared event yet."]
+        return state.contact.name.upper(), [
+            f"Role: {state.contact.role}; disposition: {state.contact.disposition:+d}",
+            f"Material interest: {state.contact.interest}",
+            f"Objective: {state.objective_status}",
+            "Significant memories:",
+            *[f"- {memory}" for memory in memories],
+            "Escape closes without time.",
+        ]
     if kind == "courier":
         lines = [f"{index + 1}. {p.name} — {p.role}; {p.technique}; {p.injury}" for index, p in enumerate(state.household) if p.alive]
         return "CHOOSE COURIER", lines + ["Number selects; Escape cancels. Selection takes no time."]

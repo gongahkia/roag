@@ -125,6 +125,7 @@ REGION_MAP = (
 HELP_LINES = (
     "Move with arrows, HJKL, or YUBN diagonals.",
     "Enter/E interacts. A attacks. G guards. V negotiates. X uses gear.",
+    "Map: @ courier, ! threat, M contact, R cargo, r resource, & flood control, + gangplank.",
     "I shows carried equipment and goods. S saves when safe.",
     "On Jomon: C chooses courier, L loadout, P support, H inspects cargo/problem.",
     "Walk through + to depart or return. Movement and accepted actions take time.",

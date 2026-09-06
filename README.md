@@ -1,31 +1,75 @@
 # Jomon
 
-Jomon is a keyboard-first, turn-based medieval roguelike about sending one courier from a persistent vessel-household into dangerous settlements and wilderness. The courier’s material choices, injuries, relationships, cargo, and failures reshape the household and local world.
+Jomon is a fullscreen, keyboard-driven terminal roguelike about sending one
+member of a persistent late-medieval vessel-household into Hearthford and its
+dangerous river edge. Couriers trade, negotiate, evade, fight, return hurt, or
+die; cargo, relationships, routes, markets, and succession persist.
 
-The repository currently contains a substantial medieval foundation, not a complete playable expedition. The active goal and its hard scope boundary are in [`TODO.md`](TODO.md); permanent product constraints are in [`PRODUCT.md`](PRODUCT.md); setting and content canon are in [`LORE.md`](LORE.md).
+The game is local, offline, deterministic from its readable seed and saved
+state, and uses only Python's standard library. Linux and macOS terminals are
+supported; Windows is supported through WSL. Python 3.11 or newer is required.
 
-Creep is bundled locally as the default interface font. Its browser-facing outline build is used because Chromium Canvas 2D loads the upstream bitmap-only face but paints it blank.
+## Run
 
-## Current bounded play
-
-The existing foundation supports deterministic world creation, a persistent household, physical keyboard navigation on Jomon, local persistence, source-backed deck prompts, cargo, and the Hearthford Mill Lease handoff. At Hearthford’s public tally, a courier may accept an ironwork burden, deliver it to Jomon’s hold, then either fit it to relieve the lease or retain it for lease credit. This is a bounded market/worksite slice, not a trade, travel, combat, or expedition system.
-
-## Documentation
-
-- [Setting and content canon](LORE.md)
-- [Permanent product and technical constraints](PRODUCT.md)
-- [Operational tracker](TODO.md)
-- [Historical medieval-foundation archive](docs/archive/medieval-foundation-2026-09/)
-
-Live implementation contracts remain in [`docs/`](docs/), including the [persistence layout](docs/persistence-layout.md), [deck plan](docs/jomon-deck-plan.md), [cargo hold](docs/cargo-hold-contract.md), [settlement trading](docs/settlement-trading-contract.md), and [content boundary](docs/internal-content-boundary.md).
-
-## Development
+From the repository root:
 
 ```console
-$ npm ci
-$ npm run dev
-$ npm run build
-$ npm run preview
+python -m jomon
 ```
 
-Useful checks are `npm test`, `npm run test:e2e`, and `npm run build`. Passing infrastructure checks are not evidence that the expedition loop is fun or complete.
+The terminal must be at least 80 columns by 24 rows. Jomon safely shows a
+resize message below that size and uses `curses.wrapper()` to restore the
+terminal on normal exit and exceptions.
+
+## Controls
+
+- arrows or `HJKL`: cardinal movement
+- `YUBN`: diagonal movement
+- `Enter` or `E`: interact
+- `A`: attack
+- `G`: guard or reposition against readable hostile intent
+- `X`: use finite readied gear
+- `V`: negotiate when the courier has credible terms
+- `R`: retreat when a route remains available
+- `I`: inventory and cargo
+- `?`: help
+- `S`: save while aboard Jomon
+- `Q`: quit with confirmation
+- `Escape`: close or cancel an overlay
+
+Keys are case-insensitive where appropriate. Movement and accepted in-world
+actions advance time. Inspection, help, blocked movement, and cancelled choices
+do not.
+
+## Playable loop
+
+Choose a courier at `C`, a two-item loadout at `L`, and crew support at `P`.
+Inspect the hold at `H`, then leave through the `+` gangplank. Meet the named
+contact at `M`; accept, refuse, or alter the material request. The direct route
+can lead to a human obstruction; the southern `&` flood control opens a
+position-based evasion route. Recover objective cargo at `R` or a useful side
+resource at `r`, then report to the contact and physically return through the
+gangplank.
+
+The four visible pressure contributors—elapsed time, depth, noise, and carried
+valuables—change alert distance, pursuit speed, crossing risk, material loss,
+and the delivery's market timing.
+
+## Saves and tests
+
+One atomic JSON save is stored at `$XDG_DATA_HOME/jomon/jomon-save.json`, or
+`~/.local/share/jomon/jomon-save.json` when `XDG_DATA_HOME` is unset. Set
+`JOMON_DATA_DIR` to override the directory for development or tests. The
+development format is versioned once and incompatible saves are rejected; no
+migrations exist yet.
+
+```console
+python -m unittest discover -s tests -v
+python -m compileall -q jomon tests
+```
+
+See [`LORE.md`](LORE.md), [`PRODUCT.md`](PRODUCT.md), [`TODO.md`](TODO.md), and
+the [causal loop note](docs/causal-generation-and-loop.md). The retired browser
+version is recoverable from local branch `archive/web-v19` and annotated tag
+`jomon-web-v19-final`, targeting archived commit `de1c1e8`; retained historical
+notes are under [`docs/archive/`](docs/archive/).
