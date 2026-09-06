@@ -9,13 +9,14 @@ import { MedievalWorldRepository } from './storage'
 import { MutableWorldSession } from './session'
 import { cancelTerminalPrompt, createJomonDeckContextualPrompt, createTerminalPresentationModel, type TerminalMapLegend, type TerminalMaterializedMap, type TerminalPrompt } from './terminal-presentation'
 import { TERMINAL_CONTROL_IDS, captureTerminalControlBinding, createTerminalCommandHelpModel, createTerminalControlsEditorModel, cycleTerminalControlSelection, defaultTerminalControlPreferences, resetAllTerminalControls, resetTerminalControl, resolveTerminalWorldCommand, type TerminalControlId, type TerminalControlPreferences, type TerminalMovementDirection } from './terminal-controls'
+import { EXPEDITION_LOADOUTS, EXPEDITION_SUPPORTS, HEARTHFORD_CONTACT, HEARTHFORD_CONTACT_COORDINATE, HEARTHFORD_GANGPLANK, HEARTHFORD_MAP_ROWS, expeditionPressure, hearthfordGlyphAt, type ExpeditionLoadoutId, type ExpeditionSupportId } from './expedition'
 import type { FoundationWorld, MedievalRoute, WorldChronicle, WorldIndex } from './types'
-import { acceptSettlementTradeContract, chronicleExport, chooseInitialCourier, createFoundationWorld, deliverSettlementTradeContract, fitHearthfordMillIronwork, moveFoundationWorldCourier, recordVesselStationReadout, refuseSettlementTradeContract, switchTavernCourier, takeHearthfordMillLeaseCredit } from './world'
+import { acceptSettlementTradeContract, actInHearthfordExpedition, chooseHearthfordExpeditionLoadout, chooseHearthfordExpeditionSupport, chronicleExport, chooseInitialCourier, createFoundationWorld, decideHearthfordExpeditionObjective, deliverHearthfordExpeditionSealCord, departForHearthfordExpedition, deliverSettlementTradeContract, fitHearthfordMillIronwork, moveFoundationWorldCourier, moveHearthfordExpeditionCourier, recordVesselStationReadout, refuseSettlementTradeContract, returnFromHearthfordExpedition, switchTavernCourier, takeHearthfordMillLeaseCredit } from './world'
 
 type PersistenceState = 'loading' | 'saved' | 'error'
 type SettingsPage = 'basic' | 'advanced'
 type ResultPage = 'summary' | 'configuration' | 'provenance'
-type WorldOverlay = 'none' | 'contextual-prompt' | 'command-help' | 'controls-editor'
+type WorldOverlay = 'none' | 'contextual-prompt' | 'command-help' | 'controls-editor' | 'expedition-preparation' | 'expedition-departure' | 'expedition-contact'
 type TerminalInteractionOutcome =
   | { kind: 'movement-completed'; direction: TerminalMovementDirection; column: number; row: number }
   | { kind: 'movement-blocked'; direction: TerminalMovementDirection; collision: string }
@@ -32,6 +33,7 @@ type TerminalInteractionOutcome =
   | { kind: 'controls-binding-rejected'; controlId: TerminalControlId; code: string }
   | { kind: 'controls-reset-current'; controlId: TerminalControlId }
   | { kind: 'controls-reset-all' }
+  | { kind: 'expedition-event'; text: string; warning?: true }
 
 const palette = JOMON_PALETTE
 const cues = JOMON_NON_COLOR_STATE_CUES
@@ -217,6 +219,11 @@ export class MedievalApp {
   private contextualPrompt: TerminalPrompt | undefined
   private selectedTavernCandidateIndex = 0
   private selectedSettlementTradeChoiceIndex = 0
+  /** Local menu cursors only; the chosen values live in ExpeditionState. */
+  private expeditionPreparationStage: 'loadout' | 'support' = 'loadout'
+  private selectedExpeditionLoadoutIndex = 0
+  private selectedExpeditionSupportIndex = 0
+  private selectedExpeditionContactChoice: 'accept' | 'refuse' = 'accept'
   private selectedTerminalControlId: TerminalControlId = TERMINAL_CONTROL_IDS[0]
   private terminalControlCapturePending = false
   private terminalInteractionOutcome: TerminalInteractionOutcome | undefined
@@ -723,8 +730,220 @@ export class MedievalApp {
     }
   }
 
+  /** Saves the same full envelope used by every other local world transition. */
+  private persistExpeditionWorld(next: FoundationWorld, outcome: TerminalInteractionOutcome, overlay: WorldOverlay = 'none'): void {
+    if (!this.world) return
+    try {
+      this.session.assertOwner(this.world.id)
+      this.persistence = 'loading'
+      this.render()
+      void this.repository.saveWorld(next).then(() => {
+        this.world = next
+        this.resetManagementSidebar()
+        this.worldOverlay = overlay
+        this.contextualPrompt = undefined
+        this.persistence = 'saved'
+        this.error = undefined
+        this.terminalInteractionOutcome = outcome
+        this.render()
+        void this.refreshIndex().then(() => this.render())
+      }).catch(error => {
+        this.persistence = 'error'
+        this.error = errorMessage(error)
+        this.render()
+      })
+    } catch (error) {
+      this.error = errorMessage(error)
+      this.render()
+    }
+  }
+
+  /** A fatal expedition action first persists its exact defeat state, then uses the existing atomic succession path. */
+  private persistExpeditionDeath(next: FoundationWorld, confirmation: Parameters<MedievalWorldRepository['resolveCourierContinuityLoss']>[1], detail: string): void {
+    if (!this.world) return
+    try {
+      this.session.assertOwner(this.world.id)
+      this.persistence = 'loading'
+      this.render()
+      void this.repository.saveWorld(next).then(() => this.repository.resolveCourierContinuityLoss(next, confirmation)).then(resolution => {
+        if (resolution.status === 'continued') {
+          this.world = resolution.world
+          this.resetManagementSidebar()
+          this.worldOverlay = 'none'
+          this.terminalInteractionOutcome = { kind: 'expedition-event', text: `${detail} A successor takes the Jomon deck.`, warning: true }
+        } else {
+          this.releaseWorld()
+          this.world = undefined
+          this.route = 'worlds'
+          this.selectedRow = 0
+          this.terminalInteractionOutcome = { kind: 'expedition-event', text: `${detail} The household has no successor.`, warning: true }
+        }
+        this.persistence = 'saved'
+        this.error = undefined
+        this.render()
+        void this.refreshIndex().then(() => this.render())
+      }).catch(error => {
+        this.persistence = 'error'
+        this.error = errorMessage(error)
+        this.render()
+      })
+    } catch (error) {
+      this.error = errorMessage(error)
+      this.render()
+    }
+  }
+
+  private handleExpeditionPreparationKey(key: string): boolean {
+    if (key === 'Escape') {
+      this.worldOverlay = 'none'
+      this.terminalInteractionOutcome = { kind: 'overlay-dismissed', overlay: 'expedition-preparation' }
+      this.render()
+      return true
+    }
+    const selectionDelta = key === 'ArrowUp' ? -1 : key === 'ArrowDown' ? 1 : 0
+    if (selectionDelta) {
+      if (this.expeditionPreparationStage === 'loadout') this.selectedExpeditionLoadoutIndex = (this.selectedExpeditionLoadoutIndex + selectionDelta + EXPEDITION_LOADOUTS.length) % EXPEDITION_LOADOUTS.length
+      else this.selectedExpeditionSupportIndex = (this.selectedExpeditionSupportIndex + selectionDelta + EXPEDITION_SUPPORTS.length) % EXPEDITION_SUPPORTS.length
+      this.terminalInteractionOutcome = undefined
+      this.render()
+      return true
+    }
+    if (key !== 'Enter' || !this.world) return true
+    try {
+      if (this.expeditionPreparationStage === 'loadout') {
+        const choice = EXPEDITION_LOADOUTS[this.selectedExpeditionLoadoutIndex]!
+        this.expeditionPreparationStage = 'support'
+        this.persistExpeditionWorld(chooseHearthfordExpeditionLoadout(this.world, choice.id as ExpeditionLoadoutId), { kind: 'expedition-event', text: `${choice.label} selected at the chart table. Choose crew support.`, warning: undefined }, 'expedition-preparation')
+      } else {
+        const choice = EXPEDITION_SUPPORTS[this.selectedExpeditionSupportIndex]!
+        this.persistExpeditionWorld(chooseHearthfordExpeditionSupport(this.world, choice.id as ExpeditionSupportId), { kind: 'expedition-event', text: `${choice.label} prepared. The gangplank is ready.`, warning: undefined })
+      }
+    } catch (error) {
+      this.error = errorMessage(error)
+      this.render()
+    }
+    return true
+  }
+
+  private handleExpeditionDepartureKey(key: string): boolean {
+    if (key === 'Escape') {
+      this.worldOverlay = 'none'
+      this.terminalInteractionOutcome = { kind: 'overlay-dismissed', overlay: 'expedition-departure' }
+      this.render()
+      return true
+    }
+    if (key !== 'Enter' || !this.world) return true
+    try {
+      this.persistExpeditionWorld(departForHearthfordExpedition(this.world), { kind: 'expedition-event', text: 'The courier leaves Jomon through the gangplank.' })
+    } catch (error) {
+      this.error = errorMessage(error)
+      this.render()
+    }
+    return true
+  }
+
+  private handleExpeditionContactKey(key: string): boolean {
+    if (!this.world) return true
+    const expedition = this.world.state.expedition
+    if (key === 'Escape') {
+      this.worldOverlay = 'none'
+      this.terminalInteractionOutcome = { kind: 'overlay-dismissed', overlay: 'expedition-contact' }
+      this.render()
+      return true
+    }
+    if (expedition.objective === 'unmet' && (key === 'ArrowUp' || key === 'ArrowDown')) {
+      this.selectedExpeditionContactChoice = this.selectedExpeditionContactChoice === 'accept' ? 'refuse' : 'accept'
+      this.render()
+      return true
+    }
+    if (key !== 'Enter') return true
+    try {
+      if (expedition.objective === 'unmet') {
+        const decision = this.selectedExpeditionContactChoice
+        this.persistExpeditionWorld(decideHearthfordExpeditionObjective(this.world, decision), { kind: 'expedition-event', text: decision === 'accept' ? 'Mara Venn asks for the stranded mill seal cord.' : 'Mara Venn records the refusal.', warning: decision === 'refuse' ? true : undefined })
+      } else if (expedition.objective === 'accepted' && expedition.resource === 'carried') {
+        this.persistExpeditionWorld(deliverHearthfordExpeditionSealCord(this.world), { kind: 'expedition-event', text: 'Mara Venn receives the mill seal cord. Hearthford remembers the delivery.' })
+      } else {
+        this.worldOverlay = 'none'
+        this.terminalInteractionOutcome = { kind: 'expedition-event', text: expedition.objective === 'completed' ? 'Mara Venn: the mill race holds because of your delivered seal cord.' : 'Mara Venn has no further request.' }
+        this.render()
+      }
+    } catch (error) {
+      this.error = errorMessage(error)
+      this.render()
+    }
+    return true
+  }
+
+  private handleHearthfordMapKey(key: string): boolean {
+    if (!this.world) return false
+    const expedition = this.world.state.expedition
+    if (this.worldOverlay === 'expedition-contact') return this.handleExpeditionContactKey(key)
+    const direction = key === 'ArrowUp' || key === 'k' || key === 'K' ? 'north'
+      : key === 'ArrowDown' || key === 'j' || key === 'J' ? 'south'
+        : key === 'ArrowLeft' || key === 'h' || key === 'H' ? 'west'
+          : key === 'ArrowRight' || key === 'l' || key === 'L' ? 'east'
+            : undefined
+    try {
+      if (direction) {
+        const transition = moveHearthfordExpeditionCourier(this.world, direction)
+        if (transition.status === 'blocked') {
+          this.terminalInteractionOutcome = { kind: 'expedition-event', text: transition.detail, warning: true }
+          this.render()
+        } else if (transition.status === 'courier-death') this.persistExpeditionDeath(transition.world, transition.confirmation, transition.detail)
+        else this.persistExpeditionWorld(transition.world, { kind: 'expedition-event', text: transition.detail, warning: transition.world.state.expedition.injury === 'hurt' ? true : undefined })
+        return true
+      }
+      const action = key === 'f' || key === 'F' ? 'attack'
+        : key === 'r' || key === 'R' ? 'brace'
+          : key === 'e' || key === 'E' ? 'lower-reed-screen'
+            : key === 'v' || key === 'V' ? (expedition.injury === 'hurt' ? 'retreat' : 'evade')
+              : undefined
+      if (action) {
+        const transition = actInHearthfordExpedition(this.world, action)
+        if (transition.status === 'blocked') {
+          this.terminalInteractionOutcome = { kind: 'expedition-event', text: transition.detail, warning: true }
+          this.render()
+        } else if (transition.status === 'courier-death') this.persistExpeditionDeath(transition.world, transition.confirmation, transition.detail)
+        else this.persistExpeditionWorld(transition.world, { kind: 'expedition-event', text: transition.detail, warning: transition.world.state.expedition.injury === 'hurt' ? true : undefined })
+        return true
+      }
+      if (key === 'Enter') {
+        if (expedition.coordinate.column === HEARTHFORD_CONTACT_COORDINATE.column && expedition.coordinate.row === HEARTHFORD_CONTACT_COORDINATE.row) {
+          this.worldOverlay = 'expedition-contact'
+          this.selectedExpeditionContactChoice = 'accept'
+          this.terminalInteractionOutcome = undefined
+          this.render()
+          return true
+        }
+        if (expedition.coordinate.column === HEARTHFORD_GANGPLANK.column && expedition.coordinate.row === HEARTHFORD_GANGPLANK.row) {
+          const transition = returnFromHearthfordExpedition(this.world)
+          if (transition.status === 'blocked') {
+            this.terminalInteractionOutcome = { kind: 'expedition-event', text: transition.detail, warning: true }
+            this.render()
+          } else this.persistExpeditionWorld(transition.world, { kind: 'expedition-event', text: transition.detail })
+          return true
+        }
+      }
+      if (key === 'p' || key === 'P') {
+        const pressure = expeditionPressure(expedition, this.world.state.temporal.worldTime)
+        this.terminalInteractionOutcome = { kind: 'expedition-event', text: `Pressure ${pressure.band}: time ${pressure.elapsed}, depth ${pressure.depth}, noise ${pressure.noise}, valuables ${pressure.valuables}.` }
+        this.render()
+        return true
+      }
+    } catch (error) {
+      this.error = errorMessage(error)
+      this.render()
+      return true
+    }
+    return true
+  }
+
   /** World-view keys become typed UI intents before the canvas performs an owned transition. */
   private handleWorldKey(event: KeyboardEvent): boolean {
+    if (this.worldOverlay === 'expedition-preparation') return this.handleExpeditionPreparationKey(event.key)
+    if (this.worldOverlay === 'expedition-departure') return this.handleExpeditionDepartureKey(event.key)
+    if (this.world?.state.expedition.location === 'hearthford') return this.handleHearthfordMapKey(event.key)
     const command = resolveTerminalWorldCommand(this.terminalControls, {
       key: event.key,
       ctrlKey: event.ctrlKey,
@@ -802,6 +1021,23 @@ export class MedievalApp {
       case 'open-contextual-prompt':
         if (!this.world) return false
         this.contextualPrompt = createJomonDeckContextualPrompt(this.world)
+        if (this.contextualPrompt.kind === 'vessel-station-readout' && this.contextualPrompt.source.propId === 'prop:chart-table') {
+          this.contextualPrompt = undefined
+          this.worldOverlay = 'expedition-preparation'
+          this.expeditionPreparationStage = 'loadout'
+          this.selectedExpeditionLoadoutIndex = Math.max(0, EXPEDITION_LOADOUTS.findIndex(item => item.id === this.world!.state.expedition.loadout))
+          this.selectedExpeditionSupportIndex = Math.max(0, EXPEDITION_SUPPORTS.findIndex(item => item.id === this.world!.state.expedition.support))
+          this.terminalInteractionOutcome = undefined
+          this.render()
+          return true
+        }
+        if (this.contextualPrompt.kind === 'vessel-station-readout' && this.contextualPrompt.source.propId === 'prop:gangplank') {
+          this.contextualPrompt = undefined
+          this.worldOverlay = 'expedition-departure'
+          this.terminalInteractionOutcome = undefined
+          this.render()
+          return true
+        }
         this.selectedTavernCandidateIndex = 0
         this.selectedSettlementTradeChoiceIndex = 0
         this.worldOverlay = 'contextual-prompt'
@@ -928,6 +1164,10 @@ export class MedievalApp {
     this.worldOverlay = 'none'
     this.contextualPrompt = undefined
     this.selectedTavernCandidateIndex = 0
+    this.expeditionPreparationStage = 'loadout'
+    this.selectedExpeditionLoadoutIndex = 0
+    this.selectedExpeditionSupportIndex = 0
+    this.selectedExpeditionContactChoice = 'accept'
     this.terminalControlCapturePending = false
     this.terminalInteractionOutcome = undefined
   }
@@ -1218,11 +1458,15 @@ export class MedievalApp {
       case 'controls-binding-rejected': return `! BINDING REJECTED // ${uppercase(outcome.code)}`
       case 'controls-reset-current': return `+ ${uppercase(outcome.controlId)} RESET TO DEFAULT`
       case 'controls-reset-all': return '+ ALL WORLD CONTROLS RESET TO DEFAULTS'
+      case 'expedition-event': return `${outcome.warning ? '! ' : '+ '}${outcome.text.toUpperCase()}`
     }
   }
 
   private worldOverlayAccessibleSummary(legend?: TerminalMapLegend): string {
     const outcome = this.terminalOutcomeText()
+    if (this.worldOverlay === 'expedition-preparation') return `Chart table preparation. ${this.expeditionPreparationStage === 'loadout' ? 'Choose a two-item loadout.' : 'Choose one crew support preparation.'} Arrow keys select and Enter confirms. Escape cancels without time.${outcome ? ` ${outcome}` : ''}`
+    if (this.worldOverlay === 'expedition-departure') return `Hearthford gangplank. Enter leaves Jomon when loadout and support are prepared. Escape cancels without time.${outcome ? ` ${outcome}` : ''}`
+    if (this.worldOverlay === 'expedition-contact') return `${HEARTHFORD_CONTACT.name}, adult ${HEARTHFORD_CONTACT.role}. ${HEARTHFORD_CONTACT.problem} Arrow keys choose and Enter confirms. Escape cancels without time.${outcome ? ` ${outcome}` : ''}`
     if (this.worldOverlay === 'contextual-prompt') return `${this.contextualPrompt?.accessibilityText ?? 'Context prompt unavailable.'}${outcome ? ` ${outcome}` : ''}`
     if (this.worldOverlay === 'command-help') return `${legend?.accessibilityText ?? 'Map legend unavailable.'} ${createTerminalCommandHelpModel(this.terminalControls).accessibilitySummary} Escape closes help.${outcome ? ` ${outcome}` : ''}`
     if (this.worldOverlay === 'controls-editor') return `${createTerminalControlsEditorModel(this.terminalControls, this.selectedTerminalControlId, this.terminalControlCapturePending).accessibilitySummary}${outcome ? ` ${outcome}` : ''}`
@@ -1231,6 +1475,48 @@ export class MedievalApp {
 
   private renderWorldOverlay(context: CanvasRenderingContext2D, panel: WorldPanel, legend: TerminalMapLegend): void {
     const outcome = this.terminalOutcomeText()
+    if (this.worldOverlay === 'expedition-preparation') {
+      const expedition = this.world?.state.expedition
+      row(context, 2, 'CHART TABLE // HEARTHFORD PREPARATION', palette.titleText, panel.x)
+      renderBoundedMedievalCanvasRows(context, 4, 5, 'Choose exactly one small two-item loadout, then one crew-support preparation. Both choices are zero-time.', palette.bodyText, panel.x, panel.width)
+      if (this.expeditionPreparationStage === 'loadout') {
+        EXPEDITION_LOADOUTS.forEach((item, index) => renderBoundedMedievalCanvasRows(context, 7 + index, 7 + index, `${selectedMarker(index === this.selectedExpeditionLoadoutIndex)} ${item.label.toUpperCase()} // TWO ITEMS`, index === this.selectedExpeditionLoadoutIndex ? palette.selectedText : palette.bodyText, panel.x, panel.width))
+        renderBoundedMedievalCanvasRows(context, 12, 13, `CURRENT SUPPORT // ${uppercase(expedition?.support ?? 'unprepared')}`, palette.mutedText, panel.x, panel.width)
+      } else {
+        renderBoundedMedievalCanvasRows(context, 7, 7, `LOADOUT // ${uppercase(expedition?.loadout ?? 'unprepared')}`, palette.actionText, panel.x, panel.width)
+        EXPEDITION_SUPPORTS.forEach((item, index) => renderBoundedMedievalCanvasRows(context, 9 + index, 9 + index, `${selectedMarker(index === this.selectedExpeditionSupportIndex)} ${item.label.toUpperCase()}`, index === this.selectedExpeditionSupportIndex ? palette.selectedText : palette.bodyText, panel.x, panel.width))
+      }
+      rule(context, 18, panel.x, panel.x + panel.width)
+      renderBoundedMedievalCanvasRows(context, 20, 22, outcome ?? 'ARROWS SELECT // ENTER CONFIRMS // ESC CANCELS // ZERO TIME', outcome?.startsWith('!') ? palette.warningText : palette.actionText, panel.x, panel.width)
+      return
+    }
+    if (this.worldOverlay === 'expedition-departure') {
+      const expedition = this.world?.state.expedition
+      row(context, 2, 'GANGPLANK // HEARTHFORD', palette.titleText, panel.x)
+      renderBoundedMedievalCanvasRows(context, 4, 5, 'Leave physically through Jomon\'s gangplank for the compact Hearthford settlement and marsh.', palette.bodyText, panel.x, panel.width)
+      renderBoundedMedievalCanvasRows(context, 8, 8, `LOADOUT // ${uppercase(expedition?.loadout ?? 'unprepared')}`, palette.actionText, panel.x, panel.width)
+      renderBoundedMedievalCanvasRows(context, 9, 9, `SUPPORT // ${uppercase(expedition?.support ?? 'unprepared')}`, palette.actionText, panel.x, panel.width)
+      renderBoundedMedievalCanvasRows(context, 12, 14, expedition?.loadout === 'unprepared' || expedition?.support === 'unprepared' ? 'Preparation is incomplete. Return to the chart table before leaving.' : 'ENTER LEAVES JOMON // ESC CANCELS // DEPARTURE IS ZERO-TIME', expedition?.loadout === 'unprepared' || expedition?.support === 'unprepared' ? palette.warningText : palette.actionText, panel.x, panel.width)
+      return
+    }
+    if (this.worldOverlay === 'expedition-contact') {
+      const expedition = this.world?.state.expedition
+      row(context, 2, 'HEARTHFORD // MARA VENN', palette.titleText, panel.x)
+      renderBoundedMedievalCanvasRows(context, 4, 6, `${HEARTHFORD_CONTACT.name.toUpperCase()} // ADULT ${HEARTHFORD_CONTACT.role.toUpperCase()} // ${HEARTHFORD_CONTACT.problem}`, palette.bodyText, panel.x, panel.width)
+      if (expedition?.objective === 'unmet') {
+        renderBoundedMedievalCanvasRows(context, 9, 9, `${selectedMarker(this.selectedExpeditionContactChoice === 'accept')} ACCEPT // RETRIEVE THE MILL SEAL CORD`, this.selectedExpeditionContactChoice === 'accept' ? palette.selectedText : palette.bodyText, panel.x, panel.width)
+        renderBoundedMedievalCanvasRows(context, 10, 10, `${selectedMarker(this.selectedExpeditionContactChoice === 'refuse')} REFUSE // LEAVE THE MATERIAL PROBLEM`, this.selectedExpeditionContactChoice === 'refuse' ? palette.selectedText : palette.bodyText, panel.x, panel.width)
+      } else if (expedition?.objective === 'accepted' && expedition.resource === 'carried') {
+        renderBoundedMedievalCanvasRows(context, 9, 11, 'ENTER DELIVERS THE CARRIED MILL SEAL CORD // ZERO TIME', palette.actionText, panel.x, panel.width)
+      } else if (expedition?.objective === 'completed') {
+        renderBoundedMedievalCanvasRows(context, 9, 11, 'THE MILL RACE HOLDS. MARA VENN REMEMBERS THE DELIVERED SEAL CORD.', palette.statusReady, panel.x, panel.width)
+      } else {
+        renderBoundedMedievalCanvasRows(context, 9, 11, `OBJECTIVE // ${uppercase(expedition?.objective ?? 'unmet')}`, palette.mutedText, panel.x, panel.width)
+      }
+      rule(context, 18, panel.x, panel.x + panel.width)
+      renderBoundedMedievalCanvasRows(context, 20, 22, outcome ?? (expedition?.objective === 'unmet' ? 'ARROWS SELECT // ENTER CONFIRMS // ESC CANCELS // ZERO TIME' : 'ENTER CLOSES // ESC CANCELS // ZERO TIME'), outcome?.startsWith('!') ? palette.warningText : palette.actionText, panel.x, panel.width)
+      return
+    }
     if (this.worldOverlay === 'contextual-prompt') {
       const prompt = this.contextualPrompt
       if (!prompt) throw new Error('contextual prompt is unavailable')
@@ -1345,6 +1631,22 @@ export class MedievalApp {
     }
   }
 
+  /** This is one authored settlement-and-marsh board, not a second map renderer. */
+  private renderHearthfordMap(context: CanvasRenderingContext2D, world: FoundationWorld, panel: WorldPanel): void {
+    const expedition = world.state.expedition
+    const originX = panel.x + Math.max(20, Math.floor((panel.width - HEARTHFORD_MAP_ROWS[0]!.length * 18) / 2))
+    const originY = 156
+    context.strokeStyle = palette.panelBorder
+    context.strokeRect(originX - 10.5, originY - 10.5, HEARTHFORD_MAP_ROWS[0]!.length * 18 + 20, HEARTHFORD_MAP_ROWS.length * 18 + 20)
+    HEARTHFORD_MAP_ROWS.forEach((source, rowIndex) => {
+      for (let column = 0; column < source.length; column++) {
+        const glyph = hearthfordGlyphAt(expedition, { column, row: rowIndex })
+        context.fillStyle = glyph === '@' ? palette.selectedText : glyph === 'H' ? palette.warningText : glyph === 'M' || glyph === 'S' || glyph === 'R' || glyph === 'G' ? palette.actionText : glyph === '#' ? palette.mutedText : palette.bodyText
+        context.fillText(glyph, originX + column * 18, originY + rowIndex * 18)
+      }
+    })
+  }
+
   private renderWorld(context: CanvasRenderingContext2D): number {
     const world = this.world
     if (!world) { this.route = 'worlds'; this.render(); return 0 }
@@ -1387,7 +1689,20 @@ export class MedievalApp {
     const panels = worldPanels(this.managementExpanded)
     context.strokeStyle = palette.panelBorder
     context.strokeRect(panels.main.x - 8.5, 108.5, panels.main.width + 16, 480)
-    if (this.worldOverlay === 'none') {
+    if (this.worldOverlay === 'none' && world.state.expedition.location === 'hearthford') {
+      const expedition = world.state.expedition
+      const pressure = expeditionPressure(expedition, world.state.temporal.worldTime)
+      row(context, 2, 'HEARTHFORD // WEIR AND MARSH', palette.titleText, panels.main.x)
+      this.renderHearthfordMap(context, world, panels.main)
+      renderBoundedMedievalCanvasRows(context, 12, 12, 'MAP @ COURIER // M MARA VEN // H MARSH HOUND // R REED SCREEN // S SEAL CORD // G GANGPLANK', palette.bodyText, panels.main.x, panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 13, 13, `OBJECTIVE // ${uppercase(expedition.objective)} // RESOURCE // ${uppercase(expedition.resource)} // CONSEQUENCE // ${uppercase(expedition.consequence)}`, expedition.objective === 'completed' ? palette.statusReady : palette.bodyText, panels.main.x, panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 14, 14, `THREAT // ${uppercase(expedition.threat.status)} HP ${expedition.threat.health}/2 // INTENT ${uppercase(expedition.threat.intent)} // INJURY ${uppercase(expedition.injury)}`, expedition.threat.status === 'engaged' ? palette.warningText : palette.mutedText, panels.main.x, panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 15, 15, `PRESSURE ${uppercase(pressure.band)} // TIME ${pressure.elapsed} + DEPTH ${pressure.depth} + NOISE ${pressure.noise} + VALUABLES ${pressure.valuables} = ${pressure.total}`, pressure.band === 'critical' ? palette.warningText : palette.actionText, panels.main.x, panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 16, 17, 'ARROWS / HJKL MOVE +1M // F ATTACK // R BRACE // E LOWER REEDS // V EVADE OR INJURED RETREAT // ENTER TALK OR RETURN', palette.actionText, panels.main.x, panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 18, 18, 'EVASION NEEDS LOWERED REEDS, CARRIED SEAL CORD, QUIET FOOTING, AND SMOKE OR A SCOUT.', palette.mutedText, panels.main.x, panels.main.width)
+      rule(context, 20, panels.main.x, panels.main.x + panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 21, 22, this.terminalOutcomeText() ?? 'P INSPECTS THE FOUR PRESSURE CONTRIBUTORS // BLOCKED MOVES AND CANCELLED CHOICES ARE ZERO-TIME', this.terminalInteractionOutcome?.kind === 'expedition-event' && this.terminalInteractionOutcome.warning ? palette.warningText : palette.actionText, panels.main.x, panels.main.width)
+    } else if (this.worldOverlay === 'none') {
       row(context, 2, `${world.manifest.creation.label.toUpperCase()} // JOMON DECK`, palette.titleText, panels.main.x)
       this.renderTerminalMap(context, terminal.map, panels.main)
       renderBoundedMedievalCanvasRows(context, 12, 12, `ACTIVE COURIER  ${courier?.name.toUpperCase() ?? 'UNASSIGNED'} // ${courier?.role.toUpperCase() ?? 'NONE'}`, palette.statusReady, panels.main.x, panels.main.width)
