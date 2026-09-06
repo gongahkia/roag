@@ -111,6 +111,9 @@ class VisibilityAndVerticalTests(unittest.TestCase):
         state.position = Position(47, 10, 1)
         target = next(threat for threat in state.threats if threat.id == "tower-bow")
         self.assertEqual(target.position, Position(47, 10, 2))
+        blocked = interact(state)
+        self.assertFalse(blocked.time_advanced)
+        self.assertEqual(state.position, Position(47, 10, 1))
         target.status, target.health = "engaged", 5
         self.assertTrue(line_of_sight(state, state.position, target.position))
         result = attack(state)
