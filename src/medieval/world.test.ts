@@ -39,6 +39,7 @@ const v14Envelope = (world: ReturnType<typeof createFoundationWorld>) => {
   delete legacy.state.jomon.cargo
   delete legacy.state.settlementTrading
   delete legacy.state.hearthfordWorksite
+  delete legacy.state.expedition
   legacy.state.markets = {
     version: 1,
     markets: legacy.state.sites.sites.map((site: { id: string }) => ({ id: `market:${site.id}`, siteId: site.id, commodityStates: [] }))
@@ -72,7 +73,7 @@ describe('medieval foundation worlds', () => {
       version: 15,
       id: source.id,
       manifest: source.manifest,
-      state: { version: 19, jomon: { version: 3, cargo: { version: 1, lots: [] } }, settlementTrading: { version: 1, contracts: [{ status: 'offered' }] }, hearthfordWorksite: { version: 1, institution: { id: 'institution:hearthford-mill-lease', status: 'available' } }, courier: source.state.courier },
+      state: { version: 20, jomon: { version: 3, cargo: { version: 1, lots: [] } }, settlementTrading: { version: 1, contracts: [{ status: 'offered' }] }, hearthfordWorksite: { version: 1, institution: { id: 'institution:hearthford-mill-lease', status: 'available' } }, expedition: { version: 1, location: 'jomon' }, courier: source.state.courier },
       jomon: {
         props: [
           { id: 'prop:berth', kind: 'berth', partition: 'berths' },
@@ -101,6 +102,7 @@ describe('medieval foundation worlds', () => {
     const v17 = structuredClone(source) as unknown as Record<string, any>
     v17.state.version = 17
     delete v17.state.hearthfordWorksite
+    delete v17.state.expedition
     v17.state.markets = {
       version: 1,
       markets: v17.state.sites.sites.map((site: { id: string }) => ({ id: `market:${site.id}`, siteId: site.id, commodityStates: [] }))

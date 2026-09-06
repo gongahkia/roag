@@ -520,7 +520,7 @@ export const upgradeFoundationWorldStateV15 = (value: unknown): FoundationWorld 
   upgraded.state.contentSafetyAudit = currentStateContentSafetyAudit(upgraded.state)
   const validation = validateFoundationWorld(upgraded)
   if (validation.length) throw new Error(`foundation world v15/state-v14 conversion did not reproduce a valid v17 envelope: ${validation.map(item => item.code).join(', ')}`)
-  return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgraded))
+  return upgradeFoundationWorldStateV20(upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgraded)))
 }
 
 /**
@@ -598,7 +598,7 @@ export const upgradeFoundationWorldStateV16 = (value: unknown): FoundationWorld 
   upgraded.state.contentSafetyAudit = currentStateContentSafetyAudit(upgraded.state)
   const validation = validateFoundationWorld(upgraded)
   if (validation.length) throw new Error(`foundation world v15/state-v15 conversion did not reproduce a valid v17 envelope: ${validation.map(item => item.code).join(', ')}`)
-  return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgraded))
+  return upgradeFoundationWorldStateV20(upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgraded)))
 }
 
 /**
@@ -667,7 +667,7 @@ export const upgradeFoundationWorldStateV17 = (value: unknown): FoundationWorld 
   upgraded.state.contentSafetyAudit = currentStateContentSafetyAudit(upgraded.state)
   const validation = validateFoundationWorld(upgraded)
   if (validation.length) throw new Error(`foundation world v15/state-v16 conversion did not reproduce a valid v17 envelope: ${validation.map(item => item.code).join(', ')}`)
-  return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgraded))
+  return upgradeFoundationWorldStateV20(upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgraded)))
 }
 
 /**

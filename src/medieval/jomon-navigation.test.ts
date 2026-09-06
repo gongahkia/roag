@@ -6,6 +6,7 @@ import { chooseInitialCourier, createFoundationWorld, moveFoundationWorldCourier
 
 const removeSettlementTradingFromLegacy = (legacy: Record<string, any>): void => {
   delete legacy.state.settlementTrading
+  delete legacy.state.hearthfordWorksite
   legacy.state.contentSafetyAudit.reviewed = legacy.state.contentSafetyAudit.reviewed
     .filter((item: { id: string }) => !item.id.startsWith('settlement-trading:'))
 }
@@ -53,7 +54,12 @@ const v13Envelope = (world: ReturnType<typeof selectedWorld>) => {
   legacy.state.jomon.version = 1
   delete legacy.state.jomon.propActions
   delete legacy.state.jomon.cargo
+  delete legacy.state.expedition
   removeSettlementTradingFromLegacy(legacy)
+  legacy.state.markets = {
+    version: 1,
+    markets: legacy.state.sites.sites.map((site: { id: string }) => ({ id: `market:${site.id}`, siteId: site.id, commodityStates: [] }))
+  }
   return legacy
 }
 
@@ -122,7 +128,7 @@ describe('Jomon deck navigation', () => {
 
     const legacy = v13Envelope(selected)
     const upgraded = upgradeFoundationWorldV13(legacy)
-    expect(upgraded).toMatchObject({ version: 15, state: { version: 17, jomon: { version: 3, cargo: { version: 1, lots: [] } }, settlementTrading: { version: 1, contracts: [{ status: 'offered' }] }, courier: { version: 3, initialCourierId: selected.state.courier.initialCourierId, activeCourierId: selected.state.courier.initialCourierId, departedCourierIds: [] }, navigation: { courierId: selected.state.courier.initialCourierId, coordinate: { column: 4, row: 4 } } } })
+    expect(upgraded).toMatchObject({ version: 15, state: { version: 20, jomon: { version: 3, cargo: { version: 1, lots: [] } }, settlementTrading: { version: 1, contracts: [{ status: 'offered' }] }, expedition: { version: 1, location: 'jomon' }, courier: { version: 3, initialCourierId: selected.state.courier.initialCourierId, activeCourierId: selected.state.courier.initialCourierId, departedCourierIds: [] }, navigation: { courierId: selected.state.courier.initialCourierId, coordinate: { column: 4, row: 4 } } } })
     expect(upgraded.id).toBe(selected.id)
     expect(upgraded.manifest).toEqual(selected.manifest)
     expect(validateFoundationWorld(upgraded)).toEqual([])
