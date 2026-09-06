@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendCausalCommand, createCausalCommand } from './causal-history'
+import { appendCausalCommand, createCausalCommand, type DeckMovedCommand, type InitialCourierSelectedCommand } from './causal-history'
 import { assessJomonDeckStep, jomonDeckCoordinateId, type JomonDeckMovementDirection } from './jomon-navigation'
 import { causalReplayProjectionForWorldState, createMedievalWorldState } from './world-state'
 import { createJomonDeckContextualPrompt, validateTerminalPrompt } from './terminal-presentation'
@@ -14,7 +14,10 @@ const publicTallyWorld = (seed: string) => {
   const context = { worldId: foundation.id, creationDigest: foundation.manifest.creation.digest }
   let history = foundation.state.causalHistory
   let coordinate = { column: 4, row: 4 }
-  const append = (kind: 'initial-courier-selected' | 'deck-moved', payload: unknown) => {
+  const append = (
+    kind: 'initial-courier-selected' | 'deck-moved',
+    payload: InitialCourierSelectedCommand['payload'] | DeckMovedCommand['payload']
+  ) => {
     const command = createCausalCommand(context, history, kind, payload)
     history = appendCausalCommand(context, history, command, causalReplayProjectionForWorldState(foundation.state))
   }

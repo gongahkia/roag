@@ -653,7 +653,7 @@ test('accepts the one physical public-tally handoff through keyboard input and r
 
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
-  await expect(game).toHaveAttribute('aria-label', /Hearthford Mill Quay public tally.*one ironwork case.*Arrow keys choose accept or refuse.*Enter confirms at zero world time.*Escape cancels without mutation/i)
+  await expect(game).toHaveAttribute('aria-label', /Hearthford Mill Quay public tally.*single ironwork case.*Arrow keys select accept or refuse.*Enter confirms the selected local public-tally decision at zero world time.*Escape cancels without mutation/i)
   await page.keyboard.press('Escape')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-cancelled')
@@ -665,7 +665,7 @@ test('accepts the one physical public-tally handoff through keyboard input and r
   await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'settlement-trade-recorded')
   expect(await stationFixtureTemporal(page, world.id)).toEqual(before)
-  await expect.poll(() => page.evaluate(async id => new Promise<{ status?: string; lots?: unknown[] }>((resolve, reject) => {
+  const persistedSettlement = await page.evaluate(async id => new Promise<{ status?: string; lots?: unknown[] }>((resolve, reject) => {
     const request = indexedDB.open('jomon-medieval-worlds-v1')
     request.onerror = () => reject(request.error)
     request.onsuccess = () => {
@@ -678,7 +678,8 @@ test('accepts the one physical public-tally handoff through keyboard input and r
         resolve({ status: source?.state?.settlementTrading?.contracts?.[0]?.status, lots: source?.state?.jomon?.cargo?.lots })
       }
     }
-  }), world.id))).toEqual({ status: 'accepted', lots: [] })
+  }), world.id)
+  expect(persistedSettlement).toEqual({ status: 'accepted', lots: [] })
 
   await page.reload()
   await expect(game).toHaveAttribute('data-route', 'worlds')
@@ -686,7 +687,7 @@ test('accepts the one physical public-tally handoff through keyboard input and r
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-route', 'world')
   await page.keyboard.press('Enter')
-  await expect(game).toHaveAttribute('aria-label', /Hearthford tally.*ironwork case awaits delivery to Jomon's cargo hold/i)
+  await expect(game).toHaveAttribute('aria-label', /Hearthford tally.*ironwork case awaits delivery to Jomon’s cargo hold/i)
 })
 
 test('starts at the quay, crosses the gangplank, switches at the tavern, records a station, and returns through the gangplank with keyboard input', async ({ page }) => {

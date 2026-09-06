@@ -154,6 +154,8 @@ Verification for the licensed font and wrapping correction: on 2026-09-01, `npm 
 
 Current default-font correction (2026-09-05): Pixelify Sans is now the bundled local medieval default, loaded through `@font-face` from `public/fonts/PixelifySans-VariableFont_wght.ttf`; the unmodified official variable font is accompanied by its attribution and SIL Open Font License 1.1 text. The canvas uses the same Pixelify Sans-first stack, with BigBlueTerm retained as a bundled fallback. This preserves offline-first operation and changes no palette, world, save, replay, input, or gameplay contract. The dated BigBlueTerm records above remain historical evidence of the prior default.
 
+Current default-font correction (2026-09-06): Creep is now the bundled local default throughout the browser game. `public/fonts/Creep.ttf` is a browser TTF generated without glyph or metadata changes from romeovs/creep's MIT-licensed `creep.sfd` at commit `d2a9ad0181f1f8fbeafa6a3a5959f631a3b69ebc`; `Creep-NOTICE.txt` and `Creep-LICENSE.txt` retain its required attribution and license. The medieval and legacy canvas stacks use Creep first, with the already bundled BigBlueTerm fallback retained. This remains offline-first and changes no palette, world, save, replay, input, or gameplay contract. The dated Pixelify Sans record above is historical evidence of the prior default.
+
 #### 1.2 Deterministic world generation and configuration
 
 - [x] Define a versioned `WorldGenerationConfig`, named presets, advanced settings, validation constraints, and deterministic rejection/retry rules. `src/medieval/generation-config.ts` provides pure resolution, rejection diagnostics, and a four-attempt deterministic candidate plan with focused coverage.
