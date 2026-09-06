@@ -39,8 +39,8 @@ const height = 630
 const left = 38
 const lineHeight = 22
 const contentWidth = width - left * 2
-/** Creep's upstream browser bitmap strike is 16px; non-strike sizes render blank in Chromium. */
-const terminalFont = '16px Creep, BigBlueTerm, ui-monospace, monospace'
+/** Chromium loads Creep but its non-scalable bitmap glyphs paint blank on Canvas 2D. */
+const terminalFont = '16px BigBlueTerm, ui-monospace, monospace'
 const presets = Object.keys(GENERATION_CONFIG_PRESETS) as WorldGenerationPreset[]
 const diagnosticFirstLine = 21
 const diagnosticLastLine = 23
