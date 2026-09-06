@@ -765,8 +765,13 @@ def _furnace_interaction(state: GameState) -> ActionResult:
 def _destroy_floor(state: GameState) -> ActionResult:
     if base_tile(state, state.position) != "d":
         return _plain(state, "No bounded weak floor is underfoot.")
-    if state.weapon != "hand axe" and "mill-tooth wedge" not in state.carried_passives:
-        return _plain(state, "The marked floor needs a hand axe or mill-tooth wedge.")
+    can_breach = state.weapon == "hand axe" or (
+        state.weapon == "cudgel" and "mill-tooth wedge" in state.carried_passives
+    )
+    if not can_breach:
+        return _plain(
+            state, "The marked floor needs a hand axe or a cudgel with a mill-tooth wedge."
+        )
     state.region.tile_changes[position_key(state.position)] = "O"
     sounds = emit_sound(state, 4)
     fall = _fall(state)
@@ -797,6 +802,20 @@ def interact(state: GameState) -> ActionResult:
         return return_to_jomon(state)
     destination = vertical_destination(state, state.position)
     if destination:
+        blocker = next(
+            (
+                threat
+                for threat in state.threats
+                if threat.position == destination
+                and threat.status in {"watching", "engaged"}
+            ),
+            None,
+        )
+        if blocker:
+            return _plain(
+                state,
+                f"The {blocker.name} holds the vertical opening; confront it across the level first.",
+            )
         link = next(
             item for item in state.region.vertical_links
             if state.position in {item.first, item.second}
@@ -905,6 +924,16 @@ def attack(state: GameState) -> ActionResult:
                 f"You aim at the {target.name}; firing commits the next action.",
                 priority=3,
             )
+        if (
+            state.weather == "hard rain"
+            and "weatherproof aim" not in build_combinations(state)
+        ):
+            state.aimed_target = None
+            return _time_result(
+                state,
+                "Hard rain spoils the crossbow's committed aim before release.",
+                priority=3,
+            )
         if state.ammunition <= 0:
             return _plain(state, "No crossbow ammunition remains.")
         state.crossbow_loaded, state.aimed_target = False, None
@@ -1001,16 +1030,18 @@ def guard(state: GameState) -> ActionResult:
         or (state.courier and state.courier.technique == "set stance")
     )
     if strong:
+        morale_loss = 2 if "shielded set stance" in build_combinations(state) else 1
         for threat in engaged:
-            threat.morale -= 1
+            threat.morale -= morale_loss
     state.guarded_step = (
         state.weapon == "staff" or "reed sole wraps" in state.carried_passives
     )
-    text = (
-        "You set a reinforced guard; the next reposition preserves control."
-        if strong
-        else "You guard and yield space deliberately."
-    )
+    if "shielded set stance" in build_combinations(state):
+        text = "Buckler and set stance deny the attack and press hostile morale."
+    elif strong:
+        text = "You set a reinforced guard; the next reposition preserves control."
+    else:
+        text = "You guard and yield space deliberately."
     return _time_result(state, text, guarded=True, priority=3)
 
 

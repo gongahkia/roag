@@ -103,8 +103,6 @@ SUPPORTS = {
 DISCOVERIES = {
     "willow dressing": ("consumable", "A bitter wrap that treats one expedition injury."),
     "dry smoke charge": ("consumable", "Refills a spent smoke pot once."),
-    "pulley key": ("tool", "A mill key that makes the wheelhouse controls safer."),
-    "reed-step notes": ("technique", "Practical marks for moving quietly through mud."),
     "sealed tally": ("trade", "A recoverable account worth paper or merchant credit."),
 }
 
@@ -116,15 +114,15 @@ RELICS = {
 PASSIVES = {
     "reed sole wraps": (1, "guarded movement through mud stores a quiet step"),
     "counterweight ring": (1, "billhook pulls carry the courier with the target"),
-    "waxed bowstring": (1, "crossbows keep aim through rain and smoke"),
+    "waxed bowstring": (1, "crossbows keep committed aim through hard rain"),
     "mill-tooth wedge": (2, "axes and cudgels break marked floors safely"),
-    "cliff cord": (2, "the first fall becomes a controlled descent"),
+    "cliff cord": (2, "authored falls become controlled descents"),
     "smoke lens": (1, "smoke conceals without blinding adjacent space"),
     "river hooks": (2, "rope can recover cargo or cross floodwater"),
     "witness token": (1, "valuables strengthen material negotiation"),
     "rain cape": (2, "storm movement avoids its extra time cost"),
     "echo bead": (1, "loud actions reveal alerts on adjacent levels"),
-    "salted dressing": (1, "field treatment clears one lasting injury"),
+    "salted dressing": (1, "deepens prepared field-care protection"),
     "high tread": (2, "attacks from above push a target one pace"),
 }
 

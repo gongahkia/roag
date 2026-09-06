@@ -108,9 +108,10 @@ class VisibilityAndVerticalTests(unittest.TestCase):
 
     def test_cross_level_sight_and_attack_through_ladder(self):
         state = prepared(weapon="spear")
-        state.position = Position(72, 26, 0)
-        target = next(threat for threat in state.threats if threat.profile == "reach")
-        target.position, target.status, target.health = Position(72, 26, 1), "engaged", 5
+        state.position = Position(47, 10, 1)
+        target = next(threat for threat in state.threats if threat.id == "tower-bow")
+        self.assertEqual(target.position, Position(47, 10, 2))
+        target.status, target.health = "engaged", 5
         self.assertTrue(line_of_sight(state, state.position, target.position))
         result = attack(state)
         self.assertTrue(result.time_advanced)

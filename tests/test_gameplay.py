@@ -206,6 +206,35 @@ class WeaponAndThreatTests(unittest.TestCase):
         self.assertLess(target.health, 12)
         self.assertFalse(state.crossbow_loaded)
 
+    def test_waxed_bowstring_preserves_committed_aim_in_rain(self):
+        state, target = self.weapon_state("crossbow", 5)
+        state.weather, state.pressure_elapsed = "hard rain", 70
+        attack(state)
+        attack(state)
+        self.assertEqual(target.health, target.max_health)
+        self.assertIsNone(state.aimed_target)
+
+        state, target = self.weapon_state("crossbow", 5)
+        state.weather, state.pressure_elapsed = "hard rain", 70
+        state.carried_passives = {"waxed bowstring": 1}
+        attack(state)
+        attack(state)
+        self.assertLess(target.health, target.max_health)
+
+    def test_mill_tooth_wedge_enables_only_cudgel_breach(self):
+        state = prepared("wedge staff", weapon="staff")
+        state.position = Position(78, 22, 1)
+        state.carried_passives = {"mill-tooth wedge": 1}
+        self.assertFalse(interact(state).time_advanced)
+        self.assertEqual(state.position.z, 1)
+
+        state = prepared("wedge cudgel", weapon="cudgel")
+        quiet(state)
+        state.position = Position(78, 22, 1)
+        state.carried_passives = {"mill-tooth wedge": 1}
+        self.assertTrue(interact(state).time_advanced)
+        self.assertEqual(state.position.z, 0)
+
     def test_staff_sweeps_mixed_adjacent_group_and_guards_movement(self):
         state, first = self.weapon_state("staff")
         second = Threat(
@@ -217,6 +246,18 @@ class WeaponAndThreatTests(unittest.TestCase):
         self.assertLess(first.health, first.max_health)
         self.assertLess(second.health, second.max_health)
         self.assertTrue(state.guarded_step)
+
+    def test_buckler_and_set_stance_press_morale_together(self):
+        state = prepared("guard synergy", role="guard", gear="buckler")
+        quiet(state)
+        threat = Threat(
+            "guarded", "bank runner", "pursuer", Position(41, 25),
+            4, 4, status="engaged", morale=4
+        )
+        state.position, state.threats = Position(40, 25, 0), [threat]
+        guard(state)
+        self.assertEqual(threat.morale, 1)
+        self.assertIn("Buckler and set stance", state.messages[-1])
 
     def test_patrol_moves_can_be_avoided_or_drawn_by_sound(self):
         state = prepared("patrol")
