@@ -239,7 +239,7 @@ class TerminalUI:
             self._attr(1),
         )
         self._put(rows - 3, 2, "@ crew  X target  e patrol  E elite  B boss  ? event  C camp  W shop  $ cache", curses.A_DIM)
-        self._footer("Arrows/hjkl aim  Enter/click walk  Tab targets  Space crew  U supply  D deck  P pause")
+        self._footer("Arrows aim  Enter/click go  Tab cycle  Space center  U supply  D deck  P pause")
         return origin
 
     def _world_map(
