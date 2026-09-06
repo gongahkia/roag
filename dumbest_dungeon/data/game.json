@@ -1,9 +1,9 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "balance": {
     "hand_size": 5,
     "energy": 3,
-    "travel_light_cost": 6,
+    "exploration_steps_per_light": 2,
     "death_chance": 0.35,
     "low_light_threshold": 30,
     "low_light_ambush_chance": 0.35,

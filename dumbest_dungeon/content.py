@@ -107,8 +107,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load ASCII art from {art_source}: {exc}") from exc
 
-    if raw.get("schema_version") != 2:
-        raise ContentError("content schema_version must be 2")
+    if raw.get("schema_version") != 3:
+        raise ContentError("content schema_version must be 3")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
@@ -192,7 +192,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
     required_balance = {
         "hand_size",
         "energy",
-        "travel_light_cost",
+        "exploration_steps_per_light",
         "death_chance",
         "low_light_threshold",
     }
@@ -204,6 +204,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
             raise ContentError(f"balance.{name} must be a non-negative number")
     if not 0 <= balance["death_chance"] <= 1:
         raise ContentError("balance.death_chance must be between 0 and 1")
+    if balance["exploration_steps_per_light"] < 1:
+        raise ContentError("balance.exploration_steps_per_light must be at least 1")
 
     _art_lines(art.get("title"), "art.title", count=6, width=72)
     for hero_id in heroes:

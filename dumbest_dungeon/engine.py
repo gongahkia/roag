@@ -920,6 +920,15 @@ class GameEngine:
 
     def _combat_victory(self) -> None:
         kind = self.state.combat_kind
+        active_patrol = next(
+            (patrol for patrol in self.state.patrols if patrol.id == self.state.active_patrol_id),
+            None,
+        )
+        if active_patrol:
+            active_patrol.active = False
+            self.state.current_room = active_patrol.room_id
+            self.room().resolved = True
+        self.state.active_patrol_id = None
         self.state.hand = []
         self.state.draw_pile = []
         self.state.discard_pile = []

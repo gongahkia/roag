@@ -16,6 +16,8 @@ class TerminalUI:
     MIN_ROWS = 24
     MIN_COLS = 80
     DAMAGE_FLASH_MS = 110
+    MOVE_FRAME_MS = 55
+    MAP_ROW = 5
 
     def __init__(
         self,
@@ -36,6 +38,11 @@ class TerminalUI:
     def _configure(self) -> None:
         curses.curs_set(0)
         self.screen.keypad(True)
+        try:
+            curses.mousemask(curses.ALL_MOUSE_EVENTS)
+            curses.mouseinterval(0)
+        except curses.error:
+            pass
         if curses.has_colors():
             curses.start_color()
             curses.use_default_colors()
@@ -162,29 +169,43 @@ class TerminalUI:
     def _exploration(self) -> None:
         assert self.engine
         state = self.engine.state
-        room = self.engine.room()
-        adjacent = [self.engine.room(room_id) for room_id in room.neighbors]
-        selected = 0
+        cursor = (state.party_x, state.party_y)
+        cycle_index = -1
         while state.phase == "exploration":
-            self._begin("SHIP MAP")
-            self._resources(2)
-            self._map(4)
-            row = 9
-            self._put(row, 2, f"Current: [{room.id:02}] {room.name}", self._attr(1) | curses.A_BOLD)
-            row += 1
-            for index, destination in enumerate(adjacent):
-                marker = ">" if index == selected else " "
-                known = destination.name if destination.visited else "Unscanned compartment"
-                status = "cleared" if destination.resolved else "unresolved"
-                self._put(row + index, 3, f"{marker} [{destination.id:02}] {known} ({status})", curses.A_REVERSE if index == selected else 0)
-            self._footer("↑/↓ choose  Enter travel  U use supply  D deck  P pause  ? help")
+            origin = self._render_exploration(cursor)
             key = self._key()
-            if key in (curses.KEY_UP, curses.KEY_LEFT, ord("k"), ord("h")):
-                selected = (selected - 1) % len(adjacent)
-            elif key in (curses.KEY_DOWN, curses.KEY_RIGHT, ord("j"), ord("l")):
-                selected = (selected + 1) % len(adjacent)
+            movement = {
+                curses.KEY_UP: (0, -1),
+                curses.KEY_DOWN: (0, 1),
+                curses.KEY_LEFT: (-1, 0),
+                curses.KEY_RIGHT: (1, 0),
+                ord("k"): (0, -1),
+                ord("j"): (0, 1),
+                ord("h"): (-1, 0),
+                ord("l"): (1, 0),
+            }
+            if key in movement:
+                delta_x, delta_y = movement[key]
+                width = len(self.engine.world_tiles()[0])
+                height = len(self.engine.world_tiles())
+                cursor = (
+                    max(0, min(width - 1, cursor[0] + delta_x)),
+                    max(0, min(height - 1, cursor[1] + delta_y)),
+                )
             elif key in (10, 13, curses.KEY_ENTER):
-                self.engine.move_to(adjacent[selected].id)
+                self._walk_to(cursor)
+            elif key == curses.KEY_MOUSE:
+                destination = self._mouse_destination(origin)
+                if destination is not None:
+                    cursor = destination
+                    self._walk_to(cursor)
+            elif key == 9:
+                targets = self._exploration_targets()
+                if targets:
+                    cycle_index = (cycle_index + 1) % len(targets)
+                    cursor = targets[cycle_index]
+            elif key == ord(" "):
+                cursor = (state.party_x, state.party_y)
             elif key in (ord("u"), ord("U")):
                 self._supply_menu()
             elif key in (ord("d"), ord("D")):
@@ -194,6 +215,115 @@ class TerminalUI:
                 return
             elif key == ord("?"):
                 self._help()
+
+    def _render_exploration(
+        self,
+        cursor: tuple[int, int],
+        focus: tuple[int, int] | None = None,
+    ) -> tuple[int, int, int, int]:
+        assert self.engine
+        self._begin("ORISON — TOP-DOWN EXPLORATION")
+        self._resources(2)
+        origin = self._world_map(self.MAP_ROW, cursor, focus)
+        rows = self.screen.getmaxyx()[0]
+        state = self.engine.state
+        route_length = 0
+        if state.phase == "exploration" and self.engine.is_walkable(*cursor):
+            route_length = len(self.engine.path_to(*cursor))
+        zone = self.engine.room().name
+        self._put(
+            rows - 4,
+            2,
+            f"Crew ({state.party_x:03},{state.party_y:02})  Target ({cursor[0]:03},{cursor[1]:02})  "
+            f"Route {route_length:3}  Last zone: {zone}"[: self.screen.getmaxyx()[1] - 3],
+            self._attr(1),
+        )
+        self._put(rows - 3, 2, "@ crew  X target  e patrol  E elite  B boss  ? event  C camp  W shop  $ cache", curses.A_DIM)
+        self._footer("Arrows/hjkl aim  Enter/click walk  Tab targets  Space crew  U supply  D deck  P pause")
+        return origin
+
+    def _world_map(
+        self,
+        row: int,
+        cursor: tuple[int, int],
+        focus: tuple[int, int] | None = None,
+    ) -> tuple[int, int, int, int]:
+        assert self.engine
+        tiles = self.engine.world_tiles()
+        screen_rows, screen_columns = self.screen.getmaxyx()
+        viewport_width = screen_columns - 4
+        viewport_height = screen_rows - row - 4
+        focus_x, focus_y = focus or cursor
+        left = max(0, min(len(tiles[0]) - viewport_width, focus_x - viewport_width // 2))
+        top = max(0, min(len(tiles) - viewport_height, focus_y - viewport_height // 2))
+        for offset in range(viewport_height):
+            line = tiles[top + offset][left:left + viewport_width]
+            self._put(row + offset, 2, line, curses.A_DIM)
+
+        state = self.engine.state
+        overlays: list[tuple[int, int, str, int]] = []
+        if state.phase == "exploration" and self.engine.is_walkable(*cursor):
+            for x, y in self.engine.path_to(*cursor):
+                overlays.append((x, y, ":", curses.A_DIM))
+        feature_symbols = {"start": "A", "event": "?", "camp": "C", "upgrade": "W", "cache": "$"}
+        for room in state.rooms:
+            if not room.resolved and room.kind in feature_symbols:
+                x, y = self.engine.room_position(room.id)
+                overlays.append((x, y, feature_symbols[room.kind], self._attr(2) | curses.A_BOLD))
+        for patrol in state.patrols:
+            if not patrol.active:
+                continue
+            kind = state.rooms[patrol.room_id].kind
+            symbol = "B" if kind == "boss" else "E" if kind == "elite" else "e"
+            overlays.append((patrol.x, patrol.y, symbol, self._attr(3) | curses.A_BOLD))
+        overlays.append((state.party_x, state.party_y, "@", self._attr(4) | curses.A_BOLD))
+        cursor_symbol = "@" if cursor == (state.party_x, state.party_y) else "X"
+        overlays.append((cursor[0], cursor[1], cursor_symbol, curses.A_REVERSE | curses.A_BOLD))
+        for x, y, symbol, attribute in overlays:
+            screen_x, screen_y = x - left + 2, y - top + row
+            if 2 <= screen_x < screen_columns - 2 and row <= screen_y < row + viewport_height:
+                self._put(screen_y, screen_x, symbol, attribute)
+        return left, top, viewport_width, viewport_height
+
+    def _exploration_targets(self) -> list[tuple[int, int]]:
+        assert self.engine
+        state = self.engine.state
+        targets = [(patrol.x, patrol.y) for patrol in state.patrols if patrol.active]
+        targets.extend(
+            self.engine.room_position(room.id)
+            for room in state.rooms
+            if not room.resolved and room.kind in {"event", "camp", "upgrade", "cache"}
+        )
+        party = (state.party_x, state.party_y)
+        return sorted(set(targets), key=lambda tile: (abs(tile[0] - party[0]) + abs(tile[1] - party[1]), tile))
+
+    def _mouse_destination(self, origin: tuple[int, int, int, int]) -> tuple[int, int] | None:
+        left, top, width, height = origin
+        try:
+            _, mouse_x, mouse_y, _, buttons = curses.getmouse()
+        except curses.error:
+            return None
+        clicked = curses.BUTTON1_CLICKED | curses.BUTTON1_PRESSED
+        if not buttons & clicked or not (2 <= mouse_x < 2 + width and self.MAP_ROW <= mouse_y < self.MAP_ROW + height):
+            return None
+        return left + mouse_x - 2, top + mouse_y - self.MAP_ROW
+
+    def _walk_to(self, destination: tuple[int, int]) -> None:
+        assert self.engine
+        try:
+            path = self.engine.path_to(*destination)
+        except RuleError as exc:
+            self.message = str(exc)
+            return
+        if not path:
+            self.message = "The crew is already there."
+            return
+        for x, y in path:
+            if self.engine.state.phase != "exploration":
+                break
+            self.engine.step_exploration(x, y)
+            self._render_exploration(destination, focus=(x, y))
+            curses.napms(self.MOVE_FRAME_MS)
 
     def _combat(self) -> None:
         assert self.engine
@@ -551,8 +681,11 @@ class TerminalUI:
 
     def _help(self) -> None:
         text = (
-            "Explore connected rooms and reach the Overseer Chamber. Every move drains light; darkness "
-            "adds stress, increases ambushes, and offers a fourth card reward. In combat, spend shared "
+            "Explore the ship from above and reach the Overseer Chamber. Aim the X cursor with arrows or "
+            "hjkl, then press Enter to auto-walk there; left-clicking a visible floor tile does the same. "
+            "Tab cycles points of interest and Space recenters on the crew. Patrols move whenever the crew "
+            "takes a step, and contact opens combat. Movement drains light; darkness adds stress, increases "
+            "surprise attacks, and offers a fourth card reward. In combat, spend shared "
             "energy on cards whose specialist occupies a valid rank. Enemy intents are shown before they act.\n\n"
             "At zero HP a crew member reaches Death's Door. Further damage may kill them and end the run. "
             "At 100 stress they gain an affliction; reaching 100 again causes collapse. Supplies heal, calm, "
@@ -566,48 +699,11 @@ class TerminalUI:
         assert self.engine
         state = self.engine.state
         self._put(row, 2, f"Seed {state.seed}   Light {state.light:3}/100   Supplies {state.supplies}", self._attr(2))
-        crew = "  ".join(f"R{h.rank} {h.hero_class}: {h.hp}/{h.max_hp}hp {h.stress}s" for h in self.engine.living_heroes())
+        crew = "  ".join(
+            f"R{h.rank} {h.hero_class[:4].upper()} {h.hp}/{h.max_hp} {h.stress}s"
+            for h in self.engine.living_heroes()
+        )
         self._put(row + 1, 2, crew)
-
-    def _map(self, row: int) -> None:
-        assert self.engine
-        tokens: dict[int, str] = {}
-        for room in self.engine.state.rooms:
-            if room.id == self.engine.state.current_room:
-                tokens[room.id] = f"<{room.id:02}>"
-            elif room.visited:
-                tokens[room.id] = f"[{room.id:02}]"
-            else:
-                tokens[room.id] = "[??]"
-
-        upper = (
-            " " * 11
-            + f"/---{tokens[2]}---\\"
-            + " " * 4
-            + f"/---{tokens[5]}---\\"
-            + " " * 4
-            + f"/---{tokens[8]}---\\"
-        )
-        middle = (
-            f"{tokens[0]}---{tokens[1]}"
-            + " " * 12
-            + tokens[4]
-            + " " * 12
-            + tokens[7]
-            + " " * 12
-            + f"{tokens[10]}---{tokens[11]}"
-        )
-        lower = (
-            " " * 11
-            + f"\\---{tokens[3]}---/"
-            + " " * 4
-            + f"\\---{tokens[6]}---/"
-            + " " * 4
-            + f"\\---{tokens[9]}---/"
-        )
-        column = max(1, (self.screen.getmaxyx()[1] - len(middle)) // 2)
-        for offset, line in enumerate((upper, middle, lower)):
-            self._put(row + offset, column, line)
 
     def _card_label(self, card: CardInstance) -> str:
         definition = self.catalog.cards[card.card_id]
