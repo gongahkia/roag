@@ -3,20 +3,21 @@
 ## Current State
 
 - The active product is a standard-library Python 3.11 `curses` roguelike; the browser version is archived in Git.
-- Hearthford's deeper room-screen expedition proved the preparation, tactical, persistence, and merchant foundations enjoyable.
-- The current milestone replaces the expedition room graph with one seamless multi-level Hearthford region while retaining the compact Jomon deck.
+- Hearthford is one deterministic 96x54, four-level region with camera-followed travel, line-of-sight memory, coherent landmarks, persistent treasure, divergent weapons, finite supplies, patrols, weather, pressure escalation, and functional vertical interactions.
+- Three complete local expeditions have exercised physical departure and return with guard/spear, carpenter/billhook, and factor/cudgel builds. Automated and PTY verification are recorded in [`docs/seamless-hearthford-milestone.md`](docs/seamless-hearthford-milestone.md).
 
 ## Now
 
-- Implement and personally play the bounded seamless-Hearthford milestone in [`docs/seamless-hearthford-milestone.md`](docs/seamless-hearthford-milestone.md): coherent geography, camera/FOV memory, functional verticality, divergent builds, treasure, patrols, weather, finite supplies, and timed pressure.
+- Put seamless Hearthford in the owner's hands and judge geography, return-route legibility, encounter spacing, and build divergence through direct play.
 
 ## Next
 
-- Add a bounded sporadic onboard-Jomon encounter milestone only after deeper ordinary expeditions are played. Candidate events are pirate boarding, cargo theft or sabotage, storms and operating emergencies, large river or coastal creatures, rare original luring voices or uncanny water beings, and exceptionally rare original vast coast-born horrors. Keep Jomon's low-mysticism rules and do not copy named mythos entities.
+- If owner play confirms the manual-play issue, give engaged threats a small deterministic obstacle-aware pursuit path and suppress stale pursuit messages while they cannot make progress.
 
 ## Later
 
 - Add other large regional maps only after seamless Hearthford is played and judged.
+- Add a bounded sporadic onboard-Jomon encounter milestone only after ordinary expeditions remain satisfying. Candidate events are pirate boarding, cargo theft or sabotage, storms and operating emergencies, large river or coastal creatures, rare original luring voices or uncanny water beings, and exceptionally rare original vast coast-born horrors. Keep Jomon's low-mysticism rules and do not copy named mythos entities.
 - Add capture or rescue only if play exposes a specific contextual need.
 
 ## Frozen
@@ -31,3 +32,4 @@
 - Browser runtime, dependencies, tests, generated assets, and active contracts were removed after the terminal loop passed tests and PTY play.
 - The implemented causal chain and loop are recorded in [`docs/causal-generation-and-loop.md`](docs/causal-generation-and-loop.md).
 - The deeper Hearthford milestone and its verification are recorded in [`docs/deeper-hearthford-milestone.md`](docs/deeper-hearthford-milestone.md).
+- The seamless Hearthford milestone and its verification are recorded in [`docs/seamless-hearthford-milestone.md`](docs/seamless-hearthford-milestone.md).

@@ -44,18 +44,26 @@ do not.
 ## Playable loop
 
 Use the tavern `C` to choose an eligible courier, weapon, secondary item,
-crew support, and an available finite relic in one zero-time preparation menu.
-The former `L` and `P` stations are optional readouts. Inspect the hold at `H`,
-then leave through the `+` gangplank.
+crew support, available finite relic, and up to the passive-bulk limit in one
+zero-time preparation menu. The former `L` and `P` stations are optional
+readouts. Inspect the hold at `H`, then leave through the `+` gangplank.
 
-Hearthford is a connected twelve-room region: a settlement hub, a looping
-Reedwood network, and a mostly linear mill route with one seed-varying side
-room. Meet the named contact at `M`; accept, refuse, or materially alter the
-request. Explore optional rooms for resources and practical discoveries, use
-gates, mud, shutters, cargo cover, flood controls, and machinery, and resolve
-human, animal, mixed, and operational threats by combat or situated non-combat
-means. Recover objective cargo at `R`, report to the contact, and physically
-backtrack to Jomon's gangplank.
+Hearthford is one continuous 96x54 landscape with four spatially aligned
+levels: buried culvert, ground, upper works, and roofs. A camera follows the
+courier across the settlement, riverbank, roads, Reedwood loop, old watch,
+ruin, cave, and millworks. Current line-of-sight is bright, previously seen
+terrain is dim, and unknown terrain and out-of-sight actors remain hidden.
+Stairs and ladders use the same world coordinates on adjacent levels.
+
+Meet the named contact at `M`; accept, refuse, or materially alter the request.
+Explore optional routes and persistent containers for practical discoveries,
+control floodwater and furnace smoke across levels, break a marked floor, and
+observe or distract the river-road patrol. Human, animal, mixed, ranged, and
+operational threats support direct combat and situated non-combat resolutions.
+Recover objective cargo at `R`, report to the contact, and physically travel
+back to Jomon's gangplank. Weather, a material deadline, finite supplies, and
+valuable optional treasure make route length consequential without real-time
+timers.
 
 Returned equipment and eligible discoveries persist. After some completed
 expeditions, a deterministic visiting merchant appears at `$` aboard Jomon
@@ -71,8 +79,9 @@ and the delivery's market timing.
 One atomic JSON save is stored at `$XDG_DATA_HOME/jomon/jomon-save.json`, or
 `~/.local/share/jomon/jomon-save.json` when `XDG_DATA_HOME` is unset. Set
 `JOMON_DATA_DIR` to override the directory for development or tests. The
-development format is versioned once and incompatible saves are rejected; no
-migrations exist yet.
+current development format is version 3. Version 2 room-graph saves cannot be
+mapped reliably into the seamless geography and are rejected with a clear
+startup notice; no migration chain exists.
 
 ```console
 python -m unittest discover -s tests -v
