@@ -102,7 +102,7 @@ export class TerminalRenderer {
     canvas.width = TERMINAL_WIDTH * CW
     canvas.height = TERMINAL_HEIGHT * CH
     ctx.imageSmoothingEnabled = false
-    ctx.font = '12px "BigBlueTerm", monospace'
+    ctx.font = '12px Creep, BigBlueTerm, monospace'
     ctx.textBaseline = 'top'
     this.loadFont()
     textureAtlas.onReady(() => this.render(this.lastRoute, this.lastState, this.lastRecords, this.lastHub, this.lastStory, this.lastLoading, this.lastAnalysis, this.lastCourierMenu, this.lastCourierDraft, this.lastAutoplayMode))
@@ -110,8 +110,8 @@ export class TerminalRenderer {
 
   private loadFont(): void {
     if (!('fonts' in document)) { this.fontState = 'fallback'; return }
-    void document.fonts.load('12px "BigBlueTerm"', 'JOMON').then(() => {
-      this.fontState = document.fonts.check('12px "BigBlueTerm"', 'JOMON') ? 'ready' : 'fallback'
+    void document.fonts.load('12px Creep', 'JOMON').then(() => {
+      this.fontState = document.fonts.check('12px Creep', 'JOMON') ? 'ready' : 'fallback'
       if (this.fontState === 'fallback') this.ctx.font = '12px monospace'
     }).catch(() => {
       this.fontState = 'fallback'

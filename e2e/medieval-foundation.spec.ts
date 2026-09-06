@@ -127,10 +127,10 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await page.goto('/')
   const game = page.locator('#game')
 
-  await expect.poll(() => page.evaluate(() => document.fonts.check('18px "Pixelify Sans"', 'JOMON'))).toBe(true)
+  await expect.poll(() => page.evaluate(() => document.fonts.check('18px Creep', 'JOMON'))).toBe(true)
   await expect.poll(() => page.evaluate(() =>
     getComputedStyle(document.documentElement).fontFamily.split(',')[0]?.replaceAll('"', '').trim(),
-  )).toBe('Pixelify Sans')
+  )).toBe('Creep')
   await expect.poll(() => page.evaluate(() => ({
     version: document.documentElement.dataset.medievalPaletteVersion,
     ground: getComputedStyle(document.documentElement).getPropertyValue('--jomon-palette-console-ground').trim(),
