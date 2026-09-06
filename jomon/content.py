@@ -113,6 +113,25 @@ RELICS = {
     "tide-knot charm": "A specifically knotted river-glass cord that stills one pursuit.",
 }
 
+PASSIVES = {
+    "reed sole wraps": (1, "guarded movement through mud stores a quiet step"),
+    "counterweight ring": (1, "billhook pulls carry the courier with the target"),
+    "waxed bowstring": (1, "crossbows keep aim through rain and smoke"),
+    "mill-tooth wedge": (2, "axes and cudgels break marked floors safely"),
+    "cliff cord": (2, "the first fall becomes a controlled descent"),
+    "smoke lens": (1, "smoke conceals without blinding adjacent space"),
+    "river hooks": (2, "rope can recover cargo or cross floodwater"),
+    "witness token": (1, "valuables strengthen material negotiation"),
+    "rain cape": (2, "storm movement avoids its extra time cost"),
+    "echo bead": (1, "loud actions reveal alerts on adjacent levels"),
+    "salted dressing": (1, "field treatment clears one lasting injury"),
+    "high tread": (2, "attacks from above push a target one pace"),
+}
+
+TREASURE_REWARDS = tuple(PASSIVES) + (
+    "willow dressing", "dry smoke charge", "sealed tally",
+)
+
 MERCHANT_ITEMS = {
     "hand axe": (2, "weapon"),
     "crossbow": (3, "weapon"),

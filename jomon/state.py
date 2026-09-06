@@ -20,7 +20,7 @@ from .content import (
     ROLES,
 )
 
-SAVE_FORMAT = 2
+SAVE_FORMAT = 3
 HISTORY_LIMIT = 40
 MESSAGE_LIMIT = 8
 
@@ -33,6 +33,7 @@ class StateError(ValueError):
 class Position:
     x: int
     y: int
+    z: int = 0
 
 
 @dataclass
@@ -73,24 +74,20 @@ class MarketEntry:
 
 
 @dataclass
-class RoomExit:
-    target: str
-    position: Position
-    arrival: Position
+class VerticalLink:
+    first: Position
+    second: Position
+    name: str
 
 
 @dataclass
-class Room:
+class Container:
     id: str
     name: str
-    place: str
-    purpose: str
-    map_rows: list[str]
-    exits: dict[str, RoomExit]
-    changes: dict[str, bool | int | str]
-    discovered: bool
-    discovery: str | None
-    depth: int
+    position: Position
+    reward: str
+    requirement: str | None = None
+    opened: bool = False
 
 
 @dataclass
@@ -102,10 +99,17 @@ class Region:
     objective_commodity: str
     opportunity_commodity: str
     hazard: str
-    rooms: dict[str, Room]
-    topology_signature: str
-    contact_room: str = "tally_house"
-    objective_room: str = "wheelhouse"
+    width: int
+    height: int
+    levels: dict[str, list[str]]
+    landmarks: dict[str, Position]
+    zones: dict[str, tuple[int, int, int, int]]
+    vertical_links: list[VerticalLink]
+    containers: list[Container]
+    changes: dict[str, bool | int | str]
+    tile_changes: dict[str, str]
+    seen: list[str]
+    geography_signature: str
 
 
 @dataclass
@@ -113,7 +117,6 @@ class Threat:
     id: str
     name: str
     profile: str
-    room_id: str
     position: Position
     health: int
     max_health: int
@@ -122,6 +125,8 @@ class Threat:
     turn: int = 0
     morale: int = 2
     elite: bool = False
+    patrol: list[Position] = field(default_factory=list)
+    patrol_index: int = 0
 
 
 @dataclass
@@ -160,6 +165,20 @@ class GameState:
     trade_credit: int
     merchant_present: bool
     merchant_stock: list[str]
+    owned_passives: dict[str, int]
+    carried_passives: dict[str, int]
+    ammunition: int
+    lamp_oil: int
+    rope_uses: int
+    smoke_charges: int
+    smoke: dict[str, int]
+    water: dict[str, int]
+    guarded_step: bool
+    aimed_target: str | None
+    weather: str
+    objective_deadline: int
+    objective_changed: bool
+    escalation_spawned: bool
     history: list[str] = field(default_factory=list)
     messages: list[str] = field(default_factory=list)
     world_ended: bool = False
@@ -169,17 +188,13 @@ class GameState:
         return next((person for person in self.household if person.id == self.active_courier_id), None)
 
     @property
-    def room(self) -> Room | None:
-        return self.region.rooms.get(self.current_room) if self.current_room else None
-
-    @property
     def threat(self) -> Threat:
         """Compatibility convenience: first threat in the current room, then world."""
         local = self.local_threats()
         return local[0] if local else self.threats[0]
 
     def local_threats(self, *, active_only: bool = False) -> list[Threat]:
-        threats = [threat for threat in self.threats if threat.room_id == self.current_room]
+        threats = [threat for threat in self.threats if threat.position.z == self.position.z]
         if active_only:
             threats = [threat for threat in threats if threat.status in {"watching", "engaged"}]
         return threats
