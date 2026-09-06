@@ -266,6 +266,18 @@ class ThreatAndEnvironmentTests(unittest.TestCase):
         _advance_threats(state)
         self.assertIn("thrusts next turn", threat.intent)
 
+    def test_basic_guard_answers_telegraphed_attack_without_special_gear(self):
+        state = prepared(weapon="billhook", gear="repair tools", support="route survey")
+        enter_room(state, "mill_yard", Position(16, 6))
+        threat = local_threat(state, "reach")
+        threat.status = "engaged"
+        threat.position = Position(18, 6)
+        threat.intent = "braces and thrusts next turn"
+        health = state.courier.health
+        guard(state)
+        self.assertEqual(state.courier.health, health)
+        self.assertIn("guard catches", state.messages[-1])
+
     def test_animal_evasion_uses_positioned_mud(self):
         state = prepared(gear="rope")
         enter_room(state, "eel_cut")
@@ -381,7 +393,7 @@ class PersistenceEconomyAndDefeatTests(unittest.TestCase):
         state.courier.health, state.courier.injury = 1, "none"
         message = apply_damage(state, 2, "The bank runner")
         self.assertNotIn("rope", state.owned_gear)
-        self.assertIn("rope is left behind", message)
+        self.assertIn("leave rope behind", message)
 
     def test_capacity_and_delivery_change_market(self):
         state = prepared(gear="cargo harness", support="porter watch")

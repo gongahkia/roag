@@ -197,7 +197,7 @@ def _lose_gear(state: GameState) -> str:
     if lost in state.owned_gear:
         state.owned_gear.remove(lost)
     state.gear = None
-    return f" The {lost} is left behind."
+    return f" You leave {lost} behind."
 
 
 def _successor(state: GameState, dead: Person) -> Person | None:
@@ -690,8 +690,14 @@ def guard(state: GameState) -> ActionResult:
         _advance_threats(state, guarded=state.gear == "buckler")
         return result
     strong = state.gear == "buckler" or state.weapon == "staff" or state.courier.technique == "set stance"
-    result = _result(state, "You set a guarded stance and yield space deliberately.", time=True)
-    _advance_threats(state, guarded=strong)
+    if strong:
+        nearby = [threat for threat in state.local_threats(active_only=True) if _distance(state.position, threat.position) <= 2]
+        for threat in nearby:
+            if threat.profile != "machinery":
+                threat.morale -= 1
+    message = "You set a reinforced guard and pressure nearby morale." if strong else "You set a guarded stance and yield space deliberately."
+    result = _result(state, message, time=True)
+    _advance_threats(state, guarded=True)
     return result
 
 

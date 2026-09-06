@@ -68,6 +68,8 @@ def semantic_role(glyph: str, *, aboard: bool = False) -> str:
         return "player"
     if glyph == "a" or (aboard and glyph in {"T", "b"}):
         return "ally"
+    if aboard and glyph == "s":
+        return "interactable"
     if glyph in {"M", "c", "$"}:
         return "neutral"
     if glyph in {"h", "s", "x", "b", "!"}:
