@@ -133,12 +133,23 @@ def _ground(seed: str) -> tuple[list[list[str]], dict[str, Position], dict[str, 
     _rect(grid, 44, 8, 50, 16)
     grid[16][47] = "+"
     grid[13][47] = ">"
+    _road(grid, Position(47, 17), Position(42, 28), seed, "watch-apron")
+    grid[16][47] = "+"
     _rect(grid, 46, 34, 53, 40)
     grid[40][49] = "+"
     grid[37][49] = "C"
     grid[38][54] = "m"
     grid[39][54] = "m"
     grid[39][55] = "m"
+    grid[cave.y][cave.x] = "<"
+
+    # Short authored spurs keep the optional ruin and flood-islet cache
+    # reachable after the seeded Reedwood growth has been applied.
+    _road(grid, Position(49, 41), cave, seed, "ruin-spur")
+    _road(grid, Position(55, 39), cave, seed, "islet-spur")
+    grid[40][49] = "+"
+    grid[37][49] = "C"
+    grid[38][55] = "C"
     grid[cave.y][cave.x] = "<"
 
     # Mill ground floor and yard.
@@ -275,8 +286,12 @@ def build_region(seed: str) -> dict[str, object]:
     other = _upper_levels()
     levels = {str(level): ["".join(row) for row in (ground if level == 0 else other[level])] for level in LEVELS}
     links = _links()
+    containers = _containers(seed)
     seen = _reachable(levels, links, landmarks["landing"])
-    required = {landmarks["contact"], landmarks["objective"], landmarks["cave_entrance"], Position(84, 16, 2)}
+    required = {
+        landmarks["contact"], landmarks["objective"], landmarks["cave_entrance"],
+        Position(84, 16, 2), *(container.position for container in containers),
+    }
     if not required <= seen:
         raise RuntimeError("Hearthford generation failed required reachability")
     digest = hashlib.sha256(("|".join(levels["0"]) + repr(sorted((p.x, p.y, p.z) for p in required))).encode()).hexdigest()[:16]
@@ -287,7 +302,7 @@ def build_region(seed: str) -> dict[str, object]:
         "landmarks": landmarks,
         "zones": zones,
         "vertical_links": links,
-        "containers": _containers(seed),
+        "containers": containers,
         "changes": {},
         "tile_changes": {},
         "seen": [],

@@ -64,6 +64,8 @@ class RegionalGenerationTests(unittest.TestCase):
                 reachable = reachable_positions(state)
                 self.assertIn(state.region.landmarks["objective"], reachable)
                 self.assertIn(state.region.landmarks["landing"], reachable)
+                for container in state.region.containers:
+                    self.assertIn(container.position, reachable, container.name)
 
     def test_four_spatially_aligned_levels_and_valid_links(self):
         state = create_world("vertical links")
