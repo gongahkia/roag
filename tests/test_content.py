@@ -11,9 +11,10 @@ from dumbest_dungeon.content import ContentError, load_catalog
 class ContentTests(unittest.TestCase):
     def test_bundled_catalog_is_complete(self) -> None:
         catalog = load_catalog()
-        self.assertEqual(4, len(catalog.heroes))
-        self.assertEqual(32, len(catalog.cards))
-        self.assertGreaterEqual(len(catalog.enemies), 8)
+        self.assertEqual(10, len(catalog.heroes))
+        self.assertEqual(75, len(catalog.cards))
+        self.assertEqual(25, len(catalog.enemies))
+        self.assertGreaterEqual(len(catalog.encounters), 19)
         self.assertEqual(10, len(catalog.events))
         self.assertEqual(6, len(catalog.afflictions))
         self.assertEqual(set(catalog.heroes), set(catalog.art["heroes"]))

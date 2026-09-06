@@ -56,7 +56,11 @@ class EngineTests(unittest.TestCase):
     def test_all_cards_can_resolve_with_a_legal_target(self) -> None:
         for card_id, definition in self.catalog.cards.items():
             with self.subTest(card=card_id):
-                engine = GameEngine.new(self.catalog, 7)
+                party = [definition["hero"]]
+                party.extend(hero_id for hero_id in self.catalog.heroes if hero_id not in party)
+                engine = GameEngine.new(self.catalog, 7, start_in_hub=True)
+                engine.state.hub_selection = party[:4]
+                engine.begin_expedition()
                 engine.start_combat("security")
                 actor = next(hero for hero in engine.state.heroes if hero.id == definition["hero"])
                 desired = definition["from_ranks"][0]
@@ -66,6 +70,33 @@ class EngineTests(unittest.TestCase):
                 targets = engine.valid_targets(0)
                 self.assertTrue(targets)
                 engine.play_card(0, targets[0])
+
+    def test_hub_builds_selected_party_deck_and_filters_rewards(self) -> None:
+        engine = GameEngine.new(self.catalog, 73, start_in_hub=True)
+        self.assertEqual("hub", engine.state.phase)
+        self.assertEqual([], engine.state.heroes)
+        for hero_id in list(engine.state.hub_selection):
+            engine.toggle_hub_crew(hero_id)
+        party = ["breacher", "synth", "biologist", "operative"]
+        for hero_id in party:
+            engine.toggle_hub_crew(hero_id)
+        engine.reorder_hub_crew("operative", -1)
+        expected = ["breacher", "synth", "operative", "biologist"]
+        engine.begin_expedition()
+        self.assertEqual(expected, [hero.id for hero in engine.state.heroes])
+        self.assertEqual([1, 2, 3, 4], [hero.rank for hero in engine.state.heroes])
+        self.assertEqual(20, len(engine.state.deck))
+        engine.start_combat("lost_shift")
+        for enemy in list(engine.living_enemies()):
+            engine._damage(enemy, enemy.max_hp)
+        engine._combat_victory()
+        reward_heroes = {self.catalog.cards[card_id]["hero"] for card_id in engine.state.rewards}
+        self.assertTrue(reward_heroes <= set(expected))
+
+    def test_hub_rejects_a_fifth_crew_member(self) -> None:
+        engine = GameEngine.new(self.catalog, 74, start_in_hub=True)
+        with self.assertRaisesRegex(RuleError, "only four"):
+            engine.toggle_hub_crew("breacher")
 
     def test_all_enemy_actions_can_resolve(self) -> None:
         for enemy_id, definition in self.catalog.enemies.items():
