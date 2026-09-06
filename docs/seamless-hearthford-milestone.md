@@ -138,7 +138,7 @@ All required commands passed after implementation:
 
 ```text
 python -m unittest discover -s tests -v
-Ran 33 tests in 3.051s
+Ran 34 tests in 2.880s
 OK
 
 python -m compileall -q jomon tests
@@ -154,7 +154,8 @@ memory, actor non-leakage, cross-level sight/attack, floor destruction and
 falling, bounded smoke/sound/water, persistent chests and discoveries, passive
 limits and combinations, all six weapon identities, patrol/noise/pressure,
 the action-clock deadline, persistence, merchant exchange, contextual defeat,
-death, and succession.
+death, succession, and retention of a primary action consequence after
+same-turn hostile intents.
 
 ### Manual PTY verification
 
@@ -192,10 +193,14 @@ the exact minimum-size warning, and recovered at 100x32. Quit confirmation
 exited with status 0 and the PTY process ended, demonstrating normal wrapper
 restoration.
 
-Manual play did not directly execute the destructible-floor fall or a
-cross-level attack. Both passed focused automated tests, but their interactive
-ergonomics remain unverified. The smoke path was used on one level; water, not
-smoke, was the cross-level propagation manually exercised.
+A final controlled-save PTY check placed an axe-bearing courier on the authored
+weak mill floor. Interacting broke it into a visible shaft, moved the courier
+from `z=1` to the aligned `z=0` tile, and reduced health from 10 to 8. That
+check exposed and then verified a fix for same-turn threat lines hiding the
+floor/fall consequence. A hostile responding through an adjacent open level
+was exercised in ordinary play; a player attack across levels remains covered
+only by a focused automated test. The smoke path was used on one level; water,
+not smoke, was the cross-level propagation manually exercised.
 
 ### Candid play assessment
 
