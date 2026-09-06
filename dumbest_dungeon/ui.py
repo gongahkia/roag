@@ -44,6 +44,7 @@ class TerminalUI:
             curses.init_pair(3, curses.COLOR_RED, -1)
             curses.init_pair(4, curses.COLOR_GREEN, -1)
             curses.init_pair(5, curses.COLOR_WHITE, curses.COLOR_RED)
+            curses.init_pair(6, curses.COLOR_WHITE, curses.COLOR_GREEN)
             self.colour = True
 
     def run(self) -> None:
@@ -152,8 +153,10 @@ class TerminalUI:
                     if target is None:
                         continue
                 enemies_before = self._enemy_flash_snapshot()
+                heroes_before = self._hero_buff_snapshot()
                 self.engine.play_card(selected, target)
                 self._flash_damaged_enemies(enemies_before)
+                self._flash_buffed_heroes(heroes_before)
             elif key in (ord("e"), ord("E")):
                 enemies_before = self._enemy_flash_snapshot()
                 self.engine.end_turn()
@@ -238,6 +241,23 @@ class TerminalUI:
             for enemy in self.engine.living_enemies()
         }
 
+    def _hero_buff_snapshot(
+        self,
+    ) -> dict[str, tuple[int, int, int, int, frozenset[str], int, list[str]]]:
+        assert self.engine
+        return {
+            hero.id: (
+                hero.hp,
+                hero.stress,
+                hero.block,
+                hero.guard_turns,
+                frozenset(hero.statuses),
+                hero.rank,
+                self.catalog.art["heroes"][hero.id],
+            )
+            for hero in self.engine.living_heroes()
+        }
+
     def _flash_damaged_enemies(self, before: dict[str, tuple[int, int, list[str]]]) -> None:
         assert self.engine
         after = {enemy.id: enemy.hp for enemy in self.engine.state.enemies}
@@ -253,6 +273,39 @@ class TerminalUI:
             column = 43 + (rank - 1) * 9
             self._draw_sprite(3, column, art, attr)
             label = f"-{damage}"
+            self._put(5, column + max(0, (7 - len(label)) // 2), label, attr)
+        self.screen.refresh()
+        curses.napms(self.DAMAGE_FLASH_MS)
+
+    def _flash_buffed_heroes(
+        self,
+        before: dict[str, tuple[int, int, int, int, frozenset[str], int, list[str]]],
+    ) -> None:
+        assert self.engine
+        heroes = {hero.id: hero for hero in self.engine.living_heroes()}
+        buffed: list[tuple[int, list[str], str]] = []
+        for hero_id, (hp, stress, block, guard, statuses, rank, art) in before.items():
+            hero = heroes.get(hero_id)
+            if not hero:
+                continue
+            changes = []
+            if hero.hp > hp:
+                changes.append(f"H+{hero.hp - hp}")
+            if hero.block > block:
+                changes.append(f"B+{hero.block - block}")
+            if hero.stress < stress:
+                changes.append(f"S-{stress - hero.stress}")
+            if hero.guard_turns > guard:
+                changes.append("GUARD")
+            changes.extend(status.upper() for status in hero.statuses.keys() - statuses)
+            if changes:
+                buffed.append((rank, art, "/".join(changes)[:7]))
+        if not buffed:
+            return
+        attr = (self._attr(6) if self.colour else curses.A_REVERSE) | curses.A_BOLD
+        for rank, art, label in buffed:
+            column = 29 - (rank - 1) * 9
+            self._draw_sprite(3, column, art, attr)
             self._put(5, column + max(0, (7 - len(label)) // 2), label, attr)
         self.screen.refresh()
         curses.napms(self.DAMAGE_FLASH_MS)

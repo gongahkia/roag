@@ -110,6 +110,26 @@ class AsciiUiTests(unittest.TestCase):
         self.assertEqual(1, screen.refreshes)
         napms.assert_called_once_with(self.ui.DAMAGE_FLASH_MS)
 
+    def test_buffed_heroes_flash_together_with_change_labels(self) -> None:
+        self.engine.start_combat("vents")
+        screen = FakeScreen()
+        self.ui.screen = screen
+        heroes = self.engine.living_heroes()
+        heroes[1].hp -= 4
+        heroes[2].stress = 20
+        before = self.ui._hero_buff_snapshot()
+        heroes[0].block += 8
+        heroes[1].hp += 4
+        heroes[2].stress -= 10
+        with patch("dumbest_dungeon.ui.curses.napms") as napms:
+            self.ui._flash_buffed_heroes(before)
+        rendered = screen.text()
+        self.assertIn("B+8", rendered)
+        self.assertIn("H+4", rendered)
+        self.assertIn("S-10", rendered)
+        self.assertEqual(1, screen.refreshes)
+        napms.assert_called_once_with(self.ui.DAMAGE_FLASH_MS)
+
 
 if __name__ == "__main__":
     unittest.main()
