@@ -33,7 +33,8 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "Content valid: "
             f"{len(catalog.heroes)} heroes, {len(catalog.cards)} cards, "
-            f"{len(catalog.enemies)} enemies, {len(catalog.events)} events."
+            f"{len(catalog.enemies)} enemies, {len(catalog.encounters)} encounters, "
+            f"{len(catalog.events)} events."
         )
         return 0
 

@@ -250,7 +250,11 @@ class TerminalUI:
             index = first + row_offset
             definition = self.catalog.cards[card.card_id]
             actor = next(item for item in state.heroes if item.id == definition["hero"])
-            legal = actor.rank in definition["from_ranks"] and self.engine.card_cost(card) <= state.energy
+            legal = (
+                actor.rank in definition["from_ranks"]
+                and not actor.statuses.get("stun")
+                and self.engine.card_cost(card) <= state.energy
+            )
             marker = ">" if index == selected else " "
             upgraded = "+" if card.upgraded else ""
             line = f"{marker} {index + 1}. [{self.engine.card_cost(card)}] {definition['name']}{upgraded}"

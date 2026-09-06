@@ -41,7 +41,7 @@ A generated seed appears in the map HUD and ending screen. Supplying `--seed` ma
 
 Gameplay definitions live in `dumbest_dungeon/data/game.json`, while `dumbest_dungeon/data/art.json` contains the title, crew and enemy sprites, and class card glyphs. Both catalogs are versioned and validated. Run the validator after editing either file:
 
-The current catalog contains 10 crew archetypes, 75 unique cards, 25 enemy types, and 19 encounter formations. Rewards are filtered to the four classes currently in the expedition.
+The current catalog contains 10 crew archetypes, 75 unique cards, 25 enemy types, and 20 encounter formations. Rewards are filtered to the four classes currently in the expedition.
 
 ```sh
 python3 -m dumbest_dungeon --validate-content

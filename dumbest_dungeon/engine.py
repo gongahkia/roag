@@ -413,6 +413,8 @@ class GameEngine:
         actor = self._actor(definition["hero"])
         if not actor.alive or actor.rank not in definition["from_ranks"]:
             raise RuleError("the acting hero is not in a valid rank")
+        if actor.statuses.get("stun"):
+            raise RuleError("the acting hero is stunned this turn")
         cost = self.card_cost(card)
         if cost > self.state.energy:
             raise RuleError("not enough energy")
@@ -499,6 +501,10 @@ class GameEngine:
         self.state.discard_pile.extend(self.state.hand)
         self.state.hand = []
         for hero in self.living_heroes():
+            if hero.statuses.get("stun"):
+                hero.statuses["stun"] -= 1
+                if hero.statuses["stun"] <= 0:
+                    del hero.statuses["stun"]
             self._decay_statuses(hero)
         self._enemy_phase()
         if self.state.phase != "combat":

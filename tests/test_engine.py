@@ -154,6 +154,17 @@ class EngineTests(unittest.TestCase):
         self.engine._change_stress(hero, 50)
         self.assertTrue(hero.deaths_door)
 
+    def test_stunned_hero_cannot_play_until_turn_ends(self) -> None:
+        self.engine.start_combat("lost_shift")
+        warden = next(hero for hero in self.engine.state.heroes if hero.id == "warden")
+        warden.statuses["stun"] = 1
+        self.engine.state.hand = [CardInstance("baton_strike")]
+        with self.assertRaisesRegex(RuleError, "stunned"):
+            self.engine.play_card(0, self.engine.living_enemies()[0].id)
+        self.engine.state.intents = []
+        self.engine.end_turn()
+        self.assertNotIn("stun", warden.statuses)
+
     def test_upgraded_effect_is_used(self) -> None:
         self.engine.start_combat("lost_shift")
         self.engine.state.hand = [CardInstance("baton_strike", upgraded=True)]
