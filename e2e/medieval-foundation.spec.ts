@@ -127,7 +127,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await page.goto('/')
   const game = page.locator('#game')
 
-  await expect.poll(() => page.evaluate(() => document.fonts.check('18px Creep', 'JOMON'))).toBe(true)
+  await expect.poll(() => page.evaluate(() => document.fonts.check('16px Creep', 'JOMON'))).toBe(true)
   await expect.poll(() => page.evaluate(() =>
     getComputedStyle(document.documentElement).fontFamily.split(',')[0]?.replaceAll('"', '').trim(),
   )).toBe('Creep')
@@ -144,6 +144,14 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
     version: '2', ground: '#1c1b14', bodyText: '#f0dfb4', selected: '#83cbc3', error: '#de8065', themeColor: '#1c1b14',
     canvasGround: [28, 27, 20, 255], canvasPanel: [41, 39, 28, 255]
   })
+  await expect.poll(() => page.evaluate(() => {
+    const pixels = document.querySelector<HTMLCanvasElement>('#game')?.getContext('2d')?.getImageData(36, 34, 96, 30).data ?? []
+    let nonPanelPixels = 0
+    for (let index = 0; index < pixels.length; index += 4) {
+      if (pixels[index] !== 41 || pixels[index + 1] !== 39 || pixels[index + 2] !== 28) nonPanelPixels += 1
+    }
+    return nonPanelPixels
+  })).toBeGreaterThan(20)
   await expect(game).toHaveAttribute('data-route', 'worlds')
   await page.keyboard.press('Tab')
   await expect.poll(() => page.evaluate(() => document.activeElement?.id ?? '')).toBe('game')
@@ -687,7 +695,7 @@ test('accepts the one physical public-tally handoff through keyboard input and r
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-route', 'world')
   await page.keyboard.press('Enter')
-  await expect(game).toHaveAttribute('aria-label', /Hearthford tally.*ironwork case awaits delivery to Jomon’s cargo hold/i)
+  await expect(game).toHaveAttribute('aria-label', /Hearthford Mill Quay public tally has recorded one ironwork case awaiting delivery to Jomon’s cargo hold/i)
 })
 
 test('starts at the quay, crosses the gangplank, switches at the tavern, records a station, and returns through the gangplank with keyboard input', async ({ page }) => {
