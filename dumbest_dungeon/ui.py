@@ -171,10 +171,11 @@ class TerminalUI:
         assert self.engine
         state = self.engine.state
         cursor = (state.party_x, state.party_y)
+        camera = cursor
         pending_click: tuple[int, int] | None = None
         cycle_index = -1
         while state.phase == "exploration":
-            origin = self._render_exploration(cursor)
+            origin = self._render_exploration(cursor, focus=camera)
             key = self._key()
             movement = {
                 curses.KEY_UP: (0, -1),
@@ -194,15 +195,23 @@ class TerminalUI:
                     max(0, min(width - 1, cursor[0] + delta_x)),
                     max(0, min(height - 1, cursor[1] + delta_y)),
                 )
+                left, top, viewport_width, viewport_height = origin
+                if not (
+                    left + 1 <= cursor[0] < left + viewport_width - 1
+                    and top + 1 <= cursor[1] < top + viewport_height - 1
+                ):
+                    camera = cursor
                 pending_click = None
             elif key in (10, 13, curses.KEY_ENTER):
                 self._walk_to(cursor)
+                camera = (state.party_x, state.party_y)
                 pending_click = None
             elif key == curses.KEY_MOUSE:
                 destination = self._mouse_destination(origin)
                 if destination is not None:
                     if destination == pending_click:
                         self._walk_to(destination)
+                        camera = (state.party_x, state.party_y)
                         pending_click = None
                     else:
                         cursor = destination
@@ -213,9 +222,11 @@ class TerminalUI:
                 if targets:
                     cycle_index = (cycle_index + 1) % len(targets)
                     cursor = targets[cycle_index]
+                    camera = cursor
                     pending_click = None
             elif key == ord(" "):
                 cursor = (state.party_x, state.party_y)
+                camera = cursor
                 pending_click = None
             elif key in (ord("u"), ord("U")):
                 self._supply_menu()
