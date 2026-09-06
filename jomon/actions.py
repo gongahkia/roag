@@ -444,3 +444,44 @@ def _time_result(
         state.add_message(message, priority=priority)
     _advance_world(state, guarded=guarded, steps=steps)
     return ActionResult(True, True, message)
+
+
+def depart(state: GameState) -> ActionResult:
+    if state.location != "jomon" or state.position != JOMON_GANGPLANK:
+        return _plain(state, "Departure requires Jomon's gangplank.")
+    if state.courier is None or not state.courier.alive:
+        return _plain(state, "Choose an eligible courier at tavern C first.")
+    if state.weapon is None or state.gear is None or state.support is None:
+        return _plain(
+            state,
+            "Prepare weapon, secondary gear, and crew support at tavern C first.",
+        )
+    state.location, state.current_room = "region", "hearthford"
+    state.position = state.region.landmarks["landing"]
+    state.expedition_count += 1
+    state.pressure_elapsed = state.noise = 0
+    state.support_spent = state.guarded_step = False
+    state.crossbow_loaded, state.aimed_target = True, None
+    state.weather, state.smoke, state.water = "clear", {}, {}
+    state.merchant_present, state.merchant_stock = False, []
+    field_of_view(state)
+    state.remember(
+        f"Expedition {state.expedition_count}: {state.courier.name} crossed into seamless Hearthford."
+    )
+    return _time_result(
+        state,
+        "You cross Jomon's gangplank onto Hearthford quay; the road continues beyond the visible shore.",
+        priority=3,
+    )
+
+
+def _fall(state: GameState) -> str:
+    if state.position.z <= -1:
+        return ""
+    landing = Position(state.position.x, state.position.y, state.position.z - 1)
+    if not is_walkable(state, landing, ignore_threat=True):
+        return "The opening has no landing below."
+    state.position = landing
+    if "cliff cord" in state.carried_passives:
+        return "The cliff cord turns the fall into a controlled descent."
+    return "You fall through the opening. " + apply_damage(state, 2, "The fall")
