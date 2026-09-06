@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from collections import Counter
 from pathlib import Path
 
 from dumbest_dungeon.content import ContentError, load_catalog
@@ -40,6 +41,28 @@ class ContentTests(unittest.TestCase):
             path.write_text(json.dumps(raw), encoding="utf-8")
             with self.assertRaisesRegex(ContentError, "unknown card"):
                 load_catalog(path)
+
+    def test_content_balance_guardrails(self) -> None:
+        catalog = load_catalog()
+        cards_per_hero = Counter(card["hero"] for card in catalog.cards.values())
+        self.assertTrue(all(7 <= count <= 8 for count in cards_per_hero.values()))
+        self.assertTrue(all(0 <= card["cost"] <= 2 for card in catalog.cards.values()))
+        for card in catalog.cards.values():
+            if card["cost"] == 0:
+                self.assertFalse(any(effect["op"] == "damage" for effect in card["effects"]))
+
+        referenced_enemies = {
+            enemy_id
+            for encounter in catalog.encounters.values()
+            for enemy_id in encounter["enemies"]
+        }
+        self.assertEqual(set(catalog.enemies), referenced_enemies)
+        for encounter in catalog.encounters.values():
+            if encounter["kind"] != "normal":
+                continue
+            total_hp = sum(catalog.enemies[enemy_id]["max_hp"] for enemy_id in encounter["enemies"])
+            self.assertGreaterEqual(total_hp, 40, encounter["id"])
+            self.assertLessEqual(total_hp, 60, encounter["id"])
 
 
 if __name__ == "__main__":

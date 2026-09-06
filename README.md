@@ -22,6 +22,8 @@ python3 -m dumbest_dungeon --validate-content
 
 A generated seed appears in the map HUD and ending screen. Supplying `--seed` makes new expeditions in that process reproducible. The default save is `$XDG_STATE_HOME/dumbest-dungeon/run.save.json`, or `~/.local/state/dumbest-dungeon/run.save.json` when `XDG_STATE_HOME` is unset.
 
+The expanded roster uses content schema 2 and save version 2. Saves created by the earlier fixed-four build are rejected with an explicit version error rather than loaded incorrectly.
+
 ## Controls and rules
 
 - New expeditions begin in the airlock crew hub. Choose four of ten archetypes; selection order assigns combat ranks 1–4. The original Warden, Engineer, Medic, and Scout party is selected by default. Space toggles a crew member, left/right changes a selected member's rank, and `C` browses that class's full card library.
