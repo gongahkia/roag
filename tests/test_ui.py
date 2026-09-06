@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import curses
 import unittest
 
 from dumbest_dungeon.content import load_catalog
-from dumbest_dungeon.engine import GameEngine
+from dumbest_dungeon.engine import CardInstance, GameEngine
 from dumbest_dungeon.ui import TerminalUI
 
 
 class FakeScreen:
-    def __init__(self, rows: int = 24, columns: int = 80):
+    def __init__(self, rows: int = 24, columns: int = 80, keys: list[int] | None = None):
         self.rows = [[" "] * columns for _ in range(rows)]
+        self.keys = list(keys or [])
 
     def getmaxyx(self) -> tuple[int, int]:
         return len(self.rows), len(self.rows[0])
@@ -22,6 +24,16 @@ class FakeScreen:
     def text(self) -> str:
         return "\n".join("".join(row) for row in self.rows)
 
+    def erase(self) -> None:
+        for row in self.rows:
+            row[:] = [" "] * len(row)
+
+    def refresh(self) -> None:
+        pass
+
+    def getch(self) -> int:
+        return self.keys.pop(0)
+
 
 class AsciiUiTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -31,6 +43,7 @@ class AsciiUiTests(unittest.TestCase):
         self.ui.catalog = self.catalog
         self.ui.engine = self.engine
         self.ui.colour = False
+        self.ui.message = ""
 
     def test_card_preview_is_fixed_size_printable_ascii(self) -> None:
         self.engine.start_combat("vents")
@@ -55,6 +68,19 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("TARGET:", rendered)
         self.assertIn(self.catalog.art["heroes"]["warden"][1].strip(), rendered)
         self.assertIn(self.catalog.art["enemies"]["vent_crawler"][2].strip(), rendered)
+
+    def test_target_cursor_moves_between_battlefield_sprites(self) -> None:
+        self.engine.start_combat("vents")
+        self.engine.state.hand = [CardInstance("snap_shot")]
+        targets = self.engine.valid_targets(0)
+        screen = FakeScreen(keys=[curses.KEY_RIGHT, 10])
+        self.ui.screen = screen
+        selected = self.ui._target_selector(0, targets)
+        self.assertEqual(targets[1], selected)
+        actor = next(enemy for enemy in self.engine.living_enemies() if enemy.id == selected)
+        column = 43 + (actor.rank - 1) * 9
+        self.assertEqual(">", screen.rows[5][column - 1])
+        self.assertEqual("<", screen.rows[5][column + 7])
 
 
 if __name__ == "__main__":

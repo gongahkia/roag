@@ -133,32 +133,7 @@ class TerminalUI:
         while self.engine and self.engine.state.phase == "combat":
             state = self.engine.state
             selected = min(selected, max(0, len(state.hand) - 1))
-            self._begin(f"COMBAT — ROUND {state.round} — ENERGY {state.energy}")
-            active_hero = None
-            valid_targets: list[str] = []
-            if state.hand:
-                definition = self.catalog.cards[state.hand[selected].card_id]
-                active_hero = definition["hero"]
-                valid_targets = self.engine.valid_targets(selected)
-            self._battlefield(2, active_hero, valid_targets)
-            self._intents(11, 2)
-            self._put(13, 2, "HAND", curses.A_BOLD)
-            max_cards = min(len(state.hand), 5)
-            for index, card in enumerate(state.hand[:max_cards]):
-                definition = self.catalog.cards[card.card_id]
-                actor = next(item for item in state.heroes if item.id == definition["hero"])
-                legal = actor.rank in definition["from_ranks"] and self.engine.card_cost(card) <= state.energy
-                marker = ">" if index == selected else " "
-                upgraded = "+" if card.upgraded else ""
-                line = f"{marker} {index + 1}. [{self.engine.card_cost(card)}] {definition['name']}{upgraded}"
-                attr = curses.A_REVERSE if index == selected else (0 if legal else curses.A_DIM)
-                self._put(14 + index, 3, line[:39], attr)
-            if state.hand:
-                self._draw_card(13, 45, state.hand[selected])
-            self._put(20, 2, "LOG", curses.A_BOLD)
-            for offset, entry in enumerate(state.log[-2:]):
-                self._put(21 + offset, 3, entry[:39], curses.A_DIM)
-            self._footer("↑/↓ choose  Enter play  E end turn  P pause  ? help")
+            self._render_combat(selected)
             key = self._key()
             if key in (curses.KEY_UP, curses.KEY_LEFT, ord("k"), ord("h")) and state.hand:
                 selected = (selected - 1) % len(state.hand)
@@ -171,11 +146,9 @@ class TerminalUI:
                     continue
                 target = targets[0]
                 if len(targets) > 1:
-                    labels = [self._actor_label(actor_id) for actor_id in targets]
-                    choice = self._menu("CHOOSE TARGET", labels, allow_cancel=True)
-                    if choice is None:
+                    target = self._target_selector(selected, targets)
+                    if target is None:
                         continue
-                    target = targets[choice]
                 self.engine.play_card(selected, target)
             elif key in (ord("e"), ord("E")):
                 self.engine.end_turn()
@@ -185,7 +158,76 @@ class TerminalUI:
             elif key == ord("?"):
                 self._help()
 
-    def _battlefield(self, row: int, active_hero: str | None, valid_targets: list[str]) -> None:
+    def _render_combat(self, selected: int, selected_target: str | None = None) -> None:
+        assert self.engine
+        state = self.engine.state
+        self._begin(f"COMBAT — ROUND {state.round} — ENERGY {state.energy}")
+        active_hero = None
+        valid_targets: list[str] = []
+        if state.hand:
+            definition = self.catalog.cards[state.hand[selected].card_id]
+            active_hero = definition["hero"]
+            valid_targets = self.engine.valid_targets(selected)
+        self._battlefield(2, active_hero, valid_targets, selected_target)
+        self._intents(11, 2)
+        self._put(13, 2, "HAND", curses.A_BOLD)
+        first = max(0, min(selected, len(state.hand) - 5))
+        for row_offset, card in enumerate(state.hand[first:first + 5]):
+            index = first + row_offset
+            definition = self.catalog.cards[card.card_id]
+            actor = next(item for item in state.heroes if item.id == definition["hero"])
+            legal = actor.rank in definition["from_ranks"] and self.engine.card_cost(card) <= state.energy
+            marker = ">" if index == selected else " "
+            upgraded = "+" if card.upgraded else ""
+            line = f"{marker} {index + 1}. [{self.engine.card_cost(card)}] {definition['name']}{upgraded}"
+            attr = curses.A_REVERSE if index == selected else (0 if legal else curses.A_DIM)
+            self._put(14 + row_offset, 3, line[:39], attr)
+        if state.hand:
+            self._draw_card(13, 45, state.hand[selected])
+        self._put(20, 2, "LOG", curses.A_BOLD)
+        for offset, entry in enumerate(state.log[-2:]):
+            self._put(21 + offset, 3, entry[:39], curses.A_DIM)
+        footer = (
+            "TARGET: Left/Right or H/L select on battlefield  Enter confirm  Esc cancel"
+            if selected_target
+            else "Up/Down choose  Enter play  E end turn  P pause  ? help"
+        )
+        self._footer(footer)
+
+    def _target_selector(self, hand_index: int, targets: list[str]) -> str | None:
+        assert self.engine
+        actors = {
+            actor.id: actor
+            for actor in self.engine.state.heroes + self.engine.state.enemies
+        }
+        ordered = sorted(
+            targets,
+            key=lambda actor_id: (
+                43 + (actors[actor_id].rank - 1) * 9
+                if actors[actor_id].side == "enemy"
+                else 29 - (actors[actor_id].rank - 1) * 9
+            ),
+        )
+        selected = 0
+        while True:
+            self._render_combat(hand_index, ordered[selected])
+            key = self._key()
+            if key in (curses.KEY_LEFT, curses.KEY_UP, ord("h"), ord("k")):
+                selected = (selected - 1) % len(ordered)
+            elif key in (curses.KEY_RIGHT, curses.KEY_DOWN, ord("l"), ord("j")):
+                selected = (selected + 1) % len(ordered)
+            elif key in (10, 13, curses.KEY_ENTER):
+                return ordered[selected]
+            elif key == 27:
+                return None
+
+    def _battlefield(
+        self,
+        row: int,
+        active_hero: str | None,
+        valid_targets: list[str],
+        selected_target: str | None = None,
+    ) -> None:
         assert self.engine
         self._put(row, 2, "CREW  < BACK     FORMATION     FRONT >", curses.A_BOLD)
         self._put(row, 43, "HOSTILES < FRONT   FORMATION  BACK >", curses.A_BOLD)
@@ -196,9 +238,13 @@ class TerminalUI:
             if hero:
                 column = 29 - (rank - 1) * 9
                 attr = self._hp_attr(hero.hp, hero.max_hp)
-                if hero.id == active_hero:
+                if hero.id == active_hero or hero.id in valid_targets or "all_allies" in valid_targets:
                     attr |= curses.A_BOLD
+                if hero.id == selected_target:
+                    attr |= curses.A_REVERSE
                 self._draw_sprite(row + 1, column, self.catalog.art["heroes"][hero.id], attr)
+                if hero.id == selected_target:
+                    self._target_brackets(row + 3, column, attr)
                 self._put(row + 6, column, f"R{rank} {hero.hero_class[:4].upper():4}", attr)
                 hp = "DD" if hero.deaths_door else f"{hero.hp:02}"
                 self._put(row + 7, column, f"H{hp}/{hero.max_hp:02}", attr)
@@ -208,8 +254,12 @@ class TerminalUI:
                 attr = self._hp_attr(enemy.hp, enemy.max_hp)
                 if enemy.id in valid_targets or "all_enemies" in valid_targets:
                     attr |= curses.A_BOLD
+                if enemy.id == selected_target:
+                    attr |= curses.A_REVERSE
                 art_id = enemy.definition_id or enemy.id
                 self._draw_sprite(row + 1, column, self.catalog.art["enemies"][art_id], attr)
+                if enemy.id == selected_target:
+                    self._target_brackets(row + 3, column, attr)
                 short_name = "".join(word[0] for word in enemy.name.split()).upper()[:4]
                 self._put(row + 6, column, f"R{rank} {short_name:4}", attr)
                 self._put(row + 7, column, f"H{enemy.hp:02}/{enemy.max_hp:02}", attr)
@@ -393,14 +443,13 @@ class TerminalUI:
         plus = "+" if card.upgraded else ""
         return f"{definition['name']}{plus} ({self.catalog.heroes[definition['hero']]['role']}) — {definition['description']}"
 
-    def _actor_label(self, actor_id: str) -> str:
-        assert self.engine
-        actor = next(item for item in self.engine.state.heroes + self.engine.state.enemies if item.id == actor_id)
-        return f"Rank {actor.rank}: {actor.name} ({actor.hp}/{actor.max_hp} HP)"
-
     def _draw_sprite(self, row: int, column: int, lines: list[str], attr: int = 0) -> None:
         for offset, line in enumerate(lines):
             self._put(row + offset, column, line.ljust(7), attr)
+
+    def _target_brackets(self, row: int, column: int, attr: int) -> None:
+        self._put(row, column - 1, ">", attr | curses.A_BOLD)
+        self._put(row, column + 7, "<", attr | curses.A_BOLD)
 
     def _draw_card(self, row: int, column: int, card: CardInstance) -> None:
         for offset, line in enumerate(self._card_lines(card)):
