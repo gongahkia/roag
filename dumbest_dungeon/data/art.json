@@ -58,5 +58,17 @@
     "operative": ["   /|  ", "--->  ", "   \\|  "],
     "biologist": [" .-o-. ", "(  +  )", " '-o-' "],
     "synth": ["[|||||]", "[  +  ]", "[|||||]"]
+  },
+  "card_marks": {
+    "warden": "#",
+    "engineer": "+",
+    "medic": "H",
+    "scout": ">",
+    "breacher": "*",
+    "psion": "~",
+    "quartermaster": "$",
+    "operative": "/",
+    "biologist": "o",
+    "synth": "0"
   }
 }

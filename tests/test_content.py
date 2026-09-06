@@ -19,6 +19,8 @@ class ContentTests(unittest.TestCase):
         self.assertEqual(10, len(catalog.events))
         self.assertEqual(6, len(catalog.afflictions))
         self.assertEqual(set(catalog.heroes), set(catalog.art["heroes"]))
+        self.assertEqual(set(catalog.heroes), set(catalog.art["card_marks"]))
+        self.assertEqual(len(catalog.heroes), len(set(catalog.art["card_marks"].values())))
         self.assertEqual(set(catalog.enemies), set(catalog.art["enemies"]))
         sprites = list(catalog.art["heroes"].values()) + list(catalog.art["enemies"].values())
         for sprite in sprites:

@@ -211,6 +211,14 @@ def load_catalog(path: Path | None = None) -> Catalog:
     for hero_id in heroes:
         _art_lines(art.get("heroes", {}).get(hero_id), f"art.heroes.{hero_id}", count=5, width=7)
         _art_lines(art.get("card_glyphs", {}).get(hero_id), f"art.card_glyphs.{hero_id}", count=3, width=9)
+        card_mark = art.get("card_marks", {}).get(hero_id)
+        if (
+            not isinstance(card_mark, str)
+            or len(card_mark) != 1
+            or not card_mark.isascii()
+            or not card_mark.isprintable()
+        ):
+            raise ContentError(f"art.card_marks.{hero_id} must be one printable ASCII character")
     for enemy_id in enemies:
         _art_lines(art.get("enemies", {}).get(enemy_id), f"art.enemies.{enemy_id}", count=5, width=7)
 

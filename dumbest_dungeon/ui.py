@@ -730,7 +730,7 @@ class TerminalUI:
         cost = definition["cost"] if self.engine.state.phase == "hub" else self.engine.card_cost(card)
         title = f"{definition['name'].upper()}{plus}"
         role = self.catalog.heroes[definition["hero"]]["role"].upper()
-        mark = definition["hero"][0].upper()
+        mark = self.catalog.art["card_marks"][definition["hero"]]
         glyph = self.catalog.art["card_glyphs"][definition["hero"]]
         ranks = ",".join(str(rank) for rank in definition["from_ranks"])
         target = definition["target"].replace("_", " ")
@@ -781,7 +781,7 @@ class TerminalUI:
             return "|" + text[:inside].ljust(inside) + "|"
 
         cost = definition["cost"] if self.engine.state.phase == "hub" else self.engine.card_cost(card)
-        mark = definition["hero"][0].upper()
+        mark = self.catalog.art["card_marks"][definition["hero"]]
         plus = "+" if card.upgraded else ""
         title = f"{definition['name'].upper()}{plus}"
         glyph = self.catalog.art["card_glyphs"][definition["hero"]]
