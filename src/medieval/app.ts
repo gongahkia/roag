@@ -1654,6 +1654,13 @@ export class MedievalApp {
     // The canvas is only an adapter: status and bounded persisted action
     // feedback come from the renderer-neutral terminal model.
     const terminal = createTerminalPresentationModel(world)
+    const expeditionAccessibility = world.state.expedition.location === 'hearthford'
+      ? (() => {
+          const expedition = world.state.expedition
+          const pressure = expeditionPressure(expedition, world.state.temporal.worldTime)
+          return `Hearthford authored map. Courier at ${expedition.coordinate.column},${expedition.coordinate.row}. ${HEARTHFORD_CONTACT.name}, adult ${HEARTHFORD_CONTACT.role}, is at ${HEARTHFORD_CONTACT_COORDINATE.column},${HEARTHFORD_CONTACT_COORDINATE.row}. Objective ${expedition.objective}; resource ${expedition.resource}; hound ${expedition.threat.status}, health ${expedition.threat.health}, intent ${expedition.threat.intent}. Pressure elapsed ${pressure.elapsed}, depth ${pressure.depth}, noise ${pressure.noise}, carried valuables ${pressure.valuables}.`
+        })()
+      : `Hearthford consequence ${world.state.expedition.consequence}; completed expeditions ${world.state.expedition.expeditionCount}.`
     if (!this.managementSidebar) this.resetManagementSidebar()
     const model = this.managementSidebar
     if (!model) throw new Error('management sidebar model is unavailable')
@@ -1685,7 +1692,7 @@ export class MedievalApp {
     this.canvas.dataset.terminalMessageCount = String(terminal.messages.length)
     this.canvas.dataset.terminalMessageState = terminal.messages.length ? 'available' : 'empty'
     this.canvas.dataset.terminalPromptCount = String(terminal.prompts.length)
-    this.canvas.setAttribute('aria-label', `Jomon foundation world ${world.manifest.creation.label}, active courier ${courier?.name ?? 'unassigned'}. ${terminal.accessibility.conciseSummary} ${terminal.accessibility.mapText} ${terminal.accessibility.legendText} ${terminal.accessibility.statusText.join(' ')} ${terminal.accessibility.messageText.join(' ')} ${terminal.accessibility.promptText.join(' ')} ${managementSidebarAccessibleSummary(model, selectedSection, this.managementExpanded)} ${this.worldOverlayAccessibleSummary(terminal.legend)}`)
+    this.canvas.setAttribute('aria-label', `Jomon foundation world ${world.manifest.creation.label}, active courier ${courier?.name ?? 'unassigned'}. ${expeditionAccessibility} ${terminal.accessibility.conciseSummary} ${terminal.accessibility.mapText} ${terminal.accessibility.legendText} ${terminal.accessibility.statusText.join(' ')} ${terminal.accessibility.messageText.join(' ')} ${terminal.accessibility.promptText.join(' ')} ${managementSidebarAccessibleSummary(model, selectedSection, this.managementExpanded)} ${this.worldOverlayAccessibleSummary(terminal.legend)}`)
     const panels = worldPanels(this.managementExpanded)
     context.strokeStyle = palette.panelBorder
     context.strokeRect(panels.main.x - 8.5, 108.5, panels.main.width + 16, 480)
