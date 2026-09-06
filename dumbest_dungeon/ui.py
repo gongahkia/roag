@@ -374,31 +374,24 @@ class TerminalUI:
             valid_targets = self.engine.valid_targets(selected)
         self._battlefield(2, active_hero, valid_targets, selected_target)
         self._intents(11, 2)
-        self._put(13, 2, "HAND", curses.A_BOLD)
         first = max(0, min(selected, len(state.hand) - 5))
-        for row_offset, card in enumerate(state.hand[first:first + 5]):
-            index = first + row_offset
+        for slot, card in enumerate(state.hand[first:first + 5]):
+            index = first + slot
             definition = self.catalog.cards[card.card_id]
             actor = next(item for item in state.heroes if item.id == definition["hero"])
             legal = (
-                actor.rank in definition["from_ranks"]
+                actor.alive
+                and actor.rank in definition["from_ranks"]
                 and not actor.statuses.get("stun")
                 and self.engine.card_cost(card) <= state.energy
             )
-            marker = ">" if index == selected else " "
-            upgraded = "+" if card.upgraded else ""
-            line = f"{marker} {index + 1}. [{self.engine.card_cost(card)}] {definition['name']}{upgraded}"
-            attr = curses.A_REVERSE if index == selected else (0 if legal else curses.A_DIM)
-            self._put(14 + row_offset, 3, line[:39], attr)
-        if state.hand:
-            self._draw_card(13, 45, state.hand[selected])
-        self._put(20, 2, "LOG", curses.A_BOLD)
-        for offset, entry in enumerate(state.log[-2:]):
-            self._put(21 + offset, 3, entry[:39], curses.A_DIM)
+            self._draw_mini_card(13, 2 + slot * 15, card, index == selected, legal)
+        if not state.hand:
+            self._put(17, 28, "HAND EMPTY — PRESS E", curses.A_DIM)
         footer = (
             "TARGET: Left/Right or H/L select on battlefield  Enter confirm  Esc cancel"
             if selected_target
-            else "Up/Down choose  Enter play  E end turn  P pause  ? help"
+            else "Left/Right choose card  Enter play  E end turn  P pause  ? help"
         )
         self._footer(footer)
 
@@ -719,14 +712,15 @@ class TerminalUI:
         self._put(row, column + 7, "<", attr | curses.A_BOLD)
 
     def _draw_card(self, row: int, column: int, card: CardInstance) -> None:
-        for offset, line in enumerate(self._card_lines(card)):
-            attr = curses.A_BOLD | self._attr(1) if offset in {0, 1, 9} else 0
+        lines = self._card_lines(card)
+        for offset, line in enumerate(lines):
+            attr = curses.A_BOLD | self._attr(1) if offset in {0, 1, len(lines) - 2, len(lines) - 1} else 0
             self._put(row + offset, column, line, attr)
 
     def _card_lines(self, card: CardInstance) -> list[str]:
         assert self.engine
         definition = self.catalog.cards[card.card_id]
-        width = 34
+        width = 22
         inside = width - 2
 
         def framed(text: str = "") -> str:
@@ -734,8 +728,9 @@ class TerminalUI:
 
         plus = "+" if card.upgraded else ""
         cost = definition["cost"] if self.engine.state.phase == "hub" else self.engine.card_cost(card)
-        title = f"[{cost}] {definition['name'].upper()}{plus}"
+        title = f"{definition['name'].upper()}{plus}"
         role = self.catalog.heroes[definition["hero"]]["role"].upper()
+        mark = definition["hero"][0].upper()
         glyph = self.catalog.art["card_glyphs"][definition["hero"]]
         ranks = ",".join(str(rank) for rank in definition["from_ranks"])
         target = definition["target"].replace("_", " ")
@@ -744,16 +739,67 @@ class TerminalUI:
         description = textwrap.wrap(definition["description"], inside - 2)[:2]
         description += [""] * (2 - len(description))
         border = "+" + "-" * inside + "+"
+        corners = f"{cost}" + " " * (inside - len(str(cost)) - len(mark)) + mark
+        lower_corners = mark + " " * (inside - len(str(cost)) - len(mark)) + f"{cost}"
         return [
             border,
-            framed(title),
-            framed(f"{role} // FROM {ranks}"),
+            framed(corners),
+            framed(title.center(inside)),
+            framed(role.center(inside)),
+            framed(),
             framed(glyph[0].center(inside)),
             framed(glyph[1].center(inside)),
             framed(glyph[2].center(inside)),
+            framed(),
+            framed(f"FROM {ranks}"),
             framed(f"TARGET: {target}"),
-            framed(" " + description[0]),
-            framed(" " + description[1]),
+            framed(description[0]),
+            framed(description[1]),
+            framed(lower_corners),
+            border,
+        ]
+
+    def _draw_mini_card(
+        self,
+        row: int,
+        column: int,
+        card: CardInstance,
+        selected: bool,
+        legal: bool,
+    ) -> None:
+        attribute = curses.A_REVERSE | curses.A_BOLD if selected else (0 if legal else curses.A_DIM)
+        for offset, line in enumerate(self._mini_card_lines(card)):
+            self._put(row + offset, column, line, attribute)
+
+    def _mini_card_lines(self, card: CardInstance) -> list[str]:
+        assert self.engine
+        definition = self.catalog.cards[card.card_id]
+        width = 14
+        inside = width - 2
+
+        def framed(text: str = "") -> str:
+            return "|" + text[:inside].ljust(inside) + "|"
+
+        cost = definition["cost"] if self.engine.state.phase == "hub" else self.engine.card_cost(card)
+        mark = definition["hero"][0].upper()
+        plus = "+" if card.upgraded else ""
+        title = f"{definition['name'].upper()}{plus}"
+        glyph = self.catalog.art["card_glyphs"][definition["hero"]]
+        target = definition["target"].replace("all_enemies", "all foes").replace("all_allies", "all crew")
+        description = textwrap.wrap(definition["description"], inside)[:2]
+        description += [""] * (2 - len(description))
+        corners = f"{cost}" + " " * (inside - len(str(cost)) - len(mark)) + mark
+        border = "+" + "-" * inside + "+"
+        return [
+            border,
+            framed(corners),
+            framed(title),
+            framed(glyph[0].center(inside)),
+            framed(glyph[1].center(inside)),
+            framed(glyph[2].center(inside)),
+            framed(target.upper()),
+            framed(description[0]),
+            framed(description[1]),
             border,
         ]
 

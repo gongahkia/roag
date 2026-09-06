@@ -49,14 +49,24 @@ class AsciiUiTests(unittest.TestCase):
         self.ui.colour = False
         self.ui.message = ""
 
-    def test_card_preview_is_fixed_size_printable_ascii(self) -> None:
+    def test_card_preview_is_portrait_playing_card_ascii(self) -> None:
         self.engine.start_combat("vents")
         lines = self.ui._card_lines(self.engine.state.hand[0])
-        self.assertEqual(10, len(lines))
-        self.assertTrue(all(len(line) == 34 for line in lines))
+        self.assertEqual(15, len(lines))
+        self.assertTrue(all(len(line) == 22 for line in lines))
         self.assertTrue(all(line.isascii() and line.isprintable() for line in lines))
         self.assertTrue(lines[0].startswith("+---"))
-        self.assertIn("TARGET:", lines[6])
+        self.assertIn("TARGET:", lines[10])
+        self.assertEqual(lines[1][1], lines[-2][-2])
+
+    def test_combat_hand_is_a_row_of_five_miniature_cards(self) -> None:
+        self.engine.start_combat("vents")
+        screen = FakeScreen()
+        self.ui.screen = screen
+        self.ui._render_combat(0)
+        self.assertEqual(5, "".join(screen.rows[13]).count("+------------+"))
+        first_card_writes = [write for write in screen.writes if write[0] in range(13, 23) and write[1] == 2]
+        self.assertTrue(all(attribute & curses.A_REVERSE for _, _, _, attribute in first_card_writes))
 
     def test_minimum_size_battlefield_contains_both_formations(self) -> None:
         self.engine.start_combat("vents")
@@ -65,13 +75,15 @@ class AsciiUiTests(unittest.TestCase):
         card = self.engine.state.hand[0]
         definition = self.catalog.cards[card.card_id]
         self.ui._battlefield(2, definition["hero"], self.engine.valid_targets(0))
-        self.ui._draw_card(13, 45, card)
         rendered = screen.text()
         self.assertIn("CREW", rendered)
         self.assertIn("HOST", rendered)
-        self.assertIn("TARGET:", rendered)
         self.assertIn(self.catalog.art["heroes"]["warden"][1].strip(), rendered)
         self.assertIn(self.catalog.art["enemies"]["vent_crawler"][2].strip(), rendered)
+        preview = FakeScreen()
+        self.ui.screen = preview
+        self.ui._draw_card(3, 45, card)
+        self.assertIn("TARGET:", preview.text())
 
     def test_target_cursor_moves_between_battlefield_sprites(self) -> None:
         self.engine.start_combat("vents")
