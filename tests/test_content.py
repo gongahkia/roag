@@ -16,6 +16,12 @@ class ContentTests(unittest.TestCase):
         self.assertGreaterEqual(len(catalog.enemies), 8)
         self.assertEqual(10, len(catalog.events))
         self.assertEqual(6, len(catalog.afflictions))
+        self.assertEqual(set(catalog.heroes), set(catalog.art["heroes"]))
+        self.assertEqual(set(catalog.enemies), set(catalog.art["enemies"]))
+        sprites = list(catalog.art["heroes"].values()) + list(catalog.art["enemies"].values())
+        for sprite in sprites:
+            self.assertEqual(5, len(sprite))
+            self.assertTrue(all(len(line) <= 7 and line.isascii() for line in sprite))
 
     def test_unknown_card_reference_is_rejected(self) -> None:
         catalog = load_catalog()

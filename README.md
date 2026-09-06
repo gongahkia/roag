@@ -35,7 +35,7 @@ A generated seed appears in the map HUD and ending screen. Supplying `--seed` ma
 
 ## Content authoring
 
-All gameplay content is in `dumbest_dungeon/data/game.json`. It contains versioned definitions for heroes, cards, enemies, encounters, events, afflictions, and balance constants. Run the validator after editing it:
+Gameplay definitions live in `dumbest_dungeon/data/game.json`, while `dumbest_dungeon/data/art.json` contains the title, crew and enemy sprites, and class card glyphs. Both catalogs are versioned and validated. Run the validator after editing either file:
 
 ```sh
 python3 -m dumbest_dungeon --validate-content
@@ -44,6 +44,8 @@ python3 -m dumbest_dungeon --validate-content
 Cards compose reusable operations such as `damage`, `block`, `heal`, `stress`, `move`, `guard`, `status`, `draw`, `discard`, and `energy`. Events similarly compose resource and party-wide operations. Adding records or combining existing operations needs no Python change. A genuinely new mechanic requires an engine operation plus validation and tests.
 
 Cards have a stable `id`, acting `hero`, energy `cost`, valid `from_ranks`, target mode, optional `target_ranks`, normal `effects`, and complete `upgrade_effects`. Enemy encounters may contain one to four enemy definition IDs. Startup validation rejects duplicate IDs, bad references, invalid ranks, unknown operations, and malformed balance data with a focused error.
+
+Every hero and enemy ID must have a five-line, seven-column ASCII sprite. Every hero class also needs a three-line card glyph. Art is restricted to printable 7-bit ASCII so alignment remains stable across supported terminals. The combat screen displays the full opposing formations, and selected cards expand into bordered previews in combat, reward, deck, and facility screens.
 
 ## Verification
 

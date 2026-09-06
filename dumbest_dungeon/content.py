@@ -23,6 +23,7 @@ class Catalog:
     events: dict[str, dict[str, Any]]
     afflictions: dict[str, dict[str, Any]]
     balance: dict[str, Any]
+    art: dict[str, Any]
 
 
 CARD_EFFECTS = {
@@ -83,15 +84,33 @@ def _effects(value: Any, allowed: set[str], context: str) -> None:
             raise ContentError(f"{context}[{index}] status effect needs a status name")
 
 
+def _art_lines(value: Any, context: str, *, count: int, width: int) -> None:
+    if not isinstance(value, list) or len(value) != count:
+        raise ContentError(f"{context} must contain exactly {count} lines")
+    for index, line in enumerate(value):
+        if not isinstance(line, str) or len(line) > width:
+            raise ContentError(f"{context}[{index}] must be a string no wider than {width} columns")
+        if any(ord(character) < 32 or ord(character) > 126 for character in line):
+            raise ContentError(f"{context}[{index}] must contain ASCII characters only")
+
+
 def load_catalog(path: Path | None = None) -> Catalog:
-    source = path or Path(str(files("dumbest_dungeon.data").joinpath("game.json")))
+    data_root = files("dumbest_dungeon.data")
+    source = path or Path(str(data_root.joinpath("game.json")))
     try:
         raw = json.loads(source.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load content from {source}: {exc}") from exc
+    art_source = Path(str(data_root.joinpath("art.json")))
+    try:
+        art = json.loads(art_source.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ContentError(f"cannot load ASCII art from {art_source}: {exc}") from exc
 
     if raw.get("schema_version") != 1:
         raise ContentError("content schema_version must be 1")
+    if art.get("schema_version") != 1:
+        raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
     cards = _indexed(raw.get("cards"), "cards")
     enemies = _indexed(raw.get("enemies"), "enemies")
@@ -180,4 +199,11 @@ def load_catalog(path: Path | None = None) -> Catalog:
     if not 0 <= balance["death_chance"] <= 1:
         raise ContentError("balance.death_chance must be between 0 and 1")
 
-    return Catalog(raw, heroes, cards, enemies, encounters, events, afflictions, balance)
+    _art_lines(art.get("title"), "art.title", count=6, width=72)
+    for hero_id in heroes:
+        _art_lines(art.get("heroes", {}).get(hero_id), f"art.heroes.{hero_id}", count=5, width=7)
+        _art_lines(art.get("card_glyphs", {}).get(hero_id), f"art.card_glyphs.{hero_id}", count=3, width=9)
+    for enemy_id in enemies:
+        _art_lines(art.get("enemies", {}).get(enemy_id), f"art.enemies.{enemy_id}", count=5, width=7)
+
+    return Catalog(raw, heroes, cards, enemies, encounters, events, afflictions, balance, art)

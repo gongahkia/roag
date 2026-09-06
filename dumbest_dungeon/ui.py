@@ -53,7 +53,8 @@ class TerminalUI:
             picked = self._menu(
                 "DUMBEST DUNGEON",
                 choices,
-                "Survive the derelict survey ship Orison. Seeded runs, bad decisions.",
+                "\n".join(self.catalog.art["title"])
+                + "\n\nSurvive the derelict survey ship Orison. Seeded runs, bad decisions.",
                 allow_cancel=False,
             )
             choice = choices[picked]
@@ -133,19 +134,30 @@ class TerminalUI:
             state = self.engine.state
             selected = min(selected, max(0, len(state.hand) - 1))
             self._begin(f"COMBAT — ROUND {state.round} — ENERGY {state.energy}")
-            self._combatants(2)
-            self._intents(8)
-            self._put(11, 2, "Hand", curses.A_BOLD)
-            max_cards = min(len(state.hand), max(1, self.screen.getmaxyx()[0] - 15))
+            active_hero = None
+            valid_targets: list[str] = []
+            if state.hand:
+                definition = self.catalog.cards[state.hand[selected].card_id]
+                active_hero = definition["hero"]
+                valid_targets = self.engine.valid_targets(selected)
+            self._battlefield(2, active_hero, valid_targets)
+            self._intents(11, 2)
+            self._put(13, 2, "HAND", curses.A_BOLD)
+            max_cards = min(len(state.hand), 5)
             for index, card in enumerate(state.hand[:max_cards]):
                 definition = self.catalog.cards[card.card_id]
                 actor = next(item for item in state.heroes if item.id == definition["hero"])
                 legal = actor.rank in definition["from_ranks"] and self.engine.card_cost(card) <= state.energy
                 marker = ">" if index == selected else " "
                 upgraded = "+" if card.upgraded else ""
-                line = f"{marker} {index + 1}. {definition['name']}{upgraded} [{self.engine.card_cost(card)}] — {definition['description']}"
+                line = f"{marker} {index + 1}. [{self.engine.card_cost(card)}] {definition['name']}{upgraded}"
                 attr = curses.A_REVERSE if index == selected else (0 if legal else curses.A_DIM)
-                self._put(12 + index, 3, line, attr)
+                self._put(14 + index, 3, line[:39], attr)
+            if state.hand:
+                self._draw_card(13, 45, state.hand[selected])
+            self._put(20, 2, "LOG", curses.A_BOLD)
+            for offset, entry in enumerate(state.log[-2:]):
+                self._put(21 + offset, 3, entry[:39], curses.A_DIM)
             self._footer("↑/↓ choose  Enter play  E end turn  P pause  ? help")
             key = self._key()
             if key in (curses.KEY_UP, curses.KEY_LEFT, ord("k"), ord("h")) and state.hand:
@@ -173,22 +185,38 @@ class TerminalUI:
             elif key == ord("?"):
                 self._help()
 
-    def _combatants(self, row: int) -> None:
+    def _battlefield(self, row: int, active_hero: str | None, valid_targets: list[str]) -> None:
         assert self.engine
-        self._put(row, 2, "CREW", curses.A_BOLD)
-        self._put(row, 42, "HOSTILES", curses.A_BOLD)
-        for offset in range(4):
-            hero = next((item for item in self.engine.living_heroes() if item.rank == offset + 1), None)
-            enemy = next((item for item in self.engine.living_enemies() if item.rank == offset + 1), None)
+        self._put(row, 2, "CREW  < BACK     FORMATION     FRONT >", curses.A_BOLD)
+        self._put(row, 43, "HOSTILES < FRONT   FORMATION  BACK >", curses.A_BOLD)
+        self._put(row + 1, 39, "||", curses.A_BOLD)
+        for rank in range(1, 5):
+            hero = next((item for item in self.engine.living_heroes() if item.rank == rank), None)
+            enemy = next((item for item in self.engine.living_enemies() if item.rank == rank), None)
             if hero:
-                door = " DD" if hero.deaths_door else ""
-                aff = f" {hero.affliction}" if hero.affliction else ""
-                self._put(row + offset + 1, 2, f"{hero.rank}: {hero.name[:14]:14} HP {hero.hp:2}/{hero.max_hp:2} B{hero.block:2} S{hero.stress:3}{door}{aff}", self._hp_attr(hero.hp, hero.max_hp))
+                column = 29 - (rank - 1) * 9
+                attr = self._hp_attr(hero.hp, hero.max_hp)
+                if hero.id == active_hero:
+                    attr |= curses.A_BOLD
+                self._draw_sprite(row + 1, column, self.catalog.art["heroes"][hero.id], attr)
+                self._put(row + 6, column, f"R{rank} {hero.hero_class[:4].upper():4}", attr)
+                hp = "DD" if hero.deaths_door else f"{hero.hp:02}"
+                self._put(row + 7, column, f"H{hp}/{hero.max_hp:02}", attr)
+                self._put(row + 8, column, f"S{hero.stress:02} B{hero.block:02}", attr)
             if enemy:
-                statuses = ",".join(enemy.statuses)
-                self._put(row + offset + 1, 42, f"{enemy.rank}: {enemy.name[:15]:15} HP {enemy.hp:3}/{enemy.max_hp:3} B{enemy.block:2} {statuses}", self._hp_attr(enemy.hp, enemy.max_hp))
+                column = 43 + (rank - 1) * 9
+                attr = self._hp_attr(enemy.hp, enemy.max_hp)
+                if enemy.id in valid_targets or "all_enemies" in valid_targets:
+                    attr |= curses.A_BOLD
+                art_id = enemy.definition_id or enemy.id
+                self._draw_sprite(row + 1, column, self.catalog.art["enemies"][art_id], attr)
+                short_name = "".join(word[0] for word in enemy.name.split()).upper()[:4]
+                self._put(row + 6, column, f"R{rank} {short_name:4}", attr)
+                self._put(row + 7, column, f"H{enemy.hp:02}/{enemy.max_hp:02}", attr)
+                status = "".join(name[0].upper() for name in enemy.statuses)[:3]
+                self._put(row + 8, column, f"B{enemy.block:02} {status:3}", attr)
 
-    def _intents(self, row: int) -> None:
+    def _intents(self, row: int, max_lines: int) -> None:
         assert self.engine
         descriptions = []
         for intent in self.engine.state.intents:
@@ -203,7 +231,9 @@ class TerminalUI:
                 effects.append(f"{effect.get('amount', '')}{label}")
             descriptions.append(f"R{enemy.rank} {action['name']} ({action['target']}; {'+'.join(effects)})")
         text = "  |  ".join(descriptions)
-        self._put(row, 2, f"INTENTS: {text}", self._attr(2))
+        lines = textwrap.wrap(f"INTENTS: {text}", max(20, self.screen.getmaxyx()[1] - 4))
+        for offset, line in enumerate(lines[:max_lines]):
+            self._put(row + offset, 2, line, self._attr(2))
 
     def _event(self) -> None:
         assert self.engine and self.engine.state.current_event
@@ -219,7 +249,14 @@ class TerminalUI:
             card = self.catalog.cards[card_id]
             choices.append(f"{card['name']} ({self.catalog.heroes[card['hero']]['role']}) — {card['description']}")
         choices.append("Skip reward")
-        picked = self._menu("RECOVERED TECHNIQUE", choices, "Add one card to the shared party deck.", allow_cancel=False)
+        previews = [CardInstance(card_id) for card_id in self.engine.state.rewards] + [None]
+        picked = self._menu(
+            "RECOVERED TECHNIQUE",
+            choices,
+            "Add one card to the shared party deck.",
+            allow_cancel=False,
+            preview_cards=previews,
+        )
         self.engine.choose_reward(None if picked == len(choices) - 1 else picked)
 
     def _service(self) -> None:
@@ -238,7 +275,8 @@ class TerminalUI:
             if action.startswith("Remove") or not card.upgraded
         ]
         labels = [self._card_label(self.engine.state.deck[index]) for index in eligible]
-        selected = self._menu(action.upper(), labels, allow_cancel=False)
+        previews = [self.engine.state.deck[index] for index in eligible]
+        selected = self._menu(action.upper(), labels, allow_cancel=False, preview_cards=previews)
         self.engine.service("remove" if action.startswith("Remove") else "upgrade", eligible[selected])
 
     def _supply_menu(self) -> None:
@@ -254,7 +292,14 @@ class TerminalUI:
     def _deck_view(self) -> None:
         assert self.engine
         labels = [self._card_label(card) for card in self.engine.state.deck]
-        self._menu("PARTY DECK", labels, f"{len(labels)} cards. Upgraded cards have a +.", allow_cancel=True, view_only=True)
+        self._menu(
+            "PARTY DECK",
+            labels,
+            f"{len(labels)} cards. Upgraded cards have a +.",
+            allow_cancel=True,
+            view_only=True,
+            preview_cards=list(self.engine.state.deck),
+        )
 
     def _pause(self) -> None:
         if not self.engine:
@@ -353,6 +398,48 @@ class TerminalUI:
         actor = next(item for item in self.engine.state.heroes + self.engine.state.enemies if item.id == actor_id)
         return f"Rank {actor.rank}: {actor.name} ({actor.hp}/{actor.max_hp} HP)"
 
+    def _draw_sprite(self, row: int, column: int, lines: list[str], attr: int = 0) -> None:
+        for offset, line in enumerate(lines):
+            self._put(row + offset, column, line.ljust(7), attr)
+
+    def _draw_card(self, row: int, column: int, card: CardInstance) -> None:
+        for offset, line in enumerate(self._card_lines(card)):
+            attr = curses.A_BOLD | self._attr(1) if offset in {0, 1, 9} else 0
+            self._put(row + offset, column, line, attr)
+
+    def _card_lines(self, card: CardInstance) -> list[str]:
+        assert self.engine
+        definition = self.catalog.cards[card.card_id]
+        width = 34
+        inside = width - 2
+
+        def framed(text: str = "") -> str:
+            return "|" + text[:inside].ljust(inside) + "|"
+
+        plus = "+" if card.upgraded else ""
+        title = f"[{self.engine.card_cost(card)}] {definition['name'].upper()}{plus}"
+        role = self.catalog.heroes[definition["hero"]]["role"].upper()
+        glyph = self.catalog.art["card_glyphs"][definition["hero"]]
+        ranks = ",".join(str(rank) for rank in definition["from_ranks"])
+        target = definition["target"].replace("_", " ")
+        if definition.get("target_ranks"):
+            target += " " + ",".join(str(rank) for rank in definition["target_ranks"])
+        description = textwrap.wrap(definition["description"], inside - 2)[:2]
+        description += [""] * (2 - len(description))
+        border = "+" + "-" * inside + "+"
+        return [
+            border,
+            framed(title),
+            framed(f"{role} // FROM {ranks}"),
+            framed(glyph[0].center(inside)),
+            framed(glyph[1].center(inside)),
+            framed(glyph[2].center(inside)),
+            framed(f"TARGET: {target}"),
+            framed(" " + description[0]),
+            framed(" " + description[1]),
+            border,
+        ]
+
     def _menu(
         self,
         title: str,
@@ -361,15 +448,17 @@ class TerminalUI:
         *,
         allow_cancel: bool = True,
         view_only: bool = False,
+        preview_cards: list[CardInstance | None] | None = None,
     ) -> int | None:
         selected = 0
         scroll = 0
         while True:
             self._begin(title)
             row = 3
+            body_width = 38 if preview_cards else max(20, self.screen.getmaxyx()[1] - 6)
             for paragraph in body.splitlines():
-                for line in textwrap.wrap(paragraph, max(20, self.screen.getmaxyx()[1] - 6)) or [""]:
-                    self._put(row, 3, line)
+                for line in textwrap.wrap(paragraph, body_width) or [""]:
+                    self._put(row, 3, line[:body_width])
                     row += 1
             row += 1
             available = max(1, self.screen.getmaxyx()[0] - row - 3)
@@ -381,7 +470,10 @@ class TerminalUI:
                 index = scroll + shown
                 marker = ">" if index == selected else " "
                 attr = curses.A_REVERSE if index == selected else 0
-                self._put(row + shown, 3, f"{marker} {choice}", attr)
+                width = 38 if preview_cards else self.screen.getmaxyx()[1] - 6
+                self._put(row + shown, 3, f"{marker} {choice}"[:width], attr)
+            if preview_cards and preview_cards[selected] is not None:
+                self._draw_card(3, 45, preview_cards[selected])
             self._footer("↑/↓ choose  Enter confirm  Esc back" if not view_only else "↑/↓ scroll  Esc/Enter back")
             key = self._key()
             if key in (curses.KEY_UP, curses.KEY_LEFT, ord("k"), ord("h")):
