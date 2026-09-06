@@ -292,6 +292,9 @@ class EconomyAndPersistenceTests(unittest.TestCase):
             corrupt.write_text(json.dumps({"save_format": 999}), encoding="utf-8")
             with self.assertRaisesRegex(SaveError, "incompatible save format"):
                 load_game(corrupt)
+            corrupt.write_text(json.dumps({"save_format": 1, "household": []}), encoding="utf-8")
+            with self.assertRaisesRegex(SaveError, "malformed save"):
+                load_game(corrupt)
 
     def test_complete_reload_and_begin_changed_later_expedition(self):
         state = prepared(loadout="tools", support="charts")

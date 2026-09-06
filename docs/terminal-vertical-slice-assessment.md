@@ -16,11 +16,11 @@ clean `HEAD`.
 
 ## Verification
 
-- `python -m unittest discover -s tests -v`: 22 tests passed on Python 3.14.7.
+- `python -m unittest discover -s tests -v`: 22 tests passed on Python 3.14.7 in 0.074s.
 - `python -m compileall -q jomon tests`: passed on Python 3.14.7.
-- `python3.11 -m unittest discover -s tests -v`: 22 tests passed.
+- `python3.11 -m unittest discover -s tests -v`: 22 tests passed in 0.094s.
 - `python3.11 -m compileall -q jomon tests`: passed.
-- `git diff --check`: passed before the documentation milestone.
+- `git diff --check`: passed before the documentation milestone commit.
 - A running Python 3.11 process had only standard-input/output/error PTY file
   descriptors and no socket descriptors. Source inspection found no network,
   subprocess, telemetry, or external-service imports.
