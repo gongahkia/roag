@@ -120,7 +120,7 @@ export const createWorldMarketsState = (input: {
   settlementTrading: SettlementTradingState
 }): WorldMarketsState => ({
   version: WORLD_MARKETS_CONTRACT_VERSION,
-  markets: [...input.siteIds].sort(compare).map(siteId => siteMarket(input.seed, siteId)).concat(publicTallyMarket(input.seed, input.settlementTrading))
+  markets: [...input.siteIds].sort(compare).map(siteId => siteMarket(input.seed, siteId) as WorldMarketState).concat(publicTallyMarket(input.seed, input.settlementTrading))
     .sort((left, right) => compare(left.id, right.id))
 })
 
@@ -167,7 +167,7 @@ export const validateWorldMarketsState = (input: {
   if (!record(value) || !keys(value, ['version', 'markets'])) return ['market.malformed-state']
   const diagnostics: MarketDiagnostic[] = []
   if (value.version !== WORLD_MARKETS_CONTRACT_VERSION) diagnostics.push('market.invalid-version')
-  if (!Array.isArray(value.markets)) return [...new Set([...diagnostics, 'market.malformed-state'])].sort()
+  if (!Array.isArray(value.markets)) return [...new Set<MarketDiagnostic>([...diagnostics, 'market.malformed-state'])].sort()
   if (!value.markets.every(candidate => validSiteMarket(candidate) || validPublicTallyMarket(candidate))) diagnostics.push('market.invalid-record')
   const markets = value.markets as WorldMarketState[]
   if (!markets.every((market, index) => index === 0 || compare(markets[index - 1]!.id, market.id) < 0)) diagnostics.push('market.noncanonical-order')
