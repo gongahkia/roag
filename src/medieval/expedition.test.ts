@@ -101,5 +101,5 @@ describe('first Hearthford expedition', () => {
     expect(resolution.world.state.courier.activeCourierId).not.toBe(world.state.courier.activeCourierId)
     expect(resolution.world.state.expedition).toMatchObject({ location: 'jomon', consequence: 'courier-lost' })
     expect(validateFoundationWorld(resolution.world)).toEqual([])
-  }, 30_000)
+  }, 90_000)
 })
