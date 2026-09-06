@@ -101,7 +101,7 @@ JOMON_MAP = (
 # #: wall, ~: water, T: tree, M: contact, &: flood control, =: flooded crossing,
 # R: objective resource, r: optional resource, +: Jomon gangplank.
 REGION_MAP = (
-    "#################################################",
+    "################################################",
     "#..............#...TTTT....~~~~......#.........#",
     "#..h...........#....TT.....~~~~......#.........#",
     "#..............#...........~~~~......#....R....#",
@@ -119,12 +119,12 @@ REGION_MAP = (
     "#..............#...........~~~~......#....R....#",
     "#..............#....r......~~~~......#.........#",
     "#..............#...........~~~~......#.........#",
-    "#################################################",
+    "################################################",
 )
 
 HELP_LINES = (
     "Move with arrows, HJKL, or YUBN diagonals.",
-    "Enter/E interacts. A attacks. G guards. N negotiates.",
+    "Enter/E interacts. A attacks. G guards. V negotiates. X uses gear.",
     "I shows carried equipment and goods. S saves when safe.",
     "On Jomon: C chooses courier, L loadout, P support, H inspects cargo/problem.",
     "Walk through + to depart or return. Movement and accepted actions take time.",

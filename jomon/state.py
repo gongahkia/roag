@@ -30,7 +30,7 @@ class StateError(ValueError):
     """Raised when persisted or constructed state violates the save contract."""
 
 
-@dataclass
+@dataclass(frozen=True)
 class Position:
     x: int
     y: int
@@ -186,7 +186,7 @@ def _region(seed: str) -> tuple[Region, Contact, Threat]:
     context_rng = stage_rng(seed, "regional-context")
     context = dict(context_rng.choice(REGIONAL_CONTEXTS))
     route_rng = stage_rng(seed, "routes-threats")
-    resource_positions = (Position(43, 3), Position(43, 9), Position(43, 15))
+    resource_positions = (Position(42, 3), Position(41, 9), Position(42, 15))
     resource_position = resource_positions[route_rng.randrange(len(resource_positions))]
     contact_rng = stage_rng(seed, "contact")
     contact = Contact(
