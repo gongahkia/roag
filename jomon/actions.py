@@ -590,3 +590,297 @@ def decide_objective(state: GameState, decision: str) -> ActionResult:
     _remember_contact(state, text)
     state.remember(text)
     return _time_result(state, text, priority=3)
+
+
+def _add_goods(state: GameState, name: str, quantity: int, condition: str) -> bool:
+    extra = COMMODITIES[name]["bulk"] * quantity
+    if carried_bulk(state) + extra > capacity(state):
+        return False
+    stack = state.carried_goods.get(name)
+    if stack:
+        stack.quantity += quantity
+    else:
+        state.carried_goods[name] = CommodityStack(quantity, condition)
+    return True
+
+
+def _complete_objective(state: GameState, altered: bool) -> str:
+    late = state.objective_changed
+    state.objective_status = "completed"
+    state.contact.disposition = min(3, state.contact.disposition + (1 if late else 2))
+    market = state.market[state.region.objective_commodity]
+    market.stock += 1 if altered or late else 2
+    market.demand = max(0, market.demand - (1 if late else 2))
+    state.trade_credit += 1 if late else 2
+    state.region.changes["mill_stabilised"] = altered
+    if altered:
+        method = "control work"
+    elif late:
+        method = "late cargo delivery"
+    else:
+        method = "accountable delivery"
+    memory = f"{state.courier.name} completed Hearthford's request by {method}."
+    _remember_contact(state, memory)
+    state.remember(memory)
+    return f"Hearthford records the {method}; stock and demand visibly change."
+
+
+def _open_container(state: GameState) -> ActionResult:
+    container = next(
+        (item for item in state.region.containers if item.position == state.position),
+        None,
+    )
+    if container is None or container.opened:
+        return _plain(state, "The container is already empty.")
+    requirement = container.requirement
+    if requirement == "rope" and state.gear != "rope" and "river hooks" not in state.carried_passives:
+        return _plain(state, "The cache needs a rope or river hooks.")
+    if requirement == "light" and state.gear != "hooded lantern" and state.lamp_oil <= 0:
+        return _plain(state, "The buried marks cannot be read without finite light.")
+    if requirement == "key" and state.gear != "repair tools" and not (
+        state.courier and state.courier.technique == "lever craft"
+    ):
+        return _plain(state, "The strongbox needs repair tools or lever craft.")
+    if requirement == "rope" and state.gear == "rope" and "flood rig" not in build_combinations(state):
+        if state.rope_uses <= 0:
+            return _plain(state, "The expedition rope has no sound length remaining.")
+        state.rope_uses -= 1
+    if requirement == "light" and state.gear != "hooded lantern":
+        state.lamp_oil -= 1
+    reward = container.reward
+    if reward in PASSIVES:
+        if passive_bulk(state) + PASSIVES[reward][0] > passive_capacity(state):
+            return _plain(
+                state,
+                f"The {reward} will not fit: discovery load is full.",
+            )
+        state.carried_passives[reward] = state.carried_passives.get(reward, 0) + 1
+    elif reward in RELICS:
+        state.relics[reward] = state.relics.get(reward, 0) + 1
+        state.carried_relic = reward
+    elif reward == "sealed tally":
+        state.trade_credit += 1
+        _add_goods(state, "paper", 1, "sealed")
+    else:
+        state.consumables[reward] = state.consumables.get(reward, 0) + 1
+    container.opened = True
+    state.remember(f"{state.courier.name} opened {container.name} and found {reward}.")
+    return _time_result(
+        state,
+        f"You open {container.name}: {reward}. The depleted container remains visible.",
+        priority=3,
+    )
+
+
+def _control_interaction(state: GameState) -> ActionResult:
+    courier = state.courier
+    efficient = (
+        state.gear == "repair tools"
+        or state.support == "carpenter rig"
+        or (courier and courier.technique == "lever craft")
+    )
+    state.flood_control = "lowered" if state.flood_control == "raised" else "raised"
+    points = [
+        Position(58, 42, -1),
+        Position(58, 42, 0),
+        Position(78, 22, 0),
+    ]
+    if state.flood_control == "lowered":
+        state.water = {position_key(point): 99 for point in points}
+    else:
+        state.water.clear()
+    sounds = emit_sound(state, 0 if efficient else 3)
+    state.region.changes["flood_control_used"] = True
+    if state.objective_status == "altered":
+        state.region.changes["mill_stabilised"] = True
+    text = (
+        f"The sluice is {state.flood_control}; water crosses culvert and ground "
+        "openings, changing route safety."
+    )
+    return _time_result(state, " ".join([text, *sounds]), priority=3)
+
+
+def _furnace_interaction(state: GameState) -> ActionResult:
+    machinery = next(threat for threat in state.threats if threat.profile == "machinery")
+    if state.gear in {"repair tools", "rope"} or state.support == "carpenter rig":
+        machinery.status, machinery.intent = "disabled", "braked at the furnace drive"
+        state.region.changes["machinery_disabled"] = True
+        state.smoke.clear()
+        return _time_result(
+            state,
+            "You brake the furnace drive; machinery and rising smoke both stop.",
+            priority=3,
+        )
+    smoke_points = [state.position, Position(state.position.x, state.position.y, 1)]
+    state.smoke.update({position_key(point): 6 for point in smoke_points})
+    sounds = emit_sound(state, 2)
+    return _time_result(
+        state,
+        " ".join(
+            [
+                "The furnace coughs; smoke rises into the upper works and closes sightlines.",
+                *sounds,
+            ]
+        ),
+        priority=3,
+    )
+
+
+def _destroy_floor(state: GameState) -> ActionResult:
+    if base_tile(state, state.position) != "d":
+        return _plain(state, "No bounded weak floor is underfoot.")
+    if state.weapon != "hand axe" and "mill-tooth wedge" not in state.carried_passives:
+        return _plain(state, "The marked floor needs a hand axe or mill-tooth wedge.")
+    state.region.tile_changes[position_key(state.position)] = "O"
+    sounds = emit_sound(state, 4)
+    fall = _fall(state)
+    return _time_result(
+        state,
+        " ".join(["The marked floor breaks into an open vertical shaft.", fall, *sounds]),
+        priority=3,
+    )
+
+
+def interact(state: GameState) -> ActionResult:
+    tile = base_tile(state, state.position)
+    if state.location == "jomon":
+        if tile == "+":
+            return depart(state)
+        if tile == "C":
+            return ActionResult(False, False, "Prepare at the tavern.", "tavern")
+        if tile in {"L", "P"}:
+            return ActionResult(False, False, "Stores are readouts.", "equipment")
+        if tile == "H":
+            return ActionResult(False, False, "Inspect hold and local problem.", "hold")
+        if tile == "s" and state.merchant_present:
+            return ActionResult(False, False, "The deck merchant opens three lots.", "merchant")
+        if tile in {"T", "b", "s"}:
+            return ActionResult(False, False, "Inspect the household.", "household")
+        return _plain(state, "Nothing here needs handling.")
+    if state.position == state.region.landmarks["landing"]:
+        return return_to_jomon(state)
+    destination = vertical_destination(state, state.position)
+    if destination:
+        link = next(
+            item for item in state.region.vertical_links
+            if state.position in {item.first, item.second}
+        )
+        state.position = destination
+        return _time_result(
+            state,
+            f"You use the {link.name}; nearby levels remain spatially aligned.",
+            priority=3,
+        )
+    if any(item.position == state.position for item in state.region.containers):
+        return _open_container(state)
+    if state.position == state.region.landmarks["contact"]:
+        if state.objective_status in {"unoffered", "failed"}:
+            return ActionResult(
+                False, False, f"{state.contact.name} explains the shortage.", "objective"
+            )
+        commodity = state.region.objective_commodity
+        quantity = state.carried_goods.get(
+            commodity, CommodityStack(0, "")
+        ).quantity
+        if state.objective_status == "accepted" and quantity >= state.objective_required:
+            state.carried_goods[commodity].quantity -= state.objective_required
+            if state.carried_goods[commodity].quantity == 0:
+                del state.carried_goods[commodity]
+            return _time_result(
+                state, _complete_objective(state, False), priority=3
+            )
+        if (
+            state.objective_status == "altered"
+            and state.region.changes.get("mill_stabilised")
+        ):
+            return _time_result(
+                state, _complete_objective(state, True), priority=3
+            )
+        return ActionResult(
+            False, False, f"Inspect {state.contact.name}'s standing.", "contact"
+        )
+    if tile == "R":
+        if state.region.changes.get("objective_taken"):
+            return _plain(state, "The stranded load is empty.")
+        if state.objective_status != "accepted":
+            return _plain(state, "Accept Hearthford's request before taking the cargo.")
+        commodity = state.region.objective_commodity
+        if not _add_goods(
+            state,
+            commodity,
+            state.objective_required,
+            COMMODITIES[commodity]["condition"],
+        ):
+            return _plain(state, f"The load exceeds {capacity(state)} bulk.")
+        state.region.changes["objective_taken"] = True
+        sounds = emit_sound(state, 2)
+        return _time_result(
+            state,
+            " ".join([f"You secure two {commodity}; valuables and sound rise.", *sounds]),
+            priority=3,
+        )
+    if tile == "&":
+        return _control_interaction(state)
+    if tile == "f":
+        return _furnace_interaction(state)
+    if tile == "d":
+        return _destroy_floor(state)
+    return _plain(state, "Nothing here needs handling.")
+
+
+def _attack_targets(state: GameState, attack_range: int) -> list[Threat]:
+    targets = (
+        threat
+        for threat in state.threats
+        if threat.status in {"watching", "engaged"}
+        and distance(state.position, threat.position) <= attack_range
+        and line_of_sight(state, state.position, threat.position)
+    )
+    return sorted(
+        targets, key=lambda threat: (distance(state.position, threat.position), threat.id)
+    )
+
+
+def attack(state: GameState) -> ActionResult:
+    if state.location != "region" or state.weapon is None:
+        return _plain(state, "No readied attack is possible.")
+    ranges = {
+        "billhook": 2,
+        "spear": 3,
+        "cudgel": 1,
+        "staff": 1,
+        "hand axe": 1,
+        "crossbow": 7,
+    }
+    candidates = _attack_targets(state, ranges[state.weapon])
+    if not candidates:
+        if state.weapon == "hand axe" and base_tile(state, state.position) == "d":
+            return _destroy_floor(state)
+        return _plain(state, "No visible hostile is within this weapon's reach.")
+    target = candidates[0]
+    target.status = "engaged"
+    if state.weapon == "crossbow":
+        if not state.crossbow_loaded:
+            return _plain(state, "The crossbow is unloaded; reload with G.")
+        if state.aimed_target != target.id:
+            state.aimed_target = target.id
+            return _time_result(
+                state,
+                f"You aim at the {target.name}; firing commits the next action.",
+                priority=3,
+            )
+        if state.ammunition <= 0:
+            return _plain(state, "No crossbow ammunition remains.")
+        state.crossbow_loaded, state.aimed_target = False, None
+        state.ammunition -= 1
+        damage, weapon_text, sound = 3, "crossbow bolt", 3
+    else:
+        damage = {
+            "billhook": 2,
+            "spear": 2,
+            "cudgel": 1,
+            "staff": 1,
+            "hand axe": 3,
+        }[state.weapon]
+        weapon_text = state.weapon
+        sound = 1 if state.weapon in {"cudgel", "staff"} else 2
