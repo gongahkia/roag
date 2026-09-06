@@ -485,3 +485,71 @@ def _fall(state: GameState) -> str:
     if "cliff cord" in state.carried_passives:
         return "The cliff cord turns the fall into a controlled descent."
     return "You fall through the opening. " + apply_damage(state, 2, "The fall")
+
+
+def move(state: GameState, dx: int, dy: int) -> ActionResult:
+    if state.world_ended or (dx == 0 and dy == 0):
+        return _plain(state, "No action is possible.")
+    target = Position(
+        state.position.x + dx, state.position.y + dy, state.position.z
+    )
+    occupant = next(
+        (
+            threat
+            for threat in state.threats
+            if threat.position == target
+            and threat.status in {"watching", "engaged"}
+        ),
+        None,
+    )
+    if occupant:
+        if occupant.status == "watching":
+            return _time_result(state, _activate(occupant), priority=3)
+        return _plain(state, f"The {occupant.name} holds that space.")
+    if not is_walkable(state, target):
+        return _plain(state, "That way is blocked.")
+    if dx and dy:
+        side_a = Position(state.position.x + dx, state.position.y, state.position.z)
+        side_b = Position(state.position.x, state.position.y + dy, state.position.z)
+        if (
+            not is_walkable(state, side_a, ignore_threat=True)
+            and not is_walkable(state, side_b, ignore_threat=True)
+        ):
+            return _plain(state, "The diagonal is pinched closed.")
+    previous_area = area_name(state)
+    state.position = target
+    messages: list[str] = []
+    tile = base_tile(state, target)
+    if tile == "+":
+        state.region.tile_changes[position_key(target)] = "/"
+        messages.append("You open the door; interior sightlines change.")
+    quiet = state.courier and (
+        state.courier.technique == "quiet passage"
+        or "surveyed soft-step" in build_combinations(state)
+    )
+    if tile == "m" and not (
+        state.gear == "quiet shoes"
+        or "reed sole wraps" in state.carried_passives
+    ):
+        messages.append("Mud drags at your step; sound carries.")
+        messages.extend(emit_sound(state, 1, target))
+    elif not quiet and state.pressure_elapsed % 8 == 7:
+        state.noise += 1
+    new_area = area_name(state)
+    discovered_key = f"discovered:{new_area}"
+    if new_area != previous_area and not state.region.changes.get(discovered_key):
+        state.region.changes[discovered_key] = True
+        messages.insert(0, f"You enter {new_area}; alternate routes open around the landmark.")
+    if tile == "O":
+        messages.append(_fall(state))
+    storm_delay = (
+        state.weather == "hard rain"
+        and state.position.z == 0
+        and "rain cape" not in state.carried_passives
+    )
+    return _time_result(
+        state,
+        " ".join(message for message in messages if message),
+        steps=2 if storm_delay else 1,
+        priority=3 if messages else 0,
+    )
