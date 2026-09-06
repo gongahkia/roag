@@ -22,12 +22,12 @@ python3 -m dumbest_dungeon --validate-content
 
 A generated seed appears in the map HUD and ending screen. Supplying `--seed` makes new expeditions in that process reproducible. The default save is `$XDG_STATE_HOME/dumbest-dungeon/run.save.json`, or `~/.local/state/dumbest-dungeon/run.save.json` when `XDG_STATE_HOME` is unset.
 
-Top-down exploration uses content schema 3 and save version 3. Saves from the earlier node-map builds are rejected with an explicit version error rather than loaded incorrectly.
+Top-down exploration uses content schema 3 and save version 4. Saves from earlier map builds are rejected with an explicit version error rather than loaded incorrectly.
 
 ## Controls and rules
 
 - New expeditions begin in the airlock crew hub. Choose four of fifteen archetypes; selection order assigns combat ranks 1–4. The original Warden, Engineer, Medic, and Scout party is selected by default. Space toggles a crew member, left/right changes a selected member's rank, and `C` browses that class's full card library.
-- Exploration is a 117×35 top-down ASCII ship. Arrow keys or `h`/`j`/`k`/`l` move the `X` destination cursor and Enter makes the `@` party automatically follow the shortest floor route, up to 18 tiles per order. A first left-click selects and color-highlights a visible tile; click that tile again or press Enter to confirm movement. `Tab` cycles patrols and unresolved facilities; Space recenters the cursor on the party.
+- Exploration is a seed-generated 117×35 top-down ASCII ship. Room footprints, bent corridors, side alcoves, pillars, debris (`,`), grates (`=`), and coolant spills (`~`) vary between expeditions while every objective remains connected. The terrain variants are currently traversable at the same cost. Arrow keys or `h`/`j`/`k`/`l` move the `X` destination cursor and Enter makes the `@` party automatically follow the shortest floor route, up to 18 tiles per order. A first left-click selects and color-highlights a visible tile; click that tile again or press Enter to confirm movement. `Tab` cycles patrols and unresolved facilities; Space recenters the cursor on the party.
 - Normal, elite, and boss patrols move each time the party takes a step. Nearby patrols pursue the crew, while distant normal and elite patrols roam around their assigned compartments. Contact immediately opens the existing formation combat screen.
 - When a card has several valid targets, its target cursor stays on the battlefield: the selected character sprite is highlighted and bracketed with `>` and `<`. Move between targets with left/right or `h`/`l`, press Enter to confirm, or Escape to cancel.
 - The combat hand is rendered as five portrait playing cards with corner cost/class marks and centered ASCII class glyphs. The selected card is inverted, while cards that cannot currently be played are dimmed. Card browsers use a larger portrait version with complete rank, target, and rules text.
@@ -66,4 +66,4 @@ python3 -m compileall dumbest_dungeon tests
 python3 -m dumbest_dungeon --validate-content
 ```
 
-The test suite covers deterministic generation, spatial pathfinding, roaming patrol contact, mouse-coordinate translation, all card definitions, formation legality, Death's Door and stress collapse, enemy intent identity, facilities, a complete scripted expedition, and exact exploration and mid-combat save round trips.
+The test suite covers deterministic and cross-seed terrain generation, full-map connectivity, spatial pathfinding, roaming patrol contact, mouse-coordinate translation, all card definitions, formation legality, Death's Door and stress collapse, enemy intent identity, facilities, malformed terrain rejection, a complete scripted expedition, and exact exploration and mid-combat save round trips.

@@ -14,6 +14,8 @@ class EngineTests(unittest.TestCase):
     def test_seed_reproduces_map_and_run_state(self) -> None:
         other = GameEngine.new(self.catalog, 4242)
         self.assertEqual(self.engine.snapshot(), other.snapshot())
+        different = GameEngine.new(self.catalog, 4243)
+        self.assertNotEqual(self.engine.world_tiles(), different.world_tiles())
 
     def test_generated_content_and_top_down_map_are_connected(self) -> None:
         for seed in range(50):
@@ -30,6 +32,25 @@ class EngineTests(unittest.TestCase):
             kinds = {room.kind for room in engine.state.rooms}
             self.assertTrue({"start", "fight", "event", "camp", "upgrade", "elite", "cache", "boss"} <= kinds)
             start = engine.room_position(0)
+            tiles = engine.world_tiles()
+            self.assertEqual(35, len(tiles))
+            self.assertTrue(all(len(row) == 117 for row in tiles))
+            self.assertTrue(set(".,=~") <= set("".join(tiles)))
+            reachable = {start}
+            frontier = [start]
+            while frontier:
+                current = frontier.pop()
+                for neighbor in engine._neighbors(current):
+                    if neighbor not in reachable:
+                        reachable.add(neighbor)
+                        frontier.append(neighbor)
+            walkable = {
+                (x, y)
+                for y, row in enumerate(tiles)
+                for x, character in enumerate(row)
+                if character in ".,=~"
+            }
+            self.assertEqual(walkable, reachable)
             for room in engine.state.rooms:
                 destination = engine.room_position(room.id)
                 self.assertTrue(engine.is_walkable(*destination))

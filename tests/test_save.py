@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from dumbest_dungeon.content import load_catalog
-from dumbest_dungeon.engine import GameEngine
+from dumbest_dungeon.engine import GameEngine, RuleError
 from dumbest_dungeon.save import read_save, write_save
 
 
@@ -48,6 +48,19 @@ class SaveTests(unittest.TestCase):
         engine.end_turn()
         loaded.end_turn()
         self.assertEqual(engine.snapshot(), loaded.snapshot())
+
+    def test_invalid_saved_terrain_is_rejected(self) -> None:
+        engine = GameEngine.new(self.catalog, 303)
+        snapshot = engine.snapshot()
+        snapshot["state"]["world_tiles"][0] = "broken"
+        with self.assertRaisesRegex(RuleError, "malformed world terrain"):
+            GameEngine.from_snapshot(self.catalog, snapshot)
+
+        snapshot = engine.snapshot()
+        first_row = snapshot["state"]["world_tiles"][0]
+        snapshot["state"]["world_tiles"][0] = "." + first_row[1:]
+        with self.assertRaisesRegex(RuleError, "disconnected world terrain"):
+            GameEngine.from_snapshot(self.catalog, snapshot)
 
 
 if __name__ == "__main__":

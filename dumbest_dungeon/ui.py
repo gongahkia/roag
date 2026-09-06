@@ -263,7 +263,12 @@ class TerminalUI:
             f"Route {route_length:2}/{maximum} {reach}  Last zone: {zone}"[: self.screen.getmaxyx()[1] - 3],
             self._attr(1 if reach == "READY" else 3),
         )
-        self._put(rows - 3, 2, "@ crew  X target  e patrol  E elite  B boss  ? event  C camp  W shop  $ cache", curses.A_DIM)
+        self._put(
+            rows - 3,
+            2,
+            "@ crew X aim e/E/B foes ?/C/W/$ sites | , debris = grate ~ spill O pillar",
+            curses.A_DIM,
+        )
         self._footer("Arrows aim Enter/2xclick go Tab cycle Space center U supply D deck P pause")
         return origin
 

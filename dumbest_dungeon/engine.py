@@ -71,6 +71,7 @@ class GameState:
     heroes: list[Actor]
     deck: list[CardInstance]
     rooms: list[Room]
+    world_tiles: list[str]
     hub_selection: list[str] = field(default_factory=list)
     current_room: int = 0
     party_x: int = 5
@@ -122,13 +123,46 @@ ROOM_EDGES = {
     7: [5, 6, 8, 9], 8: [7, 10], 9: [7, 10],
     10: [8, 9, 11], 11: [10],
 }
+WALKABLE_TILES = frozenset(".,=~")
+VALID_WORLD_TILES = frozenset(" #O") | WALKABLE_TILES
 
 
-def _build_world() -> tuple[str, ...]:
+def _build_world(rng: random.Random) -> list[str]:
     floor: set[tuple[int, int]] = set()
-    for center_x, center_y in ROOM_POSITIONS.values():
-        for y in range(center_y - 2, center_y + 3):
-            for x in range(center_x - 4, center_x + 5):
+    corridors: set[tuple[int, int]] = set()
+    room_bounds: dict[int, tuple[int, int]] = {}
+
+    def carve_segment(
+        start: tuple[int, int],
+        end: tuple[int, int],
+        *,
+        broad: bool = False,
+    ) -> None:
+        start_x, start_y = start
+        end_x, end_y = end
+        if start_y == end_y:
+            for x in range(min(start_x, end_x), max(start_x, end_x) + 1):
+                floor.add((x, start_y))
+                corridors.add((x, start_y))
+                if broad and start_y + 1 < WORLD_HEIGHT - 1:
+                    floor.add((x, start_y + 1))
+                    corridors.add((x, start_y + 1))
+        elif start_x == end_x:
+            for y in range(min(start_y, end_y), max(start_y, end_y) + 1):
+                floor.add((start_x, y))
+                corridors.add((start_x, y))
+                if broad and start_x + 1 < WORLD_WIDTH - 1:
+                    floor.add((start_x + 1, y))
+                    corridors.add((start_x + 1, y))
+        else:
+            raise ValueError("world segments must be orthogonal")
+
+    for room_id, (center_x, center_y) in ROOM_POSITIONS.items():
+        half_width = rng.randint(3, 5)
+        half_height = rng.randint(1, 3)
+        room_bounds[room_id] = (half_width, half_height)
+        for y in range(center_y - half_height, center_y + half_height + 1):
+            for x in range(center_x - half_width, center_x + half_width + 1):
                 floor.add((x, y))
 
     for room_id, neighbors in ROOM_EDGES.items():
@@ -137,17 +171,80 @@ def _build_world() -> tuple[str, ...]:
             if neighbor < room_id:
                 continue
             end_x, end_y = ROOM_POSITIONS[neighbor]
-            middle_x = (start_x + end_x) // 2
-            for x in range(min(start_x, middle_x), max(start_x, middle_x) + 1):
-                floor.add((x, start_y))
-            for y in range(min(start_y, end_y), max(start_y, end_y) + 1):
-                floor.add((middle_x, y))
-            for x in range(min(middle_x, end_x), max(middle_x, end_x) + 1):
-                floor.add((x, end_y))
+            broad = rng.random() < 0.28
+            if start_y == end_y:
+                direction = 1 if end_x > start_x else -1
+                first_x = start_x + direction * max(2, abs(end_x - start_x) // 3)
+                second_x = end_x - direction * max(2, abs(end_x - start_x) // 3)
+                detour_y = max(2, min(WORLD_HEIGHT - 3, start_y + rng.choice((-2, 2))))
+                carve_segment((start_x, start_y), (first_x, start_y), broad=broad)
+                carve_segment((first_x, start_y), (first_x, detour_y), broad=broad)
+                carve_segment((first_x, detour_y), (second_x, detour_y), broad=broad)
+                carve_segment((second_x, detour_y), (second_x, end_y), broad=broad)
+                carve_segment((second_x, end_y), (end_x, end_y), broad=broad)
+            else:
+                middle_x = max(
+                    2,
+                    min(WORLD_WIDTH - 3, (start_x + end_x) // 2 + rng.randint(-3, 3)),
+                )
+                carve_segment((start_x, start_y), (middle_x, start_y), broad=broad)
+                carve_segment((middle_x, start_y), (middle_x, end_y), broad=broad)
+                carve_segment((middle_x, end_y), (end_x, end_y), broad=broad)
+
+    for _ in range(10):
+        start_x, start_y = rng.choice(sorted(floor))
+        step_x, step_y = rng.choice(((1, 0), (-1, 0), (0, 1), (0, -1)))
+        length = rng.randint(2, 5)
+        end_x = (
+            max(2, min(WORLD_WIDTH - 3, start_x + step_x * length)) if step_x else start_x
+        )
+        end_y = (
+            max(2, min(WORLD_HEIGHT - 3, start_y + step_y * length)) if step_y else start_y
+        )
+        carve_segment((start_x, start_y), (end_x, end_y))
+        for y in range(end_y - 1, end_y + 2):
+            for x in range(end_x - 1, end_x + 2):
+                if 0 <= x < WORLD_WIDTH and 0 <= y < WORLD_HEIGHT:
+                    floor.add((x, y))
+
+    pillars: set[tuple[int, int]] = set()
+    for room_id, (half_width, half_height) in room_bounds.items():
+        center_x, center_y = ROOM_POSITIONS[room_id]
+        candidates = [
+            (x, y)
+            for y in range(center_y - half_height, center_y + half_height + 1)
+            for x in range(center_x - half_width, center_x + half_width + 1)
+            if (x, y) != (center_x, center_y) and (x, y) not in corridors
+        ]
+        rng.shuffle(candidates)
+        for position in candidates[: rng.randint(0, 2)]:
+            floor.discard(position)
+            pillars.add(position)
+
+    start = ROOM_POSITIONS[0]
+    reachable = {start}
+    pending = deque([start])
+    while pending:
+        x, y = pending.popleft()
+        for position in ((x, y - 1), (x - 1, y), (x + 1, y), (x, y + 1)):
+            if position in floor and position not in reachable:
+                reachable.add(position)
+                pending.append(position)
+    floor &= reachable
 
     cells = [[" " for _ in range(WORLD_WIDTH)] for _ in range(WORLD_HEIGHT)]
     for x, y in floor:
         cells[y][x] = "."
+    decoration_candidates = sorted(floor - set(ROOM_POSITIONS.values()))
+    for symbol in (",", "=", "~"):
+        for _ in range(5):
+            center_x, center_y = rng.choice(decoration_candidates)
+            for y in range(center_y - 1, center_y + 2):
+                for x in range(center_x - 1, center_x + 2):
+                    if (x, y) in floor and rng.random() < 0.65:
+                        cells[y][x] = symbol
+    for x, y in pillars:
+        cells[y][x] = "O"
     for x, y in floor:
         for adjacent_y in range(y - 1, y + 2):
             for adjacent_x in range(x - 1, x + 2):
@@ -157,16 +254,25 @@ def _build_world() -> tuple[str, ...]:
                     and cells[adjacent_y][adjacent_x] == " "
                 ):
                     cells[adjacent_y][adjacent_x] = "#"
-    return tuple("".join(row) for row in cells)
+    return ["".join(row) for row in cells]
 
 
-WORLD_TILES = _build_world()
+def _validate_world(tiles: Any) -> None:
+    if (
+        not isinstance(tiles, list)
+        or len(tiles) != WORLD_HEIGHT
+        or any(not isinstance(row, str) or len(row) != WORLD_WIDTH for row in tiles)
+        or any(character not in VALID_WORLD_TILES for row in tiles for character in row)
+    ):
+        raise RuleError("save contains malformed world terrain")
+    if any(tiles[y][x] not in WALKABLE_TILES for x, y in ROOM_POSITIONS.values()):
+        raise RuleError("save terrain blocks a compartment anchor")
 
 
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 3
+    SAVE_VERSION = 4
 
     def __init__(self, catalog: Catalog, state: GameState, rng: random.Random):
         self.catalog = catalog
@@ -177,6 +283,7 @@ class GameEngine:
     def new(cls, catalog: Catalog, seed: int, *, start_in_hub: bool = False) -> GameEngine:
         rng = random.Random(seed)
         rooms = cls._generate_rooms(catalog, rng)
+        world_tiles = _build_world(random.Random(seed ^ 0x4F5249534F4E))
         default_party = list(catalog.heroes)[:4]
         state = GameState(
             seed=seed,
@@ -184,6 +291,7 @@ class GameEngine:
             heroes=[],
             deck=[],
             rooms=rooms,
+            world_tiles=world_tiles,
             hub_selection=default_party,
             party_x=ROOM_POSITIONS[0][0],
             party_y=ROOM_POSITIONS[0][1],
@@ -299,6 +407,7 @@ class GameEngine:
                 heroes=[Actor(**item) for item in raw["heroes"]],
                 deck=[CardInstance(**item) for item in raw["deck"]],
                 rooms=[Room(**item) for item in raw["rooms"]],
+                world_tiles=raw["world_tiles"],
                 hub_selection=raw["hub_selection"],
                 current_room=raw["current_room"],
                 party_x=raw["party_x"],
@@ -325,6 +434,11 @@ class GameEngine:
             rng.setstate(_tuples(snapshot["rng_state"]))
         except (KeyError, TypeError, ValueError) as exc:
             raise RuleError(f"invalid save data: {exc}") from exc
+        _validate_world(state.world_tiles)
+        engine = cls(catalog, state, rng)
+        walkable_count = sum(character in WALKABLE_TILES for row in state.world_tiles for character in row)
+        if len(engine._distances_from(ROOM_POSITIONS[0])) != walkable_count:
+            raise RuleError("save contains disconnected world terrain")
         hero_ids = {hero.id for hero in state.heroes}
         if state.phase == "hub" and state.heroes:
             raise RuleError("hub save unexpectedly contains an active party")
@@ -332,7 +446,7 @@ class GameEngine:
             raise RuleError("save contains an unexpected crew roster")
         if len(state.hub_selection) > 4 or any(hero_id not in catalog.heroes for hero_id in state.hub_selection):
             raise RuleError("save contains an invalid hub selection")
-        if not cls.is_walkable(state.party_x, state.party_y):
+        if not engine.is_walkable(state.party_x, state.party_y):
             raise RuleError("save places the crew outside the ship")
         patrol_ids = {patrol.id for patrol in state.patrols}
         if len(patrol_ids) != len(state.patrols):
@@ -342,7 +456,7 @@ class GameEngine:
             if (
                 room is None
                 or patrol.encounter_id not in catalog.encounters
-                or not cls.is_walkable(patrol.x, patrol.y)
+                or not engine.is_walkable(patrol.x, patrol.y)
             ):
                 raise RuleError("save contains an invalid patrol")
         if state.active_patrol_id is not None and state.active_patrol_id not in patrol_ids:
@@ -350,7 +464,7 @@ class GameEngine:
         piles = state.deck + state.hand + state.draw_pile + state.discard_pile
         if any(card.card_id not in catalog.cards for card in piles):
             raise RuleError("save references an unknown card")
-        return cls(catalog, state, rng)
+        return engine
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -374,30 +488,30 @@ class GameEngine:
         except KeyError as exc:
             raise RuleError("unknown ship compartment") from exc
 
-    @staticmethod
-    def world_tiles() -> tuple[str, ...]:
-        return WORLD_TILES
+    def world_tiles(self) -> list[str]:
+        return self.state.world_tiles
 
-    @staticmethod
-    def is_walkable(x: int, y: int) -> bool:
-        return 0 <= y < WORLD_HEIGHT and 0 <= x < WORLD_WIDTH and WORLD_TILES[y][x] == "."
+    def is_walkable(self, x: int, y: int) -> bool:
+        return (
+            0 <= y < WORLD_HEIGHT
+            and 0 <= x < WORLD_WIDTH
+            and self.state.world_tiles[y][x] in WALKABLE_TILES
+        )
 
-    @staticmethod
-    def _neighbors(position: tuple[int, int]) -> list[tuple[int, int]]:
+    def _neighbors(self, position: tuple[int, int]) -> list[tuple[int, int]]:
         x, y = position
         return [
             candidate
             for candidate in ((x, y - 1), (x - 1, y), (x + 1, y), (x, y + 1))
-            if GameEngine.is_walkable(*candidate)
+            if self.is_walkable(*candidate)
         ]
 
-    @classmethod
     def _find_path(
-        cls,
+        self,
         start: tuple[int, int],
         destination: tuple[int, int],
     ) -> list[tuple[int, int]]:
-        if not cls.is_walkable(*destination):
+        if not self.is_walkable(*destination):
             return []
         pending = deque([start])
         previous: dict[tuple[int, int], tuple[int, int] | None] = {start: None}
@@ -405,7 +519,7 @@ class GameEngine:
             current = pending.popleft()
             if current == destination:
                 break
-            for neighbor in cls._neighbors(current):
+            for neighbor in self._neighbors(current):
                 if neighbor not in previous:
                     previous[neighbor] = current
                     pending.append(neighbor)
@@ -422,13 +536,12 @@ class GameEngine:
         path.reverse()
         return path
 
-    @classmethod
-    def _distances_from(cls, origin: tuple[int, int]) -> dict[tuple[int, int], int]:
+    def _distances_from(self, origin: tuple[int, int]) -> dict[tuple[int, int], int]:
         distances = {origin: 0}
         pending = deque([origin])
         while pending:
             current = pending.popleft()
-            for neighbor in cls._neighbors(current):
+            for neighbor in self._neighbors(current):
                 if neighbor not in distances:
                     distances[neighbor] = distances[current] + 1
                     pending.append(neighbor)
