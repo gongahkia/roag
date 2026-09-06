@@ -3,12 +3,12 @@
 ## Current State
 
 - The active product is a standard-library Python 3.11 `curses` roguelike; the browser version is archived in Git.
-- Owner play found the first deterministic Hearthford expedition genuinely fun, but too short, spatially flat, lightly populated, and limited in build variety.
-- The complete first-slice loop, persistent household, material pressure, contextual defeat, and atomic JSON save remain the working foundation.
+- Hearthford now has twelve connected rooms across a settlement hub, looping Reedwood, and a millworks route with an optional side room.
+- Consolidated preparation, persistent equipment and discoveries, distinct and mixed threats, material interactions, semantic colour, and an occasional merchant extend the original loop.
 
 ## Now
 
-- Implement the bounded deeper-Hearthford milestone in [`docs/deeper-hearthford-milestone.md`](docs/deeper-hearthford-milestone.md): connected rooms, consolidated tavern preparation, distinct builds and threats, discoveries, one occasional merchant, semantic colour, and a higher-value event log.
+- Play the deeper Hearthford loop from ordinary new worlds and tune only friction, pacing, or balance demonstrated by owner play.
 
 ## Next
 
@@ -30,3 +30,4 @@
 - The web v19 tree is preserved at branch `archive/web-v19` and annotated tag `jomon-web-v19-final`, both targeting `de1c1e8`.
 - Browser runtime, dependencies, tests, generated assets, and active contracts were removed after the terminal loop passed tests and PTY play.
 - The implemented causal chain and loop are recorded in [`docs/causal-generation-and-loop.md`](docs/causal-generation-and-loop.md).
+- The deeper Hearthford milestone and its verification are recorded in [`docs/deeper-hearthford-milestone.md`](docs/deeper-hearthford-milestone.md).

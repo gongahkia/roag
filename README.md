@@ -43,13 +43,24 @@ do not.
 
 ## Playable loop
 
-Choose a courier at `C`, a two-item loadout at `L`, and crew support at `P`.
-Inspect the hold at `H`, then leave through the `+` gangplank. Meet the named
-contact at `M`; accept, refuse, or alter the material request. The direct route
-can lead to a human obstruction; the southern `&` flood control opens a
-position-based evasion route. Recover objective cargo at `R` or a useful side
-resource at `r`, then report to the contact and physically return through the
-gangplank.
+Use the tavern `C` to choose an eligible courier, weapon, secondary item,
+crew support, and an available finite relic in one zero-time preparation menu.
+The former `L` and `P` stations are optional readouts. Inspect the hold at `H`,
+then leave through the `+` gangplank.
+
+Hearthford is a connected twelve-room region: a settlement hub, a looping
+Reedwood network, and a mostly linear mill route with one seed-varying side
+room. Meet the named contact at `M`; accept, refuse, or materially alter the
+request. Explore optional rooms for resources and practical discoveries, use
+gates, mud, shutters, cargo cover, flood controls, and machinery, and resolve
+human, animal, mixed, and operational threats by combat or situated non-combat
+means. Recover objective cargo at `R`, report to the contact, and physically
+backtrack to Jomon's gangplank.
+
+Returned equipment and eligible discoveries persist. After some completed
+expeditions, a deterministic visiting merchant appears at `$` aboard Jomon
+with three condition- and outcome-derived lots. Purchases use bounded trade
+credit and remain available for later preparations.
 
 The four visible pressure contributors—elapsed time, depth, noise, and carried
 valuables—change alert distance, pursuit speed, crossing risk, material loss,
@@ -66,6 +77,7 @@ migrations exist yet.
 ```console
 python -m unittest discover -s tests -v
 python -m compileall -q jomon tests
+git diff --check
 ```
 
 See [`LORE.md`](LORE.md), [`PRODUCT.md`](PRODUCT.md), [`TODO.md`](TODO.md), and
