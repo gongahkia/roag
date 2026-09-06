@@ -884,3 +884,347 @@ def attack(state: GameState) -> ActionResult:
         }[state.weapon]
         weapon_text = state.weapon
         sound = 1 if state.weapon in {"cudgel", "staff"} else 2
+    if state.weapon == "billhook":
+        target.morale -= 1
+        old_position = target.position
+        target.position = _step_toward(state, target, state.position)
+        weapon_text += " pulls the target out of position"
+        if "mobile hook" in build_combinations(state):
+            state.position = old_position
+    elif state.weapon == "spear":
+        target.position = _step_away(state, target)
+        weapon_text += " controls spacing"
+    elif state.weapon == "cudgel":
+        target.morale -= 2
+        target.position = _step_away(state, target)
+        weapon_text += " dazes and knocks back"
+    elif state.weapon == "staff":
+        adjacent = [
+            other for other in candidates
+            if distance(state.position, other.position) <= 1
+        ]
+        for other in adjacent[1:]:
+            other.health = max(0, other.health - 1)
+            if other.health == 0:
+                other.status = "defeated"
+        state.guarded_step = True
+        weapon_text += " sweeps nearby space and readies movement"
+    elif state.weapon == "hand axe":
+        target.morale -= 1
+        weapon_text += " breaks guard"
+    if (
+        "high-ground drive" in build_combinations(state)
+        and target.position.z < state.position.z
+    ):
+        target.position = _step_away(state, target)
+    sounds = emit_sound(state, sound)
+    target.health = max(0, target.health - damage)
+    if target.health == 0 or (
+        target.morale <= 0 and target.profile != "machinery"
+    ):
+        target.status = "defeated" if target.health == 0 else "retreated"
+        target.intent = "removed from the route"
+        memory = f"{state.courier.name} defeated {target.name} with {state.weapon}."
+        state.remember(memory)
+        _remember_contact(state, memory)
+        text = f"The {weapon_text} removes the {target.name} from the route."
+    else:
+        text = (
+            f"The {weapon_text} deals {damage}; "
+            f"{target.name} has {target.health}/{target.max_health}."
+        )
+    return _time_result(state, " ".join([text, *sounds]), priority=3)
+
+
+def guard(state: GameState) -> ActionResult:
+    if state.location != "region":
+        return _plain(state, "There is no expedition danger to guard against.")
+    if state.weapon == "crossbow" and not state.crossbow_loaded:
+        if state.ammunition <= 0:
+            return _plain(state, "No crossbow ammunition remains.")
+        state.crossbow_loaded = True
+        return _time_result(
+            state,
+            "You reload the crossbow behind a committed guarded posture.",
+            guarded=state.gear == "buckler",
+            priority=3,
+        )
+    engaged = [
+        threat for threat in state.threats
+        if threat.status == "engaged"
+        and distance(state.position, threat.position) <= 7
+    ]
+    if not engaged:
+        return _plain(state, "There is no immediate danger to guard against.")
+    strong = (
+        state.gear == "buckler"
+        or state.weapon == "staff"
+        or (state.courier and state.courier.technique == "set stance")
+    )
+    if strong:
+        for threat in engaged:
+            threat.morale -= 1
+    state.guarded_step = (
+        state.weapon == "staff" or "reed sole wraps" in state.carried_passives
+    )
+    text = (
+        "You set a reinforced guard; the next reposition preserves control."
+        if strong
+        else "You guard and yield space deliberately."
+    )
+    return _time_result(state, text, guarded=True, priority=3)
+
+
+def use_gear(state: GameState) -> ActionResult:
+    if state.location != "region":
+        return _plain(state, "Expedition gear is used in the field.")
+    if (
+        state.carried_relic == "tide-knot charm"
+        and state.relics.get("tide-knot charm", 0)
+    ):
+        state.relics["tide-knot charm"] -= 1
+        if state.relics["tide-knot charm"] == 0:
+            del state.relics["tide-knot charm"]
+        state.carried_relic = None
+        for threat in state.threats:
+            if (
+                threat.status == "engaged"
+                and distance(state.position, threat.position) <= 10
+            ):
+                threat.status, threat.intent = (
+                    "evaded",
+                    "lost in unnaturally still water",
+                )
+        state.noise = max(0, state.noise - 4)
+        return _time_result(
+            state,
+            "The finite tide-knot unravels; pursuit loses the rule of flowing water.",
+            priority=3,
+        )
+    if state.gear == "smoke pot" and state.smoke_charges > 0:
+        state.smoke_charges -= 1
+        points = [
+            state.position,
+            Position(state.position.x + 1, state.position.y, state.position.z),
+            Position(state.position.x, state.position.y + 1, state.position.z),
+        ]
+        if base_tile(state, state.position) == "O" and state.position.z < 2:
+            points.append(
+                Position(state.position.x, state.position.y, state.position.z + 1)
+            )
+        state.smoke.update({position_key(point): 6 for point in points})
+        for threat in state.threats:
+            if threat.status == "engaged" and threat.profile == "ranged":
+                threat.status, threat.intent = "watching", "searches through smoke"
+        return _time_result(
+            state,
+            "Finite smoke closes adjacent sightlines and rises at an opening; ranged aim breaks.",
+            priority=3,
+        )
+    animal = next(
+        (
+            threat
+            for threat in state.threats
+            if threat.status in {"watching", "engaged"}
+            and threat.profile == "animal"
+            and distance(state.position, threat.position) <= 7
+        ),
+        None,
+    )
+    if state.gear == "hooded lantern" and animal and state.lamp_oil > 0:
+        state.lamp_oil -= 1
+        animal.status, animal.intent = (
+            "evaded",
+            "follows controlled light away from the route",
+        )
+        state.remember(
+            f"{state.courier.name} redirected the reed boar with finite lamplight."
+        )
+        return _time_result(
+            state,
+            "Controlled lamplight draws the territorial animal away: a material evasion.",
+            priority=3,
+        )
+    if (
+        state.consumables.get("willow dressing", 0)
+        and state.courier
+        and state.courier.injury != "none"
+    ):
+        state.consumables["willow dressing"] -= 1
+        if state.consumables["willow dressing"] == 0:
+            del state.consumables["willow dressing"]
+        state.courier.health = min(
+            state.courier.max_health, state.courier.health + 3
+        )
+        state.courier.injury = "treated soreness"
+        return _time_result(
+            state,
+            "A finite willow dressing restores three health; field healing remains scarce.",
+            priority=3,
+        )
+    return _plain(state, "No readied finite gear applies here.")
+
+
+def negotiate(state: GameState) -> ActionResult:
+    if state.location != "region" or state.courier is None:
+        return _plain(state, "No negotiation is possible here.")
+    humans = [
+        threat for threat in state.threats
+        if threat.status == "engaged"
+        and threat.profile in {"pursuer", "reach", "ranged"}
+        and distance(state.position, threat.position) <= 4
+    ]
+    if not humans:
+        return _plain(state, "No human obstruction is close enough to hear terms.")
+    has_terms = (
+        state.courier.technique == "measured terms"
+        or state.gear == "trade seals"
+        or state.support == "factor surety"
+        or "paper" in state.carried_goods
+        or "valuable leverage" in build_combinations(state)
+    )
+    if not has_terms:
+        return _plain(
+            state,
+            "You lack witnessed seals, material surety, paper, or valuable leverage.",
+        )
+    if "paper" in state.carried_goods and state.gear != "trade seals":
+        state.carried_goods["paper"].quantity -= 1
+        if state.carried_goods["paper"].quantity == 0:
+            del state.carried_goods["paper"]
+    for threat in humans:
+        threat.status, threat.intent = "negotiated", "accepts witnessed terms"
+    memory = (
+        f"{state.courier.name} settled {len(humans)} route obstruction(s) "
+        "through material terms."
+    )
+    state.remember(memory)
+    _remember_contact(state, memory)
+    return _time_result(
+        state, "Witnessed material terms settle the obstruction without combat.", priority=3
+    )
+
+
+def retreat(state: GameState) -> ActionResult:
+    nearby = [
+        threat for threat in state.threats
+        if threat.status == "engaged"
+        and distance(state.position, threat.position) <= 9
+    ]
+    if state.location != "region" or not nearby:
+        return _plain(state, "There is no encounter to retreat from.")
+    has_line = (
+        bool(state.smoke)
+        or state.flood_control == "lowered"
+        or state.gear in {"rope", "smoke pot"}
+    )
+    if pressure(state).depth >= 5 and not has_line:
+        return _plain(
+            state,
+            "The deep route is cut off; create smoke, water, or a rigged line first.",
+        )
+    message = _return_after_defeat(
+        state, "You abandon the route under pursuit.", permanent=False
+    )
+    return _time_result(state, message, priority=3)
+
+
+def merchant_visit_due(seed: str, returned_expeditions: int) -> bool:
+    if returned_expeditions <= 0:
+        return False
+    phase = stage_rng(seed, "merchant-cycle").randrange(1, 4)
+    return (returned_expeditions - phase) % 3 == 0
+
+
+def merchant_stock_for(state: GameState) -> list[str]:
+    context = {
+        "ironwork": "hand axe",
+        "timber": "cargo harness",
+        "charcoal": "hooded lantern",
+    }[state.region.objective_commodity]
+    outcome = "crossbow" if state.objective_status == "completed" else "smoke pot"
+    rare = (
+        state.objective_status == "completed"
+        and stage_rng(
+            state.seed, f"merchant-stock:{state.returned_expeditions}"
+        ).randrange(5) == 0
+    )
+    finite = "tide-knot charm" if rare else "willow dressing"
+    return list(dict.fromkeys((context, outcome, finite)))[:3]
+
+
+def purchase_merchant_item(state: GameState, item: str) -> ActionResult:
+    if (
+        state.location != "jomon"
+        or not state.merchant_present
+        or item not in state.merchant_stock
+    ):
+        return _plain(state, "That merchant lot is not available.")
+    cost, kind = MERCHANT_ITEMS[item]
+    cost = max(1, cost - (1 if state.support == "factor surety" else 0))
+    if state.trade_credit < cost:
+        return _plain(
+            state, f"The lot needs {cost} credit; Jomon has {state.trade_credit}."
+        )
+    state.trade_credit -= cost
+    state.merchant_stock.remove(item)
+    if kind == "weapon" and item not in state.owned_weapons:
+        state.owned_weapons.append(item)
+    elif kind == "gear" and item not in state.owned_gear:
+        state.owned_gear.append(item)
+    elif kind == "consumable":
+        state.consumables[item] = state.consumables.get(item, 0) + 1
+    elif kind == "relic":
+        state.relics[item] = state.relics.get(item, 0) + 1
+    state.remember(
+        f"Jomon exchanged {cost} credit for {item} from the visiting merchant."
+    )
+    return _time_result(
+        state, f"Purchased {item}; it persists aboard Jomon.", priority=3
+    )
+
+
+def return_to_jomon(state: GameState) -> ActionResult:
+    if (
+        state.location != "region"
+        or state.position != state.region.landmarks["landing"]
+    ):
+        return _plain(state, "Return requires Hearthford's physical gangplank.")
+    courier = state.courier
+    if state.objective_status in {"accepted", "altered"}:
+        state.objective_status = "failed"
+        state.contact.disposition = max(-3, state.contact.disposition - 1)
+        _remember_contact(
+            state, f"{courier.name} returned without completing the accepted request."
+        )
+    for name, stack in state.carried_goods.items():
+        vessel = state.vessel_cargo.get(name)
+        if vessel:
+            vessel.quantity += stack.quantity
+        else:
+            state.vessel_cargo[name] = stack
+    state.carried_goods.clear()
+    for name, count in state.carried_passives.items():
+        state.owned_passives[name] = state.owned_passives.get(name, 0) + count
+    state.carried_passives.clear()
+    state.location, state.current_room, state.position = (
+        "jomon",
+        None,
+        JOMON_GANGPLANK,
+    )
+    state.returned_expeditions += 1
+    state.merchant_present = merchant_visit_due(
+        state.seed, state.returned_expeditions
+    )
+    state.merchant_stock = merchant_stock_for(state) if state.merchant_present else []
+    state.remember(
+        f"{courier.name} returned physically through Jomon's gangplank; "
+        "discoveries entered household stores."
+    )
+    merchant = " A visiting merchant has tied alongside." if state.merchant_present else ""
+    return _time_result(
+        state,
+        "You cross the gangplank home; cargo, discoveries, terrain, and consequences "
+        f"persist.{merchant}",
+        priority=3,
+    )
