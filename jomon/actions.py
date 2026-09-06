@@ -456,9 +456,10 @@ def _time_result(
     steps: int = 1,
     priority: int = 2,
 ) -> ActionResult:
+    _advance_world(state, guarded=guarded, steps=steps)
+    # Keep the player's material consequence visible after same-turn intents.
     if message:
         state.add_message(message, priority=priority)
-    _advance_world(state, guarded=guarded, steps=steps)
     return ActionResult(True, True, message)
 
 

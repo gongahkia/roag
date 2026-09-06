@@ -155,6 +155,14 @@ class TimeAndBuildTests(unittest.TestCase):
         self.assertIn(marker, state.messages)
         self.assertFalse(any(message == "You move." for message in state.messages))
 
+    def test_action_consequence_follows_same_turn_threat_intents(self):
+        state = prepared("visible floor fall", weapon="hand axe")
+        state.position = Position(78, 22, 1)
+        result = interact(state)
+        self.assertTrue(result.time_advanced)
+        self.assertEqual(state.position, Position(78, 22, 0))
+        self.assertIn("marked floor breaks", state.messages[-1])
+
 
 class WeaponAndThreatTests(unittest.TestCase):
     def weapon_state(self, weapon: str, gap: int = 1):
