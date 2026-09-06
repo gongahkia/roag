@@ -1719,9 +1719,10 @@ export class MedievalApp {
       renderBoundedMedievalCanvasRows(context, 15, 15, `MAP ${legendEntries.slice(2, 4).join(' // ')}`, palette.bodyText, panels.main.x, panels.main.width)
       renderBoundedMedievalCanvasRows(context, 16, 16, `MAP ${legendEntries.slice(4).join(' // ')}`, palette.bodyText, panels.main.x, panels.main.width)
       renderBoundedMedievalCanvasRows(context, 17, 18, terminal.legend.limitationsText, palette.mutedText, panels.main.x, panels.main.width)
+      const expedition = world.state.expedition
+      renderBoundedMedievalCanvasRows(context, 19, 19, `EXPEDITION // ${uppercase(expedition.consequence)} // OBJECTIVE ${uppercase(expedition.objective)} // SEAL ${uppercase(expedition.resource)} // RUNS ${expedition.expeditionCount}`, expedition.consequence === 'none' ? palette.mutedText : palette.statusReady, panels.main.x, panels.main.width)
       const latestAction = terminal.status.find(item => item.value.kind === 'vessel-prop-action')
-      renderBoundedMedievalCanvasRows(context, 19, 19, latestAction ? `STATUS // ${latestAction.accessibilityText}` : 'STATUS // NO RECORDED VESSEL PROP ACTION', palette.mutedText, panels.main.x, panels.main.width)
-      renderBoundedMedievalCanvasRows(context, 20, 20, `MESSAGES // ${terminal.messages.length ? terminal.messages.map(item => item.text).join(' // ') : 'NO CURRENT AUTHORITATIVE MESSAGES.'}`, palette.mutedText, panels.main.x, panels.main.width)
+      renderBoundedMedievalCanvasRows(context, 20, 20, latestAction ? `STATUS // ${latestAction.accessibilityText}` : 'STATUS // NO RECORDED VESSEL PROP ACTION', palette.mutedText, panels.main.x, panels.main.width)
       rule(context, 20, panels.main.x, panels.main.x + panels.main.width)
       const defaultHelp = this.managementExpanded
         ? 'ARROWS / HJKL / YUBN move // M collapse // [ / ] sections // ENTER prompt // ? help // F2 controls // ESC worlds'
