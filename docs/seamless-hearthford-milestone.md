@@ -92,7 +92,7 @@ turn path.
 ### Builds, treasure, and tension
 
 The active catalogue contains six weapons, eight secondary items, five crew
-supports, six persistent role techniques, five finite field discoveries,
+supports, six persistent role techniques, three finite field discoveries,
 twelve stackable passives, and two finite relics. Eight seed-filled containers
 include roadside, ruin, flood-islet, cave, buried, gantry, watch-roof, and
 mill-roof stores. Requirements include rope, light, and a mill key; opened
@@ -106,7 +106,10 @@ compose with distinct weapon actions rather than an ability framework:
 spear controls spacing, billhook pulls and may exchange positions, cudgel
 knocks back and attacks morale, staff sweeps adjacent targets and prepares
 guarded movement, axe breaks guard and selected flooring, and crossbow uses
-aim/fire/reload commitments with finite ammunition.
+aim/fire/reload commitments with finite ammunition. The buckler and guard
+technique now press morale harder together, the mill-tooth wedge specifically
+lets a cudgel breach weak flooring, and a waxed bowstring preserves committed
+crossbow aim through hard rain.
 
 Seven placed threats exercise five profiles: an actual looping road patrol,
 territorial reed boar, two readable ranged keepers, a reach-oriented levy,
@@ -139,7 +142,7 @@ All required commands passed after implementation:
 
 ```text
 python -m unittest discover -s tests -v
-Ran 35 tests in 3.016s
+Ran 38 tests in 3.182s
 OK
 
 python -m compileall -q jomon tests
@@ -157,7 +160,10 @@ limits and combinations, all six weapon identities, patrol/noise/pressure,
 the action-clock deadline, persistence, merchant exchange, contextual defeat,
 death, succession, and retention of a primary action consequence after
 same-turn hostile intents. A dedicated elite test proves that its outer and
-inner danger lanes alternate and affect the same position differently.
+inner danger lanes alternate and affect the same position differently. The
+authored watch keeper now occupies its aligned roof opening, so the cross-level
+attack test exercises a natural encounter position rather than relocating an
+unrelated actor.
 
 ### Manual PTY verification
 
@@ -200,9 +206,11 @@ weak mill floor. Interacting broke it into a visible shaft, moved the courier
 from `z=1` to the aligned `z=0` tile, and reduced health from 10 to 8. That
 check exposed and then verified a fix for same-turn threat lines hiding the
 floor/fall consequence. A hostile responding through an adjacent open level
-was exercised in ordinary play; a player attack across levels remains covered
-only by a focused automated test. The smoke path was used on one level; water,
-not smoke, was the cross-level propagation manually exercised.
+was exercised in ordinary play. A further controlled PTY check put the courier
+at the authored watch ladder: climbing was visibly blocked by the keeper above,
+and a spear attack from `z=1` struck it at `z=2` for 2 harm and forced it away
+from the opening. The smoke path was used on one level; water, not smoke, was
+the cross-level propagation manually exercised.
 
 A second controlled-save PTY check exercised the elite crown wheel directly.
 Its log first marked outer aisles 22/28; the courier remained safe on row 24.
