@@ -1,0 +1,724 @@
+"""Deterministic game rules with no terminal dependencies."""
+
+from __future__ import annotations
+
+import random
+from dataclasses import asdict, dataclass, field
+from typing import Any
+
+from .content import Catalog
+
+
+class RuleError(ValueError):
+    """Raised when a command is not legal in the current state."""
+
+
+@dataclass
+class Actor:
+    id: str
+    name: str
+    max_hp: int
+    hp: int
+    rank: int
+    side: str
+    hero_class: str | None = None
+    definition_id: str | None = None
+    stress: int = 0
+    block: int = 0
+    deaths_door: bool = False
+    affliction: str | None = None
+    statuses: dict[str, int] = field(default_factory=dict)
+    guarded_by: str | None = None
+    guard_turns: int = 0
+
+    @property
+    def alive(self) -> bool:
+        return self.hp > 0 or (self.side == "hero" and self.deaths_door)
+
+
+@dataclass
+class CardInstance:
+    card_id: str
+    upgraded: bool = False
+
+
+@dataclass
+class Room:
+    id: int
+    name: str
+    kind: str
+    neighbors: list[int]
+    resolved: bool = False
+    visited: bool = False
+    content_id: str | None = None
+
+
+@dataclass
+class GameState:
+    seed: int
+    phase: str
+    heroes: list[Actor]
+    deck: list[CardInstance]
+    rooms: list[Room]
+    current_room: int = 0
+    light: int = 100
+    supplies: int = 4
+    round: int = 0
+    energy: int = 0
+    enemies: list[Actor] = field(default_factory=list)
+    draw_pile: list[CardInstance] = field(default_factory=list)
+    discard_pile: list[CardInstance] = field(default_factory=list)
+    hand: list[CardInstance] = field(default_factory=list)
+    intents: list[dict[str, Any]] = field(default_factory=list)
+    rewards: list[str] = field(default_factory=list)
+    current_event: str | None = None
+    service_type: str | None = None
+    combat_kind: str | None = None
+    log: list[str] = field(default_factory=list)
+
+
+def _tuples(value: Any) -> Any:
+    if isinstance(value, list):
+        return tuple(_tuples(item) for item in value)
+    return value
+
+
+class GameEngine:
+    """Owns the mutable run and its seeded pseudo-random stream."""
+
+    SAVE_VERSION = 1
+
+    def __init__(self, catalog: Catalog, state: GameState, rng: random.Random):
+        self.catalog = catalog
+        self.state = state
+        self.rng = rng
+
+    @classmethod
+    def new(cls, catalog: Catalog, seed: int) -> GameEngine:
+        rng = random.Random(seed)
+        heroes = [
+            Actor(
+                id=hero["id"],
+                name=hero["name"],
+                hero_class=hero["role"],
+                max_hp=hero["max_hp"],
+                hp=hero["max_hp"],
+                rank=hero["rank"],
+                side="hero",
+            )
+            for hero in sorted(catalog.heroes.values(), key=lambda item: item["rank"])
+        ]
+        deck = [
+            CardInstance(card_id)
+            for hero in sorted(catalog.heroes.values(), key=lambda item: item["rank"])
+            for card_id in hero["starter_deck"]
+        ]
+        rooms = cls._generate_rooms(catalog, rng)
+        state = GameState(
+            seed=seed,
+            phase="exploration",
+            heroes=heroes,
+            deck=deck,
+            rooms=rooms,
+            light=catalog.balance.get("starting_light", 100),
+            supplies=catalog.balance.get("starting_supplies", 4),
+            log=["The airlock seals. The Orison is no longer empty."],
+        )
+        return cls(catalog, state, rng)
+
+    @staticmethod
+    def _generate_rooms(catalog: Catalog, rng: random.Random) -> list[Room]:
+        edges = {
+            0: [1], 1: [0, 2, 3], 2: [1, 4], 3: [1, 4],
+            4: [2, 3, 5, 6], 5: [4, 7], 6: [4, 7],
+            7: [5, 6, 8, 9], 8: [7, 10], 9: [7, 10],
+            10: [8, 9, 11], 11: [10],
+        }
+        kinds = ["fight"] * 4 + ["event"] * 2 + ["camp", "upgrade", "elite", "cache"]
+        rng.shuffle(kinds)
+        normal = [item["id"] for item in catalog.encounters.values() if item["kind"] == "normal"]
+        elite = [item["id"] for item in catalog.encounters.values() if item["kind"] == "elite"]
+        events = list(catalog.events)
+        rng.shuffle(events)
+        labels = {
+            "fight": "Contested Deck",
+            "event": "Unstable Compartment",
+            "camp": "Sealed Crew Quarters",
+            "upgrade": "Machine Workshop",
+            "elite": "Heavy Motion Contact",
+            "cache": "Emergency Stores",
+        }
+        rooms = [Room(0, "Docking Airlock", "start", edges[0], True, True)]
+        event_index = 0
+        for room_id, kind in enumerate(kinds, 1):
+            content_id = None
+            if kind == "fight":
+                content_id = rng.choice(normal)
+            elif kind == "elite":
+                content_id = rng.choice(elite)
+            elif kind == "event":
+                content_id = events[event_index]
+                event_index += 1
+            rooms.append(Room(room_id, labels[kind], kind, edges[room_id], content_id=content_id))
+        rooms.append(Room(11, "Overseer Chamber", "boss", edges[11], content_id="the_core"))
+        return rooms
+
+    @classmethod
+    def from_snapshot(cls, catalog: Catalog, snapshot: dict[str, Any]) -> GameEngine:
+        if snapshot.get("save_version") != cls.SAVE_VERSION:
+            raise RuleError("unsupported save version")
+        raw = snapshot.get("state")
+        if not isinstance(raw, dict):
+            raise RuleError("save has no game state")
+        try:
+            state = GameState(
+                seed=raw["seed"],
+                phase=raw["phase"],
+                heroes=[Actor(**item) for item in raw["heroes"]],
+                deck=[CardInstance(**item) for item in raw["deck"]],
+                rooms=[Room(**item) for item in raw["rooms"]],
+                current_room=raw["current_room"],
+                light=raw["light"],
+                supplies=raw["supplies"],
+                round=raw["round"],
+                energy=raw["energy"],
+                enemies=[Actor(**item) for item in raw["enemies"]],
+                draw_pile=[CardInstance(**item) for item in raw["draw_pile"]],
+                discard_pile=[CardInstance(**item) for item in raw["discard_pile"]],
+                hand=[CardInstance(**item) for item in raw["hand"]],
+                intents=raw["intents"],
+                rewards=raw["rewards"],
+                current_event=raw["current_event"],
+                service_type=raw["service_type"],
+                combat_kind=raw["combat_kind"],
+                log=raw["log"],
+            )
+            rng = random.Random()
+            rng.setstate(_tuples(snapshot["rng_state"]))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise RuleError(f"invalid save data: {exc}") from exc
+        return cls(catalog, state, rng)
+
+    def snapshot(self) -> dict[str, Any]:
+        return {
+            "save_version": self.SAVE_VERSION,
+            "content_schema_version": self.catalog.raw["schema_version"],
+            "state": asdict(self.state),
+            "rng_state": self.rng.getstate(),
+        }
+
+    def add_log(self, message: str) -> None:
+        self.state.log.append(message)
+        del self.state.log[:-60]
+
+    def room(self, room_id: int | None = None) -> Room:
+        return self.state.rooms[self.state.current_room if room_id is None else room_id]
+
+    def move_to(self, room_id: int) -> None:
+        if self.state.phase != "exploration":
+            raise RuleError("the party cannot travel right now")
+        if room_id not in self.room().neighbors:
+            raise RuleError("that room is not connected")
+        destination = self.room(room_id)
+        self.state.current_room = room_id
+        destination.visited = True
+        cost = self.catalog.balance["travel_light_cost"]
+        self.state.light = max(0, self.state.light - cost)
+        self.add_log(f"Entered {destination.name}. Light -{cost}.")
+        low_light = self.state.light < self.catalog.balance["low_light_threshold"]
+        if low_light:
+            for hero in self.state.heroes:
+                self._change_stress(hero, 3)
+        if destination.resolved:
+            if low_light and self.rng.random() < self.catalog.balance.get("low_light_ambush_chance", 0.35):
+                normal = [item["id"] for item in self.catalog.encounters.values() if item["kind"] == "normal"]
+                self.add_log("Movement in the dark draws an ambush.")
+                self.start_combat(self.rng.choice(normal), "ambush", surprised=True)
+            return
+        self._enter_room(destination)
+
+    def _enter_room(self, room: Room) -> None:
+        if room.kind in {"fight", "elite", "boss"}:
+            self.start_combat(room.content_id or "", room.kind, surprised=self._surprised())
+        elif room.kind == "event":
+            self.state.phase = "event"
+            self.state.current_event = room.content_id
+        elif room.kind in {"camp", "upgrade"}:
+            self.state.phase = "service"
+            self.state.service_type = room.kind
+        elif room.kind == "cache":
+            self.state.supplies += 2
+            self.state.light = min(100, self.state.light + 20)
+            room.resolved = True
+            self.add_log("Emergency stores yield 2 supplies and 20 light.")
+
+    def _surprised(self) -> bool:
+        return (
+            self.state.light < self.catalog.balance["low_light_threshold"]
+            and self.rng.random() < self.catalog.balance.get("low_light_ambush_chance", 0.35)
+        )
+
+    def use_supply(self, purpose: str) -> None:
+        if self.state.phase != "exploration" or self.state.supplies < 1:
+            raise RuleError("no supply can be used now")
+        if purpose == "heal":
+            target = min(self.state.heroes, key=lambda actor: actor.hp / actor.max_hp)
+            self._heal(target, 9)
+            message = f"A supply restores {target.name}."
+        elif purpose == "calm":
+            target = max(self.state.heroes, key=lambda actor: actor.stress)
+            self._change_stress(target, -14)
+            message = f"A supply steadies {target.name}."
+        elif purpose == "light":
+            self.state.light = min(100, self.state.light + 25)
+            message = "A flare restores 25 light."
+        else:
+            raise RuleError("unknown supply use")
+        self.state.supplies -= 1
+        self.add_log(message)
+
+    def start_combat(self, encounter_id: str, kind: str | None = None, surprised: bool = False) -> None:
+        encounter = self.catalog.encounters.get(encounter_id)
+        if not encounter:
+            raise RuleError(f"unknown encounter: {encounter_id}")
+        self.state.phase = "combat"
+        self.state.combat_kind = kind or encounter["kind"]
+        self.state.enemies = []
+        for rank, enemy_id in enumerate(encounter["enemies"], 1):
+            definition = self.catalog.enemies[enemy_id]
+            self.state.enemies.append(
+                Actor(
+                    f"{enemy_id}:{rank}",
+                    definition["name"],
+                    definition["max_hp"],
+                    definition["max_hp"],
+                    rank,
+                    "enemy",
+                    definition_id=enemy_id,
+                )
+            )
+        self.state.draw_pile = [CardInstance(card.card_id, card.upgraded) for card in self.state.deck]
+        self.rng.shuffle(self.state.draw_pile)
+        self.state.discard_pile = []
+        self.state.hand = []
+        self.state.round = 1
+        self.state.intents = self._choose_intents()
+        self.add_log(f"Combat begins: {encounter['id']}.")
+        if surprised:
+            self.add_log("The crew is surprised in the darkness.")
+            self._enemy_phase()
+            if self.state.phase != "combat":
+                return
+            self.state.intents = self._choose_intents()
+        self._start_player_turn()
+
+    def _start_player_turn(self) -> None:
+        for hero in self.living_heroes():
+            hero.block = 0
+            self._tick_wound(hero)
+            modifiers = self._affliction_modifiers(hero)
+            if modifiers.get("turn_stress"):
+                self._change_stress(hero, int(modifiers["turn_stress"]))
+        if self.state.phase != "combat":
+            return
+        self.state.energy = self.catalog.balance["energy"]
+        self._draw(self.catalog.balance["hand_size"] - len(self.state.hand))
+
+    def living_heroes(self) -> list[Actor]:
+        return sorted((actor for actor in self.state.heroes if actor.alive), key=lambda actor: actor.rank)
+
+    def living_enemies(self) -> list[Actor]:
+        return sorted((actor for actor in self.state.enemies if actor.hp > 0), key=lambda actor: actor.rank)
+
+    def card_definition(self, card: CardInstance) -> dict[str, Any]:
+        return self.catalog.cards[card.card_id]
+
+    def card_cost(self, card: CardInstance) -> int:
+        definition = self.card_definition(card)
+        actor = self._actor(definition["hero"])
+        delta = int(self._affliction_modifiers(actor).get("card_cost_delta", 0))
+        return max(0, definition.get("upgrade_cost", definition["cost"]) + delta)
+
+    def valid_targets(self, hand_index: int) -> list[str]:
+        if not 0 <= hand_index < len(self.state.hand):
+            return []
+        definition = self.card_definition(self.state.hand[hand_index])
+        target = definition["target"]
+        if target == "self":
+            return [definition["hero"]]
+        if target in {"all_enemies", "all_allies"}:
+            return [target]
+        if target == "enemy":
+            ranks = definition["target_ranks"]
+            return [actor.id for actor in self.living_enemies() if actor.rank in ranks]
+        if target == "ally":
+            return [actor.id for actor in self.living_heroes()]
+        return []
+
+    def play_card(self, hand_index: int, target_id: str | None = None) -> None:
+        if self.state.phase != "combat":
+            raise RuleError("cards can only be played in combat")
+        if not 0 <= hand_index < len(self.state.hand):
+            raise RuleError("invalid hand position")
+        card = self.state.hand[hand_index]
+        definition = self.card_definition(card)
+        actor = self._actor(definition["hero"])
+        if not actor.alive or actor.rank not in definition["from_ranks"]:
+            raise RuleError("the acting hero is not in a valid rank")
+        cost = self.card_cost(card)
+        if cost > self.state.energy:
+            raise RuleError("not enough energy")
+        valid = self.valid_targets(hand_index)
+        target_id = target_id or (valid[0] if len(valid) == 1 else None)
+        if target_id not in valid:
+            raise RuleError("choose a valid target")
+        self.state.energy -= cost
+        self.state.hand.pop(hand_index)
+        self.state.discard_pile.append(card)
+        effects = definition["upgrade_effects"] if card.upgraded else definition["effects"]
+        main_targets = self._card_targets(definition["target"], target_id, actor)
+        self.add_log(f"{actor.name} uses {definition['name']}.")
+        for effect in effects:
+            if self.state.phase != "combat":
+                break
+            if effect.get("condition_status") and not any(
+                effect["condition_status"] in target.statuses for target in main_targets
+            ):
+                continue
+            targets = self._effect_targets(effect.get("target"), main_targets, actor)
+            self._apply_effect(actor, targets, effect)
+        if not self.living_enemies() and self.state.phase == "combat":
+            self._combat_victory()
+
+    def _card_targets(self, target_type: str, target_id: str | None, actor: Actor) -> list[Actor]:
+        if target_type == "self":
+            return [actor]
+        if target_type == "all_enemies":
+            return self.living_enemies()
+        if target_type == "all_allies":
+            return self.living_heroes()
+        return [self._actor(target_id or "")]
+
+    def _effect_targets(self, override: str | None, main: list[Actor], actor: Actor) -> list[Actor]:
+        if not override:
+            return main
+        if override == "self":
+            return [actor]
+        if override == "all_enemies":
+            return self.living_enemies() if actor.side == "hero" else self.living_heroes()
+        if override == "all_allies":
+            return self.living_heroes() if actor.side == "hero" else self.living_enemies()
+        return main
+
+    def _apply_effect(self, actor: Actor, targets: list[Actor], effect: dict[str, Any]) -> None:
+        op = effect["op"]
+        amount = int(effect.get("amount", 0))
+        if op == "draw":
+            self._draw(amount)
+        elif op == "discard":
+            for _ in range(min(amount, len(self.state.hand))):
+                self.state.discard_pile.append(self.state.hand.pop())
+        elif op == "energy":
+            self.state.energy += amount
+        else:
+            for target in list(targets):
+                if op == "damage":
+                    adjusted = amount
+                    if effect.get("bonus_status") in target.statuses:
+                        adjusted += int(effect.get("bonus", 0))
+                    adjusted = self._outgoing_damage(actor, adjusted)
+                    self._damage(target, adjusted)
+                elif op == "block":
+                    multiplier = float(self._affliction_modifiers(target).get("block_mult", 1))
+                    target.block += max(0, round(amount * multiplier))
+                elif op == "heal":
+                    self._heal(target, amount)
+                elif op == "stress" and target.side == "hero":
+                    self._change_stress(target, amount)
+                elif op == "move":
+                    self._move(target, amount)
+                elif op == "guard" and target.side == "hero" and target.id != actor.id:
+                    target.guarded_by = actor.id
+                    target.guard_turns = amount
+                elif op == "status":
+                    target.statuses[effect["status"]] = max(target.statuses.get(effect["status"], 0), amount)
+
+    def end_turn(self) -> None:
+        if self.state.phase != "combat":
+            raise RuleError("there is no combat turn to end")
+        self.state.discard_pile.extend(self.state.hand)
+        self.state.hand = []
+        for hero in self.living_heroes():
+            self._decay_statuses(hero)
+            if hero.guard_turns:
+                hero.guard_turns -= 1
+                if hero.guard_turns <= 0:
+                    hero.guarded_by = None
+        self._enemy_phase()
+        if self.state.phase != "combat":
+            return
+        self.state.round += 1
+        self.state.intents = self._choose_intents()
+        self._start_player_turn()
+
+    def _choose_intents(self) -> list[dict[str, Any]]:
+        intents = []
+        for enemy in self.living_enemies():
+            actions = self.catalog.enemies[enemy.definition_id or enemy.id]["actions"]
+            action = self.rng.choices(actions, weights=[item.get("weight", 1) for item in actions], k=1)[0]
+            intents.append({"enemy_rank": enemy.rank, "enemy_id": enemy.id, "action": action["name"]})
+        return intents
+
+    def _enemy_phase(self) -> None:
+        intents = list(self.state.intents)
+        for intent in intents:
+            if self.state.phase != "combat":
+                return
+            enemy = next((item for item in self.living_enemies() if item.rank == intent["enemy_rank"]), None)
+            if enemy is None:
+                continue
+            enemy.block = 0
+            self._tick_wound(enemy)
+            if enemy.hp <= 0:
+                self._normalize_ranks("enemy")
+                continue
+            if enemy.statuses.pop("stun", 0):
+                self.add_log(f"{enemy.name} is stunned.")
+                self._decay_statuses(enemy)
+                continue
+            actions = self.catalog.enemies[enemy.definition_id or enemy.id]["actions"]
+            action = next(item for item in actions if item["name"] == intent["action"])
+            targets = self._enemy_targets(action["target"], enemy)
+            self.add_log(f"{enemy.name} uses {action['name']}.")
+            for effect in action["effects"]:
+                self._apply_effect(enemy, self._effect_targets(effect.get("target"), targets, enemy), effect)
+                if self.state.phase != "combat":
+                    return
+            self._decay_statuses(enemy)
+
+    def _enemy_targets(self, rule: str, actor: Actor) -> list[Actor]:
+        heroes = self.living_heroes()
+        enemies = self.living_enemies()
+        if rule == "self":
+            return [actor]
+        if rule == "all_heroes":
+            return heroes
+        if rule == "front":
+            return [heroes[0]]
+        if rule == "back":
+            return [heroes[-1]]
+        if rule == "stressed":
+            return [max(heroes, key=lambda item: item.stress)]
+        if rule == "weakest_enemy":
+            return [min(enemies, key=lambda item: item.hp / item.max_hp)]
+        return [self.rng.choice(heroes)]
+
+    def _draw(self, amount: int) -> None:
+        for _ in range(max(0, amount)):
+            if not self.state.draw_pile:
+                if not self.state.discard_pile:
+                    return
+                self.state.draw_pile = self.state.discard_pile
+                self.state.discard_pile = []
+                self.rng.shuffle(self.state.draw_pile)
+            self.state.hand.append(self.state.draw_pile.pop())
+
+    def _actor(self, actor_id: str) -> Actor:
+        matches = [item for item in self.state.heroes + self.state.enemies if item.id == actor_id and item.alive]
+        if not matches:
+            raise RuleError(f"unknown or inactive actor: {actor_id}")
+        return matches[0]
+
+    def _outgoing_damage(self, actor: Actor, amount: int) -> int:
+        multiplier = float(self._affliction_modifiers(actor).get("damage_mult", 1))
+        if actor.statuses.get("weak"):
+            multiplier *= 0.75
+        if actor.statuses.get("focus"):
+            multiplier *= 1.25
+        return max(0, round(amount * multiplier))
+
+    def _damage(self, target: Actor, amount: int) -> None:
+        if target.statuses.get("vulnerable"):
+            amount = round(amount * 1.5)
+        if target.side == "hero" and target.guarded_by:
+            guard = next((item for item in self.living_heroes() if item.id == target.guarded_by), None)
+            if guard and guard.id != target.id:
+                self.add_log(f"{guard.name} intercepts the hit.")
+                target = guard
+        absorbed = min(target.block, amount)
+        target.block -= absorbed
+        amount -= absorbed
+        if amount <= 0:
+            return
+        if target.side == "hero" and target.deaths_door:
+            if self.rng.random() < self.catalog.balance["death_chance"]:
+                target.deaths_door = False
+                target.hp = 0
+                self.state.phase = "defeat"
+                self.add_log(f"{target.name} dies. The expedition is lost.")
+            else:
+                self._change_stress(target, 10)
+                self.add_log(f"{target.name} survives Death's Door.")
+            return
+        target.hp = max(0, target.hp - amount)
+        if target.side == "hero" and target.hp == 0:
+            target.deaths_door = True
+            self._change_stress(target, 12)
+            self.add_log(f"{target.name} is at Death's Door.")
+        elif target.side == "enemy" and target.hp == 0:
+            self.add_log(f"{target.name} is destroyed.")
+            self._normalize_ranks("enemy")
+
+    def _heal(self, target: Actor, amount: int) -> None:
+        multiplier = float(self._affliction_modifiers(target).get("healing_mult", 1))
+        target.hp = min(target.max_hp, target.hp + max(0, round(amount * multiplier)))
+        if target.hp > 0:
+            target.deaths_door = False
+
+    def _change_stress(self, target: Actor, amount: int) -> None:
+        target.stress = max(0, target.stress + amount)
+        limit = self.catalog.balance.get("stress_limit", 100)
+        if target.stress < limit:
+            return
+        if target.affliction:
+            target.stress = 50
+            target.hp = 0
+            target.deaths_door = True
+            self.add_log(f"{target.name} collapses at Death's Door.")
+        else:
+            target.stress = 50
+            target.affliction = self.rng.choice(list(self.catalog.afflictions))
+            name = self.catalog.afflictions[target.affliction]["name"]
+            self.add_log(f"{target.name} becomes {name}.")
+
+    def _affliction_modifiers(self, actor: Actor) -> dict[str, Any]:
+        if not actor.affliction:
+            return {}
+        return self.catalog.afflictions[actor.affliction].get("modifiers", {})
+
+    def _tick_wound(self, actor: Actor) -> None:
+        if actor.statuses.get("wound"):
+            self._damage(actor, 2)
+
+    def _decay_statuses(self, actor: Actor) -> None:
+        for status in list(actor.statuses):
+            if status == "stun":
+                continue
+            actor.statuses[status] -= 1
+            if actor.statuses[status] <= 0:
+                del actor.statuses[status]
+
+    def _move(self, actor: Actor, amount: int) -> None:
+        party = self.state.heroes if actor.side == "hero" else self.state.enemies
+        for _ in range(abs(amount)):
+            direction = 1 if amount > 0 else -1
+            next_rank = actor.rank + direction
+            if next_rank not in range(1, 5):
+                break
+            occupant = next((item for item in party if item.alive and item.rank == next_rank), None)
+            old_rank = actor.rank
+            actor.rank = next_rank
+            if occupant:
+                occupant.rank = old_rank
+
+    def _normalize_ranks(self, side: str) -> None:
+        party = self.state.heroes if side == "hero" else self.state.enemies
+        for rank, actor in enumerate(sorted((item for item in party if item.alive), key=lambda item: item.rank), 1):
+            actor.rank = rank
+
+    def _combat_victory(self) -> None:
+        kind = self.state.combat_kind
+        self.state.hand = []
+        self.state.draw_pile = []
+        self.state.discard_pile = []
+        self.state.intents = []
+        if kind == "boss":
+            self.room().resolved = True
+            self.state.phase = "victory"
+            self.add_log("The Overseer falls silent. Evacuation is possible.")
+            return
+        if kind != "ambush":
+            self.room().resolved = True
+        count = 4 if self.state.light < self.catalog.balance["low_light_threshold"] else 3
+        pool = list(self.catalog.cards)
+        self.state.rewards = self.rng.sample(pool, k=min(count, len(pool)))
+        self.state.phase = "reward"
+        self.add_log("Combat won. Choose a recovered technique.")
+
+    def choose_reward(self, index: int | None) -> None:
+        if self.state.phase != "reward":
+            raise RuleError("there is no reward to choose")
+        if index is not None:
+            if not 0 <= index < len(self.state.rewards):
+                raise RuleError("invalid reward")
+            self.state.deck.append(CardInstance(self.state.rewards[index]))
+            self.add_log(f"Added {self.catalog.cards[self.state.rewards[index]]['name']} to the deck.")
+        self.state.rewards = []
+        self.state.phase = "exploration"
+
+    def choose_event(self, index: int) -> None:
+        if self.state.phase != "event" or not self.state.current_event:
+            raise RuleError("there is no event choice to make")
+        event = self.catalog.events[self.state.current_event]
+        if not 0 <= index < len(event["choices"]):
+            raise RuleError("invalid event choice")
+        choice = event["choices"][index]
+        cost = choice.get("cost_supplies", 0)
+        if cost > self.state.supplies:
+            raise RuleError("not enough supplies")
+        self.state.supplies -= cost
+        grant_reward = False
+        for effect in choice["effects"]:
+            op, amount = effect["op"], int(effect.get("amount", 0))
+            if op == "light":
+                self.state.light = min(100, max(0, self.state.light + amount))
+            elif op == "supplies":
+                self.state.supplies = max(0, self.state.supplies + amount)
+            elif op == "heal_all":
+                for hero in self.living_heroes():
+                    self._heal(hero, amount)
+            elif op == "stress_all":
+                for hero in self.living_heroes():
+                    self._change_stress(hero, amount)
+            elif op == "damage_random":
+                self._damage(self.rng.choice(self.living_heroes()), amount)
+            elif op == "card_reward":
+                grant_reward = True
+        self.room().resolved = True
+        self.state.current_event = None
+        self.add_log(f"Event resolved: {choice['label']}.")
+        if self.state.phase == "defeat":
+            return
+        if grant_reward:
+            self.state.rewards = self.rng.sample(list(self.catalog.cards), k=3)
+            self.state.phase = "reward"
+        else:
+            self.state.phase = "exploration"
+
+    def service(self, action: str, card_index: int | None = None) -> None:
+        if self.state.phase != "service":
+            raise RuleError("no facility is available")
+        if action == "recover" and self.state.service_type == "camp":
+            for hero in self.living_heroes():
+                self._heal(hero, 7)
+                self._change_stress(hero, -10)
+            self.add_log("The crew rests behind a welded door.")
+        elif action == "upgrade":
+            if card_index is None or not 0 <= card_index < len(self.state.deck):
+                raise RuleError("choose a card to upgrade")
+            if self.state.deck[card_index].upgraded:
+                raise RuleError("that card is already upgraded")
+            self.state.deck[card_index].upgraded = True
+            self.add_log(f"Upgraded {self.catalog.cards[self.state.deck[card_index].card_id]['name']}.")
+        elif action == "remove":
+            if len(self.state.deck) <= 12:
+                raise RuleError("the deck cannot contain fewer than 12 cards")
+            if card_index is None or not 0 <= card_index < len(self.state.deck):
+                raise RuleError("choose a card to remove")
+            card = self.state.deck.pop(card_index)
+            self.add_log(f"Removed {self.catalog.cards[card.card_id]['name']}.")
+        else:
+            raise RuleError("that service is not available here")
+        self.room().resolved = True
+        self.state.service_type = None
+        self.state.phase = "exploration"
