@@ -103,17 +103,6 @@ def choose_relic(state: GameState, relic: str | None) -> ActionResult:
     return _result(state, f"Carried relic: {relic or 'none'}.")
 
 
-def choose_loadout(state: GameState, loadout_id: str) -> ActionResult:
-    """Small compatibility bridge for save-era tests and direct callers."""
-    pairs = {"arms": ("billhook", "buckler"), "smoke": ("staff", "smoke pot"), "tools": ("cudgel", "repair tools")}
-    if loadout_id not in pairs:
-        return _result(state, "That old loadout no longer exists; prepare at C.", changed=False)
-    weapon, gear = pairs[loadout_id]
-    first = choose_weapon(state, weapon)
-    second = choose_gear(state, gear)
-    return ActionResult(first.changed and second.changed, False, f"Readied {weapon} and {gear}.")
-
-
 def depart(state: GameState) -> ActionResult:
     if state.location != "jomon" or state.position != JOMON_GANGPLANK:
         return _result(state, "Departure requires Jomon's gangplank.", changed=False)

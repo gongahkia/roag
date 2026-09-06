@@ -26,7 +26,7 @@ from jomon.actions import (
     return_to_jomon,
     use_gear,
 )
-from jomon.content import COMMODITIES, GEAR, SUPPORTS, WEAPONS
+from jomon.content import COMMODITIES, GEAR, JOMON_MAP, SUPPORTS, WEAPONS
 from jomon.save import SaveError, load_game, save_game
 from jomon.state import CommodityStack, Position, SAVE_FORMAT, create_world, validate_state
 from jomon.terminal import SEMANTIC_ROLES, _handle_overlay, semantic_colour_plan, semantic_role
@@ -147,7 +147,7 @@ class ColourAndPreparationTests(unittest.TestCase):
 
     def test_tavern_opens_consolidated_menu_and_selection_is_zero_time(self):
         state = create_world("tavern preparation")
-        state.position = find_tile(tuple(__import__("jomon.content", fromlist=["JOMON_MAP"]).JOMON_MAP), "C")
+        state.position = find_tile(JOMON_MAP, "C")
         result = interact(state)
         self.assertEqual(result.overlay, "tavern")
         started = state.world_time
@@ -187,7 +187,7 @@ class ColourAndPreparationTests(unittest.TestCase):
 class TimePressureAndLogTests(unittest.TestCase):
     def test_inspection_cancel_and_blocked_move_are_zero_time(self):
         state = create_world("still water")
-        state.position = find_tile(__import__("jomon.content", fromlist=["JOMON_MAP"]).JOMON_MAP, "C")
+        state.position = find_tile(JOMON_MAP, "C")
         before = state.world_time
         self.assertFalse(interact(state).time_advanced)
         _handle_overlay(state, "tavern", 27)
