@@ -7,7 +7,7 @@ import random
 
 from .save import SaveError, load_game, save_path, valid_save_exists
 from .state import create_world
-from .terminal import _put, play
+from .terminal import MIN_HEIGHT, MIN_WIDTH, _put, play
 
 SEED_WORDS = ("reed", "hearth", "quay", "willow", "mill", "rain", "keel", "lantern")
 
@@ -41,6 +41,14 @@ def run(screen: curses.window) -> None:
     while True:
         screen.erase()
         height, width = screen.getmaxyx()
+        if height < MIN_HEIGHT or width < MIN_WIDTH:
+            _put(screen, max(0, height // 2 - 1), 1, f"Jomon needs at least {MIN_WIDTH}x{MIN_HEIGHT} terminal cells.", curses.A_BOLD)
+            _put(screen, max(0, height // 2), 1, f"Current size: {width}x{height}. Resize or press Q to quit.")
+            screen.refresh()
+            key = screen.getch()
+            if key in {ord("q"), ord("Q")}:
+                return
+            continue
         title_x = max(1, width // 2 - 18)
         _put(screen, max(1, height // 2 - 6), title_x, "J O M O N", curses.A_BOLD)
         _put(screen, max(2, height // 2 - 4), max(1, width // 2 - 31), "A vessel-household terminal roguelike")

@@ -297,7 +297,7 @@ def game_state_from_dict(data: Any) -> GameState:
             threat=threat, relic_charges=data["relic_charges"], history=list(data["history"]),
             messages=list(data["messages"]), world_ended=data["world_ended"],
         )
-    except (KeyError, TypeError, ValueError) as exc:
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:
         raise StateError(f"malformed save: {exc}") from exc
     validate_state(state)
     return state
