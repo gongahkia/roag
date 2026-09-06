@@ -54,6 +54,7 @@ class Room:
     visited: bool = False
     content_id: str | None = None
     biome_id: str = "derelict"
+    enemy_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -359,7 +360,7 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 6
+    SAVE_VERSION = 7
 
     def __init__(self, catalog: Catalog, state: GameState, rng: random.Random):
         self.catalog = catalog
@@ -466,7 +467,156 @@ class GameEngine:
         self.state.log = [f"The threshold seals. {world_name} is no longer empty."]
 
     @staticmethod
+    def _effect_targets_crew(action: dict[str, Any], effect: dict[str, Any]) -> bool:
+        target = effect.get("target", action["target"])
+        return target not in {"self", "weakest_enemy", "all_allies"}
+
+    @classmethod
+    def _definition_roles(cls, definition: dict[str, Any]) -> set[str]:
+        roles: set[str] = set()
+        for action in definition["actions"]:
+            for effect in action["effects"]:
+                targets_crew = cls._effect_targets_crew(action, effect)
+                if effect["op"] == "damage" and targets_crew:
+                    roles.add("striker")
+                if targets_crew and effect["op"] in {"stress", "move", "status"}:
+                    roles.add("controller")
+                if not targets_crew and effect["op"] in {"heal", "block", "status"}:
+                    roles.add("support")
+                if not targets_crew and effect["op"] == "block":
+                    roles.add("defender")
+        if definition["max_hp"] >= 28:
+            roles.add("defender")
+        return roles or {"striker"}
+
+    @classmethod
+    def _definition_setup_statuses(cls, definition: dict[str, Any]) -> set[str]:
+        return {
+            effect["status"]
+            for action in definition["actions"]
+            for effect in action["effects"]
+            if effect["op"] == "status" and cls._effect_targets_crew(action, effect)
+        }
+
+    @staticmethod
+    def _definition_exploit_statuses(definition: dict[str, Any]) -> set[str]:
+        return {
+            effect["bonus_status"]
+            for action in definition["actions"]
+            for effect in action["effects"]
+            if effect["op"] == "damage" and effect.get("bonus_status")
+        }
+
+    def enemy_roles(self, enemy_id: str) -> set[str]:
+        return self._definition_roles(self.catalog.enemies[enemy_id])
+
+    @classmethod
+    def _formation_score(cls, catalog: Catalog, enemy_ids: list[str], midpoint: int) -> float:
+        definitions = [catalog.enemies[enemy_id] for enemy_id in enemy_ids]
+        member_roles = [cls._definition_roles(definition) for definition in definitions]
+        setups = [cls._definition_setup_statuses(definition) for definition in definitions]
+        exploits = [cls._definition_exploit_statuses(definition) for definition in definitions]
+        total_hp = sum(definition["max_hp"] for definition in definitions)
+        score = len(set().union(*member_roles)) * 2.0 - abs(total_hp - midpoint) / 8
+        score -= (len(enemy_ids) - len(set(enemy_ids))) * 0.6
+        for index, roles in enumerate(member_roles):
+            for other_index, other_roles in enumerate(member_roles):
+                if index == other_index:
+                    continue
+                if "support" in roles and ({"striker", "defender"} & other_roles):
+                    score += 0.75
+                if setups[index] & exploits[other_index]:
+                    score += 3.0
+        return score
+
+    @classmethod
+    def _arrange_enemy_formation(
+        cls,
+        catalog: Catalog,
+        rng: random.Random,
+        enemy_ids: list[str],
+    ) -> list[str]:
+        def rank_priority(enemy_id: str) -> float:
+            roles = cls._definition_roles(catalog.enemies[enemy_id])
+            if "defender" in roles and "support" not in roles:
+                base = 0.0
+            elif "striker" in roles and "controller" not in roles:
+                base = 1.0
+            elif "controller" in roles and "support" not in roles:
+                base = 2.0
+            else:
+                base = 3.0
+            return base + rng.uniform(-0.45, 0.45)
+
+        ordered = sorted(enemy_ids, key=rank_priority)
+        formation = rng.choices(
+            ("screened", "flanking", "inverted"),
+            weights=(6, 3, 1),
+            k=1,
+        )[0]
+        if formation == "flanking" and len(ordered) >= 3:
+            flank = next(
+                (
+                    index
+                    for index in range(1, len(ordered))
+                    if "striker" in cls._definition_roles(catalog.enemies[ordered[index]])
+                ),
+                1,
+            )
+            ordered.append(ordered.pop(flank))
+        elif formation == "inverted":
+            ordered.reverse()
+        return ordered
+
+    @classmethod
+    def _compose_enemy_formation(
+        cls,
+        catalog: Catalog,
+        rng: random.Random,
+        biome_id: str,
+        kind: str,
+        encounter_id: str,
+    ) -> list[str]:
+        template = list(catalog.encounters[encounter_id]["enemies"])
+        if kind == "boss":
+            return template
+        encounter_kind = "normal" if kind == "fight" else "elite"
+        allowed_kinds = {"normal", "elite"} if encounter_kind == "elite" else {"normal"}
+        weighted_pool = [
+            enemy_id
+            for encounter in catalog.encounters.values()
+            if encounter["kind"] in allowed_kinds
+            and biome_id in encounter.get("biomes", ["derelict"])
+            for enemy_id in encounter["enemies"]
+        ]
+        minimum, maximum = (40, 60) if encounter_kind == "normal" else (62, 100)
+        midpoint = (minimum + maximum) // 2
+        candidates: dict[tuple[str, ...], float] = {}
+        template_hp = sum(catalog.enemies[enemy_id]["max_hp"] for enemy_id in template)
+        if minimum <= template_hp <= maximum:
+            candidates[tuple(template)] = cls._formation_score(catalog, template, midpoint)
+        sizes = (2, 3, 4)
+        weights = (4, 5, 1) if encounter_kind == "normal" else (1, 4, 5)
+        for _ in range(120):
+            size = rng.choices(sizes, weights=weights, k=1)[0]
+            formation = [rng.choice(template if rng.random() < 0.7 else weighted_pool)]
+            formation.extend(rng.choice(weighted_pool) for _ in range(size - 1))
+            total_hp = sum(catalog.enemies[enemy_id]["max_hp"] for enemy_id in formation)
+            if minimum <= total_hp <= maximum:
+                candidates[tuple(formation)] = cls._formation_score(catalog, formation, midpoint)
+        if not candidates:
+            return cls._arrange_enemy_formation(catalog, rng, template)
+        best_score = max(candidates.values())
+        shortlist = [
+            list(enemy_ids)
+            for enemy_ids, score in candidates.items()
+            if score >= best_score - 2.0
+        ]
+        return cls._arrange_enemy_formation(catalog, rng, rng.choice(shortlist))
+
+    @classmethod
     def _generate_rooms(
+        cls,
         catalog: Catalog,
         rng: random.Random,
         edges: dict[int, list[int]],
@@ -506,6 +656,11 @@ class GameEngine:
                 content_id = events[event_index]
                 event_index += 1
             biome_name = catalog.biomes[biome_id]["name"]
+            enemy_ids = (
+                cls._compose_enemy_formation(catalog, rng, biome_id, kind, content_id)
+                if kind in {"fight", "elite"} and content_id
+                else []
+            )
             rooms.append(
                 Room(
                     room_id,
@@ -514,6 +669,7 @@ class GameEngine:
                     edges[room_id],
                     content_id=content_id,
                     biome_id=biome_id,
+                    enemy_ids=enemy_ids,
                 )
             )
         boss_biome = room_biomes[11]
@@ -525,6 +681,7 @@ class GameEngine:
                 edges[11],
                 content_id="the_core",
                 biome_id=boss_biome,
+                enemy_ids=list(catalog.encounters["the_core"]["enemies"]),
             )
         )
         return rooms
@@ -681,6 +838,25 @@ class GameEngine:
             raise RuleError("save contains invalid room connections")
         if any(sorted(room.neighbors) != sorted(expected_edges[room.id]) for room in state.rooms):
             raise RuleError("save room connections do not match its world type")
+        for room in state.rooms:
+            if room.kind not in {"fight", "elite", "boss"}:
+                continue
+            if (
+                room.content_id not in catalog.encounters
+                or not isinstance(room.enemy_ids, list)
+                or not 1 <= len(room.enemy_ids) <= 4
+                or any(enemy_id not in catalog.enemies for enemy_id in room.enemy_ids)
+            ):
+                raise RuleError("save contains an invalid enemy formation")
+            if room.kind != "boss" and any(
+                room.biome_id not in catalog.enemies[enemy_id].get("biomes", ["derelict"])
+                for enemy_id in room.enemy_ids
+            ):
+                raise RuleError("save contains a biome-incompatible enemy formation")
+            total_hp = sum(catalog.enemies[enemy_id]["max_hp"] for enemy_id in room.enemy_ids)
+            minimum, maximum = (40, 60) if room.kind == "fight" else (62, 100)
+            if room.kind != "boss" and not minimum <= total_hp <= maximum:
+                raise RuleError("save contains an enemy formation outside its threat budget")
         patrol_ids = {patrol.id for patrol in state.patrols}
         if len(patrol_ids) != len(state.patrols):
             raise RuleError("save contains duplicate patrols")
@@ -929,7 +1105,12 @@ class GameEngine:
         room.visited = True
         self.state.active_patrol_id = patrol.id
         self.add_log(f"{room.name}: hostile contact at close range.")
-        self.start_combat(patrol.encounter_id, room.kind, surprised=self._surprised())
+        self.start_combat(
+            patrol.encounter_id,
+            room.kind,
+            surprised=self._surprised(),
+            enemy_ids=room.enemy_ids,
+        )
 
     def _resolve_exploration_tile(self) -> None:
         position = (self.state.party_x, self.state.party_y)
@@ -1167,7 +1348,12 @@ class GameEngine:
 
     def _enter_room(self, room: Room) -> None:
         if room.kind in {"fight", "elite", "boss"}:
-            self.start_combat(room.content_id or "", room.kind, surprised=self._surprised())
+            self.start_combat(
+                room.content_id or "",
+                room.kind,
+                surprised=self._surprised(),
+                enemy_ids=room.enemy_ids,
+            )
         elif room.kind == "event":
             self.state.phase = "event"
             self.state.current_event = room.content_id
@@ -1206,14 +1392,25 @@ class GameEngine:
         self.state.supplies -= 1
         self.add_log(message)
 
-    def start_combat(self, encounter_id: str, kind: str | None = None, surprised: bool = False) -> None:
+    def start_combat(
+        self,
+        encounter_id: str,
+        kind: str | None = None,
+        surprised: bool = False,
+        enemy_ids: list[str] | None = None,
+    ) -> None:
         encounter = self.catalog.encounters.get(encounter_id)
         if not encounter:
             raise RuleError(f"unknown encounter: {encounter_id}")
+        formation = list(encounter["enemies"] if enemy_ids is None else enemy_ids)
+        if not 1 <= len(formation) <= 4 or any(
+            enemy_id not in self.catalog.enemies for enemy_id in formation
+        ):
+            raise RuleError("combat formation must contain one to four known enemies")
         self.state.phase = "combat"
         self.state.combat_kind = kind or encounter["kind"]
         self.state.enemies = []
-        for rank, enemy_id in enumerate(encounter["enemies"], 1):
+        for rank, enemy_id in enumerate(formation, 1):
             definition = self.catalog.enemies[enemy_id]
             self.state.enemies.append(
                 Actor(
@@ -1235,7 +1432,8 @@ class GameEngine:
         self.state.round = 1
         self.state.effect_counters = {}
         self.state.intents = self._choose_intents()
-        self.add_log(f"Combat begins: {encounter['id']}.")
+        names = " / ".join(self.catalog.enemies[enemy_id]["name"] for enemy_id in formation)
+        self.add_log(f"Combat begins: {encounter['id']}. Formation: {names}.")
         self._start_player_turn()
         if surprised:
             self.add_log("The crew is surprised in the darkness.")
@@ -1566,12 +1764,116 @@ class GameEngine:
         self.state.intents = self._choose_intents()
         self._start_player_turn()
 
+    @classmethod
+    def _action_setup_statuses(cls, action: dict[str, Any]) -> set[str]:
+        return {
+            effect["status"]
+            for effect in action["effects"]
+            if effect["op"] == "status" and cls._effect_targets_crew(action, effect)
+        }
+
+    @staticmethod
+    def _action_exploit_statuses(action: dict[str, Any]) -> set[str]:
+        return {
+            effect["bonus_status"]
+            for effect in action["effects"]
+            if effect["op"] == "damage" and effect.get("bonus_status")
+        }
+
+    def _enemy_action_weight(
+        self,
+        enemy: Actor,
+        action: dict[str, Any],
+        planned_statuses: set[str] | None = None,
+        formation_exploits: set[str] | None = None,
+    ) -> float:
+        planned_statuses = planned_statuses or set()
+        formation_exploits = formation_exploits or set()
+        weight = float(action.get("weight", 1))
+        heroes = self.living_heroes()
+        allies = self.living_enemies()
+        crew_statuses = set().union(*(hero.statuses for hero in heroes)) if heroes else set()
+        setup_statuses = self._action_setup_statuses(action)
+        exploit_statuses = self._action_exploit_statuses(action)
+        offensive = any(
+            self._effect_targets_crew(action, effect)
+            and effect["op"] in {"damage", "stress", "move", "status"}
+            for effect in action["effects"]
+        )
+
+        if exploit_statuses:
+            primed = exploit_statuses & (crew_statuses | planned_statuses)
+            weight *= 2.5 if primed else 0.7
+        if setup_statuses:
+            missing = setup_statuses - (crew_statuses | planned_statuses)
+            if setup_statuses & formation_exploits:
+                weight *= 1.8 if missing else 0.65
+            else:
+                weight *= 1.15 if missing else 0.75
+
+        if action["target"] == "weakest_enemy" and allies:
+            support_target = min(allies, key=lambda actor: actor.hp / actor.max_hp)
+        else:
+            support_target = enemy
+        healing = sum(
+            int(effect.get("amount", 0))
+            for effect in action["effects"]
+            if effect["op"] == "heal" and not self._effect_targets_crew(action, effect)
+        )
+        blocking = sum(
+            int(effect.get("amount", 0))
+            for effect in action["effects"]
+            if effect["op"] == "block" and not self._effect_targets_crew(action, effect)
+        )
+        if healing:
+            health_ratio = support_target.hp / support_target.max_hp
+            if health_ratio <= 0.55:
+                weight *= 2.8
+            elif health_ratio < 0.85:
+                weight *= 1.6
+            elif not offensive:
+                weight *= 0.2
+        if blocking:
+            if support_target.block == 0:
+                weight *= 1.25
+            elif support_target.block >= max(blocking, support_target.max_hp // 3):
+                weight *= 0.5 if not offensive else 0.8
+
+        positive_statuses = {
+            effect["status"]
+            for effect in action["effects"]
+            if effect["op"] == "status" and not self._effect_targets_crew(action, effect)
+        }
+        if positive_statuses:
+            weight *= 0.65 if positive_statuses <= support_target.statuses.keys() else 1.25
+        return max(0.05, weight)
+
     def _choose_intents(self) -> list[dict[str, Any]]:
         intents = []
-        for enemy in self.living_enemies():
+        enemies = self.living_enemies()
+        formation_exploits = set().union(
+            *(
+                self._definition_exploit_statuses(
+                    self.catalog.enemies[enemy.definition_id or enemy.id]
+                )
+                for enemy in enemies
+            )
+        ) if enemies else set()
+        planned_statuses: set[str] = set()
+        for enemy in enemies:
             actions = self.catalog.enemies[enemy.definition_id or enemy.id]["actions"]
-            action = self.rng.choices(actions, weights=[item.get("weight", 1) for item in actions], k=1)[0]
+            weights = [
+                self._enemy_action_weight(
+                    enemy,
+                    action,
+                    planned_statuses,
+                    formation_exploits,
+                )
+                for action in actions
+            ]
+            action = self.rng.choices(actions, weights=weights, k=1)[0]
             intents.append({"enemy_rank": enemy.rank, "enemy_id": enemy.id, "action": action["name"]})
+            planned_statuses |= self._action_setup_statuses(action)
         return intents
 
     def _enemy_phase(self) -> None:
