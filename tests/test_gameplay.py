@@ -14,9 +14,12 @@ from jomon.actions import (
     choose_support,
     decide_objective,
     depart,
+    guard,
     inspect,
     interact,
     move,
+    negotiate,
+    use_gear,
 )
 from jomon.content import COMMODITIES
 from jomon.save import SaveError, load_game, save_game, save_path
@@ -57,6 +60,14 @@ class GenerationTests(unittest.TestCase):
         for index in range(50):
             with self.subTest(seed=index):
                 self.assertTrue(connected_required_map(create_world(f"route seed {index}")))
+
+    def test_all_eight_physical_commodities_have_material_fields(self):
+        self.assertEqual(set(COMMODITIES), {"charcoal", "grain", "ironwork", "lime", "paper", "salt fish", "timber", "wool"})
+        for definition in COMMODITIES.values():
+            self.assertGreater(definition["bulk"], 0)
+            self.assertTrue(definition["condition"])
+            self.assertTrue(definition["source"])
+            self.assertTrue(definition["use"])
 
 
 class TimeAndPressureTests(unittest.TestCase):
@@ -139,6 +150,42 @@ class TacticalTests(unittest.TestCase):
         self.assertEqual(state.objective_status, "completed")
         self.assertTrue(any("sluice repair" in memory for memory in state.contact.memories))
 
+    def test_guard_answers_readable_strike_intent(self):
+        state = prepared(loadout="arms", support="charts")
+        state.position = Position(20, 9)
+        state.threat.position = Position(21, 9)
+        state.threat.status = "engaged"
+        state.threat.intent = "plants their feet and strikes next turn"
+        health = state.courier.health
+        result = guard(state)
+        self.assertTrue(result.time_advanced)
+        self.assertEqual(state.courier.health, health)
+        self.assertIn("recoils", state.threat.intent)
+
+    def test_finite_smoke_item_breaks_engagement(self):
+        state = prepared(loadout="smoke", support="harness")
+        state.position = Position(20, 9)
+        state.threat.position = Position(21, 9)
+        state.threat.status = "engaged"
+        state.noise = 5
+        result = use_gear(state)
+        self.assertTrue(result.time_advanced)
+        self.assertNotIn("smoke pot", state.inventory)
+        self.assertEqual(state.threat.status, "watching")
+        self.assertLess(state.noise, 5)
+
+    def test_factor_can_negotiate_human_obstruction(self):
+        state = prepared(loadout="tools", support="charts")
+        factor = next(person for person in state.household if person.role == "factor")
+        state.active_courier_id = factor.id
+        state.position = Position(20, 9)
+        state.threat.position = Position(21, 9)
+        state.threat.status = "engaged"
+        result = negotiate(state)
+        self.assertTrue(result.time_advanced)
+        self.assertEqual(state.threat.status, "negotiated")
+        self.assertTrue(any("without bloodshed" in memory for memory in state.contact.memories))
+
     def test_nonfatal_defeat_injures_and_loses_material(self):
         state = prepared(support="charts")
         state.courier.health = 2
@@ -162,6 +209,21 @@ class TacticalTests(unittest.TestCase):
         self.assertTrue(state.courier.alive)
         self.assertIn("takes up", message)
         self.assertTrue(any("succeeded" in event for event in state.history))
+
+    def test_last_eligible_death_ends_world(self):
+        state = prepared(support="charts")
+        active = state.courier
+        for person in state.household:
+            if person is not active:
+                person.alive = False
+                person.health = 0
+                person.injury = "dead"
+        active.health = 1
+        active.injury = "bruised ribs"
+        message = apply_damage(state, 3, "The flood")
+        self.assertTrue(state.world_ended)
+        self.assertIsNone(state.active_courier_id)
+        self.assertIn("world ends", message)
 
 
 class EconomyAndPersistenceTests(unittest.TestCase):
