@@ -3,21 +3,20 @@
 ## Current State
 
 - The active product is a standard-library Python 3.11 `curses` roguelike; the browser version is archived in Git.
-- One deterministic Hearthford expedition is complete: six-adult household, physical preparation and gangplanks, three loadouts, three supports, generated material pressure, accept/refuse/alter choices, combat, negotiation, positional evasion, environmental repair, cargo, contextual defeat, succession, return, and atomic save/load.
-- Automated checks cover the complete state loop. PTY play verified the keyboard UI at 100x32 and 80x24 plus the minimum-size message at 70x20.
+- Owner play found the first deterministic Hearthford expedition genuinely fun, but too short, spatially flat, lightly populated, and limited in build variety.
+- The complete first-slice loop, persistent household, material pressure, contextual defeat, and atomic JSON save remain the working foundation.
 
 ## Now
 
-- The project owner plays and evaluates the bounded loop for clarity, pace, and enjoyment.
-- Record only demonstrated friction, unclear choices, or missing consequences.
+- Implement the bounded deeper-Hearthford milestone in [`docs/deeper-hearthford-milestone.md`](docs/deeper-hearthford-milestone.md): connected rooms, consolidated tavern preparation, distinct builds and threats, discoveries, one occasional merchant, semantic colour, and a higher-value event log.
 
 ## Next
 
-- Improve the smallest problem demonstrated by owner play; do not expand the architecture.
+- Add a bounded sporadic onboard-Jomon encounter milestone only after deeper ordinary expeditions are played. Candidate events are pirate boarding, cargo theft or sabotage, storms and operating emergencies, large river or coastal creatures, rare original luring voices or uncanny water beings, and exceptionally rare original vast coast-born horrors. Keep Jomon's low-mysticism rules and do not copy named mythos entities.
 
 ## Later
 
-- Add another compact expedition only after the current loop's decisions and return consequences are proven enjoyable.
+- Add another compact expedition only after the deeper Hearthford loop's decisions and return consequences are proven enjoyable.
 - Add capture or rescue only if play exposes a specific contextual need.
 
 ## Frozen
