@@ -63,6 +63,18 @@ class EngineTests(unittest.TestCase):
         self.assertTrue(self.engine.room(patrol.room_id).resolved)
         self.assertIsNone(self.engine.state.active_patrol_id)
 
+    def test_nearby_patrol_advances_after_party_step(self) -> None:
+        patrol = self.engine.state.patrols[0]
+        for other in self.engine.state.patrols:
+            other.active = other is patrol
+        patrol.x, patrol.y = self.engine.state.party_x + 3, self.engine.state.party_y
+        before_position = (patrol.x, patrol.y)
+        before = len(self.engine._find_path((patrol.x, patrol.y), (self.engine.state.party_x, self.engine.state.party_y)))
+        self.engine.step_exploration(self.engine.state.party_x, self.engine.state.party_y - 1)
+        after = len(self.engine._find_path((patrol.x, patrol.y), (self.engine.state.party_x, self.engine.state.party_y)))
+        self.assertNotEqual(before_position, (patrol.x, patrol.y))
+        self.assertLessEqual(after, before)
+
     def test_card_damage_and_rank_restrictions(self) -> None:
         self.engine.start_combat("lost_shift")
         self.engine.state.hand = [CardInstance("baton_strike")]
