@@ -1,4 +1,4 @@
-"""Small authored tables used by deterministic world generation."""
+"""Small authored tables for Hearthford's material choices and encounters."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ REGIONAL_CONTEXTS = (
         "work": "Hearthford keeps a grain mill beside a flood-damaged race.",
         "pressure": "The mill needs ironwork before its gate tears loose.",
         "commodity": "ironwork",
-        "objective": "Recover two cases of iron fittings from the stranded works cart.",
+        "objective": "Recover two cases of iron fittings from the stranded wheelhouse cart.",
         "opportunity": "charcoal",
         "hazard": "floodwater",
     },
@@ -28,7 +28,7 @@ REGIONAL_CONTEXTS = (
         "work": "Hearthford cures fish and repairs coast-bound cargo boats.",
         "pressure": "The smokehouse needs timber braces before the next tide.",
         "commodity": "timber",
-        "objective": "Recover two timber braces from the stranded works cart.",
+        "objective": "Recover two timber braces from the stranded wheelhouse cart.",
         "opportunity": "salt fish",
         "hazard": "rising tide",
     },
@@ -37,7 +37,7 @@ REGIONAL_CONTEXTS = (
         "work": "Hearthford's smiths maintain mill gear and river tools.",
         "pressure": "The smithy needs charcoal while the safe towpath is closed.",
         "commodity": "charcoal",
-        "objective": "Recover two dry charcoal sacks from the stranded works cart.",
+        "objective": "Recover two dry charcoal sacks from the stranded wheelhouse cart.",
         "opportunity": "paper",
         "hazard": "slick sluice water",
     },
@@ -71,19 +71,59 @@ ROLE_TECHNIQUE = {
     "healer": "field binding",
 }
 
-LOADOUTS = (
-    ("arms", "Billhook & buckler", ("billhook", "buckler"), "hard strikes and a stronger guard"),
-    ("smoke", "Smoke pot & rope", ("smoke pot", "rope"), "quiet evasion and safe water crossing"),
-    ("tools", "Mallet & repair tools", ("mallet", "repair tools"), "alter the job at the flood control"),
-)
-SUPPORTS = (
-    ("charts", "Pilot's route chart", "quieter travel and an alternate route"),
-    ("treatment", "Healer's field dressing", "negates the first injury"),
-    ("harness", "Porter's cargo harness", "four more bulk capacity and protected cargo"),
-)
+# Behavior stays direct in actions.py rather than becoming an ability schema.
+WEAPONS = {
+    "billhook": ("Billhook", "close strike; hooks machinery or a braced foe"),
+    "spear": ("Ash spear", "reach-two attack and positional control"),
+    "cudgel": ("Leadwood cudgel", "quiet impact that quickly breaks morale"),
+    "staff": ("River staff", "modest attack and safer guarded movement"),
+    "hand axe": ("Hand axe", "heavy close strike; breaks shutters and braces"),
+    "crossbow": ("Windlass crossbow", "range-five shot followed by a reload"),
+}
+
+GEAR = {
+    "buckler": ("Buckler", "turns a telegraphed close strike while guarding"),
+    "rope": ("Tarred rope", "secures water, winches, and unstable crossings"),
+    "quiet shoes": ("Reed-soled shoes", "reduce travel noise on surveyed routes"),
+    "repair tools": ("Repair tools", "quietly alter machinery and the objective"),
+    "smoke pot": ("Smoke pot", "finite cover that breaks aim and pursuit"),
+    "cargo harness": ("Cargo harness", "more capacity and protects one lost stack"),
+    "trade seals": ("Witnessed trade seals", "material leverage in human encounters"),
+    "hooded lantern": ("Hooded lantern", "controls territorial beasts and reveals glass"),
+}
+
+SUPPORTS = {
+    "route survey": ("Pilot's route survey", "reveals exits and makes detours quieter"),
+    "field care": ("Healer's field care", "changes the first serious injury"),
+    "porter watch": ("Porter's watch", "adds bulk capacity and guards cargo loss"),
+    "carpenter rig": ("Carpenter's rig", "makes controls quiet and stabilises structures"),
+    "factor surety": ("Factor's surety", "strengthens terms and merchant exchange"),
+}
+
+DISCOVERIES = {
+    "willow dressing": ("consumable", "A bitter wrap that treats one expedition injury."),
+    "dry smoke charge": ("consumable", "Refills a spent smoke pot once."),
+    "pulley key": ("tool", "A mill key that makes the wheelhouse controls safer."),
+    "reed-step notes": ("technique", "Practical marks for moving quietly through mud."),
+    "sealed tally": ("trade", "A recoverable account worth paper or merchant credit."),
+}
+
+RELICS = {
+    "river-glass ward": "A finite cold shard that breaks instead of its bearer.",
+    "tide-knot charm": "A specifically knotted river-glass cord that stills one pursuit.",
+}
+
+MERCHANT_ITEMS = {
+    "hand axe": (2, "weapon"),
+    "crossbow": (3, "weapon"),
+    "smoke pot": (1, "gear"),
+    "cargo harness": (2, "gear"),
+    "hooded lantern": (2, "gear"),
+    "willow dressing": (1, "consumable"),
+    "tide-knot charm": (3, "relic"),
+}
 
 CONTACT_NAMES = ("Mara Venn", "Tomas Reed", "Iria Pike", "Sela Moss")
-THREAT_NAMES = ("bank opportunist", "displaced levy guard")
 
 JOMON_MAP = (
     "################################",
@@ -98,39 +138,14 @@ JOMON_MAP = (
     "################################",
 )
 
-# #: wall, ~: water, T: tree, M: contact, &: flood control, =: flooded crossing,
-# R: objective resource, r: optional resource, +: Jomon gangplank.
-REGION_MAP = (
-    "################################################",
-    "#..............#...TTTT....~~~~......#.........#",
-    "#..h...........#....TT.....~~~~......#.........#",
-    "#..............#...........~~~~......#....R....#",
-    "#..###..###....#...TT......~~~~......#.........#",
-    "#..............#...........~~~~......#.........#",
-    "#....m.........#...TT......~~~~......#####.#####",
-    "#..............#...........~~~~................#",
-    "#..............#...............................#",
-    "+.....M..................................R.....#",
-    "#..............#...........~~~~................#",
-    "#..###.........#...TT......~~~~......#####.#####",
-    "#..............#...........~~~~......#.........#",
-    "#..............#...........~~~~......#.........#",
-    "#..............#........&..====......#.........#",
-    "#..............#...........~~~~......#....R....#",
-    "#..............#....r......~~~~......#.........#",
-    "#..............#...........~~~~......#.........#",
-    "################################################",
-)
-
 HELP_LINES = (
-    "Move with arrows, HJKL, or YUBN diagonals.",
-    "Enter/E interacts. A attacks. G guards. V negotiates. X uses gear.",
-    "Map: @ courier, ! threat, M contact, R cargo, r resource, & flood control, + gangplank.",
-    "I shows carried equipment and goods. S saves when safe.",
-    "On Jomon: C chooses courier, L loadout, P support, H inspects cargo/problem.",
-    "Walk through + to depart or return. Movement and accepted actions take time.",
-    "Inspecting, help, cancelled choices, and blocked movement take no time.",
-    "Pressure is elapsed time + depth + noise + valuables; each remains visible.",
-    "At &: tools can alter the commission; charts/smoke can open a quiet bypass.",
-    "Q asks before quitting. Escape closes overlays.",
+    "Move with arrows, HJKL, or YUBN diagonals. Border arrows lead between rooms.",
+    "Enter/E interacts. A attacks. G guards or reloads. V negotiates. X uses gear.",
+    "Map: @ courier, a ally, c contact, h/s/x/b hostiles, X elite, R cargo, ? discovery.",
+    "Water ~, wall #, exits <>^v/+, controls &, shutter D, cargo cover O, hazard m/%.",
+    "At Jomon's tavern C: choose courier, weapon, gear, support, and carried relic.",
+    "I inspects inventory. S saves aboard Jomon. Inspection and cancelled choices take no time.",
+    "Pressure is elapsed time + room depth + noise + valuables; all remain visible.",
+    "Guard readable intent; smoke breaks aim; mud, shutters, controls, and cover affect encounters.",
+    "Q asks before quitting. Escape closes or backs out of a popup.",
 )
