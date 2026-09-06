@@ -1,6 +1,6 @@
 # Dumbest Dungeon
 
-A survival-horror party deckbuilder played entirely in a terminal. Choose four of fifteen crew archetypes, explore the derelict survey ship *Orison* through a scrolling top-down ASCII world, evade or intercept moving patrols, and fight through a shared card deck with visible enemy intents and four-rank positioning.
+A survival-horror party deckbuilder played entirely in a terminal. Choose four of twenty-five crew archetypes, cross one of six scrolling top-down ASCII worlds, evade or intercept biome-specific patrols, and fight through a shared card deck with visible enemy intents and four-rank positioning.
 
 The game uses only the Python standard library. No installation or third-party package is required.
 
@@ -22,12 +22,14 @@ python3 -m dumbest_dungeon --validate-content
 
 A generated seed appears in the map HUD and ending screen. Supplying `--seed` makes new expeditions in that process reproducible. The default save is `$XDG_STATE_HOME/dumbest-dungeon/run.save.json`, or `~/.local/state/dumbest-dungeon/run.save.json` when `XDG_STATE_HOME` is unset.
 
-Persistent run effects use content schema 4 and save version 5. Saves from earlier builds are rejected with an explicit version error rather than loaded incorrectly.
+Biome worlds use content schema 5 and save version 6. Saves from earlier builds are rejected with an explicit version error rather than loaded incorrectly.
 
 ## Controls and rules
 
-- New expeditions begin in the airlock crew hub. Choose four of fifteen archetypes; selection order assigns combat ranks 1–4. The original Warden, Engineer, Medic, and Scout party is selected by default. Space toggles a crew member, left/right changes a selected member's rank, and `C` browses that class's full card library.
-- Exploration is a seed-generated 117×35 top-down ASCII ship. Room footprints, bent corridors, side alcoves, pillars, debris (`,`), grates (`=`), and coolant spills (`~`) vary between expeditions while every objective remains connected. The terrain variants are currently traversable at the same cost. Arrow keys or `h`/`j`/`k`/`l` move the `X` destination cursor and Enter makes the `@` party automatically follow the shortest floor route, up to 18 tiles per order before item bonuses. A first left-click selects and color-highlights a visible tile; click that tile again or press Enter to confirm movement. `Tab` cycles patrols, discoveries, and unresolved facilities; Space recenters the cursor on the party.
+- New expeditions begin at a crew threshold. Choose four of twenty-five archetypes; selection order assigns combat ranks 1–4. The original Warden, Engineer, Medic, and Scout party is selected by default. Space toggles a crew member, left/right changes a selected member's rank, and `C` browses that class's full card library. The roster scrolls to support all twenty-five choices at 80×24.
+- Each seed selects one of six world structures: branching, spine, ring, clustered, zigzag, or fractured. Every 117×35 map then receives variable room footprints, routed corridors, side alcoves, pillars, and a four-biome mixture while preserving full walkable connectivity. Arrow keys or `h`/`j`/`k`/`l` move the `X` destination cursor and Enter makes the `@` party automatically follow the shortest floor route, up to 18 tiles per order before item bonuses. A first left-click selects and color-highlights a visible tile; click that tile again or press Enter to confirm movement. `Tab` cycles patrols, discoveries, and unresolved facilities; Space recenters the cursor on the party.
+- Eleven biomes provide distinct floor glyphs, room identities, enemy pools, and formations: Derelict Decks (`.`), Cryogenic Vaults (`_`), Hydroponic Canopy (`"`), Ash Foundry (`;`), Reactor Choir (`:`), Mycelial Warrens (`%`), Flooded Bilges (`~`), Ion Stormworks (`` ` ``), Impossible Archive (`-`), Null Expanse (`'`), and Ossuary Engine (`o`). Terrain glyphs remain equally traversable for now.
+- Ten biome-affinity crew each contribute five new cards. Affinity cards remain usable everywhere but gain their listed +1 to +3 potency on damage, block, healing, and stress relief inside the matching biome.
 - Each run places twelve discoveries across the ship: three visible boon signals (`+`), five visible salvage caches (`*`), two visible bargains (`!`), and two hidden curse traps. Boons and curses stack on individual heroes; items stack party-wide. Bargains exchange a boon or multiple item copies for a known curse. Six curses are unplayable cards that trigger while drawn or held.
 - Normal, elite, and boss patrols move each time the party takes a step. Nearby patrols pursue the crew, while distant normal and elite patrols roam around their assigned compartments. Contact immediately opens the existing formation combat screen.
 - When a card has several valid targets, its target cursor stays on the battlefield: the selected character sprite is highlighted and bracketed with `>` and `<`. Move between targets with left/right or `h`/`l`, press Enter to confirm, or Escape to cancel.
@@ -47,7 +49,7 @@ Persistent run effects use content schema 4 and save version 5. Saves from earli
 
 Gameplay definitions live in `dumbest_dungeon/data/game.json`, while `dumbest_dungeon/data/art.json` contains the title, crew and enemy sprites, and class card glyphs. Both catalogs are versioned and validated. Run the validator after editing either file:
 
-The current catalog contains 15 crew archetypes, 105 technique cards, 6 curse cards, 35 enemy types, 39 encounter formations, and 18 definitions each for boons, curses, and stackable items. Rewards are filtered to the four classes currently in the expedition.
+The current catalog contains 25 crew archetypes, 155 technique cards, 6 curse cards, 60 enemy types, 89 encounter formations, 11 biomes, 6 world types, and 18 definitions each for boons, curses, and stackable items. Rewards are filtered to the four classes currently in the expedition.
 
 ```sh
 python3 -m dumbest_dungeon --validate-content
@@ -55,7 +57,7 @@ python3 -m dumbest_dungeon --validate-content
 
 Cards compose reusable operations such as `damage`, `block`, `heal`, `stress`, `move`, `guard`, `status`, `cleanse`, `draw`, `discard`, and `energy`. Events similarly compose resource and party-wide operations. Persistent effects declare an effect key plus a `linear`, `diminishing`, `threshold`, or `special` stack curve and cap. Adding records that use existing operations needs no Python change. A genuinely new mechanic requires an engine operation plus validation and tests.
 
-Cards have a stable `id`, acting `hero`, energy `cost`, valid `from_ranks`, target mode, optional `target_ranks`, normal `effects`, and complete `upgrade_effects`. Enemy encounters may contain one to four enemy definition IDs. Startup validation rejects duplicate IDs, bad references, invalid ranks, unknown operations, and malformed balance data with a focused error.
+Cards have a stable `id`, acting `hero`, energy `cost`, valid `from_ranks`, target mode, optional `target_ranks`, normal `effects`, and complete `upgrade_effects`. Affinity cards also declare a `biome` and bounded `biome_bonus`. Enemy encounters may contain one to four ordered enemy definition IDs plus biome availability; order determines combat formation. Startup validation rejects duplicate IDs, bad references, invalid ranks, unknown operations, and malformed balance data with a focused error.
 
 Every hero and enemy ID must have a five-line, seven-column ASCII sprite. Every hero class also needs a three-line card glyph. Art is restricted to printable 7-bit ASCII so alignment remains stable across supported terminals. The combat screen displays the full opposing formations, and selected cards expand into bordered previews in combat, reward, deck, and facility screens.
 
@@ -67,4 +69,4 @@ python3 -m compileall dumbest_dungeon tests
 python3 -m dumbest_dungeon --validate-content
 ```
 
-The test suite covers deterministic and cross-seed terrain generation, full-map connectivity, spatial pathfinding, roaming patrol contact, mouse-coordinate translation, all card definitions, formation legality, Death's Door and stress collapse, enemy intent identity, facilities, malformed terrain rejection, a complete scripted expedition, and exact exploration and mid-combat save round trips.
+The test suite covers all six world layouts, biome encounter filtering and affinity bonuses, deterministic and cross-seed terrain generation, full-map connectivity, spatial pathfinding, roaming patrol contact, mouse-coordinate translation, all card and enemy definitions, formation legality, Death's Door and stress collapse, enemy intent identity, facilities, malformed terrain rejection, a complete scripted expedition, and exact exploration and mid-combat save round trips.

@@ -12,10 +12,12 @@ from dumbest_dungeon.content import ContentError, load_catalog
 class ContentTests(unittest.TestCase):
     def test_bundled_catalog_is_complete(self) -> None:
         catalog = load_catalog()
-        self.assertEqual(15, len(catalog.heroes))
-        self.assertEqual(105, len(catalog.cards))
-        self.assertEqual(35, len(catalog.enemies))
-        self.assertGreaterEqual(len(catalog.encounters), 35)
+        self.assertEqual(25, len(catalog.heroes))
+        self.assertEqual(155, len(catalog.cards))
+        self.assertEqual(60, len(catalog.enemies))
+        self.assertEqual(89, len(catalog.encounters))
+        self.assertEqual(11, len(catalog.biomes))
+        self.assertEqual(6, len(catalog.worlds))
         self.assertEqual(10, len(catalog.events))
         self.assertEqual(18, len(catalog.boons))
         self.assertEqual(18, len(catalog.curses))
@@ -29,6 +31,25 @@ class ContentTests(unittest.TestCase):
         self.assertEqual(len(catalog.heroes), len({hero["role"] for hero in catalog.heroes.values()}))
         self.assertEqual(len(catalog.cards), len({card["name"] for card in catalog.cards.values()}))
         self.assertEqual(len(catalog.enemies), len({enemy["name"] for enemy in catalog.enemies.values()}))
+        affinity_cards = [card for card in catalog.cards.values() if "biome" in card]
+        affinity_heroes = [hero for hero in catalog.heroes.values() if "biome" in hero]
+        self.assertEqual(50, len(affinity_cards))
+        self.assertEqual(10, len(affinity_heroes))
+        self.assertEqual(
+            {hero["id"] for hero in affinity_heroes},
+            {card["hero"] for card in affinity_cards},
+        )
+        def signature(card: dict) -> tuple:
+            return (
+                card["cost"],
+                tuple(card["from_ranks"]),
+                card["target"],
+                tuple(card.get("target_ranks", [])),
+                json.dumps(card["effects"], sort_keys=True),
+            )
+
+        signature_counts = Counter(signature(card) for card in catalog.cards.values())
+        self.assertTrue(all(signature_counts[signature(card)] == 1 for card in affinity_cards))
         sprites = list(catalog.art["heroes"].values()) + list(catalog.art["enemies"].values())
         for sprite in sprites:
             self.assertEqual(5, len(sprite))
@@ -54,7 +75,7 @@ class ContentTests(unittest.TestCase):
     def test_content_balance_guardrails(self) -> None:
         catalog = load_catalog()
         cards_per_hero = Counter(card["hero"] for card in catalog.cards.values())
-        self.assertTrue(all(6 <= count <= 8 for count in cards_per_hero.values()))
+        self.assertTrue(all(5 <= count <= 8 for count in cards_per_hero.values()))
         self.assertTrue(all(0 <= card["cost"] <= 2 for card in catalog.cards.values()))
         for card in catalog.cards.values():
             if card["cost"] == 0:
@@ -68,6 +89,21 @@ class ContentTests(unittest.TestCase):
         self.assertEqual(set(catalog.enemies), referenced_enemies)
         formations = [tuple(encounter["enemies"]) for encounter in catalog.encounters.values()]
         self.assertEqual(len(formations), len(set(formations)))
+        for biome_id in catalog.biomes:
+            normal = [
+                encounter
+                for encounter in catalog.encounters.values()
+                if encounter["kind"] == "normal"
+                and biome_id in encounter.get("biomes", ["derelict"])
+            ]
+            elite = [
+                encounter
+                for encounter in catalog.encounters.values()
+                if encounter["kind"] == "elite"
+                and biome_id in encounter.get("biomes", ["derelict"])
+            ]
+            self.assertGreaterEqual(len(normal), 4, biome_id)
+            self.assertGreaterEqual(len(elite), 1, biome_id)
         for encounter in catalog.encounters.values():
             if encounter["kind"] != "normal":
                 continue

@@ -53,6 +53,7 @@ class Room:
     resolved: bool = False
     visited: bool = False
     content_id: str | None = None
+    biome_id: str = "derelict"
 
 
 @dataclass
@@ -84,6 +85,8 @@ class GameState:
     deck: list[CardInstance]
     rooms: list[Room]
     world_tiles: list[str]
+    world_id: str
+    room_positions: list[list[int]]
     hub_selection: list[str] = field(default_factory=list)
     current_room: int = 0
     party_x: int = 5
@@ -121,7 +124,7 @@ def _tuples(value: Any) -> Any:
 
 WORLD_WIDTH = 117
 WORLD_HEIGHT = 35
-ROOM_POSITIONS = {
+BRANCHING_POSITIONS = {
     0: (5, 17),
     1: (18, 17),
     2: (30, 7),
@@ -135,17 +138,79 @@ ROOM_POSITIONS = {
     10: (93, 17),
     11: (111, 17),
 }
-ROOM_EDGES = {
+BRANCHING_EDGES = {
     0: [1], 1: [0, 2, 3], 2: [1, 4], 3: [1, 4],
     4: [2, 3, 5, 6], 5: [4, 7], 6: [4, 7],
     7: [5, 6, 8, 9], 8: [7, 10], 9: [7, 10],
     10: [8, 9, 11], 11: [10],
 }
-WALKABLE_TILES = frozenset(".,=~")
+def _edge_map(*pairs: tuple[int, int]) -> dict[int, list[int]]:
+    result = {room_id: [] for room_id in range(12)}
+    for left, right in pairs:
+        result[left].append(right)
+        result[right].append(left)
+    return result
+
+
+WORLD_LAYOUTS: dict[str, tuple[dict[int, tuple[int, int]], dict[int, list[int]]]] = {
+    "branching": (BRANCHING_POSITIONS, BRANCHING_EDGES),
+    "spine": (
+        {room_id: (5 + room_id * 9 + (7 if room_id == 11 else 0), (17, 17, 12, 21)[room_id % 4]) for room_id in range(12)},
+        _edge_map(*((room_id, room_id + 1) for room_id in range(11))),
+    ),
+    "ring": (
+        {
+            0: (5, 17), 1: (18, 8), 2: (38, 5), 3: (58, 7), 4: (78, 5),
+            5: (98, 8), 6: (58, 17), 7: (18, 27), 8: (38, 30),
+            9: (78, 30), 10: (98, 27), 11: (111, 17),
+        },
+        _edge_map(
+            (0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 11),
+            (0, 7), (7, 8), (8, 6), (6, 9), (9, 10), (10, 11), (3, 6),
+        ),
+    ),
+    "clusters": (
+        {
+            0: (5, 17), 1: (18, 17), 2: (27, 8), 3: (29, 25), 4: (45, 17),
+            5: (58, 9), 6: (61, 26), 7: (75, 17), 8: (87, 8),
+            9: (90, 27), 10: (101, 17), 11: (111, 17),
+        },
+        _edge_map(
+            (0, 1), (1, 2), (1, 3), (2, 4), (3, 4), (4, 5), (4, 6),
+            (5, 7), (6, 7), (7, 8), (7, 9), (8, 10), (9, 10), (10, 11),
+        ),
+    ),
+    "zigzag": (
+        {
+            0: (5, 17), 1: (15, 8), 2: (25, 27), 3: (35, 7), 4: (45, 28),
+            5: (55, 9), 6: (65, 26), 7: (75, 7), 8: (85, 28),
+            9: (95, 9), 10: (104, 25), 11: (111, 17),
+        },
+        _edge_map(*((room_id, room_id + 1) for room_id in range(11))),
+    ),
+    "fracture": (
+        {
+            0: (5, 17), 1: (20, 17), 2: (35, 6), 3: (35, 28), 4: (52, 17),
+            5: (66, 5), 6: (66, 17), 7: (66, 29), 8: (83, 8),
+            9: (83, 26), 10: (101, 17), 11: (111, 17),
+        },
+        _edge_map(
+            (0, 1), (1, 2), (1, 3), (2, 4), (3, 4), (4, 5), (4, 6),
+            (4, 7), (5, 8), (6, 8), (6, 9), (7, 9), (8, 10), (9, 10), (10, 11),
+        ),
+    ),
+}
+WALKABLE_TILES = frozenset(".,=~_\";:`'%-o")
 VALID_WORLD_TILES = frozenset(" #O") | WALKABLE_TILES
 
 
-def _build_world(rng: random.Random) -> list[str]:
+def _build_world(
+    rng: random.Random,
+    positions: dict[int, tuple[int, int]],
+    edges: dict[int, list[int]],
+    room_biomes: dict[int, str],
+    catalog: Catalog,
+) -> list[str]:
     floor: set[tuple[int, int]] = set()
     corridors: set[tuple[int, int]] = set()
     room_bounds: dict[int, tuple[int, int]] = {}
@@ -175,7 +240,7 @@ def _build_world(rng: random.Random) -> list[str]:
         else:
             raise ValueError("world segments must be orthogonal")
 
-    for room_id, (center_x, center_y) in ROOM_POSITIONS.items():
+    for room_id, (center_x, center_y) in positions.items():
         half_width = rng.randint(3, 5)
         half_height = rng.randint(1, 3)
         room_bounds[room_id] = (half_width, half_height)
@@ -183,12 +248,12 @@ def _build_world(rng: random.Random) -> list[str]:
             for x in range(center_x - half_width, center_x + half_width + 1):
                 floor.add((x, y))
 
-    for room_id, neighbors in ROOM_EDGES.items():
-        start_x, start_y = ROOM_POSITIONS[room_id]
+    for room_id, neighbors in edges.items():
+        start_x, start_y = positions[room_id]
         for neighbor in neighbors:
             if neighbor < room_id:
                 continue
-            end_x, end_y = ROOM_POSITIONS[neighbor]
+            end_x, end_y = positions[neighbor]
             broad = rng.random() < 0.28
             if start_y == end_y:
                 direction = 1 if end_x > start_x else -1
@@ -227,7 +292,7 @@ def _build_world(rng: random.Random) -> list[str]:
 
     pillars: set[tuple[int, int]] = set()
     for room_id, (half_width, half_height) in room_bounds.items():
-        center_x, center_y = ROOM_POSITIONS[room_id]
+        center_x, center_y = positions[room_id]
         candidates = [
             (x, y)
             for y in range(center_y - half_height, center_y + half_height + 1)
@@ -239,7 +304,7 @@ def _build_world(rng: random.Random) -> list[str]:
             floor.discard(position)
             pillars.add(position)
 
-    start = ROOM_POSITIONS[0]
+    start = positions[0]
     reachable = {start}
     pending = deque([start])
     while pending:
@@ -252,8 +317,12 @@ def _build_world(rng: random.Random) -> list[str]:
 
     cells = [[" " for _ in range(WORLD_WIDTH)] for _ in range(WORLD_HEIGHT)]
     for x, y in floor:
-        cells[y][x] = "."
-    decoration_candidates = sorted(floor - set(ROOM_POSITIONS.values()))
+        nearest_room = min(
+            positions,
+            key=lambda room_id: abs(x - positions[room_id][0]) + abs(y - positions[room_id][1]),
+        )
+        cells[y][x] = catalog.biomes[room_biomes[nearest_room]]["glyph"]
+    decoration_candidates = sorted(floor - set(positions.values()))
     for symbol in (",", "=", "~"):
         for _ in range(5):
             center_x, center_y = rng.choice(decoration_candidates)
@@ -275,7 +344,7 @@ def _build_world(rng: random.Random) -> list[str]:
     return ["".join(row) for row in cells]
 
 
-def _validate_world(tiles: Any) -> None:
+def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
     if (
         not isinstance(tiles, list)
         or len(tiles) != WORLD_HEIGHT
@@ -283,14 +352,14 @@ def _validate_world(tiles: Any) -> None:
         or any(character not in VALID_WORLD_TILES for row in tiles for character in row)
     ):
         raise RuleError("save contains malformed world terrain")
-    if any(tiles[y][x] not in WALKABLE_TILES for x, y in ROOM_POSITIONS.values()):
+    if any(tiles[y][x] not in WALKABLE_TILES for x, y in positions.values()):
         raise RuleError("save terrain blocks a compartment anchor")
 
 
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 5
+    SAVE_VERSION = 6
 
     def __init__(self, catalog: Catalog, state: GameState, rng: random.Random):
         self.catalog = catalog
@@ -300,8 +369,22 @@ class GameEngine:
     @classmethod
     def new(cls, catalog: Catalog, seed: int, *, start_in_hub: bool = False) -> GameEngine:
         rng = random.Random(seed)
-        rooms = cls._generate_rooms(catalog, rng)
-        world_tiles = _build_world(random.Random(seed ^ 0x4F5249534F4E))
+        world_id = rng.choice(list(catalog.worlds))
+        world = catalog.worlds[world_id]
+        positions, edges = WORLD_LAYOUTS[world["layout"]]
+        biome_sequence = list(world["biomes"])
+        middle_biomes = [biome_sequence[index % len(biome_sequence)] for index in range(10)]
+        rng.shuffle(middle_biomes)
+        room_biomes = {0: biome_sequence[0], 11: biome_sequence[-1]}
+        room_biomes.update({room_id: middle_biomes[room_id - 1] for room_id in range(1, 11)})
+        rooms = cls._generate_rooms(catalog, rng, edges, room_biomes)
+        world_tiles = _build_world(
+            random.Random(seed ^ 0x4F5249534F4E),
+            positions,
+            edges,
+            room_biomes,
+            catalog,
+        )
         default_party = list(catalog.heroes)[:4]
         state = GameState(
             seed=seed,
@@ -310,12 +393,14 @@ class GameEngine:
             deck=[],
             rooms=rooms,
             world_tiles=world_tiles,
+            world_id=world_id,
+            room_positions=[list(positions[room_id]) for room_id in range(12)],
             hub_selection=default_party,
-            party_x=ROOM_POSITIONS[0][0],
-            party_y=ROOM_POSITIONS[0][1],
+            party_x=positions[0][0],
+            party_y=positions[0][1],
             light=catalog.balance.get("starting_light", 100),
             supplies=catalog.balance.get("starting_supplies", 4),
-            log=["Crew manifest opened in the Orison airlock."],
+            log=[f"Crew manifest opened above {world['name']}."],
         )
         engine = cls(catalog, state, rng)
         state.pickups = engine._generate_pickups(random.Random(seed ^ 0x5049434B5550))
@@ -370,21 +455,25 @@ class GameEngine:
                 id=f"patrol:{room.id}",
                 room_id=room.id,
                 encounter_id=room.content_id or "",
-                x=ROOM_POSITIONS[room.id][0],
-                y=ROOM_POSITIONS[room.id][1],
+                x=self.room_position(room.id)[0],
+                y=self.room_position(room.id)[1],
             )
             for room in self.state.rooms
             if room.kind in {"fight", "elite", "boss"}
         ]
         self.state.phase = "exploration"
-        self.state.log = ["The airlock seals. The Orison is no longer empty."]
+        world_name = self.catalog.worlds[self.state.world_id]["name"]
+        self.state.log = [f"The threshold seals. {world_name} is no longer empty."]
 
     @staticmethod
-    def _generate_rooms(catalog: Catalog, rng: random.Random) -> list[Room]:
+    def _generate_rooms(
+        catalog: Catalog,
+        rng: random.Random,
+        edges: dict[int, list[int]],
+        room_biomes: dict[int, str],
+    ) -> list[Room]:
         kinds = ["fight"] * 4 + ["event"] * 2 + ["camp", "upgrade", "elite", "cache"]
         rng.shuffle(kinds)
-        normal = [item["id"] for item in catalog.encounters.values() if item["kind"] == "normal"]
-        elite = [item["id"] for item in catalog.encounters.values() if item["kind"] == "elite"]
         events = list(catalog.events)
         rng.shuffle(events)
         labels = {
@@ -395,25 +484,56 @@ class GameEngine:
             "elite": "Heavy Motion Contact",
             "cache": "Emergency Stores",
         }
-        rooms = [Room(0, "Docking Airlock", "start", ROOM_EDGES[0], True, True)]
+        start_biome = room_biomes[0]
+        rooms = [Room(0, "Arrival Threshold", "start", edges[0], True, True, biome_id=start_biome)]
         event_index = 0
+        used_encounters: set[str] = set()
         for room_id, kind in enumerate(kinds, 1):
+            biome_id = room_biomes[room_id]
             content_id = None
-            if kind == "fight":
-                content_id = rng.choice(normal)
-            elif kind == "elite":
-                content_id = rng.choice(elite)
+            if kind in {"fight", "elite"}:
+                encounter_kind = "normal" if kind == "fight" else "elite"
+                candidates = [
+                    item["id"]
+                    for item in catalog.encounters.values()
+                    if item["kind"] == encounter_kind
+                    and biome_id in item.get("biomes", ["derelict"])
+                ]
+                unused = [encounter_id for encounter_id in candidates if encounter_id not in used_encounters]
+                content_id = rng.choice(unused or candidates)
+                used_encounters.add(content_id)
             elif kind == "event":
                 content_id = events[event_index]
                 event_index += 1
-            rooms.append(Room(room_id, labels[kind], kind, ROOM_EDGES[room_id], content_id=content_id))
-        rooms.append(Room(11, "Overseer Chamber", "boss", ROOM_EDGES[11], content_id="the_core"))
+            biome_name = catalog.biomes[biome_id]["name"]
+            rooms.append(
+                Room(
+                    room_id,
+                    f"{biome_name}: {labels[kind]}",
+                    kind,
+                    edges[room_id],
+                    content_id=content_id,
+                    biome_id=biome_id,
+                )
+            )
+        boss_biome = room_biomes[11]
+        rooms.append(
+            Room(
+                11,
+                f"{catalog.biomes[boss_biome]['name']}: Apex Chamber",
+                "boss",
+                edges[11],
+                content_id="the_core",
+                biome_id=boss_biome,
+            )
+        )
         return rooms
 
     def _generate_pickups(self, rng: random.Random) -> list[EffectPickup]:
         categories = ["boon"] * 3 + ["item"] * 5 + ["bargain"] * 2 + ["trap"] * 2
         rng.shuffle(categories)
-        anchors = set(ROOM_POSITIONS.values())
+        positions = {room_id: self.room_position(room_id) for room_id in range(12)}
+        anchors = set(positions.values())
         selected: list[tuple[int, int]] = []
         pickups: list[EffectPickup] = []
         bands = ((0, 38), (39, 77), (78, WORLD_WIDTH - 1))
@@ -426,8 +546,8 @@ class GameEngine:
                 if left <= x <= right
                 and character in WALKABLE_TILES
                 and (x, y) not in anchors
-                and abs(x - ROOM_POSITIONS[0][0]) + abs(y - ROOM_POSITIONS[0][1]) >= 6
-                and abs(x - ROOM_POSITIONS[11][0]) + abs(y - ROOM_POSITIONS[11][1]) >= 5
+                and abs(x - positions[0][0]) + abs(y - positions[0][1]) >= 6
+                and abs(x - positions[11][0]) + abs(y - positions[11][1]) >= 5
                 and all(abs(x - ax) + abs(y - ay) >= 3 for ax, ay in anchors)
                 and all(abs(x - px) + abs(y - py) >= 5 for px, py in selected)
             ]
@@ -480,6 +600,8 @@ class GameEngine:
                 deck=[CardInstance(**item) for item in raw["deck"]],
                 rooms=[Room(**item) for item in raw["rooms"]],
                 world_tiles=raw["world_tiles"],
+                world_id=raw["world_id"],
+                room_positions=raw["room_positions"],
                 hub_selection=raw["hub_selection"],
                 current_room=raw["current_room"],
                 party_x=raw["party_x"],
@@ -512,10 +634,30 @@ class GameEngine:
             rng.setstate(_tuples(snapshot["rng_state"]))
         except (KeyError, TypeError, ValueError) as exc:
             raise RuleError(f"invalid save data: {exc}") from exc
-        _validate_world(state.world_tiles)
+        if state.world_id not in catalog.worlds:
+            raise RuleError("save references an unknown world type")
+        if (
+            not isinstance(state.room_positions, list)
+            or len(state.room_positions) != 12
+            or any(
+                not isinstance(position, list)
+                or len(position) != 2
+                or any(not isinstance(value, int) for value in position)
+                for position in state.room_positions
+            )
+        ):
+            raise RuleError("save contains malformed room positions")
+        positions = {
+            room_id: tuple(position)
+            for room_id, position in enumerate(state.room_positions)
+        }
+        expected_positions, expected_edges = WORLD_LAYOUTS[catalog.worlds[state.world_id]["layout"]]
+        if positions != expected_positions:
+            raise RuleError("save room positions do not match its world type")
+        _validate_world(state.world_tiles, positions)
         engine = cls(catalog, state, rng)
         walkable_count = sum(character in WALKABLE_TILES for row in state.world_tiles for character in row)
-        if len(engine._distances_from(ROOM_POSITIONS[0])) != walkable_count:
+        if len(engine._distances_from(engine.room_position(0))) != walkable_count:
             raise RuleError("save contains disconnected world terrain")
         hero_ids = {hero.id for hero in state.heroes}
         if state.phase == "hub" and state.heroes:
@@ -526,6 +668,19 @@ class GameEngine:
             raise RuleError("save contains an invalid hub selection")
         if not engine.is_walkable(state.party_x, state.party_y):
             raise RuleError("save places the crew outside the ship")
+        if len(state.rooms) != 12 or any(
+            room.id != index or room.biome_id not in catalog.worlds[state.world_id]["biomes"]
+            for index, room in enumerate(state.rooms)
+        ):
+            raise RuleError("save contains invalid biome rooms")
+        if any(
+            neighbor not in range(12) or room.id not in state.rooms[neighbor].neighbors
+            for room in state.rooms
+            for neighbor in room.neighbors
+        ):
+            raise RuleError("save contains invalid room connections")
+        if any(sorted(room.neighbors) != sorted(expected_edges[room.id]) for room in state.rooms):
+            raise RuleError("save room connections do not match its world type")
         patrol_ids = {patrol.id for patrol in state.patrols}
         if len(patrol_ids) != len(state.patrols):
             raise RuleError("save contains duplicate patrols")
@@ -629,12 +784,21 @@ class GameEngine:
     def room(self, room_id: int | None = None) -> Room:
         return self.state.rooms[self.state.current_room if room_id is None else room_id]
 
-    @staticmethod
-    def room_position(room_id: int) -> tuple[int, int]:
+    def room_position(self, room_id: int) -> tuple[int, int]:
         try:
-            return ROOM_POSITIONS[room_id]
-        except KeyError as exc:
+            position = self.state.room_positions[room_id]
+            return position[0], position[1]
+        except (IndexError, TypeError) as exc:
             raise RuleError("unknown ship compartment") from exc
+
+    def current_biome(self) -> str:
+        position = (self.state.party_x, self.state.party_y)
+        room = min(
+            self.state.rooms,
+            key=lambda item: abs(position[0] - self.room_position(item.id)[0])
+            + abs(position[1] - self.room_position(item.id)[1]),
+        )
+        return room.biome_id
 
     def world_tiles(self) -> list[str]:
         return self.state.world_tiles
@@ -1282,8 +1446,15 @@ class GameEngine:
                 effect["condition_status"] in target.statuses for target in main_targets
             ):
                 continue
-            targets = self._effect_targets(effect.get("target"), main_targets, actor)
-            self._apply_effect(actor, targets, effect)
+            resolved_effect = dict(effect)
+            if definition.get("biome") == self.current_biome():
+                bonus = int(definition.get("biome_bonus", 0))
+                if resolved_effect["op"] in {"damage", "block", "heal"}:
+                    resolved_effect["amount"] = int(resolved_effect.get("amount", 0)) + bonus
+                elif resolved_effect["op"] == "stress" and resolved_effect.get("amount", 0) < 0:
+                    resolved_effect["amount"] = int(resolved_effect["amount"]) - bonus
+            targets = self._effect_targets(resolved_effect.get("target"), main_targets, actor)
+            self._apply_effect(actor, targets, resolved_effect)
         resonant = round(self._hero_effect_value(actor, "boon", "resonant_energy"))
         if self.state.effect_counters[combat_key] % 3 == 0 and resonant:
             self.state.energy += resonant

@@ -65,7 +65,7 @@ class TerminalUI:
                 "DUMBEST DUNGEON",
                 choices,
                 "\n".join(self.catalog.art["title"])
-                + "\n\nSurvive the derelict survey ship Orison. Seeded runs, bad decisions.",
+                + "\n\nCross a shifting dead world. Seeded runs, bad decisions.",
                 allow_cancel=False,
             )
             choice = choices[picked]
@@ -113,14 +113,18 @@ class TerminalUI:
         while self.engine and self.engine.state.phase == "hub":
             hero = roster[selected]
             selection = self.engine.state.hub_selection
-            self._begin("ORISON AIRLOCK — CREW HUB")
+            world_name = self.catalog.worlds[self.engine.state.world_id]["name"]
+            self._begin(f"CREW THRESHOLD — {world_name.upper()}")
             self._put(2, 2, "Choose four crew. Manifest order becomes combat ranks 1 (front) to 4 (back).")
-            for index, candidate in enumerate(roster):
+            visible_count = 15
+            scroll = max(0, min(selected - visible_count // 2, len(roster) - visible_count))
+            for shown, candidate in enumerate(roster[scroll:scroll + visible_count]):
+                index = scroll + shown
                 rank = selection.index(candidate["id"]) + 1 if candidate["id"] in selection else None
                 marker = f"[{rank}]" if rank else "[ ]"
                 line = f"{marker} {candidate['role']:<13} {candidate['name']}"
                 attr = curses.A_REVERSE if index == selected else 0
-                self._put(4 + index, 3, line[:37], attr)
+                self._put(4 + shown, 3, line[:37], attr)
 
             self._put(3, 44, f"{hero['role'].upper()} // {hero['name']}", curses.A_BOLD | self._attr(1))
             self._draw_sprite(5, 55, self.catalog.art["heroes"][hero["id"]], curses.A_BOLD)
@@ -248,7 +252,8 @@ class TerminalUI:
         focus: tuple[int, int] | None = None,
     ) -> tuple[int, int, int, int]:
         assert self.engine
-        self._begin("ORISON — TOP-DOWN EXPLORATION")
+        world = self.catalog.worlds[self.engine.state.world_id]
+        self._begin(f"{world['name'].upper()} — TOP-DOWN EXPLORATION")
         self._resources(2)
         origin = self._world_map(self.MAP_ROW, cursor, focus)
         rows = self.screen.getmaxyx()[0]
@@ -259,18 +264,22 @@ class TerminalUI:
         route_length = len(route)
         maximum = self.engine.maximum_navigation_distance()
         reach = "READY" if route_length <= maximum and self.engine.is_walkable(*cursor) else "OUT OF REACH"
+        biome = self.catalog.biomes[self.engine.current_biome()]["name"]
         zone = self.engine.room().name
         self._put(
             rows - 4,
             2,
             f"Crew ({state.party_x:03},{state.party_y:02})  Target ({cursor[0]:03},{cursor[1]:02})  "
-            f"Route {route_length:2}/{maximum} {reach}  Last zone: {zone}"[: self.screen.getmaxyx()[1] - 3],
+            f"Route {route_length:2}/{maximum} {reach}  Biome: {biome}  Last: {zone}"[: self.screen.getmaxyx()[1] - 3],
             self._attr(1 if reach == "READY" else 3),
         )
         self._put(
             rows - 3,
             2,
-            "@ crew X aim e/E/B foes + boon * salvage ! bargain ?/C/W/$ sites",
+            f"@ crew X aim e/E/B foes +/*/! finds ?/C/W/$ sites | "
+            f"{self.catalog.biomes[self.engine.current_biome()]['glyph']} {biome}"[
+                : self.screen.getmaxyx()[1] - 3
+            ],
             curses.A_DIM,
         )
         self._footer("Arrows aim Enter/2xclick go Tab cycle Space center U supply D deck I effects P pause")
@@ -491,8 +500,9 @@ class TerminalUI:
         assert self.engine
         state = self.engine.state
         boons, curses_owned, items = self.engine.effect_counts()
+        biome = self.catalog.biomes[self.engine.current_biome()]["name"]
         self._begin(
-            f"COMBAT — ROUND {state.round} — ENERGY {state.energy} — B{boons} C{curses_owned} I{items}"
+            f"{biome.upper()} — ROUND {state.round} — ENERGY {state.energy} — B{boons} C{curses_owned} I{items}"
         )
         active_hero = None
         valid_targets: list[str] = []
@@ -883,7 +893,7 @@ class TerminalUI:
         assert self.engine
         title = "EVACUATION COMPLETE" if phase == "victory" else "EXPEDITION LOST"
         body = (
-            "The Overseer is silent. The crew launches into the dark before the Orison can wake again."
+            "The Overseer is silent. The crew escapes before the dead world can wake again."
             if phase == "victory"
             else "One voice drops from the comms. The survivors cannot finish the mission."
         )
@@ -891,7 +901,7 @@ class TerminalUI:
 
     def _help(self) -> None:
         text = (
-            "Explore the ship from above and reach the Overseer Chamber. Aim the X cursor with arrows or "
+            "Explore the current world from above and reach its Apex Chamber. Aim the X cursor with arrows or "
             "hjkl, then press Enter to auto-walk there. A first left-click selects and highlights a tile; "
             "click it again or press Enter to confirm. One order has limited reach; Survey Relays extend it. "
             "Tab cycles points of interest and Space recenters on the crew. Patrols move whenever the crew "
@@ -902,6 +912,9 @@ class TerminalUI:
             "bargains. Hidden anomalies inflict curses when stepped on. Curse cards trigger when drawn and "
             "cannot be played. Press I during exploration or combat to inspect every active stack and its "
             "current scaled value.\n\n"
+            "Each seed selects one of six world layouts and four of eleven biome types. Biomes alter map "
+            "floor glyphs, room names, enemy formations, and encounter pools. New specialist cards list an "
+            "affinity biome and gain extra damage, block, healing, or stress relief while used there.\n\n"
             "At zero HP a crew member reaches Death's Door. Further damage may kill them and end the run. "
             "At 100 stress they gain an affliction; reaching 100 again causes collapse. Supplies heal, calm, "
             "or restore light. Camps recover crew, modify one card, or remove one curse for 2 supplies.\n\n"
@@ -928,7 +941,10 @@ class TerminalUI:
         if card.card_id in self.catalog.curses:
             hero = self.catalog.heroes.get(card.bound_hero_id or "", {}).get("name", "Unbound")
             return f"{definition['name']} (CURSE / {hero}) — {definition['description']}"
-        return f"{definition['name']}{plus} ({self.catalog.heroes[definition['hero']]['role']}) — {definition['description']}"
+        resonance = ""
+        if definition.get("biome"):
+            resonance = f" [{self.catalog.biomes[definition['biome']]['name']} +{definition['biome_bonus']}]"
+        return f"{definition['name']}{plus} ({self.catalog.heroes[definition['hero']]['role']}){resonance} — {definition['description']}"
 
     def _draw_sprite(self, row: int, column: int, lines: list[str], attr: int = 0) -> None:
         for offset, line in enumerate(lines):
@@ -968,7 +984,13 @@ class TerminalUI:
         target = "unplayable" if is_curse else definition["target"].replace("_", " ")
         if not is_curse and definition.get("target_ranks"):
             target += " " + ",".join(str(rank) for rank in definition["target_ranks"])
-        description = textwrap.wrap(definition["description"], inside - 2)[:2]
+        description_text = definition["description"]
+        if not is_curse and definition.get("biome"):
+            biome_name = self.catalog.biomes[definition["biome"]]["name"]
+            description_text = (
+                f"{biome_name}: +{definition['biome_bonus']} potency. {description_text}"
+            )
+        description = textwrap.wrap(description_text, inside - 2)[:2]
         description += [""] * (2 - len(description))
         border = "+" + "-" * inside + "+"
         corners = f"{cost}" + " " * (inside - len(str(cost)) - len(mark)) + mark

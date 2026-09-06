@@ -66,6 +66,12 @@ class SaveTests(unittest.TestCase):
         with self.assertRaisesRegex(RuleError, "disconnected world terrain"):
             GameEngine.from_snapshot(self.catalog, snapshot)
 
+    def test_saved_layout_must_match_its_world_type(self) -> None:
+        snapshot = GameEngine.new(self.catalog, 404).snapshot()
+        snapshot["state"]["room_positions"][1][0] += 1
+        with self.assertRaisesRegex(RuleError, "positions do not match"):
+            GameEngine.from_snapshot(self.catalog, snapshot)
+
 
 if __name__ == "__main__":
     unittest.main()

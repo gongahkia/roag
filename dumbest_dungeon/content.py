@@ -21,6 +21,8 @@ class Catalog:
     enemies: dict[str, dict[str, Any]]
     encounters: dict[str, dict[str, Any]]
     events: dict[str, dict[str, Any]]
+    biomes: dict[str, dict[str, Any]]
+    worlds: dict[str, dict[str, Any]]
     boons: dict[str, dict[str, Any]]
     curses: dict[str, dict[str, Any]]
     items: dict[str, dict[str, Any]]
@@ -186,8 +188,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load ASCII art from {art_source}: {exc}") from exc
 
-    if raw.get("schema_version") != 4:
-        raise ContentError("content schema_version must be 4")
+    if raw.get("schema_version") != 5:
+        raise ContentError("content schema_version must be 5")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
@@ -195,6 +197,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
     enemies = _indexed(raw.get("enemies"), "enemies")
     encounters = _indexed(raw.get("encounters"), "encounters")
     events = _indexed(raw.get("events"), "events")
+    biomes = _indexed(raw.get("biomes"), "biomes")
+    worlds = _indexed(raw.get("worlds"), "worlds")
     boons = _indexed(raw.get("boons"), "boons")
     curses = _indexed(raw.get("curses"), "curses")
     items = _indexed(raw.get("items"), "items")
@@ -217,8 +221,10 @@ def load_catalog(path: Path | None = None) -> Catalog:
             if card_id not in cards:
                 raise ContentError(f"hero {hero['id']} references unknown card {card_id}")
 
-    if len(heroes) != 15:
-        raise ContentError("this release requires exactly fifteen crew archetypes")
+        if hero.get("biome") is not None and hero["biome"] not in biomes:
+            raise ContentError(f"hero {hero['id']} references an unknown biome")
+    if len(heroes) != 25:
+        raise ContentError("this release requires exactly twenty-five crew archetypes")
 
     for card in cards.values():
         if not isinstance(card.get("name"), str) or not isinstance(card.get("description"), str):
@@ -234,8 +240,15 @@ def load_catalog(path: Path | None = None) -> Catalog:
             _ranks(card.get("target_ranks"), f"card {card['id']}.target_ranks")
         _effects(card.get("effects"), CARD_EFFECTS, f"card {card['id']}.effects")
         _effects(card.get("upgrade_effects"), CARD_EFFECTS, f"card {card['id']}.upgrade_effects")
-    if len(cards) != 105:
-        raise ContentError("this release requires exactly 105 unique cards")
+        if card.get("biome") is not None:
+            if card["biome"] not in biomes:
+                raise ContentError(f"card {card['id']} references an unknown biome")
+            if heroes[card["hero"]].get("biome") != card["biome"]:
+                raise ContentError(f"card {card['id']} does not match its hero's biome")
+            if not isinstance(card.get("biome_bonus"), int) or not 1 <= card["biome_bonus"] <= 3:
+                raise ContentError(f"card {card['id']} has an invalid biome bonus")
+    if len(cards) != 155:
+        raise ContentError("this release requires exactly 155 unique cards")
 
     for enemy in enemies.values():
         if not isinstance(enemy.get("max_hp"), int) or enemy["max_hp"] <= 0:
@@ -247,8 +260,13 @@ def load_catalog(path: Path | None = None) -> Catalog:
             if not isinstance(action.get("name"), str) or action.get("target") not in ENEMY_TARGETS:
                 raise ContentError(f"enemy {enemy['id']} has an invalid action")
             _effects(action.get("effects"), CARD_EFFECTS, f"enemy {enemy['id']} action")
-    if len(enemies) != 35:
-        raise ContentError("this release requires exactly 35 enemy types")
+        enemy_biomes = enemy.get("biomes", ["derelict"])
+        if not isinstance(enemy_biomes, list) or not enemy_biomes or any(
+            biome_id not in biomes for biome_id in enemy_biomes
+        ):
+            raise ContentError(f"enemy {enemy['id']} has invalid biomes")
+    if len(enemies) != 60:
+        raise ContentError("this release requires exactly 60 enemy types")
 
     for encounter in encounters.values():
         if encounter.get("kind") not in {"normal", "elite", "boss"}:
@@ -259,6 +277,51 @@ def load_catalog(path: Path | None = None) -> Catalog:
         for enemy_id in members:
             if enemy_id not in enemies:
                 raise ContentError(f"encounter {encounter['id']} references {enemy_id}")
+        encounter_biomes = encounter.get("biomes", ["derelict"])
+        if not isinstance(encounter_biomes, list) or not encounter_biomes or any(
+            biome_id not in biomes for biome_id in encounter_biomes
+        ):
+            raise ContentError(f"encounter {encounter['id']} has invalid biomes")
+        if encounter["kind"] != "boss" and any(
+            biome_id not in enemies[enemy_id].get("biomes", ["derelict"])
+            for biome_id in encounter_biomes
+            for enemy_id in members
+        ):
+            raise ContentError(f"encounter {encounter['id']} mixes incompatible biome enemies")
+
+    if len(biomes) != 11:
+        raise ContentError("this release requires exactly eleven biomes")
+    glyphs = set()
+    for biome in biomes.values():
+        if not isinstance(biome.get("name"), str) or not isinstance(biome.get("description"), str):
+            raise ContentError(f"biome {biome['id']} needs a name and description")
+        glyph = biome.get("glyph")
+        if not isinstance(glyph, str) or len(glyph) != 1 or glyph not in "._~\";:`'%-o":
+            raise ContentError(f"biome {biome['id']} has an invalid floor glyph")
+        if glyph in glyphs:
+            raise ContentError(f"biome {biome['id']} reuses a floor glyph")
+        glyphs.add(glyph)
+
+    if len(worlds) != 6:
+        raise ContentError("this release requires exactly six world types")
+    for world in worlds.values():
+        if not isinstance(world.get("name"), str) or not isinstance(world.get("description"), str):
+            raise ContentError(f"world {world['id']} needs a name and description")
+        if world.get("layout") not in {"branching", "spine", "ring", "clusters", "zigzag", "fracture"}:
+            raise ContentError(f"world {world['id']} has an invalid layout")
+        world_biomes = world.get("biomes")
+        if not isinstance(world_biomes, list) or len(world_biomes) != 4 or any(
+            biome_id not in biomes for biome_id in world_biomes
+        ) or len(set(world_biomes)) != 4:
+            raise ContentError(f"world {world['id']} must contain four known biomes")
+    for biome_id in biomes:
+        for kind in ("normal", "elite"):
+            if not any(
+                encounter["kind"] == kind
+                and biome_id in encounter.get("biomes", ["derelict"])
+                for encounter in encounters.values()
+            ):
+                raise ContentError(f"biome {biome_id} has no {kind} encounter pool")
 
     for event in events.values():
         choices = event.get("choices")
@@ -335,6 +398,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
         enemies,
         encounters,
         events,
+        biomes,
+        worlds,
         boons,
         curses,
         items,

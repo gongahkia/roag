@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 
 from dumbest_dungeon.content import load_catalog
-from dumbest_dungeon.engine import Actor, CardInstance, GameEngine, RuleError
+from dumbest_dungeon.engine import Actor, CardInstance, GameEngine, RuleError, WALKABLE_TILES
 
 
 class EngineTests(unittest.TestCase):
@@ -16,6 +16,42 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(self.engine.snapshot(), other.snapshot())
         different = GameEngine.new(self.catalog, 4243)
         self.assertNotEqual(self.engine.world_tiles(), different.world_tiles())
+
+    def test_all_world_layouts_and_biome_encounter_pools_generate(self) -> None:
+        worlds = set()
+        layouts = set()
+        for seed in range(200):
+            engine = GameEngine.new(self.catalog, seed)
+            world = self.catalog.worlds[engine.state.world_id]
+            worlds.add(engine.state.world_id)
+            layouts.add(tuple(tuple(position) for position in engine.state.room_positions))
+            self.assertEqual(set(world["biomes"]), {room.biome_id for room in engine.state.rooms})
+            for room in engine.state.rooms:
+                if room.kind not in {"fight", "elite"}:
+                    continue
+                encounter = self.catalog.encounters[room.content_id]
+                self.assertIn(room.biome_id, encounter.get("biomes", ["derelict"]))
+        self.assertEqual(set(self.catalog.worlds), worlds)
+        self.assertEqual(6, len(layouts))
+
+    def test_card_biome_affinity_adds_bounded_potency(self) -> None:
+        engine = GameEngine.new(self.catalog, 4, start_in_hub=True)
+        engine.state.hub_selection = ["cryonaut", "warden", "medic", "scout"]
+        engine.begin_expedition()
+        engine.state.rooms[0].biome_id = "derelict"
+        engine.start_combat("lost_shift")
+        target = engine.living_enemies()[0]
+        engine.state.hand = [CardInstance("ice_pick")]
+        engine.state.energy = 3
+        engine.play_card(0, target.id)
+        self.assertEqual(target.max_hp - 6, target.hp)
+
+        target.hp = target.max_hp
+        engine.state.rooms[0].biome_id = "cryogenic"
+        engine.state.hand = [CardInstance("ice_pick")]
+        engine.state.energy = 3
+        engine.play_card(0, target.id)
+        self.assertEqual(target.max_hp - 8, target.hp)
 
     def test_generated_content_and_top_down_map_are_connected(self) -> None:
         for seed in range(50):
@@ -35,7 +71,12 @@ class EngineTests(unittest.TestCase):
             tiles = engine.world_tiles()
             self.assertEqual(35, len(tiles))
             self.assertTrue(all(len(row) == 117 for row in tiles))
-            self.assertTrue(set(".,=~") <= set("".join(tiles)))
+            terrain = set("".join(tiles))
+            world = self.catalog.worlds[engine.state.world_id]
+            self.assertTrue(
+                {self.catalog.biomes[biome_id]["glyph"] for biome_id in world["biomes"]}
+                <= terrain
+            )
             reachable = {start}
             frontier = [start]
             while frontier:
@@ -48,7 +89,7 @@ class EngineTests(unittest.TestCase):
                 (x, y)
                 for y, row in enumerate(tiles)
                 for x, character in enumerate(row)
-                if character in ".,=~"
+                if character in WALKABLE_TILES
             }
             self.assertEqual(walkable, reachable)
             for room in engine.state.rooms:
@@ -127,7 +168,7 @@ class EngineTests(unittest.TestCase):
         self.assertGreater(len(full_path), 100)
         with self.assertRaisesRegex(RuleError, "maximum reach of 18"):
             self.engine.path_to(*distant)
-        path = self.engine.path_to(*self.engine.room_position(1))
+        path = self.engine.path_to(*full_path[:2][-1])
         with self.assertRaisesRegex(RuleError, "one floor tile"):
             self.engine.step_exploration(*path[1])
         self.engine.step_exploration(*path[0])

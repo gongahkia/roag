@@ -193,10 +193,28 @@ class AsciiUiTests(unittest.TestCase):
         self.assertEqual(4, len(self.engine.state.heroes))
         self.assertEqual(20, len(self.engine.state.deck))
         rendered = screen.text()
-        self.assertIn("CREW HUB", rendered)
+        self.assertIn("CREW THRESHOLD", rendered)
         self.assertIn("Breacher", rendered)
         self.assertIn("Pilot", rendered)
         self.assertIn("READY TO DEPART", rendered)
+
+    def test_hub_scrolls_to_new_biome_crew_at_minimum_size(self) -> None:
+        self.engine = GameEngine.new(self.catalog, 3, start_in_hub=True)
+        self.ui.engine = self.engine
+        screen = FakeScreen(keys=[curses.KEY_DOWN] * 24 + [27])
+        self.ui.screen = screen
+        self.ui._hub()
+        self.assertIn("Bonewright", screen.text())
+        self.assertIn(self.catalog.art["heroes"]["bonewright"][1].strip(), screen.text())
+
+    def test_affinity_card_preview_names_its_biome_bonus(self) -> None:
+        engine = GameEngine.new(self.catalog, 3, start_in_hub=True)
+        engine.state.hub_selection = ["cryonaut", "warden", "medic", "scout"]
+        engine.begin_expedition()
+        self.ui.engine = engine
+        lines = self.ui._card_lines(CardInstance("ice_pick"))
+        self.assertIn("CRYOGENIC", " ".join(lines).upper())
+        self.assertIn("+2", " ".join(lines))
 
     def test_damaged_enemy_gets_reverse_video_flash_and_damage_number(self) -> None:
         self.engine.start_combat("vents")
