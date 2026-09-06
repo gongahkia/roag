@@ -37,7 +37,10 @@ class SaveTests(unittest.TestCase):
 
     def test_mid_combat_save_preserves_random_stream(self) -> None:
         engine = GameEngine.new(self.catalog, 202)
-        engine.start_combat("drones")
+        patrol = engine.state.patrols[0]
+        patrol.x, patrol.y = engine._neighbors((engine.state.party_x, engine.state.party_y))[0]
+        engine.step_exploration(patrol.x, patrol.y)
+        self.assertEqual(patrol.id, engine.state.active_patrol_id)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "run.json"
             write_save(path, engine.snapshot())
