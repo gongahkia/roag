@@ -21,6 +21,9 @@ class Catalog:
     enemies: dict[str, dict[str, Any]]
     encounters: dict[str, dict[str, Any]]
     events: dict[str, dict[str, Any]]
+    boons: dict[str, dict[str, Any]]
+    curses: dict[str, dict[str, Any]]
+    items: dict[str, dict[str, Any]]
     afflictions: dict[str, dict[str, Any]]
     balance: dict[str, Any]
     art: dict[str, Any]
@@ -49,6 +52,58 @@ EVENT_EFFECTS = {
 }
 TARGETS = {"enemy", "all_enemies", "self", "ally", "all_allies"}
 ENEMY_TARGETS = {"front", "back", "random", "stressed", "self", "all_heroes", "weakest_enemy"}
+EFFECT_CURVES = {"linear", "diminishing", "threshold", "special"}
+EFFECT_KEYS = {
+    "adrenal_block",
+    "boon_offer_choices",
+    "combat_victory_heal",
+    "countercurrent_draw",
+    "curse_dead_draw",
+    "curse_draw_energy",
+    "curse_draw_move",
+    "curse_draw_stress",
+    "curse_draw_wound",
+    "curse_held_stress",
+    "damage_bonus",
+    "death_chance_reduction",
+    "deflection",
+    "first_card_cost_increase",
+    "first_round_energy",
+    "forced_move_bonus",
+    "forced_move_reduction",
+    "healing_bonus",
+    "healing_reduction",
+    "incoming_damage_bonus",
+    "incoming_damage_reduction",
+    "leaking_light",
+    "marked_damage_bonus",
+    "mercy_block",
+    "night_terror_stress",
+    "opening_hand",
+    "outgoing_damage_reduction",
+    "patrol_aggression_reduction",
+    "reserve_energy",
+    "resonant_energy",
+    "reward_choices",
+    "salvage_copies",
+    "scavenger_stress",
+    "stacked_start_block",
+    "start_block",
+    "start_dodge",
+    "start_marked",
+    "start_stress_relief",
+    "start_vulnerable",
+    "stress_bonus",
+    "stress_reduction",
+    "supply_heal_bonus",
+    "supply_light_bonus",
+    "survey_reach",
+    "quick_hands",
+    "second_wind",
+    "stressed_damage_bonus",
+    "tremor_block_reduction",
+    "wound_reduction",
+}
 
 
 def _indexed(items: Any, section: str) -> dict[str, dict[str, Any]]:
@@ -95,6 +150,29 @@ def _art_lines(value: Any, context: str, *, count: int, width: int) -> None:
             raise ContentError(f"{context}[{index}] must contain ASCII characters only")
 
 
+def _persistent_effects(items: dict[str, dict[str, Any]], section: str) -> None:
+    if len(items) != 18:
+        raise ContentError(f"this release requires exactly 18 {section}")
+    for definition in items.values():
+        if not isinstance(definition.get("name"), str) or not isinstance(definition.get("description"), str):
+            raise ContentError(f"{section[:-1]} {definition['id']} needs a name and description")
+        effects = definition.get("effects")
+        if not isinstance(effects, list) or not effects:
+            raise ContentError(f"{section[:-1]} {definition['id']} needs effects")
+        for effect in effects:
+            if not isinstance(effect, dict) or effect.get("key") not in EFFECT_KEYS:
+                raise ContentError(f"{section[:-1]} {definition['id']} has an unknown effect key")
+            if effect.get("curve") not in EFFECT_CURVES:
+                raise ContentError(f"{section[:-1]} {definition['id']} has an invalid stack curve")
+            for field in ("amount", "cap"):
+                if field in effect and not isinstance(effect[field], (int, float)):
+                    raise ContentError(f"{section[:-1]} {definition['id']}.{field} must be numeric")
+            if effect["curve"] == "threshold" and (
+                not isinstance(effect.get("every"), int) or effect["every"] < 1
+            ):
+                raise ContentError(f"{section[:-1]} {definition['id']} needs a positive threshold")
+
+
 def load_catalog(path: Path | None = None) -> Catalog:
     data_root = files("dumbest_dungeon.data")
     source = path or Path(str(data_root.joinpath("game.json")))
@@ -108,8 +186,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load ASCII art from {art_source}: {exc}") from exc
 
-    if raw.get("schema_version") != 3:
-        raise ContentError("content schema_version must be 3")
+    if raw.get("schema_version") != 4:
+        raise ContentError("content schema_version must be 4")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
@@ -117,6 +195,9 @@ def load_catalog(path: Path | None = None) -> Catalog:
     enemies = _indexed(raw.get("enemies"), "enemies")
     encounters = _indexed(raw.get("encounters"), "encounters")
     events = _indexed(raw.get("events"), "events")
+    boons = _indexed(raw.get("boons"), "boons")
+    curses = _indexed(raw.get("curses"), "curses")
+    items = _indexed(raw.get("items"), "items")
     afflictions = _indexed(raw.get("afflictions"), "afflictions")
     balance = raw.get("balance")
     if not isinstance(balance, dict):
@@ -190,6 +271,22 @@ def load_catalog(path: Path | None = None) -> Catalog:
                 raise ContentError(f"event {event['id']} choice has an invalid supply cost")
             _effects(choice.get("effects"), EVENT_EFFECTS, f"event {event['id']} choice")
 
+    _persistent_effects(boons, "boons")
+    _persistent_effects(curses, "curses")
+    _persistent_effects(items, "items")
+    for boon in boons.values():
+        tags = boon.get("tags", [])
+        requirements = boon.get("requires_all_tags", [])
+        if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
+            raise ContentError(f"boon {boon['id']} has invalid tags")
+        if not isinstance(requirements, list) or not all(isinstance(tag, str) for tag in requirements):
+            raise ContentError(f"boon {boon['id']} has invalid prerequisites")
+    for curse in curses.values():
+        if curse.get("kind") not in {"trait", "card"}:
+            raise ContentError(f"curse {curse['id']} must be a trait or card")
+    if sum(curse["kind"] == "card" for curse in curses.values()) != 6:
+        raise ContentError("this release requires exactly six curse cards")
+
     required_balance = {
         "hand_size",
         "energy",
@@ -226,4 +323,22 @@ def load_catalog(path: Path | None = None) -> Catalog:
     for enemy_id in enemies:
         _art_lines(art.get("enemies", {}).get(enemy_id), f"art.enemies.{enemy_id}", count=5, width=7)
 
-    return Catalog(raw, heroes, cards, enemies, encounters, events, afflictions, balance, art)
+    _art_lines(art.get("curse_card_glyph"), "art.curse_card_glyph", count=3, width=9)
+    curse_mark = art.get("curse_card_mark")
+    if not isinstance(curse_mark, str) or len(curse_mark) != 1 or not curse_mark.isascii():
+        raise ContentError("art.curse_card_mark must be one ASCII character")
+
+    return Catalog(
+        raw,
+        heroes,
+        cards,
+        enemies,
+        encounters,
+        events,
+        boons,
+        curses,
+        items,
+        afflictions,
+        balance,
+        art,
+    )

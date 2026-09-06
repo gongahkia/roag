@@ -41,6 +41,7 @@ class Actor:
 class CardInstance:
     card_id: str
     upgraded: bool = False
+    bound_hero_id: str | None = None
 
 
 @dataclass
@@ -65,6 +66,17 @@ class Patrol:
 
 
 @dataclass
+class EffectPickup:
+    id: str
+    kind: str
+    x: int
+    y: int
+    hidden: bool = False
+    resolved: bool = False
+    payload: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class GameState:
     seed: int
     phase: str
@@ -79,6 +91,12 @@ class GameState:
     exploration_steps: int = 0
     patrols: list[Patrol] = field(default_factory=list)
     active_patrol_id: str | None = None
+    pickups: list[EffectPickup] = field(default_factory=list)
+    current_pickup_id: str | None = None
+    boons: dict[str, dict[str, int]] = field(default_factory=dict)
+    curses: dict[str, dict[str, int]] = field(default_factory=dict)
+    items: dict[str, int] = field(default_factory=dict)
+    effect_counters: dict[str, int] = field(default_factory=dict)
     light: int = 100
     supplies: int = 4
     round: int = 0
@@ -272,7 +290,7 @@ def _validate_world(tiles: Any) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 4
+    SAVE_VERSION = 5
 
     def __init__(self, catalog: Catalog, state: GameState, rng: random.Random):
         self.catalog = catalog
@@ -300,6 +318,7 @@ class GameEngine:
             log=["Crew manifest opened in the Orison airlock."],
         )
         engine = cls(catalog, state, rng)
+        state.pickups = engine._generate_pickups(random.Random(seed ^ 0x5049434B5550))
         if not start_in_hub:
             engine.begin_expedition()
         return engine
@@ -391,6 +410,59 @@ class GameEngine:
         rooms.append(Room(11, "Overseer Chamber", "boss", ROOM_EDGES[11], content_id="the_core"))
         return rooms
 
+    def _generate_pickups(self, rng: random.Random) -> list[EffectPickup]:
+        categories = ["boon"] * 3 + ["item"] * 5 + ["bargain"] * 2 + ["trap"] * 2
+        rng.shuffle(categories)
+        anchors = set(ROOM_POSITIONS.values())
+        selected: list[tuple[int, int]] = []
+        pickups: list[EffectPickup] = []
+        bands = ((0, 38), (39, 77), (78, WORLD_WIDTH - 1))
+        for index, kind in enumerate(categories):
+            left, right = bands[index // 4]
+            candidates = [
+                (x, y)
+                for y, row in enumerate(self.state.world_tiles)
+                for x, character in enumerate(row)
+                if left <= x <= right
+                and character in WALKABLE_TILES
+                and (x, y) not in anchors
+                and abs(x - ROOM_POSITIONS[0][0]) + abs(y - ROOM_POSITIONS[0][1]) >= 6
+                and abs(x - ROOM_POSITIONS[11][0]) + abs(y - ROOM_POSITIONS[11][1]) >= 5
+                and all(abs(x - ax) + abs(y - ay) >= 3 for ax, ay in anchors)
+                and all(abs(x - px) + abs(y - py) >= 5 for px, py in selected)
+            ]
+            if kind == "trap":
+                hazardous = [
+                    position
+                    for position in candidates
+                    if self.state.world_tiles[position[1]][position[0]] in ",~"
+                ]
+                candidates = hazardous or candidates
+            if not candidates:
+                raise RuleError("generated terrain has no valid discovery positions")
+            x, y = rng.choice(candidates)
+            selected.append((x, y))
+            pickups.append(
+                EffectPickup(
+                    id=f"discovery:{index}",
+                    kind=kind,
+                    x=x,
+                    y=y,
+                    hidden=kind == "trap",
+                )
+            )
+
+        item_pool = rng.sample(list(self.catalog.items), 5)
+        item_ids = [item_pool[0], item_pool[0], item_pool[1], item_pool[2], item_pool[3]]
+        rng.shuffle(item_ids)
+        for pickup, item_id in zip(
+            (item for item in pickups if item.kind == "item"),
+            item_ids,
+            strict=True,
+        ):
+            pickup.payload["item_id"] = item_id
+        return pickups
+
     @classmethod
     def from_snapshot(cls, catalog: Catalog, snapshot: dict[str, Any]) -> GameEngine:
         if snapshot.get("save_version") != cls.SAVE_VERSION:
@@ -415,6 +487,12 @@ class GameEngine:
                 exploration_steps=raw["exploration_steps"],
                 patrols=[Patrol(**item) for item in raw["patrols"]],
                 active_patrol_id=raw["active_patrol_id"],
+                pickups=[EffectPickup(**item) for item in raw["pickups"]],
+                current_pickup_id=raw["current_pickup_id"],
+                boons=raw["boons"],
+                curses=raw["curses"],
+                items=raw["items"],
+                effect_counters=raw["effect_counters"],
                 light=raw["light"],
                 supplies=raw["supplies"],
                 round=raw["round"],
@@ -461,8 +539,41 @@ class GameEngine:
                 raise RuleError("save contains an invalid patrol")
         if state.active_patrol_id is not None and state.active_patrol_id not in patrol_ids:
             raise RuleError("save references an unknown active patrol")
+        pickup_ids = {pickup.id for pickup in state.pickups}
+        pickup_positions = {(pickup.x, pickup.y) for pickup in state.pickups}
+        if (
+            len(state.pickups) != 12
+            or len(pickup_ids) != 12
+            or len(pickup_positions) != 12
+            or any(pickup.kind not in {"boon", "item", "bargain", "trap"} for pickup in state.pickups)
+            or any(not engine.is_walkable(pickup.x, pickup.y) for pickup in state.pickups)
+        ):
+            raise RuleError("save contains invalid map discoveries")
+        if state.current_pickup_id is not None and state.current_pickup_id not in pickup_ids:
+            raise RuleError("save references an unknown map discovery")
+        for hero_id, effects in state.boons.items():
+            if hero_id not in catalog.heroes or any(
+                boon_id not in catalog.boons or not isinstance(count, int) or count < 1
+                for boon_id, count in effects.items()
+            ):
+                raise RuleError("save contains invalid boons")
+        for hero_id, effects in state.curses.items():
+            if hero_id not in catalog.heroes or any(
+                curse_id not in catalog.curses or not isinstance(count, int) or count < 1
+                for curse_id, count in effects.items()
+            ):
+                raise RuleError("save contains invalid curses")
+        if any(
+            item_id not in catalog.items or not isinstance(count, int) or count < 1
+            for item_id, count in state.items.items()
+        ):
+            raise RuleError("save contains invalid items")
         piles = state.deck + state.hand + state.draw_pile + state.discard_pile
-        if any(card.card_id not in catalog.cards for card in piles):
+        if any(
+            card.card_id not in catalog.cards
+            and not (card.card_id in catalog.curses and catalog.curses[card.card_id]["kind"] == "card")
+            for card in piles
+        ):
             raise RuleError("save references an unknown card")
         return engine
 
@@ -738,19 +849,110 @@ class GameEngine:
         return sorted((actor for actor in self.state.enemies if actor.hp > 0), key=lambda actor: actor.rank)
 
     def card_definition(self, card: CardInstance) -> dict[str, Any]:
-        return self.catalog.cards[card.card_id]
+        if card.card_id in self.catalog.cards:
+            return self.catalog.cards[card.card_id]
+        return self.catalog.curses[card.card_id]
+
+    @staticmethod
+    def _stack_value(effect: dict[str, Any], count: int) -> float:
+        amount = float(effect.get("amount", 0))
+        cap = float(effect.get("cap", amount * count))
+        curve = effect["curve"]
+        if curve == "linear":
+            return min(cap, amount * count)
+        if curve == "diminishing":
+            if cap <= 0:
+                return 0
+            return cap * (1 - (1 - amount / cap) ** count)
+        if curve == "threshold":
+            return min(cap, (count // int(effect["every"])) * amount)
+        return min(cap, amount * count)
+
+    def effect_value(self, group: str, effect_id: str, key: str, count: int) -> float:
+        catalog = {
+            "boon": self.catalog.boons,
+            "curse": self.catalog.curses,
+            "item": self.catalog.items,
+        }[group]
+        return sum(
+            self._stack_value(effect, count)
+            for effect in catalog[effect_id]["effects"]
+            if effect["key"] == key
+        )
+
+    def _hero_effect_value(self, hero: Actor, group: str, key: str) -> float:
+        owned = self.state.boons if group == "boon" else self.state.curses
+        return sum(
+            self.effect_value(group, effect_id, key, count)
+            for effect_id, count in owned.get(hero.id, {}).items()
+        )
+
+    def _item_effect_value(self, key: str) -> float:
+        return sum(
+            self.effect_value("item", item_id, key, count)
+            for item_id, count in self.state.items.items()
+        )
+
+    def effect_counts(self) -> tuple[int, int, int]:
+        return (
+            sum(sum(values.values()) for values in self.state.boons.values()),
+            sum(sum(values.values()) for values in self.state.curses.values()),
+            sum(self.state.items.values()),
+        )
+
+    def effect_description(self, group: str, effect_id: str, count: int) -> str:
+        catalog = {
+            "boon": self.catalog.boons,
+            "curse": self.catalog.curses,
+            "item": self.catalog.items,
+        }[group]
+        definition = catalog[effect_id]
+        values = []
+        for effect in definition["effects"]:
+            value = self._stack_value(effect, count)
+            shown = f"{value * 100:.0f}%" if abs(value) < 1 and value else f"{value:g}"
+            values.append(f"{effect['key'].replace('_', ' ')} {shown}")
+        return f"{definition['description']} Current: {', '.join(values)}."
+
+    def compact_effect_summary(self, limit: int = 2) -> str:
+        effects = []
+        for hero in self.living_heroes():
+            for effect_id, count in self.state.boons.get(hero.id, {}).items():
+                effects.append(f"{self.catalog.boons[effect_id]['name']} x{count}")
+            for effect_id, count in self.state.curses.get(hero.id, {}).items():
+                effects.append(f"{self.catalog.curses[effect_id]['name']} x{count}")
+        cargo = [f"{self.catalog.items[item_id]['name']} x{count}" for item_id, count in self.state.items.items()]
+
+        def abbreviated(entries: list[str]) -> str:
+            visible = entries[:limit]
+            if len(entries) > limit:
+                visible.append(f"+{len(entries) - limit} more")
+            return ", ".join(visible) or "none"
+
+        return f"FX {abbreviated(effects)} | CARGO {abbreviated(cargo)}"
 
     def card_cost(self, card: CardInstance) -> int:
         definition = self.card_definition(card)
+        if card.card_id in self.catalog.curses:
+            return 99
         actor = self._actor(definition["hero"])
         delta = int(self._affliction_modifiers(actor).get("card_cost_delta", 0))
         base = definition.get("upgrade_cost", definition["cost"]) if card.upgraded else definition["cost"]
+        round_plays = self.state.effect_counters.get(f"round_cards:{actor.id}", 0)
+        combat_plays = self.state.effect_counters.get(f"combat_cards:{actor.id}", 0)
+        quick_stacks = self.state.boons.get(actor.id, {}).get("quick_hands", 0)
+        if round_plays < min(quick_stacks, 3):
+            delta -= 1
+        if combat_plays == 0:
+            delta += round(self._hero_effect_value(actor, "curse", "first_card_cost_increase"))
         return max(0, base + delta)
 
     def valid_targets(self, hand_index: int) -> list[str]:
         if not 0 <= hand_index < len(self.state.hand):
             return []
         definition = self.card_definition(self.state.hand[hand_index])
+        if self.state.hand[hand_index].card_id in self.catalog.curses:
+            return []
         target = definition["target"]
         if target == "self":
             return [definition["hero"]]
@@ -770,6 +972,8 @@ class GameEngine:
             raise RuleError("invalid hand position")
         card = self.state.hand[hand_index]
         definition = self.card_definition(card)
+        if card.card_id in self.catalog.curses:
+            raise RuleError("curse cards cannot be played")
         actor = self._actor(definition["hero"])
         if not actor.alive or actor.rank not in definition["from_ranks"]:
             raise RuleError("the acting hero is not in a valid rank")
@@ -785,6 +989,10 @@ class GameEngine:
         self.state.energy -= cost
         self.state.hand.pop(hand_index)
         self.state.discard_pile.append(card)
+        round_key = f"round_cards:{actor.id}"
+        combat_key = f"combat_cards:{actor.id}"
+        self.state.effect_counters[round_key] = self.state.effect_counters.get(round_key, 0) + 1
+        self.state.effect_counters[combat_key] = self.state.effect_counters.get(combat_key, 0) + 1
         effects = definition["upgrade_effects"] if card.upgraded else definition["effects"]
         main_targets = self._card_targets(definition["target"], target_id, actor)
         self.add_log(f"{actor.name} uses {definition['name']}.")
@@ -797,6 +1005,19 @@ class GameEngine:
                 continue
             targets = self._effect_targets(effect.get("target"), main_targets, actor)
             self._apply_effect(actor, targets, effect)
+        resonant = round(self._hero_effect_value(actor, "boon", "resonant_energy"))
+        if self.state.effect_counters[combat_key] % 3 == 0 and resonant:
+            self.state.energy += 2 if self.state.boons.get(actor.id, {}).get("resonant_circuit", 0) >= 4 else resonant
+            self.add_log(f"{actor.name}'s Resonant Circuit returns energy.")
+        moved = any(effect["op"] == "move" for effect in effects)
+        counter_key = f"countercurrent:{actor.id}"
+        if moved and not self.state.effect_counters.get(counter_key):
+            draws = round(self._hero_effect_value(actor, "boon", "countercurrent_draw"))
+            if self.state.boons.get(actor.id, {}).get("countercurrent", 0) >= 3:
+                draws = 2
+            if draws:
+                self._draw(draws)
+                self.state.effect_counters[counter_key] = 1
         if not self.living_enemies() and self.state.phase == "combat":
             self._combat_victory()
 
