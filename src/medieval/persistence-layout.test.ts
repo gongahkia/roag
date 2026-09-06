@@ -74,6 +74,7 @@ describe('compact medieval persistence layout', () => {
     legacy.state.courier = { version: 1, initialCourierId: world.state.courier.initialCourierId }
     const checkpointProjection = structuredClone(legacy.state.causalHistory.checkpoint.projection)
     delete checkpointProjection.jomon
+    delete checkpointProjection.settlementTrading
     checkpointProjection.version = 4
     checkpointProjection.courier = checkpointProjection.courier.initialCourierId === undefined
       ? { version: 1 }
@@ -98,6 +99,9 @@ describe('compact medieval persistence layout', () => {
     legacy.state.jomon.version = 1
     delete legacy.state.jomon.propActions
     delete legacy.state.jomon.cargo
+    delete legacy.state.settlementTrading
+    legacy.state.contentSafetyAudit.reviewed = legacy.state.contentSafetyAudit.reviewed
+      .filter((item: { id: string }) => !item.id.startsWith('settlement-trading:'))
     const legacyBundle = {
       version: 1,
       kind: 'active-world',
@@ -110,7 +114,7 @@ describe('compact medieval persistence layout', () => {
       world: legacy
     }
 
-    expect(parsePersistenceBackupBundle(JSON.stringify(legacyBundle))).toMatchObject({ kind: 'active-world', world: { version: 15, state: { version: 16, jomon: { version: 3, cargo: { version: 1, lots: [] } }, courier: { version: 3, initialCourierId: 'crew:0', activeCourierId: 'crew:0', departedCourierIds: [] }, navigation: { coordinate: { column: 4, row: 4 } } } } })
+    expect(parsePersistenceBackupBundle(JSON.stringify(legacyBundle))).toMatchObject({ kind: 'active-world', world: { version: 15, state: { version: 17, jomon: { version: 3, cargo: { version: 1, lots: [] } }, settlementTrading: { version: 1, contracts: [{ status: 'offered' }] }, courier: { version: 3, initialCourierId: 'crew:0', activeCourierId: 'crew:0', departedCourierIds: [] }, navigation: { coordinate: { column: 4, row: 4 } } } } })
     const corrupt = structuredClone(legacyBundle)
     corrupt.source.digest = 'layout:forged'
     expect(() => parsePersistenceBackupBundle(JSON.stringify(corrupt))).toThrow('invalid bundle')

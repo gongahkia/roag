@@ -26,6 +26,7 @@ const stationFixtureStateFromProjection = (world: FoundationWorld, projection: C
   delegationState: projection.delegation,
   autonomyState: projection.autonomy,
   socialMemoryState: projection.socialMemory,
+  settlementTradingState: projection.settlementTrading,
   causalHistoryState
 })
 
@@ -215,7 +216,7 @@ test('configures, saves, inspects, selects, and resumes a medieval world through
   await expect(game).toHaveAttribute('data-world-id', worldId!)
   await expect(game).toHaveAttribute('data-persistence', 'saved')
   await expect(game).toHaveAttribute('aria-label', /Jomon foundation world .* active courier/)
-  await expect(game).toHaveAttribute('data-terminal-presentation-version', '13')
+  await expect(game).toHaveAttribute('data-terminal-presentation-version', '14')
   await expect(game).toHaveAttribute('data-terminal-map-state', 'materialized')
   await expect(game).toHaveAttribute('data-terminal-map-cell-count', '114')
   await expect(game).toHaveAttribute('data-terminal-static-map-cell-count', '113')
@@ -559,7 +560,7 @@ test('records a remapped chart-table readout through real keyboard input and rel
   await game.click()
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('data-route', 'world')
-  await expect(game).toHaveAttribute('data-terminal-presentation-version', '13')
+  await expect(game).toHaveAttribute('data-terminal-presentation-version', '14')
   await expect(game).toHaveAttribute('data-terminal-focus', '7,4')
 
   await page.keyboard.press('F2')
@@ -625,6 +626,67 @@ test('opens a bounded gangplank prompt through real keyboard movement', async ({
   await page.keyboard.press('Escape')
   await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
   await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-cancelled')
+})
+
+test('accepts the one physical public-tally handoff through keyboard input and retains its zero-time burden', async ({ page }) => {
+  const world = stationFixtureWorld(['south', 'west', 'west', 'west', 'north-west'])
+  await page.goto('/')
+  await page.evaluate(async source => new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open('jomon-medieval-worlds-v1')
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const database = request.result
+      const transaction = database.transaction(['worlds', 'catalog'], 'readwrite')
+      transaction.onerror = () => { database.close(); reject(transaction.error) }
+      transaction.oncomplete = () => { database.close(); resolve() }
+      transaction.objectStore('worlds').put(source, source.id)
+      transaction.objectStore('catalog').put({ version: 1, activeWorlds: [{ id: source.id, label: source.manifest.creation.label, initialCourierId: source.state.courier.initialCourierId }], chronicles: [] }, 'world-index')
+    }
+  }), world)
+  await page.reload()
+  const game = page.locator('#game')
+  await game.focus()
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'world')
+  await expect(game).toHaveAttribute('data-terminal-focus', '0,4')
+  const before = await stationFixtureTemporal(page, world.id)
+
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
+  await expect(game).toHaveAttribute('aria-label', /Hearthford Mill Quay public tally.*one ironwork case.*Arrow keys choose accept or refuse.*Enter confirms at zero world time.*Escape cancels without mutation/i)
+  await page.keyboard.press('Escape')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'prompt-cancelled')
+  expect(await stationFixtureTemporal(page, world.id)).toEqual(before)
+
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('Enter')
+  await expect.poll(() => game.getAttribute('data-persistence')).toBe('saved')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'settlement-trade-recorded')
+  expect(await stationFixtureTemporal(page, world.id)).toEqual(before)
+  await expect.poll(() => page.evaluate(async id => new Promise<{ status?: string; lots?: unknown[] }>((resolve, reject) => {
+    const request = indexedDB.open('jomon-medieval-worlds-v1')
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const database = request.result
+      const read = database.transaction('worlds', 'readonly').objectStore('worlds').get(id)
+      read.onerror = () => { database.close(); reject(read.error) }
+      read.onsuccess = () => {
+        const source = read.result as { state?: { settlementTrading?: { contracts?: Array<{ status?: string }> }; jomon?: { cargo?: { lots?: unknown[] } } } } | undefined
+        database.close()
+        resolve({ status: source?.state?.settlementTrading?.contracts?.[0]?.status, lots: source?.state?.jomon?.cargo?.lots })
+      }
+    }
+  }), world.id))).toEqual({ status: 'accepted', lots: [] })
+
+  await page.reload()
+  await expect(game).toHaveAttribute('data-route', 'worlds')
+  await game.focus()
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'world')
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('aria-label', /Hearthford tally.*ironwork case awaits delivery to Jomon's cargo hold/i)
 })
 
 test('starts at the quay, crosses the gangplank, switches at the tavern, records a station, and returns through the gangplank with keyboard input', async ({ page }) => {

@@ -95,7 +95,9 @@ const safeTime = (value: unknown): value is number => typeof value === 'number' 
 const sequence = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 1
 const cargoId = (value: unknown): value is string => typeof value === 'string' && /^cargo:[1-9][0-9]*:commodity:ironwork$/u.test(value)
 
-const safety = (): MedievalContentSafetyClassification => classifyMedievalContent('contract', ['civil-life', 'trade'], 'adults-only', ['player-facing-text'])
+const locationSafety = (): MedievalContentSafetyClassification => classifyMedievalContent('place', ['civil-life', 'commerce', 'settlement'], 'not-applicable', ['player-facing-text'])
+const contractSafety = (): MedievalContentSafetyClassification => classifyMedievalContent('contract', ['adult-labour', 'civil-life', 'commerce'], 'adults-only', ['player-facing-text'])
+const feedbackSafety = (): MedievalContentSafetyClassification => classifyMedievalContent('player-facing-text', ['adult-labour', 'civil-life', 'commerce'], 'adults-only', ['contract'])
 
 const canonicalLocation = (): SettlementTradingLocation => ({
   id: SETTLEMENT_TRADING_LOCATION_ID,
@@ -148,9 +150,9 @@ const validContract = (value: unknown): value is SettlementTradeContract => {
     && cargoId(value.cargoId) && safeTime(value.recordedAtWorldTime) && sequence(value.causalSequence)
 }
 
-export const settlementTradingContentRecords = (state: Pick<SettlementTradingState, 'locations' | 'contracts'>): readonly ClassifiedMedievalContent[] => [
-  ...state.locations.map(location => ({ id: `settlement-trading:location:${location.id}`, domain: 'place' as const, classification: safety() })),
-  ...state.contracts.map(contract => ({ id: `settlement-trading:contract:${contract.id}`, domain: 'contract' as const, classification: safety() }))
+export const settlementTradingContentRecords = (state: { locations: readonly SettlementTradingLocation[]; contracts: readonly SettlementTradeContract[] }): readonly ClassifiedMedievalContent[] => [
+  ...state.locations.map(location => ({ id: `settlement-trading:location:${location.id}`, domain: 'place' as const, classification: locationSafety() })),
+  ...state.contracts.map(contract => ({ id: `settlement-trading:contract:${contract.id}`, domain: 'contract' as const, classification: contractSafety() }))
 ]
 
 /** Exact closed validation. Cargo cross-reference belongs to world-state validation. */
@@ -164,11 +166,11 @@ export const validateSettlementTradingState = (value: unknown, worldTime?: numbe
   } else {
     const contract = value.contracts[0]
     if (contract.status === 'accepted' && !validBurden(contract.burden)) diagnostics.push('settlement-trading.invalid-burden')
-    if (contract.status !== 'offered' && (worldTime === undefined || causalSequence === undefined || contract.recordedAtWorldTime > worldTime || contract.causalSequence > causalSequence)) diagnostics.push('settlement-trading.invalid-evidence')
+    if (contract.status !== 'offered' && ((worldTime !== undefined && contract.recordedAtWorldTime > worldTime) || (causalSequence !== undefined && contract.causalSequence > causalSequence))) diagnostics.push('settlement-trading.invalid-evidence')
     if (contract.status === 'delivered' && contract.cargoId !== cargoLotIdFor(contract.causalSequence, SETTLEMENT_TRADING_COMMODITY_ID)) diagnostics.push('settlement-trading.invalid-cargo-reference')
   }
   const content = auditMedievalContentSafety(Array.isArray(value.locations) && Array.isArray(value.contracts)
-    ? settlementTradingContentRecords({ locations: value.locations as SettlementTradingLocation[], contracts: value.contracts as SettlementTradeContract[] })
+    ? settlementTradingContentRecords({ locations: [value.locations[0] as SettlementTradingLocation], contracts: [value.contracts[0] as SettlementTradeContract] })
     : [])
   if (content.status === 'rejected') diagnostics.push('settlement-trading.invalid-content-safety')
   return [...new Set(diagnostics)].sort()
@@ -182,7 +184,7 @@ const checkedState = (state: SettlementTradingState): SettlementTradeContract =>
   return state.contracts[0]
 }
 
-const replaceContract = (state: SettlementTradingState, contract: SettlementTradeContract): SettlementTradingState => ({
+const replaceContract = (contract: SettlementTradeContract): SettlementTradingState => ({
   version: SETTLEMENT_TRADING_CONTRACT_VERSION,
   locations: [canonicalLocation()],
   contracts: [structuredClone(contract)]
@@ -191,7 +193,7 @@ const replaceContract = (state: SettlementTradingState, contract: SettlementTrad
 export const acceptSettlementTradeContract = (state: SettlementTradingState, recordedAtWorldTime: number, causalSequence: number): SettlementTradingState => {
   const contract = checkedState(state)
   if (contract.status !== 'offered' || !safeTime(recordedAtWorldTime) || !sequence(causalSequence)) throw new SettlementTradingContractError(['settlement-trading.invalid-status'])
-  return replaceContract(state, {
+  return replaceContract({
     ...canonicalOfferedContract(),
     status: 'accepted',
     burden: canonicalBurden(),
@@ -203,13 +205,13 @@ export const acceptSettlementTradeContract = (state: SettlementTradingState, rec
 export const refuseSettlementTradeContract = (state: SettlementTradingState, recordedAtWorldTime: number, causalSequence: number): SettlementTradingState => {
   const contract = checkedState(state)
   if (contract.status !== 'offered' || !safeTime(recordedAtWorldTime) || !sequence(causalSequence)) throw new SettlementTradingContractError(['settlement-trading.invalid-status'])
-  return replaceContract(state, { ...canonicalOfferedContract(), status: 'refused', recordedAtWorldTime, causalSequence })
+  return replaceContract({ ...canonicalOfferedContract(), status: 'refused', recordedAtWorldTime, causalSequence })
 }
 
 export const deliverSettlementTradeContract = (state: SettlementTradingState, recordedAtWorldTime: number, causalSequence: number): SettlementTradingState => {
   const contract = checkedState(state)
   if (contract.status !== 'accepted' || !safeTime(recordedAtWorldTime) || !sequence(causalSequence)) throw new SettlementTradingContractError(['settlement-trading.invalid-status'])
-  return replaceContract(state, {
+  return replaceContract({
     ...canonicalOfferedContract(),
     status: 'delivered',
     cargoId: cargoLotIdFor(causalSequence, SETTLEMENT_TRADING_COMMODITY_ID),
@@ -240,27 +242,32 @@ export const settlementTradeFeedback = (state: SettlementTradingState): Settleme
     text: 'Hearthford tally: ironwork case awaits delivery to Jomon’s cargo hold.',
     accessibilityText: 'Hearthford Mill Quay public tally has recorded one ironwork case awaiting delivery to Jomon’s cargo hold.',
     sourceRecordId: `world-state:settlement-trading:${contract.id}`,
-    recordedAtWorldTime: contract.recordedAtWorldTime, causalSequence: contract.causalSequence, contentSafety: safety()
+    recordedAtWorldTime: contract.recordedAtWorldTime, causalSequence: contract.causalSequence, contentSafety: feedbackSafety()
   }
   if (contract.status === 'refused') return {
     id: 'settlement-trade-feedback:hearthford-mill-ironwork', state: 'warning',
     text: 'Hearthford tally: the ironwork handoff was refused; the case remains at the quay.',
     accessibilityText: 'Hearthford Mill Quay public tally records that the ironwork handoff was refused. The case remains at the quay.',
     sourceRecordId: `world-state:settlement-trading:${contract.id}`,
-    recordedAtWorldTime: contract.recordedAtWorldTime, causalSequence: contract.causalSequence, contentSafety: safety()
+    recordedAtWorldTime: contract.recordedAtWorldTime, causalSequence: contract.causalSequence, contentSafety: feedbackSafety()
   }
   return {
     id: 'settlement-trade-feedback:hearthford-mill-ironwork', state: 'neutral',
     text: 'Hearthford tally: Jomon received the ironwork case; the mill-race work can proceed.',
     accessibilityText: 'Hearthford Mill Quay public tally records that Jomon received the ironwork case. The mill-race work can proceed.',
     sourceRecordId: `world-state:settlement-trading:${contract.id}`,
-    recordedAtWorldTime: contract.recordedAtWorldTime, causalSequence: contract.causalSequence, contentSafety: safety()
+    recordedAtWorldTime: contract.recordedAtWorldTime, causalSequence: contract.causalSequence, contentSafety: feedbackSafety()
   }
 }
 
-/** The source owner never returns geometry; callers compare its private anchor. */
-export const settlementTradingAnchorForPlan = (plan: JomonDeckPlan): { column: number; row: number } => {
+/** Exact source occupancy without leaking plan geometry through this contract. */
+export const settlementTradingAtSourceAnchor = (plan: JomonDeckPlan, coordinate: unknown): boolean => {
   const area = plan.areas.find(candidate => candidate.id === SETTLEMENT_TRADING_SOURCE_AREA_ID)
   if (!area || area.kind !== 'shore-approach') throw new SettlementTradingContractError(['settlement-trading.invalid-location'])
-  return structuredClone(area.anchor)
+  return Boolean(coordinate)
+    && typeof coordinate === 'object'
+    && !Array.isArray(coordinate)
+    && Object.keys(coordinate as Record<string, unknown>).length === 2
+    && (coordinate as Record<string, unknown>).column === area.anchor.column
+    && (coordinate as Record<string, unknown>).row === area.anchor.row
 }

@@ -6,11 +6,11 @@ import { INITIAL_WORLD_GENERATION_DIAGNOSTICS_VERSION, INITIAL_WORLD_GENERATOR_V
 import { normalizeCreationSeed } from './settings'
 import { createInitialHousehold, initialHouseholdActiveCrew, initialHouseholdContentRecords, validateInitialHouseholdRoster, validateInitialHouseholdStructure } from './initial-household'
 import { advanceMedievalTemporalState, createMedievalTemporalState, isMedievalTemporalState, type TemporalCommand, type TemporalProvenance, type TimeBearingTemporalAction } from './temporal'
-import { causalReplayProjectionForWorldState, createMedievalWorldState, isMedievalWorldState, WORLD_DECK_NAVIGATION_STATE_VERSION, type MedievalWorldState, type WorldAutonomyState, type WorldDeckNavigationState, type WorldDelegationState, type WorldPeopleState, type WorldSocialMemoryState } from './world-state'
+import { causalReplayProjectionForWorldState, createMedievalWorldState, isMedievalWorldState, medievalWorldStateContentRecords, WORLD_DECK_NAVIGATION_STATE_VERSION, type MedievalWorldState, type WorldAutonomyState, type WorldDeckNavigationState, type WorldDelegationState, type WorldPeopleState, type WorldSocialMemoryState } from './world-state'
 import { createFidelityPlanForVerifiedWorld } from './fidelity'
 import { advanceSimulationCatchUpState, reconcileSimulationCatchUpPlanState, resolveDelegatedWorkPlaceholder, validateSimulationCatchUpPlanState, validateSimulationCatchUpState, withDelegatedWorkPlaceholder } from './simulation-catchup'
 import { advanceWorldEraForTemporalAction, recordDurableJomonGrowthEvidence, type DurableJomonGrowthEvidence, type WorldEraContext } from './world-era'
-import { appendCausalCommand, causalReplayProjection, createCausalCommand, rebaseLegacyCausalHistoryCheckpointV4, replayCausalHistory, upgradeLegacyCausalHistoryStateV4, upgradeLegacyCausalHistoryStateV5, validateCausalHistoryReplay, type CausalCommandEvent, type CausalHistoryContext, type CausalReplayProjection } from './causal-history'
+import { appendCausalCommand, causalReplayProjection, createCausalCommand, rebaseLegacyCausalHistoryCheckpointV4, replayCausalHistory, upgradeLegacyCausalHistoryStateV4, upgradeLegacyCausalHistoryStateV5, upgradeLegacyCausalHistoryStateV6, validateCausalHistoryReplay, type CausalCommandEvent, type CausalHistoryContext, type CausalReplayProjection } from './causal-history'
 import { CONVERSATION_CONTRACT_VERSION, assessCourierConversation, assessCourierConversationForValidatedReplay, type ConversationAssessment } from './conversation'
 import { advanceDelegatedTasks, delegatedWorkPlaceholderForTask, delegationInterruptionTemporalAction, delegationOfferTemporalAction, interruptDelegatedTask, isDelegationInterruptionInput, isDelegationOfferInput, offerDelegatedTask as offerDelegationTransition, type DelegationInterruptionInput, type DelegationOfferInput } from './delegation'
 import { advanceAutonomyState, createAutonomyState, reconcileAutonomyState, validateAutonomyPlanState } from './autonomy'
@@ -22,6 +22,8 @@ import { createVesselStationReadoutForVerifiedWorld, type VesselStationReadoutPr
 import { assessVesselPropOperationForVerifiedWorld } from './vessel-proximity-operation'
 import { initialVesselCargoState, loadVesselCargo, recoverVesselCargo, resolveVesselCargoFailure, unloadVesselCargo, type VesselCargoFailureOutcome } from './cargo-hold'
 import type { JomonCommodityId } from './commodity-catalogue'
+import { acceptSettlementTradeContract as acceptSettlementTradeState, deliverSettlementTradeContract as deliverSettlementTradeState, initialSettlementTradingState, refuseSettlementTradeContract as refuseSettlementTradeState, settlementTradingAtSourceAnchor } from './settlement-trading'
+import { deriveJomonDeckPlanForVerifiedWorld } from './jomon-deck-plan'
 import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_JOMON_PROP_DEFINITIONS, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type LegacyFoundationWorldV13, type LegacyFoundationWorldV14, type LegacyFoundationWorldV14V13, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
 
 const LEGACY_FOUNDATION_JOMON_PROPS = [
@@ -38,6 +40,13 @@ const foundationJomon = (legacy = false): FoundationJomon => ({
   quays: [],
   props: structuredClone(legacy ? LEGACY_FOUNDATION_JOMON_PROPS : FOUNDATION_JOMON_PROP_DEFINITIONS)
 })
+
+/** Upgrade-only audit rebinding; it never accepts a legacy record before validation. */
+const currentStateContentSafetyAudit = (state: MedievalWorldState): MedievalContentSafetyAudit => {
+  const audit = auditMedievalContentSafety(medievalWorldStateContentRecords(state))
+  if (audit.status === 'rejected') throw new Error('upgraded world state content is unsafe')
+  return audit
+}
 
 export interface FoundationWorldInput {
   seed?: string
@@ -404,15 +413,17 @@ export const upgradeFoundationWorldStateV15 = (value: unknown): FoundationWorld 
       version: 3,
       propActions: initialVesselPropActionState(legacy.jomon),
       cargo: initialVesselCargoState()
-    }
+    },
+    settlementTrading: initialSettlementTradingState()
   })
   const history = upgradeLegacyCausalHistoryStateV4(context, legacy.state.causalHistory, checkpointProjection)
   const provisional = {
     ...structuredClone(legacy),
     state: {
       ...structuredClone(legacy.state),
-      version: 16,
+      version: 17,
       jomon: structuredClone(checkpointProjection.jomon),
+      settlementTrading: structuredClone(checkpointProjection.settlementTrading),
       causalHistory: history
     }
   } as unknown as FoundationWorld
@@ -426,12 +437,13 @@ export const upgradeFoundationWorldStateV15 = (value: unknown): FoundationWorld 
     || !equivalent(replayed.era, legacyProjection.era)
     || !equivalent(replayed.delegation, legacyProjection.delegation)
     || !equivalent(replayed.autonomy, legacyProjection.autonomy)
-    || !equivalent(replayed.socialMemory, legacyProjection.socialMemory)) throw new Error('foundation world v15/state-v14 replay evidence is invalid')
+    || !equivalent(replayed.socialMemory, legacyProjection.socialMemory)
+    || !equivalent(replayed.settlementTrading, initialSettlementTradingState())) throw new Error('foundation world v15/state-v14 replay evidence is invalid')
   const upgraded: FoundationWorld = {
     ...structuredClone(legacy),
     state: {
       ...structuredClone(legacy.state),
-      version: 16,
+      version: 17,
       courier: structuredClone(replayed.courier),
       navigation: structuredClone(replayed.navigation ?? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }),
       people: structuredClone(replayed.people),
@@ -441,12 +453,14 @@ export const upgradeFoundationWorldStateV15 = (value: unknown): FoundationWorld 
       delegation: structuredClone(replayed.delegation),
       autonomy: structuredClone(replayed.autonomy),
       socialMemory: structuredClone(replayed.socialMemory),
+      settlementTrading: structuredClone(replayed.settlementTrading),
       jomon: structuredClone(replayed.jomon),
       causalHistory: history
     }
   }
+  upgraded.state.contentSafetyAudit = currentStateContentSafetyAudit(upgraded.state)
   const validation = validateFoundationWorld(upgraded)
-  if (validation.length) throw new Error(`foundation world v15/state-v14 conversion did not reproduce a valid v16 envelope: ${validation.map(item => item.code).join(', ')}`)
+  if (validation.length) throw new Error(`foundation world v15/state-v14 conversion did not reproduce a valid v17 envelope: ${validation.map(item => item.code).join(', ')}`)
   return upgraded
 }
 
@@ -476,15 +490,17 @@ export const upgradeFoundationWorldStateV16 = (value: unknown): FoundationWorld 
       ...(legacy.state.jomon as unknown as Omit<MedievalWorldState['jomon'], 'version' | 'cargo'>),
       version: 3,
       cargo: initialVesselCargoState()
-    }
+    },
+    settlementTrading: initialSettlementTradingState()
   })
   const history = upgradeLegacyCausalHistoryStateV5(context, legacy.state.causalHistory, checkpointProjection)
   const provisional = {
     ...structuredClone(legacy),
     state: {
       ...structuredClone(legacy.state),
-      version: 16,
+      version: 17,
       jomon: structuredClone(checkpointProjection.jomon),
+      settlementTrading: structuredClone(checkpointProjection.settlementTrading),
       causalHistory: history
     }
   } as unknown as FoundationWorld
@@ -499,12 +515,13 @@ export const upgradeFoundationWorldStateV16 = (value: unknown): FoundationWorld 
     || !equivalent(replayed.delegation, legacyProjection.delegation)
     || !equivalent(replayed.autonomy, legacyProjection.autonomy)
     || !equivalent(replayed.socialMemory, legacyProjection.socialMemory)
-    || !equivalent(replayed.jomon.cargo, initialVesselCargoState())) throw new Error('foundation world v15/state-v15 replay evidence is invalid')
+    || !equivalent(replayed.jomon.cargo, initialVesselCargoState())
+    || !equivalent(replayed.settlementTrading, initialSettlementTradingState())) throw new Error('foundation world v15/state-v15 replay evidence is invalid')
   const upgraded: FoundationWorld = {
     ...structuredClone(legacy),
     state: {
       ...structuredClone(legacy.state),
-      version: 16,
+      version: 17,
       courier: structuredClone(replayed.courier),
       navigation: structuredClone(replayed.navigation ?? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }),
       people: structuredClone(replayed.people),
@@ -514,12 +531,83 @@ export const upgradeFoundationWorldStateV16 = (value: unknown): FoundationWorld 
       delegation: structuredClone(replayed.delegation),
       autonomy: structuredClone(replayed.autonomy),
       socialMemory: structuredClone(replayed.socialMemory),
+      settlementTrading: structuredClone(replayed.settlementTrading),
       jomon: structuredClone(replayed.jomon),
       causalHistory: history
     }
   }
+  upgraded.state.contentSafetyAudit = currentStateContentSafetyAudit(upgraded.state)
   const validation = validateFoundationWorld(upgraded)
-  if (validation.length) throw new Error(`foundation world v15/state-v15 conversion did not reproduce a valid v16 envelope: ${validation.map(item => item.code).join(', ')}`)
+  if (validation.length) throw new Error(`foundation world v15/state-v15 conversion did not reproduce a valid v17 envelope: ${validation.map(item => item.code).join(', ')}`)
+  return upgraded
+}
+
+/**
+ * Strict read-only state-v16 -> state-v17 conversion. A valid cargo envelope
+ * is fully proved under its original causal v6 projection before the local
+ * settlement contract is added to the checkpoint and current replay result.
+ */
+export const upgradeFoundationWorldStateV17 = (value: unknown): FoundationWorld => {
+  if (!record(value) || !hasOnlyKeys(value, ['version', 'id', 'status', 'manifest', 'jomon', 'crew', 'initialWorld', 'state']) || value.version !== 15 || value.status !== 'active') throw new Error('foundation world is not a v15/state-v16 active envelope')
+  const legacy = value as unknown as FoundationWorld
+  if ((legacy.state as unknown as { version?: unknown }).version !== 16
+    || !isReproducibleWorldManifest(legacy.manifest)
+    || !isInitialWorld(legacy.initialWorld)
+    || !foundationWorldInitialWorldMatchesManifest(legacy)
+    || !foundationWorldContentSatisfiesSafetyPolicy(legacy)
+    || !foundationWorldTemporalStateMatches(legacy)
+    || !foundationWorldNavigationStateMatches(legacy)
+    || !foundationWorldCatchUpStateMatches(legacy)
+    || !foundationWorldAutonomyStateMatches(legacy)) throw new Error('foundation world v15/state-v16 envelope is invalid')
+
+  const context = causalHistoryContextFor(legacy)
+  const checkpoint = legacy.state.causalHistory.checkpoint.projection as unknown as Omit<CausalReplayProjection, 'version' | 'settlementTrading'>
+  const checkpointProjection = causalReplayProjection({ ...checkpoint, settlementTrading: initialSettlementTradingState() })
+  const history = upgradeLegacyCausalHistoryStateV6(context, legacy.state.causalHistory, checkpointProjection)
+  const provisional = {
+    ...structuredClone(legacy),
+    state: {
+      ...structuredClone(legacy.state),
+      version: 17,
+      settlementTrading: structuredClone(checkpointProjection.settlementTrading),
+      causalHistory: history
+    }
+  } as unknown as FoundationWorld
+  const replayed = replayCausalHistory(context, history, (projection, command) => replayCommandProjection(provisional, projection, command))
+  const legacyProjection = legacy.state as unknown as Pick<MedievalWorldState, 'courier' | 'navigation' | 'people' | 'temporal' | 'simulation' | 'era' | 'delegation' | 'autonomy' | 'socialMemory' | 'jomon'>
+  if (!equivalent(replayed.courier, legacyProjection.courier)
+    || !equivalent(replayed.navigation, legacyProjection.navigation)
+    || !equivalent(replayed.people, legacyProjection.people)
+    || !equivalent(replayed.temporal, legacyProjection.temporal)
+    || !equivalent(replayed.simulation, legacyProjection.simulation)
+    || !equivalent(replayed.era, legacyProjection.era)
+    || !equivalent(replayed.delegation, legacyProjection.delegation)
+    || !equivalent(replayed.autonomy, legacyProjection.autonomy)
+    || !equivalent(replayed.socialMemory, legacyProjection.socialMemory)
+    || !equivalent(replayed.jomon, legacyProjection.jomon)
+    || !equivalent(replayed.settlementTrading, initialSettlementTradingState())) throw new Error('foundation world v15/state-v16 replay evidence is invalid')
+  const upgraded: FoundationWorld = {
+    ...structuredClone(legacy),
+    state: {
+      ...structuredClone(legacy.state),
+      version: 17,
+      courier: structuredClone(replayed.courier),
+      navigation: structuredClone(replayed.navigation ?? { version: WORLD_DECK_NAVIGATION_STATE_VERSION }),
+      people: structuredClone(replayed.people),
+      temporal: structuredClone(replayed.temporal),
+      simulation: structuredClone(replayed.simulation),
+      era: structuredClone(replayed.era),
+      delegation: structuredClone(replayed.delegation),
+      autonomy: structuredClone(replayed.autonomy),
+      socialMemory: structuredClone(replayed.socialMemory),
+      settlementTrading: structuredClone(replayed.settlementTrading),
+      jomon: structuredClone(replayed.jomon),
+      causalHistory: history
+    }
+  }
+  upgraded.state.contentSafetyAudit = currentStateContentSafetyAudit(upgraded.state)
+  const validation = validateFoundationWorld(upgraded)
+  if (validation.length) throw new Error(`foundation world v15/state-v16 conversion did not reproduce a valid v17 envelope: ${validation.map(item => item.code).join(', ')}`)
   return upgraded
 }
 
@@ -802,6 +890,7 @@ const stateFromProjection = (world: FoundationWorld, projection: CausalReplayPro
   delegationState: projection.delegation as WorldDelegationState,
   autonomyState: projection.autonomy as WorldAutonomyState,
   socialMemoryState: projection.socialMemory as WorldSocialMemoryState,
+  settlementTradingState: projection.settlementTrading,
   causalHistoryState
 })
 
@@ -861,7 +950,8 @@ const advanceTimeProjection = (world: FoundationWorld, projection: CausalReplayP
     // This transient planning view must carry end-time processing cursors;
     // the real reducer below folds the prior autonomy state before return.
     autonomy: createAutonomyState(delegation.people, transition.state.worldTime),
-    socialMemory: delegation.socialMemory
+    socialMemory: delegation.socialMemory,
+    settlementTrading: projection.settlementTrading
   })
   const finalWorld = worldFromProjection(world, finalProjection)
   const simulation = reconcileSimulationCatchUpPlanState(
@@ -906,7 +996,8 @@ const advanceTimeProjection = (world: FoundationWorld, projection: CausalReplayP
     era: eraPlan,
     delegation: delegation.state,
     autonomy: autonomy.state,
-    socialMemory: delegation.socialMemory
+    socialMemory: delegation.socialMemory,
+    settlementTrading: projection.settlementTrading
   })
 }
 
@@ -1182,6 +1273,42 @@ const recoverVesselCargoProjection = (world: FoundationWorld, projection: Causal
   return withCargoAction(world, projection, recoverVesselCargo(projection.jomon.cargo, projection.jomon.capacity.cargoUnits, payload.cargoId), 'vessel-cargo-recovered', causalSequence)
 }
 
+/** The public tally is a local physical source, not a route, market, or site map. */
+const settlementTradeSourceProjection = (world: FoundationWorld, projection: CausalReplayProjection): FoundationWorld => {
+  const projected = projectedFoundationWorld(world, projection)
+  const activeCourierId = projected.state.courier.activeCourierId
+  const navigation = projected.state.navigation
+  if (activeCourierId === undefined || navigation.courierId !== activeCourierId || navigation.coordinate === undefined) throw new Error('settlement trade requires an active courier at the public tally')
+  if (!settlementTradingAtSourceAnchor(deriveJomonDeckPlanForVerifiedWorld(projected), navigation.coordinate)) throw new Error('settlement trade requires exact public-tally occupancy')
+  return projected
+}
+
+/** One offered contract can be accepted or refused only at its source tally. */
+const settlementTradeDecisionProjection = (
+  world: FoundationWorld,
+  projection: CausalReplayProjection,
+  kind: 'settlement-trade-accepted' | 'settlement-trade-refused',
+  causalSequence: number
+): CausalReplayProjection => {
+  settlementTradeSourceProjection(world, projection)
+  const settlementTrading = kind === 'settlement-trade-accepted'
+    ? acceptSettlementTradeState(projection.settlementTrading, projection.temporal.worldTime, causalSequence)
+    : refuseSettlementTradeState(projection.settlementTrading, projection.temporal.worldTime, causalSequence)
+  return causalReplayProjection({ ...projection, settlementTrading })
+}
+
+/** Delivery converts the accepted physical burden into one canonical hold lot. */
+const deliverSettlementTradeProjection = (
+  world: FoundationWorld,
+  projection: CausalReplayProjection,
+  causalSequence: number
+): CausalReplayProjection => {
+  cargoHoldProjection(world, projection)
+  const settlementTrading = deliverSettlementTradeState(projection.settlementTrading, projection.temporal.worldTime, causalSequence)
+  const cargo = loadVesselCargo(projection.jomon.cargo, projection.jomon.capacity.cargoUnits, causalSequence, 'commodity:ironwork', 1)
+  return withCargoAction(world, causalReplayProjection({ ...projection, settlementTrading }), cargo, 'vessel-cargo-loaded', causalSequence)
+}
+
 const delegationContextFor = (world: FoundationWorld, projection: CausalReplayProjection): {
   worldId: string
   creationDigest: string
@@ -1292,12 +1419,15 @@ const replayCommandProjection = (world: FoundationWorld, projection: CausalRepla
   if (command.kind === 'vessel-cargo-unloaded') return unloadVesselCargoProjection(world, projection, command.payload, command.sequence)
   if (command.kind === 'vessel-cargo-failure-resolved') return resolveVesselCargoFailureProjection(world, projection, command.payload, command.sequence)
   if (command.kind === 'vessel-cargo-recovered') return recoverVesselCargoProjection(world, projection, command.payload, command.sequence)
+  if (command.kind === 'settlement-trade-accepted' || command.kind === 'settlement-trade-refused') return settlementTradeDecisionProjection(world, projection, command.kind, command.sequence)
+  if (command.kind === 'settlement-trade-delivered') return deliverSettlementTradeProjection(world, projection, command.sequence)
   if (command.kind === 'courier-loss-resolved') return resolveCourierLossProjection(world, projection, command.payload)
   if (command.kind === 'time-bearing-action') return advanceTimeProjection(world, projection, command.payload.action)
   if (command.kind === 'deck-moved') return moveDeckProjection(world, projection, command.payload)
   if (command.kind === 'durable-jomon-growth') return recordGrowthProjection(world, projection, command.payload.evidence)
   if (command.kind === 'delegation-offered') return offerDelegationProjection(world, projection, command.payload.offer, true)
-  return interruptDelegationProjection(world, projection, command.payload.interruption)
+  if (command.kind === 'delegation-interrupted') return interruptDelegationProjection(world, projection, command.payload.interruption)
+  throw new Error('unsupported causal command')
 }
 
 /** Replays the authoritative journal through internal pure reducers for inspection/tests. */
@@ -1399,6 +1529,52 @@ export const loadCargoHold = (world: FoundationWorld, commodityId: JomonCommodit
 export const unloadCargoHold = (world: FoundationWorld, cargoId: string): FoundationWorld => recordVesselCargoCommand(world, 'vessel-cargo-unloaded', { propId: 'prop:cargo-hold-rack', cargoId })
 export const recordCargoHoldFailure = (world: FoundationWorld, cargoId: string, outcome: VesselCargoFailureOutcome): FoundationWorld => recordVesselCargoCommand(world, 'vessel-cargo-failure-resolved', { propId: 'prop:cargo-hold-rack', cargoId, outcome })
 export const recoverCargoHold = (world: FoundationWorld, cargoId: string): FoundationWorld => recordVesselCargoCommand(world, 'vessel-cargo-recovered', { propId: 'prop:cargo-hold-rack', cargoId })
+
+/** Accepts the one source-backed freight burden at the public tally, at zero time. */
+export const acceptSettlementTradeContract = (world: FoundationWorld): FoundationWorld => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  if (world.status !== 'active') throw new Error('only an active world can accept a settlement trade contract')
+  requirePlayableActiveCourier(world, 'settlement trade acceptance')
+  const projection = causalReplayProjectionForWorldState(world.state)
+  const command = createCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, 'settlement-trade-accepted', {
+    locationId: 'settlement-location:hearthford-mill-quay',
+    contractId: 'settlement-contract:hearthford-mill-ironwork'
+  })
+  const next = settlementTradeDecisionProjection(world, projection, 'settlement-trade-accepted', command.sequence)
+  const history = appendCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, command, next)
+  return worldFromProjection(world, next, history)
+}
+
+/** Records the bounded refusal outcome at the same physical public tally. */
+export const refuseSettlementTradeContract = (world: FoundationWorld): FoundationWorld => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  if (world.status !== 'active') throw new Error('only an active world can refuse a settlement trade contract')
+  requirePlayableActiveCourier(world, 'settlement trade refusal')
+  const projection = causalReplayProjectionForWorldState(world.state)
+  const command = createCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, 'settlement-trade-refused', {
+    locationId: 'settlement-location:hearthford-mill-quay',
+    contractId: 'settlement-contract:hearthford-mill-ironwork'
+  })
+  const next = settlementTradeDecisionProjection(world, projection, 'settlement-trade-refused', command.sequence)
+  const history = appendCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, command, next)
+  return worldFromProjection(world, next, history)
+}
+
+/** Delivers the accepted burden at Jomon's existing cargo-hold rack, at zero time. */
+export const deliverSettlementTradeContract = (world: FoundationWorld): FoundationWorld => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  if (world.status !== 'active') throw new Error('only an active world can deliver a settlement trade contract')
+  requirePlayableActiveCourier(world, 'settlement trade delivery')
+  const projection = causalReplayProjectionForWorldState(world.state)
+  const command = createCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, 'settlement-trade-delivered', {
+    locationId: 'settlement-location:hearthford-mill-quay',
+    contractId: 'settlement-contract:hearthford-mill-ironwork',
+    propId: 'prop:cargo-hold-rack'
+  })
+  const next = deliverSettlementTradeProjection(world, projection, command.sequence)
+  const history = appendCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, command, next)
+  return worldFromProjection(world, next, history)
+}
 
 export type CourierContinuityResolution =
   | { status: 'continued'; world: FoundationWorld }

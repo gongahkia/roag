@@ -10,7 +10,7 @@ import { MutableWorldSession } from './session'
 import { cancelTerminalPrompt, createJomonDeckContextualPrompt, createTerminalPresentationModel, type TerminalMapLegend, type TerminalMaterializedMap, type TerminalPrompt } from './terminal-presentation'
 import { TERMINAL_CONTROL_IDS, captureTerminalControlBinding, createTerminalCommandHelpModel, createTerminalControlsEditorModel, cycleTerminalControlSelection, defaultTerminalControlPreferences, resetAllTerminalControls, resetTerminalControl, resolveTerminalWorldCommand, type TerminalControlId, type TerminalControlPreferences, type TerminalMovementDirection } from './terminal-controls'
 import type { FoundationWorld, MedievalRoute, WorldChronicle, WorldIndex } from './types'
-import { chronicleExport, chooseInitialCourier, createFoundationWorld, moveFoundationWorldCourier, recordVesselStationReadout, switchTavernCourier } from './world'
+import { acceptSettlementTradeContract, chronicleExport, chooseInitialCourier, createFoundationWorld, deliverSettlementTradeContract, moveFoundationWorldCourier, recordVesselStationReadout, refuseSettlementTradeContract, switchTavernCourier } from './world'
 
 type PersistenceState = 'loading' | 'saved' | 'error'
 type SettingsPage = 'basic' | 'advanced'
@@ -23,6 +23,8 @@ type TerminalInteractionOutcome =
   | { kind: 'prompt-option-disabled'; reason: string }
   | { kind: 'station-readout-recorded'; label: string }
   | { kind: 'courier-switched'; fromName: string; toName: string }
+  | { kind: 'settlement-trade-recorded'; outcome: 'accepted' | 'refused' }
+  | { kind: 'settlement-trade-delivered' }
   | { kind: 'overlay-dismissed'; overlay: Exclude<WorldOverlay, 'none'> }
   | { kind: 'controls-capture-cancelled' }
   | { kind: 'controls-binding-saved'; controlId: TerminalControlId }
@@ -212,6 +214,7 @@ export class MedievalApp {
   private worldOverlay: WorldOverlay = 'none'
   private contextualPrompt: TerminalPrompt | undefined
   private selectedTavernCandidateIndex = 0
+  private selectedSettlementTradeChoiceIndex = 0
   private selectedTerminalControlId: TerminalControlId = TERMINAL_CONTROL_IDS[0]
   private terminalControlCapturePending = false
   private terminalInteractionOutcome: TerminalInteractionOutcome | undefined
@@ -629,6 +632,65 @@ export class MedievalApp {
     }
   }
 
+  /** The adapter persists the one source-bound public-tally decision only after full-envelope save succeeds. */
+  private recordSettlementTradeDecision(outcome: 'accepted' | 'refused'): void {
+    if (!this.world) return
+    try {
+      this.session.assertOwner(this.world.id)
+      const next = outcome === 'accepted' ? acceptSettlementTradeContract(this.world) : refuseSettlementTradeContract(this.world)
+      this.persistence = 'loading'
+      this.render()
+      void this.repository.saveWorld(next).then(() => {
+        this.world = next
+        this.resetManagementSidebar()
+        this.worldOverlay = 'none'
+        this.contextualPrompt = undefined
+        this.selectedSettlementTradeChoiceIndex = 0
+        this.persistence = 'saved'
+        this.error = undefined
+        this.terminalInteractionOutcome = { kind: 'settlement-trade-recorded', outcome }
+        this.render()
+        void this.refreshIndex().then(() => this.render())
+      }).catch(error => {
+        this.persistence = 'error'
+        this.error = errorMessage(error)
+        this.render()
+      })
+    } catch (error) {
+      this.error = errorMessage(error)
+      this.render()
+    }
+  }
+
+  /** Delivery is a single typed cargo-hold receipt, never a browser-side cargo mutation. */
+  private deliverSettlementTrade(): void {
+    if (!this.world) return
+    try {
+      this.session.assertOwner(this.world.id)
+      const next = deliverSettlementTradeContract(this.world)
+      this.persistence = 'loading'
+      this.render()
+      void this.repository.saveWorld(next).then(() => {
+        this.world = next
+        this.resetManagementSidebar()
+        this.worldOverlay = 'none'
+        this.contextualPrompt = undefined
+        this.persistence = 'saved'
+        this.error = undefined
+        this.terminalInteractionOutcome = { kind: 'settlement-trade-delivered' }
+        this.render()
+        void this.refreshIndex().then(() => this.render())
+      }).catch(error => {
+        this.persistence = 'error'
+        this.error = errorMessage(error)
+        this.render()
+      })
+    } catch (error) {
+      this.error = errorMessage(error)
+      this.render()
+    }
+  }
+
   /** World-view keys become typed UI intents before the canvas performs an owned transition. */
   private handleWorldKey(event: KeyboardEvent): boolean {
     const command = resolveTerminalWorldCommand(this.terminalControls, {
@@ -671,6 +733,7 @@ export class MedievalApp {
         this.worldOverlay = 'none'
         this.contextualPrompt = undefined
         this.selectedTavernCandidateIndex = 0
+        this.selectedSettlementTradeChoiceIndex = 0
         this.terminalControlCapturePending = false
         this.render()
         return true
@@ -708,14 +771,19 @@ export class MedievalApp {
         if (!this.world) return false
         this.contextualPrompt = createJomonDeckContextualPrompt(this.world)
         this.selectedTavernCandidateIndex = 0
+        this.selectedSettlementTradeChoiceIndex = 0
         this.worldOverlay = 'contextual-prompt'
         this.terminalInteractionOutcome = undefined
         this.render()
         return true
       case 'prompt-select': {
         const prompt = this.contextualPrompt
-        if (!prompt || prompt.kind !== 'tavern-courier-switch' || prompt.options[0]?.availability !== 'available' || !prompt.candidates.length) return true
-        this.selectedTavernCandidateIndex = (this.selectedTavernCandidateIndex + command.direction + prompt.candidates.length) % prompt.candidates.length
+        if (!prompt) return true
+        if (prompt.kind === 'tavern-courier-switch' && prompt.options[0]?.availability === 'available' && prompt.candidates.length) {
+          this.selectedTavernCandidateIndex = (this.selectedTavernCandidateIndex + command.direction + prompt.candidates.length) % prompt.candidates.length
+        } else if (prompt.kind === 'settlement-trade' && prompt.surface === 'public-tally' && prompt.options[0]?.availability === 'available' && prompt.choices?.length) {
+          this.selectedSettlementTradeChoiceIndex = (this.selectedSettlementTradeChoiceIndex + command.direction + prompt.choices.length) % prompt.choices.length
+        } else return true
         this.terminalInteractionOutcome = undefined
         this.render()
         return true
@@ -730,6 +798,21 @@ export class MedievalApp {
             return true
           }
           this.recordStationReadout(prompt.source.propId as Parameters<typeof recordVesselStationReadout>[1], prompt.label)
+          return true
+        }
+        if (prompt.kind === 'settlement-trade') {
+          if (prompt.options[0]?.availability !== 'available') {
+            this.terminalInteractionOutcome = { kind: 'prompt-option-disabled', reason: prompt.options[0]?.disabledReason ?? 'requires-future-domain-rule' }
+            this.render()
+            return true
+          }
+          if (prompt.surface === 'cargo-hold-delivery') {
+            this.deliverSettlementTrade()
+            return true
+          }
+          const choice = prompt.choices?.[this.selectedSettlementTradeChoiceIndex]
+          if (!choice) return true
+          this.recordSettlementTradeDecision(choice.id === 'accept' ? 'accepted' : 'refused')
           return true
         }
         if (prompt.kind !== 'tavern-courier-switch') {
@@ -1086,6 +1169,10 @@ export class MedievalApp {
       case 'prompt-option-disabled': return `! OPTION DISABLED // ${uppercase(outcome.reason)}`
       case 'station-readout-recorded': return `+ ${outcome.label.toUpperCase()} READOUT RECORDED // ZERO TIME`
       case 'courier-switched': return `+ ACTIVE COURIER ${outcome.fromName.toUpperCase()} -> ${outcome.toName.toUpperCase()} // TAVERN LEDGER // ZERO TIME`
+      case 'settlement-trade-recorded': return outcome.outcome === 'accepted'
+        ? '+ HEARTHFORD IRONWORK BURDEN ACCEPTED // DELIVER AT CARGO HOLD // ZERO TIME'
+        : '+ HEARTHFORD IRONWORK HANDOFF REFUSED // CASE REMAINS AT QUAY // ZERO TIME'
+      case 'settlement-trade-delivered': return '+ HEARTHFORD IRONWORK DELIVERED TO CARGO HOLD // ZERO TIME'
       case 'overlay-dismissed': return `+ ${uppercase(outcome.overlay)} CLOSED // ZERO TIME`
       case 'controls-capture-cancelled': return '+ KEY CAPTURE CANCELLED // BINDING UNCHANGED'
       case 'controls-binding-saved': return `+ ${uppercase(outcome.controlId)} BINDING SAVED // LOCAL UI ONLY`
@@ -1108,6 +1195,23 @@ export class MedievalApp {
     if (this.worldOverlay === 'contextual-prompt') {
       const prompt = this.contextualPrompt
       if (!prompt) throw new Error('contextual prompt is unavailable')
+      if (prompt.kind === 'settlement-trade') {
+        const option = prompt.options[0]!
+        row(context, 2, `${prompt.label.toUpperCase()} // LOCAL HANDOFF`, palette[option.availability === 'available' ? 'actionText' : 'mutedText'], panel.x)
+        renderBoundedMedievalCanvasRows(context, 4, 4, `SOURCE ${prompt.surface.toUpperCase()} // WORLD TIME ${prompt.evidence.knownAtWorldTime} // ${uppercase(prompt.contract.status)}`, palette.mutedText, panel.x, panel.width)
+        renderBoundedMedievalCanvasRows(context, 6, 9, prompt.accessibilityText, palette.bodyText, panel.x, panel.width)
+        if (prompt.choices?.length) {
+          const choice = prompt.choices[this.selectedSettlementTradeChoiceIndex]
+          if (choice) renderBoundedMedievalCanvasRows(context, 11, 12, `SELECT ${selectedMarker(true)} ${choice.label.toUpperCase()} // ${this.selectedSettlementTradeChoiceIndex + 1}/${prompt.choices.length}`, palette[choice.paletteToken], panel.x, panel.width)
+        }
+        rule(context, 18, panel.x, panel.x + panel.width)
+        renderBoundedMedievalCanvasRows(context, 20, 22, outcome ?? (option.availability === 'available'
+          ? prompt.surface === 'public-tally'
+            ? 'ARROWS SELECT // ENTER CONFIRMS LOCAL HANDOFF // ESC CANCELS // ZERO TIME'
+            : 'ENTER RECORDS CARGO-HOLD DELIVERY // ESC CANCELS // ZERO TIME'
+          : 'ENTER REPORTS RECORDED OUTCOME // ESC CANCELS // NO MUTATION OR TIME'), outcome?.startsWith('!') ? palette.warningText : palette.actionText, panel.x, panel.width)
+        return
+      }
       if (prompt.kind === 'vessel-station-readout') {
         const option = prompt.options[0]!
         row(context, 2, `${prompt.label.toUpperCase()} // READOUT`, palette[prompt.readout.paletteToken], panel.x)

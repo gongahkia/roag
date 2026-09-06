@@ -214,12 +214,14 @@ const commandTime = (world: FoundationWorld, command: CausalCommandEvent): numbe
   if (command.kind === 'tavern-courier-switched') return world.state.temporal.worldTime
   if (command.kind === 'vessel-station-readout-recorded') return world.state.temporal.worldTime
   if (command.kind === 'vessel-cargo-loaded' || command.kind === 'vessel-cargo-unloaded' || command.kind === 'vessel-cargo-failure-resolved' || command.kind === 'vessel-cargo-recovered') return world.state.temporal.worldTime
+  if (command.kind === 'settlement-trade-accepted' || command.kind === 'settlement-trade-refused' || command.kind === 'settlement-trade-delivered') return world.state.temporal.worldTime
   if (command.kind === 'courier-loss-resolved') return command.payload.confirmation.atWorldTime
   if (command.kind === 'time-bearing-action') return world.state.temporal.causalRecords.find(record => record.kind === 'action-completed' && record.actionId === command.payload.action.id)?.atWorldTime
   if (command.kind === 'durable-jomon-growth') return command.payload.evidence.atWorldTime
   if (command.kind === 'delegation-offered') return world.state.delegation.tasks.find(task => task.offerId === command.payload.offer.id)?.offeredAtWorldTime
   if (command.kind === 'deck-moved') return world.state.temporal.causalRecords.find(record => record.kind === 'action-completed' && record.actionId === command.payload.actionId)?.atWorldTime
-  return world.state.delegation.tasks.find(task => task.id === command.payload.interruption.taskId)?.outcome?.atWorldTime
+  if (command.kind === 'delegation-interrupted') return world.state.delegation.tasks.find(task => task.id === command.payload.interruption.taskId)?.outcome?.atWorldTime
+  return undefined
 }
 
 const commandFacts = (world: FoundationWorld): readonly ManagementSidebarFact[] => world.state.causalHistory.tail.flatMap(command => {

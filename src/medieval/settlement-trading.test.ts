@@ -1,0 +1,80 @@
+import { describe, expect, it } from 'vitest'
+import { createJomonDeckContextualPrompt, validateTerminalPrompt } from './terminal-presentation'
+import { acceptSettlementTradeContract as acceptState, deliverSettlementTradeContract as deliverState, initialSettlementTradingState, refuseSettlementTradeContract as refuseState, settlementTradeFeedback, validateSettlementTradingState } from './settlement-trading'
+import { acceptSettlementTradeContract, chooseInitialCourier, createFoundationWorld, moveFoundationWorldCourier, refuseSettlementTradeContract } from './world'
+
+const selectedWorld = (seed: string) => chooseInitialCourier(createFoundationWorld({ seed, configuration: { preset: 'watershed' } }), 'crew:0')
+
+const move = (world: ReturnType<typeof selectedWorld>, direction: Parameters<typeof moveFoundationWorldCourier>[1]) => {
+  const result = moveFoundationWorldCourier(world, direction)
+  if (result.status !== 'moved') throw new Error(`expected ${direction} to be a physical deck step`)
+  return result.world
+}
+
+const atPublicTally = (world: ReturnType<typeof selectedWorld>) => ['south', 'west', 'west', 'west', 'north-west']
+  .reduce((current, direction) => move(current, direction as Parameters<typeof moveFoundationWorldCourier>[1]), world)
+
+describe('local settlement freight handoff', () => {
+  it('keeps its initial local source state exact and rejects hidden or malformed additions', () => {
+    const state = initialSettlementTradingState()
+    const before = structuredClone(state)
+
+    expect(validateSettlementTradingState(state)).toEqual([])
+    expect(state).toEqual({
+      version: 1,
+      locations: [{ id: 'settlement-location:hearthford-mill-quay', profileId: 'settlement-profile:hearthford-mill-quay', sourceAreaId: 'quay-approach', serviceId: 'public-tally-table' }],
+      contracts: [{ id: 'settlement-contract:hearthford-mill-ironwork', locationId: 'settlement-location:hearthford-mill-quay', status: 'offered' }]
+    })
+    const forged = { ...structuredClone(state), worldTime: 0 }
+    expect(validateSettlementTradingState(forged)).toContain('settlement-trading.malformed-state')
+    expect(state).toEqual(before)
+  })
+
+  it('routes only exact public-tally occupancy to the bounded offer without exposing hidden state', () => {
+    const source = selectedWorld('settlement-trade-delivery')
+    const sourceBefore = structuredClone(source)
+    expect(() => acceptSettlementTradeContract(source)).toThrow(/settlement trade/i)
+    expect(source).toEqual(sourceBefore)
+
+    const tally = atPublicTally(source)
+    const prompt = createJomonDeckContextualPrompt(tally)
+    if (prompt.kind !== 'settlement-trade') throw new Error('expected the physical public tally prompt')
+    expect(validateTerminalPrompt(prompt)).toEqual([])
+    expect(prompt).toMatchObject({
+      surface: 'public-tally',
+      source: { locationId: 'settlement-location:hearthford-mill-quay', sourceAreaId: 'quay-approach', serviceId: 'public-tally-table' },
+      contract: { status: 'offered', commodityId: 'commodity:ironwork', quantity: 1 },
+      choices: [{ id: 'accept' }, { id: 'refuse' }]
+    })
+    expect(JSON.stringify(prompt)).not.toMatch(/"(?:column|row|frontier|initialWorld|manifest|people|cargoId)"\s*:/i)
+    const withCoordinate = { ...structuredClone(prompt), coordinate: { column: 0, row: 4 } }
+    const reorderedChoices = structuredClone(prompt)
+    if (reorderedChoices.kind === 'settlement-trade' && reorderedChoices.choices) reorderedChoices.choices = [...reorderedChoices.choices].reverse()
+    const forgedSource = structuredClone(prompt)
+    if (forgedSource.kind === 'settlement-trade' && forgedSource.surface === 'public-tally') (forgedSource.source as { serviceId: string }).serviceId = 'witness-ledger'
+    for (const forged of [withCoordinate, reorderedChoices, forgedSource]) {
+      expect(validateTerminalPrompt(forged).map(item => item.code)).toContain('terminal-presentation.invalid-prompt')
+    }
+
+  })
+
+  it('accepts the physical tally burden at zero world time and blocks a second decision', () => {
+    const tally = atPublicTally(selectedWorld('settlement-trade-acceptance'))
+    const accepted = acceptSettlementTradeContract(tally)
+    expect(accepted.state.temporal.worldTime).toBe(tally.state.temporal.worldTime)
+    expect(accepted.state.settlementTrading.contracts[0]).toMatchObject({ status: 'accepted', burden: { commodityId: 'commodity:ironwork', quantity: 1, deliveryPropId: 'prop:cargo-hold-rack' } })
+    expect(accepted.state.jomon.cargo.lots).toEqual([])
+    expect(() => refuseSettlementTradeContract(accepted)).toThrow()
+  })
+
+  it('keeps acceptance, refusal, and delivery material outcomes canonical, bounded, and source-safe', () => {
+    const accepted = acceptState(initialSettlementTradingState(), 7, 3)
+    const refused = refuseState(initialSettlementTradingState(), 7, 3)
+    const delivered = deliverState(accepted, 9, 4)
+    expect(accepted.contracts[0]).toMatchObject({ status: 'accepted', burden: { commodityId: 'commodity:ironwork', quantity: 1, deliveryPropId: 'prop:cargo-hold-rack' }, recordedAtWorldTime: 7, causalSequence: 3 })
+    expect(refused.contracts[0]).toMatchObject({ status: 'refused', recordedAtWorldTime: 7, causalSequence: 3 })
+    expect(delivered.contracts[0]).toMatchObject({ status: 'delivered', cargoId: 'cargo:4:commodity:ironwork', recordedAtWorldTime: 9, causalSequence: 4 })
+    expect(settlementTradeFeedback(delivered)?.text).toMatch(/mill-race work can proceed/i)
+    expect(() => deliverState(refused, 8, 4)).toThrow()
+  })
+})

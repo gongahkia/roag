@@ -6,6 +6,7 @@ import { assessTavernCourierSwitchForVerifiedWorld, type TavernCourierSwitchSour
 import { assessVesselProximityOperationsForVerifiedWorld, type VesselProximityOperation, type VesselProximityOperationReason, type VesselProximityOperationSource } from './vessel-proximity-operation'
 import { createVesselStationReadoutForVerifiedWorld, validateVesselStationReadout, type VesselStationReadout } from './vessel-station-readout'
 import { vesselPropActionFeedback, vesselPropActionFeedbacks, type VesselPropActionFeedback, type VesselPropActionKind } from './vessel-prop-action'
+import { SETTLEMENT_TRADING_CONTRACT_ID, SETTLEMENT_TRADING_LOCATION_ID, SETTLEMENT_TRADING_SOURCE_AREA_ID, settlementTradeFeedback, settlementTradingAtSourceAnchor, type SettlementTradeStatus, type SettlementTradingState } from './settlement-trading'
 import type { CourierLossResolvedCommand } from './causal-history'
 import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE, type JomonPaletteToken } from './palette'
 import {
@@ -43,8 +44,8 @@ export type {
  * future detailed adapter consume that same projection without omitting or
  * inventing consequential information.
  */
-/** v13 adds bounded live cargo-hold evidence to the existing station readout. */
-export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 13 as const
+/** v14 adds the local public-tally contract and cargo-hold delivery prompt. */
+export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 14 as const
 export const TERMINAL_MAP_LEGEND_CONTRACT_VERSION = 1 as const
 
 export const TERMINAL_PRESENTATION_LIMITS = {
@@ -221,10 +222,58 @@ export interface TerminalPromptOption {
   key: TerminalKeyboardKey
   availability: 'available' | 'disabled'
   disabledReason?: TerminalPromptDisabledReason
-  intent: 'future-contextual-action' | 'tavern-courier-switch' | 'vessel-station-readout-record'
+  intent: 'future-contextual-action' | 'tavern-courier-switch' | 'vessel-station-readout-record' | 'settlement-trade-choice' | 'settlement-trade-delivery'
   requiresConfirmation: boolean
   nonColorCue: TerminalNonColorCue
   accessibilityText: string
+}
+
+export const TERMINAL_SETTLEMENT_TRADE_CHOICE_IDS = ['accept', 'refuse'] as const
+export type TerminalSettlementTradeChoiceId = typeof TERMINAL_SETTLEMENT_TRADE_CHOICE_IDS[number]
+
+/** A bounded choice remains presentation-only; the world reducer owns the outcome. */
+export interface TerminalSettlementTradeChoice {
+  id: TerminalSettlementTradeChoiceId
+  label: string
+  presentationState: 'ready' | 'warning'
+  paletteToken: JomonPaletteToken
+  nonColorCue: TerminalNonColorCue
+  accessibilityText: string
+}
+
+/** No coordinates, route data, people, or mutable-world copy crosses this boundary. */
+export interface TerminalSettlementTradeSource {
+  locationId: typeof SETTLEMENT_TRADING_LOCATION_ID
+  profileId: 'settlement-profile:hearthford-mill-quay'
+  sourceAreaId: typeof SETTLEMENT_TRADING_SOURCE_AREA_ID
+  serviceId: 'public-tally-table'
+}
+
+export interface TerminalSettlementTradeContractView {
+  id: typeof SETTLEMENT_TRADING_CONTRACT_ID
+  status: SettlementTradeStatus
+  commodityId: 'commodity:ironwork'
+  quantity: 1
+}
+
+/**
+ * One physical public-tally offer or the accepted burden's cargo-hold handoff.
+ * The presentation knows no cargo lot ID, location coordinate, or route.
+ */
+export interface TerminalSettlementTradePrompt {
+  id: string
+  kind: 'settlement-trade'
+  surface: 'public-tally' | 'cargo-hold-delivery'
+  label: 'Hearthford Mill Quay public tally' | 'Cargo hold rack delivery'
+  accessibilityText: string
+  evidence: TerminalEvidenceProvenance
+  contentDomain: 'player-facing-text'
+  contentSafety: MedievalContentSafetyClassification
+  source: TerminalSettlementTradeSource | Pick<VesselProximityOperationSource, 'propBindingId' | 'propId' | 'propKind' | 'areaId'>
+  contract: TerminalSettlementTradeContractView
+  choices?: readonly TerminalSettlementTradeChoice[]
+  options: readonly TerminalPromptOption[]
+  cancellation: { key: 'Escape'; outcome: 'cancelled-no-mutation'; advancesWorldTime: false }
 }
 
 /** Prompt options express intent only. They have no reducer or time authority. */
@@ -341,7 +390,7 @@ export interface TerminalTavernCourierSwitchPrompt {
   cancellation: { key: 'Escape'; outcome: 'cancelled-no-mutation'; advancesWorldTime: false }
 }
 
-export type TerminalPrompt = TerminalFuturePrompt | TerminalVesselStationReadoutPrompt | TerminalTavernCourierSwitchPrompt
+export type TerminalPrompt = TerminalFuturePrompt | TerminalVesselStationReadoutPrompt | TerminalTavernCourierSwitchPrompt | TerminalSettlementTradePrompt
 
 export interface TerminalPromptCancellation {
   id: string
@@ -498,9 +547,9 @@ export const TERMINAL_KEYBOARD_COMMANDS: readonly TerminalKeyboardCommand[] = ca
   { id: 'controls-reset-current', availability: 'implemented', surface: 'remapping', contexts: ['world-controls-editor'], bindings: [key('R', 'ascii-case-insensitive')], accessibilityLabel: 'Reset the selected world control to its default' },
   { id: 'world-command-help', availability: 'implemented', surface: 'help', contexts: ['world'], bindings: [key('?')], accessibilityLabel: 'Open command help with current effective bindings' },
   { id: 'world-contextual-prompt', availability: 'implemented', surface: 'contextual-action', contexts: ['world'], bindings: [key('Enter')], accessibilityLabel: 'Open the current contextual prompt' },
-  { id: 'tavern-courier-switch-confirm', availability: 'implemented', surface: 'contextual-action', contexts: ['world-contextual-prompt'], bindings: [key('Enter')], accessibilityLabel: 'Confirm the selected available tavern-ledger courier switch, or report the current reserved contextual option as unavailable; this is zero-time' },
-  { id: 'tavern-courier-switch-next', availability: 'implemented', surface: 'contextual-action', contexts: ['world-contextual-prompt'], bindings: [key('ArrowDown')], accessibilityLabel: 'Select the next switchable tavern-ledger courier candidate' },
-  { id: 'tavern-courier-switch-previous', availability: 'implemented', surface: 'contextual-action', contexts: ['world-contextual-prompt'], bindings: [key('ArrowUp')], accessibilityLabel: 'Select the previous switchable tavern-ledger courier candidate' },
+  { id: 'tavern-courier-switch-confirm', availability: 'implemented', surface: 'contextual-action', contexts: ['world-contextual-prompt'], bindings: [key('Enter')], accessibilityLabel: 'Confirm the selected source-backed contextual choice, courier switch, delivery, or bounded station readout; this is zero-time' },
+  { id: 'tavern-courier-switch-next', availability: 'implemented', surface: 'contextual-action', contexts: ['world-contextual-prompt'], bindings: [key('ArrowDown')], accessibilityLabel: 'Select the next available source-backed contextual choice or tavern-ledger courier candidate' },
+  { id: 'tavern-courier-switch-previous', availability: 'implemented', surface: 'contextual-action', contexts: ['world-contextual-prompt'], bindings: [key('ArrowUp')], accessibilityLabel: 'Select the previous available source-backed contextual choice or tavern-ledger courier candidate' },
   { id: 'world-move-east', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('ArrowRight'), key('L', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt one known deck step east; blocked steps do not advance time' },
   { id: 'world-move-north', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('ArrowUp'), key('K', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt one known deck step north; blocked steps do not advance time' },
   { id: 'world-move-north-east', availability: 'implemented', surface: 'movement', contexts: ['world'], bindings: [key('U', 'ascii-case-insensitive')], accessibilityLabel: 'Attempt one known deck step north east; blocked steps do not advance time' },
@@ -1254,6 +1303,136 @@ const currentPromptEvidence = (recordId: string, worldMinute: number): TerminalE
   freshness: { kind: 'current' }
 })
 
+const settlementTradePromptClassification = (): MedievalContentSafetyClassification => classifyMedievalContent(
+  'player-facing-text',
+  ['adult-labour', 'civil-life', 'commerce'],
+  'adults-only',
+  ['contract']
+)
+
+const settlementTradeSource = (): TerminalSettlementTradeSource => ({
+  locationId: SETTLEMENT_TRADING_LOCATION_ID,
+  profileId: 'settlement-profile:hearthford-mill-quay',
+  sourceAreaId: SETTLEMENT_TRADING_SOURCE_AREA_ID,
+  serviceId: 'public-tally-table'
+})
+
+const settlementTradeContractView = (state: SettlementTradingState): TerminalSettlementTradeContractView => ({
+  id: SETTLEMENT_TRADING_CONTRACT_ID,
+  status: state.contracts[0].status,
+  commodityId: 'commodity:ironwork',
+  quantity: 1
+})
+
+const settlementTradeEvidence = (world: FoundationWorld, state: SettlementTradingState): TerminalEvidenceProvenance => {
+  const contract = state.contracts[0]
+  if (contract.status === 'offered') return currentPromptEvidence(`world-state:settlement-trading:${contract.id}`, world.state.temporal.worldTime)
+  return {
+    source: { kind: 'authoritative-record', recordId: `world-state:settlement-trading:${contract.id}` },
+    recordedAtWorldTime: contract.recordedAtWorldTime,
+    knownAtWorldTime: world.state.temporal.worldTime,
+    freshness: contract.recordedAtWorldTime === world.state.temporal.worldTime
+      ? { kind: 'current' }
+      : { kind: 'reported-at-world-time', atWorldTime: contract.recordedAtWorldTime }
+  }
+}
+
+const settlementTradeChoices = (): readonly TerminalSettlementTradeChoice[] => [
+  {
+    id: 'accept',
+    label: 'Accept ironwork burden',
+    presentationState: 'ready',
+    paletteToken: TERMINAL_STATE_PRESENTATIONS.ready.paletteToken,
+    nonColorCue: terminalNonColorCueFor('ready'),
+    accessibilityText: 'Accept the one ironwork case burden. Delivery remains required at Jomon’s cargo hold. Arrow keys select this choice; Enter confirms at zero world time.'
+  },
+  {
+    id: 'refuse',
+    label: 'Refuse ironwork handoff',
+    presentationState: 'warning',
+    paletteToken: TERMINAL_STATE_PRESENTATIONS.warning.paletteToken,
+    nonColorCue: terminalNonColorCueFor('warning'),
+    accessibilityText: 'Refuse the one ironwork case handoff. The case remains at the quay. Arrow keys select this choice; Enter confirms at zero world time.'
+  }
+]
+
+const settlementTradePublicPromptFor = (world: FoundationWorld): TerminalSettlementTradePrompt => {
+  const state = world.state.settlementTrading
+  const contract = state.contracts[0]
+  const feedback = settlementTradeFeedback(state)
+  const offered = contract.status === 'offered'
+  const option: TerminalPromptOption = {
+    id: `terminal-prompt-option:settlement-trade:${world.id}`,
+    key: 'Enter',
+    availability: offered ? 'available' : 'disabled',
+    ...(!offered ? { disabledReason: 'inspection-readout-only' as const } : {}),
+    intent: offered ? 'settlement-trade-choice' : 'future-contextual-action',
+    requiresConfirmation: offered,
+    nonColorCue: terminalNonColorCueFor(offered ? 'ready' : 'neutral'),
+    accessibilityText: offered
+      ? 'Arrow keys select accept or refuse. Enter confirms the selected local public-tally decision at zero world time; Escape cancels without mutation.'
+      : 'This public-tally outcome is already recorded. Enter reports the bounded inspection result; Escape cancels without mutation.'
+  }
+  const text = contract.status === 'offered'
+    ? 'A single ironwork case is offered for Jomon’s cargo hold. Accepting records a material burden; refusing leaves the case at the quay.'
+    : feedback!.accessibilityText
+  const prompt: TerminalSettlementTradePrompt = {
+    id: `terminal-prompt:jomon-deck:${world.id}`,
+    kind: 'settlement-trade',
+    surface: 'public-tally',
+    label: 'Hearthford Mill Quay public tally',
+    accessibilityText: `Hearthford Mill Quay public tally. ${text} ${option.accessibilityText}`,
+    evidence: settlementTradeEvidence(world, state),
+    contentDomain: 'player-facing-text',
+    contentSafety: settlementTradePromptClassification(),
+    source: settlementTradeSource(),
+    contract: settlementTradeContractView(state),
+    ...(offered ? { choices: settlementTradeChoices() } : {}),
+    options: [option],
+    cancellation: { key: 'Escape', outcome: 'cancelled-no-mutation', advancesWorldTime: false }
+  }
+  const diagnostics = validateTerminalPrompt(prompt)
+  if (diagnostics.length) throw new TerminalPresentationContractError(diagnostics)
+  return prompt
+}
+
+const settlementTradeDeliveryPromptFor = (world: FoundationWorld, source: VesselProximityOperationSource): TerminalSettlementTradePrompt => {
+  const state = world.state.settlementTrading
+  const contract = state.contracts[0]
+  if (contract.status !== 'accepted' || source.propId !== 'prop:cargo-hold-rack') throw new TerminalPresentationContractError([issue('settlement-trade', 'terminal-presentation.invalid-prompt')])
+  const prompt: TerminalSettlementTradePrompt = {
+    id: `terminal-prompt:jomon-deck:${world.id}`,
+    kind: 'settlement-trade',
+    surface: 'cargo-hold-delivery',
+    label: 'Cargo hold rack delivery',
+    accessibilityText: 'Cargo hold rack delivery. One Hearthford ironwork case is an accepted material burden. Enter records its exact zero-time delivery into Jomon’s cargo hold; Escape cancels without mutation. No loading system, route, travel, or cargo action beyond this one contract is introduced.',
+    evidence: settlementTradeEvidence(world, state),
+    contentDomain: 'player-facing-text',
+    contentSafety: settlementTradePromptClassification(),
+    source: structuredClone(source),
+    contract: settlementTradeContractView(state),
+    options: [{
+      id: `terminal-prompt-option:settlement-delivery:${world.id}`,
+      key: 'Enter',
+      availability: 'available',
+      intent: 'settlement-trade-delivery',
+      requiresConfirmation: true,
+      nonColorCue: terminalNonColorCueFor('ready'),
+      accessibilityText: 'Deliver the accepted ironwork case to the cargo hold. Enter confirms at zero world time; Escape cancels without mutation.'
+    }],
+    cancellation: { key: 'Escape', outcome: 'cancelled-no-mutation', advancesWorldTime: false }
+  }
+  const diagnostics = validateTerminalPrompt(prompt)
+  if (diagnostics.length) throw new TerminalPresentationContractError(diagnostics)
+  return prompt
+}
+
+const atSettlementTradingAnchor = (world: FoundationWorld): boolean => {
+  const coordinate = world.state.navigation.coordinate
+  if (coordinate === undefined) return false
+  return settlementTradingAtSourceAnchor(deriveJomonDeckPlanForVerifiedWorld(world), coordinate)
+}
+
 const futureContextualPrompt = (
   world: FoundationWorld,
   recordId: string,
@@ -1339,9 +1518,11 @@ const createJomonDeckContextualPromptForVerifiedWorld = (world: FoundationWorld)
   if (world.state.courier.activeCourierId === undefined) {
     return futureContextualPrompt(world, 'world-state:courier', 'requires-future-domain-rule', 'No active courier remains after crew-extinction. The read-only chronicle has no contextual operation; Escape cancels without mutation.')
   }
+  if (atSettlementTradingAnchor(world)) return settlementTradePublicPromptFor(world)
   const vesselAssessment = assessVesselProximityOperationsForVerifiedWorld(world, world.state)
   const activeOperation = vesselAssessment.operations.find(operation => operation.proximity === 'at-anchor')
   if (!activeOperation) return futureContextualPrompt(world, 'world-state:navigation', 'no-contextual-action-materialized', 'No physical vessel prop is at the active courier\'s exact anchor. Contextual operation is unavailable; Escape cancels without mutation.')
+  if (activeOperation.source.propId === 'prop:cargo-hold-rack' && world.state.settlementTrading.contracts[0].status === 'accepted') return settlementTradeDeliveryPromptFor(world, activeOperation.source)
   if (activeOperation.availability === 'readout') return stationReadoutPromptFor(world, activeOperation)
   if (activeOperation.source.propId !== 'prop:task-ledger') throw new TerminalPresentationContractError([issue(activeOperation.source.propId, 'terminal-presentation.invalid-prompt')])
   const assessment = assessTavernCourierSwitchForVerifiedWorld(world, world.state)
@@ -1436,7 +1617,7 @@ const validPromptOption = (value: unknown): value is TerminalPromptOption => rec
   && validId(value.id)
   && oneOf(TERMINAL_KEYBOARD_KEYS, value.key)
   && (value.availability === 'available' || value.availability === 'disabled')
-  && (value.intent === 'future-contextual-action' || value.intent === 'tavern-courier-switch' || value.intent === 'vessel-station-readout-record')
+  && (value.intent === 'future-contextual-action' || value.intent === 'tavern-courier-switch' || value.intent === 'vessel-station-readout-record' || value.intent === 'settlement-trade-choice' || value.intent === 'settlement-trade-delivery')
   && typeof value.requiresConfirmation === 'boolean'
   && validCue(value.nonColorCue, value.availability === 'available' ? 'ready' : 'neutral')
   && validText(value.accessibilityText)
@@ -1461,6 +1642,45 @@ const validVesselPromptOperation = (value: unknown, availability: 'implemented' 
   && value.proximity === 'at-anchor'
   && value.availability === availability
   && (availability === 'implemented' ? !Object.hasOwn(value, 'reason') : value.reason === reason)
+
+const validSettlementTradeSource = (value: unknown): value is TerminalSettlementTradeSource => record(value)
+  && hasOnlyKeys(value, ['locationId', 'profileId', 'sourceAreaId', 'serviceId'])
+  && value.locationId === SETTLEMENT_TRADING_LOCATION_ID
+  && value.profileId === 'settlement-profile:hearthford-mill-quay'
+  && value.sourceAreaId === SETTLEMENT_TRADING_SOURCE_AREA_ID
+  && value.serviceId === 'public-tally-table'
+
+const validSettlementDeliverySource = (value: unknown): boolean => record(value)
+  && hasOnlyKeys(value, ['propBindingId', 'propId', 'propKind', 'areaId'])
+  && value.propBindingId === 'deck-prop-binding:prop:cargo-hold-rack'
+  && value.propId === 'prop:cargo-hold-rack'
+  && value.propKind === 'rack'
+  && value.areaId === 'cargo-hold'
+
+const validSettlementTradeContractView = (value: unknown): value is TerminalSettlementTradeContractView => record(value)
+  && hasOnlyKeys(value, ['id', 'status', 'commodityId', 'quantity'])
+  && value.id === SETTLEMENT_TRADING_CONTRACT_ID
+  && oneOf(['offered', 'accepted', 'refused', 'delivered'] as const, value.status)
+  && value.commodityId === 'commodity:ironwork'
+  && value.quantity === 1
+
+const validSettlementTradeChoice = (value: unknown): value is TerminalSettlementTradeChoice => record(value)
+  && hasOnlyKeys(value, ['id', 'label', 'presentationState', 'paletteToken', 'nonColorCue', 'accessibilityText'])
+  && oneOf(TERMINAL_SETTLEMENT_TRADE_CHOICE_IDS, value.id)
+  && (value.presentationState === 'ready' || value.presentationState === 'warning')
+  && paletteToken(value.paletteToken)
+  && value.paletteToken === TERMINAL_STATE_PRESENTATIONS[value.presentationState].paletteToken
+  && validCue(value.nonColorCue, value.presentationState)
+  && validText(value.label)
+  && validText(value.accessibilityText)
+  && same(value, settlementTradeChoices().find(choice => choice.id === value.id))
+
+const validSettlementTradeEvidence = (value: unknown, contract: TerminalSettlementTradeContractView): boolean => {
+  if (!record(value) || validateTerminalEvidence(value).length || !record(value.source) || value.source.kind !== 'authoritative-record' || value.source.recordId !== `world-state:settlement-trading:${contract.id}` || !safeInteger(value.recordedAtWorldTime) || !safeInteger(value.knownAtWorldTime) || value.knownAtWorldTime < value.recordedAtWorldTime || !record(value.freshness)) return false
+  if (contract.status === 'offered') return value.recordedAtWorldTime === value.knownAtWorldTime && value.freshness.kind === 'current'
+  return (value.recordedAtWorldTime === value.knownAtWorldTime && value.freshness.kind === 'current')
+    || (value.freshness.kind === 'reported-at-world-time' && value.freshness.atWorldTime === value.recordedAtWorldTime)
+}
 
 const validCurrentPromptEvidence = (value: unknown, sourceRecordId: string): boolean => record(value)
   && validateTerminalEvidence(value).length === 0
@@ -1540,7 +1760,8 @@ export const validateTerminalPrompt = (value: unknown, includeContentSafety: boo
   const baseKeys = ['id', 'kind', 'accessibilityText', 'evidence', 'contentDomain', 'contentSafety', 'options', 'cancellation']
   const tavernKeys = [...baseKeys, 'source', 'operation', 'current', 'candidates', ...(record(value) && Object.hasOwn(value, 'ledger') ? ['ledger'] : [])]
   const stationKeys = [...baseKeys, 'label', 'source', 'operation', 'readout']
-  if (!record(value) || !hasOnlyKeys(value, value.kind === 'tavern-courier-switch' ? tavernKeys : value.kind === 'vessel-station-readout' ? stationKeys : baseKeys) || !validId(value.id) || (value.kind !== 'future-contextual-choice' && value.kind !== 'vessel-station-readout' && value.kind !== 'tavern-courier-switch') || !validText(value.accessibilityText) || !Array.isArray(value.options) || value.options.length > TERMINAL_PRESENTATION_LIMITS.promptOptions || !value.options.every(validPromptOption) || !record(value.cancellation) || !hasOnlyKeys(value.cancellation, ['key', 'outcome', 'advancesWorldTime']) || value.cancellation.key !== 'Escape' || value.cancellation.outcome !== 'cancelled-no-mutation' || value.cancellation.advancesWorldTime !== false) return [issue('terminal-prompt', 'terminal-presentation.invalid-prompt')]
+  const settlementKeys = [...baseKeys, 'surface', 'label', 'source', 'contract', ...(record(value) && Object.hasOwn(value, 'choices') ? ['choices'] : [])]
+  if (!record(value) || !hasOnlyKeys(value, value.kind === 'tavern-courier-switch' ? tavernKeys : value.kind === 'vessel-station-readout' ? stationKeys : value.kind === 'settlement-trade' ? settlementKeys : baseKeys) || !validId(value.id) || (value.kind !== 'future-contextual-choice' && value.kind !== 'vessel-station-readout' && value.kind !== 'tavern-courier-switch' && value.kind !== 'settlement-trade') || !validText(value.accessibilityText) || !Array.isArray(value.options) || value.options.length > TERMINAL_PRESENTATION_LIMITS.promptOptions || !value.options.every(validPromptOption) || !record(value.cancellation) || !hasOnlyKeys(value.cancellation, ['key', 'outcome', 'advancesWorldTime']) || value.cancellation.key !== 'Escape' || value.cancellation.outcome !== 'cancelled-no-mutation' || value.cancellation.advancesWorldTime !== false) return [issue('terminal-prompt', 'terminal-presentation.invalid-prompt')]
   const evidence = validateTerminalEvidence(value.evidence)
   if (evidence.length || !record(value.evidence) || !record(value.evidence.source) || value.evidence.source.kind !== 'authoritative-record') return [issue(value.id, 'terminal-presentation.invalid-prompt')]
   const options = value.options as TerminalPromptOption[]
@@ -1577,6 +1798,34 @@ export const validateTerminalPrompt = (value: unknown, includeContentSafety: boo
         return !member || member.status !== 'available' || !same(promptCandidate(member), candidate)
       })) diagnostics.push(issue(value.id, 'terminal-presentation.invalid-prompt'))
     }
+  }
+  if (value.kind === 'settlement-trade') {
+    const contract = validSettlementTradeContractView(value.contract) ? value.contract : undefined
+    const worldId = promptWorldId(value.id)
+    const option = options[0]
+    const hasChoices = Object.hasOwn(value, 'choices')
+    const choices = hasChoices && Array.isArray(value.choices) && value.choices.every(validSettlementTradeChoice)
+      ? value.choices as TerminalSettlementTradeChoice[]
+      : undefined
+    const offeredPublic = value.surface === 'public-tally' && contract?.status === 'offered'
+    const resolvedPublic = value.surface === 'public-tally' && contract !== undefined && contract.status !== 'offered'
+    const acceptedDelivery = value.surface === 'cargo-hold-delivery' && contract?.status === 'accepted'
+    const publicSourceValid = value.surface === 'public-tally' && validSettlementTradeSource(value.source)
+    const deliverySourceValid = value.surface === 'cargo-hold-delivery' && validSettlementDeliverySource(value.source)
+    const choiceShapeValid = offeredPublic
+      ? choices !== undefined && same(choices, settlementTradeChoices())
+      : !hasChoices
+    const optionShapeValid = offeredPublic
+      ? options.length === 1 && option?.id === `terminal-prompt-option:settlement-trade:${worldId}` && option.key === 'Enter' && option.availability === 'available' && option.disabledReason === undefined && option.intent === 'settlement-trade-choice' && option.requiresConfirmation === true && validCue(option.nonColorCue, 'ready')
+      : acceptedDelivery
+        ? options.length === 1 && option?.id === `terminal-prompt-option:settlement-delivery:${worldId}` && option.key === 'Enter' && option.availability === 'available' && option.disabledReason === undefined && option.intent === 'settlement-trade-delivery' && option.requiresConfirmation === true && validCue(option.nonColorCue, 'ready')
+        : resolvedPublic
+          ? options.length === 1 && option?.id === `terminal-prompt-option:settlement-trade:${worldId}` && option.key === 'Enter' && option.availability === 'disabled' && option.disabledReason === 'inspection-readout-only' && option.intent === 'future-contextual-action' && option.requiresConfirmation === false && validCue(option.nonColorCue, 'neutral')
+          : false
+    const labelValid = value.surface === 'public-tally'
+      ? value.label === 'Hearthford Mill Quay public tally'
+      : value.surface === 'cargo-hold-delivery' && value.label === 'Cargo hold rack delivery'
+    if (!contract || worldId === undefined || !labelValid || !publicSourceValid && !deliverySourceValid || !choiceShapeValid || !optionShapeValid || !validSettlementTradeEvidence(value.evidence, contract) || value.contentDomain !== 'player-facing-text' || !same(value.contentSafety, settlementTradePromptClassification())) diagnostics.push(issue(value.id, 'terminal-presentation.invalid-prompt'))
   }
   if (options.some((option, index) => index > 0 && compare(options[index - 1]!.id, option.id) >= 0)) diagnostics.push(issue(value.id, 'terminal-presentation.invalid-prompt'))
   if (includeContentSafety) {

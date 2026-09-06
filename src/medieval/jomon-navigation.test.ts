@@ -4,6 +4,12 @@ import { assessJomonDeckStep, canonicalJomonDeckSpawn, isWalkableJomonDeckCoordi
 import { causalReplayProjectionForWorldState } from './world-state'
 import { chooseInitialCourier, createFoundationWorld, moveFoundationWorldCourier, replayFoundationWorldCausalHistory, upgradeFoundationWorldV13, validateFoundationWorld } from './world'
 
+const removeSettlementTradingFromLegacy = (legacy: Record<string, any>): void => {
+  delete legacy.state.settlementTrading
+  legacy.state.contentSafetyAudit.reviewed = legacy.state.contentSafetyAudit.reviewed
+    .filter((item: { id: string }) => !item.id.startsWith('settlement-trading:'))
+}
+
 const selectedWorld = (seed: string) => {
   const source = createFoundationWorld({ seed, configuration: { preset: 'watershed' } })
   return chooseInitialCourier(source, source.crew[0]!.id)
@@ -21,6 +27,7 @@ const v13Envelope = (world: ReturnType<typeof selectedWorld>) => {
     : { version: 1, initialCourierId: legacy.state.courier.initialCourierId }
   const checkpointProjection = structuredClone(legacy.state.causalHistory.checkpoint.projection)
   delete checkpointProjection.jomon
+  delete checkpointProjection.settlementTrading
   checkpointProjection.version = 4
   checkpointProjection.courier = checkpointProjection.courier.initialCourierId === undefined
     ? { version: 1 }
@@ -46,6 +53,7 @@ const v13Envelope = (world: ReturnType<typeof selectedWorld>) => {
   legacy.state.jomon.version = 1
   delete legacy.state.jomon.propActions
   delete legacy.state.jomon.cargo
+  removeSettlementTradingFromLegacy(legacy)
   return legacy
 }
 
@@ -114,7 +122,7 @@ describe('Jomon deck navigation', () => {
 
     const legacy = v13Envelope(selected)
     const upgraded = upgradeFoundationWorldV13(legacy)
-    expect(upgraded).toMatchObject({ version: 15, state: { version: 16, jomon: { version: 3, cargo: { version: 1, lots: [] } }, courier: { version: 3, initialCourierId: selected.state.courier.initialCourierId, activeCourierId: selected.state.courier.initialCourierId, departedCourierIds: [] }, navigation: { courierId: selected.state.courier.initialCourierId, coordinate: { column: 4, row: 4 } } } })
+    expect(upgraded).toMatchObject({ version: 15, state: { version: 17, jomon: { version: 3, cargo: { version: 1, lots: [] } }, settlementTrading: { version: 1, contracts: [{ status: 'offered' }] }, courier: { version: 3, initialCourierId: selected.state.courier.initialCourierId, activeCourierId: selected.state.courier.initialCourierId, departedCourierIds: [] }, navigation: { courierId: selected.state.courier.initialCourierId, coordinate: { column: 4, row: 4 } } } })
     expect(upgraded.id).toBe(selected.id)
     expect(upgraded.manifest).toEqual(selected.manifest)
     expect(validateFoundationWorld(upgraded)).toEqual([])

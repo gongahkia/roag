@@ -1,6 +1,6 @@
 # Named settlement profile contract
 
-`src/medieval/settlement-profile.ts` v1 owns one closed, compiled reference profile: **Hearthford Mill Quay**. It establishes the first material settlement identity for later physical trade work without creating a generated settlement, a world site, a market, a route, a person, a contract, a map cell, or a browser surface.
+`src/medieval/settlement-profile.ts` v1 owns one closed, compiled reference profile: **Hearthford Mill Quay**. It supplies the source identity for the separate one-contract local public-tally handoff without creating a generated settlement, a world site, a market, a route, a person, a map cell, or a general browser settlement surface.
 
 ## Canonical profile
 
@@ -16,6 +16,6 @@ The profile is application-owned compiled data. `namedSettlementProfile()` retur
 
 ## Compatibility and deliberate limits
 
-The profile changes no `FoundationWorld`, manifest, initial-world generator, seed/RNG stream, mutable state, causal/replay contract, terminal/detailed presentation, persistence envelope, IndexedDB layout, or browser UI. It is not automatically attached to a generated initial-world settlement and does not reveal hidden-world information.
+The compiled profile itself changes no `FoundationWorld`, manifest, initial-world generator, or seed/RNG stream. The separate local handoff adds bounded mutable/replay/presentation facts while retaining the profile's non-generated, non-frontier identity and does not reveal hidden-world information.
 
-The following physical trading-location task must establish where and how Hearthford becomes known, situated, and actionable. It must supply its own persisted/replay/provenance and player-knowledge decisions. Markets, prices, stock, loading source, unloading destination, cargo transfer UI, route comparison, travel, people, and contracts remain unimplemented here.
+[`settlement-trading-contract.md`](settlement-trading-contract.md) now establishes the only known local source: the existing quay-approach public tally offers one ironwork handoff and accepts its return consequence. Markets, prices, stock, broader loading sources, destinations, route comparison, travel, people, and further contracts remain unimplemented.

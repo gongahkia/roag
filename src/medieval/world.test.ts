@@ -22,6 +22,7 @@ const v14Envelope = (world: ReturnType<typeof createFoundationWorld>) => {
   ]
   const oldProjection = structuredClone(legacy.state.causalHistory.checkpoint.projection)
   delete oldProjection.jomon
+  delete oldProjection.settlementTrading
   oldProjection.version = 6
   const checkpoint = legacy.state.causalHistory.checkpoint
   const stateDigest = causalDigestFor('causal-replay-projection', oldProjection)
@@ -36,6 +37,9 @@ const v14Envelope = (world: ReturnType<typeof createFoundationWorld>) => {
   legacy.state.jomon.version = 1
   delete legacy.state.jomon.propActions
   delete legacy.state.jomon.cargo
+  delete legacy.state.settlementTrading
+  legacy.state.contentSafetyAudit.reviewed = legacy.state.contentSafetyAudit.reviewed
+    .filter((item: { id: string }) => !item.id.startsWith('settlement-trading:'))
   legacy.state.version = 14
   return legacy
 }
@@ -63,7 +67,7 @@ describe('medieval foundation worlds', () => {
       version: 15,
       id: source.id,
       manifest: source.manifest,
-      state: { version: 16, jomon: { version: 3, cargo: { version: 1, lots: [] } }, courier: source.state.courier },
+      state: { version: 17, jomon: { version: 3, cargo: { version: 1, lots: [] } }, settlementTrading: { version: 1, contracts: [{ status: 'offered' }] }, courier: source.state.courier },
       jomon: {
         props: [
           { id: 'prop:berth', kind: 'berth', partition: 'berths' },
