@@ -60,6 +60,7 @@ class GameState:
     heroes: list[Actor]
     deck: list[CardInstance]
     rooms: list[Room]
+    hub_selection: list[str] = field(default_factory=list)
     current_room: int = 0
     light: int = 100
     supplies: int = 4
@@ -86,7 +87,7 @@ def _tuples(value: Any) -> Any:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 1
+    SAVE_VERSION = 2
 
     def __init__(self, catalog: Catalog, state: GameState, rng: random.Random):
         self.catalog = catalog
@@ -94,37 +95,70 @@ class GameEngine:
         self.rng = rng
 
     @classmethod
-    def new(cls, catalog: Catalog, seed: int) -> GameEngine:
+    def new(cls, catalog: Catalog, seed: int, *, start_in_hub: bool = False) -> GameEngine:
         rng = random.Random(seed)
-        heroes = [
-            Actor(
-                id=hero["id"],
-                name=hero["name"],
-                hero_class=hero["role"],
-                max_hp=hero["max_hp"],
-                hp=hero["max_hp"],
-                rank=hero["rank"],
-                side="hero",
-            )
-            for hero in sorted(catalog.heroes.values(), key=lambda item: item["rank"])
-        ]
-        deck = [
-            CardInstance(card_id)
-            for hero in sorted(catalog.heroes.values(), key=lambda item: item["rank"])
-            for card_id in hero["starter_deck"]
-        ]
         rooms = cls._generate_rooms(catalog, rng)
+        default_party = list(catalog.heroes)[:4]
         state = GameState(
             seed=seed,
-            phase="exploration",
-            heroes=heroes,
-            deck=deck,
+            phase="hub",
+            heroes=[],
+            deck=[],
             rooms=rooms,
+            hub_selection=default_party,
             light=catalog.balance.get("starting_light", 100),
             supplies=catalog.balance.get("starting_supplies", 4),
-            log=["The airlock seals. The Orison is no longer empty."],
+            log=["Crew manifest opened in the Orison airlock."],
         )
-        return cls(catalog, state, rng)
+        engine = cls(catalog, state, rng)
+        if not start_in_hub:
+            engine.begin_expedition()
+        return engine
+
+    def toggle_hub_crew(self, hero_id: str) -> None:
+        if self.state.phase != "hub" or hero_id not in self.catalog.heroes:
+            raise RuleError("that crew manifest entry is unavailable")
+        if hero_id in self.state.hub_selection:
+            self.state.hub_selection.remove(hero_id)
+        elif len(self.state.hub_selection) < 4:
+            self.state.hub_selection.append(hero_id)
+        else:
+            raise RuleError("the expedition can carry only four crew members")
+
+    def reorder_hub_crew(self, hero_id: str, direction: int) -> None:
+        if self.state.phase != "hub" or hero_id not in self.state.hub_selection:
+            raise RuleError("select that crew member before assigning a rank")
+        index = self.state.hub_selection.index(hero_id)
+        destination = max(0, min(len(self.state.hub_selection) - 1, index + direction))
+        if destination != index:
+            self.state.hub_selection[index], self.state.hub_selection[destination] = (
+                self.state.hub_selection[destination],
+                self.state.hub_selection[index],
+            )
+
+    def begin_expedition(self) -> None:
+        if self.state.phase != "hub":
+            raise RuleError("the expedition has already departed")
+        if len(self.state.hub_selection) != 4 or len(set(self.state.hub_selection)) != 4:
+            raise RuleError("select exactly four unique crew members")
+        self.state.heroes = []
+        self.state.deck = []
+        for rank, hero_id in enumerate(self.state.hub_selection, 1):
+            hero = self.catalog.heroes[hero_id]
+            self.state.heroes.append(
+                Actor(
+                    id=hero_id,
+                    name=hero["name"],
+                    hero_class=hero["role"],
+                    max_hp=hero["max_hp"],
+                    hp=hero["max_hp"],
+                    rank=rank,
+                    side="hero",
+                )
+            )
+            self.state.deck.extend(CardInstance(card_id) for card_id in hero["starter_deck"])
+        self.state.phase = "exploration"
+        self.state.log = ["The airlock seals. The Orison is no longer empty."]
 
     @staticmethod
     def _generate_rooms(catalog: Catalog, rng: random.Random) -> list[Room]:
@@ -179,6 +213,7 @@ class GameEngine:
                 heroes=[Actor(**item) for item in raw["heroes"]],
                 deck=[CardInstance(**item) for item in raw["deck"]],
                 rooms=[Room(**item) for item in raw["rooms"]],
+                hub_selection=raw["hub_selection"],
                 current_room=raw["current_room"],
                 light=raw["light"],
                 supplies=raw["supplies"],
@@ -199,8 +234,13 @@ class GameEngine:
             rng.setstate(_tuples(snapshot["rng_state"]))
         except (KeyError, TypeError, ValueError) as exc:
             raise RuleError(f"invalid save data: {exc}") from exc
-        if {hero.id for hero in state.heroes} != set(catalog.heroes):
+        hero_ids = {hero.id for hero in state.heroes}
+        if state.phase == "hub" and state.heroes:
+            raise RuleError("hub save unexpectedly contains an active party")
+        if state.phase != "hub" and (len(hero_ids) != 4 or not hero_ids <= set(catalog.heroes)):
             raise RuleError("save contains an unexpected crew roster")
+        if len(state.hub_selection) > 4 or any(hero_id not in catalog.heroes for hero_id in state.hub_selection):
+            raise RuleError("save contains an invalid hub selection")
         piles = state.deck + state.hand + state.draw_pile + state.discard_pile
         if any(card.card_id not in catalog.cards for card in piles):
             raise RuleError("save references an unknown card")
@@ -657,7 +697,8 @@ class GameEngine:
         if kind != "ambush":
             self.room().resolved = True
         count = 4 if self.state.light < self.catalog.balance["low_light_threshold"] else 3
-        pool = list(self.catalog.cards)
+        active_heroes = {hero.id for hero in self.state.heroes}
+        pool = [card_id for card_id, card in self.catalog.cards.items() if card["hero"] in active_heroes]
         self.state.rewards = self.rng.sample(pool, k=min(count, len(pool)))
         self.state.phase = "reward"
         self.add_log("Combat won. Choose a recovered technique.")
@@ -707,7 +748,9 @@ class GameEngine:
         if self.state.phase == "defeat":
             return
         if grant_reward:
-            self.state.rewards = self.rng.sample(list(self.catalog.cards), k=3)
+            active_heroes = {hero.id for hero in self.state.heroes}
+            pool = [card_id for card_id, card in self.catalog.cards.items() if card["hero"] in active_heroes]
+            self.state.rewards = self.rng.sample(pool, k=min(3, len(pool)))
             self.state.phase = "reward"
         else:
             self.state.phase = "exploration"

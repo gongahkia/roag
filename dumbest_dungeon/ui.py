@@ -76,7 +76,9 @@ class TerminalUI:
         while self.engine:
             phase = self.engine.state.phase
             try:
-                if phase == "exploration":
+                if phase == "hub":
+                    self._hub()
+                elif phase == "exploration":
                     self._exploration()
                 elif phase == "combat":
                     self._combat()
@@ -93,6 +95,69 @@ class TerminalUI:
                     raise RuleError(f"unknown game phase: {phase}")
             except RuleError as exc:
                 self.message = str(exc)
+
+    def _hub(self) -> None:
+        assert self.engine
+        selected = 0
+        roster = list(self.catalog.heroes.values())
+        while self.engine and self.engine.state.phase == "hub":
+            hero = roster[selected]
+            selection = self.engine.state.hub_selection
+            self._begin("ORISON AIRLOCK — CREW HUB")
+            self._put(2, 2, "Choose four crew. Manifest order becomes combat ranks 1 (front) to 4 (back).")
+            for index, candidate in enumerate(roster):
+                rank = selection.index(candidate["id"]) + 1 if candidate["id"] in selection else None
+                marker = f"[{rank}]" if rank else "[ ]"
+                line = f"{marker} {candidate['role']:<13} {candidate['name']}"
+                attr = curses.A_REVERSE if index == selected else 0
+                self._put(4 + index, 3, line[:37], attr)
+
+            self._put(3, 44, f"{hero['role'].upper()} // {hero['name']}", curses.A_BOLD | self._attr(1))
+            self._draw_sprite(5, 55, self.catalog.art["heroes"][hero["id"]], curses.A_BOLD)
+            self._put(11, 44, f"HP {hero['max_hp']}   preferred rank {hero['rank']}")
+            summary_lines = textwrap.wrap(hero["summary"], 33)
+            for offset, line in enumerate(summary_lines[:3]):
+                self._put(13 + offset, 44, line)
+            class_cards = [card for card in self.catalog.cards.values() if card["hero"] == hero["id"]]
+            self._put(17, 44, f"{len(class_cards)} unique cards / 5 starters")
+            self._put(19, 44, "Starter kit:", curses.A_BOLD)
+            starter_names = [self.catalog.cards[card_id]["name"] for card_id in hero["starter_deck"]]
+            self._put(20, 44, ", ".join(starter_names)[:34], curses.A_DIM)
+            ready = len(selection) == 4
+            status = "READY TO DEPART" if ready else f"SELECT {4 - len(selection)} MORE"
+            self._put(16, 3, status, self._attr(4 if ready else 2) | curses.A_BOLD)
+            self._footer("Up/Down browse  Space select  Left/Right rank  C cards  Enter depart  Esc title")
+            key = self._key()
+            if key in (curses.KEY_UP, ord("k")):
+                selected = (selected - 1) % len(roster)
+            elif key in (curses.KEY_DOWN, ord("j")):
+                selected = (selected + 1) % len(roster)
+            elif key == ord(" "):
+                self.engine.toggle_hub_crew(hero["id"])
+            elif key in (curses.KEY_LEFT, ord("h")):
+                self.engine.reorder_hub_crew(hero["id"], -1)
+            elif key in (curses.KEY_RIGHT, ord("l")):
+                self.engine.reorder_hub_crew(hero["id"], 1)
+            elif key in (ord("c"), ord("C")):
+                self._class_card_view(hero["id"])
+            elif key in (10, 13, curses.KEY_ENTER):
+                self.engine.begin_expedition()
+            elif key == 27:
+                self.engine = None
+                return
+
+    def _class_card_view(self, hero_id: str) -> None:
+        cards = [CardInstance(card_id) for card_id, card in self.catalog.cards.items() if card["hero"] == hero_id]
+        labels = [self._card_label(card) for card in cards]
+        role = self.catalog.heroes[hero_id]["role"]
+        self._menu(
+            f"{role.upper()} CARD LIBRARY",
+            labels,
+            f"All {len(cards)} cards available to this archetype.",
+            allow_cancel=True,
+            view_only=True,
+            preview_cards=cards,
+        )
 
     def _exploration(self) -> None:
         assert self.engine
@@ -568,7 +633,8 @@ class TerminalUI:
             return "|" + text[:inside].ljust(inside) + "|"
 
         plus = "+" if card.upgraded else ""
-        title = f"[{self.engine.card_cost(card)}] {definition['name'].upper()}{plus}"
+        cost = definition["cost"] if self.engine.state.phase == "hub" else self.engine.card_cost(card)
+        title = f"[{cost}] {definition['name'].upper()}{plus}"
         role = self.catalog.heroes[definition["hero"]]["role"].upper()
         glyph = self.catalog.art["card_glyphs"][definition["hero"]]
         ranks = ",".join(str(rank) for rank in definition["from_ranks"])

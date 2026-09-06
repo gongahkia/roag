@@ -39,7 +39,7 @@ def main(argv: list[str] | None = None) -> int:
 
     def new_game() -> GameEngine:
         seed = args.seed if args.seed is not None else secrets.randbits(32)
-        return GameEngine.new(catalog, seed)
+        return GameEngine.new(catalog, seed, start_in_hub=True)
 
     try:
         curses.wrapper(lambda screen: TerminalUI(screen, catalog, args.save_file, new_game).run())
