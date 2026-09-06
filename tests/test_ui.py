@@ -122,6 +122,25 @@ class AsciiUiTests(unittest.TestCase):
         ):
             self.assertEqual((20, 6), self.ui._mouse_destination(origin))
 
+    def test_mouse_requires_second_click_before_auto_walk(self) -> None:
+        screen = FakeScreen(keys=[curses.KEY_MOUSE, curses.KEY_MOUSE])
+        self.ui.screen = screen
+        party = (self.engine.state.party_x, self.engine.state.party_y)
+        destination = self.engine._neighbors(party)[0]
+        patrol = self.engine.state.patrols[0]
+        for other in self.engine.state.patrols:
+            other.active = other is patrol
+        patrol.x, patrol.y = destination
+        mouse_event = (0, destination[0] + 2, destination[1] - 10 + 5, 0, curses.BUTTON1_CLICKED)
+        with (
+            patch("dumbest_dungeon.ui.curses.getmouse", side_effect=[mouse_event, mouse_event]),
+            patch("dumbest_dungeon.ui.curses.napms"),
+        ):
+            self.ui._exploration()
+        self.assertEqual("combat", self.engine.state.phase)
+        selected_frames = [write for write in screen.writes if write[2] == "X"]
+        self.assertTrue(any(attribute & curses.A_REVERSE for _, _, _, attribute in selected_frames))
+
     def test_auto_walk_into_patrol_opens_combat(self) -> None:
         screen = FakeScreen()
         self.ui.screen = screen

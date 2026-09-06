@@ -38,9 +38,15 @@ class EngineTests(unittest.TestCase):
     def test_pathfinding_and_step_costs(self) -> None:
         with self.assertRaisesRegex(RuleError, "floor tile"):
             self.engine.path_to(0, 0)
-        destination = self.engine.room_position(11)
-        path = self.engine.path_to(*destination)
-        self.assertGreater(len(path), 100)
+        distant = self.engine.room_position(11)
+        full_path = self.engine._find_path(
+            (self.engine.state.party_x, self.engine.state.party_y),
+            distant,
+        )
+        self.assertGreater(len(full_path), 100)
+        with self.assertRaisesRegex(RuleError, "maximum reach of 18"):
+            self.engine.path_to(*distant)
+        path = self.engine.path_to(*self.engine.room_position(1))
         with self.assertRaisesRegex(RuleError, "one floor tile"):
             self.engine.step_exploration(*path[1])
         self.engine.step_exploration(*path[0])

@@ -298,7 +298,10 @@ class TerminalUI:
         reachable = self.engine.is_walkable(*cursor) and len(route) <= int(
             self.catalog.balance["maximum_navigation_distance"]
         )
-        cursor_attr = self._attr(7) if self.colour and reachable else self._attr(5) if self.colour else curses.A_REVERSE
+        if self.colour:
+            cursor_attr = self._attr(7 if reachable else 5)
+        else:
+            cursor_attr = curses.A_REVERSE
         overlays.append((cursor[0], cursor[1], cursor_symbol, cursor_attr | curses.A_BOLD))
         for x, y, symbol, attribute in overlays:
             screen_x, screen_y = x - left + 2, y - top + row
