@@ -158,13 +158,14 @@ JOMON_MAP = (
 )
 
 HELP_LINES = (
-    "Move with arrows, HJKL, or YUBN diagonals. Border arrows lead between rooms.",
+    "Move with arrows, HJKL, or YUBN diagonals. The camera follows across seamless Hearthford.",
     "Enter/E interacts. A attacks. G guards or reloads. V negotiates. X uses gear.",
-    "Map: @ courier, a ally, c contact, h/s/x/b hostiles, X elite, R cargo, ? discovery.",
-    "Water ~, wall #, exits <>^v/+, controls &, shutter D, cargo cover O, hazard m/%.",
-    "At Jomon's tavern C: choose courier, weapon, gear, support, and carried relic.",
+    "Map: @ courier, a ally, c/M contacts, h/g/x/b hostiles, X elite, R cargo, C cache.",
+    "Water ~, wall #, doors +, stairs <> and roof ^, controls &, hole O, weak floor d.",
+    "At tavern C choose courier, weapon, gear, support, relic, and passive discoveries.",
     "I inspects inventory. S saves aboard Jomon. Inspection and cancelled choices take no time.",
-    "Pressure is elapsed time + room depth + noise + valuables; all remain visible.",
-    "Guard readable intent; smoke breaks aim; mud, shutters, controls, and cover affect encounters.",
+    "Pressure is elapsed actions + geographic depth + noise + valuables; all remain visible.",
+    "Normal colour is visible now; dim terrain is remembered; blank terrain remains unknown.",
+    "Guard readable intent; smoke breaks aim; mud, water, controls, height, and walls matter.",
     "Q asks before quitting. Escape closes or backs out of a popup.",
 )

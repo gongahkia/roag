@@ -10,6 +10,7 @@ from .actions import (
     attack,
     choose_courier,
     choose_gear,
+    choose_passive,
     choose_relic,
     choose_support,
     choose_weapon,
@@ -22,10 +23,32 @@ from .actions import (
     retreat,
     use_gear,
 )
-from .content import COMMODITIES, GEAR, HELP_LINES, MERCHANT_ITEMS, RELICS, SUPPORTS, WEAPONS
+from .content import (
+    COMMODITIES,
+    GEAR,
+    HELP_LINES,
+    MERCHANT_ITEMS,
+    PASSIVES,
+    RELICS,
+    SUPPORTS,
+    WEAPONS,
+)
 from .save import SaveError, save_game
 from .state import GameState, Position, Threat
-from .world import area_name, base_tile, build_combinations, capacity, carried_bulk, displayed_tile, map_rows, pressure
+from .world import (
+    area_name,
+    build_combinations,
+    camera_origin,
+    capacity,
+    carried_bulk,
+    displayed_tile,
+    field_of_view,
+    map_rows,
+    passive_bulk,
+    passive_capacity,
+    pressure,
+    remembered,
+)
 
 MIN_WIDTH = 80
 MIN_HEIGHT = 24
@@ -72,7 +95,7 @@ def semantic_role(glyph: str, *, aboard: bool = False) -> str:
         return "interactable"
     if glyph in {"M", "c", "$"}:
         return "neutral"
-    if glyph in {"h", "s", "x", "b", "!"}:
+    if glyph in {"h", "g", "x", "b", "!"}:
         return "hostile"
     if glyph == "X":
         return "elite"
@@ -86,7 +109,7 @@ def semantic_role(glyph: str, *, aboard: bool = False) -> str:
         return "cargo"
     if glyph in {"&", "D", "O", "o", "?", "C", "L", "P", "H", "s"}:
         return "interactable"
-    if glyph in {"m", "%", "="}:
+    if glyph in {"m", "%", "=", "s"}:
         return "hazard"
     if glyph == "*":
         return "mystical"
@@ -162,17 +185,26 @@ def _init_colours() -> None:
 def _threat_glyph(threat: Threat) -> str:
     if threat.elite:
         return "X"
-    return {"pursuer": "h", "reach": "s", "ranged": "x", "animal": "b", "machinery": "!"}[threat.profile]
+    return {"pursuer": "h", "reach": "g", "ranged": "x", "animal": "b", "machinery": "!"}[threat.profile]
 
 
 def _draw_map(screen: curses.window, state: GameState, top: int, left: int, height: int, width: int) -> None:
     rows = map_rows(state)
     view_height, view_width = height - 2, width - 2
-    origin_y = max(0, min(state.position.y - view_height // 2, max(0, len(rows) - view_height)))
-    origin_x = max(0, min(state.position.x - view_width // 2, max(0, max(map(len, rows)) - view_width)))
-    threats = {
-        threat.position: threat for threat in state.local_threats(active_only=True)
-    } if state.location == "region" else {}
+    map_height, map_width = len(rows), max(map(len, rows))
+    origin_x, origin_y = camera_origin(
+        state.position, map_width, map_height, view_width, view_height
+    )
+    visible = field_of_view(state, remember=False) if state.location == "region" else set()
+    threats = {}
+    if state.location == "region":
+        threats = {
+            threat.position: threat
+            for threat in state.threats
+            if threat.status in {"watching", "engaged"}
+            and threat.position.z == state.position.z
+            and threat.position in visible
+        }
     for sy in range(view_height):
         world_y = origin_y + sy
         if world_y >= len(rows):
@@ -181,7 +213,14 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
             world_x = origin_x + sx
             if world_x >= len(rows[world_y]):
                 break
-            position = Position(world_x, world_y)
+            position = Position(world_x, world_y, state.position.z)
+            if (
+                state.location == "region"
+                and position not in visible
+                and not remembered(state, position)
+            ):
+                _put(screen, top + 1 + sy, left + 1 + sx, " ")
+                continue
             if position == state.position:
                 char = "@"
             elif position in threats:
@@ -189,7 +228,10 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
             else:
                 char = displayed_tile(state, position)
             role = semantic_role(char, aboard=state.location == "jomon")
-            _put(screen, top + 1 + sy, left + 1 + sx, char, _COLOUR_ATTRIBUTES[role])
+            attr = _COLOUR_ATTRIBUTES[role]
+            if state.location == "region" and position not in visible:
+                attr = curses.A_DIM
+            _put(screen, top + 1 + sy, left + 1 + sx, char, attr)
 
 
 def _status_lines(state: GameState) -> list[str]:
@@ -200,16 +242,28 @@ def _status_lines(state: GameState) -> list[str]:
     else:
         identity, health, injury, technique = "not chosen", "-", "-", "-"
     market = state.market[state.region.objective_commodity]
-    local = state.local_threats(active_only=True) if state.location == "region" else []
-    threat = local[0].intent if local else "no active local threat"
+    visible = field_of_view(state, remember=False) if state.location == "region" else set()
+    local = [
+        threat for threat in state.threats
+        if threat.status in {"watching", "engaged"} and threat.position in visible
+    ]
+    threat = local[0].intent if local else "no visible threat"
     lines = [
-        "COURIER", identity, f"Health: {health}", f"Injury: {injury}",
-        f"Weapon: {state.weapon or '-'}", f"Gear: {state.gear or '-'}", f"Support: {state.support or '-'}",
-        "PRESSURE", f"Elapsed: {p.elapsed}", f"Depth: {p.depth}", f"Noise: {p.noise}",
-        f"Valuables: {p.valuables}", f"Band: {p.band} ({p.score})",
-        "HEARTHFORD", f"Objective: {state.objective_status}", f"Need: {state.region.objective_commodity}",
-        f"Stock {market.stock}; demand {market.demand}", f"Local threats: {len(local)}", _clip(threat, 25),
-        f"Technique: {_clip(technique, 18)}",
+        "COURIER",
+        identity,
+        f"Health {health}; {injury}",
+        f"{state.weapon or '-'} / {state.gear or '-'}",
+        f"Technique: {_clip(technique, 16)}",
+        "PRESSURE",
+        f"Time {p.elapsed}; depth {p.depth}",
+        f"Noise {p.noise}; value {p.valuables}",
+        f"{p.band} {p.score}; {state.weather}",
+        "HEARTHFORD",
+        f"Level {state.position.z:+d}; {state.objective_status}",
+        f"{state.region.objective_commodity}: {market.stock}/{market.demand}",
+        f"Ammo {state.ammunition}; oil {state.lamp_oil}",
+        f"Rope {state.rope_uses}; smoke {state.smoke_charges}",
+        _clip(threat, 25),
     ]
     if build_combinations(state):
         lines.append(f"Combo: {_clip(build_combinations(state)[0], 20)}")
@@ -262,9 +316,11 @@ def _tavern_lines(state: GameState) -> list[str]:
     identity = f"{courier.name}, {courier.role}; health {courier.health}/{courier.max_health}; {courier.injury}; {courier.technique}" if courier else "none selected"
     goods = ", ".join(f"{name} {stack.quantity}" for name, stack in state.carried_goods.items()) or "none"
     combos = ", ".join(build_combinations(state)) or "none active"
+    passives = ", ".join(state.carried_passives) or "none"
     return [
         f"C Courier: {identity}", f"W Weapon: {state.weapon or 'none'}", f"G Gear/tool: {state.gear or 'none'}",
         f"S Crew support: {state.support or 'none'}", f"R Relic: {state.carried_relic or 'none'}",
+        f"D Discoveries: {passives} ({passive_bulk(state)}/{passive_capacity(state)} bulk)",
         f"Build interactions: {combos}", f"Cargo: {goods}; capacity {carried_bulk(state)}/{capacity(state)}",
         "", state.region.condition, state.region.objective_text, f"Objective: {state.objective_status}",
         "Enter confirms and closes. Escape cancels without advancing time.",
@@ -279,6 +335,8 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return "INVENTORY", [
             f"Capacity: {carried_bulk(state)}/{capacity(state)} bulk",
             f"Weapon: {state.weapon or 'none'}; gear: {state.gear or 'none'}; relic: {state.carried_relic or 'none'}",
+            f"Passive discoveries: {state.carried_passives or 'none'} ({passive_bulk(state)}/{passive_capacity(state)} bulk)",
+            f"Finite supplies: ammunition {state.ammunition}; oil {state.lamp_oil}; rope {state.rope_uses}; smoke {state.smoke_charges}",
             "Goods:", *(goods or ["none"]), f"Consumables: {state.consumables or 'none'}",
             f"Owned weapons: {', '.join(state.owned_weapons)}", f"Owned gear: {', '.join(state.owned_gear)}",
             "Escape closes without advancing time.",
@@ -325,6 +383,17 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
     if kind == "tavern:relic":
         rows = [name for name in RELICS if state.relics.get(name, 0)]
         return "SELECT FINITE RELIC", ["0. Carry none", *[f"{index + 1}. {name} ({state.relics[name]}) — {RELICS[name]}" for index, name in enumerate(rows)], "Number selects; Escape returns."]
+    if kind == "tavern:passive":
+        rows = list(state.owned_passives)
+        keys = "123456789abc"
+        lines = [
+            f"{keys[index]}. {'[x]' if name in state.carried_passives else '[ ]'} {name} "
+            f"({PASSIVES[name][0]} bulk) — {PASSIVES[name][1]}"
+            for index, name in enumerate(rows[: len(keys)])
+        ]
+        return "PACK PASSIVE DISCOVERIES", lines + [
+            f"Load: {passive_bulk(state)}/{passive_capacity(state)} bulk. Key toggles; Escape returns."
+        ]
     if kind == "objective":
         alter = "available" if state.gear == "repair tools" or state.support in {"route survey", "carpenter rig"} or (state.courier and state.courier.technique == "lever craft") or state.contact.disposition >= 2 else "needs tools, support, lever craft, or trust"
         return state.contact.name.upper(), [state.region.pressure, state.region.objective_text, "A. Accept cargo recovery", "R. Refuse", f"T. Alter to mill-control repair ({alter})", "Escape cancels without time."]
@@ -354,7 +423,14 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
     if kind == "tavern":
         if key in {10, 13}:
             return None, False
-        return ({"c": "tavern:courier", "w": "tavern:weapon", "g": "tavern:gear", "s": "tavern:support", "r": "tavern:relic"}.get(char, kind)), False
+        return ({
+            "c": "tavern:courier",
+            "w": "tavern:weapon",
+            "g": "tavern:gear",
+            "s": "tavern:support",
+            "r": "tavern:relic",
+            "d": "tavern:passive",
+        }.get(char, kind)), False
     if kind == "tavern:courier" and char.isdigit():
         living = [person for person in state.household if person.alive]
         index = int(char) - 1
@@ -388,6 +464,12 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         if 0 <= index < len(rows):
             choose_relic(state, rows[index])
             return "tavern", False
+    if kind == "tavern:passive" and char in "123456789abc":
+        rows = list(state.owned_passives)
+        index = "123456789abc".index(char)
+        if index < len(rows):
+            choose_passive(state, rows[index])
+        return kind, False
     if kind == "objective" and char in {"a", "r", "t"}:
         result = decide_objective(state, {"a": "accept", "r": "refuse", "t": "alter"}[char])
         return (None if result.changed else kind), False

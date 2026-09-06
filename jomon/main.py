@@ -5,7 +5,7 @@ from __future__ import annotations
 import curses
 import random
 
-from .save import SaveError, load_game, save_path, valid_save_exists
+from .save import SaveError, load_game, save_path
 from .state import create_world
 from .terminal import MIN_HEIGHT, MIN_WIDTH, _put, play
 
@@ -52,7 +52,13 @@ def run(screen: curses.window) -> None:
         title_x = max(1, width // 2 - 18)
         _put(screen, max(1, height // 2 - 6), title_x, "J O M O N", curses.A_BOLD)
         _put(screen, max(2, height // 2 - 4), max(1, width // 2 - 31), "A vessel-household terminal roguelike")
-        has_save = valid_save_exists()
+        try:
+            load_game()
+            has_save = True
+        except SaveError as exc:
+            has_save = False
+            if save_path().exists() and not notice:
+                notice = f"Existing development save unavailable: {exc}"
         row = max(3, height // 2 - 1)
         if has_save:
             _put(screen, row, title_x, "C  Continue")
