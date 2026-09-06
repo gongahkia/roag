@@ -151,8 +151,7 @@ The following was actually exercised in curses, not inferred from tests:
   restored the terminal cleanly on quit.
 
 Semantic colours were visually checked at 80x24 and 100x32. The limited-colour
-fallback was tested as a function pure mapping but could not be visually verified
-because the available PTY advertised normal colour support. Permanent death
+fallback was tested as a pure function but could not be visually verified because the available PTY advertised normal colour support. Permanent death
 and succession were verified by state/action tests, not induced during the
 manual play paths.
 
