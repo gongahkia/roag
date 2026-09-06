@@ -6,7 +6,7 @@ import { INITIAL_WORLD_GENERATION_DIAGNOSTICS_VERSION, INITIAL_WORLD_GENERATOR_V
 import { normalizeCreationSeed } from './settings'
 import { createInitialHousehold, initialHouseholdActiveCrew, initialHouseholdContentRecords, validateInitialHouseholdRoster, validateInitialHouseholdStructure } from './initial-household'
 import { advanceMedievalTemporalState, createMedievalTemporalState, isMedievalTemporalState, type TemporalCommand, type TemporalProvenance, type TimeBearingTemporalAction } from './temporal'
-import { causalReplayProjectionForWorldState, createMedievalWorldState, isMedievalWorldState, medievalWorldStateContentRecords, WORLD_DECK_NAVIGATION_STATE_VERSION, type MedievalWorldState, type WorldAutonomyState, type WorldDeckNavigationState, type WorldDelegationState, type WorldPeopleState, type WorldSocialMemoryState } from './world-state'
+import { LEGACY_EXPEDITION_WORLD_STATE_VERSION, causalReplayProjectionForWorldState, createMedievalWorldState, isMedievalWorldState, medievalWorldStateContentRecords, WORLD_DECK_NAVIGATION_STATE_VERSION, type MedievalWorldState, type WorldAutonomyState, type WorldDeckNavigationState, type WorldDelegationState, type WorldPeopleState, type WorldSocialMemoryState } from './world-state'
 import { createFidelityPlanForVerifiedWorld } from './fidelity'
 import { advanceSimulationCatchUpState, reconcileSimulationCatchUpPlanState, resolveDelegatedWorkPlaceholder, validateSimulationCatchUpPlanState, validateSimulationCatchUpState, withDelegatedWorkPlaceholder } from './simulation-catchup'
 import { advanceWorldEraForTemporalAction, recordDurableJomonGrowthEvidence, type DurableJomonGrowthEvidence, type WorldEraContext } from './world-era'
@@ -16,7 +16,7 @@ import { advanceDelegatedTasks, delegatedWorkPlaceholderForTask, delegationInter
 import { advanceAutonomyState, createAutonomyState, reconcileAutonomyState, validateAutonomyPlanState } from './autonomy'
 import { assessJomonDeckStep, canonicalJomonDeckSpawn, isWalkableJomonDeckCoordinate, jomonDeckCoordinateId, type JomonDeckCollision, type JomonDeckCoordinate, type JomonDeckMovementDirection } from './jomon-navigation'
 import { assessTavernCourierSwitchForVerifiedWorld, type TavernCourierSwitchAssessment } from './tavern-courier-switch'
-import { assessCourierContinuityLoss, type CourierContinuityAssessment, type CourierContinuityConfirmation } from './courier-continuity'
+import { assessCourierContinuityLoss, courierContinuityConfirmationIdFor, courierContinuityContentSafety, type CourierContinuityAssessment, type CourierContinuityConfirmation } from './courier-continuity'
 import { initialVesselPropActionState, recordVesselPropAction } from './vessel-prop-action'
 import { createVesselStationReadoutForVerifiedWorld, type VesselStationReadoutPropId } from './vessel-station-readout'
 import { assessVesselPropOperationForVerifiedWorld } from './vessel-proximity-operation'
@@ -26,6 +26,7 @@ import { createLegacyWorldMarketsStateV2, createWorldMarketsState } from './mark
 import { acceptSettlementTradeContract as acceptSettlementTradeState, deliverSettlementTradeContract as deliverSettlementTradeState, initialSettlementTradingState, refuseSettlementTradeContract as refuseSettlementTradeState, settlementTradingAtSourceAnchor } from './settlement-trading'
 import { createHearthfordWorksiteState, createHearthfordWorksiteTemporalAction, hearthfordWorksiteAnchorFor, hearthfordWorksiteResolutionFromAction, resolveHearthfordWorksite, type HearthfordWorksiteResolutionKind } from './hearthford-worksite'
 import { deriveJomonDeckPlanForVerifiedWorld } from './jomon-deck-plan'
+import { createExpeditionState, decideHearthfordObjective, deliverHearthfordSealCord, departForHearthford, moveThroughHearthford, resolveHearthfordAction, returnToJomonFromHearthford, selectExpeditionLoadout, selectExpeditionSupport, type ExpeditionLoadoutId, type ExpeditionState, type ExpeditionStateTransition, type ExpeditionSupportId, type HearthfordAction, type HearthfordMoveDirection } from './expedition'
 import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_JOMON_PROP_DEFINITIONS, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type LegacyFoundationWorldV13, type LegacyFoundationWorldV14, type LegacyFoundationWorldV14V13, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
 
 const LEGACY_FOUNDATION_JOMON_PROPS = [
@@ -336,6 +337,62 @@ export const validateFoundationWorld = (value: unknown): readonly FoundationWorl
 }
 
 export const isValidFoundationWorld = (value: unknown): value is FoundationWorld => validateFoundationWorld(value).length === 0
+
+/** The expedition stays outside the generalized journal but never outside the full world validator. */
+const withExpeditionState = (world: FoundationWorld, expedition: ExpeditionState): FoundationWorld => {
+  const next = {
+    ...cloneWorld(world),
+    state: { ...structuredClone(world.state), expedition: structuredClone(expedition) }
+  }
+  const validation = validateFoundationWorld(next)
+  if (validation.length) throw new Error(`expedition transition did not satisfy the complete medieval foundation contract: ${validation.map(item => item.code).join(', ')}`)
+  return next
+}
+
+const requireExpeditionVesselProp = (world: FoundationWorld, propId: 'prop:chart-table' | 'prop:gangplank'): void => {
+  const courierId = requirePlayableActiveCourier(world, 'expedition preparation')
+  const operation = assessVesselPropOperationForVerifiedWorld(world, causalReplayProjectionForWorldState(world.state), propId)
+  if (operation.proximity !== 'at-anchor' || world.state.navigation.courierId !== courierId) throw new Error(`expedition operation requires the physical ${propId} anchor`)
+}
+
+const expeditionActionWorld = (world: FoundationWorld, state: ExpeditionState, action: string): FoundationWorld => {
+  const advanced = advanceFoundationWorldTime(world, {
+    id: `expedition:${world.state.temporal.actionSequence + 1}:${action}`,
+    kind: 'movement',
+    durationMinutes: 1,
+    contentSafety: classifyMedievalContent('event', ['adult-labour', 'navigation'], 'adults-only', ['data'])
+  })
+  return withExpeditionState(advanced, state)
+}
+
+export type FoundationExpeditionTransition =
+  | { status: 'changed'; world: FoundationWorld; detail: string }
+  | { status: 'blocked'; detail: string }
+  | { status: 'courier-death'; world: FoundationWorld; confirmation: CourierContinuityConfirmation; detail: string }
+
+const expeditionWorldTransition = (world: FoundationWorld, transition: ExpeditionStateTransition, action: string): FoundationExpeditionTransition => {
+  if (transition.status === 'blocked') return transition
+  const next = expeditionActionWorld(world, transition.state, action)
+  if (transition.status === 'changed') return { status: 'changed', world: next, detail: transition.detail }
+  const courierId = next.state.courier.activeCourierId
+  if (courierId === undefined) throw new Error('expedition death requires an active courier')
+  const atWorldTime = next.state.temporal.worldTime
+  return {
+    status: 'courier-death',
+    world: next,
+    detail: transition.detail,
+    confirmation: {
+      version: 1,
+      id: courierContinuityConfirmationIdFor('death', courierId, atWorldTime),
+      kind: 'confirmed-courier-continuity-loss',
+      outcome: 'death',
+      courierId,
+      atWorldTime,
+      evidenceIds: ['expedition-evidence:marsh-hound'],
+      contentSafety: courierContinuityContentSafety()
+    }
+  }
+}
 
 /**
  * v14 has the same immutable manifest and mutable schema but only the three
@@ -688,6 +745,37 @@ export const upgradeFoundationWorldStateV19 = (value: unknown): FoundationWorld 
 }
 
 /**
+ * Strict read-only state-v19 -> state-v20 conversion. The expedition begins
+ * in its authored, unprepared Jomon state and changes no existing market,
+ * worksite, causal, or household evidence.
+ */
+export const upgradeFoundationWorldStateV20 = (value: unknown): FoundationWorld => {
+  if (!record(value) || !hasOnlyKeys(value, ['version', 'id', 'status', 'manifest', 'jomon', 'crew', 'initialWorld', 'state']) || value.version !== 15 || value.status !== 'active') throw new Error('foundation world is not a v15/state-v19 active envelope')
+  const legacy = value as unknown as FoundationWorld
+  if ((legacy.state as unknown as { version?: unknown }).version !== LEGACY_EXPEDITION_WORLD_STATE_VERSION
+    || !isReproducibleWorldManifest(legacy.manifest)
+    || !isInitialWorld(legacy.initialWorld)
+    || !foundationWorldInitialWorldMatchesManifest(legacy)
+    || !foundationWorldContentSatisfiesSafetyPolicy(legacy)
+    || !foundationWorldTemporalStateMatches(legacy)
+    || !foundationWorldNavigationStateMatches(legacy)
+    || !foundationWorldCatchUpStateMatches(legacy)
+    || !foundationWorldAutonomyStateMatches(legacy)) throw new Error('foundation world v15/state-v19 envelope is invalid')
+  const upgraded = {
+    ...structuredClone(legacy),
+    state: {
+      ...structuredClone(legacy.state),
+      version: 20,
+      expedition: createExpeditionState()
+    }
+  } as unknown as FoundationWorld
+  upgraded.state.contentSafetyAudit = currentStateContentSafetyAudit(upgraded.state)
+  const validation = validateFoundationWorld(upgraded)
+  if (validation.length) throw new Error(`foundation world v15/state-v19 conversion did not reproduce a valid v20 envelope: ${validation.map(item => item.code).join(', ')}`)
+  return upgraded
+}
+
+/**
  * Explicit v13 -> v14 conversion for the local courier coordinate. It reads
  * only the old full envelope, changes no immutable provenance or IDs, and
  * rebuilds the affected replay checkpoint before the normal v14 validator
@@ -972,6 +1060,9 @@ const stateFromProjection = (world: FoundationWorld, projection: CausalReplayPro
   // must therefore recreate that unresolved state, rather than borrow the
   // later resolved state from `world`.
   hearthfordWorksiteState: projection.hearthfordWorksite ?? createHearthfordWorksiteState(world.manifest.creation.seed),
+  // The authored expedition is deliberately ordinary bounded state rather
+  // than another causal/generalized simulation projection.
+  expeditionState: world.state.expedition,
   causalHistoryState
 })
 
@@ -1590,6 +1681,59 @@ export const chooseInitialCourier = (world: FoundationWorld, courierId: string):
   const command = createCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, 'initial-courier-selected', { courierId })
   const history = appendCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, command, projection)
   return worldFromProjection(world, projection, history)
+}
+
+/** Selects one authored two-item loadout at Jomon's physical chart table, at zero time. */
+export const chooseHearthfordExpeditionLoadout = (world: FoundationWorld, loadout: ExpeditionLoadoutId): FoundationWorld => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  requireExpeditionVesselProp(world, 'prop:chart-table')
+  return withExpeditionState(world, selectExpeditionLoadout(world.state.expedition, loadout))
+}
+
+/** Selects one authored crew-support preparation at the same chart table, at zero time. */
+export const chooseHearthfordExpeditionSupport = (world: FoundationWorld, support: ExpeditionSupportId): FoundationWorld => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  requireExpeditionVesselProp(world, 'prop:chart-table')
+  return withExpeditionState(world, selectExpeditionSupport(world.state.expedition, support))
+}
+
+/** Leaves from the existing gangplank into the compact authored Hearthford map, at zero time. */
+export const departForHearthfordExpedition = (world: FoundationWorld): FoundationWorld => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  requireExpeditionVesselProp(world, 'prop:gangplank')
+  return withExpeditionState(world, departForHearthford(world.state.expedition, world.state.temporal.worldTime))
+}
+
+/** Resolves the compact contact prompt without advancing time. */
+export const decideHearthfordExpeditionObjective = (world: FoundationWorld, decision: 'accept' | 'refuse'): FoundationWorld => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  return withExpeditionState(world, decideHearthfordObjective(world.state.expedition, decision))
+}
+
+/** Delivers the carried seal cord to Mara Venn in person, at zero time. */
+export const deliverHearthfordExpeditionSealCord = (world: FoundationWorld): FoundationWorld => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  return withExpeditionState(world, deliverHearthfordSealCord(world.state.expedition))
+}
+
+/** Each successful authored-map step takes one existing action minute. */
+export const moveHearthfordExpeditionCourier = (world: FoundationWorld, direction: HearthfordMoveDirection): FoundationExpeditionTransition => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  return expeditionWorldTransition(world, moveThroughHearthford(world.state.expedition, direction), `step-${direction}`)
+}
+
+/** Attack, brace, lower reeds, evade, and injury retreat each use one existing action minute. */
+export const actInHearthfordExpedition = (world: FoundationWorld, action: HearthfordAction): FoundationExpeditionTransition => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  return expeditionWorldTransition(world, resolveHearthfordAction(world.state.expedition, action), action)
+}
+
+/** Returning through the authored map's gangplank is a physical, zero-time boundary. */
+export const returnFromHearthfordExpedition = (world: FoundationWorld): FoundationExpeditionTransition => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  const transition = returnToJomonFromHearthford(world.state.expedition)
+  if (transition.status === 'blocked') return transition
+  return { status: 'changed', world: withExpeditionState(world, transition.state), detail: transition.detail }
 }
 
 /** Renderer-independent assessment for the existing task-ledger operation. */

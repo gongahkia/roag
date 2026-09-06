@@ -16,14 +16,17 @@ import { initialVesselCargoState, validateVesselCargoState, type VesselCargoStat
 import { initialSettlementTradingState, settlementTradingContentRecords, validateSettlementTradingState, type SettlementTradingState } from './settlement-trading'
 import { createLegacyWorldMarketsStateV2, createWorldMarketsState, validateWorldMarketsState, WORLD_MARKETS_CONTRACT_VERSION, type LegacyWorldMarketsStateV1, type LegacyWorldMarketsStateV2, type WorldMarketsState } from './market'
 import { createHearthfordWorksiteState, validateHearthfordWorksiteState, type HearthfordWorksiteState } from './hearthford-worksite'
+import { createExpeditionState, isExpeditionState, type ExpeditionState } from './expedition'
 import type { FoundationCrewMember, FoundationJomon } from './types'
 
 /**
  * This is the durable mutable half of a medieval world. It deliberately has
  * no renderer, storage, browser, or prototype dependency.
  */
+/** v20 adds one bounded authored Hearthford expedition. */
+export const MEDIEVAL_WORLD_STATE_VERSION = 20 as const
 /** v19 adds one seed-derived, persistent mill-lease worksite consequence. */
-export const MEDIEVAL_WORLD_STATE_VERSION = 19 as const
+export const LEGACY_EXPEDITION_WORLD_STATE_VERSION = 19 as const
 /** v18 derives bounded local market conditions from seed and local trade evidence. */
 export const LEGACY_WORKSITE_WORLD_STATE_VERSION = 18 as const
 /** v17 has local settlement trade but placeholder market records. */
@@ -234,6 +237,8 @@ export interface MedievalWorldState {
   settlementTrading: SettlementTradingState
   /** One named institution's local mill-race worksite consequence. */
   hearthfordWorksite: HearthfordWorksiteState
+  /** One authored courier excursion; it is intentionally outside generalized simulation. */
+  expedition: ExpeditionState
   /** The sole authoritative mutable command journal; local evidence stays local. */
   causalHistory: CausalHistoryState
   jomon: WorldJomonState
@@ -246,47 +251,52 @@ export interface MedievalWorldState {
 }
 
 /** Read-only v18 input accepted solely by the mill-lease worksite upgrader. */
-export interface LegacyMedievalWorldStateV18 extends Omit<MedievalWorldState, 'version' | 'markets' | 'hearthfordWorksite'> {
+export interface LegacyMedievalWorldStateV18 extends Omit<MedievalWorldState, 'version' | 'markets' | 'hearthfordWorksite' | 'expedition'> {
   version: typeof LEGACY_WORKSITE_WORLD_STATE_VERSION
   markets: LegacyWorldMarketsStateV2
 }
 
+/** Read-only v19 input accepted solely by the authored-expedition upgrader. */
+export interface LegacyMedievalWorldStateV19 extends Omit<MedievalWorldState, 'version' | 'expedition'> {
+  version: typeof LEGACY_EXPEDITION_WORLD_STATE_VERSION
+}
+
 /** Read-only v17 input accepted solely by the local-market upgrader. */
-export interface LegacyMedievalWorldStateV17 extends Omit<MedievalWorldState, 'version' | 'markets' | 'hearthfordWorksite'> {
+export interface LegacyMedievalWorldStateV17 extends Omit<MedievalWorldState, 'version' | 'markets' | 'hearthfordWorksite' | 'expedition'> {
   version: typeof LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION
   markets: LegacyWorldMarketsStateV1
 }
 
 /** Read-only v12 input accepted solely by the explicit FoundationWorld upgrader. */
-export interface LegacyMedievalWorldStateV12 extends Omit<MedievalWorldState, 'version' | 'courier' | 'settlementTrading' | 'hearthfordWorksite' | 'markets'> {
+export interface LegacyMedievalWorldStateV12 extends Omit<MedievalWorldState, 'version' | 'courier' | 'settlementTrading' | 'hearthfordWorksite' | 'markets' | 'expedition'> {
   version: 12
   courier: LegacyWorldCourierStateV1
   markets: LegacyWorldMarketsStateV1
 }
 
 /** Read-only v13 input accepted solely by the explicit courier-continuity upgrader. */
-export interface LegacyMedievalWorldStateV13 extends Omit<MedievalWorldState, 'version' | 'courier' | 'settlementTrading' | 'hearthfordWorksite' | 'markets'> {
+export interface LegacyMedievalWorldStateV13 extends Omit<MedievalWorldState, 'version' | 'courier' | 'settlementTrading' | 'hearthfordWorksite' | 'markets' | 'expedition'> {
   version: 13
   courier: LegacyWorldCourierStateV2
   markets: LegacyWorldMarketsStateV1
 }
 
 /** Read-only v15/state-v14 envelope accepted only by the prop-action upgrader. */
-export interface LegacyMedievalWorldStateV14 extends Omit<MedievalWorldState, 'version' | 'jomon' | 'settlementTrading' | 'hearthfordWorksite' | 'markets'> {
+export interface LegacyMedievalWorldStateV14 extends Omit<MedievalWorldState, 'version' | 'jomon' | 'settlementTrading' | 'hearthfordWorksite' | 'markets' | 'expedition'> {
   version: typeof LEGACY_VESSEL_PROP_ACTION_WORLD_STATE_VERSION
   jomon: LegacyWorldJomonStateV1
   markets: LegacyWorldMarketsStateV1
 }
 
 /** Read-only state-v15 input accepted only by the explicit cargo upgrader. */
-export interface LegacyMedievalWorldStateV15 extends Omit<MedievalWorldState, 'version' | 'jomon' | 'settlementTrading' | 'hearthfordWorksite' | 'markets'> {
+export interface LegacyMedievalWorldStateV15 extends Omit<MedievalWorldState, 'version' | 'jomon' | 'settlementTrading' | 'hearthfordWorksite' | 'markets' | 'expedition'> {
   version: typeof LEGACY_CARGO_WORLD_STATE_VERSION
   jomon: LegacyWorldJomonStateV2
   markets: LegacyWorldMarketsStateV1
 }
 
 /** Read-only state-v16 input accepted only by the settlement-trading upgrader. */
-export interface LegacyMedievalWorldStateV16 extends Omit<MedievalWorldState, 'version' | 'settlementTrading' | 'hearthfordWorksite' | 'markets'> {
+export interface LegacyMedievalWorldStateV16 extends Omit<MedievalWorldState, 'version' | 'settlementTrading' | 'hearthfordWorksite' | 'markets' | 'expedition'> {
   version: typeof LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION
   markets: LegacyWorldMarketsStateV1
 }
@@ -311,6 +321,7 @@ export type WorldStateValidationDiagnosticCode =
   | 'world-state.invalid-autonomy'
   | 'world-state.invalid-social-memory'
   | 'world-state.invalid-settlement-trading'
+  | 'world-state.invalid-expedition'
   | 'world-state.invalid-causal-history'
   | 'world-state.invalid-jomon'
   | 'world-state.invalid-vessel-prop-actions'
@@ -376,6 +387,8 @@ export interface WorldStateConstructionContext extends WorldStateValidationConte
   settlementTradingState?: SettlementTradingState
   /** The time-bearing worksite reducer preserves its one bounded result here. */
   hearthfordWorksiteState?: HearthfordWorksiteState
+  /** The authored first-expedition reducer preserves only its exercised state here. */
+  expeditionState?: ExpeditionState
   /** Public command reducers supply their append/compaction result. */
   causalHistoryState?: CausalHistoryState
 }
@@ -395,9 +408,10 @@ const issue = (recordId: string, code: WorldStateValidationDiagnosticCode): Worl
 const canonicalIssues = (issues: readonly WorldStateValidationIssue[]): readonly WorldStateValidationIssue[] => [...new Map(issues.map(value => [`${value.recordId}\u0000${value.code}`, value])).values()]
   .sort((left, right) => compare(left.recordId, right.recordId) || compare(left.code, right.code))
 const idsAreUnique = (values: readonly { id: string }[]): boolean => new Set(values.map(value => value.id)).size === values.length
-const stateLike = (value: unknown): value is MedievalWorldState | LegacyMedievalWorldStateV18 | LegacyMedievalWorldStateV17 | LegacyMedievalWorldStateV16 | LegacyMedievalWorldStateV15 | LegacyMedievalWorldStateV14 | LegacyMedievalWorldStateV13 | LegacyMedievalWorldStateV12 | LegacyMedievalWorldStateV11 => record(value)
+const stateLike = (value: unknown): value is MedievalWorldState | LegacyMedievalWorldStateV19 | LegacyMedievalWorldStateV18 | LegacyMedievalWorldStateV17 | LegacyMedievalWorldStateV16 | LegacyMedievalWorldStateV15 | LegacyMedievalWorldStateV14 | LegacyMedievalWorldStateV13 | LegacyMedievalWorldStateV12 | LegacyMedievalWorldStateV11 => record(value)
   && ((value.version === EARLIER_MEDIEVAL_WORLD_STATE_VERSION && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'causalHistory', 'jomon', 'courier', 'temporal', 'simulation', 'era', 'contentSafetyAudit']))
-    || (value.version === MEDIEVAL_WORLD_STATE_VERSION && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'settlementTrading', 'hearthfordWorksite', 'causalHistory', 'jomon', 'courier', 'navigation', 'temporal', 'simulation', 'era', 'contentSafetyAudit']))
+    || (value.version === MEDIEVAL_WORLD_STATE_VERSION && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'settlementTrading', 'hearthfordWorksite', 'expedition', 'causalHistory', 'jomon', 'courier', 'navigation', 'temporal', 'simulation', 'era', 'contentSafetyAudit']))
+    || (value.version === LEGACY_EXPEDITION_WORLD_STATE_VERSION && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'settlementTrading', 'hearthfordWorksite', 'causalHistory', 'jomon', 'courier', 'navigation', 'temporal', 'simulation', 'era', 'contentSafetyAudit']))
     || ((value.version === LEGACY_WORKSITE_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION) && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'settlementTrading', 'causalHistory', 'jomon', 'courier', 'navigation', 'temporal', 'simulation', 'era', 'contentSafetyAudit']))
     || ((value.version === LEGACY_MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_ACTIVE_COURIER_WORLD_STATE_VERSION || value.version === LEGACY_VESSEL_PROP_ACTION_WORLD_STATE_VERSION || value.version === LEGACY_CARGO_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION) && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'causalHistory', 'jomon', 'courier', 'navigation', 'temporal', 'simulation', 'era', 'contentSafetyAudit'])))
 const validateIdArrayOrder = (value: unknown, recordId: string, issues: WorldStateValidationIssue[]): void => {
@@ -509,6 +523,7 @@ export const createMedievalWorldState = (context: WorldStateConstructionContext)
   const socialMemory: WorldSocialMemoryState = structuredClone(context.socialMemoryState ?? createSocialMemoryState())
   const settlementTrading = structuredClone(context.settlementTradingState ?? initialSettlementTradingState())
   const hearthfordWorksite = structuredClone(context.hearthfordWorksiteState ?? createHearthfordWorksiteState(context.seed))
+  const expedition = structuredClone(context.expeditionState ?? createExpeditionState())
   const courier: WorldCourierState = context.initialCourierId === undefined
     ? { version: WORLD_COURIER_STATE_VERSION }
     : {
@@ -531,6 +546,7 @@ export const createMedievalWorldState = (context: WorldStateConstructionContext)
     socialMemory,
     settlementTrading,
     hearthfordWorksite,
+    expedition,
     jomon: structuredClone(context.jomonState ?? initialJomonState(context.jomon, sites, context.crew)),
     courier,
     navigation,
@@ -572,11 +588,12 @@ const rootCommitmentsMatch = (context: WorldStateValidationContext, frontier: Fr
 export const validateMedievalWorldState = (context: WorldStateValidationContext, value: unknown): readonly WorldStateValidationIssue[] => {
   const issues: WorldStateValidationIssue[] = []
   if (!stateLike(value)) {
-    const currentShape = record(value) && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'settlementTrading', 'hearthfordWorksite', 'causalHistory', 'jomon', 'courier', 'navigation', 'temporal', 'simulation', 'era', 'contentSafetyAudit'])
+    const currentShape = record(value) && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'settlementTrading', 'hearthfordWorksite', 'expedition', 'causalHistory', 'jomon', 'courier', 'navigation', 'temporal', 'simulation', 'era', 'contentSafetyAudit'])
+    const expeditionLegacyShape = record(value) && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'settlementTrading', 'hearthfordWorksite', 'causalHistory', 'jomon', 'courier', 'navigation', 'temporal', 'simulation', 'era', 'contentSafetyAudit'])
     const legacyShape = record(value) && hasOnlyKeys(value, ['version', 'geography', 'sites', 'routes', 'markets', 'people', 'institutions', 'delegation', 'autonomy', 'socialMemory', 'causalHistory', 'jomon', 'courier', 'temporal', 'simulation', 'era', 'contentSafetyAudit'])
-    return [issue('world-state', currentShape || legacyShape ? 'world-state.invalid-version' : 'world-state.malformed-state')]
+    return [issue('world-state', currentShape || expeditionLegacyShape || legacyShape ? 'world-state.invalid-version' : 'world-state.malformed-state')]
   }
-  if (value.version !== MEDIEVAL_WORLD_STATE_VERSION && value.version !== LEGACY_WORKSITE_WORLD_STATE_VERSION && value.version !== LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION && value.version !== LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION && value.version !== LEGACY_CARGO_WORLD_STATE_VERSION && value.version !== LEGACY_VESSEL_PROP_ACTION_WORLD_STATE_VERSION && value.version !== LEGACY_ACTIVE_COURIER_WORLD_STATE_VERSION && value.version !== LEGACY_MEDIEVAL_WORLD_STATE_VERSION && value.version !== EARLIER_MEDIEVAL_WORLD_STATE_VERSION) issues.push(issue('world-state', 'world-state.invalid-version'))
+  if (value.version !== MEDIEVAL_WORLD_STATE_VERSION && value.version !== LEGACY_EXPEDITION_WORLD_STATE_VERSION && value.version !== LEGACY_WORKSITE_WORLD_STATE_VERSION && value.version !== LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION && value.version !== LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION && value.version !== LEGACY_CARGO_WORLD_STATE_VERSION && value.version !== LEGACY_VESSEL_PROP_ACTION_WORLD_STATE_VERSION && value.version !== LEGACY_ACTIVE_COURIER_WORLD_STATE_VERSION && value.version !== LEGACY_MEDIEVAL_WORLD_STATE_VERSION && value.version !== EARLIER_MEDIEVAL_WORLD_STATE_VERSION) issues.push(issue('world-state', 'world-state.invalid-version'))
   issues.push(...validateInitialHouseholdStructure(context.crew)
     .map(diagnostic => issue(diagnostic.recordId, diagnostic.code)))
 
@@ -610,7 +627,7 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
   if (!validSubdomain(value.routes, WORLD_ROUTES_STATE_VERSION, ['version', 'conditions']) || !Array.isArray(value.routes.conditions) || value.routes.conditions.length > MEDIEVAL_WORLD_STATE_LIMITS.routeConditions || !same(value.routes.conditions, expectedRoutes)) issues.push(issue('world-state:routes', value.routes && Array.isArray(value.routes.conditions) && value.routes.conditions.length > MEDIEVAL_WORLD_STATE_LIMITS.routeConditions ? 'world-state.budget-exceeded' : 'world-state.invalid-routes'))
 
   const legacyMarkets = legacyMarketRecordsFor(expectedSites)
-  const marketStateIsValid = value.version === MEDIEVAL_WORLD_STATE_VERSION
+  const marketStateIsValid = (value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_EXPEDITION_WORLD_STATE_VERSION)
     ? validateWorldMarketsState({
         seed: context.seed,
         siteIds: expectedSites.map(site => site.id),
@@ -727,7 +744,7 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
   if (!validSubdomain(value.institutions, WORLD_INSTITUTIONS_STATE_VERSION, ['version', 'registry']) || !Array.isArray(value.institutions.registry) || value.institutions.registry.length > MEDIEVAL_WORLD_STATE_LIMITS.institutions || !same(value.institutions.registry, expectedInstitutions)) issues.push(issue('world-state:institutions', value.institutions && Array.isArray(value.institutions.registry) && value.institutions.registry.length > MEDIEVAL_WORLD_STATE_LIMITS.institutions ? 'world-state.budget-exceeded' : 'world-state.invalid-institutions'))
 
   const initialCourierId = value.courier?.initialCourierId
-  const currentCourierContract = (value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_WORKSITE_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION || value.version === LEGACY_CARGO_WORLD_STATE_VERSION || value.version === LEGACY_VESSEL_PROP_ACTION_WORLD_STATE_VERSION) && value.courier.version === WORLD_COURIER_STATE_VERSION
+  const currentCourierContract = (value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_EXPEDITION_WORLD_STATE_VERSION || value.version === LEGACY_WORKSITE_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION || value.version === LEGACY_CARGO_WORLD_STATE_VERSION || value.version === LEGACY_VESSEL_PROP_ACTION_WORLD_STATE_VERSION) && value.courier.version === WORLD_COURIER_STATE_VERSION
   const activeCourierId = currentCourierContract
     ? value.courier?.activeCourierId
     : initialCourierId
@@ -742,7 +759,7 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
       : ['version', 'initialCourierId', 'activeCourierId', 'departedCourierIds']
   const legacyCourierKeys = initialCourierId === undefined ? ['version'] : ['version', 'initialCourierId']
   const activeCourierLegacyKeys = initialCourierId === undefined ? ['version'] : ['version', 'initialCourierId', 'activeCourierId']
-  const courierShapeValid = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_WORKSITE_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION || value.version === LEGACY_CARGO_WORLD_STATE_VERSION || value.version === LEGACY_VESSEL_PROP_ACTION_WORLD_STATE_VERSION
+  const courierShapeValid = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_EXPEDITION_WORLD_STATE_VERSION || value.version === LEGACY_WORKSITE_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION || value.version === LEGACY_CARGO_WORLD_STATE_VERSION || value.version === LEGACY_VESSEL_PROP_ACTION_WORLD_STATE_VERSION
     ? validSubdomain(value.courier, WORLD_COURIER_STATE_VERSION, currentCourierKeys)
     : value.version === LEGACY_ACTIVE_COURIER_WORLD_STATE_VERSION
       ? validSubdomain(value.courier, 2, activeCourierLegacyKeys)
@@ -776,7 +793,7 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
   if (!courierShapeValid || !initialCourierValid || !departuresValid || !activeCourierValid) issues.push(issue('world-state:courier', 'world-state.invalid-courier'))
 
   const navigation = 'navigation' in value ? value.navigation : undefined
-  const hasNavigation = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_WORKSITE_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION || value.version === LEGACY_CARGO_WORLD_STATE_VERSION || value.version === LEGACY_VESSEL_PROP_ACTION_WORLD_STATE_VERSION || value.version === LEGACY_ACTIVE_COURIER_WORLD_STATE_VERSION || value.version === LEGACY_MEDIEVAL_WORLD_STATE_VERSION
+  const hasNavigation = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_EXPEDITION_WORLD_STATE_VERSION || value.version === LEGACY_WORKSITE_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION || value.version === LEGACY_CARGO_WORLD_STATE_VERSION || value.version === LEGACY_VESSEL_PROP_ACTION_WORLD_STATE_VERSION || value.version === LEGACY_ACTIVE_COURIER_WORLD_STATE_VERSION || value.version === LEGACY_MEDIEVAL_WORLD_STATE_VERSION
   const validCoordinate = (coordinate: unknown): coordinate is { column: number; row: number } => record(coordinate) && hasOnlyKeys(coordinate, ['column', 'row']) && safeInteger(coordinate.column) && safeInteger(coordinate.row)
   if (hasNavigation && (!validSubdomain(navigation, WORLD_DECK_NAVIGATION_STATE_VERSION, activeCourierId === undefined ? ['version'] : ['version', 'courierId', 'coordinate']) || (activeCourierId === undefined ? navigation.courierId !== undefined || navigation.coordinate !== undefined : navigation.courierId !== activeCourierId || !validCoordinate(navigation.coordinate)))) issues.push(issue('world-state:navigation', 'world-state.invalid-reference'))
 
@@ -784,7 +801,7 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
     issues.push(issue('world-state:causal-history', 'world-state.invalid-causal-history'))
   } else {
     const causalContext = { worldId: temporal.provenance.worldId, creationDigest: temporal.provenance.creationDigest }
-    const causalIssues = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_WORKSITE_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION
+    const causalIssues = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_EXPEDITION_WORLD_STATE_VERSION || value.version === LEGACY_WORKSITE_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION
       ? validateCausalHistoryState(causalContext, value.causalHistory)
       : value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION
         ? validateLegacyCausalHistoryStateV6(causalContext, value.causalHistory)
@@ -797,19 +814,19 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
   const sites = Array.isArray(value.sites?.sites) ? value.sites.sites as WorldSiteState[] : []
   const quays = Array.isArray(value.sites?.quays) ? value.sites.quays as WorldQuayState[] : []
   const jomon = value.jomon
-  const jomonKeys = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_WORKSITE_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION
+  const jomonKeys = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_EXPEDITION_WORLD_STATE_VERSION || value.version === LEGACY_WORKSITE_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION
     ? ['version', 'vesselId', 'operationalStatus', 'location', 'integrity', 'capacity', 'propActions', 'cargo']
     : value.version === LEGACY_CARGO_WORLD_STATE_VERSION
       ? ['version', 'vesselId', 'operationalStatus', 'location', 'integrity', 'capacity', 'propActions']
       : ['version', 'vesselId', 'operationalStatus', 'location', 'integrity', 'capacity']
-  const expectedJomonVersion = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_WORKSITE_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION
+  const expectedJomonVersion = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_EXPEDITION_WORLD_STATE_VERSION || value.version === LEGACY_WORKSITE_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION
     ? WORLD_JOMON_STATE_VERSION
     : value.version === LEGACY_CARGO_WORLD_STATE_VERSION
       ? LEGACY_VESSEL_PROP_ACTION_JOMON_STATE_VERSION
       : LEGACY_WORLD_JOMON_STATE_VERSION
   if (!validSubdomain(jomon, expectedJomonVersion, jomonKeys) || jomon.vesselId !== context.jomon.id || jomon.operationalStatus !== 'moored' || !validLocation(jomon.location) || (jomon.location.kind === 'site' ? !sites.some(site => site.id === jomon.location.id) : !quays.some(quay => quay.id === jomon.location.id)) || !record(jomon.integrity) || !hasOnlyKeys(jomon.integrity, ['current', 'maximum']) || !safeInteger(jomon.integrity.current) || !safeInteger(jomon.integrity.maximum) || jomon.integrity.maximum < 1 || jomon.integrity.maximum > MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum || jomon.integrity.current > jomon.integrity.maximum || !record(jomon.capacity) || !hasOnlyKeys(jomon.capacity, ['cargoUnits', 'berthSlots', 'workSlots']) || !safeInteger(jomon.capacity.cargoUnits) || !safeInteger(jomon.capacity.berthSlots) || !safeInteger(jomon.capacity.workSlots) || jomon.capacity.cargoUnits > MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum || jomon.capacity.berthSlots > MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum || jomon.capacity.workSlots > MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum) {
     issues.push(issue('world-state:jomon', 'world-state.invalid-jomon'))
-  } else if (value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_WORKSITE_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION) {
+  } else if (value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_EXPEDITION_WORLD_STATE_VERSION || value.version === LEGACY_WORKSITE_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION) {
     const sequence = record(value.causalHistory) && record(value.causalHistory.checkpoint) && safeInteger(value.causalHistory.checkpoint.sequence) && Array.isArray(value.causalHistory.tail)
       ? value.causalHistory.checkpoint.sequence + value.causalHistory.tail.length
       : undefined
@@ -825,12 +842,12 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
     if (actionIssues.length) issues.push(issue('world-state:jomon:prop-actions', 'world-state.invalid-vessel-prop-actions'))
   }
 
-  if (value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_WORKSITE_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION) {
+  if (value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_EXPEDITION_WORLD_STATE_VERSION || value.version === LEGACY_WORKSITE_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION) {
     const sequence = record(value.causalHistory) && record(value.causalHistory.checkpoint) && safeInteger(value.causalHistory.checkpoint.sequence) && Array.isArray(value.causalHistory.tail)
       ? value.causalHistory.checkpoint.sequence + value.causalHistory.tail.length
       : undefined
-    const worksite = value.version === MEDIEVAL_WORLD_STATE_VERSION ? value.hearthfordWorksite as HearthfordWorksiteState : undefined
-    if (value.version === MEDIEVAL_WORLD_STATE_VERSION && validateHearthfordWorksiteState(context.seed, worksite, temporal?.worldTime, sequence).length) {
+    const worksite = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_EXPEDITION_WORLD_STATE_VERSION ? value.hearthfordWorksite as HearthfordWorksiteState : undefined
+    if ((value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_EXPEDITION_WORLD_STATE_VERSION) && validateHearthfordWorksiteState(context.seed, worksite, temporal?.worldTime, sequence).length) {
       issues.push(issue('world-state:hearthford-worksite', 'world-state.invalid-reference'))
     }
     const tradingIssues = validateSettlementTradingState(value.settlementTrading, temporal?.worldTime, sequence)
@@ -850,6 +867,10 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
         issues.push(issue('world-state:settlement-trading', 'world-state.invalid-settlement-trading'))
       }
     }
+  }
+
+  if (value.version === MEDIEVAL_WORLD_STATE_VERSION && !isExpeditionState(value.expedition)) {
+    issues.push(issue('world-state:expedition', 'world-state.invalid-expedition'))
   }
 
   try {
