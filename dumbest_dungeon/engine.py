@@ -859,7 +859,7 @@ class GameEngine:
             if guard and guard.id != target.id:
                 self.add_log(f"{guard.name} intercepts the hit.")
                 target = guard
-        if target.statuses.get("dodge"):
+        if attacker and attacker.side != target.side and target.statuses.get("dodge"):
             target.statuses.pop("dodge", None)
             self.add_log(f"{target.name} evades the hit.")
             return
@@ -888,7 +888,13 @@ class GameEngine:
         elif target.side == "enemy" and target.hp == 0:
             self.add_log(f"{target.name} is destroyed.")
             self._normalize_ranks("enemy")
-        if attacker and attacker.alive and target.statuses.get("riposte") and attacker.side != target.side:
+        if (
+            attacker
+            and attacker.alive
+            and target.alive
+            and target.statuses.get("riposte")
+            and attacker.side != target.side
+        ):
             self.add_log(f"{target.name} answers with a riposte.")
             self._damage(attacker, 4)
 
