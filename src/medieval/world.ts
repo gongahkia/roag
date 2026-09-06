@@ -22,8 +22,9 @@ import { createVesselStationReadoutForVerifiedWorld, type VesselStationReadoutPr
 import { assessVesselPropOperationForVerifiedWorld } from './vessel-proximity-operation'
 import { initialVesselCargoState, loadVesselCargo, recoverVesselCargo, resolveVesselCargoFailure, unloadVesselCargo, type VesselCargoFailureOutcome } from './cargo-hold'
 import type { JomonCommodityId } from './commodity-catalogue'
-import { createWorldMarketsState } from './market'
+import { createLegacyWorldMarketsStateV2, createWorldMarketsState } from './market'
 import { acceptSettlementTradeContract as acceptSettlementTradeState, deliverSettlementTradeContract as deliverSettlementTradeState, initialSettlementTradingState, refuseSettlementTradeContract as refuseSettlementTradeState, settlementTradingAtSourceAnchor } from './settlement-trading'
+import { createHearthfordWorksiteState, createHearthfordWorksiteTemporalAction, hearthfordWorksiteAnchorFor, hearthfordWorksiteResolutionFromAction, resolveHearthfordWorksite, type HearthfordWorksiteResolutionKind } from './hearthford-worksite'
 import { deriveJomonDeckPlanForVerifiedWorld } from './jomon-deck-plan'
 import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_JOMON_PROP_DEFINITIONS, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type LegacyFoundationWorldV13, type LegacyFoundationWorldV14, type LegacyFoundationWorldV14V13, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
 
@@ -462,7 +463,7 @@ export const upgradeFoundationWorldStateV15 = (value: unknown): FoundationWorld 
   upgraded.state.contentSafetyAudit = currentStateContentSafetyAudit(upgraded.state)
   const validation = validateFoundationWorld(upgraded)
   if (validation.length) throw new Error(`foundation world v15/state-v14 conversion did not reproduce a valid v17 envelope: ${validation.map(item => item.code).join(', ')}`)
-  return upgradeFoundationWorldStateV18(upgraded)
+  return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgraded))
 }
 
 /**
@@ -540,7 +541,7 @@ export const upgradeFoundationWorldStateV16 = (value: unknown): FoundationWorld 
   upgraded.state.contentSafetyAudit = currentStateContentSafetyAudit(upgraded.state)
   const validation = validateFoundationWorld(upgraded)
   if (validation.length) throw new Error(`foundation world v15/state-v15 conversion did not reproduce a valid v17 envelope: ${validation.map(item => item.code).join(', ')}`)
-  return upgradeFoundationWorldStateV18(upgraded)
+  return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgraded))
 }
 
 /**
@@ -609,7 +610,7 @@ export const upgradeFoundationWorldStateV17 = (value: unknown): FoundationWorld 
   upgraded.state.contentSafetyAudit = currentStateContentSafetyAudit(upgraded.state)
   const validation = validateFoundationWorld(upgraded)
   if (validation.length) throw new Error(`foundation world v15/state-v16 conversion did not reproduce a valid v17 envelope: ${validation.map(item => item.code).join(', ')}`)
-  return upgradeFoundationWorldStateV18(upgraded)
+  return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgraded))
 }
 
 /**
@@ -630,21 +631,59 @@ export const upgradeFoundationWorldStateV18 = (value: unknown): FoundationWorld 
     || !foundationWorldCatchUpStateMatches(legacy)
     || !foundationWorldAutonomyStateMatches(legacy)) throw new Error('foundation world v15/state-v17 envelope is invalid')
 
-  const upgraded: FoundationWorld = {
+  const upgraded = {
     ...structuredClone(legacy),
     state: {
       ...structuredClone(legacy.state),
       version: 18,
-      markets: createWorldMarketsState({
+      markets: createLegacyWorldMarketsStateV2({
         seed: legacy.manifest.creation.seed,
         siteIds: legacy.state.sites.sites.map(site => site.id),
         settlementTrading: legacy.state.settlementTrading
       })
     }
-  }
+  } as unknown as FoundationWorld
   upgraded.state.contentSafetyAudit = currentStateContentSafetyAudit(upgraded.state)
   const validation = validateFoundationWorld(upgraded)
   if (validation.length) throw new Error(`foundation world v15/state-v17 conversion did not reproduce a valid v18 envelope: ${validation.map(item => item.code).join(', ')}`)
+  return upgraded
+}
+
+/**
+ * Strict read-only state-v18 -> state-v19 conversion. The unresolved
+ * mill-race condition is derived only from the immutable creation seed; the
+ * market is then rebuilt from that state and the existing tally evidence.
+ */
+export const upgradeFoundationWorldStateV19 = (value: unknown): FoundationWorld => {
+  if (!record(value) || !hasOnlyKeys(value, ['version', 'id', 'status', 'manifest', 'jomon', 'crew', 'initialWorld', 'state']) || value.version !== 15 || value.status !== 'active') throw new Error('foundation world is not a v15/state-v18 active envelope')
+  const legacy = value as unknown as FoundationWorld
+  if ((legacy.state as unknown as { version?: unknown }).version !== 18
+    || !isReproducibleWorldManifest(legacy.manifest)
+    || !isInitialWorld(legacy.initialWorld)
+    || !foundationWorldInitialWorldMatchesManifest(legacy)
+    || !foundationWorldContentSatisfiesSafetyPolicy(legacy)
+    || !foundationWorldTemporalStateMatches(legacy)
+    || !foundationWorldNavigationStateMatches(legacy)
+    || !foundationWorldCatchUpStateMatches(legacy)
+    || !foundationWorldAutonomyStateMatches(legacy)) throw new Error('foundation world v15/state-v18 envelope is invalid')
+  const hearthfordWorksite = createHearthfordWorksiteState(legacy.manifest.creation.seed)
+  const upgraded = {
+    ...structuredClone(legacy),
+    state: {
+      ...structuredClone(legacy.state),
+      version: 19,
+      hearthfordWorksite,
+      markets: createWorldMarketsState({
+        seed: legacy.manifest.creation.seed,
+        siteIds: legacy.state.sites.sites.map(site => site.id),
+        settlementTrading: legacy.state.settlementTrading,
+        hearthfordWorksite
+      })
+    }
+  } as unknown as FoundationWorld
+  upgraded.state.contentSafetyAudit = currentStateContentSafetyAudit(upgraded.state)
+  const validation = validateFoundationWorld(upgraded)
+  if (validation.length) throw new Error(`foundation world v15/state-v18 conversion did not reproduce a valid v19 envelope: ${validation.map(item => item.code).join(', ')}`)
   return upgraded
 }
 
@@ -928,6 +967,7 @@ const stateFromProjection = (world: FoundationWorld, projection: CausalReplayPro
   autonomyState: projection.autonomy as WorldAutonomyState,
   socialMemoryState: projection.socialMemory as WorldSocialMemoryState,
   settlementTradingState: projection.settlementTrading,
+  hearthfordWorksiteState: projection.hearthfordWorksite ?? world.state.hearthfordWorksite,
   causalHistoryState
 })
 
@@ -988,7 +1028,8 @@ const advanceTimeProjection = (world: FoundationWorld, projection: CausalReplayP
     // the real reducer below folds the prior autonomy state before return.
     autonomy: createAutonomyState(delegation.people, transition.state.worldTime),
     socialMemory: delegation.socialMemory,
-    settlementTrading: projection.settlementTrading
+    settlementTrading: projection.settlementTrading,
+    ...(projection.hearthfordWorksite === undefined ? {} : { hearthfordWorksite: projection.hearthfordWorksite })
   })
   const finalWorld = worldFromProjection(world, finalProjection)
   const simulation = reconcileSimulationCatchUpPlanState(
@@ -1034,7 +1075,8 @@ const advanceTimeProjection = (world: FoundationWorld, projection: CausalReplayP
     delegation: delegation.state,
     autonomy: autonomy.state,
     socialMemory: delegation.socialMemory,
-    settlementTrading: projection.settlementTrading
+    settlementTrading: projection.settlementTrading,
+    ...(projection.hearthfordWorksite === undefined ? {} : { hearthfordWorksite: projection.hearthfordWorksite })
   })
 }
 
@@ -1346,6 +1388,40 @@ const deliverSettlementTradeProjection = (
   return withCargoAction(world, causalReplayProjection({ ...projection, settlementTrading }), cargo, 'vessel-cargo-loaded', causalSequence)
 }
 
+/** Resolves the named mill lease only from its visible shore-side worksite. */
+const resolveHearthfordWorksiteProjection = (
+  world: FoundationWorld,
+  projection: CausalReplayProjection,
+  action: TimeBearingTemporalAction,
+  causalSequence: number
+): CausalReplayProjection => {
+  const parsed = hearthfordWorksiteResolutionFromAction(action)
+  if (!parsed || parsed.causalSequence !== causalSequence) throw new Error('worksite resolution action is not canonical')
+  const worksite = projection.hearthfordWorksite ?? createHearthfordWorksiteState(world.manifest.creation.seed)
+  if (Object.hasOwn(worksite, 'resolution')) throw new Error('Hearthford mill lease has already been resolved')
+  const navigation = projection.navigation
+  const anchor = hearthfordWorksiteAnchorFor(worksite)
+  if (!navigation?.coordinate || navigation.courierId !== projection.courier.activeCourierId
+    || navigation.coordinate.column !== anchor.column || navigation.coordinate.row !== anchor.row) throw new Error('worksite resolution requires exact mill-race occupancy')
+  const contract = projection.settlementTrading.contracts[0]
+  if (contract.status !== 'delivered') throw new Error('mill lease resolution requires the delivered Hearthford burden')
+  const deliveredCargoId = contract.status === 'delivered' ? contract.cargoId : undefined
+  if (parsed.kind === 'ironwork-fitted') {
+    const lot = projection.jomon.cargo.lots.find(candidate => candidate.id === contract.cargoId)
+    if (!lot || lot.commodityId !== 'commodity:ironwork' || lot.quantity !== 1 || lot.condition !== 'sound' || lot.status !== 'in-hold') throw new Error('ironwork fitting requires the sound delivered cargo lot')
+  }
+  const advanced = advanceTimeProjection(world, projection, action)
+  const resolved = resolveHearthfordWorksite(worksite, parsed.kind, advanced.temporal.worldTime, causalSequence)
+  const cargo = parsed.kind === 'ironwork-fitted'
+    ? unloadVesselCargo(advanced.jomon.cargo, advanced.jomon.capacity.cargoUnits, deliveredCargoId!)
+    : advanced.jomon.cargo
+  return causalReplayProjection({
+    ...advanced,
+    hearthfordWorksite: resolved,
+    jomon: { ...advanced.jomon, cargo }
+  })
+}
+
 const delegationContextFor = (world: FoundationWorld, projection: CausalReplayProjection): {
   worldId: string
   creationDigest: string
@@ -1459,7 +1535,11 @@ const replayCommandProjection = (world: FoundationWorld, projection: CausalRepla
   if (command.kind === 'settlement-trade-accepted' || command.kind === 'settlement-trade-refused') return settlementTradeDecisionProjection(world, projection, command.kind, command.sequence)
   if (command.kind === 'settlement-trade-delivered') return deliverSettlementTradeProjection(world, projection, command.sequence)
   if (command.kind === 'courier-loss-resolved') return resolveCourierLossProjection(world, projection, command.payload)
-  if (command.kind === 'time-bearing-action') return advanceTimeProjection(world, projection, command.payload.action)
+  if (command.kind === 'time-bearing-action') {
+    return hearthfordWorksiteResolutionFromAction(command.payload.action) === undefined
+      ? advanceTimeProjection(world, projection, command.payload.action)
+      : resolveHearthfordWorksiteProjection(world, projection, command.payload.action, command.sequence)
+  }
   if (command.kind === 'deck-moved') return moveDeckProjection(world, projection, command.payload)
   if (command.kind === 'durable-jomon-growth') return recordGrowthProjection(world, projection, command.payload.evidence)
   if (command.kind === 'delegation-offered') return offerDelegationProjection(world, projection, command.payload.offer, true)
@@ -1609,6 +1689,25 @@ export const deliverSettlementTradeContract = (world: FoundationWorld): Foundati
     propId: 'prop:cargo-hold-rack'
   })
   const next = deliverSettlementTradeProjection(world, projection, command.sequence)
+  const history = appendCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, command, next)
+  return worldFromProjection(world, next, history)
+}
+
+/** Uses the delivered ironwork case to relieve the mill lease after 20 minutes of work. */
+export const fitHearthfordMillIronwork = (world: FoundationWorld): FoundationWorld => recordHearthfordWorksiteResolution(world, 'ironwork-fitted')
+
+/** Takes the slower lease-credit obligation without consuming the cargo case. */
+export const takeHearthfordMillLeaseCredit = (world: FoundationWorld): FoundationWorld => recordHearthfordWorksiteResolution(world, 'lease-credit')
+
+const recordHearthfordWorksiteResolution = (world: FoundationWorld, kind: HearthfordWorksiteResolutionKind): FoundationWorld => {
+  if (!isValidFoundationWorld(world)) throw new Error('world does not satisfy the complete medieval foundation contract')
+  if (world.status !== 'active') throw new Error('only an active world can resolve the Hearthford mill lease')
+  requirePlayableActiveCourier(world, 'Hearthford mill lease work')
+  const nextSequence = world.state.causalHistory.checkpoint.sequence + world.state.causalHistory.tail.length + 1
+  const action = createHearthfordWorksiteTemporalAction(kind, nextSequence)
+  const command = createCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, 'time-bearing-action', { action })
+  const projection = causalReplayProjectionForWorldState(world.state)
+  const next = replayCommandProjection(world, projection, command)
   const history = appendCausalCommand(causalHistoryContextFor(world), world.state.causalHistory, command, next)
   return worldFromProjection(world, next, history)
 }

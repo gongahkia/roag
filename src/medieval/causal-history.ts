@@ -13,6 +13,7 @@ import { validateVesselPropActionState } from './vessel-prop-action'
 import { JOMON_COMMODITY_IDS, type JomonCommodityId } from './commodity-catalogue'
 import { VESSEL_CARGO_FAILURE_OUTCOMES, validateVesselCargoState, type VesselCargoFailureOutcome } from './cargo-hold'
 import { validateSettlementTradingState, type SettlementTradingState } from './settlement-trading'
+import type { HearthfordWorksiteState } from './hearthford-worksite'
 
 /**
  * The global mutable command journal. Domain-local temporal and catch-up
@@ -103,6 +104,8 @@ export interface CausalReplayProjection {
   jomon: WorldJomonState
   /** One physical local trade location and its current bounded contract. */
   settlementTrading: SettlementTradingState
+  /** Omitted while unresolved because its seed-derived default is reconstructible. */
+  hearthfordWorksite?: HearthfordWorksiteState
 }
 
 export interface InitialCourierSelectedCommand {
@@ -509,7 +512,10 @@ const validProjectionCourier = (value: unknown): boolean => {
 }
 
 const projectionShape = (value: unknown): value is CausalReplayProjection => record(value)
-  && (hasOnlyKeys(value, ['version', 'courier', 'people', 'temporal', 'simulation', 'era', 'delegation', 'autonomy', 'socialMemory', 'jomon', 'settlementTrading']) || hasOnlyKeys(value, ['version', 'courier', 'navigation', 'people', 'temporal', 'simulation', 'era', 'delegation', 'autonomy', 'socialMemory', 'jomon', 'settlementTrading']))
+  && (hasOnlyKeys(value, ['version', 'courier', 'people', 'temporal', 'simulation', 'era', 'delegation', 'autonomy', 'socialMemory', 'jomon', 'settlementTrading'])
+    || hasOnlyKeys(value, ['version', 'courier', 'navigation', 'people', 'temporal', 'simulation', 'era', 'delegation', 'autonomy', 'socialMemory', 'jomon', 'settlementTrading'])
+    || hasOnlyKeys(value, ['version', 'courier', 'people', 'temporal', 'simulation', 'era', 'delegation', 'autonomy', 'socialMemory', 'jomon', 'settlementTrading', 'hearthfordWorksite'])
+    || hasOnlyKeys(value, ['version', 'courier', 'navigation', 'people', 'temporal', 'simulation', 'era', 'delegation', 'autonomy', 'socialMemory', 'jomon', 'settlementTrading', 'hearthfordWorksite']))
   && value.version === CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION
   && validProjectionCourier(value.courier)
   && (value.navigation === undefined || (record(value.navigation) && (hasOnlyKeys(value.navigation, ['version']) || hasOnlyKeys(value.navigation, ['version', 'courierId', 'coordinate'])) && value.navigation.version === 1 && (value.navigation.courierId === undefined || validId(value.navigation.courierId)) && (value.navigation.coordinate === undefined || (record(value.navigation.coordinate) && hasOnlyKeys(value.navigation.coordinate, ['column', 'row']) && safeInteger(value.navigation.coordinate.column) && safeInteger(value.navigation.coordinate.row)))))
@@ -525,6 +531,7 @@ const projectionShape = (value: unknown): value is CausalReplayProjection => rec
   && record(value.socialMemory)
   && record(value.jomon)
   && validateSettlementTradingState(value.settlementTrading).length === 0
+  && (value.hearthfordWorksite === undefined || record(value.hearthfordWorksite))
   && value.jomon.version === 3
   && validateVesselPropActionState({ props: [
     { id: 'prop:berth', kind: 'berth', partition: 'berths' },
@@ -612,7 +619,7 @@ const legacyProjectionV6Shape = (value: unknown): boolean => record(value)
   && record(value.people) && hasOnlyKeys(value.people, ['version', 'records']) && value.people.version === 5 && Array.isArray(value.people.records)
   && record(value.temporal) && record(value.simulation) && record(value.era) && record(value.delegation) && record(value.autonomy) && record(value.socialMemory)
 
-export const causalReplayProjection = (value: Pick<CausalReplayProjection, 'courier' | 'people' | 'temporal' | 'simulation' | 'era' | 'delegation' | 'autonomy' | 'socialMemory' | 'jomon' | 'settlementTrading'> & Partial<Pick<CausalReplayProjection, 'navigation'>>): CausalReplayProjection => ({
+export const causalReplayProjection = (value: Pick<CausalReplayProjection, 'courier' | 'people' | 'temporal' | 'simulation' | 'era' | 'delegation' | 'autonomy' | 'socialMemory' | 'jomon' | 'settlementTrading'> & Partial<Pick<CausalReplayProjection, 'navigation' | 'hearthfordWorksite'>>): CausalReplayProjection => ({
   version: CAUSAL_HISTORY_REPLAY_PROJECTION_VERSION,
   courier: structuredClone(value.courier),
   ...(value.navigation === undefined ? {} : { navigation: structuredClone(value.navigation) }),
@@ -624,7 +631,8 @@ export const causalReplayProjection = (value: Pick<CausalReplayProjection, 'cour
   autonomy: structuredClone(value.autonomy),
   socialMemory: structuredClone(value.socialMemory),
   jomon: structuredClone(value.jomon),
-  settlementTrading: structuredClone(value.settlementTrading)
+  settlementTrading: structuredClone(value.settlementTrading),
+  ...(value.hearthfordWorksite === undefined ? {} : { hearthfordWorksite: structuredClone(value.hearthfordWorksite) })
 })
 
 export const causalReplayProjectionDigest = (projection: CausalReplayProjection): string => causalDigestFor('causal-replay-projection', projection)

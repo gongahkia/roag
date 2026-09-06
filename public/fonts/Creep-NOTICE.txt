@@ -8,5 +8,7 @@ Original project: https://github.com/romeovs/creep
 Copyright (c) 2014 Romeo Van Snick
 License: MIT; full text: Creep-LICENSE.txt
 
-The generated TTF is included solely for offline browser use. No font glyphs
-or metadata were modified.
+`Creep.ttf` is the upstream-compatible bitmap build. `Creep-outline.ttf` is a
+local browser build that converts those same 16-pixel glyphs to square
+TrueType outlines because Chromium Canvas 2D does not paint the bitmap-only
+face. The glyph shapes are unchanged; the browser build has distinct metadata.

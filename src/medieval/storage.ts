@@ -1,9 +1,10 @@
-import { isValidFoundationWorld, resolveCourierContinuityLossForVerifiedWorld as resolveCourierContinuityTransition, upgradeFoundationWorldStateV15, upgradeFoundationWorldStateV16, upgradeFoundationWorldStateV17, upgradeFoundationWorldStateV18, upgradeFoundationWorldV13, upgradeFoundationWorldV14, upgradeFoundationWorldV15, type CourierContinuityResolution } from './world'
+import { isValidFoundationWorld, resolveCourierContinuityLossForVerifiedWorld as resolveCourierContinuityTransition, upgradeFoundationWorldStateV15, upgradeFoundationWorldStateV16, upgradeFoundationWorldStateV17, upgradeFoundationWorldStateV18, upgradeFoundationWorldStateV19, upgradeFoundationWorldV13, upgradeFoundationWorldV14, upgradeFoundationWorldV15, type CourierContinuityResolution } from './world'
 import type { CourierContinuityConfirmation } from './courier-continuity'
 import { emptyCreationSettingsRecord, isCreationSettingsRecord, saveCreationSettingsProfile as saveNamedCreationSettingsProfile, withLastUsedCreationSettings, type CreationSettings, type CreationSettingsRecord } from './settings'
 import { defaultTerminalControlPreferences, isTerminalControlPreferences, type TerminalControlPreferences } from './terminal-controls'
 import { createActiveWorldBackupBundle, createChronicleBackupBundle, createWorldRecordIndex, MedievalPersistenceLayoutError, MEDIEVAL_PERSISTENCE_DATABASE_VERSION, parsePersistenceBackupBundle, persistenceWorldSourceFor, serializePersistenceBackupBundle, snapshotRingAfterReplacement, validateFoundationWorldSnapshotRing, validateLegacyWorldRecordIndex, validateWorldRecordIndex, type FoundationWorldSnapshotRing, type WorldRecordIndex } from './persistence-layout'
 import { MEDIEVAL_DATABASE_NAME, type ChronicleReason, type FoundationWorld, type WorldChronicle, type WorldIndex } from './types'
+import { MEDIEVAL_WORLD_STATE_VERSION } from './world-state'
 
 const CATALOG_STORE = 'catalog'
 const WORLD_STORE = 'worlds'
@@ -26,17 +27,22 @@ const clone = <T>(value: T): T => structuredClone(value)
 const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 const string = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 const chronicleReason = (value: unknown): value is ChronicleReason => value === 'jomon-loss' || value === 'crew-extinction'
+/** Legacy envelopes are structurally valid only so their explicit read-only bridge can inspect them. */
 const isFoundationWorld = (value: unknown): value is FoundationWorld => isValidFoundationWorld(value)
+  && record(value)
+  && record(value.state)
+  && value.state.version === MEDIEVAL_WORLD_STATE_VERSION
 /** Read-only conversion; callers explicitly save a returned current envelope to persist it. */
 const loadedFoundationWorld = (value: unknown): FoundationWorld | undefined => {
   if (isFoundationWorld(value)) return clone(value)
-  try { return upgradeFoundationWorldStateV18(value) } catch { }
-  try { return upgradeFoundationWorldStateV17(value) } catch { }
-  try { return upgradeFoundationWorldStateV16(value) } catch { }
-  try { return upgradeFoundationWorldStateV15(value) } catch { }
-  try { return upgradeFoundationWorldV15(value) } catch { }
-  try { return upgradeFoundationWorldV14(value) } catch { }
-  try { return upgradeFoundationWorldV13(value) } catch { return undefined }
+  try { return upgradeFoundationWorldStateV19(value) } catch { }
+  try { return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(value)) } catch { }
+  try { return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgradeFoundationWorldStateV17(value))) } catch { }
+  try { return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgradeFoundationWorldStateV17(upgradeFoundationWorldStateV16(value)))) } catch { }
+  try { return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgradeFoundationWorldStateV17(upgradeFoundationWorldStateV16(upgradeFoundationWorldStateV15(value))))) } catch { }
+  try { return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgradeFoundationWorldStateV17(upgradeFoundationWorldStateV16(upgradeFoundationWorldStateV15(upgradeFoundationWorldV15(value)))))) } catch { }
+  try { return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgradeFoundationWorldStateV17(upgradeFoundationWorldStateV16(upgradeFoundationWorldStateV15(upgradeFoundationWorldV15(upgradeFoundationWorldV14(value))))))) } catch { }
+  try { return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgradeFoundationWorldStateV17(upgradeFoundationWorldStateV16(upgradeFoundationWorldStateV15(upgradeFoundationWorldV15(upgradeFoundationWorldV14(upgradeFoundationWorldV13(value)))))))) } catch { return undefined }
 }
 const isChronicle = (value: unknown): value is WorldChronicle => record(value) && value.version === 12 && string(value.id) && value.id === `chronicle:${(value.world as { id?: unknown })?.id ?? ''}` && value.status === 'finalized' && chronicleReason(value.reason) && isFoundationWorld(value.world)
 const loadedChronicle = (value: unknown): WorldChronicle | undefined => {

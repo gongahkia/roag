@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MedievalWorldRepository } from './storage'
 import { CREATION_SETTINGS_PROFILE_LIMIT, defaultCreationSettings } from './settings'
 import { MEDIEVAL_DATABASE_NAME } from './types'
-import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, loadCargoHold, moveFoundationWorldCourier, offerFoundationWorldDelegatedTask, recordDurableJomonGrowth, replayFoundationWorldCausalHistory, switchTavernCourier, validateFoundationWorld } from './world'
+import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, loadCargoHold, moveFoundationWorldCourier, offerFoundationWorldDelegatedTask, recordDurableJomonGrowth, replayFoundationWorldCausalHistory, switchTavernCourier, upgradeFoundationWorldStateV17, validateFoundationWorld } from './world'
 import { causalReplayProjectionForWorldState } from './world-state'
 import { classifyMedievalContent } from './content-safety'
 import { DELEGATION_CONTRACT_VERSION, DELEGATION_TASK_DEFINITIONS, delegationTaskIdForOffer, type DelegationOfferInput } from './delegation'
@@ -466,6 +466,25 @@ describe('medieval local persistence', () => {
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(forged.id, forged)
     expect(await repository.loadWorld(forged.id)).toBeUndefined()
     expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(forged.id)).toEqual(forgedBefore)
+  })
+
+  it('reads exact v17 settlement trading through the v18/v19 worksite bridge without rewriting storage', async () => {
+    const repository = new MedievalWorldRepository()
+    await repository.loadIndex()
+    const legacy = upgradeFoundationWorldStateV17(stateV16Envelope())
+    const before = structuredClone(legacy)
+    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(legacy.id, structuredClone(legacy))
+
+    const loaded = await repository.loadWorld(legacy.id)
+    expect(loaded).toMatchObject({
+      version: 15,
+      state: {
+        version: 19,
+        hearthfordWorksite: { version: 1, institution: { id: 'institution:hearthford-mill-lease', status: 'available' } },
+        markets: { version: 3 }
+      }
+    })
+    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(legacy.id)).toEqual(before)
   })
 
   it('reads only exact v14 three-prop active worlds and chronicles through the v15 static-prop conversion without rewriting either record', async () => {

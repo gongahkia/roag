@@ -5,7 +5,7 @@ import { initialHouseholdActiveCrew } from './initial-household'
 import { addChronicleToIndex, addWorldToIndex, emptyWorldIndex, removeWorldFromIndex } from './storage'
 import { generationRetryPlan } from './generation-config'
 import { INITIAL_WORLD_GENERATION_STAGES } from './initial-world'
-import { InvalidWorldGenerationConfigurationError, advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, foundationWorldCausalHistoryMatches, foundationWorldContentSatisfiesSafetyPolicy, recordDurableJomonGrowth, recreateFoundationWorld, replayFoundationWorldCausalHistory, serializeWorldManifest, upgradeFoundationWorldV15, validateFoundationWorld } from './world'
+import { InvalidWorldGenerationConfigurationError, advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, foundationWorldCausalHistoryMatches, foundationWorldContentSatisfiesSafetyPolicy, recordDurableJomonGrowth, recreateFoundationWorld, replayFoundationWorldCausalHistory, serializeWorldManifest, upgradeFoundationWorldStateV18, upgradeFoundationWorldStateV19, upgradeFoundationWorldV15, validateFoundationWorld } from './world'
 import { causalReplayProjectionForWorldState } from './world-state'
 import { worldEraProjection } from './world-era'
 
@@ -38,6 +38,11 @@ const v14Envelope = (world: ReturnType<typeof createFoundationWorld>) => {
   delete legacy.state.jomon.propActions
   delete legacy.state.jomon.cargo
   delete legacy.state.settlementTrading
+  delete legacy.state.hearthfordWorksite
+  legacy.state.markets = {
+    version: 1,
+    markets: legacy.state.sites.sites.map((site: { id: string }) => ({ id: `market:${site.id}`, siteId: site.id, commodityStates: [] }))
+  }
   legacy.state.contentSafetyAudit.reviewed = legacy.state.contentSafetyAudit.reviewed
     .filter((item: { id: string }) => !item.id.startsWith('settlement-trading:'))
   legacy.state.version = 14
@@ -67,7 +72,7 @@ describe('medieval foundation worlds', () => {
       version: 15,
       id: source.id,
       manifest: source.manifest,
-      state: { version: 17, jomon: { version: 3, cargo: { version: 1, lots: [] } }, settlementTrading: { version: 1, contracts: [{ status: 'offered' }] }, courier: source.state.courier },
+      state: { version: 19, jomon: { version: 3, cargo: { version: 1, lots: [] } }, settlementTrading: { version: 1, contracts: [{ status: 'offered' }] }, hearthfordWorksite: { version: 1, institution: { id: 'institution:hearthford-mill-lease', status: 'available' } }, courier: source.state.courier },
       jomon: {
         props: [
           { id: 'prop:berth', kind: 'berth', partition: 'berths' },
@@ -89,6 +94,25 @@ describe('medieval foundation worlds', () => {
     const forgedBefore = structuredClone(forged)
     expect(() => upgradeFoundationWorldV15(forged)).toThrow('v14 envelope is invalid')
     expect(forged).toEqual(forgedBefore)
+  })
+
+  it('upgrades a valid v18 local-market envelope to the seed-derived mill lease without changing replay evidence', () => {
+    const source = chooseInitialCourier(createFoundationWorld({ seed: 'v19-mill-lease-upgrade' }), 'crew:0')
+    const v17 = structuredClone(source) as unknown as Record<string, any>
+    v17.state.version = 17
+    delete v17.state.hearthfordWorksite
+    v17.state.markets = {
+      version: 1,
+      markets: v17.state.sites.sites.map((site: { id: string }) => ({ id: `market:${site.id}`, siteId: site.id, commodityStates: [] }))
+    }
+    const v18 = upgradeFoundationWorldStateV18(v17)
+    const before = structuredClone(v18)
+    const upgraded = upgradeFoundationWorldStateV19(v18)
+
+    expect(v18).toEqual(before)
+    expect(upgraded.state).toMatchObject({ version: 19, hearthfordWorksite: { version: 1, institution: { id: 'institution:hearthford-mill-lease', status: 'available' } } })
+    expect(validateFoundationWorld(upgraded)).toEqual([])
+    expect(foundationWorldCausalHistoryMatches(upgraded)).toBe(true)
   })
 
   it('makes a generated eligible crew member the selected initial courier without rerolling the household', () => {

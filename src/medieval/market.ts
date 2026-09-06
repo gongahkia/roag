@@ -1,13 +1,16 @@
 import { JOMON_COMMODITY_IDS, type JomonCommodityId } from './commodity-catalogue'
 import { hashSeed } from './rng'
 import { SETTLEMENT_TRADING_LOCATION_ID, type SettlementTradingState } from './settlement-trading'
+import { createHearthfordWorksiteState, type HearthfordWorksiteState } from './hearthford-worksite'
 
 /**
  * Local market ledgers are bounded facts, not an exchange, wallet, or shop.
  * The public tally's ironwork condition is the only current mutable market
  * consequence; later economy owners must version any broader mutation rule.
  */
-export const WORLD_MARKETS_CONTRACT_VERSION = 2 as const
+export const WORLD_MARKETS_CONTRACT_VERSION = 3 as const
+/** v2 reflects only the public-tally handoff, before the mill lease worksite. */
+export const LEGACY_WORKSITE_WORLD_MARKETS_CONTRACT_VERSION = 2 as const
 export const LEGACY_WORLD_MARKETS_CONTRACT_VERSION = 1 as const
 export const HEARTHFORD_PUBLIC_TALLY_MARKET_ID = 'market:settlement-location:hearthford-mill-quay' as const
 
@@ -42,6 +45,10 @@ export type WorldMarketState = SiteWorldMarketState | PublicTallyWorldMarketStat
 export interface WorldMarketsState {
   version: typeof WORLD_MARKETS_CONTRACT_VERSION
   markets: readonly WorldMarketState[]
+}
+
+export interface LegacyWorldMarketsStateV2 extends Omit<WorldMarketsState, 'version'> {
+  version: typeof LEGACY_WORKSITE_WORLD_MARKETS_CONTRACT_VERSION
 }
 
 export interface LegacyWorldMarketStateV1 {
@@ -90,12 +97,19 @@ const seededCommodityState = (seed: string, marketId: string, commodityId: Jomon
   price: seededBand(seed, marketId, commodityId, 'price', MARKET_PRICE_BANDS)
 })
 
-const contractIronworkState = (settlementTrading: SettlementTradingState): WorldMarketCommodityState => {
+const legacyContractIronworkState = (settlementTrading: SettlementTradingState): WorldMarketCommodityState => {
   const status = settlementTrading.contracts[0].status
   if (status === 'delivered') return { commodityId: 'commodity:ironwork', stock: 'none', demand: 'steady', price: 'fair' }
   if (status === 'accepted') return { commodityId: 'commodity:ironwork', stock: 'limited', demand: 'high', price: 'high' }
   if (status === 'refused') return { commodityId: 'commodity:ironwork', stock: 'available', demand: 'high', price: 'high' }
   return { commodityId: 'commodity:ironwork', stock: 'available', demand: 'high', price: 'high' }
+}
+
+const contractIronworkState = (settlementTrading: SettlementTradingState, hearthfordWorksite: HearthfordWorksiteState): WorldMarketCommodityState => {
+  const status = settlementTrading.contracts[0].status
+  if (status !== 'delivered') return legacyContractIronworkState(settlementTrading)
+  if (hearthfordWorksite.institution.status === 'relieved') return { commodityId: 'commodity:ironwork', stock: 'none', demand: 'low', price: 'fair' }
+  return { commodityId: 'commodity:ironwork', stock: 'none', demand: 'high', price: 'high' }
 }
 
 const siteMarket = (seed: string, siteId: string): SiteWorldMarketState => ({
@@ -104,24 +118,42 @@ const siteMarket = (seed: string, siteId: string): SiteWorldMarketState => ({
   commodityStates: JOMON_COMMODITY_IDS.map(commodityId => seededCommodityState(seed, `market:${siteId}`, commodityId))
 })
 
-const publicTallyMarket = (seed: string, settlementTrading: SettlementTradingState): PublicTallyWorldMarketState => ({
+const publicTallyMarket = (seed: string, settlementTrading: SettlementTradingState, hearthfordWorksite: HearthfordWorksiteState): PublicTallyWorldMarketState => ({
   id: HEARTHFORD_PUBLIC_TALLY_MARKET_ID,
   location: { kind: 'settlement-trading-location', id: SETTLEMENT_TRADING_LOCATION_ID },
   commodityStates: [
-    contractIronworkState(settlementTrading),
+    contractIronworkState(settlementTrading, hearthfordWorksite),
     seededCommodityState(seed, HEARTHFORD_PUBLIC_TALLY_MARKET_ID, 'commodity:salt-fish')
   ]
 })
 
-/** Creates the complete local market projection from seed, known site IDs, and the one local tally contract. */
+/** Creates the complete local market projection from seed, known sites, contract, and mill-lease result. */
 export const createWorldMarketsState = (input: {
   seed: string
   siteIds: readonly string[]
   settlementTrading: SettlementTradingState
+  hearthfordWorksite?: HearthfordWorksiteState
 }): WorldMarketsState => ({
   version: WORLD_MARKETS_CONTRACT_VERSION,
-  markets: [...input.siteIds].sort(compare).map(siteId => siteMarket(input.seed, siteId) as WorldMarketState).concat(publicTallyMarket(input.seed, input.settlementTrading))
+  markets: [...input.siteIds].sort(compare).map(siteId => siteMarket(input.seed, siteId) as WorldMarketState).concat(publicTallyMarket(input.seed, input.settlementTrading, input.hearthfordWorksite ?? createHearthfordWorksiteState(input.seed)))
     .sort((left, right) => compare(left.id, right.id))
+})
+
+/** Read-only v2 projection for state-v18 migration validation. */
+export const createLegacyWorldMarketsStateV2 = (input: {
+  seed: string
+  siteIds: readonly string[]
+  settlementTrading: SettlementTradingState
+}): LegacyWorldMarketsStateV2 => ({
+  version: LEGACY_WORKSITE_WORLD_MARKETS_CONTRACT_VERSION,
+  markets: [...input.siteIds].sort(compare).map(siteId => siteMarket(input.seed, siteId) as WorldMarketState).concat({
+    id: HEARTHFORD_PUBLIC_TALLY_MARKET_ID,
+    location: { kind: 'settlement-trading-location', id: SETTLEMENT_TRADING_LOCATION_ID },
+    commodityStates: [
+      legacyContractIronworkState(input.settlementTrading),
+      seededCommodityState(input.seed, HEARTHFORD_PUBLIC_TALLY_MARKET_ID, 'commodity:salt-fish')
+    ]
+  } as PublicTallyWorldMarketState).sort((left, right) => compare(left.id, right.id))
 })
 
 const validCommodityState = (value: unknown): value is WorldMarketCommodityState => record(value)
@@ -163,6 +195,7 @@ export const validateWorldMarketsState = (input: {
   seed: string
   siteIds: readonly string[]
   settlementTrading: SettlementTradingState
+  hearthfordWorksite?: HearthfordWorksiteState
 }, value: unknown): readonly MarketDiagnostic[] => {
   if (!record(value) || !keys(value, ['version', 'markets'])) return ['market.malformed-state']
   const diagnostics: MarketDiagnostic[] = []
@@ -179,7 +212,7 @@ export const validateWorldMarketsState = (input: {
     if (actual === undefined || !canonicalByCommodity(actual.commodityStates) || actual.commodityStates.length !== expectedMarket.commodityStates.length) diagnostics.push('market.invalid-commodity-state')
     if (actual !== undefined && JSON.stringify(actual) !== JSON.stringify(expectedMarket)) {
       const ironwork = actual.id === HEARTHFORD_PUBLIC_TALLY_MARKET_ID ? actual.commodityStates.find(state => state.commodityId === 'commodity:ironwork') : undefined
-      if (ironwork === undefined || JSON.stringify(ironwork) !== JSON.stringify(contractIronworkState(input.settlementTrading))) diagnostics.push('market.invalid-settlement-consequence')
+      if (ironwork === undefined || JSON.stringify(ironwork) !== JSON.stringify(contractIronworkState(input.settlementTrading, input.hearthfordWorksite ?? createHearthfordWorksiteState(input.seed)))) diagnostics.push('market.invalid-settlement-consequence')
       else diagnostics.push('market.invalid-commodity-state')
     }
   }

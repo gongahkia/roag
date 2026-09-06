@@ -10,7 +10,7 @@ import { MutableWorldSession } from './session'
 import { cancelTerminalPrompt, createJomonDeckContextualPrompt, createTerminalPresentationModel, type TerminalMapLegend, type TerminalMaterializedMap, type TerminalPrompt } from './terminal-presentation'
 import { TERMINAL_CONTROL_IDS, captureTerminalControlBinding, createTerminalCommandHelpModel, createTerminalControlsEditorModel, cycleTerminalControlSelection, defaultTerminalControlPreferences, resetAllTerminalControls, resetTerminalControl, resolveTerminalWorldCommand, type TerminalControlId, type TerminalControlPreferences, type TerminalMovementDirection } from './terminal-controls'
 import type { FoundationWorld, MedievalRoute, WorldChronicle, WorldIndex } from './types'
-import { acceptSettlementTradeContract, chronicleExport, chooseInitialCourier, createFoundationWorld, deliverSettlementTradeContract, moveFoundationWorldCourier, recordVesselStationReadout, refuseSettlementTradeContract, switchTavernCourier } from './world'
+import { acceptSettlementTradeContract, chronicleExport, chooseInitialCourier, createFoundationWorld, deliverSettlementTradeContract, fitHearthfordMillIronwork, moveFoundationWorldCourier, recordVesselStationReadout, refuseSettlementTradeContract, switchTavernCourier, takeHearthfordMillLeaseCredit } from './world'
 
 type PersistenceState = 'loading' | 'saved' | 'error'
 type SettingsPage = 'basic' | 'advanced'
@@ -25,6 +25,7 @@ type TerminalInteractionOutcome =
   | { kind: 'courier-switched'; fromName: string; toName: string }
   | { kind: 'settlement-trade-recorded'; outcome: 'accepted' | 'refused' }
   | { kind: 'settlement-trade-delivered' }
+  | { kind: 'hearthford-worksite-resolved'; outcome: 'ironwork-fitted' | 'lease-credit' }
   | { kind: 'overlay-dismissed'; overlay: Exclude<WorldOverlay, 'none'> }
   | { kind: 'controls-capture-cancelled' }
   | { kind: 'controls-binding-saved'; controlId: TerminalControlId }
@@ -39,8 +40,8 @@ const height = 630
 const left = 38
 const lineHeight = 22
 const contentWidth = width - left * 2
-/** Chromium loads Creep but its non-scalable bitmap glyphs paint blank on Canvas 2D. */
-const terminalFont = '16px BigBlueTerm, ui-monospace, monospace'
+/** Creep's local outline build preserves the original bitmap glyph grid in Chromium Canvas 2D. */
+const terminalFont = '16px Creep, ui-monospace, monospace'
 const presets = Object.keys(GENERATION_CONFIG_PRESETS) as WorldGenerationPreset[]
 const diagnosticFirstLine = 21
 const diagnosticLastLine = 23
@@ -692,6 +693,36 @@ export class MedievalApp {
     }
   }
 
+  /** The terminal persists the typed time-bearing worksite result only after a full local save. */
+  private resolveHearthfordWorksite(outcome: 'ironwork-fitted' | 'lease-credit'): void {
+    if (!this.world) return
+    try {
+      this.session.assertOwner(this.world.id)
+      const next = outcome === 'ironwork-fitted' ? fitHearthfordMillIronwork(this.world) : takeHearthfordMillLeaseCredit(this.world)
+      this.persistence = 'loading'
+      this.render()
+      void this.repository.saveWorld(next).then(() => {
+        this.world = next
+        this.resetManagementSidebar()
+        this.worldOverlay = 'none'
+        this.contextualPrompt = undefined
+        this.selectedSettlementTradeChoiceIndex = 0
+        this.persistence = 'saved'
+        this.error = undefined
+        this.terminalInteractionOutcome = { kind: 'hearthford-worksite-resolved', outcome }
+        this.render()
+        void this.refreshIndex().then(() => this.render())
+      }).catch(error => {
+        this.persistence = 'error'
+        this.error = errorMessage(error)
+        this.render()
+      })
+    } catch (error) {
+      this.error = errorMessage(error)
+      this.render()
+    }
+  }
+
   /** World-view keys become typed UI intents before the canvas performs an owned transition. */
   private handleWorldKey(event: KeyboardEvent): boolean {
     const command = resolveTerminalWorldCommand(this.terminalControls, {
@@ -782,7 +813,7 @@ export class MedievalApp {
         if (!prompt) return true
         if (prompt.kind === 'tavern-courier-switch' && prompt.options[0]?.availability === 'available' && prompt.candidates.length) {
           this.selectedTavernCandidateIndex = (this.selectedTavernCandidateIndex + command.direction + prompt.candidates.length) % prompt.candidates.length
-        } else if (prompt.kind === 'settlement-trade' && prompt.surface === 'public-tally' && prompt.options[0]?.availability === 'available' && prompt.choices?.length) {
+        } else if (prompt.kind === 'settlement-trade' && (prompt.surface === 'public-tally' || prompt.surface === 'mill-race-worksite') && prompt.options[0]?.availability === 'available' && prompt.choices?.length) {
           this.selectedSettlementTradeChoiceIndex = (this.selectedSettlementTradeChoiceIndex + command.direction + prompt.choices.length) % prompt.choices.length
         } else return true
         this.terminalInteractionOutcome = undefined
@@ -813,6 +844,10 @@ export class MedievalApp {
           }
           const choice = prompt.choices?.[this.selectedSettlementTradeChoiceIndex]
           if (!choice) return true
+          if (prompt.surface === 'mill-race-worksite') {
+            this.resolveHearthfordWorksite(choice.id === 'fit-ironwork' ? 'ironwork-fitted' : 'lease-credit')
+            return true
+          }
           this.recordSettlementTradeDecision(choice.id === 'accept' ? 'accepted' : 'refused')
           return true
         }
@@ -1174,6 +1209,9 @@ export class MedievalApp {
         ? '+ HEARTHFORD IRONWORK BURDEN ACCEPTED // DELIVER AT CARGO HOLD // ZERO TIME'
         : '+ HEARTHFORD IRONWORK HANDOFF REFUSED // CASE REMAINS AT QUAY // ZERO TIME'
       case 'settlement-trade-delivered': return '+ HEARTHFORD IRONWORK DELIVERED TO CARGO HOLD // ZERO TIME'
+      case 'hearthford-worksite-resolved': return outcome.outcome === 'ironwork-fitted'
+        ? '+ MILL LEASE RELIEVED // IRONWORK FITTED // +20 ACTION MINUTES'
+        : '+ MILL LEASE CREDIT RECORDED // CARGO RETAINED // +35 ACTION MINUTES'
       case 'overlay-dismissed': return `+ ${uppercase(outcome.overlay)} CLOSED // ZERO TIME`
       case 'controls-capture-cancelled': return '+ KEY CAPTURE CANCELLED // BINDING UNCHANGED'
       case 'controls-binding-saved': return `+ ${uppercase(outcome.controlId)} BINDING SAVED // LOCAL UI ONLY`
@@ -1209,7 +1247,9 @@ export class MedievalApp {
         renderBoundedMedievalCanvasRows(context, 20, 22, outcome ?? (option.availability === 'available'
           ? prompt.surface === 'public-tally'
             ? 'ARROWS SELECT // ENTER CONFIRMS LOCAL HANDOFF // ESC CANCELS // ZERO TIME'
-            : 'ENTER RECORDS CARGO-HOLD DELIVERY // ESC CANCELS // ZERO TIME'
+            : prompt.surface === 'mill-race-worksite'
+              ? 'ARROWS SELECT // ENTER CONFIRMS MILL LEASE WORK // ESC CANCELS // TIME ADVANCES'
+              : 'ENTER RECORDS CARGO-HOLD DELIVERY // ESC CANCELS // ZERO TIME'
           : 'ENTER REPORTS RECORDED OUTCOME // ESC CANCELS // NO MUTATION OR TIME'), outcome?.startsWith('!') ? palette.warningText : palette.actionText, panel.x, panel.width)
         return
       }

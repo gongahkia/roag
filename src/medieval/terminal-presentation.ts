@@ -7,6 +7,7 @@ import { assessVesselProximityOperationsForVerifiedWorld, type VesselProximityOp
 import { createVesselStationReadoutForVerifiedWorld, validateVesselStationReadout, type VesselStationReadout } from './vessel-station-readout'
 import { vesselPropActionFeedback, vesselPropActionFeedbacks, type VesselPropActionFeedback, type VesselPropActionKind } from './vessel-prop-action'
 import { SETTLEMENT_TRADING_CONTRACT_ID, SETTLEMENT_TRADING_LOCATION_ID, SETTLEMENT_TRADING_SOURCE_AREA_ID, settlementTradeFeedback, settlementTradingAtSourceAnchor, type SettlementTradeStatus, type SettlementTradingState } from './settlement-trading'
+import { hearthfordWorksiteAnchorFor } from './hearthford-worksite'
 import type { CourierLossResolvedCommand } from './causal-history'
 import { JOMON_NON_COLOR_STATE_CUES, JOMON_PALETTE, type JomonPaletteToken } from './palette'
 import {
@@ -44,8 +45,8 @@ export type {
  * future detailed adapter consume that same projection without omitting or
  * inventing consequential information.
  */
-/** v14 adds the local public-tally contract and cargo-hold delivery prompt. */
-export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 14 as const
+/** v15 adds the source-bound Mill Lease worksite prompt and its two resolutions. */
+export const TERMINAL_PRESENTATION_CONTRACT_VERSION = 15 as const
 export const TERMINAL_MAP_LEGEND_CONTRACT_VERSION = 1 as const
 
 export const TERMINAL_PRESENTATION_LIMITS = {
@@ -222,13 +223,13 @@ export interface TerminalPromptOption {
   key: TerminalKeyboardKey
   availability: 'available' | 'disabled'
   disabledReason?: TerminalPromptDisabledReason
-  intent: 'future-contextual-action' | 'tavern-courier-switch' | 'vessel-station-readout-record' | 'settlement-trade-choice' | 'settlement-trade-delivery'
+  intent: 'future-contextual-action' | 'tavern-courier-switch' | 'vessel-station-readout-record' | 'settlement-trade-choice' | 'settlement-trade-delivery' | 'hearthford-worksite-choice'
   requiresConfirmation: boolean
   nonColorCue: TerminalNonColorCue
   accessibilityText: string
 }
 
-export const TERMINAL_SETTLEMENT_TRADE_CHOICE_IDS = ['accept', 'refuse'] as const
+export const TERMINAL_SETTLEMENT_TRADE_CHOICE_IDS = ['accept', 'refuse', 'fit-ironwork', 'take-lease-credit'] as const
 export type TerminalSettlementTradeChoiceId = typeof TERMINAL_SETTLEMENT_TRADE_CHOICE_IDS[number]
 
 /** A bounded choice remains presentation-only; the world reducer owns the outcome. */
@@ -263,8 +264,8 @@ export interface TerminalSettlementTradeContractView {
 export interface TerminalSettlementTradePrompt {
   id: string
   kind: 'settlement-trade'
-  surface: 'public-tally' | 'cargo-hold-delivery'
-  label: 'Hearthford Mill Quay public tally' | 'Cargo hold rack delivery'
+  surface: 'public-tally' | 'cargo-hold-delivery' | 'mill-race-worksite'
+  label: 'Hearthford Mill Quay public tally' | 'Cargo hold rack delivery' | 'Hearthford Mill Lease worksite'
   accessibilityText: string
   evidence: TerminalEvidenceProvenance
   contentDomain: 'player-facing-text'
@@ -886,11 +887,35 @@ const courierMarkerFor = (world: FoundationWorld): TerminalMaterializedCell | un
   }
 }
 
+/** The seed-derived mill-race condition replaces one existing quay cell; it adds no map geometry. */
+const hearthfordWorksiteMarkerFor = (world: FoundationWorld): TerminalMaterializedCell | undefined => {
+  const state = world.state.hearthfordWorksite
+  if (Object.hasOwn(state, 'resolution')) return undefined
+  const coordinate = hearthfordWorksiteAnchorFor(state)
+  return {
+    id: 'terminal-cell:hearthford-mill-race-worksite',
+    coordinate,
+    glyph: terminalGlyphReferenceFor('work:mill-race-response'),
+    paletteToken: 'actionText',
+    presentationState: 'ready',
+    nonColorCue: terminalNonColorCueFor('ready'),
+    textEquivalent: state.incident === 'sluice-jam' ? 'Hearthford sluice-jam worksite.' : 'Hearthford silted-intake worksite.',
+    accessibilityText: state.incident === 'sluice-jam'
+      ? 'Hearthford Mill Lease sluice-jam worksite. A material response is available at this quay cell.'
+      : 'Hearthford Mill Lease silted-intake worksite. A material response is available at this quay cell.',
+    evidence: currentPromptEvidence('world-state:hearthford-worksite', world.state.temporal.worldTime),
+    contentDomain: 'event',
+    contentSafety: classifyMedievalContent('event', ['adult-labour', 'civil-life', 'commerce', 'craft', 'settlement'], 'adults-only', ['player-facing-text'])
+  }
+}
+
 const mapForDeckPlan = (world: FoundationWorld, plan: ReturnType<typeof deriveJomonDeckPlan>): TerminalMaterializedMap => {
-  const staticCells = [
+  const baseStaticCells = [
     ...plan.areas.flatMap(area => area.footprint.map(cell => terminalCellFromDeckPlan(cell.id, cell.coordinate, area.semantic))),
     ...plan.structuralCells.map(cell => terminalCellFromDeckPlan(cell.id, cell.coordinate, cell.semantic))
   ].sort(terminalCellOrder)
+  const worksiteMarker = hearthfordWorksiteMarkerFor(world)
+  const staticCells = [...baseStaticCells.filter(cell => worksiteMarker === undefined || cell.coordinate.column !== worksiteMarker.coordinate.column || cell.coordinate.row !== worksiteMarker.coordinate.row), ...(worksiteMarker === undefined ? [] : [worksiteMarker])].sort(terminalCellOrder)
   const marker = courierMarkerFor(world)
   const cells = [...staticCells, ...(marker === undefined ? [] : [marker])].sort(terminalCellOrder)
   const map: TerminalMaterializedMap = {
@@ -908,8 +933,8 @@ const mapForDeckPlan = (world: FoundationWorld, plan: ReturnType<typeof deriveJo
       visibility: 'all-static-deck-known'
     },
     cells,
-    textEquivalent: 'Jomon deck plan with a known active courier position, quay approach, gangplank, hull boundary, and deck spaces.',
-    accessibilityText: `Known static Jomon deck map. Fixed ${plan.bounds.width} by ${plan.bounds.height} viewport with ${staticCells.length} deck and hull cells${marker === undefined ? '' : ' and one active courier marker'}. Symbols: # hull, = deck, / gangplank, ) quay, @ active adult courier. Full deck known; ${marker === undefined && world.state.courier.initialCourierId !== undefined ? 'no active courier remains and crew-extinction is read-only.' : 'each exact physical station provides a source-backed zero-time contextual readout. The tavern task ledger alone also supports zero-time courier switching and its availability/loss readout.'} Bounded cargo-hold lots are available only at their physical readout; other people, hazards, travel, rest, and conversation remain unavailable; recorded loss continuity is read-only.`,
+    textEquivalent: 'Jomon deck plan with a known active courier position, quay approach, gangplank, hull boundary, deck spaces, and a current mill-race worksite when unresolved.',
+    accessibilityText: `Known static Jomon deck map. Fixed ${plan.bounds.width} by ${plan.bounds.height} viewport with ${staticCells.length} deck and hull cells${marker === undefined ? '' : ' and one active courier marker'}. Symbols: # hull, = deck, / gangplank, ) quay, ${worksiteMarker === undefined ? '' : '& mill-race worksite, '}@ active adult courier. Full deck known; ${marker === undefined && world.state.courier.initialCourierId !== undefined ? 'no active courier remains and crew-extinction is read-only.' : 'each exact physical station provides a source-backed zero-time contextual readout. The tavern task ledger alone also supports zero-time courier switching and its availability/loss readout.'} Bounded cargo-hold lots are available only at their physical readout; the unresolved mill-race worksite offers a time-bearing material choice. Other people, hazards, travel, rest, and conversation remain unavailable; recorded loss continuity is read-only.`,
     evidence: presentationEvidence('terminal-presentation:jomon-deck-plan'),
     contentDomain: 'player-facing-text',
     contentSafety: baseClassification()
@@ -1356,6 +1381,60 @@ const settlementTradeChoices = (): readonly TerminalSettlementTradeChoice[] => [
   }
 ]
 
+const hearthfordWorksiteChoices = (): readonly TerminalSettlementTradeChoice[] => [
+  {
+    id: 'fit-ironwork',
+    label: 'Fit delivered ironwork',
+    presentationState: 'ready',
+    paletteToken: TERMINAL_STATE_PRESENTATIONS.ready.paletteToken,
+    nonColorCue: terminalNonColorCueFor('ready'),
+    accessibilityText: 'Fit the sound delivered ironwork case into the mill-race response. This consumes the physical cargo, takes 20 world minutes, and relieves the Hearthford Mill Lease.'
+  },
+  {
+    id: 'take-lease-credit',
+    label: 'Take mill lease credit',
+    presentationState: 'warning',
+    paletteToken: TERMINAL_STATE_PRESENTATIONS.warning.paletteToken,
+    nonColorCue: terminalNonColorCueFor('warning'),
+    accessibilityText: 'Take the mill lease credit. This preserves the ironwork case, takes 35 world minutes, and leaves a recorded obligation with the Hearthford Mill Lease.'
+  }
+]
+
+const hearthfordWorksitePromptFor = (world: FoundationWorld): TerminalSettlementTradePrompt => {
+  const worksite = world.state.hearthfordWorksite
+  const contract = world.state.settlementTrading.contracts[0]
+  if (Object.hasOwn(worksite, 'resolution') || contract.status !== 'delivered') throw new TerminalPresentationContractError([issue('hearthford-worksite', 'terminal-presentation.invalid-prompt')])
+  const text = worksite.incident === 'sluice-jam'
+    ? 'A sluice jam has reduced the mill-race flow.'
+    : 'Silt has choked the mill-race intake.'
+  const prompt: TerminalSettlementTradePrompt = {
+    id: `terminal-prompt:jomon-deck:${world.id}`,
+    kind: 'settlement-trade',
+    surface: 'mill-race-worksite',
+    label: 'Hearthford Mill Lease worksite',
+    accessibilityText: `Hearthford Mill Lease worksite. ${text} Choose whether to fit Jomon’s delivered ironwork case or take lease credit. Both choices advance world time; fitting consumes the cargo and relieves the lease, while credit preserves cargo and records an obligation. Arrow keys select and Enter confirms; Escape cancels without mutation.`,
+    evidence: currentPromptEvidence('world-state:hearthford-worksite', world.state.temporal.worldTime),
+    contentDomain: 'player-facing-text',
+    contentSafety: settlementTradePromptClassification(),
+    source: settlementTradeSource(),
+    contract: settlementTradeContractView(world.state.settlementTrading),
+    choices: hearthfordWorksiteChoices(),
+    options: [{
+      id: `terminal-prompt-option:hearthford-worksite:${world.id}`,
+      key: 'Enter',
+      availability: 'available',
+      intent: 'hearthford-worksite-choice',
+      requiresConfirmation: true,
+      nonColorCue: terminalNonColorCueFor('ready'),
+      accessibilityText: 'Arrow keys select a material mill-lease resolution. Enter confirms the selected time-bearing action; Escape cancels without mutation.'
+    }],
+    cancellation: { key: 'Escape', outcome: 'cancelled-no-mutation', advancesWorldTime: false }
+  }
+  const diagnostics = validateTerminalPrompt(prompt)
+  if (diagnostics.length) throw new TerminalPresentationContractError(diagnostics)
+  return prompt
+}
+
 const settlementTradePublicPromptFor = (world: FoundationWorld): TerminalSettlementTradePrompt => {
   const state = world.state.settlementTrading
   const contract = state.contracts[0]
@@ -1431,6 +1510,12 @@ const atSettlementTradingAnchor = (world: FoundationWorld): boolean => {
   const coordinate = world.state.navigation.coordinate
   if (coordinate === undefined) return false
   return settlementTradingAtSourceAnchor(deriveJomonDeckPlanForVerifiedWorld(world), coordinate)
+}
+
+const atHearthfordWorksiteAnchor = (world: FoundationWorld): boolean => {
+  const coordinate = world.state.navigation.coordinate
+  const anchor = hearthfordWorksiteAnchorFor(world.state.hearthfordWorksite)
+  return coordinate !== undefined && coordinate.column === anchor.column && coordinate.row === anchor.row
 }
 
 const futureContextualPrompt = (
@@ -1518,6 +1603,7 @@ const createJomonDeckContextualPromptForVerifiedWorld = (world: FoundationWorld)
   if (world.state.courier.activeCourierId === undefined) {
     return futureContextualPrompt(world, 'world-state:courier', 'requires-future-domain-rule', 'No active courier remains after crew-extinction. The read-only chronicle has no contextual operation; Escape cancels without mutation.')
   }
+  if (atHearthfordWorksiteAnchor(world) && world.state.settlementTrading.contracts[0].status === 'delivered' && !Object.hasOwn(world.state.hearthfordWorksite, 'resolution')) return hearthfordWorksitePromptFor(world)
   if (atSettlementTradingAnchor(world)) return settlementTradePublicPromptFor(world)
   const vesselAssessment = assessVesselProximityOperationsForVerifiedWorld(world, world.state)
   const activeOperation = vesselAssessment.operations.find(operation => operation.proximity === 'at-anchor')
@@ -1617,7 +1703,7 @@ const validPromptOption = (value: unknown): value is TerminalPromptOption => rec
   && validId(value.id)
   && oneOf(TERMINAL_KEYBOARD_KEYS, value.key)
   && (value.availability === 'available' || value.availability === 'disabled')
-  && (value.intent === 'future-contextual-action' || value.intent === 'tavern-courier-switch' || value.intent === 'vessel-station-readout-record' || value.intent === 'settlement-trade-choice' || value.intent === 'settlement-trade-delivery')
+  && (value.intent === 'future-contextual-action' || value.intent === 'tavern-courier-switch' || value.intent === 'vessel-station-readout-record' || value.intent === 'settlement-trade-choice' || value.intent === 'settlement-trade-delivery' || value.intent === 'hearthford-worksite-choice')
   && typeof value.requiresConfirmation === 'boolean'
   && validCue(value.nonColorCue, value.availability === 'available' ? 'ready' : 'neutral')
   && validText(value.accessibilityText)
@@ -1810,22 +1896,35 @@ export const validateTerminalPrompt = (value: unknown, includeContentSafety: boo
     const offeredPublic = value.surface === 'public-tally' && contract?.status === 'offered'
     const resolvedPublic = value.surface === 'public-tally' && contract !== undefined && contract.status !== 'offered'
     const acceptedDelivery = value.surface === 'cargo-hold-delivery' && contract?.status === 'accepted'
+    const worksiteResolution = value.surface === 'mill-race-worksite' && contract?.status === 'delivered'
     const publicSourceValid = value.surface === 'public-tally' && validSettlementTradeSource(value.source)
     const deliverySourceValid = value.surface === 'cargo-hold-delivery' && validSettlementDeliverySource(value.source)
+    const worksiteSourceValid = value.surface === 'mill-race-worksite' && validSettlementTradeSource(value.source)
     const choiceShapeValid = offeredPublic
       ? choices !== undefined && same(choices, settlementTradeChoices())
-      : !hasChoices
+      : worksiteResolution
+        ? choices !== undefined && same(choices, hearthfordWorksiteChoices())
+        : !hasChoices
     const optionShapeValid = offeredPublic
       ? options.length === 1 && option?.id === `terminal-prompt-option:settlement-trade:${worldId}` && option.key === 'Enter' && option.availability === 'available' && option.disabledReason === undefined && option.intent === 'settlement-trade-choice' && option.requiresConfirmation === true && validCue(option.nonColorCue, 'ready')
       : acceptedDelivery
         ? options.length === 1 && option?.id === `terminal-prompt-option:settlement-delivery:${worldId}` && option.key === 'Enter' && option.availability === 'available' && option.disabledReason === undefined && option.intent === 'settlement-trade-delivery' && option.requiresConfirmation === true && validCue(option.nonColorCue, 'ready')
+        : worksiteResolution
+          ? options.length === 1 && option?.id === `terminal-prompt-option:hearthford-worksite:${worldId}` && option.key === 'Enter' && option.availability === 'available' && option.disabledReason === undefined && option.intent === 'hearthford-worksite-choice' && option.requiresConfirmation === true && validCue(option.nonColorCue, 'ready')
         : resolvedPublic
           ? options.length === 1 && option?.id === `terminal-prompt-option:settlement-trade:${worldId}` && option.key === 'Enter' && option.availability === 'disabled' && option.disabledReason === 'inspection-readout-only' && option.intent === 'future-contextual-action' && option.requiresConfirmation === false && validCue(option.nonColorCue, 'neutral')
           : false
     const labelValid = value.surface === 'public-tally'
       ? value.label === 'Hearthford Mill Quay public tally'
-      : value.surface === 'cargo-hold-delivery' && value.label === 'Cargo hold rack delivery'
-    if (!contract || worldId === undefined || !labelValid || !publicSourceValid && !deliverySourceValid || !choiceShapeValid || !optionShapeValid || !validSettlementTradeEvidence(value.evidence, contract) || value.contentDomain !== 'player-facing-text' || !same(value.contentSafety, settlementTradePromptClassification())) diagnostics.push(issue(value.id, 'terminal-presentation.invalid-prompt'))
+      : value.surface === 'cargo-hold-delivery'
+        ? value.label === 'Cargo hold rack delivery'
+        : value.surface === 'mill-race-worksite' && value.label === 'Hearthford Mill Lease worksite'
+    const evidenceValid = contract === undefined
+      ? false
+      : worksiteResolution
+        ? validCurrentPromptEvidence(value.evidence, 'world-state:hearthford-worksite')
+        : validSettlementTradeEvidence(value.evidence, contract)
+    if (!contract || worldId === undefined || !labelValid || !publicSourceValid && !deliverySourceValid && !worksiteSourceValid || !choiceShapeValid || !optionShapeValid || !evidenceValid || value.contentDomain !== 'player-facing-text' || !same(value.contentSafety, settlementTradePromptClassification())) diagnostics.push(issue(value.id, 'terminal-presentation.invalid-prompt'))
   }
   if (options.some((option, index) => index > 0 && compare(options[index - 1]!.id, option.id) >= 0)) diagnostics.push(issue(value.id, 'terminal-presentation.invalid-prompt'))
   if (includeContentSafety) {

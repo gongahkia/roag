@@ -1,5 +1,5 @@
-@font-face { font-family: BigBlueTerm; src: url('/fonts/BigBlueTerm437NerdFontMono-Regular.ttf') format('truetype'); font-style: normal; font-weight: 400; font-display: swap; }
-:root { color: var(--jomon-palette-body-text); background: var(--jomon-palette-console-ground); font-family: BigBlueTerm, ui-monospace, monospace; }
+@font-face { font-family: Creep; src: url('/fonts/Creep-outline.ttf') format('truetype'); font-style: normal; font-weight: 400; font-display: swap; }
+:root { color: var(--jomon-palette-body-text); background: var(--jomon-palette-console-ground); font-family: Creep, ui-monospace, monospace; }
 * { box-sizing: border-box; }
 body { display: grid; min-width: 320px; min-height: 100vh; min-height: 100dvh; margin: 0; place-items: center; overflow: hidden; background: var(--jomon-palette-console-ground); }
 main { display: grid; width: 100vw; height: 100dvh; place-items: center; }

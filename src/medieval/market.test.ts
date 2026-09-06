@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createWorldMarketsState, HEARTHFORD_PUBLIC_TALLY_MARKET_ID, validateWorldMarketsState } from './market'
 import { acceptSettlementTradeContract, deliverSettlementTradeContract, initialSettlementTradingState } from './settlement-trading'
+import { createHearthfordWorksiteState, resolveHearthfordWorksite } from './hearthford-worksite'
 
 const marketsFor = (settlementTrading = initialSettlementTradingState()) => createWorldMarketsState({
   seed: 'market-contract',
@@ -36,11 +37,19 @@ describe('seeded local market conditions', () => {
     const ironwork = (state: ReturnType<typeof marketsFor>) => state.markets.find(market => market.id === HEARTHFORD_PUBLIC_TALLY_MARKET_ID)?.commodityStates[0]
 
     expect(ironwork(acceptedMarket)).toEqual({ commodityId: 'commodity:ironwork', stock: 'limited', demand: 'high', price: 'high' })
-    expect(ironwork(deliveredMarket)).toEqual({ commodityId: 'commodity:ironwork', stock: 'none', demand: 'steady', price: 'fair' })
+    expect(ironwork(deliveredMarket)).toEqual({ commodityId: 'commodity:ironwork', stock: 'none', demand: 'high', price: 'high' })
+    const relievedWorksite = resolveHearthfordWorksite(createHearthfordWorksiteState('market-contract'), 'ironwork-fitted', 20, 3)
+    const relievedMarket = createWorldMarketsState({
+      seed: 'market-contract',
+      siteIds: ['site:downstream', 'site:upstream'],
+      settlementTrading: delivered,
+      hearthfordWorksite: relievedWorksite
+    })
+    expect(ironwork(relievedMarket)).toEqual({ commodityId: 'commodity:ironwork', stock: 'none', demand: 'low', price: 'fair' })
     const forged = structuredClone(deliveredMarket)
     const tally = forged.markets.find(market => market.id === HEARTHFORD_PUBLIC_TALLY_MARKET_ID)
     if (!tally) throw new Error('public tally market is missing')
-    tally.commodityStates[0]!.price = 'high'
+    tally.commodityStates[0]!.price = 'fair'
     expect(validateWorldMarketsState({ seed: 'market-contract', siteIds: ['site:downstream', 'site:upstream'], settlementTrading: delivered }, forged)).toContain('market.invalid-settlement-consequence')
   })
 })

@@ -122,7 +122,7 @@ describe('terminal presentation contract', () => {
     expect(first.map.cells.filter(cell => cell.coordinate.column === 4 && cell.coordinate.row === 4)).toHaveLength(2)
     expect(first.map.accessibilityText).toMatch(/static Jomon deck map.*active courier marker.*full deck known.*each exact physical station.*zero-time contextual readout.*tavern task ledger alone.*zero-time courier switching.*availability\/loss readout.*cargo-hold lots.*physical readout.*other people, hazards, travel, rest, and conversation.*loss continuity is read-only/i)
     expect(first.legend.entries.map(entry => entry.glyph.id)).toEqual([
-      'person:active-courier', 'route:quay-approach', 'vessel:gangplank', 'vessel:hull-planking', 'vessel:open-deck'
+      'person:active-courier', 'route:quay-approach', 'vessel:gangplank', 'vessel:hull-planking', 'vessel:open-deck', 'work:mill-race-response'
     ])
     expect(first.legend.entries.map(entry => entry.id)).toEqual([...first.legend.entries.map(entry => entry.id)].sort())
     expect(first.legend.entries.every(entry => entry.accessibilityText.includes('Source ') && entry.accessibilityText.includes('known at world minute'))).toBe(true)
