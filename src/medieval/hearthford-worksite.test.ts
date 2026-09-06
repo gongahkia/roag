@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { createJomonDeckTerminalMap } from './terminal-presentation'
+import { createJomonDeckContextualPrompt, createJomonDeckTerminalMap } from './terminal-presentation'
 import { createHearthfordWorksiteState, createHearthfordWorksiteTemporalAction, hearthfordWorksiteResolutionFromAction, resolveHearthfordWorksite, validateHearthfordWorksiteState } from './hearthford-worksite'
-import { chooseInitialCourier, createFoundationWorld, fitHearthfordMillIronwork, takeHearthfordMillLeaseCredit } from './world'
+import { acceptSettlementTradeContract, chooseInitialCourier, createFoundationWorld, deliverSettlementTradeContract, fitHearthfordMillIronwork, moveFoundationWorldCourier, replayFoundationWorldCausalHistory, takeHearthfordMillLeaseCredit, validateFoundationWorld } from './world'
+import { causalReplayProjectionForWorldState } from './world-state'
 
 const selectedWorld = (seed: string) => chooseInitialCourier(createFoundationWorld({ seed, configuration: { preset: 'watershed' } }), 'crew:0')
+const moved = (world: ReturnType<typeof selectedWorld>, direction: Parameters<typeof moveFoundationWorldCourier>[1]) => {
+  const result = moveFoundationWorldCourier(world, direction)
+  if (result.status !== 'moved') throw new Error(`expected ${direction} deck step`)
+  return result.world
+}
 
 describe('Hearthford mill lease vertical slice', () => {
   it('derives one reproducible generated worksite and rejects seed or evidence tampering', () => {
@@ -37,4 +43,26 @@ describe('Hearthford mill lease vertical slice', () => {
     expect(() => takeHearthfordMillLeaseCredit(source)).toThrow(/worksite resolution requires exact mill-race occupancy/i)
     expect(source).toEqual(before)
   })
+
+  it('validates the browser-facing worksite prompt after the physical tally and cargo path', () => {
+    let world = selectedWorld('jomon-foundation')
+    for (const direction of ['south', 'west', 'west', 'west', 'north-west'] as const) world = moved(world, direction)
+    world = acceptSettlementTradeContract(world)
+    for (const direction of ['south-east', 'east', 'east', 'east', 'north', 'east', 'east', 'east', 'east', 'east', 'east'] as const) world = moved(world, direction)
+    world = deliverSettlementTradeContract(world)
+    for (const direction of ['west', 'west', 'west', 'west', 'west', 'west', 'south', 'west', 'west', 'north'] as const) world = moved(world, direction)
+
+    const prompt = createJomonDeckContextualPrompt(world)
+    expect(prompt).toMatchObject({
+      kind: 'settlement-trade',
+      surface: 'mill-race-worksite',
+      choices: [{ id: 'fit-ironwork' }, { id: 'take-lease-credit' }],
+      options: [{ intent: 'hearthford-worksite-choice', requiresConfirmation: true }]
+    })
+
+    for (const resolved of [fitHearthfordMillIronwork(world), takeHearthfordMillLeaseCredit(world)]) {
+      expect(replayFoundationWorldCausalHistory(resolved)).toEqual(causalReplayProjectionForWorldState(resolved.state))
+      expect(validateFoundationWorld(resolved)).toEqual([])
+    }
+  }, 60_000)
 })

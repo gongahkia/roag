@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MedievalWorldRepository } from './storage'
 import { CREATION_SETTINGS_PROFILE_LIMIT, defaultCreationSettings } from './settings'
 import { MEDIEVAL_DATABASE_NAME } from './types'
-import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, loadCargoHold, moveFoundationWorldCourier, offerFoundationWorldDelegatedTask, recordDurableJomonGrowth, replayFoundationWorldCausalHistory, switchTavernCourier, upgradeFoundationWorldStateV17, validateFoundationWorld } from './world'
+import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, loadCargoHold, moveFoundationWorldCourier, offerFoundationWorldDelegatedTask, recordDurableJomonGrowth, replayFoundationWorldCausalHistory, switchTavernCourier, validateFoundationWorld } from './world'
 import { causalReplayProjectionForWorldState } from './world-state'
 import { classifyMedievalContent } from './content-safety'
 import { DELEGATION_CONTRACT_VERSION, DELEGATION_TASK_DEFINITIONS, delegationTaskIdForOffer, type DelegationOfferInput } from './delegation'
@@ -21,12 +21,24 @@ const removeSettlementTradingFromLegacy = (legacy: Record<string, any>): void =>
     .filter((item: { id: string }) => !item.id.startsWith('settlement-trading:'))
 }
 
+/** Pre-v18 states used one placeholder market per known site and no worksite state. */
+const removeHearthfordWorksiteFromLegacy = (legacy: Record<string, any>): void => {
+  delete legacy.state.hearthfordWorksite
+  legacy.state.markets = {
+    version: 1,
+    markets: [...legacy.state.sites.sites]
+      .map((site: { id: string }) => ({ id: `market:${site.id}`, siteId: site.id, commodityStates: [] }))
+      .sort((left: { id: string }, right: { id: string }) => left.id.localeCompare(right.id))
+  }
+}
+
 /** A fully token-valid state-v15 source for the read-only cargo bridge. */
 const stateV15Envelope = () => {
   const legacy = structuredClone(chooseInitialCourier(createFoundationWorld({ seed: 'storage-cargo-v15' }), 'crew:0')) as unknown as Record<string, any>
   const checkpoint = legacy.state.causalHistory.checkpoint
   const projection = structuredClone(checkpoint.projection)
   delete projection.settlementTrading
+  delete projection.hearthfordWorksite
   projection.version = 7
   projection.jomon.version = 2
   delete projection.jomon.cargo
@@ -41,6 +53,7 @@ const stateV15Envelope = () => {
   legacy.state.jomon.version = 2
   delete legacy.state.jomon.cargo
   removeSettlementTradingFromLegacy(legacy)
+  removeHearthfordWorksiteFromLegacy(legacy)
   legacy.state.version = 15
   return legacy
 }
@@ -51,6 +64,7 @@ const stateV16Envelope = () => {
   const checkpoint = legacy.state.causalHistory.checkpoint
   const projection = structuredClone(checkpoint.projection)
   delete projection.settlementTrading
+  delete projection.hearthfordWorksite
   projection.version = 8
   const stateDigest = causalDigestFor('causal-replay-projection', projection)
   checkpoint.version = 6
@@ -62,6 +76,7 @@ const stateV16Envelope = () => {
   legacy.state.causalHistory.tail = legacy.state.causalHistory.tail.map((command: Record<string, unknown>) => ({ ...command, version: 6 }))
   legacy.state.version = 16
   removeSettlementTradingFromLegacy(legacy)
+  removeHearthfordWorksiteFromLegacy(legacy)
   return legacy
 }
 
@@ -392,6 +407,7 @@ describe('medieval local persistence', () => {
     const checkpointProjection = structuredClone(legacy.state.causalHistory.checkpoint.projection)
     delete checkpointProjection.jomon
     delete checkpointProjection.settlementTrading
+    delete checkpointProjection.hearthfordWorksite
     checkpointProjection.version = 4
     checkpointProjection.courier = checkpointProjection.courier.initialCourierId === undefined
       ? { version: 1 }
@@ -417,10 +433,11 @@ describe('medieval local persistence', () => {
     delete legacy.state.jomon.propActions
     delete legacy.state.jomon.cargo
     removeSettlementTradingFromLegacy(legacy)
+    removeHearthfordWorksiteFromLegacy(legacy)
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(selected.id, structuredClone(legacy))
 
     const loaded = await repository.loadWorld(selected.id)
-    expect(loaded).toMatchObject({ version: 15, state: { version: 17, jomon: { version: 3, cargo: { version: 1, lots: [] } }, settlementTrading: { version: 1, contracts: [{ status: 'offered' }] }, courier: { version: 3, initialCourierId: 'crew:0', activeCourierId: 'crew:0', departedCourierIds: [] }, navigation: { courierId: 'crew:0', coordinate: { column: 4, row: 4 } } } })
+    expect(loaded).toMatchObject({ version: 15, state: { version: 19, jomon: { version: 3, cargo: { version: 1, lots: [] } }, settlementTrading: { version: 1, contracts: [{ status: 'offered' }] }, hearthfordWorksite: { version: 1, institution: { id: 'institution:hearthford-mill-lease', status: 'available' } }, markets: { version: 3 }, courier: { version: 3, initialCourierId: 'crew:0', activeCourierId: 'crew:0', departedCourierIds: [] }, navigation: { courierId: 'crew:0', coordinate: { column: 4, row: 4 } } } })
     expect((fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(selected.id) as { version: number }).version).toBe(13)
 
     const corrupt = structuredClone(legacy)
@@ -438,7 +455,7 @@ describe('medieval local persistence', () => {
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(legacy.id, structuredClone(legacy))
 
     const loaded = await repository.loadWorld(legacy.id)
-    expect(loaded).toMatchObject({ version: 15, state: { version: 17, jomon: { version: 3, cargo: { version: 1, lots: [] } }, settlementTrading: { version: 1, contracts: [{ status: 'offered' }] } } })
+    expect(loaded).toMatchObject({ version: 15, state: { version: 19, jomon: { version: 3, cargo: { version: 1, lots: [] } }, settlementTrading: { version: 1, contracts: [{ status: 'offered' }] }, hearthfordWorksite: { version: 1 }, markets: { version: 3 } } })
     expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(legacy.id)).toEqual(before)
 
     const forged = stateV15Envelope()
@@ -457,7 +474,7 @@ describe('medieval local persistence', () => {
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(legacy.id, structuredClone(legacy))
 
     const loaded = await repository.loadWorld(legacy.id)
-    expect(loaded).toMatchObject({ version: 15, state: { version: 17, settlementTrading: { version: 1, locations: [{ id: 'settlement-location:hearthford-mill-quay' }], contracts: [{ id: 'settlement-contract:hearthford-mill-ironwork', status: 'offered' }] } } })
+    expect(loaded).toMatchObject({ version: 15, state: { version: 19, settlementTrading: { version: 1, locations: [{ id: 'settlement-location:hearthford-mill-quay' }], contracts: [{ id: 'settlement-contract:hearthford-mill-ironwork', status: 'offered' }] }, hearthfordWorksite: { version: 1 }, markets: { version: 3 } } })
     expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(legacy.id)).toEqual(before)
 
     const forged = stateV16Envelope()
@@ -466,25 +483,6 @@ describe('medieval local persistence', () => {
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(forged.id, forged)
     expect(await repository.loadWorld(forged.id)).toBeUndefined()
     expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(forged.id)).toEqual(forgedBefore)
-  })
-
-  it('reads exact v17 settlement trading through the v18/v19 worksite bridge without rewriting storage', async () => {
-    const repository = new MedievalWorldRepository()
-    await repository.loadIndex()
-    const legacy = upgradeFoundationWorldStateV17(stateV16Envelope())
-    const before = structuredClone(legacy)
-    fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(legacy.id, structuredClone(legacy))
-
-    const loaded = await repository.loadWorld(legacy.id)
-    expect(loaded).toMatchObject({
-      version: 15,
-      state: {
-        version: 19,
-        hearthfordWorksite: { version: 1, institution: { id: 'institution:hearthford-mill-lease', status: 'available' } },
-        markets: { version: 3 }
-      }
-    })
-    expect(fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').get(legacy.id)).toEqual(before)
   })
 
   it('reads only exact v14 three-prop active worlds and chronicles through the v15 static-prop conversion without rewriting either record', async () => {
@@ -497,6 +495,7 @@ describe('medieval local persistence', () => {
     const checkpointProjection = structuredClone(legacy.state.causalHistory.checkpoint.projection)
     delete checkpointProjection.jomon
     delete checkpointProjection.settlementTrading
+    delete checkpointProjection.hearthfordWorksite
     checkpointProjection.version = 6
     const checkpoint = legacy.state.causalHistory.checkpoint
     const stateDigest = causalDigestFor('causal-replay-projection', checkpointProjection)
@@ -512,6 +511,7 @@ describe('medieval local persistence', () => {
     delete legacy.state.jomon.propActions
     delete legacy.state.jomon.cargo
     removeSettlementTradingFromLegacy(legacy)
+    removeHearthfordWorksiteFromLegacy(legacy)
     legacy.state.version = 14
     const legacyChronicle = { version: 12, id: `chronicle:${selected.id}`, status: 'finalized' as const, reason: 'jomon-loss' as const, world: structuredClone(legacy) }
     fakeIndexedDB.store(MEDIEVAL_DATABASE_NAME, 'worlds').set(selected.id, structuredClone(legacy))

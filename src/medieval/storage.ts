@@ -37,12 +37,12 @@ const loadedFoundationWorld = (value: unknown): FoundationWorld | undefined => {
   if (isFoundationWorld(value)) return clone(value)
   try { return upgradeFoundationWorldStateV19(value) } catch { }
   try { return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(value)) } catch { }
-  try { return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgradeFoundationWorldStateV17(value))) } catch { }
-  try { return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgradeFoundationWorldStateV17(upgradeFoundationWorldStateV16(value)))) } catch { }
-  try { return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgradeFoundationWorldStateV17(upgradeFoundationWorldStateV16(upgradeFoundationWorldStateV15(value))))) } catch { }
-  try { return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgradeFoundationWorldStateV17(upgradeFoundationWorldStateV16(upgradeFoundationWorldStateV15(upgradeFoundationWorldV15(value)))))) } catch { }
-  try { return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgradeFoundationWorldStateV17(upgradeFoundationWorldStateV16(upgradeFoundationWorldStateV15(upgradeFoundationWorldV15(upgradeFoundationWorldV14(value))))))) } catch { }
-  try { return upgradeFoundationWorldStateV19(upgradeFoundationWorldStateV18(upgradeFoundationWorldStateV17(upgradeFoundationWorldStateV16(upgradeFoundationWorldStateV15(upgradeFoundationWorldV15(upgradeFoundationWorldV14(upgradeFoundationWorldV13(value)))))))) } catch { return undefined }
+  try { return upgradeFoundationWorldStateV17(value) } catch { }
+  try { return upgradeFoundationWorldStateV16(value) } catch { }
+  try { return upgradeFoundationWorldStateV15(value) } catch { }
+  try { return upgradeFoundationWorldV15(value) } catch { }
+  try { return upgradeFoundationWorldV14(value) } catch { }
+  try { return upgradeFoundationWorldV13(value) } catch { return undefined }
 }
 const isChronicle = (value: unknown): value is WorldChronicle => record(value) && value.version === 12 && string(value.id) && value.id === `chronicle:${(value.world as { id?: unknown })?.id ?? ''}` && value.status === 'finalized' && chronicleReason(value.reason) && isFoundationWorld(value.world)
 const loadedChronicle = (value: unknown): WorldChronicle | undefined => {

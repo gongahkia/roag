@@ -967,7 +967,11 @@ const stateFromProjection = (world: FoundationWorld, projection: CausalReplayPro
   autonomyState: projection.autonomy as WorldAutonomyState,
   socialMemoryState: projection.socialMemory as WorldSocialMemoryState,
   settlementTradingState: projection.settlementTrading,
-  hearthfordWorksiteState: projection.hearthfordWorksite ?? world.state.hearthfordWorksite,
+  // An unresolved worksite is seed-derived and deliberately absent from the
+  // journal projection. Replaying an earlier command from a resolved present
+  // must therefore recreate that unresolved state, rather than borrow the
+  // later resolved state from `world`.
+  hearthfordWorksiteState: projection.hearthfordWorksite ?? createHearthfordWorksiteState(world.manifest.creation.seed),
   causalHistoryState
 })
 

@@ -1759,7 +1759,7 @@ const validSettlementTradeChoice = (value: unknown): value is TerminalSettlement
   && validCue(value.nonColorCue, value.presentationState)
   && validText(value.label)
   && validText(value.accessibilityText)
-  && same(value, settlementTradeChoices().find(choice => choice.id === value.id))
+  && same(value, [...settlementTradeChoices(), ...hearthfordWorksiteChoices()].find(choice => choice.id === value.id))
 
 const validSettlementTradeEvidence = (value: unknown, contract: TerminalSettlementTradeContractView): boolean => {
   if (!record(value) || validateTerminalEvidence(value).length || !record(value.source) || value.source.kind !== 'authoritative-record' || value.source.recordId !== `world-state:settlement-trading:${contract.id}` || !safeInteger(value.recordedAtWorldTime) || !safeInteger(value.knownAtWorldTime) || value.knownAtWorldTime < value.recordedAtWorldTime || !record(value.freshness)) return false
