@@ -130,6 +130,7 @@ PASSIVES = {
 
 TREASURE_REWARDS = tuple(PASSIVES) + (
     "willow dressing", "dry smoke charge", "sealed tally",
+    "river-glass ward", "tide-knot charm",
 )
 
 MERCHANT_ITEMS = {

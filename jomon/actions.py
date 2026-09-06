@@ -22,6 +22,7 @@ from .world import (
     position_key,
     pressure,
     vertical_destination,
+    vertical_open,
 )
 
 
@@ -104,13 +105,17 @@ def choose_relic(state: GameState, relic: str | None) -> ActionResult:
 def choose_passive(state: GameState, passive: str) -> ActionResult:
     if state.location != "jomon" or passive not in state.owned_passives:
         return _plain(state, "That discovery is not available aboard Jomon.")
-    if state.carried_passives.get(passive, 0):
+    carried = state.carried_passives.get(passive, 0)
+    owned = state.owned_passives[passive]
+    if carried >= owned:
         del state.carried_passives[passive]
-        return _plain(state, f"Stowed {passive} aboard.", changed=True)
+        return _plain(state, f"Stowed all {passive} aboard.", changed=True)
     if passive_bulk(state) + PASSIVES[passive][0] > passive_capacity(state):
         return _plain(state, f"Discovery load exceeds {passive_capacity(state)} bulk.")
-    state.carried_passives[passive] = 1
-    return _plain(state, f"Packed {passive}.", changed=True)
+    state.carried_passives[passive] = carried + 1
+    return _plain(
+        state, f"Packed {passive} ({state.carried_passives[passive]}).", changed=True
+    )
 
 
 def _step_toward(state: GameState, threat: Threat, target: Position) -> Position:
@@ -277,6 +282,9 @@ def apply_damage(state: GameState, amount: int, source: str) -> str:
 def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
     gap = distance(state.position, threat.position)
     threat.turn += 1
+    if threat.intent.startswith(("disrupted", "dazed")):
+        threat.intent = "recovers position before acting again"
+        return f"The {threat.name} loses a turn recovering position."
     if threat.profile == "machinery":
         if gap > 7:
             return ""
@@ -535,6 +543,16 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         messages.extend(emit_sound(state, 1, target))
     elif not quiet and state.pressure_elapsed % 8 == 7:
         state.noise += 1
+    water_delay = False
+    if position_key(target) in state.water:
+        protected = (
+            state.gear == "rope"
+            or "river hooks" in state.carried_passives
+            or (state.courier and state.courier.technique == "sure footing")
+        )
+        if not protected:
+            water_delay = True
+            messages.append("Released water makes the crossing slow and exposed.")
     new_area = area_name(state)
     discovered_key = f"discovered:{new_area}"
     if new_area != previous_area and not state.region.changes.get(discovered_key):
@@ -542,14 +560,17 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         messages.insert(0, f"You enter {new_area}; alternate routes open around the landmark.")
     if tile == "O":
         messages.append(_fall(state))
-    storm_delay = (
+    storm_delay = water_delay or (
         state.weather == "hard rain"
         and state.position.z == 0
         and "rain cape" not in state.carried_passives
     )
+    guarded_step = state.guarded_step
+    state.guarded_step = False
     return _time_result(
         state,
         " ".join(message for message in messages if message),
+        guarded=guarded_step,
         steps=2 if storm_delay else 1,
         priority=3 if messages else 0,
     )
@@ -891,13 +912,16 @@ def attack(state: GameState) -> ActionResult:
         weapon_text += " pulls the target out of position"
         if "mobile hook" in build_combinations(state):
             state.position = old_position
+        target.intent = "disrupted by the billhook"
     elif state.weapon == "spear":
         target.position = _step_away(state, target)
         weapon_text += " controls spacing"
+        target.intent = "disrupted by spear spacing"
     elif state.weapon == "cudgel":
         target.morale -= 2
         target.position = _step_away(state, target)
         weapon_text += " dazes and knocks back"
+        target.intent = "dazed by the cudgel"
     elif state.weapon == "staff":
         adjacent = [
             other for other in candidates
@@ -1008,14 +1032,21 @@ def use_gear(state: GameState) -> ActionResult:
             Position(state.position.x + 1, state.position.y, state.position.z),
             Position(state.position.x, state.position.y + 1, state.position.z),
         ]
-        if base_tile(state, state.position) == "O" and state.position.z < 2:
-            points.append(
-                Position(state.position.x, state.position.y, state.position.z + 1)
-            )
+        above = Position(state.position.x, state.position.y, state.position.z + 1)
+        if (
+            state.position.z < 2
+            and str(above.z) in state.region.levels
+            and vertical_open(state, state.position, above)
+        ):
+            points.append(above)
         state.smoke.update({position_key(point): 6 for point in points})
         for threat in state.threats:
-            if threat.status == "engaged" and threat.profile == "ranged":
-                threat.status, threat.intent = "watching", "searches through smoke"
+            if (
+                threat.status == "engaged"
+                and threat.profile != "machinery"
+                and distance(state.position, threat.position) <= 7
+            ):
+                threat.status, threat.intent = "watching", "searches the smoke decoy"
         return _time_result(
             state,
             "Finite smoke closes adjacent sightlines and rises at an opening; ranged aim breaks.",
@@ -1061,6 +1092,14 @@ def use_gear(state: GameState) -> ActionResult:
             state,
             "A finite willow dressing restores three health; field healing remains scarce.",
             priority=3,
+        )
+    if state.consumables.get("dry smoke charge", 0) and state.smoke_charges == 0:
+        state.consumables["dry smoke charge"] -= 1
+        if state.consumables["dry smoke charge"] == 0:
+            del state.consumables["dry smoke charge"]
+        state.smoke_charges = 1
+        return _time_result(
+            state, "You repack one finite smoke charge for later use.", priority=3
         )
     return _plain(state, "No readied finite gear applies here.")
 

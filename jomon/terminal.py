@@ -48,6 +48,7 @@ from .world import (
     passive_capacity,
     pressure,
     remembered,
+    vertical_destination,
 )
 
 MIN_WIDTH = 80
@@ -188,6 +189,22 @@ def _threat_glyph(threat: Threat) -> str:
     return {"pursuer": "h", "reach": "g", "ranged": "x", "animal": "b", "machinery": "!"}[threat.profile]
 
 
+def visible_threats(
+    state: GameState, visible: set[Position] | None = None
+) -> dict[Position, Threat]:
+    """Return only current, presently seen actors; memory never carries actors."""
+    if state.location != "region":
+        return {}
+    visible = visible if visible is not None else field_of_view(state, remember=False)
+    return {
+        threat.position: threat
+        for threat in state.threats
+        if threat.status in {"watching", "engaged"}
+        and threat.position.z == state.position.z
+        and threat.position in visible
+    }
+
+
 def _draw_map(screen: curses.window, state: GameState, top: int, left: int, height: int, width: int) -> None:
     rows = map_rows(state)
     view_height, view_width = height - 2, width - 2
@@ -196,15 +213,7 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
         state.position, map_width, map_height, view_width, view_height
     )
     visible = field_of_view(state, remember=False) if state.location == "region" else set()
-    threats = {}
-    if state.location == "region":
-        threats = {
-            threat.position: threat
-            for threat in state.threats
-            if threat.status in {"watching", "engaged"}
-            and threat.position.z == state.position.z
-            and threat.position in visible
-        }
+    threats = visible_threats(state, visible)
     for sy in range(view_height):
         world_y = origin_y + sy
         if world_y >= len(rows):
@@ -248,6 +257,10 @@ def _status_lines(state: GameState) -> list[str]:
         if threat.status in {"watching", "engaged"} and threat.position in visible
     ]
     threat = local[0].intent if local else "no visible threat"
+    transition = vertical_destination(state, state.position) if state.location == "region" else None
+    level_text = f"Level {state.position.z:+d}"
+    if transition:
+        level_text += " " + ("v below" if transition.z < state.position.z else "^ above")
     lines = [
         "COURIER",
         identity,
@@ -259,7 +272,7 @@ def _status_lines(state: GameState) -> list[str]:
         f"Noise {p.noise}; value {p.valuables}",
         f"{p.band} {p.score}; {state.weather}",
         "HEARTHFORD",
-        f"Level {state.position.z:+d}; {state.objective_status}",
+        f"{level_text}; {state.objective_status}",
         f"{state.region.objective_commodity}: {market.stock}/{market.demand}",
         f"Ammo {state.ammunition}; oil {state.lamp_oil}",
         f"Rope {state.rope_uses}; smoke {state.smoke_charges}",
@@ -387,8 +400,8 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         rows = list(state.owned_passives)
         keys = "123456789abc"
         lines = [
-            f"{keys[index]}. {'[x]' if name in state.carried_passives else '[ ]'} {name} "
-            f"({PASSIVES[name][0]} bulk) — {PASSIVES[name][1]}"
+            f"{keys[index]}. [{state.carried_passives.get(name, 0)}/{state.owned_passives[name]}] {name} "
+            f"({PASSIVES[name][0]} bulk each) — {PASSIVES[name][1]}"
             for index, name in enumerate(rows[: len(keys)])
         ]
         return "PACK PASSIVE DISCOVERIES", lines + [

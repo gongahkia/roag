@@ -257,7 +257,7 @@ def _threats(seed: str, region: Region) -> list[Threat]:
     patrol = [Position(x, 20) for x in range(30, 45)] + [Position(x, 21) for x in range(44, 29, -1)]
     return [
         Threat("road-patrol", names.choice(("bank runner", "toll watch")), "pursuer", patrol[0], 5, 5, patrol=patrol),
-        Threat("reed-boar", "bristleback reed boar", "animal", Position(51, 38), 5, 5, morale=3),
+        Threat("reed-boar", "bristleback reed boar", "animal", Position(54, 38), 5, 5, morale=3),
         Threat("tower-bow", "watch-roof crossbow keeper", "ranged", Position(47, 11, 2), 4, 4),
         Threat("mill-spear", "displaced mill levy", "reach", Position(74, 24), 5, 5, morale=3),
         Threat("gantry-bow", "gantry bolt carrier", "ranged", Position(80, 20, 1), 4, 4),

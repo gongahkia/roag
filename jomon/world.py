@@ -64,6 +64,16 @@ def base_tile(state: GameState, position: Position) -> str:
     return rows[position.y][position.x]
 
 
+def region_tile(state: GameState, position: Position) -> str:
+    """Read regional terrain regardless of whether the courier is currently aboard."""
+    rows = state.region.levels.get(str(position.z), [])
+    if not 0 <= position.y < len(rows) or not 0 <= position.x < len(rows[position.y]):
+        return " "
+    return state.region.tile_changes.get(
+        position_key(position), rows[position.y][position.x]
+    )
+
+
 def displayed_tile(state: GameState, position: Position) -> str:
     tile = base_tile(state, position)
     if state.location == "jomon" and tile == "s" and state.merchant_present:
@@ -102,7 +112,12 @@ def vertical_open(state: GameState, lower: Position, upper: Position) -> bool:
         return False
     if vertical_destination(state, lower) == upper:
         return True
-    return base_tile(state, lower) == "O" or base_tile(state, upper) == "O"
+    lower_tile, upper_tile = base_tile(state, lower), base_tile(state, upper)
+    return (
+        "O" in {lower_tile, upper_tile}
+        and lower_tile != "d"
+        and upper_tile != "d"
+    )
 
 
 def distance(left: Position, right: Position) -> int:
@@ -145,7 +160,7 @@ def sight_radius(state: GameState) -> int:
     if state.location != "region":
         return 20
     tile = base_tile(state, state.position)
-    indoor = tile in {".", "=", "<", ">", "d", "O"} and any(
+    indoor = state.position.z <= 1 and tile in {".", "=", "<", ">", "d", "O"} and any(
         x1 <= state.position.x <= x2 and y1 <= state.position.y <= y2
         for name, (x1, y1, x2, y2) in state.region.zones.items()
         if name in {"Hearthford settlement", "Old watch", "Hearthford millworks"}
@@ -278,10 +293,11 @@ def reachable_positions(state: GameState, start: Position | None = None) -> set[
         destination = vertical_destination(state, current)
         if destination:
             candidates.append(destination)
-        if base_tile(state, current) == "O" and current.z > -1:
+        if region_tile(state, current) == "O" and current.z > -1:
             candidates.append(Position(current.x, current.y, current.z - 1))
         for candidate in candidates:
-            if candidate not in seen and is_walkable(state, candidate, ignore_threat=True):
+            walkable = region_tile(state, candidate) not in {" ", "#", "~", "T"}
+            if candidate not in seen and walkable:
                 seen.add(candidate)
                 queue.append(candidate)
     return seen

@@ -101,6 +101,10 @@ def _ground(seed: str) -> tuple[list[list[str]], dict[str, Position], dict[str, 
         grid[10][x] = "="
     grid[landing.y][landing.x] = "+"
     _rect(grid, settlement.x - 7, 6, settlement.x + 7, 18)
+    grid[10][settlement.x - 7] = "+"
+    for x in range(landing.x, settlement.x - 7):
+        grid[10][x] = "="
+    grid[landing.y][landing.x] = "+"
     grid[18][settlement.x] = "+"
     _rect(grid, settlement.x + 10, 8, settlement.x + 18, 15)
     grid[15][settlement.x + 14] = "+"
@@ -132,6 +136,9 @@ def _ground(seed: str) -> tuple[list[list[str]], dict[str, Position], dict[str, 
     _rect(grid, 46, 34, 53, 40)
     grid[40][49] = "+"
     grid[37][49] = "C"
+    grid[38][54] = "m"
+    grid[39][54] = "m"
+    grid[39][55] = "m"
     grid[cave.y][cave.x] = "<"
 
     # Mill ground floor and yard.
@@ -191,6 +198,7 @@ def _upper_levels() -> dict[int, list[list[str]]]:
     upper[20][84] = "R"
     upper[18][86] = "C"
     upper[16][84] = ">"
+    upper[30][86] = "O"
     for x in range(73, 88):
         upper[24][x] = "="
 
