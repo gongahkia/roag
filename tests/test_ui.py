@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import curses
 import unittest
+from unittest.mock import patch
 
 from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.engine import CardInstance, GameEngine
@@ -12,11 +13,14 @@ class FakeScreen:
     def __init__(self, rows: int = 24, columns: int = 80, keys: list[int] | None = None):
         self.rows = [[" "] * columns for _ in range(rows)]
         self.keys = list(keys or [])
+        self.writes: list[tuple[int, int, str, int]] = []
+        self.refreshes = 0
 
     def getmaxyx(self) -> tuple[int, int]:
         return len(self.rows), len(self.rows[0])
 
     def addstr(self, row: int, column: int, text: str, _attribute: int = 0) -> None:
+        self.writes.append((row, column, text, _attribute))
         for offset, character in enumerate(text):
             if 0 <= row < len(self.rows) and 0 <= column + offset < len(self.rows[0]):
                 self.rows[row][column + offset] = character
@@ -29,7 +33,7 @@ class FakeScreen:
             row[:] = [" "] * len(row)
 
     def refresh(self) -> None:
-        pass
+        self.refreshes += 1
 
     def getch(self) -> int:
         return self.keys.pop(0)
@@ -91,6 +95,20 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("<00>---[??]", lines[1])
         self.assertIn("\\---[??]---/", lines[2])
         self.assertNotIn("|", "".join(lines))
+
+    def test_damaged_enemy_gets_reverse_video_flash_and_damage_number(self) -> None:
+        self.engine.start_combat("vents")
+        screen = FakeScreen()
+        self.ui.screen = screen
+        before = self.ui._enemy_flash_snapshot()
+        enemy = self.engine.living_enemies()[0]
+        enemy.hp -= 5
+        with patch("dumbest_dungeon.ui.curses.napms") as napms:
+            self.ui._flash_damaged_enemies(before)
+        self.assertTrue(any(attribute & curses.A_REVERSE for _, _, _, attribute in screen.writes))
+        self.assertIn("-5", screen.text())
+        self.assertEqual(1, screen.refreshes)
+        napms.assert_called_once_with(self.ui.DAMAGE_FLASH_MS)
 
 
 if __name__ == "__main__":

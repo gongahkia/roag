@@ -15,6 +15,7 @@ from .save import SaveError, read_save, write_save
 class TerminalUI:
     MIN_ROWS = 24
     MIN_COLS = 80
+    DAMAGE_FLASH_MS = 110
 
     def __init__(
         self,
@@ -42,6 +43,7 @@ class TerminalUI:
             curses.init_pair(2, curses.COLOR_YELLOW, -1)
             curses.init_pair(3, curses.COLOR_RED, -1)
             curses.init_pair(4, curses.COLOR_GREEN, -1)
+            curses.init_pair(5, curses.COLOR_WHITE, curses.COLOR_RED)
             self.colour = True
 
     def run(self) -> None:
@@ -149,9 +151,13 @@ class TerminalUI:
                     target = self._target_selector(selected, targets)
                     if target is None:
                         continue
+                enemies_before = self._enemy_flash_snapshot()
                 self.engine.play_card(selected, target)
+                self._flash_damaged_enemies(enemies_before)
             elif key in (ord("e"), ord("E")):
+                enemies_before = self._enemy_flash_snapshot()
                 self.engine.end_turn()
+                self._flash_damaged_enemies(enemies_before)
             elif key in (ord("p"), ord("P"), 27):
                 self._pause()
                 return
@@ -220,6 +226,36 @@ class TerminalUI:
                 return ordered[selected]
             elif key == 27:
                 return None
+
+    def _enemy_flash_snapshot(self) -> dict[str, tuple[int, int, list[str]]]:
+        assert self.engine
+        return {
+            enemy.id: (
+                enemy.hp,
+                enemy.rank,
+                self.catalog.art["enemies"][enemy.definition_id or enemy.id],
+            )
+            for enemy in self.engine.living_enemies()
+        }
+
+    def _flash_damaged_enemies(self, before: dict[str, tuple[int, int, list[str]]]) -> None:
+        assert self.engine
+        after = {enemy.id: enemy.hp for enemy in self.engine.state.enemies}
+        damaged = [
+            (rank, art, hp - after.get(enemy_id, hp))
+            for enemy_id, (hp, rank, art) in before.items()
+            if after.get(enemy_id, hp) < hp
+        ]
+        if not damaged:
+            return
+        attr = (self._attr(5) if self.colour else curses.A_REVERSE) | curses.A_BOLD
+        for rank, art, damage in damaged:
+            column = 43 + (rank - 1) * 9
+            self._draw_sprite(3, column, art, attr)
+            label = f"-{damage}"
+            self._put(5, column + max(0, (7 - len(label)) // 2), label, attr)
+        self.screen.refresh()
+        curses.napms(self.DAMAGE_FLASH_MS)
 
     def _battlefield(
         self,

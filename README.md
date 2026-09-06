@@ -26,6 +26,7 @@ A generated seed appears in the map HUD and ending screen. Supplying `--seed` ma
 
 - Arrow keys or `h`/`j`/`k`/`l` navigate, Enter confirms, and Escape cancels or pauses.
 - When a card has several valid targets, its target cursor stays on the battlefield: the selected character sprite is highlighted and bracketed with `>` and `<`. Move between targets with left/right or `h`/`l`, press Enter to confirm, or Escape to cancel.
+- Enemies that lose health flash white-on-red for a short frame with the damage amount over their sprite. Monochrome terminals use reverse video instead.
 - `E` ends the crew's combat turn, `U` uses a supply, `D` examines the deck, `P` pauses, and `?` opens help.
 - Cards state which specialist, origin ranks, and target ranks they require. Spend the party's three shared energy, then end the turn so enemies execute their displayed intents.
 - At zero health, a specialist reaches Death's Door. Further damage has a 35% chance to kill them and end the expedition.
