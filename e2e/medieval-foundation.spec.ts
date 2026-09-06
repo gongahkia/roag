@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { appendCausalCommand, createCausalCommand } from '../src/medieval/causal-history'
 import { assessJomonDeckStep, jomonDeckCoordinateId, type JomonDeckMovementDirection } from '../src/medieval/jomon-navigation'
 import { causalReplayProjectionForWorldState, createMedievalWorldState } from '../src/medieval/world-state'
-import { createFoundationWorld, loadCargoHold, moveFoundationWorldCourier, replayFoundationWorldCausalHistory } from '../src/medieval/world'
+import { acceptSettlementTradeContract, createFoundationWorld, deliverSettlementTradeContract, loadCargoHold, moveFoundationWorldCourier, replayFoundationWorldCausalHistory } from '../src/medieval/world'
 import type { CausalReplayProjection, CausalHistoryState } from '../src/medieval/causal-history'
 import type { FoundationWorld } from '../src/medieval/types'
 
@@ -71,6 +71,46 @@ const stationFixtureWorld = (directions: readonly JomonDeckMovementDirection[]):
   }
   return world
 }
+
+/** Stages physical movement as validated causal evidence so each browser slice stays within its fixed timeout. */
+const replayFixtureMovement = (world: FoundationWorld, directions: readonly JomonDeckMovementDirection[]): FoundationWorld => {
+  const context = { worldId: world.id, creationDigest: world.manifest.creation.digest }
+  let history = world.state.causalHistory
+  let coordinate = world.state.navigation.coordinate
+  if (!coordinate) throw new Error('settlement fixture requires a selected courier coordinate')
+  const replayedDirections = directions.slice(0, Math.max(0, 8 - history.tail.length))
+  for (const direction of replayedDirections) {
+    const assessment = assessJomonDeckStep(world, coordinate, direction)
+    if (assessment.status !== 'moved') throw new Error(`settlement fixture expected a ${direction} deck step`)
+    const sequence = history.checkpoint.sequence + history.tail.length + 1
+    const command = createCausalCommand(context, history, 'deck-moved', {
+      actionId: `deck-move:${sequence}:crew:0:${jomonDeckCoordinateId(assessment.from)}:${jomonDeckCoordinateId(assessment.to)}`,
+      courierId: 'crew:0', direction, from: assessment.from, to: assessment.to
+    })
+    history = appendCausalCommand(context, history, command, causalReplayProjectionForWorldState(world.state))
+    coordinate = assessment.to
+  }
+  const projection = replayFoundationWorldCausalHistory({ ...world, state: { ...world.state, causalHistory: history } })
+  let result: FoundationWorld = { ...world, state: stationFixtureStateFromProjection(world, projection, history) }
+  for (const direction of directions.slice(replayedDirections.length)) {
+    const moved = moveFoundationWorldCourier(result, direction)
+    if (moved.status !== 'moved') throw new Error(`settlement fixture expected a ${direction} deck step`)
+    result = moved.world
+  }
+  return result
+}
+
+const settlementTradeCargoHoldFixture = () => {
+  const atTally = stationFixtureWorld(['south', 'west', 'west', 'west', 'north-west'])
+  const accepted = acceptSettlementTradeContract(atTally)
+  return replayFixtureMovement(accepted, ['south-east', 'east', 'east', 'east', 'east', 'east', 'east', 'east', 'east', 'east', 'north'])
+}
+
+const acceptedSettlementTradeCargoHoldFixture = settlementTradeCargoHoldFixture()
+const deliveredSettlementTradeTallyFixture = replayFixtureMovement(
+  deliverSettlementTradeContract(acceptedSettlementTradeCargoHoldFixture),
+  ['south', 'west', 'west', 'west', 'west', 'west', 'west', 'west', 'west', 'west', 'north-west']
+)
 
 test('configures, saves, inspects, selects, and resumes a medieval world through keyboard input', async ({ page }) => {
   const externalRequests: string[] = []
@@ -696,6 +736,92 @@ test('accepts the one physical public-tally handoff through keyboard input and r
   await expect(game).toHaveAttribute('data-route', 'world')
   await page.keyboard.press('Enter')
   await expect(game).toHaveAttribute('aria-label', /Hearthford Mill Quay public tally has recorded one ironwork case awaiting delivery to Jomon’s cargo hold/i)
+})
+
+test('delivers an accepted physical tally burden at the cargo hold through keyboard input', async ({ page }) => {
+  const world = acceptedSettlementTradeCargoHoldFixture
+  await page.goto('/')
+  await page.evaluate(async source => new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open('jomon-medieval-worlds-v1')
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const database = request.result
+      const transaction = database.transaction(['worlds', 'catalog'], 'readwrite')
+      transaction.onerror = () => { database.close(); reject(transaction.error) }
+      transaction.oncomplete = () => { database.close(); resolve() }
+      transaction.objectStore('worlds').put(source, source.id)
+      transaction.objectStore('catalog').put({ version: 1, activeWorlds: [{ id: source.id, label: source.manifest.creation.label, initialCourierId: source.state.courier.initialCourierId }], chronicles: [] }, 'world-index')
+    }
+  }), world)
+  await page.reload()
+  const game = page.locator('#game')
+  await game.focus()
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'world')
+  await expect(game).toHaveAttribute('data-terminal-focus', '10,4')
+  const before = await stationFixtureTemporal(page, world.id)
+
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
+  await expect(game).toHaveAttribute('aria-label', /Cargo hold rack delivery.*accepted material burden.*exact zero-time delivery into Jomon’s cargo hold/i)
+  await page.keyboard.press('Escape')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
+  expect(await stationFixtureTemporal(page, world.id)).toEqual(before)
+
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('Enter')
+  await expect.poll(() => game.getAttribute('data-persistence')).toBe('saved')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
+  await expect(game).toHaveAttribute('data-terminal-outcome', 'settlement-trade-delivered')
+  expect(await stationFixtureTemporal(page, world.id)).toEqual(before)
+  const stored = await page.evaluate(async id => new Promise<{ status?: string; lots?: unknown[] }>((resolve, reject) => {
+    const request = indexedDB.open('jomon-medieval-worlds-v1')
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const database = request.result
+      const read = database.transaction('worlds', 'readonly').objectStore('worlds').get(id)
+      read.onerror = () => { database.close(); reject(read.error) }
+      read.onsuccess = () => {
+        const source = read.result as { state?: { settlementTrading?: { contracts?: Array<{ status?: string }> }; jomon?: { cargo?: { lots?: unknown[] } } } } | undefined
+        database.close()
+        resolve({ status: source?.state?.settlementTrading?.contracts?.[0]?.status, lots: source?.state?.jomon?.cargo?.lots })
+      }
+    }
+  }), world.id)
+  expect(stored).toMatchObject({
+    status: 'delivered',
+    lots: [{ commodityId: 'commodity:ironwork', quantity: 1, condition: 'sound', status: 'in-hold' }]
+  })
+})
+
+test('renders the delivered tally consequence from a returned physical contract fixture', async ({ page }) => {
+  const world = deliveredSettlementTradeTallyFixture
+  await page.goto('/')
+  await page.evaluate(async source => new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open('jomon-medieval-worlds-v1')
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const database = request.result
+      const transaction = database.transaction(['worlds', 'catalog'], 'readwrite')
+      transaction.onerror = () => { database.close(); reject(transaction.error) }
+      transaction.oncomplete = () => { database.close(); resolve() }
+      transaction.objectStore('worlds').put(source, source.id)
+      transaction.objectStore('catalog').put({ version: 1, activeWorlds: [{ id: source.id, label: source.manifest.creation.label, initialCourierId: source.state.courier.initialCourierId }], chronicles: [] }, 'world-index')
+    }
+  }), world)
+  await page.reload()
+  const game = page.locator('#game')
+  await game.focus()
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-route', 'world')
+  await expect(game).toHaveAttribute('data-terminal-focus', '0,4')
+  const before = await stationFixtureTemporal(page, world.id)
+  await page.keyboard.press('Enter')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'contextual-prompt')
+  await expect(game).toHaveAttribute('aria-label', /Hearthford Mill Quay public tally records that Jomon received the ironwork case.*mill-race work can proceed/i)
+  await page.keyboard.press('Escape')
+  await expect(game).toHaveAttribute('data-terminal-overlay', 'none')
+  expect(await stationFixtureTemporal(page, world.id)).toEqual(before)
 })
 
 test('starts at the quay, crosses the gangplank, switches at the tavern, records a station, and returns through the gangplank with keyboard input', async ({ page }) => {
