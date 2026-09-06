@@ -951,6 +951,7 @@ Acceptance: generation sweeps produce valid, distinct locations whose content in
 - [ ] Recreate the playtest protocol only after the relevant medieval player surfaces and content families are stable.
 - [ ] Produce original Rogue-inspired visual assets only after the map grammar, glyph taxonomy, and renderer requirements are stable.
 - [ ] Implement the optional detailed renderer from the Phase 1 adapter contract only after the ASCII game and its systems are stable; verify it conveys identical consequential information and meets accessibility requirements.
+- [ ] Add a view toggle between the authoritative ASCII presentation and a texture-atlas presentation after the player supplies the atlas; define asset/licensing intake, renderer parity, accessible text equivalents, and the no-authority boundary before implementation.
 - [ ] Run full verification and record exact pass/fail/skip status for each completed slice.
 
 Acceptance: browser playtests and automation cover the complete core loop without prototype terminology or presentation dependencies.
