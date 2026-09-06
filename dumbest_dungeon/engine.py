@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+from collections import deque
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -54,6 +55,16 @@ class Room:
 
 
 @dataclass
+class Patrol:
+    id: str
+    room_id: int
+    encounter_id: str
+    x: int
+    y: int
+    active: bool = True
+
+
+@dataclass
 class GameState:
     seed: int
     phase: str
@@ -62,6 +73,11 @@ class GameState:
     rooms: list[Room]
     hub_selection: list[str] = field(default_factory=list)
     current_room: int = 0
+    party_x: int = 5
+    party_y: int = 17
+    exploration_steps: int = 0
+    patrols: list[Patrol] = field(default_factory=list)
+    active_patrol_id: str | None = None
     light: int = 100
     supplies: int = 4
     round: int = 0
@@ -84,10 +100,73 @@ def _tuples(value: Any) -> Any:
     return value
 
 
+WORLD_WIDTH = 117
+WORLD_HEIGHT = 35
+ROOM_POSITIONS = {
+    0: (5, 17),
+    1: (18, 17),
+    2: (30, 7),
+    3: (30, 27),
+    4: (43, 17),
+    5: (55, 7),
+    6: (55, 27),
+    7: (68, 17),
+    8: (80, 7),
+    9: (80, 27),
+    10: (93, 17),
+    11: (111, 17),
+}
+ROOM_EDGES = {
+    0: [1], 1: [0, 2, 3], 2: [1, 4], 3: [1, 4],
+    4: [2, 3, 5, 6], 5: [4, 7], 6: [4, 7],
+    7: [5, 6, 8, 9], 8: [7, 10], 9: [7, 10],
+    10: [8, 9, 11], 11: [10],
+}
+
+
+def _build_world() -> tuple[str, ...]:
+    floor: set[tuple[int, int]] = set()
+    for center_x, center_y in ROOM_POSITIONS.values():
+        for y in range(center_y - 2, center_y + 3):
+            for x in range(center_x - 4, center_x + 5):
+                floor.add((x, y))
+
+    for room_id, neighbors in ROOM_EDGES.items():
+        start_x, start_y = ROOM_POSITIONS[room_id]
+        for neighbor in neighbors:
+            if neighbor < room_id:
+                continue
+            end_x, end_y = ROOM_POSITIONS[neighbor]
+            middle_x = (start_x + end_x) // 2
+            for x in range(min(start_x, middle_x), max(start_x, middle_x) + 1):
+                floor.add((x, start_y))
+            for y in range(min(start_y, end_y), max(start_y, end_y) + 1):
+                floor.add((middle_x, y))
+            for x in range(min(middle_x, end_x), max(middle_x, end_x) + 1):
+                floor.add((x, end_y))
+
+    cells = [[" " for _ in range(WORLD_WIDTH)] for _ in range(WORLD_HEIGHT)]
+    for x, y in floor:
+        cells[y][x] = "."
+    for x, y in floor:
+        for adjacent_y in range(y - 1, y + 2):
+            for adjacent_x in range(x - 1, x + 2):
+                if (
+                    0 <= adjacent_x < WORLD_WIDTH
+                    and 0 <= adjacent_y < WORLD_HEIGHT
+                    and cells[adjacent_y][adjacent_x] == " "
+                ):
+                    cells[adjacent_y][adjacent_x] = "#"
+    return tuple("".join(row) for row in cells)
+
+
+WORLD_TILES = _build_world()
+
+
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 2
+    SAVE_VERSION = 3
 
     def __init__(self, catalog: Catalog, state: GameState, rng: random.Random):
         self.catalog = catalog
@@ -106,6 +185,8 @@ class GameEngine:
             deck=[],
             rooms=rooms,
             hub_selection=default_party,
+            party_x=ROOM_POSITIONS[0][0],
+            party_y=ROOM_POSITIONS[0][1],
             light=catalog.balance.get("starting_light", 100),
             supplies=catalog.balance.get("starting_supplies", 4),
             log=["Crew manifest opened in the Orison airlock."],
@@ -157,17 +238,22 @@ class GameEngine:
                 )
             )
             self.state.deck.extend(CardInstance(card_id) for card_id in hero["starter_deck"])
+        self.state.patrols = [
+            Patrol(
+                id=f"patrol:{room.id}",
+                room_id=room.id,
+                encounter_id=room.content_id or "",
+                x=ROOM_POSITIONS[room.id][0],
+                y=ROOM_POSITIONS[room.id][1],
+            )
+            for room in self.state.rooms
+            if room.kind in {"fight", "elite", "boss"}
+        ]
         self.state.phase = "exploration"
         self.state.log = ["The airlock seals. The Orison is no longer empty."]
 
     @staticmethod
     def _generate_rooms(catalog: Catalog, rng: random.Random) -> list[Room]:
-        edges = {
-            0: [1], 1: [0, 2, 3], 2: [1, 4], 3: [1, 4],
-            4: [2, 3, 5, 6], 5: [4, 7], 6: [4, 7],
-            7: [5, 6, 8, 9], 8: [7, 10], 9: [7, 10],
-            10: [8, 9, 11], 11: [10],
-        }
         kinds = ["fight"] * 4 + ["event"] * 2 + ["camp", "upgrade", "elite", "cache"]
         rng.shuffle(kinds)
         normal = [item["id"] for item in catalog.encounters.values() if item["kind"] == "normal"]
@@ -182,7 +268,7 @@ class GameEngine:
             "elite": "Heavy Motion Contact",
             "cache": "Emergency Stores",
         }
-        rooms = [Room(0, "Docking Airlock", "start", edges[0], True, True)]
+        rooms = [Room(0, "Docking Airlock", "start", ROOM_EDGES[0], True, True)]
         event_index = 0
         for room_id, kind in enumerate(kinds, 1):
             content_id = None
@@ -193,8 +279,8 @@ class GameEngine:
             elif kind == "event":
                 content_id = events[event_index]
                 event_index += 1
-            rooms.append(Room(room_id, labels[kind], kind, edges[room_id], content_id=content_id))
-        rooms.append(Room(11, "Overseer Chamber", "boss", edges[11], content_id="the_core"))
+            rooms.append(Room(room_id, labels[kind], kind, ROOM_EDGES[room_id], content_id=content_id))
+        rooms.append(Room(11, "Overseer Chamber", "boss", ROOM_EDGES[11], content_id="the_core"))
         return rooms
 
     @classmethod
@@ -215,6 +301,11 @@ class GameEngine:
                 rooms=[Room(**item) for item in raw["rooms"]],
                 hub_selection=raw["hub_selection"],
                 current_room=raw["current_room"],
+                party_x=raw["party_x"],
+                party_y=raw["party_y"],
+                exploration_steps=raw["exploration_steps"],
+                patrols=[Patrol(**item) for item in raw["patrols"]],
+                active_patrol_id=raw["active_patrol_id"],
                 light=raw["light"],
                 supplies=raw["supplies"],
                 round=raw["round"],
@@ -241,6 +332,21 @@ class GameEngine:
             raise RuleError("save contains an unexpected crew roster")
         if len(state.hub_selection) > 4 or any(hero_id not in catalog.heroes for hero_id in state.hub_selection):
             raise RuleError("save contains an invalid hub selection")
+        if not cls.is_walkable(state.party_x, state.party_y):
+            raise RuleError("save places the crew outside the ship")
+        patrol_ids = {patrol.id for patrol in state.patrols}
+        if len(patrol_ids) != len(state.patrols):
+            raise RuleError("save contains duplicate patrols")
+        for patrol in state.patrols:
+            room = state.rooms[patrol.room_id] if 0 <= patrol.room_id < len(state.rooms) else None
+            if (
+                room is None
+                or patrol.encounter_id not in catalog.encounters
+                or not cls.is_walkable(patrol.x, patrol.y)
+            ):
+                raise RuleError("save contains an invalid patrol")
+        if state.active_patrol_id is not None and state.active_patrol_id not in patrol_ids:
+            raise RuleError("save references an unknown active patrol")
         piles = state.deck + state.hand + state.draw_pile + state.discard_pile
         if any(card.card_id not in catalog.cards for card in piles):
             raise RuleError("save references an unknown card")
@@ -261,28 +367,151 @@ class GameEngine:
     def room(self, room_id: int | None = None) -> Room:
         return self.state.rooms[self.state.current_room if room_id is None else room_id]
 
-    def move_to(self, room_id: int) -> None:
+    @staticmethod
+    def room_position(room_id: int) -> tuple[int, int]:
+        try:
+            return ROOM_POSITIONS[room_id]
+        except KeyError as exc:
+            raise RuleError("unknown ship compartment") from exc
+
+    @staticmethod
+    def world_tiles() -> tuple[str, ...]:
+        return WORLD_TILES
+
+    @staticmethod
+    def is_walkable(x: int, y: int) -> bool:
+        return 0 <= y < WORLD_HEIGHT and 0 <= x < WORLD_WIDTH and WORLD_TILES[y][x] == "."
+
+    @staticmethod
+    def _neighbors(position: tuple[int, int]) -> list[tuple[int, int]]:
+        x, y = position
+        return [
+            candidate
+            for candidate in ((x, y - 1), (x - 1, y), (x + 1, y), (x, y + 1))
+            if GameEngine.is_walkable(*candidate)
+        ]
+
+    @classmethod
+    def _find_path(
+        cls,
+        start: tuple[int, int],
+        destination: tuple[int, int],
+    ) -> list[tuple[int, int]]:
+        if not cls.is_walkable(*destination):
+            return []
+        pending = deque([start])
+        previous: dict[tuple[int, int], tuple[int, int] | None] = {start: None}
+        while pending:
+            current = pending.popleft()
+            if current == destination:
+                break
+            for neighbor in cls._neighbors(current):
+                if neighbor not in previous:
+                    previous[neighbor] = current
+                    pending.append(neighbor)
+        if destination not in previous:
+            return []
+        path = []
+        current = destination
+        while current != start:
+            path.append(current)
+            parent = previous[current]
+            if parent is None:
+                break
+            current = parent
+        path.reverse()
+        return path
+
+    def path_to(self, x: int, y: int) -> list[tuple[int, int]]:
         if self.state.phase != "exploration":
-            raise RuleError("the party cannot travel right now")
-        if room_id not in self.room().neighbors:
-            raise RuleError("that room is not connected")
-        destination = self.room(room_id)
-        self.state.current_room = room_id
-        destination.visited = True
-        cost = self.catalog.balance["travel_light_cost"]
-        self.state.light = max(0, self.state.light - cost)
-        self.add_log(f"Entered {destination.name}. Light -{cost}.")
-        low_light = self.state.light < self.catalog.balance["low_light_threshold"]
-        if low_light:
-            for hero in self.state.heroes:
-                self._change_stress(hero, 3)
-        if destination.resolved:
-            if low_light and self.rng.random() < self.catalog.balance.get("low_light_ambush_chance", 0.35):
-                normal = [item["id"] for item in self.catalog.encounters.values() if item["kind"] == "normal"]
-                self.add_log("Movement in the dark draws an ambush.")
-                self.start_combat(self.rng.choice(normal), "ambush", surprised=True)
+            raise RuleError("the party cannot navigate right now")
+        if not self.is_walkable(x, y):
+            raise RuleError("choose a floor tile inside the ship")
+        path = self._find_path((self.state.party_x, self.state.party_y), (x, y))
+        if (x, y) != (self.state.party_x, self.state.party_y) and not path:
+            raise RuleError("no route reaches that tile")
+        return path
+
+    def move_to(self, room_id: int) -> None:
+        destination = self.room_position(room_id)
+        for x, y in self.path_to(*destination):
+            self.step_exploration(x, y)
+            if self.state.phase != "exploration":
+                return
+
+    def step_exploration(self, x: int, y: int) -> None:
+        if self.state.phase != "exploration":
+            raise RuleError("the party cannot move right now")
+        if (x, y) not in self._neighbors((self.state.party_x, self.state.party_y)):
+            raise RuleError("the party can move only one floor tile at a time")
+        self.state.party_x = x
+        self.state.party_y = y
+        self.state.exploration_steps += 1
+        interval = int(self.catalog.balance["exploration_steps_per_light"])
+        if self.state.exploration_steps % interval == 0:
+            self.state.light = max(0, self.state.light - 1)
+            if self.state.light < self.catalog.balance["low_light_threshold"]:
+                for hero in self.living_heroes():
+                    self._change_stress(hero, 1)
+        patrol = self._patrol_at(x, y)
+        if patrol:
+            self._start_patrol_combat(patrol)
             return
-        self._enter_room(destination)
+        self._resolve_exploration_tile()
+        if self.state.phase == "exploration":
+            self._advance_patrols()
+
+    def _patrol_at(self, x: int, y: int) -> Patrol | None:
+        return next((patrol for patrol in self.state.patrols if patrol.active and (patrol.x, patrol.y) == (x, y)), None)
+
+    def _start_patrol_combat(self, patrol: Patrol) -> None:
+        room = self.room(patrol.room_id)
+        self.state.current_room = room.id
+        room.visited = True
+        self.state.active_patrol_id = patrol.id
+        self.add_log(f"{room.name}: hostile contact at close range.")
+        self.start_combat(patrol.encounter_id, room.kind, surprised=self._surprised())
+
+    def _resolve_exploration_tile(self) -> None:
+        position = (self.state.party_x, self.state.party_y)
+        room = next((room for room in self.state.rooms if self.room_position(room.id) == position), None)
+        if room is None:
+            return
+        self.state.current_room = room.id
+        room.visited = True
+        if room.resolved or room.kind in {"start", "fight", "elite", "boss"}:
+            return
+        self.add_log(f"Entered {room.name}.")
+        self._enter_room(room)
+
+    def _advance_patrols(self) -> None:
+        party = (self.state.party_x, self.state.party_y)
+        occupied = {(patrol.x, patrol.y) for patrol in self.state.patrols if patrol.active}
+        for patrol in (item for item in self.state.patrols if item.active):
+            current = (patrol.x, patrol.y)
+            occupied.discard(current)
+            route = self._find_path(current, party)
+            room_kind = self.room(patrol.room_id).kind
+            aggression = 12 if room_kind == "elite" else 8 if room_kind == "boss" else 10
+            destination = current
+            if route and len(route) <= aggression:
+                destination = route[0]
+            elif room_kind != "boss" and self.state.exploration_steps % 2 == 0:
+                home = self.room_position(patrol.room_id)
+                choices = [
+                    tile
+                    for tile in self._neighbors(current)
+                    if tile not in occupied and abs(tile[0] - home[0]) + abs(tile[1] - home[1]) <= 7
+                ]
+                if choices:
+                    destination = self.rng.choice(choices)
+            if destination in occupied:
+                destination = current
+            patrol.x, patrol.y = destination
+            occupied.add(destination)
+            if destination == party:
+                self._start_patrol_combat(patrol)
+                return
 
     def _enter_room(self, room: Room) -> None:
         if room.kind in {"fight", "elite", "boss"}:
