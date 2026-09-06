@@ -326,23 +326,11 @@ def create_world(seed: str) -> GameState:
 
 
 def _position(value: Any, label: str) -> Position:
-    if not isinstance(value, dict) or set(value) != {"x", "y"}:
+    if not isinstance(value, dict) or set(value) != {"x", "y", "z"}:
         raise StateError(f"invalid {label}")
-    if not all(isinstance(value[key], int) for key in ("x", "y")):
+    if not all(isinstance(value[key], int) for key in ("x", "y", "z")):
         raise StateError(f"invalid {label}")
-    return Position(value["x"], value["y"])
-
-
-def _room(room_id: str, value: Any) -> Room:
-    data = dict(value)
-    exits: dict[str, RoomExit] = {}
-    for direction, raw in data["exits"].items():
-        exit_data = dict(raw)
-        exit_data["position"] = _position(exit_data["position"], f"{room_id} exit")
-        exit_data["arrival"] = _position(exit_data["arrival"], f"{room_id} arrival")
-        exits[direction] = RoomExit(**exit_data)
-    data["exits"] = exits
-    return Room(**data)
+    return Position(value["x"], value["y"], value["z"])
 
 
 def game_state_from_dict(data: Any) -> GameState:
@@ -354,7 +342,18 @@ def game_state_from_dict(data: Any) -> GameState:
         household = [Person(**person) for person in data["household"]]
         contact = Contact(**data["contact"])
         region_data = dict(data["region"])
-        region_data["rooms"] = {key: _room(key, value) for key, value in region_data["rooms"].items()}
+        region_data["landmarks"] = {key: _position(value, f"{key} landmark") for key, value in region_data["landmarks"].items()}
+        region_data["zones"] = {key: tuple(value) for key, value in region_data["zones"].items()}
+        links: list[VerticalLink] = []
+        for raw in region_data["vertical_links"]:
+            links.append(VerticalLink(_position(raw["first"], "link first"), _position(raw["second"], "link second"), raw["name"]))
+        region_data["vertical_links"] = links
+        containers: list[Container] = []
+        for raw in region_data["containers"]:
+            container = dict(raw)
+            container["position"] = _position(container["position"], "container")
+            containers.append(Container(**container))
+        region_data["containers"] = containers
         region = Region(**region_data)
         market = {key: MarketEntry(**value) for key, value in data["market"].items()}
         vessel = {key: CommodityStack(**value) for key, value in data["vessel_cargo"].items()}
@@ -363,6 +362,7 @@ def game_state_from_dict(data: Any) -> GameState:
         for raw in data["threats"]:
             threat_data = dict(raw)
             threat_data["position"] = _position(threat_data["position"], "threat position")
+            threat_data["patrol"] = [_position(value, "patrol position") for value in threat_data.get("patrol", [])]
             threats.append(Threat(**threat_data))
         state = GameState(
             save_format=data["save_format"], seed=data["seed"], world_time=data["world_time"],
@@ -379,6 +379,12 @@ def game_state_from_dict(data: Any) -> GameState:
             flood_control=data["flood_control"], pressure_elapsed=data["pressure_elapsed"],
             noise=data["noise"], threats=threats, trade_credit=data["trade_credit"],
             merchant_present=data["merchant_present"], merchant_stock=list(data["merchant_stock"]),
+            owned_passives=dict(data["owned_passives"]), carried_passives=dict(data["carried_passives"]),
+            ammunition=data["ammunition"], lamp_oil=data["lamp_oil"], rope_uses=data["rope_uses"],
+            smoke_charges=data["smoke_charges"], smoke=dict(data["smoke"]), water=dict(data["water"]),
+            guarded_step=data["guarded_step"], aimed_target=data["aimed_target"], weather=data["weather"],
+            objective_deadline=data["objective_deadline"], objective_changed=data["objective_changed"],
+            escalation_spawned=data["escalation_spawned"],
             history=list(data["history"]), messages=list(data["messages"]), world_ended=data["world_ended"],
         )
     except (AttributeError, KeyError, TypeError, ValueError) as exc:
@@ -396,28 +402,23 @@ def validate_state(state: GameState) -> None:
         raise StateError("save commodity catalogue is incomplete")
     if state.location not in {"jomon", "region"}:
         raise StateError("invalid location")
-    if state.location == "region" and state.current_room not in state.region.rooms:
-        raise StateError("invalid current room")
+    if state.location == "region" and str(state.position.z) not in state.region.levels:
+        raise StateError("invalid z-level")
     if state.objective_status not in {"unoffered", "accepted", "refused", "altered", "completed", "failed"}:
         raise StateError("invalid objective state")
-    valid_status = {"watching", "engaged", "defeated", "evaded", "negotiated", "disabled", "retreated"}
-    if any(threat.status not in valid_status or threat.room_id not in state.region.rooms for threat in state.threats):
+    valid_status = {"dormant", "watching", "engaged", "defeated", "evaded", "negotiated", "disabled", "retreated"}
+    if any(threat.status not in valid_status or str(threat.position.z) not in state.region.levels for threat in state.threats):
         raise StateError("invalid threat state")
     if state.world_time < 0 or state.pressure_elapsed < 0 or state.noise < 0:
         raise StateError("negative clocks are invalid")
     if len(state.history) > HISTORY_LIMIT or len(state.messages) > MESSAGE_LIMIT:
         raise StateError("bounded history exceeded")
-    for room in state.region.rooms.values():
-        for direction, exit_ in room.exits.items():
-            target = state.region.rooms.get(exit_.target)
-            if target is None or not any(back.target == room.id for back in target.exits.values()):
-                raise StateError(f"non-reciprocal exit in {room.id}:{direction}")
-    seen = {"hearthford_quay"}
-    queue = deque(seen)
-    while queue:
-        for exit_ in state.region.rooms[queue.popleft()].exits.values():
-            if exit_.target not in seen:
-                seen.add(exit_.target)
-                queue.append(exit_.target)
-    if state.region.objective_room not in seen or len(seen) != len(state.region.rooms):
-        raise StateError("required rooms are unreachable")
+    if set(state.region.levels) != {"-1", "0", "1", "2"}:
+        raise StateError("region must contain four aligned levels")
+    if any(len(rows) != state.region.height or any(len(row) != state.region.width for row in rows) for rows in state.region.levels.values()):
+        raise StateError("regional level dimensions are invalid")
+    if any(count < 0 for count in (*state.owned_passives.values(), *state.carried_passives.values())):
+        raise StateError("negative passive count")
+    from .world import connected_required_map
+    if not connected_required_map(state):
+        raise StateError("required Hearthford landmarks are unreachable")
