@@ -422,6 +422,18 @@ class GameEngine:
         path.reverse()
         return path
 
+    @classmethod
+    def _distances_from(cls, origin: tuple[int, int]) -> dict[tuple[int, int], int]:
+        distances = {origin: 0}
+        pending = deque([origin])
+        while pending:
+            current = pending.popleft()
+            for neighbor in cls._neighbors(current):
+                if neighbor not in distances:
+                    distances[neighbor] = distances[current] + 1
+                    pending.append(neighbor)
+        return distances
+
     def path_to(self, x: int, y: int) -> list[tuple[int, int]]:
         if self.state.phase != "exploration":
             raise RuleError("the party cannot navigate right now")
@@ -486,16 +498,18 @@ class GameEngine:
 
     def _advance_patrols(self) -> None:
         party = (self.state.party_x, self.state.party_y)
+        distances = self._distances_from(party)
         occupied = {(patrol.x, patrol.y) for patrol in self.state.patrols if patrol.active}
         for patrol in (item for item in self.state.patrols if item.active):
             current = (patrol.x, patrol.y)
             occupied.discard(current)
-            route = self._find_path(current, party)
             room_kind = self.room(patrol.room_id).kind
             aggression = 12 if room_kind == "elite" else 8 if room_kind == "boss" else 10
             destination = current
-            if route and len(route) <= aggression:
-                destination = route[0]
+            if 0 < distances.get(current, WORLD_WIDTH * WORLD_HEIGHT) <= aggression:
+                choices = [tile for tile in self._neighbors(current) if tile not in occupied]
+                if choices:
+                    destination = min(choices, key=lambda tile: (distances.get(tile, WORLD_WIDTH * WORLD_HEIGHT), tile))
             elif room_kind != "boss" and self.state.exploration_steps % 2 == 0:
                 home = self.room_position(patrol.room_id)
                 choices = [
@@ -957,6 +971,7 @@ class GameEngine:
             self.add_log(f"Added {self.catalog.cards[self.state.rewards[index]]['name']} to the deck.")
         self.state.rewards = []
         self.state.phase = "exploration"
+        self._resolve_exploration_tile()
 
     def choose_event(self, index: int) -> None:
         if self.state.phase != "event" or not self.state.current_event:
