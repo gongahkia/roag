@@ -52,6 +52,7 @@ class TerminalUI:
             curses.init_pair(4, curses.COLOR_GREEN, -1)
             curses.init_pair(5, curses.COLOR_WHITE, curses.COLOR_RED)
             curses.init_pair(6, curses.COLOR_WHITE, curses.COLOR_GREEN)
+            curses.init_pair(7, curses.COLOR_BLACK, curses.COLOR_CYAN)
             self.colour = True
 
     def run(self) -> None:
@@ -170,6 +171,7 @@ class TerminalUI:
         assert self.engine
         state = self.engine.state
         cursor = (state.party_x, state.party_y)
+        pending_click: tuple[int, int] | None = None
         cycle_index = -1
         while state.phase == "exploration":
             origin = self._render_exploration(cursor)
@@ -192,20 +194,29 @@ class TerminalUI:
                     max(0, min(width - 1, cursor[0] + delta_x)),
                     max(0, min(height - 1, cursor[1] + delta_y)),
                 )
+                pending_click = None
             elif key in (10, 13, curses.KEY_ENTER):
                 self._walk_to(cursor)
+                pending_click = None
             elif key == curses.KEY_MOUSE:
                 destination = self._mouse_destination(origin)
                 if destination is not None:
-                    cursor = destination
-                    self._walk_to(cursor)
+                    if destination == pending_click:
+                        self._walk_to(destination)
+                        pending_click = None
+                    else:
+                        cursor = destination
+                        pending_click = destination
+                        self.message = "Destination selected. Click it again or press Enter to move."
             elif key == 9:
                 targets = self._exploration_targets()
                 if targets:
                     cycle_index = (cycle_index + 1) % len(targets)
                     cursor = targets[cycle_index]
+                    pending_click = None
             elif key == ord(" "):
                 cursor = (state.party_x, state.party_y)
+                pending_click = None
             elif key in (ord("u"), ord("U")):
                 self._supply_menu()
             elif key in (ord("d"), ord("D")):
@@ -227,19 +238,22 @@ class TerminalUI:
         origin = self._world_map(self.MAP_ROW, cursor, focus)
         rows = self.screen.getmaxyx()[0]
         state = self.engine.state
-        route_length = 0
-        if state.phase == "exploration" and self.engine.is_walkable(*cursor):
-            route_length = len(self.engine.path_to(*cursor))
+        route = []
+        if self.engine.is_walkable(*cursor):
+            route = self.engine._find_path((state.party_x, state.party_y), cursor)
+        route_length = len(route)
+        maximum = int(self.catalog.balance["maximum_navigation_distance"])
+        reach = "READY" if route_length <= maximum and self.engine.is_walkable(*cursor) else "OUT OF REACH"
         zone = self.engine.room().name
         self._put(
             rows - 4,
             2,
             f"Crew ({state.party_x:03},{state.party_y:02})  Target ({cursor[0]:03},{cursor[1]:02})  "
-            f"Route {route_length:3}  Last zone: {zone}"[: self.screen.getmaxyx()[1] - 3],
-            self._attr(1),
+            f"Route {route_length:2}/{maximum} {reach}  Last zone: {zone}"[: self.screen.getmaxyx()[1] - 3],
+            self._attr(1 if reach == "READY" else 3),
         )
         self._put(rows - 3, 2, "@ crew  X target  e patrol  E elite  B boss  ? event  C camp  W shop  $ cache", curses.A_DIM)
-        self._footer("Arrows aim  Enter/click go  Tab cycle  Space center  U supply  D deck  P pause")
+        self._footer("Arrows aim  Enter/double-click go  Tab cycle  Space center  U supply  D deck")
         return origin
 
     def _world_map(
@@ -262,8 +276,11 @@ class TerminalUI:
 
         state = self.engine.state
         overlays: list[tuple[int, int, str, int]] = []
+        route: list[tuple[int, int]] = []
         if state.phase == "exploration" and self.engine.is_walkable(*cursor):
-            for x, y in self.engine.path_to(*cursor):
+            route = self.engine._find_path((state.party_x, state.party_y), cursor)
+            maximum = int(self.catalog.balance["maximum_navigation_distance"])
+            for x, y in route[:maximum]:
                 overlays.append((x, y, ":", curses.A_DIM))
         feature_symbols = {"start": "A", "event": "?", "camp": "C", "upgrade": "W", "cache": "$"}
         for room in state.rooms:
@@ -278,7 +295,11 @@ class TerminalUI:
             overlays.append((patrol.x, patrol.y, symbol, self._attr(3) | curses.A_BOLD))
         overlays.append((state.party_x, state.party_y, "@", self._attr(4) | curses.A_BOLD))
         cursor_symbol = "@" if cursor == (state.party_x, state.party_y) else "X"
-        overlays.append((cursor[0], cursor[1], cursor_symbol, curses.A_REVERSE | curses.A_BOLD))
+        reachable = self.engine.is_walkable(*cursor) and len(route) <= int(
+            self.catalog.balance["maximum_navigation_distance"]
+        )
+        cursor_attr = self._attr(7) if self.colour and reachable else self._attr(5) if self.colour else curses.A_REVERSE
+        overlays.append((cursor[0], cursor[1], cursor_symbol, cursor_attr | curses.A_BOLD))
         for x, y, symbol, attribute in overlays:
             screen_x, screen_y = x - left + 2, y - top + row
             if 2 <= screen_x < screen_columns - 2 and row <= screen_y < row + viewport_height:

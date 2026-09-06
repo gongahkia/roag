@@ -193,6 +193,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
         "hand_size",
         "energy",
         "exploration_steps_per_light",
+        "maximum_navigation_distance",
         "death_chance",
         "low_light_threshold",
     }
@@ -206,6 +207,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
         raise ContentError("balance.death_chance must be between 0 and 1")
     if balance["exploration_steps_per_light"] < 1:
         raise ContentError("balance.exploration_steps_per_light must be at least 1")
+    if balance["maximum_navigation_distance"] < 1:
+        raise ContentError("balance.maximum_navigation_distance must be at least 1")
 
     _art_lines(art.get("title"), "art.title", count=6, width=72)
     for hero_id in heroes:

@@ -442,11 +442,15 @@ class GameEngine:
         path = self._find_path((self.state.party_x, self.state.party_y), (x, y))
         if (x, y) != (self.state.party_x, self.state.party_y) and not path:
             raise RuleError("no route reaches that tile")
+        maximum = int(self.catalog.balance["maximum_navigation_distance"])
+        if len(path) > maximum:
+            raise RuleError(f"destination is beyond the maximum reach of {maximum} tiles")
         return path
 
     def move_to(self, room_id: int) -> None:
         destination = self.room_position(room_id)
-        for x, y in self.path_to(*destination):
+        path = self._find_path((self.state.party_x, self.state.party_y), destination)
+        for x, y in path:
             self.step_exploration(x, y)
             if self.state.phase != "exploration":
                 return
