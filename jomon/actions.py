@@ -297,6 +297,14 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             return apply_damage(state, 3 if threat.elite else 2, source)
         return "The mill sweep passes; your position is safe."
     if threat.profile == "ranged":
+        if threat.position.z != state.position.z and not line_of_sight(
+            state, threat.position, state.position
+        ):
+            message = "tracks the sound across the levels"
+            if threat.intent == message:
+                return ""
+            threat.intent = message
+            return f"The {threat.name} hears you on another level."
         if not line_of_sight(state, threat.position, state.position):
             threat.position = _step_toward(state, threat, state.position)
             threat.intent = "moves for a clear line"
@@ -528,7 +536,7 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
     state.position = target
     messages: list[str] = []
     tile = base_tile(state, target)
-    if tile == "+":
+    if state.location == "region" and tile == "+":
         state.region.tile_changes[position_key(target)] = "/"
         messages.append("You open the door; interior sightlines change.")
     quiet = state.courier and (

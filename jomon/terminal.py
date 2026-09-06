@@ -258,7 +258,7 @@ def _status_lines(state: GameState) -> list[str]:
     ]
     threat = local[0].intent if local else "no visible threat"
     transition = vertical_destination(state, state.position) if state.location == "region" else None
-    level_text = f"Level {state.position.z:+d}"
+    level_text = f"{state.position.x},{state.position.y} z{state.position.z:+d}"
     if transition:
         level_text += " " + ("v below" if transition.z < state.position.z else "^ above")
     lines = [
