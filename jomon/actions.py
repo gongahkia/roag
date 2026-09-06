@@ -288,14 +288,20 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
     if threat.profile == "machinery":
         if gap > 7:
             return ""
-        threatened = state.position.y in {22, 24, 26, 28}
+        swept_rows = {22, 24, 26, 28}
+        lane = "marked mill aisles"
+        if threat.elite:
+            outer = ((threat.turn - 1) // 2) % 2 == 0
+            swept_rows = {22, 28} if outer else {24, 26}
+            lane = "outer aisles 22/28" if outer else "inner aisles 24/26"
+        threatened = state.position.y in swept_rows
         if threat.turn % 2:
-            threat.intent = "sweeps marked mill aisles next turn"
-            return f"The {threat.name} shudders: marked aisles sweep next turn."
+            threat.intent = f"sweeps {lane} next turn"
+            return f"The {threat.name} shudders: {lane} sweep next turn."
         if threatened and not guarded:
             source = "The runaway crown wheel" if threat.elite else "The mill sweep"
             return apply_damage(state, 3 if threat.elite else 2, source)
-        return "The mill sweep passes; your position is safe."
+        return f"The mill sweep passes through {lane}; your position is safe."
     if threat.profile == "ranged":
         if threat.position.z != state.position.z and not line_of_sight(
             state, threat.position, state.position

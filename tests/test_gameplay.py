@@ -269,6 +269,23 @@ class WeaponAndThreatTests(unittest.TestCase):
         self.assertEqual(elite.status, "disabled")
         self.assertEqual(state.courier.health, health)
 
+    def test_elite_machinery_alternates_unsafe_positions(self):
+        state = prepared("elite shifting aisles")
+        elite = Threat(
+            "elite", "runaway crown wheel", "machinery", Position(82, 27),
+            7, 7, status="engaged", elite=True, morale=99
+        )
+        state.position, state.threats = Position(80, 24, 0), [elite]
+        health = state.courier.health
+        _advance_world(state)
+        self.assertIn("outer aisles 22/28", elite.intent)
+        _advance_world(state)
+        self.assertEqual(state.courier.health, health)
+        _advance_world(state)
+        self.assertIn("inner aisles 24/26", elite.intent)
+        _advance_world(state)
+        self.assertEqual(state.courier.health, health - 3)
+
 
 class PersistenceAndDefeatTests(unittest.TestCase):
     def test_chest_depletion_and_returned_discovery_persist(self):
