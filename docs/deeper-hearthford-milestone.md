@@ -109,7 +109,7 @@ git diff --check
 
 The unit suite ran 34 tests with `OK`. It covers deterministic and varying
 topology, reciprocal/reachable routes, persistent room changes, semantic
-+ fallback, zero preparation, six qualitative combinations, action
+colour fallback, zero preparation, six qualitative combinations, action
 time and log priority, pressure effects, all threat profiles, mixed and elite
 encounters, combat and non-combat resolutions, cross-system environment use,
 contextual injury/loss/death/succession, capacity and market change,
@@ -127,7 +127,7 @@ The following was actually exercised in curses, not inferred from tests:
   blocked readable crossbow aim with a shutter, won direct combat, stabilized
   the crane, met the mixed Mill Yard group, and took a contextual injured
   retreat that lost repair tools.
-- At 80x24, fresh `complete-run` play used a factor/st repair build, acquired a
+- At 80x24, fresh `complete-run` play used a factor/staff/repair-tools build, acquired a
   pulley key from the optional Rope Loft, negotiated the ranged watcher and
   mixed group, and reached the wheelhouse. This exposed two play defects:
   ordinary guarding was too restrictive, and machinery damaged the courier
