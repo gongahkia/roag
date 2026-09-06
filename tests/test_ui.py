@@ -167,6 +167,8 @@ class AsciiUiTests(unittest.TestCase):
         rendered = screen.text()
         self.assertIn("CREW HUB", rendered)
         self.assertIn("Breacher", rendered)
+        self.assertIn("Pilot", rendered)
+        self.assertIn("READY TO DEPART", rendered)
 
     def test_damaged_enemy_gets_reverse_video_flash_and_damage_number(self) -> None:
         self.engine.start_combat("vents")

@@ -12,16 +12,19 @@ from dumbest_dungeon.content import ContentError, load_catalog
 class ContentTests(unittest.TestCase):
     def test_bundled_catalog_is_complete(self) -> None:
         catalog = load_catalog()
-        self.assertEqual(10, len(catalog.heroes))
-        self.assertEqual(75, len(catalog.cards))
-        self.assertEqual(25, len(catalog.enemies))
-        self.assertGreaterEqual(len(catalog.encounters), 20)
+        self.assertEqual(15, len(catalog.heroes))
+        self.assertEqual(105, len(catalog.cards))
+        self.assertEqual(35, len(catalog.enemies))
+        self.assertGreaterEqual(len(catalog.encounters), 35)
         self.assertEqual(10, len(catalog.events))
         self.assertEqual(6, len(catalog.afflictions))
         self.assertEqual(set(catalog.heroes), set(catalog.art["heroes"]))
         self.assertEqual(set(catalog.heroes), set(catalog.art["card_marks"]))
         self.assertEqual(len(catalog.heroes), len(set(catalog.art["card_marks"].values())))
         self.assertEqual(set(catalog.enemies), set(catalog.art["enemies"]))
+        self.assertEqual(len(catalog.heroes), len({hero["role"] for hero in catalog.heroes.values()}))
+        self.assertEqual(len(catalog.cards), len({card["name"] for card in catalog.cards.values()}))
+        self.assertEqual(len(catalog.enemies), len({enemy["name"] for enemy in catalog.enemies.values()}))
         sprites = list(catalog.art["heroes"].values()) + list(catalog.art["enemies"].values())
         for sprite in sprites:
             self.assertEqual(5, len(sprite))
@@ -47,7 +50,7 @@ class ContentTests(unittest.TestCase):
     def test_content_balance_guardrails(self) -> None:
         catalog = load_catalog()
         cards_per_hero = Counter(card["hero"] for card in catalog.cards.values())
-        self.assertTrue(all(7 <= count <= 8 for count in cards_per_hero.values()))
+        self.assertTrue(all(6 <= count <= 8 for count in cards_per_hero.values()))
         self.assertTrue(all(0 <= card["cost"] <= 2 for card in catalog.cards.values()))
         for card in catalog.cards.values():
             if card["cost"] == 0:
@@ -59,6 +62,8 @@ class ContentTests(unittest.TestCase):
             for enemy_id in encounter["enemies"]
         }
         self.assertEqual(set(catalog.enemies), referenced_enemies)
+        formations = [tuple(encounter["enemies"]) for encounter in catalog.encounters.values()]
+        self.assertEqual(len(formations), len(set(formations)))
         for encounter in catalog.encounters.values():
             if encounter["kind"] != "normal":
                 continue

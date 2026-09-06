@@ -216,6 +216,33 @@ class EngineTests(unittest.TestCase):
         self.engine.play_card(0, target.id)
         self.assertEqual(target.max_hp - 10, target.hp)
 
+    def test_dodge_negates_one_direct_hit_and_riposte_counters(self) -> None:
+        self.engine.start_combat("lost_shift")
+        hero = self.engine.living_heroes()[0]
+        enemy = self.engine.living_enemies()[0]
+        hero.statuses["dodge"] = 2
+        initial_hp = hero.hp
+        self.engine._damage(hero, 8, enemy)
+        self.assertEqual(initial_hp, hero.hp)
+        self.assertNotIn("dodge", hero.statuses)
+
+        hero.statuses["riposte"] = 2
+        enemy_hp = enemy.hp
+        self.engine._damage(hero, 1, enemy)
+        self.assertEqual(enemy_hp - 4, enemy.hp)
+
+    def test_chaplain_can_cleanse_negative_statuses(self) -> None:
+        engine = GameEngine.new(self.catalog, 81, start_in_hub=True)
+        engine.state.hub_selection = ["warden", "engineer", "chaplain", "scout"]
+        engine.begin_expedition()
+        engine.start_combat("lost_shift")
+        chaplain = next(hero for hero in engine.state.heroes if hero.id == "chaplain")
+        chaplain.statuses.update({"weak": 2, "wound": 3, "marked": 2})
+        engine.state.hand = [CardInstance("absolve")]
+        engine.state.energy = 3
+        engine.play_card(0, chaplain.id)
+        self.assertFalse({"weak", "wound", "marked"} & chaplain.statuses.keys())
+
     def test_enemy_intents_follow_actor_after_front_enemy_dies(self) -> None:
         self.engine.start_combat("drones")
         front = self.engine.living_enemies()[0]

@@ -133,7 +133,7 @@ class TerminalUI:
             self._put(20, 44, ", ".join(starter_names)[:34], curses.A_DIM)
             ready = len(selection) == 4
             status = "READY TO DEPART" if ready else f"SELECT {4 - len(selection)} MORE"
-            self._put(16, 3, status, self._attr(4 if ready else 2) | curses.A_BOLD)
+            self._put(20, 3, status, self._attr(4 if ready else 2) | curses.A_BOLD)
             self._footer("Up/Down browse  Space select  Left/Right rank  C cards  Enter depart  Esc title")
             key = self._key()
             if key in (curses.KEY_UP, ord("k")):
