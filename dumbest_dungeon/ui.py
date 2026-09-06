@@ -101,7 +101,7 @@ class TerminalUI:
             self._begin("SHIP MAP")
             self._resources(2)
             self._map(4)
-            row = 14
+            row = 9
             self._put(row, 2, f"Current: [{room.id:02}] {room.name}", self._attr(1) | curses.A_BOLD)
             row += 1
             for index, destination in enumerate(adjacent):
@@ -413,30 +413,43 @@ class TerminalUI:
 
     def _map(self, row: int) -> None:
         assert self.engine
-        positions = {0:(0,0),1:(0,7),2:(-1,14),3:(1,14),4:(0,21),5:(-1,28),6:(1,28),7:(0,35),8:(-1,42),9:(1,42),10:(0,49),11:(0,57)}
-        canvas = [[" " for _ in range(63)] for _ in range(5)]
+        tokens: dict[int, str] = {}
         for room in self.engine.state.rooms:
-            y, x = positions[room.id]
-            y += 2
             if room.id == self.engine.state.current_room:
-                token = f"<{room.id:02}>"
+                tokens[room.id] = f"<{room.id:02}>"
             elif room.visited:
-                token = f"[{room.id:02}]"
+                tokens[room.id] = f"[{room.id:02}]"
             else:
-                token = "[??]"
-            for offset, character in enumerate(token):
-                canvas[y][x + offset] = character
-        for left, right in ((0,1),(1,2),(1,3),(2,4),(3,4),(4,5),(4,6),(5,7),(6,7),(7,8),(7,9),(8,10),(9,10),(10,11)):
-            ly,lx=positions[left]; ry,rx=positions[right]; ly+=2; ry+=2
-            if ly == ry:
-                for x in range(lx+4, rx): canvas[ly][x] = "-"
-            else:
-                midx = (lx + rx) // 2
-                for x in range(lx+4, midx+1): canvas[ly][x] = "-"
-                for y in range(min(ly,ry)+1,max(ly,ry)): canvas[y][midx] = "|"
-                for x in range(midx, rx): canvas[ry][x] = "-"
-        for offset, line in enumerate(canvas):
-            self._put(row + offset, 5, "".join(line))
+                tokens[room.id] = "[??]"
+
+        upper = (
+            " " * 11
+            + f"/---{tokens[2]}---\\"
+            + " " * 4
+            + f"/---{tokens[5]}---\\"
+            + " " * 4
+            + f"/---{tokens[8]}---\\"
+        )
+        middle = (
+            f"{tokens[0]}---{tokens[1]}"
+            + " " * 12
+            + tokens[4]
+            + " " * 12
+            + tokens[7]
+            + " " * 12
+            + f"{tokens[10]}---{tokens[11]}"
+        )
+        lower = (
+            " " * 11
+            + f"\\---{tokens[3]}---/"
+            + " " * 4
+            + f"\\---{tokens[6]}---/"
+            + " " * 4
+            + f"\\---{tokens[9]}---/"
+        )
+        column = max(1, (self.screen.getmaxyx()[1] - len(middle)) // 2)
+        for offset, line in enumerate((upper, middle, lower)):
+            self._put(row + offset, column, line)
 
     def _card_label(self, card: CardInstance) -> str:
         definition = self.catalog.cards[card.card_id]

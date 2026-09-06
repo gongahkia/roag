@@ -82,6 +82,16 @@ class AsciiUiTests(unittest.TestCase):
         self.assertEqual(">", screen.rows[5][column - 1])
         self.assertEqual("<", screen.rows[5][column + 7])
 
+    def test_ship_map_uses_diagonal_forks(self) -> None:
+        screen = FakeScreen()
+        self.ui.screen = screen
+        self.ui._map(4)
+        lines = ["".join(row).rstrip() for row in screen.rows[4:7]]
+        self.assertIn("/---[??]---\\", lines[0])
+        self.assertIn("<00>---[??]", lines[1])
+        self.assertIn("\\---[??]---/", lines[2])
+        self.assertNotIn("|", "".join(lines))
+
 
 if __name__ == "__main__":
     unittest.main()
