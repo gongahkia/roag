@@ -107,8 +107,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load ASCII art from {art_source}: {exc}") from exc
 
-    if raw.get("schema_version") != 1:
-        raise ContentError("content schema_version must be 1")
+    if raw.get("schema_version") != 2:
+        raise ContentError("content schema_version must be 2")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
@@ -122,19 +122,21 @@ def load_catalog(path: Path | None = None) -> Catalog:
         raise ContentError("balance must be an object")
 
     for hero in heroes.values():
-        for field in ("name", "max_hp", "rank", "starter_deck"):
+        for field in ("name", "role", "summary", "max_hp", "rank", "starter_deck"):
             if field not in hero:
                 raise ContentError(f"hero {hero['id']} is missing {field}")
         if hero["rank"] not in range(1, 5) or hero["max_hp"] <= 0:
             raise ContentError(f"hero {hero['id']} has invalid rank or max_hp")
+        if not isinstance(hero["summary"], str) or not hero["summary"]:
+            raise ContentError(f"hero {hero['id']} needs a summary")
+        if not isinstance(hero["starter_deck"], list) or len(hero["starter_deck"]) != 5:
+            raise ContentError(f"hero {hero['id']} must contribute five starter cards")
         for card_id in hero["starter_deck"]:
             if card_id not in cards:
                 raise ContentError(f"hero {hero['id']} references unknown card {card_id}")
 
-    if sorted(hero["rank"] for hero in heroes.values()) != [1, 2, 3, 4]:
-        raise ContentError("the four heroes must occupy unique ranks 1..4")
-    if len(heroes) != 4:
-        raise ContentError("this release requires exactly four heroes")
+    if len(heroes) != 10:
+        raise ContentError("this release requires exactly ten crew archetypes")
 
     for card in cards.values():
         if not isinstance(card.get("name"), str) or not isinstance(card.get("description"), str):
@@ -150,6 +152,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
             _ranks(card.get("target_ranks"), f"card {card['id']}.target_ranks")
         _effects(card.get("effects"), CARD_EFFECTS, f"card {card['id']}.effects")
         _effects(card.get("upgrade_effects"), CARD_EFFECTS, f"card {card['id']}.upgrade_effects")
+    if len(cards) != 75:
+        raise ContentError("this release requires exactly 75 unique cards")
 
     for enemy in enemies.values():
         if not isinstance(enemy.get("max_hp"), int) or enemy["max_hp"] <= 0:
@@ -161,6 +165,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
             if not isinstance(action.get("name"), str) or action.get("target") not in ENEMY_TARGETS:
                 raise ContentError(f"enemy {enemy['id']} has an invalid action")
             _effects(action.get("effects"), CARD_EFFECTS, f"enemy {enemy['id']} action")
+    if len(enemies) != 25:
+        raise ContentError("this release requires exactly 25 enemy types")
 
     for encounter in encounters.values():
         if encounter.get("kind") not in {"normal", "elite", "boss"}:

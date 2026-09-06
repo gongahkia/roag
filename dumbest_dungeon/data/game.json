@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "balance": {
     "hand_size": 5,
     "energy": 3,
@@ -12,10 +12,16 @@
     "stress_limit": 100
   },
   "heroes": [
-    {"id": "warden", "name": "Mara Venn", "role": "Warden", "max_hp": 46, "rank": 1, "starter_deck": ["baton_strike", "baton_strike", "brace", "interpose", "breach"]},
-    {"id": "engineer", "name": "Ivo Senn", "role": "Engineer", "max_hp": 34, "rank": 2, "starter_deck": ["arc_welder", "arc_welder", "reroute", "mag_boots", "overclock"]},
-    {"id": "medic", "name": "Dr. Orra Vale", "role": "Medic", "max_hp": 31, "rank": 3, "starter_deck": ["sedative_dart", "sedative_dart", "field_dressing", "steady_breathing", "triage"]},
-    {"id": "scout", "name": "Kei Rook", "role": "Scout", "max_hp": 29, "rank": 4, "starter_deck": ["snap_shot", "snap_shot", "scan", "evasive_step", "quick_reload"]}
+    {"id":"warden","name":"Mara Venn","role":"Warden","summary":"Durable frontliner who guards allies and controls enemy ranks.","max_hp":46,"rank":1,"starter_deck":["baton_strike","baton_strike","brace","interpose","breach"]},
+    {"id":"engineer","name":"Ivo Senn","role":"Engineer","summary":"Flexible controller who moves combatants and manipulates energy.","max_hp":34,"rank":2,"starter_deck":["arc_welder","arc_welder","reroute","mag_boots","overclock"]},
+    {"id":"medic","name":"Dr. Orra Vale","role":"Medic","summary":"Dedicated recovery specialist for health, stress, and emergencies.","max_hp":31,"rank":3,"starter_deck":["sedative_dart","sedative_dart","field_dressing","steady_breathing","triage"]},
+    {"id":"scout","name":"Kei Rook","role":"Scout","summary":"Mobile backliner who marks targets and cycles through the deck.","max_hp":29,"rank":4,"starter_deck":["snap_shot","snap_shot","scan","evasive_step","quick_reload"]},
+    {"id":"breacher","name":"Dax Rell","role":"Breacher","summary":"Explosive front-rank attacker with burst damage and forced movement.","max_hp":42,"rank":1,"starter_deck":["ram_charge","ram_charge","shotgun_blast","blast_shield","kick_down"]},
+    {"id":"psion","name":"Nia Voss","role":"Psion","summary":"Fragile control specialist who trades stress for stuns and disruption.","max_hp":27,"rank":4,"starter_deck":["mind_spike","mind_spike","neural_guard","clarity","gravity_well"]},
+    {"id":"quartermaster","name":"Bram Coil","role":"Quartermaster","summary":"Card-economy support who distributes protection and extra actions.","max_hp":36,"rank":3,"starter_deck":["sidearm","sidearm","ration_pack","tactical_cache","covering_fire"]},
+    {"id":"operative","name":"Sable Kade","role":"Operative","summary":"Precise mobile assassin who exploits marks and vulnerable targets.","max_hp":30,"rank":4,"starter_deck":["silenced_round","silenced_round","exploit_mark","smoke_screen","flank"]},
+    {"id":"biologist","name":"Dr. Yara Moss","role":"Biologist","summary":"Attrition specialist using wounds, weakness, and regenerative support.","max_hp":32,"rank":3,"starter_deck":["toxin_dart","toxin_dart","regenerative_gel","specimen_scan","spore_cloud"]},
+    {"id":"synth","name":"Unit Lumen","role":"Synth","summary":"Resilient energy support with hardlight defenses and reliable control.","max_hp":39,"rank":2,"starter_deck":["pulse_fist","pulse_fist","hardlight","capacitor","guardian_protocol"]}
   ],
   "cards": [
     {"id":"baton_strike","name":"Baton Strike","hero":"warden","cost":1,"from_ranks":[1,2],"target":"enemy","target_ranks":[1,2],"description":"Deal 7 damage.","effects":[{"op":"damage","amount":7}],"upgrade_effects":[{"op":"damage","amount":10}]},
