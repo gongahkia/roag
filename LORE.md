@@ -4,7 +4,7 @@
 
 ## Authority and purpose
 
-This is the authoritative setting and content reference for Jomon. It defines the game’s medieval direction, its material and mystical limits, and the content grammar used by later implementation work. `TODO.md` is the authoritative execution plan; it records the required systems, status, acceptance criteria, and implementation decisions. The current codebase contains an earlier prototype whose space-fiction terminology and systems are not canon; it is an implementation reference only until replaced by the roadmap in [`TODO.md`](TODO.md).
+This is the authoritative setting and content reference for Jomon. It defines the medieval world, its material and mystical limits, and its content grammar. [`PRODUCT.md`](PRODUCT.md) owns permanent product and technical constraints; [`TODO.md`](TODO.md) owns current scope. The current codebase contains an earlier prototype whose space-fiction terminology and systems are not canon.
 
 Jomon is an original composite setting. Real medieval history may inform tools, labour, trade, law, and settlement life, but the game does not portray a real country, dynasty, religion, or language. Procedural history and materially grounded simulation are influences, not permission to copy another game’s lore, text, names, or designs.
 
@@ -32,7 +32,7 @@ Jomon is an original composite setting. Real medieval history may inform tools, 
 
 The known starting region is a watershed: tributaries, canals, floodplains, mill towns, ferry crossings, marshes, river cities, estuaries, and a contested coast. Inland and coastal worlds are linked by water, but passage is never automatic. River height, weather, seasonal work, war, tolls, shoals, quarantine, labour shortages, damaged locks, and local law determine which routes are practical.
 
-The world has an expanding frontier rather than an artificial map edge. As Jomon reaches new waterways and coasts, further regions are generated and become explorable; their identities may already be heard through rumours, charts, cargo marks, travellers, letters, trade, and old stories. Regions must have distinct geography, ecology, peoples, mystical pressures, architecture, goods, enemies, and practical problems. Expansion must remain causally connected to the known world and optimized so it never erases or contradicts remembered people or history.
+The world reaches beyond the first watershed rather than ending at an artificial map edge. Further waterways and coasts may first be known through rumours, charts, cargo marks, travellers, letters, trade, and old stories. Regions should have distinct geography, ecology, peoples, mystical pressures, architecture, goods, enemies, and practical problems, all causally connected to what the household already knows.
 
 The setting has no universal state. Manors, free towns, guild halls, monasteries, river leagues, fishing communities, fortified estates, travelling companies, and local assemblies overlap. A charter may be valid at one quay and meaningless across the next bend. A household survives by knowing who can witness a contract, who controls a lock, who needs a cargo, and when it is safer to leave.
 
@@ -44,7 +44,7 @@ Jomon is a walkable deck plan, not merely an abstract hub screen. Its permanent 
 
 Operating a vessel prop opens a compact contextual key-choice prompt. The chart table handles route work; the hold handles loading and unloading; the repair space handles vessel maintenance; and the tavern handles conversation, rest, crew selection, and succession. Gangplanks connect Jomon to quays, piers, shore landings, and small craft.
 
-A compact, strategic management sidebar is visible by default and may be collapsed. It provides a deliberately comprehensive view of all information known by the household—tasks, people, work, risks, sites, routes, and history—without displacing the map as the primary view. It labels source, discovery time, and freshness when relevant, but never reveals undiscovered global truth. It is not a replacement for walking through Jomon or acting on props. The map, messages, conversations, ledgers, notices, and management view must each reveal useful, non-duplicative facets of the same world state.
+Household knowledge belongs in situated maps, messages, conversations, ledgers, and notices. Any overview must never reveal undiscovered global truth or replace walking through Jomon and acting on its physical spaces.
 
 Jomon is an itinerant household, not the private property of one chosen captain. Its people have different skills, obligations, loyalties, needs, possessions, injuries, families, memories, and reasons to stay. Useful recognisable roles include a bargemaster, pilot, factor, carpenter, guard, cook, healer, scribe, carter, fisher, and bard. A role describes labour and social access, not a rigid character class; mystical aptitude, where present, is tied to a specific history, practice, place, or object.
 
@@ -56,7 +56,7 @@ The active courier normally controls only themself. They can use conversation, t
 
 When a crew member dies, they do not return and their personal development does not transfer automatically. Another eligible survivor takes over. If no eligible living crew member remains, there is no invisible replacement or management-screen recruitment: active play ends and the world is kept only as a read-only, exportable chronicle. Exceptionally rare relics, rites, or other safeguards may avert or reverse a death through an explicit and costly rule; these are neither routine nor a substitute for loss. The household retains the consequences: a lost worker changes capacity, a debt may pass to the vessel, cargo may remain at a wreck, and witnesses may remember the dead person or the vessel that employed them.
 
-Every instantiated person has an individual persistent record including family, work, needs, relationships, injury, possessions, birth, and death. Nearby people and people whose actions currently matter receive detailed simulation. Distant people retain their full individual records but advance through deterministic, scheduled summaries whenever the player causes in-world time to pass. An ungenerated frontier has deterministic regional commitments and any already revealed facts, not latent mutable people; when a place or named person must exist, the world materializes the full persistent record without contradicting prior knowledge. Resulting moves must be consistent with known history and discoverable when they become relevant.
+Named people carry enough remembered identity, work, relationships, injury, possessions, birth, death, and history for their later consequences to make sense. Places and people must not contradict what the household has already learned; changes should be discoverable when they become relevant.
 
 ## Trade, contracts, and material consequence
 
@@ -101,6 +101,6 @@ Use supernatural vocabulary precisely. “Curse,” “spirit,” “miracle,”
 
 Content boundaries apply to all generated and authored material. Do not include, allude to, or encode sexual violence, slavery, torture, or harm/endangerment of children in simulation records, procedural history, off-screen summaries, ambient text, social systems, contracts, hazards, enemy behaviour, or player action. If a system could generate one, it must reject and replace the result deterministically.
 
-## Implementation boundary
+## Scope boundary
 
-This reference does not claim that the current prototype already implements the setting. The first code milestone is the clean game boundary and foundational world systems in [`TODO.md`](TODO.md); the walkable Jomon deck follows those foundations. New work must follow [`TODO.md`](TODO.md), keep randomness seeded and inspectable, and validate every player-facing path through focused tests, deterministic automation, browser coverage, and builds.
+This reference establishes setting, tone, and content canon; it makes no current roadmap claim. See [`PRODUCT.md`](PRODUCT.md) for permanent product constraints, [`TODO.md`](TODO.md) for active and frozen work, and the archive for historical foundation decisions.
