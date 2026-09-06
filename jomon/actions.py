@@ -295,6 +295,9 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
     if threat.profile == "machinery":
         room = state.room
         room.changes["machinery_phase"] = threat.turn % 2
+        if state.position.x < 12:
+            threat.intent = "sweep arm works the east aisle; the west staging bay is safe"
+            return "The mill sweep scours the east aisle; the west staging bay remains safe."
         if guarded or room.changes.get("cover_moved"):
             threat.intent = "sweep arm passes behind your cover"
             return "The mill sweep crashes past the braced cover."

@@ -367,6 +367,17 @@ class ThreatAndEnvironmentTests(unittest.TestCase):
         self.assertEqual(elite.status, "disabled")
         self.assertTrue(state.room.changes["structure_stable"])
 
+    def test_machinery_has_a_readable_safe_staging_zone(self):
+        state = prepared(gear="repair tools")
+        enter_room(state, "wheelhouse", Position(2, 6))
+        machinery = local_threat(state, "machinery")
+        machinery.status = "engaged"
+        health = state.courier.health
+        _advance_threats(state)
+        _advance_threats(state)
+        self.assertEqual(state.courier.health, health)
+        self.assertIn("staging bay", machinery.intent)
+
 
 class PersistenceEconomyAndDefeatTests(unittest.TestCase):
     def test_returned_equipment_persists(self):
