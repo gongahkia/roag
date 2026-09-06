@@ -36,6 +36,11 @@ def _result(state: GameState, message: str, *, time: bool = False, changed: bool
     return ActionResult(changed, time, message)
 
 
+def _contact_remembers(state: GameState, text: str) -> None:
+    state.contact.memories.append(text)
+    del state.contact.memories[:-8]
+
+
 def inspect(state: GameState, subject: str = "area") -> ActionResult:
     if subject == "household":
         living = sum(person.alive for person in state.household)
@@ -147,7 +152,7 @@ def _return_after_defeat(state: GameState, text: str, permanent: bool) -> str:
     if state.objective_status in {"accepted", "altered"}:
         state.objective_status = "failed"
         state.contact.disposition = max(-3, state.contact.disposition - 1)
-        state.contact.memories.append(f"{courier.name} failed to return with the needed {state.region.objective_commodity}.")
+        _contact_remembers(state, f"{courier.name} failed to return with the needed {state.region.objective_commodity}.")
     state.location = "jomon"
     state.position = JOMON_GANGPLANK
     state.loadout = None
@@ -294,18 +299,18 @@ def decide_objective(state: GameState, decision: str) -> ActionResult:
     courier_name = state.courier.name
     if decision == "accept":
         state.objective_status = "accepted"
-        state.contact.memories.append(f"{courier_name} accepted the difficult {state.region.objective_commodity} recovery.")
+        _contact_remembers(state, f"{courier_name} accepted the difficult {state.region.objective_commodity} recovery.")
         state.remember(f"{courier_name} accepted {state.contact.name}'s material request.")
         message = f"Accepted: {state.region.objective_text}"
     elif decision == "refuse":
         state.objective_status = "refused"
         state.contact.disposition = max(-3, state.contact.disposition - 1)
-        state.contact.memories.append(f"{courier_name} refused the urgent {state.region.objective_commodity} request.")
+        _contact_remembers(state, f"{courier_name} refused the urgent {state.region.objective_commodity} request.")
         state.remember(f"{courier_name} refused {state.contact.name}'s request.")
         message = "You refuse. The material shortage remains visible in Hearthford."
     elif decision == "alter" and can_alter_objective(state):
         state.objective_status = "altered"
-        state.contact.memories.append(f"{courier_name} proposed repairing the flood control instead of hauling cargo.")
+        _contact_remembers(state, f"{courier_name} proposed repairing the flood control instead of hauling cargo.")
         state.remember(f"{courier_name} altered the request into a sluice repair.")
         message = "Altered: lower and repair the reed-sluice control, then report back."
     else:
@@ -340,7 +345,7 @@ def _complete_objective(state: GameState, unusual: bool) -> str:
     state.contact.disposition = min(3, state.contact.disposition + (2 if unusual else 1))
     method = "sluice repair" if unusual else f"delivery of {commodity}"
     memory = f"{state.courier.name} completed the request by {method}{' after the market window narrowed' if late else ''}."
-    state.contact.memories.append(memory)
+    _contact_remembers(state, memory)
     state.remember(memory)
     return f"Request completed by {method}. Demand is now {market.demand}; stock is {market.stock}."
 
@@ -422,7 +427,7 @@ def attack(state: GameState) -> ActionResult:
     if state.threat.health == 0:
         state.threat.status = "defeated"
         state.threat.intent = "driven from the route"
-        state.contact.memories.append(f"{courier.name} injured and drove off the {state.threat.name}.")
+        _contact_remembers(state, f"{courier.name} injured and drove off the {state.threat.name}.")
         state.remember(f"{courier.name} defeated the {state.threat.name} in direct combat.")
         return _result(state, f"Your strike drives off the {state.threat.name}.", time=True)
     result = _result(state, f"You strike for {damage}; hostile health {state.threat.health}/4.", time=True)
@@ -468,7 +473,7 @@ def negotiate(state: GameState) -> ActionResult:
             del state.carried_goods["paper"]
     state.threat.status = "negotiated"
     state.threat.intent = "accepts witnessed terms and leaves"
-    state.contact.memories.append(f"{courier.name} settled the route obstruction without bloodshed.")
+    _contact_remembers(state, f"{courier.name} settled the route obstruction without bloodshed.")
     state.remember(f"{courier.name} negotiated passage from the {state.threat.name}.")
     return _result(state, "Material terms settle the obstruction; the route opens without combat.", time=True)
 
@@ -489,7 +494,7 @@ def return_to_jomon(state: GameState) -> ActionResult:
     if state.objective_status in {"accepted", "altered"}:
         state.objective_status = "failed"
         state.contact.disposition = max(-3, state.contact.disposition - 1)
-        state.contact.memories.append(f"{courier.name} returned without completing the accepted request.")
+        _contact_remembers(state, f"{courier.name} returned without completing the accepted request.")
         state.remember(f"{courier.name} returned without completing Hearthford's request.")
     for name, stack in state.carried_goods.items():
         vessel = state.vessel_cargo.get(name)
