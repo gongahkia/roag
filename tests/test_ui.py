@@ -96,6 +96,19 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("\\---[??]---/", lines[2])
         self.assertNotIn("|", "".join(lines))
 
+    def test_hub_renders_roster_and_departs_with_default_party(self) -> None:
+        self.engine = GameEngine.new(self.catalog, 3, start_in_hub=True)
+        self.ui.engine = self.engine
+        screen = FakeScreen(keys=[10])
+        self.ui.screen = screen
+        self.ui._hub()
+        self.assertEqual("exploration", self.engine.state.phase)
+        self.assertEqual(4, len(self.engine.state.heroes))
+        self.assertEqual(20, len(self.engine.state.deck))
+        rendered = screen.text()
+        self.assertIn("CREW HUB", rendered)
+        self.assertIn("Breacher", rendered)
+
     def test_damaged_enemy_gets_reverse_video_flash_and_damage_number(self) -> None:
         self.engine.start_combat("vents")
         screen = FakeScreen()

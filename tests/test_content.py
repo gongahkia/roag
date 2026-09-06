@@ -23,6 +23,13 @@ class ContentTests(unittest.TestCase):
         for sprite in sprites:
             self.assertEqual(5, len(sprite))
             self.assertTrue(all(len(line) <= 7 and line.isascii() for line in sprite))
+        for hero in catalog.heroes.values():
+            starters = [catalog.cards[card_id] for card_id in hero["starter_deck"]]
+            for rank in range(1, 5):
+                self.assertTrue(
+                    any(rank in card["from_ranks"] for card in starters),
+                    f"{hero['id']} has no starter card usable from rank {rank}",
+                )
 
     def test_unknown_card_reference_is_rejected(self) -> None:
         catalog = load_catalog()

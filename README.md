@@ -1,6 +1,6 @@
 # Dumbest Dungeon
 
-A survival-horror party deckbuilder played entirely in a terminal. Four specialists cross the derelict survey ship *Orison*, manage health, stress, light, and supplies, and fight through a shared card deck with visible enemy intents and four-rank positioning.
+A survival-horror party deckbuilder played entirely in a terminal. Choose four of ten crew archetypes to cross the derelict survey ship *Orison*, manage health, stress, light, and supplies, and fight through a shared card deck with visible enemy intents and four-rank positioning.
 
 The game uses only the Python standard library. No installation or third-party package is required.
 
@@ -24,6 +24,7 @@ A generated seed appears in the map HUD and ending screen. Supplying `--seed` ma
 
 ## Controls and rules
 
+- New expeditions begin in the airlock crew hub. Choose four of ten archetypes; selection order assigns combat ranks 1–4. The original Warden, Engineer, Medic, and Scout party is selected by default. Space toggles a crew member, left/right changes a selected member's rank, and `C` browses that class's full card library.
 - Arrow keys or `h`/`j`/`k`/`l` navigate, Enter confirms, and Escape cancels or pauses.
 - When a card has several valid targets, its target cursor stays on the battlefield: the selected character sprite is highlighted and bracketed with `>` and `<`. Move between targets with left/right or `h`/`l`, press Enter to confirm, or Escape to cancel.
 - Enemies that lose health flash white-on-red for a short frame with the damage amount over their sprite. Monochrome terminals use reverse video instead.
@@ -39,6 +40,8 @@ A generated seed appears in the map HUD and ending screen. Supplying `--seed` ma
 ## Content authoring
 
 Gameplay definitions live in `dumbest_dungeon/data/game.json`, while `dumbest_dungeon/data/art.json` contains the title, crew and enemy sprites, and class card glyphs. Both catalogs are versioned and validated. Run the validator after editing either file:
+
+The current catalog contains 10 crew archetypes, 75 unique cards, 25 enemy types, and 19 encounter formations. Rewards are filtered to the four classes currently in the expedition.
 
 ```sh
 python3 -m dumbest_dungeon --validate-content

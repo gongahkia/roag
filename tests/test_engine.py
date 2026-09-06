@@ -49,7 +49,7 @@ class EngineTests(unittest.TestCase):
 
         warden = next(hero for hero in self.engine.state.heroes if hero.id == "warden")
         self.engine._move(warden, 2)
-        self.engine.state.hand = [CardInstance("baton_strike")]
+        self.engine.state.hand = [CardInstance("breach")]
         with self.assertRaisesRegex(RuleError, "valid rank"):
             self.engine.play_card(0, target.id)
 
