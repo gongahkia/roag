@@ -16,7 +16,7 @@ class ScriptedRunTests(unittest.TestCase):
                     (engine.state.party_x, engine.state.party_y),
                     engine.room_position(11),
                 )
-                order = route[: int(catalog.balance["maximum_navigation_distance"])]
+                order = route[: engine.maximum_navigation_distance()]
                 for step in engine.path_to(*order[-1]):
                     engine.step_exploration(*step)
                     if engine.state.phase != "exploration":
@@ -43,6 +43,17 @@ class ScriptedRunTests(unittest.TestCase):
                     engine.service("recover")
                 else:
                     engine.service("upgrade", 0)
+            elif engine.state.phase == "discovery":
+                pickup = engine.current_pickup()
+                if pickup.kind == "trap":
+                    engine.resolve_hidden_trap()
+                elif pickup.kind == "item":
+                    engine.resolve_item_pickup()
+                elif pickup.kind == "boon":
+                    hero = engine.living_heroes()[0]
+                    engine.resolve_boon_pickup(hero.id, engine.boon_pickup_options(hero.id)[0])
+                else:
+                    engine.resolve_bargain(engine.living_heroes()[0].id, None)
             else:
                 break
         self.assertEqual("victory", engine.state.phase)

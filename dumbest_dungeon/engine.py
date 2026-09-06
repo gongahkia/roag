@@ -549,16 +549,27 @@ class GameEngine:
             or any(not engine.is_walkable(pickup.x, pickup.y) for pickup in state.pickups)
         ):
             raise RuleError("save contains invalid map discoveries")
+        pickup_kinds = [pickup.kind for pickup in state.pickups]
+        if any(
+            pickup_kinds.count(kind) != count
+            for kind, count in {"boon": 3, "item": 5, "bargain": 2, "trap": 2}.items()
+        ) or any(
+            pickup.kind == "item" and pickup.payload.get("item_id") not in catalog.items
+            for pickup in state.pickups
+        ):
+            raise RuleError("save contains an invalid discovery distribution")
         if state.current_pickup_id is not None and state.current_pickup_id not in pickup_ids:
             raise RuleError("save references an unknown map discovery")
+        if (state.phase == "discovery") != (state.current_pickup_id is not None):
+            raise RuleError("save contains an inconsistent active discovery")
         for hero_id, effects in state.boons.items():
-            if hero_id not in catalog.heroes or any(
+            if hero_id not in hero_ids or any(
                 boon_id not in catalog.boons or not isinstance(count, int) or count < 1
                 for boon_id, count in effects.items()
             ):
                 raise RuleError("save contains invalid boons")
         for hero_id, effects in state.curses.items():
-            if hero_id not in catalog.heroes or any(
+            if hero_id not in hero_ids or any(
                 curse_id not in catalog.curses or not isinstance(count, int) or count < 1
                 for curse_id, count in effects.items()
             ):
@@ -575,6 +586,32 @@ class GameEngine:
             for card in piles
         ):
             raise RuleError("save references an unknown card")
+        if any(
+            (card.card_id in catalog.curses)
+            != (card.bound_hero_id is not None)
+            or card.bound_hero_id is not None and card.bound_hero_id not in hero_ids
+            for card in piles
+        ):
+            raise RuleError("save contains an invalid bound curse card")
+        expected_curse_cards = {
+            (hero_id, curse_id): count
+            for hero_id, effects in state.curses.items()
+            for curse_id, count in effects.items()
+            if catalog.curses[curse_id]["kind"] == "card"
+        }
+        actual_curse_cards = {
+            (hero_id, curse_id): sum(
+                card.card_id == curse_id and card.bound_hero_id == hero_id
+                for card in state.deck
+            )
+            for hero_id, curse_id in expected_curse_cards
+        }
+        if expected_curse_cards != actual_curse_cards or any(
+            card.card_id in catalog.curses
+            and (card.bound_hero_id, card.card_id) not in expected_curse_cards
+            for card in state.deck
+        ):
+            raise RuleError("save curse stacks do not match its bound cards")
         return engine
 
     def snapshot(self) -> dict[str, Any]:
@@ -1071,9 +1108,12 @@ class GameEngine:
                 if self.state.curses.get(hero.id, {}).get("lead_feet", 0) >= 3:
                     vulnerable = max(vulnerable, 1)
                 if marked:
-                    hero.statuses["marked"] = max(hero.statuses.get("marked", 0), marked)
+                    hero.statuses["marked"] = max(hero.statuses.get("marked", 0), marked + 1)
                 if vulnerable:
-                    hero.statuses["vulnerable"] = max(hero.statuses.get("vulnerable", 0), vulnerable)
+                    hero.statuses["vulnerable"] = max(
+                        hero.statuses.get("vulnerable", 0),
+                        vulnerable + 1,
+                    )
         if self.state.phase != "combat":
             return
         opening_energy = round(self._item_effect_value("first_round_energy")) if self.state.round == 1 else 0
@@ -1244,15 +1284,14 @@ class GameEngine:
                 continue
             targets = self._effect_targets(effect.get("target"), main_targets, actor)
             self._apply_effect(actor, targets, effect)
-        resonant_stacks = self.state.boons.get(actor.id, {}).get("resonant_circuit", 0)
-        if self.state.effect_counters[combat_key] % 3 == 0 and resonant_stacks:
-            self.state.energy += 2 if resonant_stacks >= 4 else 1
+        resonant = round(self._hero_effect_value(actor, "boon", "resonant_energy"))
+        if self.state.effect_counters[combat_key] % 3 == 0 and resonant:
+            self.state.energy += resonant
             self.add_log(f"{actor.name}'s Resonant Circuit returns energy.")
         moved = any(effect["op"] == "move" for effect in effects)
         counter_key = f"countercurrent:{actor.id}"
         if moved and not self.state.effect_counters.get(counter_key):
-            counter_stacks = self.state.boons.get(actor.id, {}).get("countercurrent", 0)
-            draws = 2 if counter_stacks >= 3 else int(bool(counter_stacks))
+            draws = round(self._hero_effect_value(actor, "boon", "countercurrent_draw"))
             if draws:
                 self._draw(draws)
                 self.state.effect_counters[counter_key] = 1
@@ -1366,7 +1405,6 @@ class GameEngine:
 
     def _enemy_phase(self) -> None:
         for hero in self.living_heroes():
-            self.state.effect_counters[f"enemy_hit:{hero.id}"] = 0
             self.state.effect_counters[f"adrenal:{hero.id}"] = 0
         intents = list(self.state.intents)
         for intent in intents:
@@ -1449,7 +1487,7 @@ class GameEngine:
         if key in {"curse_draw_stress", "curse_held_stress"}:
             self._change_stress(hero, amount)
         elif key == "curse_draw_wound":
-            self._add_status(hero, "wound", amount)
+            self._add_status(hero, "wound", amount + 1)
         elif key == "curse_draw_energy":
             self.state.energy = max(0, self.state.energy - amount)
         elif key == "curse_draw_move":

@@ -59,6 +59,17 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("TARGET:", lines[10])
         self.assertEqual(lines[1][1], lines[-2][-2])
 
+    def test_curse_card_has_distinct_unplayable_ascii(self) -> None:
+        hero = self.engine.living_heroes()[0]
+        self.engine.acquire_curse(hero.id, "static_prayer")
+        self.engine.start_combat("vents")
+        card = CardInstance("static_prayer", bound_hero_id=hero.id)
+        lines = self.ui._card_lines(card)
+        self.assertEqual("X", lines[1][1])
+        self.assertIn("CURSE", lines[3])
+        self.assertIn("unplayable", lines[10])
+        self.assertIn("XX", "".join(lines))
+
     def test_combat_hand_is_a_row_of_five_miniature_cards(self) -> None:
         self.engine.start_combat("vents")
         screen = FakeScreen()
@@ -104,6 +115,9 @@ class AsciiUiTests(unittest.TestCase):
         party = (self.engine.state.party_x, self.engine.state.party_y)
         patrol = self.engine.state.patrols[0]
         patrol.x, patrol.y = party[0] + 3, party[1]
+        pickup = next(item for item in self.engine.state.pickups if not item.hidden)
+        pickup.x, pickup.y = party[0] + 2, party[1]
+        pickup.kind = "boon"
         destination = self.engine.room_position(1)
         self.ui._world_map(5, destination)
         rendered = screen.text()
@@ -113,6 +127,20 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("@", rendered)
         self.assertIn("X", rendered)
         self.assertIn("e", rendered)
+        self.assertIn("+", rendered)
+
+    def test_effect_browser_groups_hero_and_party_stacks(self) -> None:
+        hero = self.engine.living_heroes()[0]
+        self.engine.acquire_boon(hero.id, "iron_benediction")
+        self.engine.acquire_curse(hero.id, "glass_bones")
+        self.engine.acquire_item("survey_relay", 2)
+        screen = FakeScreen(keys=[27])
+        self.ui.screen = screen
+        self.ui._effects_view()
+        rendered = screen.text()
+        self.assertIn("RUN EFFECTS", rendered)
+        self.assertIn("Iron Benediction x1", rendered)
+        self.assertIn("Current:", rendered)
 
     def test_mouse_click_maps_screen_cell_to_world_destination(self) -> None:
         origin = (10, 4, 60, 15)

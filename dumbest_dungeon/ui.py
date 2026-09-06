@@ -490,7 +490,10 @@ class TerminalUI:
     def _render_combat(self, selected: int, selected_target: str | None = None) -> None:
         assert self.engine
         state = self.engine.state
-        self._begin(f"COMBAT — ROUND {state.round} — ENERGY {state.energy}")
+        boons, curses_owned, items = self.engine.effect_counts()
+        self._begin(
+            f"COMBAT — ROUND {state.round} — ENERGY {state.energy} — B{boons} C{curses_owned} I{items}"
+        )
         active_hero = None
         valid_targets: list[str] = []
         if state.hand:
@@ -727,15 +730,43 @@ class TerminalUI:
         choices = ["Upgrade a card", "Remove a card"]
         if service_type == "camp":
             choices.insert(0, "Recover: heal 7 and reduce 10 stress")
+            if self.engine.state.curses:
+                choices.insert(1, "Treat one curse (2 supplies)")
         picked = self._menu("CREW QUARTERS" if service_type == "camp" else "WORKSHOP", choices, "The room can be used once.", allow_cancel=False)
         action = choices[picked]
         if action.startswith("Recover"):
             self.engine.service("recover")
             return
+        if action.startswith("Treat"):
+            curses_owned = [
+                (hero_id, curse_id, count)
+                for hero_id, effects in self.engine.state.curses.items()
+                for curse_id, count in effects.items()
+            ]
+            labels = [
+                f"{self.catalog.heroes[hero_id]['name']}: "
+                f"{self.catalog.curses[curse_id]['name']} x{count} — "
+                f"{self.catalog.curses[curse_id]['description']}"
+                for hero_id, curse_id, count in curses_owned
+            ]
+            selected = self._menu(
+                "CURSE TREATMENT",
+                labels,
+                f"Supplies {self.engine.state.supplies}. Remove one stack and its bound card, if any.",
+                allow_cancel=False,
+            )
+            assert selected is not None
+            hero_id, curse_id, _ = curses_owned[selected]
+            self.engine.service("treat", hero_id=hero_id, curse_id=curse_id)
+            return
         eligible = [
             index for index, card in enumerate(self.engine.state.deck)
-            if action.startswith("Remove") or not card.upgraded
+            if action.startswith("Remove")
+            or (not card.upgraded and card.card_id not in self.catalog.curses)
         ]
+        if not eligible:
+            self.message = "No cards are eligible for that service."
+            return
         labels = [self._card_label(self.engine.state.deck[index]) for index in eligible]
         previews = [self.engine.state.deck[index] for index in eligible]
         selected = self._menu(action.upper(), labels, allow_cancel=False, preview_cards=previews)
@@ -762,6 +793,61 @@ class TerminalUI:
             view_only=True,
             preview_cards=list(self.engine.state.deck),
         )
+
+    def _effects_view(self) -> None:
+        assert self.engine
+        entries: list[tuple[str, str]] = []
+        for hero in self.engine.state.heroes:
+            for boon_id, count in self.engine.state.boons.get(hero.id, {}).items():
+                entries.append(
+                    (
+                        f"+ {hero.name}: {self.catalog.boons[boon_id]['name']} x{count}",
+                        self.engine.effect_description("boon", boon_id, count),
+                    )
+                )
+            for curse_id, count in self.engine.state.curses.get(hero.id, {}).items():
+                entries.append(
+                    (
+                        f"! {hero.name}: {self.catalog.curses[curse_id]['name']} x{count}",
+                        self.engine.effect_description("curse", curse_id, count),
+                    )
+                )
+        for item_id, count in self.engine.state.items.items():
+            entries.append(
+                (
+                    f"* PARTY: {self.catalog.items[item_id]['name']} x{count}",
+                    self.engine.effect_description("item", item_id, count),
+                )
+            )
+        if not entries:
+            entries = [("No run effects acquired", "Explore visible signals and salvage to build the run.")]
+        boon_count, curse_count, item_count = self.engine.effect_counts()
+        selected = 0
+        scroll = 0
+        while True:
+            self._begin("RUN EFFECTS")
+            self._put(2, 3, f"Boons {boon_count}  Curses {curse_count}  Item stacks {item_count}")
+            available = max(1, self.screen.getmaxyx()[0] - 7)
+            if selected < scroll:
+                scroll = selected
+            elif selected >= scroll + available:
+                scroll = selected - available + 1
+            for shown, (label, _) in enumerate(entries[scroll:scroll + available]):
+                index = scroll + shown
+                attr = curses.A_REVERSE if index == selected else 0
+                self._put(4 + shown, 3, ("> " if index == selected else "  ") + label[:32], attr)
+            detail_width = max(20, self.screen.getmaxyx()[1] - 42)
+            self._put(4, 41, entries[selected][0][:detail_width], curses.A_BOLD)
+            for offset, line in enumerate(textwrap.wrap(entries[selected][1], detail_width)[:10]):
+                self._put(6 + offset, 41, line)
+            self._footer("Up/Down inspect  Esc/Enter back")
+            key = self._key()
+            if key in (curses.KEY_UP, ord("k")):
+                selected = (selected - 1) % len(entries)
+            elif key in (curses.KEY_DOWN, ord("j")):
+                selected = (selected + 1) % len(entries)
+            elif key in (10, 13, curses.KEY_ENTER, 27):
+                return
 
     def _pause(self) -> None:
         if not self.engine:
@@ -807,16 +893,20 @@ class TerminalUI:
         text = (
             "Explore the ship from above and reach the Overseer Chamber. Aim the X cursor with arrows or "
             "hjkl, then press Enter to auto-walk there. A first left-click selects and highlights a tile; "
-            "click it again or press Enter to confirm. One order can cover at most 18 floor tiles. "
+            "click it again or press Enter to confirm. One order has limited reach; Survey Relays extend it. "
             "Tab cycles points of interest and Space recenters on the crew. Patrols move whenever the crew "
             "takes a step, and contact opens combat. Movement drains light; darkness adds stress, increases "
             "surprise attacks, and offers a fourth card reward. In combat, spend shared "
             "energy on cards whose specialist occupies a valid rank. Enemy intents are shown before they act.\n\n"
+            "Visible +, *, and ! discoveries grant hero-bound boons, party-wide stackable items, or risky "
+            "bargains. Hidden anomalies inflict curses when stepped on. Curse cards trigger when drawn and "
+            "cannot be played. Press I during exploration or combat to inspect every active stack and its "
+            "current scaled value.\n\n"
             "At zero HP a crew member reaches Death's Door. Further damage may kill them and end the run. "
             "At 100 stress they gain an affliction; reaching 100 again causes collapse. Supplies heal, calm, "
-            "or restore light. Camps recover crew or modify one card.\n\n"
+            "or restore light. Camps recover crew, modify one card, or remove one curse for 2 supplies.\n\n"
             "Controls: arrows or hjkl navigate, Enter confirms, Escape cancels/pauses, E ends a combat turn, "
-            "U uses a supply, D views the deck, P pauses, and ? opens this page."
+            "U uses a supply, D views the deck, I views effects, P pauses, and ? opens this page."
         )
         self._notice("HOW TO PLAY", text)
 
@@ -829,10 +919,15 @@ class TerminalUI:
             for h in self.engine.living_heroes()
         )
         self._put(row + 1, 2, crew)
+        self._put(row + 2, 2, self.engine.compact_effect_summary()[: self.screen.getmaxyx()[1] - 3], curses.A_DIM)
 
     def _card_label(self, card: CardInstance) -> str:
-        definition = self.catalog.cards[card.card_id]
+        assert self.engine
+        definition = self.engine.card_definition(card)
         plus = "+" if card.upgraded else ""
+        if card.card_id in self.catalog.curses:
+            hero = self.catalog.heroes.get(card.bound_hero_id or "", {}).get("name", "Unbound")
+            return f"{definition['name']} (CURSE / {hero}) — {definition['description']}"
         return f"{definition['name']}{plus} ({self.catalog.heroes[definition['hero']]['role']}) — {definition['description']}"
 
     def _draw_sprite(self, row: int, column: int, lines: list[str], attr: int = 0) -> None:
@@ -851,22 +946,27 @@ class TerminalUI:
 
     def _card_lines(self, card: CardInstance) -> list[str]:
         assert self.engine
-        definition = self.catalog.cards[card.card_id]
+        definition = self.engine.card_definition(card)
         width = 22
         inside = width - 2
 
         def framed(text: str = "") -> str:
             return "|" + text[:inside].ljust(inside) + "|"
 
+        is_curse = card.card_id in self.catalog.curses
         plus = "+" if card.upgraded else ""
-        cost = definition["cost"] if self.engine.state.phase == "hub" else self.engine.card_cost(card)
+        cost = "X" if is_curse else (
+            definition["cost"] if self.engine.state.phase == "hub" else self.engine.card_cost(card)
+        )
         title = f"{definition['name'].upper()}{plus}"
-        role = self.catalog.heroes[definition["hero"]]["role"].upper()
-        mark = self.catalog.art["card_marks"][definition["hero"]]
-        glyph = self.catalog.art["card_glyphs"][definition["hero"]]
-        ranks = ",".join(str(rank) for rank in definition["from_ranks"])
-        target = definition["target"].replace("_", " ")
-        if definition.get("target_ranks"):
+        hero_id = card.bound_hero_id if is_curse else definition["hero"]
+        role = f"CURSE/{self.catalog.heroes.get(hero_id or '', {}).get('role', 'UNBOUND')}" if is_curse else self.catalog.heroes[hero_id]["role"]
+        role = role.upper()
+        mark = self.catalog.art["curse_card_mark"] if is_curse else self.catalog.art["card_marks"][hero_id]
+        glyph = self.catalog.art["curse_card_glyph"] if is_curse else self.catalog.art["card_glyphs"][hero_id]
+        ranks = "--" if is_curse else ",".join(str(rank) for rank in definition["from_ranks"])
+        target = "unplayable" if is_curse else definition["target"].replace("_", " ")
+        if not is_curse and definition.get("target_ranks"):
             target += " " + ",".join(str(rank) for rank in definition["target_ranks"])
         description = textwrap.wrap(definition["description"], inside - 2)[:2]
         description += [""] * (2 - len(description))
@@ -905,19 +1005,23 @@ class TerminalUI:
 
     def _mini_card_lines(self, card: CardInstance) -> list[str]:
         assert self.engine
-        definition = self.catalog.cards[card.card_id]
+        definition = self.engine.card_definition(card)
         width = 14
         inside = width - 2
 
         def framed(text: str = "") -> str:
             return "|" + text[:inside].ljust(inside) + "|"
 
-        cost = definition["cost"] if self.engine.state.phase == "hub" else self.engine.card_cost(card)
-        mark = self.catalog.art["card_marks"][definition["hero"]]
+        is_curse = card.card_id in self.catalog.curses
+        cost = "X" if is_curse else (
+            definition["cost"] if self.engine.state.phase == "hub" else self.engine.card_cost(card)
+        )
+        hero_id = card.bound_hero_id if is_curse else definition["hero"]
+        mark = self.catalog.art["curse_card_mark"] if is_curse else self.catalog.art["card_marks"][hero_id]
         plus = "+" if card.upgraded else ""
         title = f"{definition['name'].upper()}{plus}"
-        glyph = self.catalog.art["card_glyphs"][definition["hero"]]
-        target = definition["target"].replace("all_enemies", "all foes").replace("all_allies", "all crew")
+        glyph = self.catalog.art["curse_card_glyph"] if is_curse else self.catalog.art["card_glyphs"][hero_id]
+        target = "UNPLAYABLE" if is_curse else definition["target"].replace("all_enemies", "all foes").replace("all_allies", "all crew")
         description = textwrap.wrap(definition["description"], inside)[:2]
         description += [""] * (2 - len(description))
         corners = f"{cost}" + " " * (inside - len(str(cost)) - len(mark)) + mark

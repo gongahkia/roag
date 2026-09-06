@@ -15,6 +15,10 @@ class SaveTests(unittest.TestCase):
 
     def test_exploration_save_round_trip(self) -> None:
         engine = GameEngine.new(self.catalog, 101)
+        hero = engine.living_heroes()[0]
+        engine.acquire_boon(hero.id, "iron_benediction")
+        engine.acquire_curse(hero.id, "static_prayer")
+        engine.acquire_item("survey_relay", 2)
         first_step = engine.path_to(*engine.room_position(1))[0]
         engine.step_exploration(*first_step)
         with tempfile.TemporaryDirectory() as directory:

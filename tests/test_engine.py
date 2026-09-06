@@ -56,6 +56,66 @@ class EngineTests(unittest.TestCase):
                 self.assertTrue(engine.is_walkable(*destination))
                 self.assertTrue(destination == start or engine._find_path(start, destination))
 
+    def test_discovery_distribution_is_seeded_and_spans_the_map(self) -> None:
+        for seed in range(50):
+            engine = GameEngine.new(self.catalog, seed)
+            kinds = [pickup.kind for pickup in engine.state.pickups]
+            self.assertEqual(3, kinds.count("boon"))
+            self.assertEqual(5, kinds.count("item"))
+            self.assertEqual(2, kinds.count("bargain"))
+            self.assertEqual(2, kinds.count("trap"))
+            self.assertTrue(all(pickup.hidden == (pickup.kind == "trap") for pickup in engine.state.pickups))
+            bands = [sum(left <= pickup.x <= right for pickup in engine.state.pickups) for left, right in ((0, 38), (39, 77), (78, 116))]
+            self.assertEqual([4, 4, 4], bands)
+            item_ids = [pickup.payload["item_id"] for pickup in engine.state.pickups if pickup.kind == "item"]
+            self.assertEqual(4, len(set(item_ids)))
+
+    def test_visible_discovery_grants_stackable_item(self) -> None:
+        pickup = next(item for item in self.engine.state.pickups if item.kind == "item")
+        neighbor = self.engine._neighbors((pickup.x, pickup.y))[0]
+        self.engine.state.party_x, self.engine.state.party_y = neighbor
+        self.engine.step_exploration(pickup.x, pickup.y)
+        self.assertEqual("discovery", self.engine.state.phase)
+        item_id = pickup.payload["item_id"]
+        self.engine.resolve_item_pickup()
+        self.assertEqual(1, self.engine.state.items[item_id])
+        self.assertTrue(pickup.resolved)
+
+    def test_effect_stacks_apply_curves_and_caps(self) -> None:
+        hero = self.engine.living_heroes()[0]
+        for _ in range(10):
+            self.engine.acquire_item("survey_relay")
+        self.assertEqual(24, self.engine.maximum_navigation_distance())
+        self.engine.acquire_boon(hero.id, "hunters_rhythm")
+        first = self.engine._outgoing_damage(hero, 100)
+        self.engine.acquire_boon(hero.id, "hunters_rhythm")
+        second = self.engine._outgoing_damage(hero, 100)
+        self.assertGreater(second, first)
+        self.assertLess(second - first, first - 100)
+
+    def test_curse_card_triggers_and_camp_treatment_removes_one_stack(self) -> None:
+        hero = self.engine.living_heroes()[0]
+        self.engine.acquire_curse(hero.id, "static_prayer")
+        self.engine.acquire_curse(hero.id, "static_prayer")
+        self.engine.state.phase = "combat"
+        self.engine.state.draw_pile = [CardInstance("static_prayer", bound_hero_id=hero.id)]
+        self.engine._draw(1)
+        self.assertEqual(4, hero.stress)
+        self.assertEqual([], self.engine.valid_targets(0))
+        with self.assertRaisesRegex(RuleError, "cannot be played"):
+            self.engine.play_card(0)
+
+        self.engine.state.phase = "service"
+        self.engine.state.service_type = "camp"
+        supplies = self.engine.state.supplies
+        self.engine.service("treat", hero_id=hero.id, curse_id="static_prayer")
+        self.assertEqual(1, self.engine.state.curses[hero.id]["static_prayer"])
+        self.assertEqual(
+            1,
+            sum(card.card_id == "static_prayer" for card in self.engine.state.deck),
+        )
+        self.assertEqual(supplies - 2, self.engine.state.supplies)
+
     def test_pathfinding_and_step_costs(self) -> None:
         with self.assertRaisesRegex(RuleError, "floor tile"):
             self.engine.path_to(0, 0)
@@ -294,6 +354,8 @@ class EngineTests(unittest.TestCase):
         room = self.engine.state.rooms[1]
         room.kind = "upgrade"
         room.resolved = False
+        for pickup in self.engine.state.pickups:
+            pickup.resolved = True
         self.engine.move_to(1)
         self.engine.service("upgrade", 0)
         self.assertTrue(self.engine.state.deck[0].upgraded)
