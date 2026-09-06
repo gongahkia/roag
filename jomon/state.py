@@ -251,28 +251,30 @@ def _household(seed: str) -> list[Person]:
     return people
 
 
-def _threats(seed: str) -> list[Threat]:
+def _threats(seed: str, region: Region) -> list[Threat]:
     names = stage_rng(seed, "threat-names")
     elite = stage_rng(seed, "elite-machinery").randrange(4) == 0
+    patrol = [Position(x, 20) for x in range(30, 45)] + [Position(x, 21) for x in range(44, 29, -1)]
     return [
-        Threat("reed-pursuer", names.choice(("bank runner", "cut-purse watch")), "pursuer", "reed_gate", Position(21, 6), 4, 4),
-        Threat("eel-boar", "bristleback reed boar", "animal", "eel_cut", Position(22, 5), 5, 5, morale=3),
-        Threat("towpath-bow", "towpath crossbow watcher", "ranged", "lower_towpath", Position(21, 6), 3, 3),
-        Threat("yard-spear", "displaced levy spearman", "reach", "mill_yard", Position(18, 6), 4, 4, morale=3),
-        Threat("yard-bow", "levy bolt carrier", "ranged", "mill_yard", Position(22, 4), 3, 3),
+        Threat("road-patrol", names.choice(("bank runner", "toll watch")), "pursuer", patrol[0], 5, 5, patrol=patrol),
+        Threat("reed-boar", "bristleback reed boar", "animal", Position(51, 38), 5, 5, morale=3),
+        Threat("tower-bow", "watch-roof crossbow keeper", "ranged", Position(47, 11, 2), 4, 4),
+        Threat("mill-spear", "displaced mill levy", "reach", Position(74, 24), 5, 5, morale=3),
+        Threat("gantry-bow", "gantry bolt carrier", "ranged", Position(80, 20, 1), 4, 4),
         Threat(
             "wheel-train", "runaway crown wheel" if elite else "unbalanced mill sweep",
-            "machinery", "wheelhouse", Position(17, 6), 7 if elite else 5, 7 if elite else 5,
+            "machinery", Position(82, 27), 7 if elite else 5, 7 if elite else 5,
             morale=99, elite=elite,
         ),
+        Threat("pressure-reavers", "valuable-seeking river reavers", "reach", Position(58, 28), 6, 6, status="dormant", morale=4),
     ]
 
 
 def _region(seed: str) -> tuple[Region, Contact]:
-    from .topology import build_rooms
+    from .topology import build_region
 
     context = dict(stage_rng(seed, "regional-context").choice(REGIONAL_CONTEXTS))
-    rooms, signature = build_rooms(seed)
+    spatial = build_region(seed)
     contact_rng = stage_rng(seed, "contact")
     contact = Contact(
         id="hearthford-contact", name=contact_rng.choice(CONTACT_NAMES),
@@ -283,7 +285,7 @@ def _region(seed: str) -> tuple[Region, Contact]:
         condition=context["condition"], work=context["work"], pressure=context["pressure"],
         objective_text=context["objective"], objective_commodity=context["commodity"],
         opportunity_commodity=context["opportunity"], hazard=context["hazard"],
-        rooms=rooms, topology_signature=signature,
+        **spatial,
     ), contact
 
 
@@ -303,15 +305,20 @@ def create_world(seed: str) -> GameState:
         save_format=SAVE_FORMAT, seed=seed, world_time=0, household=household,
         active_courier_id=None, contact=contact, region=region, market=market,
         vessel_cargo=vessel_cargo, location="jomon", current_room=None,
-        position=Position(3, 4), expedition_count=0, returned_expeditions=0,
+        position=Position(3, 4, 0), expedition_count=0, returned_expeditions=0,
         weapon=None, gear=None, support=None, support_spent=False, crossbow_loaded=True,
         owned_weapons=["billhook", "spear", "cudgel", "staff"],
         owned_gear=["buckler", "rope", "quiet shoes", "repair tools", "smoke pot", "trade seals"],
         consumables={}, relics=relics, carried_relic=None, carried_goods={},
         objective_status="unoffered", objective_required=2, flood_control="raised",
-        pressure_elapsed=0, noise=0, threats=_threats(seed), trade_credit=0,
+        pressure_elapsed=0, noise=0, threats=[], trade_credit=0,
         merchant_present=False, merchant_stock=[],
+        owned_passives={}, carried_passives={}, ammunition=6, lamp_oil=6,
+        rope_uses=3, smoke_charges=1, smoke={}, water={}, guarded_step=False,
+        aimed_target=None, weather="clear", objective_deadline=150,
+        objective_changed=False, escalation_spawned=False,
     )
+    state.threats = _threats(seed, region)
     state.add_message(f"Jomon reaches Hearthford. {region.condition}")
     if relics:
         state.add_message("A finite river-glass ward rests in the household stores.")
