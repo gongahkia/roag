@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import defaultdict
+import random
 import unittest
 
 from dumbest_dungeon.content import load_catalog
@@ -20,6 +22,9 @@ class EngineTests(unittest.TestCase):
     def test_all_world_layouts_and_biome_encounter_pools_generate(self) -> None:
         worlds = set()
         layouts = set()
+        formations: dict[str, dict[tuple[str, ...], set[tuple[str, ...]]]] = defaultdict(
+            lambda: defaultdict(set)
+        )
         for seed in range(200):
             engine = GameEngine.new(self.catalog, seed)
             world = self.catalog.worlds[engine.state.world_id]
@@ -31,8 +36,23 @@ class EngineTests(unittest.TestCase):
                     continue
                 encounter = self.catalog.encounters[room.content_id]
                 self.assertIn(room.biome_id, encounter.get("biomes", ["derelict"]))
+                self.assertTrue(2 <= len(room.enemy_ids) <= 4)
+                self.assertTrue(
+                    all(
+                        room.biome_id in self.catalog.enemies[enemy_id].get("biomes", ["derelict"])
+                        for enemy_id in room.enemy_ids
+                    )
+                )
+                total_hp = sum(self.catalog.enemies[enemy_id]["max_hp"] for enemy_id in room.enemy_ids)
+                minimum, maximum = (40, 60) if room.kind == "fight" else (62, 100)
+                self.assertTrue(minimum <= total_hp <= maximum)
+                formations[room.biome_id][tuple(sorted(room.enemy_ids))].add(tuple(room.enemy_ids))
         self.assertEqual(set(self.catalog.worlds), worlds)
         self.assertEqual(6, len(layouts))
+        self.assertEqual(set(self.catalog.biomes), set(formations))
+        for biome_id, selections in formations.items():
+            self.assertGreaterEqual(len(selections), 2, biome_id)
+            self.assertTrue(any(len(orders) > 1 for orders in selections.values()), biome_id)
 
     def test_card_biome_affinity_adds_bounded_potency(self) -> None:
         engine = GameEngine.new(self.catalog, 4, start_in_hub=True)
@@ -177,6 +197,7 @@ class EngineTests(unittest.TestCase):
 
     def test_patrol_contact_opens_combat_and_victory_clears_it(self) -> None:
         patrol = next(item for item in self.engine.state.patrols if self.engine.room(item.room_id).kind != "boss")
+        expected_formation = list(self.engine.room(patrol.room_id).enemy_ids)
         for other in self.engine.state.patrols:
             other.active = other is patrol
         destination = self.engine._neighbors((self.engine.state.party_x, self.engine.state.party_y))[0]
@@ -184,6 +205,7 @@ class EngineTests(unittest.TestCase):
         self.engine.step_exploration(*destination)
         self.assertEqual("combat", self.engine.state.phase)
         self.assertEqual(patrol.id, self.engine.state.active_patrol_id)
+        self.assertEqual(expected_formation, [enemy.definition_id for enemy in self.engine.state.enemies])
         for enemy in list(self.engine.living_enemies()):
             self.engine._damage(enemy, enemy.max_hp)
         self.engine._combat_victory()
@@ -372,6 +394,64 @@ class EngineTests(unittest.TestCase):
         self.engine.state.hand = []
         self.engine.end_turn()
         self.assertIn(self.engine.state.phase, {"combat", "defeat"})
+
+    def test_enemy_intent_weights_coordinate_setup_exploit_and_support(self) -> None:
+        self.engine.start_combat(
+            "lost_shift",
+            enemy_ids=["rad_acolyte", "control_rod"],
+        )
+        acolyte, control_rod = self.engine.living_enemies()
+        gamma_brand = next(
+            action
+            for action in self.catalog.enemies["rad_acolyte"]["actions"]
+            if action["name"] == "Gamma Brand"
+        )
+        containment = next(
+            action
+            for action in self.catalog.enemies["control_rod"]["actions"]
+            if action["name"] == "Containment Blow"
+        )
+        regulate = next(
+            action
+            for action in self.catalog.enemies["control_rod"]["actions"]
+            if action["name"] == "Regulate"
+        )
+        self.assertGreater(
+            self.engine._enemy_action_weight(acolyte, gamma_brand, formation_exploits={"marked"}),
+            self.engine._enemy_action_weight(acolyte, gamma_brand),
+        )
+        self.assertGreater(
+            self.engine._enemy_action_weight(control_rod, containment, planned_statuses={"marked"}),
+            self.engine._enemy_action_weight(control_rod, containment),
+        )
+        self.assertEqual(gamma_brand["target"], containment["target"])
+        setup_first = sum(
+            GameEngine._arrange_enemy_formation(
+                self.catalog,
+                random.Random(seed),
+                ["control_rod", "rad_acolyte"],
+            ).index("rad_acolyte")
+            == 0
+            for seed in range(100)
+        )
+        self.assertGreaterEqual(setup_first, 80)
+        full_health_weight = self.engine._enemy_action_weight(control_rod, regulate)
+        acolyte.hp = 4
+        wounded_ally_weight = self.engine._enemy_action_weight(control_rod, regulate)
+        self.assertGreater(wounded_ally_weight, full_health_weight)
+
+    def test_enemy_status_exploit_adds_declared_combo_damage(self) -> None:
+        self.engine.start_combat("lost_shift", enemy_ids=["control_rod"])
+        enemy = self.engine.living_enemies()[0]
+        target = self.engine.living_heroes()[0]
+        target.max_hp = target.hp = 100
+        effect = {"op": "damage", "amount": 8, "bonus_status": "marked", "bonus": 4}
+        self.engine._apply_effect(enemy, [target], effect)
+        self.assertEqual(92, target.hp)
+        target.hp = 100
+        target.statuses["marked"] = 2
+        self.engine._apply_effect(enemy, [target], effect)
+        self.assertEqual(88, target.hp)
 
     def test_guard_lasts_for_configured_enemy_phases(self) -> None:
         self.engine.start_combat("lost_shift")

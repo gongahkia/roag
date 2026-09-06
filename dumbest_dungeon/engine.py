@@ -536,8 +536,16 @@ class GameEngine:
         rng: random.Random,
         enemy_ids: list[str],
     ) -> list[str]:
+        formation_setups = set().union(
+            *(cls._definition_setup_statuses(catalog.enemies[enemy_id]) for enemy_id in enemy_ids)
+        )
+        formation_exploits = set().union(
+            *(cls._definition_exploit_statuses(catalog.enemies[enemy_id]) for enemy_id in enemy_ids)
+        )
+
         def rank_priority(enemy_id: str) -> float:
-            roles = cls._definition_roles(catalog.enemies[enemy_id])
+            definition = catalog.enemies[enemy_id]
+            roles = cls._definition_roles(definition)
             if "defender" in roles and "support" not in roles:
                 base = 0.0
             elif "striker" in roles and "controller" not in roles:
@@ -546,6 +554,10 @@ class GameEngine:
                 base = 2.0
             else:
                 base = 3.0
+            if cls._definition_setup_statuses(definition) & formation_exploits:
+                base -= 1.5
+            if cls._definition_exploit_statuses(definition) & formation_setups:
+                base += 1.5
             return base + rng.uniform(-0.45, 0.45)
 
         ordered = sorted(enemy_ids, key=rank_priority)

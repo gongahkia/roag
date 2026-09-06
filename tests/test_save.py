@@ -72,6 +72,17 @@ class SaveTests(unittest.TestCase):
         with self.assertRaisesRegex(RuleError, "positions do not match"):
             GameEngine.from_snapshot(self.catalog, snapshot)
 
+    def test_saved_enemy_formation_is_validated(self) -> None:
+        snapshot = GameEngine.new(self.catalog, 405).snapshot()
+        room = next(
+            room
+            for room in snapshot["state"]["rooms"]
+            if room["kind"] in {"fight", "elite"}
+        )
+        room["enemy_ids"] = ["missing-enemy"]
+        with self.assertRaisesRegex(RuleError, "invalid enemy formation"):
+            GameEngine.from_snapshot(self.catalog, snapshot)
+
 
 if __name__ == "__main__":
     unittest.main()

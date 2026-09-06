@@ -136,6 +136,14 @@ def _effects(value: Any, allowed: set[str], context: str) -> None:
             raise ContentError(f"{context}[{index}] has an unknown effect operation")
         if "amount" in effect and not isinstance(effect["amount"], (int, float)):
             raise ContentError(f"{context}[{index}].amount must be numeric")
+        if "bonus_status" in effect and (
+            effect["op"] != "damage"
+            or not isinstance(effect["bonus_status"], str)
+            or not effect["bonus_status"]
+            or not isinstance(effect.get("bonus"), (int, float))
+            or effect["bonus"] <= 0
+        ):
+            raise ContentError(f"{context}[{index}] has an invalid status damage bonus")
         if effect.get("target") not in {None, "self", "all_enemies", "all_allies"}:
             raise ContentError(f"{context}[{index}].target is invalid")
         if effect["op"] == "status" and not isinstance(effect.get("status"), str):

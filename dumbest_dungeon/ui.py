@@ -694,6 +694,14 @@ class TerminalUI:
     def _intents(self, row: int, max_lines: int) -> None:
         assert self.engine
         descriptions = []
+        formation_exploits = set().union(
+            *(
+                self.engine._definition_exploit_statuses(
+                    self.catalog.enemies[enemy.definition_id or enemy.id]
+                )
+                for enemy in self.engine.living_enemies()
+            )
+        ) if self.engine.living_enemies() else set()
         for intent in self.engine.state.intents:
             enemy = next((actor for actor in self.engine.living_enemies() if actor.id == intent["enemy_id"]), None)
             if not enemy:
@@ -702,9 +710,38 @@ class TerminalUI:
             action = next(item for item in actions if item["name"] == intent["action"])
             effects = []
             for effect in action["effects"]:
-                label = {"damage": "dmg", "stress": "stress", "block": "block", "heal": "heal"}.get(effect["op"], effect["op"])
-                effects.append(f"{effect.get('amount', '')}{label}")
-            descriptions.append(f"R{enemy.rank} {action['name']} ({action['target']}; {'+'.join(effects)})")
+                if effect["op"] == "status":
+                    effects.append(f"{effect['status'].upper()} {effect.get('amount', '')}")
+                elif effect["op"] == "move":
+                    direction = "PUSH" if effect.get("amount", 0) > 0 else "PULL"
+                    effects.append(f"{direction} {abs(effect.get('amount', 0))}")
+                elif effect["op"] == "damage" and effect.get("bonus_status"):
+                    maximum = int(effect.get("amount", 0)) + int(effect.get("bonus", 0))
+                    effects.append(
+                        f"{effect.get('amount', '')}/{maximum}dmg:{effect['bonus_status'].upper()}"
+                    )
+                else:
+                    label = {
+                        "damage": "dmg",
+                        "stress": "stress",
+                        "block": "block",
+                        "heal": "heal",
+                    }.get(effect["op"], effect["op"])
+                    effects.append(f"{effect.get('amount', '')}{label}")
+            setup = self.engine._action_setup_statuses(action) & formation_exploits
+            exploit = self.engine._action_exploit_statuses(action)
+            combo = ""
+            if setup:
+                combo = f" SET:{'/'.join(sorted(setup)).upper()}"
+            elif exploit:
+                combo = f" CASH:{'/'.join(sorted(exploit)).upper()}"
+            target = {
+                "weakest_enemy": "weak ally",
+                "all_heroes": "all crew",
+            }.get(action["target"], action["target"])
+            descriptions.append(
+                f"R{enemy.rank} {action['name']} [{target}{combo}; {'+'.join(effects)}]"
+            )
         text = "  |  ".join(descriptions)
         lines = textwrap.wrap(f"INTENTS: {text}", max(20, self.screen.getmaxyx()[1] - 4))
         for offset, line in enumerate(lines[:max_lines]):

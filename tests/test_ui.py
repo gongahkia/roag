@@ -96,6 +96,24 @@ class AsciiUiTests(unittest.TestCase):
         self.ui._draw_card(3, 45, card)
         self.assertIn("TARGET:", preview.text())
 
+    def test_intents_expose_enemy_setup_and_exploit_combos(self) -> None:
+        self.engine.start_combat(
+            "lost_shift",
+            enemy_ids=["rad_acolyte", "control_rod"],
+        )
+        acolyte, control_rod = self.engine.living_enemies()
+        self.engine.state.intents = [
+            {"enemy_rank": 1, "enemy_id": acolyte.id, "action": "Gamma Brand"},
+            {"enemy_rank": 2, "enemy_id": control_rod.id, "action": "Containment Blow"},
+        ]
+        screen = FakeScreen(rows=10)
+        self.ui.screen = screen
+        self.ui._intents(0, 4)
+        rendered = screen.text()
+        self.assertIn("SET:MARKED", rendered)
+        self.assertIn("CASH:MARKED", rendered)
+        self.assertIn("8/12dmg:MARKED", rendered)
+
     def test_target_cursor_moves_between_battlefield_sprites(self) -> None:
         self.engine.start_combat("vents")
         self.engine.state.hand = [CardInstance("snap_shot")]
