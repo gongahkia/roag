@@ -666,10 +666,15 @@ class GameEngine:
         path = self._find_path((self.state.party_x, self.state.party_y), (x, y))
         if (x, y) != (self.state.party_x, self.state.party_y) and not path:
             raise RuleError("no route reaches that tile")
-        maximum = int(self.catalog.balance["maximum_navigation_distance"])
+        maximum = self.maximum_navigation_distance()
         if len(path) > maximum:
             raise RuleError(f"destination is beyond the maximum reach of {maximum} tiles")
         return path
+
+    def maximum_navigation_distance(self) -> int:
+        return int(self.catalog.balance["maximum_navigation_distance"]) + round(
+            self._item_effect_value("survey_reach")
+        )
 
     def move_to(self, room_id: int) -> None:
         destination = self.room_position(room_id)
@@ -693,6 +698,19 @@ class GameEngine:
             if self.state.light < self.catalog.balance["low_light_threshold"]:
                 for hero in self.living_heroes():
                     self._change_stress(hero, 1)
+        if self.state.exploration_steps % 8 == 0:
+            for hero in self.living_heroes():
+                amount = round(self._hero_effect_value(hero, "curse", "night_terror_stress"))
+                if amount:
+                    self._change_stress(hero, amount)
+        if self.state.exploration_steps % 10 == 0:
+            leak = sum(
+                round(self._hero_effect_value(hero, "curse", "leaking_light"))
+                for hero in self.living_heroes()
+            )
+            if leak:
+                self.state.light = max(0, self.state.light - leak)
+                self.add_log(f"Leaking Lamp drains {leak} light.")
         patrol = self._patrol_at(x, y)
         if patrol:
             self._start_patrol_combat(patrol)
@@ -714,6 +732,18 @@ class GameEngine:
 
     def _resolve_exploration_tile(self) -> None:
         position = (self.state.party_x, self.state.party_y)
+        pickup = next(
+            (
+                item
+                for item in self.state.pickups
+                if not item.resolved and (item.x, item.y) == position
+            ),
+            None,
+        )
+        if pickup:
+            self.state.phase = "discovery"
+            self.state.current_pickup_id = pickup.id
+            return
         room = next((room for room in self.state.rooms if self.room_position(room.id) == position), None)
         if room is None:
             return
@@ -724,6 +754,184 @@ class GameEngine:
         self.add_log(f"Entered {room.name}.")
         self._enter_room(room)
 
+    def current_pickup(self) -> EffectPickup:
+        pickup = next(
+            (item for item in self.state.pickups if item.id == self.state.current_pickup_id),
+            None,
+        )
+        if self.state.phase != "discovery" or pickup is None or pickup.resolved:
+            raise RuleError("there is no discovery to resolve")
+        return pickup
+
+    def _finish_pickup(self, message: str) -> None:
+        pickup = self.current_pickup()
+        pickup.resolved = True
+        self.state.current_pickup_id = None
+        self.state.phase = "exploration"
+        self.add_log(message)
+        self._resolve_exploration_tile()
+
+    def _boon_is_eligible(self, hero_id: str, boon_id: str) -> bool:
+        tags = {
+            tag
+            for owned_id in self.state.boons.get(hero_id, {})
+            for tag in self.catalog.boons[owned_id].get("tags", [])
+        }
+        requirements = set(self.catalog.boons[boon_id].get("requires_all_tags", []))
+        return requirements <= tags
+
+    def boon_options(self, hero_id: str, *, count: int | None = None) -> list[str]:
+        if hero_id not in {hero.id for hero in self.living_heroes()}:
+            raise RuleError("that hero cannot receive a boon")
+        eligible = [
+            boon_id for boon_id in self.catalog.boons if self._boon_is_eligible(hero_id, boon_id)
+        ]
+        count = count or 3 + round(self._item_effect_value("boon_offer_choices"))
+        options = []
+        while eligible and len(options) < count:
+            weights = [3 if boon_id not in self.state.boons.get(hero_id, {}) else 1 for boon_id in eligible]
+            choice = self.rng.choices(eligible, weights=weights, k=1)[0]
+            options.append(choice)
+            eligible.remove(choice)
+        return options
+
+    def acquire_boon(self, hero_id: str, boon_id: str) -> int:
+        if (
+            hero_id not in {hero.id for hero in self.living_heroes()}
+            or boon_id not in self.catalog.boons
+            or not self._boon_is_eligible(hero_id, boon_id)
+        ):
+            raise RuleError("invalid boon recipient or definition")
+        owned = self.state.boons.setdefault(hero_id, {})
+        owned[boon_id] = owned.get(boon_id, 0) + 1
+        return owned[boon_id]
+
+    def acquire_item(self, item_id: str, copies: int = 1) -> int:
+        if item_id not in self.catalog.items or copies < 1:
+            raise RuleError("invalid item acquisition")
+        gained = copies + round(self._item_effect_value("salvage_copies"))
+        self.state.items[item_id] = self.state.items.get(item_id, 0) + gained
+        for hero in self.living_heroes():
+            stress = round(self._hero_effect_value(hero, "curse", "scavenger_stress"))
+            if stress:
+                self._change_stress(hero, stress)
+        return gained
+
+    def acquire_curse(self, hero_id: str, curse_id: str) -> int:
+        if hero_id not in {hero.id for hero in self.living_heroes()} or curse_id not in self.catalog.curses:
+            raise RuleError("invalid curse victim or definition")
+        owned = self.state.curses.setdefault(hero_id, {})
+        owned[curse_id] = owned.get(curse_id, 0) + 1
+        if self.catalog.curses[curse_id]["kind"] == "card":
+            self.state.deck.append(CardInstance(curse_id, bound_hero_id=hero_id))
+        return owned[curse_id]
+
+    def boon_pickup_options(self, hero_id: str) -> list[str]:
+        pickup = self.current_pickup()
+        if pickup.kind != "boon":
+            raise RuleError("this discovery is not a boon beacon")
+        if pickup.payload.get("hero_id") != hero_id:
+            pickup.payload = {
+                "hero_id": hero_id,
+                "options": self.boon_options(hero_id),
+            }
+        return list(pickup.payload["options"])
+
+    def resolve_boon_pickup(self, hero_id: str, boon_id: str) -> str:
+        pickup = self.current_pickup()
+        if pickup.kind != "boon":
+            raise RuleError("this discovery is not a boon beacon")
+        if boon_id not in self.boon_pickup_options(hero_id):
+            raise RuleError("that boon was not offered")
+        count = self.acquire_boon(hero_id, boon_id)
+        hero = self._actor(hero_id)
+        name = self.catalog.boons[boon_id]["name"]
+        message = f"{hero.name} receives {name} x{count}."
+        self._finish_pickup(message)
+        return message
+
+    def resolve_item_pickup(self) -> str:
+        pickup = self.current_pickup()
+        if pickup.kind != "item":
+            raise RuleError("this discovery is not salvage")
+        item_id = str(pickup.payload["item_id"])
+        gained = self.acquire_item(item_id)
+        name = self.catalog.items[item_id]["name"]
+        message = f"Recovered {name} x{gained}. Total {self.state.items[item_id]}."
+        self._finish_pickup(message)
+        return message
+
+    def bargain_options(self, hero_id: str) -> list[dict[str, str | int]]:
+        pickup = self.current_pickup()
+        if pickup.kind != "bargain":
+            raise RuleError("this discovery offers no bargain")
+        if pickup.payload.get("hero_id") != hero_id:
+            trait_ids = [
+                curse_id for curse_id, curse in self.catalog.curses.items() if curse["kind"] == "trait"
+            ]
+            card_ids = [
+                curse_id for curse_id, curse in self.catalog.curses.items() if curse["kind"] == "card"
+            ]
+            item_pool = [
+                item.payload["item_id"] for item in self.state.pickups if item.kind == "item"
+            ]
+            pickup.payload = {
+                "hero_id": hero_id,
+                "options": [
+                    {
+                        "reward_kind": "boon",
+                        "reward_id": self.rng.choice(self.boon_options(hero_id)),
+                        "curse_id": self.rng.choice(trait_ids),
+                        "copies": 1,
+                    },
+                    {
+                        "reward_kind": "item",
+                        "reward_id": self.rng.choice(item_pool),
+                        "curse_id": self.rng.choice(card_ids),
+                        "copies": 2,
+                    },
+                ],
+            }
+        return list(pickup.payload["options"])
+
+    def resolve_bargain(self, hero_id: str, option_index: int | None) -> str:
+        pickup = self.current_pickup()
+        if pickup.kind != "bargain":
+            raise RuleError("this discovery offers no bargain")
+        if option_index is None:
+            message = "The crew leaves the anomaly unanswered."
+            self._finish_pickup(message)
+            return message
+        options = self.bargain_options(hero_id)
+        if not 0 <= option_index < len(options):
+            raise RuleError("invalid bargain")
+        option = options[option_index]
+        curse_id = str(option["curse_id"])
+        reward_id = str(option["reward_id"])
+        self.acquire_curse(hero_id, curse_id)
+        if option["reward_kind"] == "boon":
+            self.acquire_boon(hero_id, reward_id)
+            reward_name = self.catalog.boons[reward_id]["name"]
+        else:
+            gained = self.acquire_item(reward_id, int(option["copies"]))
+            reward_name = f"{self.catalog.items[reward_id]['name']} x{gained}"
+        curse_name = self.catalog.curses[curse_id]["name"]
+        message = f"Accepted {reward_name}; {curse_name} takes hold."
+        self._finish_pickup(message)
+        return message
+
+    def resolve_hidden_trap(self) -> str:
+        pickup = self.current_pickup()
+        if pickup.kind != "trap":
+            raise RuleError("this discovery is not a hidden trap")
+        hero = self.rng.choice(self.living_heroes())
+        curse_id = self.rng.choice(list(self.catalog.curses))
+        count = self.acquire_curse(hero.id, curse_id)
+        name = self.catalog.curses[curse_id]["name"]
+        message = f"Hidden anomaly: {hero.name} gains {name} x{count}."
+        self._finish_pickup(message)
+        return message
+
     def _advance_patrols(self) -> None:
         party = (self.state.party_x, self.state.party_y)
         distances = self._distances_from(party)
@@ -733,6 +941,7 @@ class GameEngine:
             occupied.discard(current)
             room_kind = self.room(patrol.room_id).kind
             aggression = 12 if room_kind == "elite" else 8 if room_kind == "boss" else 10
+            aggression = max(4, aggression - round(self._item_effect_value("patrol_aggression_reduction")))
             destination = current
             if 0 < distances.get(current, WORLD_WIDTH * WORLD_HEIGHT) <= aggression:
                 choices = [tile for tile in self._neighbors(current) if tile not in occupied]
@@ -781,15 +990,16 @@ class GameEngine:
             raise RuleError("no supply can be used now")
         if purpose == "heal":
             target = min(self.state.heroes, key=lambda actor: actor.hp / actor.max_hp)
-            self._heal(target, 9)
+            self._heal(target, 9 + round(self._item_effect_value("supply_heal_bonus")))
             message = f"A supply restores {target.name}."
         elif purpose == "calm":
             target = max(self.state.heroes, key=lambda actor: actor.stress)
             self._change_stress(target, -14)
             message = f"A supply steadies {target.name}."
         elif purpose == "light":
-            self.state.light = min(100, self.state.light + 25)
-            message = "A flare restores 25 light."
+            amount = 25 + round(self._item_effect_value("supply_light_bonus"))
+            self.state.light = min(100, self.state.light + amount)
+            message = f"A flare restores {amount} light."
         else:
             raise RuleError("unknown supply use")
         self.state.supplies -= 1
@@ -815,32 +1025,61 @@ class GameEngine:
                     definition_id=enemy_id,
                 )
             )
-        self.state.draw_pile = [CardInstance(card.card_id, card.upgraded) for card in self.state.deck]
+        self.state.draw_pile = [
+            CardInstance(card.card_id, card.upgraded, card.bound_hero_id) for card in self.state.deck
+        ]
         self.rng.shuffle(self.state.draw_pile)
         self.state.discard_pile = []
         self.state.hand = []
         self.state.round = 1
+        self.state.effect_counters = {}
         self.state.intents = self._choose_intents()
         self.add_log(f"Combat begins: {encounter['id']}.")
+        self._start_player_turn()
         if surprised:
             self.add_log("The crew is surprised in the darkness.")
             self._enemy_phase()
             if self.state.phase != "combat":
                 return
             self.state.intents = self._choose_intents()
-        self._start_player_turn()
 
     def _start_player_turn(self) -> None:
         for hero in self.living_heroes():
             hero.block = 0
+            self.state.effect_counters[f"round_cards:{hero.id}"] = 0
+            self.state.effect_counters[f"countercurrent:{hero.id}"] = 0
             self._tick_wound(hero)
             modifiers = self._affliction_modifiers(hero)
             if modifiers.get("turn_stress"):
                 self._change_stress(hero, int(modifiers["turn_stress"]))
+            if self.state.round == 1:
+                start_block = self._hero_effect_value(hero, "boon", "start_block")
+                start_block += self._item_effect_value("stacked_start_block")
+                vigilance = self.state.boons.get(hero.id, {}).get("vigilance", 0)
+                if vigilance:
+                    hero.statuses["dodge"] = max(hero.statuses.get("dodge", 0), 2)
+                    start_block += min(8, max(0, vigilance - 1) * 2)
+                hero.block += round(start_block)
+                relief = round(self._hero_effect_value(hero, "boon", "start_stress_relief"))
+                if relief:
+                    self._change_stress(hero, -relief)
+                marked = round(self._hero_effect_value(hero, "curse", "start_marked"))
+                vulnerable = 0
+                brittle = self.state.curses.get(hero.id, {}).get("brittle_guard", 0)
+                if brittle:
+                    vulnerable = 2 if brittle >= 3 else 1
+                if self.state.curses.get(hero.id, {}).get("lead_feet", 0) >= 3:
+                    vulnerable = max(vulnerable, 1)
+                if marked:
+                    hero.statuses["marked"] = max(hero.statuses.get("marked", 0), marked)
+                if vulnerable:
+                    hero.statuses["vulnerable"] = max(hero.statuses.get("vulnerable", 0), vulnerable)
         if self.state.phase != "combat":
             return
-        self.state.energy = self.catalog.balance["energy"]
-        self._draw(self.catalog.balance["hand_size"] - len(self.state.hand))
+        opening_energy = round(self._item_effect_value("first_round_energy")) if self.state.round == 1 else 0
+        self.state.energy = self.catalog.balance["energy"] + opening_energy
+        opening_cards = round(self._item_effect_value("opening_hand")) if self.state.round == 1 else 0
+        self._draw(self.catalog.balance["hand_size"] + opening_cards - len(self.state.hand))
 
     def living_heroes(self) -> list[Actor]:
         return sorted((actor for actor in self.state.heroes if actor.alive), key=lambda actor: actor.rank)
@@ -1005,19 +1244,23 @@ class GameEngine:
                 continue
             targets = self._effect_targets(effect.get("target"), main_targets, actor)
             self._apply_effect(actor, targets, effect)
-        resonant = round(self._hero_effect_value(actor, "boon", "resonant_energy"))
-        if self.state.effect_counters[combat_key] % 3 == 0 and resonant:
-            self.state.energy += 2 if self.state.boons.get(actor.id, {}).get("resonant_circuit", 0) >= 4 else resonant
+        resonant_stacks = self.state.boons.get(actor.id, {}).get("resonant_circuit", 0)
+        if self.state.effect_counters[combat_key] % 3 == 0 and resonant_stacks:
+            self.state.energy += 2 if resonant_stacks >= 4 else 1
             self.add_log(f"{actor.name}'s Resonant Circuit returns energy.")
         moved = any(effect["op"] == "move" for effect in effects)
         counter_key = f"countercurrent:{actor.id}"
         if moved and not self.state.effect_counters.get(counter_key):
-            draws = round(self._hero_effect_value(actor, "boon", "countercurrent_draw"))
-            if self.state.boons.get(actor.id, {}).get("countercurrent", 0) >= 3:
-                draws = 2
+            counter_stacks = self.state.boons.get(actor.id, {}).get("countercurrent", 0)
+            draws = 2 if counter_stacks >= 3 else int(bool(counter_stacks))
             if draws:
                 self._draw(draws)
                 self.state.effect_counters[counter_key] = 1
+        reserve = round(self._item_effect_value("reserve_energy"))
+        if self.state.energy == 0 and reserve and not self.state.effect_counters.get("reserve_energy"):
+            self.state.energy += reserve
+            self.state.effect_counters["reserve_energy"] = 1
+            self.add_log(f"Reserve Cell restores {reserve} energy.")
         if not self.living_enemies() and self.state.phase == "combat":
             self._combat_victory()
 
@@ -1059,22 +1302,30 @@ class GameEngine:
                     adjusted = amount
                     if effect.get("bonus_status") in target.statuses:
                         adjusted += int(effect.get("bonus", 0))
-                    adjusted = self._outgoing_damage(actor, adjusted)
+                    adjusted = self._outgoing_damage(actor, adjusted, target)
                     self._damage(target, adjusted, actor)
                 elif op == "block":
                     multiplier = float(self._affliction_modifiers(target).get("block_mult", 1))
+                    if target.side == "hero":
+                        reduction = self._hero_effect_value(
+                            target,
+                            "curse",
+                            "tremor_block_reduction",
+                        )
+                        multiplier *= 1 - reduction
+                    multiplier = max(0.5, min(2.0, multiplier))
                     target.block += max(0, round(amount * multiplier))
                 elif op == "heal":
-                    self._heal(target, amount)
+                    self._heal(target, amount, actor)
                 elif op == "stress" and target.side == "hero":
                     self._change_stress(target, amount)
                 elif op == "move":
-                    self._move(target, amount)
+                    self._move(target, amount, actor)
                 elif op == "guard" and target.side == "hero" and target.id != actor.id:
                     target.guarded_by = actor.id
                     target.guard_turns = amount
                 elif op == "status":
-                    target.statuses[effect["status"]] = max(target.statuses.get(effect["status"], 0), amount)
+                    self._add_status(target, effect["status"], amount)
                 elif op == "cleanse":
                     for status in ("marked", "stun", "vulnerable", "weak", "wound"):
                         target.statuses.pop(status, None)
@@ -1082,6 +1333,9 @@ class GameEngine:
     def end_turn(self) -> None:
         if self.state.phase != "combat":
             raise RuleError("there is no combat turn to end")
+        for card in self.state.hand:
+            if card.card_id == "dread_forecast":
+                self._trigger_curse_card(card, "curse_held_stress")
         self.state.discard_pile.extend(self.state.hand)
         self.state.hand = []
         for hero in self.living_heroes():
@@ -1111,6 +1365,9 @@ class GameEngine:
         return intents
 
     def _enemy_phase(self) -> None:
+        for hero in self.living_heroes():
+            self.state.effect_counters[f"enemy_hit:{hero.id}"] = 0
+            self.state.effect_counters[f"adrenal:{hero.id}"] = 0
         intents = list(self.state.intents)
         for intent in intents:
             if self.state.phase != "combat":
@@ -1171,7 +1428,34 @@ class GameEngine:
                 self.state.draw_pile = self.state.discard_pile
                 self.state.discard_pile = []
                 self.rng.shuffle(self.state.draw_pile)
-            self.state.hand.append(self.state.draw_pile.pop())
+            card = self.state.draw_pile.pop()
+            self.state.hand.append(card)
+            if card.card_id in self.catalog.curses:
+                key = self.catalog.curses[card.card_id]["effects"][0]["key"]
+                if key != "curse_held_stress":
+                    self._trigger_curse_card(card, key)
+
+    def _trigger_curse_card(self, card: CardInstance, key: str) -> None:
+        if not card.bound_hero_id:
+            return
+        hero = next((item for item in self.living_heroes() if item.id == card.bound_hero_id), None)
+        if hero is None:
+            return
+        definition = self.catalog.curses[card.card_id]
+        effect = next((item for item in definition["effects"] if item["key"] == key), None)
+        if effect is None:
+            return
+        amount = round(self._stack_value(effect, 1))
+        if key in {"curse_draw_stress", "curse_held_stress"}:
+            self._change_stress(hero, amount)
+        elif key == "curse_draw_wound":
+            self._add_status(hero, "wound", amount)
+        elif key == "curse_draw_energy":
+            self.state.energy = max(0, self.state.energy - amount)
+        elif key == "curse_draw_move":
+            self._move(hero, amount)
+        if key != "curse_dead_draw":
+            self.add_log(f"{definition['name']} afflicts {hero.name}.")
 
     def _actor(self, actor_id: str) -> Actor:
         matches = [item for item in self.state.heroes + self.state.enemies if item.id == actor_id and item.alive]
@@ -1179,12 +1463,34 @@ class GameEngine:
             raise RuleError(f"unknown or inactive actor: {actor_id}")
         return matches[0]
 
-    def _outgoing_damage(self, actor: Actor, amount: int) -> int:
+    def _outgoing_damage(self, actor: Actor, amount: int, target: Actor | None = None) -> int:
         multiplier = float(self._affliction_modifiers(actor).get("damage_mult", 1))
         if actor.statuses.get("weak"):
             multiplier *= 0.75
         if actor.statuses.get("focus"):
             multiplier *= 1.25
+        if actor.side == "hero":
+            multiplier *= 1 + self._hero_effect_value(actor, "boon", "damage_bonus")
+            multiplier *= 1 + self._item_effect_value("damage_bonus")
+            multiplier *= 1 - self._hero_effect_value(
+                actor,
+                "curse",
+                "outgoing_damage_reduction",
+            )
+            if actor.stress >= 50:
+                multiplier *= 1 + self._hero_effect_value(
+                    actor,
+                    "boon",
+                    "stressed_damage_bonus",
+                )
+            if target and target.statuses.get("marked"):
+                multiplier *= 1 + self._hero_effect_value(
+                    actor,
+                    "boon",
+                    "marked_damage_bonus",
+                )
+                multiplier *= 1 + self._item_effect_value("marked_damage_bonus")
+        multiplier = max(0.5, min(2.0, multiplier))
         return max(0, round(amount * multiplier))
 
     def _damage(self, target: Actor, amount: int, attacker: Actor | None = None) -> None:
@@ -1199,13 +1505,27 @@ class GameEngine:
             return
         if target.statuses.get("vulnerable"):
             amount = round(amount * 1.5)
+        if target.side == "hero":
+            multiplier = 1 + self._hero_effect_value(target, "curse", "incoming_damage_bonus")
+            multiplier *= 1 - self._item_effect_value("incoming_damage_reduction")
+            amount = max(0, round(amount * max(0.5, min(2.0, multiplier))))
         absorbed = min(target.block, amount)
         target.block -= absorbed
         amount -= absorbed
+        if target.side == "hero" and amount > 0:
+            hit_key = f"enemy_hit:{target.id}"
+            if not self.state.effect_counters.get(hit_key):
+                amount = max(0, amount - round(self._item_effect_value("deflection")))
+                self.state.effect_counters[hit_key] = 1
         if amount <= 0:
             return
         if target.side == "hero" and target.deaths_door:
-            if self.rng.random() < self.catalog.balance["death_chance"]:
+            death_chance = self.catalog.balance["death_chance"] - self._hero_effect_value(
+                target,
+                "boon",
+                "death_chance_reduction",
+            )
+            if self.rng.random() < max(0.05, death_chance):
                 target.deaths_door = False
                 target.hp = 0
                 self.state.phase = "defeat"
@@ -1216,12 +1536,25 @@ class GameEngine:
             return
         target.hp = max(0, target.hp - amount)
         if target.side == "hero" and target.hp == 0:
-            target.deaths_door = True
-            self._change_stress(target, 12)
-            self.add_log(f"{target.name} is at Death's Door.")
+            second_wind_key = f"second_wind:{target.id}"
+            second_wind = round(self._hero_effect_value(target, "boon", "second_wind"))
+            if second_wind and not self.state.effect_counters.get(second_wind_key):
+                target.hp = min(target.max_hp, second_wind)
+                self.state.effect_counters[second_wind_key] = 1
+                self.add_log(f"Second Wind restores {target.name} for {target.hp}.")
+            else:
+                target.deaths_door = True
+                self._change_stress(target, 12)
+                self.add_log(f"{target.name} is at Death's Door.")
         elif target.side == "enemy" and target.hp == 0:
             self.add_log(f"{target.name} is destroyed.")
             self._normalize_ranks("enemy")
+        if target.side == "hero" and target.hp > 0 and attacker and attacker.side == "enemy":
+            adrenal_key = f"adrenal:{target.id}"
+            adrenal = round(self._hero_effect_value(target, "boon", "adrenal_block"))
+            if adrenal and not self.state.effect_counters.get(adrenal_key):
+                target.block += adrenal
+                self.state.effect_counters[adrenal_key] = 1
         if (
             attacker
             and attacker.alive
@@ -1232,13 +1565,27 @@ class GameEngine:
             self.add_log(f"{target.name} answers with a riposte.")
             self._damage(attacker, 4)
 
-    def _heal(self, target: Actor, amount: int) -> None:
+    def _heal(self, target: Actor, amount: int, healer: Actor | None = None) -> None:
         multiplier = float(self._affliction_modifiers(target).get("healing_mult", 1))
+        if target.side == "hero":
+            multiplier *= 1 - self._hero_effect_value(target, "curse", "healing_reduction")
+        if healer and healer.side == "hero":
+            multiplier *= 1 + self._hero_effect_value(healer, "boon", "healing_bonus")
+        multiplier = max(0.5, min(2.0, multiplier))
         target.hp = min(target.max_hp, target.hp + max(0, round(amount * multiplier)))
         if target.hp > 0:
             target.deaths_door = False
+        if healer and healer.side == "hero" and target.side == "hero" and healer.id != target.id:
+            mercy = round(self._hero_effect_value(healer, "boon", "mercy_block"))
+            if mercy:
+                target.block += mercy
 
     def _change_stress(self, target: Actor, amount: int) -> None:
+        if amount > 0 and target.side == "hero":
+            multiplier = 1 + self._hero_effect_value(target, "curse", "stress_bonus")
+            multiplier *= 1 - self._hero_effect_value(target, "boon", "stress_reduction")
+            multiplier *= 1 - self._item_effect_value("stress_reduction")
+            amount = max(0, round(amount * max(0.4, min(2.0, multiplier))))
         target.stress = max(0, target.stress + amount)
         limit = self.catalog.balance.get("stress_limit", 100)
         if target.stress < limit:
@@ -1263,6 +1610,14 @@ class GameEngine:
         if actor.statuses.get("wound"):
             self._damage(actor, 2)
 
+    def _add_status(self, target: Actor, status: str, amount: int) -> None:
+        if status == "wound" and target.side == "hero":
+            reduction = self._hero_effect_value(target, "boon", "wound_reduction")
+            reduction += self._item_effect_value("wound_reduction")
+            amount = max(0, amount - round(reduction))
+        if amount:
+            target.statuses[status] = max(target.statuses.get(status, 0), amount)
+
     def _decay_statuses(self, actor: Actor) -> None:
         for status in list(actor.statuses):
             if status == "stun":
@@ -1271,7 +1626,13 @@ class GameEngine:
             if actor.statuses[status] <= 0:
                 del actor.statuses[status]
 
-    def _move(self, actor: Actor, amount: int) -> None:
+    def _move(self, actor: Actor, amount: int, source: Actor | None = None) -> None:
+        if source and source.side != actor.side and actor.side == "hero":
+            direction = 1 if amount > 0 else -1
+            distance = abs(amount)
+            distance += round(self._hero_effect_value(actor, "curse", "forced_move_bonus"))
+            distance -= round(self._hero_effect_value(actor, "boon", "forced_move_reduction"))
+            amount = direction * max(0, distance)
         party = self.state.heroes if actor.side == "hero" else self.state.enemies
         for _ in range(abs(amount)):
             direction = 1 if amount > 0 else -1
@@ -1291,6 +1652,14 @@ class GameEngine:
 
     def _combat_victory(self) -> None:
         kind = self.state.combat_kind
+        for hero in self.living_heroes():
+            healing = round(self._hero_effect_value(hero, "boon", "combat_victory_heal"))
+            if healing:
+                self._heal(hero, healing)
+        auto_suture = round(self._item_effect_value("combat_victory_heal"))
+        if auto_suture and self.living_heroes():
+            target = min(self.living_heroes(), key=lambda actor: actor.hp / actor.max_hp)
+            self._heal(target, auto_suture)
         active_patrol = next(
             (patrol for patrol in self.state.patrols if patrol.id == self.state.active_patrol_id),
             None,
@@ -1312,6 +1681,7 @@ class GameEngine:
         if kind != "ambush":
             self.room().resolved = True
         count = 4 if self.state.light < self.catalog.balance["low_light_threshold"] else 3
+        count += round(self._item_effect_value("reward_choices"))
         active_heroes = {hero.id for hero in self.state.heroes}
         pool = [card_id for card_id, card in self.catalog.cards.items() if card["hero"] in active_heroes]
         self.state.rewards = self.rng.sample(pool, k=min(count, len(pool)))
@@ -1366,12 +1736,30 @@ class GameEngine:
         if grant_reward:
             active_heroes = {hero.id for hero in self.state.heroes}
             pool = [card_id for card_id, card in self.catalog.cards.items() if card["hero"] in active_heroes]
-            self.state.rewards = self.rng.sample(pool, k=min(3, len(pool)))
+            count = 3 + round(self._item_effect_value("reward_choices"))
+            self.state.rewards = self.rng.sample(pool, k=min(count, len(pool)))
             self.state.phase = "reward"
         else:
             self.state.phase = "exploration"
 
-    def service(self, action: str, card_index: int | None = None) -> None:
+    def _decrement_curse(self, hero_id: str, curse_id: str) -> None:
+        owned = self.state.curses.get(hero_id, {})
+        if owned.get(curse_id, 0) <= 0:
+            raise RuleError("that curse is not present")
+        owned[curse_id] -= 1
+        if owned[curse_id] == 0:
+            del owned[curse_id]
+        if not owned:
+            self.state.curses.pop(hero_id, None)
+
+    def service(
+        self,
+        action: str,
+        card_index: int | None = None,
+        *,
+        hero_id: str | None = None,
+        curse_id: str | None = None,
+    ) -> None:
         if self.state.phase != "service":
             raise RuleError("no facility is available")
         if action == "recover" and self.state.service_type == "camp":
@@ -1379,9 +1767,36 @@ class GameEngine:
                 self._heal(hero, 7)
                 self._change_stress(hero, -10)
             self.add_log("The crew rests behind a welded door.")
+        elif action == "treat" and self.state.service_type == "camp":
+            if self.state.supplies < 2:
+                raise RuleError("curse treatment requires 2 supplies")
+            if hero_id is None or curse_id is None:
+                raise RuleError("choose a curse to treat")
+            if curse_id not in self.catalog.curses:
+                raise RuleError("choose a known curse to treat")
+            card_index = None
+            if self.catalog.curses[curse_id]["kind"] == "card":
+                card_index = next(
+                    (
+                        index
+                        for index, card in enumerate(self.state.deck)
+                        if card.card_id == curse_id and card.bound_hero_id == hero_id
+                    ),
+                    None,
+                )
+                if card_index is None:
+                    raise RuleError("the bound curse card is missing from the deck")
+            self._decrement_curse(hero_id, curse_id)
+            if card_index is not None:
+                self.state.deck.pop(card_index)
+            self.state.supplies -= 2
+            hero = self._actor(hero_id)
+            self.add_log(f"Treated {self.catalog.curses[curse_id]['name']} on {hero.name}.")
         elif action == "upgrade":
             if card_index is None or not 0 <= card_index < len(self.state.deck):
                 raise RuleError("choose a card to upgrade")
+            if self.state.deck[card_index].card_id in self.catalog.curses:
+                raise RuleError("curse cards cannot be upgraded")
             if self.state.deck[card_index].upgraded:
                 raise RuleError("that card is already upgraded")
             self.state.deck[card_index].upgraded = True
@@ -1392,7 +1807,11 @@ class GameEngine:
             if card_index is None or not 0 <= card_index < len(self.state.deck):
                 raise RuleError("choose a card to remove")
             card = self.state.deck.pop(card_index)
-            self.add_log(f"Removed {self.catalog.cards[card.card_id]['name']}.")
+            if card.card_id in self.catalog.curses:
+                if card.bound_hero_id is None:
+                    raise RuleError("curse card is missing its bound hero")
+                self._decrement_curse(card.bound_hero_id, card.card_id)
+            self.add_log(f"Removed {self.card_definition(card)['name']}.")
         else:
             raise RuleError("that service is not available here")
         self.room().resolved = True

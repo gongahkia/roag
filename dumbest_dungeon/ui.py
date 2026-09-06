@@ -88,6 +88,8 @@ class TerminalUI:
                     self._hub()
                 elif phase == "exploration":
                     self._exploration()
+                elif phase == "discovery":
+                    self._discovery()
                 elif phase == "combat":
                     self._combat()
                 elif phase == "event":
@@ -232,6 +234,8 @@ class TerminalUI:
                 self._supply_menu()
             elif key in (ord("d"), ord("D")):
                 self._deck_view()
+            elif key in (ord("i"), ord("I")):
+                self._effects_view()
             elif key in (ord("p"), ord("P"), 27):
                 self._pause()
                 return
@@ -253,7 +257,7 @@ class TerminalUI:
         if self.engine.is_walkable(*cursor):
             route = self.engine._find_path((state.party_x, state.party_y), cursor)
         route_length = len(route)
-        maximum = int(self.catalog.balance["maximum_navigation_distance"])
+        maximum = self.engine.maximum_navigation_distance()
         reach = "READY" if route_length <= maximum and self.engine.is_walkable(*cursor) else "OUT OF REACH"
         zone = self.engine.room().name
         self._put(
@@ -266,10 +270,10 @@ class TerminalUI:
         self._put(
             rows - 3,
             2,
-            "@ crew X aim e/E/B foes ?/C/W/$ sites | , debris = grate ~ spill O pillar",
+            "@ crew X aim e/E/B foes + boon * salvage ! bargain ?/C/W/$ sites",
             curses.A_DIM,
         )
-        self._footer("Arrows aim Enter/2xclick go Tab cycle Space center U supply D deck P pause")
+        self._footer("Arrows aim Enter/2xclick go Tab cycle Space center U supply D deck I effects P pause")
         return origin
 
     def _world_map(
@@ -295,7 +299,7 @@ class TerminalUI:
         route: list[tuple[int, int]] = []
         if state.phase == "exploration" and self.engine.is_walkable(*cursor):
             route = self.engine._find_path((state.party_x, state.party_y), cursor)
-            maximum = int(self.catalog.balance["maximum_navigation_distance"])
+            maximum = self.engine.maximum_navigation_distance()
             for x, y in route[:maximum]:
                 overlays.append((x, y, ":", curses.A_DIM))
         feature_symbols = {"start": "A", "event": "?", "camp": "C", "upgrade": "W", "cache": "$"}
@@ -309,11 +313,15 @@ class TerminalUI:
             kind = state.rooms[patrol.room_id].kind
             symbol = "B" if kind == "boss" else "E" if kind == "elite" else "e"
             overlays.append((patrol.x, patrol.y, symbol, self._attr(3) | curses.A_BOLD))
+        pickup_symbols = {"boon": "+", "item": "*", "bargain": "!"}
+        for pickup in state.pickups:
+            if not pickup.resolved and not pickup.hidden:
+                overlays.append(
+                    (pickup.x, pickup.y, pickup_symbols[pickup.kind], self._attr(1) | curses.A_BOLD)
+                )
         overlays.append((state.party_x, state.party_y, "@", self._attr(4) | curses.A_BOLD))
         cursor_symbol = "@" if cursor == (state.party_x, state.party_y) else "X"
-        reachable = self.engine.is_walkable(*cursor) and len(route) <= int(
-            self.catalog.balance["maximum_navigation_distance"]
-        )
+        reachable = self.engine.is_walkable(*cursor) and len(route) <= self.engine.maximum_navigation_distance()
         if self.colour:
             cursor_attr = self._attr(7 if reachable else 5)
         else:
@@ -333,6 +341,11 @@ class TerminalUI:
             self.engine.room_position(room.id)
             for room in state.rooms
             if not room.resolved and room.kind in {"event", "camp", "upgrade", "cache"}
+        )
+        targets.extend(
+            (pickup.x, pickup.y)
+            for pickup in state.pickups
+            if not pickup.resolved and not pickup.hidden
         )
         party = (state.party_x, state.party_y)
         return sorted(set(targets), key=lambda tile: (abs(tile[0] - party[0]) + abs(tile[1] - party[1]), tile))
@@ -370,6 +383,71 @@ class TerminalUI:
             self._render_exploration(destination, focus=(x, y))
             curses.napms(self.MOVE_FRAME_MS)
 
+    def _discovery(self) -> None:
+        assert self.engine
+        pickup = self.engine.current_pickup()
+        if pickup.kind == "trap":
+            message = self.engine.resolve_hidden_trap()
+            self._notice("HIDDEN ANOMALY", message)
+            return
+        if pickup.kind == "item":
+            item_id = str(pickup.payload["item_id"])
+            item = self.catalog.items[item_id]
+            self._menu(
+                "SALVAGE CACHE",
+                [f"Take {item['name']}"],
+                item["description"],
+                allow_cancel=False,
+            )
+            self.engine.resolve_item_pickup()
+            return
+
+        heroes = self.engine.living_heroes()
+        hero_labels = [f"R{hero.rank} {hero.hero_class} — {hero.name}" for hero in heroes]
+        selected_hero = self._menu(
+            "CHOOSE A RECIPIENT",
+            hero_labels,
+            "Boons and curses belong to one crew member for the rest of this run.",
+            allow_cancel=False,
+        )
+        assert selected_hero is not None
+        hero = heroes[selected_hero]
+        if pickup.kind == "boon":
+            options = self.engine.boon_pickup_options(hero.id)
+            labels = [
+                f"{self.catalog.boons[boon_id]['name']} — "
+                f"{self.catalog.boons[boon_id]['description']}"
+                for boon_id in options
+            ]
+            picked = self._menu(
+                "SIGNAL BENEDICTION",
+                labels,
+                f"Choose one boon for {hero.name}. Repeat copies stack.",
+                allow_cancel=False,
+            )
+            assert picked is not None
+            self.engine.resolve_boon_pickup(hero.id, options[picked])
+            return
+
+        options = self.engine.bargain_options(hero.id)
+        labels = []
+        for option in options:
+            if option["reward_kind"] == "boon":
+                reward = self.catalog.boons[str(option["reward_id"])]["name"]
+            else:
+                reward = f"{self.catalog.items[str(option['reward_id'])]['name']} x{option['copies']}"
+            curse = self.catalog.curses[str(option["curse_id"])]
+            labels.append(f"Take {reward} / suffer {curse['name']} — {curse['description']}")
+        labels.append("Walk away")
+        picked = self._menu(
+            "ANOMALOUS BARGAIN",
+            labels,
+            f"Every offer binds its curse to {hero.name}.",
+            allow_cancel=False,
+        )
+        assert picked is not None
+        self.engine.resolve_bargain(hero.id, None if picked == len(options) else picked)
+
     def _combat(self) -> None:
         assert self.engine
         selected = 0
@@ -401,6 +479,8 @@ class TerminalUI:
                 enemies_before = self._enemy_flash_snapshot()
                 self.engine.end_turn()
                 self._flash_damaged_enemies(enemies_before)
+            elif key in (ord("i"), ord("I")):
+                self._effects_view()
             elif key in (ord("p"), ord("P"), 27):
                 self._pause()
                 return
@@ -414,18 +494,21 @@ class TerminalUI:
         active_hero = None
         valid_targets: list[str] = []
         if state.hand:
-            definition = self.catalog.cards[state.hand[selected].card_id]
-            active_hero = definition["hero"]
+            card = state.hand[selected]
+            definition = self.engine.card_definition(card)
+            active_hero = card.bound_hero_id if card.card_id in self.catalog.curses else definition["hero"]
             valid_targets = self.engine.valid_targets(selected)
         self._battlefield(2, active_hero, valid_targets, selected_target)
         self._intents(11, 2)
         first = max(0, min(selected, len(state.hand) - 5))
         for slot, card in enumerate(state.hand[first:first + 5]):
             index = first + slot
-            definition = self.catalog.cards[card.card_id]
-            actor = next(item for item in state.heroes if item.id == definition["hero"])
+            definition = self.engine.card_definition(card)
+            actor_id = card.bound_hero_id if card.card_id in self.catalog.curses else definition["hero"]
+            actor = next(item for item in state.heroes if item.id == actor_id)
             legal = (
-                actor.alive
+                card.card_id not in self.catalog.curses
+                and actor.alive
                 and actor.rank in definition["from_ranks"]
                 and not actor.statuses.get("stun")
                 and self.engine.card_cost(card) <= state.energy
@@ -436,7 +519,7 @@ class TerminalUI:
         footer = (
             "TARGET: Left/Right or H/L select on battlefield  Enter confirm  Esc cancel"
             if selected_target
-            else "Left/Right choose card  Enter play  E end turn  P pause  ? help"
+            else "Left/Right choose card  Enter play  E end turn  I effects  P pause  ? help"
         )
         self._footer(footer)
 
