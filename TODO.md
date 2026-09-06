@@ -3,12 +3,12 @@
 ## Current State
 
 - The active product is a standard-library Python 3.11 `curses` roguelike; the browser version is archived in Git.
-- Hearthford now has twelve connected rooms across a settlement hub, looping Reedwood, and a millworks route with an optional side room.
-- Consolidated preparation, persistent equipment and discoveries, distinct and mixed threats, material interactions, semantic colour, and an occasional merchant extend the original loop.
+- Hearthford's deeper room-screen expedition proved the preparation, tactical, persistence, and merchant foundations enjoyable.
+- The current milestone replaces the expedition room graph with one seamless multi-level Hearthford region while retaining the compact Jomon deck.
 
 ## Now
 
-- Play the deeper Hearthford loop from ordinary new worlds and tune only friction, pacing, or balance demonstrated by owner play.
+- Implement and personally play the bounded seamless-Hearthford milestone in [`docs/seamless-hearthford-milestone.md`](docs/seamless-hearthford-milestone.md): coherent geography, camera/FOV memory, functional verticality, divergent builds, treasure, patrols, weather, finite supplies, and timed pressure.
 
 ## Next
 
@@ -16,7 +16,7 @@
 
 ## Later
 
-- Add another compact expedition only after the deeper Hearthford loop's decisions and return consequences are proven enjoyable.
+- Add other large regional maps only after seamless Hearthford is played and judged.
 - Add capture or rescue only if play exposes a specific contextual need.
 
 ## Frozen
