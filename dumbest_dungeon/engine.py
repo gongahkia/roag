@@ -726,7 +726,7 @@ class GameEngine:
                     if effect.get("bonus_status") in target.statuses:
                         adjusted += int(effect.get("bonus", 0))
                     adjusted = self._outgoing_damage(actor, adjusted)
-                    self._damage(target, adjusted)
+                    self._damage(target, adjusted, actor)
                 elif op == "block":
                     multiplier = float(self._affliction_modifiers(target).get("block_mult", 1))
                     target.block += max(0, round(amount * multiplier))
@@ -741,6 +741,9 @@ class GameEngine:
                     target.guard_turns = amount
                 elif op == "status":
                     target.statuses[effect["status"]] = max(target.statuses.get(effect["status"], 0), amount)
+                elif op == "cleanse":
+                    for status in ("marked", "stun", "vulnerable", "weak", "wound"):
+                        target.statuses.pop(status, None)
 
     def end_turn(self) -> None:
         if self.state.phase != "combat":
@@ -804,6 +807,9 @@ class GameEngine:
                 self._apply_effect(enemy, self._effect_targets(effect.get("target"), targets, enemy), effect)
                 if self.state.phase != "combat":
                     return
+                if not self.living_enemies():
+                    self._combat_victory()
+                    return
             self._decay_statuses(enemy)
 
     def _enemy_targets(self, rule: str, actor: Actor) -> list[Actor]:
@@ -847,12 +853,16 @@ class GameEngine:
             multiplier *= 1.25
         return max(0, round(amount * multiplier))
 
-    def _damage(self, target: Actor, amount: int) -> None:
+    def _damage(self, target: Actor, amount: int, attacker: Actor | None = None) -> None:
         if target.side == "hero" and target.guarded_by:
             guard = next((item for item in self.living_heroes() if item.id == target.guarded_by), None)
             if guard and guard.id != target.id:
                 self.add_log(f"{guard.name} intercepts the hit.")
                 target = guard
+        if target.statuses.get("dodge"):
+            target.statuses.pop("dodge", None)
+            self.add_log(f"{target.name} evades the hit.")
+            return
         if target.statuses.get("vulnerable"):
             amount = round(amount * 1.5)
         absorbed = min(target.block, amount)
@@ -878,6 +888,9 @@ class GameEngine:
         elif target.side == "enemy" and target.hp == 0:
             self.add_log(f"{target.name} is destroyed.")
             self._normalize_ranks("enemy")
+        if attacker and attacker.alive and target.statuses.get("riposte") and attacker.side != target.side:
+            self.add_log(f"{target.name} answers with a riposte.")
+            self._damage(attacker, 4)
 
     def _heal(self, target: Actor, amount: int) -> None:
         multiplier = float(self._affliction_modifiers(target).get("healing_mult", 1))

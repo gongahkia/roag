@@ -530,6 +530,8 @@ class TerminalUI:
             if hero.guard_turns > guard:
                 changes.append("GUARD")
             changes.extend(status.upper() for status in hero.statuses.keys() - statuses)
+            if statuses - hero.statuses.keys() & {"marked", "stun", "vulnerable", "weak", "wound"}:
+                changes.append("CLEANSE")
             if changes:
                 buffed.append((rank, art, "/".join(changes)[:7]))
         if not buffed:

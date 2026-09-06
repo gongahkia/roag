@@ -37,6 +37,7 @@ CARD_EFFECTS = {
     "draw",
     "discard",
     "energy",
+    "cleanse",
 }
 EVENT_EFFECTS = {
     "light",
@@ -135,8 +136,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
             if card_id not in cards:
                 raise ContentError(f"hero {hero['id']} references unknown card {card_id}")
 
-    if len(heroes) != 10:
-        raise ContentError("this release requires exactly ten crew archetypes")
+    if len(heroes) != 15:
+        raise ContentError("this release requires exactly fifteen crew archetypes")
 
     for card in cards.values():
         if not isinstance(card.get("name"), str) or not isinstance(card.get("description"), str):
@@ -152,8 +153,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
             _ranks(card.get("target_ranks"), f"card {card['id']}.target_ranks")
         _effects(card.get("effects"), CARD_EFFECTS, f"card {card['id']}.effects")
         _effects(card.get("upgrade_effects"), CARD_EFFECTS, f"card {card['id']}.upgrade_effects")
-    if len(cards) != 75:
-        raise ContentError("this release requires exactly 75 unique cards")
+    if len(cards) != 105:
+        raise ContentError("this release requires exactly 105 unique cards")
 
     for enemy in enemies.values():
         if not isinstance(enemy.get("max_hp"), int) or enemy["max_hp"] <= 0:
@@ -165,8 +166,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
             if not isinstance(action.get("name"), str) or action.get("target") not in ENEMY_TARGETS:
                 raise ContentError(f"enemy {enemy['id']} has an invalid action")
             _effects(action.get("effects"), CARD_EFFECTS, f"enemy {enemy['id']} action")
-    if len(enemies) != 25:
-        raise ContentError("this release requires exactly 25 enemy types")
+    if len(enemies) != 35:
+        raise ContentError("this release requires exactly 35 enemy types")
 
     for encounter in encounters.values():
         if encounter.get("kind") not in {"normal", "elite", "boss"}:
