@@ -264,7 +264,7 @@ class TerminalUI:
             self._attr(1 if reach == "READY" else 3),
         )
         self._put(rows - 3, 2, "@ crew  X target  e patrol  E elite  B boss  ? event  C camp  W shop  $ cache", curses.A_DIM)
-        self._footer("Arrows aim  Enter/double-click go  Tab cycle  Space center  U supply  D deck")
+        self._footer("Arrows aim Enter/2xclick go Tab cycle Space center U supply D deck P pause")
         return origin
 
     def _world_map(
@@ -338,7 +338,12 @@ class TerminalUI:
             _, mouse_x, mouse_y, _, buttons = curses.getmouse()
         except curses.error:
             return None
-        clicked = curses.BUTTON1_CLICKED | curses.BUTTON1_PRESSED
+        clicked = (
+            curses.BUTTON1_CLICKED
+            | curses.BUTTON1_DOUBLE_CLICKED
+            | curses.BUTTON1_TRIPLE_CLICKED
+            | curses.BUTTON1_PRESSED
+        )
         if not buttons & clicked or not (2 <= mouse_x < 2 + width and self.MAP_ROW <= mouse_y < self.MAP_ROW + height):
             return None
         return left + mouse_x - 2, top + mouse_y - self.MAP_ROW
@@ -710,7 +715,8 @@ class TerminalUI:
     def _help(self) -> None:
         text = (
             "Explore the ship from above and reach the Overseer Chamber. Aim the X cursor with arrows or "
-            "hjkl, then press Enter to auto-walk there; left-clicking a visible floor tile does the same. "
+            "hjkl, then press Enter to auto-walk there. A first left-click selects and highlights a tile; "
+            "click it again or press Enter to confirm. One order can cover at most 18 floor tiles. "
             "Tab cycles points of interest and Space recenters on the crew. Patrols move whenever the crew "
             "takes a step, and contact opens combat. Movement drains light; darkness adds stress, increases "
             "surprise attacks, and offers a fourth card reward. In combat, spend shared "
