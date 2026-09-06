@@ -388,7 +388,7 @@ const expeditionWorldTransition = (world: FoundationWorld, transition: Expeditio
       outcome: 'death',
       courierId,
       atWorldTime,
-      evidenceIds: ['expedition-evidence:marsh-hound'],
+      evidenceIds: ['loss-evidence:marsh-hound'],
       contentSafety: courierContinuityContentSafety()
     }
   }

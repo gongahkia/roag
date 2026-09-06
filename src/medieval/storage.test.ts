@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MedievalWorldRepository } from './storage'
 import { CREATION_SETTINGS_PROFILE_LIMIT, defaultCreationSettings } from './settings'
 import { MEDIEVAL_DATABASE_NAME } from './types'
-import { advanceFoundationWorldTime, chooseInitialCourier, createFoundationWorld, finalizeWorldAsChronicle, loadCargoHold, moveFoundationWorldCourier, offerFoundationWorldDelegatedTask, recordDurableJomonGrowth, replayFoundationWorldCausalHistory, switchTavernCourier, validateFoundationWorld } from './world'
+import { actInHearthfordExpedition, advanceFoundationWorldTime, chooseHearthfordExpeditionLoadout, chooseHearthfordExpeditionSupport, chooseInitialCourier, createFoundationWorld, decideHearthfordExpeditionObjective, deliverHearthfordExpeditionSealCord, departForHearthfordExpedition, finalizeWorldAsChronicle, loadCargoHold, moveFoundationWorldCourier, moveHearthfordExpeditionCourier, offerFoundationWorldDelegatedTask, recordDurableJomonGrowth, replayFoundationWorldCausalHistory, returnFromHearthfordExpedition, switchTavernCourier, validateFoundationWorld } from './world'
 import { causalReplayProjectionForWorldState } from './world-state'
 import { classifyMedievalContent } from './content-safety'
 import { DELEGATION_CONTRACT_VERSION, DELEGATION_TASK_DEFINITIONS, delegationTaskIdForOffer, type DelegationOfferInput } from './delegation'
@@ -332,6 +332,52 @@ describe('medieval local persistence', () => {
     expect(loaded?.state.jomon.cargo).toEqual({ version: 1, lots: [{ id: 'cargo:8:commodity:paper', commodityId: 'commodity:paper', quantity: 1, condition: 'sound', status: 'in-hold' }] })
     expect(loaded && replayFoundationWorldCausalHistory(loaded)).toEqual(causalReplayProjectionForWorldState(source.state))
   })
+
+  it('round-trips the completed authored Hearthford expedition consequence through the full authoritative envelope', async () => {
+    const repository = new MedievalWorldRepository()
+    let world = chooseInitialCourier(createFoundationWorld({ seed: 'storage-hearthford-expedition' }), 'crew:0')
+    const deck = (directions: readonly ('north' | 'south' | 'west' | 'east')[]) => {
+      for (const direction of directions) {
+        const moved = moveFoundationWorldCourier(world, direction)
+        if (moved.status !== 'moved') throw new Error(`expedition storage fixture could not move ${direction} on Jomon`)
+        world = moved.world
+      }
+    }
+    const map = (directions: readonly ('north' | 'south' | 'west' | 'east')[]) => {
+      for (const direction of directions) {
+        const moved = moveHearthfordExpeditionCourier(world, direction)
+        if (moved.status !== 'changed') throw new Error(`expedition storage fixture could not move ${direction} in Hearthford`)
+        world = moved.world
+      }
+    }
+    deck(['east', 'east', 'east'])
+    world = chooseHearthfordExpeditionLoadout(world, 'smoke-and-hook')
+    world = chooseHearthfordExpeditionSupport(world, 'quiet-scout')
+    deck(['west', 'west', 'west', 'south', 'west'])
+    world = departForHearthfordExpedition(world)
+    map(['east', 'east'])
+    world = decideHearthfordExpeditionObjective(world, 'accept')
+    map(['west', 'west', 'north', 'north', 'east', 'east', 'east', 'east'])
+    const reeds = actInHearthfordExpedition(world, 'lower-reed-screen')
+    if (reeds.status !== 'changed') throw new Error('expedition storage fixture could not lower reeds')
+    world = reeds.world
+    map(['east', 'east', 'east'])
+    const evaded = actInHearthfordExpedition(world, 'evade')
+    if (evaded.status !== 'changed') throw new Error('expedition storage fixture could not evade')
+    world = evaded.world
+    map(['west', 'west', 'west', 'west', 'west', 'west', 'west', 'south', 'south', 'east', 'east'])
+    world = deliverHearthfordExpeditionSealCord(world)
+    map(['west', 'west'])
+    const returned = returnFromHearthfordExpedition(world)
+    if (returned.status !== 'changed') throw new Error('expedition storage fixture could not return through the gangplank')
+    world = returned.world
+
+    await repository.saveWorld(world)
+    const loaded = await repository.loadWorld(world.id)
+    expect(loaded?.state.expedition).toEqual(world.state.expedition)
+    expect(loaded?.state.expedition).toMatchObject({ location: 'jomon', objective: 'completed', resource: 'delivered', consequence: 'seal-delivered', threat: { status: 'evaded' } })
+    expect(loaded && validateFoundationWorld(loaded)).toEqual([])
+  }, 90_000)
 
   it('rejects forged cargo lots without rewriting the submitted record', async () => {
     const repository = new MedievalWorldRepository()

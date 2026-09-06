@@ -33,7 +33,7 @@ export const HEARTHFORD_MAP_ROWS = [
   '###########',
   '#....R..S.#',
   '#.#####...#',
-  '#G.M..H...#',
+  '#G.M...H..#',
   '#.#####...#',
   '#.........#',
   '###########'
@@ -43,7 +43,7 @@ export const HEARTHFORD_GANGPLANK = { column: 1, row: 3 } as const
 export const HEARTHFORD_CONTACT_COORDINATE = { column: 3, row: 3 } as const
 export const HEARTHFORD_REED_SCREEN = { column: 5, row: 1 } as const
 export const HEARTHFORD_SEAL_CORD = { column: 8, row: 1 } as const
-export const HEARTHFORD_HOUND_START = { column: 6, row: 3 } as const
+export const HEARTHFORD_HOUND_START = { column: 7, row: 3 } as const
 
 export type ExpeditionCoordinate = { column: number; row: number }
 export type ExpeditionLocation = 'jomon' | 'hearthford'
@@ -229,6 +229,7 @@ const houndStep = (from: ExpeditionCoordinate, courier: ExpeditionCoordinate): E
 const afterHoundTurn = (state: ExpeditionState, braced: boolean): ExpeditionStateTransition => {
   if (state.threat.status !== 'engaged') return { status: 'changed', state, detail: 'The marsh is quiet.' }
   if (houndProtectedByReeds(state)) return { status: 'changed', state: { ...state, threat: { ...state.threat, intent: 'recoiling' } }, detail: 'The lowered reeds keep the hound below the path.' }
+  if (state.threat.intent === 'recoiling') return { status: 'changed', state: { ...state, threat: { ...state.threat, intent: 'pouncing' } }, detail: 'The marsh hound circles for another opening.' }
   if (distance(state.coordinate, state.threat.position) <= 1) {
     if (braced) return { status: 'changed', state: { ...state, threat: { ...state.threat, intent: 'recoiling' } }, detail: 'Your stance turns the hound aside.' }
     if (state.support === 'field-dresser' && !state.supportSpent) {
@@ -255,10 +256,11 @@ export const moveThroughHearthford = (state: ExpeditionState, direction: Hearthf
   if (!isHearthfordWalkable(coordinate)) return { status: 'blocked', detail: 'Reed walls and water block that step.' }
   if (state.threat.status === 'engaged' && sameCoordinate(coordinate, state.threat.position)) return { status: 'blocked', detail: 'The hound holds that ground.' }
   let next: ExpeditionState = { ...clone(state), coordinate, noise: pressureNoise(state) }
-  if (next.objective === 'accepted' && next.threat.status === 'dormant' && coordinate.column >= HEARTHFORD_HOUND_START.column) {
+  if (next.objective === 'accepted' && next.threat.status === 'dormant' && coordinate.column >= HEARTHFORD_HOUND_START.column - 1) {
     next = { ...next, threat: { ...next.threat, status: 'engaged', intent: 'advancing' } }
   }
-  if (next.objective === 'accepted' && next.resource === 'none' && sameCoordinate(coordinate, HEARTHFORD_SEAL_CORD) && (next.threat.status === 'defeated' || next.threat.status === 'evaded')) next = { ...next, resource: 'carried' }
+  if (next.objective === 'accepted' && next.resource === 'none' && sameCoordinate(coordinate, HEARTHFORD_SEAL_CORD)
+    && (next.threat.status === 'defeated' || next.threat.status === 'evaded' || (next.threat.status === 'engaged' && next.reedScreen === 'lowered' && coordinate.row === HEARTHFORD_REED_SCREEN.row))) next = { ...next, resource: 'carried' }
   const turn = continueThreatTurn(next)
   return turn.status === 'changed' ? { ...turn, detail: next.resource === 'carried' ? 'The useful mill seal cord is now carried.' : turn.detail } : turn
 }
@@ -318,4 +320,3 @@ export const hearthfordGlyphAt = (state: ExpeditionState, coordinate: Expedition
   if (glyph === 'H') return '.'
   return glyph ?? ' '
 }
-
