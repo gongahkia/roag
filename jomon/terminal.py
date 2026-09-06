@@ -104,6 +104,8 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
             break
         for sx in range(view_width):
             world_x = origin_x + sx
+            if world_x >= len(rows[world_y]):
+                break
             position = Position(world_x, world_y)
             if position == state.position:
                 char, attr = "@", curses.A_BOLD | (curses.color_pair(3) if curses.has_colors() else 0)
