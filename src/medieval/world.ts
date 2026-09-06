@@ -22,6 +22,7 @@ import { createVesselStationReadoutForVerifiedWorld, type VesselStationReadoutPr
 import { assessVesselPropOperationForVerifiedWorld } from './vessel-proximity-operation'
 import { initialVesselCargoState, loadVesselCargo, recoverVesselCargo, resolveVesselCargoFailure, unloadVesselCargo, type VesselCargoFailureOutcome } from './cargo-hold'
 import type { JomonCommodityId } from './commodity-catalogue'
+import { createWorldMarketsState } from './market'
 import { acceptSettlementTradeContract as acceptSettlementTradeState, deliverSettlementTradeContract as deliverSettlementTradeState, initialSettlementTradingState, refuseSettlementTradeContract as refuseSettlementTradeState, settlementTradingAtSourceAnchor } from './settlement-trading'
 import { deriveJomonDeckPlanForVerifiedWorld } from './jomon-deck-plan'
 import { FOUNDATION_GENERATOR_VERSION, FOUNDATION_JOMON_PROP_DEFINITIONS, FOUNDATION_MANIFEST_VERSION, WORLD_CREATION_PROVENANCE_VERSION, WORLD_MANIFEST_FRONTIER_PROVENANCE_VERSION, WORLD_MANIFEST_VALIDATION_HISTORY_VERSION, type CausalRecord, type ChronicleReason, type FoundationCrewMember, type FoundationJomon, type FoundationWorld, type FrontierManifestProvenance, type FrontierRootManifestIdentity, type InitialWorldManifestIdentity, type LegacyFoundationWorldV13, type LegacyFoundationWorldV14, type LegacyFoundationWorldV14V13, type WorldChronicle, type WorldCreationProvenance, type WorldManifest } from './types'
@@ -439,7 +440,7 @@ export const upgradeFoundationWorldStateV15 = (value: unknown): FoundationWorld 
     || !equivalent(replayed.autonomy, legacyProjection.autonomy)
     || !equivalent(replayed.socialMemory, legacyProjection.socialMemory)
     || !equivalent(replayed.settlementTrading, initialSettlementTradingState())) throw new Error('foundation world v15/state-v14 replay evidence is invalid')
-  const upgraded: FoundationWorld = {
+  const upgraded = {
     ...structuredClone(legacy),
     state: {
       ...structuredClone(legacy.state),
@@ -457,11 +458,11 @@ export const upgradeFoundationWorldStateV15 = (value: unknown): FoundationWorld 
       jomon: structuredClone(replayed.jomon),
       causalHistory: history
     }
-  }
+  } as unknown as FoundationWorld
   upgraded.state.contentSafetyAudit = currentStateContentSafetyAudit(upgraded.state)
   const validation = validateFoundationWorld(upgraded)
   if (validation.length) throw new Error(`foundation world v15/state-v14 conversion did not reproduce a valid v17 envelope: ${validation.map(item => item.code).join(', ')}`)
-  return upgraded
+  return upgradeFoundationWorldStateV18(upgraded)
 }
 
 /**
@@ -517,7 +518,7 @@ export const upgradeFoundationWorldStateV16 = (value: unknown): FoundationWorld 
     || !equivalent(replayed.socialMemory, legacyProjection.socialMemory)
     || !equivalent(replayed.jomon.cargo, initialVesselCargoState())
     || !equivalent(replayed.settlementTrading, initialSettlementTradingState())) throw new Error('foundation world v15/state-v15 replay evidence is invalid')
-  const upgraded: FoundationWorld = {
+  const upgraded = {
     ...structuredClone(legacy),
     state: {
       ...structuredClone(legacy.state),
@@ -535,11 +536,11 @@ export const upgradeFoundationWorldStateV16 = (value: unknown): FoundationWorld 
       jomon: structuredClone(replayed.jomon),
       causalHistory: history
     }
-  }
+  } as unknown as FoundationWorld
   upgraded.state.contentSafetyAudit = currentStateContentSafetyAudit(upgraded.state)
   const validation = validateFoundationWorld(upgraded)
   if (validation.length) throw new Error(`foundation world v15/state-v15 conversion did not reproduce a valid v17 envelope: ${validation.map(item => item.code).join(', ')}`)
-  return upgraded
+  return upgradeFoundationWorldStateV18(upgraded)
 }
 
 /**
@@ -586,7 +587,7 @@ export const upgradeFoundationWorldStateV17 = (value: unknown): FoundationWorld 
     || !equivalent(replayed.socialMemory, legacyProjection.socialMemory)
     || !equivalent(replayed.jomon, legacyProjection.jomon)
     || !equivalent(replayed.settlementTrading, initialSettlementTradingState())) throw new Error('foundation world v15/state-v16 replay evidence is invalid')
-  const upgraded: FoundationWorld = {
+  const upgraded = {
     ...structuredClone(legacy),
     state: {
       ...structuredClone(legacy.state),
@@ -604,10 +605,46 @@ export const upgradeFoundationWorldStateV17 = (value: unknown): FoundationWorld 
       jomon: structuredClone(replayed.jomon),
       causalHistory: history
     }
-  }
+  } as unknown as FoundationWorld
   upgraded.state.contentSafetyAudit = currentStateContentSafetyAudit(upgraded.state)
   const validation = validateFoundationWorld(upgraded)
   if (validation.length) throw new Error(`foundation world v15/state-v16 conversion did not reproduce a valid v17 envelope: ${validation.map(item => item.code).join(', ')}`)
+  return upgradeFoundationWorldStateV18(upgraded)
+}
+
+/**
+ * Strict read-only state-v17 -> state-v18 conversion. Local market conditions
+ * are an exact seed and settlement-trade projection, so no causal command,
+ * checkpoint, immutable source, or time value is altered by this bridge.
+ */
+export const upgradeFoundationWorldStateV18 = (value: unknown): FoundationWorld => {
+  if (!record(value) || !hasOnlyKeys(value, ['version', 'id', 'status', 'manifest', 'jomon', 'crew', 'initialWorld', 'state']) || value.version !== 15 || value.status !== 'active') throw new Error('foundation world is not a v15/state-v17 active envelope')
+  const legacy = value as unknown as FoundationWorld
+  if ((legacy.state as unknown as { version?: unknown }).version !== 17
+    || !isReproducibleWorldManifest(legacy.manifest)
+    || !isInitialWorld(legacy.initialWorld)
+    || !foundationWorldInitialWorldMatchesManifest(legacy)
+    || !foundationWorldContentSatisfiesSafetyPolicy(legacy)
+    || !foundationWorldTemporalStateMatches(legacy)
+    || !foundationWorldNavigationStateMatches(legacy)
+    || !foundationWorldCatchUpStateMatches(legacy)
+    || !foundationWorldAutonomyStateMatches(legacy)) throw new Error('foundation world v15/state-v17 envelope is invalid')
+
+  const upgraded: FoundationWorld = {
+    ...structuredClone(legacy),
+    state: {
+      ...structuredClone(legacy.state),
+      version: 18,
+      markets: createWorldMarketsState({
+        seed: legacy.manifest.creation.seed,
+        siteIds: legacy.state.sites.sites.map(site => site.id),
+        settlementTrading: legacy.state.settlementTrading
+      })
+    }
+  }
+  upgraded.state.contentSafetyAudit = currentStateContentSafetyAudit(upgraded.state)
+  const validation = validateFoundationWorld(upgraded)
+  if (validation.length) throw new Error(`foundation world v15/state-v17 conversion did not reproduce a valid v18 envelope: ${validation.map(item => item.code).join(', ')}`)
   return upgraded
 }
 

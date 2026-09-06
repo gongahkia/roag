@@ -704,7 +704,7 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
   if (!validSubdomain(value.institutions, WORLD_INSTITUTIONS_STATE_VERSION, ['version', 'registry']) || !Array.isArray(value.institutions.registry) || value.institutions.registry.length > MEDIEVAL_WORLD_STATE_LIMITS.institutions || !same(value.institutions.registry, expectedInstitutions)) issues.push(issue('world-state:institutions', value.institutions && Array.isArray(value.institutions.registry) && value.institutions.registry.length > MEDIEVAL_WORLD_STATE_LIMITS.institutions ? 'world-state.budget-exceeded' : 'world-state.invalid-institutions'))
 
   const initialCourierId = value.courier?.initialCourierId
-  const currentCourierContract = (value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION || value.version === LEGACY_CARGO_WORLD_STATE_VERSION || value.version === LEGACY_VESSEL_PROP_ACTION_WORLD_STATE_VERSION) && value.courier.version === WORLD_COURIER_STATE_VERSION
+  const currentCourierContract = (value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION || value.version === LEGACY_CARGO_WORLD_STATE_VERSION || value.version === LEGACY_VESSEL_PROP_ACTION_WORLD_STATE_VERSION) && value.courier.version === WORLD_COURIER_STATE_VERSION
   const activeCourierId = currentCourierContract
     ? value.courier?.activeCourierId
     : initialCourierId
@@ -719,7 +719,7 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
       : ['version', 'initialCourierId', 'activeCourierId', 'departedCourierIds']
   const legacyCourierKeys = initialCourierId === undefined ? ['version'] : ['version', 'initialCourierId']
   const activeCourierLegacyKeys = initialCourierId === undefined ? ['version'] : ['version', 'initialCourierId', 'activeCourierId']
-  const courierShapeValid = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION || value.version === LEGACY_CARGO_WORLD_STATE_VERSION || value.version === LEGACY_VESSEL_PROP_ACTION_WORLD_STATE_VERSION
+  const courierShapeValid = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION || value.version === LEGACY_CARGO_WORLD_STATE_VERSION || value.version === LEGACY_VESSEL_PROP_ACTION_WORLD_STATE_VERSION
     ? validSubdomain(value.courier, WORLD_COURIER_STATE_VERSION, currentCourierKeys)
     : value.version === LEGACY_ACTIVE_COURIER_WORLD_STATE_VERSION
       ? validSubdomain(value.courier, 2, activeCourierLegacyKeys)
@@ -753,7 +753,7 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
   if (!courierShapeValid || !initialCourierValid || !departuresValid || !activeCourierValid) issues.push(issue('world-state:courier', 'world-state.invalid-courier'))
 
   const navigation = 'navigation' in value ? value.navigation : undefined
-  const hasNavigation = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION || value.version === LEGACY_CARGO_WORLD_STATE_VERSION || value.version === LEGACY_VESSEL_PROP_ACTION_WORLD_STATE_VERSION || value.version === LEGACY_ACTIVE_COURIER_WORLD_STATE_VERSION || value.version === LEGACY_MEDIEVAL_WORLD_STATE_VERSION
+  const hasNavigation = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION || value.version === LEGACY_CARGO_WORLD_STATE_VERSION || value.version === LEGACY_VESSEL_PROP_ACTION_WORLD_STATE_VERSION || value.version === LEGACY_ACTIVE_COURIER_WORLD_STATE_VERSION || value.version === LEGACY_MEDIEVAL_WORLD_STATE_VERSION
   const validCoordinate = (coordinate: unknown): coordinate is { column: number; row: number } => record(coordinate) && hasOnlyKeys(coordinate, ['column', 'row']) && safeInteger(coordinate.column) && safeInteger(coordinate.row)
   if (hasNavigation && (!validSubdomain(navigation, WORLD_DECK_NAVIGATION_STATE_VERSION, activeCourierId === undefined ? ['version'] : ['version', 'courierId', 'coordinate']) || (activeCourierId === undefined ? navigation.courierId !== undefined || navigation.coordinate !== undefined : navigation.courierId !== activeCourierId || !validCoordinate(navigation.coordinate)))) issues.push(issue('world-state:navigation', 'world-state.invalid-reference'))
 
@@ -761,7 +761,7 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
     issues.push(issue('world-state:causal-history', 'world-state.invalid-causal-history'))
   } else {
     const causalContext = { worldId: temporal.provenance.worldId, creationDigest: temporal.provenance.creationDigest }
-    const causalIssues = value.version === MEDIEVAL_WORLD_STATE_VERSION
+    const causalIssues = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION
       ? validateCausalHistoryState(causalContext, value.causalHistory)
       : value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION
         ? validateLegacyCausalHistoryStateV6(causalContext, value.causalHistory)
@@ -774,19 +774,19 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
   const sites = Array.isArray(value.sites?.sites) ? value.sites.sites as WorldSiteState[] : []
   const quays = Array.isArray(value.sites?.quays) ? value.sites.quays as WorldQuayState[] : []
   const jomon = value.jomon
-  const jomonKeys = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION
+  const jomonKeys = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION
     ? ['version', 'vesselId', 'operationalStatus', 'location', 'integrity', 'capacity', 'propActions', 'cargo']
     : value.version === LEGACY_CARGO_WORLD_STATE_VERSION
       ? ['version', 'vesselId', 'operationalStatus', 'location', 'integrity', 'capacity', 'propActions']
       : ['version', 'vesselId', 'operationalStatus', 'location', 'integrity', 'capacity']
-  const expectedJomonVersion = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION
+  const expectedJomonVersion = value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION
     ? WORLD_JOMON_STATE_VERSION
     : value.version === LEGACY_CARGO_WORLD_STATE_VERSION
       ? LEGACY_VESSEL_PROP_ACTION_JOMON_STATE_VERSION
       : LEGACY_WORLD_JOMON_STATE_VERSION
   if (!validSubdomain(jomon, expectedJomonVersion, jomonKeys) || jomon.vesselId !== context.jomon.id || jomon.operationalStatus !== 'moored' || !validLocation(jomon.location) || (jomon.location.kind === 'site' ? !sites.some(site => site.id === jomon.location.id) : !quays.some(quay => quay.id === jomon.location.id)) || !record(jomon.integrity) || !hasOnlyKeys(jomon.integrity, ['current', 'maximum']) || !safeInteger(jomon.integrity.current) || !safeInteger(jomon.integrity.maximum) || jomon.integrity.maximum < 1 || jomon.integrity.maximum > MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum || jomon.integrity.current > jomon.integrity.maximum || !record(jomon.capacity) || !hasOnlyKeys(jomon.capacity, ['cargoUnits', 'berthSlots', 'workSlots']) || !safeInteger(jomon.capacity.cargoUnits) || !safeInteger(jomon.capacity.berthSlots) || !safeInteger(jomon.capacity.workSlots) || jomon.capacity.cargoUnits > MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum || jomon.capacity.berthSlots > MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum || jomon.capacity.workSlots > MEDIEVAL_WORLD_STATE_LIMITS.capacityMaximum) {
     issues.push(issue('world-state:jomon', 'world-state.invalid-jomon'))
-  } else if (value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION) {
+  } else if (value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION || value.version === LEGACY_SETTLEMENT_TRADING_WORLD_STATE_VERSION) {
     const sequence = record(value.causalHistory) && record(value.causalHistory.checkpoint) && safeInteger(value.causalHistory.checkpoint.sequence) && Array.isArray(value.causalHistory.tail)
       ? value.causalHistory.checkpoint.sequence + value.causalHistory.tail.length
       : undefined
@@ -802,7 +802,7 @@ export const validateMedievalWorldState = (context: WorldStateValidationContext,
     if (actionIssues.length) issues.push(issue('world-state:jomon:prop-actions', 'world-state.invalid-vessel-prop-actions'))
   }
 
-  if (value.version === MEDIEVAL_WORLD_STATE_VERSION) {
+  if (value.version === MEDIEVAL_WORLD_STATE_VERSION || value.version === LEGACY_LOCAL_MARKET_WORLD_STATE_VERSION) {
     const sequence = record(value.causalHistory) && record(value.causalHistory.checkpoint) && safeInteger(value.causalHistory.checkpoint.sequence) && Array.isArray(value.causalHistory.tail)
       ? value.causalHistory.checkpoint.sequence + value.causalHistory.tail.length
       : undefined

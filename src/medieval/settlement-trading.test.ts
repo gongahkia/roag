@@ -183,6 +183,7 @@ describe('local settlement freight handoff', () => {
     expect(accepted.state.temporal.worldTime).toBe(tally.state.temporal.worldTime)
     expect(accepted.state.settlementTrading.contracts[0]).toMatchObject({ status: 'accepted', burden: { commodityId: 'commodity:ironwork', quantity: 1, deliveryPropId: 'prop:cargo-hold-rack' } })
     expect(accepted.state.jomon.cargo.lots).toEqual([])
+    expect(accepted.state.markets.markets.find(market => market.id === 'market:settlement-location:hearthford-mill-quay')?.commodityStates[0]).toEqual({ commodityId: 'commodity:ironwork', stock: 'limited', demand: 'high', price: 'high' })
     expect(() => refuseSettlementTradeContract(accepted)).toThrow()
   })
 
@@ -202,6 +203,7 @@ describe('local settlement freight handoff', () => {
     expect(delivered.state.jomon.cargo.lots).toEqual([
       { id: 'cargo:19:commodity:ironwork', commodityId: 'commodity:ironwork', quantity: 1, condition: 'sound', status: 'in-hold' }
     ])
+    expect(delivered.state.markets.markets.find(market => market.id === 'market:settlement-location:hearthford-mill-quay')?.commodityStates[0]).toEqual({ commodityId: 'commodity:ironwork', stock: 'none', demand: 'steady', price: 'fair' })
     expect(delivered.state.causalHistory.tail.at(-1)).toMatchObject({ kind: 'settlement-trade-delivered' })
     expect(replayFoundationWorldCausalHistory(delivered)).toEqual(causalReplayProjectionForWorldState(delivered.state))
     expect(validateFoundationWorld(delivered)).toEqual([])

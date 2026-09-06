@@ -25,7 +25,14 @@ describe('versioned medieval mutable world state', () => {
     expect(validateMedievalWorldState(contextFor(world), state)).toEqual([])
     expect(state.sites.sites.map(site => site.id)).toEqual([...state.sites.sites.map(site => site.id)].sort())
     expect(state.routes.conditions.map(route => route.id)).toEqual([...state.routes.conditions.map(route => route.id)].sort())
-    expect(state.markets.markets.map(market => market.siteId)).toEqual(state.sites.sites.map(site => site.id))
+    expect(state.markets.markets.filter(market => market.location.kind === 'site').map(market => market.location.id)).toEqual(state.sites.sites.map(site => site.id))
+    expect(state.markets.markets.find(market => market.location.kind === 'settlement-trading-location')).toMatchObject({
+      id: 'market:settlement-location:hearthford-mill-quay',
+      commodityStates: [
+        { commodityId: 'commodity:ironwork', stock: 'available', demand: 'high', price: 'high' },
+        { commodityId: 'commodity:salt-fish' }
+      ]
+    })
     expect(state.people.records.map(person => person.id)).toEqual([...state.people.records.map(person => person.id)].sort())
     expect(state.institutions.registry.map(institution => institution.siteId)).toEqual([...world.initialWorld.institutions].sort((left, right) => left.id.localeCompare(right.id)).map(institution => institution.settlementId))
     expect(state.geography.frontier.regions).toHaveLength(3)
