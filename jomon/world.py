@@ -65,6 +65,8 @@ def displayed_tile(state: GameState, position: Position) -> str:
         return tile
     if tile == "?" and room.changes.get("discovery_taken"):
         return "."
+    if tile == "?" and room.discovery in {"river-glass ward", "tide-knot charm"}:
+        return "*"
     if tile == "R" and room.changes.get("objective_taken"):
         return "."
     if tile == "r" and room.changes.get("resource_taken"):

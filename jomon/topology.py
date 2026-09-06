@@ -46,7 +46,7 @@ def hub_and_branches(seed: str) -> tuple[dict[str, Room], list[tuple[str, str]]]
     _link(rooms, "hearthford_quay", "north", "tally_house")
     edges = [("hearthford_quay", "market_lane"), ("hearthford_quay", "tally_house")]
     if stage_rng(seed, "topology-hub").randrange(2):
-        _link(rooms, "market_lane", "north", "tally_house")
+        _link(rooms, "market_lane", "south", "tally_house")
         edges.append(("market_lane", "tally_house"))
     return rooms, edges
 
