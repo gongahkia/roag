@@ -238,3 +238,209 @@ def _return_after_defeat(state: GameState, text: str, permanent: bool) -> str:
         f"{courier.name} escaped to Jomon injured; carried discoveries were lost."
     )
     return f"{text}{loss} The courier reaches Jomon with a deep cut."
+
+
+def apply_damage(state: GameState, amount: int, source: str) -> str:
+    courier = state.courier
+    if courier is None:
+        return "No courier can be harmed."
+    if state.support == "field care" and not state.support_spent:
+        state.support_spent = True
+        reduction = 3 if "deep field binding" in build_combinations(state) else 2
+        amount = max(0, amount - reduction)
+        if amount == 0:
+            return "Prepared field care absorbs the injury."
+    if (
+        amount >= courier.health
+        and state.carried_relic == "river-glass ward"
+        and state.relics.get("river-glass ward", 0)
+    ):
+        state.relics["river-glass ward"] -= 1
+        if state.relics["river-glass ward"] == 0:
+            del state.relics["river-glass ward"]
+        state.carried_relic, courier.health, courier.injury = (
+            None,
+            1,
+            "river-glass chill",
+        )
+        return "The finite river-glass ward breaks instead of its bearer."
+    already_hurt = courier.injury != "none"
+    courier.health = max(0, courier.health - amount)
+    if courier.health:
+        if courier.health <= courier.max_health // 2:
+            courier.injury = "bruised ribs"
+        return f"{source} deals {amount} harm."
+    fatal = already_hurt or pressure(state).band == "critical" or "crown wheel" in source
+    return _return_after_defeat(state, f"{source} overwhelms {courier.name}.", fatal)
+
+
+def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
+    gap = distance(state.position, threat.position)
+    threat.turn += 1
+    if threat.profile == "machinery":
+        if gap > 7:
+            return ""
+        threatened = state.position.y in {22, 24, 26, 28}
+        if threat.turn % 2:
+            threat.intent = "sweeps marked mill aisles next turn"
+            return f"The {threat.name} shudders: marked aisles sweep next turn."
+        if threatened and not guarded:
+            source = "The runaway crown wheel" if threat.elite else "The mill sweep"
+            return apply_damage(state, 3 if threat.elite else 2, source)
+        return "The mill sweep passes; your position is safe."
+    if threat.profile == "ranged":
+        if not line_of_sight(state, threat.position, state.position):
+            threat.position = _step_toward(state, threat, state.position)
+            threat.intent = "moves for a clear line"
+            return f"The {threat.name} shifts for a firing line."
+        if gap <= 7:
+            if "fires next turn" in threat.intent:
+                threat.intent = "reloads before aiming again"
+                if guarded:
+                    return "Your guard and cover turn the bolt."
+                harm = 3 if pressure(state).band == "critical" else 2
+                return apply_damage(state, harm, f"The {threat.name}'s bolt")
+            if "reload" in threat.intent:
+                threat.intent = "aims and fires next turn"
+                return f"The {threat.name} reloads and takes readable aim."
+            threat.intent = "aims and fires next turn"
+            return f"The {threat.name} aims: break sight or guard before the shot."
+    if threat.profile == "animal" and gap <= 3:
+        if base_tile(state, state.position) == "m" and "charge" in threat.intent:
+            threat.status, threat.intent = "evaded", "bogged in the mud channel"
+            state.remember(f"{state.courier.name} used deep mud to evade the reed boar.")
+            return "The boar charges into deep mud: a positional evasion."
+        if gap <= 1 and "charge" in threat.intent:
+            threat.intent = "circles before another charge"
+            if guarded:
+                return "Your guarded footing turns the boar's charge."
+            return apply_damage(state, 3, "The reed boar's shoulder")
+        threat.intent = "lowers its head and charges next turn"
+        return "The reed boar lowers its head: mud, light, or distance can redirect it."
+    preferred = 2 if threat.profile == "reach" else 1
+    if gap <= preferred:
+        if guarded:
+            threat.morale -= 1
+            return f"Your guard denies the {threat.name}'s distance."
+        marker = "thrusts next turn" if threat.profile == "reach" else "strikes next turn"
+        if marker in threat.intent:
+            threat.intent = "recovers before another attack"
+            return apply_damage(state, 3, f"The {threat.name}'s attack")
+        threat.intent = marker
+        return f"The {threat.name} {marker}."
+    for _ in range(pressure(state).pursuit_steps):
+        threat.position = _step_toward(state, threat, state.position)
+    threat.intent = (
+        "pursues quickly" if pressure(state).pursuit_steps == 2
+        else "closes through the terrain"
+    )
+    return f"The {threat.name} {threat.intent}."
+
+
+def _weather_and_deadline(state: GameState) -> list[str]:
+    elapsed = state.pressure_elapsed
+    if 45 <= elapsed % 120 < 70:
+        weather = "river fog"
+    elif 70 <= elapsed % 120 < 95:
+        weather = "hard rain"
+    else:
+        weather = "clear"
+    messages: list[str] = []
+    if weather != state.weather:
+        state.weather = weather
+        messages.append({
+            "clear": "The weather opens; long sightlines return.",
+            "river fog": "River fog closes floodplain sightlines.",
+            "hard rain": "Hard rain slows exposed travel and feeds low water.",
+        }[weather])
+    if (
+        not state.objective_changed
+        and elapsed >= state.objective_deadline
+        and state.objective_status in {"unoffered", "accepted", "altered"}
+    ):
+        state.objective_changed = True
+        state.region.changes["late_objective"] = True
+        state.market[state.region.objective_commodity].demand += 1
+        messages.append(
+            "The mill bell rings three times: late water worsens Hearthford's shortage."
+        )
+    if pressure(state).band == "critical" and not state.escalation_spawned:
+        state.escalation_spawned = True
+        reavers = next(t for t in state.threats if t.id == "pressure-reavers")
+        reavers.status = "watching"
+        messages.append(
+            "High pressure draws valuable-seeking reavers onto the river road."
+        )
+    return messages
+
+
+def _patrols(state: GameState) -> list[str]:
+    messages: list[str] = []
+    for threat in state.threats:
+        if threat.status != "watching" or not threat.patrol:
+            continue
+        threat.patrol_index = (threat.patrol_index + 1) % len(threat.patrol)
+        threat.position = threat.patrol[threat.patrol_index]
+        if (
+            distance(state.position, threat.position) <= pressure(state).alert_range
+            and line_of_sight(state, threat.position, state.position)
+        ):
+            messages.append(_activate(threat))
+    return messages
+
+
+def _advance_world(
+    state: GameState, *, guarded: bool = False, steps: int = 1
+) -> None:
+    old_band = pressure(state).band
+    for tick in range(steps):
+        state.world_time += 1
+        if state.location != "region":
+            continue
+        state.pressure_elapsed += 1
+        for key in list(state.smoke):
+            state.smoke[key] -= 1
+            if state.smoke[key] <= 0:
+                del state.smoke[key]
+        messages = _weather_and_deadline(state) + _patrols(state)
+        current = pressure(state)
+        for threat in state.threats:
+            if state.location != "region":
+                break
+            if threat.status == "watching" and not threat.patrol:
+                seen = threat.position in field_of_view(state, remember=False)
+                noisy = (
+                    state.noise >= 3
+                    and distance(state.position, threat.position) <= current.alert_range + 2
+                )
+                if (
+                    seen and distance(state.position, threat.position) <= current.alert_range
+                ) or noisy:
+                    messages.append(_activate(threat))
+            elif threat.status == "engaged":
+                messages.append(_threat_action(state, threat, guarded and tick == 0))
+        for message in messages:
+            if message:
+                state.add_message(message, priority=3)
+    if state.location == "region":
+        field_of_view(state)
+        new_band = pressure(state).band
+        if old_band != new_band and new_band in {"strained", "critical"}:
+            state.add_message(
+                f"Pressure becomes {new_band}: alert distance and pursuit increase.",
+                priority=3,
+            )
+
+
+def _time_result(
+    state: GameState,
+    message: str,
+    *,
+    guarded: bool = False,
+    steps: int = 1,
+    priority: int = 2,
+) -> ActionResult:
+    if message:
+        state.add_message(message, priority=priority)
+    _advance_world(state, guarded=guarded, steps=steps)
+    return ActionResult(True, True, message)
