@@ -112,8 +112,9 @@ Seven placed threats exercise five profiles: an actual looping road patrol,
 territorial reed boar, two readable ranged keepers, a reach-oriented levy,
 timed mill machinery, and dormant valuable-seeking reavers. Staff can engage a
 mixed close group; ranged and reach opponents complement each other in the
-mill. The seed can make the machinery elite by changing its marked safe aisle
-and operating rhythm, not merely health. Material alternatives include
+mill. The seed can make the machinery elite: it telegraphs and alternates
+between outer aisles 22/28 and inner aisles 24/26, changing required position
+rather than merely health. Material alternatives include
 witnessed negotiation, lamplight animal redirection, smoke distraction,
 flood-assisted retreat, route avoidance, and tool/rope/carpenter control of
 the machinery.
@@ -138,7 +139,7 @@ All required commands passed after implementation:
 
 ```text
 python -m unittest discover -s tests -v
-Ran 34 tests in 2.880s
+Ran 35 tests in 3.016s
 OK
 
 python -m compileall -q jomon tests
@@ -155,7 +156,8 @@ falling, bounded smoke/sound/water, persistent chests and discoveries, passive
 limits and combinations, all six weapon identities, patrol/noise/pressure,
 the action-clock deadline, persistence, merchant exchange, contextual defeat,
 death, succession, and retention of a primary action consequence after
-same-turn hostile intents.
+same-turn hostile intents. A dedicated elite test proves that its outer and
+inner danger lanes alternate and affect the same position differently.
 
 ### Manual PTY verification
 
@@ -201,6 +203,12 @@ floor/fall consequence. A hostile responding through an adjacent open level
 was exercised in ordinary play; a player attack across levels remains covered
 only by a focused automated test. The smoke path was used on one level; water,
 not smoke, was the cross-level propagation manually exercised.
+
+A second controlled-save PTY check exercised the elite crown wheel directly.
+Its log first marked outer aisles 22/28; the courier remained safe on row 24.
+The next cycle visibly marked inner aisles 24/26, and remaining on row 24 then
+dealt 3 harm. This verifies a positioning-changing elite rule rather than a
+larger-health variant.
 
 ### Candid play assessment
 
