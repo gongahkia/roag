@@ -15,7 +15,7 @@ class EngineTests(unittest.TestCase):
         other = GameEngine.new(self.catalog, 4242)
         self.assertEqual(self.engine.snapshot(), other.snapshot())
 
-    def test_generated_maps_are_connected_and_have_required_rooms(self) -> None:
+    def test_generated_content_and_top_down_map_are_connected(self) -> None:
         for seed in range(50):
             engine = GameEngine.new(self.catalog, seed)
             visited = {0}
@@ -29,14 +29,39 @@ class EngineTests(unittest.TestCase):
             self.assertEqual(set(range(12)), visited)
             kinds = {room.kind for room in engine.state.rooms}
             self.assertTrue({"start", "fight", "event", "camp", "upgrade", "elite", "cache", "boss"} <= kinds)
+            start = engine.room_position(0)
+            for room in engine.state.rooms:
+                destination = engine.room_position(room.id)
+                self.assertTrue(engine.is_walkable(*destination))
+                self.assertTrue(destination == start or engine._find_path(start, destination))
 
-    def test_travel_only_accepts_connected_room(self) -> None:
-        with self.assertRaisesRegex(RuleError, "not connected"):
-            self.engine.move_to(11)
-        self.engine.state.rooms[1].resolved = True
-        self.engine.move_to(1)
-        self.assertEqual(1, self.engine.state.current_room)
-        self.assertEqual(94, self.engine.state.light)
+    def test_pathfinding_and_step_costs(self) -> None:
+        with self.assertRaisesRegex(RuleError, "floor tile"):
+            self.engine.path_to(0, 0)
+        destination = self.engine.room_position(11)
+        path = self.engine.path_to(*destination)
+        self.assertGreater(len(path), 100)
+        with self.assertRaisesRegex(RuleError, "one floor tile"):
+            self.engine.step_exploration(*path[1])
+        self.engine.step_exploration(*path[0])
+        self.engine.step_exploration(*path[1])
+        self.assertEqual(99, self.engine.state.light)
+
+    def test_patrol_contact_opens_combat_and_victory_clears_it(self) -> None:
+        patrol = next(item for item in self.engine.state.patrols if self.engine.room(item.room_id).kind != "boss")
+        for other in self.engine.state.patrols:
+            other.active = other is patrol
+        destination = self.engine._neighbors((self.engine.state.party_x, self.engine.state.party_y))[0]
+        patrol.x, patrol.y = destination
+        self.engine.step_exploration(*destination)
+        self.assertEqual("combat", self.engine.state.phase)
+        self.assertEqual(patrol.id, self.engine.state.active_patrol_id)
+        for enemy in list(self.engine.living_enemies()):
+            self.engine._damage(enemy, enemy.max_hp)
+        self.engine._combat_victory()
+        self.assertFalse(patrol.active)
+        self.assertTrue(self.engine.room(patrol.room_id).resolved)
+        self.assertIsNone(self.engine.state.active_patrol_id)
 
     def test_card_damage_and_rank_restrictions(self) -> None:
         self.engine.start_combat("lost_shift")

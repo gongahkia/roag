@@ -15,6 +15,8 @@ class SaveTests(unittest.TestCase):
 
     def test_exploration_save_round_trip(self) -> None:
         engine = GameEngine.new(self.catalog, 101)
+        first_step = engine.path_to(*engine.room_position(1))[0]
+        engine.step_exploration(*first_step)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "run.json"
             write_save(path, engine.snapshot())

@@ -86,15 +86,43 @@ class AsciiUiTests(unittest.TestCase):
         self.assertEqual(">", screen.rows[5][column - 1])
         self.assertEqual("<", screen.rows[5][column + 7])
 
-    def test_ship_map_uses_diagonal_forks(self) -> None:
+    def test_top_down_map_draws_walls_route_party_target_and_patrol(self) -> None:
         screen = FakeScreen()
         self.ui.screen = screen
-        self.ui._map(4)
-        lines = ["".join(row).rstrip() for row in screen.rows[4:7]]
-        self.assertIn("/---[??]---\\", lines[0])
-        self.assertIn("<00>---[??]", lines[1])
-        self.assertIn("\\---[??]---/", lines[2])
-        self.assertNotIn("|", "".join(lines))
+        party = (self.engine.state.party_x, self.engine.state.party_y)
+        patrol = self.engine.state.patrols[0]
+        patrol.x, patrol.y = party[0] + 3, party[1]
+        destination = self.engine.room_position(1)
+        self.ui._world_map(5, destination)
+        rendered = screen.text()
+        self.assertIn("#", rendered)
+        self.assertIn(".", rendered)
+        self.assertIn(":", rendered)
+        self.assertIn("@", rendered)
+        self.assertIn("X", rendered)
+        self.assertIn("e", rendered)
+
+    def test_mouse_click_maps_screen_cell_to_world_destination(self) -> None:
+        origin = (10, 4, 60, 15)
+        with patch(
+            "dumbest_dungeon.ui.curses.getmouse",
+            return_value=(0, 12, 7, 0, curses.BUTTON1_CLICKED),
+        ):
+            self.assertEqual((20, 6), self.ui._mouse_destination(origin))
+
+    def test_auto_walk_into_patrol_opens_combat(self) -> None:
+        screen = FakeScreen()
+        self.ui.screen = screen
+        party = (self.engine.state.party_x, self.engine.state.party_y)
+        destination = self.engine._neighbors(party)[0]
+        patrol = self.engine.state.patrols[0]
+        for other in self.engine.state.patrols:
+            other.active = other is patrol
+        patrol.x, patrol.y = destination
+        with patch("dumbest_dungeon.ui.curses.napms") as napms:
+            self.ui._walk_to(destination)
+        self.assertEqual("combat", self.engine.state.phase)
+        napms.assert_called_once_with(self.ui.MOVE_FRAME_MS)
 
     def test_hub_renders_roster_and_departs_with_default_party(self) -> None:
         self.engine = GameEngine.new(self.catalog, 3, start_in_hub=True)

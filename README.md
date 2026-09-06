@@ -1,6 +1,6 @@
 # Dumbest Dungeon
 
-A survival-horror party deckbuilder played entirely in a terminal. Choose four of ten crew archetypes to cross the derelict survey ship *Orison*, manage health, stress, light, and supplies, and fight through a shared card deck with visible enemy intents and four-rank positioning.
+A survival-horror party deckbuilder played entirely in a terminal. Choose four of ten crew archetypes, explore the derelict survey ship *Orison* through a scrolling top-down ASCII world, evade or intercept moving patrols, and fight through a shared card deck with visible enemy intents and four-rank positioning.
 
 The game uses only the Python standard library. No installation or third-party package is required.
 
@@ -22,12 +22,13 @@ python3 -m dumbest_dungeon --validate-content
 
 A generated seed appears in the map HUD and ending screen. Supplying `--seed` makes new expeditions in that process reproducible. The default save is `$XDG_STATE_HOME/dumbest-dungeon/run.save.json`, or `~/.local/state/dumbest-dungeon/run.save.json` when `XDG_STATE_HOME` is unset.
 
-The expanded roster uses content schema 2 and save version 2. Saves created by the earlier fixed-four build are rejected with an explicit version error rather than loaded incorrectly.
+Top-down exploration uses content schema 3 and save version 3. Saves from the earlier node-map builds are rejected with an explicit version error rather than loaded incorrectly.
 
 ## Controls and rules
 
 - New expeditions begin in the airlock crew hub. Choose four of ten archetypes; selection order assigns combat ranks 1–4. The original Warden, Engineer, Medic, and Scout party is selected by default. Space toggles a crew member, left/right changes a selected member's rank, and `C` browses that class's full card library.
-- Arrow keys or `h`/`j`/`k`/`l` navigate, Enter confirms, and Escape cancels or pauses.
+- Exploration is a 117×35 top-down ASCII ship. Arrow keys or `h`/`j`/`k`/`l` move the `X` destination cursor and Enter makes the `@` party automatically follow the shortest floor route. Left-clicking a visible floor tile also selects it and starts movement. `Tab` cycles patrols and unresolved facilities; Space recenters the cursor on the party.
+- Normal, elite, and boss patrols move each time the party takes a step. Nearby patrols pursue the crew, while distant normal and elite patrols roam around their assigned compartments. Contact immediately opens the existing formation combat screen.
 - When a card has several valid targets, its target cursor stays on the battlefield: the selected character sprite is highlighted and bracketed with `>` and `<`. Move between targets with left/right or `h`/`l`, press Enter to confirm, or Escape to cancel.
 - Enemies that lose health flash white-on-red for a short frame with the damage amount over their sprite. Monochrome terminals use reverse video instead.
 - Crew who gain health or block, lose stress, receive guard, or gain a positive status flash white-on-green with a compact change label. Party-wide buffs animate together.
@@ -35,7 +36,7 @@ The expanded roster uses content schema 2 and save version 2. Saves created by t
 - Cards state which specialist, origin ranks, and target ranks they require. Spend the party's three shared energy, then end the turn so enemies execute their displayed intents.
 - At zero health, a specialist reaches Death's Door. Further damage has a 35% chance to kill them and end the expedition.
 - At 100 stress, a specialist gains an affliction and returns to 50 stress. Reaching 100 again while afflicted causes a collapse at Death's Door.
-- Moving consumes six light. Below 30 light, travel adds stress and can cause ambushes, but combat offers one additional card reward.
+- Every two exploration steps consume one light. Below 30 light, movement adds stress and contact can begin with a surprise enemy phase, but combat offers one additional card reward.
 - Camps can recover the crew, upgrade a card, or remove a card. Workshops can upgrade or remove one card.
 - Saving and loading are manual and permitted mid-combat. Loading restores the pseudo-random stream as well as visible state, so future results remain reproducible.
 
@@ -63,4 +64,4 @@ python3 -m compileall dumbest_dungeon tests
 python3 -m dumbest_dungeon --validate-content
 ```
 
-The test suite covers deterministic generation, map connectivity, all card definitions, formation legality, Death's Door and stress collapse, enemy intent identity, facilities, a complete scripted expedition, and exact exploration and mid-combat save round trips.
+The test suite covers deterministic generation, spatial pathfinding, roaming patrol contact, mouse-coordinate translation, all card definitions, formation legality, Death's Door and stress collapse, enemy intent identity, facilities, a complete scripted expedition, and exact exploration and mid-combat save round trips.
