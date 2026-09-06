@@ -517,7 +517,7 @@ def _discover(state: GameState) -> ActionResult:
     room.changes["discovery_taken"] = True
     if item in RELICS:
         state.relics[item] = state.relics.get(item, 0) + 1
-        detail = f"finite relic secured aboard return: {item}"
+        detail = f"finite relic secured; {item} can be selected aboard Jomon next expedition"
     else:
         kind = DISCOVERIES[item][0]
         if kind == "technique":
@@ -673,7 +673,9 @@ def attack(state: GameState) -> ActionResult:
         target.intent = "driven from the route"
         _contact_remembers(state, f"{state.courier.name} drove off the {target.name} in direct combat.")
         state.remember(f"{state.courier.name} defeated the {target.name} with {state.weapon}.")
-        return _result(state, f"Your {state.weapon} drives off the {target.name}.", time=True)
+        result = _result(state, f"Your {state.weapon} drives off the {target.name}.", time=True)
+        _advance_threats(state)
+        return result
     result = _result(state, f"Your {state.weapon} hits for {damage}; {target.name} has {target.health}/{target.max_health} health.", time=True)
     _advance_threats(state)
     return result

@@ -291,7 +291,7 @@ def create_world(seed: str) -> GameState:
         position=Position(3, 4), expedition_count=0, returned_expeditions=0,
         weapon=None, gear=None, support=None, support_spent=False, crossbow_loaded=True,
         owned_weapons=["billhook", "spear", "cudgel", "staff"],
-        owned_gear=["buckler", "rope", "quiet shoes", "repair tools", "smoke pot", "cargo harness", "trade seals", "hooded lantern"],
+        owned_gear=["buckler", "rope", "quiet shoes", "repair tools", "smoke pot", "trade seals"],
         consumables={}, relics=relics, carried_relic=None, carried_goods={},
         objective_status="unoffered", objective_required=2, flood_control="raised",
         pressure_elapsed=0, noise=0, threats=_threats(seed), trade_credit=0,
