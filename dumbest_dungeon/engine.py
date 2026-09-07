@@ -485,7 +485,7 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 25
+    SAVE_VERSION = 26
     TUTORIAL_SEED = 1
     ENCOUNTER_PLANS = {"none", "pressure", "disrupt", "screen", "sustain", "combo", "overseer"}
 

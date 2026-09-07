@@ -1355,7 +1355,16 @@ class TerminalUI:
         assert self.engine and self.engine.state.current_event
         event = self.catalog.events[self.engine.state.current_event]
         choices = [item["label"] for item in event["choices"]]
-        picked = self._menu(event["name"].upper(), choices, event["text"], allow_cancel=False)
+        details = "\n\n".join(
+            f"{index}. {choice['summary']}\nRISK {choice['risk'].upper()} | IRREVERSIBLE"
+            for index, choice in enumerate(event["choices"], 1)
+        )
+        picked = self._menu(
+            event["name"].upper(),
+            choices,
+            f"{event['text']}\n\n{details}",
+            allow_cancel=False,
+        )
         self.engine.choose_event(picked)
 
     def _reward(self) -> None:

@@ -431,8 +431,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load card metadata from {metadata_source}: {exc}") from exc
 
-    if raw.get("schema_version") != 18:
-        raise ContentError("content schema_version must be 18")
+    if raw.get("schema_version") != 19:
+        raise ContentError("content schema_version must be 19")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
@@ -896,7 +896,12 @@ def load_catalog(path: Path | None = None) -> Catalog:
         ):
             raise ContentError(f"event {event['id']} needs at least two choices")
         for choice in choices:
-            if not isinstance(choice.get("label"), str):
+            if (
+                not isinstance(choice.get("label"), str)
+                or not isinstance(choice.get("summary"), str)
+                or not choice["summary"]
+                or choice.get("risk") not in {"low", "guarded", "severe", "unknown"}
+            ):
                 raise ContentError(f"event {event['id']} choice needs a label")
             if not isinstance(choice.get("cost_supplies", 0), int) or choice.get("cost_supplies", 0) < 0:
                 raise ContentError(f"event {event['id']} choice has an invalid supply cost")

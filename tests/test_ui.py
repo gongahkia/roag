@@ -501,6 +501,21 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("RISK", rendered)
         self.assertIn("ONE USE", rendered)
 
+    def test_event_menu_discloses_consequences_before_confirmation(self) -> None:
+        room = self.engine.room()
+        room.kind = "event"
+        room.content_id = "sealed_locker"
+        room.biome_id = "derelict"
+        room.resolved = False
+        self.engine.state.current_event = "sealed_locker"
+        self.engine.state.phase = "event"
+        self.ui.screen = FakeScreen(keys=[10])
+        self.ui._event()
+        rendered = self.ui.screen.text()
+        self.assertIn("RISK GUARDED", rendered)
+        self.assertIn("IRREVERSIBLE", rendered)
+        self.assertIn("card reward", rendered)
+
     def test_hazard_notice_and_objective_menu_return_to_exploration(self) -> None:
         hazard = self.engine.state.hazards[0]
         self.engine.state.party_x, self.engine.state.party_y = hazard.x, hazard.y
