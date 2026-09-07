@@ -1169,6 +1169,20 @@ class GameEngine:
             return sites[-1][0], sites[-1][1]
         return sites[objective.stage][0], sites[objective.stage][1]
 
+    def objective_approach_projection(
+        self,
+        objective: AccessObjective,
+        approach_id: str,
+    ) -> dict[str, int | str]:
+        positions = [tuple(site) for site in objective.approach_sites[approach_id]]
+        origin = (self.state.party_x, self.state.party_y)
+        route: list[tuple[int, int]] = []
+        for destination in positions:
+            leg = self._find_path(origin, destination)
+            route.extend(leg)
+            origin = destination
+        return self.route_intel(route)
+
     def _generate_landmarks(self) -> list[Landmark]:
         templates = {
             definition["biome"]: definition["id"]

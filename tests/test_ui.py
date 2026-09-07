@@ -530,6 +530,19 @@ class AsciiUiTests(unittest.TestCase):
             self.ui._objective()
         self.assertTrue(objective.completed)
 
+    def test_objective_choice_discloses_generated_route_burden(self) -> None:
+        objective = self.engine.state.objectives[0]
+        self.engine.state.party_x, self.engine.state.party_y = objective.x, objective.y
+        self.engine.state.current_objective_id = objective.id
+        self.engine.state.phase = "objective"
+        self.ui.screen = FakeScreen(keys=[27])
+        self.ui._objective()
+        rendered = self.ui.screen.text()
+        self.assertIn("ROUTE", rendered)
+        self.assertIn("TICKS", rendered)
+        self.assertIn("KNOWN HAZARDS", rendered)
+        self.assertIn("PATROLS", rendered)
+
     def test_bargain_consequences_are_complete_at_minimum_size(self) -> None:
         pickup = next(item for item in self.engine.state.pickups if item.kind == "bargain")
         self.engine.state.phase = "discovery"

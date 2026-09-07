@@ -603,6 +603,29 @@ class EngineTests(unittest.TestCase):
                     seen.add(travel)
         self.assertTrue({"short", "long"} <= seen)
 
+    def test_objective_approach_projection_uses_actual_seeded_route(self) -> None:
+        objective = self.engine.state.objectives[0]
+        self.engine.state.party_x, self.engine.state.party_y = objective.x, objective.y
+        approach = self.engine.mission_definition(objective.biome_id)["approaches"][0]
+        projection = self.engine.objective_approach_projection(objective, approach["id"])
+        previous = (objective.x, objective.y)
+        expected_ticks = 0
+        for site in objective.approach_sites[approach["id"]]:
+            destination = tuple(site)
+            expected_ticks += self.engine.path_cost(
+                self.engine._find_path(previous, destination)
+            )
+            previous = destination
+        self.assertEqual(expected_ticks, projection["ticks"])
+        self.assertEqual(expected_ticks // 2, projection["light"])
+        other = GameEngine.new(self.catalog, 4242)
+        other_objective = other.state.objectives[0]
+        other.state.party_x, other.state.party_y = other_objective.x, other_objective.y
+        self.assertEqual(
+            projection,
+            other.objective_approach_projection(other_objective, approach["id"]),
+        )
+
     def test_reduced_party_can_complete_optional_objective_stages(self) -> None:
         hero = self.engine.living_heroes()[0]
         hero.hp = 0

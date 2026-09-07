@@ -827,6 +827,10 @@ class TerminalUI:
             details = []
             for index, approach in enumerate(mission["approaches"], 1):
                 telegraph = approach["telegraph"]
+                projection = self.engine.objective_approach_projection(
+                    objective,
+                    approach["id"],
+                )
                 cost = approach["cost"]
                 cost_label = (
                     "no immediate resource cost"
@@ -837,7 +841,10 @@ class TerminalUI:
                 details.append(
                     f"{index}. {approach['summary']}\n"
                     f"COST {cost_label.upper()} | RISK {telegraph['risk'].upper()} | "
-                    f"COMBAT {telegraph['combat'].upper()} | IRREVERSIBLE"
+                    f"COMBAT {telegraph['combat'].upper()} | IRREVERSIBLE\n"
+                    f"ROUTE {projection['ticks']} TICKS / ~{projection['light']} LIGHT | "
+                    f"KNOWN HAZARDS {projection['known_hazards']} | "
+                    f"PATROLS {projection['patrol_risk']}"
                 )
             picked = self._menu(
                 f"{biome.upper()} — {mission['name'].upper()}",
