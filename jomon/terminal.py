@@ -75,8 +75,8 @@ from .content import (
 from .save import SaveError, save_game
 from .state import GameState, Position, Threat
 from .travel import DESTINATIONS, choose_destination, resolve_voyage, travel_animation_frames
-from .route_chart import chart_move, neighbours, route_availability, route_preview
-from .calendar import calendar_at
+from .route_chart import chart_move, neighbours, route_availability
+from .calendar import calendar_at, seasonal_route_note
 from .vessel import DRINKS, current_area
 from .world import (
     area_name,
@@ -842,6 +842,52 @@ def _chart_line(first: tuple[int, int], second: tuple[int, int]) -> list[tuple[i
             y0 += sy
 
 
+def route_detail_lines(
+    state: GameState,
+    view: RouteChartView,
+    max_width: int,
+) -> list[str]:
+    """Fit route consequences without hiding them behind ellipses."""
+    node = state.route_nodes[view.cursor]
+    date = calendar_at(state)
+    description = f"Place: {node.description}"
+    market = f"Market: {node.market_interest or 'none'}"
+    contact = "Contacts: established" if node.region_id else "Contacts: no permanent stop"
+    if view.cursor == state.route_current_node:
+        raw = [
+            node.name.upper(), f"Type: {node.kind}", description,
+            "Jomon is moored here.", f"Season: {date.season}",
+            market, contact, f"Calendar: {date.label}",
+            f"Integrity: {state.vessel_integrity}/10",
+        ]
+    else:
+        edge = next(
+            edge for edge in state.route_edges
+            if {edge.first, edge.second} == {state.route_current_node, view.cursor}
+        )
+        available, reason = route_availability(state, view.cursor)
+        route = f"Route: {edge.hazard}; {edge.travel_time} actions; supplies {edge.supply_cost}"
+        risks = f"Risks: cargo {edge.cargo_risk}/3; weather {edge.weather_exposure}/4"
+        season = f"{date.season.title()}: {seasonal_route_note(state)}"
+        route_layer = [description, route, risks, "REACHABLE" if available else f"BLOCKED: {reason}"]
+        market_layer = [description, f"Supplies used: {edge.supply_cost}", market, contact]
+        season_layer = [season, f"Calendar: {date.label}", f"Integrity: {state.vessel_integrity}/10"]
+        chosen_layer = (route_layer, market_layer, season_layer)[view.overlay_mode]
+        raw = [node.name.upper(), f"Type: {node.kind}", *chosen_layer]
+        if view.confirming:
+            raw = [
+                node.name.upper(), f"Type: {node.kind}", description, route, risks,
+                season, market, contact,
+                "REACHABLE" if available else f"BLOCKED: {reason}", "",
+                f"> ENTER — {'CONFIRM LEG' if available else 'BLOCKED'}",
+                "  ESC — cancel",
+            ]
+    lines: list[str] = []
+    for line in raw:
+        lines.extend(_wrapped(line, max_width) or [""])
+    return lines
+
+
 def _draw_route_chart(
     screen: curses.window,
     state: GameState,
@@ -893,19 +939,10 @@ def _draw_route_chart(
         _put(screen, my, mx, "@", _COLOUR_ATTRIBUTES["player"] | curses.A_REVERSE)
         _put(screen, height - 4, 2, _clip(moving[2], map_width - 4), curses.A_BOLD)
     selected = state.route_nodes[view.cursor]
-    lines = [
-        selected.name.upper(), f"Type: {selected.kind}",
-        *route_preview(state, view.cursor), "",
-        f"Calendar: {calendar_at(state).label}",
-        f"Jomon integrity: {state.vessel_integrity}/10",
-        f"Chart layer {view.overlay_mode + 1}: " + ("route and risk" if view.overlay_mode == 0 else "markets and supplies" if view.overlay_mode == 1 else "season and contacts"),
-    ]
-    if view.confirming:
-        available, reason = route_availability(state, view.cursor)
-        lines += ["", f"> ENTER — {'CONFIRM LEG' if available else 'BLOCKED'}", "  ESC — cancel confirmation", reason]
+    lines = route_detail_lines(state, view, detail_width - 4)
     for index, line in enumerate(lines[: height - 5]):
         attr = curses.A_BOLD if index == 0 or line.startswith(">") else curses.A_DIM if "BLOCKED" in line else 0
-        _put(screen, 2 + index, map_width + 2, _clip(line, detail_width - 4), attr)
+        _put(screen, 2 + index, map_width + 2, line, attr)
     _put(screen, height - 2, 1, "Arrows/WASD/HJKL connected node  Enter preview/confirm  Tab layer  Esc close", curses.A_REVERSE)
     _put(screen, height - 1, 1, "Mouse: click selects, double-click confirms where reported; keyboard is complete", curses.A_REVERSE)
     screen.refresh()

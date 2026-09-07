@@ -20,7 +20,12 @@ from jomon.route_chart import (
 )
 from jomon.state import SAVE_FORMAT, create_world, game_state_from_dict
 from jomon.travel import choose_destination, travel_animation_frames
-from jomon.terminal import InputEvent, RouteChartView, _handle_route_chart
+from jomon.terminal import (
+    InputEvent,
+    RouteChartView,
+    _handle_route_chart,
+    route_detail_lines,
+)
 
 
 class RouteGraphTests(unittest.TestCase):
@@ -83,6 +88,23 @@ class RouteGraphTests(unittest.TestCase):
         available, reason = route_availability(state, "ebb-crossing")
         self.assertFalse(available)
         self.assertIn("closed", reason)
+
+    def test_minimum_width_route_confirmation_wraps_every_material_fact(self):
+        state = create_world("minimum route details")
+        target = neighbours(state, state.route_current_node, reachable_only=True)[0]
+        view = RouteChartView(target, confirming=True)
+
+        lines = route_detail_lines(state, view, 23)
+
+        self.assertLessEqual(len(lines), 19)
+        self.assertTrue(all(len(line) <= 23 for line in lines))
+        joined = " ".join(lines)
+        for fact in (
+            "Route:", "actions", "supplies", "Risks: cargo", "weather",
+            "Spring:", "Market:", "Contacts:", "ENTER", "ESC",
+        ):
+            self.assertIn(fact, joined)
+        self.assertNotIn("...", joined)
 
 
 class CalendarAndMigrationTests(unittest.TestCase):
