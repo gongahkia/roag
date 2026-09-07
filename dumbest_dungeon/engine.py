@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import random
-from collections import deque
+from collections import Counter, deque
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -1516,6 +1516,42 @@ class GameEngine:
             return self.catalog.cards[card.card_id]
         return self.catalog.curses[card.card_id]
 
+    def card_tags(self, card_id: str) -> set[str]:
+        definition = self.catalog.cards[card_id]
+        tags = set(definition.get("tags", []))
+        effects = definition["effects"] + definition["upgrade_effects"]
+        for effect in effects:
+            op = effect["op"]
+            if op == "damage":
+                tags.add("damage")
+            elif op == "block":
+                tags.add("block")
+            elif op == "heal":
+                tags.add("recovery")
+            elif op == "stress":
+                tags.add("stress_relief" if effect.get("amount", 0) < 0 else "stress_risk")
+            elif op == "move":
+                effect_target = effect.get("target", definition["target"])
+                tags.add("displacement" if effect_target in {"enemy", "all_enemies"} else "mobility")
+            elif op in {"guard", "cleanse", "draw", "discard", "energy"}:
+                tags.add(op)
+            elif op == "status":
+                status = effect["status"]
+                if status in {"marked", "vulnerable", "wound"}:
+                    tags.add(f"setup:{status}")
+                elif status in {"weak", "stun"}:
+                    tags.add("control")
+                else:
+                    tags.add(f"status:{status}")
+            bonus_status = effect.get("bonus_status") or effect.get("condition_status")
+            if bonus_status:
+                tags.add(f"payoff:{bonus_status}")
+            if effect.get("condition_target_state") == "deaths_door":
+                tags.add("payoff:deaths_door")
+        if definition.get("biome"):
+            tags.add(f"affinity:{definition['biome']}")
+        return tags
+
     @staticmethod
     def _stack_value(effect: dict[str, Any], count: int) -> float:
         amount = float(effect.get("amount", 0))
@@ -1662,9 +1698,7 @@ class GameEngine:
         for effect in effects:
             if self.state.phase != "combat":
                 break
-            if effect.get("condition_status") and not any(
-                effect["condition_status"] in target.statuses for target in main_targets
-            ):
+            if not self._card_effect_condition(effect, actor, main_targets):
                 continue
             resolved_effect = dict(effect)
             if definition.get("biome") == self.current_biome():
@@ -1693,6 +1727,38 @@ class GameEngine:
             self.add_log(f"Reserve Cell restores {reserve} energy.")
         if not self.living_enemies() and self.state.phase == "combat":
             self._combat_victory()
+
+    @staticmethod
+    def _actor_matches_state(actor: Actor, state: str) -> bool:
+        if state == "deaths_door":
+            return actor.deaths_door
+        if state == "stressed":
+            return actor.stress >= 50
+        if state == "healthy":
+            return actor.hp * 2 >= actor.max_hp
+        return bool(actor.statuses.get("wound"))
+
+    def _card_effect_condition(
+        self,
+        effect: dict[str, Any],
+        actor: Actor,
+        main_targets: list[Actor],
+    ) -> bool:
+        if effect.get("condition_status") and not any(
+            effect["condition_status"] in target.statuses for target in main_targets
+        ):
+            return False
+        if effect.get("condition_target_state") and not any(
+            self._actor_matches_state(target, effect["condition_target_state"])
+            for target in main_targets
+        ):
+            return False
+        if effect.get("condition_actor_state") and not self._actor_matches_state(
+            actor,
+            effect["condition_actor_state"],
+        ):
+            return False
+        return True
 
     def _card_targets(self, target_type: str, target_id: str | None, actor: Actor) -> list[Actor]:
         if target_type == "self":
@@ -2256,11 +2322,79 @@ class GameEngine:
             self.room().resolved = True
         count = 4 if self.state.light < self.catalog.balance["low_light_threshold"] else 3
         count += round(self._item_effect_value("reward_choices"))
-        active_heroes = {hero.id for hero in self.living_heroes()}
-        pool = [card_id for card_id, card in self.catalog.cards.items() if card["hero"] in active_heroes]
-        self.state.rewards = self.rng.sample(pool, k=min(count, len(pool)))
+        self.state.rewards = self._generate_card_rewards(count)
         self.state.phase = "reward"
         self.add_log("Combat won. Choose a recovered technique.")
+
+    def _generate_card_rewards(self, count: int) -> list[str]:
+        active_heroes = {hero.id for hero in self.living_heroes()}
+        available = [
+            card_id
+            for card_id, definition in self.catalog.cards.items()
+            if definition["hero"] in active_heroes
+        ]
+        if not available or count <= 0:
+            return []
+        owned = Counter(card.card_id for card in self.state.deck if card.card_id in self.catalog.cards)
+        deck_tags = Counter(
+            tag
+            for card in self.state.deck
+            if card.card_id in self.catalog.cards
+            for tag in self.card_tags(card.card_id)
+        )
+        chosen: list[str] = []
+
+        def choose(pool: list[str], *, novelty: float = 1.0) -> None:
+            candidates = [card_id for card_id in pool if card_id not in chosen]
+            if not candidates or len(chosen) >= count:
+                return
+            weights = []
+            for card_id in candidates:
+                definition = self.catalog.cards[card_id]
+                tags = self.card_tags(card_id)
+                current_rank = next(
+                    hero.rank for hero in self.living_heroes() if hero.id == definition["hero"]
+                )
+                usable_now = current_rank in definition["from_ranks"]
+                duplicate_weight = 1 / (1 + owned[card_id] * novelty)
+                affinity_weight = 1.2 if f"affinity:{self.current_biome()}" in tags else 1.0
+                weights.append((1.25 if usable_now else 1.0) * duplicate_weight * affinity_weight)
+            chosen.append(self.rng.choices(candidates, weights=weights, k=1)[0])
+
+        desired_combo_tags = {
+            f"{counterpart}:{tag.split(':', 1)[1]}"
+            for tag in deck_tags
+            if tag.startswith(("setup:", "payoff:"))
+            for counterpart in (["payoff"] if tag.startswith("setup:") else ["setup"])
+        }
+        bridge_pool = [
+            card_id for card_id in available if self.card_tags(card_id) & desired_combo_tags
+        ]
+        if not bridge_pool:
+            synergistic = {
+                tag
+                for tag, amount in deck_tags.items()
+                if amount >= 2 and tag not in {"damage", "block"}
+            }
+            bridge_pool = [
+                card_id for card_id in available if self.card_tags(card_id) & synergistic
+            ]
+        choose(bridge_pool or available, novelty=1.5)
+
+        disciplines = ("damage", "block", "recovery", "control", "draw", "mobility")
+        least_represented = min(disciplines, key=lambda tag: (deck_tags[tag], tag))
+        corrective_pool = [
+            card_id
+            for card_id in available
+            if least_represented in self.card_tags(card_id)
+            and owned[card_id] == 0
+            and len(self.catalog.cards[card_id]["from_ranks"]) >= 2
+        ]
+        choose(corrective_pool or [card_id for card_id in available if owned[card_id] == 0], novelty=2.0)
+
+        while len(chosen) < min(count, len(available)):
+            choose(available, novelty=1.25)
+        return chosen
 
     def choose_reward(self, index: int | None) -> None:
         if self.state.phase != "reward":
@@ -2308,10 +2442,8 @@ class GameEngine:
         if self.state.phase == "defeat":
             return
         if grant_reward:
-            active_heroes = {hero.id for hero in self.living_heroes()}
-            pool = [card_id for card_id, card in self.catalog.cards.items() if card["hero"] in active_heroes]
             count = 3 + round(self._item_effect_value("reward_choices"))
-            self.state.rewards = self.rng.sample(pool, k=min(count, len(pool)))
+            self.state.rewards = self._generate_card_rewards(count)
             self.state.phase = "reward"
         else:
             self.state.phase = "exploration"

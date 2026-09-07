@@ -61,6 +61,15 @@ class ContentTests(unittest.TestCase):
                     any(rank in card["from_ranks"] for card in starters),
                     f"{hero['id']} has no starter card usable from rank {rank}",
                 )
+            self.assertTrue(
+                any(
+                    [effect["op"] for effect in card["effects"]]
+                    != [effect["op"] for effect in card["upgrade_effects"]]
+                    for card in catalog.cards.values()
+                    if card["hero"] == hero["id"]
+                ),
+                f"{hero['id']} has no structural card upgrade",
+            )
 
     def test_unknown_card_reference_is_rejected(self) -> None:
         catalog = load_catalog()
@@ -70,6 +79,16 @@ class ContentTests(unittest.TestCase):
             path = Path(directory) / "bad.json"
             path.write_text(json.dumps(raw), encoding="utf-8")
             with self.assertRaisesRegex(ContentError, "unknown card"):
+                load_catalog(path)
+
+    def test_invalid_card_build_tag_is_rejected(self) -> None:
+        catalog = load_catalog()
+        raw = json.loads(json.dumps(catalog.raw))
+        raw["cards"][0]["tags"] = ["certainly-not-a-build-tag"]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad-tag.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ContentError, "invalid build tags"):
                 load_catalog(path)
 
     def test_content_balance_guardrails(self) -> None:

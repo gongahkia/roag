@@ -242,21 +242,22 @@ class EngineTests(unittest.TestCase):
 
     def test_all_cards_can_resolve_with_a_legal_target(self) -> None:
         for card_id, definition in self.catalog.cards.items():
-            with self.subTest(card=card_id):
-                party = [definition["hero"]]
-                party.extend(hero_id for hero_id in self.catalog.heroes if hero_id not in party)
-                engine = GameEngine.new(self.catalog, 7, start_in_hub=True)
-                engine.state.hub_selection = party[:4]
-                engine.begin_expedition()
-                engine.start_combat("security")
-                actor = next(hero for hero in engine.state.heroes if hero.id == definition["hero"])
-                desired = definition["from_ranks"][0]
-                engine._move(actor, desired - actor.rank)
-                engine.state.hand = [CardInstance(card_id)]
-                engine.state.energy = 20
-                targets = engine.valid_targets(0)
-                self.assertTrue(targets)
-                engine.play_card(0, targets[0])
+            for upgraded in (False, True):
+                with self.subTest(card=card_id, upgraded=upgraded):
+                    party = [definition["hero"]]
+                    party.extend(hero_id for hero_id in self.catalog.heroes if hero_id not in party)
+                    engine = GameEngine.new(self.catalog, 7, start_in_hub=True)
+                    engine.state.hub_selection = party[:4]
+                    engine.begin_expedition()
+                    engine.start_combat("security")
+                    actor = next(hero for hero in engine.state.heroes if hero.id == definition["hero"])
+                    desired = definition["from_ranks"][0]
+                    engine._move(actor, desired - actor.rank)
+                    engine.state.hand = [CardInstance(card_id, upgraded=upgraded)]
+                    engine.state.energy = 20
+                    targets = engine.valid_targets(0)
+                    self.assertTrue(targets)
+                    engine.play_card(0, targets[0])
 
     def test_hub_builds_selected_party_deck_and_filters_rewards(self) -> None:
         engine = GameEngine.new(self.catalog, 73, start_in_hub=True)
@@ -279,6 +280,47 @@ class EngineTests(unittest.TestCase):
         engine._combat_victory()
         reward_heroes = {self.catalog.cards[card_id]["hero"] for card_id in engine.state.rewards}
         self.assertTrue(reward_heroes <= set(expected))
+
+    def test_card_rewards_bridge_synergy_correct_duplicates_and_reproduce(self) -> None:
+        first = GameEngine.new(self.catalog, 731)
+        second = GameEngine.new(self.catalog, 731)
+        rewards = first._generate_card_rewards(4)
+        self.assertEqual(rewards, second._generate_card_rewards(4))
+        self.assertEqual(4, len(rewards))
+        self.assertEqual(4, len(set(rewards)))
+
+        deck_tags = {
+            tag
+            for card in first.state.deck
+            for tag in first.card_tags(card.card_id)
+        }
+        desired = {
+            f"payoff:{tag.split(':', 1)[1]}"
+            for tag in deck_tags
+            if tag.startswith("setup:")
+        } | {
+            f"setup:{tag.split(':', 1)[1]}"
+            for tag in deck_tags
+            if tag.startswith("payoff:")
+        }
+        self.assertTrue(first.card_tags(rewards[0]) & desired)
+        self.assertNotIn(rewards[1], {card.card_id for card in first.state.deck})
+
+    def test_upgraded_conditional_rescue_cleans_wound(self) -> None:
+        self.engine.start_combat("lost_shift")
+        medic = next(hero for hero in self.engine.living_heroes() if hero.id == "medic")
+        target = self.engine.living_heroes()[0]
+        target.hp = 0
+        target.deaths_door = True
+        target.statuses["wound"] = 3
+        self.engine.state.hand = [CardInstance("field_dressing", upgraded=True)]
+        self.engine.state.energy = 3
+        self.engine.play_card(0, target.id)
+        self.assertEqual(10, target.hp)
+        self.assertEqual(4, target.block)
+        self.assertFalse(target.deaths_door)
+        self.assertNotIn("wound", target.statuses)
+        self.assertEqual(3, medic.rank)
 
     def test_hub_rejects_a_fifth_crew_member(self) -> None:
         engine = GameEngine.new(self.catalog, 74, start_in_hub=True)
@@ -353,6 +395,8 @@ class EngineTests(unittest.TestCase):
         ):
             self.assertFalse(any(owned(card) for card in zone))
         self.assertNotIn("static_prayer", self.engine.state.curses.get(hero.id, {}))
+        rewards = self.engine._generate_card_rewards(4)
+        self.assertFalse(any(self.catalog.cards[card_id]["hero"] == hero.id for card_id in rewards))
 
     def test_full_party_wipe_ends_run(self) -> None:
         self.engine.start_combat("lost_shift")

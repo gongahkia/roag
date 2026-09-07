@@ -56,7 +56,7 @@ class AsciiUiTests(unittest.TestCase):
     def test_card_preview_is_portrait_playing_card_ascii(self) -> None:
         self.engine.start_combat("vents")
         lines = self.ui._card_lines(self.engine.state.hand[0])
-        self.assertEqual(15, len(lines))
+        self.assertEqual(17, len(lines))
         self.assertTrue(all(len(line) == 22 for line in lines))
         self.assertTrue(all(line.isascii() and line.isprintable() for line in lines))
         self.assertTrue(lines[0].startswith("+---"))
@@ -296,6 +296,15 @@ class AsciiUiTests(unittest.TestCase):
         lines = self.ui._card_lines(CardInstance("ice_pick"))
         self.assertIn("CRYOGENIC", " ".join(lines).upper())
         self.assertIn("+2", " ".join(lines))
+
+    def test_upgraded_card_preview_uses_changed_rules(self) -> None:
+        self.engine.start_combat("vents")
+        lines = self.ui._card_lines(CardInstance("interpose", upgraded=True))
+        rendered = " ".join(lines)
+        self.assertIn("BOTH YOU", rendered.upper())
+        self.assertIn("AND THE ALLY GAIN", rendered.upper())
+        self.assertIn("BLOCK.", rendered.upper())
+        self.assertNotIn("2 rounds", rendered)
 
     def test_damaged_enemy_gets_reverse_video_flash_and_damage_number(self) -> None:
         self.engine.start_combat("vents")

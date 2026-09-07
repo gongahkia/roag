@@ -789,15 +789,20 @@ class TerminalUI:
     def _reward(self) -> None:
         assert self.engine
         choices = []
-        for card_id in self.engine.state.rewards:
+        reasons = ("BRIDGE", "CORRECTIVE", "WILDCARD")
+        for index, card_id in enumerate(self.engine.state.rewards):
             card = self.catalog.cards[card_id]
-            choices.append(f"{card['name']} ({self.catalog.heroes[card['hero']]['role']}) — {card['description']}")
+            reason = reasons[min(index, len(reasons) - 1)]
+            choices.append(
+                f"[{reason}] {card['name']} ({self.catalog.heroes[card['hero']]['role']}) — "
+                f"{card['description']}"
+            )
         choices.append("Skip reward")
         previews = [CardInstance(card_id) for card_id in self.engine.state.rewards] + [None]
         picked = self._menu(
             "RECOVERED TECHNIQUE",
             choices,
-            "Add one card to the shared party deck.",
+            "Bridge reinforces setup/payoff; Corrective covers a thin discipline; Wildcard stays volatile.",
             allow_cancel=False,
             preview_cards=previews,
         )
@@ -1016,7 +1021,12 @@ class TerminalUI:
         resonance = ""
         if definition.get("biome"):
             resonance = f" [{self.catalog.biomes[definition['biome']]['name']} +{definition['biome_bonus']}]"
-        return f"{definition['name']}{plus} ({self.catalog.heroes[definition['hero']]['role']}){resonance} — {definition['description']}"
+        description = (
+            definition.get("upgrade_description", definition["description"])
+            if card.upgraded
+            else definition["description"]
+        )
+        return f"{definition['name']}{plus} ({self.catalog.heroes[definition['hero']]['role']}){resonance} — {description}"
 
     def _draw_sprite(self, row: int, column: int, lines: list[str], attr: int = 0) -> None:
         for offset, line in enumerate(lines):
@@ -1056,14 +1066,18 @@ class TerminalUI:
         target = "unplayable" if is_curse else definition["target"].replace("_", " ")
         if not is_curse and definition.get("target_ranks"):
             target += " " + ",".join(str(rank) for rank in definition["target_ranks"])
-        description_text = definition["description"]
+        description_text = (
+            definition.get("upgrade_description", definition["description"])
+            if card.upgraded
+            else definition["description"]
+        )
         if not is_curse and definition.get("biome"):
             biome_name = self.catalog.biomes[definition["biome"]]["name"]
             description_text = (
                 f"{biome_name}: +{definition['biome_bonus']} potency. {description_text}"
             )
-        description = textwrap.wrap(description_text, inside - 2)[:2]
-        description += [""] * (2 - len(description))
+        description = textwrap.wrap(description_text, inside - 2)[:4]
+        description += [""] * (4 - len(description))
         border = "+" + "-" * inside + "+"
         corners = f"{cost}" + " " * (inside - len(str(cost)) - len(mark)) + mark
         lower_corners = mark + " " * (inside - len(str(cost)) - len(mark)) + f"{cost}"
@@ -1081,6 +1095,8 @@ class TerminalUI:
             framed(f"TARGET: {target}"),
             framed(description[0]),
             framed(description[1]),
+            framed(description[2]),
+            framed(description[3]),
             framed(lower_corners),
             border,
         ]

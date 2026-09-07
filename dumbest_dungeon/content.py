@@ -55,6 +55,22 @@ EVENT_EFFECTS = {
 TARGETS = {"enemy", "all_enemies", "self", "ally", "all_allies"}
 ENEMY_TARGETS = {"front", "back", "random", "stressed", "self", "all_heroes", "weakest_enemy"}
 EFFECT_CURVES = {"linear", "diminishing", "threshold", "special"}
+CARD_STATES = {"deaths_door", "stressed", "healthy", "wounded"}
+CARD_TAGS = {
+    "block",
+    "cleanse",
+    "control",
+    "damage",
+    "discard",
+    "displacement",
+    "draw",
+    "energy",
+    "guard",
+    "mobility",
+    "recovery",
+    "stress_relief",
+    "stress_risk",
+}
 EFFECT_KEYS = {
     "adrenal_block",
     "boon_offer_choices",
@@ -148,6 +164,11 @@ def _effects(value: Any, allowed: set[str], context: str) -> None:
             raise ContentError(f"{context}[{index}].target is invalid")
         if effect["op"] == "status" and not isinstance(effect.get("status"), str):
             raise ContentError(f"{context}[{index}] status effect needs a status name")
+        if "condition_status" in effect and not isinstance(effect["condition_status"], str):
+            raise ContentError(f"{context}[{index}].condition_status must be a string")
+        for field in ("condition_target_state", "condition_actor_state"):
+            if field in effect and effect[field] not in CARD_STATES:
+                raise ContentError(f"{context}[{index}].{field} is invalid")
 
 
 def _art_lines(value: Any, context: str, *, count: int, width: int) -> None:
@@ -248,6 +269,24 @@ def load_catalog(path: Path | None = None) -> Catalog:
             _ranks(card.get("target_ranks"), f"card {card['id']}.target_ranks")
         _effects(card.get("effects"), CARD_EFFECTS, f"card {card['id']}.effects")
         _effects(card.get("upgrade_effects"), CARD_EFFECTS, f"card {card['id']}.upgrade_effects")
+        tags = card.get("tags", [])
+        if not isinstance(tags, list) or any(
+            not isinstance(tag, str)
+            or (
+                tag not in CARD_TAGS
+                and not tag.startswith(("setup:", "payoff:", "status:", "affinity:"))
+            )
+            for tag in tags
+        ):
+            raise ContentError(f"card {card['id']} has invalid build tags")
+        if "upgrade_description" in card and (
+            not isinstance(card["upgrade_description"], str) or not card["upgrade_description"]
+        ):
+            raise ContentError(f"card {card['id']} has an invalid upgrade description")
+        if "upgrade_cost" in card and (
+            not isinstance(card["upgrade_cost"], int) or card["upgrade_cost"] < 0
+        ):
+            raise ContentError(f"card {card['id']} has an invalid upgrade cost")
         if card.get("biome") is not None:
             if card["biome"] not in biomes:
                 raise ContentError(f"card {card['id']} references an unknown biome")
