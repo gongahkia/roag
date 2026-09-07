@@ -171,6 +171,27 @@ class EngineTests(unittest.TestCase):
             self.assertEqual("spine", self.catalog.worlds[engine.state.world_id]["layout"])
             self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(self.catalog, engine.snapshot()).snapshot())
 
+    def test_ring_layout_has_two_arcs_and_contested_crossings(self) -> None:
+        _, edges = WORLD_LAYOUTS["ring"]
+        self.assertTrue(all(len(links) >= 2 for links in edges.values()))
+        self.assertEqual({2, 4, 8, 9}, set(edges[6]))
+        self.assertEqual(14, sum(map(len, edges.values())) // 2)
+        for removed in edges:
+            remaining = set(edges) - {removed}
+            reached = {next(iter(remaining))}
+            pending = list(reached)
+            while pending:
+                node = pending.pop()
+                for neighbor in edges[node]:
+                    if neighbor in remaining and neighbor not in reached:
+                        reached.add(neighbor)
+                        pending.append(neighbor)
+            self.assertEqual(remaining, reached)
+        for seed in (0, 9):
+            engine = GameEngine.new(self.catalog, seed)
+            self.assertEqual("ring", self.catalog.worlds[engine.state.world_id]["layout"])
+            self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(self.catalog, engine.snapshot()).snapshot())
+
     def test_all_biomes_generate_reachable_hazards_and_optional_objectives(self) -> None:
         seen_biomes: set[str] = set()
         seen_mixtures: set[tuple[str, ...]] = set()
