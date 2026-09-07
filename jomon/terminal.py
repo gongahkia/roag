@@ -60,6 +60,7 @@ from .content import (
 )
 from .save import SaveError, save_game
 from .state import GameState, Position, Threat
+from .travel import DESTINATIONS, choose_destination, resolve_voyage
 from .world import (
     area_name,
     build_combinations,
@@ -678,6 +679,26 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             cost = max(1, MERCHANT_ITEMS[item][0] - (1 if state.support == "factor surety" else 0))
             lines.append(f"{index + 1}. {item} — {cost} credit")
         return "VISITING DECK MERCHANT", lines + ["Number buys; Escape closes. Stock leaves on departure."]
+    if kind == "destination":
+        lines = [
+            f"{index + 1}. {state.regions[region_id].name}"
+            + (" — current mooring" if region_id == state.active_region_id else "")
+            + f"; {state.regions[region_id].process_name} stage {state.regions[region_id].process_stage}"
+            for index, region_id in enumerate(DESTINATIONS)
+        ]
+        return "JOMON ROUTE CHART", lines + [
+            "Travel costs six world measures and can produce a seeded voyage event.",
+            "Number sets course; Escape keeps the current mooring without time.",
+        ]
+    if kind == "voyage":
+        lines = [state.voyage_detail, ""]
+        if state.voyage_kind == "raiders":
+            lines += ["R. Repel with readied reach", "D. Distract with material preparation", "Y. Yield one cargo lot"]
+        elif state.voyage_kind == "creature":
+            lines += ["R. Repel with a spaced weapon", "E. Evade through pilot knowledge", "B. Bait with one salt-fish lot"]
+        else:
+            lines += ["A. Anchor to the real bank", "C. Counsel named crew", "N. Navigate by chart and lead line"]
+        return "VOYAGE DANGER", lines + ["A response advances the action clock; Escape does not dismiss the danger."]
     if kind == "quit":
         return "QUIT JOMON?", ["Press Y to quit. Press N or Escape to continue."]
     if kind.startswith("person:"):
@@ -752,6 +773,21 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         if 0 <= index < len(state.merchant_stock):
             purchase_merchant_item(state, state.merchant_stock[index])
         return kind if state.merchant_stock else None, False
+    if kind == "destination" and char in "1234":
+        region_id = DESTINATIONS[int(char) - 1]
+        changed, _ = choose_destination(state, region_id)
+        if not changed:
+            return kind, False
+        return ("voyage" if state.voyage_status == "active" else None), False
+    if kind == "voyage":
+        choices = {
+            "raiders": {"r": "repel", "d": "distract", "y": "yield"},
+            "creature": {"r": "repel", "e": "evade", "b": "bait"},
+            "lure": {"a": "anchor", "c": "counsel", "n": "navigate"},
+        }[state.voyage_kind]
+        if char in choices:
+            resolve_voyage(state, choices[char])
+            return None, False
     if kind.startswith("person:"):
         person_id = kind.split(":", 1)[1]
         from .people import person_by_id

@@ -277,6 +277,11 @@ class GameState:
     contacts: dict[str, list[Contact]]
     region_threats: dict[str, list[Threat]]
     regional_markets: dict[str, dict[str, MarketEntry]]
+    travel_count: int
+    pending_destination: str | None
+    voyage_kind: str | None
+    voyage_status: str
+    voyage_detail: str
     history: list[str] = field(default_factory=list)
     messages: list[str] = field(default_factory=list)
     world_ended: bool = False
@@ -433,6 +438,8 @@ def create_world(seed: str) -> GameState:
         ammunition_by_type={"bolts": 6, "arrows": 8, "sling stones": 10, "heavy bolts": 4, "javelins": 4, "nets": 2},
         weapon_ready=2, last_move_turn=-99,
         regions={}, contacts={}, region_threats={}, regional_markets={},
+        travel_count=0, pending_destination=None, voyage_kind=None,
+        voyage_status="none", voyage_detail="",
     )
     from .inventory import initialise_inventory
     from .people import initialise_tavern
@@ -503,6 +510,11 @@ def _migrate_v3(data: dict[str, Any]) -> dict[str, Any]:
     migrated["contacts"] = {"hearthford": [migrated["contact"]]}
     migrated["region_threats"] = {"hearthford": migrated["threats"]}
     migrated["regional_markets"] = {"hearthford": migrated["market"]}
+    migrated["travel_count"] = 0
+    migrated["pending_destination"] = None
+    migrated["voyage_kind"] = None
+    migrated["voyage_status"] = "none"
+    migrated["voyage_detail"] = ""
     return migrated
 
 
@@ -621,6 +633,11 @@ def game_state_from_dict(data: Any) -> GameState:
             weapon_ready=data.get("weapon_ready", 2), last_move_turn=data.get("last_move_turn", -99),
             regions=regions, contacts=contacts, region_threats=region_threats,
             regional_markets=regional_markets,
+            travel_count=data.get("travel_count", 0),
+            pending_destination=data.get("pending_destination"),
+            voyage_kind=data.get("voyage_kind"),
+            voyage_status=data.get("voyage_status", "none"),
+            voyage_detail=data.get("voyage_detail", ""),
             history=list(data["history"]), messages=list(data["messages"]), world_ended=data["world_ended"],
         )
         if migrated_v3:
@@ -672,6 +689,10 @@ def validate_state(state: GameState) -> None:
         raise StateError("save commodity catalogue is incomplete")
     if state.location not in {"jomon", "region"}:
         raise StateError("invalid location")
+    if state.pending_destination is not None and state.pending_destination not in state.regions:
+        raise StateError("invalid pending destination")
+    if state.voyage_kind not in {None, "raiders", "creature", "lure"} or state.voyage_status not in {"none", "active", "resolved"}:
+        raise StateError("invalid voyage state")
     if state.location == "region" and str(state.position.z) not in state.region.levels:
         raise StateError("invalid z-level")
     if state.objective_status not in {"unoffered", "accepted", "refused", "altered", "completed", "failed"}:

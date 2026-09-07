@@ -19,7 +19,6 @@ from .inventory import (
     pack_weight,
     prepare_kind,
     protection_at,
-    item_spec,
     record_acquisition,
     sync_legacy_load,
     tick_statuses,
@@ -1140,7 +1139,14 @@ def interact(state: GameState) -> ActionResult:
             return depart(state)
         if tile == "C":
             return ActionResult(False, False, "Review support at the tavern bar.", "tavern")
-        if tile in {"L", "P"}:
+        if tile == "P":
+            return ActionResult(
+                False,
+                False,
+                "Resolve the voyage danger." if state.voyage_status == "active" else "Set Jomon's next regional destination.",
+                "voyage" if state.voyage_status == "active" else "destination",
+            )
+        if tile == "L":
             return ActionResult(False, False, "Stores are readouts.", "equipment")
         if tile == "H":
             return ActionResult(False, False, "Inspect hold and local problem.", "hold")
