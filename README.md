@@ -1,4 +1,4 @@
-# Dumbest Dungeon
+# Dullest Dungeon
 
 A survival-horror party deckbuilder played entirely in a terminal. Choose four of twenty-five crew archetypes, cross one of six scrolling top-down ASCII worlds, evade or intercept biome-specific patrols, and fight through a shared card deck with visible enemy intents and four-rank positioning.
 
@@ -20,7 +20,7 @@ python3 -m dumbest_dungeon --save-file ./expedition.save.json
 python3 -m dumbest_dungeon --validate-content
 ```
 
-A generated seed appears in the map HUD and ending screen. Supplying `--seed` makes new expeditions in that process reproducible. The default save is `$XDG_STATE_HOME/dumbest-dungeon/run.save.json`, or `~/.local/state/dumbest-dungeon/run.save.json` when `XDG_STATE_HOME` is unset.
+A generated seed appears in the map HUD and ending screen. Supplying `--seed` makes new expeditions in that process reproducible. The default save is `$XDG_STATE_HOME/dullest-dungeon/run.save.json`, or `~/.local/state/dullest-dungeon/run.save.json` when `XDG_STATE_HOME` is unset. The existing `dumbest_dungeon` Python package name remains the launch path; it is an internal compatibility detail, not the public title.
 
 Biome worlds use content schema 6 and save version 10. Saves from earlier builds are rejected with an explicit version error rather than loaded incorrectly.
 

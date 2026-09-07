@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import curses
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from dumbest_dungeon.content import load_catalog
@@ -62,6 +63,14 @@ class AsciiUiTests(unittest.TestCase):
         self.assertTrue(lines[0].startswith("+---"))
         self.assertIn("TARGET:", lines[10])
         self.assertEqual(lines[1][1], lines[-2][-2])
+
+    def test_main_menu_uses_public_title(self) -> None:
+        screen = FakeScreen(keys=[curses.KEY_DOWN, curses.KEY_DOWN, 10])
+        self.ui.screen = screen
+        self.ui.save_path = Path("/definitely/missing/dullest-save.json")
+        self.ui.new_game = lambda: self.engine
+        self.ui.run()
+        self.assertIn("DULLEST DUNGEON", screen.text())
 
     def test_curse_card_has_distinct_unplayable_ascii(self) -> None:
         hero = self.engine.living_heroes()[0]

@@ -62,7 +62,7 @@ class TerminalUI:
                 choices.append("Load expedition")
             choices.extend(["How to play", "Quit"])
             picked = self._menu(
-                "DUMBEST DUNGEON",
+                "DULLEST DUNGEON",
                 choices,
                 "\n".join(self.catalog.art["title"])
                 + "\n\nCross a shifting dead world. Seeded runs, bad decisions.",

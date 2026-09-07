@@ -3,15 +3,23 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.engine import GameEngine, RuleError
-from dumbest_dungeon.save import read_save, write_save
+from dumbest_dungeon.save import default_save_path, read_save, write_save
 
 
 class SaveTests(unittest.TestCase):
     def setUp(self) -> None:
         self.catalog = load_catalog()
+
+    def test_default_save_path_uses_public_title_slug(self) -> None:
+        with patch.dict("os.environ", {"XDG_STATE_HOME": "/tmp/dullest-state"}):
+            self.assertEqual(
+                Path("/tmp/dullest-state/dullest-dungeon/run.save.json"),
+                default_save_path(),
+            )
 
     def test_exploration_save_round_trip(self) -> None:
         engine = GameEngine.new(self.catalog, 101)

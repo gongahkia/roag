@@ -15,7 +15,7 @@ class SaveError(OSError):
 def default_save_path() -> Path:
     root = os.environ.get("XDG_STATE_HOME")
     base = Path(root) if root else Path.home() / ".local" / "state"
-    return base / "dumbest-dungeon" / "run.save.json"
+    return base / "dullest-dungeon" / "run.save.json"
 
 
 def write_save(path: Path, snapshot: dict[str, Any]) -> None:

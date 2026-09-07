@@ -12,7 +12,7 @@ game rather than importing another game's content.
 - Mega Crit's [Slay the Spire metrics talk](https://www.gdcvault.com/play/1025731/-Slay-the-Spire-Metrics%EF%BB%BF)
   and [developer interview](https://www.gamedeveloper.com/design/how-i-slay-the-spire-i-s-devs-use-data-to-balance-their-roguelike-deck-builder)
   emphasize pick-rate/outcome evidence, qualitative play feedback, aggressive
-  iteration, and adding cards in coherent archetype batches. Dumbest Dungeon
+  iteration, and adding cards in coherent archetype batches. Dullest Dungeon
   therefore needs build-aware offers and structural upgrades before more small
   numerical variants.
 - Mega Crit's [Road to the IGF interview](https://www.gamedeveloper.com/game-platforms/road-to-the-igf-mega-crit-games-i-slay-the-spire-i-)
@@ -41,7 +41,7 @@ game rather than importing another game's content.
   independent unit value.
 - The [Risk of Rain 2 Director reference](https://riskofrain2.wiki.gg/wiki/Directors)
   documents credit-priced spawn choices. It reinforces the existing threat
-  budget, but Dumbest Dungeon also constrains role and combo coherence so equal
+  budget, but Dullest Dungeon also constrains role and combo coherence so equal
   budgets do not imply interchangeable encounters.
 - Analyses of [survival-horror balance](https://www.gamedeveloper.com/design/the-fine-balance-of-survival-horror-design-and-dead-space-2)
   and [mechanical tension](https://www.gamedeveloper.com/design/the-mechanics-of-tension)
