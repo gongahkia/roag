@@ -241,6 +241,9 @@ MERCHANT_ITEMS = {
     "weighted net": (2, "weapon"),
     "quiet shoes": (1, "gear"),
     "trade seals": (1, "gear"),
+    "longbow": (3, "weapon"),
+    "heavy crossbow": (5, "weapon"),
+    "pike": (3, "weapon"),
 }
 
 # Bounded authored roles. Regional placement and budgets live in encounters.py;

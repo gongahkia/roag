@@ -55,5 +55,13 @@ mandatory preparation chores.
 
 ## Verification record
 
-Implementation, audit, PTY, balance, and candid play findings will be recorded
-here as the milestone advances.
+The format-6 integrity phase has focused regression coverage for exact
+inventory cancellation, objective replacement/failure recovery, physical
+death and thief drops, physical ammunition, bottle and relic use, process
+reconstruction, and deterministic version-5 migration.
+
+The retained-content activation matrix is in
+`docs/build-content-matrix.md`. Its focused six-test behavior suite passed,
+as did the 44 related region, inventory, persistence, combat, and build tests.
+Full-suite, audit, PTY, balance, and candid play findings remain to be recorded
+after the authored content is integrated.

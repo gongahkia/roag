@@ -9,6 +9,8 @@ from .enemy_ai import next_path_step, raise_group_alert, retreat_step, select_go
 from .inventory import (
     add_status,
     apply_terrain_status,
+    armour_mobility,
+    armour_noise,
     auto_place,
     create_item,
     consume_ammunition,
@@ -299,7 +301,9 @@ def emit_sound(
         )
         if (
             threat.status == "watching"
-            and abs(threat.position.z - origin.z) <= 1
+            and abs(threat.position.z - origin.z) <= (
+                2 if "echo slate" in state.carried_passives else 1
+            )
             and horizontal <= 4 + amount * 2
         ):
             messages.append(_activate(threat))
@@ -316,14 +320,27 @@ def _lose_goods(state: GameState) -> str:
     if state.support == "porter watch":
         return " The porter's watch preserves the accountable load."
     names = sorted(state.carried_goods)
-    if state.gear == "cargo harness" or "river hooks" in state.carried_passives:
+    if (
+        state.gear == "cargo harness"
+        or "river hooks" in state.carried_passives
+        or (
+            "cork float" in state.carried_passives
+            and "current" in state.terrain_statuses
+        )
+    ):
         kept = names[0]
         lose_matching_carried(
             state,
             {f"commodity:{name}" for name in names if name != kept},
         )
         state.carried_goods = {kept: state.carried_goods[kept]}
-        return f" The harnessed {kept} survives; other cargo is lost."
+        protection = (
+            "buoyant cork rig"
+            if "cork float" in state.carried_passives
+            and "current" in state.terrain_statuses
+            else "harness"
+        )
+        return f" The {protection} keeps {kept}; other cargo is lost."
     lose_matching_carried(state, {f"commodity:{name}" for name in names})
     state.carried_goods.clear()
     return f" The {', '.join(names)} is lost."
@@ -352,6 +369,14 @@ def _return_after_defeat(state: GameState, text: str, permanent: bool) -> str:
         item for item in state.items
         if item.owner_id == state.active_courier_id and item.location in carried_locations
     ]
+    preserved_cargo = None
+    if "buoyant cargo rig" in build_combinations(state):
+        preserved_cargo = next(
+            (item for item in dropped if item.kind.startswith("commodity:")),
+            None,
+        )
+        if preserved_cargo:
+            dropped.remove(preserved_cargo)
     lost_names: list[str] = []
     for item in dropped:
         item.location, item.owner_id = "ground", None
@@ -364,6 +389,8 @@ def _return_after_defeat(state: GameState, text: str, permanent: bool) -> str:
         f" {', '.join(lost_names)} remains at the defeat site."
         if lost_names else ""
     )
+    if preserved_cargo:
+        loss += f" The cork-floated {item_spec(preserved_cargo.kind).name} stays on the harness."
     if state.objective_status in {"accepted", "altered"}:
         state.objective_status = "failed"
         state.contact.disposition = max(-3, state.contact.disposition - 1)
@@ -948,9 +975,31 @@ def _fall(state: GameState) -> str:
     if not is_walkable(state, landing, ignore_threat=True):
         return "The opening has no landing below."
     state.position = landing
+    if "fall sail" in state.carried_passives and state.gear == "rope":
+        lateral = Position(landing.x + 1, landing.y, landing.z)
+        if is_walkable(state, lateral, ignore_threat=True):
+            state.position = lateral
+            return "The fall sail turns the drop into a lateral rope swing."
+    if "gull cord" in state.carried_passives and state.carried_goods:
+        return "The gull cord lowers courier and one secured cargo stack together."
     if "cliff cord" in state.carried_passives:
         return "The cliff cord turns the fall into a controlled descent."
-    return "You fall through the opening. " + apply_damage(state, 2, "The fall")
+    dropped = next(
+        (
+            item for item in state.items
+            if item.owner_id == state.active_courier_id
+            and item.location == "pack"
+            and item.kind.startswith("commodity:")
+        ),
+        None,
+    )
+    cargo_text = ""
+    if dropped:
+        dropped.location, dropped.owner_id = "ground", None
+        dropped.region_id, dropped.ground_position = state.active_region_id, landing
+        cargo_text = f" The unsecured {item_spec(dropped.kind).name} lands on the floor below."
+        sync_legacy_load(state)
+    return "You fall through the opening. " + apply_damage(state, 2, "The fall") + cargo_text
 
 
 def move(state: GameState, dx: int, dy: int) -> ActionResult:
@@ -1007,6 +1056,11 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         messages.append("You open the door; interior sightlines change.")
     quiet = state.courier and (
         state.courier.technique == "quiet passage"
+        or (
+            state.courier.technique == "wind listener"
+            and state.active_region_id == "greenwold"
+            and state.weather == "crosswind"
+        )
         or "surveyed soft-step" in build_combinations(state)
     )
     if tile == "m" and not (
@@ -1017,6 +1071,10 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         messages.extend(emit_sound(state, 1, target))
     elif not quiet and state.pressure_elapsed % 8 == 7:
         state.noise += 1
+    armour_sound = armour_noise(state)
+    if armour_sound and state.pressure_elapsed % max(2, 8 - armour_sound * 2) == 0:
+        state.noise += 1
+        messages.append("Worn armour makes this step audibly distinct.")
     status_message = apply_terrain_status(state, displayed_tile(state, target))
     if status_message:
         messages.append(status_message)
@@ -1034,6 +1092,10 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
             state.gear == "rope"
             or "river hooks" in state.carried_passives
             or (state.courier and state.courier.technique == "sure footing")
+            or (
+                state.active_region_id == "greywash"
+                and state.courier and state.courier.technique == "ebb reader"
+            )
         )
         if not protected:
             water_delay = True
@@ -1057,6 +1119,19 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         and state.position.z == 0
         and "rain cape" not in state.carried_passives
     )
+    status_delay = bool(
+        {"bogged", "current", "net-drag", "brine-chill", "coalheart-chill", "fatigued"}
+        & set(state.terrain_statuses)
+    )
+    mapped_shortcut = (
+        "coppice map" in state.carried_passives
+        and state.active_region_id == "greenwold" and tile == "t"
+    )
+    if mapped_shortcut:
+        status_delay = False
+        state.noise = max(0, state.noise - 1)
+        messages.append("The coppice map identifies a firm gap through the dense growth.")
+    mobility_delay = armour_mobility(state) >= 3 and tile in {"m", "r", "q", "t", "w", ","}
     guarded_step = state.guarded_step
     drink_delay = guarded_step and "miller-small-beer" in state.drink_effects
     state.guarded_step = False
@@ -1064,7 +1139,7 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         state,
         " ".join(message for message in messages if message),
         guarded=guarded_step,
-        steps=2 if storm_delay or drink_delay else 1,
+        steps=2 if storm_delay or drink_delay or status_delay or mobility_delay else 1,
         priority=3 if messages else 0,
     )
 
@@ -1076,6 +1151,11 @@ def can_alter_objective(state: GameState) -> bool:
         or state.support in {"route survey", "carpenter rig"}
         or "stillroom-cordial" in state.drink_effects
         or (courier and courier.technique == "lever craft")
+        or (
+            state.active_region_id == "greywash"
+            and courier and courier.technique == "ebb reader"
+            and "tide ledger" in state.carried_passives
+        )
         or state.contact.disposition >= 2
     )
 
@@ -1323,7 +1403,14 @@ def _destroy_floor(state: GameState) -> ActionResult:
         )
     state.region.tile_changes[position_key(state.position)] = "O"
     sounds = emit_sound(state, 4)
-    fall = _fall(state)
+    braced = (
+        "quarry brace" in state.carried_passives
+        and load_state(state) in {"laden", "encumbered"}
+    )
+    fall = (
+        "The weighted quarry brace holds the courier beside the new shaft."
+        if braced else _fall(state)
+    )
     return _time_result(
         state,
         " ".join(["The marked floor breaks into an open vertical shaft.", fall, *sounds]),
@@ -1421,6 +1508,7 @@ def interact(state: GameState) -> ActionResult:
             state.courier and {"legs", "feet"} & set(state.courier.injuries)
             and destination.z > state.position.z
         )
+        armour_climb = armour_mobility(state) >= 3 and destination.z > state.position.z
         blocker = next(
             (
                 threat
@@ -1443,8 +1531,8 @@ def interact(state: GameState) -> ActionResult:
         return _time_result(
             state,
             f"You use the {link.name}; nearby levels remain spatially aligned."
-            + (" The lower-limb injury makes the climb slow." if injured_climb else ""),
-            steps=2 if injured_climb else 1,
+            + (" Lower-limb injury or heavy armour makes the climb slow." if injured_climb or armour_climb else ""),
+            steps=2 if injured_climb or armour_climb else 1,
             priority=3,
         )
     if any(item.position == state.position for item in state.region.containers):
@@ -1603,6 +1691,17 @@ def attack(state: GameState) -> ActionResult:
         "crossbow", "longbow", "sling", "heavy crossbow", "javelins",
     }:
         ranges[state.weapon] = max(3, ranges[state.weapon] - 3)
+    if {"chilled", "salt-grit", "smoke-inhalation"} & set(state.terrain_statuses) and state.weapon in {
+        "crossbow", "longbow", "sling", "heavy crossbow", "javelins",
+    }:
+        ranges[state.weapon] = max(3, ranges[state.weapon] - 2)
+    if (
+        "wind-read aim" in build_combinations(state)
+        and state.weather in {"salt wind", "crosswind", "ridge gust"}
+    ):
+        ranges[state.weapon] += 2
+    if state.courier and state.courier.technique == "high arc" and state.weapon == "sling":
+        ranges[state.weapon] += 2
     candidates = _attack_targets(state, ranges[state.weapon])
     if state.weapon == "pike":
         candidates = [target for target in candidates if distance(state.position, target.position) >= 2]
@@ -1639,6 +1738,7 @@ def attack(state: GameState) -> ActionResult:
             state.weapon in {"crossbow", "longbow"}
             and state.weather in {"hard rain", "coast squall", "forest rain"}
             and "weatherproof aim" not in build_combinations(state)
+            and "weatherfast grip" not in build_combinations(state)
         ):
             state.aimed_target = None
             return _time_result(
@@ -1662,7 +1762,14 @@ def attack(state: GameState) -> ActionResult:
             "javelins": (2, "thrown javelin", 3),
             "weighted net": (0, "weighted net", 2),
         }[state.weapon]
-        if lane_cover == "partial" and state.weapon not in {"heavy crossbow", "sling"}:
+        ignores_partial = state.weapon == "heavy crossbow" or (
+            state.weapon == "sling"
+            and (
+                "high sling arc" in build_combinations(state)
+                or (state.courier and state.courier.technique == "high arc")
+            )
+        )
+        if lane_cover == "partial" and not ignores_partial:
             damage = max(0, damage - 1)
             weapon_text += " glances from partial cover"
         if state.courier and ({"head", "hands"} & set(state.courier.injuries)):
@@ -1681,6 +1788,11 @@ def attack(state: GameState) -> ActionResult:
         }[state.weapon]
         weapon_text = state.weapon
         sound = 1 if state.weapon in {"cudgel", "staff"} else 2
+        if "thorn-held momentum" in build_combinations(state):
+            damage += 1
+            target.morale -= 1
+            weapon_text += " carries guarded thorn momentum"
+            state.guarded_step = False
     if state.weapon == "billhook":
         target.morale -= 1
         old_position = target.position
@@ -1731,9 +1843,18 @@ def attack(state: GameState) -> ActionResult:
         target.intent = "entangled; loses a turn cutting free"
         target.morale -= 1
         weapon_text += " entangles movement without dealing harm"
+        if state.courier and state.courier.technique == "cast bind":
+            target.morale -= 1
+            target.position = _step_toward(state, target, state.position)
+            weapon_text += "; Cast Bind hauls the restrained target one pace"
     elif state.weapon == "sling" and state.position.z > target.position.z:
         target.morale -= 1
         weapon_text += " from a high arc"
+        if "high sling arc" in build_combinations(state) or (
+            state.courier and state.courier.technique == "high arc"
+        ):
+            target.intent = "dazed by a plunging sling cast"
+            weapon_text += " that ignores low cover and dazes"
     if (
         "high-ground drive" in build_combinations(state)
         and target.position.z < state.position.z
@@ -1813,6 +1934,11 @@ def guard(state: GameState) -> ActionResult:
     )
     if state.courier and ({"arms", "hands"} & set(state.courier.injuries)):
         strong = False
+    hindering = {"poor-footing", "smoke-inhalation", "net-drag"} & set(state.terrain_statuses)
+    if "thorn-scratched" in state.terrain_statuses and "thorn weave" not in state.carried_passives:
+        hindering.add("thorn-scratched")
+    if hindering:
+        strong = False
     if strong:
         morale_loss = 2 if "shielded set stance" in build_combinations(state) else 1
         if "hearth-ale" in state.drink_effects:
@@ -1821,6 +1947,10 @@ def guard(state: GameState) -> ActionResult:
             threat.morale -= morale_loss
     state.guarded_step = (
         state.weapon == "staff" or "reed sole wraps" in state.carried_passives
+        or (
+            "thorn weave" in state.carried_passives
+            and "thorn-scratched" in state.terrain_statuses
+        )
         or "miller-small-beer" in state.drink_effects
     )
     if "shielded set stance" in build_combinations(state):
@@ -2021,6 +2151,21 @@ def use_gear(state: GameState) -> ActionResult:
         consume_carried(state, "consumable:splint roll")
         state.courier.injuries[location] = f"splinted {location}"
         return _time_result(state, f"A finite splint stabilises the {location}; the injury still persists.", priority=3)
+    if (
+        state.courier and state.courier.technique == "green poultice"
+        and state.consumables.get("pine resin dressing", 0)
+        and state.courier.injuries
+    ):
+        location = sorted(state.courier.injuries)[0]
+        consume_carried(state, "consumable:pine resin dressing")
+        state.courier.injuries.pop(location, None)
+        state.courier.health = min(state.courier.max_health, state.courier.health + 4)
+        state.courier.injury = next(iter(state.courier.injuries.values()), "treated soreness")
+        return _time_result(
+            state,
+            f"Green Poultice spends one resin dressing, clears the {location} injury, and restores four health.",
+            priority=3,
+        )
     return _plain(state, "No readied finite gear applies here.")
 
 
@@ -2115,6 +2260,11 @@ def merchant_stock_for(state: GameState) -> list[str]:
         "wool": "quiet shoes",
     }[state.region.objective_commodity]
     outcome = "crossbow" if state.objective_status == "completed" else "smoke pot"
+    regional_weapon = {
+        "whitecairn": "heavy crossbow" if state.objective_status == "completed" else "pike",
+        "greywash": "weighted net",
+        "greenwold": "longbow",
+    }.get(state.active_region_id, outcome)
     rare = (
         state.objective_status == "completed"
         and stage_rng(
@@ -2122,7 +2272,7 @@ def merchant_stock_for(state: GameState) -> list[str]:
         ).randrange(5) == 0
     )
     finite = "tide-knot charm" if rare else "willow dressing"
-    return list(dict.fromkeys((context, outcome, finite)))[:3]
+    return list(dict.fromkeys((context, regional_weapon, finite)))[:3]
 
 
 def purchase_merchant_item(state: GameState, item: str) -> ActionResult:

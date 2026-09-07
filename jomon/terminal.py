@@ -416,7 +416,13 @@ def _status_lines(state: GameState) -> list[str]:
     if build_combinations(state):
         lines.append(f"Combo: {_clip(build_combinations(state)[0], 20)}")
     if state.terrain_statuses:
-        lines.append("Status: " + _clip(", ".join(state.terrain_statuses), 17))
+        name, status = next(iter(state.terrain_statuses.items()))
+        lines.append(
+            _clip(
+                f"{name}: {status.remaining} — {status.consequence}",
+                25,
+            )
+        )
     return lines
 
 
@@ -1234,12 +1240,17 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return "HELP", list(HELP_LINES)
     if kind == "inventory":
         goods = [f"{name}: {stack.quantity}, {stack.condition} ({COMMODITIES[name]['bulk']} bulk each)" for name, stack in state.carried_goods.items()]
+        statuses = [
+            f"{name}: {status.remaining} actions; from {status.cause}; {status.consequence}"
+            for name, status in state.terrain_statuses.items()
+        ]
         return "INVENTORY", [
             f"Capacity: {carried_bulk(state)}/{capacity(state)} bulk",
             f"Weapon: {state.weapon or 'none'}; gear: {state.gear or 'none'}; relic: {state.carried_relic or 'none'}",
             f"Passive discoveries: {state.carried_passives or 'none'} ({passive_bulk(state)}/{passive_capacity(state)} bulk)",
             f"Finite supplies: ammunition {state.ammunition}; oil {state.lamp_oil}; rope {state.rope_uses}; smoke {state.smoke_charges}",
             "Goods:", *(goods or ["none"]), f"Consumables: {state.consumables or 'none'}",
+            "Current conditions:", *(statuses or ["none"]),
             f"Owned weapons: {', '.join(state.owned_weapons)}", f"Owned gear: {', '.join(state.owned_gear)}",
             "Escape closes without advancing time.",
         ]

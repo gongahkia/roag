@@ -248,7 +248,12 @@ def sight_radius(state: GameState) -> int:
     elif state.weather in {"hard rain", "coast squall", "forest rain"}:
         radius = min(radius, 9)
     if position_key(state.position) in state.smoke and "smoke lens" not in state.carried_passives:
-        radius = min(radius, 3)
+        radius = min(radius, 5 if "charcoal mask" in state.carried_passives else 3)
+    if (
+        state.courier and state.courier.technique == "wind listener"
+        and state.active_region_id == "greenwold" and state.weather == "crosswind"
+    ):
+        radius += 2
     if "reed-tonic" in state.drink_effects:
         radius = max(3, radius - 2)
     return radius

@@ -917,9 +917,27 @@ def protection_at(state: GameState, location: str, damage_kind: str) -> tuple[in
         return 0, "uncovered"
     spec = item_spec(item.kind)
     protection = {"cut": spec.cut, "pierce": spec.pierce, "blunt": spec.blunt}.get(damage_kind, 0)
+    if spec.coverage == 1 and not state.guarded_step:
+        protection = max(0, protection - 1)
     if item.condition <= 25:
         protection = max(0, protection - 1)
     return protection, spec.name
+
+
+def armour_noise(state: GameState) -> int:
+    return sum(
+        item_spec(item.kind).noise for item in state.items
+        if item.owner_id == state.active_courier_id
+        and item.location in BODY_SLOTS
+    )
+
+
+def armour_mobility(state: GameState) -> int:
+    return sum(
+        item_spec(item.kind).mobility for item in state.items
+        if item.owner_id == state.active_courier_id
+        and item.location in BODY_SLOTS
+    )
 
 
 def degrade_armour(state: GameState, location: str, amount: int = 8) -> None:
@@ -958,20 +976,22 @@ def worn_tags(state: GameState) -> set[str]:
 def terrain_status_for(state: GameState, tile: str) -> tuple[str, str, int, str] | None:
     tags = worn_tags(state)
     burden = load_state(state)
+    technique = state.courier.technique if state.courier else ""
     if tile == "m" and "mudproof" not in tags:
         turns = 1 if "reed-tonic" in state.drink_effects else 3
         return "bogged", "deep mud", turns, "movement is slower; evasion and retreat worsen"
     if tile in {",", "~"} and "weatherproof" not in tags:
         return "wet", "floodwater", 6, "heavy armour weighs more and cold exposure grows"
-    if tile == "r" and "scree-grip" not in tags:
+    if tile == "r" and "scree-grip" not in tags and "limestone cleat" not in state.carried_passives and technique != "scree step":
         return "poor-footing", "unstable scree", 3, "guard, climbing, and falling are less safe"
-    if tile == "q" and "sharp-proof" not in tags:
+    if tile == "q" and "sharp-proof" not in tags and "limestone cleat" not in state.carried_passives and technique != "scree step":
         return "cut-feet", "sharp limestone", 4, "foot injury risk and movement noise increase"
     if tile == "t" and not {"thornproof"} <= tags:
         return "thorn-scratched", "dense thorn growth", 4, "exposed limbs hinder guard and quiet passage"
-    if tile == "s" and "smoke-filter" not in tags and "face-cover" not in tags and "smokeleaf-infusion" not in state.drink_effects:
-        return "smoke-inhalation", "rising smoke", 4, "sight and endurance are reduced"
-    if tile == ":" and "saltproof" not in tags:
+    if tile == "s" and "smoke-filter" not in tags and "face-cover" not in tags and "salt veil" not in state.carried_passives and "smokeleaf-infusion" not in state.drink_effects:
+        turns = 2 if "charcoal mask" in state.carried_passives else 4
+        return "smoke-inhalation", "rising smoke", turns, "sight and endurance are reduced"
+    if tile == ":" and "saltproof" not in tags and "salt veil" not in state.carried_passives:
         return "salt-grit", "windblown salt", 4, "aim and exposed hands are impaired"
     if tile == "w" and "deep-water" not in tags:
         consequence = "overloaded couriers risk being swept away" if burden == "overloaded" else "movement and guard are slowed"
@@ -980,6 +1000,13 @@ def terrain_status_for(state: GameState, tile: str) -> tuple[str, str, int, str]
 
 
 def apply_terrain_status(state: GameState, tile: str) -> str:
+    ember_marker = f"ember_cloth:{state.expedition_count}"
+    if (
+        tile == "s" and "ember cloth" in state.carried_passives
+        and not state.vessel_changes.get(ember_marker)
+    ):
+        state.vessel_changes[ember_marker] = True
+        return "Ember cloth takes one smoke crossing without losing guard or breath."
     result = terrain_status_for(state, tile)
     if not result:
         return ""
