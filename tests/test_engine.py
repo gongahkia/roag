@@ -148,6 +148,21 @@ class EngineTests(unittest.TestCase):
             self.assertTrue(any(len(orders) > 1 for orders in selections.values()), biome_id)
         self.assertGreaterEqual(len(plans), 4)
 
+    def test_authored_encounter_families_receive_seeded_arrangements(self) -> None:
+        template = list(self.catalog.encounters["ballast_choir"]["enemies"])
+        orders = {
+            tuple(
+                self.engine._arrange_enemy_formation(
+                    self.catalog,
+                    random.Random(seed),
+                    template,
+                )
+            )
+            for seed in range(40)
+        }
+        self.assertGreaterEqual(len(orders), 2)
+        self.assertTrue(all(sorted(order) == sorted(template) for order in orders))
+
     def test_branching_layout_is_a_trunk_with_backtracking_branches(self) -> None:
         _, edges = WORLD_LAYOUTS["branching"]
         self.assertEqual(11, sum(map(len, edges.values())) // 2)

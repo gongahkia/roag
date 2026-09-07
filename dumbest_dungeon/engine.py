@@ -897,6 +897,8 @@ class GameEngine:
         template_hp = sum(catalog.enemies[enemy_id]["max_hp"] for enemy_id in template)
         if minimum <= template_hp <= maximum:
             candidates[tuple(template)] = cls._formation_score(catalog, template, midpoint)
+            if 2 <= len(template) <= 4 and rng.random() < 0.5:
+                return cls._arrange_enemy_formation(catalog, rng, template)
         sizes = (2, 3, 4)
         weights = (4, 5, 1) if encounter_kind == "normal" else (1, 4, 5)
         for _ in range(120):
