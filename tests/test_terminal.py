@@ -7,6 +7,7 @@ from jomon.actions import interact
 from jomon.vessel import BARTENDER_POSITION
 from jomon.state import Position, create_world
 from jomon.terminal import (
+    INVENTORY_HELP_LINES,
     InputEvent,
     OverlayView,
     _handle_overlay_view,
@@ -19,6 +20,15 @@ from jomon.terminal import (
 )
 from jomon.main import _centered_x, _set_cursor_visibility, landing_notice_layout
 from jomon.world import field_of_view, find_tile
+
+
+class InventoryLayoutTests(unittest.TestCase):
+    def test_control_legend_fits_the_eighty_column_layout(self):
+        self.assertEqual(len(INVENTORY_HELP_LINES), 2)
+        self.assertTrue(all(len(line) <= 78 for line in INVENTORY_HELP_LINES))
+        joined = " ".join(INVENTORY_HELP_LINES)
+        for command in ("Enter", "R rotate", "Space", "T transfer", "E equip", "O pack", "P pin", "Z auto", "[] body", "D drop", "C confirm", "Esc cancel"):
+            self.assertIn(command, joined)
 
 
 class SemanticColourTests(unittest.TestCase):

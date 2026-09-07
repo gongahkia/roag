@@ -98,6 +98,11 @@ from .world import (
     vertical_destination,
 )
 
+INVENTORY_HELP_LINES = (
+    "Arrows/WASD move  Enter lift/place  R rotate  Space mark  */K all/category",
+    "T transfer E equip O pack P pin Z auto [] body D drop C confirm Esc cancel",
+)
+
 MIN_WIDTH = 80
 MIN_HEIGHT = 24
 
@@ -1157,8 +1162,8 @@ def _draw_inventory(screen: curses.window, state: GameState, view: InventoryView
     if view.pending_drop:
         view.status = "CONFIRM DROP: Y drops marked/current physical items; N/Esc cancels"
     _put(screen, height - 3, 2, _clip(view.status, width - 4), curses.A_BOLD)
-    _put(screen, height - 2, 1, "Move arrows/WASD  Enter lift/place  R rotate  Space mark  * all  T transfer  E equip", curses.A_REVERSE)
-    _put(screen, height - 1, 1, "O auto-pack  P pin  Z auto-place  [ ] body  D drop(confirm)  C commit  Esc cancel", curses.A_REVERSE)
+    for index, line in enumerate(INVENTORY_HELP_LINES):
+        _put(screen, height - 2 + index, 1, line, curses.A_REVERSE)
     screen.refresh()
 
 
