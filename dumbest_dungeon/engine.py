@@ -3207,6 +3207,9 @@ class GameEngine:
                 for target in targets:
                     if target.side == "hero":
                         self._change_stress(target, int(effect["amount"]))
+            elif effect["op"] == "move":
+                for target in targets:
+                    self._move(target, int(effect["amount"]))
             elif effect["op"] == "reverse" and effect["target"] == "crew":
                 count = len(heroes)
                 for hero in heroes:

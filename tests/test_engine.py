@@ -920,6 +920,7 @@ class EngineTests(unittest.TestCase):
                 "description": "Only the formation edges change.",
                 "effects": [
                     {"target": "front_crew", "op": "block", "amount": 4},
+                    {"target": "front_crew", "op": "move", "amount": 1},
                     {"target": "back_crew", "op": "status", "status": "weak", "amount": 1},
                     {"target": "front_enemy", "op": "status", "status": "marked", "amount": 1},
                     {"target": "back_enemy", "op": "block", "amount": 3},
@@ -927,6 +928,8 @@ class EngineTests(unittest.TestCase):
             }
         )
         self.assertEqual(4, heroes[0].block)
+        self.assertEqual(2, heroes[0].rank)
+        self.assertEqual(1, heroes[1].rank)
         self.assertTrue(all(hero.block == 0 for hero in heroes[1:]))
         self.assertEqual(1, heroes[-1].statuses["weak"])
         self.assertEqual(1, enemies[0].statuses["marked"])

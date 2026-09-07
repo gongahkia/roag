@@ -105,7 +105,7 @@ BIOME_COMBAT_TARGETS = {
     "front_crew",
     "front_enemy",
 }
-BIOME_COMBAT_OPS = {"block", "draw", "energy", "reverse", "status", "stress"}
+BIOME_COMBAT_OPS = {"block", "draw", "energy", "move", "reverse", "status", "stress"}
 BIOME_OBJECTIVE_EFFECTS = {
     "boon_random",
     "cleanse_all",
