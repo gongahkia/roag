@@ -467,6 +467,36 @@ class GameEngine:
             raise RuleError("that curated squad is unavailable")
         self.state.hub_selection = list(self.catalog.squads[squad_id]["formation"])
 
+    def party_warnings(self, selection: list[str] | None = None) -> list[str]:
+        selection = list(self.state.hub_selection if selection is None else selection)
+        warnings = []
+        for rank, hero_id in enumerate(selection, 1):
+            if hero_id not in self.catalog.heroes:
+                continue
+            hero = self.catalog.heroes[hero_id]
+            if rank not in hero["preferred_ranks"]:
+                preferred = ",".join(str(value) for value in hero["preferred_ranks"])
+                warnings.append(f"R{rank} {hero['role']} prefers R{preferred}.")
+            playable = sum(
+                rank in self.catalog.cards[card_id]["from_ranks"]
+                for card_id in hero["starter_deck"]
+            )
+            if playable < 2:
+                warnings.append(
+                    f"R{rank} leaves {hero['role']} with only {playable} playable starter."
+                )
+        if len(selection) == 4:
+            roles = {
+                self.catalog.heroes[hero_id]["combat_role"]
+                for hero_id in selection
+                if hero_id in self.catalog.heroes
+            }
+            if "defender" not in roles:
+                warnings.append("No defender: direct pressure will be difficult to absorb.")
+            if "support" not in roles:
+                warnings.append("No support: health and stress damage may persist.")
+        return warnings
+
     def reorder_hub_crew(self, hero_id: str, direction: int) -> None:
         if self.state.phase != "hub" or hero_id not in self.state.hub_selection:
             raise RuleError("select that crew member before assigning a rank")

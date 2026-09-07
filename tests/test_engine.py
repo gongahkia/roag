@@ -574,6 +574,16 @@ class EngineTests(unittest.TestCase):
         engine.begin_expedition()
         self.assertEqual(squad["formation"], [hero.id for hero in engine.living_heroes()])
 
+    def test_party_warnings_explain_but_do_not_block_awkward_formations(self) -> None:
+        engine = GameEngine.new(self.catalog, 75, start_in_hub=True)
+        engine.state.hub_selection = ["scout", "operative", "hacker", "artillerist"]
+        warnings = engine.party_warnings()
+        self.assertTrue(any("prefers" in warning for warning in warnings))
+        self.assertTrue(any("No defender" in warning for warning in warnings))
+        self.assertTrue(any("No support" in warning for warning in warnings))
+        engine.begin_expedition()
+        self.assertEqual("exploration", engine.state.phase)
+
     def test_all_enemy_actions_can_resolve(self) -> None:
         for enemy_id, definition in self.catalog.enemies.items():
             for action in definition["actions"]:

@@ -462,6 +462,17 @@ class AsciiUiTests(unittest.TestCase):
                 self.assertIn("WEAKNESS", rendered)
                 self.assertIn("SIGNATURE", rendered)
 
+    def test_custom_selection_shows_nonblocking_party_warning(self) -> None:
+        self.engine = GameEngine.new(self.catalog, 3, start_in_hub=True)
+        self.engine.state.hub_selection = ["duelist", "pilot", "biologist", "scout"]
+        self.ui.engine = self.engine
+        screen = FakeScreen(
+            keys=[curses.KEY_DOWN] * len(self.catalog.squads) + [10, 27]
+        )
+        self.ui.screen = screen
+        self.ui._hub()
+        self.assertIn("No defender", screen.text())
+
     def test_affinity_card_preview_names_its_biome_bonus(self) -> None:
         engine = GameEngine.new(self.catalog, 3, start_in_hub=True)
         engine.state.hub_selection = ["cryonaut", "warden", "medic", "scout"]

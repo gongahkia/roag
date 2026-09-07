@@ -159,6 +159,10 @@ class TerminalUI:
             ready = len(selection) == 4
             status = "READY TO DEPART" if ready else f"SELECT {4 - len(selection)} MORE"
             self._put(20, 3, status, self._attr(4 if ready else 2) | curses.A_BOLD)
+            warnings = self.engine.party_warnings()
+            if warnings:
+                suffix = f" (+{len(warnings) - 1})" if len(warnings) > 1 else ""
+                self._put(21, 3, f"! {warnings[0]}{suffix}"[:37], self._attr(3))
             self._footer("Up/Down browse  Space select  Left/Right rank  C inspect cards  Enter depart  Esc title")
             key = self._key()
             if key in (curses.KEY_UP, ord("k")):
