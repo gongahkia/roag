@@ -515,6 +515,29 @@ class TerminalUI:
                 ),
                 self._attr(3) | curses.A_BOLD,
             )
+        elif aimed_objective := next(
+            (
+                objective
+                for objective in sorted(
+                    (item for item in state.objectives if not item.completed),
+                    key=lambda item: (item.approach is None, item.biome_id),
+                )
+                if cursor == self.engine.objective_waypoint(objective)
+            ),
+            None,
+        ):
+            projection = self.engine.objective_route_projection(aimed_objective)
+            biome_name = self.catalog.biomes[aimed_objective.biome_id]["name"]
+            self._put(
+                rows - 2,
+                2,
+                self._ellipsize(
+                    f"OBJ {biome_name.upper()} | TOTAL {projection['ticks']}T/~{projection['light']}L "
+                    "| NEXT LEG",
+                    self.screen.getmaxyx()[1] - 3,
+                ),
+                self._attr(2) | curses.A_BOLD,
+            )
         else:
             biome_id = self.engine.current_biome()
             objective = next(
@@ -704,6 +727,22 @@ class TerminalUI:
             reachable,
             key=lambda tile: (self.engine.path_cost(self.engine._find_path(party, tile)), tile),
         )
+        objective_waypoints = sorted(
+            (
+                (
+                    objective.approach is None,
+                    self.engine.objective_route_projection(objective)["ticks"],
+                    objective.biome_id,
+                    self.engine.objective_waypoint(objective),
+                )
+                for objective in state.objectives
+                if not objective.completed
+                and self.engine.objective_waypoint(objective) != party
+            ),
+            key=lambda item: item[:3],
+        )
+        for _, _, _, waypoint in reversed(objective_waypoints):
+            ordered = [waypoint] + [tile for tile in ordered if tile != waypoint]
         if self.engine.boss_unlocked():
             core_waypoint = self.engine.core_waypoint()
             if core_waypoint != party:

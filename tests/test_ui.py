@@ -482,6 +482,27 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("light total", self.ui.message)
         self.assertIn("press Enter", self.ui.message)
 
+    def test_active_objective_is_cycled_as_a_reachable_route_leg(self) -> None:
+        objective = self.engine.state.objectives[0]
+        approach = self.engine.mission_definition(objective.biome_id)["approaches"][0]
+        objective.approach = approach["id"]
+        waypoint = self.engine.objective_waypoint(objective)
+        party = (self.engine.state.party_x, self.engine.state.party_y)
+        self.assertNotEqual(party, waypoint)
+        self.assertEqual(waypoint, self.ui._exploration_targets()[0])
+        self.assertLessEqual(
+            self.engine.path_cost(self.engine._find_path(party, waypoint)),
+            self.engine.maximum_navigation_distance(),
+        )
+
+        screen = FakeScreen()
+        self.ui.screen = screen
+        self.ui._render_exploration(waypoint, focus=waypoint)
+        rendered = screen.text()
+        self.assertIn("NEXT LEG", rendered)
+        self.assertIn("TOTAL", rendered)
+        self.assertIn(self.catalog.biomes[objective.biome_id]["name"].upper(), rendered)
+
     def test_mission_status_distinguishes_required_and_optional_objectives(self) -> None:
         sealed = self.ui._mission_status_text()
         self.assertIn("CORE SEALED", sealed)
