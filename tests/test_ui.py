@@ -68,6 +68,15 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("TARGET:", lines[10])
         self.assertEqual(lines[1][1], lines[-2][-2])
 
+    def test_card_preview_and_deck_browser_expose_authored_build_tags(self) -> None:
+        lines = self.ui._card_lines(CardInstance("arc_welder"))
+        self.assertIn("USE-MARK", " ".join(lines))
+        self.assertIn("DAMAGE", " ".join(lines))
+        screen = FakeScreen(keys=[27])
+        self.ui.screen = screen
+        self.ui._deck_view()
+        self.assertIn("TAGS: DAMAGE", screen.text())
+
     def test_main_menu_uses_public_title(self) -> None:
         screen = FakeScreen(keys=[curses.KEY_DOWN, curses.KEY_DOWN, curses.KEY_DOWN, 10])
         self.ui.screen = screen

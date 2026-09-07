@@ -274,6 +274,7 @@ class TerminalUI:
             allow_cancel=True,
             view_only=True,
             preview_cards=cards,
+            preview_notes=[self._card_tags_note(card) for card in cards],
         )
 
     def _hub_deck_view(self) -> None:
@@ -306,6 +307,7 @@ class TerminalUI:
             allow_cancel=True,
             view_only=True,
             preview_cards=cards,
+            preview_notes=[self._card_tags_note(card) for card in cards],
         )
 
     def _exploration(self) -> None:
@@ -804,6 +806,7 @@ class TerminalUI:
             allow_cancel=True,
             view_only=True,
             preview_cards=cards,
+            preview_notes=[self._card_tags_note(card) for card in cards],
         )
 
     def _crew_view(self) -> None:
@@ -1230,7 +1233,13 @@ class TerminalUI:
             return
         labels = [self._card_label(self.engine.state.deck[index]) for index in eligible]
         previews = [self.engine.state.deck[index] for index in eligible]
-        selected = self._menu(action.upper(), labels, allow_cancel=False, preview_cards=previews)
+        selected = self._menu(
+            action.upper(),
+            labels,
+            allow_cancel=False,
+            preview_cards=previews,
+            preview_notes=[self._card_tags_note(card) for card in previews],
+        )
         card_index = eligible[selected]
         if action.startswith("Transform"):
             options = self.engine.transformation_options(card_index)
@@ -1297,6 +1306,7 @@ class TerminalUI:
             allow_cancel=True,
             view_only=True,
             preview_cards=list(self.engine.state.deck),
+            preview_notes=[self._card_tags_note(card) for card in self.engine.state.deck],
         )
         if self.engine.state.tutorial and self.engine.state.tutorial_stage == 9:
             self.engine.complete_tutorial()
@@ -1454,6 +1464,12 @@ class TerminalUI:
         )
         return f"{definition['name']}{plus} ({self.catalog.heroes[definition['hero']]['role']}){resonance} — {description}"
 
+    def _card_tags_note(self, card: CardInstance) -> str:
+        if card.card_id in self.catalog.curses:
+            return "TAGS: CURSE, UNPLAYABLE"
+        definition = self.catalog.cards[card.card_id]
+        return "TAGS: " + ", ".join(tag.upper() for tag in definition["tags"])
+
     def _draw_sprite(self, row: int, column: int, lines: list[str], attr: int = 0) -> None:
         for offset, line in enumerate(lines):
             self._put(row + offset, column, line.ljust(7), attr)
@@ -1512,7 +1528,7 @@ class TerminalUI:
             framed(corners),
             framed(title.center(inside)),
             framed(role.center(inside)),
-            framed(),
+            framed(self._compact_card_tags(definition) if not is_curse else "TAGS CURSE"),
             framed(glyph[0].center(inside)),
             framed(glyph[1].center(inside)),
             framed(glyph[2].center(inside)),
@@ -1526,6 +1542,26 @@ class TerminalUI:
             framed(lower_corners),
             border,
         ]
+
+    @staticmethod
+    def _compact_card_tags(definition: dict) -> str:
+        def compact(tag: str) -> str:
+            prefix, separator, value = tag.partition(":")
+            if prefix == "setup" and separator:
+                return f"SET-{value[:4].upper()}"
+            if prefix == "payoff" and separator:
+                return f"USE-{value[:4].upper()}"
+            if prefix == "status" and separator:
+                return value.upper()
+            if prefix == "affinity" and separator:
+                return f"@{value[:5].upper()}"
+            return tag.replace("stress_", "S-").replace("displacement", "MOVE").upper()
+
+        tags = sorted(
+            definition["tags"],
+            key=lambda tag: (not tag.startswith(("setup:", "payoff:", "status:")), tag),
+        )
+        return "TAGS " + "/".join(compact(tag) for tag in tags)
 
     def _draw_mini_card(
         self,
