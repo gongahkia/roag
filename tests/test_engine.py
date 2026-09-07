@@ -347,6 +347,8 @@ class EngineTests(unittest.TestCase):
         self.assertTrue(boss.active)
         self.assertEqual(2, self.engine.completed_objectives())
         self.assertTrue(any(not objective.completed for objective in self.engine.state.objectives))
+        self.assertIn("The Overseer Core seal is open at", self.engine.state.log[-1])
+        self.assertIn("Remaining objectives are optional", self.engine.state.log[-1])
 
     def test_open_core_holds_its_anchor_until_the_crew_approaches(self) -> None:
         boss = next(
@@ -403,6 +405,7 @@ class EngineTests(unittest.TestCase):
                 self.assertTrue(engine.boss_unlocked())
             if index >= 2:
                 self.assertTrue(objective.facts["optional"])
+                self.assertIn("this objective was optional", engine.state.log[-1])
             boss = engine.room_position(11)
             self.assertTrue(engine._find_path((engine.state.party_x, engine.state.party_y), boss))
         self.assertEqual(4, engine.completed_objectives())

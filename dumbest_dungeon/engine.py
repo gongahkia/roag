@@ -2667,7 +2667,14 @@ class GameEngine:
             )
             if boss_patrol and self.state.phase != "victory":
                 boss_patrol.active = True
-            message += " The Overseer Core seal is open."
+            if was_unlocked:
+                message += " Core access was already open; this objective was optional."
+            else:
+                core_x, core_y = self.core_position()
+                message += (
+                    f" The Overseer Core seal is open at {core_x:03},{core_y:02}. "
+                    "Remaining objectives are optional."
+                )
         self.add_log(message)
         return message
 
