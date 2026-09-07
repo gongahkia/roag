@@ -532,6 +532,16 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("Iron Benediction x1", rendered)
         self.assertIn("Current:", rendered)
 
+    def test_resource_hud_marks_effect_summary_overflow(self) -> None:
+        hero = self.engine.living_heroes()[0]
+        self.engine.state.boons[hero.id] = {boon_id: 1 for boon_id in self.catalog.boons}
+        self.engine.state.items = {item_id: 1 for item_id in self.catalog.items}
+        screen = FakeScreen()
+        self.ui.screen = screen
+        self.ui._resources(2)
+        summary = "".join(screen.rows[4]).rstrip()
+        self.assertTrue(summary.endswith("..."), summary)
+
     def test_mouse_click_maps_screen_cell_to_world_destination(self) -> None:
         self.ui.screen = FakeScreen()
         origin = (10, 4, 60, 15)

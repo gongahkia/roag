@@ -1493,7 +1493,15 @@ class TerminalUI:
             for h in sorted(state.heroes, key=lambda actor: (not actor.alive, actor.rank, actor.id))
         )
         self._put(row + 1, 2, crew)
-        self._put(row + 2, 2, self.engine.compact_effect_summary()[: self.screen.getmaxyx()[1] - 3], curses.A_DIM)
+        self._put(
+            row + 2,
+            2,
+            self._ellipsize(
+                self.engine.compact_effect_summary(),
+                self.screen.getmaxyx()[1] - 3,
+            ),
+            curses.A_DIM,
+        )
 
     @staticmethod
     def _ellipsize(text: str, width: int) -> str:
