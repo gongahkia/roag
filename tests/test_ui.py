@@ -414,7 +414,7 @@ class AsciiUiTests(unittest.TestCase):
     def test_hub_renders_roster_and_departs_with_default_party(self) -> None:
         self.engine = GameEngine.new(self.catalog, 3, start_in_hub=True)
         self.ui.engine = self.engine
-        screen = FakeScreen(keys=[10])
+        screen = FakeScreen(keys=[10, 10])
         self.ui.screen = screen
         self.ui._hub()
         self.assertEqual("exploration", self.engine.state.phase)
@@ -429,11 +429,31 @@ class AsciiUiTests(unittest.TestCase):
     def test_hub_scrolls_to_new_biome_crew_at_minimum_size(self) -> None:
         self.engine = GameEngine.new(self.catalog, 3, start_in_hub=True)
         self.ui.engine = self.engine
-        screen = FakeScreen(keys=[curses.KEY_DOWN] * 24 + [27])
+        screen = FakeScreen(
+            keys=[curses.KEY_DOWN] * len(self.catalog.squads)
+            + [10]
+            + [curses.KEY_DOWN] * 24
+            + [27]
+        )
         self.ui.screen = screen
         self.ui._hub()
         self.assertIn("Bonewright", screen.text())
         self.assertIn(self.catalog.art["heroes"]["bonewright"][1].strip(), screen.text())
+
+    def test_every_curated_squad_is_explained_and_selectable_at_minimum_size(self) -> None:
+        for index, squad in enumerate(self.catalog.squads.values()):
+            with self.subTest(squad=squad["id"]):
+                self.engine = GameEngine.new(self.catalog, 3, start_in_hub=True)
+                self.ui.engine = self.engine
+                screen = FakeScreen(keys=[curses.KEY_DOWN] * index + [10])
+                self.ui.screen = screen
+                self.assertTrue(self.ui._curated_squad_menu())
+                self.assertEqual(squad["formation"], self.engine.state.hub_selection)
+                rendered = screen.text()
+                self.assertIn(squad["name"].upper(), rendered)
+                self.assertIn("STRENGTH", rendered)
+                self.assertIn("WEAKNESS", rendered)
+                self.assertIn("SIGNATURE", rendered)
 
     def test_affinity_card_preview_names_its_biome_bonus(self) -> None:
         engine = GameEngine.new(self.catalog, 3, start_in_hub=True)

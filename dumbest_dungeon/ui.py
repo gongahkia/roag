@@ -112,6 +112,9 @@ class TerminalUI:
 
     def _hub(self) -> None:
         assert self.engine
+        if not self._curated_squad_menu():
+            self.engine = None
+            return
         selected = 0
         roster = list(self.catalog.heroes.values())
         while self.engine and self.engine.state.phase == "hub":
@@ -163,6 +166,71 @@ class TerminalUI:
             elif key == 27:
                 self.engine = None
                 return
+
+    def _curated_squad_menu(self) -> bool:
+        assert self.engine
+        squads = list(self.catalog.squads.values())
+        selected = 0
+        while True:
+            self._begin("CREW APPROACH")
+            self._put(2, 2, "Choose a prepared formation or open the complete roster.")
+            choices = [squad["name"] for squad in squads] + ["Advanced custom selection"]
+            for index, choice in enumerate(choices):
+                marker = ">" if index == selected else " "
+                attr = curses.A_REVERSE if index == selected else 0
+                self._put(4 + index * 2, 3, f"{marker} {choice}"[:34], attr)
+                if index < len(squads):
+                    complexity = "*" * squads[index]["complexity"]
+                    self._put(5 + index * 2, 5, f"complexity {complexity}", curses.A_DIM)
+
+            if selected < len(squads):
+                squad = squads[selected]
+                row = 3
+                self._put(row, 40, squad["name"].upper(), curses.A_BOLD | self._attr(1))
+                row += 2
+                for line in textwrap.wrap(squad["playstyle"], 37)[:3]:
+                    self._put(row, 40, line)
+                    row += 1
+                row += 1
+                formation = "  ".join(
+                    f"R{rank} {self.catalog.heroes[hero_id]['role']}"
+                    for rank, hero_id in enumerate(squad["formation"], 1)
+                )
+                for line in textwrap.wrap(formation, 37)[:2]:
+                    self._put(row, 40, line, curses.A_BOLD)
+                    row += 1
+                for label, field in (
+                    ("STRENGTH", "strength"),
+                    ("WEAKNESS", "weakness"),
+                    ("SIGNATURE", "signature"),
+                ):
+                    row += 1
+                    self._put(row, 40, label, self._attr(2))
+                    row += 1
+                    for line in textwrap.wrap(squad[field], 37)[:2]:
+                        self._put(row, 40, line)
+                        row += 1
+            else:
+                self._put(4, 40, "ADVANCED CUSTOM SELECTION", curses.A_BOLD | self._attr(1))
+                for offset, line in enumerate(
+                    textwrap.wrap(
+                        f"Browse all {len(self.catalog.heroes)} archetypes, inspect their cards, and assemble any four-person formation. Serious role and rank conflicts are warnings, not restrictions.",
+                        37,
+                    )[:6]
+                ):
+                    self._put(6 + offset, 40, line)
+            self._footer("Up/Down choose  Enter continue  Esc title")
+            key = self._key()
+            if key in (curses.KEY_UP, ord("k")):
+                selected = (selected - 1) % len(choices)
+            elif key in (curses.KEY_DOWN, ord("j")):
+                selected = (selected + 1) % len(choices)
+            elif key in (10, 13, curses.KEY_ENTER):
+                if selected < len(squads):
+                    self.engine.select_curated_squad(squads[selected]["id"])
+                return True
+            elif key == 27:
+                return False
 
     def _class_card_view(self, hero_id: str) -> None:
         cards = [CardInstance(card_id) for card_id, card in self.catalog.cards.items() if card["hero"] == hero_id]
