@@ -21,6 +21,7 @@ from jomon.route_chart import (
 from jomon.state import SAVE_FORMAT, create_world, game_state_from_dict
 from jomon.travel import choose_destination, travel_animation_frames
 from jomon.terminal import (
+    ROUTE_HELP_LINES,
     InputEvent,
     RouteChartView,
     _handle_route_chart,
@@ -98,6 +99,7 @@ class RouteGraphTests(unittest.TestCase):
 
         self.assertLessEqual(len(lines), 19)
         self.assertTrue(all(len(line) <= 23 for line in lines))
+        self.assertTrue(all(len(line) <= 78 for line in ROUTE_HELP_LINES))
         joined = " ".join(lines)
         for fact in (
             "Route:", "actions", "supplies", "Risks: cargo", "weather",

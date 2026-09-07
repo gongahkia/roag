@@ -104,6 +104,10 @@ INVENTORY_HELP_LINES = (
     "T transfer E equip O pack P pin Z auto [] body D drop C confirm Esc cancel",
 )
 TARGET_HELP_LINE = "Arrows/WASD/HJKL cursor  Tab next  Enter fire  Mouse select  Esc cancel"
+ROUTE_HELP_LINES = (
+    "Arrows/WASD/HJKL connected node  Enter preview/confirm  Tab layer  Esc close",
+    "Mouse click selects; double-click confirms when reported; keyboard is complete",
+)
 
 MIN_WIDTH = 80
 MIN_HEIGHT = 24
@@ -975,8 +979,8 @@ def _draw_route_chart(
     for index, line in enumerate(lines[: height - 5]):
         attr = curses.A_BOLD if index == 0 or line.startswith(">") else curses.A_DIM if "BLOCKED" in line else 0
         _put(screen, 2 + index, map_width + 2, line, attr)
-    _put(screen, height - 2, 1, "Arrows/WASD/HJKL connected node  Enter preview/confirm  Tab layer  Esc close", curses.A_REVERSE)
-    _put(screen, height - 1, 1, "Mouse: click selects, double-click confirms where reported; keyboard is complete", curses.A_REVERSE)
+    for index, line in enumerate(ROUTE_HELP_LINES):
+        _put(screen, height - 2 + index, 1, line, curses.A_REVERSE)
     screen.refresh()
 
 
