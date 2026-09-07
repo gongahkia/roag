@@ -453,12 +453,13 @@ class TerminalUI:
         screen_rows, screen_columns = self.screen.getmaxyx()
         viewport_width = min(screen_columns - 4, len(tiles[0]))
         viewport_height = min(screen_rows - row - 4, len(tiles))
+        map_column = max(2, (screen_columns - viewport_width) // 2)
         focus_x, focus_y = focus or cursor
         left = max(0, min(len(tiles[0]) - viewport_width, focus_x - viewport_width // 2))
         top = max(0, min(len(tiles) - viewport_height, focus_y - viewport_height // 2))
         for offset in range(viewport_height):
             line = tiles[top + offset][left:left + viewport_width]
-            self._put(row + offset, 2, line, curses.A_DIM)
+            self._put(row + offset, map_column, line, curses.A_DIM)
 
         state = self.engine.state
         overlays: list[tuple[int, int, str, int]] = []
@@ -511,8 +512,8 @@ class TerminalUI:
             cursor_attr = curses.A_REVERSE
         overlays.append((cursor[0], cursor[1], cursor_symbol, cursor_attr | curses.A_BOLD))
         for x, y, symbol, attribute in overlays:
-            screen_x, screen_y = x - left + 2, y - top + row
-            if 2 <= screen_x < screen_columns - 2 and row <= screen_y < row + viewport_height:
+            screen_x, screen_y = x - left + map_column, y - top + row
+            if map_column <= screen_x < map_column + viewport_width and row <= screen_y < row + viewport_height:
                 self._put(screen_y, screen_x, symbol, attribute)
         return left, top, viewport_width, viewport_height
 
@@ -559,6 +560,7 @@ class TerminalUI:
 
     def _mouse_destination(self, origin: tuple[int, int, int, int]) -> tuple[int, int] | None:
         left, top, width, height = origin
+        map_column = max(2, (self.screen.getmaxyx()[1] - width) // 2)
         try:
             _, mouse_x, mouse_y, _, buttons = curses.getmouse()
         except curses.error:
@@ -569,9 +571,9 @@ class TerminalUI:
             | curses.BUTTON1_TRIPLE_CLICKED
             | curses.BUTTON1_PRESSED
         )
-        if not buttons & clicked or not (2 <= mouse_x < 2 + width and self.MAP_ROW <= mouse_y < self.MAP_ROW + height):
+        if not buttons & clicked or not (map_column <= mouse_x < map_column + width and self.MAP_ROW <= mouse_y < self.MAP_ROW + height):
             return None
-        return left + mouse_x - 2, top + mouse_y - self.MAP_ROW
+        return left + mouse_x - map_column, top + mouse_y - self.MAP_ROW
 
     def _walk_to(self, destination: tuple[int, int]) -> None:
         assert self.engine
@@ -854,7 +856,13 @@ class TerminalUI:
                 and not actor.statuses.get("stun")
                 and self.engine.card_cost(card) <= state.energy
             )
-            self._draw_mini_card(13, 2 + slot * 15, card, index == selected, legal)
+            self._draw_mini_card(
+                13,
+                self._combat_column(2 + slot * 15),
+                card,
+                index == selected,
+                legal,
+            )
         if not state.hand:
             self._put(17, 28, "HAND EMPTY — PRESS E", curses.A_DIM)
         footer = (
@@ -965,7 +973,7 @@ class TerminalUI:
             return
         attr = (self._attr(5) if self.colour else curses.A_REVERSE) | curses.A_BOLD
         for rank, art, damage in damaged:
-            column = 43 + (rank - 1) * 9
+            column = self._combat_column(43 + (rank - 1) * 9)
             self._draw_sprite(3, column, art, attr)
             label = f"-{damage}"
             self._put(5, column + max(0, (7 - len(label)) // 2), label, attr)
@@ -1002,7 +1010,7 @@ class TerminalUI:
             return
         attr = (self._attr(6) if self.colour else curses.A_REVERSE) | curses.A_BOLD
         for rank, art, label in buffed:
-            column = 29 - (rank - 1) * 9
+            column = self._combat_column(29 - (rank - 1) * 9)
             self._draw_sprite(3, column, art, attr)
             self._put(5, column + max(0, (7 - len(label)) // 2), label, attr)
         self.screen.refresh()
@@ -1016,16 +1024,16 @@ class TerminalUI:
         selected_target: str | None = None,
     ) -> None:
         assert self.engine
-        self._put(row, 2, "CREW  < BACK     FORMATION     FRONT >", curses.A_BOLD)
-        self._put(row, 43, "HOSTILES < FRONT   FORMATION  BACK >", curses.A_BOLD)
-        self._put(row + 1, 39, "||", curses.A_BOLD)
+        self._put(row, self._combat_column(2), "CREW  < BACK     FORMATION     FRONT >", curses.A_BOLD)
+        self._put(row, self._combat_column(43), "HOSTILES < FRONT   FORMATION  BACK >", curses.A_BOLD)
+        self._put(row + 1, self._combat_column(39), "||", curses.A_BOLD)
         fallen = [hero for hero in self.engine.state.heroes if not hero.alive]
         fallen_by_rank = {4 - index: hero for index, hero in enumerate(fallen)}
         for rank in range(1, 5):
             hero = next((item for item in self.engine.living_heroes() if item.rank == rank), None)
             enemy = next((item for item in self.engine.living_enemies() if item.rank == rank), None)
             if hero:
-                column = 29 - (rank - 1) * 9
+                column = self._combat_column(29 - (rank - 1) * 9)
                 attr = self._hp_attr(hero.hp, hero.max_hp)
                 if hero.id == active_hero or hero.id in valid_targets or "all_allies" in valid_targets:
                     attr |= curses.A_BOLD
@@ -1040,12 +1048,12 @@ class TerminalUI:
                 self._put(row + 8, column, f"S{hero.stress:02} B{hero.block:02}", attr)
             elif rank in fallen_by_rank:
                 dead = fallen_by_rank[rank]
-                column = 29 - (rank - 1) * 9
+                column = self._combat_column(29 - (rank - 1) * 9)
                 self._draw_sprite(row + 1, column, self.catalog.art["heroes"][dead.id], curses.A_DIM)
                 self._put(row + 6, column, f"-- {dead.hero_class[:4].upper():4}", curses.A_DIM)
                 self._put(row + 7, column, "  DEAD ", curses.A_BOLD | self._attr(3))
             if enemy:
-                column = 43 + (rank - 1) * 9
+                column = self._combat_column(43 + (rank - 1) * 9)
                 attr = self._hp_attr(enemy.hp, enemy.max_hp)
                 if enemy.id in valid_targets or "all_enemies" in valid_targets:
                     attr |= curses.A_BOLD
@@ -1060,6 +1068,9 @@ class TerminalUI:
                 self._put(row + 7, column, f"H{enemy.hp:02}/{enemy.max_hp:02}", attr)
                 status = "".join(name[0].upper() for name in enemy.statuses)[:3]
                 self._put(row + 8, column, f"B{enemy.block:02} {status:3}", attr)
+
+    def _combat_column(self, column: int) -> int:
+        return column + max(0, (self.screen.getmaxyx()[1] - self.MIN_COLS) // 2)
 
     def _intents(self, row: int, max_lines: int) -> None:
         assert self.engine

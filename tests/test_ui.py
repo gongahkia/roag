@@ -380,10 +380,14 @@ class AsciiUiTests(unittest.TestCase):
         party = (self.engine.state.party_x, self.engine.state.party_y)
         origin = self.ui._world_map(self.ui.MAP_ROW, party)
         self.assertEqual((0, 0, len(tiles[0]), len(tiles)), origin)
+        map_column = (140 - len(tiles[0])) // 2
+        self.assertTrue(
+            any(row == self.ui.MAP_ROW and column == map_column for row, column, _, _ in screen.writes)
+        )
 
         with patch(
             "dumbest_dungeon.ui.curses.getmouse",
-            return_value=(0, len(tiles[0]) + 2, self.ui.MAP_ROW, 0, curses.BUTTON1_CLICKED),
+            return_value=(0, map_column + len(tiles[0]), self.ui.MAP_ROW, 0, curses.BUTTON1_CLICKED),
         ):
             self.assertIsNone(self.ui._mouse_destination(origin))
 
@@ -463,12 +467,26 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("Current:", rendered)
 
     def test_mouse_click_maps_screen_cell_to_world_destination(self) -> None:
+        self.ui.screen = FakeScreen()
         origin = (10, 4, 60, 15)
         with patch(
             "dumbest_dungeon.ui.curses.getmouse",
             return_value=(0, 12, 7, 0, curses.BUTTON1_CLICKED),
         ):
-            self.assertEqual((20, 6), self.ui._mouse_destination(origin))
+            self.assertEqual((12, 6), self.ui._mouse_destination(origin))
+
+    def test_combat_formation_uses_the_center_of_a_large_terminal(self) -> None:
+        self.engine.start_combat("vents")
+        screen = FakeScreen(rows=40, columns=140)
+        self.ui.screen = screen
+        self.ui._battlefield(2, None, [])
+        expected_warden_column = 29 + (140 - self.ui.MIN_COLS) // 2
+        self.assertTrue(
+            any(
+                row == 3 and column == expected_warden_column
+                for row, column, _, _ in screen.writes
+            )
+        )
 
     def test_mouse_requires_second_click_before_auto_walk(self) -> None:
         screen = FakeScreen(keys=[curses.KEY_MOUSE, curses.KEY_MOUSE])
