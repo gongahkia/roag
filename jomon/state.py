@@ -479,6 +479,8 @@ def _region(seed: str) -> tuple[Region, Contact]:
 
 
 def create_world(seed: str) -> GameState:
+    from .vessel import JOMON_GANGPLANK
+
     seed = normalize_seed(seed)
     household = _household(seed)
     region, contact = _region(seed)
@@ -492,11 +494,11 @@ def create_world(seed: str) -> GameState:
     relics = {"river-glass ward": 1} if stage_rng(seed, "river-glass").randrange(5) == 0 else {}
     state = GameState(
         save_format=SAVE_FORMAT, seed=seed, world_time=0, household=household,
-        active_courier_id=None, active_region_id="hearthford", contact=contact, region=region, market=market,
+        active_courier_id=household[0].id, active_region_id="hearthford", contact=contact, region=region, market=market,
         vessel_cargo=vessel_cargo, location="jomon", current_room=None,
-        position=Position(3, 4, 0), expedition_count=0, returned_expeditions=0,
-        weapon=None, gear=None, support=None, support_spent=False, crossbow_loaded=True,
-        owned_weapons=["billhook", "spear", "cudgel", "staff"],
+        position=JOMON_GANGPLANK, expedition_count=0, returned_expeditions=0,
+        weapon=None, gear=None, support="route survey", support_spent=False, crossbow_loaded=True,
+        owned_weapons=["billhook", "spear", "cudgel", "staff", "hand axe"],
         owned_gear=["buckler", "rope", "quiet shoes", "repair tools", "smoke pot", "trade seals"],
         consumables={}, relics=relics, carried_relic=None, carried_goods={},
         objective_status="unoffered", objective_required=2, flood_control="raised",
@@ -531,11 +533,13 @@ def create_world(seed: str) -> GameState:
         calendar_events=[], chronicle=[], pending_incident=None,
         last_schedule_turn=0,
     )
-    from .inventory import initialise_inventory
+    from .inventory import ensure_household_basics, initialise_inventory, sync_legacy_load
     from .people import initialise_tavern
 
     initialise_inventory(state)
     initialise_tavern(state)
+    ensure_household_basics(state)
+    sync_legacy_load(state)
     state.threats = _threats(seed, region)
     state.regions = {"hearthford": region}
     state.contacts = {"hearthford": [contact]}
@@ -554,6 +558,11 @@ def create_world(seed: str) -> GameState:
     initialise_route_chart(state)
     initialise_living_vessel(state)
     state.add_message(f"Jomon reaches Hearthford. {region.condition}")
+    state.add_message(
+        f"{state.courier.name} has the courier watch with a basic working kit. "
+        "Press E at the gangplank to depart, or prepare further aboard.",
+        priority=3,
+    )
     if relics:
         state.add_message("A finite river-glass ward rests in the household stores.")
     return state
@@ -847,9 +856,28 @@ def game_state_from_dict(data: Any) -> GameState:
             from .vessel import initialise_living_vessel
 
             initialise_living_vessel(state, migrated=migrated_v4)
-        from .vessel import normalise_schedule_work_positions
+        from .vessel import JOMON_GANGPLANK, normalise_schedule_work_positions
 
         normalise_schedule_work_positions(state)
+        if state.location == "jomon":
+            from .inventory import ensure_household_basics, sync_legacy_load
+
+            if state.active_courier_id is None and not state.world_ended:
+                ready = next((person for person in state.household if person.alive), None)
+                if ready is not None:
+                    state.active_courier_id = ready.id
+                    state.jomon_space = "vessel"
+                    state.position = JOMON_GANGPLANK
+                    state.tavern_positions.pop(ready.id, None)
+                    schedule = state.actor_schedules.get(ready.id)
+                    if schedule:
+                        schedule.area = schedule.destination_area = "vessel:0"
+                        schedule.position = schedule.destination = JOMON_GANGPLANK
+                        schedule.activity = "ready for departure"
+            ensure_household_basics(state)
+            if state.active_courier_id and state.support is None:
+                state.support = "route survey"
+            sync_legacy_load(state)
     except (AttributeError, KeyError, TypeError, ValueError) as exc:
         raise StateError(f"malformed save: {exc}") from exc
     validate_state(state)

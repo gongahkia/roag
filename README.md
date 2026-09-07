@@ -85,6 +85,15 @@ happens through that person rather than a portrait menu. Named adults move
 between actual work and social positions as accepted actions advance the
 schedule; off-screen catch-up is bounded and deterministic.
 
+A new world begins with Jomon's bargemaster standing on courier watch at the
+gangplank. They already wear a modest working issue, carry a role-appropriate
+weapon and secondary item, and have route-survey support, so pressing `E`
+starts the first expedition immediately. Every eligible household adult and
+new recruit receives their own one-time role-appropriate basic issue. These
+are ordinary physical items—they can be changed, damaged, dropped, or lost—and
+the tavern, paper doll, and pack remain available whenever deeper preparation
+is useful.
+
 Use `I` aboard to move shaped items between the 10×6 courier pack and 18×10
 locker, equip one weapon and secondary item, and wear armour at six body
 locations. Sena offers eight finite drinks with paired benefits and drawbacks;

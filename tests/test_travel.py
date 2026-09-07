@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from jomon.actions import choose_weapon
 from jomon.save import load_game, save_game
 from jomon.state import create_world
 from jomon.travel import choose_destination, resolve_voyage, voyage_for
@@ -43,7 +44,7 @@ class RegionalTravelTests(unittest.TestCase):
 
     def test_raider_failure_loses_accounted_cargo_and_injures(self):
         state = create_world("failed boarding")
-        state.active_courier_id = state.household[0].id
+        choose_weapon(state, "cudgel")
         quantity = sum(stack.quantity for stack in state.vessel_cargo.values())
         choose_destination(state, "reed-anchor", forced_voyage="raiders")
         resolve_voyage(state, "repel")

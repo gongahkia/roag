@@ -141,6 +141,11 @@ class ExpandedBuildTests(unittest.TestCase):
             if expected == "weighted floor brace":
                 # Physical mass, rather than a hidden toggle, establishes the load band.
                 state.household[0].role = "factor"
+                for item in state.items:
+                    if item.owner_id == state.active_courier_id and item.location in {
+                        "head", "torso", "arms", "hands", "legs", "feet",
+                    }:
+                        item.location, item.owner_id = "lost", None
                 for kind, slot in (("riveted coat", "torso"), ("brigandine cuisses", "legs"), ("kettle helm", "head")):
                     create_item(state, kind, "combination test", owner_id=state.active_courier_id, location=slot)
             with self.subTest(expected=expected):

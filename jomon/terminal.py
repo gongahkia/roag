@@ -1393,11 +1393,17 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         if person is None:
             return "EMPTY SEAT", ["This person is no longer aboard."]
         standing = "active courier" if person.id == state.active_courier_id else "eligible household" if person in state.household else state.visitor_status.get(person.id, "visitor")
+        physical = []
+        for slot in ("readied", "secondary", "head", "torso", "arms", "hands", "legs", "feet"):
+            item = equipped_item(state, slot, person.id)
+            if item:
+                physical.append(f"{slot}: {item_spec(item.kind).name}")
         lines = [
             f"{person.name} — {person.role}; {standing}",
             f"Technique: {person.technique}",
             f"Health: {person.health}/{person.max_health}; {person.injury}",
             f"Equipment affinity: {', '.join(person.equipment)}",
+            f"Current physical kit: {', '.join(physical) if physical else 'none'}",
             f"Build tendency: {person.build_tendency}",
             f"Background: {person.background}",
             "Memories:", *[f"- {memory}" for memory in (person.memories or ["No shared expedition yet."])],

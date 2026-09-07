@@ -14,7 +14,10 @@ from jomon.inventory import (
     auto_place,
     can_place,
     create_item,
+    basic_courier_kit,
+    ensure_courier_basics,
     equip_item,
+    equipped_item,
     load_state,
     occupied_cells,
     protection_at,
@@ -25,6 +28,7 @@ from jomon.inventory import (
 from jomon.save import load_game, save_game
 from jomon.state import SAVE_FORMAT, Position, game_state_from_dict, create_world
 from jomon.terminal import InventoryView, _handle_inventory
+from jomon.world import JOMON_GANGPLANK
 
 
 def active_state(seed: str = "spatial inventory"):
@@ -34,6 +38,49 @@ def active_state(seed: str = "spatial inventory"):
 
 
 class SpatialInventoryTests(unittest.TestCase):
+    def test_every_initial_courier_has_one_physical_basic_working_kit(self):
+        state = create_world("ready household")
+        self.assertEqual(state.active_courier_id, state.household[0].id)
+        self.assertEqual(state.support, "route survey")
+        self.assertEqual(state.position, JOMON_GANGPLANK)
+        before = len(state.items)
+        for person in state.household:
+            expected = basic_courier_kit(person)
+            for slot, kind in expected.items():
+                item = equipped_item(state, slot, person.id)
+                self.assertIsNotNone(item, (person.role, slot))
+                self.assertEqual(item.kind, kind)
+            self.assertTrue(state.vessel_changes[f"basic_kit:{person.id}"])
+            self.assertEqual(ensure_courier_basics(state, person), [])
+        self.assertEqual(len(state.items), before)
+        weapon = equipped_item(state, "readied", state.household[0].id)
+        weapon.location, weapon.owner_id = "lost", None
+        self.assertEqual(ensure_courier_basics(state, state.household[0]), [])
+        self.assertIsNone(equipped_item(state, "readied", state.household[0].id))
+        self.assertEqual(len(state.items), before)
+
+    def test_unprepared_format_five_world_becomes_ready_without_item_loss(self):
+        state = create_world("pre-ready format five")
+        data = state.to_dict()
+        data["active_courier_id"] = None
+        data["weapon"] = data["gear"] = data["support"] = None
+        data["vessel_changes"] = {
+            key: value for key, value in data["vessel_changes"].items()
+            if not key.startswith("basic_kit:")
+        }
+        data["items"] = [
+            item for item in data["items"]
+            if not item["provenance"].startswith("Jomon working issue")
+        ]
+        kept_ids = {item["id"] for item in data["items"]}
+        loaded = game_state_from_dict(data)
+        self.assertEqual(loaded.active_courier_id, loaded.household[0].id)
+        self.assertEqual(loaded.position, JOMON_GANGPLANK)
+        self.assertEqual(loaded.support, "route survey")
+        self.assertTrue(kept_ids.issubset({item.id for item in loaded.items}))
+        self.assertIsNotNone(equipped_item(loaded, "readied"))
+        self.assertIsNotNone(equipped_item(loaded, "secondary"))
+
     def test_rotated_grid_placement_and_exact_save_round_trip(self):
         state = active_state()
         rope = next(item for item in state.items if item.kind == "rope")

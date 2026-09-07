@@ -6,7 +6,7 @@ import copy
 from dataclasses import dataclass, replace
 from typing import Iterable
 
-from .state import GameState, Item, Position, TerrainStatus
+from .state import GameState, Item, Person, Position, TerrainStatus
 
 PACK_WIDTH = 10
 PACK_HEIGHT = 6
@@ -14,6 +14,37 @@ LOCKER_WIDTH = 18
 LOCKER_HEIGHT = 10
 BODY_SLOTS = ("head", "torso", "arms", "hands", "legs", "feet")
 EQUIPPED_LOCATIONS = ("readied", "secondary", *BODY_SLOTS)
+
+# A working issue, not a class or permanent build. These items use the same
+# slots, weight, condition, loss, and replacement rules as discovered gear.
+BASIC_COURIER_LOADOUTS: dict[str, tuple[str, str]] = {
+    "bargemaster": ("billhook", "rope"),
+    "pilot": ("staff", "quiet shoes"),
+    "factor": ("cudgel", "trade seals"),
+    "carpenter": ("hand axe", "repair tools"),
+    "guard": ("spear", "buckler"),
+    "healer": ("staff", "rope"),
+    "tide runner": ("javelins", "rope"),
+    "netwright": ("weighted net", "rope"),
+    "charcoal scout": ("longbow", "smoke pot"),
+    "resin healer": ("staff", "rope"),
+    "quarry climber": ("war hammer", "repair tools"),
+    "ridge ward": ("sling", "quiet shoes"),
+}
+
+BASIC_COURIER_ARMOUR: dict[str, dict[str, str]] = {
+    "carpenter": {"hands": "work gloves"},
+    "guard": {
+        "head": "boiled cap", "arms": "leather vambraces",
+        "feet": "hobnailed boots",
+    },
+    "healer": {"arms": "linen sleeves"},
+    "tide runner": {"feet": "marsh waders"},
+    "netwright": {"hands": "tarred gauntlets"},
+    "resin healer": {"arms": "linen sleeves"},
+    "quarry climber": {"feet": "hobnailed boots"},
+    "ridge ward": {"legs": "leather leggings"},
+}
 
 
 @dataclass(frozen=True)
@@ -482,6 +513,51 @@ def create_item(
     state.next_item_id += 1
     state.items.append(item)
     return item
+
+
+def basic_courier_kit(person: Person) -> dict[str, str]:
+    """Return the small authored working issue for one adult's actual role."""
+    weapon, secondary = BASIC_COURIER_LOADOUTS.get(person.role, ("staff", "rope"))
+    kit = {
+        "readied": weapon,
+        "secondary": secondary,
+        "head": "felt hood",
+        "torso": "quilted jack",
+        "feet": "reed shoes",
+    }
+    kit.update(BASIC_COURIER_ARMOUR.get(person.role, {}))
+    return kit
+
+
+def ensure_courier_basics(state: GameState, person: Person) -> list[str]:
+    """Issue missing basics once; later loss or deliberate removal still matters."""
+    marker = f"basic_kit:{person.id}"
+    if state.vessel_changes.get(marker):
+        return []
+    issued: list[str] = []
+    for location, kind in basic_courier_kit(person).items():
+        if equipped_item(state, location, person.id) is not None:
+            continue
+        create_item(
+            state, kind, f"Jomon working issue for {person.role}",
+            location=location, owner_id=person.id,
+        )
+        issued.append(kind)
+        spec = item_spec(kind)
+        if spec.category == "weapon" and kind not in state.owned_weapons:
+            state.owned_weapons.append(kind)
+        elif spec.category == "gear" and kind not in state.owned_gear:
+            state.owned_gear.append(kind)
+    state.vessel_changes[marker] = True
+    if person.id == state.active_courier_id:
+        sync_legacy_load(state)
+    return issued
+
+
+def ensure_household_basics(state: GameState) -> None:
+    for person in state.household:
+        if person.alive:
+            ensure_courier_basics(state, person)
 
 
 def transfer_to_grid(

@@ -60,6 +60,18 @@ def quiet(state):
 
 
 class TimeAndBuildTests(unittest.TestCase):
+    def test_new_world_starts_at_gangplank_ready_to_depart(self):
+        state = create_world("first expedition ready")
+        self.assertEqual(state.position, JOMON_GANGPLANK)
+        self.assertIsNotNone(state.courier)
+        self.assertIsNotNone(state.weapon)
+        self.assertIsNotNone(state.gear)
+        self.assertEqual(state.support, "route survey")
+        result = depart(state)
+        self.assertTrue(result.changed)
+        self.assertTrue(result.time_advanced)
+        self.assertEqual(state.location, "region")
+
     def test_inspection_and_blocked_movement_are_zero_time(self):
         state = create_world("no clock")
         started = state.world_time
@@ -325,7 +337,7 @@ class WeaponAndThreatTests(unittest.TestCase):
         _advance_world(state)
         self.assertIn("inner aisles 24/26", elite.intent)
         _advance_world(state)
-        self.assertEqual(state.courier.health, health - 3)
+        self.assertEqual(state.courier.health, health - 2)
 
 
 class PersistenceAndDefeatTests(unittest.TestCase):
@@ -361,6 +373,9 @@ class PersistenceAndDefeatTests(unittest.TestCase):
         self.assertFalse(dead.alive)
         self.assertNotEqual(state.active_courier_id, dead.id)
         self.assertIn("succeeds", result)
+        self.assertIsNotNone(state.weapon)
+        self.assertIsNotNone(state.gear)
+        self.assertEqual(state.support, "route survey")
 
     def test_merchant_timing_stock_and_purchase_are_deterministic(self):
         seed = "merchant river"

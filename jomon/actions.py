@@ -13,6 +13,7 @@ from .inventory import (
     create_item,
     consume_carried,
     degrade_armour,
+    ensure_courier_basics,
     equipped_item,
     load_state,
     lose_matching_carried,
@@ -50,6 +51,7 @@ from .world import (
 )
 from .calendar import record_calendar_crossings
 from .vessel import (
+    HOUSEHOLD_SEATS,
     TAVERN_ENTRANCE,
     TAVERN_EXIT,
     advance_living_world,
@@ -104,20 +106,31 @@ def choose_courier(state: GameState, person_id: str) -> ActionResult:
     person = next((candidate for candidate in state.household if candidate.id == person_id), None)
     if state.location != "jomon" or person is None or not person.alive:
         return _plain(state, "That household member cannot serve as courier.")
+    ensure_courier_basics(state, person)
     previous_id = state.active_courier_id
+    if previous_id == person.id:
+        state.support = state.support or "route survey"
+        sync_legacy_load(state)
+        return _plain(state, f"{person.name} remains ready for the courier watch.")
     old_position = state.position
     schedule = state.actor_schedules.get(person.id)
     seat = schedule.position if schedule and schedule.area == "tavern" else state.tavern_positions.pop(person.id, state.position)
     if previous_id and previous_id != person.id:
-        state.tavern_positions[previous_id] = old_position
+        occupied = set(state.tavern_positions.values())
+        previous_position = old_position if state.jomon_space == "tavern" else next(
+            (point for point in HOUSEHOLD_SEATS if point not in occupied),
+            HOUSEHOLD_SEATS[0],
+        )
+        state.tavern_positions[previous_id] = previous_position
         previous = state.actor_schedules.get(previous_id)
         if previous:
             previous.area = previous.destination_area = "tavern"
-            previous.position = previous.destination = old_position
+            previous.position = previous.destination = previous_position
     state.active_courier_id = person.id
     state.tavern_positions.pop(person.id, None)
     state.position = seat
     state.jomon_space = "tavern"
+    state.support = state.support or "route survey"
     readied = equipped_item(state, "readied", person.id)
     secondary = equipped_item(state, "secondary", person.id)
     state.weapon = readied.kind if readied else None
@@ -131,6 +144,10 @@ def recruit_person(state: GameState, person_id: str) -> ActionResult:
     from .people import recruit_visitor
 
     changed, message = recruit_visitor(state, person_id)
+    if changed:
+        person = next(candidate for candidate in state.household if candidate.id == person_id)
+        ensure_courier_basics(state, person)
+        message += " Jomon issues a basic role-appropriate expedition kit."
     return _plain(state, message, changed=changed)
 
 
@@ -355,8 +372,10 @@ def _return_after_defeat(state: GameState, text: str, permanent: bool) -> str:
         successor.relationships[courier.id] = min(
             3, successor.relationships.get(courier.id, 0) + 1
         )
-        state.weapon = state.gear = state.support = None
-        return f"{text}{loss} {successor.name} succeeds the dead courier."
+        ensure_courier_basics(state, successor)
+        state.support = "route survey"
+        sync_legacy_load(state)
+        return f"{text}{loss} {successor.name} succeeds the dead courier with their own working kit."
     courier.health, courier.injury = max(2, courier.max_health // 3), "deep cut"
     state.remember(
         f"{courier.name} escaped to Jomon injured; carried discoveries were lost."

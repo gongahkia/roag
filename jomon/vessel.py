@@ -268,7 +268,11 @@ def initialise_living_vessel(state: GameState, *, migrated: bool = False) -> Non
     tavern_positions: dict[str, Position] = {}
     for person in _all_named_people(state):
         status = state.visitor_status.get(person.id, "joined" if person in state.household else "away")
-        if person not in state.household and status == "away":
+        if person.id == state.active_courier_id and state.location == "jomon":
+            area = "tavern" if state.jomon_space == "tavern" else f"vessel:{state.position.z}"
+            point = state.position
+            activity = "ready for departure"
+        elif person not in state.household and status == "away":
             area = f"region:{person.home_region}"
             region = state.regions.get(person.home_region)
             point = region.landmarks["contact"] if region else Position(1, 1)
@@ -284,7 +288,7 @@ def initialise_living_vessel(state: GameState, *, migrated: bool = False) -> Non
             person.id, area, point, activity, boundary, area, point,
             available=person.available and person.alive, last_update=state.world_time,
         )
-        if area == "tavern":
+        if area == "tavern" and person.id != state.active_courier_id:
             tavern_positions[person.id] = point
     schedules[state.bartender.id] = ActorSchedule(
         state.bartender.id, "tavern", BARTENDER_POSITION, "serving",

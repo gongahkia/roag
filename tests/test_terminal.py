@@ -99,7 +99,7 @@ class TavernMenuTests(unittest.TestCase):
     def test_physical_person_selection_is_zero_time(self):
         state = create_world("physical tavern")
         state.jomon_space = "tavern"
-        person = state.household[0]
+        person = state.household[1]
         seat = state.tavern_positions[person.id]
         state.position = Position(seat.x - 1, seat.y)
         started = state.world_time
@@ -139,6 +139,8 @@ class DialogueChoiceTests(unittest.TestCase):
 
     def test_bar_selects_support_but_not_courier_or_equipment(self):
         state = create_world("tavern support")
+        courier, weapon, gear = state.courier, state.weapon, state.gear
+        state.support = None
         state.jomon_space = "tavern"
         state.position = Position(BARTENDER_POSITION.x - 1, BARTENDER_POSITION.y)
         started = state.world_time
@@ -148,8 +150,9 @@ class DialogueChoiceTests(unittest.TestCase):
         overlay, _ = _handle_overlay(state, overlay, ord("1"))
         self.assertEqual(overlay, "bartender")
         self.assertIsNotNone(state.support)
-        self.assertIsNone(state.courier)
-        self.assertIsNone(state.weapon)
+        self.assertIs(state.courier, courier)
+        self.assertEqual(state.weapon, weapon)
+        self.assertEqual(state.gear, gear)
         self.assertEqual(state.world_time, started)
 
 

@@ -43,6 +43,13 @@ weather, burn wind, quarry instability, patrol movement, alarm, and material
 timing—rather than one hidden or real-time deadline. Severe ranged attacks must
 provide a readable aim, lane, cover, or setup opportunity before impact.
 
+New worlds must not make system discovery a departure prerequisite. One
+deterministic adult begins on courier watch at the gangplank, and every
+eligible courier receives a one-time, role-appropriate basic weapon, secondary
+item, and modest working armour. Issued equipment remains ordinary physical
+state subject to weight, damage, deliberate replacement, dropping, and loss;
+it is not silently recreated after issue.
+
 This milestone explicitly excludes more regions, infinite or offline world
 simulation, exhaustive needs or anatomy, unrestricted autonomous death,
 generic schedule/GOAP/encounter/quest/narrative languages, real-time travel,
