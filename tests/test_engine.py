@@ -21,7 +21,12 @@ class EngineTests(unittest.TestCase):
         self.engine = GameEngine.new(self.catalog, 4242)
         # Archive only changes opening hand size, keeping unrelated combat-rule
         # tests isolated from formation, block, and status environments.
-        self.engine.room().biome_id = "archive"
+        self.set_party_biome(self.engine, "archive")
+
+    def set_party_biome(self, engine: GameEngine, biome_id: str) -> None:
+        x, y = engine.state.party_x, engine.state.party_y
+        row = engine.state.world_tiles[y]
+        engine.state.world_tiles[y] = row[:x] + self.catalog.biomes[biome_id]["glyph"] + row[x + 1:]
 
     def complete_objective(
         self,
@@ -39,7 +44,7 @@ class EngineTests(unittest.TestCase):
 
     def test_seed_reproduces_map_and_run_state(self) -> None:
         other = GameEngine.new(self.catalog, 4242)
-        other.room().biome_id = "archive"
+        self.set_party_biome(other, "archive")
         self.assertEqual(self.engine.snapshot(), other.snapshot())
         different = GameEngine.new(self.catalog, 4243)
         self.assertNotEqual(self.engine.world_tiles(), different.world_tiles())
@@ -483,7 +488,7 @@ class EngineTests(unittest.TestCase):
                 )
             )
             engine = GameEngine.new(self.catalog, 900 + len(signatures))
-            engine.room().biome_id = biome_id
+            self.set_party_biome(engine, biome_id)
             original_ranks = [hero.rank for hero in engine.living_heroes()]
             engine.start_combat("lost_shift")
             self.assertIn(mechanics["combat"]["name"], engine.state.log[-1])
@@ -595,7 +600,7 @@ class EngineTests(unittest.TestCase):
         engine = GameEngine.new(self.catalog, 4, start_in_hub=True)
         engine.state.hub_selection = ["cryonaut", "warden", "medic", "scout"]
         engine.begin_expedition()
-        engine.state.rooms[0].biome_id = "archive"
+        self.set_party_biome(engine, "archive")
         engine.start_combat("lost_shift")
         target = engine.living_enemies()[0]
         cryonaut = next(hero for hero in engine.living_heroes() if hero.id == "cryonaut")
@@ -606,7 +611,7 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(target.max_hp - 6, target.hp)
 
         target.hp = target.max_hp
-        engine.state.rooms[0].biome_id = "cryogenic"
+        self.set_party_biome(engine, "cryogenic")
         engine.state.hand = [CardInstance("ice_pick")]
         engine.state.energy = 3
         target.statuses.pop("vulnerable", None)

@@ -351,13 +351,15 @@ class AsciiUiTests(unittest.TestCase):
         screen = FakeScreen()
         self.ui.screen = screen
         party = (self.engine.state.party_x, self.engine.state.party_y)
+        path = self.engine._find_path(party, self.engine.room_position(1))
+        self.assertGreaterEqual(len(path), 4)
         patrol = self.engine.state.patrols[0]
-        patrol.x, patrol.y = party[0] + 3, party[1]
+        patrol.x, patrol.y = path[2]
         pickup = next(item for item in self.engine.state.pickups if not item.hidden)
-        pickup.x, pickup.y = party[0] + 2, party[1]
+        pickup.x, pickup.y = path[1]
         pickup.kind = "boon"
         self.engine._update_perception()
-        destination = self.engine.room_position(1)
+        destination = path[3]
         self.ui._world_map(5, destination)
         rendered = screen.text()
         self.assertIn("#", rendered)

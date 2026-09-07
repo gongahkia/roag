@@ -103,6 +103,15 @@ class ScriptedRunTests(unittest.TestCase):
                     engine.resolve_bargain(engine.living_heroes()[0].id, None)
             elif engine.state.phase == "hazard":
                 engine.finish_hazard()
+            elif engine.state.phase == "facility":
+                facility = engine.current_facility()
+                definition = engine.facility_definition(facility)
+                option = next(
+                    option
+                    for option in definition["options"]
+                    if engine.facility_option_available(facility, option["id"])[0]
+                )
+                engine.resolve_facility(option["id"])
             elif engine.state.phase == "objective":
                 objective = engine.current_objective()
                 if objective.approach is None:
