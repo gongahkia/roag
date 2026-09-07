@@ -192,6 +192,23 @@ class EngineTests(unittest.TestCase):
             self.assertEqual("ring", self.catalog.worlds[engine.state.world_id]["layout"])
             self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(self.catalog, engine.snapshot()).snapshot())
 
+    def test_cluster_layout_has_local_loops_and_two_transfer_chokepoints(self) -> None:
+        _, edges = WORLD_LAYOUTS["clusters"]
+        for cluster in ({0, 1, 2, 3}, {4, 5, 6, 7}, {8, 9, 10, 11}):
+            internal_edges = sum(
+                neighbor in cluster
+                for node in cluster
+                for neighbor in edges[node]
+            ) // 2
+            self.assertEqual(4, internal_edges)
+        self.assertIn(4, edges[2])
+        self.assertIn(8, edges[7])
+        self.assertEqual(14, sum(map(len, edges.values())) // 2)
+        for seed in (7, 13):
+            engine = GameEngine.new(self.catalog, seed)
+            self.assertEqual("clusters", self.catalog.worlds[engine.state.world_id]["layout"])
+            self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(self.catalog, engine.snapshot()).snapshot())
+
     def test_all_biomes_generate_reachable_hazards_and_optional_objectives(self) -> None:
         seen_biomes: set[str] = set()
         seen_mixtures: set[tuple[str, ...]] = set()
