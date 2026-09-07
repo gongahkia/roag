@@ -661,6 +661,8 @@ class AsciiUiTests(unittest.TestCase):
                 self.assertIn("STRENGTH", rendered)
                 self.assertIn("WEAKNESS", rendered)
                 self.assertIn("SIGNATURE", rendered)
+                for field in ("playstyle", "strength", "weakness", "signature"):
+                    self.assertIn(squad[field].split()[-1], rendered)
 
     def test_custom_selection_shows_nonblocking_party_warning(self) -> None:
         self.engine = GameEngine.new(self.catalog, 3, start_in_hub=True)
