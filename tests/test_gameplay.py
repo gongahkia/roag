@@ -80,7 +80,7 @@ class TimeAndBuildTests(unittest.TestCase):
         self.assertGreaterEqual(len(WEAPONS), 12)
         self.assertEqual(len(GEAR), 8)
         self.assertEqual(len(SUPPORTS), 5)
-        self.assertEqual(len(PASSIVES), 12)
+        self.assertGreaterEqual(len(PASSIVES), 30)
         cases = (
             ("pilot", "staff", "quiet shoes", "route survey", {}, "surveyed soft-step"),
             ("guard", "billhook", "rope", "route survey", {}, "mobile hook"),

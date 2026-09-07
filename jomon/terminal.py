@@ -143,17 +143,17 @@ def semantic_role(glyph: str, *, aboard: bool = False) -> str:
         return "hostile"
     if glyph == "X":
         return "elite"
-    if glyph == "~":
+    if glyph in {"~", "w", ","}:
         return "water"
     if glyph == "#":
         return "structure"
     if glyph in {"<", ">", "^", "v", "+"}:
         return "exit"
-    if glyph in {"R", "r"}:
+    if glyph == "R":
         return "cargo"
     if glyph in {"&", "D", "O", "o", "?", "C", "L", "P", "H", "s"}:
         return "interactable"
-    if glyph in {"m", "%", "=", "s"}:
+    if glyph in {"m", "%", "r", "q", "t", ":", "s"}:
         return "hazard"
     if glyph == "*":
         return "mystical"
@@ -317,12 +317,15 @@ def _status_lines(state: GameState) -> list[str]:
         state.active_region_id.upper(),
         f"{level_text}; {state.objective_status}",
         f"{state.region.objective_commodity}: {market.stock}/{market.demand}",
+        f"Load {pack_weight(state)}/{weight_capacity(state)} {load_state(state)}",
         f"Ammo {state.ammunition}; oil {state.lamp_oil}",
         f"Rope {state.rope_uses}; smoke {state.smoke_charges}",
         _clip(threat, 25),
     ]
     if build_combinations(state):
         lines.append(f"Combo: {_clip(build_combinations(state)[0], 20)}")
+    if state.terrain_statuses:
+        lines.append("Status: " + _clip(", ".join(state.terrain_statuses), 17))
     return lines
 
 
@@ -634,11 +637,18 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             "Weapons: " + ", ".join(state.owned_weapons), "Secondary gear: " + ", ".join(state.owned_gear),
             "These physical stores remain aboard; all expedition selection happens at tavern C.", "Escape closes without time.",
         ]
-    if kind == "contact":
-        memories = state.contact.memories or ["No significant shared event yet."]
-        return state.contact.name.upper(), [
-            f"Role: {state.contact.role}; disposition: {state.contact.disposition:+d}",
-            f"Material interest: {state.contact.interest}", f"Objective: {state.objective_status}",
+    if kind == "contact" or kind.startswith("contact:"):
+        contact = state.contact
+        if kind.startswith("contact:"):
+            contact_id = kind.split(":", 1)[1]
+            contact = next(
+                person for person in state.contacts[state.active_region_id]
+                if person.id == contact_id
+            )
+        memories = contact.memories or ["No significant shared event yet."]
+        return contact.name.upper(), [
+            f"Role: {contact.role}; disposition: {contact.disposition:+d}",
+            f"Material interest: {contact.interest}", f"Objective: {state.objective_status}",
             "Significant memories:", *[f"- {memory}" for memory in memories], "Escape closes without time.",
         ]
     if kind == "tavern":
@@ -699,7 +709,7 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
     char = chr(key).lower() if 0 <= key < 256 else ""
     if key == 27:
         return ("tavern" if kind.startswith("tavern:") else None), False
-    if kind in {"help", "inventory", "equipment", "household", "hold", "contact", "info"}:
+    if kind in {"help", "inventory", "equipment", "household", "hold", "contact", "info"} or kind.startswith("contact:"):
         return None, False
     if kind == "quit":
         if char == "y":

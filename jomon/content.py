@@ -169,11 +169,26 @@ DISCOVERIES = {
     "willow dressing": ("consumable", "A bitter wrap that treats one expedition injury."),
     "dry smoke charge": ("consumable", "Refills a spent smoke pot once."),
     "sealed tally": ("trade", "A recoverable account worth paper or merchant credit."),
+    "pine resin dressing": ("consumable", "A single treatment that protects a wounded limb."),
+    "brine wash": ("consumable", "Cleans one salt or cut status but chills exposed skin."),
+    "splint roll": ("consumable", "Stabilises one arm or leg injury for an expedition."),
+    "tide pin": ("tool", "Marks one tide change so a closing route remains readable."),
+    "charcoal key": ("tool", "A soot-rubbed key from the forest storehouses."),
+    "limestone wedge": ("tool", "Secures or deliberately releases one marked rock face."),
+    "dry lamp wick": ("supply", "Restores two measures of finite sheltered light."),
+    "fletched arrows": ("ammunition", "Four dry longbow arrows in a waxed wrap."),
+    "sling shot pouch": ("ammunition", "Six selected stones that fit a sling cup."),
+    "quarrel case": ("ammunition", "Two heavy arbalest bolts in a rigid case."),
+    "casting net bundle": ("ammunition", "One repaired weighted net for another cast."),
+    "salt-house chit": ("trade", "A witnessed claim on salt fish or merchant credit."),
 }
 
 RELICS = {
     "river-glass ward": "A finite cold shard that breaks instead of its bearer.",
     "tide-knot charm": "A specifically knotted river-glass cord that stills one pursuit.",
+    "ebbglass spindle": "A finite glass spindle that holds one receding waterline, then clouds forever.",
+    "coalheart seed": "A warm mineral seed that consumes smoke once and leaves the bearer painfully chilled.",
+    "hollow-bell shard": "A cracked bronze sliver that moves one sound between levels and may call unintended listeners.",
 }
 
 PASSIVES = {
@@ -189,6 +204,24 @@ PASSIVES = {
     "echo bead": (1, "loud actions reveal alerts on adjacent levels"),
     "salted dressing": (1, "deepens prepared field-care protection"),
     "high tread": (2, "attacks from above push a target one pace"),
+    "tide ledger": (1, "observable tide warnings also improve salt-house terms"),
+    "cork float": (2, "one valuable stack remains buoyant during a current loss"),
+    "salt veil": (1, "head cover also filters grit and light smoke"),
+    "wreck key": (1, "opens named coast lockers without breaking their condition"),
+    "gull cord": (2, "a controlled coastal descent can carry one secured cargo stack"),
+    "storm vane": (1, "a prepared ranged lane shows the next wind change"),
+    "charcoal mask": (1, "smoke conceals while inhalation accumulates more slowly"),
+    "resin grip": (1, "wet hands retain tool and bow preparation"),
+    "bird whistle": (1, "a deliberate sound can pull trackers toward a chosen trail"),
+    "coppice map": (2, "dense-growth shortcuts cost less time after discovery"),
+    "thorn weave": (1, "guarding in thorns protects exposed arms and stores momentum"),
+    "ember cloth": (2, "smoke and heat can be crossed once without losing guard"),
+    "limestone cleat": (1, "light footwear gains scree grip without boot weight"),
+    "echo slate": (1, "loud stone impacts expose alerts on two connected levels"),
+    "quarry brace": (2, "a guarded heavy load stabilises one weak authored floor"),
+    "sling cup": (1, "sling casts from height ignore partial cover and daze"),
+    "chalk cipher": (1, "quarry marks reveal a nearby cache when examined"),
+    "fall sail": (2, "a deliberate fall becomes lateral movement at the landing"),
 }
 
 TREASURE_REWARDS = tuple(PASSIVES) + (

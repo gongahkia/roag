@@ -68,6 +68,8 @@ class Contact:
     disposition: int
     memories: list[str]
     interest: str
+    region_id: str = "hearthford"
+    position: Position | None = None
 
 
 @dataclass
@@ -120,6 +122,14 @@ class Region:
     tile_changes: dict[str, str]
     seen: list[str]
     geography_signature: str
+    id: str = "hearthford"
+    name: str = "Hearthford"
+    process_name: str = "river weather"
+    process_thresholds: list[int] = field(default_factory=lambda: [45, 70, 95])
+    process_stage: int = 0
+    local_elapsed: int = 0
+    local_objective_status: str = "unoffered"
+    local_objective_changed: bool = False
 
 
 @dataclass
@@ -263,6 +273,10 @@ class GameState:
     ammunition_by_type: dict[str, int]
     weapon_ready: int
     last_move_turn: int
+    regions: dict[str, Region]
+    contacts: dict[str, list[Contact]]
+    region_threats: dict[str, list[Threat]]
+    regional_markets: dict[str, dict[str, MarketEntry]]
     history: list[str] = field(default_factory=list)
     messages: list[str] = field(default_factory=list)
     world_ended: bool = False
@@ -373,6 +387,7 @@ def _region(seed: str) -> tuple[Region, Contact]:
         id="hearthford-contact", name=contact_rng.choice(CONTACT_NAMES),
         role=contact_rng.choice(("weir keeper", "mill factor", "quay reeve")),
         disposition=contact_rng.choice((-1, 0, 1)), memories=[], interest=context["commodity"],
+        region_id="hearthford", position=spatial["landmarks"]["contact"],
     )
     return Region(
         condition=context["condition"], work=context["work"], pressure=context["pressure"],
@@ -417,6 +432,7 @@ def create_world(seed: str) -> GameState:
         sound_events=[], group_alerts={},
         ammunition_by_type={"bolts": 6, "arrows": 8, "sling stones": 10, "heavy bolts": 4, "javelins": 4, "nets": 2},
         weapon_ready=2, last_move_turn=-99,
+        regions={}, contacts={}, region_threats={}, regional_markets={},
     )
     from .inventory import initialise_inventory
     from .people import initialise_tavern
@@ -424,6 +440,17 @@ def create_world(seed: str) -> GameState:
     initialise_inventory(state)
     initialise_tavern(state)
     state.threats = _threats(seed, region)
+    state.regions = {"hearthford": region}
+    state.contacts = {"hearthford": [contact]}
+    state.region_threats = {"hearthford": state.threats}
+    state.regional_markets = {"hearthford": state.market}
+    from .regions import build_new_regions
+
+    new_regions, new_contacts, new_threats, new_markets = build_new_regions(seed)
+    state.regions.update(new_regions)
+    state.contacts.update(new_contacts)
+    state.region_threats.update(new_threats)
+    state.regional_markets.update(new_markets)
     state.add_message(f"Jomon reaches Hearthford. {region.condition}")
     if relics:
         state.add_message("A finite river-glass ward rests in the household stores.")
@@ -472,6 +499,10 @@ def _migrate_v3(data: dict[str, Any]) -> dict[str, Any]:
     }
     migrated["weapon_ready"] = 2
     migrated["last_move_turn"] = -99
+    migrated["regions"] = {"hearthford": migrated["region"]}
+    migrated["contacts"] = {"hearthford": [migrated["contact"]]}
+    migrated["region_threats"] = {"hearthford": migrated["threats"]}
+    migrated["regional_markets"] = {"hearthford": migrated["market"]}
     return migrated
 
 
@@ -484,37 +515,62 @@ def game_state_from_dict(data: Any) -> GameState:
     if data.get("save_format") != SAVE_FORMAT:
         raise StateError(f"incompatible save format; expected {SAVE_FORMAT}")
     try:
+        def parse_contact(raw: dict[str, Any]) -> Contact:
+            values = dict(raw)
+            if values.get("position") is not None:
+                values["position"] = _position(values["position"], "contact position")
+            return Contact(**values)
+
+        def parse_region(raw: dict[str, Any]) -> Region:
+            values = dict(raw)
+            values["landmarks"] = {key: _position(value, f"{key} landmark") for key, value in values["landmarks"].items()}
+            values["zones"] = {key: tuple(value) for key, value in values["zones"].items()}
+            values["vertical_links"] = [
+                VerticalLink(_position(link["first"], "link first"), _position(link["second"], "link second"), link["name"])
+                for link in values["vertical_links"]
+            ]
+            containers: list[Container] = []
+            for raw_container in values["containers"]:
+                container = dict(raw_container)
+                container["position"] = _position(container["position"], "container")
+                containers.append(Container(**container))
+            values["containers"] = containers
+            return Region(**values)
+
+        def parse_threat(raw: dict[str, Any]) -> Threat:
+            values = dict(raw)
+            values["position"] = _position(values["position"], "threat position")
+            values["patrol"] = [_position(value, "patrol position") for value in values.get("patrol", [])]
+            for key in ("last_known_position", "home_position", "objective_position", "aimed_at"):
+                if values.get(key) is not None:
+                    values[key] = _position(values[key], f"threat {key}")
+            return Threat(**values)
+
         household = [Person(**person) for person in data["household"]]
         visitors = [Person(**person) for person in data.get("visitors", [])]
-        contact = Contact(**data["contact"])
-        region_data = dict(data["region"])
-        region_data["landmarks"] = {key: _position(value, f"{key} landmark") for key, value in region_data["landmarks"].items()}
-        region_data["zones"] = {key: tuple(value) for key, value in region_data["zones"].items()}
-        links: list[VerticalLink] = []
-        for raw in region_data["vertical_links"]:
-            links.append(VerticalLink(_position(raw["first"], "link first"), _position(raw["second"], "link second"), raw["name"]))
-        region_data["vertical_links"] = links
-        containers: list[Container] = []
-        for raw in region_data["containers"]:
-            container = dict(raw)
-            container["position"] = _position(container["position"], "container")
-            containers.append(Container(**container))
-        region_data["containers"] = containers
-        region = Region(**region_data)
-        market = {key: MarketEntry(**value) for key, value in data["market"].items()}
+        active_region_id = data["active_region_id"]
+        regions = {
+            key: parse_region(value)
+            for key, value in data.get("regions", {"hearthford": data["region"]}).items()
+        }
+        contacts = {
+            key: [parse_contact(value) for value in values]
+            for key, values in data.get("contacts", {"hearthford": [data["contact"]]}).items()
+        }
+        region_threats = {
+            key: [parse_threat(value) for value in values]
+            for key, values in data.get("region_threats", {"hearthford": data["threats"]}).items()
+        }
+        regional_markets = {
+            region_id: {key: MarketEntry(**value) for key, value in values.items()}
+            for region_id, values in data.get("regional_markets", {"hearthford": data["market"]}).items()
+        }
+        region = regions[active_region_id]
+        contact = contacts[active_region_id][0]
+        threats = region_threats[active_region_id]
+        market = regional_markets[active_region_id]
         vessel = {key: CommodityStack(**value) for key, value in data["vessel_cargo"].items()}
         carried = {key: CommodityStack(**value) for key, value in data["carried_goods"].items()}
-        threats: list[Threat] = []
-        for raw in data["threats"]:
-            threat_data = dict(raw)
-            threat_data["position"] = _position(threat_data["position"], "threat position")
-            threat_data["patrol"] = [_position(value, "patrol position") for value in threat_data.get("patrol", [])]
-            for key in ("last_known_position", "home_position", "objective_position"):
-                if threat_data.get(key) is not None:
-                    threat_data[key] = _position(threat_data[key], f"threat {key}")
-            if threat_data.get("aimed_at") is not None:
-                threat_data["aimed_at"] = _position(threat_data["aimed_at"], "threat aim")
-            threats.append(Threat(**threat_data))
         items: list[Item] = []
         for raw in data["items"]:
             item_data = dict(raw)
@@ -534,7 +590,7 @@ def game_state_from_dict(data: Any) -> GameState:
         }
         state = GameState(
             save_format=data["save_format"], seed=data["seed"], world_time=data["world_time"],
-            household=household, active_courier_id=data["active_courier_id"], active_region_id=data["active_region_id"], contact=contact,
+            household=household, active_courier_id=data["active_courier_id"], active_region_id=active_region_id, contact=contact,
             region=region, market=market, vessel_cargo=vessel, location=data["location"],
             current_room=data["current_room"], position=_position(data["position"], "courier position"),
             expedition_count=data["expedition_count"], returned_expeditions=data["returned_expeditions"],
@@ -563,6 +619,8 @@ def game_state_from_dict(data: Any) -> GameState:
             sound_events=sound_events, group_alerts=group_alerts,
             ammunition_by_type=dict(data.get("ammunition_by_type", {"bolts": data.get("ammunition", 6)})),
             weapon_ready=data.get("weapon_ready", 2), last_move_turn=data.get("last_move_turn", -99),
+            regions=regions, contacts=contacts, region_threats=region_threats,
+            regional_markets=regional_markets,
             history=list(data["history"]), messages=list(data["messages"]), world_ended=data["world_ended"],
         )
         if migrated_v3:
@@ -576,6 +634,14 @@ def game_state_from_dict(data: Any) -> GameState:
             from .people import initialise_tavern
 
             initialise_tavern(state)
+        if set(state.regions) != {"hearthford", "greywash", "greenwold", "whitecairn"}:
+            from .regions import build_new_regions
+
+            new_regions, new_contacts, new_threats, new_markets = build_new_regions(state.seed)
+            state.regions.update(new_regions)
+            state.contacts.update(new_contacts)
+            state.region_threats.update(new_threats)
+            state.regional_markets.update(new_markets)
     except (AttributeError, KeyError, TypeError, ValueError) as exc:
         raise StateError(f"malformed save: {exc}") from exc
     validate_state(state)
@@ -613,6 +679,19 @@ def validate_state(state: GameState) -> None:
     valid_status = {"dormant", "watching", "engaged", "defeated", "evaded", "negotiated", "disabled", "retreated"}
     if any(threat.status not in valid_status or str(threat.position.z) not in state.region.levels for threat in state.threats):
         raise StateError("invalid threat state")
+    expected_regions = {"hearthford", "greywash", "greenwold", "whitecairn"}
+    if set(state.regions) != expected_regions or set(state.contacts) != expected_regions or set(state.region_threats) != expected_regions or set(state.regional_markets) != expected_regions:
+        raise StateError("regional persistence is incomplete")
+    from .regions import validate_region
+
+    try:
+        for region in state.regions.values():
+            validate_region(region)
+        for region_id, threats in state.region_threats.items():
+            if any(threat.status not in valid_status or str(threat.position.z) not in state.regions[region_id].levels for threat in threats):
+                raise ValueError(f"invalid {region_id} threat")
+    except (RuntimeError, ValueError) as exc:
+        raise StateError(str(exc)) from exc
     if state.world_time < 0 or state.pressure_elapsed < 0 or state.noise < 0:
         raise StateError("negative clocks are invalid")
     if len(state.history) > HISTORY_LIMIT or len(state.messages) > MESSAGE_LIMIT:

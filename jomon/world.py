@@ -194,11 +194,14 @@ def sight_radius(state: GameState) -> int:
     if state.location != "region":
         return 20
     tile = base_tile(state, state.position)
-    indoor = state.position.z <= 1 and tile in {".", "=", "<", ">", "d", "O"} and any(
-        x1 <= state.position.x <= x2 and y1 <= state.position.y <= y2
-        for name, (x1, y1, x2, y2) in state.region.zones.items()
-        if name in {"Hearthford settlement", "Old watch", "Hearthford millworks"}
-    )
+    nearby_walls = 0
+    for dx, dy in ((5, 0), (-5, 0), (0, 5), (0, -5)):
+        for step in range(1, 6):
+            point = Position(state.position.x + dx // 5 * step, state.position.y + dy // 5 * step, state.position.z)
+            if base_tile(state, point) == "#":
+                nearby_walls += 1
+                break
+    indoor = state.position.z <= 1 and tile in {".", "=", "<", ">", "d", "O"} and nearby_walls >= 2
     radius = 7 if state.position.z < 0 or indoor else 13
     if state.position.z > 0:
         radius += 4
@@ -258,15 +261,15 @@ def area_name(state: GameState) -> str:
     if state.location == "jomon":
         return "Jomon — working deck"
     if state.position.z < 0:
-        return "Buried mill culvert"
+        return f"{state.region.name} — below"
     if state.position.z == 2:
-        return "Hearthford roofs"
+        return f"{state.region.name} — roof and high route"
     if state.position.z == 1:
-        return "Upper works and gantries"
+        return f"{state.region.name} — upper works"
     for name, (x1, y1, x2, y2) in state.region.zones.items():
         if x1 <= state.position.x <= x2 and y1 <= state.position.y <= y2:
             return name
-    return "Hearthford floodplain"
+    return state.region.name
 
 
 def carried_bulk(state: GameState) -> int:
@@ -312,7 +315,36 @@ def build_combinations(state: GameState) -> list[str]:
         combinations.append("valuable leverage")
     if "high tread" in passive and state.position.z > 0:
         combinations.append("high-ground drive")
+    if "tide ledger" in passive and technique == "ebb reader":
+        combinations.append("accounted ebb")
+    if "cork float" in passive and state.gear == "cargo harness":
+        combinations.append("buoyant cargo rig")
+    if "storm vane" in passive and state.weapon in {"longbow", "crossbow"}:
+        combinations.append("wind-read aim")
+    if "charcoal mask" in passive and state.gear == "smoke pot":
+        combinations.append("masked smoke passage")
+    if "resin grip" in passive and state.weapon in {"longbow", "billhook", "war hammer"}:
+        combinations.append("weatherfast grip")
+    if "bird whistle" in passive and technique == "wind listener":
+        combinations.append("crosswind decoy")
+    if "thorn weave" in passive and state.guarded_step:
+        combinations.append("thorn-held momentum")
+    if "limestone cleat" in passive and state.gear == "quiet shoes":
+        combinations.append("quiet scree step")
+    if "sling cup" in passive and state.weapon == "sling" and state.position.z > 0:
+        combinations.append("high sling arc")
+    if "quarry brace" in passive and load_state_name(state) in {"laden", "encumbered"}:
+        combinations.append("weighted floor brace")
+    if "fall sail" in passive and state.gear == "rope":
+        combinations.append("directed fall")
     return combinations
+
+
+def load_state_name(state: GameState) -> str:
+    # Local import avoids making inventory depend on world pressure queries.
+    from .inventory import load_state
+
+    return load_state(state)
 
 
 def reachable_positions(state: GameState, start: Position | None = None) -> set[Position]:
@@ -340,8 +372,10 @@ def reachable_positions(state: GameState, start: Position | None = None) -> set[
 def connected_required_map(state: GameState) -> bool:
     reachable = reachable_positions(state)
     required = {
-        state.region.landmarks["landing"], state.region.landmarks["contact"],
-        state.region.landmarks["objective"], state.region.landmarks["cave_entrance"],
-        Position(84, 16, 2),
+        state.region.landmarks[key]
+        for key in ("landing", "contact", "objective", "cave_entrance")
     }
+    elevated = state.region.landmarks.get("elevated") or state.region.landmarks.get("high_view")
+    if elevated:
+        required.add(elevated)
     return required <= reachable

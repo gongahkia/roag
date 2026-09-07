@@ -1,4 +1,4 @@
-"""Direct deterministic actions for Jomon and seamless Hearthford."""
+"""Direct deterministic actions for Jomon's vessel and four regions."""
 
 from __future__ import annotations
 
@@ -19,6 +19,9 @@ from .inventory import (
     pack_weight,
     prepare_kind,
     protection_at,
+    item_spec,
+    record_acquisition,
+    sync_legacy_load,
     tick_statuses,
     transfer_to_grid,
     weight_capacity,
@@ -297,7 +300,10 @@ def _return_after_defeat(state: GameState, text: str, permanent: bool) -> str:
     if state.objective_status in {"accepted", "altered"}:
         state.objective_status = "failed"
         state.contact.disposition = max(-3, state.contact.disposition - 1)
-        _remember_contact(state, f"{courier.name} failed to return with Hearthford's need.")
+        _remember_contact(state, f"{courier.name} failed to return with {state.region.name}'s need.")
+    from .regions import store_active_region
+
+    store_active_region(state)
     state.location, state.current_room, state.position = "jomon", None, JOMON_GANGPLANK
     if permanent:
         courier.alive, courier.health, courier.injury = False, 0, "dead"
@@ -552,38 +558,86 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
 
 
 def _weather_and_deadline(state: GameState) -> list[str]:
+    """Advance one bounded, visible regional process on the action clock."""
     elapsed = state.pressure_elapsed
-    if 45 <= elapsed % 120 < 70:
-        weather = "river fog"
-    elif 70 <= elapsed % 120 < 95:
-        weather = "hard rain"
-    else:
-        weather = "clear"
     messages: list[str] = []
+    if state.active_region_id == "hearthford":
+        if 45 <= elapsed % 120 < 70:
+            weather = "river fog"
+        elif 70 <= elapsed % 120 < 95:
+            weather = "hard rain"
+        else:
+            weather = "clear"
+    elif state.active_region_id == "greywash":
+        weather = "coast squall" if 28 <= elapsed % 90 < 55 else "salt wind"
+    elif state.active_region_id == "greenwold":
+        weather = "forest rain" if 32 <= elapsed % 96 < 62 else "crosswind"
+    else:
+        weather = "ridge gust" if 30 <= elapsed % 90 < 60 else "clear"
     if weather != state.weather:
         state.weather = weather
         messages.append({
             "clear": "The weather opens; long sightlines return.",
             "river fog": "River fog closes floodplain sightlines.",
             "hard rain": "Hard rain slows exposed travel and feeds low water.",
+            "coast squall": "A coast squall salts bowstrings and shortens the flats' sightlines.",
+            "salt wind": "The salt wind clears long coastal sightlines.",
+            "forest rain": "Forest rain muffles trails while making bow grips treacherous.",
+            "crosswind": "A crosswind carries smoke and sound between Greenwold clearings.",
+            "ridge gust": "A ridge gust exposes high shooters and makes scree footing uncertain.",
         }[weather])
+
+    next_stage = sum(elapsed >= threshold for threshold in state.region.process_thresholds)
+    if next_stage > state.region.process_stage:
+        state.region.process_stage = next_stage
+        if state.active_region_id == "greywash":
+            if next_stage == 1:
+                messages.append("White lines advance over the flats: the working tide has turned.")
+            elif next_stage == 2:
+                for point in (Position(76, 40), Position(77, 40), Position(78, 40)):
+                    state.water[position_key(point)] = 99
+                messages.append("The tide covers the low wreck road; the dune road and chain walk remain.")
+            else:
+                messages.append("The tide chain goes taut; late recovery now requires the upper windlass.")
+        elif state.active_region_id == "greenwold":
+            if next_stage == 1:
+                messages.append("Birds lift downwind: burn smoke has begun crossing the southern clearing.")
+            elif next_stage == 2:
+                for point in (Position(79, 39), Position(80, 39), Position(80, 39, 1)):
+                    state.smoke[position_key(point)] = 12
+                messages.append("The shifting wind carries smoke into the raised burnworks and level above.")
+            else:
+                messages.append("The medicine coppice is singed; the request changes from prevention to salvage.")
+        elif state.active_region_id == "whitecairn":
+            if next_stage == 1:
+                messages.append("Loose limestone ticks down the switchback: the quarry face is moving.")
+            elif next_stage == 2:
+                for point in (Position(55, 36), Position(56, 36), Position(57, 36)):
+                    state.region.tile_changes[position_key(point)] = "%"
+                messages.append("A bounded rockfall covers the direct quarry stair; the sink loop remains open.")
+            else:
+                messages.append("The real quarry bell answers the false one; the lower braces begin to fail.")
+        else:
+            messages.append("The mill bell marks rising water; safe working time is visibly narrowing.")
+
+    deadline = state.objective_deadline if state.active_region_id == "hearthford" else state.region.process_thresholds[-1]
     if (
-        not state.objective_changed
-        and elapsed >= state.objective_deadline
+        not state.objective_changed and elapsed >= deadline
         and state.objective_status in {"unoffered", "accepted", "altered"}
     ):
         state.objective_changed = True
+        state.region.local_objective_changed = True
         state.region.changes["late_objective"] = True
         state.market[state.region.objective_commodity].demand += 1
-        messages.append(
-            "The mill bell rings three times: late water worsens Hearthford's shortage."
-        )
+        messages.append(f"{state.region.process_name.title()} changes the objective; local demand worsens.")
     if pressure(state).band == "critical" and not state.escalation_spawned:
         state.escalation_spawned = True
-        reavers = next(t for t in state.threats if t.id == "pressure-reavers")
-        reavers.status = "watching"
+        state.region.changes["escalation_spawned"] = True
+        escalation = next((t for t in state.threats if t.status == "dormant"), None)
+        if escalation:
+            escalation.status = "watching"
         messages.append(
-            "High pressure draws valuable-seeking reavers onto the river road."
+            f"High pressure wakes a stronger {state.region.name} threat; valuables and noise made it legible."
         )
     return messages
 
@@ -623,6 +677,7 @@ def _advance_world(
         if state.location != "region":
             continue
         state.pressure_elapsed += 1
+        state.region.local_elapsed = state.pressure_elapsed
         for sound in state.sound_events:
             sound.age += 1
         state.sound_events = [sound for sound in state.sound_events if sound.age <= 3]
@@ -681,13 +736,13 @@ def depart(state: GameState) -> ActionResult:
     if state.location != "jomon" or state.position != JOMON_GANGPLANK:
         return _plain(state, "Departure requires Jomon's gangplank.")
     if state.courier is None or not state.courier.alive:
-        return _plain(state, "Choose an eligible courier at tavern C first.")
+        return _plain(state, "Choose an eligible courier by speaking to them in the tavern.")
     if state.weapon is None or state.gear is None or state.support is None:
         return _plain(
             state,
-            "Prepare weapon, secondary gear, and crew support at tavern C first.",
+            "Prepare weapon and gear in the inventory, and crew support at the bar.",
         )
-    state.location, state.current_room = "region", "hearthford"
+    state.location, state.current_room = "region", state.active_region_id
     state.position = state.region.landmarks["landing"]
     state.expedition_count += 1
     state.pressure_elapsed = state.noise = 0
@@ -697,11 +752,11 @@ def depart(state: GameState) -> ActionResult:
     state.merchant_present, state.merchant_stock = False, []
     field_of_view(state)
     state.remember(
-        f"Expedition {state.expedition_count}: {state.courier.name} crossed into seamless Hearthford."
+        f"Expedition {state.expedition_count}: {state.courier.name} crossed into {state.region.name}."
     )
     return _time_result(
         state,
-        "You cross Jomon's gangplank onto Hearthford quay; the road continues beyond the visible shore.",
+        f"You cross Jomon's gangplank into {state.region.name}; the region extends beyond the viewport.",
         priority=3,
     )
 
@@ -781,6 +836,13 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
     status_message = apply_terrain_status(state, displayed_tile(state, target))
     if status_message:
         messages.append(status_message)
+    injury_delay = bool(
+        state.courier
+        and {"legs", "feet"} & set(state.courier.injuries)
+        and tile in {"m", "r", "q", "t", "w", ","}
+    )
+    if injury_delay:
+        messages.append("The leg or foot injury makes this terrain cost another action.")
     water_delay = False
     if position_key(target) in state.water:
         protected = (
@@ -802,7 +864,7 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
     burden_delay = burden in {"encumbered", "overloaded"} and state.location == "region"
     if burden == "laden" and tile in {"m", "r", "t", ","}:
         state.noise += 1
-    storm_delay = water_delay or burden_delay or (
+    storm_delay = water_delay or burden_delay or injury_delay or (
         state.weather == "hard rain"
         and state.position.z == 0
         and "rain cape" not in state.carried_passives
@@ -844,13 +906,14 @@ def decide_objective(state: GameState, decision: str) -> ActionResult:
     elif decision == "refuse":
         state.objective_status = "refused"
         state.contact.disposition = max(-3, state.contact.disposition - 1)
-        text = f"{state.courier.name} refuses Hearthford's difficult request."
+        text = f"{state.courier.name} refuses {state.region.name}'s difficult request."
     elif decision == "alter":
         state.objective_status = "altered"
         text = f"{state.courier.name} alters the request to flood-control work."
     else:
         return _plain(state, "Unknown objective decision.")
     _remember_contact(state, text)
+    state.region.local_objective_status = state.objective_status
     state.remember(text)
     return _time_result(state, text, priority=3)
 
@@ -880,22 +943,23 @@ def _add_goods(state: GameState, name: str, quantity: int, condition: str) -> bo
 def _complete_objective(state: GameState, altered: bool) -> str:
     late = state.objective_changed
     state.objective_status = "completed"
+    state.region.local_objective_status = "completed"
     state.contact.disposition = min(3, state.contact.disposition + (1 if late else 2))
     market = state.market[state.region.objective_commodity]
     market.stock += 1 if altered or late else 2
     market.demand = max(0, market.demand - (1 if late else 2))
     state.trade_credit += 1 if late else 2
-    state.region.changes["mill_stabilised"] = altered
+    state.region.changes["objective_altered"] = altered
     if altered:
         method = "control work"
     elif late:
         method = "late cargo delivery"
     else:
         method = "accountable delivery"
-    memory = f"{state.courier.name} completed Hearthford's request by {method}."
+    memory = f"{state.courier.name} completed {state.region.name}'s request by {method}."
     _remember_contact(state, memory)
     state.remember(memory)
-    return f"Hearthford records the {method}; stock and demand visibly change."
+    return f"{state.region.name} records the {method}; stock and demand visibly change."
 
 
 def _open_container(state: GameState) -> ActionResult:
@@ -922,6 +986,7 @@ def _open_container(state: GameState) -> ActionResult:
         state.lamp_oil -= 1
     reward = container.reward
     physical_kind = (
+        reward if reward in WEAPONS or reward in GEAR else
         f"passive:{reward}" if reward in PASSIVES else
         f"relic:{reward}" if reward in RELICS else
         f"consumable:{reward}"
@@ -942,23 +1007,18 @@ def _open_container(state: GameState) -> ActionResult:
     fits_pack = transfer_to_grid(state, physical.id, "pack", owner_id=state.active_courier_id)
     if fits_pack:
         container.item_ids.remove(physical.id)
-    if reward in PASSIVES:
-        if passive_bulk(state) + PASSIVES[reward][0] > passive_capacity(state):
-            return _plain(
-                state,
-                f"The {reward} will not fit: discovery load is full.",
-            )
-        state.carried_passives[reward] = state.carried_passives.get(reward, 0) + 1
-    elif reward in RELICS:
-        state.relics[reward] = state.relics.get(reward, 0) + 1
-        state.carried_relic = reward
-    elif reward == "sealed tally":
-        state.trade_credit += 1
-        _add_goods(state, "paper", 1, "sealed")
-    else:
-        state.consumables[reward] = state.consumables.get(reward, 0) + 1
     container.opened = True
-    state.remember(f"{state.courier.name} opened {container.name} and found {reward}.")
+    if fits_pack:
+        if reward in PASSIVES:
+            sync_legacy_load(state)
+        else:
+            record_acquisition(state, physical)
+        if reward == "sealed tally":
+            state.trade_credit += 1
+    state.remember(
+        f"{state.courier.name} opened {container.name} and found {reward}; "
+        f"it was {'packed' if fits_pack else 'left inside'} ."
+    )
     message = (
         f"You open {container.name}: {reward}. The depleted container remains visible."
         if fits_pack else
@@ -976,6 +1036,23 @@ def _control_interaction(state: GameState) -> ActionResult:
         or state.support == "carpenter rig"
         or (courier and courier.technique == "lever craft")
     )
+    if state.active_region_id != "hearthford":
+        state.region.changes["environment_control_used"] = True
+        if state.active_region_id == "greywash":
+            state.water.clear()
+            state.region.changes["tide_held"] = True
+            text = "You dog the tide-chain windlass; the low route remains exposed for this working tide."
+        elif state.active_region_id == "greenwold":
+            state.smoke.clear()
+            state.region.changes["burn_redirected"] = True
+            text = "You turn the burn shutters crosswind; smoke, pursuit, and the objective route change."
+        else:
+            state.region.changes["quarry_braced"] = True
+            text = "You seat the quarry braces; falling stone quiets and the lower objective remains workable."
+        sounds = emit_sound(state, 0 if efficient else 2)
+        if state.objective_status == "altered":
+            state.region.changes["objective_altered"] = True
+        return _time_result(state, " ".join([text, *sounds]), priority=3)
     state.flood_control = "lowered" if state.flood_control == "raised" else "raised"
     points = [
         Position(58, 42, -1),
@@ -998,7 +1075,15 @@ def _control_interaction(state: GameState) -> ActionResult:
 
 
 def _furnace_interaction(state: GameState) -> ActionResult:
-    machinery = next(threat for threat in state.threats if threat.profile == "machinery")
+    machinery = next((threat for threat in state.threats if threat.profile == "machinery"), None)
+    if machinery is None:
+        above = Position(state.position.x, state.position.y, min(2, state.position.z + 1))
+        state.smoke.update({position_key(state.position): 6, position_key(above): 6})
+        return _time_result(
+            state,
+            "The work fire throws smoke upward; visibility and sound paths change on both levels.",
+            priority=3,
+        )
     if state.gear in {"repair tools", "rope"} or state.support == "carpenter rig":
         machinery.status, machinery.intent = "disabled", "braked at the furnace drive"
         state.region.changes["machinery_disabled"] = True
@@ -1070,6 +1155,10 @@ def interact(state: GameState) -> ActionResult:
     if destination:
         if load_state(state) == "overloaded" and destination.z > state.position.z:
             return _plain(state, "The overloaded pack makes this climb unsafe; repack or leave weight.")
+        injured_climb = bool(
+            state.courier and {"legs", "feet"} & set(state.courier.injuries)
+            and destination.z > state.position.z
+        )
         blocker = next(
             (
                 threat
@@ -1091,7 +1180,9 @@ def interact(state: GameState) -> ActionResult:
         state.position = destination
         return _time_result(
             state,
-            f"You use the {link.name}; nearby levels remain spatially aligned.",
+            f"You use the {link.name}; nearby levels remain spatially aligned."
+            + (" The lower-limb injury makes the climb slow." if injured_climb else ""),
+            steps=2 if injured_climb else 1,
             priority=3,
         )
     if any(item.position == state.position for item in state.region.containers):
@@ -1115,7 +1206,10 @@ def interact(state: GameState) -> ActionResult:
             )
         if (
             state.objective_status == "altered"
-            and state.region.changes.get("mill_stabilised")
+            and (
+                state.region.changes.get("mill_stabilised")
+                or state.region.changes.get("objective_altered")
+            )
         ):
             return _time_result(
                 state, _complete_objective(state, True), priority=3
@@ -1123,11 +1217,20 @@ def interact(state: GameState) -> ActionResult:
         return ActionResult(
             False, False, f"Inspect {state.contact.name}'s standing.", "contact"
         )
+    second = next(
+        (
+            contact for contact in state.contacts.get(state.active_region_id, [])[1:]
+            if contact.position == state.position
+        ),
+        None,
+    )
+    if second:
+        return ActionResult(False, False, f"Speak with {second.name}.", f"contact:{second.id}")
     if tile == "R":
         if state.region.changes.get("objective_taken"):
             return _plain(state, "The stranded load is empty.")
         if state.objective_status != "accepted":
-            return _plain(state, "Accept Hearthford's request before taking the cargo.")
+            return _plain(state, f"Accept {state.region.name}'s request before taking the cargo.")
         commodity = state.region.objective_commodity
         if not _add_goods(
             state,
@@ -1375,6 +1478,8 @@ def guard(state: GameState) -> ActionResult:
         or state.weapon == "staff"
         or (state.courier and state.courier.technique == "set stance")
     )
+    if state.courier and ({"arms", "hands"} & set(state.courier.injuries)):
+        strong = False
     if strong:
         morale_loss = 2 if "shielded set stance" in build_combinations(state) else 1
         for threat in engaged:
@@ -1416,6 +1521,45 @@ def use_gear(state: GameState) -> ActionResult:
         return _time_result(
             state,
             "The finite tide-knot unravels; pursuit loses the rule of flowing water.",
+            priority=3,
+        )
+    if state.carried_relic == "ebbglass spindle" and state.relics.get("ebbglass spindle", 0):
+        state.relics["ebbglass spindle"] -= 1
+        if not state.relics["ebbglass spindle"]:
+            del state.relics["ebbglass spindle"]
+        state.carried_relic = None
+        consume_carried(state, "relic:ebbglass spindle")
+        state.region.process_thresholds = [threshold + 12 for threshold in state.region.process_thresholds]
+        state.region.changes["ebbglass_spent"] = True
+        return _time_result(
+            state,
+            "The finite ebbglass clouds while holding the next regional change for twelve actions.",
+            priority=3,
+        )
+    if state.carried_relic == "coalheart seed" and state.relics.get("coalheart seed", 0):
+        state.relics["coalheart seed"] -= 1
+        if not state.relics["coalheart seed"]:
+            del state.relics["coalheart seed"]
+        state.carried_relic = None
+        consume_carried(state, "relic:coalheart seed")
+        state.smoke.clear()
+        add_status(state, "coalheart-chill", "spent warm mineral", 8, "wetness and exposed travel become dangerous")
+        return _time_result(
+            state,
+            "The coalheart consumes every local smoke cell, then leaves a dangerous eight-action chill.",
+            priority=3,
+        )
+    if state.carried_relic == "hollow-bell shard" and state.relics.get("hollow-bell shard", 0):
+        state.relics["hollow-bell shard"] -= 1
+        if not state.relics["hollow-bell shard"]:
+            del state.relics["hollow-bell shard"]
+        state.carried_relic = None
+        consume_carried(state, "relic:hollow-bell shard")
+        shifted = Position(state.position.x, state.position.y, max(-1, min(2, state.position.z + (1 if state.position.z < 2 else -1))))
+        sounds = emit_sound(state, 4, shifted)
+        return _time_result(
+            state,
+            " ".join(["The hollow shard moves one loud strike to an adjacent level; unintended listeners may answer.", *sounds]),
             priority=3,
         )
     if state.gear == "smoke pot" and state.smoke_charges > 0:
@@ -1632,7 +1776,7 @@ def return_to_jomon(state: GameState) -> ActionResult:
         state.location != "region"
         or state.position != state.region.landmarks["landing"]
     ):
-        return _plain(state, "Return requires Hearthford's physical gangplank.")
+        return _plain(state, f"Return requires {state.region.name}'s physical landing.")
     courier = state.courier
     if state.objective_status in {"accepted", "altered"}:
         state.objective_status = "failed"
@@ -1650,6 +1794,11 @@ def return_to_jomon(state: GameState) -> ActionResult:
     for name, count in state.carried_passives.items():
         state.owned_passives[name] = state.owned_passives.get(name, 0) + count
     state.carried_passives.clear()
+    from .regions import store_active_region
+    from .people import unlock_region_visitors
+
+    completed_region = state.active_region_id
+    store_active_region(state)
     state.location, state.current_room, state.position = (
         "jomon",
         None,
@@ -1664,10 +1813,12 @@ def return_to_jomon(state: GameState) -> ActionResult:
         f"{courier.name} returned physically through Jomon's gangplank; "
         "discoveries entered household stores."
     )
+    visitors = unlock_region_visitors(state, completed_region)
     merchant = " A visiting merchant has tied alongside." if state.merchant_present else ""
+    visitor_text = (" " + " ".join(visitors)) if visitors else ""
     return _time_result(
         state,
         "You cross the gangplank home; cargo, discoveries, terrain, and consequences "
-        f"persist.{merchant}",
+        f"persist.{merchant}{visitor_text}",
         priority=3,
     )
