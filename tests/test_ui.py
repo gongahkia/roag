@@ -225,6 +225,21 @@ class AsciiUiTests(unittest.TestCase):
         self.assertEqual("exploration", self.engine.state.phase)
         self.assertTrue(objective.completed)
 
+    def test_workshop_can_transform_a_card_through_ascii_menus(self) -> None:
+        room = self.engine.room(1)
+        room.kind = "upgrade"
+        room.resolved = False
+        self.engine.state.current_room = room.id
+        self.engine.state.phase = "service"
+        self.engine.state.service_type = "upgrade"
+        original = self.engine.state.deck[0].card_id
+        screen = FakeScreen(keys=[curses.KEY_DOWN, 10, 10, 10])
+        self.ui.screen = screen
+        self.ui._service()
+        self.assertEqual("exploration", self.engine.state.phase)
+        self.assertNotEqual(original, self.engine.state.deck[0].card_id)
+        self.assertIn("CHOOSE A NEW TECHNIQUE", screen.text())
+
     def test_effect_browser_groups_hero_and_party_stacks(self) -> None:
         hero = self.engine.living_heroes()[0]
         self.engine.acquire_boon(hero.id, "iron_benediction")

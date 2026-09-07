@@ -931,6 +931,8 @@ class TerminalUI:
             choices.insert(0, "Recover: heal 7 and reduce 10 stress")
             if self.engine.state.curses:
                 choices.insert(1, "Treat one curse (2 supplies)")
+        else:
+            choices.insert(1, "Transform a card")
         picked = self._menu("CREW QUARTERS" if service_type == "camp" else "WORKSHOP", choices, "The room can be used once.", allow_cancel=False)
         action = choices[picked]
         if action.startswith("Recover"):
@@ -961,6 +963,7 @@ class TerminalUI:
         eligible = [
             index for index, card in enumerate(self.engine.state.deck)
             if action.startswith("Remove")
+            or action.startswith("Transform") and card.card_id not in self.catalog.curses
             or (not card.upgraded and card.card_id not in self.catalog.curses)
         ]
         if not eligible:
@@ -969,7 +972,25 @@ class TerminalUI:
         labels = [self._card_label(self.engine.state.deck[index]) for index in eligible]
         previews = [self.engine.state.deck[index] for index in eligible]
         selected = self._menu(action.upper(), labels, allow_cancel=False, preview_cards=previews)
-        self.engine.service("remove" if action.startswith("Remove") else "upgrade", eligible[selected])
+        card_index = eligible[selected]
+        if action.startswith("Transform"):
+            options = self.engine.transformation_options(card_index)
+            option_cards = [CardInstance(card_id) for card_id in options]
+            transformed = self._menu(
+                "CHOOSE A NEW TECHNIQUE",
+                [self._card_label(card) for card in option_cards],
+                "Same specialist; offers favor current rank, setup/payoff bridges, and low duplication.",
+                allow_cancel=False,
+                preview_cards=option_cards,
+            )
+            assert transformed is not None
+            self.engine.service(
+                "transform",
+                card_index,
+                replacement_id=options[transformed],
+            )
+        else:
+            self.engine.service("remove" if action.startswith("Remove") else "upgrade", card_index)
 
     def _supply_menu(self) -> None:
         assert self.engine

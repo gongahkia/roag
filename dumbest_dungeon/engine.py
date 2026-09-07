@@ -2949,6 +2949,54 @@ class GameEngine:
             choose(available, novelty=1.25)
         return chosen
 
+    def transformation_options(self, card_index: int, count: int = 3) -> list[str]:
+        if not 0 <= card_index < len(self.state.deck):
+            raise RuleError("choose a card to transform")
+        source = self.state.deck[card_index]
+        if source.card_id in self.catalog.curses:
+            raise RuleError("curse cards cannot be transformed")
+        definition = self.catalog.cards[source.card_id]
+        hero = next((hero for hero in self.living_heroes() if hero.id == definition["hero"]), None)
+        if hero is None:
+            raise RuleError("the card's owner is no longer alive")
+        deck_tags = Counter(
+            tag
+            for index, card in enumerate(self.state.deck)
+            if index != card_index and card.card_id in self.catalog.cards
+            for tag in self.card_tags(card.card_id)
+        )
+        owned = Counter(
+            card.card_id
+            for index, card in enumerate(self.state.deck)
+            if index != card_index and card.card_id in self.catalog.cards
+        )
+        desired = {
+            f"payoff:{tag.split(':', 1)[1]}"
+            for tag in deck_tags
+            if tag.startswith("setup:")
+        } | {
+            f"setup:{tag.split(':', 1)[1]}"
+            for tag in deck_tags
+            if tag.startswith("payoff:")
+        }
+        candidates = [
+            card_id
+            for card_id, card in self.catalog.cards.items()
+            if card["hero"] == hero.id and card_id != source.card_id
+        ]
+
+        def score(card_id: str) -> tuple[float, str]:
+            card = self.catalog.cards[card_id]
+            tags = self.card_tags(card_id)
+            synergy = sum(deck_tags[tag] for tag in tags if tag not in {"damage", "block"})
+            bridge = len(tags & desired) * 5
+            rank_coverage = 4 if hero.rank in card["from_ranks"] else 0
+            broad = len(card["from_ranks"]) + len(card.get("target_ranks", [])) * 0.25
+            duplication = owned[card_id] * 4
+            return bridge + synergy * 0.35 + rank_coverage + broad - duplication, card_id
+
+        return [card_id for card_id in sorted(candidates, key=score, reverse=True)[:count]]
+
     def choose_reward(self, index: int | None) -> None:
         if self.state.phase != "reward":
             raise RuleError("there is no reward to choose")
@@ -3018,6 +3066,7 @@ class GameEngine:
         *,
         hero_id: str | None = None,
         curse_id: str | None = None,
+        replacement_id: str | None = None,
     ) -> None:
         if self.state.phase != "service":
             raise RuleError("no facility is available")
@@ -3071,6 +3120,19 @@ class GameEngine:
                     raise RuleError("curse card is missing its bound hero")
                 self._decrement_curse(card.bound_hero_id, card.card_id)
             self.add_log(f"Removed {self.card_definition(card)['name']}.")
+        elif action == "transform" and self.state.service_type == "upgrade":
+            if card_index is None or not 0 <= card_index < len(self.state.deck):
+                raise RuleError("choose a card to transform")
+            options = self.transformation_options(card_index)
+            if replacement_id not in options:
+                raise RuleError("choose one of the offered transformations")
+            source = self.state.deck[card_index]
+            old_name = self.catalog.cards[source.card_id]["name"]
+            source.card_id = replacement_id
+            source.upgraded = False
+            self.add_log(
+                f"Transformed {old_name} into {self.catalog.cards[replacement_id]['name']}."
+            )
         else:
             raise RuleError("that service is not available here")
         self.room().resolved = True

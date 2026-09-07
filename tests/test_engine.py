@@ -412,6 +412,40 @@ class EngineTests(unittest.TestCase):
         self.assertTrue(first.card_tags(rewards[0]) & desired)
         self.assertNotIn(rewards[1], {card.card_id for card in first.state.deck})
 
+    def test_workshop_transformation_favors_rank_legal_cross_crew_bridges(self) -> None:
+        source_index = next(
+            index
+            for index, card in enumerate(self.engine.state.deck)
+            if card.card_id == "baton_strike"
+        )
+        options = self.engine.transformation_options(source_index)
+        self.assertEqual(options, self.engine.transformation_options(source_index))
+        self.assertTrue(options)
+        self.assertTrue(
+            all(self.catalog.cards[card_id]["hero"] == "warden" for card_id in options)
+        )
+        self.assertTrue(
+            any("setup:marked" in self.engine.card_tags(card_id) for card_id in options)
+        )
+        warden = next(hero for hero in self.engine.living_heroes() if hero.id == "warden")
+        self.assertTrue(
+            all(warden.rank in self.catalog.cards[card_id]["from_ranks"] for card_id in options)
+        )
+
+        room = self.engine.room(1)
+        room.kind = "upgrade"
+        room.resolved = False
+        self.engine.state.current_room = room.id
+        self.engine.state.phase = "service"
+        self.engine.state.service_type = "upgrade"
+        deck_size = len(self.engine.state.deck)
+        self.engine.state.deck[source_index].upgraded = True
+        self.engine.service("transform", source_index, replacement_id=options[0])
+        self.assertEqual(deck_size, len(self.engine.state.deck))
+        self.assertEqual(options[0], self.engine.state.deck[source_index].card_id)
+        self.assertFalse(self.engine.state.deck[source_index].upgraded)
+        self.assertEqual("exploration", self.engine.state.phase)
+
     def test_upgraded_conditional_rescue_cleans_wound(self) -> None:
         self.engine.start_combat("lost_shift")
         medic = next(hero for hero in self.engine.living_heroes() if hero.id == "medic")
