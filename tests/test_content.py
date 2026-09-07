@@ -53,6 +53,11 @@ class ContentTests(unittest.TestCase):
             self.assertEqual(5, len(sprite))
             self.assertTrue(all(len(line) <= 7 and line.isascii() for line in sprite))
         for hero in catalog.heroes.values():
+            self.assertIn(hero["combat_role"], {"controller", "defender", "striker", "support"})
+            self.assertIn(hero["complexity"], {1, 2, 3})
+            self.assertIn(hero["rank"], hero["preferred_ranks"])
+            self.assertEqual(2, len(set(hero["builds"])))
+            self.assertTrue(all(hero[field] for field in ("signature", "strength", "weakness")))
             starters = [catalog.cards[card_id] for card_id in hero["starter_deck"]]
             for rank in range(1, 5):
                 self.assertTrue(

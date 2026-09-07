@@ -343,8 +343,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load ASCII art from {art_source}: {exc}") from exc
 
-    if raw.get("schema_version") != 6:
-        raise ContentError("content schema_version must be 6")
+    if raw.get("schema_version") != 7:
+        raise ContentError("content schema_version must be 7")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
@@ -384,13 +384,33 @@ def load_catalog(path: Path | None = None) -> Catalog:
     hero_roles: set[str] = set()
 
     for hero in heroes.values():
-        for field in ("name", "role", "summary", "max_hp", "rank", "starter_deck"):
+        for field in (
+            "name", "role", "combat_role", "complexity", "preferred_ranks", "signature",
+            "strength", "weakness", "builds", "summary", "max_hp", "rank", "starter_deck",
+        ):
             if field not in hero:
                 raise ContentError(f"hero {hero['id']} is missing {field}")
         if hero["rank"] not in range(1, 5) or hero["max_hp"] <= 0:
             raise ContentError(f"hero {hero['id']} has invalid rank or max_hp")
         if not isinstance(hero["summary"], str) or not hero["summary"]:
             raise ContentError(f"hero {hero['id']} needs a summary")
+        if hero["combat_role"] not in {"controller", "defender", "striker", "support"}:
+            raise ContentError(f"hero {hero['id']} has an invalid combat role")
+        if hero["complexity"] not in {1, 2, 3}:
+            raise ContentError(f"hero {hero['id']} has an invalid complexity")
+        _ranks(hero["preferred_ranks"], f"hero {hero['id']}.preferred_ranks")
+        if hero["rank"] not in hero["preferred_ranks"]:
+            raise ContentError(f"hero {hero['id']} default rank is not preferred")
+        for field in ("signature", "strength", "weakness"):
+            if not isinstance(hero[field], str) or not hero[field]:
+                raise ContentError(f"hero {hero['id']} needs a {field}")
+        if (
+            not isinstance(hero["builds"], list)
+            or len(hero["builds"]) != 2
+            or len(set(hero["builds"])) != 2
+            or any(not isinstance(build, str) or not build for build in hero["builds"])
+        ):
+            raise ContentError(f"hero {hero['id']} needs two distinct build paths")
         if hero["name"] in hero_names or hero["role"] in hero_roles:
             raise ContentError("heroes need unique names and archetype roles")
         hero_names.add(hero["name"])
