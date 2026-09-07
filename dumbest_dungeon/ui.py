@@ -1774,7 +1774,7 @@ class TerminalUI:
         width = self.screen.getmaxyx()[1]
         self._put(0, max(0, (width - len(title)) // 2), title, curses.A_BOLD | self._attr(1))
         if self.message:
-            self._put(1, 2, self.message, self._attr(2))
+            self._put(1, 2, self._ellipsize(self.message, width - 3), self._attr(2))
             self.message = ""
 
     def _footer(self, text: str) -> None:

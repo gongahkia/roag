@@ -542,6 +542,15 @@ class AsciiUiTests(unittest.TestCase):
         summary = "".join(screen.rows[4]).rstrip()
         self.assertTrue(summary.endswith("..."), summary)
 
+    def test_transient_messages_mark_overflow(self) -> None:
+        screen = FakeScreen()
+        self.ui.screen = screen
+        self.ui.message = "A deliberately long terminal message " * 4
+        self.ui._begin("TEST")
+        message = "".join(screen.rows[1]).rstrip()
+        self.assertTrue(message.endswith("..."), message)
+        self.assertEqual("", self.ui.message)
+
     def test_mouse_click_maps_screen_cell_to_world_destination(self) -> None:
         self.ui.screen = FakeScreen()
         origin = (10, 4, 60, 15)
