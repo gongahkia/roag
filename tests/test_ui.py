@@ -157,6 +157,7 @@ class AsciiUiTests(unittest.TestCase):
         self.assertTrue(any("Explore the current world" in text for _, _, text, _ in screen.writes))
         rendered = screen.text()
         self.assertIn("Controls:", rendered)
+        self.assertIn("input otherwise stops at exploration routing.", rendered)
         self.assertIn("Enter/Esc close", rendered)
 
     def test_reward_screen_describes_tradeoffs_without_recommendations(self) -> None:

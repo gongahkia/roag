@@ -1419,7 +1419,7 @@ class TerminalUI:
 
     def _help(self) -> None:
         text = (
-            "Explore the current world from above and reach its Apex Chamber. Aim the X cursor with arrows or "
+            "Explore the current world from above and reach its Overseer Core. Aim the X cursor with arrows or "
             "hjkl, then press Enter to auto-walk there. A first left-click selects and highlights a tile; "
             "click it again or press Enter to confirm. One order has limited reach; Survey Relays extend it. "
             "Tab cycles visible points of interest and Space recenters on the crew. Patrols move according "
@@ -1441,8 +1441,10 @@ class TerminalUI:
             "At 100 stress they gain an affliction; reaching 100 again causes collapse. Supplies heal, calm, "
             "or restore light. Camps recover crew, modify one card, or remove one curse for 2 supplies.\n\n"
             "Controls: arrows or hjkl navigate, Enter confirms, X/Escape cancels an active route, right-click "
-            "also cancels it, E ends a combat turn, "
-            "U uses a supply, B views biome rules, D views the deck, I views effects, P pauses, and ? opens this page."
+            "also cancels it, E ends a combat turn, U uses a supply, B views biome rules, D views the deck, "
+            "C inspects the selected combat card, R inspects crew, I views effects, P pauses, and ? opens this page. "
+            "During enemy-action frames, F toggles fast playback and Space skips the remaining presentation; "
+            "neither key skips enemy game actions. Mouse input otherwise stops at exploration routing."
         )
         self._notice("HOW TO PLAY", text)
 
