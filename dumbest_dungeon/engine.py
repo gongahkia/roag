@@ -563,12 +563,19 @@ class GameEngine:
             (
                 patrol
                 for patrol in state.patrols
-                if patrol.encounter_id in {"reactor_rod_front", "reactor_rod_rear"}
+                if engine.room(patrol.room_id).kind == "fight"
+                and engine.room(patrol.room_id).biome_id == "reactor"
             ),
             None,
         )
         if training is None:
-            raise RuleError("tutorial seed has no coordinated training encounter")
+            raise RuleError("tutorial seed has no reactor training site")
+        encounter = catalog.encounters["reactor_rod_rear"]
+        room = engine.room(training.room_id)
+        training.encounter_id = encounter["id"]
+        room.content_id = encounter["id"]
+        room.enemy_ids = list(encounter["enemies"])
+        room.encounter_plan = engine._formation_plan(catalog, room.enemy_ids)
         for patrol in state.patrols:
             patrol.active = patrol.id == training.id
         path = engine._find_path(
