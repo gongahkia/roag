@@ -71,6 +71,63 @@ ROLE_TECHNIQUE = {
     "healer": "field binding",
 }
 
+RECRUIT_TEMPLATES = (
+    {
+        "id": "recruit-maelin", "name": "Maelin Rook", "role": "tide runner",
+        "technique": "ebb reader", "home_region": "greywash",
+        "background": "A salt-runner who reads firm ground from draining ripples.",
+        "build_tendency": "light armour, tide routes, and thrown weapons",
+        "equipment": ["marsh waders", "javelins"],
+        "terms": "Help the coast saltworks or offer two accountable credits.",
+        "memory": "Jomon once carried medicine through a closing tidal channel.",
+    },
+    {
+        "id": "recruit-jessa", "name": "Jessa Flint", "role": "netwright",
+        "technique": "cast bind", "home_region": "greywash",
+        "background": "A wreck-diver who knots weighted nets for surf and deck work.",
+        "build_tendency": "nets, cargo recovery, and close control",
+        "equipment": ["tarred gauntlets", "weighted net"],
+        "terms": "Recover a named wreck locker without abandoning its owner.",
+        "memory": "She will not call recovered property salvage while its keeper lives.",
+    },
+    {
+        "id": "recruit-orra", "name": "Orra Fen", "role": "charcoal scout",
+        "technique": "wind listener", "home_region": "greenwold",
+        "background": "A burner-watch who follows smoke, disturbed birds, and crosswind sound.",
+        "build_tendency": "stealth, smoke, bows, and open woodland routes",
+        "equipment": ["felt hood", "longbow"],
+        "terms": "Keep the forest burn from spreading into the medicine stands.",
+        "memory": "Orra remembers which crews listened before entering the burnwood.",
+    },
+    {
+        "id": "recruit-bran", "name": "Bran Wold", "role": "resin healer",
+        "technique": "green poultice", "home_region": "greenwold",
+        "background": "A travelling adult healer who trades resin dressings for safe passage.",
+        "build_tendency": "injury control, thorns, and patient expeditions",
+        "equipment": ["linen sleeves", "field satchel"],
+        "terms": "Bring the wounded charcoal reeve home or settle their care.",
+        "memory": "Bran judges households by how they return with wounded companions.",
+    },
+    {
+        "id": "recruit-teren", "name": "Teren Chalk", "role": "quarry climber",
+        "technique": "scree step", "home_region": "whitecairn",
+        "background": "A face-worker who knows limestone fractures and suspended loads.",
+        "build_tendency": "heavy tools, climbing, and breakable terrain",
+        "equipment": ["hobnailed boots", "war hammer"],
+        "terms": "Stabilise the quarry bridge or prove a safer route around it.",
+        "memory": "Teren left a crew that treated preventable rockfall as fate.",
+    },
+    {
+        "id": "recruit-sava", "name": "Sava Bell", "role": "ridge ward",
+        "technique": "high arc", "home_region": "whitecairn",
+        "background": "A shepherd-ward who uses sling arcs beyond cliff-edge cover.",
+        "build_tendency": "sling fire, height, light loads, and lookout control",
+        "equipment": ["leather leggings", "sling"],
+        "terms": "Break the false toll alarm without harming the upland carriers.",
+        "memory": "Sava remembers every warning bell rung for private profit.",
+    },
+)
+
 # Behavior stays direct in actions.py rather than becoming an ability schema.
 WEAPONS = {
     "billhook": ("Billhook", "close strike; hooks machinery or a braced foe"),
@@ -144,16 +201,22 @@ MERCHANT_ITEMS = {
 CONTACT_NAMES = ("Mara Venn", "Tomas Reed", "Iria Pike", "Sela Moss")
 
 JOMON_MAP = (
-    "################################",
-    "#.............#................#",
-    "#.T...........#.....H..........#",
-    "#..............................#",
-    "#.C...........L.....P..........#",
-    "#..............................+",
-    "#.............#................#",
-    "#.a...........#.....s..........#",
-    "#..............................#",
-    "################################",
+    "################################################",
+    "#..............................................#",
+    "#.H..............==========....................#",
+    "#................=  BAR   =....t.t.....t.t.....#",
+    "#.L..............=   C    =....................#",
+    "#................==========....t.t.....t.t.....#",
+    "#.P............................................#",
+    "#..............................t.t.....t.t.....#",
+    "#..............................................+",
+    "#......................t.t.....................#",
+    "#..............................................#",
+    "#......................t.t.....t.t.............#",
+    "#..............................................#",
+    "#..............................................#",
+    "#..............................................#",
+    "################################################",
 )
 
 HELP_LINES = (

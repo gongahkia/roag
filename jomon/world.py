@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from .content import COMMODITIES, JOMON_MAP, PASSIVES
 from .state import GameState, Position
 
-JOMON_GANGPLANK = Position(31, 5, 0)
+JOMON_GANGPLANK = Position(47, 8, 0)
 
 
 @dataclass(frozen=True)
@@ -76,6 +76,12 @@ def region_tile(state: GameState, position: Position) -> str:
 
 def displayed_tile(state: GameState, position: Position) -> str:
     tile = base_tile(state, position)
+    if state.location == "jomon":
+        from .people import person_at
+
+        person = person_at(state, position)
+        if person:
+            return "a" if person in state.household else "v"
     if state.location == "jomon" and tile == "s" and state.merchant_present:
         return "$"
     container = next((item for item in state.region.containers if item.position == position), None) if state.location == "region" else None
@@ -91,6 +97,8 @@ def displayed_tile(state: GameState, position: Position) -> str:
 def is_walkable(state: GameState, position: Position, *, ignore_threat: bool = False) -> bool:
     tile = displayed_tile(state, position)
     if tile in {" ", "#", "~", "T"}:
+        return False
+    if state.location == "jomon" and tile in {"a", "v"}:
         return False
     if state.location == "region" and not ignore_threat:
         if any(threat.position == position and threat.status in {"watching", "engaged"} for threat in state.threats):

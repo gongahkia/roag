@@ -88,12 +88,33 @@ def choose_courier(state: GameState, person_id: str) -> ActionResult:
     person = next((candidate for candidate in state.household if candidate.id == person_id), None)
     if state.location != "jomon" or person is None or not person.alive:
         return _plain(state, "That household member cannot serve as courier.")
+    previous_id = state.active_courier_id
+    seat = state.tavern_positions.pop(person.id, state.position)
+    if previous_id and previous_id != person.id:
+        state.tavern_positions[previous_id] = state.position
     state.active_courier_id = person.id
+    state.position = seat
     readied = equipped_item(state, "readied", person.id)
     secondary = equipped_item(state, "secondary", person.id)
     state.weapon = readied.kind if readied else None
     state.gear = secondary.kind if secondary else None
     return _plain(state, f"{person.name}, {person.role}, will carry this expedition.", changed=True)
+
+
+def recruit_person(state: GameState, person_id: str) -> ActionResult:
+    if state.location != "jomon":
+        return _plain(state, "Recruitment terms are settled face to face aboard Jomon.")
+    from .people import recruit_visitor
+
+    changed, message = recruit_visitor(state, person_id)
+    return _plain(state, message, changed=changed)
+
+
+def defer_recruit(state: GameState, person_id: str) -> ActionResult:
+    from .people import defer_visitor
+
+    changed, message = defer_visitor(state, person_id)
+    return _plain(state, message, changed=changed)
 
 
 def choose_weapon(state: GameState, weapon: str) -> ActionResult:
@@ -630,6 +651,12 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
     target = Position(
         state.position.x + dx, state.position.y + dy, state.position.z
     )
+    if state.location == "jomon":
+        from .people import person_at
+
+        person = person_at(state, target)
+        if person:
+            return _plain(state, f"{person.name} occupies that place; interact from beside them.")
     occupant = next(
         (
             threat
@@ -657,6 +684,8 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
     state.position = target
     messages: list[str] = []
     tile = base_tile(state, target)
+    if state.location == "jomon":
+        return _plain(state, "", changed=True)
     if state.location == "region" and tile == "+":
         state.region.tile_changes[position_key(target)] = "/"
         messages.append("You open the door; interior sightlines change.")
@@ -940,10 +969,15 @@ def _destroy_floor(state: GameState) -> ActionResult:
 def interact(state: GameState) -> ActionResult:
     tile = base_tile(state, state.position)
     if state.location == "jomon":
+        from .people import adjacent_person
+
+        person = adjacent_person(state)
+        if person:
+            return ActionResult(False, False, f"Speak with {person.name}.", f"person:{person.id}")
         if tile == "+":
             return depart(state)
         if tile == "C":
-            return ActionResult(False, False, "Prepare at the tavern.", "tavern")
+            return ActionResult(False, False, "Review support at the tavern bar.", "tavern")
         if tile in {"L", "P"}:
             return ActionResult(False, False, "Stores are readouts.", "equipment")
         if tile == "H":

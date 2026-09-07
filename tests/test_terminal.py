@@ -64,30 +64,33 @@ class SemanticColourTests(unittest.TestCase):
 
 
 class TavernMenuTests(unittest.TestCase):
-    def test_consolidated_tavern_selection_is_zero_time(self):
-        state = create_world("tavern menu")
-        state.position = find_tile(JOMON_MAP, "C")
-        result = interact(state)
-        self.assertEqual(result.overlay, "tavern")
+    def test_physical_person_selection_is_zero_time(self):
+        state = create_world("physical tavern")
+        person = state.household[0]
+        seat = state.tavern_positions[person.id]
+        state.position = Position(seat.x - 1, seat.y)
         started = state.world_time
-        for submenu in ("courier", "weapon", "gear", "support"):
-            overlay, _ = _handle_overlay(state, f"tavern:{submenu}", ord("1"))
-            self.assertEqual(overlay, "tavern")
-        self.assertIsNotNone(state.courier)
-        self.assertIsNotNone(state.weapon)
-        self.assertIsNotNone(state.gear)
-        self.assertIsNotNone(state.support)
+        result = interact(state)
+        self.assertEqual(result.overlay, f"person:{person.id}")
+        overlay, _ = _handle_overlay(state, result.overlay, ord("s"))
+        self.assertIsNone(overlay)
+        self.assertEqual(state.courier, person)
+        self.assertNotIn(person.id, state.tavern_positions)
+        self.assertEqual(state.position, seat)
         self.assertEqual(state.world_time, started)
 
-    def test_passive_submenu_toggles_without_time(self):
-        state = create_world("passive submenu")
-        state.owned_passives = {"echo bead": 1}
+    def test_bar_selects_support_but_not_courier_or_equipment(self):
+        state = create_world("tavern support")
+        state.position = find_tile(JOMON_MAP, "C")
         started = state.world_time
-        overlay, _ = _handle_overlay(state, "tavern", ord("d"))
-        self.assertEqual(overlay, "tavern:passive")
+        self.assertEqual(interact(state).overlay, "tavern")
+        overlay, _ = _handle_overlay(state, "tavern", ord("s"))
+        self.assertEqual(overlay, "tavern:support")
         overlay, _ = _handle_overlay(state, overlay, ord("1"))
-        self.assertEqual(overlay, "tavern:passive")
-        self.assertEqual(state.carried_passives, {"echo bead": 1})
+        self.assertEqual(overlay, "tavern")
+        self.assertIsNotNone(state.support)
+        self.assertIsNone(state.courier)
+        self.assertIsNone(state.weapon)
         self.assertEqual(state.world_time, started)
 
 

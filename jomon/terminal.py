@@ -21,6 +21,8 @@ from .actions import (
     move,
     negotiate,
     purchase_merchant_item,
+    recruit_person,
+    defer_recruit,
     retreat,
     use_gear,
 )
@@ -129,6 +131,10 @@ def semantic_role(glyph: str, *, aboard: bool = False) -> str:
         return "player"
     if glyph == "a" or (aboard and glyph in {"T", "b"}):
         return "ally"
+    if aboard and glyph == "v":
+        return "neutral"
+    if aboard and glyph in {"=", "t"}:
+        return "structure"
     if aboard and glyph == "s":
         return "interactable"
     if glyph in {"M", "c", "$"}:
@@ -308,7 +314,7 @@ def _status_lines(state: GameState) -> list[str]:
         f"Time {p.elapsed}; depth {p.depth}",
         f"Noise {p.noise}; value {p.valuables}",
         f"{p.band} {p.score}; {state.weather}",
-        "HEARTHFORD",
+        state.active_region_id.upper(),
         f"{level_text}; {state.objective_status}",
         f"{state.region.objective_commodity}: {market.stock}/{market.demand}",
         f"Ammo {state.ammunition}; oil {state.lamp_oil}",
@@ -583,11 +589,14 @@ def _tavern_lines(state: GameState) -> list[str]:
     combos = ", ".join(build_combinations(state)) or "none active"
     passives = ", ".join(state.carried_passives) or "none"
     return [
-        f"C Courier: {identity}", f"W Weapon: {state.weapon or 'none'}", f"G Gear/tool: {state.gear or 'none'}",
-        f"S Crew support: {state.support or 'none'}", f"R Relic: {state.carried_relic or 'none'}",
-        f"D Discoveries: {passives} ({passive_bulk(state)}/{passive_capacity(state)} bulk)",
+        f"Active courier: {identity}",
+        "Speak directly to a visible adventurer to switch or recruit.",
+        f"S Crew support: {state.support or 'none'}",
+        f"Readied: {state.weapon or 'none'} / {state.gear or 'none'} / {state.carried_relic or 'no relic'}",
+        f"Discoveries: {passives} ({passive_bulk(state)}/{passive_capacity(state)} legacy bulk)",
         f"Build interactions: {combos}", f"Cargo: {goods}; capacity {carried_bulk(state)}/{capacity(state)}",
         "", state.region.condition, state.region.objective_text, f"Objective: {state.objective_status}",
+        "Use I for the pack, body slots, and Jomon locker.",
         "Enter confirms and closes. Escape cancels without advancing time.",
     ]
 
@@ -634,15 +643,6 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         ]
     if kind == "tavern":
         return "TAVERN EXPEDITION PREPARATION", _tavern_lines(state)
-    if kind == "tavern:courier":
-        living = [person for person in state.household if person.alive]
-        return "SELECT COURIER", [f"{index + 1}. {person.name} — {person.role}; {person.health}/{person.max_health}; {person.injury}; {person.technique}" for index, person in enumerate(living)] + ["Number selects; Escape returns."]
-    if kind == "tavern:weapon":
-        rows = [(key, WEAPONS[key]) for key in WEAPONS if key in state.owned_weapons]
-        return "SELECT WEAPON", [f"{index + 1}. {name} — {detail}" for index, (_, (name, detail)) in enumerate(rows)] + ["Number selects; Escape returns."]
-    if kind == "tavern:gear":
-        rows = [(key, GEAR[key]) for key in GEAR if key in state.owned_gear]
-        return "SELECT SECONDARY GEAR", [f"{index + 1}. {name} — {detail}" for index, (_, (name, detail)) in enumerate(rows)] + ["Number selects; Escape returns."]
     if kind == "tavern:support":
         return "SELECT CREW SUPPORT", [f"{index + 1}. {name} — {detail}" for index, (name, detail) in enumerate(SUPPORTS.values())] + ["Number selects; Escape returns."]
     if kind == "tavern:relic":
@@ -670,6 +670,28 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return "VISITING DECK MERCHANT", lines + ["Number buys; Escape closes. Stock leaves on departure."]
     if kind == "quit":
         return "QUIT JOMON?", ["Press Y to quit. Press N or Escape to continue."]
+    if kind.startswith("person:"):
+        from .people import person_by_id
+
+        person_id = kind.split(":", 1)[1]
+        person = person_by_id(state, person_id)
+        if person is None:
+            return "EMPTY SEAT", ["This person is no longer aboard."]
+        standing = "active courier" if person.id == state.active_courier_id else "eligible household" if person in state.household else state.visitor_status.get(person.id, "visitor")
+        lines = [
+            f"{person.name} — {person.role}; {standing}",
+            f"Technique: {person.technique}",
+            f"Health: {person.health}/{person.max_health}; {person.injury}",
+            f"Equipment affinity: {', '.join(person.equipment)}",
+            f"Build tendency: {person.build_tendency}",
+            f"Background: {person.background}",
+            "Memories:", *[f"- {memory}" for memory in (person.memories or ["No shared expedition yet."])],
+        ]
+        if person in state.household and person.id != state.active_courier_id and person.alive and person.available:
+            lines.append("S. Switch to this courier (zero time)")
+        elif person not in state.household:
+            lines.extend((f"Terms: {person.recruitment_terms}", "R. Offer a voluntary berth", "D. Defer without closing the invitation"))
+        return person.name.upper(), lines + ["Escape closes without time."]
     return "INFORMATION", [kind, "Escape closes without advancing time."]
 
 
@@ -689,31 +711,8 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         if key in {10, 13}:
             return None, False
         return ({
-            "c": "tavern:courier",
-            "w": "tavern:weapon",
-            "g": "tavern:gear",
             "s": "tavern:support",
-            "r": "tavern:relic",
-            "d": "tavern:passive",
         }.get(char, kind)), False
-    if kind == "tavern:courier" and char.isdigit():
-        living = [person for person in state.household if person.alive]
-        index = int(char) - 1
-        if 0 <= index < len(living):
-            choose_courier(state, living[index].id)
-            return "tavern", False
-    if kind == "tavern:weapon" and char.isdigit():
-        rows = [key for key in WEAPONS if key in state.owned_weapons]
-        index = int(char) - 1
-        if 0 <= index < len(rows):
-            choose_weapon(state, rows[index])
-            return "tavern", False
-    if kind == "tavern:gear" and char.isdigit():
-        rows = [key for key in GEAR if key in state.owned_gear]
-        index = int(char) - 1
-        if 0 <= index < len(rows):
-            choose_gear(state, rows[index])
-            return "tavern", False
     if kind == "tavern:support" and char.isdigit():
         rows = list(SUPPORTS)
         index = int(char) - 1
@@ -743,6 +742,20 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         if 0 <= index < len(state.merchant_stock):
             purchase_merchant_item(state, state.merchant_stock[index])
         return kind if state.merchant_stock else None, False
+    if kind.startswith("person:"):
+        person_id = kind.split(":", 1)[1]
+        from .people import person_by_id
+
+        person = person_by_id(state, person_id)
+        if char == "s" and person in state.household:
+            result = choose_courier(state, person_id)
+            return (None if result.changed else kind), False
+        if char == "r":
+            result = recruit_person(state, person_id)
+            return (kind if not result.changed else None), False
+        if char == "d":
+            defer_recruit(state, person_id)
+            return None, False
     return kind, False
 
 

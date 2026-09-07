@@ -56,6 +56,8 @@ class Person:
     home_region: str = "hearthford"
     recruited: bool = False
     available: bool = True
+    memories: list[str] = field(default_factory=list)
+    recruitment_terms: str = "A free adult may accept or refuse a witnessed berth."
 
 
 @dataclass
@@ -220,6 +222,10 @@ class GameState:
     locker_height: int
     terrain_statuses: dict[str, TerrainStatus]
     objective_evidence: list[str]
+    visitors: list[Person]
+    tavern_positions: dict[str, Position]
+    visitor_status: dict[str, str]
+    berth_capacity: int
     history: list[str] = field(default_factory=list)
     messages: list[str] = field(default_factory=list)
     world_ended: bool = False
@@ -361,10 +367,13 @@ def create_world(seed: str) -> GameState:
         items=[], next_item_id=1, pack_width=10, pack_height=6,
         locker_width=18, locker_height=10, terrain_statuses={},
         objective_evidence=[],
+        visitors=[], tavern_positions={}, visitor_status={}, berth_capacity=9,
     )
     from .inventory import initialise_inventory
+    from .people import initialise_tavern
 
     initialise_inventory(state)
+    initialise_tavern(state)
     state.threats = _threats(seed, region)
     state.add_message(f"Jomon reaches Hearthford. {region.condition}")
     if relics:
@@ -398,8 +407,14 @@ def _migrate_v3(data: dict[str, Any]) -> dict[str, Any]:
         person.setdefault("home_region", "hearthford")
         person.setdefault("recruited", False)
         person.setdefault("available", True)
+        person.setdefault("memories", [])
+        person.setdefault("recruitment_terms", "A free adult may accept or refuse a witnessed berth.")
     for container in migrated.get("region", {}).get("containers", []):
         container.setdefault("item_ids", [])
+    migrated["visitors"] = []
+    migrated["tavern_positions"] = {}
+    migrated["visitor_status"] = {}
+    migrated["berth_capacity"] = 9
     return migrated
 
 
@@ -413,6 +428,7 @@ def game_state_from_dict(data: Any) -> GameState:
         raise StateError(f"incompatible save format; expected {SAVE_FORMAT}")
     try:
         household = [Person(**person) for person in data["household"]]
+        visitors = [Person(**person) for person in data.get("visitors", [])]
         contact = Contact(**data["contact"])
         region_data = dict(data["region"])
         region_data["landmarks"] = {key: _position(value, f"{key} landmark") for key, value in region_data["landmarks"].items()}
@@ -471,13 +487,22 @@ def game_state_from_dict(data: Any) -> GameState:
             pack_height=data["pack_height"], locker_width=data["locker_width"],
             locker_height=data["locker_height"], terrain_statuses=terrain_statuses,
             objective_evidence=list(data["objective_evidence"]),
+            visitors=visitors,
+            tavern_positions={key: _position(value, "tavern occupant") for key, value in data.get("tavern_positions", {}).items()},
+            visitor_status=dict(data.get("visitor_status", {})), berth_capacity=data.get("berth_capacity", 9),
             history=list(data["history"]), messages=list(data["messages"]), world_ended=data["world_ended"],
         )
         if migrated_v3:
             from .inventory import initialise_inventory, reconcile_legacy_carried
+            from .people import initialise_tavern
 
             initialise_inventory(state)
             reconcile_legacy_carried(state)
+            initialise_tavern(state)
+        elif not state.tavern_positions:
+            from .people import initialise_tavern
+
+            initialise_tavern(state)
     except (AttributeError, KeyError, TypeError, ValueError) as exc:
         raise StateError(f"malformed save: {exc}") from exc
     validate_state(state)
@@ -489,6 +514,21 @@ def validate_state(state: GameState) -> None:
         raise StateError("save must retain the six-person household and unique recruits")
     if state.active_courier_id is not None and state.courier is None:
         raise StateError("active courier is not in the household")
+    all_people = [*state.household, *state.visitors]
+    if len({person.id for person in all_people}) != len(all_people):
+        raise StateError("household and visitor identities must be unique")
+    if state.berth_capacity < 6 or len(state.household) > state.berth_capacity:
+        raise StateError("invalid Jomon berth occupancy")
+    if len(set(state.tavern_positions.values())) != len(state.tavern_positions):
+        raise StateError("two tavern occupants share one position")
+    from .content import JOMON_MAP
+
+    if any(
+        person_id not in {person.id for person in all_people}
+        or not (0 <= point.y < len(JOMON_MAP) and 0 <= point.x < len(JOMON_MAP[point.y]))
+        for person_id, point in state.tavern_positions.items()
+    ):
+        raise StateError("invalid tavern occupant position")
     if set(state.market) != set(COMMODITIES):
         raise StateError("save commodity catalogue is incomplete")
     if state.location not in {"jomon", "region"}:
