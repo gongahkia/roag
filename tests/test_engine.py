@@ -636,6 +636,30 @@ class EngineTests(unittest.TestCase):
                 self.assertEqual(list(reversed(original_ranks)), [hero.rank for hero in engine.state.heroes])
         self.assertEqual(len(self.catalog.biomes), len(signatures))
 
+    def test_flooded_undertow_disrupts_breach_protocol_without_scattering_it(self) -> None:
+        engine = GameEngine.new(self.catalog, 44, start_in_hub=True)
+        engine.select_curated_squad("breach_protocol")
+        engine.begin_expedition()
+        self.set_party_biome(engine, "flooded")
+        engine.start_combat("flooded_crab_song")
+        ranks = {hero.id: hero.rank for hero in engine.living_heroes()}
+        self.assertEqual(
+            {"breacher": 3, "synth": 1, "quartermaster": 2, "hacker": 4},
+            ranks,
+        )
+        for hero in engine.living_heroes():
+            starters = self.catalog.heroes[hero.id]["starter_deck"]
+            self.assertTrue(
+                any(hero.rank in self.catalog.cards[card_id]["from_ranks"] for card_id in starters),
+                hero.id,
+            )
+
+        engine.state.hand = [CardInstance("ram_charge")]
+        engine.state.energy = 3
+        target = engine.valid_targets(0)[0]
+        engine.play_card(0, target)
+        self.assertEqual(2, next(hero for hero in engine.living_heroes() if hero.id == "breacher").rank)
+
     def test_all_patrol_doctrines_generate_deterministic_serialized_routes(self) -> None:
         seen: set[str] = set()
         for seed in range(30):
