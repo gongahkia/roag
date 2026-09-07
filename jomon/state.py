@@ -21,7 +21,7 @@ from .content import (
     ROLES,
 )
 
-SAVE_FORMAT = 4
+SAVE_FORMAT = 5
 HISTORY_LIMIT = 40
 MESSAGE_LIMIT = 8
 
@@ -183,6 +183,8 @@ class Item:
     container_id: str | None = None
     region_id: str | None = None
     ground_position: Position | None = None
+    pinned: bool = False
+    merged_into: str | None = None
 
 
 @dataclass
@@ -204,6 +206,61 @@ class GroupAlert:
     position: Position
     raised_turn: int
     source_id: str
+
+
+@dataclass
+class RouteNode:
+    id: str
+    name: str
+    x: int
+    y: int
+    kind: str
+    description: str
+    region_id: str | None = None
+    known: bool = True
+    market_interest: str = ""
+    supply: int = 0
+    risk: int = 0
+    integrity_required: int = 0
+    seasonal_note: str = ""
+
+
+@dataclass
+class RouteEdge:
+    id: str
+    first: str
+    second: str
+    travel_time: int
+    supply_cost: int
+    cargo_risk: int
+    weather_exposure: int
+    integrity_required: int = 0
+    closed_seasons: list[str] = field(default_factory=list)
+    hazard: str = "ordinary working water"
+
+
+@dataclass
+class ActorSchedule:
+    actor_id: str
+    area: str
+    position: Position
+    activity: str
+    next_boundary: int
+    destination_area: str
+    destination: Position
+    available: bool = True
+    disposition: int = 0
+    last_update: int = 0
+
+
+@dataclass
+class SocialIncident:
+    id: str
+    kind: str
+    participants: list[str]
+    cause: str
+    status: str
+    created_turn: int
 
 
 @dataclass
@@ -283,6 +340,24 @@ class GameState:
     voyage_kind: str | None
     voyage_status: str
     voyage_detail: str
+    jomon_space: str
+    vessel_integrity: int
+    vessel_changes: dict[str, bool | int | str]
+    route_nodes: dict[str, RouteNode]
+    route_edges: list[RouteEdge]
+    route_current_node: str
+    route_known: list[str]
+    traversed_route_edges: list[str]
+    auto_place_enabled: bool
+    actor_schedules: dict[str, ActorSchedule]
+    bartender: Person
+    bartender_stock: dict[str, int]
+    drink_effects: dict[str, TerrainStatus]
+    calendar_origin_day: int
+    calendar_events: list[str]
+    chronicle: list[str]
+    pending_incident: SocialIncident | None
+    last_schedule_turn: int
     history: list[str] = field(default_factory=list)
     messages: list[str] = field(default_factory=list)
     world_ended: bool = False
@@ -441,6 +516,20 @@ def create_world(seed: str) -> GameState:
         regions={}, contacts={}, region_threats={}, regional_markets={},
         travel_count=0, pending_destination=None, voyage_kind=None,
         voyage_status="none", voyage_detail="",
+        jomon_space="vessel", vessel_integrity=10, vessel_changes={},
+        route_nodes={}, route_edges=[], route_current_node="hearthford",
+        route_known=[], traversed_route_edges=[], auto_place_enabled=True,
+        actor_schedules={},
+        bartender=Person(
+            id="bartender-sena", name="Sena Quill", role="bartender",
+            equipment=["cellar key", "measuring cup"], technique="measured pour",
+            relationships={}, background="Keeps Jomon's common room and knows which regional casks travel safely.",
+            build_tendency="material hospitality and firm limits",
+            memories=["Sena took the bar on witnessed household shares."],
+        ),
+        bartender_stock={}, drink_effects={}, calendar_origin_day=0,
+        calendar_events=[], chronicle=[], pending_incident=None,
+        last_schedule_turn=0,
     )
     from .inventory import initialise_inventory
     from .people import initialise_tavern
@@ -459,6 +548,11 @@ def create_world(seed: str) -> GameState:
     state.contacts.update(new_contacts)
     state.region_threats.update(new_threats)
     state.regional_markets.update(new_markets)
+    from .route_chart import initialise_route_chart
+    from .vessel import initialise_living_vessel
+
+    initialise_route_chart(state)
+    initialise_living_vessel(state)
     state.add_message(f"Jomon reaches Hearthford. {region.condition}")
     if relics:
         state.add_message("A finite river-glass ward rests in the household stores.")
@@ -476,7 +570,7 @@ def _position(value: Any, label: str) -> Position:
 def _migrate_v3(data: dict[str, Any]) -> dict[str, Any]:
     """Map the one supported Python development format without losing goods."""
     migrated = copy.deepcopy(data)
-    migrated["save_format"] = SAVE_FORMAT
+    migrated["save_format"] = 4
     migrated["active_region_id"] = "hearthford"
     migrated["items"] = []
     migrated["next_item_id"] = 1
@@ -519,12 +613,62 @@ def _migrate_v3(data: dict[str, Any]) -> dict[str, Any]:
     return migrated
 
 
+def _migrate_v4(data: dict[str, Any]) -> dict[str, Any]:
+    """Add diegetic vessel state without altering format-4 consequences."""
+    migrated = copy.deepcopy(data)
+    migrated["save_format"] = SAVE_FORMAT
+    for item in migrated.get("items", []):
+        item.setdefault("pinned", False)
+        item.setdefault("merged_into", None)
+    migrated.setdefault("jomon_space", "vessel")
+    migrated.setdefault("vessel_integrity", 10)
+    migrated.setdefault("vessel_changes", {})
+    migrated.setdefault("route_nodes", {})
+    migrated.setdefault("route_edges", [])
+    migrated.setdefault("route_current_node", migrated.get("active_region_id", "hearthford"))
+    migrated.setdefault("route_known", [])
+    migrated.setdefault("traversed_route_edges", [])
+    migrated.setdefault("auto_place_enabled", True)
+    migrated.setdefault("actor_schedules", {})
+    migrated.setdefault("bartender_stock", {})
+    migrated.setdefault("drink_effects", {})
+    migrated.setdefault("calendar_origin_day", 0)
+    migrated.setdefault("calendar_events", [])
+    migrated.setdefault("chronicle", list(migrated.get("history", [])[-12:]))
+    migrated.setdefault("pending_incident", None)
+    migrated.setdefault("last_schedule_turn", migrated.get("world_time", 0))
+    migrated.setdefault("bartender", {
+        "id": "bartender-sena", "name": "Sena Quill", "role": "bartender",
+        "equipment": ["cellar key", "measuring cup"],
+        "technique": "measured pour", "relationships": {},
+        "learned_techniques": [], "alive": True, "health": 10,
+        "max_health": 10, "injury": "none", "injuries": {},
+        "background": "Keeps Jomon's common room and knows which regional casks travel safely.",
+        "build_tendency": "material hospitality and firm limits",
+        "home_region": "hearthford", "recruited": False,
+        "available": True,
+        "memories": ["Sena took the bar on witnessed household shares."],
+        "recruitment_terms": "Sena is a household worker, not a recruitable visitor.",
+    })
+    if migrated.get("location") == "jomon":
+        old = migrated.get("position", {"x": 3, "y": 4, "z": 0})
+        migrated["position"] = (
+            {"x": 61, "y": 10, "z": 0}
+            if old.get("x") == 47 and old.get("y") == 8
+            else {"x": 4, "y": 10, "z": 0}
+        )
+    return migrated
+
+
 def game_state_from_dict(data: Any) -> GameState:
     if not isinstance(data, dict):
         raise StateError("save root must be an object")
     migrated_v3 = data.get("save_format") == 3
     if migrated_v3:
         data = _migrate_v3(data)
+    migrated_v4 = data.get("save_format") == 4
+    if migrated_v4:
+        data = _migrate_v4(data)
     if data.get("save_format") != SAVE_FORMAT:
         raise StateError(f"incompatible save format; expected {SAVE_FORMAT}")
     try:
@@ -601,6 +745,19 @@ def game_state_from_dict(data: Any) -> GameState:
             name: GroupAlert(_position(value["position"], "group alert"), value["raised_turn"], value["source_id"])
             for name, value in data.get("group_alerts", {}).items()
         }
+        route_nodes = {
+            key: RouteNode(**value) for key, value in data.get("route_nodes", {}).items()
+        }
+        route_edges = [RouteEdge(**value) for value in data.get("route_edges", [])]
+        actor_schedules = {}
+        for key, raw in data.get("actor_schedules", {}).items():
+            values = dict(raw)
+            values["position"] = _position(values["position"], "scheduled actor")
+            values["destination"] = _position(values["destination"], "schedule destination")
+            actor_schedules[key] = ActorSchedule(**values)
+        pending_incident = None
+        if data.get("pending_incident"):
+            pending_incident = SocialIncident(**data["pending_incident"])
         state = GameState(
             save_format=data["save_format"], seed=data["seed"], world_time=data["world_time"],
             household=household, active_courier_id=data["active_courier_id"], active_region_id=active_region_id, contact=contact,
@@ -639,6 +796,26 @@ def game_state_from_dict(data: Any) -> GameState:
             voyage_kind=data.get("voyage_kind"),
             voyage_status=data.get("voyage_status", "none"),
             voyage_detail=data.get("voyage_detail", ""),
+            jomon_space=data.get("jomon_space", "vessel"),
+            vessel_integrity=data.get("vessel_integrity", 10),
+            vessel_changes=dict(data.get("vessel_changes", {})),
+            route_nodes=route_nodes, route_edges=route_edges,
+            route_current_node=data.get("route_current_node", active_region_id),
+            route_known=list(data.get("route_known", [])),
+            traversed_route_edges=list(data.get("traversed_route_edges", [])),
+            auto_place_enabled=data.get("auto_place_enabled", True),
+            actor_schedules=actor_schedules,
+            bartender=Person(**data["bartender"]),
+            bartender_stock=dict(data.get("bartender_stock", {})),
+            drink_effects={
+                name: TerrainStatus(**value)
+                for name, value in data.get("drink_effects", {}).items()
+            },
+            calendar_origin_day=data.get("calendar_origin_day", 0),
+            calendar_events=list(data.get("calendar_events", [])),
+            chronicle=list(data.get("chronicle", [])),
+            pending_incident=pending_incident,
+            last_schedule_turn=data.get("last_schedule_turn", data["world_time"]),
             history=list(data["history"]), messages=list(data["messages"]), world_ended=data["world_ended"],
         )
         if migrated_v3:
@@ -653,6 +830,12 @@ def game_state_from_dict(data: Any) -> GameState:
             from .people import initialise_tavern
 
             initialise_tavern(state)
+        if migrated_v4 or not state.route_nodes or not state.actor_schedules:
+            from .route_chart import initialise_route_chart
+            from .vessel import initialise_living_vessel
+
+            initialise_route_chart(state)
+            initialise_living_vessel(state, migrated=migrated_v4)
         if set(state.regions) != {"hearthford", "greywash", "greenwold", "whitecairn"}:
             from .regions import build_new_regions
 
@@ -679,11 +862,11 @@ def validate_state(state: GameState) -> None:
         raise StateError("invalid Jomon berth occupancy")
     if len(set(state.tavern_positions.values())) != len(state.tavern_positions):
         raise StateError("two tavern occupants share one position")
-    from .content import JOMON_MAP
+    from .vessel import TAVERN_MAP, VESSEL_LEVELS, validate_living_vessel
 
     if any(
         person_id not in {person.id for person in all_people}
-        or not (0 <= point.y < len(JOMON_MAP) and 0 <= point.x < len(JOMON_MAP[point.y]))
+        or not (0 <= point.y < len(TAVERN_MAP) and 0 <= point.x < len(TAVERN_MAP[point.y]))
         for person_id, point in state.tavern_positions.items()
     ):
         raise StateError("invalid tavern occupant position")
@@ -691,7 +874,13 @@ def validate_state(state: GameState) -> None:
         raise StateError("save commodity catalogue is incomplete")
     if state.location not in {"jomon", "region"}:
         raise StateError("invalid location")
-    if state.pending_destination is not None and state.pending_destination not in state.regions:
+    if state.jomon_space not in {"vessel", "tavern"}:
+        raise StateError("invalid Jomon space")
+    if state.location == "jomon" and state.jomon_space == "vessel":
+        rows = VESSEL_LEVELS.get(state.position.z)
+        if rows is None or not (0 <= state.position.y < len(rows) and 0 <= state.position.x < len(rows[state.position.y])):
+            raise StateError("invalid vessel position")
+    if state.pending_destination is not None and state.pending_destination not in state.route_nodes:
         raise StateError("invalid pending destination")
     if state.voyage_kind not in {None, "raiders", "creature", "lure"} or state.voyage_status not in {"none", "active", "resolved"}:
         raise StateError("invalid voyage state")
@@ -717,6 +906,15 @@ def validate_state(state: GameState) -> None:
         raise StateError(str(exc)) from exc
     if state.world_time < 0 or state.pressure_elapsed < 0 or state.noise < 0:
         raise StateError("negative clocks are invalid")
+    if state.vessel_integrity < 0 or state.calendar_origin_day < 0:
+        raise StateError("invalid vessel or calendar state")
+    try:
+        from .route_chart import validate_route_chart
+
+        validate_route_chart(state)
+        validate_living_vessel(state)
+    except ValueError as exc:
+        raise StateError(str(exc)) from exc
     if len(state.history) > HISTORY_LIMIT or len(state.messages) > MESSAGE_LIMIT:
         raise StateError("bounded history exceeded")
     if set(state.region.levels) != {"-1", "0", "1", "2"}:

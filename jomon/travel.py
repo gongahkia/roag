@@ -1,12 +1,51 @@
-"""Bounded regional travel and three sporadic aboard-Jomon encounters."""
+"""Bounded route-leg travel and three sporadic aboard-Jomon encounters."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from .regions import activate_region, store_active_region
 from .state import GameState, stage_rng
+from .route_chart import edge_between, route_availability
 
 
 DESTINATIONS = ("hearthford", "greywash", "greenwold", "whitecairn")
+
+
+@dataclass(frozen=True)
+class TravelFrame:
+    step: int
+    total: int
+    x: int
+    y: int
+    wake: str
+    text: str
+    interrupted: bool = False
+
+
+def travel_animation_frames(
+    state: GameState,
+    origin: str,
+    destination: str,
+    *,
+    interrupted: bool = False,
+) -> list[TravelFrame]:
+    """Return presentation frames without mutating the world or reading a clock."""
+    first, second = state.route_nodes[origin], state.route_nodes[destination]
+    count = max(4, min(8, max(abs(second.x - first.x), abs(second.y - first.y)) // 3))
+    frames = []
+    for step in range(count + 1):
+        x = round(first.x + (second.x - first.x) * step / count)
+        y = round(first.y + (second.y - first.y) * step / count)
+        paused = interrupted and step == max(1, count // 2)
+        frames.append(TravelFrame(
+            step, count, x, y, "~" * min(3, step),
+            f"Jomon {'departs '+first.name if step == 0 else 'reaches '+second.name if step == count else 'works the '+(edge_between(state, origin, destination).hazard if edge_between(state, origin, destination) else 'route')}",
+            paused,
+        ))
+        if paused:
+            break
+    return frames
 
 
 def voyage_for(
@@ -20,10 +59,12 @@ def voyage_for(
         if forced not in {"raiders", "creature", "lure"}:
             raise ValueError("unknown forced voyage family")
         return forced
-    stage = f"voyage:{state.travel_count + 1}:{state.active_region_id}:{destination}:{state.weather}"
+    edge = edge_between(state, state.route_current_node, destination)
+    exposure = edge.cargo_risk + edge.weather_exposure if edge else 2
+    stage = f"voyage:{state.travel_count + 1}:{state.route_current_node}:{destination}:{state.weather}"
     rng = stage_rng(state.seed, stage)
-    chance = 2 + min(3, sum(stack.quantity for stack in state.vessel_cargo.values()) // 4)
-    if rng.randrange(10) >= chance:
+    chance = 1 + min(3, sum(stack.quantity for stack in state.vessel_cargo.values()) // 4) + exposure // 3
+    if rng.randrange(12) >= chance:
         return None
     # The lure is intentionally rare; the other families share ordinary voyages.
     roll = rng.randrange(12)
@@ -36,17 +77,29 @@ def choose_destination(
     *,
     forced_voyage: str | None = None,
 ) -> tuple[bool, str]:
-    if state.location != "jomon" or destination not in state.regions:
+    """Compatibility name: normal play now confirms one adjacent route leg."""
+    if state.location != "jomon" or destination not in state.route_nodes:
         return False, "That destination cannot be set from here."
     if state.voyage_status == "active":
         return False, "Resolve the current voyage danger before changing course."
-    if destination == state.active_region_id:
-        return False, f"Jomon is already moored for {state.region.name}."
+    if destination == state.route_current_node:
+        return False, f"Jomon is already at {state.route_nodes[destination].name}."
+    available, reason = route_availability(state, destination)
+    if not available:
+        return False, reason
+    edge = edge_between(state, state.route_current_node, destination)
+    assert edge is not None
     store_active_region(state)
     event = voyage_for(state, destination, forced=forced_voyage)
     state.travel_count += 1
-    state.world_time += 6
+    from .actions import _advance_world
+
+    _advance_world(state, steps=edge.travel_time)
     state.pending_destination = destination
+    if edge.supply_cost >= 2 and state.vessel_cargo.get("grain"):
+        state.vessel_cargo["grain"].quantity -= 1
+        if state.vessel_cargo["grain"].quantity <= 0:
+            del state.vessel_cargo["grain"]
     if event:
         state.voyage_kind = event
         state.voyage_status = "active"
@@ -58,19 +111,39 @@ def choose_destination(
         state.add_message(state.voyage_detail, priority=3)
         return True, state.voyage_detail
     _finish_travel(state, "The voyage remains watchful but uneventful.")
-    return True, f"Jomon reaches {state.region.name} after six action-clock measures."
+    return True, f"Jomon reaches {state.route_nodes[destination].name} after {edge.travel_time} action-clock measures."
 
 
 def _finish_travel(state: GameState, consequence: str) -> None:
     destination = state.pending_destination
     if destination is None:
         return
-    activate_region(state, destination)
+    origin = state.route_current_node
+    edge = edge_between(state, origin, destination)
+    state.route_current_node = destination
+    if destination not in state.route_known:
+        state.route_known.append(destination)
+        state.route_known.sort()
+    if edge and edge.id not in state.traversed_route_edges:
+        state.traversed_route_edges.append(edge.id)
+    node = state.route_nodes[destination]
+    if node.region_id:
+        activate_region(state, node.region_id)
+        state.vessel_changes.pop("intermediate_mooring", None)
+    else:
+        state.vessel_changes["intermediate_mooring"] = destination
+        visits = int(state.vessel_changes.get(f"visits:{destination}", 0)) + 1
+        state.vessel_changes[f"visits:{destination}"] = visits
+        if node.supply and visits == 1:
+            from .state import CommodityStack
+
+            grain = state.vessel_cargo.setdefault("grain", CommodityStack(0, "dry"))
+            grain.quantity += 1
     state.pending_destination = None
     state.voyage_status = "resolved" if state.voyage_kind else "none"
     state.voyage_detail = consequence
-    state.remember(f"Voyage to {state.region.name}: {consequence}")
-    state.add_message(f"{consequence} Jomon makes {state.region.name}.", priority=3)
+    state.remember(f"Voyage to {node.name}: {consequence}")
+    state.add_message(f"{consequence} Jomon makes {node.name}.", priority=3)
 
 
 def _lose_vessel_cargo(state: GameState) -> str:
@@ -129,11 +202,15 @@ def resolve_voyage(state: GameState, response: str) -> tuple[bool, str]:
             success, consequence = True, "lead line and chart hold a material course through the lure"
         else:
             consequence = "the lure costs six more action-clock measures and leaves the courier disoriented"
-            state.world_time += 6
+            from .actions import _advance_world
+
+            _advance_world(state, steps=6)
             if state.courier:
                 state.courier.injury = "ringing head"
                 state.courier.injuries["head"] = "ringing head"
-    state.world_time += 1
+    from .actions import _advance_world
+
+    _advance_world(state)
     state.voyage_status = "resolved"
     family = state.voyage_kind
     _finish_travel(state, consequence)

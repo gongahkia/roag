@@ -4,18 +4,9 @@ from __future__ import annotations
 
 from .content import RECRUIT_TEMPLATES
 from .state import GameState, Person, Position, stage_rng
+from .vessel import HOUSEHOLD_SEATS, VISITOR_SEATS, current_area
 
 BERTH_CAPACITY = 9
-
-HOUSEHOLD_SEATS = (
-    Position(32, 3), Position(40, 3), Position(32, 5),
-    Position(40, 5), Position(32, 7), Position(40, 7),
-)
-VISITOR_SEATS = (
-    Position(24, 9), Position(32, 9), Position(40, 9),
-    Position(24, 11), Position(32, 11), Position(40, 11),
-)
-
 
 def create_visitors(seed: str) -> list[Person]:
     visitors: list[Person] = []
@@ -64,19 +55,28 @@ def person_by_id(state: GameState, person_id: str) -> Person | None:
 
 
 def person_at(state: GameState, position: Position) -> Person | None:
-    occupant_id = next((person_id for person_id, point in state.tavern_positions.items() if point == position), None)
+    area = current_area(state)
+    occupant_id = next(
+        (
+            schedule.actor_id for schedule in state.actor_schedules.values()
+            if schedule.area == area and schedule.position == position
+            and schedule.actor_id != state.active_courier_id
+        ),
+        None,
+    ) if state.actor_schedules else next(
+        (person_id for person_id, point in state.tavern_positions.items() if point == position), None
+    )
     return person_by_id(state, occupant_id) if occupant_id else None
 
 
 def adjacent_person(state: GameState) -> Person | None:
-    candidates = [
-        person for person in tavern_people(state)
-        if person.id in state.tavern_positions
-        and max(
-            abs(state.tavern_positions[person.id].x - state.position.x),
-            abs(state.tavern_positions[person.id].y - state.position.y),
-        ) <= 1
-    ]
+    area = current_area(state)
+    candidates = []
+    for person in tavern_people(state):
+        schedule = state.actor_schedules.get(person.id)
+        point = schedule.position if schedule and schedule.area == area else state.tavern_positions.get(person.id)
+        if point and point.z == state.position.z and max(abs(point.x - state.position.x), abs(point.y - state.position.y)) <= 1:
+            candidates.append(person)
     return sorted(candidates, key=lambda person: person.id)[0] if candidates else None
 
 
@@ -99,6 +99,8 @@ def recruit_visitor(state: GameState, person_id: str) -> tuple[bool, str]:
     state.visitor_status[person_id] = "joined"
     visitor.memories.append(f"{visitor.name} voluntarily joined Jomon after witnessed terms.")
     state.remember(visitor.memories[-1])
+    if visitor.id in state.actor_schedules:
+        state.actor_schedules[visitor.id].activity = "socialising"
     return True, f"{visitor.name} accepts a berth aboard Jomon."
 
 
@@ -118,6 +120,11 @@ def unlock_region_visitors(state: GameState, region_id: str) -> list[str]:
         state.visitor_status[visitor.id] = "visiting"
         preferred = VISITOR_SEATS[index]
         state.tavern_positions[visitor.id] = preferred if preferred not in used else next(point for point in VISITOR_SEATS if point not in used)
+        schedule = state.actor_schedules.get(visitor.id)
+        if schedule:
+            schedule.area = schedule.destination_area = "tavern"
+            schedule.position = schedule.destination = state.tavern_positions[visitor.id]
+            schedule.activity = "waiting"
         used.add(state.tavern_positions[visitor.id])
         messages.append(f"{visitor.name}, {visitor.role}, is now visiting Jomon's tavern.")
     return messages

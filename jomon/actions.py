@@ -48,6 +48,15 @@ from .world import (
     vertical_destination,
     vertical_open,
 )
+from .calendar import record_calendar_crossings
+from .vessel import (
+    TAVERN_ENTRANCE,
+    TAVERN_EXIT,
+    advance_living_world,
+    buy_drink,
+    current_area,
+    resolve_social_incident,
+)
 
 
 @dataclass(frozen=True)
@@ -95,11 +104,18 @@ def choose_courier(state: GameState, person_id: str) -> ActionResult:
     if state.location != "jomon" or person is None or not person.alive:
         return _plain(state, "That household member cannot serve as courier.")
     previous_id = state.active_courier_id
-    seat = state.tavern_positions.pop(person.id, state.position)
+    old_position = state.position
+    schedule = state.actor_schedules.get(person.id)
+    seat = schedule.position if schedule and schedule.area == "tavern" else state.tavern_positions.pop(person.id, state.position)
     if previous_id and previous_id != person.id:
-        state.tavern_positions[previous_id] = state.position
+        state.tavern_positions[previous_id] = old_position
+        previous = state.actor_schedules.get(previous_id)
+        if previous:
+            previous.area = previous.destination_area = "tavern"
+            previous.position = previous.destination = old_position
     state.active_courier_id = person.id
     state.position = seat
+    state.jomon_space = "tavern"
     readied = equipped_item(state, "readied", person.id)
     secondary = equipped_item(state, "secondary", person.id)
     state.weapon = readied.kind if readied else None
@@ -788,7 +804,10 @@ def _advance_world(
 ) -> None:
     old_band = pressure(state).band
     for tick in range(steps):
+        previous_time = state.world_time
         state.world_time += 1
+        record_calendar_crossings(state, previous_time)
+        advance_living_world(state)
         if state.location != "region":
             continue
         state.pressure_elapsed += 1
@@ -1131,7 +1150,9 @@ def _open_container(state: GameState) -> ActionResult:
         )
         physical.container_id = container.id
         container.item_ids.append(physical.id)
-        fits_pack = transfer_to_grid(state, physical.id, "pack", owner_id=state.active_courier_id)
+        fits_pack = state.auto_place_enabled and auto_place(
+            state, physical.id, "pack", owner_id=state.active_courier_id
+        )
         if fits_pack:
             container.item_ids.remove(physical.id)
             if reward in PASSIVES:
@@ -1264,16 +1285,38 @@ def interact(state: GameState) -> ActionResult:
         person = adjacent_person(state)
         if person:
             return ActionResult(False, False, f"Speak with {person.name}.", f"person:{person.id}")
+        bartender_schedule = state.actor_schedules.get(state.bartender.id)
+        if (
+            bartender_schedule
+            and bartender_schedule.area == current_area(state)
+            and max(
+                abs(bartender_schedule.position.x - state.position.x),
+                abs(bartender_schedule.position.y - state.position.y),
+            ) <= 1
+        ):
+            return ActionResult(False, False, f"Speak with {state.bartender.name}.", "bartender")
+        if state.jomon_space == "tavern" and tile == "+":
+            state.jomon_space = "vessel"
+            state.position = Position(TAVERN_ENTRANCE.x - 1, TAVERN_ENTRANCE.y, 0)
+            return _plain(state, "You step from the common tavern onto Jomon's working deck.", changed=True)
+        if state.jomon_space == "vessel":
+            destination = vertical_destination(state, state.position)
+            if destination:
+                direction = "ladder down" if destination.z < state.position.z else "stair up"
+                state.position = destination
+                return _plain(state, f"You use Jomon's {direction} between aligned decks.", changed=True)
         if tile == "+":
             return depart(state)
         if tile == "C":
-            return ActionResult(False, False, "Review support at the tavern bar.", "tavern")
+            state.jomon_space = "tavern"
+            state.position = Position(TAVERN_EXIT.x + 1, TAVERN_EXIT.y, 0)
+            return _plain(state, "You enter Jomon's dedicated common tavern.", changed=True)
         if tile == "P":
             return ActionResult(
                 False,
                 False,
                 "Resolve the voyage danger." if state.voyage_status == "active" else "Set Jomon's next regional destination.",
-                "voyage" if state.voyage_status == "active" else "destination",
+                "voyage" if state.voyage_status == "active" else "route-chart",
             )
         if tile == "L":
             return ActionResult(False, False, "Stores are readouts.", "equipment")
@@ -1283,6 +1326,8 @@ def interact(state: GameState) -> ActionResult:
             return ActionResult(False, False, "The deck merchant opens three lots.", "merchant")
         if tile in {"T", "b", "s"}:
             return ActionResult(False, False, "Inspect the household.", "household")
+        if tile == "K":
+            return ActionResult(False, False, "Read Jomon's bounded vessel chronicle.", "chronicle")
         return _plain(state, "Nothing here needs handling.")
     if state.position == state.region.landmarks["landing"]:
         return return_to_jomon(state)
@@ -2006,6 +2051,7 @@ def return_to_jomon(state: GameState) -> ActionResult:
         None,
         JOMON_GANGPLANK,
     )
+    state.jomon_space = "vessel"
     state.returned_expeditions += 1
     state.merchant_present = merchant_visit_due(
         state.seed, state.returned_expeditions
@@ -2024,3 +2070,21 @@ def return_to_jomon(state: GameState) -> ActionResult:
         f"persist.{merchant}{visitor_text}",
         priority=3,
     )
+
+
+def purchase_bar_drink(state: GameState, drink_id: str, *, bottle: bool) -> ActionResult:
+    if state.location != "jomon" or state.jomon_space != "tavern":
+        return _plain(state, "Drinks are served face to face at Jomon's bar.")
+    changed, message = buy_drink(state, drink_id, bottle=bottle)
+    if not changed:
+        return _plain(state, message)
+    return _time_result(state, message, priority=3)
+
+
+def intervene_socially(state: GameState, response: str) -> ActionResult:
+    if state.location != "jomon" or state.jomon_space != "tavern":
+        return _plain(state, "Intervention requires the physical tavern.")
+    changed, message = resolve_social_incident(state, response)
+    if not changed:
+        return _plain(state, message)
+    return _time_result(state, message, priority=3)

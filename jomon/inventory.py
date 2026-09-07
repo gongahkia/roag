@@ -36,6 +36,16 @@ class ItemSpec:
     tags: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class PlacementPreview:
+    cells: frozenset[tuple[int, int]]
+    valid: bool
+    reason: str
+    blockers: tuple[str, ...]
+    resulting_weight: int
+    resulting_load: str
+
+
 def _armour(
     name: str,
     abbreviation: str,
@@ -207,6 +217,92 @@ def first_fit(
     return None
 
 
+def placement_preview(
+    state: GameState,
+    item: Item,
+    location: str,
+    x: int,
+    y: int,
+    *,
+    rotated: bool | None = None,
+    owner_id: str | None = None,
+) -> PlacementPreview:
+    candidate = replace(
+        item, location=location, x=x, y=y,
+        rotated=item.rotated if rotated is None else rotated,
+        owner_id=owner_id if location == "pack" else None,
+    )
+    width, height = grid_size(state, location)
+    cells = occupied_cells(candidate)
+    outside = any(cx < 0 or cy < 0 or cx >= width or cy >= height for cx, cy in cells)
+    blockers = tuple(sorted(
+        other.id for other in grid_items(state, location, owner_id=owner_id, exclude=item.id)
+        if cells & occupied_cells(other)
+    ))
+    valid = bool(cells) and not outside and not blockers
+    reason = "valid placement" if valid else "out of bounds" if outside else "blocked by " + ", ".join(blockers)
+    current_owner_weight = pack_weight(state, owner_id) if owner_id else 0
+    already_carried = item.owner_id == owner_id and item.location in {"pack", *EQUIPPED_LOCATIONS}
+    resulting = current_owner_weight + (0 if already_carried else item_spec(item.kind).weight * item.quantity)
+    capacity = weight_capacity(state) if owner_id == state.active_courier_id else 28
+    resulting_load = load_band(resulting, capacity)
+    return PlacementPreview(frozenset(cells), valid, reason, blockers, resulting, resulting_load)
+
+
+def _largest_free_area(width: int, height: int, occupied: set[tuple[int, int]]) -> int:
+    remaining = {(x, y) for y in range(height) for x in range(width)} - occupied
+    largest = 0
+    while remaining:
+        seed = min(remaining, key=lambda point: (point[1], point[0]))
+        stack, component = [seed], {seed}
+        remaining.remove(seed)
+        while stack:
+            x, y = stack.pop()
+            for point in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+                if point in remaining:
+                    remaining.remove(point)
+                    component.add(point)
+                    stack.append(point)
+        largest = max(largest, len(component))
+    return largest
+
+
+def best_fit(
+    state: GameState,
+    item: Item,
+    location: str,
+    *,
+    owner_id: str | None = None,
+) -> tuple[int, int, bool] | None:
+    """Preserve useful contiguous space with deterministic category grouping."""
+    width, height = grid_size(state, location)
+    peers = grid_items(state, location, owner_id=owner_id, exclude=item.id)
+    base_occupied = set().union(*(occupied_cells(other) for other in peers)) if peers else set()
+    category = item_spec(item.kind).category
+    orientations = (item.rotated,) if item_spec(item.kind).width == item_spec(item.kind).height else (item.rotated, not item.rotated)
+    candidates: list[tuple[tuple[int, ...], tuple[int, int, bool]]] = []
+    for rotated in orientations:
+        for y in range(height):
+            for x in range(width):
+                preview = placement_preview(state, item, location, x, y, rotated=rotated, owner_id=owner_id)
+                if not preview.valid:
+                    continue
+                occupied = base_occupied | set(preview.cells)
+                adjacent = 0
+                for other in peers:
+                    if item_spec(other.kind).category != category:
+                        continue
+                    other_cells = occupied_cells(other)
+                    adjacent += sum(
+                        1 for cx, cy in preview.cells
+                        if any((cx + dx, cy + dy) in other_cells for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)))
+                    )
+                unmoved = int(not (item.location == location and item.x == x and item.y == y and item.rotated == rotated))
+                score = (-_largest_free_area(width, height, occupied), -adjacent, unmoved, y, x, int(rotated))
+                candidates.append((score, (x, y, rotated)))
+    return min(candidates)[1] if candidates else None
+
+
 def place_item(
     state: GameState,
     item_id: str,
@@ -237,8 +333,123 @@ def auto_place(
     owner_id: str | None = None,
 ) -> bool:
     item = next(item for item in state.items if item.id == item_id)
-    fit = first_fit(state, item, location, owner_id=owner_id)
+    fit = best_fit(state, item, location, owner_id=owner_id)
     return bool(fit and place_item(state, item_id, location, fit[0], fit[1], rotated=fit[2], owner_id=owner_id))
+
+
+def combine_stacks(
+    state: GameState,
+    location: str,
+    *,
+    owner_id: str | None = None,
+    movable_ids: set[str] | None = None,
+) -> None:
+    items = sorted(grid_items(state, location, owner_id=owner_id), key=lambda item: item.id)
+    for destination in items:
+        if destination.pinned or destination.location != location:
+            continue
+        limit = item_spec(destination.kind).stack_limit
+        if limit <= 1 or destination.quantity >= limit:
+            continue
+        for source in items:
+            if source.id == destination.id or source.location != location or source.kind != destination.kind or source.pinned:
+                continue
+            if movable_ids is not None and (source.id not in movable_ids or destination.id not in movable_ids):
+                continue
+            moved = min(limit - destination.quantity, source.quantity)
+            if moved <= 0:
+                continue
+            destination.quantity += moved
+            source.quantity -= moved
+            if source.quantity == 0:
+                source.location = "destroyed"
+                source.owner_id = None
+                source.merged_into = destination.id
+            if destination.quantity == limit:
+                break
+
+
+def auto_pack(
+    state: GameState,
+    location: str,
+    *,
+    owner_id: str | None = None,
+    selected_ids: set[str] | None = None,
+) -> bool:
+    """Commit a complete deterministic layout or restore the exact original."""
+    snapshot = copy.deepcopy(state.items)
+    try:
+        selected = set(selected_ids) if selected_ids is not None else None
+        combine_stacks(state, location, owner_id=owner_id, movable_ids=selected)
+        movable = [
+            item for item in grid_items(state, location, owner_id=owner_id)
+            if not item.pinned and (selected is None or item.id in selected)
+        ]
+        movable.sort(key=lambda item: (
+            -item_spec(item.kind).width * item_spec(item.kind).height,
+            -max(item_spec(item.kind).width, item_spec(item.kind).height),
+            item_spec(item.kind).category,
+            item.id,
+        ))
+        for item in movable:
+            item.location = "lost"
+        for item in movable:
+            fit = best_fit(state, item, location, owner_id=owner_id)
+            if not fit or not place_item(state, item.id, location, fit[0], fit[1], rotated=fit[2], owner_id=owner_id):
+                raise ValueError("no complete arrangement")
+        return True
+    except (KeyError, ValueError):
+        state.items = snapshot
+        return False
+
+
+def pin_item(state: GameState, item_id: str, pinned: bool | None = None) -> bool:
+    item = next((item for item in state.items if item.id == item_id), None)
+    if item is None or item.location not in {"pack", "locker"}:
+        return False
+    item.pinned = not item.pinned if pinned is None else pinned
+    return True
+
+
+def item_preview(kind: str) -> tuple[str, str, str]:
+    """Compact item art supplied by physical category and authored weapon form."""
+    weapon_art = {
+        "billhook": ("   _/", "--/  ", " /   "),
+        "spear": ("  /\\ ", " /  ", "/   "),
+        "cudgel": (" [#] ", "  |  ", "  |  "),
+        "staff": ("  /  ", " /   ", "/    "),
+        "hand axe": (" /== ", "  |  ", "  |  "),
+        "crossbow": ("\\=|=/", "  |  ", " / \\ "),
+        "longbow": (")--- ", ")    ", ")--- "),
+        "sling": (" o   ", "  \\  ", "   \\ "),
+        "heavy crossbow": ("\\===|===/", "    |    ", "   / \\   "),
+        "pike": ("----->", "      ", "      "),
+        "paired knives": (" /\\  ", " ||  ", " \\/  "),
+        "javelins": ("///> ", "///> ", "///> "),
+        "war hammer": ("[===]", "  |  ", "  |  "),
+        "weighted net": ("#-#-#", "-#-#-", " # \\ "),
+    }
+    if kind in weapon_art:
+        return weapon_art[kind]
+    spec = item_spec(kind)
+    if spec.category == "armour":
+        return {
+            "head": (" /---\\ ", "|  o  |", " \\___/ "),
+            "torso": (" /| |\\ ", "| === |", " \\___/ "),
+            "arms": ("==| |==", "  | |  ", "       "),
+            "hands": ("[ ] [ ]", " |   | ", "       "),
+            "legs": (" |   | ", " |   | ", "/     \\"),
+            "feet": ("       ", "       ", "[_] [_]"),
+        }[spec.slot or "torso"]
+    if spec.category == "relic":
+        return (" .-*-.", "(  ?  )", " `---'")
+    if spec.category == "gear":
+        return ("+-----+", f"| {spec.abbreviation:^3} |", "+-----+")
+    if spec.category == "cargo":
+        return ("+====+", f"| {spec.abbreviation:^2} |", "+====+")
+    if spec.category == "passive":
+        return (" .---.", f"( {spec.abbreviation:^2} )", " '---'")
+    return ("  __  ", f" /{spec.abbreviation:^2}\\ ", " \\__/ ")
 
 
 def rotate_item(state: GameState, item_id: str) -> bool:
@@ -533,7 +744,10 @@ def weight_capacity(state: GameState) -> int:
 
 
 def load_state(state: GameState) -> str:
-    weight, limit = pack_weight(state), max(1, weight_capacity(state))
+    return load_band(pack_weight(state), max(1, weight_capacity(state)))
+
+
+def load_band(weight: int, limit: int) -> str:
     if weight * 2 <= limit:
         return "light"
     if weight * 4 <= limit * 3:
@@ -603,7 +817,8 @@ def terrain_status_for(state: GameState, tile: str) -> tuple[str, str, int, str]
     tags = worn_tags(state)
     burden = load_state(state)
     if tile == "m" and "mudproof" not in tags:
-        return "bogged", "deep mud", 3, "movement is slower; evasion and retreat worsen"
+        turns = 1 if "reed-tonic" in state.drink_effects else 3
+        return "bogged", "deep mud", turns, "movement is slower; evasion and retreat worsen"
     if tile in {",", "~"} and "weatherproof" not in tags:
         return "wet", "floodwater", 6, "heavy armour weighs more and cold exposure grows"
     if tile == "r" and "scree-grip" not in tags:
@@ -612,7 +827,7 @@ def terrain_status_for(state: GameState, tile: str) -> tuple[str, str, int, str]
         return "cut-feet", "sharp limestone", 4, "foot injury risk and movement noise increase"
     if tile == "t" and not {"thornproof"} <= tags:
         return "thorn-scratched", "dense thorn growth", 4, "exposed limbs hinder guard and quiet passage"
-    if tile == "s" and "smoke-filter" not in tags and "face-cover" not in tags:
+    if tile == "s" and "smoke-filter" not in tags and "face-cover" not in tags and "smokeleaf-infusion" not in state.drink_effects:
         return "smoke-inhalation", "rising smoke", 4, "sight and endurance are reduced"
     if tile == ":" and "saltproof" not in tags:
         return "salt-grit", "windblown salt", 4, "aim and exposed hands are impaired"
@@ -627,9 +842,20 @@ def apply_terrain_status(state: GameState, tile: str) -> str:
     if not result:
         return ""
     name, cause, turns, consequence = result
+    messages = []
     if add_status(state, name, cause, turns, consequence):
-        return f"{name.replace('-', ' ').title()} from {cause}: {consequence}."
-    return ""
+        messages.append(f"{name.replace('-', ' ').title()} from {cause}: {consequence}.")
+    if tile in {",", "~", "w"}:
+        from .calendar import calendar_at
+
+        if (
+            calendar_at(state).season == "winter"
+            and "warm" not in worn_tags(state)
+            and "winter-juniper" not in state.drink_effects
+            and add_status(state, "chilled", "winter water", 8, "aim, treatment, and recovery are slower")
+        ):
+            messages.append("Winter water chills exposed clothing; aim and recovery slow.")
+    return " ".join(messages)
 
 
 def validate_inventory(state: GameState) -> None:

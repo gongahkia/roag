@@ -21,14 +21,17 @@ from .actions import (
     move,
     negotiate,
     purchase_merchant_item,
+    purchase_bar_drink,
     recruit_person,
     defer_recruit,
+    intervene_socially,
     retreat,
     use_gear,
 )
 from .inventory import (
     BODY_SLOTS,
     InventoryTransaction,
+    auto_pack,
     auto_place,
     can_place,
     drop_item,
@@ -37,9 +40,12 @@ from .inventory import (
     grid_items,
     grid_size,
     item_spec,
+    item_preview,
     load_state,
     occupied_cells,
     pack_weight,
+    pin_item,
+    placement_preview,
     place_item,
     record_acquisition,
     rotate_item,
@@ -60,7 +66,10 @@ from .content import (
 )
 from .save import SaveError, save_game
 from .state import GameState, Position, Threat
-from .travel import DESTINATIONS, choose_destination, resolve_voyage
+from .travel import choose_destination, resolve_voyage, travel_animation_frames
+from .route_chart import chart_move, neighbours, route_availability, route_preview
+from .calendar import calendar_at
+from .vessel import DRINKS, current_area
 from .world import (
     area_name,
     build_combinations,
@@ -101,10 +110,69 @@ class InventoryView:
     cursor_x: int = 0
     cursor_y: int = 0
     held_id: str | None = None
+    selected_ids: set[str] | None = None
+    pending_drop: bool = False
+    status: str = ""
+    paper_slot: int = 0
+    grid_origin: tuple[int, int] = (2, 3)
 
     @classmethod
     def begin(cls, state: GameState, source: str | None = None) -> "InventoryView":
-        return cls(InventoryTransaction.begin(state), source=source)
+        return cls(InventoryTransaction.begin(state), source=source, selected_ids=set())
+
+
+@dataclass
+class RouteChartView:
+    cursor: str
+    overlay_mode: int = 0
+    confirming: bool = False
+    node_screen: dict[str, tuple[int, int]] | None = None
+
+    @classmethod
+    def begin(cls, state: GameState) -> "RouteChartView":
+        return cls(state.route_current_node, node_screen={})
+
+
+@dataclass(frozen=True)
+class InputEvent:
+    kind: str
+    key: int = -1
+    x: int = -1
+    y: int = -1
+    button: str = ""
+    shift: bool = False
+    double: bool = False
+
+
+def normalise_input(key: int, mouse_reader=None) -> InputEvent:
+    """Translate optional curses mouse bits without making mouse mandatory."""
+    if key != getattr(curses, "KEY_MOUSE", -999):
+        return InputEvent("key", key=key)
+    reader = mouse_reader or curses.getmouse
+    try:
+        _, x, y, _, state = reader()
+    except (curses.error, TypeError, ValueError):
+        return InputEvent("unsupported-mouse", key=key)
+    shift = bool(state & getattr(curses, "BUTTON_SHIFT", 0))
+    mapping = (
+        ("left", "BUTTON1_CLICKED", False), ("left", "BUTTON1_PRESSED", False),
+        ("left", "BUTTON1_DOUBLE_CLICKED", True), ("right", "BUTTON3_CLICKED", False),
+        ("wheel-up", "BUTTON4_PRESSED", False), ("wheel-down", "BUTTON5_PRESSED", False),
+    )
+    for button, constant, double in mapping:
+        if state & getattr(curses, constant, 0):
+            return InputEvent("mouse", x=x, y=y, button=button, shift=shift, double=double)
+    return InputEvent("mouse", x=x, y=y, button="motion", shift=shift)
+
+
+def _enable_mouse() -> bool:
+    try:
+        mask = curses.ALL_MOUSE_EVENTS | getattr(curses, "REPORT_MOUSE_POSITION", 0)
+        available, _ = curses.mousemask(mask)
+        curses.mouseinterval(180)
+        return bool(available)
+    except curses.error:
+        return False
 
 
 def semantic_colour_plan(colour_count: int, pair_count: int) -> dict[str, ColourStyle]:
@@ -132,11 +200,11 @@ def semantic_role(glyph: str, *, aboard: bool = False) -> str:
         return "player"
     if glyph == "a" or (aboard and glyph in {"T", "b"}):
         return "ally"
-    if aboard and glyph == "v":
+    if aboard and glyph in {"v", "B"}:
         return "neutral"
-    if aboard and glyph in {"=", "t"}:
+    if aboard and glyph in {"=", "t", "_", "F", "f"}:
         return "structure"
-    if aboard and glyph == "s":
+    if aboard and glyph in {"s", "G", "K", "N", "O", "S", "W"}:
         return "interactable"
     if glyph in {"M", "c", "$"}:
         return "neutral"
@@ -311,11 +379,12 @@ def _status_lines(state: GameState) -> list[str]:
         f"Health {health}; {injury}",
         f"{state.weapon or '-'} / {state.gear or '-'}",
         f"Technique: {_clip(technique, 16)}",
+        f"Date {calendar_at(state).season} {calendar_at(state).day}; {calendar_at(state).time_of_day}",
         "PRESSURE",
         f"Time {p.elapsed}; depth {p.depth}",
         f"Noise {p.noise}; value {p.valuables}",
         f"{p.band} {p.score}; {state.weather}",
-        state.active_region_id.upper(),
+        state.active_region_id.upper() if state.location == "region" else _clip(state.route_nodes.get(state.route_current_node).name if state.route_nodes else state.active_region_id, 25),
         f"{level_text}; {state.objective_status}",
         f"{state.region.objective_commodity}: {market.stock}/{market.demand}",
         f"Load {pack_weight(state)}/{weight_capacity(state)} {load_state(state)}",

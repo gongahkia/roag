@@ -4,12 +4,36 @@ from __future__ import annotations
 
 import curses
 import random
+import textwrap
+from dataclasses import dataclass
 
 from .save import SaveError, load_game, save_path
 from .state import create_world
 from .terminal import MIN_HEIGHT, MIN_WIDTH, _put, play
 
 SEED_WORDS = ("reed", "hearth", "quay", "willow", "mill", "rain", "keel", "lantern")
+
+
+@dataclass(frozen=True)
+class LandingNoticeLayout:
+    top: int
+    left: int
+    width: int
+    lines: tuple[str, ...]
+
+
+def landing_notice_layout(width: int, height: int, notice: str) -> LandingNoticeLayout:
+    """Wrap a complete startup warning inside a centered bounded panel."""
+    panel_width = max(20, min(68, width - 8))
+    text_width = max(10, panel_width - 4)
+    lines = tuple(textwrap.wrap(notice, width=text_width, break_long_words=False, break_on_hyphens=False)) or ("",)
+    panel_height = len(lines) + 4
+    return LandingNoticeLayout(
+        min(max(1, height - panel_height - 1), max(1, height // 2 + 3)),
+        max(1, (width - panel_width) // 2),
+        panel_width,
+        lines,
+    )
 
 
 def _generated_seed() -> str:
@@ -65,9 +89,20 @@ def run(screen: curses.window) -> None:
             row += 1
         _put(screen, row, title_x, "N  New World")
         _put(screen, row + 1, title_x, "Q  Quit")
-        _put(screen, row + 3, max(1, width // 2 - 31), f"Save: {save_path()}")
+        path_text = f"Save: {save_path()}"
+        _put(screen, row + 3, max(1, (width - min(len(path_text), width - 4)) // 2), path_text)
         if notice:
-            _put(screen, row + 5, max(1, width // 2 - 31), notice)
+            layout = landing_notice_layout(width, height, notice)
+            from .terminal import _frame
+
+            _frame(screen, layout.top, layout.left, len(layout.lines) + 4, layout.width, "DEVELOPMENT SAVE")
+            for index, line in enumerate(layout.lines):
+                _put(screen, layout.top + 2 + index, layout.left + max(2, (layout.width - len(line)) // 2), line)
+            _put(
+                screen, layout.top + len(layout.lines) + 2,
+                layout.left + max(2, (layout.width - 34) // 2),
+                "[N] Create new save   [Q] Return", curses.A_BOLD | curses.A_REVERSE,
+            )
         screen.refresh()
         key = screen.getch()
         char = chr(key).lower() if 0 <= key < 256 else ""

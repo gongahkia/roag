@@ -5,10 +5,17 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass
 
-from .content import COMMODITIES, JOMON_MAP, PASSIVES
+from .content import COMMODITIES, PASSIVES
 from .state import GameState, Position
-
-JOMON_GANGPLANK = Position(47, 8, 0)
+from .vessel import (
+    JOMON_GANGPLANK,
+    TAVERN_MAP,
+    VESSEL_LEVELS,
+    current_area,
+    vessel_rows,
+    vessel_tile,
+    vessel_vertical_destination,
+)
 
 
 @dataclass(frozen=True)
@@ -46,13 +53,13 @@ def pressure(state: GameState) -> Pressure:
 
 def map_rows(state: GameState, z: int | None = None) -> list[str] | tuple[str, ...]:
     if state.location == "jomon":
-        return JOMON_MAP
+        return vessel_rows(state, z)
     return state.region.levels[str(state.position.z if z is None else z)]
 
 
 def base_tile(state: GameState, position: Position) -> str:
     if state.location == "jomon":
-        rows = JOMON_MAP
+        return vessel_tile(state, position)
     else:
         rows = state.region.levels.get(str(position.z), [])
     if not 0 <= position.y < len(rows) or not 0 <= position.x < len(rows[position.y]):
@@ -77,11 +84,19 @@ def region_tile(state: GameState, position: Position) -> str:
 def displayed_tile(state: GameState, position: Position) -> str:
     tile = base_tile(state, position)
     if state.location == "jomon":
-        from .people import person_at
-
-        person = person_at(state, position)
-        if person:
-            return "a" if person in state.household else "v"
+        area = current_area(state)
+        actor_id = next(
+            (
+                schedule.actor_id for schedule in state.actor_schedules.values()
+                if schedule.area == area and schedule.position == position
+                and schedule.actor_id != state.active_courier_id
+            ),
+            None,
+        )
+        if actor_id == state.bartender.id:
+            return "B"
+        if actor_id:
+            return "a" if any(person.id == actor_id for person in state.household) else "v"
     if state.location == "jomon" and tile == "s" and state.merchant_present:
         return "$"
     container = next((item for item in state.region.containers if item.position == position), None) if state.location == "region" else None
@@ -98,7 +113,7 @@ def is_walkable(state: GameState, position: Position, *, ignore_threat: bool = F
     tile = displayed_tile(state, position)
     if tile in {" ", "#", "~", "T"}:
         return False
-    if state.location == "jomon" and tile in {"a", "v"}:
+    if state.location == "jomon" and tile in {"a", "v", "B"}:
         return False
     if state.location == "region" and not ignore_threat:
         if any(threat.position == position and threat.status in {"watching", "engaged"} for threat in state.threats):
@@ -107,6 +122,8 @@ def is_walkable(state: GameState, position: Position, *, ignore_threat: bool = F
 
 
 def vertical_destination(state: GameState, position: Position) -> Position | None:
+    if state.location == "jomon":
+        return vessel_vertical_destination(position)
     for link in state.region.vertical_links:
         if link.first == position:
             return link.second
@@ -205,6 +222,9 @@ def sight_radius(state: GameState) -> int:
     radius = 7 if state.position.z < 0 or indoor else 13
     if state.position.z > 0:
         radius += 4
+    from .calendar import daylight_modifier
+
+    radius += daylight_modifier(state)
     if state.weather == "river fog":
         radius = min(radius, 7)
     elif state.weather in {"hard rain", "coast squall", "forest rain"}:
@@ -216,7 +236,8 @@ def sight_radius(state: GameState) -> int:
 
 def field_of_view(state: GameState, *, remember: bool = True) -> set[Position]:
     if state.location != "region":
-        return {Position(x, y, 0) for y, row in enumerate(JOMON_MAP) for x in range(len(row))}
+        rows = map_rows(state)
+        return {Position(x, y, state.position.z) for y, row in enumerate(rows) for x in range(len(row))}
     radius = sight_radius(state)
     visible = {state.position}
     for y in range(max(0, state.position.y - radius), min(state.region.height, state.position.y + radius + 1)):
@@ -259,7 +280,13 @@ def find_tile(rows: list[str] | tuple[str, ...], tile: str, z: int = 0) -> Posit
 
 def area_name(state: GameState) -> str:
     if state.location == "jomon":
-        return "Jomon — working deck"
+        if state.jomon_space == "tavern":
+            return "Jomon — common tavern"
+        return {
+            -1: "Jomon — hold and lower berths",
+            0: "Jomon — working deck",
+            1: "Jomon — helm and weather deck",
+        }.get(state.position.z, "Jomon")
     if state.position.z < 0:
         return f"{state.region.name} — below"
     if state.position.z == 2:
@@ -356,7 +383,14 @@ def reachable_positions(state: GameState, start: Position | None = None) -> set[
             Position(current.x + 1, current.y, current.z), Position(current.x - 1, current.y, current.z),
             Position(current.x, current.y + 1, current.z), Position(current.x, current.y - 1, current.z),
         ]
-        destination = vertical_destination(state, current)
+        destination = next(
+            (
+                link.second if link.first == current else link.first
+                for link in state.region.vertical_links
+                if current in {link.first, link.second}
+            ),
+            None,
+        )
         if destination:
             candidates.append(destination)
         if region_tile(state, current) == "O" and current.z > -1:
