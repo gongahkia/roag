@@ -68,6 +68,10 @@ class ContentTests(unittest.TestCase):
             set(catalog.biomes),
             {facility["biome"] for facility in catalog.facilities.values()},
         )
+        self.assertEqual(
+            {"circuit", "erratic", "hunt", "migrate", "roam", "sentry", "stalk", "sweep"},
+            {biome["mechanics"]["patrol"]["behavior"] for biome in catalog.biomes.values()},
+        )
         def signature(card: dict) -> tuple:
             return (
                 card["cost"],

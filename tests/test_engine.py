@@ -354,6 +354,81 @@ class EngineTests(unittest.TestCase):
                 self.assertEqual(list(reversed(original_ranks)), [hero.rank for hero in engine.state.heroes])
         self.assertEqual(len(self.catalog.biomes), len(signatures))
 
+    def test_all_patrol_doctrines_generate_deterministic_serialized_routes(self) -> None:
+        seen: set[str] = set()
+        for seed in range(30):
+            engine = GameEngine.new(self.catalog, seed)
+            for patrol in engine.state.patrols:
+                seen.add(patrol.doctrine)
+                profile = engine.biome_mechanics(engine.room(patrol.room_id).biome_id)["patrol"]
+                self.assertEqual(profile["behavior"], patrol.doctrine)
+                self.assertEqual(list(engine.room_position(patrol.room_id)), patrol.route[0])
+                if patrol.doctrine in {"circuit", "migrate", "stalk", "sweep"}:
+                    self.assertGreater(len(patrol.route), 1)
+            restored = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+            self.assertEqual(engine.snapshot(), restored.snapshot())
+        self.assertEqual(
+            {"circuit", "erratic", "hunt", "migrate", "roam", "sentry", "stalk", "sweep"},
+            seen,
+        )
+
+    def test_route_patrol_circulates_while_sentry_holds_home(self) -> None:
+        engines = [GameEngine.new(self.catalog, seed) for seed in range(20)]
+        route_engine = next(
+            engine
+            for engine in engines
+            if any(patrol.doctrine in {"circuit", "migrate", "stalk", "sweep"} for patrol in engine.state.patrols)
+        )
+        route_patrol = next(
+            patrol
+            for patrol in route_engine.state.patrols
+            if patrol.doctrine in {"circuit", "migrate", "stalk", "sweep"}
+        )
+        for patrol in route_engine.state.patrols:
+            patrol.active = patrol.id == route_patrol.id
+        distances = route_engine._distances_from((route_patrol.x, route_patrol.y))
+        far = max(distances, key=distances.get)
+        route_engine.state.party_x, route_engine.state.party_y = far
+        route_engine.state.exploration_steps = 6
+        route_engine._advance_patrols()
+        self.assertEqual(route_patrol.route[1], [route_patrol.x, route_patrol.y])
+
+        sentry_engine = next(
+            engine for engine in engines if any(patrol.doctrine == "sentry" for patrol in engine.state.patrols)
+        )
+        sentry = next(patrol for patrol in sentry_engine.state.patrols if patrol.doctrine == "sentry")
+        for patrol in sentry_engine.state.patrols:
+            patrol.active = patrol.id == sentry.id
+        home = sentry_engine.room_position(sentry.room_id)
+        sentry.x, sentry.y = sentry_engine._neighbors(home)[0]
+        distances = sentry_engine._distances_from(home)
+        far = max(distances, key=distances.get)
+        sentry_engine.state.party_x, sentry_engine.state.party_y = far
+        sentry_engine.state.exploration_steps = 6
+        sentry_engine._advance_patrols()
+        self.assertEqual(home, (sentry.x, sentry.y))
+
+    def test_committing_objective_temporarily_alerts_its_biome_patrols(self) -> None:
+        objective = next(
+            item
+            for item in self.engine.state.objectives
+            if any(
+                patrol.active and self.engine.room(patrol.room_id).biome_id == item.biome_id
+                for patrol in self.engine.state.patrols
+            )
+        )
+        self.engine.state.party_x, self.engine.state.party_y = objective.x, objective.y
+        self.engine._resolve_exploration_tile()
+        approach = self.engine.mission_definition(objective.biome_id)["approaches"][1]
+        self.engine.begin_objective(approach["id"])
+        alerted = [
+            patrol
+            for patrol in self.engine.state.patrols
+            if patrol.active and self.engine.room(patrol.room_id).biome_id == objective.biome_id
+        ]
+        self.assertTrue(alerted)
+        self.assertTrue(all(patrol.alert == 8 for patrol in alerted))
+
     def test_every_biome_mission_has_two_telegraphed_map_routes(self) -> None:
         for mission in self.catalog.missions.values():
             with self.subTest(biome=mission["biome"]):

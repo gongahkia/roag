@@ -392,6 +392,17 @@ class AsciiUiTests(unittest.TestCase):
         self.ui._render_exploration(wall)
         self.assertIn("Route --/18 OUT OF REACH", screen.text())
 
+    def test_aiming_at_perceived_patrol_names_its_doctrine_and_alert(self) -> None:
+        patrol = self.engine.state.patrols[0]
+        patrol.x, patrol.y = self.engine.state.party_x + 1, self.engine.state.party_y
+        patrol.alert = 5
+        screen = FakeScreen()
+        self.ui.screen = screen
+        self.ui._render_exploration((patrol.x, patrol.y), focus=(patrol.x, patrol.y))
+        rendered = screen.text()
+        self.assertIn(f"DOCTRINE {patrol.doctrine.upper()}", rendered)
+        self.assertIn("ALERT 5", rendered)
+
     def test_terminal_size_does_not_change_simulation_knowledge(self) -> None:
         before = list(self.engine.state.known_feature_ids)
         party = (self.engine.state.party_x, self.engine.state.party_y)

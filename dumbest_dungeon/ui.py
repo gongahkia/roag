@@ -468,6 +468,28 @@ class TerminalUI:
             ],
             curses.A_DIM,
         )
+        aimed_patrol = next(
+            (
+                patrol
+                for patrol in state.patrols
+                if patrol.active
+                and (patrol.x, patrol.y) == cursor
+                and self.engine.is_patrol_visible(patrol)
+            ),
+            None,
+        )
+        if aimed_patrol:
+            room = self.engine.room(aimed_patrol.room_id)
+            alert = f" | ALERT {aimed_patrol.alert}" if aimed_patrol.alert else ""
+            self._put(
+                rows - 2,
+                2,
+                self._ellipsize(
+                    f"PATROL {room.kind.upper()} | DOCTRINE {aimed_patrol.doctrine.upper()}{alert}",
+                    self.screen.getmaxyx()[1] - 3,
+                ),
+                self._attr(3),
+            )
         self._footer("Arrows aim Enter/2xclick go X/Esc/right-click stop Tab cycle B biome U supply")
         return origin
 

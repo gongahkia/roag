@@ -69,6 +69,11 @@ class Patrol:
     x: int
     y: int
     active: bool = True
+    doctrine: str = "roam"
+    route: list[list[int]] = field(default_factory=list)
+    route_index: int = 0
+    route_direction: int = 1
+    alert: int = 0
 
 
 @dataclass
@@ -428,7 +433,7 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 19
+    SAVE_VERSION = 20
     TUTORIAL_SEED = 1
     ENCOUNTER_PLANS = {"none", "pressure", "disrupt", "screen", "sustain", "combo", "overseer"}
 
@@ -598,6 +603,35 @@ class GameEngine:
                 self.state.hub_selection[index],
             )
 
+    def _patrol_route(self, patrol: Patrol) -> list[list[int]]:
+        room = self.room(patrol.room_id)
+        home = self.room_position(room.id)
+        targets: list[tuple[int, int]] = []
+        if patrol.doctrine in {"circuit", "stalk", "migrate"}:
+            landmark = next(
+                (item for item in self.state.landmarks if item.biome_id == room.biome_id),
+                None,
+            )
+            if landmark:
+                targets.append((landmark.x, landmark.y))
+        if patrol.doctrine in {"sweep", "migrate"}:
+            facility = next(
+                (item for item in self.state.facilities if item.biome_id == room.biome_id),
+                None,
+            )
+            if facility:
+                if patrol.doctrine == "sweep":
+                    targets.insert(0, (facility.x, facility.y))
+                else:
+                    targets.append((facility.x, facility.y))
+        route = [home]
+        current = home
+        for target in targets:
+            segment = self._find_path(current, target)
+            route.extend(segment)
+            current = target
+        return [list(position) for position in route]
+
     def begin_expedition(self) -> None:
         if self.state.phase != "hub":
             raise RuleError("the expedition has already departed")
@@ -619,18 +653,22 @@ class GameEngine:
                 )
             )
             self.state.deck.extend(CardInstance(card_id) for card_id in hero["starter_deck"])
-        self.state.patrols = [
-            Patrol(
+        self.state.patrols = []
+        for room in self.state.rooms:
+            if room.kind not in {"fight", "elite", "boss"}:
+                continue
+            doctrine = self.biome_mechanics(room.biome_id)["patrol"]["behavior"]
+            patrol = Patrol(
                 id=f"patrol:{room.id}",
                 room_id=room.id,
                 encounter_id=room.content_id or "",
                 x=self.room_position(room.id)[0],
                 y=self.room_position(room.id)[1],
                 active=room.kind != "boss",
+                doctrine=doctrine,
             )
-            for room in self.state.rooms
-            if room.kind in {"fight", "elite", "boss"}
-        ]
+            patrol.route = self._patrol_route(patrol)
+            self.state.patrols.append(patrol)
         self.state.phase = "exploration"
         world_name = self.catalog.worlds[self.state.world_id]["name"]
         self.state.log = [f"The threshold seals. {world_name} is no longer empty."]
@@ -1378,6 +1416,24 @@ class GameEngine:
                 room is None
                 or patrol.encounter_id not in catalog.encounters
                 or not engine.is_walkable(patrol.x, patrol.y)
+                or patrol.doctrine != engine.biome_mechanics(room.biome_id)["patrol"]["behavior"]
+                or not isinstance(patrol.route, list)
+                or not patrol.route
+                or patrol.route[0] != list(engine.room_position(room.id))
+                or any(
+                    not isinstance(position, list)
+                    or len(position) != 2
+                    or not engine.is_walkable(*position)
+                    for position in patrol.route
+                )
+                or any(
+                    abs(left[0] - right[0]) + abs(left[1] - right[1]) != 1
+                    for left, right in zip(patrol.route, patrol.route[1:])
+                )
+                or patrol.route_index not in range(len(patrol.route))
+                or patrol.route_direction not in {-1, 1}
+                or not isinstance(patrol.alert, int)
+                or patrol.alert < 0
             ):
                 raise RuleError("save contains an invalid patrol")
         if state.active_patrol_id is not None and state.active_patrol_id not in patrol_ids:
@@ -2287,6 +2343,11 @@ class GameEngine:
             for hero in list(self.living_heroes()):
                 self._damage(hero, amount)
 
+    def _alert_biome_patrols(self, biome_id: str, duration: int = 8) -> None:
+        for patrol in self.state.patrols:
+            if patrol.active and self.room(patrol.room_id).biome_id == biome_id:
+                patrol.alert = max(patrol.alert, duration)
+
     def begin_objective(self, approach_id: str) -> str:
         objective = self.current_objective()
         if objective.approach is not None:
@@ -2305,6 +2366,7 @@ class GameEngine:
             "approach": approach_id,
             "started_at_tick": self.state.travel_ticks,
         }
+        self._alert_biome_patrols(objective.biome_id)
         self.state.current_objective_id = None
         if self.state.phase != "defeat":
             self.state.phase = "exploration"
@@ -2615,6 +2677,27 @@ class GameEngine:
         self._finish_pickup(message)
         return message
 
+    def _route_patrol_step(
+        self,
+        patrol: Patrol,
+        current: tuple[int, int],
+        occupied: set[tuple[int, int]],
+    ) -> tuple[int, int]:
+        if len(patrol.route) < 2:
+            return current
+        route_position = tuple(patrol.route[patrol.route_index])
+        if current == route_position:
+            next_index = patrol.route_index + patrol.route_direction
+            if next_index not in range(len(patrol.route)):
+                patrol.route_direction *= -1
+                next_index = patrol.route_index + patrol.route_direction
+            patrol.route_index = next_index
+            route_position = tuple(patrol.route[patrol.route_index])
+        path = self._find_path(current, route_position)
+        if not path or path[0] in occupied:
+            return current
+        return path[0]
+
     def _advance_patrols(self) -> None:
         if self.state.tutorial:
             return
@@ -2626,12 +2709,17 @@ class GameEngine:
             occupied.discard(current)
             room = self.room(patrol.room_id)
             profile = self.biome_mechanics(room.biome_id)["patrol"]
-            cadence = int(profile["cadence"])
+            cadence = max(1, int(profile["cadence"]) - (1 if patrol.alert else 0))
             if self.state.exploration_steps % cadence:
                 occupied.add(current)
+                patrol.alert = max(0, patrol.alert - 1)
                 continue
             room_kind = room.kind
-            aggression = int(profile["aggression"]) + (2 if room_kind in {"elite", "boss"} else 0)
+            aggression = (
+                int(profile["aggression"])
+                + (2 if room_kind in {"elite", "boss"} else 0)
+                + (3 if patrol.alert else 0)
+            )
             aggression = max(4, aggression - round(self._item_effect_value("patrol_aggression_reduction")))
             destination = current
             if 0 < distances.get(current, WORLD_WIDTH * WORLD_HEIGHT) <= aggression:
@@ -2641,11 +2729,16 @@ class GameEngine:
                         choices,
                         key=lambda tile: (distances.get(tile, WORLD_WIDTH * WORLD_HEIGHT), tile),
                     )
-                    if profile["behavior"] == "erratic" and len(ordered) > 1 and self.rng.random() < 0.35:
+                    if patrol.doctrine == "erratic" and len(ordered) > 1 and self.rng.random() < 0.35:
                         destination = self.rng.choice(ordered[1:])
                     else:
                         destination = ordered[0]
-            elif room_kind != "boss" and profile["behavior"] in {"roam", "erratic"}:
+            elif patrol.doctrine == "sentry":
+                home = self.room_position(patrol.room_id)
+                path = self._find_path(current, home)
+                if path and path[0] not in occupied:
+                    destination = path[0]
+            elif room_kind != "boss" and patrol.doctrine in {"roam", "erratic"}:
                 home = self.room_position(patrol.room_id)
                 choices = [
                     tile
@@ -2655,7 +2748,9 @@ class GameEngine:
                 ]
                 if choices:
                     destination = self.rng.choice(choices)
-            elif profile["behavior"] == "hunt":
+            elif patrol.doctrine in {"circuit", "migrate", "stalk", "sweep"}:
+                destination = self._route_patrol_step(patrol, current, occupied)
+            elif patrol.doctrine == "hunt":
                 home = self.room_position(patrol.room_id)
                 if abs(current[0] - home[0]) + abs(current[1] - home[1]) > int(profile["leash"]):
                     choices = [tile for tile in self._neighbors(current) if tile not in occupied]
@@ -2667,6 +2762,7 @@ class GameEngine:
             if destination in occupied:
                 destination = current
             patrol.x, patrol.y = destination
+            patrol.alert = max(0, patrol.alert - 1)
             occupied.add(destination)
             if destination == party:
                 self._start_patrol_combat(patrol)
