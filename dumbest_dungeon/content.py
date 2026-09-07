@@ -132,6 +132,17 @@ BIOME_OBJECTIVE_EFFECTS |= {
     "stabilize_terrain",
     "suppress_hazard",
 }
+EVENT_EFFECTS |= {
+    "agitate_patrols",
+    "calm_patrols",
+    "cleanse_all",
+    "curse_random",
+    "item_random",
+    "reveal_biome",
+    "stabilize_terrain",
+    "status_all",
+    "suppress_hazard",
+}
 TERRAIN_GLYPHS = frozenset(".,=~_\";:`'%-o")
 CARD_TAGS = {
     "block",
@@ -420,8 +431,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load card metadata from {metadata_source}: {exc}") from exc
 
-    if raw.get("schema_version") != 17:
-        raise ContentError("content schema_version must be 17")
+    if raw.get("schema_version") != 18:
+        raise ContentError("content schema_version must be 18")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
@@ -870,7 +881,19 @@ def load_catalog(path: Path | None = None) -> Catalog:
 
     for event in events.values():
         choices = event.get("choices")
-        if not isinstance(choices, list) or len(choices) < 2:
+        event_biomes = event.get("biomes")
+        if (
+            not isinstance(event.get("name"), str)
+            or not event["name"]
+            or not isinstance(event.get("text"), str)
+            or not event["text"]
+            or not isinstance(event_biomes, list)
+            or not event_biomes
+            or len(set(event_biomes)) != len(event_biomes)
+            or any(biome_id not in biomes for biome_id in event_biomes)
+            or not isinstance(choices, list)
+            or len(choices) < 2
+        ):
             raise ContentError(f"event {event['id']} needs at least two choices")
         for choice in choices:
             if not isinstance(choice.get("label"), str):
@@ -878,6 +901,19 @@ def load_catalog(path: Path | None = None) -> Catalog:
             if not isinstance(choice.get("cost_supplies", 0), int) or choice.get("cost_supplies", 0) < 0:
                 raise ContentError(f"event {event['id']} choice has an invalid supply cost")
             _effects(choice.get("effects"), EVENT_EFFECTS, f"event {event['id']} choice")
+            if any(
+                effect["op"] == "status_all"
+                and effect.get("status") not in CARD_STATUSES
+                for effect in choice["effects"]
+            ):
+                raise ContentError(f"event {event['id']} choice has an invalid status")
+    uncovered_event_biomes = set(biomes) - {
+        biome_id
+        for event in events.values()
+        for biome_id in event["biomes"]
+    }
+    if uncovered_event_biomes:
+        raise ContentError("every biome needs at least one compatible event")
 
     _persistent_effects(boons, "boons")
     _persistent_effects(curses, "curses")

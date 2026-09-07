@@ -485,7 +485,7 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 24
+    SAVE_VERSION = 25
     TUTORIAL_SEED = 1
     ENCOUNTER_PLANS = {"none", "pressure", "disrupt", "screen", "sustain", "combo", "overseer"}
 
@@ -933,8 +933,6 @@ class GameEngine:
     ) -> list[Room]:
         kinds = ["fight"] * 4 + ["event"] * 2 + ["camp", "upgrade", "elite", "cache"]
         rng.shuffle(kinds)
-        events = list(catalog.events)
-        rng.shuffle(events)
         labels = {
             "fight": "Contested Deck",
             "event": "Unstable Compartment",
@@ -945,7 +943,7 @@ class GameEngine:
         }
         start_biome = room_biomes[0]
         rooms = [Room(0, "Arrival Threshold", "start", edges[0], True, True, biome_id=start_biome)]
-        event_index = 0
+        used_events: set[str] = set()
         used_encounters: set[str] = set()
         for room_id, kind in enumerate(kinds, 1):
             biome_id = room_biomes[room_id]
@@ -962,8 +960,14 @@ class GameEngine:
                 content_id = rng.choice(unused or candidates)
                 used_encounters.add(content_id)
             elif kind == "event":
-                content_id = events[event_index]
-                event_index += 1
+                candidates = [
+                    event["id"]
+                    for event in catalog.events.values()
+                    if biome_id in event["biomes"]
+                ]
+                unused = [event_id for event_id in candidates if event_id not in used_events]
+                content_id = rng.choice(unused or candidates)
+                used_events.add(content_id)
             biome_name = catalog.biomes[biome_id]["name"]
             enemy_ids = (
                 cls._compose_enemy_formation(catalog, rng, biome_id, kind, content_id)
@@ -4379,22 +4383,14 @@ class GameEngine:
             raise RuleError("not enough supplies")
         self.state.supplies -= cost
         grant_reward = False
+        biome_id = self.room().biome_id
         for effect in choice["effects"]:
-            op, amount = effect["op"], int(effect.get("amount", 0))
-            if op == "light":
-                self.state.light = min(100, max(0, self.state.light + amount))
-            elif op == "supplies":
-                self.state.supplies = max(0, self.state.supplies + amount)
-            elif op == "heal_all":
-                for hero in self.living_heroes():
-                    self._heal(hero, amount)
-            elif op == "stress_all":
-                for hero in self.living_heroes():
-                    self._change_stress(hero, amount)
-            elif op == "damage_random":
-                self._damage(self.rng.choice(self.living_heroes()), amount)
-            elif op == "card_reward":
+            if effect["op"] == "card_reward":
                 grant_reward = True
+            else:
+                self._apply_exploration_effect(biome_id, effect, event["id"])
+            if self.state.phase == "defeat":
+                break
         self.room().resolved = True
         self.state.current_event = None
         self.add_log(f"Event resolved: {choice['label']}.")

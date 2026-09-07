@@ -1248,6 +1248,7 @@ class EngineTests(unittest.TestCase):
                     engine = GameEngine.new(self.catalog, 19)
                     room = engine.state.rooms[0]
                     room.content_id = event_id
+                    room.biome_id = event["biomes"][0]
                     room.resolved = False
                     engine.state.phase = "event"
                     engine.state.current_event = event_id
@@ -1255,6 +1256,37 @@ class EngineTests(unittest.TestCase):
                     engine.choose_event(choice_index)
                     self.assertTrue(room.resolved)
                     self.assertIn(engine.state.phase, {"exploration", "reward"})
+
+    def test_generated_events_match_their_room_biome(self) -> None:
+        covered = set()
+        for seed in range(30):
+            engine = GameEngine.new(self.catalog, seed)
+            for room in engine.state.rooms:
+                if room.kind != "event":
+                    continue
+                event = self.catalog.events[room.content_id]
+                self.assertIn(room.biome_id, event["biomes"])
+                covered.add(room.biome_id)
+        self.assertGreaterEqual(len(covered), 8)
+
+    def test_event_route_change_is_deterministic_and_persistent(self) -> None:
+        snapshots = []
+        for _ in range(2):
+            engine = GameEngine.new(self.catalog, 19)
+            room = engine.room()
+            room.kind = "event"
+            room.content_id = "sealed_locker"
+            room.resolved = False
+            room.biome_id = "derelict"
+            before = list(engine.state.world_tiles)
+            engine.state.phase = "event"
+            engine.state.current_event = "sealed_locker"
+            engine.choose_event(1)
+            self.assertNotEqual(before, engine.state.world_tiles)
+            restored = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+            self.assertEqual(engine.state.world_tiles, restored.state.world_tiles)
+            snapshots.append(engine.snapshot())
+        self.assertEqual(snapshots[0], snapshots[1])
 
     def test_one_death_continues_combat_and_removes_owned_cards(self) -> None:
         self.engine.start_combat("lost_shift")

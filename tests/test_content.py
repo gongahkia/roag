@@ -290,6 +290,16 @@ class ContentTests(unittest.TestCase):
             with self.assertRaisesRegex(ContentError, "invalid option"):
                 load_catalog(path)
 
+    def test_event_with_unknown_biome_is_rejected(self) -> None:
+        catalog = load_catalog()
+        raw = json.loads(json.dumps(catalog.raw))
+        raw["events"][0]["biomes"] = ["gift_shop"]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad-event-biome.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ContentError, "needs at least two choices"):
+                load_catalog(path)
+
     def test_objective_combat_cannot_be_a_terminal_stage(self) -> None:
         catalog = load_catalog()
         raw = json.loads(json.dumps(catalog.raw))
