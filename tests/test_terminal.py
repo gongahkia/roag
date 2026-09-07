@@ -8,11 +8,13 @@ from jomon.vessel import BARTENDER_POSITION
 from jomon.state import Position, create_world
 from jomon.terminal import (
     INVENTORY_HELP_LINES,
+    ChoiceOption,
     InputEvent,
     OverlayView,
     _handle_overlay_view,
     SEMANTIC_ROLES,
     dialogue_choices,
+    dialogue_choice_lines,
     _handle_overlay,
     semantic_colour_plan,
     semantic_role,
@@ -127,6 +129,35 @@ class TavernMenuTests(unittest.TestCase):
 
 
 class DialogueChoiceTests(unittest.TestCase):
+    def test_unavailable_long_choice_wraps_without_losing_requirement(self):
+        option = ChoiceOption(
+            "E",
+            "Take the ebb salvage while the chain route is exposed",
+            "danger",
+            False,
+            "open the wreck locker or dog the tide chain",
+        )
+
+        lines = dialogue_choice_lines(option, True, 72)
+
+        self.assertGreater(len(lines), 1)
+        self.assertTrue(all(len(line) <= 72 for line in lines))
+        rendered = " ".join(lines)
+        self.assertIn("> [E]", rendered)
+        self.assertIn("unavailable", rendered)
+        self.assertIn("dog the tide chain", rendered)
+
+    def test_mouse_selects_a_wrapped_choice_on_its_continuation_row(self):
+        state = create_world("wrapped dialogue input")
+        view = OverlayView("objective", option_rows=[(10, 11), (12, 13), (14, 15)])
+
+        closed, _ = _handle_overlay_view(
+            state, view, InputEvent("mouse", x=5, y=13, button="left")
+        )
+
+        self.assertFalse(closed)
+        self.assertEqual(view.selected, 1)
+
     def test_options_retain_keys_markers_semantics_and_unavailable_reason(self):
         state = create_world("dialogue semantics")
         state.gear = None

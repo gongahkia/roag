@@ -195,7 +195,7 @@ class InputEvent:
 class OverlayView:
     kind: str
     selected: int = 0
-    option_rows: list[int] | None = None
+    option_rows: list[int | tuple[int, int]] | None = None
 
 
 @dataclass(frozen=True)
@@ -753,6 +753,12 @@ def _choice_attribute(option: ChoiceOption, selected: bool) -> int:
     return attr
 
 
+def dialogue_choice_lines(option: ChoiceOption, selected: bool, width: int) -> list[str]:
+    pointer = ">" if selected else " "
+    availability = "" if option.available else f" [unavailable: {option.requirement}]"
+    return _wrapped(f"{pointer} [{option.key}] {option.label}{availability}", width)
+
+
 def _draw_dialogue_overlay(screen: curses.window, state: GameState, view: OverlayView) -> None:
     title, raw_lines = _overlay_lines(state, view.kind)
     options = dialogue_choices(state, view.kind)
@@ -765,24 +771,31 @@ def _draw_dialogue_overlay(screen: curses.window, state: GameState, view: Overla
     wrapped: list[str] = []
     for line in narrative:
         wrapped.extend(_wrapped(line, box_width - 4) or [""])
-    box_height = min(height - 4, len(wrapped) + len(options) + 5)
+    rendered_options = [
+        dialogue_choice_lines(option, index == view.selected, box_width - 4)
+        for index, option in enumerate(options)
+    ]
+    option_line_count = sum(map(len, rendered_options))
+    box_height = min(height - 4, len(wrapped) + option_line_count + 5)
     top, left = (height - box_height) // 2, (width - box_width) // 2
     for y in range(top, top + box_height):
         _put(screen, y, left, " " * box_width, curses.A_REVERSE)
     _frame(screen, top, left, box_height, box_width, title)
     row = top + 2
-    for line in wrapped[: max(0, box_height - len(options) - 4)]:
+    for line in wrapped[: max(0, box_height - option_line_count - 4)]:
         _put(screen, row, left + 2, _clip(line, box_width - 4))
         row += 1
     view.option_rows = []
-    for index, option in enumerate(options):
+    for index, (option, option_lines) in enumerate(zip(options, rendered_options)):
         if row >= top + box_height - 1:
             break
-        view.option_rows.append(row)
-        pointer = ">" if index == view.selected else " "
-        availability = "" if option.available else f" [unavailable: {option.requirement}]"
-        _put(screen, row, left + 2, _clip(f"{pointer} [{option.key}] {option.label}{availability}", box_width - 4), _choice_attribute(option, index == view.selected))
-        row += 1
+        first_row = row
+        for line in option_lines:
+            if row >= top + box_height - 1:
+                break
+            _put(screen, row, left + 2, line, _choice_attribute(option, index == view.selected))
+            row += 1
+        view.option_rows.append((first_row, row - 1))
     screen.refresh()
 
 
@@ -792,7 +805,16 @@ def _handle_overlay_view(state: GameState, view: OverlayView, event: InputEvent)
         view.selected %= len(options)
     key = event.key
     if event.kind == "mouse" and event.button == "left" and view.option_rows:
-        index = next((index for index, row in enumerate(view.option_rows) if row == event.y), None)
+        index = next(
+            (
+                index for index, span in enumerate(view.option_rows)
+                if (
+                    span == event.y if isinstance(span, int)
+                    else span[0] <= event.y <= span[1]
+                )
+            ),
+            None,
+        )
         if index is None or index >= len(options):
             return False, False
         view.selected = index
