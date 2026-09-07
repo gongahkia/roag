@@ -55,6 +55,7 @@ from .inventory import (
     pin_item,
     placement_preview,
     place_item,
+    physical_ammunition,
     record_acquisition,
     rotate_item,
     sync_legacy_load,
@@ -102,6 +103,7 @@ INVENTORY_HELP_LINES = (
     "Arrows/WASD move  Enter lift/place  R rotate  Space mark  */K all/category",
     "T transfer E equip O pack P pin Z auto [] body D drop C confirm Esc cancel",
 )
+TARGET_HELP_LINE = "Arrows/WASD/HJKL cursor  Tab next  Enter fire  Mouse select  Esc cancel"
 
 MIN_WIDTH = 80
 MIN_HEIGHT = 24
@@ -505,6 +507,28 @@ def _target_at_cursor(state: GameState, view: TargetView) -> Threat | None:
     )
 
 
+def targeting_detail(state: GameState, view: TargetView) -> str:
+    selected = _target_at_cursor(state, view)
+    ammo_name, ammo_label = {
+        "crossbow": ("bolts", "bolts"),
+        "longbow": ("arrows", "arrows"),
+        "sling": ("sling stones", "stones"),
+        "heavy crossbow": ("heavy bolts", "heavy bolts"),
+        "javelins": ("javelins", "javelins"),
+        "weighted net": ("nets", "nets"),
+        "staff sling": ("sling stones", "stones"),
+        "hooked javelin": ("javelins", "javelins"),
+        "handgonne": ("handgonne charges", "charges"),
+    }.get(state.weapon or "", ("", "none"))
+    available = physical_ammunition(state, ammo_name) if ammo_name else 0
+    return (
+        f"Target {selected.name if selected else 'empty cell'} "
+        f"R{distance(state.position, view.cursor)}/{effective_weapon_range(state)} "
+        f"Cover:{cover_at(state, state.position, view.cursor)} "
+        f"Ammo:{available} {ammo_label}"
+    )
+
+
 def _draw_targeting(screen: curses.window, state: GameState, view: TargetView) -> None:
     height, width = screen.getmaxyx()
     status_width, event_height, command_height = 29, 6, 2
@@ -533,22 +557,8 @@ def _draw_targeting(screen: curses.window, state: GameState, view: TargetView) -
         glyph = _threat_glyph(selected) if selected else "+"
         role = "selected_target" if selected else "target_cell"
         _put(screen, screen_y, screen_x, glyph, _COLOUR_ATTRIBUTES[role] | curses.A_REVERSE)
-    attack_range = effective_weapon_range(state)
-    gap = distance(state.position, view.cursor)
-    lane = cover_at(state, state.position, view.cursor)
-    target_name = selected.name if selected else "empty cell"
-    ammo = {
-        "crossbow": "bolts", "longbow": "arrows", "sling": "sling stones",
-        "heavy crossbow": "heavy bolts", "javelins": "javelins",
-        "weighted net": "nets",
-    }.get(state.weapon or "", "none")
-    available = state.ammunition_by_type.get(ammo, 0) if ammo != "none" else 0
-    detail = (
-        f"TARGET {target_name}; {gap}/{attack_range} paces; {lane} cover; "
-        f"{available} {ammo}; Enter confirms"
-    )
-    _put(screen, height - 2, 1, _clip(detail, width - 2), curses.A_REVERSE | curses.A_BOLD)
-    _put(screen, height - 1, 1, "Cursor arrows/WASD/HJKL  Tab next threat  Enter fire/prepare  Mouse select  Esc cancel", curses.A_REVERSE)
+    _put(screen, height - 2, 1, targeting_detail(state, view), curses.A_REVERSE | curses.A_BOLD)
+    _put(screen, height - 1, 1, TARGET_HELP_LINE, curses.A_REVERSE)
     screen.refresh()
 
 

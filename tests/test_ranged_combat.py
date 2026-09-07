@@ -6,7 +6,13 @@ from jomon.actions import _advance_world, _threat_action, attack, choose_courier
 from jomon.content import WEAPONS
 from jomon.enemy_ai import select_goal
 from jomon.state import Position, Threat, create_world
-from jomon.terminal import InputEvent, TargetView, _handle_targeting
+from jomon.terminal import (
+    TARGET_HELP_LINE,
+    InputEvent,
+    TargetView,
+    _handle_targeting,
+    targeting_detail,
+)
 from jomon.world import JOMON_GANGPLANK, cover_at, line_of_sight, projectile_path
 
 
@@ -34,6 +40,19 @@ def target_at(state, x: int, *, profile: str = "pursuer"):
 
 
 class PlayerRangeTests(unittest.TestCase):
+    def test_minimum_width_target_rows_include_new_physical_ammunition(self):
+        state = armed("handgonne")
+        target = target_at(state, 49)
+        target.name = "illicit burn smoke-tender"
+        view = TargetView(target.position, [target.id])
+
+        detail = targeting_detail(state, view)
+
+        self.assertLessEqual(len(detail), 78)
+        self.assertLessEqual(len(TARGET_HELP_LINE), 78)
+        self.assertIn("charges", detail)
+        self.assertIn("Cover:", detail)
+
     def test_arsenal_has_fourteen_physical_families(self):
         self.assertGreaterEqual(len(WEAPONS), 12)
         from jomon.inventory import ITEM_SPECS
