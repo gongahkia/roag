@@ -519,7 +519,17 @@ class TerminalUI:
             if not pickup.resolved and not pickup.hidden
         )
         party = (state.party_x, state.party_y)
-        return sorted(set(targets), key=lambda tile: (abs(tile[0] - party[0]) + abs(tile[1] - party[1]), tile))
+        maximum = self.engine.maximum_navigation_distance()
+        reachable = [
+            tile
+            for tile in set(targets)
+            if self.engine.is_walkable(*tile)
+            and self.engine.path_cost(self.engine._find_path(party, tile)) <= maximum
+        ]
+        return sorted(
+            reachable,
+            key=lambda tile: (self.engine.path_cost(self.engine._find_path(party, tile)), tile),
+        )
 
     def _mouse_destination(self, origin: tuple[int, int, int, int]) -> tuple[int, int] | None:
         left, top, width, height = origin

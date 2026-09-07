@@ -205,6 +205,26 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("e", rendered)
         self.assertIn("+", rendered)
 
+    def test_destination_cycle_excludes_points_beyond_command_reach(self) -> None:
+        party = (self.engine.state.party_x, self.engine.state.party_y)
+        distant = max(
+            ((objective.x, objective.y) for objective in self.engine.state.objectives),
+            key=lambda tile: self.engine.path_cost(self.engine._find_path(party, tile)),
+        )
+        original = self.catalog.balance["maximum_navigation_distance"]
+        self.catalog.balance["maximum_navigation_distance"] = 1
+        try:
+            targets = self.ui._exploration_targets()
+            self.assertNotIn(distant, targets)
+            self.assertTrue(
+                all(
+                    self.engine.path_cost(self.engine._find_path(party, tile)) <= 1
+                    for tile in targets
+                )
+            )
+        finally:
+            self.catalog.balance["maximum_navigation_distance"] = original
+
     def test_world_map_viewport_is_bounded_by_world_on_large_terminal(self) -> None:
         screen = FakeScreen(rows=60, columns=140)
         self.ui.screen = screen
