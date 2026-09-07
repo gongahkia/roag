@@ -222,10 +222,10 @@ JOMON_MAP = (
 HELP_LINES = (
     "Move with arrows, HJKL, or YUBN diagonals. The camera follows across seamless Hearthford.",
     "Enter/E interacts. A attacks. G guards or reloads. V negotiates. X uses gear.",
-    "Map: @ courier, a ally, c/M contacts, h/g/x/b hostiles, X elite, R cargo, C cache.",
+    "Map: @ courier, a ally, v visitor, c/M contacts, h/g/x/b hostiles, X elite, R cargo, C cache.",
     "Water ~, wall #, doors +, stairs <> and roof ^, controls &, hole O, weak floor d.",
-    "At tavern C choose courier, weapon, gear, support, relic, and passive discoveries.",
-    "I inspects inventory. S saves aboard Jomon. Inspection and cancelled choices take no time.",
+    "Aboard, speak beside visible people to switch or recruit; tavern C selects crew support.",
+    "I opens the spatial pack/locker: move, rotate, transfer, equip, confirm, or cancel safely.",
     "Pressure is elapsed actions + geographic depth + noise + valuables; all remain visible.",
     "Normal colour is visible now; dim terrain is remembered; blank terrain remains unknown.",
     "Guard readable intent; smoke breaks aim; mud, water, controls, height, and walls matter.",

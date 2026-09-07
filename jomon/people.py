@@ -91,6 +91,9 @@ def recruit_visitor(state: GameState, person_id: str) -> tuple[bool, str]:
     if not state.region.changes.get(f"recruit:{person_id}"):
         state.trade_credit -= 2
     state.visitors.remove(visitor)
+    for member in state.household:
+        standing = visitor.relationships.get(member.id, 0)
+        member.relationships[visitor.id] = standing
     state.household.append(visitor)
     visitor.recruited = True
     state.visitor_status[person_id] = "joined"
