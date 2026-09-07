@@ -1,44 +1,84 @@
 # Causal generation and playable loop
 
-Jomon derives a few consequential facts from named SHA-256 seed stages:
+Jomon derives a bounded set of consequential facts from named SHA-256 seed
+stages:
 
 ```text
-river condition and terrain
-→ Hearthford's work
-→ commodity shortage and named contact's material interest
-→ recovery or mill-control objective
-→ river bend, settlement, road, Reedwood loop, watch, cave, and stacked millworks
-→ weather, patrols, hazards, supplies, discoveries, pressure threats, and merchant stock
-→ market, relationship, terrain, treasure, equipment, injury, death, and succession consequences
+terrain, water, and climate
+→ local work and settlement form
+→ useful resources, surplus, and shortage
+→ named contacts and material objective
+→ hostile interests, patrols, and environmental timing
+→ visible route choices and optional treasure
+→ market, relationship, geographic, injury, death, and succession consequences
 ```
 
-One bounded Hearthford generator constructs a 96x54 ground map and three
-aligned supporting levels. Two interpolated seed fields vary wetness and tree
-growth; a constrained seeded river forms the west boundary; seeded direct-road
-walks connect fixed landmark envelopes; authored settlement, watch, ruin, cave,
-culvert, mill, gantry, and roof templates give those places material identity.
-The Reedwood roads reconnect into a loop. A reachability pass rejects any map
-where the contact, objective, cave, roof, return path, or one of eight optional
-containers is inaccessible. This is region-specific generation, not a general
-biome or graph framework.
+The same readable seed reproduces the six-adult household, relationships,
+starting equipment, all four maps, contacts, treasure, visitors, encounter
+compositions, regional processes, and voyage checks. Random derivation uses
+named `stage_rng` streams backed by SHA-256, never Python's process hash.
 
-The seed also selects the regional material condition, commodity need, named
-contact, household, vegetation and wet-ground geometry, treasure contents,
-merchant cycle, and whether the mill machinery is elite. Current weather and
-the objective deadline follow the accepted-action clock. High combined time,
-distance/elevation depth, noise, and valuables wakes a stronger river-road
-threat. Every selected fact is discoverable and changes a route, build,
-encounter, resource decision, or later exchange.
+## Four direct regional generators
 
-The playable loop is: use Jomon's tavern to choose one of six adult household
-members, a weapon, secondary item, crew preparation, optional finite relic, and
-a bulk-limited set of returned passive discoveries; cross the gangplank; meet
-the contact; accept, refuse, or materially alter the request; travel without
-screen transitions through settlement, wilderness, cave, mill floors, gantries,
-and roofs; fight, negotiate, evade through positioning, or control floodwater,
-smoke, machinery, and weak flooring; open tempting persistent containers;
-recover, deliver, retain, consume, or lose physical goods; report back; and
-walk through the gangplank. Terrain changes, depleted containers, market,
-contact memory, equipment, cargo, injury, death, succession, and bounded
-household history share one JSON save. A deterministic merchant may visit after
-a return, deriving three offers from the regional need and previous outcome.
+Hearthford combines smoothed elevation/wetness fields, constrained river
+carving, seeded roads, and authored settlement, ruin, cave, watch, and stacked
+mill templates in a 96×54 footprint. Greywash (104×56) carves a moving
+shoreline, tidal channel, dunes, and three parallel coast routes around anchored
+salt, wreck, cave, mast, and chain-house structures. Greenwold (100×58) smooths
+cellular canopy clusters into open clearings and recuts three authored forest
+trails around resin, root, burn, and watch-tree work. Whitecairn (98×60) lays
+seeded limestone terrace bands, switchbacks, a quarry loop, sink cave, kiln,
+ridge bridge, and bell tower.
+
+Each footprint has aligned levels `-1`, `0`, `1`, and `2`. Explicit links join
+caves/cellars, ground, upper works, canopy/gantries, and roofs. Validation checks
+the contact, objective, underground entrance, elevated landmark, every
+container, every vertical link, and the physical path back to the landing.
+Placed actors are moved only to the nearest same-level reachable tile when a
+seeded obstruction covers an authored encounter coordinate. These are four
+small feature-specific generators, not a biome or world-generation toolkit.
+
+## Facts that change current decisions
+
+Every generated regional fact is visible and actionable. Greywash's tide can
+cover the wreck road while leaving dune and chain routes. Greenwold wind carries
+burn smoke through upper openings. Whitecairn rockfall covers a direct stair
+while leaving the sink loop. Hearthford fog, rain, and water change mill and
+floodplain travel. A material control can alter each process or its elite
+encounter. Pressure combines visible elapsed actions, geographic/elevation
+depth, noise, and carried valuables; higher pressure expands awareness and
+pursuit and wakes a stronger recorded threat.
+
+Each added region has six named persistent containers. Their positions teach a
+closed `C` and opened `o` language through ordinary stores before optional
+cave, height, rope, light, or key routes. Contents are seed-deterministic and
+physical: one build item, one armour item, and one finite supply. Pack cells and
+weight can force the player to rotate, rearrange, leave, drop, or surrender a
+reward.
+
+Enemies use limited current sight, sound origins, last-known positions, group
+alerts, morale, ammunition, allies, home, and duty. Those facts select one
+concrete action such as patrol, investigate, aim, reload, intercept, flank,
+mark a net cell, steal, escape, or retreat. Ranged attacks telegraph a lane or
+setup before severe harm. Nothing advances while the terminal waits.
+
+## Playable loop
+
+Walk through Jomon's physical tavern, speak beside a visible adult to switch or
+recruit, arrange shaped equipment between the locker, 10×6 pack, readied slot,
+and six armour locations, select one crew support at the bar, and choose a
+destination at the chart. Travel costs six action-clock measures and can
+occasionally present one bounded voyage event. Cross the physical gangplank.
+
+In the active seamless region, meet the primary contact and accept, refuse, or
+materially alter the objective. Observe weather and patrols, choose quiet or
+dangerous routes, enter structures/caves/upper works without room screens, open
+or leave treasure, fight or negotiate, manipulate local controls, and manage
+finite treatment, light, rope, smoke, ammunition, armour condition, load, and
+terrain exposure. Then walk back through the same geography and gangplank—or
+suffer cargo loss, forced injured return, or permanent death with succession.
+
+The one atomic format-4 JSON save contains the current household, physical
+items and orientations, regional exploration and changes, contacts, markets,
+enemies, objectives, travel, and bounded significant history. A returned region
+therefore changes later expeditions without any offline simulation.

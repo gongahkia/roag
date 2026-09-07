@@ -2,35 +2,29 @@
 
 ## Current State
 
-- The active product is a standard-library Python 3.11 `curses` roguelike; the browser version is archived in Git.
-- Hearthford is one deterministic 96x54, four-level region with camera-followed travel, line-of-sight memory, coherent landmarks, persistent treasure, divergent weapons, finite supplies, patrols, weather, pressure escalation, and functional vertical interactions.
-- The clean baseline at `f1c397f` passes 38 tests. Three prior local expeditions and the seamless-Hearthford assessment are recorded in [`docs/seamless-hearthford-milestone.md`](docs/seamless-hearthford-milestone.md).
+- The active product is a standard-library Python 3.11 `curses` roguelike with four persistent seamless regions, aligned z-levels, camera/FOV exploration, and action-clock regional processes.
+- Jomon has a physical tavern, six initial adults, six bounded regional recruits, a 10×6 courier pack, an 18×10 locker, six armour locations, fourteen weapons, and three sporadic voyage families.
+- Save format 4 migrates Python format 3. The verified build passes 92 tests, compilation, whitespace checks, a 100-seed encounter audit, and eight complete real-PTY expeditions.
 
 ## Now
 
-- Complete the bounded regions, physical tavern, spatial inventory, armour, and encounter-variety milestone in the phased order recorded in [`docs/regions-inventory-encounters-milestone.md`](docs/regions-inventory-encounters-milestone.md).
-- Treat mixed goal-directed encounters, long-range fairness, physically discoverable treasure, and real PTY balance evidence as the primary completion gates.
+- Put the four-region build in the owner's hands and record whether encounter density, spatial packing, treasure routes, and voyage cadence remain fun without test forcing.
 
 ## Next
 
-- Put the four-region build in the owner's hands and adjust encounter budgets, inventory dimensions, and regional travel cadence from observed play rather than adding another system.
+- Improve ordinary discovery signposting: direct one optional named cache from each contact or visible landmark, because complete PTY objective routes naturally found only three distinct containers while controlled exploration proved the container interface itself readable.
 
 ## Later
 
-- Add any fifth regional map only after all four current regions are played and judged.
-- Expand onboard events beyond the three bounded voyage families only after ordinary expeditions remain satisfying.
-- Add capture or rescue only if play exposes a specific contextual need.
+- Add another regional map only after the current four are played and judged.
+- Revisit return-route variation and expand onboard incidents only after ordinary expedition pacing is stable.
+- Add capture or rescue only if play exposes a concrete contextual need.
 
 ## Frozen
 
-- expanding-frontier, distant-person, fidelity, catch-up, delegation, and universal NPC simulation;
-- eras, NG+, NG++, alternate renderers, management UI, broad content frameworks, migration chains, replay infrastructure, and speculative optimization;
-- server, network, telemetry, database, plugin, ECS, generic dialogue, generic encounter, universal GOAP, and global economy systems.
+- infinite terrain, offline catch-up, distant-person or universal NPC simulation, factions, eras, NG+, alternate renderers, graphical tiles, crafting, skill trees, replay infrastructure, generic content packs, GOAP/encounter/quest DSLs, full anatomy/garment/fluid/weather/economy simulation, servers, networking, telemetry, databases, plugins, ECS, real-time combat, and generic magic.
 
 ## Done
 
-- The web v19 tree is preserved at branch `archive/web-v19` and annotated tag `jomon-web-v19-final`, both targeting `de1c1e8`.
-- Browser runtime, dependencies, tests, generated assets, and active contracts were removed after the terminal loop passed tests and PTY play.
-- The implemented causal chain and loop are recorded in [`docs/causal-generation-and-loop.md`](docs/causal-generation-and-loop.md).
-- The deeper Hearthford milestone and its verification are recorded in [`docs/deeper-hearthford-milestone.md`](docs/deeper-hearthford-milestone.md).
-- The seamless Hearthford milestone and its verification are recorded in [`docs/seamless-hearthford-milestone.md`](docs/seamless-hearthford-milestone.md).
+- Browser v19 is archived at local branch `archive/web-v19` and annotated tag `jomon-web-v19-final`, both targeting `de1c1e8`; its active runtime was retired.
+- The initial, deeper, seamless-Hearthford, and four-region milestones are recorded under [`docs/`](docs/).

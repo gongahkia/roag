@@ -17,6 +17,8 @@ contents or the courier's current position after losing contact.
 | suppressor | deny one lane or area | flanker | wait, redirect terrain, use another route |
 | controller | constrain current, smoke, nets, or paths | shooter / thief | disable the material anchor |
 | thief | take exposed cargo and escape | skirmisher | protect pack, intercept marked exit |
+| flanker | move toward a visible side position | shooter / suppressor | reverse direction, use a narrow route, deny the side cell |
+| controller | telegraph a net or material denial cell | shooter / thief | leave the marked cell, cut the anchor, change level |
 | territorial / tracker | answer intrusion or sound within bounds | lookout | distract, leave territory, break trail |
 
 Every severe ranged attack has at least one full action of visible aim or
@@ -39,6 +41,43 @@ The local audit command is:
 python -m jomon.audit
 ```
 
-It samples 100 deterministic seeds across all three new regions and three
-pressure bands. Final placement reachability and play adjustments will be
-recorded after the regional generators and PTY balance pass are complete.
+It builds all three added regions for 100 deterministic seeds and samples all
+three pressure bands at six site indices. The final integrated result is:
+
+| Measure | Result |
+|---|---:|
+| seeds / composed plans | 100 / 900 |
+| represented archetypes | 21 of 21 |
+| unique compositions | 136 |
+| most repeated composition | 49 |
+| ranged actor appearances | 502 |
+| elite appearances | 14 |
+| invalid or over-budget groups | 0 |
+| unreachable placed actors | 0 |
+| unavoidable opening attacks | 0 |
+
+The pressure-band actor totals were 358 steady, 549 strained, and 735
+critical. Critical pressure therefore changes both group size and the rare
+elite possibility. The audit is a deterministic development command, not
+telemetry, and sends nothing off the machine.
+
+## Adjustments from integration play
+
+- Ranged actors enter awareness through aim/setup, never immediate severe
+  damage. Longbows withdraw when crowded, slings can suppress a vacated lane,
+  and heavy crossbows commit to reload.
+- Protectors now move between the courier and a ranged ally rather than merely
+  labelling that intention. Flankers use a visible side target. Net controllers
+  mark one cell before the haul, so reposition is real counterplay.
+- Lost actors investigate sound or last sight and then return to guard/patrol.
+  The movement executor no longer falls back to hidden courier coordinates.
+- Smoke and water displace actors whose material role does not protect them.
+  Regional controls remove the corresponding elite advantage.
+- Generated placements are moved to the nearest same-level reachable tile when
+  an authored coordinate lands in seeded obstruction. The audit verifies zero
+  unreachable actors after this repair.
+
+The audit does not establish subjective encounter quality. Eight complete PTY
+routes and controlled role sessions found the plans readable, but several safe
+objective routes can avoid the richest mixed groups. Owner play should tune
+budgets and sites before more archetypes are added.

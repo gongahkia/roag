@@ -293,11 +293,11 @@ JOMON_MAP = (
 )
 
 HELP_LINES = (
-    "Move with arrows, HJKL, or YUBN diagonals. The camera follows across seamless Hearthford.",
+    "Move with arrows, HJKL, or YUBN diagonals. The camera follows across each seamless region.",
     "Enter/E interacts. A attacks. G guards or reloads. V negotiates. X uses gear.",
     "Map: @ courier, a ally, v visitor, c/M contacts, h/g/x/b hostiles, X elite, R cargo, C cache.",
     "Water ~, wall #, doors +, stairs <> and roof ^, controls &, hole O, weak floor d.",
-    "Aboard, speak beside visible people to switch or recruit; tavern C selects crew support.",
+    "Aboard, speak beside people to switch or recruit; tavern C selects support; chart P sets course.",
     "I opens the spatial pack/locker: move, rotate, transfer, equip, confirm, or cancel safely.",
     "Pressure is elapsed actions + geographic depth + noise + valuables; all remain visible.",
     "Normal colour is visible now; dim terrain is remembered; blank terrain remains unknown.",

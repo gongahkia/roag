@@ -2,7 +2,7 @@
 
 Jomon is a turn-based roguelike about sending one member of a persistent vessel-household into dangerous medieval settlements and wilderness. A courier trades, investigates, negotiates, and fights under pressure, then returns—or fails to return—with consequences that reshape Jomon, its people, and the local world.
 
-The current product is a fullscreen Python 3.11 terminal game using the standard-library `curses` module. The active expansion keeps Hearthford and adds three substantial, persistent regions: a tidal coast, an open deep forest, and limestone uplands. Travel begins from physical Jomon, whose tavern contains visible household members and bounded recruitable visitors. Couriers organise physically shaped items in a rotatable pack grid, wear armour across six readable body locations, and face terrain, weather, ranged fire, and goal-directed enemies whose plans depend on what they can see and hear.
+The current product is a fullscreen Python 3.11 terminal game using the standard-library `curses` module. The playable build contains Hearthford and three substantial, persistent regions: Greywash's tidal coast, Greenwold's open deep forest, and Whitecairn's limestone uplands. Travel begins from physical Jomon, whose tavern contains visible household members and bounded recruitable visitors. Couriers organise physically shaped items in a rotatable pack grid, wear armour across six readable body locations, and face terrain, weather, ranged fire, and goal-directed enemies whose plans depend on what they can see and hear.
 
 The permanent constraints are:
 
@@ -25,6 +25,13 @@ armour/terrain/equipment/passive/relic interactions, tempting visible treasure,
 and persistent material consequences. Each region has a dedicated bounded
 generator and authored encounter compositions; these are product features,
 not a universal biome, planning, physics, fluid, economy, or content framework.
+
+Items carried by a courier occupy a readied/body slot or a cell in the 10×6
+pack; Jomon storage is a bounded 18×10 locker. Shape and weight remain separate
+constraints. Regional urgency comes from visible action-clock processes—tide,
+weather, burn wind, quarry instability, patrol movement, alarm, and material
+timing—rather than one hidden or real-time deadline. Severe ranged attacks must
+provide a readable aim, lane, cover, or setup opportunity before impact.
 
 This milestone explicitly excludes infinite or offline world simulation,
 full anatomical or layered-garment simulation, generic GOAP/encounter/quest
