@@ -565,6 +565,15 @@ class EngineTests(unittest.TestCase):
         with self.assertRaisesRegex(RuleError, "only four"):
             engine.toggle_hub_crew("breacher")
 
+    def test_curated_squad_sets_formation_without_departing(self) -> None:
+        engine = GameEngine.new(self.catalog, 74, start_in_hub=True)
+        squad = self.catalog.squads["wound_ward"]
+        engine.select_curated_squad("wound_ward")
+        self.assertEqual(squad["formation"], engine.state.hub_selection)
+        self.assertEqual("hub", engine.state.phase)
+        engine.begin_expedition()
+        self.assertEqual(squad["formation"], [hero.id for hero in engine.living_heroes()])
+
     def test_all_enemy_actions_can_resolve(self) -> None:
         for enemy_id, definition in self.catalog.enemies.items():
             for action in definition["actions"]:

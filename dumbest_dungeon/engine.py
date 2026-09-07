@@ -462,6 +462,11 @@ class GameEngine:
         else:
             raise RuleError("the expedition can carry only four crew members")
 
+    def select_curated_squad(self, squad_id: str) -> None:
+        if self.state.phase != "hub" or squad_id not in self.catalog.squads:
+            raise RuleError("that curated squad is unavailable")
+        self.state.hub_selection = list(self.catalog.squads[squad_id]["formation"])
+
     def reorder_hub_crew(self, hero_id: str, direction: int) -> None:
         if self.state.phase != "hub" or hero_id not in self.state.hub_selection:
             raise RuleError("select that crew member before assigning a rank")
