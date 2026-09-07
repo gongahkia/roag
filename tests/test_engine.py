@@ -660,6 +660,27 @@ class EngineTests(unittest.TestCase):
         engine.play_card(0, target)
         self.assertEqual(2, next(hero for hero in engine.living_heroes() if hero.id == "breacher").rank)
 
+    def test_every_curated_squad_keeps_a_positional_fallback_in_every_biome(self) -> None:
+        for squad in self.catalog.squads.values():
+            engine = GameEngine.new(self.catalog, 44, start_in_hub=True)
+            engine.select_curated_squad(squad["id"])
+            engine.begin_expedition()
+            for biome in self.catalog.biomes.values():
+                with self.subTest(squad=squad["id"], biome=biome["id"]):
+                    for rank, hero in enumerate(engine.state.heroes, 1):
+                        hero.rank = rank
+                        hero.statuses.clear()
+                    engine._apply_biome_combat_environment(biome["mechanics"]["combat"])
+                    for hero in engine.living_heroes():
+                        starters = self.catalog.heroes[hero.id]["starter_deck"]
+                        self.assertTrue(
+                            any(
+                                hero.rank in self.catalog.cards[card_id]["from_ranks"]
+                                for card_id in starters
+                            ),
+                            f"{squad['id']} / {biome['id']} / {hero.id} R{hero.rank}",
+                        )
+
     def test_all_patrol_doctrines_generate_deterministic_serialized_routes(self) -> None:
         seen: set[str] = set()
         for seed in range(30):
