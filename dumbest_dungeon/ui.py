@@ -61,7 +61,7 @@ class TerminalUI:
 
     def run(self) -> None:
         while True:
-            choices = ["New expedition"]
+            choices = ["Tutorial expedition (recommended)", "New expedition"]
             if self.save_path.exists():
                 choices.append("Load expedition")
             choices.extend(["How to play", "Quit"])
@@ -73,7 +73,10 @@ class TerminalUI:
                 allow_cancel=False,
             )
             choice = choices[picked]
-            if choice == "New expedition":
+            if choice.startswith("Tutorial"):
+                self.engine = GameEngine.tutorial(self.catalog)
+                self._game_loop()
+            elif choice == "New expedition":
                 self.engine = self.new_game()
                 self._game_loop()
             elif choice == "Load expedition":
@@ -106,6 +109,12 @@ class TerminalUI:
                     self._reward()
                 elif phase == "service":
                     self._service()
+                elif phase == "tutorial_complete":
+                    self._notice(
+                        "TRAINING COMPLETE",
+                        "You navigated, repaired a broken formation, read coordinated intents, survived an enemy phase, chose a reward, and inspected the changed shared deck. Nothing from this lesson carries into a normal expedition.",
+                    )
+                    self.engine = None
                 elif phase in {"victory", "defeat"}:
                     self._ending(phase)
                     self.engine = None
@@ -302,6 +311,17 @@ class TerminalUI:
     def _exploration(self) -> None:
         assert self.engine
         state = self.engine.state
+        if state.tutorial and state.tutorial_stage == 0:
+            self._notice(
+                "TRAINING 1/5 — PATH CONFIRMATION",
+                "The @ symbol is the crew and X is the destination cursor. Press Tab to select the nearby training contact, then Enter to confirm. Travel resolves one tile at a time and consumes light by weighted terrain cost; X or Escape cancels before the next tile.",
+            )
+            self.engine.advance_tutorial(0, 1)
+        elif state.tutorial and state.tutorial_stage == 9:
+            self._notice(
+                "TRAINING 5/5 — DECK EVOLUTION",
+                "The chosen technique now belongs to the shared party deck. Press D, inspect the resulting deck and card ownership, then close the deck view to finish training.",
+            )
         cursor = (state.party_x, state.party_y)
         camera = cursor
         pending_click: tuple[int, int] | None = None
@@ -706,6 +726,7 @@ class TerminalUI:
         assert self.engine
         selected = 0
         while self.engine and self.engine.state.phase == "combat":
+            self._tutorial_combat_lesson()
             state = self.engine.state
             selected = min(selected, max(0, len(state.hand) - 1))
             self._render_combat(selected)
@@ -736,11 +757,67 @@ class TerminalUI:
                 self._flash_damaged_enemies(enemies_before)
             elif key in (ord("i"), ord("I")):
                 self._effects_view()
+            elif key in (ord("c"), ord("C")):
+                self._combat_hand_view()
+            elif key in (ord("r"), ord("R")):
+                self._crew_view()
             elif key in (ord("p"), ord("P"), 27):
                 self._pause()
                 return
             elif key == ord("?"):
                 self._help()
+
+    def _tutorial_combat_lesson(self) -> None:
+        assert self.engine
+        if not self.engine.state.tutorial:
+            return
+        stage = self.engine.state.tutorial_stage
+        if stage == 2:
+            self._notice(
+                "TRAINING 2/5 — PARTY DECK AND RANKS",
+                "All four crew share one hand and three energy. Every card still belongs to one specialist and lists the ranks where that owner can use it. The Engineer is stranded at R1 and the Warden is wounded at Death's Door, but both remain active. Inspect the hand with C and crew with R. Mag Boots can pull the Warden forward, restoring both preferred positions; Field Dressing+ can then heal and cleanse the Warden.",
+            )
+            self.engine.advance_tutorial(2, 3)
+        elif stage == 4:
+            self._notice(
+                "TRAINING 3/5 — INTENTS AND SEQUENCING",
+                "Enemy intents are frozen for this player turn. SET:MARKED prepares the displayed target; CASH:MARKED deals its larger conditional damage afterward. Killing the setup actor cancels its intent but does not retarget the other actor. Scan supplies your own MARKED setup and Arc Welder cashes it. Block absorbs health damage, but it clears at the next player turn.",
+            )
+            self.engine.advance_tutorial(4, 5)
+        elif stage == 6:
+            self._notice(
+                "TRAINING 4/5 — ENEMY PHASE",
+                "Enemy actions resolved front to back in separate frames. Those frames report the actor, frozen target, damage, movement, and statuses. F accelerates playback and Space skips its remaining frames without changing combat results. Forced movement can disable narrow cards, so preserve a movement tool or fallback action when the formation is exposed.",
+            )
+            self.engine.advance_tutorial(6, 8)
+
+    def _combat_hand_view(self) -> None:
+        assert self.engine
+        cards = list(self.engine.state.hand)
+        if not cards:
+            self._notice("HAND INSPECTION", "The shared hand is empty.")
+            return
+        self._menu(
+            "HAND INSPECTION",
+            [self._card_label(card) for card in cards],
+            "Cards remain owned by their named specialist. Dim cards are blocked by rank, stun, or energy on the combat screen.",
+            allow_cancel=True,
+            view_only=True,
+            preview_cards=cards,
+        )
+
+    def _crew_view(self) -> None:
+        assert self.engine
+        lines = []
+        for hero in sorted(self.engine.state.heroes, key=lambda actor: (not actor.alive, actor.rank)):
+            definition = self.catalog.heroes[hero.id]
+            state = "DEAD" if not hero.alive else "DEATH'S DOOR" if hero.deaths_door else f"{hero.hp}/{hero.max_hp} HP"
+            statuses = ", ".join(f"{name} {amount}" for name, amount in hero.statuses.items()) or "none"
+            preferred = ",".join(map(str, definition["preferred_ranks"]))
+            lines.append(
+                f"R{hero.rank} {hero.name} — {definition['role']} / {definition['combat_role']} — {state}, {hero.stress} stress, {hero.block} block. Preferred R{preferred}; statuses: {statuses}. {definition['signature']}"
+            )
+        self._notice("CREW INSPECTION", "\n\n".join(lines))
 
     def _render_combat(self, selected: int, selected_target: str | None = None) -> None:
         assert self.engine
@@ -780,7 +857,7 @@ class TerminalUI:
         footer = (
             "TARGET: Left/Right or H/L select on battlefield  Enter confirm  Esc cancel"
             if selected_target
-            else "Left/Right choose card  Enter play  E end turn  I effects  P pause  ? help"
+            else "Left/Right card  Enter play  E enemy turn  C inspect card  R crew  I effects  P pause"
         )
         self._footer(footer)
 
@@ -1077,6 +1154,12 @@ class TerminalUI:
 
     def _reward(self) -> None:
         assert self.engine
+        if self.engine.state.tutorial and self.engine.state.tutorial_stage == 7:
+            self._notice(
+                "TRAINING — CARD REWARD",
+                "A reward can strengthen an existing setup/payoff line, cover a weakness, open a new direction, duplicate a key card, or be skipped to keep the deck lean. The labels describe tradeoffs; they do not identify a correct choice.",
+            )
+            self.engine.advance_tutorial(7, 8)
         choices = []
         notes = []
         for card_id in self.engine.state.rewards:
@@ -1215,6 +1298,8 @@ class TerminalUI:
             view_only=True,
             preview_cards=list(self.engine.state.deck),
         )
+        if self.engine.state.tutorial and self.engine.state.tutorial_stage == 9:
+            self.engine.complete_tutorial()
 
     def _effects_view(self) -> None:
         assert self.engine

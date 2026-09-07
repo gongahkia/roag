@@ -69,12 +69,77 @@ class AsciiUiTests(unittest.TestCase):
         self.assertEqual(lines[1][1], lines[-2][-2])
 
     def test_main_menu_uses_public_title(self) -> None:
-        screen = FakeScreen(keys=[curses.KEY_DOWN, curses.KEY_DOWN, 10])
+        screen = FakeScreen(keys=[curses.KEY_DOWN, curses.KEY_DOWN, curses.KEY_DOWN, 10])
         self.ui.screen = screen
         self.ui.save_path = Path("/definitely/missing/dullest-save.json")
         self.ui.new_game = lambda: self.engine
         self.ui.run()
         self.assertIn("DULLEST DUNGEON", screen.text())
+
+    def test_main_menu_launches_the_optional_tutorial(self) -> None:
+        screen = FakeScreen(keys=[10] + [curses.KEY_DOWN] * 3 + [10])
+        self.ui.screen = screen
+        self.ui.save_path = Path("/definitely/missing/dullest-save.json")
+        self.ui.new_game = lambda: self.engine
+        launched = []
+
+        def capture_tutorial() -> None:
+            launched.append(self.ui.engine)
+            self.ui.engine = None
+
+        self.ui._game_loop = capture_tutorial
+        self.ui.run()
+        self.assertEqual(1, len(launched))
+        self.assertTrue(launched[0].state.tutorial)
+
+    def test_tutorial_ui_reaches_reward_and_completes_after_deck_inspection(self) -> None:
+        self.engine = GameEngine.tutorial(self.catalog)
+        self.ui.engine = self.engine
+        screen = FakeScreen(keys=[10, 9, 10, -1, -1, -1, -1])
+        self.ui.screen = screen
+        with patch("dumbest_dungeon.ui.curses.napms"):
+            self.ui._exploration()
+        self.assertEqual("combat", self.engine.state.phase)
+        self.assertEqual(2, self.engine.state.tutorial_stage)
+
+        screen = FakeScreen(keys=[10])
+        self.ui.screen = screen
+        self.ui._tutorial_combat_lesson()
+        self.assertEqual(3, self.engine.state.tutorial_stage)
+        self.assertIn("PARTY DECK AND RANKS", screen.text())
+        warden = next(hero for hero in self.engine.living_heroes() if hero.id == "warden")
+        self.engine.play_card(0, warden.id)
+        screen = FakeScreen(keys=[10])
+        self.ui.screen = screen
+        self.ui._tutorial_combat_lesson()
+        self.assertEqual(5, self.engine.state.tutorial_stage)
+        self.assertIn("INTENTS AND SEQUENCING", screen.text())
+        field_dressing = next(
+            index for index, card in enumerate(self.engine.state.hand)
+            if card.card_id == "field_dressing"
+        )
+        self.engine.play_card(field_dressing, warden.id)
+        self.engine.end_turn()
+        screen = FakeScreen(keys=[10])
+        self.ui.screen = screen
+        self.ui._tutorial_combat_lesson()
+        self.assertEqual(8, self.engine.state.tutorial_stage)
+        for enemy in list(self.engine.living_enemies()):
+            self.engine._damage(enemy, enemy.max_hp)
+        self.engine._combat_victory()
+        self.assertEqual("reward", self.engine.state.phase)
+
+        deck_size = len(self.engine.state.deck)
+        screen = FakeScreen(keys=[10, 10])
+        self.ui.screen = screen
+        self.ui._reward()
+        self.assertEqual(deck_size + 1, len(self.engine.state.deck))
+        self.assertEqual(9, self.engine.state.tutorial_stage)
+        screen = FakeScreen(keys=[27])
+        self.ui.screen = screen
+        self.ui._deck_view()
+        self.assertEqual("tutorial_complete", self.engine.state.phase)
+        self.assertEqual(10, self.engine.state.tutorial_stage)
 
     def test_help_scrolls_to_its_final_controls_at_minimum_size(self) -> None:
         screen = FakeScreen(keys=[curses.KEY_END, 10])
@@ -118,6 +183,23 @@ class AsciiUiTests(unittest.TestCase):
         self.assertEqual(5, "".join(screen.rows[13]).count("+------------+"))
         first_card_writes = [write for write in screen.writes if write[0] in range(13, 23) and write[1] == 2]
         self.assertTrue(all(attribute & curses.A_REVERSE for _, _, _, attribute in first_card_writes))
+
+    def test_combat_card_and_crew_inspection_are_keyboard_accessible(self) -> None:
+        self.engine.start_combat("vents")
+        screen = FakeScreen(keys=[27])
+        self.ui.screen = screen
+        self.ui._combat_hand_view()
+        self.assertIn("HAND INSPECTION", screen.text())
+        self.assertIn("TARGET:", screen.text())
+
+        screen = FakeScreen(keys=[27])
+        self.ui.screen = screen
+        self.ui._crew_view()
+        rendered = screen.text()
+        self.assertIn("CREW INSPECTION", rendered)
+        self.assertIn("Mara Venn", rendered)
+        self.assertIn("Preferred", rendered)
+        self.assertIn("R1,2; statuses", rendered)
 
     def test_minimum_size_battlefield_contains_both_formations(self) -> None:
         self.engine.start_combat("vents")
