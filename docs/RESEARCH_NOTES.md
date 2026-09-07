@@ -49,6 +49,34 @@ game rather than importing another game's content.
   spend the existing light, supply, HP, and stress economies and expose avoidable
   costs; no food, ammunition, inventory cap, or global timer is added.
 
+### Pass 2: procedural expedition structure
+
+- Grid Sage Games' [Procedural Map Generation](https://www.gridsagegames.com/blog/2014/06/procedural-map-generation/)
+  argues that topology must reflect how a map plays, that content placement
+  should use terrain deliberately, and that small handmade prefabs make
+  significant locations memorable inside generated maps. Dullest Dungeon
+  therefore embeds bounded objective landmarks and tests layouts for routing
+  properties instead of judging them by appearance.
+- [Map Composition](https://www.gridsagegames.com/blog/2015/05/map-composition/)
+  describes recording structural facts during layout generation and using them
+  to place weighted authored encounters. This supports a small landmark-template
+  vocabulary plus topology-aware objective spread; it does not support a
+  universal quest scripting engine.
+- [Map Intel: Information Warfare, Revisited](https://www.gridsagegames.com/blog/2015/02/map-intel-information-warfare-revisited/)
+  distinguishes durable knowledge of static machines from position reports for
+  mobile squads that become stale. Pass 2 likewise remembers discovered
+  facilities and landmarks while deriving current patrol visibility from
+  simulation range, independently of viewport size.
+- [The Map Ruler](https://www.gridsagegames.com/blog/2021/02/the-map-ruler-and-other-overlay-qol/)
+  treats exact distance display as interface support when miscounting can change
+  a tactical decision, while warning that complete hostile-field overlays are
+  not neutral quality of life. Route inspection therefore reports exact known
+  terrain cost and expected light, but only qualitative currently perceived
+  patrol exposure and no hidden-hazard coordinates.
+
+These sources do not imply that Cogmind's stealth, alert, hacking, fog-of-war,
+or simulation scope fits this project. Those systems remain out of scope.
+
 ## Resulting constraints
 
 - Randomness chooses among valid, authored tactical possibilities; it does not
