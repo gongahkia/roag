@@ -165,6 +165,8 @@ class EngineTests(unittest.TestCase):
         engine.state.rooms[0].biome_id = "archive"
         engine.start_combat("lost_shift")
         target = engine.living_enemies()[0]
+        cryonaut = next(hero for hero in engine.living_heroes() if hero.id == "cryonaut")
+        engine._move(cryonaut, 2 - cryonaut.rank)
         engine.state.hand = [CardInstance("ice_pick")]
         engine.state.energy = 3
         engine.play_card(0, target.id)
