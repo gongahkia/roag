@@ -333,6 +333,23 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(2, self.engine.completed_objectives())
         self.assertTrue(any(not objective.completed for objective in self.engine.state.objectives))
 
+    def test_third_and_fourth_objectives_remain_optional_and_reachable(self) -> None:
+        engine = GameEngine.new(self.catalog, 4242)
+        engine.state.supplies = 99
+        engine.state.light = 100
+        objectives = list(engine.state.objectives)
+        for index, objective in enumerate(objectives):
+            approach = engine.mission_definition(objective.biome_id)["approaches"][0]
+            self.complete_objective(engine, objective, approach["id"])
+            if index == 1:
+                self.assertTrue(engine.boss_unlocked())
+            if index >= 2:
+                self.assertTrue(objective.facts["optional"])
+            boss = engine.room_position(11)
+            self.assertTrue(engine._find_path((engine.state.party_x, engine.state.party_y), boss))
+        self.assertEqual(4, engine.completed_objectives())
+        self.assertTrue(engine.boss_unlocked())
+
     def test_each_biome_hazard_resolves_deterministically(self) -> None:
         seeds_by_biome: dict[str, int] = {}
         for seed in range(100):
@@ -440,6 +457,42 @@ class EngineTests(unittest.TestCase):
         )
         engine._resolve_exploration_tile()
         self.assertEqual("exploration", engine.state.phase)
+
+    def test_every_biome_facility_option_resolves_and_round_trips(self) -> None:
+        seeds_by_biome = {}
+        for seed in range(20):
+            engine = GameEngine.new(self.catalog, seed)
+            for biome_id in engine.state.biome_ids:
+                seeds_by_biome.setdefault(biome_id, seed)
+        self.assertEqual(set(self.catalog.biomes), set(seeds_by_biome))
+        for biome_id, seed in seeds_by_biome.items():
+            definition = next(
+                item for item in self.catalog.facilities.values()
+                if item["biome"] == biome_id
+            )
+            for option in definition["options"]:
+                with self.subTest(biome=biome_id, option=option["id"]):
+                    engine = GameEngine.new(self.catalog, seed)
+                    facility = next(
+                        item for item in engine.state.facilities
+                        if item.biome_id == biome_id
+                    )
+                    engine.state.supplies = 99
+                    engine.state.light = 99
+                    for hero in engine.living_heroes():
+                        hero.hp = hero.max_hp
+                        hero.stress = 0
+                    engine.state.party_x, engine.state.party_y = facility.x, facility.y
+                    engine.state.current_facility_id = facility.id
+                    engine.state.phase = "facility"
+                    self.assertTrue(
+                        engine.facility_option_available(facility, option["id"])[0]
+                    )
+                    engine.resolve_facility(option["id"])
+                    self.assertTrue(facility.used)
+                    self.assertEqual(option["id"], facility.outcome)
+                    restored = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+                    self.assertEqual(engine.snapshot(), restored.snapshot())
 
     def test_facility_reveal_is_regional_and_round_trips(self) -> None:
         engine = None
