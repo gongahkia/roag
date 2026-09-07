@@ -476,6 +476,9 @@ def load_catalog(path: Path | None = None) -> Catalog:
         owner_cards = [card for card in cards.values() if card.get("hero") == hero["id"]]
         if len(owner_cards) < 5:
             raise ContentError(f"hero {hero['id']} needs at least five techniques")
+        starter_ids = set(hero["starter_deck"])
+        if sum(card["id"] not in starter_ids for card in owner_cards) < 3:
+            raise ContentError(f"hero {hero['id']} needs at least three non-starter techniques")
         for rank in range(1, 5):
             if not any(rank in cards[card_id].get("from_ranks", []) for card_id in hero["starter_deck"]):
                 raise ContentError(f"hero {hero['id']} has no starter usable from rank {rank}")
@@ -500,6 +503,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
             _ranks(card.get("target_ranks"), f"card {card['id']}.target_ranks")
         _effects(card.get("effects"), CARD_EFFECTS, f"card {card['id']}.effects")
         _effects(card.get("upgrade_effects"), CARD_EFFECTS, f"card {card['id']}.upgrade_effects")
+        if card["effects"] == card["upgrade_effects"]:
+            raise ContentError(f"card {card['id']} needs a meaningful upgrade")
         tags = card.get("tags", [])
         if not isinstance(tags, list) or any(
             not isinstance(tag, str)

@@ -75,6 +75,26 @@ class ContentTests(unittest.TestCase):
                 ),
                 f"{hero['id']} has no structural card upgrade",
             )
+            starter_ids = set(hero["starter_deck"])
+            nonstarters = [
+                card for card in catalog.cards.values()
+                if card["hero"] == hero["id"] and card["id"] not in starter_ids
+            ]
+            self.assertGreaterEqual(len(nonstarters), 3, hero["id"])
+        self.assertTrue(
+            all(card["effects"] != card["upgrade_effects"] for card in catalog.cards.values())
+        )
+
+    def test_archetype_without_draft_support_is_rejected(self) -> None:
+        catalog = load_catalog()
+        raw = json.loads(json.dumps(catalog.raw))
+        hero = next(hero for hero in raw["heroes"] if hero["id"] == "breacher")
+        hero["starter_deck"][1] = "demolition"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "thin-pool.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ContentError, "three non-starter"):
+                load_catalog(path)
 
     def test_unknown_card_reference_is_rejected(self) -> None:
         catalog = load_catalog()
