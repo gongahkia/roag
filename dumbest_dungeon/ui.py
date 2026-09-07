@@ -16,6 +16,8 @@ class TerminalUI:
     MIN_ROWS = 24
     MIN_COLS = 80
     DAMAGE_FLASH_MS = 110
+    ENEMY_ACTION_MS = 650
+    ENEMY_ACTION_FAST_MS = 100
     MOVE_FRAME_MS = 55
     MAP_ROW = 5
 
@@ -33,6 +35,8 @@ class TerminalUI:
         self.engine: GameEngine | None = None
         self.message = ""
         self.colour = False
+        self._enemy_playback_fast = False
+        self._skip_enemy_playback = False
         self._configure()
 
     def _configure(self) -> None:
@@ -727,7 +731,8 @@ class TerminalUI:
                 self._flash_buffed_heroes(heroes_before)
             elif key in (ord("e"), ord("E")):
                 enemies_before = self._enemy_flash_snapshot()
-                self.engine.end_turn()
+                self._skip_enemy_playback = False
+                self.engine.end_turn(self._play_enemy_action)
                 self._flash_damaged_enemies(enemies_before)
             elif key in (ord("i"), ord("I")):
                 self._effects_view()
@@ -833,6 +838,40 @@ class TerminalUI:
             )
             for hero in self.engine.living_heroes()
         }
+
+    def _play_enemy_action(self, event: dict) -> None:
+        if getattr(self, "_skip_enemy_playback", False):
+            return
+        self._render_combat(0)
+        width = self.screen.getmaxyx()[1] - 4
+        for row in range(11, 18):
+            self._put(row, 2, " " * width)
+        targets = ", ".join(event["target_labels"]) or "no target"
+        combo = ""
+        if event["setup"]:
+            combo = " | SET " + "/".join(status.upper() for status in event["setup"])
+        elif event["payoff"]:
+            combo = " | CASH " + "/".join(status.upper() for status in event["payoff"])
+        headline = (
+            f"ENEMY ACTION {event['actor_name']} [R{event['actor_rank']}] — "
+            f"{event['action']} -> {targets}{combo}"
+        )
+        self._put(11, 2, headline[:width], curses.A_REVERSE | curses.A_BOLD)
+        change_text = " | ".join(event["changes"]) or "No visible state change."
+        for offset, line in enumerate(textwrap.wrap(change_text, width)[:5]):
+            self._put(13 + offset, 2, line, self._attr(3))
+        speed = "FAST" if getattr(self, "_enemy_playback_fast", False) else "NORMAL"
+        self._footer(f"Enemy playback {speed}  F toggle speed  Space skip remaining actions")
+        delay = self.ENEMY_ACTION_FAST_MS if getattr(self, "_enemy_playback_fast", False) else self.ENEMY_ACTION_MS
+        try:
+            self.screen.timeout(delay)
+            key = self._key()
+        finally:
+            self.screen.timeout(-1)
+        if key == ord(" "):
+            self._skip_enemy_playback = True
+        elif key in (ord("f"), ord("F")):
+            self._enemy_playback_fast = not getattr(self, "_enemy_playback_fast", False)
 
     def _flash_damaged_enemies(self, before: dict[str, tuple[int, int, list[str]]]) -> None:
         assert self.engine

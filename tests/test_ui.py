@@ -17,6 +17,7 @@ class FakeScreen:
         self.writes: list[tuple[int, int, str, int]] = []
         self.refreshes = 0
         self.nonblocking = False
+        self.timeouts: list[int] = []
 
     def getmaxyx(self) -> tuple[int, int]:
         return len(self.rows), len(self.rows[0])
@@ -42,6 +43,9 @@ class FakeScreen:
 
     def nodelay(self, enabled: bool) -> None:
         self.nonblocking = enabled
+
+    def timeout(self, delay: int) -> None:
+        self.timeouts.append(delay)
 
 
 class AsciiUiTests(unittest.TestCase):
@@ -180,6 +184,50 @@ class AsciiUiTests(unittest.TestCase):
             actor_mark = "".join(word[0] for word in enemy.name.split()).upper()[:4]
             self.assertIn(f"R{intent['enemy_rank']}{actor_mark}>", rendered)
         self.assertRegex(rendered, r"[DBHSG][0-9]")
+
+    def test_enemy_action_playback_exposes_actor_target_effects_and_speed(self) -> None:
+        self.engine.start_combat("lost_shift")
+        screen = FakeScreen(keys=[ord("f")])
+        self.ui.screen = screen
+        self.ui._play_enemy_action(
+            {
+                "actor_id": "test-enemy",
+                "actor_name": "Hull Prophet",
+                "actor_rank": 2,
+                "action": "Open the Seam",
+                "target_labels": ["R1 WARD"],
+                "setup": ["marked"],
+                "payoff": [],
+                "changes": ["Mara Venn -8 HP", "Mara Venn +MARKED 2"],
+            }
+        )
+        rendered = screen.text()
+        self.assertIn("ENEMY ACTION Hull Prophet [R2]", rendered)
+        self.assertIn("Open the Seam -> R1 WARD", rendered)
+        self.assertIn("SET MARKED", rendered)
+        self.assertIn("Mara Venn -8 HP", rendered)
+        self.assertEqual([self.ui.ENEMY_ACTION_MS, -1], screen.timeouts)
+        self.assertTrue(self.ui._enemy_playback_fast)
+
+    def test_enemy_action_playback_can_skip_the_remaining_phase(self) -> None:
+        self.engine.start_combat("lost_shift")
+        screen = FakeScreen(keys=[ord(" ")])
+        self.ui.screen = screen
+        event = {
+            "actor_id": "test-enemy",
+            "actor_name": "Hull Prophet",
+            "actor_rank": 2,
+            "action": "Open the Seam",
+            "target_labels": ["R1 WARD"],
+            "setup": [],
+            "payoff": ["marked"],
+            "changes": ["Mara Venn -8 HP"],
+        }
+        self.ui._play_enemy_action(event)
+        refreshes = screen.refreshes
+        self.ui._play_enemy_action(event)
+        self.assertTrue(self.ui._skip_enemy_playback)
+        self.assertEqual(refreshes, screen.refreshes)
 
     def test_target_cursor_moves_between_battlefield_sprites(self) -> None:
         self.engine.start_combat("vents")
