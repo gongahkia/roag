@@ -139,3 +139,18 @@ shown in inspection. They will not silently change combat numbers.
   sweeps, full tests, compilation, diff checks, and required real-PTY scenarios
   pass. Three natural runs are reported without debug assistance, including
   failures and unresolved pacing uncertainty.
+
+## Pacing checkpoint
+
+A deterministic 60-seed route audit measured the cheapest travel-only route
+from arrival through any two objective approaches to the Core. The median was
+185.5 weighted ticks, the 90th percentile 213, and the range 133–259. At the
+original two-tick cadence this consumed a median 92.5 light and 106 light at
+the 90th percentile before combat-room detours, hazards, or discoveries. Seed
+42 required 199 ticks, or 99 light, on its best route.
+
+The cadence is therefore three travel ticks per light. The same route sample
+costs a median 61.5 light and 71 at the 90th percentile. Low-light ambush,
+stress, extra reward choice, supplies, and biome light costs remain unchanged;
+this is a bounded correction to cumulative traversal pressure, not a general
+difficulty reduction. Natural play remains necessary to evaluate the result.

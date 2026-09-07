@@ -688,7 +688,8 @@ class EngineTests(unittest.TestCase):
             )
             previous = destination
         self.assertEqual(expected_ticks, projection["ticks"])
-        self.assertEqual(expected_ticks // 2, projection["light"])
+        interval = self.catalog.balance["exploration_steps_per_light"]
+        self.assertEqual(expected_ticks // interval, projection["light"])
         other = GameEngine.new(self.catalog, 4242)
         other_objective = other.state.objectives[0]
         other.state.party_x, other.state.party_y = other_objective.x, other_objective.y
@@ -1030,7 +1031,11 @@ class EngineTests(unittest.TestCase):
         self.engine.step_exploration(*path[0])
         self.engine.step_exploration(*path[1])
         self.assertEqual(self.engine.path_cost(path), self.engine.state.travel_ticks)
-        self.assertEqual(100 - self.engine.state.travel_ticks // 2, self.engine.state.light)
+        interval = self.catalog.balance["exploration_steps_per_light"]
+        self.assertEqual(
+            100 - self.engine.state.travel_ticks // interval,
+            self.engine.state.light,
+        )
 
     def test_travel_cost_comes_from_the_actual_terrain_glyph(self) -> None:
         origin = (self.engine.state.party_x, self.engine.state.party_y)

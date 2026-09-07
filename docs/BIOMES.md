@@ -1,7 +1,7 @@
 # Biome field guide
 
 Every seed combines four of these biomes. A route order is limited by travel
-ticks, not geometric distance. Two travel ticks spend one light. The map shows
+ticks, not geometric distance. Three travel ticks spend one light. The map shows
 only hazards and patrols within the current biome's information range; this is
 local information pressure, not global fog of war. A triggered hazard or access
 site interrupts auto-pathing before another tile can resolve.

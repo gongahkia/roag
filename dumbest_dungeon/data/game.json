@@ -3,7 +3,7 @@
   "balance": {
     "hand_size": 5,
     "energy": 3,
-    "exploration_steps_per_light": 2,
+    "exploration_steps_per_light": 3,
     "maximum_navigation_distance": 18,
     "death_chance": 0.35,
     "low_light_threshold": 30,
