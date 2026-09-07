@@ -2923,6 +2923,8 @@ class GameEngine:
                         destination = self.rng.choice(ordered[1:])
                     else:
                         destination = ordered[0]
+            elif room_kind == "boss":
+                destination = current
             elif patrol.doctrine == "sentry":
                 home = self.room_position(patrol.room_id)
                 path = self._find_path(current, home)

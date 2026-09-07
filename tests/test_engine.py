@@ -348,6 +348,23 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(2, self.engine.completed_objectives())
         self.assertTrue(any(not objective.completed for objective in self.engine.state.objectives))
 
+    def test_open_core_holds_its_anchor_until_the_crew_approaches(self) -> None:
+        boss = next(
+            patrol
+            for patrol in self.engine.state.patrols
+            if self.engine.room(patrol.room_id).kind == "boss"
+        )
+        self.engine.state.supplies = 9
+        for objective in self.engine.state.objectives[:2]:
+            approach = self.engine.mission_definition(objective.biome_id)["approaches"][0]
+            self.complete_objective(self.engine, objective, approach["id"])
+        home = self.engine.room_position(boss.room_id)
+        self.assertEqual(home, (boss.x, boss.y))
+        self.engine.state.party_x, self.engine.state.party_y = self.engine.room_position(0)
+        self.engine.state.exploration_steps += 1
+        self.engine._advance_patrols()
+        self.assertEqual(home, (boss.x, boss.y))
+
     def test_third_and_fourth_objectives_remain_optional_and_reachable(self) -> None:
         engine = GameEngine.new(self.catalog, 4242)
         engine.state.supplies = 99
