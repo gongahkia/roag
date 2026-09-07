@@ -367,6 +367,28 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("e", rendered)
         self.assertIn("+", rendered)
 
+    def test_exploration_hud_prioritises_complete_route_and_biome_state(self) -> None:
+        screen = FakeScreen()
+        self.ui.screen = screen
+        party = (self.engine.state.party_x, self.engine.state.party_y)
+        self.ui._render_exploration(party)
+        rendered = screen.text()
+        biome = self.catalog.biomes[self.engine.current_biome()]["name"]
+        self.assertIn("Route  0/18 READY", rendered)
+        self.assertIn("Core SEALED", rendered)
+        self.assertIn(biome, rendered)
+
+        wall = next(
+            (x, y)
+            for y, row in enumerate(self.engine.world_tiles())
+            for x, tile in enumerate(row)
+            if tile == "#"
+        )
+        screen = FakeScreen()
+        self.ui.screen = screen
+        self.ui._render_exploration(wall)
+        self.assertIn("Route --/18 OUT OF REACH", screen.text())
+
     def test_destination_cycle_excludes_points_beyond_command_reach(self) -> None:
         party = (self.engine.state.party_x, self.engine.state.party_y)
         distant = max(

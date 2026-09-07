@@ -431,31 +431,32 @@ class TerminalUI:
         rows = self.screen.getmaxyx()[0]
         state = self.engine.state
         route = []
-        if self.engine.is_walkable(*cursor):
+        walkable = self.engine.is_walkable(*cursor)
+        if walkable:
             route = self.engine._find_path((state.party_x, state.party_y), cursor)
-        route_length = self.engine.path_cost(route)
+        route_exists = cursor == (state.party_x, state.party_y) or bool(route)
+        route_length = self.engine.path_cost(route) if route_exists else None
         maximum = self.engine.maximum_navigation_distance()
-        reach = "READY" if route_length <= maximum and self.engine.is_walkable(*cursor) else "OUT OF REACH"
+        reach = "READY" if walkable and route_length is not None and route_length <= maximum else "OUT OF REACH"
+        route_cost = f"{route_length:2}" if route_length is not None else "--"
         biome = self.catalog.biomes[self.engine.current_biome()]["name"]
         mechanics = self.engine.biome_mechanics()
-        access = f"ACCESS {self.engine.completed_objectives()}/{state.required_objectives}"
-        core = "CORE OPEN" if self.engine.boss_unlocked() else "CORE SEALED"
-        zone = self.engine.room().name
+        access = f"Access {self.engine.completed_objectives()}/{state.required_objectives}"
+        core = "OPEN" if self.engine.boss_unlocked() else "SEALED"
         self._put(
             rows - 4,
             2,
             (
-                f"Crew ({state.party_x:03},{state.party_y:02})  "
-                f"Target ({cursor[0]:03},{cursor[1]:02})  "
-                f"Cost {route_length:2}/{maximum} {reach}  {access} {core}  "
-                f"Biome: {biome}  Last: {zone}"
+                f"Crew {state.party_x:03},{state.party_y:02}  "
+                f"Aim {cursor[0]:03},{cursor[1]:02}  "
+                f"Route {route_cost}/{maximum} {reach}  {access}  Core {core}"
             )[: self.screen.getmaxyx()[1] - 3],
             self._attr(1 if reach == "READY" else 3),
         )
         self._put(
             rows - 3,
             2,
-            f"@ crew X aim e/E/B foes K objective ^ hazard ?/C/W/$ sites | "
+            f"@crew Xaim e/E/B foes Kgoal ^hazard ?/C/W/$ | "
             f"T{mechanics['traversal']['cost']} {biome}"[
                 : self.screen.getmaxyx()[1] - 3
             ],
