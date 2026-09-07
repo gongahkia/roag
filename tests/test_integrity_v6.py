@@ -118,6 +118,29 @@ class PhysicalStateIntegrityTests(unittest.TestCase):
         self.assertEqual(treasure.ground_position, thief.position)
         self.assertIsNone(thief.carrying_item_id)
 
+    def test_escaped_thief_records_a_physical_item_as_causally_lost(self):
+        state = expedition("escaped thief reconciliation")
+        treasure = create_item(
+            state, "passive:witness token", "marked coffer",
+            owner_id=state.active_courier_id,
+        )
+        self.assertTrue(auto_place(state, treasure.id, "pack", owner_id=state.active_courier_id))
+        record_acquisition(state, treasure)
+        thief = Threat(
+            "escape-thief", "cargo runner", "pursuer", Position(41, 25), 4, 4,
+            status="engaged", role="thief", morale=5,
+            home_position=Position(41, 25), capabilities=["steal", "escape"],
+        )
+        state.position = Position(40, 25)
+        state.threats = [thief]
+        _threat_action(state, thief, False)
+        self.assertEqual(treasure.location, "enemy")
+        result = _threat_action(state, thief, False)
+        self.assertIn("recorded as lost", result)
+        self.assertEqual(treasure.location, "lost")
+        self.assertIsNone(thief.carrying_item_id)
+        self.assertIn("escaped", state.history[-1])
+
     def test_regional_process_geometry_reconstructs_from_persisted_stage(self):
         state = create_world("reconstruct region")
         activate_region(state, "greywash")

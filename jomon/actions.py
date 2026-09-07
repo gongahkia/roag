@@ -712,13 +712,29 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
         target = threat.home_position or threat.position
         if distance(threat.position, target) <= 1:
             threat.status, threat.intent = "retreated", "escaped with stolen cargo"
-            return f"The {threat.name} escapes the encounter with stolen cargo."
+            loss = ""
+            if threat.carrying_item_id:
+                stolen = next(
+                    (item for item in state.items if item.id == threat.carrying_item_id),
+                    None,
+                )
+                if stolen:
+                    stolen.location = "lost"
+                    stolen.owner_id = None
+                    stolen.region_id = state.active_region_id
+                    stolen.ground_position = None
+                    stolen.container_id = None
+                    loss = f" The {item_spec(stolen.kind).name} is now recorded as lost beyond the regional route."
+                    state.remember(
+                        f"{threat.name.title()} escaped {state.region.name} with {item_spec(stolen.kind).name}; the physical item was lost."
+                    )
+                threat.carrying_item_id = None
+                sync_legacy_load(state)
+            return f"The {threat.name} escapes the encounter with stolen cargo.{loss}"
         previous = threat.position
         threat.position = next_path_step(state, threat, target, stop_distance=0)
         return "" if threat.position == previous else f"The {threat.name} carries stolen cargo toward its escape route."
     if decision.action == "steal":
-        from .inventory import item_spec, sync_legacy_load
-
         candidates = [
             item for item in state.items
             if item.owner_id == state.active_courier_id and item.location == "pack"
@@ -1094,6 +1110,11 @@ def depart(state: GameState) -> ActionResult:
 
     reconstruct_regional_process(state)
     state.merchant_present, state.merchant_stock = False, []
+    state.merchant.available = False
+    merchant_schedule = state.actor_schedules.get(state.merchant.id)
+    if merchant_schedule:
+        merchant_schedule.available = False
+        merchant_schedule.activity = "away on a regional circuit"
     field_of_view(state)
     state.remember(
         f"Expedition {state.expedition_count}: {state.courier.name} crossed into {state.region.name}."
