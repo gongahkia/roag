@@ -37,6 +37,8 @@ class ContentTests(unittest.TestCase):
             {hero["id"] for hero in affinity_heroes},
             {card["hero"] for card in affinity_cards},
         )
+        self.assertTrue(all(card["tags"] for card in catalog.cards.values()))
+        self.assertTrue(all(card["upgrade_description"] for card in catalog.cards.values()))
         def signature(card: dict) -> tuple:
             return (
                 card["cost"],
@@ -92,6 +94,17 @@ class ContentTests(unittest.TestCase):
             path = Path(directory) / "bad-tag.json"
             path.write_text(json.dumps(raw), encoding="utf-8")
             with self.assertRaisesRegex(ContentError, "invalid build tags"):
+                load_catalog(path)
+
+    def test_required_authored_card_tag_is_rejected_when_missing(self) -> None:
+        catalog = load_catalog()
+        raw = json.loads(json.dumps(catalog.raw))
+        card = next(card for card in raw["cards"] if card["id"] == "arc_welder")
+        card["tags"].remove("payoff:marked")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "missing-tag.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ContentError, "missing authored build tags"):
                 load_catalog(path)
 
     def test_incomplete_biome_mechanics_are_rejected(self) -> None:

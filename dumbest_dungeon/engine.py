@@ -2030,40 +2030,7 @@ class GameEngine:
         return self.catalog.curses[card.card_id]
 
     def card_tags(self, card_id: str) -> set[str]:
-        definition = self.catalog.cards[card_id]
-        tags = set(definition.get("tags", []))
-        effects = definition["effects"] + definition["upgrade_effects"]
-        for effect in effects:
-            op = effect["op"]
-            if op == "damage":
-                tags.add("damage")
-            elif op == "block":
-                tags.add("block")
-            elif op == "heal":
-                tags.add("recovery")
-            elif op == "stress":
-                tags.add("stress_relief" if effect.get("amount", 0) < 0 else "stress_risk")
-            elif op == "move":
-                effect_target = effect.get("target", definition["target"])
-                tags.add("displacement" if effect_target in {"enemy", "all_enemies"} else "mobility")
-            elif op in {"guard", "cleanse", "draw", "discard", "energy"}:
-                tags.add(op)
-            elif op == "status":
-                status = effect["status"]
-                if status in {"marked", "vulnerable", "wound"}:
-                    tags.add(f"setup:{status}")
-                elif status in {"weak", "stun"}:
-                    tags.add("control")
-                else:
-                    tags.add(f"status:{status}")
-            bonus_status = effect.get("bonus_status") or effect.get("condition_status")
-            if bonus_status:
-                tags.add(f"payoff:{bonus_status}")
-            if effect.get("condition_target_state") == "deaths_door":
-                tags.add("payoff:deaths_door")
-        if definition.get("biome"):
-            tags.add(f"affinity:{definition['biome']}")
-        return tags
+        return set(self.catalog.cards[card_id]["tags"])
 
     @staticmethod
     def _stack_value(effect: dict[str, Any], count: int) -> float:

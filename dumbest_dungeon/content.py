@@ -221,6 +221,41 @@ def _effects(value: Any, allowed: set[str], context: str) -> None:
                 raise ContentError(f"{context}[{index}].{field} is invalid")
 
 
+def _derived_card_tags(card: dict[str, Any]) -> set[str]:
+    tags: set[str] = set()
+    for effect in card["effects"] + card["upgrade_effects"]:
+        op = effect["op"]
+        if op == "damage":
+            tags.add("damage")
+        elif op == "block":
+            tags.add("block")
+        elif op == "heal":
+            tags.add("recovery")
+        elif op == "stress":
+            tags.add("stress_relief" if effect["amount"] < 0 else "stress_risk")
+        elif op == "move":
+            target = effect.get("target", card["target"])
+            tags.add("displacement" if target in {"enemy", "all_enemies"} else "mobility")
+        elif op in {"guard", "cleanse", "draw", "discard", "energy"}:
+            tags.add(op)
+        elif op == "status":
+            status = effect["status"]
+            if status in {"marked", "vulnerable", "wound"}:
+                tags.add(f"setup:{status}")
+            elif status in {"weak", "stun"}:
+                tags.add("control")
+            else:
+                tags.add(f"status:{status}")
+        bonus_status = effect.get("bonus_status") or effect.get("condition_status")
+        if bonus_status:
+            tags.add(f"payoff:{bonus_status}")
+        if effect.get("condition_target_state") == "deaths_door":
+            tags.add("payoff:deaths_door")
+    if card.get("biome"):
+        tags.add(f"affinity:{card['biome']}")
+    return tags
+
+
 def _art_lines(value: Any, context: str, *, count: int, width: int) -> None:
     if not isinstance(value, list) or len(value) != count:
         raise ContentError(f"{context} must contain exactly {count} lines")
@@ -342,6 +377,11 @@ def load_catalog(path: Path | None = None) -> Catalog:
         art = json.loads(art_source.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load ASCII art from {art_source}: {exc}") from exc
+    metadata_source = Path(str(data_root.joinpath("card_metadata.json")))
+    try:
+        card_metadata = json.loads(metadata_source.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ContentError(f"cannot load card metadata from {metadata_source}: {exc}") from exc
 
     if raw.get("schema_version") != 7:
         raise ContentError("content schema_version must be 7")
@@ -361,6 +401,15 @@ def load_catalog(path: Path | None = None) -> Catalog:
     balance = raw.get("balance")
     if not isinstance(balance, dict):
         raise ContentError("balance must be an object")
+    if card_metadata.get("schema_version") != 1 or not isinstance(card_metadata.get("cards"), dict):
+        raise ContentError("card metadata schema is invalid")
+    if set(card_metadata["cards"]) != set(cards):
+        raise ContentError("card metadata must cover every technique exactly once")
+    for card_id, metadata in card_metadata["cards"].items():
+        if not isinstance(metadata, dict) or set(metadata) != {"tags", "upgrade_description"}:
+            raise ContentError(f"card metadata for {card_id} is malformed")
+        cards[card_id].setdefault("tags", metadata["tags"])
+        cards[card_id].setdefault("upgrade_description", metadata["upgrade_description"])
 
     sections = {
         "heroes": heroes,
@@ -466,10 +515,13 @@ def load_catalog(path: Path | None = None) -> Catalog:
                     raise ContentError(f"card {card['id']} has an unknown status build tag")
             if tag.startswith("affinity:") and tag.split(":", 1)[1] not in biomes:
                 raise ContentError(f"card {card['id']} has an unknown affinity build tag")
-        if "upgrade_description" in card and (
-            not isinstance(card["upgrade_description"], str) or not card["upgrade_description"]
-        ):
-            raise ContentError(f"card {card['id']} has an invalid upgrade description")
+        missing_tags = _derived_card_tags(card) - set(tags)
+        if missing_tags:
+            raise ContentError(
+                f"card {card['id']} is missing authored build tags: {', '.join(sorted(missing_tags))}"
+            )
+        if not isinstance(card.get("upgrade_description"), str) or not card["upgrade_description"]:
+            raise ContentError(f"card {card['id']} needs an upgrade description")
         if "upgrade_cost" in card and (
             not isinstance(card["upgrade_cost"], int) or card["upgrade_cost"] < 0
         ):
