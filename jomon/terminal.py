@@ -110,11 +110,13 @@ class InventoryView:
     cursor_x: int = 0
     cursor_y: int = 0
     held_id: str | None = None
+    held_rotated: bool = False
     selected_ids: set[str] | None = None
     pending_drop: bool = False
     status: str = ""
     paper_slot: int = 0
     grid_origin: tuple[int, int] = (2, 3)
+    paper_screen: dict[str, tuple[int, int]] | None = None
 
     @classmethod
     def begin(cls, state: GameState, source: str | None = None) -> "InventoryView":
@@ -440,6 +442,182 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str]) -> None:
     screen.refresh()
 
 
+def _chart_screen_point(node_x: int, node_y: int, map_width: int, height: int) -> tuple[int, int]:
+    usable_width, usable_height = max(12, map_width - 5), max(8, height - 7)
+    return 2 + round(node_x / 78 * usable_width), 2 + round(node_y / 20 * usable_height)
+
+
+def _chart_line(first: tuple[int, int], second: tuple[int, int]) -> list[tuple[int, int]]:
+    x0, y0 = first
+    x1, y1 = second
+    dx, dy = abs(x1 - x0), -abs(y1 - y0)
+    sx, sy = (1 if x0 < x1 else -1), (1 if y0 < y1 else -1)
+    error, points = dx + dy, []
+    while True:
+        points.append((x0, y0))
+        if (x0, y0) == (x1, y1):
+            return points
+        twice = 2 * error
+        if twice >= dy:
+            error += dy
+            x0 += sx
+        if twice <= dx:
+            error += dx
+            y0 += sy
+
+
+def _draw_route_chart(
+    screen: curses.window,
+    state: GameState,
+    view: RouteChartView,
+    *,
+    moving: tuple[int, int, str] | None = None,
+) -> None:
+    height, width = screen.getmaxyx()
+    screen.erase()
+    detail_width = max(27, min(36, width // 3))
+    map_width = width - detail_width
+    _frame(screen, 0, 0, height - 2, map_width, "JOMON ROUTE CHART")
+    _frame(screen, 0, map_width, height - 2, detail_width, "SELECTED ROUTE")
+    view.node_screen = {}
+    for edge in state.route_edges:
+        first = _chart_screen_point(state.route_nodes[edge.first].x, state.route_nodes[edge.first].y, map_width, height)
+        second = _chart_screen_point(state.route_nodes[edge.second].x, state.route_nodes[edge.second].y, map_width, height)
+        known = edge.first in state.route_known or edge.second in state.route_known
+        attr = _COLOUR_ATTRIBUTES["exit"] if edge.id in state.traversed_route_edges else curses.A_DIM
+        if not known:
+            attr = curses.A_DIM
+        for x, y in _chart_line(first, second)[1:-1]:
+            glyph = "-" if first[1] == second[1] else "|" if first[0] == second[0] else "."
+            _put(screen, y, x, glyph, attr)
+    glyphs = {
+        "region": "R", "anchorage": "A", "market": "$", "resupply": "+",
+        "hazard": "!", "warning": "!", "unknown": "?",
+    }
+    reachable = set(neighbours(state, state.route_current_node, reachable_only=True))
+    for node_id, node in state.route_nodes.items():
+        x, y = _chart_screen_point(node.x, node.y, map_width, height)
+        view.node_screen[node_id] = (x, y)
+        known = node_id in state.route_known or node.known
+        glyph = "@" if node_id == state.route_current_node else glyphs.get(node.kind, "o") if known else "?"
+        role = "player" if glyph == "@" else "hazard" if glyph == "!" else "cargo" if glyph == "$" else "exit"
+        attr = _COLOUR_ATTRIBUTES[role]
+        if node_id in reachable:
+            attr |= curses.A_BOLD
+        if node_id == view.cursor:
+            attr |= curses.A_REVERSE
+        _put(screen, y, x, glyph, attr)
+        if node.region_id and x + 2 < map_width - 1:
+            _put(screen, y, x + 2, _clip(node.name, 10), curses.A_BOLD if known else curses.A_DIM)
+    if moving:
+        mx, my = _chart_screen_point(moving[0], moving[1], map_width, height)
+        _put(screen, my, mx, "@", _COLOUR_ATTRIBUTES["player"] | curses.A_REVERSE)
+        _put(screen, height - 4, 2, _clip(moving[2], map_width - 4), curses.A_BOLD)
+    selected = state.route_nodes[view.cursor]
+    lines = [
+        selected.name.upper(), f"Type: {selected.kind}",
+        *route_preview(state, view.cursor), "",
+        f"Calendar: {calendar_at(state).label}",
+        f"Jomon integrity: {state.vessel_integrity}/10",
+        f"Chart layer {view.overlay_mode + 1}: " + ("route and risk" if view.overlay_mode == 0 else "markets and supplies" if view.overlay_mode == 1 else "season and contacts"),
+    ]
+    if view.confirming:
+        available, reason = route_availability(state, view.cursor)
+        lines += ["", f"> ENTER — {'CONFIRM LEG' if available else 'BLOCKED'}", "  ESC — cancel confirmation", reason]
+    for index, line in enumerate(lines[: height - 5]):
+        attr = curses.A_BOLD if index == 0 or line.startswith(">") else curses.A_DIM if "BLOCKED" in line else 0
+        _put(screen, 2 + index, map_width + 2, _clip(line, detail_width - 4), attr)
+    _put(screen, height - 2, 1, "Arrows/WASD/HJKL connected node  Enter preview/confirm  Tab layer  Esc close", curses.A_REVERSE)
+    _put(screen, height - 1, 1, "Mouse: click selects, double-click confirms where reported; keyboard is complete", curses.A_REVERSE)
+    screen.refresh()
+
+
+def _route_mouse_node(view: RouteChartView, event: InputEvent) -> str | None:
+    points = view.node_screen or {}
+    candidates = [
+        (abs(x - event.x) + abs(y - event.y), node_id)
+        for node_id, (x, y) in points.items()
+        if abs(x - event.x) <= 1 and abs(y - event.y) <= 1
+    ]
+    return min(candidates)[1] if candidates else None
+
+
+def _handle_route_chart(
+    state: GameState,
+    view: RouteChartView,
+    event: InputEvent,
+) -> tuple[bool, str | None, tuple[str, str] | None]:
+    if event.kind == "mouse":
+        node_id = _route_mouse_node(view, event)
+        if event.button == "left" and node_id:
+            view.cursor = node_id
+            view.confirming = event.double
+            if not event.double:
+                return False, None, None
+        else:
+            return False, None, None
+        key = 10 if event.double else -1
+    else:
+        key = event.key
+    if key == 27:
+        if view.confirming:
+            view.confirming = False
+            return False, None, None
+        return True, None, None
+    if key == 9:
+        view.overlay_mode = (view.overlay_mode + 1) % 3
+        return False, None, None
+    movement = {
+        curses.KEY_LEFT: (-1, 0), curses.KEY_RIGHT: (1, 0),
+        curses.KEY_UP: (0, -1), curses.KEY_DOWN: (0, 1),
+        ord("a"): (-1, 0), ord("d"): (1, 0), ord("w"): (0, -1), ord("s"): (0, 1),
+        ord("h"): (-1, 0), ord("l"): (1, 0), ord("k"): (0, -1), ord("j"): (0, 1),
+    }
+    normalized = ord(chr(key).lower()) if 0 <= key < 256 else key
+    if normalized in movement:
+        view.cursor = chart_move(state, view.cursor, *movement[normalized])
+        view.confirming = False
+        return False, None, None
+    if key in {10, 13}:
+        if view.cursor == state.route_current_node:
+            return False, None, None
+        available, reason = route_availability(state, view.cursor)
+        if not available:
+            state.add_message(reason, priority=2)
+            view.confirming = False
+            return False, None, None
+        if not view.confirming:
+            view.confirming = True
+            return False, None, None
+        origin, destination = state.route_current_node, view.cursor
+        changed, message = choose_destination(state, destination)
+        if not changed:
+            state.add_message(message, priority=2)
+            return False, None, None
+        return True, "voyage" if state.voyage_status == "active" else None, (origin, destination)
+    return False, None, None
+
+
+def _animate_route(screen: curses.window, state: GameState, origin: str, destination: str) -> None:
+    frames = travel_animation_frames(state, origin, destination, interrupted=state.voyage_status == "active")
+    view = RouteChartView(destination)
+    try:
+        screen.timeout(120)
+        for frame in frames:
+            height, width = screen.getmaxyx()
+            if height < MIN_HEIGHT or width < MIN_WIDTH:
+                _draw_base(screen, state)
+            else:
+                _draw_route_chart(screen, state, view, moving=(frame.x, frame.y, frame.text))
+            key = screen.getch()
+            if key in {27, ord(" "), 10, 13, ord("s"), ord("S"), ord("q"), ord("Q")}:
+                break
+            if key == curses.KEY_RESIZE:
+                continue
+    finally:
+        screen.timeout(-1)
+
+
 def _inventory_panes(state: GameState, view: InventoryView) -> list[str]:
     if state.location == "jomon":
         return ["pack", "locker"]
@@ -481,12 +659,41 @@ def _item_colour(kind: str) -> int:
     return _COLOUR_ATTRIBUTES[role]
 
 
+PAPER_SLOTS = ("readied", "secondary", *BODY_SLOTS)
+
+
+def paper_doll_layout(state: GameState) -> tuple[str, ...]:
+    courier = state.courier
+
+    def mark(slot: str) -> str:
+        item = equipped_item(state, slot)
+        abbreviation = item_spec(item.kind).abbreviation if item else "--"
+        injury = "!" if courier and slot in courier.injuries else " "
+        return f"{abbreviation[:2]}{injury}"
+
+    return (
+        f"             +[{mark('head')}]+",
+        "                |",
+        f"       [{mark('arms')}]--[{mark('torso')}]--[{mark('arms')}]",
+        f"       [{mark('hands')}]    |    [{mark('hands')}]",
+        "                |",
+        f"             +[{mark('legs')}]+",
+        f"             / [{mark('feet')}] \\",
+        f" W [{mark('readied')}]  T [{mark('secondary')}]  P [PACK]",
+    )
+
+
+def _paper_selected_item(state: GameState, view: InventoryView):
+    return equipped_item(state, PAPER_SLOTS[view.paper_slot % len(PAPER_SLOTS)])
+
+
 def _draw_inventory(screen: curses.window, state: GameState, view: InventoryView) -> None:
     height, width = screen.getmaxyx()
     screen.erase()
     _frame(screen, 0, 0, height - 2, width, "SPATIAL INVENTORY")
     pane_name = view.pane.split(":", 1)[0].upper()
-    _put(screen, 1, 2, f"{pane_name}  Tab changes pane", curses.A_BOLD)
+    mode = "AUTO-PLACE ON" if state.auto_place_enabled else "AUTO-PLACE OFF"
+    _put(screen, 1, 2, f"{pane_name}  Tab pane  {mode}", curses.A_BOLD)
     selected = _inventory_item_at(state, view)
     if view.held_id:
         selected = next(item for item in state.items if item.id == view.held_id)
@@ -494,6 +701,7 @@ def _draw_inventory(screen: curses.window, state: GameState, view: InventoryView
     if view.pane in {"pack", "locker"}:
         grid_width, grid_height = grid_size(state, view.pane)
         origin_x, origin_y = 2, 3
+        view.grid_origin = origin_x, origin_y
         _frame(screen, origin_y - 1, origin_x - 1, grid_height + 2, grid_width * 2 + 2, f"{grid_width}x{grid_height}")
         cell_items: dict[tuple[int, int], object] = {}
         for item in _inventory_items(state, view):
@@ -506,7 +714,23 @@ def _draw_inventory(screen: curses.window, state: GameState, view: InventoryView
                 attr = curses.A_DIM
                 if item:
                     text = item_spec(item.kind).abbreviation if (x, y) == (item.x, item.y) else "[]"
+                    if item.pinned and (x, y) == (item.x, item.y):
+                        text = text[:1] + "*"
                     attr = _item_colour(item.kind)
+                    if view.selected_ids and item.id in view.selected_ids:
+                        attr |= curses.A_BOLD | curses.A_UNDERLINE
+                if view.held_id:
+                    held = next(item for item in state.items if item.id == view.held_id)
+                    owner = state.active_courier_id if view.pane == "pack" else None
+                    preview = placement_preview(
+                        state, held, view.pane, view.cursor_x, view.cursor_y,
+                        rotated=view.held_rotated, owner_id=owner,
+                    )
+                    if (x, y) in preview.cells:
+                        text = "::"
+                        attr = (_COLOUR_ATTRIBUTES["exit"] if preview.valid else _COLOUR_ATTRIBUTES["hazard"]) | curses.A_REVERSE
+                    if (x, y) in set().union(*(occupied_cells(other) for other in _inventory_items(state, view) if other.id in preview.blockers)):
+                        attr |= curses.A_BOLD | _COLOUR_ATTRIBUTES["hazard"]
                 if (x, y) == (view.cursor_x, view.cursor_y):
                     attr |= curses.A_REVERSE
                 _put(screen, origin_y + y, origin_x + x * 2, text[:2].ljust(2), attr)
@@ -519,33 +743,48 @@ def _draw_inventory(screen: curses.window, state: GameState, view: InventoryView
         if not rows:
             _put(screen, 5, 3, "(empty)", curses.A_DIM)
 
-    detail_x = min(max(28, width // 2), width - 34)
-    _put(screen, 2, detail_x, "BODY / READIED", curses.A_BOLD)
-    readied = equipped_item(state, "readied")
-    secondary = equipped_item(state, "secondary")
-    _put(screen, 3, detail_x, _clip(f"Weapon: {item_spec(readied.kind).name if readied else '-'}", width - detail_x - 2))
-    _put(screen, 4, detail_x, _clip(f"Gear: {item_spec(secondary.kind).name if secondary else '-'}", width - detail_x - 2))
-    courier = state.courier
-    for index, slot in enumerate(BODY_SLOTS):
-        item = equipped_item(state, slot)
-        injury = courier.injuries.get(slot, "clear") if courier else "clear"
-        name = item_spec(item.kind).name if item else "exposed"
-        _put(screen, 6 + index, detail_x, _clip(f"{index + 1} {slot:5} {name}; {injury}", width - detail_x - 2))
+    detail_x = min(max(27, width // 2), width - 34)
+    _put(screen, 2, detail_x, "PAPER DOLL  [ / ] selects slot", curses.A_BOLD)
+    view.paper_screen = {}
+    for index, line in enumerate(paper_doll_layout(state)):
+        _put(screen, 3 + index, detail_x, _clip(line, width - detail_x - 2))
+    # Mouse hit rows are deliberately broad; exact limb art is presentation.
+    for index, slot in enumerate(PAPER_SLOTS):
+        view.paper_screen[slot] = (detail_x, 3 + min(index, 7))
     burden = load_state(state)
-    _put(screen, 13, detail_x, f"Weight {pack_weight(state)}/{weight_capacity(state)} — {burden}", curses.A_BOLD)
+    _put(screen, 11, detail_x, f"Weight {pack_weight(state)}/{weight_capacity(state)} — {burden}", curses.A_BOLD)
     from .inventory import LOAD_EFFECTS
 
     for index, line in enumerate(_wrapped(LOAD_EFFECTS[burden], max(20, width - detail_x - 2))[:2]):
-        _put(screen, 14 + index, detail_x, line)
+        _put(screen, 12 + index, detail_x, line)
+    if not selected:
+        selected = _paper_selected_item(state, view)
     if selected:
         spec = item_spec(selected.kind)
         held = "HELD — " if view.held_id else ""
-        _put(screen, 16, detail_x, _clip(f"{held}{spec.name} {spec.width}x{spec.height} wt {spec.weight}", width - detail_x - 2), curses.A_BOLD)
+        actual_width, actual_height = (spec.height, spec.width) if view.held_id and view.held_rotated else (spec.width, spec.height)
+        _put(screen, 14, detail_x, _clip(f"{held}{spec.name} {actual_width}x{actual_height} wt {spec.weight}", width - detail_x - 2), curses.A_BOLD)
+        for index, art in enumerate(item_preview(selected.kind)):
+            _put(screen, 15 + index, detail_x, _clip(art, width - detail_x - 2), _item_colour(selected.kind))
         for index, line in enumerate(_wrapped(spec.description, max(20, width - detail_x - 2))[:3]):
-            _put(screen, 17 + index, detail_x, line)
-        _put(screen, 20, detail_x, _clip(f"Condition {selected.condition}; {selected.provenance}", width - detail_x - 2))
-    _put(screen, height - 2, 1, "Arrows/WASD cursor  Enter lift/place  R rotate  Tab pane  T transfer  E equip", curses.A_REVERSE)
-    _put(screen, height - 1, 1, "1-6 unequip armour  D drop  C confirm  Esc cancel all changes", curses.A_REVERSE)
+            _put(screen, 18 + index, detail_x, line)
+        _put(screen, min(height - 4, 21), detail_x, _clip(f"Condition {selected.condition}; {'PINNED; ' if selected.pinned else ''}{selected.provenance}", width - detail_x - 2))
+    if view.held_id and view.pane in {"pack", "locker"}:
+        held_item = next(item for item in state.items if item.id == view.held_id)
+        owner = state.active_courier_id if view.pane == "pack" else None
+        preview = placement_preview(state, held_item, view.pane, view.cursor_x, view.cursor_y, rotated=view.held_rotated, owner_id=owner)
+        view.status = f"GHOST {preview.reason}; load {preview.resulting_weight}/{weight_capacity(state)} {preview.resulting_load}"
+    count = len(view.selected_ids or ())
+    if count:
+        marked = [item for item in state.items if item.id in (view.selected_ids or set())]
+        total = sum(item_spec(item.kind).weight * item.quantity for item in marked)
+        cells = sum(len(occupied_cells(item)) for item in marked)
+        view.status = f"MARKED {count}; weight {total}; cells {cells}"
+    if view.pending_drop:
+        view.status = "CONFIRM DROP: Y drops marked/current physical items; N/Esc cancels"
+    _put(screen, height - 3, 2, _clip(view.status, width - 4), curses.A_BOLD)
+    _put(screen, height - 2, 1, "Move arrows/WASD  Enter lift/place  R rotate  Space mark  * all  T transfer  E equip", curses.A_REVERSE)
+    _put(screen, height - 1, 1, "O auto-pack  P pin  Z auto-place  [ ] body  D drop(confirm)  C commit  Esc cancel", curses.A_REVERSE)
     screen.refresh()
 
 

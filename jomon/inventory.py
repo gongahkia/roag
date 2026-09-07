@@ -693,6 +693,7 @@ class InventoryTransaction:
     consumables: dict[str, int]
     carried_goods: dict[str, object]
     carried_relic: str | None
+    auto_place_enabled: bool
     changed: bool = False
 
     @classmethod
@@ -702,6 +703,7 @@ class InventoryTransaction:
             copy.deepcopy(state.owned_passives), copy.deepcopy(state.relics),
             copy.deepcopy(state.carried_passives), copy.deepcopy(state.consumables),
             copy.deepcopy(state.carried_goods), state.carried_relic,
+            state.auto_place_enabled,
         )
 
     def cancel(self, state: GameState) -> None:
@@ -714,6 +716,7 @@ class InventoryTransaction:
         state.consumables = copy.deepcopy(self.consumables)
         state.carried_goods = copy.deepcopy(self.carried_goods)  # type: ignore[assignment]
         state.carried_relic = self.carried_relic
+        state.auto_place_enabled = self.auto_place_enabled
 
 
 def pack_weight(state: GameState, owner_id: str | None = None) -> int:
