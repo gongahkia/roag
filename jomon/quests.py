@@ -78,6 +78,46 @@ def mark_treasure(state: GameState, region_id: str, container_id: str, clue: str
     return True
 
 
+def _assign_regional_duty(state: GameState) -> None:
+    """Tie one existing finite actor to the line's material location."""
+    preferences = {
+        "hearthford": ("protector", "pursuer", "reach"),
+        "greywash": ("lookout", "shooter", "skirmisher"),
+        "greenwold": ("suppressor", "flanker", "tracker"),
+        "whitecairn": ("shooter", "protector", "lookout"),
+    }[state.active_region_id]
+    actors = [
+        threat for threat in state.threats
+        if not threat.elite and threat.status in {"watching", "engaged"}
+    ]
+    actor = next(
+        (
+            threat for role in preferences for threat in actors
+            if threat.role == role
+        ),
+        actors[0] if actors else None,
+    )
+    if actor is None:
+        return
+    target = state.region.landmarks["objective"]
+    actor.home_position = target
+    actor.goal = {
+        "hearthford": "hold the disputed mill material",
+        "greywash": "secure the tide-bound salvage",
+        "greenwold": "control the burn boundary",
+        "whitecairn": "guard the quarry warning",
+    }[state.active_region_id]
+    actor.goal_reason = (
+        f"the opening decision in {QUESTS[state.active_region_id]['title']} "
+        "gave this existing patrol a material duty"
+    )
+    state.region.changes["quest_guard_id"] = actor.id
+    state.add_message(
+        f"You learn that the {actor.name} now guards the material objective; its duty can be observed or avoided.",
+        priority=3,
+    )
+
+
 def record_objective_decision(state: GameState, decision: str) -> None:
     quest = state.questlines[state.active_region_id]
     if quest.stage > 0:
@@ -92,6 +132,7 @@ def record_objective_decision(state: GameState, decision: str) -> None:
     quest.cache_marked = mark_treasure(
         state, state.active_region_id, definition["cache"], definition["lead"]
     )
+    _assign_regional_duty(state)
 
 
 def record_objective_completion(state: GameState, altered: bool) -> None:

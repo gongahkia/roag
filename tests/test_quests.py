@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import copy
 import tempfile
 import unittest
 from pathlib import Path
 
 from jomon.actions import (
     _add_goods,
+    apply_damage,
     decide_objective,
     interact,
     resolve_cross_region_choice,
@@ -84,6 +86,38 @@ class RegionalQuestlineTests(unittest.TestCase):
         result = resolve_regional_quest_choice(state, "m")
         self.assertTrue(result.time_advanced)
         self.assertEqual(quest.status, "completed")
+
+    def test_opening_decision_assigns_a_finite_actor_to_a_material_duty(self):
+        for region_id in QUESTS:
+            state = create_world(f"{region_id} authored duty")
+            at_primary(state, region_id)
+            before_ids = {threat.id for threat in state.threats}
+
+            decide_objective(state, "accept")
+
+            guard_id = state.region.changes["quest_guard_id"]
+            guard = next(threat for threat in state.threats if threat.id == guard_id)
+            self.assertIn(guard.id, before_ids)
+            self.assertFalse(guard.elite)
+            self.assertEqual(guard.home_position, state.region.landmarks["objective"])
+            self.assertIn(QUESTS[region_id]["title"], guard.goal_reason)
+
+    def test_permanent_defeat_during_a_quest_preserves_progress_and_succession(self):
+        state = create_world("quest succession")
+        at_primary(state, "greywash")
+        decide_objective(state, "accept")
+        quest_before = copy.deepcopy(state.questlines["greywash"])
+        dead = state.courier
+        dead.health = 1
+        dead.injury = "bruised ribs"
+
+        result = apply_damage(state, 3, "The tide chain")
+
+        self.assertFalse(dead.alive)
+        self.assertNotEqual(state.active_courier_id, dead.id)
+        self.assertEqual(state.questlines["greywash"], quest_before)
+        self.assertEqual(state.objective_status, "failed")
+        self.assertIn("succeeds", result)
 
     def test_secondary_contact_services_are_production_actions(self):
         state = create_world("secondary worker services")
