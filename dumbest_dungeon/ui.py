@@ -1278,13 +1278,26 @@ class TerminalUI:
             self.message = "No cards are eligible for that service."
             return
         labels = [self._card_label(self.engine.state.deck[index]) for index in eligible]
-        previews = [self.engine.state.deck[index] for index in eligible]
+        if action.startswith("Upgrade"):
+            previews = [
+                CardInstance(card.card_id, True, card.bound_hero_id)
+                for index in eligible
+                for card in [self.engine.state.deck[index]]
+            ]
+            preview_notes = [
+                f"PROPOSED UPGRADE\n{self.catalog.cards[card.card_id]['upgrade_description']}\n"
+                f"{self._card_tags_note(card)}"
+                for card in previews
+            ]
+        else:
+            previews = [self.engine.state.deck[index] for index in eligible]
+            preview_notes = [self._card_tags_note(card) for card in previews]
         selected = self._menu(
             action.upper(),
             labels,
             allow_cancel=False,
             preview_cards=previews,
-            preview_notes=[self._card_tags_note(card) for card in previews],
+            preview_notes=preview_notes,
         )
         card_index = eligible[selected]
         if action.startswith("Transform"):

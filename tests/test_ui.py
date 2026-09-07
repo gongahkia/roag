@@ -519,6 +519,22 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("EFFECTS", rendered)
         self.assertIn("TAGS +", rendered)
 
+    def test_upgrade_picker_previews_the_proposed_rules(self) -> None:
+        room = self.engine.room(1)
+        room.kind = "camp"
+        room.resolved = False
+        self.engine.state.current_room = room.id
+        self.engine.state.phase = "service"
+        self.engine.state.service_type = "camp"
+        screen = FakeScreen(keys=[curses.KEY_DOWN, 10] + [curses.KEY_DOWN] * 3 + [10])
+        self.ui.screen = screen
+        self.ui._service()
+        self.assertTrue(self.engine.state.deck[3].upgraded)
+        rendered = screen.text()
+        self.assertIn("PROPOSED UPGRADE", rendered)
+        self.assertIn("INTERPOSE+", rendered)
+        self.assertIn("BOTH YOU", rendered.upper())
+
     def test_effect_browser_groups_hero_and_party_stacks(self) -> None:
         hero = self.engine.living_heroes()[0]
         self.engine.acquire_boon(hero.id, "iron_benediction")
