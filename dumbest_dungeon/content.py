@@ -115,6 +115,14 @@ BIOME_OBJECTIVE_EFFECTS = {
     "upgrade_random",
 }
 FACILITY_EFFECTS = BIOME_OBJECTIVE_EFFECTS | {"reveal_biome", "suppress_hazard"}
+BIOME_OBJECTIVE_EFFECTS |= {
+    "agitate_patrols",
+    "calm_patrols",
+    "objective_combat",
+    "reveal_biome",
+    "stabilize_terrain",
+    "suppress_hazard",
+}
 TERRAIN_GLYPHS = frozenset(".,=~_\";:`'%-o")
 CARD_TAGS = {
     "block",
@@ -403,8 +411,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load card metadata from {metadata_source}: {exc}") from exc
 
-    if raw.get("schema_version") != 14:
-        raise ContentError("content schema_version must be 14")
+    if raw.get("schema_version") != 15:
+        raise ContentError("content schema_version must be 15")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
@@ -743,12 +751,19 @@ def load_catalog(path: Path | None = None) -> Catalog:
                         not isinstance(stage["effect"], dict)
                         or stage["effect"].get("op") not in BIOME_OBJECTIVE_EFFECTS
                         or not isinstance(stage["effect"].get("amount"), int)
+                        or stage["effect"].get("op") == "status_all"
+                        and stage["effect"].get("status") not in CARD_STATUSES
                     )
-                    for stage in stages
+                    or stage.get("effect", {}).get("op") == "objective_combat"
+                    and index == len(stages) - 1
+                    for index, stage in enumerate(stages)
                 )
                 or not isinstance(completion, dict)
                 or completion.get("op") not in BIOME_OBJECTIVE_EFFECTS
+                or completion.get("op") == "objective_combat"
                 or not isinstance(completion.get("amount"), int)
+                or completion.get("op") == "status_all"
+                and completion.get("status") not in CARD_STATUSES
             ):
                 raise ContentError(f"mission {mission['id']} has an invalid approach")
             approach_ids.add(approach["id"])

@@ -596,6 +596,72 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(approach["outcome"], objective.outcome)
         self.assertEqual(3, len(self.engine.living_heroes()))
 
+    def test_objective_combat_is_deterministic_and_does_not_clear_a_room(self) -> None:
+        snapshots = []
+        for _ in range(2):
+            engine = GameEngine.new(self.catalog, 4242)
+            objective = engine.state.objectives[0]
+            mission = engine.mission_definition(objective.biome_id)
+            approach = mission["approaches"][0]
+            approach["stages"][0]["effect"] = {
+                "op": "objective_combat",
+                "amount": 1,
+            }
+            room = engine.room()
+            room.resolved = False
+            engine.state.party_x, engine.state.party_y = objective.x, objective.y
+            engine.state.current_objective_id = objective.id
+            engine.state.phase = "objective"
+            engine.begin_objective(approach["id"])
+            engine.state.party_x, engine.state.party_y = engine.objective_position(objective)
+            engine.state.current_objective_id = objective.id
+            engine.state.phase = "objective"
+            engine.advance_objective()
+            self.assertEqual("combat", engine.state.phase)
+            self.assertEqual("objective", engine.state.combat_kind)
+            self.assertEqual(1, objective.stage)
+            self.assertEqual("objective_combat", objective.facts["stages"][0]["effect"])
+            engine._combat_victory()
+            self.assertFalse(room.resolved)
+            snapshots.append(engine.snapshot())
+        self.assertEqual(snapshots[0], snapshots[1])
+
+    def test_objective_spatial_effects_persist_and_target_only_the_biome(self) -> None:
+        engine = GameEngine.new(self.catalog, 4242)
+        biome_id = engine.state.biome_ids[0]
+        before = list(engine.state.world_tiles)
+        local_patrols = [
+            patrol
+            for patrol in engine.state.patrols
+            if engine.room(patrol.room_id).biome_id == biome_id
+        ]
+        remote_patrols = [
+            patrol
+            for patrol in engine.state.patrols
+            if engine.room(patrol.room_id).biome_id != biome_id
+        ]
+        engine._apply_exploration_effect(
+            biome_id,
+            {"op": "stabilize_terrain", "amount": 4},
+            "test objective",
+        )
+        engine._apply_exploration_effect(
+            biome_id,
+            {"op": "agitate_patrols", "amount": 5},
+            "test objective",
+        )
+        self.assertLessEqual(1, sum(left != right for left, right in zip(before, engine.state.world_tiles)))
+        self.assertTrue(all(patrol.alert >= 5 for patrol in local_patrols if patrol.active))
+        self.assertTrue(all(patrol.alert == 0 for patrol in remote_patrols))
+        restored = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+        self.assertEqual(engine.snapshot(), restored.snapshot())
+        restored._apply_exploration_effect(
+            biome_id,
+            {"op": "calm_patrols", "amount": 0},
+            "test objective",
+        )
+        self.assertTrue(all(patrol.alert == 0 for patrol in restored.state.patrols))
+
     def test_card_biome_affinity_adds_bounded_potency(self) -> None:
         engine = GameEngine.new(self.catalog, 4, start_in_hub=True)
         engine.state.hub_selection = ["cryonaut", "warden", "medic", "scout"]

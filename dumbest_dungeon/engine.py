@@ -485,7 +485,7 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 21
+    SAVE_VERSION = 22
     TUTORIAL_SEED = 1
     ENCOUNTER_PLANS = {"none", "pressure", "disrupt", "screen", "sustain", "combo", "overseer"}
 
@@ -2241,49 +2241,108 @@ class GameEngine:
             return False, "no active hazard field"
         return True, "available"
 
-    def _apply_facility_effect(self, facility: BiomeFacility, effect: dict[str, Any]) -> None:
+    def _nearest_active_hazard(self, biome_id: str) -> BiomeHazard | None:
+        active = [
+            hazard
+            for hazard in self.state.hazards
+            if hazard.active and hazard.biome_id == biome_id
+        ]
+        if not active:
+            return None
+        costs = self._travel_costs_from((self.state.party_x, self.state.party_y))
+        return min(
+            active,
+            key=lambda item: min(
+                costs.get(tuple(cell), WORLD_WIDTH * WORLD_HEIGHT * 3)
+                for cell in item.cells
+            ),
+        )
+
+    def _reveal_biome_features(self, biome_id: str) -> None:
+        known = set(self.state.known_feature_ids)
+        known.update(
+            hazard.id
+            for hazard in self.state.hazards
+            if hazard.biome_id == biome_id
+        )
+        known.update(
+            pickup.id
+            for pickup in self.state.pickups
+            if not pickup.hidden and self.biome_at(pickup.x, pickup.y) == biome_id
+        )
+        known.update(
+            item.id
+            for item in self.state.facilities
+            if item.biome_id == biome_id
+        )
+        self.state.known_feature_ids = sorted(known)
+
+    def _stabilize_terrain(self, biome_id: str, amount: int) -> int:
+        origin = (self.state.party_x, self.state.party_y)
+        protected = {self.room_position(room.id) for room in self.state.rooms}
+        protected |= {(pickup.x, pickup.y) for pickup in self.state.pickups}
+        protected |= {(facility.x, facility.y) for facility in self.state.facilities}
+        protected |= {
+            tuple(cell)
+            for landmark in self.state.landmarks
+            for cell in landmark.cells
+        }
+        protected |= {
+            tuple(cell)
+            for hazard in self.state.hazards
+            for cell in hazard.cells
+            if hazard.active
+        }
+        candidates = sorted(
+            (
+                (x, y)
+                for y, row in enumerate(self.state.world_tiles)
+                for x, glyph in enumerate(row)
+                if glyph in WALKABLE_TILES
+                and (x, y) not in protected
+                and self.biome_at(x, y) == biome_id
+                and glyph != "="
+            ),
+            key=lambda position: (
+                abs(position[0] - origin[0]) + abs(position[1] - origin[1]),
+                position,
+            ),
+        )
+        changed = 0
+        for x, y in candidates[: max(0, amount)]:
+            row = self.state.world_tiles[y]
+            self.state.world_tiles[y] = row[:x] + "=" + row[x + 1:]
+            changed += 1
+        return changed
+
+    def _apply_exploration_effect(
+        self,
+        biome_id: str,
+        effect: dict[str, Any],
+        source: str,
+    ) -> None:
         operation = effect["op"]
+        amount = int(effect["amount"])
         if operation == "suppress_hazard":
-            active = [
-                hazard
-                for hazard in self.state.hazards
-                if hazard.active and hazard.biome_id == facility.biome_id
-            ]
-            if not active:
-                raise RuleError("this biome has no active hazard field")
-            costs = self._travel_costs_from((facility.x, facility.y))
-            hazard = min(
-                active,
-                key=lambda item: min(
-                    costs.get(tuple(cell), WORLD_WIDTH * WORLD_HEIGHT * 3)
-                    for cell in item.cells
-                ),
-            )
-            self.suppress_hazard(hazard.id, facility.id)
+            hazard = self._nearest_active_hazard(biome_id)
+            if hazard:
+                self.suppress_hazard(hazard.id, source)
         elif operation == "reveal_biome":
-            known = set(self.state.known_feature_ids)
-            known.update(
-                hazard.id
-                for hazard in self.state.hazards
-                if hazard.biome_id == facility.biome_id
-            )
-            known.update(
-                pickup.id
-                for pickup in self.state.pickups
-                if not pickup.hidden and self.biome_at(pickup.x, pickup.y) == facility.biome_id
-            )
-            known.update(
-                item.id
-                for item in self.state.facilities
-                if item.biome_id == facility.biome_id
-            )
-            self.state.known_feature_ids = sorted(known)
+            self._reveal_biome_features(biome_id)
+        elif operation == "stabilize_terrain":
+            changed = self._stabilize_terrain(biome_id, amount)
+            self.add_log(f"{changed} nearby terrain cells become stable service rail.")
+        elif operation == "agitate_patrols":
+            self._alert_biome_patrols(biome_id, amount)
+        elif operation == "calm_patrols":
+            for patrol in self.state.patrols:
+                if self.room(patrol.room_id).biome_id == biome_id:
+                    patrol.alert = 0
         else:
-            self._apply_objective_effect(
-                operation,
-                int(effect["amount"]),
-                effect.get("status"),
-            )
+            self._apply_objective_effect(operation, amount, effect.get("status"))
+
+    def _apply_facility_effect(self, facility: BiomeFacility, effect: dict[str, Any]) -> None:
+        self._apply_exploration_effect(facility.biome_id, effect, facility.id)
 
     def resolve_facility(self, option_id: str) -> str:
         facility = self.current_facility()
@@ -2443,6 +2502,28 @@ class GameEngine:
         self.state.current_objective_id = None
         self.state.phase = "exploration"
 
+    def _start_objective_combat(self, biome_id: str, tier: int) -> None:
+        encounter_kind = "elite" if tier >= 2 else "normal"
+        candidates = [
+            encounter
+            for encounter in self.catalog.encounters.values()
+            if encounter["kind"] == encounter_kind
+            and biome_id in encounter.get("biomes", ["derelict"])
+        ]
+        if not candidates:
+            raise RuleError(f"{biome_id} has no {encounter_kind} objective encounter")
+        encounter = self.rng.choice(candidates)
+        room_kind = "elite" if encounter_kind == "elite" else "fight"
+        enemies = self._compose_enemy_formation(
+            self.catalog,
+            self.rng,
+            biome_id,
+            room_kind,
+            encounter["id"],
+        )
+        self.start_combat(encounter["id"], "objective", enemy_ids=enemies)
+        self.add_log("The objective action draws an immediate hostile response.")
+
     def advance_objective(self) -> str:
         objective = self.current_objective()
         approach = self._objective_approach(objective)
@@ -2450,17 +2531,29 @@ class GameEngine:
             raise RuleError("this objective has no remaining stage")
         stage = approach["stages"][objective.stage]
         effect = stage.get("effect")
-        if effect:
-            self._apply_objective_effect(
-                effect["op"],
-                int(effect["amount"]),
-                effect.get("status"),
-            )
+        combat_tier = 0
+        if effect and effect["op"] == "objective_combat":
+            combat_tier = int(effect["amount"])
+        elif effect:
+            self._apply_exploration_effect(objective.biome_id, effect, objective.id)
         objective.stage += 1
+        objective.facts.setdefault("stages", []).append(
+            {
+                "index": objective.stage,
+                "label": stage["label"],
+                "effect": effect["op"] if effect else "none",
+                "at_tick": self.state.travel_ticks,
+            }
+        )
         self.state.current_objective_id = None
         if self.state.phase == "defeat":
             return f"{stage['label']} ended the expedition."
         if objective.stage < len(approach["stages"]):
+            if combat_tier:
+                self._start_objective_combat(objective.biome_id, combat_tier)
+                message = f"{stage['label']} complete. Hostile response underway."
+                self.add_log(message)
+                return message
             self.state.phase = "exploration"
             destination = self.objective_position(objective)
             message = (
@@ -2472,11 +2565,7 @@ class GameEngine:
             return message
         completion = approach["completion"]
         was_unlocked = self.boss_unlocked()
-        self._apply_objective_effect(
-            completion["op"],
-            int(completion["amount"]),
-            completion.get("status"),
-        )
+        self._apply_exploration_effect(objective.biome_id, completion, objective.id)
         objective.completed = True
         objective.outcome = approach["outcome"]
         objective.facts.update(
@@ -3961,7 +4050,7 @@ class GameEngine:
             self.state.phase = "victory"
             self.add_log("The Overseer falls silent. Evacuation is possible.")
             return
-        if kind != "ambush":
+        if kind not in {"ambush", "objective"}:
             self.room().resolved = True
         count = 4 if self.state.light < self.catalog.balance["low_light_threshold"] else 3
         count += round(self._item_effect_value("reward_choices"))

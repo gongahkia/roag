@@ -222,6 +222,19 @@ class ContentTests(unittest.TestCase):
             with self.assertRaisesRegex(ContentError, "invalid option"):
                 load_catalog(path)
 
+    def test_objective_combat_cannot_be_a_terminal_stage(self) -> None:
+        catalog = load_catalog()
+        raw = json.loads(json.dumps(catalog.raw))
+        raw["missions"][0]["approaches"][0]["stages"][-1]["effect"] = {
+            "op": "objective_combat",
+            "amount": 1,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad-objective-combat.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ContentError, "invalid approach"):
+                load_catalog(path)
+
     def test_misleading_secondary_terrain_pattern_is_rejected(self) -> None:
         catalog = load_catalog()
         raw = json.loads(json.dumps(catalog.raw))
