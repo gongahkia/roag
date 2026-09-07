@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from .content import ContentError, load_catalog
+from .diagnostics import audit_expeditions, format_audit
 from .engine import GameEngine
 from .save import default_save_path
 from .ui import TerminalUI
@@ -19,6 +20,12 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--seed", type=int, help="seed used for every new expedition in this session")
     result.add_argument("--save-file", type=Path, default=default_save_path(), help="override the JSON save path")
     result.add_argument("--validate-content", action="store_true", help="validate bundled JSON and exit")
+    result.add_argument(
+        "--audit-expeditions",
+        type=int,
+        metavar="SEEDS",
+        help="audit 1-500 generated completion corridors and exit",
+    )
     return result
 
 
@@ -39,6 +46,13 @@ def main(argv: list[str] | None = None) -> int:
             f"{len(catalog.biomes)} biomes, {len(catalog.facilities)} facilities, "
             f"{len(catalog.worlds)} worlds."
         )
+        return 0
+    if args.audit_expeditions is not None:
+        try:
+            print(format_audit(audit_expeditions(catalog, args.audit_expeditions)))
+        except ValueError as exc:
+            print(f"audit error: {exc}", file=sys.stderr)
+            return 2
         return 0
 
     def new_game() -> GameEngine:

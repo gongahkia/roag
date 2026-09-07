@@ -18,6 +18,7 @@ Useful options:
 python3 -m dumbest_dungeon --seed 12345
 python3 -m dumbest_dungeon --save-file ./expedition.save.json
 python3 -m dumbest_dungeon --validate-content
+python3 -m dumbest_dungeon --audit-expeditions 60
 ```
 
 A generated seed appears in the map HUD and ending screen. Supplying `--seed` makes new expeditions in that process reproducible. The default save is `$XDG_STATE_HOME/dullest-dungeon/run.save.json`, or `~/.local/state/dullest-dungeon/run.save.json` when `XDG_STATE_HOME` is unset. The existing `dumbest_dungeon` Python package name remains the launch path; it is an internal compatibility detail, not the public title.
@@ -56,6 +57,11 @@ Keyboard control covers every required flow. Mouse input is deliberately limited
 Gameplay definitions live in `dumbest_dungeon/data/game.json`, authored card build tags and upgrade explanations live in `dumbest_dungeon/data/card_metadata.json`, and `dumbest_dungeon/data/art.json` contains the title, crew and enemy sprites, and class card glyphs. All catalogs are versioned and validated. Run the validator after editing any of them:
 
 The validator currently reports 25 crew archetypes, 190 technique cards, 6 curse cards, 70 enemy types, 109 encounter formations, 11 biomes, 6 world types, and 18 definitions each for boons, curses, and stackable items. These totals are diagnostics, not validity requirements. Rewards are filtered to living classes currently in the expedition.
+
+`--audit-expeditions` is a bounded structural check for 1--500 fresh seeds. It
+enumerates two-objective approach corridors and optional facility detours, then
+reports route, light, supply, hazard, backtracking, and patrol-post exposure by
+layout. It does not play combat, predict moving patrols, or estimate a win rate.
 
 ```sh
 python3 -m dumbest_dungeon --validate-content
