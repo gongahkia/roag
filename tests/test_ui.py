@@ -58,6 +58,12 @@ class AsciiUiTests(unittest.TestCase):
         self.ui.colour = False
         self.ui.message = ""
 
+    def unlock_core(self) -> None:
+        for objective in self.engine.state.objectives[: self.engine.state.required_objectives]:
+            objective.completed = True
+            objective.outcome = "test_route"
+        self.engine.core_patrol().active = True
+
     def test_card_preview_is_portrait_playing_card_ascii(self) -> None:
         self.engine.start_combat("vents")
         lines = self.ui._card_lines(self.engine.state.hand[0])
@@ -435,6 +441,46 @@ class AsciiUiTests(unittest.TestCase):
             )
         finally:
             self.catalog.balance["maximum_navigation_distance"] = original
+
+    def test_open_core_is_a_global_marker_and_first_reachable_cycle_target(self) -> None:
+        self.unlock_core()
+        core_x, core_y = self.engine.core_position()
+        screen = FakeScreen(rows=60, columns=140)
+        self.ui.screen = screen
+        left, top, width, _ = self.ui._world_map(
+            self.ui.MAP_ROW,
+            (self.engine.state.party_x, self.engine.state.party_y),
+            focus=(core_x, core_y),
+        )
+        map_column = max(2, (screen.getmaxyx()[1] - width) // 2)
+        self.assertEqual("B", screen.rows[self.ui.MAP_ROW + core_y - top][map_column + core_x - left])
+
+        waypoint = self.engine.core_waypoint()
+        targets = self.ui._exploration_targets()
+        self.assertEqual(waypoint, targets[0])
+        party = (self.engine.state.party_x, self.engine.state.party_y)
+        self.assertTrue(
+            all(
+                self.engine.path_cost(self.engine._find_path(party, tile))
+                <= self.engine.maximum_navigation_distance()
+                for tile in targets
+            )
+        )
+
+    def test_core_key_selects_only_a_reachable_route_leg(self) -> None:
+        party = (self.engine.state.party_x, self.engine.state.party_y)
+        self.assertEqual(party, self.ui._select_core_waypoint())
+        self.assertIn("Core sealed", self.ui.message)
+
+        self.unlock_core()
+        waypoint = self.ui._select_core_waypoint()
+        route = self.engine._find_path(party, waypoint)
+        self.assertLessEqual(
+            self.engine.path_cost(route),
+            self.engine.maximum_navigation_distance(),
+        )
+        self.assertIn("light total", self.ui.message)
+        self.assertIn("press Enter", self.ui.message)
 
     def test_world_map_viewport_is_bounded_by_world_on_large_terminal(self) -> None:
         screen = FakeScreen(rows=60, columns=140)

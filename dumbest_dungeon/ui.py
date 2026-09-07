@@ -402,6 +402,10 @@ class TerminalUI:
                     cursor = targets[cycle_index]
                     camera = cursor
                     pending_click = None
+            elif key in (ord("g"), ord("G")):
+                cursor = self._select_core_waypoint()
+                camera = cursor
+                pending_click = None
             elif key == ord(" "):
                 cursor = (state.party_x, state.party_y)
                 camera = cursor
@@ -447,15 +451,18 @@ class TerminalUI:
         biome = self.catalog.biomes[self.engine.current_biome()]["name"]
         terrain = self.engine.terrain_at(*cursor)["name"] if walkable else "Blocked"
         terrain_cost = self.engine.movement_cost(*cursor) if walkable else "-"
-        access = f"Access {self.engine.completed_objectives()}/{state.required_objectives}"
-        core = "OPEN" if self.engine.boss_unlocked() else "SEALED"
+        completed = self.engine.completed_objectives()
+        if self.engine.boss_unlocked():
+            mission_state = f"Core OPEN | {len(state.objectives) - completed} OPTIONAL"
+        else:
+            mission_state = f"ACCESS {completed}/{state.required_objectives} | Core SEALED"
         self._put(
             rows - 4,
             2,
             (
                 f"Crew {state.party_x:03},{state.party_y:02}  "
                 f"Aim {cursor[0]:03},{cursor[1]:02}  "
-                f"Route {route_cost}/{maximum} {reach}  {access}  Core {core}"
+                f"Route {route_cost}/{maximum} {reach} | {mission_state}"
             )[: self.screen.getmaxyx()[1] - 3],
             self._attr(1 if reach == "READY" else 3),
         )
@@ -474,7 +481,10 @@ class TerminalUI:
                 for patrol in state.patrols
                 if patrol.active
                 and (patrol.x, patrol.y) == cursor
-                and self.engine.is_patrol_visible(patrol)
+                and (
+                    self.engine.is_patrol_visible(patrol)
+                    or self.engine.room(patrol.room_id).kind == "boss"
+                )
             ),
             None,
         )
@@ -489,6 +499,19 @@ class TerminalUI:
                     self.screen.getmaxyx()[1] - 3,
                 ),
                 self._attr(3),
+            )
+        elif self.engine.boss_unlocked() and cursor == self.engine.core_waypoint():
+            projection = self.engine.core_route_projection()
+            core_x, core_y = self.engine.core_position()
+            self._put(
+                rows - 2,
+                2,
+                self._ellipsize(
+                    f"CORE {core_x:03},{core_y:02} | FULL ROUTE {projection['ticks']} TICKS / "
+                    f"~{projection['light']} LIGHT | NEXT LEG SELECTED",
+                    self.screen.getmaxyx()[1] - 3,
+                ),
+                self._attr(3) | curses.A_BOLD,
             )
         else:
             biome_id = self.engine.current_biome()
@@ -520,7 +543,7 @@ class TerminalUI:
                 ),
                 curses.A_DIM,
             )
-        self._footer("Arrows aim Enter/2xclick go X/Esc/right-click stop Tab cycle B biome U supply")
+        self._footer("Arrows aim Enter go X/Esc stop Tab sites G Core B biome U supply")
         return origin
 
     def _world_map(
@@ -559,7 +582,10 @@ class TerminalUI:
             if not room.resolved and room.kind in feature_symbols:
                 x, y = self.engine.room_position(room.id)
                 overlays.append((x, y, feature_symbols[room.kind], self._attr(2) | curses.A_BOLD))
-        if not self.engine.boss_unlocked():
+        if self.engine.boss_unlocked():
+            x, y = self.engine.core_position()
+            overlays.append((x, y, "B", self._attr(3) | curses.A_BOLD))
+        else:
             boss = next(room for room in state.rooms if room.kind == "boss")
             x, y = self.engine.room_position(boss.id)
             overlays.append((x, y, "L", self._attr(3) | curses.A_BOLD))
@@ -593,6 +619,8 @@ class TerminalUI:
             if not patrol.active or not self.engine.is_patrol_visible(patrol):
                 continue
             kind = state.rooms[patrol.room_id].kind
+            if kind == "boss" and self.engine.boss_unlocked():
+                continue
             symbol = "B" if kind == "boss" else "E" if kind == "elite" else "e"
             overlays.append((patrol.x, patrol.y, symbol, self._attr(3) | curses.A_BOLD))
         pickup_symbols = {"boon": "+", "item": "*", "bargain": "!"}
@@ -670,10 +698,32 @@ class TerminalUI:
             if self.engine.is_walkable(*tile)
             and self.engine.path_cost(self.engine._find_path(party, tile)) <= maximum
         ]
-        return sorted(
+        ordered = sorted(
             reachable,
             key=lambda tile: (self.engine.path_cost(self.engine._find_path(party, tile)), tile),
         )
+        if self.engine.boss_unlocked():
+            core_waypoint = self.engine.core_waypoint()
+            if core_waypoint != party:
+                ordered = [core_waypoint] + [tile for tile in ordered if tile != core_waypoint]
+        return ordered
+
+    def _select_core_waypoint(self) -> tuple[int, int]:
+        assert self.engine
+        state = self.engine.state
+        if not self.engine.boss_unlocked():
+            remaining = state.required_objectives - self.engine.completed_objectives()
+            self.message = f"Core sealed. Secure {remaining} more access objective{'s' if remaining != 1 else ''}."
+            return state.party_x, state.party_y
+        waypoint = self.engine.core_waypoint()
+        projection = self.engine.core_route_projection()
+        core_x, core_y = self.engine.core_position()
+        leg = self.engine._find_path((state.party_x, state.party_y), waypoint)
+        self.message = (
+            f"Core {core_x:03},{core_y:02}: {projection['ticks']} ticks / ~{projection['light']} light total. "
+            f"Next leg costs {self.engine.path_cost(leg)}; press Enter to travel."
+        )
+        return waypoint
 
     def _mouse_destination(self, origin: tuple[int, int, int, int]) -> tuple[int, int] | None:
         left, top, width, height = origin
