@@ -170,7 +170,7 @@ class AsciiUiTests(unittest.TestCase):
         self.ui._reward()
         rendered = screen.text()
         self.assertIn("SYNERGY", rendered)
-        self.assertIn("already represented", rendered)
+        self.assertIn("Supplies deck MARKED payoff.", rendered)
         self.assertNotIn("CORRECTIVE", rendered)
         self.assertNotIn("WILDCARD", rendered)
 

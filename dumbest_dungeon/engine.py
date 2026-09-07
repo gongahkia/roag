@@ -4259,8 +4259,9 @@ class GameEngine:
         bridges = sorted(tags & desired)
         if bridges:
             mechanic = bridges[0].split(":", 1)[1].replace("_", " ").upper()
-            verb = "uses" if bridges[0].startswith("payoff:") else "supplies"
-            return "SYNERGY", f"{verb.capitalize()} {mechanic} already represented in the deck."
+            relationship = "setup" if bridges[0].startswith("payoff:") else "payoff"
+            verb = "Uses" if bridges[0].startswith("payoff:") else "Supplies"
+            return "SYNERGY", f"{verb} deck {mechanic} {relationship}."
         meaningful = {
             tag
             for tag in tags
