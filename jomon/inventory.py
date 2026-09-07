@@ -610,7 +610,7 @@ def validate_inventory(state: GameState) -> None:
     if len(ids) != len(set(ids)):
         raise ValueError("item identities must be unique")
     people = {person.id for person in state.household}
-    valid_locations = {"pack", "locker", "readied", "secondary", *BODY_SLOTS, "container", "ground", "lost", "destroyed"}
+    valid_locations = {"pack", "locker", "readied", "secondary", *BODY_SLOTS, "container", "ground", "enemy", "lost", "destroyed"}
     for item in state.items:
         item_spec(item.kind)
         if item.location not in valid_locations:

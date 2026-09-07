@@ -137,6 +137,22 @@ class Threat:
     elite: bool = False
     patrol: list[Position] = field(default_factory=list)
     patrol_index: int = 0
+    role: str = "interceptor"
+    goal: str = "patrol"
+    goal_reason: str = "following its assigned route"
+    vision: int = 8
+    hearing: int = 7
+    last_known_position: Position | None = None
+    home_position: Position | None = None
+    objective_position: Position | None = None
+    group: str = ""
+    ammunition: int = 0
+    reload_turns: int = 0
+    alarmed: bool = False
+    carrying_item_id: str | None = None
+    stalled_turns: int = 0
+    region_id: str = "hearthford"
+    capabilities: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -161,6 +177,20 @@ class TerrainStatus:
     cause: str
     remaining: int
     consequence: str
+
+
+@dataclass
+class SoundEvent:
+    position: Position
+    strength: int
+    age: int = 0
+
+
+@dataclass
+class GroupAlert:
+    position: Position
+    raised_turn: int
+    source_id: str
 
 
 @dataclass
@@ -226,6 +256,8 @@ class GameState:
     tavern_positions: dict[str, Position]
     visitor_status: dict[str, str]
     berth_capacity: int
+    sound_events: list[SoundEvent]
+    group_alerts: dict[str, GroupAlert]
     history: list[str] = field(default_factory=list)
     messages: list[str] = field(default_factory=list)
     world_ended: bool = False
@@ -301,19 +333,28 @@ def _household(seed: str) -> list[Person]:
 def _threats(seed: str, region: Region) -> list[Threat]:
     names = stage_rng(seed, "threat-names")
     elite = stage_rng(seed, "elite-machinery").randrange(4) == 0
-    patrol = [Position(x, 20) for x in range(30, 45)] + [Position(x, 21) for x in range(44, 29, -1)]
+    road_points = [
+        Position(x, y)
+        for y in range(19, 31)
+        for x in range(28, 64)
+        if region.levels["0"][y][x] == "="
+    ]
+    stride = max(1, len(road_points) // 8)
+    patrol = road_points[::stride][:8]
+    if len(patrol) < 2:
+        patrol = [region.landmarks["landing"], region.landmarks["contact"]]
     return [
-        Threat("road-patrol", names.choice(("bank runner", "toll watch")), "pursuer", patrol[0], 5, 5, patrol=patrol),
-        Threat("reed-boar", "bristleback reed boar", "animal", Position(54, 38), 5, 5, morale=3),
-        Threat("tower-bow", "watch-roof crossbow keeper", "ranged", Position(47, 10, 2), 4, 4),
-        Threat("mill-spear", "displaced mill levy", "reach", Position(74, 24), 5, 5, morale=3),
-        Threat("gantry-bow", "gantry bolt carrier", "ranged", Position(80, 20, 1), 4, 4),
+        Threat("road-patrol", names.choice(("bank runner", "toll watch")), "pursuer", patrol[0], 5, 5, patrol=patrol, role="lookout", group="road-watch", home_position=patrol[0], capabilities=["alarm"]),
+        Threat("reed-boar", "bristleback reed boar", "animal", Position(54, 38), 5, 5, morale=3, role="territorial", home_position=Position(54, 38), vision=6, hearing=10),
+        Threat("tower-bow", "watch-roof crossbow keeper", "ranged", Position(47, 10, 2), 4, 4, role="shooter", group="road-watch", ammunition=5, home_position=Position(47, 10, 2)),
+        Threat("mill-spear", "displaced mill levy", "reach", Position(74, 24), 5, 5, morale=3, role="protector", group="mill-levy", home_position=Position(74, 24)),
+        Threat("gantry-bow", "gantry bolt carrier", "ranged", Position(80, 20, 1), 4, 4, role="suppressor", group="mill-levy", ammunition=4, home_position=Position(80, 20, 1)),
         Threat(
             "wheel-train", "runaway crown wheel" if elite else "unbalanced mill sweep",
             "machinery", Position(82, 27), 7 if elite else 5, 7 if elite else 5,
-            morale=99, elite=elite,
+            morale=99, elite=elite, role="hazard", goal="deny lane",
         ),
-        Threat("pressure-reavers", "valuable-seeking river reavers", "reach", Position(58, 28), 6, 6, status="dormant", morale=4),
+        Threat("pressure-reavers", "valuable-seeking river reavers", "reach", Position(58, 28), 6, 6, status="dormant", morale=4, role="thief", group="reavers", home_position=Position(58, 28), capabilities=["steal", "escape"]),
     ]
 
 
@@ -368,6 +409,7 @@ def create_world(seed: str) -> GameState:
         locker_width=18, locker_height=10, terrain_statuses={},
         objective_evidence=[],
         visitors=[], tavern_positions={}, visitor_status={}, berth_capacity=9,
+        sound_events=[], group_alerts={},
     )
     from .inventory import initialise_inventory
     from .people import initialise_tavern
@@ -415,6 +457,8 @@ def _migrate_v3(data: dict[str, Any]) -> dict[str, Any]:
     migrated["tavern_positions"] = {}
     migrated["visitor_status"] = {}
     migrated["berth_capacity"] = 9
+    migrated["sound_events"] = []
+    migrated["group_alerts"] = {}
     return migrated
 
 
@@ -452,6 +496,9 @@ def game_state_from_dict(data: Any) -> GameState:
             threat_data = dict(raw)
             threat_data["position"] = _position(threat_data["position"], "threat position")
             threat_data["patrol"] = [_position(value, "patrol position") for value in threat_data.get("patrol", [])]
+            for key in ("last_known_position", "home_position", "objective_position"):
+                if threat_data.get(key) is not None:
+                    threat_data[key] = _position(threat_data[key], f"threat {key}")
             threats.append(Threat(**threat_data))
         items: list[Item] = []
         for raw in data["items"]:
@@ -461,6 +508,14 @@ def game_state_from_dict(data: Any) -> GameState:
             items.append(Item(**item_data))
         terrain_statuses = {
             name: TerrainStatus(**value) for name, value in data["terrain_statuses"].items()
+        }
+        sound_events = [
+            SoundEvent(_position(value["position"], "sound event"), value["strength"], value.get("age", 0))
+            for value in data.get("sound_events", [])
+        ]
+        group_alerts = {
+            name: GroupAlert(_position(value["position"], "group alert"), value["raised_turn"], value["source_id"])
+            for name, value in data.get("group_alerts", {}).items()
         }
         state = GameState(
             save_format=data["save_format"], seed=data["seed"], world_time=data["world_time"],
@@ -490,6 +545,7 @@ def game_state_from_dict(data: Any) -> GameState:
             visitors=visitors,
             tavern_positions={key: _position(value, "tavern occupant") for key, value in data.get("tavern_positions", {}).items()},
             visitor_status=dict(data.get("visitor_status", {})), berth_capacity=data.get("berth_capacity", 9),
+            sound_events=sound_events, group_alerts=group_alerts,
             history=list(data["history"]), messages=list(data["messages"]), world_ended=data["world_ended"],
         )
         if migrated_v3:

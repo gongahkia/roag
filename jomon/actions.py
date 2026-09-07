@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .content import COMMODITIES, GEAR, MERCHANT_ITEMS, PASSIVES, RELICS, SUPPORTS, WEAPONS
+from .enemy_ai import next_path_step, raise_group_alert, retreat_step, select_goal
 from .inventory import (
     add_status,
     apply_terrain_status,
@@ -22,7 +23,7 @@ from .inventory import (
     transfer_to_grid,
     weight_capacity,
 )
-from .state import CommodityStack, GameState, Person, Position, Threat, stage_rng
+from .state import CommodityStack, GameState, Person, Position, SoundEvent, Threat, stage_rng
 from .world import (
     JOMON_GANGPLANK,
     area_name,
@@ -202,37 +203,11 @@ def choose_passive(state: GameState, passive: str) -> ActionResult:
 
 
 def _step_toward(state: GameState, threat: Threat, target: Position) -> Position:
-    dx = 0 if target.x == threat.position.x else (1 if target.x > threat.position.x else -1)
-    dy = 0 if target.y == threat.position.y else (1 if target.y > threat.position.y else -1)
-    occupied = {
-        other.position for other in state.threats
-        if other.id != threat.id and other.status in {"watching", "engaged"}
-    }
-    candidates = (
-        Position(threat.position.x + dx, threat.position.y + dy, threat.position.z),
-        Position(threat.position.x + dx, threat.position.y, threat.position.z),
-        Position(threat.position.x, threat.position.y + dy, threat.position.z),
-    )
-    for candidate in candidates:
-        if candidate != state.position and candidate not in occupied and is_walkable(
-            state, candidate, ignore_threat=True
-        ):
-            return candidate
-    return threat.position
+    return next_path_step(state, threat, target)
 
 
 def _step_away(state: GameState, threat: Threat) -> Position:
-    dx = 1 if threat.position.x >= state.position.x else -1
-    dy = 1 if threat.position.y >= state.position.y else -1
-    candidates = (
-        Position(threat.position.x + dx, threat.position.y + dy, threat.position.z),
-        Position(threat.position.x + dx, threat.position.y, threat.position.z),
-        Position(threat.position.x, threat.position.y + dy, threat.position.z),
-    )
-    return next(
-        (point for point in candidates if is_walkable(state, point, ignore_threat=True)),
-        threat.position,
-    )
+    return retreat_step(state, threat)
 
 
 def _activate(threat: Threat) -> str:
@@ -243,7 +218,7 @@ def _activate(threat: Threat) -> str:
         "ranged": "takes aim; a bolt follows one clear turn",
         "animal": "scrapes the mud before a territorial charge",
         "machinery": "sweeps marked mill aisles on alternating turns",
-    }[threat.profile]
+    }.get(threat.profile, "turns toward the disturbance")
     return f"The {threat.name} notices you: {threat.intent}."
 def emit_sound(
     state: GameState, amount: int, origin: Position | None = None
@@ -253,6 +228,8 @@ def emit_sound(
         return []
     origin = origin or state.position
     state.noise += amount
+    state.sound_events.append(SoundEvent(origin, amount))
+    del state.sound_events[:-8]
     messages: list[str] = []
     for threat in state.threats:
         horizontal = max(
@@ -435,6 +412,56 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             source = "The runaway crown wheel" if threat.elite else "The mill sweep"
             return apply_damage(state, 3 if threat.elite else 2, source)
         return f"The mill sweep passes through {lane}; your position is safe."
+    decision = select_goal(state, threat)
+    if decision.action == "alarm":
+        raise_group_alert(state, threat)
+        threat.intent = "signals allies toward your last-known position"
+        return f"The {threat.name} raises an alarm; nearby allies converge on a shared position."
+    if decision.action in {"retreat", "withdraw"}:
+        previous = threat.position
+        threat.position = retreat_step(state, threat)
+        threat.intent = "withdraws toward cover" if decision.action == "withdraw" else "breaks contact while injured"
+        if threat.position == previous:
+            threat.stalled_turns += 1
+            return "" if threat.stalled_turns > 1 else f"The {threat.name} cannot find a safe retreat."
+        threat.stalled_turns = 0
+        return f"The {threat.name} {threat.intent}."
+    if decision.action == "escape":
+        target = threat.home_position or threat.position
+        if distance(threat.position, target) <= 1:
+            threat.status, threat.intent = "retreated", "escaped with stolen cargo"
+            return f"The {threat.name} escapes the encounter with stolen cargo."
+        previous = threat.position
+        threat.position = next_path_step(state, threat, target, stop_distance=0)
+        return "" if threat.position == previous else f"The {threat.name} carries stolen cargo toward its escape route."
+    if decision.action == "steal":
+        from .inventory import item_spec, sync_legacy_load
+
+        candidates = [
+            item for item in state.items
+            if item.owner_id == state.active_courier_id and item.location == "pack"
+            and item_spec(item.kind).category in {"cargo", "passive", "relic"}
+        ]
+        if candidates:
+            stolen = max(candidates, key=lambda item: (item_spec(item.kind).weight, item.id))
+            stolen.location, stolen.owner_id = "enemy", None
+            threat.carrying_item_id = stolen.id
+            sync_legacy_load(state)
+            threat.intent = "escapes with visible stolen cargo"
+            return f"The {threat.name} takes {item_spec(stolen.kind).name} and turns for an escape route."
+    if decision.action == "investigate" and decision.target:
+        previous = threat.position
+        threat.position = next_path_step(state, threat, decision.target, stop_distance=0)
+        if threat.position == previous:
+            if threat.position == decision.target:
+                threat.last_known_position = None
+                threat.status, threat.intent = "watching", "finds no courier at the last-known position"
+                return f"The {threat.name} reaches the sound's origin and finds it empty."
+            threat.stalled_turns += 1
+            return "" if threat.stalled_turns > 1 else f"The {threat.name} pauses where the investigation route is blocked."
+        threat.stalled_turns = 0
+        threat.intent = "investigates a last-known position"
+        return f"The {threat.name} investigates without knowing your current position."
     if threat.profile == "ranged":
         if threat.position.z != state.position.z and not line_of_sight(
             state, threat.position, state.position
@@ -445,8 +472,13 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             threat.intent = message
             return f"The {threat.name} hears you on another level."
         if not line_of_sight(state, threat.position, state.position):
+            previous = threat.position
             threat.position = _step_toward(state, threat, state.position)
             threat.intent = "moves for a clear line"
+            if threat.position == previous:
+                threat.stalled_turns += 1
+                return "" if threat.stalled_turns > 1 else f"The {threat.name} cannot find a firing line."
+            threat.stalled_turns = 0
             return f"The {threat.name} shifts for a firing line."
         if gap <= 7:
             if "fires next turn" in threat.intent:
@@ -483,8 +515,14 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             return apply_damage(state, 3, f"The {threat.name}'s attack")
         threat.intent = marker
         return f"The {threat.name} {marker}."
+    previous = threat.position
     for _ in range(pressure(state).pursuit_steps):
         threat.position = _step_toward(state, threat, state.position)
+    if threat.position == previous:
+        threat.stalled_turns += 1
+        threat.intent = "holds where the route is blocked"
+        return "" if threat.stalled_turns > 1 else f"The {threat.name} holds; no route currently reaches you."
+    threat.stalled_turns = 0
     threat.intent = (
         "pursues quickly" if pressure(state).pursuit_steps == 2
         else "closes through the terrain"
@@ -534,8 +572,19 @@ def _patrols(state: GameState) -> list[str]:
     for threat in state.threats:
         if threat.status != "watching" or not threat.patrol:
             continue
-        threat.patrol_index = (threat.patrol_index + 1) % len(threat.patrol)
-        threat.position = threat.patrol[threat.patrol_index]
+        target_index = (threat.patrol_index + 1) % len(threat.patrol)
+        target = threat.patrol[target_index]
+        for offset in range(1, len(threat.patrol) + 1):
+            candidate_index = (threat.patrol_index + offset) % len(threat.patrol)
+            candidate = threat.patrol[candidate_index]
+            if candidate != threat.position and is_walkable(state, candidate, ignore_threat=True):
+                target_index, target = candidate_index, candidate
+                break
+        moved = next_path_step(state, threat, target, stop_distance=0)
+        if moved != threat.position:
+            threat.position = moved
+        if threat.position == target:
+            threat.patrol_index = target_index
         if (
             distance(state.position, threat.position) <= pressure(state).alert_range
             and line_of_sight(state, threat.position, state.position)
@@ -553,6 +602,9 @@ def _advance_world(
         if state.location != "region":
             continue
         state.pressure_elapsed += 1
+        for sound in state.sound_events:
+            sound.age += 1
+        state.sound_events = [sound for sound in state.sound_events if sound.age <= 3]
         for ended in tick_statuses(state):
             state.add_message(ended, priority=0)
         for key in list(state.smoke):
