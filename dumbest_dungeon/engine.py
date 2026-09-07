@@ -360,7 +360,7 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 7
+    SAVE_VERSION = 8
 
     def __init__(self, catalog: Catalog, state: GameState, rng: random.Random):
         self.catalog = catalog
@@ -833,6 +833,11 @@ class GameEngine:
             raise RuleError("hub save unexpectedly contains an active party")
         if state.phase != "hub" and (len(hero_ids) != 4 or not hero_ids <= set(catalog.heroes)):
             raise RuleError("save contains an unexpected crew roster")
+        living_ranks = sorted(hero.rank for hero in state.heroes if hero.alive)
+        if living_ranks != list(range(1, len(living_ranks) + 1)) or any(
+            hero.rank != 0 for hero in state.heroes if not hero.alive
+        ):
+            raise RuleError("save contains an invalid surviving crew formation")
         if len(state.hub_selection) > 4 or any(hero_id not in catalog.heroes for hero_id in state.hub_selection):
             raise RuleError("save contains an invalid hub selection")
         if not engine.is_walkable(state.party_x, state.party_y):
@@ -1387,12 +1392,15 @@ class GameEngine:
     def use_supply(self, purpose: str) -> None:
         if self.state.phase != "exploration" or self.state.supplies < 1:
             raise RuleError("no supply can be used now")
+        survivors = self.living_heroes()
+        if not survivors:
+            raise RuleError("no living crew can use a supply")
         if purpose == "heal":
-            target = min(self.state.heroes, key=lambda actor: actor.hp / actor.max_hp)
+            target = min(survivors, key=lambda actor: actor.hp / actor.max_hp)
             self._heal(target, 9 + round(self._item_effect_value("supply_heal_bonus")))
             message = f"A supply restores {target.name}."
         elif purpose == "calm":
-            target = max(self.state.heroes, key=lambda actor: actor.stress)
+            target = max(survivors, key=lambda actor: actor.stress)
             self._change_stress(target, -14)
             message = f"A supply steadies {target.name}."
         elif purpose == "light":
@@ -1460,6 +1468,8 @@ class GameEngine:
             self.state.effect_counters[f"round_cards:{hero.id}"] = 0
             self.state.effect_counters[f"countercurrent:{hero.id}"] = 0
             self._tick_wound(hero)
+            if not hero.alive:
+                continue
             modifiers = self._affliction_modifiers(hero)
             if modifiers.get("turn_stress"):
                 self._change_stress(hero, int(modifiers["turn_stress"]))
@@ -2051,8 +2061,7 @@ class GameEngine:
             if self.rng.random() < max(0.05, death_chance):
                 target.deaths_door = False
                 target.hp = 0
-                self.state.phase = "defeat"
-                self.add_log(f"{target.name} dies. The expedition is lost.")
+                self._hero_died(target)
             else:
                 self._change_stress(target, 10)
                 self.add_log(f"{target.name} survives Death's Door.")
@@ -2087,6 +2096,48 @@ class GameEngine:
         ):
             self.add_log(f"{target.name} answers with a riposte.")
             self._damage(attacker, 4)
+
+    def _hero_died(self, hero: Actor) -> None:
+        hero.rank = 0
+        hero.block = 0
+        hero.statuses.clear()
+        hero.guarded_by = None
+        hero.guard_turns = 0
+        for actor in self.state.heroes + self.state.enemies:
+            if actor.guarded_by == hero.id:
+                actor.guarded_by = None
+                actor.guard_turns = 0
+
+        def belongs_to_hero(card: CardInstance) -> bool:
+            if card.card_id in self.catalog.curses:
+                return card.bound_hero_id == hero.id
+            return self.catalog.cards[card.card_id]["hero"] == hero.id
+
+        removed = 0
+        for zone_name in ("deck", "hand", "draw_pile", "discard_pile"):
+            zone = getattr(self.state, zone_name)
+            kept = [card for card in zone if not belongs_to_hero(card)]
+            if zone_name == "deck":
+                removed = len(zone) - len(kept)
+            setattr(self.state, zone_name, kept)
+
+        owned_curses = self.state.curses.get(hero.id, {})
+        for curse_id in list(owned_curses):
+            if self.catalog.curses[curse_id]["kind"] == "card":
+                del owned_curses[curse_id]
+        if not owned_curses:
+            self.state.curses.pop(hero.id, None)
+
+        self._normalize_ranks("hero")
+        survivors = self.living_heroes()
+        if not survivors:
+            self.state.phase = "defeat"
+            self.add_log(f"{hero.name} dies. No crew remain.")
+            return
+        self.add_log(
+            f"{hero.name} dies. {removed} owned cards are lost; "
+            f"{len(survivors)} crew continue."
+        )
 
     def _heal(self, target: Actor, amount: int, healer: Actor | None = None) -> None:
         multiplier = float(self._affliction_modifiers(target).get("healing_mult", 1))
@@ -2205,7 +2256,7 @@ class GameEngine:
             self.room().resolved = True
         count = 4 if self.state.light < self.catalog.balance["low_light_threshold"] else 3
         count += round(self._item_effect_value("reward_choices"))
-        active_heroes = {hero.id for hero in self.state.heroes}
+        active_heroes = {hero.id for hero in self.living_heroes()}
         pool = [card_id for card_id, card in self.catalog.cards.items() if card["hero"] in active_heroes]
         self.state.rewards = self.rng.sample(pool, k=min(count, len(pool)))
         self.state.phase = "reward"
@@ -2257,7 +2308,7 @@ class GameEngine:
         if self.state.phase == "defeat":
             return
         if grant_reward:
-            active_heroes = {hero.id for hero in self.state.heroes}
+            active_heroes = {hero.id for hero in self.living_heroes()}
             pool = [card_id for card_id, card in self.catalog.cards.items() if card["hero"] in active_heroes]
             count = 3 + round(self._item_effect_value("reward_choices"))
             self.state.rewards = self.rng.sample(pool, k=min(count, len(pool)))

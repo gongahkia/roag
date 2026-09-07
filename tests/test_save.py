@@ -53,6 +53,25 @@ class SaveTests(unittest.TestCase):
         loaded.end_turn()
         self.assertEqual(engine.snapshot(), loaded.snapshot())
 
+    def test_dead_crew_and_cleaned_deck_round_trip(self) -> None:
+        engine = GameEngine.new(self.catalog, 203)
+        engine.start_combat("lost_shift")
+        hero = engine.living_heroes()[0]
+        hero.hp = 0
+        hero.deaths_door = True
+        original = self.catalog.balance["death_chance"]
+        self.catalog.balance["death_chance"] = 1.0
+        try:
+            engine._damage(hero, 1)
+        finally:
+            self.catalog.balance["death_chance"] = original
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "dead-crew.json"
+            write_save(path, engine.snapshot())
+            loaded = GameEngine.from_snapshot(self.catalog, read_save(path))
+        self.assertEqual(engine.snapshot(), loaded.snapshot())
+        self.assertFalse(next(actor for actor in loaded.state.heroes if actor.id == hero.id).alive)
+
     def test_invalid_saved_terrain_is_rejected(self) -> None:
         engine = GameEngine.new(self.catalog, 303)
         snapshot = engine.snapshot()

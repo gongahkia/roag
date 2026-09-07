@@ -321,8 +321,18 @@ class EngineTests(unittest.TestCase):
                     self.assertTrue(room.resolved)
                     self.assertIn(engine.state.phase, {"exploration", "reward"})
 
-    def test_deaths_door_can_kill_and_ends_run(self) -> None:
+    def test_one_death_continues_combat_and_removes_owned_cards(self) -> None:
+        self.engine.start_combat("lost_shift")
         hero = self.engine.state.heroes[0]
+        self.engine.acquire_curse(hero.id, "static_prayer")
+        owned = lambda card: (
+            card.bound_hero_id == hero.id
+            if card.card_id in self.catalog.curses
+            else self.catalog.cards[card.card_id]["hero"] == hero.id
+        )
+        self.engine.state.hand = [CardInstance("baton_strike")]
+        self.engine.state.draw_pile = [CardInstance("breach")]
+        self.engine.state.discard_pile = [CardInstance("brace")]
         self.engine._damage(hero, hero.max_hp)
         self.assertTrue(hero.deaths_door)
         original = self.catalog.balance["death_chance"]
@@ -331,7 +341,32 @@ class EngineTests(unittest.TestCase):
             self.engine._damage(hero, 1)
         finally:
             self.catalog.balance["death_chance"] = original
+        self.assertEqual("combat", self.engine.state.phase)
+        self.assertFalse(hero.alive)
+        self.assertEqual(0, hero.rank)
+        self.assertEqual([1, 2, 3], [actor.rank for actor in self.engine.living_heroes()])
+        for zone in (
+            self.engine.state.deck,
+            self.engine.state.hand,
+            self.engine.state.draw_pile,
+            self.engine.state.discard_pile,
+        ):
+            self.assertFalse(any(owned(card) for card in zone))
+        self.assertNotIn("static_prayer", self.engine.state.curses.get(hero.id, {}))
+
+    def test_full_party_wipe_ends_run(self) -> None:
+        self.engine.start_combat("lost_shift")
+        original = self.catalog.balance["death_chance"]
+        self.catalog.balance["death_chance"] = 1.0
+        try:
+            for hero in list(self.engine.living_heroes()):
+                hero.hp = 0
+                hero.deaths_door = True
+                self.engine._damage(hero, 1)
+        finally:
+            self.catalog.balance["death_chance"] = original
         self.assertEqual("defeat", self.engine.state.phase)
+        self.assertEqual([], self.engine.living_heroes())
 
     def test_stress_affliction_then_collapse(self) -> None:
         hero = self.engine.state.heroes[0]
@@ -393,7 +428,7 @@ class EngineTests(unittest.TestCase):
         self.engine._damage(front, front.max_hp)
         self.engine.state.hand = []
         self.engine.end_turn()
-        self.assertIn(self.engine.state.phase, {"combat", "defeat"})
+        self.assertEqual("combat", self.engine.state.phase)
 
     def test_enemy_intent_weights_coordinate_setup_exploit_and_support(self) -> None:
         self.engine.start_combat(

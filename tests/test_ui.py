@@ -15,6 +15,7 @@ class FakeScreen:
         self.keys = list(keys or [])
         self.writes: list[tuple[int, int, str, int]] = []
         self.refreshes = 0
+        self.nonblocking = False
 
     def getmaxyx(self) -> tuple[int, int]:
         return len(self.rows), len(self.rows[0])
@@ -36,7 +37,10 @@ class FakeScreen:
         self.refreshes += 1
 
     def getch(self) -> int:
-        return self.keys.pop(0)
+        return self.keys.pop(0) if self.keys else -1
+
+    def nodelay(self, enabled: bool) -> None:
+        self.nonblocking = enabled
 
 
 class AsciiUiTests(unittest.TestCase):
@@ -200,6 +204,65 @@ class AsciiUiTests(unittest.TestCase):
             self.ui._walk_to(destination)
         self.assertEqual("combat", self.engine.state.phase)
         napms.assert_called_once_with(self.ui.MOVE_FRAME_MS)
+
+    def test_auto_walk_cancel_stops_before_next_atomic_step(self) -> None:
+        party = (self.engine.state.party_x, self.engine.state.party_y)
+        path = self.engine._find_path(party, self.engine.room_position(1))[:3]
+        self.assertEqual(3, len(path))
+        control = GameEngine.new(self.catalog, self.engine.state.seed)
+        screen = FakeScreen(keys=[-1, ord("x")])
+        self.ui.screen = screen
+        with patch("dumbest_dungeon.ui.curses.napms"):
+            self.ui._walk_to(path[-1])
+        control.step_exploration(*path[0])
+        self.assertEqual(path[0], (self.engine.state.party_x, self.engine.state.party_y))
+        self.assertEqual(1, self.engine.state.exploration_steps)
+        self.assertEqual(100, self.engine.state.light)
+        self.assertEqual(control.snapshot(), self.engine.snapshot())
+        loaded = GameEngine.from_snapshot(self.catalog, self.engine.snapshot())
+        self.assertEqual(self.engine.snapshot(), loaded.snapshot())
+        self.assertIn("Route cancelled", self.ui.message)
+        self.assertFalse(screen.nonblocking)
+
+    def test_right_click_cancels_auto_walk_before_first_step(self) -> None:
+        party = (self.engine.state.party_x, self.engine.state.party_y)
+        destination = self.engine._neighbors(party)[0]
+        screen = FakeScreen(keys=[curses.KEY_MOUSE])
+        self.ui.screen = screen
+        event = (0, 0, 0, 0, getattr(curses, "BUTTON3_CLICKED", 0))
+        if not event[-1]:
+            self.skipTest("curses exposes no right-click event on this platform")
+        with patch("dumbest_dungeon.ui.curses.getmouse", return_value=event):
+            self.ui._walk_to(destination)
+        self.assertEqual(party, (self.engine.state.party_x, self.engine.state.party_y))
+        self.assertEqual(0, self.engine.state.exploration_steps)
+
+    def test_auto_walk_stops_on_discovery_without_resolving_later_tiles(self) -> None:
+        party = (self.engine.state.party_x, self.engine.state.party_y)
+        path = self.engine._find_path(party, self.engine.room_position(1))[:3]
+        pickup = next(item for item in self.engine.state.pickups if not item.hidden)
+        pickup.x, pickup.y = path[1]
+        for patrol in self.engine.state.patrols:
+            patrol.active = False
+        screen = FakeScreen()
+        self.ui.screen = screen
+        with patch("dumbest_dungeon.ui.curses.napms"):
+            self.ui._walk_to(path[-1])
+        self.assertEqual("discovery", self.engine.state.phase)
+        self.assertEqual(path[1], (self.engine.state.party_x, self.engine.state.party_y))
+        self.assertEqual(2, self.engine.state.exploration_steps)
+
+    def test_fallen_crew_remains_visible_on_battlefield(self) -> None:
+        self.engine.start_combat("vents")
+        hero = self.engine.living_heroes()[0]
+        hero.hp = 0
+        hero.deaths_door = False
+        self.engine._hero_died(hero)
+        screen = FakeScreen()
+        self.ui.screen = screen
+        self.ui._battlefield(2, None, [])
+        self.assertIn("DEAD", screen.text())
+        self.assertIn(hero.hero_class[:4].upper(), screen.text())
 
     def test_hub_renders_roster_and_departs_with_default_party(self) -> None:
         self.engine = GameEngine.new(self.catalog, 3, start_in_hub=True)

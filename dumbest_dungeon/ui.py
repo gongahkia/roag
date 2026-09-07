@@ -282,7 +282,7 @@ class TerminalUI:
             ],
             curses.A_DIM,
         )
-        self._footer("Arrows aim Enter/2xclick go Tab cycle Space center U supply D deck I effects P pause")
+        self._footer("Arrows aim Enter/2xclick go X/Esc/right-click stop Tab cycle Space center U supply")
         return origin
 
     def _world_map(
@@ -388,9 +388,33 @@ class TerminalUI:
         for x, y in path:
             if self.engine.state.phase != "exploration":
                 break
+            if self._route_cancel_requested():
+                self.message = "Route cancelled. No further tile was resolved."
+                break
             self.engine.step_exploration(x, y)
             self._render_exploration(destination, focus=(x, y))
             curses.napms(self.MOVE_FRAME_MS)
+
+    def _route_cancel_requested(self) -> bool:
+        try:
+            self.screen.nodelay(True)
+            key = self._key()
+        finally:
+            self.screen.nodelay(False)
+        if key in (ord("x"), ord("X"), 27):
+            return True
+        if key != curses.KEY_MOUSE:
+            return False
+        try:
+            _, _, _, _, buttons = curses.getmouse()
+        except curses.error:
+            return False
+        right_click = getattr(curses, "BUTTON3_CLICKED", 0) | getattr(
+            curses,
+            "BUTTON3_PRESSED",
+            0,
+        )
+        return bool(buttons & right_click)
 
     def _discovery(self) -> None:
         assert self.engine
@@ -657,6 +681,8 @@ class TerminalUI:
         self._put(row, 2, "CREW  < BACK     FORMATION     FRONT >", curses.A_BOLD)
         self._put(row, 43, "HOSTILES < FRONT   FORMATION  BACK >", curses.A_BOLD)
         self._put(row + 1, 39, "||", curses.A_BOLD)
+        fallen = [hero for hero in self.engine.state.heroes if not hero.alive]
+        fallen_by_rank = {4 - index: hero for index, hero in enumerate(fallen)}
         for rank in range(1, 5):
             hero = next((item for item in self.engine.living_heroes() if item.rank == rank), None)
             enemy = next((item for item in self.engine.living_enemies() if item.rank == rank), None)
@@ -674,6 +700,12 @@ class TerminalUI:
                 hp = "DD" if hero.deaths_door else f"{hero.hp:02}"
                 self._put(row + 7, column, f"H{hp}/{hero.max_hp:02}", attr)
                 self._put(row + 8, column, f"S{hero.stress:02} B{hero.block:02}", attr)
+            elif rank in fallen_by_rank:
+                dead = fallen_by_rank[rank]
+                column = 29 - (rank - 1) * 9
+                self._draw_sprite(row + 1, column, self.catalog.art["heroes"][dead.id], curses.A_DIM)
+                self._put(row + 6, column, f"-- {dead.hero_class[:4].upper():4}", curses.A_DIM)
+                self._put(row + 7, column, "  DEAD ", curses.A_BOLD | self._attr(3))
             if enemy:
                 column = 43 + (rank - 1) * 9
                 attr = self._hp_attr(enemy.hp, enemy.max_hp)
@@ -952,10 +984,12 @@ class TerminalUI:
             "Each seed selects one of six world layouts and four of eleven biome types. Biomes alter map "
             "floor glyphs, room names, enemy formations, and encounter pools. New specialist cards list an "
             "affinity biome and gain extra damage, block, healing, or stress relief while used there.\n\n"
-            "At zero HP a crew member reaches Death's Door. Further damage may kill them and end the run. "
+            "At zero HP a crew member reaches Death's Door. Further damage may kill them permanently; "
+            "their cards leave the shared deck, but survivors continue until a full-party wipe. "
             "At 100 stress they gain an affliction; reaching 100 again causes collapse. Supplies heal, calm, "
             "or restore light. Camps recover crew, modify one card, or remove one curse for 2 supplies.\n\n"
-            "Controls: arrows or hjkl navigate, Enter confirms, Escape cancels/pauses, E ends a combat turn, "
+            "Controls: arrows or hjkl navigate, Enter confirms, X/Escape cancels an active route, right-click "
+            "also cancels it, E ends a combat turn, "
             "U uses a supply, D views the deck, I views effects, P pauses, and ? opens this page."
         )
         self._notice("HOW TO PLAY", text)
@@ -966,7 +1000,8 @@ class TerminalUI:
         self._put(row, 2, f"Seed {state.seed}   Light {state.light:3}/100   Supplies {state.supplies}", self._attr(2))
         crew = "  ".join(
             f"R{h.rank} {h.hero_class[:4].upper()} {h.hp}/{h.max_hp} {h.stress}s"
-            for h in self.engine.living_heroes()
+            if h.alive else f"-- {h.hero_class[:4].upper()} DEAD"
+            for h in sorted(state.heroes, key=lambda actor: (not actor.alive, actor.rank, actor.id))
         )
         self._put(row + 1, 2, crew)
         self._put(row + 2, 2, self.engine.compact_effect_summary()[: self.screen.getmaxyx()[1] - 3], curses.A_DIM)
