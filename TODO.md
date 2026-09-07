@@ -8,21 +8,36 @@
 
 ## Now
 
-- Put the four-region build in the owner's hands and record whether encounter density, spatial packing, treasure routes, and voyage cadence remain fun without test forcing.
+- Complete the bounded diegetic-interface milestone: a connected route chart,
+  presentation-only travel animation, three-deck Jomon and dedicated tavern,
+  bartender/drinks, readable choices, paper doll, inventory previews/mouse/
+  auto-pack/bulk tools, named-adult schedules and causal incidents, a visible
+  seasonal calendar, format-4 migration, automated checks, and real-PTY trips.
 
 ## Next
 
-- Improve ordinary discovery signposting: direct one optional named cache from each contact or visible landmark, because complete PTY objective routes naturally found only three distinct containers while controlled exploration proved the container interface itself readable.
+- Put the inhabited-vessel build in the owner's hands and tune route choice,
+  inventory convenience, schedule cadence, tavern legibility, and incident
+  frequency from normal play rather than increasing systemic scope.
 
 ## Later
 
+- Improve ordinary discovery signposting when owner play again shows a missed
+  cache; the prior assessment found only three containers naturally on eight
+  objective-oriented routes.
 - Add another regional map only after the current four are played and judged.
 - Revisit return-route variation and expand onboard incidents only after ordinary expedition pacing is stable.
 - Add capture or rescue only if play exposes a concrete contextual need.
 
 ## Frozen
 
-- infinite terrain, offline catch-up, distant-person or universal NPC simulation, factions, eras, NG+, alternate renderers, graphical tiles, crafting, skill trees, replay infrastructure, generic content packs, GOAP/encounter/quest DSLs, full anatomy/garment/fluid/weather/economy simulation, servers, networking, telemetry, databases, plugins, ECS, real-time combat, and generic magic.
+- more regions in this milestone; infinite terrain; wall-clock or closed-game
+  catch-up; unnamed distant-person or universal NPC simulation; unrestricted
+  autonomous death; factions; eras; NG+; alternate renderers; graphical tiles;
+  crafting; skill trees; replay infrastructure; generic content packs;
+  schedule/GOAP/encounter/quest/narrative DSLs; full needs/anatomy/garment/
+  fluid/weather/economy simulation; servers; networking; telemetry; databases;
+  plugins; ECS; real-time combat or travel; and generic magic.
 
 ## Done
 

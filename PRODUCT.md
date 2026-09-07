@@ -4,6 +4,16 @@ Jomon is a turn-based roguelike about sending one member of a persistent vessel-
 
 The current product is a fullscreen Python 3.11 terminal game using the standard-library `curses` module. The playable build contains Hearthford and three substantial, persistent regions: Greywash's tidal coast, Greenwold's open deep forest, and Whitecairn's limestone uplands. Travel begins from physical Jomon, whose tavern contains visible household members and bounded recruitable visitors. Couriers organise physically shaped items in a rotatable pack grid, wear armour across six readable body locations, and face terrain, weather, ranged fire, and goal-directed enemies whose plans depend on what they can see and hear.
 
+The current bounded milestone deepens that established world without adding a
+fifth region. Jomon becomes three aligned functional decks plus a dedicated
+walkable tavern; its chart becomes a persistent connected route map; and named
+adults follow deterministic action-clock schedules. Packing gains live
+placement previews, a spatial paper doll, optional mouse input, pinning,
+transactional auto-packing, and bulk actions. A visible calendar and seasonal
+effects alter existing weather, routes, work, stock, and exposure. All of
+these features remain direct additions to the existing state and curses
+interface, not generic UI, schedule, travel, or social-simulation frameworks.
+
 The permanent constraints are:
 
 - seeded, inspectable determinism and action-driven time;
@@ -33,10 +43,11 @@ weather, burn wind, quarry instability, patrol movement, alarm, and material
 timing—rather than one hidden or real-time deadline. Severe ranged attacks must
 provide a readable aim, lane, cover, or setup opportunity before impact.
 
-This milestone explicitly excludes infinite or offline world simulation,
-full anatomical or layered-garment simulation, generic GOAP/encounter/quest
-languages, real-time progression, graphical tiles, generic spellcasting, and
-unbounded regional or onboard content. Voyage events reuse ordinary people,
-cargo, inventory, and combat rules in three sporadic authored families.
+This milestone explicitly excludes more regions, infinite or offline world
+simulation, exhaustive needs or anatomy, unrestricted autonomous death,
+generic schedule/GOAP/encounter/quest/narrative languages, real-time travel,
+graphical tiles, generic spellcasting, and unbounded regional or onboard
+content. Voyage events continue to reuse ordinary people, cargo, inventory,
+and combat rules in three sporadic authored families.
 
 `LORE.md` owns setting, tone, and content canon. `TODO.md` owns current scope and frozen work. The causal chain is documented in [`docs/causal-generation-and-loop.md`](docs/causal-generation-and-loop.md); browser history is recorded under [`docs/archive/`](docs/archive/).
