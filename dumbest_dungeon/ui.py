@@ -384,6 +384,7 @@ class TerminalUI:
                 self._walk_to(cursor)
                 camera = (state.party_x, state.party_y)
                 pending_click = None
+                cycle_index = -1
             elif key == curses.KEY_MOUSE:
                 destination = self._mouse_destination(origin)
                 if destination is not None:
@@ -391,6 +392,7 @@ class TerminalUI:
                         self._walk_to(destination)
                         camera = (state.party_x, state.party_y)
                         pending_click = None
+                        cycle_index = -1
                     else:
                         cursor = destination
                         pending_click = destination

@@ -503,6 +503,39 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("TOTAL", rendered)
         self.assertIn(self.catalog.biomes[objective.biome_id]["name"].upper(), rendered)
 
+    def test_destination_cycle_restarts_after_each_route_leg(self) -> None:
+        party = (self.engine.state.party_x, self.engine.state.party_y)
+        first_leg = (party[0] + 1, party[1])
+        next_priority = (party[0] + 2, party[1])
+        lower_priority = (party[0] + 3, party[1])
+        rendered: list[tuple[int, int]] = []
+        travelled: list[tuple[int, int]] = []
+
+        def render(cursor, focus=None):
+            rendered.append(cursor)
+            return (0, 0, 40, 16)
+
+        def targets():
+            if travelled:
+                return [next_priority, lower_priority]
+            return [first_leg, lower_priority]
+
+        def walk(destination):
+            travelled.append(destination)
+            self.engine.state.party_x, self.engine.state.party_y = destination
+
+        self.ui.screen = FakeScreen(keys=[9, 10, 9, 27])
+        with (
+            patch.object(self.ui, "_render_exploration", side_effect=render),
+            patch.object(self.ui, "_exploration_targets", side_effect=targets),
+            patch.object(self.ui, "_walk_to", side_effect=walk),
+            patch.object(self.ui, "_pause"),
+        ):
+            self.ui._exploration()
+
+        self.assertEqual([first_leg], travelled)
+        self.assertEqual(next_priority, rendered[-1])
+
     def test_mission_status_distinguishes_required_and_optional_objectives(self) -> None:
         sealed = self.ui._mission_status_text()
         self.assertIn("CORE SEALED", sealed)
