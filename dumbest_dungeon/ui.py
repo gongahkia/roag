@@ -1882,7 +1882,8 @@ class TerminalUI:
             "cost, hazard visibility, patrol behavior, combat conditions, and recovery opportunities as well "
             "as formations. Press B in exploration for the current biome rules. Four K landmarks offer seeded "
             "access objectives. Inspect two disclosed approaches, commit to one, then reach its map stages; "
-            "secure any two to open the L-marked Overseer Core. Specialist cards list an "
+            "secure any two to change the locked L into the open B Overseer Core. The opening notice gives "
+            "its route estimate; O reviews mission status and G selects the next reachable Core leg. Specialist cards list an "
             "affinity biome and gain extra damage, block, healing, or stress relief while used there.\n\n"
             "At zero HP a crew member reaches Death's Door. Further damage may kill them permanently; "
             "their cards leave the shared deck, but survivors continue until a full-party wipe. "
@@ -1893,7 +1894,7 @@ class TerminalUI:
             "status, G selects the next Core route leg, D views the deck, "
             "C inspects the selected combat card, R inspects crew, I views effects, P pauses, and ? opens this page. "
             "During enemy-action frames, F toggles fast playback and Space skips the remaining presentation; "
-            "neither key skips enemy game actions. Mouse input otherwise stops at exploration routing."
+            "neither key skips enemy game actions.\n\nMouse input otherwise stops at exploration routing."
         )
         self._notice("HOW TO PLAY", text)
 

@@ -24,5 +24,6 @@ Each selected biome also contains a one-use facility with two disclosed
 procedures. Facilities manipulate the same route, hazard, information, deck,
 light, supply, HP, and stress state as exploration; they are not access goals.
 Four landmark objectives are generated, and completing any two opens the
-Overseer Core. Optional third and fourth outcomes remain available without
-requiring a map clear.
+Overseer Core. Each approach also discloses its completion benefit. When access
+opens, `B` marks the Core, `G` selects the next reachable leg, and `O`
+distinguishes the two required completions from remaining optional objectives.
