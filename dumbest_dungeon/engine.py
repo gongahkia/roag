@@ -229,8 +229,16 @@ def _edge_map(*pairs: tuple[int, int]) -> dict[int, list[int]]:
 WORLD_LAYOUTS: dict[str, tuple[dict[int, tuple[int, int]], dict[int, list[int]]]] = {
     "branching": (BRANCHING_POSITIONS, BRANCHING_EDGES),
     "spine": (
-        {room_id: (5 + room_id * 9 + (7 if room_id == 11 else 0), (17, 17, 12, 21)[room_id % 4]) for room_id in range(12)},
-        _edge_map(*((room_id, room_id + 1) for room_id in range(11))),
+        {
+            0: (5, 17), 1: (16, 7), 2: (24, 17), 3: (35, 27),
+            4: (43, 17), 5: (54, 7), 6: (62, 17), 7: (73, 27),
+            8: (81, 17), 9: (92, 7), 10: (103, 17), 11: (111, 17),
+        },
+        _edge_map(
+            (0, 2), (2, 4), (4, 6), (6, 8), (8, 10), (10, 11),
+            (0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6),
+            (6, 7), (7, 8), (8, 9), (9, 10),
+        ),
     ),
     "ring": (
         {

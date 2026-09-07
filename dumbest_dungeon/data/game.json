@@ -527,7 +527,7 @@
   ],
   "worlds": [
     {"id":"orison","name":"Orison Survey Wreck","layout":"branching","biomes":["derelict","archive","cryogenic","reactor"],"description":"A direct central trunk feeds six dead-end survey branches; detours offer objectives and salvage but require backtracking."},
-    {"id":"cinder_ark","name":"Cinder Ark","layout":"spine","biomes":["derelict","foundry","reactor","storm"],"description":"A long furnace-carrier whose central spine buckles between heat and electrical weather."},
+    {"id":"cinder_ark","name":"Cinder Ark","layout":"spine","biomes":["derelict","foundry","reactor","storm"],"description":"A fast central spine crosses five optional side loops; leaving it costs time but can avoid a blocked or patrolled trunk."},
     {"id":"bloom_labyrinth","name":"Bloom Labyrinth","layout":"clusters","biomes":["hydroponic","fungal","flooded","archive"],"description":"Interlocked garden laboratories joined by wet roots and archival grafts."},
     {"id":"pelagic_grave","name":"Pelagic Grave","layout":"ring","biomes":["flooded","storm","cryogenic","void"],"description":"A drowned ring habitat orbiting a central absence through frozen pressure locks."},
     {"id":"ivory_engine","name":"Ivory Engine","layout":"zigzag","biomes":["ossuary","fungal","archive","void"],"description":"A serpentine engine assembled from bone, records, and living decomposition."},

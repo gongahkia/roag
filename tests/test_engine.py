@@ -156,6 +156,21 @@ class EngineTests(unittest.TestCase):
             self.assertEqual("branching", self.catalog.worlds[engine.state.world_id]["layout"])
             self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(self.catalog, engine.snapshot()).snapshot())
 
+    def test_spine_layout_has_fast_trunk_and_optional_side_loops(self) -> None:
+        _, edges = WORLD_LAYOUTS["spine"]
+        trunk = (0, 2, 4, 6, 8, 10, 11)
+        self.assertTrue(
+            all(right in edges[left] for left, right in zip(trunk, trunk[1:]))
+        )
+        self.assertEqual(
+            ({0, 2}, {2, 4}, {4, 6}, {6, 8}, {8, 10}),
+            tuple(set(edges[node]) for node in (1, 3, 5, 7, 9)),
+        )
+        for seed in (1, 3):
+            engine = GameEngine.new(self.catalog, seed)
+            self.assertEqual("spine", self.catalog.worlds[engine.state.world_id]["layout"])
+            self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(self.catalog, engine.snapshot()).snapshot())
+
     def test_all_biomes_generate_reachable_hazards_and_optional_objectives(self) -> None:
         seen_biomes: set[str] = set()
         seen_mixtures: set[tuple[str, ...]] = set()
