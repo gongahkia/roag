@@ -182,6 +182,20 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("e", rendered)
         self.assertIn("+", rendered)
 
+    def test_world_map_viewport_is_bounded_by_world_on_large_terminal(self) -> None:
+        screen = FakeScreen(rows=60, columns=140)
+        self.ui.screen = screen
+        tiles = self.engine.world_tiles()
+        party = (self.engine.state.party_x, self.engine.state.party_y)
+        origin = self.ui._world_map(self.ui.MAP_ROW, party)
+        self.assertEqual((0, 0, len(tiles[0]), len(tiles)), origin)
+
+        with patch(
+            "dumbest_dungeon.ui.curses.getmouse",
+            return_value=(0, len(tiles[0]) + 2, self.ui.MAP_ROW, 0, curses.BUTTON1_CLICKED),
+        ):
+            self.assertIsNone(self.ui._mouse_destination(origin))
+
     def test_map_and_biome_view_explain_objective_hazard_and_core_lock(self) -> None:
         party = (self.engine.state.party_x, self.engine.state.party_y)
         objective = self.engine.state.objectives[0]

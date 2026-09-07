@@ -307,8 +307,8 @@ class TerminalUI:
         assert self.engine
         tiles = self.engine.world_tiles()
         screen_rows, screen_columns = self.screen.getmaxyx()
-        viewport_width = screen_columns - 4
-        viewport_height = screen_rows - row - 4
+        viewport_width = min(screen_columns - 4, len(tiles[0]))
+        viewport_height = min(screen_rows - row - 4, len(tiles))
         focus_x, focus_y = focus or cursor
         left = max(0, min(len(tiles[0]) - viewport_width, focus_x - viewport_width // 2))
         top = max(0, min(len(tiles) - viewport_height, focus_y - viewport_height // 2))
