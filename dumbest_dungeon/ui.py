@@ -509,6 +509,15 @@ class TerminalUI:
             boss = next(room for room in state.rooms if room.kind == "boss")
             x, y = self.engine.room_position(boss.id)
             overlays.append((x, y, "L", self._attr(3) | curses.A_BOLD))
+        for landmark in state.landmarks:
+            if not landmark.discovered:
+                continue
+            art = self.catalog.landmarks[landmark.template_id]["art"]
+            for index, cell in enumerate(landmark.cells):
+                x, y = cell
+                symbol = art[index // 3][index % 3]
+                if symbol != " ":
+                    overlays.append((x, y, symbol, self._attr(6) | curses.A_BOLD))
         for objective in state.objectives:
             if not objective.completed:
                 overlays.append((objective.x, objective.y, "K", self._attr(2) | curses.A_BOLD))

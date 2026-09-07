@@ -1,5 +1,5 @@
 {
-  "schema_version": 9,
+  "schema_version": 10,
   "balance": {
     "hand_size": 5,
     "energy": 3,
@@ -444,6 +444,19 @@
     {"id":"void_final_weight","kind":"elite","biomes":["void"],"enemies":["grief_anchor","horizon_eye","absence_moth","horizon_eye"]},
     {"id":"ossuary_skull_wall","kind":"normal","biomes":["ossuary"],"enemies":["bone_colossus","choir_skull"]},
     {"id":"ossuary_chorus_line","kind":"elite","biomes":["ossuary"],"enemies":["bone_colossus","reliquary_fiend","choir_skull","choir_skull"]}
+  ],
+  "landmarks": [
+    {"id":"relay_yard","biome":"derelict","name":"Corpse Relay Yard","art":["+-+","|K|","+-+"]},
+    {"id":"thaw_vault","biome":"cryogenic","name":"Thaw-Key Vault","art":["___","[K]","___"]},
+    {"id":"root_oracle","biome":"hydroponic","name":"Root-Memory Oracle","art":["/\\/","{K}","\\_/"]},
+    {"id":"tooth_press","biome":"foundry","name":"Access-Tooth Press","art":["/\\/","[K]","|_|"]},
+    {"id":"vote_bus","biome":"reactor","name":"Authorization Bus","art":["=:=","[K]","=:="]},
+    {"id":"fruiting_lab","biome":"fungal","name":"Fruiting Apothecary","art":["%o%","(K)","%o%"]},
+    {"id":"pressure_locker","biome":"flooded","name":"Drowned Credential Locker","art":["~~~","[K]","~~~"]},
+    {"id":"grounding_array","biome":"storm","name":"Grounding Array","art":["\\|/","-K-","/|\\"]},
+    {"id":"revision_desk","biome":"archive","name":"Revision Annex","art":["[-]","|K|","[-]"]},
+    {"id":"grief_lens","biome":"void","name":"Absent Navigator Lens","art":["' '","(K)","' '"]},
+    {"id":"marrow_pump","biome":"ossuary","name":"Marrow Credential Pump","art":["o-o","|K|","o-o"]}
   ],
   "terrains": [
     {"id":"open_deck","name":"Open deck","glyph":".","cost":1,"biome":"derelict","description":"Reliable plating costs one travel tick."},

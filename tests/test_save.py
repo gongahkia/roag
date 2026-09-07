@@ -94,6 +94,7 @@ class SaveTests(unittest.TestCase):
         reloaded = GameEngine.from_snapshot(self.catalog, loaded.snapshot())
         self.assertEqual("objective", reloaded.state.phase)
         self.assertEqual(objective.id, reloaded.current_objective().id)
+        self.assertEqual(loaded.state.landmarks, reloaded.state.landmarks)
 
     def test_mid_combat_save_preserves_random_stream(self) -> None:
         engine = GameEngine.new(self.catalog, 202)

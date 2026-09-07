@@ -453,6 +453,10 @@ class AsciiUiTests(unittest.TestCase):
         self.ui._world_map(5, (objective.x, objective.y))
         rendered = screen.text()
         self.assertIn("K", rendered)
+        template = self.catalog.landmarks[
+            next(item for item in self.engine.state.landmarks if item.biome_id == objective.biome_id).template_id
+        ]
+        self.assertTrue(any(symbol in rendered for symbol in "".join(template["art"]) if symbol not in " K"))
         self.assertIn("^", rendered)
         self.assertIn("L", rendered)
 

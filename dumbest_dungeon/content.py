@@ -22,6 +22,7 @@ class Catalog:
     enemies: dict[str, dict[str, Any]]
     encounters: dict[str, dict[str, Any]]
     events: dict[str, dict[str, Any]]
+    landmarks: dict[str, dict[str, Any]]
     terrains: dict[str, dict[str, Any]]
     biomes: dict[str, dict[str, Any]]
     worlds: dict[str, dict[str, Any]]
@@ -389,8 +390,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load card metadata from {metadata_source}: {exc}") from exc
 
-    if raw.get("schema_version") != 9:
-        raise ContentError("content schema_version must be 9")
+    if raw.get("schema_version") != 10:
+        raise ContentError("content schema_version must be 10")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
@@ -399,6 +400,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
     enemies = _indexed(raw.get("enemies"), "enemies")
     encounters = _indexed(raw.get("encounters"), "encounters")
     events = _indexed(raw.get("events"), "events")
+    landmarks = _indexed(raw.get("landmarks"), "landmarks")
     terrains = _indexed(raw.get("terrains"), "terrains")
     biomes = _indexed(raw.get("biomes"), "biomes")
     worlds = _indexed(raw.get("worlds"), "worlds")
@@ -426,6 +428,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
         "enemies": enemies,
         "encounters": encounters,
         "events": events,
+        "landmarks": landmarks,
         "terrains": terrains,
         "biomes": biomes,
         "worlds": worlds,
@@ -633,6 +636,29 @@ def load_catalog(path: Path | None = None) -> Catalog:
         terrain_glyphs.add(terrain["glyph"])
     if terrain_glyphs != TERRAIN_GLYPHS:
         raise ContentError("terrain profiles must cover every traversable ASCII glyph exactly once")
+    landmark_biomes: set[str] = set()
+    for landmark in landmarks.values():
+        landmark_art = landmark.get("art")
+        if (
+            landmark.get("biome") not in biomes
+            or landmark["biome"] in landmark_biomes
+            or not isinstance(landmark.get("name"), str)
+            or not landmark["name"]
+            or not isinstance(landmark_art, list)
+            or len(landmark_art) != 3
+            or any(
+                not isinstance(line, str)
+                or len(line) != 3
+                or not line.isascii()
+                or not line.isprintable()
+                for line in landmark_art
+            )
+            or landmark_art[1][1] != "K"
+        ):
+            raise ContentError(f"landmark {landmark['id']} is invalid")
+        landmark_biomes.add(landmark["biome"])
+    if landmark_biomes != set(biomes):
+        raise ContentError("every biome needs exactly one objective landmark template")
     glyphs = set()
     for biome in biomes.values():
         if not isinstance(biome.get("name"), str) or not isinstance(biome.get("description"), str):
@@ -743,6 +769,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
         enemies,
         encounters,
         events,
+        landmarks,
         terrains,
         biomes,
         worlds,

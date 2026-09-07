@@ -101,6 +101,18 @@ class AccessObjective:
 
 
 @dataclass
+class Landmark:
+    id: str
+    template_id: str
+    biome_id: str
+    x: int
+    y: int
+    cells: list[list[int]]
+    discovered: bool = True
+    state: str = "intact"
+
+
+@dataclass
 class GameState:
     seed: int
     phase: str
@@ -125,6 +137,7 @@ class GameState:
     hazards: list[BiomeHazard] = field(default_factory=list)
     current_hazard_id: str | None = None
     objectives: list[AccessObjective] = field(default_factory=list)
+    landmarks: list[Landmark] = field(default_factory=list)
     current_objective_id: str | None = None
     required_objectives: int = 2
     known_feature_ids: list[str] = field(default_factory=list)
@@ -393,7 +406,7 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 15
+    SAVE_VERSION = 16
     TUTORIAL_SEED = 1
     ENCOUNTER_PLANS = {"none", "pressure", "disrupt", "screen", "sustain", "combo", "overseer"}
 
@@ -451,6 +464,7 @@ class GameEngine:
         engine = cls(catalog, state, rng)
         state.pickups = engine._generate_pickups(random.Random(seed ^ 0x5049434B5550))
         state.objectives = engine._generate_objectives(random.Random(seed ^ 0x4F424A454354))
+        state.landmarks = engine._generate_landmarks()
         state.hazards = engine._generate_hazards(random.Random(seed ^ 0x48415A415244))
         engine._update_perception()
         if not start_in_hub:
@@ -942,12 +956,21 @@ class GameEngine:
             for y, row in enumerate(self.state.world_tiles)
             for x, character in enumerate(row)
             if character in WALKABLE_TILES
+            and 0 < x < WORLD_WIDTH - 1
+            and 0 < y < WORLD_HEIGHT - 1
             and self.biome_at(x, y) == biome_id
             and (x, y) not in excluded
             and abs(x - start[0]) + abs(y - start[1]) >= 5
             and abs(x - boss[0]) + abs(y - boss[1]) >= 3
             and all(abs(x - other_x) + abs(y - other_y) >= minimum_spacing for other_x, other_y in excluded)
         ]
+
+    def _carve_landmark_site(self, x: int, y: int, glyph: str) -> None:
+        for site_y in range(y - 1, y + 2):
+            row = self.state.world_tiles[site_y]
+            for site_x in range(x - 1, x + 2):
+                row = row[:site_x] + glyph + row[site_x + 1:]
+            self.state.world_tiles[site_y] = row
 
     def _generate_objectives(self, rng: random.Random) -> list[AccessObjective]:
         excluded = {self.room_position(room.id) for room in self.state.rooms}
@@ -962,14 +985,41 @@ class GameEngine:
             if not candidates:
                 raise RuleError(f"generated terrain has no access objective site in {biome_id}")
             x, y = rng.choice(candidates)
+            self._carve_landmark_site(x, y, self.catalog.biomes[biome_id]["glyph"])
             excluded.add((x, y))
             objectives.append(AccessObjective(f"objective:{biome_id}", biome_id, x, y))
         return objectives
+
+    def _generate_landmarks(self) -> list[Landmark]:
+        templates = {
+            definition["biome"]: definition["id"]
+            for definition in self.catalog.landmarks.values()
+        }
+        return [
+            Landmark(
+                id=f"landmark:{objective.biome_id}",
+                template_id=templates[objective.biome_id],
+                biome_id=objective.biome_id,
+                x=objective.x,
+                y=objective.y,
+                cells=[
+                    [objective.x + offset_x, objective.y + offset_y]
+                    for offset_y in (-1, 0, 1)
+                    for offset_x in (-1, 0, 1)
+                ],
+            )
+            for objective in self.state.objectives
+        ]
 
     def _generate_hazards(self, rng: random.Random) -> list[BiomeHazard]:
         excluded = {self.room_position(room.id) for room in self.state.rooms}
         excluded |= {(pickup.x, pickup.y) for pickup in self.state.pickups}
         excluded |= {(objective.x, objective.y) for objective in self.state.objectives}
+        excluded |= {
+            tuple(cell)
+            for landmark in self.state.landmarks
+            for cell in landmark.cells
+        }
         hazards: list[BiomeHazard] = []
         for biome_id in self.state.biome_ids:
             for index in range(2):
@@ -1019,6 +1069,7 @@ class GameEngine:
                 hazards=[BiomeHazard(**item) for item in raw["hazards"]],
                 current_hazard_id=raw["current_hazard_id"],
                 objectives=[AccessObjective(**item) for item in raw["objectives"]],
+                landmarks=[Landmark(**item) for item in raw["landmarks"]],
                 current_objective_id=raw["current_objective_id"],
                 required_objectives=raw["required_objectives"],
                 known_feature_ids=raw["known_feature_ids"],
@@ -1237,13 +1288,39 @@ class GameEngine:
             raise RuleError("save references an unknown access objective")
         if (state.phase == "objective") != (state.current_objective_id is not None):
             raise RuleError("save contains an inconsistent active access objective")
+        landmark_ids = {landmark.id for landmark in state.landmarks}
+        if (
+            len(state.landmarks) != len(world_biomes)
+            or len(landmark_ids) != len(state.landmarks)
+            or {landmark.biome_id for landmark in state.landmarks} != world_biomes
+            or any(
+                landmark.template_id not in catalog.landmarks
+                or catalog.landmarks[landmark.template_id]["biome"] != landmark.biome_id
+                or landmark.state not in {"intact", "changed"}
+                or [landmark.x, landmark.y] not in landmark.cells
+                or len(landmark.cells) != 9
+                or any(
+                    not engine.is_walkable(*cell)
+                    for cell in landmark.cells
+                )
+                for landmark in state.landmarks
+            )
+        ):
+            raise RuleError("save contains invalid biome landmarks")
+        landmark_positions = {
+            tuple(cell)
+            for landmark in state.landmarks
+            for cell in landmark.cells
+        }
         if (
             pickup_positions & hazard_positions
             or pickup_positions & objective_positions
             or hazard_positions & objective_positions
+            or pickup_positions & landmark_positions
+            or hazard_positions & landmark_positions
         ):
             raise RuleError("save contains overlapping map features")
-        knowable_ids = pickup_ids | hazard_ids | objective_ids
+        knowable_ids = pickup_ids | hazard_ids | objective_ids | landmark_ids
         if (
             not isinstance(state.known_feature_ids, list)
             or len(state.known_feature_ids) != len(set(state.known_feature_ids))
@@ -1830,6 +1907,9 @@ class GameEngine:
         position = (self.state.party_x, self.state.party_y)
         for objective in self.state.objectives:
             known.add(objective.id)
+        for landmark in self.state.landmarks:
+            if landmark.discovered:
+                known.add(landmark.id)
         for hazard in self.state.hazards:
             if self.is_hazard_visible(hazard):
                 known.add(hazard.id)

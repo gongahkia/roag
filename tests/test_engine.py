@@ -132,6 +132,8 @@ class EngineTests(unittest.TestCase):
             seen_mixtures.add(tuple(engine.state.biome_ids))
             self.assertEqual(4, len(selected))
             self.assertEqual(selected, {objective.biome_id for objective in engine.state.objectives})
+            self.assertEqual(selected, {landmark.biome_id for landmark in engine.state.landmarks})
+            self.assertEqual(4, len(engine.state.landmarks))
             self.assertEqual(8, len(engine.state.hazards))
             for biome_id in selected:
                 self.assertEqual(
@@ -141,6 +143,10 @@ class EngineTests(unittest.TestCase):
             origin = engine.room_position(0)
             for feature in engine.state.objectives + engine.state.hazards:
                 self.assertTrue(engine._find_path(origin, (feature.x, feature.y)))
+            for landmark in engine.state.landmarks:
+                self.assertEqual(9, len(landmark.cells))
+                self.assertTrue(all(engine.is_walkable(*cell) for cell in landmark.cells))
+                self.assertTrue(engine.feature_is_known(landmark.id))
             boss = next(
                 patrol
                 for patrol in engine.state.patrols
