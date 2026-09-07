@@ -78,7 +78,7 @@ finite treatment, light, rope, smoke, ammunition, armour condition, load, and
 terrain exposure. Then walk back through the same geography and gangplank—or
 suffer cargo loss, forced injured return, or permanent death with succession.
 
-The one atomic format-4 JSON save contains the current household, physical
+The one atomic format-6 JSON save contains the current household, physical
 items and orientations, regional exploration and changes, contacts, markets,
 enemies, objectives, travel, and bounded significant history. A returned region
 therefore changes later expeditions without any offline simulation.

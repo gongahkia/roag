@@ -977,8 +977,7 @@ def _clamp_inventory_cursor(state: GameState, view: InventoryView) -> None:
 
 
 def _transfer_inventory_items(state: GameState, view: InventoryView, items: list) -> bool:
-    snapshot = copy.deepcopy(state.items)
-    container_snapshots = {container.id: list(container.item_ids) for container in state.region.containers}
+    operation = InventoryTransaction.begin(state)
     for item in items:
         source_container_id = item.container_id
         if item.location == "pack" and state.location == "jomon":
@@ -996,9 +995,7 @@ def _transfer_inventory_items(state: GameState, view: InventoryView, items: list
         else:
             moved = False
         if not moved:
-            state.items = snapshot
-            for container in state.region.containers:
-                container.item_ids = container_snapshots[container.id]
+            operation.cancel(state)
             return False
     sync_legacy_load(state)
     return True
@@ -1304,6 +1301,20 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
     if kind == "tavern:relic":
         rows = [name for name in RELICS if state.relics.get(name, 0)]
         return "SELECT FINITE RELIC", ["0. Carry none", *[f"{index + 1}. {name} ({state.relics[name]}) — {RELICS[name]}" for index, name in enumerate(rows)], "Number selects; Escape returns."]
+    if kind == "relic:select":
+        rows = list(dict.fromkeys(
+            item.kind.split(":", 1)[1] for item in state.items
+            if item.owner_id == state.active_courier_id and item.location == "pack"
+            and item.kind.startswith("relic:")
+        ))
+        return "SELECT CARRIED RELIC", [
+            *[
+                f"{index + 1}. {'>' if state.carried_relic == name else ' '} "
+                f"{name} — {RELICS[name]}"
+                for index, name in enumerate(rows)
+            ],
+            "Selection costs no time; X then spends the selected finite relic.",
+        ]
     if kind == "tavern:passive":
         rows = list(state.owned_passives)
         keys = "123456789abc"
@@ -1451,6 +1462,17 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         if 0 <= index < len(rows):
             choose_relic(state, rows[index])
             return "tavern", False
+    if kind == "relic:select" and char.isdigit():
+        rows = list(dict.fromkeys(
+            item.kind.split(":", 1)[1] for item in state.items
+            if item.owner_id == state.active_courier_id and item.location == "pack"
+            and item.kind.startswith("relic:")
+        ))
+        index = int(char) - 1
+        if 0 <= index < len(rows):
+            state.carried_relic = rows[index]
+            state.add_message(f"Selected {rows[index]} for the next finite use.")
+            return None, False
     if kind == "tavern:passive" and char in "123456789abc":
         rows = list(state.owned_passives)
         index = "123456789abc".index(char)
@@ -1601,7 +1623,15 @@ def play(screen: curses.window, state: GameState) -> GameState:
         elif normalized == ord("g"):
             guard(state)
         elif normalized == ord("x"):
-            use_gear(state)
+            carried_relics = list(dict.fromkeys(
+                item.kind.split(":", 1)[1] for item in state.items
+                if item.owner_id == state.active_courier_id and item.location == "pack"
+                and item.kind.startswith("relic:")
+            ))
+            if len(carried_relics) > 1:
+                overlay = OverlayView("relic:select")
+            else:
+                use_gear(state)
         elif normalized == ord("v"):
             negotiate(state)
         elif normalized == ord("r"):

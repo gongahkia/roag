@@ -4,7 +4,9 @@
 
 - The active product is a standard-library Python 3.11 `curses` roguelike with four persistent seamless regions, a 12-node route chart, four seasons, aligned z-levels, camera/FOV exploration, and action-clock regional processes.
 - Jomon has three 64×22 decks, a dedicated 64×24 tavern, scheduled named adults, bartender and eight drinks, six initial adults, six bounded regional recruits, a paper-doll equipment view, 10×6 courier pack, 18×10 locker, and optional mouse input.
-- Save format 5 migrates Python format 4 without resetting consequences. The verified build passes 129 tests, compilation, whitespace checks, 100-seed encounter and route audits, 12 schedule samples, and real-PTY checks of travel, migration, schedules, mouse packing, low-capability fallback, and vessel life.
+- Save format 6 migrates Python format 5 without resetting consequences; older
+  supported Python paths chain forward. The pre-milestone baseline passed 129
+  tests in 277.165 seconds.
 
 ## Now
 

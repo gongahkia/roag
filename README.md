@@ -144,10 +144,11 @@ and assigned goals. Ranged attacks telegraph their lane before a severe shot.
 One atomic JSON save is stored at `$XDG_DATA_HOME/jomon/jomon-save.json`, or
 `~/.local/share/jomon/jomon-save.json` when `XDG_DATA_HOME` is unset. Set
 `JOMON_DATA_DIR` to override the directory for development or tests. Save format
-5 deterministically migrates Python format-4 saves while preserving people,
+6 deterministically migrates Python format-5 saves while preserving people,
 regions, exploration, exact item layouts, cargo, contacts, markets, integrity,
-and voyage history. The retained format-3 path chains through its prior safe
-migration. Older room-graph and retired browser saves are rejected.
+and voyage history. The retained format-3 and format-4 paths chain through their
+prior migrations. Physical pack items are authoritative for finite ammunition
+and bottled drinks. Older room-graph and retired browser saves are rejected.
 
 ```console
 python -m unittest discover -s tests -v

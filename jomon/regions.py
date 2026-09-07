@@ -576,6 +576,24 @@ def store_active_region(state) -> None:
     state.regional_markets[state.active_region_id] = state.market
 
 
+def reconstruct_regional_process(state) -> None:
+    """Reapply persisted process geometry after travel, load, or departure."""
+    if state.active_region_id == "greywash":
+        if state.region.process_stage >= 2 and not state.region.changes.get("tide_held"):
+            for point in (Position(76, 40), Position(77, 40), Position(78, 40)):
+                state.water[f"{point.x},{point.y},{point.z}"] = 99
+    elif state.active_region_id == "greenwold":
+        if state.region.process_stage >= 2 and not state.region.changes.get("burn_redirected"):
+            for point in (Position(79, 39), Position(80, 39), Position(80, 39, 1)):
+                state.smoke[f"{point.x},{point.y},{point.z}"] = 12
+    elif state.active_region_id == "whitecairn" and state.region.process_stage >= 2:
+        for point in (Position(55, 36), Position(56, 36), Position(57, 36)):
+            state.region.tile_changes.setdefault(f"{point.x},{point.y},{point.z}", "%")
+    elif state.flood_control == "lowered":
+        for point in (Position(58, 42, -1), Position(58, 42), Position(78, 22)):
+            state.water[f"{point.x},{point.y},{point.z}"] = 99
+
+
 def activate_region(state, region_id: str) -> None:
     if region_id not in state.regions:
         raise ValueError(f"unknown Jomon destination {region_id}")
@@ -590,3 +608,5 @@ def activate_region(state, region_id: str) -> None:
     state.pressure_elapsed = state.region.local_elapsed
     state.escalation_spawned = bool(state.region.changes.get("escalation_spawned"))
     state.flood_control = str(state.region.changes.get("environment_control", "raised"))
+    state.smoke, state.water = {}, {}
+    reconstruct_regional_process(state)

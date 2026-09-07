@@ -626,6 +626,31 @@ def buy_drink(state: GameState, drink_id: str, *, bottle: bool) -> tuple[bool, s
     return True, text
 
 
+def drink_bottled(state: GameState, drink_id: str) -> tuple[bool, str]:
+    """Consume one physical bottle without charging the bar a second time."""
+    drink = DRINKS.get(drink_id)
+    if drink is None:
+        return False, "The bottle has no known Jomon measure."
+    for incompatible in drink.incompatible:
+        if incompatible in state.drink_effects:
+            return False, (
+                f"{drink.name} cannot be safely mixed with "
+                f"{DRINKS[incompatible].name}."
+            )
+    from .inventory import consume_carried
+
+    if not consume_carried(state, f"consumable:bottle:{drink_id}"):
+        return False, f"No physical bottle of {drink.name} is in the pack."
+    state.drink_effects[drink_id] = TerrainStatus(
+        "opened expedition bottle", drink.duration,
+        f"{drink.benefit}; drawback: {drink.drawback}",
+    )
+    return True, (
+        f"You uncork {drink.name}: {drink.benefit}; "
+        f"drawback: {drink.drawback}."
+    )
+
+
 def validate_living_vessel(state: GameState) -> None:
     if set(VESSEL_LEVELS) != {-1, 0, 1} or any(len(rows) != VESSEL_HEIGHT or any(len(row) != VESSEL_WIDTH for row in rows) for rows in VESSEL_LEVELS.values()):
         raise ValueError("Jomon deck dimensions are invalid")

@@ -21,7 +21,7 @@ from .content import (
     ROLES,
 )
 
-SAVE_FORMAT = 5
+SAVE_FORMAT = 6
 HISTORY_LIMIT = 40
 MESSAGE_LIMIT = 8
 
@@ -625,7 +625,7 @@ def _migrate_v3(data: dict[str, Any]) -> dict[str, Any]:
 def _migrate_v4(data: dict[str, Any]) -> dict[str, Any]:
     """Add diegetic vessel state without altering format-4 consequences."""
     migrated = copy.deepcopy(data)
-    migrated["save_format"] = SAVE_FORMAT
+    migrated["save_format"] = 5
     for item in migrated.get("items", []):
         item.setdefault("pinned", False)
         item.setdefault("merged_into", None)
@@ -669,6 +669,15 @@ def _migrate_v4(data: dict[str, Any]) -> dict[str, Any]:
     return migrated
 
 
+def _migrate_v5(data: dict[str, Any]) -> dict[str, Any]:
+    """Adopt physical finite resources without resetting prior consequences."""
+    migrated = copy.deepcopy(data)
+    migrated["save_format"] = SAVE_FORMAT
+    migrated.setdefault("vessel_changes", {})
+    migrated["vessel_changes"].setdefault("format_6_physical_resources", True)
+    return migrated
+
+
 def game_state_from_dict(data: Any) -> GameState:
     if not isinstance(data, dict):
         raise StateError("save root must be an object")
@@ -678,6 +687,9 @@ def game_state_from_dict(data: Any) -> GameState:
     migrated_v4 = data.get("save_format") == 4
     if migrated_v4:
         data = _migrate_v4(data)
+    migrated_v5 = data.get("save_format") == 5
+    if migrated_v5:
+        data = _migrate_v5(data)
     if data.get("save_format") != SAVE_FORMAT:
         raise StateError(f"incompatible save format; expected {SAVE_FORMAT}")
     try:
@@ -878,7 +890,15 @@ def game_state_from_dict(data: Any) -> GameState:
             if state.active_courier_id and state.support is None:
                 state.support = "route survey"
             sync_legacy_load(state)
-    except (AttributeError, KeyError, TypeError, ValueError) as exc:
+        if migrated_v5:
+            from .inventory import reconcile_format_five_resources
+
+            reconcile_format_five_resources(state)
+        if state.location == "region":
+            from .regions import reconstruct_regional_process
+
+            reconstruct_regional_process(state)
+    except (AttributeError, KeyError, RuntimeError, TypeError, ValueError) as exc:
         raise StateError(f"malformed save: {exc}") from exc
     validate_state(state)
     return state

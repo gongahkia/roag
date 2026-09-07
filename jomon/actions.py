@@ -11,6 +11,7 @@ from .inventory import (
     apply_terrain_status,
     auto_place,
     create_item,
+    consume_ammunition,
     consume_carried,
     degrade_armour,
     ensure_courier_basics,
@@ -18,6 +19,7 @@ from .inventory import (
     load_state,
     lose_matching_carried,
     pack_weight,
+    physical_ammunition,
     prepare_kind,
     protection_at,
     item_spec,
@@ -190,6 +192,7 @@ def choose_weapon(state: GameState, weapon: str) -> ActionResult:
             return _plain(state, "The weapon fits, but its physical ammunition case does not; repack first.")
     state.weapon, state.crossbow_loaded, state.aimed_target = weapon, True, None
     state.weapon_ready = 2 if weapon == "heavy crossbow" else 1
+    sync_legacy_load(state)
     return _plain(state, f"Readied {WEAPONS[weapon][0]}.", changed=True)
 
 
@@ -340,17 +343,27 @@ def _return_after_defeat(state: GameState, text: str, permanent: bool) -> str:
     courier = state.courier
     if courier is None:
         return text
-    loss = _lose_goods(state)
-    lose_matching_carried(
-        state,
-        {
-            item.kind for item in state.items
-            if item.owner_id == state.active_courier_id
-            and item.location == "pack"
-            and item.kind.startswith(("passive:", "relic:", "consumable:"))
-        },
+    defeated_at = state.position
+    carried_locations = {
+        "pack", "readied", "secondary", "head", "torso", "arms", "hands",
+        "legs", "feet",
+    } if permanent else {"pack"}
+    dropped = [
+        item for item in state.items
+        if item.owner_id == state.active_courier_id and item.location in carried_locations
+    ]
+    lost_names: list[str] = []
+    for item in dropped:
+        item.location, item.owner_id = "ground", None
+        item.region_id, item.ground_position, item.container_id = (
+            state.active_region_id, defeated_at, None,
+        )
+        lost_names.append(item_spec(item.kind).name)
+    sync_legacy_load(state)
+    loss = (
+        f" {', '.join(lost_names)} remains at the defeat site."
+        if lost_names else ""
     )
-    state.carried_passives.clear()
     if state.objective_status in {"accepted", "altered"}:
         state.objective_status = "failed"
         state.contact.disposition = max(-3, state.contact.disposition - 1)
@@ -363,7 +376,7 @@ def _return_after_defeat(state: GameState, text: str, permanent: bool) -> str:
         courier.alive, courier.health, courier.injury = False, 0, "dead"
         successor = _successor(state, courier)
         state.remember(
-            f"{courier.name} died in {state.region.hazard}; carried discoveries were lost."
+            f"{courier.name} died in {state.region.hazard}; their physical load remains at the defeat site."
         )
         if successor is None:
             state.active_courier_id, state.world_ended = None, True
@@ -378,7 +391,7 @@ def _return_after_defeat(state: GameState, text: str, permanent: bool) -> str:
         return f"{text}{loss} {successor.name} succeeds the dead courier with their own working kit."
     courier.health, courier.injury = max(2, courier.max_health // 3), "deep cut"
     state.remember(
-        f"{courier.name} escaped to Jomon injured; carried discoveries were lost."
+        f"{courier.name} escaped to Jomon injured; their pack remains at the defeat site."
     )
     return f"{text}{loss} The courier reaches Jomon with a deep cut."
 
@@ -425,6 +438,7 @@ def apply_damage(
             1,
             "river-glass chill",
         )
+        consume_carried(state, "relic:river-glass ward")
         return "The finite river-glass ward breaks instead of its bearer."
     location = location or _hit_location(state, damage_kind, source)
     protection, armour_name = protection_at(state, location, damage_kind)
@@ -912,6 +926,9 @@ def depart(state: GameState) -> ActionResult:
     state.support_spent = state.guarded_step = False
     state.crossbow_loaded, state.aimed_target = True, None
     state.weather, state.smoke, state.water = "clear", {}, {}
+    from .regions import reconstruct_regional_process
+
+    reconstruct_regional_process(state)
     state.merchant_present, state.merchant_stock = False, []
     field_of_view(state)
     state.remember(
@@ -1194,10 +1211,7 @@ def _open_container(state: GameState) -> ActionResult:
         )
         if fits_pack:
             container.item_ids.remove(physical.id)
-            if reward in PASSIVES:
-                sync_legacy_load(state)
-            else:
-                record_acquisition(state, physical)
+            record_acquisition(state, physical)
             if reward == "sealed tally":
                 state.trade_credit += 1
             packed.append(reward)
@@ -1251,6 +1265,7 @@ def _control_interaction(state: GameState) -> ActionResult:
         state.water = {position_key(point): 99 for point in points}
     else:
         state.water.clear()
+    state.region.changes["environment_control"] = state.flood_control
     sounds = emit_sound(state, 0 if efficient else 3)
     state.region.changes["flood_control_used"] = True
     if state.objective_status == "altered":
@@ -1482,7 +1497,50 @@ def interact(state: GameState) -> ActionResult:
         return ActionResult(False, False, f"Speak with {second.name}.", f"contact:{second.id}")
     if tile == "R":
         if state.region.changes.get("objective_taken"):
-            return _plain(state, "The stranded load is empty.")
+            commodity = state.region.objective_commodity
+            recoverable = next(
+                (
+                    item for item in state.items
+                    if item.kind == f"commodity:{commodity}"
+                    and item.region_id == state.active_region_id
+                    and item.location in {"ground", "enemy"}
+                ),
+                None,
+            )
+            if recoverable:
+                if recoverable.location == "ground" and recoverable.ground_position:
+                    point = recoverable.ground_position
+                    return _plain(
+                        state,
+                        f"The load is empty, but the lost {commodity} remains at "
+                        f"{point.x},{point.y}, level {point.z:+d}; recover it with I.",
+                    )
+                carrier = next(
+                    (threat for threat in state.threats if threat.carrying_item_id == recoverable.id),
+                    None,
+                )
+                return _plain(
+                    state,
+                    f"The load is empty; {carrier.name if carrier else 'a withdrawing thief'} "
+                    f"still carries the physical {commodity}.",
+                )
+            if not state.region.changes.get("objective_replacement_taken"):
+                state.region.changes["objective_replacement_taken"] = True
+                state.region.changes["objective_taken"] = False
+                state.contact.disposition = max(-3, state.contact.disposition - 1)
+                _remember_contact(
+                    state,
+                    f"{state.courier.name} needed the worksite's last replacement load.",
+                )
+                state.add_message(
+                    "The worksite releases one inferior replacement; another loss must be resolved by control work or accepted failure.",
+                    priority=3,
+                )
+            else:
+                return _plain(
+                    state,
+                    "No replacement remains. Return to the contact and alter the work, or return without it and accept failure.",
+                )
         if state.objective_status != "accepted":
             return _plain(state, f"Accept {state.region.name}'s request before taking the cargo.")
         commodity = state.region.objective_commodity
@@ -1522,27 +1580,6 @@ def _attack_targets(state: GameState, attack_range: int) -> list[Threat]:
     )
 
 
-def _spend_physical_ammunition(state: GameState, ammunition: str) -> None:
-    supply = {
-        "bolts": "crossbow bolts", "arrows": "fletched arrows",
-        "sling stones": "sling shot pouch", "heavy bolts": "quarrel case",
-        "nets": "casting net bundle",
-    }.get(ammunition)
-    if not supply:
-        return
-    item = next(
-        (
-            item for item in state.items
-            if item.kind == f"consumable:{supply}"
-            and item.owner_id == state.active_courier_id and item.location == "pack"
-        ),
-        None,
-    )
-    if item:
-        item.quantity -= 1
-        if item.quantity <= 0:
-            item.quantity = 0
-            item.location, item.owner_id = "destroyed", None
 def attack(state: GameState) -> ActionResult:
     if state.location != "region" or state.weapon is None:
         return _plain(state, "No readied attack is possible.")
@@ -1586,7 +1623,7 @@ def attack(state: GameState) -> ActionResult:
             return _plain(state, "The crossbow is unloaded; reload with G.")
         if state.weapon == "heavy crossbow" and state.weapon_ready < 2:
             return _plain(state, f"The arbalest needs {2 - state.weapon_ready} more guarded reload action(s).")
-        if ammo_key and state.ammunition_by_type.get(ammo_key, 0) <= 0:
+        if ammo_key and physical_ammunition(state, ammo_key) <= 0:
             return _plain(state, f"No {ammo_key} remain in the physical load.")
         lane_cover = cover_at(state, state.position, target.position)
         if lane_cover == "full":
@@ -1610,11 +1647,10 @@ def attack(state: GameState) -> ActionResult:
                 priority=3,
             )
         if ammo_key:
-            state.ammunition_by_type[ammo_key] -= 1
-            _spend_physical_ammunition(state, ammo_key)
+            if not consume_ammunition(state, ammo_key):
+                return _plain(state, f"No physical {ammo_key} remain.")
         if state.weapon == "crossbow":
             state.crossbow_loaded = False
-            state.ammunition = max(0, state.ammunition - 1)
         if state.weapon == "heavy crossbow":
             state.weapon_ready = 0
         state.aimed_target = None
@@ -1710,10 +1746,26 @@ def attack(state: GameState) -> ActionResult:
     ):
         target.status = "defeated" if target.health == 0 else "retreated"
         target.intent = "removed from the route"
+        recovered = ""
+        if target.carrying_item_id:
+            stolen = next(
+                (item for item in state.items if item.id == target.carrying_item_id),
+                None,
+            )
+            if stolen:
+                stolen.location, stolen.owner_id = "ground", None
+                stolen.region_id, stolen.ground_position = (
+                    state.active_region_id, target.position,
+                )
+                recovered = (
+                    f" The stolen {item_spec(stolen.kind).name} falls at "
+                    f"{target.position.x},{target.position.y}."
+                )
+            target.carrying_item_id = None
         memory = f"{state.courier.name} defeated {target.name} with {state.weapon}."
         state.remember(memory)
         _remember_contact(state, memory)
-        text = f"The {weapon_text} removes the {target.name} from the route."
+        text = f"The {weapon_text} removes the {target.name} from the route.{recovered}"
     else:
         text = (
             f"The {weapon_text} deals {damage}; "
@@ -1726,7 +1778,7 @@ def guard(state: GameState) -> ActionResult:
     if state.location != "region":
         return _plain(state, "There is no expedition danger to guard against.")
     if state.weapon == "crossbow" and not state.crossbow_loaded:
-        if state.ammunition <= 0:
+        if physical_ammunition(state, "bolts") <= 0:
             return _plain(state, "No crossbow ammunition remains.")
         state.crossbow_loaded = True
         return _time_result(
@@ -1736,7 +1788,7 @@ def guard(state: GameState) -> ActionResult:
             priority=3,
         )
     if state.weapon == "heavy crossbow" and state.weapon_ready < 2:
-        if state.ammunition_by_type.get("heavy bolts", 0) <= 0:
+        if physical_ammunition(state, "heavy bolts") <= 0:
             return _plain(state, "No heavy bolts remain.")
         state.weapon_ready += 1
         stage = "windlass set" if state.weapon_ready == 1 else "bolt seated and ready"
@@ -1783,6 +1835,19 @@ def guard(state: GameState) -> ActionResult:
 def use_gear(state: GameState) -> ActionResult:
     if state.location != "region":
         return _plain(state, "Expedition gear is used in the field.")
+    bottle = next(
+        (
+            item for item in state.items
+            if item.owner_id == state.active_courier_id and item.location == "pack"
+            and item.kind.startswith("consumable:bottle:")
+        ),
+        None,
+    )
+    if bottle:
+        from .vessel import drink_bottled
+
+        changed, message = drink_bottled(state, bottle.kind.split(":", 2)[2])
+        return _time_result(state, message, priority=3) if changed else _plain(state, message)
     if (
         state.carried_relic == "tide-knot charm"
         and state.relics.get("tide-knot charm", 0)
@@ -2119,9 +2184,14 @@ def return_to_jomon(state: GameState) -> ActionResult:
         else:
             state.vessel_cargo[name] = stack
     state.carried_goods.clear()
-    for name, count in state.carried_passives.items():
-        state.owned_passives[name] = state.owned_passives.get(name, 0) + count
-    state.carried_passives.clear()
+    for item in state.items:
+        if (
+            item.owner_id == state.active_courier_id
+            and item.location == "pack"
+            and item.kind.startswith("commodity:")
+        ):
+            item.location, item.owner_id = "vessel_cargo", None
+    sync_legacy_load(state)
     from .regions import store_active_region
     from .people import unlock_region_visitors
 

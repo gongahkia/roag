@@ -18,7 +18,7 @@ from jomon.route_chart import (
     route_availability,
     route_preview,
 )
-from jomon.state import create_world, game_state_from_dict
+from jomon.state import SAVE_FORMAT, create_world, game_state_from_dict
 from jomon.travel import choose_destination, travel_animation_frames
 from jomon.terminal import InputEvent, RouteChartView, _handle_route_chart
 
@@ -140,7 +140,7 @@ class CalendarAndMigrationTests(unittest.TestCase):
             item.pop("merged_into", None)
         item_ids = {item["id"] for item in raw["items"]}
         loaded = game_state_from_dict(raw)
-        self.assertEqual(loaded.save_format, 5)
+        self.assertEqual(loaded.save_format, SAVE_FORMAT)
         self.assertEqual({item.id for item in loaded.items}, item_ids)
         self.assertIn("preserved consequence", loaded.history)
         self.assertEqual(set(loaded.regions), {"hearthford", "greywash", "greenwold", "whitecairn"})

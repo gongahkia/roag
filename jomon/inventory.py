@@ -14,6 +14,22 @@ LOCKER_WIDTH = 18
 LOCKER_HEIGHT = 10
 BODY_SLOTS = ("head", "torso", "arms", "hands", "legs", "feet")
 EQUIPPED_LOCATIONS = ("readied", "secondary", *BODY_SLOTS)
+AMMUNITION_ITEMS = {
+    "bolts": "consumable:crossbow bolts",
+    "arrows": "consumable:fletched arrows",
+    "sling stones": "consumable:sling shot pouch",
+    "heavy bolts": "consumable:quarrel case",
+    "javelins": "consumable:throwing javelins",
+    "nets": "consumable:casting net bundle",
+}
+WEAPON_AMMUNITION = {
+    "crossbow": "bolts",
+    "longbow": "arrows",
+    "sling": "sling stones",
+    "heavy crossbow": "heavy bolts",
+    "javelins": "javelins",
+    "weighted net": "nets",
+}
 
 # A working issue, not a class or permanent build. These items use the same
 # slots, weight, condition, loss, and replacement rules as discovered gear.
@@ -548,6 +564,23 @@ def ensure_courier_basics(state: GameState, person: Person) -> list[str]:
             state.owned_weapons.append(kind)
         elif spec.category == "gear" and kind not in state.owned_gear:
             state.owned_gear.append(kind)
+    weapon = basic_courier_kit(person)["readied"]
+    ammunition = WEAPON_AMMUNITION.get(weapon)
+    if ammunition:
+        physical_kind = AMMUNITION_ITEMS[ammunition]
+        if not any(
+            item.kind == physical_kind and item.owner_id == person.id
+            and item.location == "pack" for item in state.items
+        ):
+            supply = create_item(
+                state, physical_kind, "Jomon working issue", owner_id=person.id,
+                quantity={"heavy bolts": 2, "nets": 1}.get(ammunition, 4),
+            )
+            if not auto_place(state, supply.id, "pack", owner_id=person.id):
+                supply.owner_id = None
+                if not auto_place(state, supply.id, "locker"):
+                    raise RuntimeError("basic ammunition cannot fit Jomon storage")
+            issued.append(physical_kind)
     state.vessel_changes[marker] = True
     if person.id == state.active_courier_id:
         sync_legacy_load(state)
@@ -696,6 +729,33 @@ def consume_carried(state: GameState, kind: str, quantity: int = 1) -> bool:
     return True
 
 
+def physical_ammunition(state: GameState, ammunition: str) -> int:
+    physical_kind = AMMUNITION_ITEMS.get(ammunition)
+    if physical_kind is None:
+        return 0
+    return sum(
+        item.quantity for item in state.items
+        if item.kind == physical_kind and item.owner_id == state.active_courier_id
+        and item.location == "pack"
+    )
+
+
+def consume_ammunition(state: GameState, ammunition: str) -> bool:
+    physical_kind = AMMUNITION_ITEMS.get(ammunition)
+    if physical_kind is None or not consume_carried(state, physical_kind, 1):
+        return False
+    sync_ammunition(state)
+    return True
+
+
+def sync_ammunition(state: GameState) -> None:
+    state.ammunition_by_type = {
+        ammunition: physical_ammunition(state, ammunition)
+        for ammunition in AMMUNITION_ITEMS
+    }
+    state.ammunition = state.ammunition_by_type["bolts"]
+
+
 def sync_legacy_load(state: GameState) -> None:
     """Keep the small existing action vocabulary aligned with physical items."""
     owner = state.active_courier_id
@@ -706,7 +766,7 @@ def sync_legacy_load(state: GameState) -> None:
     passives: dict[str, int] = {}
     consumables: dict[str, int] = {}
     goods: dict[str, object] = {}
-    relic: str | None = None
+    carried_relics: list[str] = []
     from .state import CommodityStack
     from .content import COMMODITIES
 
@@ -722,15 +782,21 @@ def sync_legacy_load(state: GameState) -> None:
         elif item.kind.startswith("commodity:"):
             name = item.kind.split(":", 1)[1]
             goods[name] = CommodityStack(item.quantity, COMMODITIES[name]["condition"])
-        elif item.kind.startswith("relic:") and relic is None:
-            relic = item.kind.split(":", 1)[1]
+        elif item.kind.startswith("relic:"):
+            carried_relics.append(item.kind.split(":", 1)[1])
     state.carried_passives = passives
     state.consumables = consumables
     state.carried_goods = goods  # type: ignore[assignment]
-    state.carried_relic = relic
+    if state.carried_relic not in carried_relics:
+        state.carried_relic = carried_relics[0] if carried_relics else None
+    sync_ammunition(state)
 
 
 def record_acquisition(state: GameState, item: Item) -> None:
+    marker = f"acquired:{item.id}"
+    if state.vessel_changes.get(marker):
+        sync_legacy_load(state)
+        return
     if item.kind.startswith("passive:"):
         name = item.kind.split(":", 1)[1]
         state.owned_passives[name] = state.owned_passives.get(name, 0) + item.quantity
@@ -741,17 +807,38 @@ def record_acquisition(state: GameState, item: Item) -> None:
         state.owned_weapons.append(item.kind)
     elif item_spec(item.kind).category == "gear" and item.kind not in state.owned_gear:
         state.owned_gear.append(item.kind)
-    elif item.kind.startswith("consumable:"):
-        name = item.kind.split(":", 1)[1]
-        ammunition = {
-            "fletched arrows": ("arrows", 4),
-            "sling shot pouch": ("sling stones", 6),
-            "quarrel case": ("heavy bolts", 2),
-            "casting net bundle": ("nets", 1),
-        }.get(name)
-        if ammunition:
-            kind, amount = ammunition
-            state.ammunition_by_type[kind] = state.ammunition_by_type.get(kind, 0) + amount
+    state.vessel_changes[marker] = True
+    sync_legacy_load(state)
+
+
+def reconcile_format_five_resources(state: GameState) -> None:
+    """Physicalise finite format-5 mirrors without replacing known losses."""
+    existing_relics: dict[str, int] = {}
+    for item in state.items:
+        if item.kind.startswith("relic:") and item.location not in {"lost", "destroyed"}:
+            name = item.kind.split(":", 1)[1]
+            existing_relics[name] = existing_relics.get(name, 0) + item.quantity
+    for name, count in state.relics.items():
+        for _ in range(max(0, count - existing_relics.get(name, 0))):
+            item = create_item(state, f"relic:{name}", "preserved format-5 household relic")
+            if not auto_place(state, item.id, "locker"):
+                owner = state.active_courier_id
+                if not owner or not auto_place(state, item.id, "pack", owner_id=owner):
+                    raise RuntimeError("format-5 relic exceeds bounded physical storage")
+    for ammunition, old_count in dict(state.ammunition_by_type).items():
+        physical_kind = AMMUNITION_ITEMS.get(ammunition)
+        if physical_kind is None or old_count <= 0 or not state.active_courier_id:
+            continue
+        existing = physical_ammunition(state, ammunition)
+        if existing == 0:
+            item = create_item(
+                state, physical_kind, "preserved format-5 counted ammunition",
+                owner_id=state.active_courier_id, quantity=old_count,
+            )
+            if not auto_place(state, item.id, "pack", owner_id=state.active_courier_id):
+                item.owner_id = None
+                if not auto_place(state, item.id, "locker"):
+                    raise RuntimeError("format-5 ammunition exceeds bounded physical storage")
     sync_legacy_load(state)
 
 
@@ -759,40 +846,16 @@ def record_acquisition(state: GameState, item: Item) -> None:
 class InventoryTransaction:
     """One reversible inventory operation, independent of cursor movement."""
 
-    items: list[Item]
-    next_item_id: int
-    weapon: str | None
-    gear: str | None
-    owned_passives: dict[str, int]
-    relics: dict[str, int]
-    carried_passives: dict[str, int]
-    consumables: dict[str, int]
-    carried_goods: dict[str, object]
-    carried_relic: str | None
-    auto_place_enabled: bool
+    snapshot: dict[str, object]
     changed: bool = False
 
     @classmethod
     def begin(cls, state: GameState) -> "InventoryTransaction":
-        return cls(
-            copy.deepcopy(state.items), state.next_item_id, state.weapon, state.gear,
-            copy.deepcopy(state.owned_passives), copy.deepcopy(state.relics),
-            copy.deepcopy(state.carried_passives), copy.deepcopy(state.consumables),
-            copy.deepcopy(state.carried_goods), state.carried_relic,
-            state.auto_place_enabled,
-        )
+        return cls(copy.deepcopy(state.__dict__))
 
     def cancel(self, state: GameState) -> None:
-        state.items = copy.deepcopy(self.items)
-        state.next_item_id = self.next_item_id
-        state.weapon, state.gear = self.weapon, self.gear
-        state.owned_passives = copy.deepcopy(self.owned_passives)
-        state.relics = copy.deepcopy(self.relics)
-        state.carried_passives = copy.deepcopy(self.carried_passives)
-        state.consumables = copy.deepcopy(self.consumables)
-        state.carried_goods = copy.deepcopy(self.carried_goods)  # type: ignore[assignment]
-        state.carried_relic = self.carried_relic
-        state.auto_place_enabled = self.auto_place_enabled
+        state.__dict__.clear()
+        state.__dict__.update(copy.deepcopy(self.snapshot))
 
 
 def pack_weight(state: GameState, owner_id: str | None = None) -> int:
@@ -942,7 +1005,10 @@ def validate_inventory(state: GameState) -> None:
     if len(ids) != len(set(ids)):
         raise ValueError("item identities must be unique")
     people = {person.id for person in state.household}
-    valid_locations = {"pack", "locker", "readied", "secondary", *BODY_SLOTS, "container", "ground", "enemy", "lost", "destroyed"}
+    valid_locations = {
+        "pack", "locker", "readied", "secondary", *BODY_SLOTS, "container",
+        "ground", "enemy", "vessel_cargo", "lost", "destroyed",
+    }
     for item in state.items:
         item_spec(item.kind)
         if item.location not in valid_locations:
@@ -978,6 +1044,7 @@ def initialise_inventory(state: GameState) -> None:
         ("crossbow bolts", 6), ("fletched arrows", 8),
         ("sling shot pouch", 10), ("quarrel case", 4),
         ("casting net bundle", 2),
+        ("throwing javelins", 4),
     ):
         item = create_item(
             state, f"consumable:{name}", "Jomon counted ammunition",
@@ -985,6 +1052,11 @@ def initialise_inventory(state: GameState) -> None:
         )
         if not auto_place(state, item.id, "locker"):
             raise RuntimeError("initial Jomon locker cannot hold physical ammunition")
+    for name, quantity in state.relics.items():
+        for _ in range(quantity):
+            item = create_item(state, f"relic:{name}", "Jomon household relic store")
+            if not auto_place(state, item.id, "locker"):
+                raise RuntimeError("initial Jomon locker cannot hold a household relic")
 
 
 def legacy_kind(name: str, category: str) -> str:
