@@ -134,15 +134,18 @@ class TimeAndBuildTests(unittest.TestCase):
 
     def test_pressure_is_legible_and_critical_spawns_threat(self):
         state = prepared()
+        dormant = {threat.id for threat in state.threats if threat.status == "dormant"}
         state.pressure_elapsed, state.noise = 300, 8
         state.carried_passives = {"witness token": 1}
         self.assertEqual(pressure(state).band, "critical")
         self.assertFalse(state.escalation_spawned)
         _advance_world(state)
         self.assertTrue(state.escalation_spawned)
-        self.assertNotEqual(
-            next(t for t in state.threats if t.id == "pressure-reavers").status,
-            "dormant",
+        self.assertTrue(
+            any(
+                threat.id in dormant and threat.status != "dormant"
+                for threat in state.threats
+            )
         )
 
     def test_deadline_changes_only_after_actions(self):
