@@ -4,27 +4,28 @@
 
 - The active product is a standard-library Python 3.11 `curses` roguelike; the browser version is archived in Git.
 - Hearthford is one deterministic 96x54, four-level region with camera-followed travel, line-of-sight memory, coherent landmarks, persistent treasure, divergent weapons, finite supplies, patrols, weather, pressure escalation, and functional vertical interactions.
-- Three complete local expeditions have exercised physical departure and return with guard/spear, carpenter/billhook, and factor/cudgel builds. Automated and PTY verification are recorded in [`docs/seamless-hearthford-milestone.md`](docs/seamless-hearthford-milestone.md).
+- The clean baseline at `f1c397f` passes 38 tests. Three prior local expeditions and the seamless-Hearthford assessment are recorded in [`docs/seamless-hearthford-milestone.md`](docs/seamless-hearthford-milestone.md).
 
 ## Now
 
-- Put seamless Hearthford in the owner's hands and judge geography, return-route legibility, encounter spacing, and build divergence through direct play.
+- Complete the bounded regions, physical tavern, spatial inventory, armour, and encounter-variety milestone in the phased order recorded in [`docs/regions-inventory-encounters-milestone.md`](docs/regions-inventory-encounters-milestone.md).
+- Treat mixed goal-directed encounters, long-range fairness, physically discoverable treasure, and real PTY balance evidence as the primary completion gates.
 
 ## Next
 
-- If owner play confirms the manual-play issue, give engaged threats a small deterministic obstacle-aware pursuit path and suppress stale pursuit messages while they cannot make progress.
+- Put the four-region build in the owner's hands and adjust encounter budgets, inventory dimensions, and regional travel cadence from observed play rather than adding another system.
 
 ## Later
 
-- Add other large regional maps only after seamless Hearthford is played and judged.
-- Add a bounded sporadic onboard-Jomon encounter milestone only after ordinary expeditions remain satisfying. Candidate events are pirate boarding, cargo theft or sabotage, storms and operating emergencies, large river or coastal creatures, rare original luring voices or uncanny water beings, and exceptionally rare original vast coast-born horrors. Keep Jomon's low-mysticism rules and do not copy named mythos entities.
+- Add any fifth regional map only after all four current regions are played and judged.
+- Expand onboard events beyond the three bounded voyage families only after ordinary expeditions remain satisfying.
 - Add capture or rescue only if play exposes a specific contextual need.
 
 ## Frozen
 
 - expanding-frontier, distant-person, fidelity, catch-up, delegation, and universal NPC simulation;
-- eras, NG+, NG++, alternate renderers, management UI, broad content frameworks, save migrations, replay infrastructure, and speculative optimization;
-- server, network, telemetry, database, plugin, ECS, generic dialogue, generic encounter, and global economy systems.
+- eras, NG+, NG++, alternate renderers, management UI, broad content frameworks, migration chains, replay infrastructure, and speculative optimization;
+- server, network, telemetry, database, plugin, ECS, generic dialogue, generic encounter, universal GOAP, and global economy systems.
 
 ## Done
 

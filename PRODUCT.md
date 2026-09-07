@@ -2,7 +2,7 @@
 
 Jomon is a turn-based roguelike about sending one member of a persistent vessel-household into dangerous medieval settlements and wilderness. A courier trades, investigates, negotiates, and fights under pressure, then returns—or fails to return—with consequences that reshape Jomon, its people, and the local world.
 
-The current product is a fullscreen Python 3.11 terminal game using the standard-library `curses` module. Its playable region sends a prepared courier across one seamless, camera-followed Hearthford landscape containing settlement, floodplain, wilderness, roads, stacked millworks, roofs, and an underground culvert. Exploration memory, vertical geometry, treasure, patrols, weather, finite supplies, visible pressure, and materially different builds shape the route before physical return or contextual defeat. A bounded visiting merchant can turn prior outcomes into later build choices.
+The current product is a fullscreen Python 3.11 terminal game using the standard-library `curses` module. The active expansion keeps Hearthford and adds three substantial, persistent regions: a tidal coast, an open deep forest, and limestone uplands. Travel begins from physical Jomon, whose tavern contains visible household members and bounded recruitable visitors. Couriers organise physically shaped items in a rotatable pack grid, wear armour across six readable body locations, and face terrain, weather, ranged fire, and goal-directed enemies whose plans depend on what they can see and hear.
 
 The permanent constraints are:
 
@@ -20,9 +20,16 @@ Technical boundaries are equally permanent: new gameplay must remain local, dete
 Prefer one primary game state, small dataclasses with actual gameplay state, direct action functions, one turn-resolution path, one atomic JSON save, authored content tables, small causal generators, and bounded significant history. Do not rebuild the browser-era event, replay, fidelity, provenance, dialogue, economy, or frontier frameworks in Python.
 
 Depth should continue to come from coherent geography, sight and sound,
-readable enemy intent, elevation, finite supplies, equipment/passive/relic
-interactions, tempting treasure, and persistent material consequences.
-Hearthford's dedicated regional generator is a bounded product feature, not
-the beginning of a universal biome, physics, fluid, or content framework.
+readable enemy intent, elevation, finite supplies, spatial packing,
+armour/terrain/equipment/passive/relic interactions, tempting visible treasure,
+and persistent material consequences. Each region has a dedicated bounded
+generator and authored encounter compositions; these are product features,
+not a universal biome, planning, physics, fluid, economy, or content framework.
+
+This milestone explicitly excludes infinite or offline world simulation,
+full anatomical or layered-garment simulation, generic GOAP/encounter/quest
+languages, real-time progression, graphical tiles, generic spellcasting, and
+unbounded regional or onboard content. Voyage events reuse ordinary people,
+cargo, inventory, and combat rules in three sporadic authored families.
 
 `LORE.md` owns setting, tone, and content canon. `TODO.md` owns current scope and frozen work. The causal chain is documented in [`docs/causal-generation-and-loop.md`](docs/causal-generation-and-loop.md); browser history is recorded under [`docs/archive/`](docs/archive/).
