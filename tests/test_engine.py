@@ -5,7 +5,14 @@ import random
 import unittest
 
 from dumbest_dungeon.content import load_catalog
-from dumbest_dungeon.engine import Actor, CardInstance, GameEngine, RuleError, WALKABLE_TILES
+from dumbest_dungeon.engine import (
+    Actor,
+    CardInstance,
+    GameEngine,
+    RuleError,
+    WALKABLE_TILES,
+    WORLD_LAYOUTS,
+)
 
 
 class EngineTests(unittest.TestCase):
@@ -135,6 +142,19 @@ class EngineTests(unittest.TestCase):
             self.assertGreaterEqual(len(selections), 2, biome_id)
             self.assertTrue(any(len(orders) > 1 for orders in selections.values()), biome_id)
         self.assertGreaterEqual(len(plans), 4)
+
+    def test_branching_layout_is_a_trunk_with_backtracking_branches(self) -> None:
+        _, edges = WORLD_LAYOUTS["branching"]
+        self.assertEqual(11, sum(map(len, edges.values())) // 2)
+        self.assertEqual(
+            {0, 2, 3, 5, 6, 8, 9, 11},
+            {node for node, links in edges.items() if len(links) == 1},
+        )
+        self.assertTrue(all(len(edges[node]) == 4 for node in (1, 4, 7)))
+        for seed in (2, 14):
+            engine = GameEngine.new(self.catalog, seed)
+            self.assertEqual("branching", self.catalog.worlds[engine.state.world_id]["layout"])
+            self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(self.catalog, engine.snapshot()).snapshot())
 
     def test_all_biomes_generate_reachable_hazards_and_optional_objectives(self) -> None:
         seen_biomes: set[str] = set()
