@@ -6,21 +6,23 @@ only hazards and patrols within the current biome's information range; this is
 local information pressure, not global fog of war. A triggered hazard or access
 site interrupts auto-pathing before another tile can resolve.
 
-| Biome | Travel and information | Patrol doctrine | Hazard | Combat condition | Access facility |
-| --- | --- | --- | --- | --- | --- |
-| Derelict Decks | cost 1; medium sight | local roaming packs | Falling Conduit damages the weakest | Loose Cover blocks both sides | Signal Relay restores light safely |
-| Cryogenic Vaults | cost 2; long clear sight | slow territorial sentries | Flash Freeze weakens everyone | Brittle Cold exposes both sides | Thaw Manifold heals the party safely |
-| Hydroponic Canopy | cost 2; short foliage sight | slow root guards | Wirevine Snare causes a wound | Root Lattice reverses crew ranks | Nutrient Oracle relieves stress safely |
-| Ash Foundry | cost 2; firelit sight | fast aggressive hunters | Slag Vent damages everyone | Heat Haze exposes both sides | Tempering Rig upgrades a random technique safely |
-| Reactor Choir | cost 1; masked short sight | longest immediate pursuit | Gamma Arc marks everyone | Charged Air marks crew and focuses foes | Control Cascade recovers supplies safely |
-| Mycelial Warrens | cost 1; extremely short sight | erratic puppets | Spore Bloom wounds one survivor | Shared Spores weakens crew and wounds foes | Apothecary Fruiting cleanses statuses safely |
-| Flooded Bilges | cost 3; ripples reveal hazards | very slow close guards | Pressure Sump consumes a supply or causes panic | Undertow reverses crew ranks | Pressure Locker recovers supplies safely |
-| Ion Stormworks | cost 1; lightning reveals patrols | fast erratic pursuit | Static Front drains light | Static Wind trades energy for draw | Grounding Mast relieves peak stress safely |
-| Impossible Archive | cost 2; catalogue reveals all | slow aisle guards | Redaction shrinks the next opening hand | Redacted Clause shrinks opening draw | Revision Desk removes a random technique safely |
-| Null Expanse | cost 2; almost no sight | deliberate long-leash hunters | Null Gaze attacks peak stress | Null Tide trades stress for energy | Grief Lens grants a random boon safely |
-| Ossuary Engine | cost 1; medium sight | crypt-circuit roamers | Bone Tax damages the weakest | Bone Churn blocks foes and grants crew riposte | Marrow Pump heals the weakest safely |
+| Biome | Route and information decision | Patrol and hazard pressure | Combat condition | Objective approaches |
+| --- | --- | --- | --- | --- |
+| Derelict Decks | reliable plating versus slow rubble | local roaming packs; conduit fields hit the weakest | Loose Cover blocks both sides | spend a supply to stabilise and quiet a long circuit, or fight over a short live bridge |
+| Cryogenic Vaults | slow ice versus fast thaw channels; long clear sight | territorial sentries; flash-freeze fields weaken everyone | Brittle Cold exposes both sides | spend light to thaw terrain and suppress a field, or take a short route while vulnerable |
+| Hydroponic Canopy | slow roots versus fast irrigation grates; root maps reveal static sites | close circuit patrols; wirevine wounds one survivor per tile | front crew gains block while back crew is weakened | feed roots for information and calm, or carry an item sample under alerted patrols |
+| Ash Foundry | hot slag versus quench rails; hazards are visible early | aggressive hunters; vents damage everyone per tile | front hostile is vulnerable while back crew is weak | build a safe quenched route, or fight a normal response for the same technique upgrade |
+| Reactor Choir | fast conduits interrupted by slow insulation pockets | long pursuit; gamma arcs mark crew for hostile payoffs | crew starts marked and hostiles focused | ground and regulate pursuit, or spend light to overdrive hunters for an item |
+| Mycelial Warrens | fast soft paths versus slow fruiting masses; poor natural information | erratic puppets; blooms weaken one random survivor | crew begins weak while hostiles begin wounded | map and sterilise the colony, or accept a curse to pacify it and heal |
+| Flooded Bilges | three-tick water versus one-tick causeways | slow sentries; each sump tile consumes a supply or causes panic | Undertow reverses crew ranks | drain a safe causeway, or breach for supplies through an alerted pressure route |
+| Ion Stormworks | fast open lanes and grounded strips; excellent patrol sight | corridor sweeps; static fronts remove light per tile | one extra card but one less opening energy | ground a front and durable strip, or survive an elite response for stored light |
+| Impossible Archive | slow contradictory aisles versus fast indexed rails; full current information | predictable circuits; redactions shrink the next opening hand | opening combat draw is reduced | amend with information and deck thinning, or accept curse and pursuit to erase a field |
+| Null Expanse | slow absence versus fast anchored bridges; minimal dynamic sight | long-leash stalkers; gazes pressure the most stressed survivor | gain opening energy at a stress cost | buy safe information and a boon, or spend light to carry absence under pursuit |
+| Ossuary Engine | fast rib lanes versus collapsed bone piles | migrating processions; grooves wound only already-injured survivors | enemies gain block while crew gains riposte | seal and transfuse safely, or spend party health to open a fast blood gate |
 
-Each access facility also offers a zero-supply forced procedure with an authored
-HP, stress, status, curse, or light consequence. Completing any two of the four
-seeded facilities opens the Overseer Core. This makes objective choice depend on
-the current party, deck, resources, and route without requiring a map clear.
+Each selected biome also contains a one-use facility with two disclosed
+procedures. Facilities manipulate the same route, hazard, information, deck,
+light, supply, HP, and stress state as exploration; they are not access goals.
+Four landmark objectives are generated, and completing any two opens the
+Overseer Core. Optional third and fourth outcomes remain available without
+requiring a map clear.
