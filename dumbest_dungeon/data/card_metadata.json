@@ -152,7 +152,7 @@
     "symbiotic_mesh": {"tags": ["affinity:fungal", "block", "cleanse", "recovery", "status:focus"], "upgrade_description": "Upgrade: grant 9 block; wounded allies are cleansed, heal 6, and gain focus."},
     "spore_exchange": {"tags": ["affinity:fungal", "cleanse", "draw", "status:focus"], "upgrade_description": "Upgrade: cleanse and focus an ally, draw 3, and take a shorter wound."},
     "harpoon_line": {"tags": ["affinity:flooded", "damage", "displacement"], "upgrade_description": "Upgrade: deal 10 and pull forward 2 ranks."},
-    "pressure_suit": {"tags": ["affinity:flooded", "block"], "upgrade_description": "Upgrade: gain 13 block."},
+    "pressure_suit": {"tags": ["affinity:flooded", "block", "status:riposte"], "upgrade_description": "Upgrade: gain 10 block and riposte for 2 rounds."},
     "decompress": {"tags": ["affinity:flooded", "block", "mobility", "stress_relief"], "upgrade_description": "Pull an ally forward, reduce 12 stress, and grant 5 block."},
     "undertow": {"tags": ["affinity:flooded", "damage", "displacement"], "upgrade_description": "Upgrade: deal 7 and pull every hostile forward 2 ranks."},
     "drop_ballast": {"tags": ["affinity:flooded", "block", "draw", "mobility"], "upgrade_description": "Upgrade: move forward 2, gain 5 block, and draw 1."},

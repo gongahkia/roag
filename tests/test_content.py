@@ -96,26 +96,9 @@ class ContentTests(unittest.TestCase):
             with self.assertRaisesRegex(ContentError, "three non-starter"):
                 load_catalog(path)
 
-    def test_core_archetypes_have_positional_card_pools(self) -> None:
+    def test_every_archetype_has_a_positional_card_pool(self) -> None:
         catalog = load_catalog()
-        core_archetypes = {
-            "warden",
-            "engineer",
-            "medic",
-            "scout",
-            "breacher",
-            "psion",
-            "quartermaster",
-            "operative",
-            "biologist",
-            "synth",
-            "duelist",
-            "artillerist",
-            "chaplain",
-            "hacker",
-            "pilot",
-        }
-        for hero_id in core_archetypes:
+        for hero_id in catalog.heroes:
             cards = [
                 card for card in catalog.cards.values() if card["hero"] == hero_id
             ]
