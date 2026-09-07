@@ -2874,11 +2874,20 @@ class GameEngine:
             for tag in self.card_tags(card.card_id)
         )
         chosen: list[str] = []
+        chosen_shapes: set[tuple[Any, ...]] = set()
+        chosen_owners: Counter[str] = Counter()
 
         def choose(pool: list[str], *, novelty: float = 1.0) -> None:
             candidates = [card_id for card_id in pool if card_id not in chosen]
             if not candidates or len(chosen) >= count:
                 return
+            structurally_distinct = [
+                card_id
+                for card_id in candidates
+                if self._reward_shape(card_id) not in chosen_shapes
+            ]
+            if structurally_distinct:
+                candidates = structurally_distinct
             weights = []
             for card_id in candidates:
                 definition = self.catalog.cards[card_id]
@@ -2889,8 +2898,17 @@ class GameEngine:
                 usable_now = current_rank in definition["from_ranks"]
                 duplicate_weight = 1 / (1 + owned[card_id] * novelty)
                 affinity_weight = 1.2 if f"affinity:{self.current_biome()}" in tags else 1.0
-                weights.append((1.25 if usable_now else 1.0) * duplicate_weight * affinity_weight)
-            chosen.append(self.rng.choices(candidates, weights=weights, k=1)[0])
+                owner_weight = 1 / (1 + chosen_owners[definition["hero"]] * 0.5)
+                weights.append(
+                    (1.25 if usable_now else 0.8)
+                    * duplicate_weight
+                    * affinity_weight
+                    * owner_weight
+                )
+            card_id = self.rng.choices(candidates, weights=weights, k=1)[0]
+            chosen.append(card_id)
+            chosen_shapes.add(self._reward_shape(card_id))
+            chosen_owners[self.catalog.cards[card_id]["hero"]] += 1
 
         desired_combo_tags = {
             f"{counterpart}:{tag.split(':', 1)[1]}"
@@ -2913,19 +2931,97 @@ class GameEngine:
         choose(bridge_pool or available, novelty=1.5)
 
         disciplines = ("damage", "block", "recovery", "control", "draw", "mobility")
-        least_represented = min(disciplines, key=lambda tag: (deck_tags[tag], tag))
+        thin_disciplines = sorted(disciplines, key=lambda tag: (deck_tags[tag], tag))[:2]
         corrective_pool = [
             card_id
             for card_id in available
-            if least_represented in self.card_tags(card_id)
+            if self.card_tags(card_id) & set(thin_disciplines)
             and owned[card_id] == 0
-            and len(self.catalog.cards[card_id]["from_ranks"]) >= 2
         ]
         choose(corrective_pool or [card_id for card_id in available if owned[card_id] == 0], novelty=2.0)
+
+        generic_tags = {"damage", "block", "stress_risk"}
+        available_tags = Counter(
+            tag
+            for card_id in available
+            for tag in self.card_tags(card_id)
+            if tag not in generic_tags and not tag.startswith("affinity:")
+        )
+        pivot_tags = {
+            tag
+            for tag, frequency in available_tags.items()
+            if frequency >= 2 and deck_tags[tag] == 0
+        }
+        pivot_pool = [
+            card_id
+            for card_id in available
+            if owned[card_id] == 0 and self.card_tags(card_id) & pivot_tags
+        ]
+        choose(pivot_pool, novelty=2.0)
 
         while len(chosen) < min(count, len(available)):
             choose(available, novelty=1.25)
         return chosen
+
+    def _reward_shape(self, card_id: str) -> tuple[Any, ...]:
+        card = self.catalog.cards[card_id]
+
+        def effect_shape(effect: dict[str, Any]) -> tuple[Any, ...]:
+            return (
+                effect["op"],
+                effect.get("status"),
+                effect.get("bonus_status"),
+                effect.get("condition_status"),
+                effect.get("condition_target_state"),
+                effect.get("condition_actor_state"),
+                effect.get("target"),
+            )
+
+        return card["target"], tuple(effect_shape(effect) for effect in card["effects"])
+
+    def reward_context(self, card_id: str) -> tuple[str, str]:
+        if card_id not in self.catalog.cards:
+            raise RuleError("unknown reward card")
+        card = self.catalog.cards[card_id]
+        owner = next((hero for hero in self.living_heroes() if hero.id == card["hero"]), None)
+        if owner is None:
+            raise RuleError("the reward owner is no longer available")
+        tags = self.card_tags(card_id)
+        deck_tags = Counter(
+            tag
+            for card in self.state.deck
+            if card.card_id in self.catalog.cards
+            for tag in self.card_tags(card.card_id)
+        )
+        if owner.rank not in card["from_ranks"]:
+            ranks = ",".join(str(rank) for rank in card["from_ranks"])
+            role = self.catalog.heroes[card["hero"]]["role"]
+            return "POSITION RISK", f"{role} is R{owner.rank}; this plays from R{ranks}."
+        desired = {
+            f"{counterpart}:{tag.split(':', 1)[1]}"
+            for tag in deck_tags
+            if tag.startswith(("setup:", "payoff:"))
+            for counterpart in (["payoff"] if tag.startswith("setup:") else ["setup"])
+        }
+        bridges = sorted(tags & desired)
+        if bridges:
+            mechanic = bridges[0].split(":", 1)[1].replace("_", " ").upper()
+            verb = "uses" if bridges[0].startswith("payoff:") else "supplies"
+            return "SYNERGY", f"{verb.capitalize()} {mechanic} already represented in the deck."
+        meaningful = {
+            tag
+            for tag in tags
+            if tag not in {"damage", "block", "stress_risk"}
+            and not tag.startswith("affinity:")
+        }
+        new_tags = sorted(tag for tag in meaningful if deck_tags[tag] == 0)
+        if new_tags:
+            mechanic = new_tags[0].replace(":", " ").replace("_", " ").upper()
+            return "NEW LINE", f"Introduces {mechanic}; taking it increases deck breadth."
+        copies = sum(card.card_id == card_id for card in self.state.deck)
+        if copies:
+            return "COMMIT", f"Adds copy {copies + 1}; stronger concentration, less draw variety."
+        return "COVERAGE", "Adds a new card shape without committing to another copy."
 
     def transformation_options(self, card_index: int, count: int = 3) -> list[str]:
         if not 0 <= card_index < len(self.state.deck):

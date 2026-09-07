@@ -80,6 +80,16 @@ class SaveTests(unittest.TestCase):
         loaded.end_turn()
         self.assertEqual(engine.snapshot(), loaded.snapshot())
 
+    def test_pending_reward_choices_round_trip_exactly(self) -> None:
+        engine = GameEngine.new(self.catalog, 204)
+        engine.state.rewards = engine._generate_card_rewards(4)
+        engine.state.phase = "reward"
+        contexts = [engine.reward_context(card_id) for card_id in engine.state.rewards]
+        loaded = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+        self.assertEqual(engine.state.rewards, loaded.state.rewards)
+        self.assertEqual(contexts, [loaded.reward_context(card_id) for card_id in loaded.state.rewards])
+        self.assertEqual(engine.snapshot(), loaded.snapshot())
+
     def test_dead_crew_and_cleaned_deck_round_trip(self) -> None:
         engine = GameEngine.new(self.catalog, 203)
         engine.start_combat("lost_shift")

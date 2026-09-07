@@ -389,7 +389,7 @@ class EngineTests(unittest.TestCase):
         reward_heroes = {self.catalog.cards[card_id]["hero"] for card_id in engine.state.rewards}
         self.assertTrue(reward_heroes <= set(expected))
 
-    def test_card_rewards_bridge_synergy_correct_duplicates_and_reproduce(self) -> None:
+    def test_card_rewards_offer_distinct_tradeoffs_and_reproduce(self) -> None:
         first = GameEngine.new(self.catalog, 731)
         second = GameEngine.new(self.catalog, 731)
         rewards = first._generate_card_rewards(4)
@@ -412,7 +412,19 @@ class EngineTests(unittest.TestCase):
             if tag.startswith("payoff:")
         }
         self.assertTrue(first.card_tags(rewards[0]) & desired)
-        self.assertNotIn(rewards[1], {card.card_id for card in first.state.deck})
+        self.assertGreaterEqual(len({first._reward_shape(card_id) for card_id in rewards}), 3)
+        contexts = [first.reward_context(card_id) for card_id in rewards]
+        self.assertGreaterEqual(len({kind for kind, _description in contexts}), 2)
+        self.assertTrue(all(description for _kind, description in contexts))
+
+    def test_card_reward_may_be_skipped_without_growing_the_deck(self) -> None:
+        self.engine.state.rewards = self.engine._generate_card_rewards(3)
+        self.engine.state.phase = "reward"
+        deck_before = list(self.engine.state.deck)
+        self.engine.choose_reward(None)
+        self.assertEqual(deck_before, self.engine.state.deck)
+        self.assertEqual([], self.engine.state.rewards)
+        self.assertEqual("exploration", self.engine.state.phase)
 
     def test_workshop_transformation_favors_rank_legal_cross_crew_bridges(self) -> None:
         source_index = next(

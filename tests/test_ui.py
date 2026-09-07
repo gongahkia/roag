@@ -72,6 +72,20 @@ class AsciiUiTests(unittest.TestCase):
         self.ui.run()
         self.assertIn("DULLEST DUNGEON", screen.text())
 
+    def test_reward_screen_describes_tradeoffs_without_recommendations(self) -> None:
+        self.engine = GameEngine.new(self.catalog, 731)
+        self.ui.engine = self.engine
+        self.engine.state.rewards = self.engine._generate_card_rewards(4)
+        self.engine.state.phase = "reward"
+        screen = FakeScreen(keys=[10])
+        self.ui.screen = screen
+        self.ui._reward()
+        rendered = screen.text()
+        self.assertIn("SYNERGY", rendered)
+        self.assertIn("already represented", rendered)
+        self.assertNotIn("CORRECTIVE", rendered)
+        self.assertNotIn("WILDCARD", rendered)
+
     def test_curse_card_has_distinct_unplayable_ascii(self) -> None:
         hero = self.engine.living_heroes()[0]
         self.engine.acquire_curse(hero.id, "static_prayer")

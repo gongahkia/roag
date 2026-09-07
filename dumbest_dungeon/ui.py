@@ -911,22 +911,24 @@ class TerminalUI:
     def _reward(self) -> None:
         assert self.engine
         choices = []
-        reasons = ("BRIDGE", "CORRECTIVE", "WILDCARD")
-        for index, card_id in enumerate(self.engine.state.rewards):
+        notes = []
+        for card_id in self.engine.state.rewards:
             card = self.catalog.cards[card_id]
-            reason = reasons[min(index, len(reasons) - 1)]
+            kind, note = self.engine.reward_context(card_id)
             choices.append(
-                f"[{reason}] {card['name']} ({self.catalog.heroes[card['hero']]['role']}) — "
-                f"{card['description']}"
+                f"[{kind}] {card['name']} ({self.catalog.heroes[card['hero']]['role']})"
             )
+            notes.append(note)
         choices.append("Skip reward")
+        notes.append("Keep the deck unchanged. No consolation reward is granted.")
         previews = [CardInstance(card_id) for card_id in self.engine.state.rewards] + [None]
         picked = self._menu(
             "RECOVERED TECHNIQUE",
             choices,
-            "Bridge reinforces setup/payoff; Corrective covers a thin discipline; Wildcard stays volatile.",
+            "Choose a commitment, cover a weakness, open a new line, or keep the deck lean.",
             allow_cancel=False,
             preview_cards=previews,
+            preview_notes=notes,
         )
         self.engine.choose_reward(None if picked == len(choices) - 1 else picked)
 
@@ -1304,6 +1306,7 @@ class TerminalUI:
         allow_cancel: bool = True,
         view_only: bool = False,
         preview_cards: list[CardInstance | None] | None = None,
+        preview_notes: list[str] | None = None,
     ) -> int | None:
         selected = 0
         scroll = 0
@@ -1329,6 +1332,10 @@ class TerminalUI:
                 self._put(row + shown, 3, f"{marker} {choice}"[:width], attr)
             if preview_cards and preview_cards[selected] is not None:
                 self._draw_card(3, 45, preview_cards[selected])
+            if preview_notes:
+                note_width = max(20, self.screen.getmaxyx()[1] - 48)
+                for offset, line in enumerate(textwrap.wrap(preview_notes[selected], note_width)[:3]):
+                    self._put(20 + offset, 45, line, curses.A_DIM)
             self._footer("↑/↓ choose  Enter confirm  Esc back" if not view_only else "↑/↓ scroll  Esc/Enter back")
             key = self._key()
             if key in (curses.KEY_UP, curses.KEY_LEFT, ord("k"), ord("h")):
