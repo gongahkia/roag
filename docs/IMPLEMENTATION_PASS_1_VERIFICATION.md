@@ -29,8 +29,8 @@ duration.
 
 On Python 3.14, the following completed successfully:
 
-- `PYTHONWARNINGS=error python3 -m unittest discover -s tests -v`: 133 tests
-  passed in 227.708 seconds.
+- `PYTHONWARNINGS=error python3 -m unittest discover -s tests -v`: 134 tests
+  passed in 236.892 seconds after the final comparison-scrolling change.
 - `PYTHONWARNINGS=error python3 -m compileall -q dumbest_dungeon tests`.
 - `python3 -m dumbest_dungeon --validate-content`.
 - `git diff --check`.
@@ -53,6 +53,15 @@ post-tutorial return all remained readable. All five preset descriptions and
 the advanced 25-crew browser were separately inspected at 80x24. A 140x60 PTY
 confirmed centered world and combat rendering. A fresh post-fix 80x24 launch
 confirmed the public title and tutorial entry screens.
+
+Two constructed saves were used only to exercise additional real-PTY flows at
+80x24. Static Choir demonstrated team block, formation movement, Artillerist
+focus, and sequential enemy playback; Wound Ward demonstrated all-foe wounds,
+mark setup, and self/formation movement. A workshop loaded with Static Choir
+successfully transformed one Foil Thrust into Challenge, exposed the complete
+effect and tag delta through PageUp/PageDown detail scrolling, and separately
+removed one card to produce a 19-card deck. These controlled scenarios verify
+UI and rule paths, not encounter balance.
 
 One unmodified seed-42 expedition was then played without injected damage,
 energy, enemies, or rewards. Bulkhead Basics cleared four ordinary encounters
