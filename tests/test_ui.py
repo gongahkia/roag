@@ -262,6 +262,19 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("D8/12:MK", rendered)
         self.assertIn(">1WARD", rendered)
 
+    def test_intents_include_visible_enemy_damage_modifiers(self) -> None:
+        self.engine = GameEngine.tutorial(self.catalog)
+        self.ui.engine = self.engine
+        self.engine.advance_tutorial(0, 1)
+        for step in self.engine.path_to(*self.engine.tutorial_destination()):
+            self.engine.step_exploration(*step)
+        screen = FakeScreen()
+        self.ui.screen = screen
+        self.ui._render_combat(0)
+        rendered = screen.text()
+        self.assertIn("Gamma Brand D8", rendered)
+        self.assertIn("D10/15:MK", rendered)
+
     def test_four_enemy_intents_fit_two_rows_with_targets_and_effects(self) -> None:
         self.engine.start_combat("foundry_stoked_line")
         screen = FakeScreen()

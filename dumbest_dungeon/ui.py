@@ -1108,11 +1108,15 @@ class TerminalUI:
                     direction = "P" if effect.get("amount", 0) > 0 else "L"
                     effects.append(f"{direction}{abs(effect.get('amount', 0))}")
                 elif effect["op"] == "damage" and effect.get("bonus_status"):
-                    maximum = int(effect.get("amount", 0)) + int(effect.get("bonus", 0))
+                    base = self.engine._outgoing_damage(enemy, int(effect.get("amount", 0)))
+                    maximum = self.engine._outgoing_damage(
+                        enemy,
+                        int(effect.get("amount", 0)) + int(effect.get("bonus", 0)),
+                    )
                     status = status_marks.get(
                         effect["bonus_status"], effect["bonus_status"][:2].upper()
                     )
-                    effects.append(f"D{effect.get('amount', '')}/{maximum}:{status}")
+                    effects.append(f"D{base}/{maximum}:{status}")
                 else:
                     label = {
                         "damage": "D",
@@ -1121,7 +1125,10 @@ class TerminalUI:
                         "heal": "H",
                         "guard": "G",
                     }.get(effect["op"], effect["op"])
-                    effects.append(f"{label}{effect.get('amount', '')}")
+                    amount = effect.get("amount", "")
+                    if effect["op"] == "damage":
+                        amount = self.engine._outgoing_damage(enemy, int(amount))
+                    effects.append(f"{label}{amount}")
             setup = self.engine._action_setup_statuses(action) & formation_exploits
             exploit = self.engine._action_exploit_statuses(action)
             combo = ""
