@@ -32,17 +32,24 @@ Steady encounters teach one role. Strained groups combine complementary roles
 within five budget points. Critical groups have eight points and may rarely
 replace a standard group with a regional elite whose terrain or objective
 rule—not health alone—defines the encounter. At most two ranged actors may be
-composed together. Actual placement must provide cover or another traversable
-approach before a shooter can wake.
+composed together. Each generated region now uses these plans for six finite
+standard production actors: an early steady site, a strained site, and a deep
+critical site, with bounded additional strained groups only when those plans
+contain fewer than six actors. The authored regional elite remains a seventh,
+dormant actor. Actual placement repairs to a reachable same-level position and
+must provide cover or another traversable approach before a shooter can wake.
 
-The local audit command is:
+The local audit commands are:
 
 ```console
 python -m jomon.audit
+python -m jomon.encounters
 ```
 
-It builds all three added regions for 100 deterministic seeds and samples all
-three pressure bands at six site indices. The final integrated result is:
+They build all three added regions for 100 deterministic seeds and sample all
+three pressure bands at six site indices. The second command also reports the
+actual finite production compositions and their archetype frequency. The last
+completed four-region audit result (before this milestone's final rerun) is:
 
 | Measure | Result |
 |---|---:|

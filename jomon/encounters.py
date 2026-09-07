@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass
+import json
 
 from .content import ENEMY_ARCHETYPES
 from .state import Position, Threat, stage_rng
@@ -82,6 +83,44 @@ def compose_encounter(
     return EncounterPlan(region_id, pressure_band, tuple(chosen), budget, spent)
 
 
+def production_encounter_groups(seed: str, region_id: str) -> tuple[EncounterPlan, ...]:
+    """Build six finite standard actors in progressively riskier authored sites."""
+    groups = [
+        compose_encounter(seed, region_id, "steady", 0),
+        compose_encounter(seed, region_id, "strained", 1),
+        compose_encounter(seed, region_id, "critical", 2),
+    ]
+    bounded: list[EncounterPlan] = []
+    actor_count = 0
+    for plan in groups:
+        archetypes = plan.archetypes[: max(0, 6 - actor_count)]
+        if not archetypes:
+            break
+        bounded.append(
+            EncounterPlan(
+                plan.region_id,
+                plan.pressure_band,
+                archetypes,
+                plan.budget,
+                sum(int(ENEMY_ARCHETYPES[key]["budget"]) for key in archetypes),
+            )
+        )
+        actor_count += len(archetypes)
+    groups = bounded
+    site_index = 10
+    while actor_count < 6:
+        plan = compose_encounter(seed, region_id, "strained", site_index)
+        remaining = 6 - actor_count
+        archetypes = plan.archetypes[:remaining]
+        spent = sum(int(ENEMY_ARCHETYPES[key]["budget"]) for key in archetypes)
+        groups.append(
+            EncounterPlan(region_id, "strained", archetypes, plan.budget, spent)
+        )
+        actor_count += len(archetypes)
+        site_index += 1
+    return tuple(groups)
+
+
 def threat_from_archetype(
     archetype: str,
     position: Position,
@@ -111,6 +150,8 @@ def encounter_audit(sample_count: int = 100) -> dict[str, object]:
     ranged = elite = invalid = opening_attacks = unreachable = 0
     repetitions: Counter[tuple[str, ...]] = Counter()
     pressure_counts: Counter[str] = Counter()
+    production_frequencies: Counter[str] = Counter()
+    production_compositions: Counter[tuple[str, ...]] = Counter()
     for index in range(sample_count):
         seed = f"audit-{index:03d}"
         from .regions import build_new_regions, region_reachable
@@ -120,6 +161,17 @@ def encounter_audit(sample_count: int = 100) -> dict[str, object]:
             reachable = region_reachable(region)
             unreachable += sum(
                 threat.position not in reachable
+                for threat in regional_threats[region_id]
+            )
+            standard = tuple(
+                threat.id.split(":", 1)[-1]
+                for threat in regional_threats[region_id]
+                if not threat.elite
+            )
+            production_compositions[standard] += 1
+            production_frequencies.update(standard)
+            opening_attacks += sum(
+                threat.status == "engaged" and threat.profile == "ranged"
                 for threat in regional_threats[region_id]
             )
         for region in REGION_IDS:
@@ -154,4 +206,10 @@ def encounter_audit(sample_count: int = 100) -> dict[str, object]:
         "unique_compositions": len(repetitions),
         "most_repeated_composition": max(repetitions.values(), default=0),
         "unreachable_actors": unreachable,
+        "production_archetype_frequency": dict(sorted(production_frequencies.items())),
+        "production_unique_compositions": len(production_compositions),
     }
+
+
+if __name__ == "__main__":
+    print(json.dumps(encounter_audit(100), indent=2, sort_keys=True))

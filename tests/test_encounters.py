@@ -4,7 +4,12 @@ import unittest
 
 from jomon.actions import _threat_action
 from jomon.content import ENEMY_ARCHETYPES
-from jomon.encounters import REGION_IDS, compose_encounter, encounter_audit
+from jomon.encounters import (
+    REGION_IDS,
+    compose_encounter,
+    encounter_audit,
+    production_encounter_groups,
+)
 from jomon.regions import activate_region
 from jomon.state import Position, create_world
 
@@ -30,6 +35,15 @@ class EncounterCompositionTests(unittest.TestCase):
                 self.assertEqual(len(first.archetypes), len(set(first.archetypes)))
                 self.assertLessEqual(sum(ENEMY_ARCHETYPES[key]["profile"] == "ranged" for key in first.archetypes), 2)
 
+    def test_production_regions_use_finite_budgeted_groups(self):
+        for region in REGION_IDS:
+            first = production_encounter_groups("production groups", region)
+            second = production_encounter_groups("production groups", region)
+            self.assertEqual(first, second)
+            self.assertEqual(sum(len(group.archetypes) for group in first), 6)
+            self.assertTrue(any(len(group.archetypes) > 1 for group in first))
+            self.assertTrue(all(group.spent <= group.budget for group in first))
+
     def test_hundred_seed_audit_has_variety_and_no_forbidden_group(self):
         report = encounter_audit(100)
         self.assertEqual(report["plans"], 900)
@@ -40,6 +54,8 @@ class EncounterCompositionTests(unittest.TestCase):
         self.assertGreater(report["elite_frequency"], 0)
         self.assertGreaterEqual(report["unique_compositions"], 30)
         self.assertTrue(set(ENEMY_ARCHETYPES) <= set(report["archetype_frequency"]))
+        self.assertGreaterEqual(report["production_unique_compositions"], 30)
+        self.assertTrue(report["production_archetype_frequency"])
 
     def test_each_elite_changes_terrain_timing_or_visibility(self):
         for region_id in REGION_IDS:

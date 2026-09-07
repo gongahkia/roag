@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections import deque
 import hashlib
 
-from .content import COMMODITIES
-from .encounters import threat_from_archetype
+from .content import COMMODITIES, ENEMY_ARCHETYPES
+from .encounters import production_encounter_groups, threat_from_archetype
 from .state import Contact, Container, MarketEntry, Position, Region, Threat, VerticalLink, stage_rng
 
 
@@ -512,37 +512,60 @@ def _contacts(seed: str, region: Region) -> list[Contact]:
 def _threats(region: Region, seed: str) -> list[Threat]:
     placements = {
         "greywash": [
-            ("coast-lookout", Position(58, 17)), ("coast-dune-hunter", Position(62, 17)),
-            ("coast-tide-runner", Position(74, 39)), ("coast-salt-slinger", Position(78, 39)),
-            ("coast-wreck-shield", Position(87, 28)), ("coast-netter", Position(89, 30)),
-            ("coast-elite", Position(91, 24, 1)),
+            Position(58, 17), Position(62, 17), Position(74, 39),
+            Position(78, 39), Position(87, 28), Position(89, 30),
         ],
         "greenwold": [
-            ("forest-trail-watch", Position(45, 27)), ("forest-resin-hunter", Position(51, 27)),
-            ("forest-hook", Position(73, 16)), ("forest-smoke-tender", Position(79, 39)),
-            ("forest-tusker", Position(38, 42)), ("forest-pack-runner", Position(57, 47)),
-            ("forest-elite", Position(83, 39, 1)),
+            Position(45, 27), Position(51, 27), Position(73, 16),
+            Position(79, 39), Position(38, 42), Position(57, 47),
         ],
         "whitecairn": [
-            ("upland-alarm-climber", Position(80, 18)), ("upland-ridge-slinger", Position(84, 18, 1)),
-            ("upland-pike", Position(56, 36)), ("upland-scree-runner", Position(46, 39)),
-            ("upland-lime-tender", Position(72, 46)), ("upland-cave-hound", Position(66, 52, -1)),
-            ("upland-elite", Position(84, 16, 1)),
+            Position(80, 18), Position(84, 18, 1), Position(56, 36),
+            Position(46, 39), Position(72, 46), Position(66, 52, -1),
         ],
     }[region.id]
     reachable = region_reachable(region)
     threats: list[Threat] = []
-    for index, (archetype, position) in enumerate(placements):
+    groups = production_encounter_groups(seed, region.id)
+    composed = [
+        (group_index, archetype)
+        for group_index, plan in enumerate(groups)
+        for archetype in plan.archetypes
+    ][:6]
+    for index, ((group_index, archetype), position) in enumerate(zip(composed, placements)):
         if position not in reachable:
             position = min(
                 (point for point in reachable if point.z == position.z),
                 key=lambda point: (abs(point.x - position.x) + abs(point.y - position.y), point.y, point.x),
             )
-        group = f"{region.id}-group-{index // 2}"
+        group = f"{region.id}-group-{group_index}"
         threat = threat_from_archetype(archetype, position, encounter_id=f"{region.id}-{index}", group=group)
-        if threat.elite:
-            threat.status = "dormant"
         threats.append(threat)
+    elite_key = next(
+        key for key, data in ENEMY_ARCHETYPES.items()
+        if data["region"] == region.id and data.get("elite")
+    )
+    elite_positions = {
+        "greywash": Position(91, 24, 1),
+        "greenwold": Position(83, 39, 1),
+        "whitecairn": Position(84, 16, 1),
+    }
+    elite_position = elite_positions[region.id]
+    if elite_position not in reachable:
+        elite_position = min(
+            (point for point in reachable if point.z == elite_position.z),
+            key=lambda point: (
+                abs(point.x - elite_position.x) + abs(point.y - elite_position.y),
+                point.y,
+                point.x,
+            ),
+        )
+    elite = threat_from_archetype(
+        elite_key, elite_position, encounter_id=f"{region.id}-elite",
+        group=f"{region.id}-elite",
+    )
+    elite.status = "dormant"
+    threats.append(elite)
     lookout = next((threat for threat in threats if threat.role == "lookout"), None)
     if lookout:
         route = [
