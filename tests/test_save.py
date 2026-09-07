@@ -14,6 +14,17 @@ class SaveTests(unittest.TestCase):
     def setUp(self) -> None:
         self.catalog = load_catalog()
 
+    @staticmethod
+    def complete_objective(engine: GameEngine, objective) -> None:
+        approach = engine.mission_definition(objective.biome_id)["approaches"][0]
+        engine.state.party_x, engine.state.party_y = objective.x, objective.y
+        engine._resolve_exploration_tile()
+        engine.begin_objective(approach["id"])
+        while not objective.completed:
+            engine.state.party_x, engine.state.party_y = engine.objective_position(objective)
+            engine._resolve_exploration_tile()
+            engine.advance_objective()
+
     def test_default_save_path_uses_public_title_slug(self) -> None:
         with patch.dict("os.environ", {"XDG_STATE_HOME": "/tmp/dullest-state"}):
             self.assertEqual(
@@ -112,6 +123,22 @@ class SaveTests(unittest.TestCase):
         self.assertEqual(1, restored.stage)
         self.assertFalse(restored.completed)
         self.assertEqual(engine.objective_position(objective), loaded.objective_position(restored))
+
+    def test_open_core_and_depleted_resources_round_trip(self) -> None:
+        engine = GameEngine.new(self.catalog, 114)
+        engine.state.supplies = 99
+        for objective in engine.state.objectives[: engine.state.required_objectives]:
+            self.complete_objective(engine, objective)
+        engine.state.light = 0
+        engine.state.supplies = 0
+        projection = engine.core_route_projection()
+
+        loaded = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+        self.assertTrue(loaded.boss_unlocked())
+        self.assertTrue(loaded.core_patrol().active)
+        self.assertEqual((0, 0), (loaded.state.light, loaded.state.supplies))
+        self.assertEqual(projection, loaded.core_route_projection())
+        self.assertEqual(engine.snapshot(), loaded.snapshot())
 
     def test_pending_facility_choice_round_trips(self) -> None:
         engine = GameEngine.new(self.catalog, 113)
