@@ -1195,6 +1195,32 @@ class GameEngine:
             return sites[-1][0], sites[-1][1]
         return sites[objective.stage][0], sites[objective.stage][1]
 
+    def objective_route_projection(self, objective: AccessObjective) -> dict[str, int | str]:
+        route = self._find_path(
+            (self.state.party_x, self.state.party_y),
+            self.objective_position(objective),
+        )
+        return self.route_intel(route)
+
+    def _waypoint_toward(self, destination: tuple[int, int]) -> tuple[int, int]:
+        route = self._find_path(
+            (self.state.party_x, self.state.party_y),
+            destination,
+        )
+        maximum = self.maximum_navigation_distance()
+        spent = 0
+        waypoint = (self.state.party_x, self.state.party_y)
+        for tile in route:
+            next_cost = self.movement_cost(*tile)
+            if spent + next_cost > maximum:
+                break
+            spent += next_cost
+            waypoint = tile
+        return waypoint
+
+    def objective_waypoint(self, objective: AccessObjective) -> tuple[int, int]:
+        return self._waypoint_toward(self.objective_position(objective))
+
     def objective_approach_projection(
         self,
         objective: AccessObjective,
@@ -2462,20 +2488,7 @@ class GameEngine:
         return self.route_intel(route)
 
     def core_waypoint(self) -> tuple[int, int]:
-        route = self._find_path(
-            (self.state.party_x, self.state.party_y),
-            self.core_position(),
-        )
-        maximum = self.maximum_navigation_distance()
-        spent = 0
-        waypoint = (self.state.party_x, self.state.party_y)
-        for tile in route:
-            next_cost = self.movement_cost(*tile)
-            if spent + next_cost > maximum:
-                break
-            spent += next_cost
-            waypoint = tile
-        return waypoint
+        return self._waypoint_toward(self.core_position())
 
     def _apply_objective_effect(self, effect: str, amount: int, status: str | None = None) -> None:
         heroes = self.living_heroes()
