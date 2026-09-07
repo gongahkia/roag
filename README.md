@@ -47,12 +47,23 @@ Spatial-inventory controls:
 - `Enter`: lift or place an item;
 - `R`: rotate the held item 90 degrees;
 - `Tab`: switch between pack and locker, ground, or container;
-- `T`: transfer the selected item;
+- `Space`: mark or unmark an item; `*`: mark every item in the pane;
+- `K`: mark the focused item's category;
+- `T`: transfer the focused or marked items transactionally;
 - `E`: equip from the pack;
 - `1`–`6`: unequip head, torso, arms, hands, legs, or feet when space exists;
-- uppercase `D`: drop an item physically in the region;
+- `P`: pin or unpin an item; `O`: auto-pack without moving pinned items;
+- `Z`: toggle deterministic auto-placement of new items;
+- uppercase `D`, then `Y`: drop focused or marked items physically in the region;
+- `[` and `]`: inspect paper-doll slots;
 - `C`: confirm the complete repack; and
 - `Escape`: restore the inventory exactly as it was when opened.
+
+Where the terminal reports mouse events, left-click selects or places,
+right-click rotates a held item, double-click quick-transfers, Shift-click
+marks, and the wheel changes paper-doll selection. Mouse use is optional; every
+operation has a keyboard path. A lifted item's coloured ghost shows its exact
+rotated footprint, blockers, bounds, and resulting load before placement.
 
 Opening and inspecting interfaces costs no time. A confirmed field repack and
 accepted in-world actions advance the action clock; idle terminal time never
@@ -60,18 +71,34 @@ does.
 
 ## Aboard Jomon
 
-Jomon remains a compact walkable vessel. Its tavern has a physical bar, tables,
-six household adults, and visible visitors. Walk beside a person and interact
-to inspect their role, technique, injuries, equipment affinity, memories, and
-terms. Switching courier or recruiting a willing adult happens through that
-person rather than a portrait menu. Jomon has nine adult berths.
+Jomon has three aligned 64×22 decks and a dedicated 64×24 common tavern. The
+lower deck holds cargo, locker, bilge, provisions, workshop, and berths; the
+working deck holds the gangplank, galley, repair position, chronicle, cargo
+access, and tavern entrance; the upper deck holds helm, chart, lookout, signal,
+and exposed defensive positions. Physical hatches and stairs connect them.
+
+The tavern has a bar, fireplace, serving store, tables, seats, six household
+adults, visible visitors, and persistent bartender Sena Quill. Walk beside a
+person and interact to inspect their role, technique, injuries, equipment
+affinity, memories, and terms. Switching courier or recruiting a willing adult
+happens through that person rather than a portrait menu. Named adults move
+between actual work and social positions as accepted actions advance the
+schedule; off-screen catch-up is bounded and deterministic.
 
 Use `I` aboard to move shaped items between the 10×6 courier pack and 18×10
 locker, equip one weapon and secondary item, and wear armour at six body
-locations. The tavern `C` selects one of five crew preparations. The chart `P`
-selects a region, and the physical `+` gangplank begins or ends an expedition.
-Regional travel costs six world measures and may produce a sporadic raider,
-river-creature, or original low-mysticism lure event.
+locations. Sena offers eight finite drinks with paired benefits and drawbacks;
+buying or drinking costs credit and an action. The physical `P` chart opens a
+12-node ASCII network. Arrows, `WASD`, or `HJKL` follow its edges, `Tab` cycles
+information layers, `Enter` previews then confirms, mouse click selects when
+reported, and `Escape` cancels. Travel costs and risks belong to each edge,
+animation may be skipped without changing its result, and a sporadic raider,
+river-creature, or original low-mysticism lure can interrupt a leg.
+
+The persistent calendar uses 36 actions per day and 24 days per season.
+Spring, summer, autumn, and winter affect daylight, route access, weather,
+terrain exposure, schedules, and bar stock. Equinoxes and solstices are visible
+in Jomon's bounded chronicle. Menus and real-world idle time never advance it.
 
 ## Four persistent regions
 
@@ -108,21 +135,24 @@ and assigned goals. Ranged attacks telegraph their lane before a severe shot.
 One atomic JSON save is stored at `$XDG_DATA_HOME/jomon/jomon-save.json`, or
 `~/.local/share/jomon/jomon-save.json` when `XDG_DATA_HOME` is unset. Set
 `JOMON_DATA_DIR` to override the directory for development or tests. Save format
-4 deterministically migrates Python format-3 saves, placing overflow in Jomon's
-bounded locker without silently deleting possessions. Older room-graph and
-retired browser saves are rejected.
+5 deterministically migrates Python format-4 saves while preserving people,
+regions, exploration, exact item layouts, cargo, contacts, markets, integrity,
+and voyage history. The retained format-3 path chains through its prior safe
+migration. Older room-graph and retired browser saves are rejected.
 
 ```console
 python -m unittest discover -s tests -v
 python -m compileall -q jomon tests
 python -m jomon.audit
+python -m jomon.living_audit
 git diff --check
 ```
 
 The audit samples 100 seeds across all three added regions and every pressure
 band. See [`LORE.md`](LORE.md), [`PRODUCT.md`](PRODUCT.md), [`TODO.md`](TODO.md),
-the [causal loop note](docs/causal-generation-and-loop.md), and the
-[four-region milestone assessment](docs/regions-inventory-encounters-milestone.md).
+the [causal loop note](docs/causal-generation-and-loop.md), the
+[four-region assessment](docs/regions-inventory-encounters-milestone.md), and
+the [living-vessel assessment](docs/diegetic-vessel-seasonal-world-milestone.md).
 The retired browser version remains recoverable from local branch
 `archive/web-v19` and annotated tag `jomon-web-v19-final`, both targeting
 `de1c1e8`.

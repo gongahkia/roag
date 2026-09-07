@@ -2,23 +2,20 @@
 
 ## Current State
 
-- The active product is a standard-library Python 3.11 `curses` roguelike with four persistent seamless regions, aligned z-levels, camera/FOV exploration, and action-clock regional processes.
-- Jomon has a physical tavern, six initial adults, six bounded regional recruits, a 10×6 courier pack, an 18×10 locker, six armour locations, fourteen weapons, and three sporadic voyage families.
-- Save format 4 migrates Python format 3. The verified build passes 92 tests, compilation, whitespace checks, a 100-seed encounter audit, and eight complete real-PTY expeditions.
+- The active product is a standard-library Python 3.11 `curses` roguelike with four persistent seamless regions, a 12-node route chart, four seasons, aligned z-levels, camera/FOV exploration, and action-clock regional processes.
+- Jomon has three 64×22 decks, a dedicated 64×24 tavern, scheduled named adults, bartender and eight drinks, six initial adults, six bounded regional recruits, a paper-doll equipment view, 10×6 courier pack, 18×10 locker, and optional mouse input.
+- Save format 5 migrates Python format 4 without resetting consequences. The verified build passes 126 tests, compilation, whitespace checks, 100-seed encounter and route audits, 12 schedule samples, and real-PTY checks of travel, migration, schedules, mouse packing, low-capability fallback, and vessel life.
 
 ## Now
 
-- Complete the bounded diegetic-interface milestone: a connected route chart,
-  presentation-only travel animation, three-deck Jomon and dedicated tavern,
-  bartender/drinks, readable choices, paper doll, inventory previews/mouse/
-  auto-pack/bulk tools, named-adult schedules and causal incidents, a visible
-  seasonal calendar, format-4 migration, automated checks, and real-PTY trips.
+- Put the living-vessel build in the owner's hands and collect ordinary-play
+  evidence about chart legibility, packing convenience, schedule cadence,
+  bartender value, and incident frequency.
 
 ## Next
 
-- Put the inhabited-vessel build in the owner's hands and tune route choice,
-  inventory convenience, schedule cadence, tavern legibility, and incident
-  frequency from normal play rather than increasing systemic scope.
+- Wrap rather than ellipsize dense route-consequence text in the 80×24 chart
+  details panel if owner play confirms the PTY-observed readability cost.
 
 ## Later
 
@@ -42,4 +39,4 @@
 ## Done
 
 - Browser v19 is archived at local branch `archive/web-v19` and annotated tag `jomon-web-v19-final`, both targeting `de1c1e8`; its active runtime was retired.
-- The initial, deeper, seamless-Hearthford, and four-region milestones are recorded under [`docs/`](docs/).
+- The initial, deeper, seamless-Hearthford, four-region, and living-vessel milestones are recorded under [`docs/`](docs/).
