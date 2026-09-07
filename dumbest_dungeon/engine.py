@@ -491,6 +491,18 @@ class GameEngine:
         patrol = next((item for item in self.state.patrols if item.active), None)
         return (patrol.x, patrol.y) if patrol else None
 
+    def advance_tutorial(self, expected: int, destination: int) -> None:
+        if not self.state.tutorial or self.state.tutorial_stage != expected:
+            raise RuleError("the tutorial is not at that lesson")
+        self.state.tutorial_stage = destination
+
+    def complete_tutorial(self) -> None:
+        if not self.state.tutorial or self.state.tutorial_stage != 9:
+            raise RuleError("the tutorial lesson is not complete")
+        self.state.tutorial_stage = 10
+        self.state.phase = "tutorial_complete"
+        self.add_log("Training expedition complete. No run progress was retained.")
+
     def toggle_hub_crew(self, hero_id: str) -> None:
         if self.state.phase != "hub" or hero_id not in self.catalog.heroes:
             raise RuleError("that crew manifest entry is unavailable")
@@ -1397,6 +1409,11 @@ class GameEngine:
     def path_to(self, x: int, y: int) -> list[tuple[int, int]]:
         if self.state.phase != "exploration":
             raise RuleError("the party cannot navigate right now")
+        tutorial_destination = self.tutorial_destination()
+        if self.state.tutorial and self.state.tutorial_stage <= 1 and (x, y) != tutorial_destination:
+            raise RuleError("the tutorial route is limited to the highlighted training contact")
+        if self.state.tutorial and self.state.tutorial_stage >= 9:
+            raise RuleError("inspect the developed deck before leaving the tutorial")
         if not self.is_walkable(x, y):
             raise RuleError("choose a floor tile inside the ship")
         path = self._find_path((self.state.party_x, self.state.party_y), (x, y))
@@ -1474,6 +1491,70 @@ class GameEngine:
             surprised=self._surprised(),
             enemy_ids=room.enemy_ids,
         )
+        if self.state.tutorial:
+            self._prepare_tutorial_combat()
+
+    def _prepare_tutorial_combat(self) -> None:
+        warden = next(hero for hero in self.state.heroes if hero.id == "warden")
+        engineer = next(hero for hero in self.state.heroes if hero.id == "engineer")
+        warden.rank, engineer.rank = 2, 1
+        warden.hp = 0
+        warden.deaths_door = True
+        warden.statuses["wound"] = 2
+
+        desired_hand = ["mag_boots", "field_dressing", "scan", "arc_welder", "brace"]
+        unused = list(range(len(self.state.deck)))
+        hand = []
+        for card_id in desired_hand:
+            index = next(
+                candidate
+                for candidate in unused
+                if self.state.deck[candidate].card_id == card_id
+            )
+            unused.remove(index)
+            deck_card = self.state.deck[index]
+            if card_id == "field_dressing":
+                deck_card.upgraded = True
+            hand.append(CardInstance(deck_card.card_id, deck_card.upgraded))
+        self.state.hand = hand
+        self.state.draw_pile = [
+            CardInstance(self.state.deck[index].card_id, self.state.deck[index].upgraded)
+            for index in unused
+        ]
+        self.state.discard_pile = []
+        self.state.energy = self.catalog.balance["energy"]
+
+        by_definition = {
+            enemy.definition_id: enemy for enemy in self.living_enemies()
+        }
+        rad = by_definition["rad_acolyte"]
+        control = by_definition["control_rod"]
+        rad.rank, control.rank = 1, 2
+        rad.max_hp = rad.hp = 16
+        control.max_hp = control.hp = 20
+        front = self.living_heroes()[0]
+
+        def intent(enemy: Actor, action_name: str) -> dict[str, Any]:
+            action = next(
+                action
+                for action in self.catalog.enemies[enemy.definition_id or enemy.id]["actions"]
+                if action["name"] == action_name
+            )
+            return {
+                "enemy_rank": enemy.rank,
+                "enemy_id": enemy.id,
+                "action": action_name,
+                "target_rule": action["target"],
+                "target_ids": [front.id],
+                "target_labels": [self._intent_target_label(front)],
+            }
+
+        self.state.intents = [
+            intent(rad, "Gamma Brand"),
+            intent(control, "Containment Blow"),
+        ]
+        self.state.tutorial_stage = 2
+        self.add_log("Training contact: restore the formation and read the coordinated intents.")
 
     def _resolve_exploration_tile(self) -> None:
         position = (self.state.party_x, self.state.party_y)
@@ -1863,6 +1944,8 @@ class GameEngine:
         return message
 
     def _advance_patrols(self) -> None:
+        if self.state.tutorial:
+            return
         party = (self.state.party_x, self.state.party_y)
         distances = self._distances_from(party)
         occupied = {(patrol.x, patrol.y) for patrol in self.state.patrols if patrol.active}
@@ -2330,7 +2413,11 @@ class GameEngine:
             self.state.effect_counters["reserve_energy"] = 1
             self.add_log(f"Reserve Cell restores {reserve} energy.")
         if not self.living_enemies() and self.state.phase == "combat":
+            if self.state.tutorial and self.state.tutorial_stage == 3:
+                self.state.tutorial_stage = 4
             self._combat_victory()
+        elif self.state.tutorial and self.state.tutorial_stage == 3:
+            self.state.tutorial_stage = 4
 
     @staticmethod
     def _actor_matches_state(actor: Actor, state: str) -> bool:
@@ -2451,6 +2538,8 @@ class GameEngine:
         self.state.round += 1
         self.state.intents = self._choose_intents()
         self._start_player_turn()
+        if self.state.tutorial and self.state.tutorial_stage == 5:
+            self.state.tutorial_stage = 6
 
     @classmethod
     def _action_setup_statuses(cls, action: dict[str, Any]) -> set[str]:
@@ -3050,6 +3139,8 @@ class GameEngine:
         count += round(self._item_effect_value("reward_choices"))
         self.state.rewards = self._generate_card_rewards(count)
         self.state.phase = "reward"
+        if self.state.tutorial:
+            self.state.tutorial_stage = 7
         self.add_log("Combat won. Choose a recovered technique.")
 
     def _generate_card_rewards(self, count: int) -> list[str]:
@@ -3318,6 +3409,8 @@ class GameEngine:
             self.add_log(f"Added {self.catalog.cards[self.state.rewards[index]]['name']} to the deck.")
         self.state.rewards = []
         self.state.phase = "exploration"
+        if self.state.tutorial:
+            self.state.tutorial_stage = 9
         self._resolve_exploration_tile()
 
     def choose_event(self, index: int) -> None:
