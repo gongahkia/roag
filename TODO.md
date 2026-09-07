@@ -5,21 +5,19 @@
 - The active product is a standard-library Python 3.11 `curses` roguelike with four persistent seamless regions, a 12-node route chart, four seasons, aligned z-levels, camera/FOV exploration, and action-clock regional processes.
 - Jomon has three 64×22 decks, a dedicated 64×24 tavern, scheduled named adults, bartender and eight drinks, six initial adults, six bounded regional recruits, a paper-doll equipment view, 10×6 courier pack, 18×10 locker, and optional mouse input.
 - Save format 6 migrates Python format 5 without resetting consequences; older
-  supported Python paths chain forward. The pre-milestone baseline passed 129
-  tests in 277.165 seconds.
+  supported Python paths chain forward. The completed serial verification ran
+  177 tests in 567.579 seconds with no failures.
+- Each region now has a three-stage questline with two endings, and completing
+  any two opens the five-part Working Marks arc. Production generation uses
+  finite mixed groups, four seeded alternative elites, 30 persistent
+  containers, 18 weapon families, 37 passives, and six finite relics.
 
 ## Now
 
-- Implement one materially distinct questline in each existing region and one
-  grounded cross-region arc, while preserving immediate first departure.
-- Reconcile physical objective cargo, defeat/death ownership, inventory
-  cancellation, ammunition, bottled drinks, selected relics, and reconstructed
-  regional process state in save format 6.
-- Activate retained passives, recruit techniques, armour fields, statuses, and
-  enemy capabilities through ordinary production actions; then use bounded
-  production encounter composition and explicit ranged targeting.
-- Improve cache signposting, add bounded tactical rewards and alternative
-  elites, and verify twelve readable three-system build combinations.
+- Put the four regional branches, Working Marks endings, explicit ranged
+  targeting, marked treasure, and mixed encounter sites through owner play.
+- Tune only repetition, rewards, or wording that ordinary play identifies as
+  a concrete problem.
 
 ## Next
 
@@ -28,8 +26,6 @@
 
 ## Later
 
-- Wrap rather than ellipsize dense route-consequence text in the 80×24 chart
-  details panel if ordinary play confirms the PTY-observed readability cost.
 - Add another regional map only after the current four are played and judged.
 - Revisit return-route variation and expand onboard incidents only after ordinary expedition pacing is stable.
 - Add capture or rescue only if play exposes a concrete contextual need.
@@ -52,3 +48,8 @@
 - New worlds start with an on-duty courier at the gangplank; all eligible
   couriers receive one role-appropriate physical working issue so preparation
   can be discovered after an immediate first departure rather than blocking it.
+- Physical-state integrity, retained build hooks, production encounter
+  composition, bounded negotiation, explicit ranged targeting, four regional
+  questlines, the Working Marks arc, causal recruits and merchant, four seeded
+  elite alternatives, and eight bounded tactical rewards are implemented and
+  covered by the regional-quest milestone assessment.

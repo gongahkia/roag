@@ -56,6 +56,12 @@ physical: one build item, one armour item, and one finite supply. Pack cells and
 weight can force the player to rotate, rearrange, leave, drop, or surrender a
 reward.
 
+Each region also has one authored marked cache, with Hearthford retaining two
+additional stores, for 30 containers overall. Contact testimony, elevation,
+and a regional material sign are three independent ways to mark optional
+treasure in exploration memory. Marks persist, but they do not open or move the
+physical container.
+
 Enemies use limited current sight, sound origins, last-known positions, group
 alerts, morale, ammunition, allies, home, and duty. Those facts select one
 concrete action such as patrol, investigate, aim, reload, intercept, flank,
@@ -77,6 +83,15 @@ or leave treasure, fight or negotiate, manipulate local controls, and manage
 finite treatment, light, rope, smoke, ammunition, armour condition, load, and
 terrain exposure. Then walk back through the same geography and gangplank—or
 suffer cargo loss, forced injured return, or permanent death with succession.
+
+The four regional lines apply that chain differently: Hearthford changes
+sluice access and mill obligations; Greywash chooses delayed safety or a tide
+window around salvage; Greenwold changes the burn's smoke and patrol ecology;
+Whitecairn changes warning bells, quarry exposure, and vertical pursuit. A
+finite existing actor is assigned to the opened material dispute rather than a
+new enemy being spawned. Two completed lines expose the Working Marks evidence
+chain across three more regions before its final allocation of route risk,
+household surety, or local authority.
 
 The one atomic format-6 JSON save contains the current household, physical
 items and orientations, regional exploration and changes, contacts, markets,

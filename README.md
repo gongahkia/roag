@@ -30,7 +30,7 @@ World controls:
 - arrows or `HJKL`: cardinal movement;
 - `YUBN`: diagonal movement;
 - `Enter` or `E`: interact, climb, open, speak, or operate;
-- `A`: attack with the readied weapon;
+- `A`: attack with the readied weapon; ranged weapons open a target cursor;
 - `G`: guard, brace, or continue a weapon reload;
 - `X`: use a finite readied tool, supply, or relic;
 - `V`: offer material terms;
@@ -128,16 +128,31 @@ burn wind, quarry instability, patrol travel, and Hearthford flooding change
 only after accepted actions.
 
 Closed containers use `C`; depleted containers use `o`. Each new region has six
-named containers with a build discovery, an armour item, and a supply. Pack
-shape and weight are independent constraints. Light, laden, encumbered, and
+original named containers plus one marked quest cache; Hearthford has nine and
+each other region has seven, for 30 persistent containers in all. Three
+independent clues per region can mark optional treasure in exploration memory.
+Pack shape and weight are independent constraints. Light, laden, encumbered, and
 overloaded states visibly affect noise, pacing, climbing, water, retreat, and
 fragile footing.
 
-Fourteen weapon families provide different actions, including reach control,
+Eighteen weapon families provide different actions, including reach control,
 pulling, sweep guard, knockback, destruction, aiming, reload commitments,
-height-sensitive sling casts, finite throws, and net restraint. Enemy plans use
-limited sight, sound, last-known positions, morale, ammunition, allies, terrain,
-and assigned goals. Ranged attacks telegraph their lane before a severe shot.
+height-sensitive sling casts, finite throws, net restraint, arcing staff-sling
+shots, recoverable hooked javelins, animal-bracing boar spears, and a loud
+two-step handgonne. Ranged targeting shows the chosen actor, exact projectile
+path, effective range, cover, and physical ammunition before `Enter` commits;
+`Escape` cancels without time passing. Enemy plans use limited sight, sound,
+last-known positions, morale, ammunition, allies, terrain, and assigned goals.
+Ranged attacks telegraph their lane before a severe shot.
+
+Each region has a direct three-stage material quest with two persistent
+endings, an optional task, a named cache lead, a changed local threat duty, and
+a secondary-contact service. Refusing the opening request changes the later
+choice instead of abandoning the line. Completing any two regional lines opens
+the five-part Working Marks compact across Greywash, Greenwold, Whitecairn,
+and Hearthford. Its open-compact, Jomon-surety, and local-marks endings trade
+route safety, household credit, and local authority rather than presenting one
+unqualified outcome.
 
 ## Saves and verification
 
@@ -162,7 +177,7 @@ The audit samples 100 seeds across all three added regions and every pressure
 band. See [`LORE.md`](LORE.md), [`PRODUCT.md`](PRODUCT.md), [`TODO.md`](TODO.md),
 the [causal loop note](docs/causal-generation-and-loop.md), the
 [four-region assessment](docs/regions-inventory-encounters-milestone.md), and
-the [living-vessel assessment](docs/diegetic-vessel-seasonal-world-milestone.md).
+the [regional-quest assessment](docs/regional-questlines-tactical-content-milestone.md).
 The retired browser version remains recoverable from local branch
 `archive/web-v19` and annotated tag `jomon-web-v19-final`, both targeting
 `de1c1e8`.

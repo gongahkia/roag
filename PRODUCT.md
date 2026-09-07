@@ -14,14 +14,14 @@ effects alter existing weather, routes, work, stock, and exposure. All of
 these features are direct additions to the existing state and curses
 interface, not generic UI, schedule, travel, or social-simulation frameworks.
 
-The active content milestone deepens those four regions in place. Each gains
+The current content build deepens those four regions in place. Each has
 one directly authored, persistent regional questline; progress in at least two
-regions can open one grounded cross-region material dispute. Existing
-equipment, discoveries, recruits, terrain, enemies, controls, and physical
-items must gain observable action hooks before the catalogue grows. Production
-encounters may use the existing bounded regional composer, but authored quest
-and elite placements remain explicit. This work adds no fifth region and no
-generic quest, dialogue, planning, faction, or encounter language.
+regions opens one grounded cross-region material dispute. Retained equipment,
+discoveries, recruits, terrain, enemies, controls, and physical items have
+observable action hooks. Production encounters use the existing bounded
+regional composer, while authored quest duties and seeded elite alternatives
+remain explicit. This adds no fifth region and no generic quest, dialogue,
+planning, faction, or encounter language.
 
 The permanent constraints are:
 

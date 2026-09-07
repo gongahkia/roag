@@ -53,25 +53,30 @@ python -m jomon.encounters
 
 They build all three added regions for 100 deterministic seeds and sample all
 three pressure bands at six site indices. The second command also reports the
-actual finite production compositions and their archetype frequency. The last
-completed four-region audit result (before this milestone's final rerun) is:
+actual finite production compositions and their archetype frequency. The
+completed regional-quest milestone audit result is:
 
 | Measure | Result |
 |---|---:|
 | seeds / composed plans | 100 / 900 |
-| represented archetypes | 21 of 21 |
-| unique compositions | 136 |
+| represented standard/added-region elite archetypes | 24 of 24 |
+| unique composed plans | 138 |
 | most repeated composition | 49 |
-| ranged actor appearances | 502 |
-| elite appearances | 14 |
+| distinct finite production compositions | 290 |
+| ranged actor appearances | 501 |
+| composed critical-band elite appearances | 14 |
+| placed dormant regional elites | 300 |
 | invalid or over-budget groups | 0 |
 | unreachable placed actors | 0 |
 | unavoidable opening attacks | 0 |
 
 The pressure-band actor totals were 358 steady, 549 strained, and 735
-critical. Critical pressure therefore changes both group size and the rare
-elite possibility. The audit is a deterministic development command, not
-telemetry, and sends nothing off the machine.
+critical. The aggregate elite count printed by `jomon.audit` is 314 because it
+includes both the 14 rare composer rolls and one dormant authored elite in each
+of three generated regions for every seed. Critical pressure therefore changes
+both group size and the rare composed elite possibility. The audit is a
+deterministic development command, not telemetry, and sends nothing off the
+machine.
 
 ## Adjustments from integration play
 
@@ -98,9 +103,11 @@ telemetry, and sends nothing off the machine.
   unreachable actors after this repair.
 
 The audit does not establish subjective encounter quality. Eight complete PTY
-routes and controlled role sessions found the plans readable, but several safe
-objective routes can avoid the richest mixed groups. Owner play should tune
-budgets and sites before more archetypes are added.
+routes from the preceding milestone and controlled reducer sessions found the
+plans readable, but this milestone's PTY work exercised only one complete
+Hearthford quest branch. Several safe objective routes can still avoid the
+richest mixed groups. Owner play should tune budgets and sites before more
+archetypes are added.
 
 ## Seeded elite alternatives
 
