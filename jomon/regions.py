@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import deque
+import copy
 import hashlib
 
 from .content import COMMODITIES, ENEMY_ARCHETYPES
@@ -219,12 +220,14 @@ def build_greywash(seed: str) -> Region:
         ("cave", "Sea-cave smuggler cache", Position(90, 44, -1), "light"),
         ("mast", "Signal-mast chest", Position(62, 13, 2), None),
         ("chain", "Chain-house strongbox", Position(92, 23, 1), "key"),
-    ], ["tide ledger", "cork float", "wreck key", "brine wash", "longbow", "ebbglass spindle"])
+        ("tide-account", "Tide-account roof coffer", Position(89, 25, 2), None),
+    ], ["tide ledger", "cork float", "wreck key", "brine wash", "longbow", "ebbglass spindle", "sighting knot"])
     _stock_containers(
         containers,
-        ["boiled cap", "reedscale vest", "linen sleeves", "tarred gauntlets", "leather leggings", "marsh waders"],
-        ["tide pin", "brine wash", "salt-house chit", "casting net bundle", "fletched arrows", "willow dressing"],
+        ["boiled cap", "reedscale vest", "linen sleeves", "tarred gauntlets", "leather leggings", "marsh waders", "reed shoes"],
+        ["tide pin", "brine wash", "salt-house chit", "casting net bundle", "fletched arrows", "willow dressing", "sling shot pouch"],
     )
+    containers[-1].extra_rewards.extend(["staff sling", "gullbone reel"])
     for container in containers:
         target = ground if container.position.z == 0 else {-1: below, 1: upper, 2: roof}[container.position.z]
         target[container.position.y][container.position.x] = "C"
@@ -353,12 +356,14 @@ def build_greenwold(seed: str) -> Region:
         ("resin", "Resin-yard tool cabinet", Position(79, 19), None),
         ("watch", "Canopy cache", Position(67, 7, 2), "rope"),
         ("burn", "Raised burn-store coffer", Position(84, 38, 1), None),
-    ], ["charcoal mask", "resin grip", "bird whistle", "pine resin dressing", "paired knives", "coalheart seed"])
+        ("burn-account", "Burn-boundary ledger chest", Position(81, 37, 2), None),
+    ], ["charcoal mask", "resin grip", "bird whistle", "pine resin dressing", "paired knives", "coalheart seed", "cache bell"])
     _stock_containers(
         containers,
-        ["felt hood", "quilted jack", "leather vambraces", "work gloves", "wool chausses", "reed shoes"],
-        ["charcoal key", "pine resin dressing", "dry smoke charge", "splint roll", "dry lamp wick", "fletched arrows"],
+        ["felt hood", "quilted jack", "leather vambraces", "work gloves", "wool chausses", "reed shoes", "leather leggings"],
+        ["charcoal key", "pine resin dressing", "dry smoke charge", "splint roll", "dry lamp wick", "fletched arrows", "throwing javelins"],
     )
+    containers[-1].extra_rewards.extend(["hooked javelin", "scar salve recipe"])
     for container in containers:
         target = ground if container.position.z == 0 else {-1: below, 1: upper, 2: roof}[container.position.z]
         target[container.position.y][container.position.x] = "C"
@@ -461,12 +466,14 @@ def build_whitecairn(seed: str) -> Region:
         ("kiln", "Limehouse strongbox", Position(77, 49), "key"),
         ("bridge", "Ridge bridge coffer", Position(57, 30, 2), "rope"),
         ("tower", "Bell parapet chest", Position(88, 13, 2), None),
-    ], ["limestone cleat", "sling cup", "quarry brace", "quarrel case", "war hammer", "hollow-bell shard"])
+        ("sink-account", "Sink-foundation deed box", Position(68, 51, -1), "light"),
+    ], ["limestone cleat", "sling cup", "quarry brace", "quarrel case", "war hammer", "hollow-bell shard", "roof nail"])
     _stock_containers(
         containers,
-        ["kettle helm", "riveted coat", "splinted arms", "mail mitts", "brigandine cuisses", "hobnailed boots"],
-        ["limestone wedge", "sling shot pouch", "quarrel case", "splint roll", "dry lamp wick", "brine wash"],
+        ["kettle helm", "riveted coat", "splinted arms", "mail mitts", "brigandine cuisses", "hobnailed boots", "boiled cap"],
+        ["limestone wedge", "sling shot pouch", "quarrel case", "splint roll", "dry lamp wick", "brine wash", "handgonne charges"],
     )
+    containers[-1].extra_rewards.extend(["handgonne", "stillwater filament"])
     for container in containers:
         target = ground if container.position.z == 0 else {-1: below, 1: upper, 2: roof}[container.position.z]
         target[container.position.y][container.position.x] = "C"
@@ -541,10 +548,11 @@ def _threats(region: Region, seed: str) -> list[Threat]:
         group = f"{region.id}-group-{group_index}"
         threat = threat_from_archetype(archetype, position, encounter_id=f"{region.id}-{index}", group=group)
         threats.append(threat)
-    elite_key = next(
+    elite_pool = sorted(
         key for key, data in ENEMY_ARCHETYPES.items()
         if data["region"] == region.id and data.get("elite")
     )
+    elite_key = stage_rng(seed, f"{region.id}:elite-variant").choice(elite_pool)
     elite_positions = {
         "greywash": Position(91, 24, 1),
         "greenwold": Position(83, 39, 1),
@@ -587,6 +595,33 @@ def build_new_regions(seed: str) -> tuple[dict[str, Region], dict[str, list[Cont
         market[region.opportunity_commodity] = MarketEntry(4, 0)
         markets[region_id] = market
     return regions, contacts, threats, markets
+
+
+def add_format_six_containers(state) -> None:
+    """Add only new caches to a format-5 map without resetting prior state."""
+    from .topology import build_region
+
+    generated = {
+        "hearthford": build_region(state.seed)["containers"],
+        "greywash": build_greywash(state.seed).containers,
+        "greenwold": build_greenwold(state.seed).containers,
+        "whitecairn": build_whitecairn(state.seed).containers,
+    }
+    added_ids = {
+        "hearthford": {"compact"},
+        "greywash": {"greywash-tide-account"},
+        "greenwold": {"greenwold-burn-account"},
+        "whitecairn": {"whitecairn-sink-account"},
+    }
+    for region_id, wanted in added_ids.items():
+        region = state.regions[region_id]
+        existing = {container.id for container in region.containers}
+        region.containers.extend(
+            copy.deepcopy(container)
+            for container in generated[region_id]
+            if container.id in wanted and container.id not in existing
+        )
+    state.region = state.regions[state.active_region_id]
 
 
 def store_active_region(state) -> None:

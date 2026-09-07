@@ -61,7 +61,7 @@ def compose_encounter(
 
     elite_pool = _pool(region_id, elite=True)
     if pressure_band == "critical" and site_index >= 4 and rng.randrange(6) == 0:
-        elite = elite_pool[0]
+        elite = rng.choice(elite_pool)
         return EncounterPlan(region_id, pressure_band, (elite,), budget, int(ENEMY_ARCHETYPES[elite]["budget"]))
 
     first_role = str(ENEMY_ARCHETYPES[chosen[0]]["role"])
@@ -170,6 +170,13 @@ def encounter_audit(sample_count: int = 100) -> dict[str, object]:
             )
             production_compositions[standard] += 1
             production_frequencies.update(standard)
+            placed_elites = [
+                threat.id.split(":", 1)[-1]
+                for threat in regional_threats[region_id]
+                if threat.elite
+            ]
+            frequencies.update(placed_elites)
+            elite += len(placed_elites)
             opening_attacks += sum(
                 threat.status == "engaged" and threat.profile == "ranged"
                 for threat in regional_threats[region_id]

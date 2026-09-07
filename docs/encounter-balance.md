@@ -101,3 +101,18 @@ The audit does not establish subjective encounter quality. Eight complete PTY
 routes and controlled role sessions found the plans readable, but several safe
 objective routes can avoid the richest mixed groups. Owner play should tune
 budgets and sites before more archetypes are added.
+
+## Seeded elite alternatives
+
+Each region now selects between two authored spatial problems. Hearthford
+chooses a crown-wheel lane sweep or a floodgate claimant who telegraphs a
+three-cell sluice surge. Greywash chooses the storm-chain captain or a
+wreck-chain reeve who removes loose cover before a sling cast. Greenwold
+chooses a crosswind fire warden or a resin tracker who marks ground before
+smoke rises to the aligned level. Whitecairn chooses false-bell rockfall or a
+bridge breaker who opens a warned floor cell and changes the usable crossing.
+
+Every alternative has movement/guard counterplay, a second route or elevation
+answer, and a material answer established by its regional control or quest
+evidence. Selection is seeded and persistent; the actor begins dormant, so
+entering awareness cannot cause immediate damage.

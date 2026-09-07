@@ -337,7 +337,11 @@ def carried_bulk(state: GameState) -> int:
 def capacity(state: GameState) -> int:
     courier = state.courier
     base = 10 if courier and courier.role in {"carpenter", "guard"} else 8
-    return base + (3 if state.gear == "cargo harness" else 0) + (4 if state.support == "porter watch" else 0)
+    return (
+        base + (3 if state.gear == "cargo harness" else 0)
+        + (4 if state.support == "porter watch" else 0)
+        + (2 if "load ledger" in state.carried_passives else 0)
+    )
 
 
 def passive_bulk(state: GameState) -> int:
@@ -395,6 +399,30 @@ def build_combinations(state: GameState) -> list[str]:
         combinations.append("weighted floor brace")
     if "fall sail" in passive and state.gear == "rope":
         combinations.append("directed fall")
+    if state.weapon == "staff sling" and "sighting knot" in passive:
+        combinations.append("surveyed sling lane")
+    if state.weapon == "hooked javelin" and state.gear == "rope" and "gullbone reel" in passive:
+        combinations.append("retrieval cast")
+    if state.weapon == "boar spear" and (
+        technique == "sure footing" or "limestone cleat" in passive
+    ):
+        combinations.append("grounded charge brace")
+    if state.weapon == "handgonne" and "charcoal mask" in passive:
+        combinations.append("masked powder line")
+    if (
+        state.weapon in {
+            "crossbow", "longbow", "sling", "heavy crossbow", "staff sling",
+            "hooked javelin", "handgonne",
+        }
+        and "roof nail" in passive and state.position.z > 0
+    ):
+        combinations.append("fixed roof aim")
+    if "sluice token" in passive and state.gear == "repair tools":
+        combinations.append("witnessed sluice craft")
+    if "cache bell" in passive and "echo bead" in passive:
+        combinations.append("accounted cache sounding")
+    if "load ledger" in passive and state.gear == "cargo harness":
+        combinations.append("accounted cargo frame")
     return combinations
 
 

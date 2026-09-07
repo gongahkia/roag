@@ -12,7 +12,12 @@ from jomon.actions import (
     resolve_regional_quest_choice,
     use_contact_service,
 )
-from jomon.quests import QUESTS, mark_elevated_lead, record_container_opened
+from jomon.quests import (
+    QUESTS,
+    mark_elevated_lead,
+    quest_reachability_audit,
+    record_container_opened,
+)
 from jomon.regions import activate_region, region_reachable
 from jomon.save import load_game, save_game
 from jomon.state import Position, create_world, game_state_from_dict
@@ -139,6 +144,13 @@ class RegionalQuestlineTests(unittest.TestCase):
                     self.assertIn(region.landmarks["contact"], reachable)
                     self.assertIn(region.landmarks["second_contact"], reachable)
                     self.assertIn(cache.position, reachable)
+
+    def test_quest_audit_reports_no_invalid_path(self):
+        report = quest_reachability_audit(4)
+        self.assertEqual(report["regions_checked"], 16)
+        self.assertEqual(report["unreachable_or_invalid"], [])
+        self.assertEqual(report["regional_endings"], 8)
+        self.assertEqual(report["cross_region_endings"], 3)
 
 
 class CrossRegionArcTests(unittest.TestCase):

@@ -144,6 +144,10 @@ WEAPONS = {
     "javelins": ("Bundle of javelins", "finite immediate throws or a close braced thrust"),
     "war hammer": ("Quarry war hammer", "loud armour break and forceful knockback"),
     "weighted net": ("Weighted net and knife", "range-four restraint followed by close control"),
+    "staff sling": ("Oak staff sling", "arcs beyond low cover but needs room to cast"),
+    "hooked javelin": ("Hooked river javelin", "pulls position and leaves a recoverable shaft"),
+    "boar spear": ("Crossbar boar spear", "reach brace pins charging animals outside knife range"),
+    "handgonne": ("Powder handgonne", "loud prepared shot creates smoke and commits a slow reload"),
 }
 
 GEAR = {
@@ -181,6 +185,7 @@ DISCOVERIES = {
     "quarrel case": ("ammunition", "Two heavy arbalest bolts in a rigid case."),
     "casting net bundle": ("ammunition", "One repaired weighted net for another cast."),
     "salt-house chit": ("trade", "A witnessed claim on salt fish or merchant credit."),
+    "handgonne charges": ("ammunition", "Three wrapped powder charges and lead balls."),
 }
 
 RELICS = {
@@ -189,6 +194,7 @@ RELICS = {
     "ebbglass spindle": "A finite glass spindle that holds one receding waterline, then clouds forever.",
     "coalheart seed": "A warm mineral seed that consumes smoke once and leaves the bearer painfully chilled.",
     "hollow-bell shard": "A cracked bronze sliver that moves one sound between levels and may call unintended listeners.",
+    "stillwater filament": "A finite pale strand that arrests one local current, but calls listeners to its last motion.",
 }
 
 PASSIVES = {
@@ -222,6 +228,13 @@ PASSIVES = {
     "sling cup": (1, "sling casts from height ignore partial cover and daze"),
     "chalk cipher": (1, "quarry marks reveal a nearby cache when examined"),
     "fall sail": (2, "a deliberate fall becomes lateral movement at the landing"),
+    "sighting knot": (1, "a staff sling reads one more pace and names its arcing lane"),
+    "gullbone reel": (2, "a hooked javelin can be recovered directly when rope is readied"),
+    "sluice token": (1, "witnessed control work is quiet even without a carpenter"),
+    "cache bell": (1, "one sounding per region marks an unopened cache but alerts listeners"),
+    "scar salve recipe": (1, "finite field dressing restores more health after an injury"),
+    "load ledger": (2, "accounted cargo gains modest bulk and weight capacity but remains valuable"),
+    "roof nail": (1, "a ranged line survives one careful move on an upper structure"),
 }
 
 TREASURE_REWARDS = tuple(PASSIVES) + (
@@ -244,6 +257,10 @@ MERCHANT_ITEMS = {
     "longbow": (3, "weapon"),
     "heavy crossbow": (5, "weapon"),
     "pike": (3, "weapon"),
+    "staff sling": (3, "weapon"),
+    "hooked javelin": (3, "weapon"),
+    "boar spear": (3, "weapon"),
+    "handgonne": (5, "weapon"),
 }
 
 # Bounded authored roles. Regional placement and budgets live in encounters.py;
@@ -256,6 +273,7 @@ ENEMY_ARCHETYPES = {
     "coast-netter": {"region": "greywash", "name": "mudflat netter", "profile": "reach", "role": "controller", "goal": "deny route", "vision": 7, "hearing": 9, "range": 4, "capability": "marks a net lane that worsens current", "morale": 3, "terrain": "shallows", "counterplay": "move before the cast or cut the anchor rope", "budget": 2},
     "coast-lookout": {"region": "greywash", "name": "signal-mast lookout", "profile": "pursuer", "role": "lookout", "goal": "raise alarm", "vision": 13, "hearing": 6, "range": 1, "capability": "signals shore interceptors", "morale": 1, "terrain": "mast platforms", "counterplay": "remain unseen, distract, or interrupt the signal", "budget": 1},
     "coast-elite": {"region": "greywash", "name": "storm-chain captain", "profile": "reach", "role": "elite", "goal": "close tide chain", "vision": 10, "hearing": 10, "range": 3, "capability": "changes the escape route by hauling a tide chain", "morale": 5, "terrain": "chain house", "counterplay": "release the windlass, isolate support, or leave before the channel fills", "budget": 6, "elite": True},
+    "coast-elite-wreck": {"region": "greywash", "name": "wreck-chain reeve", "profile": "ranged", "role": "elite", "goal": "strip marked salvage", "vision": 11, "hearing": 9, "range": 8, "capability": "hauls wreck cover out of a telegraphed firing lane", "morale": 4, "terrain": "wreck road", "counterplay": "move behind fixed dunes, dog the chain, or present the witnessed wreck account", "budget": 6, "elite": True, "ranged_kind": "sling"},
 
     "forest-trail-watch": {"region": "greenwold", "name": "charcoal trail watcher", "profile": "pursuer", "role": "lookout", "goal": "raise alarm", "vision": 8, "hearing": 11, "range": 1, "capability": "recognises disturbed brush and signal birds", "morale": 2, "terrain": "forest trails", "counterplay": "move crosswind, use water, or silence the signal", "budget": 1},
     "forest-resin-hunter": {"region": "greenwold", "name": "resinwood bow hunter", "profile": "ranged", "role": "shooter", "goal": "obtain line of fire", "vision": 10, "hearing": 10, "range": 10, "capability": "tracks last-known positions through canopy gaps", "morale": 3, "terrain": "clearings", "counterplay": "change trail, enter dense growth, or use smoke downwind", "budget": 3, "ranged_kind": "longbow"},
@@ -264,6 +282,7 @@ ENEMY_ARCHETYPES = {
     "forest-tusker": {"region": "greenwold", "name": "charcoal-bristled tusker", "profile": "animal", "role": "territorial", "goal": "defend territory", "vision": 5, "hearing": 12, "range": 1, "capability": "charges toward loud movement but stops beyond its wallow", "morale": 4, "terrain": "wallow", "counterplay": "distract with sound, climb, or circle outside its territory", "budget": 3},
     "forest-pack-runner": {"region": "greenwold", "name": "hidden-store pack runner", "profile": "pursuer", "role": "thief", "goal": "steal treasure", "vision": 7, "hearing": 8, "range": 1, "capability": "takes opened-cache goods and exits by a side trail", "morale": 1, "terrain": "cache trails", "counterplay": "secure the pack or block the escape trail", "budget": 2},
     "forest-elite": {"region": "greenwold", "name": "ash-cloak fire warden", "profile": "ranged", "role": "elite", "goal": "drive the burn", "vision": 9, "hearing": 12, "range": 9, "capability": "redirects smoke and closes one clearing while support lives", "morale": 5, "terrain": "raised burn walk", "counterplay": "quench two feed points, change wind, or remove the signal watcher", "budget": 6, "elite": True, "ranged_kind": "longbow"},
+    "forest-elite-resin": {"region": "greenwold", "name": "resin-fire tracker", "profile": "pursuer", "role": "elite", "goal": "burn out concealed cargo", "vision": 7, "hearing": 13, "range": 2, "capability": "marks a resin patch, then ignites it into rising smoke", "morale": 4, "terrain": "resin grove", "counterplay": "leave the marked patch, cross water, or preserve the medicine coppice", "budget": 6, "elite": True},
 
     "upland-ridge-slinger": {"region": "whitecairn", "name": "ridge sling ward", "profile": "ranged", "role": "shooter", "goal": "seek elevation", "vision": 13, "hearing": 8, "range": 9, "capability": "casts over low terrace cover", "morale": 3, "terrain": "ridges", "counterplay": "take the switchback underhang or contest the ridge", "budget": 3, "ranged_kind": "sling"},
     "upland-pike": {"region": "whitecairn", "name": "quarry pike holder", "profile": "reach", "role": "protector", "goal": "hold route", "vision": 10, "hearing": 8, "range": 4, "capability": "braces a bridge or switchback", "morale": 4, "terrain": "bridges", "counterplay": "hook, net, climb around, or negotiate the toll", "budget": 3},
@@ -272,6 +291,9 @@ ENEMY_ARCHETYPES = {
     "upland-cave-hound": {"region": "whitecairn", "name": "pale quarry hound", "profile": "animal", "role": "tracker", "goal": "investigate sound", "vision": 4, "hearing": 13, "range": 1, "capability": "tracks sound through connected cave levels", "morale": 3, "terrain": "caves", "counterplay": "throw sound into a side shaft or reach daylight", "budget": 2},
     "upland-alarm-climber": {"region": "whitecairn", "name": "bell-rope climber", "profile": "pursuer", "role": "lookout", "goal": "raise alarm", "vision": 11, "hearing": 9, "range": 1, "capability": "climbs directly toward the warning bell", "morale": 1, "terrain": "tower", "counterplay": "cut the rope, block the ladder, or remain below the parapet", "budget": 1},
     "upland-elite": {"region": "whitecairn", "name": "false-bell quarry master", "profile": "reach", "role": "elite", "goal": "trigger rockfall", "vision": 12, "hearing": 11, "range": 3, "capability": "rings marked rockfall lanes and retreats between levels", "morale": 5, "terrain": "bell tower", "counterplay": "sever the bell line, shelter under arches, or expose the false toll", "budget": 6, "elite": True},
+    "upland-elite-bridge": {"region": "whitecairn", "name": "bridge-breaker bellward", "profile": "ranged", "role": "elite", "goal": "drop the ridge bridge", "vision": 13, "hearing": 10, "range": 10, "capability": "marks a floor brace before breaking its crossing and changing elevation", "morale": 4, "terrain": "ridge bridge", "counterplay": "leave the marked brace, use the lower switchback, or ring the honest warning", "budget": 6, "elite": True, "ranged_kind": "heavy crossbow"},
+
+    "hearth-elite-claimant": {"region": "hearthford", "name": "floodgate claimant", "profile": "reach", "role": "elite", "goal": "open a disputed sluice", "vision": 9, "hearing": 10, "range": 3, "capability": "telegraphs and floods a three-cell mill crossing", "morale": 4, "terrain": "mill race", "counterplay": "dog the sluice, use the upper gantry, or establish the public compact", "budget": 6, "elite": True},
 }
 
 CONTACT_NAMES = ("Mara Venn", "Tomas Reed", "Iria Pike", "Sela Moss")

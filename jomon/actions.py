@@ -180,6 +180,8 @@ def choose_weapon(state: GameState, weapon: str) -> ActionResult:
         "crossbow": "crossbow bolts", "longbow": "fletched arrows",
         "sling": "sling shot pouch", "heavy crossbow": "quarrel case",
         "weighted net": "casting net bundle",
+        "staff sling": "sling shot pouch", "hooked javelin": "throwing javelins",
+        "handgonne": "handgonne charges",
     }.get(weapon)
     if supply and not any(
         item.kind == f"consumable:{supply}" and item.owner_id == state.active_courier_id
@@ -193,7 +195,7 @@ def choose_weapon(state: GameState, weapon: str) -> ActionResult:
             transaction.cancel(state)
             return _plain(state, "The weapon fits, but its physical ammunition case does not; repack first.")
     state.weapon, state.crossbow_loaded, state.aimed_target = weapon, True, None
-    state.weapon_ready = 2 if weapon == "heavy crossbow" else 1
+    state.weapon_ready = 2 if weapon in {"heavy crossbow", "handgonne"} else 1
     sync_legacy_load(state)
     return _plain(state, f"Readied {WEAPONS[weapon][0]}.", changed=True)
 
@@ -501,7 +503,51 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
         was_entangled = threat.intent.startswith("entangled")
         threat.intent = "cuts free of the net before acting again" if was_entangled else "recovers position before acting again"
         return f"The {threat.name} loses a turn {threat.intent}."
+    if threat.elite and threat.id == "floodgate-claimant":
+        if (
+            state.region.changes.get("mill_public_compact")
+            or state.region.changes.get("flood_control_used")
+        ):
+            threat.morale -= 2
+            threat.intent = "cannot claim a publicly witnessed and dogged sluice"
+            if threat.morale <= 0:
+                threat.status = "retreated"
+            return "The witnessed sluice control strips the floodgate claimant's leverage."
+        if threat.aimed_at is None:
+            threat.aimed_at = state.position
+            threat.intent = f"marks the mill crossing at {state.position.x},{state.position.y} for a sluice surge"
+            return f"The {threat.name} {threat.intent}; climb, move, guard, or dog the control."
+        marked, threat.aimed_at = threat.aimed_at, None
+        points = (
+            Position(marked.x - 1, marked.y, marked.z), marked,
+            Position(marked.x + 1, marked.y, marked.z),
+        )
+        state.water.update({position_key(point): 7 for point in points})
+        if state.position in points and not guarded:
+            return apply_damage(state, 3, "The claimant's sluice surge", damage_kind="blunt")
+        return "The sluice surge crosses three marked mill cells; the gantry and moved position remain safe."
     if threat.elite and state.active_region_id == "greywash":
+        if threat.name == "wreck-chain reeve":
+            if (
+                state.region.changes.get("tide_held")
+                or state.questlines["greywash"].optional_done
+            ):
+                threat.morale -= 2
+                threat.intent = "cannot claim witnessed wreck property"
+                if threat.morale <= 0:
+                    threat.status = "retreated"
+                return "The dogged chain or witnessed wreck account denies the reeve's salvage claim."
+            if threat.aimed_at is None:
+                threat.aimed_at = state.position
+                threat.intent = f"hooks loose wreck cover from lane {state.position.x},{state.position.y} before a sling cast"
+                return f"The {threat.name} {threat.intent}; fixed dune cover and movement remain answers."
+            marked, threat.aimed_at = threat.aimed_at, None
+            cover = Position(marked.x - 1, marked.y, marked.z)
+            if is_walkable(state, cover, ignore_threat=True):
+                state.region.tile_changes[position_key(cover)] = "."
+            if state.position == marked and not guarded:
+                return apply_damage(state, 2, "The wreck-chain reeve's plunging sling", damage_kind="blunt")
+            return "The reeve hauls loose wreck cover from the telegraphed lane; your new position avoids the cast."
         if state.region.changes.get("tide_held"):
             threat.morale -= 2
             threat.intent = "cannot close the dogged tide chain"
@@ -517,6 +563,23 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             return apply_damage(state, 3, "The hauled tide chain and current", damage_kind="blunt")
         return "The tide chain floods three marked flats; higher chain-house floor remains safe."
     if threat.elite and state.active_region_id == "greenwold":
+        if threat.name == "resin-fire tracker":
+            if state.region.changes.get("medicine_coppice_saved"):
+                threat.morale -= 2
+                threat.intent = "will not burn the witnessed medicine stand"
+                if threat.morale <= 0:
+                    threat.status = "retreated"
+                return "The preserved medicine boundary denies the resin-fire tracker's burn."
+            if threat.aimed_at is None:
+                threat.aimed_at = state.position
+                threat.intent = f"marks resin under {state.position.x},{state.position.y}; water or movement breaks the trap"
+                return f"The {threat.name} {threat.intent}."
+            marked, threat.aimed_at = threat.aimed_at, None
+            smoke_points = (marked, Position(marked.x, marked.y, min(2, marked.z + 1)))
+            state.smoke.update({position_key(point): 6 for point in smoke_points})
+            if state.position == marked:
+                add_status(state, "smoke-inhalation", "ignited resin underfoot", 5, "sight and ranged preparation worsen")
+            return "Marked resin ignites and smoke rises through the aligned opening; water and crosswind ground remain clear."
         if state.region.changes.get("burn_redirected"):
             threat.morale -= 2
             threat.intent = "loses control of the crosswind burn"
@@ -531,6 +594,24 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
         threat.intent = "drives a three-cell smoke line across your current route"
         return f"The {threat.name} {threat.intent}; climb or move crosswind."
     if threat.elite and state.active_region_id == "whitecairn":
+        if threat.name == "bridge-breaker bellward":
+            if state.region.changes.get("honest_bell"):
+                threat.morale -= 2
+                threat.intent = "cannot break a crossing under the honest warning"
+                if threat.morale <= 0:
+                    threat.status = "retreated"
+                return "The honest bell exposes the bridge-breaker's private order and breaks its morale."
+            if threat.aimed_at is None:
+                threat.aimed_at = state.position
+                threat.intent = f"marks floor brace {state.position.x},{state.position.y},{state.position.z:+d} for a heavy bolt"
+                return f"The {threat.name} {threat.intent}; move levels, shelter, or brace the quarry."
+            marked, threat.aimed_at = threat.aimed_at, None
+            if base_tile(state, marked) not in {"#", " ", "~"}:
+                state.region.tile_changes[position_key(marked)] = "O"
+            if state.position == marked:
+                fall = _fall(state)
+                return f"The heavy bolt breaks the marked floor. {fall}"
+            return "The heavy bolt opens a hole in the marked crossing; the lower switchback remains a return route."
         if state.region.changes.get("quarry_braced"):
             threat.morale -= 2
             threat.intent = "cannot release the braced rock face"
@@ -1094,7 +1175,11 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         ):
             return _plain(state, "The diagonal is pinched closed.")
     previous_area = area_name(state)
-    if state.location == "region" and state.aimed_target:
+    kept_roof_aim = bool(
+        state.location == "region" and state.aimed_target
+        and state.position.z > 0 and "roof nail" in state.carried_passives
+    )
+    if state.location == "region" and state.aimed_target and not kept_roof_aim:
         state.aimed_target = None
     state.position = target
     if state.location == "region":
@@ -1104,6 +1189,8 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         if "hearth-ale" in state.drink_effects:
             state.noise += 1
     messages: list[str] = []
+    if kept_roof_aim:
+        messages.append("The roof nail holds the prepared lane through one careful upper-level move.")
     tile = base_tile(state, target)
     if state.location == "jomon":
         return _plain(state, "", changed=True)
@@ -1382,6 +1469,7 @@ def _control_interaction(state: GameState) -> ActionResult:
         state.gear == "repair tools"
         or state.support == "carpenter rig"
         or (courier and courier.technique == "lever craft")
+        or "sluice token" in state.carried_passives
     )
     if state.active_region_id != "hearthford":
         state.region.changes["environment_control_used"] = True
@@ -1783,9 +1871,16 @@ WEAPON_RANGES = {
     "javelins": 7,
     "war hammer": 1,
     "weighted net": 4,
+    "staff sling": 10,
+    "hooked javelin": 6,
+    "boar spear": 4,
+    "handgonne": 9,
 }
 RANGED_WEAPONS = frozenset(
-    {"crossbow", "longbow", "sling", "heavy crossbow", "javelins", "weighted net"}
+    {
+        "crossbow", "longbow", "sling", "heavy crossbow", "javelins",
+        "weighted net", "staff sling", "hooked javelin", "handgonne",
+    }
 )
 
 
@@ -1807,6 +1902,8 @@ def effective_weapon_range(state: GameState) -> int:
         attack_range += 2
     if state.courier and state.courier.technique == "high arc" and state.weapon == "sling":
         attack_range += 2
+    if state.weapon == "staff sling" and "sighting knot" in state.carried_passives:
+        attack_range += 1
     return attack_range
 
 
@@ -1816,8 +1913,10 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
     candidates = _attack_targets(state, effective_weapon_range(state))
     if target_id is not None:
         candidates = [target for target in candidates if target.id == target_id]
-    if state.weapon == "pike":
+    if state.weapon in {"pike", "boar spear"}:
         candidates = [target for target in candidates if distance(state.position, target.position) >= 2]
+    if state.weapon == "staff sling":
+        candidates = [target for target in candidates if distance(state.position, target.position) >= 3]
     if not candidates:
         if state.weapon == "hand axe" and base_tile(state, state.position) == "d":
             return _destroy_floor(state)
@@ -1825,16 +1924,20 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
     target = candidates[0]
     target.status = "engaged"
     ranged = state.weapon in RANGED_WEAPONS
-    prepared = state.weapon in {"crossbow", "longbow", "heavy crossbow"}
+    prepared = state.weapon in {"crossbow", "longbow", "heavy crossbow", "handgonne"}
     ammo_key = {
         "crossbow": "bolts", "longbow": "arrows", "sling": "sling stones",
         "heavy crossbow": "heavy bolts", "javelins": "javelins", "weighted net": "nets",
+        "staff sling": "sling stones", "hooked javelin": "javelins",
+        "handgonne": "handgonne charges",
     }.get(state.weapon)
     if ranged:
         if state.weapon == "crossbow" and not state.crossbow_loaded:
             return _plain(state, "The crossbow is unloaded; reload with G.")
         if state.weapon == "heavy crossbow" and state.weapon_ready < 2:
             return _plain(state, f"The arbalest needs {2 - state.weapon_ready} more guarded reload action(s).")
+        if state.weapon == "handgonne" and state.weapon_ready < 2:
+            return _plain(state, f"The handgonne needs {2 - state.weapon_ready} more guarded loading action(s).")
         if ammo_key and physical_ammunition(state, ammo_key) <= 0:
             return _plain(state, f"No {ammo_key} remain in the physical load.")
         lane_cover = cover_at(state, state.position, target.position)
@@ -1866,6 +1969,8 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
             state.crossbow_loaded = False
         if state.weapon == "heavy crossbow":
             state.weapon_ready = 0
+        if state.weapon == "handgonne":
+            state.weapon_ready = 0
         state.aimed_target = None
         damage, weapon_text, sound = {
             "crossbow": (3, "crossbow bolt", 3),
@@ -1874,8 +1979,11 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
             "heavy crossbow": (5, "arbalest bolt tears through the lane", 5),
             "javelins": (2, "thrown javelin", 3),
             "weighted net": (0, "weighted net", 2),
+            "staff sling": (2, "staff-sling stone arcs over low cover", 2),
+            "hooked javelin": (2, "hooked javelin", 3),
+            "handgonne": (4, "handgonne ball tears through smoke and cover", 6),
         }[state.weapon]
-        ignores_partial = state.weapon == "heavy crossbow" or (
+        ignores_partial = state.weapon in {"heavy crossbow", "staff sling", "handgonne"} or (
             state.weapon == "sling"
             and (
                 "high sling arc" in build_combinations(state)
@@ -1898,6 +2006,7 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
             "pike": 2,
             "paired knives": 2,
             "war hammer": 3,
+            "boar spear": 2,
         }[state.weapon]
         weapon_text = state.weapon
         sound = 1 if state.weapon in {"cudgel", "staff"} else 2
@@ -1943,6 +2052,10 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
         state.guarded_step = True
         weapon_text += " braces a four-pace lane and drives the target back"
         target.intent = "disrupted by the pike brace"
+    elif state.weapon == "boar spear":
+        target.intent = "pinned outside close range by the crossbar brace"
+        target.morale -= 2 if target.profile == "animal" else 1
+        weapon_text += " sets a crossbar brace and pins the approach"
     elif state.weapon == "paired knives":
         state.guarded_step = True
         target.morale -= 1
@@ -1960,6 +2073,31 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
             target.morale -= 1
             target.position = _step_toward(state, target, state.position)
             weapon_text += "; Cast Bind hauls the restrained target one pace"
+    elif state.weapon == "hooked javelin":
+        old_position = target.position
+        target.position = _step_toward(state, target, state.position)
+        target.intent = "disrupted by the hooked shaft"
+        recovered = create_item(
+            state, "consumable:throwing javelins",
+            "recoverable hooked shaft from a committed throw", location="ground",
+        )
+        recovered.region_id = state.active_region_id
+        recovered.ground_position = old_position
+        weapon_text += " pulls the target and leaves its shaft visibly recoverable"
+        if "retrieval cast" in build_combinations(state):
+            if auto_place(
+                state, recovered.id, "pack", owner_id=state.active_courier_id
+            ):
+                sync_legacy_load(state)
+                weapon_text += "; rope and gullbone reel recover it immediately"
+    elif state.weapon == "handgonne":
+        smoke_points = (
+            state.position,
+            Position(state.position.x + 1, state.position.y, state.position.z),
+        )
+        state.smoke.update({position_key(point): 4 for point in smoke_points})
+        target.morale -= 2
+        weapon_text += " fills the firing place with powder smoke"
     elif state.weapon == "sling" and state.position.z > target.position.z:
         target.morale -= 1
         weapon_text += " from a high arc"
@@ -2029,6 +2167,17 @@ def guard(state: GameState) -> ActionResult:
         return _time_result(
             state,
             f"Arbalest reload {state.weapon_ready}/2: {stage}.",
+            guarded=state.gear == "buckler",
+            priority=3,
+        )
+    if state.weapon == "handgonne" and state.weapon_ready < 2:
+        if physical_ammunition(state, "handgonne charges") <= 0:
+            return _plain(state, "No wrapped powder charges remain.")
+        state.weapon_ready += 1
+        stage = "powder and wad seated" if state.weapon_ready == 1 else "ball rammed and match sheltered"
+        return _time_result(
+            state,
+            f"Handgonne loading {state.weapon_ready}/2: {stage}.",
             guarded=state.gear == "buckler",
             priority=3,
         )
@@ -2154,6 +2303,23 @@ def use_gear(state: GameState) -> ActionResult:
             " ".join(["The hollow shard moves one loud strike to an adjacent level; unintended listeners may answer.", *sounds]),
             priority=3,
         )
+    if state.carried_relic == "stillwater filament" and state.relics.get("stillwater filament", 0):
+        state.relics["stillwater filament"] -= 1
+        if not state.relics["stillwater filament"]:
+            del state.relics["stillwater filament"]
+        state.carried_relic = None
+        consume_carried(state, "relic:stillwater filament")
+        state.water.clear()
+        state.region.changes["stillwater_filament_spent"] = True
+        sounds = emit_sound(state, 5, state.position)
+        return _time_result(
+            state,
+            " ".join([
+                "The finite filament arrests every local current, then rings its last motion to nearby listeners.",
+                *sounds,
+            ]),
+            priority=3,
+        )
     if state.gear == "smoke pot" and state.smoke_charges > 0:
         state.smoke_charges -= 1
         points = [
@@ -2181,7 +2347,13 @@ def use_gear(state: GameState) -> ActionResult:
             "Finite smoke closes adjacent sightlines and rises at an opening; ranged aim breaks.",
             priority=3,
         )
-    if "bird whistle" in state.carried_passives:
+    if (
+        "bird whistle" in state.carried_passives
+        and not (
+            "cache bell" in state.carried_passives
+            and not state.region.changes.get("cache_bell_used")
+        )
+    ):
         decoy = Position(state.position.x + 4, state.position.y, state.position.z)
         sounds = emit_sound(state, 3, decoy)
         return _time_result(
@@ -2189,6 +2361,32 @@ def use_gear(state: GameState) -> ActionResult:
             " ".join(["The bird whistle places a deliberate sound four paces crosswind from your true position.", *sounds]),
             priority=3,
         )
+    if (
+        "cache bell" in state.carried_passives
+        and not state.region.changes.get("cache_bell_used")
+    ):
+        from .quests import mark_treasure
+
+        cache = min(
+            (container for container in state.region.containers if not container.opened),
+            key=lambda container: (distance(state.position, container.position), container.id),
+            default=None,
+        )
+        if cache:
+            state.region.changes["cache_bell_used"] = True
+            mark_treasure(
+                state, state.active_region_id, cache.id,
+                f"The cache bell answers {cache.name} at {cache.position.x},{cache.position.y}, level {cache.position.z:+d}.",
+            )
+            sounds = emit_sound(state, 4)
+            return _time_result(
+                state,
+                " ".join([
+                    f"The finite sounding marks {cache.name}, but every listener hears it.",
+                    *sounds,
+                ]),
+                priority=3,
+            )
     animal = next(
         (
             threat
@@ -2222,13 +2420,14 @@ def use_gear(state: GameState) -> ActionResult:
         if state.consumables["willow dressing"] == 0:
             del state.consumables["willow dressing"]
         consume_carried(state, "consumable:willow dressing")
-        state.courier.health = min(
-            state.courier.max_health, state.courier.health + 3
-        )
+        amount = 5 if "scar salve recipe" in state.carried_passives else 3
+        state.courier.health = min(state.courier.max_health, state.courier.health + amount)
         state.courier.injury = "treated soreness"
         return _time_result(
             state,
-            "A finite willow dressing restores three health; field healing remains scarce.",
+            f"A finite willow dressing restores {amount} health"
+            + (" through the scar-salve method" if amount == 5 else "")
+            + "; field healing remains scarce.",
             priority=3,
         )
     if state.consumables.get("dry smoke charge", 0) and state.smoke_charges == 0:

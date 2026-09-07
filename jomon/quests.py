@@ -413,3 +413,43 @@ def use_secondary_service(state: GameState, choice: str) -> tuple[bool, str]:
     contact.memories.append(f"Treated {state.courier.name}'s {location} injury for a recorded obligation.")
     state.region.changes["care_obligation_settled"] = True
     return True, f"{contact.name} treats the {location} injury; time and a finite obligation remain consequential."
+
+
+def quest_reachability_audit(sample_count: int = 25) -> dict[str, object]:
+    """Inspect authored quest positions across deterministic generated worlds."""
+    from collections import Counter
+
+    from .regions import region_reachable
+    from .state import create_world
+
+    failures: list[str] = []
+    geography: Counter[str] = Counter()
+    cache_counts: Counter[str] = Counter()
+    for index in range(sample_count):
+        state = create_world(f"quest-audit-{index:03d}")
+        for region_id, region in state.regions.items():
+            reachable = region_reachable(region)
+            required = {
+                region.landmarks["landing"], region.landmarks["contact"],
+                region.landmarks["second_contact"], region.landmarks["objective"],
+            }
+            cache = next(
+                container for container in region.containers
+                if container.id == QUESTS[region_id]["cache"]
+            )
+            required.add(cache.position)
+            if not required <= reachable:
+                failures.append(f"{index}:{region_id}:required-position")
+            if len(QUESTS[region_id]["final"]) != 2:
+                failures.append(f"{index}:{region_id}:ending-count")
+            geography[f"{region_id}:{region.geography_signature}"] += 1
+            cache_counts[region_id] += len(region.containers)
+    return {
+        "samples": sample_count,
+        "regions_checked": sample_count * len(REGION_IDS),
+        "unreachable_or_invalid": failures,
+        "unique_geographies": len(geography),
+        "container_totals": dict(sorted(cache_counts.items())),
+        "regional_endings": len(REGION_IDS) * 2,
+        "cross_region_endings": 3,
+    }

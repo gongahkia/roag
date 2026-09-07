@@ -44,6 +44,9 @@ class SemanticColourTests(unittest.TestCase):
         }
         for glyph, role in expected.items():
             self.assertEqual(semantic_role(glyph), role)
+        self.assertEqual(semantic_role("v"), "neutral")
+        self.assertEqual(semantic_role("s"), "hazard")
+        self.assertEqual(semantic_role("s", aboard=True), "interactable")
 
     def test_limited_colour_fallback_uses_glyph_and_bold_cues(self):
         plan = semantic_colour_plan(0, 0)

@@ -175,6 +175,18 @@ class PhysicalStateIntegrityTests(unittest.TestCase):
         legacy.pop("cross_region_arc")
         legacy.pop("treasure_marks")
         legacy.pop("merchant")
+        for region_id, new_id in {
+            "hearthford": "compact",
+            "greywash": "greywash-tide-account",
+            "greenwold": "greenwold-burn-account",
+            "whitecairn": "whitecairn-sink-account",
+        }.items():
+            legacy["regions"][region_id]["containers"] = [
+                container
+                for container in legacy["regions"][region_id]["containers"]
+                if container["id"] != new_id
+            ]
+        legacy["region"] = legacy["regions"][legacy["active_region_id"]]
         first = game_state_from_dict(copy.deepcopy(legacy))
         second = game_state_from_dict(copy.deepcopy(legacy))
         self.assertEqual(first.save_format, SAVE_FORMAT)
@@ -187,6 +199,10 @@ class PhysicalStateIntegrityTests(unittest.TestCase):
         self.assertEqual(len(wards), 1)
         self.assertEqual(first.cross_region_arc.status, "locked")
         self.assertEqual(set(first.questlines), set(first.regions))
+        self.assertEqual(
+            {region_id: len(region.containers) for region_id, region in first.regions.items()},
+            {"hearthford": 9, "greywash": 7, "greenwold": 7, "whitecairn": 7},
+        )
 
 
 if __name__ == "__main__":

@@ -449,7 +449,7 @@ def _household(seed: str) -> list[Person]:
 
 def _threats(seed: str, region: Region) -> list[Threat]:
     names = stage_rng(seed, "threat-names")
-    elite = stage_rng(seed, "elite-machinery").randrange(4) == 0
+    alternate_elite = stage_rng(seed, "hearthford-elite-variant").randrange(2) == 1
     road_points = [
         Position(x, y)
         for y in range(19, 31)
@@ -467,9 +467,13 @@ def _threats(seed: str, region: Region) -> list[Threat]:
         Threat("mill-spear", "displaced mill levy", "reach", Position(74, 24), 5, 5, morale=3, role="protector", group="mill-levy", home_position=Position(74, 24)),
         Threat("gantry-bow", "gantry sling carrier", "ranged", Position(80, 20, 1), 4, 4, role="suppressor", group="mill-levy", ammunition=7, home_position=Position(80, 20, 1), ranged_kind="sling"),
         Threat(
-            "wheel-train", "runaway crown wheel" if elite else "unbalanced mill sweep",
-            "machinery", Position(82, 27), 7 if elite else 5, 7 if elite else 5,
-            morale=99, elite=elite, role="hazard", goal="deny lane",
+            "floodgate-claimant" if alternate_elite else "wheel-train",
+            "floodgate claimant" if alternate_elite else "runaway crown wheel",
+            "reach" if alternate_elite else "machinery", Position(82, 27), 7, 7,
+            status="dormant", morale=4 if alternate_elite else 99, elite=True,
+            role="elite" if alternate_elite else "hazard",
+            goal="open disputed sluice" if alternate_elite else "deny lane",
+            capabilities=["telegraphed crossing flood"] if alternate_elite else [],
         ),
         Threat("pressure-reavers", "valuable-seeking river reavers", "reach", Position(58, 28), 6, 6, status="dormant", morale=4, role="thief", group="reavers", home_position=Position(58, 28), capabilities=["steal", "escape"]),
     ]
@@ -530,7 +534,11 @@ def create_world(seed: str) -> GameState:
         objective_evidence=[],
         visitors=[], tavern_positions={}, visitor_status={}, berth_capacity=9,
         sound_events=[], group_alerts={},
-        ammunition_by_type={"bolts": 6, "arrows": 8, "sling stones": 10, "heavy bolts": 4, "javelins": 4, "nets": 2},
+        ammunition_by_type={
+            "bolts": 6, "arrows": 8, "sling stones": 10,
+            "heavy bolts": 4, "javelins": 4, "nets": 2,
+            "handgonne charges": 3,
+        },
         weapon_ready=2, last_move_turn=-99,
         regions={}, contacts={}, region_threats={}, regional_markets={},
         travel_count=0, pending_destination=None, voyage_kind=None,
@@ -979,8 +987,10 @@ def game_state_from_dict(data: Any) -> GameState:
             sync_legacy_load(state)
         if migrated_v5:
             from .inventory import reconcile_format_five_resources
+            from .regions import add_format_six_containers
 
             reconcile_format_five_resources(state)
+            add_format_six_containers(state)
         if state.location == "region":
             from .regions import reconstruct_regional_process
 

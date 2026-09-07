@@ -36,6 +36,13 @@ This matrix records the direct production resolver for retained build content. I
 | sling cup | a sling cast from above ignores partial cover and dazes |
 | chalk cipher | `open_container` reads keyed quarry-cache marks without tools |
 | fall sail | `_fall` plus rope converts a drop into lateral movement |
+| sighting knot | `effective_weapon_range` extends the staff sling and targeting names the longer arcing lane |
+| gullbone reel | a hooked-javelin attack with readied rope immediately recovers its physical shaft |
+| sluice token | regional control actions operate quietly without role or support substitution |
+| cache bell | `use_gear` marks the nearest unopened physical cache once per region and emits an attracting sound |
+| scar salve recipe | a finite willow dressing restores five rather than three health |
+| load ledger | physical cargo gains two bulk and four weight capacity while still increasing valuables pressure |
+| roof nail | one upper-structure move preserves an already prepared ranged target |
 
 ## Recruit techniques
 
@@ -63,3 +70,21 @@ This matrix records the direct production resolver for retained build content. I
 | chilled/salt grit/smoke inhalation | ranged effective reach is reduced |
 
 The pike and trestle arbalest are obtainable from Whitecairn-influenced merchant stock: the pike while its objective is unresolved and the arbalest after completion. Their existing reach/minimum-range and two-step setup behavior remains distinct from spear and crossbow play.
+
+## New bounded weapon and reward interactions
+
+| Weapon or relic | Production distinction |
+|---|---|
+| oak staff sling | range 10 with a three-pace minimum; casts over partial cover using physical sling stones |
+| hooked river javelin | pulls a target, consumes one physical shaft, and leaves it on the ground unless rope and gullbone reel recover it |
+| crossbar boar spear | attacks only outside adjacent range and strongly presses a charging animal's morale |
+| powder handgonne | requires aim plus a two-action reload, uses physical charges, produces loud powder smoke, and presses morale |
+| stillwater filament | finite selected relic clears current while emitting a strength-five sound that redirects perceived danger |
+
+The four added named containers carry these rewards in recognizable regional
+locations. Along with the existing combinations, the new reducers expose more
+than twelve three-system builds: guarded stance, mobile hook, controlled
+breach, masked smoke, flood rig, field binding, high sling, weatherfast bow,
+weighted brace, directed fall, surveyed staff sling, retrieval javelin,
+grounded boar brace, masked handgonne, fixed roof aim, witnessed sluice work,
+cache sounding, and accounted cargo.

@@ -257,7 +257,7 @@ def semantic_role(glyph: str, *, aboard: bool = False) -> str:
         return "player"
     if glyph == "a" or (aboard and glyph in {"T", "b"}):
         return "ally"
-    if aboard and glyph in {"v", "B"}:
+    if glyph in {"v", "B"}:
         return "neutral"
     if aboard and glyph in {"=", "t", "_", "F", "f"}:
         return "structure"
@@ -273,11 +273,11 @@ def semantic_role(glyph: str, *, aboard: bool = False) -> str:
         return "water"
     if glyph == "#":
         return "structure"
-    if glyph in {"<", ">", "^", "v", "+"}:
+    if glyph in {"<", ">", "^", "+"}:
         return "exit"
     if glyph == "R":
         return "cargo"
-    if glyph in {"&", "D", "O", "o", "?", "C", "L", "P", "H", "s"}:
+    if glyph in {"&", "D", "O", "o", "?", "C", "L", "P", "H"}:
         return "interactable"
     if glyph in {"m", "%", "r", "q", "t", ":", "s"}:
         return "hazard"

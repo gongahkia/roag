@@ -15,11 +15,11 @@ from jomon.state import Position, create_world
 
 
 class EncounterCompositionTests(unittest.TestCase):
-    def test_each_new_region_has_six_standard_roles_and_one_elite(self):
+    def test_each_new_region_has_six_standard_roles_and_alternative_elites(self):
         for region in REGION_IDS:
             entries = [data for data in ENEMY_ARCHETYPES.values() if data["region"] == region]
             self.assertGreaterEqual(sum(not data.get("elite") for data in entries), 5)
-            self.assertEqual(sum(bool(data.get("elite")) for data in entries), 1)
+            self.assertGreaterEqual(sum(bool(data.get("elite")) for data in entries), 2)
             for data in entries:
                 self.assertTrue(data["goal"])
                 self.assertTrue(data["counterplay"])
@@ -53,7 +53,11 @@ class EncounterCompositionTests(unittest.TestCase):
         self.assertGreater(report["ranged_actor_frequency"], 0)
         self.assertGreater(report["elite_frequency"], 0)
         self.assertGreaterEqual(report["unique_compositions"], 30)
-        self.assertTrue(set(ENEMY_ARCHETYPES) <= set(report["archetype_frequency"]))
+        auditable = {
+            key for key, data in ENEMY_ARCHETYPES.items()
+            if data["region"] in REGION_IDS
+        }
+        self.assertTrue(auditable <= set(report["archetype_frequency"]))
         self.assertGreaterEqual(report["production_unique_compositions"], 30)
         self.assertTrue(report["production_archetype_frequency"])
 
@@ -67,21 +71,19 @@ class EncounterCompositionTests(unittest.TestCase):
             elite.status = "engaged"
             state.position = Position(elite.position.x - 1, elite.position.y, elite.position.z)
             first = _threat_action(state, elite, False)
+            if region_id == "whitecairn":
+                state.position = elite.position
+            second = _threat_action(state, elite, False)
             if region_id == "greywash":
-                second = _threat_action(state, elite, False)
-                self.assertIn("tide chain", first)
-                self.assertTrue(state.water)
-                self.assertIn("floods", second)
+                self.assertTrue(state.water or state.region.tile_changes)
+                self.assertTrue("chain" in first or "wreck" in first)
             elif region_id == "greenwold":
                 self.assertTrue(state.smoke)
-                self.assertIn("smoke line", first)
+                self.assertTrue("smoke" in first or "resin" in first)
             else:
-                marked = elite.aimed_at
-                state.position = Position(state.position.x - 1, state.position.y, state.position.z)
-                second = _threat_action(state, elite, False)
-                self.assertIn("rockfall warning", first)
-                self.assertIn(f"{marked.x},{marked.y},{marked.z}", state.region.tile_changes)
-                self.assertIn("reposition", second)
+                self.assertTrue("rockfall" in first or "floor brace" in first)
+                self.assertTrue(state.region.tile_changes)
+                self.assertTrue("reposition" in second or "crossing" in second)
 
 
 if __name__ == "__main__":

@@ -21,6 +21,7 @@ AMMUNITION_ITEMS = {
     "heavy bolts": "consumable:quarrel case",
     "javelins": "consumable:throwing javelins",
     "nets": "consumable:casting net bundle",
+    "handgonne charges": "consumable:handgonne charges",
 }
 WEAPON_AMMUNITION = {
     "crossbow": "bolts",
@@ -29,6 +30,9 @@ WEAPON_AMMUNITION = {
     "heavy crossbow": "heavy bolts",
     "javelins": "javelins",
     "weighted net": "nets",
+    "staff sling": "sling stones",
+    "hooked javelin": "javelins",
+    "handgonne": "handgonne charges",
 }
 
 # A working issue, not a class or permanent build. These items use the same
@@ -131,6 +135,10 @@ ITEM_SPECS: dict[str, ItemSpec] = {
     "javelins": ItemSpec("Bundle of javelins", "JV", 2, 4, 7, "weapon", "Finite throws with a remaining close thrust."),
     "war hammer": ItemSpec("Quarry war hammer", "WH", 2, 3, 8, "weapon", "Break protection and drive a target backward."),
     "weighted net": ItemSpec("Weighted net and knife", "NT", 3, 3, 6, "weapon", "Restrain at range before closing with a knife."),
+    "staff sling": ItemSpec("Oak staff sling", "SS", 1, 5, 4, "weapon", "Arcs selected stones over low cover but needs casting room."),
+    "hooked javelin": ItemSpec("Hooked river javelin", "HJ", 1, 5, 5, "weapon", "Pulls a target and leaves a physical recoverable shaft."),
+    "boar spear": ItemSpec("Crossbar boar spear", "BS", 2, 5, 6, "weapon", "Pins a charge at reach; unwieldy when crowded."),
+    "handgonne": ItemSpec("Powder handgonne", "HG", 3, 2, 9, "weapon", "A loud prepared shot that creates powder smoke."),
     "buckler": ItemSpec("Buckler", "BU", 2, 2, 4, "gear", "Turns one readable close attack."),
     "rope": ItemSpec("Tarred rope", "RO", 1, 4, 4, "gear", "Climbing, recovery, restraint, and route control."),
     "quiet shoes": ItemSpec("Reed-soled shoes", "QS", 2, 1, 1, "gear", "A quiet secondary pair for deliberate crossings."),
@@ -882,6 +890,8 @@ def weight_capacity(state: GameState) -> int:
         capacity += 8
     if state.gear == "cargo harness":
         capacity += 10
+    if "load ledger" in state.carried_passives:
+        capacity += 4
     return capacity
 
 
@@ -1072,6 +1082,7 @@ def initialise_inventory(state: GameState) -> None:
         ("sling shot pouch", 10), ("quarrel case", 4),
         ("casting net bundle", 2),
         ("throwing javelins", 4),
+        ("handgonne charges", 3),
     ):
         item = create_item(
             state, f"consumable:{name}", "Jomon counted ammunition",

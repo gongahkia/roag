@@ -218,6 +218,7 @@ def _upper_levels() -> dict[int, list[list[str]]]:
     upper[13][47] = "<"
     upper[10][47] = ">"
     upper[11][48] = "C"
+    upper[20][75] = "C"
 
     _rect(roof, 70, 14, 89, 25, floor="^")
     roof[16][84] = "<"
@@ -249,10 +250,20 @@ def _containers(seed: str) -> list[Container]:
         ("gantry", "Gantry tool chest", Position(86, 18, 1), None),
         ("watch", "Watch-roof coffer", Position(49, 9, 2), None),
         ("roof", "Mill roof cache", Position(87, 16, 2), "rope"),
+        ("compact", "Mill compact archive chest", Position(75, 20, 1), None),
     )
     rewards = list(TREASURE_REWARDS)
     stage_rng(seed, "treasure-rewards").shuffle(rewards)
-    return [Container(key, name, position, rewards[index], requirement) for index, (key, name, position, requirement) in enumerate(positions)]
+    containers = [
+        Container(key, name, position, rewards[index], requirement)
+        for index, (key, name, position, requirement) in enumerate(positions[:-1])
+    ]
+    key, name, position, requirement = positions[-1]
+    containers.append(Container(
+        key, name, position, "sluice token", requirement,
+        extra_rewards=["boar spear", "load ledger"],
+    ))
+    return containers
 
 
 def _reachable(levels: dict[str, list[str]], links: list[VerticalLink], start: Position) -> set[Position]:
