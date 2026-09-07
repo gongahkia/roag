@@ -3071,6 +3071,48 @@ class GameEngine:
 
         return [card_id for card_id in sorted(candidates, key=score, reverse=True)[:count]]
 
+    def transformation_comparison(
+        self,
+        source_id: str,
+        destination_id: str,
+    ) -> dict[str, Any]:
+        if source_id not in self.catalog.cards or destination_id not in self.catalog.cards:
+            raise RuleError("unknown transformation card")
+        source = self.catalog.cards[source_id]
+        destination = self.catalog.cards[destination_id]
+        if source["hero"] != destination["hero"] or source_id == destination_id:
+            raise RuleError("transformations require two different techniques from one owner")
+
+        def effect_labels(card: dict[str, Any]) -> list[str]:
+            labels = []
+            for effect in card["effects"]:
+                label = effect["op"]
+                if effect.get("status"):
+                    label += f":{effect['status']}"
+                if effect.get("bonus_status"):
+                    label += f"+{effect['bonus_status']}"
+                condition = (
+                    effect.get("condition_status")
+                    or effect.get("condition_target_state")
+                    or effect.get("condition_actor_state")
+                )
+                if condition:
+                    label += f"?{condition}"
+                labels.append(label)
+            return labels
+
+        source_tags = self.card_tags(source_id)
+        destination_tags = self.card_tags(destination_id)
+        return {
+            "source": source["name"],
+            "destination": destination["name"],
+            "cost": (source["cost"], destination["cost"]),
+            "ranks": (list(source["from_ranks"]), list(destination["from_ranks"])),
+            "effects": (effect_labels(source), effect_labels(destination)),
+            "added_tags": sorted(destination_tags - source_tags),
+            "removed_tags": sorted(source_tags - destination_tags),
+        }
+
     def choose_reward(self, index: int | None) -> None:
         if self.state.phase != "reward":
             raise RuleError("there is no reward to choose")

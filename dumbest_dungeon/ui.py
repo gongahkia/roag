@@ -985,12 +985,38 @@ class TerminalUI:
         if action.startswith("Transform"):
             options = self.engine.transformation_options(card_index)
             option_cards = [CardInstance(card_id) for card_id in options]
+            source = self.engine.state.deck[card_index]
+            source_definition = self.catalog.cards[source.card_id]
+            source_tags = ", ".join(sorted(self.engine.card_tags(source.card_id))).upper()
+            comparisons = [
+                self.engine.transformation_comparison(source.card_id, card_id)
+                for card_id in options
+            ]
+            labels = []
+            notes = []
+            for comparison in comparisons:
+                old_cost, new_cost = comparison["cost"]
+                old_ranks, new_ranks = comparison["ranks"]
+                labels.append(
+                    f"{comparison['destination']} | E{old_cost}->{new_cost} "
+                    f"R{','.join(map(str, old_ranks))}->R{','.join(map(str, new_ranks))}"
+                )
+                old_effects, new_effects = comparison["effects"]
+                added = ", ".join(comparison["added_tags"]) or "none"
+                removed = ", ".join(comparison["removed_tags"]) or "none"
+                notes.append(
+                    f"EFFECTS {'+'.join(old_effects)} -> {'+'.join(new_effects)}\n"
+                    f"TAGS + {added}\nTAGS - {removed}"
+                )
             transformed = self._menu(
                 "CHOOSE A NEW TECHNIQUE",
-                [self._card_label(card) for card in option_cards],
-                "Same specialist; offers favor current rank, setup/payoff bridges, and low duplication.",
+                labels,
+                f"SOURCE: {source_definition['name']} | E{source_definition['cost']} | "
+                f"FROM R{','.join(map(str, source_definition['from_ranks']))}\n"
+                f"TAGS: {source_tags}",
                 allow_cancel=False,
                 preview_cards=option_cards,
+                preview_notes=notes,
             )
             assert transformed is not None
             self.engine.service(
@@ -1334,7 +1360,12 @@ class TerminalUI:
                 self._draw_card(3, 45, preview_cards[selected])
             if preview_notes:
                 note_width = max(20, self.screen.getmaxyx()[1] - 48)
-                for offset, line in enumerate(textwrap.wrap(preview_notes[selected], note_width)[:3]):
+                lines = [
+                    wrapped
+                    for paragraph in preview_notes[selected].splitlines()
+                    for wrapped in (textwrap.wrap(paragraph, note_width) or [""])
+                ]
+                for offset, line in enumerate(lines[:3]):
                     self._put(20 + offset, 45, line, curses.A_DIM)
             self._footer("↑/↓ choose  Enter confirm  Esc back" if not view_only else "↑/↓ scroll  Esc/Enter back")
             key = self._key()
