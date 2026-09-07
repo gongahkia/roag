@@ -301,9 +301,11 @@ def _build_world(
     edges: dict[int, list[int]],
     room_biomes: dict[int, str],
     catalog: Catalog,
+    layout: str,
 ) -> list[str]:
     floor: set[tuple[int, int]] = set()
     corridors: set[tuple[int, int]] = set()
+    cluster_transfers: set[tuple[int, int]] = set()
     room_bounds: dict[int, tuple[int, int]] = {}
 
     def carve_segment(
@@ -311,23 +313,26 @@ def _build_world(
         end: tuple[int, int],
         *,
         broad: bool = False,
+        tracked: set[tuple[int, int]] | None = None,
     ) -> None:
+        def carve(position: tuple[int, int]) -> None:
+            floor.add(position)
+            corridors.add(position)
+            if tracked is not None:
+                tracked.add(position)
+
         start_x, start_y = start
         end_x, end_y = end
         if start_y == end_y:
             for x in range(min(start_x, end_x), max(start_x, end_x) + 1):
-                floor.add((x, start_y))
-                corridors.add((x, start_y))
+                carve((x, start_y))
                 if broad and start_y + 1 < WORLD_HEIGHT - 1:
-                    floor.add((x, start_y + 1))
-                    corridors.add((x, start_y + 1))
+                    carve((x, start_y + 1))
         elif start_x == end_x:
             for y in range(min(start_y, end_y), max(start_y, end_y) + 1):
-                floor.add((start_x, y))
-                corridors.add((start_x, y))
+                carve((start_x, y))
                 if broad and start_x + 1 < WORLD_WIDTH - 1:
-                    floor.add((start_x + 1, y))
-                    corridors.add((start_x + 1, y))
+                    carve((start_x + 1, y))
         else:
             raise ValueError("world segments must be orthogonal")
 
@@ -346,24 +351,29 @@ def _build_world(
                 continue
             end_x, end_y = positions[neighbor]
             broad = rng.random() < 0.28
+            tracked = (
+                cluster_transfers
+                if layout == "clusters" and {room_id, neighbor} in ({2, 4}, {7, 8})
+                else None
+            )
             if start_y == end_y:
                 direction = 1 if end_x > start_x else -1
                 first_x = start_x + direction * max(2, abs(end_x - start_x) // 3)
                 second_x = end_x - direction * max(2, abs(end_x - start_x) // 3)
                 detour_y = max(2, min(WORLD_HEIGHT - 3, start_y + rng.choice((-2, 2))))
-                carve_segment((start_x, start_y), (first_x, start_y), broad=broad)
-                carve_segment((first_x, start_y), (first_x, detour_y), broad=broad)
-                carve_segment((first_x, detour_y), (second_x, detour_y), broad=broad)
-                carve_segment((second_x, detour_y), (second_x, end_y), broad=broad)
-                carve_segment((second_x, end_y), (end_x, end_y), broad=broad)
+                carve_segment((start_x, start_y), (first_x, start_y), broad=broad, tracked=tracked)
+                carve_segment((first_x, start_y), (first_x, detour_y), broad=broad, tracked=tracked)
+                carve_segment((first_x, detour_y), (second_x, detour_y), broad=broad, tracked=tracked)
+                carve_segment((second_x, detour_y), (second_x, end_y), broad=broad, tracked=tracked)
+                carve_segment((second_x, end_y), (end_x, end_y), broad=broad, tracked=tracked)
             else:
                 middle_x = max(
                     2,
                     min(WORLD_WIDTH - 3, (start_x + end_x) // 2 + rng.randint(-3, 3)),
                 )
-                carve_segment((start_x, start_y), (middle_x, start_y), broad=broad)
-                carve_segment((middle_x, start_y), (middle_x, end_y), broad=broad)
-                carve_segment((middle_x, end_y), (end_x, end_y), broad=broad)
+                carve_segment((start_x, start_y), (middle_x, start_y), broad=broad, tracked=tracked)
+                carve_segment((middle_x, start_y), (middle_x, end_y), broad=broad, tracked=tracked)
+                carve_segment((middle_x, end_y), (end_x, end_y), broad=broad, tracked=tracked)
 
     for _ in range(10):
         start_x, start_y = rng.choice(sorted(floor))
@@ -456,6 +466,8 @@ def _build_world(
             patterned = sorted(patterned_set)
         for x, y in patterned:
             cells[y][x] = pattern["glyph"]
+    for x, y in cluster_transfers - anchors:
+        cells[y][x] = "="
     for x, y in pillars:
         cells[y][x] = "O"
     for x, y in floor:
@@ -521,6 +533,7 @@ class GameEngine:
             edges,
             room_biomes,
             catalog,
+            world["layout"],
         )
         default_party = list(catalog.heroes)[:4]
         state = GameState(

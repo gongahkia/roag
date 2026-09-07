@@ -227,6 +227,14 @@ class EngineTests(unittest.TestCase):
         for seed in (7, 13):
             engine = GameEngine.new(self.catalog, seed)
             self.assertEqual("clusters", self.catalog.worlds[engine.state.world_id]["layout"])
+            for left, right in ((2, 4), (7, 8)):
+                route = engine._find_path(
+                    engine.room_position(left),
+                    engine.room_position(right),
+                )
+                glyphs = [engine.world_tiles()[y][x] for x, y in route]
+                self.assertEqual(len(route) - 1, glyphs.count("="))
+                self.assertLessEqual(engine.path_cost(route), len(route) + 1)
             self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(self.catalog, engine.snapshot()).snapshot())
 
     def test_zigzag_layout_has_serpentine_route_and_fold_shortcuts(self) -> None:
