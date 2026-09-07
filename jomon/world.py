@@ -207,7 +207,7 @@ def sight_radius(state: GameState) -> int:
         radius += 4
     if state.weather == "river fog":
         radius = min(radius, 7)
-    elif state.weather == "hard rain":
+    elif state.weather in {"hard rain", "coast squall", "forest rain"}:
         radius = min(radius, 9)
     if position_key(state.position) in state.smoke and "smoke lens" not in state.carried_passives:
         radius = min(radius, 3)

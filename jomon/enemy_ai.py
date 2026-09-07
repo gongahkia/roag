@@ -80,6 +80,16 @@ def select_goal(state: GameState, threat: Threat) -> EnemyDecision:
             option("steal cargo", "steal", 105, "an exposed valuable load is within reach", state.position)
         if threat.role == "lookout" and not threat.alarmed:
             option("raise alarm", "alarm", 98, "its guarded route has been breached", threat.home_position)
+        if threat.role == "controller" and gap <= 4:
+            option("deny route", "control", 95, "the courier is inside its material control range", state.position)
+        if threat.role == "flanker" and 2 <= gap <= 7:
+            horizontal = state.position.x - threat.position.x
+            vertical = state.position.y - threat.position.y
+            side = -1 if (threat.turn + sum(ord(char) for char in threat.id)) % 2 else 1
+            offset_x = side if abs(horizontal) >= abs(vertical) else 0
+            offset_y = side if abs(horizontal) < abs(vertical) else 0
+            flank = Position(state.position.x + offset_x * 2, state.position.y + offset_y * 2, state.position.z)
+            option("flank last sight", "flank", 94, "a side approach avoids the courier's facing", flank)
         if threat.profile == "ranged":
             if threat.reload_turns > 0:
                 option("prepare shot", "reload", 100, "the ranged weapon is not ready")

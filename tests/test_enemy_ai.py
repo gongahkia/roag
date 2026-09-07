@@ -146,6 +146,34 @@ class NavigationAndGroupTests(unittest.TestCase):
         self.assertEqual(protector.position, Position(47, 25))
         self.assertIn("ranged ally", message)
 
+    def test_flanker_uses_visible_side_target(self):
+        state = active_region("bounded flank")
+        state.position = Position(42, 25)
+        flanker = Threat(
+            "side", "coppice side runner", "pursuer", Position(47, 25), 5, 5,
+            status="engaged", role="flanker",
+        )
+        state.threats = [flanker]
+        decision = select_goal(state, flanker)
+        self.assertEqual(decision.action, "flank")
+        self.assertNotEqual(decision.target, state.position)
+        self.assertIn("side approach", _threat_action(state, flanker, False))
+
+    def test_controller_telegraphs_a_cell_and_misses_reposition(self):
+        state = active_region("bounded controller")
+        state.position = Position(42, 25)
+        controller = Threat(
+            "net", "mudflat netter", "reach", Position(45, 25), 5, 5,
+            status="engaged", role="controller",
+        )
+        state.threats = [controller]
+        first = _threat_action(state, controller, False)
+        self.assertIn("leave the marked cell", first)
+        state.position = Position(42, 26)
+        second = _threat_action(state, controller, False)
+        self.assertIn("empty ground", second)
+        self.assertNotIn("net-drag", state.terrain_statuses)
+
 
 if __name__ == "__main__":
     unittest.main()

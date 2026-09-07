@@ -490,6 +490,21 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
         raise_group_alert(state, threat)
         threat.intent = "signals allies toward your last-known position"
         return f"The {threat.name} raises an alarm; nearby allies converge on a shared position."
+    if decision.action == "control":
+        if threat.aimed_at is None:
+            threat.aimed_at = state.position
+            threat.intent = f"casts a weighted net across {state.position.x},{state.position.y}; leave the marked cell"
+            return f"The {threat.name} {threat.intent}."
+        marked, threat.aimed_at = threat.aimed_at, None
+        if state.position == marked:
+            add_status(
+                state, "net-drag", "a weighted shore net", 3,
+                "guarded reposition, evasion, and current crossings worsen",
+            )
+            threat.intent = "hauls the marked net line"
+            return f"The {threat.name} hauls the net across the marked cell; movement control worsens."
+        threat.intent = "recovers the empty net line"
+        return f"The {threat.name}'s net closes on empty ground after your reposition."
     if decision.action in {"retreat", "withdraw"}:
         previous = threat.position
         threat.position = retreat_step(state, threat)
@@ -542,7 +557,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
         else:
             threat.intent = f"finishes reloading {threat.ranged_kind}"
         return f"The {threat.name} {threat.intent}."
-    if decision.action in {"intercept", "patrol", "return", "approach"} and decision.target:
+    if decision.action in {"intercept", "patrol", "return", "approach", "flank"} and decision.target:
         stop_distance = 1 if decision.action == "intercept" else 0
         previous = threat.position
         steps = pressure(state).pursuit_steps if decision.action == "approach" else 1
@@ -555,6 +570,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             "patrol": "resumes its assigned patrol without knowing your position",
             "return": "returns to its guarded position",
             "approach": "pursues your last visible position",
+            "flank": "moves toward a visible side approach rather than your exact position",
         }
         threat.intent = descriptions[decision.action]
         if threat.position == previous:

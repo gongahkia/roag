@@ -106,6 +106,18 @@ class VisibilityAndVerticalTests(unittest.TestCase):
         state.position = Position(62, 42, -1)
         self.assertLess(sight_radius(state), clear)
 
+    def test_new_region_weather_limits_player_sight(self):
+        state = prepared()
+        state.position = Position(40, 25)
+        for y in range(10, 41):
+            for x in range(25, 56):
+                state.region.tile_changes[f"{x},{y},0"] = "."
+        state.weather = "clear"
+        clear = sight_radius(state)
+        for weather in ("coast squall", "forest rain"):
+            state.weather = weather
+            self.assertLess(sight_radius(state), clear)
+
     def test_cross_level_sight_and_attack_through_ladder(self):
         state = prepared(weapon="spear")
         state.position = Position(47, 10, 1)
