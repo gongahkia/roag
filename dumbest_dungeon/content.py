@@ -396,21 +396,13 @@ def _biome_mechanics(biome: dict[str, Any]) -> None:
             raise ContentError(f"{context} has an invalid combat effect")
 
     objective = mechanics["objective"]
-    required_text = ("name", "safe_label", "force_label")
     if (
-        any(not isinstance(objective.get(field), str) for field in required_text)
-        or not isinstance(objective.get("safe_cost"), int)
-        or objective["safe_cost"] < 0
-        or objective.get("safe_effect") not in BIOME_OBJECTIVE_EFFECTS
-        or objective.get("force_effect") not in BIOME_OBJECTIVE_EFFECTS
-        or not isinstance(objective.get("safe_amount"), int)
-        or not isinstance(objective.get("force_amount"), int)
-        or (
-            objective["force_effect"] == "status_all"
-            and not isinstance(objective.get("force_status"), str)
-        )
+        not isinstance(objective.get("name"), str)
+        or not objective["name"].strip()
+        or not isinstance(objective.get("description"), str)
+        or not objective["description"].strip()
     ):
-        raise ContentError(f"{context} has an invalid access objective")
+        raise ContentError(f"{context} has an invalid objective identity")
 
 
 def load_catalog(path: Path | None = None) -> Catalog:

@@ -77,6 +77,13 @@ class ContentTests(unittest.TestCase):
             set(catalog.biomes),
             {pattern["biome"] for pattern in catalog.terrain_patterns.values()},
         )
+        self.assertTrue(
+            all(
+                set(biome["mechanics"]["objective"]) == {"name", "description"}
+                for biome in catalog.biomes.values()
+            )
+        )
+
         def signature(card: dict) -> tuple:
             return (
                 card["cost"],
@@ -210,6 +217,16 @@ class ContentTests(unittest.TestCase):
             path = Path(directory) / "bad-biome.json"
             path.write_text(json.dumps(raw), encoding="utf-8")
             with self.assertRaisesRegex(ContentError, "all six mechanic sections"):
+                load_catalog(path)
+
+    def test_biome_objective_identity_requires_a_description(self) -> None:
+        catalog = load_catalog()
+        raw = json.loads(json.dumps(catalog.raw))
+        raw["biomes"][0]["mechanics"]["objective"]["description"] = ""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad-objective.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ContentError, "invalid objective identity"):
                 load_catalog(path)
 
     def test_biomes_have_distinct_systemic_contracts(self) -> None:
