@@ -670,6 +670,46 @@ class EngineTests(unittest.TestCase):
                     mission["approaches"][1]["outcome"],
                 )
 
+    def test_every_biome_objective_route_completes_and_round_trips(self) -> None:
+        seed_for_biome = {}
+        for seed in range(20):
+            engine = GameEngine.new(self.catalog, seed)
+            for biome_id in engine.state.biome_ids:
+                seed_for_biome.setdefault(biome_id, seed)
+        self.assertEqual(set(self.catalog.biomes), set(seed_for_biome))
+
+        for biome_id, seed in seed_for_biome.items():
+            mission = self.engine.mission_definition(biome_id)
+            for approach in mission["approaches"]:
+                with self.subTest(biome=biome_id, approach=approach["id"]):
+                    engine = GameEngine.new(self.catalog, seed)
+                    engine.state.light = 100
+                    engine.state.supplies = 99
+                    objective = next(
+                        item for item in engine.state.objectives if item.biome_id == biome_id
+                    )
+                    engine.state.party_x, engine.state.party_y = objective.x, objective.y
+                    engine.state.current_objective_id = objective.id
+                    engine.state.phase = "objective"
+                    engine.begin_objective(approach["id"])
+                    while not objective.completed:
+                        engine.state.party_x, engine.state.party_y = engine.objective_position(
+                            objective
+                        )
+                        engine.state.current_objective_id = objective.id
+                        engine.state.phase = "objective"
+                        engine.advance_objective()
+                        if engine.state.phase == "combat":
+                            for enemy in engine.state.enemies:
+                                enemy.hp = 0
+                            engine._combat_victory()
+                            engine.choose_reward(None)
+                    self.assertEqual(approach["outcome"], objective.outcome)
+                    self.assertEqual(approach["id"], objective.facts["approach"])
+                    self.assertEqual(len(approach["stages"]), len(objective.facts["stages"]))
+                    restored = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+                    self.assertEqual(engine.snapshot(), restored.snapshot())
+
     def test_objective_stage_distances_follow_bounded_travel_labels(self) -> None:
         limits = {"short": (2, 12), "medium": (5, 18), "long": (8, 24)}
         seen = set()
