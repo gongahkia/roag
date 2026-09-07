@@ -2428,6 +2428,42 @@ class GameEngine:
     def boss_unlocked(self) -> bool:
         return self.completed_objectives() >= self.state.required_objectives
 
+    def core_patrol(self) -> Patrol:
+        return next(
+            patrol
+            for patrol in self.state.patrols
+            if self.room(patrol.room_id).kind == "boss"
+        )
+
+    def core_position(self) -> tuple[int, int]:
+        patrol = self.core_patrol()
+        if patrol.active:
+            return patrol.x, patrol.y
+        return self.room_position(patrol.room_id)
+
+    def core_route_projection(self) -> dict[str, int | str]:
+        route = self._find_path(
+            (self.state.party_x, self.state.party_y),
+            self.core_position(),
+        )
+        return self.route_intel(route)
+
+    def core_waypoint(self) -> tuple[int, int]:
+        route = self._find_path(
+            (self.state.party_x, self.state.party_y),
+            self.core_position(),
+        )
+        maximum = self.maximum_navigation_distance()
+        spent = 0
+        waypoint = (self.state.party_x, self.state.party_y)
+        for tile in route:
+            next_cost = self.movement_cost(*tile)
+            if spent + next_cost > maximum:
+                break
+            spent += next_cost
+            waypoint = tile
+        return waypoint
+
     def _apply_objective_effect(self, effect: str, amount: int, status: str | None = None) -> None:
         heroes = self.living_heroes()
         if effect == "light":

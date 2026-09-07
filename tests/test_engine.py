@@ -365,6 +365,32 @@ class EngineTests(unittest.TestCase):
         self.engine._advance_patrols()
         self.assertEqual(home, (boss.x, boss.y))
 
+    def test_core_projection_provides_a_reachable_command_waypoint(self) -> None:
+        target = self.engine.core_position()
+        projection = self.engine.core_route_projection()
+        waypoint = self.engine.core_waypoint()
+        route = self.engine._find_path(
+            (self.engine.state.party_x, self.engine.state.party_y),
+            waypoint,
+        )
+        self.assertEqual(
+            self.engine.path_cost(
+                self.engine._find_path(
+                    (self.engine.state.party_x, self.engine.state.party_y),
+                    target,
+                )
+            ),
+            projection["ticks"],
+        )
+        self.assertLessEqual(
+            self.engine.path_cost(route),
+            self.engine.maximum_navigation_distance(),
+        )
+        self.assertNotEqual(
+            (self.engine.state.party_x, self.engine.state.party_y),
+            waypoint,
+        )
+
     def test_third_and_fourth_objectives_remain_optional_and_reachable(self) -> None:
         engine = GameEngine.new(self.catalog, 4242)
         engine.state.supplies = 99
