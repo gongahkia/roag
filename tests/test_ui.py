@@ -72,6 +72,15 @@ class AsciiUiTests(unittest.TestCase):
         self.ui.run()
         self.assertIn("DULLEST DUNGEON", screen.text())
 
+    def test_help_scrolls_to_its_final_controls_at_minimum_size(self) -> None:
+        screen = FakeScreen(keys=[curses.KEY_END, 10])
+        self.ui.screen = screen
+        self.ui._help()
+        self.assertTrue(any("Explore the current world" in text for _, _, text, _ in screen.writes))
+        rendered = screen.text()
+        self.assertIn("Controls:", rendered)
+        self.assertIn("Enter/Esc close", rendered)
+
     def test_reward_screen_describes_tradeoffs_without_recommendations(self) -> None:
         self.engine = GameEngine.new(self.catalog, 731)
         self.ui.engine = self.engine

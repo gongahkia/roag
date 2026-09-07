@@ -1509,14 +1509,42 @@ class TerminalUI:
                 return key - ord("1")
 
     def _notice(self, title: str, body: str) -> None:
-        self._begin(title)
-        row = 3
-        for paragraph in body.splitlines():
-            for line in textwrap.wrap(paragraph, max(20, self.screen.getmaxyx()[1] - 6)) or [""]:
-                self._put(row, 3, line)
-                row += 1
-        self._footer("Press any key")
-        self._key()
+        width = max(20, self.screen.getmaxyx()[1] - 6)
+        lines = [
+            line
+            for paragraph in body.splitlines()
+            for line in (textwrap.wrap(paragraph, width) or [""])
+        ]
+        scroll = 0
+        while True:
+            self._begin(title)
+            available = max(1, self.screen.getmaxyx()[0] - 5)
+            scroll = max(0, min(scroll, max(0, len(lines) - available)))
+            for offset, line in enumerate(lines[scroll:scroll + available]):
+                self._put(3 + offset, 3, line)
+            if len(lines) <= available:
+                footer = "Press any key"
+            else:
+                end = min(len(lines), scroll + available)
+                footer = f"Up/Down or PgUp/PgDn scroll  Home/End jump  Enter/Esc close  {scroll + 1}-{end}/{len(lines)}"
+            self._footer(footer)
+            key = self._key()
+            if len(lines) <= available:
+                return
+            if key in (curses.KEY_UP, ord("k")):
+                scroll -= 1
+            elif key in (curses.KEY_DOWN, ord("j")):
+                scroll += 1
+            elif key == curses.KEY_PPAGE:
+                scroll -= available
+            elif key == curses.KEY_NPAGE:
+                scroll += available
+            elif key == curses.KEY_HOME:
+                scroll = 0
+            elif key == curses.KEY_END:
+                scroll = len(lines) - available
+            elif key in (10, 13, curses.KEY_ENTER, 27):
+                return
 
     def _begin(self, title: str) -> None:
         self._ensure_size()
