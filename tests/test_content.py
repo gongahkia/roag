@@ -96,6 +96,41 @@ class ContentTests(unittest.TestCase):
             with self.assertRaisesRegex(ContentError, "three non-starter"):
                 load_catalog(path)
 
+    def test_core_archetypes_have_positional_card_pools(self) -> None:
+        catalog = load_catalog()
+        core_archetypes = {
+            "warden",
+            "engineer",
+            "medic",
+            "scout",
+            "breacher",
+            "psion",
+            "quartermaster",
+            "operative",
+            "biologist",
+            "synth",
+            "duelist",
+            "artillerist",
+            "chaplain",
+            "hacker",
+            "pilot",
+        }
+        for hero_id in core_archetypes:
+            cards = [
+                card for card in catalog.cards.values() if card["hero"] == hero_id
+            ]
+            positional = [card for card in cards if len(card["from_ranks"]) <= 2]
+            self.assertGreaterEqual(
+                len(positional),
+                len(cards) // 2,
+                f"{hero_id} has lost its positional identity",
+            )
+            self.assertLessEqual(
+                sum(len(card["from_ranks"]) == 4 for card in cards),
+                1,
+                f"{hero_id} has too many positionless cards",
+            )
+
     def test_unknown_card_reference_is_rejected(self) -> None:
         catalog = load_catalog()
         raw = json.loads(json.dumps(catalog.raw))
