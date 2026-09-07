@@ -156,6 +156,18 @@ class ContentTests(unittest.TestCase):
             self.assertGreaterEqual(total_hp, 40, encounter["id"])
             self.assertLessEqual(total_hp, 60, encounter["id"])
 
+    def test_established_specialists_have_three_nonstarter_drafts(self) -> None:
+        catalog = load_catalog()
+        for hero_id in ("duelist", "artillerist", "chaplain", "hacker", "pilot"):
+            hero = catalog.heroes[hero_id]
+            starters = set(hero["starter_deck"])
+            nonstarters = [
+                card for card in catalog.cards.values()
+                if card["hero"] == hero_id and card["id"] not in starters
+            ]
+            self.assertGreaterEqual(len(nonstarters), 3, hero_id)
+            self.assertGreaterEqual(len({tuple(card["tags"]) for card in nonstarters}), 2, hero_id)
+
     def test_catalog_size_is_diagnostic_not_a_validity_rule(self) -> None:
         catalog = load_catalog()
         raw = json.loads(json.dumps(catalog.raw))
