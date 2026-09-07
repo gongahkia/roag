@@ -60,6 +60,16 @@ class SaveTests(unittest.TestCase):
         self.assertEqual(engine.tutorial_destination(), loaded.tutorial_destination())
         self.assertEqual(engine.snapshot(), loaded.snapshot())
 
+    def test_tutorial_combat_round_trip(self) -> None:
+        engine = GameEngine.tutorial(self.catalog)
+        engine.advance_tutorial(0, 1)
+        destination = engine.tutorial_destination()
+        for step in engine.path_to(*destination):
+            engine.step_exploration(*step)
+        loaded = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+        self.assertEqual(2, loaded.state.tutorial_stage)
+        self.assertEqual(engine.snapshot(), loaded.snapshot())
+
     def test_hazard_and_objective_state_round_trip(self) -> None:
         engine = GameEngine.new(self.catalog, 102)
         hazard = engine.state.hazards[0]

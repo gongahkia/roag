@@ -39,6 +39,47 @@ class EngineTests(unittest.TestCase):
         path = first.path_to(*first.tutorial_destination())
         self.assertLessEqual(first.path_cost(path), first.maximum_navigation_distance())
 
+    def test_tutorial_route_opens_a_real_positional_combo_combat(self) -> None:
+        engine = GameEngine.tutorial(self.catalog)
+        with self.assertRaisesRegex(RuleError, "limited to the highlighted"):
+            engine.path_to(*engine._neighbors((engine.state.party_x, engine.state.party_y))[0])
+        engine.advance_tutorial(0, 1)
+        destination = engine.tutorial_destination()
+        for step in engine.path_to(*destination):
+            engine.step_exploration(*step)
+        self.assertEqual("combat", engine.state.phase)
+        self.assertEqual(2, engine.state.tutorial_stage)
+        self.assertEqual(
+            ["mag_boots", "field_dressing", "scan", "arc_welder", "brace"],
+            [card.card_id for card in engine.state.hand],
+        )
+        self.assertTrue(engine.state.hand[1].upgraded)
+        warden = next(hero for hero in engine.living_heroes() if hero.id == "warden")
+        engineer = next(hero for hero in engine.living_heroes() if hero.id == "engineer")
+        self.assertEqual((2, 1), (warden.rank, engineer.rank))
+        self.assertTrue(warden.deaths_door)
+        self.assertEqual(
+            ["Gamma Brand", "Containment Blow"],
+            [intent["action"] for intent in engine.state.intents],
+        )
+
+        engine.advance_tutorial(2, 3)
+        engine.play_card(0, warden.id)
+        self.assertEqual((1, 2), (warden.rank, engineer.rank))
+        self.assertEqual(4, engine.state.tutorial_stage)
+        engine.advance_tutorial(4, 5)
+        field_dressing = next(
+            index for index, card in enumerate(engine.state.hand)
+            if card.card_id == "field_dressing"
+        )
+        engine.play_card(field_dressing, warden.id)
+        self.assertFalse(warden.deaths_door)
+        self.assertNotIn("wound", warden.statuses)
+        events: list[dict] = []
+        engine.end_turn(events.append)
+        self.assertEqual(6, engine.state.tutorial_stage)
+        self.assertEqual(2, len(events))
+
     def test_all_world_layouts_and_biome_encounter_pools_generate(self) -> None:
         worlds = set()
         layouts = set()
