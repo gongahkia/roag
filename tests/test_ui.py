@@ -473,6 +473,21 @@ class AsciiUiTests(unittest.TestCase):
         self.ui._hub()
         self.assertIn("No defender", screen.text())
 
+    def test_hub_combined_deck_preview_shows_formation_and_twenty_cards(self) -> None:
+        self.engine = GameEngine.new(self.catalog, 3, start_in_hub=True)
+        self.engine.select_curated_squad("bulkhead_basics")
+        self.ui.engine = self.engine
+        screen = FakeScreen(keys=[27])
+        self.ui.screen = screen
+        self.ui._hub_deck_view()
+        rendered = screen.text()
+        self.assertIn("COMBINED STARTER DECK", rendered)
+        self.assertIn("20 starting cards", rendered)
+        self.assertIn("R1 Warden", rendered)
+        self.assertIn("No serious", rendered)
+        self.assertIn("formation warnings", rendered)
+        self.assertIn("TARGET:", rendered)
+
     def test_affinity_card_preview_names_its_biome_bonus(self) -> None:
         engine = GameEngine.new(self.catalog, 3, start_in_hub=True)
         engine.state.hub_selection = ["cryonaut", "warden", "medic", "scout"]

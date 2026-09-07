@@ -163,7 +163,7 @@ class TerminalUI:
             if warnings:
                 suffix = f" (+{len(warnings) - 1})" if len(warnings) > 1 else ""
                 self._put(21, 3, f"! {warnings[0]}{suffix}"[:37], self._attr(3))
-            self._footer("Up/Down browse  Space select  Left/Right rank  C inspect cards  Enter depart  Esc title")
+            self._footer("Up/Down browse  Space select  Left/Right rank  C class  D party deck  Enter depart")
             key = self._key()
             if key in (curses.KEY_UP, ord("k")):
                 selected = (selected - 1) % len(roster)
@@ -177,6 +177,8 @@ class TerminalUI:
                 self.engine.reorder_hub_crew(hero["id"], 1)
             elif key in (ord("c"), ord("C")):
                 self._class_card_view(hero["id"])
+            elif key in (ord("d"), ord("D")):
+                self._hub_deck_view()
             elif key in (10, 13, curses.KEY_ENTER):
                 self.engine.begin_expedition()
             elif key == 27:
@@ -256,6 +258,38 @@ class TerminalUI:
             f"{role.upper()} CARD LIBRARY",
             labels,
             f"All {len(cards)} cards available to this archetype.",
+            allow_cancel=True,
+            view_only=True,
+            preview_cards=cards,
+        )
+
+    def _hub_deck_view(self) -> None:
+        assert self.engine
+        cards: list[CardInstance] = []
+        labels = []
+        formation = []
+        for rank, hero_id in enumerate(self.engine.state.hub_selection, 1):
+            hero = self.catalog.heroes[hero_id]
+            formation.append(f"R{rank} {hero['role']}")
+            for card_id in hero["starter_deck"]:
+                card = CardInstance(card_id)
+                cards.append(card)
+                labels.append(f"R{rank} {hero['role']} | {self._card_label(card)}")
+        warnings = self.engine.party_warnings()
+        warning_text = "No serious formation warnings." if not warnings else " ".join(
+            f"! {warning}" for warning in warnings
+        )
+        body = (
+            f"{' / '.join(formation) or 'No crew selected'}\n"
+            f"{len(cards)} starting cards. {warning_text}"
+        )
+        if not cards:
+            self._notice("COMBINED STARTER DECK", body)
+            return
+        self._menu(
+            "COMBINED STARTER DECK",
+            labels,
+            body,
             allow_cancel=True,
             view_only=True,
             preview_cards=cards,
