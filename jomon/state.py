@@ -264,6 +264,17 @@ class SocialIncident:
 
 
 @dataclass
+class QuestProgress:
+    stage: int = 0
+    status: str = "available"
+    branch: str = ""
+    decisions: list[str] = field(default_factory=list)
+    optional_done: bool = False
+    cache_marked: bool = False
+    consequence: str = ""
+
+
+@dataclass
 class GameState:
     save_format: int
     seed: str
@@ -358,6 +369,11 @@ class GameState:
     chronicle: list[str]
     pending_incident: SocialIncident | None
     last_schedule_turn: int
+    questlines: dict[str, QuestProgress] = field(default_factory=dict)
+    cross_region_arc: QuestProgress = field(
+        default_factory=lambda: QuestProgress(status="locked")
+    )
+    treasure_marks: dict[str, list[str]] = field(default_factory=dict)
     history: list[str] = field(default_factory=list)
     messages: list[str] = field(default_factory=list)
     world_ended: bool = False
@@ -552,6 +568,17 @@ def create_world(seed: str) -> GameState:
     state.contacts.update(new_contacts)
     state.region_threats.update(new_threats)
     state.regional_markets.update(new_markets)
+    state.contacts["hearthford"].append(
+        Contact(
+            "hearthford-contact-2", "Tomas Reed", "millwright speaker",
+            stage_rng(seed, "hearthford:second-contact").choice((-1, 0, 1)),
+            [], region.opportunity_commodity, "hearthford",
+            region.landmarks["second_contact"],
+        )
+    )
+    from .quests import initialise_quests
+
+    initialise_quests(state)
     from .route_chart import initialise_route_chart
     from .vessel import initialise_living_vessel
 
@@ -675,6 +702,9 @@ def _migrate_v5(data: dict[str, Any]) -> dict[str, Any]:
     migrated["save_format"] = SAVE_FORMAT
     migrated.setdefault("vessel_changes", {})
     migrated["vessel_changes"].setdefault("format_6_physical_resources", True)
+    migrated.setdefault("questlines", {})
+    migrated.setdefault("cross_region_arc", {"status": "locked"})
+    migrated.setdefault("treasure_marks", {})
     return migrated
 
 
@@ -735,6 +765,21 @@ def game_state_from_dict(data: Any) -> GameState:
             key: [parse_contact(value) for value in values]
             for key, values in data.get("contacts", {"hearthford": [data["contact"]]}).items()
         }
+        hearthford = regions.get("hearthford")
+        if hearthford and "second_contact" not in hearthford.landmarks:
+            primary = hearthford.landmarks["contact"]
+            hearthford.landmarks["second_contact"] = Position(
+                primary.x - 3, primary.y + 2, primary.z
+            )
+        if hearthford and len(contacts.get("hearthford", [])) == 1:
+            contacts["hearthford"].append(
+                Contact(
+                    "hearthford-contact-2", "Tomas Reed", "millwright speaker",
+                    stage_rng(data["seed"], "hearthford:second-contact").choice((-1, 0, 1)),
+                    [], hearthford.opportunity_commodity, "hearthford",
+                    hearthford.landmarks["second_contact"],
+                )
+            )
         region_threats = {
             key: [parse_threat(value) for value in values]
             for key, values in data.get("region_threats", {"hearthford": data["threats"]}).items()
@@ -779,6 +824,13 @@ def game_state_from_dict(data: Any) -> GameState:
         pending_incident = None
         if data.get("pending_incident"):
             pending_incident = SocialIncident(**data["pending_incident"])
+        questlines = {
+            region_id: QuestProgress(**value)
+            for region_id, value in data.get("questlines", {}).items()
+        }
+        cross_region_arc = QuestProgress(
+            **data.get("cross_region_arc", {"status": "locked"})
+        )
         state = GameState(
             save_format=data["save_format"], seed=data["seed"], world_time=data["world_time"],
             household=household, active_courier_id=data["active_courier_id"], active_region_id=active_region_id, contact=contact,
@@ -837,6 +889,12 @@ def game_state_from_dict(data: Any) -> GameState:
             chronicle=list(data.get("chronicle", [])),
             pending_incident=pending_incident,
             last_schedule_turn=data.get("last_schedule_turn", data["world_time"]),
+            questlines=questlines,
+            cross_region_arc=cross_region_arc,
+            treasure_marks={
+                region_id: list(marks)
+                for region_id, marks in data.get("treasure_marks", {}).items()
+            },
             history=list(data["history"]), messages=list(data["messages"]), world_ended=data["world_ended"],
         )
         if migrated_v3:
@@ -864,6 +922,9 @@ def game_state_from_dict(data: Any) -> GameState:
             state.contacts.update(new_contacts)
             state.region_threats.update(new_threats)
             state.regional_markets.update(new_markets)
+        from .quests import initialise_quests
+
+        initialise_quests(state)
         if initialise_living:
             from .vessel import initialise_living_vessel
 
@@ -953,6 +1014,18 @@ def validate_state(state: GameState) -> None:
     expected_regions = {"hearthford", "greywash", "greenwold", "whitecairn"}
     if set(state.regions) != expected_regions or set(state.contacts) != expected_regions or set(state.region_threats) != expected_regions or set(state.regional_markets) != expected_regions:
         raise StateError("regional persistence is incomplete")
+    if set(state.questlines) != expected_regions or set(state.treasure_marks) != expected_regions:
+        raise StateError("authored regional quest persistence is incomplete")
+    valid_quest_status = {"available", "active", "refused", "resolution", "completed"}
+    if any(
+        quest.status not in valid_quest_status or not 0 <= quest.stage <= 3
+        for quest in state.questlines.values()
+    ):
+        raise StateError("invalid regional quest state")
+    if state.cross_region_arc.status not in {
+        "locked", "available", "active", "completed",
+    } or not 0 <= state.cross_region_arc.stage <= 5:
+        raise StateError("invalid cross-region arc state")
     from .regions import validate_region
 
     try:

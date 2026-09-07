@@ -171,6 +171,9 @@ class PhysicalStateIntegrityTests(unittest.TestCase):
             item for item in legacy["items"]
             if item["kind"] != "relic:river-glass ward"
         ]
+        legacy.pop("questlines")
+        legacy.pop("cross_region_arc")
+        legacy.pop("treasure_marks")
         first = game_state_from_dict(copy.deepcopy(legacy))
         second = game_state_from_dict(copy.deepcopy(legacy))
         self.assertEqual(first.save_format, SAVE_FORMAT)
@@ -181,6 +184,8 @@ class PhysicalStateIntegrityTests(unittest.TestCase):
             and item.location not in {"lost", "destroyed"}
         ]
         self.assertEqual(len(wards), 1)
+        self.assertEqual(first.cross_region_arc.status, "locked")
+        self.assertEqual(set(first.questlines), set(first.regions))
 
 
 if __name__ == "__main__":

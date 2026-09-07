@@ -833,27 +833,42 @@ def _weather_and_deadline(state: GameState) -> list[str]:
             if next_stage == 1:
                 messages.append("White lines advance over the flats: the working tide has turned.")
             elif next_stage == 2:
-                for point in (Position(76, 40), Position(77, 40), Position(78, 40)):
-                    state.water[position_key(point)] = 99
-                messages.append("The tide covers the low wreck road; the dune road and chain walk remain.")
+                if not state.region.changes.get("tide_held"):
+                    for point in (Position(76, 40), Position(77, 40), Position(78, 40)):
+                        state.water[position_key(point)] = 99
+                    messages.append("The tide covers the low wreck road; the dune road and chain walk remain.")
+                else:
+                    messages.append("The dogged tide chain keeps the marked low wreck road exposed.")
             else:
                 messages.append("The tide chain goes taut; late recovery now requires the upper windlass.")
         elif state.active_region_id == "greenwold":
             if next_stage == 1:
                 messages.append("Birds lift downwind: burn smoke has begun crossing the southern clearing.")
             elif next_stage == 2:
-                for point in (Position(79, 39), Position(80, 39), Position(80, 39, 1)):
-                    state.smoke[position_key(point)] = 12
-                messages.append("The shifting wind carries smoke into the raised burnworks and level above.")
+                if not (
+                    state.region.changes.get("burn_redirected")
+                    or state.region.changes.get("medicine_coppice_saved")
+                ):
+                    for point in (Position(79, 39), Position(80, 39), Position(80, 39, 1)):
+                        state.smoke[position_key(point)] = 12
+                    messages.append("The shifting wind carries smoke into the raised burnworks and level above.")
+                else:
+                    messages.append("The bounded burn leaves the medicine route clear of rising smoke.")
             else:
                 messages.append("The medicine coppice is singed; the request changes from prevention to salvage.")
         elif state.active_region_id == "whitecairn":
             if next_stage == 1:
                 messages.append("Loose limestone ticks down the switchback: the quarry face is moving.")
             elif next_stage == 2:
-                for point in (Position(55, 36), Position(56, 36), Position(57, 36)):
-                    state.region.tile_changes[position_key(point)] = "%"
-                messages.append("A bounded rockfall covers the direct quarry stair; the sink loop remains open.")
+                if not (
+                    state.region.changes.get("quarry_braced")
+                    or state.region.changes.get("honest_bell")
+                ):
+                    for point in (Position(55, 36), Position(56, 36), Position(57, 36)):
+                        state.region.tile_changes[position_key(point)] = "%"
+                    messages.append("A bounded rockfall covers the direct quarry stair; the sink loop remains open.")
+                else:
+                    messages.append("The braced face holds; the direct quarry stair remains legible.")
             else:
                 messages.append("The real quarry bell answers the false one; the lower braces begin to fail.")
         else:
@@ -1225,6 +1240,9 @@ def decide_objective(state: GameState, decision: str) -> ActionResult:
         text = f"{state.courier.name} alters the request to flood-control work."
     else:
         return _plain(state, "Unknown objective decision.")
+    from .quests import record_objective_decision
+
+    record_objective_decision(state, decision)
     _remember_contact(state, text)
     state.region.local_objective_status = state.objective_status
     state.remember(text)
@@ -1272,6 +1290,9 @@ def _complete_objective(state: GameState, altered: bool) -> str:
     memory = f"{state.courier.name} completed {state.region.name}'s request by {method}."
     _remember_contact(state, memory)
     state.remember(memory)
+    from .quests import record_objective_completion
+
+    record_objective_completion(state, altered)
     return f"{state.region.name} records the {method}; stock and demand visibly change."
 
 
@@ -1339,6 +1360,9 @@ def _open_container(state: GameState) -> ActionResult:
         else:
             left.append(reward)
     container.opened = True
+    from .quests import record_container_opened
+
+    record_container_opened(state, container.id)
     state.remember(
         f"{state.courier.name} opened {container.name} and found {', '.join(rewards)}."
     )
@@ -1375,6 +1399,9 @@ def _control_interaction(state: GameState) -> ActionResult:
         sounds = emit_sound(state, 0 if efficient else 2)
         if state.objective_status == "altered":
             state.region.changes["objective_altered"] = True
+        from .quests import record_environmental_control
+
+        record_environmental_control(state)
         return _time_result(state, " ".join([text, *sounds]), priority=3)
     state.flood_control = "lowered" if state.flood_control == "raised" else "raised"
     points = [
@@ -1391,6 +1418,9 @@ def _control_interaction(state: GameState) -> ActionResult:
     state.region.changes["flood_control_used"] = True
     if state.objective_status == "altered":
         state.region.changes["mill_stabilised"] = True
+    from .quests import record_environmental_control
+
+    record_environmental_control(state)
     text = (
         f"The sluice is {state.flood_control}; water crosses culvert and ground "
         "openings, changing route safety."
@@ -1569,10 +1599,14 @@ def interact(state: GameState) -> ActionResult:
             if state.position in {item.first, item.second}
         )
         state.position = destination
+        from .quests import mark_elevated_lead
+
+        marked_lead = mark_elevated_lead(state)
         return _time_result(
             state,
             f"You use the {link.name}; nearby levels remain spatially aligned."
-            + (" Lower-limb injury or heavy armour makes the climb slow." if injured_climb or armour_climb else ""),
+            + (" Lower-limb injury or heavy armour makes the climb slow." if injured_climb or armour_climb else "")
+            + (" Height reveals and marks a named treasure lead." if marked_lead else ""),
             steps=2 if injured_climb or armour_climb else 1,
             priority=3,
         )
@@ -1581,6 +1615,21 @@ def interact(state: GameState) -> ActionResult:
     contact_schedule = state.actor_schedules.get(state.contact.id)
     contact_position = contact_schedule.position if contact_schedule and contact_schedule.area == f"region:{state.active_region_id}" else state.region.landmarks["contact"]
     if state.position == contact_position:
+        from .quests import arc_available_here
+
+        quest = state.questlines[state.active_region_id]
+        if quest.stage == 2 and quest.status == "resolution":
+            return ActionResult(
+                False, False,
+                f"{state.contact.name} is ready to settle the regional consequence.",
+                "quest:regional",
+            )
+        if arc_available_here(state):
+            return ActionResult(
+                False, False,
+                f"{state.contact.name} opens the compared regional account.",
+                "quest:arc",
+            )
         if state.objective_status in {"unoffered", "failed"}:
             return ActionResult(
                 False, False, f"{state.contact.name} explains the shortage.", "objective"
@@ -1623,7 +1672,17 @@ def interact(state: GameState) -> ActionResult:
         None,
     )
     if second:
-        return ActionResult(False, False, f"Speak with {second.name}.", f"contact:{second.id}")
+        quest = state.questlines[state.active_region_id]
+        if quest.stage == 2 and quest.status == "resolution":
+            return ActionResult(
+                False, False,
+                f"{second.name} is ready to settle the regional consequence.",
+                "quest:regional",
+            )
+        return ActionResult(
+            False, False, f"Speak with {second.name}.",
+            f"contact-service:{second.id}",
+        )
     if tile == "R":
         if state.region.changes.get("objective_taken"):
             commodity = state.region.objective_commodity
@@ -2457,6 +2516,27 @@ def purchase_bar_drink(state: GameState, drink_id: str, *, bottle: bool) -> Acti
     if not changed:
         return _plain(state, message)
     return _time_result(state, message, priority=3)
+
+
+def resolve_regional_quest_choice(state: GameState, choice: str) -> ActionResult:
+    from .quests import resolve_regional_quest
+
+    changed, message = resolve_regional_quest(state, choice)
+    return _time_result(state, message, priority=3) if changed else _plain(state, message)
+
+
+def resolve_cross_region_choice(state: GameState, choice: str) -> ActionResult:
+    from .quests import resolve_arc_choice
+
+    changed, message = resolve_arc_choice(state, choice)
+    return _time_result(state, message, priority=3) if changed else _plain(state, message)
+
+
+def use_contact_service(state: GameState, choice: str) -> ActionResult:
+    from .quests import use_secondary_service
+
+    changed, message = use_secondary_service(state, choice)
+    return _time_result(state, message, priority=3) if changed else _plain(state, message)
 
 
 def intervene_socially(state: GameState, response: str) -> ActionResult:

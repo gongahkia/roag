@@ -28,8 +28,11 @@ from .actions import (
     recruit_person,
     defer_recruit,
     effective_weapon_range,
+    resolve_cross_region_choice,
+    resolve_regional_quest_choice,
     intervene_socially,
     retreat,
+    use_contact_service,
     use_gear,
     use_route_stop,
 )
@@ -439,7 +442,7 @@ def _status_lines(state: GameState) -> list[str]:
         f"Noise {p.noise}; value {p.valuables}",
         f"{p.band} {p.score}; {state.weather}",
         state.active_region_id.upper() if state.location == "region" else _clip(state.route_nodes.get(state.route_current_node).name if state.route_nodes else state.active_region_id, 25),
-        f"{level_text}; {state.objective_status}",
+        f"{level_text}; {state.objective_status}; Q{state.questlines[state.active_region_id].stage}/3",
         f"{state.region.objective_commodity}: {market.stock}/{market.demand}",
         f"Load {pack_weight(state)}/{weight_capacity(state)} {load_state(state)}",
         f"Ammo {state.ammunition}; oil {state.lamp_oil}",
@@ -655,6 +658,18 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
             ChoiceOption("R", "Refuse the request", "refusal"),
             ChoiceOption("T", "Alter to material control work", "commitment", can_alter_objective(state), "tools, support, lever craft, or trust"),
         ]
+    if kind == "quest:regional":
+        from .quests import regional_resolution_options
+
+        return [ChoiceOption(key.upper(), label, semantic, available, requirement) for key, label, semantic, available, requirement in regional_resolution_options(state)]
+    if kind == "quest:arc":
+        from .quests import arc_options
+
+        return [ChoiceOption(key.upper(), label, semantic, available, requirement) for key, label, semantic, available, requirement in arc_options(state)]
+    if kind.startswith("contact-service:"):
+        from .quests import secondary_service_options
+
+        return [ChoiceOption(key.upper(), label, semantic, available, requirement) for key, label, semantic, available, requirement in secondary_service_options(state)]
     if kind == "merchant":
         return [
             ChoiceOption(str(index + 1), f"Buy {item} — {max(1, MERCHANT_ITEMS[item][0] - (1 if state.support == 'factor surety' else 0))} credit", "commitment", state.trade_credit >= max(1, MERCHANT_ITEMS[item][0] - (1 if state.support == "factor surety" else 0)), "sufficient credit")
@@ -1466,6 +1481,38 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             "Weapons: " + ", ".join(state.owned_weapons), "Secondary gear: " + ", ".join(state.owned_gear),
             "These physical stores remain aboard; all expedition selection happens at tavern C.", "Escape closes without time.",
         ]
+    if kind == "quest:regional":
+        from .quests import QUESTS
+
+        quest = state.questlines[state.active_region_id]
+        return QUESTS[state.active_region_id]["title"].upper(), [
+            f"Opening decision: {quest.branch or 'none'}.",
+            f"Material work: {state.objective_status}; optional lead: {'completed' if quest.optional_done else 'open'}.",
+            "This decision changes people, work, hazards, and later visits.",
+            "Choose one recorded regional settlement.",
+        ]
+    if kind == "quest:arc":
+        from .quests import ARC_REGIONS, ARC_TITLE
+
+        arc = state.cross_region_arc
+        next_region = ARC_REGIONS.get(arc.stage)
+        return ARC_TITLE.upper(), [
+            f"Chapter {arc.stage + 1 if arc.stage < 5 else 5}/5; account: {arc.branch or 'not yet bound'}.",
+            f"Current witness: {state.region.name}.",
+            f"Next required region: {state.regions[next_region].name if next_region else 'ending decision here'}.",
+            "The working marks are physical evidence, not a prophecy.",
+        ]
+    if kind.startswith("contact-service:"):
+        contact_id = kind.split(":", 1)[1]
+        contact = next(
+            person for person in state.contacts[state.active_region_id]
+            if person.id == contact_id
+        )
+        return contact.name.upper(), [
+            f"{contact.role}; disposition {contact.disposition:+d}; interest {contact.interest}.",
+            "This local worker can mark a cache, teach practical knowledge, or treat an injury.",
+            *[f"- {memory}" for memory in (contact.memories[-3:] or ["No shared service yet."])],
+        ]
     if kind == "contact" or kind.startswith("contact:"):
         contact = state.contact
         if kind.startswith("contact:"):
@@ -1667,6 +1714,15 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         return kind, False
     if kind == "objective" and char in {"a", "r", "t"}:
         result = decide_objective(state, {"a": "accept", "r": "refuse", "t": "alter"}[char])
+        return (None if result.changed else kind), False
+    if kind == "quest:regional" and char:
+        result = resolve_regional_quest_choice(state, char)
+        return (None if result.changed else kind), False
+    if kind == "quest:arc" and char:
+        result = resolve_cross_region_choice(state, char)
+        return (None if result.changed else kind), False
+    if kind.startswith("contact-service:") and char in {"c", "t", "h"}:
+        result = use_contact_service(state, char)
         return (None if result.changed else kind), False
     if kind == "merchant" and char.isdigit():
         index = int(char) - 1

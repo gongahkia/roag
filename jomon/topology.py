@@ -171,6 +171,7 @@ def _ground(seed: str) -> tuple[list[list[str]], dict[str, Position], dict[str, 
     landmarks = {
         "landing": landing,
         "contact": settlement,
+        "second_contact": Position(settlement.x - 3, settlement.y + 2),
         "settlement": settlement,
         "watchtower": watch,
         "mill": mill,

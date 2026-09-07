@@ -286,7 +286,13 @@ def field_of_view(state: GameState, *, remember: bool = True) -> set[Position]:
 
 
 def remembered(state: GameState, position: Position) -> bool:
-    return position_key(position) in set(state.region.seen)
+    if position_key(position) in set(state.region.seen):
+        return True
+    marked = set(state.treasure_marks.get(state.active_region_id, []))
+    return any(
+        container.id in marked and container.position == position
+        for container in state.region.containers
+    )
 
 
 def camera_origin(position: Position, map_width: int, map_height: int, view_width: int, view_height: int) -> tuple[int, int]:

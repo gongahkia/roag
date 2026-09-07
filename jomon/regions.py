@@ -606,10 +606,19 @@ def reconstruct_regional_process(state) -> None:
             for point in (Position(76, 40), Position(77, 40), Position(78, 40)):
                 state.water[f"{point.x},{point.y},{point.z}"] = 99
     elif state.active_region_id == "greenwold":
-        if state.region.process_stage >= 2 and not state.region.changes.get("burn_redirected"):
+        if (
+            state.region.process_stage >= 2
+            and not state.region.changes.get("burn_redirected")
+            and not state.region.changes.get("medicine_coppice_saved")
+        ):
             for point in (Position(79, 39), Position(80, 39), Position(80, 39, 1)):
                 state.smoke[f"{point.x},{point.y},{point.z}"] = 12
-    elif state.active_region_id == "whitecairn" and state.region.process_stage >= 2:
+    elif (
+        state.active_region_id == "whitecairn"
+        and state.region.process_stage >= 2
+        and not state.region.changes.get("quarry_braced")
+        and not state.region.changes.get("honest_bell")
+    ):
         for point in (Position(55, 36), Position(56, 36), Position(57, 36)):
             state.region.tile_changes.setdefault(f"{point.x},{point.y},{point.z}", "%")
     elif state.flood_control == "lowered":
