@@ -460,6 +460,38 @@ class EngineTests(unittest.TestCase):
         self.assertFalse(self.engine.state.deck[source_index].upgraded)
         self.assertEqual("exploration", self.engine.state.phase)
 
+    def test_every_archetype_can_transform_a_starter_into_a_nonstarter(self) -> None:
+        hero_ids = list(self.catalog.heroes)
+        for hero_id in hero_ids:
+            definition = self.catalog.heroes[hero_id]
+            rank = definition["preferred_ranks"][0]
+            party = [candidate for candidate in hero_ids if candidate != hero_id][:3]
+            party.insert(rank - 1, hero_id)
+            engine = GameEngine.new(self.catalog, 12, start_in_hub=True)
+            engine.state.hub_selection = party
+            engine.begin_expedition()
+            starter_ids = set(definition["starter_deck"])
+            source_index = next(
+                index
+                for index, card in enumerate(engine.state.deck)
+                if card.card_id in starter_ids
+            )
+            options = engine.transformation_options(source_index)
+            self.assertTrue(
+                any(card_id not in starter_ids for card_id in options),
+                f"{hero_id} has no non-starter transformation",
+            )
+
+    def test_transformation_comparison_exposes_every_changed_dimension(self) -> None:
+        comparison = self.engine.transformation_comparison("brace", "breach")
+        self.assertEqual("Brace", comparison["source"])
+        self.assertEqual("Breach", comparison["destination"])
+        self.assertEqual((1, 2), comparison["cost"])
+        self.assertEqual(([1, 2], [1]), comparison["ranks"])
+        self.assertEqual((["block"], ["damage", "status:vulnerable"]), comparison["effects"])
+        self.assertIn("setup:vulnerable", comparison["added_tags"])
+        self.assertIn("block", comparison["removed_tags"])
+
     def test_upgraded_conditional_rescue_cleans_wound(self) -> None:
         self.engine.start_combat("lost_shift")
         medic = next(hero for hero in self.engine.living_heroes() if hero.id == "medic")

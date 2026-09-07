@@ -275,7 +275,11 @@ class AsciiUiTests(unittest.TestCase):
         self.ui._service()
         self.assertEqual("exploration", self.engine.state.phase)
         self.assertNotEqual(original, self.engine.state.deck[0].card_id)
-        self.assertIn("CHOOSE A NEW TECHNIQUE", screen.text())
+        rendered = screen.text()
+        self.assertIn("CHOOSE A NEW TECHNIQUE", rendered)
+        self.assertIn("SOURCE:", rendered)
+        self.assertIn("EFFECTS", rendered)
+        self.assertIn("TAGS +", rendered)
 
     def test_effect_browser_groups_hero_and_party_stacks(self) -> None:
         hero = self.engine.living_heroes()[0]
