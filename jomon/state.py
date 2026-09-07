@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import asdict, dataclass, field
+import copy
 import hashlib
 import random
 import re
@@ -20,7 +21,7 @@ from .content import (
     ROLES,
 )
 
-SAVE_FORMAT = 3
+SAVE_FORMAT = 4
 HISTORY_LIMIT = 40
 MESSAGE_LIMIT = 8
 
@@ -49,6 +50,12 @@ class Person:
     health: int = 10
     max_health: int = 10
     injury: str = "none"
+    injuries: dict[str, str] = field(default_factory=dict)
+    background: str = "Jomon household"
+    build_tendency: str = "practical expedition work"
+    home_region: str = "hearthford"
+    recruited: bool = False
+    available: bool = True
 
 
 @dataclass
@@ -88,6 +95,7 @@ class Container:
     reward: str
     requirement: str | None = None
     opened: bool = False
+    item_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -130,12 +138,37 @@ class Threat:
 
 
 @dataclass
+class Item:
+    id: str
+    kind: str
+    location: str
+    provenance: str
+    owner_id: str | None = None
+    x: int = 0
+    y: int = 0
+    rotated: bool = False
+    quantity: int = 1
+    condition: int = 100
+    container_id: str | None = None
+    region_id: str | None = None
+    ground_position: Position | None = None
+
+
+@dataclass
+class TerrainStatus:
+    cause: str
+    remaining: int
+    consequence: str
+
+
+@dataclass
 class GameState:
     save_format: int
     seed: str
     world_time: int
     household: list[Person]
     active_courier_id: str | None
+    active_region_id: str
     contact: Contact
     region: Region
     market: dict[str, MarketEntry]
@@ -179,6 +212,14 @@ class GameState:
     objective_deadline: int
     objective_changed: bool
     escalation_spawned: bool
+    items: list[Item]
+    next_item_id: int
+    pack_width: int
+    pack_height: int
+    locker_width: int
+    locker_height: int
+    terrain_statuses: dict[str, TerrainStatus]
+    objective_evidence: list[str]
     history: list[str] = field(default_factory=list)
     messages: list[str] = field(default_factory=list)
     world_ended: bool = False
@@ -303,7 +344,7 @@ def create_world(seed: str) -> GameState:
     relics = {"river-glass ward": 1} if stage_rng(seed, "river-glass").randrange(5) == 0 else {}
     state = GameState(
         save_format=SAVE_FORMAT, seed=seed, world_time=0, household=household,
-        active_courier_id=None, contact=contact, region=region, market=market,
+        active_courier_id=None, active_region_id="hearthford", contact=contact, region=region, market=market,
         vessel_cargo=vessel_cargo, location="jomon", current_room=None,
         position=Position(3, 4, 0), expedition_count=0, returned_expeditions=0,
         weapon=None, gear=None, support=None, support_spent=False, crossbow_loaded=True,
@@ -317,7 +358,13 @@ def create_world(seed: str) -> GameState:
         rope_uses=3, smoke_charges=1, smoke={}, water={}, guarded_step=False,
         aimed_target=None, weather="clear", objective_deadline=150,
         objective_changed=False, escalation_spawned=False,
+        items=[], next_item_id=1, pack_width=10, pack_height=6,
+        locker_width=18, locker_height=10, terrain_statuses={},
+        objective_evidence=[],
     )
+    from .inventory import initialise_inventory
+
+    initialise_inventory(state)
     state.threats = _threats(seed, region)
     state.add_message(f"Jomon reaches Hearthford. {region.condition}")
     if relics:
@@ -333,9 +380,35 @@ def _position(value: Any, label: str) -> Position:
     return Position(value["x"], value["y"], value["z"])
 
 
+def _migrate_v3(data: dict[str, Any]) -> dict[str, Any]:
+    """Map the one supported Python development format without losing goods."""
+    migrated = copy.deepcopy(data)
+    migrated["save_format"] = SAVE_FORMAT
+    migrated["active_region_id"] = "hearthford"
+    migrated["items"] = []
+    migrated["next_item_id"] = 1
+    migrated["pack_width"], migrated["pack_height"] = 10, 6
+    migrated["locker_width"], migrated["locker_height"] = 18, 10
+    migrated["terrain_statuses"] = {}
+    migrated["objective_evidence"] = []
+    for person in migrated.get("household", []):
+        person.setdefault("injuries", {})
+        person.setdefault("background", "Jomon household")
+        person.setdefault("build_tendency", "practical expedition work")
+        person.setdefault("home_region", "hearthford")
+        person.setdefault("recruited", False)
+        person.setdefault("available", True)
+    for container in migrated.get("region", {}).get("containers", []):
+        container.setdefault("item_ids", [])
+    return migrated
+
+
 def game_state_from_dict(data: Any) -> GameState:
     if not isinstance(data, dict):
         raise StateError("save root must be an object")
+    migrated_v3 = data.get("save_format") == 3
+    if migrated_v3:
+        data = _migrate_v3(data)
     if data.get("save_format") != SAVE_FORMAT:
         raise StateError(f"incompatible save format; expected {SAVE_FORMAT}")
     try:
@@ -364,9 +437,18 @@ def game_state_from_dict(data: Any) -> GameState:
             threat_data["position"] = _position(threat_data["position"], "threat position")
             threat_data["patrol"] = [_position(value, "patrol position") for value in threat_data.get("patrol", [])]
             threats.append(Threat(**threat_data))
+        items: list[Item] = []
+        for raw in data["items"]:
+            item_data = dict(raw)
+            if item_data.get("ground_position") is not None:
+                item_data["ground_position"] = _position(item_data["ground_position"], "ground item")
+            items.append(Item(**item_data))
+        terrain_statuses = {
+            name: TerrainStatus(**value) for name, value in data["terrain_statuses"].items()
+        }
         state = GameState(
             save_format=data["save_format"], seed=data["seed"], world_time=data["world_time"],
-            household=household, active_courier_id=data["active_courier_id"], contact=contact,
+            household=household, active_courier_id=data["active_courier_id"], active_region_id=data["active_region_id"], contact=contact,
             region=region, market=market, vessel_cargo=vessel, location=data["location"],
             current_room=data["current_room"], position=_position(data["position"], "courier position"),
             expedition_count=data["expedition_count"], returned_expeditions=data["returned_expeditions"],
@@ -385,8 +467,17 @@ def game_state_from_dict(data: Any) -> GameState:
             guarded_step=data["guarded_step"], aimed_target=data["aimed_target"], weather=data["weather"],
             objective_deadline=data["objective_deadline"], objective_changed=data["objective_changed"],
             escalation_spawned=data["escalation_spawned"],
+            items=items, next_item_id=data["next_item_id"], pack_width=data["pack_width"],
+            pack_height=data["pack_height"], locker_width=data["locker_width"],
+            locker_height=data["locker_height"], terrain_statuses=terrain_statuses,
+            objective_evidence=list(data["objective_evidence"]),
             history=list(data["history"]), messages=list(data["messages"]), world_ended=data["world_ended"],
         )
+        if migrated_v3:
+            from .inventory import initialise_inventory, reconcile_legacy_carried
+
+            initialise_inventory(state)
+            reconcile_legacy_carried(state)
     except (AttributeError, KeyError, TypeError, ValueError) as exc:
         raise StateError(f"malformed save: {exc}") from exc
     validate_state(state)
@@ -394,8 +485,8 @@ def game_state_from_dict(data: Any) -> GameState:
 
 
 def validate_state(state: GameState) -> None:
-    if len(state.household) != 6 or len({person.id for person in state.household}) != 6:
-        raise StateError("save must contain the six-person household")
+    if len(state.household) < 6 or len({person.id for person in state.household}) != len(state.household):
+        raise StateError("save must retain the six-person household and unique recruits")
     if state.active_courier_id is not None and state.courier is None:
         raise StateError("active courier is not in the household")
     if set(state.market) != set(COMMODITIES):
@@ -419,6 +510,12 @@ def validate_state(state: GameState) -> None:
         raise StateError("regional level dimensions are invalid")
     if any(count < 0 for count in (*state.owned_passives.values(), *state.carried_passives.values())):
         raise StateError("negative passive count")
+    try:
+        from .inventory import validate_inventory
+
+        validate_inventory(state)
+    except (KeyError, ValueError) as exc:
+        raise StateError(f"invalid spatial inventory: {exc}") from exc
     from .world import connected_required_map
     if not connected_required_map(state):
         raise StateError("required Hearthford landmarks are unreachable")

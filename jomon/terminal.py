@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from .actions import (
+    _advance_world,
     attack,
     choose_courier,
     choose_gear,
@@ -22,6 +23,28 @@ from .actions import (
     purchase_merchant_item,
     retreat,
     use_gear,
+)
+from .inventory import (
+    BODY_SLOTS,
+    InventoryTransaction,
+    auto_place,
+    can_place,
+    drop_item,
+    equip_item,
+    equipped_item,
+    grid_items,
+    grid_size,
+    item_spec,
+    load_state,
+    occupied_cells,
+    pack_weight,
+    place_item,
+    record_acquisition,
+    rotate_item,
+    sync_legacy_load,
+    transfer_to_grid,
+    unequip_item,
+    weight_capacity,
 )
 from .content import (
     COMMODITIES,
@@ -65,6 +88,20 @@ class ColourStyle:
     pair: int
     foreground: int | None
     bold: bool
+
+
+@dataclass
+class InventoryView:
+    transaction: InventoryTransaction
+    source: str | None = None
+    pane: str = "pack"
+    cursor_x: int = 0
+    cursor_y: int = 0
+    held_id: str | None = None
+
+    @classmethod
+    def begin(cls, state: GameState, source: str | None = None) -> "InventoryView":
+        return cls(InventoryTransaction.begin(state), source=source)
 
 
 def semantic_colour_plan(colour_count: int, pair_count: int) -> dict[str, ColourStyle]:
@@ -324,6 +361,221 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str]) -> None:
     screen.refresh()
 
 
+def _inventory_panes(state: GameState, view: InventoryView) -> list[str]:
+    if state.location == "jomon":
+        return ["pack", "locker"]
+    return ["pack", view.source or "ground"]
+
+
+def _inventory_items(state: GameState, view: InventoryView) -> list:
+    if view.pane == "pack":
+        return grid_items(state, "pack", owner_id=state.active_courier_id)
+    if view.pane == "locker":
+        return grid_items(state, "locker")
+    if view.pane.startswith("container:"):
+        container_id = view.pane.split(":", 1)[1]
+        return [item for item in state.items if item.location == "container" and item.container_id == container_id]
+    if view.pane == "ground":
+        return [
+            item for item in state.items
+            if item.location == "ground"
+            and item.region_id == state.active_region_id
+            and item.ground_position == state.position
+        ]
+    return []
+
+
+def _inventory_item_at(state: GameState, view: InventoryView):
+    items = _inventory_items(state, view)
+    if view.pane in {"pack", "locker"}:
+        return next((item for item in reversed(items) if (view.cursor_x, view.cursor_y) in occupied_cells(item)), None)
+    return items[view.cursor_y] if 0 <= view.cursor_y < len(items) else None
+
+
+def _item_colour(kind: str) -> int:
+    category = item_spec(kind).category
+    role = {
+        "weapon": "hostile", "armour": "structure", "gear": "interactable",
+        "passive": "cargo", "consumable": "neutral", "cargo": "cargo",
+        "relic": "mystical",
+    }.get(category, "terrain")
+    return _COLOUR_ATTRIBUTES[role]
+
+
+def _draw_inventory(screen: curses.window, state: GameState, view: InventoryView) -> None:
+    height, width = screen.getmaxyx()
+    screen.erase()
+    _frame(screen, 0, 0, height - 2, width, "SPATIAL INVENTORY")
+    pane_name = view.pane.split(":", 1)[0].upper()
+    _put(screen, 1, 2, f"{pane_name}  Tab changes pane", curses.A_BOLD)
+    selected = _inventory_item_at(state, view)
+    if view.held_id:
+        selected = next(item for item in state.items if item.id == view.held_id)
+
+    if view.pane in {"pack", "locker"}:
+        grid_width, grid_height = grid_size(state, view.pane)
+        origin_x, origin_y = 2, 3
+        _frame(screen, origin_y - 1, origin_x - 1, grid_height + 2, grid_width * 2 + 2, f"{grid_width}x{grid_height}")
+        cell_items: dict[tuple[int, int], object] = {}
+        for item in _inventory_items(state, view):
+            for cell in occupied_cells(item):
+                cell_items[cell] = item
+        for y in range(grid_height):
+            for x in range(grid_width):
+                item = cell_items.get((x, y))
+                text = ".."
+                attr = curses.A_DIM
+                if item:
+                    text = item_spec(item.kind).abbreviation if (x, y) == (item.x, item.y) else "[]"
+                    attr = _item_colour(item.kind)
+                if (x, y) == (view.cursor_x, view.cursor_y):
+                    attr |= curses.A_REVERSE
+                _put(screen, origin_y + y, origin_x + x * 2, text[:2].ljust(2), attr)
+    else:
+        _put(screen, 3, 2, "Items at this physical source:", curses.A_BOLD)
+        rows = _inventory_items(state, view)
+        for index, item in enumerate(rows[:10]):
+            attr = _item_colour(item.kind) | (curses.A_REVERSE if index == view.cursor_y else 0)
+            _put(screen, 5 + index, 3, _clip(f"{item_spec(item.kind).abbreviation} {item_spec(item.kind).name} x{item.quantity}", 34), attr)
+        if not rows:
+            _put(screen, 5, 3, "(empty)", curses.A_DIM)
+
+    detail_x = min(max(28, width // 2), width - 34)
+    _put(screen, 2, detail_x, "BODY / READIED", curses.A_BOLD)
+    readied = equipped_item(state, "readied")
+    secondary = equipped_item(state, "secondary")
+    _put(screen, 3, detail_x, _clip(f"Weapon: {item_spec(readied.kind).name if readied else '-'}", width - detail_x - 2))
+    _put(screen, 4, detail_x, _clip(f"Gear: {item_spec(secondary.kind).name if secondary else '-'}", width - detail_x - 2))
+    courier = state.courier
+    for index, slot in enumerate(BODY_SLOTS):
+        item = equipped_item(state, slot)
+        injury = courier.injuries.get(slot, "clear") if courier else "clear"
+        name = item_spec(item.kind).name if item else "exposed"
+        _put(screen, 6 + index, detail_x, _clip(f"{index + 1} {slot:5} {name}; {injury}", width - detail_x - 2))
+    burden = load_state(state)
+    _put(screen, 13, detail_x, f"Weight {pack_weight(state)}/{weight_capacity(state)} — {burden}", curses.A_BOLD)
+    from .inventory import LOAD_EFFECTS
+
+    for index, line in enumerate(_wrapped(LOAD_EFFECTS[burden], max(20, width - detail_x - 2))[:2]):
+        _put(screen, 14 + index, detail_x, line)
+    if selected:
+        spec = item_spec(selected.kind)
+        held = "HELD — " if view.held_id else ""
+        _put(screen, 16, detail_x, _clip(f"{held}{spec.name} {spec.width}x{spec.height} wt {spec.weight}", width - detail_x - 2), curses.A_BOLD)
+        for index, line in enumerate(_wrapped(spec.description, max(20, width - detail_x - 2))[:3]):
+            _put(screen, 17 + index, detail_x, line)
+        _put(screen, 20, detail_x, _clip(f"Condition {selected.condition}; {selected.provenance}", width - detail_x - 2))
+    _put(screen, height - 2, 1, "Arrows/WASD cursor  Enter lift/place  R rotate  Tab pane  T transfer  E equip", curses.A_REVERSE)
+    _put(screen, height - 1, 1, "1-6 unequip armour  D drop  C confirm  Esc cancel all changes", curses.A_REVERSE)
+    screen.refresh()
+
+
+def _clamp_inventory_cursor(state: GameState, view: InventoryView) -> None:
+    if view.pane in {"pack", "locker"}:
+        width, height = grid_size(state, view.pane)
+        view.cursor_x = max(0, min(width - 1, view.cursor_x))
+        view.cursor_y = max(0, min(height - 1, view.cursor_y))
+    else:
+        view.cursor_x = 0
+        view.cursor_y = max(0, min(max(0, len(_inventory_items(state, view)) - 1), view.cursor_y))
+
+
+def _handle_inventory(state: GameState, view: InventoryView, key: int) -> tuple[bool, bool]:
+    """Return (closed, committed); Escape restores the complete opening state."""
+    char = chr(key).lower() if 0 <= key < 256 else ""
+    movement = {
+        curses.KEY_LEFT: (-1, 0), curses.KEY_RIGHT: (1, 0),
+        curses.KEY_UP: (0, -1), curses.KEY_DOWN: (0, 1),
+        ord("a"): (-1, 0), ord("d"): (1, 0), ord("w"): (0, -1), ord("s"): (0, 1),
+    }
+    normalized = ord(char) if char else key
+    if key == 27:
+        view.transaction.cancel(state)
+        return True, False
+    if key == 9:
+        panes = _inventory_panes(state, view)
+        view.pane = panes[(panes.index(view.pane) + 1) % len(panes)]
+        view.cursor_x = view.cursor_y = 0
+        return False, False
+    if key == ord("D"):
+        item = _inventory_item_at(state, view)
+        if item and item.location == "pack" and drop_item(state, item.id):
+            view.transaction.changed = True
+            sync_legacy_load(state)
+        return False, False
+    if normalized in movement:
+        dx, dy = movement[normalized]
+        view.cursor_x += dx
+        view.cursor_y += dy
+        _clamp_inventory_cursor(state, view)
+        return False, False
+    if char == "c":
+        if view.held_id:
+            state.add_message("Place the held item before confirming the repack.")
+            return False, False
+        sync_legacy_load(state)
+        return True, True
+    if char == "r":
+        if view.held_id:
+            item = next(item for item in state.items if item.id == view.held_id)
+            item.rotated = not item.rotated
+            view.transaction.changed = True
+        else:
+            item = _inventory_item_at(state, view)
+            if item and rotate_item(state, item.id):
+                view.transaction.changed = True
+        return False, False
+    if key in {10, 13}:
+        if view.held_id:
+            if view.pane not in {"pack", "locker"}:
+                return False, False
+            owner = state.active_courier_id if view.pane == "pack" else None
+            item = next(item for item in state.items if item.id == view.held_id)
+            if place_item(state, item.id, view.pane, view.cursor_x, view.cursor_y, rotated=item.rotated, owner_id=owner):
+                view.held_id = None
+                view.transaction.changed = True
+            return False, False
+        item = _inventory_item_at(state, view)
+        if item and view.pane in {"pack", "locker"}:
+            item.location = "held"
+            view.held_id = item.id
+        return False, False
+    item = _inventory_item_at(state, view)
+    if char == "e" and item and item.location == "pack" and equip_item(state, item.id):
+        view.transaction.changed = True
+        sync_legacy_load(state)
+        return False, False
+    if char in "123456" and unequip_item(state, BODY_SLOTS[int(char) - 1]):
+        view.transaction.changed = True
+        sync_legacy_load(state)
+        return False, False
+    if char == "t" and item:
+        moved = False
+        if view.pane == "pack" and state.location == "jomon":
+            moved = transfer_to_grid(state, item.id, "locker")
+        elif view.pane == "locker":
+            moved = transfer_to_grid(state, item.id, "pack", owner_id=state.active_courier_id)
+        elif view.pane == "pack" and state.location == "region":
+            moved = drop_item(state, item.id)
+        elif view.pane.startswith("container:") or view.pane == "ground":
+            moved = transfer_to_grid(state, item.id, "pack", owner_id=state.active_courier_id)
+            if moved:
+                if item.container_id:
+                    container = next((box for box in state.region.containers if box.id == item.container_id), None)
+                    if container and item.id in container.item_ids:
+                        container.item_ids.remove(item.id)
+                record_acquisition(state, item)
+        if moved:
+            view.transaction.changed = True
+            sync_legacy_load(state)
+        _clamp_inventory_cursor(state, view)
+        return False, False
+    if char == "d" and item and item.location == "pack" and drop_item(state, item.id):
+        view.transaction.changed = True
+        sync_legacy_load(state)
+    return False, False
+
+
 def _tavern_lines(state: GameState) -> list[str]:
     courier = state.courier
     identity = f"{courier.name}, {courier.role}; health {courier.health}/{courier.max_health}; {courier.injury}; {courier.technique}" if courier else "none selected"
@@ -506,10 +758,13 @@ def play(screen: curses.window, state: GameState) -> GameState:
     screen.keypad(True)
     _init_colours()
     overlay: str | None = None
+    inventory_view: InventoryView | None = None
     while True:
         _draw_base(screen, state)
         height, width = screen.getmaxyx()
-        if overlay and height >= MIN_HEIGHT and width >= MIN_WIDTH:
+        if inventory_view and height >= MIN_HEIGHT and width >= MIN_WIDTH:
+            _draw_inventory(screen, state, inventory_view)
+        elif overlay and height >= MIN_HEIGHT and width >= MIN_WIDTH:
             title, lines = _overlay_lines(state, overlay)
             _overlay(screen, title, lines)
         key = screen.getch()
@@ -518,6 +773,17 @@ def play(screen: curses.window, state: GameState) -> GameState:
         if height < MIN_HEIGHT or width < MIN_WIDTH:
             if key in {ord("q"), ord("Q")}:
                 return state
+            continue
+        if inventory_view:
+            closed, committed = _handle_inventory(state, inventory_view, key)
+            if closed:
+                if committed and inventory_view.transaction.changed:
+                    if state.location == "region" and inventory_view.source is None:
+                        _advance_world(state)
+                        state.add_message("You complete one deliberate field repack.", priority=2)
+                    else:
+                        state.add_message("The physical load is arranged and accounted for.")
+                inventory_view = None
             continue
         if overlay:
             overlay, should_quit = _handle_overlay(state, overlay, key)
@@ -528,7 +794,12 @@ def play(screen: curses.window, state: GameState) -> GameState:
         if normalized in MOVES:
             move(state, *MOVES[normalized])
         elif normalized in {10, 13, ord("e")}:
-            overlay = interact(state).overlay
+            result = interact(state)
+            if result.overlay and result.overlay.startswith("inventory:container:"):
+                source = result.overlay.split("inventory:", 1)[1]
+                inventory_view = InventoryView.begin(state, source)
+            else:
+                overlay = result.overlay
         elif normalized == ord("a"):
             attack(state)
         elif normalized == ord("g"):
@@ -540,7 +811,7 @@ def play(screen: curses.window, state: GameState) -> GameState:
         elif normalized == ord("r"):
             retreat(state)
         elif normalized == ord("i"):
-            overlay = "inventory"
+            inventory_view = InventoryView.begin(state)
         elif normalized == ord("?"):
             overlay = "help"
         elif normalized == ord("s"):

@@ -414,7 +414,7 @@ class PersistenceAndDefeatTests(unittest.TestCase):
             with self.assertRaisesRegex(SaveError, "corrupt JSON"):
                 load_game(target)
             target.write_text(
-                json.dumps({"save_format": SAVE_FORMAT - 1}), encoding="utf-8"
+                json.dumps({"save_format": 2}), encoding="utf-8"
             )
             with self.assertRaisesRegex(SaveError, "incompatible save format"):
                 load_game(target)

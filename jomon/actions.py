@@ -5,6 +5,23 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .content import COMMODITIES, GEAR, MERCHANT_ITEMS, PASSIVES, RELICS, SUPPORTS, WEAPONS
+from .inventory import (
+    add_status,
+    apply_terrain_status,
+    auto_place,
+    create_item,
+    consume_carried,
+    degrade_armour,
+    equipped_item,
+    load_state,
+    lose_matching_carried,
+    pack_weight,
+    prepare_kind,
+    protection_at,
+    tick_statuses,
+    transfer_to_grid,
+    weight_capacity,
+)
 from .state import CommodityStack, GameState, Person, Position, Threat, stage_rng
 from .world import (
     JOMON_GANGPLANK,
@@ -14,6 +31,7 @@ from .world import (
     capacity,
     carried_bulk,
     distance,
+    displayed_tile,
     field_of_view,
     is_walkable,
     line_of_sight,
@@ -71,12 +89,25 @@ def choose_courier(state: GameState, person_id: str) -> ActionResult:
     if state.location != "jomon" or person is None or not person.alive:
         return _plain(state, "That household member cannot serve as courier.")
     state.active_courier_id = person.id
+    readied = equipped_item(state, "readied", person.id)
+    secondary = equipped_item(state, "secondary", person.id)
+    state.weapon = readied.kind if readied else None
+    state.gear = secondary.kind if secondary else None
     return _plain(state, f"{person.name}, {person.role}, will carry this expedition.", changed=True)
 
 
 def choose_weapon(state: GameState, weapon: str) -> ActionResult:
     if state.location != "jomon" or weapon not in WEAPONS or weapon not in state.owned_weapons:
         return _plain(state, "That weapon is not available aboard Jomon.")
+    if state.active_courier_id is None:
+        return _plain(state, "Choose the courier before fitting their weapon.")
+    if not any(item.kind == weapon and item.location not in {"lost", "destroyed"} for item in state.items):
+        physical = create_item(state, weapon, "Jomon household stores")
+        if not auto_place(state, physical.id, "locker"):
+            state.items.remove(physical)
+            return _plain(state, "Jomon's locker has no room for that weapon.")
+    if not prepare_kind(state, weapon):
+        return _plain(state, "That weapon cannot fit the courier's pack while swapping.")
     state.weapon, state.crossbow_loaded, state.aimed_target = weapon, True, None
     return _plain(state, f"Readied {WEAPONS[weapon][0]}.", changed=True)
 
@@ -84,6 +115,15 @@ def choose_weapon(state: GameState, weapon: str) -> ActionResult:
 def choose_gear(state: GameState, gear: str) -> ActionResult:
     if state.location != "jomon" or gear not in GEAR or gear not in state.owned_gear:
         return _plain(state, "That secondary item is not available aboard Jomon.")
+    if state.active_courier_id is None:
+        return _plain(state, "Choose the courier before fitting their secondary gear.")
+    if not any(item.kind == gear and item.location not in {"lost", "destroyed"} for item in state.items):
+        physical = create_item(state, gear, "Jomon household stores")
+        if not auto_place(state, physical.id, "locker"):
+            state.items.remove(physical)
+            return _plain(state, "Jomon's locker has no room for that secondary item.")
+    if not prepare_kind(state, gear):
+        return _plain(state, "That secondary item cannot fit while swapping.")
     state.gear = gear
     return _plain(state, f"Packed {GEAR[gear][0]}.", changed=True)
 
@@ -109,10 +149,32 @@ def choose_passive(state: GameState, passive: str) -> ActionResult:
     owned = state.owned_passives[passive]
     if carried >= owned:
         del state.carried_passives[passive]
+        physical = next(
+            (
+                item for item in state.items
+                if item.kind == f"passive:{passive}"
+                and item.owner_id == state.active_courier_id
+                and item.location == "pack"
+            ),
+            None,
+        )
+        if physical:
+            transfer_to_grid(state, physical.id, "locker")
         return _plain(state, f"Stowed all {passive} aboard.", changed=True)
     if passive_bulk(state) + PASSIVES[passive][0] > passive_capacity(state):
         return _plain(state, f"Discovery load exceeds {passive_capacity(state)} bulk.")
     state.carried_passives[passive] = carried + 1
+    physical = next(
+        (item for item in state.items if item.kind == f"passive:{passive}" and item.location == "locker"),
+        None,
+    )
+    if physical is None:
+        physical = create_item(state, f"passive:{passive}", "returned expedition discovery")
+    if not transfer_to_grid(state, physical.id, "pack", owner_id=state.active_courier_id):
+        state.carried_passives[passive] = carried
+        if carried == 0:
+            del state.carried_passives[passive]
+        return _plain(state, "The discovery has bulk allowance but no clear pack cells.")
     return _plain(
         state, f"Packed {passive} ({state.carried_passives[passive]}).", changed=True
     )
@@ -196,8 +258,13 @@ def _lose_goods(state: GameState) -> str:
     names = sorted(state.carried_goods)
     if state.gear == "cargo harness" or "river hooks" in state.carried_passives:
         kept = names[0]
+        lose_matching_carried(
+            state,
+            {f"commodity:{name}" for name in names if name != kept},
+        )
         state.carried_goods = {kept: state.carried_goods[kept]}
         return f" The harnessed {kept} survives; other cargo is lost."
+    lose_matching_carried(state, {f"commodity:{name}" for name in names})
     state.carried_goods.clear()
     return f" The {', '.join(names)} is lost."
 
@@ -217,6 +284,15 @@ def _return_after_defeat(state: GameState, text: str, permanent: bool) -> str:
     if courier is None:
         return text
     loss = _lose_goods(state)
+    lose_matching_carried(
+        state,
+        {
+            item.kind for item in state.items
+            if item.owner_id == state.active_courier_id
+            and item.location == "pack"
+            and item.kind.startswith(("passive:", "relic:", "consumable:"))
+        },
+    )
     state.carried_passives.clear()
     if state.objective_status in {"accepted", "altered"}:
         state.objective_status = "failed"
@@ -245,7 +321,26 @@ def _return_after_defeat(state: GameState, text: str, permanent: bool) -> str:
     return f"{text}{loss} The courier reaches Jomon with a deep cut."
 
 
-def apply_damage(state: GameState, amount: int, source: str) -> str:
+def _hit_location(state: GameState, damage_kind: str, source: str) -> str:
+    exposed = ["torso", "arms", "legs", "head", "hands", "feet"]
+    if "fall" in source.lower():
+        exposed = ["legs", "feet", "arms", "head"]
+    elif "bolt" in source.lower() or damage_kind == "pierce":
+        exposed = ["torso", "arms", "head", "legs"]
+    elif state.guarded_step:
+        exposed = ["arms", "hands", "legs", "feet"]
+    rng = stage_rng(state.seed, f"hit:{state.world_time}:{source}:{state.position}")
+    return exposed[rng.randrange(len(exposed))]
+
+
+def apply_damage(
+    state: GameState,
+    amount: int,
+    source: str,
+    *,
+    damage_kind: str = "blunt",
+    location: str | None = None,
+) -> str:
     courier = state.courier
     if courier is None:
         return "No courier can be harmed."
@@ -269,12 +364,29 @@ def apply_damage(state: GameState, amount: int, source: str) -> str:
             "river-glass chill",
         )
         return "The finite river-glass ward breaks instead of its bearer."
-    already_hurt = courier.injury != "none"
+    location = location or _hit_location(state, damage_kind, source)
+    protection, armour_name = protection_at(state, location, damage_kind)
+    absorbed = min(max(0, amount - 1), protection)
+    if absorbed:
+        amount -= absorbed
+        degrade_armour(state, location, 6 + absorbed * 4)
+    already_hurt = courier.injury != "none" or bool(courier.injuries)
     courier.health = max(0, courier.health - amount)
     if courier.health:
-        if courier.health <= courier.max_health // 2:
-            courier.injury = "bruised ribs"
-        return f"{source} deals {amount} harm."
+        if amount:
+            injury = {
+                "head": "concussion",
+                "torso": "bruised ribs" if damage_kind == "blunt" else "torso wound",
+                "arms": "cut arm",
+                "hands": "damaged hand",
+                "legs": "strained leg",
+                "feet": "wounded foot",
+            }[location]
+            if courier.health <= courier.max_health // 2 or amount >= 2:
+                courier.injuries[location] = injury
+                courier.injury = injury
+        protection_text = f" {armour_name} absorbs {absorbed}." if absorbed else f" {location} is exposed."
+        return f"{source} hits {location} for {amount} harm.{protection_text}"
     fatal = already_hurt or pressure(state).band == "critical" or "crown wheel" in source
     return _return_after_defeat(state, f"{source} overwhelms {courier.name}.", fatal)
 
@@ -420,6 +532,8 @@ def _advance_world(
         if state.location != "region":
             continue
         state.pressure_elapsed += 1
+        for ended in tick_statuses(state):
+            state.add_message(ended, priority=0)
         for key in list(state.smoke):
             state.smoke[key] -= 1
             if state.smoke[key] <= 0:
@@ -558,6 +672,9 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         messages.extend(emit_sound(state, 1, target))
     elif not quiet and state.pressure_elapsed % 8 == 7:
         state.noise += 1
+    status_message = apply_terrain_status(state, displayed_tile(state, target))
+    if status_message:
+        messages.append(status_message)
     water_delay = False
     if position_key(target) in state.water:
         protected = (
@@ -575,7 +692,11 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         messages.insert(0, f"You enter {new_area}; alternate routes open around the landmark.")
     if tile == "O":
         messages.append(_fall(state))
-    storm_delay = water_delay or (
+    burden = load_state(state)
+    burden_delay = burden in {"encumbered", "overloaded"} and state.location == "region"
+    if burden == "laden" and tile in {"m", "r", "t", ","}:
+        state.noise += 1
+    storm_delay = water_delay or burden_delay or (
         state.weather == "hard rain"
         and state.position.z == 0
         and "rain cape" not in state.carried_passives
@@ -632,6 +753,16 @@ def _add_goods(state: GameState, name: str, quantity: int, condition: str) -> bo
     extra = COMMODITIES[name]["bulk"] * quantity
     if carried_bulk(state) + extra > capacity(state):
         return False
+    physical = create_item(
+        state,
+        f"commodity:{name}",
+        f"{state.active_region_id} material acquisition",
+        owner_id=state.active_courier_id,
+        quantity=quantity,
+    )
+    if not auto_place(state, physical.id, "pack", owner_id=state.active_courier_id):
+        state.items.remove(physical)
+        return False
     stack = state.carried_goods.get(name)
     if stack:
         stack.quantity += quantity
@@ -684,6 +815,27 @@ def _open_container(state: GameState) -> ActionResult:
     if requirement == "light" and state.gear != "hooded lantern":
         state.lamp_oil -= 1
     reward = container.reward
+    physical_kind = (
+        f"passive:{reward}" if reward in PASSIVES else
+        f"relic:{reward}" if reward in RELICS else
+        f"consumable:{reward}"
+    )
+    physical = next(
+        (item for item in state.items if item.id in container.item_ids),
+        None,
+    )
+    if physical is None:
+        physical = create_item(
+            state,
+            physical_kind,
+            f"{container.name}, {state.active_region_id}",
+            location="container",
+        )
+        physical.container_id = container.id
+        container.item_ids.append(physical.id)
+    fits_pack = transfer_to_grid(state, physical.id, "pack", owner_id=state.active_courier_id)
+    if fits_pack:
+        container.item_ids.remove(physical.id)
     if reward in PASSIVES:
         if passive_bulk(state) + PASSIVES[reward][0] > passive_capacity(state):
             return _plain(
@@ -701,11 +853,14 @@ def _open_container(state: GameState) -> ActionResult:
         state.consumables[reward] = state.consumables.get(reward, 0) + 1
     container.opened = True
     state.remember(f"{state.courier.name} opened {container.name} and found {reward}.")
-    return _time_result(
-        state,
-        f"You open {container.name}: {reward}. The depleted container remains visible.",
-        priority=3,
+    message = (
+        f"You open {container.name}: {reward}. The depleted container remains visible."
+        if fits_pack else
+        f"You open {container.name}: {reward}. It remains inside until pack cells are cleared."
     )
+    _advance_world(state)
+    state.add_message(message, priority=3)
+    return ActionResult(True, True, message, f"inventory:container:{container.id}")
 
 
 def _control_interaction(state: GameState) -> ActionResult:
@@ -802,6 +957,8 @@ def interact(state: GameState) -> ActionResult:
         return return_to_jomon(state)
     destination = vertical_destination(state, state.position)
     if destination:
+        if load_state(state) == "overloaded" and destination.z > state.position.z:
+            return _plain(state, "The overloaded pack makes this climb unsafe; repack or leave weight.")
         blocker = next(
             (
                 threat
@@ -838,9 +995,10 @@ def interact(state: GameState) -> ActionResult:
             commodity, CommodityStack(0, "")
         ).quantity
         if state.objective_status == "accepted" and quantity >= state.objective_required:
-            state.carried_goods[commodity].quantity -= state.objective_required
-            if state.carried_goods[commodity].quantity == 0:
-                del state.carried_goods[commodity]
+            if not consume_carried(state, f"commodity:{commodity}", state.objective_required):
+                state.carried_goods[commodity].quantity -= state.objective_required
+                if state.carried_goods[commodity].quantity == 0:
+                    del state.carried_goods[commodity]
             return _time_result(
                 state, _complete_objective(state, False), priority=3
             )
@@ -866,7 +1024,7 @@ def interact(state: GameState) -> ActionResult:
             state.objective_required,
             COMMODITIES[commodity]["condition"],
         ):
-            return _plain(state, f"The load exceeds {capacity(state)} bulk.")
+            return _plain(state, f"The load exceeds bulk or clear pack cells.")
         state.region.changes["objective_taken"] = True
         sounds = emit_sound(state, 2)
         return _time_result(
@@ -1056,6 +1214,7 @@ def use_gear(state: GameState) -> ActionResult:
         if state.relics["tide-knot charm"] == 0:
             del state.relics["tide-knot charm"]
         state.carried_relic = None
+        consume_carried(state, "relic:tide-knot charm")
         for threat in state.threats:
             if (
                 threat.status == "engaged"
@@ -1130,6 +1289,7 @@ def use_gear(state: GameState) -> ActionResult:
         state.consumables["willow dressing"] -= 1
         if state.consumables["willow dressing"] == 0:
             del state.consumables["willow dressing"]
+        consume_carried(state, "consumable:willow dressing")
         state.courier.health = min(
             state.courier.max_health, state.courier.health + 3
         )
@@ -1143,6 +1303,7 @@ def use_gear(state: GameState) -> ActionResult:
         state.consumables["dry smoke charge"] -= 1
         if state.consumables["dry smoke charge"] == 0:
             del state.consumables["dry smoke charge"]
+        consume_carried(state, "consumable:dry smoke charge")
         state.smoke_charges = 1
         return _time_result(
             state, "You repack one finite smoke charge for later use.", priority=3
@@ -1174,9 +1335,10 @@ def negotiate(state: GameState) -> ActionResult:
             "You lack witnessed seals, material surety, paper, or valuable leverage.",
         )
     if "paper" in state.carried_goods and state.gear != "trade seals":
-        state.carried_goods["paper"].quantity -= 1
-        if state.carried_goods["paper"].quantity == 0:
-            del state.carried_goods["paper"]
+        if not consume_carried(state, "commodity:paper"):
+            state.carried_goods["paper"].quantity -= 1
+            if state.carried_goods["paper"].quantity == 0:
+                del state.carried_goods["paper"]
     for threat in humans:
         threat.status, threat.intent = "negotiated", "accepts witnessed terms"
     memory = (
@@ -1251,6 +1413,14 @@ def purchase_merchant_item(state: GameState, item: str) -> ActionResult:
         return _plain(
             state, f"The lot needs {cost} credit; Jomon has {state.trade_credit}."
         )
+    physical_kind = (
+        f"consumable:{item}" if kind == "consumable" else
+        f"relic:{item}" if kind == "relic" else item
+    )
+    physical = create_item(state, physical_kind, "visiting Jomon merchant")
+    if not auto_place(state, physical.id, "locker"):
+        state.items.remove(physical)
+        return _plain(state, "Jomon's bounded locker has no clear cells for that lot.")
     state.trade_credit -= cost
     state.merchant_stock.remove(item)
     if kind == "weapon" and item not in state.owned_weapons:
