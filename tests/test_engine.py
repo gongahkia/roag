@@ -25,6 +25,7 @@ class EngineTests(unittest.TestCase):
         formations: dict[str, dict[tuple[str, ...], set[tuple[str, ...]]]] = defaultdict(
             lambda: defaultdict(set)
         )
+        plans: set[str] = set()
         for seed in range(200):
             engine = GameEngine.new(self.catalog, seed)
             world = self.catalog.worlds[engine.state.world_id]
@@ -46,6 +47,11 @@ class EngineTests(unittest.TestCase):
                 total_hp = sum(self.catalog.enemies[enemy_id]["max_hp"] for enemy_id in room.enemy_ids)
                 minimum, maximum = (40, 60) if room.kind == "fight" else (62, 100)
                 self.assertTrue(minimum <= total_hp <= maximum)
+                self.assertEqual(
+                    engine._formation_plan(self.catalog, room.enemy_ids),
+                    room.encounter_plan,
+                )
+                plans.add(room.encounter_plan)
                 formations[room.biome_id][tuple(sorted(room.enemy_ids))].add(tuple(room.enemy_ids))
         self.assertEqual(set(self.catalog.worlds), worlds)
         self.assertEqual(6, len(layouts))
@@ -53,6 +59,7 @@ class EngineTests(unittest.TestCase):
         for biome_id, selections in formations.items():
             self.assertGreaterEqual(len(selections), 2, biome_id)
             self.assertTrue(any(len(orders) > 1 for orders in selections.values()), biome_id)
+        self.assertGreaterEqual(len(plans), 4)
 
     def test_card_biome_affinity_adds_bounded_potency(self) -> None:
         engine = GameEngine.new(self.catalog, 4, start_in_hub=True)
@@ -531,6 +538,63 @@ class EngineTests(unittest.TestCase):
         target.statuses["marked"] = 2
         self.engine._apply_effect(enemy, [target], effect)
         self.assertEqual(88, target.hp)
+
+    def test_enemy_guard_redirects_damage_from_combo_enabler(self) -> None:
+        self.engine.start_combat(
+            "hydro_graft_watch",
+            enemy_ids=["graft_sentinel", "pollen_nurse"],
+        )
+        sentinel, nurse = self.engine.living_enemies()
+        attacker = self.engine.living_heroes()[0]
+        self.engine._apply_effect(sentinel, [nurse], {"op": "guard", "amount": 2})
+        self.assertEqual(sentinel.id, nurse.guarded_by)
+        sentinel_hp = sentinel.hp
+        nurse_hp = nurse.hp
+        self.engine._damage(nurse, 6, attacker)
+        self.assertEqual(sentinel_hp - 6, sentinel.hp)
+        self.assertEqual(nurse_hp, nurse.hp)
+
+    def test_enemy_ally_support_does_not_target_itself(self) -> None:
+        self.engine.start_combat(
+            "hydro_graft_watch",
+            enemy_ids=["graft_sentinel", "pollen_nurse"],
+        )
+        sentinel, nurse = self.engine.living_enemies()
+        nurse.hp = 1
+        target = self.engine._enemy_targets("weakest_ally", sentinel)
+        self.assertEqual([nurse.id], [actor.id for actor in target])
+
+    def test_intent_target_is_frozen_and_repetition_is_discouraged(self) -> None:
+        self.engine.start_combat("lost_shift", enemy_ids=["hollow_crew"])
+        enemy = self.engine.living_enemies()[0]
+        medic = next(hero for hero in self.engine.living_heroes() if hero.id == "medic")
+        scout = next(hero for hero in self.engine.living_heroes() if hero.id == "scout")
+        medic.stress = 60
+        target = self.engine._enemy_targets("stressed", enemy)[0]
+        self.engine.state.intents = [
+            {
+                "enemy_rank": enemy.rank,
+                "enemy_id": enemy.id,
+                "action": "Familiar Face",
+                "target_rule": "stressed",
+                "target_ids": [target.id],
+                "target_labels": [self.engine._intent_target_label(target)],
+            }
+        ]
+        scout.stress = 90
+        self.engine._enemy_phase()
+        self.assertEqual(70, medic.stress)
+        self.assertEqual(90, scout.stress)
+
+        action = next(
+            action
+            for action in self.catalog.enemies["hollow_crew"]["actions"]
+            if action["name"] == "Pipe Swing"
+        )
+        baseline = self.engine._enemy_action_weight(enemy, action)
+        enemy.last_action = action["name"]
+        enemy.action_repeats = 2
+        self.assertLess(self.engine._enemy_action_weight(enemy, action), baseline)
 
     def test_guard_lasts_for_configured_enemy_phases(self) -> None:
         self.engine.start_combat("lost_shift")

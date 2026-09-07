@@ -526,7 +526,8 @@ class TerminalUI:
         boons, curses_owned, items = self.engine.effect_counts()
         biome = self.catalog.biomes[self.engine.current_biome()]["name"]
         self._begin(
-            f"{biome.upper()} — ROUND {state.round} — ENERGY {state.energy} — B{boons} C{curses_owned} I{items}"
+            f"{biome.upper()} — {self.engine.room().encounter_plan.upper()} — "
+            f"ROUND {state.round} — ENERGY {state.energy} — B{boons} C{curses_owned} I{items}"
         )
         active_hero = None
         valid_targets: list[str] = []
@@ -725,7 +726,17 @@ class TerminalUI:
 
     def _intents(self, row: int, max_lines: int) -> None:
         assert self.engine
-        descriptions = []
+        descriptions: list[tuple[str, str]] = []
+        status_marks = {
+            "marked": "MK",
+            "stun": "ST",
+            "vulnerable": "VU",
+            "weak": "WK",
+            "wound": "WN",
+            "focus": "FO",
+            "dodge": "DG",
+            "riposte": "RP",
+        }
         formation_exploits = set().union(
             *(
                 self.engine._definition_exploit_statuses(
@@ -743,41 +754,62 @@ class TerminalUI:
             effects = []
             for effect in action["effects"]:
                 if effect["op"] == "status":
-                    effects.append(f"{effect['status'].upper()} {effect.get('amount', '')}")
+                    status = status_marks.get(effect["status"], effect["status"][:2].upper())
+                    effects.append(f"+{status}{effect.get('amount', '')}")
                 elif effect["op"] == "move":
-                    direction = "PUSH" if effect.get("amount", 0) > 0 else "PULL"
-                    effects.append(f"{direction} {abs(effect.get('amount', 0))}")
+                    direction = "P" if effect.get("amount", 0) > 0 else "L"
+                    effects.append(f"{direction}{abs(effect.get('amount', 0))}")
                 elif effect["op"] == "damage" and effect.get("bonus_status"):
                     maximum = int(effect.get("amount", 0)) + int(effect.get("bonus", 0))
-                    effects.append(
-                        f"{effect.get('amount', '')}/{maximum}dmg:{effect['bonus_status'].upper()}"
+                    status = status_marks.get(
+                        effect["bonus_status"], effect["bonus_status"][:2].upper()
                     )
+                    effects.append(f"D{effect.get('amount', '')}/{maximum}:{status}")
                 else:
                     label = {
-                        "damage": "dmg",
-                        "stress": "stress",
-                        "block": "block",
-                        "heal": "heal",
+                        "damage": "D",
+                        "stress": "S",
+                        "block": "B",
+                        "heal": "H",
+                        "guard": "G",
                     }.get(effect["op"], effect["op"])
-                    effects.append(f"{effect.get('amount', '')}{label}")
+                    effects.append(f"{label}{effect.get('amount', '')}")
             setup = self.engine._action_setup_statuses(action) & formation_exploits
             exploit = self.engine._action_exploit_statuses(action)
             combo = ""
             if setup:
-                combo = f" SET:{'/'.join(sorted(setup)).upper()}"
+                marks = "/".join(status_marks.get(item, item[:2].upper()) for item in sorted(setup))
+                combo = f" SET:{marks}"
             elif exploit:
-                combo = f" CASH:{'/'.join(sorted(exploit)).upper()}"
-            target = {
-                "weakest_enemy": "weak ally",
-                "all_heroes": "all crew",
-            }.get(action["target"], action["target"])
-            descriptions.append(
-                f"R{enemy.rank} {action['name']} [{target}{combo}; {'+'.join(effects)}]"
+                marks = "/".join(status_marks.get(item, item[:2].upper()) for item in sorted(exploit))
+                combo = f" CASH:{marks}"
+            labels = intent.get("target_labels", [action["target"]])
+            target = ",".join(
+                "ALL" if label == "ALL CREW" else label.removeprefix("R").replace(" ", "")
+                for label in labels
             )
-        text = "  |  ".join(descriptions)
-        lines = textwrap.wrap(f"INTENTS: {text}", max(20, self.screen.getmaxyx()[1] - 4))
-        for offset, line in enumerate(lines[:max_lines]):
-            self._put(row + offset, 2, line, self._attr(2))
+            condition = {
+                "weakest_enemy": "<LO",
+                "weakest_ally": "<ALLY",
+                "stressed": "<ST",
+                "deaths_door": "<DD",
+                "marked": "<MK",
+                "wounded": "<WN",
+            }.get(intent.get("target_rule", action["target"]), "")
+            actor_mark = "".join(word[0] for word in enemy.name.split()).upper()[:4]
+            prefix = f"R{intent['enemy_rank']}{actor_mark}>{target}{condition} "
+            suffix = f" {','.join(effects)}{combo}"
+            descriptions.append(((prefix + action["name"] + suffix).strip(), action["name"]))
+
+        width = max(20, (self.screen.getmaxyx()[1] - 6) // 2)
+        for index, (description, action_name) in enumerate(descriptions[: max_lines * 2]):
+            line = index // 2
+            column = 2 + (index % 2) * (width + 2)
+            if len(description) > width:
+                overflow = len(description) - width
+                shortened = action_name[: max(3, len(action_name) - overflow - 1)] + "~"
+                description = description.replace(action_name, shortened, 1)
+            self._put(row + line, column, description[:width], self._attr(2))
 
     def _event(self) -> None:
         assert self.engine and self.engine.state.current_event

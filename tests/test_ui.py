@@ -106,17 +106,48 @@ class AsciiUiTests(unittest.TestCase):
             enemy_ids=["rad_acolyte", "control_rod"],
         )
         acolyte, control_rod = self.engine.living_enemies()
+        target = self.engine.living_heroes()[0]
         self.engine.state.intents = [
-            {"enemy_rank": 1, "enemy_id": acolyte.id, "action": "Gamma Brand"},
-            {"enemy_rank": 2, "enemy_id": control_rod.id, "action": "Containment Blow"},
+            {
+                "enemy_rank": 1,
+                "enemy_id": acolyte.id,
+                "action": "Gamma Brand",
+                "target_rule": "front",
+                "target_ids": [target.id],
+                "target_labels": ["R1 WARD"],
+            },
+            {
+                "enemy_rank": 2,
+                "enemy_id": control_rod.id,
+                "action": "Containment Blow",
+                "target_rule": "front",
+                "target_ids": [target.id],
+                "target_labels": ["R1 WARD"],
+            },
         ]
         screen = FakeScreen(rows=10)
         self.ui.screen = screen
         self.ui._intents(0, 4)
         rendered = screen.text()
-        self.assertIn("SET:MARKED", rendered)
-        self.assertIn("CASH:MARKED", rendered)
-        self.assertIn("8/12dmg:MARKED", rendered)
+        self.assertIn("SET:MK", rendered)
+        self.assertIn("CASH:MK", rendered)
+        self.assertIn("D8/12:MK", rendered)
+        self.assertIn(">1WARD", rendered)
+
+    def test_four_enemy_intents_fit_two_rows_with_targets_and_effects(self) -> None:
+        self.engine.start_combat("foundry_stoked_line")
+        screen = FakeScreen()
+        self.ui.screen = screen
+        self.ui._intents(0, 2)
+        writes = [write for write in screen.writes if write[0] in {0, 1}]
+        self.assertEqual(4, len(writes))
+        self.assertTrue(all(len(text) <= 37 for _, _, text, _ in writes))
+        rendered = screen.text()
+        for intent in self.engine.state.intents:
+            enemy = next(actor for actor in self.engine.living_enemies() if actor.id == intent["enemy_id"])
+            actor_mark = "".join(word[0] for word in enemy.name.split()).upper()[:4]
+            self.assertIn(f"R{intent['enemy_rank']}{actor_mark}>", rendered)
+        self.assertRegex(rendered, r"[DBHSG][0-9]")
 
     def test_target_cursor_moves_between_battlefield_sprites(self) -> None:
         self.engine.start_combat("vents")

@@ -14,8 +14,8 @@ class ContentTests(unittest.TestCase):
         catalog = load_catalog()
         self.assertEqual(25, len(catalog.heroes))
         self.assertEqual(155, len(catalog.cards))
-        self.assertEqual(60, len(catalog.enemies))
-        self.assertEqual(89, len(catalog.encounters))
+        self.assertEqual(70, len(catalog.enemies))
+        self.assertEqual(109, len(catalog.encounters))
         self.assertEqual(11, len(catalog.biomes))
         self.assertEqual(6, len(catalog.worlds))
         self.assertEqual(10, len(catalog.events))
@@ -31,6 +31,13 @@ class ContentTests(unittest.TestCase):
         self.assertEqual(len(catalog.heroes), len({hero["role"] for hero in catalog.heroes.values()}))
         self.assertEqual(len(catalog.cards), len({card["name"] for card in catalog.cards.values()}))
         self.assertEqual(len(catalog.enemies), len({enemy["name"] for enemy in catalog.enemies.values()}))
+        for biome_id in catalog.biomes:
+            if biome_id == "derelict":
+                continue
+            biome_enemies = [
+                enemy for enemy in catalog.enemies.values() if biome_id in enemy.get("biomes", [])
+            ]
+            self.assertGreaterEqual(len(biome_enemies), 3, biome_id)
         affinity_cards = [card for card in catalog.cards.values() if "biome" in card]
         affinity_heroes = [hero for hero in catalog.heroes.values() if "biome" in hero]
         self.assertEqual(50, len(affinity_cards))

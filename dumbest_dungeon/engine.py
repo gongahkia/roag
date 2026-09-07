@@ -31,6 +31,8 @@ class Actor:
     statuses: dict[str, int] = field(default_factory=dict)
     guarded_by: str | None = None
     guard_turns: int = 0
+    last_action: str | None = None
+    action_repeats: int = 0
 
     @property
     def alive(self) -> bool:
@@ -55,6 +57,7 @@ class Room:
     content_id: str | None = None
     biome_id: str = "derelict"
     enemy_ids: list[str] = field(default_factory=list)
+    encounter_plan: str = "none"
 
 
 @dataclass
@@ -360,7 +363,8 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 8
+    SAVE_VERSION = 9
+    ENCOUNTER_PLANS = {"none", "pressure", "disrupt", "screen", "sustain", "combo", "overseer"}
 
     def __init__(self, catalog: Catalog, state: GameState, rng: random.Random):
         self.catalog = catalog
@@ -517,8 +521,11 @@ class GameEngine:
         setups = [cls._definition_setup_statuses(definition) for definition in definitions]
         exploits = [cls._definition_exploit_statuses(definition) for definition in definitions]
         total_hp = sum(definition["max_hp"] for definition in definitions)
-        score = len(set().union(*member_roles)) * 2.0 - abs(total_hp - midpoint) / 8
-        score -= (len(enemy_ids) - len(set(enemy_ids))) * 0.6
+        combined_roles = set().union(*member_roles)
+        score = len(combined_roles) * 2.0 - abs(total_hp - midpoint) / 8
+        score -= (len(enemy_ids) - len(set(enemy_ids))) * 1.2
+        if "striker" not in combined_roles:
+            score -= 4.0
         for index, roles in enumerate(member_roles):
             for other_index, other_roles in enumerate(member_roles):
                 if index == other_index:
@@ -528,6 +535,27 @@ class GameEngine:
                 if setups[index] & exploits[other_index]:
                     score += 3.0
         return score
+
+    @classmethod
+    def _formation_plan(cls, catalog: Catalog, enemy_ids: list[str]) -> str:
+        definitions = [catalog.enemies[enemy_id] for enemy_id in enemy_ids]
+        roles = set().union(*(cls._definition_roles(definition) for definition in definitions))
+        setups = set().union(*(cls._definition_setup_statuses(definition) for definition in definitions))
+        exploits = set().union(*(cls._definition_exploit_statuses(definition) for definition in definitions))
+        if setups & exploits:
+            return "combo"
+        if {"defender", "support"} <= roles and "striker" in roles:
+            return "screen"
+        if any(
+            effect["op"] == "heal" and not cls._effect_targets_crew(action, effect)
+            for definition in definitions
+            for action in definition["actions"]
+            for effect in action["effects"]
+        ) and "striker" in roles:
+            return "sustain"
+        if {"controller", "striker"} <= roles:
+            return "disrupt"
+        return "pressure"
 
     @classmethod
     def _arrange_enemy_formation(
@@ -618,10 +646,24 @@ class GameEngine:
                 candidates[tuple(formation)] = cls._formation_score(catalog, formation, midpoint)
         if not candidates:
             return cls._arrange_enemy_formation(catalog, rng, template)
-        best_score = max(candidates.values())
+        candidates_by_plan: dict[str, list[tuple[tuple[str, ...], float]]] = {}
+        for enemy_ids, score in candidates.items():
+            plan = cls._formation_plan(catalog, list(enemy_ids))
+            candidates_by_plan.setdefault(plan, []).append((enemy_ids, score))
+        plans = list(candidates_by_plan)
+        plan = rng.choices(
+            plans,
+            weights=[
+                {"combo": 4, "disrupt": 3, "screen": 3, "sustain": 2, "pressure": 1}[item]
+                for item in plans
+            ],
+            k=1,
+        )[0]
+        planned_candidates = dict(candidates_by_plan[plan])
+        best_score = max(planned_candidates.values())
         shortlist = [
             list(enemy_ids)
-            for enemy_ids, score in candidates.items()
+            for enemy_ids, score in planned_candidates.items()
             if score >= best_score - 2.0
         ]
         return cls._arrange_enemy_formation(catalog, rng, rng.choice(shortlist))
@@ -682,6 +724,11 @@ class GameEngine:
                     content_id=content_id,
                     biome_id=biome_id,
                     enemy_ids=enemy_ids,
+                    encounter_plan=(
+                        cls._formation_plan(catalog, enemy_ids)
+                        if enemy_ids
+                        else "none"
+                    ),
                 )
             )
         boss_biome = room_biomes[11]
@@ -694,6 +741,7 @@ class GameEngine:
                 content_id="the_core",
                 biome_id=boss_biome,
                 enemy_ids=list(catalog.encounters["the_core"]["enemies"]),
+                encounter_plan="overseer",
             )
         )
         return rooms
@@ -843,7 +891,9 @@ class GameEngine:
         if not engine.is_walkable(state.party_x, state.party_y):
             raise RuleError("save places the crew outside the ship")
         if len(state.rooms) != 12 or any(
-            room.id != index or room.biome_id not in catalog.worlds[state.world_id]["biomes"]
+            room.id != index
+            or room.biome_id not in catalog.worlds[state.world_id]["biomes"]
+            or room.encounter_plan not in cls.ENCOUNTER_PLANS
             for index, room in enumerate(state.rooms)
         ):
             raise RuleError("save contains invalid biome rooms")
@@ -874,6 +924,29 @@ class GameEngine:
             minimum, maximum = (40, 60) if room.kind == "fight" else (62, 100)
             if room.kind != "boss" and not minimum <= total_hp <= maximum:
                 raise RuleError("save contains an enemy formation outside its threat budget")
+        actors_by_id = {actor.id: actor for actor in state.heroes + state.enemies}
+        for intent in state.intents:
+            enemy = actors_by_id.get(intent.get("enemy_id"))
+            if enemy is None or enemy.side != "enemy" or enemy.definition_id not in catalog.enemies:
+                raise RuleError("save contains an intent for an unknown actor")
+            action = next(
+                (
+                    action
+                    for action in catalog.enemies[enemy.definition_id]["actions"]
+                    if action["name"] == intent.get("action")
+                ),
+                None,
+            )
+            if (
+                action is None
+                or intent.get("target_rule") != action["target"]
+                or not isinstance(intent.get("target_ids"), list)
+                or any(target_id not in actors_by_id for target_id in intent["target_ids"])
+                or not isinstance(intent.get("target_labels"), list)
+                or not intent["target_labels"]
+                or any(not isinstance(label, str) or not label for label in intent["target_labels"])
+            ):
+                raise RuleError("save contains a malformed enemy intent")
         patrol_ids = {patrol.id for patrol in state.patrols}
         if len(patrol_ids) != len(state.patrols):
             raise RuleError("save contains duplicate patrols")
@@ -1817,7 +1890,7 @@ class GameEngine:
                     self._change_stress(target, amount)
                 elif op == "move":
                     self._move(target, amount, actor)
-                elif op == "guard" and target.side == "hero" and target.id != actor.id:
+                elif op == "guard" and target.side == actor.side and target.id != actor.id:
                     target.guarded_by = actor.id
                     target.guard_turns = amount
                 elif op == "status":
@@ -1899,8 +1972,13 @@ class GameEngine:
             else:
                 weight *= 1.15 if missing else 0.75
 
-        if action["target"] == "weakest_enemy" and allies:
-            support_target = min(allies, key=lambda actor: actor.hp / actor.max_hp)
+        if action["target"] in {"weakest_enemy", "weakest_ally"} and allies:
+            candidates = (
+                [ally for ally in allies if ally.id != enemy.id]
+                if action["target"] == "weakest_ally"
+                else allies
+            )
+            support_target = min(candidates or allies, key=lambda actor: actor.hp / actor.max_hp)
         else:
             support_target = enemy
         healing = sum(
@@ -1934,7 +2012,16 @@ class GameEngine:
         }
         if positive_statuses:
             weight *= 0.65 if positive_statuses <= support_target.statuses.keys() else 1.25
+        if enemy.last_action == action["name"]:
+            weight *= max(0.35, 0.72 ** enemy.action_repeats)
         return max(0.05, weight)
+
+    @staticmethod
+    def _intent_target_label(actor: Actor) -> str:
+        if actor.side == "hero":
+            return f"R{actor.rank} {actor.hero_class[:4].upper()}"
+        short_name = "".join(word[0] for word in actor.name.split()).upper()[:4]
+        return f"R{actor.rank} {short_name}"
 
     def _choose_intents(self) -> list[dict[str, Any]]:
         intents = []
@@ -1960,7 +2047,27 @@ class GameEngine:
                 for action in actions
             ]
             action = self.rng.choices(actions, weights=weights, k=1)[0]
-            intents.append({"enemy_rank": enemy.rank, "enemy_id": enemy.id, "action": action["name"]})
+            targets = self._enemy_targets(action["target"], enemy)
+            target_labels = (
+                ["ALL CREW"]
+                if action["target"] == "all_heroes"
+                else [self._intent_target_label(target) for target in targets]
+            )
+            intents.append(
+                {
+                    "enemy_rank": enemy.rank,
+                    "enemy_id": enemy.id,
+                    "action": action["name"],
+                    "target_rule": action["target"],
+                    "target_ids": [target.id for target in targets],
+                    "target_labels": target_labels,
+                }
+            )
+            if enemy.last_action == action["name"]:
+                enemy.action_repeats += 1
+            else:
+                enemy.last_action = action["name"]
+                enemy.action_repeats = 1
             planned_statuses |= self._action_setup_statuses(action)
         return intents
 
@@ -1991,7 +2098,11 @@ class GameEngine:
                 continue
             actions = self.catalog.enemies[enemy.definition_id or enemy.id]["actions"]
             action = next(item for item in actions if item["name"] == intent["action"])
-            targets = self._enemy_targets(action["target"], enemy)
+            if "target_ids" in intent:
+                living = {actor.id: actor for actor in self.living_heroes() + self.living_enemies()}
+                targets = [living[target_id] for target_id in intent["target_ids"] if target_id in living]
+            else:
+                targets = self._enemy_targets(action["target"], enemy)
             self.add_log(f"{enemy.name} uses {action['name']}.")
             for effect in action["effects"]:
                 self._apply_effect(enemy, self._effect_targets(effect.get("target"), targets, enemy), effect)
@@ -2015,8 +2126,20 @@ class GameEngine:
             return [heroes[-1]]
         if rule == "stressed":
             return [max(heroes, key=lambda item: item.stress)]
+        if rule == "deaths_door":
+            candidates = [hero for hero in heroes if hero.deaths_door] or heroes
+            return [min(candidates, key=lambda item: (item.hp / item.max_hp, -item.stress))]
+        if rule == "marked":
+            candidates = [hero for hero in heroes if hero.statuses.get("marked")] or heroes
+            return [min(candidates, key=lambda item: item.hp / item.max_hp)]
+        if rule == "wounded":
+            candidates = [hero for hero in heroes if hero.statuses.get("wound")] or heroes
+            return [min(candidates, key=lambda item: item.hp / item.max_hp)]
         if rule == "weakest_enemy":
             return [min(enemies, key=lambda item: item.hp / item.max_hp)]
+        if rule == "weakest_ally":
+            candidates = [enemy for enemy in enemies if enemy.id != actor.id]
+            return [min(candidates or enemies, key=lambda item: item.hp / item.max_hp)]
         return [self.rng.choice(heroes)]
 
     def _draw(self, amount: int) -> None:
@@ -2093,8 +2216,9 @@ class GameEngine:
         return max(0, round(amount * multiplier))
 
     def _damage(self, target: Actor, amount: int, attacker: Actor | None = None) -> None:
-        if target.side == "hero" and target.guarded_by:
-            guard = next((item for item in self.living_heroes() if item.id == target.guarded_by), None)
+        if target.guarded_by:
+            allies = self.living_heroes() if target.side == "hero" else self.living_enemies()
+            guard = next((item for item in allies if item.id == target.guarded_by), None)
             if guard and guard.id != target.id:
                 self.add_log(f"{guard.name} intercepts the hit.")
                 target = guard

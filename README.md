@@ -22,7 +22,7 @@ python3 -m dumbest_dungeon --validate-content
 
 A generated seed appears in the map HUD and ending screen. Supplying `--seed` makes new expeditions in that process reproducible. The default save is `$XDG_STATE_HOME/dumbest-dungeon/run.save.json`, or `~/.local/state/dumbest-dungeon/run.save.json` when `XDG_STATE_HOME` is unset.
 
-Biome worlds use content schema 5 and save version 8. Saves from earlier builds are rejected with an explicit version error rather than loaded incorrectly.
+Biome worlds use content schema 5 and save version 9. Saves from earlier builds are rejected with an explicit version error rather than loaded incorrectly.
 
 ## Controls and rules
 
@@ -50,7 +50,7 @@ Biome worlds use content schema 5 and save version 8. Saves from earlier builds 
 
 Gameplay definitions live in `dumbest_dungeon/data/game.json`, while `dumbest_dungeon/data/art.json` contains the title, crew and enemy sprites, and class card glyphs. Both catalogs are versioned and validated. Run the validator after editing either file:
 
-The current catalog contains 25 crew archetypes, 155 technique cards, 6 curse cards, 60 enemy types, 89 encounter formations, 11 biomes, 6 world types, and 18 definitions each for boons, curses, and stackable items. Rewards are filtered to the four classes currently in the expedition.
+The current catalog contains 25 crew archetypes, 155 technique cards, 6 curse cards, 70 enemy types, 109 encounter formations, 11 biomes, 6 world types, and 18 definitions each for boons, curses, and stackable items. Rewards are filtered to living classes currently in the expedition.
 
 ```sh
 python3 -m dumbest_dungeon --validate-content

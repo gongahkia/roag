@@ -102,6 +102,14 @@ class SaveTests(unittest.TestCase):
         with self.assertRaisesRegex(RuleError, "invalid enemy formation"):
             GameEngine.from_snapshot(self.catalog, snapshot)
 
+    def test_saved_intent_target_is_validated(self) -> None:
+        engine = GameEngine.new(self.catalog, 406)
+        engine.start_combat("reactor_meter_pack")
+        snapshot = engine.snapshot()
+        snapshot["state"]["intents"][0]["target_ids"] = ["missing-target"]
+        with self.assertRaisesRegex(RuleError, "malformed enemy intent"):
+            GameEngine.from_snapshot(self.catalog, snapshot)
+
 
 if __name__ == "__main__":
     unittest.main()

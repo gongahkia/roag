@@ -53,7 +53,19 @@ EVENT_EFFECTS = {
     "card_reward",
 }
 TARGETS = {"enemy", "all_enemies", "self", "ally", "all_allies"}
-ENEMY_TARGETS = {"front", "back", "random", "stressed", "self", "all_heroes", "weakest_enemy"}
+ENEMY_TARGETS = {
+    "all_heroes",
+    "back",
+    "deaths_door",
+    "front",
+    "marked",
+    "random",
+    "self",
+    "stressed",
+    "weakest_ally",
+    "weakest_enemy",
+    "wounded",
+}
 EFFECT_CURVES = {"linear", "diminishing", "threshold", "special"}
 CARD_STATES = {"deaths_door", "stressed", "healthy", "wounded"}
 CARD_TAGS = {
@@ -312,8 +324,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
             biome_id not in biomes for biome_id in enemy_biomes
         ):
             raise ContentError(f"enemy {enemy['id']} has invalid biomes")
-    if len(enemies) != 60:
-        raise ContentError("this release requires exactly 60 enemy types")
+    if len(enemies) != 70:
+        raise ContentError("this release requires exactly 70 enemy types")
 
     for encounter in encounters.values():
         if encounter.get("kind") not in {"normal", "elite", "boss"}:
@@ -335,6 +347,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
             for enemy_id in members
         ):
             raise ContentError(f"encounter {encounter['id']} mixes incompatible biome enemies")
+    if len(encounters) != 109:
+        raise ContentError("this release requires exactly 109 encounter templates")
 
     if len(biomes) != 11:
         raise ContentError("this release requires exactly eleven biomes")
