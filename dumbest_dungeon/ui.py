@@ -670,15 +670,16 @@ class TerminalUI:
         hero = heroes[selected_hero]
         if pickup.kind == "boon":
             options = self.engine.boon_pickup_options(hero.id)
-            labels = [
-                f"{self.catalog.boons[boon_id]['name']} — "
+            labels = [self.catalog.boons[boon_id]["name"] for boon_id in options]
+            details = "\n\n".join(
+                f"{index}. {self.catalog.boons[boon_id]['name']} — "
                 f"{self.catalog.boons[boon_id]['description']}"
-                for boon_id in options
-            ]
+                for index, boon_id in enumerate(options, 1)
+            )
             picked = self._menu(
                 "SIGNAL BENEDICTION",
                 labels,
-                f"Choose one boon for {hero.name}. Repeat copies stack.",
+                f"Choose one boon for {hero.name}. Repeat copies stack.\n\n{details}",
                 allow_cancel=False,
             )
             assert picked is not None
@@ -687,18 +688,22 @@ class TerminalUI:
 
         options = self.engine.bargain_options(hero.id)
         labels = []
-        for option in options:
+        details = []
+        for index, option in enumerate(options, 1):
             if option["reward_kind"] == "boon":
                 reward = self.catalog.boons[str(option["reward_id"])]["name"]
             else:
                 reward = f"{self.catalog.items[str(option['reward_id'])]['name']} x{option['copies']}"
             curse = self.catalog.curses[str(option["curse_id"])]
-            labels.append(f"Take {reward} / suffer {curse['name']} — {curse['description']}")
+            labels.append(f"Take {reward} / suffer {curse['name']}")
+            details.append(
+                f"{index}. Gain {reward}. CURSE — {curse['name']}: {curse['description']}"
+            )
         labels.append("Walk away")
         picked = self._menu(
             "ANOMALOUS BARGAIN",
             labels,
-            f"Every offer binds its curse to {hero.name}.",
+            f"Every offer binds its curse to {hero.name}.\n\n" + "\n\n".join(details),
             allow_cancel=False,
         )
         assert picked is not None

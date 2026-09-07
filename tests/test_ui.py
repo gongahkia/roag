@@ -470,6 +470,36 @@ class AsciiUiTests(unittest.TestCase):
         self.assertEqual("exploration", self.engine.state.phase)
         self.assertTrue(objective.completed)
 
+    def test_bargain_consequences_are_complete_at_minimum_size(self) -> None:
+        pickup = next(item for item in self.engine.state.pickups if item.kind == "bargain")
+        self.engine.state.phase = "discovery"
+        self.engine.state.current_pickup_id = pickup.id
+        hero = self.engine.living_heroes()[0]
+        options = self.engine.bargain_options(hero.id)
+        screen = FakeScreen(keys=[10, curses.KEY_DOWN, curses.KEY_DOWN, 10])
+        self.ui.screen = screen
+        self.ui._discovery()
+        rendered = screen.text()
+        for option in options:
+            curse = self.catalog.curses[str(option["curse_id"])]
+            self.assertIn(curse["description"].split()[-1], rendered)
+        self.assertEqual("exploration", self.engine.state.phase)
+
+    def test_boon_choices_are_complete_at_minimum_size(self) -> None:
+        pickup = next(item for item in self.engine.state.pickups if item.kind == "boon")
+        self.engine.state.phase = "discovery"
+        self.engine.state.current_pickup_id = pickup.id
+        hero = self.engine.living_heroes()[0]
+        options = self.engine.boon_pickup_options(hero.id)
+        screen = FakeScreen(keys=[10, 10])
+        self.ui.screen = screen
+        self.ui._discovery()
+        rendered = screen.text()
+        for boon_id in options:
+            description = self.catalog.boons[boon_id]["description"]
+            self.assertIn(description.split()[-1], rendered)
+        self.assertEqual("exploration", self.engine.state.phase)
+
     def test_workshop_can_transform_a_card_through_ascii_menus(self) -> None:
         room = self.engine.room(1)
         room.kind = "upgrade"
