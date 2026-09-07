@@ -490,6 +490,36 @@ class TerminalUI:
                 ),
                 self._attr(3),
             )
+        else:
+            biome_id = self.engine.current_biome()
+            objective = next(
+                item for item in state.objectives if item.biome_id == biome_id
+            )
+            facility = next(
+                item for item in state.facilities if item.biome_id == biome_id
+            )
+            active_hazard_tiles = sum(
+                len(item.cells) - len(item.triggered_cells)
+                for item in state.hazards
+                if item.biome_id == biome_id and item.active
+            )
+            if objective.completed:
+                objective_state = f"DONE:{objective.outcome.replace('_', ' ').upper()}"
+            elif objective.approach:
+                objective_state = f"STAGE {objective.stage + 1}"
+            else:
+                objective_state = "AVAILABLE"
+            facility_state = "USED" if facility.used else "READY"
+            self._put(
+                rows - 2,
+                2,
+                self._ellipsize(
+                    f"OBJECTIVE {objective_state} | HAZARD TILES {active_hazard_tiles} | "
+                    f"FACILITY {facility_state}",
+                    self.screen.getmaxyx()[1] - 3,
+                ),
+                curses.A_DIM,
+            )
         self._footer("Arrows aim Enter/2xclick go X/Esc/right-click stop Tab cycle B biome U supply")
         return origin
 
@@ -894,6 +924,38 @@ class TerminalUI:
             for definition in self.catalog.facilities.values()
             if definition["biome"] == biome["id"]
         )
+        objective_state = next(
+            item for item in self.engine.state.objectives if item.biome_id == biome["id"]
+        )
+        facility_state = next(
+            item for item in self.engine.state.facilities if item.biome_id == biome["id"]
+        )
+        active_hazards = [
+            item
+            for item in self.engine.state.hazards
+            if item.biome_id == biome["id"] and item.active
+        ]
+        active_hazard_tiles = sum(
+            len(item.cells) - len(item.triggered_cells) for item in active_hazards
+        )
+        if objective_state.completed:
+            objective_progress = f"COMPLETE — {objective_state.outcome.replace('_', ' ')}"
+        elif objective_state.approach:
+            selected = next(
+                item for item in mission["approaches"]
+                if item["id"] == objective_state.approach
+            )
+            objective_progress = (
+                f"{selected['label']} — stage {objective_state.stage + 1}/"
+                f"{len(selected['stages'])}"
+            )
+        else:
+            objective_progress = "AVAILABLE — no approach committed"
+        facility_progress = (
+            f"USED — {facility_state.outcome.replace('_', ' ')}"
+            if facility_state.used and facility_state.outcome
+            else "READY — one procedure remains"
+        )
         body = (
             f"{biome['description']}\n\n"
             f"TRAVEL — {mechanics['traversal']['description']} {terrain_pattern['description']}\n"
@@ -908,6 +970,9 @@ class TerminalUI:
                 f"{approach['telegraph']['risk']} risk)"
                 for approach in mission["approaches"]
             )
+            + f"\n\nCURRENT STATE\nObjective: {objective_progress}\n"
+            + f"Hazards: {len(active_hazards)} fields / {active_hazard_tiles} unresolved tiles\n"
+            + f"Facility: {facility_progress}"
         )
         self._notice(biome["name"].upper(), body)
 

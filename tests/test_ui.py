@@ -488,6 +488,21 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("FACILITY", rendered)
         self.assertIn("OBJECTIVE", rendered)
 
+    def test_exploration_reports_persistent_biome_state_at_minimum_size(self) -> None:
+        self.ui.screen = FakeScreen(rows=24, columns=80)
+        position = (self.engine.state.party_x, self.engine.state.party_y)
+        self.ui._render_exploration(position)
+        rendered = self.ui.screen.text()
+        self.assertIn("OBJECTIVE", rendered)
+        self.assertIn("HAZARD TILES", rendered)
+        self.assertIn("FACILITY", rendered)
+
+        self.ui.screen = FakeScreen(rows=24, columns=80, keys=[curses.KEY_END, 27])
+        self.ui._biome_view()
+        rendered = self.ui.screen.text()
+        self.assertIn("CURRENT STATE", rendered)
+        self.assertIn("unresolved tiles", rendered)
+
     def test_facility_menu_discloses_cost_risk_and_one_use(self) -> None:
         facility = self.engine.state.facilities[0]
         self.engine.state.party_x, self.engine.state.party_y = facility.x, facility.y
