@@ -15,6 +15,7 @@ class ContentTests(unittest.TestCase):
         self.assertTrue(all((catalog.heroes, catalog.cards, catalog.enemies, catalog.encounters)))
         self.assertTrue(all((catalog.biomes, catalog.worlds, catalog.events)))
         self.assertTrue(all((catalog.boons, catalog.curses, catalog.items, catalog.afflictions)))
+        self.assertGreaterEqual(len(catalog.squads), 4)
         self.assertEqual(set(catalog.heroes), set(catalog.art["heroes"]))
         self.assertEqual(set(catalog.heroes), set(catalog.art["card_marks"]))
         self.assertEqual(len(catalog.heroes), len(set(catalog.art["card_marks"].values())))
@@ -81,9 +82,23 @@ class ContentTests(unittest.TestCase):
                 if card["hero"] == hero["id"] and card["id"] not in starter_ids
             ]
             self.assertGreaterEqual(len(nonstarters), 3, hero["id"])
+        for squad in catalog.squads.values():
+            self.assertEqual(4, len(set(squad["formation"])))
+            for rank, hero_id in enumerate(squad["formation"], 1):
+                self.assertIn(rank, catalog.heroes[hero_id]["preferred_ranks"])
         self.assertTrue(
             all(card["effects"] != card["upgrade_effects"] for card in catalog.cards.values())
         )
+
+    def test_curated_squad_with_invalid_formation_is_rejected(self) -> None:
+        catalog = load_catalog()
+        raw = json.loads(json.dumps(catalog.raw))
+        raw["squads"][0]["formation"] = ["scout", "engineer", "medic", "warden"]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad-squad.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ContentError, "outside a preferred rank"):
+                load_catalog(path)
 
     def test_archetype_without_draft_support_is_rejected(self) -> None:
         catalog = load_catalog()

@@ -17,6 +17,7 @@ class ContentError(ValueError):
 class Catalog:
     raw: dict[str, Any]
     heroes: dict[str, dict[str, Any]]
+    squads: dict[str, dict[str, Any]]
     cards: dict[str, dict[str, Any]]
     enemies: dict[str, dict[str, Any]]
     encounters: dict[str, dict[str, Any]]
@@ -386,11 +387,12 @@ def load_catalog(path: Path | None = None) -> Catalog:
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load card metadata from {metadata_source}: {exc}") from exc
 
-    if raw.get("schema_version") != 7:
-        raise ContentError("content schema_version must be 7")
+    if raw.get("schema_version") != 8:
+        raise ContentError("content schema_version must be 8")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
+    squads = _indexed(raw.get("squads"), "squads")
     cards = _indexed(raw.get("cards"), "cards")
     enemies = _indexed(raw.get("enemies"), "enemies")
     encounters = _indexed(raw.get("encounters"), "encounters")
@@ -416,6 +418,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
 
     sections = {
         "heroes": heroes,
+        "squads": squads,
         "cards": cards,
         "enemies": enemies,
         "encounters": encounters,
@@ -486,6 +489,34 @@ def load_catalog(path: Path | None = None) -> Catalog:
 
         if hero.get("biome") is not None and hero["biome"] not in biomes:
             raise ContentError(f"hero {hero['id']} references an unknown biome")
+    squad_names: set[str] = set()
+    for squad in squads.values():
+        for field in (
+            "name", "playstyle", "complexity", "formation", "strength", "weakness", "signature",
+        ):
+            if field not in squad:
+                raise ContentError(f"squad {squad['id']} is missing {field}")
+        if squad["name"] in squad_names or not all(
+            isinstance(squad[field], str) and squad[field]
+            for field in ("name", "playstyle", "strength", "weakness", "signature")
+        ):
+            raise ContentError("squads need unique names and complete descriptions")
+        squad_names.add(squad["name"])
+        if squad["complexity"] not in {1, 2, 3}:
+            raise ContentError(f"squad {squad['id']} has an invalid complexity")
+        formation = squad["formation"]
+        if (
+            not isinstance(formation, list)
+            or len(formation) != 4
+            or len(set(formation)) != 4
+            or any(hero_id not in heroes for hero_id in formation)
+        ):
+            raise ContentError(f"squad {squad['id']} needs four unique known crew")
+        for rank, hero_id in enumerate(formation, 1):
+            if rank not in heroes[hero_id]["preferred_ranks"]:
+                raise ContentError(
+                    f"squad {squad['id']} places {hero_id} outside a preferred rank"
+                )
     card_names: set[str] = set()
     for card in cards.values():
         if not isinstance(card.get("name"), str) or not isinstance(card.get("description"), str):
@@ -679,6 +710,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
     return Catalog(
         raw,
         heroes,
+        squads,
         cards,
         enemies,
         encounters,
