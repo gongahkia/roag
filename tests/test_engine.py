@@ -584,6 +584,25 @@ class EngineTests(unittest.TestCase):
                     mission["approaches"][1]["outcome"],
                 )
 
+    def test_objective_stage_distances_follow_bounded_travel_labels(self) -> None:
+        limits = {"short": (2, 12), "medium": (5, 18), "long": (8, 24)}
+        seen = set()
+        for seed in range(20):
+            engine = GameEngine.new(self.catalog, seed)
+            for objective in engine.state.objectives:
+                mission = engine.mission_definition(objective.biome_id)
+                for approach in mission["approaches"]:
+                    previous = (objective.x, objective.y)
+                    travel = approach["telegraph"]["travel"]
+                    minimum, maximum = limits[travel]
+                    for site in objective.approach_sites[approach["id"]]:
+                        cost = engine.path_cost(engine._find_path(previous, tuple(site)))
+                        self.assertGreaterEqual(cost, minimum)
+                        self.assertLessEqual(cost, maximum)
+                        previous = tuple(site)
+                    seen.add(travel)
+        self.assertTrue({"short", "long"} <= seen)
+
     def test_reduced_party_can_complete_optional_objective_stages(self) -> None:
         hero = self.engine.living_heroes()[0]
         hero.hp = 0

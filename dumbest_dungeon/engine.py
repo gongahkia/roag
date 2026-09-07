@@ -421,7 +421,7 @@ def _build_world(
         for definition in catalog.terrain_patterns.values()
     }
     anchors = set(positions.values())
-    for biome_id in set(room_biomes.values()):
+    for biome_id in sorted(set(room_biomes.values())):
         pattern = patterns[biome_id]
         eligible = sorted(
             position
@@ -1127,16 +1127,26 @@ class GameEngine:
                             f"generated terrain has no mission stage in {objective.biome_id}"
                         )
                     costs = self._travel_costs_from(previous)
+                    travel = approach["telegraph"]["travel"]
+                    minimum_cost, target_cost, maximum_cost = {
+                        "short": (2, 6, 12),
+                        "medium": (5, 10, 18),
+                        "long": (8, 14, 24),
+                    }[travel]
                     ranked = sorted(
                         candidates,
                         key=lambda point: (
+                            abs(costs.get(point, WORLD_WIDTH * WORLD_HEIGHT * 3) - target_cost),
                             costs.get(point, WORLD_WIDTH * WORLD_HEIGHT * 3),
                             point,
                         ),
                     )
-                    span = max(1, len(ranked) // 3)
-                    travel = approach["telegraph"]["travel"]
-                    pool = ranked[:span] if travel == "short" else ranked[-span:] if travel == "long" else ranked
+                    bounded = [
+                        point
+                        for point in ranked
+                        if minimum_cost <= costs.get(point, -1) <= maximum_cost
+                    ]
+                    pool = bounded or ranked[:1]
                     x, y = rng.choice(pool)
                     sites.append([x, y])
                     excluded.add((x, y))
