@@ -1037,6 +1037,40 @@ class EngineTests(unittest.TestCase):
             self.engine.state.light,
         )
 
+    def test_exhausted_light_and_supplies_preserve_pressure(self) -> None:
+        engine = GameEngine.new(self.catalog, 4242)
+        for patrol in engine.state.patrols:
+            patrol.active = False
+        interval = self.catalog.balance["exploration_steps_per_light"]
+        engine.state.light = 0
+        engine.state.travel_ticks = interval - 1
+        before = [hero.stress for hero in engine.living_heroes()]
+        destination = engine._neighbors((engine.state.party_x, engine.state.party_y))[0]
+        engine.step_exploration(*destination)
+        self.assertEqual(
+            [stress + 1 for stress in before],
+            [hero.stress for hero in engine.living_heroes()],
+        )
+
+        engine.state.supplies = 0
+        before = [hero.stress for hero in engine.living_heroes()]
+        engine.biome_mechanics = lambda _biome_id=None: {
+            "hazard": {
+                "name": "Dry Sump",
+                "description": "Panic replaces a missing supply.",
+                "effect": "supplies",
+                "amount": -1,
+            }
+        }
+        hazard = engine.state.hazards[0]
+        engine.state.party_x, engine.state.party_y = hazard.x, hazard.y
+        engine._trigger_biome_hazard(hazard)
+        self.assertEqual(0, engine.state.supplies)
+        self.assertEqual(
+            [stress + 5 for stress in before],
+            [hero.stress for hero in engine.living_heroes()],
+        )
+
     def test_travel_cost_comes_from_the_actual_terrain_glyph(self) -> None:
         origin = (self.engine.state.party_x, self.engine.state.party_y)
         x, y = self.engine._neighbors(origin)[0]
