@@ -84,6 +84,7 @@ BIOME_HAZARD_EFFECTS = {
     "status_random",
     "stress_highest",
     "supplies",
+    "wound_injured",
 }
 BIOME_PATROL_BEHAVIORS = {
     "circuit",
@@ -419,8 +420,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load card metadata from {metadata_source}: {exc}") from exc
 
-    if raw.get("schema_version") != 16:
-        raise ContentError("content schema_version must be 16")
+    if raw.get("schema_version") != 17:
+        raise ContentError("content schema_version must be 17")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")

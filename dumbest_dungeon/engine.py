@@ -485,7 +485,7 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 23
+    SAVE_VERSION = 24
     TUTORIAL_SEED = 1
     ENCOUNTER_PLANS = {"none", "pressure", "disrupt", "screen", "sustain", "combo", "overseer"}
 
@@ -2200,6 +2200,10 @@ class GameEngine:
             targets = heroes if effect == "status_all" else ([self.rng.choice(heroes)] if heroes else [])
             for hero in targets:
                 self._add_status(hero, definition["status"], amount)
+        elif effect == "wound_injured":
+            for hero in heroes:
+                if hero.hp < hero.max_hp or hero.deaths_door:
+                    self._add_status(hero, "wound", amount)
         elif effect == "opening_hand":
             self.state.pending_opening_hand += amount
         hazard.triggered_cells.append([self.state.party_x, self.state.party_y])

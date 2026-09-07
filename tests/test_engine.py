@@ -354,6 +354,24 @@ class EngineTests(unittest.TestCase):
                     engine.finish_hazard()
                 self.assertEqual(first.snapshot(), second.snapshot())
 
+    def test_injury_sensitive_hazard_spares_healthy_crew(self) -> None:
+        engine = GameEngine.new(self.catalog, 4242)
+        heroes = engine.living_heroes()
+        heroes[0].hp -= 1
+        engine.biome_mechanics = lambda _biome_id=None: {
+            "hazard": {
+                "name": "Test Groove",
+                "description": "Only existing injuries open.",
+                "effect": "wound_injured",
+                "amount": 2,
+            }
+        }
+        hazard = engine.state.hazards[0]
+        engine.state.party_x, engine.state.party_y = hazard.x, hazard.y
+        engine._trigger_biome_hazard(hazard)
+        self.assertEqual(2, heroes[0].statuses["wound"])
+        self.assertTrue(all("wound" not in hero.statuses for hero in heroes[1:]))
+
     def test_biome_hazard_footprint_persists_until_each_cell_triggers(self) -> None:
         hazard = self.engine.state.hazards[0]
         self.assertEqual(3, len(hazard.cells))
