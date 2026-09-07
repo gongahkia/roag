@@ -220,6 +220,27 @@ class EngineTests(unittest.TestCase):
             self.assertEqual("zigzag", self.catalog.worlds[engine.state.world_id]["layout"])
             self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(self.catalog, engine.snapshot()).snapshot())
 
+    def test_fracture_layout_offers_central_and_peripheral_crossings(self) -> None:
+        _, edges = WORLD_LAYOUTS["fracture"]
+        self.assertEqual({2, 3, 5, 6, 7}, set(edges[4]))
+        self.assertIn(5, edges[2])
+        self.assertIn(7, edges[3])
+        remaining = set(edges) - {4}
+        reached = {0}
+        pending = [0]
+        while pending:
+            node = pending.pop()
+            for neighbor in edges[node]:
+                if neighbor in remaining and neighbor not in reached:
+                    reached.add(neighbor)
+                    pending.append(neighbor)
+        self.assertEqual(remaining, reached)
+        self.assertEqual(17, sum(map(len, edges.values())) // 2)
+        for seed in (19, 20):
+            engine = GameEngine.new(self.catalog, seed)
+            self.assertEqual("fracture", self.catalog.worlds[engine.state.world_id]["layout"])
+            self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(self.catalog, engine.snapshot()).snapshot())
+
     def test_all_biomes_generate_reachable_hazards_and_optional_objectives(self) -> None:
         seen_biomes: set[str] = set()
         seen_mixtures: set[tuple[str, ...]] = set()
