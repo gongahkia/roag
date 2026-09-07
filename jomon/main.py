@@ -22,6 +22,15 @@ class LandingNoticeLayout:
     lines: tuple[str, ...]
 
 
+def _set_cursor_visibility(visibility: int) -> bool:
+    """Best-effort cursor control for terminals that do not expose it."""
+    try:
+        curses.curs_set(visibility)
+        return True
+    except curses.error:
+        return False
+
+
 def landing_notice_layout(width: int, height: int, notice: str) -> LandingNoticeLayout:
     """Wrap a complete startup warning inside a centered bounded panel."""
     panel_width = max(20, min(68, width - 8))
@@ -48,18 +57,18 @@ def _read_seed(screen: curses.window) -> str:
     _put(screen, max(2, height // 2), max(1, width // 2 - 28), "Readable seed (blank generates one): ")
     screen.refresh()
     curses.echo()
-    curses.curs_set(1)
+    _set_cursor_visibility(1)
     try:
         raw = screen.getstr(max(2, height // 2), max(1, width // 2 + 10), 48)
     finally:
         curses.noecho()
-        curses.curs_set(0)
+        _set_cursor_visibility(0)
     seed = raw.decode("utf-8", errors="ignore").strip()
     return seed or _generated_seed()
 
 
 def run(screen: curses.window) -> None:
-    curses.curs_set(0)
+    _set_cursor_visibility(0)
     screen.keypad(True)
     notice = ""
     while True:

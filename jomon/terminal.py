@@ -1521,7 +1521,10 @@ MOVES = {
 
 
 def play(screen: curses.window, state: GameState) -> GameState:
-    curses.curs_set(0)
+    try:
+        curses.curs_set(0)
+    except curses.error:
+        pass
     screen.keypad(True)
     _init_colours()
     _enable_mouse()

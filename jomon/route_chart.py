@@ -111,6 +111,14 @@ def route_availability(state: GameState, destination: str) -> tuple[bool, str]:
 
 def route_preview(state: GameState, destination: str) -> list[str]:
     node = state.route_nodes[destination]
+    if destination == state.route_current_node:
+        market = f"Market interest: {node.market_interest}." if node.market_interest else "No known cargo buyer."
+        return [
+            f"{node.name}: {node.description}",
+            "Jomon is moored here; choose a connected node to preview a leg.",
+            f"Season: {calendar_at(state).season}; {seasonal_route_note(state)}.",
+            market,
+        ]
     edge = edge_between(state, state.route_current_node, destination)
     if edge is None:
         return ["No direct charted leg."]

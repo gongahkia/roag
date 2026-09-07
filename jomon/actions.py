@@ -1311,19 +1311,9 @@ def interact(state: GameState) -> ActionResult:
             ]
             if any(max(abs(point.x - state.position.x), abs(point.y - state.position.y)) <= 2 for point in participant_positions):
                 return ActionResult(False, False, "A causal tavern incident needs a response.", "incident")
-        person = adjacent_person(state)
-        if person:
-            return ActionResult(False, False, f"Speak with {person.name}.", f"person:{person.id}")
-        bartender_schedule = state.actor_schedules.get(state.bartender.id)
-        if (
-            bartender_schedule
-            and bartender_schedule.area == current_area(state)
-            and max(
-                abs(bartender_schedule.position.x - state.position.x),
-                abs(bartender_schedule.position.y - state.position.y),
-            ) <= 1
-        ):
-            return ActionResult(False, False, f"Speak with {state.bartender.name}.", "bartender")
+        # A courier standing on a physical control operates it even when its
+        # scheduled worker is adjacent. Conversations remain available from
+        # ordinary floor cells beside that worker.
         if state.jomon_space == "tavern" and tile == "+":
             state.jomon_space = "vessel"
             state.position = Position(TAVERN_ENTRANCE.x - 1, TAVERN_ENTRANCE.y, 0)
@@ -1365,6 +1355,19 @@ def interact(state: GameState) -> ActionResult:
                 False, False, f"Inspect Jomon's {station} position.",
                 f"station:{station}",
             )
+        person = adjacent_person(state)
+        if person:
+            return ActionResult(False, False, f"Speak with {person.name}.", f"person:{person.id}")
+        bartender_schedule = state.actor_schedules.get(state.bartender.id)
+        if (
+            bartender_schedule
+            and bartender_schedule.area == current_area(state)
+            and max(
+                abs(bartender_schedule.position.x - state.position.x),
+                abs(bartender_schedule.position.y - state.position.y),
+            ) <= 1
+        ):
+            return ActionResult(False, False, f"Speak with {state.bartender.name}.", "bartender")
         return _plain(state, "Nothing here needs handling.")
     if state.position == state.region.landmarks["landing"]:
         return return_to_jomon(state)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from jomon.actions import interact
 from jomon.vessel import BARTENDER_POSITION
@@ -16,7 +17,7 @@ from jomon.terminal import (
     semantic_role,
     visible_threats,
 )
-from jomon.main import landing_notice_layout
+from jomon.main import _set_cursor_visibility, landing_notice_layout
 from jomon.world import field_of_view, find_tile
 
 
@@ -69,6 +70,10 @@ class SemanticColourTests(unittest.TestCase):
 
 
 class LandingLayoutTests(unittest.TestCase):
+    def test_unsupported_cursor_visibility_is_a_safe_fallback(self):
+        with patch("jomon.main.curses.curs_set", side_effect=__import__("curses").error):
+            self.assertFalse(_set_cursor_visibility(0))
+
     def test_long_incompatible_save_warning_wraps_and_centres(self):
         warning = "Existing development save unavailable: incompatible format with preserved consequences that cannot be loaded safely"
         for width, height in ((80, 24), (100, 32)):

@@ -847,6 +847,9 @@ def game_state_from_dict(data: Any) -> GameState:
             from .vessel import initialise_living_vessel
 
             initialise_living_vessel(state, migrated=migrated_v4)
+        from .vessel import normalise_schedule_work_positions
+
+        normalise_schedule_work_positions(state)
     except (AttributeError, KeyError, TypeError, ValueError) as exc:
         raise StateError(f"malformed save: {exc}") from exc
     validate_state(state)

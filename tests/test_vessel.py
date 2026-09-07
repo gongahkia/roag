@@ -86,6 +86,24 @@ class VesselMapAndScheduleTests(unittest.TestCase):
         }
         self.assertEqual(activities, {"defending cargo"})
 
+    def test_saved_workers_never_occupy_required_control_glyphs(self):
+        state = create_world("clear stations")
+        actor_id = state.household[0].id
+        schedule = state.actor_schedules[actor_id]
+        schedule.area = schedule.destination_area = "vessel:1"
+        schedule.position = schedule.destination = Position(28, 10, 1)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "save.json"
+            save_game(state, path)
+            loaded = load_game(path)
+        repaired = loaded.actor_schedules[actor_id]
+        self.assertNotEqual(repaired.position, Position(28, 10, 1))
+        self.assertNotEqual(repaired.destination, Position(28, 10, 1))
+        loaded.location = "jomon"
+        loaded.jomon_space = "vessel"
+        loaded.position = Position(28, 10, 1)
+        self.assertEqual(interact(loaded).overlay, "route-chart")
+
     def test_offscreen_catch_up_is_bounded_and_no_load_time_passes(self):
         state = create_world("offscreen")
         state.jomon_space = "tavern"

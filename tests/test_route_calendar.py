@@ -16,6 +16,7 @@ from jomon.route_chart import (
     connected_nodes,
     neighbours,
     route_availability,
+    route_preview,
 )
 from jomon.state import create_world, game_state_from_dict
 from jomon.travel import choose_destination, travel_animation_frames
@@ -36,6 +37,7 @@ class RouteGraphTests(unittest.TestCase):
 
     def test_cursor_follows_edges_and_unconnected_confirmation_fails(self):
         state = create_world("route cursor")
+        self.assertIn("Jomon is moored here", route_preview(state, "hearthford")[1])
         moved = chart_move(state, "hearthford", 1, 0)
         self.assertIn(moved, neighbours(state, "hearthford"))
         changed, message = choose_destination(state, "whitecairn")

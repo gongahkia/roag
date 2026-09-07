@@ -145,6 +145,18 @@ VISITOR_SEATS = (
 )
 BARTENDER_POSITION = Position(53, 8)
 
+# Scheduled work happens beside physical controls so an actor can be spoken to
+# without making the chart, helm, stores, or repair point unusable.
+SCHEDULE_WORK_POSITIONS: dict[tuple[str, Position], Position] = {
+    ("vessel:-1", Position(20, 15, -1)): Position(19, 15, -1),
+    ("vessel:0", Position(8, 15, 0)): Position(7, 15, 0),
+    ("vessel:0", Position(34, 15, 0)): Position(33, 15, 0),
+    ("vessel:0", Position(50, 5, 0)): Position(49, 5, 0),
+    ("vessel:1", Position(28, 10, 1)): Position(27, 10, 1),
+    ("vessel:1", Position(35, 10, 1)): Position(34, 10, 1),
+    ("vessel:1", Position(60, 10, 1)): Position(59, 10, 1),
+}
+
 
 def vessel_rows(state: GameState, z: int | None = None) -> tuple[str, ...]:
     if state.jomon_space == "tavern":
@@ -187,18 +199,18 @@ def _schedule_position(actor_id: str, activity: str) -> tuple[str, Position]:
         seats = HOUSEHOLD_SEATS + VISITOR_SEATS
         return "tavern", seats[index % len(seats)]
     if activity == "sleeping":
-        return "vessel:-1", Position(52 + index % 7, 5, -1)
+        return "vessel:-1", Position(52 + index % 7, 6, -1)
     if activity in {"standing watch", "steering", "consulting chart"}:
         return "vessel:1", {
-            "standing watch": Position(60, 10, 1),
-            "steering": Position(35, 10, 1),
-            "consulting chart": Position(28, 10, 1),
+            "standing watch": Position(59, 10, 1),
+            "steering": Position(34, 10, 1),
+            "consulting chart": Position(27, 10, 1),
         }[activity]
     if activity in {"repairing", "moving cargo", "treating injuries"}:
         return "vessel:0", {
-            "repairing": Position(50, 5, 0),
-            "moving cargo": Position(8, 15, 0),
-            "treating injuries": Position(34, 15, 0),
+            "repairing": Position(49, 5, 0),
+            "moving cargo": Position(7, 15, 0),
+            "treating injuries": Position(33, 15, 0),
         }[activity]
     return "tavern", HOUSEHOLD_SEATS[index % len(HOUSEHOLD_SEATS)]
 
@@ -289,6 +301,25 @@ def initialise_living_vessel(state: GameState, *, migrated: bool = False) -> Non
     state.actor_schedules = schedules
     state.tavern_positions = tavern_positions
     state.last_schedule_turn = state.world_time
+
+
+def normalise_schedule_work_positions(state: GameState) -> None:
+    """Move legacy format-5 workers off controls without advancing time."""
+    occupied = {
+        (schedule.area, schedule.position)
+        for schedule in state.actor_schedules.values()
+        if schedule.area.startswith(("vessel:", "tavern"))
+    }
+    for schedule in sorted(state.actor_schedules.values(), key=lambda item: item.actor_id):
+        replacement = SCHEDULE_WORK_POSITIONS.get((schedule.area, schedule.position))
+        if replacement is not None:
+            occupied.discard((schedule.area, schedule.position))
+            area_occupied = {point for area, point in occupied if area == schedule.area}
+            schedule.position = _nearest_free(schedule.area, replacement, area_occupied)
+            occupied.add((schedule.area, schedule.position))
+        schedule.destination = SCHEDULE_WORK_POSITIONS.get(
+            (schedule.destination_area, schedule.destination), schedule.destination
+        )
 
 
 def current_area(state: GameState) -> str:
@@ -491,7 +522,7 @@ def advance_living_world(state: GameState) -> None:
                     schedule.destination_area, schedule.destination = "vessel:0", Position(54, 10, 0)
                 elif state.voyage_kind == "creature":
                     schedule.activity = "bracing the hull"
-                    schedule.destination_area, schedule.destination = "vessel:-1", Position(20, 15, -1)
+                    schedule.destination_area, schedule.destination = "vessel:-1", Position(19, 15, -1)
                 else:
                     schedule.activity = "answering named crew"
                     schedule.destination_area, schedule.destination = "tavern", HOUSEHOLD_SEATS[0]
