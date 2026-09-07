@@ -436,11 +436,19 @@ class TerminalUI:
             route = self.engine._find_path((state.party_x, state.party_y), cursor)
         route_exists = cursor == (state.party_x, state.party_y) or bool(route)
         route_length = self.engine.path_cost(route) if route_exists else None
+        interval = int(self.catalog.balance["exploration_steps_per_light"])
+        light_cost = (
+            (state.travel_ticks + route_length) // interval - state.travel_ticks // interval
+            if route_length is not None
+            else None
+        )
         maximum = self.engine.maximum_navigation_distance()
         reach = "READY" if walkable and route_length is not None and route_length <= maximum else "OUT OF REACH"
         route_cost = f"{route_length:2}" if route_length is not None else "--"
+        route_light = f"{light_cost:2}" if light_cost is not None else "--"
         biome = self.catalog.biomes[self.engine.current_biome()]["name"]
-        mechanics = self.engine.biome_mechanics()
+        terrain = self.engine.terrain_at(*cursor)["name"] if walkable else "Blocked"
+        terrain_cost = self.engine.movement_cost(*cursor) if walkable else "-"
         access = f"Access {self.engine.completed_objectives()}/{state.required_objectives}"
         core = "OPEN" if self.engine.boss_unlocked() else "SEALED"
         self._put(
@@ -456,8 +464,8 @@ class TerminalUI:
         self._put(
             rows - 3,
             2,
-            f"@crew Xaim e/E/B foes Kgoal ^hazard ?/C/W/$ | "
-            f"T{mechanics['traversal']['cost']} {biome}"[
+            f"L-{route_light} {terrain}(T{terrain_cost}) | {biome} | "
+            f"@crew Xaim Kgoal ^haz e/E foe"[
                 : self.screen.getmaxyx()[1] - 3
             ],
             curses.A_DIM,

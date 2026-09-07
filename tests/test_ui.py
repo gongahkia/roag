@@ -375,6 +375,8 @@ class AsciiUiTests(unittest.TestCase):
         rendered = screen.text()
         biome = self.catalog.biomes[self.engine.current_biome()]["name"]
         self.assertIn("Route  0/18 READY", rendered)
+        self.assertIn("L- 0", rendered)
+        self.assertIn(self.engine.terrain_at(*party)["name"], rendered)
         self.assertIn("Core SEALED", rendered)
         self.assertIn(biome, rendered)
 

@@ -13,7 +13,7 @@ class ContentTests(unittest.TestCase):
     def test_bundled_catalog_is_semantically_complete(self) -> None:
         catalog = load_catalog()
         self.assertTrue(all((catalog.heroes, catalog.cards, catalog.enemies, catalog.encounters)))
-        self.assertTrue(all((catalog.biomes, catalog.worlds, catalog.events)))
+        self.assertTrue(all((catalog.biomes, catalog.worlds, catalog.events, catalog.terrains)))
         self.assertTrue(all((catalog.boons, catalog.curses, catalog.items, catalog.afflictions)))
         self.assertGreaterEqual(len(catalog.squads), 4)
         self.assertEqual(set(catalog.heroes), set(catalog.art["heroes"]))
@@ -40,6 +40,10 @@ class ContentTests(unittest.TestCase):
         )
         self.assertTrue(all(card["tags"] for card in catalog.cards.values()))
         self.assertTrue(all(card["upgrade_description"] for card in catalog.cards.values()))
+        self.assertEqual(
+            set(".,=~_\";:`'%-o"),
+            {terrain["glyph"] for terrain in catalog.terrains.values()},
+        )
         def signature(card: dict) -> tuple:
             return (
                 card["cost"],

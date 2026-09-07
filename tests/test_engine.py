@@ -411,6 +411,17 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(self.engine.path_cost(path), self.engine.state.travel_ticks)
         self.assertEqual(100 - self.engine.state.travel_ticks // 2, self.engine.state.light)
 
+    def test_travel_cost_comes_from_the_actual_terrain_glyph(self) -> None:
+        origin = (self.engine.state.party_x, self.engine.state.party_y)
+        x, y = self.engine._neighbors(origin)[0]
+        biome_cost = self.engine.biome_mechanics(self.engine.biome_at(x, y))["traversal"]["cost"]
+        row = self.engine.state.world_tiles[y]
+        self.engine.state.world_tiles[y] = row[:x] + "=" + row[x + 1:]
+        self.assertEqual("Service rail", self.engine.terrain_at(x, y)["name"])
+        self.assertEqual(1, self.engine.movement_cost(x, y))
+        if biome_cost != 1:
+            self.assertNotEqual(biome_cost, self.engine.movement_cost(x, y))
+
     def test_patrol_contact_opens_combat_and_victory_clears_it(self) -> None:
         patrol = next(item for item in self.engine.state.patrols if self.engine.room(item.room_id).kind != "boss")
         expected_formation = list(self.engine.room(patrol.room_id).enemy_ids)

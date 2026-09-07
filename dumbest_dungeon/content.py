@@ -22,6 +22,7 @@ class Catalog:
     enemies: dict[str, dict[str, Any]]
     encounters: dict[str, dict[str, Any]]
     events: dict[str, dict[str, Any]]
+    terrains: dict[str, dict[str, Any]]
     biomes: dict[str, dict[str, Any]]
     worlds: dict[str, dict[str, Any]]
     boons: dict[str, dict[str, Any]]
@@ -100,6 +101,7 @@ BIOME_OBJECTIVE_EFFECTS = {
     "supplies",
     "upgrade_random",
 }
+TERRAIN_GLYPHS = frozenset(".,=~_\";:`'%-o")
 CARD_TAGS = {
     "block",
     "cleanse",
@@ -387,8 +389,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load card metadata from {metadata_source}: {exc}") from exc
 
-    if raw.get("schema_version") != 8:
-        raise ContentError("content schema_version must be 8")
+    if raw.get("schema_version") != 9:
+        raise ContentError("content schema_version must be 9")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
@@ -397,6 +399,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
     enemies = _indexed(raw.get("enemies"), "enemies")
     encounters = _indexed(raw.get("encounters"), "encounters")
     events = _indexed(raw.get("events"), "events")
+    terrains = _indexed(raw.get("terrains"), "terrains")
     biomes = _indexed(raw.get("biomes"), "biomes")
     worlds = _indexed(raw.get("worlds"), "worlds")
     boons = _indexed(raw.get("boons"), "boons")
@@ -423,6 +426,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
         "enemies": enemies,
         "encounters": encounters,
         "events": events,
+        "terrains": terrains,
         "biomes": biomes,
         "worlds": worlds,
         "boons": boons,
@@ -611,6 +615,24 @@ def load_catalog(path: Path | None = None) -> Catalog:
             for enemy_id in members
         ):
             raise ContentError(f"encounter {encounter['id']} mixes incompatible biome enemies")
+    terrain_glyphs: set[str] = set()
+    for terrain in terrains.values():
+        if (
+            not isinstance(terrain.get("name"), str)
+            or not terrain["name"]
+            or not isinstance(terrain.get("description"), str)
+            or not terrain["description"]
+            or not isinstance(terrain.get("glyph"), str)
+            or len(terrain["glyph"]) != 1
+            or terrain["glyph"] in terrain_glyphs
+            or terrain.get("cost") not in {1, 2, 3}
+            or terrain.get("biome") is not None
+            and terrain["biome"] not in biomes
+        ):
+            raise ContentError(f"terrain {terrain['id']} is invalid")
+        terrain_glyphs.add(terrain["glyph"])
+    if terrain_glyphs != TERRAIN_GLYPHS:
+        raise ContentError("terrain profiles must cover every traversable ASCII glyph exactly once")
     glyphs = set()
     for biome in biomes.values():
         if not isinstance(biome.get("name"), str) or not isinstance(biome.get("description"), str):
@@ -621,6 +643,12 @@ def load_catalog(path: Path | None = None) -> Catalog:
         if glyph in glyphs:
             raise ContentError(f"biome {biome['id']} reuses a floor glyph")
         glyphs.add(glyph)
+        terrain = next(
+            (item for item in terrains.values() if item["glyph"] == glyph),
+            None,
+        )
+        if terrain is None or terrain.get("biome") != biome["id"]:
+            raise ContentError(f"biome {biome['id']} needs a matching terrain profile")
         _biome_mechanics(biome)
 
     for world in worlds.values():
@@ -715,6 +743,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
         enemies,
         encounters,
         events,
+        terrains,
         biomes,
         worlds,
         boons,

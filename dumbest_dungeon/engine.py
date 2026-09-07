@@ -392,7 +392,7 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 13
+    SAVE_VERSION = 14
     TUTORIAL_SEED = 1
     ENCOUNTER_PLANS = {"none", "pressure", "disrupt", "screen", "sustain", "combo", "overseer"}
 
@@ -1336,7 +1336,19 @@ class GameEngine:
         return self.catalog.biomes[biome_id or self.current_biome()]["mechanics"]
 
     def movement_cost(self, x: int, y: int) -> int:
-        return int(self.biome_mechanics(self.biome_at(x, y))["traversal"]["cost"])
+        return int(self.terrain_at(x, y)["cost"])
+
+    def terrain_at(self, x: int, y: int) -> dict[str, Any]:
+        if not self.is_walkable(x, y):
+            raise RuleError("there is no traversable terrain at that position")
+        glyph = self.state.world_tiles[y][x]
+        terrain = next(
+            (item for item in self.catalog.terrains.values() if item["glyph"] == glyph),
+            None,
+        )
+        if terrain is None:
+            raise RuleError(f"terrain glyph {glyph!r} has no movement profile")
+        return terrain
 
     def world_tiles(self) -> list[str]:
         return self.state.world_tiles

@@ -1,5 +1,5 @@
 {
-  "schema_version": 8,
+  "schema_version": 9,
   "balance": {
     "hand_size": 5,
     "energy": 3,
@@ -444,6 +444,21 @@
     {"id":"void_final_weight","kind":"elite","biomes":["void"],"enemies":["grief_anchor","horizon_eye","absence_moth","horizon_eye"]},
     {"id":"ossuary_skull_wall","kind":"normal","biomes":["ossuary"],"enemies":["bone_colossus","choir_skull"]},
     {"id":"ossuary_chorus_line","kind":"elite","biomes":["ossuary"],"enemies":["bone_colossus","reliquary_fiend","choir_skull","choir_skull"]}
+  ],
+  "terrains": [
+    {"id":"open_deck","name":"Open deck","glyph":".","cost":1,"biome":"derelict","description":"Reliable plating costs one travel tick."},
+    {"id":"ice_sheet","name":"Ice sheet","glyph":"_","cost":2,"biome":"cryogenic","description":"Slick cryogenic flooring costs two travel ticks."},
+    {"id":"root_mat","name":"Root mat","glyph":"\"","cost":2,"biome":"hydroponic","description":"Dense roots cost two travel ticks."},
+    {"id":"hot_slag","name":"Hot slag","glyph":";","cost":2,"biome":"foundry","description":"Furnace slag costs two travel ticks."},
+    {"id":"charged_conduit","name":"Charged conduit","glyph":":","cost":1,"biome":"reactor","description":"Powered service conduit costs one travel tick."},
+    {"id":"mycelial_path","name":"Mycelial path","glyph":"%","cost":1,"biome":"fungal","description":"Soft living floor costs one travel tick."},
+    {"id":"deep_water","name":"Deep water","glyph":"~","cost":3,"biome":"flooded","description":"Submerged deck costs three travel ticks."},
+    {"id":"wind_lane","name":"Wind lane","glyph":"`","cost":1,"biome":"storm","description":"A following static wind costs one travel tick."},
+    {"id":"contradictory_aisle","name":"Contradictory aisle","glyph":"-","cost":2,"biome":"archive","description":"Misindexed distance costs two travel ticks."},
+    {"id":"null_gap","name":"Null gap","glyph":"'","cost":2,"biome":"void","description":"Apparent absence costs two travel ticks."},
+    {"id":"ribbed_crypt","name":"Ribbed crypt","glyph":"o","cost":1,"biome":"ossuary","description":"Bone-white maintenance flooring costs one travel tick."},
+    {"id":"debris","name":"Unstable debris","glyph":",","cost":2,"description":"Loose wreckage costs two travel ticks regardless of its region."},
+    {"id":"service_rail","name":"Service rail","glyph":"=","cost":1,"description":"An intact reinforced crossing costs one travel tick."}
   ],
   "biomes": [
     {"id":"derelict","name":"Derelict Decks","glyph":".","description":"Broken machinery, open corridors, and familiar shipboard hazards.","mechanics":{"hazard":{"name":"Falling Conduit","description":"A loose conduit strikes the weakest crew member.","effect":"damage_weakest","amount":4},"traversal":{"cost":1,"description":"Open decking costs one travel tick."},"patrol":{"behavior":"roam","aggression":10,"cadence":1,"leash":8,"description":"Maintenance packs roam locally, then pursue on sight."},"visibility":{"patrol_radius":9,"hazard_radius":4,"description":"Broken sightlines reveal nearby movement and machinery."},"combat":{"name":"Loose Cover","description":"Scattered plating gives every combatant 2 block.","effects":[{"target":"all","op":"block","amount":2}]},"objective":{"name":"Signal Relay","description":"Splice a corpse-warm relay into the Overseer route.","safe_label":"Insulate the splice","safe_cost":1,"safe_effect":"light","safe_amount":22,"force_label":"Bridge it by hand","force_effect":"damage_random","force_amount":5}}},
