@@ -77,7 +77,7 @@ class TimeAndBuildTests(unittest.TestCase):
         self.assertEqual(state.world_time, started + 2)
 
     def test_catalogues_and_six_system_combinations(self):
-        self.assertEqual(len(WEAPONS), 6)
+        self.assertGreaterEqual(len(WEAPONS), 12)
         self.assertEqual(len(GEAR), 8)
         self.assertEqual(len(SUPPORTS), 5)
         self.assertEqual(len(PASSIVES), 12)

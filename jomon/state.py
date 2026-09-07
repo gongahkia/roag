@@ -153,6 +153,8 @@ class Threat:
     stalled_turns: int = 0
     region_id: str = "hearthford"
     capabilities: list[str] = field(default_factory=list)
+    ranged_kind: str = "crossbow"
+    aimed_at: Position | None = None
 
 
 @dataclass
@@ -258,6 +260,9 @@ class GameState:
     berth_capacity: int
     sound_events: list[SoundEvent]
     group_alerts: dict[str, GroupAlert]
+    ammunition_by_type: dict[str, int]
+    weapon_ready: int
+    last_move_turn: int
     history: list[str] = field(default_factory=list)
     messages: list[str] = field(default_factory=list)
     world_ended: bool = False
@@ -346,9 +351,9 @@ def _threats(seed: str, region: Region) -> list[Threat]:
     return [
         Threat("road-patrol", names.choice(("bank runner", "toll watch")), "pursuer", patrol[0], 5, 5, patrol=patrol, role="lookout", group="road-watch", home_position=patrol[0], capabilities=["alarm"]),
         Threat("reed-boar", "bristleback reed boar", "animal", Position(54, 38), 5, 5, morale=3, role="territorial", home_position=Position(54, 38), vision=6, hearing=10),
-        Threat("tower-bow", "watch-roof crossbow keeper", "ranged", Position(47, 10, 2), 4, 4, role="shooter", group="road-watch", ammunition=5, home_position=Position(47, 10, 2)),
+        Threat("tower-bow", "watch-roof crossbow keeper", "ranged", Position(47, 10, 2), 4, 4, role="shooter", group="road-watch", ammunition=5, home_position=Position(47, 10, 2), ranged_kind="heavy crossbow"),
         Threat("mill-spear", "displaced mill levy", "reach", Position(74, 24), 5, 5, morale=3, role="protector", group="mill-levy", home_position=Position(74, 24)),
-        Threat("gantry-bow", "gantry bolt carrier", "ranged", Position(80, 20, 1), 4, 4, role="suppressor", group="mill-levy", ammunition=4, home_position=Position(80, 20, 1)),
+        Threat("gantry-bow", "gantry sling carrier", "ranged", Position(80, 20, 1), 4, 4, role="suppressor", group="mill-levy", ammunition=7, home_position=Position(80, 20, 1), ranged_kind="sling"),
         Threat(
             "wheel-train", "runaway crown wheel" if elite else "unbalanced mill sweep",
             "machinery", Position(82, 27), 7 if elite else 5, 7 if elite else 5,
@@ -410,6 +415,8 @@ def create_world(seed: str) -> GameState:
         objective_evidence=[],
         visitors=[], tavern_positions={}, visitor_status={}, berth_capacity=9,
         sound_events=[], group_alerts={},
+        ammunition_by_type={"bolts": 6, "arrows": 8, "sling stones": 10, "heavy bolts": 4, "javelins": 4, "nets": 2},
+        weapon_ready=2, last_move_turn=-99,
     )
     from .inventory import initialise_inventory
     from .people import initialise_tavern
@@ -459,6 +466,12 @@ def _migrate_v3(data: dict[str, Any]) -> dict[str, Any]:
     migrated["berth_capacity"] = 9
     migrated["sound_events"] = []
     migrated["group_alerts"] = {}
+    migrated["ammunition_by_type"] = {
+        "bolts": migrated.get("ammunition", 6), "arrows": 8,
+        "sling stones": 10, "heavy bolts": 4, "javelins": 4, "nets": 2,
+    }
+    migrated["weapon_ready"] = 2
+    migrated["last_move_turn"] = -99
     return migrated
 
 
@@ -499,6 +512,8 @@ def game_state_from_dict(data: Any) -> GameState:
             for key in ("last_known_position", "home_position", "objective_position"):
                 if threat_data.get(key) is not None:
                     threat_data[key] = _position(threat_data[key], f"threat {key}")
+            if threat_data.get("aimed_at") is not None:
+                threat_data["aimed_at"] = _position(threat_data["aimed_at"], "threat aim")
             threats.append(Threat(**threat_data))
         items: list[Item] = []
         for raw in data["items"]:
@@ -546,6 +561,8 @@ def game_state_from_dict(data: Any) -> GameState:
             tavern_positions={key: _position(value, "tavern occupant") for key, value in data.get("tavern_positions", {}).items()},
             visitor_status=dict(data.get("visitor_status", {})), berth_capacity=data.get("berth_capacity", 9),
             sound_events=sound_events, group_alerts=group_alerts,
+            ammunition_by_type=dict(data.get("ammunition_by_type", {"bolts": data.get("ammunition", 6)})),
+            weapon_ready=data.get("weapon_ready", 2), last_move_turn=data.get("last_move_turn", -99),
             history=list(data["history"]), messages=list(data["messages"]), world_ended=data["world_ended"],
         )
         if migrated_v3:

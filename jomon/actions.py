@@ -31,6 +31,7 @@ from .world import (
     build_combinations,
     capacity,
     carried_bulk,
+    cover_at,
     distance,
     displayed_tile,
     field_of_view,
@@ -131,6 +132,7 @@ def choose_weapon(state: GameState, weapon: str) -> ActionResult:
     if not prepare_kind(state, weapon):
         return _plain(state, "That weapon cannot fit the courier's pack while swapping.")
     state.weapon, state.crossbow_loaded, state.aimed_target = weapon, True, None
+    state.weapon_ready = 2 if weapon == "heavy crossbow" else 1
     return _plain(state, f"Readied {WEAPONS[weapon][0]}.", changed=True)
 
 
@@ -392,9 +394,10 @@ def apply_damage(
 def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
     gap = distance(state.position, threat.position)
     threat.turn += 1
-    if threat.intent.startswith(("disrupted", "dazed")):
-        threat.intent = "recovers position before acting again"
-        return f"The {threat.name} loses a turn recovering position."
+    if threat.intent.startswith(("disrupted", "dazed", "entangled")):
+        was_entangled = threat.intent.startswith("entangled")
+        threat.intent = "cuts free of the net before acting again" if was_entangled else "recovers position before acting again"
+        return f"The {threat.name} loses a turn {threat.intent}."
     if threat.profile == "machinery":
         if gap > 7:
             return ""
@@ -462,6 +465,13 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
         threat.stalled_turns = 0
         threat.intent = "investigates a last-known position"
         return f"The {threat.name} investigates without knowing your current position."
+    if decision.action == "reload":
+        threat.reload_turns = max(0, threat.reload_turns - 1)
+        if threat.reload_turns:
+            threat.intent = f"reloads {threat.ranged_kind}; {threat.reload_turns} turn remains"
+        else:
+            threat.intent = f"finishes reloading {threat.ranged_kind}"
+        return f"The {threat.name} {threat.intent}."
     if threat.profile == "ranged":
         if threat.position.z != state.position.z and not line_of_sight(
             state, threat.position, state.position
@@ -480,18 +490,29 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
                 return "" if threat.stalled_turns > 1 else f"The {threat.name} cannot find a firing line."
             threat.stalled_turns = 0
             return f"The {threat.name} shifts for a firing line."
-        if gap <= 7:
-            if "fires next turn" in threat.intent:
-                threat.intent = "reloads before aiming again"
-                if guarded:
-                    return "Your guard and cover turn the bolt."
-                harm = 3 if pressure(state).band == "critical" else 2
-                return apply_damage(state, harm, f"The {threat.name}'s bolt")
-            if "reload" in threat.intent:
-                threat.intent = "aims and fires next turn"
-                return f"The {threat.name} reloads and takes readable aim."
-            threat.intent = "aims and fires next turn"
-            return f"The {threat.name} aims: break sight or guard before the shot."
+        effective_range = {"longbow": 12, "sling": 9, "heavy crossbow": 14, "crossbow": 8}.get(threat.ranged_kind, 8)
+        if gap <= effective_range:
+            if threat.aimed_at is not None:
+                aimed = threat.aimed_at
+                threat.aimed_at = None
+                threat.ammunition = max(0, threat.ammunition - 1)
+                threat.reload_turns = {"heavy crossbow": 2, "crossbow": 1, "longbow": 1, "sling": 0}.get(threat.ranged_kind, 1)
+                threat.intent = f"must reload {threat.ranged_kind}"
+                if aimed != state.position:
+                    return f"The {threat.name} releases along {aimed.x},{aimed.y}; your movement leaves the lane empty."
+                lane_cover = cover_at(state, threat.position, state.position)
+                if lane_cover == "full":
+                    return f"The {threat.name}'s shot strikes full cover."
+                if guarded or lane_cover == "partial":
+                    return f"Guard and {lane_cover} cover turn the {threat.ranged_kind} shot."
+                harm = {"sling": 1, "longbow": 2, "crossbow": 2, "heavy crossbow": 4}.get(threat.ranged_kind, 2)
+                if pressure(state).band == "critical":
+                    harm += 1
+                kind = "blunt" if threat.ranged_kind == "sling" else "pierce"
+                return apply_damage(state, harm, f"The {threat.name}'s {threat.ranged_kind}", damage_kind=kind)
+            threat.aimed_at = state.position
+            threat.intent = f"aims {threat.ranged_kind} along lane {state.position.x},{state.position.y}; move, cover, smoke, or guard"
+            return f"The {threat.name} {threat.intent}."
     if threat.profile == "animal" and gap <= 3:
         if base_tile(state, state.position) == "m" and "charge" in threat.intent:
             threat.status, threat.intent = "evaded", "bogged in the mud channel"
@@ -733,7 +754,11 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         ):
             return _plain(state, "The diagonal is pinched closed.")
     previous_area = area_name(state)
+    if state.location == "region" and state.aimed_target:
+        state.aimed_target = None
     state.position = target
+    if state.location == "region":
+        state.last_move_turn = state.world_time
     messages: list[str] = []
     tile = base_tile(state, target)
     if state.location == "jomon":
@@ -1150,39 +1175,80 @@ def attack(state: GameState) -> ActionResult:
         "staff": 1,
         "hand axe": 1,
         "crossbow": 7,
+        "longbow": 12,
+        "sling": 9,
+        "heavy crossbow": 14,
+        "pike": 4,
+        "paired knives": 1,
+        "javelins": 7,
+        "war hammer": 1,
+        "weighted net": 4,
     }
     candidates = _attack_targets(state, ranges[state.weapon])
+    if state.weapon == "pike":
+        candidates = [target for target in candidates if distance(state.position, target.position) >= 2]
     if not candidates:
         if state.weapon == "hand axe" and base_tile(state, state.position) == "d":
             return _destroy_floor(state)
         return _plain(state, "No visible hostile is within this weapon's reach.")
     target = candidates[0]
     target.status = "engaged"
-    if state.weapon == "crossbow":
-        if not state.crossbow_loaded:
+    ranged = state.weapon in {"crossbow", "longbow", "sling", "heavy crossbow", "javelins", "weighted net"}
+    prepared = state.weapon in {"crossbow", "longbow", "heavy crossbow"}
+    ammo_key = {
+        "crossbow": "bolts", "longbow": "arrows", "sling": "sling stones",
+        "heavy crossbow": "heavy bolts", "javelins": "javelins", "weighted net": "nets",
+    }.get(state.weapon)
+    if ranged:
+        if state.weapon == "crossbow" and not state.crossbow_loaded:
             return _plain(state, "The crossbow is unloaded; reload with G.")
-        if state.aimed_target != target.id:
+        if state.weapon == "heavy crossbow" and state.weapon_ready < 2:
+            return _plain(state, f"The arbalest needs {2 - state.weapon_ready} more guarded reload action(s).")
+        if ammo_key and state.ammunition_by_type.get(ammo_key, 0) <= 0:
+            return _plain(state, f"No {ammo_key} remain in the physical load.")
+        lane_cover = cover_at(state, state.position, target.position)
+        if lane_cover == "full":
+            return _plain(state, "Structure fully blocks that projectile path.")
+        if prepared and state.aimed_target != target.id:
             state.aimed_target = target.id
             return _time_result(
                 state,
-                f"You aim at the {target.name}; firing commits the next action.",
+                f"You prepare {state.weapon} on the {target.name}; range {distance(state.position, target.position)}, {lane_cover} cover. Firing commits the next action.",
                 priority=3,
             )
         if (
-            state.weather == "hard rain"
+            state.weapon in {"crossbow", "longbow"}
+            and state.weather in {"hard rain", "coast squall", "forest rain"}
             and "weatherproof aim" not in build_combinations(state)
         ):
             state.aimed_target = None
             return _time_result(
                 state,
-                "Hard rain spoils the crossbow's committed aim before release.",
+                "Wet weather spoils the committed string before release.",
                 priority=3,
             )
-        if state.ammunition <= 0:
-            return _plain(state, "No crossbow ammunition remains.")
-        state.crossbow_loaded, state.aimed_target = False, None
-        state.ammunition -= 1
-        damage, weapon_text, sound = 3, "crossbow bolt", 3
+        if ammo_key:
+            state.ammunition_by_type[ammo_key] -= 1
+        if state.weapon == "crossbow":
+            state.crossbow_loaded = False
+            state.ammunition = max(0, state.ammunition - 1)
+        if state.weapon == "heavy crossbow":
+            state.weapon_ready = 0
+        state.aimed_target = None
+        damage, weapon_text, sound = {
+            "crossbow": (3, "crossbow bolt", 3),
+            "longbow": (3, "longbow arrow", 2),
+            "sling": (1, "sling stone arcs over the lane", 2),
+            "heavy crossbow": (5, "arbalest bolt tears through the lane", 5),
+            "javelins": (2, "thrown javelin", 3),
+            "weighted net": (0, "weighted net", 2),
+        }[state.weapon]
+        if lane_cover == "partial" and state.weapon not in {"heavy crossbow", "sling"}:
+            damage = max(0, damage - 1)
+            weapon_text += " glances from partial cover"
+        if state.courier and ({"head", "hands"} & set(state.courier.injuries)):
+            damage = max(0, damage - 1)
+            weapon_text += " wavers through injury"
     else:
         damage = {
             "billhook": 2,
@@ -1190,6 +1256,9 @@ def attack(state: GameState) -> ActionResult:
             "cudgel": 1,
             "staff": 1,
             "hand axe": 3,
+            "pike": 2,
+            "paired knives": 2,
+            "war hammer": 3,
         }[state.weapon]
         weapon_text = state.weapon
         sound = 1 if state.weapon in {"cudgel", "staff"} else 2
@@ -1224,6 +1293,28 @@ def attack(state: GameState) -> ActionResult:
     elif state.weapon == "hand axe":
         target.morale -= 1
         weapon_text += " breaks guard"
+    elif state.weapon == "pike":
+        target.position = _step_away(state, target)
+        target.position = _step_away(state, target)
+        state.guarded_step = True
+        weapon_text += " braces a four-pace lane and drives the target back"
+        target.intent = "disrupted by the pike brace"
+    elif state.weapon == "paired knives":
+        state.guarded_step = True
+        target.morale -= 1
+        weapon_text += " cut twice before a mobile guarded step"
+    elif state.weapon == "war hammer":
+        target.morale -= 2
+        target.position = _step_away(state, target)
+        weapon_text += " crushes guard and knocks back"
+        emit_sound(state, 2)
+    elif state.weapon == "weighted net":
+        target.intent = "entangled; loses a turn cutting free"
+        target.morale -= 1
+        weapon_text += " entangles movement without dealing harm"
+    elif state.weapon == "sling" and state.position.z > target.position.z:
+        target.morale -= 1
+        weapon_text += " from a high arc"
     if (
         "high-ground drive" in build_combinations(state)
         and target.position.z < state.position.z
@@ -1258,6 +1349,17 @@ def guard(state: GameState) -> ActionResult:
         return _time_result(
             state,
             "You reload the crossbow behind a committed guarded posture.",
+            guarded=state.gear == "buckler",
+            priority=3,
+        )
+    if state.weapon == "heavy crossbow" and state.weapon_ready < 2:
+        if state.ammunition_by_type.get("heavy bolts", 0) <= 0:
+            return _plain(state, "No heavy bolts remain.")
+        state.weapon_ready += 1
+        stage = "windlass set" if state.weapon_ready == 1 else "bolt seated and ready"
+        return _time_result(
+            state,
+            f"Arbalest reload {state.weapon_ready}/2: {stage}.",
             guarded=state.gear == "buckler",
             priority=3,
         )

@@ -158,10 +158,36 @@ def blocks_sight(state: GameState, position: Position) -> bool:
 def line_of_sight(state: GameState, start: Position, end: Position) -> bool:
     if start.z == end.z:
         return all(not blocks_sight(state, point) for point in _line(start, end)[1:-1])
-    if abs(start.z - end.z) != 1 or start.x != end.x or start.y != end.y:
+    if abs(start.z - end.z) != 1:
         return False
     lower, upper = (start, end) if start.z < end.z else (end, start)
-    return vertical_open(state, lower, upper)
+    if start.x == end.x and start.y == end.y:
+        return vertical_open(state, lower, upper)
+    if distance(start, end) > 14 or base_tile(state, upper) == " ":
+        return False
+    # Elevated exterior positions project a lane across both aligned levels.
+    upper_ray = _line(Position(start.x, start.y, upper.z), Position(end.x, end.y, upper.z))
+    lower_ray = _line(Position(start.x, start.y, lower.z), Position(end.x, end.y, lower.z))
+    return all(not blocks_sight(state, point) for point in upper_ray[1:-1]) and all(
+        not blocks_sight(state, point) for point in lower_ray[1:-1]
+    )
+
+
+def projectile_path(start: Position, end: Position) -> list[Position]:
+    """Return the inspectable horizontal projection of a shot."""
+    return _line(start, Position(end.x, end.y, start.z))
+
+
+def cover_at(state: GameState, shooter: Position, target: Position) -> str:
+    if not line_of_sight(state, shooter, target):
+        return "full"
+    adjacent = (
+        Position(target.x + 1, target.y, target.z), Position(target.x - 1, target.y, target.z),
+        Position(target.x, target.y + 1, target.z), Position(target.x, target.y - 1, target.z),
+    )
+    if any(base_tile(state, point) in {"#", "T", "+"} for point in adjacent):
+        return "partial"
+    return "open"
 
 
 def sight_radius(state: GameState) -> int:
