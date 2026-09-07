@@ -485,7 +485,7 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 22
+    SAVE_VERSION = 23
     TUTORIAL_SEED = 1
     ENCOUNTER_PLANS = {"none", "pressure", "disrupt", "screen", "sustain", "combo", "overseer"}
 
@@ -3109,10 +3109,19 @@ class GameEngine:
         for effect in environment["effects"]:
             if effect["op"] in {"draw", "energy"}:
                 continue
-            if effect["target"] == "all":
+            target_group = effect["target"]
+            if target_group == "all":
                 targets = heroes + enemies
+            elif target_group == "front_crew":
+                targets = heroes[:1]
+            elif target_group == "back_crew":
+                targets = heroes[-1:]
+            elif target_group == "front_enemy":
+                targets = enemies[:1]
+            elif target_group == "back_enemy":
+                targets = enemies[-1:]
             else:
-                targets = heroes if effect["target"] == "crew" else enemies
+                targets = heroes if target_group == "crew" else enemies
             if effect["op"] == "block":
                 for target in targets:
                     target.block += int(effect["amount"])

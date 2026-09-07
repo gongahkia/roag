@@ -22,7 +22,7 @@ python3 -m dumbest_dungeon --validate-content
 
 A generated seed appears in the map HUD and ending screen. Supplying `--seed` makes new expeditions in that process reproducible. The default save is `$XDG_STATE_HOME/dullest-dungeon/run.save.json`, or `~/.local/state/dullest-dungeon/run.save.json` when `XDG_STATE_HOME` is unset. The existing `dumbest_dungeon` Python package name remains the launch path; it is an internal compatibility detail, not the public title.
 
-Biome worlds use content schema 15 and save version 22. Saves from earlier builds are rejected with an explicit version error rather than loaded incorrectly.
+Biome worlds use content schema 16 and save version 23. Saves from earlier builds are rejected with an explicit version error rather than loaded incorrectly.
 
 ## Controls and rules
 

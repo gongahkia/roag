@@ -726,6 +726,31 @@ class EngineTests(unittest.TestCase):
         engine.play_card(0, target.id)
         self.assertEqual(target.max_hp - 8, target.hp)
 
+    def test_biome_combat_environment_can_target_formation_edges(self) -> None:
+        self.engine.start_combat("lost_shift")
+        heroes = self.engine.living_heroes()
+        enemies = self.engine.living_enemies()
+        for actor in heroes + enemies:
+            actor.block = 0
+            actor.statuses.clear()
+        self.engine._apply_biome_combat_environment(
+            {
+                "name": "Edge Test",
+                "description": "Only the formation edges change.",
+                "effects": [
+                    {"target": "front_crew", "op": "block", "amount": 4},
+                    {"target": "back_crew", "op": "status", "status": "weak", "amount": 1},
+                    {"target": "front_enemy", "op": "status", "status": "marked", "amount": 1},
+                    {"target": "back_enemy", "op": "block", "amount": 3},
+                ],
+            }
+        )
+        self.assertEqual(4, heroes[0].block)
+        self.assertTrue(all(hero.block == 0 for hero in heroes[1:]))
+        self.assertEqual(1, heroes[-1].statuses["weak"])
+        self.assertEqual(1, enemies[0].statuses["marked"])
+        self.assertEqual(3, enemies[-1].block)
+
     def test_generated_content_and_top_down_map_are_connected(self) -> None:
         for seed in range(50):
             engine = GameEngine.new(self.catalog, seed)

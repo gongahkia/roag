@@ -1,5 +1,5 @@
 {
-  "schema_version": 15,
+  "schema_version": 16,
   "balance": {
     "hand_size": 5,
     "energy": 3,

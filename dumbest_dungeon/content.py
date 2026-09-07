@@ -95,7 +95,15 @@ BIOME_PATROL_BEHAVIORS = {
     "stalk",
     "sweep",
 }
-BIOME_COMBAT_TARGETS = {"all", "crew", "enemies"}
+BIOME_COMBAT_TARGETS = {
+    "all",
+    "back_crew",
+    "back_enemy",
+    "crew",
+    "enemies",
+    "front_crew",
+    "front_enemy",
+}
 BIOME_COMBAT_OPS = {"block", "draw", "energy", "reverse", "status", "stress"}
 BIOME_OBJECTIVE_EFFECTS = {
     "boon_random",
@@ -411,8 +419,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load card metadata from {metadata_source}: {exc}") from exc
 
-    if raw.get("schema_version") != 15:
-        raise ContentError("content schema_version must be 15")
+    if raw.get("schema_version") != 16:
+        raise ContentError("content schema_version must be 16")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
