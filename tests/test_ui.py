@@ -356,6 +356,7 @@ class AsciiUiTests(unittest.TestCase):
         pickup = next(item for item in self.engine.state.pickups if not item.hidden)
         pickup.x, pickup.y = party[0] + 2, party[1]
         pickup.kind = "boon"
+        self.engine._update_perception()
         destination = self.engine.room_position(1)
         self.ui._world_map(5, destination)
         rendered = screen.text()
@@ -390,6 +391,17 @@ class AsciiUiTests(unittest.TestCase):
         self.ui.screen = screen
         self.ui._render_exploration(wall)
         self.assertIn("Route --/18 OUT OF REACH", screen.text())
+
+    def test_terminal_size_does_not_change_simulation_knowledge(self) -> None:
+        before = list(self.engine.state.known_feature_ids)
+        party = (self.engine.state.party_x, self.engine.state.party_y)
+        self.ui.screen = FakeScreen()
+        self.ui._world_map(self.ui.MAP_ROW, party)
+        minimum = list(self.engine.state.known_feature_ids)
+        self.ui.screen = FakeScreen(rows=60, columns=140)
+        self.ui._world_map(self.ui.MAP_ROW, party)
+        self.assertEqual(before, minimum)
+        self.assertEqual(minimum, self.engine.state.known_feature_ids)
 
     def test_destination_cycle_excludes_points_beyond_command_reach(self) -> None:
         party = (self.engine.state.party_x, self.engine.state.party_y)

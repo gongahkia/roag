@@ -127,6 +127,7 @@ class GameState:
     objectives: list[AccessObjective] = field(default_factory=list)
     current_objective_id: str | None = None
     required_objectives: int = 2
+    known_feature_ids: list[str] = field(default_factory=list)
     travel_ticks: int = 0
     pending_opening_hand: int = 0
     boons: dict[str, dict[str, int]] = field(default_factory=dict)
@@ -392,7 +393,7 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 14
+    SAVE_VERSION = 15
     TUTORIAL_SEED = 1
     ENCOUNTER_PLANS = {"none", "pressure", "disrupt", "screen", "sustain", "combo", "overseer"}
 
@@ -451,6 +452,7 @@ class GameEngine:
         state.pickups = engine._generate_pickups(random.Random(seed ^ 0x5049434B5550))
         state.objectives = engine._generate_objectives(random.Random(seed ^ 0x4F424A454354))
         state.hazards = engine._generate_hazards(random.Random(seed ^ 0x48415A415244))
+        engine._update_perception()
         if not start_in_hub:
             engine.begin_expedition()
         return engine
@@ -1019,6 +1021,7 @@ class GameEngine:
                 objectives=[AccessObjective(**item) for item in raw["objectives"]],
                 current_objective_id=raw["current_objective_id"],
                 required_objectives=raw["required_objectives"],
+                known_feature_ids=raw["known_feature_ids"],
                 travel_ticks=raw["travel_ticks"],
                 pending_opening_hand=raw["pending_opening_hand"],
                 boons=raw["boons"],
@@ -1240,6 +1243,17 @@ class GameEngine:
             or hazard_positions & objective_positions
         ):
             raise RuleError("save contains overlapping map features")
+        knowable_ids = pickup_ids | hazard_ids | objective_ids
+        if (
+            not isinstance(state.known_feature_ids, list)
+            or len(state.known_feature_ids) != len(set(state.known_feature_ids))
+            or any(feature_id not in knowable_ids for feature_id in state.known_feature_ids)
+            or any(
+                pickup.hidden and pickup.id in state.known_feature_ids
+                for pickup in state.pickups
+            )
+        ):
+            raise RuleError("save contains invalid exploration knowledge")
         if (
             not isinstance(state.travel_ticks, int)
             or state.travel_ticks < state.exploration_steps
@@ -1407,6 +1421,41 @@ class GameEngine:
     def path_cost(self, path: list[tuple[int, int]]) -> int:
         return sum(self.movement_cost(x, y) for x, y in path)
 
+    def route_intel(self, path: list[tuple[int, int]]) -> dict[str, int | str]:
+        ticks = self.path_cost(path)
+        interval = int(self.catalog.balance["exploration_steps_per_light"])
+        light = (
+            (self.state.travel_ticks + ticks) // interval
+            - self.state.travel_ticks // interval
+        )
+        route_tiles = set(path)
+        known_hazards = sum(
+            not hazard.triggered
+            and hazard.id in self.state.known_feature_ids
+            and (hazard.x, hazard.y) in route_tiles
+            for hazard in self.state.hazards
+        )
+        perceived = [
+            patrol
+            for patrol in self.state.patrols
+            if patrol.active and self.is_patrol_visible(patrol)
+        ]
+        patrol_distance = min(
+            (
+                abs(patrol.x - x) + abs(patrol.y - y)
+                for patrol in perceived
+                for x, y in route_tiles
+            ),
+            default=WORLD_WIDTH + WORLD_HEIGHT,
+        )
+        patrol_risk = "HIGH" if patrol_distance <= 1 else "WATCH" if patrol_distance <= 3 else "LOW"
+        return {
+            "ticks": ticks,
+            "light": light,
+            "known_hazards": known_hazards,
+            "patrol_risk": patrol_risk,
+        }
+
     def _distances_from(self, origin: tuple[int, int]) -> dict[tuple[int, int], int]:
         distances = {origin: 0}
         pending = deque([origin])
@@ -1480,6 +1529,7 @@ class GameEngine:
             if leak:
                 self.state.light = max(0, self.state.light - leak)
                 self.add_log(f"Leaking Lamp drains {leak} light.")
+        self._update_perception()
         patrol = self._patrol_at(x, y)
         if patrol:
             self._start_patrol_combat(patrol)
@@ -1771,6 +1821,27 @@ class GameEngine:
     def is_hazard_visible(self, hazard: BiomeHazard) -> bool:
         radius = int(self.biome_mechanics(hazard.biome_id)["visibility"]["hazard_radius"])
         return abs(hazard.x - self.state.party_x) + abs(hazard.y - self.state.party_y) <= radius
+
+    def feature_is_known(self, feature_id: str) -> bool:
+        return feature_id in self.state.known_feature_ids
+
+    def _update_perception(self) -> None:
+        known = set(self.state.known_feature_ids)
+        position = (self.state.party_x, self.state.party_y)
+        for objective in self.state.objectives:
+            known.add(objective.id)
+        for hazard in self.state.hazards:
+            if self.is_hazard_visible(hazard):
+                known.add(hazard.id)
+        for pickup in self.state.pickups:
+            if pickup.hidden:
+                continue
+            biome_id = self.biome_at(pickup.x, pickup.y)
+            visibility = self.biome_mechanics(biome_id)["visibility"]
+            radius = int(visibility.get("feature_radius", visibility["patrol_radius"]))
+            if abs(pickup.x - position[0]) + abs(pickup.y - position[1]) <= radius:
+                known.add(pickup.id)
+        self.state.known_feature_ids = sorted(known)
 
     def is_patrol_visible(self, patrol: Patrol) -> bool:
         biome_id = self.room(patrol.room_id).biome_id

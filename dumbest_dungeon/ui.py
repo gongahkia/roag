@@ -436,12 +436,8 @@ class TerminalUI:
             route = self.engine._find_path((state.party_x, state.party_y), cursor)
         route_exists = cursor == (state.party_x, state.party_y) or bool(route)
         route_length = self.engine.path_cost(route) if route_exists else None
-        interval = int(self.catalog.balance["exploration_steps_per_light"])
-        light_cost = (
-            (state.travel_ticks + route_length) // interval - state.travel_ticks // interval
-            if route_length is not None
-            else None
-        )
+        intel = self.engine.route_intel(route) if route_length is not None else None
+        light_cost = int(intel["light"]) if intel is not None else None
         maximum = self.engine.maximum_navigation_distance()
         reach = "READY" if walkable and route_length is not None and route_length <= maximum else "OUT OF REACH"
         route_cost = f"{route_length:2}" if route_length is not None else "--"
@@ -464,8 +460,8 @@ class TerminalUI:
         self._put(
             rows - 3,
             2,
-            f"L-{route_light} {terrain}(T{terrain_cost}) | {biome} | "
-            f"@crew Xaim Kgoal ^haz e/E foe"[
+            f"L-{route_light} H{intel['known_hazards'] if intel else '-'} "
+            f"P:{intel['patrol_risk'] if intel else '-'} | {terrain}(T{terrain_cost}) | {biome}"[
                 : self.screen.getmaxyx()[1] - 3
             ],
             curses.A_DIM,
@@ -517,7 +513,10 @@ class TerminalUI:
             if not objective.completed:
                 overlays.append((objective.x, objective.y, "K", self._attr(2) | curses.A_BOLD))
         for hazard in state.hazards:
-            if not hazard.triggered and self.engine.is_hazard_visible(hazard):
+            if not hazard.triggered and (
+                self.engine.feature_is_known(hazard.id)
+                or self.engine.is_hazard_visible(hazard)
+            ):
                 overlays.append((hazard.x, hazard.y, "^", self._attr(3) | curses.A_BOLD))
         for patrol in state.patrols:
             if not patrol.active or not self.engine.is_patrol_visible(patrol):
@@ -527,7 +526,11 @@ class TerminalUI:
             overlays.append((patrol.x, patrol.y, symbol, self._attr(3) | curses.A_BOLD))
         pickup_symbols = {"boon": "+", "item": "*", "bargain": "!"}
         for pickup in state.pickups:
-            if not pickup.resolved and not pickup.hidden:
+            if (
+                not pickup.resolved
+                and not pickup.hidden
+                and self.engine.feature_is_known(pickup.id)
+            ):
                 overlays.append(
                     (pickup.x, pickup.y, pickup_symbols[pickup.kind], self._attr(1) | curses.A_BOLD)
                 )
@@ -564,7 +567,10 @@ class TerminalUI:
         targets.extend(
             (hazard.x, hazard.y)
             for hazard in state.hazards
-            if not hazard.triggered and self.engine.is_hazard_visible(hazard)
+            if not hazard.triggered and (
+                self.engine.feature_is_known(hazard.id)
+                or self.engine.is_hazard_visible(hazard)
+            )
         )
         targets.extend(
             self.engine.room_position(room.id)
@@ -574,7 +580,9 @@ class TerminalUI:
         targets.extend(
             (pickup.x, pickup.y)
             for pickup in state.pickups
-            if not pickup.resolved and not pickup.hidden
+            if not pickup.resolved
+            and not pickup.hidden
+            and self.engine.feature_is_known(pickup.id)
         )
         party = (state.party_x, state.party_y)
         maximum = self.engine.maximum_navigation_distance()

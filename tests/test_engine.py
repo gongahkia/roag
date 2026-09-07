@@ -294,6 +294,30 @@ class EngineTests(unittest.TestCase):
             item_ids = [pickup.payload["item_id"] for pickup in engine.state.pickups if pickup.kind == "item"]
             self.assertEqual(4, len(set(item_ids)))
 
+    def test_static_knowledge_persists_but_hidden_traps_do_not_leak(self) -> None:
+        visible = next(pickup for pickup in self.engine.state.pickups if not pickup.hidden)
+        hidden = next(pickup for pickup in self.engine.state.pickups if pickup.hidden)
+        self.engine.state.party_x, self.engine.state.party_y = visible.x, visible.y
+        self.engine._update_perception()
+        self.assertTrue(self.engine.feature_is_known(visible.id))
+        self.assertFalse(self.engine.feature_is_known(hidden.id))
+        self.engine.state.party_x, self.engine.state.party_y = self.engine.room_position(0)
+        self.assertTrue(self.engine.feature_is_known(visible.id))
+
+    def test_route_intel_reports_known_risk_without_hidden_traps(self) -> None:
+        origin = (self.engine.state.party_x, self.engine.state.party_y)
+        path = self.engine._find_path(origin, self.engine.room_position(1))[:4]
+        hazard = self.engine.state.hazards[0]
+        hazard.x, hazard.y = path[1]
+        hazard.biome_id = self.engine.biome_at(*path[1])
+        self.engine.state.known_feature_ids.append(hazard.id)
+        hidden = next(pickup for pickup in self.engine.state.pickups if pickup.hidden)
+        hidden.x, hidden.y = path[0]
+        intel = self.engine.route_intel(path)
+        self.assertEqual(1, intel["known_hazards"])
+        self.assertEqual(self.engine.path_cost(path), intel["ticks"])
+        self.assertNotIn(hidden.id, self.engine.state.known_feature_ids)
+
     def test_visible_discovery_grants_stackable_item(self) -> None:
         pickup = next(item for item in self.engine.state.pickups if item.kind == "item")
         neighbor = self.engine._neighbors((pickup.x, pickup.y))[0]

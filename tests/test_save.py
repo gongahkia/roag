@@ -38,6 +38,15 @@ class SaveTests(unittest.TestCase):
             loaded = GameEngine.from_snapshot(self.catalog, read_save(path))
         self.assertEqual(engine.snapshot(), loaded.snapshot())
 
+    def test_exploration_knowledge_round_trips(self) -> None:
+        engine = GameEngine.new(self.catalog, 111)
+        pickup = next(item for item in engine.state.pickups if not item.hidden)
+        engine.state.party_x, engine.state.party_y = pickup.x, pickup.y
+        engine._update_perception()
+        loaded = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+        self.assertTrue(loaded.feature_is_known(pickup.id))
+        self.assertEqual(engine.snapshot(), loaded.snapshot())
+
     def test_hub_selection_save_round_trip(self) -> None:
         engine = GameEngine.new(self.catalog, 100, start_in_hub=True)
         engine.toggle_hub_crew("warden")
