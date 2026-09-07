@@ -769,6 +769,17 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(1, enemies[0].statuses["marked"])
         self.assertEqual(3, enemies[-1].block)
 
+    def test_every_biome_combat_environment_executes(self) -> None:
+        for biome in self.catalog.biomes.values():
+            with self.subTest(biome=biome["id"]):
+                engine = GameEngine.new(self.catalog, 4242)
+                self.set_party_biome(engine, biome["id"])
+                engine.start_combat("lost_shift")
+                self.assertIn(
+                    f"Environment — {biome['mechanics']['combat']['name']}",
+                    engine.state.log[-1],
+                )
+
     def test_generated_content_and_top_down_map_are_connected(self) -> None:
         for seed in range(50):
             engine = GameEngine.new(self.catalog, seed)

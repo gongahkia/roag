@@ -212,6 +212,74 @@ class ContentTests(unittest.TestCase):
             with self.assertRaisesRegex(ContentError, "all six mechanic sections"):
                 load_catalog(path)
 
+    def test_biomes_have_distinct_systemic_contracts(self) -> None:
+        catalog = load_catalog()
+        hazard_signatures = set()
+        combat_signatures = set()
+        patrol_signatures = set()
+        spatial_ops = {
+            "agitate_patrols",
+            "calm_patrols",
+            "objective_combat",
+            "reveal_biome",
+            "stabilize_terrain",
+            "suppress_hazard",
+        }
+        for biome in catalog.biomes.values():
+            mechanics = biome["mechanics"]
+            hazard = mechanics["hazard"]
+            hazard_signatures.add(
+                (hazard["effect"], hazard.get("status"), hazard["amount"])
+            )
+            patrol = mechanics["patrol"]
+            patrol_signatures.add(
+                (
+                    patrol["behavior"],
+                    patrol["aggression"],
+                    patrol["cadence"],
+                    patrol["leash"],
+                )
+            )
+            combat_signatures.add(
+                tuple(
+                    (
+                        effect["target"],
+                        effect["op"],
+                        effect.get("status"),
+                        effect["amount"],
+                    )
+                    for effect in mechanics["combat"]["effects"]
+                )
+            )
+            mission = next(
+                item for item in catalog.missions.values()
+                if item["biome"] == biome["id"]
+            )
+            route_signatures = []
+            mission_ops = set()
+            for approach in mission["approaches"]:
+                stage_ops = tuple(
+                    stage.get("effect", {}).get("op", "none")
+                    for stage in approach["stages"]
+                )
+                mission_ops.update(stage_ops)
+                mission_ops.add(approach["completion"]["op"])
+                route_signatures.append(
+                    (
+                        approach["telegraph"]["travel"],
+                        approach["telegraph"]["risk"],
+                        approach["cost"]["resource"],
+                        stage_ops,
+                        approach["completion"]["op"],
+                    )
+                )
+            self.assertNotEqual(route_signatures[0], route_signatures[1])
+            self.assertTrue(mission_ops & spatial_ops)
+        count = len(catalog.biomes)
+        self.assertEqual(count, len(hazard_signatures))
+        self.assertEqual(count, len(patrol_signatures))
+        self.assertEqual(count, len(combat_signatures))
+
     def test_facility_with_unsupported_effect_is_rejected(self) -> None:
         catalog = load_catalog()
         raw = json.loads(json.dumps(catalog.raw))
