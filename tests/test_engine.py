@@ -209,6 +209,17 @@ class EngineTests(unittest.TestCase):
             self.assertEqual("clusters", self.catalog.worlds[engine.state.world_id]["layout"])
             self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(self.catalog, engine.snapshot()).snapshot())
 
+    def test_zigzag_layout_has_serpentine_route_and_fold_shortcuts(self) -> None:
+        _, edges = WORLD_LAYOUTS["zigzag"]
+        self.assertTrue(all(right in edges[left] for left, right in zip(range(11), range(1, 12))))
+        folds = {(1, 3), (3, 5), (5, 7), (7, 9), (9, 11), (2, 4), (4, 6), (6, 8), (8, 10)}
+        self.assertTrue(all(right in edges[left] for left, right in folds))
+        self.assertEqual(20, sum(map(len, edges.values())) // 2)
+        for seed in (5, 6):
+            engine = GameEngine.new(self.catalog, seed)
+            self.assertEqual("zigzag", self.catalog.worlds[engine.state.world_id]["layout"])
+            self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(self.catalog, engine.snapshot()).snapshot())
+
     def test_all_biomes_generate_reachable_hazards_and_optional_objectives(self) -> None:
         seen_biomes: set[str] = set()
         seen_mixtures: set[tuple[str, ...]] = set()

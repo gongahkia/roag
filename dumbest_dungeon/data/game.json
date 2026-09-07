@@ -530,7 +530,7 @@
     {"id":"cinder_ark","name":"Cinder Ark","layout":"spine","biomes":["derelict","foundry","reactor","storm"],"description":"A fast central spine crosses five optional side loops; leaving it costs time but can avoid a blocked or patrolled trunk."},
     {"id":"bloom_labyrinth","name":"Bloom Labyrinth","layout":"clusters","biomes":["hydroponic","fungal","flooded","archive"],"description":"Three internally looped laboratory clusters are joined by two narrow transfers, concentrating return-path pressure at their borders."},
     {"id":"pelagic_grave","name":"Pelagic Grave","layout":"ring","biomes":["flooded","storm","cryogenic","void"],"description":"Two complete arcs reach the Core while paired cross-routes converge on a visible, patrol-heavy central chamber."},
-    {"id":"ivory_engine","name":"Ivory Engine","layout":"zigzag","biomes":["ossuary","fungal","archive","void"],"description":"A serpentine engine assembled from bone, records, and living decomposition."},
+    {"id":"ivory_engine","name":"Ivory Engine","layout":"zigzag","biomes":["ossuary","fungal","archive","void"],"description":"A slow serpentine route touches every chamber while exposed same-side folds skip alternating rooms at the cost of fewer discoveries."},
     {"id":"fracture_field","name":"Fracture Field","layout":"fracture","biomes":["void","storm","foundry","ossuary"],"description":"Separated habitat shards connected by unstable industrial bridges."}
   ],
   "boons": [

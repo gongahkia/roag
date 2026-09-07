@@ -272,7 +272,11 @@ WORLD_LAYOUTS: dict[str, tuple[dict[int, tuple[int, int]], dict[int, list[int]]]
             5: (55, 9), 6: (65, 26), 7: (75, 7), 8: (85, 28),
             9: (95, 9), 10: (104, 25), 11: (111, 17),
         },
-        _edge_map(*((room_id, room_id + 1) for room_id in range(11))),
+        _edge_map(
+            *((room_id, room_id + 1) for room_id in range(11)),
+            (1, 3), (3, 5), (5, 7), (7, 9), (9, 11),
+            (2, 4), (4, 6), (6, 8), (8, 10),
+        ),
     ),
     "fracture": (
         {
