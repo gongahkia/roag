@@ -244,6 +244,82 @@ class EngineTests(unittest.TestCase):
         restored._resolve_exploration_tile()
         self.assertEqual("exploration", restored.state.phase)
 
+    def test_biome_facility_offers_irreversible_disclosed_tradeoff(self) -> None:
+        engine = GameEngine.new(self.catalog, 4242)
+        facility = next(
+            item for item in engine.state.facilities
+            if any(
+                effect["op"] == "suppress_hazard"
+                for option in engine.facility_definition(item)["options"]
+                for effect in option["effects"]
+            )
+        )
+        definition = engine.facility_definition(facility)
+        suppress = next(
+            option
+            for option in definition["options"]
+            if any(effect["op"] == "suppress_hazard" for effect in option["effects"])
+        )
+        active_before = sum(
+            hazard.active and hazard.biome_id == facility.biome_id
+            for hazard in engine.state.hazards
+        )
+        engine.state.party_x, engine.state.party_y = facility.x, facility.y
+        engine._resolve_exploration_tile()
+        self.assertEqual("facility", engine.state.phase)
+        self.assertEqual((True, "available"), engine.facility_option_available(facility, suppress["id"]))
+        engine.resolve_facility(suppress["id"])
+        self.assertTrue(facility.used)
+        self.assertEqual(suppress["id"], facility.outcome)
+        self.assertEqual(
+            active_before - 1,
+            sum(
+                hazard.active and hazard.biome_id == facility.biome_id
+                for hazard in engine.state.hazards
+            ),
+        )
+        engine._resolve_exploration_tile()
+        self.assertEqual("exploration", engine.state.phase)
+
+    def test_facility_reveal_is_regional_and_round_trips(self) -> None:
+        engine = None
+        for seed in range(100):
+            candidate = GameEngine.new(self.catalog, seed)
+            if any(
+                option["effects"][0]["op"] == "reveal_biome"
+                for facility in candidate.state.facilities
+                for option in candidate.facility_definition(facility)["options"]
+            ):
+                engine = candidate
+                break
+        self.assertIsNotNone(engine)
+        assert engine is not None
+        facility = next(
+            item
+            for item in engine.state.facilities
+            if any(
+                effect["op"] == "reveal_biome"
+                for option in engine.facility_definition(item)["options"]
+                for effect in option["effects"]
+            )
+        )
+        option = next(
+            option
+            for option in engine.facility_definition(facility)["options"]
+            if any(effect["op"] == "reveal_biome" for effect in option["effects"])
+        )
+        engine.state.party_x, engine.state.party_y = facility.x, facility.y
+        engine._resolve_exploration_tile()
+        engine.resolve_facility(option["id"])
+        expected_hazards = {
+            hazard.id for hazard in engine.state.hazards if hazard.biome_id == facility.biome_id
+        }
+        self.assertTrue(expected_hazards <= set(engine.state.known_feature_ids))
+        restored = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+        restored_facility = next(item for item in restored.state.facilities if item.id == facility.id)
+        self.assertTrue(restored_facility.used)
+        self.assertEqual(option["id"], restored_facility.outcome)
+
     def test_partially_triggered_hazard_round_trips(self) -> None:
         engine = GameEngine.new(self.catalog, 4242)
         hazard = engine.state.hazards[0]

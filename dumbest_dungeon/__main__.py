@@ -36,7 +36,8 @@ def main(argv: list[str] | None = None) -> int:
             f"{len(catalog.enemies)} enemies, {len(catalog.encounters)} encounters, "
             f"{len(catalog.events)} events, {len(catalog.boons)} boons, "
             f"{len(catalog.curses)} curses, {len(catalog.items)} items, "
-            f"{len(catalog.biomes)} biomes, {len(catalog.worlds)} worlds."
+            f"{len(catalog.biomes)} biomes, {len(catalog.facilities)} facilities, "
+            f"{len(catalog.worlds)} worlds."
         )
         return 0
 

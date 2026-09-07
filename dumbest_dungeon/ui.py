@@ -99,6 +99,8 @@ class TerminalUI:
                     self._discovery()
                 elif phase == "hazard":
                     self._hazard()
+                elif phase == "facility":
+                    self._facility()
                 elif phase == "objective":
                     self._objective()
                 elif phase == "combat":
@@ -532,6 +534,9 @@ class TerminalUI:
                     for cell in hazard.cells
                     if cell not in hazard.triggered_cells
                 )
+        for facility in state.facilities:
+            if not facility.used and self.engine.feature_is_known(facility.id):
+                overlays.append((facility.x, facility.y, "F", self._attr(4) | curses.A_BOLD))
         for patrol in state.patrols:
             if not patrol.active or not self.engine.is_patrol_visible(patrol):
                 continue
@@ -587,6 +592,11 @@ class TerminalUI:
             )
             for cell in hazard.cells
             if cell not in hazard.triggered_cells
+        )
+        targets.extend(
+            (facility.x, facility.y)
+            for facility in state.facilities
+            if not facility.used and self.engine.feature_is_known(facility.id)
         )
         targets.extend(
             self.engine.room_position(room.id)
@@ -752,6 +762,39 @@ class TerminalUI:
         )
         self.engine.finish_hazard()
 
+    def _facility(self) -> None:
+        assert self.engine
+        facility = self.engine.current_facility()
+        definition = self.engine.facility_definition(facility)
+        biome = self.catalog.biomes[facility.biome_id]["name"]
+        labels = []
+        details = []
+        for index, option in enumerate(definition["options"], 1):
+            available, reason = self.engine.facility_option_available(facility, option["id"])
+            cost = option["cost"]
+            cost_label = (
+                "no immediate cost"
+                if cost["resource"] == "none" or not cost["amount"]
+                else f"{cost['amount']} {cost['resource'].replace('_', ' ')}"
+            )
+            state = "AVAILABLE" if available else f"UNAVAILABLE: {reason.upper()}"
+            labels.append(f"{option['label']} — {option['risk']} risk")
+            details.append(
+                f"{index}. {option['summary']}\n"
+                f"COST {cost_label.upper()} | RISK {option['risk'].upper()} | {state} | ONE USE"
+            )
+        picked = self._menu(
+            f"{biome.upper()} — {definition['name'].upper()}",
+            labels,
+            definition["description"] + "\n\n" + "\n\n".join(details),
+            allow_cancel=True,
+        )
+        if picked is None:
+            self.engine.leave_facility()
+            self.message = "Facility left intact for later use."
+            return
+        self.message = self.engine.resolve_facility(definition["options"][picked]["id"])
+
     def _objective(self) -> None:
         assert self.engine
         objective = self.engine.current_objective()
@@ -812,6 +855,11 @@ class TerminalUI:
         biome = self.catalog.biomes[self.engine.current_biome()]
         mechanics = biome["mechanics"]
         mission = self.engine.mission_definition(biome["id"])
+        facility = next(
+            definition
+            for definition in self.catalog.facilities.values()
+            if definition["biome"] == biome["id"]
+        )
         body = (
             f"{biome['description']}\n\n"
             f"TRAVEL — {mechanics['traversal']['description']}\n"
@@ -819,6 +867,7 @@ class TerminalUI:
             f"PATROLS — {mechanics['patrol']['description']}\n"
             f"HAZARD: {mechanics['hazard']['name']} — {mechanics['hazard']['description']}\n"
             f"COMBAT: {mechanics['combat']['name']} — {mechanics['combat']['description']}\n"
+            f"FACILITY: {facility['name']} — {facility['description']}\n"
             f"OBJECTIVE: {mission['name']} — {mission['description']}\n"
             + " / ".join(
                 f"{approach['label']} ({approach['telegraph']['travel']}, "
@@ -1551,7 +1600,8 @@ class TerminalUI:
             "Visible +, *, and ! discoveries grant hero-bound boons, party-wide stackable items, or risky "
             "bargains. Hidden anomalies inflict curses when stepped on. Curse cards trigger when drawn and "
             "cannot be played. Press I during exploration or combat to inspect every active stack and its "
-            "current scaled value.\n\n"
+            "current scaled value. A known F is a one-use biome facility; inspect both disclosed procedures "
+            "before converting resources, suppressing a hazard field, or revealing local sites.\n\n"
             "Each seed selects one of six world layouts and four of eleven biome types. Biomes alter travel "
             "cost, hazard visibility, patrol behavior, combat conditions, and recovery opportunities as well "
             "as formations. Press B in exploration for the current biome rules. Four K landmarks offer seeded "

@@ -445,9 +445,12 @@ class AsciiUiTests(unittest.TestCase):
         party = (self.engine.state.party_x, self.engine.state.party_y)
         objective = self.engine.state.objectives[0]
         hazard = self.engine.state.hazards[0]
+        facility = self.engine.state.facilities[0]
         objective.x, objective.y = party[0] + 2, party[1]
         hazard.x, hazard.y = party[0] + 1, party[1]
         hazard.cells[0] = [hazard.x, hazard.y]
+        facility.x, facility.y = party[0] + 2, party[1] + 1
+        self.engine.state.known_feature_ids.append(facility.id)
         self.engine.state.room_positions[11] = [party[0] + 3, party[1]]
         screen = FakeScreen(keys=[10])
         self.ui.screen = screen
@@ -459,6 +462,7 @@ class AsciiUiTests(unittest.TestCase):
         ]
         self.assertTrue(any(symbol in rendered for symbol in "".join(template["art"]) if symbol not in " K"))
         self.assertIn("^", rendered)
+        self.assertIn("F", rendered)
         self.assertIn("L", rendered)
 
         screen = FakeScreen(keys=[10])
@@ -468,7 +472,21 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("TRAVEL", rendered)
         self.assertIn("PATROLS", rendered)
         self.assertIn("COMBAT", rendered)
+        self.assertIn("FACILITY", rendered)
         self.assertIn("OBJECTIVE", rendered)
+
+    def test_facility_menu_discloses_cost_risk_and_one_use(self) -> None:
+        facility = self.engine.state.facilities[0]
+        self.engine.state.party_x, self.engine.state.party_y = facility.x, facility.y
+        self.engine._resolve_exploration_tile()
+        screen = FakeScreen(keys=[27])
+        self.ui.screen = screen
+        self.ui._facility()
+        self.assertEqual("exploration", self.engine.state.phase)
+        rendered = screen.text()
+        self.assertIn("COST", rendered)
+        self.assertIn("RISK", rendered)
+        self.assertIn("ONE USE", rendered)
 
     def test_hazard_notice_and_objective_menu_return_to_exploration(self) -> None:
         hazard = self.engine.state.hazards[0]

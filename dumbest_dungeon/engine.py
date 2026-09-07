@@ -96,6 +96,17 @@ class BiomeHazard:
 
 
 @dataclass
+class BiomeFacility:
+    id: str
+    definition_id: str
+    biome_id: str
+    x: int
+    y: int
+    used: bool = False
+    outcome: str | None = None
+
+
+@dataclass
 class AccessObjective:
     id: str
     biome_id: str
@@ -145,6 +156,8 @@ class GameState:
     current_pickup_id: str | None = None
     hazards: list[BiomeHazard] = field(default_factory=list)
     current_hazard_id: str | None = None
+    facilities: list[BiomeFacility] = field(default_factory=list)
+    current_facility_id: str | None = None
     objectives: list[AccessObjective] = field(default_factory=list)
     landmarks: list[Landmark] = field(default_factory=list)
     current_objective_id: str | None = None
@@ -415,7 +428,7 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 18
+    SAVE_VERSION = 19
     TUTORIAL_SEED = 1
     ENCOUNTER_PLANS = {"none", "pressure", "disrupt", "screen", "sustain", "combo", "overseer"}
 
@@ -475,6 +488,7 @@ class GameEngine:
         state.objectives = engine._generate_objectives(random.Random(seed ^ 0x4F424A454354))
         state.landmarks = engine._generate_landmarks()
         state.hazards = engine._generate_hazards(random.Random(seed ^ 0x48415A415244))
+        state.facilities = engine._generate_facilities(random.Random(seed ^ 0x464143494C495459))
         engine._update_perception()
         if not start_in_hub:
             engine.begin_expedition()
@@ -1133,6 +1147,52 @@ class GameEngine:
                 )
         return hazards
 
+    def _generate_facilities(self, rng: random.Random) -> list[BiomeFacility]:
+        excluded = {self.room_position(room.id) for room in self.state.rooms}
+        excluded |= {(pickup.x, pickup.y) for pickup in self.state.pickups}
+        excluded |= {
+            tuple(cell)
+            for landmark in self.state.landmarks
+            for cell in landmark.cells
+        }
+        excluded |= {
+            tuple(site)
+            for objective in self.state.objectives
+            for sites in objective.approach_sites.values()
+            for site in sites
+        }
+        excluded |= {
+            tuple(cell)
+            for hazard in self.state.hazards
+            for cell in hazard.cells
+        }
+        definitions = {
+            definition["biome"]: definition
+            for definition in self.catalog.facilities.values()
+        }
+        facilities: list[BiomeFacility] = []
+        for biome_id in self.state.biome_ids:
+            candidates = self._mechanic_positions(
+                biome_id,
+                excluded,
+                minimum_spacing=3,
+            )
+            if not candidates:
+                raise RuleError(f"generated terrain has no facility site in {biome_id}")
+            x, y = rng.choice(candidates)
+            excluded.add((x, y))
+            definition = definitions[biome_id]
+            facilities.append(
+                BiomeFacility(
+                    id=f"facility:{biome_id}",
+                    definition_id=definition["id"],
+                    biome_id=biome_id,
+                    x=x,
+                    y=y,
+                )
+            )
+        return facilities
+
     @classmethod
     def from_snapshot(cls, catalog: Catalog, snapshot: dict[str, Any]) -> GameEngine:
         if snapshot.get("save_version") != cls.SAVE_VERSION:
@@ -1166,6 +1226,8 @@ class GameEngine:
                 current_pickup_id=raw["current_pickup_id"],
                 hazards=[BiomeHazard(**item) for item in raw["hazards"]],
                 current_hazard_id=raw["current_hazard_id"],
+                facilities=[BiomeFacility(**item) for item in raw["facilities"]],
+                current_facility_id=raw["current_facility_id"],
                 objectives=[AccessObjective(**item) for item in raw["objectives"]],
                 landmarks=[Landmark(**item) for item in raw["landmarks"]],
                 current_objective_id=raw["current_objective_id"],
@@ -1391,6 +1453,33 @@ class GameEngine:
         if (state.phase == "hazard") != (state.current_hazard_id is not None):
             raise RuleError("save contains an inconsistent active biome hazard")
 
+        facility_ids = {facility.id for facility in state.facilities}
+        facility_positions = {(facility.x, facility.y) for facility in state.facilities}
+        if (
+            len(state.facilities) != len(world_biomes)
+            or len(facility_ids) != len(state.facilities)
+            or len(facility_positions) != len(state.facilities)
+            or {facility.biome_id for facility in state.facilities} != world_biomes
+            or any(
+                facility.definition_id not in catalog.facilities
+                or catalog.facilities[facility.definition_id]["biome"] != facility.biome_id
+                or not engine.is_walkable(facility.x, facility.y)
+                or engine.biome_at(facility.x, facility.y) != facility.biome_id
+                or facility.used != (facility.outcome is not None)
+                or facility.outcome is not None
+                and facility.outcome not in {
+                    option["id"]
+                    for option in catalog.facilities[facility.definition_id]["options"]
+                }
+                for facility in state.facilities
+            )
+        ):
+            raise RuleError("save contains invalid biome facilities")
+        if state.current_facility_id is not None and state.current_facility_id not in facility_ids:
+            raise RuleError("save references an unknown biome facility")
+        if (state.phase == "facility") != (state.current_facility_id is not None):
+            raise RuleError("save contains an inconsistent active biome facility")
+
         objective_ids = {objective.id for objective in state.objectives}
         objective_positions = {(objective.x, objective.y) for objective in state.objectives}
         if (
@@ -1480,9 +1569,14 @@ class GameEngine:
             or hazard_positions & landmark_positions
             or pickup_positions & objective_sites
             or hazard_positions & objective_sites
+            or facility_positions & pickup_positions
+            or facility_positions & hazard_positions
+            or facility_positions & objective_positions
+            or facility_positions & objective_sites
+            or facility_positions & landmark_positions
         ):
             raise RuleError("save contains overlapping map features")
-        knowable_ids = pickup_ids | hazard_ids | objective_ids | landmark_ids
+        knowable_ids = pickup_ids | hazard_ids | facility_ids | objective_ids | landmark_ids
         if (
             not isinstance(state.known_feature_ids, list)
             or len(state.known_feature_ids) != len(set(state.known_feature_ids))
@@ -1890,6 +1984,18 @@ class GameEngine:
         if hazard:
             self._trigger_biome_hazard(hazard)
             return
+        facility = next(
+            (
+                item
+                for item in self.state.facilities
+                if not item.used and (item.x, item.y) == position
+            ),
+            None,
+        )
+        if facility:
+            self.state.phase = "facility"
+            self.state.current_facility_id = facility.id
+            return
         objective = next(
             (
                 item
@@ -1988,6 +2094,107 @@ class GameEngine:
     def finish_hazard(self) -> None:
         self.current_hazard()
         self.state.current_hazard_id = None
+        self.state.phase = "exploration"
+
+    def facility_definition(self, facility: BiomeFacility) -> dict[str, Any]:
+        return self.catalog.facilities[facility.definition_id]
+
+    def current_facility(self) -> BiomeFacility:
+        facility = next(
+            (item for item in self.state.facilities if item.id == self.state.current_facility_id),
+            None,
+        )
+        if self.state.phase != "facility" or facility is None or facility.used:
+            raise RuleError("there is no biome facility to use")
+        return facility
+
+    def facility_option_available(self, facility: BiomeFacility, option_id: str) -> tuple[bool, str]:
+        definition = self.facility_definition(facility)
+        option = next((item for item in definition["options"] if item["id"] == option_id), None)
+        if option is None:
+            return False, "unknown procedure"
+        cost = option["cost"]
+        if cost["resource"] == "supplies" and self.state.supplies < cost["amount"]:
+            return False, f"needs {cost['amount']} supply"
+        if cost["resource"] == "light" and self.state.light < cost["amount"]:
+            return False, f"needs {cost['amount']} light"
+        if any(effect["op"] == "suppress_hazard" for effect in option["effects"]) and not any(
+            hazard.active and hazard.biome_id == facility.biome_id
+            for hazard in self.state.hazards
+        ):
+            return False, "no active hazard field"
+        return True, "available"
+
+    def _apply_facility_effect(self, facility: BiomeFacility, effect: dict[str, Any]) -> None:
+        operation = effect["op"]
+        if operation == "suppress_hazard":
+            active = [
+                hazard
+                for hazard in self.state.hazards
+                if hazard.active and hazard.biome_id == facility.biome_id
+            ]
+            if not active:
+                raise RuleError("this biome has no active hazard field")
+            costs = self._travel_costs_from((facility.x, facility.y))
+            hazard = min(
+                active,
+                key=lambda item: min(
+                    costs.get(tuple(cell), WORLD_WIDTH * WORLD_HEIGHT * 3)
+                    for cell in item.cells
+                ),
+            )
+            self.suppress_hazard(hazard.id, facility.id)
+        elif operation == "reveal_biome":
+            known = set(self.state.known_feature_ids)
+            known.update(
+                hazard.id
+                for hazard in self.state.hazards
+                if hazard.biome_id == facility.biome_id
+            )
+            known.update(
+                pickup.id
+                for pickup in self.state.pickups
+                if not pickup.hidden and self.biome_at(pickup.x, pickup.y) == facility.biome_id
+            )
+            known.update(
+                item.id
+                for item in self.state.facilities
+                if item.biome_id == facility.biome_id
+            )
+            self.state.known_feature_ids = sorted(known)
+        else:
+            self._apply_objective_effect(
+                operation,
+                int(effect["amount"]),
+                effect.get("status"),
+            )
+
+    def resolve_facility(self, option_id: str) -> str:
+        facility = self.current_facility()
+        definition = self.facility_definition(facility)
+        option = next((item for item in definition["options"] if item["id"] == option_id), None)
+        if option is None:
+            raise RuleError("unknown facility procedure")
+        available, reason = self.facility_option_available(facility, option_id)
+        if not available:
+            raise RuleError(reason)
+        self._apply_objective_cost(option["cost"])
+        for effect in option["effects"]:
+            if self.state.phase == "defeat":
+                break
+            self._apply_facility_effect(facility, effect)
+        facility.used = True
+        facility.outcome = option_id
+        self.state.current_facility_id = None
+        if self.state.phase != "defeat":
+            self.state.phase = "exploration"
+        message = f"{definition['name']}: {option['label'].lower()} complete."
+        self.add_log(message)
+        return message
+
+    def leave_facility(self) -> None:
+        self.current_facility()
+        self.state.current_facility_id = None
         self.state.phase = "exploration"
 
     def current_objective(self) -> AccessObjective:
@@ -2210,6 +2417,11 @@ class GameEngine:
         for hazard in self.state.hazards:
             if self.is_hazard_visible(hazard):
                 known.add(hazard.id)
+        for facility in self.state.facilities:
+            visibility = self.biome_mechanics(facility.biome_id)["visibility"]
+            radius = int(visibility.get("feature_radius", visibility["patrol_radius"]))
+            if abs(facility.x - position[0]) + abs(facility.y - position[1]) <= radius:
+                known.add(facility.id)
         for pickup in self.state.pickups:
             if pickup.hidden:
                 continue

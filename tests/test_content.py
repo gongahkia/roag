@@ -22,6 +22,7 @@ class ContentTests(unittest.TestCase):
                     catalog.terrains,
                     catalog.landmarks,
                     catalog.missions,
+                    catalog.facilities,
                 )
             )
         )
@@ -62,6 +63,10 @@ class ContentTests(unittest.TestCase):
         self.assertEqual(
             set(catalog.biomes),
             {mission["biome"] for mission in catalog.missions.values()},
+        )
+        self.assertEqual(
+            set(catalog.biomes),
+            {facility["biome"] for facility in catalog.facilities.values()},
         )
         def signature(card: dict) -> tuple:
             return (
@@ -196,6 +201,16 @@ class ContentTests(unittest.TestCase):
             path = Path(directory) / "bad-biome.json"
             path.write_text(json.dumps(raw), encoding="utf-8")
             with self.assertRaisesRegex(ContentError, "all six mechanic sections"):
+                load_catalog(path)
+
+    def test_facility_with_unsupported_effect_is_rejected(self) -> None:
+        catalog = load_catalog()
+        raw = json.loads(json.dumps(catalog.raw))
+        raw["facilities"][0]["options"][0]["effects"][0]["op"] = "invent_ammunition"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad-facility.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ContentError, "invalid option"):
                 load_catalog(path)
 
     def test_content_balance_guardrails(self) -> None:

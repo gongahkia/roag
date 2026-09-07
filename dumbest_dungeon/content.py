@@ -24,6 +24,7 @@ class Catalog:
     events: dict[str, dict[str, Any]]
     landmarks: dict[str, dict[str, Any]]
     missions: dict[str, dict[str, Any]]
+    facilities: dict[str, dict[str, Any]]
     terrains: dict[str, dict[str, Any]]
     biomes: dict[str, dict[str, Any]]
     worlds: dict[str, dict[str, Any]]
@@ -103,6 +104,7 @@ BIOME_OBJECTIVE_EFFECTS = {
     "supplies",
     "upgrade_random",
 }
+FACILITY_EFFECTS = BIOME_OBJECTIVE_EFFECTS | {"reveal_biome", "suppress_hazard"}
 TERRAIN_GLYPHS = frozenset(".,=~_\";:`'%-o")
 CARD_TAGS = {
     "block",
@@ -391,8 +393,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load card metadata from {metadata_source}: {exc}") from exc
 
-    if raw.get("schema_version") != 11:
-        raise ContentError("content schema_version must be 11")
+    if raw.get("schema_version") != 12:
+        raise ContentError("content schema_version must be 12")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
@@ -403,6 +405,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
     events = _indexed(raw.get("events"), "events")
     landmarks = _indexed(raw.get("landmarks"), "landmarks")
     missions = _indexed(raw.get("missions"), "missions")
+    facilities = _indexed(raw.get("facilities"), "facilities")
     terrains = _indexed(raw.get("terrains"), "terrains")
     biomes = _indexed(raw.get("biomes"), "biomes")
     worlds = _indexed(raw.get("worlds"), "worlds")
@@ -432,6 +435,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
         "events": events,
         "landmarks": landmarks,
         "missions": missions,
+        "facilities": facilities,
         "terrains": terrains,
         "biomes": biomes,
         "worlds": worlds,
@@ -724,6 +728,57 @@ def load_catalog(path: Path | None = None) -> Catalog:
         mission_biomes.add(mission["biome"])
     if mission_biomes != set(biomes):
         raise ContentError("every biome needs exactly one expedition mission")
+    facility_biomes: set[str] = set()
+    facility_names: set[str] = set()
+    for facility in facilities.values():
+        options = facility.get("options")
+        if (
+            facility.get("biome") not in biomes
+            or facility["biome"] in facility_biomes
+            or not isinstance(facility.get("name"), str)
+            or not facility["name"]
+            or facility["name"] in facility_names
+            or not isinstance(facility.get("description"), str)
+            or not facility["description"]
+            or not isinstance(options, list)
+            or len(options) != 2
+        ):
+            raise ContentError(f"facility {facility['id']} is invalid")
+        option_ids: set[str] = set()
+        for option in options:
+            cost = option.get("cost")
+            effects = option.get("effects")
+            if (
+                not isinstance(option.get("id"), str)
+                or option["id"] in option_ids
+                or not isinstance(option.get("label"), str)
+                or not option["label"]
+                or not isinstance(option.get("summary"), str)
+                or not option["summary"]
+                or option.get("risk") not in {"low", "guarded", "severe", "unknown"}
+                or not isinstance(cost, dict)
+                or cost.get("resource") not in {
+                    "none", "supplies", "light", "stress_all", "health_all"
+                }
+                or not isinstance(cost.get("amount"), int)
+                or cost["amount"] < 0
+                or not isinstance(effects, list)
+                or not effects
+                or any(
+                    not isinstance(effect, dict)
+                    or effect.get("op") not in FACILITY_EFFECTS
+                    or not isinstance(effect.get("amount"), int)
+                    or effect["op"] == "status_all"
+                    and effect.get("status") not in CARD_STATUSES
+                    for effect in effects
+                )
+            ):
+                raise ContentError(f"facility {facility['id']} has an invalid option")
+            option_ids.add(option["id"])
+        facility_biomes.add(facility["biome"])
+        facility_names.add(facility["name"])
+    if facility_biomes != set(biomes):
+        raise ContentError("every biome needs exactly one expedition facility")
     glyphs = set()
     for biome in biomes.values():
         if not isinstance(biome.get("name"), str) or not isinstance(biome.get("description"), str):
@@ -836,6 +891,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
         events,
         landmarks,
         missions,
+        facilities,
         terrains,
         biomes,
         worlds,

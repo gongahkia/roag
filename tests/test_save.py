@@ -113,6 +113,15 @@ class SaveTests(unittest.TestCase):
         self.assertFalse(restored.completed)
         self.assertEqual(engine.objective_position(objective), loaded.objective_position(restored))
 
+    def test_pending_facility_choice_round_trips(self) -> None:
+        engine = GameEngine.new(self.catalog, 113)
+        facility = engine.state.facilities[0]
+        engine.state.party_x, engine.state.party_y = facility.x, facility.y
+        engine._resolve_exploration_tile()
+        loaded = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+        self.assertEqual("facility", loaded.state.phase)
+        self.assertEqual(facility.id, loaded.current_facility().id)
+
     def test_mid_combat_save_preserves_random_stream(self) -> None:
         engine = GameEngine.new(self.catalog, 202)
         patrol = engine.state.patrols[0]
