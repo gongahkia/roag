@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from jomon.actions import _advance_world, decide_objective
+from jomon.actions import _advance_world, interact
 from jomon.inventory import create_item
 from jomon.regions import activate_region, region_reachable, store_active_region
 from jomon.save import load_game, save_game
@@ -74,6 +74,24 @@ class FourRegionGenerationTests(unittest.TestCase):
             self.assertTrue(any(state.region.process_name.split()[0] in message.lower() or
                                 region_id.split()[0] in message.lower()
                                 for message in state.messages) or state.region.process_stage == 1)
+
+    def test_visible_container_holds_build_item_armour_and_supply(self):
+        state = create_world("recognisable regional coffer")
+        state.active_courier_id = state.household[0].id
+        activate_region(state, "greywash")
+        state.location = "region"
+        box = state.region.containers[0]
+        state.position = box.position
+        result = interact(state)
+        self.assertTrue(box.opened)
+        self.assertIn(box.reward, result.message)
+        self.assertTrue(box.extra_rewards)
+        physical = [
+            item for item in state.items
+            if item.container_id == box.id
+            or (item.owner_id == state.active_courier_id and box.name in item.provenance)
+        ]
+        self.assertEqual(len(physical), 3)
 
 
 class ExpandedBuildTests(unittest.TestCase):

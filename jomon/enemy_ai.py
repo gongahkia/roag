@@ -70,6 +70,11 @@ def select_goal(state: GameState, threat: Threat) -> EnemyDecision:
         option("escape with cargo", "escape", 120, "it has obtained the cargo it came for", threat.home_position)
     if threat.morale <= 0 or (threat.health <= max(1, threat.max_health // 3) and threat.morale < 3):
         option("break contact", "retreat", 110, "injury and morale make survival more valuable")
+    local_key = f"{threat.position.x},{threat.position.y},{threat.position.z}"
+    if local_key in state.smoke:
+        option("escape smoke", "withdraw", 101, "smoke has removed a reliable firing or guard position")
+    if local_key in state.water and "crosses draining mud quickly" not in threat.capabilities:
+        option("leave rising water", "withdraw", 99, "the regional process made this position unsafe")
     if visible:
         if threat.role == "thief" and gap <= 1 and pressure(state).valuables:
             option("steal cargo", "steal", 105, "an exposed valuable load is within reach", state.position)

@@ -108,11 +108,20 @@ def encounter_audit(sample_count: int = 100) -> dict[str, object]:
     frequencies: Counter[str] = Counter()
     role_pairs: Counter[str] = Counter()
     budget_distribution: Counter[str] = Counter()
-    ranged = elite = invalid = opening_attacks = 0
+    ranged = elite = invalid = opening_attacks = unreachable = 0
     repetitions: Counter[tuple[str, ...]] = Counter()
     pressure_counts: Counter[str] = Counter()
     for index in range(sample_count):
         seed = f"audit-{index:03d}"
+        from .regions import build_new_regions, region_reachable
+
+        regions, _, regional_threats, _ = build_new_regions(seed)
+        for region_id, region in regions.items():
+            reachable = region_reachable(region)
+            unreachable += sum(
+                threat.position not in reachable
+                for threat in regional_threats[region_id]
+            )
         for region in REGION_IDS:
             for band in PRESSURE_BUDGET:
                 plan = compose_encounter(seed, region, band, index % 6)
@@ -144,5 +153,5 @@ def encounter_audit(sample_count: int = 100) -> dict[str, object]:
         "unavoidable_opening_attacks": opening_attacks,
         "unique_compositions": len(repetitions),
         "most_repeated_composition": max(repetitions.values(), default=0),
-        "unreachable_actors": 0,
+        "unreachable_actors": unreachable,
     }

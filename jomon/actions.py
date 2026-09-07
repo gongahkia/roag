@@ -19,6 +19,7 @@ from .inventory import (
     pack_weight,
     prepare_kind,
     protection_at,
+    item_spec,
     record_acquisition,
     sync_legacy_load,
     tick_statuses,
@@ -133,6 +134,21 @@ def choose_weapon(state: GameState, weapon: str) -> ActionResult:
             return _plain(state, "Jomon's locker has no room for that weapon.")
     if not prepare_kind(state, weapon):
         return _plain(state, "That weapon cannot fit the courier's pack while swapping.")
+    supply = {
+        "crossbow": "crossbow bolts", "longbow": "fletched arrows",
+        "sling": "sling shot pouch", "heavy crossbow": "quarrel case",
+        "weighted net": "casting net bundle",
+    }.get(weapon)
+    if supply and not any(
+        item.kind == f"consumable:{supply}" and item.owner_id == state.active_courier_id
+        and item.location == "pack" for item in state.items
+    ):
+        ammunition_item = next(
+            (item for item in state.items if item.kind == f"consumable:{supply}" and item.location == "locker"),
+            None,
+        )
+        if ammunition_item and not transfer_to_grid(state, ammunition_item.id, "pack", owner_id=state.active_courier_id):
+            return _plain(state, "The weapon fits, but its physical ammunition case does not; repack first.")
     state.weapon, state.crossbow_loaded, state.aimed_target = weapon, True, None
     state.weapon_ready = 2 if weapon == "heavy crossbow" else 1
     return _plain(state, f"Readied {WEAPONS[weapon][0]}.", changed=True)
@@ -504,17 +520,28 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
                 threat.reload_turns = {"heavy crossbow": 2, "crossbow": 1, "longbow": 1, "sling": 0}.get(threat.ranged_kind, 1)
                 threat.intent = f"must reload {threat.ranged_kind}"
                 if aimed != state.position:
+                    if threat.role == "suppressor":
+                        add_status(state, "lane-denied", "missiles striking the marked lane", 2, "crossing the lane adds noise")
                     return f"The {threat.name} releases along {aimed.x},{aimed.y}; your movement leaves the lane empty."
                 lane_cover = cover_at(state, threat.position, state.position)
                 if lane_cover == "full":
                     return f"The {threat.name}'s shot strikes full cover."
                 if guarded or lane_cover == "partial":
+                    if threat.role == "suppressor":
+                        add_status(state, "lane-denied", "missiles striking cover", 2, "leaving cover adds noise")
                     return f"Guard and {lane_cover} cover turn the {threat.ranged_kind} shot."
                 harm = {"sling": 1, "longbow": 2, "crossbow": 2, "heavy crossbow": 4}.get(threat.ranged_kind, 2)
                 if pressure(state).band == "critical":
                     harm += 1
+                if threat.role == "shooter" and load_state(state) in {"encumbered", "overloaded"}:
+                    harm += 1
+                movement = ""
+                if threat.role == "skirmisher":
+                    old = threat.position
+                    threat.position = retreat_step(state, threat)
+                    movement = " It releases while withdrawing." if threat.position != old else ""
                 kind = "blunt" if threat.ranged_kind == "sling" else "pierce"
-                return apply_damage(state, harm, f"The {threat.name}'s {threat.ranged_kind}", damage_kind=kind)
+                return apply_damage(state, harm, f"The {threat.name}'s {threat.ranged_kind}", damage_kind=kind) + movement
             threat.aimed_at = state.position
             threat.intent = f"aims {threat.ranged_kind} along lane {state.position.x},{state.position.y}; move, cover, smoke, or guard"
             return f"The {threat.name} {threat.intent}."
@@ -813,6 +840,8 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
     state.position = target
     if state.location == "region":
         state.last_move_turn = state.world_time
+        if "lane-denied" in state.terrain_statuses:
+            state.noise += 1
     messages: list[str] = []
     tile = base_tile(state, target)
     if state.location == "jomon":
@@ -966,7 +995,14 @@ def _open_container(state: GameState) -> ActionResult:
         (item for item in state.region.containers if item.position == state.position),
         None,
     )
-    if container is None or container.opened:
+    if container is None:
+        return _plain(state, "No material container is here.")
+    if container.opened and container.item_ids:
+        return ActionResult(
+            False, False, f"{container.name} remains open; arrange what was left.",
+            f"inventory:container:{container.id}",
+        )
+    if container.opened:
         return _plain(state, "The container is already empty.")
     requirement = container.requirement
     if requirement == "rope" and state.gear != "rope" and "river hooks" not in state.carried_passives:
@@ -975,6 +1011,8 @@ def _open_container(state: GameState) -> ActionResult:
         return _plain(state, "The buried marks cannot be read without finite light.")
     if requirement == "key" and state.gear != "repair tools" and not (
         state.courier and state.courier.technique == "lever craft"
+    ) and not ({"wreck key", "chalk cipher"} & set(state.carried_passives)) and not (
+        {"charcoal key", "limestone wedge"} & set(state.consumables)
     ):
         return _plain(state, "The strongbox needs repair tools or lever craft.")
     if requirement == "rope" and state.gear == "rope" and "flood rig" not in build_combinations(state):
@@ -983,18 +1021,19 @@ def _open_container(state: GameState) -> ActionResult:
         state.rope_uses -= 1
     if requirement == "light" and state.gear != "hooded lantern":
         state.lamp_oil -= 1
-    reward = container.reward
-    physical_kind = (
-        reward if reward in WEAPONS or reward in GEAR else
-        f"passive:{reward}" if reward in PASSIVES else
-        f"relic:{reward}" if reward in RELICS else
-        f"consumable:{reward}"
-    )
-    physical = next(
-        (item for item in state.items if item.id in container.item_ids),
-        None,
-    )
-    if physical is None:
+    rewards = [container.reward, *container.extra_rewards]
+    packed: list[str] = []
+    left: list[str] = []
+    for reward in rewards:
+        try:
+            item_spec(reward)
+            physical_kind = reward
+        except KeyError:
+            physical_kind = (
+                f"passive:{reward}" if reward in PASSIVES else
+                f"relic:{reward}" if reward in RELICS else
+                f"consumable:{reward}"
+            )
         physical = create_item(
             state,
             physical_kind,
@@ -1003,26 +1042,27 @@ def _open_container(state: GameState) -> ActionResult:
         )
         physical.container_id = container.id
         container.item_ids.append(physical.id)
-    fits_pack = transfer_to_grid(state, physical.id, "pack", owner_id=state.active_courier_id)
-    if fits_pack:
-        container.item_ids.remove(physical.id)
-    container.opened = True
-    if fits_pack:
-        if reward in PASSIVES:
-            sync_legacy_load(state)
+        fits_pack = transfer_to_grid(state, physical.id, "pack", owner_id=state.active_courier_id)
+        if fits_pack:
+            container.item_ids.remove(physical.id)
+            if reward in PASSIVES:
+                sync_legacy_load(state)
+            else:
+                record_acquisition(state, physical)
+            if reward == "sealed tally":
+                state.trade_credit += 1
+            packed.append(reward)
         else:
-            record_acquisition(state, physical)
-        if reward == "sealed tally":
-            state.trade_credit += 1
+            left.append(reward)
+    container.opened = True
     state.remember(
-        f"{state.courier.name} opened {container.name} and found {reward}; "
-        f"it was {'packed' if fits_pack else 'left inside'} ."
+        f"{state.courier.name} opened {container.name} and found {', '.join(rewards)}."
     )
-    message = (
-        f"You open {container.name}: {reward}. The depleted container remains visible."
-        if fits_pack else
-        f"You open {container.name}: {reward}. It remains inside until pack cells are cleared."
-    )
+    message = f"You open {container.name}: {', '.join(rewards)}."
+    if packed:
+        message += f" Packed: {', '.join(packed)}."
+    if left:
+        message += f" Left visibly inside: {', '.join(left)}."
     _advance_world(state)
     state.add_message(message, priority=3)
     return ActionResult(True, True, message, f"inventory:container:{container.id}")
@@ -1274,6 +1314,27 @@ def _attack_targets(state: GameState, attack_range: int) -> list[Threat]:
     )
 
 
+def _spend_physical_ammunition(state: GameState, ammunition: str) -> None:
+    supply = {
+        "bolts": "crossbow bolts", "arrows": "fletched arrows",
+        "sling stones": "sling shot pouch", "heavy bolts": "quarrel case",
+        "nets": "casting net bundle",
+    }.get(ammunition)
+    if not supply:
+        return
+    item = next(
+        (
+            item for item in state.items
+            if item.kind == f"consumable:{supply}"
+            and item.owner_id == state.active_courier_id and item.location == "pack"
+        ),
+        None,
+    )
+    if item:
+        item.quantity -= 1
+        if item.quantity <= 0:
+            item.quantity = 0
+            item.location, item.owner_id = "destroyed", None
 def attack(state: GameState) -> ActionResult:
     if state.location != "region" or state.weapon is None:
         return _plain(state, "No readied attack is possible.")
@@ -1338,6 +1399,7 @@ def attack(state: GameState) -> ActionResult:
             )
         if ammo_key:
             state.ammunition_by_type[ammo_key] -= 1
+            _spend_physical_ammunition(state, ammo_key)
         if state.weapon == "crossbow":
             state.crossbow_loaded = False
             state.ammunition = max(0, state.ammunition - 1)
@@ -1595,6 +1657,14 @@ def use_gear(state: GameState) -> ActionResult:
             "Finite smoke closes adjacent sightlines and rises at an opening; ranged aim breaks.",
             priority=3,
         )
+    if "bird whistle" in state.carried_passives:
+        decoy = Position(state.position.x + 4, state.position.y, state.position.z)
+        sounds = emit_sound(state, 3, decoy)
+        return _time_result(
+            state,
+            " ".join(["The bird whistle places a deliberate sound four paces crosswind from your true position.", *sounds]),
+            priority=3,
+        )
     animal = next(
         (
             threat
@@ -1646,6 +1716,30 @@ def use_gear(state: GameState) -> ActionResult:
         return _time_result(
             state, "You repack one finite smoke charge for later use.", priority=3
         )
+    if state.consumables.get("dry lamp wick", 0):
+        state.consumables["dry lamp wick"] -= 1
+        if state.consumables["dry lamp wick"] == 0:
+            del state.consumables["dry lamp wick"]
+        consume_carried(state, "consumable:dry lamp wick")
+        state.lamp_oil += 2
+        return _time_result(state, "A dry wick restores two finite measures of sheltered light.", priority=3)
+    if state.consumables.get("brine wash", 0) and ({"salt-grit", "cut-feet"} & set(state.terrain_statuses)):
+        state.consumables["brine wash"] -= 1
+        if state.consumables["brine wash"] == 0:
+            del state.consumables["brine wash"]
+        consume_carried(state, "consumable:brine wash")
+        state.terrain_statuses.pop("salt-grit", None)
+        state.terrain_statuses.pop("cut-feet", None)
+        add_status(state, "brine-chill", "cold brine treatment", 3, "exposed wet travel is slower")
+        return _time_result(state, "Brine clears grit and sharp-ground cuts, then leaves a short chill.", priority=3)
+    if state.consumables.get("splint roll", 0) and state.courier and ({"arms", "legs"} & set(state.courier.injuries)):
+        location = "arms" if "arms" in state.courier.injuries else "legs"
+        state.consumables["splint roll"] -= 1
+        if state.consumables["splint roll"] == 0:
+            del state.consumables["splint roll"]
+        consume_carried(state, "consumable:splint roll")
+        state.courier.injuries[location] = f"splinted {location}"
+        return _time_result(state, f"A finite splint stabilises the {location}; the injury still persists.", priority=3)
     return _plain(state, "No readied finite gear applies here.")
 
 

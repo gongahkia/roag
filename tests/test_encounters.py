@@ -32,6 +32,7 @@ class EncounterCompositionTests(unittest.TestCase):
         self.assertEqual(report["plans"], 900)
         self.assertEqual(report["invalid_or_forbidden"], 0)
         self.assertEqual(report["unavoidable_opening_attacks"], 0)
+        self.assertEqual(report["unreachable_actors"], 0)
         self.assertGreater(report["ranged_actor_frequency"], 0)
         self.assertGreater(report["elite_frequency"], 0)
         self.assertGreaterEqual(report["unique_compositions"], 30)

@@ -116,4 +116,3 @@ class SaveMigrationTests(unittest.TestCase):
         kinds = {item.kind for item in first.items if item.location not in {"lost", "destroyed"}}
         self.assertTrue(set(first.owned_weapons) <= kinds)
         self.assertTrue(set(first.owned_gear) <= kinds)
-

@@ -100,6 +100,7 @@ class Container:
     requirement: str | None = None
     opened: bool = False
     item_ids: list[str] = field(default_factory=list)
+    extra_rewards: list[str] = field(default_factory=list)
 
 
 @dataclass

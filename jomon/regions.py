@@ -75,6 +75,11 @@ def _containers(seed: str, region_id: str, specifications: list[tuple[str, str, 
     ]
 
 
+def _stock_containers(containers: list[Container], armour: list[str], supplies: list[str]) -> None:
+    for index, container in enumerate(containers):
+        container.extra_rewards = [armour[index], supplies[index]]
+
+
 def region_reachable(region: Region, start: Position | None = None) -> set[Position]:
     start = start or region.landmarks["landing"]
     link_map: dict[Position, Position] = {}
@@ -215,6 +220,11 @@ def build_greywash(seed: str) -> Region:
         ("mast", "Signal-mast chest", Position(62, 13, 2), None),
         ("chain", "Chain-house strongbox", Position(92, 23, 1), "key"),
     ], ["tide ledger", "cork float", "wreck key", "brine wash", "longbow", "ebbglass spindle"])
+    _stock_containers(
+        containers,
+        ["boiled cap", "reedscale vest", "linen sleeves", "tarred gauntlets", "leather leggings", "marsh waders"],
+        ["tide pin", "brine wash", "salt-house chit", "casting net bundle", "fletched arrows", "willow dressing"],
+    )
     for container in containers:
         target = ground if container.position.z == 0 else {-1: below, 1: upper, 2: roof}[container.position.z]
         target[container.position.y][container.position.x] = "C"
@@ -331,6 +341,11 @@ def build_greenwold(seed: str) -> Region:
         ("watch", "Canopy cache", Position(67, 7, 2), "rope"),
         ("burn", "Raised burn-store coffer", Position(84, 38, 1), None),
     ], ["charcoal mask", "resin grip", "bird whistle", "pine resin dressing", "paired knives", "coalheart seed"])
+    _stock_containers(
+        containers,
+        ["felt hood", "quilted jack", "leather vambraces", "work gloves", "wool chausses", "reed shoes"],
+        ["charcoal key", "pine resin dressing", "dry smoke charge", "splint roll", "dry lamp wick", "fletched arrows"],
+    )
     for container in containers:
         target = ground if container.position.z == 0 else {-1: below, 1: upper, 2: roof}[container.position.z]
         target[container.position.y][container.position.x] = "C"
@@ -434,6 +449,11 @@ def build_whitecairn(seed: str) -> Region:
         ("bridge", "Ridge bridge coffer", Position(57, 30, 2), "rope"),
         ("tower", "Bell parapet chest", Position(88, 13, 2), None),
     ], ["limestone cleat", "sling cup", "quarry brace", "quarrel case", "war hammer", "hollow-bell shard"])
+    _stock_containers(
+        containers,
+        ["kettle helm", "riveted coat", "splinted arms", "mail mitts", "brigandine cuisses", "hobnailed boots"],
+        ["limestone wedge", "sling shot pouch", "quarrel case", "splint roll", "dry lamp wick", "brine wash"],
+    )
     for container in containers:
         target = ground if container.position.z == 0 else {-1: below, 1: upper, 2: roof}[container.position.z]
         target[container.position.y][container.position.x] = "C"
@@ -497,8 +517,14 @@ def _threats(region: Region, seed: str) -> list[Threat]:
             ("upland-elite", Position(84, 16, 1)),
         ],
     }[region.id]
+    reachable = region_reachable(region)
     threats: list[Threat] = []
     for index, (archetype, position) in enumerate(placements):
+        if position not in reachable:
+            position = min(
+                (point for point in reachable if point.z == position.z),
+                key=lambda point: (abs(point.x - position.x) + abs(point.y - position.y), point.y, point.x),
+            )
         group = f"{region.id}-group-{index // 2}"
         threat = threat_from_archetype(archetype, position, encounter_id=f"{region.id}-{index}", group=group)
         if threat.elite:

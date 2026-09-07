@@ -454,6 +454,17 @@ def record_acquisition(state: GameState, item: Item) -> None:
         state.owned_weapons.append(item.kind)
     elif item_spec(item.kind).category == "gear" and item.kind not in state.owned_gear:
         state.owned_gear.append(item.kind)
+    elif item.kind.startswith("consumable:"):
+        name = item.kind.split(":", 1)[1]
+        ammunition = {
+            "fletched arrows": ("arrows", 4),
+            "sling shot pouch": ("sling stones", 6),
+            "quarrel case": ("heavy bolts", 2),
+            "casting net bundle": ("nets", 1),
+        }.get(name)
+        if ammunition:
+            kind, amount = ammunition
+            state.ammunition_by_type[kind] = state.ammunition_by_type.get(kind, 0) + amount
     sync_legacy_load(state)
 
 
@@ -496,11 +507,19 @@ class InventoryTransaction:
 
 def pack_weight(state: GameState, owner_id: str | None = None) -> int:
     owner_id = owner_id if owner_id is not None else state.active_courier_id
-    return sum(
+    weight = sum(
         item_spec(item.kind).weight * item.quantity
         for item in state.items
         if item.owner_id == owner_id and item.location in {"pack", *EQUIPPED_LOCATIONS}
     )
+    if "wet" in state.terrain_statuses:
+        weight += sum(
+            4 for item in state.items
+            if item.owner_id == owner_id
+            and item.location in EQUIPPED_LOCATIONS
+            and "water-heavy" in item_spec(item.kind).tags
+        )
+    return weight
 
 
 def weight_capacity(state: GameState) -> int:
@@ -650,6 +669,17 @@ def initialise_inventory(state: GameState) -> None:
         item = create_item(state, kind, "Jomon household stores")
         if not auto_place(state, item.id, "locker"):
             raise RuntimeError("initial Jomon locker is too small")
+    for name, quantity in (
+        ("crossbow bolts", 6), ("fletched arrows", 8),
+        ("sling shot pouch", 10), ("quarrel case", 4),
+        ("casting net bundle", 2),
+    ):
+        item = create_item(
+            state, f"consumable:{name}", "Jomon counted ammunition",
+            quantity=quantity,
+        )
+        if not auto_place(state, item.id, "locker"):
+            raise RuntimeError("initial Jomon locker cannot hold physical ammunition")
 
 
 def legacy_kind(name: str, category: str) -> str:
