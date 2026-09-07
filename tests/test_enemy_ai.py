@@ -118,6 +118,34 @@ class NavigationAndGroupTests(unittest.TestCase):
         self.assertEqual(thief.carrying_item_id, treasure.id)
         self.assertEqual(select_goal(state, thief).action, "escape")
 
+    def test_lost_contact_returns_home_instead_of_tracking_hidden_courier(self):
+        state = active_region("no omniscient fallback")
+        threat = Threat(
+            "guard", "route guard", "reach", Position(38, 25), 5, 5,
+            status="engaged", home_position=Position(30, 25),
+        )
+        state.threats = [threat]
+        state.position = Position(70, 40)
+        message = _threat_action(state, threat, False)
+        self.assertLess(threat.position.x, 38)
+        self.assertIn("guarded position", message)
+
+    def test_protector_physically_intercepts_for_ranged_ally(self):
+        state = active_region("material protector")
+        state.position = Position(42, 25)
+        protector = Threat(
+            "guard", "shield carrier", "reach", Position(46, 25), 6, 6,
+            status="engaged", role="protector", group="pair",
+        )
+        shooter = Threat(
+            "bow", "bow carrier", "ranged", Position(50, 25), 4, 4,
+            status="engaged", role="shooter", group="pair", ammunition=3,
+        )
+        state.threats = [protector, shooter]
+        message = _threat_action(state, protector, False)
+        self.assertEqual(protector.position, Position(47, 25))
+        self.assertIn("ranged ally", message)
+
 
 if __name__ == "__main__":
     unittest.main()

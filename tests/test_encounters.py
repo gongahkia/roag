@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import unittest
 
+from jomon.actions import _threat_action
 from jomon.content import ENEMY_ARCHETYPES
 from jomon.encounters import REGION_IDS, compose_encounter, encounter_audit
+from jomon.regions import activate_region
+from jomon.state import Position, create_world
 
 
 class EncounterCompositionTests(unittest.TestCase):
@@ -37,6 +40,32 @@ class EncounterCompositionTests(unittest.TestCase):
         self.assertGreater(report["elite_frequency"], 0)
         self.assertGreaterEqual(report["unique_compositions"], 30)
         self.assertTrue(set(ENEMY_ARCHETYPES) <= set(report["archetype_frequency"]))
+
+    def test_each_elite_changes_terrain_timing_or_visibility(self):
+        for region_id in REGION_IDS:
+            state = create_world(f"elite mechanics {region_id}")
+            activate_region(state, region_id)
+            state.active_courier_id = state.household[0].id
+            state.location = "region"
+            elite = next(threat for threat in state.threats if threat.elite)
+            elite.status = "engaged"
+            state.position = Position(elite.position.x - 1, elite.position.y, elite.position.z)
+            first = _threat_action(state, elite, False)
+            if region_id == "greywash":
+                second = _threat_action(state, elite, False)
+                self.assertIn("tide chain", first)
+                self.assertTrue(state.water)
+                self.assertIn("floods", second)
+            elif region_id == "greenwold":
+                self.assertTrue(state.smoke)
+                self.assertIn("smoke line", first)
+            else:
+                marked = elite.aimed_at
+                state.position = Position(state.position.x - 1, state.position.y, state.position.z)
+                second = _threat_action(state, elite, False)
+                self.assertIn("rockfall warning", first)
+                self.assertIn(f"{marked.x},{marked.y},{marked.z}", state.region.tile_changes)
+                self.assertIn("reposition", second)
 
 
 if __name__ == "__main__":

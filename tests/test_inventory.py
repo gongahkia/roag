@@ -5,7 +5,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from jomon.actions import choose_courier
+from jomon.actions import apply_damage, choose_courier, choose_weapon, move
+from jomon.content import PASSIVES
 from jomon.inventory import (
     BODY_SLOTS,
     ITEM_SPECS,
@@ -22,7 +23,8 @@ from jomon.inventory import (
     unequip_item,
 )
 from jomon.save import load_game, save_game
-from jomon.state import SAVE_FORMAT, game_state_from_dict, create_world
+from jomon.state import SAVE_FORMAT, Position, game_state_from_dict, create_world
+from jomon.terminal import InventoryView, _handle_inventory
 
 
 def active_state(seed: str = "spatial inventory"):
@@ -66,6 +68,34 @@ class SpatialInventoryTests(unittest.TestCase):
         self.assertEqual(spear.location, "pack")
         self.assertIn(spear.id, {item.id for item in state.items})
 
+    def test_ranged_preparation_rolls_back_when_ammunition_cannot_fit(self):
+        state = active_state("transactional ranged preparation")
+        owner = state.active_courier_id
+        state.owned_weapons.extend(["pike", "longbow"])
+        pike = create_item(state, "pike", "test readied weapon")
+        longbow = create_item(state, "longbow", "test candidate")
+        for item in state.items:
+            if item.kind not in {"longbow", "pike", "consumable:fletched arrows"}:
+                item.location = "destroyed"
+                item.owner_id = None
+        pike.location, pike.owner_id = "readied", owner
+        state.weapon = "pike"
+        for y in range(state.pack_height):
+            for x in range(state.pack_width):
+                if x == 0:
+                    continue
+                blocker = create_item(state, "consumable:packing block", "test", owner_id=owner)
+                blocker.location, blocker.x, blocker.y = "pack", x, y
+        longbow.location = "locker"
+        before = copy.deepcopy(state.to_dict())
+        result = choose_weapon(state, "longbow")
+        self.assertFalse(result.changed)
+        after = state.to_dict()
+        before.pop("messages")
+        after.pop("messages")
+        self.assertEqual(after, before)
+        self.assertEqual(state.weapon, "pike")
+
     def test_armour_catalogue_has_three_choices_per_body_location(self):
         armour = [spec for spec in ITEM_SPECS.values() if spec.category == "armour"]
         self.assertGreaterEqual(len(armour), 18)
@@ -83,6 +113,56 @@ class SpatialInventoryTests(unittest.TestCase):
         self.assertEqual(apply_terrain_status(state, "q"), "")
         self.assertNotEqual(apply_terrain_status(state, "m"), "")
         self.assertIn("bogged", state.terrain_statuses)
+
+    def test_armour_protects_contextual_location_and_degrades(self):
+        state = active_state("armour damage kinds")
+        helm = create_item(state, "kettle helm", "test armour")
+        self.assertTrue(auto_place(state, helm.id, "pack", owner_id=state.active_courier_id))
+        self.assertTrue(equip_item(state, helm.id))
+        for damage_kind in ("cut", "pierce", "blunt"):
+            self.assertGreater(protection_at(state, "head", damage_kind)[0], 0)
+        before_health = state.courier.health
+        result = apply_damage(state, 4, "A measured bolt", damage_kind="pierce", location="head")
+        self.assertEqual(state.courier.health, before_health - 1)
+        self.assertLess(helm.condition, 100)
+        self.assertIn("Kettle helm absorbs 3", result)
+
+    def test_injured_foot_and_encumbrance_each_cost_time_on_terrain(self):
+        state = active_state("injured footing")
+        state.location = "region"
+        state.position = Position(40, 25)
+        state.region.tile_changes["41,25,0"] = "q"
+        state.courier.injuries["feet"] = "wounded foot"
+        before = state.world_time
+        move(state, 1, 0)
+        self.assertEqual(state.world_time - before, 2)
+
+        state = active_state("encumbered movement")
+        state.location = "region"
+        state.position = Position(40, 25)
+        state.region.tile_changes["41,25,0"] = "."
+        for index in range(4):
+            coat = create_item(state, "riveted coat", f"test burden {index}")
+            self.assertTrue(auto_place(state, coat.id, "pack", owner_id=state.active_courier_id))
+        self.assertEqual(load_state(state), "overloaded")
+        before = state.world_time
+        move(state, 1, 0)
+        self.assertEqual(state.world_time - before, 2)
+
+    def test_container_to_pack_transfer_updates_both_physical_places(self):
+        state = active_state("container transfer")
+        state.location = "region"
+        box = state.region.containers[0]
+        item = create_item(state, "consumable:willow dressing", box.name, location="container")
+        item.container_id = box.id
+        box.item_ids.append(item.id)
+        view = InventoryView.begin(state, f"container:{box.id}")
+        view.pane = f"container:{box.id}"
+        closed, committed = _handle_inventory(state, view, ord("t"))
+        self.assertFalse(closed)
+        self.assertFalse(committed)
+        self.assertEqual((item.location, item.owner_id), ("pack", state.active_courier_id))
+        self.assertNotIn(item.id, box.item_ids)
 
     def test_load_bands_have_distinct_thresholds(self):
         state = active_state("weight")
@@ -109,6 +189,10 @@ class SaveMigrationTests(unittest.TestCase):
                 person.pop(key)
         for container in legacy["region"]["containers"]:
             container.pop("item_ids")
+        legacy["owned_passives"] = {name: 1 for name in PASSIVES}
+        legacy["carried_passives"] = {name: 1 for name in PASSIVES}
+        legacy_supplies = {f"legacy supply {index}": 1 for index in range(70)}
+        legacy["consumables"] = legacy_supplies
         first = game_state_from_dict(copy.deepcopy(legacy))
         second = game_state_from_dict(copy.deepcopy(legacy))
         self.assertEqual(first.save_format, SAVE_FORMAT)
@@ -116,3 +200,27 @@ class SaveMigrationTests(unittest.TestCase):
         kinds = {item.kind for item in first.items if item.location not in {"lost", "destroyed"}}
         self.assertTrue(set(first.owned_weapons) <= kinds)
         self.assertTrue(set(first.owned_gear) <= kinds)
+        physical_passives = {
+            item.kind.split(":", 1)[1]
+            for item in first.items
+            if item.kind.startswith("passive:") and item.location in {"pack", "locker"}
+        }
+        self.assertEqual(physical_passives, set(PASSIVES))
+        physical_supplies = {
+            item.kind.split(":", 1)[1]
+            for item in first.items
+            if item.kind.startswith("consumable:") and item.location in {"pack", "locker"}
+        }
+        self.assertTrue(set(legacy_supplies) <= physical_supplies)
+        self.assertTrue(any(
+            item.kind.startswith("consumable:") and item.location == "locker"
+            for item in first.items
+        ))
+        self.assertEqual(
+            set(first.carried_passives),
+            {
+                item.kind.split(":", 1)[1]
+                for item in first.items
+                if item.kind.startswith("passive:") and item.location == "pack"
+            },
+        )

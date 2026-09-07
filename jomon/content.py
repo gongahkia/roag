@@ -237,6 +237,10 @@ MERCHANT_ITEMS = {
     "hooded lantern": (2, "gear"),
     "willow dressing": (1, "consumable"),
     "tide-knot charm": (3, "relic"),
+    "war hammer": (3, "weapon"),
+    "weighted net": (2, "weapon"),
+    "quiet shoes": (1, "gear"),
+    "trade seals": (1, "gear"),
 }
 
 # Bounded authored roles. Regional placement and budgets live in encounters.py;
@@ -275,7 +279,7 @@ JOMON_MAP = (
     "#.H..............==========....................#",
     "#................=  BAR   =....t.t.....t.t.....#",
     "#.L..............=   C    =....................#",
-    "#................==========....t.t.....t.t.....#",
+    "#................====+=====....t.t.....t.t.....#",
     "#.P............................................#",
     "#..............................t.t.....t.t.....#",
     "#..............................................+",

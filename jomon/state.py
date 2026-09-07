@@ -642,11 +642,12 @@ def game_state_from_dict(data: Any) -> GameState:
             history=list(data["history"]), messages=list(data["messages"]), world_ended=data["world_ended"],
         )
         if migrated_v3:
-            from .inventory import initialise_inventory, reconcile_legacy_carried
+            from .inventory import initialise_inventory, reconcile_legacy_carried, sync_legacy_load
             from .people import initialise_tavern
 
             initialise_inventory(state)
             reconcile_legacy_carried(state)
+            sync_legacy_load(state)
             initialise_tavern(state)
         elif not state.tavern_positions:
             from .people import initialise_tavern

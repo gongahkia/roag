@@ -561,6 +561,7 @@ def _handle_inventory(state: GameState, view: InventoryView, key: int) -> tuple[
         return False, False
     if char == "t" and item:
         moved = False
+        source_container_id = item.container_id
         if view.pane == "pack" and state.location == "jomon":
             moved = transfer_to_grid(state, item.id, "locker")
         elif view.pane == "locker":
@@ -570,8 +571,8 @@ def _handle_inventory(state: GameState, view: InventoryView, key: int) -> tuple[
         elif view.pane.startswith("container:") or view.pane == "ground":
             moved = transfer_to_grid(state, item.id, "pack", owner_id=state.active_courier_id)
             if moved:
-                if item.container_id:
-                    container = next((box for box in state.region.containers if box.id == item.container_id), None)
+                if source_container_id:
+                    container = next((box for box in state.region.containers if box.id == source_container_id), None)
                     if container and item.id in container.item_ids:
                         container.item_ids.remove(item.id)
                 record_acquisition(state, item)

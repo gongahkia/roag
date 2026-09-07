@@ -20,6 +20,7 @@ from .inventory import (
     prepare_kind,
     protection_at,
     item_spec,
+    InventoryTransaction,
     record_acquisition,
     sync_legacy_load,
     tick_statuses,
@@ -127,12 +128,14 @@ def choose_weapon(state: GameState, weapon: str) -> ActionResult:
         return _plain(state, "That weapon is not available aboard Jomon.")
     if state.active_courier_id is None:
         return _plain(state, "Choose the courier before fitting their weapon.")
+    transaction = InventoryTransaction.begin(state)
     if not any(item.kind == weapon and item.location not in {"lost", "destroyed"} for item in state.items):
         physical = create_item(state, weapon, "Jomon household stores")
         if not auto_place(state, physical.id, "locker"):
-            state.items.remove(physical)
+            transaction.cancel(state)
             return _plain(state, "Jomon's locker has no room for that weapon.")
     if not prepare_kind(state, weapon):
+        transaction.cancel(state)
         return _plain(state, "That weapon cannot fit the courier's pack while swapping.")
     supply = {
         "crossbow": "crossbow bolts", "longbow": "fletched arrows",
@@ -148,6 +151,7 @@ def choose_weapon(state: GameState, weapon: str) -> ActionResult:
             None,
         )
         if ammunition_item and not transfer_to_grid(state, ammunition_item.id, "pack", owner_id=state.active_courier_id):
+            transaction.cancel(state)
             return _plain(state, "The weapon fits, but its physical ammunition case does not; repack first.")
     state.weapon, state.crossbow_loaded, state.aimed_target = weapon, True, None
     state.weapon_ready = 2 if weapon == "heavy crossbow" else 1
@@ -419,6 +423,51 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
         was_entangled = threat.intent.startswith("entangled")
         threat.intent = "cuts free of the net before acting again" if was_entangled else "recovers position before acting again"
         return f"The {threat.name} loses a turn {threat.intent}."
+    if threat.elite and state.active_region_id == "greywash":
+        if state.region.changes.get("tide_held"):
+            threat.morale -= 2
+            threat.intent = "cannot close the dogged tide chain"
+            if threat.morale <= 0:
+                threat.status = "retreated"
+            return "The dogged windlass denies the storm-chain captain's route-changing goal."
+        if threat.turn % 2:
+            threat.intent = "hauls the tide chain; the three marked flats flood next turn"
+            return f"The {threat.name} {threat.intent}."
+        points = (Position(88, 28), Position(89, 28), Position(90, 28))
+        state.water.update({position_key(point): 8 for point in points})
+        if state.position in points and not guarded:
+            return apply_damage(state, 3, "The hauled tide chain and current", damage_kind="blunt")
+        return "The tide chain floods three marked flats; higher chain-house floor remains safe."
+    if threat.elite and state.active_region_id == "greenwold":
+        if state.region.changes.get("burn_redirected"):
+            threat.morale -= 2
+            threat.intent = "loses control of the crosswind burn"
+            if threat.morale <= 0:
+                threat.status = "retreated"
+            return "Redirected burn shutters strip the ash-cloak warden of smoke control."
+        smoke_line = [
+            Position(state.position.x + offset, state.position.y, state.position.z)
+            for offset in (-1, 0, 1)
+        ]
+        state.smoke.update({position_key(point): 5 for point in smoke_line})
+        threat.intent = "drives a three-cell smoke line across your current route"
+        return f"The {threat.name} {threat.intent}; climb or move crosswind."
+    if threat.elite and state.active_region_id == "whitecairn":
+        if state.region.changes.get("quarry_braced"):
+            threat.morale -= 2
+            threat.intent = "cannot release the braced rock face"
+            if threat.morale <= 0:
+                threat.status = "retreated"
+            return "The seated quarry braces deny the false-bell master's rockfall plan."
+        if threat.aimed_at is None:
+            threat.aimed_at = state.position
+            threat.intent = f"rings a rockfall warning over {state.position.x},{state.position.y}; leave the marked cell"
+            return f"The {threat.name} {threat.intent}."
+        marked, threat.aimed_at = threat.aimed_at, None
+        state.region.tile_changes[position_key(marked)] = "%"
+        if state.position == marked and not guarded:
+            return apply_damage(state, 3, "The false bell's released rockfall", damage_kind="blunt")
+        return "Rockfall strikes the marked cell and leaves unstable scree; your reposition avoids it."
     if threat.profile == "machinery":
         if gap > 7:
             return ""
@@ -492,6 +541,30 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             threat.intent = f"reloads {threat.ranged_kind}; {threat.reload_turns} turn remains"
         else:
             threat.intent = f"finishes reloading {threat.ranged_kind}"
+        return f"The {threat.name} {threat.intent}."
+    if decision.action in {"intercept", "patrol", "return", "approach"} and decision.target:
+        stop_distance = 1 if decision.action == "intercept" else 0
+        previous = threat.position
+        steps = pressure(state).pursuit_steps if decision.action == "approach" else 1
+        for _ in range(steps):
+            threat.position = next_path_step(
+                state, threat, decision.target, stop_distance=stop_distance
+            )
+        descriptions = {
+            "intercept": "moves between you and its ranged ally",
+            "patrol": "resumes its assigned patrol without knowing your position",
+            "return": "returns to its guarded position",
+            "approach": "pursues your last visible position",
+        }
+        threat.intent = descriptions[decision.action]
+        if threat.position == previous:
+            threat.stalled_turns += 1
+            return "" if threat.stalled_turns > 1 else f"The {threat.name} holds; its selected route is blocked."
+        threat.stalled_turns = 0
+        if decision.action == "patrol" and threat.patrol:
+            next_index = (threat.patrol_index + 1) % len(threat.patrol)
+            if threat.position == threat.patrol[next_index]:
+                threat.patrol_index = next_index
         return f"The {threat.name} {threat.intent}."
     if threat.profile == "ranged":
         if threat.position.z != state.position.z and not line_of_sight(
@@ -1197,6 +1270,14 @@ def interact(state: GameState) -> ActionResult:
         return _plain(state, "Nothing here needs handling.")
     if state.position == state.region.landmarks["landing"]:
         return return_to_jomon(state)
+    if (
+        tile == "&"
+        and state.active_region_id != "hearthford"
+        and not state.region.changes.get("environment_control_used")
+    ):
+        # Whitecairn's quarry brace shares a hoist coordinate. Material work
+        # takes the first interaction; the aligned ladder remains usable after.
+        return _control_interaction(state)
     destination = vertical_destination(state, state.position)
     if destination:
         if load_state(state) == "overloaded" and destination.z > state.position.z:
@@ -1820,6 +1901,11 @@ def merchant_stock_for(state: GameState) -> list[str]:
         "ironwork": "hand axe",
         "timber": "cargo harness",
         "charcoal": "hooded lantern",
+        "lime": "war hammer",
+        "grain": "willow dressing",
+        "paper": "trade seals",
+        "salt fish": "weighted net",
+        "wool": "quiet shoes",
     }[state.region.objective_commodity]
     outcome = "crossbow" if state.objective_status == "completed" else "smoke pot"
     rare = (

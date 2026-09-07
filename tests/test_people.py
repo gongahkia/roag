@@ -5,12 +5,39 @@ import tempfile
 import unittest
 
 from jomon.actions import choose_courier, move, recruit_person
+from jomon.content import JOMON_MAP
 from jomon.people import adjacent_person, person_at
 from jomon.save import load_game, save_game
 from jomon.state import Position, create_world
 
 
 class PhysicalTavernTests(unittest.TestCase):
+    def test_bar_preparation_tile_is_physically_reachable(self):
+        start = Position(3, 4)
+        target = next(
+            Position(x, y)
+            for y, row in enumerate(JOMON_MAP)
+            for x, tile in enumerate(row)
+            if tile == "C"
+        )
+        frontier, seen = [start], {start}
+        while frontier:
+            point = frontier.pop()
+            for candidate in (
+                Position(point.x + 1, point.y), Position(point.x - 1, point.y),
+                Position(point.x, point.y + 1), Position(point.x, point.y - 1),
+            ):
+                if candidate in seen:
+                    continue
+                if (
+                    0 <= candidate.y < len(JOMON_MAP)
+                    and 0 <= candidate.x < len(JOMON_MAP[candidate.y])
+                    and JOMON_MAP[candidate.y][candidate.x] not in {"#", "="}
+                ):
+                    seen.add(candidate)
+                    frontier.append(candidate)
+        self.assertIn(target, seen)
+
     def test_six_household_adults_have_distinct_physical_seats(self):
         state = create_world("seated household")
         seats = [state.tavern_positions[person.id] for person in state.household]
@@ -61,4 +88,3 @@ class PhysicalTavernTests(unittest.TestCase):
         self.assertEqual(len(loaded.household), 7)
         self.assertEqual(loaded.visitor_status[visitor.id], "joined")
         self.assertEqual(loaded.tavern_positions[visitor.id], state.tavern_positions[visitor.id])
-

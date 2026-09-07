@@ -291,7 +291,20 @@ def build_greenwold(seed: str) -> Region:
     _rect(ground, 60, 6, 68, 14)
     ground[10][60] = "+"
     ground[10][64] = ">"
+    # Seeded canopy can close every incidental gap around a template. Recut
+    # the three authored routes after structures are stamped, then restore
+    # their interaction glyphs. These are narrow forest trails, not a generic
+    # connectivity pass.
+    _carve(ground, [landing, village, clearing, resin])
+    _carve(ground, [village, Position(34, 42), root, burn, clearing])
     _carve(ground, [clearing, Position(60, 10), watch])
+    ground[25][13] = "+"
+    ground[25][20] = "M"
+    ground[27][24] = "c"
+    ground[16][70] = "+"
+    ground[16][75] = "&"
+    ground[39][76] = "+"
+    ground[40][82] = "f"
     ground[10][60] = "+"
     ground[10][64] = ">"
     ground[root.y][root.x] = "<"

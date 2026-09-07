@@ -6,11 +6,30 @@ from jomon.actions import _advance_world, interact
 from jomon.inventory import create_item
 from jomon.regions import activate_region, region_reachable, store_active_region
 from jomon.save import load_game, save_game
-from jomon.state import create_world
+from jomon.state import Position, create_world
 from jomon.world import build_combinations
 
 
 class FourRegionGenerationTests(unittest.TestCase):
+    def test_whitecairn_shared_hoist_operates_control_before_climbing(self):
+        state = create_world("shared quarry hoist")
+        activate_region(state, "whitecairn")
+        state.active_courier_id = state.household[0].id
+        state.location = "region"
+        state.position = next(
+            Position(x, y, int(z))
+            for z, rows in state.region.levels.items()
+            for y, row in enumerate(rows)
+            for x, tile in enumerate(row)
+            if tile == "&" and int(z) == 0
+        )
+        first = interact(state)
+        self.assertTrue(first.time_advanced)
+        self.assertTrue(state.region.changes["quarry_braced"])
+        second = interact(state)
+        self.assertTrue(second.time_advanced)
+        self.assertEqual(state.position.z, 1)
+
     def test_generation_is_deterministic_and_geographically_varied(self):
         first = create_world("four-region determinism")
         second = create_world("four-region determinism")
@@ -25,7 +44,10 @@ class FourRegionGenerationTests(unittest.TestCase):
         self.assertGreaterEqual(len(set(signatures)), 4)
 
     def test_every_new_region_has_deep_reachable_content(self):
-        for seed in ("regional alpha", "regional beta", "regional gamma"):
+        for seed in (
+            "regional alpha", "regional beta", "regional gamma",
+            "PTY forced creature", "PTY forced lure",
+        ):
             state = create_world(seed)
             for region_id in ("greywash", "greenwold", "whitecairn"):
                 region = state.regions[region_id]
