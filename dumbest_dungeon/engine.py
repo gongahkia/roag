@@ -390,20 +390,55 @@ def _build_world(
     floor &= reachable
 
     cells = [[" " for _ in range(WORLD_WIDTH)] for _ in range(WORLD_HEIGHT)]
+    cell_biomes: dict[tuple[int, int], str] = {}
     for x, y in floor:
         nearest_room = min(
             positions,
             key=lambda room_id: abs(x - positions[room_id][0]) + abs(y - positions[room_id][1]),
         )
-        cells[y][x] = catalog.biomes[room_biomes[nearest_room]]["glyph"]
-    decoration_candidates = sorted(floor - set(positions.values()))
-    for symbol in (",", "=", "~"):
-        for _ in range(5):
-            center_x, center_y = rng.choice(decoration_candidates)
-            for y in range(center_y - 1, center_y + 2):
-                for x in range(center_x - 1, center_x + 2):
-                    if (x, y) in floor and rng.random() < 0.65:
-                        cells[y][x] = symbol
+        biome_id = room_biomes[nearest_room]
+        cell_biomes[(x, y)] = biome_id
+        cells[y][x] = catalog.biomes[biome_id]["glyph"]
+    patterns = {
+        definition["biome"]: definition
+        for definition in catalog.terrain_patterns.values()
+    }
+    anchors = set(positions.values())
+    for biome_id in set(room_biomes.values()):
+        pattern = patterns[biome_id]
+        eligible = sorted(
+            position
+            for position in floor - anchors
+            if cell_biomes[position] == biome_id
+        )
+        if not eligible:
+            continue
+        if pattern["mode"] == "channels":
+            patterned = [position for position in eligible if position in corridors]
+        elif pattern["mode"] == "bands":
+            vertical = rng.random() < 0.5
+            offset = rng.randrange(7)
+            patterned = [
+                position
+                for position in eligible
+                if ((position[0] if vertical else position[1]) + offset) % 7 in {0, 1}
+            ]
+        else:
+            patterned_set: set[tuple[int, int]] = set()
+            centers = rng.sample(eligible, min(5, len(eligible)))
+            for center_x, center_y in centers:
+                patterned_set.update(
+                    (x, y)
+                    for y in range(center_y - 1, center_y + 2)
+                    for x in range(center_x - 1, center_x + 2)
+                    if (x, y) in floor
+                    and (x, y) not in anchors
+                    and cell_biomes[(x, y)] == biome_id
+                    and rng.random() < 0.7
+                )
+            patterned = sorted(patterned_set)
+        for x, y in patterned:
+            cells[y][x] = pattern["glyph"]
     for x, y in pillars:
         cells[y][x] = "O"
     for x, y in floor:
@@ -433,7 +468,7 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 20
+    SAVE_VERSION = 21
     TUTORIAL_SEED = 1
     ENCOUNTER_PLANS = {"none", "pressure", "disrupt", "screen", "sustain", "combo", "overseer"}
 
@@ -1728,6 +1763,14 @@ class GameEngine:
         return self.biome_at(self.state.party_x, self.state.party_y)
 
     def biome_at(self, x: int, y: int) -> str:
+        if 0 <= y < len(self.state.world_tiles) and 0 <= x < len(self.state.world_tiles[y]):
+            glyph = self.state.world_tiles[y][x]
+            terrain = next(
+                (item for item in self.catalog.terrains.values() if item["glyph"] == glyph),
+                None,
+            )
+            if terrain is not None and terrain.get("biome") is not None:
+                return str(terrain["biome"])
         room = min(
             self.state.rooms,
             key=lambda item: abs(x - self.room_position(item.id)[0])

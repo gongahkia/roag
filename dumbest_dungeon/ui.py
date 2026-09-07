@@ -877,6 +877,11 @@ class TerminalUI:
         biome = self.catalog.biomes[self.engine.current_biome()]
         mechanics = biome["mechanics"]
         mission = self.engine.mission_definition(biome["id"])
+        terrain_pattern = next(
+            definition
+            for definition in self.catalog.terrain_patterns.values()
+            if definition["biome"] == biome["id"]
+        )
         facility = next(
             definition
             for definition in self.catalog.facilities.values()
@@ -884,7 +889,7 @@ class TerminalUI:
         )
         body = (
             f"{biome['description']}\n\n"
-            f"TRAVEL — {mechanics['traversal']['description']}\n"
+            f"TRAVEL — {mechanics['traversal']['description']} {terrain_pattern['description']}\n"
             f"VISIBILITY — {mechanics['visibility']['description']}\n"
             f"PATROLS — {mechanics['patrol']['description']}\n"
             f"HAZARD: {mechanics['hazard']['name']} — {mechanics['hazard']['description']}\n"

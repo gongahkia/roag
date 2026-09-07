@@ -1,5 +1,5 @@
 {
-  "schema_version": 13,
+  "schema_version": 14,
   "balance": {
     "hand_size": 5,
     "energy": 3,
@@ -498,6 +498,19 @@
     {"id":"ribbed_crypt","name":"Ribbed crypt","glyph":"o","cost":1,"biome":"ossuary","description":"Bone-white maintenance flooring costs one travel tick."},
     {"id":"debris","name":"Unstable debris","glyph":",","cost":2,"description":"Loose wreckage costs two travel ticks regardless of its region."},
     {"id":"service_rail","name":"Service rail","glyph":"=","cost":1,"description":"An intact reinforced crossing costs one travel tick."}
+  ],
+  "terrain_patterns": [
+    {"id":"derelict_rubble","biome":"derelict","mode":"pockets","glyph":",","description":"Rubble pockets slow open-deck shortcuts; intact plating remains faster."},
+    {"id":"cryo_thaw_channels","biome":"cryogenic","mode":"channels","glyph":"=","description":"Thawed service channels offer fast crossings through costly ice."},
+    {"id":"hydro_irrigation_bands","biome":"hydroponic","mode":"bands","glyph":"=","description":"Regular irrigation grates cut fast transverse routes through root mats."},
+    {"id":"foundry_quench_channels","biome":"foundry","mode":"channels","glyph":"=","description":"Quench rails remain cooler and faster than exposed slag floors."},
+    {"id":"reactor_dead_zones","biome":"reactor","mode":"pockets","glyph":",","description":"Collapsed insulation interrupts otherwise rapid powered conduits."},
+    {"id":"fungal_fruiting_masses","biome":"fungal","mode":"pockets","glyph":",","description":"Dense fruiting masses slow direct movement through soft paths."},
+    {"id":"flooded_causeways","biome":"flooded","mode":"channels","glyph":"=","description":"Narrow service causeways cross deep water quickly but concentrate patrol routes."},
+    {"id":"storm_grounding_bands","biome":"storm","mode":"bands","glyph":"=","description":"Grounding strips form predictable crossings through the static lanes."},
+    {"id":"archive_index_bands","biome":"archive","mode":"bands","glyph":"=","description":"Indexed rails provide fast, regular cuts across contradictory aisles."},
+    {"id":"void_anchor_channels","biome":"void","mode":"channels","glyph":"=","description":"Anchored service bridges are the only trustworthy fast routes across absence."},
+    {"id":"ossuary_collapse","biome":"ossuary","mode":"pockets","glyph":",","description":"Collapsed bone piles slow otherwise direct crypt corridors."}
   ],
   "biomes": [
     {"id":"derelict","name":"Derelict Decks","glyph":".","description":"Broken machinery, open corridors, and familiar shipboard hazards.","mechanics":{"hazard":{"name":"Falling Conduit","description":"A loose conduit strikes the weakest crew member.","effect":"damage_weakest","amount":4},"traversal":{"cost":1,"description":"Open decking costs one travel tick."},"patrol":{"behavior":"roam","aggression":10,"cadence":1,"leash":8,"description":"Maintenance packs roam locally, then pursue on sight."},"visibility":{"patrol_radius":9,"hazard_radius":4,"description":"Broken sightlines reveal nearby movement and machinery."},"combat":{"name":"Loose Cover","description":"Scattered plating gives every combatant 2 block.","effects":[{"target":"all","op":"block","amount":2}]},"objective":{"name":"Signal Relay","description":"Splice a corpse-warm relay into the Overseer route.","safe_label":"Insulate the splice","safe_cost":1,"safe_effect":"light","safe_amount":22,"force_label":"Bridge it by hand","force_effect":"damage_random","force_amount":5}}},

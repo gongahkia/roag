@@ -139,6 +139,10 @@ class EngineTests(unittest.TestCase):
     def test_all_biomes_generate_reachable_hazards_and_optional_objectives(self) -> None:
         seen_biomes: set[str] = set()
         seen_mixtures: set[tuple[str, ...]] = set()
+        patterns = {
+            pattern["biome"]: pattern
+            for pattern in self.catalog.terrain_patterns.values()
+        }
         for seed in range(200):
             engine = GameEngine.new(self.catalog, seed)
             selected = set(engine.state.biome_ids)
@@ -153,6 +157,14 @@ class EngineTests(unittest.TestCase):
                 self.assertEqual(
                     2,
                     sum(hazard.biome_id == biome_id for hazard in engine.state.hazards),
+                )
+                self.assertTrue(
+                    any(
+                        glyph == patterns[biome_id]["glyph"] and engine.biome_at(x, y) == biome_id
+                        for y, row in enumerate(engine.world_tiles())
+                        for x, glyph in enumerate(row)
+                    ),
+                    f"seed {seed} has no {biome_id} secondary terrain",
                 )
             origin = engine.room_position(0)
             for feature in engine.state.objectives + engine.state.hazards:
@@ -169,6 +181,26 @@ class EngineTests(unittest.TestCase):
             self.assertFalse(boss.active)
         self.assertEqual(set(self.catalog.biomes), seen_biomes)
         self.assertGreater(len(seen_mixtures), len(self.catalog.worlds))
+
+    def test_biome_specific_terrain_glyph_defines_region_identity(self) -> None:
+        x, y = self.engine.room_position(1)
+        original_biome = self.engine.biome_at(x, y)
+        replacement = next(
+            biome for biome in self.engine.state.biome_ids if biome != original_biome
+        )
+        row = self.engine.state.world_tiles[y]
+        self.engine.state.world_tiles[y] = (
+            row[:x] + self.catalog.biomes[replacement]["glyph"] + row[x + 1:]
+        )
+        self.assertEqual(replacement, self.engine.biome_at(x, y))
+
+        self.engine.state.world_tiles[y] = row[:x] + "," + row[x + 1:]
+        nearest = min(
+            self.engine.state.rooms,
+            key=lambda room: abs(x - self.engine.room_position(room.id)[0])
+            + abs(y - self.engine.room_position(room.id)[1]),
+        )
+        self.assertEqual(nearest.biome_id, self.engine.biome_at(x, y))
 
     def test_access_objectives_offer_routes_and_gate_the_overseer(self) -> None:
         boss = next(

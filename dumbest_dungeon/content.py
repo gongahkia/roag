@@ -26,6 +26,7 @@ class Catalog:
     missions: dict[str, dict[str, Any]]
     facilities: dict[str, dict[str, Any]]
     terrains: dict[str, dict[str, Any]]
+    terrain_patterns: dict[str, dict[str, Any]]
     biomes: dict[str, dict[str, Any]]
     worlds: dict[str, dict[str, Any]]
     boons: dict[str, dict[str, Any]]
@@ -402,8 +403,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load card metadata from {metadata_source}: {exc}") from exc
 
-    if raw.get("schema_version") != 13:
-        raise ContentError("content schema_version must be 13")
+    if raw.get("schema_version") != 14:
+        raise ContentError("content schema_version must be 14")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
@@ -416,6 +417,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
     missions = _indexed(raw.get("missions"), "missions")
     facilities = _indexed(raw.get("facilities"), "facilities")
     terrains = _indexed(raw.get("terrains"), "terrains")
+    terrain_patterns = _indexed(raw.get("terrain_patterns"), "terrain_patterns")
     biomes = _indexed(raw.get("biomes"), "biomes")
     worlds = _indexed(raw.get("worlds"), "worlds")
     boons = _indexed(raw.get("boons"), "boons")
@@ -446,6 +448,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
         "missions": missions,
         "facilities": facilities,
         "terrains": terrains,
+        "terrain_patterns": terrain_patterns,
         "biomes": biomes,
         "worlds": worlds,
         "boons": boons,
@@ -652,6 +655,22 @@ def load_catalog(path: Path | None = None) -> Catalog:
         terrain_glyphs.add(terrain["glyph"])
     if terrain_glyphs != TERRAIN_GLYPHS:
         raise ContentError("terrain profiles must cover every traversable ASCII glyph exactly once")
+    pattern_biomes: set[str] = set()
+    for pattern in terrain_patterns.values():
+        if (
+            pattern.get("biome") not in biomes
+            or pattern["biome"] in pattern_biomes
+            or pattern.get("mode") not in {"bands", "channels", "pockets"}
+            or pattern.get("glyph") not in {",", "="}
+            or pattern["mode"] in {"bands", "channels"} and pattern["glyph"] != "="
+            or pattern["mode"] == "pockets" and pattern["glyph"] != ","
+            or not isinstance(pattern.get("description"), str)
+            or not pattern["description"]
+        ):
+            raise ContentError(f"terrain pattern {pattern['id']} is invalid")
+        pattern_biomes.add(pattern["biome"])
+    if pattern_biomes != set(biomes):
+        raise ContentError("every biome needs exactly one secondary terrain pattern")
     landmark_biomes: set[str] = set()
     for landmark in landmarks.values():
         landmark_art = landmark.get("art")
@@ -902,6 +921,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
         missions,
         facilities,
         terrains,
+        terrain_patterns,
         biomes,
         worlds,
         boons,

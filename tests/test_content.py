@@ -23,6 +23,7 @@ class ContentTests(unittest.TestCase):
                     catalog.landmarks,
                     catalog.missions,
                     catalog.facilities,
+                    catalog.terrain_patterns,
                 )
             )
         )
@@ -71,6 +72,10 @@ class ContentTests(unittest.TestCase):
         self.assertEqual(
             {"circuit", "erratic", "hunt", "migrate", "roam", "sentry", "stalk", "sweep"},
             {biome["mechanics"]["patrol"]["behavior"] for biome in catalog.biomes.values()},
+        )
+        self.assertEqual(
+            set(catalog.biomes),
+            {pattern["biome"] for pattern in catalog.terrain_patterns.values()},
         )
         def signature(card: dict) -> tuple:
             return (
@@ -215,6 +220,16 @@ class ContentTests(unittest.TestCase):
             path = Path(directory) / "bad-facility.json"
             path.write_text(json.dumps(raw), encoding="utf-8")
             with self.assertRaisesRegex(ContentError, "invalid option"):
+                load_catalog(path)
+
+    def test_misleading_secondary_terrain_pattern_is_rejected(self) -> None:
+        catalog = load_catalog()
+        raw = json.loads(json.dumps(catalog.raw))
+        raw["terrain_patterns"][0]["glyph"] = "~"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad-terrain-pattern.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ContentError, "terrain pattern"):
                 load_catalog(path)
 
     def test_content_balance_guardrails(self) -> None:
