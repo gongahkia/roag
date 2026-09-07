@@ -1699,6 +1699,7 @@ class TerminalUI:
     ) -> int | None:
         selected = 0
         scroll = 0
+        note_scroll = 0
         while True:
             self._begin(title)
             row = 3
@@ -1721,21 +1722,33 @@ class TerminalUI:
                 self._put(row + shown, 3, f"{marker} {choice}"[:width], attr)
             if preview_cards and preview_cards[selected] is not None:
                 self._draw_card(3, 45, preview_cards[selected])
+            note_lines: list[str] = []
             if preview_notes:
                 note_width = max(20, self.screen.getmaxyx()[1] - 48)
-                lines = [
+                note_lines = [
                     wrapped
                     for paragraph in preview_notes[selected].splitlines()
                     for wrapped in (textwrap.wrap(paragraph, note_width) or [""])
                 ]
-                for offset, line in enumerate(lines[:3]):
+                note_scroll = max(0, min(note_scroll, max(0, len(note_lines) - 3)))
+                for offset, line in enumerate(note_lines[note_scroll:note_scroll + 3]):
                     self._put(20 + offset, 45, line, curses.A_DIM)
-            self._footer("↑/↓ choose  Enter confirm  Esc back" if not view_only else "↑/↓ scroll  Esc/Enter back")
+            if len(note_lines) > 3:
+                footer = "↑/↓ choose  PgUp/PgDn details  Enter confirm  Esc back"
+            else:
+                footer = "↑/↓ choose  Enter confirm  Esc back" if not view_only else "↑/↓ scroll  Esc/Enter back"
+            self._footer(footer)
             key = self._key()
             if key in (curses.KEY_UP, curses.KEY_LEFT, ord("k"), ord("h")):
                 selected = (selected - 1) % len(choices)
+                note_scroll = 0
             elif key in (curses.KEY_DOWN, curses.KEY_RIGHT, ord("j"), ord("l")):
                 selected = (selected + 1) % len(choices)
+                note_scroll = 0
+            elif key == curses.KEY_PPAGE and note_lines:
+                note_scroll -= 3
+            elif key == curses.KEY_NPAGE and note_lines:
+                note_scroll += 3
             elif key in (10, 13, curses.KEY_ENTER):
                 return None if view_only else selected
             elif key == 27 and allow_cancel:

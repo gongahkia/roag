@@ -535,6 +535,20 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("INTERPOSE+", rendered)
         self.assertIn("BOTH YOU", rendered.upper())
 
+    def test_preview_notes_scroll_without_changing_the_choice(self) -> None:
+        screen = FakeScreen(keys=[curses.KEY_NPAGE, 27])
+        self.ui.screen = screen
+        selected = self.ui._menu(
+            "DETAILED COMPARISON",
+            ["Keep this choice selected"],
+            allow_cancel=True,
+            preview_cards=[CardInstance("brace")],
+            preview_notes=["FIRST\nSECOND\nTHIRD\nFINAL DETAIL"],
+        )
+        self.assertIsNone(selected)
+        self.assertIn("FINAL DETAIL", screen.text())
+        self.assertIn("PgUp/PgDn details", screen.text())
+
     def test_effect_browser_groups_hero_and_party_stacks(self) -> None:
         hero = self.engine.living_heroes()[0]
         self.engine.acquire_boon(hero.id, "iron_benediction")
