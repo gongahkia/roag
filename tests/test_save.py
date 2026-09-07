@@ -19,7 +19,10 @@ class SaveTests(unittest.TestCase):
         engine.acquire_boon(hero.id, "iron_benediction")
         engine.acquire_curse(hero.id, "static_prayer")
         engine.acquire_item("survey_relay", 2)
-        first_step = engine.path_to(*engine.room_position(1))[0]
+        first_step = engine._find_path(
+            (engine.state.party_x, engine.state.party_y),
+            engine.room_position(1),
+        )[0]
         engine.step_exploration(*first_step)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "run.json"
@@ -38,6 +41,22 @@ class SaveTests(unittest.TestCase):
         self.assertEqual("hub", loaded.state.phase)
         self.assertEqual(engine.state.hub_selection, loaded.state.hub_selection)
         self.assertEqual(engine.snapshot(), loaded.snapshot())
+
+    def test_hazard_and_objective_state_round_trip(self) -> None:
+        engine = GameEngine.new(self.catalog, 102)
+        hazard = engine.state.hazards[0]
+        engine.state.party_x, engine.state.party_y = hazard.x, hazard.y
+        engine._resolve_exploration_tile()
+        loaded = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+        self.assertEqual("hazard", loaded.state.phase)
+        self.assertEqual(hazard.id, loaded.current_hazard().id)
+        loaded.finish_hazard()
+        objective = loaded.state.objectives[0]
+        loaded.state.party_x, loaded.state.party_y = objective.x, objective.y
+        loaded._resolve_exploration_tile()
+        reloaded = GameEngine.from_snapshot(self.catalog, loaded.snapshot())
+        self.assertEqual("objective", reloaded.state.phase)
+        self.assertEqual(objective.id, reloaded.current_objective().id)
 
     def test_mid_combat_save_preserves_random_stream(self) -> None:
         engine = GameEngine.new(self.catalog, 202)
@@ -62,7 +81,7 @@ class SaveTests(unittest.TestCase):
         original = self.catalog.balance["death_chance"]
         self.catalog.balance["death_chance"] = 1.0
         try:
-            engine._damage(hero, 1)
+            engine._damage(hero, 999)
         finally:
             self.catalog.balance["death_chance"] = original
         with tempfile.TemporaryDirectory() as directory:
@@ -89,6 +108,11 @@ class SaveTests(unittest.TestCase):
         snapshot = GameEngine.new(self.catalog, 404).snapshot()
         snapshot["state"]["room_positions"][1][0] += 1
         with self.assertRaisesRegex(RuleError, "positions do not match"):
+            GameEngine.from_snapshot(self.catalog, snapshot)
+
+        snapshot = GameEngine.new(self.catalog, 404).snapshot()
+        snapshot["state"]["biome_ids"][1] = snapshot["state"]["biome_ids"][0]
+        with self.assertRaisesRegex(RuleError, "four-biome selection"):
             GameEngine.from_snapshot(self.catalog, snapshot)
 
     def test_saved_enemy_formation_is_validated(self) -> None:

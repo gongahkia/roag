@@ -90,6 +90,10 @@ class TerminalUI:
                     self._exploration()
                 elif phase == "discovery":
                     self._discovery()
+                elif phase == "hazard":
+                    self._hazard()
+                elif phase == "objective":
+                    self._objective()
                 elif phase == "combat":
                     self._combat()
                 elif phase == "event":
@@ -240,6 +244,8 @@ class TerminalUI:
                 self._deck_view()
             elif key in (ord("i"), ord("I")):
                 self._effects_view()
+            elif key in (ord("b"), ord("B")):
+                self._biome_view()
             elif key in (ord("p"), ord("P"), 27):
                 self._pause()
                 return
@@ -261,28 +267,31 @@ class TerminalUI:
         route = []
         if self.engine.is_walkable(*cursor):
             route = self.engine._find_path((state.party_x, state.party_y), cursor)
-        route_length = len(route)
+        route_length = self.engine.path_cost(route)
         maximum = self.engine.maximum_navigation_distance()
         reach = "READY" if route_length <= maximum and self.engine.is_walkable(*cursor) else "OUT OF REACH"
         biome = self.catalog.biomes[self.engine.current_biome()]["name"]
+        mechanics = self.engine.biome_mechanics()
+        access = f"ACCESS {self.engine.completed_objectives()}/{state.required_objectives}"
+        core = "CORE OPEN" if self.engine.boss_unlocked() else "CORE SEALED"
         zone = self.engine.room().name
         self._put(
             rows - 4,
             2,
             f"Crew ({state.party_x:03},{state.party_y:02})  Target ({cursor[0]:03},{cursor[1]:02})  "
-            f"Route {route_length:2}/{maximum} {reach}  Biome: {biome}  Last: {zone}"[: self.screen.getmaxyx()[1] - 3],
+            f"Cost {route_length:2}/{maximum} {reach}  {access} {core}  Biome: {biome}  Last: {zone}"[: self.screen.getmaxyx()[1] - 3],
             self._attr(1 if reach == "READY" else 3),
         )
         self._put(
             rows - 3,
             2,
-            f"@ crew X aim e/E/B foes +/*/! finds ?/C/W/$ sites | "
-            f"{self.catalog.biomes[self.engine.current_biome()]['glyph']} {biome}"[
+            f"@ crew X aim e/E/B foes K objective ^ hazard ?/C/W/$ sites | "
+            f"T{mechanics['traversal']['cost']} {biome}"[
                 : self.screen.getmaxyx()[1] - 3
             ],
             curses.A_DIM,
         )
-        self._footer("Arrows aim Enter/2xclick go X/Esc/right-click stop Tab cycle Space center U supply")
+        self._footer("Arrows aim Enter/2xclick go X/Esc/right-click stop Tab cycle B biome U supply")
         return origin
 
     def _world_map(
@@ -309,15 +318,29 @@ class TerminalUI:
         if state.phase == "exploration" and self.engine.is_walkable(*cursor):
             route = self.engine._find_path((state.party_x, state.party_y), cursor)
             maximum = self.engine.maximum_navigation_distance()
-            for x, y in route[:maximum]:
+            spent = 0
+            for x, y in route:
+                spent += self.engine.movement_cost(x, y)
+                if spent > maximum:
+                    break
                 overlays.append((x, y, ":", curses.A_DIM))
         feature_symbols = {"start": "A", "event": "?", "camp": "C", "upgrade": "W", "cache": "$"}
         for room in state.rooms:
             if not room.resolved and room.kind in feature_symbols:
                 x, y = self.engine.room_position(room.id)
                 overlays.append((x, y, feature_symbols[room.kind], self._attr(2) | curses.A_BOLD))
+        if not self.engine.boss_unlocked():
+            boss = next(room for room in state.rooms if room.kind == "boss")
+            x, y = self.engine.room_position(boss.id)
+            overlays.append((x, y, "L", self._attr(3) | curses.A_BOLD))
+        for objective in state.objectives:
+            if not objective.completed:
+                overlays.append((objective.x, objective.y, "K", self._attr(2) | curses.A_BOLD))
+        for hazard in state.hazards:
+            if not hazard.triggered and self.engine.is_hazard_visible(hazard):
+                overlays.append((hazard.x, hazard.y, "^", self._attr(3) | curses.A_BOLD))
         for patrol in state.patrols:
-            if not patrol.active:
+            if not patrol.active or not self.engine.is_patrol_visible(patrol):
                 continue
             kind = state.rooms[patrol.room_id].kind
             symbol = "B" if kind == "boss" else "E" if kind == "elite" else "e"
@@ -330,7 +353,7 @@ class TerminalUI:
                 )
         overlays.append((state.party_x, state.party_y, "@", self._attr(4) | curses.A_BOLD))
         cursor_symbol = "@" if cursor == (state.party_x, state.party_y) else "X"
-        reachable = self.engine.is_walkable(*cursor) and len(route) <= self.engine.maximum_navigation_distance()
+        reachable = self.engine.is_walkable(*cursor) and self.engine.path_cost(route) <= self.engine.maximum_navigation_distance()
         if self.colour:
             cursor_attr = self._attr(7 if reachable else 5)
         else:
@@ -345,7 +368,21 @@ class TerminalUI:
     def _exploration_targets(self) -> list[tuple[int, int]]:
         assert self.engine
         state = self.engine.state
-        targets = [(patrol.x, patrol.y) for patrol in state.patrols if patrol.active]
+        targets = [
+            (patrol.x, patrol.y)
+            for patrol in state.patrols
+            if patrol.active and self.engine.is_patrol_visible(patrol)
+        ]
+        targets.extend(
+            (objective.x, objective.y)
+            for objective in state.objectives
+            if not objective.completed
+        )
+        targets.extend(
+            (hazard.x, hazard.y)
+            for hazard in state.hazards
+            if not hazard.triggered and self.engine.is_hazard_visible(hazard)
+        )
         targets.extend(
             self.engine.room_position(room.id)
             for room in state.rooms
@@ -481,6 +518,51 @@ class TerminalUI:
         assert picked is not None
         self.engine.resolve_bargain(hero.id, None if picked == len(options) else picked)
 
+    def _hazard(self) -> None:
+        assert self.engine
+        hazard = self.engine.current_hazard()
+        definition = self.engine.biome_mechanics(hazard.biome_id)["hazard"]
+        biome = self.catalog.biomes[hazard.biome_id]["name"]
+        self._notice(
+            f"{biome.upper()} — {definition['name'].upper()}",
+            definition["description"] + "\n\nThe confirmed route has stopped.",
+        )
+        self.engine.finish_hazard()
+
+    def _objective(self) -> None:
+        assert self.engine
+        objective = self.engine.current_objective()
+        definition = self.engine.biome_mechanics(objective.biome_id)["objective"]
+        biome = self.catalog.biomes[objective.biome_id]["name"]
+        safe = f"{definition['safe_label']} ({definition['safe_cost']} supply)"
+        force = f"{definition['force_label']} (accept the consequence)"
+        picked = self._menu(
+            f"{biome.upper()} — ACCESS OBJECTIVE",
+            [safe, force],
+            definition["description"]
+            + f"\n\nSecure any {self.engine.state.required_objectives} of the four biome signals. "
+            + f"Current access: {self.engine.completed_objectives()}/{self.engine.state.required_objectives}.",
+            allow_cancel=False,
+        )
+        assert picked is not None
+        self.message = self.engine.resolve_objective("safe" if picked == 0 else "force")
+
+    def _biome_view(self) -> None:
+        assert self.engine
+        biome = self.catalog.biomes[self.engine.current_biome()]
+        mechanics = biome["mechanics"]
+        objective = mechanics["objective"]
+        body = (
+            f"{biome['description']}\n\n"
+            f"TRAVEL — {mechanics['traversal']['description']}\n"
+            f"VISIBILITY — {mechanics['visibility']['description']}\n"
+            f"PATROLS — {mechanics['patrol']['description']}\n"
+            f"HAZARD: {mechanics['hazard']['name']} — {mechanics['hazard']['description']}\n"
+            f"COMBAT: {mechanics['combat']['name']} — {mechanics['combat']['description']}\n"
+            f"OBJECTIVE: {objective['name']} — {objective['description']}"
+        )
+        self._notice(biome["name"].upper(), body)
+
     def _combat(self) -> None:
         assert self.engine
         selected = 0
@@ -525,8 +607,9 @@ class TerminalUI:
         state = self.engine.state
         boons, curses_owned, items = self.engine.effect_counts()
         biome = self.catalog.biomes[self.engine.current_biome()]["name"]
+        environment = self.engine.biome_mechanics()["combat"]["name"]
         self._begin(
-            f"{biome.upper()} — {self.engine.room().encounter_plan.upper()} — "
+            f"{biome.upper()} / {environment.upper()} — {self.engine.room().encounter_plan.upper()} — "
             f"ROUND {state.round} — ENERGY {state.energy} — B{boons} C{curses_owned} I{items}"
         )
         active_hero = None
@@ -1001,7 +1084,7 @@ class TerminalUI:
         body = (
             "The Overseer is silent. The crew escapes before the dead world can wake again."
             if phase == "victory"
-            else "One voice drops from the comms. The survivors cannot finish the mission."
+            else "The last voice drops from the comms. No one remains to finish the mission."
         )
         self._notice(title, body + f"\n\nSeed: {self.engine.state.seed}")
 
@@ -1010,16 +1093,19 @@ class TerminalUI:
             "Explore the current world from above and reach its Apex Chamber. Aim the X cursor with arrows or "
             "hjkl, then press Enter to auto-walk there. A first left-click selects and highlights a tile; "
             "click it again or press Enter to confirm. One order has limited reach; Survey Relays extend it. "
-            "Tab cycles points of interest and Space recenters on the crew. Patrols move whenever the crew "
-            "takes a step, and contact opens combat. Movement drains light; darkness adds stress, increases "
+            "Tab cycles visible points of interest and Space recenters on the crew. Patrols move according "
+            "to their biome cadence, and contact opens combat. Travel cost drains light; darkness adds stress, increases "
             "surprise attacks, and offers a fourth card reward. In combat, spend shared "
             "energy on cards whose specialist occupies a valid rank. Enemy intents are shown before they act.\n\n"
             "Visible +, *, and ! discoveries grant hero-bound boons, party-wide stackable items, or risky "
             "bargains. Hidden anomalies inflict curses when stepped on. Curse cards trigger when drawn and "
             "cannot be played. Press I during exploration or combat to inspect every active stack and its "
             "current scaled value.\n\n"
-            "Each seed selects one of six world layouts and four of eleven biome types. Biomes alter map "
-            "floor glyphs, room names, enemy formations, and encounter pools. New specialist cards list an "
+            "Each seed selects one of six world layouts and four of eleven biome types. Biomes alter travel "
+            "cost, hazard visibility, patrol behavior, combat conditions, and recovery opportunities as well "
+            "as formations. Press B in exploration for the current biome rules. Four K sites offer seeded "
+            "access objectives; secure any two by a safe supply procedure or a dangerous forced procedure "
+            "to open the L-marked Overseer Core. Specialist cards list an "
             "affinity biome and gain extra damage, block, healing, or stress relief while used there.\n\n"
             "At zero HP a crew member reaches Death's Door. Further damage may kill them permanently; "
             "their cards leave the shared deck, but survivors continue until a full-party wipe. "
@@ -1027,7 +1113,7 @@ class TerminalUI:
             "or restore light. Camps recover crew, modify one card, or remove one curse for 2 supplies.\n\n"
             "Controls: arrows or hjkl navigate, Enter confirms, X/Escape cancels an active route, right-click "
             "also cancels it, E ends a combat turn, "
-            "U uses a supply, D views the deck, I views effects, P pauses, and ? opens this page."
+            "U uses a supply, B views biome rules, D views the deck, I views effects, P pauses, and ? opens this page."
         )
         self._notice("HOW TO PLAY", text)
 

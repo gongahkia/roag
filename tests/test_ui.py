@@ -182,6 +182,49 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("e", rendered)
         self.assertIn("+", rendered)
 
+    def test_map_and_biome_view_explain_objective_hazard_and_core_lock(self) -> None:
+        party = (self.engine.state.party_x, self.engine.state.party_y)
+        objective = self.engine.state.objectives[0]
+        hazard = self.engine.state.hazards[0]
+        objective.x, objective.y = party[0] + 2, party[1]
+        hazard.x, hazard.y = party[0] + 1, party[1]
+        self.engine.state.room_positions[11] = [party[0] + 3, party[1]]
+        screen = FakeScreen(keys=[10])
+        self.ui.screen = screen
+        self.ui._world_map(5, (objective.x, objective.y))
+        rendered = screen.text()
+        self.assertIn("K", rendered)
+        self.assertIn("^", rendered)
+        self.assertIn("L", rendered)
+
+        screen = FakeScreen(keys=[10])
+        self.ui.screen = screen
+        self.ui._biome_view()
+        rendered = screen.text()
+        self.assertIn("TRAVEL", rendered)
+        self.assertIn("PATROLS", rendered)
+        self.assertIn("COMBAT", rendered)
+        self.assertIn("OBJECTIVE", rendered)
+
+    def test_hazard_notice_and_objective_menu_return_to_exploration(self) -> None:
+        hazard = self.engine.state.hazards[0]
+        self.engine.state.party_x, self.engine.state.party_y = hazard.x, hazard.y
+        self.engine._resolve_exploration_tile()
+        screen = FakeScreen(keys=[10])
+        self.ui.screen = screen
+        self.ui._hazard()
+        self.assertEqual("exploration", self.engine.state.phase)
+        self.assertIn("route has stopped", screen.text())
+
+        objective = self.engine.state.objectives[0]
+        self.engine.state.party_x, self.engine.state.party_y = objective.x, objective.y
+        self.engine._resolve_exploration_tile()
+        screen = FakeScreen(keys=[10])
+        self.ui.screen = screen
+        self.ui._objective()
+        self.assertEqual("exploration", self.engine.state.phase)
+        self.assertTrue(objective.completed)
+
     def test_effect_browser_groups_hero_and_party_stacks(self) -> None:
         hero = self.engine.living_heroes()[0]
         self.engine.acquire_boon(hero.id, "iron_benediction")
@@ -282,6 +325,23 @@ class AsciiUiTests(unittest.TestCase):
         self.assertEqual("discovery", self.engine.state.phase)
         self.assertEqual(path[1], (self.engine.state.party_x, self.engine.state.party_y))
         self.assertEqual(2, self.engine.state.exploration_steps)
+
+    def test_auto_walk_stops_on_biome_hazard_before_later_patrol_actions(self) -> None:
+        party = (self.engine.state.party_x, self.engine.state.party_y)
+        path = self.engine._find_path(party, self.engine.room_position(1))[:3]
+        hazard = self.engine.state.hazards[0]
+        hazard.x, hazard.y = path[1]
+        hazard.biome_id = self.engine.biome_at(*path[1])
+        for patrol in self.engine.state.patrols:
+            patrol.active = False
+        screen = FakeScreen()
+        self.ui.screen = screen
+        with patch("dumbest_dungeon.ui.curses.napms"):
+            self.ui._walk_to(path[-1])
+        self.assertEqual("hazard", self.engine.state.phase)
+        self.assertEqual(path[1], (self.engine.state.party_x, self.engine.state.party_y))
+        self.assertEqual(2, self.engine.state.exploration_steps)
+        self.assertTrue(hazard.triggered)
 
     def test_fallen_crew_remains_visible_on_battlefield(self) -> None:
         self.engine.start_combat("vents")

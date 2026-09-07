@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 from collections import Counter, deque
 from dataclasses import asdict, dataclass, field
+from heapq import heappop, heappush
 from typing import Any
 
 from .content import Catalog
@@ -82,6 +83,24 @@ class EffectPickup:
 
 
 @dataclass
+class BiomeHazard:
+    id: str
+    biome_id: str
+    x: int
+    y: int
+    triggered: bool = False
+
+
+@dataclass
+class AccessObjective:
+    id: str
+    biome_id: str
+    x: int
+    y: int
+    completed: bool = False
+
+
+@dataclass
 class GameState:
     seed: int
     phase: str
@@ -90,6 +109,7 @@ class GameState:
     rooms: list[Room]
     world_tiles: list[str]
     world_id: str
+    biome_ids: list[str]
     room_positions: list[list[int]]
     hub_selection: list[str] = field(default_factory=list)
     current_room: int = 0
@@ -100,6 +120,13 @@ class GameState:
     active_patrol_id: str | None = None
     pickups: list[EffectPickup] = field(default_factory=list)
     current_pickup_id: str | None = None
+    hazards: list[BiomeHazard] = field(default_factory=list)
+    current_hazard_id: str | None = None
+    objectives: list[AccessObjective] = field(default_factory=list)
+    current_objective_id: str | None = None
+    required_objectives: int = 2
+    travel_ticks: int = 0
+    pending_opening_hand: int = 0
     boons: dict[str, dict[str, int]] = field(default_factory=dict)
     curses: dict[str, dict[str, int]] = field(default_factory=dict)
     items: dict[str, int] = field(default_factory=dict)
@@ -363,7 +390,7 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 9
+    SAVE_VERSION = 10
     ENCOUNTER_PLANS = {"none", "pressure", "disrupt", "screen", "sustain", "combo", "overseer"}
 
     def __init__(self, catalog: Catalog, state: GameState, rng: random.Random):
@@ -377,7 +404,16 @@ class GameEngine:
         world_id = rng.choice(list(catalog.worlds))
         world = catalog.worlds[world_id]
         positions, edges = WORLD_LAYOUTS[world["layout"]]
-        biome_sequence = list(world["biomes"])
+        remaining_biomes = list(catalog.biomes)
+        biome_sequence: list[str] = []
+        while len(biome_sequence) < 4:
+            choice = rng.choices(
+                remaining_biomes,
+                weights=[3 if biome_id in world["biomes"] else 1 for biome_id in remaining_biomes],
+                k=1,
+            )[0]
+            biome_sequence.append(choice)
+            remaining_biomes.remove(choice)
         middle_biomes = [biome_sequence[index % len(biome_sequence)] for index in range(10)]
         rng.shuffle(middle_biomes)
         room_biomes = {0: biome_sequence[0], 11: biome_sequence[-1]}
@@ -399,6 +435,7 @@ class GameEngine:
             rooms=rooms,
             world_tiles=world_tiles,
             world_id=world_id,
+            biome_ids=biome_sequence,
             room_positions=[list(positions[room_id]) for room_id in range(12)],
             hub_selection=default_party,
             party_x=positions[0][0],
@@ -409,6 +446,8 @@ class GameEngine:
         )
         engine = cls(catalog, state, rng)
         state.pickups = engine._generate_pickups(random.Random(seed ^ 0x5049434B5550))
+        state.objectives = engine._generate_objectives(random.Random(seed ^ 0x4F424A454354))
+        state.hazards = engine._generate_hazards(random.Random(seed ^ 0x48415A415244))
         if not start_in_hub:
             engine.begin_expedition()
         return engine
@@ -462,6 +501,7 @@ class GameEngine:
                 encounter_id=room.content_id or "",
                 x=self.room_position(room.id)[0],
                 y=self.room_position(room.id)[1],
+                active=room.kind != "boss",
             )
             for room in self.state.rooms
             if room.kind in {"fight", "elite", "boss"}
@@ -473,7 +513,7 @@ class GameEngine:
     @staticmethod
     def _effect_targets_crew(action: dict[str, Any], effect: dict[str, Any]) -> bool:
         target = effect.get("target", action["target"])
-        return target not in {"self", "weakest_enemy", "all_allies"}
+        return target not in {"self", "weakest_ally", "weakest_enemy", "all_allies"}
 
     @classmethod
     def _definition_roles(cls, definition: dict[str, Any]) -> set[str]:
@@ -800,6 +840,63 @@ class GameEngine:
             pickup.payload["item_id"] = item_id
         return pickups
 
+    def _mechanic_positions(
+        self,
+        biome_id: str,
+        excluded: set[tuple[int, int]],
+        *,
+        minimum_spacing: int,
+    ) -> list[tuple[int, int]]:
+        start = self.room_position(0)
+        boss = self.room_position(11)
+        return [
+            (x, y)
+            for y, row in enumerate(self.state.world_tiles)
+            for x, character in enumerate(row)
+            if character in WALKABLE_TILES
+            and self.biome_at(x, y) == biome_id
+            and (x, y) not in excluded
+            and abs(x - start[0]) + abs(y - start[1]) >= 5
+            and abs(x - boss[0]) + abs(y - boss[1]) >= 3
+            and all(abs(x - other_x) + abs(y - other_y) >= minimum_spacing for other_x, other_y in excluded)
+        ]
+
+    def _generate_objectives(self, rng: random.Random) -> list[AccessObjective]:
+        excluded = {self.room_position(room.id) for room in self.state.rooms}
+        excluded |= {(pickup.x, pickup.y) for pickup in self.state.pickups}
+        objectives: list[AccessObjective] = []
+        for biome_id in self.state.biome_ids:
+            candidates = self._mechanic_positions(
+                biome_id,
+                excluded,
+                minimum_spacing=3,
+            )
+            if not candidates:
+                raise RuleError(f"generated terrain has no access objective site in {biome_id}")
+            x, y = rng.choice(candidates)
+            excluded.add((x, y))
+            objectives.append(AccessObjective(f"objective:{biome_id}", biome_id, x, y))
+        return objectives
+
+    def _generate_hazards(self, rng: random.Random) -> list[BiomeHazard]:
+        excluded = {self.room_position(room.id) for room in self.state.rooms}
+        excluded |= {(pickup.x, pickup.y) for pickup in self.state.pickups}
+        excluded |= {(objective.x, objective.y) for objective in self.state.objectives}
+        hazards: list[BiomeHazard] = []
+        for biome_id in self.state.biome_ids:
+            for index in range(2):
+                candidates = self._mechanic_positions(
+                    biome_id,
+                    excluded,
+                    minimum_spacing=2,
+                )
+                if not candidates:
+                    raise RuleError(f"generated terrain has no hazard site in {biome_id}")
+                x, y = rng.choice(candidates)
+                excluded.add((x, y))
+                hazards.append(BiomeHazard(f"hazard:{biome_id}:{index}", biome_id, x, y))
+        return hazards
+
     @classmethod
     def from_snapshot(cls, catalog: Catalog, snapshot: dict[str, Any]) -> GameEngine:
         if snapshot.get("save_version") != cls.SAVE_VERSION:
@@ -818,6 +915,7 @@ class GameEngine:
                 rooms=[Room(**item) for item in raw["rooms"]],
                 world_tiles=raw["world_tiles"],
                 world_id=raw["world_id"],
+                biome_ids=raw["biome_ids"],
                 room_positions=raw["room_positions"],
                 hub_selection=raw["hub_selection"],
                 current_room=raw["current_room"],
@@ -828,6 +926,13 @@ class GameEngine:
                 active_patrol_id=raw["active_patrol_id"],
                 pickups=[EffectPickup(**item) for item in raw["pickups"]],
                 current_pickup_id=raw["current_pickup_id"],
+                hazards=[BiomeHazard(**item) for item in raw["hazards"]],
+                current_hazard_id=raw["current_hazard_id"],
+                objectives=[AccessObjective(**item) for item in raw["objectives"]],
+                current_objective_id=raw["current_objective_id"],
+                required_objectives=raw["required_objectives"],
+                travel_ticks=raw["travel_ticks"],
+                pending_opening_hand=raw["pending_opening_hand"],
                 boons=raw["boons"],
                 curses=raw["curses"],
                 items=raw["items"],
@@ -853,6 +958,13 @@ class GameEngine:
             raise RuleError(f"invalid save data: {exc}") from exc
         if state.world_id not in catalog.worlds:
             raise RuleError("save references an unknown world type")
+        if (
+            not isinstance(state.biome_ids, list)
+            or len(state.biome_ids) != 4
+            or len(set(state.biome_ids)) != 4
+            or any(biome_id not in catalog.biomes for biome_id in state.biome_ids)
+        ):
+            raise RuleError("save contains an invalid four-biome selection")
         if (
             not isinstance(state.room_positions, list)
             or len(state.room_positions) != 12
@@ -892,7 +1004,7 @@ class GameEngine:
             raise RuleError("save places the crew outside the ship")
         if len(state.rooms) != 12 or any(
             room.id != index
-            or room.biome_id not in catalog.worlds[state.world_id]["biomes"]
+            or room.biome_id not in state.biome_ids
             or room.encounter_plan not in cls.ENCOUNTER_PLANS
             for index, room in enumerate(state.rooms)
         ):
@@ -983,6 +1095,58 @@ class GameEngine:
             raise RuleError("save references an unknown map discovery")
         if (state.phase == "discovery") != (state.current_pickup_id is not None):
             raise RuleError("save contains an inconsistent active discovery")
+        hazard_ids = {hazard.id for hazard in state.hazards}
+        hazard_positions = {(hazard.x, hazard.y) for hazard in state.hazards}
+        world_biomes = set(state.biome_ids)
+        if (
+            len(state.hazards) != len(world_biomes) * 2
+            or len(hazard_ids) != len(state.hazards)
+            or len(hazard_positions) != len(state.hazards)
+            or any(
+                hazard.biome_id not in world_biomes
+                or not engine.is_walkable(hazard.x, hazard.y)
+                or engine.biome_at(hazard.x, hazard.y) != hazard.biome_id
+                for hazard in state.hazards
+            )
+            or any(
+                sum(hazard.biome_id == biome_id for hazard in state.hazards) != 2
+                for biome_id in world_biomes
+            )
+        ):
+            raise RuleError("save contains invalid biome hazards")
+        if state.current_hazard_id is not None and state.current_hazard_id not in hazard_ids:
+            raise RuleError("save references an unknown biome hazard")
+        if (state.phase == "hazard") != (state.current_hazard_id is not None):
+            raise RuleError("save contains an inconsistent active biome hazard")
+
+        objective_ids = {objective.id for objective in state.objectives}
+        objective_positions = {(objective.x, objective.y) for objective in state.objectives}
+        if (
+            len(state.objectives) != len(world_biomes)
+            or len(objective_ids) != len(state.objectives)
+            or len(objective_positions) != len(state.objectives)
+            or {objective.biome_id for objective in state.objectives} != world_biomes
+            or state.required_objectives not in range(1, len(state.objectives) + 1)
+            or any(
+                not engine.is_walkable(objective.x, objective.y)
+                or engine.biome_at(objective.x, objective.y) != objective.biome_id
+                for objective in state.objectives
+            )
+        ):
+            raise RuleError("save contains invalid access objectives")
+        if state.current_objective_id is not None and state.current_objective_id not in objective_ids:
+            raise RuleError("save references an unknown access objective")
+        if (state.phase == "objective") != (state.current_objective_id is not None):
+            raise RuleError("save contains an inconsistent active access objective")
+        if pickup_positions & hazard_positions or pickup_positions & objective_positions or hazard_positions & objective_positions:
+            raise RuleError("save contains overlapping map features")
+        if (
+            not isinstance(state.travel_ticks, int)
+            or state.travel_ticks < state.exploration_steps
+            or not isinstance(state.pending_opening_hand, int)
+            or state.pending_opening_hand > 0
+        ):
+            raise RuleError("save contains invalid biome pressure state")
         for hero_id, effects in state.boons.items():
             if hero_id not in hero_ids or any(
                 boon_id not in catalog.boons or not isinstance(count, int) or count < 1
@@ -1058,13 +1222,21 @@ class GameEngine:
             raise RuleError("unknown ship compartment") from exc
 
     def current_biome(self) -> str:
-        position = (self.state.party_x, self.state.party_y)
+        return self.biome_at(self.state.party_x, self.state.party_y)
+
+    def biome_at(self, x: int, y: int) -> str:
         room = min(
             self.state.rooms,
-            key=lambda item: abs(position[0] - self.room_position(item.id)[0])
-            + abs(position[1] - self.room_position(item.id)[1]),
+            key=lambda item: abs(x - self.room_position(item.id)[0])
+            + abs(y - self.room_position(item.id)[1]),
         )
         return room.biome_id
+
+    def biome_mechanics(self, biome_id: str | None = None) -> dict[str, Any]:
+        return self.catalog.biomes[biome_id or self.current_biome()]["mechanics"]
+
+    def movement_cost(self, x: int, y: int) -> int:
+        return int(self.biome_mechanics(self.biome_at(x, y))["traversal"]["cost"])
 
     def world_tiles(self) -> list[str]:
         return self.state.world_tiles
@@ -1091,16 +1263,22 @@ class GameEngine:
     ) -> list[tuple[int, int]]:
         if not self.is_walkable(*destination):
             return []
-        pending = deque([start])
+        pending: list[tuple[int, int, int]] = [(0, start[0], start[1])]
+        costs = {start: 0}
         previous: dict[tuple[int, int], tuple[int, int] | None] = {start: None}
         while pending:
-            current = pending.popleft()
+            cost, current_x, current_y = heappop(pending)
+            current = (current_x, current_y)
+            if cost != costs[current]:
+                continue
             if current == destination:
                 break
             for neighbor in self._neighbors(current):
-                if neighbor not in previous:
+                next_cost = cost + self.movement_cost(*neighbor)
+                if next_cost < costs.get(neighbor, WORLD_WIDTH * WORLD_HEIGHT * 3):
+                    costs[neighbor] = next_cost
                     previous[neighbor] = current
-                    pending.append(neighbor)
+                    heappush(pending, (next_cost, neighbor[0], neighbor[1]))
         if destination not in previous:
             return []
         path = []
@@ -1113,6 +1291,9 @@ class GameEngine:
             current = parent
         path.reverse()
         return path
+
+    def path_cost(self, path: list[tuple[int, int]]) -> int:
+        return sum(self.movement_cost(x, y) for x, y in path)
 
     def _distances_from(self, origin: tuple[int, int]) -> dict[tuple[int, int], int]:
         distances = {origin: 0}
@@ -1134,8 +1315,9 @@ class GameEngine:
         if (x, y) != (self.state.party_x, self.state.party_y) and not path:
             raise RuleError("no route reaches that tile")
         maximum = self.maximum_navigation_distance()
-        if len(path) > maximum:
-            raise RuleError(f"destination is beyond the maximum reach of {maximum} tiles")
+        cost = self.path_cost(path)
+        if cost > maximum:
+            raise RuleError(f"destination costs {cost} travel ticks; maximum reach is {maximum}")
         return path
 
     def maximum_navigation_distance(self) -> int:
@@ -1159,12 +1341,15 @@ class GameEngine:
         self.state.party_x = x
         self.state.party_y = y
         self.state.exploration_steps += 1
+        previous_ticks = self.state.travel_ticks
+        self.state.travel_ticks += self.movement_cost(x, y)
         interval = int(self.catalog.balance["exploration_steps_per_light"])
-        if self.state.exploration_steps % interval == 0:
-            self.state.light = max(0, self.state.light - 1)
+        light_spent = self.state.travel_ticks // interval - previous_ticks // interval
+        if light_spent:
+            self.state.light = max(0, self.state.light - light_spent)
             if self.state.light < self.catalog.balance["low_light_threshold"]:
                 for hero in self.living_heroes():
-                    self._change_stress(hero, 1)
+                    self._change_stress(hero, light_spent)
         if self.state.exploration_steps % 8 == 0:
             for hero in self.living_heroes():
                 amount = round(self._hero_effect_value(hero, "curse", "night_terror_stress"))
@@ -1204,6 +1389,29 @@ class GameEngine:
 
     def _resolve_exploration_tile(self) -> None:
         position = (self.state.party_x, self.state.party_y)
+        hazard = next(
+            (
+                item
+                for item in self.state.hazards
+                if not item.triggered and (item.x, item.y) == position
+            ),
+            None,
+        )
+        if hazard:
+            self._trigger_biome_hazard(hazard)
+            return
+        objective = next(
+            (
+                item
+                for item in self.state.objectives
+                if not item.completed and (item.x, item.y) == position
+            ),
+            None,
+        )
+        if objective:
+            self.state.phase = "objective"
+            self.state.current_objective_id = objective.id
+            return
         pickup = next(
             (
                 item
@@ -1221,10 +1429,168 @@ class GameEngine:
             return
         self.state.current_room = room.id
         room.visited = True
+        if room.kind == "boss" and not self.boss_unlocked():
+            self.add_log(
+                f"Apex seal rejects the crew: {self.completed_objectives()}/{self.state.required_objectives} access signals."
+            )
+            return
         if room.resolved or room.kind in {"start", "fight", "elite", "boss"}:
             return
         self.add_log(f"Entered {room.name}.")
         self._enter_room(room)
+
+    def _trigger_biome_hazard(self, hazard: BiomeHazard) -> None:
+        definition = self.biome_mechanics(hazard.biome_id)["hazard"]
+        effect = definition["effect"]
+        amount = int(definition["amount"])
+        heroes = self.living_heroes()
+        if effect == "damage_all":
+            for hero in list(heroes):
+                self._damage(hero, amount)
+        elif effect == "damage_weakest" and heroes:
+            self._damage(min(heroes, key=lambda hero: hero.hp / hero.max_hp), amount)
+        elif effect == "stress_highest" and heroes:
+            self._change_stress(max(heroes, key=lambda hero: hero.stress), amount)
+        elif effect == "light":
+            self.state.light = max(0, min(100, self.state.light + amount))
+        elif effect == "supplies":
+            if self.state.supplies + amount >= 0:
+                self.state.supplies += amount
+            else:
+                for hero in heroes:
+                    self._change_stress(hero, 5)
+        elif effect in {"status_all", "status_random"}:
+            targets = heroes if effect == "status_all" else ([self.rng.choice(heroes)] if heroes else [])
+            for hero in targets:
+                self._add_status(hero, definition["status"], amount)
+        elif effect == "opening_hand":
+            self.state.pending_opening_hand += amount
+        hazard.triggered = True
+        self.state.current_hazard_id = hazard.id
+        if self.state.phase != "defeat":
+            self.state.phase = "hazard"
+        self.add_log(f"{definition['name']}: {definition['description']}")
+
+    def current_hazard(self) -> BiomeHazard:
+        hazard = next(
+            (item for item in self.state.hazards if item.id == self.state.current_hazard_id),
+            None,
+        )
+        if self.state.phase != "hazard" or hazard is None or not hazard.triggered:
+            raise RuleError("there is no biome hazard to acknowledge")
+        return hazard
+
+    def finish_hazard(self) -> None:
+        self.current_hazard()
+        self.state.current_hazard_id = None
+        self.state.phase = "exploration"
+
+    def current_objective(self) -> AccessObjective:
+        objective = next(
+            (item for item in self.state.objectives if item.id == self.state.current_objective_id),
+            None,
+        )
+        if self.state.phase != "objective" or objective is None or objective.completed:
+            raise RuleError("there is no access objective to resolve")
+        return objective
+
+    def completed_objectives(self) -> int:
+        return sum(objective.completed for objective in self.state.objectives)
+
+    def boss_unlocked(self) -> bool:
+        return self.completed_objectives() >= self.state.required_objectives
+
+    def _apply_objective_effect(self, effect: str, amount: int, status: str | None = None) -> None:
+        heroes = self.living_heroes()
+        if effect == "light":
+            self.state.light = max(0, min(100, self.state.light + amount))
+        elif effect == "supplies":
+            self.state.supplies = max(0, self.state.supplies + amount)
+        elif effect == "heal_all":
+            for hero in heroes:
+                self._heal(hero, amount)
+        elif effect == "heal_weakest" and heroes:
+            self._heal(min(heroes, key=lambda hero: hero.hp / hero.max_hp), amount)
+        elif effect == "stress_all":
+            for hero in heroes:
+                self._change_stress(hero, amount)
+        elif effect == "stress_highest" and heroes:
+            self._change_stress(max(heroes, key=lambda hero: hero.stress), amount)
+        elif effect == "damage_all":
+            for hero in list(heroes):
+                self._damage(hero, amount)
+        elif effect == "damage_random" and heroes:
+            self._damage(self.rng.choice(heroes), amount)
+        elif effect == "status_all" and status:
+            for hero in heroes:
+                self._add_status(hero, status, amount)
+        elif effect == "cleanse_all":
+            for hero in heroes:
+                for negative in ("marked", "stun", "vulnerable", "weak", "wound"):
+                    hero.statuses.pop(negative, None)
+        elif effect == "upgrade_random":
+            candidates = [card for card in self.state.deck if not card.upgraded and card.card_id in self.catalog.cards]
+            if candidates:
+                self.rng.choice(candidates).upgraded = True
+        elif effect == "remove_random":
+            candidates = [card for card in self.state.deck if card.card_id in self.catalog.cards]
+            if candidates:
+                self.state.deck.remove(self.rng.choice(candidates))
+        elif effect == "boon_random" and heroes:
+            hero = self.rng.choice(heroes)
+            options = self.boon_options(hero.id, count=1)
+            if options:
+                self.acquire_boon(hero.id, options[0])
+        elif effect == "item_random":
+            self.acquire_item(self.rng.choice(list(self.catalog.items)))
+        elif effect == "curse_random" and heroes:
+            self.acquire_curse(self.rng.choice(heroes).id, self.rng.choice(list(self.catalog.curses)))
+
+    def resolve_objective(self, method: str) -> str:
+        objective = self.current_objective()
+        definition = self.biome_mechanics(objective.biome_id)["objective"]
+        if method == "safe":
+            cost = int(definition["safe_cost"])
+            if self.state.supplies < cost:
+                raise RuleError(f"the safe procedure requires {cost} supply")
+            self.state.supplies -= cost
+            effect = definition["safe_effect"]
+            amount = int(definition["safe_amount"])
+            status = definition.get("safe_status")
+            method_label = definition["safe_label"]
+        elif method == "force":
+            effect = definition["force_effect"]
+            amount = int(definition["force_amount"])
+            status = definition.get("force_status")
+            method_label = definition["force_label"]
+        else:
+            raise RuleError("unknown objective procedure")
+        self._apply_objective_effect(effect, amount, status)
+        objective.completed = True
+        self.state.current_objective_id = None
+        if self.state.phase != "defeat":
+            self.state.phase = "exploration"
+        progress = self.completed_objectives()
+        message = f"{definition['name']} secured by {method_label.lower()}. Access {progress}/{self.state.required_objectives}."
+        if self.boss_unlocked():
+            boss_patrol = next(
+                (patrol for patrol in self.state.patrols if self.room(patrol.room_id).kind == "boss"),
+                None,
+            )
+            if boss_patrol and self.state.phase != "victory":
+                boss_patrol.active = True
+            message += " The Overseer Core seal is open."
+        self.add_log(message)
+        return message
+
+    def is_hazard_visible(self, hazard: BiomeHazard) -> bool:
+        radius = int(self.biome_mechanics(hazard.biome_id)["visibility"]["hazard_radius"])
+        return abs(hazard.x - self.state.party_x) + abs(hazard.y - self.state.party_y) <= radius
+
+    def is_patrol_visible(self, patrol: Patrol) -> bool:
+        biome_id = self.room(patrol.room_id).biome_id
+        radius = int(self.biome_mechanics(biome_id)["visibility"]["patrol_radius"])
+        return abs(patrol.x - self.state.party_x) + abs(patrol.y - self.state.party_y) <= radius
 
     def current_pickup(self) -> EffectPickup:
         pickup = next(
@@ -1411,23 +1777,46 @@ class GameEngine:
         for patrol in (item for item in self.state.patrols if item.active):
             current = (patrol.x, patrol.y)
             occupied.discard(current)
-            room_kind = self.room(patrol.room_id).kind
-            aggression = 12 if room_kind == "elite" else 8 if room_kind == "boss" else 10
+            room = self.room(patrol.room_id)
+            profile = self.biome_mechanics(room.biome_id)["patrol"]
+            cadence = int(profile["cadence"])
+            if self.state.exploration_steps % cadence:
+                occupied.add(current)
+                continue
+            room_kind = room.kind
+            aggression = int(profile["aggression"]) + (2 if room_kind in {"elite", "boss"} else 0)
             aggression = max(4, aggression - round(self._item_effect_value("patrol_aggression_reduction")))
             destination = current
             if 0 < distances.get(current, WORLD_WIDTH * WORLD_HEIGHT) <= aggression:
                 choices = [tile for tile in self._neighbors(current) if tile not in occupied]
                 if choices:
-                    destination = min(choices, key=lambda tile: (distances.get(tile, WORLD_WIDTH * WORLD_HEIGHT), tile))
-            elif room_kind != "boss" and self.state.exploration_steps % 2 == 0:
+                    ordered = sorted(
+                        choices,
+                        key=lambda tile: (distances.get(tile, WORLD_WIDTH * WORLD_HEIGHT), tile),
+                    )
+                    if profile["behavior"] == "erratic" and len(ordered) > 1 and self.rng.random() < 0.35:
+                        destination = self.rng.choice(ordered[1:])
+                    else:
+                        destination = ordered[0]
+            elif room_kind != "boss" and profile["behavior"] in {"roam", "erratic"}:
                 home = self.room_position(patrol.room_id)
                 choices = [
                     tile
                     for tile in self._neighbors(current)
-                    if tile not in occupied and abs(tile[0] - home[0]) + abs(tile[1] - home[1]) <= 7
+                    if tile not in occupied
+                    and abs(tile[0] - home[0]) + abs(tile[1] - home[1]) <= int(profile["leash"])
                 ]
                 if choices:
                     destination = self.rng.choice(choices)
+            elif profile["behavior"] == "hunt":
+                home = self.room_position(patrol.room_id)
+                if abs(current[0] - home[0]) + abs(current[1] - home[1]) > int(profile["leash"]):
+                    choices = [tile for tile in self._neighbors(current) if tile not in occupied]
+                    if choices:
+                        destination = min(
+                            choices,
+                            key=lambda tile: (abs(tile[0] - home[0]) + abs(tile[1] - home[1]), tile),
+                        )
             if destination in occupied:
                 destination = current
             patrol.x, patrol.y = destination
@@ -1524,10 +1913,11 @@ class GameEngine:
         self.state.hand = []
         self.state.round = 1
         self.state.effect_counters = {}
-        self.state.intents = self._choose_intents()
+        self.state.intents = []
         names = " / ".join(self.catalog.enemies[enemy_id]["name"] for enemy_id in formation)
         self.add_log(f"Combat begins: {encounter['id']}. Formation: {names}.")
         self._start_player_turn()
+        self.state.intents = self._choose_intents()
         if surprised:
             self.add_log("The crew is surprised in the darkness.")
             self._enemy_phase()
@@ -1574,9 +1964,48 @@ class GameEngine:
         if self.state.phase != "combat":
             return
         opening_energy = round(self._item_effect_value("first_round_energy")) if self.state.round == 1 else 0
-        self.state.energy = self.catalog.balance["energy"] + opening_energy
+        environment = self.biome_mechanics()["combat"]
+        if self.state.round == 1:
+            self._apply_biome_combat_environment(environment)
+            opening_energy += sum(
+                int(effect["amount"])
+                for effect in environment["effects"]
+                if effect["op"] == "energy"
+            )
+        self.state.energy = max(0, self.catalog.balance["energy"] + opening_energy)
         opening_cards = round(self._item_effect_value("opening_hand")) if self.state.round == 1 else 0
-        self._draw(self.catalog.balance["hand_size"] + opening_cards - len(self.state.hand))
+        if self.state.round == 1:
+            opening_cards += self.state.pending_opening_hand
+            opening_cards += sum(
+                int(effect["amount"])
+                for effect in environment["effects"]
+                if effect["op"] == "draw"
+            )
+            self.state.pending_opening_hand = 0
+        self._draw(max(1, self.catalog.balance["hand_size"] + opening_cards) - len(self.state.hand))
+
+    def _apply_biome_combat_environment(self, environment: dict[str, Any]) -> None:
+        heroes = self.living_heroes()
+        enemies = self.living_enemies()
+        for effect in environment["effects"]:
+            if effect["op"] in {"draw", "energy"}:
+                continue
+            targets = heroes + enemies if effect["target"] == "all" else heroes if effect["target"] == "crew" else enemies
+            if effect["op"] == "block":
+                for target in targets:
+                    target.block += int(effect["amount"])
+            elif effect["op"] == "status":
+                for target in targets:
+                    self._add_status(target, effect["status"], int(effect["amount"]))
+            elif effect["op"] == "stress":
+                for target in targets:
+                    if target.side == "hero":
+                        self._change_stress(target, int(effect["amount"]))
+            elif effect["op"] == "reverse" and effect["target"] == "crew":
+                count = len(heroes)
+                for hero in heroes:
+                    hero.rank = count + 1 - hero.rank
+        self.add_log(f"Environment — {environment['name']}: {environment['description']}")
 
     def living_heroes(self) -> list[Actor]:
         return sorted((actor for actor in self.state.heroes if actor.alive), key=lambda actor: actor.rank)

@@ -98,6 +98,16 @@ class ContentTests(unittest.TestCase):
             with self.assertRaisesRegex(ContentError, "invalid build tags"):
                 load_catalog(path)
 
+    def test_incomplete_biome_mechanics_are_rejected(self) -> None:
+        catalog = load_catalog()
+        raw = json.loads(json.dumps(catalog.raw))
+        del raw["biomes"][0]["mechanics"]["patrol"]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad-biome.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ContentError, "all six mechanic sections"):
+                load_catalog(path)
+
     def test_content_balance_guardrails(self) -> None:
         catalog = load_catalog()
         cards_per_hero = Counter(card["hero"] for card in catalog.cards.values())

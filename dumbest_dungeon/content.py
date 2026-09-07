@@ -68,6 +68,36 @@ ENEMY_TARGETS = {
 }
 EFFECT_CURVES = {"linear", "diminishing", "threshold", "special"}
 CARD_STATES = {"deaths_door", "stressed", "healthy", "wounded"}
+BIOME_HAZARD_EFFECTS = {
+    "damage_all",
+    "damage_weakest",
+    "light",
+    "opening_hand",
+    "status_all",
+    "status_random",
+    "stress_highest",
+    "supplies",
+}
+BIOME_PATROL_BEHAVIORS = {"erratic", "guard", "hunt", "roam"}
+BIOME_COMBAT_TARGETS = {"all", "crew", "enemies"}
+BIOME_COMBAT_OPS = {"block", "draw", "energy", "reverse", "status", "stress"}
+BIOME_OBJECTIVE_EFFECTS = {
+    "boon_random",
+    "cleanse_all",
+    "curse_random",
+    "damage_all",
+    "damage_random",
+    "heal_all",
+    "heal_weakest",
+    "item_random",
+    "light",
+    "remove_random",
+    "status_all",
+    "stress_all",
+    "stress_highest",
+    "supplies",
+    "upgrade_random",
+}
 CARD_TAGS = {
     "block",
     "cleanse",
@@ -216,6 +246,80 @@ def _persistent_effects(items: dict[str, dict[str, Any]], section: str) -> None:
                 raise ContentError(f"{section[:-1]} {definition['id']} needs a positive threshold")
 
 
+def _biome_mechanics(biome: dict[str, Any]) -> None:
+    context = f"biome {biome['id']}"
+    mechanics = biome.get("mechanics")
+    if not isinstance(mechanics, dict) or set(mechanics) != {
+        "hazard", "traversal", "patrol", "visibility", "combat", "objective"
+    }:
+        raise ContentError(f"{context} needs all six mechanic sections")
+    for section in mechanics.values():
+        if not isinstance(section, dict) or not isinstance(section.get("description"), str):
+            raise ContentError(f"{context} has an invalid mechanic description")
+
+    hazard = mechanics["hazard"]
+    if (
+        not isinstance(hazard.get("name"), str)
+        or hazard.get("effect") not in BIOME_HAZARD_EFFECTS
+        or not isinstance(hazard.get("amount"), int)
+        or (hazard["effect"].startswith("status_") and not isinstance(hazard.get("status"), str))
+    ):
+        raise ContentError(f"{context} has an invalid hazard")
+
+    traversal = mechanics["traversal"]
+    if traversal.get("cost") not in {1, 2, 3}:
+        raise ContentError(f"{context} has an invalid traversal cost")
+
+    patrol = mechanics["patrol"]
+    if (
+        patrol.get("behavior") not in BIOME_PATROL_BEHAVIORS
+        or not isinstance(patrol.get("aggression"), int)
+        or not 4 <= patrol["aggression"] <= 16
+        or patrol.get("cadence") not in {1, 2, 3}
+        or not isinstance(patrol.get("leash"), int)
+        or not 4 <= patrol["leash"] <= 12
+    ):
+        raise ContentError(f"{context} has invalid patrol rules")
+
+    visibility = mechanics["visibility"]
+    if any(
+        not isinstance(visibility.get(field), int) or visibility[field] < 1
+        for field in ("patrol_radius", "hazard_radius")
+    ):
+        raise ContentError(f"{context} has invalid visibility rules")
+
+    combat = mechanics["combat"]
+    effects = combat.get("effects")
+    if not isinstance(combat.get("name"), str) or not isinstance(effects, list) or not effects:
+        raise ContentError(f"{context} has an invalid combat environment")
+    for effect in effects:
+        if (
+            not isinstance(effect, dict)
+            or effect.get("target") not in BIOME_COMBAT_TARGETS
+            or effect.get("op") not in BIOME_COMBAT_OPS
+            or not isinstance(effect.get("amount"), int)
+            or (effect["op"] == "status" and not isinstance(effect.get("status"), str))
+        ):
+            raise ContentError(f"{context} has an invalid combat effect")
+
+    objective = mechanics["objective"]
+    required_text = ("name", "safe_label", "force_label")
+    if (
+        any(not isinstance(objective.get(field), str) for field in required_text)
+        or not isinstance(objective.get("safe_cost"), int)
+        or objective["safe_cost"] < 0
+        or objective.get("safe_effect") not in BIOME_OBJECTIVE_EFFECTS
+        or objective.get("force_effect") not in BIOME_OBJECTIVE_EFFECTS
+        or not isinstance(objective.get("safe_amount"), int)
+        or not isinstance(objective.get("force_amount"), int)
+        or (
+            objective["force_effect"] == "status_all"
+            and not isinstance(objective.get("force_status"), str)
+        )
+    ):
+        raise ContentError(f"{context} has an invalid access objective")
+
+
 def load_catalog(path: Path | None = None) -> Catalog:
     data_root = files("dumbest_dungeon.data")
     source = path or Path(str(data_root.joinpath("game.json")))
@@ -229,8 +333,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load ASCII art from {art_source}: {exc}") from exc
 
-    if raw.get("schema_version") != 5:
-        raise ContentError("content schema_version must be 5")
+    if raw.get("schema_version") != 6:
+        raise ContentError("content schema_version must be 6")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
@@ -362,6 +466,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
         if glyph in glyphs:
             raise ContentError(f"biome {biome['id']} reuses a floor glyph")
         glyphs.add(glyph)
+        _biome_mechanics(biome)
 
     if len(worlds) != 6:
         raise ContentError("this release requires exactly six world types")

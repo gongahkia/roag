@@ -10,13 +10,42 @@ class ScriptedRunTests(unittest.TestCase):
     def test_seeded_expedition_reaches_victory_through_game_choices(self) -> None:
         catalog = load_catalog()
         engine = GameEngine.new(catalog, 13579)
-        for _ in range(100):
+        for _ in range(300):
             if engine.state.phase == "exploration":
+                if engine.boss_unlocked():
+                    boss = next(
+                        patrol
+                        for patrol in engine.state.patrols
+                        if engine.room(patrol.room_id).kind == "boss"
+                    )
+                    destination = (boss.x, boss.y)
+                else:
+                    destinations = [
+                        (objective.x, objective.y)
+                        for objective in engine.state.objectives
+                        if not objective.completed
+                    ]
+                    destination = min(
+                        destinations,
+                        key=lambda point: engine.path_cost(
+                            engine._find_path(
+                                (engine.state.party_x, engine.state.party_y),
+                                point,
+                            )
+                        ),
+                    )
                 route = engine._find_path(
                     (engine.state.party_x, engine.state.party_y),
-                    engine.room_position(11),
+                    destination,
                 )
-                order = route[: engine.maximum_navigation_distance()]
+                order = []
+                cost = 0
+                for step in route:
+                    next_cost = cost + engine.movement_cost(*step)
+                    if next_cost > engine.maximum_navigation_distance():
+                        break
+                    order.append(step)
+                    cost = next_cost
                 for step in engine.path_to(*order[-1]):
                     engine.step_exploration(*step)
                     if engine.state.phase != "exploration":
@@ -25,9 +54,27 @@ class ScriptedRunTests(unittest.TestCase):
                 while engine.living_enemies():
                     target = engine.living_enemies()[0]
                     target.hp = 1
-                    engine.state.hand = [CardInstance("snap_shot")]
+                    card_id = next(
+                        card_id
+                        for card_id, definition in catalog.cards.items()
+                        if any(
+                            hero.id == definition["hero"] and hero.rank in definition["from_ranks"]
+                            for hero in engine.living_heroes()
+                        )
+                        and definition["target"] in {"enemy", "all_enemies"}
+                        and (
+                            definition["target"] == "all_enemies"
+                            or target.rank in definition["target_ranks"]
+                        )
+                        and any(effect["op"] == "damage" for effect in definition["effects"])
+                    )
+                    engine.state.hand = [CardInstance(card_id)]
                     engine.state.energy = 99
-                    engine.play_card(0, target.id)
+                    definition = catalog.cards[card_id]
+                    engine.play_card(
+                        0,
+                        "all_enemies" if definition["target"] == "all_enemies" else target.id,
+                    )
             elif engine.state.phase == "reward":
                 engine.choose_reward(None)
             elif engine.state.phase == "event":
@@ -54,6 +101,10 @@ class ScriptedRunTests(unittest.TestCase):
                     engine.resolve_boon_pickup(hero.id, engine.boon_pickup_options(hero.id)[0])
                 else:
                     engine.resolve_bargain(engine.living_heroes()[0].id, None)
+            elif engine.state.phase == "hazard":
+                engine.finish_hazard()
+            elif engine.state.phase == "objective":
+                engine.resolve_objective("safe" if engine.state.supplies else "force")
             else:
                 break
         self.assertEqual("victory", engine.state.phase)

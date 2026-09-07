@@ -12,9 +12,13 @@ class EngineTests(unittest.TestCase):
     def setUp(self) -> None:
         self.catalog = load_catalog()
         self.engine = GameEngine.new(self.catalog, 4242)
+        # Archive only changes opening hand size, keeping unrelated combat-rule
+        # tests isolated from formation, block, and status environments.
+        self.engine.room().biome_id = "archive"
 
     def test_seed_reproduces_map_and_run_state(self) -> None:
         other = GameEngine.new(self.catalog, 4242)
+        other.room().biome_id = "archive"
         self.assertEqual(self.engine.snapshot(), other.snapshot())
         different = GameEngine.new(self.catalog, 4243)
         self.assertNotEqual(self.engine.world_tiles(), different.world_tiles())
@@ -31,7 +35,7 @@ class EngineTests(unittest.TestCase):
             world = self.catalog.worlds[engine.state.world_id]
             worlds.add(engine.state.world_id)
             layouts.add(tuple(tuple(position) for position in engine.state.room_positions))
-            self.assertEqual(set(world["biomes"]), {room.biome_id for room in engine.state.rooms})
+            self.assertEqual(set(engine.state.biome_ids), {room.biome_id for room in engine.state.rooms})
             for room in engine.state.rooms:
                 if room.kind not in {"fight", "elite"}:
                     continue
@@ -61,11 +65,104 @@ class EngineTests(unittest.TestCase):
             self.assertTrue(any(len(orders) > 1 for orders in selections.values()), biome_id)
         self.assertGreaterEqual(len(plans), 4)
 
+    def test_all_biomes_generate_reachable_hazards_and_optional_objectives(self) -> None:
+        seen_biomes: set[str] = set()
+        seen_mixtures: set[tuple[str, ...]] = set()
+        for seed in range(200):
+            engine = GameEngine.new(self.catalog, seed)
+            selected = set(engine.state.biome_ids)
+            seen_biomes |= selected
+            seen_mixtures.add(tuple(engine.state.biome_ids))
+            self.assertEqual(4, len(selected))
+            self.assertEqual(selected, {objective.biome_id for objective in engine.state.objectives})
+            self.assertEqual(8, len(engine.state.hazards))
+            for biome_id in selected:
+                self.assertEqual(
+                    2,
+                    sum(hazard.biome_id == biome_id for hazard in engine.state.hazards),
+                )
+            origin = engine.room_position(0)
+            for feature in engine.state.objectives + engine.state.hazards:
+                self.assertTrue(engine._find_path(origin, (feature.x, feature.y)))
+            boss = next(
+                patrol
+                for patrol in engine.state.patrols
+                if engine.room(patrol.room_id).kind == "boss"
+            )
+            self.assertFalse(boss.active)
+        self.assertEqual(set(self.catalog.biomes), seen_biomes)
+        self.assertGreater(len(seen_mixtures), len(self.catalog.worlds))
+
+    def test_access_objectives_offer_routes_and_gate_the_overseer(self) -> None:
+        boss = next(
+            patrol
+            for patrol in self.engine.state.patrols
+            if self.engine.room(patrol.room_id).kind == "boss"
+        )
+        self.engine.state.party_x, self.engine.state.party_y = self.engine.room_position(11)
+        self.engine._resolve_exploration_tile()
+        self.assertEqual("exploration", self.engine.state.phase)
+        self.assertFalse(boss.active)
+        self.assertIn("Apex seal rejects", self.engine.state.log[-1])
+
+        self.engine.state.supplies = 9
+        for objective in self.engine.state.objectives[:2]:
+            self.engine.state.phase = "objective"
+            self.engine.state.current_objective_id = objective.id
+            self.engine.resolve_objective("safe")
+        self.assertTrue(self.engine.boss_unlocked())
+        self.assertTrue(boss.active)
+        self.assertEqual(2, self.engine.completed_objectives())
+        self.assertTrue(any(not objective.completed for objective in self.engine.state.objectives))
+
+    def test_each_biome_hazard_resolves_deterministically(self) -> None:
+        seeds_by_biome: dict[str, int] = {}
+        for seed in range(100):
+            engine = GameEngine.new(self.catalog, seed)
+            for biome_id in engine.state.biome_ids:
+                seeds_by_biome.setdefault(biome_id, seed)
+        self.assertEqual(set(self.catalog.biomes), set(seeds_by_biome))
+        for biome_id, seed in seeds_by_biome.items():
+            with self.subTest(biome=biome_id):
+                first = GameEngine.new(self.catalog, seed)
+                second = GameEngine.new(self.catalog, seed)
+                for engine in (first, second):
+                    hazard = next(item for item in engine.state.hazards if item.biome_id == biome_id)
+                    engine.state.party_x, engine.state.party_y = hazard.x, hazard.y
+                    engine._resolve_exploration_tile()
+                    self.assertEqual("hazard", engine.state.phase)
+                    self.assertTrue(hazard.triggered)
+                    engine.finish_hazard()
+                self.assertEqual(first.snapshot(), second.snapshot())
+
+    def test_biome_travel_costs_visibility_patrols_and_combat_rules(self) -> None:
+        signatures = set()
+        for biome_id, biome in self.catalog.biomes.items():
+            mechanics = biome["mechanics"]
+            signatures.add(
+                (
+                    mechanics["hazard"]["effect"],
+                    mechanics["traversal"]["cost"],
+                    mechanics["patrol"]["behavior"],
+                    mechanics["visibility"]["patrol_radius"],
+                    mechanics["combat"]["name"],
+                    mechanics["objective"]["safe_effect"],
+                )
+            )
+            engine = GameEngine.new(self.catalog, 900 + len(signatures))
+            engine.room().biome_id = biome_id
+            original_ranks = [hero.rank for hero in engine.living_heroes()]
+            engine.start_combat("lost_shift")
+            self.assertIn(mechanics["combat"]["name"], engine.state.log[-1])
+            if any(effect["op"] == "reverse" for effect in mechanics["combat"]["effects"]):
+                self.assertEqual(list(reversed(original_ranks)), [hero.rank for hero in engine.state.heroes])
+        self.assertEqual(len(self.catalog.biomes), len(signatures))
+
     def test_card_biome_affinity_adds_bounded_potency(self) -> None:
         engine = GameEngine.new(self.catalog, 4, start_in_hub=True)
         engine.state.hub_selection = ["cryonaut", "warden", "medic", "scout"]
         engine.begin_expedition()
-        engine.state.rooms[0].biome_id = "derelict"
+        engine.state.rooms[0].biome_id = "archive"
         engine.start_combat("lost_shift")
         target = engine.living_enemies()[0]
         engine.state.hand = [CardInstance("ice_pick")]
@@ -77,6 +174,7 @@ class EngineTests(unittest.TestCase):
         engine.state.rooms[0].biome_id = "cryogenic"
         engine.state.hand = [CardInstance("ice_pick")]
         engine.state.energy = 3
+        target.statuses.pop("vulnerable", None)
         engine.play_card(0, target.id)
         self.assertEqual(target.max_hp - 8, target.hp)
 
@@ -99,9 +197,8 @@ class EngineTests(unittest.TestCase):
             self.assertEqual(35, len(tiles))
             self.assertTrue(all(len(row) == 117 for row in tiles))
             terrain = set("".join(tiles))
-            world = self.catalog.worlds[engine.state.world_id]
             self.assertTrue(
-                {self.catalog.biomes[biome_id]["glyph"] for biome_id in world["biomes"]}
+                {self.catalog.biomes[biome_id]["glyph"] for biome_id in engine.state.biome_ids}
                 <= terrain
             )
             reachable = {start}
@@ -193,14 +290,15 @@ class EngineTests(unittest.TestCase):
             distant,
         )
         self.assertGreater(len(full_path), 100)
-        with self.assertRaisesRegex(RuleError, "maximum reach of 18"):
+        with self.assertRaisesRegex(RuleError, "maximum reach is 18"):
             self.engine.path_to(*distant)
         path = self.engine.path_to(*full_path[:2][-1])
         with self.assertRaisesRegex(RuleError, "one floor tile"):
             self.engine.step_exploration(*path[1])
         self.engine.step_exploration(*path[0])
         self.engine.step_exploration(*path[1])
-        self.assertEqual(99, self.engine.state.light)
+        self.assertEqual(self.engine.path_cost(path), self.engine.state.travel_ticks)
+        self.assertEqual(100 - self.engine.state.travel_ticks // 2, self.engine.state.light)
 
     def test_patrol_contact_opens_combat_and_victory_clears_it(self) -> None:
         patrol = next(item for item in self.engine.state.patrols if self.engine.room(item.room_id).kind != "boss")
@@ -222,6 +320,7 @@ class EngineTests(unittest.TestCase):
 
     def test_nearby_patrol_advances_after_party_step(self) -> None:
         patrol = self.engine.state.patrols[0]
+        self.engine.room(patrol.room_id).biome_id = "derelict"
         for other in self.engine.state.patrols:
             other.active = other is patrol
         patrol.x, patrol.y = self.engine.state.party_x + 3, self.engine.state.party_y
@@ -620,7 +719,8 @@ class EngineTests(unittest.TestCase):
         room.resolved = False
         for pickup in self.engine.state.pickups:
             pickup.resolved = True
-        self.engine.move_to(1)
+        self.engine.state.party_x, self.engine.state.party_y = self.engine.room_position(1)
+        self.engine._resolve_exploration_tile()
         self.engine.service("upgrade", 0)
         self.assertTrue(self.engine.state.deck[0].upgraded)
         self.assertTrue(room.resolved)
