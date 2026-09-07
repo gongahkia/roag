@@ -418,6 +418,8 @@ class TerminalUI:
                 self._effects_view()
             elif key in (ord("b"), ord("B")):
                 self._biome_view()
+            elif key in (ord("o"), ord("O")):
+                self._mission_view()
             elif key in (ord("p"), ord("P"), 27):
                 self._pause()
                 return
@@ -543,7 +545,7 @@ class TerminalUI:
                 ),
                 curses.A_DIM,
             )
-        self._footer("Arrows aim Enter go X/Esc stop Tab sites G Core B biome U supply")
+        self._footer("Arrows aim Enter go X/Esc stop Tab sites G Core O status B biome U supply")
         return origin
 
     def _world_map(
@@ -1025,6 +1027,89 @@ class TerminalUI:
             + f"Facility: {facility_progress}"
         )
         self._notice(biome["name"].upper(), body)
+
+    @staticmethod
+    def _objective_reward_summary(effect: dict[str, object]) -> str:
+        operation = str(effect["op"])
+        amount = int(effect["amount"])
+        if operation == "light":
+            return f"restore {amount} light"
+        if operation == "supplies":
+            return f"recover {amount} suppl{'y' if amount == 1 else 'ies'}"
+        if operation == "heal_all":
+            return f"heal every survivor {amount} HP"
+        if operation == "heal_weakest":
+            return f"heal the weakest survivor {amount} HP"
+        if operation == "stress_all":
+            return f"relieve every survivor by {abs(amount)} stress"
+        if operation == "stress_highest":
+            return f"relieve the highest-stress survivor by {abs(amount)}"
+        return {
+            "cleanse_all": "clear crew combat afflictions",
+            "upgrade_random": "upgrade one random technique",
+            "remove_random": "remove one random technique",
+            "boon_random": "grant one random boon",
+            "item_random": "recover one random stackable item",
+            "suppress_hazard": "suppress the nearest active biome hazard",
+        }.get(operation, operation.replace("_", " "))
+
+    def _mission_status_text(self) -> str:
+        assert self.engine
+        state = self.engine.state
+        completed = self.engine.completed_objectives()
+        remaining_required = max(0, state.required_objectives - completed)
+        lines = []
+        if self.engine.boss_unlocked():
+            core_x, core_y = self.engine.core_position()
+            projection = self.engine.core_route_projection()
+            lines.extend(
+                [
+                    "CORE OPEN — required access is complete.",
+                    f"Target {core_x:03},{core_y:02} | {projection['ticks']} weighted ticks | "
+                    f"~{projection['light']} light from here.",
+                    "Press G in exploration to select the next reachable route leg. "
+                    "Remaining access objectives are optional.",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    f"CORE SEALED — secure {remaining_required} more access "
+                    f"objective{'s' if remaining_required != 1 else ''}.",
+                    f"Required progress {completed}/{state.required_objectives}. "
+                    "Any two of the four objectives open the final path.",
+                ]
+            )
+        lines.append("")
+        for objective in state.objectives:
+            biome = self.catalog.biomes[objective.biome_id]["name"]
+            mission = self.engine.mission_definition(objective.biome_id)
+            if objective.completed:
+                state_label = f"DONE — {objective.outcome.replace('_', ' ')}"
+                location = self.engine.objective_position(objective)
+            elif objective.approach:
+                approach = next(
+                    item for item in mission["approaches"] if item["id"] == objective.approach
+                )
+                state_label = (
+                    f"ACTIVE — {approach['label']}, stage {objective.stage + 1}/"
+                    f"{len(approach['stages'])}"
+                )
+                location = self.engine.objective_position(objective)
+            else:
+                state_label = "OPTIONAL" if self.engine.boss_unlocked() else "AVAILABLE"
+                location = objective.x, objective.y
+            lines.append(f"{biome.upper()} [{state_label}] at {location[0]:03},{location[1]:02}")
+            if not objective.completed:
+                rewards = " / ".join(
+                    f"{approach['label']}: {self._objective_reward_summary(approach['completion'])}"
+                    for approach in mission["approaches"]
+                )
+                lines.append(f"  Possible completion benefits — {rewards}.")
+        return "\n".join(lines)
+
+    def _mission_view(self) -> None:
+        self._notice("EXPEDITION STATUS", self._mission_status_text())
 
     def _combat(self) -> None:
         assert self.engine
@@ -1771,7 +1856,8 @@ class TerminalUI:
             "At 100 stress they gain an affliction; reaching 100 again causes collapse. Supplies heal, calm, "
             "or restore light. Camps recover crew, modify one card, or remove one curse for 2 supplies.\n\n"
             "Controls: arrows or hjkl navigate, Enter confirms, X/Escape cancels an active route, right-click "
-            "also cancels it, E ends a combat turn, U uses a supply, B views biome rules, D views the deck, "
+            "also cancels it, E ends a combat turn, U uses a supply, B views biome rules, O views objective "
+            "status, G selects the next Core route leg, D views the deck, "
             "C inspects the selected combat card, R inspects crew, I views effects, P pauses, and ? opens this page. "
             "During enemy-action frames, F toggles fast playback and Space skips the remaining presentation; "
             "neither key skips enemy game actions. Mouse input otherwise stops at exploration routing."

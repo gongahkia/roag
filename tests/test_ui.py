@@ -482,6 +482,30 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("light total", self.ui.message)
         self.assertIn("press Enter", self.ui.message)
 
+    def test_mission_status_distinguishes_required_and_optional_objectives(self) -> None:
+        sealed = self.ui._mission_status_text()
+        self.assertIn("CORE SEALED", sealed)
+        self.assertIn("secure 2 more access objectives", sealed)
+        self.assertEqual(4, sealed.count("[AVAILABLE]"))
+
+        self.unlock_core()
+        opened = self.ui._mission_status_text()
+        self.assertIn("CORE OPEN", opened)
+        self.assertIn("Press G", opened)
+        self.assertEqual(2, opened.count("[OPTIONAL]"))
+        self.assertIn("Possible completion benefits", opened)
+        self.assertIn("weighted ticks", opened)
+
+    def test_mission_status_is_scrollable_at_minimum_size(self) -> None:
+        self.unlock_core()
+        screen = FakeScreen(rows=24, columns=80, keys=[curses.KEY_END, 27])
+        self.ui.screen = screen
+        self.ui._mission_view()
+        rendered = screen.text()
+        self.assertIn("EXPEDITION STATUS", rendered)
+        self.assertIn("OPTIONAL", rendered)
+        self.assertIn("Possible completion benefits", rendered)
+
     def test_world_map_viewport_is_bounded_by_world_on_large_terminal(self) -> None:
         screen = FakeScreen(rows=60, columns=140)
         self.ui.screen = screen
