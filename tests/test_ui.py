@@ -447,6 +447,7 @@ class AsciiUiTests(unittest.TestCase):
         hazard = self.engine.state.hazards[0]
         objective.x, objective.y = party[0] + 2, party[1]
         hazard.x, hazard.y = party[0] + 1, party[1]
+        hazard.cells[0] = [hazard.x, hazard.y]
         self.engine.state.room_positions[11] = [party[0] + 3, party[1]]
         screen = FakeScreen(keys=[10])
         self.ui.screen = screen
@@ -716,6 +717,7 @@ class AsciiUiTests(unittest.TestCase):
         path = self.engine._find_path(party, self.engine.room_position(1))[:3]
         hazard = self.engine.state.hazards[0]
         hazard.x, hazard.y = path[1]
+        hazard.cells[0] = list(path[1])
         hazard.biome_id = self.engine.biome_at(*path[1])
         for patrol in self.engine.state.patrols:
             patrol.active = False
@@ -726,7 +728,7 @@ class AsciiUiTests(unittest.TestCase):
         self.assertEqual("hazard", self.engine.state.phase)
         self.assertEqual(path[1], (self.engine.state.party_x, self.engine.state.party_y))
         self.assertEqual(2, self.engine.state.exploration_steps)
-        self.assertTrue(hazard.triggered)
+        self.assertIn(list(path[1]), hazard.triggered_cells)
 
     def test_fallen_crew_remains_visible_on_battlefield(self) -> None:
         self.engine.start_combat("vents")

@@ -89,6 +89,10 @@ class BiomeHazard:
     x: int
     y: int
     triggered: bool = False
+    cells: list[list[int]] = field(default_factory=list)
+    triggered_cells: list[list[int]] = field(default_factory=list)
+    active: bool = True
+    suppressed_by: str | None = None
 
 
 @dataclass
@@ -411,7 +415,7 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 17
+    SAVE_VERSION = 18
     TUTORIAL_SEED = 1
     ENCOUNTER_PLANS = {"none", "pressure", "disrupt", "screen", "sustain", "combo", "overseer"}
 
@@ -1097,9 +1101,36 @@ class GameEngine:
                 )
                 if not candidates:
                     raise RuleError(f"generated terrain has no hazard site in {biome_id}")
+                candidates = [
+                    position
+                    for position in candidates
+                    if sum(
+                        neighbor not in excluded and self.biome_at(*neighbor) == biome_id
+                        for neighbor in self._neighbors(position)
+                    ) >= 2
+                ]
+                if not candidates:
+                    raise RuleError(f"generated terrain has no hazard footprint in {biome_id}")
                 x, y = rng.choice(candidates)
-                excluded.add((x, y))
-                hazards.append(BiomeHazard(f"hazard:{biome_id}:{index}", biome_id, x, y))
+                adjacent = [
+                    position
+                    for position in self._neighbors((x, y))
+                    if position not in excluded and self.biome_at(*position) == biome_id
+                ]
+                rng.shuffle(adjacent)
+                cells = [[x, y]] + [list(position) for position in adjacent[:2]]
+                if len(cells) < 3:
+                    raise RuleError(f"generated terrain has no hazard footprint in {biome_id}")
+                excluded.update(tuple(cell) for cell in cells)
+                hazards.append(
+                    BiomeHazard(
+                        f"hazard:{biome_id}:{index}",
+                        biome_id,
+                        x,
+                        y,
+                        cells=cells,
+                    )
+                )
         return hazards
 
     @classmethod
@@ -1313,16 +1344,40 @@ class GameEngine:
         if (state.phase == "discovery") != (state.current_pickup_id is not None):
             raise RuleError("save contains an inconsistent active discovery")
         hazard_ids = {hazard.id for hazard in state.hazards}
-        hazard_positions = {(hazard.x, hazard.y) for hazard in state.hazards}
+        hazard_centers = {(hazard.x, hazard.y) for hazard in state.hazards}
+        hazard_positions = {
+            tuple(cell)
+            for hazard in state.hazards
+            for cell in hazard.cells
+        }
         world_biomes = set(state.biome_ids)
         if (
             len(state.hazards) != len(world_biomes) * 2
             or len(hazard_ids) != len(state.hazards)
-            or len(hazard_positions) != len(state.hazards)
+            or len(hazard_centers) != len(state.hazards)
+            or len(hazard_positions) != len(state.hazards) * 3
             or any(
                 hazard.biome_id not in world_biomes
                 or not engine.is_walkable(hazard.x, hazard.y)
                 or engine.biome_at(hazard.x, hazard.y) != hazard.biome_id
+                or len(hazard.cells) != 3
+                or len({tuple(cell) for cell in hazard.cells}) != 3
+                or [hazard.x, hazard.y] not in hazard.cells
+                or any(
+                    not isinstance(cell, list)
+                    or len(cell) != 2
+                    or not engine.is_walkable(*cell)
+                    for cell in hazard.cells
+                )
+                or any(cell not in hazard.cells for cell in hazard.triggered_cells)
+                or len(hazard.triggered_cells) != len({tuple(cell) for cell in hazard.triggered_cells})
+                or hazard.triggered != (not hazard.active)
+                or (
+                    not hazard.active
+                    and hazard.suppressed_by is None
+                    and len(hazard.triggered_cells) != len(hazard.cells)
+                )
+                or hazard.suppressed_by is not None and hazard.active
                 for hazard in state.hazards
             )
             or any(
@@ -1614,9 +1669,12 @@ class GameEngine:
         )
         route_tiles = set(path)
         known_hazards = sum(
-            not hazard.triggered
+            hazard.active
             and hazard.id in self.state.known_feature_ids
-            and (hazard.x, hazard.y) in route_tiles
+            and any(
+                tuple(cell) in route_tiles and cell not in hazard.triggered_cells
+                for cell in hazard.cells
+            )
             for hazard in self.state.hazards
         )
         perceived = [
@@ -1823,7 +1881,9 @@ class GameEngine:
             (
                 item
                 for item in self.state.hazards
-                if not item.triggered and (item.x, item.y) == position
+                if item.active
+                and list(position) in item.cells
+                and list(position) not in item.triggered_cells
             ),
             None,
         )
@@ -1896,18 +1956,32 @@ class GameEngine:
                 self._add_status(hero, definition["status"], amount)
         elif effect == "opening_hand":
             self.state.pending_opening_hand += amount
-        hazard.triggered = True
-        self.state.current_hazard_id = hazard.id
-        if self.state.phase != "defeat":
+        hazard.triggered_cells.append([self.state.party_x, self.state.party_y])
+        hazard.triggered = len(hazard.triggered_cells) == len(hazard.cells)
+        if hazard.triggered:
+            hazard.active = False
+        if self.state.phase == "defeat":
+            self.state.current_hazard_id = None
+        else:
+            self.state.current_hazard_id = hazard.id
             self.state.phase = "hazard"
         self.add_log(f"{definition['name']}: {definition['description']}")
+
+    def suppress_hazard(self, hazard_id: str, source: str) -> None:
+        hazard = next((item for item in self.state.hazards if item.id == hazard_id), None)
+        if hazard is None or not hazard.active or hazard.triggered:
+            raise RuleError("that hazard cannot be suppressed")
+        hazard.active = False
+        hazard.triggered = True
+        hazard.suppressed_by = source
+        self.add_log(f"{self.biome_mechanics(hazard.biome_id)['hazard']['name']} suppressed.")
 
     def current_hazard(self) -> BiomeHazard:
         hazard = next(
             (item for item in self.state.hazards if item.id == self.state.current_hazard_id),
             None,
         )
-        if self.state.phase != "hazard" or hazard is None or not hazard.triggered:
+        if self.state.phase != "hazard" or hazard is None or not hazard.triggered_cells:
             raise RuleError("there is no biome hazard to acknowledge")
         return hazard
 
@@ -2117,7 +2191,10 @@ class GameEngine:
 
     def is_hazard_visible(self, hazard: BiomeHazard) -> bool:
         radius = int(self.biome_mechanics(hazard.biome_id)["visibility"]["hazard_radius"])
-        return abs(hazard.x - self.state.party_x) + abs(hazard.y - self.state.party_y) <= radius
+        return any(
+            abs(cell[0] - self.state.party_x) + abs(cell[1] - self.state.party_y) <= radius
+            for cell in hazard.cells
+        )
 
     def feature_is_known(self, feature_id: str) -> bool:
         return feature_id in self.state.known_feature_ids

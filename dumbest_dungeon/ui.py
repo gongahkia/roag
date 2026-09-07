@@ -523,11 +523,15 @@ class TerminalUI:
                 x, y = self.engine.objective_position(objective)
                 overlays.append((x, y, "K", self._attr(2) | curses.A_BOLD))
         for hazard in state.hazards:
-            if not hazard.triggered and (
+            if hazard.active and (
                 self.engine.feature_is_known(hazard.id)
                 or self.engine.is_hazard_visible(hazard)
             ):
-                overlays.append((hazard.x, hazard.y, "^", self._attr(3) | curses.A_BOLD))
+                overlays.extend(
+                    (cell[0], cell[1], "^", self._attr(3) | curses.A_BOLD)
+                    for cell in hazard.cells
+                    if cell not in hazard.triggered_cells
+                )
         for patrol in state.patrols:
             if not patrol.active or not self.engine.is_patrol_visible(patrol):
                 continue
@@ -575,12 +579,14 @@ class TerminalUI:
             if not objective.completed
         )
         targets.extend(
-            (hazard.x, hazard.y)
+            (cell[0], cell[1])
             for hazard in state.hazards
-            if not hazard.triggered and (
+            if hazard.active and (
                 self.engine.feature_is_known(hazard.id)
                 or self.engine.is_hazard_visible(hazard)
             )
+            for cell in hazard.cells
+            if cell not in hazard.triggered_cells
         )
         targets.extend(
             self.engine.room_position(room.id)

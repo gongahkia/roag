@@ -207,9 +207,53 @@ class EngineTests(unittest.TestCase):
                     engine.state.party_x, engine.state.party_y = hazard.x, hazard.y
                     engine._resolve_exploration_tile()
                     self.assertEqual("hazard", engine.state.phase)
-                    self.assertTrue(hazard.triggered)
+                    self.assertIn([hazard.x, hazard.y], hazard.triggered_cells)
+                    self.assertFalse(hazard.triggered)
                     engine.finish_hazard()
                 self.assertEqual(first.snapshot(), second.snapshot())
+
+    def test_biome_hazard_footprint_persists_until_each_cell_triggers(self) -> None:
+        hazard = self.engine.state.hazards[0]
+        self.assertEqual(3, len(hazard.cells))
+        for index, cell in enumerate(hazard.cells):
+            self.engine.state.party_x, self.engine.state.party_y = cell
+            self.engine._resolve_exploration_tile()
+            if self.engine.state.phase == "defeat":
+                self.fail("generated three-cell hazard unexpectedly wiped a fresh party")
+            self.assertEqual("hazard", self.engine.state.phase)
+            self.assertEqual(index + 1, len(hazard.triggered_cells))
+            self.assertEqual(index == 2, hazard.triggered)
+            self.assertEqual(index < 2, hazard.active)
+            self.engine.finish_hazard()
+
+    def test_suppressed_hazard_stays_inert_and_round_trips(self) -> None:
+        engine = GameEngine.new(self.catalog, 4242)
+        hazard = engine.state.hazards[0]
+        first_cell = hazard.cells[0]
+        engine.state.party_x, engine.state.party_y = first_cell
+        engine._resolve_exploration_tile()
+        engine.finish_hazard()
+        engine.suppress_hazard(hazard.id, "test facility")
+        restored = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+        restored_hazard = next(item for item in restored.state.hazards if item.id == hazard.id)
+        self.assertFalse(restored_hazard.active)
+        self.assertTrue(restored_hazard.triggered)
+        self.assertEqual("test facility", restored_hazard.suppressed_by)
+        remaining = next(cell for cell in restored_hazard.cells if cell not in restored_hazard.triggered_cells)
+        restored.state.party_x, restored.state.party_y = remaining
+        restored._resolve_exploration_tile()
+        self.assertEqual("exploration", restored.state.phase)
+
+    def test_partially_triggered_hazard_round_trips(self) -> None:
+        engine = GameEngine.new(self.catalog, 4242)
+        hazard = engine.state.hazards[0]
+        engine.state.party_x, engine.state.party_y = hazard.cells[0]
+        engine._resolve_exploration_tile()
+        restored = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+        restored_hazard = next(item for item in restored.state.hazards if item.id == hazard.id)
+        self.assertTrue(restored_hazard.active)
+        self.assertFalse(restored_hazard.triggered)
+        self.assertEqual(hazard.triggered_cells, restored_hazard.triggered_cells)
 
     def test_biome_travel_costs_visibility_patrols_and_combat_rules(self) -> None:
         signatures = set()
@@ -353,6 +397,7 @@ class EngineTests(unittest.TestCase):
         path = self.engine._find_path(origin, self.engine.room_position(1))[:4]
         hazard = self.engine.state.hazards[0]
         hazard.x, hazard.y = path[1]
+        hazard.cells[0] = list(path[1])
         hazard.biome_id = self.engine.biome_at(*path[1])
         self.engine.state.known_feature_ids.append(hazard.id)
         hidden = next(pickup for pickup in self.engine.state.pickups if pickup.hidden)
