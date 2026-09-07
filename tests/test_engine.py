@@ -16,6 +16,20 @@ class EngineTests(unittest.TestCase):
         # tests isolated from formation, block, and status environments.
         self.engine.room().biome_id = "archive"
 
+    def complete_objective(
+        self,
+        engine: GameEngine,
+        objective,
+        approach_id: str,
+    ) -> None:
+        engine.state.party_x, engine.state.party_y = objective.x, objective.y
+        engine._resolve_exploration_tile()
+        engine.begin_objective(approach_id)
+        while not objective.completed:
+            engine.state.party_x, engine.state.party_y = engine.objective_position(objective)
+            engine._resolve_exploration_tile()
+            engine.advance_objective()
+
     def test_seed_reproduces_map_and_run_state(self) -> None:
         other = GameEngine.new(self.catalog, 4242)
         other.room().biome_id = "archive"
@@ -170,9 +184,8 @@ class EngineTests(unittest.TestCase):
 
         self.engine.state.supplies = 9
         for objective in self.engine.state.objectives[:2]:
-            self.engine.state.phase = "objective"
-            self.engine.state.current_objective_id = objective.id
-            self.engine.resolve_objective("safe")
+            approach = self.engine.mission_definition(objective.biome_id)["approaches"][0]
+            self.complete_objective(self.engine, objective, approach["id"])
         self.assertTrue(self.engine.boss_unlocked())
         self.assertTrue(boss.active)
         self.assertEqual(2, self.engine.completed_objectives())
@@ -209,7 +222,7 @@ class EngineTests(unittest.TestCase):
                     mechanics["patrol"]["behavior"],
                     mechanics["visibility"]["patrol_radius"],
                     mechanics["combat"]["name"],
-                    mechanics["objective"]["safe_effect"],
+                    self.engine.mission_definition(biome_id)["approaches"][0]["outcome"],
                 )
             )
             engine = GameEngine.new(self.catalog, 900 + len(signatures))
@@ -220,6 +233,31 @@ class EngineTests(unittest.TestCase):
             if any(effect["op"] == "reverse" for effect in mechanics["combat"]["effects"]):
                 self.assertEqual(list(reversed(original_ranks)), [hero.rank for hero in engine.state.heroes])
         self.assertEqual(len(self.catalog.biomes), len(signatures))
+
+    def test_every_biome_mission_has_two_telegraphed_map_routes(self) -> None:
+        for mission in self.catalog.missions.values():
+            with self.subTest(biome=mission["biome"]):
+                self.assertEqual(2, len(mission["approaches"]))
+                self.assertNotEqual(
+                    mission["approaches"][0]["telegraph"]["travel"],
+                    mission["approaches"][1]["telegraph"]["travel"],
+                )
+                self.assertNotEqual(
+                    mission["approaches"][0]["outcome"],
+                    mission["approaches"][1]["outcome"],
+                )
+
+    def test_reduced_party_can_complete_optional_objective_stages(self) -> None:
+        hero = self.engine.living_heroes()[0]
+        hero.hp = 0
+        hero.deaths_door = False
+        self.engine._hero_died(hero)
+        objective = self.engine.state.objectives[0]
+        approach = self.engine.mission_definition(objective.biome_id)["approaches"][1]
+        self.complete_objective(self.engine, objective, approach["id"])
+        self.assertTrue(objective.completed)
+        self.assertEqual(approach["outcome"], objective.outcome)
+        self.assertEqual(3, len(self.engine.living_heroes()))
 
     def test_card_biome_affinity_adds_bounded_potency(self) -> None:
         engine = GameEngine.new(self.catalog, 4, start_in_hub=True)

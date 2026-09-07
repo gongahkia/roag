@@ -14,7 +14,16 @@ class ContentTests(unittest.TestCase):
         catalog = load_catalog()
         self.assertTrue(all((catalog.heroes, catalog.cards, catalog.enemies, catalog.encounters)))
         self.assertTrue(
-            all((catalog.biomes, catalog.worlds, catalog.events, catalog.terrains, catalog.landmarks))
+            all(
+                (
+                    catalog.biomes,
+                    catalog.worlds,
+                    catalog.events,
+                    catalog.terrains,
+                    catalog.landmarks,
+                    catalog.missions,
+                )
+            )
         )
         self.assertTrue(all((catalog.boons, catalog.curses, catalog.items, catalog.afflictions)))
         self.assertGreaterEqual(len(catalog.squads), 4)
@@ -49,6 +58,10 @@ class ContentTests(unittest.TestCase):
         self.assertEqual(
             set(catalog.biomes),
             {landmark["biome"] for landmark in catalog.landmarks.values()},
+        )
+        self.assertEqual(
+            set(catalog.biomes),
+            {mission["biome"] for mission in catalog.missions.values()},
         )
         def signature(card: dict) -> tuple:
             return (

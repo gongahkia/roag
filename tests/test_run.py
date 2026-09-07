@@ -21,7 +21,7 @@ class ScriptedRunTests(unittest.TestCase):
                     destination = (boss.x, boss.y)
                 else:
                     destinations = [
-                        (objective.x, objective.y)
+                        engine.objective_position(objective)
                         for objective in engine.state.objectives
                         if not objective.completed
                     ]
@@ -104,7 +104,21 @@ class ScriptedRunTests(unittest.TestCase):
             elif engine.state.phase == "hazard":
                 engine.finish_hazard()
             elif engine.state.phase == "objective":
-                engine.resolve_objective("safe" if engine.state.supplies else "force")
+                objective = engine.current_objective()
+                if objective.approach is None:
+                    approaches = engine.mission_definition(objective.biome_id)["approaches"]
+                    affordable = next(
+                        (
+                            approach
+                            for approach in approaches
+                            if approach["cost"]["resource"] != "supplies"
+                            or approach["cost"]["amount"] <= engine.state.supplies
+                        ),
+                        approaches[-1],
+                    )
+                    engine.begin_objective(affordable["id"])
+                else:
+                    engine.advance_objective()
             else:
                 break
         self.assertEqual("victory", engine.state.phase)

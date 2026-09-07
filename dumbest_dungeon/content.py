@@ -23,6 +23,7 @@ class Catalog:
     encounters: dict[str, dict[str, Any]]
     events: dict[str, dict[str, Any]]
     landmarks: dict[str, dict[str, Any]]
+    missions: dict[str, dict[str, Any]]
     terrains: dict[str, dict[str, Any]]
     biomes: dict[str, dict[str, Any]]
     worlds: dict[str, dict[str, Any]]
@@ -390,8 +391,8 @@ def load_catalog(path: Path | None = None) -> Catalog:
     except (OSError, json.JSONDecodeError) as exc:
         raise ContentError(f"cannot load card metadata from {metadata_source}: {exc}") from exc
 
-    if raw.get("schema_version") != 10:
-        raise ContentError("content schema_version must be 10")
+    if raw.get("schema_version") != 11:
+        raise ContentError("content schema_version must be 11")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
@@ -401,6 +402,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
     encounters = _indexed(raw.get("encounters"), "encounters")
     events = _indexed(raw.get("events"), "events")
     landmarks = _indexed(raw.get("landmarks"), "landmarks")
+    missions = _indexed(raw.get("missions"), "missions")
     terrains = _indexed(raw.get("terrains"), "terrains")
     biomes = _indexed(raw.get("biomes"), "biomes")
     worlds = _indexed(raw.get("worlds"), "worlds")
@@ -429,6 +431,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
         "encounters": encounters,
         "events": events,
         "landmarks": landmarks,
+        "missions": missions,
         "terrains": terrains,
         "biomes": biomes,
         "worlds": worlds,
@@ -659,6 +662,68 @@ def load_catalog(path: Path | None = None) -> Catalog:
         landmark_biomes.add(landmark["biome"])
     if landmark_biomes != set(biomes):
         raise ContentError("every biome needs exactly one objective landmark template")
+    mission_biomes: set[str] = set()
+    outcome_ids: set[str] = set()
+    for mission in missions.values():
+        approaches = mission.get("approaches")
+        if (
+            mission.get("biome") not in biomes
+            or mission["biome"] in mission_biomes
+            or not isinstance(mission.get("name"), str)
+            or not mission["name"]
+            or not isinstance(mission.get("description"), str)
+            or not mission["description"]
+            or not isinstance(approaches, list)
+            or len(approaches) != 2
+        ):
+            raise ContentError(f"mission {mission['id']} is invalid")
+        approach_ids: set[str] = set()
+        for approach in approaches:
+            telegraph = approach.get("telegraph")
+            cost = approach.get("cost")
+            stages = approach.get("stages")
+            completion = approach.get("completion")
+            if (
+                not isinstance(approach.get("id"), str)
+                or approach["id"] in approach_ids
+                or not all(
+                    isinstance(approach.get(field), str) and approach[field]
+                    for field in ("label", "summary", "outcome")
+                )
+                or approach["outcome"] in outcome_ids
+                or not isinstance(telegraph, dict)
+                or telegraph.get("travel") not in {"short", "medium", "long"}
+                or telegraph.get("risk") not in {"low", "guarded", "severe", "unknown"}
+                or telegraph.get("combat") not in {"none", "possible", "expected"}
+                or not isinstance(telegraph.get("irreversible"), bool)
+                or not isinstance(cost, dict)
+                or cost.get("resource") not in {"none", "supplies", "light", "stress_all", "health_all"}
+                or not isinstance(cost.get("amount"), int)
+                or cost["amount"] < 0
+                or not isinstance(stages, list)
+                or not 1 <= len(stages) <= 3
+                or any(
+                    not isinstance(stage, dict)
+                    or not isinstance(stage.get("label"), str)
+                    or not stage["label"]
+                    or "effect" in stage
+                    and (
+                        not isinstance(stage["effect"], dict)
+                        or stage["effect"].get("op") not in BIOME_OBJECTIVE_EFFECTS
+                        or not isinstance(stage["effect"].get("amount"), int)
+                    )
+                    for stage in stages
+                )
+                or not isinstance(completion, dict)
+                or completion.get("op") not in BIOME_OBJECTIVE_EFFECTS
+                or not isinstance(completion.get("amount"), int)
+            ):
+                raise ContentError(f"mission {mission['id']} has an invalid approach")
+            approach_ids.add(approach["id"])
+            outcome_ids.add(approach["outcome"])
+        mission_biomes.add(mission["biome"])
+    if mission_biomes != set(biomes):
+        raise ContentError("every biome needs exactly one expedition mission")
     glyphs = set()
     for biome in biomes.values():
         if not isinstance(biome.get("name"), str) or not isinstance(biome.get("description"), str):
@@ -770,6 +835,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
         encounters,
         events,
         landmarks,
+        missions,
         terrains,
         biomes,
         worlds,

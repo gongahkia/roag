@@ -520,7 +520,8 @@ class TerminalUI:
                     overlays.append((x, y, symbol, self._attr(6) | curses.A_BOLD))
         for objective in state.objectives:
             if not objective.completed:
-                overlays.append((objective.x, objective.y, "K", self._attr(2) | curses.A_BOLD))
+                x, y = self.engine.objective_position(objective)
+                overlays.append((x, y, "K", self._attr(2) | curses.A_BOLD))
         for hazard in state.hazards:
             if not hazard.triggered and (
                 self.engine.feature_is_known(hazard.id)
@@ -569,7 +570,7 @@ class TerminalUI:
             if patrol.active and self.engine.is_patrol_visible(patrol)
         ]
         targets.extend(
-            (objective.x, objective.y)
+            self.engine.objective_position(objective)
             for objective in state.objectives
             if not objective.completed
         )
@@ -748,26 +749,63 @@ class TerminalUI:
     def _objective(self) -> None:
         assert self.engine
         objective = self.engine.current_objective()
-        definition = self.engine.biome_mechanics(objective.biome_id)["objective"]
+        mission = self.engine.mission_definition(objective.biome_id)
         biome = self.catalog.biomes[objective.biome_id]["name"]
-        safe = f"{definition['safe_label']} ({definition['safe_cost']} supply)"
-        force = f"{definition['force_label']} (accept the consequence)"
-        picked = self._menu(
-            f"{biome.upper()} — ACCESS OBJECTIVE",
-            [safe, force],
-            definition["description"]
-            + f"\n\nSecure any {self.engine.state.required_objectives} of the four biome signals. "
-            + f"Current access: {self.engine.completed_objectives()}/{self.engine.state.required_objectives}.",
-            allow_cancel=False,
+        if objective.approach is None:
+            labels = []
+            details = []
+            for index, approach in enumerate(mission["approaches"], 1):
+                telegraph = approach["telegraph"]
+                cost = approach["cost"]
+                cost_label = (
+                    "no immediate resource cost"
+                    if cost["resource"] == "none" or not cost["amount"]
+                    else f"{cost['amount']} {cost['resource'].replace('_', ' ')}"
+                )
+                labels.append(f"{approach['label']} — {telegraph['travel']} route")
+                details.append(
+                    f"{index}. {approach['summary']}\n"
+                    f"COST {cost_label.upper()} | RISK {telegraph['risk'].upper()} | "
+                    f"COMBAT {telegraph['combat'].upper()} | IRREVERSIBLE"
+                )
+            picked = self._menu(
+                f"{biome.upper()} — {mission['name'].upper()}",
+                labels,
+                mission["description"]
+                + "\n\n"
+                + "\n\n".join(details)
+                + f"\n\nSecure any {self.engine.state.required_objectives} of four. "
+                + f"Access {self.engine.completed_objectives()}/{self.engine.state.required_objectives}.",
+                allow_cancel=True,
+            )
+            if picked is None:
+                self.engine.leave_objective()
+                self.message = "No approach chosen. The route remains available."
+                return
+            self.message = self.engine.begin_objective(mission["approaches"][picked]["id"])
+            return
+        approach = next(
+            item for item in mission["approaches"] if item["id"] == objective.approach
         )
-        assert picked is not None
-        self.message = self.engine.resolve_objective("safe" if picked == 0 else "force")
+        stage = approach["stages"][objective.stage]
+        picked = self._menu(
+            f"{biome.upper()} — OBJECTIVE STAGE {objective.stage + 1}/{len(approach['stages'])}",
+            [stage["label"]],
+            f"APPROACH — {approach['label']}\n{approach['summary']}\n\n"
+            "Confirming resolves this local stage. Escape leaves it pending.",
+            allow_cancel=True,
+        )
+        if picked is None:
+            self.engine.leave_objective()
+            self.message = "Objective stage left pending."
+            return
+        self.message = self.engine.advance_objective()
 
     def _biome_view(self) -> None:
         assert self.engine
         biome = self.catalog.biomes[self.engine.current_biome()]
         mechanics = biome["mechanics"]
-        objective = mechanics["objective"]
+        mission = self.engine.mission_definition(biome["id"])
         body = (
             f"{biome['description']}\n\n"
             f"TRAVEL — {mechanics['traversal']['description']}\n"
@@ -775,7 +813,12 @@ class TerminalUI:
             f"PATROLS — {mechanics['patrol']['description']}\n"
             f"HAZARD: {mechanics['hazard']['name']} — {mechanics['hazard']['description']}\n"
             f"COMBAT: {mechanics['combat']['name']} — {mechanics['combat']['description']}\n"
-            f"OBJECTIVE: {objective['name']} — {objective['description']}"
+            f"OBJECTIVE: {mission['name']} — {mission['description']}\n"
+            + " / ".join(
+                f"{approach['label']} ({approach['telegraph']['travel']}, "
+                f"{approach['telegraph']['risk']} risk)"
+                for approach in mission["approaches"]
+            )
         )
         self._notice(biome["name"].upper(), body)
 
@@ -1505,9 +1548,9 @@ class TerminalUI:
             "current scaled value.\n\n"
             "Each seed selects one of six world layouts and four of eleven biome types. Biomes alter travel "
             "cost, hazard visibility, patrol behavior, combat conditions, and recovery opportunities as well "
-            "as formations. Press B in exploration for the current biome rules. Four K sites offer seeded "
-            "access objectives; secure any two by a safe supply procedure or a dangerous forced procedure "
-            "to open the L-marked Overseer Core. Specialist cards list an "
+            "as formations. Press B in exploration for the current biome rules. Four K landmarks offer seeded "
+            "access objectives. Inspect two disclosed approaches, commit to one, then reach its map stages; "
+            "secure any two to open the L-marked Overseer Core. Specialist cards list an "
             "affinity biome and gain extra damage, block, healing, or stress relief while used there.\n\n"
             "At zero HP a crew member reaches Death's Door. Further damage may kill them permanently; "
             "their cards leave the shared deck, but survivors continue until a full-party wipe. "

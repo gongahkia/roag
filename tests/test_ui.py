@@ -486,6 +486,16 @@ class AsciiUiTests(unittest.TestCase):
         self.ui.screen = screen
         self.ui._objective()
         self.assertEqual("exploration", self.engine.state.phase)
+        self.assertIsNotNone(objective.approach)
+        self.assertFalse(objective.completed)
+        self.assertIn("RISK", screen.text())
+        self.assertIn("IRREVERSIBLE", screen.text())
+        while not objective.completed:
+            self.engine.state.party_x, self.engine.state.party_y = self.engine.objective_position(objective)
+            self.engine._resolve_exploration_tile()
+            screen = FakeScreen(keys=[10])
+            self.ui.screen = screen
+            self.ui._objective()
         self.assertTrue(objective.completed)
 
     def test_bargain_consequences_are_complete_at_minimum_size(self) -> None:

@@ -98,6 +98,11 @@ class AccessObjective:
     x: int
     y: int
     completed: bool = False
+    approach_sites: dict[str, list[list[int]]] = field(default_factory=dict)
+    approach: str | None = None
+    stage: int = 0
+    outcome: str | None = None
+    facts: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -406,7 +411,7 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 16
+    SAVE_VERSION = 17
     TUTORIAL_SEED = 1
     ENCOUNTER_PLANS = {"none", "pressure", "disrupt", "screen", "sustain", "combo", "overseer"}
 
@@ -988,7 +993,63 @@ class GameEngine:
             self._carve_landmark_site(x, y, self.catalog.biomes[biome_id]["glyph"])
             excluded.add((x, y))
             objectives.append(AccessObjective(f"objective:{biome_id}", biome_id, x, y))
+        excluded |= {
+            (objective.x + offset_x, objective.y + offset_y)
+            for objective in objectives
+            for offset_y in (-1, 0, 1)
+            for offset_x in (-1, 0, 1)
+        }
+        missions = {
+            mission["biome"]: mission
+            for mission in self.catalog.missions.values()
+        }
+        for objective in objectives:
+            mission = missions[objective.biome_id]
+            for approach in mission["approaches"]:
+                previous = (objective.x, objective.y)
+                sites: list[list[int]] = []
+                for _ in approach["stages"]:
+                    candidates = self._mechanic_positions(
+                        objective.biome_id,
+                        excluded,
+                        minimum_spacing=2,
+                    )
+                    if not candidates:
+                        raise RuleError(
+                            f"generated terrain has no mission stage in {objective.biome_id}"
+                        )
+                    costs = self._travel_costs_from(previous)
+                    ranked = sorted(
+                        candidates,
+                        key=lambda point: (
+                            costs.get(point, WORLD_WIDTH * WORLD_HEIGHT * 3),
+                            point,
+                        ),
+                    )
+                    span = max(1, len(ranked) // 3)
+                    travel = approach["telegraph"]["travel"]
+                    pool = ranked[:span] if travel == "short" else ranked[-span:] if travel == "long" else ranked
+                    x, y = rng.choice(pool)
+                    sites.append([x, y])
+                    excluded.add((x, y))
+                    previous = (x, y)
+                objective.approach_sites[approach["id"]] = sites
         return objectives
+
+    def mission_definition(self, biome_id: str) -> dict[str, Any]:
+        return next(
+            mission
+            for mission in self.catalog.missions.values()
+            if mission["biome"] == biome_id
+        )
+
+    def objective_position(self, objective: AccessObjective) -> tuple[int, int]:
+        if objective.approach is None:
+            return objective.x, objective.y
+        sites = objective.approach_sites[objective.approach]
+        if objective.stage >= len(sites):
+            return sites[-1][0], sites[-1][1]
+        return sites[objective.stage][0], sites[objective.stage][1]
 
     def _generate_landmarks(self) -> list[Landmark]:
         templates = {
@@ -1015,6 +1076,12 @@ class GameEngine:
         excluded = {self.room_position(room.id) for room in self.state.rooms}
         excluded |= {(pickup.x, pickup.y) for pickup in self.state.pickups}
         excluded |= {(objective.x, objective.y) for objective in self.state.objectives}
+        excluded |= {
+            tuple(site)
+            for objective in self.state.objectives
+            for sites in objective.approach_sites.values()
+            for site in sites
+        }
         excluded |= {
             tuple(cell)
             for landmark in self.state.landmarks
@@ -1284,6 +1351,44 @@ class GameEngine:
             )
         ):
             raise RuleError("save contains invalid access objectives")
+        objective_sites: set[tuple[int, int]] = set()
+        for objective in state.objectives:
+            mission = engine.mission_definition(objective.biome_id)
+            approaches = {item["id"]: item for item in mission["approaches"]}
+            if (
+                set(objective.approach_sites) != set(approaches)
+                or not isinstance(objective.facts, dict)
+                or any(
+                    len(objective.approach_sites[approach_id]) != len(approach["stages"])
+                    or any(
+                        not isinstance(site, list)
+                        or len(site) != 2
+                        or not engine.is_walkable(*site)
+                        for site in objective.approach_sites[approach_id]
+                    )
+                    for approach_id, approach in approaches.items()
+                )
+            ):
+                raise RuleError("save contains invalid objective stage sites")
+            for sites in objective.approach_sites.values():
+                for site in sites:
+                    position = tuple(site)
+                    if position in objective_sites:
+                        raise RuleError("save contains overlapping objective stages")
+                    objective_sites.add(position)
+            if objective.approach is None:
+                if objective.stage != 0 or objective.completed or objective.outcome is not None:
+                    raise RuleError("save contains inconsistent unstarted objective state")
+                continue
+            approach = approaches.get(objective.approach)
+            if (
+                approach is None
+                or objective.stage not in range(len(approach["stages"]) + 1)
+                or objective.completed != (objective.stage == len(approach["stages"]))
+                or objective.outcome != (approach["outcome"] if objective.completed else None)
+                or objective.facts.get("approach") != objective.approach
+            ):
+                raise RuleError("save contains inconsistent objective progress")
         if state.current_objective_id is not None and state.current_objective_id not in objective_ids:
             raise RuleError("save references an unknown access objective")
         if (state.phase == "objective") != (state.current_objective_id is not None):
@@ -1318,6 +1423,8 @@ class GameEngine:
             or hazard_positions & objective_positions
             or pickup_positions & landmark_positions
             or hazard_positions & landmark_positions
+            or pickup_positions & objective_sites
+            or hazard_positions & objective_sites
         ):
             raise RuleError("save contains overlapping map features")
         knowable_ids = pickup_ids | hazard_ids | objective_ids | landmark_ids
@@ -1544,6 +1651,21 @@ class GameEngine:
                     pending.append(neighbor)
         return distances
 
+    def _travel_costs_from(self, origin: tuple[int, int]) -> dict[tuple[int, int], int]:
+        costs = {origin: 0}
+        pending: list[tuple[int, int, int]] = [(0, origin[0], origin[1])]
+        while pending:
+            cost, x, y = heappop(pending)
+            current = (x, y)
+            if cost != costs[current]:
+                continue
+            for neighbor in self._neighbors(current):
+                next_cost = cost + self.movement_cost(*neighbor)
+                if next_cost < costs.get(neighbor, WORLD_WIDTH * WORLD_HEIGHT * 3):
+                    costs[neighbor] = next_cost
+                    heappush(pending, (next_cost, neighbor[0], neighbor[1]))
+        return costs
+
     def path_to(self, x: int, y: int) -> list[tuple[int, int]]:
         if self.state.phase != "exploration":
             raise RuleError("the party cannot navigate right now")
@@ -1712,7 +1834,7 @@ class GameEngine:
             (
                 item
                 for item in self.state.objectives
-                if not item.completed and (item.x, item.y) == position
+                if not item.completed and self.objective_position(item) == position
             ),
             None,
         )
@@ -1855,33 +1977,118 @@ class GameEngine:
         elif effect == "curse_random" and heroes:
             self.acquire_curse(self.rng.choice(heroes).id, self.rng.choice(list(self.catalog.curses)))
 
-    def resolve_objective(self, method: str) -> str:
+    def _objective_approach(self, objective: AccessObjective) -> dict[str, Any]:
+        if objective.approach is None:
+            raise RuleError("choose an objective approach first")
+        return next(
+            approach
+            for approach in self.mission_definition(objective.biome_id)["approaches"]
+            if approach["id"] == objective.approach
+        )
+
+    def _apply_objective_cost(self, cost: dict[str, Any]) -> None:
+        resource = cost["resource"]
+        amount = int(cost["amount"])
+        if resource == "none" or not amount:
+            return
+        if resource == "supplies":
+            if self.state.supplies < amount:
+                raise RuleError(f"this approach requires {amount} supply")
+            self.state.supplies -= amount
+        elif resource == "light":
+            if self.state.light < amount:
+                raise RuleError(f"this approach requires {amount} light")
+            self.state.light -= amount
+        elif resource == "stress_all":
+            for hero in self.living_heroes():
+                self._change_stress(hero, amount)
+        elif resource == "health_all":
+            for hero in list(self.living_heroes()):
+                self._damage(hero, amount)
+
+    def begin_objective(self, approach_id: str) -> str:
         objective = self.current_objective()
-        definition = self.biome_mechanics(objective.biome_id)["objective"]
-        if method == "safe":
-            cost = int(definition["safe_cost"])
-            if self.state.supplies < cost:
-                raise RuleError(f"the safe procedure requires {cost} supply")
-            self.state.supplies -= cost
-            effect = definition["safe_effect"]
-            amount = int(definition["safe_amount"])
-            status = definition.get("safe_status")
-            method_label = definition["safe_label"]
-        elif method == "force":
-            effect = definition["force_effect"]
-            amount = int(definition["force_amount"])
-            status = definition.get("force_status")
-            method_label = definition["force_label"]
-        else:
-            raise RuleError("unknown objective procedure")
-        self._apply_objective_effect(effect, amount, status)
-        objective.completed = True
+        if objective.approach is not None:
+            raise RuleError("this objective approach is already committed")
+        mission = self.mission_definition(objective.biome_id)
+        approach = next(
+            (item for item in mission["approaches"] if item["id"] == approach_id),
+            None,
+        )
+        if approach is None:
+            raise RuleError("unknown objective approach")
+        self._apply_objective_cost(approach["cost"])
+        objective.approach = approach_id
+        objective.stage = 0
+        objective.facts = {
+            "approach": approach_id,
+            "started_at_tick": self.state.travel_ticks,
+        }
         self.state.current_objective_id = None
         if self.state.phase != "defeat":
             self.state.phase = "exploration"
-        progress = self.completed_objectives()
+        destination = self.objective_position(objective)
         message = (
-            f"{definition['name']} secured by {method_label.lower()}. "
+            f"Committed to {approach['label'].lower()}. "
+            f"Next: {approach['stages'][0]['label']} at {destination[0]:03},{destination[1]:02}."
+        )
+        self.add_log(message)
+        return message
+
+    def leave_objective(self) -> None:
+        self.current_objective()
+        self.state.current_objective_id = None
+        self.state.phase = "exploration"
+
+    def advance_objective(self) -> str:
+        objective = self.current_objective()
+        approach = self._objective_approach(objective)
+        if objective.stage >= len(approach["stages"]):
+            raise RuleError("this objective has no remaining stage")
+        stage = approach["stages"][objective.stage]
+        effect = stage.get("effect")
+        if effect:
+            self._apply_objective_effect(
+                effect["op"],
+                int(effect["amount"]),
+                effect.get("status"),
+            )
+        objective.stage += 1
+        self.state.current_objective_id = None
+        if self.state.phase == "defeat":
+            return f"{stage['label']} ended the expedition."
+        if objective.stage < len(approach["stages"]):
+            self.state.phase = "exploration"
+            destination = self.objective_position(objective)
+            message = (
+                f"{stage['label']} complete. Next: "
+                f"{approach['stages'][objective.stage]['label']} at "
+                f"{destination[0]:03},{destination[1]:02}."
+            )
+            self.add_log(message)
+            return message
+        completion = approach["completion"]
+        was_unlocked = self.boss_unlocked()
+        self._apply_objective_effect(
+            completion["op"],
+            int(completion["amount"]),
+            completion.get("status"),
+        )
+        objective.completed = True
+        objective.outcome = approach["outcome"]
+        objective.facts.update(
+            {
+                "outcome": approach["outcome"],
+                "completed_at_tick": self.state.travel_ticks,
+                "optional": was_unlocked,
+            }
+        )
+        if self.state.phase != "defeat":
+            self.state.phase = "exploration"
+        progress = self.completed_objectives()
+        mission = self.mission_definition(objective.biome_id)
+        message = (
+            f"{mission['name']} secured: {approach['outcome'].replace('_', ' ')}. "
             f"Access {progress}/{self.state.required_objectives}."
         )
         if self.boss_unlocked():
@@ -1894,6 +2101,19 @@ class GameEngine:
             message += " The Overseer Core seal is open."
         self.add_log(message)
         return message
+
+    def resolve_objective(self, method: str) -> str:
+        """Compatibility command for rule clients; objective stages still require travel."""
+        objective = self.current_objective()
+        if objective.approach is None:
+            mission = self.mission_definition(objective.biome_id)
+            if method in {"safe", "force"}:
+                index = 0 if method == "safe" else 1
+                return self.begin_objective(mission["approaches"][index]["id"])
+            return self.begin_objective(method)
+        if method not in {"advance", objective.approach, "safe", "force"}:
+            raise RuleError("unknown objective procedure")
+        return self.advance_objective()
 
     def is_hazard_visible(self, hazard: BiomeHazard) -> bool:
         radius = int(self.biome_mechanics(hazard.biome_id)["visibility"]["hazard_radius"])

@@ -96,6 +96,23 @@ class SaveTests(unittest.TestCase):
         self.assertEqual(objective.id, reloaded.current_objective().id)
         self.assertEqual(loaded.state.landmarks, reloaded.state.landmarks)
 
+    def test_partial_multistage_objective_round_trips(self) -> None:
+        engine = GameEngine.new(self.catalog, 112)
+        objective = engine.state.objectives[0]
+        approach = engine.mission_definition(objective.biome_id)["approaches"][0]
+        engine.state.party_x, engine.state.party_y = objective.x, objective.y
+        engine._resolve_exploration_tile()
+        engine.begin_objective(approach["id"])
+        engine.state.party_x, engine.state.party_y = engine.objective_position(objective)
+        engine._resolve_exploration_tile()
+        engine.advance_objective()
+        loaded = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+        restored = loaded.state.objectives[0]
+        self.assertEqual(approach["id"], restored.approach)
+        self.assertEqual(1, restored.stage)
+        self.assertFalse(restored.completed)
+        self.assertEqual(engine.objective_position(objective), loaded.objective_position(restored))
+
     def test_mid_combat_save_preserves_random_stream(self) -> None:
         engine = GameEngine.new(self.catalog, 202)
         patrol = engine.state.patrols[0]
