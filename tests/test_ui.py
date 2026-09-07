@@ -506,6 +506,47 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("OPTIONAL", rendered)
         self.assertIn("Possible completion benefits", rendered)
 
+    def test_core_access_notice_gives_location_route_and_confirmation_controls(self) -> None:
+        self.unlock_core()
+        body = self.ui._core_access_notice_text()
+        core_x, core_y = self.engine.core_position()
+        self.assertIn("final path is now open", body)
+        self.assertIn(f"{core_x:03},{core_y:02}", body)
+        self.assertIn("weighted ticks", body)
+        self.assertIn("Press G", body)
+        self.assertIn("OPTIONAL", body)
+        self.assertIn("until Enter confirms", body)
+
+    def test_completing_second_objective_opens_a_blocking_core_notice(self) -> None:
+        first, objective = self.engine.state.objectives[:2]
+        first.completed = True
+        first.outcome = "test_route"
+        approach = self.engine.mission_definition(objective.biome_id)["approaches"][0]
+        objective.approach = approach["id"]
+        objective.stage = len(approach["stages"]) - 1
+        self.engine.state.party_x, self.engine.state.party_y = self.engine.objective_position(objective)
+        self.engine.state.current_objective_id = objective.id
+        self.engine.state.phase = "objective"
+        self.ui.screen = FakeScreen(keys=[10])
+        with patch.object(self.ui, "_notice") as notice:
+            self.ui._objective()
+        self.assertTrue(self.engine.boss_unlocked())
+        notice.assert_called_once()
+        self.assertEqual("CORE ACCESS OPEN", notice.call_args.args[0])
+        self.assertIn("Press G", notice.call_args.args[1])
+
+    def test_unfinished_objective_menu_is_explicitly_optional_after_access(self) -> None:
+        self.unlock_core()
+        objective = self.engine.state.objectives[2]
+        self.engine.state.current_objective_id = objective.id
+        self.engine.state.phase = "objective"
+        with patch.object(self.ui, "_menu", return_value=None) as menu:
+            self.ui._objective()
+        body = menu.call_args.args[2]
+        self.assertIn("OPTIONAL DETOUR", body)
+        self.assertIn("BENEFIT", body)
+        self.assertIn("not required", body)
+
     def test_world_map_viewport_is_bounded_by_world_on_large_terminal(self) -> None:
         screen = FakeScreen(rows=60, columns=140)
         self.ui.screen = screen

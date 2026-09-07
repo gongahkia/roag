@@ -924,9 +924,20 @@ class TerminalUI:
                     f"{index}. {approach['summary']}\n"
                     f"COST {cost_label.upper()} | RISK {telegraph['risk'].upper()} | "
                     f"COMBAT {telegraph['combat'].upper()} | IRREVERSIBLE\n"
+                    f"BENEFIT {self._objective_reward_summary(approach['completion']).upper()}\n"
                     f"ROUTE {projection['ticks']} TICKS / ~{projection['light']} LIGHT | "
                     f"KNOWN HAZARDS {projection['known_hazards']} | "
                     f"PATROLS {projection['patrol_risk']}"
+                )
+            if self.engine.boss_unlocked():
+                progress_note = (
+                    "OPTIONAL DETOUR — Core access is already complete. This objective's disclosed "
+                    "benefit and risks are additional, not required for the expedition."
+                )
+            else:
+                progress_note = (
+                    f"Secure any {self.engine.state.required_objectives} of four. "
+                    f"Access {self.engine.completed_objectives()}/{self.engine.state.required_objectives}."
                 )
             picked = self._menu(
                 f"{biome.upper()} — {mission['name'].upper()}",
@@ -934,8 +945,7 @@ class TerminalUI:
                 mission["description"]
                 + "\n\n"
                 + "\n\n".join(details)
-                + f"\n\nSecure any {self.engine.state.required_objectives} of four. "
-                + f"Access {self.engine.completed_objectives()}/{self.engine.state.required_objectives}.",
+                + f"\n\n{progress_note}",
                 allow_cancel=True,
             )
             if picked is None:
@@ -952,14 +962,22 @@ class TerminalUI:
             f"{biome.upper()} — OBJECTIVE STAGE {objective.stage + 1}/{len(approach['stages'])}",
             [stage["label"]],
             f"APPROACH — {approach['label']}\n{approach['summary']}\n\n"
-            "Confirming resolves this local stage. Escape leaves it pending.",
+            + (
+                "OPTIONAL AFTER ACCESS — this stage is no longer required to reach the Core.\n\n"
+                if self.engine.boss_unlocked()
+                else ""
+            )
+            + "Confirming resolves this local stage. Escape leaves it pending.",
             allow_cancel=True,
         )
         if picked is None:
             self.engine.leave_objective()
             self.message = "Objective stage left pending."
             return
+        was_unlocked = self.engine.boss_unlocked()
         self.message = self.engine.advance_objective()
+        if not was_unlocked and self.engine.boss_unlocked():
+            self._notice("CORE ACCESS OPEN", self._core_access_notice_text())
 
     def _biome_view(self) -> None:
         assert self.engine
@@ -1110,6 +1128,21 @@ class TerminalUI:
 
     def _mission_view(self) -> None:
         self._notice("EXPEDITION STATUS", self._mission_status_text())
+
+    def _core_access_notice_text(self) -> str:
+        assert self.engine
+        core_x, core_y = self.engine.core_position()
+        projection = self.engine.core_route_projection()
+        optional = len(self.engine.state.objectives) - self.engine.completed_objectives()
+        return (
+            "Two access objectives are secure. The final path is now open.\n\n"
+            f"OVERSEER CORE — {core_x:03},{core_y:02}\n"
+            f"ROUTE FROM HERE — {projection['ticks']} weighted ticks / ~{projection['light']} light.\n\n"
+            "Press G in exploration to select the next reachable leg toward the Core. Tab also "
+            "prioritises that leg. Neither command starts travel until Enter confirms it.\n\n"
+            f"The remaining {optional} objective{'s are' if optional != 1 else ' is'} OPTIONAL. "
+            "Their disclosed completion benefits may justify a detour, but they are not required."
+        )
 
     def _combat(self) -> None:
         assert self.engine
