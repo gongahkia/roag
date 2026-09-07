@@ -254,11 +254,63 @@ class EngineTests(unittest.TestCase):
             self.engine.acquire_item("survey_relay")
         self.assertEqual(24, self.engine.maximum_navigation_distance())
         self.engine.acquire_boon(hero.id, "hunters_rhythm")
-        first = self.engine._outgoing_damage(hero, 100)
+        self.assertEqual(1, self.engine._hero_effect_value(hero, "boon", "damage_draw"))
         self.engine.acquire_boon(hero.id, "hunters_rhythm")
-        second = self.engine._outgoing_damage(hero, 100)
-        self.assertGreater(second, first)
-        self.assertLess(second - first, first - 100)
+        self.assertEqual(2, self.engine._hero_effect_value(hero, "boon", "damage_draw"))
+        self.engine.acquire_boon(hero.id, "hunters_rhythm")
+        self.assertEqual(2, self.engine._hero_effect_value(hero, "boon", "damage_draw"))
+
+    def test_hunters_rhythm_turns_damage_sequence_into_draw(self) -> None:
+        warden = self.engine.living_heroes()[0]
+        self.engine.acquire_boon(warden.id, "hunters_rhythm")
+        self.engine.acquire_boon(warden.id, "hunters_rhythm")
+        self.engine.start_combat("lost_shift")
+        target = self.engine.living_enemies()[0]
+        target.max_hp = target.hp = 200
+        self.engine.state.hand = [CardInstance("baton_strike"), CardInstance("baton_strike")]
+        self.engine.state.draw_pile = [CardInstance("brace"), CardInstance("brace")]
+        self.engine.state.energy = 10
+        self.engine.play_card(0, target.id)
+        self.engine.play_card(0, target.id)
+        self.assertEqual(2, len(self.engine.state.hand))
+        self.assertEqual(0, len(self.engine.state.draw_pile))
+
+    def test_frayed_focus_forces_damage_card_sequencing(self) -> None:
+        warden = self.engine.living_heroes()[0]
+        self.engine.acquire_curse(warden.id, "frayed_focus")
+        self.engine.start_combat("lost_shift")
+        target = self.engine.living_enemies()[0]
+        self.engine.state.hand = [
+            CardInstance("baton_strike"),
+            CardInstance("brace"),
+            CardInstance("arc_welder"),
+        ]
+        self.engine.state.energy = 10
+        self.engine.play_card(0, target.id)
+        self.assertEqual(["brace"], [card.card_id for card in self.engine.state.hand])
+        self.assertIn("Frayed Focus discards Arc Welder", self.engine.state.log[-1])
+
+    def test_tremors_tax_only_the_first_block_techniques(self) -> None:
+        warden = self.engine.living_heroes()[0]
+        self.engine.acquire_curse(warden.id, "tremors")
+        self.engine.start_combat("lost_shift")
+        first = CardInstance("brace")
+        self.assertEqual(2, self.engine.card_cost(first))
+        self.engine.state.hand = [first]
+        self.engine.state.energy = 10
+        self.engine.play_card(0, warden.id)
+        self.assertEqual(1, self.engine.card_cost(CardInstance("brace")))
+
+    def test_focusing_lens_rewards_focus_techniques_with_draw(self) -> None:
+        self.engine.acquire_item("focusing_lens")
+        self.engine.start_combat("lost_shift")
+        scout = next(hero for hero in self.engine.living_heroes() if hero.id == "scout")
+        self.engine.state.hand = [CardInstance("deadeye")]
+        self.engine.state.draw_pile = [CardInstance("brace")]
+        self.engine.state.energy = 10
+        self.engine.play_card(0, scout.id)
+        self.assertEqual(["brace"], [card.card_id for card in self.engine.state.hand])
+        self.assertIn("Focusing Lens", self.engine.state.log[-1])
 
     def test_curse_card_triggers_and_camp_treatment_removes_one_stack(self) -> None:
         hero = self.engine.living_heroes()[0]

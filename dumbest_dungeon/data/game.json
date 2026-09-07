@@ -461,7 +461,7 @@
   ],
   "boons": [
     {"id":"iron_benediction","name":"Iron Benediction","description":"Begin combat with stacking block.","tags":["defense"],"effects":[{"key":"start_block","curve":"linear","amount":3,"cap":15}]},
-    {"id":"hunters_rhythm","name":"Hunter's Rhythm","description":"Deal increasingly more damage.","tags":["offense"],"effects":[{"key":"damage_bonus","curve":"diminishing","amount":0.05,"cap":0.35}]},
+    {"id":"hunters_rhythm","name":"Hunter's Rhythm","description":"The first damage techniques this hero plays each round draw a card.","tags":["offense","draw"],"effects":[{"key":"damage_draw","curve":"special","amount":1,"cap":2}]},
     {"id":"gentle_hands","name":"Gentle Hands","description":"Healing performed is stronger.","tags":["medicine"],"effects":[{"key":"healing_bonus","curve":"diminishing","amount":0.08,"cap":0.5}]},
     {"id":"clear_signal","name":"Clear Signal","description":"Shed stress when combat begins.","tags":["focus"],"effects":[{"key":"start_stress_relief","curve":"linear","amount":3,"cap":15}]},
     {"id":"second_wind","name":"Second Wind","description":"Recover from the first Death's Door entry each combat.","tags":["defense","medicine"],"effects":[{"key":"second_wind","curve":"linear","amount":2,"cap":10}]},
@@ -482,9 +482,9 @@
   "curses": [
     {"id":"glass_bones","name":"Glass Bones","kind":"trait","description":"Incoming damage is increased.","effects":[{"key":"incoming_damage_bonus","curve":"diminishing","amount":0.06,"cap":0.45}]},
     {"id":"thin_blood","name":"Thin Blood","kind":"trait","description":"Healing received is reduced.","effects":[{"key":"healing_reduction","curve":"diminishing","amount":0.08,"cap":0.5}]},
-    {"id":"frayed_focus","name":"Frayed Focus","kind":"trait","description":"Damage dealt is reduced.","effects":[{"key":"outgoing_damage_reduction","curve":"diminishing","amount":0.06,"cap":0.4}]},
+    {"id":"frayed_focus","name":"Frayed Focus","kind":"trait","description":"The first damage techniques this hero plays each round discard the rightmost card.","effects":[{"key":"damage_discard","curve":"special","amount":1,"cap":3}]},
     {"id":"panic_echo","name":"Panic Echo","kind":"trait","description":"Incoming stress is increased.","effects":[{"key":"stress_bonus","curve":"diminishing","amount":0.08,"cap":0.6}]},
-    {"id":"tremors","name":"Tremors","kind":"trait","description":"Block gained is reduced.","effects":[{"key":"tremor_block_reduction","curve":"diminishing","amount":0.08,"cap":0.5}]},
+    {"id":"tremors","name":"Tremors","kind":"trait","description":"The first block techniques this hero plays each round cost one more energy.","effects":[{"key":"first_block_cost_increase","curve":"special","amount":1,"cap":3}]},
     {"id":"cowards_mark","name":"Coward's Mark","kind":"trait","description":"Begin each combat marked.","effects":[{"key":"start_marked","curve":"linear","amount":1,"cap":4}]},
     {"id":"lead_feet","name":"Lead Feet","kind":"trait","description":"Hostile movement pushes farther and heavy stacks expose the hero.","effects":[{"key":"forced_move_bonus","curve":"special","amount":1,"cap":1}]},
     {"id":"night_terrors","name":"Night Terrors","kind":"trait","description":"Gain stress every eight exploration steps.","effects":[{"key":"night_terror_stress","curve":"linear","amount":1,"cap":4}]},
@@ -501,7 +501,7 @@
   ],
   "items": [
     {"id":"bulkhead_laminate","name":"Bulkhead Laminate","description":"All heroes begin combat with stacking block.","effects":[{"key":"stacked_start_block","curve":"linear","amount":1,"cap":8}]},
-    {"id":"focusing_lens","name":"Focusing Lens","description":"Increase all crew damage.","effects":[{"key":"damage_bonus","curve":"diminishing","amount":0.03,"cap":0.3}]},
+    {"id":"focusing_lens","name":"Focusing Lens","description":"The first techniques that grant focus each round draw a card.","effects":[{"key":"focus_draw","curve":"special","amount":1,"cap":2}]},
     {"id":"trauma_mesh","name":"Trauma Mesh","description":"Reduce incoming health damage.","effects":[{"key":"incoming_damage_reduction","curve":"diminishing","amount":0.02,"cap":0.2}]},
     {"id":"nerve_dampener","name":"Nerve Dampener","description":"Reduce incoming stress.","effects":[{"key":"stress_reduction","curve":"diminishing","amount":0.03,"cap":0.3}]},
     {"id":"med_gel_ampoule","name":"Med-Gel Ampoule","description":"Supplies restore additional health.","effects":[{"key":"supply_heal_bonus","curve":"linear","amount":2,"cap":10}]},

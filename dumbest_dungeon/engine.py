@@ -1934,10 +1934,13 @@ class GameEngine:
             self.state.intents = self._choose_intents()
 
     def _start_player_turn(self) -> None:
+        self.state.effect_counters["focus_cards"] = 0
         for hero in self.living_heroes():
             hero.block = 0
             self.state.effect_counters[f"round_cards:{hero.id}"] = 0
             self.state.effect_counters[f"countercurrent:{hero.id}"] = 0
+            self.state.effect_counters[f"damage_cards:{hero.id}"] = 0
+            self.state.effect_counters[f"block_cards:{hero.id}"] = 0
             self._tick_wound(hero)
             if not hero.alive:
                 continue
@@ -2124,6 +2127,14 @@ class GameEngine:
             delta -= 1
         if combat_plays == 0:
             delta += round(self._hero_effect_value(actor, "curse", "first_card_cost_increase"))
+        effects = definition["upgrade_effects"] if card.upgraded else definition["effects"]
+        if any(effect["op"] == "block" for effect in effects):
+            block_plays = self.state.effect_counters.get(f"block_cards:{actor.id}", 0)
+            tremors = round(
+                self._hero_effect_value(actor, "curse", "first_block_cost_increase")
+            )
+            if block_plays < tremors:
+                delta += 1
         return max(0, base + delta)
 
     def valid_targets(self, hand_index: int) -> list[str]:
@@ -2173,6 +2184,12 @@ class GameEngine:
         self.state.effect_counters[round_key] = self.state.effect_counters.get(round_key, 0) + 1
         self.state.effect_counters[combat_key] = self.state.effect_counters.get(combat_key, 0) + 1
         effects = definition["upgrade_effects"] if card.upgraded else definition["effects"]
+        deals_damage = any(effect["op"] == "damage" for effect in effects)
+        grants_block = any(effect["op"] == "block" for effect in effects)
+        grants_focus = any(
+            effect["op"] == "status" and effect.get("status") == "focus"
+            for effect in effects
+        )
         main_targets = self._card_targets(definition["target"], target_id, actor)
         self.add_log(f"{actor.name} uses {definition['name']}.")
         for effect in effects:
@@ -2200,6 +2217,29 @@ class GameEngine:
             if draws:
                 self._draw(draws)
                 self.state.effect_counters[counter_key] = 1
+        if deals_damage:
+            damage_key = f"damage_cards:{actor.id}"
+            damage_plays = self.state.effect_counters.get(damage_key, 0)
+            discards = round(self._hero_effect_value(actor, "curse", "damage_discard"))
+            if damage_plays < discards and self.state.hand:
+                discarded = self.state.hand.pop()
+                self.state.discard_pile.append(discarded)
+                self.add_log(f"Frayed Focus discards {self.card_definition(discarded)['name']}.")
+            draws = round(self._hero_effect_value(actor, "boon", "damage_draw"))
+            if damage_plays < draws:
+                self._draw(1)
+                self.add_log(f"{actor.name}'s Hunter's Rhythm draws a card.")
+            self.state.effect_counters[damage_key] = damage_plays + 1
+        if grants_block:
+            block_key = f"block_cards:{actor.id}"
+            self.state.effect_counters[block_key] = self.state.effect_counters.get(block_key, 0) + 1
+        if grants_focus:
+            focus_plays = self.state.effect_counters.get("focus_cards", 0)
+            focus_draws = round(self._item_effect_value("focus_draw"))
+            if focus_plays < focus_draws:
+                self._draw(1)
+                self.add_log("Focusing Lens converts focus into another draw.")
+            self.state.effect_counters["focus_cards"] = focus_plays + 1
         reserve = round(self._item_effect_value("reserve_energy"))
         if self.state.energy == 0 and reserve and not self.state.effect_counters.get("reserve_energy"):
             self.state.energy += reserve
@@ -2282,13 +2322,6 @@ class GameEngine:
                     self._damage(target, adjusted, actor)
                 elif op == "block":
                     multiplier = float(self._affliction_modifiers(target).get("block_mult", 1))
-                    if target.side == "hero":
-                        reduction = self._hero_effect_value(
-                            target,
-                            "curse",
-                            "tremor_block_reduction",
-                        )
-                        multiplier *= 1 - reduction
                     multiplier = max(0.5, min(2.0, multiplier))
                     target.block += max(0, round(amount * multiplier))
                 elif op == "heal":
@@ -2599,13 +2632,6 @@ class GameEngine:
         if actor.statuses.get("focus"):
             multiplier *= 1.25
         if actor.side == "hero":
-            multiplier *= 1 + self._hero_effect_value(actor, "boon", "damage_bonus")
-            multiplier *= 1 + self._item_effect_value("damage_bonus")
-            multiplier *= 1 - self._hero_effect_value(
-                actor,
-                "curse",
-                "outgoing_damage_reduction",
-            )
             if actor.stress >= 50:
                 multiplier *= 1 + self._hero_effect_value(
                     actor,
