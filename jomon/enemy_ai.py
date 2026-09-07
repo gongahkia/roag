@@ -6,7 +6,7 @@ from collections import deque
 from dataclasses import dataclass
 
 from .state import GameState, GroupAlert, Position, Threat
-from .world import distance, is_walkable, line_of_sight, pressure, vertical_destination
+from .world import base_tile, distance, is_walkable, line_of_sight, pressure, vertical_destination
 
 
 @dataclass(frozen=True)
@@ -58,6 +58,22 @@ def perceive(state: GameState, threat: Threat) -> tuple[bool, Position | None, s
     return False, threat.last_known_position, "the courier is out of contact"
 
 
+def higher_access_target(state: GameState, threat: Threat) -> Position | None:
+    candidates: list[Position] = []
+    for link in state.region.vertical_links:
+        lower, upper = (
+            (link.first, link.second)
+            if link.first.z < link.second.z else (link.second, link.first)
+        )
+        if lower.z == threat.position.z and upper.z > threat.position.z:
+            candidates.append(upper)
+    return min(
+        candidates,
+        key=lambda point: (distance(threat.position, point), point.y, point.x),
+        default=None,
+    )
+
+
 def select_goal(state: GameState, threat: Threat) -> EnemyDecision:
     visible, perceived, perception_reason = perceive(state, threat)
     gap = distance(threat.position, state.position) if visible else 99
@@ -75,6 +91,18 @@ def select_goal(state: GameState, threat: Threat) -> EnemyDecision:
         option("escape smoke", "withdraw", 101, "smoke has removed a reliable firing or guard position")
     if local_key in state.water and "crosses draining mud quickly" not in threat.capabilities:
         option("leave rising water", "withdraw", 99, "the regional process made this position unsafe")
+    territorial = threat.role == "territorial" or any(
+        "territor" in capability or "wallow" in capability
+        for capability in threat.capabilities
+    )
+    if (
+        territorial and threat.home_position
+        and distance(state.position, threat.home_position) > 7
+    ):
+        option(
+            "defend territory", "return", 108,
+            "the courier has left the boundary it defends", threat.home_position,
+        )
     if visible:
         if threat.role == "thief" and gap <= 1 and pressure(state).valuables:
             option("steal cargo", "steal", 105, "an exposed valuable load is within reach", state.position)
@@ -91,6 +119,25 @@ def select_goal(state: GameState, threat: Threat) -> EnemyDecision:
             flank = Position(state.position.x + offset_x * 2, state.position.y + offset_y * 2, state.position.z)
             option("flank last sight", "flank", 94, "a side approach avoids the courier's facing", flank)
         if threat.profile == "ranged":
+            wants_height = threat.goal == "seek elevation" or any(
+                "height" in capability or "elevation" in capability
+                for capability in threat.capabilities
+            )
+            higher = higher_access_target(state, threat) if wants_height else None
+            if higher and gap >= 5:
+                option(
+                    "seek elevation", "seek elevation", 97,
+                    "an upper firing position improves its visible lane", higher,
+                )
+            feeds_smoke = any(
+                "feeds smoke" in capability or "vents caustic smoke" in capability
+                for capability in threat.capabilities
+            )
+            if feeds_smoke and local_key not in state.smoke and gap <= 9:
+                option(
+                    "deny area", "feed smoke", 96,
+                    "its assigned fuel or vent can close the courier's lane", state.position,
+                )
             if threat.reload_turns > 0:
                 option("prepare shot", "reload", 100, "the ranged weapon is not ready")
             elif threat.ammunition <= 0:
@@ -112,6 +159,21 @@ def select_goal(state: GameState, threat: Threat) -> EnemyDecision:
             )
             if ranged_ally:
                 option("protect ally", "intercept", 90, "a ranged ally needs space", ranged_ally.position)
+            wounded_ally = next(
+                (
+                    ally for ally in state.threats
+                    if ally.id != threat.id and ally.group == threat.group
+                    and ally.status == "engaged"
+                    and (ally.health <= ally.max_health // 2 or ally.morale <= 1)
+                ),
+                None,
+            )
+            if wounded_ally:
+                option(
+                    "cover retreat", "cover retreat", 99,
+                    "a wounded ally needs a physical withdrawal lane",
+                    wounded_ally.position,
+                )
         preferred = 2 if threat.profile == "reach" else 1
         if gap <= preferred:
             option("press attack", "attack", 88, "the courier is inside its preferred distance", state.position)
@@ -145,10 +207,20 @@ def _neighbours(state: GameState, position: Position, threat: Threat) -> list[Po
         other.position for other in state.threats
         if other.id != threat.id and other.status in {"watching", "engaged"}
     }
-    return [
+    legal = [
         candidate for candidate in candidates
         if candidate not in occupied and is_walkable(state, candidate, ignore_threat=True)
     ]
+    safe_scree = any("scree" in capability for capability in threat.capabilities)
+    return sorted(
+        legal,
+        key=lambda candidate: (
+            0 if safe_scree or base_tile(state, candidate) not in {"r", "q", "%"} else 1,
+            candidate.z,
+            candidate.y,
+            candidate.x,
+        ),
+    )
 
 
 def next_path_step(

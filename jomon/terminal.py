@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from .actions import (
+    RANGED_WEAPONS,
     _advance_world,
     attack,
     can_alter_objective,
@@ -26,6 +27,7 @@ from .actions import (
     purchase_bar_drink,
     recruit_person,
     defer_recruit,
+    effective_weapon_range,
     intervene_socially,
     retreat,
     use_gear,
@@ -79,12 +81,16 @@ from .world import (
     camera_origin,
     capacity,
     carried_bulk,
+    cover_at,
     displayed_tile,
+    distance,
     field_of_view,
+    line_of_sight,
     map_rows,
     passive_bulk,
     passive_capacity,
     pressure,
+    projectile_path,
     remembered,
     vertical_destination,
 )
@@ -95,6 +101,7 @@ MIN_HEIGHT = 24
 SEMANTIC_ROLES = (
     "player", "ally", "neutral", "hostile", "elite", "terrain", "water",
     "structure", "exit", "cargo", "interactable", "hazard", "mystical",
+    "selected_target", "target_cell",
 )
 
 
@@ -136,6 +143,31 @@ class RouteChartView:
     @classmethod
     def begin(cls, state: GameState) -> "RouteChartView":
         return cls(state.route_current_node, node_screen={})
+
+
+@dataclass
+class TargetView:
+    cursor: Position
+    target_ids: list[str]
+    selected: int = 0
+
+    @classmethod
+    def begin(cls, state: GameState) -> "TargetView":
+        attack_range = effective_weapon_range(state)
+        targets = sorted(
+            (
+                threat for threat in state.threats
+                if threat.status in {"watching", "engaged"}
+                and threat.position.z == state.position.z
+                and distance(state.position, threat.position) <= attack_range
+                and line_of_sight(state, state.position, threat.position)
+            ),
+            key=lambda threat: (distance(state.position, threat.position), threat.id),
+        )
+        return cls(
+            targets[0].position if targets else state.position,
+            [target.id for target in targets],
+        )
 
 
 @dataclass(frozen=True)
@@ -203,7 +235,8 @@ def semantic_colour_plan(colour_count: int, pair_count: int) -> dict[str, Colour
         "hostile": (1, True), "elite": (5, True), "terrain": (7, False),
         "water": (4, False), "structure": (7, False), "exit": (6, True),
         "cargo": (3, True), "interactable": (2, True), "hazard": (1, True),
-        "mystical": (5, True),
+        "mystical": (5, True), "selected_target": (5, True),
+        "target_cell": (3, True),
     }
     if colour_count < 8 or pair_count <= 1:
         return {role: ColourStyle(0, None, bold) for role, (_, bold) in desired.items()}
@@ -451,6 +484,148 @@ def _draw_base(screen: curses.window, state: GameState) -> None:
     _put(screen, height - 2, 1, "Move HJKL/YUBN/arrows  E interact  A attack  G guard/reload  X gear", curses.A_REVERSE)
     _put(screen, height - 1, 1, "V negotiate  R retreat  I inventory  S save aboard  ? help  Q quit", curses.A_REVERSE)
     screen.refresh()
+
+
+def _target_at_cursor(state: GameState, view: TargetView) -> Threat | None:
+    return next(
+        (
+            threat for threat in state.threats
+            if threat.position == view.cursor
+            and threat.status in {"watching", "engaged"}
+        ),
+        None,
+    )
+
+
+def _draw_targeting(screen: curses.window, state: GameState, view: TargetView) -> None:
+    height, width = screen.getmaxyx()
+    status_width, event_height, command_height = 29, 6, 2
+    main_height, map_width = height - event_height - command_height, width - status_width
+    rows = map_rows(state)
+    view_height, view_width = main_height - 2, map_width - 2
+    origin_x, origin_y = camera_origin(
+        state.position, max(map(len, rows)), len(rows), view_width, view_height
+    )
+    screen_x = 1 + view.cursor.x - origin_x
+    screen_y = 1 + view.cursor.y - origin_y
+    selected = _target_at_cursor(state, view)
+    for point in projectile_path(state.position, view.cursor)[1:-1]:
+        path_x = 1 + point.x - origin_x
+        path_y = 1 + point.y - origin_y
+        if 1 <= path_x < map_width - 1 and 1 <= path_y < main_height - 1:
+            _put(
+                screen, path_y, path_x, ".",
+                _COLOUR_ATTRIBUTES["target_cell"] | curses.A_BOLD,
+            )
+    if (
+        view.cursor.z == state.position.z
+        and 1 <= screen_x < map_width - 1
+        and 1 <= screen_y < main_height - 1
+    ):
+        glyph = _threat_glyph(selected) if selected else "+"
+        role = "selected_target" if selected else "target_cell"
+        _put(screen, screen_y, screen_x, glyph, _COLOUR_ATTRIBUTES[role] | curses.A_REVERSE)
+    attack_range = effective_weapon_range(state)
+    gap = distance(state.position, view.cursor)
+    lane = cover_at(state, state.position, view.cursor)
+    target_name = selected.name if selected else "empty cell"
+    ammo = {
+        "crossbow": "bolts", "longbow": "arrows", "sling": "sling stones",
+        "heavy crossbow": "heavy bolts", "javelins": "javelins",
+        "weighted net": "nets",
+    }.get(state.weapon or "", "none")
+    available = state.ammunition_by_type.get(ammo, 0) if ammo != "none" else 0
+    detail = (
+        f"TARGET {target_name}; {gap}/{attack_range} paces; {lane} cover; "
+        f"{available} {ammo}; Enter confirms"
+    )
+    _put(screen, height - 2, 1, _clip(detail, width - 2), curses.A_REVERSE | curses.A_BOLD)
+    _put(screen, height - 1, 1, "Cursor arrows/WASD/HJKL  Tab next threat  Enter fire/prepare  Mouse select  Esc cancel", curses.A_REVERSE)
+    screen.refresh()
+
+
+def _target_cycle(state: GameState, view: TargetView) -> None:
+    available = [
+        threat_id for threat_id in view.target_ids
+        if any(
+            threat.id == threat_id and threat.status in {"watching", "engaged"}
+            for threat in state.threats
+        )
+    ]
+    if not available:
+        return
+    view.selected = (view.selected + 1) % len(available)
+    view.target_ids = available
+    target = next(threat for threat in state.threats if threat.id == available[view.selected])
+    view.cursor = target.position
+
+
+def _handle_targeting(
+    state: GameState,
+    view: TargetView,
+    event: InputEvent | int,
+    *,
+    screen_size: tuple[int, int] = (24, 80),
+) -> tuple[bool, bool]:
+    if isinstance(event, int):
+        event = InputEvent("key", key=event)
+    height, width = screen_size
+    key = event.key
+    if event.kind == "mouse":
+        status_width, event_height, command_height = 29, 6, 2
+        main_height, map_width = height - event_height - command_height, width - status_width
+        if event.button not in {"left", "right"} or not (
+            1 <= event.x < map_width - 1 and 1 <= event.y < main_height - 1
+        ):
+            return False, False
+        rows = map_rows(state)
+        origin_x, origin_y = camera_origin(
+            state.position,
+            max(map(len, rows)),
+            len(rows),
+            map_width - 2,
+            main_height - 2,
+        )
+        view.cursor = Position(
+            origin_x + event.x - 1,
+            origin_y + event.y - 1,
+            state.position.z,
+        )
+        if event.button == "right":
+            return True, False
+        if not event.double:
+            return False, False
+        key = 10
+    if key == 27:
+        return True, False
+    normalized = ord(chr(key).lower()) if 0 <= key < 256 else key
+    movement = {
+        curses.KEY_LEFT: (-1, 0), curses.KEY_RIGHT: (1, 0),
+        curses.KEY_UP: (0, -1), curses.KEY_DOWN: (0, 1),
+        ord("a"): (-1, 0), ord("d"): (1, 0),
+        ord("w"): (0, -1), ord("s"): (0, 1),
+        ord("h"): (-1, 0), ord("l"): (1, 0),
+        ord("k"): (0, -1), ord("j"): (0, 1),
+    }
+    if normalized in movement:
+        dx, dy = movement[normalized]
+        view.cursor = Position(
+            max(0, min(state.region.width - 1, view.cursor.x + dx)),
+            max(0, min(state.region.height - 1, view.cursor.y + dy)),
+            state.position.z,
+        )
+        return False, False
+    if key == 9:
+        _target_cycle(state, view)
+        return False, False
+    if key in {10, 13}:
+        target = _target_at_cursor(state, view)
+        if target is None:
+            state.add_message("No visible hostile occupies the selected cell.", priority=2)
+            return False, False
+        result = attack(state, target.id)
+        return result.time_advanced, result.time_advanced
+    return False, False
 
 
 def _overlay(screen: curses.window, title: str, lines: Iterable[str]) -> None:
@@ -1570,6 +1745,7 @@ def play(screen: curses.window, state: GameState) -> GameState:
     overlay: OverlayView | None = None
     inventory_view: InventoryView | None = None
     route_view: RouteChartView | None = None
+    target_view: TargetView | None = None
     while True:
         _draw_base(screen, state)
         height, width = screen.getmaxyx()
@@ -1577,6 +1753,8 @@ def play(screen: curses.window, state: GameState) -> GameState:
             _draw_inventory(screen, state, inventory_view)
         elif route_view and height >= MIN_HEIGHT and width >= MIN_WIDTH:
             _draw_route_chart(screen, state, route_view)
+        elif target_view and height >= MIN_HEIGHT and width >= MIN_WIDTH:
+            _draw_targeting(screen, state, target_view)
         elif overlay and height >= MIN_HEIGHT and width >= MIN_WIDTH:
             if dialogue_choices(state, overlay.kind):
                 _draw_dialogue_overlay(screen, state, overlay)
@@ -1610,6 +1788,13 @@ def play(screen: curses.window, state: GameState) -> GameState:
                 route_view = None
                 overlay = OverlayView(next_overlay) if next_overlay else None
             continue
+        if target_view:
+            closed, _ = _handle_targeting(
+                state, target_view, event, screen_size=(height, width)
+            )
+            if closed:
+                target_view = None
+            continue
         if overlay:
             closed, should_quit = _handle_overlay_view(state, overlay, event)
             if should_quit:
@@ -1630,7 +1815,10 @@ def play(screen: curses.window, state: GameState) -> GameState:
             else:
                 overlay = OverlayView(result.overlay) if result.overlay else None
         elif normalized == ord("a"):
-            attack(state)
+            if state.location == "region" and state.weapon in RANGED_WEAPONS:
+                target_view = TargetView.begin(state)
+            else:
+                attack(state)
         elif normalized == ord("g"):
             guard(state)
         elif normalized == ord("x"):

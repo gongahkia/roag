@@ -27,6 +27,11 @@ raising guard, or creating smoke can turn the shot. Longbows need a clean
 prepared line and dry string; slings cast quickly and exploit height; heavy
 crossbows pierce partial cover but require two reload actions. Ranged actors
 retreat when ammunition is gone instead of becoming identical close fighters.
+The player's ranged `A` action opens a zero-time target cursor: the path,
+effective range, cover, physical ammunition, selected hostile, and invalid
+empty cells are visible before Enter commits. Escape cancels without changing
+state, Tab cycles currently legal targets, and terminal mouse double-click has
+the same confirmed-shot path as Enter.
 
 Steady encounters teach one role. Strained groups combine complementary roles
 within five budget points. Critical groups have eight points and may rarely
@@ -74,8 +79,16 @@ telemetry, and sends nothing off the machine.
   damage. Longbows withdraw when crowded, slings can suppress a vacated lane,
   and heavy crossbows commit to reload.
 - Protectors now move between the courier and a ranged ally rather than merely
-  labelling that intention. Flankers use a visible side target. Net controllers
-  mark one cell before the haul, so reposition is real counterplay.
+  labelling that intention, and can cover a wounded group member's retreat.
+  Flankers use a visible side target. Net controllers mark one cell before the
+  haul, so reposition is real counterplay.
+- Ranged actors with an authored height-seeking capability path through a real
+  stair or climb before aiming. Burn and lime smoke-tenders spend actions
+  placing bounded smoke lanes. Territorial actors return once the courier
+  leaves their explicit home boundary instead of pursuing forever.
+- Negotiation now reaches at most two nearby members of one group. Elites need
+  witnessed regional evidence, and confident actors already struck in combat
+  reject unsupported terms. Other groups keep their independent goals.
 - Lost actors investigate sound or last sight and then return to guard/patrol.
   The movement executor no longer falls back to hidden courier coordinates.
 - Smoke and water displace actors whose material role does not protect them.

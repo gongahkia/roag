@@ -6,6 +6,7 @@ from jomon.actions import _advance_world, _threat_action, attack, choose_courier
 from jomon.content import WEAPONS
 from jomon.enemy_ai import select_goal
 from jomon.state import Position, Threat, create_world
+from jomon.terminal import InputEvent, TargetView, _handle_targeting
 from jomon.world import JOMON_GANGPLANK, cover_at, line_of_sight, projectile_path
 
 
@@ -85,6 +86,55 @@ class PlayerRangeTests(unittest.TestCase):
         self.assertEqual(target.health, target.max_health)
         self.assertIn("cuts free", target.intent)
         self.assertTrue(any("loses a turn" in message for message in state.messages))
+
+    def test_target_cursor_selection_and_cancellation_are_zero_time(self):
+        state = armed("longbow")
+        target = target_at(state, 50)
+        view = TargetView.begin(state)
+        self.assertEqual(view.cursor, target.position)
+        before = state.to_dict()
+        closed, fired = _handle_targeting(
+            state, view, InputEvent("key", key=27), screen_size=(24, 80)
+        )
+        self.assertTrue(closed)
+        self.assertFalse(fired)
+        self.assertEqual(state.to_dict(), before)
+
+    def test_target_cursor_confirms_exact_selected_actor(self):
+        state = armed("sling")
+        first = target_at(state, 47)
+        second = Threat(
+            "second", "second obstruction", "pursuer", Position(48, 26),
+            12, 12, status="engaged", morale=9,
+        )
+        state.threats.append(second)
+        view = TargetView.begin(state)
+        view.cursor = second.position
+        closed, fired = _handle_targeting(
+            state, view, InputEvent("key", key=10), screen_size=(24, 80)
+        )
+        self.assertTrue(closed)
+        self.assertTrue(fired)
+        self.assertEqual(first.health, first.max_health)
+        self.assertLess(second.health, second.max_health)
+
+    def test_mouse_target_selection_matches_keyboard_confirmation(self):
+        state = armed("sling")
+        target = target_at(state, 42)
+        view = TargetView.begin(state)
+        # At 80x24 the map viewport is 49x14 and centres on (40, 25).
+        world_left = state.position.x - 49 // 2
+        world_top = state.position.y - 14 // 2
+        event = InputEvent(
+            "mouse", x=1 + target.position.x - world_left,
+            y=1 + target.position.y - world_top, button="left", double=True,
+        )
+        closed, fired = _handle_targeting(
+            state, view, event, screen_size=(24, 80)
+        )
+        self.assertTrue(closed)
+        self.assertTrue(fired)
+        self.assertLess(target.health, target.max_health)
 
 
 class RangedFairnessTests(unittest.TestCase):

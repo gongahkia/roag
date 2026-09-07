@@ -59,6 +59,46 @@ class GoalSelectionTests(unittest.TestCase):
         decision = select_goal(state, threat)
         self.assertEqual((decision.goal, decision.action), ("break contact", "retreat"))
 
+    def test_territorial_actor_returns_at_its_boundary(self):
+        state = active_region("territorial boundary")
+        threat = Threat(
+            "wallow", "territorial tusker", "animal", Position(42, 25),
+            5, 5, status="engaged", role="territorial", vision=20,
+            home_position=Position(40, 25), capabilities=["stops beyond its wallow"],
+        )
+        state.position, state.threats = Position(48, 25), [threat]
+        decision = select_goal(state, threat)
+        self.assertEqual((decision.goal, decision.action), ("defend territory", "return"))
+
+    def test_ranged_actor_selects_and_physically_uses_elevation(self):
+        state = active_region("seek actual elevation")
+        link = next(link for link in state.region.vertical_links if link.first.z < link.second.z)
+        lower, upper = link.first, link.second
+        threat = Threat(
+            "height", "dune hunter", "ranged", lower, 5, 5,
+            status="engaged", role="shooter", goal="hold distance", vision=20,
+            ammunition=3, capabilities=["seeks dune height before aiming"],
+        )
+        state.position = Position(lower.x + 5, lower.y, lower.z)
+        state.region.tile_changes[f"{state.position.x},{state.position.y},{state.position.z}"] = "."
+        state.threats = [threat]
+        decision = select_goal(state, threat)
+        self.assertEqual(decision.action, "seek elevation")
+        _threat_action(state, threat, False)
+        self.assertEqual(threat.position, upper)
+
+    def test_smoke_tender_materially_closes_a_lane(self):
+        state = active_region("feed bounded smoke")
+        threat = Threat(
+            "smoke", "burn smoke-tender", "ranged", Position(45, 25),
+            5, 5, status="engaged", role="suppressor", vision=20,
+            ammunition=3, capabilities=["feeds smoke into a watched clearing"],
+        )
+        state.threats = [threat]
+        self.assertEqual(select_goal(state, threat).action, "feed smoke")
+        self.assertIn("bounded smoke lane", _threat_action(state, threat, False))
+        self.assertTrue(state.smoke)
+
 
 class NavigationAndGroupTests(unittest.TestCase):
     def test_obstacle_aware_step_routes_around_wall(self):
@@ -145,6 +185,23 @@ class NavigationAndGroupTests(unittest.TestCase):
         message = _threat_action(state, protector, False)
         self.assertEqual(protector.position, Position(47, 25))
         self.assertIn("ranged ally", message)
+
+    def test_protector_covers_a_wounded_ally_before_attacking(self):
+        state = active_region("cover wounded ally")
+        state.position = Position(42, 25)
+        protector = Threat(
+            "guard", "shield carrier", "reach", Position(46, 25), 6, 6,
+            status="engaged", role="protector", group="pair",
+        )
+        wounded = Threat(
+            "hurt", "hurt runner", "pursuer", Position(48, 25), 1, 5,
+            status="engaged", role="flanker", group="pair", morale=1,
+        )
+        state.threats = [protector, wounded]
+        self.assertEqual(select_goal(state, protector).action, "cover retreat")
+        message = _threat_action(state, protector, False)
+        self.assertIn("wounded ally", message)
+        self.assertEqual(wounded.goal, "break contact")
 
     def test_flanker_uses_visible_side_target(self):
         state = active_region("bounded flank")

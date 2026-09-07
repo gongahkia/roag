@@ -583,6 +583,41 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             return f"The {threat.name} hauls the net across the marked cell; movement control worsens."
         threat.intent = "recovers the empty net line"
         return f"The {threat.name}'s net closes on empty ground after your reposition."
+    if decision.action == "feed smoke":
+        points = (
+            threat.position,
+            Position(threat.position.x - 1, threat.position.y, threat.position.z),
+            Position(threat.position.x + 1, threat.position.y, threat.position.z),
+        )
+        state.smoke.update(
+            {
+                position_key(point): 5 for point in points
+                if is_walkable(state, point, ignore_threat=True)
+            }
+        )
+        threat.intent = "feeds a bounded smoke lane from its material station"
+        return f"The {threat.name} {threat.intent}; wind, height, or the control can answer it."
+    if decision.action == "cover retreat" and decision.target:
+        wounded = next(
+            (
+                ally for ally in state.threats
+                if ally.group == threat.group and ally.position == decision.target
+                and ally.id != threat.id
+            ),
+            None,
+        )
+        previous = threat.position
+        threat.position = next_path_step(
+            state, threat, decision.target, stop_distance=1
+        )
+        if wounded:
+            wounded.morale = min(3, wounded.morale + 1)
+            wounded.goal = "break contact"
+            wounded.goal_reason = "an ally opened a withdrawal lane"
+        threat.intent = "covers a wounded ally's marked withdrawal"
+        if threat.position == previous and not wounded:
+            return ""
+        return f"The {threat.name} {threat.intent}."
     if decision.action in {"retreat", "withdraw"}:
         previous = threat.position
         threat.position = retreat_step(state, threat)
@@ -635,7 +670,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
         else:
             threat.intent = f"finishes reloading {threat.ranged_kind}"
         return f"The {threat.name} {threat.intent}."
-    if decision.action in {"intercept", "patrol", "return", "approach", "flank"} and decision.target:
+    if decision.action in {"intercept", "patrol", "return", "approach", "flank", "seek elevation"} and decision.target:
         stop_distance = 1 if decision.action == "intercept" else 0
         previous = threat.position
         steps = pressure(state).pursuit_steps if decision.action == "approach" else 1
@@ -649,6 +684,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             "return": "returns to its guarded position",
             "approach": "pursues your last visible position",
             "flank": "moves toward a visible side approach rather than your exact position",
+            "seek elevation": "takes a physical stair or climb toward a higher firing lane",
         }
         threat.intent = descriptions[decision.action]
         if threat.position == previous:
@@ -660,6 +696,11 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             if threat.position == threat.patrol[next_index]:
                 threat.patrol_index = next_index
         return f"The {threat.name} {threat.intent}."
+    if decision.action == "wait":
+        if threat.intent == "holds without a perceived courier position":
+            return ""
+        threat.intent = "holds without a perceived courier position"
+        return f"The {threat.name} holds its duty; it does not know where you are."
     if threat.profile == "ranged":
         if threat.position.z != state.position.z and not line_of_sight(
             state, threat.position, state.position
@@ -1668,41 +1709,54 @@ def _attack_targets(state: GameState, attack_range: int) -> list[Threat]:
     )
 
 
-def attack(state: GameState) -> ActionResult:
-    if state.location != "region" or state.weapon is None:
-        return _plain(state, "No readied attack is possible.")
-    ranges = {
-        "billhook": 2,
-        "spear": 3,
-        "cudgel": 1,
-        "staff": 1,
-        "hand axe": 1,
-        "crossbow": 7,
-        "longbow": 12,
-        "sling": 9,
-        "heavy crossbow": 14,
-        "pike": 4,
-        "paired knives": 1,
-        "javelins": 7,
-        "war hammer": 1,
-        "weighted net": 4,
-    }
-    if "winter-juniper" in state.drink_effects and state.weapon in {
-        "crossbow", "longbow", "sling", "heavy crossbow", "javelins",
-    }:
-        ranges[state.weapon] = max(3, ranges[state.weapon] - 3)
-    if {"chilled", "salt-grit", "smoke-inhalation"} & set(state.terrain_statuses) and state.weapon in {
-        "crossbow", "longbow", "sling", "heavy crossbow", "javelins",
-    }:
-        ranges[state.weapon] = max(3, ranges[state.weapon] - 2)
+WEAPON_RANGES = {
+    "billhook": 2,
+    "spear": 3,
+    "cudgel": 1,
+    "staff": 1,
+    "hand axe": 1,
+    "crossbow": 7,
+    "longbow": 12,
+    "sling": 9,
+    "heavy crossbow": 14,
+    "pike": 4,
+    "paired knives": 1,
+    "javelins": 7,
+    "war hammer": 1,
+    "weighted net": 4,
+}
+RANGED_WEAPONS = frozenset(
+    {"crossbow", "longbow", "sling", "heavy crossbow", "javelins", "weighted net"}
+)
+
+
+def effective_weapon_range(state: GameState) -> int:
+    if state.weapon not in WEAPON_RANGES:
+        return 0
+    attack_range = WEAPON_RANGES[state.weapon]
+    if "winter-juniper" in state.drink_effects and state.weapon in RANGED_WEAPONS:
+        attack_range = max(3, attack_range - 3)
+    if (
+        {"chilled", "salt-grit", "smoke-inhalation"} & set(state.terrain_statuses)
+        and state.weapon in RANGED_WEAPONS
+    ):
+        attack_range = max(3, attack_range - 2)
     if (
         "wind-read aim" in build_combinations(state)
         and state.weather in {"salt wind", "crosswind", "ridge gust"}
     ):
-        ranges[state.weapon] += 2
+        attack_range += 2
     if state.courier and state.courier.technique == "high arc" and state.weapon == "sling":
-        ranges[state.weapon] += 2
-    candidates = _attack_targets(state, ranges[state.weapon])
+        attack_range += 2
+    return attack_range
+
+
+def attack(state: GameState, target_id: str | None = None) -> ActionResult:
+    if state.location != "region" or state.weapon is None:
+        return _plain(state, "No readied attack is possible.")
+    candidates = _attack_targets(state, effective_weapon_range(state))
+    if target_id is not None:
+        candidates = [target for target in candidates if target.id == target_id]
     if state.weapon == "pike":
         candidates = [target for target in candidates if distance(state.position, target.position) >= 2]
     if not candidates:
@@ -1711,7 +1765,7 @@ def attack(state: GameState) -> ActionResult:
         return _plain(state, "No visible hostile is within this weapon's reach.")
     target = candidates[0]
     target.status = "engaged"
-    ranged = state.weapon in {"crossbow", "longbow", "sling", "heavy crossbow", "javelins", "weighted net"}
+    ranged = state.weapon in RANGED_WEAPONS
     prepared = state.weapon in {"crossbow", "longbow", "heavy crossbow"}
     ammo_key = {
         "crossbow": "bolts", "longbow": "arrows", "sling": "sling stones",
@@ -2172,12 +2226,12 @@ def use_gear(state: GameState) -> ActionResult:
 def negotiate(state: GameState) -> ActionResult:
     if state.location != "region" or state.courier is None:
         return _plain(state, "No negotiation is possible here.")
-    humans = [
+    humans = sorted([
         threat for threat in state.threats
         if threat.status == "engaged"
         and threat.profile in {"pursuer", "reach", "ranged"}
         and distance(state.position, threat.position) <= 4
-    ]
+    ], key=lambda threat: (distance(state.position, threat.position), threat.id))
     if not humans:
         return _plain(state, "No human obstruction is close enough to hear terms.")
     has_terms = (
@@ -2193,26 +2247,49 @@ def negotiate(state: GameState) -> ActionResult:
             state,
             "You lack witnessed seals, material surety, paper, or valuable leverage.",
         )
+    speaker = humans[0]
+    witnessed = bool(state.objective_evidence) or state.objective_status in {
+        "altered", "completed",
+    }
+    if speaker.elite and not witnessed:
+        return _plain(
+            state,
+            "This leader will not accept broad terms without witnessed regional evidence.",
+        )
+    violence_started = any(threat.health < threat.max_health for threat in humans)
+    if violence_started and speaker.morale > 2 and not witnessed:
+        return _plain(
+            state,
+            "After violence begins, material terms need broken morale or witnessed evidence.",
+        )
+    if speaker.group:
+        heard = [
+            threat for threat in humans
+            if threat.group == speaker.group
+            and distance(speaker.position, threat.position) <= 3
+        ][:2]
+    else:
+        heard = [speaker]
     if "paper" in state.carried_goods and state.gear != "trade seals":
         if not consume_carried(state, "commodity:paper"):
             state.carried_goods["paper"].quantity -= 1
             if state.carried_goods["paper"].quantity == 0:
                 del state.carried_goods["paper"]
-    for threat in humans:
+    for threat in heard:
         threat.status, threat.intent = "negotiated", "accepts witnessed terms"
     drawback = ""
     if "stillroom-cordial" in state.drink_effects and state.contact.disposition <= 0:
         state.contact.disposition = max(-3, state.contact.disposition - 1)
         drawback = " The wary contact remembers the visible intoxication."
     memory = (
-        f"{state.courier.name} settled {len(humans)} route obstruction(s) "
+        f"{state.courier.name} settled {len(heard)} nearby group obstruction(s) "
         "through material terms."
     )
     state.remember(memory)
     _remember_contact(state, memory)
     return _time_result(
         state,
-        "Witnessed material terms settle the obstruction without combat." + drawback,
+        f"Witnessed material terms settle {len(heard)} nearby member(s) of one group; other actors keep their own goals." + drawback,
         priority=3,
     )
 

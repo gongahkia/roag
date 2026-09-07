@@ -305,6 +305,44 @@ class WeaponAndThreatTests(unittest.TestCase):
         _advance_world(state)
         self.assertEqual(animal.status, "evaded")
 
+    def test_negotiation_is_bounded_by_group_evidence_and_violence(self):
+        state = prepared(
+            "bounded negotiation", role="factor", gear="trade seals",
+            support="factor surety",
+        )
+        state.position = Position(40, 25)
+        first = Threat(
+            "first", "first toll ward", "pursuer", Position(41, 25), 4, 4,
+            status="engaged", group="one",
+        )
+        partner = Threat(
+            "partner", "partner toll ward", "reach", Position(42, 25), 4, 4,
+            status="engaged", group="one",
+        )
+        outsider = Threat(
+            "outside", "independent ward", "ranged", Position(41, 26), 4, 4,
+            status="engaged", group="two", ammunition=2,
+        )
+        state.threats = [first, partner, outsider]
+        result = negotiate(state)
+        self.assertTrue(result.time_advanced)
+        self.assertEqual((first.status, partner.status), ("negotiated", "negotiated"))
+        self.assertEqual(outsider.status, "engaged")
+
+        state = prepared(
+            "elite terms", role="factor", gear="trade seals",
+            support="factor surety",
+        )
+        state.position = Position(40, 25)
+        elite = Threat(
+            "leader", "toll leader", "reach", Position(41, 25), 7, 7,
+            status="engaged", elite=True, morale=5,
+        )
+        state.threats = [elite]
+        self.assertFalse(negotiate(state).time_advanced)
+        state.objective_evidence.append("witnessed quarry account")
+        self.assertTrue(negotiate(state).time_advanced)
+
     def test_elite_machinery_uses_timing_and_material_disable(self):
         state = prepared("elite", gear="repair tools")
         quiet(state)
