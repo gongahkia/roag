@@ -17,7 +17,7 @@ from jomon.terminal import (
     semantic_role,
     visible_threats,
 )
-from jomon.main import _set_cursor_visibility, landing_notice_layout
+from jomon.main import _centered_x, _set_cursor_visibility, landing_notice_layout
 from jomon.world import field_of_view, find_tile
 
 
@@ -77,16 +77,20 @@ class LandingLayoutTests(unittest.TestCase):
     def test_long_incompatible_save_warning_wraps_and_centres(self):
         warning = "Existing development save unavailable: incompatible format with preserved consequences that cannot be loaded safely"
         for width, height in ((80, 24), (100, 32)):
-            layout = landing_notice_layout(width, height, warning)
+            layout = landing_notice_layout(width, height, warning, "/a/deliberately/long/save/location/jomon-save.json")
             self.assertGreaterEqual(layout.left, 1)
             self.assertLessEqual(layout.left + layout.width, width - 1)
+            self.assertGreaterEqual(layout.top, 7)
+            self.assertLessEqual(layout.top + layout.height, height - 1)
             self.assertTrue(all(len(line) <= layout.width - 4 for line in layout.lines))
             self.assertEqual(" ".join(layout.lines), warning)
+            self.assertTrue(all(len(line) <= layout.width - 8 for line in layout.path_lines))
+            self.assertEqual(_centered_x(width, "J O M O N"), (width - len("J O M O N")) // 2)
 
     def test_landing_layout_reflows_after_resize(self):
         warning = "Existing development save unavailable: a deliberately long deterministic migration explanation remains complete"
-        small = landing_notice_layout(80, 24, warning)
-        large = landing_notice_layout(100, 32, warning)
+        small = landing_notice_layout(80, 24, warning, "/tmp/save.json")
+        large = landing_notice_layout(100, 32, warning, "/tmp/save.json")
         self.assertGreaterEqual(len(small.lines), len(large.lines))
         self.assertNotEqual((small.top, small.left), (large.top, large.left))
 

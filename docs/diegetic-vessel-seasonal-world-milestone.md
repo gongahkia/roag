@@ -189,7 +189,7 @@ Final commands and results:
 
 ```text
 python -m unittest discover -s tests -v
-Ran 126 tests in 171.072s — OK
+Ran 126 tests in 174.832s — OK
 
 python -m compileall -q jomon tests
 exit 0; no output
