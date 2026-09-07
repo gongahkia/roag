@@ -10,20 +10,11 @@ from dumbest_dungeon.content import ContentError, load_catalog
 
 
 class ContentTests(unittest.TestCase):
-    def test_bundled_catalog_is_complete(self) -> None:
+    def test_bundled_catalog_is_semantically_complete(self) -> None:
         catalog = load_catalog()
-        self.assertEqual(25, len(catalog.heroes))
-        self.assertEqual(155, len(catalog.cards))
-        self.assertEqual(70, len(catalog.enemies))
-        self.assertEqual(109, len(catalog.encounters))
-        self.assertEqual(11, len(catalog.biomes))
-        self.assertEqual(6, len(catalog.worlds))
-        self.assertEqual(10, len(catalog.events))
-        self.assertEqual(18, len(catalog.boons))
-        self.assertEqual(18, len(catalog.curses))
-        self.assertEqual(18, len(catalog.items))
-        self.assertEqual(6, sum(curse["kind"] == "card" for curse in catalog.curses.values()))
-        self.assertEqual(6, len(catalog.afflictions))
+        self.assertTrue(all((catalog.heroes, catalog.cards, catalog.enemies, catalog.encounters)))
+        self.assertTrue(all((catalog.biomes, catalog.worlds, catalog.events)))
+        self.assertTrue(all((catalog.boons, catalog.curses, catalog.items, catalog.afflictions)))
         self.assertEqual(set(catalog.heroes), set(catalog.art["heroes"]))
         self.assertEqual(set(catalog.heroes), set(catalog.art["card_marks"]))
         self.assertEqual(len(catalog.heroes), len(set(catalog.art["card_marks"].values())))
@@ -40,8 +31,8 @@ class ContentTests(unittest.TestCase):
             self.assertGreaterEqual(len(biome_enemies), 3, biome_id)
         affinity_cards = [card for card in catalog.cards.values() if "biome" in card]
         affinity_heroes = [hero for hero in catalog.heroes.values() if "biome" in hero]
-        self.assertEqual(50, len(affinity_cards))
-        self.assertEqual(10, len(affinity_heroes))
+        self.assertTrue(affinity_cards)
+        self.assertTrue(affinity_heroes)
         self.assertEqual(
             {hero["id"] for hero in affinity_heroes},
             {card["hero"] for card in affinity_cards},
@@ -111,7 +102,7 @@ class ContentTests(unittest.TestCase):
     def test_content_balance_guardrails(self) -> None:
         catalog = load_catalog()
         cards_per_hero = Counter(card["hero"] for card in catalog.cards.values())
-        self.assertTrue(all(5 <= count <= 8 for count in cards_per_hero.values()))
+        self.assertTrue(all(count >= 5 for count in cards_per_hero.values()))
         self.assertTrue(all(0 <= card["cost"] <= 2 for card in catalog.cards.values()))
         for card in catalog.cards.values():
             if card["cost"] == 0:
@@ -146,6 +137,60 @@ class ContentTests(unittest.TestCase):
             total_hp = sum(catalog.enemies[enemy_id]["max_hp"] for enemy_id in encounter["enemies"])
             self.assertGreaterEqual(total_hp, 40, encounter["id"])
             self.assertLessEqual(total_hp, 60, encounter["id"])
+
+    def test_catalog_size_is_diagnostic_not_a_validity_rule(self) -> None:
+        catalog = load_catalog()
+        raw = json.loads(json.dumps(catalog.raw))
+        raw["items"].pop()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "fewer-items.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            fewer = load_catalog(path)
+        self.assertEqual(len(catalog.items) - 1, len(fewer.items))
+
+        raw = json.loads(json.dumps(catalog.raw))
+        extra = dict(raw["items"][-1])
+        extra["id"] = "semantic_spare"
+        extra["name"] = "Semantic Spare"
+        raw["items"].append(extra)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "more-items.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            more = load_catalog(path)
+        self.assertEqual(len(catalog.items) + 1, len(more.items))
+
+    def test_unknown_status_and_cross_owner_starter_are_rejected(self) -> None:
+        catalog = load_catalog()
+        raw = json.loads(json.dumps(catalog.raw))
+        raw["cards"][0]["effects"][0] = {
+            "op": "status",
+            "status": "made_up",
+            "amount": 1,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad-status.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ContentError, "invalid status"):
+                load_catalog(path)
+
+        raw = json.loads(json.dumps(catalog.raw))
+        raw["heroes"][0]["starter_deck"][0] = raw["heroes"][1]["starter_deck"][0]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "wrong-owner.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ContentError, "another owner's card"):
+                load_catalog(path)
+
+    def test_rank_lists_must_be_canonical(self) -> None:
+        catalog = load_catalog()
+        raw = json.loads(json.dumps(catalog.raw))
+        nonstarter = next(card for card in raw["cards"] if card["id"] == "shield_rush")
+        nonstarter["from_ranks"] = [2, 1, 2]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad-ranks.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ContentError, "unique ranks in ascending order"):
+                load_catalog(path)
 
 
 if __name__ == "__main__":

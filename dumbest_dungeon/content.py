@@ -68,6 +68,7 @@ ENEMY_TARGETS = {
 }
 EFFECT_CURVES = {"linear", "diminishing", "threshold", "special"}
 CARD_STATES = {"deaths_door", "stressed", "healthy", "wounded"}
+CARD_STATUSES = {"dodge", "focus", "marked", "riposte", "stun", "vulnerable", "weak", "wound"}
 BIOME_HAZARD_EFFECTS = {
     "damage_all",
     "damage_weakest",
@@ -184,6 +185,8 @@ def _ranks(value: Any, context: str) -> None:
         raise ContentError(f"{context} must be a non-empty rank list")
     if any(not isinstance(rank, int) or rank not in range(1, 5) for rank in value):
         raise ContentError(f"{context} contains a rank outside 1..4")
+    if value != sorted(set(value)):
+        raise ContentError(f"{context} must contain unique ranks in ascending order")
 
 
 def _effects(value: Any, allowed: set[str], context: str) -> None:
@@ -194,20 +197,25 @@ def _effects(value: Any, allowed: set[str], context: str) -> None:
             raise ContentError(f"{context}[{index}] has an unknown effect operation")
         if "amount" in effect and not isinstance(effect["amount"], (int, float)):
             raise ContentError(f"{context}[{index}].amount must be numeric")
+        if effect["op"] != "cleanse" and "amount" not in effect:
+            raise ContentError(f"{context}[{index}] needs an amount")
         if "bonus_status" in effect and (
             effect["op"] != "damage"
-            or not isinstance(effect["bonus_status"], str)
-            or not effect["bonus_status"]
+            or effect["bonus_status"] not in CARD_STATUSES
             or not isinstance(effect.get("bonus"), (int, float))
             or effect["bonus"] <= 0
         ):
             raise ContentError(f"{context}[{index}] has an invalid status damage bonus")
         if effect.get("target") not in {None, "self", "all_enemies", "all_allies"}:
             raise ContentError(f"{context}[{index}].target is invalid")
-        if effect["op"] == "status" and not isinstance(effect.get("status"), str):
-            raise ContentError(f"{context}[{index}] status effect needs a status name")
-        if "condition_status" in effect and not isinstance(effect["condition_status"], str):
-            raise ContentError(f"{context}[{index}].condition_status must be a string")
+        if effect["op"] == "status" and (
+            effect.get("status") not in CARD_STATUSES or effect.get("amount", 0) <= 0
+        ):
+            raise ContentError(f"{context}[{index}] has an invalid status effect")
+        if effect["op"] == "move" and effect.get("amount") == 0:
+            raise ContentError(f"{context}[{index}] has a zero-distance move")
+        if "condition_status" in effect and effect["condition_status"] not in CARD_STATUSES:
+            raise ContentError(f"{context}[{index}].condition_status is invalid")
         for field in ("condition_target_state", "condition_actor_state"):
             if field in effect and effect[field] not in CARD_STATES:
                 raise ContentError(f"{context}[{index}].{field} is invalid")
@@ -224,11 +232,13 @@ def _art_lines(value: Any, context: str, *, count: int, width: int) -> None:
 
 
 def _persistent_effects(items: dict[str, dict[str, Any]], section: str) -> None:
-    if len(items) != 18:
-        raise ContentError(f"this release requires exactly 18 {section}")
+    names: set[str] = set()
     for definition in items.values():
         if not isinstance(definition.get("name"), str) or not isinstance(definition.get("description"), str):
             raise ContentError(f"{section[:-1]} {definition['id']} needs a name and description")
+        if not definition["name"] or not definition["description"] or definition["name"] in names:
+            raise ContentError(f"{section} need unique non-empty names and descriptions")
+        names.add(definition["name"])
         effects = definition.get("effects")
         if not isinstance(effects, list) or not effects:
             raise ContentError(f"{section[:-1]} {definition['id']} needs effects")
@@ -352,6 +362,27 @@ def load_catalog(path: Path | None = None) -> Catalog:
     if not isinstance(balance, dict):
         raise ContentError("balance must be an object")
 
+    sections = {
+        "heroes": heroes,
+        "cards": cards,
+        "enemies": enemies,
+        "encounters": encounters,
+        "events": events,
+        "biomes": biomes,
+        "worlds": worlds,
+        "boons": boons,
+        "curses": curses,
+        "items": items,
+        "afflictions": afflictions,
+    }
+    if any(not definitions for definitions in sections.values()):
+        raise ContentError("content sections must not be empty")
+    if cards.keys() & curses.keys():
+        raise ContentError("technique and curse-card ids must not overlap")
+
+    hero_names: set[str] = set()
+    hero_roles: set[str] = set()
+
     for hero in heroes.values():
         for field in ("name", "role", "summary", "max_hp", "rank", "starter_deck"):
             if field not in hero:
@@ -360,22 +391,35 @@ def load_catalog(path: Path | None = None) -> Catalog:
             raise ContentError(f"hero {hero['id']} has invalid rank or max_hp")
         if not isinstance(hero["summary"], str) or not hero["summary"]:
             raise ContentError(f"hero {hero['id']} needs a summary")
+        if hero["name"] in hero_names or hero["role"] in hero_roles:
+            raise ContentError("heroes need unique names and archetype roles")
+        hero_names.add(hero["name"])
+        hero_roles.add(hero["role"])
         if not isinstance(hero["starter_deck"], list) or len(hero["starter_deck"]) != 5:
             raise ContentError(f"hero {hero['id']} must contribute five starter cards")
         for card_id in hero["starter_deck"]:
             if card_id not in cards:
                 raise ContentError(f"hero {hero['id']} references unknown card {card_id}")
+            if cards[card_id].get("hero") != hero["id"]:
+                raise ContentError(f"hero {hero['id']} cannot start with another owner's card")
+        owner_cards = [card for card in cards.values() if card.get("hero") == hero["id"]]
+        if len(owner_cards) < 5:
+            raise ContentError(f"hero {hero['id']} needs at least five techniques")
+        for rank in range(1, 5):
+            if not any(rank in cards[card_id].get("from_ranks", []) for card_id in hero["starter_deck"]):
+                raise ContentError(f"hero {hero['id']} has no starter usable from rank {rank}")
 
         if hero.get("biome") is not None and hero["biome"] not in biomes:
             raise ContentError(f"hero {hero['id']} references an unknown biome")
-    if len(heroes) != 25:
-        raise ContentError("this release requires exactly twenty-five crew archetypes")
-
+    card_names: set[str] = set()
     for card in cards.values():
         if not isinstance(card.get("name"), str) or not isinstance(card.get("description"), str):
             raise ContentError(f"card {card['id']} needs a name and description")
         if card.get("hero") not in heroes:
             raise ContentError(f"card {card['id']} references an unknown hero")
+        if not card["name"] or not card["description"] or card["name"] in card_names:
+            raise ContentError("techniques need unique non-empty names and descriptions")
+        card_names.add(card["name"])
         if card.get("target") not in TARGETS:
             raise ContentError(f"card {card['id']} has an invalid target")
         if not isinstance(card.get("cost"), int) or card["cost"] < 0:
@@ -395,6 +439,13 @@ def load_catalog(path: Path | None = None) -> Catalog:
             for tag in tags
         ):
             raise ContentError(f"card {card['id']} has invalid build tags")
+        for tag in tags:
+            if tag.startswith(("setup:", "payoff:", "status:")):
+                status = tag.split(":", 1)[1]
+                if status not in CARD_STATUSES | {"deaths_door"}:
+                    raise ContentError(f"card {card['id']} has an unknown status build tag")
+            if tag.startswith("affinity:") and tag.split(":", 1)[1] not in biomes:
+                raise ContentError(f"card {card['id']} has an unknown affinity build tag")
         if "upgrade_description" in card and (
             not isinstance(card["upgrade_description"], str) or not card["upgrade_description"]
         ):
@@ -410,10 +461,11 @@ def load_catalog(path: Path | None = None) -> Catalog:
                 raise ContentError(f"card {card['id']} does not match its hero's biome")
             if not isinstance(card.get("biome_bonus"), int) or not 1 <= card["biome_bonus"] <= 3:
                 raise ContentError(f"card {card['id']} has an invalid biome bonus")
-    if len(cards) != 155:
-        raise ContentError("this release requires exactly 155 unique cards")
-
+    enemy_names: set[str] = set()
     for enemy in enemies.values():
+        if not isinstance(enemy.get("name"), str) or not enemy["name"] or enemy["name"] in enemy_names:
+            raise ContentError("enemies need unique non-empty names")
+        enemy_names.add(enemy["name"])
         if not isinstance(enemy.get("max_hp"), int) or enemy["max_hp"] <= 0:
             raise ContentError(f"enemy {enemy['id']} has invalid max_hp")
         actions = enemy.get("actions")
@@ -428,9 +480,6 @@ def load_catalog(path: Path | None = None) -> Catalog:
             biome_id not in biomes for biome_id in enemy_biomes
         ):
             raise ContentError(f"enemy {enemy['id']} has invalid biomes")
-    if len(enemies) != 70:
-        raise ContentError("this release requires exactly 70 enemy types")
-
     for encounter in encounters.values():
         if encounter.get("kind") not in {"normal", "elite", "boss"}:
             raise ContentError(f"encounter {encounter['id']} has invalid kind")
@@ -451,11 +500,6 @@ def load_catalog(path: Path | None = None) -> Catalog:
             for enemy_id in members
         ):
             raise ContentError(f"encounter {encounter['id']} mixes incompatible biome enemies")
-    if len(encounters) != 109:
-        raise ContentError("this release requires exactly 109 encounter templates")
-
-    if len(biomes) != 11:
-        raise ContentError("this release requires exactly eleven biomes")
     glyphs = set()
     for biome in biomes.values():
         if not isinstance(biome.get("name"), str) or not isinstance(biome.get("description"), str):
@@ -468,8 +512,6 @@ def load_catalog(path: Path | None = None) -> Catalog:
         glyphs.add(glyph)
         _biome_mechanics(biome)
 
-    if len(worlds) != 6:
-        raise ContentError("this release requires exactly six world types")
     for world in worlds.values():
         if not isinstance(world.get("name"), str) or not isinstance(world.get("description"), str):
             raise ContentError(f"world {world['id']} needs a name and description")
@@ -513,9 +555,6 @@ def load_catalog(path: Path | None = None) -> Catalog:
     for curse in curses.values():
         if curse.get("kind") not in {"trait", "card"}:
             raise ContentError(f"curse {curse['id']} must be a trait or card")
-    if sum(curse["kind"] == "card" for curse in curses.values()) != 6:
-        raise ContentError("this release requires exactly six curse cards")
-
     required_balance = {
         "hand_size",
         "energy",
