@@ -8,20 +8,26 @@
 
 ## Now
 
-- Put the living-vessel build in the owner's hands and collect ordinary-play
-  evidence about chart legibility, packing convenience, schedule cadence,
-  bartender value, and incident frequency.
+- Implement one materially distinct questline in each existing region and one
+  grounded cross-region arc, while preserving immediate first departure.
+- Reconcile physical objective cargo, defeat/death ownership, inventory
+  cancellation, ammunition, bottled drinks, selected relics, and reconstructed
+  regional process state in save format 6.
+- Activate retained passives, recruit techniques, armour fields, statuses, and
+  enemy capabilities through ordinary production actions; then use bounded
+  production encounter composition and explicit ranged targeting.
+- Improve cache signposting, add bounded tactical rewards and alternative
+  elites, and verify twelve readable three-system build combinations.
 
 ## Next
 
-- Wrap rather than ellipsize dense route-consequence text in the 80×24 chart
-  details panel if owner play confirms the PTY-observed readability cost.
+- Collect owner-play evidence on quest branches, treasure discovery, ranged
+  targeting, encounter repetition, and the cross-region endings.
 
 ## Later
 
-- Improve ordinary discovery signposting when owner play again shows a missed
-  cache; the prior assessment found only three containers naturally on eight
-  objective-oriented routes.
+- Wrap rather than ellipsize dense route-consequence text in the 80×24 chart
+  details panel if ordinary play confirms the PTY-observed readability cost.
 - Add another regional map only after the current four are played and judged.
 - Revisit return-route variation and expand onboard incidents only after ordinary expedition pacing is stable.
 - Add capture or rescue only if play exposes a concrete contextual need.
@@ -32,7 +38,8 @@
   catch-up; unnamed distant-person or universal NPC simulation; unrestricted
   autonomous death; factions; eras; NG+; alternate renderers; graphical tiles;
   crafting; skill trees; replay infrastructure; generic content packs;
-  schedule/GOAP/encounter/quest/narrative DSLs; full needs/anatomy/garment/
+  schedule/GOAP/encounter/quest/narrative DSLs; endless procedural quests;
+  full needs/anatomy/garment/
   fluid/weather/economy simulation; servers; networking; telemetry; databases;
   plugins; ECS; real-time combat or travel; and generic magic.
 

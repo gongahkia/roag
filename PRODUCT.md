@@ -14,6 +14,15 @@ effects alter existing weather, routes, work, stock, and exposure. All of
 these features are direct additions to the existing state and curses
 interface, not generic UI, schedule, travel, or social-simulation frameworks.
 
+The active content milestone deepens those four regions in place. Each gains
+one directly authored, persistent regional questline; progress in at least two
+regions can open one grounded cross-region material dispute. Existing
+equipment, discoveries, recruits, terrain, enemies, controls, and physical
+items must gain observable action hooks before the catalogue grows. Production
+encounters may use the existing bounded regional composer, but authored quest
+and elite placements remain explicit. This work adds no fifth region and no
+generic quest, dialogue, planning, faction, or encounter language.
+
 The permanent constraints are:
 
 - seeded, inspectable determinism and action-driven time;
@@ -49,6 +58,10 @@ eligible courier receives a one-time, role-appropriate basic weapon, secondary
 item, and modest working armour. Issued equipment remains ordinary physical
 state subject to weight, damage, deliberate replacement, dropping, and loss;
 it is not silently recreated after issue.
+
+The immediate first departure remains a product constraint: a new-world
+bargemaster can interact at the gangplank and enter Hearthford without first
+opening the tavern, inventory, support, chart, or equipment interfaces.
 
 This milestone explicitly excludes more regions, infinite or offline world
 simulation, exhaustive needs or anatomy, unrestricted autonomous death,
