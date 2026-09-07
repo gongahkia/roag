@@ -180,10 +180,16 @@
     "phase_skin": {"tags": ["affinity:void", "block", "mobility", "status:dodge"], "upgrade_description": "Upgrade: gain 8 block, dodge for 3 rounds, and move back."},
     "absence": {"tags": ["affinity:void", "block", "stress_relief", "stress_risk"], "upgrade_description": "All crew gain 3 block and lose 7 stress; you gain 4."},
     "inversion": {"tags": ["affinity:void", "damage", "displacement", "setup:vulnerable"], "upgrade_description": "Upgrade: deal 9, expose for 3, and push back 2 ranks."},
+    "collapse_point": {"tags": ["affinity:void", "control", "damage", "displacement", "payoff:vulnerable", "stress_risk"], "upgrade_description": "Upgrade: deal 13, plus 9 if vulnerable, pull to front, stun exposed targets, and gain 3 stress."},
+    "phase_exchange": {"tags": ["affinity:void", "block", "mobility", "status:dodge"], "upgrade_description": "Upgrade: move an ally back 3 with 5 block and dodge; move forward 2 with 5 block."},
+    "nothing_to_lose": {"tags": ["affinity:void", "block", "draw", "energy", "payoff:deaths_door", "status:dodge"], "upgrade_description": "Upgrade: at Death's Door gain 10 block, 2 energy, draw 3, and dodge once."},
     "marrow_blade": {"tags": ["affinity:ossuary", "damage", "setup:wound"], "upgrade_description": "Upgrade: deal 11 and wound for 3 rounds."},
     "ossify": {"tags": ["affinity:ossuary", "block"], "upgrade_description": "Upgrade: gain 15 block."},
     "field_splint": {"tags": ["affinity:ossuary", "block", "recovery"], "upgrade_description": "Upgrade: heal 8 and grant 9 block."},
     "rattling_host": {"tags": ["affinity:ossuary", "block", "damage"], "upgrade_description": "Upgrade: deal 7 to all hostiles and gain 8 block."},
-    "last_scaffold": {"tags": ["affinity:ossuary", "block", "guard", "payoff:deaths_door", "recovery"], "upgrade_description": "Guard for 3, gain 8 block, and rescue allies at Death's Door."}
+    "last_scaffold": {"tags": ["affinity:ossuary", "block", "guard", "payoff:deaths_door", "recovery"], "upgrade_description": "Guard for 3, gain 8 block, and rescue allies at Death's Door."},
+    "bone_saw": {"tags": ["affinity:ossuary", "block", "damage", "payoff:wound", "recovery"], "upgrade_description": "Upgrade: deal 8, plus 8 if wounded; heal 4 and gain 4 block from a wounded target."},
+    "cage_of_ribs": {"tags": ["affinity:ossuary", "block", "status:riposte"], "upgrade_description": "Upgrade: all gain 6 block, plus 5 if anyone is wounded; gain riposte."},
+    "borrowed_marrow": {"tags": ["affinity:ossuary", "block", "cleanse", "payoff:deaths_door", "recovery"], "upgrade_description": "Upgrade: cleanse and heal 8, plus 6 at Death's Door; take a shorter wound and gain 5 block."}
   }
 }
