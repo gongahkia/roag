@@ -168,6 +168,18 @@ class ContentTests(unittest.TestCase):
             self.assertGreaterEqual(len(nonstarters), 3, hero_id)
             self.assertGreaterEqual(len({tuple(card["tags"]) for card in nonstarters}), 2, hero_id)
 
+    def test_cryogenic_and_hydroponic_specialists_have_draft_branches(self) -> None:
+        catalog = load_catalog()
+        for hero_id in ("cryonaut", "horticulturist"):
+            hero = catalog.heroes[hero_id]
+            starters = set(hero["starter_deck"])
+            nonstarters = [
+                card for card in catalog.cards.values()
+                if card["hero"] == hero_id and card["id"] not in starters
+            ]
+            self.assertGreaterEqual(len(nonstarters), 3, hero_id)
+            self.assertTrue(all(f"affinity:{hero['biome']}" in card["tags"] for card in nonstarters))
+
     def test_catalog_size_is_diagnostic_not_a_validity_rule(self) -> None:
         catalog = load_catalog()
         raw = json.loads(json.dumps(catalog.raw))
