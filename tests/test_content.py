@@ -107,6 +107,11 @@ class ContentTests(unittest.TestCase):
             with self.assertRaisesRegex(ContentError, "missing authored build tags"):
                 load_catalog(path)
 
+    def test_self_debuffs_are_not_misrepresented_as_enemy_setup(self) -> None:
+        catalog = load_catalog()
+        self.assertNotIn("control", catalog.cards["quench"]["tags"])
+        self.assertNotIn("setup:wound", catalog.cards["spore_exchange"]["tags"])
+
     def test_incomplete_biome_mechanics_are_rejected(self) -> None:
         catalog = load_catalog()
         raw = json.loads(json.dumps(catalog.raw))

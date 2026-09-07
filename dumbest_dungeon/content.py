@@ -240,11 +240,13 @@ def _derived_card_tags(card: dict[str, Any]) -> set[str]:
             tags.add(op)
         elif op == "status":
             status = effect["status"]
-            if status in {"marked", "vulnerable", "wound"}:
+            target = effect.get("target", card["target"])
+            targets_enemy = target in {"enemy", "all_enemies"}
+            if status in {"marked", "vulnerable", "wound"} and targets_enemy:
                 tags.add(f"setup:{status}")
-            elif status in {"weak", "stun"}:
+            elif status in {"weak", "stun"} and targets_enemy:
                 tags.add("control")
-            else:
+            elif status in {"dodge", "focus", "riposte"}:
                 tags.add(f"status:{status}")
         bonus_status = effect.get("bonus_status") or effect.get("condition_status")
         if bonus_status:
