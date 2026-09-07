@@ -6,7 +6,7 @@ import random
 from collections import Counter, deque
 from dataclasses import asdict, dataclass, field
 from heapq import heappop, heappush
-from typing import Any
+from typing import Any, Callable
 
 from .content import Catalog
 
@@ -2374,7 +2374,10 @@ class GameEngine:
                     for status in ("marked", "stun", "vulnerable", "weak", "wound"):
                         target.statuses.pop(status, None)
 
-    def end_turn(self) -> None:
+    def end_turn(
+        self,
+        playback: Callable[[dict[str, Any]], None] | None = None,
+    ) -> None:
         if self.state.phase != "combat":
             raise RuleError("there is no combat turn to end")
         for card in self.state.hand:
@@ -2388,7 +2391,7 @@ class GameEngine:
                 if hero.statuses["stun"] <= 0:
                     del hero.statuses["stun"]
             self._decay_statuses(hero)
-        self._enemy_phase()
+        self._enemy_phase(playback)
         if self.state.phase != "combat":
             return
         for hero in self.living_heroes():
@@ -2546,7 +2549,51 @@ class GameEngine:
             planned_statuses |= self._action_setup_statuses(action)
         return intents
 
-    def _enemy_phase(self) -> None:
+    def _combat_actor_snapshot(self) -> dict[str, dict[str, Any]]:
+        return {
+            actor.id: {
+                "name": actor.name,
+                "hp": actor.hp,
+                "block": actor.block,
+                "stress": actor.stress,
+                "rank": actor.rank,
+                "alive": actor.alive,
+                "statuses": dict(actor.statuses),
+            }
+            for actor in self.state.heroes + self.state.enemies
+        }
+
+    @staticmethod
+    def _enemy_action_changes(
+        before: dict[str, dict[str, Any]],
+        after: dict[str, dict[str, Any]],
+    ) -> list[str]:
+        changes = []
+        for actor_id, earlier in before.items():
+            later = after[actor_id]
+            name = earlier["name"]
+            for field, label in (("hp", "HP"), ("block", "BLOCK"), ("stress", "STRESS")):
+                delta = later[field] - earlier[field]
+                if delta:
+                    changes.append(f"{name} {delta:+d} {label}")
+            if later["rank"] != earlier["rank"]:
+                changes.append(f"{name} R{earlier['rank']}->R{later['rank']}")
+            statuses = set(earlier["statuses"]) | set(later["statuses"])
+            for status in sorted(statuses):
+                old = earlier["statuses"].get(status, 0)
+                new = later["statuses"].get(status, 0)
+                if new > old:
+                    changes.append(f"{name} +{status.upper()} {new}")
+                elif old and not new:
+                    changes.append(f"{name} -{status.upper()}")
+            if earlier["alive"] and not later["alive"]:
+                changes.append(f"{name} DEAD")
+        return changes
+
+    def _enemy_phase(
+        self,
+        playback: Callable[[dict[str, Any]], None] | None = None,
+    ) -> None:
         for hero in self.living_heroes():
             self.state.effect_counters[f"adrenal:{hero.id}"] = 0
         intents = list(self.state.intents)
@@ -2565,11 +2612,28 @@ class GameEngine:
                     return
                 continue
             if enemy.statuses.get("stun", 0):
+                before = self._combat_actor_snapshot()
                 enemy.statuses["stun"] -= 1
                 if enemy.statuses["stun"] <= 0:
                     del enemy.statuses["stun"]
                 self.add_log(f"{enemy.name} is stunned.")
                 self._decay_statuses(enemy)
+                if playback:
+                    playback(
+                        {
+                            "actor_id": enemy.id,
+                            "actor_name": enemy.name,
+                            "actor_rank": intent["enemy_rank"],
+                            "action": "STUNNED",
+                            "target_labels": [self._intent_target_label(enemy)],
+                            "setup": [],
+                            "payoff": [],
+                            "changes": self._enemy_action_changes(
+                                before,
+                                self._combat_actor_snapshot(),
+                            ),
+                        }
+                    )
                 continue
             actions = self.catalog.enemies[enemy.definition_id or enemy.id]["actions"]
             action = next(item for item in actions if item["name"] == intent["action"])
@@ -2578,14 +2642,35 @@ class GameEngine:
                 targets = [living[target_id] for target_id in intent["target_ids"] if target_id in living]
             else:
                 targets = self._enemy_targets(action["target"], enemy)
+            before = self._combat_actor_snapshot()
             self.add_log(f"{enemy.name} uses {action['name']}.")
             for effect in action["effects"]:
                 self._apply_effect(enemy, self._effect_targets(effect.get("target"), targets, enemy), effect)
                 if self.state.phase != "combat":
-                    return
+                    break
                 if not self.living_enemies():
-                    self._combat_victory()
-                    return
+                    break
+            if playback:
+                playback(
+                    {
+                        "actor_id": enemy.id,
+                        "actor_name": enemy.name,
+                        "actor_rank": intent["enemy_rank"],
+                        "action": action["name"],
+                        "target_labels": list(intent.get("target_labels", [])),
+                        "setup": sorted(self._action_setup_statuses(action)),
+                        "payoff": sorted(self._action_exploit_statuses(action)),
+                        "changes": self._enemy_action_changes(
+                            before,
+                            self._combat_actor_snapshot(),
+                        ),
+                    }
+                )
+            if self.state.phase != "combat":
+                return
+            if not self.living_enemies():
+                self._combat_victory()
+                return
             self._decay_statuses(enemy)
 
     def _enemy_targets(self, rule: str, actor: Actor) -> list[Actor]:

@@ -731,6 +731,26 @@ class EngineTests(unittest.TestCase):
         self.engine.end_turn()
         self.assertEqual("combat", self.engine.state.phase)
 
+    def test_enemy_action_playback_is_sequential_and_state_neutral(self) -> None:
+        animated = GameEngine.new(self.catalog, 812)
+        silent = GameEngine.new(self.catalog, 812)
+        animated.room().biome_id = silent.room().biome_id = "archive"
+        animated.start_combat("lost_shift")
+        silent.start_combat("lost_shift")
+        events: list[dict] = []
+        animated.end_turn(events.append)
+        silent.end_turn()
+        self.assertEqual(silent.snapshot(), animated.snapshot())
+        self.assertEqual(sorted(event["actor_rank"] for event in events), [
+            event["actor_rank"] for event in events
+        ])
+        self.assertTrue(events)
+        for event in events:
+            self.assertTrue(event["actor_name"])
+            self.assertTrue(event["action"])
+            self.assertTrue(event["target_labels"])
+            self.assertIn("changes", event)
+
     def test_enemy_intent_weights_coordinate_setup_exploit_and_support(self) -> None:
         self.engine.start_combat(
             "lost_shift",
