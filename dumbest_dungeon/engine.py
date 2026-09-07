@@ -1138,7 +1138,11 @@ class GameEngine:
             raise RuleError("save references an unknown access objective")
         if (state.phase == "objective") != (state.current_objective_id is not None):
             raise RuleError("save contains an inconsistent active access objective")
-        if pickup_positions & hazard_positions or pickup_positions & objective_positions or hazard_positions & objective_positions:
+        if (
+            pickup_positions & hazard_positions
+            or pickup_positions & objective_positions
+            or hazard_positions & objective_positions
+        ):
             raise RuleError("save contains overlapping map features")
         if (
             not isinstance(state.travel_ticks, int)
@@ -1431,7 +1435,8 @@ class GameEngine:
         room.visited = True
         if room.kind == "boss" and not self.boss_unlocked():
             self.add_log(
-                f"Apex seal rejects the crew: {self.completed_objectives()}/{self.state.required_objectives} access signals."
+                f"Apex seal rejects the crew: {self.completed_objectives()}/"
+                f"{self.state.required_objectives} access signals."
             )
             return
         if room.resolved or room.kind in {"start", "fight", "elite", "boss"}:
@@ -1571,7 +1576,10 @@ class GameEngine:
         if self.state.phase != "defeat":
             self.state.phase = "exploration"
         progress = self.completed_objectives()
-        message = f"{definition['name']} secured by {method_label.lower()}. Access {progress}/{self.state.required_objectives}."
+        message = (
+            f"{definition['name']} secured by {method_label.lower()}. "
+            f"Access {progress}/{self.state.required_objectives}."
+        )
         if self.boss_unlocked():
             boss_patrol = next(
                 (patrol for patrol in self.state.patrols if self.room(patrol.room_id).kind == "boss"),
@@ -1990,7 +1998,10 @@ class GameEngine:
         for effect in environment["effects"]:
             if effect["op"] in {"draw", "energy"}:
                 continue
-            targets = heroes + enemies if effect["target"] == "all" else heroes if effect["target"] == "crew" else enemies
+            if effect["target"] == "all":
+                targets = heroes + enemies
+            else:
+                targets = heroes if effect["target"] == "crew" else enemies
             if effect["op"] == "block":
                 for target in targets:
                     target.block += int(effect["amount"])

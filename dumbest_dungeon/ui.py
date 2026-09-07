@@ -278,8 +278,12 @@ class TerminalUI:
         self._put(
             rows - 4,
             2,
-            f"Crew ({state.party_x:03},{state.party_y:02})  Target ({cursor[0]:03},{cursor[1]:02})  "
-            f"Cost {route_length:2}/{maximum} {reach}  {access} {core}  Biome: {biome}  Last: {zone}"[: self.screen.getmaxyx()[1] - 3],
+            (
+                f"Crew ({state.party_x:03},{state.party_y:02})  "
+                f"Target ({cursor[0]:03},{cursor[1]:02})  "
+                f"Cost {route_length:2}/{maximum} {reach}  {access} {core}  "
+                f"Biome: {biome}  Last: {zone}"
+            )[: self.screen.getmaxyx()[1] - 3],
             self._attr(1 if reach == "READY" else 3),
         )
         self._put(
@@ -353,7 +357,10 @@ class TerminalUI:
                 )
         overlays.append((state.party_x, state.party_y, "@", self._attr(4) | curses.A_BOLD))
         cursor_symbol = "@" if cursor == (state.party_x, state.party_y) else "X"
-        reachable = self.engine.is_walkable(*cursor) and self.engine.path_cost(route) <= self.engine.maximum_navigation_distance()
+        reachable = (
+            self.engine.is_walkable(*cursor)
+            and self.engine.path_cost(route) <= self.engine.maximum_navigation_distance()
+        )
         if self.colour:
             cursor_attr = self._attr(7 if reachable else 5)
         else:
