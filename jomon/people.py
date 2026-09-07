@@ -8,6 +8,33 @@ from .vessel import HOUSEHOLD_SEATS, VISITOR_SEATS, current_area
 
 BERTH_CAPACITY = 9
 
+RECRUIT_REQUIREMENTS = {
+    "recruit-maelin": (
+        "greywash", ("tide_held", "safe_salt_delay"),
+        "a tide window was held or deliberately delayed",
+    ),
+    "recruit-jessa": (
+        "greywash", ("quest_cache_opened",),
+        "the named wreck locker was recovered accountably",
+    ),
+    "recruit-orra": (
+        "greenwold", ("medicine_coppice_saved",),
+        "the medicine coppice survived the managed burn",
+    ),
+    "recruit-bran": (
+        "greenwold", ("care_obligation_settled",),
+        "a persistent injury was treated through a witnessed obligation",
+    ),
+    "recruit-teren": (
+        "whitecairn", ("quarry_braced",),
+        "the quarry was materially braced before another crossing",
+    ),
+    "recruit-sava": (
+        "whitecairn", ("honest_bell",),
+        "the false private alarm was replaced by an honest warning",
+    ),
+}
+
 def create_visitors(seed: str) -> list[Person]:
     visitors: list[Person] = []
     for index, template in enumerate(RECRUIT_TEMPLATES):
@@ -86,10 +113,10 @@ def recruit_visitor(state: GameState, person_id: str) -> tuple[bool, str]:
         return False, "That visitor is not available aboard Jomon."
     if len(state.household) >= state.berth_capacity:
         return False, f"Jomon's {state.berth_capacity} adult berths are full; the invitation can be deferred."
-    if state.trade_credit < 2 and not state.region.changes.get(f"recruit:{person_id}"):
+    region_id, markers, witnessed = RECRUIT_REQUIREMENTS[person_id]
+    changes = state.regions[region_id].changes
+    if not any(changes.get(marker, False) for marker in markers):
         return False, visitor.recruitment_terms
-    if not state.region.changes.get(f"recruit:{person_id}"):
-        state.trade_credit -= 2
     state.visitors.remove(visitor)
     for member in state.household:
         standing = visitor.relationships.get(member.id, 0)
@@ -97,7 +124,9 @@ def recruit_visitor(state: GameState, person_id: str) -> tuple[bool, str]:
     state.household.append(visitor)
     visitor.recruited = True
     state.visitor_status[person_id] = "joined"
-    visitor.memories.append(f"{visitor.name} voluntarily joined Jomon after witnessed terms.")
+    visitor.memories.append(
+        f"{visitor.name} voluntarily joined Jomon after {witnessed}."
+    )
     state.remember(visitor.memories[-1])
     if visitor.id in state.actor_schedules:
         state.actor_schedules[visitor.id].activity = "socialising"

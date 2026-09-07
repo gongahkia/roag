@@ -362,6 +362,7 @@ class GameState:
     auto_place_enabled: bool
     actor_schedules: dict[str, ActorSchedule]
     bartender: Person
+    merchant: Person
     bartender_stock: dict[str, int]
     drink_effects: dict[str, TerrainStatus]
     calendar_origin_day: int
@@ -545,6 +546,17 @@ def create_world(seed: str) -> GameState:
             build_tendency="material hospitality and firm limits",
             memories=["Sena took the bar on witnessed household shares."],
         ),
+        merchant=Person(
+            id="merchant-veyra", name="Veyra Bale", role="itinerant deck factor",
+            equipment=["oilskin account", "sample hook"], technique="regional lots",
+            relationships={}, background=(
+                "A coast-and-river factor who visits Jomon only when a recorded "
+                "route cycle and regional stock justify the mooring."
+            ),
+            build_tendency="bounded tools, witnessed exchange, and regional shortages",
+            memories=["Veyra first heard Jomon's name in four working markets."],
+            available=False,
+        ),
         bartender_stock={}, drink_effects={}, calendar_origin_day=0,
         calendar_events=[], chronicle=[], pending_incident=None,
         last_schedule_turn=0,
@@ -705,6 +717,14 @@ def _migrate_v5(data: dict[str, Any]) -> dict[str, Any]:
     migrated.setdefault("questlines", {})
     migrated.setdefault("cross_region_arc", {"status": "locked"})
     migrated.setdefault("treasure_marks", {})
+    migrated.setdefault("merchant", asdict(Person(
+        id="merchant-veyra", name="Veyra Bale", role="itinerant deck factor",
+        equipment=["oilskin account", "sample hook"], technique="regional lots",
+        relationships={}, background="A coast-and-river factor who visits Jomon on a recorded route cycle.",
+        build_tendency="bounded regional exchange",
+        memories=["Veyra first heard Jomon's name in four working markets."],
+        available=False,
+    )))
     return migrated
 
 
@@ -879,6 +899,12 @@ def game_state_from_dict(data: Any) -> GameState:
             auto_place_enabled=data.get("auto_place_enabled", True),
             actor_schedules=actor_schedules,
             bartender=Person(**data["bartender"]),
+            merchant=Person(**data.get("merchant", {
+                "id": "merchant-veyra", "name": "Veyra Bale",
+                "role": "itinerant deck factor", "equipment": [],
+                "technique": "regional lots", "relationships": {},
+                "available": False,
+            })),
             bartender_stock=dict(data.get("bartender_stock", {})),
             drink_effects={
                 name: TerrainStatus(**value)
@@ -970,7 +996,7 @@ def validate_state(state: GameState) -> None:
         raise StateError("save must retain the six-person household and unique recruits")
     if state.active_courier_id is not None and state.courier is None:
         raise StateError("active courier is not in the household")
-    all_people = [*state.household, *state.visitors]
+    all_people = [*state.household, *state.visitors, state.merchant]
     if len({person.id for person in all_people}) != len(all_people):
         raise StateError("household and visitor identities must be unique")
     if state.berth_capacity < 6 or len(state.household) > state.berth_capacity:

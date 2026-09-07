@@ -115,6 +115,7 @@ def record_container_opened(state: GameState, container_id: str) -> None:
     quest = state.questlines[state.active_region_id]
     if container_id == QUESTS[state.active_region_id]["cache"]:
         quest.optional_done = True
+        state.region.changes["quest_cache_opened"] = True
         if "optional-cache" not in quest.decisions:
             quest.decisions.append("optional-cache")
         state.add_message(
@@ -410,4 +411,5 @@ def use_secondary_service(state: GameState, choice: str) -> tuple[bool, str]:
     state.courier.health = min(state.courier.max_health, state.courier.health + 3)
     state.courier.injury = next(iter(state.courier.injuries.values()), "treated soreness")
     contact.memories.append(f"Treated {state.courier.name}'s {location} injury for a recorded obligation.")
+    state.region.changes["care_obligation_settled"] = True
     return True, f"{contact.name} treats the {location} injury; time and a finite obligation remain consequential."

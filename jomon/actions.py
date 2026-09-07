@@ -2443,7 +2443,14 @@ def purchase_merchant_item(state: GameState, item: str) -> ActionResult:
     elif kind == "relic":
         state.relics[item] = state.relics.get(item, 0) + 1
     state.remember(
-        f"Jomon exchanged {cost} credit for {item} from the visiting merchant."
+        f"Jomon exchanged {cost} credit for {item} from {state.merchant.name}."
+    )
+    state.merchant.memories.append(
+        f"Sold {item} to {state.courier.name} after {state.active_region_id}'s recorded outcome."
+    )
+    del state.merchant.memories[:-8]
+    state.merchant.relationships[state.active_courier_id] = min(
+        3, state.merchant.relationships.get(state.active_courier_id, 0) + 1
     )
     return _time_result(
         state, f"Purchased {item}; it persists aboard Jomon.", priority=3
@@ -2494,6 +2501,14 @@ def return_to_jomon(state: GameState) -> ActionResult:
         state.seed, state.returned_expeditions
     )
     state.merchant_stock = merchant_stock_for(state) if state.merchant_present else []
+    state.merchant.available = state.merchant_present
+    merchant_schedule = state.actor_schedules.get(state.merchant.id)
+    if merchant_schedule:
+        merchant_schedule.available = state.merchant_present
+        merchant_schedule.activity = (
+            "trading from a counted berth"
+            if state.merchant_present else "away on a regional circuit"
+        )
     state.remember(
         f"{courier.name} returned physically through Jomon's gangplank; "
         "discoveries entered household stores."

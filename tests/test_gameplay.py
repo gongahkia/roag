@@ -432,6 +432,8 @@ class PersistenceAndDefeatTests(unittest.TestCase):
         item = state.merchant_stock[0]
         purchase_merchant_item(state, item)
         self.assertNotIn(item, state.merchant_stock)
+        self.assertIn(item, state.merchant.memories[-1])
+        self.assertEqual(state.merchant.relationships[state.active_courier_id], 1)
 
     def test_objective_return_save_reload_and_changed_second_expedition(self):
         state = prepared("changed second", gear="repair tools", support="carpenter rig")

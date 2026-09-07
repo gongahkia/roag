@@ -1602,11 +1602,18 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         alter = "available" if state.gear == "repair tools" or state.support in {"route survey", "carpenter rig"} or (state.courier and state.courier.technique == "lever craft") or state.contact.disposition >= 2 else "needs tools, support, lever craft, or trust"
         return state.contact.name.upper(), [state.region.pressure, state.region.objective_text, "A. Accept cargo recovery", "R. Refuse", f"T. Alter to mill-control repair ({alter})", "Escape cancels without time."]
     if kind == "merchant":
-        lines = [f"Jomon credit: {state.trade_credit}"]
+        schedule = state.actor_schedules.get(state.merchant.id)
+        lines = [
+            f"{state.merchant.name}, {state.merchant.role}; "
+            f"{schedule.activity if schedule else 'between recorded routes'}.",
+            state.merchant.background,
+            f"Opinion of courier: {state.merchant.relationships.get(state.active_courier_id or '', 0):+d}.",
+            f"Jomon credit: {state.trade_credit}",
+        ]
         for index, item in enumerate(state.merchant_stock):
             cost = max(1, MERCHANT_ITEMS[item][0] - (1 if state.support == "factor surety" else 0))
             lines.append(f"{index + 1}. {item} — {cost} credit")
-        return "VISITING DECK MERCHANT", lines + ["Number buys; Escape closes. Stock leaves on departure."]
+        return state.merchant.name.upper(), lines + ["Number buys; Escape closes. Stock leaves on departure."]
     if kind == "destination":
         lines = [
             f"{index + 1}. {state.regions[region_id].name}"

@@ -174,6 +174,7 @@ class PhysicalStateIntegrityTests(unittest.TestCase):
         legacy.pop("questlines")
         legacy.pop("cross_region_arc")
         legacy.pop("treasure_marks")
+        legacy.pop("merchant")
         first = game_state_from_dict(copy.deepcopy(legacy))
         second = game_state_from_dict(copy.deepcopy(legacy))
         self.assertEqual(first.save_format, SAVE_FORMAT)

@@ -23,6 +23,19 @@ third. These are persistent, credible map-memory marks; they do not reveal
 moving actors. Secondary workers also teach one practical regional technique
 or treat one persistent injury for field-care support or a recorded credit.
 
+Regional recruits now judge witnessed circumstances rather than accepting an
+unrelated payment. Maelin needs a held or deliberately delayed tide; Jessa
+needs the named wreck property recovered; Orra needs the medicine coppice;
+Bran needs a recorded treatment obligation; Teren needs a materially braced
+quarry; and Sava needs an honest public warning. Their joining memory records
+the specific term. Credit alone cannot bypass it.
+
+The occasional deck factor is the persistent named Veyra Bale. Her visit still
+uses the bounded seeded three-expedition cycle and three-lot stock, but her
+recorded stock reflects the current region and objective result. Purchases
+change her relationship and bounded memories, and her schedule explicitly
+distinguishes trading aboard from travelling the regional circuit.
+
 ## The Four Working Marks
 
 Completing any two regional lines unlocks a grounded cross-region account.

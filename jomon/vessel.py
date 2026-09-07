@@ -144,6 +144,7 @@ VISITOR_SEATS = (
     Position(33, 16), Position(42, 18), Position(51, 9),
 )
 BARTENDER_POSITION = Position(53, 8)
+MERCHANT_POSITION = Position(53, 15, 0)
 
 # Scheduled work happens beside physical controls so an actor can be spoken to
 # without making the chart, helm, stores, or repair point unusable.
@@ -293,6 +294,12 @@ def initialise_living_vessel(state: GameState, *, migrated: bool = False) -> Non
     schedules[state.bartender.id] = ActorSchedule(
         state.bartender.id, "tavern", BARTENDER_POSITION, "serving",
         boundary, "tavern", BARTENDER_POSITION, last_update=state.world_time,
+    )
+    schedules[state.merchant.id] = ActorSchedule(
+        state.merchant.id, "vessel:0", MERCHANT_POSITION,
+        "trading from a counted berth" if state.merchant_present else "away on a regional circuit",
+        boundary, "vessel:0", MERCHANT_POSITION,
+        available=state.merchant_present, last_update=state.world_time,
     )
     for region_id, contacts in state.contacts.items():
         for contact in contacts:
@@ -536,6 +543,9 @@ def advance_living_world(state: GameState) -> None:
                 date = calendar_at(state)
                 activity = "serving" if date.time_of_day not in {"night", "dawn"} else "sleeping"
                 area, destination = ("tavern", BARTENDER_POSITION) if activity == "serving" else ("vessel:-1", Position(58, 5, -1))
+            elif schedule.actor_id == state.merchant.id:
+                activity = "trading from a counted berth" if state.merchant_present else "away on a regional circuit"
+                area, destination = "vessel:0", MERCHANT_POSITION
             else:
                 person = next((person for person in _all_named_people(state) if person.id == schedule.actor_id), None)
                 if person is None:
@@ -658,7 +668,10 @@ def validate_living_vessel(state: GameState) -> None:
         raise ValueError("Jomon tavern dimensions are invalid")
     if set(state.bartender_stock) != set(DRINKS):
         raise ValueError("bartender stock is incomplete")
-    named = {person.id for person in [*state.household, *state.visitors, state.bartender]}
+    named = {
+        person.id
+        for person in [*state.household, *state.visitors, state.bartender, state.merchant]
+    }
     contact_ids = {contact.id for contacts in state.contacts.values() for contact in contacts}
     if set(state.actor_schedules) != named | contact_ids:
         raise ValueError("named actor schedules are incomplete")

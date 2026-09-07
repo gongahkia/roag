@@ -7,7 +7,7 @@ import unittest
 from jomon.actions import choose_courier, move, recruit_person
 from jomon.inventory import basic_courier_kit, equipped_item
 from jomon.vessel import TAVERN_MAP, VESSEL_LEVELS
-from jomon.people import adjacent_person, person_at
+from jomon.people import RECRUIT_REQUIREMENTS, adjacent_person, person_at
 from jomon.save import load_game, save_game
 from jomon.state import Position, create_world
 
@@ -77,7 +77,8 @@ class PhysicalTavernTests(unittest.TestCase):
     def test_voluntary_recruitment_and_position_persist(self):
         state = create_world("persistent visitor")
         visitor = next(person for person in state.visitors if state.visitor_status[person.id] == "visiting")
-        state.trade_credit = 2
+        region_id, markers, _ = RECRUIT_REQUIREMENTS[visitor.id]
+        state.regions[region_id].changes[markers[0]] = True
         result = recruit_person(state, visitor.id)
         self.assertTrue(result.changed)
         self.assertIn(visitor, state.household)
@@ -93,3 +94,17 @@ class PhysicalTavernTests(unittest.TestCase):
         self.assertEqual(len(loaded.household), 7)
         self.assertEqual(loaded.visitor_status[visitor.id], "joined")
         self.assertEqual(loaded.tavern_positions[visitor.id], state.tavern_positions[visitor.id])
+
+    def test_each_recruit_requires_its_own_witnessed_condition(self):
+        for visitor_id, (region_id, markers, witnessed) in RECRUIT_REQUIREMENTS.items():
+            with self.subTest(visitor=visitor_id):
+                state = create_world(f"personal term {visitor_id}")
+                state.visitor_status[visitor_id] = "visiting"
+                visitor = next(person for person in state.visitors if person.id == visitor_id)
+                state.trade_credit = 99
+                refused = recruit_person(state, visitor_id)
+                self.assertFalse(refused.changed)
+                state.regions[region_id].changes[markers[0]] = True
+                accepted = recruit_person(state, visitor_id)
+                self.assertTrue(accepted.changed)
+                self.assertIn(witnessed, visitor.memories[-1])
