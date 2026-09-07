@@ -152,7 +152,7 @@ class TerminalUI:
             self._put(
                 11,
                 44,
-                f"ROLE {hero['combat_role'].upper()}  HP {hero['max_hp']}  COMPLEXITY {complexity}",
+                f"ROLE {hero['combat_role'].upper()}  HP{hero['max_hp']}  CPLX {complexity}",
             )
             ranks = ",".join(str(rank) for rank in hero["preferred_ranks"])
             self._put(12, 44, f"PREFERRED RANKS {ranks}", curses.A_BOLD)
@@ -164,11 +164,14 @@ class TerminalUI:
             ):
                 self._put(detail_row, 44, label, self._attr(2))
                 detail_row += 1
-                for line in textwrap.wrap(hero[field], 34)[:limit]:
+                lines = textwrap.wrap(hero[field], 34)
+                if limit == 1:
+                    lines = [self._ellipsize(hero[field], 34)]
+                for line in lines[:limit]:
                     self._put(detail_row, 44, line)
                     detail_row += 1
             builds = " / ".join(hero["builds"])
-            self._put(21, 44, f"BUILDS {builds}"[:34], curses.A_DIM)
+            self._put(21, 44, self._ellipsize(f"BUILDS {builds}", 34), curses.A_DIM)
             ready = len(selection) == 4
             status = "READY TO DEPART" if ready else f"SELECT {4 - len(selection)} MORE"
             self._put(20, 3, status, self._attr(4 if ready else 2) | curses.A_BOLD)
@@ -176,7 +179,7 @@ class TerminalUI:
             if warnings:
                 suffix = f" (+{len(warnings) - 1})" if len(warnings) > 1 else ""
                 self._put(21, 3, f"! {warnings[0]}{suffix}"[:37], self._attr(3))
-            self._footer("Up/Down browse  Space select  Left/Right rank  C class  D party deck  Enter depart")
+            self._footer("Up/Down browse Space select H/L rank V details C cards D deck Enter depart")
             key = self._key()
             if key in (curses.KEY_UP, ord("k")):
                 selected = (selected - 1) % len(roster)
@@ -190,6 +193,8 @@ class TerminalUI:
                 self.engine.reorder_hub_crew(hero["id"], 1)
             elif key in (ord("c"), ord("C")):
                 self._class_card_view(hero["id"])
+            elif key in (ord("v"), ord("V")):
+                self._hub_identity_view(hero["id"])
             elif key in (ord("d"), ord("D")):
                 self._hub_deck_view()
             elif key in (10, 13, curses.KEY_ENTER):
@@ -275,6 +280,23 @@ class TerminalUI:
             view_only=True,
             preview_cards=cards,
             preview_notes=[self._card_tags_note(card) for card in cards],
+        )
+
+    def _hub_identity_view(self, hero_id: str) -> None:
+        hero = self.catalog.heroes[hero_id]
+        complexity = "*" * hero["complexity"] + "." * (3 - hero["complexity"])
+        ranks = ",".join(str(rank) for rank in hero["preferred_ranks"])
+        builds = "\n".join(f"- {build}" for build in hero["builds"])
+        self._notice(
+            f"{hero['role'].upper()} IDENTITY",
+            (
+                f"{hero['name']} // {hero['combat_role'].upper()} // complexity {complexity}\n"
+                f"Preferred ranks: {ranks}\n\n"
+                f"SIGNATURE\n{hero['signature']}\n\n"
+                f"STRENGTH\n{hero['strength']}\n\n"
+                f"WEAKNESS\n{hero['weakness']}\n\n"
+                f"BUILD DIRECTIONS\n{builds}"
+            ),
         )
 
     def _hub_deck_view(self) -> None:
@@ -1466,6 +1488,12 @@ class TerminalUI:
         )
         self._put(row + 1, 2, crew)
         self._put(row + 2, 2, self.engine.compact_effect_summary()[: self.screen.getmaxyx()[1] - 3], curses.A_DIM)
+
+    @staticmethod
+    def _ellipsize(text: str, width: int) -> str:
+        if len(text) <= width:
+            return text
+        return text[: width - 3].rstrip() + "..."
 
     def _card_label(self, card: CardInstance) -> str:
         assert self.engine

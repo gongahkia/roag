@@ -690,6 +690,18 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("formation warnings", rendered)
         self.assertIn("TARGET:", rendered)
 
+    def test_every_crew_identity_is_fully_readable_at_minimum_size(self) -> None:
+        for hero in self.catalog.heroes.values():
+            with self.subTest(hero=hero["id"]):
+                screen = FakeScreen(keys=[10])
+                self.ui.screen = screen
+                self.ui._hub_identity_view(hero["id"])
+                rendered = screen.text()
+                for field in ("signature", "strength", "weakness"):
+                    self.assertIn(hero[field].split()[-1], rendered)
+                for build in hero["builds"]:
+                    self.assertIn(build, rendered)
+
     def test_affinity_card_preview_names_its_biome_bonus(self) -> None:
         engine = GameEngine.new(self.catalog, 3, start_in_hub=True)
         engine.state.hub_selection = ["cryonaut", "warden", "medic", "scout"]
