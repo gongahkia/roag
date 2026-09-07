@@ -112,6 +112,8 @@ class GameState:
     biome_ids: list[str]
     room_positions: list[list[int]]
     hub_selection: list[str] = field(default_factory=list)
+    tutorial: bool = False
+    tutorial_stage: int = 0
     current_room: int = 0
     party_x: int = 5
     party_y: int = 17
@@ -390,7 +392,8 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 12
+    SAVE_VERSION = 13
+    TUTORIAL_SEED = 1
     ENCOUNTER_PLANS = {"none", "pressure", "disrupt", "screen", "sustain", "combo", "overseer"}
 
     def __init__(self, catalog: Catalog, state: GameState, rng: random.Random):
@@ -451,6 +454,42 @@ class GameEngine:
         if not start_in_hub:
             engine.begin_expedition()
         return engine
+
+    @classmethod
+    def tutorial(cls, catalog: Catalog) -> GameEngine:
+        engine = cls.new(catalog, cls.TUTORIAL_SEED, start_in_hub=True)
+        engine.select_curated_squad("bulkhead_basics")
+        engine.begin_expedition()
+        state = engine.state
+        state.tutorial = True
+        state.tutorial_stage = 0
+        training = next(
+            (
+                patrol
+                for patrol in state.patrols
+                if patrol.encounter_id in {"reactor_rod_front", "reactor_rod_rear"}
+            ),
+            None,
+        )
+        if training is None:
+            raise RuleError("tutorial seed has no coordinated training encounter")
+        for patrol in state.patrols:
+            patrol.active = patrol.id == training.id
+        path = engine._find_path(
+            (state.party_x, state.party_y),
+            engine.room_position(training.room_id),
+        )
+        if len(path) < 4:
+            raise RuleError("tutorial seed has no usable training route")
+        training.x, training.y = path[3]
+        state.log = ["Training signal acquired. Confirm the highlighted contact route."]
+        return engine
+
+    def tutorial_destination(self) -> tuple[int, int] | None:
+        if not self.state.tutorial or self.state.tutorial_stage > 1:
+            return None
+        patrol = next((item for item in self.state.patrols if item.active), None)
+        return (patrol.x, patrol.y) if patrol else None
 
     def toggle_hub_crew(self, hero_id: str) -> None:
         if self.state.phase != "hub" or hero_id not in self.catalog.heroes:
@@ -953,6 +992,8 @@ class GameEngine:
                 biome_ids=raw["biome_ids"],
                 room_positions=raw["room_positions"],
                 hub_selection=raw["hub_selection"],
+                tutorial=raw["tutorial"],
+                tutorial_stage=raw["tutorial_stage"],
                 current_room=raw["current_room"],
                 party_x=raw["party_x"],
                 party_y=raw["party_y"],
@@ -1020,6 +1061,14 @@ class GameEngine:
             raise RuleError("save room positions do not match its world type")
         _validate_world(state.world_tiles, positions)
         engine = cls(catalog, state, rng)
+        if (
+            not isinstance(state.tutorial, bool)
+            or not isinstance(state.tutorial_stage, int)
+            or state.tutorial_stage not in range(11)
+            or not state.tutorial and state.tutorial_stage != 0
+            or state.phase == "tutorial_complete" and not state.tutorial
+        ):
+            raise RuleError("save contains invalid tutorial state")
         walkable_count = sum(character in WALKABLE_TILES for row in state.world_tiles for character in row)
         if len(engine._distances_from(engine.room_position(0))) != walkable_count:
             raise RuleError("save contains disconnected world terrain")

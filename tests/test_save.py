@@ -50,6 +50,16 @@ class SaveTests(unittest.TestCase):
         self.assertEqual(engine.state.hub_selection, loaded.state.hub_selection)
         self.assertEqual(engine.snapshot(), loaded.snapshot())
 
+    def test_tutorial_exploration_round_trip(self) -> None:
+        engine = GameEngine.tutorial(self.catalog)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "tutorial.json"
+            write_save(path, engine.snapshot())
+            loaded = GameEngine.from_snapshot(self.catalog, read_save(path))
+        self.assertTrue(loaded.state.tutorial)
+        self.assertEqual(engine.tutorial_destination(), loaded.tutorial_destination())
+        self.assertEqual(engine.snapshot(), loaded.snapshot())
+
     def test_hazard_and_objective_state_round_trip(self) -> None:
         engine = GameEngine.new(self.catalog, 102)
         hazard = engine.state.hazards[0]

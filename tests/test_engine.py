@@ -23,6 +23,22 @@ class EngineTests(unittest.TestCase):
         different = GameEngine.new(self.catalog, 4243)
         self.assertNotEqual(self.engine.world_tiles(), different.world_tiles())
 
+    def test_tutorial_is_a_deterministic_bounded_expedition(self) -> None:
+        first = GameEngine.tutorial(self.catalog)
+        second = GameEngine.tutorial(self.catalog)
+        self.assertEqual(first.snapshot(), second.snapshot())
+        self.assertTrue(first.state.tutorial)
+        self.assertEqual("exploration", first.state.phase)
+        self.assertEqual(
+            self.catalog.squads["bulkhead_basics"]["formation"],
+            [hero.id for hero in first.living_heroes()],
+        )
+        active = [patrol for patrol in first.state.patrols if patrol.active]
+        self.assertEqual(1, len(active))
+        self.assertEqual((active[0].x, active[0].y), first.tutorial_destination())
+        path = first.path_to(*first.tutorial_destination())
+        self.assertLessEqual(first.path_cost(path), first.maximum_navigation_distance())
+
     def test_all_world_layouts_and_biome_encounter_pools_generate(self) -> None:
         worlds = set()
         layouts = set()
