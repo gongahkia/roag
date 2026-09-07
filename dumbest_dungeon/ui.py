@@ -135,19 +135,31 @@ class TerminalUI:
 
             self._put(3, 44, f"{hero['role'].upper()} // {hero['name']}", curses.A_BOLD | self._attr(1))
             self._draw_sprite(5, 55, self.catalog.art["heroes"][hero["id"]], curses.A_BOLD)
-            self._put(11, 44, f"HP {hero['max_hp']}   preferred rank {hero['rank']}")
-            summary_lines = textwrap.wrap(hero["summary"], 33)
-            for offset, line in enumerate(summary_lines[:3]):
-                self._put(13 + offset, 44, line)
-            class_cards = [card for card in self.catalog.cards.values() if card["hero"] == hero["id"]]
-            self._put(17, 44, f"{len(class_cards)} unique cards / 5 starters")
-            self._put(19, 44, "Starter kit:", curses.A_BOLD)
-            starter_names = [self.catalog.cards[card_id]["name"] for card_id in hero["starter_deck"]]
-            self._put(20, 44, ", ".join(starter_names)[:34], curses.A_DIM)
+            complexity = "*" * hero["complexity"] + "." * (3 - hero["complexity"])
+            self._put(
+                11,
+                44,
+                f"ROLE {hero['combat_role'].upper()}  HP {hero['max_hp']}  COMPLEXITY {complexity}",
+            )
+            ranks = ",".join(str(rank) for rank in hero["preferred_ranks"])
+            self._put(12, 44, f"PREFERRED RANKS {ranks}", curses.A_BOLD)
+            detail_row = 14
+            for label, field, limit in (
+                ("SIGNATURE", "signature", 2),
+                ("STRENGTH", "strength", 1),
+                ("WEAKNESS", "weakness", 1),
+            ):
+                self._put(detail_row, 44, label, self._attr(2))
+                detail_row += 1
+                for line in textwrap.wrap(hero[field], 34)[:limit]:
+                    self._put(detail_row, 44, line)
+                    detail_row += 1
+            builds = " / ".join(hero["builds"])
+            self._put(21, 44, f"BUILDS {builds}"[:34], curses.A_DIM)
             ready = len(selection) == 4
             status = "READY TO DEPART" if ready else f"SELECT {4 - len(selection)} MORE"
             self._put(20, 3, status, self._attr(4 if ready else 2) | curses.A_BOLD)
-            self._footer("Up/Down browse  Space select  Left/Right rank  C cards  Enter depart  Esc title")
+            self._footer("Up/Down browse  Space select  Left/Right rank  C inspect cards  Enter depart  Esc title")
             key = self._key()
             if key in (curses.KEY_UP, ord("k")):
                 selected = (selected - 1) % len(roster)

@@ -437,8 +437,15 @@ class AsciiUiTests(unittest.TestCase):
         )
         self.ui.screen = screen
         self.ui._hub()
-        self.assertIn("Bonewright", screen.text())
-        self.assertIn(self.catalog.art["heroes"]["bonewright"][1].strip(), screen.text())
+        rendered = screen.text()
+        self.assertIn("Bonewright", rendered)
+        self.assertIn(self.catalog.art["heroes"]["bonewright"][1].strip(), rendered)
+        self.assertIn("ROLE DEFENDER", rendered)
+        self.assertIn("PREFERRED RANKS 1,2", rendered)
+        self.assertIn("SIGNATURE", rendered)
+        self.assertIn("STRENGTH", rendered)
+        self.assertIn("WEAKNESS", rendered)
+        self.assertIn("BUILDS", rendered)
 
     def test_every_curated_squad_is_explained_and_selectable_at_minimum_size(self) -> None:
         for index, squad in enumerate(self.catalog.squads.values()):
