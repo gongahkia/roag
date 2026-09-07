@@ -45,8 +45,8 @@ def _vessel_levels() -> dict[int, tuple[str, ...]]:
     _walls(lower, 3, 13, 25, 18)
     _walls(lower, 29, 13, 60, 18)
     for point, glyph in {
-        (7, 5): "H", (17, 5): "L", (28, 5): "P", (39, 5): "W",
-        (53, 5): "b", (57, 5): "b", (8, 15): "B", (20, 15): "R",
+        (7, 5): "H", (17, 5): "L", (28, 5): "p", (39, 5): "W",
+        (53, 5): "b", (57, 5): "b", (8, 15): "U", (20, 15): "R",
         (36, 15): "H", (52, 15): "S", (14, 10): ">",
     }.items():
         lower[point[1]][point[0]] = glyph
@@ -225,6 +225,23 @@ def _all_named_people(state: GameState) -> list[Person]:
     return [*state.household, *state.visitors]
 
 
+def _contact_destination(state: GameState, actor_id: str, working: bool) -> tuple[str, Position] | None:
+    for region_id, contacts in state.contacts.items():
+        contact = next((contact for contact in contacts if contact.id == actor_id), None)
+        if contact is None:
+            continue
+        work = contact.position or state.regions[region_id].landmarks["contact"]
+        if working:
+            return f"region:{region_id}", work
+        rows = state.regions[region_id].levels[str(work.z)]
+        for dx, dy in ((2, 0), (-2, 0), (0, 2), (0, -2), (1, 1), (-1, -1)):
+            point = Position(work.x + dx, work.y + dy, work.z)
+            if 0 <= point.y < len(rows) and 0 <= point.x < len(rows[point.y]) and rows[point.y][point.x] not in {" ", "#", "~", "T"}:
+                return f"region:{region_id}", point
+        return f"region:{region_id}", work
+    return None
+
+
 def initialise_living_vessel(state: GameState, *, migrated: bool = False) -> None:
     if state.calendar_origin_day == 0:
         state.calendar_origin_day = initial_origin_day(state.seed)
@@ -317,6 +334,61 @@ def _step_toward(area: str, start: Position, goal: Position, occupied: set[Posit
     return cursor
 
 
+def _nearest_free(area: str, preferred: Position, occupied: set[Position]) -> Position:
+    """Resolve a coarse off-screen arrival without stacking named actors."""
+    if preferred not in occupied and _walkable(area, preferred):
+        return preferred
+    queue, seen = deque([preferred]), {preferred}
+    while queue:
+        current = queue.popleft()
+        for dx, dy in ((0, -1), (-1, 0), (1, 0), (0, 1)):
+            candidate = Position(current.x + dx, current.y + dy, preferred.z)
+            if candidate in seen:
+                continue
+            if _walkable(area, candidate) and candidate not in occupied:
+                return candidate
+            seen.add(candidate)
+            if _walkable(area, candidate):
+                queue.append(candidate)
+    return preferred
+
+
+def _advance_visible_transfer(schedule: ActorSchedule, occupied: set[Position]) -> None:
+    """Move one rendered step toward a deck or tavern boundary."""
+    area = schedule.area
+    if area == "tavern":
+        step = _step_toward(area, schedule.position, TAVERN_EXIT, occupied)
+        schedule.position = step
+        if step == TAVERN_EXIT:
+            schedule.area = "vessel:0"
+            schedule.position = Position(TAVERN_ENTRANCE.x - 1, TAVERN_ENTRANCE.y, 0)
+        return
+    if not area.startswith("vessel:"):
+        return
+    z = int(area.split(":", 1)[1])
+    destination_area = schedule.destination_area
+    target_z = 0 if destination_area == "tavern" else int(destination_area.split(":", 1)[1])
+    if z == target_z:
+        if destination_area == "tavern":
+            step = _step_toward(area, schedule.position, TAVERN_ENTRANCE, occupied)
+            schedule.position = step
+            if step == TAVERN_ENTRANCE:
+                schedule.area = "tavern"
+                schedule.position = Position(TAVERN_EXIT.x + 1, TAVERN_EXIT.y, 0)
+        return
+    if z < target_z:
+        hatch = LOWER_HATCH if z == -1 else MAIN_UPPER_STAIR
+        arrival = MAIN_LOWER_HATCH if z == -1 else UPPER_STAIR
+    else:
+        hatch = UPPER_STAIR if z == 1 else MAIN_LOWER_HATCH
+        arrival = MAIN_UPPER_STAIR if z == 1 else LOWER_HATCH
+    step = _step_toward(area, schedule.position, hatch, occupied)
+    schedule.position = step
+    if step == hatch:
+        schedule.area = f"vessel:{arrival.z}"
+        schedule.position = arrival
+
+
 def _social_incident(state: GameState, boundary: int) -> None:
     if state.pending_incident or len(state.household) < 2:
         return
@@ -401,9 +473,29 @@ def advance_living_world(state: GameState) -> None:
         schedule.position for schedule in state.actor_schedules.values()
         if schedule.area == visible_area
     }
+    all_vessel_occupied = {
+        (schedule.area, schedule.position)
+        for schedule in state.actor_schedules.values()
+        if schedule.area.startswith(("vessel:", "tavern"))
+    }
     crossed_boundary = False
     for schedule in sorted(state.actor_schedules.values(), key=lambda item: item.actor_id):
-        if state.world_time >= schedule.next_boundary:
+        all_vessel_occupied.discard((schedule.area, schedule.position))
+        if state.voyage_status == "active":
+            if schedule.actor_id == state.bartender.id:
+                schedule.activity = "securing the tavern"
+                schedule.destination_area, schedule.destination = "tavern", BARTENDER_POSITION
+            elif any(person.id == schedule.actor_id for person in state.household):
+                if state.voyage_kind == "raiders":
+                    schedule.activity = "defending cargo"
+                    schedule.destination_area, schedule.destination = "vessel:0", Position(54, 10, 0)
+                elif state.voyage_kind == "creature":
+                    schedule.activity = "bracing the hull"
+                    schedule.destination_area, schedule.destination = "vessel:-1", Position(20, 15, -1)
+                else:
+                    schedule.activity = "answering named crew"
+                    schedule.destination_area, schedule.destination = "tavern", HOUSEHOLD_SEATS[0]
+        if state.voyage_status != "active" and state.world_time >= schedule.next_boundary:
             crossed_boundary = True
             if schedule.actor_id == state.bartender.id:
                 date = calendar_at(state)
@@ -412,10 +504,16 @@ def advance_living_world(state: GameState) -> None:
             else:
                 person = next((person for person in _all_named_people(state) if person.id == schedule.actor_id), None)
                 if person is None:
-                    schedule.next_boundary += 6
-                    continue
-                activity = _activity_for(state, person, state.world_time)
-                area, destination = _schedule_position(person.id, activity)
+                    working = calendar_at(state).time_of_day in {"morning", "afternoon"}
+                    contact_destination = _contact_destination(state, schedule.actor_id, working)
+                    if contact_destination is None:
+                        schedule.next_boundary += 6
+                        continue
+                    activity = "working at a regional site" if working else "resting near home"
+                    area, destination = contact_destination
+                else:
+                    activity = _activity_for(state, person, state.world_time)
+                    area, destination = _schedule_position(person.id, activity)
             schedule.activity = activity
             schedule.destination_area = area
             schedule.destination = destination
@@ -424,10 +522,31 @@ def advance_living_world(state: GameState) -> None:
             occupied.discard(schedule.position)
             schedule.position = _step_toward(visible_area, schedule.position, schedule.destination, occupied)
             occupied.add(schedule.position)
+        elif schedule.area == visible_area:
+            occupied.discard(schedule.position)
+            _advance_visible_transfer(schedule, occupied)
+            occupied.add(schedule.position)
         elif schedule.area != visible_area:
             # Off-screen travel is a bounded causal transition, never a tile loop.
             schedule.area = schedule.destination_area
-            schedule.position = schedule.destination
+            area_occupied = {
+                point for area, point in all_vessel_occupied if area == schedule.area
+            }
+            schedule.position = _nearest_free(
+                schedule.area, schedule.destination, area_occupied
+            )
+        if (
+            schedule.area.startswith(("vessel:", "tavern"))
+            and (schedule.area, schedule.position) in all_vessel_occupied
+        ):
+            area_occupied = {
+                point for area, point in all_vessel_occupied if area == schedule.area
+            }
+            schedule.position = _nearest_free(
+                schedule.area, schedule.position, area_occupied
+            )
+        if schedule.area.startswith(("vessel:", "tavern")):
+            all_vessel_occupied.add((schedule.area, schedule.position))
         schedule.last_update = state.world_time
     if crossed_boundary:
         if calendar_at(state).day in {1, 12}:
@@ -437,6 +556,7 @@ def advance_living_world(state: GameState) -> None:
         actor_id: schedule.position
         for actor_id, schedule in state.actor_schedules.items()
         if schedule.area == "tavern" and actor_id != state.bartender.id
+        and actor_id != state.active_courier_id
         and any(person.id == actor_id for person in _all_named_people(state))
     }
     state.last_schedule_turn = state.world_time

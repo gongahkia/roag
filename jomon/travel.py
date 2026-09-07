@@ -135,10 +135,7 @@ def _finish_travel(state: GameState, consequence: str) -> None:
         visits = int(state.vessel_changes.get(f"visits:{destination}", 0)) + 1
         state.vessel_changes[f"visits:{destination}"] = visits
         if node.supply and visits == 1:
-            from .state import CommodityStack
-
-            grain = state.vessel_cargo.setdefault("grain", CommodityStack(0, "dry"))
-            grain.quantity += 1
+            state.vessel_changes[f"supply_available:{destination}"] = node.supply
     state.pending_destination = None
     state.voyage_status = "resolved" if state.voyage_kind else "none"
     state.voyage_detail = consequence

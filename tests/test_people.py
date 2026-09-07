@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 from jomon.actions import choose_courier, move, recruit_person
-from jomon.content import JOMON_MAP
+from jomon.vessel import TAVERN_MAP, VESSEL_LEVELS
 from jomon.people import adjacent_person, person_at
 from jomon.save import load_game, save_game
 from jomon.state import Position, create_world
@@ -14,9 +14,10 @@ from jomon.state import Position, create_world
 class PhysicalTavernTests(unittest.TestCase):
     def test_bar_preparation_tile_is_physically_reachable(self):
         start = Position(3, 4)
+        main = VESSEL_LEVELS[0]
         target = next(
             Position(x, y)
-            for y, row in enumerate(JOMON_MAP)
+            for y, row in enumerate(main)
             for x, tile in enumerate(row)
             if tile == "C"
         )
@@ -30,9 +31,9 @@ class PhysicalTavernTests(unittest.TestCase):
                 if candidate in seen:
                     continue
                 if (
-                    0 <= candidate.y < len(JOMON_MAP)
-                    and 0 <= candidate.x < len(JOMON_MAP[candidate.y])
-                    and JOMON_MAP[candidate.y][candidate.x] not in {"#", "="}
+                    0 <= candidate.y < len(main)
+                    and 0 <= candidate.x < len(main[candidate.y])
+                    and main[candidate.y][candidate.x] not in {"#", "="}
                 ):
                     seen.add(candidate)
                     frontier.append(candidate)
@@ -40,6 +41,7 @@ class PhysicalTavernTests(unittest.TestCase):
 
     def test_six_household_adults_have_distinct_physical_seats(self):
         state = create_world("seated household")
+        state.jomon_space = "tavern"
         seats = [state.tavern_positions[person.id] for person in state.household]
         self.assertEqual(len(seats), 6)
         self.assertEqual(len(set(seats)), 6)
@@ -47,6 +49,7 @@ class PhysicalTavernTests(unittest.TestCase):
 
     def test_aboard_movement_and_conversation_are_zero_time(self):
         state = create_world("zero time tavern")
+        state.jomon_space = "tavern"
         person = state.household[0]
         seat = state.tavern_positions[person.id]
         state.position = Position(seat.x - 2, seat.y)
@@ -59,6 +62,7 @@ class PhysicalTavernTests(unittest.TestCase):
 
     def test_switching_couriers_physically_exchanges_places(self):
         state = create_world("physical exchange")
+        state.jomon_space = "tavern"
         first, second = state.household[:2]
         first_seat = state.tavern_positions[first.id]
         choose_courier(state, first.id)

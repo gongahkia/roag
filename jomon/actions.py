@@ -56,6 +56,7 @@ from .vessel import (
     buy_drink,
     current_area,
     resolve_social_incident,
+    vessel_vertical_destination,
 )
 
 
@@ -114,6 +115,7 @@ def choose_courier(state: GameState, person_id: str) -> ActionResult:
             previous.area = previous.destination_area = "tavern"
             previous.position = previous.destination = old_position
     state.active_courier_id = person.id
+    state.tavern_positions.pop(person.id, None)
     state.position = seat
     state.jomon_space = "tavern"
     readied = equipped_item(state, "readied", person.id)
@@ -691,6 +693,9 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
 def _weather_and_deadline(state: GameState) -> list[str]:
     """Advance one bounded, visible regional process on the action clock."""
     elapsed = state.pressure_elapsed
+    process_elapsed = max(
+        0, elapsed - (6 if "ebbglass-measure" in state.drink_effects else 0)
+    )
     messages: list[str] = []
     if state.active_region_id == "hearthford":
         if 45 <= elapsed % 120 < 70:
@@ -718,7 +723,9 @@ def _weather_and_deadline(state: GameState) -> list[str]:
             "ridge gust": "A ridge gust exposes high shooters and makes scree footing uncertain.",
         }[weather])
 
-    next_stage = sum(elapsed >= threshold for threshold in state.region.process_thresholds)
+    next_stage = sum(
+        process_elapsed >= threshold for threshold in state.region.process_thresholds
+    )
     if next_stage > state.region.process_stage:
         state.region.process_stage = next_stage
         if state.active_region_id == "greywash":
@@ -753,7 +760,7 @@ def _weather_and_deadline(state: GameState) -> list[str]:
 
     deadline = state.objective_deadline if state.active_region_id == "hearthford" else state.region.process_thresholds[-1]
     if (
-        not state.objective_changed and elapsed >= deadline
+        not state.objective_changed and process_elapsed >= deadline
         and state.objective_status in {"unoffered", "accepted", "altered"}
     ):
         state.objective_changed = True
@@ -876,6 +883,9 @@ def depart(state: GameState) -> ActionResult:
             state,
             "Prepare weapon and gear in the inventory, and crew support at the bar.",
         )
+    route_node = state.route_nodes.get(state.route_current_node)
+    if route_node is None or route_node.region_id != state.active_region_id:
+        return ActionResult(False, False, "This is a bounded route stop, not a regional expedition landing.", "route-stop")
     state.location, state.current_room = "region", state.active_region_id
     state.position = state.region.landmarks["landing"]
     state.expedition_count += 1
@@ -950,6 +960,8 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         state.last_move_turn = state.world_time
         if "lane-denied" in state.terrain_statuses:
             state.noise += 1
+        if "hearth-ale" in state.drink_effects:
+            state.noise += 1
     messages: list[str] = []
     tile = base_tile(state, target)
     if state.location == "jomon":
@@ -976,6 +988,7 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         state.courier
         and {"legs", "feet"} & set(state.courier.injuries)
         and tile in {"m", "r", "q", "t", "w", ","}
+        and "willow-bitter" not in state.drink_effects
     )
     if injury_delay:
         messages.append("The leg or foot injury makes this terrain cost another action.")
@@ -989,6 +1002,9 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         if not protected:
             water_delay = True
             messages.append("Released water makes the crossing slow and exposed.")
+        if "smokeleaf-infusion" in state.drink_effects:
+            state.noise += 1
+            messages.append("Smokeleaf thirst makes the wet crossing audibly clumsy.")
     new_area = area_name(state)
     discovered_key = f"discovered:{new_area}"
     if new_area != previous_area and not state.region.changes.get(discovered_key):
@@ -1006,12 +1022,13 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         and "rain cape" not in state.carried_passives
     )
     guarded_step = state.guarded_step
+    drink_delay = guarded_step and "miller-small-beer" in state.drink_effects
     state.guarded_step = False
     return _time_result(
         state,
         " ".join(message for message in messages if message),
         guarded=guarded_step,
-        steps=2 if storm_delay else 1,
+        steps=2 if storm_delay or drink_delay else 1,
         priority=3 if messages else 0,
     )
 
@@ -1021,15 +1038,18 @@ def can_alter_objective(state: GameState) -> bool:
     return bool(
         state.gear == "repair tools"
         or state.support in {"route survey", "carpenter rig"}
+        or "stillroom-cordial" in state.drink_effects
         or (courier and courier.technique == "lever craft")
         or state.contact.disposition >= 2
     )
 
 
 def decide_objective(state: GameState, decision: str) -> ActionResult:
+    contact_schedule = state.actor_schedules.get(state.contact.id)
+    contact_position = contact_schedule.position if contact_schedule and contact_schedule.area == f"region:{state.active_region_id}" else state.region.landmarks["contact"]
     available = (
         state.location == "region"
-        and state.position == state.region.landmarks["contact"]
+        and state.position == contact_position
         and state.objective_status in {"unoffered", "failed"}
     )
     if not available:
@@ -1282,6 +1302,15 @@ def interact(state: GameState) -> ActionResult:
     if state.location == "jomon":
         from .people import adjacent_person
 
+        if state.jomon_space == "tavern" and state.pending_incident:
+            participant_positions = [
+                state.actor_schedules[actor_id].position
+                for actor_id in state.pending_incident.participants
+                if actor_id in state.actor_schedules
+                and state.actor_schedules[actor_id].area == "tavern"
+            ]
+            if any(max(abs(point.x - state.position.x), abs(point.y - state.position.y)) <= 2 for point in participant_positions):
+                return ActionResult(False, False, "A causal tavern incident needs a response.", "incident")
         person = adjacent_person(state)
         if person:
             return ActionResult(False, False, f"Speak with {person.name}.", f"person:{person.id}")
@@ -1300,7 +1329,7 @@ def interact(state: GameState) -> ActionResult:
             state.position = Position(TAVERN_ENTRANCE.x - 1, TAVERN_ENTRANCE.y, 0)
             return _plain(state, "You step from the common tavern onto Jomon's working deck.", changed=True)
         if state.jomon_space == "vessel":
-            destination = vertical_destination(state, state.position)
+            destination = vessel_vertical_destination(state.position)
             if destination:
                 direction = "ladder down" if destination.z < state.position.z else "stair up"
                 state.position = destination
@@ -1324,10 +1353,18 @@ def interact(state: GameState) -> ActionResult:
             return ActionResult(False, False, "Inspect hold and local problem.", "hold")
         if tile == "s" and state.merchant_present:
             return ActionResult(False, False, "The deck merchant opens three lots.", "merchant")
-        if tile in {"T", "b", "s"}:
-            return ActionResult(False, False, "Inspect the household.", "household")
         if tile == "K":
             return ActionResult(False, False, "Read Jomon's bounded vessel chronicle.", "chronicle")
+        station = {
+            "G": "galley", "R": "repair", "b": "berths", "U": "bilge",
+            "p": "provisions", "W": "workshop", "S": "storage",
+            "N": "helm", "O": "lookout", "T": "gathering", "s": "market",
+        }.get(tile)
+        if station:
+            return ActionResult(
+                False, False, f"Inspect Jomon's {station} position.",
+                f"station:{station}",
+            )
         return _plain(state, "Nothing here needs handling.")
     if state.position == state.region.landmarks["landing"]:
         return return_to_jomon(state)
@@ -1375,7 +1412,9 @@ def interact(state: GameState) -> ActionResult:
         )
     if any(item.position == state.position for item in state.region.containers):
         return _open_container(state)
-    if state.position == state.region.landmarks["contact"]:
+    contact_schedule = state.actor_schedules.get(state.contact.id)
+    contact_position = contact_schedule.position if contact_schedule and contact_schedule.area == f"region:{state.active_region_id}" else state.region.landmarks["contact"]
+    if state.position == contact_position:
         if state.objective_status in {"unoffered", "failed"}:
             return ActionResult(
                 False, False, f"{state.contact.name} explains the shortage.", "objective"
@@ -1408,7 +1447,12 @@ def interact(state: GameState) -> ActionResult:
     second = next(
         (
             contact for contact in state.contacts.get(state.active_region_id, [])[1:]
-            if contact.position == state.position
+            if (
+                state.actor_schedules.get(contact.id).position
+                if state.actor_schedules.get(contact.id)
+                and state.actor_schedules[contact.id].area == f"region:{state.active_region_id}"
+                else contact.position
+            ) == state.position
         ),
         None,
     )
@@ -1496,6 +1540,10 @@ def attack(state: GameState) -> ActionResult:
         "war hammer": 1,
         "weighted net": 4,
     }
+    if "winter-juniper" in state.drink_effects and state.weapon in {
+        "crossbow", "longbow", "sling", "heavy crossbow", "javelins",
+    }:
+        ranges[state.weapon] = max(3, ranges[state.weapon] - 3)
     candidates = _attack_targets(state, ranges[state.weapon])
     if state.weapon == "pike":
         candidates = [target for target in candidates if distance(state.position, target.position) >= 2]
@@ -1687,15 +1735,19 @@ def guard(state: GameState) -> ActionResult:
         state.gear == "buckler"
         or state.weapon == "staff"
         or (state.courier and state.courier.technique == "set stance")
+        or "hearth-ale" in state.drink_effects
     )
     if state.courier and ({"arms", "hands"} & set(state.courier.injuries)):
         strong = False
     if strong:
         morale_loss = 2 if "shielded set stance" in build_combinations(state) else 1
+        if "hearth-ale" in state.drink_effects:
+            morale_loss += 1
         for threat in engaged:
             threat.morale -= morale_loss
     state.guarded_step = (
         state.weapon == "staff" or "reed sole wraps" in state.carried_passives
+        or "miller-small-beer" in state.drink_effects
     )
     if "shielded set stance" in build_combinations(state):
         text = "Buckler and set stance deny the attack and press hostile morale."
@@ -1902,6 +1954,7 @@ def negotiate(state: GameState) -> ActionResult:
         or state.support == "factor surety"
         or "paper" in state.carried_goods
         or "valuable leverage" in build_combinations(state)
+        or "stillroom-cordial" in state.drink_effects
     )
     if not has_terms:
         return _plain(
@@ -1915,6 +1968,10 @@ def negotiate(state: GameState) -> ActionResult:
                 del state.carried_goods["paper"]
     for threat in humans:
         threat.status, threat.intent = "negotiated", "accepts witnessed terms"
+    drawback = ""
+    if "stillroom-cordial" in state.drink_effects and state.contact.disposition <= 0:
+        state.contact.disposition = max(-3, state.contact.disposition - 1)
+        drawback = " The wary contact remembers the visible intoxication."
     memory = (
         f"{state.courier.name} settled {len(humans)} route obstruction(s) "
         "through material terms."
@@ -1922,7 +1979,9 @@ def negotiate(state: GameState) -> ActionResult:
     state.remember(memory)
     _remember_contact(state, memory)
     return _time_result(
-        state, "Witnessed material terms settle the obstruction without combat.", priority=3
+        state,
+        "Witnessed material terms settle the obstruction without combat." + drawback,
+        priority=3,
     )
 
 
@@ -2088,3 +2147,42 @@ def intervene_socially(state: GameState, response: str) -> ActionResult:
     if not changed:
         return _plain(state, message)
     return _time_result(state, message, priority=3)
+
+
+def use_route_stop(state: GameState, response: str) -> ActionResult:
+    node = state.route_nodes.get(state.route_current_node)
+    if state.location != "jomon" or node is None or node.region_id:
+        return _plain(state, "No intermediate route service is available here.")
+    if response == "resupply":
+        available_key = f"supply_available:{node.id}"
+        available = int(state.vessel_changes.get(available_key, 0))
+        if available <= 0:
+            return _plain(state, "This stop's counted provisions are exhausted.")
+        if state.trade_credit < 1:
+            return _plain(state, "One credit is needed for witnessed provisions.")
+        state.trade_credit -= 1
+        state.vessel_changes[available_key] = available - 1
+        stack = state.vessel_cargo.setdefault("grain", CommodityStack(0, "dry"))
+        stack.quantity += 1
+        return _time_result(state, f"{node.name} loads one dry grain lot for one credit.", steps=2, priority=3)
+    if response == "trade":
+        commodity = node.market_interest
+        stack = state.vessel_cargo.get(commodity)
+        if not commodity or stack is None or stack.quantity <= 0:
+            return _plain(state, f"{node.name} seeks {commodity or 'no current cargo'}, which Jomon does not carry.")
+        stack.quantity -= 1
+        if stack.quantity == 0:
+            del state.vessel_cargo[commodity]
+        state.trade_credit += 2
+        state.vessel_changes[f"market_served:{node.id}"] = True
+        return _time_result(state, f"{node.name} takes one {commodity} lot; Jomon gains two credit.", steps=2, priority=3)
+    if response == "sound":
+        from .route_chart import neighbours
+
+        revealed = [node_id for node_id in neighbours(state, node.id) if node_id not in state.route_known]
+        if not revealed:
+            return _plain(state, "Every connected leg is already charted.")
+        state.route_known.extend(revealed)
+        state.route_known = sorted(set(state.route_known))
+        return _time_result(state, f"Fresh soundings reveal {', '.join(state.route_nodes[item].name for item in revealed)}.", priority=3)
+    return _plain(state, "That route-stop work is not available.")

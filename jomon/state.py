@@ -830,12 +830,11 @@ def game_state_from_dict(data: Any) -> GameState:
             from .people import initialise_tavern
 
             initialise_tavern(state)
-        if migrated_v4 or not state.route_nodes or not state.actor_schedules:
+        initialise_living = migrated_v4 or not state.route_nodes or not state.actor_schedules
+        if migrated_v4 or not state.route_nodes:
             from .route_chart import initialise_route_chart
-            from .vessel import initialise_living_vessel
 
             initialise_route_chart(state)
-            initialise_living_vessel(state, migrated=migrated_v4)
         if set(state.regions) != {"hearthford", "greywash", "greenwold", "whitecairn"}:
             from .regions import build_new_regions
 
@@ -844,6 +843,10 @@ def game_state_from_dict(data: Any) -> GameState:
             state.contacts.update(new_contacts)
             state.region_threats.update(new_threats)
             state.regional_markets.update(new_markets)
+        if initialise_living:
+            from .vessel import initialise_living_vessel
+
+            initialise_living_vessel(state, migrated=migrated_v4)
     except (AttributeError, KeyError, TypeError, ValueError) as exc:
         raise StateError(f"malformed save: {exc}") from exc
     validate_state(state)
@@ -880,6 +883,11 @@ def validate_state(state: GameState) -> None:
         rows = VESSEL_LEVELS.get(state.position.z)
         if rows is None or not (0 <= state.position.y < len(rows) and 0 <= state.position.x < len(rows[state.position.y])):
             raise StateError("invalid vessel position")
+    if state.location == "jomon" and state.jomon_space == "tavern" and not (
+        0 <= state.position.y < len(TAVERN_MAP)
+        and 0 <= state.position.x < len(TAVERN_MAP[state.position.y])
+    ):
+        raise StateError("invalid tavern position")
     if state.pending_destination is not None and state.pending_destination not in state.route_nodes:
         raise StateError("invalid pending destination")
     if state.voyage_kind not in {None, "raiders", "creature", "lure"} or state.voyage_status not in {"none", "active", "resolved"}:

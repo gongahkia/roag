@@ -3,15 +3,20 @@ from __future__ import annotations
 import unittest
 
 from jomon.actions import interact
-from jomon.content import JOMON_MAP
+from jomon.vessel import BARTENDER_POSITION
 from jomon.state import Position, create_world
 from jomon.terminal import (
+    InputEvent,
+    OverlayView,
+    _handle_overlay_view,
     SEMANTIC_ROLES,
+    dialogue_choices,
     _handle_overlay,
     semantic_colour_plan,
     semantic_role,
     visible_threats,
 )
+from jomon.main import landing_notice_layout
 from jomon.world import field_of_view, find_tile
 
 
@@ -63,9 +68,28 @@ class SemanticColourTests(unittest.TestCase):
         self.assertNotIn(threat.position, visible_threats(state, current))
 
 
+class LandingLayoutTests(unittest.TestCase):
+    def test_long_incompatible_save_warning_wraps_and_centres(self):
+        warning = "Existing development save unavailable: incompatible format with preserved consequences that cannot be loaded safely"
+        for width, height in ((80, 24), (100, 32)):
+            layout = landing_notice_layout(width, height, warning)
+            self.assertGreaterEqual(layout.left, 1)
+            self.assertLessEqual(layout.left + layout.width, width - 1)
+            self.assertTrue(all(len(line) <= layout.width - 4 for line in layout.lines))
+            self.assertEqual(" ".join(layout.lines), warning)
+
+    def test_landing_layout_reflows_after_resize(self):
+        warning = "Existing development save unavailable: a deliberately long deterministic migration explanation remains complete"
+        small = landing_notice_layout(80, 24, warning)
+        large = landing_notice_layout(100, 32, warning)
+        self.assertGreaterEqual(len(small.lines), len(large.lines))
+        self.assertNotEqual((small.top, small.left), (large.top, large.left))
+
+
 class TavernMenuTests(unittest.TestCase):
     def test_physical_person_selection_is_zero_time(self):
         state = create_world("physical tavern")
+        state.jomon_space = "tavern"
         person = state.household[0]
         seat = state.tavern_positions[person.id]
         state.position = Position(seat.x - 1, seat.y)
@@ -79,15 +103,41 @@ class TavernMenuTests(unittest.TestCase):
         self.assertEqual(state.position, seat)
         self.assertEqual(state.world_time, started)
 
+
+class DialogueChoiceTests(unittest.TestCase):
+    def test_options_retain_keys_markers_semantics_and_unavailable_reason(self):
+        state = create_world("dialogue semantics")
+        state.gear = None
+        state.support = None
+        state.contact.disposition = 0
+        options = dialogue_choices(state, "objective")
+        self.assertEqual([option.key for option in options], ["A", "R", "T"])
+        self.assertEqual([option.semantic for option in options], ["commitment", "refusal", "commitment"])
+        self.assertFalse(options[-1].available)
+        self.assertTrue(options[-1].requirement)
+
+    def test_arrow_and_mouse_selection_do_not_advance_time(self):
+        state = create_world("dialogue input")
+        view = OverlayView("objective", option_rows=[10, 11, 12])
+        before = state.world_time
+        closed, _ = _handle_overlay_view(state, view, InputEvent("key", key=__import__("curses").KEY_DOWN))
+        self.assertFalse(closed)
+        self.assertEqual(view.selected, 1)
+        closed, _ = _handle_overlay_view(state, view, InputEvent("mouse", x=5, y=10, button="left"))
+        self.assertFalse(closed)
+        self.assertEqual(view.selected, 0)
+        self.assertEqual(state.world_time, before)
+
     def test_bar_selects_support_but_not_courier_or_equipment(self):
         state = create_world("tavern support")
-        state.position = find_tile(JOMON_MAP, "C")
+        state.jomon_space = "tavern"
+        state.position = Position(BARTENDER_POSITION.x - 1, BARTENDER_POSITION.y)
         started = state.world_time
-        self.assertEqual(interact(state).overlay, "tavern")
-        overlay, _ = _handle_overlay(state, "tavern", ord("s"))
+        self.assertEqual(interact(state).overlay, "bartender")
+        overlay, _ = _handle_overlay(state, "bartender", ord("s"))
         self.assertEqual(overlay, "tavern:support")
         overlay, _ = _handle_overlay(state, overlay, ord("1"))
-        self.assertEqual(overlay, "tavern")
+        self.assertEqual(overlay, "bartender")
         self.assertIsNotNone(state.support)
         self.assertIsNone(state.courier)
         self.assertIsNone(state.weapon)

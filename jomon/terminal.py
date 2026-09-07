@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import curses
+import copy
 from dataclasses import dataclass
 from typing import Iterable
 
 from .actions import (
     _advance_world,
     attack,
+    can_alter_objective,
     choose_courier,
     choose_gear,
     choose_passive,
@@ -27,6 +29,7 @@ from .actions import (
     intervene_socially,
     retreat,
     use_gear,
+    use_route_stop,
 )
 from .inventory import (
     BODY_SLOTS,
@@ -66,7 +69,7 @@ from .content import (
 )
 from .save import SaveError, save_game
 from .state import GameState, Position, Threat
-from .travel import choose_destination, resolve_voyage, travel_animation_frames
+from .travel import DESTINATIONS, choose_destination, resolve_voyage, travel_animation_frames
 from .route_chart import chart_move, neighbours, route_availability, route_preview
 from .calendar import calendar_at
 from .vessel import DRINKS, current_area
@@ -146,6 +149,22 @@ class InputEvent:
     double: bool = False
 
 
+@dataclass
+class OverlayView:
+    kind: str
+    selected: int = 0
+    option_rows: list[int] | None = None
+
+
+@dataclass(frozen=True)
+class ChoiceOption:
+    key: str
+    label: str
+    semantic: str = "ordinary"
+    available: bool = True
+    requirement: str = ""
+
+
 def normalise_input(key: int, mouse_reader=None) -> InputEvent:
     """Translate optional curses mouse bits without making mouse mandatory."""
     if key != getattr(curses, "KEY_MOUSE", -999):
@@ -206,7 +225,7 @@ def semantic_role(glyph: str, *, aboard: bool = False) -> str:
         return "neutral"
     if aboard and glyph in {"=", "t", "_", "F", "f"}:
         return "structure"
-    if aboard and glyph in {"s", "G", "K", "N", "O", "S", "W"}:
+    if aboard and glyph in {"s", "G", "K", "N", "O", "S", "U", "W"}:
         return "interactable"
     if glyph in {"M", "c", "$"}:
         return "neutral"
@@ -442,6 +461,162 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str]) -> None:
     screen.refresh()
 
 
+def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
+    if kind == "quit":
+        return [ChoiceOption("Y", "Quit Jomon", "danger"), ChoiceOption("N", "Continue playing")]
+    if kind == "tavern":
+        return [ChoiceOption("S", "Choose crew support"), ChoiceOption("Enter", "Close preparation")]
+    if kind == "tavern:support":
+        return [ChoiceOption(str(index + 1), f"{name} — {detail}") for index, (name, detail) in enumerate(SUPPORTS.values())]
+    if kind == "objective":
+        return [
+            ChoiceOption("A", "Accept cargo recovery", "commitment"),
+            ChoiceOption("R", "Refuse the request", "refusal"),
+            ChoiceOption("T", "Alter to material control work", "commitment", can_alter_objective(state), "tools, support, lever craft, or trust"),
+        ]
+    if kind == "merchant":
+        return [
+            ChoiceOption(str(index + 1), f"Buy {item} — {max(1, MERCHANT_ITEMS[item][0] - (1 if state.support == 'factor surety' else 0))} credit", "commitment", state.trade_credit >= max(1, MERCHANT_ITEMS[item][0] - (1 if state.support == "factor surety" else 0)), "sufficient credit")
+            for index, item in enumerate(state.merchant_stock)
+        ]
+    if kind == "voyage":
+        rows = {
+            "raiders": (("R", "Repel with readied reach", "danger"), ("D", "Distract with material preparation", "commitment"), ("Y", "Yield one cargo lot", "refusal")),
+            "creature": (("R", "Repel with a spaced weapon", "danger"), ("E", "Evade through pilot knowledge", "commitment"), ("B", "Bait with salt fish", "commitment")),
+            "lure": (("A", "Anchor to the real bank", "commitment"), ("C", "Counsel named crew", "ordinary"), ("N", "Navigate by chart and lead line", "commitment")),
+        }[state.voyage_kind]
+        return [ChoiceOption(*row) for row in rows]
+    if kind == "bartender":
+        return [
+            ChoiceOption("D", "Browse the counted drink stock"),
+            ChoiceOption("S", "Choose crew support"),
+            ChoiceOption("L", "Leave the bar"),
+        ]
+    if kind == "bartender:drinks":
+        return [
+            ChoiceOption(str(index + 1), f"{drink.name} — {drink.cost} credit; stock {state.bartender_stock.get(drink_id, 0)}", "commitment", state.bartender_stock.get(drink_id, 0) > 0, "current counted stock")
+            for index, (drink_id, drink) in enumerate(DRINKS.items())
+        ]
+    if kind.startswith("bartender:drink:"):
+        drink_id = kind.split(":", 2)[2]
+        drink = DRINKS[drink_id]
+        available = state.bartender_stock.get(drink_id, 0) > 0 and state.trade_credit >= drink.cost
+        return [
+            ChoiceOption("D", "Drink one measure now", "commitment", available, f"{drink.cost} credit and stock"),
+            ChoiceOption("B", "Buy one bottle into the pack", "commitment", available, f"{drink.cost} credit and pack space"),
+        ]
+    if kind == "incident":
+        return [
+            ChoiceOption("M", "Mediate by naming the disputed work", "commitment"),
+            ChoiceOption("S", "Support the first speaker", "refusal"),
+            ChoiceOption("F", "Let the bounded fistfight run", "danger"),
+        ]
+    if kind == "route-stop":
+        node = state.route_nodes[state.route_current_node]
+        available = int(state.vessel_changes.get(f"supply_available:{node.id}", 0))
+        return [
+            ChoiceOption("R", "Load one grain lot for one credit", "commitment", available > 0 and state.trade_credit >= 1, "available provision and one credit"),
+            ChoiceOption("T", f"Trade one {node.market_interest or 'wanted'} lot for two credit", "commitment", bool(node.market_interest and state.vessel_cargo.get(node.market_interest)), f"one {node.market_interest or 'wanted'} cargo lot"),
+            ChoiceOption("S", "Take fresh soundings of connected unknown water", "ordinary"),
+        ]
+    if kind.startswith("person:"):
+        from .people import person_by_id
+
+        person = person_by_id(state, kind.split(":", 1)[1])
+        if person in state.household and person and person.id != state.active_courier_id and person.alive and person.available:
+            return [ChoiceOption("S", "Switch to this courier", "commitment")]
+        if person and person not in state.household:
+            return [ChoiceOption("R", "Offer a voluntary berth", "commitment"), ChoiceOption("D", "Defer the invitation", "refusal")]
+    return []
+
+
+def _choice_attribute(option: ChoiceOption, selected: bool) -> int:
+    role = {
+        "ordinary": "exit", "commitment": "cargo", "refusal": "hazard", "danger": "elite",
+    }[option.semantic]
+    attr = _COLOUR_ATTRIBUTES[role] | curses.A_BOLD
+    if not option.available:
+        attr = curses.A_DIM
+    if selected:
+        attr |= curses.A_REVERSE
+    return attr
+
+
+def _draw_dialogue_overlay(screen: curses.window, state: GameState, view: OverlayView) -> None:
+    title, raw_lines = _overlay_lines(state, view.kind)
+    options = dialogue_choices(state, view.kind)
+    if options:
+        view.selected %= len(options)
+    option_prefixes = tuple(f"{option.key}." for option in options)
+    narrative = [line for line in raw_lines if not line.lstrip().startswith(option_prefixes)]
+    height, width = screen.getmaxyx()
+    box_width = min(width - 4, max(52, min(76, max([len(line) for line in narrative] + [len(option.label) + 12 for option in options] + [30]) + 4)))
+    wrapped: list[str] = []
+    for line in narrative:
+        wrapped.extend(_wrapped(line, box_width - 4) or [""])
+    box_height = min(height - 4, len(wrapped) + len(options) + 5)
+    top, left = (height - box_height) // 2, (width - box_width) // 2
+    for y in range(top, top + box_height):
+        _put(screen, y, left, " " * box_width, curses.A_REVERSE)
+    _frame(screen, top, left, box_height, box_width, title)
+    row = top + 2
+    for line in wrapped[: max(0, box_height - len(options) - 4)]:
+        _put(screen, row, left + 2, _clip(line, box_width - 4))
+        row += 1
+    view.option_rows = []
+    for index, option in enumerate(options):
+        if row >= top + box_height - 1:
+            break
+        view.option_rows.append(row)
+        pointer = ">" if index == view.selected else " "
+        availability = "" if option.available else f" [unavailable: {option.requirement}]"
+        _put(screen, row, left + 2, _clip(f"{pointer} [{option.key}] {option.label}{availability}", box_width - 4), _choice_attribute(option, index == view.selected))
+        row += 1
+    screen.refresh()
+
+
+def _handle_overlay_view(state: GameState, view: OverlayView, event: InputEvent) -> tuple[bool, bool]:
+    options = dialogue_choices(state, view.kind)
+    if options:
+        view.selected %= len(options)
+    key = event.key
+    if event.kind == "mouse" and event.button == "left" and view.option_rows:
+        index = next((index for index, row in enumerate(view.option_rows) if row == event.y), None)
+        if index is None or index >= len(options):
+            return False, False
+        view.selected = index
+        if not event.double:
+            return False, False
+        key = 10
+    if options:
+        normalized = ord(chr(key).lower()) if 0 <= key < 256 else key
+        direct_character = chr(key).lower() if 0 <= key < 256 else ""
+        conflicts = any(option.key.lower() == direct_character for option in options)
+        if normalized in {curses.KEY_UP, ord("w"), ord("k")} and not conflicts:
+            view.selected = (view.selected - 1) % len(options)
+            return False, False
+        if normalized in {curses.KEY_DOWN, ord("s"), ord("j")} and not conflicts:
+            view.selected = (view.selected + 1) % len(options)
+            return False, False
+        if key in {10, 13}:
+            option = options[view.selected]
+            if not option.available:
+                state.add_message(f"Unavailable: {option.requirement}.", priority=2)
+                return False, False
+            key = 10 if option.key == "Enter" else ord(option.key.lower())
+        elif 0 <= key < 256:
+            direct = next((option for option in options if option.key.lower() == chr(key).lower()), None)
+            if direct and not direct.available:
+                state.add_message(f"Unavailable: {direct.requirement}.", priority=2)
+                return False, False
+    next_kind, should_quit = _handle_overlay(state, view.kind, key)
+    if next_kind is None:
+        return True, should_quit
+    if next_kind != view.kind:
+        view.kind, view.selected, view.option_rows = next_kind, 0, []
+    return False, should_quit
+
+
 def _chart_screen_point(node_x: int, node_y: int, map_width: int, height: int) -> tuple[int, int]:
     usable_width, usable_height = max(12, map_width - 5), max(8, height - 7)
     return 2 + round(node_x / 78 * usable_width), 2 + round(node_y / 20 * usable_height)
@@ -479,6 +654,9 @@ def _draw_route_chart(
     map_width = width - detail_width
     _frame(screen, 0, 0, height - 2, map_width, "JOMON ROUTE CHART")
     _frame(screen, 0, map_width, height - 2, detail_width, "SELECTED ROUTE")
+    for y in range(3, max(3, height - 4), 4):
+        for x in range(4 + (y % 3), max(4, map_width - 3), 9):
+            _put(screen, y, x, "~", _COLOUR_ATTRIBUTES["water"] | curses.A_DIM)
     view.node_screen = {}
     for edge in state.route_edges:
         first = _chart_screen_point(state.route_nodes[edge.first].x, state.route_nodes[edge.first].y, map_width, height)
@@ -798,8 +976,79 @@ def _clamp_inventory_cursor(state: GameState, view: InventoryView) -> None:
         view.cursor_y = max(0, min(max(0, len(_inventory_items(state, view)) - 1), view.cursor_y))
 
 
-def _handle_inventory(state: GameState, view: InventoryView, key: int) -> tuple[bool, bool]:
+def _transfer_inventory_items(state: GameState, view: InventoryView, items: list) -> bool:
+    snapshot = copy.deepcopy(state.items)
+    container_snapshots = {container.id: list(container.item_ids) for container in state.region.containers}
+    for item in items:
+        source_container_id = item.container_id
+        if item.location == "pack" and state.location == "jomon":
+            moved = transfer_to_grid(state, item.id, "locker")
+        elif item.location == "locker":
+            moved = transfer_to_grid(state, item.id, "pack", owner_id=state.active_courier_id)
+        elif item.location in {"container", "ground"}:
+            moved = state.auto_place_enabled and auto_place(state, item.id, "pack", owner_id=state.active_courier_id)
+            if moved:
+                if source_container_id:
+                    container = next((box for box in state.region.containers if box.id == source_container_id), None)
+                    if container and item.id in container.item_ids:
+                        container.item_ids.remove(item.id)
+                record_acquisition(state, item)
+        else:
+            moved = False
+        if not moved:
+            state.items = snapshot
+            for container in state.region.containers:
+                container.item_ids = container_snapshots[container.id]
+            return False
+    sync_legacy_load(state)
+    return True
+
+
+def _inventory_mouse_key(state: GameState, view: InventoryView, event: InputEvent) -> int | None:
+    if event.kind != "mouse":
+        return event.key
+    if view.pane in {"pack", "locker"}:
+        origin_x, origin_y = view.grid_origin
+        grid_width, grid_height = grid_size(state, view.pane)
+        cell_x, cell_y = (event.x - origin_x) // 2, event.y - origin_y
+        if origin_x <= event.x < origin_x + grid_width * 2 and 0 <= cell_y < grid_height:
+            view.cursor_x, view.cursor_y = cell_x, cell_y
+            if event.shift and event.button == "left":
+                item = _inventory_item_at(state, view)
+                if item:
+                    selected = view.selected_ids or set()
+                    selected.symmetric_difference_update({item.id})
+                    view.selected_ids = selected
+                return None
+            if event.button == "right":
+                return ord("r")
+            if event.button == "left":
+                return ord("t") if event.double else 10
+    if view.paper_screen and event.button == "left":
+        candidates = [
+            (abs(x - event.x) + abs(y - event.y), slot)
+            for slot, (x, y) in view.paper_screen.items()
+            if y == event.y and event.x >= x
+        ]
+        if candidates:
+            slot = min(candidates)[1]
+            view.paper_slot = PAPER_SLOTS.index(slot)
+            if event.double and slot in BODY_SLOTS:
+                return ord(str(BODY_SLOTS.index(slot) + 1))
+    if event.button == "wheel-up":
+        return ord("[")
+    if event.button == "wheel-down":
+        return ord("]")
+    return None
+
+
+def _handle_inventory(state: GameState, view: InventoryView, event: InputEvent | int) -> tuple[bool, bool]:
     """Return (closed, committed); Escape restores the complete opening state."""
+    if isinstance(event, int):
+        event = InputEvent("key", key=event)
+    key = _inventory_mouse_key(state, view, event)
+    if key is None:
+        return False, False
     char = chr(key).lower() if 0 <= key < 256 else ""
     movement = {
         curses.KEY_LEFT: (-1, 0), curses.KEY_RIGHT: (1, 0),
@@ -808,6 +1057,18 @@ def _handle_inventory(state: GameState, view: InventoryView, key: int) -> tuple[
     }
     normalized = ord(char) if char else key
     if key == 27:
+        if view.pending_drop:
+            view.pending_drop = False
+            view.status = "Drop cancelled; nothing moved."
+            return False, False
+        if view.selected_ids:
+            view.selected_ids.clear()
+            view.status = "Selection cleared."
+            return False, False
+        if view.held_id:
+            view.held_id = None
+            view.status = "Held preview returned to its committed source."
+            return False, False
         view.transaction.cancel(state)
         return True, False
     if key == 9:
@@ -815,11 +1076,36 @@ def _handle_inventory(state: GameState, view: InventoryView, key: int) -> tuple[
         view.pane = panes[(panes.index(view.pane) + 1) % len(panes)]
         view.cursor_x = view.cursor_y = 0
         return False, False
+    if view.pending_drop:
+        if char == "y":
+            targets = [item for item in state.items if item.id in (view.selected_ids or set())]
+            if not targets:
+                item = _inventory_item_at(state, view)
+                targets = [item] if item else []
+            dropped = bool(targets) and all(item.location == "pack" for item in targets)
+            if dropped:
+                for item in targets:
+                    dropped = drop_item(state, item.id) and dropped
+            if dropped:
+                view.transaction.changed = True
+                view.selected_ids.clear()
+                sync_legacy_load(state)
+                view.status = f"Dropped {len(targets)} physical item(s)."
+            else:
+                view.status = "Drop failed; every target remains accounted for."
+            view.pending_drop = False
+        elif char == "n":
+            view.pending_drop = False
+            view.status = "Drop cancelled."
+        return False, False
     if key == ord("D"):
+        if state.location != "region":
+            view.status = "Physical dropping is available only in a region."
+            return False, False
         item = _inventory_item_at(state, view)
-        if item and item.location == "pack" and drop_item(state, item.id):
-            view.transaction.changed = True
-            sync_legacy_load(state)
+        targets = view.selected_ids or ({item.id} if item else set())
+        if targets:
+            view.pending_drop = True
         return False, False
     if normalized in movement:
         dx, dy = movement[normalized]
@@ -835,9 +1121,8 @@ def _handle_inventory(state: GameState, view: InventoryView, key: int) -> tuple[
         return True, True
     if char == "r":
         if view.held_id:
-            item = next(item for item in state.items if item.id == view.held_id)
-            item.rotated = not item.rotated
-            view.transaction.changed = True
+            view.held_rotated = not view.held_rotated
+            view.status = "Rotation preview changed; the source remains committed."
         else:
             item = _inventory_item_at(state, view)
             if item and rotate_item(state, item.id):
@@ -849,16 +1134,61 @@ def _handle_inventory(state: GameState, view: InventoryView, key: int) -> tuple[
                 return False, False
             owner = state.active_courier_id if view.pane == "pack" else None
             item = next(item for item in state.items if item.id == view.held_id)
-            if place_item(state, item.id, view.pane, view.cursor_x, view.cursor_y, rotated=item.rotated, owner_id=owner):
+            if place_item(state, item.id, view.pane, view.cursor_x, view.cursor_y, rotated=view.held_rotated, owner_id=owner):
                 view.held_id = None
                 view.transaction.changed = True
+                view.status = "Placement committed within this repack transaction."
+            else:
+                view.status = "Invalid placement; the item remains at its committed source."
             return False, False
         item = _inventory_item_at(state, view)
         if item and view.pane in {"pack", "locker"}:
-            item.location = "held"
             view.held_id = item.id
+            view.held_rotated = item.rotated
+            view.status = "Placement preview lifted; source remains committed until placement."
         return False, False
     item = _inventory_item_at(state, view)
+    if key == ord(" "):
+        if item:
+            selected = view.selected_ids or set()
+            selected.symmetric_difference_update({item.id})
+            view.selected_ids = selected
+        return False, False
+    if char == "*":
+        view.selected_ids = {item.id for item in _inventory_items(state, view)}
+        return False, False
+    if char == "k" and item:
+        category = item_spec(item.kind).category
+        view.selected_ids = {other.id for other in _inventory_items(state, view) if item_spec(other.kind).category == category}
+        return False, False
+    if char == "p":
+        targets = [other for other in state.items if other.id in (view.selected_ids or set())]
+        if not targets and item:
+            targets = [item]
+        if targets:
+            pin = not all(other.pinned for other in targets)
+            for other in targets:
+                pin_item(state, other.id, pin)
+            view.transaction.changed = True
+            view.status = f"{'Pinned' if pin else 'Unpinned'} {len(targets)} item(s)."
+        return False, False
+    if char == "o" and view.pane in {"pack", "locker"}:
+        owner = state.active_courier_id if view.pane == "pack" else None
+        selected = view.selected_ids if view.selected_ids else None
+        if auto_pack(state, view.pane, owner_id=owner, selected_ids=selected):
+            view.transaction.changed = True
+            view.status = "Auto-pack committed; pinned items did not move."
+        else:
+            view.status = "Auto-pack found no complete layout; the original is unchanged."
+        return False, False
+    if char == "z":
+        state.auto_place_enabled = not state.auto_place_enabled
+        view.transaction.changed = True
+        view.status = f"Auto-place new items {'enabled' if state.auto_place_enabled else 'disabled'}."
+        return False, False
+    if char in {"[", "]"}:
+        view.paper_slot = (view.paper_slot + (-1 if char == "[" else 1)) % len(PAPER_SLOTS)
+        return False, False
     if char == "e" and item and item.location == "pack" and equip_item(state, item.id):
         view.transaction.changed = True
         sync_legacy_load(state)
@@ -867,31 +1197,19 @@ def _handle_inventory(state: GameState, view: InventoryView, key: int) -> tuple[
         view.transaction.changed = True
         sync_legacy_load(state)
         return False, False
-    if char == "t" and item:
-        moved = False
-        source_container_id = item.container_id
-        if view.pane == "pack" and state.location == "jomon":
-            moved = transfer_to_grid(state, item.id, "locker")
-        elif view.pane == "locker":
-            moved = transfer_to_grid(state, item.id, "pack", owner_id=state.active_courier_id)
-        elif view.pane == "pack" and state.location == "region":
-            moved = drop_item(state, item.id)
-        elif view.pane.startswith("container:") or view.pane == "ground":
-            moved = transfer_to_grid(state, item.id, "pack", owner_id=state.active_courier_id)
-            if moved:
-                if source_container_id:
-                    container = next((box for box in state.region.containers if box.id == source_container_id), None)
-                    if container and item.id in container.item_ids:
-                        container.item_ids.remove(item.id)
-                record_acquisition(state, item)
+    if char == "t" and (item or view.selected_ids):
+        targets = [other for other in state.items if other.id in (view.selected_ids or set())]
+        if not targets and item:
+            targets = [item]
+        moved = _transfer_inventory_items(state, view, targets)
         if moved:
             view.transaction.changed = True
-            sync_legacy_load(state)
+            view.selected_ids.clear()
+            view.status = f"Transferred {len(targets)} item(s)."
+        else:
+            view.status = "Transfer could not fit every item; nothing moved."
         _clamp_inventory_cursor(state, view)
         return False, False
-    if char == "d" and item and item.location == "pack" and drop_item(state, item.id):
-        view.transaction.changed = True
-        sync_legacy_load(state)
     return False, False
 
 
@@ -939,6 +1257,24 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
                 f"  {learned}; closest standing: {related} ({strongest[1]:+d})",
             ))
         return "JOMON HOUSEHOLD", lines + ["Escape closes without advancing time."]
+    if kind == "chronicle":
+        return "JOMON VESSEL CHRONICLE", [*(state.chronicle[-16:] or ["No vessel incident is recorded yet."]), "Escape closes without advancing time."]
+    if kind.startswith("station:"):
+        station = kind.split(":", 1)[1]
+        title, detail = {
+            "galley": ("JOMON GALLEY", "Counted provisions become meals here; seasonal stores affect bar and voyage supplies."),
+            "repair": ("REPAIR POSITION", f"Tools, spare timber, and rigging serve Jomon's integrity ({state.vessel_integrity}/10)."),
+            "berths": ("JOMON BERTHS", "Named adults sleep or recover here according to injury and action-clock schedule."),
+            "bilge": ("BALLAST AND BILGE", "Water collects on the lower deck; repair watches inspect hull access during crises."),
+            "provisions": ("PROVISION STORE", "Dry grain and sealed fish are physically counted for route legs and emergencies."),
+            "workshop": ("LOWER WORKSHOP", "Armour, tools, and damaged possessions are accounted for beside the cargo hold."),
+            "storage": ("SERVING AND DECK STORE", "Bounded working stores support the nearby station; nothing here is unlimited."),
+            "helm": ("JOMON HELM", "The scheduled pilot steers here; travel changes only at confirmed route legs."),
+            "lookout": ("LOOKOUT POSITION", "This exposed upper position improves warning and becomes a defensive voyage station."),
+            "gathering": ("COMMON DECK", "Crew gather, train, and dispute work here when schedules and memories align."),
+            "market": ("VISITING BERTH", "Regional merchants use this bounded berth only when a recorded visit is active."),
+        }.get(station, ("JOMON WORK POSITION", "A bounded vessel activity uses this physical position."))
+        return title, [detail, "Inspection costs no time. Escape closes."]
     if kind == "hold":
         cargo = [f"{name}: {stack.quantity}, {stack.condition}" for name, stack in state.vessel_cargo.items()]
         return "HOLD AND LOCAL PROBLEM", cargo + ["", state.region.condition, state.region.pressure, state.region.objective_text, f"Trade credit: {state.trade_credit}"]
@@ -978,6 +1314,45 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         ]
         return "PACK PASSIVE DISCOVERIES", lines + [
             f"Load: {passive_bulk(state)}/{passive_capacity(state)} bulk. Key toggles; Escape returns."
+        ]
+    if kind == "bartender":
+        schedule = state.actor_schedules.get(state.bartender.id)
+        return state.bartender.name.upper(), [
+            f"Bartender; {schedule.activity if schedule else 'between duties'}.",
+            state.bartender.background,
+            f"Opinion of courier: {state.bartender.relationships.get(state.active_courier_id or '', 0):+d}",
+            "Sena's stock follows region arrivals, counted supplies, and season.",
+            "D. Browse drinks", "S. Choose crew support", "L. Leave the bar",
+        ]
+    if kind == "bartender:drinks":
+        lines = [f"Credit: {state.trade_credit}; {calendar_at(state).season} stock"]
+        for index, (drink_id, drink) in enumerate(DRINKS.items()):
+            lines.append(f"{index + 1}. {drink.name} — {drink.benefit}; drawback: {drink.drawback}; stock {state.bartender_stock.get(drink_id, 0)}")
+        return "SENA'S COUNTED DRINKS", lines + ["Select a drink to inspect drinking or bottling."]
+    if kind.startswith("bartender:drink:"):
+        drink = DRINKS[kind.split(":", 2)[2]]
+        return drink.name.upper(), [
+            f"Benefit: {drink.benefit}.", f"Drawback: {drink.drawback}.",
+            f"Duration: {drink.duration} actions; cost {drink.cost} credit.",
+            f"Current stock: {state.bartender_stock.get(drink.id, 0)}.",
+            "D. Drink now", "B. Buy a physical bottle",
+        ]
+    if kind == "incident" and state.pending_incident:
+        people = {person.id: person.name for person in state.household}
+        names = " and ".join(people.get(actor, actor) for actor in state.pending_incident.participants)
+        return "TAVERN INCIDENT", [
+            f"{names}: {state.pending_incident.kind}.",
+            f"Cause: {state.pending_incident.cause}.",
+            "M. Mediate", "S. Support the first speaker", "F. Let the bounded fight run",
+            "No option can cause routine off-screen death.",
+        ]
+    if kind == "route-stop":
+        node = state.route_nodes[state.route_current_node]
+        return node.name.upper(), [
+            node.description,
+            f"Provision lots: {state.vessel_changes.get(f'supply_available:{node.id}', 0)}; market interest: {node.market_interest or 'none'}.",
+            "R. Resupply", "T. Trade", "S. Take soundings",
+            "Each accepted service advances only the action clock.",
         ]
     if kind == "objective":
         alter = "available" if state.gear == "repair tools" or state.support in {"route survey", "carpenter rig"} or (state.courier and state.courier.technique == "lever craft") or state.contact.disposition >= 2 else "needs tools, support, lever craft, or trust"
@@ -1038,8 +1413,10 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
 def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, bool]:
     char = chr(key).lower() if 0 <= key < 256 else ""
     if key == 27:
-        return ("tavern" if kind.startswith("tavern:") else None), False
-    if kind in {"help", "inventory", "equipment", "household", "hold", "contact", "info"} or kind.startswith("contact:"):
+        if kind.startswith("bartender:"):
+            return "bartender", False
+        return ("bartender" if kind.startswith("tavern:") else None), False
+    if kind in {"help", "inventory", "equipment", "household", "hold", "contact", "info", "chronicle"} or kind.startswith("contact:"):
         return None, False
     if kind == "quit":
         if char == "y":
@@ -1058,7 +1435,7 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         index = int(char) - 1
         if 0 <= index < len(rows):
             choose_support(state, rows[index])
-            return "tavern", False
+            return "bartender", False
     if kind == "tavern:relic" and char.isdigit():
         rows = [name for name in RELICS if state.relics.get(name, 0)]
         index = int(char) - 1
@@ -1097,6 +1474,28 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         if char in choices:
             resolve_voyage(state, choices[char])
             return None, False
+    if kind == "bartender":
+        if char == "d":
+            return "bartender:drinks", False
+        if char == "s":
+            return "tavern:support", False
+        if char == "l":
+            return None, False
+    if kind == "bartender:drinks" and char.isdigit():
+        index = int(char) - 1
+        rows = list(DRINKS)
+        if 0 <= index < len(rows):
+            return f"bartender:drink:{rows[index]}", False
+    if kind.startswith("bartender:drink:") and char in {"d", "b"}:
+        drink_id = kind.split(":", 2)[2]
+        purchase_bar_drink(state, drink_id, bottle=char == "b")
+        return "bartender:drinks", False
+    if kind == "incident" and char in {"m", "s", "f"}:
+        intervene_socially(state, {"m": "mediate", "s": "side-first", "f": "let-fight"}[char])
+        return None, False
+    if kind == "route-stop" and char in {"r", "t", "s"}:
+        use_route_stop(state, {"r": "resupply", "t": "trade", "s": "sound"}[char])
+        return kind, False
     if kind.startswith("person:"):
         person_id = kind.split(":", 1)[1]
         from .people import person_by_id
@@ -1125,17 +1524,25 @@ def play(screen: curses.window, state: GameState) -> GameState:
     curses.curs_set(0)
     screen.keypad(True)
     _init_colours()
-    overlay: str | None = None
+    _enable_mouse()
+    overlay: OverlayView | None = None
     inventory_view: InventoryView | None = None
+    route_view: RouteChartView | None = None
     while True:
         _draw_base(screen, state)
         height, width = screen.getmaxyx()
         if inventory_view and height >= MIN_HEIGHT and width >= MIN_WIDTH:
             _draw_inventory(screen, state, inventory_view)
+        elif route_view and height >= MIN_HEIGHT and width >= MIN_WIDTH:
+            _draw_route_chart(screen, state, route_view)
         elif overlay and height >= MIN_HEIGHT and width >= MIN_WIDTH:
-            title, lines = _overlay_lines(state, overlay)
-            _overlay(screen, title, lines)
-        key = screen.getch()
+            if dialogue_choices(state, overlay.kind):
+                _draw_dialogue_overlay(screen, state, overlay)
+            else:
+                title, lines = _overlay_lines(state, overlay.kind)
+                _overlay(screen, title, lines)
+        event = normalise_input(screen.getch())
+        key = event.key
         if key == curses.KEY_RESIZE:
             continue
         if height < MIN_HEIGHT or width < MIN_WIDTH:
@@ -1143,7 +1550,7 @@ def play(screen: curses.window, state: GameState) -> GameState:
                 return state
             continue
         if inventory_view:
-            closed, committed = _handle_inventory(state, inventory_view, key)
+            closed, committed = _handle_inventory(state, inventory_view, event)
             if closed:
                 if committed and inventory_view.transaction.changed:
                     if state.location == "region" and inventory_view.source is None:
@@ -1153,10 +1560,20 @@ def play(screen: curses.window, state: GameState) -> GameState:
                         state.add_message("The physical load is arranged and accounted for.")
                 inventory_view = None
             continue
+        if route_view:
+            closed, next_overlay, animation = _handle_route_chart(state, route_view, event)
+            if animation:
+                _animate_route(screen, state, *animation)
+            if closed:
+                route_view = None
+                overlay = OverlayView(next_overlay) if next_overlay else None
+            continue
         if overlay:
-            overlay, should_quit = _handle_overlay(state, overlay, key)
+            closed, should_quit = _handle_overlay_view(state, overlay, event)
             if should_quit:
                 return state
+            if closed:
+                overlay = None
             continue
         normalized = ord(chr(key).lower()) if 0 <= key < 256 else key
         if normalized in MOVES:
@@ -1166,8 +1583,10 @@ def play(screen: curses.window, state: GameState) -> GameState:
             if result.overlay and result.overlay.startswith("inventory:container:"):
                 source = result.overlay.split("inventory:", 1)[1]
                 inventory_view = InventoryView.begin(state, source)
+            elif result.overlay == "route-chart":
+                route_view = RouteChartView.begin(state)
             else:
-                overlay = result.overlay
+                overlay = OverlayView(result.overlay) if result.overlay else None
         elif normalized == ord("a"):
             attack(state)
         elif normalized == ord("g"):
@@ -1181,7 +1600,7 @@ def play(screen: curses.window, state: GameState) -> GameState:
         elif normalized == ord("i"):
             inventory_view = InventoryView.begin(state)
         elif normalized == ord("?"):
-            overlay = "help"
+            overlay = OverlayView("help")
         elif normalized == ord("s"):
             if state.location != "jomon":
                 state.add_message("Save is available aboard Jomon, outside immediate danger.")
@@ -1192,4 +1611,4 @@ def play(screen: curses.window, state: GameState) -> GameState:
                 except SaveError as exc:
                     state.add_message(str(exc))
         elif normalized == ord("q"):
-            overlay = "quit"
+            overlay = OverlayView("quit")

@@ -14,7 +14,6 @@ from .vessel import (
     current_area,
     vessel_rows,
     vessel_tile,
-    vessel_vertical_destination,
 )
 
 
@@ -97,6 +96,24 @@ def displayed_tile(state: GameState, position: Position) -> str:
             return "B"
         if actor_id:
             return "a" if any(person.id == actor_id for person in state.household) else "v"
+    if state.location == "region":
+        schedule = next(
+            (
+                schedule for schedule in state.actor_schedules.values()
+                if schedule.area == f"region:{state.active_region_id}" and schedule.position == position
+            ),
+            None,
+        )
+        if schedule:
+            contacts = state.contacts.get(state.active_region_id, [])
+            if schedule.actor_id == state.contact.id:
+                return "M"
+            if any(contact.id == schedule.actor_id for contact in contacts):
+                return "c"
+            if any(person.id == schedule.actor_id for person in state.visitors):
+                return "v"
+        if tile in {"M", "c"}:
+            tile = "."
     if state.location == "jomon" and tile == "s" and state.merchant_present:
         return "$"
     container = next((item for item in state.region.containers if item.position == position), None) if state.location == "region" else None
@@ -111,7 +128,10 @@ def displayed_tile(state: GameState, position: Position) -> str:
 
 def is_walkable(state: GameState, position: Position, *, ignore_threat: bool = False) -> bool:
     tile = displayed_tile(state, position)
-    if tile in {" ", "#", "~", "T"}:
+    blocked = {" ", "#", "~", "T"}
+    if state.location == "jomon":
+        blocked |= {"=", "t", "F", "f"}
+    if tile in blocked:
         return False
     if state.location == "jomon" and tile in {"a", "v", "B"}:
         return False
@@ -122,8 +142,6 @@ def is_walkable(state: GameState, position: Position, *, ignore_threat: bool = F
 
 
 def vertical_destination(state: GameState, position: Position) -> Position | None:
-    if state.location == "jomon":
-        return vessel_vertical_destination(position)
     for link in state.region.vertical_links:
         if link.first == position:
             return link.second
@@ -231,6 +249,8 @@ def sight_radius(state: GameState) -> int:
         radius = min(radius, 9)
     if position_key(state.position) in state.smoke and "smoke lens" not in state.carried_passives:
         radius = min(radius, 3)
+    if "reed-tonic" in state.drink_effects:
+        radius = max(3, radius - 2)
     return radius
 
 
