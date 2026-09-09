@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
 from .json_data import JsonDataError, loads
 from .contracts import Definition, Enemy, Opcode, Technique, freeze, runtime_definition
+from .manifest import ContentManifest, content_manifest
+from .versions import CONTENT_SCHEMA
 
 
 class ContentError(ValueError):
@@ -47,6 +49,10 @@ class Catalog:
                 value = {key: item if isinstance(item, Definition) else runtime_definition(name, item)
                          for key, item in value.items()}
             object.__setattr__(self, name, freeze(value))
+
+    @cached_property
+    def manifest(self) -> ContentManifest:
+        return content_manifest(self)
 
 
 CARD_EFFECTS = {opcode.value for opcode in Opcode}
@@ -469,8 +475,8 @@ def _load_catalog(path: Path | None) -> Catalog:
     _fields(raw, "schema_version balance " + " ".join(CONTENT_FIELDS), "content root")
     _fields(art, "schema_version title heroes enemies card_glyphs card_marks curse_card_glyph curse_card_mark", "art root")
     _fields(card_metadata, "schema_version cards", "card metadata root")
-    if raw.get("schema_version") != 20:
-        raise ContentError("content schema_version must be 20")
+    if raw.get("schema_version") != CONTENT_SCHEMA:
+        raise ContentError(f"content schema_version must be {CONTENT_SCHEMA}")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")

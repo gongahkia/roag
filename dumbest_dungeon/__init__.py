@@ -1,3 +1,3 @@
 """Dullest Dungeon: a standard-library terminal deckbuilder."""
 
-__version__ = "0.1.0"
+from .versions import ENGINE_VERSION as __version__
