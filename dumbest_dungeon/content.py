@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-import json
+import re
 from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
+
+from .json_data import JsonDataError, loads
 
 
 class ContentError(ValueError):
@@ -212,6 +214,34 @@ EFFECT_KEYS = {
     "wound_reduction",
 }
 
+CONTENT_FIELDS = {
+    "heroes": "id name role combat_role complexity preferred_ranks signature strength weakness builds summary max_hp rank starter_deck biome",
+    "squads": "id name playstyle complexity formation strength weakness signature",
+    "cards": "id name hero cost from_ranks target target_ranks description effects upgrade_effects tags upgrade_description biome biome_bonus",
+    "enemies": "id name max_hp actions biomes",
+    "encounters": "id kind enemies biomes",
+    "events": "id name text choices biomes",
+    "landmarks": "id name biome art",
+    "missions": "id name biome description approaches",
+    "facilities": "id name biome description options",
+    "terrains": "id name biome glyph cost description",
+    "terrain_patterns": "id name biome glyph mode description",
+    "biomes": "id name glyph description mechanics",
+    "worlds": "id name description layout biomes",
+    "boons": "id name description effects tags requires_all_tags",
+    "curses": "id name description effects kind",
+    "items": "id name description effects",
+    "afflictions": "id name description modifiers",
+}
+
+
+def _fields(value: Any, allowed: str, context: str) -> None:
+    if not isinstance(value, dict):
+        raise ContentError(f"{context} must be an object")
+    unknown = value.keys() - set(allowed.split())
+    if unknown:
+        raise ContentError(f"{context} has unknown fields: {', '.join(sorted(unknown))}")
+
 
 def _indexed(items: Any, section: str) -> dict[str, dict[str, Any]]:
     if not isinstance(items, list):
@@ -220,6 +250,9 @@ def _indexed(items: Any, section: str) -> dict[str, dict[str, Any]]:
     for index, item in enumerate(items):
         if not isinstance(item, dict) or not isinstance(item.get("id"), str):
             raise ContentError(f"{section}[{index}] must have a string id")
+        _fields(item, CONTENT_FIELDS[section], f"{section}[{index}]")
+        if re.fullmatch(r"[a-z][a-z0-9_]*(?::[a-z][a-z0-9_]*)*", item["id"]) is None:
+            raise ContentError(f"{section}[{index}] has an invalid stable id")
         if item["id"] in result:
             raise ContentError(f"duplicate {section} id: {item['id']}")
         result[item["id"]] = item
@@ -229,7 +262,7 @@ def _indexed(items: Any, section: str) -> dict[str, dict[str, Any]]:
 def _ranks(value: Any, context: str) -> None:
     if not isinstance(value, list) or not value:
         raise ContentError(f"{context} must be a non-empty rank list")
-    if any(not isinstance(rank, int) or rank not in range(1, 5) for rank in value):
+    if any(type(rank) is not int or rank not in range(1, 5) for rank in value):
         raise ContentError(f"{context} contains a rank outside 1..4")
     if value != sorted(set(value)):
         raise ContentError(f"{context} must contain unique ranks in ascending order")
@@ -241,14 +274,17 @@ def _effects(value: Any, allowed: set[str], context: str) -> None:
     for index, effect in enumerate(value):
         if not isinstance(effect, dict) or effect.get("op") not in allowed:
             raise ContentError(f"{context}[{index}] has an unknown effect operation")
-        if "amount" in effect and not isinstance(effect["amount"], (int, float)):
-            raise ContentError(f"{context}[{index}].amount must be numeric")
+        _fields(effect, "op amount target status bonus bonus_status condition_status condition_target_state condition_actor_state", f"{context}[{index}]")
+        if "amount" in effect and (type(effect["amount"]) is not int or abs(effect["amount"]) > 1_000_000):
+            raise ContentError(f"{context}[{index}].amount must be an integer within -1000000..1000000")
         if effect["op"] != "cleanse" and "amount" not in effect:
             raise ContentError(f"{context}[{index}] needs an amount")
+        if effect["op"] in {"damage", "block", "heal", "draw", "discard", "energy", "guard", "status"} and effect["amount"] < 0:
+            raise ContentError(f"{context}[{index}] requires a non-negative amount")
         if "bonus_status" in effect and (
             effect["op"] != "damage"
             or effect["bonus_status"] not in CARD_STATUSES
-            or not isinstance(effect.get("bonus"), (int, float))
+            or type(effect.get("bonus")) is not int
             or effect["bonus"] <= 0
         ):
             raise ContentError(f"{context}[{index}] has an invalid status damage bonus")
@@ -409,20 +445,23 @@ def load_catalog(path: Path | None = None) -> Catalog:
     data_root = files("dumbest_dungeon.data")
     source = path or Path(str(data_root.joinpath("game.json")))
     try:
-        raw = json.loads(source.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        raw = loads(source.read_text(encoding="utf-8"))
+    except (OSError, JsonDataError, UnicodeError) as exc:
         raise ContentError(f"cannot load content from {source}: {exc}") from exc
     art_source = Path(str(data_root.joinpath("art.json")))
     try:
-        art = json.loads(art_source.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        art = loads(art_source.read_text(encoding="utf-8"))
+    except (OSError, JsonDataError, UnicodeError) as exc:
         raise ContentError(f"cannot load ASCII art from {art_source}: {exc}") from exc
     metadata_source = Path(str(data_root.joinpath("card_metadata.json")))
     try:
-        card_metadata = json.loads(metadata_source.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        card_metadata = loads(metadata_source.read_text(encoding="utf-8"))
+    except (OSError, JsonDataError, UnicodeError) as exc:
         raise ContentError(f"cannot load card metadata from {metadata_source}: {exc}") from exc
 
+    _fields(raw, "schema_version balance " + " ".join(CONTENT_FIELDS), "content root")
+    _fields(art, "schema_version title heroes enemies card_glyphs card_marks curse_card_glyph curse_card_mark", "art root")
+    _fields(card_metadata, "schema_version cards", "card metadata root")
     if raw.get("schema_version") != 20:
         raise ContentError("content schema_version must be 20")
     if art.get("schema_version") != 1:
