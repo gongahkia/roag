@@ -71,6 +71,16 @@ them by themselves.
 
 ## Measurement and limitations log
 
+`python -m jomon.systemic_audit --seeds N --start K` now audits actual expanded
+worlds rather than independently sampled encounter plans. It compares complete
+seed regeneration and save round trips, checks actor/objective/container and
+vertical access, named history references, incompatible alert groups, seasonal
+chart return routes and production budgets, and reports open-ground/cycle
+metrics. Three initial seeds passed in 7.132 seconds. Four focused audit tests
+passed in 2.260 seconds, including deliberately broken actor placement,
+evidence and a stranded winter destination. This is not yet the 1,000-seed
+result, nor verification of completed quest branches or all process stages.
+
 The ecology continuation adds 24 frontier actor definitions and production
 population composition, bounded local wildlife/work decisions, finite enemy
 firefighting, ignition, drainage, bracing, treatment and signals, physical

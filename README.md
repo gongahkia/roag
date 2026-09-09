@@ -187,11 +187,16 @@ python -m unittest discover -s tests -v
 python -m compileall -q jomon tests
 python -m jomon.audit
 python -m jomon.living_audit
+python -m jomon.systemic_audit --seeds 1000
 git diff --check
 ```
 
-The audit samples 100 seeds across all three added regions and every pressure
-band. See [`LORE.md`](LORE.md), [`PRODUCT.md`](PRODUCT.md), [`TODO.md`](TODO.md),
+The older encounter audit samples 100 seeds across the three original added
+regions and every pressure band. The slow systemic audit constructs all eight
+destinations, checks production placements, history references, seasonal chart
+return routes, deterministic regeneration and exact save round trips. It emits
+JSON and explicitly lists checks it does not perform; `--start` supports
+reproducible batches. See [`LORE.md`](LORE.md), [`PRODUCT.md`](PRODUCT.md), [`TODO.md`](TODO.md),
 the [causal loop note](docs/causal-generation-and-loop.md), the
 [four-region assessment](docs/regions-inventory-encounters-milestone.md), and
 the [regional-quest assessment](docs/regional-questlines-tactical-content-milestone.md).
