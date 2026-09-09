@@ -225,6 +225,11 @@ for pot in POT_AMMUNITION.values():
 def item_spec(kind: str) -> ItemSpec:
     if kind in ITEM_SPECS:
         return ITEM_SPECS[kind]
+    if kind.startswith("evidence:"):
+        from .worklines import EVIDENCE
+        name = kind.split(":", 1)[1]
+        title, _ = EVIDENCE[name]
+        return ItemSpec(name.title(), "EV", 1, 2, 1, "cargo", f"Site testimony for {title}; supports field work and terms with its assigned guard. Recover after loss, or pay for a bounded copy at the survey site.")
     if kind.startswith("fitting:"):
         from .workshop import FITTINGS
 
@@ -568,6 +573,8 @@ def item_preview(kind: str) -> tuple[str, str, str]:
     if kind in weapon_art:
         return weapon_art[kind]
     spec = item_spec(kind)
+    if kind.startswith("evidence:"):
+        return ("+----+", "| /# |", "+----+")
     if spec.category == "armour":
         return {
             "head": (" /---\\ ", "|  o  |", " \\___/ "),

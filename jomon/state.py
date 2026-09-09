@@ -427,6 +427,7 @@ class GameState:
     pending_incident: SocialIncident | None
     last_schedule_turn: int
     questlines: dict[str, QuestProgress] = field(default_factory=dict)
+    worklines: dict[str, QuestProgress] = field(default_factory=dict)
     cross_region_arc: QuestProgress = field(
         default_factory=lambda: QuestProgress(status="locked")
     )
@@ -1018,6 +1019,7 @@ def game_state_from_dict(data: Any) -> GameState:
             pending_incident=pending_incident,
             last_schedule_turn=data.get("last_schedule_turn", data["world_time"]),
             questlines=questlines,
+            worklines={key: QuestProgress(**value) for key, value in data.get("worklines", {}).items()},
             cross_region_arc=cross_region_arc,
             treasure_marks={
                 region_id: list(marks)
@@ -1115,11 +1117,13 @@ def validate_state(state: GameState) -> None:
     from .materials import validate_materials
     from .regional_history import validate_accounts
     from .ecology import validate_ecology
+    from .worklines import validate as validate_worklines
 
     try:
         validate_materials(state)
         validate_accounts(state)
         validate_ecology(state)
+        validate_worklines(state)
     except ValueError as exc:
         raise StateError(f"invalid material state: {exc}") from exc
     if len(state.household) < 6 or len({person.id for person in state.household}) != len(state.household):

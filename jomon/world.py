@@ -291,6 +291,9 @@ def sight_radius(state: GameState) -> int:
         radius = max(radius, 5)
     if "reed-tonic" in state.drink_effects:
         radius = max(3, radius - 2)
+    from .worklines import beacon_active
+    if state.active_region_id == "greywash" and beacon_active(state) and distance(state.position, state.region.landmarks["elevated"]) <= 20:
+        radius += 2
     return max(2, radius - (2 if "narrow-sight" in worn_tags(state, ("head",)) else 0))
 
 

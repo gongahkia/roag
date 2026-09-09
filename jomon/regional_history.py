@@ -128,6 +128,8 @@ def advance_production(state: GameState) -> None:
         market = state.regional_markets[institution.region_id]
         need, product = market[institution.dependency], market[institution.production]
         region = state.regions[institution.region_id]
+        from .worklines import supply_beacon
+        supply_beacon(state, region, market, elapsed)
         season = calendar_at(state).season
         output = elapsed if need.stock else 0
         if season == "winter" and institution.production == "grain":
@@ -178,6 +180,9 @@ def ledger_lines(state: GameState) -> list[str]:
     for event in region.regional_history:
         lines += [f"TESTIMONY — {event.account}", f"EVIDENCE — {event.evidence}: {event.consequence}", ""]
     lines += ["FORECAST — " + forecast(state), "Information and menus cost no action. Supplies and work do."]
+    from .worklines import WORKLINES, lines as work_lines
+    if state.active_region_id in WORKLINES:
+        lines += ["", "UNDERTAKING — optional second regional work", *work_lines(state)]
     return lines
 
 

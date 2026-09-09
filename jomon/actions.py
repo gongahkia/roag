@@ -1093,6 +1093,8 @@ def _advance_world(
             state.region.local_elapsed = state.pressure_elapsed
         previously_watching = {actor.id for actor in state.combatants if actor.status == "watching"}
         messages = _weather_and_deadline(state) + _patrols(state) if state.location == "region" else []
+        from .worklines import apply_local_work
+        apply_local_work(state)
         current = pressure(state)
         from .ecology import active_actors
         from .enemy_ai import sees_courier, heard_position
@@ -2670,6 +2672,9 @@ def negotiate(state: GameState) -> ActionResult:
     ], key=lambda threat: (distance(state.position, threat.position), threat.id))
     if not humans:
         return _plain(state, "No human obstruction is close enough to hear terms.")
+    from .worklines import evidence_leverage
+    speaker = humans[0]
+    undertaking_terms = evidence_leverage(state, speaker)
     has_terms = (
         state.courier.technique == "measured terms"
         or state.gear == "trade seals"
@@ -2677,14 +2682,14 @@ def negotiate(state: GameState) -> ActionResult:
         or "paper" in state.carried_goods
         or "valuable leverage" in build_combinations(state)
         or "stillroom-cordial" in state.drink_effects
+        or undertaking_terms
     )
     if not has_terms:
         return _plain(
             state,
             "You lack witnessed seals, material surety, paper, or valuable leverage.",
         )
-    speaker = humans[0]
-    witnessed = bool(state.objective_evidence) or state.objective_status in {
+    witnessed = undertaking_terms or bool(state.objective_evidence) or state.objective_status in {
         "altered", "completed",
     }
     if speaker.elite and not witnessed:

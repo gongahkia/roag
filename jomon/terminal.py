@@ -819,7 +819,14 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
             return options
         return [ChoiceOption("F", "Confirm the previewed work (two actions)", "commitment"), ChoiceOption("B", "Back without changes")]
     if kind == "material":
-        return [ChoiceOption(str(index + 1), name) for index, name in enumerate(("Here", "North", "East", "South", "West"))]
+        from .worklines import WORKLINES
+        rows = [ChoiceOption(str(index + 1), name) for index, name in enumerate(("Here", "North", "East", "South", "West"))]
+        if state.location == "region" and state.active_region_id in WORKLINES:
+            rows.append(ChoiceOption("W", "Local undertaking: evidence and field work"))
+        return rows
+    if kind == "workline":
+        from .worklines import options
+        return [ChoiceOption(key.upper(), label, semantic, available, requirement) for key, label, semantic, available, requirement in options(state)]
     if kind.startswith("material:"):
         from .materials import VERBS
 
@@ -1790,6 +1797,10 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             "This decision changes people, work, hazards, and later visits.",
             "Choose one recorded regional settlement.",
         ]
+    if kind == "workline":
+        from .worklines import lines
+        text = lines(state)
+        return text[0].upper(), text[1:]
     if kind == "quest:arc":
         from .quests import ARC_REGIONS, ARC_TITLE
 
@@ -1975,6 +1986,14 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         state.add_message(message, priority=3)
         return (None if changed else kind), False
     char = chr(key).lower() if 0 <= key < 256 else ""
+    if char == "w" and (kind == "material" or kind.startswith("contact-service:")):
+        from .worklines import WORKLINES
+        if state.location == "region" and state.active_region_id in WORKLINES:
+            return "workline", False
+    if kind == "workline" and char and key != 27:
+        from .worklines import resolve
+        result = resolve(state, char)
+        return (None if result.changed else kind), False
     if key == 27:
         if kind.startswith("workshop:"):
             return "station:workshop", False

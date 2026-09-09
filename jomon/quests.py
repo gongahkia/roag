@@ -86,6 +86,8 @@ ARC_TITLE = "The Four Working Marks"
 
 
 def initialise_quests(state: GameState) -> None:
+    from .worklines import initialise
+    initialise(state)
     state.questlines = {
         region_id: state.questlines.get(region_id, QuestProgress())
         for region_id in state.regions
@@ -190,6 +192,9 @@ def record_environmental_control(state: GameState) -> None:
 
 
 def record_container_opened(state: GameState, container_id: str) -> None:
+    from .worklines import WORKLINES
+    if state.active_region_id in WORKLINES and container_id == WORKLINES[state.active_region_id][1]:
+        state.worklines[state.active_region_id].optional_done = True
     quest = state.questlines[state.active_region_id]
     if container_id == QUESTS[state.active_region_id]["cache"]:
         quest.optional_done = True
@@ -477,6 +482,9 @@ def secondary_service_options(state: GameState) -> tuple[tuple[str, str, str, bo
         ("t", "Take local practical instruction", "ordinary", True, ""),
         ("h", "Treat one persistent injury", "commitment", injured, "the courier has no persistent injury"),
     ]
+    from .worklines import WORKLINES
+    if state.active_region_id in WORKLINES:
+        rows.append(("w", "Discuss the second local undertaking", "ordinary", True, ""))
     if institution:
         rows.append(("d", f"Deliver one {institution.dependency} to the working account", "commitment", state.market[institution.dependency].stock < 5, "stores already supplied"))
     from .frontier_elites import claimant_terms
