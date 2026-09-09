@@ -14,6 +14,7 @@ from .contracts import Definition, Enemy, Opcode, Technique, freeze, runtime_def
 from .manifest import ContentManifest, content_manifest
 from .versions import CONTENT_SCHEMA
 from .acquisition import Lane
+from .passives import EffectKey, persistent_effect
 from .ordering import ordered_definitions
 
 
@@ -168,58 +169,8 @@ CARD_TAGS = {
     "stress_relief",
     "stress_risk",
 }
-EFFECT_KEYS = {
-    "adrenal_block",
-    "boon_offer_choices",
-    "combat_victory_heal",
-    "countercurrent_draw",
-    "curse_dead_draw",
-    "curse_draw_energy",
-    "curse_draw_move",
-    "curse_draw_stress",
-    "curse_draw_wound",
-    "curse_held_stress",
-    "damage_discard",
-    "damage_draw",
-    "death_chance_reduction",
-    "deflection",
-    "first_card_cost_increase",
-    "first_block_cost_increase",
-    "first_round_energy",
-    "focus_draw",
-    "forced_move_bonus",
-    "forced_move_reduction",
-    "healing_bonus",
-    "healing_reduction",
-    "incoming_damage_bonus",
-    "incoming_damage_reduction",
-    "leaking_light",
-    "marked_damage_bonus",
-    "mercy_block",
-    "night_terror_stress",
-    "opening_hand",
-    "patrol_aggression_reduction",
-    "reserve_energy",
-    "resonant_energy",
-    "reward_choices",
-    "salvage_copies",
-    "scavenger_stress",
-    "stacked_start_block",
-    "start_block",
-    "start_dodge",
-    "start_marked",
-    "start_stress_relief",
-    "start_vulnerable",
-    "stress_bonus",
-    "stress_reduction",
-    "supply_heal_bonus",
-    "supply_light_bonus",
-    "survey_reach",
-    "quick_hands",
-    "second_wind",
-    "stressed_damage_bonus",
-    "wound_reduction",
-}
+EFFECT_KEYS = {key.value for key in EffectKey}
+
 
 CONTENT_FIELDS = {
     "heroes": "id name role combat_role complexity preferred_ranks signature strength weakness builds summary max_hp rank starter_deck biome",
@@ -371,13 +322,20 @@ def _persistent_effects(items: dict[str, dict[str, Any]], section: str) -> None:
         for effect in effects:
             if not isinstance(effect, dict) or effect.get("key") not in EFFECT_KEYS:
                 raise ContentError(f"{section[:-1]} {definition['id']} has an unknown effect key")
+            if "stack" in effect:
+                try:
+                    persistent_effect(effect)
+                except (TypeError, ValueError) as exc:
+                    raise ContentError(f"{section[:-1]} {definition['id']}: {exc}") from exc
+                continue
+            _fields(effect, "key curve amount cap every", f"{section[:-1]} {definition['id']} effect")
             if effect.get("curve") not in EFFECT_CURVES:
                 raise ContentError(f"{section[:-1]} {definition['id']} has an invalid stack curve")
             for field in ("amount", "cap"):
-                if field in effect and not isinstance(effect[field], (int, float)):
-                    raise ContentError(f"{section[:-1]} {definition['id']}.{field} must be numeric")
+                if field in effect and (type(effect[field]) not in (int, float) or effect[field] < 0):
+                    raise ContentError(f"{section[:-1]} {definition['id']}.{field} must be nonnegative numeric")
             if effect["curve"] == "threshold" and (
-                not isinstance(effect.get("every"), int) or effect["every"] < 1
+                type(effect.get("every")) is not int or effect["every"] < 1
             ):
                 raise ContentError(f"{section[:-1]} {definition['id']} needs a positive threshold")
 

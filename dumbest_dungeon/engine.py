@@ -6,6 +6,7 @@ import random
 from collections import Counter, deque
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, replace
+from fractions import Fraction
 from heapq import heappop, heappush
 from typing import Any, Callable
 
@@ -16,6 +17,7 @@ from .telemetry import RunLedger
 from .resolution import Event, EventQueue, Listener, Payload
 from .combat_triggers import ADRENAL, CARD_TRIGGERS, CURSE_TRIGGERS, MERCY, REGISTERED, RIPOSTE
 from .contracts import Opcode
+from .passives import persistent_effect
 from .triggers import EventType, Phase
 
 
@@ -3376,7 +3378,9 @@ class GameEngine:
         return set(self.catalog.cards[card_id]["tags"])
 
     @staticmethod
-    def _stack_value(effect: dict[str, Any], count: int) -> float:
+    def _stack_value(effect: dict[str, Any], count: int) -> int | float | Fraction:
+        if "stack" in effect:
+            return persistent_effect(effect).value(count)
         amount = float(effect.get("amount", 0))
         cap = float(effect.get("cap", amount * count))
         curve = effect["curve"]
@@ -3431,10 +3435,18 @@ class GameEngine:
         definition = catalog[effect_id]
         values = []
         for effect in definition["effects"]:
+            if "stack" in effect:
+                contract = persistent_effect(effect)
+                preview = contract.stack.preview(count)
+                cap = "none" if preview["cap"] is None else contract.display(preview["cap"])
+                values.append(f"{effect['key'].replace('_', ' ')} | Current: {contract.display(preview['current'])}; "
+                              f"next: {contract.display(preview['next'])}. {preview['formula']}. "
+                              f"{'Soft cap' if preview['soft_cap'] else 'Cap'}: {cap}")
+                continue
             value = self._stack_value(effect, count)
             shown = f"{value * 100:.0f}%" if abs(value) < 1 and value else f"{value:g}"
-            values.append(f"{effect['key'].replace('_', ' ')} {shown}")
-        return f"{definition['description']} Current: {', '.join(values)}."
+            values.append(f"{effect['key'].replace('_', ' ')} | Current: {shown}")
+        return f"{definition['description']} Stacks {count}. {'; '.join(values)}."
 
     def compact_effect_summary(self, limit: int = 2) -> str:
         effects = []

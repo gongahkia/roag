@@ -80,6 +80,14 @@ class Effect(FrozenRecord):
         return Target(self["target"]) if "target" in self else None
 
 
+class PersistentEffect(FrozenRecord):
+    @property
+    def contract(self):
+        from .passives import persistent_effect
+
+        return persistent_effect(self)
+
+
 class Definition(FrozenRecord):
     @property
     def id(self) -> str:
@@ -140,4 +148,7 @@ def runtime_definition(section: str, value: dict) -> Definition:
             for action in value["actions"]
         )
         return Enemy(fields)
+    if section in {"boons", "curses", "items"}:
+        fields["effects"] = FrozenList(PersistentEffect((key, freeze(item)) for key, item in effect.items())
+                                       for effect in value["effects"])
     return Definition(fields)

@@ -337,3 +337,10 @@ Exact archived-manifest selection and terminal catalog synchronization passed
 five-card rules: the recorded archive is selected, while an unknown fingerprint
 is rejected. Warning-enabled compilation, content validation and staged
 `git diff --check` passed.
+
+Typed persistent effects, exact unit conversion and live stack application passed
+**40 content/contract/archive tests in 1.811s**. The complete UI group plus the new
+contract tests passed **73 tests in 26.746s**, including stack inspection text.
+A four-test focused rerun passed in 0.563s before the final punctuation adjustment,
+which is covered by the 73-test group. Warning-enabled compilation, full content
+validation and `git diff --check` passed. No shipped effect curve changed here.

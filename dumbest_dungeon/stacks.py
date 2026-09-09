@@ -53,7 +53,8 @@ class StackRule:
                 raise ValueError("stack table contradicts its monotonic promise")
         elif self.table:
             raise ValueError("only table policies accept a table")
-        if (self.mode == StackMode.CONVERSION) != (isinstance(self.converted_from, str) and bool(self.converted_from)):
+        if (self.mode == StackMode.CONVERSION and (not isinstance(self.converted_from, str) or not self.converted_from)
+            or self.mode != StackMode.CONVERSION and self.converted_from is not None):
             raise ValueError("conversion policy must disclose the retired stack identity")
 
     def value(self, count: int) -> int:

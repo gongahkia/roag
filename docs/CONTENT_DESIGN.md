@@ -268,3 +268,17 @@ root/card/turn/combat/charge allowance. A nonactivation cannot emit children.
 Inspection distinguishes those checks from activated triggers; limiter counters
 advance only after an actual activation. This matters for conditions that become
 true later in the same turn.
+
+Persistent effects can now declare exactly `key`, `unit`, and `stack`. Registered
+Python effect keys fix whether the unit is a count or basis points; contradictory
+units, unknown/unused operands, booleans, nonmonotonic tables and misleading
+conversion fields are rejected. Authored table length is at most 65 and base
+magnitudes are at most 1,000,000,000; accumulated runtime results are not capped
+by that input bound. Typed immutable runtime effects expose cached frozen
+`PersistentEffectContract` values. Basis-point calculations return exact fractions.
+Multiplicative previews show the full factor; additive bonus consumers receive
+its excess above one, so 2.25x is a +125% contribution rather than +225%.
+
+The engine accepts these contracts alongside archived legacy curves. Inspection
+shows count, exact current/next value, formula and cap. Live bundled assignments
+are the next content boundary; the archived fingerprint remains unchanged.
