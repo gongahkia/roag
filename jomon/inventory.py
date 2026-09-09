@@ -305,20 +305,28 @@ def placement_preview(
 
 
 def _largest_free_area(width: int, height: int, occupied: set[tuple[int, int]]) -> int:
-    remaining = {(x, y) for y in range(height) for x in range(width)} - occupied
+    mask = sum(1 << (y * width + x) for x, y in occupied if 0 <= x < width and 0 <= y < height)
+    return _free_component_size(width, height, mask)
+
+
+def _free_component_size(width: int, height: int, occupied: int) -> int:
+    """Flood a bounded grid with integer bitsets, retaining exact four-way scoring."""
+    remaining = ((1 << (width * height)) - 1) & ~occupied
+    left_edge = sum(1 << (y * width) for y in range(height))
+    right_edge = left_edge << (width - 1)
     largest = 0
     while remaining:
-        seed = min(remaining, key=lambda point: (point[1], point[0]))
-        stack, component = [seed], {seed}
-        remaining.remove(seed)
-        while stack:
-            x, y = stack.pop()
-            for point in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
-                if point in remaining:
-                    remaining.remove(point)
-                    component.add(point)
-                    stack.append(point)
-        largest = max(largest, len(component))
+        component = remaining & -remaining
+        while True:
+            expanded = component | (remaining & (
+                ((component & ~right_edge) << 1) | ((component & ~left_edge) >> 1)
+                | (component << width) | (component >> width)
+            ))
+            if expanded == component:
+                break
+            component = expanded
+        largest = max(largest, component.bit_count())
+        remaining &= ~component
     return largest
 
 
@@ -333,27 +341,33 @@ def best_fit(
     width, height = grid_size(state, location)
     peers = grid_items(state, location, owner_id=owner_id, exclude=item.id)
     base_occupied = set().union(*(occupied_cells(other) for other in peers)) if peers else set()
-    category = item_spec(item.kind).category
-    orientations = (item.rotated,) if item_spec(item.kind).width == item_spec(item.kind).height else (item.rotated, not item.rotated)
+    occupied_mask = sum(1 << (y * width + x) for x, y in base_occupied)
+    spec = item_spec(item.kind)
+    adjacent_scores: dict[tuple[int, int], int] = {}
+    for other in peers:
+        if item_spec(other.kind).category != spec.category:
+            continue
+        adjacent_cells = {
+            (x + dx, y + dy) for x, y in occupied_cells(other)
+            for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1))
+        }
+        for point in adjacent_cells:
+            adjacent_scores[point] = adjacent_scores.get(point, 0) + 1
+    orientations = (item.rotated,) if spec.width == spec.height else (item.rotated, not item.rotated)
     candidates: list[tuple[tuple[int, ...], tuple[int, int, bool]]] = []
     for rotated in orientations:
-        for y in range(height):
-            for x in range(width):
-                preview = placement_preview(state, item, location, x, y, rotated=rotated, owner_id=owner_id)
-                if not preview.valid:
+        item_width, item_height = (spec.height, spec.width) if rotated else (spec.width, spec.height)
+        shape = sum(((1 << item_width) - 1) << (row * width) for row in range(item_height))
+        for y in range(height - item_height + 1):
+            for x in range(width - item_width + 1):
+                footprint = shape << (y * width + x)
+                if footprint & occupied_mask:
                     continue
-                occupied = base_occupied | set(preview.cells)
-                adjacent = 0
-                for other in peers:
-                    if item_spec(other.kind).category != category:
-                        continue
-                    other_cells = occupied_cells(other)
-                    adjacent += sum(
-                        1 for cx, cy in preview.cells
-                        if any((cx + dx, cy + dy) in other_cells for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)))
-                    )
+                adjacent = sum(adjacent_scores.get((cx, cy), 0)
+                               for cy in range(y, y + item_height)
+                               for cx in range(x, x + item_width))
                 unmoved = int(not (item.location == location and item.x == x and item.y == y and item.rotated == rotated))
-                score = (-_largest_free_area(width, height, occupied), -adjacent, unmoved, y, x, int(rotated))
+                score = (-_free_component_size(width, height, occupied_mask | footprint), -adjacent, unmoved, y, x, int(rotated))
                 candidates.append((score, (x, y, rotated)))
     return min(candidates)[1] if candidates else None
 

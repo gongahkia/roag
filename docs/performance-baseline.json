@@ -1,0 +1,124 @@
+{
+  "auto_pack": {
+    "median_ms": 24.663,
+    "n": 24,
+    "p95_ms": 27.268,
+    "p99_ms": 35.387,
+    "worst_ms": 35.387
+  },
+  "chart_navigation": {
+    "median_ms": 0.012,
+    "n": 24,
+    "p95_ms": 0.026,
+    "p99_ms": 0.036,
+    "worst_ms": 0.036
+  },
+  "chart_open": {
+    "median_ms": 0.297,
+    "n": 24,
+    "p95_ms": 0.371,
+    "p99_ms": 0.484,
+    "worst_ms": 0.484
+  },
+  "cold_import": {
+    "median_ms": 144.241,
+    "n": 5,
+    "p95_ms": 178.284,
+    "p99_ms": 178.284,
+    "worst_ms": 178.284
+  },
+  "enemy_heavy_turn": {
+    "median_ms": 60.169,
+    "n": 24,
+    "p95_ms": 72.682,
+    "p99_ms": 88.568,
+    "worst_ms": 88.568
+  },
+  "environment_heavy_turn": {
+    "median_ms": 65.237,
+    "n": 24,
+    "p95_ms": 87.261,
+    "p99_ms": 88.759,
+    "worst_ms": 88.759
+  },
+  "fov": {
+    "median_ms": 9.245,
+    "n": 24,
+    "p95_ms": 9.43,
+    "p99_ms": 12.272,
+    "worst_ms": 12.272
+  },
+  "input_to_layout": {
+    "median_ms": 102.782,
+    "n": 24,
+    "p95_ms": 120.295,
+    "p99_ms": 131.145,
+    "worst_ms": 131.145
+  },
+  "inventory_open": {
+    "median_ms": 4.065,
+    "n": 24,
+    "p95_ms": 4.431,
+    "p99_ms": 4.622,
+    "worst_ms": 4.622
+  },
+  "load": {
+    "median_ms": 201.015,
+    "n": 24,
+    "p95_ms": 288.294,
+    "p99_ms": 302.332,
+    "worst_ms": 302.332
+  },
+  "movement": {
+    "median_ms": 72.212,
+    "n": 24,
+    "p95_ms": 86.712,
+    "p99_ms": 87.973,
+    "worst_ms": 87.973
+  },
+  "new_world": {
+    "median_ms": 1201.263,
+    "n": 5,
+    "p95_ms": 1941.703,
+    "p99_ms": 1941.703,
+    "worst_ms": 1941.703
+  },
+  "pathfinding": {
+    "median_ms": 36.348,
+    "n": 24,
+    "p95_ms": 36.808,
+    "p99_ms": 36.881,
+    "worst_ms": 36.881
+  },
+  "peak_rss_kib": 105004,
+  "platform": "Linux-7.1.12-100.fc43.x86_64-x86_64-with-glibc2.42",
+  "python": "3.14.7",
+  "region_entry": {
+    "median_ms": 0.008,
+    "n": 24,
+    "p95_ms": 0.029,
+    "p99_ms": 0.031,
+    "worst_ms": 0.031
+  },
+  "render_80x24": {
+    "median_ms": 28.306,
+    "n": 24,
+    "p95_ms": 28.838,
+    "p99_ms": 28.879,
+    "worst_ms": 28.879
+  },
+  "render_scope": "production layout into a sink; no terminal-driver latency",
+  "replay_equal": true,
+  "save": {
+    "median_ms": 11.553,
+    "n": 24,
+    "p95_ms": 17.517,
+    "p99_ms": 19.066,
+    "worst_ms": 19.066
+  },
+  "save_bytes": 281347,
+  "seed": "systemic-benchmark",
+  "units": "milliseconds",
+  "commit": "e32997d4eadc09b63a8cd14d4bf4c8b0932539d9",
+  "method": "Production modules imported before optimization; original inventory module loaded from git show in memory. No branch switch or save touched."
+}

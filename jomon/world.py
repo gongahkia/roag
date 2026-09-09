@@ -264,6 +264,21 @@ def field_of_view(state: GameState, *, remember: bool = True) -> set[Position]:
         rows = map_rows(state)
         return {Position(x, y, state.position.z) for y, row in enumerate(rows) for x in range(len(row))}
     radius = sight_radius(state)
+    # One disposable entry; the key includes every mutable sight input. Actors
+    # never enter it, and dataclass serialization does not persist this cache.
+    signature = (
+        state.active_region_id, state.position, radius,
+        tuple((z, tuple(rows)) for z, rows in state.region.levels.items()),
+        tuple(sorted(state.region.tile_changes.items())), tuple(sorted(state.smoke)),
+        tuple((link.first, link.second) for link in state.region.vertical_links),
+        state.region.width, state.region.height,
+    )
+    cached = getattr(state, "_fov_cache", None)
+    if cached is not None and cached[0] == signature:
+        visible = set(cached[1])
+        if remember:
+            _remember_visible(state, visible)
+        return visible
     visible = {state.position}
     for y in range(max(0, state.position.y - radius), min(state.region.height, state.position.y + radius + 1)):
         for x in range(max(0, state.position.x - radius), min(state.region.width, state.position.x + radius + 1)):
@@ -278,11 +293,17 @@ def field_of_view(state: GameState, *, remember: bool = True) -> set[Position]:
         other = Position(state.position.x, state.position.y, state.position.z + dz)
         if str(other.z) in state.region.levels and line_of_sight(state, state.position, other):
             visible.add(other)
+    state._fov_cache = (signature, frozenset(visible))
     if remember:
-        known = set(state.region.seen)
-        known.update(position_key(position) for position in visible)
-        state.region.seen = sorted(known)
+        _remember_visible(state, visible)
     return visible
+
+
+def _remember_visible(state: GameState, visible: set[Position]) -> None:
+    known = set(state.region.seen)
+    newly_seen = {position_key(position) for position in visible} - known
+    if newly_seen:
+        state.region.seen = sorted(known | newly_seen)
 
 
 def remembered(state: GameState, position: Position) -> bool:

@@ -11,8 +11,9 @@
   24 standard enemy situations and eight elite alternatives. Definitions are
   not evidence of distinct play. Four taught technique names currently lack
   a production hook; nominal build labels are not verified build scenarios.
-- Baseline full suite: rerun in progress. The previous assessment's 177 tests
-  in 567.579 seconds is historical, not this milestone's measurement.
+- Baseline full suite: **177 tests passed in 443.430 seconds** on the unchanged
+  production modules. The prior 567.579-second result is historical. A first
+  completed run lost its summary during interruption and was not counted.
 - No concurrent changes encountered at inspection. Existing geography, items,
   deaths, quest outcomes and migration history must remain intact.
 
@@ -69,6 +70,26 @@ them by themselves.
 | PTY | region/branch/build/campaign/crisis/resize/mouse paths requested by owner | open |
 
 ## Measurement and limitations log
+
+The first benchmark compares 24 observations per ordinary scenario (five cold
+starts/world generations). JSON evidence is in `performance-baseline.json`
+and `performance-optimized.json`. Input-plus-layout median fell from 102.782
+to 30.784 ms; p95 from 120.295 to 35.849 ms. Movement median fell from 72.212
+to 10.504 ms; populated auto-pack from 24.663 to 3.790 ms; new-world generation
+from 1201.263 to 625.172 ms. Save size stayed 281347 bytes and replay matched.
+Cold-import median increased from 144.241 to 275.707 ms in this small sample;
+that regression needs investigation/repetition, not concealment. The 25-ms
+ordinary median target remains open. Rendering measurements use production
+layout into a sink, not a terminal-driver timing claim.
+
+Packing uses exact bitset connected-component scoring; regional reachability
+uses bitset frontiers with explicit aligned vertical links. One-entry FOV and
+bounded path-fragment caches are disposable, unpersisted, and keyed by mutable
+geometry/occupancy. Regression tests compare independent flood-fill results,
+placement scoring, changed terrain/smoke, and reconstructed paths. The first
+fast developer command, `python -m jomon.checks fast`, passed 54 tests in
+20.478 seconds before three further cache/reachability regressions were added.
+The full suite is rerunning serially after this optimization pass.
 
 The previous milestone manually completed only one full Hearthford branch;
 its other branch, arc, and build claims have automated rather than complete

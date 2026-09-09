@@ -83,31 +83,54 @@ def _stock_containers(containers: list[Container], armour: list[str], supplies: 
 
 def region_reachable(region: Region, start: Position | None = None) -> set[Position]:
     start = start or region.landmarks["landing"]
-    link_map: dict[Position, Position] = {}
-    for link in region.vertical_links:
-        link_map[link.first] = link.second
-        link_map[link.second] = link.first
+    width, height = region.width, region.height
+    levels = sorted(int(z) for z in region.levels)
+    stride = width * height
+    if width < 1 or height < 1 or any(
+        len(rows) != height or any(len(row) != width for row in rows)
+        for rows in region.levels.values()
+    ):
+        raise RuntimeError("invalid regional dimensions")
 
-    def tile(position: Position) -> str:
-        rows = region.levels.get(str(position.z), [])
-        if not (0 <= position.y < len(rows) and 0 <= position.x < len(rows[position.y])):
-            return " "
-        return region.tile_changes.get(f"{position.x},{position.y},{position.z}", rows[position.y][position.x])
+    def index(point):
+        if point.z not in levels or not (0 <= point.x < width and 0 <= point.y < height):
+            raise RuntimeError("regional point lies outside its aligned level")
+        return levels.index(point.z) * stride + point.y * width + point.x
 
-    queue, seen = deque([start]), {start}
-    while queue:
-        current = queue.popleft()
-        candidates = [
-            Position(current.x + 1, current.y, current.z), Position(current.x - 1, current.y, current.z),
-            Position(current.x, current.y + 1, current.z), Position(current.x, current.y - 1, current.z),
-        ]
-        if current in link_map:
-            candidates.append(link_map[current])
-        for candidate in candidates:
-            if candidate not in seen and tile(candidate) not in {" ", "#", "~", "T"}:
-                seen.add(candidate)
-                queue.append(candidate)
-    return seen
+    # Integer frontiers avoid constructing four Position objects per visited
+    # cell. Each shift is masked at row and level edges; links remain explicit.
+    tiles = "".join(row for z in levels for row in region.levels[str(z)])
+    allowed = sum(1 << cell for cell, tile in enumerate(tiles) if tile not in {" ", "#", "~", "T"})
+    for key, tile in region.tile_changes.items():
+        point = Position(*map(int, key.split(",")))
+        bit = 1 << index(point)
+        allowed = allowed & ~bit if tile in {" ", "#", "~", "T"} else allowed | bit
+    left = sum(1 << row for row in range(0, len(tiles), width))
+    right = left << (width - 1)
+    top = sum(((1 << width) - 1) << (i * stride) for i in range(len(levels)))
+    bottom = top << (stride - width)
+    links = [(1 << index(link.first), 1 << index(link.second)) for link in region.vertical_links]
+    seen = frontier = 1 << index(start)
+    while frontier:
+        adjacent = (
+            ((frontier & ~right) << 1) | ((frontier & ~left) >> 1)
+            | ((frontier & ~bottom) << width) | ((frontier & ~top) >> width)
+        )
+        for first, second in links:
+            if frontier & first:
+                adjacent |= second
+            if frontier & second:
+                adjacent |= first
+        frontier = adjacent & allowed & ~seen
+        seen |= frontier
+    result = set()
+    while seen:
+        bit = seen & -seen
+        level_index, cell = divmod(bit.bit_length() - 1, stride)
+        y, x = divmod(cell, width)
+        result.add(Position(x, y, levels[level_index]))
+        seen ^= bit
+    return result
 
 
 def validate_region(region: Region) -> None:

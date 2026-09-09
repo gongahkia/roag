@@ -394,6 +394,9 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
     )
     visible = field_of_view(state, remember=False) if state.location == "region" else set()
     threats = visible_threats(state, visible)
+    known = set(state.region.seen)
+    marks = set(state.treasure_marks.get(state.active_region_id, []))
+    marked_positions = {container.position for container in state.region.containers if container.id in marks}
     for sy in range(view_height):
         world_y = origin_y + sy
         if world_y >= len(rows):
@@ -406,7 +409,8 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
             if (
                 state.location == "region"
                 and position not in visible
-                and not remembered(state, position)
+                and f"{position.x},{position.y},{position.z}" not in known
+                and position not in marked_positions
             ):
                 _put(screen, top + 1 + sy, left + 1 + sx, " ")
                 continue

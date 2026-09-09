@@ -193,23 +193,30 @@ def select_goal(state: GameState, threat: Threat) -> EnemyDecision:
     return decision
 
 
-def _neighbours(state: GameState, position: Position, threat: Threat) -> list[Position]:
+def _neighbours(state: GameState, position: Position, threat: Threat, context=None) -> list[Position]:
     candidates = [
         Position(position.x + 1, position.y, position.z),
         Position(position.x - 1, position.y, position.z),
         Position(position.x, position.y + 1, position.z),
         Position(position.x, position.y - 1, position.z),
     ]
-    vertical = vertical_destination(state, position)
+    vertical = context[0].get(position) if context else vertical_destination(state, position)
     if vertical and "no-climb" not in threat.capabilities:
         candidates.append(vertical)
-    occupied = {
+    occupied = context[1] if context else {
         other.position for other in state.threats
         if other.id != threat.id and other.status in {"watching", "engaged"}
     }
+    def walkable(candidate):
+        if context is None:
+            return is_walkable(state, candidate, ignore_threat=True)
+        if candidate not in context[2]:
+            context[2][candidate] = is_walkable(state, candidate, ignore_threat=True)
+        return context[2][candidate]
+
     legal = [
         candidate for candidate in candidates
-        if candidate not in occupied and is_walkable(state, candidate, ignore_threat=True)
+        if candidate not in occupied and walkable(candidate)
     ]
     safe_scree = any("scree" in capability for capability in threat.capabilities)
     return sorted(
@@ -233,6 +240,29 @@ def next_path_step(
 ) -> Position:
     if distance(threat.position, target) <= stop_distance:
         return threat.position
+    occupied = frozenset(
+        other.position for other in state.threats
+        if other.id != threat.id and other.status in {"watching", "engaged"}
+    )
+    signature = (
+        state.active_region_id, state.location, target, stop_distance, limit,
+        tuple(threat.capabilities), occupied,
+        tuple((z, tuple(rows)) for z, rows in state.region.levels.items()),
+        tuple(sorted(state.region.tile_changes.items())),
+        tuple(sorted(state.smoke)), tuple(sorted(state.water)),
+        tuple((link.first, link.second) for link in state.region.vertical_links),
+        tuple((c.position, c.opened) for c in state.region.containers),
+        tuple((actor.actor_id, actor.area, actor.position) for actor in state.actor_schedules.values()),
+    )
+    cache = getattr(state, "_path_cache", {})
+    saved = cache.get(threat.id)
+    if saved and saved[0] == signature and threat.position in saved[1]:
+        index = saved[1].index(threat.position)
+        return saved[1][min(index + 1, len(saved[1]) - 1)]
+    links = {}
+    for link in state.region.vertical_links:
+        links[link.first], links[link.second] = link.second, link.first
+    context = (links, occupied, {})
     queue = deque([threat.position])
     previous: dict[Position, Position | None] = {threat.position: None}
     found: Position | None = None
@@ -241,15 +271,21 @@ def next_path_step(
         if distance(current, target) <= stop_distance:
             found = current
             break
-        for candidate in _neighbours(state, current, threat):
+        for candidate in _neighbours(state, current, threat, context):
             if candidate not in previous:
                 previous[candidate] = current
                 queue.append(candidate)
     if found is None:
         return threat.position
-    while previous[found] not in {None, threat.position}:
-        found = previous[found]  # type: ignore[index]
-    return found
+    path = [found]
+    while previous[path[-1]] is not None:
+        path.append(previous[path[-1]])
+    path.reverse()
+    if len(cache) >= 32 and threat.id not in cache:
+        del cache[next(iter(cache))]
+    cache[threat.id] = (signature, tuple(path))
+    state._path_cache = cache
+    return path[1] if len(path) > 1 else threat.position
 
 
 def retreat_step(state: GameState, threat: Threat) -> Position:

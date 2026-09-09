@@ -1,0 +1,123 @@
+{
+  "auto_pack": {
+    "median_ms": 3.79,
+    "n": 24,
+    "p95_ms": 3.903,
+    "p99_ms": 3.94,
+    "worst_ms": 3.94
+  },
+  "chart_navigation": {
+    "median_ms": 0.013,
+    "n": 24,
+    "p95_ms": 0.026,
+    "p99_ms": 0.036,
+    "worst_ms": 0.036
+  },
+  "chart_open": {
+    "median_ms": 0.297,
+    "n": 24,
+    "p95_ms": 0.35,
+    "p99_ms": 0.472,
+    "worst_ms": 0.472
+  },
+  "cold_import": {
+    "median_ms": 275.707,
+    "n": 5,
+    "p95_ms": 296.215,
+    "p99_ms": 296.215,
+    "worst_ms": 296.215
+  },
+  "enemy_heavy_turn": {
+    "median_ms": 27.319,
+    "n": 24,
+    "p95_ms": 56.234,
+    "p99_ms": 57.042,
+    "worst_ms": 57.042
+  },
+  "environment_heavy_turn": {
+    "median_ms": 22.581,
+    "n": 24,
+    "p95_ms": 44.719,
+    "p99_ms": 44.78,
+    "worst_ms": 44.78
+  },
+  "fov": {
+    "median_ms": 0.057,
+    "n": 24,
+    "p95_ms": 0.066,
+    "p99_ms": 0.091,
+    "worst_ms": 0.091
+  },
+  "input_to_layout": {
+    "median_ms": 30.784,
+    "n": 24,
+    "p95_ms": 35.849,
+    "p99_ms": 37.562,
+    "worst_ms": 37.562
+  },
+  "inventory_open": {
+    "median_ms": 4.218,
+    "n": 24,
+    "p95_ms": 4.558,
+    "p99_ms": 4.578,
+    "worst_ms": 4.578
+  },
+  "load": {
+    "median_ms": 169.643,
+    "n": 24,
+    "p95_ms": 216.464,
+    "p99_ms": 217.288,
+    "worst_ms": 217.288
+  },
+  "movement": {
+    "median_ms": 10.504,
+    "n": 24,
+    "p95_ms": 14.985,
+    "p99_ms": 18.607,
+    "worst_ms": 18.607
+  },
+  "new_world": {
+    "median_ms": 625.172,
+    "n": 5,
+    "p95_ms": 635.219,
+    "p99_ms": 635.219,
+    "worst_ms": 635.219
+  },
+  "pathfinding": {
+    "median_ms": 20.228,
+    "n": 24,
+    "p95_ms": 35.334,
+    "p99_ms": 39.915,
+    "worst_ms": 39.915
+  },
+  "peak_rss_kib": 105624,
+  "platform": "Linux-7.1.12-100.fc43.x86_64-x86_64-with-glibc2.42",
+  "python": "3.14.7",
+  "region_entry": {
+    "median_ms": 0.014,
+    "n": 24,
+    "p95_ms": 0.035,
+    "p99_ms": 0.036,
+    "worst_ms": 0.036
+  },
+  "render_80x24": {
+    "median_ms": 5.053,
+    "n": 24,
+    "p95_ms": 5.224,
+    "p99_ms": 5.264,
+    "worst_ms": 5.264
+  },
+  "render_scope": "production layout into a sink; no terminal-driver latency",
+  "replay_equal": true,
+  "save": {
+    "median_ms": 11.597,
+    "n": 24,
+    "p95_ms": 11.826,
+    "p99_ms": 12.164,
+    "worst_ms": 12.164
+  },
+  "save_bytes": 281347,
+  "seed": "systemic-benchmark",
+  "units": "milliseconds",
+  "stage": "pre-content optimization; full validation and terminal play still pending"
+}
