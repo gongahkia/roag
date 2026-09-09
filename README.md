@@ -63,6 +63,19 @@ enumerates two-objective approach corridors and optional facility detours, then
 reports route, light, supply, hazard, backtracking, and patrol-post exposure by
 layout. It does not play combat, predict moving patrols, or estimate a win rate.
 
+Reproducible headless regression policies use normal player commands, ordinary
+HP/energy/rewards, the visible hand and intents, and known map sites:
+
+```sh
+python3 -m dumbest_dungeon.policies --seed 42 --policy explorer --output /tmp/expedition.json
+```
+
+Use `--squad breach_protocol`, `--policy rusher` or `greedy` to compare routes,
+or `--checkpoint-every 17` to exercise save continuation. The report retains
+commands, canonical state hashes, offers, encounters, resource use and the final
+snapshot. Policy CPU duration is not human play duration; these myopic policies
+are regression instruments and do not establish fun or a representative win rate.
+
 ```sh
 python3 -m dumbest_dungeon --validate-content
 ```
