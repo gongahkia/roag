@@ -3,12 +3,14 @@ from __future__ import annotations
 import curses
 from dataclasses import replace
 import unittest
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.engine import CardInstance, GameEngine
 from dumbest_dungeon.ui import TerminalUI
+from dumbest_dungeon.history import write_run
 
 
 class FakeScreen:
@@ -50,6 +52,27 @@ class FakeScreen:
 
 
 class AsciiUiTests(unittest.TestCase):
+    def test_history_search_scroll_and_close_preserve_simulation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            self.ui.save_path = Path(directory) / "run.json"
+            for index in range(40):
+                self.engine.record("item_acquired", f"probe:{index}", gained=1, count=1)
+            write_run(self.ui.save_path.parent / "history", self.engine, outcome="abandoned")
+            before = self.engine.snapshot()
+            self.ui.screen = FakeScreen(keys=[10, curses.KEY_END, 10, 27])
+            self.ui._history()
+            self.assertEqual(before, self.engine.snapshot())
+            self.ui.screen = FakeScreen(keys=[ord("w"), ord("a"), 127, ord("d"), 10])
+            self.assertEqual("wd", self.ui._text_input("FILTER", "Search"))
+            self.assertEqual(before, self.engine.snapshot())
+
+    def test_elapsed_duration_is_interface_metadata_only(self) -> None:
+        before = self.engine.snapshot()
+        with patch("dumbest_dungeon.ui.time.monotonic", side_effect=[100.0, 145.9]):
+            self.ui._start_session(20)
+            self.assertEqual(65, self.ui._session_duration())
+        self.assertEqual(before, self.engine.snapshot())
+
     def setUp(self) -> None:
         self.catalog = load_catalog()
         self.engine = GameEngine.new(self.catalog, 3)
@@ -85,7 +108,7 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("TAGS: DAMAGE", screen.text())
 
     def test_main_menu_uses_public_title(self) -> None:
-        screen = FakeScreen(keys=[curses.KEY_DOWN, curses.KEY_DOWN, curses.KEY_DOWN, 10])
+        screen = FakeScreen(keys=[curses.KEY_DOWN] * 4 + [10])
         self.ui.screen = screen
         self.ui.save_path = Path("/definitely/missing/dullest-save.json")
         self.ui.new_game = lambda: self.engine
@@ -93,7 +116,7 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("DULLEST DUNGEON", screen.text())
 
     def test_main_menu_launches_the_optional_tutorial(self) -> None:
-        screen = FakeScreen(keys=[10] + [curses.KEY_DOWN] * 3 + [10])
+        screen = FakeScreen(keys=[10] + [curses.KEY_DOWN] * 4 + [10])
         self.ui.screen = screen
         self.ui.save_path = Path("/definitely/missing/dullest-save.json")
         self.ui.new_game = lambda: self.engine

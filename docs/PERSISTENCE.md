@@ -51,6 +51,15 @@ header followed by the detailed deterministic records. No account or network
 code is involved. Elapsed wall time, when supplied by the interface, is report
 metadata rather than simulated state; absent measurements are labeled unmeasured.
 
+The terminal writes a morgue at victory, defeat or explicit abandonment. The title
+screen's Run history entry supports text filtering and scrolling; the CLI reader
+provides the same information for shell workflows. `--telemetry` opts into the
+additional NDJSON export. Manual UI saves include an optional `local_session`
+envelope with elapsed seconds. The UI validates and restores it separately from
+the simulation snapshot, so menu time and resumed duration cannot consume RNG or
+advance travel/combat. The measurement includes reading, animations and pauses;
+it is not a controlled active-play-duration estimate.
+
 ## Atomic local files
 
 `save.write_save` serializes finite JSON before touching the destination. It creates

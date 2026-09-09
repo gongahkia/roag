@@ -181,3 +181,22 @@ changing durable game/RNG state and reaches victory with the same legal commands
 before and after another save/load boundary. Unknown versions and altered or
 missing manifests are rejected. This currently supports the recorded schema-26,
 content-20 baseline, not arbitrary historical content.
+
+The derived synergy/tag/content/migration group passed **33 tests in 0.661s**.
+The current graph derives **1,005 edges** across base and upgrade layers. It
+reports Static Choir's orphan mark setup and Wound Ward's Biologist-dependent
+marked payoff, alongside thin wound producer pools; these are design diagnostics,
+not automatic rejection of the calibrated starting catalog.
+
+Ledger serialization/replay passed **11 tests in 10.589s**; decision instrumentation
+passed **11 in 15.639s**; the arithmetic/replay group passed **13 in 13.771s** and
+its expanded focused arithmetic tests passed **8 in 2.843s**. World-decision and
+replay instrumentation passed **13 in 16.526s**, followed by **9 focused tests in
+3.158s**. History plus atomic-file tests passed **8 in 1.138s**. These are successive
+overlapping test groups, not additive unique-suite totals.
+
+The expanded real-PTY group passed **5 tests in 3.098s**, including morgue scrolling
+at 80×24 and 140×60 and inspection resize without a simulation change. A fake-screen
+history test initially exhausted its input because it supplied scroll keys to a
+short notice; the owning test process was interrupted and the fixture changed to
+contain an actual long history. No gameplay code was altered to accommodate it.

@@ -21,13 +21,21 @@ from pathlib import Path
 from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.engine import GameEngine
 from dumbest_dungeon.ui import TerminalUI
+from dumbest_dungeon.history import history_lines, run_report
 catalog = load_catalog()
 def run(screen):
     ui = TerminalUI(screen, catalog, Path(sys.argv[1]), lambda: None)
     ui.engine = GameEngine.new(catalog, 3)
-    before = ui.engine.snapshot()
-    picked = ui._menu('PTY LONG CONTRACT', ['Accept', 'Walk away'],
-                      '\\n'.join('Consequence ' + str(i) for i in range(90)))
+    if sys.argv[2] == 'history':
+        for i in range(40):
+            ui.engine.record('item_acquired', 'probe:' + str(i), gained=1, count=1)
+        before = ui.engine.snapshot()
+        ui._notice('PTY MORGUE', '\\n'.join(history_lines(run_report(ui.engine))))
+        picked = 1
+    else:
+        before = ui.engine.snapshot()
+        picked = ui._menu('PTY LONG CONTRACT', ['Accept', 'Walk away'],
+                          '\\n'.join('Consequence ' + str(i) for i in range(90)))
     rows, cols = screen.getmaxyx()
     shown = '\\n'.join(screen.instr(row, 0, cols - 1).decode(errors='replace')
                       for row in range(rows))
@@ -40,7 +48,7 @@ Path(sys.argv[1]).write_text(json.dumps(result))
 
 @unittest.skipUnless(os.name == "posix", "real PTY checks require a Unix terminal")
 class RealTerminalTests(unittest.TestCase):
-    def probe(self, rows: int, columns: int, *, resize: bool = False) -> dict:
+    def probe(self, rows: int, columns: int, *, resize: bool = False, history: bool = False) -> dict:
         import fcntl
         import termios
 
@@ -51,7 +59,7 @@ class RealTerminalTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as directory:
                 result_path = Path(directory) / "result.json"
                 process = subprocess.Popen(
-                    [sys.executable, "-c", PROBE, str(result_path)],
+                    [sys.executable, "-c", PROBE, str(result_path), "history" if history else "menu"],
                     stdin=slave, stdout=slave, stderr=slave,
                     env={**os.environ, "TERM": "xterm-256color"},
                 )
@@ -62,19 +70,23 @@ class RealTerminalTests(unittest.TestCase):
                     ready, _, _ = select.select([master], [], [], 0.05)
                     if ready:
                         captured.extend(os.read(master, 65536))
-                    if not sent and b"PTY LONG CONTRACT" in captured:
+                    marker = b"PTY MORGUE" if history else b"PTY LONG CONTRACT"
+                    if not sent and marker in captured:
                         if resize:
                             fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 60, 140, 0, 0))
                             process.send_signal(signal.SIGWINCH)
-                        os.write(master, b"\x1b[6~\x1bOFj\n")
+                        os.write(master, b"\x1bOF\n" if history else b"\x1b[6~\x1bOFj\n")
                         sent = True
                 self.assertIsNotNone(process.poll(), "PTY timed out: " + captured[-1000:].decode(errors="replace"))
                 self.assertEqual(0, process.returncode, captured[-2000:].decode(errors="replace"))
                 result = json.loads(result_path.read_text())
                 self.assertEqual(1, result["picked"])
                 self.assertTrue(result["unchanged"])
-                self.assertIn("Consequence 89", result["shown"])
-                self.assertIn("> Walk away", result["shown"])
+                if history:
+                    self.assertIn("probe:39", result["shown"])
+                else:
+                    self.assertIn("Consequence 89", result["shown"])
+                    self.assertIn("> Walk away", result["shown"])
                 return result
         finally:
             if process is not None and process.poll() is None:
@@ -91,6 +103,12 @@ class RealTerminalTests(unittest.TestCase):
 
     def test_resize_during_inspection_preserves_simulation(self) -> None:
         self.assertEqual([60, 140], self.probe(24, 80, resize=True)["size"])
+
+    def test_morgue_scrolls_at_80_by_24(self) -> None:
+        self.assertEqual([24, 80], self.probe(24, 80, history=True)["size"])
+
+    def test_morgue_scrolls_at_140_by_60(self) -> None:
+        self.assertEqual([60, 140], self.probe(60, 140, history=True)["size"])
 
 
 if __name__ == "__main__":

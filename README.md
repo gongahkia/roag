@@ -19,11 +19,21 @@ python3 -m dumbest_dungeon --seed 12345
 python3 -m dumbest_dungeon --save-file ./expedition.save.json
 python3 -m dumbest_dungeon --validate-content
 python3 -m dumbest_dungeon --audit-expeditions 60
+python3 -m dumbest_dungeon --telemetry
 ```
 
 A generated seed appears in the map HUD and ending screen. Supplying `--seed` makes new expeditions in that process reproducible. The default save is `$XDG_STATE_HOME/dullest-dungeon/run.save.json`, or `~/.local/state/dullest-dungeon/run.save.json` when `XDG_STATE_HOME` is unset. The existing `dumbest_dungeon` Python package name remains the launch path; it is an internal compatibility detail, not the public title.
 
-Biome worlds use content schema 20 and save version 26. Saves from earlier content schemas are rejected with an explicit version error rather than loaded incorrectly.
+Biome worlds use content schema 20 and save version 28. The explicit migration chain supports the recorded version-26/content-20 baseline and version 27; unknown content fingerprints and versions are rejected. See the [persistence reference](docs/PERSISTENCE.md).
+
+Completed and abandoned expeditions are recorded locally under `history/` beside
+the save file. **Run history** on the title screen supports text filtering and
+scrollable records of choices, casualties, encounters and arithmetic by source.
+The CLI reader is `python3 -m dumbest_dungeon.history --filter warden --detail`.
+History does not require an account or network connection. `--telemetry` explicitly
+enables additional local `history/telemetry/*.ndjson` exports; it is off by default.
+Session duration includes menus and pauses, is restored with manual saves, and
+does not advance any game rule. Older saves disclose their missing early history.
 
 ## Controls and rules
 

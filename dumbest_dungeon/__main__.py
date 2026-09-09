@@ -20,6 +20,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--seed", type=int, help="seed used for every new expedition in this session")
     result.add_argument("--save-file", type=Path, default=default_save_path(), help="override the JSON save path")
     result.add_argument("--validate-content", action="store_true", help="validate bundled JSON and exit")
+    result.add_argument("--telemetry", action="store_true", help="opt in to local detailed NDJSON export when a run ends")
     result.add_argument(
         "--audit-expeditions",
         type=int,
@@ -60,7 +61,8 @@ def main(argv: list[str] | None = None) -> int:
         return GameEngine.new(catalog, seed, start_in_hub=True)
 
     try:
-        curses.wrapper(lambda screen: TerminalUI(screen, catalog, args.save_file, new_game).run())
+        curses.wrapper(lambda screen: TerminalUI(screen, catalog, args.save_file, new_game,
+                                               detailed_telemetry=args.telemetry).run())
     except KeyboardInterrupt:
         return 0
     except curses.error as exc:

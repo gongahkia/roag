@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import curses
+import json
 import textwrap
+import time
 from pathlib import Path
 from typing import Callable
 
 from .content import Catalog
 from .engine import CardInstance, GameEngine, RuleError
 from .save import SaveError, read_save, write_save
+from .history import history_lines, read_history, write_run
 
 
 class TerminalUI:
@@ -27,11 +30,16 @@ class TerminalUI:
         catalog: Catalog,
         save_path: Path,
         new_game: Callable[[], GameEngine],
+        *,
+        detailed_telemetry: bool = False,
     ):
         self.screen = screen
         self.catalog = catalog
         self.save_path = save_path
         self.new_game = new_game
+        self.detailed_telemetry = detailed_telemetry
+        self._session_started: float | None = None
+        self._elapsed_seconds = 0
         self.engine: GameEngine | None = None
         self.message = ""
         self.colour = False
@@ -64,7 +72,7 @@ class TerminalUI:
             choices = ["Tutorial expedition (recommended)", "New expedition"]
             if self.save_path.exists():
                 choices.append("Load expedition")
-            choices.extend(["How to play", "Quit"])
+            choices.extend(["How to play", "Run history", "Quit"])
             picked = self._menu(
                 "DULLEST DUNGEON",
                 choices,
@@ -75,15 +83,19 @@ class TerminalUI:
             choice = choices[picked]
             if choice.startswith("Tutorial"):
                 self.engine = GameEngine.tutorial(self.catalog)
+                self._start_session()
                 self._game_loop()
             elif choice == "New expedition":
                 self.engine = self.new_game()
+                self._start_session()
                 self._game_loop()
             elif choice == "Load expedition":
                 if self._load():
                     self._game_loop()
             elif choice == "How to play":
                 self._help()
+            elif choice == "Run history":
+                self._history()
             else:
                 return
 
@@ -1877,7 +1889,9 @@ class TerminalUI:
             return
         if picked == 1:
             try:
-                write_save(self.save_path, self.engine.snapshot())
+                snapshot = self.engine.snapshot()
+                snapshot["local_session"] = {"elapsed_seconds": self._session_duration()}
+                write_save(self.save_path, snapshot)
                 self.message = "Game saved."
             except SaveError as exc:
                 self.message = str(exc)
@@ -1886,11 +1900,75 @@ class TerminalUI:
         elif picked == 3:
             self._help()
         elif picked == 4:
+            self._archive_run("abandoned")
             self.engine = None
+
+    def _start_session(self, elapsed: int = 0) -> None:
+        self._elapsed_seconds = elapsed
+        self._session_started = time.monotonic()
+
+    def _session_duration(self) -> int:
+        active = time.monotonic() - self._session_started if self._session_started is not None else 0
+        return self._elapsed_seconds + max(0, int(active))
+
+    def _archive_run(self, outcome: str) -> None:
+        if self.engine is None or self.engine.state.tutorial or not self.engine.state.heroes:
+            return
+        try:
+            write_run(self.save_path.parent / "history", self.engine, outcome=outcome,
+                      elapsed_seconds=self._session_duration(), detailed=self.detailed_telemetry)
+        except SaveError as exc:
+            self._notice("HISTORY WRITE FAILED", str(exc))
+
+    def _text_input(self, title: str, prompt: str) -> str | None:
+        value = ""
+        while True:
+            self._begin(title)
+            self._put(3, 3, prompt)
+            self._put(5, 3, value + "_")
+            self._footer("Type to search  Backspace edits  Enter confirms  Esc cancels")
+            key = self._key()
+            if key in (10, 13, curses.KEY_ENTER):
+                return value
+            if key == 27:
+                return None
+            if key in (8, 127, curses.KEY_BACKSPACE):
+                value = value[:-1]
+            elif 32 <= key < 127 and len(value) < 64:
+                value += chr(key)
+
+    def _history(self) -> None:
+        records, errors = read_history(self.save_path.parent / "history")
+        if errors:
+            self._notice("HISTORY READ ERRORS", "\n".join(errors))
+        if not records:
+            self._notice("RUN HISTORY", "No recorded expeditions yet.")
+            return
+        query = ""
+        while True:
+            visible = [record for record in records if query.casefold() in json.dumps(record).casefold()]
+            labels = [f"Seed {record['seed']} | {record['outcome']} | {record['layout']}" for record in visible]
+            labels.extend(["Search / filter", "Clear filter", "Back"])
+            selected = self._menu("RUN HISTORY", labels, f"{len(visible)} records. Filter: {query or '(all)'}\nSelect a run for decisions, deaths and arithmetic.", allow_cancel=True)
+            if selected is None or selected == len(visible) + 2:
+                return
+            if selected < len(visible):
+                self._notice("MORGUE", "\n".join(history_lines(visible[selected])))
+            elif selected == len(visible):
+                entered = self._text_input("FILTER HISTORY", "Seed, crew, outcome, biome, card or item text:")
+                if entered is not None:
+                    query = entered
+            else:
+                query = ""
 
     def _load(self) -> bool:
         try:
-            self.engine = GameEngine.from_snapshot(self.catalog, read_save(self.save_path))
+            snapshot = read_save(self.save_path)
+            session = snapshot.get("local_session", {"elapsed_seconds": 0})
+            if not isinstance(session, dict) or type(session.get("elapsed_seconds")) is not int or session["elapsed_seconds"] < 0:
+                raise SaveError("invalid local session duration")
+            self.engine = GameEngine.from_snapshot(self.catalog, snapshot)
+            self._start_session(session["elapsed_seconds"])
             self.message = "Game loaded."
             return True
         except (SaveError, RuleError) as exc:
@@ -1900,6 +1978,7 @@ class TerminalUI:
 
     def _ending(self, phase: str) -> None:
         assert self.engine
+        self._archive_run(phase)
         title = "EVACUATION COMPLETE" if phase == "victory" else "EXPEDITION LOST"
         body = (
             "The Overseer is silent. The crew escapes before the dead world can wake again."
