@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import random
 from collections import Counter, deque
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from heapq import heappop, heappush
 from typing import Any, Callable
@@ -509,6 +510,7 @@ class GameEngine:
         self.catalog = catalog
         self.state = state
         self.rng = rng
+        self._source_id: str | None = None
 
     @classmethod
     def new(cls, catalog: Catalog, seed: int, *, start_in_hub: bool = False) -> GameEngine:
@@ -1856,8 +1858,17 @@ class GameEngine:
         self.state.log.append(message)
         del self.state.log[:-60]
 
-    def record(self, kind: str, source_id: str, **data: Any) -> None:
-        self.state.ledger.record(kind, source_id, self.state.travel_ticks, self.state.round, **data)
+    def record(self, event_kind: str, source_id: str, **data: Any) -> None:
+        self.state.ledger.record(event_kind, source_id, self.state.travel_ticks, self.state.round, **data)
+
+    @contextmanager
+    def attribution(self, source_id: str):
+        previous = self._source_id
+        self._source_id = source_id
+        try:
+            yield
+        finally:
+            self._source_id = previous
 
     def room(self, room_id: int | None = None) -> Room:
         return self.state.rooms[self.state.current_room if room_id is None else room_id]
@@ -3144,6 +3155,9 @@ class GameEngine:
         self.state.effect_counters = {}
         self.state.intents = []
         names = " / ".join(self.catalog.enemies[enemy_id]["name"] for enemy_id in formation)
+        self.record("encounter_start", encounter_id, enemies=formation, kind=self.state.combat_kind,
+                    plan=self._formation_plan(self.catalog, formation), biome=self.current_biome(),
+                    surprised=surprised, crew=[asdict(hero) for hero in self.living_heroes()])
         self.add_log(f"Combat begins: {encounter['id']}. Formation: {names}.")
         self._start_player_turn()
         self.state.intents = self._choose_intents()
@@ -3157,6 +3171,8 @@ class GameEngine:
     def _start_player_turn(self) -> None:
         self.state.effect_counters["focus_cards"] = 0
         for hero in self.living_heroes():
+            if hero.block:
+                self.record("block_expired", "round:crew", target=hero.id, amount=hero.block)
             hero.block = 0
             self.state.effect_counters[f"round_cards:{hero.id}"] = 0
             self.state.effect_counters[f"countercurrent:{hero.id}"] = 0
@@ -3215,6 +3231,20 @@ class GameEngine:
             )
             self.state.pending_opening_hand = 0
         self._draw(max(1, self.catalog.balance["hand_size"] + opening_cards) - len(self.state.hand))
+        owners = {hero.id: hero for hero in self.living_heroes()}
+        rank_invalid = owner_disabled = 0
+        for card in self.state.hand:
+            if card.card_id in self.catalog.curses:
+                owner_disabled += 1
+                continue
+            definition = self.catalog.cards[card.card_id]
+            owner = owners.get(definition["hero"])
+            if owner is None or owner.statuses.get("stun"):
+                owner_disabled += 1
+            elif owner.rank not in definition["from_ranks"]:
+                rank_invalid += 1
+        self.record("turn_start", "crew", hand=[asdict(card) for card in self.state.hand],
+                    rank_invalid=rank_invalid, owner_disabled=owner_disabled, energy=self.state.energy)
 
     def _apply_biome_combat_environment(self, environment: dict[str, Any]) -> None:
         heroes = self.living_heroes()
@@ -3430,7 +3460,11 @@ class GameEngine:
         for effect in effects:
             if self.state.phase != "combat":
                 break
-            if not self._card_effect_condition(effect, actor, main_targets):
+            condition_met = self._card_effect_condition(effect, actor, main_targets)
+            conditions = {key: effect[key] for key in ("condition_status", "condition_actor_state", "condition_target_state") if key in effect}
+            if conditions:
+                self.record("condition", card.card_id, conditions=conditions, activated=condition_met)
+            if not condition_met:
                 continue
             resolved_effect = dict(effect)
             if definition.get("biome") == self.current_biome():
@@ -3440,7 +3474,7 @@ class GameEngine:
                 elif resolved_effect["op"] == "stress" and resolved_effect.get("amount", 0) < 0:
                     resolved_effect["amount"] = int(resolved_effect["amount"]) - bonus
             targets = self._effect_targets(resolved_effect.get("target"), main_targets, actor)
-            self._apply_effect(actor, targets, resolved_effect)
+            self._apply_effect(actor, targets, resolved_effect, source_id=card.card_id)
         resonant = round(self._hero_effect_value(actor, "boon", "resonant_energy"))
         if self.state.effect_counters[combat_key] % 3 == 0 and resonant:
             self.state.energy += resonant
@@ -3539,7 +3573,12 @@ class GameEngine:
             return self.living_heroes() if actor.side == "hero" else self.living_enemies()
         return main
 
-    def _apply_effect(self, actor: Actor, targets: list[Actor], effect: dict[str, Any]) -> None:
+    def _apply_effect(self, actor: Actor, targets: list[Actor], effect: dict[str, Any], *, source_id: str | None = None) -> None:
+        with self.attribution(source_id or self._source_id or actor.id):
+            self.record("effect", self._source_id, actor=actor.id, targets=[target.id for target in targets], effect=dict(effect))
+            self._apply_effect_primary(actor, targets, effect)
+
+    def _apply_effect_primary(self, actor: Actor, targets: list[Actor], effect: dict[str, Any]) -> None:
         op = effect["op"]
         amount = int(effect.get("amount", 0))
         if op == "draw":
@@ -3557,12 +3596,16 @@ class GameEngine:
                     adjusted = amount
                     if effect.get("bonus_status") in target.statuses:
                         adjusted += int(effect.get("bonus", 0))
+                        self.record("payoff", self._source_id or actor.id, mechanic=effect["bonus_status"],
+                                    target=target.id, bonus=int(effect.get("bonus", 0)))
                     adjusted = self._outgoing_damage(actor, adjusted, target)
                     self._damage(target, adjusted, actor)
                 elif op == "block":
                     multiplier = float(self._affliction_modifiers(target).get("block_mult", 1))
                     multiplier = max(0.5, min(2.0, multiplier))
-                    target.block += max(0, round(amount * multiplier))
+                    gained = max(0, round(amount * multiplier))
+                    target.block += gained
+                    self.record("block", self._source_id or actor.id, target=target.id, amount=gained)
                 elif op == "heal":
                     self._heal(target, amount, actor)
                 elif op == "stress" and target.side == "hero":
@@ -3584,6 +3627,8 @@ class GameEngine:
     ) -> None:
         if self.state.phase != "combat":
             raise RuleError("there is no combat turn to end")
+        self.record("turn_end", "crew", energy_unspent=self.state.energy,
+                    hand=[asdict(card) for card in self.state.hand])
         for card in self.state.hand:
             if card.card_id == "dread_forecast":
                 self._trigger_curse_card(card, "curse_held_stress")
@@ -3809,6 +3854,8 @@ class GameEngine:
             enemy = next((item for item in self.living_enemies() if item.id == intent["enemy_id"]), None)
             if enemy is None:
                 continue
+            if enemy.block:
+                self.record("block_expired", "round:enemy", target=enemy.id, amount=enemy.block)
             enemy.block = 0
             self._tick_wound(enemy)
             if enemy.hp <= 0:
@@ -3823,6 +3870,7 @@ class GameEngine:
                 if enemy.statuses["stun"] <= 0:
                     del enemy.statuses["stun"]
                 self.add_log(f"{enemy.name} is stunned.")
+                self.record("control_skip", "status:stun", target=enemy.id)
                 self._decay_statuses(enemy)
                 if playback:
                     playback(
@@ -3851,7 +3899,8 @@ class GameEngine:
             before = self._combat_actor_snapshot()
             self.add_log(f"{enemy.name} uses {action['name']}.")
             for effect in action["effects"]:
-                self._apply_effect(enemy, self._effect_targets(effect.get("target"), targets, enemy), effect)
+                self._apply_effect(enemy, self._effect_targets(effect.get("target"), targets, enemy), effect,
+                                   source_id=f"{enemy.definition_id}/{action['name']}")
                 if self.state.phase != "combat":
                     break
                 if not self.living_enemies():
@@ -3878,6 +3927,7 @@ class GameEngine:
                 self._combat_victory()
                 return
             self._decay_statuses(enemy)
+        self.record("enemy_round", "combat", result=self.state.phase)
 
     def _enemy_targets(self, rule: str, actor: Actor) -> list[Actor]:
         heroes = self.living_heroes()
@@ -3975,6 +4025,9 @@ class GameEngine:
         return max(0, round(amount * multiplier))
 
     def _damage(self, target: Actor, amount: int, attacker: Actor | None = None) -> None:
+        requested = amount
+        intended_target = target.id
+        source = self._source_id or (attacker.id if attacker else "world:unattributed")
         if target.guarded_by:
             allies = self.living_heroes() if target.side == "hero" else self.living_enemies()
             guard = next((item for item in allies if item.id == target.guarded_by), None)
@@ -3984,6 +4037,8 @@ class GameEngine:
         if attacker and attacker.side != target.side and target.statuses.get("dodge"):
             target.statuses.pop("dodge", None)
             self.add_log(f"{target.name} evades the hit.")
+            self.record("damage", source, target=target.id, intended_target=intended_target,
+                        requested=requested, absorbed=0, amount=0, hp_loss=0, overkill=0, dodged=True)
             return
         if target.statuses.get("vulnerable"):
             amount = round(amount * 1.5)
@@ -3999,6 +4054,9 @@ class GameEngine:
             if not self.state.effect_counters.get(hit_key):
                 amount = max(0, amount - round(self._item_effect_value("deflection")))
                 self.state.effect_counters[hit_key] = 1
+        self.record("damage", source, target=target.id, intended_target=intended_target,
+                    requested=requested, absorbed=absorbed, amount=amount,
+                    hp_loss=min(target.hp, amount), overkill=max(0, amount - target.hp), dodged=False)
         if amount <= 0:
             return
         if target.side == "hero" and target.deaths_door:
@@ -4007,7 +4065,11 @@ class GameEngine:
                 "boon",
                 "death_chance_reduction",
             )
-            if self.rng.random() < max(0.05, death_chance):
+            roll = self.rng.random()
+            died = roll < max(0.05, death_chance)
+            self.record("deaths_door_check", source, target=target.id,
+                        chance_bp=round(max(0.05, death_chance) * 10000), roll=roll.hex(), died=died)
+            if died:
                 target.deaths_door = False
                 target.hp = 0
                 self._hero_died(target)
@@ -4044,7 +4106,8 @@ class GameEngine:
             and attacker.side != target.side
         ):
             self.add_log(f"{target.name} answers with a riposte.")
-            self._damage(attacker, 4)
+            with self.attribution(f"status:riposte:{target.id}"):
+                self._damage(attacker, 4)
 
     def _hero_died(self, hero: Actor) -> None:
         death_rank = hero.rank
@@ -4086,6 +4149,9 @@ class GameEngine:
         self.record("crew_death", hero.id, rank=death_rank, cards_lost=removed,
                     survivors=[actor.id for actor in survivors])
         if not survivors:
+            if self.state.phase == "combat":
+                self.record("encounter_end", "combat", result="defeat", kind=self.state.combat_kind,
+                            rounds=self.state.round, crew=[asdict(actor) for actor in self.state.heroes])
             self.state.phase = "defeat"
             self.add_log(f"{hero.name} dies. No crew remain.")
             return
@@ -4095,6 +4161,7 @@ class GameEngine:
         )
 
     def _heal(self, target: Actor, amount: int, healer: Actor | None = None) -> None:
+        previous_hp = target.hp
         multiplier = float(self._affliction_modifiers(target).get("healing_mult", 1))
         if target.side == "hero":
             multiplier *= 1 - self._hero_effect_value(target, "curse", "healing_reduction")
@@ -4102,6 +4169,9 @@ class GameEngine:
             multiplier *= 1 + self._hero_effect_value(healer, "boon", "healing_bonus")
         multiplier = max(0.5, min(2.0, multiplier))
         target.hp = min(target.max_hp, target.hp + max(0, round(amount * multiplier)))
+        self.record("healing", self._source_id or (healer.id if healer else "world:unattributed"),
+                    target=target.id, requested=amount, amount=target.hp - previous_hp,
+                    overheal=max(0, round(amount * multiplier) - (target.hp - previous_hp)))
         if target.hp > 0:
             target.deaths_door = False
         if healer and healer.side == "hero" and target.side == "hero" and healer.id != target.id:
@@ -4110,12 +4180,15 @@ class GameEngine:
                 target.block += mercy
 
     def _change_stress(self, target: Actor, amount: int) -> None:
+        previous_stress = target.stress
         if amount > 0 and target.side == "hero":
             multiplier = 1 + self._hero_effect_value(target, "curse", "stress_bonus")
             multiplier *= 1 - self._hero_effect_value(target, "boon", "stress_reduction")
             multiplier *= 1 - self._item_effect_value("stress_reduction")
             amount = max(0, round(amount * max(0.4, min(2.0, multiplier))))
         target.stress = max(0, target.stress + amount)
+        self.record("stress", self._source_id or "world:unattributed", target=target.id,
+                    requested=amount, amount=target.stress - previous_stress)
         limit = self.catalog.balance.get("stress_limit", 100)
         if target.stress < limit:
             return
@@ -4137,7 +4210,8 @@ class GameEngine:
 
     def _tick_wound(self, actor: Actor) -> None:
         if actor.statuses.get("wound"):
-            self._damage(actor, 2)
+            with self.attribution(f"status:wound:{actor.id}"):
+                self._damage(actor, 2)
 
     def _add_status(self, target: Actor, status: str, amount: int) -> None:
         if status == "wound" and target.side == "hero":
@@ -4145,7 +4219,10 @@ class GameEngine:
             reduction += self._item_effect_value("wound_reduction")
             amount = max(0, amount - round(reduction))
         if amount:
+            previous = target.statuses.get(status, 0)
             target.statuses[status] = max(target.statuses.get(status, 0), amount)
+            self.record("status", self._source_id or "world:unattributed", target=target.id,
+                        status=status, previous=previous, amount=amount, result=target.statuses[status])
 
     def _decay_statuses(self, actor: Actor) -> None:
         for status in list(actor.statuses):
@@ -4182,6 +4259,8 @@ class GameEngine:
 
     def _combat_victory(self) -> None:
         kind = self.state.combat_kind
+        self.record("encounter_end", "combat", result="victory", kind=kind, rounds=self.state.round,
+                    crew=[asdict(hero) for hero in self.state.heroes])
         for hero in self.living_heroes():
             healing = round(self._hero_effect_value(hero, "boon", "combat_victory_heal"))
             if healing:

@@ -77,6 +77,42 @@ class LedgerTests(unittest.TestCase):
         self.assertEqual(3, len(death.data["survivors"]))
         self.assertEqual("combat", engine.state.phase)
 
+    def test_damage_records_absorption_overkill_and_exact_source_without_new_randomness(self) -> None:
+        engine = GameEngine.new(load_catalog(), 42)
+        engine.start_combat("lost_shift")
+        enemy = engine.living_enemies()[0]
+        enemy.hp, enemy.block = 10, 3
+        random_state = engine.rng.getstate()
+        with engine.attribution("test:explosive"):
+            engine._damage(enemy, 20, engine.living_heroes()[0])
+        record = next(row for row in reversed(engine.state.ledger.records) if row.kind == "damage")
+        self.assertEqual("test:explosive", record.source_id)
+        self.assertEqual((3, 10, 7), (record.data["absorbed"], record.data["hp_loss"], record.data["overkill"]))
+        self.assertEqual(random_state, engine.rng.getstate())
+
+    def test_healing_and_status_refresh_report_actual_results(self) -> None:
+        engine = GameEngine.new(load_catalog(), 42)
+        hero = engine.living_heroes()[0]
+        hero.hp -= 2
+        with engine.attribution("test:recovery"):
+            engine._heal(hero, 10)
+            engine._add_status(hero, "focus", 3)
+            engine._add_status(hero, "focus", 1)
+        healing = next(row for row in engine.state.ledger.records if row.kind == "healing")
+        self.assertEqual((2, 8), (healing.data["amount"], healing.data["overheal"]))
+        refresh = engine.state.ledger.records[-1]
+        self.assertEqual((3, 1, 3), (refresh.data["previous"], refresh.data["amount"], refresh.data["result"]))
+
+    def test_card_and_enemy_effects_keep_distinct_sources(self) -> None:
+        engine = GameEngine.new(load_catalog(), 42)
+        engine.start_combat("lost_shift")
+        engine.state.hand = [CardInstance("baton_strike")]
+        engine.play_card(0, engine.living_enemies()[0].id)
+        engine.end_turn()
+        sources = {row.source_id for row in engine.state.ledger.records if row.kind == "damage"}
+        self.assertIn("baton_strike", sources)
+        self.assertTrue(any("/" in source for source in sources))
+
 
 if __name__ == "__main__":
     unittest.main()

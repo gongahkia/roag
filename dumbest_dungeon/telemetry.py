@@ -27,9 +27,9 @@ class RunLedger:
     incomplete_before_tick: int | None = None
     records: list[RunRecord] = field(default_factory=list)
 
-    def record(self, kind: str, source_id: str, tick: int, round: int, **data: Any) -> None:
+    def record(self, event_kind: str, source_id: str, tick: int, round: int, **data: Any) -> None:
         canonical_bytes(data)
-        self.records.append(RunRecord(len(self.records) + 1, kind, source_id, tick, round, deepcopy(data)))
+        self.records.append(RunRecord(len(self.records) + 1, event_kind, source_id, tick, round, deepcopy(data)))
 
     @classmethod
     def from_snapshot(cls, raw: dict[str, Any]) -> RunLedger:

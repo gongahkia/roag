@@ -97,3 +97,18 @@ separately. An offered or acquired card is not automatically counted as played.
 These are local deterministic records, not a popularity or win-rate conclusion.
 Detailed arithmetic, encounter records, the normal history screen and optional
 NDJSON export are subsequent instrumentation work.
+
+Combat records now include encounter composition/plan, start/end rounds, starting
+hands and rank/owner clogging, unused energy, resolved effects, conditional payoff
+activation, and damage/healing/status arithmetic. Damage separates requested hit,
+absorbed block, post-mitigation amount, HP loss and overkill. Healing separates
+effective recovery and overheal. Source IDs distinguish played techniques, enemy
+actions, wounds and ripostes. Death's Door records the actual existing roll in
+exact hexadecimal float notation and the displayed chance in basis points;
+recording introduces no additional random call. Status records retain previous,
+requested and resulting duration. Expired block is recorded on phase reset.
+
+Some legacy environment/passive paths still use `world:unattributed`; source
+coverage is intentionally visible rather than falsely assigning a card. The
+interaction-kernel migration must finish those paths and add trigger ancestry.
+These records do not impose new combat limits or change effect arithmetic.
