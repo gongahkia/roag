@@ -1615,6 +1615,20 @@ class EngineTests(unittest.TestCase):
         self.assertEqual("defeat", self.engine.state.phase)
         self.assertEqual([], self.engine.living_heroes())
 
+    def test_movement_after_casualty_stays_in_collapsed_formation(self) -> None:
+        engine = GameEngine.new(self.catalog, 42)
+        front = engine.living_heroes()[0]
+        front.hp = 0
+        engine._hero_died(front)
+        rear = engine.living_heroes()[-1]
+        engine._move(rear, 3)
+        self.assertEqual([1, 2, 3], [hero.rank for hero in engine.living_heroes()])
+        loaded = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+        self.assertEqual(engine.snapshot(), loaded.snapshot())
+        engine._move(rear, -3)
+        self.assertEqual(1, rear.rank)
+        self.assertEqual([1, 2, 3], [hero.rank for hero in engine.living_heroes()])
+
     def test_stress_affliction_then_collapse(self) -> None:
         hero = self.engine.state.heroes[0]
         self.engine._change_stress(hero, 100)

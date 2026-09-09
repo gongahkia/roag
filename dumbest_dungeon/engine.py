@@ -4130,10 +4130,11 @@ class GameEngine:
             distance -= round(self._hero_effect_value(actor, "boon", "forced_move_reduction"))
             amount = direction * max(0, distance)
         party = self.state.heroes if actor.side == "hero" else self.state.enemies
+        occupied_ranks = sum(member.alive for member in party)
         for _ in range(abs(amount)):
             direction = 1 if amount > 0 else -1
             next_rank = actor.rank + direction
-            if next_rank not in range(1, 5):
+            if next_rank not in range(1, occupied_ranks + 1):
                 break
             occupant = next((item for item in party if item.alive and item.rank == next_rank), None)
             old_rank = actor.rank

@@ -147,3 +147,18 @@ integration must preserve existing timing before introducing new triggers.
 Adding rewards before scoped lanes and density diagnostics risks dilution.
 Boss additions must replace route work to protect duration. Preserve the
 initial user research separately from authored implementation evidence.
+
+## Calibration progress
+
+- Added a normal-command policy runner with complete command hashes and reward
+  offers. Five focused tests passed in 8.509 seconds, including seed-42 victory
+  replay and checkpointed continuation. Fifteen initial party/seed/policy runs
+  completed with fourteen victories and one wipe. These are unmodified headless
+  policy runs, not measured human play. Detailed evidence is retained separately.
+- Reproduced a casualty persistence defect: moving the rear survivor backward
+  after a death produced ranks `[1, 2, 4]`; loading that otherwise legal run then
+  failed with `save contains an invalid surviving crew formation`. Movement now
+  stops at the surviving line's last occupied rank. The new regression failed
+  before the correction. Eight focused casualty, Flooded and policy tests passed
+  afterward in 11.481 seconds. Save schema is unchanged because this corrects
+  the existing formation invariant rather than introducing durable fields.
