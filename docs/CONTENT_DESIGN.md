@@ -118,3 +118,24 @@ records retain offered/chosen approaches, costs, stages and outcomes; facility
 records retain choices and skips. Bargain records retain generated offers and
 the accepted or declined choice. Route inspection records no world action.
 Exploration effects inherit their objective, facility or event source ID.
+
+## Automatic-trigger contract
+
+`triggers.py` defines stable phases: replace/prevent, before, primary, after,
+death, cleanup. Trigger declarations name their input/output event types,
+priority, proc family and optional explicit limiter. Registered limiters are
+once per root, initiating card, turn or combat; finite charges; finite generated
+retriggers; and ancestry-based exclusion of the trigger's own proc family.
+Capacities are authored positive integers. A family exclusion naming an unrelated
+family cannot be presented as a termination proof.
+
+Validation builds the dependency graph, removes finite-limited nodes and rejects
+every remaining cyclic strongly connected component. Merely placing one limited
+trigger somewhere in a larger component is insufficient: a different unlimited
+cycle inside that component is rejected. The graph walk is iterative, including
+the 3,000-node chain regression. Acyclic triggers may be unlimited.
+
+The queue must preserve the initiating card/turn/combat identities across automatic
+descendants and must not let automatic handlers replenish limiter counters. These
+are contracts for the next runtime change; declaring them alone does not replace
+the existing direct effect resolver or implement `CHAIN SEALED` yet.
