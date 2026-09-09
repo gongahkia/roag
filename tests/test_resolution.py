@@ -8,6 +8,28 @@ from dumbest_dungeon.triggers import EventType as E, Limiter, LimitKind as L, Ph
 
 
 class ResolutionTests(unittest.TestCase):
+    def test_deferred_continuation_waits_for_descendants_and_survives_checkpoint(self) -> None:
+        listener = Listener(TriggerSpec("echo", E.DAMAGE, (E.DAMAGE,), limiter=Limiter(L.ROOT)), 1, "actor")
+        outcomes = []
+        for checkpoint in (False, True):
+            queue, seen = EventQueue(), []
+            queue.begin()
+            queue.submit(E.CARD_STEP, "step:1", (), Payload())
+
+            def primary(event, queue):
+                seen.append(event.source_id)
+                if event.event_type == E.CARD_STEP:
+                    queue.emit(E.DAMAGE, (), Payload(), source_id="hit")
+                    queue.emit(E.CLEANUP, (), Payload(), source_id="finish", deferred=True, mandatory=True)
+
+            while queue.step(lambda event: (listener,), primary, lambda listener, event, queue: queue.emit(E.DAMAGE, (), Payload())):
+                if checkpoint:
+                    queue = EventQueue.from_snapshot(json.loads(json.dumps(queue.snapshot())))
+            queue.finish()
+            outcomes.append((seen, queue.snapshot()))
+        self.assertEqual(["step:1", "hit", "echo", "finish"], outcomes[0][0])
+        self.assertEqual(outcomes[0], outcomes[1])
+
     def test_phase_priority_creation_and_effect_order_are_canonical(self) -> None:
         listeners = [Listener(TriggerSpec(identity, E.DAMAGE, (), phase=phase, priority=priority), creation, "actor")
                      for identity, phase, priority, creation in (

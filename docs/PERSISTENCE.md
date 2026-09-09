@@ -1,6 +1,6 @@
 # Persistence contracts
 
-The run save currently uses schema 30, content schema 20, and the existing Python
+The run save currently uses schema 31, content schema 20, and the existing Python
 `random.Random` state. Profile, telemetry, manifest, and domain-separated RNG
 contracts are being implemented in Pass 3; they are not interchangeable versions.
 
@@ -118,3 +118,11 @@ primary payload as `raw_damage=false`. This distinguishes already computed hits
 from ordinary card damage before queued counterattacks are registered. Missing
 payload fields in current saves are errors, not implicit defaults. The migration
 copies its input and accepts exactly schema 29 with a schema-1 queue.
+
+Migration 30→31 adds queue schema 3: explicit deferred continuations, the saved
+card upgrade flag and the next authored effect index. Historical queued effects
+receive `deferred=false`, `card_upgraded=false`, and `effect_index=null`; their
+already resolved primary payloads remain unchanged. Deferred host continuations
+wait for ordinary descendants to drain. Content listeners cannot request deferred
+or mandatory work. This keeps card sequencing and cleanup serializable without
+letting JSON define control flow.

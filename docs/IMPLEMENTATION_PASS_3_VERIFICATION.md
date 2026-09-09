@@ -255,3 +255,8 @@ source-arithmetic and telemetry group passed **10 tests in 3.508s**. Damage reco
 now distinguish target modifiers, block and first-hit deflection instead of
 combining those stages. Warning-enabled compilation, content validation and
 `git diff --check` passed. These PTYs use constructed combat fixtures.
+
+Deferred continuation and save migration 30→31 passed **21 tests in 2.851s**,
+including checkpointing every dispatch step while a continuation waits for an
+echo descendant. Warning-enabled compilation, content validation and
+`git diff --check` passed. Live card sequencing is the next integration boundary.

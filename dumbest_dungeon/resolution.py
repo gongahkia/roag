@@ -22,6 +22,8 @@ class Payload:
     bonus: int = 0
     card_id: str | None = None
     raw_damage: bool = False
+    card_upgraded: bool = False
+    effect_index: int | None = None
 
     def __post_init__(self) -> None:
         if type(self.amount) is not int or type(self.bonus) is not int:
@@ -30,6 +32,8 @@ class Payload:
             raise ValueError("event opcode must be registered")
         if type(self.raw_damage) is not bool or self.raw_damage and self.opcode != Opcode.DAMAGE:
             raise ValueError("raw damage requires the damage opcode")
+        if type(self.card_upgraded) is not bool or self.effect_index is not None and (type(self.effect_index) is not int or self.effect_index < 0):
+            raise ValueError("invalid card continuation payload")
         if any(value is not None and (not isinstance(value, str) or not value)
                for value in (self.actor_id, self.status, self.bonus_status, self.card_id)):
             raise ValueError("event references must be nonempty strings")
@@ -49,6 +53,7 @@ class Event:
     proc_families: tuple[str, ...] = ()
     chain_id: str | None = None
     mandatory: bool = False
+    deferred: bool = False
 
 
 @dataclass(frozen=True)
@@ -78,7 +83,7 @@ class Dispatch:
 
 @dataclass
 class QueueState:
-    schema: int = 2
+    schema: int = 3
     next_event_id: int = 1
     next_root_id: int = 1
     root_id: int | None = None
@@ -129,7 +134,7 @@ class EventQueue:
         self.state.pending.append(event)
         return event
 
-    def _event(self, event_type, source_id, target_ids, payload, *, parent=None, family=None, chain_id=None, mandatory=False) -> Event:
+    def _event(self, event_type, source_id, target_ids, payload, *, parent=None, family=None, chain_id=None, mandatory=False, deferred=False) -> Event:
         if (not isinstance(event_type, EventType) or not isinstance(payload, Payload)
             or not isinstance(source_id, str) or not source_id or not isinstance(target_ids, tuple)
             or any(not isinstance(identity, str) or not identity for identity in target_ids)):
@@ -137,17 +142,17 @@ class EventQueue:
         event = Event(self.state.next_event_id, self.state.root_id, parent.event_id if parent else None,
                       parent.depth + 1 if parent else 0, event_type, source_id, target_ids, payload,
                       parent.ancestry + (parent.event_id,) if parent else (),
-                      parent.proc_families + ((family,) if family else ()) if parent else (), chain_id, mandatory)
+                      parent.proc_families + ((family,) if family else ()) if parent else (), chain_id, mandatory, deferred)
         self.state.next_event_id += 1
         return event
 
     def emit(self, event_type: EventType, target_ids: tuple[str, ...], payload: Payload,
-             *, source_id: str | None = None, mandatory: bool = False) -> Event | None:
+             *, source_id: str | None = None, mandatory: bool = False, deferred: bool = False) -> Event | None:
         frame = self.state.active
         if frame is None or not self._inside_callback:
             raise ValueError("automatic events require an active dispatch callback")
         listener = self._listener
-        if listener and (mandatory or event_type not in listener.spec.emits):
+        if listener and (mandatory or deferred or event_type not in listener.spec.emits):
             raise ValueError("trigger emitted an undeclared event or requested mandatory dispatch")
         parent = frame.event
         source = source_id or (listener.spec.id if listener else parent.source_id)
@@ -173,7 +178,7 @@ class EventQueue:
                     return None
             self.state.chain_spent[chain] = self.state.chain_spent.get(chain, 0) + 1
         event = self._event(event_type, source, target_ids, payload, parent=parent,
-                            family=listener.spec.proc_family if listener else None, chain_id=chain, mandatory=mandatory)
+                            family=listener.spec.proc_family if listener else None, chain_id=chain, mandatory=mandatory, deferred=deferred)
         self.state.pending.append(event)
         return event
 
@@ -213,7 +218,8 @@ class EventQueue:
         if self.state.active is None:
             if not self.state.pending:
                 return False
-            event = self.state.pending.pop(0)
+            index = next((index for index, event in enumerate(self.state.pending) if not event.deferred), 0)
+            event = self.state.pending.pop(index)
             snapshot = tuple(sorted((item for item in listeners(event) if item.spec.listens == event.event_type), key=lambda item: item.order))
             if len(snapshot) > 1024:
                 raise ValueError("an event supports at most 1024 registered listeners")
@@ -302,6 +308,7 @@ class EventQueue:
                 or type(restored.root_action_id) is not int or restored.root_action_id != raw["root_id"] or type(restored.depth) is not int
                 or restored.depth != len(restored.ancestry)
                 or type(restored.mandatory) is not bool
+                or type(restored.deferred) is not bool
                 or not isinstance(restored.source_id, str) or not restored.source_id
                 or any(not isinstance(identity, str) or not identity for identity in restored.target_ids + restored.proc_families)
                 or (restored.parent_event_id != restored.ancestry[-1] if restored.ancestry else restored.parent_event_id is not None)
@@ -323,7 +330,7 @@ class EventQueue:
             return Listener(**data)
 
         try:
-            if (type(raw["schema"]) is not int or raw["schema"] != 2 or any(type(raw[key]) is not int or raw[key] < 1 for key in ("next_event_id", "next_root_id"))
+            if (type(raw["schema"]) is not int or raw["schema"] != 3 or any(type(raw[key]) is not int or raw[key] < 1 for key in ("next_event_id", "next_root_id"))
                 or raw["root_id"] is not None and (type(raw["root_id"]) is not int or not 1 <= raw["root_id"] < raw["next_root_id"])):
                 raise ValueError("invalid queue version or root identity")
             if (any(type(raw[key]) is not int or raw[key] < 0 for key in ("combat_token", "turn_token"))

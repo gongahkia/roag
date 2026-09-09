@@ -7,7 +7,7 @@ from copy import deepcopy
 from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.contracts import Opcode
 from dumbest_dungeon.engine import GameEngine, RuleError
-from dumbest_dungeon.migrations import MigrationError, run_29_to_30
+from dumbest_dungeon.migrations import MigrationError, migrate_run, run_29_to_30
 from dumbest_dungeon.resolution import Payload
 from dumbest_dungeon.triggers import EventType as E
 
@@ -21,11 +21,15 @@ class ResolutionSaveTests(unittest.TestCase):
         old = engine.snapshot()
         old["save_version"] = 29
         old["resolution_queue"]["state"]["schema"] = 1
-        del old["resolution_queue"]["state"]["pending"][0]["payload"]["raw_damage"]
+        event = old["resolution_queue"]["state"]["pending"][0]
+        del event["deferred"]
+        for key in ("raw_damage", "card_upgraded", "effect_index"):
+            del event["payload"][key]
         unchanged = deepcopy(old)
         migrated = run_29_to_30(old)
         self.assertEqual(unchanged, old)
-        self.assertEqual(engine.snapshot(), migrated)
+        self.assertEqual(30, migrated["save_version"])
+        self.assertEqual(engine.snapshot(), migrate_run(old))
         with self.assertRaises(MigrationError):
             run_29_to_30(migrated)
         malformed = engine.snapshot()

@@ -80,7 +80,30 @@ def run_29_to_30(snapshot: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-RUN_MIGRATIONS = {26: run_26_to_27, 27: run_27_to_28, 28: run_28_to_29, 29: run_29_to_30}
+def run_30_to_31(snapshot: dict[str, Any]) -> dict[str, Any]:
+    if type(snapshot.get("save_version")) is not int or snapshot["save_version"] != 30:
+        raise MigrationError("migration 30->31 requires save version 30")
+    result = deepcopy(snapshot)
+    try:
+        queue = result["resolution_queue"]["state"]
+        if type(queue["schema"]) is not int or queue["schema"] != 2:
+            raise MigrationError("version-30 save requires queue schema 2")
+        events = list(queue["pending"])
+        if queue["active"] is not None:
+            events.append(queue["active"]["event"])
+        for event in events:
+            if "deferred" in event or {"card_upgraded", "effect_index"} & event["payload"].keys():
+                raise MigrationError("version-30 event contains continuation fields")
+            event["deferred"] = False
+            event["payload"].update(card_upgraded=False, effect_index=None)
+        queue["schema"] = 3
+    except (KeyError, TypeError, AttributeError) as exc:
+        raise MigrationError("malformed version-30 resolution queue") from exc
+    result["save_version"] = 31
+    return result
+
+
+RUN_MIGRATIONS = {26: run_26_to_27, 27: run_27_to_28, 28: run_28_to_29, 29: run_29_to_30, 30: run_30_to_31}
 
 
 def migrate_run(snapshot: dict[str, Any]) -> dict[str, Any]:
