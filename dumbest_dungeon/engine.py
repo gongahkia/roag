@@ -748,6 +748,10 @@ class GameEngine:
         self.state.phase = "exploration"
         world_name = self.catalog.worlds[self.state.world_id]["name"]
         self.state.log = [f"The threshold seals. {world_name} is no longer empty."]
+        self.record("departure", "expedition", seed=self.state.seed, world=self.state.world_id,
+                    layout=self.catalog.worlds[self.state.world_id]["layout"], biomes=self.state.biome_ids,
+                    formation=[hero.id for hero in self.living_heroes()],
+                    deck=[asdict(card) for card in self.state.deck], manifest=self.catalog.manifest.snapshot())
 
     @staticmethod
     def _effect_targets_crew(action: dict[str, Any], effect: dict[str, Any]) -> bool:
@@ -2534,11 +2538,15 @@ class GameEngine:
         elif effect == "upgrade_random":
             candidates = [card for card in self.state.deck if not card.upgraded and card.card_id in self.catalog.cards]
             if candidates:
-                self.rng.choice(candidates).upgraded = True
+                card = self.rng.choice(candidates)
+                card.upgraded = True
+                self.record("card_upgraded", card.card_id, source="objective")
         elif effect == "remove_random":
             candidates = [card for card in self.state.deck if card.card_id in self.catalog.cards]
             if candidates:
-                self.state.deck.remove(self.rng.choice(candidates))
+                card = self.rng.choice(candidates)
+                self.state.deck.remove(card)
+                self.record("card_removed", card.card_id, card=asdict(card), source="objective")
         elif effect == "boon_random" and heroes:
             hero = self.rng.choice(heroes)
             options = self.boon_options(hero.id, count=1)
@@ -2810,6 +2818,7 @@ class GameEngine:
             choice = self.rng.choices(eligible, weights=weights, k=1)[0]
             options.append(choice)
             eligible.remove(choice)
+        self.record("boon_offer", "reward:boon", owner=hero_id, offered=options)
         return options
 
     def acquire_boon(self, hero_id: str, boon_id: str) -> int:
@@ -2821,6 +2830,7 @@ class GameEngine:
             raise RuleError("invalid boon recipient or definition")
         owned = self.state.boons.setdefault(hero_id, {})
         owned[boon_id] = owned.get(boon_id, 0) + 1
+        self.record("boon_acquired", boon_id, owner=hero_id, count=owned[boon_id])
         return owned[boon_id]
 
     def acquire_item(self, item_id: str, copies: int = 1) -> int:
@@ -2828,6 +2838,7 @@ class GameEngine:
             raise RuleError("invalid item acquisition")
         gained = copies + round(self._item_effect_value("salvage_copies"))
         self.state.items[item_id] = self.state.items.get(item_id, 0) + gained
+        self.record("item_acquired", item_id, gained=gained, count=self.state.items[item_id])
         for hero in self.living_heroes():
             stress = round(self._hero_effect_value(hero, "curse", "scavenger_stress"))
             if stress:
@@ -2841,6 +2852,7 @@ class GameEngine:
         owned[curse_id] = owned.get(curse_id, 0) + 1
         if self.catalog.curses[curse_id]["kind"] == "card":
             self.state.deck.append(CardInstance(curse_id, bound_hero_id=hero_id))
+        self.record("curse_acquired", curse_id, owner=hero_id, count=owned[curse_id])
         return owned[curse_id]
 
     def boon_pickup_options(self, hero_id: str) -> list[str]:
@@ -3397,6 +3409,8 @@ class GameEngine:
         target_id = target_id or (valid[0] if len(valid) == 1 else None)
         if target_id not in valid:
             raise RuleError("choose a valid target")
+        self.record("card_play", card.card_id, owner=actor.id, rank=actor.rank,
+                    energy=cost, target=target_id, upgraded=card.upgraded)
         self.state.energy -= cost
         self.state.hand.pop(hand_index)
         self.state.discard_pile.append(card)
@@ -4033,6 +4047,7 @@ class GameEngine:
             self._damage(attacker, 4)
 
     def _hero_died(self, hero: Actor) -> None:
+        death_rank = hero.rank
         hero.rank = 0
         hero.block = 0
         hero.statuses.clear()
@@ -4054,6 +4069,9 @@ class GameEngine:
             kept = [card for card in zone if not belongs_to_hero(card)]
             if zone_name == "deck":
                 removed = len(zone) - len(kept)
+                for card in zone:
+                    if belongs_to_hero(card):
+                        self.record("card_lost", card.card_id, owner=hero.id, card=asdict(card))
             setattr(self.state, zone_name, kept)
 
         owned_curses = self.state.curses.get(hero.id, {})
@@ -4065,6 +4083,8 @@ class GameEngine:
 
         self._normalize_ranks("hero")
         survivors = self.living_heroes()
+        self.record("crew_death", hero.id, rank=death_rank, cards_lost=removed,
+                    survivors=[actor.id for actor in survivors])
         if not survivors:
             self.state.phase = "defeat"
             self.add_log(f"{hero.name} dies. No crew remain.")
@@ -4302,6 +4322,8 @@ class GameEngine:
 
         while len(chosen) < min(count, len(available)):
             choose(available, novelty=1.25)
+        self.record("card_offer", "reward:technique", offered=chosen, eligible_count=len(available),
+                    biome=self.current_biome(), lane=self.state.combat_kind or "event")
         return chosen
 
     def _reward_shape(self, card_id: str) -> tuple[Any, ...]:
@@ -4463,6 +4485,9 @@ class GameEngine:
                 raise RuleError("invalid reward")
             self.state.deck.append(CardInstance(self.state.rewards[index]))
             self.add_log(f"Added {self.catalog.cards[self.state.rewards[index]]['name']} to the deck.")
+        self.record("card_choice", "reward:technique",
+                    picked=self.state.rewards[index] if index is not None else None,
+                    skipped=[card for position, card in enumerate(self.state.rewards) if position != index])
         self.state.rewards = []
         self.state.phase = "exploration"
         if self.state.tutorial:
@@ -4548,7 +4573,8 @@ class GameEngine:
                     raise RuleError("the bound curse card is missing from the deck")
             self._decrement_curse(hero_id, curse_id)
             if card_index is not None:
-                self.state.deck.pop(card_index)
+                removed = self.state.deck.pop(card_index)
+                self.record("card_removed", removed.card_id, card=asdict(removed), source="curse_treatment")
             self.state.supplies -= 2
             hero = self._actor(hero_id)
             self.add_log(f"Treated {self.catalog.curses[curse_id]['name']} on {hero.name}.")
@@ -4560,6 +4586,7 @@ class GameEngine:
             if self.state.deck[card_index].upgraded:
                 raise RuleError("that card is already upgraded")
             self.state.deck[card_index].upgraded = True
+            self.record("card_upgraded", self.state.deck[card_index].card_id, index=card_index, source="workshop")
             self.add_log(f"Upgraded {self.catalog.cards[self.state.deck[card_index].card_id]['name']}.")
         elif action == "remove":
             if len(self.state.deck) <= 12:
@@ -4567,6 +4594,7 @@ class GameEngine:
             if card_index is None or not 0 <= card_index < len(self.state.deck):
                 raise RuleError("choose a card to remove")
             card = self.state.deck.pop(card_index)
+            self.record("card_removed", card.card_id, card=asdict(card), source="workshop")
             if card.card_id in self.catalog.curses:
                 if card.bound_hero_id is None:
                     raise RuleError("curse card is missing its bound hero")
@@ -4579,6 +4607,8 @@ class GameEngine:
             if replacement_id not in options:
                 raise RuleError("choose one of the offered transformations")
             source = self.state.deck[card_index]
+            self.record("card_transformed", source.card_id, destination=replacement_id,
+                        offered=options, index=card_index, lost_upgrade=source.upgraded)
             old_name = self.catalog.cards[source.card_id]["name"]
             source.card_id = replacement_id
             source.upgraded = False

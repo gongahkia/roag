@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -56,3 +57,19 @@ class RunLedger:
 
     def snapshot(self) -> dict[str, Any]:
         return asdict(self)
+
+
+def decision_counts(ledger: RunLedger) -> dict[str, dict[str, int]]:
+    cards = defaultdict(Counter)
+    for record in ledger.records:
+        if record.kind == "card_offer":
+            for identity in record.data["offered"]:
+                cards[identity]["offered"] += 1
+        elif record.kind == "card_choice":
+            if record.data["picked"] is not None:
+                cards[record.data["picked"]]["picked"] += 1
+            for identity in record.data["skipped"]:
+                cards[identity]["skipped"] += 1
+        elif record.kind in {"card_play", "card_upgraded", "card_transformed", "card_removed", "card_lost"}:
+            cards[record.source_id][record.kind.removeprefix("card_")] += 1
+    return {identity: dict(sorted(counts.items())) for identity, counts in sorted(cards.items())}

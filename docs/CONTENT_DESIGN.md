@@ -81,3 +81,19 @@ movement. Single-owner warnings disclose loss of a setup source, not automatic
 loss of every card's fallback effect. Persistent effects, biome-specific enemy
 availability and actual payoff activation remain separate work; this graph does
 not yet claim complete engine discovery.
+
+## Decision recording
+
+The run ledger records departure formation/deck, generated technique and boon
+offers, picks, every unpicked technique, played cards with owner/rank/energy,
+upgrades, transformations with their offered alternatives and lost upgrade,
+removals, item stack acquisitions, boons, curses and owner deaths. Lost cards
+are counted once from the permanent deck rather than again in every combat pile.
+Objective-driven card edits and curse treatment use the same records. Invalid
+card plays do not produce a play record.
+
+`telemetry.decision_counts` reports offer, pick, skip, play and edit counts
+separately. An offered or acquired card is not automatically counted as played.
+These are local deterministic records, not a popularity or win-rate conclusion.
+Detailed arithmetic, encounter records, the normal history screen and optional
+NDJSON export are subsequent instrumentation work.
