@@ -38,3 +38,22 @@ class LiveStackTests(unittest.TestCase):
             self.assertEqual(expected - 1, engine.state.energy)
             restored = GameEngine.from_snapshot(load_catalog(), engine.snapshot())
             self.assertEqual(engine.snapshot(), restored.snapshot())
+
+    def test_first_copy_utility_changes_offers_wounds_and_pickups(self):
+        engine = GameEngine.new(load_catalog(), 42)
+        for identity in ("quiet_bearings", "reward_index", "sterile_filter", "oracle_relay"):
+            engine.acquire_item(identity)
+            effect = engine.catalog.items[identity]["effects"][0]
+            self.assertEqual(1, effect.contract.value(1))
+        hero = engine.living_heroes()[0]
+        self.assertEqual(4, len(engine.boon_options(hero.id)))
+        engine._add_status(hero, "wound", 3)
+        self.assertEqual(2, hero.statuses["wound"])
+        engine.acquire_item("salvage_magnet")
+        self.assertEqual(1, engine.state.items["salvage_magnet"])
+        self.assertEqual(2, engine.acquire_item("salvage_magnet"))
+        self.assertEqual(3, engine.state.items["salvage_magnet"])
+        self.assertEqual(2, engine.acquire_item("salvage_magnet"))
+        self.assertEqual(3, engine.acquire_item("bulkhead_laminate"))
+        self.assertEqual(3, engine.state.items["bulkhead_laminate"])
+        self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(load_catalog(), engine.snapshot()).snapshot())

@@ -371,3 +371,9 @@ save/load scenarios. An initial 34-test attempt had one test-import error
 (`model` instead of the repository's `engine` module), corrected before the
 expanded run. Warning-enabled compilation, content validation and diff checks
 passed. These are mechanic checks, not natural engine-acquisition evidence.
+
+Utility threshold revisions passed **34 tests in 5.197s**. First-copy offer,
+wound and patrol effects are nonzero. Constructed Salvage Magnet acquisitions
+verify that the bonus uses the pre-pickup count and does not recursively multiply
+its own award. Warning-enabled compilation, content validation and diff checks
+passed. Patrol range retains its disclosed four-tile minimum.
