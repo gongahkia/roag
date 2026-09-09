@@ -93,6 +93,22 @@ The resumed full suite passed **217 tests in 153.283 seconds**. A prior
 interrupted run lost its final result and is not counted. Compilation and
 whitespace validation also passed at the sight-geometry checkpoint.
 
+A second concurrent commit, `0eb080e1ba1ca3682dcab81436fac0ae6a3c47b9`
+(`newhistory`), captured the pending sight changes before the agent's commit
+ran. It was preserved; `54037bd` consequently records only the observed
+verification result despite its intended sight-fix subject. History was not
+amended to conceal this overlap.
+
+Actual 80×24 Continue/Z inspection found that the history panel truncated
+testimony and never exposed its final forecast. Information panels now wrap
+and support arrows, page keys, Home/End and optional mouse wheel, without
+advancing time. The same PTY save was reloaded, paged to the full final
+forecast and quit cleanly. The displayed secondary-contact delivery choice
+also lacked an input-dispatch case; it now reaches the physical supply
+transaction. Four focused panel/production-input tests passed in 0.743
+seconds. Their first run exposed a missing `addnstr` method in the test sink;
+that fixture was corrected, not the production rendering boundary.
+
 The first benchmark compares 24 observations per ordinary scenario (five cold
 starts/world generations). JSON evidence is in `performance-baseline.json`
 and `performance-optimized.json`. Input-plus-layout median fell from 102.782

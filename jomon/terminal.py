@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import curses
 import copy
+import textwrap
 from dataclasses import dataclass
 from typing import Iterable
 
@@ -200,6 +201,9 @@ class OverlayView:
     kind: str
     selected: int = 0
     option_rows: list[int | tuple[int, int]] | None = None
+    scroll_offset: int = 0
+    page_rows: int = 1
+    line_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -660,17 +664,29 @@ def _handle_targeting(
     return False, False
 
 
-def _overlay(screen: curses.window, title: str, lines: Iterable[str]) -> None:
+def information_lines(lines: Iterable[str], width: int) -> list[str]:
+    return [part for line in lines for part in (textwrap.wrap(line, width=max(1, width)) or [""])]
+
+
+def _overlay(screen: curses.window, title: str, lines: Iterable[str], view: OverlayView | None = None) -> None:
     height, width = screen.getmaxyx()
     material = list(lines)
     box_width = min(width - 4, max(44, max((len(line) for line in material), default=20) + 4))
-    box_height = min(height - 4, len(material) + 4)
+    material = information_lines(material, box_width - 4)
+    box_height = min(height - 4, len(material) + (5 if view else 4))
+    page_rows = max(1, box_height - (5 if view else 3))
+    offset = min(view.scroll_offset, max(0, len(material) - page_rows)) if view else 0
+    if view:
+        view.scroll_offset, view.page_rows, view.line_count = offset, page_rows, len(material)
     top, left = (height - box_height) // 2, (width - box_width) // 2
     for y in range(top, top + box_height):
         _put(screen, y, left, " " * box_width, curses.A_REVERSE)
     _frame(screen, top, left, box_height, box_width, title)
-    for index, line in enumerate(material[: box_height - 3]):
+    for index, line in enumerate(material[offset:offset + page_rows]):
         _put(screen, top + 2 + index, left + 2, _clip(line, box_width - 4))
+    if view:
+        footer = f"Up/Down PgUp/PgDn Home/End; Esc close [{offset + 1}/{len(material)}]"
+        _put(screen, top + box_height - 2, left + 2, _clip(footer, box_width - 4), curses.A_BOLD)
     screen.refresh()
 
 
@@ -824,6 +840,20 @@ def _handle_overlay_view(state: GameState, view: OverlayView, event: InputEvent)
     if options:
         view.selected %= len(options)
     key = event.key
+    if not options:
+        scrolling = {
+            curses.KEY_UP: -1, ord("k"): -1, ord("w"): -1,
+            curses.KEY_DOWN: 1, ord("j"): 1, ord("s"): 1,
+            curses.KEY_PPAGE: -view.page_rows, curses.KEY_NPAGE: view.page_rows,
+            curses.KEY_HOME: -view.line_count, curses.KEY_END: view.line_count,
+        }
+        if event.kind == "mouse":
+            key = {"wheel-up": curses.KEY_UP, "wheel-down": curses.KEY_DOWN}.get(event.button, -1)
+        if key in scrolling:
+            view.scroll_offset = max(0, min(max(0, view.line_count - view.page_rows), view.scroll_offset + scrolling[key]))
+            return False, False
+        if event.kind == "mouse":
+            return False, False
     if event.kind == "mouse" and event.button == "left" and view.option_rows:
         index = next(
             (
@@ -867,6 +897,7 @@ def _handle_overlay_view(state: GameState, view: OverlayView, event: InputEvent)
         return True, should_quit
     if next_kind != view.kind:
         view.kind, view.selected, view.option_rows = next_kind, 0, []
+        view.scroll_offset = 0
     return False, should_quit
 
 
@@ -1849,7 +1880,7 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
     if kind == "quest:arc" and char:
         result = resolve_cross_region_choice(state, char)
         return (None if result.changed else kind), False
-    if kind.startswith("contact-service:") and char in {"c", "t", "h"}:
+    if kind.startswith("contact-service:") and char in {"c", "t", "h", "d"}:
         result = use_contact_service(state, char)
         return (None if result.changed else kind), False
     if kind == "merchant" and char.isdigit():
@@ -1944,7 +1975,7 @@ def play(screen: curses.window, state: GameState) -> GameState:
                 _draw_dialogue_overlay(screen, state, overlay)
             else:
                 title, lines = _overlay_lines(state, overlay.kind)
-                _overlay(screen, title, lines)
+                _overlay(screen, title, lines, overlay)
         event = normalise_input(screen.getch())
         key = event.key
         if key == curses.KEY_RESIZE:
