@@ -1955,12 +1955,14 @@ def interact(state: GameState) -> ActionResult:
 
 
 def _attack_targets(state: GameState, attack_range: int) -> list[Threat]:
+    from .world import courier_sees
+
     targets = (
         threat
         for threat in state.combatants
         if threat.status in {"watching", "engaged"}
         and distance(state.position, threat.position) <= attack_range
-        and line_of_sight(state, state.position, threat.position)
+        and courier_sees(state, threat.position)
     )
     return sorted(
         targets, key=lambda threat: (distance(state.position, threat.position), threat.id)

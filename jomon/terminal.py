@@ -39,6 +39,7 @@ from .actions import (
 )
 from .inventory import (
     BODY_SLOTS,
+    WEAPON_AMMUNITION,
     InventoryTransaction,
     auto_pack,
     auto_place,
@@ -87,6 +88,7 @@ from .world import (
     capacity,
     carried_bulk,
     cover_at,
+    courier_sees,
     displayed_tile,
     distance,
     field_of_view,
@@ -104,7 +106,7 @@ INVENTORY_HELP_LINES = (
     "Arrows/WASD move  Enter lift/place  R rotate  Space mark  */K all/category",
     "T transfer E equip O pack P pin Z auto [] body D drop C confirm Esc cancel",
 )
-TARGET_HELP_LINE = "Arrows/WASD/HJKL cursor  Tab next  Enter fire  Mouse select  Esc cancel"
+TARGET_HELP_LINE = "Arrows/WASD/HJKL  Tab target  <> level  Enter act  Mouse select  Esc cancel"
 ROUTE_HELP_LINES = (
     "Arrows/WASD/HJKL connected node  Enter preview/confirm  Tab layer  Esc close",
     "Mouse click selects; double-click confirms when reported; keyboard is complete",
@@ -173,9 +175,8 @@ class TargetView:
             (
                 threat for threat in state.combatants
                 if threat.status in {"watching", "engaged"}
-                and threat.position.z == state.position.z
                 and distance(state.position, threat.position) <= attack_range
-                and line_of_sight(state, state.position, threat.position)
+                and courier_sees(state, threat.position)
             ),
             key=lambda threat: (distance(state.position, threat.position), threat.id),
         )
@@ -382,10 +383,9 @@ def _threat_glyph(threat: Threat) -> str:
 def observed_life_lines(state: GameState) -> list[str]:
     from .content import ENEMY_ARCHETYPES
 
-    visible = field_of_view(state, remember=False)
     lines = ["FACT: only presently visible actors are listed. No inspection advances time."]
     for actor in sorted(state.combatants, key=lambda a: (distance(a.position, state.position), a.id)):
-        if actor.position not in visible or actor.status not in {"watching", "engaged"}:
+        if not courier_sees(state, actor.position) or actor.status not in {"watching", "engaged"}:
             continue
         data = next((data for data in ENEMY_ARCHETYPES.values() if data["name"] == actor.name), None)
         lines.extend((
@@ -422,7 +422,8 @@ def visible_danger_marks(state: GameState, visible: set[Position]) -> set[Positi
 
     marks = set()
     for actor in state.combatants:
-        if actor.status != "engaged" or actor.position not in visible:
+        seen_above_below = actor.position.z != state.position.z and courier_sees(state, actor.position)
+        if actor.status != "engaged" or not (actor.position in visible or seen_above_below):
             continue
         point = actor.marked_position or actor.aimed_at
         if point is None:
@@ -510,6 +511,7 @@ def _status_lines(state: GameState) -> list[str]:
     level_text = f"{state.position.x},{state.position.y} z{state.position.z:+d}"
     if transition:
         level_text += " " + ("v below" if transition.z < state.position.z else "^ above")
+    ammunition, ammunition_label = _ammunition_status(state)
     lines = [
         "COURIER",
         identity,
@@ -525,7 +527,7 @@ def _status_lines(state: GameState) -> list[str]:
         f"{level_text}; {state.objective_status}; Q{state.questlines[state.active_region_id].stage}/3",
         f"{state.region.objective_commodity}: {market.stock}/{market.demand}",
         f"Load {pack_weight(state)}/{weight_capacity(state)} {load_state(state)}",
-        f"Ammo {state.ammunition}; oil {state.lamp_oil}",
+        f"Ammo {ammunition} {ammunition_label}; oil {state.lamp_oil}",
         f"Rope {state.rope_uses}; smoke {state.smoke_charges}",
         _clip(threat, 25),
     ]
@@ -577,31 +579,42 @@ def _target_at_cursor(state: GameState, view: TargetView) -> Threat | None:
             threat for threat in state.combatants
             if threat.position == view.cursor
             and threat.status in {"watching", "engaged"}
+            and courier_sees(state, threat.position)
         ),
         None,
     )
 
 
-def targeting_detail(state: GameState, view: TargetView) -> str:
-    selected = _target_at_cursor(state, view)
-    ammo_name, ammo_label = {
-        "crossbow": ("bolts", "bolts"),
-        "longbow": ("arrows", "arrows"),
-        "sling": ("sling stones", "stones"),
-        "heavy crossbow": ("heavy bolts", "heavy bolts"),
-        "javelins": ("javelins", "javelins"),
-        "weighted net": ("nets", "nets"),
-        "staff sling": ("sling stones", "stones"),
-        "hooked javelin": ("javelins", "javelins"),
-        "handgonne": ("handgonne charges", "charges"),
-    }.get(state.weapon or "", ("", "none"))
+def _ammunition_status(state: GameState) -> tuple[int, str]:
+    ammo_name = WEAPON_AMMUNITION.get(state.weapon or "", "")
+    ammo_label = {"sling stones": "stones", "handgonne charges": "charges"}.get(ammo_name, ammo_name or "none")
     available = physical_ammunition(state, ammo_name) if ammo_name else 0
+    return available, ammo_label
+
+
+def targeting_detail(state: GameState, view: TargetView) -> str:
+    available, ammo_label = _ammunition_status(state)
     return (
-        f"Target {selected.name if selected else 'empty cell'} "
         f"R{distance(state.position, view.cursor)}/{effective_weapon_range(state)} "
+        f"z{view.cursor.z:+d} "
         f"Cover:{cover_at(state, state.position, view.cursor)} "
         f"Ammo:{available} {ammo_label}"
     )
+
+
+def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]:
+    selected = _target_at_cursor(state, view)
+    ready = "Enter commits one cast; Escape costs no time."
+    if state.weapon == "crossbow" and not state.crossbow_loaded:
+        ready = "Unloaded: Escape then G reloads; no shot is committed here."
+    elif state.weapon in {"heavy crossbow", "handgonne"} and state.weapon_ready < 2:
+        ready = f"Unready: {2 - state.weapon_ready} reload actions; Escape then G."
+    elif state.weapon in {"crossbow", "longbow", "heavy crossbow", "handgonne"}:
+        ready = "Aim set: Enter releases one shot." if selected and state.aimed_target == selected.id else "Enter prepares aim (one action); confirm again to release."
+    label = f"Target: {selected.name}" if selected else "No presently visible actor at cursor."
+    if view.cursor.z != state.position.z:
+        label += " [ABOVE]" if view.cursor.z > state.position.z else " [BELOW]"
+    return information_lines([label, targeting_detail(state, view), ready], width)
 
 
 def _draw_targeting(screen: curses.window, state: GameState, view: TargetView) -> None:
@@ -617,7 +630,7 @@ def _draw_targeting(screen: curses.window, state: GameState, view: TargetView) -
     screen_y = 1 + view.cursor.y - origin_y
     selected = _target_at_cursor(state, view)
     for point in projectile_path(state.position, view.cursor, state)[1:-1]:
-        if point.z != state.position.z:
+        if point.z != state.position.z or not courier_sees(state, point):
             continue
         path_x = 1 + point.x - origin_x
         path_y = 1 + point.y - origin_y
@@ -627,14 +640,17 @@ def _draw_targeting(screen: curses.window, state: GameState, view: TargetView) -
                 _COLOUR_ATTRIBUTES["target_cell"] | curses.A_BOLD,
             )
     if (
-        view.cursor.z == state.position.z
-        and 1 <= screen_x < map_width - 1
+        1 <= screen_x < map_width - 1
         and 1 <= screen_y < main_height - 1
     ):
         glyph = _threat_glyph(selected) if selected else "+"
+        if view.cursor.z != state.position.z:
+            glyph = "^" if view.cursor.z > state.position.z else "v"
         role = "selected_target" if selected else "target_cell"
         _put(screen, screen_y, screen_x, glyph, _COLOUR_ATTRIBUTES[role] | curses.A_REVERSE)
-    _put(screen, height - 2, 1, targeting_detail(state, view), curses.A_REVERSE | curses.A_BOLD)
+    lines = targeting_lines(state, view, width - 2)
+    for row, line in enumerate(lines, height - 1 - len(lines)):
+        _put(screen, row, 1, line.ljust(width - 2), curses.A_REVERSE | curses.A_BOLD)
     _put(screen, height - 1, 1, TARGET_HELP_LINE, curses.A_REVERSE)
     screen.refresh()
 
@@ -644,6 +660,7 @@ def _target_cycle(state: GameState, view: TargetView) -> None:
         threat_id for threat_id in view.target_ids
         if any(
             threat.id == threat_id and threat.status in {"watching", "engaged"}
+            and courier_sees(state, threat.position)
             for threat in state.combatants
         )
     ]
@@ -693,6 +710,12 @@ def _handle_targeting(
         key = 10
     if key == 27:
         return True, False
+    if key in {ord("<"), ord(">")}:
+        levels = {-1, 0, 1} if state.location == "jomon" else {int(z) for z in state.region.levels}
+        level = view.cursor.z + (1 if key == ord(">") else -1)
+        if level in levels:
+            view.cursor = Position(view.cursor.x, view.cursor.y, level)
+        return False, False
     normalized = ord(chr(key).lower()) if 0 <= key < 256 else key
     movement = {
         curses.KEY_LEFT: (-1, 0), curses.KEY_RIGHT: (1, 0),
@@ -705,9 +728,9 @@ def _handle_targeting(
     if normalized in movement:
         dx, dy = movement[normalized]
         view.cursor = Position(
-            max(0, min(state.region.width - 1, view.cursor.x + dx)),
-            max(0, min(state.region.height - 1, view.cursor.y + dy)),
-            state.position.z,
+            max(0, min(len(map_rows(state)[0]) - 1, view.cursor.x + dx)),
+            max(0, min(len(map_rows(state)) - 1, view.cursor.y + dy)),
+            view.cursor.z,
         )
         return False, False
     if key == 9:

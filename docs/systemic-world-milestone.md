@@ -71,6 +71,28 @@ them by themselves.
 
 ## Measurement and limitations log
 
+Ranged targeting now includes visible cross-level actors, with Tab cycling,
+`<>` level inspection, an above/below marker and separate name, range/cover/
+ammunition and preparation rows. Actor-name inspection and direct attacks share
+weather-limited sight; previously the cursor could expose a hidden actor and
+the reducer could shoot beyond current visibility. The arbalest reload test now
+explicitly uses daylight because its twelve-pace fixture lay beyond dawn sight.
+The serial suite passed **341 tests in 184.353 seconds**. A subsequent status
+correction shows the readied weapon's physical ammunition, not always bolts;
+the **24 ranged/visibility tests passed in 6.304 seconds** with that regression.
+Compilation and whitespace checks passed. The full 341-test result predates
+the final status-only correction.
+
+Real PTY (`vertical range`, forced saved load/arrival, unmodified watchtower
+geometry): at 100×32, selected the watch-roof keeper from the floor below and
+committed a sling shot through the ladder opening (four stones became three).
+The keeper withdrew into partial cover. Resizing that active targeting screen
+to 80×24 retained all three information rows and consumed no action; Escape
+cancelled, then E physically climbed to the roof and marked a height treasure
+lead. Synthetic terminal mouse click reports selected an empty cell without
+firing. This tests curses event handling, not native desktop mouse reporting.
+It is a targeting fixture, not a full ranged-build expedition.
+
 Eight additional frontier elite situations are now generated in production,
 one seeded alternative per new region. Four are named finite returning
 claimants. Material telegraphs, shared reactions, escort interception, physical

@@ -292,6 +292,14 @@ def sight_radius(state: GameState) -> int:
     return max(2, radius - (2 if "narrow-sight" in worn_tags(state, ("head",)) else 0))
 
 
+def courier_sees(state: GameState, point: Position) -> bool:
+    """Actor inspection and targeting share sight range, including open levels."""
+    from .inventory import worn_tags
+
+    radius = sight_radius(state) if state.location == "region" else 14 if "narrow-sight" in worn_tags(state, ("head",)) else 16
+    return distance(state.position, point) <= radius and line_of_sight(state, state.position, point)
+
+
 def field_of_view(state: GameState, *, remember: bool = True) -> set[Position]:
     if state.location != "region":
         from .inventory import worn_tags

@@ -8,8 +8,8 @@
 - Jomon has three 64×22 decks, a dedicated 64×24 tavern, scheduled named adults, bartender and eight drinks, six initial adults, six bounded regional recruits, a paper-doll equipment view, 10×6 courier pack, 18×10 locker, and optional mouse input.
 - Save format 7 migrates Python format 6 without repainting saved geography or
   replacing lost possessions; supported older Python paths chain forward.
-  The latest serial full run passed 335 tests in 177.122 seconds after a
-  quest-duty explanation regression was corrected.
+  The latest serial full run passed 341 tests in 184.353 seconds; a subsequent
+  physical-ammunition status correction passed its focused checks.
   See the live measurement ledger for the covered snapshot and remaining gates.
 - Each region now has a three-stage questline with two endings, and completing
   any two opens the five-part Working Marks arc. Production generation uses

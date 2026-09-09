@@ -79,6 +79,7 @@ class PlayerRangeTests(unittest.TestCase):
 
     def test_heavy_crossbow_requires_two_reload_actions(self):
         state = armed("heavy crossbow")
+        state.world_time = 6  # broad daylight, not a twelve-pace shot beyond dawn visibility
         target = target_at(state, 52)
         attack(state)
         attack(state)
