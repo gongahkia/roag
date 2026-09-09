@@ -71,6 +71,25 @@ them by themselves.
 
 ## Measurement and limitations log
 
+Continuation checkpoint: `7bfda5e40418edeaaf614996d5d1ee434d38a92e`
+(`newhistory`) committed the pending history changes outside the agent's
+commit sequence. The worktree was clean and local `origin/main` pointed to
+that same commit. It is preserved unchanged; the agent performed no push.
+Five linked working-history events now exist for each generated region;
+regional stock consumes supplies at bounded day boundaries, physical supply
+deliveries influence institutional treatment credit, and `Z` separates
+testimony, evidence and forecast. Ten focused history tests passed in
+3.041 seconds at this checkpoint. This does not close the full historical
+generation, institution or legendary-object acceptance gates.
+
+The Dunmire play observation exposed an intact-floor sight defect: the old
+cross-level query accepted two clear horizontal projections without checking
+where the projectile crossed the floor. Three new regressions reproduced it.
+Cross-level lanes now require an actual opening or exposed exterior edge;
+underground shots cannot pass through unexcavated ceilings. Target previews
+use the same level geometry. All 18 focused ranged tests passed in 6.463
+seconds. Roof-edge and aligned-ladder shots remain supported.
+
 The first benchmark compares 24 observations per ordinary scenario (five cold
 starts/world generations). JSON evidence is in `performance-baseline.json`
 and `performance-optimized.json`. Input-plus-layout median fell from 102.782

@@ -157,6 +157,46 @@ class PlayerRangeTests(unittest.TestCase):
 
 
 class RangedFairnessTests(unittest.TestCase):
+    def test_intact_upper_floor_blocks_cross_level_sight_and_shots(self):
+        state = armed("longbow")
+        for x in range(35, 46):
+            state.region.tile_changes[f"{x},25,1"] = "."
+        upper, lower = Position(35, 25, 1), Position(43, 25, 0)
+        self.assertFalse(line_of_sight(state, upper, lower))
+        self.assertFalse(line_of_sight(state, lower, upper))
+        state.position = lower
+        target = target_at(state, 35, profile="ranged")
+        target.position = upper
+        before = state.world_time
+        self.assertFalse(attack(state, target.id).time_advanced)
+        self.assertEqual(state.world_time, before)
+
+    def test_cross_level_lane_uses_a_real_opening_and_changes_when_closed(self):
+        state = armed("spear")
+        for x in range(35, 46):
+            state.region.tile_changes[f"{x},25,1"] = "."
+        upper, lower = Position(35, 25, 1), Position(43, 25)
+        state.region.tile_changes["39,25,1"] = "O"
+        self.assertTrue(line_of_sight(state, upper, lower))
+        self.assertTrue(line_of_sight(state, lower, upper))
+        lane = projectile_path(upper, lower, state)
+        self.assertEqual({point.z for point in lane}, {0, 1})
+        self.assertIn(Position(39, 25, 1), lane)
+        self.assertEqual(projectile_path(lower, upper, state), list(reversed(lane)))
+        state.region.tile_changes["40,25,0"] = "#"
+        self.assertFalse(line_of_sight(state, upper, lower))
+        state.region.tile_changes["40,25,0"] = "."
+        state.region.tile_changes["39,25,1"] = "."
+        self.assertFalse(line_of_sight(state, upper, lower))
+
+    def test_outdoor_roof_edge_allows_shot_but_unexcavated_cave_does_not(self):
+        state = armed("spear")
+        state.region.tile_changes["39,25,1"] = "^"
+        self.assertTrue(line_of_sight(state, Position(39, 25, 1), Position(43, 25)))
+        for x in range(35, 44):
+            state.region.tile_changes[f"{x},25,-1"] = "."
+        self.assertFalse(line_of_sight(state, Position(35, 25), Position(43, 25, -1)))
+
     def test_new_awareness_never_deals_immediate_ranged_damage(self):
         state = armed("spear")
         target = target_at(state, 46, profile="ranged")

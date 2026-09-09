@@ -553,7 +553,9 @@ def _draw_targeting(screen: curses.window, state: GameState, view: TargetView) -
     screen_x = 1 + view.cursor.x - origin_x
     screen_y = 1 + view.cursor.y - origin_y
     selected = _target_at_cursor(state, view)
-    for point in projectile_path(state.position, view.cursor)[1:-1]:
+    for point in projectile_path(state.position, view.cursor, state)[1:-1]:
+        if point.z != state.position.z:
+            continue
         path_x = 1 + point.x - origin_x
         path_y = 1 + point.y - origin_y
         if 1 <= path_x < map_width - 1 and 1 <= path_y < main_height - 1:

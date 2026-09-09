@@ -204,23 +204,33 @@ def blocks_sight(state: GameState, position: Position) -> bool:
 def line_of_sight(state: GameState, start: Position, end: Position) -> bool:
     if start.z == end.z:
         return all(not blocks_sight(state, point) for point in _line(start, end)[1:-1])
+    return bool(_vertical_ray(state, start, end))
+
+
+def _vertical_ray(state: GameState, start: Position, end: Position) -> list[Position]:
+    """One level boundary, through a shaft or exposed edge, never a solid floor."""
     if abs(start.z - end.z) != 1:
-        return False
+        return []
     lower, upper = (start, end) if start.z < end.z else (end, start)
-    if start.x == end.x and start.y == end.y:
-        return vertical_open(state, lower, upper)
     if distance(start, end) > 14 or base_tile(state, upper) == " ":
-        return False
-    # Elevated exterior positions project a lane across both aligned levels.
-    upper_ray = _line(Position(start.x, start.y, upper.z), Position(end.x, end.y, upper.z))
-    lower_ray = _line(Position(start.x, start.y, lower.z), Position(end.x, end.y, lower.z))
-    return all(not blocks_sight(state, point) for point in upper_ray[1:-1]) and all(
-        not blocks_sight(state, point) for point in lower_ray[1:-1]
-    )
+        return []
+    upper_ray = _line(upper, Position(lower.x, lower.y, upper.z))
+    lower_ray = [Position(point.x, point.y, lower.z) for point in upper_ray]
+    for index, (above, below) in enumerate(zip(upper_ray, lower_ray)):
+        opening = vertical_open(state, below, above)
+        exposed_edge = lower.z >= 0 and base_tile(state, above) == " "
+        if not (opening or exposed_edge):
+            continue
+        lane = upper_ray[:index + 1] + lower_ray[index:]
+        if all(not blocks_sight(state, point) for point in lane[1:-1]):
+            return lane if start == upper else list(reversed(lane))
+    return []
 
 
-def projectile_path(start: Position, end: Position) -> list[Position]:
-    """Return the inspectable horizontal projection of a shot."""
+def projectile_path(start: Position, end: Position, state: GameState | None = None) -> list[Position]:
+    """Use actual level geometry when supplied; otherwise a horizontal preview."""
+    if state is not None and start.z != end.z:
+        return _vertical_ray(state, start, end)
     return _line(start, Position(end.x, end.y, start.z))
 
 
