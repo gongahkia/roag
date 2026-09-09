@@ -14,6 +14,10 @@ REGION_NODES = {
     "greywash": "greywash",
     "greenwold": "greenwold",
     "whitecairn": "whitecairn",
+    "dunmire": "dunmire",
+    "rillscar": "rillscar",
+    "marlbank": "marlbank",
+    "frostmere": "frostmere",
 }
 
 
@@ -43,6 +47,10 @@ def build_route_graph(seed: str) -> tuple[dict[str, RouteNode], list[RouteEdge]]
         "chalk-steps": _node("chalk-steps", "Chalk Steps", (62, 18), "unknown", "an incompletely sounded upland landing", known=False, risk=2),
         "whitecairn": _node("whitecairn", "Whitecairn", (75, 15), "region", "limestone terraces, quarry, and high bridge", region_id="whitecairn", market_interest="wool", risk=3),
         "storm-post": _node("storm-post", "Storm Post", (64, 11), "warning", "a staffed signal pole above exposed water", risk=2),
+        "dunmire": _node("dunmire", "Dunmire", (8, 17), "region", "peat islands and raised drying racks", region_id="dunmire", market_interest="timber", risk=2),
+        "marlbank": _node("marlbank", "Marlbank", (7, 1), "region", "irrigated grain terraces and clay kilns", region_id="marlbank", market_interest="timber", supply=2),
+        "rillscar": _node("rillscar", "Rillscar", (76, 20), "region", "iron gorge with paired crossings and buried drains", region_id="rillscar", market_interest="charcoal", risk=3),
+        "frostmere": _node("frostmere", "Frostmere", (76, 1), "region", "braided cold-water channels and net lofts", region_id="frostmere", market_interest="wool", risk=3),
     }
     specifications = [
         ("h-r", "hearthford", "reed-anchor", 4, 1, 1, 1, [], "soft spring bank"),
@@ -58,6 +66,15 @@ def build_route_graph(seed: str) -> tuple[dict[str, RouteNode], list[RouteEdge]]
         ("m-l", "charter-market", "old-lock", 6, 2, 2, 2, [], "long carrier canal"),
         ("l-s", "old-lock", "storm-post", 4, 1, 2, 3, [], "exposed reach"),
         ("s-u", "storm-post", "whitecairn", 5, 2, 3, 3, ["winter"], "ridge water"),
+        ("h-d", "hearthford", "dunmire", 6, 1, 2, 1, [], "raised fen navigation"),
+        ("d-w", "dunmire", "willow-ferry", 4, 1, 1, 1, ["spring"], "low peat cut"),
+        ("h-a", "hearthford", "marlbank", 5, 1, 1, 1, [], "terrace carrier river"),
+        ("a-r", "marlbank", "reed-anchor", 4, 1, 2, 1, ["autumn"], "harvest lock"),
+        ("u-i", "whitecairn", "rillscar", 6, 2, 2, 2, [], "sheltered iron tributary"),
+        ("k-i", "chalk-steps", "rillscar", 5, 1, 2, 3, ["winter"], "gorge shelf tow"),
+        ("c-f", "coast-refuge", "frostmere", 6, 2, 2, 3, [], "marked winter sounding"),
+        ("g-f", "greywash", "frostmere", 8, 2, 3, 4, ["winter"], "outer braided channel"),
+        ("s-c", "storm-post", "coast-refuge", 6, 2, 2, 2, [], "inner coast refuge passage"),
     ]
     rng = stage_rng(seed, "route-links")
     optional = [
@@ -71,6 +88,16 @@ def build_route_graph(seed: str) -> tuple[dict[str, RouteNode], list[RouteEdge]]
         for edge_id, first, second, time, supply, cargo, weather, closed, hazard in specifications
     ]
     return nodes, edges
+
+
+def extend_route_chart(state: GameState) -> None:
+    """Add only expansion moorings and legs; preserve surveyed and changed edges."""
+    nodes, edges = build_route_graph(state.seed)
+    for node_id, node in nodes.items():
+        state.route_nodes.setdefault(node_id, node)
+    existing = {edge.id for edge in state.route_edges}
+    expansion = {"h-d", "d-w", "h-a", "a-r", "u-i", "k-i", "c-f", "g-f", "s-c"}
+    state.route_edges.extend(edge for edge in edges if edge.id in expansion - existing)
 
 
 def initialise_route_chart(state: GameState) -> None:

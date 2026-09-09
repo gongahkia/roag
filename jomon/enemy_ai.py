@@ -249,6 +249,7 @@ def next_path_step(
         tuple(threat.capabilities), occupied,
         tuple((z, tuple(rows)) for z, rows in state.region.levels.items()),
         tuple(sorted(state.region.tile_changes.items())),
+        tuple((key, cell.ice, cell.water) for key, cell in sorted(state.region.materials.items())),
         tuple(sorted(state.smoke)), tuple(sorted(state.water)),
         tuple((link.first, link.second) for link in state.region.vertical_links),
         tuple((c.position, c.opened) for c in state.region.containers),

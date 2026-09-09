@@ -44,6 +44,30 @@ QUESTS = {
             ("x", "Expose the false toll with recovered quarry evidence", "danger", False, "recover the bridge coffer or brace the quarry"),
         ),
     },
+    "dunmire": {
+        "title": "The Ground Owed to Water", "cache": "dunmire-deep",
+        "lead": "Deren's drain marks lead from the store cellar to the buried peat strongbox.",
+        "final": (("b", "Breach the drying bank; save the islands, lose this fuel yield", "commitment", True, ""),
+                  ("h", "Hold the drying bank and honour the winter fuel obligation", "danger", False, "brace the drying control or recover the drain record")),
+    },
+    "rillscar": {
+        "title": "A Bridge with Two Owners", "cache": "rillscar-crown",
+        "lead": "Vessa kept the bridge load account in the Weatherward roof coffer, above the cutworks.",
+        "final": (("o", "Open the tailrace and retire the private bridge guard", "commitment", True, ""),
+                  ("b", "Bind the two bridge claims with the recovered load account", "danger", False, "secure the upper coffer or brace the tailrace control")),
+    },
+    "marlbank": {
+        "title": "The Kiln and the Seed Bed", "cache": "marlbank-ledger",
+        "lead": "Odrin's Witnessed market coffer records which kiln water also feeds the seed terraces.",
+        "final": (("f", "Give the release to the fields; cool the working kilns", "commitment", True, ""),
+                  ("k", "Preserve the kiln firing and ration the seed terraces", "danger", False, "read the water account or operate the release")),
+    },
+    "frostmere": {
+        "title": "The Last Marked Channel", "cache": "frostmere-loft",
+        "lead": "Brenna's sounding board rests in the Loft survey cabinet, above the winter nets.",
+        "final": (("l", "Mark the long lee channel; shelter the nets and delay trade", "commitment", True, ""),
+                  ("c", "Open the direct ice cut under a witnessed pilot obligation", "danger", False, "recover the sounding board or secure the ice control")),
+    },
 }
 
 QUEST_REWARDS = {
@@ -51,6 +75,10 @@ QUEST_REWARDS = {
     "greywash": "storm vane",
     "greenwold": "ember cloth",
     "whitecairn": "high tread",
+    "dunmire": "cork float",
+    "rillscar": "quarry brace",
+    "marlbank": "ember cloth",
+    "frostmere": "storm vane",
 }
 
 ARC_REGIONS = {1: "greywash", 2: "greenwold", 3: "whitecairn", 4: "hearthford"}
@@ -60,11 +88,11 @@ ARC_TITLE = "The Four Working Marks"
 def initialise_quests(state: GameState) -> None:
     state.questlines = {
         region_id: state.questlines.get(region_id, QuestProgress())
-        for region_id in REGION_IDS
+        for region_id in state.regions
     }
     state.treasure_marks = {
         region_id: list(state.treasure_marks.get(region_id, []))
-        for region_id in REGION_IDS
+        for region_id in state.regions
     }
 
 
@@ -85,6 +113,10 @@ def _assign_regional_duty(state: GameState) -> None:
         "greywash": ("lookout", "shooter", "skirmisher"),
         "greenwold": ("suppressor", "flanker", "tracker"),
         "whitecairn": ("shooter", "protector", "lookout"),
+        "dunmire": ("territorial", "lookout"),
+        "rillscar": ("protector", "shooter"),
+        "marlbank": ("lookout", "protector"),
+        "frostmere": ("shooter", "thief"),
     }[state.active_region_id]
     actors = [
         threat for threat in state.threats
@@ -106,6 +138,10 @@ def _assign_regional_duty(state: GameState) -> None:
         "greywash": "secure the tide-bound salvage",
         "greenwold": "control the burn boundary",
         "whitecairn": "guard the quarry warning",
+        "dunmire": "defend the drying bank",
+        "rillscar": "hold the disputed bridge account",
+        "marlbank": "guard the kiln water release",
+        "frostmere": "keep the winter soundings",
     }[state.active_region_id]
     actor.goal_reason = (
         f"the opening decision in {QUESTS[state.active_region_id]['title']} "
@@ -207,6 +243,9 @@ def regional_resolution_options(state: GameState) -> tuple[tuple[str, str, str, 
     elif state.active_region_id == "whitecairn":
         available = quest.optional_done or state.region.changes.get("quarry_braced", False)
         rows[1] = (*rows[1][:3], bool(available), rows[1][4])
+    elif state.active_region_id not in REGION_IDS:
+        available = quest.optional_done or state.region.changes.get("environment_control_used", False)
+        rows[1] = (*rows[1][:3], bool(available), rows[1][4])
     return tuple(rows)
 
 
@@ -295,12 +334,16 @@ def resolve_regional_quest(state: GameState, choice: str) -> tuple[bool, str]:
         market.demand = max(0, market.demand - 2)
         _contact_changes(state, 1, 2)
         consequence = "The honest bell closes unstable work and removes the private alarm from later approaches."
-    else:
+    elif region_id == "whitecairn":
         region.changes["false_toll_exposed"] = True
         state.trade_credit += 3
         market.stock += 2
         _contact_changes(state, 2, -1)
         consequence = "The false toll is exposed; carriers reopen the ridge while quarry claims remain contested."
+    else:
+        from .frontiers import settle_frontier_claim
+
+        consequence = settle_frontier_claim(state, choice)
     quest.stage, quest.status, quest.consequence = 3, "completed", consequence
     quest.decisions.append(f"ending:{choice}")
     _grant_passive_reward(state, QUEST_REWARDS[region_id])
@@ -437,6 +480,10 @@ def use_secondary_service(state: GameState, choice: str) -> tuple[bool, str]:
             "greywash": "shoreline measure",
             "greenwold": "smoke spoor",
             "whitecairn": "bell interval",
+            "dunmire": "shoreline measure",
+            "rillscar": "bell interval",
+            "marlbank": "mill hearing",
+            "frostmere": "shoreline measure",
         }[state.active_region_id]
         if technique in state.courier.learned_techniques:
             return False, f"{state.courier.name} already knows {technique}."

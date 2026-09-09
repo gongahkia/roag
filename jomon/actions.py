@@ -906,6 +906,10 @@ def _weather_and_deadline(state: GameState) -> list[str]:
         weather = "coast squall" if 28 <= elapsed % 90 < 55 else "salt wind"
     elif state.active_region_id == "greenwold":
         weather = "forest rain" if 32 <= elapsed % 96 < 62 else "crosswind"
+    elif state.active_region_id in {"dunmire", "marlbank"}:
+        weather = "hard rain" if 32 <= elapsed % 96 < 62 else "river fog" if elapsed % 96 < 16 else "clear"
+    elif state.active_region_id == "frostmere":
+        weather = "coast squall" if 28 <= elapsed % 90 < 55 else "salt wind"
     else:
         weather = "ridge gust" if 30 <= elapsed % 90 < 60 else "clear"
     if weather != state.weather:
@@ -968,8 +972,12 @@ def _weather_and_deadline(state: GameState) -> list[str]:
                     messages.append("The braced face holds; the direct quarry stair remains legible.")
             else:
                 messages.append("The real quarry bell answers the false one; the lower braces begin to fail.")
-        else:
+        elif state.active_region_id == "hearthford":
             messages.append("The mill bell marks rising water; safe working time is visibly narrowing.")
+        else:
+            from .frontiers import frontier_process
+
+            messages.extend(frontier_process(state))
 
     deadline = state.objective_deadline if state.active_region_id == "hearthford" else state.region.process_thresholds[-1]
     if (
@@ -1332,7 +1340,7 @@ def decide_objective(state: GameState, decision: str) -> ActionResult:
     contact_position = contact_schedule.position if contact_schedule and contact_schedule.area == f"region:{state.active_region_id}" else state.region.landmarks["contact"]
     available = (
         state.location == "region"
-        and state.position == contact_position
+        and distance(state.position, contact_position) <= 1
         and state.objective_status in {"unoffered", "failed"}
     )
     if not available:
@@ -1505,9 +1513,13 @@ def _control_interaction(state: GameState) -> ActionResult:
             state.smoke.clear()
             state.region.changes["burn_redirected"] = True
             text = "You turn the burn shutters crosswind; smoke, pursuit, and the objective route change."
-        else:
+        elif state.active_region_id == "whitecairn":
             state.region.changes["quarry_braced"] = True
             text = "You seat the quarry braces; falling stone quiets and the lower objective remains workable."
+        else:
+            from .frontiers import control_frontier
+
+            text = control_frontier(state)
         sounds = emit_sound(state, 0 if efficient else 2)
         if state.objective_status == "altered":
             state.region.changes["objective_altered"] = True
@@ -1726,7 +1738,7 @@ def interact(state: GameState) -> ActionResult:
         return _open_container(state)
     contact_schedule = state.actor_schedules.get(state.contact.id)
     contact_position = contact_schedule.position if contact_schedule and contact_schedule.area == f"region:{state.active_region_id}" else state.region.landmarks["contact"]
-    if state.position == contact_position:
+    if distance(state.position, contact_position) <= 1:
         from .quests import arc_available_here
 
         quest = state.questlines[state.active_region_id]
@@ -1774,12 +1786,12 @@ def interact(state: GameState) -> ActionResult:
     second = next(
         (
             contact for contact in state.contacts.get(state.active_region_id, [])[1:]
-            if (
+            if distance(state.position, (
                 state.actor_schedules.get(contact.id).position
                 if state.actor_schedules.get(contact.id)
                 and state.actor_schedules[contact.id].area == f"region:{state.active_region_id}"
                 else contact.position
-            ) == state.position
+            )) <= 1
         ),
         None,
     )

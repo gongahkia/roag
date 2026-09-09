@@ -686,7 +686,9 @@ def reconstruct_regional_process(state) -> None:
 
 def activate_region(state, region_id: str) -> None:
     if region_id not in state.regions:
-        raise ValueError(f"unknown Jomon destination {region_id}")
+        from .frontiers import ensure_frontier
+
+        ensure_frontier(state, region_id)
     store_active_region(state)
     state.active_region_id = region_id
     state.region = state.regions[region_id]

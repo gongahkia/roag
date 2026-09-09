@@ -39,7 +39,7 @@ class RouteGraphTests(unittest.TestCase):
         self.assertNotEqual([edge.id for edge in first_edges], [edge.id for edge in other_edges])
         state = create_world("route-one")
         self.assertEqual(connected_nodes(state), set(first_nodes))
-        self.assertEqual(set(neighbours(state, "hearthford")), {"reed-anchor", "willow-ferry"})
+        self.assertEqual(set(neighbours(state, "hearthford")), {"reed-anchor", "willow-ferry", "dunmire", "marlbank"})
 
     def test_cursor_follows_edges_and_unconnected_confirmation_fails(self):
         state = create_world("route cursor")

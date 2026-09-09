@@ -873,6 +873,12 @@ def _chart_screen_point(node_x: int, node_y: int, map_width: int, height: int) -
     return 2 + round(node_x / 78 * usable_width), 2 + round(node_y / 20 * usable_height)
 
 
+def chart_label_position(x: int, label: str, map_width: int) -> tuple[int, str]:
+    label = _clip(label, min(10, map_width - 4))
+    left = x + 2 if x + 2 + len(label) < map_width - 1 else max(1, x - len(label) - 1)
+    return left, label
+
+
 def _chart_line(first: tuple[int, int], second: tuple[int, int]) -> list[tuple[int, int]]:
     x0, y0 = first
     x1, y1 = second
@@ -982,8 +988,9 @@ def _draw_route_chart(
         if node_id == view.cursor:
             attr |= curses.A_REVERSE
         _put(screen, y, x, glyph, attr)
-        if node.region_id and x + 2 < map_width - 1:
-            _put(screen, y, x + 2, _clip(node.name, 10), curses.A_BOLD if known else curses.A_DIM)
+        if node.region_id:
+            left, label = chart_label_position(x, node.name, map_width)
+            _put(screen, y, left, label, curses.A_BOLD if known else curses.A_DIM)
     if moving:
         mx, my = _chart_screen_point(moving[0], moving[1], map_width, height)
         _put(screen, my, mx, "@", _COLOUR_ATTRIBUTES["player"] | curses.A_REVERSE)

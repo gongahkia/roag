@@ -980,14 +980,19 @@ def game_state_from_dict(data: Any) -> GameState:
             from .route_chart import initialise_route_chart
 
             initialise_route_chart(state)
-        if set(state.regions) != {"hearthford", "greywash", "greenwold", "whitecairn"}:
+        missing_regions = {"hearthford", "greywash", "greenwold", "whitecairn"} - set(state.regions)
+        if missing_regions:
             from .regions import build_new_regions
 
             new_regions, new_contacts, new_threats, new_markets = build_new_regions(state.seed)
-            state.regions.update(new_regions)
-            state.contacts.update(new_contacts)
-            state.region_threats.update(new_threats)
-            state.regional_markets.update(new_markets)
+            for region_id in missing_regions:
+                state.regions[region_id] = new_regions[region_id]
+                state.contacts[region_id] = new_contacts[region_id]
+                state.region_threats[region_id] = new_threats[region_id]
+                state.regional_markets[region_id] = new_markets[region_id]
+        from .route_chart import extend_route_chart
+
+        extend_route_chart(state)
         from .quests import initialise_quests
 
         initialise_quests(state)
@@ -1085,8 +1090,13 @@ def validate_state(state: GameState) -> None:
     valid_status = {"dormant", "watching", "engaged", "defeated", "evaded", "negotiated", "disabled", "retreated"}
     if any(threat.status not in valid_status or str(threat.position.z) not in state.region.levels for threat in state.threats):
         raise StateError("invalid threat state")
-    expected_regions = {"hearthford", "greywash", "greenwold", "whitecairn"}
-    if set(state.regions) != expected_regions or set(state.contacts) != expected_regions or set(state.region_threats) != expected_regions or set(state.regional_markets) != expected_regions:
+    from .frontiers import FRONTIERS
+
+    original_regions = {"hearthford", "greywash", "greenwold", "whitecairn"}
+    expected_regions = set(state.regions)
+    if not original_regions <= expected_regions or expected_regions - original_regions - set(FRONTIERS):
+        raise StateError("unknown or missing regional geography")
+    if set(state.contacts) != expected_regions or set(state.region_threats) != expected_regions or set(state.regional_markets) != expected_regions:
         raise StateError("regional persistence is incomplete")
     if set(state.questlines) != expected_regions or set(state.treasure_marks) != expected_regions:
         raise StateError("authored regional quest persistence is incomplete")

@@ -119,6 +119,52 @@ departure revisited the changed quay, material inspection fit, and physical
 return remained available. These are short reaction-loop checks, not complete
 questline or build demonstrations.
 
+The geographic expansion now exposes sixteen chart nodes and eight regional
+moorings. The four added maps are lazy: Dunmire Peat Isles (96×56), Rillscar
+Iron Gorge (112×52), Marlbank Clay Terraces (104×60), and Frostmere Braided
+Estuary (108×58), each with aligned -1/0/1/2 levels, two underground entrances,
+an elevated worksite, two contacts and eight physical containers. Their
+terrain generators use jittered fen islands, folded gorge cuts, shifted
+irrigation bands and braided channels respectively. Each has an initial
+material claim with two recorded settlements. These are connected content,
+not yet the requested finished ecology, history, elite or multi-line depth.
+The added encounters currently reuse old behaviours and are not counted as
+new mechanically distinct archetypes.
+
+The loader's exact-four-region check would rebuild Greywash, Greenwold and
+Whitecairn after a fifth region was saved. It now repairs only genuinely
+missing legacy geography, extends only new chart legs, and preserves existing
+maps, schedules, inventory positions, changed routes and quest outcomes.
+Regression checks exercise eight-region round trips and changed format-6
+routes. New regional processes leave sparse persistent damage rather than
+replenishing it on every visit.
+
+Verification at this point: the first expansion full run had **202 tests,
+one failure in 157.571 seconds**: an old test required Hearthford to have
+exactly two chart neighbours. Its expected set now includes the two new
+connected destinations. The repeated full run passed **203 tests in
+148.083 seconds**. Eight focused frontier tests then passed in **6.578
+seconds**, including a further adjacent-contact regression. The later full
+suite must include that additional test.
+
+Real PTY seed `frontier voyage`: at 80×24, walked to the upper-deck chart,
+selected Dunmire, watched travel, descended to the gangplank and departed.
+Opened the immediately visible quay chest (wreck key, gloves, finite dressing),
+accepted material alteration, crossed the fen circuit, fought the lookout
+with guard/billhook, observed the protector and elevated bow ward, operated
+the drying spill and physically returned with foot/leg injury. The original
+hand-in was obstructed by contacts stepping off the exact interaction tile.
+Adjacent same-level conversation now works and has a regression. Continued
+the saved world at 100×32, revisited the changed region, handed in the prior
+control work, chose the breached-bank settlement, returned and saved/quit.
+This is one completed branch across two expeditions, not both branches or
+coverage of all four new regions. The saved state records the actual outcome.
+Chart labels spilling into the details panel at 80×24 were also observed;
+edge labels now place to the left, with supported-size bounds tests.
+
+The earlier material PTY also shrank below minimum (70×20), showed the
+minimum-size warning, recovered to 100×32, and quit with terminal restoration.
+
 The previous milestone manually completed only one full Hearthford branch;
 its other branch, arc, and build claims have automated rather than complete
 PTY coverage. This expansion must not inherit those as playtest claims.
