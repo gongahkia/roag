@@ -52,6 +52,21 @@ class FakeScreen:
 
 
 class AsciiUiTests(unittest.TestCase):
+    def test_item_and_boon_rewards_can_be_skipped_with_keyboard(self) -> None:
+        for kind in ("item", "boon"):
+            engine = GameEngine.new(self.catalog, 3)
+            self.ui.engine = engine
+            pickup = next(item for item in engine.state.pickups if item.kind == kind)
+            engine.state.phase, engine.state.current_pickup_id = "discovery", pickup.id
+            keys = ([10] if kind == "boon" else []) + [curses.KEY_DOWN] * (3 if kind == "boon" else 1) + [10]
+            self.ui.screen = FakeScreen(keys=keys)
+            self.ui._discovery()
+            self.assertTrue(pickup.resolved)
+            self.assertFalse(engine.state.items)
+            self.assertFalse(engine.state.boons)
+            self.assertTrue(any(row.kind == "pickup_skipped" for row in engine.state.ledger.records))
+            self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(self.catalog, engine.snapshot()).snapshot())
+
     def test_history_search_scroll_and_close_preserve_simulation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             self.ui.save_path = Path(directory) / "run.json"

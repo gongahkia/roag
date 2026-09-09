@@ -857,13 +857,16 @@ class TerminalUI:
         if pickup.kind == "item":
             item_id = str(pickup.payload["item_id"])
             item = self.catalog.items[item_id]
-            self._menu(
+            picked = self._menu(
                 "SALVAGE CACHE",
-                [f"Take {item['name']}"],
+                [f"Take {item['name']}", "Leave behind"],
                 item["description"],
                 allow_cancel=False,
             )
-            self.engine.resolve_item_pickup()
+            if picked == 0:
+                self.engine.resolve_item_pickup()
+            else:
+                self.engine.decline_pickup()
             return
 
         heroes = self.engine.living_heroes()
@@ -879,6 +882,7 @@ class TerminalUI:
         if pickup.kind == "boon":
             options = self.engine.boon_pickup_options(hero.id)
             labels = [self.catalog.boons[boon_id]["name"] for boon_id in options]
+            labels.append("Leave behind")
             details = "\n\n".join(
                 f"{index}. {self.catalog.boons[boon_id]['name']} — "
                 f"{self.catalog.boons[boon_id]['description']}"
@@ -891,7 +895,10 @@ class TerminalUI:
                 allow_cancel=False,
             )
             assert picked is not None
-            self.engine.resolve_boon_pickup(hero.id, options[picked])
+            if picked == len(options):
+                self.engine.decline_pickup()
+            else:
+                self.engine.resolve_boon_pickup(hero.id, options[picked])
             return
 
         options = self.engine.bargain_options(hero.id)

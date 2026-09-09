@@ -2309,6 +2309,9 @@ class GameEngine:
         if pickup:
             self.state.phase = "discovery"
             self.state.current_pickup_id = pickup.id
+            if pickup.kind == "item":
+                self.record("item_offer", pickup.id, offered=pickup.payload["item_id"],
+                            copies=1 + round(self._item_effect_value("salvage_copies")))
             return
         room = next((room for room in self.state.rooms if self.room_position(room.id) == position), None)
         if room is None:
@@ -2890,6 +2893,13 @@ class GameEngine:
         self.add_log(message)
         self._resolve_exploration_tile()
 
+    def decline_pickup(self) -> None:
+        pickup = self.current_pickup()
+        if pickup.kind not in {"item", "boon"}:
+            raise RuleError("this discovery cannot be skipped as a reward")
+        self.record("pickup_skipped", pickup.id, kind=pickup.kind, offered=pickup.payload)
+        self._finish_pickup("The crew leaves the reward behind.")
+
     def _boon_is_eligible(self, hero_id: str, boon_id: str) -> bool:
         tags = {
             tag
@@ -2967,6 +2977,8 @@ class GameEngine:
         if boon_id not in self.boon_pickup_options(hero_id):
             raise RuleError("that boon was not offered")
         count = self.acquire_boon(hero_id, boon_id)
+        self.record("boon_choice", pickup.id, owner=hero_id, chosen=boon_id,
+                    offered=pickup.payload["options"])
         hero = self._actor(hero_id)
         name = self.catalog.boons[boon_id]["name"]
         message = f"{hero.name} receives {name} x{count}."
