@@ -272,3 +272,10 @@ through the actual engine, including post-hit death and reward cleanup; no custo
 callbacks are substituted for continuation. These are constructed scenarios.
 The corrected complete card-boundary group passed **4 tests in 3.854s**.
 Warning-enabled compilation, content validation and `git diff --check` passed.
+
+The first draw/curse group passed 27/28 tests. The card-root assertion still
+expected the earlier unqueued opening draw; it now explicitly checks an opening
+`round:draw` root followed by exactly one card-play root. The corrected group,
+including all six bound curses restored at every dispatch boundary, passed
+**29 tests in 20.694s**. Warning-enabled compilation, content validation and
+`git diff --check` passed. The legacy ordinary transcript still matches.

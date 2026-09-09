@@ -27,6 +27,8 @@ def resolution_lines(engine) -> list[str]:
             text = f"{target}: {data['status']} {data['previous']} -> {data['result']} (application {data['amount']})"
         elif row.kind == "stress":
             text = f"{target}: stress {data['amount']:+}"
+        elif row.kind == "energy":
+            text = f"crew: energy {data['amount']:+}; now {data['result']}"
         elif row.kind == "deaths_door_check":
             text = f"{target}: death chance {data['chance_bp']}/10000; roll {data['roll']}; died {data['died']}"
         elif row.kind == "owner_disabled_event":

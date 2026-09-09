@@ -14,7 +14,7 @@ from .migrations import MigrationError, migrate_run
 from .versions import RUN_SAVE_SCHEMA
 from .telemetry import RunLedger
 from .resolution import Event, EventQueue, Listener, Payload
-from .combat_triggers import CARD_TRIGGERS, REGISTERED, RIPOSTE
+from .combat_triggers import CARD_TRIGGERS, CURSE_TRIGGERS, REGISTERED, RIPOSTE
 from .contracts import Opcode
 from .triggers import EventType, Phase
 
@@ -1864,7 +1864,12 @@ class GameEngine:
                 or len(event.target_ids) != len(set(event.target_ids))):
                 raise RuleError("save queue references an unknown or repeated actor")
             continuation = event.event_type in {EventType.CARD_STEP, EventType.CARD_PLAY, EventType.CLEANUP}
-            if continuation:
+            if event.event_type in {EventType.CARD_DRAW, EventType.CARD_HELD}:
+                curse = catalog.curses.get(event.payload.card_id)
+                if (curse is None or curse["kind"] != "card" or event.payload.actor_id not in hero_ids
+                    or event.payload.opcode is not None or event.payload.effect_index is not None or event.payload.card_upgraded):
+                    raise RuleError("save queue has an invalid bound curse event")
+            elif continuation:
                 card = catalog.cards.get(event.payload.card_id)
                 if (card is None or card["hero"] != event.payload.actor_id or event.payload.opcode is not None
                     or event.payload.effect_index is None):
@@ -3684,6 +3689,10 @@ class GameEngine:
         self.resolve_pending(close_root=owns_root)
 
     def _resolution_listeners(self, event: Event) -> tuple[Listener, ...]:
+        if event.event_type in {EventType.CARD_DRAW, EventType.CARD_HELD}:
+            spec = next(spec for spec in CURSE_TRIGGERS if spec.listens == event.event_type)
+            return tuple(Listener(spec, index, actor.id) for index, actor in enumerate(self.state.heroes, 1)
+                         if actor.id == event.payload.actor_id and actor.alive)
         if event.event_type == EventType.CARD_PLAY:
             return tuple(Listener(CARD_TRIGGERS[event.payload.effect_index], index, actor.id)
                          for index, actor in enumerate(self.state.heroes, 1)
@@ -3695,6 +3704,9 @@ class GameEngine:
                      if actor.alive and actor.statuses.get("riposte"))
 
     def _resolve_trigger(self, listener: Listener, event: Event, queue: EventQueue) -> None:
+        if listener.spec in CURSE_TRIGGERS:
+            self._curse_trigger(listener, event, queue)
+            return
         if listener.spec in CARD_TRIGGERS:
             self._card_trigger(listener, event, queue)
             return
@@ -3719,6 +3731,9 @@ class GameEngine:
 
     def _resolve_event(self, event: Event, queue: EventQueue) -> None:
         payload = event.payload
+        if event.event_type in {EventType.CARD_DRAW, EventType.CARD_HELD}:
+            self.record(event.event_type.value, payload.card_id, owner=payload.actor_id)
+            return
         if event.event_type in {EventType.CARD_STEP, EventType.CARD_PLAY, EventType.CLEANUP}:
             self._continue_card(event, queue)
             return
@@ -3763,7 +3778,9 @@ class GameEngine:
             for _ in range(min(amount, len(self.state.hand))):
                 self.state.discard_pile.append(self.state.hand.pop())
         elif op == "energy":
-            self.state.energy += amount
+            previous = self.state.energy
+            self.state.energy = max(0, previous + amount)
+            self.record("energy", self._source_id or actor.id, requested=amount, amount=self.state.energy - previous, result=self.state.energy)
         else:
             for target in list(targets):
                 if not target.alive and op != "heal":
@@ -4137,6 +4154,14 @@ class GameEngine:
         return [self.rng.choice(heroes)]
 
     def _draw(self, amount: int) -> None:
+        if self.resolution.state.active is None or self.resolution.state.active.phase != Phase.PRIMARY:
+            if self.living_heroes():
+                self._apply_effect(self.living_heroes()[0], [], {"op": "draw", "amount": amount},
+                                   source_id=self._source_id or "round:draw")
+            return
+        self._draw_primary(amount)
+
+    def _draw_primary(self, amount: int) -> None:
         for _ in range(max(0, amount)):
             if not self.state.draw_pile:
                 if not self.state.discard_pile:
@@ -4161,15 +4186,39 @@ class GameEngine:
         effect = next((item for item in definition["effects"] if item["key"] == key), None)
         if effect is None:
             return
+        event_type = EventType.CARD_HELD if key == "curse_held_stress" else EventType.CARD_DRAW
+        payload = Payload(actor_id=hero.id, card_id=card.card_id)
+        if self.resolution.state.active is not None:
+            self.resolution.emit(event_type, (hero.id,), payload, source_id=card.card_id)
+            return
+        owns_root = self.resolution.state.root_id is None
+        if owns_root:
+            self.resolution.begin(combat_token=self.resolution.state.combat_token, turn_token=self.state.round)
+        self.resolution.submit(event_type, card.card_id, (hero.id,), payload)
+        self.resolve_pending(close_root=owns_root)
+
+    def _curse_trigger(self, listener: Listener, event: Event, queue: EventQueue) -> None:
+        hero = next(actor for actor in self.state.heroes if actor.id == listener.entity_id)
+        if not hero.alive:
+            return
+        definition = self.catalog.curses[event.payload.card_id]
+        effect = definition["effects"][0]
+        key = effect["key"]
+        if (key == "curse_held_stress") != (event.event_type == EventType.CARD_HELD):
+            return
         amount = round(self._stack_value(effect, 1))
+        op, status = None, None
         if key in {"curse_draw_stress", "curse_held_stress"}:
-            self._change_stress(hero, amount)
+            op = Opcode.STRESS
         elif key == "curse_draw_wound":
-            self._add_status(hero, "wound", amount + 1)
+            op, status, amount = Opcode.STATUS, "wound", amount + 1
         elif key == "curse_draw_energy":
-            self.state.energy = max(0, self.state.energy - amount)
+            op, amount = Opcode.ENERGY, -amount
         elif key == "curse_draw_move":
-            self._move(hero, amount)
+            op = Opcode.MOVE
+        if op:
+            queue.emit(EventType(op.value), (hero.id,), Payload(actor_id=hero.id, opcode=op, amount=amount, status=status),
+                       source_id=event.payload.card_id)
         if key != "curse_dead_draw":
             self.add_log(f"{definition['name']} afflicts {hero.name}.")
 

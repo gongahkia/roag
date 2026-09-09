@@ -18,6 +18,8 @@ class Phase(IntEnum):
 class EventType(StrEnum):
     CARD_STEP = "card_step"
     CARD_PLAY = "card_play"
+    CARD_DRAW = "card_draw"
+    CARD_HELD = "card_held"
     DAMAGE = "damage"
     BLOCK = "block"
     HEAL = "heal"

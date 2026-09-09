@@ -247,3 +247,10 @@ by the validated card effect list and the fixed seven-step registry.
 its dispatch boundaries for checkpoint tests. Ordinary commands use synchronous
 resolution. Another card play or end-turn command cannot interrupt a pending root.
 The terminal resumes saved pending work before accepting its next command.
+
+Draw and held-curse resolution use attributed queued events. Each bound curse
+checks its living owner and emits registered stress, wound, energy or movement
+operations. Curse descendants exclude the curse-card proc family; manually drawn
+copies still each apply normally. The trigger dependency graph includes the host
+DRAW→CARD_DRAW edge, so a future draw reaction cannot hide a cycle behind that
+host operation. Energy drain floors at zero and records its actual change.

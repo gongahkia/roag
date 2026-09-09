@@ -6,6 +6,8 @@ import unittest
 
 from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.engine import CardInstance, GameEngine, RuleError
+from dumbest_dungeon.resolution import Payload
+from dumbest_dungeon.triggers import EventType as E
 
 
 class CardResolutionTests(unittest.TestCase):
@@ -43,7 +45,8 @@ class CardResolutionTests(unittest.TestCase):
             self.assertGreater(boundaries, 50)
             self.assertEqual(ordinary.snapshot(), checkpoint.snapshot())
             roots = [row for row in ordinary.state.ledger.records if row.kind == "resolution_root"]
-            self.assertEqual([root], [row.data["root"] for row in roots])
+            self.assertEqual([root - 1, root], [row.data["root"] for row in roots])
+            self.assertEqual("round:draw", roots[0].data["trace"][0]["source_id"])
             if finale:
                 self.assertEqual("reward", ordinary.state.phase)
             else:
@@ -84,3 +87,25 @@ class CardResolutionTests(unittest.TestCase):
         self.assertEqual(["arc_welder"], [card.card_id for card in engine.state.draw_pile])
         engine.end_turn()
         self.assertEqual(2, engine.state.round)
+
+    def test_each_bound_curse_resumes_at_every_dispatch_boundary(self) -> None:
+        catalog = load_catalog()
+        for identity, definition in catalog.curses.items():
+            if definition["kind"] != "card":
+                continue
+            engine = GameEngine.new(catalog, 42)
+            engine.start_combat("lost_shift")
+            hero = engine.living_heroes()[0]
+            engine.acquire_curse(hero.id, identity)
+            event = E.CARD_HELD if identity == "dread_forecast" else E.CARD_DRAW
+            engine.resolution.begin(combat_token=1, turn_token=1)
+            engine.resolution.submit(event, identity, (hero.id,), Payload(actor_id=hero.id, card_id=identity))
+            loaded = GameEngine.from_snapshot(catalog, engine.snapshot())
+            engine.resolve_pending()
+            while loaded.resolution.step(loaded._resolution_listeners, loaded._resolve_event, loaded._resolve_trigger):
+                loaded = GameEngine.from_snapshot(catalog, loaded.snapshot())
+            loaded.resolve_pending()
+            self.assertEqual(engine.snapshot(), loaded.snapshot(), identity)
+            if identity != "dead_channel":
+                self.assertTrue(any(row.source_id == identity and row.kind in {"stress", "status", "energy", "effect"}
+                                    for row in engine.state.ledger.records), identity)
