@@ -4,7 +4,7 @@ import json
 import unittest
 from copy import deepcopy
 
-from dumbest_dungeon.content import load_catalog
+from dumbest_dungeon.content import load_catalog, load_legacy_catalog
 from dumbest_dungeon.contracts import Opcode
 from dumbest_dungeon.engine import GameEngine, RuleError
 from dumbest_dungeon.migrations import MigrationError, migrate_run, run_29_to_30
@@ -14,12 +14,13 @@ from dumbest_dungeon.triggers import EventType as E
 
 class ResolutionSaveTests(unittest.TestCase):
     def test_raw_damage_payload_migration_is_pure_and_strict(self) -> None:
-        engine = GameEngine.new(load_catalog(), 42)
+        engine = GameEngine.new(load_legacy_catalog(), 42)
         hero = engine.living_heroes()[0]
         engine.resolution.begin()
         engine.resolution.submit(E.DAMAGE, "test:hit", (hero.id,), Payload(actor_id=hero.id, opcode=Opcode.DAMAGE, amount=1))
         old = engine.snapshot()
         old["save_version"] = 29
+        del old["content_rules"]
         old["content_manifest"]["engine"] = "0.1.0"
         old["resolution_queue"]["state"]["schema"] = 1
         event = old["resolution_queue"]["state"]["pending"][0]
@@ -30,7 +31,8 @@ class ResolutionSaveTests(unittest.TestCase):
         migrated = run_29_to_30(old)
         self.assertEqual(unchanged, old)
         self.assertEqual(30, migrated["save_version"])
-        self.assertEqual(engine.snapshot(), migrate_run(old))
+        self.assertIsNone(migrate_run(old)["content_rules"])
+        self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(engine.catalog, old).snapshot())
         with self.assertRaises(MigrationError):
             run_29_to_30(migrated)
         malformed = engine.snapshot()
@@ -94,12 +96,13 @@ class ResolutionSaveTests(unittest.TestCase):
             GameEngine.from_snapshot(engine.catalog, snapshot)
 
     def test_missing_queue_is_rejected_and_version_28_gets_only_an_empty_queue(self) -> None:
-        engine = GameEngine.new(load_catalog(), 42)
+        engine = GameEngine.new(load_legacy_catalog(), 42)
         raw = engine.snapshot()
         del raw["resolution_queue"]
         with self.assertRaises(RuleError):
             GameEngine.from_snapshot(engine.catalog, raw)
         raw["save_version"] = 28
+        del raw["content_rules"]
         raw["content_manifest"]["engine"] = "0.1.0"
         loaded = GameEngine.from_snapshot(engine.catalog, raw)
         self.assertEqual(engine.state, loaded.state)

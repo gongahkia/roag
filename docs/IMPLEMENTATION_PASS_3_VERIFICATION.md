@@ -344,3 +344,16 @@ contract tests passed **73 tests in 26.746s**, including stack inspection text.
 A four-test focused rerun passed in 0.563s before the final punctuation adjustment,
 which is covered by the 73-test group. Warning-enabled compilation, full content
 validation and `git diff --check` passed. No shipped effect curve changed here.
+
+Self-contained save rules passed **41 persistence, content, queue and ordering
+tests in 26.142s**; the final error-boundary rerun passed **7 tests in 1.797s**.
+New schema-33 saves embed strictly validated effective rules under their manifest
+fingerprint. The exact one-version 32→33 migration references only the retained
+content-20 archive. Reordered rules replay identically; changed, missing,
+non-finite and unknown-opcode rules are rejected. An initial 30-test run had one
+assertion failure because an error message omitted “manifest”; the corrected
+message and expanded group passed. A preliminary content-21 experiment exposed
+three synthetic historical fixtures carrying current rules; those fixtures now
+use the actual archive. The content transition is deferred until this persistence
+boundary is committed. Warning-enabled compilation, content validation and
+`git diff --check` passed. No shipped stack curve changed in this commit.

@@ -1,6 +1,6 @@
 # Persistence contracts
 
-The run save currently uses schema 32, content schema 20, and the existing Python
+The run save currently uses schema 33, content schema 20, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry and manifests are implemented; the persistent profile is still pending.
 
@@ -14,8 +14,9 @@ does not change identity. Ordered effects, enemy actions, formations, balance an
 art do affect identity. Display-name changes retain IDs but change the fingerprint.
 The manifest is cached with its immutable catalog. No Python `hash()` is used.
 
-Schema 27 embeds the manifest. Loading checks it against the installed catalog;
-missing or mismatched fingerprints, pack IDs or RNG versions are rejected.
+Schema 27 embeds the manifest. Loading checks it against installed, embedded or
+archived rules; missing or mismatched fingerprints, pack IDs or RNG versions are
+rejected.
 `migrations.run_26_to_27` accepts exactly schema 26/content 20, copies the input,
 and adds the recorded content-20 manifest. Its SHA-256 is
 `b6b8c6fe837b9035b498cd867ffe29c80620429dd56d50bc6c29197389f5502b`.
@@ -140,9 +141,28 @@ schema comes from that bundle's actual schema, not the engine's newest content
 constant. This archive is compatibility data; it adds no entries to live pools.
 
 On load, the engine first compares the requested manifest with the supplied
-installed catalog. If it differs, only an exact match with the independently
-validated archived bundle is accepted. Unknown fingerprints and pack combinations
-still fail. World, cards, targets, rewards and random state come from the save;
+installed catalog. If it differs, an exact match with strictly validated embedded rules or the
+independently validated archive is required. Unavailable rules and unsupported
+pack combinations still fail. World, cards, targets, rewards and random state come from the save;
 archive selection supplies their recorded definitions rather than new content.
 The terminal adopts the restored catalog for all labels and rules and announces
 when recorded content is used. New expeditions return to the current catalog.
+
+
+Schema 33 makes new runs self-contained by storing the immutable effective rules
+behind their fingerprint: indexed definitions, balance, card metadata and ASCII
+art. A later content edit cannot silently replace those definitions. Loading
+checks the canonical SHA-256 before using an already validated catalog or strictly
+compiling the saved rules through the same closed content validator. Unknown
+opcodes, malformed references and forged fingerprints fail before simulation
+state is restored. Up to eight validated alternate rulesets are cached locally.
+JSON definition order and object key order are irrelevant; ordered effects,
+actions and formations retain their order. No saved content supplies Python code.
+
+The pure 32→33 migration adds an explicit null archive reference only for the
+recorded engine-0.2.0/content-20 fingerprint. That historical format did not embed
+rules. Missing `content_rules` in a current save is an error; null is accepted
+only when its full manifest matches the known archive. Migration never reads or
+copies today's content. Subsequent snapshots materialize the selected immutable
+rules into the save. This also preserves supported intermediate content revisions
+without requiring a new repository archive for each atomic content commit.

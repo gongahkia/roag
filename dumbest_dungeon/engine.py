@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import random
 from collections import Counter, deque
 from contextlib import contextmanager
@@ -10,7 +11,8 @@ from fractions import Fraction
 from heapq import heappop, heappush
 from typing import Any, Callable
 
-from .content import CARD_STATUSES, Catalog, ContentError, load_legacy_catalog
+from .content import CARD_STATUSES, Catalog, load_legacy_catalog, load_rules
+from .manifest import canonical_bytes
 from .migrations import MigrationError, migrate_run
 from .versions import RUN_SAVE_SCHEMA
 from .telemetry import RunLedger
@@ -1382,14 +1384,20 @@ class GameEngine:
             snapshot = migrate_run(snapshot)
         except MigrationError as exc:
             raise RuleError(str(exc)) from exc
-        if snapshot.get("content_manifest") != catalog.manifest.snapshot():
-            try:
-                legacy = load_legacy_catalog()
-            except ContentError as exc:
-                raise RuleError(f"historical content unavailable: {exc}") from exc
-            if snapshot.get("content_manifest") != legacy.manifest.snapshot():
-                raise RuleError("save content manifest does not match installed or archived rules and enabled packs")
-            catalog = legacy
+        try:
+            saved_rules = snapshot["content_rules"]
+            manifest = snapshot["content_manifest"]
+            if saved_rules is None:
+                catalog = load_legacy_catalog()
+            else:
+                if hashlib.sha256(canonical_bytes(saved_rules)).hexdigest() != manifest["fingerprint"]:
+                    raise RuleError("saved rules do not match their content manifest fingerprint")
+                if manifest != catalog.manifest.snapshot():
+                    catalog = load_rules(saved_rules)
+            if manifest != catalog.manifest.snapshot():
+                raise RuleError("save content manifest does not match installed, embedded or archived rules and enabled packs")
+        except (KeyError, TypeError, ValueError) as exc:
+            raise RuleError(f"invalid saved content rules: {exc}") from exc
         if snapshot.get("content_schema_version") != catalog.raw["schema_version"]:
             raise RuleError("save was created for a different content schema")
         raw = snapshot.get("state")
@@ -1904,6 +1912,7 @@ class GameEngine:
             "save_version": self.SAVE_VERSION,
             "content_schema_version": self.catalog.raw["schema_version"],
             "content_manifest": self.catalog.manifest.snapshot(),
+            "content_rules": self.catalog.rules,
             "state": asdict(self.state),
             "rng_state": self.rng.getstate(),
             "resolution_queue": self.resolution.snapshot(),

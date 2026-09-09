@@ -27,15 +27,18 @@ class ContentManifest:
         return json.loads(canonical_bytes(asdict(self)))
 
 
-def content_manifest(catalog) -> ContentManifest:
+def content_rules(catalog) -> dict:
     # declaration order is irrelevant; effect, action and formation order is not.
     rules = {
         name: {identity: definition for identity, definition in getattr(catalog, name).items()}
         for name in catalog.__dataclass_fields__
         if name not in {"raw", "balance", "art"} and name in catalog.raw
     }
-    schema = catalog.raw["schema_version"]
-    rules.update(balance=catalog.balance, art=catalog.art, content_schema=schema)
-    digest = hashlib.sha256(canonical_bytes(rules)).hexdigest()
-    return ContentManifest(MANIFEST_SCHEMA, ENGINE_VERSION, schema, RNG_ARCHITECTURE,
+    rules.update(balance=catalog.balance, art=catalog.art, content_schema=catalog.raw["schema_version"])
+    return rules
+
+
+def content_manifest(catalog) -> ContentManifest:
+    digest = hashlib.sha256(canonical_bytes(catalog.rules)).hexdigest()
+    return ContentManifest(MANIFEST_SCHEMA, ENGINE_VERSION, catalog.raw["schema_version"], RNG_ARCHITECTURE,
                            digest, ("base:core",))

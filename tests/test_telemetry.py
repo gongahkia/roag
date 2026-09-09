@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import unittest
 
-from dumbest_dungeon.content import load_catalog
+from dumbest_dungeon.content import load_catalog, load_legacy_catalog
 from dumbest_dungeon.engine import CardInstance, GameEngine, RuleError
 from dumbest_dungeon.telemetry import RunLedger, decision_counts
 
@@ -37,9 +37,10 @@ class LedgerTests(unittest.TestCase):
             GameEngine.from_snapshot(engine.catalog, snapshot)
 
     def test_version_27_migration_discloses_unrecorded_history(self) -> None:
-        engine = GameEngine.new(load_catalog(), 42)
+        engine = GameEngine.new(load_legacy_catalog(), 42)
         raw = engine.snapshot()
         raw["save_version"] = 27
+        del raw["content_rules"]
         raw["content_manifest"]["engine"] = "0.1.0"
         del raw["state"]["ledger"]
         del raw["resolution_queue"]

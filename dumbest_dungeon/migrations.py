@@ -115,7 +115,21 @@ def run_31_to_32(snapshot: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-RUN_MIGRATIONS = {26: run_26_to_27, 27: run_27_to_28, 28: run_28_to_29, 29: run_29_to_30, 30: run_30_to_31, 31: run_31_to_32}
+def run_32_to_33(snapshot: dict[str, Any]) -> dict[str, Any]:
+    if type(snapshot.get("save_version")) is not int or snapshot["save_version"] != 32:
+        raise MigrationError("migration 32->33 requires save version 32")
+    manifest = snapshot.get("content_manifest")
+    if ("content_rules" in snapshot or not isinstance(manifest, dict)
+        or manifest.get("fingerprint") != LEGACY_20_FINGERPRINT or manifest.get("content_schema") != 20
+        or manifest.get("engine") != "0.2.0"):
+        raise MigrationError("version-32 migration requires its recorded historical content manifest")
+    result = deepcopy(snapshot)
+    result["save_version"] = 33
+    result["content_rules"] = None
+    return result
+
+
+RUN_MIGRATIONS = {26: run_26_to_27, 27: run_27_to_28, 28: run_28_to_29, 29: run_29_to_30, 30: run_30_to_31, 31: run_31_to_32, 32: run_32_to_33}
 
 
 def migrate_run(snapshot: dict[str, Any]) -> dict[str, Any]:

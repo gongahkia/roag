@@ -11,7 +11,7 @@ from typing import Any
 
 from .json_data import JsonDataError, loads
 from .contracts import Definition, Enemy, Opcode, Technique, freeze, runtime_definition
-from .manifest import ContentManifest, content_manifest
+from .manifest import ContentManifest, canonical_bytes, content_manifest, content_rules
 from .versions import CONTENT_SCHEMA
 from .acquisition import Lane
 from .passives import EffectKey, persistent_effect
@@ -57,6 +57,10 @@ class Catalog:
     @cached_property
     def manifest(self) -> ContentManifest:
         return content_manifest(self)
+
+    @cached_property
+    def rules(self) -> dict:
+        return freeze(content_rules(self))
 
 
 CARD_EFFECTS = {opcode.value for opcode in Opcode}
@@ -448,6 +452,34 @@ def _load_catalog(path: Path | None, *, assets: Path | None = None) -> Catalog:
         card_metadata = loads(metadata_source.read_text(encoding="utf-8"))
     except (OSError, JsonDataError, UnicodeError) as exc:
         raise ContentError(f"cannot load card metadata from {metadata_source}: {exc}") from exc
+    return _catalog_from_documents(raw, art, card_metadata)
+
+
+def load_rules(rules: dict) -> Catalog:
+    try:
+        return _compiled_rules(canonical_bytes(rules))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ContentError(f"invalid saved content rules: {exc}") from exc
+
+
+@lru_cache(maxsize=8)
+def _compiled_rules(encoded: bytes) -> Catalog:
+    rules = loads(encoded.decode("ascii"))
+    if not isinstance(rules, dict) or set(rules) != set(CONTENT_FIELDS) | {"balance", "art", "content_schema"}:
+        raise ContentError("saved rules require exactly the registered content sections")
+    raw = {"schema_version": rules["content_schema"], "balance": rules["balance"]}
+    for name in CONTENT_FIELDS:
+        definitions = rules[name]
+        if not isinstance(definitions, dict) or any(not isinstance(row, dict) or identity != row.get("id") for identity, row in definitions.items()):
+            raise ContentError(f"saved {name} identities do not match their definitions")
+        raw[name] = list(definitions.values())
+    metadata = {"schema_version": 1, "cards": {
+        identity: {"tags": card["tags"], "upgrade_description": card["upgrade_description"]}
+        for identity, card in rules["cards"].items()}}
+    return _catalog_from_documents(raw, rules["art"], metadata)
+
+
+def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalog:
 
     _fields(raw, "schema_version balance " + " ".join(CONTENT_FIELDS), "content root")
     _fields(art, "schema_version title heroes enemies card_glyphs card_marks curse_card_glyph curse_card_mark", "art root")
