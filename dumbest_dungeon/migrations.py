@@ -30,7 +30,19 @@ def run_26_to_27(snapshot: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-RUN_MIGRATIONS = {26: run_26_to_27}
+def run_27_to_28(snapshot: dict[str, Any]) -> dict[str, Any]:
+    if type(snapshot.get("save_version")) is not int or snapshot["save_version"] != 27:
+        raise MigrationError("migration 27->28 requires save version 27")
+    state = snapshot.get("state")
+    if not isinstance(state, dict) or "ledger" in state or type(state.get("travel_ticks")) is not int:
+        raise MigrationError("malformed version-27 snapshot")
+    result = deepcopy(snapshot)
+    result["save_version"] = 28
+    result["state"]["ledger"] = {"schema": 1, "incomplete_before_tick": state["travel_ticks"], "records": []}
+    return result
+
+
+RUN_MIGRATIONS = {26: run_26_to_27, 27: run_27_to_28}
 
 
 def migrate_run(snapshot: dict[str, Any]) -> dict[str, Any]:

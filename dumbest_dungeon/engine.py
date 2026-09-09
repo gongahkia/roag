@@ -11,6 +11,7 @@ from typing import Any, Callable
 from .content import Catalog
 from .migrations import MigrationError, migrate_run
 from .versions import RUN_SAVE_SCHEMA
+from .telemetry import RunLedger
 
 
 class RuleError(ValueError):
@@ -190,6 +191,7 @@ class GameState:
     service_type: str | None = None
     combat_kind: str | None = None
     log: list[str] = field(default_factory=list)
+    ledger: RunLedger = field(default_factory=RunLedger)
 
 
 def _tuples(value: Any) -> Any:
@@ -1425,6 +1427,7 @@ class GameEngine:
                 service_type=raw["service_type"],
                 combat_kind=raw["combat_kind"],
                 log=raw["log"],
+                ledger=RunLedger.from_snapshot(raw["ledger"]),
             )
             rng = random.Random()
             rng.setstate(_tuples(snapshot["rng_state"]))
@@ -1848,6 +1851,9 @@ class GameEngine:
     def add_log(self, message: str) -> None:
         self.state.log.append(message)
         del self.state.log[:-60]
+
+    def record(self, kind: str, source_id: str, **data: Any) -> None:
+        self.state.ledger.record(kind, source_id, self.state.travel_ticks, self.state.round, **data)
 
     def room(self, room_id: int | None = None) -> Room:
         return self.state.rooms[self.state.current_room if room_id is None else room_id]

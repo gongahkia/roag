@@ -1,6 +1,6 @@
 # Persistence contracts
 
-The run save currently uses schema 27, content schema 20, and the existing Python
+The run save currently uses schema 28, content schema 20, and the existing Python
 `random.Random` state. Profile, telemetry, manifest, and domain-separated RNG
 contracts are being implemented in Pass 3; they are not interchangeable versions.
 
@@ -24,6 +24,14 @@ The dispatcher checks that each migration advances exactly one version. Older
 unknown schemas and newer unknown versions are rejected explicitly. Future content
 changes need a declared compatibility/migration decision before historical saves
 can be accepted; silently replacing this legacy constant is not a migration.
+
+Schema 28 adds a deterministic telemetry-schema-1 run ledger. Each record has a
+contiguous sequence number, kind, source ID, simulated travel tick, combat round
+and finite JSON operands. Recording consumes no RNG and reads no clock. The
+27->28 migration adds an empty ledger with `incomplete_before_tick` set to the
+saved tick: events that occurred before recording existed are explicitly unknown,
+not synthesized. New runs have no missing-history boundary. Instrumentation and
+local history presentation are added separately from this serialization contract.
 
 ## Atomic local files
 
