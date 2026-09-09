@@ -113,6 +113,17 @@ class LedgerTests(unittest.TestCase):
         self.assertIn("baton_strike", sources)
         self.assertTrue(any("/" in source for source in sources))
 
+    def test_route_inspection_does_not_record_world_actions(self) -> None:
+        engine = GameEngine.new(load_catalog(), 42)
+        before = engine.snapshot()
+        route = engine._find_path((engine.state.party_x, engine.state.party_y), engine.room_position(1))
+        engine.route_intel(route)
+        self.assertEqual(before, engine.snapshot())
+        engine.step_exploration(*route[0])
+        record = next(row for row in engine.state.ledger.records if row.kind == "travel")
+        self.assertEqual(list(route[0]), record.data["position"])
+        self.assertEqual(engine.state.travel_ticks, record.data["ticks"])
+
 
 if __name__ == "__main__":
     unittest.main()

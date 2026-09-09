@@ -112,3 +112,9 @@ Some legacy environment/passive paths still use `world:unattributed`; source
 coverage is intentionally visible rather than falsely assigning a card. The
 interaction-kernel migration must finish those paths and add trigger ancestry.
 These records do not impose new combat limits or change effect arithmetic.
+
+Travel records retain actual tile, weighted ticks and light spent. Objective
+records retain offered/chosen approaches, costs, stages and outcomes; facility
+records retain choices and skips. Bargain records retain generated offers and
+the accepted or declined choice. Route inspection records no world action.
+Exploration effects inherit their objective, facility or event source ID.

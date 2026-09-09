@@ -2079,6 +2079,7 @@ class GameEngine:
         self.state.party_y = y
         self.state.exploration_steps += 1
         previous_ticks = self.state.travel_ticks
+        previous_light = self.state.light
         self.state.travel_ticks += self.movement_cost(x, y)
         interval = int(self.catalog.balance["exploration_steps_per_light"])
         light_spent = self.state.travel_ticks // interval - previous_ticks // interval
@@ -2100,6 +2101,8 @@ class GameEngine:
             if leak:
                 self.state.light = max(0, self.state.light - leak)
                 self.add_log(f"Leaking Lamp drains {leak} light.")
+        self.record("travel", self.biome_at(x, y), position=[x, y], ticks=self.state.travel_ticks - previous_ticks,
+                    light_spent=previous_light - self.state.light, light=self.state.light, supplies=self.state.supplies)
         self._update_perception()
         patrol = self._patrol_at(x, y)
         if patrol:
@@ -2429,6 +2432,11 @@ class GameEngine:
         effect: dict[str, Any],
         source: str,
     ) -> None:
+        with self.attribution(source):
+            self.record("world_effect", source, biome=biome_id, effect=dict(effect))
+            self._apply_exploration_effect_primary(biome_id, effect, source)
+
+    def _apply_exploration_effect_primary(self, biome_id: str, effect: dict[str, Any], source: str) -> None:
         operation = effect["op"]
         amount = int(effect["amount"])
         if operation == "suppress_hazard":
@@ -2468,6 +2476,8 @@ class GameEngine:
             self._apply_facility_effect(facility, effect)
         facility.used = True
         facility.outcome = option_id
+        self.record("facility_choice", facility.definition_id, chosen=option_id,
+                    offered=[option["id"] for option in definition["options"]], cost=dict(option["cost"]))
         self.state.current_facility_id = None
         if self.state.phase != "defeat":
             self.state.phase = "exploration"
@@ -2476,7 +2486,8 @@ class GameEngine:
         return message
 
     def leave_facility(self) -> None:
-        self.current_facility()
+        facility = self.current_facility()
+        self.record("facility_skipped", facility.definition_id)
         self.state.current_facility_id = None
         self.state.phase = "exploration"
 
@@ -2615,6 +2626,8 @@ class GameEngine:
             raise RuleError("unknown objective approach")
         self._apply_objective_cost(approach["cost"])
         objective.approach = approach_id
+        self.record("objective_approach", objective.id, chosen=approach_id,
+                    offered=[item["id"] for item in mission["approaches"]], cost=dict(approach["cost"]))
         objective.stage = 0
         objective.facts = {
             "approach": approach_id,
@@ -2672,6 +2685,8 @@ class GameEngine:
         elif effect:
             self._apply_exploration_effect(objective.biome_id, effect, objective.id)
         objective.stage += 1
+        self.record("objective_stage", objective.id, approach=objective.approach,
+                    stage=objective.stage, label=stage["label"])
         objective.facts.setdefault("stages", []).append(
             {
                 "index": objective.stage,
@@ -2703,6 +2718,7 @@ class GameEngine:
         self._apply_exploration_effect(objective.biome_id, completion, objective.id)
         objective.completed = True
         objective.outcome = approach["outcome"]
+        self.record("objective_completed", objective.id, approach=objective.approach, outcome=objective.outcome)
         objective.facts.update(
             {
                 "outcome": approach["outcome"],
@@ -2932,6 +2948,7 @@ class GameEngine:
                     },
                 ],
             }
+            self.record("bargain_offer", pickup.id, owner=hero_id, offered=pickup.payload["options"])
         return list(pickup.payload["options"])
 
     def resolve_bargain(self, hero_id: str, option_index: int | None) -> str:
@@ -2939,6 +2956,8 @@ class GameEngine:
         if pickup.kind != "bargain":
             raise RuleError("this discovery offers no bargain")
         if option_index is None:
+            self.record("bargain_choice", pickup.id, owner=hero_id, chosen=None,
+                        offered=pickup.payload.get("options", []))
             message = "The crew leaves the anomaly unanswered."
             self._finish_pickup(message)
             return message
@@ -2946,6 +2965,7 @@ class GameEngine:
         if not 0 <= option_index < len(options):
             raise RuleError("invalid bargain")
         option = options[option_index]
+        self.record("bargain_choice", pickup.id, owner=hero_id, chosen=option_index, offered=options)
         curse_id = str(option["curse_id"])
         reward_id = str(option["reward_id"])
         self.acquire_curse(hero_id, curse_id)
