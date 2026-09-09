@@ -1,6 +1,6 @@
 # Persistence contracts
 
-The run save currently uses schema 28, content schema 20, and the existing Python
+The run save currently uses schema 29, content schema 20, and the existing Python
 `random.Random` state. Profile, telemetry, manifest, and domain-separated RNG
 contracts are being implemented in Pass 3; they are not interchangeable versions.
 
@@ -32,6 +32,15 @@ and finite JSON operands. Recording consumes no RNG and reads no clock. The
 saved tick: events that occurred before recording existed are explicitly unknown,
 not synthesized. New runs have no missing-history boundary. Instrumentation and
 local history presentation are added separately from this serialization contract.
+
+Schema 29 embeds the resolution queue's budget, pending typed events, active
+phase, snapshotted listeners, limiter counters and sealed traces. Migration
+28->29 adds the authored empty schema-1 queue because the old engine had no
+pending queue to preserve; it does not invent historical triggers. Current saves
+must contain this durable field. Resume validates event ancestry, phase, actor,
+card and status references before executing callbacks. Engine-level tests save
+after a partial dispatch and compare the remaining healing chain and ledger with
+an uninterrupted continuation.
 
 ## Morgue files
 

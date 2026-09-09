@@ -42,7 +42,23 @@ def run_27_to_28(snapshot: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-RUN_MIGRATIONS = {26: run_26_to_27, 27: run_27_to_28}
+def run_28_to_29(snapshot: dict[str, Any]) -> dict[str, Any]:
+    if type(snapshot.get("save_version")) is not int or snapshot["save_version"] != 28:
+        raise MigrationError("migration 28->29 requires save version 28")
+    if "resolution_queue" in snapshot or not isinstance(snapshot.get("state"), dict):
+        raise MigrationError("malformed version-28 snapshot")
+    result = deepcopy(snapshot)
+    result["save_version"] = 29
+    result["resolution_queue"] = {"budget": 4096, "state": {
+        "schema": 1, "next_event_id": 1, "next_root_id": 1, "root_id": None,
+        "card_token": None, "combat_token": 0, "turn_token": 0, "pending": [],
+        "active": None, "counters": {}, "chain_spent": {}, "sealed_chains": [],
+        "trace": [], "seals": [],
+    }}
+    return result
+
+
+RUN_MIGRATIONS = {26: run_26_to_27, 27: run_27_to_28, 28: run_28_to_29}
 
 
 def migrate_run(snapshot: dict[str, Any]) -> dict[str, Any]:

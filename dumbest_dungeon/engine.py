@@ -9,10 +9,11 @@ from dataclasses import asdict, dataclass, field
 from heapq import heappop, heappush
 from typing import Any, Callable
 
-from .content import Catalog
+from .content import CARD_STATUSES, Catalog
 from .migrations import MigrationError, migrate_run
 from .versions import RUN_SAVE_SCHEMA
 from .telemetry import RunLedger
+from .resolution import EventQueue
 
 
 class RuleError(ValueError):
@@ -511,6 +512,7 @@ class GameEngine:
         self.state = state
         self.rng = rng
         self._source_id: str | None = None
+        self.resolution = EventQueue()
 
     @classmethod
     def new(cls, catalog: Catalog, seed: int, *, start_in_hub: bool = False) -> GameEngine:
@@ -1437,6 +1439,7 @@ class GameEngine:
             )
             rng = random.Random()
             rng.setstate(_tuples(snapshot["rng_state"]))
+            resolution = EventQueue.from_snapshot(snapshot["resolution_queue"])
         except (KeyError, TypeError, ValueError) as exc:
             raise RuleError(f"invalid save data: {exc}") from exc
         if state.world_id not in catalog.worlds:
@@ -1468,6 +1471,7 @@ class GameEngine:
             raise RuleError("save room positions do not match its world type")
         _validate_world(state.world_tiles, positions)
         engine = cls(catalog, state, rng)
+        engine.resolution = resolution
         if (
             not isinstance(state.tutorial, bool)
             or not isinstance(state.tutorial_stage, int)
@@ -1843,6 +1847,19 @@ class GameEngine:
             for card in state.deck
         ):
             raise RuleError("save curse stacks do not match its bound cards")
+        queued = list(resolution.state.pending)
+        if resolution.state.active:
+            queued.append(resolution.state.active.event)
+        actor_ids = {actor.id for actor in state.heroes + state.enemies}
+        for event in queued:
+            if (any(identity not in actor_ids for identity in event.target_ids)
+                or event.payload.actor_id is not None and event.payload.actor_id not in actor_ids
+                or len(event.target_ids) != len(set(event.target_ids))):
+                raise RuleError("save queue references an unknown or repeated actor")
+            if event.payload.card_id is not None and event.payload.card_id not in catalog.cards.keys() | catalog.curses.keys():
+                raise RuleError("save queue references an unknown card")
+            if any(status is not None and status not in CARD_STATUSES for status in (event.payload.status, event.payload.bonus_status)):
+                raise RuleError("save queue references an unknown status")
         return engine
 
     def snapshot(self) -> dict[str, Any]:
@@ -1852,6 +1869,7 @@ class GameEngine:
             "content_manifest": self.catalog.manifest.snapshot(),
             "state": asdict(self.state),
             "rng_state": self.rng.getstate(),
+            "resolution_queue": self.resolution.snapshot(),
         }
 
     def add_log(self, message: str) -> None:
