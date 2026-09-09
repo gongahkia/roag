@@ -29,6 +29,19 @@ to the explicit stack contracts.
 
 ## Structural census
 
+The bundled catalog is validated and cached once per process. Definitions,
+nested lists, effects, balance and art reject normal mutation. Runtime techniques,
+enemies, enemy actions and effects have named record types; `Opcode` and `Target`
+are closed enums. The records retain JSON-compatible lookups to avoid rewriting
+unrelated simulation code. Other validated definitions use a read-only definition
+record. There is no content script evaluator. Test-only balance variants explicitly
+replace a catalog rather than mutate the shared cache. Explicit alternate file
+loads are validated afresh and do not reuse a stale path cache.
+
+Enemy actions reject unknown fields, duplicate names, and nonpositive selection
+weights. Action names currently identify frozen intents within an enemy; changing
+one therefore requires a save compatibility decision.
+
 `python3 -m dumbest_dungeon.content_audit` reports all owner pools and rank access,
 tag and opcode counts, native encounter density, action counts and structural
 groups. The normalizer removes numerical magnitude but keeps its sign, effect

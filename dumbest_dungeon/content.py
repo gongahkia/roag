@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
 from .json_data import JsonDataError, loads
+from .contracts import Definition, Enemy, Opcode, Technique, freeze, runtime_definition
 
 
 class ContentError(ValueError):
@@ -20,8 +22,8 @@ class Catalog:
     raw: dict[str, Any]
     heroes: dict[str, dict[str, Any]]
     squads: dict[str, dict[str, Any]]
-    cards: dict[str, dict[str, Any]]
-    enemies: dict[str, dict[str, Any]]
+    cards: dict[str, Technique]
+    enemies: dict[str, Enemy]
     encounters: dict[str, dict[str, Any]]
     events: dict[str, dict[str, Any]]
     landmarks: dict[str, dict[str, Any]]
@@ -38,20 +40,16 @@ class Catalog:
     balance: dict[str, Any]
     art: dict[str, Any]
 
+    def __post_init__(self) -> None:
+        for name in self.__dataclass_fields__:
+            value = getattr(self, name)
+            if name not in {"raw", "balance", "art"}:
+                value = {key: item if isinstance(item, Definition) else runtime_definition(name, item)
+                         for key, item in value.items()}
+            object.__setattr__(self, name, freeze(value))
 
-CARD_EFFECTS = {
-    "damage",
-    "block",
-    "heal",
-    "stress",
-    "move",
-    "guard",
-    "status",
-    "draw",
-    "discard",
-    "energy",
-    "cleanse",
-}
+
+CARD_EFFECTS = {opcode.value for opcode in Opcode}
 EVENT_EFFECTS = {
     "light",
     "supplies",
@@ -442,6 +440,15 @@ def _biome_mechanics(biome: dict[str, Any]) -> None:
 
 
 def load_catalog(path: Path | None = None) -> Catalog:
+    return _bundled_catalog() if path is None else _load_catalog(path)
+
+
+@lru_cache(maxsize=1)
+def _bundled_catalog() -> Catalog:
+    return _load_catalog(None)
+
+
+def _load_catalog(path: Path | None) -> Catalog:
     data_root = files("dumbest_dungeon.data")
     source = path or Path(str(data_root.joinpath("game.json")))
     try:
@@ -613,7 +620,7 @@ def load_catalog(path: Path | None = None) -> Catalog:
         card_names.add(card["name"])
         if card.get("target") not in TARGETS:
             raise ContentError(f"card {card['id']} has an invalid target")
-        if not isinstance(card.get("cost"), int) or card["cost"] < 0:
+        if type(card.get("cost")) is not int or not 0 <= card["cost"] <= 99:
             raise ContentError(f"card {card['id']} has an invalid cost")
         _ranks(card.get("from_ranks"), f"card {card['id']}.from_ranks")
         if card["target"] in {"enemy", "all_enemies"}:
@@ -662,14 +669,20 @@ def load_catalog(path: Path | None = None) -> Catalog:
         if not isinstance(enemy.get("name"), str) or not enemy["name"] or enemy["name"] in enemy_names:
             raise ContentError("enemies need unique non-empty names")
         enemy_names.add(enemy["name"])
-        if not isinstance(enemy.get("max_hp"), int) or enemy["max_hp"] <= 0:
+        if type(enemy.get("max_hp")) is not int or not 1 <= enemy["max_hp"] <= 1_000_000:
             raise ContentError(f"enemy {enemy['id']} has invalid max_hp")
         actions = enemy.get("actions")
         if not isinstance(actions, list) or not actions:
             raise ContentError(f"enemy {enemy['id']} needs actions")
+        action_names = set()
         for action in actions:
-            if not isinstance(action.get("name"), str) or action.get("target") not in ENEMY_TARGETS:
+            _fields(action, "name target effects weight", f"enemy {enemy['id']} action")
+            if (not isinstance(action.get("name"), str) or not action["name"]
+                or action["name"] in action_names or action.get("target") not in ENEMY_TARGETS):
                 raise ContentError(f"enemy {enemy['id']} has an invalid action")
+            if type(action.get("weight", 1)) is not int or not 1 <= action.get("weight", 1) <= 1000:
+                raise ContentError(f"enemy {enemy['id']} has an invalid action weight")
+            action_names.add(action["name"])
             _effects(action.get("effects"), CARD_EFFECTS, f"enemy {enemy['id']} action")
         enemy_biomes = enemy.get("biomes", ["derelict"])
         if not isinstance(enemy_biomes, list) or not enemy_biomes or any(

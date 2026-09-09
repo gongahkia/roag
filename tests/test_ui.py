@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import curses
+from dataclasses import replace
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -432,9 +433,8 @@ class AsciiUiTests(unittest.TestCase):
             ((objective.x, objective.y) for objective in self.engine.state.objectives),
             key=lambda tile: self.engine.path_cost(self.engine._find_path(party, tile)),
         )
-        original = self.catalog.balance["maximum_navigation_distance"]
-        self.catalog.balance["maximum_navigation_distance"] = 1
-        try:
+        fixture = replace(self.catalog, balance={**self.catalog.balance, "maximum_navigation_distance": 1})
+        with patch.object(self.engine, "catalog", fixture):
             targets = self.ui._exploration_targets()
             self.assertNotIn(distant, targets)
             self.assertTrue(
@@ -443,8 +443,6 @@ class AsciiUiTests(unittest.TestCase):
                     for tile in targets
                 )
             )
-        finally:
-            self.catalog.balance["maximum_navigation_distance"] = original
 
     def test_open_core_is_a_global_marker_and_first_reachable_cycle_target(self) -> None:
         self.unlock_core()

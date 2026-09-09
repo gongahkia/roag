@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import replace
 import random
 import unittest
+from unittest.mock import patch
 
 from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.engine import (
@@ -1580,12 +1582,9 @@ class EngineTests(unittest.TestCase):
         self.engine.state.discard_pile = [CardInstance("brace")]
         self.engine._damage(hero, hero.max_hp)
         self.assertTrue(hero.deaths_door)
-        original = self.catalog.balance["death_chance"]
-        self.catalog.balance["death_chance"] = 1.0
-        try:
+        fixture = replace(self.catalog, balance={**self.catalog.balance, "death_chance": 1.0})
+        with patch.object(self.engine, "catalog", fixture):
             self.engine._damage(hero, 1)
-        finally:
-            self.catalog.balance["death_chance"] = original
         self.assertEqual("combat", self.engine.state.phase)
         self.assertFalse(hero.alive)
         self.assertEqual(0, hero.rank)
@@ -1603,15 +1602,12 @@ class EngineTests(unittest.TestCase):
 
     def test_full_party_wipe_ends_run(self) -> None:
         self.engine.start_combat("lost_shift")
-        original = self.catalog.balance["death_chance"]
-        self.catalog.balance["death_chance"] = 1.0
-        try:
+        fixture = replace(self.catalog, balance={**self.catalog.balance, "death_chance": 1.0})
+        with patch.object(self.engine, "catalog", fixture):
             for hero in list(self.engine.living_heroes()):
                 hero.hp = 0
                 hero.deaths_door = True
                 self.engine._damage(hero, 1)
-        finally:
-            self.catalog.balance["death_chance"] = original
         self.assertEqual("defeat", self.engine.state.phase)
         self.assertEqual([], self.engine.living_heroes())
 

@@ -40,6 +40,10 @@ class StrictJsonTests(unittest.TestCase):
             (lambda r: r["cards"][0]["effects"][0].update(amount=1_000_001), "integer"),
             (lambda r: r["heroes"][0].update(preferred_ranks=[True, 2]), "outside"),
             (lambda r: r["cards"][0].update(id="not an id"), "stable id"),
+            (lambda r: r["cards"][0].update(cost=True), "invalid cost"),
+            (lambda r: r["enemies"][0].update(max_hp=True), "invalid max_hp"),
+            (lambda r: r["enemies"][0]["actions"][0].update(weight=0), "action weight"),
+            (lambda r: r["enemies"][0]["actions"][0].update(callback="anything"), "unknown fields"),
         )
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "content.json"

@@ -145,3 +145,17 @@ error distributions and human fun claims cannot be verified from these initial
 reports. Scenario/PTY fixtures are explicitly constructed. The current census
 reports structural similarity and rank access, not semantic equivalence or
 actual clogging. The larger expansion must add and measure those systems.
+
+## Foundation verification in progress
+
+The repeated warning-enabled full suite at the calibration boundary passed
+**215 tests in 730.198 seconds** (`/tmp/dullest-pass3-m0-215-suite.log`). This run
+preceded the strict JSON, atomic-save and immutable-runtime commits; it does not
+claim to cover those later changes. Strict input's five tests and the 25 existing
+content tests passed separately. Atomic storage passed all **22 save tests in
+7.501 seconds**, including simulated file-sync/replacement failure and retention
+of the previous save. Warning-enabled compilation and `git diff --check` passed.
+
+An initial immutable-content focused command used two nonexistent test names
+and reported two discovery errors, with the other two tests passing. The names
+were corrected; this was an invocation error, not a suppressed test failure.

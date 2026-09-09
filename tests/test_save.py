@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tempfile
+from dataclasses import replace
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -232,12 +233,9 @@ class SaveTests(unittest.TestCase):
         hero = engine.living_heroes()[0]
         hero.hp = 0
         hero.deaths_door = True
-        original = self.catalog.balance["death_chance"]
-        self.catalog.balance["death_chance"] = 1.0
-        try:
+        fixture = replace(self.catalog, balance={**self.catalog.balance, "death_chance": 1.0})
+        with patch.object(engine, "catalog", fixture):
             engine._damage(hero, 999)
-        finally:
-            self.catalog.balance["death_chance"] = original
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "dead-crew.json"
             write_save(path, engine.snapshot())
