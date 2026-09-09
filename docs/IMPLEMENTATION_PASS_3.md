@@ -177,3 +177,11 @@ initial user research separately from authored implementation evidence.
   hang; they are incomplete, not passing runs. Both existing tutorial UI checks
   passed in 1.640 seconds with the correction, followed by a dedicated contact
   priority assertion. Ordinary objective/Core priorities remain covered.
+- Calibration gate: the corrected full suite passed 210 tests in 780.906 s;
+  five later census/PTY checks also passed. Ninety normal-rule policy runs
+  produced 87 clears and three explained wipes, plus a corrected fracture clear
+  after a casualty. An actual 80×24 keyboard Breach Protocol run won seed 44
+  in eight Core rounds. Detailed cohort, transcripts, pacing assumptions and
+  limitations are in `IMPLEMENTATION_PASS_3_VERIFICATION.md`. This establishes
+  completability and fair-loss examples; human duration and fun remain unproven.
+  Milestone 1 may proceed. No expansion difficulty/content has been added yet.
