@@ -264,3 +264,9 @@ with its existing finite combat use; its restoration is now recorded explicitly.
 Death immediately repairs rank/card invariants inside damage, then emits a
 mandatory casualty notification before the next card continuation. The normal
 morgue retains sealed-chain traces even when detailed NDJSON export is disabled.
+
+Conditional listeners return an explicit nonactivation without spending their
+root/card/turn/combat/charge allowance. A nonactivation cannot emit children.
+Inspection distinguishes those checks from activated triggers; limiter counters
+advance only after an actual activation. This matters for conditions that become
+true later in the same turn.

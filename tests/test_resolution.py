@@ -8,6 +8,22 @@ from dumbest_dungeon.triggers import EventType as E, Limiter, LimitKind as L, Ph
 
 
 class ResolutionTests(unittest.TestCase):
+    def test_conditional_nonactivation_does_not_spend_turn_limit(self) -> None:
+        listener = Listener(TriggerSpec("conditional", E.DAMAGE, (E.HEAL,), limiter=Limiter(L.TURN)), 1, "actor")
+        queue, healed = EventQueue(), []
+
+        def trigger(listener, event, queue):
+            if event.payload.amount < 5:
+                return False
+            queue.emit(E.HEAL, (), Payload(amount=3))
+
+        for amount in (1, 8, 9):
+            queue.begin(combat_token=1, turn_token=1)
+            queue.submit(E.DAMAGE, "hit", (), Payload(amount=amount))
+            queue.drain(lambda event: (listener,), lambda event, queue: healed.append(event.payload.amount) if event.event_type == E.HEAL else None, trigger)
+            queue = EventQueue.from_snapshot(queue.snapshot())
+        self.assertEqual([3], healed)
+
     def test_deferred_continuation_waits_for_descendants_and_survives_checkpoint(self) -> None:
         listener = Listener(TriggerSpec("echo", E.DAMAGE, (E.DAMAGE,), limiter=Limiter(L.ROOT)), 1, "actor")
         outcomes = []

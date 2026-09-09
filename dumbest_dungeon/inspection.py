@@ -49,7 +49,8 @@ def resolution_lines(engine) -> list[str]:
                 continue
             identity = step["event_id"]
             lines.append(f"#{identity} {step['phase']} {step['source_id']} depth {step['depth']}"
-                         + (f" parent {step['parent_event_id']}" if step.get("parent_event_id") else ""))
+                         + (f" parent {step['parent_event_id']}" if step.get("parent_event_id") else "")
+                         + (" [condition not activated]" if step.get("activated") is False else ""))
             if step["phase"] == "PRIMARY":
                 lines.extend(arithmetic[identity])
     if not traces:

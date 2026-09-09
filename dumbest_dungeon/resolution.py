@@ -197,18 +197,18 @@ class EventQueue:
             return limiter.family in event.proc_families
         if limiter.kind == LimitKind.CARD and self.state.card_token is None:
             return True
+        key = self._counter_key(listener)
+        return self.state.counters.get(key, 0) >= limiter.amount
+
+    def _counter_key(self, listener: Listener) -> str:
+        limiter = listener.spec.limiter
         if limiter.kind in {LimitKind.COMBAT, LimitKind.CHARGES}:
             scope = ["combat", self.state.combat_token]
         elif limiter.kind == LimitKind.TURN:
             scope = ["turn", self.state.combat_token, self.state.turn_token]
         else:
             scope = ["root", self.state.root_id]
-        key = canonical_bytes(scope + [listener.spec.id, listener.creation_id]).decode("ascii")
-        used = self.state.counters.get(key, 0)
-        if used >= limiter.amount:
-            return True
-        self.state.counters[key] = used + 1
-        return False
+        return canonical_bytes(scope + [listener.spec.id, listener.creation_id]).decode("ascii")
 
     def step(self, listeners: Callable[[Event], tuple[Listener, ...]],
              primary: Callable[[Event, EventQueue], None],
@@ -250,12 +250,20 @@ class EventQueue:
             frame.cursor += 1
             if self._limited(listener, frame.event):
                 continue
-            self.state.trace.append({"event_id": frame.event.event_id, "source_id": listener.spec.id,
-                                     "phase": phase.name, "creation_id": listener.creation_id,
-                                     "depth": frame.event.depth})
+            entry = {"event_id": frame.event.event_id, "source_id": listener.spec.id,
+                     "phase": phase.name, "creation_id": listener.creation_id,
+                     "depth": frame.event.depth, "activated": True}
+            self.state.trace.append(entry)
             self._listener, self._inside_callback = listener, True
+            next_event = self.state.next_event_id
             try:
-                trigger(listener, frame.event, self)
+                activated = trigger(listener, frame.event, self) is not False
+                entry["activated"] = activated
+                if not activated and self.state.next_event_id != next_event:
+                    raise ValueError("an inactive trigger cannot emit events")
+                if activated and listener.spec.limiter and listener.spec.limiter.kind != LimitKind.FAMILY:
+                    key = self._counter_key(listener)
+                    self.state.counters[key] = self.state.counters.get(key, 0) + 1
             finally:
                 self._listener, self._inside_callback = None, False
             return True

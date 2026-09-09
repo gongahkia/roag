@@ -290,3 +290,9 @@ that seals an automatic branch while the initiated card completes and its save
 remains valid, plus guarded injuries, attributed healing responses, every-phase
 casualty continuation, legacy replay and morgue persistence. Warning-enabled
 compilation, content validation and `git diff --check` passed.
+
+Activation-based limiter accounting passed **29 queue, card, save and ordering
+tests in 14.623s**, including a once-per-turn condition that fails on one root,
+activates on the next and then remains spent. The engine reports passive
+nonactivations explicitly. Warning-enabled compilation, content validation and
+`git diff --check` passed.

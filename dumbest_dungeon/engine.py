@@ -3571,10 +3571,10 @@ class GameEngine:
             self._apply_effect(actor, targets, resolved_effect, source_id=payload.card_id)
         queue.emit(EventType.CARD_STEP, event.target_ids, replace(payload, effect_index=index + 1), mandatory=True, deferred=True)
 
-    def _card_trigger(self, listener: Listener, event: Event, queue: EventQueue) -> None:
+    def _card_trigger(self, listener: Listener, event: Event, queue: EventQueue) -> bool:
         actor = next(actor for actor in self.state.heroes if actor.id == listener.entity_id)
         if not actor.alive or self.state.phase != "combat":
-            return
+            return False
         definition = self.catalog.cards[event.payload.card_id]
         effects = definition["upgrade_effects"] if event.payload.card_upgraded else definition["effects"]
         index = event.payload.effect_index
@@ -3621,6 +3621,8 @@ class GameEngine:
         if op and amount:
             queue.emit(EventType(op), (actor.id,), Payload(actor_id=actor.id, opcode=Opcode(op), amount=amount),
                        source_id=listener.spec.id)
+            return True
+        return False
 
     @staticmethod
     def _actor_matches_state(actor: Actor, state: str) -> bool:
@@ -3714,22 +3716,19 @@ class GameEngine:
                         and not self.state.effect_counters.get(f"adrenal:{actor.id}"))
         return ripostes + adrenal
 
-    def _resolve_trigger(self, listener: Listener, event: Event, queue: EventQueue) -> None:
+    def _resolve_trigger(self, listener: Listener, event: Event, queue: EventQueue) -> bool:
         if listener.spec in (MERCY, ADRENAL):
-            self._reactive_block(listener, event, queue)
-            return
+            return self._reactive_block(listener, event, queue)
         if listener.spec in CURSE_TRIGGERS:
-            self._curse_trigger(listener, event, queue)
-            return
+            return self._curse_trigger(listener, event, queue)
         if listener.spec in CARD_TRIGGERS:
-            self._card_trigger(listener, event, queue)
-            return
+            return self._card_trigger(listener, event, queue)
         if listener.spec != RIPOSTE:
             raise RuleError(f"unregistered automatic trigger {listener.spec.id}")
         actors = {actor.id: actor for actor in self.state.heroes + self.state.enemies}
         defender = actors[listener.entity_id]
         if not defender.alive or not defender.statuses.get("riposte"):
-            return
+            return False
         for row in reversed(self.state.ledger.records):
             if row.kind != "damage" or row.data.get("event_id") != event.event_id:
                 continue
@@ -3741,13 +3740,15 @@ class GameEngine:
                 queue.emit(EventType.DAMAGE, (attacker.id,),
                            Payload(actor_id=defender.id, opcode=Opcode.DAMAGE, amount=4, raw_damage=True),
                            source_id=f"status:riposte:{defender.id}")
-                return
+                return True
+        return False
 
-    def _reactive_block(self, listener: Listener, event: Event, queue: EventQueue) -> None:
+    def _reactive_block(self, listener: Listener, event: Event, queue: EventQueue) -> bool:
         actors = {actor.id: actor for actor in self.state.heroes + self.state.enemies}
         owner = actors[listener.entity_id]
         if not owner.alive:
-            return
+            return False
+        activated = False
         for row in self.state.ledger.records:
             if row.data.get("event_id") != event.event_id:
                 continue
@@ -3766,6 +3767,8 @@ class GameEngine:
             if amount:
                 queue.emit(EventType.BLOCK, (target.id,), Payload(actor_id=owner.id, opcode=Opcode.BLOCK, amount=amount),
                            source_id=listener.spec.id)
+                activated = True
+        return activated
 
     def _resolve_event(self, event: Event, queue: EventQueue) -> None:
         payload = event.payload
@@ -4244,15 +4247,15 @@ class GameEngine:
         self.resolution.submit(event_type, card.card_id, (hero.id,), payload)
         self.resolve_pending(close_root=owns_root)
 
-    def _curse_trigger(self, listener: Listener, event: Event, queue: EventQueue) -> None:
+    def _curse_trigger(self, listener: Listener, event: Event, queue: EventQueue) -> bool:
         hero = next(actor for actor in self.state.heroes if actor.id == listener.entity_id)
         if not hero.alive:
-            return
+            return False
         definition = self.catalog.curses[event.payload.card_id]
         effect = definition["effects"][0]
         key = effect["key"]
         if (key == "curse_held_stress") != (event.event_type == EventType.CARD_HELD):
-            return
+            return False
         amount = round(self._stack_value(effect, 1))
         op, status = None, None
         if key in {"curse_draw_stress", "curse_held_stress"}:
@@ -4268,6 +4271,7 @@ class GameEngine:
                        source_id=event.payload.card_id)
         if key != "curse_dead_draw":
             self.add_log(f"{definition['name']} afflicts {hero.name}.")
+        return op is not None
 
     def _actor(self, actor_id: str) -> Actor:
         matches = [item for item in self.state.heroes + self.state.enemies if item.id == actor_id and item.alive]
