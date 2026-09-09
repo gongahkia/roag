@@ -208,3 +208,12 @@ lethal-hit replacement and repair ownership/rank invariants before a checkpoint.
 No expansion techniques, items, enemies, guardians, finales, pressure, profiles,
 difficulty ranks or loops have been added yet. Their acceptance gates remain
 open. Historical and constructed evidence must retain their labels.
+
+The full kernel gate passed 299 tests in 616.022 seconds at
+`9253590a7dac994d55cf3b7bdaea2d97ea8506fb`. Milestone 3 begins with an explicit
+historical content bundle and exact manifest selection for old saves. Then assign
+integer stack policies, disclose current/next results and trigger limits, correct
+first-copy dead spots, and switch live reward generation to scoped lanes. Keep
+historical replay tests on their recorded rules; validate new-rule cohorts
+separately. Damage engines should not inherit a blanket diminishing policy or
+the legacy hidden outgoing multiplier ceiling.
