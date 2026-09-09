@@ -18,6 +18,11 @@ CURSE_TRIGGERS = tuple(TriggerSpec("curse:" + event.value, event,
                                  (EventType.STRESS, EventType.STATUS, EventType.MOVE, EventType.ENERGY),
                                  limiter=Limiter(LimitKind.FAMILY, family="curse_card"), proc_family="curse_card")
                        for event in (EventType.CARD_DRAW, EventType.CARD_HELD))
-REGISTERED = {spec.id: spec for spec in (RIPOSTE,) + CARD_TRIGGERS + CURSE_TRIGGERS}
-HOST_EDGES = (TriggerSpec("rules:draw_cards", EventType.DRAW, (EventType.CARD_DRAW,), phase=Phase.PRIMARY),)
+MERCY = TriggerSpec("boon:mercy_circuit", EventType.HEAL, (EventType.BLOCK,),
+                    limiter=Limiter(LimitKind.FAMILY, family="mercy"), proc_family="mercy")
+ADRENAL = TriggerSpec("boon:adrenal_coil", EventType.DAMAGE, (EventType.BLOCK,), priority=-10,
+                      limiter=Limiter(LimitKind.FAMILY, family="adrenal"), proc_family="adrenal")
+REGISTERED = {spec.id: spec for spec in (RIPOSTE, MERCY, ADRENAL) + CARD_TRIGGERS + CURSE_TRIGGERS}
+HOST_EDGES = (TriggerSpec("rules:draw_cards", EventType.DRAW, (EventType.CARD_DRAW,), phase=Phase.PRIMARY),
+              TriggerSpec("rules:lethal_damage", EventType.DAMAGE, (EventType.DEATH,), phase=Phase.PRIMARY))
 validate_trigger_graph(tuple(REGISTERED.values()) + HOST_EDGES)

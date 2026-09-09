@@ -14,7 +14,7 @@ from .migrations import MigrationError, migrate_run
 from .versions import RUN_SAVE_SCHEMA
 from .telemetry import RunLedger
 from .resolution import Event, EventQueue, Listener, Payload
-from .combat_triggers import CARD_TRIGGERS, CURSE_TRIGGERS, REGISTERED, RIPOSTE
+from .combat_triggers import ADRENAL, CARD_TRIGGERS, CURSE_TRIGGERS, MERCY, REGISTERED, RIPOSTE
 from .contracts import Opcode
 from .triggers import EventType, Phase
 
@@ -1864,7 +1864,10 @@ class GameEngine:
                 or len(event.target_ids) != len(set(event.target_ids))):
                 raise RuleError("save queue references an unknown or repeated actor")
             continuation = event.event_type in {EventType.CARD_STEP, EventType.CARD_PLAY, EventType.CLEANUP}
-            if event.event_type in {EventType.CARD_DRAW, EventType.CARD_HELD}:
+            if event.event_type == EventType.DEATH:
+                if event.payload.actor_id not in hero_ids or event.payload.opcode is not None:
+                    raise RuleError("save queue has an invalid casualty notification")
+            elif event.event_type in {EventType.CARD_DRAW, EventType.CARD_HELD}:
                 curse = catalog.curses.get(event.payload.card_id)
                 if (curse is None or curse["kind"] != "card" or event.payload.actor_id not in hero_ids
                     or event.payload.opcode is not None or event.payload.effect_index is not None or event.payload.card_upgraded):
@@ -1879,7 +1882,7 @@ class GameEngine:
                 if (event.payload.effect_index > limit
                     or event.event_type == EventType.CARD_PLAY and event.payload.effect_index == limit):
                     raise RuleError("save queue has an out-of-range card continuation")
-            elif (event.payload.actor_id is None and not event.payload.raw_damage
+            elif (event.payload.actor_id is None and not event.payload.raw_damage and event.payload.opcode != Opcode.HEAL
                   or event.payload.opcode is None or event.event_type.value != event.payload.opcode.value):
                 raise RuleError("save queue has no matching primary actor and opcode")
             if event.payload.card_id is not None and event.payload.card_id not in catalog.cards.keys() | catalog.curses.keys():
@@ -3689,6 +3692,10 @@ class GameEngine:
         self.resolve_pending(close_root=owns_root)
 
     def _resolution_listeners(self, event: Event) -> tuple[Listener, ...]:
+        if event.event_type == EventType.HEAL:
+            return tuple(Listener(MERCY, index, actor.id) for index, actor in enumerate(self.state.heroes, 1)
+                         if actor.id == event.payload.actor_id and actor.alive
+                         and self._hero_effect_value(actor, "boon", "mercy_block"))
         if event.event_type in {EventType.CARD_DRAW, EventType.CARD_HELD}:
             spec = next(spec for spec in CURSE_TRIGGERS if spec.listens == event.event_type)
             return tuple(Listener(spec, index, actor.id) for index, actor in enumerate(self.state.heroes, 1)
@@ -3699,11 +3706,18 @@ class GameEngine:
                          if actor.id == event.payload.actor_id and actor.alive)
         if event.event_type != EventType.DAMAGE:
             return ()
-        return tuple(Listener(RIPOSTE, index, actor.id)
+        ripostes = tuple(Listener(RIPOSTE, index, actor.id)
                      for index, actor in enumerate(self.state.heroes + self.state.enemies, 1)
                      if actor.alive and actor.statuses.get("riposte"))
+        adrenal = tuple(Listener(ADRENAL, index, actor.id) for index, actor in enumerate(self.state.heroes, 1)
+                        if actor.alive and self._hero_effect_value(actor, "boon", "adrenal_block")
+                        and not self.state.effect_counters.get(f"adrenal:{actor.id}"))
+        return ripostes + adrenal
 
     def _resolve_trigger(self, listener: Listener, event: Event, queue: EventQueue) -> None:
+        if listener.spec in (MERCY, ADRENAL):
+            self._reactive_block(listener, event, queue)
+            return
         if listener.spec in CURSE_TRIGGERS:
             self._curse_trigger(listener, event, queue)
             return
@@ -3729,15 +3743,42 @@ class GameEngine:
                            source_id=f"status:riposte:{defender.id}")
                 return
 
+    def _reactive_block(self, listener: Listener, event: Event, queue: EventQueue) -> None:
+        actors = {actor.id: actor for actor in self.state.heroes + self.state.enemies}
+        owner = actors[listener.entity_id]
+        if not owner.alive:
+            return
+        for row in self.state.ledger.records:
+            if row.data.get("event_id") != event.event_id:
+                continue
+            target = actors.get(row.data.get("target"))
+            if listener.spec == MERCY and row.kind == "healing" and target and target.alive and target.side == "hero" and target.id != owner.id:
+                amount = round(self._hero_effect_value(owner, "boon", "mercy_block"))
+            elif listener.spec == ADRENAL and row.kind == "damage" and target == owner and owner.hp > 0:
+                attacker = actors.get(row.data.get("attacker"))
+                key = f"adrenal:{owner.id}"
+                if not attacker or attacker.side != "enemy" or row.data["amount"] <= 0 or self.state.effect_counters.get(key):
+                    continue
+                amount = round(self._hero_effect_value(owner, "boon", "adrenal_block"))
+                self.state.effect_counters[key] = 1
+            else:
+                continue
+            if amount:
+                queue.emit(EventType.BLOCK, (target.id,), Payload(actor_id=owner.id, opcode=Opcode.BLOCK, amount=amount),
+                           source_id=listener.spec.id)
+
     def _resolve_event(self, event: Event, queue: EventQueue) -> None:
         payload = event.payload
+        if event.event_type == EventType.DEATH:
+            self.record("death_resolved", event.source_id, owner=payload.actor_id)
+            return
         if event.event_type in {EventType.CARD_DRAW, EventType.CARD_HELD}:
             self.record(event.event_type.value, payload.card_id, owner=payload.actor_id)
             return
         if event.event_type in {EventType.CARD_STEP, EventType.CARD_PLAY, EventType.CLEANUP}:
             self._continue_card(event, queue)
             return
-        if payload.actor_id is None and not payload.raw_damage or payload.opcode is None:
+        if payload.actor_id is None and not payload.raw_damage and payload.opcode != Opcode.HEAL or payload.opcode is None:
             raise RuleError("queued primary effect is missing its actor or opcode")
         actors = {actor.id: actor for actor in self.state.heroes + self.state.enemies}
         actor = actors.get(payload.actor_id)
@@ -3745,6 +3786,11 @@ class GameEngine:
             self.record("owner_disabled_event", event.source_id, owner=actor.id)
             return
         targets = [actors[identity] for identity in event.target_ids if actors[identity].alive]
+        if actor is None and payload.opcode == Opcode.HEAL:
+            with self.attribution(event.source_id):
+                for target in targets:
+                    self._heal_primary(target, payload.amount)
+            return
         if payload.raw_damage:
             with self.attribution(event.source_id):
                 for target in targets:
@@ -3794,7 +3840,8 @@ class GameEngine:
                     adjusted = self._outgoing_damage(actor, adjusted, target)
                     self._damage(target, adjusted, actor)
                 elif op == "block":
-                    multiplier = float(self._affliction_modifiers(target).get("block_mult", 1))
+                    automatic = self.resolution.state.active and self.resolution.state.active.event.proc_families
+                    multiplier = 1 if automatic else float(self._affliction_modifiers(target).get("block_mult", 1))
                     multiplier = max(0.5, min(2.0, multiplier))
                     gained = max(0, round(amount * multiplier))
                     target.block += gained
@@ -4335,6 +4382,8 @@ class GameEngine:
             if second_wind and not self.state.effect_counters.get(second_wind_key):
                 target.hp = min(target.max_hp, second_wind)
                 self.state.effect_counters[second_wind_key] = 1
+                self.record("healing", "boon:second_wind", target=target.id, requested=second_wind,
+                            amount=target.hp, overheal=max(0, second_wind - target.hp), replacement=True)
                 self.add_log(f"Second Wind restores {target.name} for {target.hp}.")
             else:
                 target.deaths_door = True
@@ -4343,12 +4392,6 @@ class GameEngine:
         elif target.side == "enemy" and target.hp == 0:
             self.add_log(f"{target.name} is destroyed.")
             self._normalize_ranks("enemy")
-        if target.side == "hero" and target.hp > 0 and attacker and attacker.side == "enemy":
-            adrenal_key = f"adrenal:{target.id}"
-            adrenal = round(self._hero_effect_value(target, "boon", "adrenal_block"))
-            if adrenal and not self.state.effect_counters.get(adrenal_key):
-                target.block += adrenal
-                self.state.effect_counters[adrenal_key] = 1
     def _hero_died(self, hero: Actor) -> None:
         death_rank = hero.rank
         hero.rank = 0
@@ -4388,6 +4431,8 @@ class GameEngine:
         survivors = self.living_heroes()
         self.record("crew_death", hero.id, rank=death_rank, cards_lost=removed,
                     survivors=[actor.id for actor in survivors])
+        if self.resolution.state.active is not None:
+            self.resolution.emit(EventType.DEATH, (hero.id,), Payload(actor_id=hero.id), source_id=hero.id, mandatory=True)
         if not survivors:
             if self.state.phase == "combat":
                 self.record("encounter_end", "combat", result="defeat", kind=self.state.combat_kind,
@@ -4401,6 +4446,21 @@ class GameEngine:
         )
 
     def _heal(self, target: Actor, amount: int, healer: Actor | None = None) -> None:
+        if self.resolution.state.active is not None and self.resolution.state.active.phase == Phase.PRIMARY:
+            self._heal_primary(target, amount, healer)
+            return
+        source = self._source_id or (healer.id if healer else "world:unattributed")
+        payload = Payload(actor_id=healer.id if healer else None, opcode=Opcode.HEAL, amount=amount)
+        if self.resolution.state.active is not None:
+            self.resolution.emit(EventType.HEAL, (target.id,), payload, source_id=source)
+            return
+        owns_root = self.resolution.state.root_id is None
+        if owns_root:
+            self.resolution.begin(combat_token=self.resolution.state.combat_token, turn_token=self.state.round)
+        self.resolution.submit(EventType.HEAL, source, (target.id,), payload)
+        self.resolve_pending(close_root=owns_root)
+
+    def _heal_primary(self, target: Actor, amount: int, healer: Actor | None = None) -> None:
         previous_hp = target.hp
         multiplier = float(self._affliction_modifiers(target).get("healing_mult", 1))
         if target.side == "hero":
@@ -4414,10 +4474,6 @@ class GameEngine:
                     overheal=max(0, round(amount * multiplier) - (target.hp - previous_hp)))
         if target.hp > 0:
             target.deaths_door = False
-        if healer and healer.side == "hero" and target.side == "hero" and healer.id != target.id:
-            mercy = round(self._hero_effect_value(healer, "boon", "mercy_block"))
-            if mercy:
-                target.block += mercy
 
     def _change_stress(self, target: Actor, amount: int) -> None:
         previous_stress = target.stress

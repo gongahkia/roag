@@ -46,6 +46,7 @@ def run_report(engine, *, elapsed_seconds: int | None = None, outcome: str | Non
             decisions.append(asdict(row))
     departure = next((row.data for row in state.ledger.records if row.kind == "departure"), None)
     turns = [row.data for row in state.ledger.records if row.kind == "turn_start"]
+    roots = [row.data for row in state.ledger.records if row.kind == "resolution_root"]
     result = outcome or state.phase
     digest = hashlib.sha256(canonical_bytes(engine.snapshot())).hexdigest()
     return {
@@ -64,6 +65,8 @@ def run_report(engine, *, elapsed_seconds: int | None = None, outcome: str | Non
         "items": dict(state.items), "boons": state.boons, "curses": state.curses,
         "light": state.light, "supplies": state.supplies,
         "cards": decision_counts(state.ledger), "sources": {key: dict(value) for key, value in sorted(sources.items())},
+        "resolution": {"roots": len(roots), "max_depth": max((step.get("depth", 0) for root in roots for step in root["trace"]), default=0),
+                       "chain_seals": engine.resolution.state.seals},
         "encounters": encounters, "decisions": decisions, "payoff_activations": dict(sorted(activations.items())),
         "rank_invalid_cards": sum(row["rank_invalid"] for row in turns),
         "owner_disabled_cards": sum(row["owner_disabled"] for row in turns),

@@ -254,3 +254,13 @@ operations. Curse descendants exclude the curse-card proc family; manually drawn
 copies still each apply normally. The trigger dependency graph includes the host
 DRAW→CARD_DRAW edge, so a future draw reaction cannot hide a cycle behind that
 host operation. Energy drain floors at zero and records its actual change.
+
+Mercy Circuit's healing response and Adrenal Coil's first actual injury response
+now emit attributed BLOCK descendants with proc-family exclusions. Adrenal's
+existing counter resets before each enemy phase; fully absorbed hits do not use
+it. Automatic block uses the authored stack result directly, preserving the
+previous passive arithmetic. Second Wind remains an atomic lethal-hit replacement
+with its existing finite combat use; its restoration is now recorded explicitly.
+Death immediately repairs rank/card invariants inside damage, then emits a
+mandatory casualty notification before the next card continuation. The normal
+morgue retains sealed-chain traces even when detailed NDJSON export is disabled.

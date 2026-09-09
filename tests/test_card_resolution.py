@@ -5,6 +5,7 @@ import random
 import unittest
 
 from dumbest_dungeon.content import load_catalog
+from dumbest_dungeon.contracts import Opcode
 from dumbest_dungeon.engine import CardInstance, GameEngine, RuleError
 from dumbest_dungeon.resolution import Payload
 from dumbest_dungeon.triggers import EventType as E
@@ -109,3 +110,43 @@ class CardResolutionTests(unittest.TestCase):
             if identity != "dead_channel":
                 self.assertTrue(any(row.source_id == identity and row.kind in {"stress", "status", "energy", "effect"}
                                     for row in engine.state.ledger.records), identity)
+
+    def test_reactive_block_keeps_first_actual_hit_and_healing_source(self) -> None:
+        engine = GameEngine.new(load_catalog(), 42)
+        engine.start_combat("lost_shift")
+        hero, healer = engine.living_heroes()[0], engine.living_heroes()[2]
+        enemy = engine.living_enemies()[0]
+        engine.acquire_boon(hero.id, "adrenal_coil")
+        engine.acquire_boon(healer.id, "second_wind")
+        engine.acquire_boon(healer.id, "mercy_circuit")
+        hero.block = 1
+        engine._damage(hero, 1, enemy)
+        self.assertNotIn(f"adrenal:{hero.id}", engine.state.effect_counters)
+        engine._damage(hero, 1, enemy)
+        self.assertEqual(2, hero.block)
+        engine._heal(hero, 1, healer)
+        self.assertEqual(4, hero.block)
+        blocks = [row for row in engine.state.ledger.records if row.kind == "block"]
+        self.assertEqual(["boon:adrenal_coil", "boon:mercy_circuit"], [row.source_id for row in blocks])
+        self.assertEqual([1, 1], [row.data["depth"] for row in blocks])
+        hero.block = 0
+        engine._damage(hero, 1, enemy)
+        self.assertEqual(0, hero.block)
+        engine.resolution.begin(combat_token=1, turn_token=1)
+        engine.resolution.submit(E.HEAL, "test:mercy", (hero.id,), Payload(actor_id=healer.id, opcode=Opcode.HEAL, amount=1))
+        loaded = GameEngine.from_snapshot(engine.catalog, engine.snapshot())
+        engine.resolve_pending()
+        while loaded.resolution.step(loaded._resolution_listeners, loaded._resolve_event, loaded._resolve_trigger):
+            loaded = GameEngine.from_snapshot(loaded.catalog, loaded.snapshot())
+        loaded.resolve_pending()
+        self.assertEqual(engine.snapshot(), loaded.snapshot())
+
+    def test_engine_seal_keeps_manual_card_continuation_valid(self) -> None:
+        engine, target = self.fixture()
+        engine.resolution.budget = 1
+        engine.play_card(0, target)
+        self.assertTrue(engine.resolution.state.seals)
+        self.assertTrue(any("CHAIN SEALED" in line for line in engine.state.log))
+        self.assertEqual("combat", engine.state.phase)
+        self.assertIsNone(engine.resolution.state.root_id)
+        self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(engine.catalog, engine.snapshot()).snapshot())

@@ -279,3 +279,14 @@ expected the earlier unqueued opening draw; it now explicitly checks an opening
 including all six bound curses restored at every dispatch boundary, passed
 **29 tests in 20.694s**. Warning-enabled compilation, content validation and
 `git diff --check` passed. The legacy ordinary transcript still matches.
+
+Reactive-passive integration initially had one fixture error in each of the
+30-test and expanded 34-test groups: Mercy Circuit requires already-owned boon
+tags, so changing the recipient's crew class did not make it eligible. The fixture
+now acquires Second Wind, which supplies the documented medicine/defense tags,
+before acquiring Mercy Circuit through the normal acquisition API. The corrected
+group passed **34 tests in 19.261s**. This includes a deliberately tiny queue budget
+that seals an automatic branch while the initiated card completes and its save
+remains valid, plus guarded injuries, attributed healing responses, every-phase
+casualty continuation, legacy replay and morgue persistence. Warning-enabled
+compilation, content validation and `git diff --check` passed.
