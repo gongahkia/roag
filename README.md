@@ -176,6 +176,13 @@ not changes to the ready-to-depart starting issue. Fresh frontier stores and
 counted visiting merchant stock supply them; existing saved chests are not
 refilled. See [working clothing](docs/working-clothing.md).
 
+Fresh frontier maps also contain one of two [working elite claims](docs/frontier-elites.md).
+Critical pressure wakes the local situation. Reverse `!` marks warn of material
+actions; `O` shows observed charges and intent. Water, bracing, separation and
+regional controls offer alternatives to direct strikes. Surviving named
+claimants can return once with local supplies, or accept a witnessed settlement
+through the secondary contact. Their rewards remain physical ground items.
+
 Eighteen weapon families provide different actions, including reach control,
 pulling, sweep guard, knockback, destruction, aiming, reload commitments,
 height-sensitive sling casts, finite throws, net restraint, arcing staff-sling

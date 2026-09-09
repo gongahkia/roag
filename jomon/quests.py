@@ -148,6 +148,7 @@ def _assign_regional_duty(state: GameState) -> None:
         "gave this existing patrol a material duty"
     )
     state.region.changes["quest_guard_id"] = actor.id
+    state.region.changes["quest_guard_reason"] = actor.goal_reason
     state.add_message(
         f"You learn that the {actor.name} now guards the material objective; its duty can be observed or avoided.",
         priority=3,
@@ -474,6 +475,12 @@ def secondary_service_options(state: GameState) -> tuple[tuple[str, str, str, bo
     ]
     if institution:
         rows.append(("d", f"Deliver one {institution.dependency} to the working account", "commitment", state.market[institution.dependency].stock < 5, "stores already supplied"))
+    from .frontier_elites import claimant_terms
+    claimant = claimant_terms(state)
+    if claimant:
+        rows.append(("s", f"Settle {claimant.name}'s claim: 2 credit", "commitment",
+                     state.questlines[state.active_region_id].stage >= 2 and state.trade_credit >= 2,
+                     "needs a witnessed material result and two credits"))
     return tuple(rows)
 
 
@@ -482,6 +489,9 @@ def use_secondary_service(state: GameState, choice: str) -> tuple[bool, str]:
     if option is None or not option[3]:
         return False, option[4] if option else "That service is unavailable."
     contact = state.contacts[state.active_region_id][1]
+    if choice == "s":
+        from .frontier_elites import settle_claimant
+        return settle_claimant(state)
     if choice == "d":
         from .regional_history import deliver_dependency
 

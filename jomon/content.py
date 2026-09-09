@@ -341,6 +341,10 @@ for identity, region, name, profile, role, duty, ecology, vision, hearing, reach
         "ranged_kind": "longbow" if region == "frostmere" else "sling",
     }
 
+from .frontier_elites import ELITE_DEFINITIONS
+
+ENEMY_ARCHETYPES.update(ELITE_DEFINITIONS)
+
 CONTACT_NAMES = ("Mara Venn", "Tomas Reed", "Iria Pike", "Sela Moss")
 
 JOMON_MAP = (
@@ -369,6 +373,7 @@ HELP_LINES = (
     "Move with arrows, HJKL, or YUBN diagonals. The camera follows across each seamless region.",
     "Enter/E interacts. A attacks. G guards or reloads. V negotiates. X uses gear.",
     "Map: @ courier, a ally, v visitor, c/M contacts, h/g/x/b hostiles, X elite, R cargo, C cache.",
+    "Reverse ! cells mark an observed prepared attack; @ is reversed when standing in its mark.",
     "Water ~, wall #, doors +, stairs <> and roof ^, controls &, hole O, weak floor d.",
     "Aboard, speak beside people to switch or recruit; tavern C selects support; chart P sets course.",
     "I opens the spatial pack/locker: move, rotate, transfer, equip, confirm, or cancel safely.",

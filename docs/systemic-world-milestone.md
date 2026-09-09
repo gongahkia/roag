@@ -71,6 +71,42 @@ them by themselves.
 
 ## Measurement and limitations log
 
+Eight additional frontier elite situations are now generated in production,
+one seeded alternative per new region. Four are named finite returning
+claimants. Material telegraphs, shared reactions, escort interception, physical
+reward/recovery and contact settlements are documented in `frontier-elites.md`.
+The catalogue now has fifteen elite definitions plus Hearthford's directly
+authored mill mechanism: sixteen situations, not sixteen independently played
+or balanced encounters. It has forty-two standard catalogue definitions, with
+additional directly authored Hearthford actors. The roster count remains nominal until the distinctness
+audit and campaign play are complete.
+
+The first serial integration run ran **331 tests in 183.812 seconds**, with
+**one failure**: a frontier quest guard's assigned causal explanation was
+overwritten by normal utility selection. Its ongoing intent may change, but
+the original material duty is now retained alongside it. The next focused run
+passed **29 tests in 13.755 seconds** including that regression; two strengthened
+water/stair checks then passed in **0.338 seconds**. A new full run is required.
+An 80×24 forced-position Darrin PTY exercised a warned collapse, physical rope
+bracing using the billhook's levering capability, finite withdrawal, accompanying attackers and the tailrace. It did not
+complete an expedition or a rival-return campaign. Exact limits are recorded
+with the encounter documentation.
+
+The integrated **100-seed audit passed with zero failures in 207.953 seconds**:
+eight regions per world, 100 distinct geography signatures per region, 281
+whole-region encounter compositions, most repeated 28 times. All eight new
+elite variants were generated (41–59 occurrences each). Its initial-position
+check formerly skipped dormant actors; dedicated elite tests covered those,
+and the general audit now checks dormant positions too. The subsequent full
+suite covers that strengthened assertion; the 100-seed result predates it.
+This audit does not complete quest branches or evaluate human counterplay.
+
+The subsequent serial run passed **335 tests in 177.122 seconds**, including
+dormant-position validation, retained quest-duty evidence, stair travel and
+cross-level releases. `compileall` and `git diff --check` also passed. This is
+the current integration result, not closure of the remaining content or PTY
+gates.
+
 Following the Marlbank trip, the frontier composer no longer spends worksite
 slots on repeated wildlife already present in a separate pair. Six working
 actors now prefer unseen definitions, use at most two of one definition, and

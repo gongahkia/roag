@@ -61,7 +61,7 @@ def inspect_world(state):
             if link.first not in reachable or link.second not in reachable or abs(link.first.z - link.second.z) != 1:
                 failures.append(f"{region_id}: broken vertical link")
         actors = state.region_threats[region_id]
-        positions = [actor.position for actor in actors if actor.status in {"watching", "engaged"}]
+        positions = [actor.position for actor in actors if actor.status in {"watching", "engaged", "dormant"}]
         if len(set(positions)) != len(positions):
             failures.append(f"{region_id}: overlapping initial actors")
         if any(point not in reachable for point in positions):

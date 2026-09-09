@@ -198,6 +198,10 @@ def select_goal(state: GameState, threat: Threat) -> EnemyDecision:
 
     decision = max(scores, key=lambda item: (item.utility, item.goal, item.action))
     threat.goal, threat.goal_reason = decision.goal, decision.reason
+    if state.location == "region" and state.region.changes.get("quest_guard_id") == threat.id:
+        duty = state.region.changes.get("quest_guard_reason")
+        if duty:
+            threat.goal_reason += f"; {duty}"
     return decision
 
 

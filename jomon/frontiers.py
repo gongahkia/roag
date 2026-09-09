@@ -197,6 +197,8 @@ def ensure_frontier(state, region_id: str) -> None:
     from .encounters import frontier_population
 
     actors = frontier_population(state.seed, region)
+    from .frontier_elites import install_elite
+    install_elite(state.seed, region, actors)
     state.regions[region_id], state.contacts[region_id] = region, contacts
     state.region_threats[region_id], state.regional_markets[region_id] = actors, market
     for contact in contacts:

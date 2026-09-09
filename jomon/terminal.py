@@ -392,7 +392,7 @@ def observed_life_lines(state: GameState) -> list[str]:
             "", f"{_threat_glyph(actor)} {actor.name}; {actor.position.x},{actor.position.y} z{actor.position.z:+d}; {actor.health}/{actor.max_health} health.",
             f"OBSERVED INTENT: {actor.intent}.",
             f"Duty: {actor.goal}; {actor.goal_reason}.",
-            f"Readied {actor.ranged_kind}; ammunition {actor.ammunition}, reload {actor.reload_turns}." if actor.profile == "ranged" else f"Role: {actor.role}; morale {actor.morale}; supplies {actor.supplies}.",
+            f"Working charges {actor.supplies}; recovery {actor.reload_turns}; morale {actor.morale}." if actor.id.startswith("frontier-elite:") else f"Readied {actor.ranged_kind}; ammunition {actor.ammunition}, reload {actor.reload_turns}." if actor.profile == "ranged" else f"Role: {actor.role}; morale {actor.morale}; supplies {actor.supplies}.",
         ))
         if data:
             lines.extend((f"KNOWN PRACTICE: {data['capability']}.", f"COUNTERS: {data['counterplay']}."))
@@ -417,6 +417,22 @@ def visible_threats(
     }
 
 
+def visible_danger_marks(state: GameState, visible: set[Position]) -> set[Position]:
+    from .frontier_elites import definition
+
+    marks = set()
+    for actor in state.combatants:
+        if actor.status != "engaged" or actor.position not in visible:
+            continue
+        point = actor.marked_position or actor.aimed_at
+        if point is None:
+            continue
+        data = definition(actor)
+        offsets = (-1, 0, 1) if data and data["mode"] in {"surge", "firing", "shutters"} else (0,)
+        marks.update(p for dx in offsets if (p := Position(point.x + dx, point.y, point.z)) in visible)
+    return marks
+
+
 def _draw_map(screen: curses.window, state: GameState, top: int, left: int, height: int, width: int) -> None:
     from .materials import fields, key
 
@@ -429,6 +445,7 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
     )
     visible = field_of_view(state, remember=False)
     threats = visible_threats(state, visible)
+    danger_marks = visible_danger_marks(state, visible)
     known = set(state.region.seen)
     marks = set(state.treasure_marks.get(state.active_region_id, []))
     marked_positions = {container.position for container in state.region.containers if container.id in marks}
@@ -453,6 +470,8 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
                 char = "@"
             elif position in threats:
                 char = _threat_glyph(threats[position])
+            elif position in danger_marks:
+                char = "!"
             else:
                 char = displayed_tile(state, position)
             role = semantic_role(char, aboard=state.location == "jomon")
@@ -464,6 +483,8 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
                 actor = threats[position]
                 role = "elite" if actor.elite else "neutral" if actor.ecology == "prey" else "hostile"
             attr = _COLOUR_ATTRIBUTES[role]
+            if position in danger_marks:
+                attr = _COLOUR_ATTRIBUTES["hazard"] | curses.A_BOLD | curses.A_REVERSE
             if position in threats and threats[position].profile == "ranged":
                 attr |= curses.A_UNDERLINE
             if state.combat_active and position not in visible:
@@ -2009,7 +2030,7 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
     if kind == "quest:arc" and char:
         result = resolve_cross_region_choice(state, char)
         return (None if result.changed else kind), False
-    if kind.startswith("contact-service:") and char in {"c", "t", "h", "d"}:
+    if kind.startswith("contact-service:") and char in {"c", "t", "h", "d", "s"}:
         result = use_contact_service(state, char)
         return (None if result.changed else kind), False
     if kind == "merchant" and char.isdigit():

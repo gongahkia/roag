@@ -229,7 +229,7 @@ def advance_materials(state: GameState) -> int:
         if rain and point.z >= 0 and cell.material == "soil" and state.world_time % 5 == 0:
             cell.water = min(3, cell.water + 1)
         if cell.water:
-            cell.ice = winter and point.z >= 0 and cell.water == 1 and not cell.fire
+            cell.ice = winter and point.z >= 0 and cell.water == 1 and cell.fluid != "salt" and not cell.fire
             if cell.fire:
                 cell.fire, cell.smoke = 0, min(4, cell.smoke + 1)
                 state.add_message(f"Water quenches fire at {coordinate}; steam veils the ground.", priority=3)

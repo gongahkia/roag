@@ -282,6 +282,8 @@ def _step_away(state: GameState, threat: Threat) -> Position:
 
 
 def _activate(threat: Threat) -> str:
+    from .frontier_elites import definition
+
     threat.status = "engaged"
     threat.intent = {
         "pursuer": "rushes directly toward you",
@@ -290,7 +292,10 @@ def _activate(threat: Threat) -> str:
         "animal": "scrapes the mud before a territorial charge",
         "machinery": "sweeps marked mill aisles on alternating turns",
     }.get(threat.profile, "turns toward the disturbance")
-    if threat.ecology == "prey":
+    special = definition(threat)
+    if special:
+        threat.intent = f"checks its {special['mode']} mechanism; a marked warning precedes each of {threat.supplies} charges"
+    elif threat.ecology == "prey":
         threat.intent = "raises its head and looks for a route away from the disturbance"
     elif threat.ecology == "predator":
         threat.intent = "watches for prey and exposed movement"
@@ -518,6 +523,10 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
         threat.intent = "cuts free of the net before acting again" if was_entangled else "recovers position before acting again"
         threat.reaction, threat.marked_position = "", None
         return f"The {threat.name} loses a turn {threat.intent}."
+    from .frontier_elites import elite_action
+    special = elite_action(state, threat, guarded)
+    if special is not None:
+        return special
     if threat.elite and threat.id == "floodgate-claimant":
         if (
             state.region.changes.get("mill_public_compact")
@@ -1021,9 +1030,7 @@ def _weather_and_deadline(state: GameState) -> list[str]:
         escalation = next((t for t in state.combatants if t.status == "dormant"), None)
         if escalation:
             escalation.status = "watching"
-        messages.append(
-            f"High pressure wakes a stronger {state.region.name} threat; valuables and noise made it legible."
-        )
+            messages.append(f"High pressure wakes {escalation.name}; valuables and noise made it legible.")
     return messages
 
 
@@ -1112,6 +1119,8 @@ def _advance_world(
         for message in messages:
             if message:
                 state.add_message(message, priority=3)
+        from .frontier_elites import record_outcomes
+        record_outcomes(state)
     if state.location == "region":
         field_of_view(state)
         new_band = pressure(state).band
@@ -1162,6 +1171,8 @@ def depart(state: GameState) -> ActionResult:
     from .regions import reconstruct_regional_process
 
     reconstruct_regional_process(state)
+    from .frontier_elites import revisit_claimants
+    revisit_claimants(state)
     state.merchant_present, state.merchant_stock = False, []
     state.merchant.available = False
     merchant_schedule = state.actor_schedules.get(state.merchant.id)
@@ -2233,6 +2244,10 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
     if fitting_text:
         weapon_text += "; " + fitting_text
     sounds = emit_sound(state, sound)
+    from .frontier_elites import guard_interception
+    damage, protection_text = guard_interception(state, target, damage)
+    if protection_text:
+        weapon_text += "; " + protection_text
     target.health = max(0, target.health - damage)
     if target.health == 0 or (
         target.morale <= 0 and target.profile != "machinery"

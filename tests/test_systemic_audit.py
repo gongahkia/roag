@@ -26,6 +26,14 @@ class SystemicAuditTests(unittest.TestCase):
         self.assertIn("dunmire: unreachable actor", errors)
         self.assertIn("dunmire: precommitted opening attack", errors)
 
+    def test_dormant_elite_positions_are_validated_before_they_wake(self):
+        state = copy.deepcopy(self.world)
+        actor = next(a for a in state.region_threats["dunmire"] if a.elite)
+        actor.position = Position(0, 0)
+        self.assertEqual(actor.status, "dormant")
+        errors, _ = inspect_world(state)
+        self.assertIn("dunmire: unreachable actor", errors)
+
     def test_audit_detects_bad_evidence_and_seasonally_stranded_destination(self):
         state = copy.deepcopy(self.world)
         state.regions["dunmire"].regional_history[0].evidence = "outside-evidence"

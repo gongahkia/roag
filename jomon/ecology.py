@@ -120,7 +120,7 @@ def world_options(state: GameState, actor: Threat, courier_visible: bool):
         target = min(rivals, key=lambda other: (distance(actor.position, other.position), other.id))
         offer("hunt prey" if actor.ecology == "predator" else "oppose rival claim", "engage rival", 100, f"{target.name} is visibly intruding on its {actor.ecology} interest", target.position)
     if actor.duty == "escort":
-        carrier = next((other for other in neighbours if other.id != actor.id and other.group == actor.group and (other.carrying_item_id or other.health <= other.max_health // 2)), None)
+        carrier = next((other for other in neighbours if other.id != actor.id and other.group == actor.group and (other.carrying_item_id or other.health <= other.max_health // 2 or other.id == "frontier-elite:gorge-convoy")), None)
         if carrier:
             offer("escort vulnerable ally", "escort ally", 103, "a visible carrier or wounded ally needs a physical escort", carrier.position)
     return options
@@ -246,13 +246,16 @@ def resolve_world_action(state: GameState, actor: Threat, decision) -> str | Non
 
 
 def validate_ecology(state: GameState) -> None:
+    from .frontier_elites import definition
+
     for region_id, actors in state.region_threats.items():
         if len(actors) > 48:
             raise ValueError("regional actor budget exceeded")
         for actor in actors:
             if actor.duty not in DUTIES or actor.ecology not in ECOLOGIES or not 0 <= actor.supplies <= 8:
                 raise ValueError("invalid material duty or finite actor supply")
-            if actor.reaction not in {"", "rival strike", "kindle", "cut support"}:
+            special = definition(actor)
+            if actor.reaction not in {"", "rival strike", "kindle", "cut support"} and not (special and actor.reaction == special["mode"]):
                 raise ValueError("unknown staged actor reaction")
             if actor.glyph and (len(actor.glyph) != 1 or not actor.glyph.isascii() or not actor.glyph.isalnum()):
                 raise ValueError("invalid actor glyph")

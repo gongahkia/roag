@@ -702,3 +702,5 @@ def activate_region(state, region_id: str) -> None:
     state.flood_control = str(state.region.changes.get("environment_control", "raised"))
     state.smoke, state.water = {}, {}
     reconstruct_regional_process(state)
+    from .frontier_elites import revisit_claimants
+    revisit_claimants(state)
