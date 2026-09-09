@@ -331,3 +331,9 @@ calibrated bundle. SHA-256: game
 `d342302b8cd5208437d950e2543f70641cbd16d8b43f0eef21d1ca4dce69bfb1`, metadata
 `508900d419149b738d469962c146cea25fd7b75cf1def3baa559b06b7e76fd67`.
 The effective content fingerprint remains the recorded `b6b8c6fe…f5502b`.
+
+Exact archived-manifest selection and terminal catalog synchronization passed
+**13 tests in 5.809s**. A changed installed hand-size rule cannot alter the saved
+five-card rules: the recorded archive is selected, while an unknown fingerprint
+is rejected. Warning-enabled compilation, content validation and staged
+`git diff --check` passed.

@@ -35,6 +35,7 @@ class TerminalUI:
     ):
         self.screen = screen
         self.catalog = catalog
+        self.current_catalog = catalog
         self.save_path = save_path
         self.new_game = new_game
         self.detailed_telemetry = detailed_telemetry
@@ -69,6 +70,7 @@ class TerminalUI:
 
     def run(self) -> None:
         while True:
+            self.catalog = getattr(self, "current_catalog", self.catalog)
             choices = ["Tutorial expedition (recommended)", "New expedition"]
             if self.save_path.exists():
                 choices.append("Load expedition")
@@ -101,6 +103,7 @@ class TerminalUI:
 
     def _game_loop(self) -> None:
         while self.engine:
+            self.catalog = self.engine.catalog
             phase = self.engine.state.phase
             try:
                 if self.engine.resolution.state.root_id is not None:
@@ -1979,8 +1982,11 @@ class TerminalUI:
             if not isinstance(session, dict) or type(session.get("elapsed_seconds")) is not int or session["elapsed_seconds"] < 0:
                 raise SaveError("invalid local session duration")
             self.engine = GameEngine.from_snapshot(self.catalog, snapshot)
+            restored_archive = self.engine.catalog.manifest != self.catalog.manifest
+            self.catalog = self.engine.catalog
             self._start_session(session["elapsed_seconds"])
-            self.message = "Game loaded."
+            self.message = (f"Game loaded with recorded content {self.catalog.raw['schema_version']} rules."
+                            if restored_archive else "Game loaded.")
             return True
         except (SaveError, RuleError) as exc:
             self.message = str(exc)

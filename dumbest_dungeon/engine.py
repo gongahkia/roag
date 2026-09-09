@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass, field, replace
 from heapq import heappop, heappush
 from typing import Any, Callable
 
-from .content import CARD_STATUSES, Catalog
+from .content import CARD_STATUSES, Catalog, ContentError, load_legacy_catalog
 from .migrations import MigrationError, migrate_run
 from .versions import RUN_SAVE_SCHEMA
 from .telemetry import RunLedger
@@ -1380,10 +1380,16 @@ class GameEngine:
             snapshot = migrate_run(snapshot)
         except MigrationError as exc:
             raise RuleError(str(exc)) from exc
+        if snapshot.get("content_manifest") != catalog.manifest.snapshot():
+            try:
+                legacy = load_legacy_catalog()
+            except ContentError as exc:
+                raise RuleError(f"historical content unavailable: {exc}") from exc
+            if snapshot.get("content_manifest") != legacy.manifest.snapshot():
+                raise RuleError("save content manifest does not match installed or archived rules and enabled packs")
+            catalog = legacy
         if snapshot.get("content_schema_version") != catalog.raw["schema_version"]:
             raise RuleError("save was created for a different content schema")
-        if snapshot.get("content_manifest") != catalog.manifest.snapshot():
-            raise RuleError("save content manifest does not match installed rules or enabled packs")
         raw = snapshot.get("state")
         if not isinstance(raw, dict):
             raise RuleError("save has no game state")

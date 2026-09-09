@@ -138,3 +138,11 @@ and ASCII definitions independently of future live content. `load_legacy_catalog
 strictly loads it once and requires the recorded content-20 fingerprint. Manifest
 schema comes from that bundle's actual schema, not the engine's newest content
 constant. This archive is compatibility data; it adds no entries to live pools.
+
+On load, the engine first compares the requested manifest with the supplied
+installed catalog. If it differs, only an exact match with the independently
+validated archived bundle is accepted. Unknown fingerprints and pack combinations
+still fail. World, cards, targets, rewards and random state come from the save;
+archive selection supplies their recorded definitions rather than new content.
+The terminal adopts the restored catalog for all labels and rules and announces
+when recorded content is used. New expeditions return to the current catalog.
