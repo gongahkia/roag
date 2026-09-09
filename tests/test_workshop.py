@@ -2,7 +2,7 @@ import copy
 import curses
 import unittest
 
-from jomon.actions import attack, effective_weapon_range, interact
+from jomon.actions import apply_damage, attack, effective_weapon_range, interact
 from jomon.inventory import (
     InventoryTransaction, armour_mobility, armour_noise, auto_place, create_item,
     drop_item, equipped_item, pack_weight, physical_ammunition, placement_preview,
@@ -10,7 +10,8 @@ from jomon.inventory import (
 )
 from jomon.materials import affect_body, handle_material
 from jomon.state import MaterialCell, Position, StateError, TerrainStatus, Threat, create_world, game_state_from_dict
-from jomon.terminal import InputEvent, OverlayView, _handle_overlay, _handle_overlay_view, dialogue_choices
+from jomon.terminal import InputEvent, OverlayView, _draw_dialogue_overlay, _handle_overlay_view, dialogue_choices
+from test_information_panels import PanelSink
 from jomon.workshop import FITTINGS, WORKBENCH, active_part, attached, buy_kit, install, remove, repair
 
 
@@ -77,7 +78,7 @@ class WorkshopTests(unittest.TestCase):
         for name in FITTINGS:
             with self.subTest(fitting=name):
                 self.setUp()
-                parent = (equipped_item(self.state, "feet") if name == "reed lining" else equipped_item(self.state, "torso") if FITTINGS[name].slot == "lining" else self.ready("staff") if name == "iron heel" else self.ready("javelins") if name == "retrieval cord" else self.ready("longbow") if name == "resin seal" else equipped_item(self.state, "readied"))
+                parent = (equipped_item(self.state, "feet") if name == "reed lining" else equipped_item(self.state, "torso") if FITTINGS[name].slot == "lining" else self.ready("staff") if name == "iron heel" else self.ready("javelins") if name == "retrieval cord" else self.ready("longbow") if name in {"resin seal", "ash wrap"} else equipped_item(self.state, "readied"))
                 self.assertTrue(buy_kit(self.state, name)[0])
                 kit = next(item for item in self.state.items if item.kind == f"fitting:{name}")
                 kit.rotated = True
@@ -138,6 +139,30 @@ class WorkshopTests(unittest.TestCase):
             next(item for item in data["items"] if item["id"] == part.id)["fitted_to"] = target
             with self.assertRaises(StateError):
                 game_state_from_dict(data)
+        data = self.state.to_dict()
+        duplicate = copy.deepcopy(next(item for item in data["items"] if item["id"] == part.id))
+        duplicate["id"] = "illegal-second-binding"
+        data["items"].append(duplicate)
+        with self.assertRaises(StateError):
+            game_state_from_dict(data)
+
+    def test_two_sockets_coexist_and_worn_out_parts_lose_their_effect(self):
+        parent = self.ready("longbow")
+        self.assertTrue(install(self.state, parent.id, "quiet binding")[0])
+        self.assertTrue(install(self.state, parent.id, "resin seal")[0])
+        self.assertEqual(len(attached(self.state, parent)), 2)
+        self.assertEqual(effective_weapon_range(self.state), 11)
+        active_part(self.state, "resin seal").condition = 0
+        self.assertEqual(effective_weapon_range(self.state), 12)
+        self.assertIsNotNone(active_part(self.state, "quiet binding"))
+        self.assertIsNone(active_part(self.state, "resin seal"))
+
+    def test_treatments_are_not_sold_for_actions_they_cannot_change(self):
+        before = self.state.to_dict()
+        self.assertFalse(install(self.state, equipped_item(self.state, "readied").id, "ash wrap")[0])
+        self.assertEqual(self.state.to_dict(), before)
+        parent = self.ready("heavy crossbow")
+        self.assertFalse(install(self.state, parent.id, "resin seal")[0])
 
     def test_quiet_binding_changes_real_attack_sound_and_wears(self):
         state = self.state
@@ -199,11 +224,57 @@ class WorkshopTests(unittest.TestCase):
         state = self.state
         parent = self.ready("longbow")
         install(state, parent.id, "ash wrap")
-        self.field()
+        target = self.field()
         state.terrain_statuses["smoke-inhalation"] = TerrainStatus("smoke", 4, "shortened range")
         self.assertEqual(effective_weapon_range(state), 12)
+        state.region.tile_changes["29,20,0"] = "#"
+        from jomon.world import line_of_sight
+        self.assertFalse(line_of_sight(state, state.position, target.position))
+        before = state.to_dict()
+        self.assertFalse(attack(state, target.id).time_advanced)
+        after = state.to_dict()
+        after["messages"] = before["messages"]
+        self.assertEqual(after, before)
         active_part(state, "ash wrap").condition = 0
         self.assertEqual(effective_weapon_range(state), 10)
+
+    def test_succession_and_thief_defeat_leave_the_same_fitted_parent(self):
+        state = self.state
+        parent = equipped_item(state, "readied")
+        install(state, parent.id, "quiet binding")
+        part = attached(state, parent)[0]
+        self.field()
+        death_site, dead_id = state.position, state.active_courier_id
+        state.courier.health, state.courier.injury = 1, "deep cut"
+        apply_damage(state, 5, "A fatal measured blow", location="torso")
+        self.assertNotEqual(state.active_courier_id, dead_id)
+        self.assertEqual(parent.ground_position, death_site)
+        self.assertEqual(part.fitted_to, parent.id)
+        state.location, state.position = "region", death_site
+        thief = Threat("recoverer", "cargo recoverer", "pursuer", Position(29, 20), 1, 1, status="engaged", role="thief", carrying_item_id=parent.id, morale=5)
+        parent.location = "enemy"
+        state.threats = [thief]
+        attack(state, thief.id)
+        self.assertEqual(parent.location, "ground")
+        self.assertEqual(part.fitted_to, parent.id)
+        loaded = game_state_from_dict(state.to_dict())
+        self.assertEqual(next(item for item in loaded.items if item.id == part.id).fitted_to, parent.id)
+
+    def test_workshop_choices_and_previews_fit_supported_layouts(self):
+        state = self.state
+        kinds = ["station:workshop", "workshop:store", "workshop:slot:readied"]
+        kinds += ["workshop:buy:" + name for name in FITTINGS]
+        for width, height in ((80, 24), (100, 32)):
+            for kind in kinds:
+                with self.subTest(width=width, kind=kind):
+                    sink, view = PanelSink(height, width), OverlayView(kind)
+                    _draw_dialogue_overlay(sink, state, view)
+                    self.assertEqual(len(view.option_rows), len(dialogue_choices(state, kind)))
+                    self.assertTrue(any("credit" in line.lower() for line in sink.writes))
+        view, sink = OverlayView("station:workshop"), PanelSink()
+        _draw_dialogue_overlay(sink, state, view)
+        _handle_overlay_view(state, view, InputEvent("mouse", button="left", y=view.option_rows[0][0], double=True))
+        self.assertEqual(view.kind, "workshop:slot:readied")
 
     def test_linings_change_terrain_weight_coverage_and_mobility(self):
         state = self.state

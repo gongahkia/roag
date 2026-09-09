@@ -71,6 +71,44 @@ them by themselves.
 
 ## Measurement and limitations log
 
+Concurrent commit `52d054c1402b4aa7314a0b03d72b2b321a03ad9f`
+(`newhistory`) captured the pending workshop implementation and its initial
+tests while further regressions were being added. Local `origin/main` also
+advanced to that commit externally. It is preserved without rewriting; this
+agent performed no push. The remaining test and documentation changes are
+committed separately rather than pretending the captured code is a new diff.
+
+Eight counted physical fittings now operate at the optional lower workshop.
+Structure/treatment/lining sockets affect sound, material work, thrown-item
+recovery, wet strings, smoke range, terrain protection, mass and local armour.
+Removal is space-checked, mounted parts follow their parent through theft and
+death, and zero-condition parts stop working without disappearing. The
+focused suite passed **18 tests in 2.223 seconds**. An added blocked-shot
+test initially compared the causal failure message as if inspection could
+not log; its corrected assertion checks all state except that message.
+The serial full suite passed **259 tests in 176.361 seconds**; compilation
+and whitespace checks passed. That duration overlapped the 1,000-seed audit
+and a PTY campaign, so it is not a controlled performance comparison.
+
+Further inspection removed ash-wrap fitting from melee-only weapons and
+resin sealing from arbalests whose preparation already ignores rain: neither
+purchase would have provided its advertised benefit. A regression checks
+these rejected combinations; the updated workshop file passes **19 tests in
+2.145 seconds**. The later full suite must include that additional test.
+
+Real PTY continuation of `working fen`: Dunmire → Hearthford → Willow Ferry
+→ Reed Anchor → Charter Market, selling counted grain and paper at physical
+gangplank services, then walking down to the lower workshop. At 100×32,
+previewed/cancelled and confirmed a quiet binding on the original billhook.
+Its extra weight crossed the encumbered threshold; the inventory explicitly
+reported slower movement/weak-floor risk. Cancelled a trial repack, then
+stored spare arrows and confirmed the lighter load. At 80×24, inspected the
+mounted part and removal cost, declined removal, saved and quit cleanly.
+The saved parent/part identity and depleted stock reload correctly. This is
+one normal-play fitting purchase, not manual coverage of all eight kits or
+all resulting combat builds. Four route legs were uneventful; no tactical
+voyage claim is inferred from them.
+
 `python -m jomon.systemic_audit --seeds N --start K` now audits actual expanded
 worlds rather than independently sampled encounter plans. It compares complete
 seed regeneration and save round trips, checks actor/objective/container and

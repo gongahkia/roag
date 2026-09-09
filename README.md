@@ -80,6 +80,16 @@ working deck holds the gangplank, galley, repair position, chronicle, cargo
 access, and tavern entrance; the upper deck holds helm, chart, lookout, signal,
 and exposed defensive positions. Physical hatches and stairs connect them.
 
+The lower `W` workshop at (39,5,-1) offers optional counted fittings and
+equipment repair. `E` opens it; `1`–`8` choose worn/readied equipment, `P`
+opens loose kits, lettered choices preview work and `F` confirms. Escape
+backs out without spending anything. Weapons accept one structural fitting
+and one treatment; armour accepts one lining. Fitted parts remain physical,
+add weight, wear independently, and follow the parent through loss or theft.
+Removal costs one credit and needs pack room. Repair costs two credit for
+35 condition; fitting or removing takes two action-clock steps. See
+[workshop trade-offs](docs/workshop.md) for the eight finite kit types.
+
 The tavern has a bar, fireplace, serving store, tables, seats, six household
 adults, visible visitors, and persistent bartender Sena Quill. Walk beside a
 person and interact to inspect their role, technique, injuries, equipment
