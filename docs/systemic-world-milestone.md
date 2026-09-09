@@ -71,6 +71,70 @@ them by themselves.
 
 ## Measurement and limitations log
 
+The deck integration full suite passed **287 tests in 173.361 seconds**,
+with compilation and `git diff --check` passing. Earlier iterations reported
+four failures in 279 tests: one test left a regional vertical query aboard
+Jomon, and three expected the deliberately replaced read-only ship stations.
+The corrected tests use the appropriate spatial context and assert that
+opening the new work preview still takes zero time. Additional regressions
+exercise physical ship ammunition/theft, finite retreat, storm approach time,
+shared crew exposure, save ownership, door/smoke cache invalidation and actual
+hazard colours, rather than only count twelve voyage labels.
+
+Twelve voyage families now have recorded responses; eight offer ordinary
+movement/combat/material play across the connected decks. Mooring work spends
+counted timber/provisions and action time. Regional populations remain separate
+from temporary boarders; stolen shipments, corpses and dropped items keep their
+physical ownership through resolution and succession.
+
+Isolated real PTYs at 80×24 and 100×32 exercised forced raiders, two-rail
+boarders, hold thieves, a rudder grazer, galley fire, storm and flooded hold.
+The bowman telegraphed lanes, fired at vacated positions and was supported by a
+shield bearer climbing the stair; the courier withdrew with cargo/hull loss.
+Two raiders were defeated by guarded billhook combat after a foot strike.
+A net bearer fought through the cargo hatch while a thief escaped with the
+same physical grain shipment. The grazer was diverted with counted fish.
+Flooding was secured at the lower station and residual water pumped away.
+Saves and normal quits restored the terminal. These were forced verification
+fixtures, not seven complete regional expeditions or natural-frequency data.
+
+The first storm test failed its playability check: its twelve-action warning
+expired before the twenty-seven-move approach. The warning now allows forty
+actions; a fresh PTY repeated the normal walk and three-action intervention
+with hull 10/10. Galley fuel burned out during the ordinary approach, leaving
+ash and smoke; that test only demonstrates endurance and aftermath handling,
+not an active manual firefight. The generic endurance resolution and some
+reused boarding descriptions still need the later balance pass.
+
+A follow-up isolated PTY continued the flooded-hold consequence with a forced
+driftwood opportunity: one rope use recovered one wet timber lot, then the
+courier physically descended to the lower repair station and spent that lot
+and two actions to restore hull 8 → 10. A seated pilot interrupted the direct
+chart aisle; the adjacent aisle and doorway remained usable. The saved result
+has no remaining timber and keeps the earlier cargo, water and voyage history.
+
+Boarding profiling exposed repeated vessel FOV calculation. A bounded,
+reconstructed single-entry cache includes space, position, crisis state,
+terrain and smoke; it never stores actors or save data. In two 24-sample
+benchmarks, boarding input/layout median fell **60.230 → 31.696 ms**, p95
+**64.465 → 32.311 ms**. Ordinary input/layout in the latter run measured
+**16.726 / 21.753 / 22.880 ms** median/p95/p99. World generation was 316.392 ms,
+load 169.968 ms, save 13.323 ms; replay matched. JSON evidence is in the two
+`performance-boarding-*.json` files. Rendering uses a production layout sink,
+not native-driver latency; the boarding median still misses the 25 ms ordinary
+target. These are intermediate measurements, not the expansion's final soak.
+
+The first full production seed audit completed **1,000 eight-region worlds**
+with **zero reported failures in 2,410.5 seconds**, worst seed 3.842 seconds.
+Every region had 1,000 distinct geography signatures; production population
+grouping produced 1,303 unique compositions (most repeated composition: 260).
+It checked deterministic regeneration and save round trips, required access,
+placement/opening preparation, history references and seasonal chart return
+paths. The process imported snapshot `4492919` before workshop/voyage edits;
+this is not a final audit of subsequent content. It explicitly does not measure
+human counterplay, full quest branches, all material-stage alternate routes,
+native terminal latency or genuinely distinct mechanical content counts.
+
 Concurrent commit `52d054c1402b4aa7314a0b03d72b2b321a03ad9f`
 (`newhistory`) captured the pending workshop implementation and its initial
 tests while further regressions were being added. Local `origin/main` also

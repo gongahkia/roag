@@ -75,6 +75,10 @@ class ActionResult:
 
 
 def _remember_contact(state: GameState, text: str) -> None:
+    if state.location == "jomon":
+        state.chronicle.append(text)
+        del state.chronicle[:-40]
+        return
     state.contact.memories.append(text)
     del state.contact.memories[:-8]
 
@@ -296,14 +300,14 @@ def emit_sound(
     state: GameState, amount: int, origin: Position | None = None
 ) -> list[str]:
     """Raise noise and alert nearby actors, including actors one level away."""
-    if state.location != "region" or amount <= 0:
+    if not state.combat_active or amount <= 0:
         return []
     origin = origin or state.position
     state.noise += amount
     state.sound_events.append(SoundEvent(origin, amount))
     del state.sound_events[:-8]
     messages: list[str] = []
-    for threat in state.threats:
+    for threat in state.combatants:
         horizontal = max(
             abs(threat.position.x - origin.x), abs(threat.position.y - origin.y)
         )
@@ -365,6 +369,9 @@ def _successor(state: GameState, dead: Person) -> Person | None:
 
 
 def _return_after_defeat(state: GameState, text: str, permanent: bool) -> str:
+    if state.location == "jomon":
+        from .ship_crises import deck_defeat
+        return deck_defeat(state, text, permanent)
     courier = state.courier
     if courier is None:
         return text
@@ -693,7 +700,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
     if decision.action == "cover retreat" and decision.target:
         wounded = next(
             (
-                ally for ally in state.threats
+                ally for ally in state.combatants
                 if ally.group == threat.group and ally.position == decision.target
                 and ally.id != threat.id
             ),
@@ -713,8 +720,11 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
         return f"The {threat.name} {threat.intent}."
     if decision.action in {"retreat", "withdraw"}:
         previous = threat.position
-        threat.position = retreat_step(state, threat)
-        threat.intent = "withdraws toward cover" if decision.action == "withdraw" else "breaks contact while injured"
+        if state.location == "jomon" and decision.action == "retreat" and threat.home_position:
+            threat.position = next_path_step(state, threat, threat.home_position, stop_distance=1)
+        else:
+            threat.position = retreat_step(state, threat)
+        threat.intent = "withdraws toward cover" if decision.action == "withdraw" else f"breaks contact: {decision.reason}"
         if threat.position == previous:
             threat.stalled_turns += 1
             return "" if threat.stalled_turns > 1 else f"The {threat.name} cannot find a safe retreat."
@@ -733,12 +743,12 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
                 if stolen:
                     stolen.location = "lost"
                     stolen.owner_id = None
-                    stolen.region_id = state.active_region_id
+                    stolen.region_id = state.spatial_id
                     stolen.ground_position = None
                     stolen.container_id = None
                     loss = f" The {item_spec(stolen.kind).name} is now recorded as lost beyond the regional route."
                     state.remember(
-                        f"{threat.name.title()} escaped {state.region.name} with {item_spec(stolen.kind).name}; the physical item was lost."
+                        f"{threat.name.title()} escaped {state.spatial_id} with {item_spec(stolen.kind).name}; the physical item was lost."
                     )
                 threat.carrying_item_id = None
                 sync_legacy_load(state)
@@ -1004,7 +1014,7 @@ def _weather_and_deadline(state: GameState) -> list[str]:
     if pressure(state).band == "critical" and not state.escalation_spawned:
         state.escalation_spawned = True
         state.region.changes["escalation_spawned"] = True
-        escalation = next((t for t in state.threats if t.status == "dormant"), None)
+        escalation = next((t for t in state.combatants if t.status == "dormant"), None)
         if escalation:
             escalation.status = "watching"
         messages.append(
@@ -1015,7 +1025,7 @@ def _weather_and_deadline(state: GameState) -> list[str]:
 
 def _patrols(state: GameState) -> list[str]:
     messages: list[str] = []
-    for threat in state.threats:
+    for threat in state.combatants:
         if threat.status != "watching" or not threat.patrol:
             continue
         target_index = (threat.patrol_index + 1) % len(threat.patrol)
@@ -1053,10 +1063,9 @@ def _advance_world(
 
         advance_production(state)
         advance_materials(state)
-        if state.location != "region":
-            continue
-        state.pressure_elapsed += 1
-        state.region.local_elapsed = state.pressure_elapsed
+        if state.location == "jomon":
+            from .ship_crises import advance_deck
+            advance_deck(state)
         for sound in state.sound_events:
             sound.age += 1
         state.sound_events = [sound for sound in state.sound_events if sound.age <= 3]
@@ -1066,14 +1075,19 @@ def _advance_world(
             state.smoke[key] -= 1
             if state.smoke[key] <= 0:
                 del state.smoke[key]
-        previously_watching = {actor.id for actor in state.threats if actor.status == "watching"}
-        messages = _weather_and_deadline(state) + _patrols(state)
+        if not state.combat_active:
+            continue
+        if state.location == "region":
+            state.pressure_elapsed += 1
+            state.region.local_elapsed = state.pressure_elapsed
+        previously_watching = {actor.id for actor in state.combatants if actor.status == "watching"}
+        messages = _weather_and_deadline(state) + _patrols(state) if state.location == "region" else []
         current = pressure(state)
         from .ecology import active_actors
         from .enemy_ai import sees_courier, heard_position
 
         for threat in active_actors(state):
-            if state.location != "region":
+            if not state.combat_active:
                 break
             if threat.status == "watching" and not threat.patrol:
                 seen = sees_courier(state, threat)
@@ -1122,6 +1136,8 @@ def _time_result(
 def depart(state: GameState) -> ActionResult:
     if state.location != "jomon" or state.position != JOMON_GANGPLANK:
         return _plain(state, "Departure requires Jomon's gangplank.")
+    if state.voyage_status == "active":
+        return ActionResult(False, False, "Jomon is still on passage; resolve the voyage before landing.", "voyage")
     if state.courier is None or not state.courier.alive:
         return _plain(state, "Choose an eligible courier by speaking to them in the tavern.")
     if state.weapon is None or state.gear is None or state.support is None:
@@ -1208,7 +1224,7 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
     occupant = next(
         (
             threat
-            for threat in state.threats
+            for threat in state.combatants
             if threat.position == target
             and threat.status in {"watching", "engaged"}
         ),
@@ -1247,6 +1263,13 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         messages.append("The roof nail holds the prepared lane through one careful upper-level move.")
     tile = base_tile(state, target)
     if state.location == "jomon":
+        if tile == "+" and target != JOMON_GANGPLANK:
+            state.vessel_tiles[position_key(target)] = "/"
+        if state.combat_active:
+            state.aimed_target = None
+            state.last_move_turn = state.world_time
+            emit_sound(state, 1 + armour_noise(state))
+            return _time_result(state, "", steps=2 if load_state(state) == "overloaded" else 1)
         return _plain(state, "", changed=True)
     if state.location == "region" and tile == "+":
         state.region.tile_changes[position_key(target)] = "/"
@@ -1578,7 +1601,7 @@ def _control_interaction(state: GameState) -> ActionResult:
 
 
 def _furnace_interaction(state: GameState) -> ActionResult:
-    machinery = next((threat for threat in state.threats if threat.profile == "machinery"), None)
+    machinery = next((threat for threat in state.combatants if threat.profile == "machinery"), None)
     if machinery is None:
         above = Position(state.position.x, state.position.y, min(2, state.position.z + 1))
         state.smoke.update({position_key(state.position): 6, position_key(above): 6})
@@ -1662,9 +1685,19 @@ def interact(state: GameState) -> ActionResult:
         if state.jomon_space == "vessel":
             destination = vessel_vertical_destination(state.position)
             if destination:
+                if not is_walkable(state, destination):
+                    return _plain(state, "The other end of the hatch is occupied; clear it first.")
                 direction = "ladder down" if destination.z < state.position.z else "stair up"
                 state.position = destination
+                if state.combat_active:
+                    return _time_result(state, f"You use the {direction} under voyage pressure.")
                 return _plain(state, f"You use Jomon's {direction} between aligned decks.", changed=True)
+        from .ship_crises import station_action
+        handled = station_action(state, tile)
+        if handled is not None:
+            return handled
+        if state.combat_active and tile == "C":
+            return _plain(state, "The tavern shelters off-duty adults during this declared deck crisis.")
         if tile == "+":
             return depart(state)
         if tile == "C":
@@ -1732,7 +1765,7 @@ def interact(state: GameState) -> ActionResult:
         blocker = next(
             (
                 threat
-                for threat in state.threats
+                for threat in state.combatants
                 if threat.position == destination
                 and threat.status in {"watching", "engaged"}
             ),
@@ -1853,7 +1886,7 @@ def interact(state: GameState) -> ActionResult:
                         f"{point.x},{point.y}, level {point.z:+d}; recover it with I.",
                     )
                 carrier = next(
-                    (threat for threat in state.threats if threat.carrying_item_id == recoverable.id),
+                    (threat for threat in state.combatants if threat.carrying_item_id == recoverable.id),
                     None,
                 )
                 return _plain(
@@ -1907,7 +1940,7 @@ def interact(state: GameState) -> ActionResult:
 def _attack_targets(state: GameState, attack_range: int) -> list[Threat]:
     targets = (
         threat
-        for threat in state.threats
+        for threat in state.combatants
         if threat.status in {"watching", "engaged"}
         and distance(state.position, threat.position) <= attack_range
         and line_of_sight(state, state.position, threat.position)
@@ -1979,7 +2012,7 @@ def effective_weapon_range(state: GameState) -> int:
 def attack(state: GameState, target_id: str | None = None) -> ActionResult:
     from .workshop import active_part, attack_effects
 
-    if state.location != "region" or state.weapon is None:
+    if not state.combat_active or state.weapon is None:
         return _plain(state, "No readied attack is possible.")
     candidates = _attack_targets(state, effective_weapon_range(state))
     if target_id is not None:
@@ -2158,7 +2191,7 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
             state, "consumable:throwing javelins",
             "recoverable hooked shaft from a committed throw", location="ground",
         )
-        recovered.region_id = state.active_region_id
+        recovered.region_id = state.spatial_id
         recovered.ground_position = old_position
         weapon_text += " pulls the target and leaves its shaft visibly recoverable"
         if "retrieval cast" in build_combinations(state):
@@ -2213,7 +2246,7 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
 
 
 def guard(state: GameState) -> ActionResult:
-    if state.location != "region":
+    if not state.combat_active:
         return _plain(state, "There is no expedition danger to guard against.")
     if state.weapon == "crossbow" and not state.crossbow_loaded:
         if physical_ammunition(state, "bolts") <= 0:
@@ -2248,7 +2281,7 @@ def guard(state: GameState) -> ActionResult:
             priority=3,
         )
     engaged = [
-        threat for threat in state.threats
+        threat for threat in state.combatants
         if threat.status == "engaged"
         and distance(state.position, threat.position) <= 7
     ]
@@ -2291,7 +2324,7 @@ def guard(state: GameState) -> ActionResult:
 
 
 def use_gear(state: GameState) -> ActionResult:
-    if state.location != "region":
+    if not state.combat_active:
         return _plain(state, "Expedition gear is used in the field.")
     bottle = next(
         (
@@ -2315,7 +2348,7 @@ def use_gear(state: GameState) -> ActionResult:
             del state.relics["tide-knot charm"]
         state.carried_relic = None
         consume_carried(state, "relic:tide-knot charm")
-        for threat in state.threats:
+        for threat in state.combatants:
             if (
                 threat.status == "engaged"
                 and distance(state.position, threat.position) <= 10
@@ -2331,6 +2364,8 @@ def use_gear(state: GameState) -> ActionResult:
             priority=3,
         )
     if state.carried_relic == "ebbglass spindle" and state.relics.get("ebbglass spindle", 0):
+        if state.location != "region":
+            return _plain(state, "The ebbglass holds a regional process, not a vessel crisis; it remains unspent.")
         state.relics["ebbglass spindle"] -= 1
         if not state.relics["ebbglass spindle"]:
             del state.relics["ebbglass spindle"]
@@ -2350,6 +2385,9 @@ def use_gear(state: GameState) -> ActionResult:
         state.carried_relic = None
         consume_carried(state, "relic:coalheart seed")
         state.smoke.clear()
+        from .materials import fields
+        for cell in fields(state).values():
+            cell.smoke = 0
         add_status(state, "coalheart-chill", "spent warm mineral", 8, "wetness and exposed travel become dangerous")
         return _time_result(
             state,
@@ -2362,7 +2400,8 @@ def use_gear(state: GameState) -> ActionResult:
             del state.relics["hollow-bell shard"]
         state.carried_relic = None
         consume_carried(state, "relic:hollow-bell shard")
-        shifted = Position(state.position.x, state.position.y, max(-1, min(2, state.position.z + (1 if state.position.z < 2 else -1))))
+        top = 1 if state.location == "jomon" else 2
+        shifted = Position(state.position.x, state.position.y, max(-1, min(top, state.position.z + (1 if state.position.z < top else -1))))
         sounds = emit_sound(state, 4, shifted)
         return _time_result(
             state,
@@ -2376,7 +2415,11 @@ def use_gear(state: GameState) -> ActionResult:
         state.carried_relic = None
         consume_carried(state, "relic:stillwater filament")
         state.water.clear()
-        state.region.changes["stillwater_filament_spent"] = True
+        from .materials import fields
+        for cell in fields(state).values():
+            cell.water = 0
+        changes = state.vessel_changes if state.location == "jomon" else state.region.changes
+        changes["stillwater_filament_spent"] = True
         sounds = emit_sound(state, 5, state.position)
         return _time_result(
             state,
@@ -2395,13 +2438,12 @@ def use_gear(state: GameState) -> ActionResult:
         ]
         above = Position(state.position.x, state.position.y, state.position.z + 1)
         if (
-            state.position.z < 2
-            and str(above.z) in state.region.levels
+            state.position.z < (1 if state.location == "jomon" else 2)
             and vertical_open(state, state.position, above)
         ):
             points.append(above)
         state.smoke.update({position_key(point): 6 for point in points})
-        for threat in state.threats:
+        for threat in state.combatants:
             if (
                 threat.status == "engaged"
                 and threat.profile != "machinery"
@@ -2417,6 +2459,7 @@ def use_gear(state: GameState) -> ActionResult:
         "bird whistle" in state.carried_passives
         and not (
             "cache bell" in state.carried_passives
+            and state.location == "region"
             and not state.region.changes.get("cache_bell_used")
         )
     ):
@@ -2429,6 +2472,7 @@ def use_gear(state: GameState) -> ActionResult:
         )
     if (
         "cache bell" in state.carried_passives
+        and state.location == "region"
         and not state.region.changes.get("cache_bell_used")
     ):
         from .quests import mark_treasure
@@ -2456,7 +2500,7 @@ def use_gear(state: GameState) -> ActionResult:
     animal = next(
         (
             threat
-            for threat in state.threats
+            for threat in state.combatants
             if threat.status in {"watching", "engaged"}
             and threat.profile == "animal"
             and distance(state.position, threat.position) <= 7
@@ -2548,10 +2592,10 @@ def use_gear(state: GameState) -> ActionResult:
 
 
 def negotiate(state: GameState) -> ActionResult:
-    if state.location != "region" or state.courier is None:
+    if not state.combat_active or state.courier is None:
         return _plain(state, "No negotiation is possible here.")
     humans = sorted([
-        threat for threat in state.threats
+        threat for threat in state.combatants
         if threat.status == "engaged"
         and threat.profile in {"pursuer", "reach", "ranged"}
         and distance(state.position, threat.position) <= 4
@@ -2602,7 +2646,7 @@ def negotiate(state: GameState) -> ActionResult:
     for threat in heard:
         threat.status, threat.intent = "negotiated", "accepts witnessed terms"
     drawback = ""
-    if "stillroom-cordial" in state.drink_effects and state.contact.disposition <= 0:
+    if state.location == "region" and "stillroom-cordial" in state.drink_effects and state.contact.disposition <= 0:
         state.contact.disposition = max(-3, state.contact.disposition - 1)
         drawback = " The wary contact remembers the visible intoxication."
     memory = (
@@ -2619,8 +2663,11 @@ def negotiate(state: GameState) -> ActionResult:
 
 
 def retreat(state: GameState) -> ActionResult:
+    if state.location == "jomon" and state.combat_active:
+        from .ship_crises import abandon_deck
+        return _time_result(state, abandon_deck(state), priority=3)
     nearby = [
-        threat for threat in state.threats
+        threat for threat in state.combatants
         if threat.status == "engaged"
         and distance(state.position, threat.position) <= 9
     ]

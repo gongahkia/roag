@@ -124,6 +124,19 @@ def benchmark(samples: int = 12, seed: str = "systemic-benchmark") -> dict:
         return state
 
     results["environment_heavy_turn"] = measure(lambda state: _advance_world(state), samples, environment_setup)
+    from .ship_crises import begin_deck
+    from .travel import choose_destination
+
+    boarding = copy.deepcopy(aboard)
+    boarding.position = Position(42, 10, 1)
+    choose_destination(boarding, "reed-anchor", forced_voyage="boarders")
+    begin_deck(boarding)
+    results["boarding_turn"] = measure(lambda state: _advance_world(state), samples, lambda _: copy.deepcopy(boarding))
+    results["boarding_fov"] = measure(lambda _: field_of_view(boarding, remember=False), samples)
+    results["boarding_input_render"] = measure(
+        lambda state: (move(state, 0, 1), _draw_base(sink, state)),
+        samples, lambda _: copy.deepcopy(boarding),
+    )
     actor = expedition.threats[0]
     results["pathfinding"] = measure(lambda _: next_path_step(expedition, actor, expedition.position), samples)
     results["inventory_open"] = measure(lambda _: InventoryTransaction.begin(aboard), samples)

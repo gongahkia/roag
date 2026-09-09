@@ -1,4 +1,4 @@
-"""Bounded route-leg travel and three sporadic aboard-Jomon encounters."""
+"""Bounded route-leg travel and sporadic aboard-Jomon encounters."""
 
 from __future__ import annotations
 
@@ -56,7 +56,8 @@ def voyage_for(
 ) -> str | None:
     """Select one inspectable event from seed, route, weather, cargo, and history."""
     if forced is not None:
-        if forced not in {"raiders", "creature", "lure"}:
+        from .ship_crises import VOYAGES
+        if forced not in VOYAGES:
             raise ValueError("unknown forced voyage family")
         return forced
     edge = edge_between(state, state.route_current_node, destination)
@@ -68,7 +69,18 @@ def voyage_for(
         return None
     # The lure is intentionally rare; the other families share ordinary voyages.
     roll = rng.randrange(12)
-    return "lure" if roll == 0 else "creature" if roll < 5 else "raiders"
+    if roll == 0:
+        return "lure"
+    if state.travel_count == 0:
+        return "creature" if roll < 5 else "raiders"
+    pool = ["raiders", "creature", "boarders", "shoal", "driftwood", "inspection"]
+    if state.vessel_cargo:
+        pool += ["hold-thieves", "galley-fire"]
+    if state.vessel_integrity < 8:
+        pool += ["split-seam", "flooded-hold"]
+    if edge and edge.weather_exposure >= 2:
+        pool += ["storm", "flooded-hold", "split-seam"]
+    return rng.choice(pool)
 
 
 def choose_destination(
@@ -103,11 +115,8 @@ def choose_destination(
     if event:
         state.voyage_kind = event
         state.voyage_status = "active"
-        state.voyage_detail = {
-            "raiders": "Hooked skiffs close on the cargo rail; the boarders intend theft and escape.",
-            "creature": "A broad-backed river grazer strikes the rudder while the shoal narrows.",
-            "lure": "A finite mineral resonance under the hull makes familiar voices seem to call from the wrong bank.",
-        }[event]
+        from .ship_crises import VOYAGES
+        state.voyage_detail = VOYAGES[event][1]
         state.add_message(state.voyage_detail, priority=3)
         return True, state.voyage_detail
     _finish_travel(state, "The voyage remains watchful but uneventful.")
@@ -159,6 +168,55 @@ def resolve_voyage(state: GameState, response: str) -> tuple[bool, str]:
     if state.location != "jomon" or state.voyage_status != "active" or not state.voyage_kind:
         return False, "No voyage crisis is active."
     response = response.lower()
+    from .ship_crises import TACTICAL, begin_deck, abandon_deck, _finish
+    if response == "deck":
+        return begin_deck(state)
+    if state.vessel_changes.get("deck_crisis"):
+        if response != "yield":
+            return False, "Continue the physical deck action or explicitly withdraw."
+        consequence = abandon_deck(state)
+        from .actions import _advance_world
+        _advance_world(state)
+        return True, consequence
+    if state.voyage_kind not in {"raiders", "creature", "lure"}:
+        from .actions import _advance_world
+        kind, cost = state.voyage_kind, 1
+        if kind in TACTICAL and response == "yield":
+            _advance_world(state)
+            return True, abandon_deck(state)
+        if kind == "shoal" and response == "navigate":
+            cost, consequence = 4, "Soundings find a slower silt channel; four measured actions preserve the hull."
+        elif kind == "shoal" and response == "yield":
+            state.vessel_integrity = max(1, state.vessel_integrity - 2)
+            consequence = "The forced shoal passage scrapes two integrity from the hull."
+        elif kind == "driftwood" and response == "repel" and state.rope_uses > 0:
+            from .state import CommodityStack
+            state.rope_uses -= 1
+            state.vessel_cargo.setdefault("timber", CommodityStack(0, "wet")).quantity += 1
+            cost, consequence = 3, "One rope arrangement catches one wet timber lot from the broken raft."
+        elif kind == "driftwood" and response == "yield":
+            consequence = "The household lets the broken raft pass without claiming its cargo."
+        elif kind == "inspection" and response == "navigate":
+            trusted = any(account.trust >= 2 for account in state.institutions.values())
+            paper = state.vessel_cargo.get("paper")
+            if not trusted and (not paper or paper.quantity <= 0):
+                return False, "Inspection needs two institutional trust or one counted paper lot."
+            if not trusted:
+                paper.quantity -= 1
+                if not paper.quantity:
+                    del state.vessel_cargo["paper"]
+            consequence = "Witnessed working claims satisfy the inspection; its memory follows this route."
+            state.vessel_changes["inspection_witnessed"] = True
+        elif kind == "inspection" and response == "counsel" and state.trade_credit >= 2:
+            state.trade_credit -= 2
+            consequence = "The patrol records two credit against its inspection account."
+        elif kind == "inspection" and response == "yield":
+            consequence = "Refused inspection: " + _lose_vessel_cargo(state)
+        else:
+            return False, "That response lacks the disclosed material or does not address this voyage."
+        _advance_world(state, steps=cost)
+        _finish(state, consequence)
+        return True, consequence
     success = False
     consequence = ""
     if state.voyage_kind == "raiders":

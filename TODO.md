@@ -2,15 +2,21 @@
 
 ## Current State
 
-- The active product is a standard-library Python 3.11 `curses` roguelike with four persistent seamless regions, a 12-node route chart, four seasons, aligned z-levels, camera/FOV exploration, and action-clock regional processes.
+- The expansion in progress has eight persistent regional destinations and a
+  16-node route chart. It remains a standard-library Python 3.11+ `curses`
+  roguelike with aligned z-levels, camera/FOV and action-clock processes.
 - Jomon has three 64×22 decks, a dedicated 64×24 tavern, scheduled named adults, bartender and eight drinks, six initial adults, six bounded regional recruits, a paper-doll equipment view, 10×6 courier pack, 18×10 locker, and optional mouse input.
-- Save format 6 migrates Python format 5 without resetting consequences; older
-  supported Python paths chain forward. The completed serial verification ran
-  177 tests in 567.579 seconds with no failures.
+- Save format 7 migrates Python format 6 without repainting saved geography or
+  replacing lost possessions; supported older Python paths chain forward.
+  The latest observed full run passed 283 tests in 170.930 seconds; subsequent
+  changes still require another full run. See the live measurement ledger.
 - Each region now has a three-stage questline with two endings, and completing
   any two opens the five-part Working Marks arc. Production generation uses
   finite mixed groups, four seeded alternative elites, 30 persistent
-  containers, 18 weapon families, 37 passives, and six finite relics.
+  containers in the previous four-region milestone. The expansion now has
+  62 regional containers, 18 weapons, 37 passives, six relics, eight physical
+  fitting kits, sparse materials, and twelve bounded voyage families. Content
+  targets, branch depth, performance and full manual coverage remain open.
 
 ## Now
 
@@ -25,8 +31,8 @@
 
 ## Later
 
-- Add another regional map only after the current four are played and judged.
-- Revisit return-route variation and expand onboard incidents only after ordinary expedition pacing is stable.
+- Judge all eight current regions before any further geographic expansion.
+- Revisit return-route variation after the present expansion is played.
 - Add capture or rescue only if play exposes a concrete contextual need.
 
 ## Frozen

@@ -29,11 +29,11 @@ def opposed(first: Threat, second: Threat) -> bool:
 
 def active_actors(state: GameState) -> list[Threat]:
     """A sorted, bounded active neighbourhood; far populations retain state."""
-    signature = tuple((a.id, a.position, a.status) for a in state.threats)
+    signature = tuple((a.id, a.position, a.status) for a in state.combatants)
     cached = getattr(state, "_actor_chunks", None)
     if cached is None or cached[0] != signature:
         chunks: dict[tuple[int, int, int], list[Threat]] = {}
-        for actor in state.threats:
+        for actor in state.combatants:
             if actor.status in {"watching", "engaged"}:
                 chunks.setdefault((actor.position.x // 8, actor.position.y // 8, actor.position.z), []).append(actor)
         cached = (signature, chunks)
@@ -74,7 +74,7 @@ def world_options(state: GameState, actor: Threat, courier_visible: bool):
     own = fields(state).get(position_key(actor.position))
     if own and (own.fire or own.collapse_due):
         offer("leave material danger", "avoid hazard", 125, "flame or a creaking support threatens its present footing", actor.position)
-    neighbours = [other for other in state.threats if other.status in {"watching", "engaged"} and perceives_point(state, actor, other.position)]
+    neighbours = [other for other in state.combatants if other.status in {"watching", "engaged"} and perceives_point(state, actor, other.position)]
     if actor.ecology == "prey":
         dangers = [other.position for other in neighbours if other.ecology in {"predator", "raider"}]
         if courier_visible:
@@ -111,7 +111,7 @@ def world_options(state: GameState, actor: Threat, courier_visible: bool):
             target = min(wavering, key=lambda other: other.id)
             offer("cover an ally's retreat", "rally ally", 106, "an ally's visible distress takes priority over pursuit", target.position)
     if actor.duty == "scavenge" and not actor.carrying_item_id:
-        items = [item for item in state.items if item.location == "ground" and item.region_id == state.active_region_id and item.ground_position and perceives_point(state, actor, item.ground_position)]
+        items = [item for item in state.items if item.location == "ground" and item.region_id == state.spatial_id and item.ground_position and perceives_point(state, actor, item.ground_position)]
         if items:
             item = min(items, key=lambda item: (distance(actor.position, item.ground_position), item.id))
             offer("retrieve abandoned property", "take ground item", 104, "a physical abandoned item is visible, not an unopened reward", item.ground_position)
@@ -136,7 +136,8 @@ def _move(state: GameState, actor: Threat, target: Position, stop=1) -> bool:
     if base_tile(state, step) == "+":
         if actor.profile == "animal":
             return False
-        state.region.tile_changes[position_key(step)] = "."
+        changes = state.vessel_tiles if state.location == "jomon" else state.region.tile_changes
+        changes[position_key(step)] = "/"
         actor.intent = "opens a working door before passing"
         return True
     actor.position = step
@@ -169,7 +170,7 @@ def resolve_world_action(state: GameState, actor: Threat, decision) -> str | Non
         actor.intent = f"moves to {decision.goal}; {decision.reason}"
         return f"The {actor.name} moves to {decision.goal}." if moved else ""
     if action == "engage rival":
-        rival = next((other for other in state.threats if other.position == point and other.status in {"watching", "engaged"} and opposed(actor, other)), None)
+        rival = next((other for other in state.combatants if other.position == point and other.status in {"watching", "engaged"} and opposed(actor, other)), None)
         if not rival:
             actor.target_actor_id = None
             return ""
@@ -192,7 +193,7 @@ def resolve_world_action(state: GameState, actor: Threat, decision) -> str | Non
             return f"The {actor.name} defeats the {rival.name}.{lost}"
         return f"The {actor.name} strikes its rival {rival.name}; {rival.health} health remains."
     if action in {"treat ally", "rally ally", "escort ally"}:
-        ally = next((other for other in state.threats if other.id != actor.id and other.group == actor.group and other.position == point and other.status in {"watching", "engaged"}), None)
+        ally = next((other for other in state.combatants if other.id != actor.id and other.group == actor.group and other.position == point and other.status in {"watching", "engaged"}), None)
         if ally is None:
             return ""
         if action == "escort ally":
@@ -206,7 +207,7 @@ def resolve_world_action(state: GameState, actor: Threat, decision) -> str | Non
         actor.intent = f"spends one finite {'dressing' if action == 'treat ally' else 'signal'} on {ally.name}"
         return f"The {actor.name} {actor.intent}."
     if action == "take ground item":
-        item = next((item for item in state.items if item.location == "ground" and item.region_id == state.active_region_id and item.ground_position == point), None)
+        item = next((item for item in state.items if item.location == "ground" and item.region_id == state.spatial_id and item.ground_position == point), None)
         if item is None:
             return ""
         actor.carrying_item_id = item.id

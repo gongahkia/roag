@@ -436,6 +436,20 @@ class GameState:
     world_ended: bool = False
     vessel_materials: dict[str, MaterialCell] = field(default_factory=dict)
     institutions: dict[str, Institution] = field(default_factory=dict)
+    vessel_threats: list[Threat] = field(default_factory=list)
+    vessel_tiles: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def combat_active(self) -> bool:
+        return self.location == "region" or (self.location == "jomon" and self.voyage_status == "active" and bool(self.vessel_changes.get("deck_crisis")))
+
+    @property
+    def combatants(self) -> list[Threat]:
+        return self.vessel_threats if self.location == "jomon" else self.threats
+
+    @property
+    def spatial_id(self) -> str:
+        return "jomon" if self.location == "jomon" else self.active_region_id
 
     @property
     def courier(self) -> Person | None:
@@ -448,7 +462,7 @@ class GameState:
         return local[0] if local else self.threats[0]
 
     def local_threats(self, *, active_only: bool = False) -> list[Threat]:
-        threats = [threat for threat in self.threats if threat.position.z == self.position.z]
+        threats = [threat for threat in self.combatants if threat.position.z == self.position.z]
         if active_only:
             threats = [threat for threat in threats if threat.status in {"watching", "engaged"}]
         return threats
@@ -1011,6 +1025,8 @@ def game_state_from_dict(data: Any) -> GameState:
             },
             history=list(data["history"]), messages=list(data["messages"]), world_ended=data["world_ended"],
             vessel_materials={key: MaterialCell(**cell) for key, cell in data.get("vessel_materials", {}).items()},
+            vessel_threats=[parse_threat(value) for value in data.get("vessel_threats", [])],
+            vessel_tiles=dict(data.get("vessel_tiles", {})),
             institutions={key: Institution(**value) for key, value in data.get("institutions", {}).items()},
         )
         if migrated_v3:
@@ -1142,7 +1158,12 @@ def validate_state(state: GameState) -> None:
         raise StateError("invalid tavern position")
     if state.pending_destination is not None and state.pending_destination not in state.route_nodes:
         raise StateError("invalid pending destination")
-    if state.voyage_kind not in {None, "raiders", "creature", "lure"} or state.voyage_status not in {"none", "active", "resolved"}:
+    from .ship_crises import VOYAGES, validate_ship
+    try:
+        validate_ship(state)
+    except (TypeError, ValueError) as exc:
+        raise StateError(f"invalid vessel crisis state: {exc}") from exc
+    if state.voyage_kind not in {None, *VOYAGES} or state.voyage_status not in {"none", "active", "resolved"}:
         raise StateError("invalid voyage state")
     if state.location == "region" and str(state.position.z) not in state.region.levels:
         raise StateError("invalid z-level")

@@ -46,17 +46,19 @@ class VesselMapAndScheduleTests(unittest.TestCase):
     def test_functional_deck_stations_are_inspectable_in_place(self):
         state = create_world("deck stations")
         cases = (
-            (Position(8, 15, -1), "station:bilge"),
+            (Position(8, 15, -1), "ship-work:pump"),
             (Position(39, 5, -1), "station:workshop"),
-            (Position(8, 5, 0), "station:galley"),
-            (Position(50, 5, 0), "station:repair"),
+            (Position(8, 5, 0), "ship-work:meal"),
+            (Position(50, 5, 0), "ship-work:repair"),
             (Position(35, 10, 1), "station:helm"),
             (Position(60, 10, 1), "station:lookout"),
         )
         for position, overlay in cases:
             with self.subTest(overlay=overlay):
                 state.position = position
+                before = state.world_time
                 self.assertEqual(interact(state).overlay, overlay)
+                self.assertEqual(state.world_time, before)
 
     def test_schedule_is_deterministic_and_visible_actor_crosses_deck_link(self):
         first = create_world("schedule")

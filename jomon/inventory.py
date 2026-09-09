@@ -45,7 +45,7 @@ def release_enemy_possession(state: GameState, threat) -> str:
     if item is None or item.location in {"destroyed", "lost"}:
         return ""
     item.location, item.owner_id, item.container_id = "ground", None, None
-    item.region_id, item.ground_position = state.active_region_id, threat.position
+    item.region_id, item.ground_position = state.spatial_id, threat.position
     return f" The stolen {item_spec(item.kind).name} falls at {threat.position.x},{threat.position.y}."
 
 # A working issue, not a class or permanent build. These items use the same
@@ -724,11 +724,11 @@ def unequip_item(state: GameState, location: str) -> bool:
 
 def drop_item(state: GameState, item_id: str) -> bool:
     item = next(item for item in state.items if item.id == item_id)
-    if state.location != "region" or item.owner_id != state.active_courier_id:
+    if item.owner_id != state.active_courier_id:
         return False
     item.location = "ground"
     item.owner_id = None
-    item.region_id = state.active_region_id
+    item.region_id = state.spatial_id
     item.ground_position = state.position
     item.container_id = None
     if item.kind == state.weapon:

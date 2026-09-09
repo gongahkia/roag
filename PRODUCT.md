@@ -2,11 +2,13 @@
 
 Jomon is a turn-based roguelike about sending one member of a persistent vessel-household into dangerous medieval settlements and wilderness. A courier trades, investigates, negotiates, and fights under pressure, then returns—or fails to return—with consequences that reshape Jomon, its people, and the local world.
 
-The current product is a fullscreen Python 3.11 terminal game using the standard-library `curses` module. The playable build contains Hearthford and three substantial, persistent regions: Greywash's tidal coast, Greenwold's open deep forest, and Whitecairn's limestone uplands. Travel begins from physical Jomon, whose tavern contains visible household members and bounded recruitable visitors. Couriers organise physically shaped items in a rotatable pack grid, wear armour across six readable body locations, and face terrain, weather, ranged fire, and goal-directed enemies whose plans depend on what they can see and hear.
+The current product is a fullscreen Python 3.11 terminal game using the standard-library `curses` module. Its eight destinations retain Hearthford, Greywash's tidal coast, Greenwold's open forest, and Whitecairn's limestone uplands, alongside the four frontier families described below. Travel begins from physical Jomon, whose tavern contains visible household members and bounded recruitable visitors. Couriers organise physically shaped items in a rotatable pack grid, wear armour across six readable body locations, and face terrain, weather, ranged fire, and goal-directed enemies whose plans depend on what they can see and hear.
 
-The current playable product deepens that established world without adding a
-fifth region. Jomon has three aligned functional decks plus a dedicated
-walkable tavern; its chart is a persistent 12-node connected route map; and
+The preceding four-region milestone deepened that established world in place.
+The active systemic expansion adds Dunmire, Rillscar, Marlbank and Frostmere
+without replacing existing geography. Jomon has three aligned functional
+decks plus a dedicated walkable tavern; its chart is now a persistent 16-node
+connected route map; and
 named adults follow deterministic action-clock schedules. Packing has live
 placement previews, a spatial paper doll, optional mouse input, pinning,
 transactional auto-packing, and bulk actions. A visible calendar and seasonal
@@ -14,14 +16,16 @@ effects alter existing weather, routes, work, stock, and exposure. All of
 these features are direct additions to the existing state and curses
 interface, not generic UI, schedule, travel, or social-simulation frameworks.
 
-The current content build deepens those four regions in place. Each has
+The preceding content milestone deepened the original four regions in place. Each has
 one directly authored, persistent regional questline; progress in at least two
 regions opens one grounded cross-region material dispute. Retained equipment,
 discoveries, recruits, terrain, enemies, controls, and physical items have
 observable action hooks. Production encounters use the existing bounded
 regional composer, while authored quest duties and seeded elite alternatives
-remain explicit. This adds no fifth region and no generic quest, dialogue,
-planning, faction, or encounter language.
+remain explicit. The expansion retains these lines and adds frontier material
+disputes without a generic quest, dialogue, planning, faction, or encounter
+language. Additional story depth and content targets remain acceptance gates,
+not completed claims.
 
 The permanent constraints are:
 
@@ -75,7 +79,9 @@ simulation, exhaustive needs or anatomy, unrestricted autonomous death,
 generic schedule/GOAP/encounter/quest/narrative languages, real-time travel,
 graphical tiles, generic spellcasting, and unbounded regional or onboard
 content. Voyage events continue to reuse ordinary people, cargo, inventory,
-and combat rules in three sporadic authored families.
+and combat rules in twelve sporadic authored families, eight offering physical
+deck play. Counted repairs, meals, pumping and workshop fittings are optional;
+their normal-play depth and balance remain under assessment.
 
 Action-clock social life is intentionally bounded: named adults travel between
 authored work, berth, watch, treatment, and tavern positions; schedule

@@ -1,0 +1,143 @@
+{
+  "auto_pack": {
+    "median_ms": 3.879,
+    "n": 24,
+    "p95_ms": 3.992,
+    "p99_ms": 4.031,
+    "worst_ms": 4.031
+  },
+  "boarding_fov": {
+    "median_ms": 0.006,
+    "n": 24,
+    "p95_ms": 0.03,
+    "p99_ms": 14.993,
+    "worst_ms": 14.993
+  },
+  "boarding_input_render": {
+    "median_ms": 31.696,
+    "n": 24,
+    "p95_ms": 32.311,
+    "p99_ms": 32.327,
+    "worst_ms": 32.327
+  },
+  "boarding_turn": {
+    "median_ms": 15.261,
+    "n": 24,
+    "p95_ms": 16.421,
+    "p99_ms": 16.609,
+    "worst_ms": 16.609
+  },
+  "chart_navigation": {
+    "median_ms": 0.014,
+    "n": 24,
+    "p95_ms": 0.029,
+    "p99_ms": 0.042,
+    "worst_ms": 0.042
+  },
+  "chart_open": {
+    "median_ms": 0.419,
+    "n": 24,
+    "p95_ms": 0.462,
+    "p99_ms": 0.591,
+    "worst_ms": 0.591
+  },
+  "cold_import": {
+    "median_ms": 135.115,
+    "n": 5,
+    "p95_ms": 150.338,
+    "p99_ms": 150.338,
+    "worst_ms": 150.338
+  },
+  "enemy_heavy_turn": {
+    "median_ms": 32.005,
+    "n": 24,
+    "p95_ms": 32.527,
+    "p99_ms": 32.735,
+    "worst_ms": 32.735
+  },
+  "environment_heavy_turn": {
+    "median_ms": 23.874,
+    "n": 24,
+    "p95_ms": 24.717,
+    "p99_ms": 25.512,
+    "worst_ms": 25.512
+  },
+  "fov": {
+    "median_ms": 0.058,
+    "n": 24,
+    "p95_ms": 0.072,
+    "p99_ms": 0.102,
+    "worst_ms": 0.102
+  },
+  "input_to_layout": {
+    "median_ms": 16.726,
+    "n": 24,
+    "p95_ms": 21.753,
+    "p99_ms": 22.88,
+    "worst_ms": 22.88
+  },
+  "inventory_open": {
+    "median_ms": 4.62,
+    "n": 24,
+    "p95_ms": 4.798,
+    "p99_ms": 4.976,
+    "worst_ms": 4.976
+  },
+  "load": {
+    "median_ms": 169.968,
+    "n": 24,
+    "p95_ms": 178.064,
+    "p99_ms": 179.333,
+    "worst_ms": 179.333
+  },
+  "movement": {
+    "median_ms": 10.295,
+    "n": 24,
+    "p95_ms": 10.549,
+    "p99_ms": 14.905,
+    "worst_ms": 14.905
+  },
+  "new_world": {
+    "median_ms": 316.392,
+    "n": 5,
+    "p95_ms": 323.1,
+    "p99_ms": 323.1,
+    "worst_ms": 323.1
+  },
+  "pathfinding": {
+    "median_ms": 23.223,
+    "n": 24,
+    "p95_ms": 27.166,
+    "p99_ms": 27.333,
+    "worst_ms": 27.333
+  },
+  "peak_rss_kib": 115128,
+  "platform": "Linux-7.1.12-100.fc43.x86_64-x86_64-with-glibc2.42",
+  "python": "3.14.7",
+  "region_entry": {
+    "median_ms": 0.01,
+    "n": 24,
+    "p95_ms": 0.019,
+    "p99_ms": 0.023,
+    "worst_ms": 0.023
+  },
+  "render_80x24": {
+    "median_ms": 6.084,
+    "n": 24,
+    "p95_ms": 6.248,
+    "p99_ms": 6.249,
+    "worst_ms": 6.249
+  },
+  "render_scope": "production layout into a sink; no terminal-driver latency",
+  "replay_equal": true,
+  "save": {
+    "median_ms": 13.323,
+    "n": 24,
+    "p95_ms": 13.844,
+    "p99_ms": 14.191,
+    "worst_ms": 14.191
+  },
+  "save_bytes": 315422,
+  "seed": "systemic-benchmark",
+  "units": "milliseconds"
+}

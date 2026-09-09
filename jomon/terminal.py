@@ -171,7 +171,7 @@ class TargetView:
         attack_range = effective_weapon_range(state)
         targets = sorted(
             (
-                threat for threat in state.threats
+                threat for threat in state.combatants
                 if threat.status in {"watching", "engaged"}
                 and threat.position.z == state.position.z
                 and distance(state.position, threat.position) <= attack_range
@@ -384,7 +384,7 @@ def observed_life_lines(state: GameState) -> list[str]:
 
     visible = field_of_view(state, remember=False)
     lines = ["FACT: only presently visible actors are listed. No inspection advances time."]
-    for actor in sorted(state.threats, key=lambda a: (distance(a.position, state.position), a.id)):
+    for actor in sorted(state.combatants, key=lambda a: (distance(a.position, state.position), a.id)):
         if actor.position not in visible or actor.status not in {"watching", "engaged"}:
             continue
         data = next((data for data in ENEMY_ARCHETYPES.values() if data["name"] == actor.name), None)
@@ -405,12 +405,12 @@ def visible_threats(
     state: GameState, visible: set[Position] | None = None
 ) -> dict[Position, Threat]:
     """Return only current, presently seen actors; memory never carries actors."""
-    if state.location != "region":
+    if not state.combat_active:
         return {}
     visible = visible if visible is not None else field_of_view(state, remember=False)
     return {
         threat.position: threat
-        for threat in state.threats
+        for threat in state.combatants
         if threat.status in {"watching", "engaged"}
         and threat.position.z == state.position.z
         and threat.position in visible
@@ -418,13 +418,16 @@ def visible_threats(
 
 
 def _draw_map(screen: curses.window, state: GameState, top: int, left: int, height: int, width: int) -> None:
+    from .materials import fields, key
+
+    material_cells = fields(state)
     rows = map_rows(state)
     view_height, view_width = height - 2, width - 2
     map_height, map_width = len(rows), max(map(len, rows))
     origin_x, origin_y = camera_origin(
         state.position, map_width, map_height, view_width, view_height
     )
-    visible = field_of_view(state, remember=False) if state.location == "region" else set()
+    visible = field_of_view(state, remember=False)
     threats = visible_threats(state, visible)
     known = set(state.region.seen)
     marks = set(state.treasure_marks.get(state.active_region_id, []))
@@ -453,13 +456,17 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
             else:
                 char = displayed_tile(state, position)
             role = semantic_role(char, aboard=state.location == "jomon")
+            if position != state.position and position not in threats:
+                cell = material_cells.get(key(position))
+                if cell and (cell.fire or cell.smoke >= 2 or cell.collapse_due):
+                    role = "hazard"
             if position in threats and position != state.position:
                 actor = threats[position]
                 role = "elite" if actor.elite else "neutral" if actor.ecology == "prey" else "hostile"
             attr = _COLOUR_ATTRIBUTES[role]
             if position in threats and threats[position].profile == "ranged":
                 attr |= curses.A_UNDERLINE
-            if state.location == "region" and position not in visible:
+            if state.combat_active and position not in visible:
                 attr = curses.A_DIM
             _put(screen, top + 1 + sy, left + 1 + sx, char, attr)
 
@@ -472,9 +479,9 @@ def _status_lines(state: GameState) -> list[str]:
     else:
         identity, health, injury, technique = "not chosen", "-", "-", "-"
     market = state.market[state.region.objective_commodity]
-    visible = field_of_view(state, remember=False) if state.location == "region" else set()
+    visible = field_of_view(state, remember=False)
     local = [
-        threat for threat in state.threats
+        threat for threat in state.combatants
         if threat.status in {"watching", "engaged"} and threat.position in visible
     ]
     threat = local[0].intent if local else "no visible threat"
@@ -501,6 +508,8 @@ def _status_lines(state: GameState) -> list[str]:
         f"Rope {state.rope_uses}; smoke {state.smoke_charges}",
         _clip(threat, 25),
     ]
+    if state.location == "jomon" and state.combat_active:
+        lines[6:10] = ["VOYAGE CRISIS", f"Hull {state.vessel_integrity}/10", f"Action {state.vessel_changes.get('deck_ticks', 0)}; noise {state.noise}", str(state.voyage_kind)]
     if build_combinations(state):
         lines.append(f"Combo: {_clip(build_combinations(state)[0], 20)}")
     if state.terrain_statuses:
@@ -544,7 +553,7 @@ def _draw_base(screen: curses.window, state: GameState) -> None:
 def _target_at_cursor(state: GameState, view: TargetView) -> Threat | None:
     return next(
         (
-            threat for threat in state.threats
+            threat for threat in state.combatants
             if threat.position == view.cursor
             and threat.status in {"watching", "engaged"}
         ),
@@ -614,14 +623,14 @@ def _target_cycle(state: GameState, view: TargetView) -> None:
         threat_id for threat_id in view.target_ids
         if any(
             threat.id == threat_id and threat.status in {"watching", "engaged"}
-            for threat in state.threats
+            for threat in state.combatants
         )
     ]
     if not available:
         return
     view.selected = (view.selected + 1) % len(available)
     view.target_ids = available
-    target = next(threat for threat in state.threats if threat.id == available[view.selected])
+    target = next(threat for threat in state.combatants if threat.id == available[view.selected])
     view.cursor = target.position
 
 
@@ -778,12 +787,14 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
             for index, item in enumerate(state.merchant_stock)
         ]
     if kind == "voyage":
-        rows = {
-            "raiders": (("R", "Repel with readied reach", "danger"), ("D", "Distract with material preparation", "commitment"), ("Y", "Yield one cargo lot", "refusal")),
-            "creature": (("R", "Repel with a spaced weapon", "danger"), ("E", "Evade through pilot knowledge", "commitment"), ("B", "Bait with salt fish", "commitment")),
-            "lure": (("A", "Anchor to the real bank", "commitment"), ("C", "Counsel named crew", "ordinary"), ("N", "Navigate by chart and lead line", "commitment")),
-        }[state.voyage_kind]
+        from .ship_crises import choices
+        rows = choices(state)
         return [ChoiceOption(*row) for row in rows]
+    if kind.startswith("ship-work:"):
+        task = kind.split(":", 1)[1]
+        timber = state.vessel_cargo.get("timber")
+        allowed = task != "repair" or bool(timber and timber.quantity and state.vessel_integrity < 10)
+        return [ChoiceOption("F", "Confirm the counted work and time", "commitment", allowed, "needs hull damage and one timber lot" if not allowed else ""), ChoiceOption("B", "Back without work")]
     if kind == "bartender":
         return [
             ChoiceOption("D", "Browse the counted drink stock"),
@@ -1177,7 +1188,7 @@ def _animate_route(screen: curses.window, state: GameState, origin: str, destina
 
 def _inventory_panes(state: GameState, view: InventoryView) -> list[str]:
     if state.location == "jomon":
-        return ["pack", "locker"]
+        return ["pack", "locker", "ground"] if any(item.location == "ground" and item.region_id == "jomon" and item.ground_position == state.position for item in state.items) else ["pack", "locker"]
     return ["pack", view.source or "ground"]
 
 
@@ -1193,7 +1204,7 @@ def _inventory_items(state: GameState, view: InventoryView) -> list:
         return [
             item for item in state.items
             if item.location == "ground"
-            and item.region_id == state.active_region_id
+            and item.region_id == state.spatial_id
             and item.ground_position == state.position
         ]
     return []
@@ -1480,8 +1491,8 @@ def _handle_inventory(state: GameState, view: InventoryView, event: InputEvent |
             view.status = "Drop cancelled."
         return False, False
     if key == ord("D"):
-        if state.location != "region":
-            view.status = "Physical dropping is available only in a region."
+        if state.location == "jomon" and state.jomon_space != "vessel":
+            view.status = "Use the locker or vessel deck; tavern floor storage is not available."
             return False, False
         item = _inventory_item_at(state, view)
         targets = view.selected_ids or ({item.id} if item else set())
@@ -1847,14 +1858,11 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             "Number sets course; Escape keeps the current mooring without time.",
         ]
     if kind == "voyage":
-        lines = [state.voyage_detail, ""]
-        if state.voyage_kind == "raiders":
-            lines += ["R. Repel with readied reach", "D. Distract with material preparation", "Y. Yield one cargo lot"]
-        elif state.voyage_kind == "creature":
-            lines += ["R. Repel with a spaced weapon", "E. Evade through pilot knowledge", "B. Bait with one salt-fish lot"]
-        else:
-            lines += ["A. Anchor to the real bank", "C. Counsel named crew", "N. Navigate by chart and lead line"]
-        return "VOYAGE DANGER", lines + ["A response advances the action clock; Escape does not dismiss the danger."]
+        from .ship_crises import crisis_lines
+        return "VOYAGE DANGER", crisis_lines(state)
+    if kind.startswith("ship-work:"):
+        from .ship_crises import work_lines
+        return "COUNTED VESSEL WORK", work_lines(state, kind.split(":", 1)[1])
     if kind == "quit":
         return "QUIT JOMON?", ["Press Y to quit. Press N or Escape to continue."]
     if kind.startswith("person:"):
@@ -1920,6 +1928,15 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         if char in "12345678" and equipped_item(state, SLOTS[int(char) - 1]):
             return "workshop:slot:" + SLOTS[int(char) - 1], False
         return ("workshop:store" if char == "p" else kind), False
+    if kind.startswith("ship-work:"):
+        if char == "b":
+            return None, False
+        if char == "f":
+            from .ship_crises import work
+            changed, message = work(state, kind.split(":", 1)[1])
+            state.add_message(message, priority=3)
+            return (None if changed else kind), False
+        return kind, False
     if kind.startswith("workshop:"):
         from .workshop import FITTINGS, buy_kit, install, remove, repair
 
@@ -2007,14 +2024,13 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
             return kind, False
         return ("voyage" if state.voyage_status == "active" else None), False
     if kind == "voyage":
-        choices = {
-            "raiders": {"r": "repel", "d": "distract", "y": "yield"},
-            "creature": {"r": "repel", "e": "evade", "b": "bait"},
-            "lure": {"a": "anchor", "c": "counsel", "n": "navigate"},
-        }[state.voyage_kind]
-        if char in choices:
-            resolve_voyage(state, choices[char])
-            return None, False
+        from .ship_crises import choices
+        allowed = {key.lower() for key, _, _ in choices(state)}
+        commands = {"p": "deck", "r": "repel", "d": "distract", "y": "yield", "e": "evade", "b": "bait", "a": "anchor", "c": "counsel", "n": "navigate"}
+        if char in allowed:
+            changed, message = resolve_voyage(state, commands[char])
+            state.add_message(message, priority=3)
+            return (None if changed else kind), False
     if kind == "bartender":
         if char == "d":
             return "bartender:drinks", False
@@ -2100,7 +2116,7 @@ def play(screen: curses.window, state: GameState) -> GameState:
             closed, committed = _handle_inventory(state, inventory_view, event)
             if closed:
                 if committed and inventory_view.transaction.changed:
-                    if state.location == "region" and inventory_view.source is None:
+                    if state.combat_active and inventory_view.source is None:
                         _advance_world(state)
                         state.add_message("You complete one deliberate field repack.", priority=2)
                     else:
@@ -2142,7 +2158,7 @@ def play(screen: curses.window, state: GameState) -> GameState:
             else:
                 overlay = OverlayView(result.overlay) if result.overlay else None
         elif normalized == ord("a"):
-            if state.location == "region" and state.weapon in RANGED_WEAPONS:
+            if state.combat_active and state.weapon in RANGED_WEAPONS:
                 target_view = TargetView.begin(state)
             else:
                 attack(state)

@@ -114,8 +114,14 @@ buying or drinking costs credit and an action. The physical `P` chart opens a
 16-node ASCII network. Arrows, `WASD`, or `HJKL` follow its edges, `Tab` cycles
 information layers, `Enter` previews then confirms, mouse click selects when
 reported, and `Escape` cancels. Travel costs and risks belong to each edge,
-animation may be skipped without changing its result, and a sporadic raider,
-river-creature, or original low-mysticism lure can interrupt a leg.
+animation may be skipped without changing its result. Twelve bounded voyage
+families can interrupt a leg. Eight offer `P` to take the physical decks:
+raiders, boarders, hold thieves, a territorial grazer, a failing stay, galley
+fire, a split seam, and bilge flooding. Ordinary combat, aimed lanes, hatches,
+materials and physical dropped possessions apply there; `R` abandons the
+claim with disclosed cargo/hull losses. The other four involve sounding a
+shoal, retrieving drifting timber, cargo inspection, or a rare answering-hull
+lure. See [counted vessel work and crises](docs/voyage-crises.md).
 
 The persistent calendar uses 36 actions per day and 24 days per season.
 Spring, summer, autumn, and winter affect daylight, route access, weather,

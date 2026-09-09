@@ -69,6 +69,7 @@ class RegionalGenerationTests(unittest.TestCase):
 
     def test_four_spatially_aligned_levels_and_valid_links(self):
         state = create_world("vertical links")
+        state.location = "region"
         self.assertEqual(set(state.region.levels), {"-1", "0", "1", "2"})
         for link in state.region.vertical_links:
             self.assertEqual((link.first.x, link.first.y), (link.second.x, link.second.y))

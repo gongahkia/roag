@@ -156,7 +156,7 @@ def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, s
 
 
 def _expose(state: GameState, point: Position, reaction: str, severity: int) -> None:
-    for threat in state.threats if state.location == "region" else []:
+    for threat in state.combatants:
         if threat.position == point:
             affect_body(state, threat, reaction, severity, point)
     area = f"region:{state.active_region_id}" if state.location == "region" else f"vessel:{point.z}"
@@ -165,7 +165,7 @@ def _expose(state: GameState, point: Position, reaction: str, severity: int) -> 
         if schedule.area == area and schedule.position == point and schedule.actor_id in people and schedule.actor_id != state.active_courier_id:
             affect_body(state, people[schedule.actor_id], reaction, severity, point)
     for item in state.items:
-        on_ground = item.location == "ground" and item.region_id == state.active_region_id and item.ground_position == point
+        on_ground = item.location == "ground" and item.region_id == state.spatial_id and item.ground_position == point
         carried = state.position == point and item.owner_id == state.active_courier_id and item.location in {"pack", "readied", "secondary", "head", "torso", "arms", "hands", "legs", "feet"}
         if on_ground or carried:
             affect_body(state, item, reaction, severity, point)
@@ -270,7 +270,7 @@ def advance_materials(state: GameState) -> int:
                 _expose(state, point, "smoke", 1)
                 state.smoke[coordinate] = max(state.smoke.get(coordinate, 0), 2)
             above = Position(point.x, point.y, point.z + 1)
-            rises = state.location == "region" and str(above.z) in state.region.levels and vertical_open(state, point, above)
+            rises = vertical_open(state, point, above)
             destination = above if rises else Position(point.x + wind, point.y, point.z)
             if cell.smoke >= 2 and base_tile(state, destination) not in {" ", "#"}:
                 other = ensure_cell(state, destination)

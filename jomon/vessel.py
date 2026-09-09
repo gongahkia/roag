@@ -162,14 +162,23 @@ SCHEDULE_WORK_POSITIONS: dict[tuple[str, Position], Position] = {
 def vessel_rows(state: GameState, z: int | None = None) -> tuple[str, ...]:
     if state.jomon_space == "tavern":
         return TAVERN_MAP
-    return VESSEL_LEVELS[state.position.z if z is None else z]
+    level = state.position.z if z is None else z
+    original = VESSEL_LEVELS[level]
+    if not state.vessel_tiles:
+        return original
+    rows = list(original)
+    for key, glyph in state.vessel_tiles.items():
+        x, y, changed_z = map(int, key.split(","))
+        if changed_z == level:
+            rows[y] = rows[y][:x] + glyph + rows[y][x + 1:]
+    return tuple(rows)
 
 
 def vessel_tile(state: GameState, position: Position) -> str:
     rows = TAVERN_MAP if state.jomon_space == "tavern" else VESSEL_LEVELS.get(position.z, ())
     if not 0 <= position.y < len(rows) or not 0 <= position.x < len(rows[position.y]):
         return " "
-    return rows[position.y][position.x]
+    return state.vessel_tiles.get(f"{position.x},{position.y},{position.z}", rows[position.y][position.x]) if state.jomon_space == "vessel" else rows[position.y][position.x]
 
 
 def vessel_vertical_destination(position: Position) -> Position | None:

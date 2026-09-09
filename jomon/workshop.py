@@ -217,7 +217,7 @@ def attack_effects(state: GameState, target: Position, sound: int, ammunition: s
             recovered = next((item for item in reversed(state.items) if item.location == "ground" and item.kind == AMMUNITION_ITEMS[ammunition] and item.ground_position == target), None)
         else:
             recovered = create_item(state, AMMUNITION_ITEMS[ammunition], "spent throw tethered by a finite retrieval cord", location="ground")
-            recovered.region_id, recovered.ground_position = state.active_region_id, target
+            recovered.region_id, recovered.ground_position = state.spatial_id, target
         if recovered:
             if distance(state.position, target) <= 4 and line_of_sight(state, state.position, target) and auto_place(state, recovered.id, "pack", owner_id=state.active_courier_id):
                 sync_legacy_load(state)

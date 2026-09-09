@@ -146,13 +146,16 @@ def is_walkable(state: GameState, position: Position, *, ignore_threat: bool = F
         return False
     if state.location == "jomon" and tile in {"a", "v", "B"}:
         return False
-    if state.location == "region" and not ignore_threat:
-        if any(threat.position == position and threat.status in {"watching", "engaged"} for threat in state.threats):
+    if state.combat_active and not ignore_threat:
+        if any(threat.position == position and threat.status in {"watching", "engaged"} for threat in state.combatants):
             return False
     return True
 
 
 def vertical_destination(state: GameState, position: Position) -> Position | None:
+    if state.location == "jomon":
+        from .vessel import vessel_vertical_destination
+        return vessel_vertical_destination(position) if state.jomon_space == "vessel" else None
     for link in state.region.vertical_links:
         if link.first == position:
             return link.second
@@ -164,6 +167,8 @@ def vertical_destination(state: GameState, position: Position) -> Position | Non
 def vertical_open(state: GameState, lower: Position, upper: Position) -> bool:
     if lower.x != upper.x or lower.y != upper.y or upper.z - lower.z != 1:
         return False
+    if state.location == "jomon":
+        return vertical_destination(state, lower) == upper
     if any({link.first, link.second} == {lower, upper} for link in state.region.vertical_links):
         return True
     lower_tile, upper_tile = base_tile(state, lower), base_tile(state, upper)
@@ -288,7 +293,19 @@ def sight_radius(state: GameState) -> int:
 def field_of_view(state: GameState, *, remember: bool = True) -> set[Position]:
     if state.location != "region":
         rows = map_rows(state)
-        return {Position(x, y, state.position.z) for y, row in enumerate(rows) for x in range(len(row))}
+        signature = ("vessel", state.jomon_space, state.position, state.combat_active,
+                     tuple(rows), tuple(sorted(state.smoke)))
+        cached = getattr(state, "_fov_cache", None)
+        if cached is not None and cached[0] == signature:
+            return set(cached[1])
+        visible = {Position(x, y, state.position.z) for y, row in enumerate(rows) for x in range(len(row))}
+        if state.combat_active:
+            visible = {point for point in visible if distance(state.position, point) <= 16 and line_of_sight(state, state.position, point)}
+            destination = vertical_destination(state, state.position)
+            if destination and line_of_sight(state, state.position, destination):
+                visible.add(destination)
+        state._fov_cache = (signature, frozenset(visible))
+        return visible
     radius = sight_radius(state)
     # One disposable entry; the key includes every mutable sight input. Actors
     # never enter it, and dataclass serialization does not persist this cache.

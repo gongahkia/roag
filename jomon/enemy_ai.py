@@ -27,7 +27,7 @@ def effective_vision(state: GameState, threat: Threat) -> int:
 
 def sees_courier(state: GameState, threat: Threat) -> bool:
     return (
-        state.location == "region"
+        state.combat_active
         and distance(threat.position, state.position) <= effective_vision(state, threat)
         and line_of_sight(state, threat.position, state.position)
     )
@@ -52,7 +52,7 @@ def perceive(state: GameState, threat: Threat) -> tuple[bool, Position | None, s
         threat.last_known_position = heard
         return False, heard, "a recent sound has a known origin"
     alert = state.group_alerts.get(threat.group) if threat.group else None
-    source = next((actor for actor in state.threats if alert and actor.id == alert.source_id), None)
+    source = next((actor for actor in state.combatants if alert and actor.id == alert.source_id), None)
     if alert and source and distance(source.position, threat.position) <= threat.hearing + 4 and state.world_time - alert.raised_turn <= 12:
         threat.last_known_position = alert.position
         return False, alert.position, "an ally shared a last-known position"
@@ -60,6 +60,9 @@ def perceive(state: GameState, threat: Threat) -> tuple[bool, Position | None, s
 
 
 def higher_access_target(state: GameState, threat: Threat) -> Position | None:
+    if state.location == "jomon":
+        from .vessel import UPPER_STAIR, MAIN_UPPER_STAIR
+        return UPPER_STAIR if threat.position.z == MAIN_UPPER_STAIR.z else None
     candidates: list[Position] = []
     for link in state.region.vertical_links:
         lower, upper = (
@@ -109,7 +112,7 @@ def select_goal(state: GameState, threat: Threat) -> EnemyDecision:
             "the courier has left the boundary it defends", threat.home_position,
         )
     if visible:
-        if threat.role == "thief" and gap <= 1 and pressure(state).valuables:
+        if threat.role == "thief" and gap <= 1 and (state.carried_goods or state.carried_passives or state.carried_relic):
             option("steal cargo", "steal", 105, "an exposed valuable load is within reach", state.position)
         if threat.role == "lookout" and not threat.alarmed:
             option("raise alarm", "alarm", 98, "its guarded route has been breached", threat.home_position)
@@ -156,7 +159,7 @@ def select_goal(state: GameState, threat: Threat) -> EnemyDecision:
         if threat.role == "protector":
             ranged_ally = next(
                 (
-                    ally for ally in state.threats
+                    ally for ally in state.combatants
                     if ally.id != threat.id and ally.group == threat.group
                     and ally.profile == "ranged" and ally.status in {"watching", "engaged"}
                 ),
@@ -166,7 +169,7 @@ def select_goal(state: GameState, threat: Threat) -> EnemyDecision:
                 option("protect ally", "intercept", 90, "a ranged ally needs space", ranged_ally.position)
             wounded_ally = next(
                 (
-                    ally for ally in state.threats
+                    ally for ally in state.combatants
                     if ally.id != threat.id and ally.group == threat.group
                     and ally.status == "engaged"
                     and (ally.health <= ally.max_health // 2 or ally.morale <= 1)
@@ -209,7 +212,7 @@ def _neighbours(state: GameState, position: Position, threat: Threat, context=No
     if vertical and "no-climb" not in threat.capabilities:
         candidates.append(vertical)
     occupied = context[1] if context else {
-        other.position for other in state.threats
+        other.position for other in state.combatants
         if other.id != threat.id and other.status in {"watching", "engaged"}
     }
     def walkable(candidate):
@@ -246,7 +249,7 @@ def next_path_step(
     if distance(threat.position, target) <= stop_distance:
         return threat.position
     occupied = frozenset(
-        other.position for other in state.threats
+        other.position for other in state.combatants
         if other.id != threat.id and other.status in {"watching", "engaged"}
     )
     signature = (
@@ -254,6 +257,7 @@ def next_path_step(
         tuple(threat.capabilities), occupied,
         tuple((z, tuple(rows)) for z, rows in state.region.levels.items()),
         tuple(sorted(state.region.tile_changes.items())),
+        tuple(sorted(state.vessel_tiles.items())),
         tuple((key, cell.ice, cell.water) for key, cell in sorted(state.region.materials.items())),
         tuple(sorted(state.smoke)), tuple(sorted(state.water)),
         tuple((link.first, link.second) for link in state.region.vertical_links),
@@ -266,8 +270,12 @@ def next_path_step(
         index = saved[1].index(threat.position)
         return saved[1][min(index + 1, len(saved[1]) - 1)]
     links = {}
-    for link in state.region.vertical_links:
-        links[link.first], links[link.second] = link.second, link.first
+    if state.location == "jomon":
+        from .vessel import LOWER_HATCH, MAIN_LOWER_HATCH, MAIN_UPPER_STAIR, UPPER_STAIR
+        links = {LOWER_HATCH: MAIN_LOWER_HATCH, MAIN_LOWER_HATCH: LOWER_HATCH, MAIN_UPPER_STAIR: UPPER_STAIR, UPPER_STAIR: MAIN_UPPER_STAIR}
+    else:
+        for link in state.region.vertical_links:
+            links[link.first], links[link.second] = link.second, link.first
     context = (links, occupied, {})
     queue = deque([threat.position])
     previous: dict[Position, Position | None] = {threat.position: None}
@@ -306,7 +314,7 @@ def raise_group_alert(state: GameState, threat: Threat) -> None:
         return
     state.group_alerts[threat.group] = GroupAlert(state.position, state.world_time, threat.id)
     threat.alarmed = True
-    for ally in state.threats:
+    for ally in state.combatants:
         if ally.group == threat.group and ally.status == "watching" and distance(ally.position, threat.position) <= ally.hearing + 4:
             ally.last_known_position = state.position
             ally.status = "engaged"
