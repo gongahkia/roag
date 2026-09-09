@@ -118,6 +118,35 @@ class MaterialCell:
 
 
 @dataclass
+class RegionalEvent:
+    id: str
+    previous: str | None
+    kind: str
+    material: str
+    place: str
+    witness: str
+    institution: str
+    evidence: str
+    account: str
+    consequence: str
+
+
+@dataclass
+class Institution:
+    id: str
+    name: str
+    region_id: str
+    dependency: str
+    production: str
+    goal: str
+    dispute: str
+    trust: int = 0
+    obligation: int = 0
+    confidence: int = 0
+    last_day: int = 0
+
+
+@dataclass
 class Region:
     condition: str
     work: str
@@ -147,6 +176,8 @@ class Region:
     local_objective_changed: bool = False
     materials: dict[str, MaterialCell] = field(default_factory=dict)
     material_cursor: int = 0
+    generation_facts: dict[str, str | int] = field(default_factory=dict)
+    regional_history: list[RegionalEvent] = field(default_factory=list)
 
 
 @dataclass
@@ -395,6 +426,7 @@ class GameState:
     messages: list[str] = field(default_factory=list)
     world_ended: bool = False
     vessel_materials: dict[str, MaterialCell] = field(default_factory=dict)
+    institutions: dict[str, Institution] = field(default_factory=dict)
 
     @property
     def courier(self) -> Person | None:
@@ -620,6 +652,10 @@ def create_world(seed: str) -> GameState:
     from .vessel import initialise_living_vessel
 
     initialise_route_chart(state)
+    from .regional_history import initialise_account
+
+    for region_id in state.regions:
+        initialise_account(state, region_id, new_geography=True)
     initialise_living_vessel(state)
     state.add_message(f"Jomon reaches Hearthford. {region.condition}")
     state.add_message(
@@ -790,6 +826,7 @@ def game_state_from_dict(data: Any) -> GameState:
         def parse_region(raw: dict[str, Any]) -> Region:
             values = dict(raw)
             values["materials"] = {key: MaterialCell(**cell) for key, cell in values.get("materials", {}).items()}
+            values["regional_history"] = [RegionalEvent(**event) for event in values.get("regional_history", [])]
             values["landmarks"] = {key: _position(value, f"{key} landmark") for key, value in values["landmarks"].items()}
             values["zones"] = {key: tuple(value) for key, value in values["zones"].items()}
             values["vertical_links"] = [
@@ -962,6 +999,7 @@ def game_state_from_dict(data: Any) -> GameState:
             },
             history=list(data["history"]), messages=list(data["messages"]), world_ended=data["world_ended"],
             vessel_materials={key: MaterialCell(**cell) for key, cell in data.get("vessel_materials", {}).items()},
+            institutions={key: Institution(**value) for key, value in data.get("institutions", {}).items()},
         )
         if migrated_v3:
             from .inventory import initialise_inventory, reconcile_legacy_carried, sync_legacy_load
@@ -993,6 +1031,10 @@ def game_state_from_dict(data: Any) -> GameState:
         from .route_chart import extend_route_chart
 
         extend_route_chart(state)
+        from .regional_history import initialise_account
+
+        for region_id in state.regions:
+            initialise_account(state, region_id, new_geography=False)
         from .quests import initialise_quests
 
         initialise_quests(state)
@@ -1040,9 +1082,11 @@ def game_state_from_dict(data: Any) -> GameState:
 
 def validate_state(state: GameState) -> None:
     from .materials import validate_materials
+    from .regional_history import validate_accounts
 
     try:
         validate_materials(state)
+        validate_accounts(state)
     except ValueError as exc:
         raise StateError(f"invalid material state: {exc}") from exc
     if len(state.household) < 6 or len({person.id for person in state.household}) != len(state.household):

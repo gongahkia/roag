@@ -321,7 +321,8 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
     material = material_at(state, point)
     if verb == "ignite" and (material not in FLAMMABLE or state.lamp_oil <= 0 or (existing and existing.water)):
         return False, "Ignition needs dry fuel and one finite measure of lamp oil."
-    if verb in {"brace", "lever", "break", "cut", "dig"} and not (state.gear == "repair tools" or state.weapon in {"hand axe", "billhook", "war hammer"} or state.courier.technique == "lever craft"):
+    learned_brace = verb == "brace" and bool({"mill hearing", "bell interval"} & set(state.courier.learned_techniques))
+    if verb in {"brace", "lever", "break", "cut", "dig"} and not (learned_brace or state.gear == "repair tools" or state.weapon in {"hand axe", "billhook", "war hammer"} or state.courier.technique == "lever craft"):
         return False, "This work needs a cutting/levering weapon, repair tools, or Lever Craft."
     if verb in {"push", "pull"}:
         container = next((c for c in state.region.containers if c.position == point), None) if state.location == "region" else None

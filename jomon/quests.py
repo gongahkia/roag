@@ -346,6 +346,12 @@ def resolve_regional_quest(state: GameState, choice: str) -> tuple[bool, str]:
         consequence = settle_frontier_claim(state, choice)
     quest.stage, quest.status, quest.consequence = 3, "completed", consequence
     quest.decisions.append(f"ending:{choice}")
+    from .regional_history import account_for
+
+    account = account_for(state)
+    if account:
+        account.trust = min(3, account.trust + 1)
+        account.confidence = min(3, account.confidence + 1)
     _grant_passive_reward(state, QUEST_REWARDS[region_id])
     memory = f"{state.courier.name} completed {QUESTS[region_id]['title']}: {consequence}"
     state.remember(memory)
@@ -457,12 +463,17 @@ def resolve_arc_choice(state: GameState, choice: str) -> tuple[bool, str]:
 
 
 def secondary_service_options(state: GameState) -> tuple[tuple[str, str, str, bool, str], ...]:
+    from .regional_history import account_for
+
+    institution = account_for(state)
     injured = bool(state.courier and state.courier.injuries)
     rows = [
         ("c", "Mark a named regional cache", "ordinary", True, ""),
         ("t", "Take local practical instruction", "ordinary", True, ""),
         ("h", "Treat one persistent injury", "commitment", injured, "the courier has no persistent injury"),
     ]
+    if institution:
+        rows.append(("d", f"Deliver one {institution.dependency} to the working account", "commitment", state.market[institution.dependency].stock < 5, "stores already supplied"))
     return tuple(rows)
 
 
@@ -471,6 +482,10 @@ def use_secondary_service(state: GameState, choice: str) -> tuple[bool, str]:
     if option is None or not option[3]:
         return False, option[4] if option else "That service is unavailable."
     contact = state.contacts[state.active_region_id][1]
+    if choice == "d":
+        from .regional_history import deliver_dependency
+
+        return deliver_dependency(state)
     if choice == "c":
         changed = mark_secondary_lead(state)
         return changed, "The local worker places a persistent named cache mark on Jomon's account."
@@ -489,10 +504,22 @@ def use_secondary_service(state: GameState, choice: str) -> tuple[bool, str]:
             return False, f"{state.courier.name} already knows {technique}."
         state.courier.learned_techniques.append(technique)
         contact.disposition = min(3, contact.disposition + 1)
-        return True, f"{contact.name} teaches {technique}; the regional clue is now part of this courier's build."
-    if state.trade_credit <= 0 and state.support != "field care":
+        effects = {
+            "mill hearing": "control work is quieter; weak supports can be braced without a heavy tool",
+            "shoreline measure": "released water no longer adds a crossing action; coastal weather leaves a longer sightline",
+            "smoke spoor": "movement through smoke is quiet; smoke leaves five paces of local visibility",
+            "bell interval": "warning controls are worked quietly; brace work can be timed without a heavy tool",
+        }
+        return True, f"{contact.name} teaches {technique}: {effects[technique]}."
+    from .regional_history import account_for
+
+    account = account_for(state)
+    entrusted_care = bool(account and account.trust >= 2 and account.obligation < 3)
+    if state.trade_credit <= 0 and state.support != "field care" and not entrusted_care:
         return False, "Treatment needs one credit or the prepared healer's field care."
-    if state.support != "field care":
+    if entrusted_care:
+        account.obligation += 1
+    elif state.support != "field care":
         state.trade_credit -= 1
     location = sorted(state.courier.injuries)[0]
     state.courier.injuries.pop(location)

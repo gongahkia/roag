@@ -1037,7 +1037,9 @@ def _advance_world(
         record_calendar_crossings(state, previous_time)
         advance_living_world(state)
         from .materials import advance_materials
+        from .regional_history import advance_production
 
+        advance_production(state)
         advance_materials(state)
         if state.location != "region":
             continue
@@ -1237,6 +1239,7 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
             and state.weather == "crosswind"
         )
         or "surveyed soft-step" in build_combinations(state)
+        or ("smoke spoor" in state.courier.learned_techniques and position_key(target) in state.smoke)
     )
     if tile == "m" and not (
         state.gear == "quiet shoes"
@@ -1265,6 +1268,7 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
     if position_key(target) in state.water:
         protected = (
             state.gear == "rope"
+            or (state.courier and "shoreline measure" in state.courier.learned_techniques)
             or "river hooks" in state.carried_passives
             or (state.courier and state.courier.technique == "sure footing")
             or (
@@ -1502,6 +1506,7 @@ def _control_interaction(state: GameState) -> ActionResult:
         or state.support == "carpenter rig"
         or (courier and courier.technique == "lever craft")
         or "sluice token" in state.carried_passives
+        or (courier and {"mill hearing", "bell interval"} & set(courier.learned_techniques))
     )
     if state.active_region_id != "hearthford":
         state.region.changes["environment_control_used"] = True

@@ -503,7 +503,7 @@ def _draw_base(screen: curses.window, state: GameState) -> None:
         event_lines.extend(_wrapped(message, width - 4))
     for index, line in enumerate(event_lines[-(event_height - 2):]):
         _put(screen, main_height + 1 + index, 2, _clip(line, width - 4))
-    _put(screen, height - 2, 1, "Move HJKL/YUBN/arrows E interact A attack G guard/reload X gear F material", curses.A_REVERSE)
+    _put(screen, height - 2, 1, "Move HJKL/arrows E interact A attack G guard X gear F material Z ledger", curses.A_REVERSE)
     _put(screen, height - 1, 1, "V negotiate  R retreat  I inventory  S save aboard  ? help  Q quit", curses.A_REVERSE)
     screen.refresh()
 
@@ -1562,6 +1562,10 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return "JOMON HOUSEHOLD", lines + ["Escape closes without advancing time."]
     if kind == "chronicle":
         return "JOMON VESSEL CHRONICLE", [*(state.chronicle[-16:] or ["No vessel incident is recorded yet."]), "Escape closes without advancing time."]
+    if kind == "regional-ledger":
+        from .regional_history import ledger_lines
+
+        return "REGIONAL WORK, HISTORY AND FORECAST", ledger_lines(state)
     if kind.startswith("station:"):
         station = kind.split(":", 1)[1]
         title, detail = {
@@ -1788,7 +1792,7 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         if kind.startswith("bartender:"):
             return "bartender", False
         return ("bartender" if kind.startswith("tavern:") else None), False
-    if kind in {"help", "inventory", "equipment", "household", "hold", "contact", "info", "chronicle"} or kind.startswith("contact:"):
+    if kind in {"help", "inventory", "equipment", "household", "hold", "contact", "info", "chronicle", "regional-ledger"} or kind.startswith("contact:"):
         return None, False
     if kind == "quit":
         if char == "y":
@@ -2017,6 +2021,8 @@ def play(screen: curses.window, state: GameState) -> GameState:
             inventory_view = InventoryView.begin(state)
         elif normalized == ord("f"):
             overlay = OverlayView("material")
+        elif normalized == ord("z"):
+            overlay = OverlayView("regional-ledger")
         elif normalized == ord("?"):
             overlay = OverlayView("help")
         elif normalized == ord("s"):

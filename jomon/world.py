@@ -265,6 +265,11 @@ def sight_radius(state: GameState) -> int:
         and state.active_region_id == "greenwold" and state.weather == "crosswind"
     ):
         radius += 2
+    known = set(state.courier.learned_techniques) if state.courier else set()
+    if "shoreline measure" in known and state.weather in {"salt wind", "coast squall"}:
+        radius += 2
+    if "smoke spoor" in known and position_key(state.position) in state.smoke:
+        radius = max(radius, 5)
     if "reed-tonic" in state.drink_effects:
         radius = max(3, radius - 2)
     return radius
