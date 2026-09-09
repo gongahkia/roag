@@ -234,3 +234,8 @@ dispatch. The corrected replay/migration/telemetry group passed **20 tests in
 23.585s**. The all-card/all-enemy opcode scenarios and queue-save group passed
 **5 tests in 159.386s**; they did not expose the dead-target case that the actual
 command transcripts caught. A dedicated compound-target regression was added.
+
+Queue payload migration 29→30 passed **18 tests in 2.192s**, warning-enabled
+compilation, content validation and `git diff --check`. An initial validator
+invocation used the nonexistent `dumbest_dungeon.validate` module; the documented
+`python3 -m dumbest_dungeon --validate-content` command then passed.

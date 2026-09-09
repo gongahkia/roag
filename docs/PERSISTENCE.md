@@ -1,6 +1,6 @@
 # Persistence contracts
 
-The run save currently uses schema 29, content schema 20, and the existing Python
+The run save currently uses schema 30, content schema 20, and the existing Python
 `random.Random` state. Profile, telemetry, manifest, and domain-separated RNG
 contracts are being implemented in Pass 3; they are not interchangeable versions.
 
@@ -112,3 +112,9 @@ schema-26 save made during a normal terminal run, before the final two legal car
 plays. It is a migration fixture, not an injected starting build or a post-victory
 save. The calibration transcripts in the same directory also retain schema-26
 final snapshots.
+
+Migration 29→30 advances the queue to schema 2 and explicitly marks every saved
+primary payload as `raw_damage=false`. This distinguishes already computed hits
+from ordinary card damage before queued counterattacks are registered. Missing
+payload fields in current saves are errors, not implicit defaults. The migration
+copies its input and accepts exactly schema 29 with a schema-1 queue.

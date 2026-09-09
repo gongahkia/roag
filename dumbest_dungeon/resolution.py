@@ -21,12 +21,15 @@ class Payload:
     bonus_status: str | None = None
     bonus: int = 0
     card_id: str | None = None
+    raw_damage: bool = False
 
     def __post_init__(self) -> None:
         if type(self.amount) is not int or type(self.bonus) is not int:
             raise ValueError("event magnitudes must be integers")
         if self.opcode is not None and not isinstance(self.opcode, Opcode):
             raise ValueError("event opcode must be registered")
+        if type(self.raw_damage) is not bool or self.raw_damage and self.opcode != Opcode.DAMAGE:
+            raise ValueError("raw damage requires the damage opcode")
         if any(value is not None and (not isinstance(value, str) or not value)
                for value in (self.actor_id, self.status, self.bonus_status, self.card_id)):
             raise ValueError("event references must be nonempty strings")
@@ -75,7 +78,7 @@ class Dispatch:
 
 @dataclass
 class QueueState:
-    schema: int = 1
+    schema: int = 2
     next_event_id: int = 1
     next_root_id: int = 1
     root_id: int | None = None
@@ -284,6 +287,8 @@ class EventQueue:
             if not isinstance(data, dict) or set(data) != set(Event.__dataclass_fields__):
                 raise ValueError("invalid queued event fields")
             data = dict(data)
+            if not isinstance(data["payload"], dict) or set(data["payload"]) != set(Payload.__dataclass_fields__):
+                raise ValueError("invalid event payload fields")
             operands = dict(data["payload"])
             operands["opcode"] = Opcode(operands["opcode"]) if operands["opcode"] is not None else None
             data["payload"] = Payload(**operands)
@@ -318,7 +323,7 @@ class EventQueue:
             return Listener(**data)
 
         try:
-            if (type(raw["schema"]) is not int or raw["schema"] != 1 or any(type(raw[key]) is not int or raw[key] < 1 for key in ("next_event_id", "next_root_id"))
+            if (type(raw["schema"]) is not int or raw["schema"] != 2 or any(type(raw[key]) is not int or raw[key] < 1 for key in ("next_event_id", "next_root_id"))
                 or raw["root_id"] is not None and (type(raw["root_id"]) is not int or not 1 <= raw["root_id"] < raw["next_root_id"])):
                 raise ValueError("invalid queue version or root identity")
             if (any(type(raw[key]) is not int or raw[key] < 0 for key in ("combat_token", "turn_token"))

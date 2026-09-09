@@ -2,15 +2,37 @@ from __future__ import annotations
 
 import json
 import unittest
+from copy import deepcopy
 
 from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.contracts import Opcode
 from dumbest_dungeon.engine import GameEngine, RuleError
+from dumbest_dungeon.migrations import MigrationError, run_29_to_30
 from dumbest_dungeon.resolution import Listener, Payload
 from dumbest_dungeon.triggers import EventType as E, Limiter, LimitKind, TriggerSpec
 
 
 class ResolutionSaveTests(unittest.TestCase):
+    def test_raw_damage_payload_migration_is_pure_and_strict(self) -> None:
+        engine = GameEngine.new(load_catalog(), 42)
+        hero = engine.living_heroes()[0]
+        engine.resolution.begin()
+        engine.resolution.submit(E.DAMAGE, "test:hit", (hero.id,), Payload(actor_id=hero.id, opcode=Opcode.DAMAGE, amount=1))
+        old = engine.snapshot()
+        old["save_version"] = 29
+        old["resolution_queue"]["state"]["schema"] = 1
+        del old["resolution_queue"]["state"]["pending"][0]["payload"]["raw_damage"]
+        unchanged = deepcopy(old)
+        migrated = run_29_to_30(old)
+        self.assertEqual(unchanged, old)
+        self.assertEqual(engine.snapshot(), migrated)
+        with self.assertRaises(MigrationError):
+            run_29_to_30(migrated)
+        malformed = engine.snapshot()
+        del malformed["resolution_queue"]["state"]["pending"][0]["payload"]["raw_damage"]
+        with self.assertRaisesRegex(RuleError, "payload fields"):
+            GameEngine.from_snapshot(engine.catalog, malformed)
+
     def test_active_queue_and_limiter_continue_with_the_same_engine_state(self) -> None:
         engine = GameEngine.new(load_catalog(), 42)
         hero = engine.living_heroes()[0]

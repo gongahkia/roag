@@ -58,7 +58,29 @@ def run_28_to_29(snapshot: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-RUN_MIGRATIONS = {26: run_26_to_27, 27: run_27_to_28, 28: run_28_to_29}
+def run_29_to_30(snapshot: dict[str, Any]) -> dict[str, Any]:
+    if type(snapshot.get("save_version")) is not int or snapshot["save_version"] != 29:
+        raise MigrationError("migration 29->30 requires save version 29")
+    result = deepcopy(snapshot)
+    try:
+        queue = result["resolution_queue"]["state"]
+        if type(queue["schema"]) is not int or queue["schema"] != 1:
+            raise MigrationError("version-29 save requires queue schema 1")
+        events = list(queue["pending"])
+        if queue["active"] is not None:
+            events.append(queue["active"]["event"])
+        for event in events:
+            if "raw_damage" in event["payload"]:
+                raise MigrationError("version-29 payload cannot contain raw_damage")
+            event["payload"]["raw_damage"] = False
+        queue["schema"] = 2
+    except (KeyError, TypeError) as exc:
+        raise MigrationError("malformed version-29 resolution queue") from exc
+    result["save_version"] = 30
+    return result
+
+
+RUN_MIGRATIONS = {26: run_26_to_27, 27: run_27_to_28, 28: run_28_to_29, 29: run_29_to_30}
 
 
 def migrate_run(snapshot: dict[str, Any]) -> dict[str, Any]:
