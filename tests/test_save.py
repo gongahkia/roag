@@ -7,7 +7,60 @@ from unittest.mock import patch
 
 from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.engine import GameEngine, RuleError
-from dumbest_dungeon.save import default_save_path, read_save, write_save
+from dumbest_dungeon.save import SaveError, default_save_path, read_save, write_save
+
+
+class AtomicSaveTests(unittest.TestCase):
+    def test_failed_replace_preserves_previous_save_and_cleans_temporary(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "run.json"
+            write_save(path, {"version": 1})
+            with patch("dumbest_dungeon.save.os.replace", side_effect=OSError("disk fault")):
+                with self.assertRaisesRegex(SaveError, "disk fault"):
+                    write_save(path, {"version": 2})
+            self.assertEqual({"version": 1}, read_save(path))
+            self.assertEqual([path], list(path.parent.iterdir()))
+
+    def test_failed_file_sync_preserves_previous_save(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "run.json"
+            write_save(path, {"version": 1})
+            with patch("dumbest_dungeon.save.os.fsync", side_effect=OSError("sync fault")):
+                with self.assertRaisesRegex(SaveError, "sync fault"):
+                    write_save(path, {"version": 2})
+            self.assertEqual({"version": 1}, read_save(path))
+            self.assertEqual([path], list(path.parent.iterdir()))
+
+    def test_invalid_data_does_not_touch_previous_save(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "run.json"
+            write_save(path, {"version": 1})
+            for value in (float("nan"), float("inf"), object()):
+                with self.assertRaises(SaveError):
+                    write_save(path, {"value": value})
+            self.assertEqual({"version": 1}, read_save(path))
+            self.assertEqual([path], list(path.parent.iterdir()))
+
+    def test_file_and_directory_are_synced(self) -> None:
+        import os
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "run.json"
+            with patch("dumbest_dungeon.save.os.fsync", wraps=os.fsync) as sync:
+                write_save(path, {"version": 1})
+            self.assertEqual(2, sync.call_count)
+            self.assertEqual(0o600, path.stat().st_mode & 0o777)
+
+    def test_strict_save_input_rejects_ambiguous_or_nonfinite_data(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "run.json"
+            for encoded in ('{"version":1,"version":2}', '{"value":NaN}', '{"value":1e999}', '[]'):
+                path.write_text(encoded, encoding="utf-8")
+                with self.assertRaises(SaveError):
+                    read_save(path)
+            path.write_bytes(b"\xff")
+            with self.assertRaises(SaveError):
+                read_save(path)
 
 
 class SaveTests(unittest.TestCase):
