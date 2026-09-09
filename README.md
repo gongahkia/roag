@@ -63,6 +63,11 @@ enumerates two-objective approach corridors and optional facility detours, then
 reports route, light, supply, hazard, backtracking, and patrol-post exposure by
 layout. It does not play combat, predict moving patrols, or estimate a win rate.
 
+`python3 -m dumbest_dungeon.content_audit` prints a canonical JSON census of owner
+pools, starter and pool rank access, signed structural effect groups, tags,
+opcodes, biome encounter density and enemy action counts. Similarity groups are
+review signals; the census does not establish that designs play identically.
+
 Reproducible headless regression policies use normal player commands, ordinary
 HP/energy/rewards, the visible hand and intents, and known map sites:
 
