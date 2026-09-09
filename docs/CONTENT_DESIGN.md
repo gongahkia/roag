@@ -232,3 +232,18 @@ overkill, healing waste, status changes and Death's Door checks. The ordinary
 80×24 combat footer remains one line. Inspection only reads recorded data;
 opening, scrolling and resizing it cannot consume simulation RNG. Pre-instrumented
 arithmetic is labeled unrecorded instead of reconstructed from today's rules.
+
+A card play now owns one queue root. Its authored effect index, original targets,
+owner and upgrade state are durable. Each next effect waits for the previous
+effect's automatic descendants, so conditions observe resolved prior effects.
+Seven registered post-card steps preserve resonance, movement draw, forced
+discard, damage draw, block-card counting, focus draw and reserve-energy order.
+Each declares a once-per-card limiter; descendants drain between those steps.
+Victory cleanup waits for them. A dead owner loses remaining owned continuations;
+the surviving crew's expedition remains active. Host continuation count is bounded
+by the validated card effect list and the fixed seven-step registry.
+
+`play_card(..., resolve=False)` starts the same validated transaction and exposes
+its dispatch boundaries for checkpoint tests. Ordinary commands use synchronous
+resolution. Another card play or end-turn command cannot interrupt a pending root.
+The terminal resumes saved pending work before accepting its next command.

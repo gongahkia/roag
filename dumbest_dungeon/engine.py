@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 from collections import Counter, deque
 from contextlib import contextmanager
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from heapq import heappop, heappush
 from typing import Any, Callable
 
@@ -14,7 +14,7 @@ from .migrations import MigrationError, migrate_run
 from .versions import RUN_SAVE_SCHEMA
 from .telemetry import RunLedger
 from .resolution import Event, EventQueue, Listener, Payload
-from .combat_triggers import REGISTERED, RIPOSTE
+from .combat_triggers import CARD_TRIGGERS, REGISTERED, RIPOSTE
 from .contracts import Opcode
 from .triggers import EventType, Phase
 
@@ -1863,8 +1863,19 @@ class GameEngine:
                 or event.payload.actor_id is not None and event.payload.actor_id not in actor_ids
                 or len(event.target_ids) != len(set(event.target_ids))):
                 raise RuleError("save queue references an unknown or repeated actor")
-            if (event.payload.actor_id is None and not event.payload.raw_damage
-                or event.payload.opcode is None or event.event_type.value != event.payload.opcode.value):
+            continuation = event.event_type in {EventType.CARD_STEP, EventType.CARD_PLAY, EventType.CLEANUP}
+            if continuation:
+                card = catalog.cards.get(event.payload.card_id)
+                if (card is None or card["hero"] != event.payload.actor_id or event.payload.opcode is not None
+                    or event.payload.effect_index is None):
+                    raise RuleError("save queue has an invalid owned card continuation")
+                effects = card["upgrade_effects"] if event.payload.card_upgraded else card["effects"]
+                limit = len(effects) if event.event_type == EventType.CARD_STEP else len(CARD_TRIGGERS)
+                if (event.payload.effect_index > limit
+                    or event.event_type == EventType.CARD_PLAY and event.payload.effect_index == limit):
+                    raise RuleError("save queue has an out-of-range card continuation")
+            elif (event.payload.actor_id is None and not event.payload.raw_damage
+                  or event.payload.opcode is None or event.event_type.value != event.payload.opcode.value):
                 raise RuleError("save queue has no matching primary actor and opcode")
             if event.payload.card_id is not None and event.payload.card_id not in catalog.cards.keys() | catalog.curses.keys():
                 raise RuleError("save queue references an unknown card")
@@ -3470,7 +3481,7 @@ class GameEngine:
             return [actor.id for actor in self.living_heroes()]
         return []
 
-    def play_card(self, hand_index: int, target_id: str | None = None) -> None:
+    def play_card(self, hand_index: int, target_id: str | None = None, *, resolve: bool = True) -> None:
         if self.state.phase != "combat":
             raise RuleError("cards can only be played in combat")
         if not 0 <= hand_index < len(self.state.hand):
@@ -3491,87 +3502,117 @@ class GameEngine:
         target_id = target_id or (valid[0] if len(valid) == 1 else None)
         if target_id not in valid:
             raise RuleError("choose a valid target")
+        if self.resolution.state.root_id is not None:
+            raise RuleError("finish the pending resolution before playing another card")
+        root = self.resolution.begin(card_token=card.card_id, combat_token=self.resolution.state.combat_token,
+                                     turn_token=self.state.round)
         self.record("card_play", card.card_id, owner=actor.id, rank=actor.rank,
-                    energy=cost, target=target_id, upgraded=card.upgraded)
+                    energy=cost, target=target_id, upgraded=card.upgraded, root_action_id=root)
         self.state.energy -= cost
         self.state.hand.pop(hand_index)
         self.state.discard_pile.append(card)
-        round_key = f"round_cards:{actor.id}"
-        combat_key = f"combat_cards:{actor.id}"
-        self.state.effect_counters[round_key] = self.state.effect_counters.get(round_key, 0) + 1
-        self.state.effect_counters[combat_key] = self.state.effect_counters.get(combat_key, 0) + 1
-        effects = definition["upgrade_effects"] if card.upgraded else definition["effects"]
-        deals_damage = any(effect["op"] == "damage" for effect in effects)
-        grants_block = any(effect["op"] == "block" for effect in effects)
-        grants_focus = any(
-            effect["op"] == "status" and effect.get("status") == "focus"
-            for effect in effects
-        )
+        for key in (f"round_cards:{actor.id}", f"combat_cards:{actor.id}"):
+            self.state.effect_counters[key] = self.state.effect_counters.get(key, 0) + 1
         main_targets = self._card_targets(definition["target"], target_id, actor)
         self.add_log(f"{actor.name} uses {definition['name']}.")
-        for effect in effects:
-            if self.state.phase != "combat":
-                break
-            condition_met = self._card_effect_condition(effect, actor, main_targets)
-            conditions = {key: effect[key] for key in ("condition_status", "condition_actor_state", "condition_target_state") if key in effect}
-            if conditions:
-                self.record("condition", card.card_id, conditions=conditions, activated=condition_met)
-            if not condition_met:
-                continue
+        self.resolution.submit(EventType.CARD_STEP, card.card_id, tuple(target.id for target in main_targets),
+                               Payload(actor_id=actor.id, card_id=card.card_id, card_upgraded=card.upgraded, effect_index=0))
+        if resolve:
+            self.resolve_pending()
+
+    def _continue_card(self, event: Event, queue: EventQueue) -> None:
+        payload = event.payload
+        actor = next(actor for actor in self.state.heroes if actor.id == payload.actor_id)
+        definition = self.catalog.cards[payload.card_id]
+        effects = definition["upgrade_effects"] if payload.card_upgraded else definition["effects"]
+        if event.event_type == EventType.CLEANUP:
+            if not self.living_enemies() and self.state.phase == "combat":
+                if self.state.tutorial and self.state.tutorial_stage == 3:
+                    self.state.tutorial_stage = 4
+                self._combat_victory()
+            elif self.state.tutorial and self.state.tutorial_stage == 3:
+                self.state.tutorial_stage = 4
+            return
+        if not actor.alive or self.state.phase != "combat":
+            queue.emit(EventType.CLEANUP, (), payload, mandatory=True, deferred=True)
+            return
+        index = payload.effect_index
+        if event.event_type == EventType.CARD_PLAY:
+            next_type = EventType.CARD_PLAY if index + 1 < len(CARD_TRIGGERS) else EventType.CLEANUP
+            queue.emit(next_type, event.target_ids, replace(payload, effect_index=index + 1), mandatory=True, deferred=True)
+            return
+        if index >= len(effects):
+            queue.emit(EventType.CARD_PLAY, event.target_ids, replace(payload, effect_index=0), mandatory=True, deferred=True)
+            return
+        actors = {actor.id: actor for actor in self.state.heroes + self.state.enemies}
+        main_targets = [actors[identity] for identity in event.target_ids]
+        effect = effects[index]
+        condition_met = self._card_effect_condition(effect, actor, main_targets)
+        conditions = {key: effect[key] for key in ("condition_status", "condition_actor_state", "condition_target_state") if key in effect}
+        if conditions:
+            self.record("condition", payload.card_id, conditions=conditions, activated=condition_met)
+        if condition_met:
             resolved_effect = dict(effect)
             if definition.get("biome") == self.current_biome():
                 bonus = int(definition.get("biome_bonus", 0))
                 if resolved_effect["op"] in {"damage", "block", "heal"}:
                     resolved_effect["amount"] = int(resolved_effect.get("amount", 0)) + bonus
                 elif resolved_effect["op"] == "stress" and resolved_effect.get("amount", 0) < 0:
-                    resolved_effect["amount"] = int(resolved_effect["amount"]) - bonus
-            targets = self._effect_targets(resolved_effect.get("target"), main_targets, actor)
-            self._apply_effect(actor, targets, resolved_effect, source_id=card.card_id)
-        resonant = round(self._hero_effect_value(actor, "boon", "resonant_energy"))
-        if self.state.effect_counters[combat_key] % 3 == 0 and resonant:
-            self.state.energy += resonant
-            self.add_log(f"{actor.name}'s Resonant Circuit returns energy.")
-        moved = any(effect["op"] == "move" for effect in effects)
-        counter_key = f"countercurrent:{actor.id}"
-        if moved and not self.state.effect_counters.get(counter_key):
-            draws = round(self._hero_effect_value(actor, "boon", "countercurrent_draw"))
-            if draws:
-                self._draw(draws)
-                self.state.effect_counters[counter_key] = 1
-        if deals_damage:
-            damage_key = f"damage_cards:{actor.id}"
-            damage_plays = self.state.effect_counters.get(damage_key, 0)
-            discards = round(self._hero_effect_value(actor, "curse", "damage_discard"))
-            if damage_plays < discards and self.state.hand:
-                discarded = self.state.hand.pop()
-                self.state.discard_pile.append(discarded)
-                self.add_log(f"Frayed Focus discards {self.card_definition(discarded)['name']}.")
-            draws = round(self._hero_effect_value(actor, "boon", "damage_draw"))
-            if damage_plays < draws:
-                self._draw(1)
-                self.add_log(f"{actor.name}'s Hunter's Rhythm draws a card.")
-            self.state.effect_counters[damage_key] = damage_plays + 1
-        if grants_block:
-            block_key = f"block_cards:{actor.id}"
-            self.state.effect_counters[block_key] = self.state.effect_counters.get(block_key, 0) + 1
-        if grants_focus:
-            focus_plays = self.state.effect_counters.get("focus_cards", 0)
-            focus_draws = round(self._item_effect_value("focus_draw"))
-            if focus_plays < focus_draws:
-                self._draw(1)
+                    resolved_effect["amount"] -= bonus
+            targets = self._effect_targets(effect.get("target"), main_targets, actor)
+            self._apply_effect(actor, targets, resolved_effect, source_id=payload.card_id)
+        queue.emit(EventType.CARD_STEP, event.target_ids, replace(payload, effect_index=index + 1), mandatory=True, deferred=True)
+
+    def _card_trigger(self, listener: Listener, event: Event, queue: EventQueue) -> None:
+        actor = next(actor for actor in self.state.heroes if actor.id == listener.entity_id)
+        if not actor.alive or self.state.phase != "combat":
+            return
+        definition = self.catalog.cards[event.payload.card_id]
+        effects = definition["upgrade_effects"] if event.payload.card_upgraded else definition["effects"]
+        index = event.payload.effect_index
+        op, amount = None, 0
+        if index == 0:
+            if self.state.effect_counters[f"combat_cards:{actor.id}"] % 3 == 0:
+                op, amount = "energy", round(self._hero_effect_value(actor, "boon", "resonant_energy"))
+                if amount:
+                    self.add_log(f"{actor.name}'s Resonant Circuit returns energy.")
+        elif index == 1:
+            key = f"countercurrent:{actor.id}"
+            if any(effect["op"] == "move" for effect in effects) and not self.state.effect_counters.get(key):
+                op, amount = "draw", round(self._hero_effect_value(actor, "boon", "countercurrent_draw"))
+                if amount:
+                    self.state.effect_counters[key] = 1
+        elif index in (2, 3) and any(effect["op"] == "damage" for effect in effects):
+            key = f"damage_cards:{actor.id}"
+            plays = self.state.effect_counters.get(key, 0)
+            if index == 2:
+                limit = round(self._hero_effect_value(actor, "curse", "damage_discard"))
+                if plays < limit and self.state.hand:
+                    op, amount = "discard", 1
+                    self.add_log(f"Frayed Focus discards {self.card_definition(self.state.hand[-1])['name']}.")
+            else:
+                limit = round(self._hero_effect_value(actor, "boon", "damage_draw"))
+                if plays < limit:
+                    op, amount = "draw", 1
+                    self.add_log(f"{actor.name}'s Hunter's Rhythm draws a card.")
+                self.state.effect_counters[key] = plays + 1
+        elif index == 4 and any(effect["op"] == "block" for effect in effects):
+            key = f"block_cards:{actor.id}"
+            self.state.effect_counters[key] = self.state.effect_counters.get(key, 0) + 1
+        elif index == 5 and any(effect["op"] == "status" and effect.get("status") == "focus" for effect in effects):
+            plays = self.state.effect_counters.get("focus_cards", 0)
+            if plays < round(self._item_effect_value("focus_draw")):
+                op, amount = "draw", 1
                 self.add_log("Focusing Lens converts focus into another draw.")
-            self.state.effect_counters["focus_cards"] = focus_plays + 1
-        reserve = round(self._item_effect_value("reserve_energy"))
-        if self.state.energy == 0 and reserve and not self.state.effect_counters.get("reserve_energy"):
-            self.state.energy += reserve
-            self.state.effect_counters["reserve_energy"] = 1
-            self.add_log(f"Reserve Cell restores {reserve} energy.")
-        if not self.living_enemies() and self.state.phase == "combat":
-            if self.state.tutorial and self.state.tutorial_stage == 3:
-                self.state.tutorial_stage = 4
-            self._combat_victory()
-        elif self.state.tutorial and self.state.tutorial_stage == 3:
-            self.state.tutorial_stage = 4
+            self.state.effect_counters["focus_cards"] = plays + 1
+        elif index == 6 and self.state.energy == 0 and not self.state.effect_counters.get("reserve_energy"):
+            op, amount = "energy", round(self._item_effect_value("reserve_energy"))
+            if amount:
+                self.state.effect_counters["reserve_energy"] = 1
+                self.add_log(f"Reserve Cell restores {amount} energy.")
+        if op and amount:
+            queue.emit(EventType(op), (actor.id,), Payload(actor_id=actor.id, opcode=Opcode(op), amount=amount),
+                       source_id=listener.spec.id)
 
     @staticmethod
     def _actor_matches_state(actor: Actor, state: str) -> bool:
@@ -3643,6 +3684,10 @@ class GameEngine:
         self.resolve_pending(close_root=owns_root)
 
     def _resolution_listeners(self, event: Event) -> tuple[Listener, ...]:
+        if event.event_type == EventType.CARD_PLAY:
+            return tuple(Listener(CARD_TRIGGERS[event.payload.effect_index], index, actor.id)
+                         for index, actor in enumerate(self.state.heroes, 1)
+                         if actor.id == event.payload.actor_id and actor.alive)
         if event.event_type != EventType.DAMAGE:
             return ()
         return tuple(Listener(RIPOSTE, index, actor.id)
@@ -3650,6 +3695,9 @@ class GameEngine:
                      if actor.alive and actor.statuses.get("riposte"))
 
     def _resolve_trigger(self, listener: Listener, event: Event, queue: EventQueue) -> None:
+        if listener.spec in CARD_TRIGGERS:
+            self._card_trigger(listener, event, queue)
+            return
         if listener.spec != RIPOSTE:
             raise RuleError(f"unregistered automatic trigger {listener.spec.id}")
         actors = {actor.id: actor for actor in self.state.heroes + self.state.enemies}
@@ -3671,6 +3719,9 @@ class GameEngine:
 
     def _resolve_event(self, event: Event, queue: EventQueue) -> None:
         payload = event.payload
+        if event.event_type in {EventType.CARD_STEP, EventType.CARD_PLAY, EventType.CLEANUP}:
+            self._continue_card(event, queue)
+            return
         if payload.actor_id is None and not payload.raw_damage or payload.opcode is None:
             raise RuleError("queued primary effect is missing its actor or opcode")
         actors = {actor.id: actor for actor in self.state.heroes + self.state.enemies}
@@ -3752,6 +3803,8 @@ class GameEngine:
     ) -> None:
         if self.state.phase != "combat":
             raise RuleError("there is no combat turn to end")
+        if self.resolution.state.root_id is not None:
+            raise RuleError("finish the pending resolution before ending the turn")
         self.record("turn_end", "crew", energy_unspent=self.state.energy,
                     hand=[asdict(card) for card in self.state.hand])
         for card in self.state.hand:

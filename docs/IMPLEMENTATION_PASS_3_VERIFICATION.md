@@ -260,3 +260,15 @@ Deferred continuation and save migration 30→31 passed **21 tests in 2.851s**,
 including checkpointing every dispatch step while a continuation waits for an
 echo descendant. Warning-enabled compilation, content validation and
 `git diff --check` passed. Live card sequencing is the next integration boundary.
+
+Whole-card root integration passed **23 replay, queue-save, migration and telemetry
+tests in 14.086s**. The first three constructed phase tests used Shield Rush from
+an illegal starting rank and errored; the fixture now places its owner in rank 2.
+The corrected phase/legacy-passive group passed **7 tests in 4.433s**. A casualty
+assertion initially expected an owned Baton Strike to remain in the draw pile;
+that contradicted the required owner-death removal. The assertion now checks that
+only the surviving Engineer's card remains. Every dispatch boundary is restored
+through the actual engine, including post-hit death and reward cleanup; no custom
+callbacks are substituted for continuation. These are constructed scenarios.
+The corrected complete card-boundary group passed **4 tests in 3.854s**.
+Warning-enabled compilation, content validation and `git diff --check` passed.
