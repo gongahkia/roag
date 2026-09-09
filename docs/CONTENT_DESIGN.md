@@ -161,3 +161,24 @@ and every dimensional ceiling to pass. Cheap durability cannot excuse a burst
 ceiling violation. These contracts are tested independently; deriving calibrated
 two/three-phase estimates and replacing existing HP-only generation budgets
 remains the encounter milestone, not an already-completed balance change.
+
+## Exact stack-policy arithmetic
+
+`StackRule` supports linear, multiplicative, independent chance, hyperbolic,
+threshold, duration refresh, unique, conversion and authored table policies.
+Current/next results, formula, cap/soft cap, conversion source and effective-stack
+bound are returned together. Probabilities and multipliers use integer basis
+points; independent-chance tests compare against exact rational arithmetic.
+Tables begin at the zero-stack result, and a promised nondecreasing table may
+not decrease. Counts and magnitudes reject booleans and negative integers.
+
+Linear and hyperbolic arithmetic accepts arbitrarily large nonnegative counts.
+Exponential policies require an explicitly disclosed effective-stack bound of
+at most 10,000, allowing extra copies to remain recorded while preventing exponent
+size from growing with unbounded loop depth. This is an authored per-rule limit,
+not a global damage cap. A zero count means the rule is absent and returns zero;
+present multiplicative rules return their full multiplier in basis points.
+
+These policies are not yet substituted for legacy item formulas. Their content
+assignment, exact reward/inspection wording and trigger limits belong to the
+stack/reward milestone, with calibration when existing behavior changes.
