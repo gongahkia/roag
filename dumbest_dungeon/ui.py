@@ -103,6 +103,9 @@ class TerminalUI:
         while self.engine:
             phase = self.engine.state.phase
             try:
+                if self.engine.resolution.state.root_id is not None:
+                    self.engine.resolve_pending()
+                    phase = self.engine.state.phase
                 if phase == "hub":
                     self._hub()
                 elif phase == "exploration":

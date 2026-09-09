@@ -225,3 +225,12 @@ The queue and trigger component group then passed **15 tests in 0.026s**, includ
 phase-by-phase checkpoint continuation, listener mutation, limited cycles and
 sealing while independent automatic healing and mandatory cleanup finish.
 The queue is not yet wired into live combat; this is component evidence.
+
+Queue-save integration passed **45 tests in 8.932s**, followed by **3 focused
+save/reference tests in 1.087s**. Primary queue integration initially produced two
+natural-replay errors when later compound-card effects referenced a now-dead
+target. The resolver now retains actor identity but filters dead targets at
+dispatch. The corrected replay/migration/telemetry group passed **20 tests in
+23.585s**. The all-card/all-enemy opcode scenarios and queue-save group passed
+**5 tests in 159.386s**; they did not expose the dead-target case that the actual
+command transcripts caught. A dedicated compound-target regression was added.

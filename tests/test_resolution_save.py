@@ -4,6 +4,7 @@ import json
 import unittest
 
 from dumbest_dungeon.content import load_catalog
+from dumbest_dungeon.contracts import Opcode
 from dumbest_dungeon.engine import GameEngine, RuleError
 from dumbest_dungeon.resolution import Listener, Payload
 from dumbest_dungeon.triggers import EventType as E, Limiter, LimitKind, TriggerSpec
@@ -16,7 +17,7 @@ class ResolutionSaveTests(unittest.TestCase):
         hero.hp -= 10
         queue = engine.resolution
         queue.begin(card_token="test:card", combat_token=1, turn_token=1)
-        queue.submit(E.HEAL, "test:heal", (hero.id,), Payload(actor_id=hero.id, amount=2))
+        queue.submit(E.HEAL, "test:heal", (hero.id,), Payload(actor_id=hero.id, opcode=Opcode.HEAL, amount=2))
         listener = Listener(TriggerSpec("test:echo", E.HEAL, (E.HEAL,), limiter=Limiter(LimitKind.RETRIGGERS, 2)), 1, hero.id)
         callbacks = lambda event: (listener,)
         trigger = lambda listener, event, queue: queue.emit(E.HEAL, event.target_ids, event.payload)
@@ -52,6 +53,31 @@ class ResolutionSaveTests(unittest.TestCase):
         engine.resolution.submit(E.DAMAGE, "test:hit", ("missing-actor",), Payload())
         with self.assertRaisesRegex(RuleError, "unknown or repeated actor"):
             GameEngine.from_snapshot(engine.catalog, engine.snapshot())
+
+    def test_compound_effect_skips_targets_killed_by_its_previous_effect(self) -> None:
+        engine = GameEngine.new(load_catalog(), 42)
+        engine.start_combat("lost_shift")
+        actor = engine.living_heroes()[0]
+        targets = engine.living_enemies()
+        dead = targets[0]
+        dead.hp = 0
+        engine._apply_effect(actor, targets, {"op": "status", "status": "vulnerable", "amount": 2})
+        self.assertNotIn("vulnerable", dead.statuses)
+        self.assertTrue(all(enemy.statuses.get("vulnerable") == 2 for enemy in targets[1:]))
+        self.assertIsNone(engine.resolution.state.root_id)
+
+    def test_live_primary_effect_resumes_through_the_engine_handler(self) -> None:
+        engine = GameEngine.new(load_catalog(), 42)
+        hero = engine.living_heroes()[0]
+        hero.hp -= 5
+        engine.resolution.begin(card_token="brace")
+        engine.resolution.submit(E.HEAL, "test:recover", (hero.id,), Payload(actor_id=hero.id, opcode=Opcode.HEAL, amount=3))
+        engine.resolution.step(engine._resolution_listeners, engine._resolve_event, engine._resolve_trigger)
+        loaded = GameEngine.from_snapshot(engine.catalog, engine.snapshot())
+        engine.resolve_pending()
+        loaded.resolve_pending()
+        self.assertEqual(engine.snapshot(), loaded.snapshot())
+        self.assertEqual(hero.max_hp - 2, hero.hp)
 
 
 if __name__ == "__main__":

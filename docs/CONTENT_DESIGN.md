@@ -208,3 +208,11 @@ event IDs, ancestry, source/target operands and dispatch order.
 This component is separately tested; routing the live combat resolver through it,
 registering legacy automatic effects and exposing its inspection screen are the
 remaining kernel integration work.
+
+Primary card and enemy effects now use the queue. Their metrics carry event/root
+IDs and depth. The engine resumes saved pending effects before accepting another
+terminal action, and validates the payload's actor/opcode relationship on load.
+Compound cards retain their sequential behavior: a later effect drops targets
+killed by an earlier effect. A dead owner cannot execute a pending owned effect.
+Legacy automatic responses are being registered separately; primary integration
+alone does not yet remove every old direct trigger path.

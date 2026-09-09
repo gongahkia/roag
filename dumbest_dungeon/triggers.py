@@ -26,6 +26,8 @@ class EventType(StrEnum):
     DRAW = "draw"
     DISCARD = "discard"
     ENERGY = "energy"
+    GUARD = "guard"
+    CLEANSE = "cleanse"
     TURN_START = "turn_start"
     TURN_END = "turn_end"
     DEATH = "death"

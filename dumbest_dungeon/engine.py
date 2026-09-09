@@ -13,7 +13,9 @@ from .content import CARD_STATUSES, Catalog
 from .migrations import MigrationError, migrate_run
 from .versions import RUN_SAVE_SCHEMA
 from .telemetry import RunLedger
-from .resolution import EventQueue
+from .resolution import Event, EventQueue, Payload
+from .contracts import Opcode
+from .triggers import EventType
 
 
 class RuleError(ValueError):
@@ -1856,6 +1858,8 @@ class GameEngine:
                 or event.payload.actor_id is not None and event.payload.actor_id not in actor_ids
                 or len(event.target_ids) != len(set(event.target_ids))):
                 raise RuleError("save queue references an unknown or repeated actor")
+            if event.payload.actor_id is None or event.payload.opcode is None or event.event_type.value != event.payload.opcode.value:
+                raise RuleError("save queue has no matching primary actor and opcode")
             if event.payload.card_id is not None and event.payload.card_id not in catalog.cards.keys() | catalog.curses.keys():
                 raise RuleError("save queue references an unknown card")
             if any(status is not None and status not in CARD_STATUSES for status in (event.payload.status, event.payload.bonus_status)):
@@ -1877,6 +1881,9 @@ class GameEngine:
         del self.state.log[:-60]
 
     def record(self, event_kind: str, source_id: str, **data: Any) -> None:
+        if self.resolution.state.active:
+            event = self.resolution.state.active.event
+            data = {"event_id": event.event_id, "root_action_id": event.root_action_id, "depth": event.depth, **data}
         self.state.ledger.record(event_kind, source_id, self.state.travel_ticks, self.state.round, **data)
 
     @contextmanager
@@ -3168,6 +3175,7 @@ class GameEngine:
         ):
             raise RuleError("combat formation must contain one to four known enemies")
         self.state.phase = "combat"
+        self.resolution.state.combat_token += 1
         self.state.combat_kind = kind or encounter["kind"]
         self.state.enemies = []
         for rank, enemy_id in enumerate(formation, 1):
@@ -3612,9 +3620,53 @@ class GameEngine:
         return main
 
     def _apply_effect(self, actor: Actor, targets: list[Actor], effect: dict[str, Any], *, source_id: str | None = None) -> None:
-        with self.attribution(source_id or self._source_id or actor.id):
-            self.record("effect", self._source_id, actor=actor.id, targets=[target.id for target in targets], effect=dict(effect))
+        source = source_id or self._source_id or actor.id
+        payload = Payload(actor_id=actor.id, opcode=Opcode(effect["op"]), amount=int(effect.get("amount", 0)),
+                          status=effect.get("status"), bonus_status=effect.get("bonus_status"),
+                          bonus=int(effect.get("bonus", 0)), card_id=source if source in self.catalog.cards else None)
+        event_type = EventType(effect["op"])
+        target_ids = tuple(target.id for target in targets)
+        if self.resolution.state.active is not None:
+            self.resolution.emit(event_type, target_ids, payload, source_id=source)
+            return
+        owns_root = self.resolution.state.root_id is None
+        if owns_root:
+            self.resolution.begin(card_token=payload.card_id, combat_token=self.resolution.state.combat_token,
+                                  turn_token=self.state.round)
+        self.resolution.submit(event_type, source, target_ids, payload)
+        self.resolve_pending(close_root=owns_root)
+
+    def _resolution_listeners(self, event: Event) -> tuple:
+        return ()
+
+    def _resolve_trigger(self, listener, event: Event, queue: EventQueue) -> None:
+        raise RuleError(f"unregistered automatic trigger {listener.spec.id}")
+
+    def _resolve_event(self, event: Event, queue: EventQueue) -> None:
+        payload = event.payload
+        if payload.actor_id is None or payload.opcode is None:
+            raise RuleError("queued primary effect is missing its actor or opcode")
+        actors = {actor.id: actor for actor in self.state.heroes + self.state.enemies}
+        actor = actors[payload.actor_id]
+        if not actor.alive:
+            self.record("owner_disabled_event", event.source_id, owner=actor.id)
+            return
+        targets = [actors[identity] for identity in event.target_ids if actors[identity].alive]
+        effect = {"op": payload.opcode.value, "amount": payload.amount}
+        if payload.status is not None:
+            effect["status"] = payload.status
+        if payload.bonus_status is not None:
+            effect.update(bonus_status=payload.bonus_status, bonus=payload.bonus)
+        with self.attribution(event.source_id):
+            self.record("effect", event.source_id, actor=actor.id, targets=list(event.target_ids), effect=effect)
             self._apply_effect_primary(actor, targets, effect)
+
+    def resolve_pending(self, *, close_root: bool = True) -> None:
+        previous_seals = len(self.resolution.state.seals)
+        self.resolution.drain(self._resolution_listeners, self._resolve_event, self._resolve_trigger, close_root=close_root)
+        for seal in self.resolution.state.seals[previous_seals:]:
+            self.add_log("CHAIN SEALED: an automatic chain exceeded its event budget.")
+            self.record("chain_sealed", "resolution", trace=seal)
 
     def _apply_effect_primary(self, actor: Actor, targets: list[Actor], effect: dict[str, Any]) -> None:
         op = effect["op"]
