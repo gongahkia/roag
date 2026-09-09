@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import replace
+import json
 import random
 import unittest
 from unittest.mock import patch
@@ -900,12 +901,13 @@ class EngineTests(unittest.TestCase):
         for _ in range(2):
             engine = GameEngine.new(self.catalog, 4242)
             objective = engine.state.objectives[0]
-            mission = engine.mission_definition(objective.biome_id)
+            mission = json.loads(json.dumps(engine.mission_definition(objective.biome_id)))
             approach = mission["approaches"][0]
             approach["stages"][0]["effect"] = {
                 "op": "objective_combat",
                 "amount": 1,
             }
+            engine.catalog = replace(self.catalog, missions={**self.catalog.missions, mission["id"]: mission})
             room = engine.room()
             room.resolved = False
             engine.state.party_x, engine.state.party_y = objective.x, objective.y

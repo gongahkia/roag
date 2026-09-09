@@ -208,3 +208,10 @@ A pre-commit `git diff --no-index --check /dev/null` reports its existing final
 blank line at line 371. That original whitespace was retained to honor the
 instruction not to alter user work. Agent-authored changes continue to pass
 `git diff --check`; the supplied artifact is the documented provenance exception.
+
+The first full foundation suite completed **255 tests in 608.328s: 254 passed,
+one error**. The failing objective-combat scenario mutated a nested mission through
+a local alias. It now copies that mission and installs an isolated catalog fixture;
+the scenario and assertions are unchanged. Its focused rerun, together with
+immutable-content, acquisition, trigger and stack contracts, passed **17 tests in
+0.965s**. A complete rerun is still required before declaring this gate passed.
