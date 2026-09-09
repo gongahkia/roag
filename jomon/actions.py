@@ -1028,6 +1028,9 @@ def _advance_world(
         state.world_time += 1
         record_calendar_crossings(state, previous_time)
         advance_living_world(state)
+        from .materials import advance_materials
+
+        advance_materials(state)
         if state.location != "region":
             continue
         state.pressure_elapsed += 1

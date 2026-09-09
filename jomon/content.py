@@ -318,6 +318,7 @@ JOMON_MAP = (
 )
 
 HELP_LINES = (
+    "F: inspect and handle nearby material; choices commit one action, Escape costs none.",
     "Move with arrows, HJKL, or YUBN diagonals. The camera follows across each seamless region.",
     "Enter/E interacts. A attacks. G guards or reloads. V negotiates. X uses gear.",
     "Map: @ courier, a ally, v visitor, c/M contacts, h/g/x/b hostiles, X elite, R cargo, C cache.",

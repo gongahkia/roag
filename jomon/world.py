@@ -82,6 +82,11 @@ def region_tile(state: GameState, position: Position) -> str:
 
 def displayed_tile(state: GameState, position: Position) -> str:
     tile = base_tile(state, position)
+    from .materials import material_glyph
+
+    reaction = material_glyph(state, position)
+    if reaction:
+        return reaction
     if state.location == "jomon":
         area = current_area(state)
         actor_id = next(
@@ -127,6 +132,12 @@ def displayed_tile(state: GameState, position: Position) -> str:
 
 
 def is_walkable(state: GameState, position: Position, *, ignore_threat: bool = False) -> bool:
+    from .materials import fields, key
+
+    material = fields(state).get(key(position))
+    if material and base_tile(state, position) in {" ", "#", "~", "T"}:
+        if not (material.ice and base_tile(state, position) == "~"):
+            return False
     tile = displayed_tile(state, position)
     blocked = {" ", "#", "~", "T"}
     if state.location == "jomon":
@@ -153,7 +164,7 @@ def vertical_destination(state: GameState, position: Position) -> Position | Non
 def vertical_open(state: GameState, lower: Position, upper: Position) -> bool:
     if lower.x != upper.x or lower.y != upper.y or upper.z - lower.z != 1:
         return False
-    if vertical_destination(state, lower) == upper:
+    if any({link.first, link.second} == {lower, upper} for link in state.region.vertical_links):
         return True
     lower_tile, upper_tile = base_tile(state, lower), base_tile(state, upper)
     return (

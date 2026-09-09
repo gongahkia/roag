@@ -292,6 +292,10 @@ def semantic_role(glyph: str, *, aboard: bool = False) -> str:
         return "interactable"
     if glyph in {"m", "%", "r", "q", "t", ":", "s"}:
         return "hazard"
+    if glyph == "f":
+        return "hazard"
+    if glyph == "_":
+        return "water"
     if glyph == "*":
         return "mystical"
     return "terrain"
@@ -499,7 +503,7 @@ def _draw_base(screen: curses.window, state: GameState) -> None:
         event_lines.extend(_wrapped(message, width - 4))
     for index, line in enumerate(event_lines[-(event_height - 2):]):
         _put(screen, main_height + 1 + index, 2, _clip(line, width - 4))
-    _put(screen, height - 2, 1, "Move HJKL/YUBN/arrows  E interact  A attack  G guard/reload  X gear", curses.A_REVERSE)
+    _put(screen, height - 2, 1, "Move HJKL/YUBN/arrows E interact A attack G guard/reload X gear F material", curses.A_REVERSE)
     _put(screen, height - 1, 1, "V negotiate  R retreat  I inventory  S save aboard  ? help  Q quit", curses.A_REVERSE)
     screen.refresh()
 
@@ -669,6 +673,12 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str]) -> None:
 
 
 def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
+    if kind == "material":
+        return [ChoiceOption(str(index + 1), name) for index, name in enumerate(("Here", "North", "East", "South", "West"))]
+    if kind.startswith("material:"):
+        from .materials import VERBS
+
+        return [ChoiceOption(chr(ord("a") + index), verb.title(), "danger" if verb in {"ignite", "break", "cut"} else "commitment") for index, verb in enumerate(VERBS)]
     if kind == "quit":
         return [ChoiceOption("Y", "Quit Jomon", "danger"), ChoiceOption("N", "Continue playing")]
     if kind == "tavern":
@@ -1508,6 +1518,12 @@ def _tavern_lines(state: GameState) -> list[str]:
 
 
 def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
+    if kind == "material":
+        return "MATERIAL HANDLING", ["Choose a nearby physical target. No time passes until handling is confirmed."]
+    if kind.startswith("material:"):
+        from .materials import inspect_material, point_at
+
+        return "MATERIAL — ONE ACTION PER HANDLING", inspect_material(state, point_at(kind.split(":", 1)[1]))
     if kind == "help":
         return "HELP", list(HELP_LINES)
     if kind == "inventory":
@@ -1750,6 +1766,16 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
 
 
 def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, bool]:
+    if kind == "material" and key in map(ord, "12345"):
+        dx, dy = ((0, 0), (0, -1), (1, 0), (0, 1), (-1, 0))[key - ord("1")]
+        point = Position(state.position.x + dx, state.position.y + dy, state.position.z)
+        return f"material:{point.x},{point.y},{point.z}", False
+    if kind.startswith("material:") and ord("a") <= key <= ord("k"):
+        from .materials import VERBS, handle_material, point_at
+
+        changed, message = handle_material(state, VERBS[key - ord("a")], point_at(kind.split(":", 1)[1]))
+        state.add_message(message, priority=3)
+        return (None if changed else kind), False
     char = chr(key).lower() if 0 <= key < 256 else ""
     if key == 27:
         if kind.startswith("bartender:"):
@@ -1982,6 +2008,8 @@ def play(screen: curses.window, state: GameState) -> GameState:
             retreat(state)
         elif normalized == ord("i"):
             inventory_view = InventoryView.begin(state)
+        elif normalized == ord("f"):
+            overlay = OverlayView("material")
         elif normalized == ord("?"):
             overlay = OverlayView("help")
         elif normalized == ord("s"):

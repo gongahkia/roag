@@ -89,7 +89,35 @@ geometry/occupancy. Regression tests compare independent flood-fill results,
 placement scoring, changed terrain/smoke, and reconstructed paths. The first
 fast developer command, `python -m jomon.checks fast`, passed 54 tests in
 20.478 seconds before three further cache/reachability regressions were added.
-The full suite is rerunning serially after this optimization pass.
+The full suite after optimization passed **184 tests in 140.561 seconds**.
+
+Format 7 now introduces bounded sparse material fields; format-6 migration
+adds empty overlays without repainting any existing geography or issuing
+replacement possessions. `F` opens contextual material handling. Ignition,
+water handling, bracing, breaking, digging and coffer movement use finite
+supplies/tools and one action; inspection and invalid/cancelled choices are
+zero-time. Reactions are limited to 64 nearby cells per action, 512 sparse
+cells per location, with reconstructible chunk selection and collapse due
+events. Water/fire/mud, wet lime, wind/rising smoke, seasonal ice and warned
+support failure have focused reducer tests; integrated PTY and full format-7
+verification remain open. Ordinary off-duty named adults cannot die from
+routine exposure resolution; injuries and interrupted work are recorded.
+
+Material integration verification: **196 tests passed in 140.111 seconds**;
+the focused material file passed 12 tests in 1.169 seconds. Compilation and
+`git diff --check` passed. An initial cross-level smoke test failed because a
+landing with both up/down connectors exposed only the first link; the opening
+query now examines the actual pair, and the regression passes.
+
+Real PTY so far (not full expansion play coverage): seed `material voyage`,
+80×24, fresh world and immediate E departure, F inspection/cancel, two steps
+west along the quay, ignition of adjacent timber, observed downwind spread,
+two river-water extinguishing actions, physical return, save and clean quit.
+The saved courier had 9/10 health and five remaining oil measures; wet timber
+and support damage survived. At 100×32, Continue loaded that save, a second
+departure revisited the changed quay, material inspection fit, and physical
+return remained available. These are short reaction-loop checks, not complete
+questline or build demonstrations.
 
 The previous milestone manually completed only one full Hearthford branch;
 its other branch, arc, and build claims have automated rather than complete

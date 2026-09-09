@@ -21,7 +21,7 @@ from .content import (
     ROLES,
 )
 
-SAVE_FORMAT = 6
+SAVE_FORMAT = 7
 HISTORY_LIMIT = 40
 MESSAGE_LIMIT = 8
 
@@ -104,6 +104,20 @@ class Container:
 
 
 @dataclass
+class MaterialCell:
+    material: str = "soil"
+    water: int = 0
+    fluid: str = "fresh"
+    fire: int = 0
+    fuel: int = 0
+    smoke: int = 0
+    coating: str = ""
+    support: int = 3
+    collapse_due: int = 0
+    ice: bool = False
+
+
+@dataclass
 class Region:
     condition: str
     work: str
@@ -131,6 +145,8 @@ class Region:
     local_elapsed: int = 0
     local_objective_status: str = "unoffered"
     local_objective_changed: bool = False
+    materials: dict[str, MaterialCell] = field(default_factory=dict)
+    material_cursor: int = 0
 
 
 @dataclass
@@ -378,6 +394,7 @@ class GameState:
     history: list[str] = field(default_factory=list)
     messages: list[str] = field(default_factory=list)
     world_ended: bool = False
+    vessel_materials: dict[str, MaterialCell] = field(default_factory=dict)
 
     @property
     def courier(self) -> Person | None:
@@ -719,7 +736,7 @@ def _migrate_v4(data: dict[str, Any]) -> dict[str, Any]:
 def _migrate_v5(data: dict[str, Any]) -> dict[str, Any]:
     """Adopt physical finite resources without resetting prior consequences."""
     migrated = copy.deepcopy(data)
-    migrated["save_format"] = SAVE_FORMAT
+    migrated["save_format"] = 6
     migrated.setdefault("vessel_changes", {})
     migrated["vessel_changes"].setdefault("format_6_physical_resources", True)
     migrated.setdefault("questlines", {})
@@ -736,6 +753,17 @@ def _migrate_v5(data: dict[str, Any]) -> dict[str, Any]:
     return migrated
 
 
+def _migrate_v6(data: dict[str, Any]) -> dict[str, Any]:
+    """Add sparse fields without repainting geography or reissuing possessions."""
+    migrated = copy.deepcopy(data)
+    migrated["save_format"] = 7
+    migrated.setdefault("vessel_materials", {})
+    for region in migrated.get("regions", {}).values():
+        region.setdefault("materials", {})
+        region.setdefault("material_cursor", 0)
+    return migrated
+
+
 def game_state_from_dict(data: Any) -> GameState:
     if not isinstance(data, dict):
         raise StateError("save root must be an object")
@@ -748,6 +776,8 @@ def game_state_from_dict(data: Any) -> GameState:
     migrated_v5 = data.get("save_format") == 5
     if migrated_v5:
         data = _migrate_v5(data)
+    if data.get("save_format") == 6:
+        data = _migrate_v6(data)
     if data.get("save_format") != SAVE_FORMAT:
         raise StateError(f"incompatible save format; expected {SAVE_FORMAT}")
     try:
@@ -759,6 +789,7 @@ def game_state_from_dict(data: Any) -> GameState:
 
         def parse_region(raw: dict[str, Any]) -> Region:
             values = dict(raw)
+            values["materials"] = {key: MaterialCell(**cell) for key, cell in values.get("materials", {}).items()}
             values["landmarks"] = {key: _position(value, f"{key} landmark") for key, value in values["landmarks"].items()}
             values["zones"] = {key: tuple(value) for key, value in values["zones"].items()}
             values["vertical_links"] = [
@@ -930,6 +961,7 @@ def game_state_from_dict(data: Any) -> GameState:
                 for region_id, marks in data.get("treasure_marks", {}).items()
             },
             history=list(data["history"]), messages=list(data["messages"]), world_ended=data["world_ended"],
+            vessel_materials={key: MaterialCell(**cell) for key, cell in data.get("vessel_materials", {}).items()},
         )
         if migrated_v3:
             from .inventory import initialise_inventory, reconcile_legacy_carried, sync_legacy_load
@@ -1002,6 +1034,12 @@ def game_state_from_dict(data: Any) -> GameState:
 
 
 def validate_state(state: GameState) -> None:
+    from .materials import validate_materials
+
+    try:
+        validate_materials(state)
+    except ValueError as exc:
+        raise StateError(f"invalid material state: {exc}") from exc
     if len(state.household) < 6 or len({person.id for person in state.household}) != len(state.household):
         raise StateError("save must retain the six-person household and unique recruits")
     if state.active_courier_id is not None and state.courier is None:
