@@ -13,6 +13,7 @@ from .json_data import JsonDataError, loads
 from .contracts import Definition, Enemy, Opcode, Technique, freeze, runtime_definition
 from .manifest import ContentManifest, content_manifest
 from .versions import CONTENT_SCHEMA
+from .acquisition import Lane
 
 
 class ContentError(ValueError):
@@ -221,7 +222,7 @@ EFFECT_KEYS = {
 CONTENT_FIELDS = {
     "heroes": "id name role combat_role complexity preferred_ranks signature strength weakness builds summary max_hp rank starter_deck biome",
     "squads": "id name playstyle complexity formation strength weakness signature",
-    "cards": "id name hero cost from_ranks target target_ranks description effects upgrade_effects tags upgrade_description biome biome_bonus",
+    "cards": "id name hero cost from_ranks target target_ranks description effects upgrade_effects tags upgrade_description biome biome_bonus lanes",
     "enemies": "id name max_hp actions biomes",
     "encounters": "id kind enemies biomes",
     "events": "id name text choices biomes",
@@ -617,6 +618,10 @@ def _load_catalog(path: Path | None) -> Catalog:
                 )
     card_names: set[str] = set()
     for card in cards.values():
+        if "lanes" in card and (not isinstance(card["lanes"], list) or not card["lanes"]
+                                or any(lane not in {item.value for item in Lane} for lane in card["lanes"])
+                                or len(set(card["lanes"])) != len(card["lanes"])):
+            raise ContentError(f"card {card['id']} has invalid acquisition lanes")
         if not isinstance(card.get("name"), str) or not isinstance(card.get("description"), str):
             raise ContentError(f"card {card['id']} needs a name and description")
         if card.get("hero") not in heroes:

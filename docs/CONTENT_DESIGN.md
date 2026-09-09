@@ -139,3 +139,25 @@ The queue must preserve the initiating card/turn/combat identities across automa
 descendants and must not let automatic handlers replenish limiter counters. These
 are contracts for the next runtime change; declaring them alone does not replace
 the existing direct effect resolver or implement `CHAIN SEALED` yet.
+
+## Acquisition, pack and threat boundaries
+
+The typed acquisition vocabulary is normal, elite, objective, facility, bargain,
+guardian, finale and loop. Technique eligibility intersects living owners, the
+requested lane and enabled pack members; stable sorted IDs are returned.
+Optional authored `lanes` reject unknown or duplicate values. Legacy techniques
+remain available in all lanes until the reward refactor authors narrower jobs;
+the existing generator has not yet switched to the new eligibility function.
+
+Content packs contain typed section/ID references, explicit requirements and
+exclusions. Unknown members, duplicate IDs, disabled requirements and conflicting
+enabled packs are rejected. Enabling a pack does not silently enable its required
+packs. The current shipped manifest still contains only `base:core`; these
+contracts precede authored optional packs.
+
+`Threat` stores nonnegative integer dimensions for durability, sustained damage,
+burst, control, sustain, reach and tempo. A `ThreatBudget` requires both its total
+and every dimensional ceiling to pass. Cheap durability cannot excuse a burst
+ceiling violation. These contracts are tested independently; deriving calibrated
+two/three-phase estimates and replacing existing HP-only generation budgets
+remains the encounter milestone, not an already-completed balance change.
