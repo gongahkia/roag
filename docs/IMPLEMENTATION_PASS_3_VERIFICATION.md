@@ -200,3 +200,11 @@ at 80×24 and 140×60 and inspection resize without a simulation change. A fake-
 history test initially exhausted its input because it supplied scroll keys to a
 short notice; the owning test process was interrupted and the fixture changed to
 contain an actual long history. No gameplay code was altered to accommodate it.
+
+The initially untracked user-supplied `Dullest_Dungeon_Expansion_Research.md` was
+preserved verbatim in a dedicated commit. Its SHA-256 remains
+`363b2ac5e0be10a0feefaca1715abe71e3db842c83aaa504c170dd68d0eb1802`.
+A pre-commit `git diff --no-index --check /dev/null` reports its existing final
+blank line at line 371. That original whitespace was retained to honor the
+instruction not to alter user work. Agent-authored changes continue to pass
+`git diff --check`; the supplied artifact is the documented provenance exception.
