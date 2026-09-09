@@ -110,3 +110,6 @@ python3 -m dumbest_dungeon --validate-content
 ```
 
 The test suite covers all twenty-five authored crew identities and draft pools, curated and custom squads, card metadata and rank legality, neutral reward diversity and skipping, transformations, positional recovery, the tutorial, scrollable 80×24 screens, sequential enemy playback, and deterministic save/load. It also retains coverage for all six world layouts, all eleven biome mechanics, objective and hazard reachability, Overseer gating, encounter formations and intents, Death's Door, facilities, malformed state rejection, and complete scripted expedition flow. These rule tests do not establish numerical balance, comprehension, or ordinary-run win rates.
+
+In combat, press **V** for scrollable source arithmetic and trigger order. Page
+Up/Down and Home/End navigate long records; Enter or Escape returns to combat.

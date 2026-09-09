@@ -224,3 +224,11 @@ raw-hit behavior bypasses outgoing bonuses and dodge; vulnerability and block
 still apply. Area damage finishes its primary targets before AFTER responses are
 queued. This explicit phase boundary replaces the old interleaved Python calls.
 Saved listener definitions must match registered Python contracts before resume.
+
+Combat's V key opens a scrollable resolution record for the current encounter.
+It includes root/event/parent IDs, stable phase and listener order, damage before
+and after target modifiers, absorbed block, deflection, actual health loss,
+overkill, healing waste, status changes and Death's Door checks. The ordinary
+80×24 combat footer remains one line. Inspection only reads recorded data;
+opening, scrolling and resizing it cannot consume simulation RNG. Pre-instrumented
+arithmetic is labeled unrecorded instead of reconstructed from today's rules.

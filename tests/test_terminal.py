@@ -26,7 +26,15 @@ catalog = load_catalog()
 def run(screen):
     ui = TerminalUI(screen, catalog, Path(sys.argv[1]), lambda: None)
     ui.engine = GameEngine.new(catalog, 3)
-    if sys.argv[2] == 'history':
+    if sys.argv[2] == 'resolution':
+        ui.engine.start_combat('lost_shift')
+        actor, target = ui.engine.living_heroes()[0], ui.engine.living_enemies()[0]
+        for i in range(40):
+            ui.engine._apply_effect(actor, [target], {'op': 'block', 'amount': 1}, source_id='probe:' + str(i))
+        before = ui.engine.snapshot()
+        ui._resolution_view()
+        picked = 1
+    elif sys.argv[2] == 'history':
         for i in range(40):
             ui.engine.record('item_acquired', 'probe:' + str(i), gained=1, count=1)
         before = ui.engine.snapshot()
@@ -48,7 +56,7 @@ Path(sys.argv[1]).write_text(json.dumps(result))
 
 @unittest.skipUnless(os.name == "posix", "real PTY checks require a Unix terminal")
 class RealTerminalTests(unittest.TestCase):
-    def probe(self, rows: int, columns: int, *, resize: bool = False, history: bool = False) -> dict:
+    def probe(self, rows: int, columns: int, *, resize: bool = False, history: bool = False, resolution: bool = False) -> dict:
         import fcntl
         import termios
 
@@ -59,7 +67,7 @@ class RealTerminalTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as directory:
                 result_path = Path(directory) / "result.json"
                 process = subprocess.Popen(
-                    [sys.executable, "-c", PROBE, str(result_path), "history" if history else "menu"],
+                    [sys.executable, "-c", PROBE, str(result_path), "resolution" if resolution else "history" if history else "menu"],
                     stdin=slave, stdout=slave, stderr=slave,
                     env={**os.environ, "TERM": "xterm-256color"},
                 )
@@ -70,19 +78,19 @@ class RealTerminalTests(unittest.TestCase):
                     ready, _, _ = select.select([master], [], [], 0.05)
                     if ready:
                         captured.extend(os.read(master, 65536))
-                    marker = b"PTY MORGUE" if history else b"PTY LONG CONTRACT"
+                    marker = b"COMBAT RESOLUTION" if resolution else b"PTY MORGUE" if history else b"PTY LONG CONTRACT"
                     if not sent and marker in captured:
                         if resize:
                             fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 60, 140, 0, 0))
                             process.send_signal(signal.SIGWINCH)
-                        os.write(master, b"\x1bOF\n" if history else b"\x1b[6~\x1bOFj\n")
+                        os.write(master, b"\x1bOF\n" if history or resolution else b"\x1b[6~\x1bOFj\n")
                         sent = True
                 self.assertIsNotNone(process.poll(), "PTY timed out: " + captured[-1000:].decode(errors="replace"))
                 self.assertEqual(0, process.returncode, captured[-2000:].decode(errors="replace"))
                 result = json.loads(result_path.read_text())
                 self.assertEqual(1, result["picked"])
                 self.assertTrue(result["unchanged"])
-                if history:
+                if history or resolution:
                     self.assertIn("probe:39", result["shown"])
                 else:
                     self.assertIn("Consequence 89", result["shown"])
@@ -103,6 +111,11 @@ class RealTerminalTests(unittest.TestCase):
 
     def test_resize_during_inspection_preserves_simulation(self) -> None:
         self.assertEqual([60, 140], self.probe(24, 80, resize=True)["size"])
+
+    def test_resolution_arithmetic_scrolls_at_both_sizes(self) -> None:
+        for rows, columns in ((24, 80), (60, 140)):
+            result = self.probe(rows, columns, resolution=True)
+            self.assertIn("block +1", result["shown"])
 
     def test_morgue_scrolls_at_80_by_24(self) -> None:
         self.assertEqual([24, 80], self.probe(24, 80, history=True)["size"])

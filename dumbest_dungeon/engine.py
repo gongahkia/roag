@@ -3695,7 +3695,10 @@ class GameEngine:
 
     def resolve_pending(self, *, close_root: bool = True) -> None:
         previous_seals = len(self.resolution.state.seals)
+        root = self.resolution.state.root_id
         self.resolution.drain(self._resolution_listeners, self._resolve_event, self._resolve_trigger, close_root=close_root)
+        if close_root and root is not None:
+            self.record("resolution_root", "resolution", root=root, trace=self.resolution.state.trace)
         for seal in self.resolution.state.seals[previous_seals:]:
             self.add_log("CHAIN SEALED: an automatic chain exceeded its event budget.")
             self.record("chain_sealed", "resolution", trace=seal)
@@ -4179,7 +4182,7 @@ class GameEngine:
             self.add_log(f"{target.name} evades the hit.")
             self.record("damage", source, target=target.id, intended_target=intended_target,
                         requested=requested, absorbed=0, amount=0, hp_loss=0, overkill=0, dodged=True,
-                        attacker=attacker.id, was_deaths_door=was_deaths_door)
+                        attacker=attacker.id, was_deaths_door=was_deaths_door, modified=0, deflected=0)
             return
         if target.statuses.get("vulnerable"):
             amount = round(amount * 1.5)
@@ -4187,18 +4190,22 @@ class GameEngine:
             multiplier = 1 + self._hero_effect_value(target, "curse", "incoming_damage_bonus")
             multiplier *= 1 - self._item_effect_value("incoming_damage_reduction")
             amount = max(0, round(amount * max(0.5, min(2.0, multiplier))))
+        modified = amount
+        deflected = 0
         absorbed = min(target.block, amount)
         target.block -= absorbed
         amount -= absorbed
         if target.side == "hero" and amount > 0:
             hit_key = f"enemy_hit:{target.id}"
             if not self.state.effect_counters.get(hit_key):
-                amount = max(0, amount - round(self._item_effect_value("deflection")))
+                deflected = min(amount, round(self._item_effect_value("deflection")))
+                amount -= deflected
                 self.state.effect_counters[hit_key] = 1
         self.record("damage", source, target=target.id, intended_target=intended_target,
                     requested=requested, absorbed=absorbed, amount=amount,
                     hp_loss=min(target.hp, amount), overkill=max(0, amount - target.hp), dodged=False,
-                    attacker=attacker.id if attacker else None, was_deaths_door=was_deaths_door)
+                    attacker=attacker.id if attacker else None, was_deaths_door=was_deaths_door,
+                    modified=modified, deflected=deflected)
         if amount <= 0:
             return
         if target.side == "hero" and target.deaths_door:

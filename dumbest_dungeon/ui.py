@@ -1240,6 +1240,8 @@ class TerminalUI:
                 self._effects_view()
             elif key in (ord("c"), ord("C")):
                 self._combat_hand_view()
+            elif key in (ord("v"), ord("V")):
+                self._resolution_view()
             elif key in (ord("r"), ord("R")):
                 self._crew_view()
             elif key in (ord("p"), ord("P"), 27):
@@ -1345,7 +1347,7 @@ class TerminalUI:
         footer = (
             "TARGET: Left/Right or H/L select on battlefield  Enter confirm  Esc cancel"
             if selected_target
-            else "Left/Right card  Enter play  E enemy turn  C inspect card  R crew  I effects  P pause"
+            else "Arrows card  Enter play  E end  C card  R crew  I effects  V trace  P pause"
         )
         self._footer(footer)
 
@@ -1828,6 +1830,12 @@ class TerminalUI:
         if self.engine.state.tutorial and self.engine.state.tutorial_stage == 9:
             self.engine.complete_tutorial()
 
+    def _resolution_view(self) -> None:
+        from .inspection import resolution_lines
+
+        assert self.engine
+        self._notice("COMBAT RESOLUTION", "\n".join(resolution_lines(self.engine)))
+
     def _effects_view(self) -> None:
         assert self.engine
         entries: list[tuple[str, str]] = []
@@ -2018,7 +2026,7 @@ class TerminalUI:
             "Controls: arrows or hjkl navigate, Enter confirms, X/Escape cancels an active route, right-click "
             "also cancels it, E ends a combat turn, U uses a supply, B views biome rules, O views objective "
             "status, G selects the next Core route leg, D views the deck, "
-            "C inspects the selected combat card, R inspects crew, I views effects, P pauses, and ? opens this page. "
+            "C inspects the selected combat card, R inspects crew, I views effects, V shows source arithmetic and trigger order, P pauses, and ? opens this page. "
             "During enemy-action frames, F toggles fast playback and Space skips the remaining presentation; "
             "neither key skips enemy game actions.\n\nMouse input otherwise stops at exploration routing."
         )

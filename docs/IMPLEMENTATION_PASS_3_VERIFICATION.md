@@ -248,3 +248,10 @@ expanded corrected group passed **36 tests in 13.513s**
 proc-family exclusion, phase checkpoint continuation, casualty handling,
 animation neutrality and the complete legacy command transcript. Warning-enabled
 compilation, full content validation and `git diff --check` passed.
+
+Combat-resolution inspection passed **17 PTY, queue-save and ordering tests in
+11.308s**, including actual scrollable curses screens at 80×24 and 140×60. The
+source-arithmetic and telemetry group passed **10 tests in 3.508s**. Damage records
+now distinguish target modifiers, block and first-hit deflection instead of
+combining those stages. Warning-enabled compilation, content validation and
+`git diff --check` passed. These PTYs use constructed combat fixtures.
