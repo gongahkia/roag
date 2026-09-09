@@ -57,6 +57,17 @@ class MaterialTests(unittest.TestCase):
         self.assertEqual(lime.coating, "lime")
         self.assertGreater(lime.smoke, 0)
 
+    def test_structural_bracing_does_not_also_quench_fuel(self):
+        state = self.state
+        state.position = Position(40, 24, -1)
+        point = Position(41, 24, -1)
+        cell = MaterialCell(material="charcoal", support=0, fire=1, fuel=8, collapse_due=2)
+        state.region.materials[key(point)] = cell
+        self.assertTrue(handle_material(state, "brace", point)[0])
+        self.assertEqual((cell.support, cell.collapse_due), (3, 0))
+        self.assertEqual(cell.fire, 1)
+        self.assertGreater(cell.smoke, 0)
+
     def test_rain_reduces_fire_and_wets_sparse_soil(self):
         state = self.state
         state.world_time = 5

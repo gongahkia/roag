@@ -87,8 +87,9 @@ overwritten by normal utility selection. Its ongoing intent may change, but
 the original material duty is now retained alongside it. The next focused run
 passed **29 tests in 13.755 seconds** including that regression; two strengthened
 water/stair checks then passed in **0.338 seconds**. A new full run is required.
-An 80×24 forced-position Darrin PTY exercised a warned collapse, physical rope
-bracing using the billhook's levering capability, finite withdrawal, accompanying attackers and the tailrace. It did not
+An 80×24 forced-position Darrin PTY exercised a warned collapse, structural
+bracing using the billhook's levering capability, finite withdrawal,
+accompanying attackers and the tailrace. It did not
 complete an expedition or a rival-return campaign. Exact limits are recorded
 with the encounter documentation.
 
@@ -106,6 +107,16 @@ dormant-position validation, retained quest-duty evidence, stair travel and
 cross-level releases. `compileall` and `git diff --check` also passed. This is
 the current integration result, not closure of the remaining content or PTY
 gates.
+
+The next 80×24 tactical fixture approached the peat crown, observed its corrected
+mechanism notice, watched smoke and downwind reed ignition, and physically
+braced its linkage. A nearby scavenger then picked up the dropped Ember Cloth
+and withdrew with that actual item while a lynx continued its warned charges.
+This exposed an overly broad material rule: bracing also quenched fire without
+water. Bracing now repairs support only; burning fuel remains dangerous until
+water, fuel exhaustion or another appropriate action resolves it. The thirteen
+material tests passed in **0.997 seconds**, including that regression. The
+previous 335-test result predates this one-line reaction correction.
 
 Following the Marlbank trip, the frontier composer no longer spends worksite
 slots on repeated wildlife already present in a separate pair. Six working

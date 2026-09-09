@@ -379,7 +379,6 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
         cell.coating = "wet"
     elif verb == "brace":
         cell.support, cell.collapse_due = 3, 0
-        cell.fire = 0
     elif verb in {"cut", "break", "lever"}:
         if cell.material not in {"timber", "stone", "reeds"}:
             return False, "There is no firm structure to work here."
