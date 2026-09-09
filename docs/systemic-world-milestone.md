@@ -89,6 +89,9 @@ Cross-level lanes now require an actual opening or exposed exterior edge;
 underground shots cannot pass through unexcavated ceilings. Target previews
 use the same level geometry. All 18 focused ranged tests passed in 6.463
 seconds. Roof-edge and aligned-ladder shots remain supported.
+The resumed full suite passed **217 tests in 153.283 seconds**. A prior
+interrupted run lost its final result and is not counted. Compilation and
+whitespace validation also passed at the sight-geometry checkpoint.
 
 The first benchmark compares 24 observations per ordinary scenario (five cold
 starts/world generations). JSON evidence is in `performance-baseline.json`
