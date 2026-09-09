@@ -172,3 +172,8 @@ initial user research separately from authored implementation evidence.
 - The corrected seed-19 rusher wins with three survivors after the Foundryman
   dies before the Core (14 boss rounds, 171 travel ticks). The earlier loss
   depended on the formation defect and is withdrawn as fair-defeat evidence.
+- Restored tutorial-only destination cycling using its existing authored contact.
+  The prior full-suite attempts were interrupted after reproducing the tutorial
+  hang; they are incomplete, not passing runs. Both existing tutorial UI checks
+  passed in 1.640 seconds with the correction, followed by a dedicated contact
+  priority assertion. Ordinary objective/Core priorities remain covered.

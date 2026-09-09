@@ -156,6 +156,10 @@ class AsciiUiTests(unittest.TestCase):
         self.assertEqual("tutorial_complete", self.engine.state.phase)
         self.assertEqual(10, self.engine.state.tutorial_stage)
 
+    def test_tutorial_destination_cycle_prioritises_the_training_contact(self) -> None:
+        self.ui.engine = GameEngine.tutorial(self.catalog)
+        self.assertEqual([self.ui.engine.tutorial_destination()], self.ui._exploration_targets())
+
     def test_help_scrolls_to_its_final_controls_at_minimum_size(self) -> None:
         screen = FakeScreen(keys=[curses.KEY_END, 10])
         self.ui.screen = screen

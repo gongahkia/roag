@@ -680,6 +680,9 @@ class TerminalUI:
     def _exploration_targets(self) -> list[tuple[int, int]]:
         assert self.engine
         state = self.engine.state
+        training = self.engine.tutorial_destination()
+        if training is not None:
+            return [training]
         targets = [
             (patrol.x, patrol.y)
             for patrol in state.patrols
