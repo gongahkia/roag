@@ -96,7 +96,7 @@ card plays do not produce a play record.
 separately. An offered or acquired card is not automatically counted as played.
 These are local deterministic records, not a popularity or win-rate conclusion.
 Detailed arithmetic, encounter records, the normal history screen and optional
-NDJSON export are subsequent instrumentation work.
+NDJSON export are implemented; future expansion choices extend this ledger.
 
 Combat records now include encounter composition/plan, start/end rounds, starting
 hands and rank/owner clogging, unused energy, resolved effects, conditional payoff
@@ -109,9 +109,9 @@ recording introduces no additional random call. Status records retain previous,
 requested and resulting duration. Expired block is recorded on phase reset.
 
 Some legacy environment/passive paths still use `world:unattributed`; source
-coverage is intentionally visible rather than falsely assigning a card. The
-interaction-kernel migration must finish those paths and add trigger ancestry.
-These records do not impose new combat limits or change effect arithmetic.
+coverage is intentionally visible rather than falsely assigning a card. Queued combat effects include trigger ancestry. Remaining unassigned environment
+sources must be named as their pressure and hazard rules are integrated. These
+records do not impose new combat limits.
 
 Travel records retain actual tile, weighted ticks and light spent. Objective
 records retain offered/chosen approaches, costs, stages and outcomes; facility
@@ -135,10 +135,9 @@ trigger somewhere in a larger component is insufficient: a different unlimited
 cycle inside that component is rejected. The graph walk is iterative, including
 the 3,000-node chain regression. Acyclic triggers may be unlimited.
 
-The queue must preserve the initiating card/turn/combat identities across automatic
-descendants and must not let automatic handlers replenish limiter counters. These
-are contracts for the next runtime change; declaring them alone does not replace
-the existing direct effect resolver or implement `CHAIN SEALED` yet.
+The live queue preserves initiating card/turn/combat identities across automatic
+descendants. Automatic content handlers cannot replenish queue limiter counters.
+Registered reactive rules and host dependency edges are checked together.
 
 ## Acquisition, pack and threat boundaries
 
@@ -205,17 +204,16 @@ sealing and cannot trigger fresh descendants of a sealed branch. Only primary
 handlers can request mandatory events. Traces retain `CHAIN SEALED`, root and
 event IDs, ancestry, source/target operands and dispatch order.
 
-This component is separately tested; routing the live combat resolver through it,
-registering legacy automatic effects and exposing its inspection screen are the
-remaining kernel integration work.
+The component and its live integration are tested separately, including complete
+card transactions, registered responses, checkpoints and terminal inspection.
 
 Primary card and enemy effects now use the queue. Their metrics carry event/root
 IDs and depth. The engine resumes saved pending effects before accepting another
 terminal action, and validates the payload's actor/opcode relationship on load.
 Compound cards retain their sequential behavior: a later effect drops targets
 killed by an earlier effect. A dead owner cannot execute a pending owned effect.
-Legacy automatic responses are being registered separately; primary integration
-alone does not yet remove every old direct trigger path.
+Legacy reactive responses are registered below. Scalar replacement arithmetic
+and atomic rank/card cleanup remain bounded primary operations.
 
 Live riposte is an AFTER damage listener. It inspects the actual guarded target,
 requires an unabsorbed hit and a living attacker/defender, and emits a raw 4-damage

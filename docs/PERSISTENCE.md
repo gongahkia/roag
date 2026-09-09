@@ -1,12 +1,12 @@
 # Persistence contracts
 
 The run save currently uses schema 32, content schema 20, and the existing Python
-`random.Random` state. Profile, telemetry, manifest, and domain-separated RNG
-contracts are being implemented in Pass 3; they are not interchangeable versions.
+`random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
+Telemetry and manifests are implemented; the persistent profile is still pending.
 
 `versions.py` names the engine, content, run, profile, telemetry, manifest and RNG
-versions independently. Profile/telemetry version 1 reserve their first contracts;
-they do not imply those features are finished. `Catalog.manifest` records the
+versions independently. Profile version 1 reserves its first contract. Telemetry version 1 records
+local deterministic events. `Catalog.manifest` records the
 engine, content and RNG versions, enabled pack IDs (currently `base:core`), and a
 SHA-256 fingerprint. Its ASCII canonical JSON sorts object keys and indexes
 top-level definitions by stable ID. Reordering catalog declarations or JSON keys

@@ -137,7 +137,7 @@ implemented behavior rather than promising absent features.
 
 ## Principal risks
 
-The base calibration gate is incomplete. Thin biome pools and HP-only pricing
+At the start, the base calibration gate was incomplete. Thin biome pools and HP-only pricing
 hide coordination spikes. Current content dictionaries are mutable; tests
 sometimes alter them. Saves have no migration chain or content fingerprint.
 Copy identity currently consists only of definition, upgrade flag and curse
@@ -185,3 +185,26 @@ initial user research separately from authored implementation evidence.
   limitations are in `IMPLEMENTATION_PASS_3_VERIFICATION.md`. This establishes
   completability and fair-loss examples; human duration and fun remain unproven.
   Milestone 1 may proceed. No expansion difficulty/content has been added yet.
+
+
+## Foundation and kernel progress
+
+Milestone 1 foundations now include strict JSON, immutable typed definitions,
+content fingerprints, pure save migrations, stable legacy enumeration, synergy
+and density diagnostics, acquisition/pack/threat/stack contracts, deterministic
+run records, atomic morgues, opt-in local NDJSON and terminal history. The full
+foundation suite passed 271 tests in 579.461 seconds. Stack and acquisition
+contracts still need their live assignments in Milestone 3; encounter-vector
+pricing belongs to Milestone 7.
+
+Milestone 2 now includes saved phased dispatch, canonical listener snapshots,
+activation-based limiters, cycle validation with host edges, branch sealing,
+whole-card continuations, registered riposte/draw/curse/block responses, casualty
+notifications and scrollable arithmetic inspection. Engine 0.2.0/save 32 records
+this compatibility boundary. Focused checkpoint and legacy replay groups pass;
+the complete kernel suite is the current gate. Atomic primary operations retain
+lethal-hit replacement and repair ownership/rank invariants before a checkpoint.
+
+No expansion techniques, items, enemies, guardians, finales, pressure, profiles,
+difficulty ranks or loops have been added yet. Their acceptance gates remain
+open. Historical and constructed evidence must retain their labels.
