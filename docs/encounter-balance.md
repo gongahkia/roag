@@ -80,6 +80,16 @@ machine.
 
 ## Adjustments from integration play
 
+- The expansion's Marlbank PTY exposed a separate generation problem: three
+  identical foxes occupied ordinary worksite slots in addition to the fixed
+  predator/prey pair. Frontier works now draw only working adults, prefer
+  previously unused roles, cap each definition at two, and introduce an
+  available ranged role at the second site. The wildlife pair remains a
+  separate observable situation. Group budgets, opposed-claim exclusions and
+  the two-shooter cap remain in force. Existing saved populations are not
+  replaced. This improves role coverage, not proof of 48 distinct mechanics.
+- Two-step pressure pursuit could enter the courier's occupied tile. It now
+  stops adjacent, and tactical moves do not commit a step onto that tile.
 - Ranged actors enter awareness through aim/setup, never immediate severe
   damage. Longbows withdraw when crowded, slings can suppress a vacated lane,
   and heavy crossbows commit to reload.

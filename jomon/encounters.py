@@ -46,25 +46,32 @@ def compose_encounter(
     region_id: str,
     pressure_band: str,
     site_index: int,
+    *,
+    candidates: tuple[str, ...] | None = None,
+    previously_used: tuple[str, ...] = (),
+    prefer_ranged: bool = False,
 ) -> EncounterPlan:
     """Choose one bounded authored group; this is not an encounter language."""
     if not _pool(region_id) or pressure_band not in PRESSURE_BUDGET:
         raise ValueError("unknown regional encounter band")
     rng = stage_rng(seed, f"encounter:{region_id}:{pressure_band}:{site_index}")
     budget = PRESSURE_BUDGET[pressure_band]
-    standard = _pool(region_id)
+    standard = list(candidates) if candidates is not None else _pool(region_id)
+    if not standard or any(key not in _pool(region_id) for key in standard):
+        raise ValueError("encounter candidates must be regional standard actors")
     rng.shuffle(standard)
+    uses = Counter(previously_used)
+    standard.sort(key=lambda key: (uses[key], not (prefer_ranged and ENEMY_ARCHETYPES[key]["profile"] == "ranged")))
     chosen = [standard[0]]
     spent = int(ENEMY_ARCHETYPES[chosen[0]]["budget"])
     if site_index == 0:
         return EncounterPlan(region_id, pressure_band, tuple(chosen), budget, spent)
 
     elite_pool = _pool(region_id, elite=True)
-    if elite_pool and pressure_band == "critical" and site_index >= 4 and rng.randrange(6) == 0:
+    if candidates is None and elite_pool and pressure_band == "critical" and site_index >= 4 and rng.randrange(6) == 0:
         elite = rng.choice(elite_pool)
         return EncounterPlan(region_id, pressure_band, (elite,), budget, int(ENEMY_ARCHETYPES[elite]["budget"]))
 
-    first_role = str(ENEMY_ARCHETYPES[chosen[0]]["role"])
     for candidate in standard[1:]:
         data = ENEMY_ARCHETYPES[candidate]
         loyalties = {ENEMY_ARCHETYPES[key].get("ecology") for key in chosen}
@@ -89,6 +96,24 @@ def compose_encounter(
 
 def production_encounter_groups(seed: str, region_id: str) -> tuple[EncounterPlan, ...]:
     """Build six finite standard actors in progressively riskier authored sites."""
+    if any(ENEMY_ARCHETYPES[key].get("ecology") for key in _pool(region_id)):
+        # Frontier wildlife already has a separate predator/prey situation.
+        # Worksites should teach material duties, not multiply that same pair.
+        workers = tuple(key for key in _pool(region_id) if ENEMY_ARCHETYPES[key]["profile"] != "animal")
+        used: tuple[str, ...] = ()
+        groups = []
+        for index in range(6):
+            if len(used) >= 6:
+                break
+            band = "steady" if index == 0 else "strained" if index == 1 else "critical"
+            available = tuple(key for key in workers if used.count(key) < 2)
+            plan = compose_encounter(seed, region_id, band, index, candidates=available,
+                                     previously_used=used, prefer_ranged=index == 1)
+            choices = plan.archetypes[:6 - len(used)]
+            groups.append(EncounterPlan(region_id, band, choices, plan.budget,
+                                        sum(int(ENEMY_ARCHETYPES[key]["budget"]) for key in choices)))
+            used += choices
+        return tuple(groups)
     groups = [
         compose_encounter(seed, region_id, "steady", 0),
         compose_encounter(seed, region_id, "strained", 1),

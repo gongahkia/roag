@@ -791,13 +791,16 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             threat.intent = f"finishes reloading {threat.ranged_kind}"
         return f"The {threat.name} {threat.intent}."
     if decision.action in {"intercept", "patrol", "return", "approach", "flank", "seek elevation"} and decision.target:
-        stop_distance = 1 if decision.action == "intercept" else 0
+        stop_distance = 1 if decision.action in {"intercept", "approach"} else 0
         previous = threat.position
         steps = pressure(state).pursuit_steps if decision.action == "approach" else 1
         for _ in range(steps):
-            threat.position = next_path_step(
+            next_position = next_path_step(
                 state, threat, decision.target, stop_distance=stop_distance
             )
+            if next_position == state.position:
+                break
+            threat.position = next_position
         descriptions = {
             "intercept": "moves between you and its ranged ally",
             "patrol": "resumes its assigned patrol without knowing your position",

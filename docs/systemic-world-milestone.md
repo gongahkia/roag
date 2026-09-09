@@ -71,6 +71,19 @@ them by themselves.
 
 ## Measurement and limitations log
 
+Following the Marlbank trip, the frontier composer no longer spends worksite
+slots on repeated wildlife already present in a separate pair. Six working
+actors now prefer unseen definitions, use at most two of one definition, and
+include a ranged worker when that region has one. Rillscar currently has no
+standard ranged frontier worker; this is a content gap, not an audit success.
+The new tests sampled 400 region/seed compositions, checked real placements
+and reproduced/fixed pressure pursuit entering the courier tile: **three tests
+passed in 0.982 seconds**. Existing ecology tests passed **16 in 8.058 seconds**.
+The first composition regression run failed 59 subcases because the preference
+still allowed three repeated signal callers; a hard per-definition cap fixed
+those cases. Full-suite and live-play verification of this adjustment remain
+due; the preceding 302-test result does not cover it.
+
 The work-clothing benchmark adds a separate 64-cell sparse-material scenario
 without changing the older smoke/water baseline scenario. In 24 samples,
 ordinary input/layout was **16.512 / 16.785 / 16.968 ms** median/p95/p99;
