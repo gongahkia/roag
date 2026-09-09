@@ -14,6 +14,7 @@ from .contracts import Definition, Enemy, Opcode, Technique, freeze, runtime_def
 from .manifest import ContentManifest, content_manifest
 from .versions import CONTENT_SCHEMA
 from .acquisition import Lane
+from .ordering import ordered_definitions
 
 
 class ContentError(ValueError):
@@ -49,6 +50,7 @@ class Catalog:
             if name not in {"raw", "balance", "art"}:
                 value = {key: item if isinstance(item, Definition) else runtime_definition(name, item)
                          for key, item in value.items()}
+                value = ordered_definitions(name, value)
             object.__setattr__(self, name, freeze(value))
 
     @cached_property
@@ -447,7 +449,12 @@ def _biome_mechanics(biome: dict[str, Any]) -> None:
 
 
 def load_catalog(path: Path | None = None) -> Catalog:
-    return _bundled_catalog() if path is None else _load_catalog(path)
+    try:
+        return _bundled_catalog() if path is None else _load_catalog(path)
+    except ContentError:
+        raise
+    except (OSError, ValueError, UnicodeError) as exc:
+        raise ContentError(f"cannot establish runtime content contracts: {exc}") from exc
 
 
 @lru_cache(maxsize=1)

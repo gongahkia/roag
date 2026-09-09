@@ -60,6 +60,25 @@ the simulation snapshot, so menu time and resumed duration cannot consume RNG or
 advance travel/combat. The measurement includes reading, animations and pauses;
 it is not a controlled active-play-duration estimate.
 
+## RNG-1 content enumeration
+
+The simulation retains its serializable `random.Random` state. To make catalog
+declaration order irrelevant without changing the calibrated RNG-1 seeds,
+`data/legacy_order.json` freezes the starting catalog's ID order. Runtime indexes
+use that order for historical IDs and lexical order for new IDs. The table is
+strictly decoded once and checked against SHA-256
+`3c2f52af04e162871d8b6720432ce247b96757d47e17c1805e5b7293dd8680b4`.
+It is a compatibility artifact, not a second source of content definitions; no
+names or mechanics are inferred from it. Changing it requires an explicit RNG
+compatibility decision. Effect lists, action lists and formations remain ordered
+rules. JSON keys and top-level definition order are not rules.
+
+Tests reverse every top-level catalog definition list and compare new-world and
+50-command continuation hashes. Three subprocesses using `PYTHONHASHSEED=0`, `1`
+and `987654` compare another 50-command continuation. A retained 344-command
+ordinary seed-0 calibration transcript compares final gameplay state and RNG
+against the pre-ledger evidence, excluding only the newly added ledger.
+
 ## Atomic local files
 
 `save.write_save` serializes finite JSON before touching the destination. It creates
