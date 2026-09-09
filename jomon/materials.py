@@ -343,7 +343,8 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
     from .workshop import active_part
 
     heel = active_part(state, "iron heel") if verb in {"brace", "lever", "break"} else None
-    if verb in {"brace", "lever", "break", "cut", "dig"} and not (heel or learned_brace or state.gear == "repair tools" or state.weapon in {"hand axe", "billhook", "war hammer"} or state.courier.technique == "lever craft"):
+    spade_work = state.weapon == "spade" and verb in {"dig", "cut"}
+    if verb in {"brace", "lever", "break", "cut", "dig"} and not (heel or learned_brace or spade_work or state.gear == "repair tools" or state.weapon in {"hand axe", "billhook", "war hammer"} or state.courier.technique == "lever craft"):
         return False, "This work needs a cutting/levering weapon, repair tools, or Lever Craft."
     if verb in {"push", "pull"}:
         container = next((c for c in state.region.containers if c.position == point), None) if state.location == "region" else None

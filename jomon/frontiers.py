@@ -7,6 +7,7 @@ import math
 from .content import COMMODITIES, PASSIVES
 from .regions import _border, _carve, _grid, _levels, _rect, _road, _signature, region_reachable, validate_region
 from .state import ActorSchedule, Contact, Container, MarketEntry, MaterialCell, Position, Region, Threat, VerticalLink, stage_rng
+from .work_weapons import WORK_WEAPONS
 
 FRONTIERS = {
     "dunmire": ("Dunmire Peat Isles", 96, 56, "peat", "charcoal", "timber", "fen overtopping", "Yara Silt", "peat steward", "Deren Wick", "causeway keeper"),
@@ -153,6 +154,7 @@ def build_frontier(seed: str, region_id: str) -> Region:
     stage_rng(seed, f"{region_id}:physical-rewards").shuffle(rewards)
     containers = []
     layers = {-1: below, 0: ground, 1: upper, 2: roof}
+    implements = [key for key, definition in WORK_WEAPONS.items() if region_id in definition.regions]
     for index, (suffix, title, point, requirement) in enumerate(sites):
         if point.z == 0:
             _carve(ground, [point, min(anchors, key=lambda anchor: abs(anchor.x - point.x) + abs(anchor.y - point.y))])
@@ -160,6 +162,10 @@ def build_frontier(seed: str, region_id: str) -> Region:
         container = Container(f"{region_id}-{suffix}", f"{name.split()[0]} {title}", point, rewards[index], requirement)
         clothing = REGIONAL_ARMOUR[region_id]
         container.extra_rewards = [clothing[index % len(clothing)], "willow dressing" if index % 3 == 0 else "fletched arrows"]
+        if index < len(implements):
+            container.extra_rewards.append(implements[index])
+        if index in {0, 1, 2}:
+            container.extra_rewards.extend([("sealed pitch pot", "sealed lime pot", "sealed brine pot")[index]] * 2)
         containers.append(container)
     levels = _levels(ground, {-1: below, 1: upper, 2: roof})
     landmarks = {"landing": landing, "contact": settlement, "second_contact": second, "settlement": settlement, "ruin": ruin, "works": works, "far_bank": far_bank, "store": store, "cave_entrance": cave, "objective": objective, "control": control, "elevated": elevated}

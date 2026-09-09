@@ -150,6 +150,10 @@ WEAPONS = {
     "handgonne": ("Powder handgonne", "loud prepared shot creates smoke and commits a slow reload"),
 }
 
+from .work_weapons import WORK_WEAPONS
+
+WEAPONS.update({name: (spec.name, spec.description) for name, spec in WORK_WEAPONS.items()})
+
 GEAR = {
     "buckler": ("Buckler", "turns a telegraphed close strike while guarding"),
     "rope": ("Tarred rope", "secures water, winches, and unstable crossings"),
@@ -187,6 +191,12 @@ DISCOVERIES = {
     "salt-house chit": ("trade", "A witnessed claim on salt fish or merchant credit."),
     "handgonne charges": ("ammunition", "Three wrapped powder charges and lead balls."),
 }
+
+DISCOVERIES.update({
+    "sealed pitch pot": ("ammunition", "One bulky fire pot for the pot sling; water stops ignition, not fuel loss."),
+    "sealed lime pot": ("ammunition", "One abrasive cloud for the pot sling; wet lime remains caustic."),
+    "sealed brine pot": ("ammunition", "One finite pot of salt water to quench, thaw or flood a visible cell."),
+})
 
 RELICS = {
     "river-glass ward": "A finite cold shard that breaks instead of its bearer.",
@@ -268,6 +278,8 @@ MERCHANT_ITEMS = {
     "reed gaiters": (2, "armour"), "quarry chaps": (3, "armour"), "frost leggings": (3, "armour"),
     "peat pattens": (2, "armour"), "felt overboots": (2, "armour"), "ice cleats": (3, "armour"),
 }
+MERCHANT_ITEMS.update({key: (4, "weapon") for key in WORK_WEAPONS})
+MERCHANT_ITEMS.update({f"sealed {material} pot": (2, "consumable") for material in ("pitch", "lime", "brine")})
 
 # Bounded authored roles. Regional placement and budgets live in encounters.py;
 # actions remain ordinary Threat decisions rather than data-driven scripts.

@@ -89,7 +89,7 @@ class WorkingClothingTests(unittest.TestCase):
                 stock = merchant_stock_for(state)
                 self.assertEqual(stock, merchant_stock_for(state))
                 self.assertIn(stock[-1], choices)
-                self.assertLessEqual(len(stock), 4)
+                self.assertLessEqual(len(stock), 6 if region_id in {"dunmire", "rillscar", "marlbank", "frostmere"} else 4)
                 seen.add(stock[-1])
         self.assertEqual(seen, set().union(*map(set, REGIONAL_ARMOUR.values())))
         state.active_region_id = "hearthford"

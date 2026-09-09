@@ -130,7 +130,7 @@ class TacticalRewardTests(unittest.TestCase):
         self.assertNotIn("stillwater filament", state.relics)
 
     def test_new_content_is_bounded_and_every_reward_is_defined(self):
-        self.assertEqual(len(WEAPONS), 18)
+        self.assertEqual(len(WEAPONS), 24)
         self.assertEqual(len(PASSIVES), 37)
         self.assertEqual(len(RELICS), 6)
         state = create_world("new quest caches")

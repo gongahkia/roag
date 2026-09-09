@@ -167,6 +167,7 @@ class TargetView:
     cursor: Position
     target_ids: list[str]
     selected: int = 0
+    ammunition: str | None = None
 
     @classmethod
     def begin(cls, state: GameState) -> "TargetView":
@@ -180,9 +181,12 @@ class TargetView:
             ),
             key=lambda threat: (distance(state.position, threat.position), threat.id),
         )
+        from .work_weapons import available_pots
+        pots = available_pots(state) if state.weapon == "pot sling" else []
         return cls(
             targets[0].position if targets else state.position,
             [target.id for target in targets],
+            ammunition=pots[0] if pots else None,
         )
 
 
@@ -585,7 +589,15 @@ def _target_at_cursor(state: GameState, view: TargetView) -> Threat | None:
     )
 
 
-def _ammunition_status(state: GameState) -> tuple[int, str]:
+def _ammunition_status(state: GameState, ammunition: str | None = None) -> tuple[int, str]:
+    if state.weapon == "throwing axe":
+        readied = equipped_item(state, "readied")
+        return int(bool(readied and readied.kind == "throwing axe")), "readied axe"
+    if state.weapon == "pot sling":
+        from .work_weapons import available_pots
+        choices = available_pots(state)
+        ammunition = ammunition or (choices[0] if choices else "pots")
+        return physical_ammunition(state, ammunition), ammunition
     ammo_name = WEAPON_AMMUNITION.get(state.weapon or "", "")
     ammo_label = {"sling stones": "stones", "handgonne charges": "charges"}.get(ammo_name, ammo_name or "none")
     available = physical_ammunition(state, ammo_name) if ammo_name else 0
@@ -593,7 +605,7 @@ def _ammunition_status(state: GameState) -> tuple[int, str]:
 
 
 def targeting_detail(state: GameState, view: TargetView) -> str:
-    available, ammo_label = _ammunition_status(state)
+    available, ammo_label = _ammunition_status(state, view.ammunition)
     return (
         f"R{distance(state.position, view.cursor)}/{effective_weapon_range(state)} "
         f"z{view.cursor.z:+d} "
@@ -605,6 +617,8 @@ def targeting_detail(state: GameState, view: TargetView) -> str:
 def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]:
     selected = _target_at_cursor(state, view)
     ready = "Enter commits one cast; Escape costs no time."
+    if state.weapon == "pot sling":
+        ready = "P changes pot; minimum range 3. Enter throws at the selected cell."
     if state.weapon == "crossbow" and not state.crossbow_loaded:
         ready = "Unloaded: Escape then G reloads; no shot is committed here."
     elif state.weapon in {"heavy crossbow", "handgonne"} and state.weapon_ready < 2:
@@ -717,6 +731,12 @@ def _handle_targeting(
             view.cursor = Position(view.cursor.x, view.cursor.y, level)
         return False, False
     normalized = ord(chr(key).lower()) if 0 <= key < 256 else key
+    if normalized == ord("p") and state.weapon == "pot sling":
+        from .work_weapons import available_pots
+        choices = available_pots(state)
+        if choices:
+            view.ammunition = choices[(choices.index(view.ammunition) + 1) % len(choices)] if view.ammunition in choices else choices[0]
+        return False, False
     movement = {
         curses.KEY_LEFT: (-1, 0), curses.KEY_RIGHT: (1, 0),
         curses.KEY_UP: (0, -1), curses.KEY_DOWN: (0, 1),
@@ -737,6 +757,9 @@ def _handle_targeting(
         _target_cycle(state, view)
         return False, False
     if key in {10, 13}:
+        if state.weapon == "pot sling":
+            result = attack(state, target_position=view.cursor, ammunition=view.ammunition)
+            return result.time_advanced, result.time_advanced
         target = _target_at_cursor(state, view)
         if target is None:
             state.add_message("No visible hostile occupies the selected cell.", priority=2)

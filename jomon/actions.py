@@ -518,7 +518,7 @@ def apply_damage(
 def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
     gap = distance(state.position, threat.position)
     threat.turn += 1
-    if threat.intent.startswith(("disrupted", "dazed", "entangled")):
+    if threat.intent.startswith(("disrupted", "dazed", "entangled", "pinned")):
         was_entangled = threat.intent.startswith("entangled")
         threat.intent = "cuts free of the net before acting again" if was_entangled else "recovers position before acting again"
         threat.reaction, threat.marked_position = "", None
@@ -1262,6 +1262,7 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
     previous_area = area_name(state)
     kept_roof_aim = bool(
         state.location == "region" and state.aimed_target
+        and state.weapon != "war flail"
         and state.position.z > 0 and "roof nail" in state.carried_passives
     )
     if state.location == "region" and state.aimed_target and not kept_roof_aim:
@@ -1995,6 +1996,10 @@ RANGED_WEAPONS = frozenset(
         "weighted net", "staff sling", "hooked javelin", "handgonne",
     }
 )
+from .work_weapons import WORK_WEAPONS
+
+WEAPON_RANGES.update({name: spec.reach for name, spec in WORK_WEAPONS.items()})
+RANGED_WEAPONS |= {"pot sling", "throwing axe"}
 
 
 def effective_weapon_range(state: GameState) -> int:
@@ -2030,12 +2035,16 @@ def effective_weapon_range(state: GameState) -> int:
     return attack_range
 
 
-def attack(state: GameState, target_id: str | None = None) -> ActionResult:
+def attack(state: GameState, target_id: str | None = None, *, target_position: Position | None = None, ammunition: str | None = None) -> ActionResult:
     from .workshop import active_part, attack_effects
 
     if not state.combat_active or state.weapon is None:
         return _plain(state, "No readied attack is possible.")
     candidates = _attack_targets(state, effective_weapon_range(state))
+    if state.weapon == "pot sling":
+        from .work_weapons import cast_pot
+        target = next((a for a in candidates if a.id == target_id), None) if target_id else next((a for a in candidates if a.ecology != "prey"), None)
+        return cast_pot(state, target_position or (target.position if target else None), ammunition)
     if target_id is not None:
         candidates = [target for target in candidates if target.id == target_id]
     else:
@@ -2044,13 +2053,32 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
         candidates = [target for target in candidates if distance(state.position, target.position) >= 2]
     if state.weapon == "staff sling":
         candidates = [target for target in candidates if distance(state.position, target.position) >= 3]
+    work_weapon = WORK_WEAPONS.get(state.weapon)
+    if work_weapon:
+        candidates = [target for target in candidates if distance(state.position, target.position) >= work_weapon.minimum]
     if not candidates:
         if state.weapon == "hand axe" and base_tile(state, state.position) == "d":
             return _destroy_floor(state)
         return _plain(state, "No visible hostile is within this weapon's reach.")
     target = candidates[0]
     original_target_position = target.position
+    shield_steps = []
+    if state.weapon == "shield and hanger":
+        from .work_weapons import approach
+        shield_steps, reason = approach(state, target)
+        if shield_steps is None:
+            return _plain(state, reason)
+    thrown_item = equipped_item(state, "readied") if state.weapon == "throwing axe" else None
+    if state.weapon == "throwing axe" and (not thrown_item or thrown_item.kind != state.weapon):
+        return _plain(state, "The throwing axe must be physically readied.")
     target.status = "engaged"
+    if state.weapon == "war flail" and state.aimed_target != target.id:
+        state.aimed_target = target.id
+        return _time_result(state, "You wind the flail in an exposed stance; moving abandons this preparation.", priority=3)
+    if state.weapon == "war flail":
+        state.aimed_target = None
+    if shield_steps:
+        state.position = shield_steps[-1]
     ranged = state.weapon in RANGED_WEAPONS
     prepared = state.weapon in {"crossbow", "longbow", "heavy crossbow", "handgonne"}
     ammo_key = {
@@ -2111,6 +2139,7 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
             "staff sling": (2, "staff-sling stone arcs over low cover", 2),
             "hooked javelin": (2, "hooked javelin", 3),
             "handgonne": (4, "handgonne ball tears through smoke and cover", 6),
+            "throwing axe": (3, "thrown physical axe", 3),
         }[state.weapon]
         ignores_partial = state.weapon in {"heavy crossbow", "staff sling", "handgonne"} or (
             state.weapon == "sling"
@@ -2126,7 +2155,7 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
             damage = max(0, damage - 1)
             weapon_text += " wavers through injury"
     else:
-        damage = {
+        damage = work_weapon.damage if work_weapon else {
             "billhook": 2,
             "spear": 2,
             "cudgel": 1,
@@ -2139,6 +2168,8 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
         }[state.weapon]
         weapon_text = state.weapon
         sound = 1 if state.weapon in {"cudgel", "staff"} else 2
+        if work_weapon:
+            sound = work_weapon.noise
         if "thorn-held momentum" in build_combinations(state):
             damage += 1
             target.morale -= 1
@@ -2243,6 +2274,9 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
     ):
         target.position = _step_away(state, target)
     sound, fitting_text = attack_effects(state, original_target_position, sound, ammo_key)
+    if work_weapon:
+        from .work_weapons import strike_effects
+        weapon_text += "; " + strike_effects(state, target, _attack_targets(state, effective_weapon_range(state)))
     if fitting_text:
         weapon_text += "; " + fitting_text
     sounds = emit_sound(state, sound)
@@ -2267,7 +2301,11 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
             f"The {weapon_text} deals {damage}; "
             f"{target.name} has {target.health}/{target.max_health}."
         )
-    return _time_result(state, " ".join([text, *sounds]), priority=3)
+    if thrown_item:
+        thrown_item.location, thrown_item.owner_id = "ground", None
+        thrown_item.region_id, thrown_item.ground_position = state.spatial_id, original_target_position
+        state.weapon = None
+    return _time_result(state, " ".join([text, *sounds]), guarded=work_weapon is WORK_WEAPONS["shield and hanger"], priority=3)
 
 
 def guard(state: GameState) -> ActionResult:
@@ -2753,6 +2791,10 @@ def merchant_stock_for(state: GameState) -> list[str]:
     )
     finite = "tide-knot charm" if rare else "willow dressing"
     stock = list(dict.fromkeys((context, regional_weapon, finite)))[:3]
+    implements = [key for key, definition in WORK_WEAPONS.items() if state.active_region_id in definition.regions]
+    if implements:
+        stock.append(stage_rng(state.seed, f"working-arms:{state.active_region_id}:{state.returned_expeditions}").choice(implements))
+        stock.append(stage_rng(state.seed, f"pot-stock:{state.active_region_id}:{state.returned_expeditions}").choice(("sealed pitch pot", "sealed lime pot", "sealed brine pot")))
     if state.active_region_id in REGIONAL_ARMOUR:
         clothing = REGIONAL_ARMOUR[state.active_region_id]
         stock.append(stage_rng(state.seed, f"work-clothing:{state.active_region_id}:{state.returned_expeditions}").choice(clothing))

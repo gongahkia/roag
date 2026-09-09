@@ -34,6 +34,9 @@ WEAPON_AMMUNITION = {
     "hooked javelin": "javelins",
     "handgonne": "handgonne charges",
 }
+from .work_weapons import POT_AMMUNITION, WORK_WEAPONS
+
+AMMUNITION_ITEMS.update(POT_AMMUNITION)
 
 
 def release_enemy_possession(state: GameState, threat) -> str:
@@ -209,6 +212,14 @@ REGIONAL_ARMOUR = {
     "marlbank": ("kiln face wrap", "kiln apron", "potter mitts", "quarry sleeves", "quarry chaps", "archer tabs"),
     "frostmere": ("winter felt coat", "frost leggings", "felt overboots", "ice cleats", "split-hide palms", "reed brim"),
 }
+
+
+ITEM_SPECS.update({name: ItemSpec(spec.name, "".join(word[0] for word in name.split()).upper()[:2], *spec.shape,
+                                spec.weight, "weapon", spec.description)
+                   for name, spec in WORK_WEAPONS.items()})
+for pot in POT_AMMUNITION.values():
+    ITEM_SPECS[pot] = ItemSpec(pot.split(":", 1)[1].title(), "P" + pot.split()[1][0].upper(), 2, 2, 3,
+                              "consumable", "A finite pot-sling payload; P chooses the packed payload in targeting.", stack_limit=2)
 
 
 def item_spec(kind: str) -> ItemSpec:
@@ -547,6 +558,12 @@ def item_preview(kind: str) -> tuple[str, str, str]:
         "javelins": ("///> ", "///> ", "///> "),
         "war hammer": ("[===]", "  |  ", "  |  "),
         "weighted net": ("#-#-#", "-#-#-", " # \\ "),
+        "pot sling": ("  (_)  ", " /   / ", "/___/  "),
+        "throwing axe": ("  /==  ", " /     ", "/      "),
+        "forked pike": ("-----E ", "       ", "       "),
+        "war flail": ("o-o-[#]", "|      ", "|      "),
+        "spade": ("  T    ", "  |    ", " [V]   "),
+        "shield and hanger": (" /---/ ", "| + | /", " /_/ / "),
     }
     if kind in weapon_art:
         return weapon_art[kind]

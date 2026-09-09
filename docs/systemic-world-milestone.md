@@ -51,6 +51,12 @@ must be checked against production entry points.
 
 ## Acceptance ledger
 
+Working-weapon continuation: six new physical families bring the arsenal to
+24, with normal finite container/merchant sources, payload selection and
+recoverable readied-axe throws. Fourteen focused action/ownership tests and six
+targeting tests pass; a real 80×24 Dunmire chest/packing/pitch-cast/return loop is
+recorded in `working-weapons.md`. The 36-weapon and 24-build gates remain open.
+
 All gates below remain open until measured and exercised. Counts cannot close
 them by themselves.
 
