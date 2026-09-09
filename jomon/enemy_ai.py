@@ -52,7 +52,8 @@ def perceive(state: GameState, threat: Threat) -> tuple[bool, Position | None, s
         threat.last_known_position = heard
         return False, heard, "a recent sound has a known origin"
     alert = state.group_alerts.get(threat.group) if threat.group else None
-    if alert and state.world_time - alert.raised_turn <= 12:
+    source = next((actor for actor in state.threats if alert and actor.id == alert.source_id), None)
+    if alert and source and distance(source.position, threat.position) <= threat.hearing + 4 and state.world_time - alert.raised_turn <= 12:
         threat.last_known_position = alert.position
         return False, alert.position, "an ally shared a last-known position"
     return False, threat.last_known_position, "the courier is out of contact"
@@ -78,6 +79,9 @@ def select_goal(state: GameState, threat: Threat) -> EnemyDecision:
     visible, perceived, perception_reason = perceive(state, threat)
     gap = distance(threat.position, state.position) if visible else 99
     scores: list[EnemyDecision] = []
+    from .ecology import world_options
+
+    scores.extend(world_options(state, threat, visible))
 
     def option(goal: str, action: str, utility: int, reason: str, target: Position | None = None) -> None:
         scores.append(EnemyDecision(goal, action, reason, target, utility))
@@ -97,7 +101,8 @@ def select_goal(state: GameState, threat: Threat) -> EnemyDecision:
     )
     if (
         territorial and threat.home_position
-        and distance(state.position, threat.home_position) > 7
+        and (distance(threat.position, threat.home_position) > 7
+             or visible and distance(state.position, threat.home_position) > 7)
     ):
         option(
             "defend territory", "return", 108,
@@ -290,18 +295,10 @@ def next_path_step(
 
 
 def retreat_step(state: GameState, threat: Threat) -> Position:
-    candidates = _neighbours(state, threat.position, threat)
-    if not candidates:
-        return threat.position
-    return max(
-        candidates,
-        key=lambda point: (
-            distance(point, state.position),
-            -distance(point, threat.home_position) if threat.home_position else 0,
-            -point.y,
-            -point.x,
-        ),
-    )
+    from .ecology import safe_step
+
+    danger = state.position if sees_courier(state, threat) else threat.last_known_position or threat.position
+    return safe_step(state, threat, danger)
 
 
 def raise_group_alert(state: GameState, threat: Threat) -> None:
@@ -310,6 +307,6 @@ def raise_group_alert(state: GameState, threat: Threat) -> None:
     state.group_alerts[threat.group] = GroupAlert(state.position, state.world_time, threat.id)
     threat.alarmed = True
     for ally in state.threats:
-        if ally.group == threat.group and ally.status == "watching":
+        if ally.group == threat.group and ally.status == "watching" and distance(ally.position, threat.position) <= ally.hearing + 4:
             ally.last_known_position = state.position
             ally.status = "engaged"

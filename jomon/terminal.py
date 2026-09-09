@@ -374,7 +374,31 @@ def _init_colours() -> None:
 def _threat_glyph(threat: Threat) -> str:
     if threat.elite:
         return "X"
+    if threat.glyph:
+        return threat.glyph
     return {"pursuer": "h", "reach": "g", "ranged": "x", "animal": "b", "machinery": "!"}[threat.profile]
+
+
+def observed_life_lines(state: GameState) -> list[str]:
+    from .content import ENEMY_ARCHETYPES
+
+    visible = field_of_view(state, remember=False)
+    lines = ["FACT: only presently visible actors are listed. No inspection advances time."]
+    for actor in sorted(state.threats, key=lambda a: (distance(a.position, state.position), a.id)):
+        if actor.position not in visible or actor.status not in {"watching", "engaged"}:
+            continue
+        data = next((data for data in ENEMY_ARCHETYPES.values() if data["name"] == actor.name), None)
+        lines.extend((
+            "", f"{_threat_glyph(actor)} {actor.name}; {actor.position.x},{actor.position.y} z{actor.position.z:+d}; {actor.health}/{actor.max_health} health.",
+            f"OBSERVED INTENT: {actor.intent}.",
+            f"Duty: {actor.goal}; {actor.goal_reason}.",
+            f"Readied {actor.ranged_kind}; ammunition {actor.ammunition}, reload {actor.reload_turns}." if actor.profile == "ranged" else f"Role: {actor.role}; morale {actor.morale}; supplies {actor.supplies}.",
+        ))
+        if data:
+            lines.extend((f"KNOWN PRACTICE: {data['capability']}.", f"COUNTERS: {data['counterplay']}."))
+    if len(lines) == 1:
+        lines.append("No actor is presently visible; remembered terrain does not locate them.")
+    return lines
 
 
 def visible_threats(
@@ -429,7 +453,12 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
             else:
                 char = displayed_tile(state, position)
             role = semantic_role(char, aboard=state.location == "jomon")
+            if position in threats and position != state.position:
+                actor = threats[position]
+                role = "elite" if actor.elite else "neutral" if actor.ecology == "prey" else "hostile"
             attr = _COLOUR_ATTRIBUTES[role]
+            if position in threats and threats[position].profile == "ranged":
+                attr |= curses.A_UNDERLINE
             if state.location == "region" and position not in visible:
                 attr = curses.A_DIM
             _put(screen, top + 1 + sy, left + 1 + sx, char, attr)
@@ -1558,6 +1587,8 @@ def _tavern_lines(state: GameState) -> list[str]:
 
 
 def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
+    if kind == "observed-life":
+        return "VISIBLE ACTORS, DUTIES AND COUNTERS", observed_life_lines(state)
     if kind == "material":
         return "MATERIAL HANDLING", ["Choose a nearby physical target. No time passes until handling is confirmed."]
     if kind.startswith("material:"):
@@ -1825,7 +1856,7 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         if kind.startswith("bartender:"):
             return "bartender", False
         return ("bartender" if kind.startswith("tavern:") else None), False
-    if kind in {"help", "inventory", "equipment", "household", "hold", "contact", "info", "chronicle", "regional-ledger"} or kind.startswith("contact:"):
+    if kind in {"help", "inventory", "equipment", "household", "hold", "contact", "info", "chronicle", "regional-ledger", "observed-life"} or kind.startswith("contact:"):
         return None, False
     if kind == "quit":
         if char == "y":
@@ -2056,6 +2087,8 @@ def play(screen: curses.window, state: GameState) -> GameState:
             overlay = OverlayView("material")
         elif normalized == ord("z"):
             overlay = OverlayView("regional-ledger")
+        elif normalized == ord("o"):
+            overlay = OverlayView("observed-life")
         elif normalized == ord("?"):
             overlay = OverlayView("help")
         elif normalized == ord("s"):

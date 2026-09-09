@@ -296,6 +296,45 @@ ENEMY_ARCHETYPES = {
     "hearth-elite-claimant": {"region": "hearthford", "name": "floodgate claimant", "profile": "reach", "role": "elite", "goal": "open a disputed sluice", "vision": 9, "hearing": 10, "range": 3, "capability": "telegraphs and floods a three-cell mill crossing", "morale": 4, "terrain": "mill race", "counterplay": "dog the sluice, use the upper gantry, or establish the public compact", "budget": 6, "elite": True},
 }
 
+# Named work and wildlife combinations. Behaviour lives in the bounded ecology
+# and combat reducers; these rows contain no executable scripts.
+FRONTIER_ACTORS = (
+    ("fen-pail", "dunmire", "peat-bank pail keeper", "pursuer", "protector", "quench", "worker", 8, 8, 1, 2, "P", "puts out visible fire with three pails", "draw away from water work or use smoke and a side causeway"),
+    ("fen-cinder", "dunmire", "cut-bank cinder thrower", "ranged", "suppressor", "kindle", "raider", 9, 8, 8, 3, "F", "ignites a warned resin feed, then uses a sling lane", "wet the feed, interrupt preparation, or close its sightline"),
+    ("fen-lynx", "dunmire", "reedbank lynx", "animal", "tracker", "hunt", "predator", 6, 13, 1, 2, "Y", "hunts exposed fen hares and tracks noise into reeds", "lead it toward prey or break sight beyond its reed shelter"),
+    ("fen-hare", "dunmire", "long-eared fen hare", "animal", "territorial", "", "prey", 9, 7, 1, 1, "H", "flees visible hunters, moving the lynx's attention", "keep distance to watch it or use its flight as a distraction"),
+    ("fen-bracer", "dunmire", "raised-bank brace ward", "reach", "protector", "brace", "warden", 8, 7, 2, 3, "D", "repairs warned supports before guarding the causeway", "draw it to a damaged support or approach from the drain"),
+    ("fen-recoverer", "dunmire", "reed-pack recoverer", "pursuer", "thief", "scavenge", "raider", 7, 11, 1, 2, "K", "retrieves visible dropped equipment and leaves by its home route", "secure dropped goods or intercept its loaded retreat"),
+    ("gorge-cutter", "rillscar", "scaffold cord cutter", "pursuer", "flanker", "cut support", "raider", 9, 8, 1, 2, "J", "cuts warned floor support, then takes a side approach", "brace the marked support or disrupt the cutting stance"),
+    ("gorge-escort", "rillscar", "two-bridge escort", "reach", "protector", "escort", "warden", 10, 8, 2, 3, "E", "stays with visible injured carriers and opposes cargo raiders", "separate the escort from its ally or use the other bridge"),
+    ("gorge-surgeon", "rillscar", "cutworks field surgeon", "pursuer", "protector", "heal", "worker", 8, 7, 1, 2, "I", "uses two dressings on observed wounded allies", "interrupt the approach or force its supplies to be spent"),
+    ("gorge-marmot", "rillscar", "shelf marmot", "animal", "territorial", "", "prey", 7, 12, 1, 1, "U", "warns of hunters by abandoning an exposed rock shelf", "observe at a distance or follow the direction of its flight"),
+    ("gorge-cat", "rillscar", "scree hunting cat", "animal", "tracker", "hunt", "predator", 13, 4, 1, 2, "N", "hunts across scree without losing footing; weak hearing", "use a solid sight break or put prey between it and the route"),
+    ("gorge-caller", "rillscar", "cliff signal caller", "pursuer", "lookout", "rally", "warden", 12, 7, 1, 1, "L", "spends two signals on wavering allies and raises a group alarm", "break the signal lane or force a withdrawal before reinforcement"),
+    ("terrace-drainer", "marlbank", "field ditch keeper", "pursuer", "protector", "drain", "worker", 8, 8, 1, 2, "Q", "drains observed deep patches using three stop boards", "draw toward a flooded side field or travel along the dry bank"),
+    ("terrace-kiln", "marlbank", "kiln mouth sling ward", "ranged", "suppressor", "kindle", "warden", 9, 6, 8, 3, "S", "feeds a warned kiln mouth and denies the firing lane", "wet the marked fuel or pass crosswind behind the kiln"),
+    ("terrace-hare", "marlbank", "seed-field hare", "animal", "territorial", "", "prey", 10, 8, 1, 1, "V", "crosses cultivated rows while fleeing visible orchard hunters", "leave it quiet or exploit its flight to draw the hunter"),
+    ("terrace-thief", "marlbank", "seed-sack taker", "pursuer", "thief", "scavenge", "raider", 8, 7, 1, 2, "W", "collects abandoned seed sacks and escapes through irrigation paths", "block its escape or make the sack too risky to retrieve"),
+    ("terrace-netter", "marlbank", "harvest net escort", "reach", "controller", "escort", "warden", 7, 10, 2, 3, "Z", "escorts distressed carriers and telegraphs a restraining lane", "step out of the marked net or separate escort and carrier"),
+    ("terrace-fox", "marlbank", "orchard fox", "animal", "tracker", "hunt", "predator", 7, 12, 1, 2, "2", "hunts seed-field hares around rows of dense growth", "draw it onto prey or use the irrigation sight breaks"),
+    ("estuary-drainer", "frostmere", "thaw-board runner", "pursuer", "flanker", "drain", "worker", 9, 8, 1, 2, "3", "drains standing thaw water before taking a side route", "use frozen ground or divert it toward deeper water"),
+    ("estuary-caller", "frostmere", "shelter line caller", "pursuer", "lookout", "rally", "warden", 13, 7, 1, 1, "4", "signals distant allies; weak hearing in shelter", "break the visible lane or approach through crosswind cover"),
+    ("estuary-hunter", "frostmere", "grey channel hunter", "animal", "tracker", "hunt", "predator", 12, 5, 1, 2, "5", "hunts snow hares over dry gravel and seasonal ice", "thaw a crossing or distract it with fleeing prey"),
+    ("estuary-hare", "frostmere", "gravel snow hare", "animal", "territorial", "", "prey", 11, 6, 1, 1, "6", "flees toward its gravel shelter, exposing the hunter's route", "watch from beyond its sight or draw the hunter across the braid"),
+    ("estuary-escort", "frostmere", "net-loft withdrawing bow", "ranged", "skirmisher", "escort", "raider", 12, 7, 12, 3, "7", "covers a loaded ally and shoots while withdrawing", "cut its sightline or take cover while closing the useful range"),
+    ("estuary-mender", "frostmere", "cold-net field mender", "pursuer", "protector", "heal", "worker", 7, 10, 1, 2, "8", "uses two dressings before returning to shelter", "force separate injuries or deny the visible treatment route"),
+)
+for identity, region, name, profile, role, duty, ecology, vision, hearing, reach, budget, glyph, capability, counterplay in FRONTIER_ACTORS:
+    ENEMY_ARCHETYPES[identity] = {
+        "region": region, "name": name, "profile": profile, "role": role,
+        "goal": duty or "feed within shelter", "vision": vision, "hearing": hearing,
+        "range": reach, "capability": capability, "morale": 3 if ecology == "warden" else 2,
+        "terrain": region, "counterplay": counterplay, "budget": budget,
+        "ecology": ecology, "duty": duty, "glyph": glyph,
+        "supplies": 2 if duty in {"heal", "rally"} else 3 if duty in {"brace", "drain", "quench", "kindle", "cut support"} else 0,
+        "ranged_kind": "longbow" if region == "frostmere" else "sling",
+    }
+
 CONTACT_NAMES = ("Mara Venn", "Tomas Reed", "Iria Pike", "Sela Moss")
 
 JOMON_MAP = (
@@ -318,6 +357,7 @@ JOMON_MAP = (
 )
 
 HELP_LINES = (
+    "O: observe visible people, wildlife, duties, supplies and tactical counters (free).",
     "F: inspect and handle nearby material; choices commit one action, Escape costs none.",
     "Z: regional work account, linked history, testimony and action-clock forecast (free).",
     "Move with arrows, HJKL, or YUBN diagonals. The camera follows across each seamless region.",

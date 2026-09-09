@@ -48,7 +48,7 @@ def compose_encounter(
     site_index: int,
 ) -> EncounterPlan:
     """Choose one bounded authored group; this is not an encounter language."""
-    if region_id not in REGION_IDS or pressure_band not in PRESSURE_BUDGET:
+    if not _pool(region_id) or pressure_band not in PRESSURE_BUDGET:
         raise ValueError("unknown regional encounter band")
     rng = stage_rng(seed, f"encounter:{region_id}:{pressure_band}:{site_index}")
     budget = PRESSURE_BUDGET[pressure_band]
@@ -60,13 +60,17 @@ def compose_encounter(
         return EncounterPlan(region_id, pressure_band, tuple(chosen), budget, spent)
 
     elite_pool = _pool(region_id, elite=True)
-    if pressure_band == "critical" and site_index >= 4 and rng.randrange(6) == 0:
+    if elite_pool and pressure_band == "critical" and site_index >= 4 and rng.randrange(6) == 0:
         elite = rng.choice(elite_pool)
         return EncounterPlan(region_id, pressure_band, (elite,), budget, int(ENEMY_ARCHETYPES[elite]["budget"]))
 
     first_role = str(ENEMY_ARCHETYPES[chosen[0]]["role"])
     for candidate in standard[1:]:
         data = ENEMY_ARCHETYPES[candidate]
+        loyalties = {ENEMY_ARCHETYPES[key].get("ecology") for key in chosen}
+        if (data.get("ecology") == "warden" and "raider" in loyalties
+                or data.get("ecology") == "raider" and "warden" in loyalties):
+            continue
         cost = int(data["budget"])
         if spent + cost > budget:
             continue
@@ -140,7 +144,39 @@ def threat_from_archetype(
         ammunition=6 if ranged else 0, region_id=str(data["region"]),
         ranged_kind=str(data.get("ranged_kind", "crossbow")),
         capabilities=[str(data["capability"])],
+        allegiance=f"{data['region']}:{data.get('ecology', 'guard')}",
+        ecology=str(data.get("ecology", "")), duty=str(data.get("duty", "")),
+        supplies=int(data.get("supplies", 0)), glyph=str(data.get("glyph", "")),
     )
+
+
+def frontier_population(seed: str, region) -> list[Threat]:
+    """Six budgeted working actors and one observable predator/prey pair."""
+    from .regions import region_reachable
+
+    reachable = region_reachable(region)
+    occupied = set(region.landmarks.values()) | {box.position for box in region.containers}
+    occupied |= {p for link in region.vertical_links for p in (link.first, link.second)}
+    actors = []
+    group_sites = ("ruin", "works", "far_bank", "store", "cave_entrance", "works")
+    for group_index, plan in enumerate(production_encounter_groups(seed, region.id)):
+        origin = region.landmarks[group_sites[min(group_index, len(group_sites) - 1)]]
+        for archetype in plan.archetypes:
+            candidates = reachable - occupied
+            point = min(candidates, key=lambda p: (abs(p.z - origin.z) * 100 + abs(p.x - origin.x) + abs(p.y - origin.y), p.z, p.y, p.x))
+            actor = threat_from_archetype(archetype, point, encounter_id=f"{region.id}-work-{len(actors)}", group=f"{region.id}-work-{group_index}")
+            actor.objective_position = Position(origin.x + 1, origin.y + 1, origin.z)
+            if actor.objective_position not in reachable or actor.objective_position in occupied:
+                actor.objective_position = point
+            occupied.add(point)
+            actors.append(actor)
+    origin = region.landmarks["far_bank"]
+    for ecology, dx in (("prey", -5), ("predator", 5)):
+        archetype = next(key for key, data in ENEMY_ARCHETYPES.items() if data["region"] == region.id and data.get("ecology") == ecology)
+        point = min(reachable - occupied, key=lambda p: (abs(p.z) * 100 + abs(p.x - origin.x - dx) + abs(p.y - origin.y - 3), p.z, p.y, p.x))
+        occupied.add(point)
+        actors.append(threat_from_archetype(archetype, point, encounter_id=f"{region.id}-wildlife", group=f"{region.id}-{ecology}"))
+    return actors
 
 
 def encounter_audit(sample_count: int = 100) -> dict[str, object]:

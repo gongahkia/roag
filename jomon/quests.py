@@ -113,14 +113,14 @@ def _assign_regional_duty(state: GameState) -> None:
         "greywash": ("lookout", "shooter", "skirmisher"),
         "greenwold": ("suppressor", "flanker", "tracker"),
         "whitecairn": ("shooter", "protector", "lookout"),
-        "dunmire": ("territorial", "lookout"),
+        "dunmire": ("protector", "lookout"),
         "rillscar": ("protector", "shooter"),
         "marlbank": ("lookout", "protector"),
         "frostmere": ("shooter", "thief"),
     }[state.active_region_id]
     actors = [
         threat for threat in state.threats
-        if not threat.elite and threat.status in {"watching", "engaged"}
+        if not threat.elite and threat.profile != "animal" and threat.status in {"watching", "engaged"}
     ]
     actor = next(
         (

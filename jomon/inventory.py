@@ -35,6 +35,19 @@ WEAPON_AMMUNITION = {
     "handgonne": "handgonne charges",
 }
 
+
+def release_enemy_possession(state: GameState, threat) -> str:
+    """The same physical recovery follows combat, fire, and a rival's attack."""
+    if not threat.carrying_item_id:
+        return ""
+    item = next((item for item in state.items if item.id == threat.carrying_item_id), None)
+    threat.carrying_item_id = None
+    if item is None or item.location in {"destroyed", "lost"}:
+        return ""
+    item.location, item.owner_id, item.container_id = "ground", None, None
+    item.region_id, item.ground_position = state.active_region_id, threat.position
+    return f" The stolen {item_spec(item.kind).name} falls at {threat.position.x},{threat.position.y}."
+
 # A working issue, not a class or permanent build. These items use the same
 # slots, weight, condition, loss, and replacement rules as discovered gear.
 BASIC_COURIER_LOADOUTS: dict[str, tuple[str, str]] = {

@@ -87,10 +87,14 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
         contact.memories.append(f"{name}: {crisis}, then {recovery}; {dispute} remains unsettled.")
         del contact.memories[:-8]
     guards = [actor for actor in state.region_threats[region_id] if not actor.elite and actor.profile != "animal"]
-    for actor in guards[:2]:
+    # witnesses recruit one compatible local guard detail, not opposed claims.
+    preferred = next((actor for actor in guards if actor.ecology in {"warden", "worker"}), guards[0] if guards else None)
+    detail = [actor for actor in guards if preferred and actor.allegiance == preferred.allegiance]
+    for actor in detail[:2]:
         actor.group = institution_id
         actor.goal_reason = f"witnessed {crisis} left {name} guarding its {production} account"
-        actor.objective_position = region.landmarks["objective"]
+        if not actor.duty:
+            actor.objective_position = region.landmarks["objective"]
     for actor in state.region_threats[region_id]:
         if actor.profile == "animal" and water >= 2:
             actor.home_position = region.landmarks.get("far_bank", actor.position)

@@ -123,3 +123,51 @@ Every alternative has movement/guard counterplay, a second route or elevation
 answer, and a material answer established by its regional control or quest
 evidence. Selection is seeded and persistent; the actor begins dormant, so
 entering awareness cannot cause immediate damage.
+
+## Frontier work and wildlife (systemic expansion, in progress)
+
+Fresh Dunmire, Rillscar, Marlbank and Frostmere populations now use the same
+bounded production composer, plus a nearby prey/predator pair. Eight actors
+are placed per frontier. Saved populations are not replaced on return.
+Twenty-four new definitions combine region, material duty, perception,
+movement, weapon and allegiance. They are not claimed as twenty-four uniquely
+balanced fights: regional grazers and predators still share core routines.
+
+| Work/interest | Actual action | Player answer |
+|---|---|---|
+| Pail keeper | spends a finite pail on visible fire | let the worker clear the lane, draw attention elsewhere |
+| Cinder thrower / kiln ward | warns then ignites a resin feed; switches to ranged fire when fuel ends | wet the feed, disrupt preparation, use the new smoke |
+| Scaffold cutter | warns then damages support, starting delayed collapse | brace, leave the cell, interrupt the cut |
+| Brace ward | spends supports on damaged ground | lure it toward a threatened crossing, exhaust its stores |
+| Ditch keeper / thaw runner | removes observed deep water locally | follow the drained route or preserve water as an obstacle |
+| Field surgeon / net mender | spends dressings tending a seen wounded ally | separate the group or interrupt treatment |
+| Signal caller | spends signals rallying a wavering ally | disrupt the caller, break visual contact |
+| Escort | occupies space beside a vulnerable carrier/ally | flank it or draw it away from the retreat |
+| Recoverer / sack taker | takes an actual dropped item and attempts escape | intercept; combat, fire and rival kills all release the same item |
+| Predator | stages an attack on visible prey, not a hidden courier | move prey into its sight, leave its hunting ground |
+| Grazer | flees observed hunters into local terrain | observe without approaching or use its flight as distraction |
+
+Wardens and raiders oppose one another through recorded interests. Alert
+groups cannot combine those opposed interests; audible group information is
+local, not region-wide telepathy. Active ecological decisions are capped at
+24 actors within 24 tiles using reconstructible 8-cell spatial buckets.
+Far actors retain state and no process runs while the terminal is idle.
+
+`O` lists only currently visible actors with actual intent, supplies or
+ammunition and counterplay. Neutral grazers have a distinct semantic colour;
+untargeted melee does not pick one instead of a hostile.
+
+Real 80×24 PTY, seed `working fen`: walked to Dunmire, passed a fleeing hare,
+found the ordinary-road flood-mark chest, observed a cinder thrower warn and
+ignite its feed, then a pail keeper move over and quench that same material.
+Opened the drying spill while avoiding telegraphed sling lanes, returned to
+Yara, chose to hold the winter fuel bank, physically returned to Jomon and
+saved/quit. The saved courier retained 10/10 health; the cinder thrower had
+zero fuel supplies and three sling shots, the pail keeper two supplies, and
+the resin feed remained wet and extinguished. This demonstrates one natural
+interaction and an evasion route, not all ecological or tactical combinations.
+
+The run also exposed a quest guard assignment selecting a hare. Guard
+assignment now excludes animals and prefers an actual bank protector; a
+regression covers the observed seed. The first full ecology run had 236
+tests with one failure in 194.246 seconds at that assignment boundary.

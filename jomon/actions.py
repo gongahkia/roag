@@ -285,6 +285,12 @@ def _activate(threat: Threat) -> str:
         "animal": "scrapes the mud before a territorial charge",
         "machinery": "sweeps marked mill aisles on alternating turns",
     }.get(threat.profile, "turns toward the disturbance")
+    if threat.ecology == "prey":
+        threat.intent = "raises its head and looks for a route away from the disturbance"
+    elif threat.ecology == "predator":
+        threat.intent = "watches for prey and exposed movement"
+    elif threat.duty:
+        threat.intent = f"weighs the disturbance against its {threat.duty} duty"
     return f"The {threat.name} notices you: {threat.intent}."
 def emit_sound(
     state: GameState, amount: int, origin: Position | None = None
@@ -502,6 +508,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
     if threat.intent.startswith(("disrupted", "dazed", "entangled")):
         was_entangled = threat.intent.startswith("entangled")
         threat.intent = "cuts free of the net before acting again" if was_entangled else "recovers position before acting again"
+        threat.reaction, threat.marked_position = "", None
         return f"The {threat.name} loses a turn {threat.intent}."
     if threat.elite and threat.id == "floodgate-claimant":
         if (
@@ -645,6 +652,11 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             return apply_damage(state, 3 if threat.elite else 2, source)
         return f"The mill sweep passes through {lane}; your position is safe."
     decision = select_goal(state, threat)
+    from .ecology import resolve_world_action
+
+    world_action = resolve_world_action(state, threat, decision)
+    if world_action is not None:
+        return world_action
     if decision.action == "alarm":
         raise_group_alert(state, threat)
         threat.intent = "signals allies toward your last-known position"
@@ -853,15 +865,15 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
     if threat.profile == "animal" and gap <= 3:
         if base_tile(state, state.position) == "m" and "charge" in threat.intent:
             threat.status, threat.intent = "evaded", "bogged in the mud channel"
-            state.remember(f"{state.courier.name} used deep mud to evade the reed boar.")
-            return "The boar charges into deep mud: a positional evasion."
+            state.remember(f"{state.courier.name} used deep mud to evade {threat.name}.")
+            return f"The {threat.name} charges into deep mud: a positional evasion."
         if gap <= 1 and "charge" in threat.intent:
             threat.intent = "circles before another charge"
             if guarded:
-                return "Your guarded footing turns the boar's charge."
-            return apply_damage(state, 3, "The reed boar's shoulder")
+                return f"Your guarded footing turns the {threat.name}'s charge."
+            return apply_damage(state, 3, f"The {threat.name}'s charge")
         threat.intent = "lowers its head and charges next turn"
-        return "The reed boar lowers its head: mud, light, or distance can redirect it."
+        return f"The {threat.name} lowers its head: mud, light, or distance can redirect it."
     preferred = 2 if threat.profile == "reach" else 1
     if gap <= preferred:
         if guarded:
@@ -1054,23 +1066,31 @@ def _advance_world(
             state.smoke[key] -= 1
             if state.smoke[key] <= 0:
                 del state.smoke[key]
+        previously_watching = {actor.id for actor in state.threats if actor.status == "watching"}
         messages = _weather_and_deadline(state) + _patrols(state)
         current = pressure(state)
-        for threat in state.threats:
+        from .ecology import active_actors
+        from .enemy_ai import sees_courier, heard_position
+
+        for threat in active_actors(state):
             if state.location != "region":
                 break
             if threat.status == "watching" and not threat.patrol:
-                seen = threat.position in field_of_view(state, remember=False)
-                noisy = (
-                    state.noise >= 3
-                    and distance(state.position, threat.position) <= current.alert_range + 2
-                )
-                if (
-                    seen and distance(state.position, threat.position) <= current.alert_range
-                ) or noisy:
+                seen = sees_courier(state, threat)
+                heard = heard_position(state, threat)
+                if seen or heard:
+                    threat.last_known_position = state.position if seen else heard
                     messages.append(_activate(threat))
+                elif threat.ecology or threat.duty:
+                    result = _threat_action(state, threat, False)
+                    if threat.position in field_of_view(state, remember=False):
+                        messages.append(result)
             elif threat.status == "engaged":
-                messages.append(_threat_action(state, threat, guarded and tick == 0))
+                if threat.id in previously_watching:
+                    continue
+                result = _threat_action(state, threat, guarded and tick == 0)
+                if threat.position in field_of_view(state, remember=False) or distance(state.position, threat.position) <= 6:
+                    messages.append(result)
         for message in messages:
             if message:
                 state.add_message(message, priority=3)
@@ -1954,6 +1974,8 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
     candidates = _attack_targets(state, effective_weapon_range(state))
     if target_id is not None:
         candidates = [target for target in candidates if target.id == target_id]
+    else:
+        candidates = [target for target in candidates if target.ecology != "prey"]
     if state.weapon in {"pike", "boar spear"}:
         candidates = [target for target in candidates if distance(state.position, target.position) >= 2]
     if state.weapon == "staff sling":
@@ -2082,6 +2104,8 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
             other.health = max(0, other.health - 1)
             if other.health == 0:
                 other.status = "defeated"
+                from .inventory import release_enemy_possession
+                release_enemy_possession(state, other)
         state.guarded_step = True
         weapon_text += " sweeps nearby space and readies movement"
     elif state.weapon == "hand axe":
@@ -2159,22 +2183,8 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
     ):
         target.status = "defeated" if target.health == 0 else "retreated"
         target.intent = "removed from the route"
-        recovered = ""
-        if target.carrying_item_id:
-            stolen = next(
-                (item for item in state.items if item.id == target.carrying_item_id),
-                None,
-            )
-            if stolen:
-                stolen.location, stolen.owner_id = "ground", None
-                stolen.region_id, stolen.ground_position = (
-                    state.active_region_id, target.position,
-                )
-                recovered = (
-                    f" The stolen {item_spec(stolen.kind).name} falls at "
-                    f"{target.position.x},{target.position.y}."
-                )
-            target.carrying_item_id = None
+        from .inventory import release_enemy_possession
+        recovered = release_enemy_possession(state, target)
         memory = f"{state.courier.name} defeated {target.name} with {state.weapon}."
         state.remember(memory)
         _remember_contact(state, memory)

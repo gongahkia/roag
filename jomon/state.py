@@ -213,6 +213,14 @@ class Threat:
     capabilities: list[str] = field(default_factory=list)
     ranged_kind: str = "crossbow"
     aimed_at: Position | None = None
+    allegiance: str = ""
+    ecology: str = ""
+    duty: str = ""
+    supplies: int = 0
+    target_actor_id: str | None = None
+    marked_position: Position | None = None
+    reaction: str = ""
+    glyph: str = ""
 
 
 @dataclass
@@ -845,7 +853,7 @@ def game_state_from_dict(data: Any) -> GameState:
             values = dict(raw)
             values["position"] = _position(values["position"], "threat position")
             values["patrol"] = [_position(value, "patrol position") for value in values.get("patrol", [])]
-            for key in ("last_known_position", "home_position", "objective_position", "aimed_at"):
+            for key in ("last_known_position", "home_position", "objective_position", "aimed_at", "marked_position"):
                 if values.get(key) is not None:
                     values[key] = _position(values[key], f"threat {key}")
             return Threat(**values)
@@ -1083,10 +1091,12 @@ def game_state_from_dict(data: Any) -> GameState:
 def validate_state(state: GameState) -> None:
     from .materials import validate_materials
     from .regional_history import validate_accounts
+    from .ecology import validate_ecology
 
     try:
         validate_materials(state)
         validate_accounts(state)
+        validate_ecology(state)
     except ValueError as exc:
         raise StateError(f"invalid material state: {exc}") from exc
     if len(state.household) < 6 or len({person.id for person in state.household}) != len(state.household):

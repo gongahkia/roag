@@ -71,6 +71,39 @@ them by themselves.
 
 ## Measurement and limitations log
 
+The ecology continuation adds 24 frontier actor definitions and production
+population composition, bounded local wildlife/work decisions, finite enemy
+firefighting, ignition, drainage, bracing, treatment and signals, physical
+scavenging, and perceived rival/prey attacks. Existing visited populations are
+preserved rather than replenished. The archetype target is not closed: several
+animal variants share routines and require further play differentiation.
+`O` exposes actual visible duties and counters. Routine player attack no longer
+auto-selects a peaceful grazer. Material or rival deaths release exactly the
+same stolen physical item as direct player combat.
+
+The fast suite passed **57 tests in 22.029 seconds**. Sixteen focused ecology
+tests passed in **8.604 seconds**, including actual actions for all 24 new
+definitions, finite supplies, actor budgets, non-omniscient perception and
+item recovery. The first full run had **236 tests, one failure, 194.246
+seconds**: an opening quest incorrectly assigned a grazing hare as its guard
+and its AI then replaced the quest intent. The same defect was independently
+visible in the fresh PTY run. Assignment now selects a non-animal guard;
+the repeated full suite passed **237 tests in 184.571 seconds**. The suite was
+run serially; this elapsed measurement overlapped interactive PTY work and is
+not a controlled benchmark comparison.
+
+Real 80×24 PTY, seed `working fen`: physical chart trip to Dunmire, normal
+road approach, hare flight and `O` inspection, flood-mark chest with charcoal
+mask/waders/arrows, warning and ignition by a cinder thrower, autonomous
+movement and quenching by a pail keeper, drying-spill operation, movement out
+of aimed sling lanes, Yara hand-in and the held-fuel ending, physical return,
+save and clean quit. The saved state records world time 217, health 10/10,
+completed stage 3 with `ending:h`, a wet extinguished resin feed, the thrower's
+three spent fuel charges and three spent sling shots, and one spent pail.
+No human-facing claim of all ecological encounters or requested build paths
+is made from this trip. The earlier Dunmire breach ending remains separate
+play evidence from seed `frontier voyage`.
+
 Continuation checkpoint: `7bfda5e40418edeaaf614996d5d1ee434d38a92e`
 (`newhistory`) committed the pending history changes outside the agent's
 commit sequence. The worktree was clean and local `origin/main` pointed to

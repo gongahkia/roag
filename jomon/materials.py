@@ -116,12 +116,8 @@ def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, s
             body.intent = f"caught by {reaction}; seeking clear ground"
             if body.health == 0:
                 body.status = "defeated"
-                if body.carrying_item_id:
-                    item = next((item for item in state.items if item.id == body.carrying_item_id), None)
-                    if item:
-                        item.location, item.owner_id = "ground", None
-                        item.region_id, item.ground_position = state.active_region_id, origin
-                    body.carrying_item_id = None
+                from .inventory import release_enemy_possession
+                release_enemy_possession(state, body)
                 state.remember(f"{body.name} fell to {reaction} at {key(origin)}; possessions remain physical.")
         else:
             body.aimed_at = None
@@ -154,8 +150,6 @@ def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, s
 
 
 def _expose(state: GameState, point: Position, reaction: str, severity: int) -> None:
-    if state.position == point and state.courier:
-        affect_body(state, state.courier, reaction, severity, point)
     for threat in state.threats if state.location == "region" else []:
         if threat.position == point:
             affect_body(state, threat, reaction, severity, point)
@@ -169,6 +163,10 @@ def _expose(state: GameState, point: Position, reaction: str, severity: int) -> 
         carried = state.position == point and item.owner_id == state.active_courier_id and item.location in {"pack", "readied", "secondary", "head", "torso", "arms", "hands", "legs", "feet"}
         if on_ground or carried:
             affect_body(state, item, reaction, severity, point)
+    # Courier defeat may change location and active person; resolve it last so
+    # the successor's vessel state is not exposed to the old regional event.
+    if state.position == point and state.courier:
+        affect_body(state, state.courier, reaction, severity, point)
 
 
 def _opening_below(state: GameState, point: Position) -> Position | None:

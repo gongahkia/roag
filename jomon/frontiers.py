@@ -191,17 +191,9 @@ def ensure_frontier(state, region_id: str) -> None:
     market = {name: MarketEntry(2, 1) for name in COMMODITIES}
     market[spec[4]] = MarketEntry(1, 3)
     market[spec[5]] = MarketEntry(0, 4)
-    actors = []
-    reachable = region_reachable(region) - set(region.landmarks.values()) - {c.position for c in region.containers}
-    for index, (profile, role, landmark) in enumerate((("pursuer", "lookout", "ruin"), ("animal", "territorial", "far_bank"), ("reach", "protector", "works"), ("ranged", "shooter", "objective"), ("pursuer", "thief", "store"))):
-        origin = region.landmarks[landmark]
-        position = Position(origin.x + (1 if index != 3 else -1), origin.y + 1, origin.z)
-        position = min(reachable, key=lambda p: (abs(p.z - position.z) * 100 + abs(p.x - position.x) + abs(p.y - position.y), p.z, p.y, p.x))
-        reachable.remove(position)
-        actor = Threat(f"{region_id}-watch-{index}", f"{region_id.title()} {('store lookout', 'bank tusker', 'work guard', 'loft bow ward', 'cargo taker')[index]}", profile, position, 5, 5, status="watching", role=role, region_id=region_id, home_position=position, group=f"{region_id}-works" if index in {2, 3} else f"{region_id}-{index}", ammunition=4 if profile == "ranged" else 0, ranged_kind="longbow")
-        if index == 0:
-            actor.patrol = [position, region.landmarks["store"]]
-        actors.append(actor)
+    from .encounters import frontier_population
+
+    actors = frontier_population(state.seed, region)
     state.regions[region_id], state.contacts[region_id] = region, contacts
     state.region_threats[region_id], state.regional_markets[region_id] = actors, market
     for contact in contacts:
