@@ -216,3 +216,11 @@ Compound cards retain their sequential behavior: a later effect drops targets
 killed by an earlier effect. A dead owner cannot execute a pending owned effect.
 Legacy automatic responses are being registered separately; primary integration
 alone does not yet remove every old direct trigger path.
+
+Live riposte is an AFTER damage listener. It inspects the actual guarded target,
+requires an unabsorbed hit and a living attacker/defender, and emits a raw 4-damage
+child. Riposte descendants cannot trigger the riposte family. Its established
+raw-hit behavior bypasses outgoing bonuses and dodge; vulnerability and block
+still apply. Area damage finishes its primary targets before AFTER responses are
+queued. This explicit phase boundary replaces the old interleaved Python calls.
+Saved listener definitions must match registered Python contracts before resume.

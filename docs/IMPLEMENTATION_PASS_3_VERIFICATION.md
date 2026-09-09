@@ -239,3 +239,12 @@ Queue payload migration 29→30 passed **18 tests in 2.192s**, warning-enabled
 compilation, content validation and `git diff --check`. An initial validator
 invocation used the nonexistent `dumbest_dungeon.validate` module; the documented
 `python3 -m dumbest_dungeon --validate-content` command then passed.
+
+The first queued-riposte group passed 31/32 tests; the constructed checkpoint test
+had overlooked its biome's starting block, so its one-damage hit was absorbed and
+correctly produced no riposte. The fixture now clears that block explicitly. The
+expanded corrected group passed **36 tests in 13.513s**
+(`/tmp/dullest-pass3-riposte-fixed.log`), including actual guarded targets,
+proc-family exclusion, phase checkpoint continuation, casualty handling,
+animation neutrality and the complete legacy command transcript. Warning-enabled
+compilation, full content validation and `git diff --check` passed.

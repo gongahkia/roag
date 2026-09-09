@@ -8,8 +8,8 @@ from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.contracts import Opcode
 from dumbest_dungeon.engine import GameEngine, RuleError
 from dumbest_dungeon.migrations import MigrationError, run_29_to_30
-from dumbest_dungeon.resolution import Listener, Payload
-from dumbest_dungeon.triggers import EventType as E, Limiter, LimitKind, TriggerSpec
+from dumbest_dungeon.resolution import Payload
+from dumbest_dungeon.triggers import EventType as E
 
 
 class ResolutionSaveTests(unittest.TestCase):
@@ -33,30 +33,60 @@ class ResolutionSaveTests(unittest.TestCase):
         with self.assertRaisesRegex(RuleError, "payload fields"):
             GameEngine.from_snapshot(engine.catalog, malformed)
 
-    def test_active_queue_and_limiter_continue_with_the_same_engine_state(self) -> None:
+    def test_live_riposte_checkpoint_retains_listener_snapshot_and_exclusion(self) -> None:
+        engine = GameEngine.new(load_catalog(), 42)
+        engine.start_combat("lost_shift")
+        hero, enemy = engine.living_heroes()[0], engine.living_enemies()[0]
+        hero.statuses["riposte"] = enemy.statuses["riposte"] = 2
+        hero.block = 0
+        enemy.statuses["dodge"] = 2
+        enemy_hp = enemy.hp
+        queue = engine.resolution
+        queue.begin(combat_token=1, turn_token=1)
+        queue.submit(E.DAMAGE, "test:hit", (hero.id,), Payload(actor_id=enemy.id, opcode=Opcode.DAMAGE, amount=1, raw_damage=True))
+        for _ in range(3):
+            queue.step(engine._resolution_listeners, engine._resolve_event, engine._resolve_trigger)
+        loaded = GameEngine.from_snapshot(engine.catalog, json.loads(json.dumps(engine.snapshot())))
+        engine.resolve_pending()
+        loaded.resolve_pending()
+        self.assertEqual(engine.snapshot(), loaded.snapshot())
+        self.assertEqual(enemy_hp - 4, enemy.hp)
+        self.assertEqual(2, enemy.statuses["dodge"])
+        hits = [row for row in engine.state.ledger.records if row.kind == "damage"]
+        self.assertEqual(2, len(hits))
+        self.assertEqual("status:riposte:" + hero.id, hits[-1].source_id)
+        self.assertEqual(1, hits[-1].data["depth"])
+        self.assertEqual(hits[0].data["root_action_id"], hits[-1].data["root_action_id"])
+
+    def test_guard_riposte_uses_actual_defender_and_no_counter_on_absorbed_damage(self) -> None:
+        engine = GameEngine.new(load_catalog(), 42)
+        engine.start_combat("lost_shift")
+        guard, protected = engine.living_heroes()[:2]
+        enemy = engine.living_enemies()[0]
+        protected.guarded_by = guard.id
+        protected.guard_turns = 2
+        guard.statuses["riposte"] = protected.statuses["riposte"] = 2
+        guard.block = 4
+        hp = enemy.hp
+        engine._damage(protected, 4, enemy)
+        self.assertEqual(hp, enemy.hp)
+        engine._damage(protected, 1, enemy)
+        self.assertEqual(hp - 4, enemy.hp)
+        hits = [row for row in engine.state.ledger.records if row.source_id.startswith("status:riposte:") and row.kind == "damage"]
+        self.assertEqual(["status:riposte:" + guard.id], [row.source_id for row in hits])
+
+    def test_unknown_saved_listener_is_rejected(self) -> None:
         engine = GameEngine.new(load_catalog(), 42)
         hero = engine.living_heroes()[0]
-        hero.hp -= 10
+        hero.statuses["riposte"] = 2
         queue = engine.resolution
-        queue.begin(card_token="test:card", combat_token=1, turn_token=1)
-        queue.submit(E.HEAL, "test:heal", (hero.id,), Payload(actor_id=hero.id, opcode=Opcode.HEAL, amount=2))
-        listener = Listener(TriggerSpec("test:echo", E.HEAL, (E.HEAL,), limiter=Limiter(LimitKind.RETRIGGERS, 2)), 1, hero.id)
-        callbacks = lambda event: (listener,)
-        trigger = lambda listener, event, queue: queue.emit(E.HEAL, event.target_ids, event.payload)
-
-        def primary_for(game):
-            def primary(event, queue):
-                with game.attribution(event.source_id):
-                    game._heal(game._actor(event.target_ids[0]), event.payload.amount)
-            return primary
-
-        for _ in range(4):
-            queue.step(callbacks, primary_for(engine), trigger)
-        loaded = GameEngine.from_snapshot(engine.catalog, json.loads(json.dumps(engine.snapshot())))
-        queue.drain(callbacks, primary_for(engine), trigger)
-        loaded.resolution.drain(callbacks, primary_for(loaded), trigger)
-        self.assertEqual(engine.snapshot(), loaded.snapshot())
-        self.assertEqual(hero.max_hp - 4, hero.hp)
+        queue.begin()
+        queue.submit(E.DAMAGE, "test:hit", (hero.id,), Payload(opcode=Opcode.DAMAGE, amount=1, raw_damage=True))
+        queue.step(engine._resolution_listeners, engine._resolve_event, engine._resolve_trigger)
+        snapshot = engine.snapshot()
+        snapshot["resolution_queue"]["state"]["active"]["listeners"][0]["spec"]["id"] = "unknown:trigger"
+        with self.assertRaisesRegex(RuleError, "unregistered listener"):
+            GameEngine.from_snapshot(engine.catalog, snapshot)
 
     def test_missing_queue_is_rejected_and_version_28_gets_only_an_empty_queue(self) -> None:
         engine = GameEngine.new(load_catalog(), 42)

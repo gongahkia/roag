@@ -13,9 +13,10 @@ from .content import CARD_STATUSES, Catalog
 from .migrations import MigrationError, migrate_run
 from .versions import RUN_SAVE_SCHEMA
 from .telemetry import RunLedger
-from .resolution import Event, EventQueue, Payload
+from .resolution import Event, EventQueue, Listener, Payload
+from .combat_triggers import REGISTERED, RIPOSTE
 from .contracts import Opcode
-from .triggers import EventType
+from .triggers import EventType, Phase
 
 
 class RuleError(ValueError):
@@ -1853,12 +1854,17 @@ class GameEngine:
         if resolution.state.active:
             queued.append(resolution.state.active.event)
         actor_ids = {actor.id for actor in state.heroes + state.enemies}
+        if resolution.state.active:
+            for listener in resolution.state.active.listeners:
+                if listener.spec != REGISTERED.get(listener.spec.id) or listener.entity_id not in actor_ids:
+                    raise RuleError("save queue references an unregistered listener")
         for event in queued:
             if (any(identity not in actor_ids for identity in event.target_ids)
                 or event.payload.actor_id is not None and event.payload.actor_id not in actor_ids
                 or len(event.target_ids) != len(set(event.target_ids))):
                 raise RuleError("save queue references an unknown or repeated actor")
-            if event.payload.actor_id is None or event.payload.opcode is None or event.event_type.value != event.payload.opcode.value:
+            if (event.payload.actor_id is None and not event.payload.raw_damage
+                or event.payload.opcode is None or event.event_type.value != event.payload.opcode.value):
                 raise RuleError("save queue has no matching primary actor and opcode")
             if event.payload.card_id is not None and event.payload.card_id not in catalog.cards.keys() | catalog.curses.keys():
                 raise RuleError("save queue references an unknown card")
@@ -3636,22 +3642,48 @@ class GameEngine:
         self.resolution.submit(event_type, source, target_ids, payload)
         self.resolve_pending(close_root=owns_root)
 
-    def _resolution_listeners(self, event: Event) -> tuple:
-        return ()
+    def _resolution_listeners(self, event: Event) -> tuple[Listener, ...]:
+        if event.event_type != EventType.DAMAGE:
+            return ()
+        return tuple(Listener(RIPOSTE, index, actor.id)
+                     for index, actor in enumerate(self.state.heroes + self.state.enemies, 1)
+                     if actor.alive and actor.statuses.get("riposte"))
 
-    def _resolve_trigger(self, listener, event: Event, queue: EventQueue) -> None:
-        raise RuleError(f"unregistered automatic trigger {listener.spec.id}")
+    def _resolve_trigger(self, listener: Listener, event: Event, queue: EventQueue) -> None:
+        if listener.spec != RIPOSTE:
+            raise RuleError(f"unregistered automatic trigger {listener.spec.id}")
+        actors = {actor.id: actor for actor in self.state.heroes + self.state.enemies}
+        defender = actors[listener.entity_id]
+        if not defender.alive or not defender.statuses.get("riposte"):
+            return
+        for row in reversed(self.state.ledger.records):
+            if row.kind != "damage" or row.data.get("event_id") != event.event_id:
+                continue
+            hit = row.data
+            attacker = actors.get(hit.get("attacker"))
+            if (hit["target"] == defender.id and hit["amount"] > 0 and not hit["was_deaths_door"]
+                and attacker and attacker.alive and attacker.side != defender.side):
+                self.add_log(f"{defender.name} answers with a riposte.")
+                queue.emit(EventType.DAMAGE, (attacker.id,),
+                           Payload(actor_id=defender.id, opcode=Opcode.DAMAGE, amount=4, raw_damage=True),
+                           source_id=f"status:riposte:{defender.id}")
+                return
 
     def _resolve_event(self, event: Event, queue: EventQueue) -> None:
         payload = event.payload
-        if payload.actor_id is None or payload.opcode is None:
+        if payload.actor_id is None and not payload.raw_damage or payload.opcode is None:
             raise RuleError("queued primary effect is missing its actor or opcode")
         actors = {actor.id: actor for actor in self.state.heroes + self.state.enemies}
-        actor = actors[payload.actor_id]
-        if not actor.alive:
+        actor = actors.get(payload.actor_id)
+        if actor is not None and not actor.alive:
             self.record("owner_disabled_event", event.source_id, owner=actor.id)
             return
         targets = [actors[identity] for identity in event.target_ids if actors[identity].alive]
+        if payload.raw_damage:
+            with self.attribution(event.source_id):
+                for target in targets:
+                    self._damage_primary(target, payload.amount, None if "riposte" in event.proc_families else actor)
+            return
         effect = {"op": payload.opcode.value, "amount": payload.amount}
         if payload.status is not None:
             effect["status"] = payload.status
@@ -4115,6 +4147,23 @@ class GameEngine:
         return max(0, round(amount * multiplier))
 
     def _damage(self, target: Actor, amount: int, attacker: Actor | None = None) -> None:
+        frame = self.resolution.state.active
+        if frame is not None and frame.phase == Phase.PRIMARY:
+            self._damage_primary(target, amount, attacker)
+            return
+        source = self._source_id or (attacker.id if attacker else "world:unattributed")
+        payload = Payload(actor_id=attacker.id if attacker else None, opcode=Opcode.DAMAGE,
+                          amount=amount, raw_damage=True)
+        if frame is not None:
+            self.resolution.emit(EventType.DAMAGE, (target.id,), payload, source_id=source)
+            return
+        owns_root = self.resolution.state.root_id is None
+        if owns_root:
+            self.resolution.begin(combat_token=self.resolution.state.combat_token, turn_token=self.state.round)
+        self.resolution.submit(EventType.DAMAGE, source, (target.id,), payload)
+        self.resolve_pending(close_root=owns_root)
+
+    def _damage_primary(self, target: Actor, amount: int, attacker: Actor | None = None) -> None:
         requested = amount
         intended_target = target.id
         source = self._source_id or (attacker.id if attacker else "world:unattributed")
@@ -4124,11 +4173,13 @@ class GameEngine:
             if guard and guard.id != target.id:
                 self.add_log(f"{guard.name} intercepts the hit.")
                 target = guard
+        was_deaths_door = target.deaths_door
         if attacker and attacker.side != target.side and target.statuses.get("dodge"):
             target.statuses.pop("dodge", None)
             self.add_log(f"{target.name} evades the hit.")
             self.record("damage", source, target=target.id, intended_target=intended_target,
-                        requested=requested, absorbed=0, amount=0, hp_loss=0, overkill=0, dodged=True)
+                        requested=requested, absorbed=0, amount=0, hp_loss=0, overkill=0, dodged=True,
+                        attacker=attacker.id, was_deaths_door=was_deaths_door)
             return
         if target.statuses.get("vulnerable"):
             amount = round(amount * 1.5)
@@ -4146,7 +4197,8 @@ class GameEngine:
                 self.state.effect_counters[hit_key] = 1
         self.record("damage", source, target=target.id, intended_target=intended_target,
                     requested=requested, absorbed=absorbed, amount=amount,
-                    hp_loss=min(target.hp, amount), overkill=max(0, amount - target.hp), dodged=False)
+                    hp_loss=min(target.hp, amount), overkill=max(0, amount - target.hp), dodged=False,
+                    attacker=attacker.id if attacker else None, was_deaths_door=was_deaths_door)
         if amount <= 0:
             return
         if target.side == "hero" and target.deaths_door:
@@ -4188,17 +4240,6 @@ class GameEngine:
             if adrenal and not self.state.effect_counters.get(adrenal_key):
                 target.block += adrenal
                 self.state.effect_counters[adrenal_key] = 1
-        if (
-            attacker
-            and attacker.alive
-            and target.alive
-            and target.statuses.get("riposte")
-            and attacker.side != target.side
-        ):
-            self.add_log(f"{target.name} answers with a riposte.")
-            with self.attribution(f"status:riposte:{target.id}"):
-                self._damage(attacker, 4)
-
     def _hero_died(self, hero: Actor) -> None:
         death_rank = hero.rank
         hero.rank = 0
