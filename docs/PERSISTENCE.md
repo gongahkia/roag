@@ -132,3 +132,9 @@ only the preceding engine 0.1.0/content-20 contract and changes that engine mark
 it preserves the exact content fingerprint, enabled packs, world, RNG, queue and
 ledger. The installed catalog still has to match the retained fingerprint. The
 historical content-20 fixture and ordinary command transcript remain supported.
+
+The immutable `data/legacy20/` bundle retains the calibrated game, card metadata
+and ASCII definitions independently of future live content. `load_legacy_catalog`
+strictly loads it once and requires the recorded content-20 fingerprint. Manifest
+schema comes from that bundle's actual schema, not the engine's newest content
+constant. This archive is compatibility data; it adds no entries to live pools.

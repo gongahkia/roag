@@ -462,19 +462,30 @@ def _bundled_catalog() -> Catalog:
     return _load_catalog(None)
 
 
-def _load_catalog(path: Path | None) -> Catalog:
+@lru_cache(maxsize=1)
+def load_legacy_catalog() -> Catalog:
+    from .migrations import LEGACY_20_FINGERPRINT
+
+    root = Path(str(files("dumbest_dungeon.data").joinpath("legacy20")))
+    catalog = _load_catalog(root / "game.json", assets=root)
+    if catalog.raw["schema_version"] != 20 or catalog.manifest.fingerprint != LEGACY_20_FINGERPRINT:
+        raise ContentError("historical content-20 bundle does not match its recorded fingerprint")
+    return catalog
+
+
+def _load_catalog(path: Path | None, *, assets: Path | None = None) -> Catalog:
     data_root = files("dumbest_dungeon.data")
     source = path or Path(str(data_root.joinpath("game.json")))
     try:
         raw = loads(source.read_text(encoding="utf-8"))
     except (OSError, JsonDataError, UnicodeError) as exc:
         raise ContentError(f"cannot load content from {source}: {exc}") from exc
-    art_source = Path(str(data_root.joinpath("art.json")))
+    art_source = (assets / "art.json") if assets else Path(str(data_root.joinpath("art.json")))
     try:
         art = loads(art_source.read_text(encoding="utf-8"))
     except (OSError, JsonDataError, UnicodeError) as exc:
         raise ContentError(f"cannot load ASCII art from {art_source}: {exc}") from exc
-    metadata_source = Path(str(data_root.joinpath("card_metadata.json")))
+    metadata_source = (assets / "card_metadata.json") if assets else Path(str(data_root.joinpath("card_metadata.json")))
     try:
         card_metadata = loads(metadata_source.read_text(encoding="utf-8"))
     except (OSError, JsonDataError, UnicodeError) as exc:
@@ -483,8 +494,8 @@ def _load_catalog(path: Path | None) -> Catalog:
     _fields(raw, "schema_version balance " + " ".join(CONTENT_FIELDS), "content root")
     _fields(art, "schema_version title heroes enemies card_glyphs card_marks curse_card_glyph curse_card_mark", "art root")
     _fields(card_metadata, "schema_version cards", "card metadata root")
-    if raw.get("schema_version") != CONTENT_SCHEMA:
-        raise ContentError(f"content schema_version must be {CONTENT_SCHEMA}")
+    if type(raw.get("schema_version")) is not int or raw["schema_version"] not in {20, CONTENT_SCHEMA}:
+        raise ContentError(f"content schema_version must be historical 20 or current {CONTENT_SCHEMA}")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")

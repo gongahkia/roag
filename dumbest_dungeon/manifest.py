@@ -32,9 +32,10 @@ def content_manifest(catalog) -> ContentManifest:
     rules = {
         name: {identity: definition for identity, definition in getattr(catalog, name).items()}
         for name in catalog.__dataclass_fields__
-        if name not in {"raw", "balance", "art"}
+        if name not in {"raw", "balance", "art"} and name in catalog.raw
     }
-    rules.update(balance=catalog.balance, art=catalog.art, content_schema=CONTENT_SCHEMA)
+    schema = catalog.raw["schema_version"]
+    rules.update(balance=catalog.balance, art=catalog.art, content_schema=schema)
     digest = hashlib.sha256(canonical_bytes(rules)).hexdigest()
-    return ContentManifest(MANIFEST_SCHEMA, ENGINE_VERSION, CONTENT_SCHEMA, RNG_ARCHITECTURE,
+    return ContentManifest(MANIFEST_SCHEMA, ENGINE_VERSION, schema, RNG_ARCHITECTURE,
                            digest, ("base:core",))

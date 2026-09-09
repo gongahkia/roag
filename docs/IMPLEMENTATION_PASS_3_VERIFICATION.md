@@ -323,3 +323,11 @@ possible curve changes. Its all-hyperbolic assignment is not accepted for
 conditional damage/recovery bonuses; these need effect-specific decisions.
 Legacy content must remain available under its recorded fingerprint before live
 content edits. No historical result may silently inherit new stack curves.
+
+The archived content-20 loader passed **11 archive, manifest, migration and
+ordering tests in 5.468s**. Its three files were copied byte for byte from the
+calibrated bundle. SHA-256: game
+`f6f33e6a33e2a94b94556fa6b4ebafc588f88e9885932b94897594cc9eff17da`, art
+`d342302b8cd5208437d950e2543f70641cbd16d8b43f0eef21d1ca4dce69bfb1`, metadata
+`508900d419149b738d469962c146cea25fd7b75cf1def3baa559b06b7e76fd67`.
+The effective content fingerprint remains the recorded `b6b8c6fe…f5502b`.
