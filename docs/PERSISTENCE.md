@@ -33,6 +33,24 @@ saved tick: events that occurred before recording existed are explicitly unknown
 not synthesized. New runs have no missing-history boundary. Instrumentation and
 local history presentation are added separately from this serialization contract.
 
+## Morgue files
+
+`history.write_run` writes history-schema-1 summaries with the same atomic file
+mechanism as saves. The filename is the SHA-256 of the canonical run snapshot;
+reopening the same completed state is idempotent. Identical seed/command runs
+with identical recorded state share a record, not separate attempt counts.
+History contains decisions, routes, encounter results, card counts and arithmetic
+totals; it is not uploaded. `python3 -m dumbest_dungeon.history --filter warden
+--detail` reads the default local history directory in a terminal. Malformed files
+are reported without discarding readable records. `--directory` selects an
+explicit alternative local directory.
+
+Detailed NDJSON export is disabled by default. An explicit `detailed=True` write
+adds a separate atomic `telemetry/<run-id>.ndjson` file with a version/manifest
+header followed by the detailed deterministic records. No account or network
+code is involved. Elapsed wall time, when supplied by the interface, is report
+metadata rather than simulated state; absent measurements are labeled unmeasured.
+
 ## Atomic local files
 
 `save.write_save` serializes finite JSON before touching the destination. It creates

@@ -22,9 +22,16 @@ def default_save_path() -> Path:
 
 
 def write_save(path: Path, snapshot: dict[str, Any]) -> None:
-    temporary = None
     try:
         encoded = json.dumps(snapshot, indent=2, allow_nan=False) + "\n"
+    except (ValueError, TypeError, UnicodeError) as exc:
+        raise SaveError(f"cannot write {path}: {exc}") from exc
+    write_text_atomic(path, encoded)
+
+
+def write_text_atomic(path: Path, encoded: str) -> None:
+    temporary = None
+    try:
         path.parent.mkdir(parents=True, exist_ok=True)
         descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
         temporary = Path(name)
