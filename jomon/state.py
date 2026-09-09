@@ -240,6 +240,7 @@ class Item:
     ground_position: Position | None = None
     pinned: bool = False
     merged_into: str | None = None
+    fitted_to: str | None = None
 
 
 @dataclass
@@ -630,6 +631,9 @@ def create_world(seed: str) -> GameState:
     from .people import initialise_tavern
 
     initialise_inventory(state)
+    from .workshop import initialise_workshop
+
+    initialise_workshop(state)
     initialise_tavern(state)
     ensure_household_basics(state)
     sync_legacy_load(state)
@@ -1039,6 +1043,9 @@ def game_state_from_dict(data: Any) -> GameState:
         from .route_chart import extend_route_chart
 
         extend_route_chart(state)
+        from .workshop import initialise_workshop
+
+        initialise_workshop(state)
         from .regional_history import initialise_account
 
         for region_id in state.regions:

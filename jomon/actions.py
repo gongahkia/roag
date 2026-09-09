@@ -1946,6 +1946,8 @@ RANGED_WEAPONS = frozenset(
 
 
 def effective_weapon_range(state: GameState) -> int:
+    from .workshop import active_part
+
     if state.weapon not in WEAPON_RANGES:
         return 0
     attack_range = WEAPON_RANGES[state.weapon]
@@ -1965,10 +1967,18 @@ def effective_weapon_range(state: GameState) -> int:
         attack_range += 2
     if state.weapon == "staff sling" and "sighting knot" in state.carried_passives:
         attack_range += 1
+    if active_part(state, "retrieval cord"):
+        attack_range = max(1, attack_range - 2)
+    if active_part(state, "resin seal"):
+        attack_range = max(1, attack_range - 1)
+    if state.weapon in RANGED_WEAPONS and active_part(state, "ash wrap") and "smoke-inhalation" in state.terrain_statuses and not {"chilled", "salt-grit"} & set(state.terrain_statuses):
+        attack_range += 2
     return attack_range
 
 
 def attack(state: GameState, target_id: str | None = None) -> ActionResult:
+    from .workshop import active_part, attack_effects
+
     if state.location != "region" or state.weapon is None:
         return _plain(state, "No readied attack is possible.")
     candidates = _attack_targets(state, effective_weapon_range(state))
@@ -1985,6 +1995,7 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
             return _destroy_floor(state)
         return _plain(state, "No visible hostile is within this weapon's reach.")
     target = candidates[0]
+    original_target_position = target.position
     target.status = "engaged"
     ranged = state.weapon in RANGED_WEAPONS
     prepared = state.weapon in {"crossbow", "longbow", "heavy crossbow", "handgonne"}
@@ -2018,6 +2029,7 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
             and state.weather in {"hard rain", "coast squall", "forest rain"}
             and "weatherproof aim" not in build_combinations(state)
             and "weatherfast grip" not in build_combinations(state)
+            and not active_part(state, "resin seal")
         ):
             state.aimed_target = None
             return _time_result(
@@ -2176,6 +2188,9 @@ def attack(state: GameState, target_id: str | None = None) -> ActionResult:
         and target.position.z < state.position.z
     ):
         target.position = _step_away(state, target)
+    sound, fitting_text = attack_effects(state, original_target_position, sound, ammo_key)
+    if fitting_text:
+        weapon_text += "; " + fitting_text
     sounds = emit_sound(state, sound)
     target.health = max(0, target.health - damage)
     if target.health == 0 or (

@@ -720,6 +720,28 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str], view: Over
 
 
 def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
+    if kind == "station:workshop" or kind.startswith("workshop:"):
+        from .workshop import FITTINGS, SLOTS, attached, can_fit, compatible, fit_cost
+
+        if kind == "station:workshop":
+            return [ChoiceOption(str(index + 1), f"{slot}: {item_spec(item.kind).name if (item := equipped_item(state, slot)) else 'empty'}", available=equipped_item(state, slot) is not None, requirement="equip an item through I") for index, slot in enumerate(SLOTS)] + [ChoiceOption("P", "Buy a loose fitting kit")]
+        if kind == "workshop:store":
+            return [ChoiceOption(chr(65 + index), f"{value.name}: {value.price} credit; stock {state.vessel_changes.get('fitting_stock:' + name, 0)}") for index, (name, value) in enumerate(FITTINGS.items())]
+        if kind.startswith("workshop:slot:"):
+            target = equipped_item(state, kind.split(":", 2)[2])
+            if target is None:
+                return []
+            options = []
+            for index, name in enumerate(FITTINGS):
+                if compatible(target, name):
+                    valid, why = can_fit(state, target, name)
+                    options.append(ChoiceOption(chr(65 + index), f"Preview {name}: {fit_cost(state, name)} credit", "commitment", valid, why))
+            for key, socket in zip("UVW", ("structure", "treatment", "lining")):
+                if any(FITTINGS[part.kind.split(':', 1)[1]].slot == socket for part in attached(state, target)):
+                    options.append(ChoiceOption(key, f"Remove {socket}: 1 credit, pack room", "commitment"))
+            options.append(ChoiceOption("R", "Repair parent: 2 credit, +35 condition", "commitment", target.condition < 100 and state.trade_credit >= 2, "damaged item and two credit"))
+            return options
+        return [ChoiceOption("F", "Confirm the previewed work (two actions)", "commitment"), ChoiceOption("B", "Back without changes")]
     if kind == "material":
         return [ChoiceOption(str(index + 1), name) for index, name in enumerate(("Here", "North", "East", "South", "West"))]
     if kind.startswith("material:"):
@@ -1295,12 +1317,17 @@ def _draw_inventory(screen: curses.window, state: GameState, view: InventoryView
     if not selected:
         selected = _paper_selected_item(state, view)
     if selected:
-        spec = item_spec(selected.kind)
+        from .workshop import attached, effective_spec
+
+        spec = effective_spec(state, selected)
         held = "HELD — " if view.held_id else ""
         actual_width, actual_height = (spec.height, spec.width) if view.held_id and view.held_rotated else (spec.width, spec.height)
         _put(screen, 14, detail_x, _clip(f"{held}{spec.name} {actual_width}x{actual_height} wt {spec.weight}", width - detail_x - 2), curses.A_BOLD)
         for index, art in enumerate(item_preview(selected.kind)):
             _put(screen, 15 + index, detail_x, _clip(art, width - detail_x - 2), _item_colour(selected.kind))
+        fitted = attached(state, selected)
+        if fitted:
+            _put(screen, 17, detail_x, _clip("Fitted: " + ", ".join(part.kind.split(":", 1)[1] for part in fitted), width - detail_x - 2), curses.A_BOLD)
         for index, line in enumerate(_wrapped(spec.description, max(20, width - detail_x - 2))[:3]):
             _put(screen, 18 + index, detail_x, line)
         _put(screen, min(height - 4, 21), detail_x, _clip(f"Condition {selected.condition}; {'PINNED; ' if selected.pinned else ''}{selected.provenance}", width - detail_x - 2))
@@ -1630,6 +1657,27 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         from .regional_history import ledger_lines
 
         return "REGIONAL WORK, HISTORY AND FORECAST", ledger_lines(state)
+    if kind == "station:workshop" or kind.startswith("workshop:"):
+        from .workshop import FITTINGS, describe, fit_cost
+
+        if kind == "station:workshop":
+            return "LOWER WORKSHOP — OPTIONAL FITTINGS", [f"Credit {state.trade_credit}. Choose worn/readied equipment or a loose kit.", "One structural fitting plus one treatment per weapon; one lining per armour piece."]
+        if kind == "workshop:store":
+            return "COUNTED WORKSHOP KITS", ["Preview before buying. Kits occupy the pack until fitted.", "Stock is finite; cancelled or unfittable purchases spend nothing."]
+        if kind.startswith("workshop:slot:"):
+            item = equipped_item(state, kind.split(":", 2)[2])
+            return "EQUIPMENT WORK", describe(state, item) if item else ["That equipment slot is empty."]
+        parts = kind.split(":")
+        if parts[1] == "buy":
+            fitting = FITTINGS[parts[2]]
+            return "BUY KIT — CONFIRM", [fitting.name, fitting.effect, fitting.drawback, f"{fitting.shape[0]}x{fitting.shape[1]} cells, weight {fitting.weight}; {fitting.price} credit; must fit in pack."]
+        item = next((item for item in state.items if item.id == parts[2]), None)
+        if item is None:
+            return "EQUIPMENT WORK", ["The selected physical item is no longer here."]
+        if parts[1] == "fit":
+            fitting = FITTINGS[parts[3]]
+            return "FIT EQUIPMENT — CONFIRM", [f"{fitting.name} onto {item_spec(item.kind).name}.", fitting.effect, fitting.drawback, f"Adds {fitting.weight} carried weight; {fit_cost(state, parts[3])} credit; two actions."]
+        return "EQUIPMENT WORK — CONFIRM", describe(state, item) + ["Removal keeps the part if it fits. Repair leaves fitting wear unchanged.", "Removal costs one credit; repair costs two. Both take two actions."]
     if kind.startswith("station:"):
         station = kind.split(":", 1)[1]
         title, detail = {
@@ -1853,6 +1901,8 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         return (None if changed else kind), False
     char = chr(key).lower() if 0 <= key < 256 else ""
     if key == 27:
+        if kind.startswith("workshop:"):
+            return "station:workshop", False
         if kind.startswith("bartender:"):
             return "bartender", False
         return ("bartender" if kind.startswith("tavern:") else None), False
@@ -1863,6 +1913,37 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
             return None, True
         if char == "n":
             return None, False
+        return kind, False
+    if kind == "station:workshop":
+        from .workshop import SLOTS
+
+        if char in "12345678" and equipped_item(state, SLOTS[int(char) - 1]):
+            return "workshop:slot:" + SLOTS[int(char) - 1], False
+        return ("workshop:store" if char == "p" else kind), False
+    if kind.startswith("workshop:"):
+        from .workshop import FITTINGS, buy_kit, install, remove, repair
+
+        if char == "b":
+            # B is a catalogue key at the store/slot, and Back only in previews.
+            if not (kind == "workshop:store" or kind.startswith("workshop:slot:")):
+                return "station:workshop", False
+        if kind == "workshop:store" and char in "abcdefgh":
+            return "workshop:buy:" + list(FITTINGS)[ord(char) - ord("a")], False
+        if kind.startswith("workshop:slot:"):
+            target = equipped_item(state, kind.split(":", 2)[2])
+            if target is None:
+                return "station:workshop", False
+            if char in "abcdefgh":
+                return f"workshop:fit:{target.id}:" + list(FITTINGS)[ord(char) - ord("a")], False
+            if char in "uvw":
+                return f"workshop:remove:{target.id}:" + {"u": "structure", "v": "treatment", "w": "lining"}[char], False
+            if char == "r":
+                return f"workshop:repair:{target.id}", False
+        elif char == "f":
+            parts = kind.split(":")
+            changed, message = (buy_kit(state, parts[2]) if parts[1] == "buy" else install(state, parts[2], parts[3]) if parts[1] == "fit" else remove(state, parts[2], parts[3]) if parts[1] == "remove" else repair(state, parts[2]))
+            state.add_message(message, priority=3)
+            return ("station:workshop" if changed else kind), False
         return kind, False
     if kind == "tavern":
         if key in {10, 13}:

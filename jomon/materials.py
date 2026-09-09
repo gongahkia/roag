@@ -96,10 +96,16 @@ def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, s
     from .inventory import add_status, item_spec, worn_tags
 
     if isinstance(body, Item):
-        spec = item_spec(body.kind)
+        from .workshop import attached, effective_spec
+
+        spec = effective_spec(state, body)
         vulnerable = spec.category in {"cargo", "consumable", "passive"} or "absorbent" in spec.tags
         if reaction in {"fire", "debris"} or (reaction == "water" and vulnerable):
-            body.condition = max(0, body.condition - severity * (8 if reaction == "fire" else 3))
+            fire_wear = 12 if "resin-coated" in spec.tags else 8
+            wear = severity * (fire_wear if reaction == "fire" else 3)
+            body.condition = max(0, body.condition - wear)
+            for part in attached(state, body):
+                part.condition = max(0, part.condition - wear)
             if body.condition == 0 and body.location not in {"lost", "destroyed"}:
                 body.location, body.owner_id = "destroyed", None
                 state.remember(f"{spec.name} ({body.id}) was destroyed by {reaction} at {key(origin)}.")
@@ -320,7 +326,10 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
     if verb == "ignite" and (material not in FLAMMABLE or state.lamp_oil <= 0 or (existing and existing.water)):
         return False, "Ignition needs dry fuel and one finite measure of lamp oil."
     learned_brace = verb == "brace" and bool({"mill hearing", "bell interval"} & set(state.courier.learned_techniques))
-    if verb in {"brace", "lever", "break", "cut", "dig"} and not (learned_brace or state.gear == "repair tools" or state.weapon in {"hand axe", "billhook", "war hammer"} or state.courier.technique == "lever craft"):
+    from .workshop import active_part
+
+    heel = active_part(state, "iron heel") if verb in {"brace", "lever", "break"} else None
+    if verb in {"brace", "lever", "break", "cut", "dig"} and not (heel or learned_brace or state.gear == "repair tools" or state.weapon in {"hand axe", "billhook", "war hammer"} or state.courier.technique == "lever craft"):
         return False, "This work needs a cutting/levering weapon, repair tools, or Lever Craft."
     if verb in {"push", "pull"}:
         container = next((c for c in state.region.containers if c.position == point), None) if state.location == "region" else None
@@ -371,6 +380,10 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
         container.position = destination
         emit_sound(state, 2, point)
     message = f"You {verb} {cell.material} at {key(point)}; material consequences advance one action."
+    if heel:
+        heel.condition = max(0, heel.condition - 5)
+        emit_sound(state, 2, point)
+        message += " The iron heel bears the work, wears, and rings against the structure."
     _advance_world(state)
     state.add_message(message, priority=3)
     return True, message

@@ -186,6 +186,12 @@ ITEM_SPECS: dict[str, ItemSpec] = {
 def item_spec(kind: str) -> ItemSpec:
     if kind in ITEM_SPECS:
         return ITEM_SPECS[kind]
+    if kind.startswith("fitting:"):
+        from .workshop import FITTINGS
+
+        fitting = FITTINGS[kind.split(":", 1)[1]]
+        abbreviation = "".join(word[0] for word in fitting.name.split()).upper()
+        return ItemSpec(fitting.name, abbreviation, *fitting.shape, fitting.weight, "fitting", f"{fitting.effect} {fitting.drawback}")
     if kind.startswith("commodity:"):
         name = kind.split(":", 1)[1]
         from .content import COMMODITIES
@@ -311,7 +317,10 @@ def placement_preview(
     reason = "valid placement" if valid else "out of bounds" if outside else "blocked by " + ", ".join(blockers)
     current_owner_weight = pack_weight(state, owner_id) if owner_id else 0
     already_carried = item.owner_id == owner_id and item.location in {"pack", *EQUIPPED_LOCATIONS}
-    resulting = current_owner_weight + (0 if already_carried else item_spec(item.kind).weight * item.quantity)
+    from .workshop import attached
+
+    item_weight = item_spec(item.kind).weight * item.quantity + sum(item_spec(part.kind).weight for part in attached(state, item))
+    resulting = current_owner_weight + (0 if already_carried else item_weight)
     capacity = weight_capacity(state) if owner_id == state.active_courier_id else 28
     resulting_load = load_band(resulting, capacity)
     return PlacementPreview(frozenset(cells), valid, reason, blockers, resulting, resulting_load)
@@ -894,18 +903,22 @@ class InventoryTransaction:
 
 
 def pack_weight(state: GameState, owner_id: str | None = None) -> int:
+    from .workshop import effective_spec
+
     owner_id = owner_id if owner_id is not None else state.active_courier_id
+    carried = {item.id for item in state.items if item.owner_id == owner_id and item.location in {"pack", *EQUIPPED_LOCATIONS}}
     weight = sum(
         item_spec(item.kind).weight * item.quantity
         for item in state.items
         if item.owner_id == owner_id and item.location in {"pack", *EQUIPPED_LOCATIONS}
     )
+    weight += sum(item_spec(item.kind).weight for item in state.items if item.location == "fitted" and item.fitted_to in carried)
     if "wet" in state.terrain_statuses:
         weight += sum(
             4 for item in state.items
             if item.owner_id == owner_id
             and item.location in EQUIPPED_LOCATIONS
-            and "water-heavy" in item_spec(item.kind).tags
+            and "water-heavy" in effective_spec(state, item).tags
         )
     return weight
 
@@ -949,10 +962,12 @@ def armour_at(state: GameState, location: str) -> Item | None:
 
 
 def protection_at(state: GameState, location: str, damage_kind: str) -> tuple[int, str]:
+    from .workshop import effective_spec
+
     item = armour_at(state, location)
     if not item:
         return 0, "uncovered"
-    spec = item_spec(item.kind)
+    spec = effective_spec(state, item)
     protection = {"cut": spec.cut, "pierce": spec.pierce, "blunt": spec.blunt}.get(damage_kind, 0)
     if spec.coverage == 1 and not state.guarded_step:
         protection = max(0, protection - 1)
@@ -962,16 +977,20 @@ def protection_at(state: GameState, location: str, damage_kind: str) -> tuple[in
 
 
 def armour_noise(state: GameState) -> int:
+    from .workshop import effective_spec
+
     return sum(
-        item_spec(item.kind).noise for item in state.items
+        effective_spec(state, item).noise for item in state.items
         if item.owner_id == state.active_courier_id
         and item.location in BODY_SLOTS
     )
 
 
 def armour_mobility(state: GameState) -> int:
+    from .workshop import effective_spec
+
     return sum(
-        item_spec(item.kind).mobility for item in state.items
+        effective_spec(state, item).mobility for item in state.items
         if item.owner_id == state.active_courier_id
         and item.location in BODY_SLOTS
     )
@@ -981,6 +1000,10 @@ def degrade_armour(state: GameState, location: str, amount: int = 8) -> None:
     item = armour_at(state, location)
     if item:
         item.condition = max(0, item.condition - amount)
+        from .workshop import attached
+
+        for part in attached(state, item):
+            part.condition = max(0, part.condition - max(1, amount // 2))
 
 
 def add_status(state: GameState, name: str, cause: str, turns: int, consequence: str) -> bool:
@@ -1002,11 +1025,13 @@ def tick_statuses(state: GameState) -> list[str]:
 
 
 def worn_tags(state: GameState) -> set[str]:
+    from .workshop import effective_spec
+
     tags: set[str] = set()
     for location in BODY_SLOTS:
         item = armour_at(state, location)
         if item:
-            tags.update(item_spec(item.kind).tags)
+            tags.update(effective_spec(state, item).tags)
     return tags
 
 
@@ -1071,7 +1096,7 @@ def validate_inventory(state: GameState) -> None:
     people = {person.id for person in state.household}
     valid_locations = {
         "pack", "locker", "readied", "secondary", *BODY_SLOTS, "container",
-        "ground", "enemy", "vessel_cargo", "lost", "destroyed",
+        "ground", "enemy", "vessel_cargo", "lost", "destroyed", "fitted",
     }
     for item in state.items:
         item_spec(item.kind)
@@ -1091,6 +1116,9 @@ def validate_inventory(state: GameState) -> None:
             if any(x < 0 or y < 0 or x >= width or y >= height for x, y in cells) or not cells.isdisjoint(seen):
                 raise ValueError(f"invalid {location} placement")
             seen.update(cells)
+    from .workshop import validate_fittings
+
+    validate_fittings(state)
 
 
 def initialise_inventory(state: GameState) -> None:
