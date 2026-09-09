@@ -39,7 +39,7 @@ class LegacyContentTests(unittest.TestCase):
         catalog = load_legacy_catalog()
         self.assertEqual(LEGACY_20_FINGERPRINT, catalog.manifest.fingerprint)
         self.assertIs(catalog, load_legacy_catalog())
-        self.assertEqual(load_catalog().manifest, catalog.manifest)
+        self.assertNotEqual(load_catalog().manifest, catalog.manifest)
         self.assertEqual(190, len(catalog.cards))
         self.assertEqual(70, len(catalog.enemies))
 

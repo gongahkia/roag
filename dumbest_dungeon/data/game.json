@@ -1,5 +1,5 @@
 {
-  "schema_version": 20,
+  "schema_version": 21,
   "balance": {
     "hand_size": 5,
     "energy": 3,
@@ -574,23 +574,23 @@
     {"id":"dread_forecast","name":"Dread Forecast","kind":"card","description":"Unplayable. If held at turn end, its bound hero gains 3 stress.","effects":[{"key":"curse_held_stress","curve":"linear","amount":3,"cap":3}]}
   ],
   "items": [
-    {"id":"bulkhead_laminate","name":"Bulkhead Laminate","description":"All heroes begin combat with stacking block.","effects":[{"key":"stacked_start_block","curve":"linear","amount":1,"cap":8}]},
+    {"id":"bulkhead_laminate","name":"Bulkhead Laminate","description":"All heroes begin combat with stacking block.","effects":[{"key":"stacked_start_block","unit":"count","stack":{"mode":"linear","amount":1,"cap":8}}]},
     {"id":"focusing_lens","name":"Focusing Lens","description":"The first techniques that grant focus each round draw a card.","effects":[{"key":"focus_draw","curve":"special","amount":1,"cap":2}]},
     {"id":"trauma_mesh","name":"Trauma Mesh","description":"Reduce incoming health damage.","effects":[{"key":"incoming_damage_reduction","curve":"diminishing","amount":0.02,"cap":0.2}]},
     {"id":"nerve_dampener","name":"Nerve Dampener","description":"Reduce incoming stress.","effects":[{"key":"stress_reduction","curve":"diminishing","amount":0.03,"cap":0.3}]},
-    {"id":"med_gel_ampoule","name":"Med-Gel Ampoule","description":"Supplies restore additional health.","effects":[{"key":"supply_heal_bonus","curve":"linear","amount":2,"cap":10}]},
-    {"id":"flare_phosphor","name":"Flare Phosphor","description":"Supplies restore additional light.","effects":[{"key":"supply_light_bonus","curve":"linear","amount":4,"cap":20}]},
-    {"id":"auto_suture","name":"Auto-Suture","description":"Victory heals the most injured hero.","effects":[{"key":"combat_victory_heal","curve":"linear","amount":1,"cap":6}]},
+    {"id":"med_gel_ampoule","name":"Med-Gel Ampoule","description":"Supplies restore additional health.","effects":[{"key":"supply_heal_bonus","unit":"count","stack":{"mode":"linear","amount":2,"cap":10}}]},
+    {"id":"flare_phosphor","name":"Flare Phosphor","description":"Supplies restore additional light.","effects":[{"key":"supply_light_bonus","unit":"count","stack":{"mode":"linear","amount":4,"cap":20}}]},
+    {"id":"auto_suture","name":"Auto-Suture","description":"Victory heals the most injured hero.","effects":[{"key":"combat_victory_heal","unit":"count","stack":{"mode":"linear","amount":1,"cap":6}}]},
     {"id":"capacitor_bank","name":"Capacitor Bank","description":"Every three stacks add first-round energy.","effects":[{"key":"first_round_energy","curve":"threshold","every":3,"amount":1,"cap":2}]},
     {"id":"spare_magazine","name":"Spare Magazine","description":"Every two stacks add an opening card.","effects":[{"key":"opening_hand","curve":"threshold","every":2,"amount":1,"cap":2}]},
-    {"id":"survey_relay","name":"Survey Relay","description":"Extend maximum navigation reach.","effects":[{"key":"survey_reach","curve":"linear","amount":1,"cap":6}]},
+    {"id":"survey_relay","name":"Survey Relay","description":"Extend maximum navigation reach.","effects":[{"key":"survey_reach","unit":"count","stack":{"mode":"linear","amount":1,"cap":6}}]},
     {"id":"quiet_bearings","name":"Quiet Bearings","description":"Every two stacks shrink patrol aggression range.","effects":[{"key":"patrol_aggression_reduction","curve":"threshold","every":2,"amount":1,"cap":4}]},
     {"id":"reward_index","name":"Reward Index","description":"Every three stacks add a card reward choice.","effects":[{"key":"reward_choices","curve":"threshold","every":3,"amount":1,"cap":2}]},
     {"id":"salvage_magnet","name":"Salvage Magnet","description":"Every three stacks add a copy to item pickups.","effects":[{"key":"salvage_copies","curve":"threshold","every":3,"amount":1,"cap":2}]},
     {"id":"sterile_filter","name":"Sterile Filter","description":"Every three stacks reduce incoming wound duration.","effects":[{"key":"wound_reduction","curve":"threshold","every":3,"amount":1,"cap":2}]},
     {"id":"targeting_prism","name":"Targeting Prism","description":"Increase damage against marked hostiles.","effects":[{"key":"marked_damage_bonus","curve":"diminishing","amount":0.04,"cap":0.35}]},
     {"id":"reserve_cell","name":"Reserve Cell","description":"Every four stacks restore energy once when it reaches zero.","effects":[{"key":"reserve_energy","curve":"threshold","every":4,"amount":1,"cap":2}]},
-    {"id":"deflection_foil","name":"Deflection Foil","description":"Reduce each hero's first unblocked hit per combat.","effects":[{"key":"deflection","curve":"linear","amount":1,"cap":6}]},
+    {"id":"deflection_foil","name":"Deflection Foil","description":"Reduce each hero's first unblocked hit per combat.","effects":[{"key":"deflection","unit":"count","stack":{"mode":"linear","amount":1,"cap":6}}]},
     {"id":"oracle_relay","name":"Oracle Relay","description":"Every three stacks add a boon offer choice.","effects":[{"key":"boon_offer_choices","curve":"threshold","every":3,"amount":1,"cap":2}]}
   ],
   "afflictions": [

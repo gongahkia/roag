@@ -11,6 +11,14 @@ from dumbest_dungeon.engine import GameEngine
 
 
 class PassiveContractTests(unittest.TestCase):
+    def test_live_linear_item_family_preserves_each_count_and_cap(self) -> None:
+        expected = {"bulkhead_laminate": (1, 8), "med_gel_ampoule": (2, 10), "flare_phosphor": (4, 20),
+                    "auto_suture": (1, 6), "survey_relay": (1, 6), "deflection_foil": (1, 6)}
+        for identity, (amount, cap) in expected.items():
+            effect = load_catalog().items[identity]["effects"][0]
+            for count in (0, 1, 2, 5, 10, 100):
+                self.assertEqual(min(amount * count, cap), effect.contract.value(count))
+
     def test_explicit_effect_is_typed_cached_and_has_exact_units(self) -> None:
         raw = {"key": "marked_damage_bonus", "unit": "basis_points", "stack": {"mode": "linear", "amount": 425}}
         rule = persistent_effect(raw)

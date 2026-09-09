@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from dumbest_dungeon.content import load_catalog
+from dumbest_dungeon.content import load_catalog, load_legacy_catalog
 from dumbest_dungeon.engine import GameEngine
 from dumbest_dungeon.policies import Command, Policy, canonical_hash, execute_command
 
@@ -19,7 +19,7 @@ class OrderingTests(unittest.TestCase):
         path = Path(__file__).resolve().parents[1] / "docs/evidence/pass3/0-bulkhead_basics-explorer.json.gz"
         with gzip.open(path, "rt") as stream:
             baseline = json.load(stream)
-        engine = GameEngine.new(load_catalog(), baseline["seed"], start_in_hub=True)
+        engine = GameEngine.new(load_legacy_catalog(), baseline["seed"], start_in_hub=True)
         engine.select_curated_squad(baseline["squad"])
         engine.begin_expedition()
         for row in baseline["commands"]:

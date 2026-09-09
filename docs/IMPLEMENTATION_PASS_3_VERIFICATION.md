@@ -357,3 +357,10 @@ three synthetic historical fixtures carrying current rules; those fixtures now
 use the actual archive. The content transition is deferred until this persistence
 boundary is committed. Warning-enabled compilation, content validation and
 `git diff --check` passed. No shipped stack curve changed in this commit.
+
+Content schema 21 assigns exact linear policies to Bulkhead Laminate, Med Gel
+Ampoule, Flare Phosphor, Auto Suture, Survey Relay and Deflection Foil. Counts
+0/1/2/5/10/100 retain their previous results. The focused persistence, passive,
+archived replay, queue and telemetry group passed **36 tests in 14.747s**. The
+historical 344-command calibration replay explicitly uses its archived bundle;
+current-content reordering and cross-process checks still use current content.
