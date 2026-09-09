@@ -1,6 +1,6 @@
 # Persistence contracts
 
-The run save currently uses schema 26, content schema 20, and the existing Python
+The run save currently uses schema 27, content schema 20, and the existing Python
 `random.Random` state. Profile, telemetry, manifest, and domain-separated RNG
 contracts are being implemented in Pass 3; they are not interchangeable versions.
 
@@ -14,9 +14,16 @@ does not change identity. Ordered effects, enemy actions, formations, balance an
 art do affect identity. Display-name changes retain IDs but change the fingerprint.
 The manifest is cached with its immutable catalog. No Python `hash()` is used.
 
-The manifest is not yet embedded in schema-26 saves; the next explicit migration
-adds it, with an authored legacy fingerprint rather than silently reconstructing
-historical rules from whichever content is installed.
+Schema 27 embeds the manifest. Loading checks it against the installed catalog;
+missing or mismatched fingerprints, pack IDs or RNG versions are rejected.
+`migrations.run_26_to_27` accepts exactly schema 26/content 20, copies the input,
+and adds the recorded content-20 manifest. Its SHA-256 is
+`b6b8c6fe837b9035b498cd867ffe29c80620429dd56d50bc6c29197389f5502b`.
+It never reads current content or regenerates rooms, intents, rewards or RNG state.
+The dispatcher checks that each migration advances exactly one version. Older
+unknown schemas and newer unknown versions are rejected explicitly. Future content
+changes need a declared compatibility/migration decision before historical saves
+can be accepted; silently replacing this legacy constant is not a migration.
 
 ## Atomic local files
 

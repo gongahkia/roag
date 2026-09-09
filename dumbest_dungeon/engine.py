@@ -9,6 +9,8 @@ from heapq import heappop, heappush
 from typing import Any, Callable
 
 from .content import Catalog
+from .migrations import MigrationError, migrate_run
+from .versions import RUN_SAVE_SCHEMA
 
 
 class RuleError(ValueError):
@@ -497,7 +499,7 @@ def _validate_world(tiles: Any, positions: dict[int, tuple[int, int]]) -> None:
 class GameEngine:
     """Owns the mutable run and its seeded pseudo-random stream."""
 
-    SAVE_VERSION = 26
+    SAVE_VERSION = RUN_SAVE_SCHEMA
     TUTORIAL_SEED = 1
     ENCOUNTER_PLANS = {"none", "pressure", "disrupt", "screen", "sustain", "combo", "overseer"}
 
@@ -1361,10 +1363,14 @@ class GameEngine:
 
     @classmethod
     def from_snapshot(cls, catalog: Catalog, snapshot: dict[str, Any]) -> GameEngine:
-        if snapshot.get("save_version") != cls.SAVE_VERSION:
-            raise RuleError("unsupported save version")
+        try:
+            snapshot = migrate_run(snapshot)
+        except MigrationError as exc:
+            raise RuleError(str(exc)) from exc
         if snapshot.get("content_schema_version") != catalog.raw["schema_version"]:
             raise RuleError("save was created for a different content schema")
+        if snapshot.get("content_manifest") != catalog.manifest.snapshot():
+            raise RuleError("save content manifest does not match installed rules or enabled packs")
         raw = snapshot.get("state")
         if not isinstance(raw, dict):
             raise RuleError("save has no game state")
@@ -1834,6 +1840,7 @@ class GameEngine:
         return {
             "save_version": self.SAVE_VERSION,
             "content_schema_version": self.catalog.raw["schema_version"],
+            "content_manifest": self.catalog.manifest.snapshot(),
             "state": asdict(self.state),
             "rng_state": self.rng.getstate(),
         }

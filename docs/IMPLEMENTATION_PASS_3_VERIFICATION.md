@@ -159,3 +159,18 @@ of the previous save. Warning-enabled compilation and `git diff --check` passed.
 An initial immutable-content focused command used two nonexistent test names
 and reported two discovery errors, with the other two tests passing. The names
 were corrected; this was an invocation error, not a suppressed test failure.
+The corrected command passed **37 tests in 8.365 seconds**, covering content,
+runtime contracts, altered-balance scenarios and normal-command replay. The
+extended strict-input cases passed **5 tests in 0.345 seconds**. Manifest tests
+passed **3 tests in 0.142 seconds**, including order invariance and sensitivity
+to meaningful effect/balance changes.
+
+### External reference update
+
+On rechecking refs during the schema-27 migration, `origin/main` had advanced
+from `cd534cc86ae77798e00a125d384b3c9f3601353b` to
+`7e186436ec317154baeb8ae0206c318c3377e8c2`. The local remote-tracking reflog records
+`update by push` at **2026-09-10 01:13:59 +0800**. This was an external action;
+the implementing agent issued no push. The referenced commit was already an
+ancestor of local `main`; no new external commit, divergence or overlapping edit
+was introduced. No history was rewritten and the reference was left untouched.
