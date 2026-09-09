@@ -182,3 +182,29 @@ present multiplicative rules return their full multiplier in basis points.
 These policies are not yet substituted for legacy item formulas. Their content
 assignment, exact reward/inspection wording and trigger limits belong to the
 stack/reward milestone, with calibration when existing behavior changes.
+
+## Queued resolution component
+
+`resolution.EventQueue` dispatches typed events through the six phases. Each
+event has stable event/root/parent IDs, depth, type, source, targets, typed
+operands, ancestry and proc-family history. Listeners are snapshotted when an
+event begins and ordered by phase, priority, entity creation ID and stable effect
+ID. The primary handler runs before primary-phase listeners. Callbacks enqueue
+children; attempting recursive dispatch is rejected. Prevention is confined to
+the replace phase. Checkpoints are accepted between dispatch steps, never halfway
+through a Python callback, and preserve the active phase/listener snapshot.
+
+The default per-root live-chain allocation is 4,096 generated events. If it is
+exhausted, the largest contributing chain is sealed (stable ID breaks ties), its
+queued automatic descendants are removed, and its allocation is released so
+independent sibling chains can finish. A sealed chain cannot restart in that
+root. Thus the budget is not a global cap on damage or an instruction to erase
+the rest of a card. Total work can exceed one allocation when several independent
+branches resolve. Mandatory death/cleanup events preserve ancestry, survive
+sealing and cannot trigger fresh descendants of a sealed branch. Only primary
+handlers can request mandatory events. Traces retain `CHAIN SEALED`, root and
+event IDs, ancestry, source/target operands and dispatch order.
+
+This component is separately tested; routing the live combat resolver through it,
+registering legacy automatic effects and exposing its inspection screen are the
+remaining kernel integration work.

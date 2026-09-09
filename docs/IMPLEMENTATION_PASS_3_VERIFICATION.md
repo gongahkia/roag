@@ -215,3 +215,13 @@ a local alias. It now copies that mission and installs an isolated catalog fixtu
 the scenario and assertions are unchanged. Its focused rerun, together with
 immutable-content, acquisition, trigger and stack contracts, passed **17 tests in
 0.965s**. A complete rerun is still required before declaring this gate passed.
+
+The corrected full foundation rerun passed **271 tests in 579.461 seconds** with
+`PYTHONWARNINGS=error python3 -m unittest discover -s tests -v`
+(`/tmp/dullest-pass3-foundations-final-suite.log`). This includes the real PTYs,
+legacy transcript replay, cross-process hash seeds, strict content, migration,
+history and contract tests collected before the standalone queue component.
+The queue and trigger component group then passed **15 tests in 0.026s**, including
+phase-by-phase checkpoint continuation, listener mutation, limited cycles and
+sealing while independent automatic healing and mandatory cleanup finish.
+The queue is not yet wired into live combat; this is component evidence.
