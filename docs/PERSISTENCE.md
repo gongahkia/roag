@@ -1,6 +1,6 @@
 # Persistence contracts
 
-The run save currently uses schema 31, content schema 20, and the existing Python
+The run save currently uses schema 32, content schema 20, and the existing Python
 `random.Random` state. Profile, telemetry, manifest, and domain-separated RNG
 contracts are being implemented in Pass 3; they are not interchangeable versions.
 
@@ -126,3 +126,9 @@ already resolved primary payloads remain unchanged. Deferred host continuations
 wait for ordinary descendants to drain. Content listeners cannot request deferred
 or mandatory work. This keeps card sequencing and cleanup serializable without
 letting JSON define control flow.
+
+Migration 31→32 records engine 0.2.0 for the deterministic queue release. It accepts
+only the preceding engine 0.1.0/content-20 contract and changes that engine marker;
+it preserves the exact content fingerprint, enabled packs, world, RNG, queue and
+ledger. The installed catalog still has to match the retained fingerprint. The
+historical content-20 fixture and ordinary command transcript remain supported.

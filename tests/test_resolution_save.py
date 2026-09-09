@@ -20,6 +20,7 @@ class ResolutionSaveTests(unittest.TestCase):
         engine.resolution.submit(E.DAMAGE, "test:hit", (hero.id,), Payload(actor_id=hero.id, opcode=Opcode.DAMAGE, amount=1))
         old = engine.snapshot()
         old["save_version"] = 29
+        old["content_manifest"]["engine"] = "0.1.0"
         old["resolution_queue"]["state"]["schema"] = 1
         event = old["resolution_queue"]["state"]["pending"][0]
         del event["deferred"]
@@ -99,6 +100,7 @@ class ResolutionSaveTests(unittest.TestCase):
         with self.assertRaises(RuleError):
             GameEngine.from_snapshot(engine.catalog, raw)
         raw["save_version"] = 28
+        raw["content_manifest"]["engine"] = "0.1.0"
         loaded = GameEngine.from_snapshot(engine.catalog, raw)
         self.assertEqual(engine.state, loaded.state)
         self.assertEqual(engine.resolution.snapshot(), loaded.resolution.snapshot())

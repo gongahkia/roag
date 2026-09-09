@@ -40,6 +40,7 @@ class LedgerTests(unittest.TestCase):
         engine = GameEngine.new(load_catalog(), 42)
         raw = engine.snapshot()
         raw["save_version"] = 27
+        raw["content_manifest"]["engine"] = "0.1.0"
         del raw["state"]["ledger"]
         del raw["resolution_queue"]
         loaded = GameEngine.from_snapshot(engine.catalog, raw)
