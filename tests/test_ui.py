@@ -817,6 +817,18 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("FINAL DETAIL", screen.text())
         self.assertIn("PgUp/PgDn details", screen.text())
 
+    def test_long_menu_keeps_choices_visible_and_scrolls_all_consequences(self) -> None:
+        body = "\n".join(f"Consequence {i}" for i in range(40))
+        screen = FakeScreen(keys=[curses.KEY_END, ord("j"), 10])
+        self.ui.screen = screen
+        before = self.engine.snapshot()
+        choice = self.ui._menu("LONG CONTRACT", ["Accept", "Walk away"], body)
+        self.assertEqual(1, choice)
+        self.assertIn("Consequence 39", screen.text())
+        self.assertIn("> Walk away", "\n".join("".join(row) for row in screen.rows))
+        self.assertIn("PgUp/PgDn", screen.text())
+        self.assertEqual(before, self.engine.snapshot())
+
     def test_effect_browser_groups_hero_and_party_stacks(self) -> None:
         hero = self.engine.living_heroes()[0]
         self.engine.acquire_boon(hero.id, "iron_benediction")

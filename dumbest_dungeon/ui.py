@@ -2143,15 +2143,17 @@ class TerminalUI:
         selected = 0
         scroll = 0
         note_scroll = 0
+        body_scroll = 0
         while True:
             self._begin(title)
-            row = 3
             body_width = 38 if preview_cards else max(20, self.screen.getmaxyx()[1] - 6)
-            for paragraph in body.splitlines():
-                for line in textwrap.wrap(paragraph, body_width) or [""]:
-                    self._put(row, 3, line[:body_width])
-                    row += 1
-            row += 1
+            body_lines = [line for paragraph in body.splitlines()
+                          for line in (textwrap.wrap(paragraph, body_width) or [""])]
+            body_height = max(1, self.screen.getmaxyx()[0] - 7 - min(4, len(choices)))
+            body_scroll = max(0, min(body_scroll, max(0, len(body_lines) - body_height)))
+            for offset, line in enumerate(body_lines[body_scroll:body_scroll + body_height]):
+                self._put(3 + offset, 3, line)
+            row = 4 + min(len(body_lines), body_height)
             available = max(1, self.screen.getmaxyx()[0] - row - 3)
             if selected < scroll:
                 scroll = selected
@@ -2176,7 +2178,9 @@ class TerminalUI:
                 note_scroll = max(0, min(note_scroll, max(0, len(note_lines) - 3)))
                 for offset, line in enumerate(note_lines[note_scroll:note_scroll + 3]):
                     self._put(20 + offset, 45, line, curses.A_DIM)
-            if len(note_lines) > 3:
+            if len(body_lines) > body_height:
+                footer = "↑/↓ choose  Home/End body  PgUp/PgDn details  Enter confirm  Esc back"
+            elif len(note_lines) > 3:
                 footer = "↑/↓ choose  PgUp/PgDn details  Enter confirm  Esc back"
             else:
                 footer = "↑/↓ choose  Enter confirm  Esc back" if not view_only else "↑/↓ scroll  Esc/Enter back"
@@ -2192,6 +2196,14 @@ class TerminalUI:
                 note_scroll -= 3
             elif key == curses.KEY_NPAGE and note_lines:
                 note_scroll += 3
+            elif key == curses.KEY_PPAGE:
+                body_scroll -= body_height
+            elif key == curses.KEY_NPAGE:
+                body_scroll += body_height
+            elif key == curses.KEY_HOME:
+                body_scroll = 0
+            elif key == curses.KEY_END:
+                body_scroll = len(body_lines) - body_height
             elif key in (10, 13, curses.KEY_ENTER):
                 return None if view_only else selected
             elif key == 27 and allow_cancel:

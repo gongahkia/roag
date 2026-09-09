@@ -162,3 +162,13 @@ initial user research separately from authored implementation evidence.
   before the correction. Eight focused casualty, Flooded and policy tests passed
   afterward in 11.481 seconds. Save schema is unchanged because this corrects
   the existing formation invariant rather than introducing durable fields.
+- Long menu bodies could hide choices and later consequences at 80×24. Reserved
+  choice space and added body paging/Home/End without simulation changes. The
+  new long-contract regression failed before the change; 65 UI tests passed in
+  29.186 seconds afterward. One existing tutorial test was excluded from this
+  focused run after its input-exhaustion hang was reproduced independently:
+  objective waypoint priority displaced its training contact. The full baseline
+  suite is therefore not a passing gate; tutorial repair is the next atomic fix.
+- The corrected seed-19 rusher wins with three survivors after the Foundryman
+  dies before the Core (14 boss rounds, 171 travel ticks). The earlier loss
+  depended on the formation defect and is withdrawn as fair-defeat evidence.
