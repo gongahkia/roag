@@ -57,6 +57,13 @@ recoverable readied-axe throws. Fourteen focused action/ownership tests and six
 targeting tests pass; a real 80×24 Dunmire chest/packing/pitch-cast/return loop is
 recorded in `working-weapons.md`. The 36-weapon and 24-build gates remain open.
 
+Four additional regressions reproduced loose `%` cover having no projectile
+effect, a repeated cache rumor selecting the same marked coffer, and exhausted
+rumors raising `StopIteration`. The shared cover query now affects actual
+player and enemy shots, and the contact advances through unmarked caches or
+reports exhaustion. All four tests pass (0.637 seconds); the frontier-elite
+and 18 ranged-combat checks also pass. No map repaint or respawn was added.
+
 All gates below remain open until measured and exercised. Counts cannot close
 them by themselves.
 

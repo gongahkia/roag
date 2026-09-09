@@ -207,9 +207,13 @@ def mark_secondary_lead(state: GameState) -> bool:
     containers = state.regions[region].containers
     primary = QUESTS[region]["cache"]
     candidate = next(
-        container for container in containers
-        if container.id != primary and not container.opened
+        (container for container in containers
+         if container.id != primary and not container.opened
+         and container.id not in state.treasure_marks[region]),
+        None,
     )
+    if candidate is None:
+        return False
     return mark_treasure(
         state, region, candidate.id,
         f"A named local worker marks {candidate.name} at {candidate.position.x},{candidate.position.y}, level {candidate.position.z:+d}.",
@@ -498,7 +502,7 @@ def use_secondary_service(state: GameState, choice: str) -> tuple[bool, str]:
         return deliver_dependency(state)
     if choice == "c":
         changed = mark_secondary_lead(state)
-        return changed, "The local worker places a persistent named cache mark on Jomon's account."
+        return changed, ("The local worker places a persistent named cache mark on Jomon's account." if changed else "There are no unopened, unmarked local caches left to name.")
     if choice == "t":
         technique = {
             "hearthford": "mill hearing",

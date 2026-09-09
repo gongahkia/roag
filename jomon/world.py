@@ -248,6 +248,8 @@ def cover_at(state: GameState, shooter: Position, target: Position) -> str:
     )
     if any(base_tile(state, point) in {"#", "T", "+"} for point in adjacent):
         return "partial"
+    if shooter.z <= target.z and any(base_tile(state, point) == "%" for point in (target, *adjacent)):
+        return "partial"
     return "open"
 
 

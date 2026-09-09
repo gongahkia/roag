@@ -1,5 +1,11 @@
 # Frontier working claims
 
+Low-cover correction: the shutter and collapse `%` tiles now provide partial
+cover to a body on or beside them, through the shared player/enemy projectile
+query. Downward shots pass over this loose cover; walls and trees still use
+their existing geometry. F inspection explains the cover rule. Previously
+the shutter glyph changed without affecting this query.
+
 Fresh frontier generation chooses one of two finite situations per region.
 These are installed in the actual map, dormant until critical pressure wakes
 them. Existing generated maps are not repopulated. Each has three working
