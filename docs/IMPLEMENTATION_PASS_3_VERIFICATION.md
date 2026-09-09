@@ -364,3 +364,10 @@ Ampoule, Flare Phosphor, Auto Suture, Survey Relay and Deflection Foil. Counts
 archived replay, queue and telemetry group passed **36 tests in 14.747s**. The
 historical 344-command calibration replay explicitly uses its archived bundle;
 current-content reordering and cross-process checks still use current content.
+
+Opening/reserve stacks passed **43 content, card-queue, stack and ordering tests
+in 22.646s**, including constructed first-copy, threshold, turn-reset and
+save/load scenarios. An initial 34-test attempt had one test-import error
+(`model` instead of the repository's `engine` module), corrected before the
+expanded run. Warning-enabled compilation, content validation and diff checks
+passed. These are mechanic checks, not natural engine-acquisition evidence.

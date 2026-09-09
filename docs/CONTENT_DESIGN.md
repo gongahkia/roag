@@ -282,3 +282,14 @@ its excess above one, so 2.25x is a +125% contribution rather than +225%.
 The engine accepts these contracts alongside archived legacy curves. Inspection
 shows count, exact current/next value, formula and cap. Live bundled assignments
 are the next content boundary; the archived fingerprint remains unchanged.
+
+### Opening and reserve stacks
+
+Capacitor Bank refreshes one opening round of focus at its first copy. At three
+and six copies it also adds one and two opening energy respectively. Spare
+Magazine draws one extra opening card at one copy and two at three; normal turns
+retain five cards. Reserve Cell releases one energy after the first played card
+that leaves energy at zero, once per combat; four copies release two. Generated
+energy cannot trigger another release. Focusing Lens covers the first one or two
+focus-granting techniques per round according to its one/two-copy cap. These rules
+are embedded in new saves; archived rules preserve their original thresholds.

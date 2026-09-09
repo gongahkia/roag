@@ -3275,6 +3275,11 @@ class GameEngine:
             if self.state.round == 1:
                 start_block = self._hero_effect_value(hero, "boon", "start_block")
                 start_block += self._item_effect_value("stacked_start_block")
+                for item_id, count in self.state.items.items():
+                    focus = round(self.effect_value("item", item_id, "start_focus", count))
+                    if focus:
+                        with self.attribution(item_id):
+                            self._add_status(hero, "focus", focus)
                 vigilance = self.state.boons.get(hero.id, {}).get("vigilance", 0)
                 if vigilance:
                     hero.statuses["dodge"] = max(hero.statuses.get("dodge", 0), 2)

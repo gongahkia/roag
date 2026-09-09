@@ -49,6 +49,7 @@ class EffectKey(StrEnum):
     STACKED_START_BLOCK = "stacked_start_block"
     START_BLOCK = "start_block"
     START_DODGE = "start_dodge"
+    START_FOCUS = "start_focus"
     START_MARKED = "start_marked"
     START_STRESS_RELIEF = "start_stress_relief"
     START_VULNERABLE = "start_vulnerable"
