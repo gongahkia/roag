@@ -180,6 +180,34 @@ ITEM_SPECS: dict[str, ItemSpec] = {
     "reed shoes": _armour("Reed shoes", "RS", "feet", (2, 1), 1, (0, 0, 1), 1, "Quiet on dry paths, poor on sharp stone.", tags=("quiet",)),
     "hobnailed boots": _armour("Hobnailed boots", "HB", "feet", (2, 2), 4, (2, 2, 2), 3, "Grip scree and resist sharp ground; noisy on boards.", noise=1, tags=("scree-grip", "sharp-proof")),
     "marsh waders": _armour("Oiled marsh waders", "MW", "feet", (3, 2), 5, (1, 1, 2), 3, "Stay dry in mud and shallows but slip on rock.", mobility=1, tags=("mudproof", "weatherproof", "deep-water")),
+
+    "reed brim": _armour("Woven reed brim", "RB", "head", (2, 2), 2, (1, 0, 1), 2, "Sheds salt spray; neither warm nor proof against points.", tags=("weatherproof", "saltproof")),
+    "kiln face wrap": _armour("Kiln face wrap", "KF", "head", (2, 1), 1, (0, 0, 1), 1, "Filters smoke; heat-resistant cloth lasts longer in sparks, but offers little impact cover.", tags=("smoke-filter", "heatproof")),
+    "ridge visor": _armour("Slotted ridge visor", "VI", "head", (3, 2), 5, (2, 4, 1), 3, "Turns points and grit; narrow slots cost two paces of sight and ranged reach.", noise=1, tags=("face-cover", "saltproof", "narrow-sight")),
+    "cork-backed coat": _armour("Cork-backed working coat", "CK", "torso", (4, 3), 7, (1, 1, 2), 2, "Floats a light or laden bearer through current; bulky and weak against blades.", tags=("buoyant", "weatherproof")),
+    "kiln apron": _armour("Limewashed kiln apron", "KA", "torso", (3, 3), 6, (2, 0, 3), 2, "Absorbs one fire harm while wearing; lime dust is shed, points are not.", tags=("heatproof", "limeproof")),
+    "winter felt coat": _armour("Winter felt coat", "WF", "torso", (3, 4), 8, (1, 1, 4), 3, "Warm blunt padding; saturated layers add four weight.", tags=("warm", "absorbent", "water-heavy")),
+    "reed splints": _armour("Bound reed splints", "BP", "arms", (3, 2), 3, (1, 1, 3), 2, "Light bracing strengthens a dry guard; vulnerable bindings absorb rain.", tags=("brace", "thornproof", "absorbent")),
+    "quarry sleeves": _armour("Limeworker's sleeves", "QL", "arms", (2, 3), 4, (2, 1, 2), 3, "Broad lime-dust and thorn cover; heavier than plain linen.", tags=("limeproof", "thornproof")),
+    "watch vambraces": _armour("Watch vambraces", "WV", "arms", (2, 2), 3, (1, 3, 1), 2, "Point-facing slats and dry tool grip; poor blunt padding.", tags=("tool-grip", "weatherproof")),
+    "potter mitts": _armour("Padded potter mitts", "PM", "hands", (2, 2), 2, (0, 0, 2), 2, "Heat- and lime-resistant palms; add stiffness without providing wet grip.", mobility=1, tags=("heatproof", "limeproof")),
+    "archer tabs": _armour("Waxed archer tabs", "AT", "hands", (1, 1), 1, (0, 0, 0), 1, "Maintain hand grip when wet; almost no protection against a strike.", tags=("grip", "quiet")),
+    "split-hide palms": _armour("Split-hide palms", "HP", "hands", (2, 1), 2, (2, 0, 1), 2, "Salt-resistant wet grip without metal noise; points pass through.", tags=("grip", "saltproof")),
+    "reed gaiters": _armour("Reed gaiters", "RG", "legs", (2, 3), 2, (1, 0, 2), 1, "Shed spray and thorns; narrow cover only works fully behind guard.", tags=("thornproof", "weatherproof")),
+    "quarry chaps": _armour("Quarry chaps", "QC", "legs", (3, 3), 6, (2, 1, 3), 2, "Lime-resistant broad work cover; stiff on slopes.", mobility=1, tags=("limeproof", "thornproof")),
+    "frost leggings": _armour("Frost-felt leggings", "FL", "legs", (3, 3), 4, (1, 0, 3), 3, "Warm broad padding for long watches; takes water weight.", tags=("warm", "absorbent")),
+    "peat pattens": _armour("Peat-board pattens", "PP", "feet", (3, 2), 3, (0, 0, 2), 2, "Spread load over mud without bogging; leave sharp stone unprotected.", tags=("mudproof", "quiet")),
+    "felt overboots": _armour("Felt overboots", "FO", "feet", (3, 2), 3, (1, 0, 3), 2, "Warm quiet soles; wet felt gains weight and lacks scree grip.", tags=("warm", "quiet", "absorbent")),
+    "ice cleats": _armour("Linked ice cleats", "IC", "feet", (2, 2), 4, (1, 1, 1), 2, "Grip scree and frozen shallows; links ring on dry deck boards.", noise=1, tags=("scree-grip", "ice-grip")),
+}
+
+# Existing saved containers keep their contents; fresh frontier stores draw from
+# the work clothing of that place. Merchants can also bring a counted spare.
+REGIONAL_ARMOUR = {
+    "dunmire": ("reed brim", "cork-backed coat", "reed splints", "split-hide palms", "reed gaiters", "peat pattens"),
+    "rillscar": ("ridge visor", "quarry sleeves", "watch vambraces", "quarry chaps", "ice cleats", "potter mitts"),
+    "marlbank": ("kiln face wrap", "kiln apron", "potter mitts", "quarry sleeves", "quarry chaps", "archer tabs"),
+    "frostmere": ("winter felt coat", "frost leggings", "felt overboots", "ice cleats", "split-hide palms", "reed brim"),
 }
 
 
@@ -915,10 +943,10 @@ def pack_weight(state: GameState, owner_id: str | None = None) -> int:
     weight += sum(item_spec(item.kind).weight for item in state.items if item.location == "fitted" and item.fitted_to in carried)
     if "wet" in state.terrain_statuses:
         weight += sum(
-            4 for item in state.items
+            4 if "water-heavy" in effective_spec(state, item).tags else 2 for item in state.items
             if item.owner_id == owner_id
             and item.location in EQUIPPED_LOCATIONS
-            and "water-heavy" in effective_spec(state, item).tags
+            and {"water-heavy", "absorbent"} & set(effective_spec(state, item).tags)
         )
     return weight
 
@@ -965,7 +993,7 @@ def protection_at(state: GameState, location: str, damage_kind: str) -> tuple[in
     from .workshop import effective_spec
 
     item = armour_at(state, location)
-    if not item:
+    if not item or item.condition <= 0:
         return 0, "uncovered"
     spec = effective_spec(state, item)
     protection = {"cut": spec.cut, "pierce": spec.pierce, "blunt": spec.blunt}.get(damage_kind, 0)
@@ -1024,13 +1052,14 @@ def tick_statuses(state: GameState) -> list[str]:
     return ended
 
 
-def worn_tags(state: GameState) -> set[str]:
+def worn_tags(state: GameState, slots: Iterable[str] = BODY_SLOTS, owner_id: str | None = None) -> set[str]:
     from .workshop import effective_spec
 
     tags: set[str] = set()
-    for location in BODY_SLOTS:
-        item = armour_at(state, location)
-        if item:
+    owner_id = owner_id or state.active_courier_id
+    for location in slots:
+        item = next((item for item in state.items if item.owner_id == owner_id and item.location == location), None)
+        if item and item.condition > 0:
             tags.update(effective_spec(state, item).tags)
     return tags
 
@@ -1056,8 +1085,12 @@ def terrain_status_for(state: GameState, tile: str) -> tuple[str, str, int, str]
     if tile == ":" and "saltproof" not in tags and "salt veil" not in state.carried_passives:
         return "salt-grit", "windblown salt", 4, "aim and exposed hands are impaired"
     if tile == "w" and "deep-water" not in tags:
+        if "buoyant" in worn_tags(state, ("torso",)) and burden in {"light", "laden"}:
+            return None
         consequence = "overloaded couriers risk being swept away" if burden == "overloaded" else "movement and guard are slowed"
         return "current", "deep current", 2, consequence
+    if tile == "_" and "ice-grip" not in worn_tags(state, ("feet",)):
+        return "poor-footing", "frozen shallows", 3, "guard is weak on ice; leave it or wear cleats"
     return None
 
 

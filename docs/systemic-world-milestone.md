@@ -71,6 +71,37 @@ them by themselves.
 
 ## Measurement and limitations log
 
+Eighteen additional regional work garments bring protective clothing to 36,
+six per body location. Fresh frontier containers and a bounded visiting
+merchant spare expose all eighteen. Saved contents and existing equipment are
+not replaced. Slot-local grip, buoyancy/load limits, narrow visor sight, wet
+padding weight, cold/terrain protection, heat wear and lime/salt exposure use
+production movement, guard, targeting and shared material actions. The sparse
+smoke producer now uses the hyphenated status consumed by ranged/guard rules;
+underground fire is no longer extinguished by surface rain.
+
+The clothing regression file passed **15 tests in 4.386 seconds**; the full
+serial suite passed **302 tests in 163.724 seconds**. Tests include real
+format-6 migration, physical purchasing, condition, exposure, exact inventory
+cancellation and 80×24/100×32 stock panels. These do not close all-content or
+24-build acceptance gates.
+
+A fresh, unforced 80×24 PTY campaign (`winter work clothing`, despite its name
+played in spring) took Hessa Silt from immediate Hearthford entry/return,
+through the chart to Marlbank, and completed its field-release ending.
+Quay, market, flood-mark and roof stores were opened; kiln wrap, apron and
+potter mitts were equipped. Spare starting clothing, arrows and a duplicate
+apron were deliberately dropped. A seed-sack taker stole the load ledger,
+reducing capacity; billhook combat defeated it and the same ledger
+was recovered from the floor. Upper works supplied counted grain; a roof
+clue revealed Odrin's named coffer. Pack overload made leaving the apron a
+material decision. The kiln release was operated, late grain delivered and
+the field branch chosen; physical return, save and quit completed at world
+time 417, health 10/10. No cave or winter traversal, native mouse, or active
+apron firefighting was exercised in this trip. The repeated animal charge
+pattern and long encumbered return remain balance weaknesses, not successful
+evidence of genuinely distinct new enemies.
+
 The deck integration full suite passed **287 tests in 173.361 seconds**,
 with compilation and `git diff --check` passing. Earlier iterations reported
 four failures in 279 tests: one test left a regional vertical query aboard

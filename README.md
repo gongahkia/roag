@@ -166,6 +166,16 @@ Pack shape and weight are independent constraints. Light, laden, encumbered, and
 overloaded states visibly affect noise, pacing, climbing, water, retreat, and
 fragile footing.
 
+Thirty-six protective garments cover the six body locations. Frontier work
+clothing includes floating cork coats, kiln aprons, limeworker sleeves,
+winter padding, peat pattens and ice cleats. Protection is local, condition
+matters, and weather can make absorbent clothing heavier. A visor narrows
+sight; a kiln apron wears while taking heat; a floating coat stops helping
+against current when its bearer carries too much. These are optional finds,
+not changes to the ready-to-depart starting issue. Fresh frontier stores and
+counted visiting merchant stock supply them; existing saved chests are not
+refilled. See [working clothing](docs/working-clothing.md).
+
 Eighteen weapon families provide different actions, including reach control,
 pulling, sweep guard, knockback, destruction, aiming, reload commitments,
 height-sensitive sling casts, finite throws, net restraint, arcing staff-sling

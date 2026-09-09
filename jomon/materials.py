@@ -100,8 +100,10 @@ def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, s
 
         spec = effective_spec(state, body)
         vulnerable = spec.category in {"cargo", "consumable", "passive"} or "absorbent" in spec.tags
-        if reaction in {"fire", "debris"} or (reaction == "water" and vulnerable):
-            fire_wear = 12 if "resin-coated" in spec.tags else 8
+        abrasive = reaction in {"salt", "lime"} and ("metal" in spec.tags or spec.category == "weapon")
+        resisted = (reaction == "salt" and "saltproof" in spec.tags) or (reaction == "lime" and "limeproof" in spec.tags)
+        if not resisted and (reaction in {"fire", "debris"} or (reaction == "water" and vulnerable) or abrasive):
+            fire_wear = 2 if "heatproof" in spec.tags else 12 if "resin-coated" in spec.tags else 8
             wear = severity * (fire_wear if reaction == "fire" else 3)
             body.condition = max(0, body.condition - wear)
             for part in attached(state, body):
@@ -134,16 +136,26 @@ def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, s
 
         if reaction in {"fire", "debris"}:
             protection = int(reaction == "fire" and "ember cloth" in state.carried_passives)
+            if reaction == "fire" and "heatproof" in worn_tags(state, ("torso",)):
+                from .inventory import degrade_armour
+                protection = max(1, protection)
+                degrade_armour(state, "torso", 6)
+                state.add_message("The kiln apron takes the heat; its protective face wears. Leave the fire before it fails.", priority=3)
             if severity > protection:
                 result = apply_damage(state, severity - protection, f"material {reaction} at {key(origin)}")
                 state.add_message(result, priority=3)
         elif reaction == "smoke":
             if "smoke-filter" not in worn_tags(state):
-                add_status(state, "smoke inhalation", "dense material smoke", 4, "guard and awareness falter; reach clear air")
+                add_status(state, "smoke-inhalation", "dense material smoke", 4, "guard and ranged reach falter; reach clear air")
                 state.aimed_target = None
         elif reaction == "water":
             if "weatherproof" not in worn_tags(state):
                 add_status(state, "wet", "standing in flowing water", 4, "absorbent armour burdens the load; leave water to dry")
+        elif reaction in {"salt", "lime"}:
+            protection = "saltproof" if reaction == "salt" else "limeproof"
+            if protection not in worn_tags(state):
+                add_status(state, f"{reaction}-grit", f"{reaction} carried in local water", 4, "guard and ranged reach weaken; leave the slurry and allow four actions to clear")
+                state.aimed_target = None
     elif reaction in {"fire", "debris"}:
         # Routine named-adult simulation cannot silently kill an off-duty person.
         body.health = max(2, body.health - severity)
@@ -230,6 +242,8 @@ def advance_materials(state: GameState) -> int:
                 _expose(state, point, "water", cell.water)
                 if initial_place != (state.location, state.active_region_id):
                     return len(selected)
+                if cell.fluid == "salt" or cell.coating == "lime":
+                    _expose(state, point, "lime" if cell.coating == "lime" else "salt", 1)
                 destination = _opening_below(state, point)
                 if destination is None and cell.water > 1:
                     neighbours = [Position(point.x + dx, point.y + dy, point.z) for dx, dy in ((wind, 0), (0, 1), (-wind, 0), (0, -1))]
@@ -244,7 +258,7 @@ def advance_materials(state: GameState) -> int:
             cell.ice = False
             state.add_message(f"Thaw loosens the thin ice at {coordinate}.", priority=2)
         if cell.fire:
-            if rain:
+            if rain and point.z >= 0:
                 cell.fire = max(0, cell.fire - 1)
                 cell.coating = "wet"
             if cell.fire:

@@ -261,6 +261,12 @@ MERCHANT_ITEMS = {
     "hooked javelin": (3, "weapon"),
     "boar spear": (3, "weapon"),
     "handgonne": (5, "weapon"),
+    "reed brim": (2, "armour"), "kiln face wrap": (2, "armour"), "ridge visor": (4, "armour"),
+    "cork-backed coat": (4, "armour"), "kiln apron": (3, "armour"), "winter felt coat": (4, "armour"),
+    "reed splints": (2, "armour"), "quarry sleeves": (3, "armour"), "watch vambraces": (3, "armour"),
+    "potter mitts": (2, "armour"), "archer tabs": (1, "armour"), "split-hide palms": (2, "armour"),
+    "reed gaiters": (2, "armour"), "quarry chaps": (3, "armour"), "frost leggings": (3, "armour"),
+    "peat pattens": (2, "armour"), "felt overboots": (2, "armour"), "ice cleats": (3, "armour"),
 }
 
 # Bounded authored roles. Regional placement and budgets live in encounters.py;

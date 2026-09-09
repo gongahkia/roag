@@ -87,6 +87,8 @@ def _estuary(seed, width, height):
 
 
 def build_frontier(seed: str, region_id: str) -> Region:
+    from .inventory import REGIONAL_ARMOUR
+
     name, width, height, geology, commodity, shortage, process, *_ = FRONTIERS[region_id]
     ground, anchors = {"dunmire": _fen, "rillscar": _gorge, "marlbank": _terraces, "frostmere": _estuary}[region_id](seed, width, height)
     _border(ground, "#")
@@ -156,7 +158,8 @@ def build_frontier(seed: str, region_id: str) -> Region:
             _carve(ground, [point, min(anchors, key=lambda anchor: abs(anchor.x - point.x) + abs(anchor.y - point.y))])
         layers[point.z][point.y][point.x] = "C"
         container = Container(f"{region_id}-{suffix}", f"{name.split()[0]} {title}", point, rewards[index], requirement)
-        container.extra_rewards = [("work gloves", "felt hood", "marsh waders", "leather leggings", "reedscale vest", "hobnailed boots", "mail mitts", "kettle helm")[index], "willow dressing" if index % 3 == 0 else "fletched arrows"]
+        clothing = REGIONAL_ARMOUR[region_id]
+        container.extra_rewards = [clothing[index % len(clothing)], "willow dressing" if index % 3 == 0 else "fletched arrows"]
         containers.append(container)
     levels = _levels(ground, {-1: below, 1: upper, 2: roof})
     landmarks = {"landing": landing, "contact": settlement, "second_contact": second, "settlement": settlement, "ruin": ruin, "works": works, "far_bank": far_bank, "store": store, "cave_entrance": cave, "objective": objective, "control": control, "elevated": elevated}

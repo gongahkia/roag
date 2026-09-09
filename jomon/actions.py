@@ -31,6 +31,7 @@ from .inventory import (
     tick_statuses,
     transfer_to_grid,
     weight_capacity,
+    worn_tags,
 )
 from .state import CommodityStack, GameState, Person, Position, SoundEvent, Threat, stage_rng
 from .world import (
@@ -1287,11 +1288,13 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
     if tile == "m" and not (
         state.gear == "quiet shoes"
         or "reed sole wraps" in state.carried_passives
+        or "mudproof" in worn_tags(state, ("feet",))
     ):
         messages.append("Mud drags at your step; sound carries.")
         messages.extend(emit_sound(state, 1, target))
     elif not quiet and state.pressure_elapsed % 8 == 7:
-        state.noise += 1
+        if "quiet" not in worn_tags(state, ("feet",)) or tile in {"r", "q", "w"}:
+            state.noise += 1
     armour_sound = armour_noise(state)
     if armour_sound and state.pressure_elapsed % max(2, 8 - armour_sound * 2) == 0:
         state.noise += 1
@@ -1716,7 +1719,7 @@ def interact(state: GameState) -> ActionResult:
         if tile == "H":
             return ActionResult(False, False, "Inspect hold and local problem.", "hold")
         if tile == "s" and state.merchant_present:
-            return ActionResult(False, False, "The deck merchant opens three lots.", "merchant")
+            return ActionResult(False, False, "The deck merchant opens the counted visiting stock.", "merchant")
         if tile == "K":
             return ActionResult(False, False, "Read Jomon's bounded vessel chronicle.", "chronicle")
         station = {
@@ -1987,7 +1990,7 @@ def effective_weapon_range(state: GameState) -> int:
     if "winter-juniper" in state.drink_effects and state.weapon in RANGED_WEAPONS:
         attack_range = max(3, attack_range - 3)
     if (
-        {"chilled", "salt-grit", "smoke-inhalation"} & set(state.terrain_statuses)
+        {"chilled", "salt-grit", "lime-grit", "smoke-inhalation"} & set(state.terrain_statuses)
         and state.weapon in RANGED_WEAPONS
     ):
         attack_range = max(3, attack_range - 2)
@@ -2004,8 +2007,10 @@ def effective_weapon_range(state: GameState) -> int:
         attack_range = max(1, attack_range - 2)
     if active_part(state, "resin seal"):
         attack_range = max(1, attack_range - 1)
-    if state.weapon in RANGED_WEAPONS and active_part(state, "ash wrap") and "smoke-inhalation" in state.terrain_statuses and not {"chilled", "salt-grit"} & set(state.terrain_statuses):
+    if state.weapon in RANGED_WEAPONS and active_part(state, "ash wrap") and "smoke-inhalation" in state.terrain_statuses and not {"chilled", "salt-grit", "lime-grit"} & set(state.terrain_statuses):
         attack_range += 2
+    if state.weapon in RANGED_WEAPONS and "narrow-sight" in worn_tags(state, ("head",)):
+        attack_range = max(1, attack_range - 2)
     return attack_range
 
 
@@ -2292,13 +2297,16 @@ def guard(state: GameState) -> ActionResult:
         or state.weapon == "staff"
         or (state.courier and state.courier.technique == "set stance")
         or "hearth-ale" in state.drink_effects
+        or ("brace" in worn_tags(state, ("arms",)) and "wet" not in state.terrain_statuses)
     )
     if state.courier and ({"arms", "hands"} & set(state.courier.injuries)):
         strong = False
-    hindering = {"poor-footing", "smoke-inhalation", "net-drag"} & set(state.terrain_statuses)
+    hindering = {"poor-footing", "smoke-inhalation", "net-drag", "lime-grit"} & set(state.terrain_statuses)
     if "thorn-scratched" in state.terrain_statuses and "thorn weave" not in state.carried_passives:
         hindering.add("thorn-scratched")
     if hindering:
+        strong = False
+    if "wet" in state.terrain_statuses and not ({"grip", "tool-grip"} & worn_tags(state, ("hands", "arms"))):
         strong = False
     if strong:
         morale_loss = 2 if "shielded set stance" in build_combinations(state) else 1
@@ -2320,6 +2328,8 @@ def guard(state: GameState) -> ActionResult:
         text = "You set a reinforced guard; the next reposition preserves control."
     else:
         text = "You guard and yield space deliberately."
+    if "wet" in state.terrain_statuses:
+        text += " Working grip holds the wet guard." if {"grip", "tool-grip"} & worn_tags(state, ("hands", "arms")) else " Wet hands weaken the guard; grip coverings or dry ground restore it."
     return _time_result(state, text, guarded=True, priority=3)
 
 
@@ -2697,6 +2707,8 @@ def merchant_visit_due(seed: str, returned_expeditions: int) -> bool:
 
 
 def merchant_stock_for(state: GameState) -> list[str]:
+    from .inventory import REGIONAL_ARMOUR
+
     context = {
         "ironwork": "hand axe",
         "timber": "cargo harness",
@@ -2720,7 +2732,11 @@ def merchant_stock_for(state: GameState) -> list[str]:
         ).randrange(5) == 0
     )
     finite = "tide-knot charm" if rare else "willow dressing"
-    return list(dict.fromkeys((context, regional_weapon, finite)))[:3]
+    stock = list(dict.fromkeys((context, regional_weapon, finite)))[:3]
+    if state.active_region_id in REGIONAL_ARMOUR:
+        clothing = REGIONAL_ARMOUR[state.active_region_id]
+        stock.append(stage_rng(state.seed, f"work-clothing:{state.active_region_id}:{state.returned_expeditions}").choice(clothing))
+    return stock
 
 
 def purchase_merchant_item(state: GameState, item: str) -> ActionResult:

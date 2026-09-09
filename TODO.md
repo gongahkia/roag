@@ -8,13 +8,13 @@
 - Jomon has three 64×22 decks, a dedicated 64×24 tavern, scheduled named adults, bartender and eight drinks, six initial adults, six bounded regional recruits, a paper-doll equipment view, 10×6 courier pack, 18×10 locker, and optional mouse input.
 - Save format 7 migrates Python format 6 without repainting saved geography or
   replacing lost possessions; supported older Python paths chain forward.
-  The latest observed full run passed 283 tests in 170.930 seconds; subsequent
-  changes still require another full run. See the live measurement ledger.
+  The latest observed full run passed 302 tests in 163.724 seconds. See the
+  live measurement ledger for the covered snapshot and remaining gates.
 - Each region now has a three-stage questline with two endings, and completing
   any two opens the five-part Working Marks arc. Production generation uses
   finite mixed groups, four seeded alternative elites, 30 persistent
   containers in the previous four-region milestone. The expansion now has
-  62 regional containers, 18 weapons, 37 passives, six relics, eight physical
+  62 regional containers, 18 weapons, 36 armour, 37 passives, six relics, eight physical
   fitting kits, sparse materials, and twelve bounded voyage families. Content
   targets, branch depth, performance and full manual coverage remain open.
 

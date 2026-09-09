@@ -252,6 +252,8 @@ def cover_at(state: GameState, shooter: Position, target: Position) -> str:
 
 
 def sight_radius(state: GameState) -> int:
+    from .inventory import worn_tags
+
     if state.location != "region":
         return 20
     tile = base_tile(state, state.position)
@@ -287,20 +289,23 @@ def sight_radius(state: GameState) -> int:
         radius = max(radius, 5)
     if "reed-tonic" in state.drink_effects:
         radius = max(3, radius - 2)
-    return radius
+    return max(2, radius - (2 if "narrow-sight" in worn_tags(state, ("head",)) else 0))
 
 
 def field_of_view(state: GameState, *, remember: bool = True) -> set[Position]:
     if state.location != "region":
+        from .inventory import worn_tags
+
         rows = map_rows(state)
+        radius = 14 if "narrow-sight" in worn_tags(state, ("head",)) else 16
         signature = ("vessel", state.jomon_space, state.position, state.combat_active,
-                     tuple(rows), tuple(sorted(state.smoke)))
+                     tuple(rows), tuple(sorted(state.smoke)), radius)
         cached = getattr(state, "_fov_cache", None)
         if cached is not None and cached[0] == signature:
             return set(cached[1])
         visible = {Position(x, y, state.position.z) for y, row in enumerate(rows) for x in range(len(row))}
         if state.combat_active:
-            visible = {point for point in visible if distance(state.position, point) <= 16 and line_of_sight(state, state.position, point)}
+            visible = {point for point in visible if distance(state.position, point) <= radius and line_of_sight(state, state.position, point)}
             destination = vertical_destination(state, state.position)
             if destination and line_of_sight(state, state.position, destination):
                 visible.add(destination)
