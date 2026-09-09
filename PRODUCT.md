@@ -63,7 +63,14 @@ The immediate first departure remains a product constraint: a new-world
 bargemaster can interact at the gangplank and enter Hearthford without first
 opening the tavern, inventory, support, chart, or equipment interfaces.
 
-This milestone explicitly excludes more regions, infinite or offline world
+The active systemic-world milestone expands to eight regional destinations,
+bounded causal histories, sparse material reactions, institutions, physical
+equipment fittings, regional stories and tactical voyage encounters. Existing
+content and immediate departure remain intact; optional vessel work must not
+become a preparation checklist. The acceptance ledger and measured status are
+in `docs/systemic-world-milestone.md`; targets are not completed features.
+
+This milestone explicitly excludes infinite or offline world
 simulation, exhaustive needs or anatomy, unrestricted autonomous death,
 generic schedule/GOAP/encounter/quest/narrative languages, real-time travel,
 graphical tiles, generic spellcasting, and unbounded regional or onboard

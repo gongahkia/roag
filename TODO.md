@@ -14,15 +14,14 @@
 
 ## Now
 
-- Put the four regional branches, Working Marks endings, explicit ranged
-  targeting, marked treasure, and mixed encounter sites through owner play.
-- Tune only repetition, rewards, or wording that ordinary play identifies as
-  a concrete problem.
+- Complete the major systemic-world expansion in measured, locally committed
+  phases. Preserve immediate play, existing consequences, and responsiveness.
+- Track implementation and all open acceptance gates in
+  [`docs/systemic-world-milestone.md`](docs/systemic-world-milestone.md).
 
 ## Next
 
-- Collect owner-play evidence on quest branches, treasure discovery, ranged
-  targeting, encounter repetition, and the cross-region endings.
+- Owner play of the integrated expansion; no additional speculative milestone.
 
 ## Later
 
@@ -32,10 +31,10 @@
 
 ## Frozen
 
-- more regions in this milestone; infinite terrain; wall-clock or closed-game
+- infinite terrain; wall-clock or closed-game
   catch-up; unnamed distant-person or universal NPC simulation; unrestricted
-  autonomous death; factions; eras; NG+; alternate renderers; graphical tiles;
-  crafting; skill trees; replay infrastructure; generic content packs;
+  autonomous death; grand-strategy factions; eras; NG+; alternate renderers;
+  graphical tiles; unrestricted crafting; skill trees; generic content packs;
   schedule/GOAP/encounter/quest/narrative DSLs; endless procedural quests;
   full needs/anatomy/garment/
   fluid/weather/economy simulation; servers; networking; telemetry; databases;
