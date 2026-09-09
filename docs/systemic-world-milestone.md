@@ -71,6 +71,17 @@ them by themselves.
 
 ## Measurement and limitations log
 
+The work-clothing benchmark adds a separate 64-cell sparse-material scenario
+without changing the older smoke/water baseline scenario. In 24 samples,
+ordinary input/layout was **16.512 / 16.785 / 16.968 ms** median/p95/p99;
+sparse-material turns were **26.261 / 30.845 / 37.890 ms**. New-world median
+313.210 ms, load 174.008 ms, save 13.523 ms, replay matched. Boarding remained
+above the ordinary median target at 32.107 ms. Peak RSS was 142,348 KiB;
+this larger harness now retains another material fixture and is not evidence
+of a production memory leak or a successful long-session soak. Full JSON is
+in `performance-work-clothing.json`. The PTY was idle except its final quit
+during part of this run; native-driver input latency remains unmeasured.
+
 Eighteen additional regional work garments bring protective clothing to 36,
 six per body location. Fresh frontier containers and a bounded visiting
 merchant spare expose all eighteen. Saved contents and existing equipment are

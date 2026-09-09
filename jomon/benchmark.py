@@ -124,6 +124,20 @@ def benchmark(samples: int = 12, seed: str = "systemic-benchmark") -> dict:
         return state
 
     results["environment_heavy_turn"] = measure(lambda state: _advance_world(state), samples, environment_setup)
+    from .state import MaterialCell
+
+    def materials_setup(_):
+        state = copy.deepcopy(expedition)
+        state.position = Position(30, 24)
+        state.weather = "clear"
+        state.region.materials = {
+            f"{x},{y},0": MaterialCell(material="reeds", fire=1 if x % 3 == 0 else 0,
+                                      fuel=5, smoke=3, water=1 if y % 3 == 0 else 0)
+            for x in range(22, 30) for y in range(20, 28)
+        }
+        return state
+
+    results["sparse_material_turn"] = measure(lambda state: _advance_world(state), samples, materials_setup)
     from .ship_crises import begin_deck
     from .travel import choose_destination
 
