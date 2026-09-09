@@ -174,3 +174,10 @@ from `cd534cc86ae77798e00a125d384b3c9f3601353b` to
 the implementing agent issued no push. The referenced commit was already an
 ancestor of local `main`; no new external commit, divergence or overlapping edit
 was introduced. No history was rewritten and the reference was left untouched.
+
+Schema-27 migration, save and policy regression checks passed **30 tests in
+16.137 seconds**. The retained version-26 terminal fixture migrates without
+changing durable game/RNG state and reaches victory with the same legal commands
+before and after another save/load boundary. Unknown versions and altered or
+missing manifests are rejected. This currently supports the recorded schema-26,
+content-20 baseline, not arbitrary historical content.

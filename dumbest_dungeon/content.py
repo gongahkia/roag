@@ -337,7 +337,7 @@ def _derived_card_tags(card: dict[str, Any]) -> set[str]:
         bonus_status = effect.get("bonus_status") or effect.get("condition_status")
         if bonus_status:
             tags.add(f"payoff:{bonus_status}")
-        if effect.get("condition_target_state") == "deaths_door":
+        if "deaths_door" in (effect.get("condition_target_state"), effect.get("condition_actor_state")):
             tags.add("payoff:deaths_door")
     if card.get("biome"):
         tags.add(f"affinity:{card['biome']}")
@@ -657,6 +657,9 @@ def _load_catalog(path: Path | None) -> Catalog:
             raise ContentError(
                 f"card {card['id']} is missing authored build tags: {', '.join(sorted(missing_tags))}"
             )
+        contradicted_tags = set(tags) - _derived_card_tags(card)
+        if contradicted_tags:
+            raise ContentError(f"card {card['id']} has tags unsupported by effects: {', '.join(sorted(contradicted_tags))}")
         if not isinstance(card.get("upgrade_description"), str) or not card["upgrade_description"]:
             raise ContentError(f"card {card['id']} needs an upgrade description")
         if "upgrade_cost" in card and (
