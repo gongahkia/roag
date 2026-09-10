@@ -82,8 +82,8 @@ def validate_roster() -> None:
     if (
         report["standard_archetypes"] < 72
         or report["mechanically_distinct_signatures"] < 72
-        or report["elite_situations"] < 16
-        or report["named_recurring_rivals"] < 4
+        or report["elite_situations"] < 24
+        or report["named_recurring_rivals"] < 8
         or report["invalid_standard_rows"]
         or report["duplicate_mechanical_signatures"]
         or report["duplicate_standard_glyphs"]
@@ -105,6 +105,7 @@ def _pool(region_id: str, *, elite: bool = False) -> list[str]:
     return [
         key for key, value in ENEMY_ARCHETYPES.items()
         if value["region"] == region_id and bool(value.get("elite")) == elite
+        and not value.get("aftermath")
     ]
 
 

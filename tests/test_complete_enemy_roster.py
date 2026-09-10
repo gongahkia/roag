@@ -28,13 +28,13 @@ class CompleteEnemyRosterTests(unittest.TestCase):
         state.threats = [actor]
         return state, actor
 
-    def test_roster_has_seventy_two_distinct_standards_and_sixteen_elites(self):
+    def test_roster_has_seventy_two_standards_and_twenty_four_elites(self):
         validate_roster()
         report = roster_audit()
         self.assertEqual(report["standard_archetypes"], 72)
         self.assertEqual(report["mechanically_distinct_signatures"], 72)
-        self.assertEqual(report["elite_situations"], 16)
-        self.assertEqual(report["named_recurring_rivals"], 4)
+        self.assertEqual(report["elite_situations"], 24)
+        self.assertEqual(report["named_recurring_rivals"], 8)
         self.assertEqual(set(report["regions"].values()), {9})
         self.assertFalse(report["invalid_standard_rows"])
         self.assertFalse(report["duplicate_standard_glyphs"])

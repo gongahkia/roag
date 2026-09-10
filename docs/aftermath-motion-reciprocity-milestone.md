@@ -167,5 +167,11 @@ new magic, infinite contracts or additional major region is planned.
   drainage, kindling, support-cutting, escort, hunting and physical scavenging
   reducers; Hearthford places one of its three additions on every new seed.
   All 72 have distinct mechanics-driving signatures and display glyphs.
-- The remaining enemy, actor, practice, tool, relic, vessel and voyage content
+- The elite roster now contains 24 situations: 23 catalogue entries plus the
+  map-authored crown wheel. Eight aftermath-only encounters add backwash,
+  physical salvage, firebreak, counterfall, siphon, cover-lever, clay-slip and
+  ice-boom rules. Four are named, persistent rivals, bringing that total to
+  eight; their retreat, stocked return, injury, lost kit, witnessed settlement,
+  permanent death and distinctive physical reward use the retained lifecycle.
+- The remaining actor, practice, tool, relic, vessel and voyage content
   multiplication gates remain open.

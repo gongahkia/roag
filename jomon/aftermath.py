@@ -212,7 +212,12 @@ def prepare_aftermath(state: GameState) -> bool:
         return False
     region_id = state.active_region_id
     primary = state.questlines[region_id]
-    if primary.status != "completed" or state.region.changes.get("aftermath_configuration"):
+    if state.region.changes.get("aftermath_configuration"):
+        from .frontier_elites import install_aftermath_elite
+
+        install_aftermath_elite(state)
+        return False
+    if primary.status != "completed":
         return False
     due = int(state.region.changes.get("aftermath_after_return", state.returned_expeditions))
     if state.returned_expeditions <= due:
@@ -231,6 +236,9 @@ def prepare_aftermath(state: GameState) -> bool:
         f"On returning, you find {AFTERMATH_LINES[region_id][0]}: three changed sites and two witnessed contracts are now physical.",
         priority=3,
     )
+    from .frontier_elites import install_aftermath_elite
+
+    install_aftermath_elite(state)
     return True
 
 

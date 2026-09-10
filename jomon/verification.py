@@ -80,7 +80,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
     }
     minima = {
         "regions": 8, "standard_enemies": 72, "mechanically_distinct_enemies": 72,
-        "elite_situations": 16, "named_rivals": 4, "weapons": 36,
+        "elite_situations": 24, "named_rivals": 8, "weapons": 36,
         "armour": 36, "active_passives_and_techniques": 64,
         "secondary_tools_supplies_drinks": 32, "relics": 12,
         "containers": 60, "regional_questlines": 20, "cross_region_arcs": 5,

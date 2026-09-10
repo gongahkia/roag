@@ -11,6 +11,8 @@ class VerificationCommandTests(unittest.TestCase):
         report = content_audit("focused content audit")
         self.assertEqual(report["failures"], [])
         self.assertEqual(report["counts"]["standard_enemies"], 72)
+        self.assertEqual(report["counts"]["elite_situations"], 24)
+        self.assertEqual(report["counts"]["named_rivals"], 8)
         self.assertEqual(report["counts"]["weapons"], 36)
         self.assertEqual(report["counts"]["armour"], 36)
         self.assertEqual(report["counts"]["active_passives_and_techniques"], 64)

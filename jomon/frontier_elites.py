@@ -1,8 +1,8 @@
-"""Eight local elite problems, including four finite returning claimants."""
+"""Sixteen local elite problems, including eight finite returning claimants."""
 
 from __future__ import annotations
 
-# These rows identify authored situations; the eight actions below are explicit.
+# These rows identify authored situations; their actions below remain explicit.
 ELITE_ROWS = (
     ("fen-marshal", "dunmire", "Veyra Reedlock", "reach", "surge", "control the drying bank", "Three counted releases flood a marked low lane; higher ground and the spill control remain usable.", "leave the marked lane, use height, or dog the regional spill", "relic:ebbglass spindle"),
     ("fen-stack", "dunmire", "smouldering peat crown", "machinery", "smoulder", "burn through the drying rack", "Dry rack fuel feeds smoke before a warned support fails; water stops the heat chain.", "quench the rack, shelter below, or cool it through the spill", "passive:ember cloth"),
@@ -12,7 +12,26 @@ ELITE_ROWS = (
     ("terrace-shutters", "marlbank", "counterweighted kiln shutters", "machinery", "shutters", "close the exposed kiln lanes", "Alternates loose cover across two marked lanes; the blades themselves telegraph a sweep.", "cross a different lane, brace the linkage, or operate the kiln release", "passive:mill-tooth wedge"),
     ("estuary-pilot", "frostmere", "Tova Frostwake", "reach", "brine", "keep the disputed sounding open", "Counted brine breaks thin ice into current; unfrozen ground instead takes salt slurry.", "leave the marked sheet, use cleats and a light load, or release the ice boom", "relic:stillwater filament"),
     ("estuary-drum", "frostmere", "loaded net-haul drum", "machinery", "haul", "drag the net load into the cut", "Marks a haul cell, then pulls an unmoved bearer toward deep water; heavy loads suffer longer restraint.", "leave the mark, guard the haul, or cut the material linkage", "passive:load ledger"),
+    ("hearth-lockhand", "hearthford", "Ysolde Lockhand", "reach", "backwash", "reopen the private meadow sluice", "A counted backwash fills a three-cell lane and pushes an unguarded bearer off its marked footing.", "leave the marked lane, guard the release, or dog the public sluice", "passive:tide ledger"),
+    ("coast-wreckward", "greywash", "Bran Wreckward", "pursuer", "salvage", "remove exposed goods under the old wreck claim", "Marks one physical ground item before taking it; defeat or witnessed settlement releases the same object.", "pack the marked good, block the approach, or present the witnessed wreck account", "passive:wreck key"),
+    ("forest-ashstep", "greenwold", "Mara Ashstep", "ranged", "firebreak", "cut every unlicensed fire line", "A warned three-cell break extinguishes useful flame but leaves obscuring ash where dry fuel stood.", "move the fire, use a wet boundary, or preserve the medicine coppice", "passive:smoke lens"),
+    ("upland-bellrope", "whitecairn", "Orren Bellrope", "reach", "counterfall", "close the exposed warning stair", "Marks one unprotected floor before dropping loose visible cover; remaining in place risks a guarded blunt fall.", "leave the mark, stand under public structure, or ring the honest bell", "passive:cliff cord"),
+    ("fen-pump-train", "dunmire", "backwater pump train", "machinery", "siphon", "empty the inhabited reed cut", "Drains a warned three-cell water line into its physical pump bed, leaving wet soil as slowing mud.", "flood a second opening, brace the pump bed, or dog the regional spill", "passive:river hooks"),
+    ("gorge-wedge-crane", "rillscar", "cantilever wedge crane", "machinery", "lever", "move the quarry screen across the switchback", "Shifts loose cover onto a warned cell without sealing the alternate bridge.", "take the other span, brace the linkage, or tension the public tailrace", "passive:counterweight ring"),
+    ("terrace-slip-wheel", "marlbank", "clay-slip spread wheel", "machinery", "slip", "coat the disputed seed-bed crossing", "Spreads shallow clay slurry across a warned line; an unguarded bearer becomes briefly mud-burdened.", "leave the line, guard in place, or operate the kiln release", "passive:cork float"),
+    ("estuary-ice-boom", "frostmere", "loaded ice-boom capstan", "machinery", "boom", "close the sheltered winter braid", "Freezes warned fresh shallows or shifts loose timber cover where no water remains.", "salt the water, cut the linkage, or release the public ice boom", "passive:ice awl"),
 )
+
+AFTERMATH_ELITES = {
+    "hearth-lockhand", "coast-wreckward", "forest-ashstep",
+    "upland-bellrope", "fen-pump-train", "gorge-wedge-crane",
+    "terrace-slip-wheel", "estuary-ice-boom",
+}
+NAMED_RIVALS = {
+    "fen-marshal", "gorge-cordmaster", "terrace-reeve", "estuary-pilot",
+    "hearth-lockhand", "coast-wreckward", "forest-ashstep",
+    "upland-bellrope",
+}
 
 ELITE_DEFINITIONS = {
     identity: {
@@ -21,7 +40,8 @@ ELITE_DEFINITIONS = {
         "capability": capability, "counterplay": counterplay, "terrain": region,
         "budget": 6, "elite": True, "morale": 5, "glyph": "X",
         "supplies": 3, "mode": mode, "reward": reward,
-        "ranged_kind": "sling", "named": identity in {"fen-marshal", "gorge-cordmaster", "terrace-reeve", "estuary-pilot"},
+        "ranged_kind": "sling", "named": identity in NAMED_RIVALS,
+        "aftermath": identity in AFTERMATH_ELITES,
     }
     for identity, region, name, profile, mode, goal, capability, counterplay, reward in ELITE_ROWS
 }
@@ -36,7 +56,10 @@ def install_elite(seed, region, actors):
     from .regions import region_reachable
     from .state import Position, stage_rng
 
-    choices = sorted(key for key, data in ELITE_DEFINITIONS.items() if data["region"] == region.id)
+    choices = sorted(
+        key for key, data in ELITE_DEFINITIONS.items()
+        if data["region"] == region.id and not data.get("aftermath")
+    )
     identity = stage_rng(seed, f"{region.id}:working-elite").choice(choices)
     data = ELITE_DEFINITIONS[identity]
     origin = region.landmarks["works" if data["mode"] in {"convoy", "shutters", "haul"} else "far_bank"]
@@ -59,6 +82,78 @@ def install_elite(seed, region, actors):
             helper.ecology, helper.duty = "warden", "escort"
     actors.append(actor)
     region.changes["working_elite"] = actor.id
+    return actor
+
+
+def install_aftermath_elite(state):
+    """Materialise one finite consequence encounter after a completed ending."""
+    if state.location != "region" or not state.region.changes.get("aftermath_configuration"):
+        return None
+    region_id = state.active_region_id
+    identity = next(
+        key for key, data in ELITE_DEFINITIONS.items()
+        if data["region"] == region_id and data.get("aftermath")
+    )
+    marker = "aftermath_elite_installed"
+    actor_id = f"frontier-elite:{identity}"
+    if state.region.changes.get(marker):
+        return next((actor for actor in state.threats if actor.id == actor_id), None)
+
+    from .encounters import threat_from_archetype
+    from .enemy_equipment import issue_enemy_equipment
+    from .regions import region_reachable
+    from .state import MaterialCell, Position
+
+    raw_site = str(state.region.changes.get(
+        "aftermath_site:1", ""
+    )).split(",")
+    anchor = (
+        Position(*(int(value) for value in raw_site))
+        if len(raw_site) == 3 and all(value.lstrip("-").isdigit() for value in raw_site)
+        else state.region.landmarks["works"]
+    )
+    occupied = {
+        actor.position for actor in state.threats
+        if actor.status in {"dormant", "watching", "engaged"}
+    } | set(state.region.landmarks.values()) | {
+        container.position for container in state.region.containers
+    }
+    occupied |= {
+        point for link in state.region.vertical_links
+        for point in (link.first, link.second)
+    }
+    occupied.add(state.position)
+    candidates = region_reachable(state.region) - occupied
+    if not candidates:
+        return None
+    point = min(
+        candidates,
+        key=lambda candidate: (
+            abs(candidate.z - anchor.z) * 100
+            + abs(candidate.x - anchor.x)
+            + abs(candidate.y - anchor.y),
+            candidate.z, candidate.y, candidate.x,
+        ),
+    )
+    actor = threat_from_archetype(
+        identity, point, encounter_id="frontier-elite",
+        group=f"{region_id}-aftermath-claim",
+    )
+    actor.status, actor.home_position = "dormant", point
+    actor.objective_position = anchor
+    state.threats.append(actor)
+    state.region_threats[region_id] = state.threats
+    linkage = state.region.materials.setdefault(
+        f"{point.x},{point.y},{point.z}", MaterialCell(material="timber")
+    )
+    linkage.support, linkage.water = 2, 0
+    state.region.changes[marker] = identity
+    issue_enemy_equipment(state, actor, region_id)
+    state.region.changes[f"enemy_kit:{actor.id}"] = 1
+    state.remember(
+        f"{actor.name} now contests the physical aftermath work at "
+        f"{point.x},{point.y}, z{point.z:+d}; its finite mechanism and terms are inspectable."
+    )
     return actor
 
 
@@ -138,7 +233,25 @@ def elite_action(state, actor, guarded):
         if distance(actor.position, state.position) > 8:
             actor.intent = "waits for entry into its eight-pace working lane"
             return ""
-        actor.marked_position = actor.home_position if mode == "smoulder" else state.position
+        if mode == "salvage":
+            exposed = sorted(
+                (
+                    item for item in state.items
+                    if item.location == "ground"
+                    and item.region_id == state.spatial_id
+                    and item.ground_position is not None
+                    and distance(actor.position, item.ground_position) <= 8
+                    and line_of_sight(state, actor.position, item.ground_position)
+                ),
+                key=lambda item: (
+                    distance(actor.position, item.ground_position), item.id,
+                ),
+            )
+            actor.marked_position = (
+                exposed[0].ground_position if exposed else state.position
+            )
+        else:
+            actor.marked_position = actor.home_position if mode == "smoulder" else state.position
         actor.reaction = mode
         actor.intent = f"prepares {mode} at {key(actor.marked_position)}; one action to leave, interrupt or secure the control"
         return f"{actor.name} {actor.intent}."
@@ -209,6 +322,102 @@ def elite_action(state, actor, guarded):
         frozen = cell.ice
         cell.ice, cell.water, cell.fluid, cell.coating = False, 3 if frozen else 1, "salt", "salt"
         message = "Brine breaks the marked ice into deep current." if frozen else "Brine salts the marked footing; exposed gear and aiming face abrasive slurry."
+    elif mode == "backwash":
+        for target in _line(state, point):
+            patch = ensure_cell(state, target)
+            if patch:
+                patch.water, patch.fluid, patch.coating = 2, "fresh", "wet"
+        if state.position == point and not guarded:
+            step = Position(
+                point.x + (actor.position.x < point.x) - (actor.position.x > point.x),
+                point.y, point.z,
+            )
+            if step != actor.position and is_walkable(state, step):
+                state.position = step
+        message = "The counted backwash fills three cells; guard holds footing while openings accept the fresh water."
+    elif mode == "salvage":
+        item = next(
+            (
+                candidate for candidate in state.items
+                if candidate.location == "ground"
+                and candidate.region_id == state.spatial_id
+                and candidate.ground_position == point
+            ),
+            None,
+        )
+        if item is None or actor.carrying_item_id:
+            message = "The marked property has moved or is already secured; the salvage claim takes nothing."
+        else:
+            item.location, item.owner_id, item.container_id = "enemy", actor.id, None
+            item.ground_position = None
+            actor.carrying_item_id = item.id
+            message = "The wreckward takes the exact marked object; interception, defeat or witnessed terms can recover it."
+    elif mode == "firebreak":
+        broken = 0
+        for target in _line(state, point):
+            patch = ensure_cell(state, target)
+            if patch:
+                broken += int(bool(patch.fire or patch.fuel))
+                patch.fire, patch.fuel = 0, 0
+                patch.coating, patch.smoke = "ash", max(2, patch.smoke)
+        message = f"The warned firebreak clears {broken} fuel cells and leaves a three-cell ash screen."
+    elif mode == "counterfall":
+        if not _protected(state, point):
+            state.region.tile_changes[key(point)] = "%"
+            cell.material, cell.support, cell.coating = "stone", 0, "ash"
+        if state.position == point and not guarded and not _protected(state, point):
+            from .actions import apply_damage
+
+            message = apply_damage(
+                state, 3, "The warned loose-stone counterfall",
+                damage_kind="blunt",
+            )
+        else:
+            message = "Loose stone drops only onto the warned unprotected floor; it becomes passable cover, not a sealed route."
+    elif mode == "siphon":
+        moved = 0
+        for target in _line(state, point):
+            patch = ensure_cell(state, target)
+            if patch:
+                taken = min(2, patch.water)
+                patch.water -= taken
+                moved += taken
+                if taken:
+                    patch.coating = "mud"
+        bed = ensure_cell(state, actor.home_position)
+        if bed:
+            bed.water, bed.fluid = min(3, bed.water + moved), "fresh"
+        message = f"The pump shifts {moved} water depth into its physical bed; the drained line remains muddy."
+    elif mode == "lever":
+        if not _protected(state, point):
+            state.region.tile_changes[key(point)] = "%"
+            cell.material, cell.support = "timber", 1
+        message = "The cantilever shifts loose passable cover onto the warning mark; the alternate span remains open."
+    elif mode == "slip":
+        for target in _line(state, point):
+            patch = ensure_cell(state, target)
+            if patch:
+                patch.material, patch.water, patch.fluid, patch.coating = "clay", 1, "fresh", "mud"
+        if state.position == point and not guarded:
+            from .inventory import add_status
+
+            add_status(
+                state, "mud-burden", "the warned clay-slip line caught an unguarded step",
+                2, "guard or leave the slurry to recover ordinary footing",
+            )
+        message = "Clay slip coats three warned cells; an unguarded bearer on the mark is briefly burdened."
+    elif mode == "boom":
+        frozen = cover = 0
+        for target in _line(state, point):
+            patch = ensure_cell(state, target)
+            if patch and patch.water and patch.fluid != "salt":
+                patch.water, patch.ice = 1, True
+                frozen += 1
+            elif patch and not _protected(state, target):
+                state.region.tile_changes[key(target)] = "%"
+                patch.material, patch.support = "timber", 1
+                cover += 1
+        message = f"The ice boom freezes {frozen} fresh shallows and shifts {cover} loose, passable timber screens."
     else:
         if state.position == point and not guarded:
             from .inventory import add_status, load_state

@@ -4,8 +4,9 @@ import unittest
 from jomon.actions import _activate, _advance_world, _threat_action, attack, depart
 from jomon.encounters import frontier_population, threat_from_archetype
 from jomon.frontier_elites import (
-    ELITE_DEFINITIONS, definition, guard_interception, install_elite,
-    record_outcomes, revisit_claimants, settle_claimant,
+    AFTERMATH_ELITES, ELITE_DEFINITIONS, definition, guard_interception,
+    install_aftermath_elite, install_elite, record_outcomes,
+    revisit_claimants, settle_claimant,
 )
 from jomon.frontiers import FRONTIERS, build_frontier
 from jomon.inventory import create_item
@@ -197,6 +198,77 @@ class FrontierEliteTests(unittest.TestCase):
             self.assertEqual("net-drag" in state.terrain_statuses, not guarded)
             self.assertEqual(state.position, Position(30 if guarded else 31, 24))
 
+    def test_backwash_and_firebreak_change_shared_material_lines(self):
+        backwash = self.actor("hearth-lockhand")
+        _threat_action(self.state, backwash, False)
+        _threat_action(self.state, backwash, True)
+        self.assertEqual(
+            [self.state.region.materials[f"{x},24,0"].water for x in (29, 30, 31)],
+            [2, 2, 2],
+        )
+
+        self.setUp()
+        firebreak = self.actor("forest-ashstep")
+        for x in (29, 30, 31):
+            self.state.region.materials[f"{x},24,0"] = MaterialCell(
+                material="timber", fire=1, fuel=4,
+            )
+        _threat_action(self.state, firebreak, False)
+        _threat_action(self.state, firebreak, False)
+        self.assertTrue(all(
+            self.state.region.materials[f"{x},24,0"].fire == 0
+            and self.state.region.materials[f"{x},24,0"].coating == "ash"
+            for x in (29, 30, 31)
+        ))
+
+    def test_wreckward_takes_and_releases_the_exact_marked_object(self):
+        actor = self.actor("coast-wreckward")
+        item = create_item(self.state, "passive:wreck key", "exposed wreck account", location="ground")
+        item.region_id, item.ground_position = self.state.spatial_id, Position(31, 24)
+        _threat_action(self.state, actor, False)
+        self.assertEqual(actor.marked_position, item.ground_position)
+        _threat_action(self.state, actor, False)
+        self.assertEqual((item.location, item.owner_id, actor.carrying_item_id), ("enemy", actor.id, item.id))
+        actor.status = "negotiated"
+        record_outcomes(self.state)
+        self.assertEqual((item.location, item.owner_id, item.ground_position), ("ground", None, actor.position))
+
+    def test_counterfall_is_passable_cover_and_guard_answers_impact(self):
+        actor = self.actor("upland-bellrope")
+        health = self.state.courier.health
+        _threat_action(self.state, actor, False)
+        _threat_action(self.state, actor, True)
+        self.assertEqual(self.state.courier.health, health)
+        self.assertEqual(self.state.region.tile_changes["30,24,0"], "%")
+
+    def test_new_machines_have_four_distinct_bounded_material_rules(self):
+        actor = self.actor("fen-pump-train")
+        for x in (29, 30, 31):
+            self.state.region.materials[f"{x},24,0"] = MaterialCell(water=2)
+        _threat_action(self.state, actor, False)
+        _threat_action(self.state, actor, False)
+        self.assertTrue(all(self.state.region.materials[f"{x},24,0"].coating == "mud" for x in (29, 30, 31)))
+
+        self.setUp()
+        actor = self.actor("gorge-wedge-crane")
+        _threat_action(self.state, actor, False)
+        _threat_action(self.state, actor, False)
+        self.assertEqual(self.state.region.tile_changes["30,24,0"], "%")
+
+        self.setUp()
+        actor = self.actor("terrace-slip-wheel")
+        _threat_action(self.state, actor, False)
+        _threat_action(self.state, actor, False)
+        self.assertIn("mud-burden", self.state.terrain_statuses)
+
+        self.setUp()
+        actor = self.actor("estuary-ice-boom")
+        for x in (29, 30, 31):
+            self.state.region.materials[f"{x},24,0"] = MaterialCell(water=1, fluid="fresh")
+        _threat_action(self.state, actor, False)
+        _threat_action(self.state, actor, False)
+        self.assertTrue(all(self.state.region.materials[f"{x},24,0"].ice for x in (29, 30, 31)))
+
     def test_no_current_hidden_position_is_acquired_after_losing_sight(self):
         actor = self.actor("terrace-reeve")
         self.state.region.tile_changes["33,24,0"] = "#"
@@ -352,7 +424,7 @@ class FrontierEliteTests(unittest.TestCase):
 
 
 class EliteProductionTests(unittest.TestCase):
-    def test_all_eight_are_seed_reachable_away_from_landing_and_do_not_overlap(self):
+    def test_all_eight_initial_elites_are_seed_reachable_and_do_not_overlap(self):
         seen = set()
         for region_id in FRONTIERS:
             for seed in range(16):
@@ -364,7 +436,27 @@ class EliteProductionTests(unittest.TestCase):
                 self.assertIn(actor.position, region_reachable(region))
                 self.assertIn(f"{actor.position.x},{actor.position.y},{actor.position.z}", region.materials)
                 seen.add(actor.id.split(":")[1])
-        self.assertEqual(seen, set(ELITE_DEFINITIONS))
+        self.assertEqual(seen, set(ELITE_DEFINITIONS) - AFTERMATH_ELITES)
+
+    def test_all_eight_aftermath_elites_have_a_persistent_production_path(self):
+        seen = set()
+        for region_id in sorted({data["region"] for data in ELITE_DEFINITIONS.values()}):
+            state = create_world(f"aftermath elite production {region_id}")
+            activate_region(state, region_id)
+            state.location = "region"
+            state.region.changes["aftermath_configuration"] = "shared"
+            state.region.changes["aftermath_site:1"] = "50,30,0"
+            actor = install_aftermath_elite(state)
+            self.assertIsNotNone(actor)
+            self.assertIn(actor.position, region_reachable(state.region))
+            self.assertEqual(actor.status, "dormant")
+            self.assertEqual(state.region.changes["aftermath_elite_installed"], actor.id.split(":", 1)[1])
+            self.assertEqual(install_aftermath_elite(state), actor)
+            self.assertEqual(sum(candidate.id == actor.id for candidate in state.threats), 1)
+            restored = game_state_from_dict(state.to_dict())
+            self.assertTrue(any(candidate == actor for candidate in restored.threats))
+            seen.add(actor.id.split(":", 1)[1])
+        self.assertEqual(seen, AFTERMATH_ELITES)
 
     def test_normal_generation_round_trip_and_contact_panel_both_sizes(self):
         state = create_world("elite smoke")

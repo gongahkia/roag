@@ -56,8 +56,8 @@ python -m jomon.encounters
 `roster_audit()` additionally validates the live catalogue rather than adding
 direct-map actors to a paper total. It reports **72 standard archetypes: nine
 per major region**, 72 unique mechanics-driving signatures, 72 unique ASCII
-glyphs, 15 catalogue elites plus Hearthford's map-authored crown wheel for 16
-elite situations, and four named recurring claimants. A signature comprises
+glyphs, 23 catalogue elites plus Hearthford's map-authored crown wheel for 24
+elite situations, and eight named recurring claimants. A signature comprises
 profile, role, goal, material duty, ecology, ranged kind/range, finite supplies,
 vision, hearing and morale—the fields that actually select actions or bound
 perception. Every standard row also carries a regional terrain reason, a
@@ -68,6 +68,15 @@ quench, brace or drain finite material states; raiders telegraph fire or
 support damage and retrieve physical goods; animals hunt, flee or scavenge.
 Their distinct goals, terrain, perception, reach and counterplay combinations
 change mixed encounters without adding an expensive planning layer.
+
+Eight of the catalogue elites materialise only after a completed regional
+ending has produced physical aftermath. Ysolde Lockhand, Bran Wreckward, Mara
+Ashstep and Orren Bellrope join the four retained named claimants and can
+retreat once, spend real local stock to return, retain injuries and lost kit,
+settle through witnessed terms, or die permanently. Four additional machines
+move water, cover, clay slip or seasonal ice. Every operation warns for a full
+action, spends one of three charges, accepts movement/guard plus a regional
+material control, and persists the changed cell or exact stolen item.
 
 They build all three added regions for 100 deterministic seeds and sample all
 three pressure bands at six site indices. The second command also reports the
