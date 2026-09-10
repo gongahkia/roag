@@ -697,6 +697,12 @@ mutation and reinforcement capacity per loop. Finale selection avoids repeats
 until all four identities have appeared. Profile schema 2 records best depth and
 score horizontally; base wins remain distinct from loop clears.
 
+The profile/compendium terminal surface exposes summary records, six discovery
+categories, authored contract completions and the casualty graveyard. Every list
+uses the existing 80×24 scrolling menu and adds text search/filter. Challenge or
+daily clears map broad modifier IDs back to authored contract IDs; custom runs do
+not masquerade as contract completion. Loop archival deduplicates old graves.
+
 Content schema 36 gives Reactor Chapel six normal participants, two elite-only
 roles and the Choir Meltdown guardian. Three new normal roles split marking,
 cash-out and formation disruption; Critical Abbot and Containment Hulk create

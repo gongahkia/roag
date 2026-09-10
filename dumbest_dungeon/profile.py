@@ -8,6 +8,7 @@ from typing import Any
 
 from .save import SaveError, read_save, write_save
 from .versions import PROFILE_SCHEMA
+from .challenges import CONTRACTS
 
 DISCOVERY_KINDS = ("cards", "items", "boons", "curses", "guardians", "finales")
 
@@ -127,6 +128,20 @@ def update_profile(profile: dict[str, Any], report: dict[str, Any]) -> dict[str,
             result["unlocked_rank"] = min(20, max(result["unlocked_rank"], rank + 1))
     result["best_loop_depth"] = max(result["best_loop_depth"], int(report.get("loop_depth", 0)))
     result["best_score"] = max(result["best_score"], int(report.get("score", 0)))
+    if report.get("outcome") in {"victory", "loop_clear"} and report.get(
+        "expedition_mode"
+    ) in {"daily", "challenge"}:
+        contract_ids = {
+            contract.modifier: contract.id for contract in CONTRACTS
+        }
+        result["completed_contracts"] = sorted(
+            set(result["completed_contracts"])
+            | {
+                contract_ids[modifier]
+                for modifier in report.get("active_modifiers", [])
+                if modifier in contract_ids
+            }
+        )
     discoveries = {key: set(values) for key, values in result["discoveries"].items()}
     discoveries["cards"].update(report["cards"])
     discoveries["cards"].update(card["card_id"] for card in report["deck"])

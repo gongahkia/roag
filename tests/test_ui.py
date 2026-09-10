@@ -111,6 +111,15 @@ class AsciiUiTests(unittest.TestCase):
             profile = read_save(self.ui.save_path.parent / "profile.json")
             self.assertEqual(1, profile["base_victories"])
 
+    def test_fresh_profile_compendium_is_keyboard_scrollable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            self.ui.save_path = Path(directory) / "run.json"
+            self.ui.screen = FakeScreen(keys=[curses.KEY_DOWN] * 9 + [10])
+            before = self.engine.snapshot()
+            self.ui._profile_compendium()
+            self.assertIn("PROFILE & COMPENDIUM", self.ui.screen.text())
+            self.assertEqual(before, self.engine.snapshot())
+
     def setUp(self) -> None:
         self.catalog = load_catalog()
         self.engine = GameEngine.new(self.catalog, 3)
@@ -147,7 +156,7 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("TAGS: DAMAGE", screen.text())
 
     def test_main_menu_uses_public_title(self) -> None:
-        screen = FakeScreen(keys=[curses.KEY_DOWN] * 6 + [10])
+        screen = FakeScreen(keys=[curses.KEY_DOWN] * 7 + [10])
         self.ui.screen = screen
         self.ui.save_path = Path("/definitely/missing/dullest-save.json")
         self.ui.new_game = lambda: self.engine
@@ -155,7 +164,7 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("DULLEST DUNGEON", screen.text())
 
     def test_main_menu_launches_the_optional_tutorial(self) -> None:
-        screen = FakeScreen(keys=[10] + [curses.KEY_DOWN] * 6 + [10])
+        screen = FakeScreen(keys=[10] + [curses.KEY_DOWN] * 7 + [10])
         self.ui.screen = screen
         self.ui.save_path = Path("/definitely/missing/dullest-save.json")
         self.ui.new_game = lambda: self.engine

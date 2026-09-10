@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from dumbest_dungeon.content import load_catalog
+from dumbest_dungeon.challenges import ExpeditionConfig
 from dumbest_dungeon.engine import GameEngine
 from dumbest_dungeon.history import run_report
 from dumbest_dungeon.profile import (
@@ -94,6 +95,16 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(0, profile["base_victories"])
         self.assertEqual(2, profile["best_loop_depth"])
         self.assertEqual(3900, profile["best_score"])
+
+    def test_authored_challenge_clear_records_horizontal_completion(self) -> None:
+        engine = GameEngine.custom(
+            load_catalog(),
+            ExpeditionConfig(seed=4604, modifiers=("accelerated_pressure",)),
+            mode="challenge",
+        )
+        report = run_report(engine, outcome="victory")
+        profile = update_profile(new_profile(), report)
+        self.assertEqual(["base:fast_signal"], profile["completed_contracts"])
 
 
 if __name__ == "__main__":

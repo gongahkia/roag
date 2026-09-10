@@ -80,7 +80,7 @@ class TerminalUI:
             self.catalog = getattr(self, "current_catalog", self.catalog)
             choices = [
                 "Tutorial expedition (recommended)", "New expedition", "Ascending ladder",
-                "Expressive modes",
+                "Expressive modes", "Profile & compendium",
             ]
             if self.save_path.exists():
                 choices.append("Load expedition")
@@ -122,6 +122,8 @@ class TerminalUI:
                     self._game_loop()
             elif choice == "Expressive modes":
                 self._expressive_modes()
+            elif choice == "Profile & compendium":
+                self._profile_compendium()
             elif choice == "Load expedition":
                 if self._load():
                     self._game_loop()
@@ -2414,6 +2416,106 @@ class TerminalUI:
                 self._notice("MORGUE", "\n".join(history_lines(visible[selected])))
             elif selected == len(visible):
                 entered = self._text_input("FILTER HISTORY", "Seed, crew, outcome, biome, card or item text:")
+                if entered is not None:
+                    query = entered
+            else:
+                query = ""
+
+    def _profile_compendium(self) -> None:
+        try:
+            profile = read_profile(self.save_path.parent / "profile.json")
+        except ProfileError as exc:
+            self._notice("PROFILE READ FAILED", str(exc))
+            return
+        kinds = ["cards", "items", "boons", "curses", "guardians", "finales"]
+        while True:
+            choices = [
+                "Overview",
+                *[f"{kind.title()} ({len(profile['discoveries'][kind])})" for kind in kinds],
+                f"Completed contracts ({len(profile['completed_contracts'])}/{len(CONTRACTS)})",
+                f"Casualty graveyard ({len(profile['graveyard'])})",
+                "Back",
+            ]
+            picked = self._menu(
+                "PROFILE & COMPENDIUM", choices,
+                f"Base clears {profile['base_victories']} | Best rank R{profile['best_completed_rank']:02} "
+                f"| Best loop {profile['best_loop_depth']} | Best score {profile['best_score']}\n"
+                "Discovery and records only: the profile grants no health, damage, energy, "
+                "resources, or reward-quality bonuses.",
+                allow_cancel=True,
+            )
+            if picked is None or picked == len(choices) - 1:
+                return
+            if picked == 0:
+                counts = "\n".join(
+                    f"{kind.title()}: {len(profile['discoveries'][kind])}"
+                    for kind in kinds
+                )
+                self._notice(
+                    "PROFILE OVERVIEW",
+                    f"Archived runs: {len(profile['runs_archived'])}\n{counts}\n"
+                    f"Completed contracts: {len(profile['completed_contracts'])}/{len(CONTRACTS)}\n"
+                    f"Graves: {len(profile['graveyard'])}",
+                )
+            elif 1 <= picked <= len(kinds):
+                self._compendium_records(profile, kinds[picked - 1])
+            elif picked == len(kinds) + 1:
+                discovered = set(profile["completed_contracts"])
+                rows = [
+                    (contract.name, f"{contract.rule} {contract.lesson}")
+                    for contract in CONTRACTS if contract.id in discovered
+                ]
+                self._searchable_records("COMPLETED CONTRACTS", rows)
+            else:
+                rows = [
+                    (
+                        f"{row['hero_id']} — seed {row['seed']}",
+                        f"Fell at simulated travel tick {row['tick']}. Run {row['run_id'][:12]}.",
+                    )
+                    for row in profile["graveyard"]
+                ]
+                self._searchable_records("CASUALTY GRAVEYARD", rows)
+
+    def _compendium_records(self, profile: dict, kind: str) -> None:
+        collections = {
+            "cards": self.catalog.cards, "items": self.catalog.items,
+            "boons": self.catalog.boons, "curses": self.catalog.curses,
+            "guardians": self.catalog.encounters, "finales": self.catalog.encounters,
+        }
+        rows = []
+        for identity in profile["discoveries"][kind]:
+            definition = collections[kind].get(identity)
+            if definition is None:
+                rows.append((identity, "Retired content ID retained for historical identity."))
+                continue
+            if kind in {"guardians", "finales"}:
+                enemies = " / ".join(
+                    self.catalog.enemies[enemy_id]["name"] for enemy_id in definition["enemies"]
+                )
+                rows.append((identity, f"Encounter: {enemies}."))
+            else:
+                rows.append((definition["name"], definition.get("description", identity)))
+        self._searchable_records(kind.upper(), rows)
+
+    def _searchable_records(self, title: str, rows: list[tuple[str, str]]) -> None:
+        if not rows:
+            self._notice(title, "No matching records discovered yet.")
+            return
+        query = ""
+        while True:
+            visible = [row for row in rows if query.casefold() in " ".join(row).casefold()]
+            choices = [row[0] for row in visible] + ["Search / filter", "Clear filter", "Back"]
+            picked = self._menu(
+                title, choices,
+                f"{len(visible)} records. Filter: {query or '(all)'}. Select for details.",
+                allow_cancel=True,
+            )
+            if picked is None or picked == len(visible) + 2:
+                return
+            if picked < len(visible):
+                self._notice(visible[picked][0].upper(), visible[picked][1])
+            elif picked == len(visible):
+                entered = self._text_input(f"FILTER {title}", "Name, ID, rule or description:")
                 if entered is not None:
                     query = entered
             else:

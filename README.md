@@ -36,6 +36,10 @@ Session duration includes menus and pauses, is restored with manual saves, and
 does not advance any game rule. Older saves disclose their missing early history.
 The adjacent versioned `profile.json` records discoveries, victories, ladder
 records, contracts, and the casualty graveyard without granting permanent combat power.
+The title-screen **Profile & compendium** browser shows clears, rank, loop and
+score records; discovered cards, cargo, boons, curses, guardians and finales;
+completed contracts; and a casualty graveyard. Each collection supports
+keyboard scrolling, details, and text filtering at 80×24.
 
 **Expressive modes** includes twenty authored contracts, a configuration-driven
 custom expedition, a deterministic offline daily, and strict versioned `DD1`
