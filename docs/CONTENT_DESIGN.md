@@ -65,8 +65,11 @@ existing owners. Each candidate exposes two irreversible branch IDs: `engine`
 intensifies one authored effect operand, while `coverage` expands legal origin
 ranks by one adjacent rank. The loader validates the referenced technique,
 signature/rare role, branch names, mode/operand agreement, effect index and
-bounded integer amount. Runtime choice and terminal presentation are separate
-changes and are not claimed by this contract commit.
+bounded integer amount. An upgraded eligible copy may take one irreversible
+branch at a workshop. Its branch is serialized on the durable copy and queued
+card continuation, recorded with copy identity in run history, and shown on card
+labels, full inspection and the choice preview. Transformation preserves the
+copy ID but explicitly clears upgrade and mastery.
 
 Content is UTF-8 JSON, decoded through `json_data.loads`. Duplicate object keys,
 non-finite constants and overflowing float exponents are rejected before content

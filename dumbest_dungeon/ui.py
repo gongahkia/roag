@@ -1429,7 +1429,7 @@ class TerminalUI:
             legal = (
                 card.card_id not in self.catalog.curses
                 and actor.alive
-                and actor.rank in definition["from_ranks"]
+                and actor.rank in self.engine.card_origin_ranks(card)
                 and not actor.statuses.get("stun")
                 and self.engine.card_cost(card) <= state.energy
             )
@@ -1799,6 +1799,13 @@ class TerminalUI:
                 choices.insert(1, "Treat one curse (2 supplies)")
         else:
             choices.insert(1, "Transform a card")
+            if any(
+                card.upgraded
+                and card.mastery is None
+                and self.engine.mastery_definition(card.card_id) is not None
+                for card in self.engine.state.deck
+            ):
+                choices.insert(2, "Master a signature card")
         picked = self._menu("CREW QUARTERS" if service_type == "camp" else "WORKSHOP", choices, "The room can be used once.", allow_cancel=False)
         action = choices[picked]
         if action.startswith("Recover"):
@@ -1830,7 +1837,10 @@ class TerminalUI:
             index for index, card in enumerate(self.engine.state.deck)
             if action.startswith("Remove")
             or action.startswith("Transform") and card.card_id not in self.catalog.curses
-            or (not card.upgraded and card.card_id not in self.catalog.curses)
+            or action.startswith("Master") and card.upgraded and card.mastery is None
+            and self.engine.mastery_definition(card.card_id) is not None
+            or action.startswith("Upgrade") and not card.upgraded
+            and card.card_id not in self.catalog.curses
         ]
         if not eligible:
             self.message = "No cards are eligible for that service."
@@ -1858,7 +1868,24 @@ class TerminalUI:
             preview_notes=preview_notes,
         )
         card_index = eligible[selected]
-        if action.startswith("Transform"):
+        if action.startswith("Master"):
+            card = self.engine.state.deck[card_index]
+            mastery = self.engine.mastery_definition(card.card_id)
+            assert mastery is not None
+            branch = self._menu(
+                "IRREVERSIBLE MASTERY",
+                [f"{item['name']} — {item['description']}" for item in mastery["branches"]],
+                "ENGINE intensifies this card's authored build effect. COVERAGE widens its legal origin ranks. The choice stays on this copy.",
+                allow_cancel=False,
+                preview_cards=[card, card],
+                preview_notes=[
+                    f"{item['id'].upper()} | {item['mode'].replace('_', ' ').upper()}\n{item['description']}"
+                    for item in mastery["branches"]
+                ],
+            )
+            assert branch is not None
+            self.engine.service("mastery", card_index, mastery_branch=mastery["branches"][branch]["id"])
+        elif action.startswith("Transform"):
             options = self.engine.transformation_options(card_index)
             option_cards = [CardInstance(card_id) for card_id in options]
             source = self.engine.state.deck[card_index]
@@ -2128,7 +2155,9 @@ class TerminalUI:
             "At zero HP a crew member reaches Death's Door. Further damage may kill them permanently; "
             "their cards leave the shared deck, but survivors continue until a full-party wipe. "
             "At 100 stress they gain an affliction; reaching 100 again causes collapse. Supplies heal, calm, "
-            "or restore light. Camps recover crew, modify one card, or remove one curse for 2 supplies.\n\n"
+            "or restore light. Camps recover crew, modify one card, or remove one curse for 2 supplies. "
+            "Workshops may irreversibly master an upgraded signature card: ENGINE intensifies its stated "
+            "effect, while COVERAGE widens its usable ranks.\n\n"
             "Controls: arrows or hjkl navigate, Enter confirms, X/Escape cancels an active route, right-click "
             "also cancels it, E ends a combat turn, U uses a supply, B views biome rules, O views objective "
             "status, G selects the next Core route leg, D views the deck, "
@@ -2175,6 +2204,7 @@ class TerminalUI:
         assert self.engine
         definition = self.engine.card_definition(card)
         plus = "+" if card.upgraded else ""
+        mastery = f"/{card.mastery[0].upper()}" if card.mastery else ""
         if card.card_id in self.catalog.curses:
             hero = self.catalog.heroes.get(card.bound_hero_id or "", {}).get("name", "Unbound")
             return f"{definition['name']} (CURSE / {hero}) — {definition['description']}"
@@ -2186,13 +2216,20 @@ class TerminalUI:
             if card.upgraded
             else definition["description"]
         )
-        return f"{definition['name']}{plus} ({self.catalog.heroes[definition['hero']]['role']}){resonance} — {description}"
+        if card.mastery:
+            branch = self.engine.mastery_branch(card)
+            description += f" Mastery: {branch['description']}"
+        return f"{definition['name']}{plus}{mastery} ({self.catalog.heroes[definition['hero']]['role']}){resonance} — {description}"
 
     def _card_tags_note(self, card: CardInstance) -> str:
         if card.card_id in self.catalog.curses:
             return "TAGS: CURSE, UNPLAYABLE"
         definition = self.catalog.cards[card.card_id]
-        return "TAGS: " + ", ".join(tag.upper() for tag in definition["tags"])
+        note = "TAGS: " + ", ".join(tag.upper() for tag in definition["tags"])
+        if card.mastery:
+            branch = self.engine.mastery_branch(card)
+            note += f"\nMASTERY {card.mastery.upper()}: {branch['description']}"
+        return note
 
     def _draw_sprite(self, row: int, column: int, lines: list[str], attr: int = 0) -> None:
         for offset, line in enumerate(lines):
@@ -2219,16 +2256,17 @@ class TerminalUI:
 
         is_curse = card.card_id in self.catalog.curses
         plus = "+" if card.upgraded else ""
+        mastery_mark = f"/{card.mastery[0].upper()}" if card.mastery else ""
         cost = "X" if is_curse else (
             definition["cost"] if self.engine.state.phase == "hub" else self.engine.card_cost(card)
         )
-        title = f"{definition['name'].upper()}{plus}"
+        title = f"{definition['name'].upper()}{plus}{mastery_mark}"
         hero_id = card.bound_hero_id if is_curse else definition["hero"]
         role = f"CURSE/{self.catalog.heroes.get(hero_id or '', {}).get('role', 'UNBOUND')}" if is_curse else self.catalog.heroes[hero_id]["role"]
         role = role.upper()
         mark = self.catalog.art["curse_card_mark"] if is_curse else self.catalog.art["card_marks"][hero_id]
         glyph = self.catalog.art["curse_card_glyph"] if is_curse else self.catalog.art["card_glyphs"][hero_id]
-        ranks = "--" if is_curse else ",".join(str(rank) for rank in definition["from_ranks"])
+        ranks = "--" if is_curse else ",".join(str(rank) for rank in self.engine.card_origin_ranks(card))
         target = "unplayable" if is_curse else definition["target"].replace("_", " ")
         if not is_curse and definition.get("target_ranks"):
             target += " " + ",".join(str(rank) for rank in definition["target_ranks"])

@@ -220,7 +220,7 @@ class AsciiUiTests(unittest.TestCase):
         self.ui._reward()
         rendered = screen.text()
         self.assertIn("SYNERGY", rendered)
-        self.assertIn("Supplies deck MARKED payoff.", rendered)
+        self.assertIn("Uses deck MARKED setup.", rendered)
         self.assertNotIn("CORRECTIVE", rendered)
         self.assertNotIn("WILDCARD", rendered)
 
@@ -234,6 +234,16 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("CURSE", lines[3])
         self.assertIn("unplayable", lines[10])
         self.assertIn("XX", "".join(lines))
+
+    def test_mastered_card_discloses_branch_and_effective_ranks(self) -> None:
+        card = CardInstance("crossguard", upgraded=True, mastery="coverage")
+        lines = self.ui._card_lines(card)
+        self.assertTrue(any("CROSSGUARD+/C" in line for line in lines))
+        self.assertIn("FROM 1,2,3", lines[9])
+        label = self.ui._card_label(card)
+        self.assertIn("+/C", label)
+        self.assertIn("Mastery:", label)
+        self.assertIn("MASTERY COVERAGE", self.ui._card_tags_note(card))
 
     def test_combat_hand_is_a_row_of_five_miniature_cards(self) -> None:
         self.engine.start_combat("vents")

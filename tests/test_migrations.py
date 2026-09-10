@@ -18,6 +18,7 @@ from dumbest_dungeon.migrations import (
     run_35_to_36,
     run_36_to_37,
     run_37_to_38,
+    run_38_to_39,
 )
 from dumbest_dungeon.policies import Policy, canonical_hash, execute_command
 
@@ -194,6 +195,30 @@ class MigrationTests(unittest.TestCase):
         old["state"]["hand"][0]["card_id"] = "not_in_deck"
         with self.assertRaisesRegex(MigrationError, "do not match"):
             run_37_to_38(old)
+
+    def test_mastery_payload_migration_is_pure_and_explicit(self) -> None:
+        current = GameEngine.new(load_catalog(), 48)
+        current.start_combat("lost_shift")
+        current.play_card(0, current.valid_targets(0)[0], resolve=False)
+        old = current.snapshot()
+        old["save_version"] = 38
+        old["content_manifest"]["engine"] = "0.7.0"
+        old["resolution_queue"]["state"]["schema"] = 3
+        events = list(old["resolution_queue"]["state"]["pending"])
+        if old["resolution_queue"]["state"]["active"] is not None:
+            events.append(old["resolution_queue"]["state"]["active"]["event"])
+        for event in events:
+            del event["payload"]["card_mastery"]
+        before = deepcopy(old)
+        migrated = run_38_to_39(old)
+        self.assertEqual(before, old)
+        self.assertEqual(39, migrated["save_version"])
+        self.assertEqual("0.8.0", migrated["content_manifest"]["engine"])
+        self.assertEqual(4, migrated["resolution_queue"]["state"]["schema"])
+        self.assertTrue(all(event["payload"]["card_mastery"] is None
+                            for event in migrated["resolution_queue"]["state"]["pending"]))
+        with self.assertRaises(MigrationError):
+            run_38_to_39(migrated)
 
 
 if __name__ == "__main__":

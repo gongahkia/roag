@@ -1986,6 +1986,7 @@ class GameEngine:
         ):
             raise RuleError("save contains an invalid bound curse card")
         deck_copy_ids = [card.copy_id for card in state.deck]
+        durable_cards = {card.copy_id: card for card in state.deck}
         combat_copy_ids = [
             card.copy_id
             for card in state.hand + state.draw_pile + state.discard_pile
@@ -1996,8 +1997,27 @@ class GameEngine:
             or any(type(copy_id) is not int or copy_id < 1 for copy_id in deck_copy_ids)
             or len(deck_copy_ids) != len(set(deck_copy_ids))
             or deck_copy_ids and state.next_card_copy_id <= max(deck_copy_ids)
-            or any(card.mastery is not None or card.infusion_id is not None for card in piles)
+            or any(
+                card.infusion_id is not None
+                or card.mastery is not None and (
+                    not card.upgraded
+                    or card.card_id not in {
+                        mastery["card_id"] for mastery in catalog.masteries.values()
+                    }
+                    or card.mastery not in {
+                        branch["id"]
+                        for mastery in catalog.masteries.values()
+                        if mastery["card_id"] == card.card_id
+                        for branch in mastery["branches"]
+                    }
+                )
+                for card in piles
+            )
             or state.phase == "combat" and sorted(combat_copy_ids) != sorted(deck_copy_ids)
+            or state.phase == "combat" and any(
+                asdict(card) != asdict(durable_cards.get(card.copy_id))
+                for card in state.hand + state.draw_pile + state.discard_pile
+            )
             or state.phase != "combat" and combat_copy_ids
         ):
             raise RuleError("save contains invalid card-copy state")
@@ -2044,8 +2064,19 @@ class GameEngine:
                     raise RuleError("save queue has an invalid bound curse event")
             elif continuation:
                 card = catalog.cards.get(event.payload.card_id)
+                mastery = next(
+                    (item for item in catalog.masteries.values()
+                     if item["card_id"] == event.payload.card_id),
+                    None,
+                )
                 if (card is None or card["hero"] != event.payload.actor_id or event.payload.opcode is not None
-                    or event.payload.effect_index is None):
+                    or event.payload.effect_index is None
+                    or event.payload.card_mastery is not None and (
+                        mastery is None
+                        or event.payload.card_mastery not in {
+                            branch["id"] for branch in mastery["branches"]
+                        }
+                    )):
                     raise RuleError("save queue has an invalid owned card continuation")
                 effects = card["upgrade_effects"] if event.payload.card_upgraded else card["effects"]
                 limit = len(effects) if event.event_type == EventType.CARD_STEP else len(CARD_TRIGGERS)
@@ -2055,6 +2086,8 @@ class GameEngine:
             elif (event.payload.actor_id is None and not event.payload.raw_damage and event.payload.opcode != Opcode.HEAL
                   or event.payload.opcode is None or event.event_type.value != event.payload.opcode.value):
                 raise RuleError("save queue has no matching primary actor and opcode")
+            if not continuation and event.payload.card_mastery is not None:
+                raise RuleError("save queue attaches mastery to a non-card event")
             if event.payload.card_id is not None and event.payload.card_id not in catalog.cards.keys() | catalog.curses.keys():
                 raise RuleError("save queue references an unknown card")
             if any(status is not None and status not in CARD_STATUSES for status in (event.payload.status, event.payload.bonus_status)):
@@ -3811,6 +3844,27 @@ class GameEngine:
             return self.catalog.cards[card.card_id]
         return self.catalog.curses[card.card_id]
 
+    def mastery_definition(self, card_id: str) -> dict[str, Any] | None:
+        return next(
+            (mastery for mastery in self.catalog.masteries.values()
+             if mastery["card_id"] == card_id),
+            None,
+        )
+
+    def mastery_branch(self, card: CardInstance) -> dict[str, Any] | None:
+        mastery = self.mastery_definition(card.card_id)
+        if mastery is None or card.mastery is None:
+            return None
+        return next(branch for branch in mastery["branches"] if branch["id"] == card.mastery)
+
+    def card_origin_ranks(self, card: CardInstance) -> tuple[int, ...]:
+        ranks = set(self.card_definition(card).get("from_ranks", []))
+        branch = self.mastery_branch(card)
+        if branch is not None and branch["mode"] == "rank_access":
+            ranks |= {rank - 1 for rank in ranks if rank > 1}
+            ranks |= {rank + 1 for rank in ranks if rank < 4}
+        return tuple(sorted(ranks))
+
     def card_tags(self, card_id: str) -> set[str]:
         return set(self.catalog.cards[card_id]["tags"])
 
@@ -3960,7 +4014,7 @@ class GameEngine:
         if card.card_id in self.catalog.curses:
             raise RuleError("curse cards cannot be played")
         actor = self._actor(definition["hero"])
-        if not actor.alive or actor.rank not in definition["from_ranks"]:
+        if not actor.alive or actor.rank not in self.card_origin_ranks(card):
             raise RuleError("the acting hero is not in a valid rank")
         if actor.statuses.get("stun"):
             raise RuleError("the acting hero is stunned this turn")
@@ -3976,7 +4030,9 @@ class GameEngine:
         root = self.resolution.begin(card_token=card.card_id, combat_token=self.resolution.state.combat_token,
                                      turn_token=self.state.round)
         self.record("card_play", card.card_id, owner=actor.id, rank=actor.rank,
-                    energy=cost, target=target_id, upgraded=card.upgraded, root_action_id=root)
+                    energy=cost, target=target_id, upgraded=card.upgraded,
+                    copy_id=card.copy_id, mastery=card.mastery, infusion=card.infusion_id,
+                    root_action_id=root)
         self.state.energy -= cost
         self.state.hand.pop(hand_index)
         self.state.discard_pile.append(card)
@@ -3985,7 +4041,9 @@ class GameEngine:
         main_targets = self._card_targets(definition["target"], target_id, actor)
         self.add_log(f"{actor.name} uses {definition['name']}.")
         self.resolution.submit(EventType.CARD_STEP, card.card_id, tuple(target.id for target in main_targets),
-                               Payload(actor_id=actor.id, card_id=card.card_id, card_upgraded=card.upgraded, effect_index=0))
+                               Payload(actor_id=actor.id, card_id=card.card_id,
+                                       card_upgraded=card.upgraded, card_mastery=card.mastery,
+                                       effect_index=0))
         if resolve:
             self.resolve_pending()
 
@@ -4022,6 +4080,17 @@ class GameEngine:
             self.record("condition", payload.card_id, conditions=conditions, activated=condition_met)
         if condition_met:
             resolved_effect = dict(effect)
+            mastery = self.mastery_definition(payload.card_id)
+            if payload.card_mastery is not None and mastery is not None:
+                branch = next(
+                    branch for branch in mastery["branches"]
+                    if branch["id"] == payload.card_mastery
+                )
+                if branch["mode"] == "effect_bonus" and branch["effect_index"] == index:
+                    resolved_effect["amount"] = int(resolved_effect.get("amount", 0)) + branch["amount"]
+                    self.record("mastery_effect", mastery["id"], card=payload.card_id,
+                                branch=payload.card_mastery, effect_index=index,
+                                amount=branch["amount"])
             if definition.get("biome") == self.current_biome():
                 bonus = int(definition.get("biome_bonus", 0))
                 if resolved_effect["op"] in {"damage", "block", "heal"}:
@@ -5549,6 +5618,7 @@ class GameEngine:
         hero_id: str | None = None,
         curse_id: str | None = None,
         replacement_id: str | None = None,
+        mastery_branch: str | None = None,
     ) -> None:
         if self.state.phase != "service":
             raise RuleError("no facility is available")
@@ -5593,6 +5663,24 @@ class GameEngine:
             self.state.deck[card_index].upgraded = True
             self.record("card_upgraded", self.state.deck[card_index].card_id, index=card_index, source="workshop")
             self.add_log(f"Upgraded {self.catalog.cards[self.state.deck[card_index].card_id]['name']}.")
+        elif action == "mastery" and self.state.service_type == "upgrade":
+            if card_index is None or not 0 <= card_index < len(self.state.deck):
+                raise RuleError("choose a card to master")
+            card = self.state.deck[card_index]
+            mastery = self.mastery_definition(card.card_id)
+            if mastery is None or not card.upgraded or card.mastery is not None:
+                raise RuleError("that card is not eligible for mastery")
+            branches = {branch["id"]: branch for branch in mastery["branches"]}
+            if mastery_branch not in branches:
+                raise RuleError("choose one of the offered mastery branches")
+            card.mastery = mastery_branch
+            self.record("card_mastered", mastery["id"], card=card.card_id,
+                        copy_id=card.copy_id, branch=mastery_branch,
+                        mode=branches[mastery_branch]["mode"], source="workshop")
+            self.add_log(
+                f"Mastered {self.catalog.cards[card.card_id]['name']}: "
+                f"{branches[mastery_branch]['name']}."
+            )
         elif action == "remove":
             if len(self.state.deck) <= 12:
                 raise RuleError("the deck cannot contain fewer than 12 cards")
@@ -5613,10 +5701,12 @@ class GameEngine:
                 raise RuleError("choose one of the offered transformations")
             source = self.state.deck[card_index]
             self.record("card_transformed", source.card_id, destination=replacement_id,
-                        offered=options, index=card_index, lost_upgrade=source.upgraded)
+                        offered=options, index=card_index, lost_upgrade=source.upgraded,
+                        lost_mastery=source.mastery, copy_id=source.copy_id)
             old_name = self.catalog.cards[source.card_id]["name"]
             source.card_id = replacement_id
             source.upgraded = False
+            source.mastery = None
             self.add_log(
                 f"Transformed {old_name} into {self.catalog.cards[replacement_id]['name']}."
             )

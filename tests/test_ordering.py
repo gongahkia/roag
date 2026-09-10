@@ -32,8 +32,13 @@ class OrderingTests(unittest.TestCase):
         for field in (
             "ledger", "pressure", "pressure_recent", "pressure_incomplete_before_tick",
             "encounter_pressure", "encounter_modules", "reinforcement_tickets", "reinforcement_reserve_id",
+            "next_card_copy_id",
         ):
             del current["state"][field]
+        for zone in ("deck", "hand", "draw_pile", "discard_pile"):
+            for card in current["state"][zone]:
+                for field in ("copy_id", "mastery", "infusion_id"):
+                    del card[field]
         self.assertEqual(baseline["final"]["state"], current["state"])
         self.assertEqual(baseline["final"]["rng_state"], current["rng_state"])
 
