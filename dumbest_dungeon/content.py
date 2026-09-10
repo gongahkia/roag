@@ -30,6 +30,8 @@ class Catalog:
     cards: dict[str, Technique]
     masteries: dict[str, dict[str, Any]]
     infusions: dict[str, dict[str, Any]]
+    loadouts: dict[str, dict[str, Any]]
+    doctrines: dict[str, dict[str, Any]]
     enemies: dict[str, Enemy]
     encounters: dict[str, dict[str, Any]]
     events: dict[str, dict[str, Any]]
@@ -181,10 +183,12 @@ EFFECT_KEYS = {key.value for key in EffectKey}
 
 CONTENT_FIELDS = {
     "heroes": "id name role combat_role complexity preferred_ranks signature strength weakness builds summary max_hp rank starter_deck biome",
-    "squads": "id name playstyle complexity formation strength weakness signature",
+    "squads": "id name playstyle complexity formation strength weakness signature doctrine",
     "cards": "id name hero cost from_ranks target target_ranks description effects upgrade_effects tags upgrade_description biome biome_bonus lanes design_role",
     "masteries": "id card_id branches",
     "infusions": "id name marker description mode amount limit compatible_targets requires_any_tags",
+    "loadouts": "id hero name description complexity cards",
+    "doctrines": "id name description strength liability mode requires_tags requires_roles",
     "enemies": "id name max_hp actions biomes",
     "encounters": "id kind enemies biomes",
     "events": "id name text choices biomes",
@@ -230,6 +234,10 @@ INFUSION_MODES = {
     "mark_after_damage", "wound_transfer", "pressure_bonus",
 }
 INFUSION_LIMITS = {"none", "turn", "combat"}
+DOCTRINE_MODES = {
+    "dance", "mark", "wound", "guard", "stress", "control", "discard",
+    "death_door", "artillery", "casualty", "triage",
+}
 
 
 def _fields(value: Any, allowed: str, context: str) -> None:
@@ -509,6 +517,8 @@ def _compiled_rules(encoded: bytes) -> Catalog:
         sections.remove("masteries")
     if rules["content_schema"] < 25:
         sections.remove("infusions")
+    if rules["content_schema"] < 26:
+        sections -= {"loadouts", "doctrines"}
     if set(rules) != sections | {"balance", "art", "content_schema"}:
         raise ContentError("saved rules require exactly the registered content sections")
     raw = {"schema_version": rules["content_schema"], "balance": rules["balance"]}
@@ -528,8 +538,8 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
     _fields(raw, "schema_version balance " + " ".join(CONTENT_FIELDS), "content root")
     _fields(art, "schema_version title heroes enemies card_glyphs card_marks curse_card_glyph curse_card_mark", "art root")
     _fields(card_metadata, "schema_version cards", "card metadata root")
-    if type(raw.get("schema_version")) is not int or raw["schema_version"] not in {20, 21, 22, 23, 24, CONTENT_SCHEMA}:
-        raise ContentError(f"content schema_version must be historical 20/21/22/23/24 or current {CONTENT_SCHEMA}")
+    if type(raw.get("schema_version")) is not int or raw["schema_version"] not in {20, 21, 22, 23, 24, 25, CONTENT_SCHEMA}:
+        raise ContentError(f"content schema_version must be historical 20..25 or current {CONTENT_SCHEMA}")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
@@ -537,6 +547,8 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
     cards = _indexed(raw.get("cards"), "cards")
     masteries = _indexed(raw.get("masteries", []), "masteries")
     infusions = _indexed(raw.get("infusions", []), "infusions")
+    loadouts = _indexed(raw.get("loadouts", []), "loadouts")
+    doctrines = _indexed(raw.get("doctrines", []), "doctrines")
     enemies = _indexed(raw.get("enemies"), "enemies")
     encounters = _indexed(raw.get("encounters"), "encounters")
     events = _indexed(raw.get("events"), "events")
@@ -683,6 +695,62 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
     if raw["schema_version"] >= 25 and infusion_modes != INFUSION_MODES:
         raise ContentError("content schema 25 needs exactly one definition for every infusion mode")
 
+    loadout_owners: set[str] = set()
+    for loadout in loadouts.values():
+        context = f"loadout {loadout['id']}"
+        hero_id = loadout.get("hero")
+        card_ids = loadout.get("cards")
+        if (
+            hero_id not in heroes
+            or hero_id in loadout_owners
+            or not isinstance(loadout.get("name"), str)
+            or not loadout["name"]
+            or not isinstance(loadout.get("description"), str)
+            or not 1 <= len(loadout["description"]) <= 120
+            or loadout.get("complexity") not in {2, 3}
+            or not isinstance(card_ids, list)
+            or len(card_ids) != 5
+            or len(set(card_ids)) < 4
+            or any(card_id not in cards or cards[card_id]["hero"] != hero_id for card_id in card_ids)
+            or any(not any(rank in cards[card_id]["from_ranks"] for card_id in card_ids)
+                   for rank in range(1, 5))
+            or card_ids == heroes[hero_id]["starter_deck"]
+        ):
+            raise ContentError(f"{context} is not a horizontal five-card package")
+        loadout_owners.add(hero_id)
+    if raw["schema_version"] >= 26 and loadout_owners != set(heroes):
+        raise ContentError("content schema 26 needs one advanced loadout per crew owner")
+
+    doctrine_modes: set[str] = set()
+    available_roles = {hero["combat_role"] for hero in heroes.values()}
+    for doctrine in doctrines.values():
+        context = f"doctrine {doctrine['id']}"
+        if (
+            not all(isinstance(doctrine.get(field), str) and doctrine[field]
+                    for field in ("name", "description", "strength", "liability", "mode"))
+            or doctrine["mode"] not in DOCTRINE_MODES
+            or doctrine["mode"] in doctrine_modes
+            or any(len(doctrine[field]) > 120
+                   for field in ("description", "strength", "liability"))
+        ):
+            raise ContentError(f"{context} has an invalid strength/liability rule")
+        doctrine_modes.add(doctrine["mode"])
+        required_tags = doctrine.get("requires_tags")
+        required_roles = doctrine.get("requires_roles")
+        if (
+            not isinstance(required_tags, list)
+            or not required_tags
+            or len(required_tags) != len(set(required_tags))
+            or any(tag not in CARD_TAGS and not tag.startswith(("setup:", "payoff:", "status:"))
+                   for tag in required_tags)
+            or not isinstance(required_roles, list)
+            or len(required_roles) != len(set(required_roles))
+            or any(role not in available_roles for role in required_roles)
+        ):
+            raise ContentError(f"{context} has invalid broad requirements")
+    if raw["schema_version"] >= 26 and doctrine_modes != DOCTRINE_MODES:
+        raise ContentError("content schema 26 needs exactly one definition for every doctrine mode")
+
     mutation_effects: set[str] = set()
     for mutation in mutations.values():
         context = f"mutation {mutation['id']}"
@@ -796,6 +864,8 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
             or any(hero_id not in heroes for hero_id in formation)
         ):
             raise ContentError(f"squad {squad['id']} needs four unique known crew")
+        if raw["schema_version"] >= 26 and squad.get("doctrine") not in doctrines:
+            raise ContentError(f"squad {squad['id']} references an unknown doctrine")
         for rank, hero_id in enumerate(formation, 1):
             if rank not in heroes[hero_id]["preferred_ranks"]:
                 raise ContentError(
@@ -1233,6 +1303,8 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
         cards,
         masteries,
         infusions,
+        loadouts,
+        doctrines,
         enemies,
         encounters,
         events,
