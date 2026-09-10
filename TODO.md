@@ -8,22 +8,25 @@
 - Jomon has three 64×22 decks, a dedicated 64×24 tavern, scheduled named adults, bartender and eight drinks, six initial adults, six bounded regional recruits, a paper-doll equipment view, 10×6 courier pack, 18×10 locker, and optional mouse input.
 - Save format 7 migrates Python format 6 without repainting saved geography or
   replacing lost possessions; supported older Python paths chain forward.
-  The latest serial full run passed 341 tests in 184.353 seconds; a subsequent
-  physical-ammunition status correction passed its focused checks.
-  See the live measurement ledger for the covered snapshot and remaining gates.
+  A real save written by the expected format-6 commit was loaded and resaved by
+  format 7 with its exact injury, health, market stock and physical identities.
+  The latest pre-audit serial run passed 419 tests in 155.473 seconds; the final
+  seed-audit fixes pass their 12 focused checks. See the live measurement ledger
+  for the final rerun and remaining manual/platform limits.
 - Each region now has a three-stage questline with two endings, and completing
   any two opens the five-part Working Marks arc. Production generation uses
-  finite mixed groups, four seeded alternative elites, 30 persistent
-  containers in the previous four-region milestone. The expansion now has
-  62 regional containers, 18 weapons, 36 armour, 37 passives, six relics, eight physical
-  fitting kits, sparse materials, and twelve bounded voyage families. Content
-  targets, branch depth, performance and full manual coverage remain open.
+  finite mixed groups, four seeded alternative elites, and 62 persistent
+  containers. The expansion now has 36 weapons, 36 armour pieces, 48 passives,
+  16 inherent/learned techniques, 12 relics, eight physical fitting kits,
+  sparse materials, three cross-region arcs and twelve bounded voyage families.
+  Twenty-four executable build scenarios and dedicated production audits cover
+  the numeric gates; exhaustive manual branch/build coverage is not claimed.
 
 ## Now
 
-- Complete the major systemic-world expansion in measured, locally committed
-  phases. Preserve immediate play, existing consequences, and responsiveness.
-- Track implementation and all open acceptance gates in
+- Run the final serial suite, corrected 1,000-seed generation audit, focused
+  verification commands, benchmark and whitespace/compilation checks.
+- Keep exact results and candid manual/platform limits in
   [`docs/systemic-world-milestone.md`](docs/systemic-world-milestone.md).
 
 ## Next

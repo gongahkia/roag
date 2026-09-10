@@ -226,6 +226,7 @@ prior migrations. Physical pack items are authoritative for finite ammunition
 and bottled drinks. Older room-graph and retired browser saves are rejected.
 
 ```console
+python -m jomon.checks fast
 python -m unittest discover -s tests -v
 python -m compileall -q jomon tests
 python -m jomon.audit
@@ -233,6 +234,7 @@ python -m jomon.living_audit
 python -m jomon.systemic_audit --seeds 1000
 python -m jomon.verification content
 python -m jomon.verification encounter --samples 100
+python -m jomon.verification generation --samples 1000
 python -m jomon.verification quest --samples 25
 python -m jomon.verification persistence
 python -m jomon.verification replay --samples 100
