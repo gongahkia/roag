@@ -274,6 +274,10 @@
     "keelhaul": {"tags": ["affinity:flooded", "control", "damage", "displacement", "setup:vulnerable"], "upgrade_description": "Upgrade: pull to the front, deal 10, expose for 3, and weaken."},
     "buddy_breath": {"tags": ["affinity:flooded", "block", "guard", "status:riposte", "stress_relief"], "upgrade_description": "Upgrade: guard for 3, reduce 9 stress, gain 8 block and riposte."},
     "signal_buoy": {"tags": ["affinity:flooded", "control", "displacement", "draw", "payoff:marked", "setup:marked"], "upgrade_description": "Upgrade: pull an existing mark 2 and weaken it for 2, then mark for 3 and draw 2."},
-    "blackwater_dive": {"tags": ["affinity:flooded", "damage", "displacement", "setup:vulnerable", "stress_risk"], "upgrade_description": "Upgrade: while healthy deal 12, pull all to front, expose, gain 8 stress and a shorter wound."}
+    "blackwater_dive": {"tags": ["affinity:flooded", "damage", "displacement", "setup:vulnerable", "stress_risk"], "upgrade_description": "Upgrade: while healthy deal 12, pull all to front, expose, gain 8 stress and a shorter wound."},
+    "forked_bolt": {"tags": ["affinity:storm", "damage", "draw", "energy", "payoff:marked"], "upgrade_description": "Upgrade: deal 9; from a mark deal 5 to all, gain 1 energy, and draw 1."},
+    "storm_shield": {"tags": ["affinity:storm", "block", "guard", "status:riposte"], "upgrade_description": "Upgrade: guard for 3, grant 9 block, and gain 5 block plus 3 riposte."},
+    "static_wake": {"tags": ["affinity:storm", "control", "damage", "displacement", "payoff:vulnerable", "setup:marked"], "upgrade_description": "Upgrade: deal 8, plus 7 if exposed; push 3, mark for 3 and weaken exposed targets."},
+    "ball_lightning": {"tags": ["affinity:storm", "damage", "energy", "payoff:marked", "setup:marked", "setup:vulnerable", "stress_risk"], "upgrade_description": "Upgrade: gain 3 energy from a mark; deal 11, mark for 3, expose all, and gain 8 stress."}
   }
 }
