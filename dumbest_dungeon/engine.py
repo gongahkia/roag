@@ -182,6 +182,9 @@ class GameState:
     required_objectives: int = 2
     known_feature_ids: list[str] = field(default_factory=list)
     travel_ticks: int = 0
+    pressure: int = 0
+    pressure_recent: list[dict[str, Any]] = field(default_factory=list)
+    pressure_incomplete_before_tick: int | None = None
     pending_opening_hand: int = 0
     boons: dict[str, dict[str, int]] = field(default_factory=dict)
     curses: dict[str, dict[str, int]] = field(default_factory=dict)
@@ -1436,6 +1439,9 @@ class GameEngine:
                 required_objectives=raw["required_objectives"],
                 known_feature_ids=raw["known_feature_ids"],
                 travel_ticks=raw["travel_ticks"],
+                pressure=raw["pressure"],
+                pressure_recent=raw["pressure_recent"],
+                pressure_incomplete_before_tick=raw["pressure_incomplete_before_tick"],
                 pending_opening_hand=raw["pending_opening_hand"],
                 boons=raw["boons"],
                 curses=raw["curses"],
@@ -1817,6 +1823,32 @@ class GameEngine:
             or state.pending_opening_hand > 0
         ):
             raise RuleError("save contains invalid biome pressure state")
+        if (
+            type(state.pressure) is not int
+            or state.pressure < 0
+            or not isinstance(state.pressure_recent, list)
+            or len(state.pressure_recent) > 8
+            or any(
+                not isinstance(change, dict)
+                or set(change) != {"sequence", "source", "amount", "total", "detail"}
+                or type(change["sequence"]) is not int
+                or change["sequence"] < 1
+                or not isinstance(change["source"], str)
+                or type(change["amount"]) is not int
+                or change["amount"] < 0
+                or type(change["total"]) is not int
+                or change["total"] < change["amount"]
+                or not isinstance(change["detail"], str)
+                for change in state.pressure_recent
+            )
+            or any(after["sequence"] <= before["sequence"] or after["total"] < before["total"]
+                   for before, after in zip(state.pressure_recent, state.pressure_recent[1:]))
+            or state.pressure_recent and state.pressure_recent[-1]["total"] != state.pressure
+            or state.pressure_incomplete_before_tick is not None
+            and (type(state.pressure_incomplete_before_tick) is not int
+                 or not 0 <= state.pressure_incomplete_before_tick <= state.travel_ticks)
+        ):
+            raise RuleError("save contains invalid expedition pressure")
         for hero_id, effects in state.boons.items():
             if hero_id not in hero_ids or any(
                 boon_id not in catalog.boons or not isinstance(count, int) or count < 1

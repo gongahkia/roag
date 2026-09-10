@@ -8,7 +8,7 @@ from pathlib import Path
 
 from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.engine import GameEngine, RuleError
-from dumbest_dungeon.migrations import LEGACY_20_FINGERPRINT, MigrationError, migrate_run, run_26_to_27
+from dumbest_dungeon.migrations import LEGACY_20_FINGERPRINT, MigrationError, migrate_run, run_26_to_27, run_33_to_34
 from dumbest_dungeon.policies import Policy, canonical_hash, execute_command
 
 
@@ -63,6 +63,27 @@ class MigrationTests(unittest.TestCase):
             broken["content_manifest"][field] = value
             with self.assertRaisesRegex(RuleError, "manifest"):
                 GameEngine.from_snapshot(catalog, broken)
+
+    def test_pressure_migration_is_pure_and_discloses_unknown_prior_actions(self) -> None:
+        current = GameEngine.new(load_catalog(), 42).snapshot()
+        old = deepcopy(current)
+        old["save_version"] = 33
+        old["content_manifest"]["engine"] = "0.2.0"
+        for field in ("pressure", "pressure_recent", "pressure_incomplete_before_tick"):
+            del old["state"][field]
+        before = deepcopy(old)
+        migrated = run_33_to_34(old)
+        self.assertEqual(before, old)
+        self.assertEqual(34, migrated["save_version"])
+        self.assertEqual("0.3.0", migrated["content_manifest"]["engine"])
+        self.assertEqual(0, migrated["state"]["pressure"])
+        self.assertEqual([], migrated["state"]["pressure_recent"])
+        self.assertEqual(old["state"]["travel_ticks"], migrated["state"]["pressure_incomplete_before_tick"])
+        for malformed in (True, 32, 34):
+            broken = deepcopy(old)
+            broken["save_version"] = malformed
+            with self.assertRaises(MigrationError):
+                run_33_to_34(broken)
 
 
 if __name__ == "__main__":

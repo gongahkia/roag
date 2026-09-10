@@ -26,7 +26,11 @@ class OrderingTests(unittest.TestCase):
             command = row["command"]
             execute_command(engine, Command(command["method"], tuple(command["args"])))
         current = json.loads(json.dumps(engine.snapshot()))
-        del current["state"]["ledger"]
+        # Schema additions are checked by migration tests. This recorded command
+        # transcript proves that adding durable observations does not alter the
+        # pre-existing simulation or consume RNG.
+        for field in ("ledger", "pressure", "pressure_recent", "pressure_incomplete_before_tick"):
+            del current["state"][field]
         self.assertEqual(baseline["final"]["state"], current["state"])
         self.assertEqual(baseline["final"]["rng_state"], current["rng_state"])
 

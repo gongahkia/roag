@@ -103,6 +103,22 @@ class SaveTests(unittest.TestCase):
             loaded = GameEngine.from_snapshot(self.catalog, read_save(path))
         self.assertEqual(engine.snapshot(), loaded.snapshot())
 
+    def test_pressure_state_is_required_and_strictly_validated(self) -> None:
+        engine = GameEngine.new(self.catalog, 101)
+        snapshot = engine.snapshot()
+        self.assertEqual((0, [], None), (snapshot["state"]["pressure"],
+                                        snapshot["state"]["pressure_recent"],
+                                        snapshot["state"]["pressure_incomplete_before_tick"]))
+        for field in ("pressure", "pressure_recent", "pressure_incomplete_before_tick"):
+            broken = engine.snapshot()
+            del broken["state"][field]
+            with self.assertRaises(RuleError):
+                GameEngine.from_snapshot(self.catalog, broken)
+        broken = engine.snapshot()
+        broken["state"]["pressure"] = -1
+        with self.assertRaisesRegex(RuleError, "expedition pressure"):
+            GameEngine.from_snapshot(self.catalog, broken)
+
     def test_exploration_knowledge_round_trips(self) -> None:
         engine = GameEngine.new(self.catalog, 111)
         pickup = next(item for item in engine.state.pickups if not item.hidden)

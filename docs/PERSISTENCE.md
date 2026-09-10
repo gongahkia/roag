@@ -1,8 +1,16 @@
 # Persistence contracts
 
-The run save currently uses schema 33, content schema 21, and the existing Python
+The run save currently uses schema 34, content schema 21, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry and manifests are implemented; the persistent profile is still pending.
+
+Schema 34 records engine 0.3.0 and requires integer Expedition Pressure, up to
+eight validated recent causes, and an explicit historical-gap marker. The pure
+33→34 migration accepts only engine 0.2.0, adds pressure zero with
+`pressure_incomplete_before_tick` equal to the saved travel tick, and changes no
+world, combat, content or RNG state. This is disclosure of unavailable history,
+not reconstruction. New runs use a null marker. Missing fields in schema-34
+saves are rejected.
 
 `versions.py` names the engine, content, run, profile, telemetry, manifest and RNG
 versions independently. Profile version 1 reserves its first contract. Telemetry version 1 records

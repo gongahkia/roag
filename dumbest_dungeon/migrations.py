@@ -129,7 +129,37 @@ def run_32_to_33(snapshot: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-RUN_MIGRATIONS = {26: run_26_to_27, 27: run_27_to_28, 28: run_28_to_29, 29: run_29_to_30, 30: run_30_to_31, 31: run_31_to_32, 32: run_32_to_33}
+def run_33_to_34(snapshot: dict[str, Any]) -> dict[str, Any]:
+    if type(snapshot.get("save_version")) is not int or snapshot["save_version"] != 33:
+        raise MigrationError("migration 33->34 requires save version 33")
+    state = snapshot.get("state")
+    manifest = snapshot.get("content_manifest")
+    fields = {"pressure", "pressure_recent", "pressure_incomplete_before_tick"}
+    if (not isinstance(state, dict) or fields & state.keys()
+        or type(state.get("travel_ticks")) is not int
+        or not isinstance(manifest, dict) or manifest.get("engine") != "0.2.0"):
+        raise MigrationError("version-33 migration requires the recorded pre-pressure contract")
+    result = deepcopy(snapshot)
+    result["save_version"] = 34
+    result["content_manifest"]["engine"] = "0.3.0"
+    result["state"].update(
+        pressure=0,
+        pressure_recent=[],
+        pressure_incomplete_before_tick=state["travel_ticks"],
+    )
+    return result
+
+
+RUN_MIGRATIONS = {
+    26: run_26_to_27,
+    27: run_27_to_28,
+    28: run_28_to_29,
+    29: run_29_to_30,
+    30: run_30_to_31,
+    31: run_31_to_32,
+    32: run_32_to_33,
+    33: run_33_to_34,
+}
 
 
 def migrate_run(snapshot: dict[str, Any]) -> dict[str, Any]:
