@@ -613,3 +613,16 @@ crew after the test selected formation; restoring the intended formation after
 setup corrected the harness. The final expansion/content group passed **29
 tests in 71.942s**. Masteries, infusions, doctrines, loadouts and the Milestone
 5 full-suite gate remain pending and are not claimed by this evidence.
+
+## Milestone 7 biome expansion
+
+Content schema 33 begins the native-biome density pass with Cryogenic Vault.
+Two normal enemies, two elite-only enemies and the Thawing Regent guardian add
+mark/payoff, protection, sustain, control and formation-disruption questions.
+The four older native enemies now have a third readable action rather than
+remaining deterministic two-action loops. Five new encounter formations bring
+the live census to 75 enemies and 114 templates. Validation enforces six native
+normal participants, two elite-only participants, one five-line guardian and at
+least three actions on every Cryogenic enemy; the batch is not yet wired into
+objective guardian selection, so it is content-density evidence rather than a
+natural guardian-run claim.
