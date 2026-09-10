@@ -1011,6 +1011,14 @@ class GameEngine:
                     mode=self.state.expedition_mode, modifiers=list(self.state.active_modifiers),
                     packs=list(self.state.enabled_packs),
                     deck=[asdict(card) for card in self.state.deck], manifest=self.catalog.manifest.snapshot())
+        if "curse_bargain" in self.state.active_modifiers:
+            curse_id = next(
+                curse_id for curse_id, curse in sorted(self.catalog.curses.items())
+                if curse["kind"] == "trait"
+            )
+            self.acquire_curse(self.living_heroes()[0].id, curse_id)
+            self.state.supplies += 2
+            self.record("challenge_trigger", "curse_bargain", curse=curse_id, supplies=2)
 
     @staticmethod
     def _effect_targets_crew(action: dict[str, Any], effect: dict[str, Any]) -> bool:
@@ -2179,13 +2187,13 @@ class GameEngine:
             or any(module not in catalog.mutations for module in state.encounter_modules)
             or type(state.reinforcement_tickets) is not int
             or state.reinforcement_tickets < 0
-            or state.reinforcement_tickets > 1
+            or state.reinforcement_tickets > max(1, engine.current_director().reinforcement_tickets)
             or state.reinforcement_reserve_id is not None
             and state.reinforcement_reserve_id not in catalog.enemies
             or state.phase == "combat" and state.encounter_pressure is None
             or state.phase != "combat" and state.encounter_pressure is not None
             or state.encounter_pressure is not None
-            and len(state.encounter_modules) > director_profile(state.encounter_pressure).mutation_slots
+            and len(state.encounter_modules) > engine.current_director().mutation_slots
             or state.phase != "combat" and (
                 state.encounter_modules or state.reinforcement_tickets
                 or state.reinforcement_reserve_id is not None
@@ -2399,6 +2407,8 @@ class GameEngine:
         amount = (amount * (10_000 + ladder_modifier(self.state.ladder_rank, "pressure_bp")) + 9_999) // 10_000
         if "accelerated_pressure" in self.state.active_modifiers:
             amount = (amount * 12 + 9) // 10
+        if source == PressureSource.ENEMY_ROUND and "guarded_clock" in self.state.active_modifiers:
+            amount = max(0, amount + (-2 if any(hero.guarded_by for hero in self.living_heroes()) else 2))
         if units:
             if source == PressureSource.TRAVEL:
                 amount += ladder_modifier(self.state.ladder_rank, "travel_pressure_flat")
@@ -2578,6 +2588,26 @@ class GameEngine:
             self.state.encounter_pressure or 0,
         )
         chosen: list[str] = []
+        if "elite_weather" in self.state.active_modifiers and encounter_kind == "elite":
+            forced = next(
+                (
+                    mutation for mutation in sorted(self.catalog.mutations.values(), key=lambda item: item["id"])
+                    if mutation["effect"] in ACTIVE_MUTATION_EFFECTS
+                    and encounter_kind in mutation["compatible_kinds"]
+                    and (not mutation["biomes"] or biome_id in mutation["biomes"])
+                    and (mutation["effect"] != "guard_rear" or enemy_count > 1)
+                    and (mutation["effect"] not in {"surge_ally_death", "wound_on_ally_death"} or enemy_count > 1)
+                ),
+                None,
+            )
+            if forced is not None:
+                chosen.append(forced["id"])
+                candidates = [item for item in candidates if item["id"] != forced["id"]]
+        if "third_card_reaction" in self.state.active_modifiers:
+            required = self.catalog.mutations.get("base:third_bell")
+            if required is not None and encounter_kind in required["compatible_kinds"]:
+                chosen.append(required["id"])
+                candidates = [item for item in candidates if item["id"] != required["id"]]
         while candidates and len(chosen) < profile.mutation_slots:
             compatible = [
                 mutation
@@ -4193,7 +4223,7 @@ class GameEngine:
         self.state.encounter_pressure = self.state.pressure
         self.state.encounter_modules = self._select_encounter_mutations(
             encounter_id,
-            encounter["kind"],
+            self.state.combat_kind,
             self.current_biome(),
             len(formation),
         )
@@ -4266,6 +4296,9 @@ class GameEngine:
         for hero in self.living_heroes():
             if hero.block:
                 self.record("block_expired", "round:crew", target=hero.id, amount=hero.block)
+                if "fragile_guard" in self.state.active_modifiers:
+                    self._change_stress(hero, 2)
+                    self.record("challenge_trigger", "fragile_guard", target=hero.id, stress=2)
             hero.block = 0
             self.state.effect_counters[f"round_cards:{hero.id}"] = 0
             self.state.effect_counters[f"countercurrent:{hero.id}"] = 0
@@ -5263,7 +5296,7 @@ class GameEngine:
                 (int(definition["max_hp"]) * director.enemy_health_bp + 5_000) // 10_000,
             )
             reinforcement = Actor(
-                f"{reserve_id}:reserve:{self.resolution.state.combat_token}",
+                f"{reserve_id}:reserve:{self.resolution.state.combat_token}:{self.state.reinforcement_tickets}",
                 definition["name"],
                 max_hp,
                 max_hp,
@@ -5437,6 +5470,11 @@ class GameEngine:
         elif op == "discard":
             for _ in range(min(amount, len(self.state.hand))):
                 self.state.discard_pile.append(self.state.hand.pop())
+            key = f"challenge:discard_current:{self.state.round}"
+            if "discard_current" in self.state.active_modifiers and not self.state.effect_counters.get(key):
+                self.state.effect_counters[key] = 1
+                self._draw_primary(1)
+                self.record("challenge_trigger", "discard_current", draw=1)
         elif op == "energy":
             previous = self.state.energy
             self.state.energy = max(0, previous + amount)
@@ -5455,6 +5493,9 @@ class GameEngine:
                     self._damage(target, adjusted, actor)
                 elif op == "block":
                     automatic = self.resolution.state.active and self.resolution.state.active.event.proc_families
+                    block_amount = amount
+                    if actor.side == "hero" and not automatic and "fragile_guard" in self.state.active_modifiers:
+                        block_amount += 2
                     multiplier = 1 if automatic else float(self._affliction_modifiers(target).get("block_mult", 1))
                     multiplier = max(0.5, min(2.0, multiplier))
                     contract_bonus = 0
@@ -5463,7 +5504,7 @@ class GameEngine:
                             actor, "curse", "curse_deaths_door_block"
                         )
                         contract_bonus = round(sum(value for _, value in contributions))
-                    gained = max(0, round((amount + contract_bonus) * multiplier))
+                    gained = max(0, round((block_amount + contract_bonus) * multiplier))
                     target.block += gained
                     self.record("block", self._source_id or actor.id, target=target.id, amount=gained)
                     for curse_id, value in contributions if contract_bonus else []:
@@ -5480,6 +5521,14 @@ class GameEngine:
                     target.guard_turns = amount
                 elif op == "status":
                     self._add_status(target, effect["status"], amount)
+                    if (
+                        actor.side == "hero"
+                        and target.side == "enemy"
+                        and effect["status"] in {"stun", "weak"}
+                        and "control_recoil" in self.state.active_modifiers
+                    ):
+                        self._change_stress(actor, 2)
+                        self.record("challenge_trigger", "control_recoil", owner=actor.id, stress=2)
                 elif op == "cleanse":
                     for status in ("marked", "stun", "vulnerable", "weak", "wound"):
                         target.statuses.pop(status, None)
@@ -5933,6 +5982,17 @@ class GameEngine:
         if actor.statuses.get("focus"):
             multiplier *= 1.25
         if actor.side == "hero":
+            if target and target.statuses.get("marked") and "cash_marks" in self.state.active_modifiers:
+                amount += 1
+            if (
+                "narrow_fire" in self.state.active_modifiers
+                and self.state.effect_counters.get(f"challenge:moved:{actor.id}:{self.state.round}")
+                and self._source_id in self.catalog.cards
+                and len(self.catalog.cards[self._source_id]["from_ranks"]) <= 2
+            ):
+                amount += 2
+            if actor.stress >= 50 and "stress_furnace" in self.state.active_modifiers:
+                multiplier *= 1.15
             if actor.stress >= 50:
                 multiplier *= 1 + self._hero_effect_value(
                     actor,
@@ -6059,6 +6119,8 @@ class GameEngine:
                 "boon",
                 "death_chance_reduction",
             )
+            if "zero_margin" in self.state.active_modifiers:
+                death_chance += 0.15
             roll = self.rng.random()
             died = roll < max(0.05, death_chance)
             self.record("deaths_door_check", source, target=target.id,
@@ -6156,6 +6218,14 @@ class GameEngine:
         survivors = self.living_heroes()
         self.record("crew_death", hero.id, rank=death_rank, cards_lost=removed,
                     survivors=[actor.id for actor in survivors])
+        if (
+            survivors
+            and "casualty_cache" in self.state.active_modifiers
+            and not self.state.effect_counters.get("challenge:casualty_cache")
+        ):
+            self.state.effect_counters["challenge:casualty_cache"] = 1
+            self.state.supplies += 1
+            self.record("challenge_trigger", "casualty_cache", fallen=hero.id, supplies=1)
         doctrine = self.doctrine_definition()
         casualty_key = f"doctrine:casualty:death:{hero.id}"
         if (
@@ -6227,6 +6297,8 @@ class GameEngine:
             multiplier *= 1 - self._hero_effect_value(target, "curse", "healing_reduction")
         if healer and healer.side == "hero":
             multiplier *= 1 + self._hero_effect_value(healer, "boon", "healing_bonus")
+        if "zero_margin" in self.state.active_modifiers and target.side == "hero":
+            multiplier *= 1.25
         multiplier = max(0.5, min(2.0, multiplier))
         target.hp = min(target.max_hp, target.hp + max(0, round(amount * multiplier)))
         self.record("healing", self._source_id or (healer.id if healer else "world:unattributed"),
@@ -6237,6 +6309,8 @@ class GameEngine:
 
     def _change_stress(self, target: Actor, amount: int) -> None:
         previous_stress = target.stress
+        if amount < 0 and "stress_furnace" in self.state.active_modifiers:
+            amount = -max(1, (abs(amount) * 3) // 4)
         if amount > 0 and target.side == "hero":
             multiplier = 1 + self._hero_effect_value(target, "curse", "stress_bonus")
             multiplier *= 1 - self._hero_effect_value(target, "boon", "stress_reduction")
@@ -6268,6 +6342,9 @@ class GameEngine:
         if actor.statuses.get("wound"):
             with self.attribution(f"status:wound:{actor.id}"):
                 self._damage(actor, 2)
+            if actor.alive and actor.side == "hero" and "wound_dividend" in self.state.active_modifiers:
+                self._add_status(actor, "focus", 1)
+                self.record("challenge_trigger", "wound_dividend", owner=actor.id, focus=1)
 
     def _add_status(self, target: Actor, status: str, amount: int) -> None:
         if status == "wound" and target.side == "hero":
@@ -6297,6 +6374,7 @@ class GameEngine:
             amount = direction * max(0, distance)
         party = self.state.heroes if actor.side == "hero" else self.state.enemies
         occupied_ranks = sum(member.alive for member in party)
+        starting_rank = actor.rank
         for _ in range(abs(amount)):
             direction = 1 if amount > 0 else -1
             next_rank = actor.rank + direction
@@ -6307,6 +6385,8 @@ class GameEngine:
             actor.rank = next_rank
             if occupant:
                 occupant.rank = old_rank
+        if actor.side == "hero" and actor.rank != starting_rank:
+            self.state.effect_counters[f"challenge:moved:{actor.id}:{self.state.round}"] = 1
 
     def _normalize_ranks(self, side: str) -> None:
         party = self.state.heroes if side == "hero" else self.state.enemies
@@ -6397,6 +6477,9 @@ class GameEngine:
         count = 4 if self.state.light < self.catalog.balance["low_light_threshold"] else 3
         count += round(self._item_effect_value("reward_choices"))
         count += self.world_director().reward_choices
+        if "pressured_rewards" in self.state.active_modifiers and self.state.pressure >= 480:
+            count += 1
+            self.record("challenge_trigger", "pressured_rewards", choices=1)
         lane = {
             "elite": Lane.ELITE,
             "objective": Lane.OBJECTIVE,

@@ -703,6 +703,15 @@ uses the existing 80×24 scrolling menu and adds text search/filter. Challenge o
 daily clears map broad modifier IDs back to authored contract IDs; custom runs do
 not masquerade as contract completion. Loop archival deduplicates old graves.
 
+Content schema 46 and the challenge runtime make all twenty disclosed modifiers
+operative. The grouped regression matrix exercises starting light/supply/curse,
+pressure rate and guard clock, objective count, hazard reach, elite and third-card
+mutations, marked and moved attacks, discard velocity, control recoil, fragile
+block, stress tradeoffs, wound focus, casualty salvage, Death's Door/healing, and
+high-pressure reward breadth. Third Bell now explicitly permits normal encounters.
+Overrun and loop reinforcement capacity uses finite serialized tickets; each
+death root may spend one, so multiple tickets are useful without recursive calls.
+
 Content schema 36 gives Reactor Chapel six normal participants, two elite-only
 roles and the Choir Meltdown guardian. Three new normal roles split marking,
 cash-out and formation disruption; Critical Abbot and Containment Hulk create

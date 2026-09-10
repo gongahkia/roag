@@ -24,7 +24,7 @@ python3 -m dumbest_dungeon --telemetry
 
 A generated seed appears in the map HUD and ending screen. Supplying `--seed` makes new expeditions in that process reproducible. The default save is `$XDG_STATE_HOME/dullest-dungeon/run.save.json`, or `~/.local/state/dullest-dungeon/run.save.json` when `XDG_STATE_HOME` is unset. The existing `dumbest_dungeon` Python package name remains the launch path; it is an internal compatibility detail, not the public title.
 
-Biome worlds use content schema 45 and save version 45. The explicit migration chain supports the recorded version-26/content-20 baseline and versions 27–44; embedded schema-21 through schema-44 rules and the archived content-20 rules remain loadable when their fingerprints match; unavailable rules and unsupported versions are rejected. See the [persistence reference](docs/PERSISTENCE.md).
+Biome worlds use content schema 46 and save version 45. The explicit migration chain supports the recorded version-26/content-20 baseline and versions 27–44; embedded schema-21 through schema-45 rules and the archived content-20 rules remain loadable when their fingerprints match; unavailable rules and unsupported versions are rejected. See the [persistence reference](docs/PERSISTENCE.md).
 
 Completed and abandoned expeditions are recorded locally under `history/` beside
 the save file. **Run history** on the title screen supports text filtering and

@@ -1,5 +1,5 @@
 {
-  "schema_version": 45,
+  "schema_version": 46,
   "balance": {
     "hand_size": 5,
     "energy": 3,
@@ -989,7 +989,7 @@
     {"id":"base:overclock","name":"Overclock","marker":"FOCUS:STRIKER","description":"The first striker opens focused for one enemy phase.","kind":"general","biomes":[],"effect":"focus_striker","amount":1,"compatible_kinds":["normal","elite","boss"],"excludes":["base:clean_room"],"min_band":"hunted","priority":60},
     {"id":"base:rank_breaker","name":"Rank Breaker","marker":"SURGE:PULL","description":"The opening hostile action pulls the front crew member one rank back.","kind":"general","biomes":[],"effect":"shove_front_crew","amount":1,"compatible_kinds":["elite","boss"],"excludes":["base:screen_link"],"min_band":"hunted","priority":70},
     {"id":"base:triage_node","name":"Triage Node","marker":"REACT:ROUND","description":"After each enemy phase, the weakest hostile receives finite repair.","kind":"general","biomes":[],"effect":"heal_weakest_round","amount":3,"compatible_kinds":["elite","boss"],"excludes":["base:clean_room"],"min_band":"hunted","priority":80},
-    {"id":"base:third_bell","name":"Third Bell","marker":"REACT:3RD_CARD","description":"The third crew card each round grants the front hostile block.","kind":"general","biomes":[],"effect":"react_third_card","amount":5,"compatible_kinds":["elite","boss"],"excludes":[],"min_band":"lockdown","priority":90},
+    {"id":"base:third_bell","name":"Third Bell","marker":"REACT:3RD_CARD","description":"The third crew card each round grants the front hostile block.","kind":"general","biomes":[],"effect":"react_third_card","amount":5,"compatible_kinds":["normal","elite","boss"],"excludes":[],"min_band":"lockdown","priority":90},
     {"id":"base:death_surge","name":"Death Surge","marker":"SURGE:ALLY_DIES","description":"The nearest surviving hostile gains focus when an ally dies.","kind":"general","biomes":[],"effect":"surge_ally_death","amount":1,"compatible_kinds":["elite","boss"],"excludes":["biome:spore_link"],"min_band":"lockdown","priority":100},
     {"id":"base:reinforcement_call","name":"Reinforcement Call","marker":"REINFORCE:1","description":"The first vacant hostile rank may receive one disclosed reserve.","kind":"general","biomes":[],"effect":"reinforce_once","amount":1,"compatible_kinds":["normal","elite"],"excludes":[],"min_band":"lockdown","priority":110},
     {"id":"base:clean_room","name":"Clean Room","marker":"PURGE:ROUND","description":"At enemy-phase end, the weakest hostile sheds one negative status.","kind":"general","biomes":[],"effect":"cleanse_round","amount":1,"compatible_kinds":["elite","boss"],"excludes":["base:prey_protocol","base:overclock","base:triage_node"],"min_band":"lockdown","priority":120},

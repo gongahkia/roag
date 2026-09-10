@@ -1,6 +1,6 @@
 # Persistence contracts
 
-The run save currently uses schema 45, content schema 45, and the existing Python
+The run save currently uses schema 45, content schema 46, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry, manifests, and the separate local profile are implemented.
 
