@@ -43,6 +43,17 @@ This matrix records the direct production resolver for retained build content. I
 | scar salve recipe | a finite willow dressing restores five rather than three health |
 | load ledger | physical cargo gains two bulk and four weight capacity while still increasing valuables pressure |
 | roof nail | one upper-structure move preserves an already prepared ranged target |
+| fen sledge | mud applies neither bogging nor first-step broadcast to the carried load |
+| ice awl | frozen shallows do not spoil footing; `F` can break a selected thin-ice cell |
+| fire rake tooth | `F` breaks burning timber or reeds into smoking ash without a heavy tool |
+| limewash seal | wet lime does not abrade the courier or their physically carried items |
+| smoke braid | a close attack from smoke adds one harm and morale pressure |
+| salvage tally | the first difficult cache recovered per region adds witnessed credit and account confidence |
+| counterbrace pin | guard restores one support beneath the courier and cancels its warning |
+| pitch cup | one ignition per expedition spends measured pitch instead of lamp oil and gains fuel |
+| shingle skids | released-water and current delays do not add an action to a cargo crossing |
+| signal mirror | an elevated flash interrupts one aim but shares the courier's position with its group |
+| market weights | a physical dependency delivery adds verified stock and institutional confidence |
 
 ## Recruit techniques
 
@@ -80,11 +91,49 @@ The pike and trestle arbalest are obtainable from Whitecairn-influenced merchant
 | crossbar boar spear | attacks only outside adjacent range and strongly presses a charging animal's morale |
 | powder handgonne | requires aim plus a two-action reload, uses physical charges, produces loud powder smoke, and presses morale |
 | stillwater filament | finite selected relic clears current while emitting a strength-five sound that redirects perceived danger |
+| flood-mark clasp | lowers nearby water and braces wet timber, then imposes fatigue |
+| ashglass lens | clears local smoke and marks a cache, while nearby watchers acquire the courier |
+| quarry echo pin | restores at most eight nearby supports and cancels collapse; its loud report raises alerts |
+| winter sounding bead | only in winter, freezes at most eight fresh shallows and applies chill |
+| red-clay seal | settles a witnessed human claim without harm and records two institutional obligations |
+| wreck-light prism | spends lamp oil to mark a cache and turn animals; human lookouts read the flash |
 
-The four added named containers carry these rewards in recognizable regional
-locations. Along with the existing combinations, the new reducers expose more
-than twelve three-system builds: guarded stance, mobile hook, controlled
-breach, masked smoke, flood rig, field binding, high sling, weatherfast bow,
-weighted brace, directed fall, surveyed staff sling, retrieval javelin,
-grounded boar brace, masked handgonne, fixed roof aim, witnessed sluice work,
-cache sounding, and accounted cargo.
+The added objects use recognizable regional containers. Relic rejection paths
+do not consume the packed object. Their finite count and exact physical item
+are reduced together on success.
+
+## Twenty-four executable build demonstrations
+
+`jomon.build_scenarios.BUILD_SCENARIOS` is the inspectable source for these
+rows. The automated scenario test assembles every load from physical weapon,
+secondary and passive items, verifies its distinct production combination,
+round-trips the state, and re-verifies the effect after load. Focused reducer
+tests cited above establish the corresponding action outcome; these are
+automated demonstrations, not claims of 24 manually completed expeditions.
+
+| Identity | Physical composition | Decision changed | Production reducer |
+|---|---|---|---|
+| Quiet route scout | staff, quiet shoes, route survey | trade support for lower ordinary travel noise | `move` |
+| Mobile hook fighter | billhook and rope | pull a guard and occupy its old cell | `attack` |
+| Armoured brace guard | spear, buckler, Set Stance | spend a turn denying a telegraph and pressing morale | `guard` |
+| Weatherproof crossbow courier | crossbow and waxed bowstring | retain prepared aim in rain | `attack` |
+| Controlled floor breaker | cudgel, wedge and repair tools | breach a marked floor without an axe | `interact` |
+| Smoke walker | long knife, smoke pot and smoke lens | buy cover without losing adjacent sight | `sight_radius` |
+| Flood controller | boat hook, rope and river hooks | cross or redirect released water | `move` |
+| Healer-survivor | staff, field care and salted dressing | absorb a severe first injury | `apply_damage` |
+| Cargo-backed negotiator | sword, seals and witnessed valuables | offer material terms instead of attacking | `negotiate` |
+| Elevated marksman | longbow and high tread | turn height into forced movement | `attack` |
+| Ebb accountant | net, seals, tide ledger and Ebb Reader | couple route timing to coast terms | `move` |
+| Buoyant cargo porter | harness, porter watch and cork float | preserve one lot after current defeat | `_lose_goods` |
+| Wind-read bow hunter | longbow, storm vane and Wind Listener | exploit a forecast adverse-wind lane | `effective_weapon_range` |
+| Masked smoke hunter | knife, smoke pot and charcoal mask | break pursuit while remaining sighted | `sight_radius` |
+| Crosswind decoy scout | longbow, lantern and bird whistle | place perceived sound away from the courier | `use_gear` |
+| Thorn brace fighter | sword, buckler and thorn weave | bank guard for a stronger close counter | `attack` |
+| Quiet scree courier | staff, quiet shoes and limestone cleat | choose a low-noise ridge route without heavy boots | `terrain_status_for` |
+| Elevated sling controller | sling, sling cup and High Arc | arc over low cover and daze from height | `attack` |
+| Weighted floor salvager | staff, rope, quarry brace and timber load | use cargo as a breach counterweight | `_destroy_floor` |
+| Directed rope descender | staff, rope and fall sail | turn an intentional drop into lateral access | `_fall` |
+| Thrown-weapon retriever | hooked javelin, rope and gullbone reel | pull while recovering the physical shaft | `attack` |
+| Grounded animal ward | boar spear, Sure Footing and cleat | pin a charge before adjacency | `attack` |
+| Fixed roof marksman | crossbow and roof nail | reposition once without losing aim | `move` |
+| Verified market factor | knife, seals and market weights | convert one dependency lot into extra stock/confidence | `deliver_dependency` |

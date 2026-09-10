@@ -138,6 +138,17 @@ All seven focused relic tests passed in **0.495 seconds**. A combined follow-up
 ran 36 relevant tests successfully; one requested module name was absent and
 was recorded as a command error rather than a product failure.
 
+The build matrix now has **24 unique executable scenarios** backed by an
+inspectable, non-executable-effects manifest. Tests assemble each from physical
+items, activate a different production combination, round-trip it through
+format 7 and re-check the result. The identities cover route noise, pulling,
+guard, wet aim, breach, smoke, flood, treatment, negotiation, height, tide,
+cargo loss, wind, decoys, thorns, scree, arcing fire, structural counterweight,
+falls, recovery, animal charges, roof aim and account delivery across fourteen
+actual reducers. Both manifest/scenario tests passed in **3.919 seconds**.
+These are automated demonstrations; manual 24-build expedition coverage is
+still not claimed.
+
 Four additional regressions reproduced loose `%` cover having no projectile
 effect, a repeated cache rumor selecting the same marked coffer, and exhausted
 rumors raising `StopIteration`. The shared cover query now affects actual
@@ -156,7 +167,7 @@ them by themselves.
 | Materials | bounded shared reactions, inspection, player agency, persistence | open |
 | Ecology/AI | perceived cross-actor goals, 48 standards, 16 elites, four named rivals | open |
 | Institutions/economy | witnessed consequences, services, stock and physical contracts | open |
-| Builds | 36 weapons, 36 armour, 64 passives/techniques, 32 tools/supplies, 12 relics, 24 demonstrated builds | all content counts met; 24 scenario demonstrations open |
+| Builds | 36 weapons, 36 armour, 64 passives/techniques, 32 tools/supplies, 12 relics, 24 demonstrated builds | automated content and scenario gate met; requested manual coverage open |
 | Treasure | 60 persistent containers, history-backed objects, clue trails | open |
 | Stories | 12 substantial regional lines, three arcs, alternate outcomes | open |
 | Vessel/voyages | optional stations, twelve families, six physical deck encounters | open |
