@@ -250,6 +250,10 @@
     "wingover": {"tags": ["block", "mobility"], "upgrade_description": "Upgrade: move the ally back 3 and yourself forward 2; both gain 7 block."},
     "gravity_assist": {"tags": ["damage", "draw", "mobility"], "upgrade_description": "Upgrade: cross 3 ranks, deal 12, return, and draw 2."},
     "escort_vector": {"tags": ["block", "guard", "mobility", "status:dodge"], "upgrade_description": "Upgrade: move an ally back 2, grant 2 dodge, guard for 3, and gain 5 block."},
-    "full_burn": {"tags": ["draw", "energy", "mobility", "status:dodge", "stress_risk"], "upgrade_description": "Upgrade: burn front, gain 3 energy, draw 3, dodge once, and take 7 stress."}
+    "full_burn": {"tags": ["draw", "energy", "mobility", "status:dodge", "stress_risk"], "upgrade_description": "Upgrade: burn front, gain 3 energy, draw 3, dodge once, and take 7 stress."},
+    "thermal_shock": {"tags": ["affinity:cryogenic", "control", "damage", "payoff:weak", "setup:vulnerable"], "upgrade_description": "Upgrade: deal 9, plus 7 if weak; deeply expose and stun a weak target."},
+    "stasis_coffin": {"tags": ["affinity:cryogenic", "block", "cleanse", "payoff:deaths_door", "recovery", "status:dodge"], "upgrade_description": "Upgrade: grant 10 block; at Death's Door heal 9, grant 2 dodge, and cleanse."},
+    "frostbite": {"tags": ["affinity:cryogenic", "control", "damage", "payoff:wound", "setup:vulnerable"], "upgrade_description": "Upgrade: deal 7, plus 7 if wounded; deeply weaken and expose a wound."},
+    "absolute_zero": {"tags": ["affinity:cryogenic", "control", "draw", "payoff:vulnerable", "stress_risk"], "upgrade_description": "Upgrade: stun exposed hostiles for 2, deeply weaken all, draw from exposure, and gain 7 stress."}
   }
 }
