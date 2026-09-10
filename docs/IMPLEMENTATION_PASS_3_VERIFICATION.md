@@ -651,3 +651,10 @@ Census: 92 enemies and 131 encounters.
 Content schema 37 adds Fungal Warrens pursuit, false-target, guard and healing
 networks plus the Colony Crown guardian. All four legacy natives now have three
 actions. Census: 97 enemies and 136 encounters.
+
+Content schema 38 expands Flooded Undertow with deliberately modest normal
+bodies and disclosed mark, wound, movement and sustain coordination. Undertow
+Judge and Sump Matron form two elite-only target-order patterns; Pressure
+Sovereign is the biome guardian. All Flooded natives now have three actions.
+Census: 103 enemies and 142 encounters. This batch retains the existing normal
+HP ceiling and does not reintroduce the pre-calibration Undertow spike.
