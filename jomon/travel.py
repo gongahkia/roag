@@ -62,6 +62,11 @@ def voyage_for(
         return forced
     edge = edge_between(state, state.route_current_node, destination)
     exposure = edge.cargo_risk + edge.weather_exposure if edge else 2
+    from .calendar import calendar_at
+    from .vessel_refits import installed
+
+    if calendar_at(state).season == "winter" and installed(state, "winter-hatch-felt"):
+        exposure = max(0, exposure - 1)
     stage = f"voyage:{state.travel_count + 1}:{state.route_current_node}:{destination}:{state.weather}"
     rng = stage_rng(state.seed, stage)
     chance = 1 + min(3, sum(stack.quantity for stack in state.vessel_cargo.values()) // 4) + exposure // 3
@@ -69,7 +74,7 @@ def voyage_for(
         return None
     # The lure is intentionally rare; the other families share ordinary voyages.
     roll = rng.randrange(12)
-    if roll == 0:
+    if roll == 0 or (roll == 1 and installed(state, "sounding-keel-shoes")):
         return "lure"
     if state.travel_count == 0:
         return "creature" if roll < 5 else "raiders"
@@ -153,6 +158,12 @@ def _finish_travel(state: GameState, consequence: str) -> None:
 
 
 def _lose_vessel_cargo(state: GameState) -> str:
+    from .vessel_refits import installed
+
+    net_marker = f"refit-net-catch:{state.travel_count}"
+    if installed(state, "cargo-rail-netting") and not state.vessel_changes.get(net_marker):
+        state.vessel_changes[net_marker] = True
+        return "fitted cargo-rail netting catches the first loose lot"
     available = [name for name, stack in state.vessel_cargo.items() if stack.quantity]
     if not available:
         return "The hold is too bare to yield material cargo."
@@ -169,6 +180,7 @@ def resolve_voyage(state: GameState, response: str) -> tuple[bool, str]:
         return False, "No voyage crisis is active."
     response = response.lower()
     from .ship_crises import TACTICAL, begin_deck, abandon_deck, _finish
+    from .vessel_refits import installed
     if response == "deck":
         return begin_deck(state)
     if state.vessel_changes.get("deck_crisis"):
@@ -185,10 +197,12 @@ def resolve_voyage(state: GameState, response: str) -> tuple[bool, str]:
             _advance_world(state)
             return True, abandon_deck(state)
         if kind == "shoal" and response == "navigate":
-            cost, consequence = 4, "Soundings find a slower silt channel; four measured actions preserve the hull."
+            cost = 3 if installed(state, "sounding-keel-shoes") else 4
+            consequence = f"Soundings find a slower silt channel; {cost} measured actions preserve the hull."
         elif kind == "shoal" and response == "yield":
-            state.vessel_integrity = max(1, state.vessel_integrity - 2)
-            consequence = "The forced shoal passage scrapes two integrity from the hull."
+            damage = 1 if installed(state, "sounding-keel-shoes") else 2
+            state.vessel_integrity = max(1, state.vessel_integrity - damage)
+            consequence = f"The forced shoal passage scrapes {damage} integrity from the hull."
         elif kind == "driftwood" and response == "repel" and state.rope_uses > 0:
             from .state import CommodityStack
             state.rope_uses -= 1
@@ -197,7 +211,8 @@ def resolve_voyage(state: GameState, response: str) -> tuple[bool, str]:
         elif kind == "driftwood" and response == "yield":
             consequence = "The household lets the broken raft pass without claiming its cargo."
         elif kind == "inspection" and response == "navigate":
-            trusted = any(account.trust >= 2 for account in state.institutions.values())
+            signal = installed(state, "signal-mast-shutter")
+            trusted = any(account.trust >= (1 if signal else 2) for account in state.institutions.values())
             paper = state.vessel_cargo.get("paper")
             if not trusted and (not paper or paper.quantity <= 0):
                 return False, "Inspection needs two institutional trust or one counted paper lot."
@@ -206,6 +221,8 @@ def resolve_voyage(state: GameState, response: str) -> tuple[bool, str]:
                 if not paper.quantity:
                     del state.vessel_cargo["paper"]
             consequence = "Witnessed working claims satisfy the inspection; its memory follows this route."
+            if signal:
+                consequence += " The fitted signal shutter supplies the named visible answer."
             state.vessel_changes["inspection_witnessed"] = True
         elif kind == "inspection" and response == "counsel" and state.trade_credit >= 2:
             state.trade_credit -= 2
@@ -253,8 +270,10 @@ def resolve_voyage(state: GameState, response: str) -> tuple[bool, str]:
             success, consequence = True, "measured anchor chain fixes the real bank while the resonance passes"
         elif response == "counsel" and (state.support == "factor surety" or (state.courier and state.courier.role in {"factor", "healer"})):
             success, consequence = True, "named crew answer one another until the false familiar voices lose force"
-        elif response == "navigate" and (state.support == "route survey" or (state.courier and state.courier.role == "pilot")):
+        elif response == "navigate" and (state.support == "route survey" or (state.courier and state.courier.role == "pilot") or installed(state, "signal-mast-shutter")):
             success, consequence = True, "lead line and chart hold a material course through the lure"
+            if installed(state, "signal-mast-shutter"):
+                consequence += "; the shutter answers with Jomon's named signal"
         else:
             consequence = "the lure costs six more action-clock measures and leaves the courier disoriented"
             from .actions import _advance_world

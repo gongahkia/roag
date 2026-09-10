@@ -23,6 +23,7 @@ class VerificationCommandTests(unittest.TestCase):
         self.assertEqual(report["counts"]["cross_region_arcs"], 5)
         self.assertEqual(report["counts"]["institutions"], 12)
         self.assertEqual(report["counts"]["persistent_nonhostile_characters"], 38)
+        self.assertEqual(report["counts"]["vessel_refits"], 8)
 
     def test_persistence_and_replay_audits_are_exact(self):
         persistence = persistence_audit("focused persistence audit")

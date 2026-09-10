@@ -1172,11 +1172,13 @@ def apply_terrain_status(state: GameState, tile: str) -> str:
         messages.append(f"{name.replace('-', ' ').title()} from {cause}: {consequence}.")
     if tile in {",", "~", "w"}:
         from .calendar import calendar_at
+        from .vessel_refits import installed
 
         if (
             calendar_at(state).season == "winter"
             and "warm" not in worn_tags(state)
             and "winter-juniper" not in state.drink_effects
+            and not (state.location == "jomon" and installed(state, "winter-hatch-felt"))
             and add_status(state, "chilled", "winter water", 8, "aim, treatment, and recovery are slower")
         ):
             messages.append("Winter water chills exposed clothing; aim and recovery slow.")

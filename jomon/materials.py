@@ -154,8 +154,11 @@ def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, s
                 )
             if reaction == "water":
                 from .calendar import calendar_at
+                from .vessel_refits import installed
 
-                if calendar_at(state).season == "winter":
+                if calendar_at(state).season == "winter" and not (
+                    state.location == "jomon" and installed(state, "winter-hatch-felt")
+                ):
                     body.conditions["chilled"] = max(
                         5, body.conditions.get("chilled", 0)
                     )
@@ -182,6 +185,16 @@ def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, s
         elif reaction == "water":
             if "weatherproof" not in worn_tags(state):
                 add_status(state, "wet", "standing in flowing water", 4, "absorbent armour burdens the load; leave water to dry")
+            from .calendar import calendar_at
+            from .vessel_refits import installed
+
+            if (
+                calendar_at(state).season == "winter"
+                and "warm" not in worn_tags(state)
+                and "winter-juniper" not in state.drink_effects
+                and not (state.location == "jomon" and installed(state, "winter-hatch-felt"))
+            ):
+                add_status(state, "chilled", "winter floodwater", 8, "aim, treatment, and recovery are slower")
         elif reaction in {"salt", "lime"}:
             protection = "saltproof" if reaction == "salt" else "limeproof"
             sealed = reaction == "lime" and "limewash seal" in state.carried_passives

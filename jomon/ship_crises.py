@@ -92,6 +92,8 @@ def begin_deck(state: GameState) -> tuple[bool, str]:
     state.vessel_changes.update(deck_crisis=True, deck_ticks=0, deck_work_done=False)
     state.smoke, state.water, state.sound_events, state.group_alerts = {}, {}, [], {}
     kind = state.voyage_kind
+    from .vessel_refits import installed
+
     if kind == "raiders":
         _spawn(state, "cargo-rail hook bearer", Position(54, 10), "thief", duty="scavenge")
         _spawn(state, "skiff ward", Position(52, 12), "protector", profile="reach")
@@ -101,6 +103,9 @@ def begin_deck(state: GameState) -> tuple[bool, str]:
         _spawn(state, "cross-deck hook runner", Position(35, 12, 0), "flanker")
     elif kind == "hold-thieves":
         thief = _spawn(state, "hold recoverer", Position(14, 11, -1), "thief", duty="scavenge")
+        if installed(state, "cargo-rail-netting"):
+            thief.conditions["net-drag"] = 3
+            thief.intent = "cuts through fitted cargo-rail netting before reaching the loose shipment"
         _spawn(state, "hatch net bearer", Position(19, 10, -1), "controller", weapon="weighted net", duty="escort")
         cargo = next((name for name, stack in sorted(state.vessel_cargo.items()) if stack.quantity > 0), None)
         if cargo:
@@ -116,15 +121,27 @@ def begin_deck(state: GameState) -> tuple[bool, str]:
         station = HAZARD_STATIONS[kind]
         point = Position(station.x + 1, station.y, station.z)
         if kind == "galley-fire":
-            state.vessel_materials[key(point)] = MaterialCell(material="oil", fire=1, fuel=8, smoke=1)
+            state.vessel_materials[key(point)] = MaterialCell(
+                material="oil", fire=1,
+                fuel=5 if installed(state, "galley-fire-cover") else 8,
+                smoke=1,
+            )
             state.vessel_materials[key(Position(station.x, station.y + 1, station.z))] = MaterialCell(material="stone", water=2)
             for x in (10, 11, 12):
                 state.vessel_materials.setdefault(key(Position(x, station.y, station.z)), MaterialCell(material="cloth"))
         elif kind == "storm":
             # the normal chart-to-stay walk takes 27 moves; allow work before failure.
-            state.vessel_materials[key(point)] = MaterialCell(material="timber", support=1, collapse_due=state.world_time + 40)
+            state.vessel_materials[key(point)] = MaterialCell(
+                material="timber",
+                support=2 if installed(state, "storm-backstay") else 1,
+                collapse_due=state.world_time + (52 if installed(state, "storm-backstay") else 40),
+            )
         else:
-            state.vessel_materials[key(point)] = MaterialCell(material="timber", water=2, support=2)
+            state.vessel_materials[key(point)] = MaterialCell(
+                material="timber",
+                water=1 if installed(state, "twin-bilge-strainers") else 2,
+                support=2,
+            )
     message = f"Declared deck crisis: {VOYAGES[kind][0]}. Movement now bears time; no actor attacks on entry. " + (f"Work the marked station at {HAZARD_STATIONS[kind]}." if kind in HAZARD_STATIONS else "Watch the boarders' preparation or leave with R.")
     state.remember(message)
     state.add_message(message, priority=3)
@@ -177,7 +194,10 @@ def advance_deck(state: GameState) -> None:
         if settled:
             _finish(state, "The physical hazard is no longer active; material intervention or endurance clears the passage. Earlier damage remains.")
             return
-    if station and not state.vessel_changes.get("deck_work_done") and ticks <= 24 and ticks % 4 == 0:
+    from .vessel_refits import installed
+
+    flood_interval = 6 if installed(state, "twin-bilge-strainers") else 4
+    if station and not state.vessel_changes.get("deck_work_done") and ticks <= 24 and ticks % flood_interval == 0:
         point = Position(station.x + 1, station.y, station.z)
         cell = ensure_cell(state, point)
         if cell and kind in {"split-seam", "flooded-hold"}:
@@ -226,6 +246,8 @@ def station_action(state: GameState, tile: str):
         return ActionResult(False, False, "Inspect the bilge before pumping.", "ship-work:pump")
     if tile == "G":
         return ActionResult(False, False, "Prepare a meal from counted provisions.", "ship-work:meal")
+    if tile == "b":
+        return ActionResult(False, False, "Inspect injury treatment at this berth.", "ship-work:treat")
     return None
 
 
@@ -236,6 +258,7 @@ def work_lines(state: GameState, task: str) -> list[str]:
         "meal": "One grain or salt-fish lot and four action-clock steps restore two health and clear fatigue; persistent injury remains.",
         "emergency": "Three exposed action-clock steps secure this physical control. A rope/lever preparation helps a cracked stay; the galley cover smothers oil, the repair brace seats the seam, and the bilge pumps water.",
         "bait": "One salt-fish lot and one exposed action draw the rudder grazer clear. Fish is consumed; no animal is summoned or slain.",
+        "treat": "With a fitted sickbay sling cot, one wool lot and six action-clock steps clear one persistent injury. Lost health and other injuries remain.",
     }
     cargo = "; ".join(f"{name}: {state.vessel_cargo[name].quantity if name in state.vessel_cargo else 0}" for name in ("timber", "grain", "salt fish"))
     return [f"Hull {state.vessel_integrity}/10; {state.voyage_detail if state.combat_active else 'moored work'}", details[task],
@@ -251,6 +274,8 @@ def work(state: GameState, task: str) -> tuple[bool, str]:
     if state.location != "jomon" or state.jomon_space != "vessel":
         return False, "Work requires the physical vessel station."
     tile = base_tile(state, state.position)
+    from .vessel_refits import installed
+
     cost, message = 2, ""
     if task == "bait" and tile in {"G", "H"} and state.voyage_kind == "creature" and state.combat_active:
         fish = state.vessel_cargo.get("salt fish")
@@ -278,7 +303,10 @@ def work(state: GameState, task: str) -> tuple[bool, str]:
         for coordinate, cell in state.vessel_materials.items():
             if coordinate.endswith(f",{state.position.z}"):
                 cell.water = 0
-        cost, message = 3, "The bilge shift pumps this deck's counted water. Active unseated seams may admit more."
+        cost = 1 if installed(state, "twin-bilge-strainers") else 3
+        message = "The bilge shift pumps this deck's counted water. Active unseated seams may admit more."
+        if cost == 1:
+            message += " Twin strainers make the physical stroke one action."
     elif task == "meal" and tile == "G":
         food = next((name for name in ("grain", "salt fish") if state.vessel_cargo.get(name) and state.vessel_cargo[name].quantity > 0), None)
         if food is None or state.courier is None:
@@ -288,9 +316,28 @@ def work(state: GameState, task: str) -> tuple[bool, str]:
             del state.vessel_cargo[food]
         state.courier.health = min(state.courier.max_health, state.courier.health + 2)
         state.terrain_statuses.pop("fatigue", None)
-        cost, message = 4, f"A shared {food} meal restores two health and eases fatigue; injuries still need treatment."
+        state.terrain_statuses.pop("fatigued", None)
+        restored = 3 if installed(state, "galley-fire-cover") else 2
+        state.courier.health = min(state.courier.max_health, state.courier.health + max(0, restored - 2))
+        cost = 3 if installed(state, "galley-fire-cover") else 4
+        message = f"A shared {food} meal restores {restored} health and eases fatigue; injuries still need treatment."
+    elif task == "treat" and tile == "b":
+        if not installed(state, "sickbay-sling-cot"):
+            return False, "This berth has no fitted sickbay sling cot."
+        if state.courier is None or not state.courier.injuries:
+            return False, "The courier has no persistent injury for the sling cot."
+        wool = state.vessel_cargo.get("wool")
+        if not wool or wool.quantity <= 0:
+            return False, "Sling-cot treatment needs one clean wool hold lot."
+        wool.quantity -= 1
+        if wool.quantity == 0:
+            del state.vessel_cargo["wool"]
+        location = sorted(state.courier.injuries)[0]
+        injury = state.courier.injuries.pop(location)
+        state.courier.injury = next(iter(state.courier.injuries.values()), "treated soreness")
+        cost, message = 6, f"The sling cot and one wool lot clear {injury} at {location}; lost health and other injuries remain."
     elif task == "emergency" and state.combat_active and state.position == HAZARD_STATIONS.get(state.voyage_kind):
-        if state.voyage_kind == "storm" and state.gear != "rope" and not (state.courier and state.courier.technique == "lever craft"):
+        if state.voyage_kind == "storm" and state.gear != "rope" and not (state.courier and state.courier.technique == "lever craft") and not installed(state, "storm-backstay"):
             return False, "The stay needs a readied rope or lever craft; another courier can prepare it before the next voyage."
         point = Position(state.position.x + 1, state.position.y, state.position.z)
         cell = state.vessel_materials.get(key(point))
@@ -298,7 +345,15 @@ def work(state: GameState, task: str) -> tuple[bool, str]:
             cell.fire, cell.water, cell.smoke, cell.collapse_due, cell.support = 0, 0, 0, 0, 3
             cell.coating = "wet"
         state.vessel_changes["deck_work_done"] = True
-        cost, message = 3, "Physical emergency work secures the marked position; existing damage elsewhere remains."
+        accelerated = (
+            state.voyage_kind == "storm" and installed(state, "storm-backstay")
+            or state.voyage_kind == "galley-fire" and installed(state, "galley-fire-cover")
+            or state.voyage_kind in {"split-seam", "flooded-hold"} and installed(state, "twin-bilge-strainers")
+        )
+        cost = 2 if accelerated else 3
+        message = "Physical emergency work secures the marked position; existing damage elsewhere remains."
+        if accelerated:
+            message += " The fitted station removes one exposed action."
     else:
         return False, "This is not the selected physical work position."
     _advance_world(state, steps=cost)

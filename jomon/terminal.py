@@ -938,6 +938,22 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
             options.append(ChoiceOption("R", "Repair parent: 2 credit, +35 condition", "commitment", target.condition < 100 and state.trade_credit >= 2, "damaged item and two credit"))
             return options
         return [ChoiceOption("F", "Confirm the previewed work (two actions)", "commitment"), ChoiceOption("B", "Back without changes")]
+    if kind.startswith("vessel-refits:"):
+        from .vessel_refits import REFITS, STATION_REFITS, installation_status
+
+        station = kind.split(":", 1)[1]
+        rows = []
+        for index, refit_id in enumerate(STATION_REFITS.get(station, ())):
+            refit = REFITS[refit_id]
+            available, reason = installation_status(state, refit_id)
+            rows.append(ChoiceOption(str(index + 1), f"Fit {refit.name}", "commitment", available, reason))
+        return rows + [ChoiceOption("B", "Back without changes")]
+    if kind.startswith("station:"):
+        from .vessel_refits import STATION_REFITS
+
+        station = kind.split(":", 1)[1]
+        if station in STATION_REFITS:
+            return [ChoiceOption("V", "Inspect optional vessel refits")]
     if kind == "material":
         from .worklines import WORKLINES
         rows = [ChoiceOption(str(index + 1), name) for index, name in enumerate(("Here", "North", "East", "South", "West"))]
@@ -993,10 +1009,15 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         rows = choices(state)
         return [ChoiceOption(*row) for row in rows]
     if kind.startswith("ship-work:"):
+        from .vessel_refits import STATION_REFITS, refit_station_at
+
         task = kind.split(":", 1)[1]
         timber = state.vessel_cargo.get("timber")
         allowed = task != "repair" or bool(timber and timber.quantity and state.vessel_integrity < 10)
-        return [ChoiceOption("F", "Confirm the counted work and time", "commitment", allowed, "needs hull damage and one timber lot" if not allowed else ""), ChoiceOption("B", "Back without work")]
+        rows = [ChoiceOption("F", "Confirm the counted work and time", "commitment", allowed, "needs hull damage and one timber lot" if not allowed else "")]
+        if refit_station_at(state) in STATION_REFITS:
+            rows.append(ChoiceOption("V", "Inspect optional vessel refits"))
+        return rows + [ChoiceOption("B", "Back without work")]
     if kind == "bartender":
         return [
             ChoiceOption("D", "Browse the counted drink stock"),
@@ -1929,7 +1950,26 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             fitting = FITTINGS[parts[3]]
             return "FIT EQUIPMENT — CONFIRM", [f"{fitting.name} onto {item_spec(item.kind).name}.", fitting.effect, fitting.drawback, f"Adds {fitting.weight} carried weight; {fit_cost(state, parts[3])} credit; two actions."]
         return "EQUIPMENT WORK — CONFIRM", describe(state, item) + ["Removal keeps the part if it fits. Repair leaves fitting wear unchanged.", "Removal costs one credit; repair costs two. Both take two actions."]
+    if kind.startswith("vessel-refits:"):
+        from .vessel_refits import REFITS, STATION_REFITS, installed
+
+        station = kind.split(":", 1)[1]
+        lines = [
+            "Optional work: preview and cancellation cost no time; fitting costs three actions.",
+            "Each refit consumes one physical hold lot plus accountable credit and remains with Jomon.",
+        ]
+        for index, refit_id in enumerate(STATION_REFITS.get(station, ())):
+            refit = REFITS[refit_id]
+            status = "INSTALLED" if installed(state, refit_id) else f"one {refit.dependency}; {refit.credit} credit"
+            lines.extend((
+                f"{index + 1}. {refit.name} — {status}",
+                f"   Effect: {refit.effect}",
+                f"   Trade-off: {refit.drawback}",
+            ))
+        return f"{station.upper()} REFITS", lines
     if kind.startswith("station:"):
+        from .vessel_refits import REFITS, STATION_REFITS, installed
+
         station = kind.split(":", 1)[1]
         title, detail = {
             "galley": ("JOMON GALLEY", "Counted provisions become meals here; seasonal stores affect bar and voyage supplies."),
@@ -1944,7 +1984,11 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             "gathering": ("COMMON DECK", "Crew gather, train, and dispute work here when schedules and memories align."),
             "market": ("VISITING BERTH", "Regional merchants use this bounded berth only when a recorded visit is active."),
         }.get(station, ("JOMON WORK POSITION", "A bounded vessel activity uses this physical position."))
-        return title, [detail, "Inspection costs no time. Escape closes."]
+        fitted = [REFITS[refit_id].name for refit_id in STATION_REFITS.get(station, ()) if installed(state, refit_id)]
+        lines = [detail]
+        if station in STATION_REFITS:
+            lines.append("V. Inspect optional physical refits." + (f" Installed: {', '.join(fitted)}." if fitted else " None installed here."))
+        return title, lines + ["Inspection costs no time. Escape closes."]
     if kind == "hold":
         cargo = [f"{name}: {stack.quantity}, {stack.condition}" for name, stack in state.vessel_cargo.items()]
         return "HOLD AND LOCAL PROBLEM", cargo + ["", state.region.condition, state.region.pressure, state.region.objective_text, f"Trade credit: {state.trade_credit}"]
@@ -2134,7 +2178,12 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return "VOYAGE DANGER", crisis_lines(state)
     if kind.startswith("ship-work:"):
         from .ship_crises import work_lines
-        return "COUNTED VESSEL WORK", work_lines(state, kind.split(":", 1)[1])
+        from .vessel_refits import STATION_REFITS, refit_station_at
+
+        lines = work_lines(state, kind.split(":", 1)[1])
+        if refit_station_at(state) in STATION_REFITS:
+            lines.append("V. Inspect optional refits at this physical station; preview costs no time.")
+        return "COUNTED VESSEL WORK", lines
     if kind == "quit":
         return "QUIT JOMON?", ["Press Y to quit. Press N or Escape to continue."]
     if kind.startswith("person:"):
@@ -2235,6 +2284,8 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
     if key == 27:
         if kind.startswith("workshop:"):
             return "station:workshop", False
+        if kind.startswith("vessel-refits:"):
+            return "station:" + kind.split(":", 1)[1], False
         if kind.startswith("bartender:"):
             return "bartender", False
         return ("bartender" if kind.startswith("tavern:") else None), False
@@ -2255,12 +2306,37 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
     if kind.startswith("ship-work:"):
         if char == "b":
             return None, False
+        if char == "v":
+            from .vessel_refits import STATION_REFITS, refit_station_at
+
+            station = refit_station_at(state)
+            if station in STATION_REFITS:
+                return "vessel-refits:" + station, False
         if char == "f":
             from .ship_crises import work
             changed, message = work(state, kind.split(":", 1)[1])
             state.add_message(message, priority=3)
             return (None if changed else kind), False
         return kind, False
+    if kind.startswith("vessel-refits:"):
+        station = kind.split(":", 1)[1]
+        if char == "b":
+            return "station:" + station, False
+        if char.isdigit():
+            from .vessel_refits import STATION_REFITS, install_refit
+
+            rows = STATION_REFITS.get(station, ())
+            index = int(char) - 1
+            if 0 <= index < len(rows):
+                changed, _ = install_refit(state, rows[index])
+                return ("station:" + station if changed else kind), False
+        return kind, False
+    if kind.startswith("station:") and char == "v":
+        from .vessel_refits import STATION_REFITS
+
+        station = kind.split(":", 1)[1]
+        if station in STATION_REFITS:
+            return "vessel-refits:" + station, False
     if kind.startswith("workshop:"):
         from .workshop import FITTINGS, buy_kit, install, remove, repair
 

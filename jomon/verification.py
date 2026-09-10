@@ -31,6 +31,7 @@ from .ship_crises import TACTICAL, VOYAGES
 from .state import HISTORY_LIMIT, MESSAGE_LIMIT, StateError, create_world, game_state_from_dict
 from .travel import choose_destination, resolve_voyage
 from .vessel import DRINKS
+from .vessel_refits import REFITS, validate_refits
 from .worklines import WORKLINES
 
 
@@ -64,6 +65,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
     validate_practices()
     validate_preparations()
     validate_arc_relics()
+    validate_refits()
     roster = roster_audit()
     armour = {kind for kind, spec in ITEM_SPECS.items() if spec.category == "armour"}
     techniques = _techniques()
@@ -85,6 +87,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
         "persistent_nonhostile_characters": len(state.household) + len(state.visitors) + sum(len(contacts) for contacts in state.contacts.values()) + 2,
         "commodities": len(COMMODITIES), "voyage_families": len(VOYAGES),
         "tactical_voyage_families": len(TACTICAL), "build_scenarios": len(BUILD_SCENARIOS),
+        "vessel_refits": len(REFITS),
     }
     minima = {
         "regions": 8, "standard_enemies": 72, "mechanically_distinct_enemies": 72,
@@ -95,6 +98,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
         "institutions": 12, "persistent_nonhostile_characters": 38,
         "voyage_families": 12, "tactical_voyage_families": 6,
         "build_scenarios": 24,
+        "vessel_refits": 8,
     }
     failures = [f"{key}: {counts[key]} < {minimum}" for key, minimum in minima.items() if counts[key] < minimum]
     source_failures = []
@@ -124,6 +128,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
             "armour": sorted(armour), "passives": sorted(PASSIVES),
             "techniques": sorted(techniques), "relics": sorted(RELICS),
             "preparations": sorted(PREPARATIONS),
+            "vessel_refits": sorted(REFITS),
             "containers": sorted(container.id for region in state.regions.values() for container in region.containers),
             "quests": sorted([
                 *(definition["title"] for definition in QUESTS.values()),
