@@ -19,6 +19,7 @@ from dumbest_dungeon.migrations import (
     run_36_to_37,
     run_37_to_38,
     run_38_to_39,
+    run_39_to_40,
 )
 from dumbest_dungeon.policies import Policy, canonical_hash, execute_command
 
@@ -209,6 +210,8 @@ class MigrationTests(unittest.TestCase):
             events.append(old["resolution_queue"]["state"]["active"]["event"])
         for event in events:
             del event["payload"]["card_mastery"]
+            del event["payload"]["card_copy_id"]
+            del event["payload"]["card_infusion"]
         before = deepcopy(old)
         migrated = run_38_to_39(old)
         self.assertEqual(before, old)
@@ -219,6 +222,34 @@ class MigrationTests(unittest.TestCase):
                             for event in migrated["resolution_queue"]["state"]["pending"]))
         with self.assertRaises(MigrationError):
             run_38_to_39(migrated)
+
+    def test_infusion_payload_migration_is_pure_and_explicit(self) -> None:
+        current = GameEngine.new(load_catalog(), 49)
+        current.start_combat("lost_shift")
+        current.play_card(0, current.valid_targets(0)[0], resolve=False)
+        old = current.snapshot()
+        old["save_version"] = 39
+        old["content_manifest"]["engine"] = "0.8.0"
+        old["resolution_queue"]["state"]["schema"] = 4
+        events = list(old["resolution_queue"]["state"]["pending"])
+        if old["resolution_queue"]["state"]["active"] is not None:
+            events.append(old["resolution_queue"]["state"]["active"]["event"])
+        for event in events:
+            del event["payload"]["card_copy_id"]
+            del event["payload"]["card_infusion"]
+        before = deepcopy(old)
+        migrated = run_39_to_40(old)
+        self.assertEqual(before, old)
+        self.assertEqual(40, migrated["save_version"])
+        self.assertEqual("0.9.0", migrated["content_manifest"]["engine"])
+        self.assertEqual(5, migrated["resolution_queue"]["state"]["schema"])
+        self.assertTrue(all(
+            event["payload"]["card_copy_id"] == 0
+            and event["payload"]["card_infusion"] is None
+            for event in migrated["resolution_queue"]["state"]["pending"]
+        ))
+        with self.assertRaises(MigrationError):
+            run_39_to_40(migrated)
 
 
 if __name__ == "__main__":

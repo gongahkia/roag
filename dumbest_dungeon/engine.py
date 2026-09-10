@@ -1998,7 +1998,10 @@ class GameEngine:
             or len(deck_copy_ids) != len(set(deck_copy_ids))
             or deck_copy_ids and state.next_card_copy_id <= max(deck_copy_ids)
             or any(
-                card.infusion_id is not None
+                card.infusion_id is not None and (
+                    card.card_id not in catalog.cards
+                    or not engine.infusion_compatible(card.card_id, card.infusion_id)
+                )
                 or card.mastery is not None and (
                     not card.upgraded
                     or card.card_id not in {
@@ -2069,6 +2072,10 @@ class GameEngine:
                      if item["card_id"] == event.payload.card_id),
                     None,
                 )
+                owner_alive = any(
+                    hero.id == event.payload.actor_id and hero.alive
+                    for hero in state.heroes
+                )
                 if (card is None or card["hero"] != event.payload.actor_id or event.payload.opcode is not None
                     or event.payload.effect_index is None
                     or event.payload.card_mastery is not None and (
@@ -2076,6 +2083,18 @@ class GameEngine:
                         or event.payload.card_mastery not in {
                             branch["id"] for branch in mastery["branches"]
                         }
+                    )
+                    or event.payload.card_infusion is not None and (
+                        event.payload.card_copy_id < 1
+                        or not engine.infusion_compatible(
+                            event.payload.card_id, event.payload.card_infusion
+                        )
+                    )
+                    or event.payload.card_copy_id > 0 and owner_alive and (
+                        event.payload.card_copy_id not in durable_cards
+                        or durable_cards[event.payload.card_copy_id].card_id != event.payload.card_id
+                        or durable_cards[event.payload.card_copy_id].mastery != event.payload.card_mastery
+                        or durable_cards[event.payload.card_copy_id].infusion_id != event.payload.card_infusion
                     )):
                     raise RuleError("save queue has an invalid owned card continuation")
                 effects = card["upgrade_effects"] if event.payload.card_upgraded else card["effects"]
@@ -2086,8 +2105,12 @@ class GameEngine:
             elif (event.payload.actor_id is None and not event.payload.raw_damage and event.payload.opcode != Opcode.HEAL
                   or event.payload.opcode is None or event.event_type.value != event.payload.opcode.value):
                 raise RuleError("save queue has no matching primary actor and opcode")
-            if not continuation and event.payload.card_mastery is not None:
-                raise RuleError("save queue attaches mastery to a non-card event")
+            if not continuation and (
+                event.payload.card_mastery is not None
+                or event.payload.card_infusion is not None
+                or event.payload.card_copy_id != 0
+            ):
+                raise RuleError("save queue attaches copy modifiers to a non-card event")
             if event.payload.card_id is not None and event.payload.card_id not in catalog.cards.keys() | catalog.curses.keys():
                 raise RuleError("save queue references an unknown card")
             if any(status is not None and status not in CARD_STATUSES for status in (event.payload.status, event.payload.bonus_status)):
@@ -4138,15 +4161,17 @@ class GameEngine:
                                 branch=payload.card_mastery, effect_index=index,
                                 amount=branch["amount"])
             infusion = self.infusion_definition(payload.card_infusion)
+            infusion_effect_positions = [
+                position for position, candidate in enumerate(effects)
+                if candidate["op"] in {"damage", "block", "heal"}
+            ]
             if (
                 infusion is not None
                 and infusion["mode"] == "pressure_bonus"
                 and self.state.pressure >= 480
                 and resolved_effect["op"] in {"damage", "block", "heal"}
-                and index == next(
-                    position for position, candidate in enumerate(effects)
-                    if candidate["op"] in {"damage", "block", "heal"}
-                )
+                and infusion_effect_positions
+                and index == infusion_effect_positions[0]
             ):
                 resolved_effect["amount"] = int(resolved_effect.get("amount", 0)) + infusion["amount"]
                 self.record("infusion_trigger", infusion["id"], card=payload.card_id,
@@ -4160,7 +4185,10 @@ class GameEngine:
                     resolved_effect["amount"] -= bonus
             targets = self._effect_targets(effect.get("target"), main_targets, actor)
             self._apply_effect(actor, targets, resolved_effect, source_id=payload.card_id)
-            if index == 0:
+            if (
+                index == 0
+                and (self.infusion_definition(payload.card_infusion) or {}).get("mode") == "echo_first"
+            ):
                 self.state.effect_counters[
                     f"infusion:first:{event.root_action_id}:{payload.card_copy_id}"
                 ] = 1
@@ -5690,6 +5718,24 @@ class GameEngine:
 
         return [card_id for card_id in sorted(candidates, key=score, reverse=True)[:count]]
 
+    def infusion_options(self, card_index: int, count: int = 3) -> list[str]:
+        if not 0 <= card_index < len(self.state.deck):
+            raise RuleError("choose a card to infuse")
+        card = self.state.deck[card_index]
+        if card.card_id in self.catalog.curses or card.infusion_id is not None:
+            raise RuleError("that card cannot receive an infusion")
+        eligible = sorted(
+            infusion_id for infusion_id in self.catalog.infusions
+            if self.infusion_compatible(card.card_id, infusion_id)
+        )
+        if not eligible:
+            raise RuleError("that card has no compatible infusions")
+        rng = self._domain_rng(
+            "infusion_offer", self.state.travel_ticks, card.copy_id,
+            self.state.current_room,
+        )
+        return rng.sample(eligible, min(count, len(eligible)))
+
     def transformation_comparison(
         self,
         source_id: str,
@@ -5800,6 +5846,7 @@ class GameEngine:
         curse_id: str | None = None,
         replacement_id: str | None = None,
         mastery_branch: str | None = None,
+        infusion_id: str | None = None,
     ) -> None:
         if self.state.phase != "service":
             raise RuleError("no facility is available")
@@ -5862,6 +5909,21 @@ class GameEngine:
                 f"Mastered {self.catalog.cards[card.card_id]['name']}: "
                 f"{branches[mastery_branch]['name']}."
             )
+        elif action == "infusion" and self.state.service_type == "upgrade":
+            if card_index is None or not 0 <= card_index < len(self.state.deck):
+                raise RuleError("choose a card to infuse")
+            card = self.state.deck[card_index]
+            offered = self.infusion_options(card_index)
+            if card.infusion_id is not None or infusion_id not in offered:
+                raise RuleError("choose one of the offered compatible infusions")
+            card.infusion_id = infusion_id
+            infusion = self.catalog.infusions[infusion_id]
+            self.record("card_infused", infusion_id, card=card.card_id,
+                        copy_id=card.copy_id, mode=infusion["mode"],
+                        offered=offered, source="workshop")
+            self.add_log(
+                f"Infused {self.catalog.cards[card.card_id]['name']}: {infusion['name']}."
+            )
         elif action == "remove":
             if len(self.state.deck) <= 12:
                 raise RuleError("the deck cannot contain fewer than 12 cards")
@@ -5883,11 +5945,13 @@ class GameEngine:
             source = self.state.deck[card_index]
             self.record("card_transformed", source.card_id, destination=replacement_id,
                         offered=options, index=card_index, lost_upgrade=source.upgraded,
-                        lost_mastery=source.mastery, copy_id=source.copy_id)
+                        lost_mastery=source.mastery, lost_infusion=source.infusion_id,
+                        copy_id=source.copy_id)
             old_name = self.catalog.cards[source.card_id]["name"]
             source.card_id = replacement_id
             source.upgraded = False
             source.mastery = None
+            source.infusion_id = None
             self.add_log(
                 f"Transformed {old_name} into {self.catalog.cards[replacement_id]['name']}."
             )

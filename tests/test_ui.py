@@ -245,6 +245,15 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("Mastery:", label)
         self.assertIn("MASTERY COVERAGE", self.ui._card_tags_note(card))
 
+    def test_infused_card_discloses_marker_rule_and_limit(self) -> None:
+        card = CardInstance("brace", infusion_id="base:memory_lacquer")
+        lines = self.ui._card_lines(card)
+        self.assertIn("INF RETAIN", "".join(lines))
+        self.assertIn("[RETAIN]", self.ui._card_label(card))
+        note = self.ui._card_tags_note(card)
+        self.assertIn("INFUSION RETAIN", note)
+        self.assertIn("LIMIT NONE", note)
+
     def test_combat_hand_is_a_row_of_five_miniature_cards(self) -> None:
         self.engine.start_combat("vents")
         screen = FakeScreen()

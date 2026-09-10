@@ -40,7 +40,10 @@ class ResolutionSaveTests(unittest.TestCase):
         old["resolution_queue"]["state"]["schema"] = 1
         event = old["resolution_queue"]["state"]["pending"][0]
         del event["deferred"]
-        for key in ("raw_damage", "card_upgraded", "card_mastery", "effect_index"):
+        for key in (
+            "raw_damage", "card_upgraded", "card_mastery", "card_copy_id",
+            "card_infusion", "effect_index",
+        ):
             del event["payload"][key]
         unchanged = deepcopy(old)
         migrated = run_29_to_30(old)

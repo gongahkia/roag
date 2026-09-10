@@ -79,8 +79,13 @@ one bounded echo, follow-through draw, movement-to-energy conversion, cleanse,
 front-rank focus, mark application, wound transfer and a visible HUNTED-band
 bonus. Compatibility is expressed only through broad card target and mechanical
 tags. Every automatic mode declares a turn or combat limit; definitions cannot
-introduce callbacks or named-card dependencies. Runtime acquisition and effect
-handling land separately and are not claimed by this contract commit.
+introduce callbacks or named-card dependencies. A workshop offers three
+compatible definitions using a stable named RNG domain, and choosing one spends
+that workshop's other card-modification opportunities. The durable copy, card
+continuation and history retain its ID. Automatic follow-throughs enqueue typed
+effects and use explicit turn/combat keys; an echo repeats only the first effect
+that actually resolved and cannot recursively play the card. Transforming the
+copy explicitly removes its infusion.
 
 Content is UTF-8 JSON, decoded through `json_data.loads`. Duplicate object keys,
 non-finite constants and overflowing float exponents are rejected before content

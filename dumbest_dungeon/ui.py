@@ -1800,6 +1800,16 @@ class TerminalUI:
         else:
             choices.insert(1, "Transform a card")
             if any(
+                card.infusion_id is None
+                and card.card_id not in self.catalog.curses
+                and any(
+                    self.engine.infusion_compatible(card.card_id, infusion_id)
+                    for infusion_id in self.catalog.infusions
+                )
+                for card in self.engine.state.deck
+            ):
+                choices.insert(2, "Infuse a card")
+            if any(
                 card.upgraded
                 and card.mastery is None
                 and self.engine.mastery_definition(card.card_id) is not None
@@ -1839,6 +1849,12 @@ class TerminalUI:
             or action.startswith("Transform") and card.card_id not in self.catalog.curses
             or action.startswith("Master") and card.upgraded and card.mastery is None
             and self.engine.mastery_definition(card.card_id) is not None
+            or action.startswith("Infuse") and card.infusion_id is None
+            and card.card_id not in self.catalog.curses
+            and any(
+                self.engine.infusion_compatible(card.card_id, infusion_id)
+                for infusion_id in self.catalog.infusions
+            )
             or action.startswith("Upgrade") and not card.upgraded
             and card.card_id not in self.catalog.curses
         ]
@@ -1868,7 +1884,23 @@ class TerminalUI:
             preview_notes=preview_notes,
         )
         card_index = eligible[selected]
-        if action.startswith("Master"):
+        if action.startswith("Infuse"):
+            options = self.engine.infusion_options(card_index)
+            definitions = [self.catalog.infusions[infusion_id] for infusion_id in options]
+            picked_infusion = self._menu(
+                "ONE INFUSION PER COPY",
+                [f"{item['marker']} {item['name']} — {item['description']}" for item in definitions],
+                "The workshop is consumed. Upgrade and mastery remain; transformation removes the infusion.",
+                allow_cancel=False,
+                preview_cards=[self.engine.state.deck[card_index]] * len(definitions),
+                preview_notes=[
+                    f"{item['description']}\nLIMIT {item['limit'].upper()} | MODE {item['mode'].replace('_', ' ').upper()}"
+                    for item in definitions
+                ],
+            )
+            assert picked_infusion is not None
+            self.engine.service("infusion", card_index, infusion_id=options[picked_infusion])
+        elif action.startswith("Master"):
             card = self.engine.state.deck[card_index]
             mastery = self.engine.mastery_definition(card.card_id)
             assert mastery is not None
@@ -1916,7 +1948,9 @@ class TerminalUI:
                 labels,
                 f"SOURCE: {source_definition['name']} | E{source_definition['cost']} | "
                 f"FROM R{','.join(map(str, source_definition['from_ranks']))}\n"
-                f"TAGS: {source_tags}",
+                f"TAGS: {source_tags}\n"
+                f"LOSS: upgrade={source.upgraded}, mastery={source.mastery or 'none'}, "
+                f"infusion={source.infusion_id or 'none'}",
                 allow_cancel=False,
                 preview_cards=option_cards,
                 preview_notes=notes,
@@ -2157,7 +2191,8 @@ class TerminalUI:
             "At 100 stress they gain an affliction; reaching 100 again causes collapse. Supplies heal, calm, "
             "or restore light. Camps recover crew, modify one card, or remove one curse for 2 supplies. "
             "Workshops may irreversibly master an upgraded signature card: ENGINE intensifies its stated "
-            "effect, while COVERAGE widens its usable ranks.\n\n"
+            "effect, while COVERAGE widens its usable ranks. A card copy may instead receive one infusion; "
+            "its marker and turn/combat limit appear in deck and card inspection.\n\n"
             "Controls: arrows or hjkl navigate, Enter confirms, X/Escape cancels an active route, right-click "
             "also cancels it, E ends a combat turn, U uses a supply, B views biome rules, O views objective "
             "status, G selects the next Core route leg, D views the deck, "
@@ -2205,6 +2240,8 @@ class TerminalUI:
         definition = self.engine.card_definition(card)
         plus = "+" if card.upgraded else ""
         mastery = f"/{card.mastery[0].upper()}" if card.mastery else ""
+        infusion = self.engine.infusion_definition(card.infusion_id)
+        infusion_mark = f" [{infusion['marker']}]" if infusion is not None else ""
         if card.card_id in self.catalog.curses:
             hero = self.catalog.heroes.get(card.bound_hero_id or "", {}).get("name", "Unbound")
             return f"{definition['name']} (CURSE / {hero}) — {definition['description']}"
@@ -2219,7 +2256,9 @@ class TerminalUI:
         if card.mastery:
             branch = self.engine.mastery_branch(card)
             description += f" Mastery: {branch['description']}"
-        return f"{definition['name']}{plus}{mastery} ({self.catalog.heroes[definition['hero']]['role']}){resonance} — {description}"
+        if infusion is not None:
+            description += f" Infusion: {infusion['description']}"
+        return f"{definition['name']}{plus}{mastery}{infusion_mark} ({self.catalog.heroes[definition['hero']]['role']}){resonance} — {description}"
 
     def _card_tags_note(self, card: CardInstance) -> str:
         if card.card_id in self.catalog.curses:
@@ -2229,6 +2268,9 @@ class TerminalUI:
         if card.mastery:
             branch = self.engine.mastery_branch(card)
             note += f"\nMASTERY {card.mastery.upper()}: {branch['description']}"
+        infusion = self.engine.infusion_definition(card.infusion_id)
+        if infusion is not None:
+            note += f"\nINFUSION {infusion['marker']}: {infusion['description']} LIMIT {infusion['limit'].upper()}."
         return note
 
     def _draw_sprite(self, row: int, column: int, lines: list[str], attr: int = 0) -> None:
@@ -2257,6 +2299,7 @@ class TerminalUI:
         is_curse = card.card_id in self.catalog.curses
         plus = "+" if card.upgraded else ""
         mastery_mark = f"/{card.mastery[0].upper()}" if card.mastery else ""
+        infusion = self.engine.infusion_definition(card.infusion_id)
         cost = "X" if is_curse else (
             definition["cost"] if self.engine.state.phase == "hub" else self.engine.card_cost(card)
         )
@@ -2290,7 +2333,10 @@ class TerminalUI:
             framed(corners),
             framed(title.center(inside)),
             framed(role.center(inside)),
-            framed(self._compact_card_tags(definition) if not is_curse else "TAGS CURSE"),
+            framed(
+                f"INF {infusion['marker']}" if infusion is not None
+                else self._compact_card_tags(definition) if not is_curse else "TAGS CURSE"
+            ),
             framed(glyph[0].center(inside)),
             framed(glyph[1].center(inside)),
             framed(glyph[2].center(inside)),
@@ -2353,7 +2399,8 @@ class TerminalUI:
         hero_id = card.bound_hero_id if is_curse else definition["hero"]
         mark = self.catalog.art["curse_card_mark"] if is_curse else self.catalog.art["card_marks"][hero_id]
         plus = "+" if card.upgraded else ""
-        title = f"{definition['name'].upper()}{plus}"
+        infusion = self.engine.infusion_definition(card.infusion_id)
+        title = f"{definition['name'].upper()}{plus}{'@' if infusion is not None else ''}"
         glyph = self.catalog.art["curse_card_glyph"] if is_curse else self.catalog.art["card_glyphs"][hero_id]
         target = "UNPLAYABLE" if is_curse else definition["target"].replace("all_enemies", "all foes").replace("all_allies", "all crew")
         description = textwrap.wrap(definition["description"], inside)[:2]

@@ -1,8 +1,14 @@
 # Persistence contracts
 
-The run save currently uses schema 39, content schema 25, and the existing Python
+The run save currently uses schema 40, content schema 25, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry and manifests are implemented; the persistent profile is still pending.
+
+Schema 40 records engine 0.9.0 and resolution-queue schema 5. Card continuations
+carry their durable copy ID and infusion ID so a checkpoint cannot change a
+conditional modifier or automatic follow-through. The pure 39→40 migration adds
+copy ID zero and an explicit null infusion to old queued events; schema 39 could
+not contain an infusion, and zero retains that historical identity gap.
 
 Content schema 25 adds 16 immutable infusion definitions with one unique mode
 each. Compatibility uses broad targets and mechanical tags; automatic modes must
