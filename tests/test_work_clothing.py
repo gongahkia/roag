@@ -99,7 +99,10 @@ class WorkingClothingTests(unittest.TestCase):
             state.location, state.trade_credit, state.merchant_present = "jomon", 20, True
             state.merchant_stock = [kind]
             self.assertTrue(purchase_merchant_item(state, kind).changed)
-            bought = next(i for i in state.items if i.kind == kind)
+            bought = next(
+                i for i in state.items
+                if i.kind == kind and i.provenance == "visiting Jomon merchant"
+            )
             self.assertEqual(bought.location, "locker")
             self.assertEqual(state.trade_credit, 20 - MERCHANT_ITEMS[kind][0])
             self.assertEqual(state.merchant_stock, [])

@@ -296,7 +296,13 @@ def control_frontier(state) -> str:
 
 def settle_frontier_claim(state, choice: str) -> str:
     region = state.region
-    primary, secondary = state.contacts[region.id]
+    regional = [
+        contact for contact in state.contacts[region.id]
+        if not contact.id.startswith("network-contact-")
+    ]
+    if len(regional) < 2:
+        raise ValueError(f"{region.name} lacks its two regional claim witnesses")
+    primary, secondary = regional[:2]
     market = state.market[region.objective_commodity]
     if region.id == "dunmire":
         if choice == "b":
