@@ -576,3 +576,13 @@ migration and director group passed **22 tests in 8.402s**. All 16 registered
 modules now have deterministic behavior tests; single-enemy formations exclude
 the two ally-death modules, and mutation compatibility/exclusions remain applied
 before one seeded weighted selection per slot.
+
+## Milestone 4 gate
+
+At `6240c199a99010ae74a943ac6e71da7dd17b9cb9`, the complete warning-enabled
+suite passed **361 tests in 698.668s** (699.20s wall; 641.22s user; 10.23s sys).
+This gate includes the historical schema-26 terminal fixture, the full migration
+chain through save 37, mutation selection and every effect family, resolution
+checkpointing, deterministic policy transcripts, state-neutral terminal
+inspection and both fake-screen and real curses coverage. The suite emitted no
+warnings or skipped failures.
