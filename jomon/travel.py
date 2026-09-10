@@ -108,6 +108,9 @@ def choose_destination(
     assert edge is not None
     store_active_region(state)
     event = voyage_for(state, destination, forced=forced_voyage)
+    from .voyage_variants import select_variant
+
+    variant = select_variant(state, event, destination) if event else None
     state.travel_count += 1
     from .actions import _advance_world
 
@@ -121,9 +124,16 @@ def choose_destination(
         state.voyage_kind = event
         state.voyage_status = "active"
         from .ship_crises import VOYAGES
+        if variant:
+            state.vessel_changes["active_voyage_variant"] = variant.id
+        else:
+            state.vessel_changes.pop("active_voyage_variant", None)
         state.voyage_detail = VOYAGES[event][1]
+        if variant:
+            state.voyage_detail += f" VARIANT — {variant.name}: {variant.cause} {variant.effect}"
         state.add_message(state.voyage_detail, priority=3)
         return True, state.voyage_detail
+    state.vessel_changes.pop("active_voyage_variant", None)
     _finish_travel(state, "The voyage remains watchful but uneventful.")
     return True, f"Jomon reaches {state.route_nodes[destination].name} after {edge.travel_time} action-clock measures."
 
@@ -132,6 +142,9 @@ def _finish_travel(state: GameState, consequence: str) -> None:
     destination = state.pending_destination
     if destination is None:
         return
+    from .voyage_variants import record_variant_outcome
+
+    record_variant_outcome(state, consequence)
     origin = state.route_current_node
     edge = edge_between(state, origin, destination)
     state.route_current_node = destination
