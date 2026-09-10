@@ -401,6 +401,15 @@ saved-rule and archive group passed **20 tests in 14.899s**. Warning-enabled
 compilation, content validation and scoped diff checks passed; changed later-
 stack values remain subject to the Milestone 3 policy cohort.
 
+The final four special curses now publish their sequencing, movement and
+opening-vulnerability behavior as typed rules. Runtime vulnerability reads the
+strongest applicable authored result, preserving the prior non-additive Lead
+Feet/Brittle Guard interaction. The passive, live-stack, card-resolution,
+Frayed Focus/Tremors, saved-rule and archive group passed **35 tests in 21.297s**.
+Warning-enabled compilation, content validation and scoped diff checks passed.
+A programmatic census reports zero legacy effects across all 18 live items,
+18 boons and 18 curses.
+
 Four percentage boons now use exact hyperbolic basis-point rules. Their first
 copies retain their prior values; later stacks diminish toward disclosed caps,
 including Last Word's Death's Door resistance. A first focused invocation named

@@ -3301,12 +3301,7 @@ class GameEngine:
                 if relief:
                     self._change_stress(hero, -relief)
                 marked = round(self._hero_effect_value(hero, "curse", "start_marked"))
-                vulnerable = 0
-                brittle = self.state.curses.get(hero.id, {}).get("brittle_guard", 0)
-                if brittle:
-                    vulnerable = 2 if brittle >= 3 else 1
-                if self.state.curses.get(hero.id, {}).get("lead_feet", 0) >= 3:
-                    vulnerable = max(vulnerable, 1)
+                vulnerable = round(self._hero_effect_max_value(hero, "curse", "start_vulnerable"))
                 if marked:
                     hero.statuses["marked"] = max(hero.statuses.get("marked", 0), marked + 1)
                 if vulnerable:
@@ -3438,6 +3433,11 @@ class GameEngine:
             self.effect_value(group, effect_id, key, count)
             for effect_id, count in owned.get(hero.id, {}).items()
         )
+
+    def _hero_effect_max_value(self, hero: Actor, group: str, key: str) -> float:
+        owned = self.state.boons if group == "boon" else self.state.curses
+        return max((self.effect_value(group, effect_id, key, count)
+                    for effect_id, count in owned.get(hero.id, {}).items()), default=0)
 
     def _item_effect_value(self, key: str) -> float:
         return sum(

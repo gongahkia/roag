@@ -97,6 +97,17 @@ class PassiveContractTests(unittest.TestCase):
             self.assertTrue(all(value < Fraction(soft_cap, 10000) for value in values[1:]))
             self.assertIn("Soft cap:", GameEngine.new(catalog, 42).effect_description("curse", identity, 2))
 
+    def test_sequencing_and_threshold_curses_publish_their_real_rules(self) -> None:
+        catalog = load_catalog()
+        for identity in ("frayed_focus", "tremors"):
+            contract = catalog.curses[identity]["effects"][0].contract
+            self.assertEqual([0, 1, 2, 3], [contract.value(n) for n in (0, 1, 2, 99)])
+        lead = catalog.curses["lead_feet"]["effects"]
+        self.assertEqual([0, 1, 1], [lead[0].contract.value(n) for n in (0, 1, 99)])
+        self.assertEqual([0, 0, 0, 1], [lead[1].contract.value(n) for n in (0, 1, 2, 3)])
+        brittle = catalog.curses["brittle_guard"]["effects"][0].contract
+        self.assertEqual([0, 1, 1, 2], [brittle.value(n) for n in (0, 1, 2, 3)])
+
     def test_explicit_effect_is_typed_cached_and_has_exact_units(self) -> None:
         raw = {"key": "marked_damage_bonus", "unit": "basis_points", "stack": {"mode": "linear", "amount": 425}}
         rule = persistent_effect(raw)

@@ -211,6 +211,13 @@ Their first penalties remain 6%, 8% and 8%; later copies approach disclosed
 45%, 50% and 60% soft caps. These burdens grow meaningfully without allowing an
 unbounded percentage input to overflow combat arithmetic.
 
+Frayed Focus and Tremors declare the exact number of affected cards. Lead Feet
+is a unique one-rank hostile-movement burden plus a three-copy vulnerability
+threshold; Brittle Guard uses a separate 0/1/1/2 duration table. Opening
+vulnerability takes the strongest authored curse result rather than silently
+adding unrelated duration sources. Every live item, boon and curse effect is
+now typed; legacy curves exist only in self-contained historical rulesets.
+
 ## Queued resolution component
 
 `resolution.EventQueue` dispatches typed events through the six phases. Each

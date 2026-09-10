@@ -23,6 +23,22 @@ class LiveStackTests(unittest.TestCase):
         self.assertEqual(0, engine.card_cost(engine.state.hand[0]))
         self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(catalog, engine.snapshot()).snapshot())
 
+    def test_lead_feet_and_brittle_guard_use_authored_thresholds(self):
+        catalog = load_catalog()
+        engine = GameEngine.new(catalog, 42)
+        hero = engine.living_heroes()[0]
+        engine.acquire_curse(hero.id, "lead_feet")
+        engine.acquire_curse(hero.id, "lead_feet")
+        engine.acquire_curse(hero.id, "lead_feet")
+        engine.acquire_curse(hero.id, "brittle_guard")
+        engine.start_combat("lost_shift")
+        self.assertEqual(2, hero.statuses["vulnerable"])
+        enemy = engine.living_enemies()[0]
+        before = hero.rank
+        engine._move(hero, 1, enemy)
+        self.assertEqual(min(len(engine.living_heroes()), before + 2), hero.rank)
+        self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(catalog, engine.snapshot()).snapshot())
+
     def test_diminishing_item_family_uses_exact_monotonic_basis_points(self):
         expected = {
             "trauma_mesh": (200, 2000),
