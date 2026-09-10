@@ -25,15 +25,20 @@
 
 ## Now
 
-- Owner play and balance feedback on the completed integrated expansion.
+- Implement the Aftermath, Motion and Reciprocity tranche recorded in
+  `docs/aftermath-motion-reciprocity-milestone.md`: first route-following and
+  interaction ergonomics, then combat reciprocity, aftermath content and its
+  bounded production expansion.
 
 ## Next
 
-- Owner play of the integrated expansion; no additional speculative milestone.
+- Close the tranche's automated and real-PTY gates without turning numerical
+  content targets into label-only definitions.
 
 ## Later
 
-- Judge all eight current regions before any further geographic expansion.
+- Judge all eight current regions before any further geographic expansion;
+  this tranche deepens them in place.
 - Revisit return-route variation after the present expansion is played.
 - Add capture or rescue only if play exposes a concrete contextual need.
 
