@@ -1962,6 +1962,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         lines = [
             f"{person.name} — {person.role}; {standing}",
             f"Technique: {person.technique}",
+            "Learned practices: " + (", ".join(person.learned_techniques) or "none"),
             f"Health: {person.health}/{person.max_health}; {person.injury}",
             f"Equipment affinity: {', '.join(person.equipment)}",
             f"Current physical kit: {', '.join(physical) if physical else 'none'}",
@@ -1969,6 +1970,8 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             f"Background: {person.background}",
             "Memories:", *[f"- {memory}" for memory in (person.memories or ["No shared expedition yet."])],
         ]
+        if f"seasoned {person.role}" in person.learned_techniques:
+            lines.insert(3, "Seasoned return effect: +4 weight capacity; reinforced guard.")
         if person in state.household and person.id != state.active_courier_id and person.alive and person.available:
             lines.append("S. Switch to this courier (zero time)")
         elif person not in state.household:

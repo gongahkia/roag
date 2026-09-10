@@ -10,6 +10,7 @@ from jomon.vessel import TAVERN_MAP, VESSEL_LEVELS
 from jomon.people import RECRUIT_REQUIREMENTS, adjacent_person, person_at
 from jomon.save import load_game, save_game
 from jomon.state import Position, create_world
+from jomon.terminal import _overlay_lines
 from jomon.world import JOMON_GANGPLANK
 
 
@@ -136,6 +137,9 @@ class PhysicalTavernTests(unittest.TestCase):
         result = guard(state)
         self.assertTrue(result.changed)
         self.assertLess(threat.morale, morale)
+        _, lines = _overlay_lines(state, f"person:{courier.id}")
+        self.assertIn(f"Learned practices: seasoned {courier.role}", lines)
+        self.assertIn("Seasoned return effect: +4 weight capacity; reinforced guard.", lines)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "save.json"
             save_game(state, path)

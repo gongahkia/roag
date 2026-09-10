@@ -657,7 +657,7 @@ level. A household member—including a voluntarily recruited adult—who return
 from two expeditions records both passages and earns an inspectable seasoned
 role practice. That person, but not the office or replacement courier, gains
 four weight capacity and a reinforced guard. The development uses existing
-person memories and learned-technique persistence, is visible in the household
+person memories and learned-technique persistence, is visible in the person's
 panel, and does not add a save field or idle-time advancement. Nine focused
 people tests pass in **3.087 seconds**, including recruited-adult progression,
 guard behavior, isolation between couriers, and format-7 round trip.
