@@ -670,6 +670,14 @@ reinforcement capacity, hazards, guardians and boss phases. A ranked victory
 unlocks only the next global rank in the profile. Historical saves migrate to
 rank zero without acquiring a difficulty modifier.
 
+The expressive-mode contract defines twenty authored, mechanically distinct
+contracts plus a strict custom expedition configuration covering seed, party,
+loadouts, doctrine, four biomes, layout, starting pressure, ladder rank, active
+content packs and compatible modifiers. Versioned `DD1` challenge codes preserve
+that configuration with bounded strict parsing and a checksum. The offline daily
+derives its seed from a documented SHA-256 salt/date contract and selects one
+authored modifier without networking, accounts or randomized Python hashes.
+
 Content schema 36 gives Reactor Chapel six normal participants, two elite-only
 roles and the Choir Meltdown guardian. Three new normal roles split marking,
 cash-out and formation disruption; Critical Abbot and Containment Hulk create

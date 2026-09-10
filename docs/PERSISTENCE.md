@@ -278,3 +278,10 @@ without requiring a new repository archive for each atomic content commit.
 Run schema 43 adds `ladder_rank`. The pure 42→43 migration assigns rank zero to
 historical ordinary expeditions and updates only the recorded engine contract;
 it never retrofits difficulty into an active run.
+
+Challenge codes use the separate `DD1` contract. They contain a canonical,
+compressed custom-expedition configuration plus an eight-hex SHA-256 checksum;
+parsing is length-bounded, strict about fields and versions, and compatibility
+checked against the active catalog. Offline daily seeds are the first 64 bits of
+SHA-256 over the documented salt `dullest-dungeon/offline-daily/2026-09`, daily
+ruleset 1, and the ISO calendar date. Neither feature uses Python `hash()`.
