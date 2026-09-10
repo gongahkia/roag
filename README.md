@@ -147,8 +147,8 @@ in Jomon's bounded chronicle. Menus and real-world idle time never advance it.
 - **Frostmere Braided Estuary**, 108×58, follows three channels through gravel
   islands, a net settlement, winter loft and sheltered crossings.
 
-The latter four are generated on first visit. The systemic expansion is still
-in progress; its acceptance and play evidence are recorded in the
+The latter four are generated on first visit. The systemic expansion's exact
+acceptance and play evidence are recorded in the
 [live assessment](docs/systemic-world-milestone.md).
 
 Each uses aligned underground, ground, upper, and roof levels. The camera
@@ -190,7 +190,7 @@ identify off-level targets. Range, cover, physical ammunition and preparation
 have separate rows at 80×24. Fog, smoke and intact floors restrict both target
 inspection and actual shots; Escape costs no action.
 
-Eighteen weapon families provide different actions, including reach control,
+Thirty-six weapon families provide different actions, including reach control,
 pulling, sweep guard, knockback, destruction, aiming, reload commitments,
 height-sensitive sling casts, finite throws, net restraint, arcing staff-sling
 shots, recoverable hooked javelins, animal-bracing boar spears, and a loud
@@ -202,12 +202,13 @@ Ranged attacks telegraph their lane before a severe shot.
 
 Each region has a direct three-stage material quest with two persistent
 endings, an optional task, a named cache lead, a changed local threat duty, and
-a secondary-contact service. Refusing the opening request changes the later
-choice instead of abandoning the line. Completing any two regional lines opens
-the five-part Working Marks compact across Greywash, Greenwold, Whitecairn,
-and Hearthford. Its open-compact, Jomon-surety, and local-marks endings trade
-route safety, household credit, and local authority rather than presenting one
-unqualified outcome.
+a secondary-contact service. Four original regions add a second physical
+undertaking, giving 12 regional lines. Refusing the opening request changes the
+later choice instead of abandoning the line. Three cross-region arcs compare
+working marks, flood banks, winter soundings and bridge spans through physical
+records. Their seven endings trade route safety, household credit, market
+pressure, institutional obligations and local authority rather than presenting
+one unqualified outcome.
 
 ## Saves and verification
 
@@ -228,11 +229,19 @@ python -m compileall -q jomon tests
 python -m jomon.audit
 python -m jomon.living_audit
 python -m jomon.systemic_audit --seeds 1000
+python -m jomon.verification content
+python -m jomon.verification encounter --samples 100
+python -m jomon.verification quest --samples 25
+python -m jomon.verification persistence
+python -m jomon.verification replay --samples 100
+python -m jomon.verification living --samples 100
+python -m jomon.verification soak --samples 80
+python -m jomon.benchmark --samples 20
 git diff --check
 ```
 
-The older encounter audit samples 100 seeds across the three original added
-regions and every pressure band. The slow systemic audit constructs all eight
+The focused commands emit JSON and fail nonzero when a represented invariant
+breaks. The slow systemic audit constructs all eight
 destinations, checks production placements, history references, seasonal chart
 return routes, deterministic regeneration and exact save round trips. It emits
 JSON and explicitly lists checks it does not perform; `--start` supports

@@ -195,6 +195,17 @@ all eight primary lines, four second undertakings and all three arcs. Fifteen
 quest tests passed in **12.484 seconds**; 47 migration/gameplay/terminal
 regressions passed in **15.626 seconds**.
 
+`jomon.verification` now exposes separate machine-readable content, encounter,
+quest, persistence, deterministic replay, living-world, generation and actual
+route-memory-soak commands plus a bounded combined mode. Content derives exact
+production registries and validates equipment sources, roster distinctions,
+commodities, builds and history objects. Persistence checks an atomic JSON
+round trip, a stripped realistic format-6 shape, item identities and corruption
+rejection. Replay resumes a fixed action script through serialized state. The
+soak repeatedly travels and resolves real shoal voyages, measures traced live
+memory and serialized-state drift after warmup, and checks bounded logs and
+caches. Four focused command tests passed in **5.237 seconds**.
+
 Four additional regressions reproduced loose `%` cover having no projectile
 effect, a repeated cache rumor selecting the same marked coffer, and exhausted
 rumors raising `StopIteration`. The shared cover query now affects actual
