@@ -9,10 +9,12 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from .actions import (
+    BRACE_REACTION_WEAPONS,
     RANGED_WEAPONS,
     _advance_world,
     attack,
     attack_target_legality,
+    brace_target_legality,
     can_alter_objective,
     choose_courier,
     choose_gear,
@@ -30,7 +32,6 @@ from .actions import (
     recruit_person,
     defer_recruit,
     effective_weapon_range,
-    legal_attack_targets,
     resolve_cross_region_choice,
     resolve_regional_quest_choice,
     intervene_socially,
@@ -116,7 +117,7 @@ INVENTORY_HELP_LINES = (
     "Arrows/WASD move  Enter lift/place  R rotate  Space mark  */K all/category",
     "T transfer E equip O pack P pin Z auto [] body D drop C confirm Esc cancel",
 )
-TARGET_HELP_LINE = "Arrows/WASD/HJKL  Tab target  <> level  Enter act  Mouse select  Esc cancel"
+TARGET_HELP_LINE = "Arrows/WASD/HJKL Tab target <> level Enter attack G brace Mouse select Esc"
 ROUTE_HELP_LINES = (
     "Arrows/WASD/HJKL connected node  Enter preview/confirm  Tab layer  Esc close",
     "Mouse click selects; double-click confirms when reported; keyboard is complete",
@@ -181,7 +182,14 @@ class TargetView:
 
     @classmethod
     def begin(cls, state: GameState) -> "TargetView":
-        targets = legal_attack_targets(state)
+        targets = sorted(
+            (
+                threat for threat in state.combatants
+                if attack_target_legality(state, threat)[0]
+                or brace_target_legality(state, threat)[0]
+            ),
+            key=lambda threat: (distance(state.position, threat.position), threat.id),
+        )
         from .work_weapons import available_pots
         pots = available_pots(state) if state.weapon == "pot sling" else []
         return cls(
@@ -684,6 +692,11 @@ def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]
         )
         if data:
             lines.append(f"COUNTERS — {data['counterplay']}.")
+        brace_ok, brace_reason = brace_target_legality(state, selected)
+        if state.weapon in BRACE_REACTION_WEAPONS:
+            lines.append(
+                ("G REACTION — " if brace_ok else "G BLOCKED — ") + brace_reason + "."
+            )
     lines.append(ready)
     return information_lines(lines, width)
 
@@ -732,6 +745,10 @@ def _target_cycle(state: GameState, view: TargetView) -> None:
         if any(
             threat.id == threat_id and threat.status in {"watching", "engaged"}
             and courier_sees(state, threat.position)
+            and (
+                attack_target_legality(state, threat)[0]
+                or brace_target_legality(state, threat)[0]
+            )
             for threat in state.combatants
         )
     ]
@@ -794,6 +811,13 @@ def _handle_targeting(
         if choices:
             view.ammunition = choices[(choices.index(view.ammunition) + 1) % len(choices)] if view.ammunition in choices else choices[0]
         return False, False
+    if normalized == ord("g"):
+        target = _target_at_cursor(state, view)
+        if target is None:
+            state.add_message("No visible engaged actor occupies the selected lane.")
+            return False, False
+        result = guard(state, target.id)
+        return result.time_advanced, result.time_advanced
     movement = {
         curses.KEY_LEFT: (-1, 0), curses.KEY_RIGHT: (1, 0),
         curses.KEY_UP: (0, -1), curses.KEY_DOWN: (0, 1),

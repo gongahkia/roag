@@ -12,6 +12,7 @@ from jomon.terminal import (
     TargetView,
     _handle_targeting,
     targeting_detail,
+    targeting_lines,
 )
 from jomon.world import JOMON_GANGPLANK, cover_at, line_of_sight, projectile_path
 
@@ -155,6 +156,56 @@ class PlayerRangeTests(unittest.TestCase):
         self.assertTrue(closed)
         self.assertTrue(fired)
         self.assertLess(target.health, target.max_health)
+
+    def test_pike_guard_reacts_to_a_named_actor_attacking_through_measure(self):
+        state = armed("pike")
+        target = target_at(state, 42, profile="reach")
+        before_courier = state.courier.health
+        before_target = target.health
+
+        result = guard(state, target.id)
+
+        self.assertTrue(result.time_advanced)
+        self.assertEqual(state.courier.health, before_courier)
+        self.assertLess(target.health, before_target)
+        self.assertIsNone(state.aimed_target)
+        self.assertTrue(any("Prepared pike reaction" in line for line in state.messages))
+
+    def test_pike_guard_intercepts_entry_but_expires_if_lane_is_not_entered(self):
+        entering = armed("pike")
+        target = target_at(entering, 45)
+        view = TargetView.begin(entering)
+        self.assertIn(target.id, view.target_ids)
+        view.cursor = target.position
+        self.assertIn("G REACTION", " ".join(targeting_lines(entering, view, 78)))
+        before = target.health
+        closed, committed = _handle_targeting(entering, view, ord("g"))
+        self.assertTrue(closed)
+        self.assertTrue(committed)
+        self.assertLess(target.health, before)
+
+        expiring = armed("pike")
+        distant = target_at(expiring, 46)
+        before = distant.health
+        self.assertTrue(guard(expiring, distant.id).time_advanced)
+        self.assertEqual(distant.health, before)
+        self.assertIsNone(expiring.aimed_target)
+        self.assertTrue(any("brace expires" in line for line in expiring.messages))
+
+    def test_enemy_reach_attack_uses_the_same_warn_then_commit_timing(self):
+        state = armed("spear")
+        target = target_at(state, 42, profile="reach")
+        target.intent = "holds the measured crossing"
+        before = state.courier.health
+
+        from jomon.actions import _threat_action
+
+        warning = _threat_action(state, target, False)
+        self.assertIn("thrusts next turn", warning)
+        self.assertEqual(state.courier.health, before)
+        committed = _threat_action(state, target, False)
+        self.assertIn("hits", committed)
+        self.assertLess(state.courier.health, before)
 
 
 class RangedFairnessTests(unittest.TestCase):

@@ -195,11 +195,15 @@ claimants can return once with local supplies, or accept a witnessed settlement
 through the secondary contact. Their rewards remain physical ground items.
 
 Combat targeting includes visible actors across open z-levels. `Tab` cycles
-targets; `<` and `>` inspect another level, while the arrow/WASD/HJKL cursor
+legal attacks and reach-weapon reactions; `<` and `>` inspect another level,
+while the arrow/WASD/HJKL cursor
 moves within that level. The projected marker and `[ABOVE]`/`[BELOW]` label
 identify off-level targets. Range, cover, physical ammunition and preparation
-have separate rows at 80×24. Fog, smoke and intact floors restrict both target
-inspection and actual shots; Escape costs no action.
+have separate rows at 80×24. `G` can brace a spear, pike, glaive or staff on the
+selected engaged actor: the reaction fires only if that actor enters or attacks
+through valid measure during the guarded action, otherwise it visibly expires.
+Fog, smoke and intact floors restrict both target inspection and actual shots;
+Escape costs no action.
 
 Thirty-six weapon families provide different actions, including reach control,
 pulling, sweep guard, knockback, destruction, aiming, reload commitments,

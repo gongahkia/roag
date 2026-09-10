@@ -525,6 +525,69 @@ def apply_damage(
     return _return_after_defeat(state, f"{source} overwhelms {courier.name}.", fatal)
 
 
+BRACE_REACTION_WEAPONS = frozenset(
+    {"spear", "pike", "boar spear", "forked pike", "glaive", "quarterstaff"}
+)
+
+
+def brace_target_legality(state: GameState, threat: Threat) -> tuple[bool, str]:
+    from .world import courier_sees
+
+    if state.weapon not in BRACE_REACTION_WEAPONS:
+        return False, "the readied weapon has no prepared lane reaction"
+    if threat.status != "engaged" or not courier_sees(
+        state, threat.position
+    ):
+        return False, "the actor is not presently visible and engaged"
+    if threat.position.z != state.position.z:
+        return False, "a brace cannot cross levels"
+    gap = distance(state.position, threat.position)
+    minimum = 2 if state.weapon in {"pike", "boar spear", "forked pike", "glaive"} else 1
+    if gap < minimum:
+        return False, f"the actor is inside the brace's minimum range {minimum}"
+    if gap > effective_weapon_range(state) + 2:
+        return False, "the actor is too far to enter the lane this action"
+    return True, "guard prepares one visible one-action intercept"
+
+
+def _resolve_brace_reaction(state: GameState, threat: Threat) -> str | None:
+    if state.aimed_target != threat.id or state.weapon not in BRACE_REACTION_WEAPONS:
+        return None
+    gap = distance(state.position, threat.position)
+    minimum = 2 if state.weapon in {"pike", "boar spear", "forked pike", "glaive"} else 1
+    if (
+        threat.position.z != state.position.z
+        or not minimum <= gap <= effective_weapon_range(state)
+        or not line_of_sight(state, state.position, threat.position)
+    ):
+        return None
+    state.aimed_target = None
+    from .enemy_equipment import harm_enemy
+
+    damage = {
+        "spear": 2, "pike": 2, "boar spear": 2, "forked pike": 1,
+        "glaive": 2, "quarterstaff": 1,
+    }[state.weapon]
+    harm = harm_enemy(
+        state, threat, damage, f"{state.courier.name}'s prepared {state.weapon}",
+        damage_kind="cut" if state.weapon == "glaive" else "pierce",
+    )
+    threat.morale -= 2 if threat.profile == "animal" else 1
+    if not harm.defeated and threat.morale <= 0 and threat.profile != "machinery":
+        threat.status, threat.intent = "retreated", "breaks from the prepared lane"
+    elif not harm.defeated:
+        threat.intent = "checked by the courier's visible prepared lane"
+    outcome = "removes" if harm.defeated else f"deals {harm.amount} and checks"
+    protection = (
+        f" {harm.protection} covers {harm.location}."
+        if harm.protection != "uncovered" else f" {harm.location} is uncovered."
+    )
+    return (
+        f"Prepared {state.weapon} reaction {outcome} the {threat.name} as it enters "
+        f"the lane.{protection}{harm.dropped}"
+    )
+
+
 def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
     gap = distance(state.position, threat.position)
     threat.turn += 1
@@ -717,6 +780,10 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
     world_action = resolve_world_action(state, threat, decision)
     if world_action is not None:
         return world_action
+    if decision.action == "attack":
+        reaction = _resolve_brace_reaction(state, threat)
+        if reaction is not None:
+            return reaction
     if decision.action == "alarm":
         raise_group_alert(state, threat)
         threat.intent = "signals allies toward your last-known position"
@@ -870,6 +937,9 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             next_index = (threat.patrol_index + 1) % len(threat.patrol)
             if threat.position == threat.patrol[next_index]:
                 threat.patrol_index = next_index
+        reaction = _resolve_brace_reaction(state, threat)
+        if reaction is not None:
+            return reaction
         return f"The {threat.name} {threat.intent}."
     if decision.action == "wait":
         if threat.intent == "holds without a perceived courier position":
@@ -967,6 +1037,9 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
         "pursues quickly" if pressure(state).pursuit_steps == 2
         else "closes through the terrain"
     )
+    reaction = _resolve_brace_reaction(state, threat)
+    if reaction is not None:
+        return reaction
     return f"The {threat.name} {threat.intent}."
 
 
@@ -2505,7 +2578,7 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
     )
 
 
-def guard(state: GameState) -> ActionResult:
+def guard(state: GameState, target_id: str | None = None) -> ActionResult:
     if not state.combat_active:
         return _plain(state, "There is no expedition danger to guard against.")
     if state.weapon == "crossbow" and not state.crossbow_loaded:
@@ -2551,6 +2624,27 @@ def guard(state: GameState) -> ActionResult:
             "You hold position and listen; the world advances while you keep your bearings.",
             priority=2,
         )
+    brace_candidates = [
+        threat for threat in engaged if brace_target_legality(state, threat)[0]
+    ]
+    brace_target = (
+        next((threat for threat in brace_candidates if threat.id == target_id), None)
+        if target_id is not None
+        else min(
+            brace_candidates,
+            key=lambda threat: (distance(state.position, threat.position), threat.id),
+            default=None,
+        )
+    )
+    if target_id is not None and brace_target is None:
+        chosen = next(
+            (threat for threat in state.combatants if threat.id == target_id), None
+        )
+        reason = (
+            brace_target_legality(state, chosen)[1]
+            if chosen else "that actor is no longer present"
+        )
+        return _plain(state, "Cannot prepare that reaction: " + reason + ".")
     from .people import personal_practice
 
     strong = (
@@ -2603,7 +2697,20 @@ def guard(state: GameState) -> ActionResult:
             support.support = min(3, support.support + 1)
             support.collapse_due = 0
             text += " The counterbrace pin restores one support and cancels its warned collapse."
-    return _time_result(state, text, guarded=True, priority=3)
+    if brace_target:
+        state.aimed_target = brace_target.id
+        text += (
+            f" You visibly brace {state.weapon} on {brace_target.name}; it triggers "
+            "only if that actor enters or attacks through the valid lane this action."
+        )
+    result = _time_result(state, text, guarded=True, priority=3)
+    if brace_target and state.aimed_target == brace_target.id:
+        state.aimed_target = None
+        state.add_message(
+            f"The {brace_target.name} does not enter the prepared lane; the brace expires.",
+            priority=2,
+        )
+    return result
 
 
 def _spend_relic(state: GameState, name: str) -> None:

@@ -148,5 +148,9 @@ new magic, infinite contracts or additional major region is planned.
   melee/reach targets cycle explicitly; minimum range, cover, intended effect,
   hostile intent, physical protection and known counters are previewed before
   committing the exact selected target.
-- Prepared reactions, authored aftermath lines/arcs and the remaining content
-  multiplication gates remain open.
+- Six reach families can prepare one named, one-action reaction from that
+  cursor or ordinary guard. It fires only when the selected actor enters or
+  attacks through valid measure, uses shared harm/equipment rules, and visibly
+  expires otherwise; hostile reach attacks retain the same warn/commit rhythm.
+- Authored aftermath lines/arcs and the remaining content multiplication gates
+  remain open.
