@@ -194,6 +194,10 @@
     "crossguard": {"tags": ["block", "guard", "status:riposte"], "upgrade_description": "Upgrade: guard for 3 rounds, gain 9 block, and riposte for 3 rounds."},
     "breach_order": {"tags": ["damage", "displacement", "setup:vulnerable"], "upgrade_description": "Upgrade: deal 8, push 2 ranks, and expose for 2 rounds."},
     "marked_intercept": {"tags": ["block", "draw", "guard", "payoff:marked"], "upgrade_description": "Upgrade: guard for 2 rounds, gain 4 block, and draw if the ally is marked."},
-    "last_bulwark": {"tags": ["block", "energy", "payoff:deaths_door", "status:riposte"], "upgrade_description": "Upgrade: at Death's Door grant 12 block, riposte for 3 rounds, and gain 1 energy."}
+    "last_bulwark": {"tags": ["block", "energy", "payoff:deaths_door", "status:riposte"], "upgrade_description": "Upgrade: at Death's Door grant 12 block, riposte for 3 rounds, and gain 1 energy."},
+    "feedback_barrier": {"tags": ["block", "damage", "payoff:marked"], "upgrade_description": "Upgrade: deal 8 and, if marked, grant all crew 5 block."},
+    "anchor_array": {"tags": ["block", "mobility", "status:focus"], "upgrade_description": "Upgrade: move an ally forward 2, grant 10 block, and focus them."},
+    "wound_circuit": {"tags": ["damage", "draw", "energy", "payoff:wound"], "upgrade_description": "Upgrade: deal 8, plus 7 if wounded; a wound grants 1 energy and draws 1."},
+    "emergency_bypass": {"tags": ["draw", "energy", "stress_risk"], "upgrade_description": "Upgrade: while stressed, gain 2 energy, draw 3, and gain 3 stress."}
   }
 }
