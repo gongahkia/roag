@@ -123,7 +123,13 @@
     "base:chain_slug": [" ___ ", "/o=o\\", "\\===/", " ~|| ", "  ~~ "],
     "base:anvil_prefect": [" [#] ", "|o o|", "|===|", " /|\\ ", "_| |_"],
     "base:furnace_widow": [" .^.", "|* *|", "|{#}|", " /|\\ ", "_/ \\_"],
-    "base:crucible_magistrate": [" /^^\\ ", "|O  O|", "|####|", "|=||=|", "_/  \\_"]
+    "base:crucible_magistrate": [" /^^\\ ", "|O  O|", "|####|", "|=||=|", "_/  \\_"],
+    "base:isotope_tick": [" .*. ", "(o o)", " \\#/ ", "  |  ", " / \\ "],
+    "base:relay_penitent": [" .+. ", "|o o|", "|=R=|", " /|\\ ", "_/ \\_"],
+    "base:flux_scribe": [" [~] ", "|o o|", "|---|", " /|\\ ", " / \\ "],
+    "base:critical_abbot": [" /+\\ ", "|O O|", "|R#R|", " /|\\ ", "_| |_"],
+    "base:containment_hulk": ["[|||]", "|o o|", "|###|", "|=|=|", "_/ \\_"],
+    "base:choir_meltdown": [" /R\\ ", "|O O|", "|+++|", "|###|", "_/ \\_"]
   },
   "card_glyphs": {
     "warden": ["  /\\  ", " /##\\ ", " |==| "],

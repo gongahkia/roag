@@ -90,6 +90,21 @@ class BiomeExpansionTests(unittest.TestCase):
         self.assertTrue(any(effect.get("bonus_status") == "vulnerable" for effect in effects))
         self.assertTrue(any(effect.get("status") == "riposte" for effect in effects))
 
+    def test_reactor_floor_and_coordination_questions(self) -> None:
+        self.assert_biome_floor("reactor", "base:choir_meltdown")
+        native_ids = {enemy_id for enemy_id, enemy in self.catalog.enemies.items()
+                      if "reactor" in enemy.get("biomes", [])}
+        self.assertTrue(all(len(self.catalog.enemies[enemy_id]["actions"]) >= 3
+                            for enemy_id in native_ids))
+        new_ids = {"base:isotope_tick", "base:relay_penitent", "base:flux_scribe",
+                   "base:critical_abbot", "base:containment_hulk", "base:choir_meltdown"}
+        effects = [effect for enemy_id in new_ids
+                   for action in self.catalog.enemies[enemy_id]["actions"]
+                   for effect in action["effects"]]
+        self.assertTrue(any(effect["op"] == "guard" for effect in effects))
+        self.assertTrue(any(effect.get("bonus_status") == "marked" for effect in effects))
+        self.assertTrue(any(effect.get("status") == "vulnerable" for effect in effects))
+
 
 if __name__ == "__main__":
     unittest.main()

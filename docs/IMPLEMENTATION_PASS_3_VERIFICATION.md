@@ -641,3 +641,9 @@ the Crucible Magistrate guardian. Their vulnerable payoff, forced movement and
 retaliation patterns create distinct target-order and positioning questions.
 Every legacy Foundry native now has a third action. Census: 86 enemies and 125
 encounters.
+
+Content schema 36 gives Reactor Chapel six normal participants, two elite-only
+roles and the Choir Meltdown guardian. Three new normal roles split marking,
+cash-out and formation disruption; Critical Abbot and Containment Hulk create
+protection/priority puzzles. All Reactor natives now expose three actions.
+Census: 92 enemies and 131 encounters.
