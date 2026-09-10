@@ -104,7 +104,18 @@ Working-weapon continuation: six new physical families bring the arsenal to
 24, with normal finite container/merchant sources, payload selection and
 recoverable readied-axe throws. Fourteen focused action/ownership tests and six
 targeting tests pass; a real 80×24 Dunmire chest/packing/pitch-cast/return loop is
-recorded in `working-weapons.md`. The 36-weapon and 24-build gates remain open.
+recorded in `working-weapons.md`.
+
+Continuation completion: twelve further authored working forms bring the
+arsenal to **36 families**. They are not numeric reskins: glaive cleave,
+pollaxe protection/support break, arming-sword counter-guard, quiet aim-breaking
+knife, flood-enhanced boat-hook pull, morale-breaking mace, anti-rigid estoc,
+timber-cutting axe, guarded quarterstaff spacing, fuel-producing reed sickle,
+flood-braced anchor fluke and non-damaging chain restraint each use an explicit
+production reducer. Every form has regional chest or merchant provenance,
+physical size/weight, inspection text, and a focused behavior assertion. The
+15 weapon tests passed in **1.672 seconds**; the 40 inventory and ranged
+regressions passed in **14.827 seconds**. The 24-build gate remains open.
 
 Four additional regressions reproduced loose `%` cover having no projectile
 effect, a repeated cache rumor selecting the same marked coffer, and exhausted
@@ -124,7 +135,7 @@ them by themselves.
 | Materials | bounded shared reactions, inspection, player agency, persistence | open |
 | Ecology/AI | perceived cross-actor goals, 48 standards, 16 elites, four named rivals | open |
 | Institutions/economy | witnessed consequences, services, stock and physical contracts | open |
-| Builds | 36 weapons, 36 armour, 64 passives/techniques, 32 tools/supplies, 12 relics, 24 demonstrated builds | open |
+| Builds | 36 weapons, 36 armour, 64 passives/techniques, 32 tools/supplies, 12 relics, 24 demonstrated builds | weapon/armour/tool counts met; active discoveries, relics and scenarios open |
 | Treasure | 60 persistent containers, history-backed objects, clue trails | open |
 | Stories | 12 substantial regional lines, three arcs, alternate outcomes | open |
 | Vessel/voyages | optional stations, twelve families, six physical deck encounters | open |

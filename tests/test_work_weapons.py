@@ -2,6 +2,7 @@ import copy
 import unittest
 
 from jomon.actions import _open_container, _threat_action, attack, merchant_stock_for, move
+from jomon.content import WEAPONS
 from jomon.frontiers import FRONTIERS, build_frontier
 from jomon.inventory import (
     AMMUNITION_ITEMS, auto_place, create_item, equip_item, equipped_item,
@@ -206,7 +207,58 @@ class WorkingWeaponTests(unittest.TestCase):
         ensure_cell(self.state, Position(41, 25)).water = 1
         self.assertFalse(attack(self.state, target.id).time_advanced)
 
-    def test_all_six_have_finite_production_container_and_merchant_sources(self):
+    def test_twelve_additional_forms_have_distinct_production_effects(self):
+        cases = (
+            ("glaive", Position(42, 25), "clips", None),
+            ("pollaxe", Position(42, 25), "rigid protection", "timber"),
+            ("arming sword", Position(41, 25), "counter-posture", None),
+            ("long knife", Position(41, 25), "spoils the marked aim", None),
+            ("boat hook", Position(43, 25), "hauls the target 2 paces", "water"),
+            ("flanged mace", Position(41, 25), "break three morale", None),
+            ("estoc", Position(42, 25), "rigid gap", None),
+            ("felling axe", Position(41, 25), "two timber support", "timber"),
+            ("quarterstaff", Position(42, 25), "drives the target back", None),
+            ("reed sickle", Position(41, 25), "loose dry fuel", "reeds"),
+            ("anchor fluke", Position(42, 25), "anchors the pull", "anchor"),
+            ("chain hook", Position(42, 25), "entangles without direct harm", None),
+        )
+        for weapon, point, expected, terrain in cases:
+            with self.subTest(weapon=weapon):
+                self.setUp()
+                self.wield(weapon)
+                target = self.actor(point)
+                if weapon in {"pollaxe", "estoc"}:
+                    target.role = "protector"
+                if weapon == "long knife":
+                    target.aimed_at = self.state.position
+                if terrain in {"timber", "reeds"}:
+                    cell = ensure_cell(self.state, point)
+                    cell.material, cell.support = terrain, 3
+                elif terrain == "water":
+                    ensure_cell(self.state, point).water = 2
+                elif terrain == "anchor":
+                    ensure_cell(self.state, self.state.position).water = 2
+                if weapon == "glaive":
+                    second = self.actor(Position(point.x, point.y + 1))
+                before_health, before_morale = target.health, target.morale
+                result = attack(self.state, target.id)
+                self.assertTrue(result.time_advanced)
+                self.assertIn(expected, result.message)
+                if weapon == "glaive":
+                    self.assertEqual(second.health, 19)
+                elif weapon in {"pollaxe", "estoc"}:
+                    self.assertEqual(target.health, before_health - (4 if weapon == "pollaxe" else 4))
+                elif weapon == "flanged mace":
+                    self.assertLessEqual(target.morale, before_morale - 3)
+                elif weapon == "chain hook":
+                    self.assertEqual(target.health, before_health)
+                if terrain == "timber":
+                    expected_support = 2 if weapon == "pollaxe" else 1
+                    self.assertEqual(self.state.region.materials[key(point)].support, expected_support)
+                elif terrain == "reeds":
+                    self.assertEqual(self.state.region.materials[key(point)].material, "soil")
+
+    def test_all_eighteen_working_weapons_have_finite_sources_and_previews(self):
         found = set()
         for region_id in FRONTIERS:
             region = build_frontier("working weapon sources", region_id)
@@ -216,6 +268,8 @@ class WorkingWeaponTests(unittest.TestCase):
         self.assertEqual(found, set(WORK_WEAPONS))
         for weapon in WORK_WEAPONS:
             self.assertEqual(len(item_preview(weapon)), 3)
+        self.assertEqual(len(WORK_WEAPONS), 18)
+        self.assertEqual(len(WEAPONS), 36)
 
     def test_normal_opening_preserves_weapon_when_auto_place_is_disabled(self):
         from jomon.regions import activate_region

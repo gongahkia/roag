@@ -2276,9 +2276,14 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
     ):
         target.position = _step_away(state, target)
     sound, fitting_text = attack_effects(state, original_target_position, sound, ammo_key)
+    working_effect = None
     if work_weapon:
         from .work_weapons import strike_effects
-        weapon_text += "; " + strike_effects(state, target, _attack_targets(state, effective_weapon_range(state)))
+        working_effect = strike_effects(
+            state, target, _attack_targets(state, effective_weapon_range(state))
+        )
+        damage += working_effect.bonus_damage
+        weapon_text += "; " + working_effect.text
     if fitting_text:
         weapon_text += "; " + fitting_text
     sounds = emit_sound(state, sound)
@@ -2307,7 +2312,12 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         thrown_item.location, thrown_item.owner_id = "ground", None
         thrown_item.region_id, thrown_item.ground_position = state.spatial_id, original_target_position
         state.weapon = None
-    return _time_result(state, " ".join([text, *sounds]), guarded=work_weapon is WORK_WEAPONS["shield and hanger"], priority=3)
+    return _time_result(
+        state,
+        " ".join([text, *sounds]),
+        guarded=bool(working_effect and working_effect.guarded),
+        priority=3,
+    )
 
 
 def guard(state: GameState) -> ActionResult:
