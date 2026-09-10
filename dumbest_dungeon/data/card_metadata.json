@@ -262,6 +262,10 @@
     "annealed_wall": {"tags": ["affinity:foundry", "block", "guard", "status:riposte"], "upgrade_description": "Upgrade: guard for 3, gain 10 block plus 7 while stressed, then riposte while stressed."},
     "white_heat": {"tags": ["affinity:foundry", "block", "draw", "status:focus", "stress_risk"], "upgrade_description": "Upgrade: gain 4 focus, draw 2, gain 5 block, and take 5 stress."},
     "slag_press": {"tags": ["affinity:foundry", "block", "damage", "payoff:wound", "setup:vulnerable"], "upgrade_description": "Upgrade: deal 10, plus 7 if wounded; deeply expose and gain 5 block from a wound."},
-    "pour_the_mold": {"tags": ["affinity:foundry", "block", "status:riposte", "stress_risk"], "upgrade_description": "Upgrade: all gain 14 block and riposte; you gain 8 stress and 1 weak."}
+    "pour_the_mold": {"tags": ["affinity:foundry", "block", "status:riposte", "stress_risk"], "upgrade_description": "Upgrade: all gain 14 block and riposte; you gain 8 stress and 1 weak."},
+    "prompt_critical": {"tags": ["affinity:reactor", "draw", "energy", "status:focus", "stress_risk"], "upgrade_description": "Upgrade: gain 2 energy, 3 focus, draw 1, and gain 6 stress."},
+    "lead_liturgy": {"tags": ["affinity:reactor", "block", "cleanse", "payoff:wound", "recovery"], "upgrade_description": "Upgrade: grant 11 block, cleanse and heal 4, then take a shorter wound."},
+    "fallout_index": {"tags": ["affinity:reactor", "damage", "energy", "payoff:marked", "setup:wound"], "upgrade_description": "Upgrade: deal 8, plus 7 if marked; wound a mark for 4 and gain 1 energy."},
+    "meltdown_gospel": {"tags": ["affinity:reactor", "damage", "energy", "setup:marked", "setup:wound", "stress_risk"], "upgrade_description": "Upgrade: deal 13, mark for 3, wound for 4, gain 1 energy and 10 stress."}
   }
 }
