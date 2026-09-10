@@ -5,6 +5,7 @@ import unittest
 
 from jomon.aftermath import (
     AFTERMATH_LINES,
+    AFTERMATH_TOPOLOGIES,
     accept_contract,
     abandon_contract,
     contract_options,
@@ -17,6 +18,7 @@ from jomon.aftermath import (
 )
 from jomon.frontiers import FRONTIERS, ensure_frontier
 from jomon.inventory import auto_place, create_item, sync_legacy_load
+from jomon.materials import ensure_cell
 from jomon.quests import QUESTS
 from jomon.regions import activate_region, region_reachable
 from jomon.state import create_world, game_state_from_dict, validate_state
@@ -213,6 +215,7 @@ class EndingDerivedAftermathTests(unittest.TestCase):
 
     def test_all_sixteen_contract_definitions_have_both_disclosed_approaches(self):
         contracts = []
+        topologies = []
         for region_id in AFTERMATH_LINES:
             state = completed_revisit(f"all contracts {region_id}", region_id, 0)
             prepare_aftermath(state)
@@ -223,8 +226,57 @@ class EndingDerivedAftermathTests(unittest.TestCase):
                 keys = {row[0] for row in contract_options(state, contract.id)}
                 self.assertTrue({"d", "w", "x"}.issubset(keys))
                 contracts.append(contract.id)
+                topologies.append(contract.topology)
         self.assertEqual(len(contracts), 16)
         self.assertEqual(len(set(contracts)), 16)
+        self.assertEqual(len(set(topologies)), 16)
+        self.assertEqual(
+            set(topologies),
+            {topology for pair in AFTERMATH_TOPOLOGIES.values() for topology in pair},
+        )
+
+    def test_four_topology_families_change_drainage_fire_support_and_recovery(self):
+        hearth, _ = self.prepared("aftermath topology hearth")
+        flood = next(c for c in contracts_for(hearth) if c.topology == "flood-mark circuit")
+        timber = next(c for c in contracts_for(hearth) if c.topology == "wheel-timber account")
+        for contract in (flood, timber):
+            hearth.position = hearth.actor_schedules[contract.participant_id].position
+            self.assertTrue(accept_contract(hearth, contract.id)[0])
+        hearth.gear = "repair tools"
+        flood_cell = ensure_cell(hearth, flood.site)
+        flood_cell.water, flood_cell.ice = 3, True
+        hearth.position = flood.site
+        self.assertTrue(work_contract(hearth, flood.id)[0])
+        self.assertEqual(flood_cell.water, 1)
+        self.assertFalse(flood_cell.ice)
+        timber_cell = ensure_cell(hearth, timber.site)
+        timber_cell.support, timber_cell.collapse_due = 0, 9
+        hearth.position = timber.site
+        self.assertTrue(work_contract(hearth, timber.id)[0])
+        self.assertEqual(timber_cell.support, 2)
+        self.assertEqual(timber_cell.collapse_due, 0)
+
+        coast = completed_revisit("aftermath topology coast", "greywash", 0)
+        coast.threats.clear()
+        prepare_aftermath(coast)
+        beacon = next(c for c in contracts_for(coast) if c.topology == "storm-beacon line")
+        wreck = next(c for c in contracts_for(coast) if c.topology == "shifted-wreck recovery")
+        for contract in (beacon, wreck):
+            coast.position = coast.actor_schedules[contract.participant_id].position
+            self.assertTrue(accept_contract(coast, contract.id)[0])
+        coast.gear = "repair tools"
+        beacon_cell = ensure_cell(coast, beacon.site)
+        beacon_cell.fire, beacon_cell.smoke, beacon_cell.fuel = 3, 4, 5
+        coast.position = beacon.site
+        self.assertTrue(work_contract(coast, beacon.id)[0])
+        self.assertEqual((beacon_cell.fire, beacon_cell.smoke, beacon_cell.fuel), (0, 0, 3))
+        wreck_cell = ensure_cell(coast, wreck.site)
+        wreck_cell.coating, wreck_cell.water = "salt", 2
+        coast.position = wreck.site
+        self.assertTrue(work_contract(coast, wreck.id)[0])
+        self.assertEqual(wreck_cell.coating, "")
+        self.assertEqual(wreck_cell.water, 1)
+        self.assertTrue(coast.treasure_marks["greywash"])
 
 
 if __name__ == "__main__":

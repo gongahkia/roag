@@ -16,6 +16,34 @@ AFTERMATH_LINES = {
     "frostmere": ("Soundings after Thaw", ("Restake the sheltered channel", "Recover a net line from broken ice"), "far_bank", "works"),
 }
 
+AFTERMATH_TOPOLOGIES = {
+    "hearthford": ("flood-mark circuit", "wheel-timber account"),
+    "greywash": ("storm-beacon line", "shifted-wreck recovery"),
+    "greenwold": ("medicine boundary", "charcoal cut audit"),
+    "whitecairn": ("warning stair", "toll-brace recovery"),
+    "dunmire": ("raised peat walk", "submerged fuel mark"),
+    "rillscar": ("switchback brace", "convoy counterweight"),
+    "marlbank": ("seed-bed drainage", "abandoned kiln quench"),
+    "frostmere": ("sheltered channel stakes", "broken-ice net recovery"),
+}
+
+DRAINAGE_TOPOLOGIES = {
+    "flood-mark circuit", "raised peat walk", "seed-bed drainage",
+    "sheltered channel stakes",
+}
+FIRE_TOPOLOGIES = {
+    "storm-beacon line", "medicine boundary", "charcoal cut audit",
+    "abandoned kiln quench",
+}
+SUPPORT_TOPOLOGIES = {
+    "wheel-timber account", "warning stair", "switchback brace",
+    "convoy counterweight",
+}
+RECOVERY_TOPOLOGIES = {
+    "shifted-wreck recovery", "toll-brace recovery", "submerged fuel mark",
+    "broken-ice net recovery",
+}
+
 
 def initialise_aftermath(state: GameState) -> None:
     state.aftermath_quests = {
@@ -155,14 +183,15 @@ def _create_contracts(state: GameState, sites: tuple[Position, Position, Positio
     witness = state.contacts[region_id][1]
     crisis = str(state.region.generation_facts.get("crisis", state.region.hazard))
     branch = str(state.region.changes["aftermath_configuration"])
+    topologies = AFTERMATH_TOPOLOGIES[region_id]
     definitions = (
         (
-            f"contract:{region_id}:supply", contract_titles[0], "delivery-or-route-work",
+            f"contract:{region_id}:supply", contract_titles[0], topologies[0],
             sites[0], account.dependency,
             f"{account.dependency} stock is {state.market[account.dependency].stock} after {title}; the next scheduled shift consumes a real lot at {_position_text(sites[0])}",
         ),
         (
-            f"contract:{region_id}:scar", contract_titles[1], "recovery-or-material-work",
+            f"contract:{region_id}:scar", contract_titles[1], topologies[1],
             sites[1], account.production,
             f"the recorded {crisis} and {branch} ending left a physical work scar at {_position_text(sites[1])}",
         ),
@@ -382,16 +411,47 @@ def work_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
     if cell is None:
         return False, "The bounded material field cannot accept more work."
     old = (cell.fire, cell.water, cell.support, cell.coating)
-    cell.fire = 0
-    cell.water = max(0, cell.water - 1)
-    cell.support = min(3, cell.support + 1)
-    cell.coating = "wet" if old[0] else cell.coating
+    effect = ""
+    if contract.topology in DRAINAGE_TOPOLOGIES:
+        cell.water = max(0, cell.water - 2)
+        cell.support = min(3, cell.support + 1)
+        cell.ice = False
+        state.market[contract.commodity].demand = max(
+            0, state.market[contract.commodity].demand - 1
+        )
+        effect = "opened drainage lowers water and local material demand"
+    elif contract.topology in FIRE_TOPOLOGIES:
+        cell.fire = 0
+        cell.smoke = 0
+        cell.fuel = max(0, cell.fuel - 2)
+        cell.coating = "wet" if contract.topology == "abandoned kiln quench" else "ash"
+        state.region.changes["aftermath_firebreak"] = contract.topology
+        effect = "bounded fire work removes flame, smoke and loose fuel"
+    elif contract.topology in SUPPORT_TOPOLOGIES:
+        cell.support = min(3, cell.support + 2)
+        cell.collapse_due = 0
+        state.region.changes["aftermath_supported_route"] = contract.topology
+        effect = "structural work restores support and cancels warned collapse"
+    else:
+        cell.coating = ""
+        cell.water = max(0, cell.water - 1)
+        cell.support = min(3, cell.support + 1)
+        from .quests import mark_secondary_lead
+
+        marked = mark_secondary_lead(state)
+        effect = (
+            "physical recovery clears contamination and exposes a named store clue"
+            if marked else "physical recovery clears contamination at the exhausted store line"
+        )
     contract.stage, contract.status, contract.approach = 2, "worked", "field"
     state.region.changes[f"contract-work:{contract.id}"] = (
-        f"fire {old[0]}→{cell.fire}; water {old[1]}→{cell.water}; support {old[2]}→{cell.support}"
+        f"{contract.topology}: {effect}; fire {old[0]}→{cell.fire}; "
+        f"water {old[1]}→{cell.water}; support {old[2]}→{cell.support}; "
+        f"coating {old[3] or 'none'}→{cell.coating or 'none'}"
     )
     return True, (
-        f"The scar changes physically: fire {old[0]}→{cell.fire}, water {old[1]}→{cell.water}, support {old[2]}→{cell.support}. Return the witnessed copy."
+        f"The {contract.topology} changes physically: {effect}. Fire {old[0]}→{cell.fire}, "
+        f"water {old[1]}→{cell.water}, support {old[2]}→{cell.support}. Return the witnessed copy."
     )
 
 
@@ -425,7 +485,15 @@ def settle_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
         for edge in state.route_edges:
             if contract.region_id in {edge.first, edge.second}:
                 edge.cargo_risk = max(0, edge.cargo_risk - 1)
-        contract.outcome = "Physical scar work raises institutional confidence and eases connected cargo risk."
+        physical = str(
+            state.regions[contract.region_id].changes.get(
+                f"contract-work:{contract.id}", contract.topology
+            )
+        )
+        contract.outcome = (
+            f"{physical}. The field account raises institutional confidence and "
+            "eases connected cargo risk."
+        )
     contract.stage, contract.status = 3, "completed"
     _update_line_progress(state, contract.region_id)
     account.witnessed_acts.append(
@@ -476,6 +544,7 @@ def contract_lines(state: GameState, contract_id: str) -> list[str]:
         f"FACT — cause: {contract.cause}.",
         f"Named witness: {participant.name}, {participant.role}.",
         f"Physical site: {contract.site.x},{contract.site.y}, z{contract.site.z:+d}; material: {contract.commodity}.",
+        f"Objective topology: {contract.topology}.",
         f"State: stage {contract.stage}/3, {contract.status}; approach {contract.approach or 'not chosen'}.",
         "DISCLOSED ANSWERS — deliver one real lot at the witness, or use a working tool at the scar.",
         "The accepted paper copy occupies the pack, can be lost or stolen, and is consumed at settlement.",
@@ -488,6 +557,12 @@ def validate_aftermath(state: GameState) -> None:
         raise ValueError("aftermath quest persistence does not match the regions")
     if len(state.regional_contracts) > len(AFTERMATH_LINES) * 2:
         raise ValueError("regional contract bound exceeded")
+    all_topologies = {
+        topology for topologies in AFTERMATH_TOPOLOGIES.values()
+        for topology in topologies
+    }
+    if len(all_topologies) != len(AFTERMATH_LINES) * 2:
+        raise ValueError("aftermath objective topologies are not distinct")
     for region_id, quest in state.aftermath_quests.items():
         if quest.status not in {"locked", "available", "active", "resolution", "completed", "refused"}:
             raise ValueError("invalid aftermath quest status")
@@ -502,6 +577,8 @@ def validate_aftermath(state: GameState) -> None:
             raise ValueError("regional contract has no named participant")
         if contract.commodity not in state.regional_markets[contract.region_id]:
             raise ValueError("regional contract refers to unknown commodity")
+        if contract.topology not in AFTERMATH_TOPOLOGIES[contract.region_id]:
+            raise ValueError("regional contract has the wrong authored topology")
         if contract.status not in {"available", "active", "worked", "completed", "failed"} or not 0 <= contract.stage <= 3:
             raise ValueError("invalid regional contract progression")
         if contract.token_item_id is not None:

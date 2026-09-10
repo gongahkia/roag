@@ -144,6 +144,10 @@ new magic, infinite contracts or additional major region is planned.
 - Sixteen finite aftermath contracts are playable through a physical witnessed
   copy and either a real commodity delivery or material field work. Settlement,
   paper loss, failure, ledger inspection and mid-contract round-trip are tested.
+- Their field paths now use sixteen named objective topologies across drainage,
+  fire/fuel, structural support and physical recovery families. Those paths
+  alter material cells plus demand, route safety, firebreak state or a named
+  treasure lead rather than sharing one cosmetic repair reducer.
 - Every readied weapon now opens the same zero-time target cursor. Legal
   melee/reach targets cycle explicitly; minimum range, cover, intended effect,
   hostile intent, physical protection and known counters are previewed before
