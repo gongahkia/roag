@@ -246,6 +246,10 @@
     "packet_sniffer": {"tags": ["control", "draw", "energy", "payoff:marked", "setup:marked"], "upgrade_description": "Upgrade: against a mark draw 2 and gain 1 energy; then mark for 3 and weaken."},
     "buffer_overflow": {"tags": ["control", "discard", "draw"], "upgrade_description": "Upgrade: discard 2, draw 4, and weaken every hostile for 2 rounds."},
     "infection_vector": {"tags": ["control", "damage", "payoff:wound", "setup:marked"], "upgrade_description": "Upgrade: deal 8, plus 7 if wounded; deeply mark and weaken a wound."},
-    "zero_day": {"tags": ["control", "draw", "setup:marked", "setup:vulnerable", "stress_risk"], "upgrade_description": "Upgrade: apply 4 mark, 3 vulnerable and 3 weak to all; draw 2 and gain 8 stress."}
+    "zero_day": {"tags": ["control", "draw", "setup:marked", "setup:vulnerable", "stress_risk"], "upgrade_description": "Upgrade: apply 4 mark, 3 vulnerable and 3 weak to all; draw 2 and gain 8 stress."},
+    "wingover": {"tags": ["block", "mobility"], "upgrade_description": "Upgrade: move the ally back 3 and yourself forward 2; both gain 7 block."},
+    "gravity_assist": {"tags": ["damage", "draw", "mobility"], "upgrade_description": "Upgrade: cross 3 ranks, deal 12, return, and draw 2."},
+    "escort_vector": {"tags": ["block", "guard", "mobility", "status:dodge"], "upgrade_description": "Upgrade: move an ally back 2, grant 2 dodge, guard for 3, and gain 5 block."},
+    "full_burn": {"tags": ["draw", "energy", "mobility", "status:dodge", "stress_risk"], "upgrade_description": "Upgrade: burn front, gain 3 energy, draw 3, dodge once, and take 7 stress."}
   }
 }
