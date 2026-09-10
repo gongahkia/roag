@@ -626,3 +626,11 @@ normal participants, two elite-only participants, one five-line guardian and at
 least three actions on every Cryogenic enemy; the batch is not yet wired into
 objective guardian selection, so it is content-density evidence rather than a
 natural guardian-run claim.
+
+Content schema 34 applies the same floor to Hydroponic Tangle: Seed Slinger and
+Sap Runner supply a mobile mark/payoff line, Thorn Bailiff creates a visible
+guard/riposte wall, Canopy Midwife sustains it, Bloom Skirmisher supplies a
+simple movement tempo piece, and Orchard Leviathan alternates
+wide wounds, retaliation and rear-rank uprooting. All three legacy native
+enemies received a distinct third action. The live census is 81 enemies and 120
+encounters; guardian route integration remains a later Milestone 8 gate.

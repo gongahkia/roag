@@ -60,6 +60,21 @@ class BiomeExpansionTests(unittest.TestCase):
         engine.start_combat("base:guardian_cryogenic")
         self.assertEqual(["base:thawing_regent"], [enemy.definition_id for enemy in engine.state.enemies])
 
+    def test_hydroponic_floor_and_coordination_questions(self) -> None:
+        self.assert_biome_floor("hydroponic", "base:orchard_leviathan")
+        native_ids = {enemy_id for enemy_id, enemy in self.catalog.enemies.items()
+                      if "hydroponic" in enemy.get("biomes", [])}
+        self.assertTrue(all(len(self.catalog.enemies[enemy_id]["actions"]) >= 3
+                            for enemy_id in native_ids))
+        new_ids = {"base:seed_slinger", "base:sap_runner", "base:bloom_skirmisher",
+                   "base:thorn_bailiff", "base:canopy_midwife", "base:orchard_leviathan"}
+        effects = [effect for enemy_id in new_ids
+                   for action in self.catalog.enemies[enemy_id]["actions"]
+                   for effect in action["effects"]]
+        self.assertTrue(any(effect["op"] == "guard" for effect in effects))
+        self.assertTrue(any(effect.get("bonus_status") == "marked" for effect in effects))
+        self.assertTrue(any(effect.get("status") == "riposte" for effect in effects))
+
 
 if __name__ == "__main__":
     unittest.main()

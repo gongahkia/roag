@@ -112,7 +112,13 @@
     "base:coolant_leecher": ["  ~o~  ", " /===\\ ", "< o o >", "  ||   ", " _/\\_  "],
     "base:glacier_notary": [" [___] ", " |0 0| ", "<[###]>", "  /|\\  ", " _|_|  "],
     "base:zero_orderer": [" .***. ", " | O | ", "-[###]-", "  ||   ", " _||_  "],
-    "base:thawing_regent": [" /^^^\\ ", "|*O O*|", "|[###]|", " \\|||/ ", " _/ \\_ "]
+    "base:thawing_regent": [" /^^^\\ ", "|*O O*|", "|[###]|", " \\|||/ ", " _/ \\_ "],
+    "base:seed_slinger": [" .-. ", "(o|o)", " /|\\ ", "  |  ", " / \\ "],
+    "base:sap_runner": [" ___ ", "|s s|", "|___|", " /|\\ ", " / \\ "],
+    "base:bloom_skirmisher": [" \\|/ ", "(o o)", " <#> ", " /|\\ ", " / \\ "],
+    "base:thorn_bailiff": ["\\|||/", "|o o|", "|{#}|", " /|\\ ", " / \\ "],
+    "base:canopy_midwife": [" .V. ", "(o o)", "|~~~|", " /|\\ ", "_/ \\_"],
+    "base:orchard_leviathan": ["/^^^\\", "|o o|", "|WWW|", "|###|", " \\_/ "]
   },
   "card_glyphs": {
     "warden": ["  /\\  ", " /##\\ ", " |==| "],
