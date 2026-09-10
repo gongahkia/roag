@@ -234,6 +234,10 @@
     "tempo_parry": {"tags": ["block", "status:dodge", "status:riposte"], "upgrade_description": "Upgrade: gain 7 block, dodge twice, and riposte for 4 rounds."},
     "passing_thrust": {"tags": ["damage", "displacement", "mobility"], "upgrade_description": "Upgrade: cross 2 ranks, deal 12, push 2, then retreat 2."},
     "red_flourish": {"tags": ["damage", "draw", "payoff:wound", "status:riposte"], "upgrade_description": "Upgrade: deal 9, plus 8 if wounded; gain 3 riposte and draw 1 from a wound."},
-    "death_defiance": {"tags": ["draw", "energy", "mobility", "payoff:deaths_door", "status:dodge", "status:riposte"], "upgrade_description": "Upgrade: at Death's Door move front, gain 3 dodge, 5 riposte, 2 energy, and draw 1."}
+    "death_defiance": {"tags": ["draw", "energy", "mobility", "payoff:deaths_door", "status:dodge", "status:riposte"], "upgrade_description": "Upgrade: at Death's Door move front, gain 3 dodge, 5 riposte, 2 energy, and draw 1."},
+    "flechette_storm": {"tags": ["control", "damage", "payoff:wound", "setup:wound"], "upgrade_description": "Upgrade: deal 4, plus 5 to wounded targets; wound for 4 and weaken prior wounds."},
+    "range_solution": {"tags": ["draw", "payoff:marked", "setup:marked", "status:focus"], "upgrade_description": "Upgrade: mark for 3; against an existing mark, draw 2 and gain 3 focus."},
+    "breach_shell": {"tags": ["damage", "payoff:vulnerable", "setup:wound"], "upgrade_description": "Upgrade: deal 10, plus 10 if vulnerable, and wound an exposed target for 4."},
+    "danger_close": {"tags": ["damage", "mobility", "status:focus"], "upgrade_description": "Upgrade: deal 16 to all, suffer 6, move to the back, and gain focus."}
   }
 }
