@@ -1,12 +1,18 @@
 # Persistence contracts
 
-The run save currently uses schema 36, content schema 22, and the existing Python
+The run save currently uses schema 37, content schema 22, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry and manifests are implemented; the persistent profile is still pending.
 
 Content schema 22 adds typed elite-mutation definitions. Embedded schema-21
 rules load with an empty mutation catalog; definitions are never filled from the
 installed catalog. Content-20 remains the exact archived bundle.
+
+Schema 37 records engine 0.6.0 and the exact hostile definition ID of a disclosed
+reinforcement reserve. The pure 36→37 migration requires zero old reinforcement
+tickets and adds a null reserve: the prior engine could not select that module, so
+there is no identity to reconstruct. New combats freeze the reserve at entry and
+clear it with the rest of the encounter director state.
 
 Schema 36 records engine 0.5.0 and RNG architecture 2. Migration 35→36 changes
 only those version markers. Mutation selection uses a SHA-256-derived local

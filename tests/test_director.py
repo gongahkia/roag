@@ -29,6 +29,7 @@ class DirectorContractTests(unittest.TestCase):
         engine.state.pressure = 760
         engine.start_combat("lost_shift", enemy_ids=["control_rod"])
         enemy = engine.living_enemies()[0]
+        enemy.statuses.clear()
         base_hp = catalog.enemies["control_rod"]["max_hp"]
         self.assertEqual((base_hp * 10_500 + 5_000) // 10_000, enemy.max_hp)
         self.assertEqual(103, engine._outgoing_damage(enemy, 100))

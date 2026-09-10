@@ -937,6 +937,16 @@ class AsciiUiTests(unittest.TestCase):
             self.assertIn(mutation["marker"], self.ui._pressure_text())
             self.assertIn(mutation["description"], self.ui._pressure_text())
 
+    def test_pressure_inspection_names_frozen_reinforcement_reserve(self) -> None:
+        self.engine.start_combat("lost_shift")
+        self.engine.state.encounter_modules = ["base:reinforcement_call"]
+        self.engine.state.reinforcement_reserve_id = "hollow_crew"
+        self.engine.state.reinforcement_tickets = 1
+        text = self.ui._pressure_text()
+        self.assertIn("DISCLOSED RESERVE", text)
+        self.assertIn(self.catalog.enemies["hollow_crew"]["name"], text)
+        self.assertIn("ready", text)
+
     def test_resource_hud_marks_effect_summary_overflow(self) -> None:
         hero = self.engine.living_heroes()[0]
         self.engine.state.boons[hero.id] = {boon_id: 1 for boon_id in self.catalog.boons}

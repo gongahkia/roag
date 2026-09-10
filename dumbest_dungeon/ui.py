@@ -1233,6 +1233,10 @@ class TerminalUI:
             for mutation_id in state.encounter_modules:
                 mutation = self.catalog.mutations[mutation_id]
                 lines.append(f"{mutation['marker']} — {mutation['description']}")
+            if state.reinforcement_reserve_id is not None:
+                reserve = self.catalog.enemies[state.reinforcement_reserve_id]
+                availability = "ready" if state.reinforcement_tickets else "deployed"
+                lines.append(f"DISCLOSED RESERVE — {reserve['name']} ({availability}).")
         if status["next_threshold"] is None:
             lines.append("NEXT — no higher base-expedition band.")
         else:

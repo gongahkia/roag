@@ -117,6 +117,28 @@ class MutationRuntimeTests(unittest.TestCase):
                    if row.kind == "status" and row.source_id == "biome:slag_vent"]
         self.assertEqual(3, len(records))
 
+    def test_reinforcement_is_disclosed_saved_and_deployed_once(self) -> None:
+        engine = GameEngine.new(self.catalog, 2)
+        engine.state.pressure = 1_100
+        engine.start_combat("lost_shift")
+        self.assertIn("base:reinforcement_call", engine.state.encounter_modules)
+        reserve_id = engine.living_enemies()[-1].definition_id
+        self.assertEqual(reserve_id, engine.state.reinforcement_reserve_id)
+        restored = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+        self.assertEqual(reserve_id, restored.state.reinforcement_reserve_id)
+        first = restored.living_enemies()[0]
+        restored._damage(first, first.hp + first.block, restored.living_heroes()[0])
+        reserves = [enemy for enemy in restored.living_enemies() if ":reserve:" in enemy.id]
+        self.assertEqual(1, len(reserves))
+        self.assertEqual(reserve_id, reserves[0].definition_id)
+        self.assertEqual(0, restored.state.reinforcement_tickets)
+        second_original = next(enemy for enemy in restored.living_enemies()
+                               if ":reserve:" not in enemy.id)
+        restored._damage(second_original, second_original.hp, restored.living_heroes()[0])
+        self.assertEqual(1, sum(":reserve:" in enemy.id for enemy in restored.living_enemies()))
+        self.assertEqual(1, sum(row.kind == "reinforcement"
+                                for row in restored.state.ledger.records))
+
 
 if __name__ == "__main__":
     unittest.main()
