@@ -1,8 +1,15 @@
 # Persistence contracts
 
-The run save currently uses schema 40, content schema 26, and the existing Python
+The run save currently uses schema 41, content schema 26, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry and manifests are implemented; the persistent profile is still pending.
+
+Schema 41 records engine 1.0.0 and adds the selected owner-to-loadout mapping
+and optional party doctrine. The pure 40→41 migration supplies an empty mapping
+and no doctrine, exactly preserving every pre-feature starting deck and run.
+Departure records the resolved configuration in run history. Invalid owners,
+foreign loadouts, unavailable definitions, and incompatible doctrines are
+rejected on selection and load.
 
 Schema 40 records engine 0.9.0 and resolution-queue schema 5. Card continuations
 carry their durable copy ID and infusion ID so a checkpoint cannot change a

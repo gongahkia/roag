@@ -307,6 +307,29 @@ def run_39_to_40(snapshot: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def run_40_to_41(snapshot: dict[str, Any]) -> dict[str, Any]:
+    if type(snapshot.get("save_version")) is not int or snapshot["save_version"] != 40:
+        raise MigrationError("migration 40->41 requires save version 40")
+    manifest = snapshot.get("content_manifest")
+    state = snapshot.get("state")
+    queue = snapshot.get("resolution_queue", {}).get("state")
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("engine") != "0.9.0"
+        or not isinstance(state, dict)
+        or {"hub_loadouts", "doctrine_id"} & state.keys()
+        or not isinstance(queue, dict)
+        or queue.get("schema") != 5
+    ):
+        raise MigrationError("version-40 save requires queue schema 5 and engine 0.9.0")
+    result = deepcopy(snapshot)
+    result["state"]["hub_loadouts"] = {}
+    result["state"]["doctrine_id"] = None
+    result["save_version"] = 41
+    result["content_manifest"]["engine"] = "1.0.0"
+    return result
+
+
 RUN_MIGRATIONS = {
     26: run_26_to_27,
     27: run_27_to_28,
@@ -322,6 +345,7 @@ RUN_MIGRATIONS = {
     37: run_37_to_38,
     38: run_38_to_39,
     39: run_39_to_40,
+    40: run_40_to_41,
 }
 
 

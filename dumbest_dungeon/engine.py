@@ -202,6 +202,8 @@ class GameState:
     room_positions: list[list[int]]
     next_card_copy_id: int = 1
     hub_selection: list[str] = field(default_factory=list)
+    hub_loadouts: dict[str, str] = field(default_factory=dict)
+    doctrine_id: str | None = None
     tutorial: bool = False
     tutorial_stage: int = 0
     current_room: int = 0
@@ -717,6 +719,63 @@ class GameEngine:
         if self.state.phase != "hub" or squad_id not in self.catalog.squads:
             raise RuleError("that curated squad is unavailable")
         self.state.hub_selection = list(self.catalog.squads[squad_id]["formation"])
+        self.state.hub_loadouts = {}
+        self.state.doctrine_id = None
+
+    def starter_cards_for(self, hero_id: str) -> list[str]:
+        if hero_id not in self.catalog.heroes:
+            raise RuleError("that crew manifest entry is unavailable")
+        loadout_id = self.state.hub_loadouts.get(hero_id)
+        if loadout_id is None:
+            return list(self.catalog.heroes[hero_id]["starter_deck"])
+        loadout = self.catalog.loadouts.get(loadout_id)
+        if loadout is None or loadout["hero"] != hero_id:
+            raise RuleError("the selected loadout does not belong to that crew member")
+        return list(loadout["cards"])
+
+    def select_hub_loadout(self, hero_id: str, loadout_id: str | None) -> None:
+        if self.state.phase != "hub" or hero_id not in self.state.hub_selection:
+            raise RuleError("select that crew member before assigning a loadout")
+        if loadout_id is None:
+            self.state.hub_loadouts.pop(hero_id, None)
+        else:
+            loadout = self.catalog.loadouts.get(loadout_id)
+            if loadout is None or loadout["hero"] != hero_id:
+                raise RuleError("that advanced loadout is unavailable to this crew member")
+            self.state.hub_loadouts[hero_id] = loadout_id
+        if self.state.doctrine_id is not None and not self.doctrine_compatible(
+            self.state.doctrine_id
+        ):
+            self.state.doctrine_id = None
+
+    def party_tags_and_roles(self) -> tuple[set[str], set[str]]:
+        tags = {
+            tag
+            for hero_id in self.state.hub_selection
+            for card_id in self.starter_cards_for(hero_id)
+            for tag in self.catalog.cards[card_id]["tags"]
+        }
+        roles = {
+            self.catalog.heroes[hero_id]["combat_role"]
+            for hero_id in self.state.hub_selection
+        }
+        return tags, roles
+
+    def doctrine_compatible(self, doctrine_id: str) -> bool:
+        doctrine = self.catalog.doctrines.get(doctrine_id)
+        if doctrine is None or len(self.state.hub_selection) != 4:
+            return False
+        tags, roles = self.party_tags_and_roles()
+        return set(doctrine["requires_tags"]) <= tags and set(
+            doctrine["requires_roles"]
+        ) <= roles
+
+    def select_doctrine(self, doctrine_id: str | None) -> None:
+        if self.state.phase != "hub":
+            raise RuleError("doctrine is fixed after departure")
+        if doctrine_id is not None and not self.doctrine_compatible(doctrine_id):
+            raise RuleError("the selected party does not satisfy that doctrine")
+        self.state.doctrine_id = doctrine_id
 
     def party_warnings(self, selection: list[str] | None = None) -> list[str]:
         selection = list(self.state.hub_selection if selection is None else selection)
@@ -730,7 +789,7 @@ class GameEngine:
                 warnings.append(f"R{rank} {hero['role']} prefers R{preferred}.")
             playable = sum(
                 rank in self.catalog.cards[card_id]["from_ranks"]
-                for card_id in hero["starter_deck"]
+                for card_id in self.starter_cards_for(hero_id)
             )
             if playable < 2:
                 warnings.append(
@@ -793,6 +852,10 @@ class GameEngine:
             raise RuleError("the expedition has already departed")
         if len(self.state.hub_selection) != 4 or len(set(self.state.hub_selection)) != 4:
             raise RuleError("select exactly four unique crew members")
+        if any(hero_id not in self.state.hub_selection for hero_id in self.state.hub_loadouts):
+            raise RuleError("a selected loadout belongs to absent crew")
+        if self.state.doctrine_id is not None and not self.doctrine_compatible(self.state.doctrine_id):
+            raise RuleError("the selected party does not satisfy its doctrine")
         self.state.heroes = []
         self.state.deck = []
         self.state.next_card_copy_id = 1
@@ -809,7 +872,7 @@ class GameEngine:
                     side="hero",
                 )
             )
-            self.state.deck.extend(self._new_card(card_id) for card_id in hero["starter_deck"])
+            self.state.deck.extend(self._new_card(card_id) for card_id in self.starter_cards_for(hero_id))
         self.state.patrols = []
         for room in self.state.rooms:
             if room.kind not in {"fight", "elite", "boss"}:
@@ -832,6 +895,7 @@ class GameEngine:
         self.record("departure", "expedition", seed=self.state.seed, world=self.state.world_id,
                     layout=self.catalog.worlds[self.state.world_id]["layout"], biomes=self.state.biome_ids,
                     formation=[hero.id for hero in self.living_heroes()],
+                    loadouts=dict(self.state.hub_loadouts), doctrine=self.state.doctrine_id,
                     deck=[asdict(card) for card in self.state.deck], manifest=self.catalog.manifest.snapshot())
 
     @staticmethod
@@ -1486,6 +1550,8 @@ class GameEngine:
                 room_positions=raw["room_positions"],
                 next_card_copy_id=raw["next_card_copy_id"],
                 hub_selection=raw["hub_selection"],
+                hub_loadouts=raw["hub_loadouts"],
+                doctrine_id=raw["doctrine_id"],
                 tutorial=raw["tutorial"],
                 tutorial_stage=raw["tutorial_stage"],
                 current_room=raw["current_room"],
@@ -1592,6 +1658,21 @@ class GameEngine:
             raise RuleError("save contains an invalid surviving crew formation")
         if len(state.hub_selection) > 4 or any(hero_id not in catalog.heroes for hero_id in state.hub_selection):
             raise RuleError("save contains an invalid hub selection")
+        if (
+            not isinstance(state.hub_loadouts, dict)
+            or any(
+                hero_id not in state.hub_selection
+                or type(loadout_id) is not str
+                or loadout_id not in catalog.loadouts
+                or catalog.loadouts[loadout_id]["hero"] != hero_id
+                for hero_id, loadout_id in state.hub_loadouts.items()
+            )
+            or state.doctrine_id is not None
+            and state.doctrine_id not in catalog.doctrines
+        ):
+            raise RuleError("save contains invalid party configuration")
+        if state.doctrine_id is not None and not engine.doctrine_compatible(state.doctrine_id):
+            raise RuleError("save contains an incompatible doctrine")
         if not engine.is_walkable(state.party_x, state.party_y):
             raise RuleError("save places the crew outside the ship")
         if len(state.rooms) != 12 or any(

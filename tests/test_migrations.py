@@ -20,6 +20,7 @@ from dumbest_dungeon.migrations import (
     run_37_to_38,
     run_38_to_39,
     run_39_to_40,
+    run_40_to_41,
 )
 from dumbest_dungeon.policies import Policy, canonical_hash, execute_command
 
@@ -250,6 +251,23 @@ class MigrationTests(unittest.TestCase):
         ))
         with self.assertRaises(MigrationError):
             run_39_to_40(migrated)
+
+    def test_party_configuration_migration_is_pure_and_explicit(self) -> None:
+        current = GameEngine.new(load_catalog(), 50, start_in_hub=True)
+        old = current.snapshot()
+        old["save_version"] = 40
+        old["content_manifest"]["engine"] = "0.9.0"
+        del old["state"]["hub_loadouts"]
+        del old["state"]["doctrine_id"]
+        before = deepcopy(old)
+        migrated = run_40_to_41(old)
+        self.assertEqual(before, old)
+        self.assertEqual(41, migrated["save_version"])
+        self.assertEqual("1.0.0", migrated["content_manifest"]["engine"])
+        self.assertEqual({}, migrated["state"]["hub_loadouts"])
+        self.assertIsNone(migrated["state"]["doctrine_id"])
+        with self.assertRaises(MigrationError):
+            run_40_to_41(migrated)
 
 
 if __name__ == "__main__":
