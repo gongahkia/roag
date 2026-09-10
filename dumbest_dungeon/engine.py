@@ -94,6 +94,9 @@ class CardInstance:
     card_id: str
     upgraded: bool = False
     bound_hero_id: str | None = None
+    copy_id: int = 0
+    mastery: str | None = None
+    infusion_id: str | None = None
 
 
 @dataclass
@@ -197,6 +200,7 @@ class GameState:
     world_id: str
     biome_ids: list[str]
     room_positions: list[list[int]]
+    next_card_copy_id: int = 1
     hub_selection: list[str] = field(default_factory=list)
     tutorial: bool = False
     tutorial_stage: int = 0
@@ -565,6 +569,27 @@ class GameEngine:
         self._source_id: str | None = None
         self.resolution = EventQueue()
 
+    def _new_card(
+        self,
+        card_id: str,
+        upgraded: bool = False,
+        bound_hero_id: str | None = None,
+    ) -> CardInstance:
+        copy_id = self.state.next_card_copy_id
+        self.state.next_card_copy_id += 1
+        return CardInstance(card_id, upgraded, bound_hero_id, copy_id)
+
+    @staticmethod
+    def _clone_card(card: CardInstance) -> CardInstance:
+        return CardInstance(
+            card.card_id,
+            card.upgraded,
+            card.bound_hero_id,
+            card.copy_id,
+            card.mastery,
+            card.infusion_id,
+        )
+
     @classmethod
     def new(cls, catalog: Catalog, seed: int, *, start_in_hub: bool = False) -> GameEngine:
         rng = random.Random(seed)
@@ -770,6 +795,7 @@ class GameEngine:
             raise RuleError("select exactly four unique crew members")
         self.state.heroes = []
         self.state.deck = []
+        self.state.next_card_copy_id = 1
         for rank, hero_id in enumerate(self.state.hub_selection, 1):
             hero = self.catalog.heroes[hero_id]
             self.state.heroes.append(
@@ -783,7 +809,7 @@ class GameEngine:
                     side="hero",
                 )
             )
-            self.state.deck.extend(CardInstance(card_id) for card_id in hero["starter_deck"])
+            self.state.deck.extend(self._new_card(card_id) for card_id in hero["starter_deck"])
         self.state.patrols = []
         for room in self.state.rooms:
             if room.kind not in {"fight", "elite", "boss"}:
@@ -1458,6 +1484,7 @@ class GameEngine:
                 world_id=raw["world_id"],
                 biome_ids=raw["biome_ids"],
                 room_positions=raw["room_positions"],
+                next_card_copy_id=raw["next_card_copy_id"],
                 hub_selection=raw["hub_selection"],
                 tutorial=raw["tutorial"],
                 tutorial_stage=raw["tutorial_stage"],
@@ -1958,6 +1985,22 @@ class GameEngine:
             for card in piles
         ):
             raise RuleError("save contains an invalid bound curse card")
+        deck_copy_ids = [card.copy_id for card in state.deck]
+        combat_copy_ids = [
+            card.copy_id
+            for card in state.hand + state.draw_pile + state.discard_pile
+        ]
+        if (
+            type(state.next_card_copy_id) is not int
+            or state.next_card_copy_id < 1
+            or any(type(copy_id) is not int or copy_id < 1 for copy_id in deck_copy_ids)
+            or len(deck_copy_ids) != len(set(deck_copy_ids))
+            or deck_copy_ids and state.next_card_copy_id <= max(deck_copy_ids)
+            or any(card.mastery is not None or card.infusion_id is not None for card in piles)
+            or state.phase == "combat" and sorted(combat_copy_ids) != sorted(deck_copy_ids)
+            or state.phase != "combat" and combat_copy_ids
+        ):
+            raise RuleError("save contains invalid card-copy state")
         expected_curse_cards = {
             (hero_id, curse_id): count
             for hero_id, effects in state.curses.items()
@@ -2452,10 +2495,10 @@ class GameEngine:
             deck_card = self.state.deck[index]
             if card_id == "field_dressing":
                 deck_card.upgraded = True
-            hand.append(CardInstance(deck_card.card_id, deck_card.upgraded))
+            hand.append(self._clone_card(deck_card))
         self.state.hand = hand
         self.state.draw_pile = [
-            CardInstance(self.state.deck[index].card_id, self.state.deck[index].upgraded)
+            self._clone_card(self.state.deck[index])
             for index in unused
         ]
         self.state.discard_pile = []
@@ -3207,7 +3250,10 @@ class GameEngine:
         owned = self.state.curses.setdefault(hero_id, {})
         owned[curse_id] = owned.get(curse_id, 0) + 1
         if self.catalog.curses[curse_id]["kind"] == "card":
-            self.state.deck.append(CardInstance(curse_id, bound_hero_id=hero_id))
+            card = self._new_card(curse_id, bound_hero_id=hero_id)
+            self.state.deck.append(card)
+            if self.state.phase == "combat":
+                self.state.discard_pile.append(self._clone_card(card))
         self.record("curse_acquired", curse_id, owner=hero_id, count=owned[curse_id])
         return owned[curse_id]
 
@@ -3613,9 +3659,7 @@ class GameEngine:
                     definition_id=enemy_id,
                 )
             )
-        self.state.draw_pile = [
-            CardInstance(card.card_id, card.upgraded, card.bound_hero_id) for card in self.state.deck
-        ]
+        self.state.draw_pile = [self._clone_card(card) for card in self.state.deck]
         self.rng.shuffle(self.state.draw_pile)
         self.state.discard_pile = []
         self.state.hand = []
@@ -5444,7 +5488,7 @@ class GameEngine:
         if index is not None:
             if not 0 <= index < len(self.state.rewards):
                 raise RuleError("invalid reward")
-            self.state.deck.append(CardInstance(self.state.rewards[index]))
+            self.state.deck.append(self._new_card(self.state.rewards[index]))
             self.add_log(f"Added {self.catalog.cards[self.state.rewards[index]]['name']} to the deck.")
         self.record("card_choice", "reward:technique",
                     picked=self.state.rewards[index] if index is not None else None,

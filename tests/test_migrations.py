@@ -17,6 +17,7 @@ from dumbest_dungeon.migrations import (
     run_34_to_35,
     run_35_to_36,
     run_36_to_37,
+    run_37_to_38,
 )
 from dumbest_dungeon.policies import Policy, canonical_hash, execute_command
 
@@ -131,6 +132,11 @@ class MigrationTests(unittest.TestCase):
         old["save_version"] = 36
         old["content_manifest"]["engine"] = "0.5.0"
         del old["state"]["reinforcement_reserve_id"]
+        del old["state"]["next_card_copy_id"]
+        for zone in ("deck", "hand", "draw_pile", "discard_pile"):
+            for card in old["state"][zone]:
+                for field in ("copy_id", "mastery", "infusion_id"):
+                    del card[field]
         before = deepcopy(old)
         migrated = run_36_to_37(old)
         self.assertEqual(before, old)
@@ -142,6 +148,52 @@ class MigrationTests(unittest.TestCase):
         broken["state"]["reinforcement_tickets"] = 1
         with self.assertRaises(MigrationError):
             run_36_to_37(broken)
+
+    def test_card_identity_migration_is_pure_and_maps_combat_copies(self) -> None:
+        current = GameEngine.new(load_catalog(), 46)
+        current.start_combat("lost_shift")
+        old = current.snapshot()
+        old["save_version"] = 37
+        old["content_manifest"]["engine"] = "0.6.0"
+        del old["state"]["next_card_copy_id"]
+        for zone in ("deck", "hand", "draw_pile", "discard_pile"):
+            for card in old["state"][zone]:
+                for field in ("copy_id", "mastery", "infusion_id"):
+                    del card[field]
+        before = deepcopy(old)
+        migrated = run_37_to_38(old)
+        self.assertEqual(before, old)
+        self.assertEqual(38, migrated["save_version"])
+        self.assertEqual("0.7.0", migrated["content_manifest"]["engine"])
+        deck_ids = [card["copy_id"] for card in migrated["state"]["deck"]]
+        combat_ids = [
+            card["copy_id"]
+            for zone in ("hand", "draw_pile", "discard_pile")
+            for card in migrated["state"][zone]
+        ]
+        self.assertEqual(list(range(1, len(deck_ids) + 1)), deck_ids)
+        self.assertEqual(sorted(deck_ids), sorted(combat_ids))
+        self.assertEqual(len(deck_ids) + 1, migrated["state"]["next_card_copy_id"])
+        self.assertTrue(all(
+            card["mastery"] is None and card["infusion_id"] is None
+            for zone in ("deck", "hand", "draw_pile", "discard_pile")
+            for card in migrated["state"][zone]
+        ))
+
+    def test_card_identity_migration_rejects_unmatched_combat_copy(self) -> None:
+        current = GameEngine.new(load_catalog(), 47)
+        current.start_combat("lost_shift")
+        old = current.snapshot()
+        old["save_version"] = 37
+        old["content_manifest"]["engine"] = "0.6.0"
+        del old["state"]["next_card_copy_id"]
+        for zone in ("deck", "hand", "draw_pile", "discard_pile"):
+            for card in old["state"][zone]:
+                for field in ("copy_id", "mastery", "infusion_id"):
+                    del card[field]
+        old["state"]["hand"][0]["card_id"] = "not_in_deck"
+        with self.assertRaisesRegex(MigrationError, "do not match"):
+            run_37_to_38(old)
 
 
 if __name__ == "__main__":

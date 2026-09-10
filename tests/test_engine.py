@@ -1329,7 +1329,10 @@ class EngineTests(unittest.TestCase):
                     engine = GameEngine.new(self.catalog, 7, start_in_hub=True)
                     engine.state.hub_selection = party[:4]
                     engine.begin_expedition()
-                    engine.start_combat("security")
+                    engine.start_combat(
+                        "security",
+                        enemy_ids=["hollow_crew", "hollow_crew", "hollow_crew", "hollow_crew"],
+                    )
                     actor = next(hero for hero in engine.state.heroes if hero.id == definition["hero"])
                     desired = definition["from_ranks"][0]
                     engine._move(actor, desired - actor.rank)

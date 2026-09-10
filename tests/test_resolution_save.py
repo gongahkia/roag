@@ -13,6 +13,14 @@ from dumbest_dungeon.triggers import EventType as E
 
 
 class ResolutionSaveTests(unittest.TestCase):
+    @staticmethod
+    def strip_card_identity(raw: dict) -> None:
+        del raw["state"]["next_card_copy_id"]
+        for zone in ("deck", "hand", "draw_pile", "discard_pile"):
+            for card in raw["state"][zone]:
+                for field in ("copy_id", "mastery", "infusion_id"):
+                    del card[field]
+
     def test_raw_damage_payload_migration_is_pure_and_strict(self) -> None:
         engine = GameEngine.new(load_legacy_catalog(), 42)
         hero = engine.living_heroes()[0]
@@ -26,6 +34,7 @@ class ResolutionSaveTests(unittest.TestCase):
             "encounter_pressure", "encounter_modules", "reinforcement_tickets", "reinforcement_reserve_id",
         ):
             del old["state"][field]
+        self.strip_card_identity(old)
         old["content_manifest"]["engine"] = "0.1.0"
         old["content_manifest"]["rng_architecture"] = 1
         old["resolution_queue"]["state"]["schema"] = 1
@@ -117,6 +126,7 @@ class ResolutionSaveTests(unittest.TestCase):
             "encounter_pressure", "encounter_modules", "reinforcement_tickets", "reinforcement_reserve_id",
         ):
             del raw["state"][field]
+        self.strip_card_identity(raw)
         raw["content_manifest"]["engine"] = "0.1.0"
         raw["content_manifest"]["rng_architecture"] = 1
         loaded = GameEngine.from_snapshot(engine.catalog, raw)

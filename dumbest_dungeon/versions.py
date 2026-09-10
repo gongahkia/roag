@@ -1,8 +1,8 @@
 """Independent compatibility contracts; increment only the changed boundary."""
 
-ENGINE_VERSION = "0.6.0"
+ENGINE_VERSION = "0.7.0"
 CONTENT_SCHEMA = 23
-RUN_SAVE_SCHEMA = 37
+RUN_SAVE_SCHEMA = 38
 PROFILE_SCHEMA = 1
 TELEMETRY_SCHEMA = 1
 RNG_ARCHITECTURE = 2

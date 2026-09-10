@@ -6,6 +6,18 @@ from dumbest_dungeon.engine import CardInstance, GameEngine
 
 
 class LiveStackTests(unittest.TestCase):
+    @staticmethod
+    def set_hand(engine, card_ids):
+        available = list(engine.state.deck)
+        hand = []
+        for card_id in card_ids:
+            card = next(card for card in available if card.card_id == card_id)
+            available.remove(card)
+            hand.append(engine._clone_card(card))
+        engine.state.hand = hand
+        engine.state.draw_pile = []
+        engine.state.discard_pile = [engine._clone_card(card) for card in available]
+
     def test_vigilance_and_quick_hands_use_authored_stack_results(self):
         catalog = load_catalog()
         baseline = GameEngine.new(catalog, 42)
@@ -19,7 +31,7 @@ class LiveStackTests(unittest.TestCase):
         engine.start_combat("lost_shift")
         self.assertEqual(2, hero.statuses["dodge"])
         self.assertEqual(baseline_block + 2, hero.block)
-        engine.state.hand = [CardInstance("baton_strike")]
+        self.set_hand(engine, ["baton_strike"])
         self.assertEqual(0, engine.card_cost(engine.state.hand[0]))
         self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(catalog, engine.snapshot()).snapshot())
 
@@ -82,7 +94,11 @@ class LiveStackTests(unittest.TestCase):
             engine.acquire_item("reserve_cell", count)
             engine.start_combat("lost_shift")
             # constructed combat, with normal card costs and shared starting energy.
-            engine.state.hand = [CardInstance("brace") for _ in range(5)]
+            existing = sum(card.card_id == "brace" for card in engine.state.deck)
+            engine.state.deck.extend(
+                engine._new_card("brace") for _ in range(5 - existing)
+            )
+            self.set_hand(engine, ["brace"] * 5)
             for _ in range(3):
                 engine.play_card(0)
             self.assertEqual(expected, engine.state.energy)

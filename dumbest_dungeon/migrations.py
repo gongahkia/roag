@@ -204,6 +204,53 @@ def run_36_to_37(snapshot: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def run_37_to_38(snapshot: dict[str, Any]) -> dict[str, Any]:
+    if type(snapshot.get("save_version")) is not int or snapshot["save_version"] != 37:
+        raise MigrationError("migration 37->38 requires save version 37")
+    state = snapshot.get("state")
+    manifest = snapshot.get("content_manifest")
+    zones = ("deck", "hand", "draw_pile", "discard_pile")
+    if (
+        not isinstance(state, dict)
+        or "next_card_copy_id" in state
+        or not isinstance(manifest, dict)
+        or manifest.get("engine") != "0.6.0"
+        or any(not isinstance(state.get(zone), list) for zone in zones)
+    ):
+        raise MigrationError("version-37 save requires the pre-card-identity contract")
+    result = deepcopy(snapshot)
+    result["save_version"] = 38
+    result["content_manifest"]["engine"] = "0.7.0"
+
+    available: dict[tuple[Any, Any, Any], list[int]] = {}
+    for copy_id, card in enumerate(result["state"]["deck"], 1):
+        if not isinstance(card, dict) or set(card) != {"card_id", "upgraded", "bound_hero_id"}:
+            raise MigrationError("version-37 deck contains a malformed card")
+        key = (card["card_id"], card["upgraded"], card["bound_hero_id"])
+        available.setdefault(key, []).append(copy_id)
+        card.update(copy_id=copy_id, mastery=None, infusion_id=None)
+
+    active_ids: list[int] = []
+    for zone in ("hand", "draw_pile", "discard_pile"):
+        for card in result["state"][zone]:
+            if not isinstance(card, dict) or set(card) != {"card_id", "upgraded", "bound_hero_id"}:
+                raise MigrationError(f"version-37 {zone} contains a malformed card")
+            key = (card["card_id"], card["upgraded"], card["bound_hero_id"])
+            choices = available.get(key)
+            if not choices:
+                raise MigrationError("version-37 combat cards do not match its durable deck")
+            copy_id = choices.pop(0)
+            active_ids.append(copy_id)
+            card.update(copy_id=copy_id, mastery=None, infusion_id=None)
+    if state.get("phase") == "combat":
+        if any(available.values()):
+            raise MigrationError("version-37 combat zones omit a durable deck card")
+    elif active_ids:
+        raise MigrationError("version-37 non-combat save contains combat cards")
+    result["state"]["next_card_copy_id"] = len(result["state"]["deck"]) + 1
+    return result
+
+
 RUN_MIGRATIONS = {
     26: run_26_to_27,
     27: run_27_to_28,
@@ -216,6 +263,7 @@ RUN_MIGRATIONS = {
     34: run_34_to_35,
     35: run_35_to_36,
     36: run_36_to_37,
+    37: run_37_to_38,
 }
 
 

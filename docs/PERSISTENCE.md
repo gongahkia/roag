@@ -1,8 +1,16 @@
 # Persistence contracts
 
-The run save currently uses schema 37, content schema 23, and the existing Python
+The run save currently uses schema 38, content schema 23, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry and manifests are implemented; the persistent profile is still pending.
+
+Schema 38 records engine 0.7.0 and gives every durable card copy a positive,
+monotonically allocated run-local ID plus reserved mastery and infusion fields.
+The pure 37→38 migration assigns IDs in durable deck order, then matches active
+combat-zone copies by their complete old card value and occurrence. It rejects
+an omitted, extra or mismatched combat copy rather than silently regenerating
+one. New rewards and curse cards allocate fresh IDs; shuffling and combat zones
+preserve them.
 
 Content schema 23 adds an optional, validated four-role technique-expansion
 contract. Once an owner uses it, that owner must have exactly one `deepener_a`,

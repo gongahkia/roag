@@ -40,6 +40,11 @@ class LedgerTests(unittest.TestCase):
         engine = GameEngine.new(load_legacy_catalog(), 42)
         raw = engine.snapshot()
         raw["save_version"] = 27
+        del raw["state"]["next_card_copy_id"]
+        for zone in ("deck", "hand", "draw_pile", "discard_pile"):
+            for card in raw["state"][zone]:
+                for field in ("copy_id", "mastery", "infusion_id"):
+                    del card[field]
         del raw["content_rules"]
         raw["content_manifest"]["engine"] = "0.1.0"
         raw["content_manifest"]["rng_architecture"] = 1

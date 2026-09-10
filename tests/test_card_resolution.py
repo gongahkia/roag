@@ -12,6 +12,19 @@ from dumbest_dungeon.triggers import EventType as E
 
 
 class CardResolutionTests(unittest.TestCase):
+    @staticmethod
+    def install_zones(engine, hand_ids, draw_ids):
+        available = list(engine.state.deck)
+        zones = []
+        for card_id in hand_ids + draw_ids:
+            card = next(card for card in available if card.card_id == card_id)
+            available.remove(card)
+            zones.append(engine._clone_card(card))
+        split = len(hand_ids)
+        engine.state.hand = zones[:split]
+        engine.state.draw_pile = zones[split:]
+        engine.state.discard_pile = [engine._clone_card(card) for card in available]
+
     def fixture(self, *, finale=False):
         engine = GameEngine.new(load_catalog(), 42)
         hero = engine.living_heroes()[0]
@@ -27,8 +40,12 @@ class CardResolutionTests(unittest.TestCase):
             target.hp = 1
         else:
             target.statuses["riposte"] = 2
-        engine.state.hand = [CardInstance("shield_rush"), CardInstance("brace")]
-        engine.state.draw_pile = [CardInstance("baton_strike"), CardInstance("arc_welder")]
+        engine.state.deck.append(engine._new_card("shield_rush"))
+        self.install_zones(
+            engine,
+            ["shield_rush", "brace"],
+            ["baton_strike", "arc_welder"],
+        )
         return engine, target.id
 
     def test_every_card_phase_resumes_through_triggers_and_victory_cleanup(self) -> None:
