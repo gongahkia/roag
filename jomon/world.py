@@ -135,11 +135,18 @@ def is_walkable(state: GameState, position: Position, *, ignore_threat: bool = F
     from .materials import fields, key
 
     material = fields(state).get(key(position))
-    if material and base_tile(state, position) in {" ", "#", "~", "T"}:
-        if not (material.ice and base_tile(state, position) == "~"):
-            return False
-    tile = displayed_tile(state, position)
+    terrain = base_tile(state, position)
     blocked = {" ", "#", "~", "T"}
+    if material and terrain in blocked:
+        if not (material.ice and terrain == "~"):
+            return False
+        terrain = "_"
+    # Regional overlays, containers and scheduled witnesses are passable.  A
+    # path query only needs their underlying terrain; resolving their display
+    # glyph for every breadth-first-search cell needlessly rescans those
+    # collections.  Vessel actors and furniture have additional collision
+    # rules, so ship movement still uses the complete displayed tile.
+    tile = terrain if state.location == "region" else displayed_tile(state, position)
     if state.location == "jomon":
         blocked |= {"=", "t", "F", "f"}
     if tile in blocked:

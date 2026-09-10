@@ -1,6 +1,7 @@
 import unittest
 import random
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from jomon.inventory import (
     _largest_free_area, best_fit, grid_items, grid_size, item_spec,
@@ -123,6 +124,16 @@ class SpatialCacheTests(unittest.TestCase):
         state.region.tile_changes[f"{blocked.x},{blocked.y},{blocked.z}"] = "#"
         self.assertNotEqual(next_path_step(state, actor, target), blocked)
         self.assertNotIn("_path_cache", state.to_dict())
+
+    def test_regional_path_queries_skip_display_only_actor_and_item_scans(self):
+        from jomon.world import is_walkable
+
+        point = Position(31, 20)
+        with patch("jomon.world.displayed_tile", side_effect=AssertionError("display scan")):
+            self.assertTrue(is_walkable(self.state, point, ignore_threat=True))
+        self.state.region.tile_changes["31,20,0"] = "#"
+        with patch("jomon.world.displayed_tile", side_effect=AssertionError("display scan")):
+            self.assertFalse(is_walkable(self.state, point, ignore_threat=True))
 
     def test_bitset_reachability_matches_independent_queue_across_levels(self):
         from collections import deque
