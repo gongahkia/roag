@@ -13,6 +13,7 @@ from dumbest_dungeon.content import (
     load_catalog,
     load_rules,
 )
+from dumbest_dungeon.content_audit import audit_content
 
 
 class ContentTests(unittest.TestCase):
@@ -158,6 +159,22 @@ class ContentTests(unittest.TestCase):
 
     def test_expansion_card_roles_are_complete_per_owner_and_schema_22_remains_readable(self) -> None:
         catalog = load_catalog()
+        expansion = [card for card in catalog.cards.values() if "design_role" in card]
+        self.assertEqual(100, len(expansion))
+        self.assertEqual(
+            {role: 25 for role in EXPANSION_CARD_ROLES},
+            dict(Counter(card["design_role"] for card in expansion)),
+        )
+        for hero_id in catalog.heroes:
+            owned = [card for card in expansion if card["hero"] == hero_id]
+            self.assertEqual(EXPANSION_CARD_ROLES, {card["design_role"] for card in owned})
+        self.assertTrue(all(len(card["description"]) <= 90 for card in expansion))
+        self.assertTrue(all("normal" not in card["lanes"] for card in expansion
+                            if card["design_role"] == "rule_breaker"))
+        normalized = audit_content(catalog)["normalized_card_groups"]
+        expansion_ids = {card["id"] for card in expansion}
+        self.assertFalse(any(expansion_ids & set(group) for group in normalized))
+
         schema_22 = json.loads(json.dumps(catalog.rules))
         schema_22["content_schema"] = 22
         for card in schema_22["cards"].values():
