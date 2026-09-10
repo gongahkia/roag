@@ -742,6 +742,26 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("RISK", rendered)
         self.assertIn("ONE USE", rendered)
 
+    def test_facility_recycler_and_targeted_salvage_are_keyboard_operable(self) -> None:
+        self.engine.acquire_item("bulkhead_laminate", 2)
+        facility = self.engine.state.facilities[0]
+        self.engine.state.phase = "facility"
+        self.engine.state.current_facility_id = facility.id
+        self.ui.screen = FakeScreen(keys=[curses.KEY_DOWN, curses.KEY_DOWN, 10, 10])
+        self.ui._facility()
+        self.assertEqual(1, self.engine.state.recycler_credits)
+        self.assertNotIn("bulkhead_laminate", self.engine.state.items)
+        self.assertEqual("recycle", facility.outcome)
+
+        pickup = next(item for item in self.engine.state.pickups if item.kind == "item")
+        self.engine.state.phase = "discovery"
+        self.engine.state.current_pickup_id = pickup.id
+        self.ui.screen = FakeScreen(keys=[curses.KEY_DOWN, 10])
+        self.ui._discovery()
+        self.assertEqual(0, self.engine.state.recycler_credits)
+        self.assertEqual("exploration", self.engine.state.phase)
+        self.assertIn("TARGETED SALVAGE", self.ui.screen.text())
+
     def test_event_menu_discloses_consequences_before_confirmation(self) -> None:
         room = self.engine.room()
         room.kind = "event"

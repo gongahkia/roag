@@ -958,16 +958,22 @@ class TerminalUI:
             self._notice("HIDDEN ANOMALY", message)
             return
         if pickup.kind == "item":
-            item_id = str(pickup.payload["item_id"])
-            item = self.catalog.items[item_id]
+            options = self.engine.item_pickup_options()
+            labels = [f"Take {self.catalog.items[item_id]['name']}" for item_id in options]
+            labels.append("Leave behind")
+            details = "\n\n".join(
+                f"{index}. {self.catalog.items[item_id]['name']} — "
+                f"{self.engine.effect_description('item', item_id, self.engine.state.items.get(item_id, 0))}"
+                for index, item_id in enumerate(options, 1)
+            )
             picked = self._menu(
-                "SALVAGE CACHE",
-                [f"Take {item['name']}", "Leave behind"],
-                item["description"],
+                "TARGETED SALVAGE" if len(options) > 1 else "SALVAGE CACHE",
+                labels,
+                details,
                 allow_cancel=False,
             )
-            if picked == 0:
-                self.engine.resolve_item_pickup()
+            if picked is not None and picked < len(options):
+                self.engine.resolve_item_pickup(options[picked])
             else:
                 self.engine.decline_pickup()
             return
@@ -1059,6 +1065,13 @@ class TerminalUI:
                 f"{index}. {option['summary']}\n"
                 f"COST {cost_label.upper()} | RISK {option['risk'].upper()} | {state} | ONE USE"
             )
+        can_recycle = bool(self.engine.state.items) and self.engine.state.recycler_credits < 2
+        if can_recycle:
+            labels.append("Recycle an entire cargo stack — targeted future salvage")
+            details.append(
+                f"{len(labels)}. Destroy every copy of one item now. The next salvage cache offers "
+                "its seeded item plus two deterministic alternatives. COST +FACILITY PRESSURE | ONE USE"
+            )
         picked = self._menu(
             f"{biome.upper()} — {definition['name'].upper()}",
             labels,
@@ -1068,6 +1081,22 @@ class TerminalUI:
         if picked is None:
             self.engine.leave_facility()
             self.message = "Facility left intact for later use."
+            return
+        if picked == len(definition["options"]):
+            item_ids = sorted(self.engine.state.items)
+            labels = [
+                f"Recycle {self.catalog.items[item_id]['name']} x{self.engine.state.items[item_id]}"
+                for item_id in item_ids
+            ]
+            detail = "\n\n".join(
+                f"{self.catalog.items[item_id]['name']}: {self.catalog.items[item_id]['description']}"
+                for item_id in item_ids
+            )
+            selected = self._menu("RECYCLE CARGO", labels, detail, allow_cancel=True)
+            if selected is None:
+                self.message = "No cargo was recycled; the facility remains available."
+                return
+            self.message = self.engine.recycle_item_stack(item_ids[selected])
             return
         self.message = self.engine.resolve_facility(definition["options"][picked]["id"])
 

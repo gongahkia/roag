@@ -241,6 +241,7 @@ class GameState:
     boons: dict[str, dict[str, int]] = field(default_factory=dict)
     curses: dict[str, dict[str, int]] = field(default_factory=dict)
     items: dict[str, int] = field(default_factory=dict)
+    recycler_credits: int = 0
     effect_counters: dict[str, int] = field(default_factory=dict)
     light: int = 100
     supplies: int = 4
@@ -1589,6 +1590,7 @@ class GameEngine:
                 boons=raw["boons"],
                 curses=raw["curses"],
                 items=raw["items"],
+                recycler_credits=raw["recycler_credits"],
                 effect_counters=raw["effect_counters"],
                 light=raw["light"],
                 supplies=raw["supplies"],
@@ -1788,6 +1790,18 @@ class GameEngine:
             for pickup in state.pickups
         ):
             raise RuleError("save contains an invalid discovery distribution")
+        if any(
+            pickup.kind == "item"
+            and "options" in pickup.payload
+            and (
+                not isinstance(pickup.payload["options"], list)
+                or not 1 <= len(pickup.payload["options"]) <= 3
+                or len(pickup.payload["options"]) != len(set(pickup.payload["options"]))
+                or any(item_id not in catalog.items for item_id in pickup.payload["options"])
+            )
+            for pickup in state.pickups
+        ):
+            raise RuleError("save contains invalid targeted salvage options")
         if state.current_pickup_id is not None and state.current_pickup_id not in pickup_ids:
             raise RuleError("save references an unknown map discovery")
         if (state.phase == "discovery") != (state.current_pickup_id is not None):
@@ -1857,7 +1871,7 @@ class GameEngine:
                 and facility.outcome not in {
                     option["id"]
                     for option in catalog.facilities[facility.definition_id]["options"]
-                }
+                } | {"recycle"}
                 for facility in state.facilities
             )
         ):
@@ -2058,6 +2072,8 @@ class GameEngine:
             for item_id, count in state.items.items()
         ):
             raise RuleError("save contains invalid items")
+        if type(state.recycler_credits) is not int or not 0 <= state.recycler_credits <= 2:
+            raise RuleError("save contains invalid recycler credit")
         piles = state.deck + state.hand + state.draw_pile + state.discard_pile
         if any(
             card.card_id not in catalog.cards
@@ -2958,6 +2974,39 @@ class GameEngine:
     def _apply_facility_effect(self, facility: BiomeFacility, effect: dict[str, Any]) -> None:
         self._apply_exploration_effect(facility.biome_id, effect, facility.id)
 
+    def recycle_item_stack(self, item_id: str) -> str:
+        facility = self.current_facility()
+        count = self.state.items.get(item_id, 0)
+        if not count:
+            raise RuleError("that cargo stack is not available to recycle")
+        if self.state.recycler_credits >= 2:
+            raise RuleError("the recycler targeting buffer is already full")
+        del self.state.items[item_id]
+        self.state.recycler_credits += 1
+        facility.used = True
+        facility.outcome = "recycle"
+        self.record(
+            "item_converted",
+            item_id,
+            copies_lost=count,
+            credit_gained=1,
+            credits=self.state.recycler_credits,
+            facility=facility.definition_id,
+        )
+        self._advance_pressure(
+            PressureSource.FACILITY,
+            1,
+            f"{self.facility_definition(facility)['name']}: recycle cargo",
+        )
+        self.state.current_facility_id = None
+        self.state.phase = "exploration"
+        message = (
+            f"Recycled {self.catalog.items[item_id]['name']} x{count}. "
+            "The next salvage cache offers three deterministic choices."
+        )
+        self.add_log(message)
+        return message
+
     def resolve_facility(self, option_id: str) -> str:
         facility = self.current_facility()
         definition = self.facility_definition(facility)
@@ -3426,12 +3475,40 @@ class GameEngine:
         self._finish_pickup(message)
         return message
 
-    def resolve_item_pickup(self) -> str:
+    def item_pickup_options(self) -> list[str]:
         pickup = self.current_pickup()
         if pickup.kind != "item":
             raise RuleError("this discovery is not salvage")
-        item_id = str(pickup.payload["item_id"])
+        original = str(pickup.payload["item_id"])
+        if not self.state.recycler_credits:
+            return [original]
+        if "options" not in pickup.payload:
+            candidates = sorted(item_id for item_id in self.catalog.items if item_id != original)
+            rng = self._domain_rng("recycler", pickup.id, self.state.recycler_credits)
+            alternatives = rng.sample(candidates, k=min(2, len(candidates)))
+            pickup.payload["options"] = [original, *alternatives]
+            self.record(
+                "item_offer",
+                pickup.id,
+                offered=list(pickup.payload["options"]),
+                recycler_credit=True,
+            )
+        return list(pickup.payload["options"])
+
+    def resolve_item_pickup(self, item_id: str | None = None) -> str:
+        pickup = self.current_pickup()
+        if pickup.kind != "item":
+            raise RuleError("this discovery is not salvage")
+        options = self.item_pickup_options()
+        item_id = item_id or options[0]
+        if item_id not in options:
+            raise RuleError("that item was not offered")
         gained = self.acquire_item(item_id)
+        used_credit = len(options) > 1
+        if used_credit:
+            self.state.recycler_credits -= 1
+        self.record("item_choice", pickup.id, offered=options, chosen=item_id,
+                    recycler_credit=used_credit)
         name = self.catalog.items[item_id]["name"]
         message = f"Recovered {name} x{gained}. Total {self.state.items[item_id]}."
         self._finish_pickup(message)

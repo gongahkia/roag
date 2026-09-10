@@ -21,6 +21,7 @@ from dumbest_dungeon.migrations import (
     run_38_to_39,
     run_39_to_40,
     run_40_to_41,
+    run_41_to_42,
 )
 from dumbest_dungeon.policies import Policy, canonical_hash, execute_command
 
@@ -268,6 +269,21 @@ class MigrationTests(unittest.TestCase):
         self.assertIsNone(migrated["state"]["doctrine_id"])
         with self.assertRaises(MigrationError):
             run_40_to_41(migrated)
+
+    def test_recycler_credit_migration_is_pure_and_explicit(self) -> None:
+        current = GameEngine.new(load_catalog(), 51)
+        old = current.snapshot()
+        old["save_version"] = 41
+        old["content_manifest"]["engine"] = "1.0.0"
+        del old["state"]["recycler_credits"]
+        before = deepcopy(old)
+        migrated = run_41_to_42(old)
+        self.assertEqual(before, old)
+        self.assertEqual(42, migrated["save_version"])
+        self.assertEqual("1.1.0", migrated["content_manifest"]["engine"])
+        self.assertEqual(0, migrated["state"]["recycler_credits"])
+        with self.assertRaises(MigrationError):
+            run_41_to_42(migrated)
 
 
 if __name__ == "__main__":

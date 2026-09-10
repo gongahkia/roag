@@ -18,6 +18,7 @@ class ResolutionSaveTests(unittest.TestCase):
         del raw["state"]["next_card_copy_id"]
         del raw["state"]["hub_loadouts"]
         del raw["state"]["doctrine_id"]
+        del raw["state"]["recycler_credits"]
         for zone in ("deck", "hand", "draw_pile", "discard_pile"):
             for card in raw["state"][zone]:
                 for field in ("copy_id", "mastery", "infusion_id"):

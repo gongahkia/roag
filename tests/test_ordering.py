@@ -32,7 +32,7 @@ class OrderingTests(unittest.TestCase):
         for field in (
             "ledger", "pressure", "pressure_recent", "pressure_incomplete_before_tick",
             "encounter_pressure", "encounter_modules", "reinforcement_tickets", "reinforcement_reserve_id",
-            "next_card_copy_id", "hub_loadouts", "doctrine_id",
+            "next_card_copy_id", "hub_loadouts", "doctrine_id", "recycler_credits",
         ):
             del current["state"][field]
         for zone in ("deck", "hand", "draw_pile", "discard_pile"):

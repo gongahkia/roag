@@ -330,6 +330,28 @@ def run_40_to_41(snapshot: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def run_41_to_42(snapshot: dict[str, Any]) -> dict[str, Any]:
+    if type(snapshot.get("save_version")) is not int or snapshot["save_version"] != 41:
+        raise MigrationError("migration 41->42 requires save version 41")
+    manifest = snapshot.get("content_manifest")
+    state = snapshot.get("state")
+    queue = snapshot.get("resolution_queue", {}).get("state")
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("engine") != "1.0.0"
+        or not isinstance(state, dict)
+        or "recycler_credits" in state
+        or not isinstance(queue, dict)
+        or queue.get("schema") != 5
+    ):
+        raise MigrationError("version-41 save requires queue schema 5 and engine 1.0.0")
+    result = deepcopy(snapshot)
+    result["state"]["recycler_credits"] = 0
+    result["save_version"] = 42
+    result["content_manifest"]["engine"] = "1.1.0"
+    return result
+
+
 RUN_MIGRATIONS = {
     26: run_26_to_27,
     27: run_27_to_28,
@@ -346,6 +368,7 @@ RUN_MIGRATIONS = {
     38: run_38_to_39,
     39: run_39_to_40,
     40: run_40_to_41,
+    41: run_41_to_42,
 }
 
 
