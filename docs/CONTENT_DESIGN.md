@@ -101,6 +101,26 @@ broad card tags and combat roles. Curated squads must satisfy their recommended
 doctrine using their default decks and legal formation, so the recommendation
 never relies on an undisclosed alternate loadout or named-card exception.
 
+At runtime the chosen doctrine is fixed on departure. Passive arithmetic is
+applied to the queued primary card effect; movement, discard, stress and triage
+follow-throughs emit typed child events. Turn-limited rules use serialized
+effect-counter keys, Casualty Drill is once per actual crew death, and every
+activation is source-attributed as `doctrine_trigger`. A closed, frozen Python
+contract states each mode's limit and excludes descendant retriggers.
+Card-cost inspection is pure: liability counters change only when the card is
+committed, never when a menu asks for a preview. Default configuration has no
+doctrine, preserving the recorded calibration transcript byte-for-byte after
+projecting new save fields.
+
+At runtime the chosen doctrine is fixed on departure. Passive arithmetic is
+applied to the queued primary card effect; movement, discard, stress and triage
+follow-throughs emit typed child events. Turn-limited rules use serialized
+effect-counter keys, Casualty Drill is once per actual crew death, and every
+activation is source-attributed as `doctrine_trigger`. Card-cost inspection is
+pure: liability counters change only when the card is committed, never when a
+menu asks for a preview. Default configuration has no doctrine, preserving the
+recorded calibration transcript byte-for-byte after projecting new save fields.
+
 Content is UTF-8 JSON, decoded through `json_data.loads`. Duplicate object keys,
 non-finite constants and overflowing float exponents are rejected before content
 validation. Code strings are never evaluated. Catalog, art and metadata roots

@@ -1222,6 +1222,7 @@ class AsciiUiTests(unittest.TestCase):
         self.assertEqual(doctrine["id"], self.engine.state.doctrine_id)
         self.assertIn("STRENGTH", rendered)
         self.assertIn("LIABILITY", rendered)
+        self.assertIn("DESC: NO", rendered)
         self.assertIn(doctrine["strength"].split()[-1], rendered)
         self.assertIn(doctrine["liability"].split()[-1], rendered)
 

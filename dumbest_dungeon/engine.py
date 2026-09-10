@@ -11,7 +11,13 @@ from fractions import Fraction
 from heapq import heappop, heappush
 from typing import Any, Callable
 
-from .content import CARD_STATUSES, Catalog, load_legacy_catalog, load_rules
+from .content import (
+    CARD_STATUSES,
+    DOCTRINE_TRIGGER_CONTRACTS,
+    Catalog,
+    load_legacy_catalog,
+    load_rules,
+)
 from .acquisition import Lane, eligible_techniques
 from .director import DirectorProfile, director_profile
 from .manifest import canonical_bytes
@@ -3888,6 +3894,8 @@ class GameEngine:
         self.state.energy = max(0, self.catalog.balance["energy"] + opening_energy)
         opening_cards = round(self._item_effect_value("opening_hand")) if self.state.round == 1 else 0
         if self.state.round == 1:
+            if (self.doctrine_definition() or {}).get("mode") == "discard":
+                opening_cards -= 1
             opening_cards += self.state.pending_opening_hand
             opening_cards += sum(
                 int(effect["amount"])
@@ -4095,6 +4103,185 @@ class GameEngine:
 
         return f"FX {abbreviated(effects)} | CARGO {abbreviated(cargo)}"
 
+    def doctrine_definition(self) -> dict[str, Any] | None:
+        return self.catalog.doctrines.get(self.state.doctrine_id or "")
+
+    def doctrine_trigger_disclosure(self, doctrine_id: str) -> str:
+        doctrine = self.catalog.doctrines[doctrine_id]
+        contract = DOCTRINE_TRIGGER_CONTRACTS[doctrine["mode"]]
+        descendants = "YES" if contract.descendants_retrigger else "NO"
+        concise = {
+            "once per turn": "TURN",
+            "each manual card": "MANUAL CARD",
+            "once per crew death": "CREW DEATH",
+        }[contract.limit]
+        return f"LIMIT {concise} | DESC: {descendants}"
+
+    @staticmethod
+    def _definition_has_effect(
+        definition: dict[str, Any],
+        effects: list[dict[str, Any]],
+        opcode: str,
+    ) -> bool:
+        return any(effect["op"] == opcode for effect in effects)
+
+    def _doctrine_card_committed(
+        self,
+        actor: Actor,
+        card_id: str,
+        definition: dict[str, Any],
+        effects: list[dict[str, Any]],
+    ) -> None:
+        doctrine = self.doctrine_definition()
+        if doctrine is None:
+            return
+        mode = doctrine["mode"]
+        cost_delta = 0
+        if mode == "dance" and not self._definition_has_effect(definition, effects, "move"):
+            if not self.state.effect_counters.get(f"doctrine:dance:liability:{self.state.round}"):
+                cost_delta = 1
+            self.state.effect_counters[f"doctrine:dance:liability:{self.state.round}"] = 1
+        elif mode == "guard" and self._definition_has_effect(definition, effects, "move"):
+            cost_delta = 1
+        elif mode in {"death_door", "casualty"}:
+            if mode == "death_door" and actor.deaths_door:
+                cost_delta = -1
+            elif mode == "death_door" and all(
+                hero.hp == hero.max_hp and not hero.deaths_door for hero in self.living_heroes()
+            ) and not self.state.effect_counters.get(f"doctrine:{mode}:first:{self.state.round}"):
+                cost_delta = 1
+            elif (
+                mode == "casualty"
+                and len(self.living_heroes()) == 4
+                and not self.state.effect_counters.get(f"doctrine:{mode}:first:{self.state.round}")
+            ):
+                cost_delta = 1
+            self.state.effect_counters[f"doctrine:{mode}:first:{self.state.round}"] = 1
+        elif mode == "triage" and self._definition_has_effect(definition, effects, "damage"):
+            if self.state.effect_counters.get("doctrine:triage:tax"):
+                cost_delta = 1
+            self.state.effect_counters.pop("doctrine:triage:tax", None)
+        if cost_delta:
+            self.record(
+                "doctrine_trigger",
+                doctrine["id"],
+                mode=mode,
+                card=card_id,
+                owner=actor.id,
+                effect="cost",
+                amount=cost_delta,
+                limit="card_or_turn",
+            )
+
+    def _doctrine_modify_effect(
+        self,
+        card_id: str,
+        definition: dict[str, Any],
+        effect: dict[str, Any],
+    ) -> dict[str, Any]:
+        doctrine = self.doctrine_definition()
+        if doctrine is None:
+            return effect
+        mode = doctrine["mode"]
+        changed = dict(effect)
+        key = f"doctrine:{mode}:effect:{self.state.round}"
+        bonus = 0
+        if (
+            mode == "mark"
+            and effect["op"] == "status"
+            and effect.get("status") == "marked"
+            and not self.state.effect_counters.get(key)
+        ):
+            bonus = 1
+        elif (
+            mode == "wound"
+            and effect["op"] == "status"
+            and effect.get("status") == "wound"
+            and not self.state.effect_counters.get(key)
+        ):
+            bonus = 1
+        elif (
+            mode == "control"
+            and effect["op"] == "status"
+            and effect.get("status") in {"stun", "weak"}
+            and not self.state.effect_counters.get(key)
+        ):
+            bonus = 1
+        elif mode == "guard" and effect["op"] == "block" and any(
+            hero.guarded_by for hero in self.living_heroes()
+        ):
+            bonus = 2
+        elif mode == "mark" and effect["op"] == "damage" and "payoff:marked" not in definition["tags"]:
+            bonus = -1
+        elif mode == "wound" and effect["op"] == "heal":
+            bonus = -1
+        elif mode == "control" and effect["op"] == "damage":
+            bonus = -1
+        elif mode == "stress" and effect["op"] == "stress" and int(effect.get("amount", 0)) < 0:
+            bonus = min(2, -int(effect["amount"]))
+        elif mode == "artillery" and effect["op"] == "damage":
+            target = effect.get("target", definition["target"])
+            bonus = 2 if target == "all_enemies" else -1
+        if not bonus:
+            return effect
+        amount = int(effect.get("amount", 0)) + bonus
+        if effect["op"] in {"damage", "block", "heal"}:
+            amount = max(0, amount)
+        changed["amount"] = amount
+        if mode in {"mark", "wound", "control"}:
+            self.state.effect_counters[key] = 1
+        self.record(
+            "doctrine_trigger",
+            doctrine["id"],
+            mode=mode,
+            card=card_id,
+            effect=effect["op"],
+            amount=bonus,
+        )
+        return changed
+
+    def _doctrine_after_card(
+        self,
+        actor: Actor,
+        card_id: str,
+        definition: dict[str, Any],
+        effects: list[dict[str, Any]],
+    ) -> None:
+        doctrine = self.doctrine_definition()
+        if doctrine is None:
+            return
+        mode = doctrine["mode"]
+        key = f"doctrine:{mode}:trigger:{self.state.round}"
+        if self.state.effect_counters.get(key):
+            return
+        follow_effect: dict[str, Any] | None = None
+        if mode == "dance" and self._definition_has_effect(definition, effects, "move"):
+            follow_effect = {"op": "draw", "amount": 1}
+        elif mode == "discard" and self._definition_has_effect(definition, effects, "discard"):
+            follow_effect = {"op": "draw", "amount": 1}
+        elif mode == "stress" and any(
+            effect["op"] == "stress" and int(effect.get("amount", 0)) > 0
+            for effect in effects
+        ):
+            follow_effect = {"op": "status", "status": "focus", "amount": 1}
+        elif mode == "triage" and self._definition_has_effect(definition, effects, "heal"):
+            follow_effect = {"op": "energy", "amount": 1}
+            self.state.effect_counters["doctrine:triage:tax"] = 1
+        if follow_effect is None:
+            return
+        self.state.effect_counters[key] = 1
+        self._apply_effect(actor, [actor], follow_effect, source_id=doctrine["id"])
+        self.record(
+            "doctrine_trigger",
+            doctrine["id"],
+            mode=mode,
+            card=card_id,
+            effect=follow_effect["op"],
+            amount=follow_effect["amount"],
+            limit="once_per_turn",
+        )
+        self.add_log(f"DOCTRINE — {doctrine['name']} triggers.")
+
     def card_cost(self, card: CardInstance) -> int:
         definition = self.card_definition(card)
         if card.card_id in self.catalog.curses:
@@ -4121,6 +4308,35 @@ class GameEngine:
         if combat_plays == 0:
             delta += round(self._hero_effect_value(actor, "curse", "first_card_cost_increase"))
         effects = definition["upgrade_effects"] if card.upgraded else definition["effects"]
+        doctrine = self.doctrine_definition()
+        if doctrine is not None:
+            mode = doctrine["mode"]
+            has_move = self._definition_has_effect(definition, effects, "move")
+            has_damage = self._definition_has_effect(definition, effects, "damage")
+            if (
+                mode == "dance"
+                and not has_move
+                and not self.state.effect_counters.get(f"doctrine:dance:liability:{self.state.round}")
+            ):
+                delta += 1
+            elif mode == "guard" and has_move:
+                delta += 1
+            elif mode == "death_door":
+                if actor.deaths_door:
+                    delta -= 1
+                elif (
+                    all(hero.hp == hero.max_hp and not hero.deaths_door for hero in self.living_heroes())
+                    and not self.state.effect_counters.get(f"doctrine:death_door:first:{self.state.round}")
+                ):
+                    delta += 1
+            elif (
+                mode == "casualty"
+                and len(self.living_heroes()) == 4
+                and not self.state.effect_counters.get(f"doctrine:casualty:first:{self.state.round}")
+            ):
+                delta += 1
+            elif mode == "triage" and has_damage and self.state.effect_counters.get("doctrine:triage:tax"):
+                delta += 1
         if any(effect["op"] == "block" for effect in effects):
             block_plays = self.state.effect_counters.get(f"block_cards:{actor.id}", 0)
             tremors = round(
@@ -4178,6 +4394,8 @@ class GameEngine:
                     copy_id=card.copy_id, mastery=card.mastery, infusion=card.infusion_id,
                     root_action_id=root)
         self.state.energy -= cost
+        effects = definition["upgrade_effects"] if card.upgraded else definition["effects"]
+        self._doctrine_card_committed(actor, card.card_id, definition, effects)
         self.state.hand.pop(hand_index)
         self.state.discard_pile.append(card)
         infusion = self.infusion_definition(card.infusion_id)
@@ -4215,6 +4433,7 @@ class GameEngine:
         if event.event_type == EventType.CARD_PLAY:
             if index + 1 >= len(CARD_TRIGGERS):
                 self._resolve_card_infusion(event, queue, actor, definition, effects)
+                self._doctrine_after_card(actor, payload.card_id, definition, effects)
             next_type = EventType.CARD_PLAY if index + 1 < len(CARD_TRIGGERS) else EventType.CLEANUP
             queue.emit(next_type, event.target_ids, replace(payload, effect_index=index + 1), mandatory=True, deferred=True)
             return
@@ -4264,6 +4483,11 @@ class GameEngine:
                     resolved_effect["amount"] = int(resolved_effect.get("amount", 0)) + bonus
                 elif resolved_effect["op"] == "stress" and resolved_effect.get("amount", 0) < 0:
                     resolved_effect["amount"] -= bonus
+            resolved_effect = self._doctrine_modify_effect(
+                payload.card_id,
+                definition,
+                resolved_effect,
+            )
             targets = self._effect_targets(effect.get("target"), main_targets, actor)
             self._apply_effect(actor, targets, resolved_effect, source_id=payload.card_id)
             if (
@@ -5404,6 +5628,38 @@ class GameEngine:
         survivors = self.living_heroes()
         self.record("crew_death", hero.id, rank=death_rank, cards_lost=removed,
                     survivors=[actor.id for actor in survivors])
+        doctrine = self.doctrine_definition()
+        casualty_key = f"doctrine:casualty:death:{hero.id}"
+        if (
+            survivors
+            and doctrine is not None
+            and doctrine["mode"] == "casualty"
+            and not self.state.effect_counters.get(casualty_key)
+        ):
+            self.state.effect_counters[casualty_key] = 1
+            self._apply_effect(
+                survivors[0],
+                survivors,
+                {"op": "block", "amount": 3},
+                source_id=doctrine["id"],
+            )
+            self._apply_effect(
+                survivors[0],
+                [survivors[0]],
+                {"op": "draw", "amount": 1},
+                source_id=doctrine["id"],
+            )
+            self.record(
+                "doctrine_trigger",
+                doctrine["id"],
+                mode="casualty",
+                fallen=hero.id,
+                survivors=[actor.id for actor in survivors],
+                block=3,
+                draw=1,
+                limit="once_per_death",
+            )
+            self.add_log(f"DOCTRINE — {doctrine['name']} holds after the casualty.")
         if self.resolution.state.active is not None:
             self.resolution.emit(EventType.DEATH, (hero.id,), Payload(actor_id=hero.id), source_id=hero.id, mandatory=True)
         if not survivors:

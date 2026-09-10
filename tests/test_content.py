@@ -9,6 +9,7 @@ from pathlib import Path
 from dumbest_dungeon.content import (
     EXPANSION_CARD_ROLES,
     DOCTRINE_MODES,
+    DOCTRINE_TRIGGER_CONTRACTS,
     INFUSION_MODES,
     ContentError,
     MUTATION_EFFECTS,
@@ -288,6 +289,9 @@ class ContentTests(unittest.TestCase):
                 self.assertTrue(any(rank in catalog.cards[card_id]["from_ranks"]
                                     for card_id in loadout["cards"]))
         self.assertEqual(DOCTRINE_MODES, {item["mode"] for item in catalog.doctrines.values()})
+        self.assertEqual(DOCTRINE_MODES, set(DOCTRINE_TRIGGER_CONTRACTS))
+        self.assertFalse(any(contract.descendants_retrigger
+                             for contract in DOCTRINE_TRIGGER_CONTRACTS.values()))
         self.assertGreaterEqual(len(catalog.squads), 12)
         for squad in catalog.squads.values():
             doctrine = catalog.doctrines[squad["doctrine"]]

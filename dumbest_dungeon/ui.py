@@ -363,6 +363,9 @@ class TerminalUI:
                 self._put(20, 42, self._ellipsize(f"NEEDS {requirements}", 35), curses.A_DIM)
                 self._put(21, 42, "COMPATIBLE" if compatible else "LOCKED FOR THIS PARTY",
                           self._attr(4 if compatible else 3) | curses.A_BOLD)
+                self._put(22, 42, self._ellipsize(
+                    self.engine.doctrine_trigger_disclosure(doctrine_id), 35
+                ), curses.A_DIM)
             self._footer("Up/Down inspect  Enter select  Esc keep current")
             key = self._key()
             if key in (curses.KEY_UP, ord("k")):

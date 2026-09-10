@@ -240,6 +240,27 @@ DOCTRINE_MODES = {
 }
 
 
+@dataclass(frozen=True)
+class DoctrineTriggerContract:
+    limit: str
+    descendants_retrigger: bool = False
+
+
+DOCTRINE_TRIGGER_CONTRACTS = {
+    "dance": DoctrineTriggerContract("once per turn"),
+    "mark": DoctrineTriggerContract("once per turn"),
+    "wound": DoctrineTriggerContract("once per turn"),
+    "guard": DoctrineTriggerContract("each manual card"),
+    "stress": DoctrineTriggerContract("once per turn"),
+    "control": DoctrineTriggerContract("once per turn"),
+    "discard": DoctrineTriggerContract("once per turn"),
+    "death_door": DoctrineTriggerContract("each manual card"),
+    "artillery": DoctrineTriggerContract("each manual card"),
+    "casualty": DoctrineTriggerContract("once per crew death"),
+    "triage": DoctrineTriggerContract("once per turn"),
+}
+
+
 def _fields(value: Any, allowed: str, context: str) -> None:
     if not isinstance(value, dict):
         raise ContentError(f"{context} must be an object")
@@ -751,6 +772,11 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
             raise ContentError(f"{context} has invalid broad requirements")
     if raw["schema_version"] >= 26 and doctrine_modes != DOCTRINE_MODES:
         raise ContentError("content schema 26 needs exactly one definition for every doctrine mode")
+    if raw["schema_version"] >= 26 and (
+        set(DOCTRINE_TRIGGER_CONTRACTS) != doctrine_modes
+        or any(contract.descendants_retrigger for contract in DOCTRINE_TRIGGER_CONTRACTS.values())
+    ):
+        raise ContentError("doctrine trigger contracts must cover every mode and exclude descendants")
 
     mutation_effects: set[str] = set()
     for mutation in mutations.values():
