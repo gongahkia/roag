@@ -35,6 +35,8 @@ VARIANTS = {
     )
 }
 
+VOYAGE_VARIANT_HISTORY_LIMIT = 12
+
 
 def _market_shortage(state: GameState) -> bool:
     return any(
@@ -96,6 +98,17 @@ def record_variant_outcome(state: GameState, consequence: str) -> None:
         return
     state.vessel_changes[f"voyage_variant:{state.travel_count}"] = variant.id
     state.vessel_changes[f"voyage_variant_outcome:{state.travel_count}"] = consequence
+    seen_key = f"voyage_variant_seen:{variant.id}"
+    state.vessel_changes[seen_key] = int(state.vessel_changes.get(seen_key, 0)) + 1
+    state.vessel_changes[f"voyage_variant_last:{variant.id}"] = consequence
+    recorded = sorted(
+        int(key.rsplit(":", 1)[1])
+        for key in state.vessel_changes
+        if key.startswith("voyage_variant:") and key.rsplit(":", 1)[1].isdigit()
+    )
+    for voyage in recorded[:-VOYAGE_VARIANT_HISTORY_LIMIT]:
+        state.vessel_changes.pop(f"voyage_variant:{voyage}", None)
+        state.vessel_changes.pop(f"voyage_variant_outcome:{voyage}", None)
     state.vessel_changes.pop("active_voyage_variant", None)
 
 

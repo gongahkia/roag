@@ -173,9 +173,9 @@ def _finish_travel(state: GameState, consequence: str) -> None:
 def _lose_vessel_cargo(state: GameState) -> str:
     from .vessel_refits import installed
 
-    net_marker = f"refit-net-catch:{state.travel_count}"
-    if installed(state, "cargo-rail-netting") and not state.vessel_changes.get(net_marker):
-        state.vessel_changes[net_marker] = True
+    net_marker = "refit_net_catch_voyage"
+    if installed(state, "cargo-rail-netting") and state.vessel_changes.get(net_marker) != state.travel_count:
+        state.vessel_changes[net_marker] = state.travel_count
         return "fitted cargo-rail netting catches the first loose lot"
     available = [name for name, stack in state.vessel_cargo.items() if stack.quantity]
     if not available:
@@ -309,7 +309,7 @@ def resolve_voyage(state: GameState, response: str) -> tuple[bool, str]:
             if installed(state, "signal-mast-shutter"):
                 consequence += "; the shutter answers with Jomon's named signal"
                 if variant:
-                    state.vessel_changes[f"signal_account:{state.travel_count}"] = True
+                    state.vessel_changes["signal_account_voyage"] = state.travel_count
         else:
             consequence = "the lure costs six more action-clock measures and leaves the courier disoriented"
             from .actions import _advance_world

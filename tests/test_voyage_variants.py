@@ -92,7 +92,7 @@ class StatefulVoyageVariantTests(unittest.TestCase):
         before = lure.world_time
         self.assertTrue(resolve_voyage(lure, "navigate")[0])
         self.assertEqual(lure.world_time, before + 2)
-        self.assertTrue(lure.vessel_changes["signal_account:1"])
+        self.assertEqual(lure.vessel_changes["signal_account_voyage"], 1)
 
         shoal = self.variant_state("shoal")
         before = shoal.world_time

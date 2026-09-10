@@ -46,6 +46,10 @@ class VerificationCommandTests(unittest.TestCase):
         self.assertLessEqual(report["bounds"]["history"], 40)
         self.assertLessEqual(report["bounds"]["messages"], 8)
 
+    def test_long_actual_route_soak_stays_bounded(self):
+        report = memory_soak(100)
+        self.assertEqual(report["failures"], [])
+
 
 if __name__ == "__main__":
     unittest.main()
