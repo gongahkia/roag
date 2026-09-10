@@ -671,3 +671,8 @@ native now has three actions. Census: 114 enemies and 153 encounters.
 Content schema 41 adds Void Galleries mark/cash, rank-tilt and protection
 formations plus the Absent Monarch guardian. Every Void native now has three
 actions. Census: 120 enemies and 159 encounters.
+
+Content schema 42 gives Ossuary Deck six normal participants, two elite-only
+roles and the Ossuary Heart guardian. The new formations expose wound setup and
+cash-out, healing, guard/riposte and target-priority decisions; every native has
+three actions. Census: 125 enemies and 164 encounters.

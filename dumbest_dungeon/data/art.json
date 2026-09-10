@@ -157,7 +157,12 @@
     "base:parallax_waif": [" . . ", "|o o|", " /#/ ", "  /| ", " ' ' "],
     "base:null_bailiff": [" [_] ", "|O O|", "|###|", " /|\\ ", "_| |_"],
     "base:horizon_judge": [" /-\\ ", "|O O|", "|===|", " /|\\ ", "_/ \\_"],
-    "base:absent_monarch": ["'   '", "|O O|", "|   |", "|###|", "_/ \\_"]
+    "base:absent_monarch": ["'   '", "|O O|", "|   |", "|###|", "_/ \\_"],
+    "base:splint_rat": [" .oo. ", "/o  o\\", "|_^^_|", " /  \\ ", "^    ^"],
+    "base:marrow_cantor": [" .O. ", "(o o)", "|###|", " /|\\ ", " / \\ "],
+    "base:reliquary_guard": [" [o] ", "|O O|", "|###|", " /|\\ ", "_| |_"],
+    "base:bone_auditor": [" [B] ", "|o o|", "|$#$|", " /|\\ ", "_/ \\_"],
+    "base:ossuary_heart": [" o^o ", "|O O|", "|<3 |", "|###|", "_/ \\_"]
   },
   "card_glyphs": {
     "warden": ["  /\\  ", " /##\\ ", " |==| "],
