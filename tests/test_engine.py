@@ -1104,6 +1104,8 @@ class EngineTests(unittest.TestCase):
         intel = self.engine.route_intel(path)
         self.assertEqual(1, intel["known_hazards"])
         self.assertEqual(self.engine.path_cost(path), intel["ticks"])
+        self.assertEqual(intel["ticks"], intel["pressure"])
+        self.assertEqual(self.engine.state.pressure + intel["pressure"], intel["projected_pressure"])
         self.assertNotIn(hidden.id, self.engine.state.known_feature_ids)
 
     def test_visible_discovery_grants_stackable_item(self) -> None:

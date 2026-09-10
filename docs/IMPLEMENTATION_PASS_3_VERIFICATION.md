@@ -477,3 +477,18 @@ dominance. The compact cohort with exact final hashes is retained at
 `evidence/pass3/milestone3-policy-cohort.json`. Concurrent suite load invalidates
 its CPU timings as pacing evidence. These nine correlated policy runs do not
 prove human balance or fun.
+
+## Expedition Pressure foundation
+
+Engine 0.3.0/save 34 adds pure 33→34 migration and durable pressure state; the
+migration discloses its unavailable pre-migration history instead of inventing
+it. Weighted travel, committed enemy phases, completed objective stages and
+facility procedures now advance Pressure exactly once. Route forecasts and
+status queries are state-neutral, recent causes are bounded and validated, and
+a threshold checkpoint round-trips exactly. The migration, save, manifest,
+saved-rule and ordering group passed **37 tests in 13.435s** after its archived
+state projection was updated for the new durable fields. The broader pressure,
+engine, save, migration and ordering regression group passed **126 tests in
+450.277s**. Warning-enabled compilation and diff checks passed. This foundation
+does not yet spend Pressure on encounter composition or rewards; that director
+work remains open.

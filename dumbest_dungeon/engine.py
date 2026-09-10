@@ -21,6 +21,7 @@ from .resolution import Event, EventQueue, Listener, Payload
 from .combat_triggers import ADRENAL, CARD_TRIGGERS, CURSE_TRIGGERS, MERCY, REGISTERED, RIPOSTE
 from .contracts import Opcode
 from .passives import persistent_effect, trigger_disclosure
+from .pressure import PressureSource, action_price, pressure_band, pressure_status
 from .triggers import EventType, Phase
 
 
@@ -1834,14 +1835,17 @@ class GameEngine:
                 or type(change["sequence"]) is not int
                 or change["sequence"] < 1
                 or not isinstance(change["source"], str)
+                or change["source"] not in {source.value for source in PressureSource}
                 or type(change["amount"]) is not int
                 or change["amount"] < 0
                 or type(change["total"]) is not int
                 or change["total"] < change["amount"]
                 or not isinstance(change["detail"], str)
+                or not 1 <= len(change["detail"]) <= 120
                 for change in state.pressure_recent
             )
-            or any(after["sequence"] <= before["sequence"] or after["total"] < before["total"]
+            or any(after["sequence"] != before["sequence"] + 1
+                   or after["total"] - before["total"] != after["amount"]
                    for before, after in zip(state.pressure_recent, state.pressure_recent[1:]))
             or state.pressure_recent and state.pressure_recent[-1]["total"] != state.pressure
             or state.pressure_incomplete_before_tick is not None
@@ -1961,6 +1965,35 @@ class GameEngine:
             data = {"event_id": event.event_id, "root_action_id": event.root_action_id, "depth": event.depth, **data}
         self.state.ledger.record(event_kind, source_id, self.state.travel_ticks, self.state.round, **data)
 
+    def _advance_pressure(self, source: PressureSource, units: int, detail: str) -> int:
+        amount = action_price(source, units)
+        if not amount:
+            return 0
+        previous_band = pressure_band(self.state.pressure)
+        self.state.pressure += amount
+        current_band = pressure_band(self.state.pressure)
+        sequence = self.state.pressure_recent[-1]["sequence"] + 1 if self.state.pressure_recent else 1
+        change = {
+            "sequence": sequence,
+            "source": source.value,
+            "amount": amount,
+            "total": self.state.pressure,
+            "detail": detail,
+        }
+        self.state.pressure_recent.append(change)
+        del self.state.pressure_recent[:-8]
+        self.record(
+            "pressure_change",
+            source.value,
+            amount=amount,
+            total=self.state.pressure,
+            band=current_band.id,
+            detail=detail,
+        )
+        if current_band != previous_band:
+            self.add_log(f"PRESSURE {current_band.name}: {current_band.forecast}")
+        return amount
+
     @contextmanager
     def attribution(self, source_id: str):
         previous = self._source_id
@@ -2076,6 +2109,8 @@ class GameEngine:
 
     def route_intel(self, path: list[tuple[int, int]]) -> dict[str, int | str]:
         ticks = self.path_cost(path)
+        pressure = action_price(PressureSource.TRAVEL, ticks)
+        projected = pressure_status(self.state.pressure + pressure)
         interval = int(self.catalog.balance["exploration_steps_per_light"])
         light = (
             (self.state.travel_ticks + ticks) // interval
@@ -2108,6 +2143,9 @@ class GameEngine:
         return {
             "ticks": ticks,
             "light": light,
+            "pressure": pressure,
+            "projected_pressure": int(projected["value"]),
+            "projected_pressure_band": str(projected["name"]),
             "known_hazards": known_hazards,
             "patrol_risk": patrol_risk,
         }
@@ -2181,6 +2219,11 @@ class GameEngine:
         previous_ticks = self.state.travel_ticks
         previous_light = self.state.light
         self.state.travel_ticks += self.movement_cost(x, y)
+        self._advance_pressure(
+            PressureSource.TRAVEL,
+            self.state.travel_ticks - previous_ticks,
+            f"travel through {self.biome_at(x, y)}",
+        )
         interval = int(self.catalog.balance["exploration_steps_per_light"])
         light_spent = self.state.travel_ticks // interval - previous_ticks // interval
         if light_spent:
@@ -2581,6 +2624,11 @@ class GameEngine:
         facility.outcome = option_id
         self.record("facility_choice", facility.definition_id, chosen=option_id,
                     offered=[option["id"] for option in definition["options"]], cost=dict(option["cost"]))
+        self._advance_pressure(
+            PressureSource.FACILITY,
+            1,
+            f"{definition['name']}: {option['label']}",
+        )
         self.state.current_facility_id = None
         if self.state.phase != "defeat":
             self.state.phase = "exploration"
@@ -2788,6 +2836,11 @@ class GameEngine:
         elif effect:
             self._apply_exploration_effect(objective.biome_id, effect, objective.id)
         objective.stage += 1
+        self._advance_pressure(
+            PressureSource.OBJECTIVE_STAGE,
+            1,
+            f"{self.mission_definition(objective.biome_id)['name']}: {stage['label']}",
+        )
         self.record("objective_stage", objective.id, approach=objective.approach,
                     stage=objective.stage, label=stage["label"])
         objective.facts.setdefault("stages", []).append(
@@ -4168,6 +4221,14 @@ class GameEngine:
         self,
         playback: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
+        # A legal end-turn or surprise commits this world action. Charge it once
+        # here so a fatal final action and a wound-killed final enemy are both
+        # represented; playback timing and inspection never enter this method.
+        self._advance_pressure(
+            PressureSource.ENEMY_ROUND,
+            1,
+            f"combat round {self.state.round}",
+        )
         for hero in self.living_heroes():
             self.state.effect_counters[f"adrenal:{hero.id}"] = 0
         intents = list(self.state.intents)
