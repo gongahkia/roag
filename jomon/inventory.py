@@ -1092,7 +1092,7 @@ def terrain_status_for(state: GameState, tile: str) -> tuple[str, str, int, str]
     tags = worn_tags(state)
     burden = load_state(state)
     technique = state.courier.technique if state.courier else ""
-    if tile == "m" and "mudproof" not in tags:
+    if tile == "m" and "mudproof" not in tags and "fen sledge" not in state.carried_passives:
         turns = 1 if "reed-tonic" in state.drink_effects else 3
         return "bogged", "deep mud", turns, "movement is slower; evasion and retreat worsen"
     if tile in {",", "~"} and "weatherproof" not in tags:
@@ -1113,7 +1113,7 @@ def terrain_status_for(state: GameState, tile: str) -> tuple[str, str, int, str]
             return None
         consequence = "overloaded couriers risk being swept away" if burden == "overloaded" else "movement and guard are slowed"
         return "current", "deep current", 2, consequence
-    if tile == "_" and "ice-grip" not in worn_tags(state, ("feet",)):
+    if tile == "_" and "ice-grip" not in worn_tags(state, ("feet",)) and "ice awl" not in state.carried_passives:
         return "poor-footing", "frozen shallows", 3, "guard is weak on ice; leave it or wear cleats"
     return None
 

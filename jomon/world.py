@@ -505,6 +505,36 @@ def build_combinations(state: GameState) -> list[str]:
         combinations.append("accounted cache sounding")
     if "load ledger" in passive and state.gear == "cargo harness":
         combinations.append("accounted cargo frame")
+    if "fen sledge" in passive and (
+        state.active_region_id == "dunmire" or "bogged" in state.terrain_statuses
+    ):
+        combinations.append("sledged fen load")
+    if "ice awl" in passive and (
+        state.active_region_id == "frostmere" or "poor-footing" in state.terrain_statuses
+    ):
+        combinations.append("tested ice footing")
+    if "fire rake tooth" in passive and state.weapon in {"reed sickle", "felling axe", "spade"}:
+        combinations.append("raked firebreak")
+    if "limewash seal" in passive and state.active_region_id in {"whitecairn", "marlbank"}:
+        combinations.append("sealed lime work")
+    if "smoke braid" in passive and state.weapon not in {
+        "crossbow", "longbow", "sling", "heavy crossbow", "javelins",
+        "weighted net", "staff sling", "hooked javelin", "handgonne",
+        "pot sling", "throwing axe",
+    }:
+        combinations.append("smoke-hidden close work")
+    if "salvage tally" in passive and state.gear in {"rope", "repair tools"}:
+        combinations.append("witnessed salvage rig")
+    if "counterbrace pin" in passive and state.gear == "buckler":
+        combinations.append("guarded structural brace")
+    if "pitch cup" in passive and state.gear in {"hooded lantern", "smoke pot"}:
+        combinations.append("measured ignition")
+    if "shingle skids" in passive and state.gear == "cargo harness":
+        combinations.append("shingle cargo sledge")
+    if "signal mirror" in passive and state.position.z > 0:
+        combinations.append("elevated signal break")
+    if "market weights" in passive and state.gear == "trade seals":
+        combinations.append("verified market lot")
     return combinations
 
 

@@ -1305,6 +1305,7 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
     if tile == "m" and not (
         state.gear == "quiet shoes"
         or "reed sole wraps" in state.carried_passives
+        or "fen sledge" in state.carried_passives
         or "mudproof" in worn_tags(state, ("feet",))
     ):
         messages.append("Mud drags at your step; sound carries.")
@@ -1333,6 +1334,7 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
             state.gear == "rope"
             or (state.courier and "shoreline measure" in state.courier.learned_techniques)
             or "river hooks" in state.carried_passives
+            or "shingle skids" in state.carried_passives
             or (state.courier and state.courier.technique == "sure footing")
             or (
                 state.active_region_id == "greywash"
@@ -1353,7 +1355,14 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
     if tile == "O":
         messages.append(_fall(state))
     burden = load_state(state)
-    burden_delay = burden in {"encumbered", "overloaded"} and state.location == "region"
+    burden_delay = (
+        burden in {"encumbered", "overloaded"}
+        and state.location == "region"
+        and not (
+            "shingle skids" in state.carried_passives
+            and position_key(target) in state.water
+        )
+    )
     if burden == "laden" and tile in {"m", "r", "t", ","}:
         state.noise += 1
     storm_delay = water_delay or burden_delay or injury_delay or (
@@ -1361,10 +1370,15 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         and state.position.z == 0
         and "rain cape" not in state.carried_passives
     )
-    status_delay = bool(
-        {"bogged", "current", "net-drag", "brine-chill", "coalheart-chill", "fatigued"}
-        & set(state.terrain_statuses)
-    )
+    slowing_statuses = {
+        "bogged", "current", "net-drag", "brine-chill", "coalheart-chill",
+        "fatigued",
+    } & set(state.terrain_statuses)
+    if "fen sledge" in state.carried_passives:
+        slowing_statuses.discard("bogged")
+    if "shingle skids" in state.carried_passives:
+        slowing_statuses.discard("current")
+    status_delay = bool(slowing_statuses)
     mapped_shortcut = (
         "coppice map" in state.carried_passives
         and state.active_region_id == "greenwold" and tile == "t"
@@ -1549,10 +1563,23 @@ def _open_container(state: GameState) -> ActionResult:
     from .quests import record_container_opened
 
     record_container_opened(state, container.id)
+    tally_text = ""
+    tally_key = f"salvage_tally:{state.active_region_id}"
+    if (
+        requirement
+        and "salvage tally" in state.carried_passives
+        and not state.vessel_changes.get(tally_key)
+    ):
+        state.vessel_changes[tally_key] = True
+        state.trade_credit += 1
+        institution = state.institutions.get(f"work:{state.active_region_id}")
+        if institution:
+            institution.confidence = min(3, institution.confidence + 1)
+        tally_text = " The difficult recovery is entered on the salvage tally for one witnessed credit."
     state.remember(
         f"{state.courier.name} opened {container.name} and found {', '.join(rewards)}."
     )
-    message = f"You open {container.name}: {', '.join(rewards)}."
+    message = f"You open {container.name}: {', '.join(rewards)}.{tally_text}"
     if packed:
         message += f" Packed: {', '.join(packed)}."
     if left:
@@ -2284,6 +2311,19 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         )
         damage += working_effect.bonus_damage
         weapon_text += "; " + working_effect.text
+    if not ranged and "smoke braid" in state.carried_passives:
+        from .materials import fields as material_fields, key as material_key
+
+        cells = material_fields(state)
+        smoke_cover = any(
+            position_key(point) in state.smoke
+            or bool(cells.get(material_key(point)) and cells[material_key(point)].smoke)
+            for point in (state.position, target.position)
+        )
+        if smoke_cover:
+            damage += 1
+            target.morale -= 1
+            weapon_text += "; the smoke braid adds one hidden harm and morale pressure"
     if fitting_text:
         weapon_text += "; " + fitting_text
     sounds = emit_sound(state, sound)
@@ -2400,6 +2440,14 @@ def guard(state: GameState) -> ActionResult:
         text = "You guard and yield space deliberately."
     if "wet" in state.terrain_statuses:
         text += " Working grip holds the wet guard." if {"grip", "tool-grip"} & worn_tags(state, ("hands", "arms")) else " Wet hands weaken the guard; grip coverings or dry ground restore it."
+    if "counterbrace pin" in state.carried_passives:
+        from .materials import fields as material_fields, key as material_key
+
+        support = material_fields(state).get(material_key(state.position))
+        if support and (support.support < 3 or support.collapse_due):
+            support.support = min(3, support.support + 1)
+            support.collapse_due = 0
+            text += " The counterbrace pin restores one support and cancels its warned collapse."
     return _time_result(state, text, guarded=True, priority=3)
 
 
@@ -2509,6 +2557,31 @@ def use_gear(state: GameState) -> ActionResult:
             ]),
             priority=3,
         )
+    if "signal mirror" in state.carried_passives and state.position.z > 0:
+        target = next(
+            (
+                threat for threat in state.combatants
+                if threat.aimed_at is not None
+                and distance(state.position, threat.position) <= 12
+                and line_of_sight(state, state.position, threat.position)
+            ),
+            None,
+        )
+        if target:
+            target.aimed_at = None
+            target.intent = "disrupted by the signal mirror; recovers its sightline"
+            for ally in state.combatants:
+                if ally.group and ally.group == target.group:
+                    ally.last_known_position = state.position
+                    if ally.status == "watching":
+                        ally.status = "engaged"
+            changes = state.vessel_changes if state.location == "jomon" else state.region.changes
+            changes["signal_mirror_used"] = True
+            return _time_result(
+                state,
+                "The elevated mirror breaks one marked shot, but its whole group reads the courier's position.",
+                priority=3,
+            )
     if state.gear == "smoke pot" and state.smoke_charges > 0:
         state.smoke_charges -= 1
         points = [

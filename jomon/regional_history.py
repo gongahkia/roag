@@ -160,14 +160,18 @@ def deliver_dependency(state: GameState) -> tuple[bool, str]:
     kind = f"commodity:{institution.dependency}"
     if not consume_carried(state, kind):
         return False, f"Bring one physical {institution.dependency} lot; the store is short."
-    market.stock = min(10, market.stock + 2)
+    weighed = "market weights" in state.carried_passives
+    market.stock = min(10, market.stock + (3 if weighed else 2))
     market.demand = max(0, market.demand - 1)
     institution.trust = min(3, institution.trust + 1)
     institution.obligation = max(0, institution.obligation - 1)
-    institution.confidence = min(3, institution.confidence + 1)
+    institution.confidence = min(3, institution.confidence + (2 if weighed else 1))
     state.trade_credit += 1
     state.remember(f"{state.courier.name} delivered {institution.dependency} to {institution.name}; household trust {institution.trust}, remaining obligation {institution.obligation}.")
-    return True, "The physical supply settles part of the work account: one credit, household trust, and material for the next shift."
+    return True, (
+        "The physical supply settles part of the work account: one credit, household trust, and material for the next shift."
+        + (" Calibrated market weights verify one additional stock and confidence." if weighed else "")
+    )
 
 
 def ledger_lines(state: GameState) -> list[str]:

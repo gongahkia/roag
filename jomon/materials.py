@@ -103,7 +103,15 @@ def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, s
         spec = effective_spec(state, body)
         vulnerable = spec.category in {"cargo", "consumable", "passive"} or "absorbent" in spec.tags
         abrasive = reaction in {"salt", "lime"} and ("metal" in spec.tags or spec.category == "weapon")
-        resisted = (reaction == "salt" and "saltproof" in spec.tags) or (reaction == "lime" and "limeproof" in spec.tags)
+        resisted = (
+            (reaction == "salt" and "saltproof" in spec.tags)
+            or (reaction == "lime" and "limeproof" in spec.tags)
+            or (
+                reaction == "lime"
+                and "limewash seal" in state.carried_passives
+                and body.owner_id == state.active_courier_id
+            )
+        )
         if not resisted and (reaction in {"fire", "debris"} or (reaction == "water" and vulnerable) or abrasive):
             fire_wear = 2 if "heatproof" in spec.tags else 12 if "resin-coated" in spec.tags else 8
             wear = severity * (fire_wear if reaction == "fire" else 3)
@@ -155,7 +163,8 @@ def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, s
                 add_status(state, "wet", "standing in flowing water", 4, "absorbent armour burdens the load; leave water to dry")
         elif reaction in {"salt", "lime"}:
             protection = "saltproof" if reaction == "salt" else "limeproof"
-            if protection not in worn_tags(state):
+            sealed = reaction == "lime" and "limewash seal" in state.carried_passives
+            if protection not in worn_tags(state) and not sealed:
                 add_status(state, f"{reaction}-grit", f"{reaction} carried in local water", 4, "guard and ranged reach weaken; leave the slurry and allow four actions to clear")
                 state.aimed_target = None
     elif reaction in {"fire", "debris"}:
@@ -339,14 +348,31 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
         return False, "Choose a visible material within one pace."
     existing = fields(state).get(key(point))
     material = material_at(state, point)
-    if verb == "ignite" and (material not in FLAMMABLE or state.lamp_oil <= 0 or (existing and existing.water)):
+    pitch_key = f"pitch_cup:{state.expedition_count}"
+    measured_pitch = (
+        verb == "ignite"
+        and "pitch cup" in state.carried_passives
+        and not state.vessel_changes.get(pitch_key)
+    )
+    if verb == "ignite" and (
+        material not in FLAMMABLE
+        or (state.lamp_oil <= 0 and not measured_pitch)
+        or (existing and existing.water)
+    ):
         return False, "Ignition needs dry fuel and one finite measure of lamp oil."
     learned_brace = verb == "brace" and bool({"mill hearing", "bell interval"} & set(state.courier.learned_techniques))
     from .workshop import active_part
 
     heel = active_part(state, "iron heel") if verb in {"brace", "lever", "break"} else None
     spade_work = state.weapon == "spade" and verb in {"dig", "cut"}
-    if verb in {"brace", "lever", "break", "cut", "dig"} and not (heel or learned_brace or spade_work or state.gear == "repair tools" or state.weapon in {"hand axe", "billhook", "war hammer"} or state.courier.technique == "lever craft"):
+    special_break = verb == "break" and bool(
+        existing
+        and (
+            (existing.ice and "ice awl" in state.carried_passives)
+            or (existing.fire and "fire rake tooth" in state.carried_passives)
+        )
+    )
+    if verb in {"brace", "lever", "break", "cut", "dig"} and not (heel or learned_brace or spade_work or special_break or state.gear == "repair tools" or state.weapon in {"hand axe", "billhook", "war hammer"} or state.courier.technique == "lever craft"):
         return False, "This work needs a cutting/levering weapon, repair tools, or Lever Craft."
     if verb in {"push", "pull"}:
         container = next((c for c in state.region.containers if c.position == point), None) if state.location == "region" else None
@@ -367,8 +393,11 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
     if cell is None:
         return False, "This space has no accessible material or the local reaction budget is full."
     if verb == "ignite":
-        state.lamp_oil -= 1
-        cell.fire, cell.fuel = 2, 5
+        if measured_pitch:
+            state.vessel_changes[pitch_key] = True
+        else:
+            state.lamp_oil -= 1
+        cell.fire, cell.fuel = 2, 7 if measured_pitch else 5
         cell.coating = "oil"
     elif verb in {"extinguish", "pour", "redirect"}:
         donor = ensure_cell(state, source)
@@ -382,6 +411,13 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
         cell.coating = "wet"
     elif verb == "brace":
         cell.support, cell.collapse_due = 3, 0
+    elif verb == "break" and cell.ice and "ice awl" in state.carried_passives:
+        cell.ice, cell.water, cell.coating = False, max(1, cell.water), "wet"
+        emit_sound(state, 1, point)
+    elif verb == "break" and cell.fire and "fire rake tooth" in state.carried_passives:
+        cell.fire, cell.fuel, cell.material = 0, 0, "ash"
+        cell.coating, cell.smoke = "ash", min(4, cell.smoke + 2)
+        emit_sound(state, 2, point)
     elif verb in {"cut", "break", "lever"}:
         if cell.material not in {"timber", "stone", "reeds"}:
             return False, "There is no firm structure to work here."

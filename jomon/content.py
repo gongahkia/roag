@@ -245,6 +245,17 @@ PASSIVES = {
     "scar salve recipe": (1, "finite field dressing restores more health after an injury"),
     "load ledger": (2, "accounted cargo gains modest bulk and weight capacity but remains valuable"),
     "roof nail": (1, "a ranged line survives one careful move on an upper structure"),
+    "fen sledge": (2, "a broad runner keeps mud from bogging a carried load or broadcasting the first step"),
+    "ice awl": (1, "tests frozen shallows for firm footing and can break thin ice with a contextual material action"),
+    "fire rake tooth": (1, "breaks a burning reed or timber cell into smoking ash without requiring a heavy tool"),
+    "limewash seal": (1, "keeps wet lime from abrading the courier and their physically carried equipment"),
+    "smoke braid": (1, "a close strike made from smoke gains one harm and one morale pressure"),
+    "salvage tally": (1, "the first difficult cache opened in a region establishes one witnessed trade credit"),
+    "counterbrace pin": (1, "guarding on a damaged support restores one support and cancels its warned collapse"),
+    "pitch cup": (1, "the first ignition each expedition carries measured pitch instead of consuming lamp oil and burns longer"),
+    "shingle skids": (2, "a carried load crosses released water without the extra exposed action"),
+    "signal mirror": (1, "from elevation, a flash interrupts one marked ranged lane but reveals the courier to its group"),
+    "market weights": (1, "a delivered dependency lot adds one verified stock and extra confidence to its named work account"),
 }
 
 TREASURE_REWARDS = tuple(PASSIVES) + (

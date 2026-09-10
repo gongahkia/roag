@@ -117,6 +117,15 @@ physical size/weight, inspection text, and a focused behavior assertion. The
 15 weapon tests passed in **1.672 seconds**; the 40 inventory and ranged
 regressions passed in **14.827 seconds**. The 24-build gate remains open.
 
+Eleven physical discoveries close the active passive/technique quantity gate:
+**48 passives plus 16 inherent or learned techniques = 64**. Each addition
+changes a production reducer: fen and ice footing, fire and pitch handling,
+lime exposure, smoke melee, witnessed salvage, guarded support, released-water
+cargo movement, telegraphed ranged aim, or named-account delivery. They are
+distributed among the four frontier container sets and retain ordinary bulk,
+packing, loss and persistence. The focused 11-test file passed in **0.555
+seconds**. Relic quantity and the 24 scenario demonstrations remain open.
+
 Four additional regressions reproduced loose `%` cover having no projectile
 effect, a repeated cache rumor selecting the same marked coffer, and exhausted
 rumors raising `StopIteration`. The shared cover query now affects actual
@@ -135,7 +144,7 @@ them by themselves.
 | Materials | bounded shared reactions, inspection, player agency, persistence | open |
 | Ecology/AI | perceived cross-actor goals, 48 standards, 16 elites, four named rivals | open |
 | Institutions/economy | witnessed consequences, services, stock and physical contracts | open |
-| Builds | 36 weapons, 36 armour, 64 passives/techniques, 32 tools/supplies, 12 relics, 24 demonstrated builds | weapon/armour/tool counts met; active discoveries, relics and scenarios open |
+| Builds | 36 weapons, 36 armour, 64 passives/techniques, 32 tools/supplies, 12 relics, 24 demonstrated builds | weapon/armour/passive/tool counts met; relics and scenarios open |
 | Treasure | 60 persistent containers, history-backed objects, clue trails | open |
 | Stories | 12 substantial regional lines, three arcs, alternate outcomes | open |
 | Vessel/voyages | optional stations, twelve families, six physical deck encounters | open |
