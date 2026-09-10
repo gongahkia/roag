@@ -552,3 +552,27 @@ failed at the stricter migration boundary before its old generic error text.
 The corrected migration/director/save/queue/telemetry/ordering/UI group passed
 **64 tests in 24.930s**. Nine contracted mutation behaviors are still inactive
 and cannot be selected.
+
+The remaining nine mutation effects are now live. Third Bell, Death Surge,
+Spore Link and Rime Shell dispatch through typed CARD_PLAY, DEATH and STATUS
+events with turn, root or combat limiters. Enemy deaths now emit the same
+mandatory typed notification as crew casualties. Triage Node, Clean Room,
+Undertow and Slag Vent resolve once at the stable enemy-phase boundary in
+authored priority order; Clean Room removes exactly one disclosed negative
+status. Their focused reaction group passed **45 tests in 9.909s**, and the
+expanded phase group passed **49 tests in 32.199s**. No mutation adds a blanket
+tag immunity or consumes the main simulation RNG.
+
+Reinforcement Call required a new durable identity because its reserve is
+promised before deployment. Engine 0.6.0/save 37 freezes the exact hostile
+definition at encounter entry, names it in Pressure inspection, deploys it in
+the first vacant rank from a once-per-combat DEATH listener, and clears it at
+combat end. The pure 36→37 migration adds null only when old tickets are zero;
+it never invents a reserve. A 104-test mutation/migration/save/director/UI group
+passed in **65.033s** after two fixture corrections: the director arithmetic
+test now clears opening mutation statuses before isolating its damage assertion,
+and the reserve kill includes visible opening block. A final focused mutation,
+migration and director group passed **22 tests in 8.402s**. All 16 registered
+modules now have deterministic behavior tests; single-enemy formations exclude
+the two ally-death modules, and mutation compatibility/exclusions remain applied
+before one seeded weighted selection per slot.
