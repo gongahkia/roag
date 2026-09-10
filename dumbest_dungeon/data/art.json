@@ -118,7 +118,12 @@
     "base:bloom_skirmisher": [" \\|/ ", "(o o)", " <#> ", " /|\\ ", " / \\ "],
     "base:thorn_bailiff": ["\\|||/", "|o o|", "|{#}|", " /|\\ ", " / \\ "],
     "base:canopy_midwife": [" .V. ", "(o o)", "|~~~|", " /|\\ ", "_/ \\_"],
-    "base:orchard_leviathan": ["/^^^\\", "|o o|", "|WWW|", "|###|", " \\_/ "]
+    "base:orchard_leviathan": ["/^^^\\", "|o o|", "|WWW|", "|###|", " \\_/ "],
+    "base:cinder_tally": [" .-. ", "|$ $|", "|###|", " /|\\ ", " / \\ "],
+    "base:chain_slug": [" ___ ", "/o=o\\", "\\===/", " ~|| ", "  ~~ "],
+    "base:anvil_prefect": [" [#] ", "|o o|", "|===|", " /|\\ ", "_| |_"],
+    "base:furnace_widow": [" .^.", "|* *|", "|{#}|", " /|\\ ", "_/ \\_"],
+    "base:crucible_magistrate": [" /^^\\ ", "|O  O|", "|####|", "|=||=|", "_/  \\_"]
   },
   "card_glyphs": {
     "warden": ["  /\\  ", " /##\\ ", " |==| "],

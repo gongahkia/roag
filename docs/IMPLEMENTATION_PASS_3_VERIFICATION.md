@@ -634,3 +634,10 @@ simple movement tempo piece, and Orchard Leviathan alternates
 wide wounds, retaliation and rear-rank uprooting. All three legacy native
 enemies received a distinct third action. The live census is 81 enemies and 120
 encounters; guardian route integration remains a later Milestone 8 gate.
+
+Content schema 35 fills Foundry Crucible with Cinder Tally and Chain Slug
+normal roles, the Anvil Prefect guard/riposte wall, Furnace Widow support and
+the Crucible Magistrate guardian. Their vulnerable payoff, forced movement and
+retaliation patterns create distinct target-order and positioning questions.
+Every legacy Foundry native now has a third action. Census: 86 enemies and 125
+encounters.
