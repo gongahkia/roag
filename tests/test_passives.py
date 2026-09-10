@@ -69,6 +69,34 @@ class PassiveContractTests(unittest.TestCase):
         self.assertEqual(1, catalog.items["base:recovery_index"]["effects"][1].contract.value(5))
         self.assertEqual(1, catalog.items["base:oracle_magnet"]["effects"][1].contract.value(5))
 
+    def test_late_stack_item_pivots_and_multiplier_are_bounded(self) -> None:
+        catalog = load_catalog()
+        prism = catalog.items["base:execution_prism"]["effects"][0].contract
+        self.assertEqual(Fraction(2, 25), prism.value(1))
+        self.assertEqual(prism.value(8), prism.value(80))
+        self.assertGreater(prism.value(8), Fraction(4, 5))
+        nerve = catalog.items["base:nerve_manifold"]["effects"]
+        self.assertEqual((0, 1), (nerve[1].contract.value(3), nerve[1].contract.value(4)))
+        magnet = catalog.items["base:field_magnet"]["effects"]
+        self.assertEqual((1, 2, 5), (
+            magnet[0].contract.value(1), magnet[0].contract.value(5), magnet[1].contract.value(5)
+        ))
+        reserve = catalog.items["base:reserve_optics"]["effects"]
+        self.assertEqual((0, 1, 0, 1), tuple(
+            effect.contract.value(count)
+            for effect, count in ((reserve[0], 2), (reserve[0], 3), (reserve[1], 4), (reserve[1], 5))
+        ))
+        silent = catalog.items["base:silent_suture"]["effects"]
+        self.assertEqual((1, 2, 1, 2), tuple(
+            effect.contract.value(count)
+            for effect, count in ((silent[0], 1), (silent[0], 4), (silent[1], 2), (silent[1], 4))
+        ))
+        broad = catalog.items["base:broad_capacitor"]["effects"]
+        self.assertEqual((0, 1, 2, 1), tuple(
+            effect.contract.value(count)
+            for effect, count in ((broad[0], 1), (broad[0], 2), (broad[0], 4), (broad[1], 5))
+        ))
+
     def test_live_linear_boon_family_preserves_each_count_and_cap(self) -> None:
         expected = {
             "iron_benediction": (3, 15), "clear_signal": (3, 15),
