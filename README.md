@@ -227,6 +227,14 @@ scars and low-water refuges through physical records. Their eleven endings
 trade route safety, household credit, market pressure, institutional
 obligations and local authority rather than presenting one unqualified outcome.
 
+Twelve institutions now connect that local work: the eight regional accounts
+plus Common Bank Measures, Wreck and Span Witnesses, Burn Shelter Runners and
+Cold Road Sounders. Each travelling interest has two named, physically
+scheduled adult witnesses. A real dependency lot earns network trust; trust
+can open one persistent shelter mark that reduces cargo or weather exposure on
+connected routes while recording an obligation. Their services, opposition,
+relationships and witnessed acts appear in the regional ledger and contact UI.
+
 ## Saves and verification
 
 One atomic JSON save is stored at `$XDG_DATA_HOME/jomon/jomon-save.json`, or
@@ -234,7 +242,8 @@ One atomic JSON save is stored at `$XDG_DATA_HOME/jomon/jomon-save.json`, or
 `JOMON_DATA_DIR` to override the directory for development or tests. Save format
 7 deterministically migrates Python format-6 saves while preserving people,
 regions, exploration, exact item layouts, cargo, contacts, markets, integrity,
-and voyage history. New sparse material fields and working-history records do
+and voyage history. New sparse material fields, travelling accounts and
+regional witnesses do
 not repaint migrated geography or reissue lost equipment. The retained
 format-3, format-4 and format-5 paths chain through their
 prior migrations. Physical pack items are authoritative for finite ammunition

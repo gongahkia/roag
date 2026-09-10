@@ -74,6 +74,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
         "legendary_objects": len(state.legendary_objects),
         "regional_questlines": len(QUESTS) + len(WORKLINES) + len(AFTERMATH_LINES),
         "cross_region_arcs": 1 + len(ADDITIONAL_ARCS),
+        "institutions": len(state.institutions),
         "persistent_nonhostile_characters": len(state.household) + len(state.visitors) + sum(len(contacts) for contacts in state.contacts.values()) + 2,
         "commodities": len(COMMODITIES), "voyage_families": len(VOYAGES),
         "tactical_voyage_families": len(TACTICAL), "build_scenarios": len(BUILD_SCENARIOS),
@@ -84,6 +85,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
         "armour": 36, "active_passives_and_techniques": 64,
         "secondary_tools_supplies_drinks": 32, "relics": 12,
         "containers": 60, "regional_questlines": 20, "cross_region_arcs": 5,
+        "institutions": 12, "persistent_nonhostile_characters": 38,
         "voyage_families": 12, "tactical_voyage_families": 6,
         "build_scenarios": 24,
     }

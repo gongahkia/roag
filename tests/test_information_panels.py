@@ -4,7 +4,7 @@ import unittest
 
 from jomon.actions import interact
 from jomon.inventory import auto_place, create_item
-from jomon.regional_history import account_for, ledger_lines
+from jomon.regional_history import account_for, ledger_lines, network_institution_for_contact
 from jomon.state import Position, create_world
 from jomon.terminal import InputEvent, OverlayView, _handle_overlay_view, _overlay, information_lines
 
@@ -72,7 +72,7 @@ class InformationPanelTests(unittest.TestCase):
 
     def test_physical_contact_delivery_choice_dispatches_real_contract(self):
         state = self.state
-        contact = state.contacts[state.active_region_id][-1]
+        contact = state.contacts[state.active_region_id][1]
         schedule = state.actor_schedules[contact.id]
         state.location = "region"
         state.position = Position(schedule.position.x - 1, schedule.position.y, schedule.position.z)
@@ -89,3 +89,30 @@ class InformationPanelTests(unittest.TestCase):
         self.assertEqual(supply.location, "destroyed")
         self.assertEqual(account.trust, 1)
         self.assertGreater(state.world_time, before)
+
+    def test_network_contact_dispatches_its_own_supply_and_route_service(self):
+        state = self.state
+        contact = state.contacts[state.active_region_id][-1]
+        network = network_institution_for_contact(state, contact.id)
+        self.assertIsNotNone(network)
+        supply = create_item(
+            state, f"commodity:{network.dependency}", "network panel lot",
+        )
+        self.assertTrue(auto_place(
+            state, supply.id, "pack", owner_id=state.active_courier_id,
+        ))
+        state.location = "region"
+        state.position = state.actor_schedules[contact.id].position
+        result = interact(state)
+        self.assertEqual(result.overlay, f"contact-service:{contact.id}")
+        closed, _ = _handle_overlay_view(
+            state, OverlayView(result.overlay), InputEvent("key", key=ord("d")),
+        )
+        self.assertTrue(closed)
+        self.assertEqual((supply.location, network.trust), ("destroyed", 1))
+        self.assertTrue(any(
+            option.key == "C"
+            for option in __import__(
+                "jomon.terminal", fromlist=["dialogue_choices"]
+            ).dialogue_choices(state, result.overlay)
+        ))

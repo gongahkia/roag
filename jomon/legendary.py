@@ -33,7 +33,9 @@ def initialise_region_legend(state: GameState, region_id: str) -> None:
     base_kind, base_tags, range_bonus, verbs, epithet = LEGEND_BASES[region_id]
     crisis = region.regional_history[1]
     repair = region.regional_history[2]
-    maker = state.contacts[region_id][-1].name
+    # The second local witness remains the authored maker even when travelling
+    # institutions later add their own embodied regional contact.
+    maker = state.contacts[region_id][1].name
     account = state.institutions[f"work:{region_id}"]
     noun = stage_rng(state.seed, f"legendary-object-v1:{region_id}").choice(("Measure", "Witness", "Working"))
     short_name = f"{maker.split()[0]}'s {noun}"

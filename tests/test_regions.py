@@ -57,7 +57,7 @@ class FourRegionGenerationTests(unittest.TestCase):
                     self.assertEqual(len(region.containers), 7)
                     self.assertGreaterEqual(len({point.z for point in reachable}), 4)
                     self.assertTrue(set(region.landmarks.values()) <= reachable)
-                    self.assertEqual(len(state.contacts[region_id]), 2)
+                    self.assertEqual(len(state.contacts[region_id]), 3)
                     self.assertEqual(len(state.region_threats[region_id]), 7)
                     self.assertTrue(any(threat.elite for threat in state.region_threats[region_id]))
 

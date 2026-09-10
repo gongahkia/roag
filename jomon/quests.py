@@ -816,8 +816,15 @@ def resolve_arc_choice(state: GameState, choice: str) -> tuple[bool, str]:
     return True, message
 
 
-def secondary_service_options(state: GameState) -> tuple[tuple[str, str, str, bool, str], ...]:
-    from .regional_history import account_for
+def secondary_service_options(
+    state: GameState, contact_id: str | None = None
+) -> tuple[tuple[str, str, str, bool, str], ...]:
+    from .regional_history import (
+        account_for, network_institution_for_contact, network_service_options,
+    )
+
+    if contact_id and network_institution_for_contact(state, contact_id):
+        return network_service_options(state, contact_id)
 
     institution = account_for(state)
     injured = bool(state.courier and state.courier.injuries)
@@ -851,10 +858,28 @@ def secondary_service_options(state: GameState) -> tuple[tuple[str, str, str, bo
     return tuple(rows)
 
 
-def use_secondary_service(state: GameState, choice: str) -> tuple[bool, str]:
-    option = next((row for row in secondary_service_options(state) if row[0] == choice), None)
+def use_secondary_service(
+    state: GameState, choice: str, contact_id: str | None = None
+) -> tuple[bool, str]:
+    from .regional_history import network_institution_for_contact
+
+    network = (
+        network_institution_for_contact(state, contact_id)
+        if contact_id else None
+    )
+    option = next(
+        (row for row in secondary_service_options(state, contact_id) if row[0] == choice),
+        None,
+    )
     if option is None or not option[3]:
         return False, option[4] if option else "That service is unavailable."
+    if network:
+        from .regional_history import deliver_network_dependency, open_network_shelter
+
+        return (
+            deliver_network_dependency(state, contact_id)
+            if choice == "d" else open_network_shelter(state, contact_id)
+        )
     contact = state.contacts[state.active_region_id][1]
     if choice == "s":
         from .frontier_elites import settle_claimant

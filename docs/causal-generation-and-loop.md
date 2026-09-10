@@ -17,7 +17,7 @@ seed and world parameters
 ```
 
 The same readable seed reproduces the six-adult household, relationships,
-starting equipment, all eight maps, contacts, histories, treasure, visitors,
+starting equipment, all eight maps, 24 regional contacts, histories, treasure, visitors,
 encounter compositions, regional processes, weather and voyage checks. Random
 derivation uses named `stage_rng` streams backed by SHA-256, never Python's
 process hash. Geography is generated lazily where appropriate, while the
@@ -87,6 +87,11 @@ history change current tiles, controls, testimony, stock, duties and cache
 clues. Production changes markets and institutional services; disruption changes
 contracts, patrol pressure, voyage risk and prices. Historic disputes produce
 opposed accounts, obligations, named physical evidence and route consequences.
+The eight local work accounts are joined by four travelling material interests
+with two embodied witnesses each. Their daily production uses the same bounded
+market reducer. Delivering a real dependency lot earns separate network trust;
+that trust can open one safer connected route and shelter at the cost of a
+persistent obligation. No distant individual is simulated between actions.
 
 Enemies use limited current sight, sound origins, last-known positions, group
 alerts, morale, ammunition, allies, home, and duty. Those facts select one

@@ -7,7 +7,11 @@ from jomon.content import COMMODITIES, validate_commodity_content
 from jomon.inventory import create_item, auto_place, item_spec, sync_legacy_load
 from jomon.materials import _expose, handle_material
 from jomon.quests import use_secondary_service
-from jomon.regional_history import account_for, advance_production, deliver_dependency, ledger_lines, validate_accounts
+from jomon.regional_history import (
+    NETWORK_ACCOUNTS, NETWORK_CONTACTS, account_for, advance_production,
+    deliver_dependency, ledger_lines, open_network_shelter,
+    deliver_network_dependency, validate_accounts,
+)
 from jomon.regions import activate_region
 from jomon.state import MaterialCell, Position, StateError, create_world, game_state_from_dict
 from jomon.world import sight_radius
@@ -27,7 +31,7 @@ class WorkingHistoryTests(unittest.TestCase):
         for region_id in FRONTIERS:
             activate_region(state, region_id)
         validate_accounts(state)
-        self.assertEqual(len(state.institutions), 8)
+        self.assertEqual(len(state.institutions), 12)
         self.assertEqual(sum(len(r.regional_history) for r in state.regions.values()), 40)
         for region in state.regions.values():
             self.assertEqual(region.regional_history[-1].evidence, region.containers[-1].id)
@@ -52,7 +56,10 @@ class WorkingHistoryTests(unittest.TestCase):
         other = create_world("another working history")
         self.assertNotEqual(self.state.region.generation_facts, other.region.generation_facts)
         self.assertNotEqual({k: r.materials for k, r in self.state.regions.items()}, {k: r.materials for k, r in other.regions.items()})
-        for region_id, institution in ((a.region_id, a) for a in self.state.institutions.values()):
+        for region_id, institution in (
+            (a.region_id, a) for a in self.state.institutions.values()
+            if a.id.startswith("work:")
+        ):
             region = self.state.regions[region_id]
             self.assertEqual(region.generation_facts["dependency"], institution.dependency)
             self.assertTrue(any(t.group == institution.id for t in self.state.region_threats[region_id]))
@@ -81,6 +88,9 @@ class WorkingHistoryTests(unittest.TestCase):
         before = state.to_dict()
         advance_production(state)
         self.assertEqual(state.to_dict(), before)
+        for other in state.institutions.values():
+            if other.id != account.id:
+                other.last_day = 1
         state.world_time = 36
         advance_production(state)
         self.assertEqual((need.stock, product.stock), (2, 1))
@@ -93,9 +103,108 @@ class WorkingHistoryTests(unittest.TestCase):
         state = self.state
         state.world_time = 360000
         advance_production(state)
-        self.assertEqual(len(state.institutions), 4)
+        self.assertEqual(len(state.institutions), 8)
         self.assertTrue(all(account.last_day == 10000 for account in state.institutions.values()))
         self.assertTrue(all(len(region.regional_history) == 5 for region in state.regions.values()))
+
+    def test_four_networks_have_eight_distinct_embodied_witnesses(self):
+        state = self.state
+        for region_id in FRONTIERS:
+            activate_region(state, region_id)
+        self.assertEqual(
+            {key for key in state.institutions if key.startswith("network:")},
+            set(NETWORK_ACCOUNTS),
+        )
+        self.assertEqual(len(NETWORK_CONTACTS), 8)
+        for institution_id, region_id, contact_id, *_ in NETWORK_CONTACTS:
+            contact = next(
+                candidate for candidate in state.contacts[region_id]
+                if candidate.id == contact_id
+            )
+            self.assertEqual(contact.position, state.actor_schedules[contact.id].position)
+            self.assertIn(f"work:{region_id}", state.institutions[institution_id].relationships)
+            self.assertNotIn(
+                contact.position,
+                {actor.position for actor in state.region_threats[region_id]},
+            )
+
+    def test_network_supply_opens_one_persistent_safer_route_service(self):
+        state = self.state
+        contact_id = "network-contact-hearthford"
+        institution = state.institutions["network:bank-measures"]
+        item = create_item(
+            state, f"commodity:{institution.dependency}",
+            "network service test",
+        )
+        self.assertTrue(auto_place(
+            state, item.id, "pack", owner_id=state.active_courier_id,
+        ))
+        before_edges = [
+            (edge.id, edge.cargo_risk, edge.weather_exposure)
+            for edge in state.route_edges if "hearthford" in {edge.first, edge.second}
+        ]
+        self.assertTrue(deliver_network_dependency(state, contact_id)[0])
+        self.assertEqual((item.location, institution.trust), ("destroyed", 1))
+        self.assertTrue(open_network_shelter(state, contact_id)[0])
+        after_edges = [
+            (edge.id, edge.cargo_risk, edge.weather_exposure)
+            for edge in state.route_edges if "hearthford" in {edge.first, edge.second}
+        ]
+        self.assertNotEqual(after_edges, before_edges)
+        self.assertEqual(institution.obligation, 1)
+        self.assertFalse(open_network_shelter(state, contact_id)[0])
+        restored = game_state_from_dict(state.to_dict())
+        self.assertEqual(restored.to_dict(), state.to_dict())
+
+    def test_network_account_uses_the_same_bounded_daily_market_reducer(self):
+        state = self.state
+        network = state.institutions["network:bank-measures"]
+        for institution in state.institutions.values():
+            institution.last_day = 1
+        network.last_day = 0
+        market = state.regional_markets[network.region_id]
+        market[network.dependency].stock = 3
+        market[network.production].stock = 0
+        state.world_time = 36
+        advance_production(state)
+        self.assertEqual(
+            (market[network.dependency].stock, market[network.production].stock),
+            (2, 1),
+        )
+
+    def test_existing_format_seven_state_adds_networks_without_moving_people(self):
+        data = self.state.to_dict()
+        old_contacts = {
+            region_id: [contact["position"] for contact in contacts[:2]]
+            for region_id, contacts in data["contacts"].items()
+        }
+        data["institutions"] = {
+            key: value for key, value in data["institutions"].items()
+            if key.startswith("work:")
+        }
+        for region_id in data["contacts"]:
+            data["contacts"][region_id] = data["contacts"][region_id][:2]
+        data["actor_schedules"] = {
+            key: value for key, value in data["actor_schedules"].items()
+            if not key.startswith("network-contact-")
+        }
+        loaded = game_state_from_dict(data)
+        self.assertEqual(
+            {
+                region_id: [
+                    {
+                        "x": contact.position.x, "y": contact.position.y,
+                        "z": contact.position.z,
+                    }
+                    for contact in contacts[:2]
+                ]
+                for region_id, contacts in loaded.contacts.items()
+            },
+            old_contacts,
+        )
+        self.assertEqual(len(loaded.institutions), 8)
+        self.assertTrue(all(len(contacts) == 3 for contacts in loaded.contacts.values()))
+        self.assertEqual(game_state_from_dict(loaded.to_dict()).to_dict(), loaded.to_dict())
 
     def test_physical_supply_contract_unlocks_bounded_injury_care(self):
         state = self.state

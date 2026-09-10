@@ -173,5 +173,12 @@ new magic, infinite contracts or additional major region is planned.
   ice-boom rules. Four are named, persistent rivals, bringing that total to
   eight; their retreat, stocked return, injury, lost kit, witnessed settlement,
   permanent death and distinctive physical reward use the retained lifecycle.
-- The remaining actor, practice, tool, relic, vessel and voyage content
+- Four travelling material interests connect pairs of regions, bringing the
+  institutional total to 12. Eight new physically scheduled adult witnesses
+  bring persistent non-hostile characters to 38. Real dependency transfers
+  earn separate network trust; that trust opens a one-time route shelter,
+  lowers connected cargo/weather exposure and records an obligation. The
+  relationships, opposition, service and acts are inspectable and migrate into
+  existing format-7 states without moving retained contacts.
+- The remaining practice, tool, relic, vessel and voyage content
   multiplication gates remain open.

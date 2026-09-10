@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from .calendar import ACTIONS_PER_DAY, calendar_at
-from .state import GameState, Institution, MaterialCell, Position, RegionalEvent, stage_rng
+from .state import (
+    ActorSchedule, Contact, GameState, Institution, MaterialCell, Position,
+    RegionalEvent, stage_rng,
+)
 
 
 # Geology and water name real work, not a universal faction or history engine.
@@ -37,33 +40,185 @@ INSTITUTION_TIES = (
     ("whitecairn", "frostmere", "shares cold-route warnings and wool shelter claims"),
 )
 
+# Four travelling material interests. Each has two embodied regional witnesses;
+# they aggregate work at day boundaries and never simulate distant people.
+NETWORK_ACCOUNTS = {
+    "network:bank-measures": {
+        "name": "Common Bank Measures", "home": "hearthford",
+        "dependency": "paper", "production": "grain",
+        "goal": "keep flood and field measures comparable across two banks",
+        "dispute": "private marks that hide who accepted a water release",
+        "presence": ("hearthford", "marlbank"),
+        "service": "witnessed bank shelter and a lower-risk measured freight edge",
+        "opposition": "it refuses shelter while repeated private obligations remain unpaid",
+    },
+    "network:wreck-and-span": {
+        "name": "Wreck and Span Witnesses", "home": "greywash",
+        "dependency": "timber", "production": "ironwork",
+        "goal": "keep recovered fittings attached to named wreck and bridge accounts",
+        "dispute": "salvage claims that cross an upriver load witness",
+        "presence": ("greywash", "rillscar"),
+        "service": "accounted salvage transfer and a sheltered span approach",
+        "opposition": "it closes its approach after unwitnessed stripping or bridge damage",
+    },
+    "network:burn-shelter": {
+        "name": "Burn Shelter Runners", "home": "greenwold",
+        "dependency": "salt fish", "production": "charcoal",
+        "goal": "carry provisions between managed burn and raised wet refuge",
+        "dispute": "fuel cutting that leaves inhabited peat without a dry shelter",
+        "presence": ("greenwold", "dunmire"),
+        "service": "provisioned fire refuge and a marked cross-weather detour",
+        "opposition": "it withholds refuge from crews that spread fire toward habitation",
+    },
+    "network:cold-road": {
+        "name": "Cold Road Sounders", "home": "whitecairn",
+        "dependency": "wool", "production": "salt fish",
+        "goal": "compare high-road bells with winter channel soundings",
+        "dispute": "fast private crossings that invalidate public warnings",
+        "presence": ("whitecairn", "frostmere"),
+        "service": "cold-route warning, dry shelter and one safer exposed edge",
+        "opposition": "it withdraws warnings after false bells or damaged ice stakes",
+    },
+}
+
+NETWORK_CONTACTS = (
+    ("network:bank-measures", "hearthford", "network-contact-hearthford", "Adra Silt", "bank-measure runner", "paper"),
+    ("network:bank-measures", "marlbank", "network-contact-marlbank", "Pelen Reed", "field-measure witness", "grain"),
+    ("network:wreck-and-span", "greywash", "network-contact-greywash", "Kellan Shoal", "wreck-span registrar", "timber"),
+    ("network:wreck-and-span", "rillscar", "network-contact-rillscar", "Mora Span", "bridge salvage witness", "ironwork"),
+    ("network:burn-shelter", "greenwold", "network-contact-greenwold", "Tessa Ember", "burn refuge runner", "salt fish"),
+    ("network:burn-shelter", "dunmire", "network-contact-dunmire", "Iren Bank", "raised-shelter keeper", "charcoal"),
+    ("network:cold-road", "whitecairn", "network-contact-whitecairn", "Varo Cairn", "high-road sounder", "wool"),
+    ("network:cold-road", "frostmere", "network-contact-frostmere", "Nella Sound", "winter-braid witness", "salt fish"),
+)
+
+
+def network_institution_for_contact(state: GameState, contact_id: str) -> Institution | None:
+    institution_id = next(
+        (row[0] for row in NETWORK_CONTACTS if row[2] == contact_id), None
+    )
+    return state.institutions.get(institution_id) if institution_id else None
+
+
+def _ensure_network_contacts(state: GameState) -> None:
+    from .regions import region_reachable
+
+    for institution_id, region_id, contact_id, name, role, interest in NETWORK_CONTACTS:
+        if region_id not in state.regions:
+            continue
+        contacts = state.contacts[region_id]
+        contact = next((candidate for candidate in contacts if candidate.id == contact_id), None)
+        if contact is None:
+            region = state.regions[region_id]
+            anchor = region.landmarks.get("second_contact", region.landmarks["contact"])
+            occupied = {candidate.position for candidate in contacts if candidate.position}
+            occupied |= {
+                actor.position for actor in state.region_threats[region_id]
+                if actor.status in {"dormant", "watching", "engaged"}
+            }
+            occupied |= {container.position for container in region.containers}
+            occupied |= {
+                point for link in region.vertical_links
+                for point in (link.first, link.second)
+            }
+            candidates = {
+                point for point in region_reachable(region)
+                if point not in occupied and point not in set(region.landmarks.values())
+                and all(
+                    other is None or other.z != point.z
+                    or max(abs(other.x - point.x), abs(other.y - point.y)) > 2
+                    for other in (candidate.position for candidate in contacts)
+                )
+            }
+            point = min(
+                candidates,
+                key=lambda candidate: (
+                    abs(candidate.z - anchor.z) * 100
+                    + abs(candidate.x - anchor.x) + abs(candidate.y - anchor.y),
+                    candidate.z, candidate.y, candidate.x,
+                ),
+            )
+            contact = Contact(
+                contact_id, name, role, 0,
+                [f"Represents {state.institutions[institution_id].name} in {region.name}; material transfers and shelter are witnessed."],
+                interest, region_id, point,
+            )
+            contacts.append(contact)
+        state.actor_schedules.setdefault(
+            contact.id,
+            ActorSchedule(
+                contact.id, f"region:{region_id}", contact.position,
+                "witnessing network work", state.world_time + 16,
+                f"region:{region_id}", contact.position,
+                disposition=contact.disposition, last_update=state.world_time,
+            ),
+        )
+
+
+def _ensure_network_institutions(state: GameState) -> None:
+    for institution_id, definition in NETWORK_ACCOUNTS.items():
+        if definition["home"] not in state.regions:
+            continue
+        institution = state.institutions.setdefault(
+            institution_id,
+            Institution(
+                institution_id, definition["name"], definition["home"],
+                definition["dependency"], definition["production"],
+                definition["goal"], definition["dispute"],
+                last_day=state.world_time // ACTIONS_PER_DAY,
+            ),
+        )
+        institution.service = definition["service"]
+        institution.opposition_reason = definition["opposition"]
+
 
 def reconcile_network(state: GameState) -> None:
     """Rebuild bounded, derived institutional ties without touching memories."""
-    accounts = {account.region_id: account for account in state.institutions.values()}
-    for account in accounts.values():
-        account.service, account.opposition_reason = INSTITUTION_SERVICES[account.region_id]
+    _ensure_network_institutions(state)
+    _ensure_network_contacts(state)
+    accounts = list(state.institutions.values())
+    local_accounts = {
+        account.region_id: account for account in accounts
+        if account.id.startswith("work:")
+    }
+    for account in accounts:
+        if account.id.startswith("work:"):
+            account.service, account.opposition_reason = INSTITUTION_SERVICES[account.region_id]
+        else:
+            definition = NETWORK_ACCOUNTS[account.id]
+            account.service = definition["service"]
+            account.opposition_reason = definition["opposition"]
         aftermath = state.regions[account.region_id].changes.get("aftermath_configuration")
         if aftermath == "shared":
             account.service += "; aftermath crews now maintain one firm marked approach"
         elif aftermath == "claimed":
             account.service += "; claimed aftermath work is available only against a recorded obligation"
         account.relationships = {}
-    for first in accounts.values():
-        for second in accounts.values():
+    for first in accounts:
+        for second in accounts:
             if first.id == second.id:
                 continue
             if first.production == second.dependency:
                 first.relationships[second.id] = f"supplies {first.production} to {second.name}"
                 second.relationships[first.id] = f"depends on {first.name} for {first.production}"
     for first_region, second_region, dispute in INSTITUTION_TIES:
-        if first_region not in accounts or second_region not in accounts:
+        if first_region not in local_accounts or second_region not in local_accounts:
             continue
-        first, second = accounts[first_region], accounts[second_region]
+        first, second = local_accounts[first_region], local_accounts[second_region]
         first.relationships.setdefault(second.id, dispute)
         second.relationships.setdefault(first.id, dispute)
+    for institution_id, definition in NETWORK_ACCOUNTS.items():
+        network = state.institutions.get(institution_id)
+        if network is None:
+            continue
+        for region_id in definition["presence"]:
+            local = local_accounts.get(region_id)
+            if local is None:
+                continue
+            network.relationships[local.id] = f"maintains an embodied witness beside {local.name}"
+            local.relationships[network.id] = f"shares material accounts with {network.name}"
     from .legendary import initialise_region_legend
-    for region_id in accounts:
+    for region_id in local_accounts:
         initialise_region_legend(state, region_id)
 
 
@@ -226,6 +381,105 @@ def deliver_dependency(state: GameState) -> tuple[bool, str]:
     )
 
 
+def deliver_network_dependency(state: GameState, contact_id: str) -> tuple[bool, str]:
+    """Move one real lot into a travelling account through its embodied witness."""
+    from .inventory import consume_carried
+
+    institution = network_institution_for_contact(state, contact_id)
+    if institution is None:
+        return False, "No travelling material account is represented here."
+    if institution.obligation >= 3:
+        return False, f"{institution.name} requires its existing obligations settled before another transfer."
+    if not consume_carried(state, f"commodity:{institution.dependency}"):
+        return False, f"Bring one physical {institution.dependency} lot for the compared account."
+    local_market = state.market[institution.dependency]
+    local_market.stock = min(10, local_market.stock + 1)
+    local_market.demand = max(0, local_market.demand - 1)
+    institution.trust = min(3, institution.trust + 1)
+    institution.confidence = min(3, institution.confidence + 1)
+    act = (
+        f"{state.courier.name} transferred one {institution.dependency} lot "
+        f"through {contact_id} on day {state.world_time // ACTIONS_PER_DAY}."
+    )
+    institution.witnessed_acts.append(act)
+    del institution.witnessed_acts[:-8]
+    state.trade_credit += 1
+    contact = next(
+        contact for contact in state.contacts[state.active_region_id]
+        if contact.id == contact_id
+    )
+    contact.disposition = min(3, contact.disposition + 1)
+    contact.memories.append(act)
+    del contact.memories[:-8]
+    state.remember(
+        f"{institution.name} received physical {institution.dependency} at "
+        f"{state.region.name}; network trust {institution.trust}."
+    )
+    return True, (
+        f"{contact.name} witnesses the physical lot into {institution.name}: "
+        "one credit, local stock and network trust remain on the account."
+    )
+
+
+def open_network_shelter(state: GameState, contact_id: str) -> tuple[bool, str]:
+    """Spend earned trust on one persistent regional route concession."""
+    institution = network_institution_for_contact(state, contact_id)
+    if institution is None:
+        return False, "No travelling shelter account is represented here."
+    marker = f"network-shelter:{institution.id}:{state.active_region_id}"
+    if state.vessel_changes.get(marker):
+        return False, "This witnessed shelter and route mark is already open."
+    if institution.trust < 1 or institution.obligation >= 3:
+        return False, "One witnessed material transfer and fewer than three obligations are required."
+    changed_edges = 0
+    for edge in state.route_edges:
+        if state.active_region_id in {edge.first, edge.second}:
+            before = (edge.cargo_risk, edge.weather_exposure)
+            edge.cargo_risk = max(0, edge.cargo_risk - 1)
+            edge.weather_exposure = max(0, edge.weather_exposure - 1)
+            changed_edges += int(before != (edge.cargo_risk, edge.weather_exposure))
+    institution.obligation = min(9, institution.obligation + 1)
+    state.vessel_changes[marker] = {
+        "edges": changed_edges, "institution": institution.id,
+        "region": state.active_region_id,
+    }
+    act = (
+        f"Opened witnessed shelter at {state.region.name}; {changed_edges} "
+        "connected route edges now carry less cargo or weather exposure."
+    )
+    institution.witnessed_acts.append(act)
+    del institution.witnessed_acts[:-8]
+    contact = next(
+        contact for contact in state.contacts[state.active_region_id]
+        if contact.id == contact_id
+    )
+    contact.memories.append(act)
+    del contact.memories[:-8]
+    state.remember(f"{institution.name}: {act} One obligation remains physical in the account.")
+    return True, f"{contact.name} opens the shelter mark; {changed_edges} connected route edges become safer, and one obligation is recorded."
+
+
+def network_service_options(
+    state: GameState, contact_id: str
+) -> tuple[tuple[str, str, str, bool, str], ...]:
+    institution = network_institution_for_contact(state, contact_id)
+    if institution is None:
+        return ()
+    marker = f"network-shelter:{institution.id}:{state.active_region_id}"
+    return (
+        (
+            "d", f"Transfer one {institution.dependency} into the travelling account",
+            "commitment", institution.obligation < 3,
+            "three unresolved network obligations block another transfer",
+        ),
+        (
+            "c", "Open the witnessed shelter and safer connected route",
+            "commitment", institution.trust >= 1 and not state.vessel_changes.get(marker),
+            "needs one network trust; each regional shelter opens once",
+        ),
+    )
+
+
 def ledger_lines(state: GameState) -> list[str]:
     institution = account_for(state)
     if not institution:
@@ -235,6 +489,18 @@ def ledger_lines(state: GameState) -> list[str]:
     lines = [f"FACT — {region.name}: {facts['geology']}, {facts['climate']}.", f"FACT — work: {institution.production}; dependency: {institution.dependency}.", f"{institution.name}: {institution.goal}.", f"Service: {institution.service}.", f"Dispute: {institution.dispute}; opposition: {institution.opposition_reason}.", f"Household trust {institution.trust:+d}; obligation {institution.obligation}; confidence {institution.confidence:+d}."]
     lines.extend(f"RELATION — {text}." for text in institution.relationships.values())
     lines.extend(f"WITNESSED — {text}" for text in institution.witnessed_acts[-3:])
+    present_networks = [
+        state.institutions[institution_id]
+        for institution_id, definition in NETWORK_ACCOUNTS.items()
+        if institution_id in state.institutions
+        and state.active_region_id in definition["presence"]
+    ]
+    for network in present_networks:
+        lines += [
+            f"NETWORK — {network.name}: {network.goal}.",
+            f"SERVICE — {network.service}; trust {network.trust:+d}, obligation {network.obligation}.",
+            f"OPPOSITION — {network.opposition_reason}.",
+        ]
     legend = state.legendary_objects.get(f"legend:{state.active_region_id}")
     if legend:
         lines.append(f"RUMOR — {legend.clue}")
@@ -269,7 +535,7 @@ def forecast(state: GameState) -> str:
 
 
 def validate_accounts(state: GameState) -> None:
-    if len(state.institutions) > 8:
+    if len(state.institutions) > 12:
         raise ValueError("too many working accounts")
     for institution_id, institution in state.institutions.items():
         if institution.id != institution_id or institution.region_id not in state.regions:
@@ -284,6 +550,20 @@ def validate_accounts(state: GameState) -> None:
             raise ValueError("invalid institutional relationship")
         if len(state.institutions) > 1 and not institution.relationships:
             raise ValueError("isolated institution account")
+    for institution_id, definition in NETWORK_ACCOUNTS.items():
+        if institution_id not in state.institutions:
+            raise ValueError("travelling institution account is missing")
+        contact_regions = {
+            region_id for linked_id, region_id, contact_id, *_ in NETWORK_CONTACTS
+            if linked_id == institution_id
+            and any(
+                contact.id == contact_id
+                for contact in state.contacts.get(region_id, ())
+            )
+        }
+        expected = set(definition["presence"]) & set(state.regions)
+        if contact_regions != expected:
+            raise ValueError("travelling institution lacks an embodied regional witness")
     for region in state.regions.values():
         if not region.regional_history:
             continue

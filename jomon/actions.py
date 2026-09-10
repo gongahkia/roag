@@ -3486,10 +3486,12 @@ def resolve_cross_region_choice(state: GameState, choice: str) -> ActionResult:
     return _time_result(state, message, priority=3) if changed else _plain(state, message)
 
 
-def use_contact_service(state: GameState, choice: str) -> ActionResult:
+def use_contact_service(
+    state: GameState, choice: str, contact_id: str | None = None
+) -> ActionResult:
     from .quests import use_secondary_service
 
-    changed, message = use_secondary_service(state, choice)
+    changed, message = use_secondary_service(state, choice, contact_id)
     return _time_result(state, message, priority=3) if changed else _plain(state, message)
 
 

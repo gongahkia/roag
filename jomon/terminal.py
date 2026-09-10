@@ -971,7 +971,8 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
     if kind.startswith("contact-service:"):
         from .quests import secondary_service_options
 
-        return [ChoiceOption(key.upper(), label, semantic, available, requirement) for key, label, semantic, available, requirement in secondary_service_options(state)]
+        contact_id = kind.split(":", 1)[1]
+        return [ChoiceOption(key.upper(), label, semantic, available, requirement) for key, label, semantic, available, requirement in secondary_service_options(state, contact_id)]
     if kind == "merchant":
         return [
             ChoiceOption(str(index + 1), f"Buy {item} — {max(1, MERCHANT_ITEMS[item][0] - (1 if state.support == 'factor surety' else 0))} credit", "commitment", state.trade_credit >= max(1, MERCHANT_ITEMS[item][0] - (1 if state.support == "factor surety" else 0)), "sufficient credit")
@@ -1974,6 +1975,19 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             person for person in state.contacts[state.active_region_id]
             if person.id == contact_id
         )
+        from .regional_history import network_institution_for_contact
+
+        network = network_institution_for_contact(state, contact_id)
+        if network:
+            return contact.name.upper(), [
+                f"{contact.role}; disposition {contact.disposition:+d}; interest {contact.interest}.",
+                f"Represents {network.name}: {network.goal}.",
+                f"Dependency {network.dependency}; production {network.production}.",
+                f"Service: {network.service}.",
+                f"Opposition: {network.opposition_reason}.",
+                f"Network trust {network.trust:+d}; obligation {network.obligation}; confidence {network.confidence:+d}.",
+                *[f"- {memory}" for memory in contact.memories[-3:]],
+            ]
         return contact.name.upper(), [
             f"{contact.role}; disposition {contact.disposition:+d}; interest {contact.interest}.",
             "This local worker can mark a cache, teach practical knowledge, or treat an injury.",
@@ -2289,7 +2303,7 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         result = resolve_cross_region_choice(state, char)
         return (None if result.changed else kind), False
     if kind.startswith("contact-service:") and char in {"c", "t", "h", "d", "s"}:
-        result = use_contact_service(state, char)
+        result = use_contact_service(state, char, kind.split(":", 1)[1])
         return (None if result.changed else kind), False
     if kind == "merchant" and char.isdigit():
         index = int(char) - 1
