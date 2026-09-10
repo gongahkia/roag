@@ -282,6 +282,10 @@
     "citation_chain": {"tags": ["affinity:archive", "control", "damage", "draw", "payoff:marked", "setup:marked"], "upgrade_description": "Upgrade: deal 8, plus 7 if marked; draw 2, weaken a prior mark, then refresh it for 3."},
     "second_draft": {"tags": ["affinity:archive", "block", "cleanse", "discard", "draw", "stress_risk"], "upgrade_description": "Upgrade: discard 2, draw 4, cleanse, gain 4 block, and take 2 stress."},
     "case_study": {"tags": ["affinity:archive", "damage", "draw", "payoff:wound", "setup:marked", "setup:vulnerable"], "upgrade_description": "Upgrade: deal 7, plus 7 if wounded; mark, expose, and draw 2 from a wound."},
-    "rewrite_outcome": {"tags": ["affinity:archive", "block", "cleanse", "draw", "energy", "payoff:deaths_door", "recovery", "stress_risk"], "upgrade_description": "Upgrade: at Death's Door cleanse, heal and block 14, draw 3, gain 1 energy, then take 8 stress."}
+    "rewrite_outcome": {"tags": ["affinity:archive", "block", "cleanse", "draw", "energy", "payoff:deaths_door", "recovery", "stress_risk"], "upgrade_description": "Upgrade: at Death's Door cleanse, heal and block 14, draw 3, gain 1 energy, then take 8 stress."},
+    "blink_strike": {"tags": ["affinity:void", "damage", "draw", "mobility", "status:dodge"], "upgrade_description": "Upgrade: blink front, deal 13, gain 2 dodge, return rear, and draw 1."},
+    "vacuum_prayer": {"tags": ["affinity:void", "control", "setup:vulnerable", "stress_relief", "stress_risk"], "upgrade_description": "Upgrade: deeply expose and weaken all, reduce crew stress by 5, and gain 5 stress."},
+    "negative_space": {"tags": ["affinity:void", "damage", "displacement", "draw", "payoff:marked", "setup:vulnerable"], "upgrade_description": "Upgrade: deal 8, plus 7 if marked; expose for 3, push to back, and draw 1."},
+    "event_collapse": {"tags": ["affinity:void", "damage", "displacement", "draw", "energy", "payoff:deaths_door", "setup:vulnerable"], "upgrade_description": "Upgrade: at Death's Door deal 15, expose for 3, pull all, gain 3 energy, and draw 2."}
   }
 }
