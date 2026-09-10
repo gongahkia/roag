@@ -218,6 +218,10 @@
     "planned_obsolescence": {"tags": ["block", "discard", "draw", "energy"], "upgrade_description": "Upgrade: discard 2, draw 4, gain 1 energy and 4 block."},
     "field_rations": {"tags": ["block", "recovery", "stress_relief"], "upgrade_description": "Upgrade: all crew heal 4, gain 6 block, and reduce 3 stress."},
     "bounty_allocation": {"tags": ["block", "control", "draw", "payoff:marked"], "upgrade_description": "Upgrade: against a mark, grant 6 block to all, draw 2, and weaken the target."},
-    "empty_locker": {"tags": ["discard", "draw", "energy", "stress_risk"], "upgrade_description": "Upgrade: draw 5, discard 2, gain 2 energy, and take 6 stress."}
+    "empty_locker": {"tags": ["discard", "draw", "energy", "stress_risk"], "upgrade_description": "Upgrade: draw 5, discard 2, gain 2 energy, and take 6 stress."},
+    "painted_exit": {"tags": ["damage", "mobility", "payoff:marked", "status:dodge"], "upgrade_description": "Upgrade: deal 10, plus 7 if marked; retreat 2 and dodge from a mark."},
+    "dead_drop": {"tags": ["discard", "draw", "mobility", "status:dodge"], "upgrade_description": "Upgrade: vanish to the back, dodge for 2 rounds, discard 1, and draw 3."},
+    "septic_round": {"tags": ["control", "damage", "payoff:wound", "setup:marked"], "upgrade_description": "Upgrade: deal 9, plus 8 if wounded; mark and weaken a wounded target."},
+    "ghost_protocol": {"tags": ["draw", "mobility", "status:dodge", "status:focus", "stress_risk"], "upgrade_description": "Upgrade: while healthy, vanish, gain 3 dodge and focus, draw 3, and gain 5 stress."}
   }
 }
