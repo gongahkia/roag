@@ -1,6 +1,6 @@
 # Persistence contracts
 
-The run save currently uses schema 41, content schema 31, and the existing Python
+The run save currently uses schema 41, content schema 32, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry and manifests are implemented; the persistent profile is still pending.
 
@@ -21,6 +21,9 @@ kept out of the stackable item lane.
 Content schema 31 adds six explicit curse contracts: conditional exceptional
 power paired with a separately scaling burden. Every new operand has a typed
 unit and trigger disclosure; activations are source-recorded.
+
+Content schema 32 completes the +12 curse target with six paired sequencing,
+route, formation, recovery and salvage burdens rather than hidden scalar taxes.
 
 Schema 41 records engine 1.0.0 and adds the selected owner-to-loadout mapping
 and optional party doctrine. The pure 40→41 migration supplies an empty mapping

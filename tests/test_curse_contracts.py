@@ -62,6 +62,22 @@ class CurseContractTests(unittest.TestCase):
         self.assertIn("next:", detail)
         self.assertIn("descendants", detail)
 
+    def test_paired_burdens_change_two_real_decisions_without_duplicate_shapes(self) -> None:
+        identities = (
+            "base:crossed_wires", "base:lantern_hunger", "base:open_vein",
+            "base:gravity_shame", "base:empty_applause", "base:hoard_fever",
+        )
+        shapes = []
+        for identity in identities:
+            effects = self.catalog.curses[identity]["effects"]
+            self.assertEqual(2, len(effects))
+            self.assertTrue(any(effect.contract.value(1) > 0 for effect in effects))
+            self.assertTrue(all(effect.contract.value(3) > 0 for effect in effects))
+            self.assertTrue(all(effect.contract.value(2) >= effect.contract.value(1)
+                                for effect in effects))
+            shapes.append(tuple(effect["key"] for effect in effects))
+        self.assertEqual(len(shapes), len(set(shapes)))
+
 
 if __name__ == "__main__":
     unittest.main()
