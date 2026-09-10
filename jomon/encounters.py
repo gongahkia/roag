@@ -24,6 +24,72 @@ COMPLEMENTARY_ROLES = {
     "flanker": {"shooter", "suppressor"},
 }
 
+STANDARD_SIGNATURE_FIELDS = (
+    "profile", "role", "goal", "duty", "ecology", "ranged_kind", "range",
+    "supplies", "vision", "hearing", "morale",
+)
+
+
+def roster_audit() -> dict[str, object]:
+    """Validate mechanics-driving rows rather than treating names as variety."""
+    standard = {
+        identity: data for identity, data in ENEMY_ARCHETYPES.items()
+        if not data.get("elite")
+    }
+    elite = {
+        identity: data for identity, data in ENEMY_ARCHETYPES.items()
+        if data.get("elite")
+    }
+    signatures: dict[tuple[object, ...], list[str]] = {}
+    invalid = []
+    for identity, data in standard.items():
+        signature = tuple(data.get(field) for field in STANDARD_SIGNATURE_FIELDS)
+        signatures.setdefault(signature, []).append(identity)
+        glyph = str(data.get("glyph", ""))
+        required = all(data.get(field) not in {None, ""} for field in (
+            "region", "name", "profile", "role", "goal", "capability",
+            "reaction", "terrain", "counterplay",
+        ))
+        if (
+            not required or len(glyph) != 1 or not glyph.isascii()
+            or " or " not in str(data.get("counterplay", ""))
+            or int(data.get("morale", -1)) < 1
+        ):
+            invalid.append(identity)
+    duplicate_signatures = [
+        identities for identities in signatures.values() if len(identities) > 1
+    ]
+    glyphs = Counter(str(data.get("glyph", "")) for data in standard.values())
+    duplicate_glyphs = sorted(glyph for glyph, count in glyphs.items() if count > 1)
+    from .frontier_elites import ELITE_DEFINITIONS
+
+    return {
+        "standard_archetypes": len(standard),
+        "mechanically_distinct_signatures": len(signatures),
+        "elite_catalogue": len(elite),
+        "elite_situations": len(elite) + 1,  # Hearthford crown wheel is map-authored.
+        "named_recurring_rivals": sum(bool(data.get("named")) for data in ELITE_DEFINITIONS.values()),
+        "regions": dict(sorted(Counter(str(data["region"]) for data in standard.values()).items())),
+        "invalid_standard_rows": sorted(invalid),
+        "duplicate_mechanical_signatures": duplicate_signatures,
+        "duplicate_standard_glyphs": duplicate_glyphs,
+    }
+
+
+def validate_roster() -> None:
+    report = roster_audit()
+    if (
+        report["standard_archetypes"] < 48
+        or report["mechanically_distinct_signatures"] < 48
+        or report["elite_situations"] < 16
+        or report["named_recurring_rivals"] < 4
+        or report["invalid_standard_rows"]
+        or report["duplicate_mechanical_signatures"]
+        or report["duplicate_standard_glyphs"]
+        or any(count < 6 for count in report["regions"].values())
+    ):
+        raise ValueError(f"enemy roster acceptance failed: {report}")
+
 
 @dataclass(frozen=True)
 class EncounterPlan:

@@ -328,8 +328,31 @@ ENEMY_ARCHETYPES = {
     "upland-elite": {"region": "whitecairn", "name": "false-bell quarry master", "profile": "reach", "role": "elite", "goal": "trigger rockfall", "vision": 12, "hearing": 11, "range": 3, "capability": "rings marked rockfall lanes and retreats between levels", "morale": 5, "terrain": "bell tower", "counterplay": "sever the bell line, shelter under arches, or expose the false toll", "budget": 6, "elite": True},
     "upland-elite-bridge": {"region": "whitecairn", "name": "bridge-breaker bellward", "profile": "ranged", "role": "elite", "goal": "drop the ridge bridge", "vision": 13, "hearing": 10, "range": 10, "capability": "marks a floor brace before breaking its crossing and changing elevation", "morale": 4, "terrain": "ridge bridge", "counterplay": "leave the marked brace, use the lower switchback, or ring the honest warning", "budget": 6, "elite": True, "ranged_kind": "heavy crossbow"},
 
+    "hearth-bank-lookout": {"region": "hearthford", "name": "bank-road toll watch", "profile": "pursuer", "role": "lookout", "goal": "raise alarm", "vision": 9, "hearing": 8, "range": 1, "capability": "patrols a finite road circuit and signals only its own watch", "reaction": "returns to the road after a broken sightline", "morale": 2, "terrain": "bank road", "counterplay": "leave its sightline or interrupt the signal; a side meadow bypasses the patrol", "budget": 1, "glyph": "A"},
+    "hearth-reed-boar": {"region": "hearthford", "name": "bristleback reed boar", "profile": "animal", "role": "territorial", "goal": "defend territory", "vision": 6, "hearing": 10, "range": 1, "capability": "telegraphs a charge and bogs in deep mud", "reaction": "circles after a guarded or redirected charge", "morale": 3, "terrain": "reed wallow", "counterplay": "lead it into mud or use controlled light; distance breaks the charge", "budget": 3, "ecology": "territorial", "glyph": "B"},
+    "hearth-roof-keeper": {"region": "hearthford", "name": "watch-roof crossbow keeper", "profile": "ranged", "role": "shooter", "goal": "seek elevation", "vision": 13, "hearing": 7, "range": 14, "capability": "uses aligned ladders and a heavy prepared roof lane", "reaction": "reloads twice after a visible telegraphed shot", "morale": 3, "terrain": "watch roof", "counterplay": "break line below the roof or climb through the aligned opening; smoke interrupts aim", "budget": 4, "ranged_kind": "heavy crossbow", "glyph": "C"},
+    "hearth-mill-protector": {"region": "hearthford", "name": "displaced mill levy", "profile": "reach", "role": "protector", "goal": "protect ally", "vision": 8, "hearing": 9, "range": 2, "capability": "interposes for the gantry carrier and covers a wounded withdrawal", "reaction": "abandons pursuit when its paired carrier needs cover", "morale": 4, "terrain": "mill threshold", "counterplay": "separate it with a hook or take the culvert loop; witnessed mill terms can end the levy", "budget": 3, "glyph": "G"},
+    "hearth-gantry-suppressor": {"region": "hearthford", "name": "gantry sling carrier", "profile": "ranged", "role": "suppressor", "goal": "deny area", "vision": 10, "hearing": 10, "range": 8, "capability": "marks a missile lane and feeds smoke through a bounded gantry vent", "reaction": "holds cover while its paired levy withdraws", "morale": 2, "terrain": "upper gantry", "counterplay": "move before release or climb under the lane; wind and water clear its smoke", "budget": 3, "ranged_kind": "sling", "glyph": "M"},
+    "hearth-cargo-reaver": {"region": "hearthford", "name": "valuable-seeking river reaver", "profile": "reach", "role": "thief", "goal": "steal cargo", "vision": 7, "hearing": 12, "range": 2, "capability": "takes one physical valuable and escapes toward a named home route", "reaction": "drops the exact stolen item if intercepted", "morale": 4, "terrain": "flood meadow", "counterplay": "carry fewer exposed valuables or block its homeward line; morale loss forces retreat", "budget": 4, "ecology": "raider", "glyph": "T"},
     "hearth-elite-claimant": {"region": "hearthford", "name": "floodgate claimant", "profile": "reach", "role": "elite", "goal": "open a disputed sluice", "vision": 9, "hearing": 10, "range": 3, "capability": "telegraphs and floods a three-cell mill crossing", "morale": 4, "terrain": "mill race", "counterplay": "dog the sluice, use the upper gantry, or establish the public compact", "budget": 6, "elite": True},
 }
+
+# The older authored regional actors predate per-archetype glyph data. They
+# retain their established behavior while gaining unique ASCII fallbacks; the
+# renderer still assigns semantic hostile colour and bold independent of glyph.
+LEGACY_STANDARD_GLYPHS = {
+    "coast-tide-runner": "a", "coast-dune-hunter": "c",
+    "coast-wreck-shield": "d", "coast-salt-slinger": "e",
+    "coast-netter": "f", "coast-lookout": "i",
+    "forest-trail-watch": "j", "forest-resin-hunter": "k",
+    "forest-hook": "l", "forest-smoke-tender": "n",
+    "forest-tusker": "o", "forest-pack-runner": "p",
+    "upland-ridge-slinger": "r", "upland-pike": "u",
+    "upland-scree-runner": "v", "upland-lime-tender": "w",
+    "upland-cave-hound": "y", "upland-alarm-climber": "9",
+}
+for identity, glyph in LEGACY_STANDARD_GLYPHS.items():
+    ENEMY_ARCHETYPES[identity]["glyph"] = glyph
 
 # Named work and wildlife combinations. Behaviour lives in the bounded ecology
 # and combat reducers; these rows contain no executable scripts.
@@ -373,6 +396,22 @@ for identity, region, name, profile, role, duty, ecology, vision, hearing, reach
 from .frontier_elites import ELITE_DEFINITIONS
 
 ENEMY_ARCHETYPES.update(ELITE_DEFINITIONS)
+
+STANDARD_REACTIONS = {
+    "lookout": "returns to its patrol after an interrupted alarm",
+    "flanker": "changes to a side route when the direct lane is held",
+    "protector": "covers a wounded ally before resuming pursuit",
+    "shooter": "seeks elevation or reloads after a telegraphed shot",
+    "skirmisher": "withdraws when the courier enters its preferred range",
+    "suppressor": "marks a lane and feeds smoke before direct pressure",
+    "territorial": "returns home when prey or courier leaves its boundary",
+    "thief": "escapes toward home after taking one physical item",
+    "tracker": "investigates sound or prey without learning an unseen courier position",
+    "controller": "recovers a missed marked restraint before casting again",
+}
+for data in ENEMY_ARCHETYPES.values():
+    if not data.get("elite"):
+        data.setdefault("reaction", STANDARD_REACTIONS[str(data["role"])])
 
 CONTACT_NAMES = ("Mara Venn", "Tomas Reed", "Iria Pike", "Sela Moss")
 

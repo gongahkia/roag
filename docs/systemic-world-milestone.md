@@ -149,6 +149,18 @@ actual reducers. Both manifest/scenario tests passed in **3.919 seconds**.
 These are automated demonstrations; manual 24-build expedition coverage is
 still not claimed.
 
+The standard roster is now a validated **48 catalogue archetypes, exactly six
+per major region**. Hearthford's six existing production actors are connected
+to full definitions without moving them or replacing persistent IDs. Their
+live alarm, territorial charge/mud counter, heavy prepared shot, protection,
+smoke denial, theft and exact-item recovery paths are focused tests. Across the
+catalogue, action-driving signatures and ASCII glyphs are each unique; region,
+terrain, primary goal, secondary reaction, capability, two counters and morale
+are mandatory. Fifteen catalogue elites plus the map-authored crown wheel make
+16 situations, and four frontier claimants remain named/recurring. The seven
+roster tests and 56 existing enemy/encounter/region/gameplay regressions passed
+in **60.973 seconds**.
+
 Four additional regressions reproduced loose `%` cover having no projectile
 effect, a repeated cache rumor selecting the same marked coffer, and exhausted
 rumors raising `StopIteration`. The shared cover query now affects actual
@@ -165,7 +177,7 @@ them by themselves.
 | Responsiveness | baseline/final median, p95, p99, worst, RSS, save size | profiling underway |
 | Geography/history | eight distinct regions, 3–7 causal events each, 1,000-seed access audit | open |
 | Materials | bounded shared reactions, inspection, player agency, persistence | open |
-| Ecology/AI | perceived cross-actor goals, 48 standards, 16 elites, four named rivals | open |
+| Ecology/AI | perceived cross-actor goals, 48 standards, 16 elites, four named rivals | automated roster and interaction gates met; campaign balance play open |
 | Institutions/economy | witnessed consequences, services, stock and physical contracts | open |
 | Builds | 36 weapons, 36 armour, 64 passives/techniques, 32 tools/supplies, 12 relics, 24 demonstrated builds | automated content and scenario gate met; requested manual coverage open |
 | Treasure | 60 persistent containers, history-backed objects, clue trails | open |

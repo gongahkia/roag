@@ -521,7 +521,8 @@ def _household(seed: str) -> list[Person]:
 
 
 def _threats(seed: str, region: Region) -> list[Threat]:
-    names = stage_rng(seed, "threat-names")
+    from .encounters import threat_from_archetype
+
     alternate_elite = stage_rng(seed, "hearthford-elite-variant").randrange(2) == 1
     road_points = [
         Position(x, y)
@@ -533,12 +534,26 @@ def _threats(seed: str, region: Region) -> list[Threat]:
     patrol = road_points[::stride][:8]
     if len(patrol) < 2:
         patrol = [region.landmarks["landing"], region.landmarks["contact"]]
+
+    def standard(archetype, actor_id, position, health, group, *, status="watching"):
+        actor = threat_from_archetype(
+            archetype, position, encounter_id="hearthford", group=group,
+        )
+        actor.id, actor.health, actor.max_health = actor_id, health, health
+        actor.status, actor.home_position = status, position
+        return actor
+
+    road = standard("hearth-bank-lookout", "road-patrol", patrol[0], 5, "road-watch")
+    road.patrol = patrol
+    boar = standard("hearth-reed-boar", "reed-boar", Position(54, 38), 5, "reed-wallow")
+    roof = standard("hearth-roof-keeper", "tower-bow", Position(47, 10, 2), 4, "road-watch")
+    roof.ammunition = 5
+    levy = standard("hearth-mill-protector", "mill-spear", Position(74, 24), 5, "mill-levy")
+    gantry = standard("hearth-gantry-suppressor", "gantry-bow", Position(80, 20, 1), 4, "mill-levy")
+    gantry.ammunition = 7
+    reavers = standard("hearth-cargo-reaver", "pressure-reavers", Position(58, 28), 6, "reavers", status="dormant")
     return [
-        Threat("road-patrol", names.choice(("bank runner", "toll watch")), "pursuer", patrol[0], 5, 5, patrol=patrol, role="lookout", group="road-watch", home_position=patrol[0], capabilities=["alarm"]),
-        Threat("reed-boar", "bristleback reed boar", "animal", Position(54, 38), 5, 5, morale=3, role="territorial", home_position=Position(54, 38), vision=6, hearing=10),
-        Threat("tower-bow", "watch-roof crossbow keeper", "ranged", Position(47, 10, 2), 4, 4, role="shooter", group="road-watch", ammunition=5, home_position=Position(47, 10, 2), ranged_kind="heavy crossbow"),
-        Threat("mill-spear", "displaced mill levy", "reach", Position(74, 24), 5, 5, morale=3, role="protector", group="mill-levy", home_position=Position(74, 24)),
-        Threat("gantry-bow", "gantry sling carrier", "ranged", Position(80, 20, 1), 4, 4, role="suppressor", group="mill-levy", ammunition=7, home_position=Position(80, 20, 1), ranged_kind="sling"),
+        road, boar, roof, levy, gantry,
         Threat(
             "floodgate-claimant" if alternate_elite else "wheel-train",
             "floodgate claimant" if alternate_elite else "runaway crown wheel",
@@ -548,7 +563,7 @@ def _threats(seed: str, region: Region) -> list[Threat]:
             goal="open disputed sluice" if alternate_elite else "deny lane",
             capabilities=["telegraphed crossing flood"] if alternate_elite else [],
         ),
-        Threat("pressure-reavers", "valuable-seeking river reavers", "reach", Position(58, 28), 6, 6, status="dormant", morale=4, role="thief", group="reavers", home_position=Position(58, 28), capabilities=["steal", "escape"]),
+        reavers,
     ]
 
 

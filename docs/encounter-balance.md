@@ -51,6 +51,17 @@ python -m jomon.audit
 python -m jomon.encounters
 ```
 
+`roster_audit()` additionally validates the live catalogue rather than adding
+direct-map actors to a paper total. It reports **48 standard archetypes: six
+per major region**, 48 unique mechanics-driving signatures, 48 unique ASCII
+glyphs, 15 catalogue elites plus Hearthford's map-authored crown wheel for 16
+elite situations, and four named recurring claimants. A signature comprises
+profile, role, goal, material duty, ecology, ranged kind/range, finite supplies,
+vision, hearing and morale—the fields that actually select actions or bound
+perception. Every standard row also carries a regional terrain reason, a
+secondary reaction, an explicit capability, and two or more counters. Semantic
+hostile colour and bold are applied by actor identity, independently of glyph.
+
 They build all three added regions for 100 deterministic seeds and sample all
 three pressure bands at six site indices. The second command also reports the
 actual finite production compositions and their archetype frequency. The
@@ -134,14 +145,19 @@ answer, and a material answer established by its regional control or quest
 evidence. Selection is seeded and persistent; the actor begins dormant, so
 entering awareness cannot cause immediate damage.
 
-## Frontier work and wildlife (systemic expansion, in progress)
+## Frontier work and wildlife
 
 Fresh Dunmire, Rillscar, Marlbank and Frostmere populations now use the same
 bounded production composer, plus a nearby prey/predator pair. Eight actors
 are placed per frontier. Saved populations are not replaced on return.
-Twenty-four new definitions combine region, material duty, perception,
-movement, weapon and allegiance. They are not claimed as twenty-four uniquely
-balanced fights: regional grazers and predators still share core routines.
+Twenty-four frontier definitions combine region, material duty, perception,
+movement, weapon and allegiance. Shared reducers remain intentional, while
+their decision-driving combinations differ. Six Hearthford production rows now
+formalize its existing bank lookout, reed boar, roof keeper, mill protector,
+gantry suppressor and cargo reaver without replacing their persistent IDs or
+their established map positions. Focused tests exercise each live actor's
+alarm, charge/mud counter, prepared shot, ally interception, smoke control, and
+exact stolen-item recovery.
 
 | Work/interest | Actual action | Player answer |
 |---|---|---|
