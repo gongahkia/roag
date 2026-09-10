@@ -1507,10 +1507,13 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
     )
     if burden == "laden" and tile in {"m", "r", "t", ","}:
         state.noise += 1
+    from .arc_relics import lee_sheltered
+
     storm_delay = water_delay or burden_delay or injury_delay or (
         state.weather == "hard rain"
         and state.position.z == 0
         and "rain cape" not in state.carried_passives
+        and not lee_sheltered(state)
     )
     slowing_statuses = {
         "bogged", "current", "net-drag", "brine-chill", "coalheart-chill",
@@ -2377,12 +2380,15 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
                 f"You prepare {state.weapon} on the {target.name}; range {distance(state.position, target.position)}, {lane_cover} cover. Firing commits the next action.",
                 priority=3,
             )
+        from .arc_relics import lee_sheltered as has_lee_shelter
+
         if (
             state.weapon in {"crossbow", "longbow"}
             and state.weather in {"hard rain", "coast squall", "forest rain"}
             and "weatherproof aim" not in build_combinations(state)
             and "weatherfast grip" not in build_combinations(state)
             and not active_part(state, "resin seal")
+            and not has_lee_shelter(state)
         ):
             state.aimed_target = None
             return _time_result(
@@ -2809,6 +2815,11 @@ def use_gear(state: GameState, preparation: str | None = None) -> ActionResult:
         from .vessel import drink_bottled
 
         changed, message = drink_bottled(state, bottle.kind.split(":", 2)[2])
+        return _time_result(state, message, priority=3) if changed else _plain(state, message)
+    from .arc_relics import ARC_RELIC_DESCRIPTIONS, use_arc_relic
+
+    if state.carried_relic in ARC_RELIC_DESCRIPTIONS:
+        changed, message = use_arc_relic(state, state.carried_relic)
         return _time_result(state, message, priority=3) if changed else _plain(state, message)
     if (
         state.carried_relic == "tide-knot charm"

@@ -273,10 +273,13 @@ def sight_radius(state: GameState) -> int:
     from .calendar import daylight_modifier
 
     radius += daylight_modifier(state)
-    if state.weather == "river fog":
-        radius = min(radius, 7)
-    elif state.weather in {"hard rain", "coast squall", "forest rain"}:
-        radius = min(radius, 9)
+    from .arc_relics import lee_sheltered
+
+    if not lee_sheltered(state):
+        if state.weather == "river fog":
+            radius = min(radius, 7)
+        elif state.weather in {"hard rain", "coast squall", "forest rain"}:
+            radius = min(radius, 9)
     if position_key(state.position) in state.smoke and "smoke lens" not in state.carried_passives:
         radius = min(radius, 5 if "charcoal mask" in state.carried_passives else 3)
     if (

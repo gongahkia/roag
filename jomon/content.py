@@ -247,6 +247,10 @@ RELICS = {
     "wreck-light prism": "A salvaged signal prism spends lamp oil to mark one unopened store and turn animals, but human lookouts see the flash.",
 }
 
+from .arc_relics import ARC_RELIC_DESCRIPTIONS
+
+RELICS.update(ARC_RELIC_DESCRIPTIONS)
+
 PASSIVES = {
     "reed sole wraps": (1, "guarded movement through mud stores a quiet step"),
     "counterweight ring": (1, "billhook pulls carry the courier with the target"),

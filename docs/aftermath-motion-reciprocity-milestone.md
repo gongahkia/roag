@@ -197,5 +197,12 @@ new magic, infinite contracts or additional major region is planned.
   relieve survival pressure, brace structures, break aimed lanes, drain mud,
   create ash smoke, freeze shallows or thaw ice. Each consumes its packed item,
   records the consequence and round-trips through ordinary format-7 state.
-- The remaining relic, vessel and voyage content multiplication gates remain
-  open.
+- Four ending-specific relics from the two new aftermath arcs bring the finite
+  relic total to 16. Common-work rivet repairs equipment and supports at a
+  fatigue cost; counterclaim lodestone applies physical disarmament to both
+  sides; lee-cloth brooch creates an eight-action storm shelter shared by
+  movement, sight and ranged preparation while reporting its position; and
+  channel-surety shuttle crosses a real water lane while leaving the heaviest
+  cargo at the launch. Each branch issues exactly one physical, inspectable
+  relic and tests its production, drawback, persistence and cross-system use.
+- The remaining vessel and voyage content multiplication gates remain open.

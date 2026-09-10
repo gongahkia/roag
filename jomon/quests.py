@@ -762,6 +762,10 @@ def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple
             account.witnessed_acts.append(f"{definition['title']} settled: {arc.consequence}")
             del account.witnessed_acts[:-8]
         message = arc.consequence
+        if arc_id in {"repairs", "refuges"}:
+            from .arc_relics import grant_arc_relic
+
+            message += grant_arc_relic(state, arc_id, choice)
         state.remember(f"{definition['title']} ended. {arc.consequence}")
     return True, message
 

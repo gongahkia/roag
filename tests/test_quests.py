@@ -335,6 +335,11 @@ class CrossRegionArcTests(unittest.TestCase):
             state.regions[region].changes["common_aftermath_repairs"]
             for region in ADDITIONAL_ARCS["repairs"]["requires"]
         ))
+        self.assertTrue(any(
+            item.kind == "relic:common-work rivet"
+            and item.location in {"pack", "ground"}
+            for item in state.items
+        ))
 
     def test_low_water_refuges_arc_has_armed_surety_and_public_outcomes(self):
         outcomes = []
@@ -350,6 +355,12 @@ class CrossRegionArcTests(unittest.TestCase):
             at_primary(state, "greywash")
             self.assertTrue(resolve_cross_region_choice(state, ending).time_advanced)
             self.assertEqual(state.cross_region_arcs["refuges"].status, "completed")
+            expected_relic = "lee-cloth brooch" if ending == "p" else "channel-surety shuttle"
+            self.assertTrue(any(
+                item.kind == f"relic:{expected_relic}"
+                and item.location in {"pack", "ground"}
+                for item in state.items
+            ))
             outcomes.append(state.cross_region_arcs["refuges"].consequence)
         self.assertNotEqual(*outcomes)
 

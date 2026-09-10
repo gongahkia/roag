@@ -129,7 +129,7 @@ class ExpandedRelicTests(unittest.TestCase):
         self.assertEqual(animal.status, "evaded")
         self.assertEqual(lookout.last_known_position, self.state.position)
 
-    def test_all_twelve_relics_are_inspectable_and_sourced_physically(self):
+    def test_all_sixteen_relics_are_inspectable_and_sourced_physically(self):
         placed = set()
         for region_id in FRONTIERS:
             region = build_frontier("expanded relic sources", region_id)
@@ -137,7 +137,7 @@ class ExpandedRelicTests(unittest.TestCase):
                 reward for container in region.containers
                 for reward in container.extra_rewards
             )
-        self.assertEqual(len(RELICS), 12)
+        self.assertEqual(len(RELICS), 16)
         self.assertEqual(set().union(*map(set, FRONTIER_RELICS.values())), NEW_RELICS)
         self.assertTrue(NEW_RELICS <= placed)
         for relic in RELICS:

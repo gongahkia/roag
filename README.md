@@ -247,6 +247,12 @@ packed: invalid choices are zero-time, while committed use consumes the named
 item and alters water, fire, smoke, structures, equipment, footing, hostile
 intent, recovery, cold, or fatigue through shared reducers.
 
+Sixteen finite relics include four rewards determined by the endings of the
+two aftermath arcs. These rarer tools deliberately break a narrow rule—joint
+equipment/support repair, reciprocal physical disarmament, temporary storm
+shelter, or a cargo-costed water-lane crossing—and always expose a material
+drawback before use.
+
 ## Saves and verification
 
 One atomic JSON save is stored at `$XDG_DATA_HOME/jomon/jomon-save.json`, or

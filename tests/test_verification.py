@@ -18,7 +18,7 @@ class VerificationCommandTests(unittest.TestCase):
         self.assertEqual(report["counts"]["techniques"], 32)
         self.assertEqual(report["counts"]["active_passives_and_techniques"], 80)
         self.assertEqual(report["counts"]["secondary_tools_supplies_drinks"], 51)
-        self.assertEqual(report["counts"]["relics"], 12)
+        self.assertEqual(report["counts"]["relics"], 16)
         self.assertEqual(report["counts"]["regional_questlines"], 20)
         self.assertEqual(report["counts"]["cross_region_arcs"], 5)
         self.assertEqual(report["counts"]["institutions"], 12)
