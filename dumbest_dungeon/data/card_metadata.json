@@ -270,6 +270,10 @@
     "burst_cap": {"tags": ["affinity:fungal", "control", "damage", "payoff:wound", "setup:wound"], "upgrade_description": "Upgrade: deal 7 to prior wounds, wound all for 4, and weaken prior wounds."},
     "mycelial_transfer": {"tags": ["affinity:fungal", "block", "cleanse", "draw", "recovery"], "upgrade_description": "Upgrade: cleanse, heal 8, grant 4 block, draw 2, and take a shorter wound."},
     "tracking_spores": {"tags": ["affinity:fungal", "control", "draw", "payoff:marked", "setup:marked", "setup:wound"], "upgrade_description": "Upgrade: wound and weaken an existing mark for 3 and 2, mark for 3, then draw 1."},
-    "fruiting_apocalypse": {"tags": ["affinity:fungal", "block", "recovery", "setup:vulnerable", "setup:wound", "stress_risk"], "upgrade_description": "Upgrade: wound for 6, expose for 3, heal all for 5, grant 3 block, and gain 8 stress."}
+    "fruiting_apocalypse": {"tags": ["affinity:fungal", "block", "recovery", "setup:vulnerable", "setup:wound", "stress_risk"], "upgrade_description": "Upgrade: wound for 6, expose for 3, heal all for 5, grant 3 block, and gain 8 stress."},
+    "keelhaul": {"tags": ["affinity:flooded", "control", "damage", "displacement", "setup:vulnerable"], "upgrade_description": "Upgrade: pull to the front, deal 10, expose for 3, and weaken."},
+    "buddy_breath": {"tags": ["affinity:flooded", "block", "guard", "status:riposte", "stress_relief"], "upgrade_description": "Upgrade: guard for 3, reduce 9 stress, gain 8 block and riposte."},
+    "signal_buoy": {"tags": ["affinity:flooded", "control", "displacement", "draw", "payoff:marked", "setup:marked"], "upgrade_description": "Upgrade: pull an existing mark 2 and weaken it for 2, then mark for 3 and draw 2."},
+    "blackwater_dive": {"tags": ["affinity:flooded", "damage", "displacement", "setup:vulnerable", "stress_risk"], "upgrade_description": "Upgrade: while healthy deal 12, pull all to front, expose, gain 8 stress and a shorter wound."}
   }
 }
