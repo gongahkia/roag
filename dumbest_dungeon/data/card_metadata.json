@@ -286,6 +286,10 @@
     "blink_strike": {"tags": ["affinity:void", "damage", "draw", "mobility", "status:dodge"], "upgrade_description": "Upgrade: blink front, deal 13, gain 2 dodge, return rear, and draw 1."},
     "vacuum_prayer": {"tags": ["affinity:void", "control", "setup:vulnerable", "stress_relief", "stress_risk"], "upgrade_description": "Upgrade: deeply expose and weaken all, reduce crew stress by 5, and gain 5 stress."},
     "negative_space": {"tags": ["affinity:void", "damage", "displacement", "draw", "payoff:marked", "setup:vulnerable"], "upgrade_description": "Upgrade: deal 8, plus 7 if marked; expose for 3, push to back, and draw 1."},
-    "event_collapse": {"tags": ["affinity:void", "damage", "displacement", "draw", "energy", "payoff:deaths_door", "setup:vulnerable"], "upgrade_description": "Upgrade: at Death's Door deal 15, expose for 3, pull all, gain 3 energy, and draw 2."}
+    "event_collapse": {"tags": ["affinity:void", "damage", "displacement", "draw", "energy", "payoff:deaths_door", "setup:vulnerable"], "upgrade_description": "Upgrade: at Death's Door deal 15, expose for 3, pull all, gain 3 energy, and draw 2."},
+    "splinter_volley": {"tags": ["affinity:ossuary", "block", "control", "payoff:wound", "setup:wound"], "upgrade_description": "Upgrade: gain 12 block from prior wounds, wound all for 4, and weaken prior wounds."},
+    "bone_lattice": {"tags": ["affinity:ossuary", "block", "cleanse", "guard", "payoff:deaths_door", "recovery"], "upgrade_description": "Upgrade: guard for 3, grant both 8 block, and heal plus cleanse at Death's Door."},
+    "catalogued_bone": {"tags": ["affinity:ossuary", "block", "damage", "payoff:marked", "setup:wound"], "upgrade_description": "Upgrade: deal 9, plus 7 if marked; wound for 4 and gain 5 block from a mark."},
+    "walking_ossuary": {"tags": ["affinity:ossuary", "block", "status:focus", "status:riposte"], "upgrade_description": "Upgrade: all gain 11 block, plus 8, 3 riposte and focus if anyone is wounded; take a shorter wound."}
   }
 }
