@@ -238,6 +238,10 @@
     "flechette_storm": {"tags": ["control", "damage", "payoff:wound", "setup:wound"], "upgrade_description": "Upgrade: deal 4, plus 5 to wounded targets; wound for 4 and weaken prior wounds."},
     "range_solution": {"tags": ["draw", "payoff:marked", "setup:marked", "status:focus"], "upgrade_description": "Upgrade: mark for 3; against an existing mark, draw 2 and gain 3 focus."},
     "breach_shell": {"tags": ["damage", "payoff:vulnerable", "setup:wound"], "upgrade_description": "Upgrade: deal 10, plus 10 if vulnerable, and wound an exposed target for 4."},
-    "danger_close": {"tags": ["damage", "mobility", "status:focus"], "upgrade_description": "Upgrade: deal 16 to all, suffer 6, move to the back, and gain focus."}
+    "danger_close": {"tags": ["damage", "mobility", "status:focus"], "upgrade_description": "Upgrade: deal 16 to all, suffer 6, move to the back, and gain focus."},
+    "consecration": {"tags": ["block", "cleanse", "status:focus", "stress_relief"], "upgrade_description": "Upgrade: all gain 5 block and 2 focus; cleanse yourself and reduce 5 stress."},
+    "votive_shield": {"tags": ["block", "guard", "status:riposte", "stress_risk"], "upgrade_description": "Upgrade: guard for 3, gain 6 block and 3 riposte, and take 4 stress."},
+    "scar_hymn": {"tags": ["cleanse", "recovery", "status:focus", "stress_relief"], "upgrade_description": "Upgrade: heal 7; if wounded, reduce 12 stress, focus, and cleanse."},
+    "shared_absolution": {"tags": ["block", "cleanse", "stress_relief", "stress_risk"], "upgrade_description": "Upgrade: cleanse all, reduce 8 stress and grant 5 block; gain 10 stress."}
   }
 }
