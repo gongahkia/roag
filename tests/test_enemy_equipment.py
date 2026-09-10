@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 import unittest
 
-from jomon.actions import _threat_action, depart
+from jomon.actions import _threat_action, attack, depart
 from jomon.enemy_equipment import (
     actor_items,
     harm_enemy,
@@ -117,6 +117,20 @@ class PhysicalEnemyEquipmentTests(unittest.TestCase):
         self.assertIn("PHYSICAL KIT", lines)
         self.assertIn("damaged hand", lines)
         self.assertIn("wet 4", lines)
+
+    def test_defeat_message_separates_weapon_effect_from_route_outcome(self):
+        state = expedition("physical kit pty")
+        for actor in state.threats:
+            actor.status = "defeated"
+        actor = next(actor for actor in state.threats if actor.uses_physical_equipment)
+        state.position = state.region.landmarks["landing"]
+        actor.position = Position(state.position.x + 1, state.position.y, state.position.z)
+        actor.status, actor.health = "engaged", 1
+
+        result = attack(state, actor.id)
+
+        self.assertIn(f"The strike removes the {actor.name} from the route:", result.message)
+        self.assertNotIn("pulls the target out of position removes", result.message)
 
 
 if __name__ == "__main__":

@@ -2614,8 +2614,9 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         memory = f"{state.courier.name} {outcome} {target.name} with {state.weapon}."
         state.remember(memory)
         _remember_contact(state, memory)
-        armour = f" {harm.protection} covers {harm.location}." if harm.protection != "uncovered" else f" {harm.location} was uncovered."
-        text = f"The {weapon_text} removes the {target.name} from the route.{armour}{recovered}"
+        uncovered_verb = "were" if harm.location in {"arms", "hands", "legs", "feet"} else "was"
+        armour = f" {harm.protection} covers {harm.location}." if harm.protection != "uncovered" else f" {harm.location} {uncovered_verb} uncovered."
+        text = f"The strike removes the {target.name} from the route: {weapon_text}.{armour}{recovered}"
     else:
         armour = f" after {harm.protection} covers {harm.location}" if harm.protection != "uncovered" else f" to uncovered {harm.location}"
         injury = f"; {harm.injury}" if harm.injury else ""
