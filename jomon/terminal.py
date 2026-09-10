@@ -34,6 +34,7 @@ from .actions import (
     intervene_socially,
     retreat,
     use_contact_service,
+    use_aftermath_contract,
     use_gear,
     use_route_stop,
 )
@@ -835,6 +836,26 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
             )
             for index, target in enumerate(navigation_targets(state)[:len(keys)])
         ]
+    if kind == "aftermath":
+        from .aftermath import contracts_for
+
+        return [
+            ChoiceOption(
+                str(index + 1),
+                f"{contract.title} — {contract.status}, stage {contract.stage}/3",
+                "ordinary" if contract.status in {"available", "completed"} else "commitment",
+            )
+            for index, contract in enumerate(contracts_for(state))
+        ]
+    if kind.startswith("aftermath-contract:"):
+        from .aftermath import contract_options
+
+        contract_id = kind.split("aftermath-contract:", 1)[1]
+        return [
+            ChoiceOption(key.upper(), label, semantic, available, requirement)
+            for key, label, semantic, available, requirement
+            in contract_options(state, contract_id)
+        ]
     if kind == "station:workshop" or kind.startswith("workshop:"):
         from .workshop import FITTINGS, SLOTS, attached, can_fit, compatible, fit_cost
 
@@ -862,6 +883,13 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         rows = [ChoiceOption(str(index + 1), name) for index, name in enumerate(("Here", "North", "East", "South", "West"))]
         if state.location == "region" and state.active_region_id in WORKLINES:
             rows.append(ChoiceOption("W", "Local undertaking: evidence and field work"))
+        from .aftermath import contracts_for, near_contract_site
+
+        if any(
+            contract.stage == 1 and near_contract_site(state, contract)
+            for contract in contracts_for(state)
+        ):
+            rows.append(ChoiceOption("A", "Accepted aftermath work at this scar"))
         return rows
     if kind == "workline":
         from .worklines import options
@@ -1754,6 +1782,24 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             "Any key cancels. New danger, sound, weather, injury, load change, or material hazard stops you before automation can conceal it.",
             "Selection and cancellation cost no time.",
         ]
+    if kind == "aftermath":
+        from .aftermath import AFTERMATH_LINES, contracts_for
+
+        quest = state.aftermath_quests[state.active_region_id]
+        return AFTERMATH_LINES[state.active_region_id][0].upper(), [
+            f"Ending configuration: {quest.branch}; line: {quest.status}, {quest.stage}/2 resolved.",
+            "These are finite contracts caused by the resolved regional state, not random errands.",
+            *[
+                f"{contract.title}: {contract.cause}."
+                for contract in contracts_for(state)
+            ],
+        ]
+    if kind.startswith("aftermath-contract:"):
+        from .aftermath import contract_lines
+
+        contract_id = kind.split("aftermath-contract:", 1)[1]
+        contract = state.regional_contracts[contract_id]
+        return contract.title.upper(), contract_lines(state, contract_id)
     if kind == "observed-life":
         return "VISIBLE ACTORS, DUTIES AND COUNTERS", observed_life_lines(state)
     if kind == "material":
@@ -2038,6 +2084,24 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
 
 
 def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, bool]:
+    char = chr(key).lower() if 0 <= key < 256 else ""
+    if kind == "aftermath" and char in "12":
+        from .aftermath import contracts_for
+
+        contracts = contracts_for(state)
+        index = int(char) - 1
+        return (
+            "aftermath-contract:" + contracts[index].id
+            if index < len(contracts) else kind
+        ), False
+    if kind.startswith("aftermath-contract:"):
+        if char == "b" or key == 27:
+            return "aftermath", False
+        if char in {"a", "d", "w", "s", "x"}:
+            contract_id = kind.split("aftermath-contract:", 1)[1]
+            result = use_aftermath_contract(state, contract_id, char)
+            return (None if result.changed else kind), False
+        return kind, False
     if kind == "material" and key in map(ord, "12345"):
         dx, dy = ((0, 0), (0, -1), (1, 0), (0, 1), (-1, 0))[key - ord("1")]
         point = Position(state.position.x + dx, state.position.y + dy, state.position.z)
@@ -2048,11 +2112,27 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         changed, message = handle_material(state, VERBS[key - ord("a")], point_at(kind.split(":", 1)[1]))
         state.add_message(message, priority=3)
         return (None if changed else kind), False
-    char = chr(key).lower() if 0 <= key < 256 else ""
+    if kind == "material" and char == "a":
+        from .aftermath import contracts_for, near_contract_site
+
+        contract = next(
+            (
+                contract for contract in contracts_for(state)
+                if contract.stage == 1 and near_contract_site(state, contract)
+            ),
+            None,
+        )
+        return (
+            "aftermath-contract:" + contract.id if contract else kind
+        ), False
     if char == "w" and (kind == "material" or kind.startswith("contact-service:")):
         from .worklines import WORKLINES
         if state.location == "region" and state.active_region_id in WORKLINES:
             return "workline", False
+    if kind.startswith("contact-service:") and char == "a":
+        from .aftermath import contracts_for
+
+        return ("aftermath" if contracts_for(state) else kind), False
     if kind == "workline" and char and key != 27:
         from .worklines import resolve
         result = resolve(state, char)

@@ -5,14 +5,22 @@ import unittest
 
 from jomon.aftermath import (
     AFTERMATH_LINES,
+    accept_contract,
+    abandon_contract,
+    contract_options,
     contracts_for,
     prepare_aftermath,
+    settle_contract,
+    supply_contract,
     validate_aftermath,
+    work_contract,
 )
 from jomon.frontiers import FRONTIERS, ensure_frontier
+from jomon.inventory import auto_place, create_item, sync_legacy_load
 from jomon.quests import QUESTS
 from jomon.regions import activate_region, region_reachable
 from jomon.state import create_world, game_state_from_dict, validate_state
+from jomon.terminal import _handle_overlay, _overlay_lines, dialogue_choices
 
 
 def completed_revisit(seed: str, region_id: str, ending_index: int):
@@ -31,6 +39,28 @@ def completed_revisit(seed: str, region_id: str, ending_index: int):
 
 
 class EndingDerivedAftermathTests(unittest.TestCase):
+    def prepared(self, seed: str = "playable aftermath"):
+        state = completed_revisit(seed, "hearthford", 0)
+        state.threats.clear()
+        self.assertTrue(prepare_aftermath(state))
+        contract = contracts_for(state)[0]
+        witness = next(
+            contact for contact in state.contacts["hearthford"]
+            if contact.id == contract.participant_id
+        )
+        schedule = state.actor_schedules[witness.id]
+        schedule.area = "region:hearthford"
+        state.position = schedule.position
+        return state, contract
+
+    def pack(self, state, kind: str):
+        item = create_item(state, kind, "aftermath contract test")
+        self.assertTrue(auto_place(
+            state, item.id, "pack", owner_id=state.active_courier_id
+        ))
+        sync_legacy_load(state)
+        return item
+
     def test_all_eight_regions_build_two_branch_specific_revisits(self):
         for region_id in AFTERMATH_LINES:
             with self.subTest(region=region_id):
@@ -88,6 +118,113 @@ class EndingDerivedAftermathTests(unittest.TestCase):
 
         self.assertEqual(loaded.to_dict(), before)
         validate_state(loaded)
+
+    def test_supply_approach_consumes_real_lot_and_physical_copy(self):
+        state, contract = self.prepared("aftermath supply")
+        stock = state.market[contract.commodity].stock
+        trust = state.institutions["work:hearthford"].trust
+        self.assertTrue(accept_contract(state, contract.id)[0])
+        token = next(item for item in state.items if item.id == contract.token_item_id)
+        self.assertEqual(token.kind, contract.id)
+        self.assertEqual(token.location, "pack")
+        supplied = self.pack(state, f"commodity:{contract.commodity}")
+
+        self.assertTrue(supply_contract(state, contract.id)[0])
+        self.assertEqual(supplied.location, "destroyed")
+        self.assertTrue(settle_contract(state, contract.id)[0])
+
+        self.assertEqual(contract.status, "completed")
+        self.assertEqual(token.location, "destroyed")
+        self.assertEqual(state.market[contract.commodity].stock, min(10, stock + 2))
+        self.assertEqual(
+            state.institutions["work:hearthford"].trust,
+            min(3, trust + 1),
+        )
+
+    def test_field_approach_changes_material_and_route_then_round_trips(self):
+        state, contract = self.prepared("aftermath field")
+        self.assertTrue(accept_contract(state, contract.id)[0])
+        state.gear = "repair tools"
+        state.position = contract.site
+        before_risks = {
+            edge.id: edge.cargo_risk for edge in state.route_edges
+            if contract.region_id in {edge.first, edge.second}
+        }
+
+        self.assertTrue(work_contract(state, contract.id)[0])
+        self.assertIn(f"contract-work:{contract.id}", state.region.changes)
+        loaded = game_state_from_dict(copy.deepcopy(state.to_dict()))
+        loaded_contract = loaded.regional_contracts[contract.id]
+        witness = loaded.actor_schedules[loaded_contract.participant_id]
+        loaded.position = witness.position
+        self.assertTrue(settle_contract(loaded, contract.id)[0])
+
+        self.assertEqual(loaded_contract.approach, "field")
+        self.assertTrue(all(
+            edge.cargo_risk == max(0, before_risks[edge.id] - 1)
+            for edge in loaded.route_edges if edge.id in before_risks
+        ))
+        validate_state(loaded)
+
+    def test_only_a_lost_or_destroyed_copy_can_be_replaced(self):
+        state, contract = self.prepared("aftermath lost paper")
+        self.assertTrue(accept_contract(state, contract.id)[0])
+        self.pack(state, f"commodity:{contract.commodity}")
+        self.assertTrue(supply_contract(state, contract.id)[0])
+        token = next(item for item in state.items if item.id == contract.token_item_id)
+        token.location, token.owner_id = "ground", None
+        credits = state.trade_credit = 2
+        self.assertFalse(settle_contract(state, contract.id)[0])
+        self.assertEqual(state.trade_credit, credits)
+        token.location = "lost"
+        self.assertTrue(settle_contract(state, contract.id)[0])
+        # Replacement costs one and completed work pays one: the exchange is net zero.
+        self.assertEqual(state.trade_credit, credits)
+
+    def test_abandonment_is_persistent_finite_and_updates_line(self):
+        state, contract = self.prepared("aftermath abandonment")
+        other = contracts_for(state)[1]
+        self.assertTrue(accept_contract(state, contract.id)[0])
+        self.assertTrue(abandon_contract(state, contract.id)[0])
+        self.assertEqual(contract.status, "failed")
+        self.assertFalse(prepare_aftermath(state))
+        self.assertEqual(len(contracts_for(state)), 2)
+        self.assertEqual(state.aftermath_quests["hearthford"].stage, 1)
+        self.assertEqual(other.status, "available")
+        loaded = game_state_from_dict(copy.deepcopy(state.to_dict()))
+        self.assertEqual(loaded.regional_contracts[contract.id].status, "failed")
+
+    def test_contract_overlay_routes_real_actions_without_time_for_inspection(self):
+        state, contract = self.prepared("aftermath terminal")
+        self.assertEqual(len(dialogue_choices(state, "aftermath")), 2)
+        before = state.world_time
+        detail, quit_requested = _handle_overlay(state, "aftermath", ord("1"))
+        self.assertEqual(detail, "aftermath-contract:" + contract.id)
+        self.assertFalse(quit_requested)
+        self.assertEqual(state.world_time, before)
+        title, lines = _overlay_lines(state, detail)
+        self.assertEqual(title, contract.title.upper())
+        self.assertIn("DISCLOSED ANSWERS", " ".join(lines))
+        self.assertTrue(any(option.key == "A" for option in dialogue_choices(state, detail)))
+        closed, _ = _handle_overlay(state, detail, ord("a"))
+        self.assertIsNone(closed)
+        self.assertEqual(state.world_time, before + 1)
+        self.assertEqual(contract.status, "active")
+
+    def test_all_sixteen_contract_definitions_have_both_disclosed_approaches(self):
+        contracts = []
+        for region_id in AFTERMATH_LINES:
+            state = completed_revisit(f"all contracts {region_id}", region_id, 0)
+            prepare_aftermath(state)
+            for contract in contracts_for(state):
+                witness = state.actor_schedules[contract.participant_id]
+                state.position = witness.position
+                self.assertTrue(accept_contract(state, contract.id)[0])
+                keys = {row[0] for row in contract_options(state, contract.id)}
+                self.assertTrue({"d", "w", "x"}.issubset(keys))
+                contracts.append(contract.id)
+        self.assertEqual(len(contracts), 16)
+        self.assertEqual(len(set(contracts)), 16)
 
 
 if __name__ == "__main__":

@@ -132,5 +132,17 @@ new magic, infinite contracts or additional major region is planned.
 
 ## Work log
 
-- Planning and baseline recorded. Implementation gates remain open.
-
+- Planning and baseline recorded.
+- Interruptible remembered-landmark route following and the one-action
+  pass/listen verb are integrated and replay-tested.
+- Human threats now carry persistent physical weapons and protection; shared
+  harm applies wear, injuries, material conditions, disarming, recovery and
+  exact surviving-kit drops.
+- All eight regional endings now produce one of two later-visit aftermath
+  configurations, each with three changed sites plus population,
+  institutional, route and market consequences.
+- Sixteen finite aftermath contracts are playable through a physical witnessed
+  copy and either a real commodity delivery or material field work. Settlement,
+  paper loss, failure, ledger inspection and mid-contract round-trip are tested.
+- Combat previews, authored aftermath lines/arcs and the remaining content
+  multiplication gates remain open.

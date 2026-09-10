@@ -230,6 +230,11 @@ def item_spec(kind: str) -> ItemSpec:
         name = kind.split(":", 1)[1]
         title, _ = EVIDENCE[name]
         return ItemSpec(name.title(), "EV", 1, 2, 1, "cargo", f"Site testimony for {title}; supports field work and terms with its assigned guard. Recover after loss, or pay for a bounded copy at the survey site.")
+    if kind.startswith("contract:"):
+        return ItemSpec(
+            "Witnessed contract copy", "WC", 1, 2, 1, "cargo",
+            "A physical local work account. It must be carried back after supply or field work; one paid witnessed replacement is possible after loss.",
+        )
     if kind.startswith("fitting:"):
         from .workshop import FITTINGS
 

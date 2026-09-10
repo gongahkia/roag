@@ -245,6 +245,19 @@ def ledger_lines(state: GameState) -> list[str]:
     from .worklines import WORKLINES, lines as work_lines
     if state.active_region_id in WORKLINES:
         lines += ["", "UNDERTAKING — optional second regional work", *work_lines(state)]
+    from .aftermath import AFTERMATH_LINES, contracts_for
+
+    contracts = contracts_for(state)
+    if contracts:
+        quest = state.aftermath_quests[state.active_region_id]
+        lines += [
+            "", "AFTERMATH — " + AFTERMATH_LINES[state.active_region_id][0],
+            f"Configuration {quest.branch}; {sum(contract.status == 'completed' for contract in contracts)}/2 contracts settled.",
+            *[
+                f"{contract.title}: {contract.status}; {contract.cause}."
+                for contract in contracts
+            ],
+        ]
     return lines
 
 

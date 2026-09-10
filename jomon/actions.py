@@ -3344,6 +3344,15 @@ def use_contact_service(state: GameState, choice: str) -> ActionResult:
     return _time_result(state, message, priority=3) if changed else _plain(state, message)
 
 
+def use_aftermath_contract(
+    state: GameState, contract_id: str, choice: str
+) -> ActionResult:
+    from .aftermath import resolve_contract
+
+    changed, message = resolve_contract(state, contract_id, choice)
+    return _time_result(state, message, priority=3) if changed else _plain(state, message)
+
+
 def intervene_socially(state: GameState, response: str) -> ActionResult:
     if state.location != "jomon" or state.jomon_space != "tavern":
         return _plain(state, "Intervention requires the physical tavern.")

@@ -717,6 +717,17 @@ def secondary_service_options(state: GameState) -> tuple[tuple[str, str, str, bo
         rows.append(("w", "Discuss the second local undertaking", "ordinary", True, ""))
     if institution:
         rows.append(("d", f"Deliver one {institution.dependency} to the working account", "commitment", state.market[institution.dependency].stock < 5, "stores already supplied"))
+    from .aftermath import contracts_for
+
+    contracts = contracts_for(state)
+    if contracts:
+        open_count = sum(
+            contract.status not in {"completed", "failed"} for contract in contracts
+        )
+        rows.append((
+            "a", f"Open aftermath contracts ({open_count} unresolved)",
+            "ordinary", True, "",
+        ))
     from .frontier_elites import claimant_terms
     claimant = claimant_terms(state)
     if claimant:

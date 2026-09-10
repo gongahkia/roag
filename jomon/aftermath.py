@@ -218,6 +218,271 @@ def contracts_for(state: GameState, region_id: str | None = None) -> tuple[Regio
     )
 
 
+def _participant_position(state: GameState, contract: RegionalContract) -> Position:
+    contact = next(
+        contact for contact in state.contacts[contract.region_id]
+        if contact.id == contract.participant_id
+    )
+    schedule = state.actor_schedules.get(contact.id)
+    if schedule and schedule.area == f"region:{contract.region_id}":
+        return schedule.position
+    return contact.position
+
+
+def near_participant(state: GameState, contract: RegionalContract) -> bool:
+    from .world import distance
+
+    return (
+        state.location == "region"
+        and state.active_region_id == contract.region_id
+        and distance(state.position, _participant_position(state, contract)) <= 1
+    )
+
+
+def near_contract_site(state: GameState, contract: RegionalContract) -> bool:
+    from .world import distance
+
+    return (
+        state.location == "region"
+        and state.active_region_id == contract.region_id
+        and distance(state.position, contract.site) <= 1
+    )
+
+
+def field_work_available(state: GameState) -> bool:
+    return (
+        state.gear == "repair tools"
+        or state.weapon in {
+            "billhook", "hand axe", "war hammer", "spade", "pollaxe",
+            "mattock", "mallet and wedges", "quarry pick",
+        }
+        or bool(state.courier and state.courier.technique == "lever craft")
+    )
+
+
+def _update_line_progress(state: GameState, region_id: str) -> None:
+    quest = state.aftermath_quests[region_id]
+    contracts = contracts_for(state, region_id)
+    resolved = sum(item.status in {"completed", "failed"} for item in contracts)
+    quest.stage = resolved
+    if resolved < len(contracts):
+        quest.status = "active"
+    elif all(item.status == "completed" for item in contracts):
+        quest.status = "completed"
+    else:
+        quest.status = "refused"
+    quest.consequence = "; ".join(
+        item.outcome for item in contracts if item.outcome
+    )
+
+
+def contract_options(
+    state: GameState, contract_id: str
+) -> tuple[tuple[str, str, str, bool, str], ...]:
+    contract = state.regional_contracts[contract_id]
+    if contract.status == "completed":
+        return (("b", "Back to the finite aftermath account", "ordinary", True, ""),)
+    rows = []
+    if contract.stage == 0:
+        rows.append((
+            "a", "Accept one physical witnessed copy", "commitment",
+            near_participant(state, contract), "speak beside the named witness",
+        ))
+    if contract.stage == 1:
+        carried = any(
+            item.kind == f"commodity:{contract.commodity}"
+            and item.location == "pack" and item.owner_id == state.active_courier_id
+            for item in state.items
+        )
+        rows.extend((
+            (
+                "d", f"Deliver one physical {contract.commodity} lot", "commitment",
+                near_participant(state, contract) and carried,
+                f"return beside the witness carrying one {contract.commodity} lot",
+            ),
+            (
+                "w", "Perform field work at the recorded scar", "commitment",
+                near_contract_site(state, contract) and field_work_available(state),
+                f"reach {contract.site.x},{contract.site.y}, z{contract.site.z:+d} with a working or levering tool",
+            ),
+            (
+                "x", "Abandon the finite account and record the failure", "refusal",
+                near_participant(state, contract), "return to the named witness",
+            ),
+        ))
+    if contract.stage == 2:
+        token = next(
+            (item for item in state.items if item.id == contract.token_item_id), None
+        )
+        has_copy = bool(
+            token and token.location == "pack"
+            and token.owner_id == state.active_courier_id
+        )
+        replaceable = bool(
+            token and token.location in {"lost", "destroyed"}
+            and state.trade_credit >= 1
+        )
+        rows.append((
+            "s", "Settle the worked account" + (" (one-credit replacement copy)" if replaceable and not has_copy else ""),
+            "commitment", near_participant(state, contract) and (has_copy or replaceable),
+            "return beside the witness with the contract copy, or one credit only if that copy was destroyed or lost",
+        ))
+    rows.append(("b", "Back to the finite aftermath account", "ordinary", True, ""))
+    return tuple(rows)
+
+
+def accept_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
+    from .inventory import auto_place, create_item
+
+    contract = state.regional_contracts[contract_id]
+    if contract.stage != 0 or not near_participant(state, contract):
+        return False, "This contract must be accepted once beside its named witness."
+    item = create_item(
+        state, contract.id,
+        f"{contract.title}: witnessed physical copy",
+        location="ground",
+    )
+    item.region_id, item.ground_position = state.active_region_id, state.position
+    packed = state.auto_place_enabled and auto_place(
+        state, item.id, "pack", owner_id=state.active_courier_id
+    )
+    contract.token_item_id = item.id
+    contract.stage, contract.status = 1, "active"
+    state.aftermath_quests[contract.region_id].status = "active"
+    return True, (
+        f"{contract.title} is accepted from a named witness. The physical copy is "
+        + ("packed." if packed else "left at your feet; use I to pack it.")
+        + f" Supply {contract.commodity} here, or work the marked scar at {contract.site.x},{contract.site.y}, z{contract.site.z:+d}."
+    )
+
+
+def supply_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
+    from .inventory import consume_carried
+
+    contract = state.regional_contracts[contract_id]
+    if contract.stage != 1 or not near_participant(state, contract):
+        return False, "Supply must be handed to the named witness after acceptance."
+    if not consume_carried(state, f"commodity:{contract.commodity}"):
+        return False, f"Carry one physical {contract.commodity} lot."
+    contract.stage, contract.status, contract.approach = 2, "worked", "supply"
+    return True, (
+        f"One {contract.commodity} lot enters the actual local stock. The physical contract copy must still be settled."
+    )
+
+
+def work_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
+    from .materials import ensure_cell
+
+    contract = state.regional_contracts[contract_id]
+    if contract.stage != 1 or not near_contract_site(state, contract):
+        return False, "The disclosed work must be performed beside its recorded scar."
+    if not field_work_available(state):
+        return False, "A working or levering tool is required."
+    cell = ensure_cell(state, contract.site)
+    if cell is None:
+        return False, "The bounded material field cannot accept more work."
+    old = (cell.fire, cell.water, cell.support, cell.coating)
+    cell.fire = 0
+    cell.water = max(0, cell.water - 1)
+    cell.support = min(3, cell.support + 1)
+    cell.coating = "wet" if old[0] else cell.coating
+    contract.stage, contract.status, contract.approach = 2, "worked", "field"
+    state.region.changes[f"contract-work:{contract.id}"] = (
+        f"fire {old[0]}→{cell.fire}; water {old[1]}→{cell.water}; support {old[2]}→{cell.support}"
+    )
+    return True, (
+        f"The scar changes physically: fire {old[0]}→{cell.fire}, water {old[1]}→{cell.water}, support {old[2]}→{cell.support}. Return the witnessed copy."
+    )
+
+
+def settle_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
+    from .inventory import consume_carried
+
+    contract = state.regional_contracts[contract_id]
+    if contract.stage != 2 or not near_participant(state, contract):
+        return False, "The worked account must be settled beside its named witness."
+    token = next(
+        (item for item in state.items if item.id == contract.token_item_id), None
+    )
+    copied = False
+    if not (
+        token and token.location == "pack" and token.owner_id == state.active_courier_id
+        and consume_carried(state, token.kind)
+    ):
+        if not token or token.location not in {"lost", "destroyed"} or state.trade_credit < 1:
+            return False, "Recover the physical copy; only a destroyed or lost copy can be replaced for one credit."
+        state.trade_credit -= 1
+        copied = True
+    account = state.institutions[f"work:{contract.region_id}"]
+    if contract.approach == "supply":
+        market = state.market[contract.commodity]
+        market.stock = min(10, market.stock + 2)
+        market.demand = max(0, market.demand - 1)
+        account.trust = min(3, account.trust + 1)
+        contract.outcome = "A delivered lot restores two stock and lowers one demand; the witness records household trust."
+    else:
+        account.confidence = min(3, account.confidence + 1)
+        for edge in state.route_edges:
+            if contract.region_id in {edge.first, edge.second}:
+                edge.cargo_risk = max(0, edge.cargo_risk - 1)
+        contract.outcome = "Physical scar work raises institutional confidence and eases connected cargo risk."
+    contract.stage, contract.status = 3, "completed"
+    _update_line_progress(state, contract.region_id)
+    account.witnessed_acts.append(
+        f"{state.courier.name} settled {contract.title} by {contract.approach}."
+    )
+    del account.witnessed_acts[:-8]
+    state.trade_credit += 1
+    state.remember(f"{contract.title}: {contract.outcome}")
+    return True, contract.outcome + " One credit is paid." + (" One credit first funded the replacement copy." if copied else "")
+
+
+def abandon_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
+    contract = state.regional_contracts[contract_id]
+    if contract.stage != 1 or not near_participant(state, contract):
+        return False, "Return to the witness before abandoning the accepted account."
+    contract.stage, contract.status = 3, "failed"
+    contract.outcome = "The witness records an unmet promise; no replacement contract is generated."
+    account = state.institutions[f"work:{contract.region_id}"]
+    account.trust = max(-3, account.trust - 1)
+    account.witnessed_acts.append(
+        f"{state.courier.name} abandoned {contract.title} after accepting it."
+    )
+    del account.witnessed_acts[:-8]
+    _update_line_progress(state, contract.region_id)
+    state.remember(f"{contract.title}: {contract.outcome}")
+    return True, contract.outcome
+
+
+def resolve_contract(state: GameState, contract_id: str, choice: str) -> tuple[bool, str]:
+    if contract_id not in state.regional_contracts:
+        return False, "That aftermath account no longer exists."
+    return {
+        "a": accept_contract,
+        "d": supply_contract,
+        "w": work_contract,
+        "s": settle_contract,
+        "x": abandon_contract,
+    }.get(choice, lambda *_: (False, "That is not a contract action."))(state, contract_id)
+
+
+def contract_lines(state: GameState, contract_id: str) -> list[str]:
+    contract = state.regional_contracts[contract_id]
+    participant = next(
+        contact for contact in state.contacts[contract.region_id]
+        if contact.id == contract.participant_id
+    )
+    return [
+        f"FACT — cause: {contract.cause}.",
+        f"Named witness: {participant.name}, {participant.role}.",
+        f"Physical site: {contract.site.x},{contract.site.y}, z{contract.site.z:+d}; material: {contract.commodity}.",
+        f"State: stage {contract.stage}/3, {contract.status}; approach {contract.approach or 'not chosen'}.",
+        "DISCLOSED ANSWERS — deliver one real lot at the witness, or use a working tool at the scar.",
+        "The accepted paper copy occupies the pack, can be lost or stolen, and is consumed at settlement.",
+        *( ["FACT — " + contract.outcome] if contract.outcome else [] ),
+    ]
+
+
 def validate_aftermath(state: GameState) -> None:
     if set(state.aftermath_quests) != set(state.regions):
         raise ValueError("aftermath quest persistence does not match the regions")
@@ -239,6 +504,13 @@ def validate_aftermath(state: GameState) -> None:
             raise ValueError("regional contract refers to unknown commodity")
         if contract.status not in {"available", "active", "worked", "completed", "failed"} or not 0 <= contract.stage <= 3:
             raise ValueError("invalid regional contract progression")
+        if contract.token_item_id is not None:
+            token = next(
+                (item for item in state.items if item.id == contract.token_item_id),
+                None,
+            )
+            if token is None or token.kind != contract.id:
+                raise ValueError("regional contract has no matching physical copy")
         from .regions import region_reachable
 
         if contract.site not in region_reachable(state.regions[contract.region_id]):
