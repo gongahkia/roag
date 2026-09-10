@@ -101,6 +101,7 @@ class Container:
     opened: bool = False
     item_ids: list[str] = field(default_factory=list)
     extra_rewards: list[str] = field(default_factory=list)
+    legendary_id: str | None = None
 
 
 @dataclass
@@ -245,6 +246,7 @@ class Item:
     pinned: bool = False
     merged_into: str | None = None
     fitted_to: str | None = None
+    legendary_id: str | None = None
 
 
 @dataclass
@@ -332,6 +334,25 @@ class QuestProgress:
     optional_done: bool = False
     cache_marked: bool = False
     consequence: str = ""
+
+
+@dataclass(frozen=True)
+class LegendaryObject:
+    id: str
+    name: str
+    region_id: str
+    base_kind: str
+    maker: str
+    institution_id: str
+    historical_event_id: str
+    provenance: str
+    major_effect: str
+    tradeoff: str
+    interested_party: str
+    clue: str
+    tags: tuple[str, ...]
+    range_bonus: int
+    material_verbs: tuple[str, ...]
 
 
 @dataclass
@@ -443,6 +464,7 @@ class GameState:
     institutions: dict[str, Institution] = field(default_factory=dict)
     vessel_threats: list[Threat] = field(default_factory=list)
     vessel_tiles: dict[str, str] = field(default_factory=dict)
+    legendary_objects: dict[str, LegendaryObject] = field(default_factory=dict)
 
     @property
     def combat_active(self) -> bool:
@@ -974,6 +996,12 @@ def game_state_from_dict(data: Any) -> GameState:
         cross_region_arc = QuestProgress(
             **data.get("cross_region_arc", {"status": "locked"})
         )
+        legendary_objects = {}
+        for key, raw in data.get("legendary_objects", {}).items():
+            values = dict(raw)
+            values["tags"] = tuple(values["tags"])
+            values["material_verbs"] = tuple(values["material_verbs"])
+            legendary_objects[key] = LegendaryObject(**values)
         state = GameState(
             save_format=data["save_format"], seed=data["seed"], world_time=data["world_time"],
             household=household, active_courier_id=data["active_courier_id"], active_region_id=active_region_id, contact=contact,
@@ -1050,6 +1078,7 @@ def game_state_from_dict(data: Any) -> GameState:
             vessel_threats=[parse_threat(value) for value in data.get("vessel_threats", [])],
             vessel_tiles=dict(data.get("vessel_tiles", {})),
             institutions={key: Institution(**value) for key, value in data.get("institutions", {}).items()},
+            legendary_objects=legendary_objects,
         )
         if migrated_v3:
             from .inventory import initialise_inventory, reconcile_legacy_carried, sync_legacy_load
@@ -1139,12 +1168,14 @@ def validate_state(state: GameState) -> None:
     from .regional_history import validate_accounts
     from .ecology import validate_ecology
     from .worklines import validate as validate_worklines
+    from .legendary import validate_legends
 
     try:
         validate_materials(state)
         validate_accounts(state)
         validate_ecology(state)
         validate_worklines(state)
+        validate_legends(state)
     except ValueError as exc:
         raise StateError(f"invalid material state: {exc}") from exc
     if len(state.household) < 6 or len({person.id for person in state.household}) != len(state.household):

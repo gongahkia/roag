@@ -57,6 +57,9 @@ def reconcile_network(state: GameState) -> None:
         first, second = accounts[first_region], accounts[second_region]
         first.relationships.setdefault(second.id, dispute)
         second.relationships.setdefault(first.id, dispute)
+    from .legendary import initialise_region_legend
+    for region_id in accounts:
+        initialise_region_legend(state, region_id)
 
 
 def initialise_account(state: GameState, region_id: str, *, new_geography: bool) -> None:
@@ -227,6 +230,9 @@ def ledger_lines(state: GameState) -> list[str]:
     lines = [f"FACT — {region.name}: {facts['geology']}, {facts['climate']}.", f"FACT — work: {institution.production}; dependency: {institution.dependency}.", f"{institution.name}: {institution.goal}.", f"Service: {institution.service}.", f"Dispute: {institution.dispute}; opposition: {institution.opposition_reason}.", f"Household trust {institution.trust:+d}; obligation {institution.obligation}; confidence {institution.confidence:+d}."]
     lines.extend(f"RELATION — {text}." for text in institution.relationships.values())
     lines.extend(f"WITNESSED — {text}" for text in institution.witnessed_acts[-3:])
+    legend = state.legendary_objects.get(f"legend:{state.active_region_id}")
+    if legend:
+        lines.append(f"RUMOR — {legend.clue}")
     lines += [str(region.changes.get("last_work_account", "No new shift has been resolved in this account.")), ""]
     for event in region.regional_history:
         lines += [f"TESTIMONY — {event.account}", f"EVIDENCE — {event.evidence}: {event.consequence}", ""]

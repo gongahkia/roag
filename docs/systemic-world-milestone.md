@@ -175,6 +175,14 @@ focused institutional/history/cargo tests pass in **2.881 seconds**; the broader
 52-test gameplay/material run exposed two test defects that were corrected, so
 a clean broader rerun remains due.
 
+Eight deterministic historical working objects now connect each region's
+actual crisis, repair, witness, institution, dispute and final history cache to
+physical equipment. Their concise provenance and clue trail are inspectable;
+range, footing, material verbs, environmental wear, encumbrance and attack
+noise share ordinary reducers. Recovery is finite and format-7 persistent, and
+opened migrated caches never reissue an object. Three focused tests plus 48
+quest/inventory/migration/history regressions passed in **26.421 seconds**.
+
 Four additional regressions reproduced loose `%` cover having no projectile
 effect, a repeated cache rumor selecting the same marked coffer, and exhausted
 rumors raising `StopIteration`. The shared cover query now affects actual
@@ -194,7 +202,7 @@ them by themselves.
 | Ecology/AI | perceived cross-actor goals, 48 standards, 16 elites, four named rivals | automated roster and interaction gates met; campaign balance play open |
 | Institutions/economy | witnessed consequences, services, stock and physical contracts | automated integration met; campaign play open |
 | Builds | 36 weapons, 36 armour, 64 passives/techniques, 32 tools/supplies, 12 relics, 24 demonstrated builds | automated content and scenario gate met; requested manual coverage open |
-| Treasure | 60 persistent containers, history-backed objects, clue trails | open |
+| Treasure | 60 persistent containers, history-backed objects, clue trails | automated history-object gate met; campaign recovery play open |
 | Stories | 12 substantial regional lines, three arcs, alternate outcomes | open |
 | Vessel/voyages | optional stations, twelve families, six physical deck encounters | open |
 | Migration | real format-6 preservation, corruption and mid-reaction round trips | open |

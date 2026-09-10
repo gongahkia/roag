@@ -71,7 +71,21 @@ def effective_spec(state: GameState, item: Item):
     if "resin seal" in names:
         tags.add("resin-coated")
     scales = int("iron scales" in names)
-    return replace(spec, tags=tuple(sorted(tags)), pierce=max(0, spec.pierce + scales - int("reed lining" in names)), coverage=min(3, spec.coverage + scales), noise=spec.noise + scales, mobility=spec.mobility + scales)
+    from .legendary import legend_for_item
+    legend = legend_for_item(state, item)
+    if legend:
+        tags.update(legend.tags)
+    return replace(
+        spec,
+        name=legend.name if legend else spec.name,
+        description=(f"{legend.provenance} {legend.major_effect} Trade-off: {legend.tradeoff} Interested: {legend.interested_party}. Clue: {legend.clue}" if legend else spec.description),
+        weight=spec.weight + int(legend is not None),
+        tags=tuple(sorted(tags)),
+        pierce=max(0, spec.pierce + scales - int("reed lining" in names)),
+        coverage=min(3, spec.coverage + scales),
+        noise=spec.noise + scales + int(legend is not None),
+        mobility=spec.mobility + scales,
+    )
 
 
 def _owned_target(state: GameState, target_id: str) -> Item | None:

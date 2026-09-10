@@ -975,7 +975,7 @@ def pack_weight(state: GameState, owner_id: str | None = None) -> int:
     owner_id = owner_id if owner_id is not None else state.active_courier_id
     carried = {item.id for item in state.items if item.owner_id == owner_id and item.location in {"pack", *EQUIPPED_LOCATIONS}}
     weight = sum(
-        item_spec(item.kind).weight * item.quantity
+        effective_spec(state, item).weight * item.quantity
         for item in state.items
         if item.owner_id == owner_id and item.location in {"pack", *EQUIPPED_LOCATIONS}
     )
@@ -1104,7 +1104,8 @@ def worn_tags(state: GameState, slots: Iterable[str] = BODY_SLOTS, owner_id: str
 
 
 def terrain_status_for(state: GameState, tile: str) -> tuple[str, str, int, str] | None:
-    tags = worn_tags(state)
+    from .legendary import active_tags
+    tags = worn_tags(state) | active_tags(state)
     burden = load_state(state)
     technique = state.courier.technique if state.courier else ""
     if tile == "m" and "mudproof" not in tags and "fen sledge" not in state.carried_passives:
@@ -1128,7 +1129,7 @@ def terrain_status_for(state: GameState, tile: str) -> tuple[str, str, int, str]
             return None
         consequence = "overloaded couriers risk being swept away" if burden == "overloaded" else "movement and guard are slowed"
         return "current", "deep current", 2, consequence
-    if tile == "_" and "ice-grip" not in worn_tags(state, ("feet",)) and "ice awl" not in state.carried_passives:
+    if tile == "_" and "ice-grip" not in (worn_tags(state, ("feet",)) | active_tags(state)) and "ice awl" not in state.carried_passives:
         return "poor-footing", "frozen shallows", 3, "guard is weak on ice; leave it or wear cleats"
     return None
 

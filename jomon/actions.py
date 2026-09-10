@@ -1528,6 +1528,8 @@ def _open_container(state: GameState) -> ActionResult:
     if requirement == "light" and state.gear != "hooded lantern":
         state.lamp_oil -= 1
     rewards = [container.reward, *container.extra_rewards]
+    legend = state.legendary_objects.get(container.legendary_id or "")
+    display_rewards = [*rewards, *([legend.name] if legend else [])]
     packed: list[str] = []
     left: list[str] = []
     for reward in rewards:
@@ -1559,6 +1561,22 @@ def _open_container(state: GameState) -> ActionResult:
             packed.append(reward)
         else:
             left.append(reward)
+    if legend:
+        physical = create_item(
+            state, legend.base_kind, legend.provenance, location="container"
+        )
+        physical.legendary_id = legend.id
+        physical.container_id = container.id
+        container.item_ids.append(physical.id)
+        fits_pack = state.auto_place_enabled and auto_place(
+            state, physical.id, "pack", owner_id=state.active_courier_id
+        )
+        if fits_pack:
+            container.item_ids.remove(physical.id)
+            record_acquisition(state, physical)
+            packed.append(legend.name)
+        else:
+            left.append(legend.name)
     container.opened = True
     from .quests import record_container_opened
 
@@ -1577,9 +1595,9 @@ def _open_container(state: GameState) -> ActionResult:
             institution.confidence = min(3, institution.confidence + 1)
         tally_text = " The difficult recovery is entered on the salvage tally for one witnessed credit."
     state.remember(
-        f"{state.courier.name} opened {container.name} and found {', '.join(rewards)}."
+        f"{state.courier.name} opened {container.name} and found {', '.join(display_rewards)}."
     )
-    message = f"You open {container.name}: {', '.join(rewards)}.{tally_text}"
+    message = f"You open {container.name}: {', '.join(display_rewards)}.{tally_text}"
     if packed:
         message += f" Packed: {', '.join(packed)}."
     if left:
@@ -2048,6 +2066,10 @@ def effective_weapon_range(state: GameState) -> int:
     if state.weapon not in WEAPON_RANGES:
         return 0
     attack_range = WEAPON_RANGES[state.weapon]
+    from .legendary import active_legend
+    legend = active_legend(state)
+    if legend:
+        attack_range += legend.range_bonus
     if "winter-juniper" in state.drink_effects and state.weapon in RANGED_WEAPONS:
         attack_range = max(3, attack_range - 3)
     if (
@@ -2313,6 +2335,11 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         and target.position.z < state.position.z
     ):
         target.position = _step_away(state, target)
+    from .legendary import active_legend
+    legend = active_legend(state)
+    if legend:
+        sound += 1
+        weapon_text = f"{legend.name} ({weapon_text})"
     sound, fitting_text = attack_effects(state, original_target_position, sound, ammo_key)
     working_effect = None
     if work_weapon:
