@@ -1,12 +1,15 @@
 # Persistence contracts
 
-The run save currently uses schema 41, content schema 27, and the existing Python
+The run save currently uses schema 41, content schema 28, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry and manifests are implemented; the persistent profile is still pending.
 
 Content schema 27 adds the first six multi-axis item engines. No run migration
 is needed: saves embed and fingerprint their complete content rules, while
 schema-26 rules remain independently loadable.
+
+Content schema 28 adds six threshold item bridges for focus, reserve energy,
+recovery, stealth, reward choice and first-hit mitigation.
 
 Schema 41 records engine 1.0.0 and adds the selected owner-to-loadout mapping
 and optional party doctrine. The pure 40→41 migration supplies an empty mapping

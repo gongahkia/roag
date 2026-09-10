@@ -48,6 +48,27 @@ class PassiveContractTests(unittest.TestCase):
             self.assertIn("Current:", detail)
             self.assertIn("next:", detail)
 
+    def test_focus_reserve_and_choice_item_bridges_change_jobs_at_thresholds(self) -> None:
+        catalog = load_catalog()
+        expected = {
+            "base:focus_manifold": ([1, 0], [1, 2]),
+            "base:reserve_laminate": ([1, 0], [2, 2]),
+            "base:recovery_index": ([1, 0], [4, 0]),
+            "base:stealth_spool": ([1, 1], [2, 3]),
+            "base:oracle_magnet": ([1, 0], [2, 0]),
+            "base:trauma_prism": ([Fraction(3, 200), 0], [Fraction(480, 10000), 1]),
+        }
+        for identity, (first, fourth) in expected.items():
+            effects = catalog.items[identity]["effects"]
+            self.assertEqual(first, [effect.contract.value(1) for effect in effects])
+            self.assertEqual(fourth, [effect.contract.value(4) for effect in effects])
+            self.assertTrue(all(
+                effect.contract.value(3) <= effect.contract.value(4)
+                for effect in effects
+            ))
+        self.assertEqual(1, catalog.items["base:recovery_index"]["effects"][1].contract.value(5))
+        self.assertEqual(1, catalog.items["base:oracle_magnet"]["effects"][1].contract.value(5))
+
     def test_live_linear_boon_family_preserves_each_count_and_cap(self) -> None:
         expected = {
             "iron_benediction": (3, 15), "clear_signal": (3, 15),
