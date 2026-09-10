@@ -10,7 +10,7 @@ instead. No claim is made to have watched those videos in full.
 ## Sources and translation
 
 - [Noita official site](https://noitagame.com/), the [GDC talk
-  overview](https://www.gdcvault.com/play/1025695/Exploring-the-Tech-and-DesignAt),
+  overview](https://www.gdcvault.com/play/1025695/Exploring-the-Tech-and-Design),
   [Nolla's IGF interview](https://www.gamedeveloper.com/game-platforms/road-to-the-igf-nolla-games-i-noita-i-),
   and [falling-sand development interview](https://80.lv/articles/noita-a-game-based-on-falling-sand-simulation):
   simple consistent reactions teach transferable knowledge; hazards can become

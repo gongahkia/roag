@@ -10,9 +10,10 @@
   replacing lost possessions; supported older Python paths chain forward.
   A real save written by the expected format-6 commit was loaded and resaved by
   format 7 with its exact injury, health, market stock and physical identities.
-  The latest pre-audit serial run passed 419 tests in 155.473 seconds; the final
-  seed-audit fixes pass their 12 focused checks. See the live measurement ledger
-  for the final rerun and remaining manual/platform limits.
+  The final serial run passed 421 tests in 175.189 seconds. The corrected
+  1,000-seed audit generated 8,000 regions with zero failures. See the live
+  measurement ledger for exact focused audits, performance and candid
+  manual/platform limits.
 - Each region now has a three-stage questline with two endings, and completing
   any two opens the five-part Working Marks arc. Production generation uses
   finite mixed groups, four seeded alternative elites, and 62 persistent
@@ -24,10 +25,7 @@
 
 ## Now
 
-- Run the final serial suite, corrected 1,000-seed generation audit, focused
-  verification commands, benchmark and whitespace/compilation checks.
-- Keep exact results and candid manual/platform limits in
-  [`docs/systemic-world-milestone.md`](docs/systemic-world-milestone.md).
+- Owner play and balance feedback on the completed integrated expansion.
 
 ## Next
 

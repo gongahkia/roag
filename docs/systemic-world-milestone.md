@@ -227,23 +227,24 @@ player and enemy shots, and the contact advances through unmarked caches or
 reports exhaustion. All four tests pass (0.637 seconds); the frontier-elite
 and 18 ranged-combat checks also pass. No map repaint or respawn was added.
 
-All gates below remain open until measured and exercised. Counts cannot close
-them by themselves.
+The implementation and automated gates below are closed on final production
+code. Manual breadth remains separately stated; automated scenarios are never
+presented as human play.
 
 | Gate | Required evidence | Status |
 |---|---|---|
-| Immediate play | equipped bargemaster, gangplank E, unchanged first route | baseline retained; regression pending |
-| Responsiveness | baseline/final median, p95, p99, worst, RSS, save size | profiling underway |
-| Geography/history | eight distinct regions, 3–7 causal events each, 1,000-seed access audit | open |
-| Materials | bounded shared reactions, inspection, player agency, persistence | open |
-| Ecology/AI | perceived cross-actor goals, 48 standards, 16 elites, four named rivals | automated roster and interaction gates met; campaign balance play open |
-| Institutions/economy | witnessed consequences, services, stock and physical contracts | automated integration met; campaign play open |
-| Builds | 36 weapons, 36 armour, 64 passives/techniques, 32 tools/supplies, 12 relics, 24 demonstrated builds | automated content and scenario gate met; requested manual coverage open |
-| Treasure | 60 persistent containers, history-backed objects, clue trails | automated history-object gate met; campaign recovery play open |
-| Stories | 12 substantial regional lines, three arcs, alternate outcomes | automated content and persistence gates met; all-path manual play open |
-| Vessel/voyages | optional stations, twelve families, six physical deck encounters | open |
-| Migration | real format-6 preservation, corruption and mid-reaction round trips | open |
-| PTY | region/branch/build/campaign/crisis/resize/mouse paths requested by owner | open |
+| Immediate play | equipped bargemaster, gangplank E, unchanged first route | passed regression and fresh PTY |
+| Responsiveness | baseline/final median, p95, p99, worst, RSS, save size | passed; final evidence below |
+| Geography/history | eight distinct regions, 3–7 causal events each, 1,000-seed access audit | passed; five events per region, zero audit failures |
+| Materials | bounded shared reactions, inspection, player agency, persistence | passed automated integration and reaction PTYs |
+| Ecology/AI | perceived cross-actor goals, 48 standards, 16 elites, four named rivals | passed automated gates; exhaustive human balance sampling remains limited |
+| Institutions/economy | witnessed consequences, services, stock and physical contracts | passed automated integration and a live bridge-account conflict |
+| Builds | 36 weapons, 36 armour, 64 passives/techniques, 32 tools/supplies, 12 relics, 24 demonstrated builds | passed in production scenarios; not all 24 were manual campaigns |
+| Treasure | 60 persistent containers, history-backed objects, clue trails | passed with 62 containers and eight generated objects; every clue route not manually played |
+| Stories | 12 substantial regional lines, three arcs, alternate outcomes | passed automation/persistence; every branch and arc ending not manually played |
+| Vessel/voyages | optional stations, twelve families, six physical deck encounters | passed; twelve families, eight tactical, seven families exercised in PTY |
+| Migration | real format-6 preservation, corruption and mid-reaction round trips | passed automated audit and real-save PTY migration |
+| PTY | region/branch/build/campaign/crisis/resize/mouse paths requested by owner | substantial partial coverage; exact omissions recorded below |
 
 ## Measurement and limitations log
 
@@ -666,3 +667,212 @@ Fresh research and its access limitations are in
 [`systemic-world-research.md`](systemic-world-research.md). No runtime network
 dependency is introduced. Canon is unchanged. New scope permits only bounded
 fittings, institutions, histories and regional systems, not universal engines.
+
+## Final closure — 10 September 2026
+
+### Repository and integration
+
+The tranche began at the requested
+`e32997d4eadc09b63a8cd14d4bf4c8b0932539d9`. Work resumed for the final audit
+at `5be7ca6ca0cc9a093dbed893acd8f6b0a58fae04`, 24 commits later. The complete
+history from the requested start contains 40 coherent commits before this final
+assessment commit. The planning commit is `d7d3e2c`. Concurrent owner commits
+preserved in place are `7bfda5e`, `0eb080e`, `52d054c`, `87bf992`, `5be7ca6`
+and `7078d29`; no history was reset, amended, squashed or rewritten. The owner
+commit `7078d29` also captured the previously unstaged prompt-file change, so
+no unrelated change was taken into an agent-authored commit. No push was
+performed.
+
+### Implemented result
+
+- The seed manifest now proceeds through water/coast/elevation, climate,
+  geology/soil, ecology, work/resources, settlements, institutions, five
+  linked historical events, routes and hazards, named caches/objects, then
+  quests and finite populations. Named SHA-256 streams, stable iteration and
+  bounded repair make all stages deterministic.
+- Eight distinct destinations are playable: Hearthford Floodplain, Greywash
+  Tidal Flats, Greenwold Charcoal March, Whitecairn Limestone Heights,
+  Dunmire Peat Isles, Rillscar Iron Gorge, Marlbank Clay Terraces and
+  Frostmere Braided Estuary. All use aligned `-1/0/1/2` levels, persistent
+  mutations, routes with loops and seasonal alternatives, non-dungeon ground,
+  underground and elevated work, and physical return landings.
+- Each region has five linked present-tense historical records. A flood, fire
+  or support loss changes real material cells, process timing, demand, work
+  guards, route pressure, testimony and a cache. A shared or private repair
+  changes institutional confidence and obligations. Every last record names
+  the actual witness, account and finite cache that holds its object.
+- The eight working institutions are Mill Race Fellowship, Greywash Salvage
+  Table, Coppice Work Circle, Whitecairn Load Witnesses, Raised Bank Company,
+  Two Bridge Account, Marlbank Seed Court and Marked Channel Pilots. Separate
+  trust, confidence, obligation, witnessed acts and regional contact memory
+  govern actual treatment, supplies, routes, contracts and opposition.
+- Sparse material fields share one bounded reducer across the courier,
+  threats, named adults, items, cargo, structures and vessel decks. Water
+  quenches fire; rain wets and suppresses it; soil becomes mud; wind drives
+  fire and smoke; smoke rises through real openings; shallows freeze and thaw;
+  released water follows openings; warned support failure produces damaging,
+  blocking debris. Salt, wet lime, ash, resin, oil, pitch and charcoal have
+  selected readable reactions. Wet, burning, smoking, chilled, burdened and
+  coated states affect bodies and physical possessions. Context `F` actions
+  preview and perform ignition, pouring, extinguishing, cutting, bracing,
+  levering, digging, breaking, moving controls and opening/closing without a
+  new key maze.
+- Capabilities were added only around proven shared use: material verbs,
+  equipment tags, doors/cover, containers, liquid work, treatment,
+  institution service, recruitability, perception and personal practice.
+  Production reducers remain explicit; there is no ECS or planner rewrite.
+- Local ecology combines finite predators, prey, scavengers, territory,
+  workers, patrols and controllers. Actors react to perceived sight and sound,
+  hazards, injury, allies, rivals, cargo and duties; remote state advances only
+  in capped aggregate action-clock steps. Trained actors can alarm, flank,
+  suppress, seek height, interpose, rescue, steal/scavenge, use doors and
+  controls, extinguish/feed fire, retreat, negotiate or surrender. Rival
+  allegiances fight or cooperate from their authored account, never a random
+  global hostility roll.
+- Production content totals are 48 mechanically distinct standard enemies,
+  16 elite situations, four possible named recurring rivals, 36 weapons, 36
+  armour pieces, 48 passives plus 16 techniques, 35 secondary tools/supplies/
+  drinks, 12 relics, 62 containers, eight generated legendary objects, 12
+  regional questlines, three cross-region arcs, 30 persistent non-hostile
+  characters, eight commodities and 12 voyage families, eight tactical.
+  Exactly six standard archetypes are assigned to each region.
+- The 24 automated build demonstrations cover quiet scouting, mobile hooks,
+  armour bracing, weatherproof shooting, floor breaking, smoke hunting, flood
+  control, field treatment, witnessed negotiation, height, tide accounting,
+  buoyant cargo, wind reading, decoys, thorn counters, scree travel, arcing
+  slings, weighted salvage, directed descent, thrown recovery, animal control,
+  fixed roof fire and verified market delivery. They assemble real objects,
+  invoke production reducers and survive serialization.
+- One historical object is generated per region from maker, account, material
+  crisis, repair, claim and resting cache. Its provenance determines real
+  handling tags, prepared range or material verbs, plus a weight/noise
+  trade-off and an interested institution; it is not an adjective chain.
+- The eight primary stories are Mill Race Compact, Ledger Beneath the Ebb,
+  Fire Kept to Its Bounds, Honest Bell, Ground Owed to Water, Bridge with Two
+  Owners, Kiln and Seed Bed, and Last Marked Channel. The four second lines are
+  Houses Above the Race, Light without a Toll, Root and Ash, and Load Below
+  the Bell. The cross-region arcs are Four Working Marks (open compact,
+  household surety or local control), Banks That Hold (shared banks or bonded
+  repair fuel), and Soundings and Spans (sheltered winter route or rapid
+  freight cut). Their physical records, loss/replacement, armed and material
+  chapters, route/market effects and succession are persistent.
+- Seasonal daylight, wind, rain, fog, cold, ice/thaw, routes, production,
+  animal work, patrols, smoke/fire and voyages use the action clock. Forecasts
+  appear as testimony, chart risk, crew skill and visible conditions; idle
+  terminal time changes nothing.
+- Jomon's decks now use cargo handling, repair, bilge response, galley
+  preparation, treatment, equipment fitting, rest, watch, observation,
+  signals, navigation, visitor trade and social stations. Crew work remains
+  optional and scheduled. Raider, boarder, thief, storm, shoal, wreckage,
+  fire, flooding/hull, territorial creature, uncanny sound/resonance,
+  travellers/inspection and crew-dispute families reuse deck geometry,
+  material, morale, doors, cover and cargo rather than a naval minigame.
+
+### Persistence and bounded performance
+
+Format 7 stores people, deaths, injuries, exact item locations and fittings,
+cargo condition, containers, markets, contacts, quests/arcs, institutions,
+regional processes and sparse changes, seasons/routes, histories, rivals and
+vessel damage. Format 6 migration keeps existing geography and chart legs,
+item identities, losses and completed outcomes; it adds empty mutable layers
+and deterministically reconstructs immutable manifests. A real format-6 save
+written by the requested start was loaded and resaved in a PTY without moving
+its items or changing its injury, health or market state. Malformed references
+are rejected.
+
+The runtime uses lazy frontiers, active-region work, dirty material chunks,
+64-cell turn and 512-cell/location material caps, due-event queues, actor
+buckets, one-entry FOV and path-fragment caches with mutation keys, bitset
+reachability/packing, bounded distant production, compact histories/messages
+and reconstructible derived caches. Nothing runs in a background thread.
+
+The uncontended final 20-sample macOS/Python 3.11.16 benchmark at code commit
+`2a8d590` records:
+
+| Scenario | median | p95 | p99/worst |
+|---|---:|---:|---:|
+| normal input + layout | 13.725 ms | 14.870 ms | 16.335 ms |
+| ordinary movement | 7.671 ms | 8.043 ms | 8.261 ms |
+| enemy-heavy turn | 53.998 ms | 59.133 ms | 59.331 ms |
+| sparse material turn | 23.223 ms | 27.521 ms | 28.861 ms |
+| environmental-heavy turn | 22.883 ms | 37.967 ms | 43.940 ms |
+| boarding input + render | 27.770 ms | 30.537 ms | 32.170 ms |
+| pathfinding | 19.905 ms | 20.691 ms | 22.374 ms |
+| 80x24 render sink | 6.073 ms | 6.688 ms | 6.735 ms |
+
+New-world median/worst was 248.899/257.771 ms; lazy frontier entry
+39.809/40.501 ms; load 119.486/130.772 ms; save 19.872/20.739 ms; auto-pack
+3.493/7.103 ms; cold import 108.375/112.254 ms. The representative save is
+326,502 bytes, peak RSS 27,980 KiB and replay matched. Against the same-machine
+continuation reading, movement changed 7.010 to 7.671 ms (+9.4%) and ordinary
+input/layout 12.685 to 13.725 ms (+8.2%), both within the 20% guard. The
+requested-start baseline was measured on Linux/Python 3.14, so its much larger
+improvements (for example 1,201.263 to 248.899 ms world creation) are
+directional, not a controlled hardware claim.
+
+### Final automated verification
+
+- Fast developer suite: 58 tests passed in 21.274 seconds under contention,
+  below the 90-second target.
+- Full serial suite: **421 tests passed in 175.189 seconds** (2:55.57 wall).
+- Final 1,000-seed audit: **zero failures**, 8,000 generated regions, 1,000
+  distinct geography signatures for every family, 773 production encounter
+  compositions, most repeated 515, worst individual seed 8.209 seconds,
+  2,000.827 seconds total. It validates determinism, terrain/topology,
+  mandatory/return/seasonal paths, vertical links, safe starts, structures,
+  histories, institutions, markets, quests, treasure and exact round trips.
+  The preceding run honestly failed 418 checks, including seven unreachable
+  seeded actors; `c022eb6` filters unaffordable groups and deterministically
+  relocates authored threats to reachable non-overlapping cells before this
+  clean rerun.
+- Content audit: all exact totals above pass, with no duplicate IDs, duplicate
+  standard glyphs/signatures or invalid production rows.
+- Encounter audit, 100 samples: 900 plans, zero errors, zero unreachable
+  actors and zero opening attacks; 138 sampled/290 production compositions,
+  with all pressure budgets represented.
+- Quest audit, 25 samples: 200 regions and 200 unique geographies, zero invalid
+  paths, 12 lines/24 endings and three arcs/seven endings.
+- Persistence: format-7 exact round trip, format-6 item and region preservation,
+  corruption rejection; 535,251-byte expanded audit fixture.
+- Replay: 100 seeds, 12 actions each, zero divergence. Living world: 100 seeds,
+  connected deterministic routes and schedules, zero overlaps/failures.
+- Soak: 80 real route legs, zero failures; 245,896 bytes traced post-warmup
+  growth, 254,501–256,223 serialized bytes, 2,698,465-byte traced peak, bounded
+  history 40/messages 8/items 58/material cells 4.
+
+### Manual PTY evidence and limits
+
+Actual curses sessions covered a full physical out-and-back expedition in all
+eight destinations, including prior established-region sessions. Dunmire was
+played on two seeds through breached-bank and held-fuel results. Marlbank's
+field release and Rillscar's tailrace-control result were completed. A final
+campaign immediately departed with `E`, survived a boarding loss and hull
+damage, used a seasonal alternate chart route, completed Rillscar, received
+field treatment for concussion, returned twice to earn the same courier's
+seasoned practice, then reached Frostmere. There, the ice boom was operated,
+Kelan Ivy was killed by the visibly pursuing cold-net field mender, their exact
+kit remained at the defeat site, and Risa Quill succeeded with her own kit.
+The failed line persisted; the successor then made a physical
+landing–settlement–gangplank return. Save, quit and terminal restoration were
+clean.
+
+Other PTYs exercised ignition/spread/wind/smoke, river extinguishing, flooding,
+bracing and collapse warnings; cargo theft/recovery; a rival withdrawal; an
+institutional bridge claim; a fen burn/ecology response; injury/treatment;
+Jomon hull damage, bilge and repair; active-reaction save/reload; a real
+format-6 migration; raiders, boarders, thieves, territorial creature, galley
+fire, storm/flood and wreckage; 80x24 and 100x32 play; below-minimum resize and
+recovery; keyboard, native xterm mouse inventory/targeting/route clicks; normal
+quit and injected-failure restoration.
+
+Manual coverage is substantial but not falsely exhaustive. Not manually
+completed were both approaches to every new line, every ending of all three
+arcs, all 24 builds as full expeditions, two full seeds for Marlbank/Rillscar/
+Frostmere, a single campaign visiting all eight moorings, a winter expedition,
+treasure recovery caused specifically by an enemy reaction, a named rival's
+full retreat-return-death sequence, or native macOS/WSL mouse/platform runs.
+Those production paths have focused deterministic tests, but those tests are
+not counted as human play. Remaining repetition is concentrated in some
+animal locomotion, contact dialogue framing and the authored Manhattan safety
+cuts; campaign balance across rare build/elite combinations will benefit from
+owner play rather than additional speculative machinery.
