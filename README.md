@@ -260,6 +260,13 @@ Installed fittings change the ordinary shared systems: fire and meals,
 floodwater and pumping, storm work, cargo theft, shoals, winter exposure,
 signals and persistent injury treatment. None is required before departure.
 
+Every voyage family can now take one causally stronger form. Current shortage,
+cargo, obligation, aftermath, route memory, fire history, season, weather,
+wear, fitted signals or a prior outcome can change actors, sparse hazards,
+costs, cargo selection, rewards or settlement terms. The voyage panel labels
+the cause, changed rule and counters; exact variant outcomes persist by voyage
+number.
+
 ## Saves and verification
 
 One atomic JSON save is stored at `$XDG_DATA_HOME/jomon/jomon-save.json`, or

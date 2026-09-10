@@ -219,5 +219,18 @@ new magic, infinite contracts or additional major region is planned.
   push it. Follow-up `2167780` makes the winter test explicitly remove warm
   clothing so it proves the refit's cold-water effect rather than protection
   from the starting outfit.
-- The remaining stateful voyage-variant and final verification gates remain
-  open.
+- All 12 retained voyage families now have one deterministic stateful variant
+  caused by current markets, cargo, institutional obligations, aftermath,
+  route memory, regional fire history, season, weather, vessel wear, fitted
+  signals or prior outcomes. The voyage panel states cause, changed rule and
+  counters. Variants alter real actors, targeted cargo, sparse fire/water/
+  support fields, action costs, hull damage, rewards or obligations; outcome
+  IDs and consequences persist by voyage number and corrupt active IDs are
+  rejected. Seven focused tests exercise all 12 variants and the retained 27
+  deck-crisis tests still pass.
+- Concurrent commit `b4a7d0f45ef27ea3dfe41ba02eef42eab75454b4`
+  (`provisionnewdesk`) captured the initial variant catalogue and active
+  travel marker while integration was in progress and also appeared at
+  `origin/main`; this agent did not create or push it.
+- All numeric content-multiplication gates are closed. Final full-suite,
+  performance, slow-audit and recorded PTY gates remain open.
