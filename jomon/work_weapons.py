@@ -113,7 +113,7 @@ def approach(state, target):
 
 
 def strike_effects(state, target, candidates):
-    from .inventory import release_enemy_possession
+    from .enemy_equipment import harm_enemy
     from .materials import ensure_cell, fields, key, material_at
     from .world import distance, line_of_sight
 
@@ -131,10 +131,7 @@ def strike_effects(state, target, candidates):
         for actor in candidates:
             if actor.id == target.id or distance(state.position, actor.position) > 2 or not line_of_sight(state, state.position, actor.position):
                 continue
-            actor.health = max(0, actor.health - 2)
-            if actor.health == 0:
-                actor.status = "defeated"
-                release_enemy_possession(state, actor)
+            harm_enemy(state, actor, 2, "war flail sweep", damage_kind="blunt")
             count += 1
         return WorkingStrike(f"the exposed wind-up sweeps {count} other nearby bodies")
     if state.weapon == "spade":
@@ -165,10 +162,7 @@ def strike_effects(state, target, candidates):
             None,
         )
         if adjacent:
-            adjacent.health = max(0, adjacent.health - 1)
-            if adjacent.health == 0:
-                adjacent.status = "defeated"
-                release_enemy_possession(state, adjacent)
+            harm_enemy(state, adjacent, 1, "glaive follow-through", damage_kind="cut")
         return WorkingStrike(
             f"the long edge clips {adjacent.name} beside the target" if adjacent
             else "the long edge finds no second body"

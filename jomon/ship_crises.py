@@ -73,6 +73,9 @@ def _spawn(state: GameState, name: str, position: Position, role: str, *, weapon
                    capabilities=["stairs", "doors", "steal", "escape"] if profile != "animal" else ["no-climb", "defends rudder territory"],
                    intent="observes the deck before committing", goal="secure a physical cargo claim")
     state.vessel_threats.append(actor)
+    from .enemy_equipment import issue_enemy_equipment
+
+    issue_enemy_equipment(state, actor, "jomon")
     return actor
 
 

@@ -1171,6 +1171,9 @@ def validate_inventory(state: GameState) -> None:
     if len(ids) != len(set(ids)):
         raise ValueError("item identities must be unique")
     people = {person.id for person in state.household}
+    physical_actors = {
+        actor.id for actors in state.region_threats.values() for actor in actors
+    } | {actor.id for actor in state.vessel_threats}
     valid_locations = {
         "pack", "locker", "readied", "secondary", *BODY_SLOTS, "container",
         "ground", "enemy", "vessel_cargo", "lost", "destroyed", "fitted",
@@ -1179,8 +1182,18 @@ def validate_inventory(state: GameState) -> None:
         item_spec(item.kind)
         if item.location not in valid_locations:
             raise ValueError(f"invalid item location {item.location}")
-        if item.location in {"pack", "readied", "secondary", *BODY_SLOTS} and item.owner_id not in people:
+        if item.location in {"pack", "secondary"} and item.owner_id not in people:
             raise ValueError("carried item has no valid owner")
+        archived_hostile_issue = item.owner_id is not None and (
+            " working issue carried by " in item.provenance
+            or " protection worn by " in item.provenance
+        )
+        if (
+            item.location in {"readied", *BODY_SLOTS}
+            and item.owner_id not in people | physical_actors
+            and not archived_hostile_issue
+        ):
+            raise ValueError("equipped item has no valid actor")
         if item.location == "container" and not item.container_id:
             raise ValueError("container item has no container")
         if item.location == "ground" and (not item.region_id or item.ground_position is None):

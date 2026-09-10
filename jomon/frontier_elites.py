@@ -75,7 +75,7 @@ def _line(state, point):
 def guard_interception(state, target, damage):
     """The same visible escort bodies pay the cost of protecting the foreman."""
     from .world import distance, line_of_sight
-    from .inventory import release_enemy_possession
+    from .enemy_equipment import harm_enemy
 
     data = definition(target)
     if not data or data["mode"] != "convoy":
@@ -86,11 +86,11 @@ def guard_interception(state, target, damage):
     if helper is None or damage <= 0:
         return damage, ""
     intercepted = min(2, damage)
-    helper.health = max(0, helper.health - intercepted)
-    if helper.health == 0:
-        helper.status = "defeated"
-        release_enemy_possession(state, helper)
-    return damage - intercepted, f"{helper.name} physically takes {intercepted} harm for the convoy"
+    harm = harm_enemy(
+        state, helper, intercepted, "convoy guard interception",
+        damage_kind="blunt",
+    )
+    return damage - intercepted, f"{helper.name} physically takes {harm.amount} harm for the convoy"
 
 
 def elite_action(state, actor, guarded):

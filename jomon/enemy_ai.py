@@ -22,6 +22,8 @@ def effective_vision(state: GameState, threat: Threat) -> int:
     penalty = 3 if state.weather in {"river fog", "hard rain", "coast squall", "forest rain"} else 0
     if threat.position.z > state.position.z:
         penalty = max(0, penalty - 2)
+    if "head" in threat.injuries or threat.conditions.get("smoking"):
+        penalty += 2
     return max(3, threat.vision - penalty)
 
 

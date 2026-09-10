@@ -394,6 +394,8 @@ def _threat_glyph(threat: Threat) -> str:
 
 def observed_life_lines(state: GameState) -> list[str]:
     from .content import ENEMY_ARCHETYPES
+    from .enemy_equipment import actor_items, readied_weapon
+    from .inventory import item_spec
 
     lines = ["FACT: only presently visible actors are listed. No inspection advances time."]
     for actor in sorted(state.combatants, key=lambda a: (distance(a.position, state.position), a.id)):
@@ -406,6 +408,26 @@ def observed_life_lines(state: GameState) -> list[str]:
             f"Duty: {actor.goal}; {actor.goal_reason}.",
             f"Working charges {actor.supplies}; recovery {actor.reload_turns}; morale {actor.morale}." if actor.id.startswith("frontier-elite:") else f"Readied {actor.ranged_kind}; ammunition {actor.ammunition}, reload {actor.reload_turns}." if actor.profile == "ranged" else f"Role: {actor.role}; morale {actor.morale}; supplies {actor.supplies}.",
         ))
+        if actor.uses_physical_equipment:
+            weapon = readied_weapon(state, actor)
+            armour = [
+                f"{item_spec(item.kind).name} {item.condition}%"
+                for item in actor_items(state, actor)
+                if item.location in {"head", "torso", "arms", "hands", "legs", "feet"}
+            ]
+            lines.append(
+                "PHYSICAL KIT: "
+                + (f"{item_spec(weapon.kind).name} {weapon.condition}%" if weapon else "unarmed")
+                + (f"; protection {', '.join(armour)}" if armour else "; no worn protection")
+                + "."
+            )
+            lines.append(
+                "BODY: "
+                + (", ".join(f"{slot} {injury}" for slot, injury in sorted(actor.injuries.items())) or "no observed injury")
+                + "; conditions "
+                + (", ".join(f"{name} {turns}" for name, turns in sorted(actor.conditions.items())) or "none")
+                + "."
+            )
         if data:
             lines.extend((f"KNOWN PRACTICE: {data['capability']}.", f"COUNTERS: {data['counterplay']}."))
     if len(lines) == 1:

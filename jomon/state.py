@@ -226,6 +226,9 @@ class Threat:
     marked_position: Position | None = None
     reaction: str = ""
     glyph: str = ""
+    injuries: dict[str, str] = field(default_factory=dict)
+    conditions: dict[str, int] = field(default_factory=dict)
+    uses_physical_equipment: bool = False
 
 
 @dataclass
@@ -732,6 +735,9 @@ def create_world(seed: str) -> GameState:
     state.contacts.update(new_contacts)
     state.region_threats.update(new_threats)
     state.regional_markets.update(new_markets)
+    from .enemy_equipment import initialise_enemy_equipment
+
+    initialise_enemy_equipment(state, fresh=True)
     state.contacts["hearthford"].append(
         Contact(
             "hearthford-contact-2", "Tomas Reed", "millwright speaker",
@@ -912,6 +918,14 @@ def game_state_from_dict(data: Any) -> GameState:
         data = _migrate_v6(data)
     if data.get("save_format") != SAVE_FORMAT:
         raise StateError(f"incompatible save format; expected {SAVE_FORMAT}")
+    raw_region_threats = data.get(
+        "region_threats", {"hearthford": data.get("threats", [])}
+    )
+    retrofit_enemy_equipment = any(
+        "uses_physical_equipment" not in actor
+        for actors in raw_region_threats.values()
+        for actor in actors
+    )
     try:
         def parse_contact(raw: dict[str, Any]) -> Contact:
             values = dict(raw)
@@ -1185,6 +1199,10 @@ def game_state_from_dict(data: Any) -> GameState:
             from .regions import reconstruct_regional_process
 
             reconstruct_regional_process(state)
+        if retrofit_enemy_equipment:
+            from .enemy_equipment import initialise_enemy_equipment
+
+            initialise_enemy_equipment(state, fresh=False)
     except (AttributeError, KeyError, RuntimeError, TypeError, ValueError) as exc:
         raise StateError(f"malformed save: {exc}") from exc
     validate_state(state)

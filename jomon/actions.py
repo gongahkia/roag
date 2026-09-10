@@ -173,7 +173,12 @@ def choose_weapon(state: GameState, weapon: str) -> ActionResult:
     if state.active_courier_id is None:
         return _plain(state, "Choose the courier before fitting their weapon.")
     transaction = InventoryTransaction.begin(state)
-    if not any(item.kind == weapon and item.location not in {"lost", "destroyed"} for item in state.items):
+    household_ids = {person.id for person in state.household}
+    if not any(
+        item.kind == weapon and item.location not in {"lost", "destroyed"}
+        and (item.location == "locker" or item.owner_id in household_ids)
+        for item in state.items
+    ):
         physical = create_item(state, weapon, "Jomon household stores")
         if not auto_place(state, physical.id, "locker"):
             transaction.cancel(state)
@@ -210,7 +215,12 @@ def choose_gear(state: GameState, gear: str) -> ActionResult:
         return _plain(state, "That secondary item is not available aboard Jomon.")
     if state.active_courier_id is None:
         return _plain(state, "Choose the courier before fitting their secondary gear.")
-    if not any(item.kind == gear and item.location not in {"lost", "destroyed"} for item in state.items):
+    household_ids = {person.id for person in state.household}
+    if not any(
+        item.kind == gear and item.location not in {"lost", "destroyed"}
+        and (item.location == "locker" or item.owner_id in household_ids)
+        for item in state.items
+    ):
         physical = create_item(state, gear, "Jomon household stores")
         if not auto_place(state, physical.id, "locker"):
             state.items.remove(physical)
@@ -518,6 +528,39 @@ def apply_damage(
 def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
     gap = distance(state.position, threat.position)
     threat.turn += 1
+    from .enemy_equipment import (
+        attack_penalty as enemy_attack_penalty,
+        readied_weapon as enemy_readied_weapon,
+        recover_ground_weapon,
+        wear_readied_weapon,
+    )
+    if threat.uses_physical_equipment and enemy_readied_weapon(state, threat) is None:
+        weapons = [
+            item for item in state.items
+            if item.location == "ground" and item.region_id == state.spatial_id
+            and item.ground_position and item.condition > 0
+            and item_spec(item.kind).category == "weapon"
+            and distance(threat.position, item.ground_position) <= threat.vision
+            and line_of_sight(state, threat.position, item.ground_position)
+        ]
+        if weapons:
+            replacement = min(
+                weapons,
+                key=lambda item: (distance(threat.position, item.ground_position), item.id),
+            )
+            if distance(threat.position, replacement.ground_position) <= 1:
+                return recover_ground_weapon(state, threat, replacement.ground_position)
+            old = threat.position
+            threat.position = next_path_step(
+                state, threat, replacement.ground_position, stop_distance=1,
+            )
+            threat.intent = f"moves toward a visible fallen {item_spec(replacement.kind).name}"
+            return f"The {threat.name} {threat.intent}." if threat.position != old else ""
+        threat.morale = min(0, threat.morale)
+        threat.goal, threat.goal_reason = "break contact", "its physical weapon is lost or broken"
+    if ({"legs", "feet"} & set(threat.injuries)) and threat.turn % 2 == 0:
+        threat.intent = "favors an injured lower limb and loses ground"
+        return f"The {threat.name} {threat.intent}."
     if threat.intent.startswith(("disrupted", "dazed", "entangled", "pinned")):
         was_entangled = threat.intent.startswith("entangled")
         threat.intent = "cuts free of the net before acting again" if was_entangled else "recovers position before acting again"
@@ -857,6 +900,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
                 aimed = threat.aimed_at
                 threat.aimed_at = None
                 threat.ammunition = max(0, threat.ammunition - 1)
+                wear_readied_weapon(state, threat)
                 threat.reload_turns = {"heavy crossbow": 2, "crossbow": 1, "longbow": 1, "sling": 0}.get(threat.ranged_kind, 1)
                 threat.intent = f"must reload {threat.ranged_kind}"
                 if aimed != state.position:
@@ -875,6 +919,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
                     harm += 1
                 if threat.role == "shooter" and load_state(state) in {"encumbered", "overloaded"}:
                     harm += 1
+                harm = max(0, harm - enemy_attack_penalty(state, threat))
                 movement = ""
                 if threat.role == "skirmisher":
                     old = threat.position
@@ -905,7 +950,9 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
         marker = "thrusts next turn" if threat.profile == "reach" else "strikes next turn"
         if marker in threat.intent:
             threat.intent = "recovers before another attack"
-            return apply_damage(state, 3, f"The {threat.name}'s attack")
+            wear_readied_weapon(state, threat)
+            harm = max(1, 3 - enemy_attack_penalty(state, threat))
+            return apply_damage(state, harm, f"The {threat.name}'s attack")
         threat.intent = marker
         return f"The {threat.name} {marker}."
     previous = threat.position
@@ -1118,6 +1165,9 @@ def _advance_world(
                 result = _threat_action(state, threat, guarded and tick == 0)
                 if threat.position in field_of_view(state, remember=False) or distance(state.position, threat.position) <= 6:
                     messages.append(result)
+        from .enemy_equipment import tick_enemy_conditions
+
+        tick_enemy_conditions(state)
         for message in messages:
             if message:
                 state.add_message(message, priority=3)
@@ -2259,12 +2309,10 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
             other for other in candidates
             if distance(state.position, other.position) <= 1
         ]
+        from .enemy_equipment import harm_enemy
+
         for other in adjacent[1:]:
-            other.health = max(0, other.health - 1)
-            if other.health == 0:
-                other.status = "defeated"
-                from .inventory import release_enemy_possession
-                release_enemy_possession(state, other)
+            harm_enemy(state, other, 1, "river staff sweep", damage_kind="blunt")
         state.guarded_step = True
         weapon_text += " sweeps nearby space and readies movement"
     elif state.weapon == "hand axe":
@@ -2369,21 +2417,35 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
     damage, protection_text = guard_interception(state, target, damage)
     if protection_text:
         weapon_text += "; " + protection_text
-    target.health = max(0, target.health - damage)
-    if target.health == 0 or (
+    from .enemy_equipment import harm_enemy
+
+    damage_kind = (
+        "pierce" if state.weapon in {"spear", "pike", "boar spear", "crossbow", "longbow", "heavy crossbow", "javelins", "hooked javelin", "handgonne"}
+        else "cut" if state.weapon in {"billhook", "hand axe", "paired knives", "throwing axe", "glaive", "arming sword", "long knife"}
+        else "blunt"
+    )
+    harm = harm_enemy(
+        state, target, damage, f"{state.courier.name}'s {state.weapon}",
+        damage_kind=damage_kind,
+    )
+    if harm.defeated or (
         target.morale <= 0 and target.profile != "machinery"
     ):
-        target.status = "defeated" if target.health == 0 else "retreated"
+        target.status = "defeated" if harm.defeated else "retreated"
         target.intent = "removed from the route"
         from .inventory import release_enemy_possession
-        recovered = release_enemy_possession(state, target)
-        memory = f"{state.courier.name} defeated {target.name} with {state.weapon}."
+        recovered = harm.dropped if harm.defeated else release_enemy_possession(state, target)
+        outcome = "defeated" if harm.defeated else "drove off"
+        memory = f"{state.courier.name} {outcome} {target.name} with {state.weapon}."
         state.remember(memory)
         _remember_contact(state, memory)
-        text = f"The {weapon_text} removes the {target.name} from the route.{recovered}"
+        armour = f" {harm.protection} covers {harm.location}." if harm.protection != "uncovered" else f" {harm.location} was uncovered."
+        text = f"The {weapon_text} removes the {target.name} from the route.{armour}{recovered}"
     else:
+        armour = f" after {harm.protection} covers {harm.location}" if harm.protection != "uncovered" else f" to uncovered {harm.location}"
+        injury = f"; {harm.injury}" if harm.injury else ""
         text = (
-            f"The {weapon_text} deals {damage}; "
+            f"The {weapon_text} deals {harm.amount}{armour}{injury}; "
             f"{target.name} has {target.health}/{target.max_health}."
         )
     if thrown_item:

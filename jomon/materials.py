@@ -129,15 +129,36 @@ def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, s
         if body.status in {"defeated", "disabled", "retreated", "evaded", "negotiated"}:
             return
         if reaction in {"fire", "debris"}:
-            body.health = max(0, body.health - severity)
+            from .enemy_equipment import harm_enemy
+
+            harm_enemy(
+                state, body, severity, f"material {reaction}",
+                damage_kind="blunt" if reaction == "debris" else "cut",
+            )
             body.morale -= 1
-            body.intent = f"caught by {reaction}; seeking clear ground"
+            if body.health:
+                body.intent = f"caught by {reaction}; seeking clear ground"
+            if reaction == "fire":
+                body.conditions["burning"] = max(3, body.conditions.get("burning", 0))
             if body.health == 0:
-                body.status = "defeated"
-                from .inventory import release_enemy_possession
-                release_enemy_possession(state, body)
                 state.remember(f"{body.name} fell to {reaction} at {key(origin)}; possessions remain physical.")
         else:
+            condition = {
+                "water": "wet", "smoke": "smoking", "salt": "salt-coated",
+                "lime": "lime-coated", "ash": "ash-coated",
+            }.get(reaction)
+            if condition:
+                body.conditions[condition] = max(
+                    4 if reaction != "smoke" else 3,
+                    body.conditions.get(condition, 0),
+                )
+            if reaction == "water":
+                from .calendar import calendar_at
+
+                if calendar_at(state).season == "winter":
+                    body.conditions["chilled"] = max(
+                        5, body.conditions.get("chilled", 0)
+                    )
             body.aimed_at = None
             body.intent = f"{reaction} breaks its prepared lane"
         return
@@ -188,10 +209,19 @@ def _expose(state: GameState, point: Position, reaction: str, severity: int) -> 
         if schedule.area == area and schedule.position == point and schedule.actor_id in people and schedule.actor_id != state.active_courier_id:
             affect_body(state, people[schedule.actor_id], reaction, severity, point)
     cargo_changed = False
+    enemy_positions = {
+        threat.id: threat.position for threat in state.combatants
+        if threat.status in {"watching", "engaged", "dormant"}
+    }
     for item in state.items:
         on_ground = item.location == "ground" and item.region_id == state.spatial_id and item.ground_position == point
         carried = state.position == point and item.owner_id == state.active_courier_id and item.location in {"pack", "readied", "secondary", "head", "torso", "arms", "hands", "legs", "feet"}
-        if on_ground or carried:
+        enemy_carried = (
+            item.owner_id in enemy_positions
+            and enemy_positions[item.owner_id] == point
+            and item.location in {"enemy", "readied", "secondary", "head", "torso", "arms", "hands", "legs", "feet"}
+        )
+        if on_ground or carried or enemy_carried:
             before = item.condition
             affect_body(state, item, reaction, severity, point)
             cargo_changed |= carried and item.kind.startswith("commodity:") and item.condition != before

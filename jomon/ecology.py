@@ -182,15 +182,18 @@ def resolve_world_action(state: GameState, actor: Threat, decision) -> str | Non
         if actor.marked_position != rival.position:
             return f"The {actor.name}'s rival strike meets empty ground."
         actor.marked_position = None
-        rival.health = max(0, rival.health - 2)
+        from .enemy_equipment import harm_enemy
+
+        harm = harm_enemy(
+            state, rival, 2, f"{actor.name}'s warned rival strike",
+            damage_kind="blunt",
+        )
         rival.morale -= 1
         rival.intent = f"disrupted by {actor.name}'s attack"
-        if rival.health == 0:
-            rival.status = "defeated"
-            lost = release_enemy_possession(state, rival)
+        if harm.defeated:
             state.region.changes[f"population:{rival.id}"] = "killed by a local rival"
             state.remember(f"{actor.name} killed {rival.name} at {position_key(point)} over {actor.ecology} interests.")
-            return f"The {actor.name} defeats the {rival.name}.{lost}"
+            return f"The {actor.name} defeats the {rival.name}.{harm.dropped}"
         return f"The {actor.name} strikes its rival {rival.name}; {rival.health} health remains."
     if action in {"treat ally", "rally ally", "escort ally"}:
         ally = next((other for other in state.combatants if other.id != actor.id and other.group == actor.group and other.position == point and other.status in {"watching", "engaged"}), None)
@@ -202,6 +205,8 @@ def resolve_world_action(state: GameState, actor: Threat, decision) -> str | Non
             return ""
         actor.supplies -= 1
         ally.health = min(ally.max_health, ally.health + (2 if action == "treat ally" else 0))
+        if action == "treat ally" and ally.injuries:
+            ally.injuries.pop(sorted(ally.injuries)[0], None)
         ally.morale = min(3, ally.morale + 1)
         ally.intent = "disrupted while an ally tends the withdrawal"
         actor.intent = f"spends one finite {'dressing' if action == 'treat ally' else 'signal'} on {ally.name}"
