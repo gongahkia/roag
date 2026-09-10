@@ -217,3 +217,12 @@ first-copy dead spots, and switch live reward generation to scoped lanes. Keep
 historical replay tests on their recorded rules; validate new-rule cohorts
 separately. Damage engines should not inherit a blanket diminishing policy or
 the legacy hidden outgoing multiplier ceiling.
+
+Milestone 3 now has typed integer policies for every live item, boon and curse
+effect, closed current/next/trigger inspection, useful first-copy thresholds,
+and live lane-filtered technique generation with frozen legacy enumeration.
+The complete gate passed 328 tests; the retained nine-run ordinary-command
+cohort contains eight victories and one fair rusher wipe. Curated per-card lane
+metadata, stack conversion/corruption content and the requested new persistent
+families remain Milestone 5/6 content work rather than blockers to the Pressure
+foundation.

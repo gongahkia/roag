@@ -455,3 +455,25 @@ saved-rule group passed **28 tests in 42.587s**, including the 344-command
 calibration transcript and cross-process hash check. Warning-enabled compilation,
 content validation and scoped diff checks passed. Current legacy cards remain
 broadly eligible until curated per-owner lanes land.
+
+## Milestone 3 gate
+
+At `3894b90970713193fbf59be3867b9147d329d7a9`, the complete warning-enabled
+suite passed **328 tests in 608.488s** (609.01s wall time). The shell wrapper
+then attempted to assign zsh's read-only `status` parameter and printed an error;
+the unittest log itself ended in `OK`, and the source commit stayed fixed for
+the run. While it ran, the user committed deletion of the redundant prompt file
+as `93f525b2ff26c327cab8e1006441d7332894c49c`; that commit is documentation-only
+and descends from the tested source. This is an external/user commit, not work
+claimed by the implementation agent.
+
+Seeds 0, 2 and 4 were run with Bulkhead Basics under rusher, explorer and greedy
+policies, checkpointing every 23 commands. All used ordinary commands and normal
+rules; eight won and seed-4 rusher wiped at the Core after 49 combat rounds.
+Explorer and greedy won that same world in 25 rounds, so no route policy was
+universally best in this small sample. Greedy still won all three while spending
+255–542 travel ticks, reinforcing the need for Pressure rather than establishing
+dominance. The compact cohort with exact final hashes is retained at
+`evidence/pass3/milestone3-policy-cohort.json`. Concurrent suite load invalidates
+its CPU timings as pacing evidence. These nine correlated policy runs do not
+prove human balance or fun.

@@ -1,0 +1,20 @@
+{
+  "commit": "3894b90970713193fbf59be3867b9147d329d7a9",
+  "content_schema": 21,
+  "save_schema": 33,
+  "squad": "bulkhead_basics",
+  "checkpoint_every": 23,
+  "rules": "ordinary commands, normal HP/energy/rewards, no state injection",
+  "timing_note": "CPU timings excluded because the full suite ran concurrently",
+  "rows": [
+    {"seed":0,"policy":"explorer","outcome":"victory","layout":"ring","ticks":344,"light":11,"supplies":0,"combat_rounds":29,"encounters":4,"survivors":2,"commands":344,"final_hash":"6b1615f476ae6b346985097a53cdde1cad9ce7c0f5e1486ee000f9265278e99e"},
+    {"seed":0,"policy":"greedy","outcome":"victory","layout":"ring","ticks":542,"light":4,"supplies":0,"combat_rounds":25,"encounters":5,"survivors":4,"commands":559,"final_hash":"4acfe31ad0accd872c77fb776b8507998e1605fffa75efd250b44f936d8aff29"},
+    {"seed":0,"policy":"rusher","outcome":"victory","layout":"ring","ticks":317,"light":45,"supplies":2,"combat_rounds":35,"encounters":5,"survivors":4,"commands":365,"final_hash":"20308ca9417b87a23d72de07809c48006988d560ccbaffcb598ce884532b5ce8"},
+    {"seed":2,"policy":"explorer","outcome":"victory","layout":"branching","ticks":165,"light":57,"supplies":0,"combat_rounds":26,"encounters":4,"survivors":3,"commands":291,"final_hash":"c79d2f54b2af191f0fc243db38459a264dc9029882f3416661f2ec9d8814be07"},
+    {"seed":2,"policy":"greedy","outcome":"victory","layout":"branching","ticks":255,"light":32,"supplies":3,"combat_rounds":19,"encounters":4,"survivors":4,"commands":336,"final_hash":"aa3ee61a82b589d0992537e3f493b8d25d273d2272ca546e18eedd47e561ac2a"},
+    {"seed":2,"policy":"rusher","outcome":"victory","layout":"branching","ticks":132,"light":54,"supplies":4,"combat_rounds":29,"encounters":5,"survivors":4,"commands":264,"final_hash":"6df07f27bb9d91b5896bf9777d196537f98ad452578edeacd0d09880527b6cd3"},
+    {"seed":4,"policy":"explorer","outcome":"victory","layout":"spine","ticks":318,"light":42,"supplies":0,"combat_rounds":25,"encounters":5,"survivors":4,"commands":424,"final_hash":"51da15b0d843bfab72e508d88dc0adae966ce4f2288421ba4d7ea4e26d9f10c4"},
+    {"seed":4,"policy":"greedy","outcome":"victory","layout":"spine","ticks":329,"light":32,"supplies":1,"combat_rounds":25,"encounters":5,"survivors":4,"commands":444,"final_hash":"f7d1322aed906abc8acd119db1906183291dc429e243f26ad594fc28783cece8"},
+    {"seed":4,"policy":"rusher","outcome":"defeat","layout":"spine","ticks":191,"light":43,"supplies":2,"combat_rounds":49,"encounters":6,"survivors":0,"commands":393,"final_hash":"539653583c18355332e2b20dc2334680d725c743129430ee2788ca42cf5e06f6"}
+  ]
+}
