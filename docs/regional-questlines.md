@@ -1,4 +1,4 @@
-# Regional questlines and the working-marks arc
+# Regional questlines and three cross-region arcs
 
 This milestone authors quest state directly in `jomon.quests`; it does not add
 a quest language. Each regional line reuses its material objective as an
@@ -11,6 +11,10 @@ whose consequences persist in terrain, markets, contacts, or patrol ecology.
 | Greywash | The Ledger Beneath the Ebb | low-road wreck locker | safer delayed salt road / disputed ebb salvage | longer tide windows / more stock and credit with registrar friction |
 | Greenwold | A Fire Kept to Its Bounds | canopy watch cache | preserve medicine coppice / expand charcoal burn | smoke patrols withdraw / more fuel stock and a smokier timber economy |
 | Whitecairn | The Honest Bell | ridge bridge coffer | close the unstable face / expose the false toll | alarm lookout withdraws / disputed quarry traffic reopens |
+| Dunmire | The Ground Owed to Water | buried peat strongbox | breach the bank / hold the fuel obligation | inhabited islands drain / winter fuel and flood pressure persist |
+| Rillscar | A Bridge with Two Owners | roof load coffer | open the tailrace / bind both bridge claims | private guards retire / a witnessed joint account remains |
+| Marlbank | The Kiln and the Seed Bed | market water account | water the seed terraces / preserve kiln firing | field yield recovers / grain pressure rises with clay output |
+| Frostmere | The Last Marked Channel | winter-net loft | mark the lee channel / open the direct cut | sheltered nets and delay / fast passage under obligation |
 
 Accepting, refusing, or materially altering the opening objective all continue
 to the regional decision. Refusal therefore has a consequence without silently
@@ -48,5 +52,27 @@ has three trade-offs:
 - Jomon household surety grants credit but retains regional route risk;
 - local control improves contact authority while preserving distinct markets.
 
-Quest stages, decisions, evidence, cache marks, contact memories, and regional
-changes are part of save format 6. Loading does not relock an available arc.
+## Banks That Hold
+
+Settling Hearthford, Dunmire and Marlbank unlocks a four-chapter comparison of
+flood banks, food fields and repair fuel. A physical bound bank roll can be
+lost, stolen or recovered. Environmental choices record drain and seed-water
+work; armed choices wake a finite warned route opponent. The final public
+compact reduces flood exposure, cargo risk and grain demand. Jomon's repair
+bond instead grants credit and stock while leaving named obligations.
+
+## Soundings and Spans
+
+Settling Greywash, Frostmere and Rillscar unlocks a physical sounding-chain
+account. The courier can carry sheltered ice marks and honest bridge warnings,
+or challenge fast-cut and quarry claims that wake finite opposition. Public
+soundings reduce winter exposure and reopen eligible winter links. A rapid
+freight surety shortens travel and grants credit at the cost of cargo risk.
+
+Both additional records can be replaced for two witnessed credits after loss;
+stages never reset on defeat or succession. Their two endings alter actual
+routes, markets, regional flags, institutions and Jomon's remembered standing.
+Together with four original second undertakings, the catalogue now contains
+12 substantial regional lines and three cross-region arcs. Quest stages,
+physical evidence, cache marks, contact memories and consequences are part of
+save format 7. Loading does not relock an available or active arc.

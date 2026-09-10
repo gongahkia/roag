@@ -1802,15 +1802,16 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         text = lines(state)
         return text[0].upper(), text[1:]
     if kind == "quest:arc":
-        from .quests import ARC_REGIONS, ARC_TITLE
+        from .quests import arc_next_region, arc_title, current_arc
 
-        arc = state.cross_region_arc
-        next_region = ARC_REGIONS.get(arc.stage)
-        return ARC_TITLE.upper(), [
-            f"Chapter {arc.stage + 1 if arc.stage < 5 else 5}/5; account: {arc.branch or 'not yet bound'}.",
+        arc = current_arc(state)
+        next_region = arc_next_region(state)
+        final_stage = 5 if arc is state.cross_region_arc else 4
+        return arc_title(state).upper(), [
+            f"Chapter {arc.stage + 1 if arc and arc.stage < final_stage else final_stage}/{final_stage}; account: {arc.branch if arc and arc.branch else 'not yet bound'}.",
             f"Current witness: {state.region.name}.",
             f"Next required region: {state.regions[next_region].name if next_region else 'ending decision here'}.",
-            "The working marks are physical evidence, not a prophecy.",
+            "The compared record is physical evidence, not a prophecy.",
         ]
     if kind.startswith("contact-service:"):
         contact_id = kind.split(":", 1)[1]

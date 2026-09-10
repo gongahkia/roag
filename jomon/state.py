@@ -456,6 +456,7 @@ class GameState:
     cross_region_arc: QuestProgress = field(
         default_factory=lambda: QuestProgress(status="locked")
     )
+    cross_region_arcs: dict[str, QuestProgress] = field(default_factory=dict)
     treasure_marks: dict[str, list[str]] = field(default_factory=dict)
     history: list[str] = field(default_factory=list)
     messages: list[str] = field(default_factory=list)
@@ -1069,6 +1070,7 @@ def game_state_from_dict(data: Any) -> GameState:
             questlines=questlines,
             worklines={key: QuestProgress(**value) for key, value in data.get("worklines", {}).items()},
             cross_region_arc=cross_region_arc,
+            cross_region_arcs={key: QuestProgress(**value) for key, value in data.get("cross_region_arcs", {}).items()},
             treasure_marks={
                 region_id: list(marks)
                 for region_id, marks in data.get("treasure_marks", {}).items()
@@ -1248,6 +1250,12 @@ def validate_state(state: GameState) -> None:
         "locked", "available", "active", "completed",
     } or not 0 <= state.cross_region_arc.stage <= 5:
         raise StateError("invalid cross-region arc state")
+    if set(state.cross_region_arcs) != {"banks", "soundings"} or any(
+        arc.status not in {"locked", "available", "active", "completed"}
+        or not 0 <= arc.stage <= 4
+        for arc in state.cross_region_arcs.values()
+    ):
+        raise StateError("invalid additional cross-region arc state")
     from .regions import validate_region
 
     try:

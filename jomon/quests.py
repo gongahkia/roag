@@ -84,6 +84,23 @@ QUEST_REWARDS = {
 ARC_REGIONS = {1: "greywash", 2: "greenwold", 3: "whitecairn", 4: "hearthford"}
 ARC_TITLE = "The Four Working Marks"
 
+ADDITIONAL_ARCS = {
+    "banks": {
+        "title": "Banks That Hold",
+        "start": "hearthford",
+        "regions": {1: "dunmire", 2: "marlbank", 3: "hearthford"},
+        "requires": ("hearthford", "dunmire", "marlbank"),
+        "evidence": "bound bank roll",
+    },
+    "soundings": {
+        "title": "Soundings and Spans",
+        "start": "greywash",
+        "regions": {1: "frostmere", 2: "rillscar", 3: "greywash"},
+        "requires": ("greywash", "frostmere", "rillscar"),
+        "evidence": "sounding chain account",
+    },
+}
+
 
 def initialise_quests(state: GameState) -> None:
     from .worklines import initialise
@@ -95,6 +112,10 @@ def initialise_quests(state: GameState) -> None:
     state.treasure_marks = {
         region_id: list(state.treasure_marks.get(region_id, []))
         for region_id in state.regions
+    }
+    state.cross_region_arcs = {
+        arc_id: state.cross_region_arcs.get(arc_id, QuestProgress(status="locked"))
+        for arc_id in ADDITIONAL_ARCS
     }
 
 
@@ -374,27 +395,76 @@ def resolve_regional_quest(state: GameState, choice: str) -> tuple[bool, str]:
 
 def maybe_unlock_arc(state: GameState) -> bool:
     completed = sum(quest.status == "completed" for quest in state.questlines.values())
-    if completed < 2 or state.cross_region_arc.status != "locked":
-        return False
-    state.cross_region_arc.status = "available"
-    state.remember(
-        "Two regional working settlements now trust Jomon enough to compare their route accounts."
-    )
-    state.add_message(
-        f"Cross-region arc available: {ARC_TITLE}. Speak with a trusted primary contact.",
-        priority=3,
-    )
-    return True
+    changed = False
+    if completed >= 2 and state.cross_region_arc.status == "locked":
+        state.cross_region_arc.status = "available"
+        state.remember(
+            "Two regional working settlements now trust Jomon enough to compare their route accounts."
+        )
+        state.add_message(
+            f"Cross-region arc available: {ARC_TITLE}. Speak with a trusted primary contact.",
+            priority=3,
+        )
+        changed = True
+    for arc_id, definition in ADDITIONAL_ARCS.items():
+        arc = state.cross_region_arcs[arc_id]
+        if arc.status == "locked" and all(
+            state.questlines.get(region_id, QuestProgress(status="locked")).status == "completed"
+            for region_id in definition["requires"]
+        ):
+            arc.status = "available"
+            state.remember(f"{definition['title']} is available through compared material consequences.")
+            state.add_message(
+                f"Cross-region arc available: {definition['title']}. Begin with {state.regions[definition['start']].name}.",
+                priority=3,
+            )
+            changed = True
+    return changed
+
+
+def current_arc_key(state: GameState) -> str | None:
+    if state.cross_region_arc.status == "active" and ARC_REGIONS.get(state.cross_region_arc.stage) == state.active_region_id:
+        return "marks"
+    for arc_id, definition in ADDITIONAL_ARCS.items():
+        arc = state.cross_region_arcs[arc_id]
+        if arc.status == "active" and definition["regions"].get(arc.stage) == state.active_region_id:
+            return arc_id
+    for arc_id, definition in ADDITIONAL_ARCS.items():
+        if state.cross_region_arcs[arc_id].status == "available" and definition["start"] == state.active_region_id:
+            return arc_id
+    if state.cross_region_arc.status == "available" and state.questlines[state.active_region_id].status == "completed":
+        return "marks"
+    return None
+
+
+def current_arc(state: GameState) -> QuestProgress | None:
+    key = current_arc_key(state)
+    if key == "marks":
+        return state.cross_region_arc
+    return state.cross_region_arcs.get(key) if key else None
+
+
+def arc_title(state: GameState) -> str:
+    key = current_arc_key(state)
+    return ARC_TITLE if key == "marks" else str(ADDITIONAL_ARCS[key]["title"]) if key else "Compared Accounts"
+
+
+def arc_next_region(state: GameState) -> str | None:
+    key = current_arc_key(state)
+    arc = current_arc(state)
+    if not key or not arc:
+        return None
+    return ARC_REGIONS.get(arc.stage) if key == "marks" else ADDITIONAL_ARCS[key]["regions"].get(arc.stage)
 
 
 def arc_available_here(state: GameState) -> bool:
-    arc = state.cross_region_arc
-    if arc.status == "available":
-        return state.questlines[state.active_region_id].status == "completed"
-    return arc.status == "active" and ARC_REGIONS.get(arc.stage) == state.active_region_id
+    return current_arc_key(state) is not None
 
 
 def arc_options(state: GameState) -> tuple[tuple[str, str, str, bool, str], ...]:
+    key = current_arc_key(state)
+    if key and key != "marks":
+        return _additional_arc_options(state, key)
     stage = state.cross_region_arc.stage
     if stage == 0:
         return (
@@ -425,7 +495,164 @@ def arc_options(state: GameState) -> tuple[tuple[str, str, str, bool, str], ...]
     return ()
 
 
+def _additional_arc_options(state: GameState, arc_id: str) -> tuple[tuple[str, str, str, bool, str], ...]:
+    arc = state.cross_region_arcs[arc_id]
+    evidence = ADDITIONAL_ARCS[arc_id]["evidence"]
+    has_record = any(
+        item.kind == f"consumable:{evidence}"
+        and item.owner_id == state.active_courier_id and item.location == "pack"
+        for item in state.items
+    )
+    can_settle = has_record or state.trade_credit >= 2
+    if arc_id == "banks":
+        return {
+            0: (
+                ("p", "Bind the three flood accounts as a public bank record", "commitment", True, ""),
+                ("f", "Carry them as a fuel-and-repair surety", "danger", True, ""),
+            ),
+            1: (
+                ("r", "Open Dunmire's drain and record the safe water line", "commitment", True, ""),
+                ("g", "Put the armed drying-bank claim on notice", "danger", True, ""),
+            ),
+            2: (
+                ("s", "Give Marlbank's next release to seed terraces", "commitment", True, ""),
+                ("k", "Hold kiln heat and accept a tighter flood margin", "danger", True, ""),
+            ),
+            3: (
+                ("o", "Publish a shared bank-and-sluice compact", "commitment", can_settle, "recover the bound bank roll or fund a two-credit witnessed copy"),
+                ("b", "Let Jomon bond repair fuel against the banks", "danger", can_settle, "recover the bound bank roll or fund a two-credit witnessed copy"),
+            ),
+        }.get(arc.stage, ())
+    return {
+        0: (
+            ("l", "Carry a sheltered-channel sounding chain", "commitment", True, ""),
+            ("d", "Compare direct cuts and rapid bridge spans", "danger", True, ""),
+        ),
+        1: (
+            ("i", "Mark Frostmere's lee route through the ice", "commitment", True, ""),
+            ("n", "Challenge the armed fast-cut net claim", "danger", True, ""),
+        ),
+        2: (
+            ("w", "Carry Rillscar's warning span and brace account", "commitment", True, ""),
+            ("q", "Carry the quarry guard's faster private span", "danger", True, ""),
+        ),
+        3: (
+            ("s", "Publish sheltered winter soundings and honest spans", "commitment", can_settle, "recover the sounding chain account or fund a two-credit witnessed copy"),
+            ("r", "Open a rapid freight cut under Jomon's surety", "danger", can_settle, "recover the sounding chain account or fund a two-credit witnessed copy"),
+        ),
+    }.get(arc.stage, ())
+
+
+def _give_arc_record(state: GameState, arc_id: str) -> None:
+    evidence = str(ADDITIONAL_ARCS[arc_id]["evidence"])
+    item = create_item(state, f"consumable:{evidence}", f"{ADDITIONAL_ARCS[arc_id]['title']} witnessed opening")
+    if not auto_place(state, item.id, "pack", owner_id=state.active_courier_id):
+        item.location, item.region_id, item.ground_position = "ground", state.active_region_id, state.position
+    marker = f"arc:{arc_id}:{evidence}"
+    if marker not in state.objective_evidence:
+        state.objective_evidence.append(marker)
+
+
+def _settle_arc_record(state: GameState, arc_id: str) -> bool:
+    from .inventory import consume_carried
+
+    evidence = str(ADDITIONAL_ARCS[arc_id]["evidence"])
+    if consume_carried(state, f"consumable:{evidence}"):
+        return True
+    if state.trade_credit >= 2:
+        state.trade_credit -= 2
+        state.remember(f"Two credits funded a witnessed replacement for the lost {evidence}.")
+        return True
+    return False
+
+
+def _wake_arc_opposition(state: GameState, duty: str) -> None:
+    actor = next((actor for actor in state.threats if actor.profile != "animal" and actor.status in {"watching", "dormant"}), None)
+    if not actor:
+        return
+    actor.status = "engaged"
+    actor.duty = duty
+    actor.intent = f"warns before holding the route for {duty}"
+    actor.objective_position = state.region.landmarks.get("control", state.position)
+
+
+def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple[bool, str]:
+    arc = state.cross_region_arcs[arc_id]
+    option = next((row for row in _additional_arc_options(state, arc_id) if row[0] == choice), None)
+    if option is None:
+        return False, "That is not an available chapter decision."
+    if not option[3]:
+        return False, option[4]
+    definition = ADDITIONAL_ARCS[arc_id]
+    arc.decisions.append(f"chapter-{arc.stage}:{choice}")
+    if arc.stage == 0:
+        arc.status, arc.stage = "active", 1
+        arc.branch = "public" if choice in {"p", "l"} else "surety"
+        _give_arc_record(state, arc_id)
+        next_region = definition["regions"][1]
+        message = f"{definition['title']} begins with a physical witnessed record; {state.regions[next_region].name} holds the next account."
+    elif arc.stage < 3:
+        if choice in {"r", "s", "i", "w"}:
+            state.region.changes[f"arc:{arc_id}:environmental"] = True
+            state.region.changes["environment_control_used"] = True
+        else:
+            state.region.changes[f"arc:{arc_id}:armed_claim"] = True
+            _wake_arc_opposition(state, f"{definition['title']} armed claim")
+        current = arc.stage
+        arc.stage += 1
+        next_region = definition["regions"][arc.stage]
+        message = f"Chapter {current} is witnessed at {state.region.name}; the record now names {state.regions[next_region].name}."
+    else:
+        if not _settle_arc_record(state, arc_id):
+            return False, "Recover the physical record or fund a two-credit witnessed copy."
+        arc.stage, arc.status = 4, "completed"
+        involved = set(definition["requires"])
+        if arc_id == "banks" and choice == "o":
+            arc.consequence = "Shared banks: flood routes and food demand ease; institutions retain local control."
+            for edge in state.route_edges:
+                if {edge.first, edge.second} & involved:
+                    edge.weather_exposure = max(0, edge.weather_exposure - 1)
+                    edge.cargo_risk = max(0, edge.cargo_risk - 1)
+            for region_id in involved:
+                state.regions[region_id].changes["shared_bank_compact"] = True
+                state.regional_markets[region_id]["grain"].demand = max(0, state.regional_markets[region_id]["grain"].demand - 1)
+        elif arc_id == "banks":
+            arc.consequence = "Bonded banks: repair stocks and household credit rise, while private fuel obligations remain."
+            state.trade_credit += 6
+            for region_id in involved:
+                state.regions[region_id].changes["bonded_bank_repairs"] = True
+                state.institutions[f"work:{region_id}"].obligation = min(9, state.institutions[f"work:{region_id}"].obligation + 1)
+        elif choice == "s":
+            arc.consequence = "Sheltered soundings: winter exposure falls and the marked lee routes remain public."
+            for edge in state.route_edges:
+                if {edge.first, edge.second} & involved:
+                    edge.weather_exposure = max(0, edge.weather_exposure - 1)
+                    edge.closed_seasons = [season for season in edge.closed_seasons if season != "winter"]
+            for region_id in involved:
+                state.regions[region_id].changes["sheltered_soundings"] = True
+        else:
+            arc.consequence = "Rapid soundings: freight time falls and Jomon gains credit, but exposed cargo risk rises."
+            state.trade_credit += 5
+            for edge in state.route_edges:
+                if {edge.first, edge.second} & involved:
+                    edge.travel_time = max(1, edge.travel_time - 1)
+                    edge.cargo_risk = min(3, edge.cargo_risk + 1)
+            for region_id in involved:
+                state.regions[region_id].changes["rapid_sounding_surety"] = True
+        state.vessel_changes[f"arc:{arc_id}:outcome"] = choice
+        for region_id in involved:
+            account = state.institutions[f"work:{region_id}"]
+            account.witnessed_acts.append(f"{definition['title']} settled: {arc.consequence}")
+            del account.witnessed_acts[:-8]
+        message = arc.consequence
+        state.remember(f"{definition['title']} ended. {arc.consequence}")
+    return True, message
+
+
 def resolve_arc_choice(state: GameState, choice: str) -> tuple[bool, str]:
+    key = current_arc_key(state)
+    if key and key != "marks":
+        return _resolve_additional_arc(state, key, choice)
     arc = state.cross_region_arc
     if not arc_available_here(state):
         return False, "The compared regional account is not available here."
@@ -556,14 +783,18 @@ def quest_reachability_audit(sample_count: int = 25) -> dict[str, object]:
     """Inspect authored quest positions across deterministic generated worlds."""
     from collections import Counter
 
+    from .frontiers import FRONTIERS, ensure_frontier
     from .regions import region_reachable
     from .state import create_world
+    from .worklines import WORKLINES
 
     failures: list[str] = []
     geography: Counter[str] = Counter()
     cache_counts: Counter[str] = Counter()
     for index in range(sample_count):
         state = create_world(f"quest-audit-{index:03d}")
+        for region_id in FRONTIERS:
+            ensure_frontier(state, region_id)
         for region_id, region in state.regions.items():
             reachable = region_reachable(region)
             required = {
@@ -583,10 +814,12 @@ def quest_reachability_audit(sample_count: int = 25) -> dict[str, object]:
             cache_counts[region_id] += len(region.containers)
     return {
         "samples": sample_count,
-        "regions_checked": sample_count * len(REGION_IDS),
+        "regions_checked": sample_count * len(QUESTS),
         "unreachable_or_invalid": failures,
         "unique_geographies": len(geography),
         "container_totals": dict(sorted(cache_counts.items())),
-        "regional_endings": len(REGION_IDS) * 2,
-        "cross_region_endings": 3,
+        "regional_questlines": len(QUESTS) + len(WORKLINES),
+        "regional_endings": (len(QUESTS) + len(WORKLINES)) * 2,
+        "cross_region_arcs": 1 + len(ADDITIONAL_ARCS),
+        "cross_region_endings": 3 + len(ADDITIONAL_ARCS) * 2,
     }

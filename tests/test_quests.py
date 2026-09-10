@@ -15,8 +15,10 @@ from jomon.actions import (
     use_contact_service,
 )
 from jomon.quests import (
+    ADDITIONAL_ARCS,
     QUESTS,
     mark_elevated_lead,
+    maybe_unlock_arc,
     quest_reachability_audit,
     record_container_opened,
 )
@@ -181,10 +183,12 @@ class RegionalQuestlineTests(unittest.TestCase):
 
     def test_quest_audit_reports_no_invalid_path(self):
         report = quest_reachability_audit(4)
-        self.assertEqual(report["regions_checked"], 16)
+        self.assertEqual(report["regions_checked"], 32)
         self.assertEqual(report["unreachable_or_invalid"], [])
-        self.assertEqual(report["regional_endings"], 8)
-        self.assertEqual(report["cross_region_endings"], 3)
+        self.assertEqual(report["regional_questlines"], 12)
+        self.assertEqual(report["regional_endings"], 24)
+        self.assertEqual(report["cross_region_arcs"], 3)
+        self.assertEqual(report["cross_region_endings"], 7)
 
 
 class CrossRegionArcTests(unittest.TestCase):
@@ -230,6 +234,69 @@ class CrossRegionArcTests(unittest.TestCase):
         loaded = game_state_from_dict(state.to_dict())
 
         self.assertEqual(loaded.cross_region_arc.status, "available")
+
+    def _additional_unlocked(self, arc_id: str):
+        state = create_world(f"additional arc {arc_id}")
+        for region_id in ADDITIONAL_ARCS[arc_id]["requires"]:
+            at_primary(state, region_id)
+            state.questlines[region_id].status = "completed"
+        maybe_unlock_arc(state)
+        self.assertEqual(state.cross_region_arcs[arc_id].status, "available")
+        at_primary(state, ADDITIONAL_ARCS[arc_id]["start"])
+        return state
+
+    def test_banks_arc_has_environmental_and_armed_paths_with_distinct_endings(self):
+        outcomes = []
+        for opening, dun, marl, ending in (("p", "r", "s", "o"), ("f", "g", "k", "b")):
+            state = self._additional_unlocked("banks")
+            self.assertTrue(resolve_cross_region_choice(state, opening).time_advanced)
+            record = next(item for item in state.items if item.kind == "consumable:bound bank roll")
+            self.assertEqual((record.owner_id, record.location), (state.active_courier_id, "pack"))
+            at_primary(state, "dunmire")
+            self.assertTrue(resolve_cross_region_choice(state, dun).time_advanced)
+            if dun == "g":
+                self.assertTrue(any("Banks That Hold" in actor.duty for actor in state.threats))
+            else:
+                self.assertTrue(state.region.changes["arc:banks:environmental"])
+            at_primary(state, "marlbank")
+            self.assertTrue(resolve_cross_region_choice(state, marl).time_advanced)
+            at_primary(state, "hearthford")
+            self.assertTrue(resolve_cross_region_choice(state, ending).time_advanced)
+            self.assertEqual(state.cross_region_arcs["banks"].status, "completed")
+            self.assertEqual(record.location, "destroyed")
+            outcomes.append(state.cross_region_arcs["banks"].consequence)
+        self.assertNotEqual(*outcomes)
+
+    def test_soundings_arc_changes_real_routes_and_survives_mid_arc_save(self):
+        state = self._additional_unlocked("soundings")
+        self.assertTrue(resolve_cross_region_choice(state, "l").time_advanced)
+        at_primary(state, "frostmere")
+        self.assertTrue(resolve_cross_region_choice(state, "i").time_advanced)
+        state = game_state_from_dict(state.to_dict())
+        self.assertEqual(state.cross_region_arcs["soundings"].stage, 2)
+        at_primary(state, "rillscar")
+        self.assertTrue(resolve_cross_region_choice(state, "w").time_advanced)
+        before = [(edge.id, edge.weather_exposure, tuple(edge.closed_seasons)) for edge in state.route_edges]
+        at_primary(state, "greywash")
+        self.assertTrue(resolve_cross_region_choice(state, "s").time_advanced)
+        after = [(edge.id, edge.weather_exposure, tuple(edge.closed_seasons)) for edge in state.route_edges]
+        self.assertNotEqual(before, after)
+        self.assertEqual(state.cross_region_arcs["soundings"].status, "completed")
+        self.assertEqual(state.vessel_changes["arc:soundings:outcome"], "s")
+
+    def test_lost_arc_record_can_be_replaced_without_resetting_progress(self):
+        state = self._additional_unlocked("soundings")
+        resolve_cross_region_choice(state, "d")
+        record = next(item for item in state.items if item.kind == "consumable:sounding chain account")
+        record.location, record.owner_id = "lost", None
+        state.cross_region_arcs["soundings"].stage = 3
+        state.cross_region_arcs["soundings"].status = "active"
+        state.trade_credit = 2
+        at_primary(state, "greywash")
+        result = resolve_cross_region_choice(state, "r")
+        self.assertTrue(result.time_advanced)
+        self.assertEqual(state.trade_credit, 5)
+        self.assertEqual(state.cross_region_arcs["soundings"].status, "completed")
 
 
 if __name__ == "__main__":

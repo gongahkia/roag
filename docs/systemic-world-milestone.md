@@ -183,6 +183,18 @@ noise share ordinary reducers. Recovery is finite and format-7 persistent, and
 opened migrated caches never reissue an object. Three focused tests plus 48
 quest/inventory/migration/history regressions passed in **26.421 seconds**.
 
+Two additional physical-evidence arcs complete the three-arc target. **Banks
+That Hold** connects Hearthford, Dunmire and Marlbank through flood control,
+armed bank claims and a public-versus-bonded settlement. **Soundings and
+Spans** connects Greywash, Frostmere and Rillscar through ice routes, bridge
+warnings and sheltered-versus-rapid navigation. Each has four chapters, two
+disclosed routes, a finite pack record with paid loss recovery, warned tactical
+opposition, environmental work, named institutional witnesses, two persistent
+route/market outcomes, and format-7 continuation. The quest audit now covers
+all eight primary lines, four second undertakings and all three arcs. Fifteen
+quest tests passed in **12.484 seconds**; 47 migration/gameplay/terminal
+regressions passed in **15.626 seconds**.
+
 Four additional regressions reproduced loose `%` cover having no projectile
 effect, a repeated cache rumor selecting the same marked coffer, and exhausted
 rumors raising `StopIteration`. The shared cover query now affects actual
@@ -203,7 +215,7 @@ them by themselves.
 | Institutions/economy | witnessed consequences, services, stock and physical contracts | automated integration met; campaign play open |
 | Builds | 36 weapons, 36 armour, 64 passives/techniques, 32 tools/supplies, 12 relics, 24 demonstrated builds | automated content and scenario gate met; requested manual coverage open |
 | Treasure | 60 persistent containers, history-backed objects, clue trails | automated history-object gate met; campaign recovery play open |
-| Stories | 12 substantial regional lines, three arcs, alternate outcomes | open |
+| Stories | 12 substantial regional lines, three arcs, alternate outcomes | automated content and persistence gates met; all-path manual play open |
 | Vessel/voyages | optional stations, twelve families, six physical deck encounters | open |
 | Migration | real format-6 preservation, corruption and mid-reaction round trips | open |
 | PTY | region/branch/build/campaign/crisis/resize/mouse paths requested by owner | open |
