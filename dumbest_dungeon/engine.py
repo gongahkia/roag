@@ -5711,7 +5711,6 @@ class GameEngine:
                     self.record("curse_contract_trigger", curse_id, owner=actor.id,
                                 target=target.id if target else None,
                                 operand=key, bonus_bp=round(float(bonus) * 10000))
-        multiplier = max(0.5, min(2.0, multiplier))
         result = max(0, round(amount * multiplier))
         if actor.side == "enemy":
             result = (result * self.current_director().enemy_damage_bp + 5_000) // 10_000

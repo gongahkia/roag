@@ -62,6 +62,31 @@ class CurseContractTests(unittest.TestCase):
         self.assertIn("next:", detail)
         self.assertIn("descendants", detail)
 
+    def test_disclosed_multipliers_are_not_globally_damage_capped(self) -> None:
+        engine, owner, target = self.engine_with("base:red_debt")
+        owner.affliction = "aggressive"
+        owner.stress = 50
+        owner.statuses["focus"] = 2
+        target.statuses["marked"] = 2
+        engine.state.pressure = 480
+        engine.state.boons[owner.id] = {
+            "blood_price": 3,
+            "marked_quarry": 8,
+            "base:calm_defiance": 1,
+            "base:marked_reflex": 1,
+        }
+        engine.state.items.update({
+            "targeting_prism": 8,
+            "base:quarry_battery": 8,
+            "base:execution_prism": 8,
+        })
+        engine.state.curses[owner.id].update({
+            "base:quarry_oath": 1,
+            "base:hunted_compact": 1,
+        })
+
+        self.assertGreater(engine._outgoing_damage(owner, 10, target), 20)
+
     def test_paired_burdens_change_two_real_decisions_without_duplicate_shapes(self) -> None:
         identities = (
             "base:crossed_wires", "base:lantern_hunger", "base:open_vein",

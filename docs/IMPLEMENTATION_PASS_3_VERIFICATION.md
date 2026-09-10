@@ -642,6 +642,12 @@ retaliation patterns create distinct target-order and positioning questions.
 Every legacy Foundry native now has a third action. Census: 86 enemies and 125
 encounters.
 
+The legacy global 0.5x–2x outgoing-damage clamp was removed. Authored status,
+affliction, boon, item and curse contracts now compose without a hidden ceiling;
+integer damage remains non-negative and exact source contracts remain visible.
+The focused regression assembles a legal disclosed marked/stressed engine and
+requires its ten-point base hit to exceed the former 20-damage ceiling.
+
 Content schema 36 gives Reactor Chapel six normal participants, two elite-only
 roles and the Choir Meltdown guardian. Three new normal roles split marking,
 cash-out and formation disruption; Critical Abbot and Containment Hulk create
