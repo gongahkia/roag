@@ -17,6 +17,55 @@
 - No concurrent changes encountered at inspection. Existing geography, items,
   deaths, quest outcomes and migration history must remain intact.
 
+## Continuation audit — 10 September 2026
+
+- Work resumed at `5be7ca6ca0cc9a093dbed893acd8f6b0a58fae04` on `main`,
+  equal to local `origin/main`. The expected start remains an ancestor 24
+  commits behind. No fetch or push was performed.
+- The worktree already contained one unrelated owner change:
+  `PROMPT-THAT-WAS-MIDWAY.md` was locally emptied. It is preserved, excluded
+  from every project commit, and not treated as implementation work.
+- Python 3.14.7 is the active interpreter; Python 3.11.16 is also installed.
+  Save format is 7. The current unmodified continuation baseline passes
+  **373 tests in 421.415 seconds** (428.96 seconds wall time).
+- Production inspection, including lazy generation of all frontiers, finds
+  eight destinations; 62 containers; 24 weapons; 36 armour pieces; 37
+  passives and 16 named role/recruit/work techniques; six relics; 40 broad
+  secondary/support/discovery/drink definitions; 12 regional questlines; one
+  cross-region arc; 12 voyage families, eight with physical deck play; and
+  eight commodities.
+- Enemy tables contain 42 standard and 15 elite definitions. Six directly
+  authored Hearthford standards bring the nominal standard total to 48; the
+  authored runaway wheel brings elite situations to 16. Four frontier elites
+  are named returning claimants. A coarse production signature identifies
+  fewer than 48 distinct standard behaviours, so the mechanical-distinctness
+  gate remains open despite the nominal count.
+- Current verification gaps are explicit: the checked-in 1,000-seed result
+  predates later workshop, voyage, clothing, elite, weapon and workline work;
+  there are no standalone content, persistence, replay or long-session memory
+  audit commands; the old quest audit covers only the established four; there
+  is no repository fixture captured from a real format-6 save; and complete
+  manual branch/build/campaign coverage has not occurred.
+
+### Remaining implementation sequence
+
+1. Add validated production manifests and focused audit commands. Make every
+   headline count derive from production definitions and strengthen quest,
+   persistence, replay and soak evidence before adding more labels.
+2. Complete 36 mechanically differentiated weapon families, 64 combined
+   passive/technique effects, 12 finite relics and 24 automated build
+   scenarios, with physical sources, inspection and shared reducer hooks.
+3. Add six genuinely distinct standard roles, deepen institutional
+   relationships and commodity handling, and generate history-backed named
+   objects whose mechanics, claims and clues come from the regional ledger.
+4. Add two authored cross-region arcs with physical evidence, disclosed
+   approaches, persistent route/market/institution outcomes and succession-safe
+   state. Extend all audits across the 12 regional lines and three arcs.
+5. Close integration, performance and manual PTY gates honestly: rerun the
+   1,000-seed world audit on final code, run the new audits and soak, complete
+   the requested playable paths where feasible, then record untested platforms
+   or paths without converting automated fixtures into manual claims.
+
 ## Plan and ownership
 
 The primary agent owns all implementation, integration, and claims. Bounded
