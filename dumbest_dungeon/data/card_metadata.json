@@ -206,6 +206,10 @@
     "thread_needle": {"tags": ["damage", "draw", "payoff:marked"], "upgrade_description": "Upgrade: deal 10, plus 11 if marked, then draw 1."},
     "combat_roll": {"tags": ["block", "discard", "draw", "mobility"], "upgrade_description": "Upgrade: discard 1, move back 2, draw 3, and gain 5 block."},
     "rangefinder": {"tags": ["damage", "draw", "payoff:vulnerable"], "upgrade_description": "Upgrade: deal 9, plus 7 if vulnerable, and draw 2."},
-    "impossible_angle": {"tags": ["damage", "mobility", "status:focus"], "upgrade_description": "Upgrade: while healthy, deal 22 to the rear, move to the back, and gain focus."}
+    "impossible_angle": {"tags": ["damage", "mobility", "status:focus"], "upgrade_description": "Upgrade: while healthy, deal 22 to the rear, move to the back, and gain focus."},
+    "door_ram": {"tags": ["damage", "displacement", "mobility"], "upgrade_description": "Upgrade: move to the front, deal 13, and push the target back 2."},
+    "shaped_charge": {"tags": ["damage", "stress_risk"], "upgrade_description": "Upgrade: deal 7 to all, plus 6 while stressed, then gain 3 stress."},
+    "soft_spot": {"tags": ["damage", "displacement", "payoff:marked", "setup:vulnerable"], "upgrade_description": "Upgrade: deal 10, plus 6 if marked; expose and push a marked target."},
+    "redline_entry": {"tags": ["block", "energy", "mobility", "stress_risk"], "upgrade_description": "Upgrade: while stressed, rush to the front, gain 17 block and 2 energy, then gain 6 stress."}
   }
 }

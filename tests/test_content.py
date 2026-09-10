@@ -206,7 +206,10 @@ class ContentTests(unittest.TestCase):
         catalog = load_catalog()
         raw = json.loads(json.dumps(catalog.raw))
         hero = next(hero for hero in raw["heroes"] if hero["id"] == "breacher")
-        hero["starter_deck"][1] = "demolition"
+        nonstarters = [card for card in raw["cards"]
+                       if card["hero"] == "breacher" and card["id"] not in hero["starter_deck"]]
+        for card in nonstarters[2:]:
+            card["hero"] = "warden"
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "thin-pool.json"
             path.write_text(json.dumps(raw), encoding="utf-8")
