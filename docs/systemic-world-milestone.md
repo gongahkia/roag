@@ -126,6 +126,18 @@ distributed among the four frontier container sets and retain ordinary bulk,
 packing, loss and persistence. The focused 11-test file passed in **0.555
 seconds**. Relic quantity and the 24 scenario demonstrations remain open.
 
+Six additional finite, low-mysticism objects bring the relic catalogue to
+**12**. Flood-mark clasp, ashglass lens, quarry echo pin, winter sounding bead,
+red-clay seal and wreck-light prism each join at least two production systems:
+water/support/fatigue, smoke/clues/perception, structure/sound, ice/season/cold,
+institution/combat/obligation, or lamp/treasure/ecology. Invalid circumstances
+leave the physical object unspent, while use consumes both the legacy count and
+the exact packed item. Frontier caches provide deterministic sources and relic
+inspection now shows the real mechanic and trade-off instead of generic text.
+All seven focused relic tests passed in **0.495 seconds**. A combined follow-up
+ran 36 relevant tests successfully; one requested module name was absent and
+was recorded as a command error rather than a product failure.
+
 Four additional regressions reproduced loose `%` cover having no projectile
 effect, a repeated cache rumor selecting the same marked coffer, and exhausted
 rumors raising `StopIteration`. The shared cover query now affects actual
@@ -144,7 +156,7 @@ them by themselves.
 | Materials | bounded shared reactions, inspection, player agency, persistence | open |
 | Ecology/AI | perceived cross-actor goals, 48 standards, 16 elites, four named rivals | open |
 | Institutions/economy | witnessed consequences, services, stock and physical contracts | open |
-| Builds | 36 weapons, 36 armour, 64 passives/techniques, 32 tools/supplies, 12 relics, 24 demonstrated builds | weapon/armour/passive/tool counts met; relics and scenarios open |
+| Builds | 36 weapons, 36 armour, 64 passives/techniques, 32 tools/supplies, 12 relics, 24 demonstrated builds | all content counts met; 24 scenario demonstrations open |
 | Treasure | 60 persistent containers, history-backed objects, clue trails | open |
 | Stories | 12 substantial regional lines, three arcs, alternate outcomes | open |
 | Vessel/voyages | optional stations, twelve families, six physical deck encounters | open |

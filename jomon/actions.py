@@ -2451,6 +2451,15 @@ def guard(state: GameState) -> ActionResult:
     return _time_result(state, text, guarded=True, priority=3)
 
 
+def _spend_relic(state: GameState, name: str) -> None:
+    """Consume one selected finite relic and its matching physical item."""
+    state.relics[name] -= 1
+    if not state.relics[name]:
+        del state.relics[name]
+    state.carried_relic = None
+    consume_carried(state, f"relic:{name}")
+
+
 def use_gear(state: GameState) -> ActionResult:
     if not state.combat_active:
         return _plain(state, "Expedition gear is used in the field.")
@@ -2555,6 +2564,188 @@ def use_gear(state: GameState) -> ActionResult:
                 "The finite filament arrests every local current, then rings its last motion to nearby listeners.",
                 *sounds,
             ]),
+            priority=3,
+        )
+    if state.carried_relic == "flood-mark clasp" and state.relics.get("flood-mark clasp", 0):
+        from .materials import fields as material_fields, key as material_key, point_at
+
+        lowered = steadied = 0
+        for coordinate, cell in material_fields(state).items():
+            point = point_at(coordinate)
+            if distance(state.position, point) > 5:
+                continue
+            if cell.water:
+                cell.water -= 1
+                lowered += 1
+            if cell.material == "timber" and cell.coating == "wet" and cell.support < 3:
+                cell.support += 1
+                cell.collapse_due = 0
+                steadied += 1
+        for coordinate in list(state.water):
+            point = point_at(coordinate)
+            if distance(state.position, point) <= 5:
+                del state.water[coordinate]
+                lowered += 1
+        if not lowered and not steadied:
+            return _plain(state, "The flood-mark clasp finds no nearby water or soaked timber; it remains whole.")
+        _spend_relic(state, "flood-mark clasp")
+        add_status(state, "fatigued", "the flood-mark clasp's resisting load", 3, "movement may take another action; rest or wait it out")
+        changes = state.vessel_changes if state.location == "jomon" else state.region.changes
+        changes["flood_mark_clasp_spent"] = True
+        return _time_result(
+            state,
+            f"The clasp lowers {lowered} nearby water layers and steadies {steadied} wet supports, then leaves a three-action fatigue.",
+            priority=3,
+        )
+    if state.carried_relic == "ashglass lens" and state.relics.get("ashglass lens", 0):
+        from .materials import fields as material_fields, point_at
+        from .quests import mark_treasure
+
+        cleared = 0
+        for coordinate in list(state.smoke):
+            if distance(state.position, point_at(coordinate)) <= 8:
+                del state.smoke[coordinate]
+                cleared += 1
+        for coordinate, cell in material_fields(state).items():
+            if cell.smoke and distance(state.position, point_at(coordinate)) <= 8:
+                cell.smoke = 0
+                cleared += 1
+        cache = None
+        if state.location == "region":
+            cache = next(
+                (entry for entry in state.region.containers if not entry.opened and entry.id not in state.treasure_marks[state.active_region_id]),
+                None,
+            )
+        if not cleared and cache is None:
+            return _plain(state, "The ashglass finds neither smoke nor an unread store mark; it remains unspent.")
+        _spend_relic(state, "ashglass lens")
+        if cache:
+            mark_treasure(
+                state, state.active_region_id, cache.id,
+                f"Ashglass reveals {cache.name} through residue at {cache.position.x},{cache.position.y}, level {cache.position.z:+d}.",
+            )
+        revealed = 0
+        for threat in state.combatants:
+            if distance(state.position, threat.position) <= 10 and threat.status == "watching":
+                threat.status = "engaged"
+                threat.last_known_position = state.position
+                threat.intent = "tracks the ashglass flare"
+                revealed += 1
+        return _time_result(
+            state,
+            f"The ashglass clears {cleared} smoke fields and reads {'one store mark' if cache else 'no new store'}; {revealed} nearby watchers see the flare.",
+            priority=3,
+        )
+    if state.carried_relic == "quarry echo pin" and state.relics.get("quarry echo pin", 0):
+        from .materials import fields as material_fields, point_at
+
+        supports = [
+            cell for coordinate, cell in material_fields(state).items()
+            if distance(state.position, point_at(coordinate)) <= 6
+            and (cell.support < 3 or cell.collapse_due)
+            and cell.material in {"timber", "stone"}
+        ][:8]
+        if not supports:
+            return _plain(state, "No damaged or warned support answers the quarry pin; it remains unspent.")
+        for cell in supports:
+            cell.support, cell.collapse_due = 3, 0
+        _spend_relic(state, "quarry echo pin")
+        sounds = emit_sound(state, 6, state.position)
+        changes = state.vessel_changes if state.location == "jomon" else state.region.changes
+        changes["quarry_echo_pin_spent"] = True
+        return _time_result(
+            state,
+            " ".join([
+                f"The echo pin seats {len(supports)} damaged supports; its report carries without discretion.",
+                *sounds,
+            ]),
+            priority=3,
+        )
+    if state.carried_relic == "winter sounding bead" and state.relics.get("winter sounding bead", 0):
+        from .calendar import calendar_at
+        from .materials import ensure_cell, fields as material_fields, point_at
+
+        if calendar_at(state).season != "winter":
+            return _plain(state, "The sounding bead only takes hold in winter cold; it remains unspent.")
+        coordinates = set(material_fields(state)) | set(state.water)
+        frozen = []
+        for coordinate in sorted(coordinates):
+            point = point_at(coordinate)
+            if distance(state.position, point) > 6:
+                continue
+            cell = ensure_cell(state, point)
+            if cell and cell.water and cell.fluid == "fresh" and not cell.fire:
+                cell.water, cell.ice = 1, True
+                state.water.pop(coordinate, None)
+                frozen.append(point)
+                if len(frozen) == 8:
+                    break
+        if not frozen:
+            return _plain(state, "No nearby fresh shallow can take the winter sounding; the bead remains unspent.")
+        _spend_relic(state, "winter sounding bead")
+        add_status(state, "chilled", "a spent winter sounding", 4, "ranged reach shortens until four actions or warm shelter")
+        return _time_result(
+            state,
+            f"The bead freezes {len(frozen)} fresh shallows into readable footing, then leaves a four-action chill.",
+            priority=3,
+        )
+    if state.carried_relic == "red-clay seal" and state.relics.get("red-clay seal", 0):
+        institution = state.institutions.get(f"work:{state.active_region_id}")
+        humans = [
+            threat for threat in state.combatants
+            if threat.status == "engaged"
+            and threat.profile in {"pursuer", "reach", "ranged"}
+            and distance(state.position, threat.position) <= 5
+        ]
+        witnessed = bool(state.objective_evidence) or bool(institution and institution.trust >= 1)
+        if not humans or not institution or not witnessed:
+            return _plain(state, "The clay seal needs a nearby human claim and a witnessed local account; it remains unspent.")
+        group = humans[0].group
+        settled = [threat for threat in humans if not group or threat.group == group][:4]
+        for threat in settled:
+            threat.status, threat.intent = "negotiated", "bound by the fired local compact"
+        institution.obligation = min(9, institution.obligation + 2)
+        institution.confidence = min(3, institution.confidence + 1)
+        state.region.changes["red_clay_compact"] = institution.id
+        _spend_relic(state, "red-clay seal")
+        state.remember(f"{state.courier.name} spent the red-clay seal on {institution.name}; two obligations remain on Jomon's account.")
+        return _time_result(
+            state,
+            f"The fired seal settles {len(settled)} claimants without a strike; {institution.name} records two household obligations.",
+            priority=3,
+        )
+    if state.carried_relic == "wreck-light prism" and state.relics.get("wreck-light prism", 0):
+        from .quests import mark_treasure
+
+        cache = next(
+            (
+                entry for entry in reversed(state.region.containers)
+                if not entry.opened and entry.id not in state.treasure_marks[state.active_region_id]
+            ),
+            None,
+        ) if state.location == "region" else None
+        if cache is None or state.lamp_oil <= 0:
+            return _plain(state, "The prism needs lamp oil and an unread regional store; it remains unspent.")
+        state.lamp_oil -= 1
+        _spend_relic(state, "wreck-light prism")
+        mark_treasure(
+            state, state.active_region_id, cache.id,
+            f"Wreck-light marks {cache.name} at {cache.position.x},{cache.position.y}, level {cache.position.z:+d}.",
+        )
+        animals = humans = 0
+        for threat in state.combatants:
+            if distance(state.position, threat.position) > 9:
+                continue
+            if threat.profile == "animal":
+                threat.status, threat.intent = "evaded", "turns from the hard prism light"
+                animals += 1
+            elif threat.status == "watching":
+                threat.status = "engaged"
+                threat.last_known_position = state.position
+                humans += 1
+        return _time_result(
+            state,
+            f"Wreck-light marks {cache.name} and turns {animals} animals; {humans} human watchers read the same flash. One lamp measure is spent.",
             priority=3,
         )
     if "signal mirror" in state.carried_passives and state.position.z > 0:

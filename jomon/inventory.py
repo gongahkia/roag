@@ -253,7 +253,9 @@ def item_spec(kind: str) -> ItemSpec:
         return ItemSpec(name.title(), name[:2].upper(), 1, 1, 1, "consumable", "A finite expedition supply.", stack_limit=4)
     if kind.startswith("relic:"):
         name = kind.split(":", 1)[1]
-        return ItemSpec(name.title(), "RL", 2, 2, 2, "relic", "A finite, materially strange relic.")
+        from .content import RELICS
+
+        return ItemSpec(name.title(), "RL", 2, 2, 2, "relic", RELICS[name])
     raise KeyError(f"unknown item kind {kind!r}")
 
 

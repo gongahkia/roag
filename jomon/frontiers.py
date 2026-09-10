@@ -23,6 +23,13 @@ FRONTIER_DISCOVERIES = {
     "frostmere": ("shingle skids", "salvage tally"),
 }
 
+FRONTIER_RELICS = {
+    "dunmire": ("flood-mark clasp", "ashglass lens"),
+    "rillscar": ("quarry echo pin",),
+    "marlbank": ("red-clay seal",),
+    "frostmere": ("winter sounding bead", "wreck-light prism"),
+}
+
 
 def _fen(seed, width, height):
     rng = stage_rng(seed, "dunmire:islands")
@@ -173,6 +180,8 @@ def build_frontier(seed: str, region_id: str) -> Region:
             container.extra_rewards.append(implements[index])
         if index < len(FRONTIER_DISCOVERIES[region_id]):
             container.extra_rewards.append(FRONTIER_DISCOVERIES[region_id][index])
+        if index < len(FRONTIER_RELICS[region_id]):
+            container.extra_rewards.append(FRONTIER_RELICS[region_id][index])
         if index in {0, 1, 2}:
             container.extra_rewards.extend([("sealed pitch pot", "sealed lime pot", "sealed brine pot")[index]] * 2)
         containers.append(container)

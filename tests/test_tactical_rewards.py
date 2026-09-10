@@ -132,7 +132,7 @@ class TacticalRewardTests(unittest.TestCase):
     def test_new_content_is_bounded_and_every_reward_is_defined(self):
         self.assertEqual(len(WEAPONS), 36)
         self.assertEqual(len(PASSIVES), 48)
-        self.assertEqual(len(RELICS), 6)
+        self.assertEqual(len(RELICS), 12)
         state = create_world("new quest caches")
         self.assertEqual(
             {region_id: len(region.containers) for region_id, region in state.regions.items()},

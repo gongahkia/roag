@@ -205,6 +205,12 @@ RELICS = {
     "coalheart seed": "A warm mineral seed that consumes smoke once and leaves the bearer painfully chilled.",
     "hollow-bell shard": "A cracked bronze sliver that moves one sound between levels and may call unintended listeners.",
     "stillwater filament": "A finite pale strand that arrests one local current, but calls listeners to its last motion.",
+    "flood-mark clasp": "A repaired river clasp lowers nearby water and steadies soaked timber once; the resisting load leaves its bearer fatigued.",
+    "ashglass lens": "A fire-clouded lens clears local smoke and exposes one hidden store, while the flare gives nearby groups the courier's position.",
+    "quarry echo pin": "A stoneworker's resonant pin seats nearby warned supports once; its report alerts every listener in range.",
+    "winter sounding bead": "A cold sounding bead freezes a bounded set of fresh shallows in winter, then leaves the bearer chilled.",
+    "red-clay seal": "A fired account seal compels one witnessed local compact; the institution records two obligations for the concession.",
+    "wreck-light prism": "A salvaged signal prism spends lamp oil to mark one unopened store and turn animals, but human lookouts see the flash.",
 }
 
 PASSIVES = {
