@@ -17,8 +17,14 @@ and loop entry. Base prices are integer rules: one per weighted travel tick,
 eight per completed enemy phase, 18 per objective stage and 24 per major facility
 action. Event, bargain and exceptional-reward prices default to zero and must opt
 in explicitly. No menu, help, inspection, animation, resize, input delay or wall
-clock appears in the vocabulary. This first contract does not yet mutate runs or
-scale encounters; serialization and action integration are separate commits.
+clock appears in the vocabulary. Save schema 34 serializes the value, recent
+causes and any migration gap; the four priced base actions advance it exactly.
+
+Each visible band has one typed director profile. Coordination, patrol cadence
+and aggression, reward choices, mutation/reinforcement/hazard slots, and bounded
+health/damage basis points advance independently. Health is capped to a 10%
+band envelope and damage to 5%; qualitative slots advance first. Only serialized
+Pressure selects this profile, never current HP, deck strength, or recent results.
 
 ## Inert content input
 
