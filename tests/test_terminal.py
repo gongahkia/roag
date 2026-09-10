@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from jomon.actions import interact
+from jomon.actions import depart, guard
 from jomon.vessel import BARTENDER_POSITION
 from jomon.state import Position, create_world
 from jomon.terminal import (
@@ -129,6 +130,38 @@ class TavernMenuTests(unittest.TestCase):
 
 
 class DialogueChoiceTests(unittest.TestCase):
+    def test_local_navigation_choice_returns_a_target_without_time(self):
+        state = create_world("terminal local route")
+        depart(state)
+        state.region.seen.extend(
+            f"{point.x},{point.y},{point.z}"
+            for point in state.region.landmarks.values()
+        )
+        view = OverlayView("navigation")
+        before = state.world_time
+
+        closed, quit_requested = _handle_overlay_view(
+            state, view, InputEvent("key", key=10)
+        )
+
+        self.assertTrue(closed)
+        self.assertFalse(quit_requested)
+        self.assertTrue(view.result.startswith("landmark:"))
+        self.assertEqual(state.world_time, before)
+
+    def test_guard_without_nearby_hostile_is_an_explicit_listen_action(self):
+        state = create_world("hold and listen")
+        depart(state)
+        for actor in state.threats:
+            actor.status = "defeated"
+        before = state.world_time
+
+        result = guard(state)
+
+        self.assertTrue(result.time_advanced)
+        self.assertEqual(state.world_time, before + 1)
+        self.assertIn("listen", result.message)
+
     def test_unavailable_long_choice_wraps_without_losing_requirement(self):
         option = ChoiceOption(
             "E",

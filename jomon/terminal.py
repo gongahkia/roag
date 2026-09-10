@@ -76,6 +76,13 @@ from .content import (
     WEAPONS,
 )
 from .save import SaveError, save_game
+from .navigation import (
+    RoutePlan,
+    RouteUnavailable,
+    advance_route,
+    navigation_targets,
+    plan_route,
+)
 from .state import GameState, Position, Threat
 from .travel import DESTINATIONS, choose_destination, resolve_voyage, travel_animation_frames
 from .route_chart import chart_move, neighbours, route_availability
@@ -209,6 +216,7 @@ class OverlayView:
     scroll_offset: int = 0
     page_rows: int = 1
     line_count: int = 0
+    result: str | None = None
 
 
 @dataclass(frozen=True)
@@ -796,6 +804,15 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str], view: Over
 
 
 def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
+    if kind == "navigation":
+        keys = "123456789abcdefghijklmnopqrstuvwxyz"
+        return [
+            ChoiceOption(
+                keys[index],
+                f"{target.label} — {distance(state.position, target.position)} paces; level {target.position.z:+d}",
+            )
+            for index, target in enumerate(navigation_targets(state)[:len(keys)])
+        ]
     if kind == "station:workshop" or kind.startswith("workshop:"):
         from .workshop import FITTINGS, SLOTS, attached, can_fit, compatible, fit_cost
 
@@ -1028,6 +1045,15 @@ def _handle_overlay_view(state: GameState, view: OverlayView, event: InputEvent)
             if direct and not direct.available:
                 state.add_message(f"Unavailable: {direct.requirement}.", priority=2)
                 return False, False
+        if view.kind == "navigation":
+            direct = next(
+                (option for option in options if option.key.lower() == chr(key).lower()),
+                None,
+            ) if 0 <= key < 256 else None
+            if direct:
+                index = options.index(direct)
+                view.result = navigation_targets(state)[index].id
+                return True, False
     next_kind, should_quit = _handle_overlay(state, view.kind, key)
     if next_kind is None:
         return True, should_quit
@@ -1699,6 +1725,13 @@ def _tavern_lines(state: GameState) -> list[str]:
 
 
 def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
+    if kind == "navigation":
+        return "FOLLOW A KNOWN LOCAL ROUTE", [
+            "Choose a seen landmark, vertical link, or marked store.",
+            "Following repeats ordinary action-clock movement over remembered ground; it does not explore.",
+            "Any key cancels. New danger, sound, weather, injury, load change, or material hazard stops you before automation can conceal it.",
+            "Selection and cancellation cost no time.",
+        ]
     if kind == "observed-life":
         return "VISIBLE ACTORS, DUTIES AND COUNTERS", observed_life_lines(state)
     if kind == "material":
@@ -2008,7 +2041,7 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         if kind.startswith("bartender:"):
             return "bartender", False
         return ("bartender" if kind.startswith("tavern:") else None), False
-    if kind in {"help", "inventory", "equipment", "household", "hold", "contact", "info", "chronicle", "regional-ledger", "observed-life"} or kind.startswith("contact:"):
+    if kind in {"help", "inventory", "equipment", "household", "hold", "contact", "info", "chronicle", "regional-ledger", "observed-life", "navigation"} or kind.startswith("contact:"):
         return None, False
     if kind == "quit":
         if char == "y":
@@ -2183,6 +2216,8 @@ def play(screen: curses.window, state: GameState) -> GameState:
     inventory_view: InventoryView | None = None
     route_view: RouteChartView | None = None
     target_view: TargetView | None = None
+    local_route: RoutePlan | None = None
+    local_route_index = 0
     while True:
         _draw_base(screen, state)
         height, width = screen.getmaxyx()
@@ -2198,6 +2233,28 @@ def play(screen: curses.window, state: GameState) -> GameState:
             else:
                 title, lines = _overlay_lines(state, overlay.kind)
                 _overlay(screen, title, lines, overlay)
+        if (
+            local_route
+            and not any((inventory_view, route_view, target_view, overlay))
+            and height >= MIN_HEIGHT and width >= MIN_WIDTH
+        ):
+            try:
+                screen.timeout(45)
+                interrupted = screen.getch()
+            except curses.error:
+                interrupted = -1
+            finally:
+                screen.timeout(-1)
+            if interrupted != -1:
+                state.add_message("You stop following the known route; no extra action is spent.")
+                local_route = None
+                continue
+            progress = advance_route(state, local_route, local_route_index)
+            local_route_index = progress.next_index
+            if progress.stop_reason or progress.finished:
+                state.add_message(progress.stop_reason or "Destination reached.", priority=2)
+                local_route = None
+            continue
         event = normalise_input(screen.getch())
         key = event.key
         if key == curses.KEY_RESIZE:
@@ -2237,7 +2294,18 @@ def play(screen: curses.window, state: GameState) -> GameState:
             if should_quit:
                 return state
             if closed:
+                selected_route = overlay.result
                 overlay = None
+                if selected_route:
+                    try:
+                        local_route = plan_route(state, selected_route)
+                    except RouteUnavailable as exc:
+                        state.add_message(str(exc), priority=2)
+                    else:
+                        local_route_index = 0
+                        state.add_message(
+                            f"Following remembered ground toward {local_route.label}; any key stops."
+                        )
             continue
         normalized = ord(chr(key).lower()) if 0 <= key < 256 else key
         if normalized in MOVES:
@@ -2258,6 +2326,13 @@ def play(screen: curses.window, state: GameState) -> GameState:
                 attack(state)
         elif normalized == ord("g"):
             guard(state)
+        elif normalized == ord("t"):
+            if state.location != "region":
+                state.add_message("Known-route following is available during regional expeditions.")
+            elif not navigation_targets(state):
+                state.add_message("No other seen landmark or marked store is known yet.")
+            else:
+                overlay = OverlayView("navigation")
         elif normalized == ord("x"):
             carried_relics = list(dict.fromkeys(
                 item.kind.split(":", 1)[1] for item in state.items

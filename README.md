@@ -29,9 +29,10 @@ World controls:
 
 - arrows or `HJKL`: cardinal movement;
 - `YUBN`: diagonal movement;
+- `T`: follow a seen local landmark, link, or marked store over remembered ground;
 - `Enter` or `E`: interact, climb, open, speak, or operate;
 - `A`: attack with the readied weapon; ranged weapons open a target cursor;
-- `G`: guard, brace, or continue a weapon reload;
+- `G`: guard, brace, continue a weapon reload, or hold position and listen;
 - `X`: use a finite readied tool, supply, or relic;
 - `V`: offer material terms;
 - `R`: retreat when a physical route remains;
@@ -71,6 +72,13 @@ rotated footprint, blockers, bounds, and resulting load before placement.
 Opening and inspecting interfaces costs no time. A confirmed field repack and
 accepted in-world actions advance the action clock; idle terminal time never
 does.
+
+Known-route following is an input convenience, not a separate travel system:
+each tile uses the ordinary movement or climb reducer and advances the same
+action clock as manual play. It only crosses terrain already remembered by the
+current region. Newly visible danger, an alert, an off-route sound, weather,
+injury, load-state change, or a visible material hazard interrupts it, and any
+key cancels before another step.
 
 ## Aboard Jomon
 

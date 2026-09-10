@@ -2439,7 +2439,11 @@ def guard(state: GameState) -> ActionResult:
         and distance(state.position, threat.position) <= 7
     ]
     if not engaged:
-        return _plain(state, "There is no immediate danger to guard against.")
+        return _time_result(
+            state,
+            "You hold position and listen; the world advances while you keep your bearings.",
+            priority=2,
+        )
     from .people import personal_practice
 
     strong = (
