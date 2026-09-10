@@ -105,6 +105,21 @@ class BiomeExpansionTests(unittest.TestCase):
         self.assertTrue(any(effect.get("bonus_status") == "marked" for effect in effects))
         self.assertTrue(any(effect.get("status") == "vulnerable" for effect in effects))
 
+    def test_fungal_floor_and_coordination_questions(self) -> None:
+        self.assert_biome_floor("fungal", "base:colony_crown")
+        native_ids = {enemy_id for enemy_id, enemy in self.catalog.enemies.items()
+                      if "fungal" in enemy.get("biomes", [])}
+        self.assertTrue(all(len(self.catalog.enemies[enemy_id]["actions"]) >= 3
+                            for enemy_id in native_ids))
+        new_ids = {"base:hypha_hound", "base:bloom_mimic", "base:spore_bailiff",
+                   "base:rot_matron", "base:colony_crown"}
+        effects = [effect for enemy_id in new_ids
+                   for action in self.catalog.enemies[enemy_id]["actions"]
+                   for effect in action["effects"]]
+        self.assertTrue(any(effect["op"] == "guard" for effect in effects))
+        self.assertTrue(any(effect.get("bonus_status") == "marked" for effect in effects))
+        self.assertTrue(any(effect["op"] == "heal" for effect in effects))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -647,3 +647,7 @@ roles and the Choir Meltdown guardian. Three new normal roles split marking,
 cash-out and formation disruption; Critical Abbot and Containment Hulk create
 protection/priority puzzles. All Reactor natives now expose three actions.
 Census: 92 enemies and 131 encounters.
+
+Content schema 37 adds Fungal Warrens pursuit, false-target, guard and healing
+networks plus the Colony Crown guardian. All four legacy natives now have three
+actions. Census: 97 enemies and 136 encounters.

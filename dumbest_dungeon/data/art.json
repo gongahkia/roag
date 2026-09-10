@@ -129,7 +129,12 @@
     "base:flux_scribe": [" [~] ", "|o o|", "|---|", " /|\\ ", " / \\ "],
     "base:critical_abbot": [" /+\\ ", "|O O|", "|R#R|", " /|\\ ", "_| |_"],
     "base:containment_hulk": ["[|||]", "|o o|", "|###|", "|=|=|", "_/ \\_"],
-    "base:choir_meltdown": [" /R\\ ", "|O O|", "|+++|", "|###|", "_/ \\_"]
+    "base:choir_meltdown": [" /R\\ ", "|O O|", "|+++|", "|###|", "_/ \\_"],
+    "base:hypha_hound": [" .oo. ", "/o  o\\", "|_^^_|", " /  \\ ", "^    ^"],
+    "base:bloom_mimic": [" \\|/ ", "(o o)", "(###)", " /|\\ ", " / \\ "],
+    "base:spore_bailiff": [" .ooo. ", "|O O|", "|###|", " /|\\ ", "_| |_"],
+    "base:rot_matron": [" /o\\ ", "(O O)", "|~~~|", " /|\\ ", "_/ \\_"],
+    "base:colony_crown": ["ooooo", "|O O|", "|###|", "|ooo|", "_/ \\_"]
   },
   "card_glyphs": {
     "warden": ["  /\\  ", " /##\\ ", " |==| "],
