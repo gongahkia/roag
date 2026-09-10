@@ -27,16 +27,27 @@ HAZARD_STATIONS = {
 
 def choices(state: GameState) -> list[tuple[str, str, str]]:
     kind = state.voyage_kind
+    from .voyage_variants import active_variant
+
+    variant = active_variant(state, kind)
     if state.vessel_changes.get("deck_crisis"):
         return [("P", "Return to the physical deck; normal actions advance danger", "danger"), ("Y", "Abandon contested cargo and withdraw with hull damage", "refusal")]
     options = {
         "raiders": [("R", "Repel with readied reach", "danger"), ("D", "Distract with material preparation", "commitment"), ("Y", "Yield one cargo lot", "refusal")],
-        "creature": [("R", "Repel with a spaced weapon", "danger"), ("E", "Evade through pilot knowledge", "commitment"), ("B", "Bait with one salt-fish lot", "commitment")],
+        "creature": [("R", "Repel with a spaced weapon", "danger"), ("E", "Evade through pilot knowledge", "commitment"), ("B", f"Bait with {'two' if variant else 'one'} salt-fish lot{'s' if variant else ''}", "commitment")],
         "lure": [("A", "Anchor to the real bank", "commitment"), ("C", "Counsel named crew", "ordinary"), ("N", "Navigate by chart and lead line", "commitment")],
         "shoal": [("N", "Sound a slower channel: four extra actions", "commitment"), ("Y", "Force the shoal: two hull integrity", "danger")],
         "driftwood": [("R", "Secure timber: one rope use, three actions", "commitment"), ("Y", "Let the raft pass without a claim", "refusal")],
         "inspection": [("N", "Offer witnessed institutional trust or one paper lot", "ordinary"), ("C", "Pay two accountable credits", "commitment"), ("Y", "Refuse: lose one cargo lot to detention", "refusal")],
     }.get(kind, [("Y", "Withdraw: abandon cargo and accept two hull damage", "refusal")])
+    if kind == "boarders" and variant:
+        options = [("C", "Settle one named institutional obligation before boarding", "commitment"), *options]
+    if kind == "shoal" and variant:
+        options = [(key, label.replace("four extra actions", "six extra actions").replace("two hull integrity", "three hull integrity"), semantic) for key, label, semantic in options]
+    if kind == "driftwood" and variant:
+        options = [(key, label.replace("three actions", "four actions; gain timber and charcoal"), semantic) for key, label, semantic in options]
+    if kind == "inspection" and variant:
+        options = [(key, label.replace("two accountable credits", "three accountable credits"), semantic) for key, label, semantic in options]
     if kind in TACTICAL:
         options = [("P", "Take the physical deck: staged threats, shared combat and tools", "danger"), *options]
     return options
@@ -44,6 +55,11 @@ def choices(state: GameState) -> list[tuple[str, str, str]]:
 
 def crisis_lines(state: GameState) -> list[str]:
     lines = [state.voyage_detail]
+    from .voyage_variants import active_variant
+
+    variant = active_variant(state, state.voyage_kind)
+    if variant:
+        lines += [f"CAUSE {variant.cause}", f"CHANGED RULE {variant.effect}", f"COUNTERS {variant.counterplay}"]
     if state.vessel_changes.get("deck_crisis"):
         kind = state.voyage_kind
         station = HAZARD_STATIONS.get(kind)
@@ -93,21 +109,34 @@ def begin_deck(state: GameState) -> tuple[bool, str]:
     state.smoke, state.water, state.sound_events, state.group_alerts = {}, {}, [], {}
     kind = state.voyage_kind
     from .vessel_refits import installed
+    from .voyage_variants import active_variant
+
+    variant = active_variant(state, kind)
 
     if kind == "raiders":
         _spawn(state, "cargo-rail hook bearer", Position(54, 10), "thief", duty="scavenge")
         _spawn(state, "skiff ward", Position(52, 12), "protector", profile="reach")
+        if variant:
+            _spawn(state, "shortage lot-caller", Position(50, 8), "controller", profile="ranged", weapon="sling", duty="escort")
     elif kind == "boarders":
         _spawn(state, "upper-rail bow bearer", Position(55, 10, 1), "skirmisher", profile="ranged", weapon="longbow")
         _spawn(state, "stair shield bearer", Position(47, 11, 0), "protector", profile="reach")
         _spawn(state, "cross-deck hook runner", Position(35, 12, 0), "flanker")
+        if variant:
+            _spawn(state, "obligation claimant", Position(31, 12, 0), "protector", profile="reach", duty="escort")
     elif kind == "hold-thieves":
         thief = _spawn(state, "hold recoverer", Position(14, 11, -1), "thief", duty="scavenge")
         if installed(state, "cargo-rail-netting"):
             thief.conditions["net-drag"] = 3
             thief.intent = "cuts through fitted cargo-rail netting before reaching the loose shipment"
         _spawn(state, "hatch net bearer", Position(19, 10, -1), "controller", weapon="weighted net", duty="escort")
-        cargo = next((name for name, stack in sorted(state.vessel_cargo.items()) if stack.quantity > 0), None)
+        available = [name for name, stack in state.vessel_cargo.items() if stack.quantity > 0]
+        if variant:
+            def shortage(name: str) -> int:
+                return max((market[name].demand - market[name].stock for market in state.regional_markets.values() if name in market), default=0)
+            cargo = max(available, key=lambda name: (shortage(name), name)) if available else None
+        else:
+            cargo = min(available) if available else None
         if cargo:
             state.vessel_cargo[cargo].quantity -= 1
             if state.vessel_cargo[cargo].quantity == 0:
@@ -117,6 +146,8 @@ def begin_deck(state: GameState) -> tuple[bool, str]:
             thief.objective_position = item.ground_position
     elif kind == "creature":
         _spawn(state, "rudder shoal grazer", Position(59, 10), "territorial", profile="animal", health=9)
+        if variant:
+            _spawn(state, "displaced shoal mate", Position(54, 15), "territorial", profile="animal", health=7)
     else:
         station = HAZARD_STATIONS[kind]
         point = Position(station.x + 1, station.y, station.z)
@@ -129,6 +160,8 @@ def begin_deck(state: GameState) -> tuple[bool, str]:
             state.vessel_materials[key(Position(station.x, station.y + 1, station.z))] = MaterialCell(material="stone", water=2)
             for x in (10, 11, 12):
                 state.vessel_materials.setdefault(key(Position(x, station.y, station.z)), MaterialCell(material="cloth"))
+            if variant:
+                state.vessel_materials[key(Position(station.x + 2, station.y, station.z))] = MaterialCell(material="cloth", fire=1, fuel=5, smoke=2, coating="oil")
         elif kind == "storm":
             # the normal chart-to-stay walk takes 27 moves; allow work before failure.
             state.vessel_materials[key(point)] = MaterialCell(
@@ -136,12 +169,16 @@ def begin_deck(state: GameState) -> tuple[bool, str]:
                 support=2 if installed(state, "storm-backstay") else 1,
                 collapse_due=state.world_time + (52 if installed(state, "storm-backstay") else 40),
             )
+            if variant:
+                state.vessel_materials[key(Position(station.x - 1, station.y, station.z))] = MaterialCell(material="timber", support=1, collapse_due=state.world_time + 32)
         else:
             state.vessel_materials[key(point)] = MaterialCell(
                 material="timber",
-                water=1 if installed(state, "twin-bilge-strainers") else 2,
-                support=2,
+                water=(2 if installed(state, "twin-bilge-strainers") else 3) if variant else (1 if installed(state, "twin-bilge-strainers") else 2),
+                support=1 if variant and kind == "split-seam" else 2,
             )
+            if variant:
+                state.vessel_materials[key(Position(station.x + 2, station.y, station.z))] = MaterialCell(material="timber", water=2, support=1 if kind == "split-seam" else 2)
     message = f"Declared deck crisis: {VOYAGES[kind][0]}. Movement now bears time; no actor attacks on entry. " + (f"Work the marked station at {HAZARD_STATIONS[kind]}." if kind in HAZARD_STATIONS else "Watch the boarders' preparation or leave with R.")
     state.remember(message)
     state.add_message(message, priority=3)
@@ -261,9 +298,14 @@ def work_lines(state: GameState, task: str) -> list[str]:
         "treat": "With a fitted sickbay sling cot, one wool lot and six action-clock steps clear one persistent injury. Lost health and other injuries remain.",
     }
     cargo = "; ".join(f"{name}: {state.vessel_cargo[name].quantity if name in state.vessel_cargo else 0}" for name in ("timber", "grain", "salt fish"))
-    return [f"Hull {state.vessel_integrity}/10; {state.voyage_detail if state.combat_active else 'moored work'}", details[task],
-            f"Counted hold — {cargo}. Readied: {state.gear or 'none'}.",
-            "Confirm F; Escape cancels. Damage already suffered and lost items are not undone."]
+    lines = [f"Hull {state.vessel_integrity}/10; {state.voyage_detail if state.combat_active else 'moored work'}", details[task],
+             f"Counted hold — {cargo}. Readied: {state.gear or 'none'}."]
+    from .voyage_variants import active_variant
+
+    variant = active_variant(state, state.voyage_kind)
+    if variant and task in {"emergency", "bait"}:
+        lines.append(f"Variant work: {variant.effect} {variant.counterplay}")
+    return lines + ["Confirm F; Escape cancels. Damage already suffered and lost items are not undone."]
 
 
 def work(state: GameState, task: str) -> tuple[bool, str]:
@@ -275,19 +317,23 @@ def work(state: GameState, task: str) -> tuple[bool, str]:
         return False, "Work requires the physical vessel station."
     tile = base_tile(state, state.position)
     from .vessel_refits import installed
+    from .voyage_variants import active_variant
+
+    variant = active_variant(state, state.voyage_kind)
 
     cost, message = 2, ""
     if task == "bait" and tile in {"G", "H"} and state.voyage_kind == "creature" and state.combat_active:
         fish = state.vessel_cargo.get("salt fish")
-        if not fish or fish.quantity <= 0:
-            return False, "No counted salt fish remains for bait."
-        fish.quantity -= 1
+        required = 2 if variant else 1
+        if not fish or fish.quantity < required:
+            return False, f"This shoal needs {required} counted salt-fish lot{'s' if required > 1 else ''} for bait."
+        fish.quantity -= required
         if not fish.quantity:
             del state.vessel_cargo["salt fish"]
         for actor in state.vessel_threats:
             if actor.profile == "animal":
                 actor.status, actor.intent = "evaded", "follows the material bait out of the rudder shoal"
-        cost, message = 1, "One salt-fish lot draws the territorial grazer clear of the rudder."
+        cost, message = 1, f"{required} salt-fish lot{'s' if required > 1 else ''} draw the territorial {'pair' if variant else 'grazer'} clear of the rudder."
     elif task == "repair" and tile == "R":
         stack = state.vessel_cargo.get("timber")
         if not stack or stack.quantity <= 0 or state.vessel_integrity >= 10:
@@ -296,6 +342,7 @@ def work(state: GameState, task: str) -> tuple[bool, str]:
         if not stack.quantity:
             del state.vessel_cargo["timber"]
         state.vessel_integrity = min(10, state.vessel_integrity + 3)
+        state.vessel_changes["hull_repairs"] = min(1000, int(state.vessel_changes.get("hull_repairs", 0)) + 1)
         message = "One timber lot seats a physical hull repair: three integrity restored."
     elif task == "pump" and tile == "U":
         if not any(cell.water for cell in state.vessel_materials.values()):
@@ -341,17 +388,36 @@ def work(state: GameState, task: str) -> tuple[bool, str]:
             return False, "The stay needs a readied rope or lever craft; another courier can prepare it before the next voyage."
         point = Position(state.position.x + 1, state.position.y, state.position.z)
         cell = state.vessel_materials.get(key(point))
+        pressure = False
+        auxiliary = Position(
+            state.position.x - 1 if state.voyage_kind == "storm" else state.position.x + 2,
+            state.position.y,
+            state.position.z,
+        )
+        auxiliary_cell = state.vessel_materials.get(key(auxiliary)) if variant else None
+        if auxiliary_cell:
+            pressure = (
+                bool(auxiliary_cell.fire) if state.voyage_kind == "galley-fire"
+                else auxiliary_cell.support < 2 if state.voyage_kind in {"storm", "split-seam"}
+                else auxiliary_cell.water > 1
+            )
         if cell:
             cell.fire, cell.water, cell.smoke, cell.collapse_due, cell.support = 0, 0, 0, 0, 3
             cell.coating = "wet"
+        if auxiliary_cell:
+            auxiliary_cell.fire, auxiliary_cell.water, auxiliary_cell.smoke = 0, 0, 0
+            auxiliary_cell.collapse_due, auxiliary_cell.support = 0, 3
+            auxiliary_cell.coating = "wet"
         state.vessel_changes["deck_work_done"] = True
         accelerated = (
             state.voyage_kind == "storm" and installed(state, "storm-backstay")
             or state.voyage_kind == "galley-fire" and installed(state, "galley-fire-cover")
             or state.voyage_kind in {"split-seam", "flooded-hold"} and installed(state, "twin-bilge-strainers")
         )
-        cost = 2 if accelerated else 3
+        cost = 3 + int(pressure) - int(accelerated)
         message = "Physical emergency work secures the marked position; existing damage elsewhere remains."
+        if pressure:
+            message += " The active voyage variant adds one exposed action for its second material front."
         if accelerated:
             message += " The fitted station removes one exposed action."
     else:
@@ -397,6 +463,7 @@ def deck_defeat(state: GameState, text: str, permanent: bool) -> str:
 
 def validate_ship(state: GameState) -> None:
     from .vessel import VESSEL_LEVELS
+    from .voyage_variants import VARIANTS
 
     if len(state.vessel_threats) > 8 or len({actor.id for actor in state.vessel_threats}) != len(state.vessel_threats):
         raise ValueError("invalid bounded vessel actor identities")
@@ -410,3 +477,7 @@ def validate_ship(state: GameState) -> None:
             raise ValueError("invalid vessel geometry mutation")
     if state.vessel_changes.get("deck_crisis") and (state.location != "jomon" or state.voyage_status != "active" or state.voyage_kind not in TACTICAL):
         raise ValueError("orphaned physical voyage crisis")
+    marker = state.vessel_changes.get("active_voyage_variant")
+    known = {variant.id: variant.family for variant in VARIANTS.values()}
+    if marker and (marker not in known or state.voyage_status != "active" or known[marker] != state.voyage_kind):
+        raise ValueError("orphaned or mismatched voyage variant")

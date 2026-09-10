@@ -72,7 +72,7 @@ def qualifies(state: GameState, family: str, destination: str) -> bool:
     if family == "split-seam":
         return state.vessel_integrity <= 6 or bool(state.vessel_changes.get("hull_repairs"))
     if family == "flooded-hold":
-        return calendar_at(state).season in {"spring", "winter"}
+        return calendar_at(state).season == "winter"
     return False
 
 
@@ -109,4 +109,3 @@ def validate_variants() -> None:
         raise ValueError("voyage variant identities must be distinct")
     if any(not row.cause or not row.effect or not row.counterplay for row in rows):
         raise ValueError("each voyage variant needs cause, effect and counterplay")
-

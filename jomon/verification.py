@@ -32,6 +32,7 @@ from .state import HISTORY_LIMIT, MESSAGE_LIMIT, StateError, create_world, game_
 from .travel import choose_destination, resolve_voyage
 from .vessel import DRINKS
 from .vessel_refits import REFITS, validate_refits
+from .voyage_variants import VARIANTS, validate_variants
 from .worklines import WORKLINES
 
 
@@ -66,6 +67,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
     validate_preparations()
     validate_arc_relics()
     validate_refits()
+    validate_variants()
     roster = roster_audit()
     armour = {kind for kind, spec in ITEM_SPECS.items() if spec.category == "armour"}
     techniques = _techniques()
@@ -88,6 +90,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
         "commodities": len(COMMODITIES), "voyage_families": len(VOYAGES),
         "tactical_voyage_families": len(TACTICAL), "build_scenarios": len(BUILD_SCENARIOS),
         "vessel_refits": len(REFITS),
+        "stateful_voyage_variants": len(VARIANTS),
     }
     minima = {
         "regions": 8, "standard_enemies": 72, "mechanically_distinct_enemies": 72,
@@ -99,6 +102,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
         "voyage_families": 12, "tactical_voyage_families": 6,
         "build_scenarios": 24,
         "vessel_refits": 8,
+        "stateful_voyage_variants": 12,
     }
     failures = [f"{key}: {counts[key]} < {minimum}" for key, minimum in minima.items() if counts[key] < minimum]
     source_failures = []
@@ -129,6 +133,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
             "techniques": sorted(techniques), "relics": sorted(RELICS),
             "preparations": sorted(PREPARATIONS),
             "vessel_refits": sorted(REFITS),
+            "voyage_variants": sorted(variant.id for variant in VARIANTS.values()),
             "containers": sorted(container.id for region in state.regions.values() for container in region.containers),
             "quests": sorted([
                 *(definition["title"] for definition in QUESTS.values()),
