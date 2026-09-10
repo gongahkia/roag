@@ -25,6 +25,7 @@ from .combat_triggers import (
     CURSE_TRIGGERS,
     DEATH_SURGE,
     MERCY,
+    REINFORCEMENT_CALL,
     REGISTERED,
     RIME_SHELL,
     RIPOSTE,
@@ -55,6 +56,7 @@ ACTIVE_MUTATION_EFFECTS = OPENING_MUTATION_EFFECTS | {
     "wound_on_ally_death",
     "pull_crew_round",
     "wide_wound_round",
+    "reinforce_once",
 }
 
 
@@ -222,6 +224,7 @@ class GameState:
     encounter_pressure: int | None = None
     encounter_modules: list[str] = field(default_factory=list)
     reinforcement_tickets: int = 0
+    reinforcement_reserve_id: str | None = None
     pending_opening_hand: int = 0
     boons: dict[str, dict[str, int]] = field(default_factory=dict)
     curses: dict[str, dict[str, int]] = field(default_factory=dict)
@@ -1482,6 +1485,7 @@ class GameEngine:
                 encounter_pressure=raw["encounter_pressure"],
                 encounter_modules=raw["encounter_modules"],
                 reinforcement_tickets=raw["reinforcement_tickets"],
+                reinforcement_reserve_id=raw["reinforcement_reserve_id"],
                 pending_opening_hand=raw["pending_opening_hand"],
                 boons=raw["boons"],
                 curses=raw["curses"],
@@ -1902,11 +1906,19 @@ class GameEngine:
             or any(module not in catalog.mutations for module in state.encounter_modules)
             or type(state.reinforcement_tickets) is not int
             or state.reinforcement_tickets < 0
+            or state.reinforcement_tickets > 1
+            or state.reinforcement_reserve_id is not None
+            and state.reinforcement_reserve_id not in catalog.enemies
             or state.phase == "combat" and state.encounter_pressure is None
             or state.phase != "combat" and state.encounter_pressure is not None
             or state.encounter_pressure is not None
             and len(state.encounter_modules) > director_profile(state.encounter_pressure).mutation_slots
-            or state.phase != "combat" and (state.encounter_modules or state.reinforcement_tickets)
+            or state.phase != "combat" and (
+                state.encounter_modules or state.reinforcement_tickets
+                or state.reinforcement_reserve_id is not None
+            )
+            or ("base:reinforcement_call" in state.encounter_modules)
+            != (state.reinforcement_reserve_id is not None)
             or any(
                 right in catalog.mutations[left]["excludes"]
                 or left in catalog.mutations[right]["excludes"]
@@ -3577,6 +3589,11 @@ class GameEngine:
             len(formation),
         )
         self.state.reinforcement_tickets = 0
+        self.state.reinforcement_reserve_id = None
+        if "base:reinforcement_call" in self.state.encounter_modules:
+            mutation = self.catalog.mutations["base:reinforcement_call"]
+            self.state.reinforcement_tickets = int(mutation["amount"])
+            self.state.reinforcement_reserve_id = formation[-1]
         self.state.phase = "combat"
         self.resolution.state.combat_token += 1
         self.state.combat_kind = kind or encounter["kind"]
@@ -4104,16 +4121,22 @@ class GameEngine:
                 (actor for actor in self.state.enemies if actor.id == event.payload.actor_id),
                 None,
             )
-            survivors = self.living_enemies()
-            if fallen is None or not survivors:
+            if fallen is None:
                 return ()
-            owner = survivors[0]
+            survivors = self.living_enemies()
             specs = tuple(
                 spec
                 for spec in (DEATH_SURGE, SPORE_LINK)
-                if spec.id in modules
+                if spec.id in modules and survivors
             )
-            return tuple(Listener(spec, actor_order[owner.id], owner.id) for spec in specs)
+            listeners = tuple(
+                Listener(spec, actor_order[survivors[0].id], survivors[0].id)
+                for spec in specs
+            )
+            if (REINFORCEMENT_CALL.id in modules and self.state.reinforcement_tickets
+                and self.state.reinforcement_reserve_id is not None):
+                listeners += (Listener(REINFORCEMENT_CALL, actor_order[fallen.id], fallen.id),)
+            return listeners
         if event.event_type == EventType.STATUS and RIME_SHELL.id in modules:
             target = next(
                 (actor for actor in self.living_enemies() if actor.id in event.target_ids),
@@ -4148,7 +4171,7 @@ class GameEngine:
         return ripostes + adrenal
 
     def _resolve_trigger(self, listener: Listener, event: Event, queue: EventQueue) -> bool:
-        if listener.spec in (THIRD_BELL, DEATH_SURGE, RIME_SHELL, SPORE_LINK):
+        if listener.spec in (THIRD_BELL, DEATH_SURGE, REINFORCEMENT_CALL, RIME_SHELL, SPORE_LINK):
             return self._mutation_trigger(listener, event, queue)
         if listener.spec in (MERCY, ADRENAL):
             return self._reactive_block(listener, event, queue)
@@ -4181,6 +4204,33 @@ class GameEngine:
         amount = int(mutation["amount"])
         enemies = self.living_enemies()
         heroes = self.living_heroes()
+        if listener.spec == REINFORCEMENT_CALL:
+            reserve_id = self.state.reinforcement_reserve_id
+            if not self.state.reinforcement_tickets or reserve_id is None or len(enemies) >= 4:
+                return False
+            definition = self.catalog.enemies[reserve_id]
+            director = self.current_director()
+            max_hp = max(
+                1,
+                (int(definition["max_hp"]) * director.enemy_health_bp + 5_000) // 10_000,
+            )
+            reinforcement = Actor(
+                f"{reserve_id}:reserve:{self.resolution.state.combat_token}",
+                definition["name"],
+                max_hp,
+                max_hp,
+                len(enemies) + 1,
+                "enemy",
+                definition_id=reserve_id,
+            )
+            self.state.enemies.append(reinforcement)
+            self.state.reinforcement_tickets -= 1
+            self.record("reinforcement", listener.spec.id, event_id=event.event_id,
+                        enemy=reserve_id, actor=reinforcement.id, rank=reinforcement.rank)
+            self.add_log(
+                f"REINFORCE:1 — reserve {definition['name']} enters rank {reinforcement.rank}."
+            )
+            return True
         if listener.spec == RIME_SHELL:
             if event.payload.status != "stun" or not any(
                 enemy.id in event.target_ids for enemy in enemies
@@ -5080,6 +5130,7 @@ class GameEngine:
         self.state.encounter_pressure = None
         self.state.encounter_modules = []
         self.state.reinforcement_tickets = 0
+        self.state.reinforcement_reserve_id = None
 
     def _combat_victory(self) -> None:
         kind = self.state.combat_kind

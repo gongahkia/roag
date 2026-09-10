@@ -46,7 +46,7 @@ class LedgerTests(unittest.TestCase):
         del raw["state"]["ledger"]
         for field in (
             "pressure", "pressure_recent", "pressure_incomplete_before_tick",
-            "encounter_pressure", "encounter_modules", "reinforcement_tickets",
+            "encounter_pressure", "encounter_modules", "reinforcement_tickets", "reinforcement_reserve_id",
         ):
             del raw["state"][field]
         del raw["resolution_queue"]

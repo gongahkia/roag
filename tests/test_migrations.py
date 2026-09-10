@@ -16,6 +16,7 @@ from dumbest_dungeon.migrations import (
     run_33_to_34,
     run_34_to_35,
     run_35_to_36,
+    run_36_to_37,
 )
 from dumbest_dungeon.policies import Policy, canonical_hash, execute_command
 
@@ -99,7 +100,7 @@ class MigrationTests(unittest.TestCase):
         old = current.snapshot()
         old["save_version"] = 34
         old["content_manifest"]["engine"] = "0.3.0"
-        for field in ("encounter_pressure", "encounter_modules", "reinforcement_tickets"):
+        for field in ("encounter_pressure", "encounter_modules", "reinforcement_tickets", "reinforcement_reserve_id"):
             del old["state"][field]
         before = deepcopy(old)
         migrated = run_34_to_35(old)
@@ -123,6 +124,24 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual(2, migrated["content_manifest"]["rng_architecture"])
         self.assertEqual(old["state"], migrated["state"])
         self.assertEqual(old["rng_state"], migrated["rng_state"])
+
+    def test_reinforcement_reserve_migration_is_pure_and_does_not_invent_identity(self) -> None:
+        current = GameEngine.new(load_catalog(), 45).snapshot()
+        old = deepcopy(current)
+        old["save_version"] = 36
+        old["content_manifest"]["engine"] = "0.5.0"
+        del old["state"]["reinforcement_reserve_id"]
+        before = deepcopy(old)
+        migrated = run_36_to_37(old)
+        self.assertEqual(before, old)
+        self.assertEqual(37, migrated["save_version"])
+        self.assertEqual("0.6.0", migrated["content_manifest"]["engine"])
+        self.assertIsNone(migrated["state"]["reinforcement_reserve_id"])
+        self.assertEqual(old["rng_state"], migrated["rng_state"])
+        broken = deepcopy(old)
+        broken["state"]["reinforcement_tickets"] = 1
+        with self.assertRaises(MigrationError):
+            run_36_to_37(broken)
 
 
 if __name__ == "__main__":

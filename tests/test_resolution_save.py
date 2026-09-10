@@ -23,7 +23,7 @@ class ResolutionSaveTests(unittest.TestCase):
         del old["content_rules"]
         for field in (
             "pressure", "pressure_recent", "pressure_incomplete_before_tick",
-            "encounter_pressure", "encounter_modules", "reinforcement_tickets",
+            "encounter_pressure", "encounter_modules", "reinforcement_tickets", "reinforcement_reserve_id",
         ):
             del old["state"][field]
         old["content_manifest"]["engine"] = "0.1.0"
@@ -114,7 +114,7 @@ class ResolutionSaveTests(unittest.TestCase):
         del raw["content_rules"]
         for field in (
             "pressure", "pressure_recent", "pressure_incomplete_before_tick",
-            "encounter_pressure", "encounter_modules", "reinforcement_tickets",
+            "encounter_pressure", "encounter_modules", "reinforcement_tickets", "reinforcement_reserve_id",
         ):
             del raw["state"][field]
         raw["content_manifest"]["engine"] = "0.1.0"

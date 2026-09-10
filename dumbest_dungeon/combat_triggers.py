@@ -30,7 +30,10 @@ RIME_SHELL = TriggerSpec("biome:rime_shell", EventType.STATUS, (), phase=Phase.R
                          priority=-130, limiter=Limiter(LimitKind.COMBAT), proc_family="mutation:rime_shell")
 SPORE_LINK = TriggerSpec("biome:spore_link", EventType.DEATH, (EventType.STATUS,), phase=Phase.DEATH,
                          priority=140, limiter=Limiter(LimitKind.ROOT), proc_family="mutation:spore_link")
-MUTATION_TRIGGERS = (THIRD_BELL, DEATH_SURGE, RIME_SHELL, SPORE_LINK)
+REINFORCEMENT_CALL = TriggerSpec("base:reinforcement_call", EventType.DEATH, (), phase=Phase.DEATH,
+                                 priority=110, limiter=Limiter(LimitKind.COMBAT),
+                                 proc_family="mutation:reinforcement_call")
+MUTATION_TRIGGERS = (THIRD_BELL, DEATH_SURGE, REINFORCEMENT_CALL, RIME_SHELL, SPORE_LINK)
 REGISTERED = {spec.id: spec for spec in (RIPOSTE, MERCY, ADRENAL) + CARD_TRIGGERS + CURSE_TRIGGERS + MUTATION_TRIGGERS}
 HOST_EDGES = (TriggerSpec("rules:draw_cards", EventType.DRAW, (EventType.CARD_DRAW,), phase=Phase.PRIMARY),
               TriggerSpec("rules:lethal_damage", EventType.DAMAGE, (EventType.DEATH,), phase=Phase.PRIMARY))

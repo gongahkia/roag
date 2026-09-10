@@ -31,7 +31,7 @@ class OrderingTests(unittest.TestCase):
         # pre-existing simulation or consume RNG.
         for field in (
             "ledger", "pressure", "pressure_recent", "pressure_incomplete_before_tick",
-            "encounter_pressure", "encounter_modules", "reinforcement_tickets",
+            "encounter_pressure", "encounter_modules", "reinforcement_tickets", "reinforcement_reserve_id",
         ):
             del current["state"][field]
         self.assertEqual(baseline["final"]["state"], current["state"])

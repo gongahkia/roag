@@ -187,6 +187,23 @@ def run_35_to_36(snapshot: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def run_36_to_37(snapshot: dict[str, Any]) -> dict[str, Any]:
+    if type(snapshot.get("save_version")) is not int or snapshot["save_version"] != 36:
+        raise MigrationError("migration 36->37 requires save version 36")
+    state = snapshot.get("state")
+    manifest = snapshot.get("content_manifest")
+    if (not isinstance(state, dict) or "reinforcement_reserve_id" in state
+        or not isinstance(manifest, dict) or manifest.get("engine") != "0.5.0"
+        or type(state.get("reinforcement_tickets")) is not int
+        or state["reinforcement_tickets"] != 0):
+        raise MigrationError("version-36 save requires the pre-reserve encounter contract")
+    result = deepcopy(snapshot)
+    result["save_version"] = 37
+    result["content_manifest"]["engine"] = "0.6.0"
+    result["state"]["reinforcement_reserve_id"] = None
+    return result
+
+
 RUN_MIGRATIONS = {
     26: run_26_to_27,
     27: run_27_to_28,
@@ -198,6 +215,7 @@ RUN_MIGRATIONS = {
     33: run_33_to_34,
     34: run_34_to_35,
     35: run_35_to_36,
+    36: run_36_to_37,
 }
 
 
