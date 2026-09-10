@@ -662,6 +662,14 @@ contract records, and a casualty graveyard. It deliberately has no combat-stat,
 resource or reward-quality fields. Run archival updates history first and then
 the profile locally; malformed or future-version profiles fail closed.
 
+Engine 1.2.0/save 43 adds a cumulative global twenty-rank ladder while retaining
+rank zero as the unchanged ordinary expedition. Each rank has one concise typed
+modifier. Only four ranks touch bounded enemy health/damage (2–3% each); the
+anchors instead change pressure/economy, patrol reach/cadence, mutation slots,
+reinforcement capacity, hazards, guardians and boss phases. A ranked victory
+unlocks only the next global rank in the profile. Historical saves migrate to
+rank zero without acquiring a difficulty modifier.
+
 Content schema 36 gives Reactor Chapel six normal participants, two elite-only
 roles and the Choir Meltdown guardian. Three new normal roles split marking,
 cash-out and formation disruption; Critical Abbot and Containment Hulk create

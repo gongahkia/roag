@@ -13,6 +13,7 @@ from .content import Catalog
 from .engine import CardInstance, GameEngine, RuleError
 from .save import SaveError, read_save, write_save
 from .history import history_lines, read_history, write_run
+from .ladder import RULES
 from .profile import ProfileError, read_profile, update_profile, write_profile
 from .pressure import pressure_band, pressure_status
 
@@ -73,7 +74,7 @@ class TerminalUI:
     def run(self) -> None:
         while True:
             self.catalog = getattr(self, "current_catalog", self.catalog)
-            choices = ["Tutorial expedition (recommended)", "New expedition"]
+            choices = ["Tutorial expedition (recommended)", "New expedition", "Ascending ladder"]
             if self.save_path.exists():
                 choices.append("Load expedition")
             choices.extend(["How to play", "Run history", "Quit"])
@@ -93,6 +94,25 @@ class TerminalUI:
                 self.engine = self.new_game()
                 self._start_session()
                 self._game_loop()
+            elif choice == "Ascending ladder":
+                try:
+                    profile = read_profile(self.save_path.parent / "profile.json")
+                except ProfileError as exc:
+                    self._notice("PROFILE READ FAILED", str(exc))
+                    continue
+                available = RULES[: profile["unlocked_rank"]]
+                rank = self._menu(
+                    "ASCENDING LADDER",
+                    [f"R{rule.rank:02} {rule.name} — {rule.text}" for rule in available],
+                    f"Best clear R{profile['best_completed_rank']:02}. Rules are cumulative; "
+                    "a win unlocks only the next global rank. No permanent combat power.",
+                    allow_cancel=True,
+                )
+                if rank is not None:
+                    self.engine = self.new_game()
+                    self.engine.configure_ladder_rank(available[rank].rank)
+                    self._start_session()
+                    self._game_loop()
             elif choice == "Load expedition":
                 if self._load():
                     self._game_loop()

@@ -21,6 +21,7 @@ from .content import (
 from .acquisition import Lane, eligible_techniques
 from .director import DirectorProfile, director_profile
 from .manifest import canonical_bytes
+from .ladder import modifier as ladder_modifier
 from .migrations import MigrationError, migrate_run
 from .versions import RUN_SAVE_SCHEMA
 from .telemetry import RunLedger
@@ -210,6 +211,7 @@ class GameState:
     hub_selection: list[str] = field(default_factory=list)
     hub_loadouts: dict[str, str] = field(default_factory=dict)
     doctrine_id: str | None = None
+    ladder_rank: int = 0
     tutorial: bool = False
     tutorial_stage: int = 0
     current_room: int = 0
@@ -588,6 +590,27 @@ class GameEngine:
         self.state.next_card_copy_id += 1
         return CardInstance(card_id, upgraded, bound_hero_id, copy_id)
 
+    def configure_ladder_rank(self, rank: int) -> None:
+        if self.state.phase != "hub":
+            raise RuleError("ladder rank is fixed after departure")
+        if type(rank) is not int or not 1 <= rank <= 20:
+            raise RuleError("ladder rank must be 1..20")
+        previous = self.state.ladder_rank
+        self.state.light = max(
+            1,
+            self.state.light
+            - ladder_modifier(previous, "starting_light")
+            + ladder_modifier(rank, "starting_light"),
+        )
+        self.state.supplies = max(
+            0,
+            self.state.supplies
+            - ladder_modifier(previous, "starting_supplies")
+            + ladder_modifier(rank, "starting_supplies"),
+        )
+        self.state.ladder_rank = rank
+        self.add_log(f"Ascending rank {rank} selected.")
+
     @staticmethod
     def _clone_card(card: CardInstance) -> CardInstance:
         return CardInstance(
@@ -600,7 +623,16 @@ class GameEngine:
         )
 
     @classmethod
-    def new(cls, catalog: Catalog, seed: int, *, start_in_hub: bool = False) -> GameEngine:
+    def new(
+        cls,
+        catalog: Catalog,
+        seed: int,
+        *,
+        start_in_hub: bool = False,
+        ladder_rank: int = 0,
+    ) -> GameEngine:
+        if type(ladder_rank) is not int or not 0 <= ladder_rank <= 20:
+            raise RuleError("ladder rank must be 0..20")
         rng = random.Random(seed)
         world_id = rng.choice(list(catalog.worlds))
         world = catalog.worlds[world_id]
@@ -640,6 +672,7 @@ class GameEngine:
             biome_ids=biome_sequence,
             room_positions=[list(positions[room_id]) for room_id in range(12)],
             hub_selection=default_party,
+            ladder_rank=ladder_rank,
             party_x=positions[0][0],
             party_y=positions[0][1],
             light=catalog.balance.get("starting_light", 100),
@@ -647,6 +680,8 @@ class GameEngine:
             log=[f"Crew manifest opened above {world['name']}."],
         )
         engine = cls(catalog, state, rng)
+        state.light = max(1, state.light + ladder_modifier(ladder_rank, "starting_light"))
+        state.supplies = max(0, state.supplies + ladder_modifier(ladder_rank, "starting_supplies"))
         state.pickups = engine._generate_pickups(random.Random(seed ^ 0x5049434B5550))
         state.objectives = engine._generate_objectives(random.Random(seed ^ 0x4F424A454354))
         state.landmarks = engine._generate_landmarks()
@@ -903,6 +938,7 @@ class GameEngine:
                     layout=self.catalog.worlds[self.state.world_id]["layout"], biomes=self.state.biome_ids,
                     formation=[hero.id for hero in self.living_heroes()],
                     loadouts=dict(self.state.hub_loadouts), doctrine=self.state.doctrine_id,
+                    ladder_rank=self.state.ladder_rank,
                     deck=[asdict(card) for card in self.state.deck], manifest=self.catalog.manifest.snapshot())
 
     @staticmethod
@@ -1559,6 +1595,7 @@ class GameEngine:
                 hub_selection=raw["hub_selection"],
                 hub_loadouts=raw["hub_loadouts"],
                 doctrine_id=raw["doctrine_id"],
+                ladder_rank=raw["ladder_rank"],
                 tutorial=raw["tutorial"],
                 tutorial_stage=raw["tutorial_stage"],
                 current_room=raw["current_room"],
@@ -1615,6 +1652,8 @@ class GameEngine:
             raise RuleError(f"invalid save data: {exc}") from exc
         if state.world_id not in catalog.worlds:
             raise RuleError("save references an unknown world type")
+        if type(state.ladder_rank) is not int or not 0 <= state.ladder_rank <= 20:
+            raise RuleError("save contains an invalid ladder rank")
         if (
             not isinstance(state.biome_ids, list)
             or len(state.biome_ids) != 4
@@ -2251,6 +2290,12 @@ class GameEngine:
 
     def _advance_pressure(self, source: PressureSource, units: int, detail: str) -> int:
         amount = action_price(source, units)
+        amount = (amount * (10_000 + ladder_modifier(self.state.ladder_rank, "pressure_bp")) + 9_999) // 10_000
+        if units:
+            if source == PressureSource.TRAVEL:
+                amount += ladder_modifier(self.state.ladder_rank, "travel_pressure_flat")
+            elif source == PressureSource.OBJECTIVE_STAGE:
+                amount += ladder_modifier(self.state.ladder_rank, "objective_pressure_flat")
         if not amount:
             return 0
         previous_band = pressure_band(self.state.pressure)
@@ -2327,12 +2372,52 @@ class GameEngine:
             if self.state.encounter_pressure is not None
             else self.state.pressure
         )
-        return director_profile(pressure)
+        pressure = max(pressure, ladder_modifier(self.state.ladder_rank, "pressure_floor"))
+        profile = director_profile(pressure)
+        kind = self.state.combat_kind or "normal"
+        health = ladder_modifier(self.state.ladder_rank, "normal_health_bp")
+        mutations = ladder_modifier(self.state.ladder_rank, "mutation_slots")
+        if kind == "elite":
+            health += ladder_modifier(self.state.ladder_rank, "elite_health_bp")
+            mutations += ladder_modifier(self.state.ladder_rank, "elite_mutation_slots")
+        elif kind == "guardian":
+            health += ladder_modifier(self.state.ladder_rank, "guardian_health_bp")
+        elif kind == "boss":
+            mutations += ladder_modifier(self.state.ladder_rank, "boss_mutation_slots")
+        damage = ladder_modifier(self.state.ladder_rank, "enemy_damage_bp")
+        if kind == "boss":
+            damage += ladder_modifier(self.state.ladder_rank, "boss_damage_bp")
+        return replace(
+            profile,
+            mutation_slots=profile.mutation_slots + mutations,
+            reinforcement_tickets=(
+                profile.reinforcement_tickets
+                + ladder_modifier(self.state.ladder_rank, "reinforcement_tickets")
+            ),
+            enemy_health_bp=profile.enemy_health_bp + health,
+            enemy_damage_bp=profile.enemy_damage_bp + damage,
+        )
 
     def world_director(self) -> DirectorProfile:
         if self.catalog.raw["schema_version"] < 21:
             return director_profile(0)
-        return director_profile(self.state.pressure)
+        pressure = max(
+            self.state.pressure,
+            ladder_modifier(self.state.ladder_rank, "pressure_floor"),
+        )
+        profile = director_profile(pressure)
+        return replace(
+            profile,
+            patrol_aggression=(
+                profile.patrol_aggression
+                + ladder_modifier(self.state.ladder_rank, "patrol_aggression")
+            ),
+            patrol_cadence_reduction=(
+                profile.patrol_cadence_reduction
+                + ladder_modifier(self.state.ladder_rank, "patrol_cadence")
+            ),
+            hazard_reach=profile.hazard_reach + ladder_modifier(self.state.ladder_rank, "hazard_reach"),
+        )
 
     def _select_encounter_mutations(
         self,
@@ -3981,6 +4066,7 @@ class GameEngine:
             enemy_id not in self.catalog.enemies for enemy_id in formation
         ):
             raise RuleError("combat formation must contain one to four known enemies")
+        self.state.combat_kind = kind or encounter["kind"]
         self.state.encounter_pressure = self.state.pressure
         self.state.encounter_modules = self._select_encounter_mutations(
             encounter_id,
@@ -3992,11 +4078,13 @@ class GameEngine:
         self.state.reinforcement_reserve_id = None
         if "base:reinforcement_call" in self.state.encounter_modules:
             mutation = self.catalog.mutations["base:reinforcement_call"]
-            self.state.reinforcement_tickets = int(mutation["amount"])
+            self.state.reinforcement_tickets = max(
+                int(mutation["amount"]),
+                self.current_director().reinforcement_tickets,
+            )
             self.state.reinforcement_reserve_id = formation[-1]
         self.state.phase = "combat"
         self.resolution.state.combat_token += 1
-        self.state.combat_kind = kind or encounter["kind"]
         director = self.current_director()
         self.state.enemies = []
         for rank, enemy_id in enumerate(formation, 1):
@@ -5163,7 +5251,14 @@ class GameEngine:
                 if item["id"] == payload.card_id
             )
             for effect in phase["effects"]:
-                self._apply_effect_primary(target, [target], dict(effect))
+                resolved = dict(effect)
+                if "amount" in resolved:
+                    resolved["amount"] = (
+                        int(resolved["amount"])
+                        * (10_000 + ladder_modifier(self.state.ladder_rank, "boss_phase_effect_bp"))
+                        + 5_000
+                    ) // 10_000
+                self._apply_effect_primary(target, [target], resolved)
             return
         if event.event_type == EventType.DEATH:
             self.record("death_resolved", event.source_id, owner=payload.actor_id)

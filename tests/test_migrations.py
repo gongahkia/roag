@@ -22,6 +22,7 @@ from dumbest_dungeon.migrations import (
     run_39_to_40,
     run_40_to_41,
     run_41_to_42,
+    run_42_to_43,
 )
 from dumbest_dungeon.policies import Policy, canonical_hash, execute_command
 
@@ -284,6 +285,21 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual(0, migrated["state"]["recycler_credits"])
         with self.assertRaises(MigrationError):
             run_41_to_42(migrated)
+
+    def test_ladder_migration_preserves_old_runs_at_base_rank(self) -> None:
+        current = GameEngine.new(load_catalog(), 52)
+        old = current.snapshot()
+        old["save_version"] = 42
+        old["content_manifest"]["engine"] = "1.1.0"
+        del old["state"]["ladder_rank"]
+        before = deepcopy(old)
+        migrated = run_42_to_43(old)
+        self.assertEqual(before, old)
+        self.assertEqual(43, migrated["save_version"])
+        self.assertEqual("1.2.0", migrated["content_manifest"]["engine"])
+        self.assertEqual(0, migrated["state"]["ladder_rank"])
+        with self.assertRaises(MigrationError):
+            run_42_to_43(migrated)
 
 
 if __name__ == "__main__":

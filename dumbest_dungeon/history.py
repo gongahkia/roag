@@ -58,6 +58,7 @@ def run_report(engine, *, elapsed_seconds: int | None = None, outcome: str | Non
         "elapsed_seconds": elapsed_seconds, "duration_basis": "session wall time including menus" if elapsed_seconds is not None else "unmeasured",
         "world": state.world_id, "layout": engine.catalog.worlds[state.world_id]["layout"],
         "biomes": list(state.biome_ids), "travel_ticks": state.travel_ticks,
+        "ladder_rank": state.ladder_rank,
         "objectives": [asdict(item) for item in state.objectives],
         "facilities": [asdict(item) for item in state.facilities],
         "starting_formation": departure["formation"] if departure else None,

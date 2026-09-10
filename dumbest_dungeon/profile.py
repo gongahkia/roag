@@ -105,6 +105,10 @@ def update_profile(profile: dict[str, Any], report: dict[str, Any]) -> dict[str,
     result["runs_archived"] = sorted([*result["runs_archived"], run_id])
     if report["outcome"] == "victory":
         result["base_victories"] += 1
+        rank = int(report.get("ladder_rank", 0))
+        if 1 <= rank <= result["unlocked_rank"]:
+            result["best_completed_rank"] = max(result["best_completed_rank"], rank)
+            result["unlocked_rank"] = min(20, max(result["unlocked_rank"], rank + 1))
     discoveries = {key: set(values) for key, values in result["discoveries"].items()}
     discoveries["cards"].update(report["cards"])
     discoveries["cards"].update(card["card_id"] for card in report["deck"])

@@ -66,6 +66,13 @@ class ProfileTests(unittest.TestCase):
                 write_profile(path, malformed)
             self.assertEqual(new_profile(), read_profile(path))
 
+    def test_ranked_victory_unlocks_only_the_next_global_rank(self) -> None:
+        engine = GameEngine.new(load_catalog(), 4602, ladder_rank=1)
+        report = run_report(engine, outcome="victory")
+        profile = update_profile(new_profile(), report)
+        self.assertEqual(1, profile["best_completed_rank"])
+        self.assertEqual(2, profile["unlocked_rank"])
+
 
 if __name__ == "__main__":
     unittest.main()

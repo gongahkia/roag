@@ -1,6 +1,6 @@
 # Persistence contracts
 
-The run save currently uses schema 42, content schema 45, and the existing Python
+The run save currently uses schema 43, content schema 45, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry, manifests, and the separate local profile are implemented.
 
@@ -274,3 +274,7 @@ only when its full manifest matches the known archive. Migration never reads or
 copies today's content. Subsequent snapshots materialize the selected immutable
 rules into the save. This also preserves supported intermediate content revisions
 without requiring a new repository archive for each atomic content commit.
+
+Run schema 43 adds `ladder_rank`. The pure 42→43 migration assigns rank zero to
+historical ordinary expeditions and updates only the recorded engine contract;
+it never retrofits difficulty into an active run.
