@@ -15,8 +15,8 @@ class VerificationCommandTests(unittest.TestCase):
         self.assertEqual(report["counts"]["armour"], 36)
         self.assertEqual(report["counts"]["active_passives_and_techniques"], 64)
         self.assertEqual(report["counts"]["relics"], 12)
-        self.assertEqual(report["counts"]["regional_questlines"], 12)
-        self.assertEqual(report["counts"]["cross_region_arcs"], 3)
+        self.assertEqual(report["counts"]["regional_questlines"], 20)
+        self.assertEqual(report["counts"]["cross_region_arcs"], 5)
 
     def test_persistence_and_replay_audits_are_exact(self):
         persistence = persistence_audit("focused persistence audit")
@@ -30,7 +30,7 @@ class VerificationCommandTests(unittest.TestCase):
         quest = quest_verification(1)
         self.assertEqual(quest["failures"], [])
         self.assertEqual(quest["regions_checked"], 8)
-        self.assertEqual(quest["cross_region_arcs"], 3)
+        self.assertEqual(quest["cross_region_arcs"], 5)
 
     def test_short_actual_route_soak_stays_bounded(self):
         report = memory_soak(6)

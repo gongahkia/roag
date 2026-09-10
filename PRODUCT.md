@@ -16,16 +16,13 @@ effects alter existing weather, routes, work, stock, and exposure. All of
 these features are direct additions to the existing state and curses
 interface, not generic UI, schedule, travel, or social-simulation frameworks.
 
-The preceding content milestone deepened the original four regions in place. Each has
-one directly authored, persistent regional questline; progress in at least two
-regions opens one grounded cross-region material dispute. Retained equipment,
-discoveries, recruits, terrain, enemies, controls, and physical items have
-observable action hooks. Production encounters use the existing bounded
-regional composer, while authored quest duties and seeded elite alternatives
-remain explicit. The expansion retains these lines and adds frontier material
-disputes without a generic quest, dialogue, planning, faction, or encounter
-language. Additional story depth and content targets remain acceptance gates,
-not completed claims.
+Each region has a directly authored primary line and a later ending-derived
+aftermath line; the original four also retain a second working undertaking.
+These 20 bounded lines and five cross-region material disputes use physical
+records, generated sites, existing actors and explicit reducers rather than a
+generic quest or dialogue language. Retained equipment, discoveries, recruits,
+terrain, enemies, controls, and physical items remain their observable action
+hooks. Authored duties and seeded elite alternatives remain explicit.
 
 The permanent constraints are:
 

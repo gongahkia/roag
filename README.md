@@ -219,11 +219,13 @@ Each region has a direct three-stage material quest with two persistent
 endings, an optional task, a named cache lead, a changed local threat duty, and
 a secondary-contact service. Four original regions add a second physical
 undertaking, giving 12 regional lines. Refusing the opening request changes the
-later choice instead of abandoning the line. Three cross-region arcs compare
-working marks, flood banks, winter soundings and bridge spans through physical
-records. Their seven endings trade route safety, household credit, market
-pressure, institutional obligations and local authority rather than presenting
-one unqualified outcome.
+later choice instead of abandoning the line. A later physical revisit adds one
+ending-specific aftermath line per region: two finite contracts, 16 distinct
+objective topologies, and supply or field answers bring the total to 20. Five
+cross-region arcs compare working marks, flood banks, winter soundings, repaired
+scars and low-water refuges through physical records. Their eleven endings
+trade route safety, household credit, market pressure, institutional
+obligations and local authority rather than presenting one unqualified outcome.
 
 ## Saves and verification
 

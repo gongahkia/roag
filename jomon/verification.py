@@ -10,6 +10,7 @@ import tracemalloc
 from pathlib import Path
 
 from .actions import depart, move
+from .aftermath import AFTERMATH_LINES
 from .build_scenarios import BUILD_SCENARIOS, validate_build_scenarios
 from .content import (
     COMMODITIES, DISCOVERIES, ENEMY_ARCHETYPES, GEAR, MERCHANT_ITEMS,
@@ -71,7 +72,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
         "secondary_tools_supplies_drinks": len(GEAR) + len(DISCOVERIES) + len(DRINKS),
         "relics": len(RELICS), "containers": sum(len(region.containers) for region in state.regions.values()),
         "legendary_objects": len(state.legendary_objects),
-        "regional_questlines": len(QUESTS) + len(WORKLINES),
+        "regional_questlines": len(QUESTS) + len(WORKLINES) + len(AFTERMATH_LINES),
         "cross_region_arcs": 1 + len(ADDITIONAL_ARCS),
         "persistent_nonhostile_characters": len(state.household) + len(state.visitors) + sum(len(contacts) for contacts in state.contacts.values()) + 2,
         "commodities": len(COMMODITIES), "voyage_families": len(VOYAGES),
@@ -82,7 +83,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
         "elite_situations": 16, "named_rivals": 4, "weapons": 36,
         "armour": 36, "active_passives_and_techniques": 64,
         "secondary_tools_supplies_drinks": 32, "relics": 12,
-        "containers": 60, "regional_questlines": 12, "cross_region_arcs": 3,
+        "containers": 60, "regional_questlines": 20, "cross_region_arcs": 5,
         "voyage_families": 12, "tactical_voyage_families": 6,
         "build_scenarios": 24,
     }
@@ -114,7 +115,11 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
             "armour": sorted(armour), "passives": sorted(PASSIVES),
             "techniques": sorted(techniques), "relics": sorted(RELICS),
             "containers": sorted(container.id for region in state.regions.values() for container in region.containers),
-            "quests": sorted([*(definition["title"] for definition in QUESTS.values()), *(row[0] for row in WORKLINES.values())]),
+            "quests": sorted([
+                *(definition["title"] for definition in QUESTS.values()),
+                *(row[0] for row in WORKLINES.values()),
+                *(row[0] for row in AFTERMATH_LINES.values()),
+            ]),
             "arcs": ["The Four Working Marks", *(str(row["title"]) for row in ADDITIONAL_ARCS.values())],
             "commodities": sorted(COMMODITIES), "voyages": sorted(VOYAGES),
         },

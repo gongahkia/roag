@@ -496,6 +496,10 @@ def settle_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
         )
     contract.stage, contract.status = 3, "completed"
     _update_line_progress(state, contract.region_id)
+    if state.aftermath_quests[contract.region_id].status == "completed":
+        from .quests import maybe_unlock_arc
+
+        maybe_unlock_arc(state)
     account.witnessed_acts.append(
         f"{state.courier.name} settled {contract.title} by {contract.approach}."
     )

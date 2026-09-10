@@ -1332,7 +1332,9 @@ def validate_state(state: GameState) -> None:
         "locked", "available", "active", "completed",
     } or not 0 <= state.cross_region_arc.stage <= 5:
         raise StateError("invalid cross-region arc state")
-    if set(state.cross_region_arcs) != {"banks", "soundings"} or any(
+    from .quests import ADDITIONAL_ARCS
+
+    if set(state.cross_region_arcs) != set(ADDITIONAL_ARCS) or any(
         arc.status not in {"locked", "available", "active", "completed"}
         or not 0 <= arc.stage <= 4
         for arc in state.cross_region_arcs.values()

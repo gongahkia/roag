@@ -185,10 +185,10 @@ class RegionalQuestlineTests(unittest.TestCase):
         report = quest_reachability_audit(4)
         self.assertEqual(report["regions_checked"], 32)
         self.assertEqual(report["unreachable_or_invalid"], [])
-        self.assertEqual(report["regional_questlines"], 12)
-        self.assertEqual(report["regional_endings"], 24)
-        self.assertEqual(report["cross_region_arcs"], 3)
-        self.assertEqual(report["cross_region_endings"], 7)
+        self.assertEqual(report["regional_questlines"], 20)
+        self.assertEqual(report["regional_endings"], 40)
+        self.assertEqual(report["cross_region_arcs"], 5)
+        self.assertEqual(report["cross_region_endings"], 11)
 
 
 class CrossRegionArcTests(unittest.TestCase):
@@ -240,6 +240,8 @@ class CrossRegionArcTests(unittest.TestCase):
         for region_id in ADDITIONAL_ARCS[arc_id]["requires"]:
             at_primary(state, region_id)
             state.questlines[region_id].status = "completed"
+            if ADDITIONAL_ARCS[arc_id].get("requires_aftermath"):
+                state.aftermath_quests[region_id].status = "completed"
         maybe_unlock_arc(state)
         self.assertEqual(state.cross_region_arcs[arc_id].status, "available")
         at_primary(state, ADDITIONAL_ARCS[arc_id]["start"])
@@ -297,6 +299,75 @@ class CrossRegionArcTests(unittest.TestCase):
         self.assertTrue(result.time_advanced)
         self.assertEqual(state.trade_credit, 5)
         self.assertEqual(state.cross_region_arcs["soundings"].status, "completed")
+
+    def test_new_arcs_unlock_only_from_three_completed_aftermaths(self):
+        state = create_world("aftermath arc gates")
+        for arc_id in ("repairs", "refuges"):
+            for region_id in ADDITIONAL_ARCS[arc_id]["requires"]:
+                at_primary(state, region_id)
+                state.questlines[region_id].status = "completed"
+            maybe_unlock_arc(state)
+            self.assertEqual(state.cross_region_arcs[arc_id].status, "locked")
+            for region_id in ADDITIONAL_ARCS[arc_id]["requires"]:
+                state.aftermath_quests[region_id].status = "completed"
+            maybe_unlock_arc(state)
+            self.assertEqual(state.cross_region_arcs[arc_id].status, "available")
+
+    def test_common_repairs_arc_consumes_three_aftermaths_and_changes_material_routes(self):
+        state = self._additional_unlocked("repairs")
+        self.assertTrue(resolve_cross_region_choice(state, "p").time_advanced)
+        record = next(
+            item for item in state.items
+            if item.kind == "consumable:scar repair folio"
+        )
+        at_primary(state, "hearthford")
+        self.assertTrue(resolve_cross_region_choice(state, "r").time_advanced)
+        at_primary(state, "rillscar")
+        self.assertTrue(resolve_cross_region_choice(state, "s").time_advanced)
+        before = [edge.cargo_risk for edge in state.route_edges]
+        at_primary(state, "greenwold")
+        self.assertTrue(resolve_cross_region_choice(state, "m").time_advanced)
+
+        self.assertEqual(state.cross_region_arcs["repairs"].status, "completed")
+        self.assertEqual(record.location, "destroyed")
+        self.assertNotEqual(before, [edge.cargo_risk for edge in state.route_edges])
+        self.assertTrue(all(
+            state.regions[region].changes["common_aftermath_repairs"]
+            for region in ADDITIONAL_ARCS["repairs"]["requires"]
+        ))
+
+    def test_low_water_refuges_arc_has_armed_surety_and_public_outcomes(self):
+        outcomes = []
+        for opening, dunmire, frostmere, ending in (
+            ("l", "i", "w", "p"), ("c", "g", "n", "c")
+        ):
+            state = self._additional_unlocked("refuges")
+            self.assertTrue(resolve_cross_region_choice(state, opening).time_advanced)
+            at_primary(state, "dunmire")
+            self.assertTrue(resolve_cross_region_choice(state, dunmire).time_advanced)
+            at_primary(state, "frostmere")
+            self.assertTrue(resolve_cross_region_choice(state, frostmere).time_advanced)
+            at_primary(state, "greywash")
+            self.assertTrue(resolve_cross_region_choice(state, ending).time_advanced)
+            self.assertEqual(state.cross_region_arcs["refuges"].status, "completed")
+            outcomes.append(state.cross_region_arcs["refuges"].consequence)
+        self.assertNotEqual(*outcomes)
+
+    def test_arc_copy_on_recoverable_ground_cannot_be_bought_away(self):
+        state = self._additional_unlocked("repairs")
+        resolve_cross_region_choice(state, "p")
+        record = next(
+            item for item in state.items
+            if item.kind == "consumable:scar repair folio"
+        )
+        record.location, record.owner_id = "ground", None
+        record.region_id, record.ground_position = "greenwold", state.position
+        state.cross_region_arcs["repairs"].stage = 3
+        state.trade_credit = 9
+        at_primary(state, "greenwold")
+        result = resolve_cross_region_choice(state, "m")
+        self.assertFalse(result.time_advanced)
+        self.assertEqual(state.trade_credit, 9)
 
 
 if __name__ == "__main__":

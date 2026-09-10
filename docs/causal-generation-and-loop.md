@@ -118,10 +118,12 @@ Dunmire assigns ground between water and peat work; Rillscar settles a bridge
 claim; Marlbank balances kiln and seed bed; Frostmere marks a winter channel. A
 finite existing actor is assigned to the opened material dispute rather than a
 new enemy being spawned. Four second undertakings deepen the original regions,
-for 12 substantial regional lines. Three cross-region arcs compare Working
-Marks, Banks That Hold, and Soundings and Spans through physical records and
-end in seven persistent allocations of route risk, household surety, market
-pressure, institutional obligation or local authority.
+and eight later-visit aftermath lines consume the actual ending configuration,
+for 20 substantial regional lines. Five cross-region arcs compare Working
+Marks, Banks That Hold, Soundings and Spans, Scars Kept in Use, and Refuges at
+Low Water through physical records. Their eleven endings persistently allocate
+route risk, household surety, market pressure, institutional obligation or
+local authority.
 
 The one atomic format-7 JSON save contains the current household, physical
 items and orientations, regional exploration and changes, contacts, markets,

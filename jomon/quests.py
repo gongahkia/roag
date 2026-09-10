@@ -99,6 +99,26 @@ ADDITIONAL_ARCS = {
         "requires": ("greywash", "frostmere", "rillscar"),
         "evidence": "sounding chain account",
     },
+    "repairs": {
+        "title": "Scars Kept in Use",
+        "start": "greenwold",
+        "regions": {1: "hearthford", 2: "rillscar", 3: "greenwold"},
+        "requires": ("greenwold", "hearthford", "rillscar"),
+        "requires_aftermath": True,
+        "evidence": "scar repair folio",
+        "public_openings": ("p",),
+        "environment_choices": ("r", "s"),
+    },
+    "refuges": {
+        "title": "Refuges at Low Water",
+        "start": "greywash",
+        "regions": {1: "dunmire", 2: "frostmere", 3: "greywash"},
+        "requires": ("greywash", "dunmire", "frostmere"),
+        "requires_aftermath": True,
+        "evidence": "ebb refuge chart",
+        "public_openings": ("l",),
+        "environment_choices": ("i", "w"),
+    },
 }
 
 
@@ -411,8 +431,12 @@ def maybe_unlock_arc(state: GameState) -> bool:
         changed = True
     for arc_id, definition in ADDITIONAL_ARCS.items():
         arc = state.cross_region_arcs[arc_id]
+        source = (
+            state.aftermath_quests
+            if definition.get("requires_aftermath") else state.questlines
+        )
         if arc.status == "locked" and all(
-            state.questlines.get(region_id, QuestProgress(status="locked")).status == "completed"
+            source.get(region_id, QuestProgress(status="locked")).status == "completed"
             for region_id in definition["requires"]
         ):
             arc.status = "available"
@@ -526,22 +550,60 @@ def _additional_arc_options(state: GameState, arc_id: str) -> tuple[tuple[str, s
                 ("b", "Let Jomon bond repair fuel against the banks", "danger", can_settle, "recover the bound bank roll or fund a two-credit witnessed copy"),
             ),
         }.get(arc.stage, ())
+    if arc_id == "soundings":
+        return {
+            0: (
+                ("l", "Carry a sheltered-channel sounding chain", "commitment", True, ""),
+                ("d", "Compare direct cuts and rapid bridge spans", "danger", True, ""),
+            ),
+            1: (
+                ("i", "Mark Frostmere's lee route through the ice", "commitment", True, ""),
+                ("n", "Challenge the armed fast-cut net claim", "danger", True, ""),
+            ),
+            2: (
+                ("w", "Carry Rillscar's warning span and brace account", "commitment", True, ""),
+                ("q", "Carry the quarry guard's faster private span", "danger", True, ""),
+            ),
+            3: (
+                ("s", "Publish sheltered winter soundings and honest spans", "commitment", can_settle, "recover the sounding chain account or fund a two-credit witnessed copy"),
+                ("r", "Open a rapid freight cut under Jomon's surety", "danger", can_settle, "recover the sounding chain account or fund a two-credit witnessed copy"),
+            ),
+        }.get(arc.stage, ())
+    if arc_id == "repairs":
+        return {
+            0: (
+                ("p", "Publish three aftermath scars as common repair duties", "commitment", True, ""),
+                ("j", "Carry the scars under Jomon's salvage surety", "danger", True, ""),
+            ),
+            1: (
+                ("r", "Reinforce Hearthford's public flood-mark circuit", "commitment", True, ""),
+                ("a", "Put the armed wheel-timber claim on notice", "danger", True, ""),
+            ),
+            2: (
+                ("s", "Seat Rillscar's shared switchback braces", "commitment", True, ""),
+                ("q", "Carry the convoy counterweight as private leverage", "danger", True, ""),
+            ),
+            3: (
+                ("m", "Maintain the three scars as common working approaches", "commitment", can_settle, "recover the scar repair folio or replace it after physical loss"),
+                ("j", "Give Jomon first salvage against future failures", "danger", can_settle, "recover the scar repair folio or replace it after physical loss"),
+            ),
+        }.get(arc.stage, ())
     return {
         0: (
-            ("l", "Carry a sheltered-channel sounding chain", "commitment", True, ""),
-            ("d", "Compare direct cuts and rapid bridge spans", "danger", True, ""),
+            ("l", "Publish low-water refuges on a common chart", "commitment", True, ""),
+            ("c", "Carry refuge access as a household channel claim", "danger", True, ""),
         ),
         1: (
-            ("i", "Mark Frostmere's lee route through the ice", "commitment", True, ""),
-            ("n", "Challenge the armed fast-cut net claim", "danger", True, ""),
+            ("i", "Raise Dunmire's inhabited peat walk", "commitment", True, ""),
+            ("g", "Confront the armed submerged-fuel claim", "danger", True, ""),
         ),
         2: (
-            ("w", "Carry Rillscar's warning span and brace account", "commitment", True, ""),
-            ("q", "Carry the quarry guard's faster private span", "danger", True, ""),
+            ("w", "Restake Frostmere's sheltered thaw channel", "commitment", True, ""),
+            ("n", "Carry the broken-ice net claim as a fast route", "danger", True, ""),
         ),
         3: (
-            ("s", "Publish sheltered winter soundings and honest spans", "commitment", can_settle, "recover the sounding chain account or fund a two-credit witnessed copy"),
-            ("r", "Open a rapid freight cut under Jomon's surety", "danger", can_settle, "recover the sounding chain account or fund a two-credit witnessed copy"),
+            ("p", "Publish free storm and thaw refuges", "commitment", can_settle, "recover the ebb refuge chart or replace it after physical loss"),
+            ("c", "Let Jomon collect surety on the marked refuge cuts", "danger", can_settle, "recover the ebb refuge chart or replace it after physical loss"),
         ),
     }.get(arc.stage, ())
 
@@ -562,7 +624,11 @@ def _settle_arc_record(state: GameState, arc_id: str) -> bool:
     evidence = str(ADDITIONAL_ARCS[arc_id]["evidence"])
     if consume_carried(state, f"consumable:{evidence}"):
         return True
-    if state.trade_credit >= 2:
+    record = next(
+        (item for item in state.items if item.kind == f"consumable:{evidence}"),
+        None,
+    )
+    if record and record.location in {"lost", "destroyed"} and state.trade_credit >= 2:
         state.trade_credit -= 2
         state.remember(f"Two credits funded a witnessed replacement for the lost {evidence}.")
         return True
@@ -590,12 +656,15 @@ def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple
     arc.decisions.append(f"chapter-{arc.stage}:{choice}")
     if arc.stage == 0:
         arc.status, arc.stage = "active", 1
-        arc.branch = "public" if choice in {"p", "l"} else "surety"
+        arc.branch = (
+            "public" if choice in definition.get("public_openings", {"p", "l"})
+            else "surety"
+        )
         _give_arc_record(state, arc_id)
         next_region = definition["regions"][1]
         message = f"{definition['title']} begins with a physical witnessed record; {state.regions[next_region].name} holds the next account."
     elif arc.stage < 3:
-        if choice in {"r", "s", "i", "w"}:
+        if choice in definition.get("environment_choices", {"r", "s", "i", "w"}):
             state.region.changes[f"arc:{arc_id}:environmental"] = True
             state.region.changes["environment_control_used"] = True
         else:
@@ -625,7 +694,7 @@ def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple
             for region_id in involved:
                 state.regions[region_id].changes["bonded_bank_repairs"] = True
                 state.institutions[f"work:{region_id}"].obligation = min(9, state.institutions[f"work:{region_id}"].obligation + 1)
-        elif choice == "s":
+        elif arc_id == "soundings" and choice == "s":
             arc.consequence = "Sheltered soundings: winter exposure falls and the marked lee routes remain public."
             for edge in state.route_edges:
                 if {edge.first, edge.second} & involved:
@@ -633,7 +702,7 @@ def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple
                     edge.closed_seasons = [season for season in edge.closed_seasons if season != "winter"]
             for region_id in involved:
                 state.regions[region_id].changes["sheltered_soundings"] = True
-        else:
+        elif arc_id == "soundings":
             arc.consequence = "Rapid soundings: freight time falls and Jomon gains credit, but exposed cargo risk rises."
             state.trade_credit += 5
             for edge in state.route_edges:
@@ -642,6 +711,51 @@ def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple
                     edge.cargo_risk = min(3, edge.cargo_risk + 1)
             for region_id in involved:
                 state.regions[region_id].changes["rapid_sounding_surety"] = True
+        elif arc_id == "repairs" and choice == "m":
+            arc.consequence = "Common repairs: worked scars stay braced and connected cargo approaches become safer."
+            for region_id in involved:
+                state.regions[region_id].changes["common_aftermath_repairs"] = True
+                state.institutions[f"work:{region_id}"].confidence = min(
+                    3, state.institutions[f"work:{region_id}"].confidence + 1
+                )
+                for cell in state.regions[region_id].materials.values():
+                    if cell.collapse_due or cell.support < 2:
+                        cell.support = min(3, cell.support + 1)
+                        cell.collapse_due = 0
+            for edge in state.route_edges:
+                if {edge.first, edge.second} & involved:
+                    edge.cargo_risk = max(0, edge.cargo_risk - 1)
+        elif arc_id == "repairs":
+            arc.consequence = "Salvage surety: repair stock and household credit rise, but each work account records an obligation."
+            state.trade_credit += 5
+            for region_id in involved:
+                state.regions[region_id].changes["jomon_salvage_surety"] = True
+                account = state.institutions[f"work:{region_id}"]
+                account.obligation = min(9, account.obligation + 1)
+                market = state.regional_markets[region_id][account.production]
+                market.stock = min(10, market.stock + 1)
+        elif choice == "p":
+            arc.consequence = "Public refuges: storm and thaw shelter opens without toll, easing weather exposure and local trust."
+            for edge in state.route_edges:
+                if {edge.first, edge.second} & involved:
+                    edge.weather_exposure = max(0, edge.weather_exposure - 1)
+                    edge.closed_seasons = [
+                        season for season in edge.closed_seasons if season != "winter"
+                    ]
+            for region_id in involved:
+                state.regions[region_id].changes["public_low_water_refuges"] = True
+                state.contacts[region_id][0].disposition = min(
+                    3, state.contacts[region_id][0].disposition + 1
+                )
+        else:
+            arc.consequence = "Channel surety: marked refuge cuts shorten freight passage and pay Jomon, while exposed cargo risk rises."
+            state.trade_credit += 5
+            for edge in state.route_edges:
+                if {edge.first, edge.second} & involved:
+                    edge.travel_time = max(1, edge.travel_time - 1)
+                    edge.cargo_risk = min(3, edge.cargo_risk + 1)
+            for region_id in involved:
+                state.regions[region_id].changes["jomon_refuge_surety"] = True
         state.vessel_changes[f"arc:{arc_id}:outcome"] = choice
         for region_id in involved:
             account = state.institutions[f"work:{region_id}"]
@@ -798,6 +912,7 @@ def quest_reachability_audit(sample_count: int = 25) -> dict[str, object]:
     from collections import Counter
 
     from .frontiers import FRONTIERS, ensure_frontier
+    from .aftermath import AFTERMATH_LINES
     from .regions import region_reachable
     from .state import create_world
     from .worklines import WORKLINES
@@ -832,8 +947,8 @@ def quest_reachability_audit(sample_count: int = 25) -> dict[str, object]:
         "unreachable_or_invalid": failures,
         "unique_geographies": len(geography),
         "container_totals": dict(sorted(cache_counts.items())),
-        "regional_questlines": len(QUESTS) + len(WORKLINES),
-        "regional_endings": (len(QUESTS) + len(WORKLINES)) * 2,
+        "regional_questlines": len(QUESTS) + len(WORKLINES) + len(AFTERMATH_LINES),
+        "regional_endings": (len(QUESTS) + len(WORKLINES) + len(AFTERMATH_LINES)) * 2,
         "cross_region_arcs": 1 + len(ADDITIONAL_ARCS),
         "cross_region_endings": 3 + len(ADDITIONAL_ARCS) * 2,
     }

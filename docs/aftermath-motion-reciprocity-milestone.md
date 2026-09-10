@@ -156,5 +156,11 @@ new magic, infinite contracts or additional major region is planned.
   cursor or ordinary guard. It fires only when the selected actor enters or
   attacks through valid measure, uses shared harm/equipment rules, and visibly
   expires otherwise; hostile reach attacks retain the same warn/commit rhythm.
-- Authored aftermath lines/arcs and the remaining content multiplication gates
-  remain open.
+- The eight ending-derived aftermath lines now bring the regional total to 20.
+  Two additional physical-record arcs unlock only after three specified
+  aftermaths are actually completed: Scars Kept in Use changes material scars,
+  institutions and route risk; Refuges at Low Water changes winter access,
+  weather exposure, trust, freight time or cargo risk. Together with the three
+  retained arcs, the story network now has five arcs and eleven endings.
+- The remaining enemy, actor, practice, tool, relic, vessel and voyage content
+  multiplication gates remain open.
