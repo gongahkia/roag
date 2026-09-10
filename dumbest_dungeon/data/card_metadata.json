@@ -278,6 +278,10 @@
     "forked_bolt": {"tags": ["affinity:storm", "damage", "draw", "energy", "payoff:marked"], "upgrade_description": "Upgrade: deal 9; from a mark deal 5 to all, gain 1 energy, and draw 1."},
     "storm_shield": {"tags": ["affinity:storm", "block", "guard", "status:riposte"], "upgrade_description": "Upgrade: guard for 3, grant 9 block, and gain 5 block plus 3 riposte."},
     "static_wake": {"tags": ["affinity:storm", "control", "damage", "displacement", "payoff:vulnerable", "setup:marked"], "upgrade_description": "Upgrade: deal 8, plus 7 if exposed; push 3, mark for 3 and weaken exposed targets."},
-    "ball_lightning": {"tags": ["affinity:storm", "damage", "energy", "payoff:marked", "setup:marked", "setup:vulnerable", "stress_risk"], "upgrade_description": "Upgrade: gain 3 energy from a mark; deal 11, mark for 3, expose all, and gain 8 stress."}
+    "ball_lightning": {"tags": ["affinity:storm", "damage", "energy", "payoff:marked", "setup:marked", "setup:vulnerable", "stress_risk"], "upgrade_description": "Upgrade: gain 3 energy from a mark; deal 11, mark for 3, expose all, and gain 8 stress."},
+    "citation_chain": {"tags": ["affinity:archive", "control", "damage", "draw", "payoff:marked", "setup:marked"], "upgrade_description": "Upgrade: deal 8, plus 7 if marked; draw 2, weaken a prior mark, then refresh it for 3."},
+    "second_draft": {"tags": ["affinity:archive", "block", "cleanse", "discard", "draw", "stress_risk"], "upgrade_description": "Upgrade: discard 2, draw 4, cleanse, gain 4 block, and take 2 stress."},
+    "case_study": {"tags": ["affinity:archive", "damage", "draw", "payoff:wound", "setup:marked", "setup:vulnerable"], "upgrade_description": "Upgrade: deal 7, plus 7 if wounded; mark, expose, and draw 2 from a wound."},
+    "rewrite_outcome": {"tags": ["affinity:archive", "block", "cleanse", "draw", "energy", "payoff:deaths_door", "recovery", "stress_risk"], "upgrade_description": "Upgrade: at Death's Door cleanse, heal and block 14, draw 3, gain 1 energy, then take 8 stress."}
   }
 }
