@@ -189,7 +189,7 @@ CONTENT_FIELDS = {
     "infusions": "id name marker description mode amount limit compatible_targets requires_any_tags",
     "loadouts": "id hero name description complexity cards",
     "doctrines": "id name description strength liability mode requires_tags requires_roles",
-    "enemies": "id name max_hp actions biomes",
+    "enemies": "id name max_hp actions biomes phases",
     "encounters": "id kind enemies biomes",
     "events": "id name text choices biomes",
     "landmarks": "id name biome art",
@@ -1007,6 +1007,37 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
             biome_id not in biomes for biome_id in enemy_biomes
         ):
             raise ContentError(f"enemy {enemy['id']} has invalid biomes")
+        phases = enemy.get("phases", [])
+        if not isinstance(phases, list):
+            raise ContentError(f"enemy {enemy['id']} phases must be a list")
+        phase_ids: set[str] = set()
+        previous_threshold = 10000
+        for phase in phases:
+            if not isinstance(phase, dict):
+                raise ContentError(f"enemy {enemy['id']} has an invalid boss phase")
+            _fields(
+                phase,
+                "id threshold_bp message overflow effects",
+                f"enemy {enemy['id']} phase",
+            )
+            if (
+                not isinstance(phase.get("id"), str)
+                or not phase["id"]
+                or phase["id"] in phase_ids
+                or type(phase.get("threshold_bp")) is not int
+                or not 1 <= phase["threshold_bp"] < previous_threshold
+                or not isinstance(phase.get("message"), str)
+                or not 1 <= len(phase["message"]) <= 72
+                or phase.get("overflow") != "carry"
+            ):
+                raise ContentError(f"enemy {enemy['id']} has an invalid boss phase contract")
+            _effects(
+                phase.get("effects"),
+                {"block", "heal", "status", "cleanse"},
+                f"enemy {enemy['id']} phase {phase['id']}",
+            )
+            phase_ids.add(phase["id"])
+            previous_threshold = phase["threshold_bp"]
     for encounter in encounters.values():
         if encounter.get("kind") not in {"normal", "elite", "boss"}:
             raise ContentError(f"encounter {encounter['id']} has invalid kind")

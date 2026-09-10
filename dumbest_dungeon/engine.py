@@ -3118,6 +3118,24 @@ class GameEngine:
             "summary": f"{names} — " + " / ".join(actions),
         }
 
+    def boss_phase_text(self) -> str | None:
+        for enemy in self.living_enemies():
+            definition = self.catalog.enemies[enemy.definition_id or enemy.id]
+            phases = definition.get("phases", [])
+            if not phases:
+                continue
+            for phase in phases:
+                phase_key = f"boss:phase:{enemy.id}:{phase['id']}"
+                threshold = (enemy.max_hp * int(phase["threshold_bp"]) + 9999) // 10000
+                if not self.state.effect_counters.get(phase_key):
+                    return (
+                        f"PHASE SEAL {threshold} HP — one threshold per hit; exact overflow carries. "
+                        f"Next: {phase['message']}"
+                    )
+            overflow = self.state.effect_counters.get(f"boss:overflow:{enemy.id}", 0)
+            return f"FINAL PHASE — carried overflow {overflow}; next damaging hit applies it."
+        return None
+
     def _freeze_finale(self, objective: AccessObjective) -> str:
         frozen = self.finale_encounter_id()
         if frozen is not None:
@@ -5133,6 +5151,20 @@ class GameEngine:
 
     def _resolve_event(self, event: Event, queue: EventQueue) -> None:
         payload = event.payload
+        if event.event_type == EventType.BOSS_PHASE:
+            target = next(
+                actor
+                for actor in self.state.enemies
+                if actor.id == payload.actor_id and actor.alive
+            )
+            definition = self.catalog.enemies[target.definition_id or target.id]
+            phase = next(
+                item for item in definition.get("phases", [])
+                if item["id"] == payload.card_id
+            )
+            for effect in phase["effects"]:
+                self._apply_effect_primary(target, [target], dict(effect))
+            return
         if event.event_type == EventType.DEATH:
             self.record("death_resolved", event.source_id, owner=payload.actor_id)
             return
@@ -5768,6 +5800,34 @@ class GameEngine:
                 deflected = min(amount, round(self._item_effect_value("deflection")))
                 amount -= deflected
                 self.state.effect_counters[hit_key] = 1
+        phase = None
+        if target.side == "enemy" and amount > 0:
+            carry_key = f"boss:overflow:{target.id}"
+            carried = self.state.effect_counters.pop(carry_key, 0)
+            if carried:
+                amount += carried
+                self.record(
+                    "boss_overflow_applied",
+                    target.definition_id or target.id,
+                    target=target.id,
+                    amount=carried,
+                )
+            definition = self.catalog.enemies[target.definition_id or target.id]
+            for candidate in definition.get("phases", []):
+                phase_key = f"boss:phase:{target.id}:{candidate['id']}"
+                threshold = (target.max_hp * int(candidate["threshold_bp"]) + 9999) // 10000
+                if (
+                    not self.state.effect_counters.get(phase_key)
+                    and target.hp > threshold >= target.hp - amount
+                ):
+                    applied = target.hp - threshold
+                    overflow = max(0, amount - applied)
+                    amount = applied
+                    self.state.effect_counters[phase_key] = 1
+                    if overflow:
+                        self.state.effect_counters[carry_key] = overflow
+                    phase = candidate
+                    break
         self.record("damage", source, target=target.id, intended_target=intended_target,
                     requested=requested, absorbed=absorbed, amount=amount,
                     hp_loss=min(target.hp, amount), overkill=max(0, amount - target.hp), dodged=False,
@@ -5794,6 +5854,27 @@ class GameEngine:
                 self.add_log(f"{target.name} survives Death's Door.")
             return
         target.hp = max(0, target.hp - amount)
+        if phase is not None:
+            source_id = f"{target.definition_id or target.id}:phase:{phase['id']}"
+            overflow = self.state.effect_counters.get(f"boss:overflow:{target.id}", 0)
+            self.record(
+                "boss_phase",
+                source_id,
+                target=target.id,
+                threshold_bp=phase["threshold_bp"],
+                overflow_carried=overflow,
+            )
+            self.add_log(f"PHASE — {phase['message']} Overflow {overflow} carried.")
+            if self.resolution.state.active is None:
+                raise RuleError("boss phase transition requires an active event root")
+            self.resolution.emit(
+                EventType.BOSS_PHASE,
+                (target.id,),
+                Payload(actor_id=target.id, card_id=phase["id"]),
+                source_id=source_id,
+                mandatory=True,
+                deferred=True,
+            )
         if target.side == "hero" and target.hp == 0:
             second_wind_key = f"second_wind:{target.id}"
             second_wind = round(self._hero_effect_value(target, "boon", "second_wind"))

@@ -648,6 +648,14 @@ integer damage remains non-negative and exact source contracts remain visible.
 The focused regression assembles a legal disclosed marked/stressed engine and
 requires its ten-point base hit to exceed the former 20-damage ceiling.
 
+Content schema 45 gives every guardian and finale primary a strict authored
+phase contract: stable ID, descending basis-point threshold, concise telegraph,
+typed self effect and mandatory `carry` overflow rule. Crossing damage stops at
+one threshold, stores exact post-mitigation overflow, dispatches a typed deferred
+`boss_phase` event, and adds the stored amount to a later damaging hit. The
+transition, carried amount and eventual application are attributed in history;
+save/load retains both the reached phase and remaining overflow.
+
 Content schema 36 gives Reactor Chapel six normal participants, two elite-only
 roles and the Choir Meltdown guardian. Three new normal roles split marking,
 cash-out and formation disruption; Critical Abbot and Containment Hulk create

@@ -1537,10 +1537,15 @@ class TerminalUI:
             f"{biome.upper()} / {environment.upper()} — {self.engine.room().encounter_plan.upper()} — "
             f"ROUND {state.round} — ENERGY {state.energy} — B{boons} C{curses_owned} I{items}"
         )
+        detail = ""
         if state.encounter_modules:
             markers = " / ".join(self.catalog.mutations[module]["marker"]
                                  for module in state.encounter_modules)
-            self._put(1, 2, self._ellipsize(f"MUTATIONS {markers}", self.screen.getmaxyx()[1] - 3),
+            detail = f"MUTATIONS {markers}"
+        if phase_text := self.engine.boss_phase_text():
+            detail = f"{detail} | {phase_text}" if detail else phase_text
+        if detail:
+            self._put(1, 2, self._ellipsize(detail, self.screen.getmaxyx()[1] - 3),
                       self._attr(3) | curses.A_BOLD)
         active_hero = None
         valid_targets: list[str] = []

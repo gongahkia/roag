@@ -34,6 +34,7 @@ class EventType(StrEnum):
     TURN_START = "turn_start"
     TURN_END = "turn_end"
     DEATH = "death"
+    BOSS_PHASE = "boss_phase"
     CLEANUP = "cleanup"
 
 
