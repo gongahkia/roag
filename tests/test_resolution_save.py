@@ -27,6 +27,7 @@ class ResolutionSaveTests(unittest.TestCase):
         ):
             del old["state"][field]
         old["content_manifest"]["engine"] = "0.1.0"
+        old["content_manifest"]["rng_architecture"] = 1
         old["resolution_queue"]["state"]["schema"] = 1
         event = old["resolution_queue"]["state"]["pending"][0]
         del event["deferred"]
@@ -117,6 +118,7 @@ class ResolutionSaveTests(unittest.TestCase):
         ):
             del raw["state"][field]
         raw["content_manifest"]["engine"] = "0.1.0"
+        raw["content_manifest"]["rng_architecture"] = 1
         loaded = GameEngine.from_snapshot(engine.catalog, raw)
         expected = deepcopy(engine.state)
         expected.pressure_incomplete_before_tick = engine.state.travel_ticks

@@ -15,6 +15,7 @@ from dumbest_dungeon.migrations import (
     run_26_to_27,
     run_33_to_34,
     run_34_to_35,
+    run_35_to_36,
 )
 from dumbest_dungeon.policies import Policy, canonical_hash, execute_command
 
@@ -107,6 +108,21 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual([], migrated["state"]["encounter_modules"])
         self.assertEqual(0, migrated["state"]["reinforcement_tickets"])
         self.assertEqual("0.4.0", migrated["content_manifest"]["engine"])
+
+    def test_named_rng_migration_changes_only_version_markers(self) -> None:
+        current = GameEngine.new(load_catalog(), 44).snapshot()
+        old = deepcopy(current)
+        old["save_version"] = 35
+        old["content_manifest"]["engine"] = "0.4.0"
+        old["content_manifest"]["rng_architecture"] = 1
+        before = deepcopy(old)
+        migrated = run_35_to_36(old)
+        self.assertEqual(before, old)
+        self.assertEqual(36, migrated["save_version"])
+        self.assertEqual("0.5.0", migrated["content_manifest"]["engine"])
+        self.assertEqual(2, migrated["content_manifest"]["rng_architecture"])
+        self.assertEqual(old["state"], migrated["state"])
+        self.assertEqual(old["rng_state"], migrated["rng_state"])
 
 
 if __name__ == "__main__":

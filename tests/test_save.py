@@ -131,6 +131,10 @@ class SaveTests(unittest.TestCase):
         broken["state"]["encounter_pressure"] = None
         with self.assertRaisesRegex(RuleError, "frozen encounter director"):
             GameEngine.from_snapshot(self.catalog, broken)
+        broken = engine.snapshot()
+        broken["state"]["encounter_modules"] = ["base:missing"]
+        with self.assertRaisesRegex(RuleError, "frozen encounter director"):
+            GameEngine.from_snapshot(self.catalog, broken)
 
     def test_exploration_knowledge_round_trips(self) -> None:
         engine = GameEngine.new(self.catalog, 111)

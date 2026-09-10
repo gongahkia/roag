@@ -68,6 +68,57 @@ class DirectorContractTests(unittest.TestCase):
         self.assertGreater(director_profile(760).patrol_cadence_reduction,
                            director_profile(0).patrol_cadence_reduction)
 
+    def test_mutation_selection_is_stable_compatible_and_uses_no_main_rng(self) -> None:
+        catalog = load_catalog()
+        first = GameEngine.new(catalog, 204)
+        second = GameEngine.new(catalog, 204)
+        for engine in (first, second):
+            engine.state.pressure = 1_100
+            engine.state.encounter_pressure = 1_100
+        before = first.rng.getstate()
+        selected = first._select_encounter_mutations("lost_shift", "elite", "derelict", 3)
+        repeated = second._select_encounter_mutations("lost_shift", "elite", "derelict", 3)
+        self.assertEqual(selected, repeated)
+        self.assertEqual(3, len(selected))
+        self.assertEqual(before, first.rng.getstate())
+        for index, mutation_id in enumerate(selected):
+            mutation = catalog.mutations[mutation_id]
+            self.assertIn("elite", mutation["compatible_kinds"])
+            self.assertFalse(mutation["biomes"])
+            for other in selected[index + 1:]:
+                self.assertNotIn(other, mutation["excludes"])
+                self.assertNotIn(mutation_id, catalog.mutations[other]["excludes"])
+
+    def test_every_opening_mutation_executes_and_attributes_a_visible_change(self) -> None:
+        catalog = load_catalog()
+        opening = [
+            mutation for mutation in catalog.mutations.values()
+            if mutation["effect"] in {
+                "opening_front_block", "guard_rear", "mark_weakest", "dodge_rear",
+                "riposte_front", "focus_striker", "shove_front_crew",
+            }
+        ]
+        self.assertEqual(7, len(opening))
+        for mutation in opening:
+            with self.subTest(mutation=mutation["id"]):
+                engine = GameEngine.new(catalog, 205)
+                engine.start_combat("lost_shift")
+                for actor in engine.state.heroes + engine.state.enemies:
+                    actor.statuses.clear()
+                    actor.block = 0
+                    actor.guarded_by = None
+                    actor.guard_turns = 0
+                before = [(actor.rank, actor.block, actor.guarded_by, dict(actor.statuses))
+                          for actor in engine.state.heroes + engine.state.enemies]
+                engine.state.encounter_modules = [mutation["id"]]
+                engine._apply_opening_mutations()
+                after = [(actor.rank, actor.block, actor.guarded_by, dict(actor.statuses))
+                         for actor in engine.state.heroes + engine.state.enemies]
+                self.assertNotEqual(before, after)
+                self.assertTrue(any(record.source_id == mutation["id"]
+                                    for record in engine.state.ledger.records))
+                self.assertTrue(any(mutation["marker"] in line for line in engine.state.log))
+
 
 if __name__ == "__main__":
     unittest.main()

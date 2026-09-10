@@ -538,3 +538,17 @@ field to 999 fixed the contract rather than rewriting those IDs. The corrected
 content/JSON/manifest/saved-rule/archive/runtime-contract group passed **48 tests
 in 2.938s**. Definitions are not counted as live behavior until selection and
 all 16 effect handlers pass separately.
+
+RNG architecture 2 adds a stable SHA-256-derived `encounter_mutation` domain;
+schema 35→36 changes only engine/RNG version markers. Compatible mutation
+candidates use stable priority/ID enumeration, repetition weights and one draw
+per slot, without consuming the legacy combat stream or using randomized
+`hash()`. Seven opening handlers now produce attributed block, guard, mark,
+dodge, riposte, focus or rank movement, and their markers remain on the 80x24
+combat screen and Pressure inspection. The first focused run reported **44
+passes, 1 failure and 1 error**: a one-enemy guard module needed a formation-
+size eligibility check, and a deliberately corrupted legacy RNG fixture now
+failed at the stricter migration boundary before its old generic error text.
+The corrected migration/director/save/queue/telemetry/ordering/UI group passed
+**64 tests in 24.930s**. Nine contracted mutation behaviors are still inactive
+and cannot be selected.

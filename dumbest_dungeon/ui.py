@@ -1230,6 +1230,9 @@ class TerminalUI:
                 f"THIS COMBAT — frozen at {frozen['name']} {state.encounter_pressure}; "
                 "Pressure gained now applies to later encounters."
             )
+            for mutation_id in state.encounter_modules:
+                mutation = self.catalog.mutations[mutation_id]
+                lines.append(f"{mutation['marker']} — {mutation['description']}")
         if status["next_threshold"] is None:
             lines.append("NEXT — no higher base-expedition band.")
         else:
@@ -1399,6 +1402,11 @@ class TerminalUI:
             f"{biome.upper()} / {environment.upper()} — {self.engine.room().encounter_plan.upper()} — "
             f"ROUND {state.round} — ENERGY {state.energy} — B{boons} C{curses_owned} I{items}"
         )
+        if state.encounter_modules:
+            markers = " / ".join(self.catalog.mutations[module]["marker"]
+                                 for module in state.encounter_modules)
+            self._put(1, 2, self._ellipsize(f"MUTATIONS {markers}", self.screen.getmaxyx()[1] - 3),
+                      self._attr(3) | curses.A_BOLD)
         active_hero = None
         valid_targets: list[str] = []
         if state.hand:
@@ -1433,7 +1441,7 @@ class TerminalUI:
         footer = (
             "TARGET: Left/Right or H/L select on battlefield  Enter confirm  Esc cancel"
             if selected_target
-            else "Arrows card  Enter play  E end  C card  R crew  I effects  V trace  P pause"
+            else "Arrows card  Enter play  E end  C card  R crew  I effects  T pressure  V trace  P pause"
         )
         self._footer(footer)
 

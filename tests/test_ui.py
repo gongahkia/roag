@@ -923,6 +923,20 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("Pressure QUIET 0", rendered)
         self.assertIn(f"PR+{self.engine.movement_cost(*destination):2}>QUIET", rendered)
 
+    def test_active_mutation_markers_are_visible_and_inspectable_in_combat(self) -> None:
+        self.engine.state.pressure = 1_100
+        self.engine.start_combat("lost_shift")
+        self.assertTrue(self.engine.state.encounter_modules)
+        screen = FakeScreen(rows=24, columns=80)
+        self.ui.screen = screen
+        self.ui._render_combat(0)
+        rendered = screen.text()
+        self.assertIn("MUTATIONS", rendered)
+        for module in self.engine.state.encounter_modules:
+            mutation = self.catalog.mutations[module]
+            self.assertIn(mutation["marker"], self.ui._pressure_text())
+            self.assertIn(mutation["description"], self.ui._pressure_text())
+
     def test_resource_hud_marks_effect_summary_overflow(self) -> None:
         hero = self.engine.living_heroes()[0]
         self.engine.state.boons[hero.id] = {boon_id: 1 for boon_id in self.catalog.boons}

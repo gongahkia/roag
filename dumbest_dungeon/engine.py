@@ -26,6 +26,17 @@ from .pressure import PressureSource, action_price, pressure_band, pressure_stat
 from .triggers import EventType, Phase
 
 
+OPENING_MUTATION_EFFECTS = {
+    "opening_front_block",
+    "guard_rear",
+    "mark_weakest",
+    "dodge_rear",
+    "riposte_front",
+    "focus_striker",
+    "shove_front_crew",
+}
+
+
 class RuleError(ValueError):
     """Raised when a command is not legal in the current state."""
 
@@ -1866,10 +1877,21 @@ class GameEngine:
                  or not 0 <= state.encounter_pressure <= state.pressure)
             or not isinstance(state.encounter_modules, list)
             or any(not isinstance(module, str) or not module for module in state.encounter_modules)
+            or len(set(state.encounter_modules)) != len(state.encounter_modules)
+            or any(module not in catalog.mutations for module in state.encounter_modules)
             or type(state.reinforcement_tickets) is not int
             or state.reinforcement_tickets < 0
             or state.phase == "combat" and state.encounter_pressure is None
             or state.phase != "combat" and state.encounter_pressure is not None
+            or state.encounter_pressure is not None
+            and len(state.encounter_modules) > director_profile(state.encounter_pressure).mutation_slots
+            or state.phase != "combat" and (state.encounter_modules or state.reinforcement_tickets)
+            or any(
+                right in catalog.mutations[left]["excludes"]
+                or left in catalog.mutations[right]["excludes"]
+                for index, left in enumerate(state.encounter_modules)
+                for right in state.encounter_modules[index + 1:]
+            )
         ):
             raise RuleError("save contains an invalid frozen encounter director")
         for hero_id, effects in state.boons.items():
@@ -1984,6 +2006,14 @@ class GameEngine:
             data = {"event_id": event.event_id, "root_action_id": event.root_action_id, "depth": event.depth, **data}
         self.state.ledger.record(event_kind, source_id, self.state.travel_ticks, self.state.round, **data)
 
+    def _domain_rng(self, domain: str, *parts: str | int) -> random.Random:
+        if not domain or any(not isinstance(part, (str, int)) or isinstance(part, bool) for part in parts):
+            raise RuleError("RNG domains require a stable name and scalar identity parts")
+        digest = hashlib.sha256(
+            canonical_bytes(["dullest-dungeon:rng:2", self.state.seed, domain, *parts])
+        ).digest()
+        return random.Random(int.from_bytes(digest[:16], "big"))
+
     def _advance_pressure(self, source: PressureSource, units: int, detail: str) -> int:
         amount = action_price(source, units)
         if not amount:
@@ -2068,6 +2098,65 @@ class GameEngine:
         if self.catalog.raw["schema_version"] < 21:
             return director_profile(0)
         return director_profile(self.state.pressure)
+
+    def _select_encounter_mutations(
+        self,
+        encounter_id: str,
+        encounter_kind: str,
+        biome_id: str,
+        enemy_count: int,
+    ) -> list[str]:
+        profile = self.current_director()
+        if not profile.mutation_slots or not self.catalog.mutations or self.state.tutorial:
+            return []
+        band_order = {band: index for index, band in enumerate(("quiet", "watchful", "hunted", "lockdown", "overrun"))}
+        candidates = sorted(
+            (
+                mutation
+                for mutation in self.catalog.mutations.values()
+                if mutation["effect"] in OPENING_MUTATION_EFFECTS
+                and (mutation["effect"] != "guard_rear" or enemy_count > 1)
+                and band_order[mutation["min_band"]] <= band_order[profile.band]
+                and encounter_kind in mutation["compatible_kinds"]
+                and (not mutation["biomes"] or biome_id in mutation["biomes"])
+            ),
+            key=lambda mutation: (mutation["priority"], mutation["id"]),
+        )
+        prior = Counter(
+            module
+            for record in self.state.ledger.records
+            if record.kind == "encounter_start"
+            for module in record.data.get("modules", [])
+        )
+        rng = self._domain_rng(
+            "encounter_mutation",
+            self.resolution.state.combat_token + 1,
+            encounter_id,
+            biome_id,
+            self.state.encounter_pressure or 0,
+        )
+        chosen: list[str] = []
+        while candidates and len(chosen) < profile.mutation_slots:
+            compatible = [
+                mutation
+                for mutation in candidates
+                if all(
+                    selected not in mutation["excludes"]
+                    and mutation["id"] not in self.catalog.mutations[selected]["excludes"]
+                    for selected in chosen
+                )
+            ]
+            if not compatible:
+                break
+            weights = [
+                max(1, 6 - prior[mutation["id"]] * 2)
+                + (2 if mutation["biomes"] else 0)
+                for mutation in compatible
+            ]
+            selected = rng.choices(compatible, weights=weights, k=1)[0]
+            chosen.append(selected["id"])
+            candidates.remove(selected)
+        return chosen
 
     def movement_cost(self, x: int, y: int) -> int:
         return int(self.terrain_at(x, y)["cost"])
@@ -3348,6 +3437,46 @@ class GameEngine:
         self.state.supplies -= 1
         self.add_log(message)
 
+    def _apply_opening_mutations(self) -> None:
+        for mutation_id in self.state.encounter_modules:
+            mutation = self.catalog.mutations[mutation_id]
+            effect = mutation["effect"]
+            amount = int(mutation["amount"])
+            enemies = self.living_enemies()
+            heroes = self.living_heroes()
+            if not enemies or not heroes:
+                return
+            with self.attribution(mutation_id):
+                if effect == "opening_front_block":
+                    enemies[0].block += amount
+                    self.record("block", mutation_id, target=enemies[0].id, amount=amount)
+                elif effect == "guard_rear":
+                    if len(enemies) > 1:
+                        enemies[-1].guarded_by = enemies[0].id
+                        enemies[-1].guard_turns = amount
+                        self.record("guard", mutation_id, actor=enemies[0].id,
+                                    target=enemies[-1].id, duration=amount)
+                elif effect == "mark_weakest":
+                    target = min(heroes, key=lambda hero: (hero.hp / hero.max_hp, hero.rank))
+                    self._add_status(target, "marked", amount)
+                elif effect == "dodge_rear":
+                    self._add_status(enemies[-1], "dodge", amount)
+                elif effect == "riposte_front":
+                    self._add_status(enemies[0], "riposte", amount)
+                elif effect == "focus_striker":
+                    target = next(
+                        (enemy for enemy in enemies if "striker" in self.enemy_roles(enemy.definition_id or enemy.id)),
+                        enemies[0],
+                    )
+                    self._add_status(target, "focus", amount)
+                elif effect == "shove_front_crew":
+                    self._move(heroes[0], amount, enemies[0])
+                    self.record("movement", mutation_id, target=heroes[0].id, amount=amount,
+                                rank=heroes[0].rank)
+                else:
+                    raise RuleError(f"unregistered opening mutation effect {effect}")
+            self.add_log(f"{mutation['marker']} — {mutation['description']}")
+
     def start_combat(
         self,
         encounter_id: str,
@@ -3364,7 +3493,12 @@ class GameEngine:
         ):
             raise RuleError("combat formation must contain one to four known enemies")
         self.state.encounter_pressure = self.state.pressure
-        self.state.encounter_modules = []
+        self.state.encounter_modules = self._select_encounter_mutations(
+            encounter_id,
+            encounter["kind"],
+            self.current_biome(),
+            len(formation),
+        )
         self.state.reinforcement_tickets = 0
         self.state.phase = "combat"
         self.resolution.state.combat_token += 1
@@ -3401,6 +3535,7 @@ class GameEngine:
                     pressure=self.state.encounter_pressure,
                     pressure_band=pressure_band(self.state.encounter_pressure).id,
                     modules=list(self.state.encounter_modules))
+        self._apply_opening_mutations()
         self.add_log(f"Combat begins: {encounter['id']}. Formation: {names}.")
         self._start_player_turn()
         self.state.intents = self._choose_intents()

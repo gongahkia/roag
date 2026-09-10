@@ -42,7 +42,13 @@ class LedgerTests(unittest.TestCase):
         raw["save_version"] = 27
         del raw["content_rules"]
         raw["content_manifest"]["engine"] = "0.1.0"
+        raw["content_manifest"]["rng_architecture"] = 1
         del raw["state"]["ledger"]
+        for field in (
+            "pressure", "pressure_recent", "pressure_incomplete_before_tick",
+            "encounter_pressure", "encounter_modules", "reinforcement_tickets",
+        ):
+            del raw["state"][field]
         del raw["resolution_queue"]
         loaded = GameEngine.from_snapshot(engine.catalog, raw)
         self.assertEqual(0, loaded.state.ledger.incomplete_before_tick)
