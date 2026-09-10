@@ -1,8 +1,13 @@
 # Persistence contracts
 
-The run save currently uses schema 37, content schema 22, and the existing Python
+The run save currently uses schema 37, content schema 23, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry and manifests are implemented; the persistent profile is still pending.
+
+Content schema 23 adds an optional, validated four-role technique-expansion
+contract. Once an owner uses it, that owner must have exactly one `deepener_a`,
+`deepener_b`, `bridge` and `rule_breaker`. Embedded schema-22 rules remain
+readable and are never filled with newly installed techniques.
 
 Content schema 22 adds typed elite-mutation definitions. Embedded schema-21
 rules load with an empty mutation catalog; definitions are never filled from the

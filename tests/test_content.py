@@ -6,7 +6,13 @@ import unittest
 from collections import Counter
 from pathlib import Path
 
-from dumbest_dungeon.content import ContentError, MUTATION_EFFECTS, load_catalog, load_rules
+from dumbest_dungeon.content import (
+    EXPANSION_CARD_ROLES,
+    ContentError,
+    MUTATION_EFFECTS,
+    load_catalog,
+    load_rules,
+)
 
 
 class ContentTests(unittest.TestCase):
@@ -149,6 +155,25 @@ class ContentTests(unittest.TestCase):
         restored = load_rules(schema_21)
         self.assertEqual(21, restored.raw["schema_version"])
         self.assertEqual({}, restored.mutations)
+
+    def test_expansion_card_roles_are_complete_per_owner_and_schema_22_remains_readable(self) -> None:
+        catalog = load_catalog()
+        schema_22 = json.loads(json.dumps(catalog.rules))
+        schema_22["content_schema"] = 22
+        self.assertEqual(22, load_rules(schema_22).raw["schema_version"])
+
+        raw = json.loads(json.dumps(catalog.raw))
+        wardens = [card for card in raw["cards"] if card["hero"] == "warden"][:4]
+        for card, role in zip(wardens, sorted(EXPANSION_CARD_ROLES)):
+            card["design_role"] = role
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "role-contract.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            load_catalog(path)
+            wardens[-1]["design_role"] = "bridge"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ContentError, "exactly one card in each design role"):
+                load_catalog(path)
 
     def test_invalid_mutation_effect_and_reference_are_rejected(self) -> None:
         raw = json.loads(json.dumps(load_catalog().raw))

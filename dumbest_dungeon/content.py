@@ -180,7 +180,7 @@ EFFECT_KEYS = {key.value for key in EffectKey}
 CONTENT_FIELDS = {
     "heroes": "id name role combat_role complexity preferred_ranks signature strength weakness builds summary max_hp rank starter_deck biome",
     "squads": "id name playstyle complexity formation strength weakness signature",
-    "cards": "id name hero cost from_ranks target target_ranks description effects upgrade_effects tags upgrade_description biome biome_bonus lanes",
+    "cards": "id name hero cost from_ranks target target_ranks description effects upgrade_effects tags upgrade_description biome biome_bonus lanes design_role",
     "enemies": "id name max_hp actions biomes",
     "encounters": "id kind enemies biomes",
     "events": "id name text choices biomes",
@@ -217,6 +217,7 @@ MUTATION_EFFECTS = {
     "wide_wound_round",
 }
 MUTATION_BANDS = {"hunted", "lockdown", "overrun"}
+EXPANSION_CARD_ROLES = {"deepener_a", "deepener_b", "bridge", "rule_breaker"}
 
 
 def _fields(value: Any, allowed: str, context: str) -> None:
@@ -511,8 +512,8 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
     _fields(raw, "schema_version balance " + " ".join(CONTENT_FIELDS), "content root")
     _fields(art, "schema_version title heroes enemies card_glyphs card_marks curse_card_glyph curse_card_mark", "art root")
     _fields(card_metadata, "schema_version cards", "card metadata root")
-    if type(raw.get("schema_version")) is not int or raw["schema_version"] not in {20, 21, CONTENT_SCHEMA}:
-        raise ContentError(f"content schema_version must be historical 20/21 or current {CONTENT_SCHEMA}")
+    if type(raw.get("schema_version")) is not int or raw["schema_version"] not in {20, 21, 22, CONTENT_SCHEMA}:
+        raise ContentError(f"content schema_version must be historical 20/21/22 or current {CONTENT_SCHEMA}")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
@@ -690,6 +691,8 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
                 )
     card_names: set[str] = set()
     for card in cards.values():
+        if "design_role" in card and card["design_role"] not in EXPANSION_CARD_ROLES:
+            raise ContentError(f"card {card['id']} has an invalid expansion design role")
         if "lanes" in card and (not isinstance(card["lanes"], list) or not card["lanes"]
                                 or any(lane not in {item.value for item in Lane} for lane in card["lanes"])
                                 or len(set(card["lanes"])) != len(card["lanes"])):
@@ -750,6 +753,13 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
                 raise ContentError(f"card {card['id']} does not match its hero's biome")
             if not isinstance(card.get("biome_bonus"), int) or not 1 <= card["biome_bonus"] <= 3:
                 raise ContentError(f"card {card['id']} has an invalid biome bonus")
+    for hero_id in heroes:
+        roles = [card["design_role"] for card in cards.values()
+                 if card["hero"] == hero_id and "design_role" in card]
+        if roles and (len(roles) != len(EXPANSION_CARD_ROLES) or set(roles) != EXPANSION_CARD_ROLES):
+            raise ContentError(
+                f"hero {hero_id} expansion techniques need exactly one card in each design role"
+            )
     enemy_names: set[str] = set()
     for enemy in enemies.values():
         if not isinstance(enemy.get("name"), str) or not enemy["name"] or enemy["name"] in enemy_names:
