@@ -201,6 +201,11 @@ is two explicit layers: a duration-refresh opening dodge and an authored block
 table for copies after the first. Runtime opening and card-cost logic read these
 contracts instead of inspecting raw stack counts.
 
+Ten linear curse penalties now declare exact count policies, and Dead Channel
+declares a unique zero-value rule: its cost is the owned card occupying the
+shared deck, not a hidden scalar. Bound curse-card descendants remain limited
+by the `curse_card` proc-family exclusion and each drawn copy still resolves.
+
 ## Queued resolution component
 
 `resolution.EventQueue` dispatches typed events through the six phases. Each

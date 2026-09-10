@@ -411,3 +411,11 @@ block and produced **30 passes and 1 failure**; comparing against an identical
 no-boon combat corrected the fixture without changing production behavior. The
 expanded corrected group passed **31 tests in 22.536s**. Warning-enabled
 compilation, content validation and scoped diff checks passed.
+
+Ten linear curse penalties and the inert Dead Channel marker now use typed
+count policies. This preserves caps for exploration taxes, opening conditions,
+card costs and all five active bound-card responses; Dead Channel explicitly
+returns zero while remaining an unplayable owned card. The passive, all-bound-
+curse checkpoint, Frayed Focus/Tremors, saved-rule and archive group passed
+**27 tests in 17.170s**. Warning-enabled compilation, content validation and
+scoped diff checks passed.

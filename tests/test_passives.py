@@ -66,6 +66,22 @@ class PassiveContractTests(unittest.TestCase):
         self.assertEqual([0, 2, 2, 2], [vigilance[0].contract.value(n) for n in (0, 1, 2, 99)])
         self.assertEqual([0, 0, 2, 8], [vigilance[1].contract.value(n) for n in (0, 1, 2, 99)])
 
+    def test_linear_and_inert_curses_have_exact_authored_caps(self) -> None:
+        expected = {
+            "cowards_mark": (1, 4), "night_terrors": (1, 4),
+            "leaking_lamp": (1, 3), "open_circuit": (1, 2),
+            "scavengers_itch": (3, 9), "static_prayer": (4, 4),
+            "open_wound": (1, 1), "power_leech": (1, 1),
+            "gravity_knot": (1, 1), "dread_forecast": (3, 3),
+        }
+        catalog = load_catalog()
+        for identity, (amount, cap) in expected.items():
+            contract = catalog.curses[identity]["effects"][0].contract
+            self.assertEqual([0, amount, min(amount * 2, cap), cap],
+                             [contract.value(n) for n in (0, 1, 2, 99)])
+        dead = catalog.curses["dead_channel"]["effects"][0].contract
+        self.assertEqual([0, 0, 0], [dead.value(n) for n in (0, 1, 99)])
+
     def test_explicit_effect_is_typed_cached_and_has_exact_units(self) -> None:
         raw = {"key": "marked_damage_bonus", "unit": "basis_points", "stack": {"mode": "linear", "amount": 425}}
         rule = persistent_effect(raw)
