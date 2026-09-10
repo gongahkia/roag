@@ -2440,13 +2440,15 @@ def guard(state: GameState) -> ActionResult:
     ]
     if not engaged:
         return _plain(state, "There is no immediate danger to guard against.")
+    from .people import personal_practice
+
     strong = (
         state.gear == "buckler"
         or state.weapon == "staff"
         or (state.courier and state.courier.technique == "set stance")
         or (
             state.courier
-            and f"seasoned {state.courier.role}" in state.courier.learned_techniques
+            and personal_practice(state.courier) in state.courier.learned_techniques
         )
         or "hearth-ale" in state.drink_effects
         or ("brace" in worn_tags(state, ("arms",)) and "wet" not in state.terrain_statuses)

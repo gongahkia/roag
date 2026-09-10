@@ -1726,6 +1726,8 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             "Escape closes without advancing time.",
         ]
     if kind == "household":
+        from .people import personal_practice
+
         lines: list[str] = []
         for person in state.household:
             strongest = max(person.relationships.items(), key=lambda item: (item[1], item[0]))
@@ -1735,7 +1737,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
                 f"{person.name} — {person.role}; {person.technique}; {person.injury}",
                 f"  {learned}; closest standing: {related} ({strongest[1]:+d})",
             ))
-            if f"seasoned {person.role}" in person.learned_techniques:
+            if personal_practice(person) in person.learned_techniques:
                 lines.append("  Personal practice: +4 weight capacity and a reinforced guard.")
         return "JOMON HOUSEHOLD", lines + ["Escape closes without advancing time."]
     if kind == "chronicle":
@@ -1947,7 +1949,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
     if kind == "quit":
         return "QUIT JOMON?", ["Press Y to quit. Press N or Escape to continue."]
     if kind.startswith("person:"):
-        from .people import person_by_id
+        from .people import person_by_id, personal_practice
 
         person_id = kind.split(":", 1)[1]
         person = person_by_id(state, person_id)
@@ -1970,7 +1972,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             f"Background: {person.background}",
             "Memories:", *[f"- {memory}" for memory in (person.memories or ["No shared expedition yet."])],
         ]
-        if f"seasoned {person.role}" in person.learned_techniques:
+        if personal_practice(person) in person.learned_techniques:
             lines.insert(3, "Seasoned return effect: +4 weight capacity; reinforced guard.")
         if person in state.household and person.id != state.active_courier_id and person.alive and person.available:
             lines.append("S. Switch to this courier (zero time)")
