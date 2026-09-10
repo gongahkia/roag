@@ -534,24 +534,24 @@
     {"id":"fracture_field","name":"Fracture Field","layout":"fracture","biomes":["void","storm","foundry","ossuary"],"description":"A short contested central junction links separated shards, while long peripheral crossings let cautious crews route around it."}
   ],
   "boons": [
-    {"id":"iron_benediction","name":"Iron Benediction","description":"Begin combat with stacking block.","tags":["defense"],"effects":[{"key":"start_block","curve":"linear","amount":3,"cap":15}]},
+    {"id":"iron_benediction","name":"Iron Benediction","description":"Begin combat with stacking block.","tags":["defense"],"effects":[{"key":"start_block","unit":"count","stack":{"mode":"linear","amount":3,"cap":15}}]},
     {"id":"hunters_rhythm","name":"Hunter's Rhythm","description":"The first damage techniques this hero plays each round draw a card.","tags":["offense","draw"],"effects":[{"key":"damage_draw","curve":"special","amount":1,"cap":2}]},
     {"id":"gentle_hands","name":"Gentle Hands","description":"Healing performed is stronger.","tags":["medicine"],"effects":[{"key":"healing_bonus","curve":"diminishing","amount":0.08,"cap":0.5}]},
-    {"id":"clear_signal","name":"Clear Signal","description":"Shed stress when combat begins.","tags":["focus"],"effects":[{"key":"start_stress_relief","curve":"linear","amount":3,"cap":15}]},
-    {"id":"second_wind","name":"Second Wind","description":"Recover from the first Death's Door entry each combat.","tags":["defense","medicine"],"effects":[{"key":"second_wind","curve":"linear","amount":2,"cap":10}]},
+    {"id":"clear_signal","name":"Clear Signal","description":"Shed stress when combat begins.","tags":["focus"],"effects":[{"key":"start_stress_relief","unit":"count","stack":{"mode":"linear","amount":3,"cap":15}}]},
+    {"id":"second_wind","name":"Second Wind","description":"Recover from the first Death's Door entry each combat.","tags":["defense","medicine"],"effects":[{"key":"second_wind","unit":"count","stack":{"mode":"linear","amount":2,"cap":10}}]},
     {"id":"quick_hands","name":"Quick Hands","description":"The first cards played each round cost one less.","tags":["focus"],"effects":[{"key":"quick_hands","curve":"special","amount":1,"cap":3}]},
     {"id":"countercurrent","name":"Countercurrent","description":"The first movement technique each round draws cards.","tags":["mobility"],"effects":[{"key":"countercurrent_draw","curve":"special","amount":1,"cap":2}]},
     {"id":"marked_quarry","name":"Marked Quarry","description":"Deal more damage to marked hostiles.","tags":["offense"],"effects":[{"key":"marked_damage_bonus","curve":"diminishing","amount":0.08,"cap":0.5}]},
-    {"id":"sterile_seal","name":"Sterile Seal","description":"Reduce wounds inflicted on this hero.","tags":["medicine"],"effects":[{"key":"wound_reduction","curve":"linear","amount":1,"cap":3}]},
+    {"id":"sterile_seal","name":"Sterile Seal","description":"Reduce wounds inflicted on this hero.","tags":["medicine"],"effects":[{"key":"wound_reduction","unit":"count","stack":{"mode":"linear","amount":1,"cap":3}}]},
     {"id":"calm_under_fire","name":"Calm Under Fire","description":"Reduce incoming stress.","tags":["focus"],"effects":[{"key":"stress_reduction","curve":"diminishing","amount":0.07,"cap":0.45}]},
     {"id":"last_word","name":"Last Word","description":"Improve survival odds at Death's Door.","tags":["defense"],"effects":[{"key":"death_chance_reduction","curve":"linear","amount":0.05,"cap":0.2}]},
-    {"id":"formation_anchor","name":"Formation Anchor","description":"Resist hostile forced movement.","tags":["defense","mobility"],"effects":[{"key":"forced_move_reduction","curve":"linear","amount":1,"cap":2}]},
-    {"id":"adrenal_coil","name":"Adrenal Coil","description":"The first injury each enemy phase produces block.","tags":["defense"],"effects":[{"key":"adrenal_block","curve":"linear","amount":2,"cap":8}]},
+    {"id":"formation_anchor","name":"Formation Anchor","description":"Resist hostile forced movement.","tags":["defense","mobility"],"effects":[{"key":"forced_move_reduction","unit":"count","stack":{"mode":"linear","amount":1,"cap":2}}]},
+    {"id":"adrenal_coil","name":"Adrenal Coil","description":"The first injury each enemy phase produces block.","tags":["defense"],"effects":[{"key":"adrenal_block","unit":"count","stack":{"mode":"linear","amount":2,"cap":8}}]},
     {"id":"resonant_circuit","name":"Resonant Circuit","description":"Every third card played returns energy.","tags":["focus"],"effects":[{"key":"resonant_energy","curve":"special","amount":1,"cap":2}]},
-    {"id":"field_rations","name":"Field Rations","description":"Recover health after winning combat.","tags":["medicine"],"effects":[{"key":"combat_victory_heal","curve":"linear","amount":2,"cap":10}]},
+    {"id":"field_rations","name":"Field Rations","description":"Recover health after winning combat.","tags":["medicine"],"effects":[{"key":"combat_victory_heal","unit":"count","stack":{"mode":"linear","amount":2,"cap":10}}]},
     {"id":"vigilance","name":"Vigilance","description":"Begin combat ready to dodge, with extra block from stacks.","tags":["defense"],"effects":[{"key":"start_dodge","curve":"special","amount":2,"cap":8}]},
-    {"id":"blood_price","name":"Blood Price","description":"Deal more damage while carrying at least 50 stress.","tags":["offense","focus"],"effects":[{"key":"stressed_damage_bonus","curve":"linear","amount":0.1,"cap":0.25}]},
-    {"id":"mercy_circuit","name":"Mercy Circuit","description":"Healing an ally also grants block.","tags":["medicine","defense"],"requires_all_tags":["medicine","defense"],"effects":[{"key":"mercy_block","curve":"linear","amount":2,"cap":8}]}
+    {"id":"blood_price","name":"Blood Price","description":"Deal more damage while carrying at least 50 stress.","tags":["offense","focus"],"effects":[{"key":"stressed_damage_bonus","unit":"basis_points","stack":{"mode":"linear","amount":1000,"cap":2500}}]},
+    {"id":"mercy_circuit","name":"Mercy Circuit","description":"Healing an ally also grants block.","tags":["medicine","defense"],"requires_all_tags":["medicine","defense"],"effects":[{"key":"mercy_block","unit":"count","stack":{"mode":"linear","amount":2,"cap":8}}]}
   ],
   "curses": [
     {"id":"glass_bones","name":"Glass Bones","kind":"trait","description":"Incoming damage is increased.","effects":[{"key":"incoming_damage_bonus","curve":"diminishing","amount":0.06,"cap":0.45}]},

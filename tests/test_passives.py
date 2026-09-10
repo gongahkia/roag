@@ -19,6 +19,22 @@ class PassiveContractTests(unittest.TestCase):
             for count in (0, 1, 2, 5, 10, 100):
                 self.assertEqual(min(amount * count, cap), effect.contract.value(count))
 
+    def test_live_linear_boon_family_preserves_each_count_and_cap(self) -> None:
+        expected = {
+            "iron_benediction": (3, 15), "clear_signal": (3, 15),
+            "second_wind": (2, 10), "sterile_seal": (1, 3),
+            "formation_anchor": (1, 2), "adrenal_coil": (2, 8),
+            "field_rations": (2, 10), "mercy_circuit": (2, 8),
+        }
+        catalog = load_catalog()
+        for identity, (amount, cap) in expected.items():
+            effect = catalog.boons[identity]["effects"][0]
+            for count in (0, 1, 2, 5, 10, 100):
+                self.assertEqual(min(amount * count, cap), effect.contract.value(count))
+        blood_price = catalog.boons["blood_price"]["effects"][0].contract
+        self.assertEqual(Fraction(1, 10), blood_price.value(1))
+        self.assertEqual(Fraction(1, 4), blood_price.value(100))
+
     def test_explicit_effect_is_typed_cached_and_has_exact_units(self) -> None:
         raw = {"key": "marked_damage_bonus", "unit": "basis_points", "stack": {"mode": "linear", "amount": 425}}
         rule = persistent_effect(raw)

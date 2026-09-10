@@ -185,6 +185,11 @@ copy supplies the authored 2%, 3% and 4%, while later copies approach disclosed
 use their embedded or archived rules. Boon and curse conversion, reward-lane
 integration and conversion/corruption rewards remain separate boundaries.
 
+The nine behavior-preserving linear boon effects also use typed units and
+integer rules. Count effects retain their established caps; Blood Price stores
+its 10% step and 25% cap as basis points. Reactive timing remains owned by the
+event queue and its limiters, rather than being inferred from a stack formula.
+
 ## Queued resolution component
 
 `resolution.EventQueue` dispatches typed events through the six phases. Each

@@ -385,3 +385,11 @@ contract, saved-rule and archive group passed **18 tests in 7.051s**;
 warning-enabled compilation, content validation and scoped diff checks passed.
 The changed later-stack curves require a fresh natural-policy comparison at the
 Milestone 3 gate; historical saves retain their recorded rules.
+
+Nine linear boon effects moved from legacy numeric curves to typed count or
+basis-point rules without changing results at any stack count. This includes
+the values consumed by the finite Second Wind, Adrenal Coil and Mercy Circuit
+responses; their queue timing and limits are unchanged. The focused passive,
+live-stack, card-resolution, queue-save, saved-rule and archive group passed
+**34 tests in 20.199s**. Warning-enabled compilation, content validation and
+scoped diff checks passed.
