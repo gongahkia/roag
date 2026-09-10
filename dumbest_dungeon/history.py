@@ -42,7 +42,7 @@ def run_report(engine, *, elapsed_seconds: int | None = None, outcome: str | Non
         elif row.kind == "encounter_end":
             if encounters and "result" not in encounters[-1]:
                 encounters[-1].update(result=data["result"], rounds=data["rounds"])
-        if row.kind.startswith(("card_", "boon_", "curse_", "item_", "bargain_", "objective_", "facility_")) or row.kind in {"crew_death", "deaths_door_check", "travel"}:
+        if row.kind.startswith(("card_", "boon_", "curse_", "item_", "bargain_", "objective_", "facility_", "guardian_", "finale_")) or row.kind in {"crew_death", "deaths_door_check", "travel"}:
             decisions.append(asdict(row))
     departure = next((row.data for row in state.ledger.records if row.kind == "departure"), None)
     turns = [row.data for row in state.ledger.records if row.kind == "turn_start"]

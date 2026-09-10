@@ -13,6 +13,7 @@ from .content import Catalog
 from .engine import CardInstance, GameEngine, RuleError
 from .save import SaveError, read_save, write_save
 from .history import history_lines, read_history, write_run
+from .profile import ProfileError, read_profile, update_profile, write_profile
 from .pressure import pressure_band, pressure_status
 
 
@@ -2221,9 +2222,20 @@ class TerminalUI:
         if self.engine is None or self.engine.state.tutorial or not self.engine.state.heroes:
             return
         try:
-            write_run(self.save_path.parent / "history", self.engine, outcome=outcome,
-                      elapsed_seconds=self._session_duration(), detailed=self.detailed_telemetry)
-        except SaveError as exc:
+            history_path = write_run(
+                self.save_path.parent / "history",
+                self.engine,
+                outcome=outcome,
+                elapsed_seconds=self._session_duration(),
+                detailed=self.detailed_telemetry,
+            )
+            report = read_save(history_path)
+            profile_path = self.save_path.parent / "profile.json"
+            write_profile(
+                profile_path,
+                update_profile(read_profile(profile_path), report),
+            )
+        except (SaveError, ProfileError) as exc:
             self._notice("HISTORY WRITE FAILED", str(exc))
 
     def _text_input(self, title: str, prompt: str) -> str | None:

@@ -34,6 +34,8 @@ History does not require an account or network connection. `--telemetry` explici
 enables additional local `history/telemetry/*.ndjson` exports; it is off by default.
 Session duration includes menus and pauses, is restored with manual saves, and
 does not advance any game rule. Older saves disclose their missing early history.
+The adjacent versioned `profile.json` records discoveries, victories, ladder
+records, contracts, and the casualty graveyard without granting permanent combat power.
 
 ## Controls and rules
 

@@ -2,7 +2,12 @@
 
 The run save currently uses schema 42, content schema 45, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
-Telemetry and manifests are implemented; the persistent profile is still pending.
+Telemetry, manifests, and the separate local profile are implemented.
+
+`profile.json` is an independently versioned, strictly validated atomic file.
+It records only run IDs, discoveries, victories, ladder records, contracts, and
+casualty memorials. It contains no permanent health, damage, energy, resource,
+or reward-quality modifiers. Re-archiving the same run ID is idempotent.
 
 Schema 42 records engine 1.1.0 and serializes zero to two recycler targeting
 credits. The pure 41→42 migration adds zero. Generated salvage alternatives are

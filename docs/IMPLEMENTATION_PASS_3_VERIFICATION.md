@@ -656,6 +656,12 @@ one threshold, stores exact post-mitigation overflow, dispatches a typed deferre
 transition, carried amount and eventual application are attributed in history;
 save/load retains both the reached phase and remaining overflow.
 
+Milestone 9 begins with a separate profile-schema-1 atomic document. It records
+idempotent archived run IDs, base victories, horizontal discoveries, ladder and
+contract records, and a casualty graveyard. It deliberately has no combat-stat,
+resource or reward-quality fields. Run archival updates history first and then
+the profile locally; malformed or future-version profiles fail closed.
+
 Content schema 36 gives Reactor Chapel six normal participants, two elite-only
 roles and the Choir Meltdown guardian. Three new normal roles split marking,
 cash-out and formation disruption; Critical Abbot and Containment Hulk create
