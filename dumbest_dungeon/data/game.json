@@ -1,5 +1,5 @@
 {
-  "schema_version": 42,
+  "schema_version": 43,
   "balance": {
     "hand_size": 5,
     "energy": 3,
@@ -606,7 +606,8 @@
     {"id":"base:marrow_cantor","name":"Marrow Cantor","max_hp":18,"biomes":["ossuary"],"actions":[{"name":"Open the Vein","weight":2,"target":"front","effects":[{"op":"status","status":"wound","amount":2}]},{"name":"Sing the Wound","weight":3,"target":"wounded","effects":[{"op":"damage","amount":5,"bonus_status":"wound","bonus":4}]},{"name":"Hymn of Glue","weight":1,"target":"weakest_ally","effects":[{"op":"heal","amount":3}]}]},
     {"id":"base:reliquary_guard","name":"Reliquary Guard","max_hp":32,"biomes":["ossuary"],"actions":[{"name":"Casket Wall","weight":2,"target":"weakest_ally","effects":[{"op":"guard","amount":2},{"op":"block","amount":8,"target":"self"}]},{"name":"Return Relic","weight":2,"target":"self","effects":[{"op":"status","status":"riposte","amount":2}]},{"name":"Femur Tax","weight":3,"target":"front","effects":[{"op":"damage","amount":7}]}]},
     {"id":"base:bone_auditor","name":"Bone Auditor","max_hp":29,"biomes":["ossuary"],"actions":[{"name":"Count Wounds","weight":3,"target":"wounded","effects":[{"op":"damage","amount":6,"bonus_status":"wound","bonus":4},{"op":"stress","amount":3}]},{"name":"Inventory Marrow","weight":2,"target":"all_heroes","effects":[{"op":"status","status":"weak","amount":1}]},{"name":"File Remains","weight":1,"target":"self","effects":[{"op":"heal","amount":5},{"op":"block","amount":4}]}]},
-    {"id":"base:ossuary_heart","name":"Ossuary Heart","max_hp":81,"biomes":["ossuary"],"actions":[{"name":"Marrow Pulse","weight":3,"target":"all_heroes","effects":[{"op":"damage","amount":4},{"op":"status","status":"wound","amount":1},{"op":"stress","amount":3}]},{"name":"Rebuild Cage","weight":2,"target":"self","effects":[{"op":"heal","amount":6},{"op":"block","amount":10}]},{"name":"Crush the Frail","weight":2,"target":"wounded","effects":[{"op":"damage","amount":7,"bonus_status":"wound","bonus":4}]}]}
+    {"id":"base:ossuary_heart","name":"Ossuary Heart","max_hp":81,"biomes":["ossuary"],"actions":[{"name":"Marrow Pulse","weight":3,"target":"all_heroes","effects":[{"op":"damage","amount":4},{"op":"status","status":"wound","amount":1},{"op":"stress","amount":3}]},{"name":"Rebuild Cage","weight":2,"target":"self","effects":[{"op":"heal","amount":6},{"op":"block","amount":10}]},{"name":"Crush the Frail","weight":2,"target":"wounded","effects":[{"op":"damage","amount":7,"bonus_status":"wound","bonus":4}]}]},
+    {"id":"base:rusted_admiral","name":"Rusted Admiral","max_hp":82,"biomes":["derelict"],"actions":[{"name":"Broadside Order","weight":3,"target":"all_heroes","effects":[{"op":"damage","amount":5},{"op":"stress","amount":3}]},{"name":"Bulkhead Discipline","weight":2,"target":"self","effects":[{"op":"block","amount":13},{"op":"status","status":"riposte","amount":1}]},{"name":"Keelhaul Rear","weight":2,"target":"back","effects":[{"op":"damage","amount":7},{"op":"move","amount":-1},{"op":"status","status":"marked","amount":1}]}]}
   ],
   "encounters": [
     {"id":"drones","kind":"normal","enemies":["scrap_drone","scrap_drone","repair_spider"]},
@@ -772,7 +773,8 @@
     {"id":"base:ossuary_wound_choir","kind":"normal","biomes":["ossuary"],"enemies":["choir_skull","base:marrow_cantor","base:splint_rat"]},
     {"id":"base:ossuary_guarded_relic","kind":"elite","biomes":["ossuary"],"enemies":["base:reliquary_guard","base:marrow_cantor","base:splint_rat"]},
     {"id":"base:ossuary_bone_audit","kind":"elite","biomes":["ossuary"],"enemies":["bone_colossus","base:bone_auditor","base:splint_rat"]},
-    {"id":"base:guardian_ossuary","kind":"boss","biomes":["ossuary"],"enemies":["base:ossuary_heart"]}
+    {"id":"base:guardian_ossuary","kind":"boss","biomes":["ossuary"],"enemies":["base:ossuary_heart"]},
+    {"id":"base:guardian_derelict","kind":"boss","biomes":["derelict"],"enemies":["base:rusted_admiral"]}
   ],
   "landmarks": [
     {"id":"relay_yard","biome":"derelict","name":"Corpse Relay Yard","art":["+-+","|K|","+-+"]},

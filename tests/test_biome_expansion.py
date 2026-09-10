@@ -195,6 +195,22 @@ class BiomeExpansionTests(unittest.TestCase):
         self.assertTrue(any(effect.get("bonus_status") == "wound" for effect in effects))
         self.assertTrue(any(effect.get("status") == "riposte" for effect in effects))
 
+    def test_derelict_has_native_guardian_and_existing_density(self) -> None:
+        generic_normal = {enemy_id for encounter in self.catalog.encounters.values()
+                          if encounter["kind"] == "normal" and not encounter.get("biomes")
+                          for enemy_id in encounter["enemies"]}
+        generic_elite = {enemy_id for encounter in self.catalog.encounters.values()
+                         if encounter["kind"] == "elite" and not encounter.get("biomes")
+                         for enemy_id in encounter["enemies"]}
+        self.assertGreaterEqual(len(generic_normal), 6)
+        self.assertGreaterEqual(len(generic_elite - generic_normal), 2)
+        guardian = self.catalog.encounters["base:guardian_derelict"]
+        self.assertEqual(["base:rusted_admiral"], guardian["enemies"])
+        self.assertEqual(3, len(self.catalog.enemies["base:rusted_admiral"]["actions"]))
+        art = self.catalog.art["enemies"]["base:rusted_admiral"]
+        self.assertGreaterEqual(len(art), 5)
+        self.assertTrue(all(line.isascii() and len(line) <= 7 for line in art))
+
 
 if __name__ == "__main__":
     unittest.main()

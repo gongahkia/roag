@@ -676,3 +676,9 @@ Content schema 42 gives Ossuary Deck six normal participants, two elite-only
 roles and the Ossuary Heart guardian. The new formations expose wound setup and
 cash-out, healing, guard/riposte and target-priority decisions; every native has
 three actions. Census: 125 enemies and 164 encounters.
+
+Content schema 43 adds the Rusted Admiral as Derelict’s native guardian. The
+starting region already has well over six generic normal participants and two
+elite-only participants, so adding more low-level bodies would dilute its
+existing catalog. Final Milestone 7 census: 126 enemies and 165 encounters,
+including eleven distinct biome guardians.
