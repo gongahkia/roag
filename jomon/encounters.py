@@ -125,6 +125,12 @@ def compose_encounter(
     standard = list(candidates) if candidates is not None else _pool(region_id)
     if not standard or any(key not in _pool(region_id) for key in standard):
         raise ValueError("encounter candidates must be regional standard actors")
+    standard = [
+        key for key in standard
+        if int(ENEMY_ARCHETYPES[key]["budget"]) <= budget
+    ]
+    if not standard:
+        raise ValueError("no regional standard actor fits the encounter budget")
     rng.shuffle(standard)
     uses = Counter(previously_used)
     standard.sort(key=lambda key: (uses[key], not (prefer_ranged and ENEMY_ARCHETYPES[key]["profile"] == "ranged")))

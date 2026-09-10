@@ -549,6 +549,7 @@ def _household(seed: str) -> list[Person]:
 
 def _threats(seed: str, region: Region) -> list[Threat]:
     from .encounters import threat_from_archetype
+    from .regions import region_reachable
 
     alternate_elite = stage_rng(seed, "hearthford-elite-variant").randrange(2) == 1
     road_points = [
@@ -579,7 +580,7 @@ def _threats(seed: str, region: Region) -> list[Threat]:
     gantry = standard("hearth-gantry-suppressor", "gantry-bow", Position(80, 20, 1), 4, "mill-levy")
     gantry.ammunition = 7
     reavers = standard("hearth-cargo-reaver", "pressure-reavers", Position(58, 28), 6, "reavers", status="dormant")
-    return [
+    threats = [
         road, boar, roof, levy, gantry,
         Threat(
             "floodgate-claimant" if alternate_elite else "wheel-train",
@@ -592,6 +593,31 @@ def _threats(seed: str, region: Region) -> list[Threat]:
         ),
         reavers,
     ]
+    # Hearthford's flood meadow is seed-shaped. Keep authored threats at their
+    # intended sites when possible, but deterministically move any point cut
+    # off by that shaping to the nearest connected tile. Dormant actors matter
+    # here too: an unreachable thief that later wakes is still invalid content.
+    reachable = region_reachable(region)
+    occupied: set[Position] = set()
+    for threat in threats:
+        original = threat.position
+        if original not in reachable or original in occupied:
+            candidates = reachable - occupied
+            threat.position = min(
+                candidates,
+                key=lambda point: (
+                    abs(point.z - original.z) * 100
+                    + abs(point.x - original.x)
+                    + abs(point.y - original.y),
+                    point.z,
+                    point.y,
+                    point.x,
+                ),
+            )
+            if threat.home_position is None or threat.home_position == original:
+                threat.home_position = threat.position
+        occupied.add(threat.position)
+    return threats
 
 
 def _region(seed: str) -> tuple[Region, Contact]:

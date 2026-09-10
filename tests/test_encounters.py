@@ -35,6 +35,18 @@ class EncounterCompositionTests(unittest.TestCase):
                 self.assertEqual(len(first.archetypes), len(set(first.archetypes)))
                 self.assertLessEqual(sum(ENEMY_ARCHETYPES[key]["profile"] == "ranged" for key in first.archetypes), 2)
 
+    def test_every_roster_region_filters_unaffordable_opening_actors(self):
+        regions = sorted({str(data["region"]) for data in ENEMY_ARCHETYPES.values()})
+        for index in range(100):
+            for region in regions:
+                plan = compose_encounter(f"all-region-budget-{index}", region, "steady", 0)
+                self.assertLessEqual(plan.spent, plan.budget)
+        with self.assertRaisesRegex(ValueError, "fits the encounter budget"):
+            compose_encounter(
+                "unaffordable-only", "hearthford", "steady", 0,
+                candidates=("hearth-roof-keeper", "hearth-cargo-reaver"),
+            )
+
     def test_production_regions_use_finite_budgeted_groups(self):
         for region in REGION_IDS:
             first = production_encounter_groups("production groups", region)

@@ -1,6 +1,7 @@
 import copy
 import unittest
 
+from jomon.regions import region_reachable
 from jomon.state import Position
 from jomon.systemic_audit import expanded_world, inspect_world, systemic_audit
 
@@ -16,6 +17,18 @@ class SystemicAuditTests(unittest.TestCase):
         self.assertEqual(len(metrics), 8)
         self.assertEqual(sum(value["containers"] for value in metrics.values()), 62)
         self.assertTrue(all(value["used_levels"] == 4 for value in metrics.values()))
+
+    def test_seed_shaped_hearthford_threats_remain_connected(self):
+        state = expanded_world("systemic-audit-0002")
+        reachable = region_reachable(state.regions["hearthford"])
+        reaver = next(
+            actor for actor in state.region_threats["hearthford"]
+            if actor.id == "pressure-reavers"
+        )
+        self.assertIn(reaver.position, reachable)
+        self.assertEqual(reaver.home_position, reaver.position)
+        errors, _ = inspect_world(state)
+        self.assertEqual(errors, [])
 
     def test_audit_detects_an_unreachable_actor_and_precommitted_shot(self):
         state = copy.deepcopy(self.world)
