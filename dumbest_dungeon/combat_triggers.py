@@ -22,7 +22,16 @@ MERCY = TriggerSpec("boon:mercy_circuit", EventType.HEAL, (EventType.BLOCK,),
                     limiter=Limiter(LimitKind.FAMILY, family="mercy"), proc_family="mercy")
 ADRENAL = TriggerSpec("boon:adrenal_coil", EventType.DAMAGE, (EventType.BLOCK,), priority=-10,
                       limiter=Limiter(LimitKind.FAMILY, family="adrenal"), proc_family="adrenal")
-REGISTERED = {spec.id: spec for spec in (RIPOSTE, MERCY, ADRENAL) + CARD_TRIGGERS + CURSE_TRIGGERS}
+THIRD_BELL = TriggerSpec("base:third_bell", EventType.CARD_PLAY, (EventType.BLOCK,),
+                         priority=90, limiter=Limiter(LimitKind.TURN), proc_family="mutation:third_bell")
+DEATH_SURGE = TriggerSpec("base:death_surge", EventType.DEATH, (EventType.STATUS,), phase=Phase.DEATH,
+                          priority=100, limiter=Limiter(LimitKind.ROOT), proc_family="mutation:death_surge")
+RIME_SHELL = TriggerSpec("biome:rime_shell", EventType.STATUS, (), phase=Phase.REPLACE,
+                         priority=-130, limiter=Limiter(LimitKind.COMBAT), proc_family="mutation:rime_shell")
+SPORE_LINK = TriggerSpec("biome:spore_link", EventType.DEATH, (EventType.STATUS,), phase=Phase.DEATH,
+                         priority=140, limiter=Limiter(LimitKind.ROOT), proc_family="mutation:spore_link")
+MUTATION_TRIGGERS = (THIRD_BELL, DEATH_SURGE, RIME_SHELL, SPORE_LINK)
+REGISTERED = {spec.id: spec for spec in (RIPOSTE, MERCY, ADRENAL) + CARD_TRIGGERS + CURSE_TRIGGERS + MUTATION_TRIGGERS}
 HOST_EDGES = (TriggerSpec("rules:draw_cards", EventType.DRAW, (EventType.CARD_DRAW,), phase=Phase.PRIMARY),
               TriggerSpec("rules:lethal_damage", EventType.DAMAGE, (EventType.DEATH,), phase=Phase.PRIMARY))
 validate_trigger_graph(tuple(REGISTERED.values()) + HOST_EDGES)

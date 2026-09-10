@@ -19,7 +19,18 @@ from .migrations import MigrationError, migrate_run
 from .versions import RUN_SAVE_SCHEMA
 from .telemetry import RunLedger
 from .resolution import Event, EventQueue, Listener, Payload
-from .combat_triggers import ADRENAL, CARD_TRIGGERS, CURSE_TRIGGERS, MERCY, REGISTERED, RIPOSTE
+from .combat_triggers import (
+    ADRENAL,
+    CARD_TRIGGERS,
+    CURSE_TRIGGERS,
+    DEATH_SURGE,
+    MERCY,
+    REGISTERED,
+    RIME_SHELL,
+    RIPOSTE,
+    SPORE_LINK,
+    THIRD_BELL,
+)
 from .contracts import Opcode
 from .passives import persistent_effect, trigger_disclosure
 from .pressure import PressureSource, action_price, pressure_band, pressure_status
@@ -1959,8 +1970,8 @@ class GameEngine:
                 raise RuleError("save queue references an unknown or repeated actor")
             continuation = event.event_type in {EventType.CARD_STEP, EventType.CARD_PLAY, EventType.CLEANUP}
             if event.event_type == EventType.DEATH:
-                if event.payload.actor_id not in hero_ids or event.payload.opcode is not None:
-                    raise RuleError("save queue has an invalid casualty notification")
+                if event.payload.actor_id not in actor_ids or event.payload.opcode is not None:
+                    raise RuleError("save queue has an invalid death notification")
             elif event.event_type in {EventType.CARD_DRAW, EventType.CARD_HELD}:
                 curse = catalog.curses.get(event.payload.card_id)
                 if (curse is None or curse["kind"] != "card" or event.payload.actor_id not in hero_ids
@@ -4017,6 +4028,33 @@ class GameEngine:
         self.resolve_pending(close_root=owns_root)
 
     def _resolution_listeners(self, event: Event) -> tuple[Listener, ...]:
+        actor_order = {
+            actor.id: index
+            for index, actor in enumerate(self.state.heroes + self.state.enemies, 1)
+        }
+        modules = set(self.state.encounter_modules)
+        if event.event_type == EventType.DEATH:
+            fallen = next(
+                (actor for actor in self.state.enemies if actor.id == event.payload.actor_id),
+                None,
+            )
+            survivors = self.living_enemies()
+            if fallen is None or not survivors:
+                return ()
+            owner = survivors[0]
+            specs = tuple(
+                spec
+                for spec in (DEATH_SURGE, SPORE_LINK)
+                if spec.id in modules
+            )
+            return tuple(Listener(spec, actor_order[owner.id], owner.id) for spec in specs)
+        if event.event_type == EventType.STATUS and RIME_SHELL.id in modules:
+            target = next(
+                (actor for actor in self.living_enemies() if actor.id in event.target_ids),
+                None,
+            )
+            if target is not None and event.payload.status == "stun":
+                return (Listener(RIME_SHELL, actor_order[target.id], target.id),)
         if event.event_type == EventType.HEAL:
             return tuple(Listener(MERCY, index, actor.id) for index, actor in enumerate(self.state.heroes, 1)
                          if actor.id == event.payload.actor_id and actor.alive
@@ -4026,9 +4064,13 @@ class GameEngine:
             return tuple(Listener(spec, index, actor.id) for index, actor in enumerate(self.state.heroes, 1)
                          if actor.id == event.payload.actor_id and actor.alive)
         if event.event_type == EventType.CARD_PLAY:
-            return tuple(Listener(CARD_TRIGGERS[event.payload.effect_index], index, actor.id)
-                         for index, actor in enumerate(self.state.heroes, 1)
-                         if actor.id == event.payload.actor_id and actor.alive)
+            listeners = tuple(Listener(CARD_TRIGGERS[event.payload.effect_index], index, actor.id)
+                              for index, actor in enumerate(self.state.heroes, 1)
+                              if actor.id == event.payload.actor_id and actor.alive)
+            if event.payload.effect_index == 0 and THIRD_BELL.id in modules and self.living_enemies():
+                owner = self.living_enemies()[0]
+                listeners += (Listener(THIRD_BELL, actor_order[owner.id], owner.id),)
+            return listeners
         if event.event_type != EventType.DAMAGE:
             return ()
         ripostes = tuple(Listener(RIPOSTE, index, actor.id)
@@ -4040,6 +4082,8 @@ class GameEngine:
         return ripostes + adrenal
 
     def _resolve_trigger(self, listener: Listener, event: Event, queue: EventQueue) -> bool:
+        if listener.spec in (THIRD_BELL, DEATH_SURGE, RIME_SHELL, SPORE_LINK):
+            return self._mutation_trigger(listener, event, queue)
         if listener.spec in (MERCY, ADRENAL):
             return self._reactive_block(listener, event, queue)
         if listener.spec in CURSE_TRIGGERS:
@@ -4064,6 +4108,65 @@ class GameEngine:
                            Payload(actor_id=defender.id, opcode=Opcode.DAMAGE, amount=4, raw_damage=True),
                            source_id=f"status:riposte:{defender.id}")
                 return True
+        return False
+
+    def _mutation_trigger(self, listener: Listener, event: Event, queue: EventQueue) -> bool:
+        mutation = self.catalog.mutations[listener.spec.id]
+        amount = int(mutation["amount"])
+        enemies = self.living_enemies()
+        heroes = self.living_heroes()
+        if listener.spec == RIME_SHELL:
+            if event.payload.status != "stun" or not any(
+                enemy.id in event.target_ids for enemy in enemies
+            ):
+                return False
+            queue.prevent()
+            self.add_log("RESIST:STUN — Rime Shell consumes the first stun.")
+            self.record("mutation_reaction", listener.spec.id, event_id=event.event_id,
+                        effect="resist_first_stun", targets=list(event.target_ids))
+            return True
+        fallen = next(
+            (enemy for enemy in self.state.enemies if enemy.id == event.payload.actor_id),
+            None,
+        )
+        if listener.spec in (DEATH_SURGE, SPORE_LINK):
+            if fallen is None or not enemies:
+                return False
+            if listener.spec == DEATH_SURGE:
+                target = min(enemies, key=lambda enemy: (abs(enemy.rank - fallen.rank), enemy.rank, enemy.id))
+                queue.emit(EventType.STATUS, (target.id,),
+                           Payload(actor_id=listener.entity_id, opcode=Opcode.STATUS,
+                                   amount=amount, status="focus"),
+                           source_id=listener.spec.id)
+                message = "SURGE:ALLY_DIES — the nearest hostile gains focus."
+            else:
+                if not heroes:
+                    return False
+                target = heroes[0]
+                queue.emit(EventType.STATUS, (target.id,),
+                           Payload(actor_id=listener.entity_id, opcode=Opcode.STATUS,
+                                   amount=amount, status="wound"),
+                           source_id=listener.spec.id)
+                message = "SURGE:WOUND — spores wound the front crew member."
+            self.add_log(message)
+            self.record("mutation_reaction", listener.spec.id, event_id=event.event_id,
+                        effect=mutation["effect"], target=target.id)
+            return True
+        if listener.spec == THIRD_BELL:
+            cards = sum(
+                self.state.effect_counters.get(f"round_cards:{hero.id}", 0)
+                for hero in self.state.heroes
+            )
+            if cards != 3 or not enemies:
+                return False
+            target = enemies[0]
+            queue.emit(EventType.BLOCK, (target.id,),
+                       Payload(actor_id=listener.entity_id, opcode=Opcode.BLOCK, amount=amount),
+                       source_id=listener.spec.id)
+            self.add_log("REACT:3RD_CARD — the front hostile gains block.")
+            self.record("mutation_reaction", listener.spec.id, event_id=event.event_id,
+                        effect=mutation["effect"], target=target.id)
+            return True
         return False
 
     def _reactive_block(self, listener: Listener, event: Event, queue: EventQueue) -> bool:
@@ -4733,6 +4836,14 @@ class GameEngine:
                 self.add_log(f"{target.name} is at Death's Door.")
         elif target.side == "enemy" and target.hp == 0:
             self.add_log(f"{target.name} is destroyed.")
+            if self.resolution.state.active is not None:
+                self.resolution.emit(
+                    EventType.DEATH,
+                    (target.id,),
+                    Payload(actor_id=target.id),
+                    source_id=source,
+                    mandatory=True,
+                )
             self._normalize_ranks("enemy")
     def _hero_died(self, hero: Actor) -> None:
         death_rank = hero.rank
