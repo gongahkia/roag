@@ -1,6 +1,6 @@
 # Persistence contracts
 
-The run save currently uses schema 41, content schema 29, and the existing Python
+The run save currently uses schema 41, content schema 30, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry and manifests are implemented; the persistent profile is still pending.
 
@@ -13,6 +13,10 @@ recovery, stealth, reward choice and first-hit mitigation.
 
 Content schema 29 completes the +18 item target with six late-stack pivots and
 one bounded multiplicative marked-damage engine.
+
+Content schema 30 adds twelve unique boon bridges. Their component rules use
+the existing typed trigger contracts, but their paired build identities are
+kept out of the stackable item lane.
 
 Schema 41 records engine 1.0.0 and adds the selected owner-to-loadout mapping
 and optional party doctrine. The pure 40→41 migration supplies an empty mapping

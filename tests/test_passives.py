@@ -113,6 +113,28 @@ class PassiveContractTests(unittest.TestCase):
         self.assertEqual(Fraction(1, 10), blood_price.value(1))
         self.assertEqual(Fraction(1, 4), blood_price.value(100))
 
+    def test_expansion_boons_are_unique_rules_with_distinct_bridges(self) -> None:
+        catalog = load_catalog()
+        identities = [identity for identity in catalog.boons if identity.startswith("base:")]
+        self.assertEqual(12, len(identities))
+        shapes = []
+        for identity in identities:
+            boon = catalog.boons[identity]
+            self.assertEqual(2, len(boon["effects"]))
+            self.assertTrue(all(
+                effect.contract.stack.mode.value in {"unique", "duration_refresh"}
+                for effect in boon["effects"]
+            ))
+            self.assertEqual(
+                [effect.contract.value(1) for effect in boon["effects"]],
+                [effect.contract.value(9) for effect in boon["effects"]],
+            )
+            shapes.append(tuple(
+                (effect["key"], effect.contract.stack.mode.value, effect.contract.stack.amount)
+                for effect in boon["effects"]
+            ))
+        self.assertEqual(len(shapes), len(set(shapes)))
+
     def test_diminishing_boons_have_exact_first_copy_and_soft_caps(self) -> None:
         expected = {
             "gentle_hands": (800, 5000),

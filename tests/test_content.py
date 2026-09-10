@@ -44,6 +44,7 @@ class ContentTests(unittest.TestCase):
         self.assertEqual(25, len(catalog.loadouts))
         self.assertEqual(11, len(catalog.doctrines))
         self.assertEqual(36, len(catalog.items))
+        self.assertEqual(30, len(catalog.boons))
         self.assertEqual(MUTATION_EFFECTS, {mutation["effect"] for mutation in catalog.mutations.values()})
         self.assertGreaterEqual(len(catalog.squads), 4)
         self.assertEqual(set(catalog.heroes), set(catalog.art["heroes"]))
