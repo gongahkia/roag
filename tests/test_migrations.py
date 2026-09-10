@@ -24,6 +24,7 @@ from dumbest_dungeon.migrations import (
     run_41_to_42,
     run_42_to_43,
     run_43_to_44,
+    run_44_to_45,
 )
 from dumbest_dungeon.policies import Policy, canonical_hash, execute_command
 
@@ -316,6 +317,23 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual("standard", migrated["state"]["expedition_mode"])
         self.assertEqual([], migrated["state"]["active_modifiers"])
         self.assertEqual(["base:core"], migrated["state"]["enabled_packs"])
+
+    def test_loop_migration_preserves_pre_victory_run(self) -> None:
+        current = GameEngine.new(load_catalog(), 54)
+        old = current.snapshot()
+        old["save_version"] = 44
+        old["content_manifest"]["engine"] = "1.3.0"
+        for key in (
+            "base_victory", "base_victory_archived", "loop_depth",
+            "archived_loop_depth", "score", "boss_sequence",
+        ):
+            del old["state"][key]
+        before = deepcopy(old)
+        migrated = run_44_to_45(old)
+        self.assertEqual(before, old)
+        self.assertEqual(45, migrated["save_version"])
+        self.assertFalse(migrated["state"]["base_victory"])
+        self.assertEqual([], migrated["state"]["boss_sequence"])
 
 
 if __name__ == "__main__":

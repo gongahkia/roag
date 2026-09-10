@@ -275,6 +275,8 @@ class TerminalUI:
                         "You navigated, repaired a broken formation, read coordinated intents, survived an enemy phase, chose a reward, and inspected the changed shared deck. Nothing from this lesson carries into a normal expedition.",
                     )
                     self.engine = None
+                elif phase == "post_victory":
+                    self._post_victory()
                 elif phase in {"victory", "defeat"}:
                     self._ending(phase)
                     self.engine = None
@@ -2437,7 +2439,8 @@ class TerminalUI:
 
     def _ending(self, phase: str) -> None:
         assert self.engine
-        self._archive_run(phase)
+        if phase != "victory" or not self.engine.state.base_victory_archived:
+            self._archive_run(phase)
         title = "EVACUATION COMPLETE" if phase == "victory" else "EXPEDITION LOST"
         final_name = str(self.engine.finale_intel().get("name", "Apex contact"))
         body = (
@@ -2446,6 +2449,41 @@ class TerminalUI:
             else "The last voice drops from the comms. No one remains to finish the mission."
         )
         self._notice(title, body + f"\n\nSeed: {self.engine.state.seed}")
+
+    def _post_victory(self) -> None:
+        assert self.engine
+        state = self.engine.state
+        needs_archive = (
+            state.loop_depth == 0 and not state.base_victory_archived
+        ) or state.loop_depth > state.archived_loop_depth
+        if needs_archive:
+            self._archive_run("victory" if state.loop_depth == 0 else "loop_clear")
+            if state.loop_depth == 0:
+                state.base_victory_archived = True
+            else:
+                state.archived_loop_depth = state.loop_depth
+            try:
+                snapshot = self.engine.snapshot()
+                snapshot["local_session"] = {"elapsed_seconds": self._session_duration()}
+                write_save(self.save_path, snapshot)
+            except SaveError as exc:
+                self._notice("VICTORY SAVE FAILED", str(exc))
+                return
+        finale = str(self.engine.finale_intel().get("name", "Apex contact"))
+        picked = self._menu(
+            "THE SIGNAL BREAKS",
+            ["EXTRACT — end with the secured clear", "DESCEND AGAIN — preserve the build"],
+            f"{finale} is silent. Base victory is already recorded.\n"
+            f"Loop {state.loop_depth} | Score {state.score} | Pressure {state.pressure}\n"
+            "Another descent remixes four regions, starts at a sharply higher pressure floor, "
+            "requires one objective signal, and preserves surviving crew, deck, masteries, "
+            "infusions, items, boons, curses, and casualties.",
+            allow_cancel=False,
+        )
+        if picked == 0:
+            self.engine.extract()
+        else:
+            self.engine.descend_again()
 
     def _help(self) -> None:
         text = (

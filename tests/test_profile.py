@@ -14,6 +14,7 @@ from dumbest_dungeon.profile import (
     new_profile,
     read_profile,
     update_profile,
+    validate_profile,
     write_profile,
 )
 
@@ -72,6 +73,27 @@ class ProfileTests(unittest.TestCase):
         profile = update_profile(new_profile(), report)
         self.assertEqual(1, profile["best_completed_rank"])
         self.assertEqual(2, profile["unlocked_rank"])
+
+    def test_version_one_profile_migrates_without_power_or_loop_claims(self) -> None:
+        old = new_profile()
+        old["profile_version"] = 1
+        del old["best_loop_depth"]
+        del old["best_score"]
+        migrated = validate_profile(old)
+        self.assertEqual(2, migrated["profile_version"])
+        self.assertEqual(0, migrated["best_loop_depth"])
+        self.assertEqual(0, migrated["best_score"])
+
+    def test_loop_clear_updates_records_without_counting_a_second_base_win(self) -> None:
+        engine = GameEngine.new(load_catalog(), 4603)
+        engine.state.base_victory = True
+        engine.state.loop_depth = 2
+        engine.state.score = 3900
+        report = run_report(engine, outcome="loop_clear")
+        profile = update_profile(new_profile(), report)
+        self.assertEqual(0, profile["base_victories"])
+        self.assertEqual(2, profile["best_loop_depth"])
+        self.assertEqual(3900, profile["best_score"])
 
 
 if __name__ == "__main__":

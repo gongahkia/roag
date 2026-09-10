@@ -12,6 +12,7 @@ from dumbest_dungeon.engine import CardInstance, GameEngine
 from dumbest_dungeon.ui import TerminalUI
 from dumbest_dungeon.history import write_run
 from dumbest_dungeon.pressure import PressureSource
+from dumbest_dungeon.save import read_save
 
 
 class FakeScreen:
@@ -88,6 +89,27 @@ class AsciiUiTests(unittest.TestCase):
             self.ui._start_session(20)
             self.assertEqual(65, self.ui._session_duration())
         self.assertEqual(before, self.engine.snapshot())
+
+    def test_post_victory_archives_clear_before_extract_choice(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            self.ui.save_path = Path(directory) / "run.json"
+            self.ui.detailed_telemetry = False
+            self.ui._elapsed_seconds = 0
+            self.ui._session_started = None
+            encounter_id = self.engine._freeze_finale(self.engine.state.objectives[1])
+            boss_room = next(room for room in self.engine.state.rooms if room.kind == "boss")
+            self.engine.state.current_room = boss_room.id
+            self.engine.start_combat(encounter_id, "boss")
+            for enemy in self.engine.state.enemies:
+                enemy.hp = 0
+            self.engine._combat_victory()
+            self.ui.screen = FakeScreen(keys=[10])
+            self.ui._post_victory()
+            self.assertEqual("victory", self.engine.state.phase)
+            self.assertTrue(self.engine.state.base_victory_archived)
+            self.assertTrue(self.ui.save_path.exists())
+            profile = read_save(self.ui.save_path.parent / "profile.json")
+            self.assertEqual(1, profile["base_victories"])
 
     def setUp(self) -> None:
         self.catalog = load_catalog()

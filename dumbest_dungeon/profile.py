@@ -23,6 +23,8 @@ def new_profile() -> dict[str, Any]:
         "base_victories": 0,
         "unlocked_rank": 1,
         "best_completed_rank": 0,
+        "best_loop_depth": 0,
+        "best_score": 0,
         "discoveries": {kind: [] for kind in DISCOVERY_KINDS},
         "completed_contracts": [],
         "graveyard": [],
@@ -32,16 +34,26 @@ def new_profile() -> dict[str, Any]:
 def migrate_profile(profile: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(profile, dict) or type(profile.get("profile_version")) is not int:
         raise ProfileError("profile requires an integer version")
-    if profile["profile_version"] != PROFILE_SCHEMA:
-        raise ProfileError(f"unsupported profile version {profile['profile_version']}")
-    return deepcopy(profile)
+    result = deepcopy(profile)
+    if result["profile_version"] == 1:
+        expected = {
+            "profile_version", "runs_archived", "base_victories", "unlocked_rank",
+            "best_completed_rank", "discoveries", "completed_contracts", "graveyard",
+        }
+        if set(result) != expected:
+            raise ProfileError("profile version 1 has unknown or missing fields")
+        result.update(profile_version=2, best_loop_depth=0, best_score=0)
+    if result["profile_version"] != PROFILE_SCHEMA:
+        raise ProfileError(f"unsupported profile version {result['profile_version']}")
+    return result
 
 
 def validate_profile(profile: dict[str, Any]) -> dict[str, Any]:
     profile = migrate_profile(profile)
     expected = {
         "profile_version", "runs_archived", "base_victories", "unlocked_rank",
-        "best_completed_rank", "discoveries", "completed_contracts", "graveyard",
+        "best_completed_rank", "best_loop_depth", "best_score", "discoveries",
+        "completed_contracts", "graveyard",
     }
     if set(profile) != expected:
         raise ProfileError("profile has unknown or missing fields")
@@ -52,6 +64,10 @@ def validate_profile(profile: dict[str, Any]) -> dict[str, Any]:
         or not 1 <= profile["unlocked_rank"] <= 20
         or type(profile["best_completed_rank"]) is not int
         or not 0 <= profile["best_completed_rank"] <= profile["unlocked_rank"]
+        or type(profile["best_loop_depth"]) is not int
+        or profile["best_loop_depth"] < 0
+        or type(profile["best_score"]) is not int
+        or profile["best_score"] < 0
     ):
         raise ProfileError("profile progression counters are invalid")
     for key in ("runs_archived", "completed_contracts"):
@@ -109,6 +125,8 @@ def update_profile(profile: dict[str, Any], report: dict[str, Any]) -> dict[str,
         if 1 <= rank <= result["unlocked_rank"]:
             result["best_completed_rank"] = max(result["best_completed_rank"], rank)
             result["unlocked_rank"] = min(20, max(result["unlocked_rank"], rank + 1))
+    result["best_loop_depth"] = max(result["best_loop_depth"], int(report.get("loop_depth", 0)))
+    result["best_score"] = max(result["best_score"], int(report.get("score", 0)))
     discoveries = {key: set(values) for key, values in result["discoveries"].items()}
     discoveries["cards"].update(report["cards"])
     discoveries["cards"].update(card["card_id"] for card in report["deck"])
@@ -125,14 +143,20 @@ def update_profile(profile: dict[str, Any], report: dict[str, Any]) -> dict[str,
         elif encounter.get("kind") == "boss":
             discoveries["finales"].add(encounter["id"])
     result["discoveries"] = {key: sorted(values) for key, values in discoveries.items()}
+    existing_graves = {
+        (row["seed"], row["hero_id"], row["tick"]) for row in result["graveyard"]
+    }
     result["graveyard"].extend(
-        {
+        row for row in (
+            {
             "run_id": run_id,
             "seed": report["seed"],
             "hero_id": row["source_id"],
             "tick": row["tick"],
-        }
-        for row in report["decisions"]
-        if row["kind"] == "crew_death"
+            }
+            for row in report["decisions"]
+            if row["kind"] == "crew_death"
+        )
+        if (row["seed"], row["hero_id"], row["tick"]) not in existing_graves
     )
     return validate_profile(result)

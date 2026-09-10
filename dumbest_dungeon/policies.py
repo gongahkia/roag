@@ -28,6 +28,7 @@ COMMANDS = frozenset({
     "choose_reward", "choose_event", "service", "boon_pickup_options",
     "resolve_boon_pickup", "resolve_item_pickup", "bargain_options",
     "resolve_bargain", "resolve_hidden_trap",
+    "extract", "descend_again",
 })
 
 
@@ -232,6 +233,8 @@ class Policy:
         state = engine.state
         if state.phase in {"victory", "defeat"}:
             return None
+        if state.phase == "post_victory":
+            return Command("extract")
         if state.phase == "exploration":
             return self._travel(engine)
         if state.phase == "combat":

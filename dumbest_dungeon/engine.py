@@ -216,6 +216,12 @@ class GameState:
     expedition_mode: str = "standard"
     active_modifiers: list[str] = field(default_factory=list)
     enabled_packs: list[str] = field(default_factory=lambda: ["base:core"])
+    base_victory: bool = False
+    base_victory_archived: bool = False
+    loop_depth: int = 0
+    archived_loop_depth: int = 0
+    score: int = 0
+    boss_sequence: list[str] = field(default_factory=list)
     tutorial: bool = False
     tutorial_stage: int = 0
     current_room: int = 0
@@ -1664,6 +1670,12 @@ class GameEngine:
                 expedition_mode=raw["expedition_mode"],
                 active_modifiers=raw["active_modifiers"],
                 enabled_packs=raw["enabled_packs"],
+                base_victory=raw["base_victory"],
+                base_victory_archived=raw["base_victory_archived"],
+                loop_depth=raw["loop_depth"],
+                archived_loop_depth=raw["archived_loop_depth"],
+                score=raw["score"],
+                boss_sequence=raw["boss_sequence"],
                 tutorial=raw["tutorial"],
                 tutorial_stage=raw["tutorial_stage"],
                 current_room=raw["current_room"],
@@ -1731,6 +1743,23 @@ class GameEngine:
             or state.enabled_packs != ["base:core"]
         ):
             raise RuleError("save contains incompatible challenge configuration")
+        if (
+            type(state.base_victory) is not bool
+            or type(state.base_victory_archived) is not bool
+            or type(state.loop_depth) is not int
+            or state.loop_depth < 0
+            or type(state.archived_loop_depth) is not int
+            or not 0 <= state.archived_loop_depth <= state.loop_depth
+            or type(state.score) is not int
+            or state.score < 0
+            or not isinstance(state.boss_sequence, list)
+            or len(state.boss_sequence) > state.loop_depth + 1
+            or any(item not in catalog.encounters for item in state.boss_sequence)
+            or state.loop_depth and not state.base_victory
+            or state.base_victory_archived and not state.base_victory
+            or state.phase == "post_victory" and not state.base_victory
+        ):
+            raise RuleError("save contains invalid loop progression")
         if (
             not isinstance(state.biome_ids, list)
             or len(state.biome_ids) != 4
@@ -2457,7 +2486,7 @@ class GameEngine:
         profile = director_profile(pressure)
         kind = self.state.combat_kind or "normal"
         health = ladder_modifier(self.state.ladder_rank, "normal_health_bp")
-        mutations = ladder_modifier(self.state.ladder_rank, "mutation_slots")
+        mutations = ladder_modifier(self.state.ladder_rank, "mutation_slots") + self.state.loop_depth
         if "third_card_reaction" in self.state.active_modifiers:
             mutations += 1
         if kind == "elite":
@@ -2478,6 +2507,7 @@ class GameEngine:
             reinforcement_tickets=(
                 profile.reinforcement_tickets
                 + ladder_modifier(self.state.ladder_rank, "reinforcement_tickets")
+                + self.state.loop_depth
             ),
             enemy_health_bp=profile.enemy_health_bp + health,
             enemy_damage_bp=profile.enemy_damage_bp + damage,
@@ -2505,6 +2535,7 @@ class GameEngine:
                 profile.hazard_reach
                 + ladder_modifier(self.state.ladder_rank, "hazard_reach")
                 + (1 if "hazardous_routes" in self.state.active_modifiers else 0)
+                + self.state.loop_depth
             ),
         )
 
@@ -3314,12 +3345,15 @@ class GameEngine:
         frozen = self.finale_encounter_id()
         if frozen is not None:
             return frozen
-        candidates = (
+        candidates = [
             "the_core",
             "base:finale_signal_tyrant",
             "base:finale_mercy_engine",
             "base:finale_breach_oracle",
-        )
+        ]
+        unseen = [item for item in candidates if item not in self.state.boss_sequence]
+        if unseen:
+            candidates = unseen
         completed = sorted(
             f"{item.biome_id}:{item.approach}:{item.outcome}"
             for item in self.state.objectives
@@ -6315,12 +6349,25 @@ class GameEngine:
         self._clear_encounter_director()
         if kind == "boss":
             self.room().resolved = True
-            self.state.phase = "victory"
+            finale_id = self.finale_encounter_id() or self.room().content_id or ""
+            if finale_id:
+                self.state.boss_sequence.append(finale_id)
+            self.state.base_victory = True
+            self.state.score += (
+                1000 + 100 * len(self.living_heroes())
+                + 100 * self.completed_objectives() + 750 * self.state.loop_depth
+            )
+            self.record(
+                "base_victory" if self.state.loop_depth == 0 else "loop_victory",
+                finale_id or "boss", loop_depth=self.state.loop_depth,
+                score=self.state.score, pressure=self.state.pressure,
+            )
+            self.state.phase = "post_victory"
             names = " / ".join(
                 self.catalog.enemies[enemy_id]["name"]
                 for enemy_id in self.room().enemy_ids
             )
-            self.add_log(f"{names} falls silent. Evacuation is possible.")
+            self.add_log(f"{names} falls silent. Extract, or descend again.")
             return
         if kind == "guardian":
             objective = next(
@@ -6360,6 +6407,75 @@ class GameEngine:
         if self.state.tutorial:
             self.state.tutorial_stage = 7
         self.add_log("Combat won. Choose a recovered technique.")
+
+    def extract(self) -> None:
+        if self.state.phase != "post_victory" or not self.state.base_victory:
+            raise RuleError("extraction is available only after a final victory")
+        self.record(
+            "extract", "expedition", loop_depth=self.state.loop_depth,
+            score=self.state.score, bosses=list(self.state.boss_sequence),
+        )
+        self.state.phase = "victory"
+        self.add_log("The surviving crew extracts with the base clear secured.")
+
+    def descend_again(self) -> None:
+        if self.state.phase != "post_victory" or not self.state.base_victory:
+            raise RuleError("another descent is available only after a final victory")
+        next_depth = self.state.loop_depth + 1
+        material = canonical_bytes(
+            {"domain": "loop", "seed": self.state.seed, "depth": next_depth, "rng": 1}
+        )
+        loop_seed = int.from_bytes(hashlib.sha256(material).digest()[:8], "big")
+        remixed = GameEngine.new(self.catalog, loop_seed, start_in_hub=True)
+        # Generating patrol routes needs an active world; the remixed starter deck is
+        # discarded below while the surviving build remains on this engine.
+        remixed.begin_expedition()
+        state = self.state
+        state.loop_depth = next_depth
+        state.rooms = remixed.state.rooms
+        state.world_tiles = remixed.state.world_tiles
+        state.world_id = remixed.state.world_id
+        state.biome_ids = remixed.state.biome_ids
+        state.room_positions = remixed.state.room_positions
+        state.current_room = 0
+        state.party_x = remixed.state.party_x
+        state.party_y = remixed.state.party_y
+        state.patrols = remixed.state.patrols
+        state.active_patrol_id = None
+        state.pickups = remixed.state.pickups
+        state.current_pickup_id = None
+        state.hazards = remixed.state.hazards
+        state.current_hazard_id = None
+        state.facilities = remixed.state.facilities
+        state.current_facility_id = None
+        state.objectives = remixed.state.objectives
+        state.landmarks = remixed.state.landmarks
+        state.current_objective_id = None
+        state.required_objectives = 1
+        state.known_feature_ids = []
+        state.pressure = max(state.pressure, 1100 + (next_depth - 1) * 600)
+        state.pressure_recent = []
+        state.pressure_incomplete_before_tick = None
+        state.current_event = None
+        state.service_type = None
+        state.combat_kind = None
+        state.rewards = []
+        state.enemies = []
+        state.round = 0
+        state.energy = 0
+        state.phase = "exploration"
+        self.rng = remixed.rng
+        self.resolution.state.combat_token += 1
+        self.record(
+            "loop_enter", "expedition", loop_depth=next_depth, loop_seed=loop_seed,
+            world=state.world_id, biomes=list(state.biome_ids),
+            pressure_floor=state.pressure, required_objectives=1,
+        )
+        self._update_perception()
+        self.add_log(
+            f"DESCENT {next_depth}: corrupted regions remix. Pressure cannot fall below "
+            f"{state.pressure}; one signal opens the shortened Core route."
+        )
 
     def _generate_card_rewards(self, count: int, lane: Lane = Lane.NORMAL) -> list[str]:
         active_heroes = {hero.id for hero in self.living_heroes()}

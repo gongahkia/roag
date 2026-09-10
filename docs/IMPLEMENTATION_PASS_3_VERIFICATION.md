@@ -688,6 +688,15 @@ contracts, a keyboard-only custom builder, and strict code import. The builder
 selects an exact seed, layout, four biomes, pressure start and unlocked ladder
 rank, then returns to the same crew/loadout/doctrine hub used by standard play.
 
+Engine 1.4.0/save 45 implements the post-finale boundary. Boss resolution enters
+`post_victory`, records the base clear and exact score before input, and offers
+extract or descend. A descent retains the surviving actors and every deck-copy
+modifier and run effect, derives a deterministic remixed world without Python
+`hash()`, raises pressure to at least 1100, requires one objective, and adds one
+mutation and reinforcement capacity per loop. Finale selection avoids repeats
+until all four identities have appeared. Profile schema 2 records best depth and
+score horizontally; base wins remain distinct from loop clears.
+
 Content schema 36 gives Reactor Chapel six normal participants, two elite-only
 roles and the Choir Meltdown guardian. Three new normal roles split marking,
 cash-out and formation disruption; Critical Abbot and Containment Hulk create

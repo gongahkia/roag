@@ -1,6 +1,6 @@
 # Persistence contracts
 
-The run save currently uses schema 44, content schema 45, and the existing Python
+The run save currently uses schema 45, content schema 45, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry, manifests, and the separate local profile are implemented.
 
@@ -289,3 +289,13 @@ ruleset 1, and the ISO calendar date. Neither feature uses Python `hash()`.
 Run schema 44 adds the expedition mode, sorted active challenge modifiers and
 enabled content packs. The pure 43→44 migration assigns standard mode, no
 modifiers and `base:core`; a historical expedition therefore resumes unchanged.
+
+Run schema 45 adds base-victory, archival, loop-depth, exact integer score and
+boss-sequence state. The pure 44→45 migration initializes a still-active old run
+without claiming a victory. Loop worlds use the first 64 SHA-256 bits of a
+canonical `{domain, seed, depth, rng}` record, then preserve that world's full
+generated state and the continuing simulation RNG in ordinary atomic saves.
+
+Profile schema 2 is a separate pure 1→2 migration adding best loop depth and
+best exact score. It adds no combat-power field. Re-archiving a later loop does
+not duplicate an earlier casualty in the graveyard or count another base win.

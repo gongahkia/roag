@@ -24,7 +24,7 @@ python3 -m dumbest_dungeon --telemetry
 
 A generated seed appears in the map HUD and ending screen. Supplying `--seed` makes new expeditions in that process reproducible. The default save is `$XDG_STATE_HOME/dullest-dungeon/run.save.json`, or `~/.local/state/dullest-dungeon/run.save.json` when `XDG_STATE_HOME` is unset. The existing `dumbest_dungeon` Python package name remains the launch path; it is an internal compatibility detail, not the public title.
 
-Biome worlds use content schema 45 and save version 44. The explicit migration chain supports the recorded version-26/content-20 baseline and versions 27–43; embedded schema-21 through schema-44 rules and the archived content-20 rules remain loadable when their fingerprints match; unavailable rules and unsupported versions are rejected. See the [persistence reference](docs/PERSISTENCE.md).
+Biome worlds use content schema 45 and save version 45. The explicit migration chain supports the recorded version-26/content-20 baseline and versions 27–44; embedded schema-21 through schema-44 rules and the archived content-20 rules remain loadable when their fingerprints match; unavailable rules and unsupported versions are rejected. See the [persistence reference](docs/PERSISTENCE.md).
 
 Completed and abandoned expeditions are recorded locally under `history/` beside
 the save file. **Run history** on the title screen supports text filtering and
@@ -43,6 +43,14 @@ challenge codes. Custom settings cover layout, four biomes, starting pressure
 and an unlocked ascending rank; crew, formation, advanced loadouts, and doctrine
 remain editable in the ordinary hub. The only current content pack is the
 inspectable `base:core` pack, so catalog growth cannot silently change a code.
+
+After a final boss, the clear is written before the choice to **EXTRACT** or
+**DESCEND AGAIN**. Descending preserves the surviving owner-bound deck and all
+copy upgrades, masteries, infusions, items, boons, curses, and casualties. It
+deterministically remixes four regions, raises the irreversible pressure floor,
+adds mutation/reinforcement capacity, and shortens access to one objective.
+Extraction remains available after every cleared loop; a later death cannot
+erase the already recorded base victory.
 
 ## Controls and rules
 

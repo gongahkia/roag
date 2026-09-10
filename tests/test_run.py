@@ -128,6 +128,8 @@ class ScriptedRunTests(unittest.TestCase):
                     engine.begin_objective(affordable["id"])
                 else:
                     engine.advance_objective()
+            elif engine.state.phase == "post_victory":
+                engine.extract()
             else:
                 break
         self.assertEqual("victory", engine.state.phase)

@@ -392,6 +392,36 @@ def run_43_to_44(snapshot: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def run_44_to_45(snapshot: dict[str, Any]) -> dict[str, Any]:
+    if type(snapshot.get("save_version")) is not int or snapshot["save_version"] != 44:
+        raise MigrationError("migration 44->45 requires save version 44")
+    manifest = snapshot.get("content_manifest")
+    state = snapshot.get("state")
+    loop_fields = {
+        "base_victory", "base_victory_archived", "loop_depth",
+        "archived_loop_depth", "score", "boss_sequence",
+    }
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("engine") != "1.3.0"
+        or not isinstance(state, dict)
+        or loop_fields & set(state)
+    ):
+        raise MigrationError("version-44 save requires the pre-loop engine 1.3.0 contract")
+    result = deepcopy(snapshot)
+    result["state"].update(
+        base_victory=False,
+        base_victory_archived=False,
+        loop_depth=0,
+        archived_loop_depth=0,
+        score=0,
+        boss_sequence=[],
+    )
+    result["save_version"] = 45
+    result["content_manifest"]["engine"] = "1.4.0"
+    return result
+
+
 RUN_MIGRATIONS = {
     26: run_26_to_27,
     27: run_27_to_28,
@@ -411,6 +441,7 @@ RUN_MIGRATIONS = {
     41: run_41_to_42,
     42: run_42_to_43,
     43: run_43_to_44,
+    44: run_44_to_45,
 }
 
 
