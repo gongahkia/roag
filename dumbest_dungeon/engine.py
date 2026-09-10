@@ -19,7 +19,7 @@ from .telemetry import RunLedger
 from .resolution import Event, EventQueue, Listener, Payload
 from .combat_triggers import ADRENAL, CARD_TRIGGERS, CURSE_TRIGGERS, MERCY, REGISTERED, RIPOSTE
 from .contracts import Opcode
-from .passives import persistent_effect
+from .passives import persistent_effect, trigger_disclosure
 from .triggers import EventType, Phase
 
 
@@ -3467,7 +3467,8 @@ class GameEngine:
                 cap = "none" if preview["cap"] is None else contract.display(preview["cap"])
                 values.append(f"{effect['key'].replace('_', ' ')} | Current: {contract.display(preview['current'])}; "
                               f"next: {contract.display(preview['next'])}. {preview['formula']}. "
-                              f"{'Soft cap' if preview['soft_cap'] else 'Cap'}: {cap}")
+                              f"{'Soft cap' if preview['soft_cap'] else 'Cap'}: {cap}. "
+                              f"Trigger: {trigger_disclosure(contract.key).text()}")
                 continue
             value = self._stack_value(effect, count)
             shown = f"{value * 100:.0f}%" if abs(value) < 1 and value else f"{value:g}"

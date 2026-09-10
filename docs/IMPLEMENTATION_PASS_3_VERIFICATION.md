@@ -410,6 +410,14 @@ Warning-enabled compilation, content validation and scoped diff checks passed.
 A programmatic census reports zero legacy effects across all 18 live items,
 18 boons and 18 curses.
 
+Persistent inspection now includes a closed disclosure for every effect opcode:
+timing, finite scope and whether descendants can retrigger it. The registry's
+coverage equals the complete EffectKey enum, and every live definition renders
+both `Trigger:` and descendant text. The passive, fake-screen, real 80×24 PTY,
+saved-rule and archive group passed **22 tests in 5.779s**. Warning-enabled
+compilation, content validation and scoped diff checks passed; inspection reads
+records and contracts without simulation changes.
+
 Four percentage boons now use exact hyperbolic basis-point rules. Their first
 copies retain their prior values; later stacks diminish toward disclosed caps,
 including Last Word's Death's Door resistance. A first focused invocation named

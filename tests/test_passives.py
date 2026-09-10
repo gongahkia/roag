@@ -6,11 +6,22 @@ from pathlib import Path
 
 from dumbest_dungeon.content import ContentError, load_catalog
 from dumbest_dungeon.contracts import PersistentEffect
-from dumbest_dungeon.passives import EffectKey, Unit, persistent_effect
+from dumbest_dungeon.passives import EffectKey, TRIGGER_DISCLOSURES, Unit, persistent_effect
 from dumbest_dungeon.engine import GameEngine
 
 
 class PassiveContractTests(unittest.TestCase):
+    def test_every_effect_has_an_explicit_trigger_and_descendant_disclosure(self) -> None:
+        self.assertEqual(set(EffectKey), set(TRIGGER_DISCLOSURES))
+        catalog = load_catalog()
+        engine = GameEngine.new(catalog, 42)
+        for group in ("item", "boon", "curse"):
+            definitions = getattr(catalog, group + "s")
+            for identity in definitions:
+                detail = engine.effect_description(group, identity, 1)
+                self.assertIn("Trigger:", detail)
+                self.assertIn("descendants", detail)
+
     def test_live_linear_item_family_preserves_each_count_and_cap(self) -> None:
         expected = {"bulkhead_laminate": (1, 8), "med_gel_ampoule": (2, 10), "flare_phosphor": (4, 20),
                     "auto_suture": (1, 6), "survey_relay": (1, 6), "deflection_foil": (1, 6)}

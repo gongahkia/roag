@@ -218,6 +218,13 @@ vulnerability takes the strongest authored curse result rather than silently
 adding unrelated duration sources. Every live item, boon and curse effect is
 now typed; legacy curves exist only in self-contained historical rulesets.
 
+Every registered persistent effect also has a closed trigger disclosure. The
+effect browser appends its timing, finite activation scope and descendant rule
+to exact current/next arithmetic. Passive modifiers explicitly say descendants
+do not apply; queued draw/block/energy/curse responses state their per-card,
+round, phase or combat boundary. Adding an effect key without a disclosure is a
+module-load error and the catalog-wide inspection test covers every definition.
+
 ## Queued resolution component
 
 `resolution.EventQueue` dispatches typed events through the six phases. Each

@@ -67,9 +67,91 @@ class Unit(StrEnum):
     BASIS_POINTS = "basis_points"
 
 
+@dataclass(frozen=True)
+class TriggerDisclosure:
+    timing: str
+    limit: str
+    descendants: str
+
+    def text(self) -> str:
+        return f"{self.timing}; {self.limit}; descendants {self.descendants}"
+
+
 FRACTIONAL_KEYS = frozenset({"death_chance_reduction", "healing_bonus", "healing_reduction",
                            "incoming_damage_bonus", "incoming_damage_reduction", "marked_damage_bonus",
                            "stress_bonus", "stress_reduction", "stressed_damage_bonus"})
+
+
+def _disclosures() -> dict[EffectKey, TriggerDisclosure]:
+    result: dict[EffectKey, TriggerDisclosure] = {}
+
+    def assign(keys, timing: str, limit: str, descendants: str = "cannot retrigger it") -> None:
+        for key in keys:
+            if key in result:
+                raise RuntimeError(f"duplicate persistent trigger disclosure: {key.value}")
+            result[key] = TriggerDisclosure(timing, limit, descendants)
+
+    assign((EffectKey.START_BLOCK, EffectKey.STACKED_START_BLOCK, EffectKey.START_DODGE,
+            EffectKey.START_FOCUS, EffectKey.START_MARKED, EffectKey.START_STRESS_RELIEF,
+            EffectKey.START_VULNERABLE, EffectKey.FIRST_ROUND_ENERGY, EffectKey.OPENING_HAND),
+           "combat start", "once per combat")
+    assign((EffectKey.SUPPLY_HEAL_BONUS, EffectKey.SUPPLY_LIGHT_BONUS),
+           "manual supply use", "once per spent supply", "do not apply")
+    assign((EffectKey.COMBAT_VICTORY_HEAL,), "combat victory", "once per victory")
+    assign((EffectKey.FOCUS_DRAW,), "focus-granting technique", "first authored count each round")
+    assign((EffectKey.RESERVE_ENERGY,), "played card leaves zero energy", "once per combat")
+    assign((EffectKey.DAMAGE_DRAW,), "damage technique", "first authored count each round")
+    assign((EffectKey.COUNTERCURRENT_DRAW,), "movement technique", "once per round")
+    assign((EffectKey.RESONANT_ENERGY,), "every third owned card play", "once per card play")
+    assign((EffectKey.MERCY_BLOCK,), "healing response", "once per triggering heal")
+    assign((EffectKey.ADRENAL_BLOCK,), "first health injury in an enemy phase", "once per enemy phase")
+    assign((EffectKey.DAMAGE_DISCARD,), "damage technique", "first authored count each round")
+    assign((EffectKey.CURSE_DRAW_ENERGY, EffectKey.CURSE_DRAW_MOVE,
+            EffectKey.CURSE_DRAW_STRESS, EffectKey.CURSE_DRAW_WOUND),
+           "bound curse drawn", "once per drawn copy")
+    assign((EffectKey.CURSE_HELD_STRESS,), "bound curse held at turn end", "once per held copy")
+    assign((EffectKey.CURSE_DEAD_DRAW,), "bound curse occupies the shared deck", "no scalar activation",
+           "do not apply")
+    assign((EffectKey.DEFLECTION,), "first unblocked hostile hit on each hero", "once per hero per combat")
+    assign((EffectKey.SECOND_WIND,), "first lethal Death's Door entry", "once per hero per combat")
+    assign((EffectKey.FIRST_BLOCK_COST_INCREASE,), "block technique", "first authored count each round",
+           "do not apply")
+    assign((EffectKey.FIRST_CARD_COST_INCREASE,), "owned card play", "first card each combat",
+           "do not apply")
+    assign((EffectKey.QUICK_HANDS,), "owned card play", "first authored count each round",
+           "do not apply")
+    assign((EffectKey.LEAKING_LIGHT,), "each ten exploration steps", "once per interval",
+           "do not apply")
+    assign((EffectKey.NIGHT_TERROR_STRESS,), "each eight exploration steps", "once per interval",
+           "do not apply")
+    assign((EffectKey.SCAVENGER_STRESS,), "item acquisition", "once per acquisition",
+           "do not apply")
+    assign((EffectKey.SALVAGE_COPIES,), "item acquisition", "once using the pre-pickup stack",
+           "cannot multiply its own award")
+    assign((EffectKey.REWARD_CHOICES,), "combat technique offer", "once per offer",
+           "do not apply")
+    assign((EffectKey.BOON_OFFER_CHOICES,), "boon beacon offer", "once per offer",
+           "do not apply")
+    assign((EffectKey.PATROL_AGGRESSION_REDUCTION, EffectKey.SURVEY_REACH),
+           "expedition routing", "continuous while owned", "do not apply")
+    assign((EffectKey.DEATH_CHANCE_REDUCTION, EffectKey.FORCED_MOVE_BONUS,
+            EffectKey.FORCED_MOVE_REDUCTION, EffectKey.HEALING_BONUS,
+            EffectKey.HEALING_REDUCTION, EffectKey.INCOMING_DAMAGE_BONUS,
+            EffectKey.INCOMING_DAMAGE_REDUCTION, EffectKey.MARKED_DAMAGE_BONUS,
+            EffectKey.STRESS_BONUS, EffectKey.STRESS_REDUCTION,
+            EffectKey.STRESSED_DAMAGE_BONUS, EffectKey.WOUND_REDUCTION),
+           "matching resolved effect", "continuous while owned", "do not apply")
+    missing = set(EffectKey) - result.keys()
+    if missing:
+        raise RuntimeError("missing persistent trigger disclosures: " + ", ".join(sorted(key.value for key in missing)))
+    return result
+
+
+TRIGGER_DISCLOSURES = _disclosures()
+
+
+def trigger_disclosure(key: EffectKey | str) -> TriggerDisclosure:
+    return TRIGGER_DISCLOSURES[EffectKey(key)]
 
 
 @dataclass(frozen=True)
