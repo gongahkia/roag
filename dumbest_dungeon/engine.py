@@ -3694,6 +3694,18 @@ class GameEngine:
             )
         self.state.draw_pile = [self._clone_card(card) for card in self.state.deck]
         self.rng.shuffle(self.state.draw_pile)
+        opening = sorted(
+            (
+                card for card in self.state.draw_pile
+                if (self.infusion_definition(card.infusion_id) or {}).get("mode") == "opening_priority"
+            ),
+            key=lambda card: card.copy_id,
+        )
+        if opening:
+            opening_ids = {card.copy_id for card in opening}
+            self.state.draw_pile = [
+                card for card in self.state.draw_pile if card.copy_id not in opening_ids
+            ] + list(reversed(opening))
         self.state.discard_pile = []
         self.state.hand = []
         self.state.round = 1
@@ -3857,12 +3869,29 @@ class GameEngine:
             return None
         return next(branch for branch in mastery["branches"] if branch["id"] == card.mastery)
 
+    def infusion_definition(self, infusion_id: str | None) -> dict[str, Any] | None:
+        return self.catalog.infusions.get(infusion_id) if infusion_id is not None else None
+
+    def infusion_compatible(self, card_id: str, infusion_id: str) -> bool:
+        if card_id not in self.catalog.cards or infusion_id not in self.catalog.infusions:
+            return False
+        card = self.catalog.cards[card_id]
+        infusion = self.catalog.infusions[infusion_id]
+        targets = set(infusion["compatible_targets"])
+        tags = set(infusion["requires_any_tags"])
+        return (not targets or card["target"] in targets) and (
+            not tags or bool(tags & self.card_tags(card_id))
+        )
+
     def card_origin_ranks(self, card: CardInstance) -> tuple[int, ...]:
         ranks = set(self.card_definition(card).get("from_ranks", []))
         branch = self.mastery_branch(card)
         if branch is not None and branch["mode"] == "rank_access":
             ranks |= {rank - 1 for rank in ranks if rank > 1}
             ranks |= {rank + 1 for rank in ranks if rank < 4}
+        infusion = self.infusion_definition(card.infusion_id)
+        if infusion is not None and infusion["mode"] == "rank_access":
+            ranks = {1, 2, 3, 4}
         return tuple(sorted(ranks))
 
     def card_tags(self, card_id: str) -> set[str]:
@@ -3968,6 +3997,17 @@ class GameEngine:
             return 99
         actor = self._actor(definition["hero"])
         delta = int(self._affliction_modifiers(actor).get("card_cost_delta", 0))
+        infusion = self.infusion_definition(card.infusion_id)
+        if infusion is not None:
+            mode = infusion["mode"]
+            discounted = (
+                mode == "front_discount" and actor.rank == 1
+                or mode == "rear_discount" and actor.rank == 4
+                or mode == "wounded_discount" and bool(actor.statuses.get("wound"))
+                or mode == "casualty_discount" and any(not hero.alive for hero in self.state.heroes)
+            )
+            if discounted:
+                delta -= infusion["amount"]
         base = definition.get("upgrade_cost", definition["cost"]) if card.upgraded else definition["cost"]
         round_plays = self.state.effect_counters.get(f"round_cards:{actor.id}", 0)
         combat_plays = self.state.effect_counters.get(f"combat_cards:{actor.id}", 0)
@@ -4036,6 +4076,9 @@ class GameEngine:
         self.state.energy -= cost
         self.state.hand.pop(hand_index)
         self.state.discard_pile.append(card)
+        infusion = self.infusion_definition(card.infusion_id)
+        if infusion is not None and infusion["mode"] == "exhaust":
+            self.state.effect_counters[f"infusion:exhaust:{card.copy_id}"] = 1
         for key in (f"round_cards:{actor.id}", f"combat_cards:{actor.id}"):
             self.state.effect_counters[key] = self.state.effect_counters.get(key, 0) + 1
         main_targets = self._card_targets(definition["target"], target_id, actor)
@@ -4043,6 +4086,7 @@ class GameEngine:
         self.resolution.submit(EventType.CARD_STEP, card.card_id, tuple(target.id for target in main_targets),
                                Payload(actor_id=actor.id, card_id=card.card_id,
                                        card_upgraded=card.upgraded, card_mastery=card.mastery,
+                                       card_copy_id=card.copy_id, card_infusion=card.infusion_id,
                                        effect_index=0))
         if resolve:
             self.resolve_pending()
@@ -4065,6 +4109,8 @@ class GameEngine:
             return
         index = payload.effect_index
         if event.event_type == EventType.CARD_PLAY:
+            if index + 1 >= len(CARD_TRIGGERS):
+                self._resolve_card_infusion(event, queue, actor, definition, effects)
             next_type = EventType.CARD_PLAY if index + 1 < len(CARD_TRIGGERS) else EventType.CLEANUP
             queue.emit(next_type, event.target_ids, replace(payload, effect_index=index + 1), mandatory=True, deferred=True)
             return
@@ -4091,6 +4137,21 @@ class GameEngine:
                     self.record("mastery_effect", mastery["id"], card=payload.card_id,
                                 branch=payload.card_mastery, effect_index=index,
                                 amount=branch["amount"])
+            infusion = self.infusion_definition(payload.card_infusion)
+            if (
+                infusion is not None
+                and infusion["mode"] == "pressure_bonus"
+                and self.state.pressure >= 480
+                and resolved_effect["op"] in {"damage", "block", "heal"}
+                and index == next(
+                    position for position, candidate in enumerate(effects)
+                    if candidate["op"] in {"damage", "block", "heal"}
+                )
+            ):
+                resolved_effect["amount"] = int(resolved_effect.get("amount", 0)) + infusion["amount"]
+                self.record("infusion_trigger", infusion["id"], card=payload.card_id,
+                            copy_id=payload.card_copy_id, mode=infusion["mode"],
+                            amount=infusion["amount"])
             if definition.get("biome") == self.current_biome():
                 bonus = int(definition.get("biome_bonus", 0))
                 if resolved_effect["op"] in {"damage", "block", "heal"}:
@@ -4099,7 +4160,113 @@ class GameEngine:
                     resolved_effect["amount"] -= bonus
             targets = self._effect_targets(effect.get("target"), main_targets, actor)
             self._apply_effect(actor, targets, resolved_effect, source_id=payload.card_id)
+            if index == 0:
+                self.state.effect_counters[
+                    f"infusion:first:{event.root_action_id}:{payload.card_copy_id}"
+                ] = 1
         queue.emit(EventType.CARD_STEP, event.target_ids, replace(payload, effect_index=index + 1), mandatory=True, deferred=True)
+
+    def _infusion_limit_key(self, infusion: dict[str, Any], copy_id: int) -> str:
+        suffix = f":{self.state.round}" if infusion["limit"] == "turn" else ""
+        return (
+            f"infusion:trigger:{infusion['id']}:{copy_id}:"
+            f"{self.resolution.state.combat_token}{suffix}"
+        )
+
+    def _resolve_card_infusion(
+        self,
+        event: Event,
+        queue: EventQueue,
+        actor: Actor,
+        definition: dict[str, Any],
+        effects: list[dict[str, Any]],
+    ) -> None:
+        payload = event.payload
+        infusion = self.infusion_definition(payload.card_infusion)
+        if infusion is None or infusion["limit"] == "none":
+            return
+        key = self._infusion_limit_key(infusion, payload.card_copy_id)
+        if self.state.effect_counters.get(key):
+            return
+        mode = infusion["mode"]
+        main = [
+            candidate for candidate in self.state.heroes + self.state.enemies
+            if candidate.id in event.target_ids
+        ]
+        activated = False
+        if mode == "echo_first" and self.state.effect_counters.get(
+            f"infusion:first:{event.root_action_id}:{payload.card_copy_id}"
+        ):
+            effect = dict(effects[0])
+            mastery = self.mastery_definition(payload.card_id)
+            if payload.card_mastery is not None and mastery is not None:
+                branch = next(branch for branch in mastery["branches"]
+                              if branch["id"] == payload.card_mastery)
+                if branch["mode"] == "effect_bonus" and branch["effect_index"] == 0:
+                    effect["amount"] = int(effect.get("amount", 0)) + branch["amount"]
+            if definition.get("biome") == self.current_biome():
+                bonus = int(definition.get("biome_bonus", 0))
+                if effect["op"] in {"damage", "block", "heal"}:
+                    effect["amount"] = int(effect.get("amount", 0)) + bonus
+                elif effect["op"] == "stress" and effect.get("amount", 0) < 0:
+                    effect["amount"] -= bonus
+            self._apply_effect(
+                actor,
+                self._effect_targets(effect.get("target"), main, actor),
+                effect,
+                source_id=infusion["id"],
+            )
+            activated = True
+        elif mode == "follow_draw":
+            self._apply_effect(actor, [actor], {"op": "draw", "amount": infusion["amount"]},
+                               source_id=infusion["id"])
+            activated = True
+        elif mode == "movement_refund":
+            self._apply_effect(actor, [actor], {"op": "energy", "amount": infusion["amount"]},
+                               source_id=infusion["id"])
+            activated = True
+        elif mode == "self_cleanse" and any(
+            status in actor.statuses for status in ("marked", "stun", "vulnerable", "weak", "wound")
+        ):
+            self._apply_effect(actor, [actor], {"op": "cleanse", "amount": 1},
+                               source_id=infusion["id"])
+            activated = True
+        elif mode == "front_focus" and actor.rank == 1:
+            self._apply_effect(
+                actor, [actor], {"op": "status", "status": "focus", "amount": infusion["amount"]},
+                source_id=infusion["id"],
+            )
+            activated = True
+        elif mode == "mark_after_damage":
+            targets = [target for target in main if target.side == "enemy" and target.alive]
+            if targets:
+                self._apply_effect(
+                    actor, targets,
+                    {"op": "status", "status": "marked", "amount": infusion["amount"]},
+                    source_id=infusion["id"],
+                )
+                activated = True
+        elif mode == "wound_transfer":
+            target = next(
+                (target for target in main
+                 if target.side == "hero" and target.id != actor.id and target.statuses.get("wound")),
+                None,
+            )
+            if target is not None:
+                target.statuses["wound"] -= infusion["amount"]
+                if target.statuses["wound"] <= 0:
+                    del target.statuses["wound"]
+                self._apply_effect(
+                    actor, [actor],
+                    {"op": "status", "status": "wound", "amount": infusion["amount"]},
+                    source_id=infusion["id"],
+                )
+                activated = True
+        if activated:
+            self.state.effect_counters[key] = 1
+            self.record("infusion_trigger", infusion["id"], card=payload.card_id,
+                        copy_id=payload.card_copy_id, mode=mode, amount=infusion["amount"])
+            self.add_log(f"{infusion['marker']} — {infusion['name']} triggers.")
 
     def _card_trigger(self, listener: Listener, event: Event, queue: EventQueue) -> bool:
         actor = next(actor for actor in self.state.heroes if actor.id == listener.entity_id)
@@ -4532,8 +4699,14 @@ class GameEngine:
         for card in self.state.hand:
             if card.card_id == "dread_forecast":
                 self._trigger_curse_card(card, "curse_held_stress")
-        self.state.discard_pile.extend(self.state.hand)
-        self.state.hand = []
+        retained = [
+            card for card in self.state.hand
+            if (self.infusion_definition(card.infusion_id) or {}).get("mode") == "retain"
+        ]
+        self.state.discard_pile.extend(
+            card for card in self.state.hand if card not in retained
+        )
+        self.state.hand = retained
         for hero in self.living_heroes():
             if hero.statuses.get("stun"):
                 hero.statuses["stun"] -= 1
@@ -4884,8 +5057,16 @@ class GameEngine:
             if not self.state.draw_pile:
                 if not self.state.discard_pile:
                     return
-                self.state.draw_pile = self.state.discard_pile
-                self.state.discard_pile = []
+                exhausted = [
+                    card for card in self.state.discard_pile
+                    if self.state.effect_counters.get(f"infusion:exhaust:{card.copy_id}")
+                ]
+                self.state.draw_pile = [
+                    card for card in self.state.discard_pile if card not in exhausted
+                ]
+                self.state.discard_pile = exhausted
+                if not self.state.draw_pile:
+                    return
                 self.rng.shuffle(self.state.draw_pile)
             card = self.state.draw_pile.pop()
             self.state.hand.append(card)

@@ -279,6 +279,34 @@ def run_38_to_39(snapshot: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def run_39_to_40(snapshot: dict[str, Any]) -> dict[str, Any]:
+    if type(snapshot.get("save_version")) is not int or snapshot["save_version"] != 39:
+        raise MigrationError("migration 39->40 requires save version 39")
+    manifest = snapshot.get("content_manifest")
+    queue = snapshot.get("resolution_queue", {}).get("state")
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("engine") != "0.8.0"
+        or not isinstance(queue, dict)
+        or queue.get("schema") != 4
+    ):
+        raise MigrationError("version-39 save requires queue schema 4 and engine 0.8.0")
+    result = deepcopy(snapshot)
+    events = list(result["resolution_queue"]["state"]["pending"])
+    active = result["resolution_queue"]["state"]["active"]
+    if active is not None:
+        events.append(active["event"])
+    for event in events:
+        payload = event.get("payload") if isinstance(event, dict) else None
+        if not isinstance(payload, dict) or {"card_copy_id", "card_infusion"} & payload.keys():
+            raise MigrationError("version-39 queue contains a malformed event payload")
+        payload.update(card_copy_id=0, card_infusion=None)
+    result["resolution_queue"]["state"]["schema"] = 5
+    result["save_version"] = 40
+    result["content_manifest"]["engine"] = "0.9.0"
+    return result
+
+
 RUN_MIGRATIONS = {
     26: run_26_to_27,
     27: run_27_to_28,
@@ -293,6 +321,7 @@ RUN_MIGRATIONS = {
     36: run_36_to_37,
     37: run_37_to_38,
     38: run_38_to_39,
+    39: run_39_to_40,
 }
 
 

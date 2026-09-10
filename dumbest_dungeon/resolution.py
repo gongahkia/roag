@@ -24,6 +24,8 @@ class Payload:
     raw_damage: bool = False
     card_upgraded: bool = False
     card_mastery: str | None = None
+    card_copy_id: int = 0
+    card_infusion: str | None = None
     effect_index: int | None = None
 
     def __post_init__(self) -> None:
@@ -35,8 +37,11 @@ class Payload:
             raise ValueError("raw damage requires the damage opcode")
         if type(self.card_upgraded) is not bool or self.effect_index is not None and (type(self.effect_index) is not int or self.effect_index < 0):
             raise ValueError("invalid card continuation payload")
+        if type(self.card_copy_id) is not int or self.card_copy_id < 0:
+            raise ValueError("invalid card-copy continuation identity")
         if any(value is not None and (not isinstance(value, str) or not value)
-               for value in (self.actor_id, self.status, self.bonus_status, self.card_id, self.card_mastery)):
+               for value in (self.actor_id, self.status, self.bonus_status, self.card_id,
+                             self.card_mastery, self.card_infusion)):
             raise ValueError("event references must be nonempty strings")
 
 
@@ -84,7 +89,7 @@ class Dispatch:
 
 @dataclass
 class QueueState:
-    schema: int = 4
+    schema: int = 5
     next_event_id: int = 1
     next_root_id: int = 1
     root_id: int | None = None
@@ -339,7 +344,7 @@ class EventQueue:
             return Listener(**data)
 
         try:
-            if (type(raw["schema"]) is not int or raw["schema"] != 4 or any(type(raw[key]) is not int or raw[key] < 1 for key in ("next_event_id", "next_root_id"))
+            if (type(raw["schema"]) is not int or raw["schema"] != 5 or any(type(raw[key]) is not int or raw[key] < 1 for key in ("next_event_id", "next_root_id"))
                 or raw["root_id"] is not None and (type(raw["root_id"]) is not int or not 1 <= raw["root_id"] < raw["next_root_id"])):
                 raise ValueError("invalid queue version or root identity")
             if (any(type(raw[key]) is not int or raw[key] < 0 for key in ("combat_token", "turn_token"))
