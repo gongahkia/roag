@@ -226,6 +226,10 @@
     "incubate": {"tags": ["control", "payoff:wound", "setup:vulnerable", "setup:wound"], "upgrade_description": "Upgrade: wound for 5; deeply weaken and expose an already wounded target."},
     "shock_serum": {"tags": ["block", "draw", "energy", "payoff:deaths_door", "recovery"], "upgrade_description": "Upgrade: heal 8; at Death's Door grant 12 block, gain 1 energy, and draw 1."},
     "tagged_specimen": {"tags": ["damage", "draw", "payoff:marked", "setup:wound"], "upgrade_description": "Upgrade: deal 8, plus 6 if marked; wound for 3 and draw 1 from a mark."},
-    "controlled_mutation": {"tags": ["cleanse", "recovery", "status:dodge", "status:focus"], "upgrade_description": "Upgrade: cleanse, heal 14, grant 4 focus and dodge, then take a shorter wound."}
+    "controlled_mutation": {"tags": ["cleanse", "recovery", "status:dodge", "status:focus"], "upgrade_description": "Upgrade: cleanse, heal 14, grant 4 focus and dodge, then take a shorter wound."},
+    "prismatic_aegis": {"tags": ["block", "guard", "status:riposte"], "upgrade_description": "Upgrade: guard for 3, grant both 8 block, and gain riposte."},
+    "charge_divider": {"tags": ["draw", "energy", "status:focus"], "upgrade_description": "Upgrade: grant 3 focus, gain 1 energy, and draw 1."},
+    "threat_matrix": {"tags": ["block", "control", "payoff:marked", "setup:vulnerable"], "upgrade_description": "Upgrade: against a mark, deeply weaken and expose it, then grant all crew 6 block."},
+    "parallel_core": {"tags": ["block", "draw", "energy", "stress_risk"], "upgrade_description": "Upgrade: while healthy, gain 3 energy, draw 3, gain 8 block, and take 9 stress."}
   }
 }
