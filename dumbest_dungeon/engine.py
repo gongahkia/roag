@@ -12,6 +12,7 @@ from heapq import heappop, heappush
 from typing import Any, Callable
 
 from .content import CARD_STATUSES, Catalog, load_legacy_catalog, load_rules
+from .acquisition import Lane, eligible_techniques
 from .manifest import canonical_bytes
 from .migrations import MigrationError, migrate_run
 from .versions import RUN_SAVE_SCHEMA
@@ -4636,19 +4637,22 @@ class GameEngine:
             self.room().resolved = True
         count = 4 if self.state.light < self.catalog.balance["low_light_threshold"] else 3
         count += round(self._item_effect_value("reward_choices"))
-        self.state.rewards = self._generate_card_rewards(count)
+        lane = {
+            "elite": Lane.ELITE,
+            "objective": Lane.OBJECTIVE,
+        }.get(kind, Lane.NORMAL)
+        self.state.rewards = self._generate_card_rewards(count, lane)
         self.state.phase = "reward"
         if self.state.tutorial:
             self.state.tutorial_stage = 7
         self.add_log("Combat won. Choose a recovered technique.")
 
-    def _generate_card_rewards(self, count: int) -> list[str]:
+    def _generate_card_rewards(self, count: int, lane: Lane = Lane.NORMAL) -> list[str]:
         active_heroes = {hero.id for hero in self.living_heroes()}
-        available = [
-            card_id
-            for card_id, definition in self.catalog.cards.items()
-            if definition["hero"] in active_heroes
-        ]
+        eligible = set(eligible_techniques(self.catalog, active_heroes, lane))
+        # Preserve the manifest's frozen RNG-architecture enumeration after
+        # applying the order-independent eligibility predicate.
+        available = [card_id for card_id in self.catalog.cards if card_id in eligible]
         if not available or count <= 0:
             return []
         owned = Counter(card.card_id for card in self.state.deck if card.card_id in self.catalog.cards)
@@ -4747,7 +4751,7 @@ class GameEngine:
         while len(chosen) < min(count, len(available)):
             choose(available, novelty=1.25)
         self.record("card_offer", "reward:technique", offered=chosen, eligible_count=len(available),
-                    biome=self.current_biome(), lane=self.state.combat_kind or "event")
+                    biome=self.current_biome(), lane=lane.value)
         return chosen
 
     def _reward_shape(self, card_id: str) -> tuple[Any, ...]:
@@ -4945,7 +4949,7 @@ class GameEngine:
             return
         if grant_reward:
             count = 3 + round(self._item_effect_value("reward_choices"))
-            self.state.rewards = self._generate_card_rewards(count)
+            self.state.rewards = self._generate_card_rewards(count, Lane.NORMAL)
             self.state.phase = "reward"
         else:
             self.state.phase = "exploration"

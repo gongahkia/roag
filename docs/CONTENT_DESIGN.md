@@ -146,7 +146,11 @@ guardian, finale and loop. Technique eligibility intersects living owners, the
 requested lane and enabled pack members; stable sorted IDs are returned.
 Optional authored `lanes` reject unknown or duplicate values. Legacy techniques
 remain available in all lanes until the reward refactor authors narrower jobs;
-the existing generator has not yet switched to the new eligibility function.
+the live generator now intersects owner and lane eligibility before its existing
+bridge/corrective/pivot selection. Normal contacts and events request `normal`,
+elites request `elite`, and objective combats request `objective`. Eligibility
+is order-independent, then the result is restored to the manifest's frozen RNG
+enumeration so filtering does not rewrite supported historical seeded play.
 
 Content packs contain typed section/ID references, explicit requirements and
 exclusions. Unknown members, duplicate IDs, disabled requirements and conflicting

@@ -443,3 +443,15 @@ returns zero while remaining an unplayable owned card. The passive, all-bound-
 curse checkpoint, Frayed Focus/Tremors, saved-rule and archive group passed
 **27 tests in 17.170s**. Warning-enabled compilation, content validation and
 scoped diff checks passed.
+
+Live technique generation now consumes the typed lane filter. A constructed
+catalog with one normal-lane card proves that elite-only cards cannot leak into
+the offer, and the ledger records the resolved lane and eligible count. The
+first broad focused run exposed a historical replay change: the filter's lexical
+result had replaced the archived manifest enumeration, producing **29 passes and
+1 failure**. The generator now restores filtered IDs to the catalog's frozen
+order. The corrected acquisition, ordering, policy, telemetry, migration and
+saved-rule group passed **28 tests in 42.587s**, including the 344-command
+calibration transcript and cross-process hash check. Warning-enabled compilation,
+content validation and scoped diff checks passed. Current legacy cards remain
+broadly eligible until curated per-owner lanes land.

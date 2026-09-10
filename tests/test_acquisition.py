@@ -5,6 +5,7 @@ from dataclasses import replace
 
 from dumbest_dungeon.acquisition import ContentPack, ContentRef, Lane, eligible_techniques, validate_packs
 from dumbest_dungeon.content import load_catalog
+from dumbest_dungeon.engine import GameEngine
 from dumbest_dungeon.threat import Threat, ThreatBudget
 
 
@@ -17,6 +18,18 @@ class AcquisitionContractTests(unittest.TestCase):
         self.assertEqual((), eligible_techniques(catalog, {"warden"}, Lane.NORMAL, members=members))
         self.assertEqual(("brace",), eligible_techniques(catalog, {"warden"}, Lane.ELITE, members=members))
         self.assertEqual((), eligible_techniques(catalog, {"medic"}, Lane.ELITE, members=members))
+
+    def test_live_reward_generator_cannot_leak_across_lanes(self) -> None:
+        catalog = load_catalog()
+        cards = {
+            identity: {**card, "lanes": ["normal"] if identity == "brace" else ["elite"]}
+            for identity, card in catalog.cards.items()
+        }
+        engine = GameEngine.new(replace(catalog, cards=cards), 42)
+        self.assertEqual(["brace"], engine._generate_card_rewards(3, Lane.NORMAL))
+        offer = engine.state.ledger.records[-1]
+        self.assertEqual("normal", offer.data["lane"])
+        self.assertEqual(1, offer.data["eligible_count"])
 
     def test_pack_references_requirements_and_exclusions_are_strict(self) -> None:
         catalog = load_catalog()
