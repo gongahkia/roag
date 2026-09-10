@@ -2081,6 +2081,48 @@ def _attack_targets(state: GameState, attack_range: int) -> list[Threat]:
     )
 
 
+def attack_target_legality(state: GameState, target: Threat) -> tuple[bool, str]:
+    """Explain targeting without mutating combat state or leaking hidden actors."""
+    from .world import courier_sees
+
+    if not state.combat_active or state.weapon is None:
+        return False, "no readied combat action"
+    if target.status not in {"watching", "engaged"} or not courier_sees(
+        state, target.position
+    ):
+        return False, "actor is not presently visible"
+    gap = distance(state.position, target.position)
+    maximum = effective_weapon_range(state)
+    minimum = 1
+    if state.weapon in {"pike", "boar spear"}:
+        minimum = 2
+    elif state.weapon == "staff sling":
+        minimum = 3
+    elif state.weapon in WORK_WEAPONS:
+        minimum = WORK_WEAPONS[state.weapon].minimum
+    if gap < minimum:
+        return False, f"inside minimum range {minimum}"
+    if gap > maximum:
+        return False, f"beyond maximum range {maximum}"
+    if state.weapon in RANGED_WEAPONS and state.weapon != "pot sling":
+        if cover_at(state, state.position, target.position) == "full":
+            return False, "full structure blocks the lane"
+    if state.weapon == "shield and hanger":
+        from .work_weapons import approach
+
+        path, reason = approach(state, target)
+        if path is None:
+            return False, reason
+    return True, "legal target; Enter commits one ordinary combat action"
+
+
+def legal_attack_targets(state: GameState) -> list[Threat]:
+    return [
+        target for target in _attack_targets(state, effective_weapon_range(state))
+        if attack_target_legality(state, target)[0]
+    ]
+
+
 WEAPON_RANGES = {
     "billhook": 2,
     "spear": 3,

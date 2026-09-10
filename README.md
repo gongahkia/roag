@@ -31,7 +31,8 @@ World controls:
 - `YUBN`: diagonal movement;
 - `T`: follow a seen local landmark, link, or marked store over remembered ground;
 - `Enter` or `E`: interact, climb, open, speak, or operate;
-- `A`: attack with the readied weapon; ranged weapons open a target cursor;
+- `A`: open the zero-time combat preview and target cursor for any readied
+  weapon; `Tab` cycles only legal targets and `Enter` commits the chosen action;
 - `G`: guard, brace, continue a weapon reload, or hold position and listen;
 - `X`: use a finite readied tool, supply, or relic;
 - `V`: offer material terms;
@@ -193,7 +194,7 @@ regional controls offer alternatives to direct strikes. Surviving named
 claimants can return once with local supplies, or accept a witnessed settlement
 through the secondary contact. Their rewards remain physical ground items.
 
-Ranged targeting includes visible actors across open z-levels. `Tab` cycles
+Combat targeting includes visible actors across open z-levels. `Tab` cycles
 targets; `<` and `>` inspect another level, while the arrow/WASD/HJKL cursor
 moves within that level. The projected marker and `[ABOVE]`/`[BELOW]` label
 identify off-level targets. Range, cover, physical ammunition and preparation

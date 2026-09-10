@@ -2,7 +2,7 @@ import copy
 import curses
 import unittest
 
-from jomon.actions import attack
+from jomon.actions import attack, attack_target_legality
 from jomon.content import ENEMY_ARCHETYPES
 from jomon.inventory import auto_place, create_item
 from jomon.state import Position, Threat, create_world
@@ -114,6 +114,48 @@ class TargetVisibilityTests(unittest.TestCase):
         self.assertTrue(auto_place(state, item.id, "pack", owner_id=state.active_courier_id))
         state.ammunition = 99
         self.assertIn("Ammo 3 stones; oil 6", _status_lines(state))
+
+    def test_melee_and_reach_targets_are_selected_and_previewed_without_time(self):
+        state = self.state
+        state.weapon = "spear"
+        first = self.target(Position(42, 25), "first visible levy")
+        second = self.target(Position(43, 26), "second visible levy")
+        view = TargetView.begin(state)
+        self.assertEqual(view.target_ids, [first.id, second.id])
+        before = state.world_time
+
+        _handle_targeting(state, view, 9)
+        self.assertEqual(view.cursor, second.position)
+        preview = " ".join(targeting_lines(state, view, 78))
+        self.assertIn("LEGAL", preview)
+        self.assertIn("positional control", preview)
+        self.assertIn(second.intent, preview)
+        self.assertNotIn("Ammo:", preview)
+        self.assertEqual(state.world_time, before)
+
+        closed, committed = _handle_targeting(state, view, 10)
+        self.assertTrue(closed)
+        self.assertTrue(committed)
+        self.assertEqual(first.health, first.max_health)
+        self.assertLess(second.health, second.max_health)
+
+    def test_minimum_range_is_visible_and_excluded_from_tab_targets(self):
+        state = self.state
+        state.weapon = "pike"
+        adjacent = self.target(Position(41, 25), "inside-the-point runner")
+        legal = self.target(Position(43, 25), "held-at-measure runner")
+        view = TargetView.begin(state)
+        self.assertNotIn(adjacent.id, view.target_ids)
+        self.assertIn(legal.id, view.target_ids)
+        view.cursor = adjacent.position
+        before = state.world_time
+
+        allowed, reason = attack_target_legality(state, adjacent)
+        self.assertFalse(allowed)
+        self.assertIn("minimum range 2", reason)
+        self.assertIn("BLOCKED", " ".join(targeting_lines(state, view, 78)))
+        self.assertEqual(_handle_targeting(state, view, 10), (False, False))
+        self.assertEqual(state.world_time, before)
 
 
 if __name__ == "__main__":

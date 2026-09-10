@@ -144,5 +144,9 @@ new magic, infinite contracts or additional major region is planned.
 - Sixteen finite aftermath contracts are playable through a physical witnessed
   copy and either a real commodity delivery or material field work. Settlement,
   paper loss, failure, ledger inspection and mid-contract round-trip are tested.
-- Combat previews, authored aftermath lines/arcs and the remaining content
+- Every readied weapon now opens the same zero-time target cursor. Legal
+  melee/reach targets cycle explicitly; minimum range, cover, intended effect,
+  hostile intent, physical protection and known counters are previewed before
+  committing the exact selected target.
+- Prepared reactions, authored aftermath lines/arcs and the remaining content
   multiplication gates remain open.

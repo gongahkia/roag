@@ -467,7 +467,7 @@ HELP_LINES = (
     "Z: regional work account, linked history, testimony and action-clock forecast (free).",
     "Move with arrows, HJKL, or YUBN diagonals. The camera follows across each seamless region.",
     "T follows a seen local destination one ordinary step at a time; any key stops it.",
-    "Enter/E interacts. A attacks. G guards, reloads, or holds to listen. V negotiates. X uses gear.",
+    "Enter/E interacts. A previews and targets any attack. G guards, reloads, or holds to listen.",
     "Map: @ courier, a ally, v visitor, c/M contacts, h/g/x/b hostiles, X elite, R cargo, C cache.",
     "Reverse ! cells mark an observed prepared attack; @ is reversed when standing in its mark.",
     "Water ~, wall #, doors +, stairs <> and roof ^, controls &, hole O, weak floor d.",

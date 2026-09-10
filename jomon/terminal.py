@@ -12,6 +12,7 @@ from .actions import (
     RANGED_WEAPONS,
     _advance_world,
     attack,
+    attack_target_legality,
     can_alter_objective,
     choose_courier,
     choose_gear,
@@ -29,6 +30,7 @@ from .actions import (
     recruit_person,
     defer_recruit,
     effective_weapon_range,
+    legal_attack_targets,
     resolve_cross_region_choice,
     resolve_regional_quest_choice,
     intervene_socially,
@@ -179,16 +181,7 @@ class TargetView:
 
     @classmethod
     def begin(cls, state: GameState) -> "TargetView":
-        attack_range = effective_weapon_range(state)
-        targets = sorted(
-            (
-                threat for threat in state.combatants
-                if threat.status in {"watching", "engaged"}
-                and distance(state.position, threat.position) <= attack_range
-                and courier_sees(state, threat.position)
-            ),
-            key=lambda threat: (distance(state.position, threat.position), threat.id),
-        )
+        targets = legal_attack_targets(state)
         from .work_weapons import available_pots
         pots = available_pots(state) if state.weapon == "pot sling" else []
         return cls(
@@ -637,15 +630,21 @@ def _ammunition_status(state: GameState, ammunition: str | None = None) -> tuple
 
 def targeting_detail(state: GameState, view: TargetView) -> str:
     available, ammo_label = _ammunition_status(state, view.ammunition)
-    return (
+    detail = (
         f"R{distance(state.position, view.cursor)}/{effective_weapon_range(state)} "
         f"z{view.cursor.z:+d} "
-        f"Cover:{cover_at(state, state.position, view.cursor)} "
-        f"Ammo:{available} {ammo_label}"
+        f"Cover:{cover_at(state, state.position, view.cursor)}"
     )
+    if state.weapon in RANGED_WEAPONS:
+        detail += f" Ammo:{available} {ammo_label}"
+    return detail
 
 
 def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]:
+    from .content import ENEMY_ARCHETYPES
+    from .enemy_equipment import actor_items
+    from .work_weapons import WORK_WEAPONS
+
     selected = _target_at_cursor(state, view)
     ready = "Enter commits one cast; Escape costs no time."
     if state.weapon == "pot sling":
@@ -659,7 +658,34 @@ def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]
     label = f"Target: {selected.name}" if selected else "No presently visible actor at cursor."
     if view.cursor.z != state.position.z:
         label += " [ABOVE]" if view.cursor.z > state.position.z else " [BELOW]"
-    return information_lines([label, targeting_detail(state, view), ready], width)
+    lines = [label, targeting_detail(state, view)]
+    if selected:
+        legal, reason = attack_target_legality(state, selected)
+        lines.append(("LEGAL — " if legal else "BLOCKED — ") + reason + ".")
+        weapon = WEAPONS.get(state.weapon or "")
+        if state.weapon in WORK_WEAPONS:
+            weapon_text = WORK_WEAPONS[state.weapon].description
+        else:
+            weapon_text = weapon[1] if weapon else "No readied effect."
+        lines.append("EFFECT — " + weapon_text)
+        armour = [
+            f"{item_spec(item.kind).name} {item.condition}%"
+            for item in actor_items(state, selected)
+            if item.location in BODY_SLOTS
+        ]
+        lines.append(
+            f"OBSERVED — intent {selected.intent}; morale {selected.morale}; "
+            + ("protection " + ", ".join(armour) if armour else "no worn protection")
+            + "."
+        )
+        data = next(
+            (row for row in ENEMY_ARCHETYPES.values() if row["name"] == selected.name),
+            None,
+        )
+        if data:
+            lines.append(f"COUNTERS — {data['counterplay']}.")
+    lines.append(ready)
+    return information_lines(lines, width)
 
 
 def _draw_targeting(screen: curses.window, state: GameState, view: TargetView) -> None:
@@ -2422,7 +2448,7 @@ def play(screen: curses.window, state: GameState) -> GameState:
             else:
                 overlay = OverlayView(result.overlay) if result.overlay else None
         elif normalized == ord("a"):
-            if state.combat_active and state.weapon in RANGED_WEAPONS:
+            if state.combat_active and state.weapon:
                 target_view = TargetView.begin(state)
             else:
                 attack(state)
