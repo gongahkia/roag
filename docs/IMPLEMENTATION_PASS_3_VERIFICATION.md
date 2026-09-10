@@ -492,3 +492,14 @@ engine, save, migration and ordering regression group passed **126 tests in
 450.277s**. Warning-enabled compilation and diff checks passed. This foundation
 does not yet spend Pressure on encounter composition or rewards; that director
 work remains open.
+
+The 80x24 HUD now names the current band and exact route Pressure alongside
+light; objective and Core previews include the same route price. `T` opens a
+scrollable band/threshold/forecast/cause screen from exploration or combat, and
+the historical-gap disclosure is visible after migration. The focused fake-
+screen and real curses group passed **79 tests in 28.606s**, including state-
+neutral Pressure inspection at both 80x24 and 140x60. The pre-correction UI run
+reported **76 passes and 1 assertion failure** because a newly expanded Core
+route sentence no longer contained the old `light total` phrase; restoring that
+useful phrase, while retaining exact Pressure, corrected the compatibility
+assertion. No simulation rule changed in this UI commit.

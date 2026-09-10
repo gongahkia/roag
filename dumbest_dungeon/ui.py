@@ -13,6 +13,7 @@ from .content import Catalog
 from .engine import CardInstance, GameEngine, RuleError
 from .save import SaveError, read_save, write_save
 from .history import history_lines, read_history, write_run
+from .pressure import pressure_band, pressure_status
 
 
 class TerminalUI:
@@ -440,6 +441,8 @@ class TerminalUI:
                 self._biome_view()
             elif key in (ord("o"), ord("O")):
                 self._mission_view()
+            elif key in (ord("t"), ord("T")):
+                self._pressure_view()
             elif key in (ord("p"), ord("P"), 27):
                 self._pause()
                 return
@@ -466,10 +469,13 @@ class TerminalUI:
         route_length = self.engine.path_cost(route) if route_exists else None
         intel = self.engine.route_intel(route) if route_length is not None else None
         light_cost = int(intel["light"]) if intel is not None else None
+        pressure_cost = int(intel["pressure"]) if intel is not None else None
         maximum = self.engine.maximum_navigation_distance()
         reach = "READY" if walkable and route_length is not None and route_length <= maximum else "OUT OF REACH"
         route_cost = f"{route_length:2}" if route_length is not None else "--"
         route_light = f"{light_cost:2}" if light_cost is not None else "--"
+        route_pressure = f"{pressure_cost:2}" if pressure_cost is not None else "--"
+        projected_band = str(intel["projected_pressure_band"]) if intel else "-"
         biome = self.catalog.biomes[self.engine.current_biome()]["name"]
         terrain = self.engine.terrain_at(*cursor)["name"] if walkable else "Blocked"
         terrain_cost = self.engine.movement_cost(*cursor) if walkable else "-"
@@ -491,8 +497,9 @@ class TerminalUI:
         self._put(
             rows - 3,
             2,
-            f"L-{route_light} H{intel['known_hazards'] if intel else '-'} "
-            f"P:{intel['patrol_risk'] if intel else '-'} | {terrain}(T{terrain_cost}) | {biome}"[
+            f"L-{route_light} PR+{route_pressure}>{projected_band} "
+            f"H{intel['known_hazards'] if intel else '-'} PAT:{intel['patrol_risk'] if intel else '-'} "
+            f"| {terrain}(T{terrain_cost}) | {biome}"[
                 : self.screen.getmaxyx()[1] - 3
             ],
             curses.A_DIM,
@@ -530,7 +537,7 @@ class TerminalUI:
                 2,
                 self._ellipsize(
                     f"CORE {core_x:03},{core_y:02} | FULL ROUTE {projection['ticks']} TICKS / "
-                    f"~{projection['light']} LIGHT | NEXT LEG SELECTED",
+                    f"~{projection['light']} LIGHT / +{projection['pressure']} PRESSURE | NEXT LEG SELECTED",
                     self.screen.getmaxyx()[1] - 3,
                 ),
                 self._attr(3) | curses.A_BOLD,
@@ -552,8 +559,8 @@ class TerminalUI:
                 rows - 2,
                 2,
                 self._ellipsize(
-                    f"OBJ {biome_name.upper()} | TOTAL {projection['ticks']}T/~{projection['light']}L "
-                    "| NEXT LEG",
+                    f"OBJ {biome_name.upper()} | TOTAL {projection['ticks']}T/~{projection['light']}L/"
+                    f"+{projection['pressure']}P | NEXT LEG",
                     self.screen.getmaxyx()[1] - 3,
                 ),
                 self._attr(2) | curses.A_BOLD,
@@ -784,7 +791,8 @@ class TerminalUI:
         core_x, core_y = self.engine.core_position()
         leg = self.engine._find_path((state.party_x, state.party_y), waypoint)
         self.message = (
-            f"Core {core_x:03},{core_y:02}: {projection['ticks']} ticks / ~{projection['light']} light total. "
+            f"Core {core_x:03},{core_y:02}: {projection['ticks']} ticks / ~{projection['light']} light total / "
+            f"+{projection['pressure']} pressure total. "
             f"Next leg costs {self.engine.path_cost(leg)}; press Enter to travel."
         )
         return waypoint
@@ -994,7 +1002,8 @@ class TerminalUI:
                     f"COST {cost_label.upper()} | RISK {telegraph['risk'].upper()} | "
                     f"COMBAT {telegraph['combat'].upper()} | IRREVERSIBLE\n"
                     f"BENEFIT {self._objective_reward_summary(approach['completion']).upper()}\n"
-                    f"ROUTE {projection['ticks']} TICKS / ~{projection['light']} LIGHT | "
+                    f"ROUTE {projection['ticks']} TICKS / ~{projection['light']} LIGHT / "
+                    f"+{projection['pressure']} PRESSURE | "
                     f"KNOWN HAZARDS {projection['known_hazards']} | "
                     f"PATROLS {projection['patrol_risk']}"
                 )
@@ -1153,7 +1162,7 @@ class TerminalUI:
                 [
                     "CORE OPEN — required access is complete.",
                     f"Target {core_x:03},{core_y:02} | {projection['ticks']} weighted ticks | "
-                    f"~{projection['light']} light from here.",
+                    f"~{projection['light']} light | +{projection['pressure']} pressure from here.",
                     "Press G in exploration to select the next reachable route leg. "
                     "Remaining access objectives are optional.",
                 ]
@@ -1198,6 +1207,58 @@ class TerminalUI:
     def _mission_view(self) -> None:
         self._notice("EXPEDITION STATUS", self._mission_status_text())
 
+    def _pressure_text(self) -> str:
+        assert self.engine
+        state = self.engine.state
+        status = pressure_status(state.pressure)
+        current = pressure_band(state.pressure)
+        lines = [
+            "Pressure is irreversible enemy awareness. It advances only when the world does; menus, reading, resize, animation and input delay cost nothing.",
+            "",
+            f"CURRENT {status['name']} — {state.pressure} pressure",
+            f"BAND PROFILE — {current.forecast}",
+        ]
+        if status["next_threshold"] is None:
+            lines.append("NEXT — no higher base-expedition band.")
+        else:
+            lines.extend(
+                [
+                    f"NEXT {status['next_threshold']} — {status['remaining']} remaining.",
+                    f"FORECAST — {status['forecast']}",
+                ]
+            )
+        if state.pressure_incomplete_before_tick is not None:
+            lines.extend(
+                [
+                    "",
+                    "HISTORY GAP — this run predates Pressure. Earlier actions were not reconstructed; "
+                    f"the gap ends at travel tick {state.pressure_incomplete_before_tick}.",
+                ]
+            )
+        lines.extend(["", "RECENT CAUSES"])
+        if not state.pressure_recent:
+            lines.append("No pressure-bearing action recorded yet.")
+        else:
+            labels = {
+                "travel": "TRAVEL",
+                "enemy_round": "ENEMY ROUND",
+                "objective_stage": "OBJECTIVE",
+                "facility": "FACILITY",
+                "event": "EVENT",
+                "bargain": "BARGAIN",
+                "power_reward": "POWER REWARD",
+                "loop_entry": "LOOP ENTRY",
+            }
+            for change in reversed(state.pressure_recent):
+                lines.append(
+                    f"+{change['amount']} {labels[change['source']]} — {change['detail']} "
+                    f"(total {change['total']})"
+                )
+        return "\n".join(lines)
+
+    def _pressure_view(self) -> None:
+        self._notice("EXPEDITION PRESSURE", self._pressure_text())
+
     def _core_access_notice_text(self) -> str:
         assert self.engine
         core_x, core_y = self.engine.core_position()
@@ -1206,7 +1267,8 @@ class TerminalUI:
         return (
             "Two access objectives are secure. The final path is now open.\n\n"
             f"OVERSEER CORE — {core_x:03},{core_y:02}\n"
-            f"ROUTE FROM HERE — {projection['ticks']} weighted ticks / ~{projection['light']} light.\n\n"
+            f"ROUTE FROM HERE — {projection['ticks']} weighted ticks / ~{projection['light']} light / "
+            f"+{projection['pressure']} pressure.\n\n"
             "Press G in exploration to select the next reachable leg toward the Core. Tab also "
             "prioritises that leg. Neither command starts travel until Enter confirms it.\n\n"
             f"The remaining {optional} objective{'s are' if optional != 1 else ' is'} OPTIONAL. "
@@ -1252,6 +1314,8 @@ class TerminalUI:
                 self._combat_hand_view()
             elif key in (ord("v"), ord("V")):
                 self._resolution_view()
+            elif key in (ord("t"), ord("T")):
+                self._pressure_view()
             elif key in (ord("r"), ord("R")):
                 self._crew_view()
             elif key in (ord("p"), ord("P"), 27):
@@ -2025,6 +2089,11 @@ class TerminalUI:
             "cannot be played. Press I during exploration or combat to inspect every active stack and its "
             "current scaled value. A known F is a one-use biome facility; inspect both disclosed procedures "
             "before converting resources, suppressing a hazard field, or revealing local sites.\n\n"
+            "Expedition Pressure is irreversible enemy awareness. Weighted travel, completed enemy rounds, "
+            "objective stages, facilities, and explicitly priced choices advance it; menus, help, inspection, "
+            "animation, resize, and thinking time never do. Routes disclose their exact pressure cost. Press T "
+            "to inspect the current band, next threshold, forecast, and recent causes. Light remains a separate "
+            "depletable visibility and stress resource.\n\n"
             "Each seed selects one of six world layouts and four of eleven biome types. Biomes alter travel "
             "cost, hazard visibility, patrol behavior, combat conditions, and recovery opportunities as well "
             "as formations. Press B in exploration for the current biome rules. Four K landmarks offer seeded "
@@ -2039,7 +2108,7 @@ class TerminalUI:
             "Controls: arrows or hjkl navigate, Enter confirms, X/Escape cancels an active route, right-click "
             "also cancels it, E ends a combat turn, U uses a supply, B views biome rules, O views objective "
             "status, G selects the next Core route leg, D views the deck, "
-            "C inspects the selected combat card, R inspects crew, I views effects, V shows source arithmetic and trigger order, P pauses, and ? opens this page. "
+            "C inspects the selected combat card, R inspects crew, I views effects, T views Pressure, V shows source arithmetic and trigger order, P pauses, and ? opens this page. "
             "During enemy-action frames, F toggles fast playback and Space skips the remaining presentation; "
             "neither key skips enemy game actions.\n\nMouse input otherwise stops at exploration routing."
         )
@@ -2048,7 +2117,14 @@ class TerminalUI:
     def _resources(self, row: int) -> None:
         assert self.engine
         state = self.engine.state
-        self._put(row, 2, f"Seed {state.seed}   Light {state.light:3}/100   Supplies {state.supplies}", self._attr(2))
+        pressure = pressure_status(state.pressure)
+        self._put(
+            row,
+            2,
+            f"Seed {state.seed}   Light {state.light:3}/100   Supplies {state.supplies}   "
+            f"Pressure {pressure['name']} {state.pressure}",
+            self._attr(2),
+        )
         crew = "  ".join(
             f"R{h.rank} {h.hero_class[:4].upper()} {h.hp}/{h.max_hp} {h.stress}s"
             if h.alive else f"-- {h.hero_class[:4].upper()} DEAD"

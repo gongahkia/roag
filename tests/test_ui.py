@@ -11,6 +11,7 @@ from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.engine import CardInstance, GameEngine
 from dumbest_dungeon.ui import TerminalUI
 from dumbest_dungeon.history import write_run
+from dumbest_dungeon.pressure import PressureSource
 
 
 class FakeScreen:
@@ -520,6 +521,7 @@ class AsciiUiTests(unittest.TestCase):
             self.engine.maximum_navigation_distance(),
         )
         self.assertIn("light total", self.ui.message)
+        self.assertIn("pressure total", self.ui.message)
         self.assertIn("press Enter", self.ui.message)
 
     def test_active_objective_is_cycled_as_a_reachable_route_leg(self) -> None:
@@ -881,6 +883,32 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("RUN EFFECTS", rendered)
         self.assertIn("Iron Benediction x1", rendered)
         self.assertIn("Current:", rendered)
+
+    def test_pressure_browser_discloses_band_forecast_causes_and_history_gap(self) -> None:
+        for index in range(9):
+            self.engine._advance_pressure(PressureSource.ENEMY_ROUND, 1, f"combat round {index + 1}")
+        self.engine.state.pressure_incomplete_before_tick = 0
+        before = self.engine.snapshot()
+        screen = FakeScreen(rows=24, columns=80, keys=[curses.KEY_END, 27])
+        self.ui.screen = screen
+        self.ui._pressure_view()
+        rendered = screen.text()
+        self.assertIn("EXPEDITION PRESSURE", rendered)
+        self.assertIn("CURRENT QUIET", rendered)
+        self.assertIn("NEXT 240", rendered)
+        self.assertIn("RECENT CAUSES", rendered)
+        self.assertIn("ENEMY ROUND", rendered)
+        self.assertIn("HISTORY GAP", rendered)
+        self.assertEqual(before, self.engine.snapshot())
+
+    def test_exploration_hud_and_route_show_exact_pressure(self) -> None:
+        screen = FakeScreen(rows=24, columns=80)
+        self.ui.screen = screen
+        destination = self.engine._neighbors((self.engine.state.party_x, self.engine.state.party_y))[0]
+        self.ui._render_exploration(destination)
+        rendered = screen.text()
+        self.assertIn("Pressure QUIET 0", rendered)
+        self.assertIn(f"PR+{self.engine.movement_cost(*destination):2}>QUIET", rendered)
 
     def test_resource_hud_marks_effect_summary_overflow(self) -> None:
         hero = self.engine.living_heroes()[0]

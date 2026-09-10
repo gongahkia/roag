@@ -40,6 +40,13 @@ def run(screen):
         before = ui.engine.snapshot()
         ui._notice('PTY MORGUE', '\\n'.join(history_lines(run_report(ui.engine))))
         picked = 1
+    elif sys.argv[2] == 'pressure':
+        from dumbest_dungeon.pressure import PressureSource
+        for i in range(9):
+            ui.engine._advance_pressure(PressureSource.ENEMY_ROUND, 1, 'combat round ' + str(i + 1))
+        before = ui.engine.snapshot()
+        ui._pressure_view()
+        picked = 1
     else:
         before = ui.engine.snapshot()
         picked = ui._menu('PTY LONG CONTRACT', ['Accept', 'Walk away'],
@@ -56,7 +63,8 @@ Path(sys.argv[1]).write_text(json.dumps(result))
 
 @unittest.skipUnless(os.name == "posix", "real PTY checks require a Unix terminal")
 class RealTerminalTests(unittest.TestCase):
-    def probe(self, rows: int, columns: int, *, resize: bool = False, history: bool = False, resolution: bool = False) -> dict:
+    def probe(self, rows: int, columns: int, *, resize: bool = False, history: bool = False,
+              resolution: bool = False, pressure: bool = False) -> dict:
         import fcntl
         import termios
 
@@ -67,7 +75,8 @@ class RealTerminalTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as directory:
                 result_path = Path(directory) / "result.json"
                 process = subprocess.Popen(
-                    [sys.executable, "-c", PROBE, str(result_path), "resolution" if resolution else "history" if history else "menu"],
+                    [sys.executable, "-c", PROBE, str(result_path),
+                     "resolution" if resolution else "history" if history else "pressure" if pressure else "menu"],
                     stdin=slave, stdout=slave, stderr=slave,
                     env={**os.environ, "TERM": "xterm-256color"},
                 )
@@ -78,19 +87,22 @@ class RealTerminalTests(unittest.TestCase):
                     ready, _, _ = select.select([master], [], [], 0.05)
                     if ready:
                         captured.extend(os.read(master, 65536))
-                    marker = b"COMBAT RESOLUTION" if resolution else b"PTY MORGUE" if history else b"PTY LONG CONTRACT"
+                    marker = (b"COMBAT RESOLUTION" if resolution else b"PTY MORGUE" if history
+                              else b"EXPEDITION PRESSURE" if pressure else b"PTY LONG CONTRACT")
                     if not sent and marker in captured:
                         if resize:
                             fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 60, 140, 0, 0))
                             process.send_signal(signal.SIGWINCH)
-                        os.write(master, b"\x1bOF\n" if history or resolution else b"\x1b[6~\x1bOFj\n")
+                        os.write(master, b"\x1bOF\n" if history or resolution or pressure else b"\x1b[6~\x1bOFj\n")
                         sent = True
                 self.assertIsNotNone(process.poll(), "PTY timed out: " + captured[-1000:].decode(errors="replace"))
                 self.assertEqual(0, process.returncode, captured[-2000:].decode(errors="replace"))
                 result = json.loads(result_path.read_text())
                 self.assertEqual(1, result["picked"])
                 self.assertTrue(result["unchanged"])
-                if history or resolution:
+                if pressure:
+                    self.assertIn("ENEMY ROUND", result["shown"])
+                elif history or resolution:
                     self.assertIn("probe:39", result["shown"])
                 else:
                     self.assertIn("Consequence 89", result["shown"])
@@ -122,6 +134,11 @@ class RealTerminalTests(unittest.TestCase):
 
     def test_morgue_scrolls_at_140_by_60(self) -> None:
         self.assertEqual([60, 140], self.probe(60, 140, history=True)["size"])
+
+    def test_pressure_inspection_is_readable_and_state_neutral_at_both_sizes(self) -> None:
+        for rows, columns in ((24, 80), (60, 140)):
+            result = self.probe(rows, columns, pressure=True)
+            self.assertIn("CURRENT QUIET", result["shown"])
 
 
 if __name__ == "__main__":
