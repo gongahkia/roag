@@ -253,6 +253,13 @@ equipment/support repair, reciprocal physical disarmament, temporary storm
 shelter, or a cargo-costed water-lane crossing—and always expose a material
 drawback before use.
 
+Jomon's working decks also accept eight optional physical refits. Inspect `V`
+at the galley, bilge, repair, storage, helm, berth or lookout station to preview
+the exact cargo lot, credit, three-action fitting cost, benefit and drawback.
+Installed fittings change the ordinary shared systems: fire and meals,
+floodwater and pumping, storm work, cargo theft, shoals, winter exposure,
+signals and persistent injury treatment. None is required before departure.
+
 ## Saves and verification
 
 One atomic JSON save is stored at `$XDG_DATA_HOME/jomon/jomon-save.json`, or

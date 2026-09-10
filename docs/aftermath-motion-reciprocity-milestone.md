@@ -205,4 +205,19 @@ new magic, infinite contracts or additional major region is planned.
   channel-surety shuttle crosses a real water lane while leaving the heaviest
   cargo at the launch. Each branch issues exactly one physical, inspectable
   relic and tests its production, drawback, persistence and cross-system use.
-- The remaining vessel and voyage content multiplication gates remain open.
+- Eight optional refits now attach to seven real working-station glyphs aboard
+  Jomon. Each consumes one physical cargo lot, accountable credit and three
+  actions at the matching station; preview and cancellation are zero-time.
+  Galley cover, bilge strainers, storm backstay, cargo netting, keel shoes,
+  hatch felt, signal shutter and sling cot alter fire, flooding, exposed work,
+  theft, shoals, winter exposure, navigation/inspection and injury treatment.
+  Their effects and drawbacks are inspectable, persistent and covered by eight
+  focused tests plus the retained vessel, material and deck-crisis suites.
+- Concurrent commit `3fe2d7b64b8c493a2e61db986eb0a04b9b9836ec`
+  (`newoneadded`) captured the vessel-refit implementation while focused tests
+  were running and also appeared at `origin/main`; this agent did not create or
+  push it. Follow-up `2167780` makes the winter test explicitly remove warm
+  clothing so it proves the refit's cold-water effect rather than protection
+  from the starting outfit.
+- The remaining stateful voyage-variant and final verification gates remain
+  open.
