@@ -206,6 +206,20 @@ soak repeatedly travels and resolves real shoal voyages, measures traced live
 memory and serialized-state drift after warmup, and checks bounded logs and
 caches. Four focused command tests passed in **5.237 seconds**.
 
+The final 20-sample Python 3.11/macOS benchmark is recorded in
+`performance-final.json`. Input plus production layout measured 12.253 ms
+median / 13.740 p95 / 14.898 p99 and worst; movement 7.159 / 7.854 / 38.620;
+enemy-heavy turns 48.282 / 52.960 / 56.995; sparse material turns 20.295 /
+20.820 / 21.062; boarding input/render 22.563 / 30.073 / 32.654. New-world
+creation was 215.001 ms median, lazy frontier entry 35.593 ms, save 19.104 ms,
+load 107.798 ms, auto-pack 2.648 ms, and peak RSS 28,516 KiB. Save size is
+326,502 bytes and deterministic replay matched. Compared with the same-machine
+12-sample continuation reading before this tranche, ordinary movement changed
+from 7.010 to 7.159 ms (+2.1%) and input/layout from 12.685 to 12.253 ms
+(-3.4%); no ordinary scenario regressed 20%. The original checked-in baseline
+used Linux/Python 3.14, so its large improvements are directional rather than a
+controlled cross-machine comparison.
+
 Four additional regressions reproduced loose `%` cover having no projectile
 effect, a repeated cache rumor selecting the same marked coffer, and exhausted
 rumors raising `StopIteration`. The shared cover query now affects actual

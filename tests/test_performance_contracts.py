@@ -8,7 +8,7 @@ from jomon.inventory import (
 )
 from jomon.state import Item, Position, Threat, VerticalLink, create_world
 
-from jomon.benchmark import distribution
+from jomon.benchmark import benchmark, distribution
 
 
 class MeasurementTests(unittest.TestCase):
@@ -22,6 +22,11 @@ class MeasurementTests(unittest.TestCase):
     def test_empty_measurements_are_not_reported_as_fast(self):
         with self.assertRaises(ValueError):
             distribution([])
+
+    def test_benchmark_names_lazy_generation_and_revision(self):
+        result = benchmark(1, "focused benchmark contract")
+        self.assertTrue(result["commit"])
+        self.assertEqual(result["lazy_frontier_entry"]["n"], 1)
 
 
 def reference_free(width, height, occupied):

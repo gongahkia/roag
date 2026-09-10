@@ -82,9 +82,13 @@ def replay_digest(seed: str) -> str:
 def benchmark(samples: int = 12, seed: str = "systemic-benchmark") -> dict:
     if samples < 1:
         raise ValueError("samples must be positive")
+    revision = subprocess.run(
+        ["git", "rev-parse", "HEAD"], check=False, capture_output=True, text=True
+    ).stdout.strip()
     results = {
         "seed": seed, "python": platform.python_version(),
         "platform": platform.platform(), "units": "milliseconds",
+        "commit": revision or "unavailable",
         "render_scope": "production layout into a sink; no terminal-driver latency",
     }
     results["cold_import"] = measure(lambda _: subprocess.run(
@@ -101,6 +105,10 @@ def benchmark(samples: int = 12, seed: str = "systemic-benchmark") -> dict:
     depart(expedition)
     clone = lambda _: copy.deepcopy(expedition)
     results["region_entry"] = measure(lambda state: activate_region(state, "greywash"), samples, clone)
+    results["lazy_frontier_entry"] = measure(
+        lambda state: activate_region(state, "dunmire"), min(samples, 5),
+        lambda _: create_world(seed),
+    )
     results["movement"] = measure(lambda state: move(state, 1, 0), samples, clone)
     results["fov"] = measure(lambda _: field_of_view(expedition, remember=False), samples)
     sink = RenderSink()
