@@ -240,8 +240,15 @@ def item_spec(kind: str) -> ItemSpec:
         name = kind.split(":", 1)[1]
         from .content import COMMODITIES
 
-        bulk = COMMODITIES[name]["bulk"]
-        return ItemSpec(name.title(), name[:2].upper(), min(4, bulk), 1, bulk * 2, "cargo", f"Physical {name} cargo.", stack_limit=4)
+        cargo = COMMODITIES[name]
+        bulk = cargo["bulk"]
+        description = (
+            f"Physical {name} cargo from {cargo['source']}, used for {cargo['use']}. "
+            f"Handling: {cargo['handling']}. Failure: {cargo['failure']}. "
+            f"Material behavior: {cargo['environment']}. Contract use: {cargo['quest_use']}. "
+            f"Equipment use: {cargo['equipment_use']}. Buyers: {', '.join(cargo['buyers'])}."
+        )
+        return ItemSpec(name.title(), name[:2].upper(), min(4, bulk), 1, bulk * 2, "cargo", description, stack_limit=4)
     if kind.startswith("passive:"):
         name = kind.split(":", 1)[1]
         from .content import PASSIVES
@@ -864,6 +871,7 @@ def sync_legacy_load(state: GameState) -> None:
     passives: dict[str, int] = {}
     consumables: dict[str, int] = {}
     goods: dict[str, object] = {}
+    commodity_condition: dict[str, int] = {}
     carried_relics: list[str] = []
     from .state import CommodityStack
     from .content import COMMODITIES
@@ -879,7 +887,12 @@ def sync_legacy_load(state: GameState) -> None:
             consumables[name] = consumables.get(name, 0) + item.quantity
         elif item.kind.startswith("commodity:"):
             name = item.kind.split(":", 1)[1]
-            goods[name] = CommodityStack(item.quantity, COMMODITIES[name]["condition"])
+            current = goods.get(name)
+            quantity = getattr(current, "quantity", 0) + item.quantity
+            commodity_condition[name] = min(commodity_condition.get(name, 100), item.condition)
+            base = COMMODITIES[name]["condition"]
+            condition = base if commodity_condition[name] >= 80 else f"weathered {base}" if commodity_condition[name] >= 45 else "spoiled"
+            goods[name] = CommodityStack(quantity, condition)
         elif item.kind.startswith("relic:"):
             carried_relics.append(item.kind.split(":", 1)[1])
     state.carried_passives = passives

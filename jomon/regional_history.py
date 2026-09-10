@@ -18,6 +18,46 @@ WORKING_ACCOUNTS = {
     "frostmere": ("glacial gravel", "cold estuary", "Marked Channel Pilots", "wool", "salt fish", "maintain witnessed winter soundings", "fast cuts against sheltered nets"),
 }
 
+INSTITUTION_SERVICES = {
+    "hearthford": ("shared mill repair and measured grain exchange", "it closes its stores after unwitnessed damage to the mill race"),
+    "greywash": ("witnessed salvage title and a sheltered wreck berth", "it contests cargo taken from a marked wreck without an account"),
+    "greenwold": ("coppice guidance, charcoal lots and field treatment", "it bars crews who burn living medicine plots"),
+    "whitecairn": ("load warnings, crossing shelter and tested ironwork", "it refuses passage to couriers who silence or evade warning bells"),
+    "dunmire": ("raised shelter, peat-cut guidance and bank repair", "it opposes drainage that sends floodwater toward inhabited islands"),
+    "rillscar": ("bridge access, quarry bracing and fitted ironwork", "it withholds crews when a private guard seizes either bridge"),
+    "marlbank": ("seed stores, kiln water and claywork contracts", "it refuses heat or water diversions that ruin the next field yield"),
+    "frostmere": ("winter soundings, net shelter and marked ice routes", "it closes fast channels after false signals or damaged net stakes"),
+}
+
+# These authored disputes make the sparse production links legible even while
+# the four frontier regions are still generated lazily.
+INSTITUTION_TIES = (
+    ("hearthford", "dunmire", "compares flood-bank timber against the mill water account"),
+    ("hearthford", "marlbank", "compares grain measures and seasonal water releases"),
+    ("whitecairn", "frostmere", "shares cold-route warnings and wool shelter claims"),
+)
+
+
+def reconcile_network(state: GameState) -> None:
+    """Rebuild bounded, derived institutional ties without touching memories."""
+    accounts = {account.region_id: account for account in state.institutions.values()}
+    for account in accounts.values():
+        account.service, account.opposition_reason = INSTITUTION_SERVICES[account.region_id]
+        account.relationships = {}
+    for first in accounts.values():
+        for second in accounts.values():
+            if first.id == second.id:
+                continue
+            if first.production == second.dependency:
+                first.relationships[second.id] = f"supplies {first.production} to {second.name}"
+                second.relationships[first.id] = f"depends on {first.name} for {first.production}"
+    for first_region, second_region, dispute in INSTITUTION_TIES:
+        if first_region not in accounts or second_region not in accounts:
+            continue
+        first, second = accounts[first_region], accounts[second_region]
+        first.relationships.setdefault(second.id, dispute)
+        second.relationships.setdefault(first.id, dispute)
+
 
 def initialise_account(state: GameState, region_id: str, *, new_geography: bool) -> None:
     """Five linked events; old saves get testimony, not invented terrain edits."""
@@ -35,6 +75,7 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
         obligation=1 if recovery == "private advance" else 0,
         last_day=state.world_time // ACTIONS_PER_DAY,
     ))
+    institution.service, institution.opposition_reason = INSTITUTION_SERVICES[region_id]
     region.generation_facts = {
         "version": 1, "watershed": water, "exposure": exposure,
         "geology": geology, "climate": climate,
@@ -166,6 +207,9 @@ def deliver_dependency(state: GameState) -> tuple[bool, str]:
     institution.trust = min(3, institution.trust + 1)
     institution.obligation = max(0, institution.obligation - 1)
     institution.confidence = min(3, institution.confidence + (2 if weighed else 1))
+    act = f"{state.courier.name} delivered a witnessed {institution.dependency} lot on day {state.world_time // ACTIONS_PER_DAY}."
+    institution.witnessed_acts.append(act)
+    del institution.witnessed_acts[:-8]
     state.trade_credit += 1
     state.remember(f"{state.courier.name} delivered {institution.dependency} to {institution.name}; household trust {institution.trust}, remaining obligation {institution.obligation}.")
     return True, (
@@ -180,7 +224,10 @@ def ledger_lines(state: GameState) -> list[str]:
         return ["No working account has been witnessed here yet."]
     region = state.region
     facts = region.generation_facts
-    lines = [f"FACT — {region.name}: {facts['geology']}, {facts['climate']}.", f"FACT — work: {institution.production}; dependency: {institution.dependency}.", f"{institution.name}: {institution.goal}.", f"Dispute: {institution.dispute}.", f"Household trust {institution.trust:+d}; obligation {institution.obligation}; confidence {institution.confidence:+d}.", str(region.changes.get("last_work_account", "No new shift has been resolved in this account.")), ""]
+    lines = [f"FACT — {region.name}: {facts['geology']}, {facts['climate']}.", f"FACT — work: {institution.production}; dependency: {institution.dependency}.", f"{institution.name}: {institution.goal}.", f"Service: {institution.service}.", f"Dispute: {institution.dispute}; opposition: {institution.opposition_reason}.", f"Household trust {institution.trust:+d}; obligation {institution.obligation}; confidence {institution.confidence:+d}."]
+    lines.extend(f"RELATION — {text}." for text in institution.relationships.values())
+    lines.extend(f"WITNESSED — {text}" for text in institution.witnessed_acts[-3:])
+    lines += [str(region.changes.get("last_work_account", "No new shift has been resolved in this account.")), ""]
     for event in region.regional_history:
         lines += [f"TESTIMONY — {event.account}", f"EVIDENCE — {event.evidence}: {event.consequence}", ""]
     lines += ["FORECAST — " + forecast(state), "Information and menus cost no action. Supplies and work do."]
@@ -207,6 +254,12 @@ def validate_accounts(state: GameState) -> None:
             raise ValueError("working account refers to an unknown material")
         if not -3 <= institution.trust <= 3 or not 0 <= institution.obligation <= 9 or not -3 <= institution.confidence <= 3:
             raise ValueError("invalid institution standing")
+        if not institution.service or not institution.opposition_reason or len(institution.witnessed_acts) > 8:
+            raise ValueError("incomplete or unbounded institution record")
+        if any(other not in state.institutions or other == institution.id or not reason for other, reason in institution.relationships.items()):
+            raise ValueError("invalid institutional relationship")
+        if len(state.institutions) > 1 and not institution.relationships:
+            raise ValueError("isolated institution account")
     for region in state.regions.values():
         if not region.regional_history:
             continue

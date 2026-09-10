@@ -187,11 +187,17 @@ def _expose(state: GameState, point: Position, reaction: str, severity: int) -> 
     for schedule in state.actor_schedules.values():
         if schedule.area == area and schedule.position == point and schedule.actor_id in people and schedule.actor_id != state.active_courier_id:
             affect_body(state, people[schedule.actor_id], reaction, severity, point)
+    cargo_changed = False
     for item in state.items:
         on_ground = item.location == "ground" and item.region_id == state.spatial_id and item.ground_position == point
         carried = state.position == point and item.owner_id == state.active_courier_id and item.location in {"pack", "readied", "secondary", "head", "torso", "arms", "hands", "legs", "feet"}
         if on_ground or carried:
+            before = item.condition
             affect_body(state, item, reaction, severity, point)
+            cargo_changed |= carried and item.kind.startswith("commodity:") and item.condition != before
+    if cargo_changed:
+        from .inventory import sync_legacy_load
+        sync_legacy_load(state)
     # Courier defeat may change location and active person; resolve it last so
     # the successor's vessel state is not exposed to the old regional event.
     if state.position == point and state.courier:

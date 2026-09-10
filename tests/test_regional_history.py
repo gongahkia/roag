@@ -3,8 +3,9 @@ import unittest
 
 from jomon.actions import interact, move
 from jomon.frontiers import FRONTIERS
-from jomon.inventory import create_item, auto_place
-from jomon.materials import handle_material
+from jomon.content import COMMODITIES, validate_commodity_content
+from jomon.inventory import create_item, auto_place, item_spec, sync_legacy_load
+from jomon.materials import _expose, handle_material
 from jomon.quests import use_secondary_service
 from jomon.regional_history import account_for, advance_production, deliver_dependency, ledger_lines, validate_accounts
 from jomon.regions import activate_region
@@ -32,6 +33,20 @@ class WorkingHistoryTests(unittest.TestCase):
             self.assertEqual(region.regional_history[-1].evidence, region.containers[-1].id)
             self.assertTrue(region.materials)
             self.assertTrue(any("repairs depend on" in n.description for n in state.route_nodes.values() if n.region_id == region.id))
+
+    def test_institutions_form_material_network_with_services_and_opposition(self):
+        state = self.state
+        for region_id in FRONTIERS:
+            activate_region(state, region_id)
+        for account in state.institutions.values():
+            self.assertTrue(account.relationships)
+            self.assertTrue(account.service)
+            self.assertTrue(account.opposition_reason)
+            self.assertTrue(set(account.relationships) <= set(state.institutions))
+        hearth = state.institutions["work:hearthford"]
+        white = state.institutions["work:whitecairn"]
+        self.assertIn(white.id, hearth.relationships)
+        self.assertIn("ironwork", hearth.relationships[white.id])
 
     def test_histories_vary_real_materials_work_and_guard_accounts(self):
         other = create_world("another working history")
@@ -98,6 +113,53 @@ class WorkingHistoryTests(unittest.TestCase):
         self.assertTrue(use_secondary_service(state, "h")[0])
         self.assertNotIn("feet", state.courier.injuries)
         self.assertEqual(account.obligation, old_obligation + 1)
+        self.assertEqual(len(account.witnessed_acts), 2)
+        self.assertIn("delivered a witnessed", account.witnessed_acts[-1])
+
+    def test_commodity_lifecycle_is_inspectable_and_carried_condition_is_physical(self):
+        validate_commodity_content()
+        for name, definition in COMMODITIES.items():
+            description = item_spec(f"commodity:{name}").description
+            self.assertIn(definition["handling"], description)
+            self.assertIn(definition["failure"], description)
+            self.assertGreaterEqual(len(definition["buyers"]), 2)
+        first = create_item(self.state, "commodity:grain", "condition test", owner_id=self.state.active_courier_id, quantity=1)
+        second = create_item(self.state, "commodity:grain", "condition test", owner_id=self.state.active_courier_id, quantity=2)
+        self.assertTrue(auto_place(self.state, first.id, "pack", owner_id=self.state.active_courier_id))
+        self.assertTrue(auto_place(self.state, second.id, "pack", owner_id=self.state.active_courier_id))
+        second.condition = 60
+        sync_legacy_load(self.state)
+        self.assertEqual(self.state.carried_goods["grain"].quantity, 3)
+        self.assertEqual(self.state.carried_goods["grain"].condition, "weathered dry")
+
+    def test_material_exposure_updates_cargo_condition_and_roundtrips(self):
+        state = self.state
+        state.location = "region"
+        state.position = Position(40, 24)
+        item = create_item(state, "commodity:paper", "wet account", owner_id=state.active_courier_id, quantity=1)
+        self.assertTrue(auto_place(state, item.id, "pack", owner_id=state.active_courier_id))
+        _expose(state, state.position, "water", 8)
+        self.assertEqual(state.carried_goods["paper"].condition, "weathered dry")
+        restored = game_state_from_dict(state.to_dict())
+        self.assertEqual(restored.carried_goods["paper"].condition, "weathered dry")
+        self.assertEqual(restored.to_dict(), state.to_dict())
+
+    def test_damaged_objective_cargo_is_accepted_with_a_visible_reduced_account(self):
+        state = self.state
+        state.location = "region"
+        state.objective_status = "accepted"
+        schedule = state.actor_schedules[state.contact.id]
+        state.position = schedule.position
+        commodity = state.region.objective_commodity
+        item = create_item(state, f"commodity:{commodity}", "damaged objective", owner_id=state.active_courier_id, quantity=2)
+        self.assertTrue(auto_place(state, item.id, "pack", owner_id=state.active_courier_id))
+        item.condition = 40
+        sync_legacy_load(state)
+        result = interact(state)
+        self.assertTrue(result.changed)
+        self.assertEqual(state.objective_status, "completed")
+        self.assertIn("accepted under pressure", result.message)
+        self.assertTrue(state.institutions["work:hearthford"].witnessed_acts)
 
     def test_ledger_is_zero_time_and_distinguishes_testimony_forecast(self):
         state = self.state

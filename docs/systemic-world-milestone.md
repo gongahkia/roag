@@ -161,6 +161,20 @@ are mandatory. Fifteen catalogue elites plus the map-authored crown wheel make
 roster tests and 56 existing enemy/encounter/region/gameplay regressions passed
 in **60.973 seconds**.
 
+The eight working associations now form a bounded material network instead of
+eight isolated reputation counters. Production/dependency ties and three
+authored cross-watershed disputes reconstruct deterministically as regions are
+generated; every account exposes a service, an opposition condition, household
+trust, confidence, obligations and up to eight witnessed acts. Trust continues
+to unlock treatment and now affects visiting-merchant terms. All eight cargo
+types declare handling, failure, buyers, environmental behavior, quest use and
+equipment use. Physical item wear now determines the aggregate cargo condition,
+survives format-7 round trips, follows lots into Jomon's hold, and produces an
+explicit reduced settlement when damaged objective cargo is accepted. Fourteen
+focused institutional/history/cargo tests pass in **2.881 seconds**; the broader
+52-test gameplay/material run exposed two test defects that were corrected, so
+a clean broader rerun remains due.
+
 Four additional regressions reproduced loose `%` cover having no projectile
 effect, a repeated cache rumor selecting the same marked coffer, and exhausted
 rumors raising `StopIteration`. The shared cover query now affects actual
@@ -178,7 +192,7 @@ them by themselves.
 | Geography/history | eight distinct regions, 3–7 causal events each, 1,000-seed access audit | open |
 | Materials | bounded shared reactions, inspection, player agency, persistence | open |
 | Ecology/AI | perceived cross-actor goals, 48 standards, 16 elites, four named rivals | automated roster and interaction gates met; campaign balance play open |
-| Institutions/economy | witnessed consequences, services, stock and physical contracts | open |
+| Institutions/economy | witnessed consequences, services, stock and physical contracts | automated integration met; campaign play open |
 | Builds | 36 weapons, 36 armour, 64 passives/techniques, 32 tools/supplies, 12 relics, 24 demonstrated builds | automated content and scenario gate met; requested manual coverage open |
 | Treasure | 60 persistent containers, history-backed objects, clue trails | open |
 | Stories | 12 substantial regional lines, three arcs, alternate outcomes | open |

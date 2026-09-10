@@ -13,6 +13,33 @@ COMMODITIES = {
     "wool": {"bulk": 2, "condition": "dry", "source": "upland folds", "use": "cloth and insulation"},
 }
 
+COMMODITY_LOGISTICS = {
+    "charcoal": {"handling": "keep covered and separate from sparks", "failure": "rain spoils heat; fire consumes the lot", "buyers": ("smiths", "kiln crews"), "environment": "burns hot and produces smoke", "quest_use": "restores fuel work after a route shortage", "equipment_use": "feeds controlled fires and powder preparation"},
+    "grain": {"handling": "keep dry and raised above bilge water", "failure": "water swells sacks; fire destroys food", "buyers": ("mill fellowships", "travelling households"), "environment": "wet sacks gain condition loss and obstruct cargo space", "quest_use": "settles food shortages and seed claims", "equipment_use": "provisions expedition rest and cooking"},
+    "ironwork": {"handling": "lash rigid cases against shifting cargo", "failure": "salt and lime abrade fittings; impact bends them", "buyers": ("millwrights", "bridge companies"), "environment": "adds structural mass and corrodes in slurry", "quest_use": "repairs gates, bridges and Jomon", "equipment_use": "supplies reinforcement and workshop fittings"},
+    "lime": {"handling": "keep sealed, dry and away from skin", "failure": "water makes a caustic slurry; spill contaminates cloth", "buyers": ("mortar crews", "field courts"), "environment": "wet lime raises abrasive smoke and coating", "quest_use": "repairs masonry and disputed field soil", "equipment_use": "prepares finite lime pots and protective wash"},
+    "paper": {"handling": "carry flat in a waxed case", "failure": "water erases accounts; fire removes evidence", "buyers": ("factors", "river authorities"), "environment": "burns quickly and absorbs water", "quest_use": "provides witnessed terms and replacement records", "equipment_use": "supports negotiation when seals are absent"},
+    "salt fish": {"handling": "keep sealed and shaded from bilge heat", "failure": "broken seals spoil provisions; water weakens wrapping", "buyers": ("inland households", "coppice camps"), "environment": "salt residue contaminates wet cargo", "quest_use": "feeds isolated workers during route closure", "equipment_use": "extends voyage provisions without cooking"},
+    "timber": {"handling": "brace long pieces and keep bindings sound", "failure": "fire spreads; saturation adds load; impact splits support", "buyers": ("shipwrights", "raised-bank companies"), "environment": "floats, burns and serves as load-bearing support", "quest_use": "repairs crossings, sheds and flood banks", "equipment_use": "provides braces, hafts and hull repair"},
+    "wool": {"handling": "bundle dry and ventilate after spray", "failure": "water adds weight; sparks smoulder in packed cloth", "buyers": ("winter pilots", "armour workers"), "environment": "insulates when dry and absorbs floodwater", "quest_use": "supplies cold shelters and seasonal obligations", "equipment_use": "lines armour and protects winter rigging"},
+}
+for commodity, logistics in COMMODITY_LOGISTICS.items():
+    COMMODITIES[commodity].update(logistics)
+
+
+def validate_commodity_content() -> None:
+    required = {
+        "bulk", "condition", "source", "use", "handling", "failure",
+        "buyers", "environment", "quest_use", "equipment_use",
+    }
+    for name, definition in COMMODITIES.items():
+        if set(definition) != required or not all(definition[key] for key in required):
+            raise ValueError(f"commodity {name!r} has an incomplete physical lifecycle")
+        if not isinstance(definition["bulk"], int) or definition["bulk"] < 1:
+            raise ValueError(f"commodity {name!r} has invalid bulk")
+        if not isinstance(definition["buyers"], tuple) or len(definition["buyers"]) < 2:
+            raise ValueError(f"commodity {name!r} needs at least two material buyers")
+
 REGIONAL_CONTEXTS = (
     {
         "condition": "Long rain has swollen the river and drowned the mill path.",

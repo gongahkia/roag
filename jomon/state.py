@@ -144,6 +144,10 @@ class Institution:
     obligation: int = 0
     confidence: int = 0
     last_day: int = 0
+    relationships: dict[str, str] = field(default_factory=dict)
+    service: str = ""
+    opposition_reason: str = ""
+    witnessed_acts: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -694,10 +698,11 @@ def create_world(seed: str) -> GameState:
     from .vessel import initialise_living_vessel
 
     initialise_route_chart(state)
-    from .regional_history import initialise_account
+    from .regional_history import initialise_account, reconcile_network
 
     for region_id in state.regions:
         initialise_account(state, region_id, new_geography=True)
+    reconcile_network(state)
     initialise_living_vessel(state)
     state.add_message(f"Jomon reaches Hearthford. {region.condition}")
     state.add_message(
@@ -1079,10 +1084,11 @@ def game_state_from_dict(data: Any) -> GameState:
         from .workshop import initialise_workshop
 
         initialise_workshop(state)
-        from .regional_history import initialise_account
+        from .regional_history import initialise_account, reconcile_network
 
         for region_id in state.regions:
             initialise_account(state, region_id, new_geography=False)
+        reconcile_network(state)
         from .quests import initialise_quests
 
         initialise_quests(state)

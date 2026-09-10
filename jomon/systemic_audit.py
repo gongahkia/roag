@@ -10,7 +10,7 @@ import sys
 import time
 
 from .calendar import SEASONS
-from .content import ENEMY_ARCHETYPES
+from .content import ENEMY_ARCHETYPES, validate_commodity_content
 from .ecology import opposed, validate_ecology
 from .encounters import production_encounter_groups
 from .frontiers import FRONTIERS, ensure_frontier
@@ -47,6 +47,7 @@ def topology(region, reachable):
 def inspect_world(state):
     """Inspect real placements and links, not independent encounter samples."""
     failures, metrics = [], {}
+    validate_commodity_content()
     validate_accounts(state)
     validate_ecology(state)
     for region_id, region in state.regions.items():

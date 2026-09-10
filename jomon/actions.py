@@ -1868,13 +1868,24 @@ def interact(state: GameState) -> ActionResult:
             commodity, CommodityStack(0, "")
         ).quantity
         if state.objective_status == "accepted" and quantity >= state.objective_required:
+            cargo_condition = state.carried_goods[commodity].condition
             if not consume_carried(state, f"commodity:{commodity}", state.objective_required):
                 state.carried_goods[commodity].quantity -= state.objective_required
                 if state.carried_goods[commodity].quantity == 0:
                     del state.carried_goods[commodity]
-            return _time_result(
-                state, _complete_objective(state, False), priority=3
-            )
+            result = _complete_objective(state, False)
+            if cargo_condition != COMMODITIES[commodity]["condition"]:
+                loss = 2 if cargo_condition == "spoiled" else 1
+                state.trade_credit = max(0, state.trade_credit - loss)
+                state.market[commodity].stock = max(0, state.market[commodity].stock - 1)
+                state.contact.disposition = max(-3, state.contact.disposition - 1)
+                account = state.institutions.get(f"work:{state.active_region_id}")
+                if account:
+                    account.confidence = max(-3, account.confidence - 1)
+                    account.witnessed_acts.append(f"{state.courier.name} delivered {cargo_condition} {commodity}; the work accepted it with a reduced account.")
+                    del account.witnessed_acts[:-8]
+                result += f" The {cargo_condition} cargo is accepted under pressure, but loses {loss} credit and one useful stock."
+            return _time_result(state, result, priority=3)
         if (
             state.objective_status == "altered"
             and (
@@ -3089,6 +3100,8 @@ def purchase_merchant_item(state: GameState, item: str) -> ActionResult:
         return _plain(state, "That merchant lot is not available.")
     cost, kind = MERCHANT_ITEMS[item]
     cost = max(1, cost - (1 if state.support == "factor surety" else 0))
+    account = state.institutions.get(f"work:{state.active_region_id}")
+    cost = max(1, cost - (1 if account and account.trust >= 2 else 0))
     if state.trade_credit < cost:
         return _plain(
             state, f"The lot needs {cost} credit; Jomon has {state.trade_credit}."
@@ -3143,6 +3156,10 @@ def return_to_jomon(state: GameState) -> ActionResult:
         vessel = state.vessel_cargo.get(name)
         if vessel:
             vessel.quantity += stack.quantity
+            if "spoiled" in {vessel.condition, stack.condition}:
+                vessel.condition = "spoiled"
+            elif vessel.condition != stack.condition:
+                vessel.condition = stack.condition if stack.condition.startswith("weathered ") else vessel.condition
         else:
             state.vessel_cargo[name] = stack
     state.carried_goods.clear()

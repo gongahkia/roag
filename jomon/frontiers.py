@@ -230,9 +230,10 @@ def ensure_frontier(state, region_id: str) -> None:
         state.actor_schedules[contact.id] = ActorSchedule(contact.id, area, contact.position, "working", state.world_time + 16, area, contact.position, last_update=state.world_time)
     from .quests import initialise_quests
     initialise_quests(state)
-    from .regional_history import initialise_account
+    from .regional_history import initialise_account, reconcile_network
 
     initialise_account(state, region_id, new_geography=True)
+    reconcile_network(state)
 
 
 def frontier_process(state) -> list[str]:
