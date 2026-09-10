@@ -1196,6 +1196,46 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("formation warnings", rendered)
         self.assertIn("TARGET:", rendered)
 
+    def test_hub_loadout_toggle_updates_combined_deck_preview(self) -> None:
+        self.engine = GameEngine.new(self.catalog, 3, start_in_hub=True)
+        self.engine.select_curated_squad("bulkhead_basics")
+        self.engine.select_hub_loadout("warden", "base:warden_field")
+        self.ui.engine = self.engine
+        self.ui.screen = FakeScreen(keys=[27])
+        self.ui._hub_deck_view()
+        rendered = self.ui.screen.text()
+        self.assertIn("Warden (ADVANCED)", rendered)
+        advanced_name = self.catalog.cards[
+            self.catalog.loadouts["base:warden_field"]["cards"][0]
+        ]["name"]
+        self.assertIn(advanced_name, rendered)
+
+    def test_doctrine_menu_discloses_strength_and_liability_before_selection(self) -> None:
+        self.engine = GameEngine.new(self.catalog, 3, start_in_hub=True)
+        self.engine.select_curated_squad("bulkhead_basics")
+        self.ui.engine = self.engine
+        doctrine = next(iter(self.catalog.doctrines.values()))
+        self.assertTrue(self.engine.doctrine_compatible(doctrine["id"]))
+        self.ui.screen = FakeScreen(keys=[curses.KEY_DOWN, 10])
+        self.ui._doctrine_menu()
+        rendered = self.ui.screen.text()
+        self.assertEqual(doctrine["id"], self.engine.state.doctrine_id)
+        self.assertIn("STRENGTH", rendered)
+        self.assertIn("LIABILITY", rendered)
+        self.assertIn(doctrine["strength"].split()[-1], rendered)
+        self.assertIn(doctrine["liability"].split()[-1], rendered)
+
+    def test_doctrine_menu_marks_incompatible_rules_without_selecting_them(self) -> None:
+        self.engine = GameEngine.new(self.catalog, 3, start_in_hub=True)
+        self.engine.select_curated_squad("bulkhead_basics")
+        self.ui.engine = self.engine
+        identities = [None] + list(self.catalog.doctrines)
+        target = identities.index("base:control_lattice")
+        self.ui.screen = FakeScreen(keys=[curses.KEY_DOWN] * target + [10, 27])
+        self.ui._doctrine_menu()
+        self.assertIsNone(self.engine.state.doctrine_id)
+        self.assertIn("LOCKED FOR THIS PARTY", self.ui.screen.text())
+
     def test_every_crew_identity_is_fully_readable_at_minimum_size(self) -> None:
         for hero in self.catalog.heroes.values():
             with self.subTest(hero=hero["id"]):

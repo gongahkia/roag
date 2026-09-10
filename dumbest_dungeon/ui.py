@@ -193,6 +193,17 @@ class TerminalUI:
                     detail_row += 1
             builds = " / ".join(hero["builds"])
             self._put(21, 44, self._ellipsize(f"BUILDS {builds}", 34), curses.A_DIM)
+            selected_loadout = self.engine.state.hub_loadouts.get(hero["id"])
+            package = self.catalog.loadouts.get(selected_loadout or "")
+            self._put(
+                22,
+                44,
+                self._ellipsize(
+                    f"LOADOUT {'ADVANCED: ' + package['name'] if package else 'DEFAULT'}",
+                    34,
+                ),
+                self._attr(3) if package else curses.A_DIM,
+            )
             ready = len(selection) == 4
             status = "READY TO DEPART" if ready else f"SELECT {4 - len(selection)} MORE"
             self._put(20, 3, status, self._attr(4 if ready else 2) | curses.A_BOLD)
@@ -200,7 +211,11 @@ class TerminalUI:
             if warnings:
                 suffix = f" (+{len(warnings) - 1})" if len(warnings) > 1 else ""
                 self._put(21, 3, f"! {warnings[0]}{suffix}"[:37], self._attr(3))
-            self._footer("Up/Down browse Space select H/L rank V details C cards D deck Enter depart")
+            doctrine = self.catalog.doctrines.get(self.engine.state.doctrine_id or "")
+            self._put(22, 3, self._ellipsize(
+                f"DOCTRINE {doctrine['name'] if doctrine else 'NONE'}", 37
+            ), self._attr(2) if doctrine else curses.A_DIM)
+            self._footer("Up/Down Space select H/L rank A loadout N doctrine C cards D deck Enter depart")
             key = self._key()
             if key in (curses.KEY_UP, ord("k")):
                 selected = (selected - 1) % len(roster)
@@ -216,6 +231,18 @@ class TerminalUI:
                 self._class_card_view(hero["id"])
             elif key in (ord("v"), ord("V")):
                 self._hub_identity_view(hero["id"])
+            elif key in (ord("a"), ord("A")):
+                loadout = next(
+                    (item for item in self.catalog.loadouts.values() if item["hero"] == hero["id"]),
+                    None,
+                )
+                if hero["id"] not in selection:
+                    self.message = "Select that crew member before assigning a loadout."
+                elif loadout is not None:
+                    chosen = self.engine.state.hub_loadouts.get(hero["id"])
+                    self.engine.select_hub_loadout(hero["id"], None if chosen else loadout["id"])
+            elif key in (ord("n"), ord("N")):
+                self._doctrine_menu()
             elif key in (ord("d"), ord("D")):
                 self._hub_deck_view()
             elif key in (10, 13, curses.KEY_ENTER):
@@ -232,18 +259,21 @@ class TerminalUI:
             self._begin("CREW APPROACH")
             self._put(2, 2, "Choose a prepared formation or open the complete roster.")
             choices = [squad["name"] for squad in squads] + ["Advanced custom selection"]
-            for index, choice in enumerate(choices):
+            visible_count = max(1, min(15, self.screen.getmaxyx()[0] - 8))
+            scroll = max(0, min(selected - visible_count // 2, len(choices) - visible_count))
+            for shown, choice in enumerate(choices[scroll:scroll + visible_count]):
+                index = scroll + shown
                 marker = ">" if index == selected else " "
                 attr = curses.A_REVERSE if index == selected else 0
-                self._put(4 + index * 2, 3, f"{marker} {choice}"[:34], attr)
-                if index < len(squads):
-                    complexity = "*" * squads[index]["complexity"]
-                    self._put(5 + index * 2, 5, f"complexity {complexity}", curses.A_DIM)
+                suffix = f"  {'*' * squads[index]['complexity']}" if index < len(squads) else ""
+                self._put(4 + shown, 3, f"{marker} {choice}{suffix}"[:34], attr)
 
             if selected < len(squads):
                 squad = squads[selected]
                 row = 3
                 self._put(row, 40, squad["name"].upper(), curses.A_BOLD | self._attr(1))
+                doctrine = self.catalog.doctrines[squad["doctrine"]]
+                self._put(4, 40, self._ellipsize(f"RECOMMENDS {doctrine['name']}", 37), self._attr(2))
                 row += 2
                 for line in textwrap.wrap(squad["playstyle"], 37)[:3]:
                     self._put(row, 40, line)
@@ -289,6 +319,65 @@ class TerminalUI:
             elif key == 27:
                 return False
 
+    def _doctrine_menu(self) -> None:
+        assert self.engine
+        doctrines = list(self.catalog.doctrines.values())
+        identities = [None] + [item["id"] for item in doctrines]
+        selected = (
+            identities.index(self.engine.state.doctrine_id)
+            if self.engine.state.doctrine_id in identities
+            else 0
+        )
+        while True:
+            self._begin("SQUAD DOCTRINE")
+            self._put(2, 2, "Optional party rule. Every strength carries the shown liability.")
+            for index, doctrine_id in enumerate(identities):
+                if doctrine_id is None:
+                    label, compatible = "No doctrine", True
+                else:
+                    doctrine = self.catalog.doctrines[doctrine_id]
+                    compatible = self.engine.doctrine_compatible(doctrine_id)
+                    label = doctrine["name"] + ("" if compatible else " [LOCKED]")
+                marker = ">" if index == selected else " "
+                attr = curses.A_REVERSE if index == selected else curses.A_DIM if not compatible else 0
+                self._put(4 + index, 3, f"{marker} {label}"[:34], attr)
+            doctrine_id = identities[selected]
+            if doctrine_id is None:
+                self._put(4, 42, "NO DOCTRINE", curses.A_BOLD)
+                body = "Use only the crew and cards' printed rules. This is the simplest first-run path."
+                for offset, line in enumerate(textwrap.wrap(body, 35)):
+                    self._put(6 + offset, 42, line)
+            else:
+                doctrine = self.catalog.doctrines[doctrine_id]
+                compatible = self.engine.doctrine_compatible(doctrine_id)
+                self._put(4, 42, doctrine["name"].upper(), curses.A_BOLD | self._attr(1))
+                row = 6
+                for label, field in (("RULE", "description"), ("STRENGTH", "strength"), ("LIABILITY", "liability")):
+                    self._put(row, 42, label, self._attr(2))
+                    row += 1
+                    for line in textwrap.wrap(doctrine[field], 35)[:3]:
+                        self._put(row, 42, line)
+                        row += 1
+                    row += 1
+                requirements = ", ".join(doctrine["requires_tags"] + doctrine["requires_roles"])
+                self._put(20, 42, self._ellipsize(f"NEEDS {requirements}", 35), curses.A_DIM)
+                self._put(21, 42, "COMPATIBLE" if compatible else "LOCKED FOR THIS PARTY",
+                          self._attr(4 if compatible else 3) | curses.A_BOLD)
+            self._footer("Up/Down inspect  Enter select  Esc keep current")
+            key = self._key()
+            if key in (curses.KEY_UP, ord("k")):
+                selected = (selected - 1) % len(identities)
+            elif key in (curses.KEY_DOWN, ord("j")):
+                selected = (selected + 1) % len(identities)
+            elif key in (10, 13, curses.KEY_ENTER):
+                if doctrine_id is not None and not self.engine.doctrine_compatible(doctrine_id):
+                    self.message = "That doctrine's broad requirements are not present."
+                    continue
+                self.engine.select_doctrine(doctrine_id)
+                return
+            elif key == 27:
+                return
+
     def _class_card_view(self, hero_id: str) -> None:
         cards = [CardInstance(card_id) for card_id, card in self.catalog.cards.items() if card["hero"] == hero_id]
         labels = [self._card_label(card) for card in cards]
@@ -327,8 +416,10 @@ class TerminalUI:
         formation = []
         for rank, hero_id in enumerate(self.engine.state.hub_selection, 1):
             hero = self.catalog.heroes[hero_id]
-            formation.append(f"R{rank} {hero['role']}")
-            for card_id in hero["starter_deck"]:
+            loadout_id = self.engine.state.hub_loadouts.get(hero_id)
+            package = self.catalog.loadouts.get(loadout_id or "")
+            formation.append(f"R{rank} {hero['role']} ({'ADVANCED' if package else 'DEFAULT'})")
+            for card_id in self.engine.starter_cards_for(hero_id):
                 card = CardInstance(card_id)
                 cards.append(card)
                 labels.append(f"R{rank} {hero['role']} | {self._card_label(card)}")
@@ -338,7 +429,8 @@ class TerminalUI:
         )
         body = (
             f"{' / '.join(formation) or 'No crew selected'}\n"
-            f"{len(cards)} starting cards. {warning_text}"
+            f"{len(cards)} starting cards. {warning_text}\n"
+            f"Doctrine: {self.catalog.doctrines[self.engine.state.doctrine_id]['name'] if self.engine.state.doctrine_id else 'None'}."
         )
         if not cards:
             self._notice("COMBINED STARTER DECK", body)
@@ -2162,6 +2254,9 @@ class TerminalUI:
 
     def _help(self) -> None:
         text = (
+            "At the crew threshold, A toggles the selected owner's default/advanced loadout and N inspects "
+            "optional compatible doctrines. A doctrine always discloses both its strength and liability; "
+            "default loadouts with no doctrine remain the simplest path.\n\n"
             "Explore the current world from above and reach its Overseer Core. Aim the X cursor with arrows or "
             "hjkl, then press Enter to auto-walk there. A first left-click selects and highlights a tile; "
             "click it again or press Enter to confirm. One order has limited reach; Survey Relays extend it. "
