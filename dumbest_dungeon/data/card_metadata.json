@@ -242,6 +242,10 @@
     "consecration": {"tags": ["block", "cleanse", "status:focus", "stress_relief"], "upgrade_description": "Upgrade: all gain 5 block and 2 focus; cleanse yourself and reduce 5 stress."},
     "votive_shield": {"tags": ["block", "guard", "status:riposte", "stress_risk"], "upgrade_description": "Upgrade: guard for 3, gain 6 block and 3 riposte, and take 4 stress."},
     "scar_hymn": {"tags": ["cleanse", "recovery", "status:focus", "stress_relief"], "upgrade_description": "Upgrade: heal 7; if wounded, reduce 12 stress, focus, and cleanse."},
-    "shared_absolution": {"tags": ["block", "cleanse", "stress_relief", "stress_risk"], "upgrade_description": "Upgrade: cleanse all, reduce 8 stress and grant 5 block; gain 10 stress."}
+    "shared_absolution": {"tags": ["block", "cleanse", "stress_relief", "stress_risk"], "upgrade_description": "Upgrade: cleanse all, reduce 8 stress and grant 5 block; gain 10 stress."},
+    "packet_sniffer": {"tags": ["control", "draw", "energy", "payoff:marked", "setup:marked"], "upgrade_description": "Upgrade: against a mark draw 2 and gain 1 energy; then mark for 3 and weaken."},
+    "buffer_overflow": {"tags": ["control", "discard", "draw"], "upgrade_description": "Upgrade: discard 2, draw 4, and weaken every hostile for 2 rounds."},
+    "infection_vector": {"tags": ["control", "damage", "payoff:wound", "setup:marked"], "upgrade_description": "Upgrade: deal 8, plus 7 if wounded; deeply mark and weaken a wound."},
+    "zero_day": {"tags": ["control", "draw", "setup:marked", "setup:vulnerable", "stress_risk"], "upgrade_description": "Upgrade: apply 4 mark, 3 vulnerable and 3 weak to all; draw 2 and gain 8 stress."}
   }
 }
