@@ -46,6 +46,16 @@ OPENING_MUTATION_EFFECTS = {
     "focus_striker",
     "shove_front_crew",
 }
+ACTIVE_MUTATION_EFFECTS = OPENING_MUTATION_EFFECTS | {
+    "heal_weakest_round",
+    "react_third_card",
+    "surge_ally_death",
+    "cleanse_round",
+    "resist_first_stun",
+    "wound_on_ally_death",
+    "pull_crew_round",
+    "wide_wound_round",
+}
 
 
 class RuleError(ValueError):
@@ -2125,8 +2135,10 @@ class GameEngine:
             (
                 mutation
                 for mutation in self.catalog.mutations.values()
-                if mutation["effect"] in OPENING_MUTATION_EFFECTS
+                if mutation["effect"] in ACTIVE_MUTATION_EFFECTS
                 and (mutation["effect"] != "guard_rear" or enemy_count > 1)
+                and (mutation["effect"] not in {"surge_ally_death", "wound_on_ally_death"}
+                     or enemy_count > 1)
                 and band_order[mutation["min_band"]] <= band_order[profile.band]
                 and encounter_kind in mutation["compatible_kinds"]
                 and (not mutation["biomes"] or biome_id in mutation["biomes"])
@@ -3452,6 +3464,9 @@ class GameEngine:
         for mutation_id in self.state.encounter_modules:
             mutation = self.catalog.mutations[mutation_id]
             effect = mutation["effect"]
+            if effect not in OPENING_MUTATION_EFFECTS:
+                self.add_log(f"{mutation['marker']} — {mutation['description']}")
+                continue
             amount = int(mutation["amount"])
             enemies = self.living_enemies()
             heroes = self.living_heroes()
@@ -3487,6 +3502,57 @@ class GameEngine:
                 else:
                     raise RuleError(f"unregistered opening mutation effect {effect}")
             self.add_log(f"{mutation['marker']} — {mutation['description']}")
+
+    def _apply_enemy_phase_mutations(self) -> None:
+        modules = sorted(
+            (self.catalog.mutations[identity] for identity in self.state.encounter_modules),
+            key=lambda mutation: (mutation["priority"], mutation["id"]),
+        )
+        for mutation in modules:
+            effect = mutation["effect"]
+            if effect not in {
+                "heal_weakest_round", "cleanse_round", "pull_crew_round", "wide_wound_round",
+            }:
+                continue
+            enemies = self.living_enemies()
+            heroes = self.living_heroes()
+            if not enemies or not heroes or self.state.phase != "combat":
+                return
+            source = enemies[0]
+            amount = int(mutation["amount"])
+            if effect == "heal_weakest_round":
+                target = min(enemies, key=lambda enemy: (enemy.hp * 10_000 // enemy.max_hp, enemy.rank, enemy.id))
+                self._apply_effect(source, [target], {"op": "heal", "amount": amount}, source_id=mutation["id"])
+                self.add_log(f"{mutation['marker']} — {target.name} repairs {amount} integrity.")
+            elif effect == "cleanse_round":
+                target = min(enemies, key=lambda enemy: (enemy.hp * 10_000 // enemy.max_hp, enemy.rank, enemy.id))
+                removed = next(
+                    (status for status in ("stun", "marked", "vulnerable", "weak", "wound")
+                     if target.statuses.get(status)),
+                    None,
+                )
+                if removed is None:
+                    continue
+                previous = target.statuses.pop(removed)
+                self.record("cleanse", mutation["id"], target=target.id, status=removed,
+                            previous=previous, amount=amount)
+                self.add_log(f"{mutation['marker']} — {target.name} purges {removed}.")
+            elif effect == "pull_crew_round":
+                target = heroes[0]
+                before = target.rank
+                self._apply_effect(source, [target], {"op": "move", "amount": amount}, source_id=mutation["id"])
+                if target.rank != before:
+                    self.record("movement", mutation["id"], target=target.id,
+                                amount=amount, previous=before, rank=target.rank)
+                    self.add_log(f"{mutation['marker']} — {target.name} is pulled to rank {target.rank}.")
+            else:
+                targets = [hero for hero in heroes if hero.block == 0]
+                if not targets:
+                    continue
+                self._apply_effect(source, targets,
+                                   {"op": "status", "status": "wound", "amount": amount},
+                                   source_id=mutation["id"])
+                self.add_log(f"{mutation['marker']} — unblocked crew suffer wound.")
 
     def start_combat(
         self,
@@ -4610,6 +4676,7 @@ class GameEngine:
                 self._combat_victory()
                 return
             self._decay_statuses(enemy)
+        self._apply_enemy_phase_mutations()
         self.record("enemy_round", "combat", result=self.state.phase)
 
     def _enemy_targets(self, rule: str, actor: Actor) -> list[Actor]:

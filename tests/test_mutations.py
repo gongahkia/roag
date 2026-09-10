@@ -76,6 +76,47 @@ class MutationRuntimeTests(unittest.TestCase):
                      if row.kind == "mutation_reaction" and row.source_id == "biome:rime_shell"]
         self.assertEqual(1, len(reactions))
 
+    def test_triage_node_repairs_only_the_weakest_hostile(self) -> None:
+        engine = self.engine("base:triage_node")
+        first, second = engine.living_enemies()
+        first.hp -= 7
+        second.hp -= 2
+        engine._apply_enemy_phase_mutations()
+        self.assertEqual(first.max_hp - 4, first.hp)
+        self.assertEqual(second.max_hp - 2, second.hp)
+        self.assertTrue(any(row.kind == "healing" and row.source_id == "base:triage_node"
+                            for row in engine.state.ledger.records))
+
+    def test_clean_room_removes_one_status_in_canonical_order(self) -> None:
+        engine = self.engine("base:clean_room")
+        target = engine.living_enemies()[0]
+        target.hp -= 5
+        target.statuses.update({"marked": 2, "wound": 3})
+        engine._apply_enemy_phase_mutations()
+        self.assertNotIn("marked", target.statuses)
+        self.assertEqual(3, target.statuses["wound"])
+        record = next(row for row in engine.state.ledger.records
+                      if row.kind == "cleanse" and row.source_id == "base:clean_room")
+        self.assertEqual("marked", record.data["status"])
+
+    def test_undertow_moves_only_the_front_crew_one_rank(self) -> None:
+        engine = self.engine("biome:undertow")
+        front, second = engine.living_heroes()[:2]
+        engine._apply_enemy_phase_mutations()
+        self.assertEqual((2, 1), (front.rank, second.rank))
+        self.assertTrue(any(row.kind == "movement" and row.source_id == "biome:undertow"
+                            for row in engine.state.ledger.records))
+
+    def test_slag_vent_wounds_only_unblocked_crew(self) -> None:
+        engine = self.engine("biome:slag_vent")
+        heroes = engine.living_heroes()
+        heroes[1].block = 1
+        engine._apply_enemy_phase_mutations()
+        self.assertEqual([1, None, 1, 1], [hero.statuses.get("wound") for hero in heroes])
+        records = [row for row in engine.state.ledger.records
+                   if row.kind == "status" and row.source_id == "biome:slag_vent"]
+        self.assertEqual(3, len(records))
+
 
 if __name__ == "__main__":
     unittest.main()
