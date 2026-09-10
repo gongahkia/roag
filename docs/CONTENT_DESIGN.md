@@ -58,6 +58,16 @@ handler and compatibility constraints apply.
 
 ## Inert content input
 
+### Bounded mastery definitions
+
+Content schema 24 defines exactly two mastery candidates for each of the 25
+existing owners. Each candidate exposes two irreversible branch IDs: `engine`
+intensifies one authored effect operand, while `coverage` expands legal origin
+ranks by one adjacent rank. The loader validates the referenced technique,
+signature/rare role, branch names, mode/operand agreement, effect index and
+bounded integer amount. Runtime choice and terminal presentation are separate
+changes and are not claimed by this contract commit.
+
 Content is UTF-8 JSON, decoded through `json_data.loads`. Duplicate object keys,
 non-finite constants and overflowing float exponents are rejected before content
 validation. Code strings are never evaluated. Catalog, art and metadata roots

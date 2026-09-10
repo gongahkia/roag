@@ -28,6 +28,7 @@ class Catalog:
     heroes: dict[str, dict[str, Any]]
     squads: dict[str, dict[str, Any]]
     cards: dict[str, Technique]
+    masteries: dict[str, dict[str, Any]]
     enemies: dict[str, Enemy]
     encounters: dict[str, dict[str, Any]]
     events: dict[str, dict[str, Any]]
@@ -181,6 +182,7 @@ CONTENT_FIELDS = {
     "heroes": "id name role combat_role complexity preferred_ranks signature strength weakness builds summary max_hp rank starter_deck biome",
     "squads": "id name playstyle complexity formation strength weakness signature",
     "cards": "id name hero cost from_ranks target target_ranks description effects upgrade_effects tags upgrade_description biome biome_bonus lanes design_role",
+    "masteries": "id card_id branches",
     "enemies": "id name max_hp actions biomes",
     "encounters": "id kind enemies biomes",
     "events": "id name text choices biomes",
@@ -218,6 +220,7 @@ MUTATION_EFFECTS = {
 }
 MUTATION_BANDS = {"hunted", "lockdown", "overrun"}
 EXPANSION_CARD_ROLES = {"deepener_a", "deepener_b", "bridge", "rule_breaker"}
+MASTERY_MODES = {"effect_bonus", "rank_access"}
 
 
 def _fields(value: Any, allowed: str, context: str) -> None:
@@ -493,6 +496,8 @@ def _compiled_rules(encoded: bytes) -> Catalog:
     sections = set(CONTENT_FIELDS)
     if rules["content_schema"] < 22:
         sections.remove("mutations")
+    if rules["content_schema"] < 24:
+        sections.remove("masteries")
     if set(rules) != sections | {"balance", "art", "content_schema"}:
         raise ContentError("saved rules require exactly the registered content sections")
     raw = {"schema_version": rules["content_schema"], "balance": rules["balance"]}
@@ -512,13 +517,14 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
     _fields(raw, "schema_version balance " + " ".join(CONTENT_FIELDS), "content root")
     _fields(art, "schema_version title heroes enemies card_glyphs card_marks curse_card_glyph curse_card_mark", "art root")
     _fields(card_metadata, "schema_version cards", "card metadata root")
-    if type(raw.get("schema_version")) is not int or raw["schema_version"] not in {20, 21, 22, CONTENT_SCHEMA}:
-        raise ContentError(f"content schema_version must be historical 20/21/22 or current {CONTENT_SCHEMA}")
+    if type(raw.get("schema_version")) is not int or raw["schema_version"] not in {20, 21, 22, 23, CONTENT_SCHEMA}:
+        raise ContentError(f"content schema_version must be historical 20/21/22/23 or current {CONTENT_SCHEMA}")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
     squads = _indexed(raw.get("squads"), "squads")
     cards = _indexed(raw.get("cards"), "cards")
+    masteries = _indexed(raw.get("masteries", []), "masteries")
     enemies = _indexed(raw.get("enemies"), "enemies")
     encounters = _indexed(raw.get("encounters"), "encounters")
     events = _indexed(raw.get("events"), "events")
@@ -570,6 +576,62 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
         raise ContentError("content sections must not be empty")
     if cards.keys() & curses.keys():
         raise ContentError("technique and curse-card ids must not overlap")
+
+    mastered_cards: set[str] = set()
+    mastery_owner_counts: dict[str, int] = {}
+    for mastery in masteries.values():
+        context = f"mastery {mastery['id']}"
+        if mastery.get("card_id") not in cards or mastery["card_id"] in mastered_cards:
+            raise ContentError(f"{context} needs one unique known technique")
+        mastered_cards.add(mastery["card_id"])
+        card = cards[mastery["card_id"]]
+        if card.get("design_role") not in {"deepener_a", "rule_breaker"}:
+            raise ContentError(f"{context} must belong to a signature or rare expansion technique")
+        mastery_owner_counts[card["hero"]] = mastery_owner_counts.get(card["hero"], 0) + 1
+        branches = mastery.get("branches")
+        if not isinstance(branches, list) or len(branches) != 2:
+            raise ContentError(f"{context} needs exactly two branches")
+        branch_ids: set[str] = set()
+        for branch in branches:
+            _fields(branch, "id name description mode effect_index amount", f"{context} branch")
+            if (
+                not isinstance(branch.get("id"), str)
+                or branch["id"] in branch_ids
+                or not isinstance(branch.get("name"), str)
+                or not branch["name"]
+                or not isinstance(branch.get("description"), str)
+                or not 1 <= len(branch["description"]) <= 72
+                or branch.get("mode") not in MASTERY_MODES
+            ):
+                raise ContentError(f"{context} has an invalid branch")
+            branch_ids.add(branch["id"])
+            if branch["mode"] == "effect_bonus":
+                effect_index = branch.get("effect_index")
+                amount = branch.get("amount")
+                if (
+                    type(effect_index) is not int
+                    or effect_index not in range(len(card["effects"]))
+                    or effect_index not in range(len(card["upgrade_effects"]))
+                    or type(amount) is not int
+                    or amount == 0
+                    or not -99 <= amount <= 99
+                    or "amount" not in card["effects"][effect_index]
+                    or "amount" not in card["upgrade_effects"][effect_index]
+                ):
+                    raise ContentError(f"{context} has an invalid effect bonus")
+            elif set(branch) != {"id", "name", "description", "mode"}:
+                raise ContentError(f"{context} rank access has irrelevant operands")
+        if branch_ids != {"engine", "coverage"}:
+            raise ContentError(f"{context} branches must be engine and coverage")
+        by_id = {branch["id"]: branch for branch in branches}
+        if by_id["engine"]["mode"] != "effect_bonus" or by_id["coverage"]["mode"] != "rank_access":
+            raise ContentError(f"{context} branch roles contradict their mechanics")
+    if raw["schema_version"] >= 24 and (
+        len(masteries) != len(heroes) * 2
+        or set(mastery_owner_counts) != set(heroes)
+        or any(count != 2 for count in mastery_owner_counts.values())
+    ):
+        raise ContentError("content schema 24 needs exactly two masteries per crew owner")
 
     mutation_effects: set[str] = set()
     for mutation in mutations.values():
@@ -1119,6 +1181,7 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
         heroes,
         squads,
         cards,
+        masteries,
         enemies,
         encounters,
         events,

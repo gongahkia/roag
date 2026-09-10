@@ -1,8 +1,14 @@
 # Persistence contracts
 
-The run save currently uses schema 38, content schema 23, and the existing Python
+The run save currently uses schema 38, content schema 24, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry and manifests are implemented; the persistent profile is still pending.
+
+Content schema 24 adds 50 immutable mastery definitions: exactly two signature
+or rare techniques per existing crew owner. Each definition has an engine branch
+with one bounded authored effect bonus and a coverage branch that widens printed
+rank access by one adjacent rank. Embedded schema-23 rules load with no mastery
+catalog; definitions are never borrowed from the installed catalog.
 
 Schema 38 records engine 0.7.0 and gives every durable card copy a positive,
 monotonically allocated run-local ID plus reserved mastery and infusion fields.

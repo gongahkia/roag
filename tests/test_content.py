@@ -36,6 +36,7 @@ class ContentTests(unittest.TestCase):
         )
         self.assertTrue(all((catalog.boons, catalog.curses, catalog.items, catalog.afflictions)))
         self.assertGreaterEqual(len(catalog.mutations), 16)
+        self.assertEqual(50, len(catalog.masteries))
         self.assertEqual(MUTATION_EFFECTS, {mutation["effect"] for mutation in catalog.mutations.values()})
         self.assertGreaterEqual(len(catalog.squads), 4)
         self.assertEqual(set(catalog.heroes), set(catalog.art["heroes"]))
@@ -152,6 +153,7 @@ class ContentTests(unittest.TestCase):
             self.assertNotIn(mutation["id"], mutation["excludes"])
         schema_21 = json.loads(json.dumps(catalog.rules))
         del schema_21["mutations"]
+        del schema_21["masteries"]
         schema_21["content_schema"] = 21
         restored = load_rules(schema_21)
         self.assertEqual(21, restored.raw["schema_version"])
@@ -176,6 +178,7 @@ class ContentTests(unittest.TestCase):
         self.assertFalse(any(expansion_ids & set(group) for group in normalized))
 
         schema_22 = json.loads(json.dumps(catalog.rules))
+        del schema_22["masteries"]
         schema_22["content_schema"] = 22
         for card in schema_22["cards"].values():
             card.pop("design_role", None)
@@ -189,10 +192,42 @@ class ContentTests(unittest.TestCase):
             path = Path(directory) / "role-contract.json"
             path.write_text(json.dumps(raw), encoding="utf-8")
             load_catalog(path)
-            wardens[-1]["design_role"] = "bridge"
+            next(card for card in wardens if card["design_role"] == "deepener_b")["design_role"] = "bridge"
             path.write_text(json.dumps(raw), encoding="utf-8")
             with self.assertRaisesRegex(ContentError, "exactly one card in each design role"):
                 load_catalog(path)
+
+    def test_masteries_have_two_honest_bounded_branches_per_owner(self) -> None:
+        catalog = load_catalog()
+        by_owner = Counter(
+            catalog.cards[mastery["card_id"]]["hero"]
+            for mastery in catalog.masteries.values()
+        )
+        self.assertEqual({hero_id: 2 for hero_id in catalog.heroes}, dict(by_owner))
+        for mastery in catalog.masteries.values():
+            card = catalog.cards[mastery["card_id"]]
+            self.assertIn(card["design_role"], {"deepener_a", "rule_breaker"})
+            branches = {branch["id"]: branch for branch in mastery["branches"]}
+            self.assertEqual({"engine", "coverage"}, set(branches))
+            self.assertEqual("effect_bonus", branches["engine"]["mode"])
+            self.assertEqual("rank_access", branches["coverage"]["mode"])
+
+    def test_mastery_contract_rejects_broken_reference_role_and_operands(self) -> None:
+        raw = json.loads(json.dumps(load_catalog().raw))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad-mastery.json"
+            changes = (
+                (lambda row: row.__setitem__("card_id", "missing"), "known technique"),
+                (lambda row: row.__setitem__("card_id", "brace"), "signature or rare"),
+                (lambda row: row["branches"][0].__setitem__("effect_index", 99), "effect bonus"),
+                (lambda row: row["branches"][1].__setitem__("amount", 1), "irrelevant operands"),
+            )
+            for change, error in changes:
+                candidate = json.loads(json.dumps(raw))
+                change(candidate["masteries"][0])
+                path.write_text(json.dumps(candidate), encoding="utf-8")
+                with self.subTest(error=error), self.assertRaisesRegex(ContentError, error):
+                    load_catalog(path)
 
     def test_invalid_mutation_effect_and_reference_are_rejected(self) -> None:
         raw = json.loads(json.dumps(load_catalog().raw))
@@ -225,7 +260,13 @@ class ContentTests(unittest.TestCase):
         hero = next(hero for hero in raw["heroes"] if hero["id"] == "breacher")
         nonstarters = [card for card in raw["cards"]
                        if card["hero"] == "breacher" and card["id"] not in hero["starter_deck"]]
-        for card in nonstarters[2:]:
+        mastered = {
+            mastery["card_id"] for mastery in raw["masteries"]
+            if next(item for item in raw["cards"] if item["id"] == mastery["card_id"])["hero"] == "breacher"
+        }
+        for card in nonstarters:
+            if card["id"] in mastered:
+                continue
             card["hero"] = "warden"
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "thin-pool.json"
