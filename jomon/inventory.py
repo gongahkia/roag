@@ -993,6 +993,8 @@ def pack_weight(state: GameState, owner_id: str | None = None) -> int:
 def weight_capacity(state: GameState) -> int:
     courier = state.courier
     capacity = 34 if courier and courier.role in {"guard", "carpenter", "bargemaster"} else 28
+    if courier and f"seasoned {courier.role}" in courier.learned_techniques:
+        capacity += 4
     if state.support == "porter watch":
         capacity += 8
     if state.gear == "cargo harness":

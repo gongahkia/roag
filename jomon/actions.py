@@ -2444,6 +2444,10 @@ def guard(state: GameState) -> ActionResult:
         state.gear == "buckler"
         or state.weapon == "staff"
         or (state.courier and state.courier.technique == "set stance")
+        or (
+            state.courier
+            and f"seasoned {state.courier.role}" in state.courier.learned_techniques
+        )
         or "hearth-ale" in state.drink_effects
         or ("brace" in worn_tags(state, ("arms",)) and "wet" not in state.terrain_statuses)
     )
@@ -3199,7 +3203,7 @@ def return_to_jomon(state: GameState) -> ActionResult:
             item.location, item.owner_id = "vessel_cargo", None
     sync_legacy_load(state)
     from .regions import store_active_region
-    from .people import unlock_region_visitors
+    from .people import record_personal_return, unlock_region_visitors
 
     completed_region = state.active_region_id
     store_active_region(state)
@@ -3210,6 +3214,7 @@ def return_to_jomon(state: GameState) -> ActionResult:
     )
     state.jomon_space = "vessel"
     state.returned_expeditions += 1
+    development = record_personal_return(state, courier, completed_region)
     state.merchant_present = merchant_visit_due(
         state.seed, state.returned_expeditions
     )
@@ -3229,10 +3234,11 @@ def return_to_jomon(state: GameState) -> ActionResult:
     visitors = unlock_region_visitors(state, completed_region)
     merchant = " A visiting merchant has tied alongside." if state.merchant_present else ""
     visitor_text = (" " + " ".join(visitors)) if visitors else ""
+    development_text = (" " + development) if development else ""
     return _time_result(
         state,
         "You cross the gangplank home; cargo, discoveries, terrain, and consequences "
-        f"persist.{merchant}{visitor_text}",
+        f"persist.{merchant}{visitor_text}{development_text}",
         priority=3,
     )
 

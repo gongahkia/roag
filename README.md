@@ -96,7 +96,9 @@ person and interact to inspect their role, technique, injuries, equipment
 affinity, memories, and terms. Switching courier or recruiting a willing adult
 happens through that person rather than a portrait menu. Named adults move
 between actual work and social positions as accepted actions advance the
-schedule; off-screen catch-up is bounded and deterministic.
+schedule; off-screen catch-up is bounded and deterministic. After two returned
+expeditions that particular adult—not a global crew level—earns a visible
+seasoned-role practice with extra carrying capacity and a reinforced guard.
 
 A new world begins with Jomon's bargemaster standing on courier watch at the
 gangplank. They already wear a modest working issue, carry a role-appropriate

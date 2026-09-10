@@ -4,12 +4,13 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from jomon.actions import choose_courier, move, recruit_person
-from jomon.inventory import basic_courier_kit, equipped_item
+from jomon.actions import choose_courier, depart, guard, move, recruit_person, return_to_jomon
+from jomon.inventory import basic_courier_kit, equipped_item, weight_capacity
 from jomon.vessel import TAVERN_MAP, VESSEL_LEVELS
 from jomon.people import RECRUIT_REQUIREMENTS, adjacent_person, person_at
 from jomon.save import load_game, save_game
 from jomon.state import Position, create_world
+from jomon.world import JOMON_GANGPLANK
 
 
 class PhysicalTavernTests(unittest.TestCase):
@@ -108,3 +109,52 @@ class PhysicalTavernTests(unittest.TestCase):
                 accepted = recruit_person(state, visitor_id)
                 self.assertTrue(accepted.changed)
                 self.assertIn(witnessed, visitor.memories[-1])
+
+    def test_two_returns_develop_only_the_embodied_courier(self):
+        state = create_world("personal return development")
+        courier, other = state.household[:2]
+        initial_capacity = weight_capacity(state)
+        for _ in range(2):
+            self.assertTrue(depart(state).changed)
+            state.position = state.region.landmarks["landing"]
+            result = return_to_jomon(state)
+            self.assertTrue(result.changed)
+        self.assertIn(f"seasoned {courier.role}", courier.learned_techniques)
+        self.assertNotIn(f"seasoned {other.role}", other.learned_techniques)
+        self.assertEqual(weight_capacity(state), initial_capacity + 4)
+        self.assertIn("four more weight capacity", result.message)
+
+    def test_personal_practice_reinforces_guard_and_survives_save(self):
+        state = create_world("personal practiced guard")
+        courier = state.courier
+        courier.learned_techniques.append(f"seasoned {courier.role}")
+        depart(state)
+        threat = state.threats[0]
+        threat.position, threat.status = Position(state.position.x + 1, state.position.y), "engaged"
+        state.gear, state.weapon = "rope", "billhook"
+        morale = threat.morale
+        result = guard(state)
+        self.assertTrue(result.changed)
+        self.assertLess(threat.morale, morale)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "save.json"
+            save_game(state, path)
+            loaded = load_game(path)
+        self.assertIn(f"seasoned {courier.role}", loaded.courier.learned_techniques)
+
+    def test_a_recruited_adult_earns_the_same_personal_return_path(self):
+        state = create_world("recruited return development")
+        recruit = next(
+            person for person in state.visitors
+            if state.visitor_status[person.id] == "visiting"
+        )
+        region_id, markers, _ = RECRUIT_REQUIREMENTS[recruit.id]
+        state.regions[region_id].changes[markers[0]] = True
+        self.assertTrue(recruit_person(state, recruit.id).changed)
+        self.assertTrue(choose_courier(state, recruit.id).changed)
+        state.jomon_space, state.position = "vessel", JOMON_GANGPLANK
+        for _ in range(2):
+            self.assertTrue(depart(state).changed)
+            state.position = state.region.landmarks["landing"]
+            self.assertTrue(return_to_jomon(state).changed)
+        self.assertIn(f"seasoned {recruit.role}", recruit.learned_techniques)

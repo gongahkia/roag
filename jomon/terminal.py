@@ -1735,6 +1735,8 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
                 f"{person.name} — {person.role}; {person.technique}; {person.injury}",
                 f"  {learned}; closest standing: {related} ({strongest[1]:+d})",
             ))
+            if f"seasoned {person.role}" in person.learned_techniques:
+                lines.append("  Personal practice: +4 weight capacity and a reinforced guard.")
         return "JOMON HOUSEHOLD", lines + ["Escape closes without advancing time."]
     if kind == "chronicle":
         return "JOMON VESSEL CHRONICLE", [*(state.chronicle[-16:] or ["No vessel incident is recorded yet."]), "Escape closes without advancing time."]

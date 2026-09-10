@@ -652,6 +652,16 @@ The previous milestone manually completed only one full Hearthford branch;
 its other branch, arc, and build claims have automated rather than complete
 PTY coverage. This expansion must not inherit those as playtest claims.
 
+Personal development now follows the embodied adult instead of a global crew
+level. A household member—including a voluntarily recruited adult—who returns
+from two expeditions records both passages and earns an inspectable seasoned
+role practice. That person, but not the office or replacement courier, gains
+four weight capacity and a reinforced guard. The development uses existing
+person memories and learned-technique persistence, is visible in the household
+panel, and does not add a save field or idle-time advancement. Nine focused
+people tests pass in **3.087 seconds**, including recruited-adult progression,
+guard behavior, isolation between couriers, and format-7 round trip.
+
 Fresh research and its access limitations are in
 [`systemic-world-research.md`](systemic-world-research.md). No runtime network
 dependency is introduced. Canon is unchanged. New scope permits only bounded

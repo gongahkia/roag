@@ -7,6 +7,37 @@ from .state import GameState, Person, Position, stage_rng
 from .vessel import HOUSEHOLD_SEATS, VISITOR_SEATS, current_area
 
 BERTH_CAPACITY = 9
+PERSONAL_RETURN_MILESTONE = 2
+
+
+def personal_practice(person: Person) -> str:
+    """The inspectable practice earned by this particular household role."""
+    return f"seasoned {person.role}"
+
+
+def record_personal_return(state: GameState, person: Person, region_id: str) -> str:
+    """Advance one actor's bounded, embodied expedition development."""
+    prefix = "Courier return:"
+    previous = sum(memory.startswith(prefix) for memory in person.memories)
+    region = state.regions[region_id]
+    person.memories.append(
+        f"{prefix} survived working passage through {region.name}."
+    )
+    practice = personal_practice(person)
+    if previous + 1 < PERSONAL_RETURN_MILESTONE or practice in person.learned_techniques:
+        del person.memories[:-12]
+        return ""
+    person.learned_techniques.append(practice)
+    development = (
+        f"{person.name} becomes a {practice} after two returns: four more "
+        "weight capacity and a reinforced guard now follow that person, not the office."
+    )
+    person.memories.append(development)
+    del person.memories[:-12]
+    state.chronicle.append(development)
+    del state.chronicle[:-30]
+    state.remember(development)
+    return development
 
 RECRUIT_REQUIREMENTS = {
     "recruit-maelin": (
