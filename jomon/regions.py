@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import OrderedDict, deque
 import copy
 import hashlib
+import weakref
 
 from .content import COMMODITIES, ENEMY_ARCHETYPES
 from .encounters import production_encounter_groups, threat_from_archetype
@@ -14,7 +15,7 @@ from .state import Contact, Container, MarketEntry, Position, Region, Threat, Ve
 _REACHABLE_CACHE: OrderedDict[
     tuple[object, ...], tuple[object, frozenset[Position]]
 ] = OrderedDict()
-_REACHABLE_CACHE_LIMIT = 64
+_REACHABLE_CACHE_LIMIT = 8
 
 
 def _grid(width: int, height: int, fill: str = " ") -> list[list[str]]:
@@ -99,7 +100,7 @@ def region_reachable(region: Region, start: Position | None = None) -> frozenset
         tuple((link.first, link.second, link.name) for link in region.vertical_links),
     )
     cached = _REACHABLE_CACHE.get(cache_key)
-    if cached is not None and cached[0] is region:
+    if cached is not None and cached[0]() is region:
         _REACHABLE_CACHE.move_to_end(cache_key)
         return cached[1]
     stride = width * height
@@ -148,7 +149,11 @@ def region_reachable(region: Region, start: Position | None = None) -> frozenset
         result.add(Position(x, y, levels[level_index]))
         seen ^= bit
     frozen = frozenset(result)
-    _REACHABLE_CACHE[cache_key] = (region, frozen)
+    try:
+        owner = weakref.ref(region)
+    except TypeError:
+        owner = lambda: region
+    _REACHABLE_CACHE[cache_key] = (owner, frozen)
     _REACHABLE_CACHE.move_to_end(cache_key)
     while len(_REACHABLE_CACHE) > _REACHABLE_CACHE_LIMIT:
         _REACHABLE_CACHE.popitem(last=False)
