@@ -262,7 +262,10 @@ def item_spec(kind: str) -> ItemSpec:
         return ItemSpec(name.title(), name[:2].upper(), max(1, bulk), 1, bulk, "passive", description, stack_limit=3)
     if kind.startswith("consumable:"):
         name = kind.split(":", 1)[1]
-        return ItemSpec(name.title(), name[:2].upper(), 1, 1, 1, "consumable", "A finite expedition supply.", stack_limit=4)
+        from .content import DISCOVERIES
+
+        description = DISCOVERIES.get(name, ("consumable", "A finite expedition supply."))[1]
+        return ItemSpec(name.title(), name[:2].upper(), 1, 1, 1, "consumable", description, stack_limit=4)
     if kind.startswith("relic:"):
         name = kind.split(":", 1)[1]
         from .content import RELICS

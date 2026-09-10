@@ -508,6 +508,9 @@ def settle_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
             "eases connected cargo risk."
         )
     contract.stage, contract.status = 3, "completed"
+    from .preparations import grant_contract_preparation
+
+    preparation_text = grant_contract_preparation(state, contract.topology)
     practice_text = _update_line_progress(state, contract.region_id)
     if state.aftermath_quests[contract.region_id].status == "completed":
         from .quests import maybe_unlock_arc
@@ -519,7 +522,7 @@ def settle_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
     del account.witnessed_acts[:-8]
     state.trade_credit += 1
     state.remember(f"{contract.title}: {contract.outcome}")
-    return True, contract.outcome + " One credit is paid." + (" One credit first funded the replacement copy." if copied else "") + practice_text
+    return True, contract.outcome + " One credit is paid." + (" One credit first funded the replacement copy." if copied else "") + preparation_text + practice_text
 
 
 def abandon_contract(state: GameState, contract_id: str) -> tuple[bool, str]:

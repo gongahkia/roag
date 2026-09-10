@@ -23,6 +23,7 @@ from .inventory import BASIC_COURIER_ARMOUR, BASIC_COURIER_LOADOUTS, ITEM_SPECS
 from .legendary import validate_legends
 from .living_audit import living_audit
 from .practices import PRACTICES, validate_practices
+from .preparations import PREPARATIONS, validate_preparations
 from .quests import ADDITIONAL_ARCS, QUESTS, quest_reachability_audit
 from .save import load_game, save_game
 from .ship_crises import TACTICAL, VOYAGES
@@ -60,6 +61,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
     validate_roster()
     validate_legends(state)
     validate_practices()
+    validate_preparations()
     roster = roster_audit()
     armour = {kind for kind, spec in ITEM_SPECS.items() if spec.category == "armour"}
     techniques = _techniques()
@@ -86,7 +88,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
         "regions": 8, "standard_enemies": 72, "mechanically_distinct_enemies": 72,
         "elite_situations": 24, "named_rivals": 8, "weapons": 36,
         "armour": 36, "techniques": 32, "active_passives_and_techniques": 80,
-        "secondary_tools_supplies_drinks": 32, "relics": 12,
+        "secondary_tools_supplies_drinks": 51, "relics": 12,
         "containers": 60, "regional_questlines": 20, "cross_region_arcs": 5,
         "institutions": 12, "persistent_nonhostile_characters": 38,
         "voyage_families": 12, "tactical_voyage_families": 6,
@@ -119,6 +121,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
             "regions": sorted(state.regions), "weapons": sorted(WEAPONS),
             "armour": sorted(armour), "passives": sorted(PASSIVES),
             "techniques": sorted(techniques), "relics": sorted(RELICS),
+            "preparations": sorted(PREPARATIONS),
             "containers": sorted(container.id for region in state.regions.values() for container in region.containers),
             "quests": sorted([
                 *(definition["title"] for definition in QUESTS.values()),

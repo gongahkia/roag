@@ -154,6 +154,14 @@ class EndingDerivedAftermathTests(unittest.TestCase):
             self.assertTrue(changed)
         self.assertIn("siltgate hand", state.courier.learned_techniques)
         self.assertIn("learns siltgate hand", message)
+        rewards = [
+            item.kind for item in state.items
+            if item.provenance.startswith("finite preparation taught by")
+        ]
+        self.assertEqual(
+            set(rewards),
+            {"consumable:race-gate chalk", "consumable:tallow gear wrap"},
+        )
 
     def test_field_approach_changes_material_and_route_then_round_trips(self):
         state, contract = self.prepared("aftermath field")

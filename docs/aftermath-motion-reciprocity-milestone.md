@@ -188,5 +188,14 @@ new magic, infinite contracts or additional major region is planned.
   work, injured climbs, reach withdrawal and physical net recovery. Practice
   descriptions are inspectable on the courier and every acquisition is
   remembered; focused production and behavior tests cover all 16.
-- The remaining tool/preparation, relic, vessel and voyage content
-  multiplication gates remain open.
+- Sixteen finite aftermath preparations bring tools/supplies/drinks to 51.
+  Every settled contract issues the preparation taught by its exact work
+  topology. The contextual field-use menu previews readiness and selects a
+  named physical supply without spending time on a failed choice. The 16
+  distinct reducers lower water, repair weapons, tend lamps and smoke, recover
+  ground items, quench or start fire, mark stores, bind footing, plug banks,
+  relieve survival pressure, brace structures, break aimed lanes, drain mud,
+  create ash smoke, freeze shallows or thaw ice. Each consumes its packed item,
+  records the consequence and round-trips through ordinary format-7 state.
+- The remaining relic, vessel and voyage content multiplication gates remain
+  open.

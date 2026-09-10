@@ -2789,7 +2789,12 @@ def _spend_relic(state: GameState, name: str) -> None:
     consume_carried(state, f"relic:{name}")
 
 
-def use_gear(state: GameState) -> ActionResult:
+def use_gear(state: GameState, preparation: str | None = None) -> ActionResult:
+    if preparation is not None:
+        from .preparations import apply_preparation
+
+        changed, message = apply_preparation(state, preparation)
+        return _time_result(state, message, priority=3) if changed else _plain(state, message)
     if not state.combat_active:
         return _plain(state, "Expedition gear is used in the field.")
     bottle = next(

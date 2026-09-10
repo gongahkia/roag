@@ -886,6 +886,16 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
             )
             for index, target in enumerate(navigation_targets(state)[:len(keys)])
         ]
+    if kind == "field-use":
+        from .preparations import carried_preparations, preparation_status
+
+        keys = "123456789abcdefg"
+        rows = []
+        for key, name in zip(keys, carried_preparations(state)):
+            available, reason = preparation_status(state, name)
+            rows.append(ChoiceOption(key.upper(), f"Use {name}", "commitment", available, reason))
+        rows.append(ChoiceOption("X", "Use the carried bottle, selected relic, or readied gear", "commitment", state.combat_active, "requires active danger"))
+        return rows
     if kind == "aftermath":
         from .aftermath import contracts_for
 
@@ -2028,6 +2038,20 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             ],
             "Selection costs no time; X then spends the selected finite relic.",
         ]
+    if kind == "field-use":
+        from .preparations import PREPARATIONS, carried_preparations, preparation_status
+
+        keys = "123456789abcdefg"
+        lines = []
+        for key, name in zip(keys, carried_preparations(state)):
+            available, reason = preparation_status(state, name)
+            lines.append(
+                f"{key}. {name} — {PREPARATIONS[name].description} "
+                f"[{'READY' if available else 'NEEDS ' + reason}]"
+            )
+        lines.append("X. Use the carried bottle, selected relic, or ordinary readied gear.")
+        lines.append("Selection previews exact conditions; a failed choice costs no action or item.")
+        return "SELECT CONTEXTUAL FIELD USE", lines
     if kind == "tavern:passive":
         rows = list(state.owned_passives)
         keys = "123456789abc"
@@ -2294,6 +2318,20 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
             state.carried_relic = rows[index]
             state.add_message(f"Selected {rows[index]} for the next finite use.")
             return None, False
+    if kind == "field-use":
+        from .preparations import carried_preparations
+
+        keys = "123456789abcdefg"
+        if char in keys:
+            rows = carried_preparations(state)
+            index = keys.index(char)
+            if index < len(rows):
+                result = use_gear(state, rows[index])
+                return (None if result.time_advanced else kind), False
+        if char == "x":
+            result = use_gear(state)
+            return (None if result.time_advanced else kind), False
+        return kind, False
     if kind == "tavern:passive" and char in "123456789abc":
         rows = list(state.owned_passives)
         index = "123456789abc".index(char)
@@ -2507,12 +2545,17 @@ def play(screen: curses.window, state: GameState) -> GameState:
             else:
                 overlay = OverlayView("navigation")
         elif normalized == ord("x"):
+            from .preparations import carried_preparations
+
+            preparations = carried_preparations(state)
             carried_relics = list(dict.fromkeys(
                 item.kind.split(":", 1)[1] for item in state.items
                 if item.owner_id == state.active_courier_id and item.location == "pack"
                 and item.kind.startswith("relic:")
             ))
-            if len(carried_relics) > 1:
+            if preparations:
+                overlay = OverlayView("field-use")
+            elif len(carried_relics) > 1:
                 overlay = OverlayView("relic:select")
             else:
                 use_gear(state)

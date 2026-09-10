@@ -241,6 +241,12 @@ aftermath contracts in a region teaches eight more. They alter movement,
 material work, sight, salvage, elevation, guard, climbing and recoverable
 equipment through the same production reducers used by ordinary play.
 
+Sixteen additional one-use field preparations are physical rewards from the
+16 aftermath contracts. `X` opens a contextual readiness list when any are
+packed: invalid choices are zero-time, while committed use consumes the named
+item and alters water, fire, smoke, structures, equipment, footing, hostile
+intent, recovery, cold, or fatigue through shared reducers.
+
 ## Saves and verification
 
 One atomic JSON save is stored at `$XDG_DATA_HOME/jomon/jomon-save.json`, or

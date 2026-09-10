@@ -18,7 +18,8 @@
   any two opens the five-part Working Marks arc. Production generation uses
   finite mixed groups, four seeded alternative elites, and 62 persistent
   containers. The expansion now has 36 weapons, 36 armour pieces, 48 passives,
-  16 inherent/learned techniques, 12 relics, eight physical fitting kits,
+  32 inherent/learned techniques, 12 relics, eight physical fitting kits,
+  51 secondary tools, supplies and drinks,
   sparse materials, three cross-region arcs and twelve bounded voyage families.
   Twenty-four executable build scenarios and dedicated production audits cover
   the numeric gates; exhaustive manual branch/build coverage is not claimed.

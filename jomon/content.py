@@ -225,6 +225,13 @@ DISCOVERIES.update({
     "sealed brine pot": ("ammunition", "One finite pot of salt water to quench, thaw or flood a visible cell."),
 })
 
+from .preparations import PREPARATIONS
+
+DISCOVERIES.update({
+    name: ("preparation", preparation.description)
+    for name, preparation in PREPARATIONS.items()
+})
+
 RELICS = {
     "river-glass ward": "A finite cold shard that breaks instead of its bearer.",
     "tide-knot charm": "A specifically knotted river-glass cord that stills one pursuit.",
