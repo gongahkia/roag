@@ -32,6 +32,17 @@ Archived content-schema-20 rules remain on their recorded QUIET director so a
 new engine can continue those saves without changing combat, hazard, patrol or
 reward semantics; Pressure is still recorded and disclosed.
 
+### Mutation contracts
+
+Content schema 22 defines 16 visible tactical modules. Each has a stable
+namespaced ID, concise marker, unique registered effect, amount, minimum Pressure
+band, deterministic priority, encounter-kind and biome compatibility, and
+explicit exclusions. The vocabulary covers opening protection/targeting,
+movement, finite reactions, ally-death responses, round-end sustain/control,
+partial stun resistance and one disclosed reinforcement. Arbitrary callbacks
+and stat-only affixes are not mutation effects. Embedded schema-21 rules load an
+empty mutation set rather than borrowing definitions from the installed game.
+
 ## Inert content input
 
 Content is UTF-8 JSON, decoded through `json_data.loads`. Duplicate object keys,

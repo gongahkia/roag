@@ -526,3 +526,15 @@ first archived transcript then failed at a legal target before that legacy
 guard was added. The corrected director, hazard, patrol, intent, reward, save and
 ordering group passed **17 tests in 48.203s**. This slice does not yet claim the
 mutation, reinforcement, threat-vector, or repetition requirements.
+
+Content schema 22 adds 16 immutable, namespaced mutation definitions with 16
+distinct registered tactical effects. Validation closes their fields, visible
+ASCII markers, bands, integer amounts/priorities, biome and encounter-kind
+compatibility, exclusions and references. Embedded schema-21 rules load with an
+empty mutation catalog rather than installed definitions. The first broad run
+reported **40 errors** because the authored stable priorities 100–160 exceeded
+an unnecessarily narrow validator maximum of 99; widening the non-power ordering
+field to 999 fixed the contract rather than rewriting those IDs. The corrected
+content/JSON/manifest/saved-rule/archive/runtime-contract group passed **48 tests
+in 2.938s**. Definitions are not counted as live behavior until selection and
+all 16 effect handlers pass separately.

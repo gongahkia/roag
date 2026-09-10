@@ -6,7 +6,7 @@ import unittest
 from collections import Counter
 from pathlib import Path
 
-from dumbest_dungeon.content import ContentError, load_catalog
+from dumbest_dungeon.content import ContentError, MUTATION_EFFECTS, load_catalog, load_rules
 
 
 class ContentTests(unittest.TestCase):
@@ -28,6 +28,8 @@ class ContentTests(unittest.TestCase):
             )
         )
         self.assertTrue(all((catalog.boons, catalog.curses, catalog.items, catalog.afflictions)))
+        self.assertGreaterEqual(len(catalog.mutations), 16)
+        self.assertEqual(MUTATION_EFFECTS, {mutation["effect"] for mutation in catalog.mutations.values()})
         self.assertGreaterEqual(len(catalog.squads), 4)
         self.assertEqual(set(catalog.heroes), set(catalog.art["heroes"]))
         self.assertEqual(set(catalog.heroes), set(catalog.art["card_marks"]))
@@ -133,6 +135,35 @@ class ContentTests(unittest.TestCase):
         self.assertTrue(
             all(card["effects"] != card["upgrade_effects"] for card in catalog.cards.values())
         )
+
+    def test_mutation_contracts_are_distinct_visible_and_compatible(self) -> None:
+        catalog = load_catalog()
+        for mutation in catalog.mutations.values():
+            self.assertTrue(mutation["marker"].isascii())
+            self.assertLessEqual(len(mutation["marker"]), 20)
+            self.assertTrue(mutation["compatible_kinds"])
+            self.assertNotIn(mutation["id"], mutation["excludes"])
+        schema_21 = json.loads(json.dumps(catalog.rules))
+        del schema_21["mutations"]
+        schema_21["content_schema"] = 21
+        restored = load_rules(schema_21)
+        self.assertEqual(21, restored.raw["schema_version"])
+        self.assertEqual({}, restored.mutations)
+
+    def test_invalid_mutation_effect_and_reference_are_rejected(self) -> None:
+        raw = json.loads(json.dumps(load_catalog().raw))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad-mutation.json"
+            for field, value, error in (
+                ("effect", "arbitrary_callback", "registered tactical effect"),
+                ("excludes", ["base:missing"], "invalid exclusions"),
+                ("min_band", "quiet", "minimum Pressure band"),
+            ):
+                candidate = json.loads(json.dumps(raw))
+                candidate["mutations"][0][field] = value
+                path.write_text(json.dumps(candidate), encoding="utf-8")
+                with self.subTest(field=field), self.assertRaisesRegex(ContentError, error):
+                    load_catalog(path)
 
     def test_curated_squad_with_invalid_formation_is_rejected(self) -> None:
         catalog = load_catalog()

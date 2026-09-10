@@ -41,6 +41,7 @@ class Catalog:
     boons: dict[str, dict[str, Any]]
     curses: dict[str, dict[str, Any]]
     items: dict[str, dict[str, Any]]
+    mutations: dict[str, dict[str, Any]]
     afflictions: dict[str, dict[str, Any]]
     balance: dict[str, Any]
     art: dict[str, Any]
@@ -193,8 +194,29 @@ CONTENT_FIELDS = {
     "boons": "id name description effects tags requires_all_tags",
     "curses": "id name description effects kind",
     "items": "id name description effects",
+    "mutations": "id name marker description kind biomes effect amount compatible_kinds excludes min_band priority",
     "afflictions": "id name description modifiers",
 }
+
+MUTATION_EFFECTS = {
+    "opening_front_block",
+    "guard_rear",
+    "mark_weakest",
+    "dodge_rear",
+    "riposte_front",
+    "focus_striker",
+    "shove_front_crew",
+    "heal_weakest_round",
+    "react_third_card",
+    "surge_ally_death",
+    "reinforce_once",
+    "cleanse_round",
+    "resist_first_stun",
+    "wound_on_ally_death",
+    "pull_crew_round",
+    "wide_wound_round",
+}
+MUTATION_BANDS = {"hunted", "lockdown", "overrun"}
 
 
 def _fields(value: Any, allowed: str, context: str) -> None:
@@ -465,10 +487,15 @@ def load_rules(rules: dict) -> Catalog:
 @lru_cache(maxsize=8)
 def _compiled_rules(encoded: bytes) -> Catalog:
     rules = loads(encoded.decode("ascii"))
-    if not isinstance(rules, dict) or set(rules) != set(CONTENT_FIELDS) | {"balance", "art", "content_schema"}:
+    if not isinstance(rules, dict) or type(rules.get("content_schema")) is not int:
+        raise ContentError("saved rules require a registered content schema")
+    sections = set(CONTENT_FIELDS)
+    if rules["content_schema"] < 22:
+        sections.remove("mutations")
+    if set(rules) != sections | {"balance", "art", "content_schema"}:
         raise ContentError("saved rules require exactly the registered content sections")
     raw = {"schema_version": rules["content_schema"], "balance": rules["balance"]}
-    for name in CONTENT_FIELDS:
+    for name in sections:
         definitions = rules[name]
         if not isinstance(definitions, dict) or any(not isinstance(row, dict) or identity != row.get("id") for identity, row in definitions.items()):
             raise ContentError(f"saved {name} identities do not match their definitions")
@@ -484,8 +511,8 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
     _fields(raw, "schema_version balance " + " ".join(CONTENT_FIELDS), "content root")
     _fields(art, "schema_version title heroes enemies card_glyphs card_marks curse_card_glyph curse_card_mark", "art root")
     _fields(card_metadata, "schema_version cards", "card metadata root")
-    if type(raw.get("schema_version")) is not int or raw["schema_version"] not in {20, CONTENT_SCHEMA}:
-        raise ContentError(f"content schema_version must be historical 20 or current {CONTENT_SCHEMA}")
+    if type(raw.get("schema_version")) is not int or raw["schema_version"] not in {20, 21, CONTENT_SCHEMA}:
+        raise ContentError(f"content schema_version must be historical 20/21 or current {CONTENT_SCHEMA}")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
@@ -504,6 +531,7 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
     boons = _indexed(raw.get("boons"), "boons")
     curses = _indexed(raw.get("curses"), "curses")
     items = _indexed(raw.get("items"), "items")
+    mutations = _indexed(raw.get("mutations", []), "mutations")
     afflictions = _indexed(raw.get("afflictions"), "afflictions")
     balance = raw.get("balance")
     if not isinstance(balance, dict):
@@ -541,6 +569,42 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
         raise ContentError("content sections must not be empty")
     if cards.keys() & curses.keys():
         raise ContentError("technique and curse-card ids must not overlap")
+
+    mutation_effects: set[str] = set()
+    for mutation in mutations.values():
+        context = f"mutation {mutation['id']}"
+        for field in ("name", "marker", "description", "kind", "biomes", "effect", "amount",
+                      "compatible_kinds", "excludes", "min_band", "priority"):
+            if field not in mutation:
+                raise ContentError(f"{context} is missing {field}")
+        if (not all(isinstance(mutation[field], str) and mutation[field]
+                    for field in ("name", "marker", "description", "kind", "effect", "min_band"))
+            or re.fullmatch(r"[A-Z0-9:+/_-]{3,20}", mutation["marker"]) is None):
+            raise ContentError(f"{context} has an invalid identity or visible marker")
+        if mutation["kind"] not in {"general", "biome"}:
+            raise ContentError(f"{context} has an invalid kind")
+        if mutation["effect"] not in MUTATION_EFFECTS or mutation["effect"] in mutation_effects:
+            raise ContentError(f"{context} needs a distinct registered tactical effect")
+        mutation_effects.add(mutation["effect"])
+        if type(mutation["amount"]) is not int or not 1 <= mutation["amount"] <= 99:
+            raise ContentError(f"{context} has an invalid amount")
+        if (not isinstance(mutation["biomes"], list)
+            or any(biome not in biomes for biome in mutation["biomes"])
+            or mutation["kind"] == "biome" and not mutation["biomes"]):
+            raise ContentError(f"{context} has invalid biome compatibility")
+        if (not isinstance(mutation["compatible_kinds"], list)
+            or not mutation["compatible_kinds"]
+            or any(kind not in {"normal", "elite", "boss"} for kind in mutation["compatible_kinds"])
+            or len(set(mutation["compatible_kinds"])) != len(mutation["compatible_kinds"])):
+            raise ContentError(f"{context} has invalid encounter compatibility")
+        if (not isinstance(mutation["excludes"], list)
+            or any(other == mutation["id"] or other not in mutations for other in mutation["excludes"])
+            or len(set(mutation["excludes"])) != len(mutation["excludes"])):
+            raise ContentError(f"{context} has invalid exclusions")
+        if mutation["min_band"] not in MUTATION_BANDS:
+            raise ContentError(f"{context} has an invalid minimum Pressure band")
+        if type(mutation["priority"]) is not int or not 0 <= mutation["priority"] <= 999:
+            raise ContentError(f"{context} has an invalid priority")
 
     hero_names: set[str] = set()
     hero_roles: set[str] = set()
@@ -1058,6 +1122,7 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
         boons,
         curses,
         items,
+        mutations,
         afflictions,
         balance,
         art,

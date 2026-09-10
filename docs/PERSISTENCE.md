@@ -1,8 +1,12 @@
 # Persistence contracts
 
-The run save currently uses schema 35, content schema 21, and the existing Python
+The run save currently uses schema 35, content schema 22, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry and manifests are implemented; the persistent profile is still pending.
+
+Content schema 22 adds typed elite-mutation definitions. Embedded schema-21
+rules load with an empty mutation catalog; definitions are never filled from the
+installed catalog. Content-20 remains the exact archived bundle.
 
 Schema 35 records engine 0.4.0 and freezes the Pressure seen at encounter entry,
 selected director modules and reinforcement tickets. Migration 34→35 gives an
