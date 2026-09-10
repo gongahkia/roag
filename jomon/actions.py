@@ -1225,6 +1225,9 @@ def depart(state: GameState) -> ActionResult:
     reconstruct_regional_process(state)
     from .frontier_elites import revisit_claimants
     revisit_claimants(state)
+    from .aftermath import prepare_aftermath
+
+    prepare_aftermath(state)
     state.merchant_present, state.merchant_stock = False, []
     state.merchant.available = False
     merchant_schedule = state.actor_schedules.get(state.merchant.id)

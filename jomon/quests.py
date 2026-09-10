@@ -377,6 +377,9 @@ def resolve_regional_quest(state: GameState, choice: str) -> tuple[bool, str]:
         consequence = settle_frontier_claim(state, choice)
     quest.stage, quest.status, quest.consequence = 3, "completed", consequence
     quest.decisions.append(f"ending:{choice}")
+    from .aftermath import record_resolution_clock
+
+    record_resolution_clock(state, region_id)
     from .regional_history import account_for
 
     account = account_for(state)

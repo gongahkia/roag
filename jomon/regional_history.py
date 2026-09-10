@@ -43,6 +43,11 @@ def reconcile_network(state: GameState) -> None:
     accounts = {account.region_id: account for account in state.institutions.values()}
     for account in accounts.values():
         account.service, account.opposition_reason = INSTITUTION_SERVICES[account.region_id]
+        aftermath = state.regions[account.region_id].changes.get("aftermath_configuration")
+        if aftermath == "shared":
+            account.service += "; aftermath crews now maintain one firm marked approach"
+        elif aftermath == "claimed":
+            account.service += "; claimed aftermath work is available only against a recorded obligation"
         account.relationships = {}
     for first in accounts.values():
         for second in accounts.values():

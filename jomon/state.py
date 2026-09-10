@@ -359,6 +359,23 @@ class LegendaryObject:
 
 
 @dataclass
+class RegionalContract:
+    id: str
+    title: str
+    region_id: str
+    cause: str
+    topology: str
+    participant_id: str
+    site: Position
+    commodity: str
+    status: str = "available"
+    stage: int = 0
+    approach: str = ""
+    token_item_id: str | None = None
+    outcome: str = ""
+
+
+@dataclass
 class GameState:
     save_format: int
     seed: str
@@ -469,6 +486,8 @@ class GameState:
     vessel_threats: list[Threat] = field(default_factory=list)
     vessel_tiles: dict[str, str] = field(default_factory=dict)
     legendary_objects: dict[str, LegendaryObject] = field(default_factory=dict)
+    aftermath_quests: dict[str, QuestProgress] = field(default_factory=dict)
+    regional_contracts: dict[str, RegionalContract] = field(default_factory=dict)
 
     @property
     def combat_active(self) -> bool:
@@ -712,6 +731,7 @@ def create_world(seed: str) -> GameState:
         bartender_stock={}, drink_effects={}, calendar_origin_day=0,
         calendar_events=[], chronicle=[], pending_incident=None,
         last_schedule_turn=0,
+        aftermath_quests={}, regional_contracts={},
     )
     from .inventory import ensure_household_basics, initialise_inventory, sync_legacy_load
     from .people import initialise_tavern
@@ -749,6 +769,9 @@ def create_world(seed: str) -> GameState:
     from .quests import initialise_quests
 
     initialise_quests(state)
+    from .aftermath import initialise_aftermath
+
+    initialise_aftermath(state)
     from .route_chart import initialise_route_chart
     from .vessel import initialise_living_vessel
 
@@ -1043,6 +1066,11 @@ def game_state_from_dict(data: Any) -> GameState:
             values["tags"] = tuple(values["tags"])
             values["material_verbs"] = tuple(values["material_verbs"])
             legendary_objects[key] = LegendaryObject(**values)
+        regional_contracts = {}
+        for key, raw in data.get("regional_contracts", {}).items():
+            values = dict(raw)
+            values["site"] = _position(values["site"], "regional contract site")
+            regional_contracts[key] = RegionalContract(**values)
         state = GameState(
             save_format=data["save_format"], seed=data["seed"], world_time=data["world_time"],
             household=household, active_courier_id=data["active_courier_id"], active_region_id=active_region_id, contact=contact,
@@ -1121,6 +1149,11 @@ def game_state_from_dict(data: Any) -> GameState:
             vessel_tiles=dict(data.get("vessel_tiles", {})),
             institutions={key: Institution(**value) for key, value in data.get("institutions", {}).items()},
             legendary_objects=legendary_objects,
+            aftermath_quests={
+                key: QuestProgress(**value)
+                for key, value in data.get("aftermath_quests", {}).items()
+            },
+            regional_contracts=regional_contracts,
         )
         if migrated_v3:
             from .inventory import initialise_inventory, reconcile_legacy_carried, sync_legacy_load
@@ -1203,6 +1236,9 @@ def game_state_from_dict(data: Any) -> GameState:
             from .enemy_equipment import initialise_enemy_equipment
 
             initialise_enemy_equipment(state, fresh=False)
+        from .aftermath import initialise_aftermath
+
+        initialise_aftermath(state)
     except (AttributeError, KeyError, RuntimeError, TypeError, ValueError) as exc:
         raise StateError(f"malformed save: {exc}") from exc
     validate_state(state)
@@ -1215,6 +1251,7 @@ def validate_state(state: GameState) -> None:
     from .ecology import validate_ecology
     from .worklines import validate as validate_worklines
     from .legendary import validate_legends
+    from .aftermath import validate_aftermath
 
     try:
         validate_materials(state)
@@ -1222,6 +1259,7 @@ def validate_state(state: GameState) -> None:
         validate_ecology(state)
         validate_worklines(state)
         validate_legends(state)
+        validate_aftermath(state)
     except ValueError as exc:
         raise StateError(f"invalid material state: {exc}") from exc
     if len(state.household) < 6 or len({person.id for person in state.household}) != len(state.household):

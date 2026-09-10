@@ -704,3 +704,6 @@ def activate_region(state, region_id: str) -> None:
     reconstruct_regional_process(state)
     from .frontier_elites import revisit_claimants
     revisit_claimants(state)
+    from .aftermath import prepare_aftermath
+
+    prepare_aftermath(state)
