@@ -19,6 +19,12 @@ class EffectKey(StrEnum):
     CURSE_DRAW_STRESS = "curse_draw_stress"
     CURSE_DRAW_WOUND = "curse_draw_wound"
     CURSE_HELD_STRESS = "curse_held_stress"
+    CURSE_DEATHS_DOOR_BLOCK = "curse_deaths_door_block"
+    CURSE_LOW_LIGHT_DAMAGE_BONUS = "curse_low_light_damage_bonus"
+    CURSE_MARKED_DAMAGE_BONUS = "curse_marked_damage_bonus"
+    CURSE_PRESSURE_DAMAGE_BONUS = "curse_pressure_damage_bonus"
+    CURSE_STRESSED_DAMAGE_BONUS = "curse_stressed_damage_bonus"
+    CURSE_WOUNDED_DAMAGE_BONUS = "curse_wounded_damage_bonus"
     DAMAGE_DISCARD = "damage_discard"
     DAMAGE_DRAW = "damage_draw"
     DEATH_CHANCE_REDUCTION = "death_chance_reduction"
@@ -79,7 +85,10 @@ class TriggerDisclosure:
 
 FRACTIONAL_KEYS = frozenset({"death_chance_reduction", "healing_bonus", "healing_reduction",
                            "incoming_damage_bonus", "incoming_damage_reduction", "marked_damage_bonus",
-                           "stress_bonus", "stress_reduction", "stressed_damage_bonus"})
+                           "stress_bonus", "stress_reduction", "stressed_damage_bonus",
+                           "curse_low_light_damage_bonus", "curse_marked_damage_bonus",
+                           "curse_pressure_damage_bonus", "curse_stressed_damage_bonus",
+                           "curse_wounded_damage_bonus"})
 
 
 def _disclosures() -> dict[EffectKey, TriggerDisclosure]:
@@ -112,6 +121,13 @@ def _disclosures() -> dict[EffectKey, TriggerDisclosure]:
     assign((EffectKey.CURSE_HELD_STRESS,), "bound curse held at turn end", "once per held copy")
     assign((EffectKey.CURSE_DEAD_DRAW,), "bound curse occupies the shared deck", "no scalar activation",
            "do not apply")
+    assign((EffectKey.CURSE_STRESSED_DAMAGE_BONUS, EffectKey.CURSE_WOUNDED_DAMAGE_BONUS,
+            EffectKey.CURSE_MARKED_DAMAGE_BONUS, EffectKey.CURSE_LOW_LIGHT_DAMAGE_BONUS,
+            EffectKey.CURSE_PRESSURE_DAMAGE_BONUS),
+           "matching owner's resolved damage", "continuous while its disclosed condition holds",
+           "do not apply")
+    assign((EffectKey.CURSE_DEATHS_DOOR_BLOCK,), "manual block card owned at Death's Door",
+           "continuous while at Death's Door", "do not apply")
     assign((EffectKey.DEFLECTION,), "first unblocked hostile hit on each hero", "once per hero per combat")
     assign((EffectKey.SECOND_WIND,), "first lethal Death's Door entry", "once per hero per combat")
     assign((EffectKey.FIRST_BLOCK_COST_INCREASE,), "block technique", "first authored count each round",

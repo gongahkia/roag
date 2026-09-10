@@ -1,5 +1,5 @@
 {
-  "schema_version": 30,
+  "schema_version": 31,
   "balance": {
     "hand_size": 5,
     "energy": 3,
@@ -802,7 +802,13 @@
     {"id":"open_wound","name":"Open Wound","kind":"card","description":"Unplayable. On draw, its bound hero gains a wound.","effects":[{"key":"curse_draw_wound","unit":"count","stack":{"mode":"linear","amount":1,"cap":1}}]},
     {"id":"power_leech","name":"Power Leech","kind":"card","description":"Unplayable. On draw, lose 1 energy.","effects":[{"key":"curse_draw_energy","unit":"count","stack":{"mode":"linear","amount":1,"cap":1}}]},
     {"id":"gravity_knot","name":"Gravity Knot","kind":"card","description":"Unplayable. On draw, move its bound hero back one rank.","effects":[{"key":"curse_draw_move","unit":"count","stack":{"mode":"linear","amount":1,"cap":1}}]},
-    {"id":"dread_forecast","name":"Dread Forecast","kind":"card","description":"Unplayable. If held at turn end, its bound hero gains 3 stress.","effects":[{"key":"curse_held_stress","unit":"count","stack":{"mode":"linear","amount":3,"cap":3}}]}
+    {"id":"dread_forecast","name":"Dread Forecast","kind":"card","description":"Unplayable. If held at turn end, its bound hero gains 3 stress.","effects":[{"key":"curse_held_stress","unit":"count","stack":{"mode":"linear","amount":3,"cap":3}}]},
+    {"id":"base:red_debt","name":"Red Debt","kind":"trait","description":"Deal 10% more damage at 50 stress, but incoming stress is 6% stronger. Extra copies have diminishing burden and no extra power.","effects":[{"key":"curse_stressed_damage_bonus","unit":"basis_points","stack":{"mode":"unique","amount":1000}},{"key":"stress_bonus","unit":"basis_points","stack":{"mode":"hyperbolic","amount":600,"cap":4000}}]},
+    {"id":"base:scar_appetite","name":"Scar Appetite","kind":"trait","description":"Deal 12% more damage while wounded, but healing received is 6% weaker. Extra copies deepen only the burden.","effects":[{"key":"curse_wounded_damage_bonus","unit":"basis_points","stack":{"mode":"unique","amount":1200}},{"key":"healing_reduction","unit":"basis_points","stack":{"mode":"hyperbolic","amount":600,"cap":4000}}]},
+    {"id":"base:quarry_oath","name":"Quarry Oath","kind":"trait","description":"Deal 10% more damage to marked enemies, but begin combat marked. Power is unique; later copies lengthen the mark.","effects":[{"key":"curse_marked_damage_bonus","unit":"basis_points","stack":{"mode":"unique","amount":1000}},{"key":"start_marked","unit":"count","stack":{"mode":"linear","amount":1,"cap":4}}]},
+    {"id":"base:last_bastion_debt","name":"Last Bastion Debt","kind":"trait","description":"Block cards gain 3 at Death's Door, but the first owned card each combat costs 1 more. Extra copies increase the tax up to 2.","effects":[{"key":"curse_deaths_door_block","unit":"count","stack":{"mode":"unique","amount":3}},{"key":"first_card_cost_increase","unit":"count","stack":{"mode":"linear","amount":1,"cap":2}}]},
+    {"id":"base:blackout_pact","name":"Blackout Pact","kind":"trait","description":"Deal 12% more damage at low light, but lose extra light every ten steps. Power is unique; later copies deepen the leak.","effects":[{"key":"curse_low_light_damage_bonus","unit":"basis_points","stack":{"mode":"unique","amount":1200}},{"key":"leaking_light","unit":"count","stack":{"mode":"linear","amount":1,"cap":3}}]},
+    {"id":"base:hunted_compact","name":"Hunted Compact","kind":"trait","description":"Deal 15% more damage at HUNTED Pressure or above, but take 6% more damage. Power is unique; later copies deepen the harm.","effects":[{"key":"curse_pressure_damage_bonus","unit":"basis_points","stack":{"mode":"unique","amount":1500}},{"key":"incoming_damage_bonus","unit":"basis_points","stack":{"mode":"hyperbolic","amount":600,"cap":4500}}]}
   ],
   "items": [
     {"id":"bulkhead_laminate","name":"Bulkhead Laminate","description":"All heroes begin combat with stacking block.","effects":[{"key":"stacked_start_block","unit":"count","stack":{"mode":"linear","amount":1,"cap":8}}]},

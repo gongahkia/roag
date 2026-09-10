@@ -4045,6 +4045,19 @@ class GameEngine:
             for effect_id, count in owned.get(hero.id, {}).items()
         )
 
+    def _hero_effect_contributions(
+        self,
+        hero: Actor,
+        group: str,
+        key: str,
+    ) -> list[tuple[str, float]]:
+        owned = self.state.boons if group == "boon" else self.state.curses
+        return [
+            (effect_id, value)
+            for effect_id, count in owned.get(hero.id, {}).items()
+            if (value := self.effect_value(group, effect_id, key, count))
+        ]
+
     def _hero_effect_max_value(self, hero: Actor, group: str, key: str) -> float:
         owned = self.state.boons if group == "boon" else self.state.curses
         return max((self.effect_value(group, effect_id, key, count)
@@ -5001,9 +5014,18 @@ class GameEngine:
                     automatic = self.resolution.state.active and self.resolution.state.active.event.proc_families
                     multiplier = 1 if automatic else float(self._affliction_modifiers(target).get("block_mult", 1))
                     multiplier = max(0.5, min(2.0, multiplier))
-                    gained = max(0, round(amount * multiplier))
+                    contract_bonus = 0
+                    if actor.side == "hero" and actor.deaths_door and not automatic:
+                        contributions = self._hero_effect_contributions(
+                            actor, "curse", "curse_deaths_door_block"
+                        )
+                        contract_bonus = round(sum(value for _, value in contributions))
+                    gained = max(0, round((amount + contract_bonus) * multiplier))
                     target.block += gained
                     self.record("block", self._source_id or actor.id, target=target.id, amount=gained)
+                    for curse_id, value in contributions if contract_bonus else []:
+                        self.record("curse_contract_trigger", curse_id,
+                                    owner=actor.id, target=target.id, amount=round(value))
                 elif op == "heal":
                     self._heal(target, amount, actor)
                 elif op == "stress" and target.side == "hero":
@@ -5481,6 +5503,21 @@ class GameEngine:
                     "marked_damage_bonus",
                 )
                 multiplier *= 1 + self._item_effect_value("marked_damage_bonus")
+            conditions = (
+                (actor.stress >= 50, "curse_stressed_damage_bonus"),
+                (bool(actor.statuses.get("wound")), "curse_wounded_damage_bonus"),
+                (bool(target and target.statuses.get("marked")), "curse_marked_damage_bonus"),
+                (self.state.light <= self.catalog.balance["low_light_threshold"], "curse_low_light_damage_bonus"),
+                (self.state.pressure >= 480, "curse_pressure_damage_bonus"),
+            )
+            for active, key in conditions:
+                if not active:
+                    continue
+                for curse_id, bonus in self._hero_effect_contributions(actor, "curse", key):
+                    multiplier *= 1 + bonus
+                    self.record("curse_contract_trigger", curse_id, owner=actor.id,
+                                target=target.id if target else None,
+                                operand=key, bonus_bp=round(float(bonus) * 10000))
         multiplier = max(0.5, min(2.0, multiplier))
         result = max(0, round(amount * multiplier))
         if actor.side == "enemy":
