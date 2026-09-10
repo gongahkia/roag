@@ -87,6 +87,20 @@ effects and use explicit turn/combat keys; an echo repeats only the first effect
 that actually resolved and cannot recursively play the card. Transforming the
 copy explicitly removes its infusion.
 
+### Advanced loadouts and doctrines
+
+Content schema 26 supplies exactly one advanced five-card loadout for each of
+the 25 existing crew. Each package is owner-pure, covers every crew rank, uses
+at least four distinct cards, and contains at least three expansion roles. It
+must differ from the default starter package; complexity is horizontal rather
+than a permanent stat upgrade.
+
+The eleven doctrine modes are a closed party-rule vocabulary. Every doctrine
+states a strength and a real liability, and compatibility is expressed only in
+broad card tags and combat roles. Curated squads must satisfy their recommended
+doctrine using their default decks and legal formation, so the recommendation
+never relies on an undisclosed alternate loadout or named-card exception.
+
 Content is UTF-8 JSON, decoded through `json_data.loads`. Duplicate object keys,
 non-finite constants and overflowing float exponents are rejected before content
 validation. Code strings are never evaluated. Catalog, art and metadata roots

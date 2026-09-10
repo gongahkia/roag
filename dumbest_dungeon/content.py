@@ -712,6 +712,7 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
             or len(card_ids) != 5
             or len(set(card_ids)) < 4
             or any(card_id not in cards or cards[card_id]["hero"] != hero_id for card_id in card_ids)
+            or sum("design_role" in cards[card_id] for card_id in card_ids) < 3
             or any(not any(rank in cards[card_id]["from_ranks"] for card_id in card_ids)
                    for rank in range(1, 5))
             or card_ids == heroes[hero_id]["starter_deck"]
@@ -871,6 +872,19 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
                 raise ContentError(
                     f"squad {squad['id']} places {hero_id} outside a preferred rank"
                 )
+        if raw["schema_version"] >= 26:
+            doctrine = doctrines[squad["doctrine"]]
+            squad_tags = {
+                tag
+                for hero_id in formation
+                for card_id in heroes[hero_id]["starter_deck"]
+                for tag in cards[card_id]["tags"]
+            }
+            squad_roles = {heroes[hero_id]["combat_role"] for hero_id in formation}
+            if not set(doctrine["requires_tags"]) <= squad_tags or not set(
+                doctrine["requires_roles"]
+            ) <= squad_roles:
+                raise ContentError(f"squad {squad['id']} does not satisfy its doctrine")
     card_names: set[str] = set()
     for card in cards.values():
         if "design_role" in card and card["design_role"] not in EXPANSION_CARD_ROLES:

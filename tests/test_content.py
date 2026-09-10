@@ -8,6 +8,7 @@ from pathlib import Path
 
 from dumbest_dungeon.content import (
     EXPANSION_CARD_ROLES,
+    DOCTRINE_MODES,
     INFUSION_MODES,
     ContentError,
     MUTATION_EFFECTS,
@@ -39,6 +40,8 @@ class ContentTests(unittest.TestCase):
         self.assertGreaterEqual(len(catalog.mutations), 16)
         self.assertEqual(50, len(catalog.masteries))
         self.assertEqual(16, len(catalog.infusions))
+        self.assertEqual(25, len(catalog.loadouts))
+        self.assertEqual(11, len(catalog.doctrines))
         self.assertEqual(MUTATION_EFFECTS, {mutation["effect"] for mutation in catalog.mutations.values()})
         self.assertGreaterEqual(len(catalog.squads), 4)
         self.assertEqual(set(catalog.heroes), set(catalog.art["heroes"]))
@@ -157,6 +160,8 @@ class ContentTests(unittest.TestCase):
         del schema_21["mutations"]
         del schema_21["masteries"]
         del schema_21["infusions"]
+        del schema_21["loadouts"]
+        del schema_21["doctrines"]
         schema_21["content_schema"] = 21
         restored = load_rules(schema_21)
         self.assertEqual(21, restored.raw["schema_version"])
@@ -183,6 +188,8 @@ class ContentTests(unittest.TestCase):
         schema_22 = json.loads(json.dumps(catalog.rules))
         del schema_22["masteries"]
         del schema_22["infusions"]
+        del schema_22["loadouts"]
+        del schema_22["doctrines"]
         schema_22["content_schema"] = 22
         for card in schema_22["cards"].values():
             card.pop("design_role", None)
@@ -247,6 +254,8 @@ class ContentTests(unittest.TestCase):
 
         schema_24 = json.loads(json.dumps(catalog.rules))
         del schema_24["infusions"]
+        del schema_24["loadouts"]
+        del schema_24["doctrines"]
         schema_24["content_schema"] = 24
         restored = load_rules(schema_24)
         self.assertEqual({}, restored.infusions)
@@ -266,6 +275,40 @@ class ContentTests(unittest.TestCase):
                 path.write_text(json.dumps(candidate), encoding="utf-8")
                 with self.subTest(error=error), self.assertRaisesRegex(ContentError, error):
                     load_catalog(path)
+
+    def test_advanced_loadouts_and_doctrines_are_horizontal_and_broad(self) -> None:
+        catalog = load_catalog()
+        self.assertEqual(set(catalog.heroes), {item["hero"] for item in catalog.loadouts.values()})
+        for loadout in catalog.loadouts.values():
+            hero = catalog.heroes[loadout["hero"]]
+            self.assertNotEqual(hero["starter_deck"], loadout["cards"])
+            self.assertGreaterEqual(sum("design_role" in catalog.cards[card_id]
+                                        for card_id in loadout["cards"]), 3)
+            for rank in range(1, 5):
+                self.assertTrue(any(rank in catalog.cards[card_id]["from_ranks"]
+                                    for card_id in loadout["cards"]))
+        self.assertEqual(DOCTRINE_MODES, {item["mode"] for item in catalog.doctrines.values()})
+        self.assertGreaterEqual(len(catalog.squads), 12)
+        for squad in catalog.squads.values():
+            doctrine = catalog.doctrines[squad["doctrine"]]
+            tags = {
+                tag for hero_id in squad["formation"]
+                for card_id in catalog.heroes[hero_id]["starter_deck"]
+                for tag in catalog.cards[card_id]["tags"]
+            }
+            roles = {catalog.heroes[hero_id]["combat_role"] for hero_id in squad["formation"]}
+            self.assertLessEqual(set(doctrine["requires_tags"]), tags)
+            self.assertLessEqual(set(doctrine["requires_roles"]), roles)
+
+        schema_25 = json.loads(json.dumps(catalog.rules))
+        del schema_25["loadouts"]
+        del schema_25["doctrines"]
+        schema_25["content_schema"] = 25
+        for squad in schema_25["squads"].values():
+            squad.pop("doctrine")
+        restored = load_rules(schema_25)
+        self.assertEqual({}, restored.loadouts)
+        self.assertEqual({}, restored.doctrines)
 
     def test_invalid_mutation_effect_and_reference_are_rejected(self) -> None:
         raw = json.loads(json.dumps(load_catalog().raw))
@@ -295,6 +338,11 @@ class ContentTests(unittest.TestCase):
     def test_archetype_without_draft_support_is_rejected(self) -> None:
         catalog = load_catalog()
         raw = json.loads(json.dumps(catalog.raw))
+        raw["schema_version"] = 25
+        raw.pop("loadouts")
+        raw.pop("doctrines")
+        for squad in raw["squads"]:
+            squad.pop("doctrine")
         hero = next(hero for hero in raw["heroes"] if hero["id"] == "breacher")
         nonstarters = [card for card in raw["cards"]
                        if card["hero"] == "breacher" and card["id"] not in hero["starter_deck"]]
