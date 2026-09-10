@@ -151,7 +151,13 @@
     "base:errata_clerk": [" [e] ", "|o o|", "|---|", " /|\\ ", " / \\ "],
     "base:index_bailiff": [" [I] ", "|O O|", "|###|", " /|\\ ", "_| |_"],
     "base:revision_specter": [" .?. ", "|o o|", "|///|", "  /| ", " ' ' "],
-    "base:final_librarian": ["[===]", "|O O|", "|###|", "|III|", "_/ \\_"]
+    "base:final_librarian": ["[===]", "|O O|", "|###|", "|III|", "_/ \\_"],
+    "base:echo_moth": [" .'. ", "<o o>", "--|--", "  |  ", " ' ' "],
+    "base:event_leech": [" ~o~ ", "/...\\", "<o o>", "  || ", " _/\\_"],
+    "base:parallax_waif": [" . . ", "|o o|", " /#/ ", "  /| ", " ' ' "],
+    "base:null_bailiff": [" [_] ", "|O O|", "|###|", " /|\\ ", "_| |_"],
+    "base:horizon_judge": [" /-\\ ", "|O O|", "|===|", " /|\\ ", "_/ \\_"],
+    "base:absent_monarch": ["'   '", "|O O|", "|   |", "|###|", "_/ \\_"]
   },
   "card_glyphs": {
     "warden": ["  /\\  ", " /##\\ ", " |==| "],

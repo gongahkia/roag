@@ -667,3 +667,7 @@ Content schema 40 expands Sealed Archive with three light normal roles, two
 elite-only index/revision roles and the Final Librarian guardian. Their grammar
 uses shared mark, movement, guard, dodge and riposte mechanics; every Archive
 native now has three actions. Census: 114 enemies and 153 encounters.
+
+Content schema 41 adds Void Galleries mark/cash, rank-tilt and protection
+formations plus the Absent Monarch guardian. Every Void native now has three
+actions. Census: 120 enemies and 159 encounters.
