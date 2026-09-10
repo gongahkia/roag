@@ -24,7 +24,7 @@ python3 -m dumbest_dungeon --telemetry
 
 A generated seed appears in the map HUD and ending screen. Supplying `--seed` makes new expeditions in that process reproducible. The default save is `$XDG_STATE_HOME/dullest-dungeon/run.save.json`, or `~/.local/state/dullest-dungeon/run.save.json` when `XDG_STATE_HOME` is unset. The existing `dumbest_dungeon` Python package name remains the launch path; it is an internal compatibility detail, not the public title.
 
-Biome worlds use content schema 22 and save version 36. The explicit migration chain supports the recorded version-26/content-20 baseline and versions 27–35; embedded schema-21 rules and the archived content-20 rules remain loadable when their fingerprints match; unavailable rules and unsupported versions are rejected. See the [persistence reference](docs/PERSISTENCE.md).
+Biome worlds use content schema 23 and save version 37. The explicit migration chain supports the recorded version-26/content-20 baseline and versions 27–36; embedded schema-21 and schema-22 rules and the archived content-20 rules remain loadable when their fingerprints match; unavailable rules and unsupported versions are rejected. See the [persistence reference](docs/PERSISTENCE.md).
 
 Completed and abandoned expeditions are recorded locally under `history/` beside
 the save file. **Run history** on the title screen supports text filtering and
@@ -66,7 +66,7 @@ Keyboard control covers every required flow. Mouse input is deliberately limited
 
 Gameplay definitions live in `dumbest_dungeon/data/game.json`, authored card build tags and upgrade explanations live in `dumbest_dungeon/data/card_metadata.json`, and `dumbest_dungeon/data/art.json` contains the title, crew and enemy sprites, and class card glyphs. All catalogs are versioned and validated. Run the validator after editing any of them:
 
-The validator currently reports 25 crew archetypes, 190 technique cards, 6 curse cards, 70 enemy types, 109 encounter formations, 11 biomes, 6 world types, and 18 definitions each for boons, curses, and stackable items. These totals are diagnostics, not validity requirements. Rewards are filtered to living classes currently in the expedition.
+The validator currently reports 25 crew archetypes, 290 technique cards, 6 curse cards, 70 enemy types, 109 encounter formations, 11 biomes, 6 world types, and 18 definitions each for boons, curses, and stackable items. Each crew member has exactly four schema-23 expansion techniques: two branch deepeners, one broad cross-owner bridge, and one rare conditional rule breaker. These totals are diagnostics, not validity requirements. Rewards are filtered to living classes currently in the expedition.
 
 `--audit-expeditions` is a bounded structural check for 1--500 fresh seeds. It
 enumerates two-objective approach corridors and optional facility detours, then

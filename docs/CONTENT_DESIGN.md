@@ -43,15 +43,18 @@ partial stun resistance and one disclosed reinforcement. Arbitrary callbacks
 and stat-only affixes are not mutation effects. Embedded schema-21 rules load an
 empty mutation set rather than borrowing definitions from the installed game.
 
-Seven opening modules are live: front block, rear guard, weakest-crew mark,
-rear dodge, front riposte, striker focus and an opening crew-rank shove. The
+Seven opening modules apply at encounter entry: front block, rear guard,
+weakest-crew mark, rear dodge, front riposte, striker focus and an opening
+crew-rank shove. The
 selector enumerates compatible definitions in priority/ID order, applies
 biome/kind/band and formation-size constraints, excludes incompatible pairs,
 penalizes modules already seen in the run, and makes one weighted choice per
 available slot. A named SHA-256-derived stream isolates those choices from the
 serialized combat RNG. Chosen IDs and their markers are frozen and visible
-before the first intent. The other nine contracts remain unavailable to the
-selector until their finite handlers land.
+before the first intent. The other nine modules resolve through finite typed
+reactions, stable enemy-phase hooks, partial status resistance or a frozen
+reinforcement reserve; all 16 definitions are selectable only where their live
+handler and compatibility constraints apply.
 
 ## Inert content input
 

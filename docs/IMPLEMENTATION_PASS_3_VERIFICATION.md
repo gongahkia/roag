@@ -586,3 +586,30 @@ chain through save 37, mutation selection and every effect family, resolution
 checkpointing, deterministic policy transcripts, state-neutral terminal
 inspection and both fake-screen and real curses coverage. The suite emitted no
 warnings or skipped failures.
+
+## Milestone 5 technique expansion
+
+Content schema 23 adds an optional closed `design_role` field and requires any
+owner using it to provide exactly one `deepener_a`, `deepener_b`, `bridge` and
+`rule_breaker`. Twenty-five owner-sized commits add exactly 100 techniques,
+raising the live catalog from 190 to 290 without adding a twenty-sixth crew
+archetype. Rule breakers are excluded from ordinary combat rewards; the other
+roles retain scoped acquisition lanes. Every new description fits the existing
+90-character card-text bound.
+
+Each owner batch passed content, synergy and acquisition checks plus the
+canonical content audit before commit. Structural comparison found no
+normalized duplicate involving an expansion technique. The audit did catch and
+reject three draft duplicates—Flechette Storm, Thorn Crown and Citation Chain—
+which were redesigned before their owner commits. Mycologist's wound bridge
+also removed the old full-catalog single-owner Wound Ward dependency while the
+thin-pool diagnostic remains covered by an explicit fixture.
+
+At `eb8169c48b98290186ce7465b452614e88c18631`, a runtime matrix constructs
+every owner in a legal formation, establishes each advertised condition and
+plays all 100 additions through the deterministic event queue. The first matrix
+run reported nine fixture errors because biome combat setup legitimately moved
+crew after the test selected formation; restoring the intended formation after
+setup corrected the harness. The final expansion/content group passed **29
+tests in 71.942s**. Masteries, infusions, doctrines, loadouts and the Milestone
+5 full-suite gate remain pending and are not claimed by this evidence.
