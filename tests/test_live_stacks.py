@@ -1,10 +1,29 @@
 import unittest
+from fractions import Fraction
 
 from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.engine import CardInstance, GameEngine
 
 
 class LiveStackTests(unittest.TestCase):
+    def test_diminishing_item_family_uses_exact_monotonic_basis_points(self):
+        expected = {
+            "trauma_mesh": (200, 2000),
+            "nerve_dampener": (300, 3000),
+            "targeting_prism": (400, 3500),
+        }
+        catalog = load_catalog()
+        for identity, (first, soft_cap) in expected.items():
+            effect = catalog.items[identity]["effects"][0]
+            contract = effect.contract
+            values = [contract.value(count) for count in range(65)]
+            self.assertEqual(Fraction(first, 10000), values[1])
+            self.assertTrue(all(before <= after for before, after in zip(values, values[1:])))
+            self.assertTrue(all(value < Fraction(soft_cap, 10000) for value in values[1:]))
+            detail = GameEngine.new(catalog, 42).effect_description("item", identity, 1)
+            self.assertIn("next:", detail)
+            self.assertIn("Soft cap:", detail)
+
     def test_capacitor_changes_function_at_three_copies(self):
         for count, energy in ((1, 3), (2, 3), (3, 4), (6, 5), (100, 5)):
             engine = GameEngine.new(load_catalog(), 42)

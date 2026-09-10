@@ -178,9 +178,12 @@ size from growing with unbounded loop depth. This is an authored per-rule limit,
 not a global damage cap. A zero count means the rule is absent and returns zero;
 present multiplicative rules return their full multiplier in basis points.
 
-These policies are not yet substituted for legacy item formulas. Their content
-assignment, exact reward/inspection wording and trigger limits belong to the
-stack/reward milestone, with calibration when existing behavior changes.
+All eighteen live items now use typed integer policies. Trauma Mesh, Nerve
+Dampener and Targeting Prism use exact hyperbolic basis-point curves: their first
+copy supplies the authored 2%, 3% and 4%, while later copies approach disclosed
+20%, 30% and 35% soft caps without reaching them. Historical saves continue to
+use their embedded or archived rules. Boon and curse conversion, reward-lane
+integration and conversion/corruption rewards remain separate boundaries.
 
 ## Queued resolution component
 

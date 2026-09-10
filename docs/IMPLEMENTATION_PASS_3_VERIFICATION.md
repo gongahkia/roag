@@ -377,3 +377,11 @@ wound and patrol effects are nonzero. Constructed Salvage Magnet acquisitions
 verify that the bonus uses the pre-pickup count and does not recursively multiply
 its own award. Warning-enabled compilation, content validation and diff checks
 passed. Patrol range retains its disclosed four-tile minimum.
+
+The final three legacy item curves now use exact hyperbolic basis-point policies.
+Trauma Mesh, Nerve Dampener and Targeting Prism retain their 2%, 3% and 4%
+first-copy effects and disclose 20%, 30% and 35% soft caps. The focused live-stack,
+contract, saved-rule and archive group passed **18 tests in 7.051s**;
+warning-enabled compilation, content validation and scoped diff checks passed.
+The changed later-stack curves require a fresh natural-policy comparison at the
+Milestone 3 gate; historical saves retain their recorded rules.
