@@ -211,6 +211,58 @@ class BiomeExpansionTests(unittest.TestCase):
         self.assertGreaterEqual(len(art), 5)
         self.assertTrue(all(line.isascii() and len(line) <= 7 for line in art))
 
+    def test_first_completed_objective_culminates_in_one_guardian(self) -> None:
+        engine = GameEngine.new(self.catalog, 4317)
+        objective = engine.state.objectives[0]
+        mission = engine.mission_definition(objective.biome_id)
+        approach = mission["approaches"][0]
+        objective.approach = approach["id"]
+        objective.stage = len(approach["stages"]) - 1
+        objective.facts = {"approach": approach["id"]}
+        engine.state.phase = "objective"
+        engine.state.current_objective_id = objective.id
+        engine.state.required_objectives = 1
+
+        message = engine.advance_objective()
+
+        self.assertIn("bars the exit", message)
+        self.assertEqual("guardian", engine.state.combat_kind)
+        self.assertEqual("pending", objective.facts["guardian"])
+        self.assertFalse(engine.boss_unlocked())
+        self.assertEqual(
+            self.catalog.encounters[f"base:guardian_{objective.biome_id}"]["enemies"],
+            [enemy.definition_id for enemy in engine.state.enemies],
+        )
+        loaded = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+        loaded_objective = next(item for item in loaded.state.objectives if item.id == objective.id)
+        self.assertEqual("pending", loaded_objective.facts["guardian"])
+        self.assertEqual(engine.snapshot(), loaded.snapshot())
+
+        for enemy in engine.state.enemies:
+            enemy.hp = 0
+        engine._combat_victory()
+        self.assertEqual("defeated", objective.facts["guardian"])
+        self.assertTrue(engine.boss_unlocked())
+        self.assertEqual("reward", engine.state.phase)
+        self.assertTrue(engine.core_patrol().active)
+
+    def test_later_objective_does_not_add_a_second_guardian(self) -> None:
+        engine = GameEngine.new(self.catalog, 4318)
+        engine.state.objectives[0].facts["guardian"] = "defeated"
+        objective = engine.state.objectives[1]
+        mission = engine.mission_definition(objective.biome_id)
+        approach = mission["approaches"][0]
+        objective.approach = approach["id"]
+        objective.stage = len(approach["stages"]) - 1
+        objective.facts = {"approach": approach["id"]}
+        engine.state.phase = "objective"
+        engine.state.current_objective_id = objective.id
+
+        engine.advance_objective()
+
+        self.assertEqual("exploration", engine.state.phase)
+        self.assertNotIn("guardian", objective.facts)
+
 
 if __name__ == "__main__":
     unittest.main()

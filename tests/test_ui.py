@@ -102,6 +102,7 @@ class AsciiUiTests(unittest.TestCase):
         for objective in self.engine.state.objectives[: self.engine.state.required_objectives]:
             objective.completed = True
             objective.outcome = "test_route"
+        self.engine.state.objectives[0].facts["guardian"] = "defeated"
         self.engine.core_patrol().active = True
 
     def test_card_preview_is_portrait_playing_card_ascii(self) -> None:
@@ -636,6 +637,7 @@ class AsciiUiTests(unittest.TestCase):
         first, objective = self.engine.state.objectives[:2]
         first.completed = True
         first.outcome = "test_route"
+        first.facts["guardian"] = "defeated"
         approach = self.engine.mission_definition(objective.biome_id)["approaches"][0]
         objective.approach = approach["id"]
         objective.stage = len(approach["stages"]) - 1

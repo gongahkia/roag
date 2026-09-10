@@ -3056,7 +3056,32 @@ class GameEngine:
         return sum(objective.completed for objective in self.state.objectives)
 
     def boss_unlocked(self) -> bool:
-        return self.completed_objectives() >= self.state.required_objectives
+        guardian = next(
+            (objective for objective in self.state.objectives if objective.facts.get("guardian")),
+            None,
+        )
+        guardian_clear = guardian is None or guardian.facts.get("guardian") == "defeated"
+        return self.completed_objectives() >= self.state.required_objectives and guardian_clear
+
+    def _start_guardian_combat(self, objective: AccessObjective) -> None:
+        encounter_id = f"base:guardian_{objective.biome_id}"
+        encounter = self.catalog.encounters.get(encounter_id)
+        if encounter is None or encounter["kind"] != "boss":
+            raise RuleError(f"{objective.biome_id} has no native guardian")
+        objective.facts["guardian"] = "pending"
+        objective.facts["guardian_id"] = encounter["enemies"][0]
+        self.record(
+            "guardian_revealed",
+            encounter_id,
+            biome=objective.biome_id,
+            enemy=encounter["enemies"][0],
+        )
+        self.start_combat(
+            encounter_id,
+            "guardian",
+            enemy_ids=list(encounter["enemies"]),
+        )
+        self.add_log("The secured objective wakes its regional guardian.")
 
     def core_patrol(self) -> Patrol:
         return next(
@@ -3283,6 +3308,18 @@ class GameEngine:
                 "optional": was_unlocked,
             }
         )
+        first_guardian = not any(
+            item.facts.get("guardian") for item in self.state.objectives if item is not objective
+        )
+        if first_guardian and self.state.phase != "defeat":
+            self._start_guardian_combat(objective)
+            guardian_name = self.catalog.enemies[objective.facts["guardian_id"]]["name"]
+            message = (
+                f"{self.mission_definition(objective.biome_id)['name']} secured, but "
+                f"{guardian_name} bars the exit."
+            )
+            self.add_log(message)
+            return message
         if self.state.phase != "defeat":
             self.state.phase = "exploration"
         progress = self.completed_objectives()
@@ -5938,7 +5975,28 @@ class GameEngine:
             self.state.phase = "victory"
             self.add_log("The Overseer falls silent. Evacuation is possible.")
             return
-        if kind not in {"ambush", "objective"}:
+        if kind == "guardian":
+            objective = next(
+                (
+                    item for item in self.state.objectives
+                    if item.facts.get("guardian") == "pending"
+                ),
+                None,
+            )
+            if objective is None:
+                raise RuleError("guardian victory has no pending objective")
+            objective.facts["guardian"] = "defeated"
+            objective.facts["guardian_defeated_at_tick"] = self.state.travel_ticks
+            self.record(
+                "guardian_defeated",
+                objective.facts["guardian_id"],
+                biome=objective.biome_id,
+                rounds=self.state.round,
+            )
+            if self.boss_unlocked():
+                self.core_patrol().active = True
+            self.add_log("The regional guardian falls. Its signature salvage remains.")
+        if kind not in {"ambush", "objective", "guardian"}:
             self.room().resolved = True
         count = 4 if self.state.light < self.catalog.balance["low_light_threshold"] else 3
         count += round(self._item_effect_value("reward_choices"))
@@ -5946,6 +6004,7 @@ class GameEngine:
         lane = {
             "elite": Lane.ELITE,
             "objective": Lane.OBJECTIVE,
+            "guardian": Lane.ELITE,
         }.get(kind, Lane.NORMAL)
         self.state.rewards = self._generate_card_rewards(count, lane)
         self.state.phase = "reward"

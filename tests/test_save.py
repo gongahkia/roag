@@ -78,6 +78,11 @@ class SaveTests(unittest.TestCase):
             engine.state.party_x, engine.state.party_y = engine.objective_position(objective)
             engine._resolve_exploration_tile()
             engine.advance_objective()
+        if engine.state.phase == "combat" and engine.state.combat_kind == "guardian":
+            for enemy in engine.state.enemies:
+                enemy.hp = 0
+            engine._combat_victory()
+            engine.choose_reward(None)
 
     def test_default_save_path_uses_public_title_slug(self) -> None:
         with patch.dict("os.environ", {"XDG_STATE_HOME": "/tmp/dullest-state"}):

@@ -44,6 +44,11 @@ class EngineTests(unittest.TestCase):
             engine.state.party_x, engine.state.party_y = engine.objective_position(objective)
             engine._resolve_exploration_tile()
             engine.advance_objective()
+        if engine.state.phase == "combat" and engine.state.combat_kind == "guardian":
+            for enemy in engine.state.enemies:
+                enemy.hp = 0
+            engine._combat_victory()
+            engine.choose_reward(None)
 
     def test_seed_reproduces_map_and_run_state(self) -> None:
         other = GameEngine.new(self.catalog, 4242)

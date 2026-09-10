@@ -682,3 +682,11 @@ starting region already has well over six generic normal participants and two
 elite-only participants, so adding more low-level bodies would dilute its
 existing catalog. Final Milestone 7 census: 126 enemies and 165 encounters,
 including eleven distinct biome guardians.
+
+The first completed objective now culminates in exactly its own biome guardian;
+later objectives do not add extra guardian fights. The objective’s typed facts
+freeze the guardian identity and pending/defeated state in ordinary snapshots.
+Core access additionally requires that guardian clear, guardian victory uses an
+elite signature reward lane, and it does not resolve an unrelated map room.
+Focused biome, objective, save and UI checks passed 18 tests in 2.696s before a
+pending-guardian snapshot equality assertion was added.
