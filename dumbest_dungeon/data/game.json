@@ -1,5 +1,5 @@
 {
-  "schema_version": 24,
+  "schema_version": 25,
   "balance": {
     "hand_size": 5,
     "energy": 3,
@@ -97,6 +97,24 @@
     {"id":"base:event_collapse","card_id":"event_collapse","branches":[{"id":"engine","name":"Deep Collapse","description":"The Death's Door collapse deals 4 more damage.","mode":"effect_bonus","effect_index":0,"amount":4},{"id":"coverage","name":"Local Collapse","description":"May be played from one adjacent rank beyond its printed access.","mode":"rank_access"}]},
     {"id":"base:splinter_volley","card_id":"splinter_volley","branches":[{"id":"engine","name":"Dense Lattice","description":"Existing wounds grant 4 more block.","mode":"effect_bonus","effect_index":0,"amount":4},{"id":"coverage","name":"Long Splint","description":"May be played from one adjacent rank beyond its printed access.","mode":"rank_access"}]},
     {"id":"base:walking_ossuary","card_id":"walking_ossuary","branches":[{"id":"engine","name":"Heavy Ossuary","description":"Walking Ossuary grants 3 more block to all crew.","mode":"effect_bonus","effect_index":0,"amount":3},{"id":"coverage","name":"Jointed Ossuary","description":"May be played from one adjacent rank beyond its printed access.","mode":"rank_access"}]}
+  ],
+  "infusions": [
+    {"id":"base:memory_lacquer","name":"Memory Lacquer","marker":"RETAIN","description":"If unplayed, keep this copy in hand at turn end.","mode":"retain","amount":0,"limit":"none","compatible_targets":[],"requires_any_tags":[]},
+    {"id":"base:flash_paper","name":"Flash Paper","marker":"EXHAUST","description":"After play, this copy cannot be drawn again this combat.","mode":"exhaust","amount":0,"limit":"none","compatible_targets":[],"requires_any_tags":[]},
+    {"id":"base:hinged_grip","name":"Hinged Grip","marker":"RANKS","description":"This copy may be played from any living crew rank.","mode":"rank_access","amount":0,"limit":"none","compatible_targets":[],"requires_any_tags":[]},
+    {"id":"base:breach_contact","name":"Breach Contact","marker":"FRONT-1","description":"Costs 1 less while its owner occupies rank 1.","mode":"front_discount","amount":1,"limit":"none","compatible_targets":[],"requires_any_tags":[]},
+    {"id":"base:rear_bus","name":"Rear Bus","marker":"REAR-1","description":"Costs 1 less while its owner occupies rank 4.","mode":"rear_discount","amount":1,"limit":"none","compatible_targets":[],"requires_any_tags":[]},
+    {"id":"base:suture_wire","name":"Suture Wire","marker":"HURT-1","description":"Costs 1 less while its owner is wounded.","mode":"wounded_discount","amount":1,"limit":"none","compatible_targets":[],"requires_any_tags":[]},
+    {"id":"base:empty_chair","name":"Empty Chair","marker":"LOSS-1","description":"Costs 1 less after any crew member has died.","mode":"casualty_discount","amount":1,"limit":"none","compatible_targets":[],"requires_any_tags":[]},
+    {"id":"base:first_index","name":"First Index","marker":"OPEN","description":"Move this copy to the top of the opening draw after shuffle.","mode":"opening_priority","amount":1,"limit":"none","compatible_targets":[],"requires_any_tags":[]},
+    {"id":"base:carbon_copy","name":"Carbon Copy","marker":"ECHO:1","description":"Once per combat, repeat this card's first resolved effect.","mode":"echo_first","amount":1,"limit":"combat","compatible_targets":[],"requires_any_tags":[]},
+    {"id":"base:followthrough_ink","name":"Followthrough Ink","marker":"DRAW:1","description":"Once per combat after play, draw 1 card.","mode":"follow_draw","amount":1,"limit":"combat","compatible_targets":[],"requires_any_tags":[]},
+    {"id":"base:kinetic_return","name":"Kinetic Return","marker":"MOVE>E","description":"Once per turn, a movement card refunds 1 energy after play.","mode":"movement_refund","amount":1,"limit":"turn","compatible_targets":[],"requires_any_tags":["mobility","displacement"]},
+    {"id":"base:sterile_edge","name":"Sterile Edge","marker":"CLEAN:1","description":"Once per combat after play, cleanse its owner.","mode":"self_cleanse","amount":1,"limit":"combat","compatible_targets":[],"requires_any_tags":[]},
+    {"id":"base:point_lead","name":"Point Lead","marker":"R1>FOCUS","description":"Once per turn after play from rank 1, gain 1 focus.","mode":"front_focus","amount":1,"limit":"turn","compatible_targets":[],"requires_any_tags":[]},
+    {"id":"base:tracer_salt","name":"Tracer Salt","marker":"HIT>MARK","description":"Once per turn, a damaging card marks its surviving target.","mode":"mark_after_damage","amount":2,"limit":"turn","compatible_targets":["enemy"],"requires_any_tags":["damage"]},
+    {"id":"base:burden_thread","name":"Burden Thread","marker":"TAKE:W","description":"Once per combat after aiding an ally, take 1 of their wounds.","mode":"wound_transfer","amount":1,"limit":"combat","compatible_targets":["ally"],"requires_any_tags":["block","recovery","cleanse","guard"]},
+    {"id":"base:hunted_alloy","name":"Hunted Alloy","marker":"HUNT:+3","description":"At HUNTED Pressure or above, the first damage, block, or heal gains 3.","mode":"pressure_bonus","amount":3,"limit":"none","compatible_targets":[],"requires_any_tags":["damage","block","recovery"]}
   ],
   "cards": [
     {"id":"baton_strike","name":"Baton Strike","hero":"warden","cost":1,"from_ranks":[1,2,3,4],"target":"enemy","target_ranks":[1,2],"description":"Deal 7 damage.","effects":[{"op":"damage","amount":7}],"upgrade_effects":[{"op":"damage","amount":10}]},

@@ -29,6 +29,7 @@ class Catalog:
     squads: dict[str, dict[str, Any]]
     cards: dict[str, Technique]
     masteries: dict[str, dict[str, Any]]
+    infusions: dict[str, dict[str, Any]]
     enemies: dict[str, Enemy]
     encounters: dict[str, dict[str, Any]]
     events: dict[str, dict[str, Any]]
@@ -183,6 +184,7 @@ CONTENT_FIELDS = {
     "squads": "id name playstyle complexity formation strength weakness signature",
     "cards": "id name hero cost from_ranks target target_ranks description effects upgrade_effects tags upgrade_description biome biome_bonus lanes design_role",
     "masteries": "id card_id branches",
+    "infusions": "id name marker description mode amount limit compatible_targets requires_any_tags",
     "enemies": "id name max_hp actions biomes",
     "encounters": "id kind enemies biomes",
     "events": "id name text choices biomes",
@@ -221,6 +223,13 @@ MUTATION_EFFECTS = {
 MUTATION_BANDS = {"hunted", "lockdown", "overrun"}
 EXPANSION_CARD_ROLES = {"deepener_a", "deepener_b", "bridge", "rule_breaker"}
 MASTERY_MODES = {"effect_bonus", "rank_access"}
+INFUSION_MODES = {
+    "retain", "exhaust", "rank_access", "front_discount", "rear_discount",
+    "wounded_discount", "casualty_discount", "opening_priority", "echo_first",
+    "follow_draw", "movement_refund", "self_cleanse", "front_focus",
+    "mark_after_damage", "wound_transfer", "pressure_bonus",
+}
+INFUSION_LIMITS = {"none", "turn", "combat"}
 
 
 def _fields(value: Any, allowed: str, context: str) -> None:
@@ -498,6 +507,8 @@ def _compiled_rules(encoded: bytes) -> Catalog:
         sections.remove("mutations")
     if rules["content_schema"] < 24:
         sections.remove("masteries")
+    if rules["content_schema"] < 25:
+        sections.remove("infusions")
     if set(rules) != sections | {"balance", "art", "content_schema"}:
         raise ContentError("saved rules require exactly the registered content sections")
     raw = {"schema_version": rules["content_schema"], "balance": rules["balance"]}
@@ -517,14 +528,15 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
     _fields(raw, "schema_version balance " + " ".join(CONTENT_FIELDS), "content root")
     _fields(art, "schema_version title heroes enemies card_glyphs card_marks curse_card_glyph curse_card_mark", "art root")
     _fields(card_metadata, "schema_version cards", "card metadata root")
-    if type(raw.get("schema_version")) is not int or raw["schema_version"] not in {20, 21, 22, 23, CONTENT_SCHEMA}:
-        raise ContentError(f"content schema_version must be historical 20/21/22/23 or current {CONTENT_SCHEMA}")
+    if type(raw.get("schema_version")) is not int or raw["schema_version"] not in {20, 21, 22, 23, 24, CONTENT_SCHEMA}:
+        raise ContentError(f"content schema_version must be historical 20/21/22/23/24 or current {CONTENT_SCHEMA}")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
     squads = _indexed(raw.get("squads"), "squads")
     cards = _indexed(raw.get("cards"), "cards")
     masteries = _indexed(raw.get("masteries", []), "masteries")
+    infusions = _indexed(raw.get("infusions", []), "infusions")
     enemies = _indexed(raw.get("enemies"), "enemies")
     encounters = _indexed(raw.get("encounters"), "encounters")
     events = _indexed(raw.get("events"), "events")
@@ -632,6 +644,44 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
         or any(count != 2 for count in mastery_owner_counts.values())
     ):
         raise ContentError("content schema 24 needs exactly two masteries per crew owner")
+
+    infusion_modes: set[str] = set()
+    for infusion in infusions.values():
+        context = f"infusion {infusion['id']}"
+        if (
+            not isinstance(infusion.get("name"), str)
+            or not infusion["name"]
+            or not isinstance(infusion.get("marker"), str)
+            or re.fullmatch(r"[A-Z0-9:+/>_-]{2,10}", infusion["marker"]) is None
+            or not isinstance(infusion.get("description"), str)
+            or not 1 <= len(infusion["description"]) <= 90
+            or infusion.get("mode") not in INFUSION_MODES
+            or infusion["mode"] in infusion_modes
+            or infusion.get("limit") not in INFUSION_LIMITS
+            or type(infusion.get("amount")) is not int
+            or not 0 <= infusion["amount"] <= 99
+        ):
+            raise ContentError(f"{context} has an invalid bounded rule")
+        infusion_modes.add(infusion["mode"])
+        targets = infusion.get("compatible_targets")
+        tags = infusion.get("requires_any_tags")
+        if (
+            not isinstance(targets, list)
+            or any(target not in TARGETS for target in targets)
+            or len(targets) != len(set(targets))
+            or not isinstance(tags, list)
+            or any(tag not in CARD_TAGS and not tag.startswith(("setup:", "payoff:", "status:")) for tag in tags)
+            or len(tags) != len(set(tags))
+        ):
+            raise ContentError(f"{context} has invalid broad compatibility")
+        automatic = infusion["mode"] in {
+            "echo_first", "follow_draw", "movement_refund", "self_cleanse",
+            "front_focus", "mark_after_damage", "wound_transfer",
+        }
+        if automatic != (infusion["limit"] in {"turn", "combat"}):
+            raise ContentError(f"{context} must disclose a limiter exactly when it auto-triggers")
+    if raw["schema_version"] >= 25 and infusion_modes != INFUSION_MODES:
+        raise ContentError("content schema 25 needs exactly one definition for every infusion mode")
 
     mutation_effects: set[str] = set()
     for mutation in mutations.values():
@@ -1182,6 +1232,7 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
         squads,
         cards,
         masteries,
+        infusions,
         enemies,
         encounters,
         events,

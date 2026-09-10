@@ -8,6 +8,7 @@ from pathlib import Path
 
 from dumbest_dungeon.content import (
     EXPANSION_CARD_ROLES,
+    INFUSION_MODES,
     ContentError,
     MUTATION_EFFECTS,
     load_catalog,
@@ -37,6 +38,7 @@ class ContentTests(unittest.TestCase):
         self.assertTrue(all((catalog.boons, catalog.curses, catalog.items, catalog.afflictions)))
         self.assertGreaterEqual(len(catalog.mutations), 16)
         self.assertEqual(50, len(catalog.masteries))
+        self.assertEqual(16, len(catalog.infusions))
         self.assertEqual(MUTATION_EFFECTS, {mutation["effect"] for mutation in catalog.mutations.values()})
         self.assertGreaterEqual(len(catalog.squads), 4)
         self.assertEqual(set(catalog.heroes), set(catalog.art["heroes"]))
@@ -154,6 +156,7 @@ class ContentTests(unittest.TestCase):
         schema_21 = json.loads(json.dumps(catalog.rules))
         del schema_21["mutations"]
         del schema_21["masteries"]
+        del schema_21["infusions"]
         schema_21["content_schema"] = 21
         restored = load_rules(schema_21)
         self.assertEqual(21, restored.raw["schema_version"])
@@ -179,6 +182,7 @@ class ContentTests(unittest.TestCase):
 
         schema_22 = json.loads(json.dumps(catalog.rules))
         del schema_22["masteries"]
+        del schema_22["infusions"]
         schema_22["content_schema"] = 22
         for card in schema_22["cards"].values():
             card.pop("design_role", None)
@@ -225,6 +229,40 @@ class ContentTests(unittest.TestCase):
             for change, error in changes:
                 candidate = json.loads(json.dumps(raw))
                 change(candidate["masteries"][0])
+                path.write_text(json.dumps(candidate), encoding="utf-8")
+                with self.subTest(error=error), self.assertRaisesRegex(ContentError, error):
+                    load_catalog(path)
+
+    def test_infusions_are_distinct_bounded_and_schema_24_stays_readable(self) -> None:
+        catalog = load_catalog()
+        self.assertEqual(INFUSION_MODES, {item["mode"] for item in catalog.infusions.values()})
+        self.assertEqual(len(catalog.infusions), len({item["marker"] for item in catalog.infusions.values()}))
+        self.assertTrue(all(len(item["description"]) <= 90 for item in catalog.infusions.values()))
+        for item in catalog.infusions.values():
+            automatic = item["mode"] in {
+                "echo_first", "follow_draw", "movement_refund", "self_cleanse",
+                "front_focus", "mark_after_damage", "wound_transfer",
+            }
+            self.assertEqual(automatic, item["limit"] in {"turn", "combat"})
+
+        schema_24 = json.loads(json.dumps(catalog.rules))
+        del schema_24["infusions"]
+        schema_24["content_schema"] = 24
+        restored = load_rules(schema_24)
+        self.assertEqual({}, restored.infusions)
+
+    def test_infusion_contract_rejects_duplicate_modes_and_unsafe_limits(self) -> None:
+        raw = json.loads(json.dumps(load_catalog().raw))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad-infusion.json"
+            changes = (
+                (lambda rows: rows[1].__setitem__("mode", rows[0]["mode"]), "bounded rule"),
+                (lambda rows: rows[8].__setitem__("limit", "none"), "limiter"),
+                (lambda rows: rows[0]["requires_any_tags"].append("named:card"), "compatibility"),
+            )
+            for change, error in changes:
+                candidate = json.loads(json.dumps(raw))
+                change(candidate["infusions"])
                 path.write_text(json.dumps(candidate), encoding="utf-8")
                 with self.subTest(error=error), self.assertRaisesRegex(ContentError, error):
                     load_catalog(path)

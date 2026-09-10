@@ -71,6 +71,17 @@ card continuation, recorded with copy identity in run history, and shown on card
 labels, full inspection and the choice preview. Transformation preserves the
 copy ID but explicitly clears upgrade and mastery.
 
+### Card infusion definitions
+
+Content schema 25 defines 16 single-copy modifiers. Their closed modes cover
+retain, exhaust, origin-rank access, four conditional costs, opening priority,
+one bounded echo, follow-through draw, movement-to-energy conversion, cleanse,
+front-rank focus, mark application, wound transfer and a visible HUNTED-band
+bonus. Compatibility is expressed only through broad card target and mechanical
+tags. Every automatic mode declares a turn or combat limit; definitions cannot
+introduce callbacks or named-card dependencies. Runtime acquisition and effect
+handling land separately and are not claimed by this contract commit.
+
 Content is UTF-8 JSON, decoded through `json_data.loads`. Duplicate object keys,
 non-finite constants and overflowing float exponents are rejected before content
 validation. Code strings are never evaluated. Catalog, art and metadata roots

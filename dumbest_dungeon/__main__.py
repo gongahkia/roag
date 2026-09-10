@@ -42,6 +42,7 @@ def main(argv: list[str] | None = None) -> int:
             "Content valid: "
             f"{len(catalog.heroes)} heroes, {len(catalog.cards)} cards, "
             f"{len(catalog.masteries)} masteries, "
+            f"{len(catalog.infusions)} infusions, "
             f"{len(catalog.enemies)} enemies, {len(catalog.encounters)} encounters, "
             f"{len(catalog.events)} events, {len(catalog.boons)} boons, "
             f"{len(catalog.curses)} curses, {len(catalog.items)} items, "

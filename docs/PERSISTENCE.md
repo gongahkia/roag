@@ -1,8 +1,13 @@
 # Persistence contracts
 
-The run save currently uses schema 39, content schema 24, and the existing Python
+The run save currently uses schema 39, content schema 25, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry and manifests are implemented; the persistent profile is still pending.
+
+Content schema 25 adds 16 immutable infusion definitions with one unique mode
+each. Compatibility uses broad targets and mechanical tags; automatic modes must
+declare a per-turn or per-combat limiter. Embedded schema-24 rules load with no
+infusions and never borrow the installed set.
 
 Schema 39 records engine 0.8.0 and resolution-queue schema 4. Card continuation
 payloads carry the selected mastery branch, so checkpointing between effect
