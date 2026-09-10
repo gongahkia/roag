@@ -514,3 +514,15 @@ that did not exist in those schemas. Removing those fields from the synthetic
 inputs and expecting the disclosed Pressure history gap corrected the fixtures;
 the focused migration/save/queue/ordering group then passed **40 tests in
 14.177s**. Strict migration checks were retained.
+
+The first live director slice consumes the typed profile in four separate jobs:
+patrol cadence/aggression, biome-hazard reach, card-reward choice count, and
+frozen encounter coordination/HP/damage. The top envelopes remain +10% HP and
++5% damage; QUIET is byte-for-byte base arithmetic. The detail screen discloses
+every current value and explicitly distinguishes the active combat's frozen band.
+Archived content-schema-20 runs remain on QUIET semantics while still recording
+Pressure. A mistyped focused test name caused **1 discovery error**, and the
+first archived transcript then failed at a legal target before that legacy
+guard was added. The corrected director, hazard, patrol, intent, reward, save and
+ordering group passed **17 tests in 48.203s**. This slice does not yet claim the
+mutation, reinforcement, threat-vector, or repetition requirements.

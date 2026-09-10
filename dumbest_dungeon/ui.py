@@ -1212,12 +1212,24 @@ class TerminalUI:
         state = self.engine.state
         status = pressure_status(state.pressure)
         current = pressure_band(state.pressure)
+        director = self.engine.world_director()
         lines = [
             "Pressure is irreversible enemy awareness. It advances only when the world does; menus, reading, resize, animation and input delay cost nothing.",
             "",
             f"CURRENT {status['name']} — {state.pressure} pressure",
             f"BAND PROFILE — {current.forecast}",
+            f"DIRECTOR — coordination {director.coordination}; patrol aggression +{director.patrol_aggression}; "
+            f"patrol cadence -{director.patrol_cadence_reduction} actions; reward choices +{director.reward_choices}.",
+            f"ENCOUNTERS — max HP {(director.enemy_health_bp - 10_000) // 100:+d}%; damage "
+            f"{(director.enemy_damage_bp - 10_000) // 100:+d}%; mutation slots {director.mutation_slots}; "
+            f"reinforcements {director.reinforcement_tickets}; hazard reach +{director.hazard_reach}.",
         ]
+        if state.encounter_pressure is not None:
+            frozen = pressure_status(state.encounter_pressure)
+            lines.append(
+                f"THIS COMBAT — frozen at {frozen['name']} {state.encounter_pressure}; "
+                "Pressure gained now applies to later encounters."
+            )
         if status["next_threshold"] is None:
             lines.append("NEXT — no higher base-expedition band.")
         else:

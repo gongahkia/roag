@@ -28,6 +28,9 @@ Pressure selects this profile, never current HP, deck strength, or recent result
 Save schema 35 freezes encounter-entry Pressure before the opening intent is
 chosen. Pressure earned during that combat can only select a later encounter's
 profile. Migration preserves an already active pre-director combat at QUIET.
+Archived content-schema-20 rules remain on their recorded QUIET director so a
+new engine can continue those saves without changing combat, hazard, patrol or
+reward semantics; Pressure is still recorded and disclosed.
 
 ## Inert content input
 

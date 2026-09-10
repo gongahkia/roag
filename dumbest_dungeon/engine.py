@@ -13,6 +13,7 @@ from typing import Any, Callable
 
 from .content import CARD_STATUSES, Catalog, load_legacy_catalog, load_rules
 from .acquisition import Lane, eligible_techniques
+from .director import DirectorProfile, director_profile
 from .manifest import canonical_bytes
 from .migrations import MigrationError, migrate_run
 from .versions import RUN_SAVE_SCHEMA
@@ -2053,6 +2054,21 @@ class GameEngine:
     def biome_mechanics(self, biome_id: str | None = None) -> dict[str, Any]:
         return self.catalog.biomes[biome_id or self.current_biome()]["mechanics"]
 
+    def current_director(self) -> DirectorProfile:
+        if self.catalog.raw["schema_version"] < 21:
+            return director_profile(0)
+        pressure = (
+            self.state.encounter_pressure
+            if self.state.encounter_pressure is not None
+            else self.state.pressure
+        )
+        return director_profile(pressure)
+
+    def world_director(self) -> DirectorProfile:
+        if self.catalog.raw["schema_version"] < 21:
+            return director_profile(0)
+        return director_profile(self.state.pressure)
+
     def movement_cost(self, x: int, y: int) -> int:
         return int(self.terrain_at(x, y)["cost"])
 
@@ -2427,6 +2443,14 @@ class GameEngine:
         definition = self.biome_mechanics(hazard.biome_id)["hazard"]
         effect = definition["effect"]
         amount = int(definition["amount"])
+        reach = self.world_director().hazard_reach
+        if reach:
+            if effect in {"damage_all", "damage_weakest", "status_all", "status_random", "wound_injured"}:
+                amount += reach
+            elif effect in {"light", "supplies", "opening_hand"}:
+                amount -= reach
+            elif effect == "stress_highest":
+                amount += reach * 2
         heroes = self.living_heroes()
         if effect == "damage_all":
             for hero in list(heroes):
@@ -3207,7 +3231,13 @@ class GameEngine:
             occupied.discard(current)
             room = self.room(patrol.room_id)
             profile = self.biome_mechanics(room.biome_id)["patrol"]
-            cadence = max(1, int(profile["cadence"]) - (1 if patrol.alert else 0))
+            director = self.world_director()
+            cadence = max(
+                1,
+                int(profile["cadence"])
+                - (1 if patrol.alert else 0)
+                - director.patrol_cadence_reduction,
+            )
             if self.state.exploration_steps % cadence:
                 occupied.add(current)
                 patrol.alert = max(0, patrol.alert - 1)
@@ -3217,6 +3247,7 @@ class GameEngine:
                 int(profile["aggression"])
                 + (2 if room_kind in {"elite", "boss"} else 0)
                 + (3 if patrol.alert else 0)
+                + director.patrol_aggression
             )
             aggression = max(4, aggression - round(self._item_effect_value("patrol_aggression_reduction")))
             destination = current
@@ -3338,15 +3369,17 @@ class GameEngine:
         self.state.phase = "combat"
         self.resolution.state.combat_token += 1
         self.state.combat_kind = kind or encounter["kind"]
+        director = self.current_director()
         self.state.enemies = []
         for rank, enemy_id in enumerate(formation, 1):
             definition = self.catalog.enemies[enemy_id]
+            max_hp = max(1, (int(definition["max_hp"]) * director.enemy_health_bp + 5_000) // 10_000)
             self.state.enemies.append(
                 Actor(
                     f"{enemy_id}:{rank}",
                     definition["name"],
-                    definition["max_hp"],
-                    definition["max_hp"],
+                    max_hp,
+                    max_hp,
                     rank,
                     "enemy",
                     definition_id=enemy_id,
@@ -4094,10 +4127,14 @@ class GameEngine:
         if exploit_statuses:
             primed = exploit_statuses & (crew_statuses | planned_statuses)
             weight *= 2.5 if primed else 0.7
+            if primed:
+                weight *= 1 + self.current_director().coordination * 0.15
         if setup_statuses:
             missing = setup_statuses - (crew_statuses | planned_statuses)
             if setup_statuses & formation_exploits:
                 weight *= 1.8 if missing else 0.65
+                if missing:
+                    weight *= 1 + self.current_director().coordination * 0.1
             else:
                 weight *= 1.15 if missing else 0.75
 
@@ -4463,7 +4500,10 @@ class GameEngine:
                 )
                 multiplier *= 1 + self._item_effect_value("marked_damage_bonus")
         multiplier = max(0.5, min(2.0, multiplier))
-        return max(0, round(amount * multiplier))
+        result = max(0, round(amount * multiplier))
+        if actor.side == "enemy":
+            result = (result * self.current_director().enemy_damage_bp + 5_000) // 10_000
+        return result
 
     def _damage(self, target: Actor, amount: int, attacker: Actor | None = None) -> None:
         frame = self.resolution.state.active
@@ -4765,6 +4805,7 @@ class GameEngine:
             self.room().resolved = True
         count = 4 if self.state.light < self.catalog.balance["low_light_threshold"] else 3
         count += round(self._item_effect_value("reward_choices"))
+        count += self.world_director().reward_choices
         lane = {
             "elite": Lane.ELITE,
             "objective": Lane.OBJECTIVE,

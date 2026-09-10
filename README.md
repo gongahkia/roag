@@ -97,6 +97,13 @@ python3 -m dumbest_dungeon --validate-content
 
 Cards compose reusable operations such as `damage`, `block`, `heal`, `stress`, `move`, `guard`, `status`, `cleanse`, `draw`, `discard`, and `energy`. Events similarly compose resource and party-wide operations. Persistent effects declare an effect key plus a `linear`, `diminishing`, `threshold`, or `special` stack curve and cap. Adding records that use existing operations needs no Python change. A genuinely new mechanic requires an engine operation plus validation and tests.
 
+Expedition Pressure advances from weighted travel, committed enemy phases,
+objective stages, and facility procedures—not wall time or interface activity.
+`T` shows its exact band, threshold, route cost, recent causes, and bounded
+director profile. Encounters freeze that profile before their first intent;
+Pressure earned during combat affects later contacts. Light remains the separate
+depletable visibility, surprise, stress, and reward-opportunity resource.
+
 Cards have a stable `id`, acting `hero`, energy `cost`, valid `from_ranks`, target mode, optional `target_ranks`, normal `effects`, complete `upgrade_effects`, an authored upgrade explanation, and validated build tags. Affinity cards also declare a `biome` and bounded `biome_bonus`. Reward and transformation logic uses the authored tags to recognise setup/payoff and formation bridges across crew owners without exposing an opaque best-card score. Enemy encounter records provide one-to-four-member biome and tier templates. Run generation draws from those pools, scores complementary striker, controller, defender, and support roles, enforces 40–60 HP normal or 62–100 HP elite threat budgets, and serializes the resulting ordered formation and tactical plan into its room. Each biome definition owns validated hazard, traversal, patrol, visibility, combat, and objective sections. Startup and save validation reject duplicate IDs, bad references, incompatible biome members, out-of-budget formations, invalid ranks, unknown operations, incomplete biome rules, and malformed balance data with a focused error.
 
 Every hero and enemy ID must have a five-line, seven-column ASCII sprite. Every hero class also needs a three-line card glyph. Art is restricted to printable 7-bit ASCII so alignment remains stable across supported terminals. The combat screen displays the full opposing formations, and selected cards expand into bordered previews in combat, reward, deck, and facility screens.

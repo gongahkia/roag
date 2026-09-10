@@ -889,17 +889,30 @@ class AsciiUiTests(unittest.TestCase):
             self.engine._advance_pressure(PressureSource.ENEMY_ROUND, 1, f"combat round {index + 1}")
         self.engine.state.pressure_incomplete_before_tick = 0
         before = self.engine.snapshot()
+        body = self.ui._pressure_text()
+        self.assertIn("CURRENT QUIET", body)
+        self.assertIn("NEXT 240", body)
+        self.assertIn("DIRECTOR", body)
+        self.assertIn("reward choices", body)
+        self.assertIn("RECENT CAUSES", body)
+        self.assertIn("HISTORY GAP", body)
         screen = FakeScreen(rows=24, columns=80, keys=[curses.KEY_END, 27])
         self.ui.screen = screen
         self.ui._pressure_view()
         rendered = screen.text()
         self.assertIn("EXPEDITION PRESSURE", rendered)
-        self.assertIn("CURRENT QUIET", rendered)
-        self.assertIn("NEXT 240", rendered)
         self.assertIn("RECENT CAUSES", rendered)
         self.assertIn("ENEMY ROUND", rendered)
         self.assertIn("HISTORY GAP", rendered)
         self.assertEqual(before, self.engine.snapshot())
+
+        self.engine.start_combat("lost_shift")
+        screen = FakeScreen(rows=24, columns=80, keys=[curses.KEY_END, 27])
+        self.ui.screen = screen
+        body = self.ui._pressure_text()
+        self.ui._pressure_view()
+        self.assertIn("THIS COMBAT", body)
+        self.assertIn("applies to later encounters", body)
 
     def test_exploration_hud_and_route_show_exact_pressure(self) -> None:
         screen = FakeScreen(rows=24, columns=80)
