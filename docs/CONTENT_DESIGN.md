@@ -3,6 +3,23 @@
 This reference describes implemented contracts. Future expansion requirements
 remain in `IMPLEMENTATION_PASS_3.md` until their code and validation land.
 
+## Expedition Pressure contract
+
+Expedition Pressure is the irreversible global escalation axis; Light remains
+the depletable local visibility, ambush, stress and reward resource. The public
+bands are QUIET (0), WATCHFUL (240), HUNTED (480), LOCKDOWN (760) and OVERRUN
+(1100). A status preview returns the exact value, current floor, progress, next
+threshold, remaining amount and the next band's plain-language unlock forecast.
+
+The closed source vocabulary is weighted travel, completed enemy round,
+objective stage, facility action, explicitly priced event/bargain/power reward,
+and loop entry. Base prices are integer rules: one per weighted travel tick,
+eight per completed enemy phase, 18 per objective stage and 24 per major facility
+action. Event, bargain and exceptional-reward prices default to zero and must opt
+in explicitly. No menu, help, inspection, animation, resize, input delay or wall
+clock appears in the vocabulary. This first contract does not yet mutate runs or
+scale encounters; serialization and action integration are separate commits.
+
 ## Inert content input
 
 Content is UTF-8 JSON, decoded through `json_data.loads`. Duplicate object keys,
