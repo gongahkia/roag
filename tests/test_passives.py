@@ -82,6 +82,21 @@ class PassiveContractTests(unittest.TestCase):
         dead = catalog.curses["dead_channel"]["effects"][0].contract
         self.assertEqual([0, 0, 0], [dead.value(n) for n in (0, 1, 99)])
 
+    def test_diminishing_curse_penalties_are_exact_and_bounded(self) -> None:
+        expected = {
+            "glass_bones": (600, 4500),
+            "thin_blood": (800, 5000),
+            "panic_echo": (800, 6000),
+        }
+        catalog = load_catalog()
+        for identity, (first, soft_cap) in expected.items():
+            contract = catalog.curses[identity]["effects"][0].contract
+            values = [contract.value(count) for count in range(65)]
+            self.assertEqual(Fraction(first, 10000), values[1])
+            self.assertTrue(all(before <= after for before, after in zip(values, values[1:])))
+            self.assertTrue(all(value < Fraction(soft_cap, 10000) for value in values[1:]))
+            self.assertIn("Soft cap:", GameEngine.new(catalog, 42).effect_description("curse", identity, 2))
+
     def test_explicit_effect_is_typed_cached_and_has_exact_units(self) -> None:
         raw = {"key": "marked_damage_bonus", "unit": "basis_points", "stack": {"mode": "linear", "amount": 425}}
         rule = persistent_effect(raw)

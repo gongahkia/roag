@@ -554,10 +554,10 @@
     {"id":"mercy_circuit","name":"Mercy Circuit","description":"Healing an ally also grants block.","tags":["medicine","defense"],"requires_all_tags":["medicine","defense"],"effects":[{"key":"mercy_block","unit":"count","stack":{"mode":"linear","amount":2,"cap":8}}]}
   ],
   "curses": [
-    {"id":"glass_bones","name":"Glass Bones","kind":"trait","description":"Incoming damage is increased.","effects":[{"key":"incoming_damage_bonus","curve":"diminishing","amount":0.06,"cap":0.45}]},
-    {"id":"thin_blood","name":"Thin Blood","kind":"trait","description":"Healing received is reduced.","effects":[{"key":"healing_reduction","curve":"diminishing","amount":0.08,"cap":0.5}]},
+    {"id":"glass_bones","name":"Glass Bones","kind":"trait","description":"Incoming damage is increased with diminishing returns.","effects":[{"key":"incoming_damage_bonus","unit":"basis_points","stack":{"mode":"hyperbolic","amount":600,"cap":4500}}]},
+    {"id":"thin_blood","name":"Thin Blood","kind":"trait","description":"Healing received is reduced with diminishing returns.","effects":[{"key":"healing_reduction","unit":"basis_points","stack":{"mode":"hyperbolic","amount":800,"cap":5000}}]},
     {"id":"frayed_focus","name":"Frayed Focus","kind":"trait","description":"The first damage techniques this hero plays each round discard the rightmost card.","effects":[{"key":"damage_discard","curve":"special","amount":1,"cap":3}]},
-    {"id":"panic_echo","name":"Panic Echo","kind":"trait","description":"Incoming stress is increased.","effects":[{"key":"stress_bonus","curve":"diminishing","amount":0.08,"cap":0.6}]},
+    {"id":"panic_echo","name":"Panic Echo","kind":"trait","description":"Incoming stress is increased with diminishing returns.","effects":[{"key":"stress_bonus","unit":"basis_points","stack":{"mode":"hyperbolic","amount":800,"cap":6000}}]},
     {"id":"tremors","name":"Tremors","kind":"trait","description":"The first block techniques this hero plays each round cost one more energy.","effects":[{"key":"first_block_cost_increase","curve":"special","amount":1,"cap":3}]},
     {"id":"cowards_mark","name":"Coward's Mark","kind":"trait","description":"Begin each combat marked.","effects":[{"key":"start_marked","unit":"count","stack":{"mode":"linear","amount":1,"cap":4}}]},
     {"id":"lead_feet","name":"Lead Feet","kind":"trait","description":"Hostile movement pushes farther and heavy stacks expose the hero.","effects":[{"key":"forced_move_bonus","curve":"special","amount":1,"cap":1}]},

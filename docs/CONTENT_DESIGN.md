@@ -206,6 +206,11 @@ declares a unique zero-value rule: its cost is the owned card occupying the
 shared deck, not a hidden scalar. Bound curse-card descendants remain limited
 by the `curse_card` proc-family exclusion and each drawn copy still resolves.
 
+Glass Bones, Thin Blood and Panic Echo use exact hyperbolic basis-point rules.
+Their first penalties remain 6%, 8% and 8%; later copies approach disclosed
+45%, 50% and 60% soft caps. These burdens grow meaningfully without allowing an
+unbounded percentage input to overflow combat arithmetic.
+
 ## Queued resolution component
 
 `resolution.EventQueue` dispatches typed events through the six phases. Each

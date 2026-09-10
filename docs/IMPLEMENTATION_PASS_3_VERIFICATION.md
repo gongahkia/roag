@@ -394,6 +394,13 @@ live-stack, card-resolution, queue-save, saved-rule and archive group passed
 **34 tests in 20.199s**. Warning-enabled compilation, content validation and
 scoped diff checks passed.
 
+The three diminishing percentage curses now use hyperbolic basis-point rules.
+Their first-copy penalties are unchanged and subsequent values are monotonic
+toward disclosed 45%, 50% and 60% soft caps. The passive, curse-card, stress,
+saved-rule and archive group passed **20 tests in 14.899s**. Warning-enabled
+compilation, content validation and scoped diff checks passed; changed later-
+stack values remain subject to the Milestone 3 policy cohort.
+
 Four percentage boons now use exact hyperbolic basis-point rules. Their first
 copies retain their prior values; later stacks diminish toward disclosed caps,
 including Last Word's Death's Door resistance. A first focused invocation named
