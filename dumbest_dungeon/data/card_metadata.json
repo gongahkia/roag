@@ -198,6 +198,10 @@
     "feedback_barrier": {"tags": ["block", "damage", "payoff:marked"], "upgrade_description": "Upgrade: deal 8 and, if marked, grant all crew 5 block."},
     "anchor_array": {"tags": ["block", "mobility", "status:focus"], "upgrade_description": "Upgrade: move an ally forward 2, grant 10 block, and focus them."},
     "wound_circuit": {"tags": ["damage", "draw", "energy", "payoff:wound"], "upgrade_description": "Upgrade: deal 8, plus 7 if wounded; a wound grants 1 energy and draws 1."},
-    "emergency_bypass": {"tags": ["draw", "energy", "stress_risk"], "upgrade_description": "Upgrade: while stressed, gain 2 energy, draw 3, and gain 3 stress."}
+    "emergency_bypass": {"tags": ["draw", "energy", "stress_risk"], "upgrade_description": "Upgrade: while stressed, gain 2 energy, draw 3, and gain 3 stress."},
+    "debridement": {"tags": ["cleanse", "payoff:wound", "recovery", "stress_relief"], "upgrade_description": "Upgrade: cleanse any ailment, heal 8, and reduce 4 stress."},
+    "crash_cart": {"tags": ["block", "draw", "energy", "payoff:deaths_door", "stress_risk"], "upgrade_description": "Upgrade: at Death's Door grant 14 block, gain 1 energy, draw 1, and take 3 stress."},
+    "calming_dose": {"tags": ["block", "recovery", "stress_relief"], "upgrade_description": "Upgrade: heal 6; if stressed, grant 9 block and reduce 5 stress."},
+    "mass_resuscitation": {"tags": ["block", "recovery", "stress_risk"], "upgrade_description": "Upgrade: while stressed, heal all crew for 11, grant 4 block, and gain 8 stress."}
   }
 }
