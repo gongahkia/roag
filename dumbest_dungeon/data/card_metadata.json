@@ -230,6 +230,10 @@
     "prismatic_aegis": {"tags": ["block", "guard", "status:riposte"], "upgrade_description": "Upgrade: guard for 3, grant both 8 block, and gain riposte."},
     "charge_divider": {"tags": ["draw", "energy", "status:focus"], "upgrade_description": "Upgrade: grant 3 focus, gain 1 energy, and draw 1."},
     "threat_matrix": {"tags": ["block", "control", "payoff:marked", "setup:vulnerable"], "upgrade_description": "Upgrade: against a mark, deeply weaken and expose it, then grant all crew 6 block."},
-    "parallel_core": {"tags": ["block", "draw", "energy", "stress_risk"], "upgrade_description": "Upgrade: while healthy, gain 3 energy, draw 3, gain 8 block, and take 9 stress."}
+    "parallel_core": {"tags": ["block", "draw", "energy", "stress_risk"], "upgrade_description": "Upgrade: while healthy, gain 3 energy, draw 3, gain 8 block, and take 9 stress."},
+    "tempo_parry": {"tags": ["block", "status:dodge", "status:riposte"], "upgrade_description": "Upgrade: gain 7 block, dodge twice, and riposte for 4 rounds."},
+    "passing_thrust": {"tags": ["damage", "displacement", "mobility"], "upgrade_description": "Upgrade: cross 2 ranks, deal 12, push 2, then retreat 2."},
+    "red_flourish": {"tags": ["damage", "draw", "payoff:wound", "status:riposte"], "upgrade_description": "Upgrade: deal 9, plus 8 if wounded; gain 3 riposte and draw 1 from a wound."},
+    "death_defiance": {"tags": ["draw", "energy", "mobility", "payoff:deaths_door", "status:dodge", "status:riposte"], "upgrade_description": "Upgrade: at Death's Door move front, gain 3 dodge, 5 riposte, 2 energy, and draw 1."}
   }
 }
