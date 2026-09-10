@@ -870,7 +870,8 @@ completed were both approaches to every new line, every ending of all three
 arcs, all 24 builds as full expeditions, two full seeds for Marlbank/Rillscar/
 Frostmere, a single campaign visiting all eight moorings, a winter expedition,
 treasure recovery caused specifically by an enemy reaction, a named rival's
-full retreat-return-death sequence, or native macOS/WSL mouse/platform runs.
+full retreat-return-death sequence, or native WSL and alternate terminal-backend
+mouse runs.
 Those production paths have focused deterministic tests, but those tests are
 not counted as human play. Remaining repetition is concentrated in some
 animal locomotion, contact dialogue framing and the authored Manhattan safety
