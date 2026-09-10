@@ -3292,10 +3292,10 @@ class GameEngine:
                     if focus:
                         with self.attribution(item_id):
                             self._add_status(hero, "focus", focus)
-                vigilance = self.state.boons.get(hero.id, {}).get("vigilance", 0)
-                if vigilance:
-                    hero.statuses["dodge"] = max(hero.statuses.get("dodge", 0), 2)
-                    start_block += min(8, max(0, vigilance - 1) * 2)
+                dodge = round(self._hero_effect_value(hero, "boon", "start_dodge"))
+                if dodge:
+                    with self.attribution("vigilance"):
+                        self._add_status(hero, "dodge", dodge)
                 hero.block += round(start_block)
                 relief = round(self._hero_effect_value(hero, "boon", "start_stress_relief"))
                 if relief:
@@ -3500,8 +3500,8 @@ class GameEngine:
         base = definition.get("upgrade_cost", definition["cost"]) if card.upgraded else definition["cost"]
         round_plays = self.state.effect_counters.get(f"round_cards:{actor.id}", 0)
         combat_plays = self.state.effect_counters.get(f"combat_cards:{actor.id}", 0)
-        quick_stacks = self.state.boons.get(actor.id, {}).get("quick_hands", 0)
-        if round_plays < min(quick_stacks, 3):
+        quick_plays = round(self._hero_effect_value(actor, "boon", "quick_hands"))
+        if round_plays < quick_plays:
             delta -= 1
         if combat_plays == 0:
             delta += round(self._hero_effect_value(actor, "curse", "first_card_cost_increase"))

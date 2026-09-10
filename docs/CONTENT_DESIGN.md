@@ -195,6 +195,12 @@ basis-point policies. Their first copies retain 8%, 8%, 7% and 5%; later copies
 approach disclosed soft caps. Death's Door resistance therefore cannot become
 an additive route to removing its interaction entirely.
 
+Hunter's Rhythm, Quick Hands, Countercurrent and Resonant Circuit declare exact
+linear activation/value caps consumed by their finite queue listeners. Vigilance
+is two explicit layers: a duration-refresh opening dodge and an authored block
+table for copies after the first. Runtime opening and card-cost logic read these
+contracts instead of inspecting raw stack counts.
+
 ## Queued resolution component
 
 `resolution.EventQueue` dispatches typed events through the six phases. Each

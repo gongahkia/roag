@@ -6,6 +6,23 @@ from dumbest_dungeon.engine import CardInstance, GameEngine
 
 
 class LiveStackTests(unittest.TestCase):
+    def test_vigilance_and_quick_hands_use_authored_stack_results(self):
+        catalog = load_catalog()
+        baseline = GameEngine.new(catalog, 42)
+        baseline.start_combat("lost_shift")
+        baseline_block = baseline.living_heroes()[0].block
+        engine = GameEngine.new(catalog, 42)
+        hero = engine.living_heroes()[0]
+        engine.acquire_boon(hero.id, "vigilance")
+        engine.acquire_boon(hero.id, "vigilance")
+        engine.acquire_boon(hero.id, "quick_hands")
+        engine.start_combat("lost_shift")
+        self.assertEqual(2, hero.statuses["dodge"])
+        self.assertEqual(baseline_block + 2, hero.block)
+        engine.state.hand = [CardInstance("baton_strike")]
+        self.assertEqual(0, engine.card_cost(engine.state.hand[0]))
+        self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(catalog, engine.snapshot()).snapshot())
+
     def test_diminishing_item_family_uses_exact_monotonic_basis_points(self):
         expected = {
             "trauma_mesh": (200, 2000),

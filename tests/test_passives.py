@@ -52,6 +52,20 @@ class PassiveContractTests(unittest.TestCase):
             detail = GameEngine.new(catalog, 42).effect_description("boon", identity, 2)
             self.assertIn("Soft cap:", detail)
 
+    def test_trigger_boons_expose_the_values_consumed_by_their_limiters(self) -> None:
+        catalog = load_catalog()
+        for identity, key, cap in (
+            ("hunters_rhythm", "damage_draw", 2),
+            ("quick_hands", "quick_hands", 3),
+            ("countercurrent", "countercurrent_draw", 2),
+            ("resonant_circuit", "resonant_energy", 2),
+        ):
+            contract = catalog.boons[identity]["effects"][0].contract
+            self.assertEqual([0, 1, min(2, cap), cap], [contract.value(n) for n in (0, 1, 2, 99)])
+        vigilance = catalog.boons["vigilance"]["effects"]
+        self.assertEqual([0, 2, 2, 2], [vigilance[0].contract.value(n) for n in (0, 1, 2, 99)])
+        self.assertEqual([0, 0, 2, 8], [vigilance[1].contract.value(n) for n in (0, 1, 2, 99)])
+
     def test_explicit_effect_is_typed_cached_and_has_exact_units(self) -> None:
         raw = {"key": "marked_damage_bonus", "unit": "basis_points", "stack": {"mode": "linear", "amount": 425}}
         rule = persistent_effect(raw)

@@ -402,3 +402,12 @@ errors**; no production failure was hidden. The corrected passive, casualty,
 pickup, saved-rule and archive group passed **17 tests in 4.656s**. Warning-enabled
 compilation, content validation and scoped diff checks passed. Later-stack balance
 remains part of the pending natural-policy comparison.
+
+The remaining five special-rule boons now expose the exact values consumed by
+their runtime rules. Quick Hands and Vigilance no longer bypass their authored
+contracts; Vigilance retains its opening dodge and 0/2/4/6/8 additional-block
+progression. The first constructed assertion overlooked the biome's five opening
+block and produced **30 passes and 1 failure**; comparing against an identical
+no-boon combat corrected the fixture without changing production behavior. The
+expanded corrected group passed **31 tests in 22.536s**. Warning-enabled
+compilation, content validation and scoped diff checks passed.
