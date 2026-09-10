@@ -662,3 +662,8 @@ HP ceiling and does not reintroduce the pre-calibration Undertow spike.
 Content schema 39 adds Storm Expanse mark/cash fliers, protection elites and
 the Tempest Engine guardian. Every legacy Storm native now has a third action.
 Census: 108 enemies and 147 encounters.
+
+Content schema 40 expands Sealed Archive with three light normal roles, two
+elite-only index/revision roles and the Final Librarian guardian. Their grammar
+uses shared mark, movement, guard, dodge and riposte mechanics; every Archive
+native now has three actions. Census: 114 enemies and 153 encounters.

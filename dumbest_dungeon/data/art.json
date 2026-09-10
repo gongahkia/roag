@@ -145,7 +145,13 @@
     "base:thunder_kite": ["\\ + /", " \\o/ ", "--|--", "  |  ", " / \\ "],
     "base:storm_notary": [" [|] ", "|O O|", "|+#+|", " /|\\ ", "_| |_"],
     "base:faraday_beast": [" /+\\ ", "/o o\\", "|###|", " /|\\ ", "^   ^"],
-    "base:tempest_engine": ["\\+++/", "|O O|", "|###|", "|+|+|", "_/ \\_"]
+    "base:tempest_engine": ["\\+++/", "|O O|", "|###|", "|+|+|", "_/ \\_"],
+    "base:footnote_wasp": [" .-. ", "<o o>", "--|--", "  |  ", " / \\ "],
+    "base:redaction_hound": [" .__. ", "/x  x\\", "|_##_|", " /  \\ ", "^    ^"],
+    "base:errata_clerk": [" [e] ", "|o o|", "|---|", " /|\\ ", " / \\ "],
+    "base:index_bailiff": [" [I] ", "|O O|", "|###|", " /|\\ ", "_| |_"],
+    "base:revision_specter": [" .?. ", "|o o|", "|///|", "  /| ", " ' ' "],
+    "base:final_librarian": ["[===]", "|O O|", "|###|", "|III|", "_/ \\_"]
   },
   "card_glyphs": {
     "warden": ["  /\\  ", " /##\\ ", " |==| "],
