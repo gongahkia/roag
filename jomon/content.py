@@ -420,6 +420,46 @@ for identity, region, name, profile, role, duty, ecology, vision, hearing, reach
         "ranged_kind": "longbow" if region == "frostmere" else "sling",
     }
 
+# Three further authored roles per region. They use the same bounded ecology,
+# equipment, perception and material-duty reducers as the retained roster.
+EXPANDED_STANDARD_ACTORS = (
+    ("hearth-sluice-runner", "hearthford", "sluice pail runner", "pursuer", "protector", "quench", "worker", 8, 9, 1, 2, "b", "spends three pails on fire threatening a public bank", "draw it away from the bank or exhaust its visible pails"),
+    ("hearth-rope-cutter", "hearthford", "ferry-rope cutter", "pursuer", "flanker", "cut support", "raider", 9, 8, 1, 2, "g", "warns before cutting a ferry brace and then takes the meadow flank", "brace the marked rope or interrupt the cutter from the bank loop"),
+    ("hearth-meadow-kite", "hearthford", "flood-meadow kite", "animal", "tracker", "scavenge", "scavenger", 12, 5, 1, 1, "h", "descends on a visible dropped food or light tool", "secure dropped goods or use the descent to reveal the meadow patrol"),
+    ("coast-wreck-gull", "greywash", "storm-wreck gull", "animal", "tracker", "scavenge", "scavenger", 11, 6, 1, 1, "m", "takes exposed light salvage from the ebb road", "pack the salvage or let its flight expose the landward gully"),
+    ("coast-chain-mender", "greywash", "ebb-chain mender", "pursuer", "protector", "brace", "worker", 8, 10, 1, 2, "q", "repairs a warned wreck-chain support before covering withdrawal", "damage a different support or separate the mender from its ward"),
+    ("coast-brine-pourer", "greywash", "brine-sluice pourer", "reach", "controller", "drain", "warden", 9, 8, 2, 3, "s", "drains one deep flat before holding its narrow outlet", "freeze the shallow cut or approach over fixed dune cover"),
+    ("forest-cinder-crow", "greenwold", "cinder-feeding crow", "animal", "tracker", "scavenge", "scavenger", 10, 9, 1, 1, "t", "carries small abandoned objects from cooling burn ground", "secure the object or follow its flight toward the ash cache"),
+    ("forest-well-runner", "greenwold", "coppice well runner", "pursuer", "protector", "quench", "worker", 7, 12, 1, 2, "x", "quenches a watched medicine boundary with finite buckets", "draw the runner downwind or spend its buckets on a decoy fire"),
+    ("forest-coppice-escort", "greenwold", "charcoal sledge escort", "reach", "protector", "escort", "warden", 9, 9, 2, 3, "z", "keeps beside an injured or loaded charcoal carrier", "pull the escort from the sledge or cross through wet coppice"),
+    ("upland-lantern-taker", "whitecairn", "quarry-lamp taker", "pursuer", "thief", "scavenge", "raider", 8, 11, 1, 2, "O", "retrieves dropped lamps and tools before climbing for shelter", "keep light in the pack or block the nearest aligned stair"),
+    ("upland-face-bracer", "whitecairn", "moving-face brace hand", "reach", "protector", "brace", "worker", 10, 8, 2, 3, "R", "seats a warned quarry support before holding two-pace measure", "force work at a second crack or enter inside the brace"),
+    ("upland-crag-goat", "whitecairn", "bell-shelf crag goat", "animal", "territorial", "feed", "prey", 12, 7, 1, 1, "X", "flees a disturbed shelf and exposes the hunter's upper path", "watch from below or use its flight to draw the cave hound"),
+    ("fen-peat-raker", "dunmire", "dry-peat spark raker", "pursuer", "flanker", "kindle", "raider", 8, 10, 1, 2, "!", "warns before feeding dry peat then circles by a wet cut", "wet the marked peat or interrupt from the raised walk"),
+    ("fen-board-mender", "dunmire", "bog-island board mender", "reach", "protector", "brace", "worker", 9, 8, 2, 3, "$", "repairs a failing inhabited walk before defending it", "damage an empty branch or approach through the drain"),
+    ("fen-marsh-harrier", "dunmire", "low-reed marsh harrier", "animal", "tracker", "hunt", "predator", 11, 5, 1, 2, "&", "hunts disturbed fen hares across open water margins", "lead it toward sheltered prey or disappear into dense reeds"),
+    ("gorge-hoist-thief", "rillscar", "dropped-hoist tackle thief", "pursuer", "thief", "scavenge", "raider", 9, 9, 1, 2, "'", "retrieves a dropped tool then escapes by the lower bridge", "secure the tackle or close the lower switchback"),
+    ("gorge-lime-bracer", "rillscar", "lime-cut scaffold bracer", "reach", "protector", "brace", "worker", 8, 10, 2, 3, "(", "repairs a warned scaffold while lime smoke obscures the lane", "clear the smoke or threaten a second unsupported bay"),
+    ("gorge-raven", "rillscar", "cutwall raven", "animal", "tracker", "scavenge", "scavenger", 13, 4, 1, 1, ")", "takes a light dropped object to an elevated ledge", "secure the object or use the ledge flight as a cache clue"),
+    ("terrace-rill-dogger", "marlbank", "seed-rill stop-board hand", "pursuer", "protector", "drain", "worker", 9, 7, 1, 2, "*", "drains one flooded seed row before guarding its board", "redirect water to another row or approach through the kiln lee"),
+    ("terrace-ash-thief", "marlbank", "fired-clay tally thief", "pursuer", "thief", "scavenge", "raider", 7, 12, 1, 2, "-", "takes a dropped account or tool through irrigation cover", "keep the account packed or close the dry terrace exit"),
+    ("terrace-rook", "marlbank", "kiln-field rook", "animal", "tracker", "scavenge", "scavenger", 10, 8, 1, 1, "/", "collects light objects from cooling kiln margins", "secure the object or follow it toward a hidden firing shelf"),
+    ("estuary-ice-bracer", "frostmere", "thaw-channel ice bracer", "reach", "protector", "brace", "worker", 9, 9, 2, 3, "0", "seats a marked channel stake before holding the crossing", "thaw the alternate braid or enter inside its long brace"),
+    ("estuary-wreck-taker", "frostmere", "drift-store wreck taker", "pursuer", "thief", "scavenge", "raider", 8, 10, 1, 2, ":", "retrieves exposed winter stores and flees over firm gravel", "secure the store or block the gravel shelter route"),
+    ("estuary-ice-otter", "frostmere", "ice-channel otter", "animal", "territorial", "hunt", "predator", 9, 11, 1, 2, "?", "hunts fleeing gravel hares but leaves deep salted current", "draw it after prey or break contact across a brined opening"),
+)
+for identity, region, name, profile, role, duty, ecology, vision, hearing, reach, budget, glyph, capability, counterplay in EXPANDED_STANDARD_ACTORS:
+    ENEMY_ARCHETYPES[identity] = {
+        "region": region, "name": name, "profile": profile, "role": role,
+        "goal": f"{duty or 'hold'} {identity}", "vision": vision,
+        "hearing": hearing, "range": reach, "capability": capability,
+        "morale": 3 if role == "protector" else 2, "terrain": region,
+        "counterplay": counterplay, "budget": budget, "ecology": ecology,
+        "duty": "" if duty == "feed" else duty, "glyph": glyph,
+        "supplies": 3 if duty in {"quench", "brace", "drain", "kindle", "cut support"} else 0,
+        "ranged_kind": "sling",
+    }
+
 from .frontier_elites import ELITE_DEFINITIONS
 
 ENEMY_ARCHETYPES.update(ELITE_DEFINITIONS)

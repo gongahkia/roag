@@ -602,8 +602,18 @@ def _threats(seed: str, region: Region) -> list[Threat]:
     gantry = standard("hearth-gantry-suppressor", "gantry-bow", Position(80, 20, 1), 4, "mill-levy")
     gantry.ammunition = 7
     reavers = standard("hearth-cargo-reaver", "pressure-reavers", Position(58, 28), 6, "reavers", status="dormant")
+    expanded_key = stage_rng(seed, "hearthford-expanded-role").choice((
+        "hearth-sluice-runner", "hearth-rope-cutter", "hearth-meadow-kite",
+    ))
+    expanded = standard(
+        expanded_key,
+        f"hearthford-expanded:{expanded_key}",
+        Position(63, 39),
+        4,
+        "aftermath-road",
+    )
     threats = [
-        road, boar, roof, levy, gantry,
+        road, boar, roof, levy, gantry, expanded,
         Threat(
             "floodgate-claimant" if alternate_elite else "wheel-train",
             "floodgate claimant" if alternate_elite else "runaway crown wheel",

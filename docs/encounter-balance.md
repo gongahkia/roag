@@ -37,11 +37,13 @@ Steady encounters teach one role. Strained groups combine complementary roles
 within five budget points. Critical groups have eight points and may rarely
 replace a standard group with a regional elite whose terrain or objective
 rule—not health alone—defines the encounter. At most two ranged actors may be
-composed together. Each generated region now uses these plans for six finite
-standard production actors: an early steady site, a strained site, and a deep
-critical site, with bounded additional strained groups only when those plans
-contain fewer than six actors. The authored regional elite remains a seventh,
-dormant actor. Actual placement repairs to a reachable same-level position and
+composed together. Each generated region draws its finite production actors
+from nine regional standards: an early steady site, a strained site, and a
+deep critical site, with bounded additional strained groups when those plans
+contain fewer than six actors. Hearthford also places one of its three new
+material workers, raiders or scavengers beside the ordinary return loop. The
+authored regional elite remains separate and dormant. Actual placement repairs
+to a reachable same-level position and
 must provide cover or another traversable approach before a shooter can wake.
 
 The local audit commands are:
@@ -52,8 +54,8 @@ python -m jomon.encounters
 ```
 
 `roster_audit()` additionally validates the live catalogue rather than adding
-direct-map actors to a paper total. It reports **48 standard archetypes: six
-per major region**, 48 unique mechanics-driving signatures, 48 unique ASCII
+direct-map actors to a paper total. It reports **72 standard archetypes: nine
+per major region**, 72 unique mechanics-driving signatures, 72 unique ASCII
 glyphs, 15 catalogue elites plus Hearthford's map-authored crown wheel for 16
 elite situations, and four named recurring claimants. A signature comprises
 profile, role, goal, material duty, ecology, ranged kind/range, finite supplies,
@@ -61,6 +63,11 @@ vision, hearing and morale—the fields that actually select actions or bound
 perception. Every standard row also carries a regional terrain reason, a
 secondary reaction, an explicit capability, and two or more counters. Semantic
 hostile colour and bold are applied by actor identity, independently of glyph.
+The added roles reuse the production ecology reducers deliberately: workers
+quench, brace or drain finite material states; raiders telegraph fire or
+support damage and retrieve physical goods; animals hunt, flee or scavenge.
+Their distinct goals, terrain, perception, reach and counterplay combinations
+change mixed encounters without adding an expensive planning layer.
 
 They build all three added regions for 100 deterministic seeds and sample all
 three pressure bands at six site indices. The second command also reports the

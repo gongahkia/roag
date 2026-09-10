@@ -52,6 +52,7 @@ def roster_audit() -> dict[str, object]:
         ))
         if (
             not required or len(glyph) != 1 or not glyph.isascii()
+            or not glyph.isprintable() or glyph.isspace() or glyph == "@"
             or " or " not in str(data.get("counterplay", ""))
             or int(data.get("morale", -1)) < 1
         ):
@@ -79,14 +80,14 @@ def roster_audit() -> dict[str, object]:
 def validate_roster() -> None:
     report = roster_audit()
     if (
-        report["standard_archetypes"] < 48
-        or report["mechanically_distinct_signatures"] < 48
+        report["standard_archetypes"] < 72
+        or report["mechanically_distinct_signatures"] < 72
         or report["elite_situations"] < 16
         or report["named_recurring_rivals"] < 4
         or report["invalid_standard_rows"]
         or report["duplicate_mechanical_signatures"]
         or report["duplicate_standard_glyphs"]
-        or any(count < 6 for count in report["regions"].values())
+        or any(count < 9 for count in report["regions"].values())
     ):
         raise ValueError(f"enemy roster acceptance failed: {report}")
 

@@ -79,7 +79,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
         "tactical_voyage_families": len(TACTICAL), "build_scenarios": len(BUILD_SCENARIOS),
     }
     minima = {
-        "regions": 8, "standard_enemies": 48, "mechanically_distinct_enemies": 48,
+        "regions": 8, "standard_enemies": 72, "mechanically_distinct_enemies": 72,
         "elite_situations": 16, "named_rivals": 4, "weapons": 36,
         "armour": 36, "active_passives_and_techniques": 64,
         "secondary_tools_supplies_drinks": 32, "relics": 12,

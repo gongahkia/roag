@@ -262,7 +262,13 @@ def validate_ecology(state: GameState) -> None:
             special = definition(actor)
             if actor.reaction not in {"", "rival strike", "kindle", "cut support"} and not (special and actor.reaction == special["mode"]):
                 raise ValueError("unknown staged actor reaction")
-            if actor.glyph and (len(actor.glyph) != 1 or not actor.glyph.isascii() or not actor.glyph.isalnum()):
+            if actor.glyph and (
+                len(actor.glyph) != 1
+                or not actor.glyph.isascii()
+                or not actor.glyph.isprintable()
+                or actor.glyph.isspace()
+                or actor.glyph == "@"
+            ):
                 raise ValueError("invalid actor glyph")
             if actor.marked_position and (str(actor.marked_position.z) not in state.regions[region_id].levels or not 0 <= actor.marked_position.x < state.regions[region_id].width or not 0 <= actor.marked_position.y < state.regions[region_id].height):
                 raise ValueError("material duty marks an invalid position")

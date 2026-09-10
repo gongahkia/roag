@@ -10,7 +10,7 @@ class VerificationCommandTests(unittest.TestCase):
     def test_content_audit_reports_exact_integrated_targets(self):
         report = content_audit("focused content audit")
         self.assertEqual(report["failures"], [])
-        self.assertEqual(report["counts"]["standard_enemies"], 48)
+        self.assertEqual(report["counts"]["standard_enemies"], 72)
         self.assertEqual(report["counts"]["weapons"], 36)
         self.assertEqual(report["counts"]["armour"], 36)
         self.assertEqual(report["counts"]["active_passives_and_techniques"], 64)

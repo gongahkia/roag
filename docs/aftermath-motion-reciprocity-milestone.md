@@ -162,5 +162,10 @@ new magic, infinite contracts or additional major region is planned.
   institutions and route risk; Refuges at Low Water changes winter access,
   weather exposure, trust, freight time or cargo risk. Together with the three
   retained arcs, the story network now has five arcs and eleven endings.
+- The standard roster now contains 72 validated roles, nine per region. The 24
+  additions are ordinary production actors using finite quenching, bracing,
+  drainage, kindling, support-cutting, escort, hunting and physical scavenging
+  reducers; Hearthford places one of its three additions on every new seed.
+  All 72 have distinct mechanics-driving signatures and display glyphs.
 - The remaining enemy, actor, practice, tool, relic, vessel and voyage content
   multiplication gates remain open.

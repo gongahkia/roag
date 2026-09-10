@@ -2,6 +2,8 @@ import copy
 import unittest
 
 from jomon.actions import _threat_action
+from jomon.content import EXPANDED_STANDARD_ACTORS, FRONTIER_ACTORS
+from jomon.encounters import compose_encounter
 from jomon.encounters import roster_audit, validate_roster
 from jomon.inventory import auto_place, create_item, record_acquisition
 from jomon.state import Position, create_world
@@ -26,16 +28,47 @@ class CompleteEnemyRosterTests(unittest.TestCase):
         state.threats = [actor]
         return state, actor
 
-    def test_roster_has_forty_eight_distinct_standards_and_sixteen_elites(self):
+    def test_roster_has_seventy_two_distinct_standards_and_sixteen_elites(self):
         validate_roster()
         report = roster_audit()
-        self.assertEqual(report["standard_archetypes"], 48)
-        self.assertEqual(report["mechanically_distinct_signatures"], 48)
+        self.assertEqual(report["standard_archetypes"], 72)
+        self.assertEqual(report["mechanically_distinct_signatures"], 72)
         self.assertEqual(report["elite_situations"], 16)
         self.assertEqual(report["named_recurring_rivals"], 4)
-        self.assertEqual(set(report["regions"].values()), {6})
+        self.assertEqual(set(report["regions"].values()), {9})
         self.assertFalse(report["invalid_standard_rows"])
         self.assertFalse(report["duplicate_standard_glyphs"])
+
+    def test_each_expanded_role_has_a_production_group_and_tested_reducer(self):
+        retained_duties = {row[5] for row in FRONTIER_ACTORS}
+        seen = set()
+        for row in EXPANDED_STANDARD_ACTORS:
+            identity, region, _, _, role, duty, ecology, *rest = row
+            plan = compose_encounter(
+                "expanded exact production", region, "steady", 0,
+                candidates=(identity,),
+            )
+            self.assertEqual(plan.archetypes, (identity,))
+            self.assertIn(" or ", row[-1])
+            self.assertTrue(role)
+            self.assertTrue(ecology)
+            if duty != "feed":
+                self.assertIn(duty, retained_duties)
+            seen.add(region)
+        self.assertEqual(len(EXPANDED_STANDARD_ACTORS), 24)
+        self.assertEqual(len(seen), 8)
+
+    def test_all_three_new_hearthford_roles_appear_in_ordinary_seeded_worlds(self):
+        seen = set()
+        for index in range(24):
+            state = create_world(f"expanded hearthford production {index}")
+            seen.update(
+                actor.id.split(":", 1)[1] for actor in state.threats
+                if actor.id.startswith("hearthford-expanded:")
+            )
+        self.assertEqual(seen, {
+            "hearth-sluice-runner", "hearth-rope-cutter", "hearth-meadow-kite",
+        })
 
     def test_hearthford_lookout_uses_group_alarm_from_production_actor(self):
         state, lookout = self.state_for("road-patrol", Position(43, 25))
