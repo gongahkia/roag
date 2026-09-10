@@ -1300,6 +1300,11 @@ class TerminalUI:
                     "Any two of the four objectives open the final path.",
                 ]
             )
+        finale = self.engine.finale_intel()
+        if finale["level"] == "profile":
+            lines.append(f"FINALE FORECAST — {finale['summary']}")
+        elif finale["level"] == "exact":
+            lines.append(f"FINALE LOCKED — {finale['summary']}")
         lines.append("")
         for objective in state.objectives:
             biome = self.catalog.biomes[objective.biome_id]["name"]
@@ -1407,9 +1412,11 @@ class TerminalUI:
         core_x, core_y = self.engine.core_position()
         projection = self.engine.core_route_projection()
         optional = len(self.engine.state.objectives) - self.engine.completed_objectives()
+        finale = self.engine.finale_intel()
+        final_name = str(finale.get("name", "APEX CONTACT"))
         return (
             "Two access objectives are secure. The final path is now open.\n\n"
-            f"OVERSEER CORE — {core_x:03},{core_y:02}\n"
+            f"{final_name.upper()} — {core_x:03},{core_y:02}\n"
             f"ROUTE FROM HERE — {projection['ticks']} weighted ticks / ~{projection['light']} light / "
             f"+{projection['pressure']} pressure.\n\n"
             "Press G in exploration to select the next reachable leg toward the Core. Tab also "
@@ -2277,8 +2284,9 @@ class TerminalUI:
         assert self.engine
         self._archive_run(phase)
         title = "EVACUATION COMPLETE" if phase == "victory" else "EXPEDITION LOST"
+        final_name = str(self.engine.finale_intel().get("name", "Apex contact"))
         body = (
-            "The Overseer is silent. The crew escapes before the dead world can wake again."
+            f"{final_name} is silent. The crew escapes before the dead world can wake again."
             if phase == "victory"
             else "The last voice drops from the comms. No one remains to finish the mission."
         )

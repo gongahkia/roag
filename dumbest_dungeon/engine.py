@@ -3083,6 +3083,83 @@ class GameEngine:
         )
         self.add_log("The secured objective wakes its regional guardian.")
 
+    def finale_encounter_id(self) -> str | None:
+        return next(
+            (
+                str(objective.facts["finale_id"])
+                for objective in self.state.objectives
+                if objective.facts.get("finale_id")
+            ),
+            None,
+        )
+
+    def finale_intel(self) -> dict[str, Any]:
+        encounter_id = self.finale_encounter_id()
+        if encounter_id is None:
+            if self.completed_objectives() < 1:
+                return {"level": "unknown", "summary": "Apex identity unreadable."}
+            return {
+                "level": "profile",
+                "summary": (
+                    "Apex profiles: area control, marked pursuit, wound sustain, or rank breach."
+                ),
+            }
+        enemy_ids = self.catalog.encounters[encounter_id]["enemies"]
+        names = " / ".join(self.catalog.enemies[enemy_id]["name"] for enemy_id in enemy_ids)
+        actions = [
+            action["name"]
+            for enemy_id in enemy_ids
+            for action in self.catalog.enemies[enemy_id]["actions"]
+        ]
+        return {
+            "level": "exact",
+            "encounter_id": encounter_id,
+            "name": names,
+            "summary": f"{names} — " + " / ".join(actions),
+        }
+
+    def _freeze_finale(self, objective: AccessObjective) -> str:
+        frozen = self.finale_encounter_id()
+        if frozen is not None:
+            return frozen
+        candidates = (
+            "the_core",
+            "base:finale_signal_tyrant",
+            "base:finale_mercy_engine",
+            "base:finale_breach_oracle",
+        )
+        completed = sorted(
+            f"{item.biome_id}:{item.approach}:{item.outcome}"
+            for item in self.state.objectives
+            if item.completed
+        )
+        rng = self._domain_rng(
+            "boss",
+            self.state.world_id,
+            "|".join(completed),
+            self.state.pressure,
+        )
+        encounter_id = rng.choice(candidates)
+        encounter = self.catalog.encounters[encounter_id]
+        room = next(room for room in self.state.rooms if room.kind == "boss")
+        room.content_id = encounter_id
+        room.enemy_ids = list(encounter["enemies"])
+        room.encounter_plan = self._formation_plan(self.catalog, room.enemy_ids)
+        names = " / ".join(self.catalog.enemies[enemy_id]["name"] for enemy_id in room.enemy_ids)
+        room.name = f"{self.catalog.biomes[room.biome_id]['name']}: {names} Chamber"
+        patrol = self.core_patrol()
+        patrol.encounter_id = encounter_id
+        objective.facts["finale_id"] = encounter_id
+        objective.facts["finale_revealed_at_tick"] = self.state.travel_ticks
+        self.record(
+            "finale_revealed",
+            encounter_id,
+            enemies=list(room.enemy_ids),
+            completed=list(completed),
+            pressure=self.state.pressure,
+        )
+        return encounter_id
+
     def core_patrol(self) -> Patrol:
         return next(
             patrol
@@ -3320,6 +3397,8 @@ class GameEngine:
             )
             self.add_log(message)
             return message
+        if self.completed_objectives() >= self.state.required_objectives:
+            self._freeze_finale(objective)
         if self.state.phase != "defeat":
             self.state.phase = "exploration"
         progress = self.completed_objectives()
@@ -5973,7 +6052,11 @@ class GameEngine:
         if kind == "boss":
             self.room().resolved = True
             self.state.phase = "victory"
-            self.add_log("The Overseer falls silent. Evacuation is possible.")
+            names = " / ".join(
+                self.catalog.enemies[enemy_id]["name"]
+                for enemy_id in self.room().enemy_ids
+            )
+            self.add_log(f"{names} falls silent. Evacuation is possible.")
             return
         if kind == "guardian":
             objective = next(
@@ -5993,6 +6076,8 @@ class GameEngine:
                 biome=objective.biome_id,
                 rounds=self.state.round,
             )
+            if self.completed_objectives() >= self.state.required_objectives:
+                self._freeze_finale(objective)
             if self.boss_unlocked():
                 self.core_patrol().active = True
             self.add_log("The regional guardian falls. Its signature salvage remains.")

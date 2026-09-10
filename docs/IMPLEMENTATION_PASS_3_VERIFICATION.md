@@ -690,3 +690,12 @@ Core access additionally requires that guardian clear, guardian victory uses an
 elite signature reward lane, and it does not resolve an unrelated map room.
 Focused biome, objective, save and UI checks passed 18 tests in 2.696s before a
 pending-guardian snapshot equality assertion was added.
+
+Content schema 44 adds three finale identities beside the Overseer Core: Signal
+Tyrant’s mark pursuit, Mercy Engine’s wound/sustain race, and Breach Oracle’s
+rank pressure and retaliation. The first objective reveals their broad pressure
+profiles; the second freezes and names one exact finale from a boss-domain RNG
+key containing seed, layout/world, completed approaches/outcomes and disclosed
+pressure. The room formation and patrol identity are mutated once, serialized,
+and never rerolled after later pressure changes. Census: 129 enemies and 168
+encounters.

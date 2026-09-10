@@ -163,7 +163,10 @@
     "base:reliquary_guard": [" [o] ", "|O O|", "|###|", " /|\\ ", "_| |_"],
     "base:bone_auditor": [" [B] ", "|o o|", "|$#$|", " /|\\ ", "_/ \\_"],
     "base:ossuary_heart": [" o^o ", "|O O|", "|<3 |", "|###|", "_/ \\_"],
-    "base:rusted_admiral": [" /A\\ ", "|O O|", "|###|", "|=|=|", "_/ \\_"]
+    "base:rusted_admiral": [" /A\\ ", "|O O|", "|###|", "|=|=|", "_/ \\_"],
+    "base:signal_tyrant": ["\\|||/", "|O O|", "|+#+|", "|===|", "_/ \\_"],
+    "base:mercy_engine": [" /+\\ ", "|O O|", "|<3 |", "|###|", "_/ \\_"],
+    "base:breach_oracle": [" /?\\ ", "|O O|", "|/|/|", "|###|", "_/ \\_"]
   },
   "card_glyphs": {
     "warden": ["  /\\  ", " /##\\ ", " |==| "],
