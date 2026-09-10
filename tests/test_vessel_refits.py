@@ -149,6 +149,9 @@ class VesselRefitTests(unittest.TestCase):
     def test_hatch_felt_prevents_only_aboard_winter_chill(self):
         exposed = copy.deepcopy(self.base)
         exposed.calendar_origin_day = 72
+        for item in exposed.items:
+            if item.owner_id == exposed.active_courier_id and item.location not in {"pack", "readied", "secondary"}:
+                item.condition = 0
         affect_body(exposed, exposed.courier, "water", 1, exposed.position)
         self.assertIn("wet", exposed.terrain_statuses)
         self.assertIn("chilled", exposed.terrain_statuses)
@@ -156,6 +159,9 @@ class VesselRefitTests(unittest.TestCase):
         sheltered = copy.deepcopy(self.base)
         sheltered.calendar_origin_day = 72
         sheltered.vessel_changes["refit:winter-hatch-felt"] = True
+        for item in sheltered.items:
+            if item.owner_id == sheltered.active_courier_id and item.location not in {"pack", "readied", "secondary"}:
+                item.condition = 0
         affect_body(sheltered, sheltered.courier, "water", 1, sheltered.position)
         self.assertIn("wet", sheltered.terrain_statuses)
         self.assertNotIn("chilled", sheltered.terrain_statuses)
