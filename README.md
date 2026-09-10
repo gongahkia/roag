@@ -37,6 +37,13 @@ does not advance any game rule. Older saves disclose their missing early history
 The adjacent versioned `profile.json` records discoveries, victories, ladder
 records, contracts, and the casualty graveyard without granting permanent combat power.
 
+**Expressive modes** includes twenty authored contracts, a configuration-driven
+custom expedition, a deterministic offline daily, and strict versioned `DD1`
+challenge codes. Custom settings cover layout, four biomes, starting pressure
+and an unlocked ascending rank; crew, formation, advanced loadouts, and doctrine
+remain editable in the ordinary hub. The only current content pack is the
+inspectable `base:core` pack, so catalog growth cannot silently change a code.
+
 ## Controls and rules
 
 - New expeditions first offer thirteen curated squads with explained playstyles, formations, strengths, weaknesses, signature interactions, complexity, and a compatible recommended doctrine. Advanced custom selection keeps all twenty-five archetypes available. Every archetype has one horizontal advanced five-card loadout; eleven doctrines define broad formation or sequencing identities through an explicit strength and liability. Selection order assigns combat ranks 1–4; Space toggles a crew member, left/right changes a selected member's rank, `C` browses that class's full card library, and `D` previews the combined starter deck. Formation and role warnings inform unusual parties without blocking them. The roster scrolls at 80×24.

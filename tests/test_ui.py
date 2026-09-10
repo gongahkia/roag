@@ -125,7 +125,7 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("TAGS: DAMAGE", screen.text())
 
     def test_main_menu_uses_public_title(self) -> None:
-        screen = FakeScreen(keys=[curses.KEY_DOWN] * 5 + [10])
+        screen = FakeScreen(keys=[curses.KEY_DOWN] * 6 + [10])
         self.ui.screen = screen
         self.ui.save_path = Path("/definitely/missing/dullest-save.json")
         self.ui.new_game = lambda: self.engine
@@ -133,7 +133,7 @@ class AsciiUiTests(unittest.TestCase):
         self.assertIn("DULLEST DUNGEON", screen.text())
 
     def test_main_menu_launches_the_optional_tutorial(self) -> None:
-        screen = FakeScreen(keys=[10] + [curses.KEY_DOWN] * 5 + [10])
+        screen = FakeScreen(keys=[10] + [curses.KEY_DOWN] * 6 + [10])
         self.ui.screen = screen
         self.ui.save_path = Path("/definitely/missing/dullest-save.json")
         self.ui.new_game = lambda: self.engine

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import curses
+from datetime import date
 import json
 import textwrap
 import time
@@ -14,6 +15,9 @@ from .engine import CardInstance, GameEngine, RuleError
 from .save import SaveError, read_save, write_save
 from .history import history_lines, read_history, write_run
 from .ladder import RULES
+from .challenges import (
+    CONTRACTS, ChallengeError, ExpeditionConfig, daily_config, decode_code, encode_code,
+)
 from .profile import ProfileError, read_profile, update_profile, write_profile
 from .pressure import pressure_band, pressure_status
 
@@ -74,7 +78,10 @@ class TerminalUI:
     def run(self) -> None:
         while True:
             self.catalog = getattr(self, "current_catalog", self.catalog)
-            choices = ["Tutorial expedition (recommended)", "New expedition", "Ascending ladder"]
+            choices = [
+                "Tutorial expedition (recommended)", "New expedition", "Ascending ladder",
+                "Expressive modes",
+            ]
             if self.save_path.exists():
                 choices.append("Load expedition")
             choices.extend(["How to play", "Run history", "Quit"])
@@ -113,6 +120,8 @@ class TerminalUI:
                     self.engine.configure_ladder_rank(available[rank].rank)
                     self._start_session()
                     self._game_loop()
+            elif choice == "Expressive modes":
+                self._expressive_modes()
             elif choice == "Load expedition":
                 if self._load():
                     self._game_loop()
@@ -122,6 +131,115 @@ class TerminalUI:
                 self._history()
             else:
                 return
+
+    def _launch_config(self, config: ExpeditionConfig, mode: str) -> None:
+        try:
+            self.engine = GameEngine.custom(self.catalog, config, mode=mode)
+        except (ChallengeError, RuleError) as exc:
+            self._notice("CONFIGURATION REJECTED", str(exc))
+            return
+        self._start_session()
+        self._game_loop()
+
+    def _expressive_modes(self) -> None:
+        picked = self._menu(
+            "EXPRESSIVE MODES",
+            ["Offline daily", "Authored contracts", "Custom expedition", "Import challenge code"],
+            "Local and deterministic. No accounts, networking or remote leaderboard. "
+            "All active rules are frozen into the run save.",
+            allow_cancel=True,
+        )
+        if picked is None:
+            return
+        if picked == 0:
+            config = daily_config(date.today())
+            self._launch_config(config, "daily")
+            return
+        if picked == 1:
+            selected = self._menu(
+                "AUTHORED CONTRACTS",
+                [f"{item.name} — {item.rule}" for item in CONTRACTS],
+                "Each contract teaches or inverts one broad mechanic. Rewards remain horizontal.",
+                allow_cancel=True,
+            )
+            if selected is not None:
+                seed = self.new_game().state.seed
+                self._launch_config(
+                    ExpeditionConfig(seed=seed, modifiers=(CONTRACTS[selected].modifier,)),
+                    "challenge",
+                )
+            return
+        if picked == 2:
+            config = self._custom_config()
+            if config is not None:
+                code = encode_code(config, self.catalog)
+                self._notice("CHALLENGE CODE", code)
+                self._launch_config(config, "custom")
+            return
+        code = self._text_input(
+            "IMPORT CHALLENGE", "Paste a versioned DD1 code:", max_length=1024
+        )
+        if code is None:
+            return
+        try:
+            config = decode_code(code, self.catalog)
+        except ChallengeError as exc:
+            self._notice("CODE REJECTED", str(exc))
+            return
+        self._launch_config(config, "challenge")
+
+    def _custom_config(self) -> ExpeditionConfig | None:
+        seed_text = self._text_input("CUSTOM EXPEDITION", "Unsigned seed (blank generates one):")
+        if seed_text is None:
+            return None
+        if seed_text:
+            try:
+                seed = int(seed_text)
+            except ValueError:
+                self._notice("INVALID SEED", "Use an unsigned integer smaller than 2^64.")
+                return None
+        else:
+            seed = self.new_game().state.seed
+        layouts = sorted({world["layout"] for world in self.catalog.worlds.values()})
+        layout_index = self._menu("CUSTOM LAYOUT", layouts, "Choose one of the six legal route geometries.", allow_cancel=True)
+        if layout_index is None:
+            return None
+        selected_biomes: list[str] = []
+        while len(selected_biomes) < 4:
+            choices = [biome_id for biome_id in self.catalog.biomes if biome_id not in selected_biomes]
+            index = self._menu(
+                f"CUSTOM BIOMES {len(selected_biomes) + 1}/4",
+                [self.catalog.biomes[item]["name"] for item in choices],
+                "Four distinct regions; order affects the route and finale weighting.",
+                allow_cancel=True,
+            )
+            if index is None:
+                return None
+            selected_biomes.append(choices[index])
+        pressures = [0, 240, 480, 720, 1100]
+        pressure_index = self._menu(
+            "STARTING PRESSURE", [str(value) for value in pressures],
+            "Pressure is irreversible; this changes the opening director band.", allow_cancel=True,
+        )
+        if pressure_index is None:
+            return None
+        try:
+            profile = read_profile(self.save_path.parent / "profile.json")
+        except ProfileError as exc:
+            self._notice("PROFILE READ FAILED", str(exc))
+            return None
+        ranks = list(range(profile["unlocked_rank"] + 1))
+        rank_index = self._menu(
+            "ASCENDING RANK", ["R00 Base"] + [f"R{rank:02}" for rank in ranks[1:]],
+            "Custom play may use globally unlocked ranks. Crew, loadouts and doctrine follow in the hub.",
+            allow_cancel=True,
+        )
+        if rank_index is None:
+            return None
+        return ExpeditionConfig(
+            seed=seed, biomes=tuple(selected_biomes), layout=layouts[layout_index],
+            starting_pressure=pressures[pressure_index], ladder_rank=ranks[rank_index],
+        )
 
     def _game_loop(self) -> None:
         while self.engine:
@@ -2258,7 +2376,7 @@ class TerminalUI:
         except (SaveError, ProfileError) as exc:
             self._notice("HISTORY WRITE FAILED", str(exc))
 
-    def _text_input(self, title: str, prompt: str) -> str | None:
+    def _text_input(self, title: str, prompt: str, *, max_length: int = 64) -> str | None:
         value = ""
         while True:
             self._begin(title)
@@ -2272,7 +2390,7 @@ class TerminalUI:
                 return None
             if key in (8, 127, curses.KEY_BACKSPACE):
                 value = value[:-1]
-            elif 32 <= key < 127 and len(value) < 64:
+            elif 32 <= key < 127 and len(value) < max_length:
                 value += chr(key)
 
     def _history(self) -> None:

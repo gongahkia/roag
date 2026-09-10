@@ -683,6 +683,11 @@ Custom construction chooses a requested layout and four-biome set without retry
 loops, validates party/loadout/doctrine compatibility, and round-trips the exact
 configuration. Standard runs retain the old generation and resource path.
 
+The title-screen expressive-mode flow exposes the local daily, all authored
+contracts, a keyboard-only custom builder, and strict code import. The builder
+selects an exact seed, layout, four biomes, pressure start and unlocked ladder
+rank, then returns to the same crew/loadout/doctrine hub used by standard play.
+
 Content schema 36 gives Reactor Chapel six normal participants, two elite-only
 roles and the Choir Meltdown guardian. Three new normal roles split marking,
 cash-out and formation disruption; Critical Abbot and Containment Hulk create
