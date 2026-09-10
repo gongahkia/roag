@@ -21,6 +21,11 @@ class ResolutionSaveTests(unittest.TestCase):
         old = engine.snapshot()
         old["save_version"] = 29
         del old["content_rules"]
+        for field in (
+            "pressure", "pressure_recent", "pressure_incomplete_before_tick",
+            "encounter_pressure", "encounter_modules", "reinforcement_tickets",
+        ):
+            del old["state"][field]
         old["content_manifest"]["engine"] = "0.1.0"
         old["resolution_queue"]["state"]["schema"] = 1
         event = old["resolution_queue"]["state"]["pending"][0]
@@ -32,7 +37,10 @@ class ResolutionSaveTests(unittest.TestCase):
         self.assertEqual(unchanged, old)
         self.assertEqual(30, migrated["save_version"])
         self.assertIsNone(migrate_run(old)["content_rules"])
-        self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(engine.catalog, old).snapshot())
+        restored = GameEngine.from_snapshot(engine.catalog, old).snapshot()
+        expected = engine.snapshot()
+        expected["state"]["pressure_incomplete_before_tick"] = engine.state.travel_ticks
+        self.assertEqual(expected, restored)
         with self.assertRaises(MigrationError):
             run_29_to_30(migrated)
         malformed = engine.snapshot()
@@ -103,9 +111,16 @@ class ResolutionSaveTests(unittest.TestCase):
             GameEngine.from_snapshot(engine.catalog, raw)
         raw["save_version"] = 28
         del raw["content_rules"]
+        for field in (
+            "pressure", "pressure_recent", "pressure_incomplete_before_tick",
+            "encounter_pressure", "encounter_modules", "reinforcement_tickets",
+        ):
+            del raw["state"][field]
         raw["content_manifest"]["engine"] = "0.1.0"
         loaded = GameEngine.from_snapshot(engine.catalog, raw)
-        self.assertEqual(engine.state, loaded.state)
+        expected = deepcopy(engine.state)
+        expected.pressure_incomplete_before_tick = engine.state.travel_ticks
+        self.assertEqual(expected, loaded.state)
         self.assertEqual(engine.resolution.snapshot(), loaded.resolution.snapshot())
 
     def test_pending_effect_references_are_validated_before_resume(self) -> None:

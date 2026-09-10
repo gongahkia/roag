@@ -29,7 +29,10 @@ class OrderingTests(unittest.TestCase):
         # Schema additions are checked by migration tests. This recorded command
         # transcript proves that adding durable observations does not alter the
         # pre-existing simulation or consume RNG.
-        for field in ("ledger", "pressure", "pressure_recent", "pressure_incomplete_before_tick"):
+        for field in (
+            "ledger", "pressure", "pressure_recent", "pressure_incomplete_before_tick",
+            "encounter_pressure", "encounter_modules", "reinforcement_tickets",
+        ):
             del current["state"][field]
         self.assertEqual(baseline["final"]["state"], current["state"])
         self.assertEqual(baseline["final"]["rng_state"], current["rng_state"])

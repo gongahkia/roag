@@ -119,6 +119,19 @@ class SaveTests(unittest.TestCase):
         with self.assertRaisesRegex(RuleError, "expedition pressure"):
             GameEngine.from_snapshot(self.catalog, broken)
 
+    def test_frozen_encounter_director_is_required_and_phase_bound(self) -> None:
+        engine = GameEngine.new(self.catalog, 102)
+        self.assertIsNone(engine.state.encounter_pressure)
+        engine.state.pressure = 480
+        engine.start_combat("lost_shift")
+        self.assertEqual(480, engine.state.encounter_pressure)
+        restored = GameEngine.from_snapshot(self.catalog, engine.snapshot())
+        self.assertEqual(engine.snapshot(), restored.snapshot())
+        broken = engine.snapshot()
+        broken["state"]["encounter_pressure"] = None
+        with self.assertRaisesRegex(RuleError, "frozen encounter director"):
+            GameEngine.from_snapshot(self.catalog, broken)
+
     def test_exploration_knowledge_round_trips(self) -> None:
         engine = GameEngine.new(self.catalog, 111)
         pickup = next(item for item in engine.state.pickups if not item.hidden)

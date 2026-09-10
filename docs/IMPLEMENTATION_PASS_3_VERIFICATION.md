@@ -503,3 +503,14 @@ reported **76 passes and 1 assertion failure** because a newly expanded Core
 route sentence no longer contained the old `light total` phrase; restoring that
 useful phrase, while retaining exact Pressure, corrected the compatibility
 assertion. No simulation rule changed in this UI commit.
+
+Save schema 35/engine 0.4.0 freezes encounter-entry Pressure, module IDs and
+reinforcement tickets before opening intents. Encounter start/end records retain
+the frozen profile; terminal outcomes clear active director state. Migration
+34→35 maps an already displayed combat to QUIET rather than reinterpreting it at
+its current Pressure. The first broad fixture run passed 47 checks and exposed
+**2 historical-fixture errors**: version-28/29 projections still carried fields
+that did not exist in those schemas. Removing those fields from the synthetic
+inputs and expecting the disclosed Pressure history gap corrected the fixtures;
+the focused migration/save/queue/ordering group then passed **40 tests in
+14.177s**. Strict migration checks were retained.

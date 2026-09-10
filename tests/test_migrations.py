@@ -8,7 +8,14 @@ from pathlib import Path
 
 from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.engine import GameEngine, RuleError
-from dumbest_dungeon.migrations import LEGACY_20_FINGERPRINT, MigrationError, migrate_run, run_26_to_27, run_33_to_34
+from dumbest_dungeon.migrations import (
+    LEGACY_20_FINGERPRINT,
+    MigrationError,
+    migrate_run,
+    run_26_to_27,
+    run_33_to_34,
+    run_34_to_35,
+)
 from dumbest_dungeon.policies import Policy, canonical_hash, execute_command
 
 
@@ -84,6 +91,22 @@ class MigrationTests(unittest.TestCase):
             broken["save_version"] = malformed
             with self.assertRaises(MigrationError):
                 run_33_to_34(broken)
+
+    def test_director_migration_preserves_existing_combat_at_quiet(self) -> None:
+        current = GameEngine.new(load_catalog(), 43)
+        current.start_combat("lost_shift")
+        old = current.snapshot()
+        old["save_version"] = 34
+        old["content_manifest"]["engine"] = "0.3.0"
+        for field in ("encounter_pressure", "encounter_modules", "reinforcement_tickets"):
+            del old["state"][field]
+        before = deepcopy(old)
+        migrated = run_34_to_35(old)
+        self.assertEqual(before, old)
+        self.assertEqual(0, migrated["state"]["encounter_pressure"])
+        self.assertEqual([], migrated["state"]["encounter_modules"])
+        self.assertEqual(0, migrated["state"]["reinforcement_tickets"])
+        self.assertEqual("0.4.0", migrated["content_manifest"]["engine"])
 
 
 if __name__ == "__main__":

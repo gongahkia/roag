@@ -150,6 +150,29 @@ def run_33_to_34(snapshot: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def run_34_to_35(snapshot: dict[str, Any]) -> dict[str, Any]:
+    if type(snapshot.get("save_version")) is not int or snapshot["save_version"] != 34:
+        raise MigrationError("migration 34->35 requires save version 34")
+    state = snapshot.get("state")
+    manifest = snapshot.get("content_manifest")
+    fields = {"encounter_pressure", "encounter_modules", "reinforcement_tickets"}
+    if (not isinstance(state, dict) or fields & state.keys()
+        or not isinstance(manifest, dict) or manifest.get("engine") != "0.3.0"
+        or not isinstance(state.get("phase"), str)):
+        raise MigrationError("version-34 migration requires the pre-director contract")
+    result = deepcopy(snapshot)
+    result["save_version"] = 35
+    result["content_manifest"]["engine"] = "0.4.0"
+    result["state"].update(
+        # Existing combats began before the director existed. Freezing them at
+        # QUIET preserves their displayed formation and arithmetic.
+        encounter_pressure=0 if state["phase"] == "combat" else None,
+        encounter_modules=[],
+        reinforcement_tickets=0,
+    )
+    return result
+
+
 RUN_MIGRATIONS = {
     26: run_26_to_27,
     27: run_27_to_28,
@@ -159,6 +182,7 @@ RUN_MIGRATIONS = {
     31: run_31_to_32,
     32: run_32_to_33,
     33: run_33_to_34,
+    34: run_34_to_35,
 }
 
 

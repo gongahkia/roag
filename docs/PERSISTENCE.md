@@ -1,8 +1,14 @@
 # Persistence contracts
 
-The run save currently uses schema 34, content schema 21, and the existing Python
+The run save currently uses schema 35, content schema 21, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry and manifests are implemented; the persistent profile is still pending.
+
+Schema 35 records engine 0.4.0 and freezes the Pressure seen at encounter entry,
+selected director modules and reinforcement tickets. Migration 34→35 gives an
+already active combat the QUIET profile so its previously shown composition and
+arithmetic do not change; outside combat the marker remains null. It does not
+consume RNG or regenerate an encounter.
 
 Schema 34 records engine 0.3.0 and requires integer Expedition Pressure, up to
 eight validated recent causes, and an explicit historical-gap marker. The pure

@@ -186,6 +186,9 @@ class GameState:
     pressure: int = 0
     pressure_recent: list[dict[str, Any]] = field(default_factory=list)
     pressure_incomplete_before_tick: int | None = None
+    encounter_pressure: int | None = None
+    encounter_modules: list[str] = field(default_factory=list)
+    reinforcement_tickets: int = 0
     pending_opening_hand: int = 0
     boons: dict[str, dict[str, int]] = field(default_factory=dict)
     curses: dict[str, dict[str, int]] = field(default_factory=dict)
@@ -1443,6 +1446,9 @@ class GameEngine:
                 pressure=raw["pressure"],
                 pressure_recent=raw["pressure_recent"],
                 pressure_incomplete_before_tick=raw["pressure_incomplete_before_tick"],
+                encounter_pressure=raw["encounter_pressure"],
+                encounter_modules=raw["encounter_modules"],
+                reinforcement_tickets=raw["reinforcement_tickets"],
                 pending_opening_hand=raw["pending_opening_hand"],
                 boons=raw["boons"],
                 curses=raw["curses"],
@@ -1853,6 +1859,18 @@ class GameEngine:
                  or not 0 <= state.pressure_incomplete_before_tick <= state.travel_ticks)
         ):
             raise RuleError("save contains invalid expedition pressure")
+        if (
+            state.encounter_pressure is not None
+            and (type(state.encounter_pressure) is not int
+                 or not 0 <= state.encounter_pressure <= state.pressure)
+            or not isinstance(state.encounter_modules, list)
+            or any(not isinstance(module, str) or not module for module in state.encounter_modules)
+            or type(state.reinforcement_tickets) is not int
+            or state.reinforcement_tickets < 0
+            or state.phase == "combat" and state.encounter_pressure is None
+            or state.phase != "combat" and state.encounter_pressure is not None
+        ):
+            raise RuleError("save contains an invalid frozen encounter director")
         for hero_id, effects in state.boons.items():
             if hero_id not in hero_ids or any(
                 boon_id not in catalog.boons or not isinstance(count, int) or count < 1
@@ -3314,6 +3332,9 @@ class GameEngine:
             enemy_id not in self.catalog.enemies for enemy_id in formation
         ):
             raise RuleError("combat formation must contain one to four known enemies")
+        self.state.encounter_pressure = self.state.pressure
+        self.state.encounter_modules = []
+        self.state.reinforcement_tickets = 0
         self.state.phase = "combat"
         self.resolution.state.combat_token += 1
         self.state.combat_kind = kind or encounter["kind"]
@@ -3343,7 +3364,10 @@ class GameEngine:
         names = " / ".join(self.catalog.enemies[enemy_id]["name"] for enemy_id in formation)
         self.record("encounter_start", encounter_id, enemies=formation, kind=self.state.combat_kind,
                     plan=self._formation_plan(self.catalog, formation), biome=self.current_biome(),
-                    surprised=surprised, crew=[asdict(hero) for hero in self.living_heroes()])
+                    surprised=surprised, crew=[asdict(hero) for hero in self.living_heroes()],
+                    pressure=self.state.encounter_pressure,
+                    pressure_band=pressure_band(self.state.encounter_pressure).id,
+                    modules=list(self.state.encounter_modules))
         self.add_log(f"Combat begins: {encounter['id']}. Formation: {names}.")
         self._start_player_turn()
         self.state.intents = self._choose_intents()
@@ -4579,7 +4603,10 @@ class GameEngine:
         if not survivors:
             if self.state.phase == "combat":
                 self.record("encounter_end", "combat", result="defeat", kind=self.state.combat_kind,
-                            rounds=self.state.round, crew=[asdict(actor) for actor in self.state.heroes])
+                            rounds=self.state.round, crew=[asdict(actor) for actor in self.state.heroes],
+                            pressure=self.state.encounter_pressure,
+                            modules=list(self.state.encounter_modules))
+                self._clear_encounter_director()
             self.state.phase = "defeat"
             self.add_log(f"{hero.name} dies. No crew remain.")
             return
@@ -4696,10 +4723,17 @@ class GameEngine:
         for rank, actor in enumerate(sorted((item for item in party if item.alive), key=lambda item: item.rank), 1):
             actor.rank = rank
 
+    def _clear_encounter_director(self) -> None:
+        self.state.encounter_pressure = None
+        self.state.encounter_modules = []
+        self.state.reinforcement_tickets = 0
+
     def _combat_victory(self) -> None:
         kind = self.state.combat_kind
         self.record("encounter_end", "combat", result="victory", kind=kind, rounds=self.state.round,
-                    crew=[asdict(hero) for hero in self.state.heroes])
+                    crew=[asdict(hero) for hero in self.state.heroes],
+                    pressure=self.state.encounter_pressure,
+                    modules=list(self.state.encounter_modules))
         for hero in self.living_heroes():
             healing = round(self._hero_effect_value(hero, "boon", "combat_victory_heal"))
             if healing:
@@ -4721,6 +4755,7 @@ class GameEngine:
         self.state.draw_pile = []
         self.state.discard_pile = []
         self.state.intents = []
+        self._clear_encounter_director()
         if kind == "boss":
             self.room().resolved = True
             self.state.phase = "victory"
