@@ -1,5 +1,5 @@
 {
-  "schema_version": 26,
+  "schema_version": 27,
   "balance": {
     "hand_size": 5,
     "energy": 3,
@@ -810,7 +810,13 @@
     {"id":"targeting_prism","name":"Targeting Prism","description":"Increase damage against marked hostiles with diminishing returns.","effects":[{"key":"marked_damage_bonus","unit":"basis_points","stack":{"mode":"hyperbolic","amount":400,"cap":3500}}]},
     {"id":"reserve_cell","name":"Reserve Cell","description":"After a played card leaves energy at zero, recover 1 energy once per combat; four copies recover 2.","effects":[{"key":"reserve_energy","unit":"count","stack":{"mode":"table","amount":0,"table":[0,1,1,1,2]}}]},
     {"id":"deflection_foil","name":"Deflection Foil","description":"Reduce each hero's first unblocked hit per combat.","effects":[{"key":"deflection","unit":"count","stack":{"mode":"linear","amount":1,"cap":6}}]},
-    {"id":"oracle_relay","name":"Oracle Relay","description":"Boon beacons offer 1 additional rule; three copies offer 2. You still choose one.","effects":[{"key":"boon_offer_choices","unit":"count","stack":{"mode":"table","amount":0,"table":[0,1,1,2]}}]}
+    {"id":"oracle_relay","name":"Oracle Relay","description":"Boon beacons offer 1 additional rule; three copies offer 2. You still choose one.","effects":[{"key":"boon_offer_choices","unit":"count","stack":{"mode":"table","amount":0,"table":[0,1,1,2]}}]},
+    {"id":"base:pathfinder_spool","name":"Pathfinder Spool","description":"Each copy adds 1 route reach up to 4; four copies also add 1 opening card.","effects":[{"key":"survey_reach","unit":"count","stack":{"mode":"linear","amount":1,"cap":4}},{"key":"opening_hand","unit":"count","stack":{"mode":"threshold","amount":1,"every":4,"cap":1}}]},
+    {"id":"base:hush_index","name":"Hush Index","description":"The first copy shrinks patrol reach; copies three and five shrink it again, and four copies add 1 boon choice.","effects":[{"key":"patrol_aggression_reduction","unit":"count","stack":{"mode":"table","amount":0,"table":[0,1,1,2,2,3]}},{"key":"boon_offer_choices","unit":"count","stack":{"mode":"threshold","amount":1,"every":4,"cap":1}}]},
+    {"id":"base:trauma_satchel","name":"Trauma Satchel","description":"Each copy adds 2 supply healing up to 8; every three copies also heal 1 after victory.","effects":[{"key":"supply_heal_bonus","unit":"count","stack":{"mode":"linear","amount":2,"cap":8}},{"key":"combat_victory_heal","unit":"count","stack":{"mode":"threshold","amount":1,"every":3,"cap":2}}]},
+    {"id":"base:flare_capacitor","name":"Flare Capacitor","description":"Each copy adds 3 supply light up to 15; every three copies also add 1 opening energy.","effects":[{"key":"supply_light_bonus","unit":"count","stack":{"mode":"linear","amount":3,"cap":15}},{"key":"first_round_energy","unit":"count","stack":{"mode":"threshold","amount":1,"every":3,"cap":2}}]},
+    {"id":"base:scar_laminate","name":"Scar Laminate","description":"One copy shortens wounds by 1, four shorten by 2; every two copies add 1 opening block up to 3.","effects":[{"key":"wound_reduction","unit":"count","stack":{"mode":"table","amount":0,"table":[0,1,1,1,2]}},{"key":"stacked_start_block","unit":"count","stack":{"mode":"threshold","amount":1,"every":2,"cap":3}}]},
+    {"id":"base:quarry_battery","name":"Quarry Battery","description":"Marked damage gains diminishing strength; four copies also arm one reserve energy recovery.","effects":[{"key":"marked_damage_bonus","unit":"basis_points","stack":{"mode":"hyperbolic","amount":300,"cap":3000}},{"key":"reserve_energy","unit":"count","stack":{"mode":"threshold","amount":1,"every":4,"cap":1}}]}
   ],
   "afflictions": [
     {"id":"panicked","name":"Panicked","description":"Stress rises every round.","modifiers":{"turn_stress":3}},

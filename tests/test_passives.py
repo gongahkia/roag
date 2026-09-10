@@ -30,6 +30,24 @@ class PassiveContractTests(unittest.TestCase):
             for count in (0, 1, 2, 5, 10, 100):
                 self.assertEqual(min(amount * count, cap), effect.contract.value(count))
 
+    def test_route_recovery_and_payoff_item_bridges_have_exact_thresholds(self) -> None:
+        catalog = load_catalog()
+        expected = {
+            "base:pathfinder_spool": ([1, 0], [4, 1]),
+            "base:hush_index": ([1, 0], [2, 1]),
+            "base:trauma_satchel": ([2, 0], [8, 1]),
+            "base:flare_capacitor": ([3, 0], [12, 1]),
+            "base:scar_laminate": ([1, 0], [2, 2]),
+            "base:quarry_battery": ([Fraction(3, 100), 0], [Fraction(923, 10000), 1]),
+        }
+        for identity, (first, fourth) in expected.items():
+            effects = catalog.items[identity]["effects"]
+            self.assertEqual(first, [effect.contract.value(1) for effect in effects])
+            self.assertEqual(fourth, [effect.contract.value(4) for effect in effects])
+            detail = GameEngine.new(catalog, 42).effect_description("item", identity, 3)
+            self.assertIn("Current:", detail)
+            self.assertIn("next:", detail)
+
     def test_live_linear_boon_family_preserves_each_count_and_cap(self) -> None:
         expected = {
             "iron_benediction": (3, 15), "clear_signal": (3, 15),

@@ -559,8 +559,8 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
     _fields(raw, "schema_version balance " + " ".join(CONTENT_FIELDS), "content root")
     _fields(art, "schema_version title heroes enemies card_glyphs card_marks curse_card_glyph curse_card_mark", "art root")
     _fields(card_metadata, "schema_version cards", "card metadata root")
-    if type(raw.get("schema_version")) is not int or raw["schema_version"] not in {20, 21, 22, 23, 24, 25, CONTENT_SCHEMA}:
-        raise ContentError(f"content schema_version must be historical 20..25 or current {CONTENT_SCHEMA}")
+    if type(raw.get("schema_version")) is not int or not 20 <= raw["schema_version"] <= CONTENT_SCHEMA:
+        raise ContentError(f"content schema_version must be supported 20..{CONTENT_SCHEMA}")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
     heroes = _indexed(raw.get("heroes"), "heroes")
