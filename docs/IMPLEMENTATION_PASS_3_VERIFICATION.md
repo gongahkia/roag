@@ -393,3 +393,12 @@ responses; their queue timing and limits are unchanged. The focused passive,
 live-stack, card-resolution, queue-save, saved-rule and archive group passed
 **34 tests in 20.199s**. Warning-enabled compilation, content validation and
 scoped diff checks passed.
+
+Four percentage boons now use exact hyperbolic basis-point rules. Their first
+copies retain their prior values; later stacks diminish toward disclosed caps,
+including Last Word's Death's Door resistance. A first focused invocation named
+two nonexistent EngineTests and therefore reported **15 passes and 2 discovery
+errors**; no production failure was hidden. The corrected passive, casualty,
+pickup, saved-rule and archive group passed **17 tests in 4.656s**. Warning-enabled
+compilation, content validation and scoped diff checks passed. Later-stack balance
+remains part of the pending natural-policy comparison.

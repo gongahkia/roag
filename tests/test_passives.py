@@ -35,6 +35,23 @@ class PassiveContractTests(unittest.TestCase):
         self.assertEqual(Fraction(1, 10), blood_price.value(1))
         self.assertEqual(Fraction(1, 4), blood_price.value(100))
 
+    def test_diminishing_boons_have_exact_first_copy_and_soft_caps(self) -> None:
+        expected = {
+            "gentle_hands": (800, 5000),
+            "marked_quarry": (800, 5000),
+            "calm_under_fire": (700, 4500),
+            "last_word": (500, 2000),
+        }
+        catalog = load_catalog()
+        for identity, (first, soft_cap) in expected.items():
+            contract = catalog.boons[identity]["effects"][0].contract
+            values = [contract.value(count) for count in range(65)]
+            self.assertEqual(Fraction(first, 10000), values[1])
+            self.assertTrue(all(before <= after for before, after in zip(values, values[1:])))
+            self.assertTrue(all(value < Fraction(soft_cap, 10000) for value in values[1:]))
+            detail = GameEngine.new(catalog, 42).effect_description("boon", identity, 2)
+            self.assertIn("Soft cap:", detail)
+
     def test_explicit_effect_is_typed_cached_and_has_exact_units(self) -> None:
         raw = {"key": "marked_damage_bonus", "unit": "basis_points", "stack": {"mode": "linear", "amount": 425}}
         rule = persistent_effect(raw)
