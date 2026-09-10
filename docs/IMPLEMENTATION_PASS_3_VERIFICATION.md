@@ -658,3 +658,7 @@ Judge and Sump Matron form two elite-only target-order patterns; Pressure
 Sovereign is the biome guardian. All Flooded natives now have three actions.
 Census: 103 enemies and 142 encounters. This batch retains the existing normal
 HP ceiling and does not reintroduce the pre-calibration Undertow spike.
+
+Content schema 39 adds Storm Expanse mark/cash fliers, protection elites and
+the Tempest Engine guardian. Every legacy Storm native now has a third action.
+Census: 108 enemies and 147 encounters.
