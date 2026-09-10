@@ -214,6 +214,10 @@
     "telekinetic_shear": {"tags": ["control", "damage", "displacement"], "upgrade_description": "Upgrade: deal 8, push the target to the back, and weaken for 3 rounds."},
     "pain_mirror": {"tags": ["draw", "status:focus", "stress_risk"], "upgrade_description": "Upgrade: gain 3 focus, draw 2, and gain 3 stress."},
     "somatic_echo": {"tags": ["block", "damage", "payoff:wound"], "upgrade_description": "Upgrade: deal 9, plus 7 if wounded; a wound grants all crew 4 block."},
-    "mass_hallucination": {"tags": ["control", "setup:vulnerable", "stress_risk"], "upgrade_description": "Upgrade: while stressed, stun, deeply weaken, and expose every hostile; gain 7 stress."}
+    "mass_hallucination": {"tags": ["control", "setup:vulnerable", "stress_risk"], "upgrade_description": "Upgrade: while stressed, stun, deeply weaken, and expose every hostile; gain 7 stress."},
+    "planned_obsolescence": {"tags": ["block", "discard", "draw", "energy"], "upgrade_description": "Upgrade: discard 2, draw 4, gain 1 energy and 4 block."},
+    "field_rations": {"tags": ["block", "recovery", "stress_relief"], "upgrade_description": "Upgrade: all crew heal 4, gain 6 block, and reduce 3 stress."},
+    "bounty_allocation": {"tags": ["block", "control", "draw", "payoff:marked"], "upgrade_description": "Upgrade: against a mark, grant 6 block to all, draw 2, and weaken the target."},
+    "empty_locker": {"tags": ["discard", "draw", "energy", "stress_risk"], "upgrade_description": "Upgrade: draw 5, discard 2, gain 2 energy, and take 6 stress."}
   }
 }
