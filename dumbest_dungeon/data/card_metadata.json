@@ -222,6 +222,10 @@
     "painted_exit": {"tags": ["damage", "mobility", "payoff:marked", "status:dodge"], "upgrade_description": "Upgrade: deal 10, plus 7 if marked; retreat 2 and dodge from a mark."},
     "dead_drop": {"tags": ["discard", "draw", "mobility", "status:dodge"], "upgrade_description": "Upgrade: vanish to the back, dodge for 2 rounds, discard 1, and draw 3."},
     "septic_round": {"tags": ["control", "damage", "payoff:wound", "setup:marked"], "upgrade_description": "Upgrade: deal 9, plus 8 if wounded; mark and weaken a wounded target."},
-    "ghost_protocol": {"tags": ["draw", "mobility", "status:dodge", "status:focus", "stress_risk"], "upgrade_description": "Upgrade: while healthy, vanish, gain 3 dodge and focus, draw 3, and gain 5 stress."}
+    "ghost_protocol": {"tags": ["draw", "mobility", "status:dodge", "status:focus", "stress_risk"], "upgrade_description": "Upgrade: while healthy, vanish, gain 3 dodge and focus, draw 3, and gain 5 stress."},
+    "incubate": {"tags": ["control", "payoff:wound", "setup:vulnerable", "setup:wound"], "upgrade_description": "Upgrade: wound for 5; deeply weaken and expose an already wounded target."},
+    "shock_serum": {"tags": ["block", "draw", "energy", "payoff:deaths_door", "recovery"], "upgrade_description": "Upgrade: heal 8; at Death's Door grant 12 block, gain 1 energy, and draw 1."},
+    "tagged_specimen": {"tags": ["damage", "draw", "payoff:marked", "setup:wound"], "upgrade_description": "Upgrade: deal 8, plus 6 if marked; wound for 3 and draw 1 from a mark."},
+    "controlled_mutation": {"tags": ["cleanse", "recovery", "status:dodge", "status:focus"], "upgrade_description": "Upgrade: cleanse, heal 14, grant 4 focus and dodge, then take a shorter wound."}
   }
 }
