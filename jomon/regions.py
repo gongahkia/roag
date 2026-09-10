@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
-from collections import deque
+from collections import OrderedDict, deque
 import copy
 import hashlib
 
 from .content import COMMODITIES, ENEMY_ARCHETYPES
 from .encounters import production_encounter_groups, threat_from_archetype
 from .state import Contact, Container, MarketEntry, Position, Region, Threat, VerticalLink, stage_rng
+
+
+_REACHABLE_CACHE: OrderedDict[
+    tuple[object, ...], tuple[object, frozenset[Position]]
+] = OrderedDict()
+_REACHABLE_CACHE_LIMIT = 64
 
 
 def _grid(width: int, height: int, fill: str = " ") -> list[list[str]]:
@@ -81,10 +87,21 @@ def _stock_containers(containers: list[Container], armour: list[str], supplies: 
         container.extra_rewards = [armour[index], supplies[index]]
 
 
-def region_reachable(region: Region, start: Position | None = None) -> set[Position]:
+def region_reachable(region: Region, start: Position | None = None) -> frozenset[Position]:
     start = start or region.landmarks["landing"]
     width, height = region.width, region.height
     levels = sorted(int(z) for z in region.levels)
+    stable_geography = getattr(region, "geography_signature", "")
+    cache_key = (
+        id(region), stable_geography or tuple((z, tuple(region.levels[str(z)])) for z in levels),
+        width, height, start,
+        tuple(sorted(region.tile_changes.items())),
+        tuple((link.first, link.second, link.name) for link in region.vertical_links),
+    )
+    cached = _REACHABLE_CACHE.get(cache_key)
+    if cached is not None and cached[0] is region:
+        _REACHABLE_CACHE.move_to_end(cache_key)
+        return cached[1]
     stride = width * height
     if width < 1 or height < 1 or any(
         len(rows) != height or any(len(row) != width for row in rows)
@@ -130,7 +147,12 @@ def region_reachable(region: Region, start: Position | None = None) -> set[Posit
         y, x = divmod(cell, width)
         result.add(Position(x, y, levels[level_index]))
         seen ^= bit
-    return result
+    frozen = frozenset(result)
+    _REACHABLE_CACHE[cache_key] = (region, frozen)
+    _REACHABLE_CACHE.move_to_end(cache_key)
+    while len(_REACHABLE_CACHE) > _REACHABLE_CACHE_LIMIT:
+        _REACHABLE_CACHE.popitem(last=False)
+    return frozen
 
 
 def validate_region(region: Region) -> None:

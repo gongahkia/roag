@@ -152,3 +152,19 @@ class SpatialCacheTests(unittest.TestCase):
                         expected.add(point)
                         queue.append(point)
             self.assertEqual(region_reachable(region), expected)
+
+    def test_reachability_cache_is_bounded_and_invalidates_sparse_changes(self):
+        from jomon.regions import (
+            _REACHABLE_CACHE, _REACHABLE_CACHE_LIMIT, region_reachable,
+        )
+        region = self.state.region
+        _REACHABLE_CACHE.clear()
+        first = region_reachable(region)
+        size = len(_REACHABLE_CACHE)
+        self.assertEqual(region_reachable(region), first)
+        self.assertEqual(len(_REACHABLE_CACHE), size)
+        target = next(point for point in first if point != region.landmarks["landing"])
+        region.tile_changes[f"{target.x},{target.y},{target.z}"] = "#"
+        self.assertNotIn(target, region_reachable(region))
+        self.assertGreater(len(_REACHABLE_CACHE), size)
+        self.assertLessEqual(len(_REACHABLE_CACHE), _REACHABLE_CACHE_LIMIT)
