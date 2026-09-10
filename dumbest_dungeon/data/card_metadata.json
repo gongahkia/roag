@@ -190,6 +190,10 @@
     "last_scaffold": {"tags": ["affinity:ossuary", "block", "guard", "payoff:deaths_door", "recovery"], "upgrade_description": "Guard for 3, gain 8 block, and rescue allies at Death's Door."},
     "bone_saw": {"tags": ["affinity:ossuary", "block", "damage", "payoff:wound", "recovery"], "upgrade_description": "Upgrade: deal 8, plus 8 if wounded; heal 4 and gain 4 block from a wounded target."},
     "cage_of_ribs": {"tags": ["affinity:ossuary", "block", "status:riposte"], "upgrade_description": "Upgrade: all gain 6 block, plus 5 if anyone is wounded; gain riposte."},
-    "borrowed_marrow": {"tags": ["affinity:ossuary", "block", "cleanse", "payoff:deaths_door", "recovery"], "upgrade_description": "Upgrade: cleanse and heal 8, plus 6 at Death's Door; take a shorter wound and gain 5 block."}
+    "borrowed_marrow": {"tags": ["affinity:ossuary", "block", "cleanse", "payoff:deaths_door", "recovery"], "upgrade_description": "Upgrade: cleanse and heal 8, plus 6 at Death's Door; take a shorter wound and gain 5 block."},
+    "crossguard": {"tags": ["block", "guard", "status:riposte"], "upgrade_description": "Upgrade: guard for 3 rounds, gain 9 block, and riposte for 3 rounds."},
+    "breach_order": {"tags": ["damage", "displacement", "setup:vulnerable"], "upgrade_description": "Upgrade: deal 8, push 2 ranks, and expose for 2 rounds."},
+    "marked_intercept": {"tags": ["block", "draw", "guard", "payoff:marked"], "upgrade_description": "Upgrade: guard for 2 rounds, gain 4 block, and draw if the ally is marked."},
+    "last_bulwark": {"tags": ["block", "energy", "payoff:deaths_door", "status:riposte"], "upgrade_description": "Upgrade: at Death's Door grant 12 block, riposte for 3 rounds, and gain 1 energy."}
   }
 }

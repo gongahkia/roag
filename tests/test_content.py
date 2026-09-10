@@ -160,12 +160,14 @@ class ContentTests(unittest.TestCase):
         catalog = load_catalog()
         schema_22 = json.loads(json.dumps(catalog.rules))
         schema_22["content_schema"] = 22
+        for card in schema_22["cards"].values():
+            card.pop("design_role", None)
         self.assertEqual(22, load_rules(schema_22).raw["schema_version"])
 
         raw = json.loads(json.dumps(catalog.raw))
-        wardens = [card for card in raw["cards"] if card["hero"] == "warden"][:4]
-        for card, role in zip(wardens, sorted(EXPANSION_CARD_ROLES)):
-            card["design_role"] = role
+        wardens = [card for card in raw["cards"] if card["hero"] == "warden"
+                   and "design_role" in card]
+        self.assertEqual(EXPANSION_CARD_ROLES, {card["design_role"] for card in wardens})
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "role-contract.json"
             path.write_text(json.dumps(raw), encoding="utf-8")
