@@ -8,6 +8,7 @@ from dumbest_dungeon.challenges import (
     decode_code, encode_code, validate_config,
 )
 from dumbest_dungeon.content import load_catalog
+from dumbest_dungeon.engine import GameEngine, RuleError
 
 
 class ChallengeTests(unittest.TestCase):
@@ -50,6 +51,33 @@ class ChallengeTests(unittest.TestCase):
             validate_config(ExpeditionConfig(seed=1, modifiers=("unknown",)), self.catalog)
         with self.assertRaises(ChallengeError):
             validate_config(ExpeditionConfig(seed=1, content_packs=("base:future",)), self.catalog)
+
+    def test_custom_world_party_and_pressure_are_frozen_and_saved(self) -> None:
+        party = tuple(list(self.catalog.heroes)[4:8])
+        config = ExpeditionConfig(
+            seed=91, party=party, biomes=tuple(list(self.catalog.biomes)[3:7]),
+            layout="ring", starting_pressure=480,
+            modifiers=("bright_but_loud", "hazardous_routes"),
+        )
+        engine = GameEngine.custom(self.catalog, config)
+        self.assertEqual("ring", self.catalog.worlds[engine.state.world_id]["layout"])
+        self.assertEqual(list(config.biomes), engine.state.biome_ids)
+        self.assertEqual(list(party), engine.state.hub_selection)
+        self.assertEqual(480, engine.state.pressure)
+        self.assertEqual("custom", engine.state.expedition_mode)
+        self.assertEqual(engine.snapshot(), GameEngine.from_snapshot(self.catalog, engine.snapshot()).snapshot())
+
+    def test_custom_modifiers_have_disclosed_foundation_effects(self) -> None:
+        plain = GameEngine.custom(self.catalog, ExpeditionConfig(seed=92))
+        altered = GameEngine.custom(
+            self.catalog,
+            ExpeditionConfig(seed=92, modifiers=("objective_sprint", "scarce_supply")),
+        )
+        self.assertEqual(1, altered.state.required_objectives)
+        self.assertEqual(600, altered.state.pressure)
+        self.assertEqual(plain.state.supplies - 2, altered.state.supplies)
+        with self.assertRaises(RuleError):
+            GameEngine.custom(self.catalog, ExpeditionConfig(seed=92), mode="networked")
 
 
 if __name__ == "__main__":

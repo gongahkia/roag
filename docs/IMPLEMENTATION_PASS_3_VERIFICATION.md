@@ -678,6 +678,11 @@ that configuration with bounded strict parsing and a checksum. The offline daily
 derives its seed from a documented SHA-256 salt/date contract and selects one
 authored modifier without networking, accounts or randomized Python hashes.
 
+Engine 1.3.0/save 44 freezes mode, modifiers and pack selection in run state.
+Custom construction chooses a requested layout and four-biome set without retry
+loops, validates party/loadout/doctrine compatibility, and round-trips the exact
+configuration. Standard runs retain the old generation and resource path.
+
 Content schema 36 gives Reactor Chapel six normal participants, two elite-only
 roles and the Choir Meltdown guardian. Three new normal roles split marking,
 cash-out and formation disruption; Critical Abbot and Containment Hulk create

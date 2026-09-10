@@ -371,6 +371,27 @@ def run_42_to_43(snapshot: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def run_43_to_44(snapshot: dict[str, Any]) -> dict[str, Any]:
+    if type(snapshot.get("save_version")) is not int or snapshot["save_version"] != 43:
+        raise MigrationError("migration 43->44 requires save version 43")
+    manifest = snapshot.get("content_manifest")
+    state = snapshot.get("state")
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("engine") != "1.2.0"
+        or not isinstance(state, dict)
+        or any(key in state for key in ("expedition_mode", "active_modifiers", "enabled_packs"))
+    ):
+        raise MigrationError("version-43 save requires the pre-challenge engine 1.2.0 contract")
+    result = deepcopy(snapshot)
+    result["state"].update(
+        expedition_mode="standard", active_modifiers=[], enabled_packs=["base:core"]
+    )
+    result["save_version"] = 44
+    result["content_manifest"]["engine"] = "1.3.0"
+    return result
+
+
 RUN_MIGRATIONS = {
     26: run_26_to_27,
     27: run_27_to_28,
@@ -389,6 +410,7 @@ RUN_MIGRATIONS = {
     40: run_40_to_41,
     41: run_41_to_42,
     42: run_42_to_43,
+    43: run_43_to_44,
 }
 
 

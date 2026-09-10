@@ -23,6 +23,7 @@ from dumbest_dungeon.migrations import (
     run_40_to_41,
     run_41_to_42,
     run_42_to_43,
+    run_43_to_44,
 )
 from dumbest_dungeon.policies import Policy, canonical_hash, execute_command
 
@@ -300,6 +301,21 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual(0, migrated["state"]["ladder_rank"])
         with self.assertRaises(MigrationError):
             run_42_to_43(migrated)
+
+    def test_challenge_migration_preserves_standard_base_pack(self) -> None:
+        current = GameEngine.new(load_catalog(), 53)
+        old = current.snapshot()
+        old["save_version"] = 43
+        old["content_manifest"]["engine"] = "1.2.0"
+        for key in ("expedition_mode", "active_modifiers", "enabled_packs"):
+            del old["state"][key]
+        before = deepcopy(old)
+        migrated = run_43_to_44(old)
+        self.assertEqual(before, old)
+        self.assertEqual(44, migrated["save_version"])
+        self.assertEqual("standard", migrated["state"]["expedition_mode"])
+        self.assertEqual([], migrated["state"]["active_modifiers"])
+        self.assertEqual(["base:core"], migrated["state"]["enabled_packs"])
 
 
 if __name__ == "__main__":

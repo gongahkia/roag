@@ -1,6 +1,6 @@
 # Persistence contracts
 
-The run save currently uses schema 43, content schema 45, and the existing Python
+The run save currently uses schema 44, content schema 45, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry, manifests, and the separate local profile are implemented.
 
@@ -285,3 +285,7 @@ parsing is length-bounded, strict about fields and versions, and compatibility
 checked against the active catalog. Offline daily seeds are the first 64 bits of
 SHA-256 over the documented salt `dullest-dungeon/offline-daily/2026-09`, daily
 ruleset 1, and the ISO calendar date. Neither feature uses Python `hash()`.
+
+Run schema 44 adds the expedition mode, sorted active challenge modifiers and
+enabled content packs. The pure 43→44 migration assigns standard mode, no
+modifiers and `base:core`; a historical expedition therefore resumes unchanged.

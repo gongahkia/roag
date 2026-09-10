@@ -22,6 +22,7 @@ from .acquisition import Lane, eligible_techniques
 from .director import DirectorProfile, director_profile
 from .manifest import canonical_bytes
 from .ladder import modifier as ladder_modifier
+from .challenges import ExpeditionConfig, MODIFIER_IDS, validate_config
 from .migrations import MigrationError, migrate_run
 from .versions import RUN_SAVE_SCHEMA
 from .telemetry import RunLedger
@@ -212,6 +213,9 @@ class GameState:
     hub_loadouts: dict[str, str] = field(default_factory=dict)
     doctrine_id: str | None = None
     ladder_rank: int = 0
+    expedition_mode: str = "standard"
+    active_modifiers: list[str] = field(default_factory=list)
+    enabled_packs: list[str] = field(default_factory=lambda: ["base:core"])
     tutorial: bool = False
     tutorial_stage: int = 0
     current_room: int = 0
@@ -630,15 +634,25 @@ class GameEngine:
         *,
         start_in_hub: bool = False,
         ladder_rank: int = 0,
+        _world_id: str | None = None,
+        _biome_ids: tuple[str, ...] = (),
     ) -> GameEngine:
         if type(ladder_rank) is not int or not 0 <= ladder_rank <= 20:
             raise RuleError("ladder rank must be 0..20")
         rng = random.Random(seed)
-        world_id = rng.choice(list(catalog.worlds))
+        world_id = _world_id or rng.choice(list(catalog.worlds))
+        if world_id not in catalog.worlds:
+            raise RuleError("custom expedition references an unknown world")
         world = catalog.worlds[world_id]
         positions, edges = WORLD_LAYOUTS[world["layout"]]
+        biome_sequence: list[str] = list(_biome_ids)
+        if biome_sequence and (
+            len(biome_sequence) != 4
+            or len(set(biome_sequence)) != 4
+            or any(biome_id not in catalog.biomes for biome_id in biome_sequence)
+        ):
+            raise RuleError("custom expedition requires four distinct known biomes")
         remaining_biomes = list(catalog.biomes)
-        biome_sequence: list[str] = []
         while len(biome_sequence) < 4:
             choice = rng.choices(
                 remaining_biomes,
@@ -687,6 +701,55 @@ class GameEngine:
         state.landmarks = engine._generate_landmarks()
         state.hazards = engine._generate_hazards(random.Random(seed ^ 0x48415A415244))
         state.facilities = engine._generate_facilities(random.Random(seed ^ 0x464143494C495459))
+        engine._update_perception()
+        if not start_in_hub:
+            engine.begin_expedition()
+        return engine
+
+    @classmethod
+    def custom(
+        cls,
+        catalog: Catalog,
+        config: ExpeditionConfig,
+        *,
+        start_in_hub: bool = True,
+        mode: str = "custom",
+    ) -> GameEngine:
+        validate_config(config, catalog)
+        if mode not in {"custom", "daily", "challenge"}:
+            raise RuleError("unknown custom expedition mode")
+        candidates = sorted(
+            world_id for world_id, world in catalog.worlds.items()
+            if config.layout is None or world["layout"] == config.layout
+        )
+        engine = cls.new(
+            catalog,
+            config.seed,
+            start_in_hub=True,
+            ladder_rank=config.ladder_rank,
+            _world_id=candidates[0] if config.layout is not None else None,
+            _biome_ids=config.biomes,
+        )
+        state = engine.state
+        state.expedition_mode = mode
+        state.active_modifiers = list(config.modifiers)
+        state.enabled_packs = list(config.content_packs)
+        if config.party:
+            state.hub_selection = list(config.party)
+        state.hub_loadouts = dict(config.loadouts)
+        state.doctrine_id = config.doctrine
+        if state.doctrine_id is not None and not engine.doctrine_compatible(state.doctrine_id):
+            raise RuleError("custom party does not satisfy its doctrine")
+        state.pressure = config.starting_pressure
+        if "objective_sprint" in state.active_modifiers:
+            state.required_objectives = 1
+            state.pressure = max(state.pressure, 600)
+        if "hungry_light" in state.active_modifiers:
+            state.light = max(1, state.light - 25)
+        if "bright_but_loud" in state.active_modifiers:
+            state.light += 15
+        if "scarce_supply" in state.active_modifiers:
+            state.supplies = max(0, state.supplies - 2)
         engine._update_perception()
         if not start_in_hub:
             engine.begin_expedition()
@@ -939,6 +1002,8 @@ class GameEngine:
                     formation=[hero.id for hero in self.living_heroes()],
                     loadouts=dict(self.state.hub_loadouts), doctrine=self.state.doctrine_id,
                     ladder_rank=self.state.ladder_rank,
+                    mode=self.state.expedition_mode, modifiers=list(self.state.active_modifiers),
+                    packs=list(self.state.enabled_packs),
                     deck=[asdict(card) for card in self.state.deck], manifest=self.catalog.manifest.snapshot())
 
     @staticmethod
@@ -1596,6 +1661,9 @@ class GameEngine:
                 hub_loadouts=raw["hub_loadouts"],
                 doctrine_id=raw["doctrine_id"],
                 ladder_rank=raw["ladder_rank"],
+                expedition_mode=raw["expedition_mode"],
+                active_modifiers=raw["active_modifiers"],
+                enabled_packs=raw["enabled_packs"],
                 tutorial=raw["tutorial"],
                 tutorial_stage=raw["tutorial_stage"],
                 current_room=raw["current_room"],
@@ -1654,6 +1722,15 @@ class GameEngine:
             raise RuleError("save references an unknown world type")
         if type(state.ladder_rank) is not int or not 0 <= state.ladder_rank <= 20:
             raise RuleError("save contains an invalid ladder rank")
+        if state.expedition_mode not in {"standard", "custom", "daily", "challenge"}:
+            raise RuleError("save contains an invalid expedition mode")
+        if (
+            not isinstance(state.active_modifiers, list)
+            or state.active_modifiers != sorted(set(state.active_modifiers))
+            or any(item not in MODIFIER_IDS for item in state.active_modifiers)
+            or state.enabled_packs != ["base:core"]
+        ):
+            raise RuleError("save contains incompatible challenge configuration")
         if (
             not isinstance(state.biome_ids, list)
             or len(state.biome_ids) != 4
@@ -2291,9 +2368,13 @@ class GameEngine:
     def _advance_pressure(self, source: PressureSource, units: int, detail: str) -> int:
         amount = action_price(source, units)
         amount = (amount * (10_000 + ladder_modifier(self.state.ladder_rank, "pressure_bp")) + 9_999) // 10_000
+        if "accelerated_pressure" in self.state.active_modifiers:
+            amount = (amount * 12 + 9) // 10
         if units:
             if source == PressureSource.TRAVEL:
                 amount += ladder_modifier(self.state.ladder_rank, "travel_pressure_flat")
+                if "bright_but_loud" in self.state.active_modifiers:
+                    amount += 3
             elif source == PressureSource.OBJECTIVE_STAGE:
                 amount += ladder_modifier(self.state.ladder_rank, "objective_pressure_flat")
         if not amount:
@@ -2377,9 +2458,13 @@ class GameEngine:
         kind = self.state.combat_kind or "normal"
         health = ladder_modifier(self.state.ladder_rank, "normal_health_bp")
         mutations = ladder_modifier(self.state.ladder_rank, "mutation_slots")
+        if "third_card_reaction" in self.state.active_modifiers:
+            mutations += 1
         if kind == "elite":
             health += ladder_modifier(self.state.ladder_rank, "elite_health_bp")
             mutations += ladder_modifier(self.state.ladder_rank, "elite_mutation_slots")
+            if "elite_weather" in self.state.active_modifiers:
+                mutations += 1
         elif kind == "guardian":
             health += ladder_modifier(self.state.ladder_rank, "guardian_health_bp")
         elif kind == "boss":
@@ -2416,7 +2501,11 @@ class GameEngine:
                 profile.patrol_cadence_reduction
                 + ladder_modifier(self.state.ladder_rank, "patrol_cadence")
             ),
-            hazard_reach=profile.hazard_reach + ladder_modifier(self.state.ladder_rank, "hazard_reach"),
+            hazard_reach=(
+                profile.hazard_reach
+                + ladder_modifier(self.state.ladder_rank, "hazard_reach")
+                + (1 if "hazardous_routes" in self.state.active_modifiers else 0)
+            ),
         )
 
     def _select_encounter_mutations(
