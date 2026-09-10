@@ -1428,11 +1428,18 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         or "surveyed soft-step" in build_combinations(state)
         or ("smoke spoor" in state.courier.learned_techniques and position_key(target) in state.smoke)
     )
+    from .practices import has_effect as has_practice_effect
+
+    practice_mud = (
+        has_practice_effect(state, "mud-quiet")
+        or has_practice_effect(state, "clay-step")
+    )
     if tile == "m" and not (
         state.gear == "quiet shoes"
         or "reed sole wraps" in state.carried_passives
         or "fen sledge" in state.carried_passives
         or "mudproof" in worn_tags(state, ("feet",))
+        or practice_mud
     ):
         messages.append("Mud drags at your step; sound carries.")
         messages.extend(emit_sound(state, 1, target))
@@ -1459,6 +1466,11 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         protected = (
             state.gear == "rope"
             or (state.courier and "shoreline measure" in state.courier.learned_techniques)
+            or has_practice_effect(state, "shallow-water-step")
+            or (
+                has_practice_effect(state, "wet-load-step")
+                and load_state(state) in {"encumbered", "overloaded"}
+            )
             or "river hooks" in state.carried_passives
             or "shingle skids" in state.carried_passives
             or (state.courier and state.courier.technique == "sure footing")
@@ -1485,6 +1497,10 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         burden in {"encumbered", "overloaded"}
         and state.location == "region"
         and not (
+            has_practice_effect(state, "wet-load-step")
+            and (tile == "m" or position_key(target) in state.water)
+        )
+        and not (
             "shingle skids" in state.carried_passives
             and position_key(target) in state.water
         )
@@ -1504,6 +1520,8 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         slowing_statuses.discard("bogged")
     if "shingle skids" in state.carried_passives:
         slowing_statuses.discard("current")
+    if has_practice_effect(state, "clay-step"):
+        slowing_statuses.discard("bogged")
     status_delay = bool(slowing_statuses)
     mapped_shortcut = (
         "coppice map" in state.carried_passives
@@ -1720,6 +1738,18 @@ def _open_container(state: GameState) -> ActionResult:
         if institution:
             institution.confidence = min(3, institution.confidence + 1)
         tally_text = " The difficult recovery is entered on the salvage tally for one witnessed credit."
+    from .practices import has_effect as has_practice_effect
+
+    practice_key = f"wreck_title_hold:{state.active_region_id}"
+    if (
+        requirement and has_practice_effect(state, "secured-salvage")
+        and not state.vessel_changes.get(practice_key)
+    ):
+        state.vessel_changes[practice_key] = True
+        institution = state.institutions.get(f"work:{state.active_region_id}")
+        if institution:
+            institution.confidence = min(3, institution.confidence + 1)
+        tally_text += " Wreck-title hold records the first difficult recovery for one institutional confidence."
     state.remember(
         f"{state.courier.name} opened {container.name} and found {', '.join(display_rewards)}."
     )
@@ -1953,6 +1983,10 @@ def interact(state: GameState) -> ActionResult:
             and destination.z > state.position.z
         )
         armour_climb = armour_mobility(state) >= 3 and destination.z > state.position.z
+        from .practices import has_effect as has_practice_effect
+
+        if has_practice_effect(state, "stair-economy"):
+            injured_climb = armour_climb = False
         blocker = next(
             (
                 threat
@@ -2262,6 +2296,13 @@ def effective_weapon_range(state: GameState) -> int:
         attack_range += 2
     if state.weapon in RANGED_WEAPONS and "narrow-sight" in worn_tags(state, ("head",)):
         attack_range = max(1, attack_range - 2)
+    from .practices import has_effect as has_practice_effect
+
+    if (
+        state.weapon in RANGED_WEAPONS and state.position.z > 0
+        and has_practice_effect(state, "elevated-range")
+    ):
+        attack_range += 1
     return attack_range
 
 
@@ -2463,6 +2504,16 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
             target.morale -= 1
             target.position = _step_toward(state, target, state.position)
             weapon_text += "; Cast Bind hauls the restrained target one pace"
+        from .practices import has_effect as has_practice_effect
+
+        if has_practice_effect(state, "net-recover"):
+            recovered = create_item(
+                state, "consumable:casting net bundle",
+                "recoverable net from Thaw-net Recovery", location="ground",
+            )
+            recovered.region_id = state.spatial_id
+            recovered.ground_position = target.position
+            weapon_text += "; Thaw-net Recovery leaves the physical net at the target"
     elif state.weapon == "hooked javelin":
         old_position = target.position
         target.position = _step_toward(state, target, state.position)
@@ -2658,6 +2709,13 @@ def guard(state: GameState, target_id: str | None = None) -> ActionResult:
         or "hearth-ale" in state.drink_effects
         or ("brace" in worn_tags(state, ("arms",)) and "wet" not in state.terrain_statuses)
     )
+    from .practices import has_effect as has_practice_effect
+
+    if (
+        state.weapon in {"spear", "pike", "boar spear", "glaive", "quarterstaff"}
+        and has_practice_effect(state, "reach-retreat")
+    ):
+        strong = True
     if state.courier and ({"arms", "hands"} & set(state.courier.injuries)):
         strong = False
     hindering = {"poor-footing", "smoke-inhalation", "net-drag", "lime-grit"} & set(state.terrain_statuses)
@@ -2680,6 +2738,7 @@ def guard(state: GameState, target_id: str | None = None) -> ActionResult:
             and "thorn-scratched" in state.terrain_statuses
         )
         or "miller-small-beer" in state.drink_effects
+        or has_practice_effect(state, "reach-retreat")
     )
     if "shielded set stance" in build_combinations(state):
         text = "Buckler and set stance deny the attack and press hostile morale."
@@ -2697,6 +2756,14 @@ def guard(state: GameState, target_id: str | None = None) -> ActionResult:
             support.support = min(3, support.support + 1)
             support.collapse_due = 0
             text += " The counterbrace pin restores one support and cancels its warned collapse."
+    if has_practice_effect(state, "support-guard"):
+        from .materials import fields as material_fields, key as material_key
+
+        support = material_fields(state).get(material_key(state.position))
+        if support and (support.support < 3 or support.collapse_due):
+            support.support = min(3, support.support + 1)
+            support.collapse_due = 0
+            text += " Span-watch stance seats one support and cancels its warning."
     if brace_target:
         state.aimed_target = brace_target.id
         text += (

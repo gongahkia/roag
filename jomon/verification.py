@@ -22,6 +22,7 @@ from .frontiers import FRONTIERS, ensure_frontier
 from .inventory import BASIC_COURIER_ARMOUR, BASIC_COURIER_LOADOUTS, ITEM_SPECS
 from .legendary import validate_legends
 from .living_audit import living_audit
+from .practices import PRACTICES, validate_practices
 from .quests import ADDITIONAL_ARCS, QUESTS, quest_reachability_audit
 from .save import load_game, save_game
 from .ship_crises import TACTICAL, VOYAGES
@@ -48,6 +49,7 @@ def _techniques() -> set[str]:
         set(ROLE_TECHNIQUE.values())
         | {str(template["technique"]) for template in RECRUIT_TEMPLATES}
         | {"mill hearing", "shoreline measure", "smoke spoor", "bell interval"}
+        | set(PRACTICES)
     )
 
 
@@ -57,6 +59,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
     validate_build_scenarios()
     validate_roster()
     validate_legends(state)
+    validate_practices()
     roster = roster_audit()
     armour = {kind for kind, spec in ITEM_SPECS.items() if spec.category == "armour"}
     techniques = _techniques()
@@ -82,7 +85,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
     minima = {
         "regions": 8, "standard_enemies": 72, "mechanically_distinct_enemies": 72,
         "elite_situations": 24, "named_rivals": 8, "weapons": 36,
-        "armour": 36, "active_passives_and_techniques": 64,
+        "armour": 36, "techniques": 32, "active_passives_and_techniques": 80,
         "secondary_tools_supplies_drinks": 32, "relics": 12,
         "containers": 60, "regional_questlines": 20, "cross_region_arcs": 5,
         "institutions": 12, "persistent_nonhostile_characters": 38,

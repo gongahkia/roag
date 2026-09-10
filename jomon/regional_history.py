@@ -466,6 +466,12 @@ def network_service_options(
     if institution is None:
         return ()
     marker = f"network-shelter:{institution.id}:{state.active_region_id}"
+    from .practices import NETWORK_CONTACT_PRACTICE
+
+    practice = NETWORK_CONTACT_PRACTICE[contact_id]
+    learned = bool(
+        state.courier and practice in state.courier.learned_techniques
+    )
     return (
         (
             "d", f"Transfer one {institution.dependency} into the travelling account",
@@ -476,6 +482,11 @@ def network_service_options(
             "c", "Open the witnessed shelter and safer connected route",
             "commitment", institution.trust >= 1 and not state.vessel_changes.get(marker),
             "needs one network trust; each regional shelter opens once",
+        ),
+        (
+            "t", f"Learn {practice}", "ordinary",
+            institution.trust >= 1 and not learned,
+            "needs one network trust; this courier may learn the practice once",
         ),
     )
 

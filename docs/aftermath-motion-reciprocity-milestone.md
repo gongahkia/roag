@@ -180,5 +180,13 @@ new magic, infinite contracts or additional major region is planned.
   lowers connected cargo/weather exposure and records an obligation. The
   relationships, opposition, service and acts are inspectable and migrate into
   existing format-7 states without moving retained contacts.
-- The remaining practice, tool, relic, vessel and voyage content
+- Sixteen additional learned practices now bring the technique total to 32.
+  Eight are taught by trusted travelling witnesses and eight by completing
+  both contracts in a regional aftermath. Their distinct reducers affect wet
+  and muddy movement, noise, difficult salvage, structural guard, smoke and
+  storm sight, loaded crossings, elevation range, ice, tool-free material
+  work, injured climbs, reach withdrawal and physical net recovery. Practice
+  descriptions are inspectable on the courier and every acquisition is
+  remembered; focused production and behavior tests cover all 16.
+- The remaining tool/preparation, relic, vessel and voyage content
   multiplication gates remain open.

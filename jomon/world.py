@@ -289,6 +289,14 @@ def sight_radius(state: GameState) -> int:
         radius += 2
     if "smoke spoor" in known and position_key(state.position) in state.smoke:
         radius = max(radius, 5)
+    from .practices import has_effect as has_practice_effect
+
+    if has_practice_effect(state, "smoke-sight") and position_key(state.position) in state.smoke:
+        radius = max(radius, 5)
+    if has_practice_effect(state, "storm-sight") and state.weather in {
+        "river fog", "hard rain", "coast squall", "forest rain",
+    }:
+        radius += 1
     if "reed-tonic" in state.drink_effects:
         radius = max(3, radius - 2)
     from .worklines import beacon_active

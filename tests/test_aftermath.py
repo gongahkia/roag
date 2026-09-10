@@ -143,6 +143,18 @@ class EndingDerivedAftermathTests(unittest.TestCase):
             min(3, trust + 1),
         )
 
+    def test_completing_both_aftermath_contracts_teaches_the_regional_practice(self):
+        state, _ = self.prepared("aftermath instruction")
+        for contract in contracts_for(state):
+            state.position = state.actor_schedules[contract.participant_id].position
+            self.assertTrue(accept_contract(state, contract.id)[0])
+            self.pack(state, f"commodity:{contract.commodity}")
+            self.assertTrue(supply_contract(state, contract.id)[0])
+            changed, message = settle_contract(state, contract.id)
+            self.assertTrue(changed)
+        self.assertIn("siltgate hand", state.courier.learned_techniques)
+        self.assertIn("learns siltgate hand", message)
+
     def test_field_approach_changes_material_and_route_then_round_trips(self):
         state, contract = self.prepared("aftermath field")
         self.assertTrue(accept_contract(state, contract.id)[0])

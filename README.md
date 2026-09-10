@@ -235,6 +235,12 @@ can open one persistent shelter mark that reduces cargo or weather exposure on
 connected routes while recording an obligation. Their services, opposition,
 relationships and witnessed acts appear in the regional ledger and contact UI.
 
+Thirty-two mechanically active techniques now include 16 reciprocal learned
+practices. Trusted travelling witnesses teach eight; completing both finite
+aftermath contracts in a region teaches eight more. They alter movement,
+material work, sight, salvage, elevation, guard, climbing and recoverable
+equipment through the same production reducers used by ordinary play.
+
 ## Saves and verification
 
 One atomic JSON save is stored at `$XDG_DATA_HOME/jomon/jomon-save.json`, or

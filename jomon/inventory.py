@@ -1117,6 +1117,10 @@ def terrain_status_for(state: GameState, tile: str) -> tuple[str, str, int, str]
     tags = worn_tags(state) | active_tags(state)
     burden = load_state(state)
     technique = state.courier.technique if state.courier else ""
+    from .practices import has_effect as has_practice_effect
+
+    if tile == "m" and has_practice_effect(state, "clay-step"):
+        return None
     if tile == "m" and "mudproof" not in tags and "fen sledge" not in state.carried_passives:
         turns = 1 if "reed-tonic" in state.drink_effects else 3
         return "bogged", "deep mud", turns, "movement is slower; evasion and retreat worsen"
@@ -1129,7 +1133,10 @@ def terrain_status_for(state: GameState, tile: str) -> tuple[str, str, int, str]
     if tile == "t" and not {"thornproof"} <= tags:
         return "thorn-scratched", "dense thorn growth", 4, "exposed limbs hinder guard and quiet passage"
     if tile == "s" and "smoke-filter" not in tags and "face-cover" not in tags and "salt veil" not in state.carried_passives and "smokeleaf-infusion" not in state.drink_effects:
-        turns = 2 if "charcoal mask" in state.carried_passives else 4
+        turns = 2 if (
+            "charcoal mask" in state.carried_passives
+            or has_practice_effect(state, "smoke-sight")
+        ) else 4
         return "smoke-inhalation", "rising smoke", turns, "sight and endurance are reduced"
     if tile == ":" and "saltproof" not in tags and "salt veil" not in state.carried_passives:
         return "salt-grit", "windblown salt", 4, "aim and exposed hands are impaired"
@@ -1138,6 +1145,8 @@ def terrain_status_for(state: GameState, tile: str) -> tuple[str, str, int, str]
             return None
         consequence = "overloaded couriers risk being swept away" if burden == "overloaded" else "movement and guard are slowed"
         return "current", "deep current", 2, consequence
+    if tile == "_" and has_practice_effect(state, "ice-step"):
+        return None
     if tile == "_" and "ice-grip" not in (worn_tags(state, ("feet",)) | active_tags(state)) and "ice awl" not in state.carried_passives:
         return "poor-footing", "frozen shallows", 3, "guard is weak on ice; leave it or wear cleats"
     return None

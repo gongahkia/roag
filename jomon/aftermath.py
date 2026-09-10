@@ -297,7 +297,7 @@ def field_work_available(state: GameState) -> bool:
     )
 
 
-def _update_line_progress(state: GameState, region_id: str) -> None:
+def _update_line_progress(state: GameState, region_id: str) -> str:
     quest = state.aftermath_quests[region_id]
     contracts = contracts_for(state, region_id)
     resolved = sum(item.status in {"completed", "failed"} for item in contracts)
@@ -311,6 +311,11 @@ def _update_line_progress(state: GameState, region_id: str) -> None:
     quest.consequence = "; ".join(
         item.outcome for item in contracts if item.outcome
     )
+    if quest.status == "completed":
+        from .practices import teach_aftermath_practice
+
+        return teach_aftermath_practice(state, region_id)
+    return ""
 
 
 def contract_options(
@@ -503,7 +508,7 @@ def settle_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
             "eases connected cargo risk."
         )
     contract.stage, contract.status = 3, "completed"
-    _update_line_progress(state, contract.region_id)
+    practice_text = _update_line_progress(state, contract.region_id)
     if state.aftermath_quests[contract.region_id].status == "completed":
         from .quests import maybe_unlock_arc
 
@@ -514,7 +519,7 @@ def settle_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
     del account.witnessed_acts[:-8]
     state.trade_credit += 1
     state.remember(f"{contract.title}: {contract.outcome}")
-    return True, contract.outcome + " One credit is paid." + (" One credit first funded the replacement copy." if copied else "")
+    return True, contract.outcome + " One credit is paid." + (" One credit first funded the replacement copy." if copied else "") + practice_text
 
 
 def abandon_contract(state: GameState, contract_id: str) -> tuple[bool, str]:

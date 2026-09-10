@@ -397,6 +397,13 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
     ):
         return False, "Ignition needs dry fuel and one finite measure of lamp oil."
     learned_brace = verb == "brace" and bool({"mill hearing", "bell interval"} & set(state.courier.learned_techniques))
+    from .practices import has_effect as has_practice_effect
+
+    practice_work = (
+        verb == "brace" and has_practice_effect(state, "material-brace")
+        or verb == "dig" and has_practice_effect(state, "material-dig")
+        or verb == "cut" and has_practice_effect(state, "material-cut")
+    )
     from .workshop import active_part
 
     heel = active_part(state, "iron heel") if verb in {"brace", "lever", "break"} else None
@@ -409,7 +416,7 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
         )
     )
     from .legendary import permits_material
-    if verb in {"brace", "lever", "break", "cut", "dig"} and not (heel or learned_brace or spade_work or special_break or permits_material(state, verb) or state.gear == "repair tools" or state.weapon in {"hand axe", "billhook", "war hammer"} or state.courier.technique == "lever craft"):
+    if verb in {"brace", "lever", "break", "cut", "dig"} and not (heel or learned_brace or practice_work or spade_work or special_break or permits_material(state, verb) or state.gear == "repair tools" or state.weapon in {"hand axe", "billhook", "war hammer"} or state.courier.technique == "lever craft"):
         return False, "This work needs a cutting/levering weapon, repair tools, or Lever Craft."
     if verb in {"push", "pull"}:
         container = next((c for c in state.region.containers if c.position == point), None) if state.location == "region" else None

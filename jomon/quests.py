@@ -875,11 +875,13 @@ def use_secondary_service(
         return False, option[4] if option else "That service is unavailable."
     if network:
         from .regional_history import deliver_network_dependency, open_network_shelter
+        from .practices import teach_network_practice
 
-        return (
-            deliver_network_dependency(state, contact_id)
-            if choice == "d" else open_network_shelter(state, contact_id)
-        )
+        if choice == "d":
+            return deliver_network_dependency(state, contact_id)
+        if choice == "c":
+            return open_network_shelter(state, contact_id)
+        return teach_network_practice(state, contact_id)
     contact = state.contacts[state.active_region_id][1]
     if choice == "s":
         from .frontier_elites import settle_claimant

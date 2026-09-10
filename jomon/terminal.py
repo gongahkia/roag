@@ -2137,6 +2137,13 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             f"Background: {person.background}",
             "Memories:", *[f"- {memory}" for memory in (person.memories or ["No shared expedition yet."])],
         ]
+        from .practices import PRACTICES
+
+        practice_details = [
+            f"Practice effect — {name}: {PRACTICES[name].description}"
+            for name in person.learned_techniques if name in PRACTICES
+        ]
+        lines[3:3] = practice_details
         if personal_practice(person) in person.learned_techniques:
             lines.insert(3, "Seasoned return effect: +4 weight capacity; reinforced guard.")
         if person in state.household and person.id != state.active_courier_id and person.alive and person.available:
