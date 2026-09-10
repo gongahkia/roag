@@ -254,6 +254,10 @@
     "thermal_shock": {"tags": ["affinity:cryogenic", "control", "damage", "payoff:weak", "setup:vulnerable"], "upgrade_description": "Upgrade: deal 9, plus 7 if weak; deeply expose and stun a weak target."},
     "stasis_coffin": {"tags": ["affinity:cryogenic", "block", "cleanse", "payoff:deaths_door", "recovery", "status:dodge"], "upgrade_description": "Upgrade: grant 10 block; at Death's Door heal 9, grant 2 dodge, and cleanse."},
     "frostbite": {"tags": ["affinity:cryogenic", "control", "damage", "payoff:wound", "setup:vulnerable"], "upgrade_description": "Upgrade: deal 7, plus 7 if wounded; deeply weaken and expose a wound."},
-    "absolute_zero": {"tags": ["affinity:cryogenic", "control", "draw", "payoff:vulnerable", "stress_risk"], "upgrade_description": "Upgrade: stun exposed hostiles for 2, deeply weaken all, draw from exposure, and gain 7 stress."}
+    "absolute_zero": {"tags": ["affinity:cryogenic", "control", "draw", "payoff:vulnerable", "stress_risk"], "upgrade_description": "Upgrade: stun exposed hostiles for 2, deeply weaken all, draw from exposure, and gain 7 stress."},
+    "seed_barbs": {"tags": ["affinity:hydroponic", "control", "damage", "displacement", "payoff:wound", "setup:wound"], "upgrade_description": "Upgrade: deal 7, push prior wounds 2, wound for 4, and weaken prior wounds."},
+    "thorn_crown": {"tags": ["affinity:hydroponic", "block", "guard", "recovery", "status:riposte"], "upgrade_description": "Upgrade: guard for 3, grant 3 riposte, heal a wound for 5, and gain 7 block."},
+    "pollinator": {"tags": ["affinity:hydroponic", "control", "draw", "payoff:marked", "setup:marked", "setup:wound"], "upgrade_description": "Upgrade: wound an existing mark for 3, mark for 3, weaken a mark, and draw 2."},
+    "overgrowth": {"tags": ["affinity:hydroponic", "block", "status:focus", "status:riposte"], "upgrade_description": "Upgrade: all gain 11 block, 3 riposte and focus; you take a shorter wound."}
   }
 }
