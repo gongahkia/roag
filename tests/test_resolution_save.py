@@ -16,6 +16,8 @@ class ResolutionSaveTests(unittest.TestCase):
     @staticmethod
     def strip_card_identity(raw: dict) -> None:
         del raw["state"]["next_card_copy_id"]
+        del raw["state"]["hub_loadouts"]
+        del raw["state"]["doctrine_id"]
         for zone in ("deck", "hand", "draw_pile", "discard_pile"):
             for card in raw["state"][zone]:
                 for field in ("copy_id", "mastery", "infusion_id"):
