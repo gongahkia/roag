@@ -31,7 +31,9 @@ class SynergyTests(unittest.TestCase):
     def test_dependency_reports_owner_death_and_rank_risk_without_claiming_inert_card(self) -> None:
         catalog = load_catalog()
         squad = tuple(catalog.squads["wound_ward"]["formation"])
-        cards = {identity for identity, card in catalog.cards.items() if card["hero"] in squad}
+        # Keep this diagnostic fixture intentionally thin. The expanded live
+        # squad now has multiple mark producers, which is the desired repair.
+        cards = {"crushing_depth", "specimen_scan"}
         report = analyze_pool(catalog, cards, squad)
         risk = next(d for d in report["diagnostics"] if d["code"] == "single_owner_dependency")
         self.assertEqual("biologist", risk["provider"])

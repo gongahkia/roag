@@ -266,6 +266,10 @@
     "prompt_critical": {"tags": ["affinity:reactor", "draw", "energy", "status:focus", "stress_risk"], "upgrade_description": "Upgrade: gain 2 energy, 3 focus, draw 1, and gain 6 stress."},
     "lead_liturgy": {"tags": ["affinity:reactor", "block", "cleanse", "payoff:wound", "recovery"], "upgrade_description": "Upgrade: grant 11 block, cleanse and heal 4, then take a shorter wound."},
     "fallout_index": {"tags": ["affinity:reactor", "damage", "energy", "payoff:marked", "setup:wound"], "upgrade_description": "Upgrade: deal 8, plus 7 if marked; wound a mark for 4 and gain 1 energy."},
-    "meltdown_gospel": {"tags": ["affinity:reactor", "damage", "energy", "setup:marked", "setup:wound", "stress_risk"], "upgrade_description": "Upgrade: deal 13, mark for 3, wound for 4, gain 1 energy and 10 stress."}
+    "meltdown_gospel": {"tags": ["affinity:reactor", "damage", "energy", "setup:marked", "setup:wound", "stress_risk"], "upgrade_description": "Upgrade: deal 13, mark for 3, wound for 4, gain 1 energy and 10 stress."},
+    "burst_cap": {"tags": ["affinity:fungal", "control", "damage", "payoff:wound", "setup:wound"], "upgrade_description": "Upgrade: deal 7 to prior wounds, wound all for 4, and weaken prior wounds."},
+    "mycelial_transfer": {"tags": ["affinity:fungal", "block", "cleanse", "draw", "recovery"], "upgrade_description": "Upgrade: cleanse, heal 8, grant 4 block, draw 2, and take a shorter wound."},
+    "tracking_spores": {"tags": ["affinity:fungal", "control", "draw", "payoff:marked", "setup:marked", "setup:wound"], "upgrade_description": "Upgrade: wound and weaken an existing mark for 3 and 2, mark for 3, then draw 1."},
+    "fruiting_apocalypse": {"tags": ["affinity:fungal", "block", "recovery", "setup:vulnerable", "setup:wound", "stress_risk"], "upgrade_description": "Upgrade: wound for 6, expose for 3, heal all for 5, grant 3 block, and gain 8 stress."}
   }
 }
