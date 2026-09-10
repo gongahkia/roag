@@ -202,6 +202,10 @@
     "debridement": {"tags": ["cleanse", "payoff:wound", "recovery", "stress_relief"], "upgrade_description": "Upgrade: cleanse any ailment, heal 8, and reduce 4 stress."},
     "crash_cart": {"tags": ["block", "draw", "energy", "payoff:deaths_door", "stress_risk"], "upgrade_description": "Upgrade: at Death's Door grant 14 block, gain 1 energy, draw 1, and take 3 stress."},
     "calming_dose": {"tags": ["block", "recovery", "stress_relief"], "upgrade_description": "Upgrade: heal 6; if stressed, grant 9 block and reduce 5 stress."},
-    "mass_resuscitation": {"tags": ["block", "recovery", "stress_risk"], "upgrade_description": "Upgrade: while stressed, heal all crew for 11, grant 4 block, and gain 8 stress."}
+    "mass_resuscitation": {"tags": ["block", "recovery", "stress_risk"], "upgrade_description": "Upgrade: while stressed, heal all crew for 11, grant 4 block, and gain 8 stress."},
+    "thread_needle": {"tags": ["damage", "draw", "payoff:marked"], "upgrade_description": "Upgrade: deal 10, plus 11 if marked, then draw 1."},
+    "combat_roll": {"tags": ["block", "discard", "draw", "mobility"], "upgrade_description": "Upgrade: discard 1, move back 2, draw 3, and gain 5 block."},
+    "rangefinder": {"tags": ["damage", "draw", "payoff:vulnerable"], "upgrade_description": "Upgrade: deal 9, plus 7 if vulnerable, and draw 2."},
+    "impossible_angle": {"tags": ["damage", "mobility", "status:focus"], "upgrade_description": "Upgrade: while healthy, deal 22 to the rear, move to the back, and gain focus."}
   }
 }
