@@ -258,6 +258,10 @@
     "seed_barbs": {"tags": ["affinity:hydroponic", "control", "damage", "displacement", "payoff:wound", "setup:wound"], "upgrade_description": "Upgrade: deal 7, push prior wounds 2, wound for 4, and weaken prior wounds."},
     "thorn_crown": {"tags": ["affinity:hydroponic", "block", "guard", "recovery", "status:riposte"], "upgrade_description": "Upgrade: guard for 3, grant 3 riposte, heal a wound for 5, and gain 7 block."},
     "pollinator": {"tags": ["affinity:hydroponic", "control", "draw", "payoff:marked", "setup:marked", "setup:wound"], "upgrade_description": "Upgrade: wound an existing mark for 3, mark for 3, weaken a mark, and draw 2."},
-    "overgrowth": {"tags": ["affinity:hydroponic", "block", "status:focus", "status:riposte"], "upgrade_description": "Upgrade: all gain 11 block, 3 riposte and focus; you take a shorter wound."}
+    "overgrowth": {"tags": ["affinity:hydroponic", "block", "status:focus", "status:riposte"], "upgrade_description": "Upgrade: all gain 11 block, 3 riposte and focus; you take a shorter wound."},
+    "annealed_wall": {"tags": ["affinity:foundry", "block", "guard", "status:riposte"], "upgrade_description": "Upgrade: guard for 3, gain 10 block plus 7 while stressed, then riposte while stressed."},
+    "white_heat": {"tags": ["affinity:foundry", "block", "draw", "status:focus", "stress_risk"], "upgrade_description": "Upgrade: gain 4 focus, draw 2, gain 5 block, and take 5 stress."},
+    "slag_press": {"tags": ["affinity:foundry", "block", "damage", "payoff:wound", "setup:vulnerable"], "upgrade_description": "Upgrade: deal 10, plus 7 if wounded; deeply expose and gain 5 block from a wound."},
+    "pour_the_mold": {"tags": ["affinity:foundry", "block", "status:riposte", "stress_risk"], "upgrade_description": "Upgrade: all gain 14 block and riposte; you gain 8 stress and 1 weak."}
   }
 }
