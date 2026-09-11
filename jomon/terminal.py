@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import curses
 import copy
+import os
+import signal
 import textwrap
 from dataclasses import dataclass
 from typing import Iterable
@@ -121,6 +123,10 @@ TARGET_HELP_LINE = "Arrows/WASD/HJKL Tab target <> level M mastery Enter commit 
 ROUTE_HELP_LINES = (
     "Arrows/WASD/HJKL connected node  Enter preview/confirm  Tab layer  Esc close",
     "Mouse click selects; double-click confirms when reported; keyboard is complete",
+)
+BASE_HELP_LINES = (
+    "Move HJKL/arrows E act A aim G guard ; look T follow M mastery",
+    "X gear F material V talk R retreat I pack Z ledger O actors ? help Q quit",
 )
 
 MIN_WIDTH = 80
@@ -285,6 +291,35 @@ def _enable_mouse() -> bool:
         return bool(available)
     except curses.error:
         return False
+
+
+def _disable_mouse() -> None:
+    try:
+        curses.mousemask(0)
+    except curses.error:
+        pass
+
+
+def suspend_terminal(screen: curses.window, *, stop=None) -> bool:
+    """Suspend on POSIX and restore curses state after SIGCONT."""
+    if not hasattr(signal, "SIGTSTP"):
+        return False
+    stop = stop or (lambda: os.kill(os.getpid(), signal.SIGTSTP))
+    try:
+        curses.def_prog_mode()
+        curses.endwin()
+        stop()
+    except (curses.error, OSError):
+        return False
+    finally:
+        try:
+            curses.reset_prog_mode()
+            screen.keypad(True)
+            screen.timeout(-1)
+            screen.refresh()
+        except curses.error:
+            pass
+    return True
 
 
 def semantic_colour_plan(colour_count: int, pair_count: int) -> dict[str, ColourStyle]:
@@ -933,8 +968,8 @@ def _draw_base(screen: curses.window, state: GameState) -> None:
     for index, line in enumerate(event_lines):
         _put(screen, main_height + 1 + index, 2, _clip(line, width - 4), _COLOUR_ATTRIBUTES[event_colour_role(line)])
     command_attr = _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_REVERSE
-    _put(screen, height - 2, 1, "Move HJKL/arrows E act A aim G guard ; look T follow M mastery", command_attr)
-    _put(screen, height - 1, 1, "X gear F material V talk R retreat I pack Z ledger O actors ? help Q quit", command_attr)
+    _put(screen, height - 2, 1, BASE_HELP_LINES[0], command_attr)
+    _put(screen, height - 1, 1, BASE_HELP_LINES[1], command_attr)
     screen.refresh()
 
 
@@ -3049,9 +3084,24 @@ def play(screen: curses.window, state: GameState) -> GameState:
         curses.curs_set(0)
     except curses.error:
         pass
+    try:
+        curses.set_escdelay(25)
+    except (curses.error, AttributeError):
+        pass
     screen.keypad(True)
     _init_colours()
     _enable_mouse()
+    try:
+        return _play_loop(screen, state)
+    finally:
+        _disable_mouse()
+        try:
+            screen.timeout(-1)
+        except curses.error:
+            pass
+
+
+def _play_loop(screen: curses.window, state: GameState) -> GameState:
     overlay: OverlayView | None = None
     inventory_view: InventoryView | None = None
     route_view: RouteChartView | None = None
@@ -3101,6 +3151,10 @@ def play(screen: curses.window, state: GameState) -> GameState:
         event = normalise_input(screen.getch())
         key = event.key
         if key == curses.KEY_RESIZE:
+            continue
+        if key == 26:  # Ctrl-Z: action clock remains stopped while suspended.
+            if suspend_terminal(screen):
+                state.add_message("Jomon resumes exactly where the action clock stopped.")
             continue
         if height < MIN_HEIGHT or width < MIN_WIDTH:
             if key in {ord("q"), ord("Q")}:

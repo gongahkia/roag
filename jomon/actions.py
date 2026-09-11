@@ -1384,7 +1384,10 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
             return _time_result(state, _activate(occupant), priority=3)
         return _plain(state, f"The {occupant.name} holds that space.")
     if not is_walkable(state, target):
-        return _plain(state, "That way is blocked.")
+        from .inspection import blocked_step_reason
+
+        reason, remedy = blocked_step_reason(state, target)
+        return _plain(state, f"{reason} {remedy}")
     if dx and dy:
         side_a = Position(state.position.x + dx, state.position.y, state.position.z)
         side_b = Position(state.position.x, state.position.y + dy, state.position.z)

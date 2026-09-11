@@ -6,6 +6,7 @@ import unittest
 
 from jomon.combat_forecast import danger_cells, forecast_lines, observed_forecasts
 from jomon.inspection import contextual_hints, inspect_lines, movement_preview
+from jomon.actions import move
 from jomon.state import MaterialCell, Position, TerrainStatus, Threat, create_world
 from jomon.terminal import InputEvent, LookView, _draw_base, _handle_look, _status_lines
 from jomon.world import field_of_view
@@ -36,6 +37,19 @@ class InspectionAndForecastTests(unittest.TestCase):
         self.assertIn("fire 2/3", preview.consequence)
         self.assertIn("smoke 3/4", preview.consequence)
         self.assertEqual(state.to_dict(), before)
+
+    def test_blocked_movement_names_wall_water_and_recovery_without_time(self):
+        state = self.state
+        before = state.world_time
+        state.region.tile_changes["41,25,0"] = "#"
+        wall = move(state, 1, 0)
+        self.assertIn("stone wall", wall.message)
+        self.assertIn("another lane", wall.message)
+        state.region.tile_changes["41,25,0"] = "~"
+        water = move(state, 1, 0)
+        self.assertIn("Deep water", water.message)
+        self.assertIn("shallows", water.message)
+        self.assertEqual(state.world_time, before)
 
     def test_inspection_distinguishes_visible_remembered_and_unknown(self):
         state = self.state

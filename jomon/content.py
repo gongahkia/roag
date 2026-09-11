@@ -516,6 +516,7 @@ JOMON_MAP = (
 )
 
 HELP_LINES = (
+    ";: move a zero-time look cursor; mouse click also inspects a map cell without acting.",
     "O: observe visible people, wildlife, duties, supplies and tactical counters (free).",
     "F: inspect and handle nearby material; choices commit one action, Escape costs none.",
     "Z: regional work account, linked history, testimony and action-clock forecast (free).",

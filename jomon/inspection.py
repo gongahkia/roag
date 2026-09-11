@@ -37,6 +37,22 @@ class MovementPreview:
     remedy: str = ""
 
 
+def blocked_step_reason(state: GameState, destination: Position) -> tuple[str, str]:
+    """Name the physical obstruction and a useful next verb."""
+    tile = base_tile(state, destination)
+    if tile == "#":
+        return "A stone wall blocks that step.", "Use another lane; marked weak structure can be inspected with F."
+    if tile == "T":
+        return "Standing timber blocks that step.", "Follow a gap or inspect whether cutting is legal with F."
+    if tile == "~":
+        return "Deep water blocks ordinary footing.", "Find shallows, a crossing, or a disclosed water-control action."
+    if tile == " ":
+        return "There is no traversable floor there.", "Use a mapped entrance or aligned vertical connection."
+    if state.location == "jomon" and tile in {"=", "t", "F", "f"}:
+        return "Fixed vessel structure blocks that step.", "Use the doorway or interact with a nearby working station."
+    return f"{TERRAIN_NAMES.get(tile, 'A physical obstruction')} blocks that step.", "Inspect with ; or take another lane."
+
+
 def movement_preview(state: GameState, destination: Position) -> MovementPreview:
     """Explain an adjacent step without mutating or pretending exact path cost."""
     dx, dy = destination.x - state.position.x, destination.y - state.position.y
@@ -51,7 +67,8 @@ def movement_preview(state: GameState, destination: Position) -> MovementPreview
             return MovementPreview(destination, False, "one action", f"wakes {occupant.name}; it occupies the cell", "attack, negotiate, or take another lane")
         return MovementPreview(destination, False, "no time", f"{occupant.name} holds the cell", "attack, control, or take another lane")
     if not is_walkable(state, destination):
-        return MovementPreview(destination, False, "no time", f"{TERRAIN_NAMES.get(base_tile(state, destination), 'terrain')} blocks passage", "inspect for a door, control, or alternate route")
+        reason, remedy = blocked_step_reason(state, destination)
+        return MovementPreview(destination, False, "no time", reason.rstrip("."), remedy.rstrip("."))
     if dx and dy:
         side_a = Position(state.position.x + dx, state.position.y, state.position.z)
         side_b = Position(state.position.x, state.position.y + dy, state.position.z)

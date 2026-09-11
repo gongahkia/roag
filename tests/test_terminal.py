@@ -9,6 +9,7 @@ from jomon.vessel import BARTENDER_POSITION
 from jomon.state import MaterialCell, Position, create_world
 from jomon.terminal import (
     INVENTORY_HELP_LINES,
+    BASE_HELP_LINES,
     ChoiceOption,
     InputEvent,
     OverlayView,
@@ -23,6 +24,8 @@ from jomon.terminal import (
     semantic_colour_plan,
     semantic_role,
     status_colour_role,
+    suspend_terminal,
+    play,
     terrain_colour_role,
     visible_threats,
 )
@@ -36,6 +39,13 @@ class InventoryLayoutTests(unittest.TestCase):
         self.assertTrue(all(len(line) <= 78 for line in INVENTORY_HELP_LINES))
         joined = " ".join(INVENTORY_HELP_LINES)
         for command in ("Enter", "R rotate", "Space", "T transfer", "E equip", "O pack", "P pin", "Z auto", "[] body", "D drop", "C confirm", "Esc cancel"):
+            self.assertIn(command, joined)
+
+    def test_base_legend_exposes_polish_verbs_at_minimum_width(self):
+        self.assertEqual(len(BASE_HELP_LINES), 2)
+        self.assertTrue(all(len(line) <= 78 for line in BASE_HELP_LINES))
+        joined = " ".join(BASE_HELP_LINES)
+        for command in ("; look", "T follow", "M mastery", "A aim", "O actors"):
             self.assertIn(command, joined)
 
 
@@ -221,6 +231,51 @@ class LandingLayoutTests(unittest.TestCase):
         large = landing_notice_layout(100, 32, warning, "/tmp/save.json")
         self.assertGreaterEqual(len(small.lines), len(large.lines))
         self.assertNotEqual((small.top, small.left), (large.top, large.left))
+
+    def test_posix_suspend_restores_program_mode_without_game_time(self):
+        class Screen:
+            def __init__(self):
+                self.calls = []
+            def keypad(self, value):
+                self.calls.append(("keypad", value))
+            def timeout(self, value):
+                self.calls.append(("timeout", value))
+            def refresh(self):
+                self.calls.append(("refresh",))
+
+        screen = Screen()
+        stopped = []
+        with patch("jomon.terminal.curses.def_prog_mode"), patch("jomon.terminal.curses.endwin"), patch("jomon.terminal.curses.reset_prog_mode"):
+            supported = suspend_terminal(screen, stop=lambda: stopped.append(True))
+        if hasattr(__import__("signal"), "SIGTSTP"):
+            self.assertTrue(supported)
+            self.assertEqual(stopped, [True])
+            self.assertIn(("keypad", True), screen.calls)
+            self.assertIn(("timeout", -1), screen.calls)
+
+    def test_play_disables_mouse_and_restores_blocking_input_after_failure(self):
+        class Screen:
+            def __init__(self):
+                self.calls = []
+            def keypad(self, value):
+                self.calls.append(("keypad", value))
+            def timeout(self, value):
+                self.calls.append(("timeout", value))
+
+        screen = Screen()
+        state = create_world("injected-terminal-failure")
+        with (
+            patch("jomon.terminal.curses.curs_set"),
+            patch("jomon.terminal.curses.set_escdelay"),
+            patch("jomon.terminal._init_colours"),
+            patch("jomon.terminal._enable_mouse"),
+            patch("jomon.terminal.curses.mousemask") as mousemask,
+            patch("jomon.terminal._play_loop", side_effect=RuntimeError("injected")),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "injected"):
+                play(screen, state)
+        mousemask.assert_called_once_with(0)
+        self.assertIn(("timeout", -1), screen.calls)
 
 
 class TavernMenuTests(unittest.TestCase):
