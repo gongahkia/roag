@@ -12,7 +12,7 @@ from jomon.situations import (
     choices, inspect_lines, resolve, site_glyph, site_point,
     validate_situations,
 )
-from jomon.state import create_world
+from jomon.state import StateError, create_world, game_state_from_dict
 from jomon.world import is_walkable
 from jomon.materials import fields, key
 
@@ -98,6 +98,17 @@ class MixedSituationTests(unittest.TestCase):
             loaded = load_game(path)
         self.assertEqual(loaded.region.changes[f"micro-site:outcome:{row.id}"], row.answers[0])
         self.assertEqual(site_point(loaded, row), site_point(state, row))
+
+    def test_corrupt_site_and_mastery_references_are_rejected(self):
+        state = self.ready()
+        broken = state.to_dict()
+        broken["regions"]["hearthford"]["changes"]["situation:active"] = "missing-situation"
+        with self.assertRaises(StateError):
+            game_state_from_dict(broken)
+        broken = state.to_dict()
+        broken["vessel_changes"]["manoeuvre:last:missing"] = 2
+        with self.assertRaises(StateError):
+            game_state_from_dict(broken)
 
 
 if __name__ == "__main__":

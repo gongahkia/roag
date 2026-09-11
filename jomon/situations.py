@@ -319,6 +319,25 @@ def validate_situations() -> None:
         raise ValueError("mixed situation content is incomplete")
 
 
+def validate_situation_state(state: GameState) -> None:
+    for region_id, region in state.regions.items():
+        active = region.changes.get("situation:active")
+        if active is not None and (active not in BY_ID or BY_ID[str(active)].region_id != region_id):
+            raise ValueError("active situation does not belong to its region")
+        for key_name, value in region.changes.items():
+            if not key_name.startswith("micro-site:point:"):
+                continue
+            situation_id = key_name.split("micro-site:point:", 1)[1]
+            if situation_id not in BY_ID or BY_ID[situation_id].region_id != region_id or not isinstance(value, str):
+                raise ValueError("invalid mutable site identity")
+            try:
+                point = Position(*map(int, value.split(",")))
+            except (TypeError, ValueError):
+                raise ValueError("invalid mutable site position") from None
+            if str(point.z) not in region.levels or not (0 <= point.x < region.width and 0 <= point.y < region.height):
+                raise ValueError("mutable site lies outside its region")
+
+
 def audit_situations(samples: int = 200) -> dict[str, object]:
     """Audit deterministic occurrence and variety without generating new actors."""
     from collections import Counter

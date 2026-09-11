@@ -1375,6 +1375,20 @@ def validate_state(state: GameState) -> None:
         validate_living_vessel(state)
     except ValueError as exc:
         raise StateError(str(exc)) from exc
+    try:
+        from .echoes import validate_echo_state
+        from .household_stories import validate_story_state
+        from .interference import validate_interference_state
+        from .manoeuvres import validate_manoeuvre_state
+        from .situations import validate_situation_state
+
+        validate_situation_state(state)
+        validate_manoeuvre_state(state)
+        validate_interference_state(state)
+        validate_echo_state(state)
+        validate_story_state(state)
+    except ValueError as exc:
+        raise StateError(f"invalid possibility state: {exc}") from exc
     if len(state.history) > HISTORY_LIMIT or len(state.messages) > MESSAGE_LIMIT:
         raise StateError("bounded history exceeded")
     if set(state.region.levels) != {"-1", "0", "1", "2"}:

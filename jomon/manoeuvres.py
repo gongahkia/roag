@@ -232,4 +232,13 @@ def validate_manoeuvres() -> None:
         raise ValueError("manoeuvres need all three contexts, setup, counter, and effect")
 
 
+def validate_manoeuvre_state(state: GameState) -> None:
+    for key_name, value in state.vessel_changes.items():
+        if not key_name.startswith("manoeuvre:last:"):
+            continue
+        manoeuvre_id = key_name.split("manoeuvre:last:", 1)[1]
+        if manoeuvre_id not in BY_ID or not isinstance(value, int) or value < 0:
+            raise ValueError("invalid active-mastery record")
+
+
 validate_manoeuvres()

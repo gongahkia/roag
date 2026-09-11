@@ -176,4 +176,16 @@ def validate_stories() -> None:
         raise ValueError("two developments and one all-region capstone are required")
 
 
+def validate_story_state(state: GameState) -> None:
+    valid_parts = {"status", "branch", "outcome"}
+    for key_name, value in state.vessel_changes.items():
+        if not key_name.startswith("household-story:"):
+            continue
+        parts = key_name.split(":")
+        if len(parts) != 3 or parts[1] not in BY_ID or parts[2] not in valid_parts or not isinstance(value, str):
+            raise ValueError("invalid household story record")
+        if parts[2] == "status" and value not in {"active", "completed"}:
+            raise ValueError("invalid household story status")
+
+
 validate_stories()

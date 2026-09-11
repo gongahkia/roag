@@ -108,4 +108,12 @@ def validate_echoes() -> None:
         raise ValueError("voyage echoes need varied persistent consequences")
 
 
+def validate_echo_state(state: GameState) -> None:
+    for key_name, value in state.vessel_changes.items():
+        if key_name.startswith("voyage_echo:"):
+            variant_id = key_name.split(":", 1)[1]
+            if variant_id not in BY_VARIANT or not isinstance(value, int) or value < 0:
+                raise ValueError("invalid later voyage echo")
+
+
 validate_echoes()

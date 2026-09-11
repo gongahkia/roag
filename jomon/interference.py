@@ -116,4 +116,12 @@ def validate_interference() -> None:
         raise ValueError(report)
 
 
+def validate_interference_state(state: GameState) -> None:
+    for key_name, value in state.vessel_changes.items():
+        if key_name.startswith("interference:"):
+            event_id = key_name.split(":", 1)[1]
+            if event_id not in BY_ID or not isinstance(value, int) or value < 0:
+                raise ValueError("invalid cross-region interference record")
+
+
 validate_interference()
