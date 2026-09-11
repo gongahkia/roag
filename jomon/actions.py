@@ -1250,6 +1250,9 @@ def _advance_world(
         field_of_view(state)
         new_band = pressure(state).band
         if old_band != new_band and new_band in {"strained", "critical"}:
+            from .situations import activate_for_band
+
+            activate_for_band(state, new_band)
             state.add_message(
                 f"Pressure becomes {new_band}: alert distance and pursuit increase.",
                 priority=3,
@@ -1308,6 +1311,9 @@ def depart(state: GameState) -> ActionResult:
         merchant_schedule.available = False
         merchant_schedule.activity = "away on a regional circuit"
     field_of_view(state)
+    from .situations import activate_for_band
+
+    activate_for_band(state, "steady")
     state.remember(
         f"Expedition {state.expedition_count}: {state.courier.name} crossed into {state.region.name}."
     )
@@ -1969,6 +1975,11 @@ def interact(state: GameState) -> ActionResult:
         return _plain(state, "Nothing here needs handling.")
     if state.position == state.region.landmarks["landing"]:
         return return_to_jomon(state)
+    from .situations import interaction as situation_interaction
+
+    situation_overlay = situation_interaction(state)
+    if situation_overlay:
+        return ActionResult(False, False, "Inspect the local mixed situation.", situation_overlay)
     if (
         tile == "&"
         and state.active_region_id != "hearthford"

@@ -1128,6 +1128,10 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str], view: Over
 
 
 def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
+    if kind.startswith("situation:"):
+        from .situations import choices
+
+        return [ChoiceOption(*row) for row in choices(state, kind.split(":", 1)[1])]
     if kind == "navigation":
         keys = "123456789abcdefghijklmnopqrstuvwxyz"
         return [
@@ -2120,6 +2124,11 @@ def _tavern_lines(state: GameState) -> list[str]:
 
 
 def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
+    if kind.startswith("situation:"):
+        from .situations import BY_ID, inspect_lines
+
+        situation_id = kind.split(":", 1)[1]
+        return BY_ID[situation_id].name.upper(), inspect_lines(state, situation_id)
     if kind == "navigation":
         return "FOLLOW A KNOWN LOCAL ROUTE", [
             "Choose a seen landmark, vertical link, or marked store.",
@@ -2492,6 +2501,15 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
 
 def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, bool]:
     char = chr(key).lower() if 0 <= key < 256 else ""
+    if kind.startswith("situation:") and char in {"t", "m", "a"}:
+        from .actions import _advance_world
+        from .situations import resolve
+
+        changed, message, steps = resolve(state, kind.split(":", 1)[1], char)
+        if changed:
+            _advance_world(state, steps=steps)
+        state.add_message(message, priority=3)
+        return (None if changed else kind), False
     if kind == "aftermath" and char in "12":
         from .aftermath import contracts_for
 

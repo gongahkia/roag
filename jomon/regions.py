@@ -734,3 +734,8 @@ def activate_region(state, region_id: str) -> None:
     from .aftermath import prepare_aftermath
 
     prepare_aftermath(state)
+    if state.location == "region":
+        from .situations import activate_for_band
+        from .world import pressure
+
+        activate_for_band(state, pressure(state).band)
