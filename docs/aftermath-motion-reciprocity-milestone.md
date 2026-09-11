@@ -232,5 +232,141 @@ new magic, infinite contracts or additional major region is planned.
   (`provisionnewdesk`) captured the initial variant catalogue and active
   travel marker while integration was in progress and also appeared at
   `origin/main`; this agent did not create or push it.
-- All numeric content-multiplication gates are closed. Final full-suite,
-  performance, slow-audit and recorded PTY gates remain open.
+- The first final benchmark exposed pathfinding repeatedly resolving display
+  glyphs, scheduled adults and containers for passability. Regional path
+  queries now use the equivalent base-terrain, ice and combatant rules while
+  vessel queries retain full furniture/actor collision. A focused regression
+  prevents display scans from returning to this hot path. Enemy-heavy turn
+  time fell below the starting baseline and standalone pathfinding improved by
+  roughly one third.
+
+## Performance result
+
+The same Python 3.14.7 interpreter, macOS host, seed and 20-sample command were
+used for the preserved start and final measurements. Full median, p95, p99 and
+worst-case data is machine-readable in `performance-aftermath-baseline.json`
+and `performance-aftermath-final.json`.
+
+| Scenario | Start median | Final median | Change |
+|---|---:|---:|---:|
+| ordinary input + 80×24 layout | 12.525 ms | 12.655 ms | +1.0% |
+| ordinary movement | 7.684 ms | 7.982 ms | +3.9% |
+| boarding input + layout | 29.355 ms | 29.923 ms | +1.9% |
+| boarding turn | 14.222 ms | 13.941 ms | -2.0% |
+| enemy-heavy turn | 37.674 ms | 26.808 ms | -28.8% |
+| sparse environmental turn | 11.311 ms | 14.859 ms | +31.4% |
+| pathfinding | 20.852 ms | 11.868 ms | -43.1% |
+| new world | 342.410 ms | 497.498 ms | +45.3% |
+| save / load | 14.225 / 151.994 ms | 16.479 / 155.274 ms | +15.8% / +2.2% |
+| inventory open / auto-pack | 3.749 / 3.513 ms | 5.518 / 4.452 ms | +47.2% / +26.7% |
+| 80×24 render | 4.277 ms | 4.700 ms | +9.9% |
+
+The ordinary responsiveness scenarios remain within the 20% gate. New-world
+creation remains below half a second and far below the three-second ceiling
+despite instantiating the expanded physical enemy kits, institutions,
+witnesses and aftermath state. Inventory opening/packing and the artificial
+64-cell reaction fixture exceed 20% proportionally because they now snapshot
+and process that additional physical state; their final medians remain 5.518,
+4.452 and 14.859 ms and are the documented user-visible cost of exact item
+ownership and richer material work. The heaviest gameplay p99 is 32.363 ms for
+boarding input/layout; the enemy fixture is 28.561 ms and ordinary regional
+input/layout is 13.444 ms. Save size rose
+18.5%, from 318,795 to 377,814 bytes, while peak resident memory fell 13.3%,
+from 42,208 to 36,580 KiB. Deterministic replay remained exact.
+
+## Closing automated evidence
+
+- The serial suite passed 505 tests in 322.355 seconds immediately before the
+  final path-query optimization. After that optimization, 38 navigation,
+  reachability, material, cover and frontier tests passed in 12.909 seconds;
+  the final post-documentation serial result is recorded below.
+- The fast developer suite passed 61 tests in 28.515 seconds, under its
+  90-second target.
+- Four independent, deterministic batches covered seeds 0–999. All 1,000
+  worlds and 8,000 regional instances passed with zero failures. Every batch
+  produced 250/250 unique geographies for every regional family, and the
+  slowest seed was 9.502 seconds while all four batches contended for the same
+  machine. Unique production compositions per batch were 389, 375, 373 and
+  397.
+- The final encounter audit checked 900 plans: 246 unique compositions, 241
+  production compositions, 317 elite occurrences, zero invalid groups, zero
+  unreachable actors and zero unavoidable opening attacks.
+- The final quest audit checked 800 generated regions, 20 regional lines, 40
+  regional endings, five cross-region arcs and eleven arc endings with no
+  unreachable or invalid path.
+- Content verification reports the exact target counts below with no failures.
+  Format-7 round trip, deterministic format-6 migration, old region and item
+  identity preservation, and corrupt-save rejection all passed.
+- One hundred deterministic replay samples of twelve actions passed. The
+  100-sample living-world audit found no disconnected or nondeterministic route
+  graph, schedule failure or vessel overlap.
+- A 100-leg long-session soak remained between 302,490 and 305,336 serialized
+  bytes. Traced post-warm-up growth was 7,460 bytes; detailed voyage provenance
+  is limited to twelve entries while older occurrences fold into bounded
+  summaries. Material, message, history, item, sound and alert bounds passed.
+
+### Verified production counts
+
+| Content | Count | Content | Count |
+|---|---:|---|---:|
+| major regions | 8 | standard archetypes | 72 |
+| mechanically distinct standard signatures | 72 | elite situations | 24 |
+| named recurring rivals/boss figures | 8 | weapons | 36 |
+| armour/protective clothing | 36 | passives | 48 |
+| inherent/learned techniques | 32 | active passives + techniques | 80 |
+| tools, supplies and drinks | 51 | finite relics | 16 |
+| persistent containers/caches | 62 | generated legendary objects | 8 |
+| regional questlines | 20 | cross-region arcs | 5 |
+| institutions | 12 | persistent non-hostile adults | 38 |
+| commodities | 8 | voyage families | 12 |
+| tactical voyage families | 8 | stateful voyage variants | 12 |
+| demonstrated build scenarios | 24 | vessel refits | 8 |
+
+The eight hostile named figures fill rival, regional-leader and boss roles in
+ordinary narrative space; there is deliberately no separate arena-boss
+catalogue. Counting those figures with the 38 persistent non-hostile adults
+gives 46 named persistent people, but the verifier keeps hostile and
+non-hostile counts separate.
+
+## Recorded real-terminal evidence
+
+Four actual `curses` sessions used an 80×24 PTY and restored the alternate
+screen cleanly on normal quit:
+
+1. A fresh `after audit` world began at the gangplank, departed immediately
+   with `E`, walked Hearthford, previewed a remembered route, followed it to a
+   witness, interrupted a return on queued input without taking an extra
+   action, resumed to the landing, returned, saved and quit.
+2. A controlled winter Hearthford save crossed shallow floodwater without warm
+   protection. The courier became wet and chilled, and contextual inspection
+   showed soil/coating, water depth, support, predicted reaction and all eleven
+   material verbs before a clean quit.
+3. A controlled Hearthford equipment encounter previewed a toll watch's
+   intent, morale, protection and counters, defeated it, and inspected the
+   exact staff, cap and working coat on the ground. This session exposed and
+   led to correction of ambiguous defeat prose.
+4. A controlled Dunmire session completed Veyra Reedlock's full lifecycle:
+   visible retreat, return funded by two units of actual charcoal stock,
+   retained injury and changed intent, permanent defeat, exact physical kit
+   drop, unique Ebbglass Spindle reward, return aboard and save.
+
+Automated production scenarios exercise all sixteen new objective topologies,
+both outcomes of each new line, all eight aftermath families, all 24 build
+identities, the four arc relic outcomes, every refit and all voyage variants.
+Those are automated scenarios, not claimed as end-to-end manual play. This
+closing pass did not manually replay every quest branch, every build in a full
+expedition, native mouse input, a complete all-region campaign, macOS/WSL
+platform variants, or an injected terminal failure. Existing targeted layout
+tests cover 80×24, 100×32, undersize resize recovery and mouse/keyboard parity;
+those remaining manual paths are confidence work, not hidden implementation
+claims.
+
+## Acceptance assessment
+
+All implementation, numeric-content, deterministic generation, persistence,
+bounded-work, immediate-play and automated correctness gates are closed. The
+Qud comparison is intentionally a scoped possibility-density assessment, not a
+claim of parity with its map count, mutation catalogue, faction volume or
+fifteen-plus years of authored content. The most valuable later pass is the
+mixed-situation and active-mastery programme in `docs/qud-parity-audit.md`, not
+another label-count expansion.

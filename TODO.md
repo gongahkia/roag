@@ -10,8 +10,10 @@
   replacing lost possessions; supported older Python paths chain forward.
   A real save written by the expected format-6 commit was loaded and resaved by
   format 7 with its exact injury, health, market stock and physical identities.
-  The final serial run passed 421 tests in 175.189 seconds. The corrected
-  1,000-seed audit generated 8,000 regions with zero failures. See the live
+  The final serial run for the Aftermath, Motion and Reciprocity tranche
+  passes more than 500 tests; the exact closing run is recorded in its live
+  assessment. The corrected 1,000-seed audit generated 8,000 regions with zero
+  failures. See the live
   measurement ledger for exact focused audits, performance and candid
   manual/platform limits.
 - Each region now has a three-stage questline with two endings, and completing
@@ -27,15 +29,18 @@
 
 ## Now
 
-- Implement the Aftermath, Motion and Reciprocity tranche recorded in
-  `docs/aftermath-motion-reciprocity-milestone.md`: first route-following and
-  interaction ergonomics, then combat reciprocity, aftermath content and its
-  bounded production expansion.
+- Close and preserve the Aftermath, Motion and Reciprocity tranche recorded in
+  `docs/aftermath-motion-reciprocity-milestone.md`. Its production systems,
+  bounded content targets, audits and Qud-style possibility comparison are
+  implemented; only evidence discovered by the closing verification may
+  reopen code work.
 
 ## Next
 
-- Close the tranche's automated and real-PTY gates without turning numerical
-  content targets into label-only definitions.
+- If another content pass is commissioned, follow
+  `docs/qud-parity-audit.md`: add authored mixed-situation grammars, explicit
+  active manoeuvres, mutable micro-sites and cross-region interference before
+  adding raw enemy, item or map counts.
 
 ## Later
 
