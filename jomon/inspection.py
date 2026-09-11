@@ -204,3 +204,47 @@ def contextual_hints(state: GameState, limit: int = 2) -> tuple[str, ...]:
     if not hints:
         hints.append("[;] inspect a cell; no time")
     return tuple(hints[:limit])
+
+
+def contextual_advice(state: GameState, speaker: str) -> str:
+    """Let an embodied adult teach one presently relevant, transferable rule."""
+    from .combat_forecast import observed_forecasts
+
+    forecast = next((row for row in observed_forecasts(state) if state.position in row.affected), None)
+    if forecast:
+        return f"ADVICE — {speaker}: {forecast.actor_name}'s mark resolves after your next action; {forecast.counter}."
+    if state.terrain_statuses:
+        name, status = next(iter(state.terrain_statuses.items()))
+        return f"ADVICE — {speaker}: {name.replace('-', ' ')} came from {status.cause}; {status.consequence}."
+    from .materials import fields
+    nearby = [
+        cell for coordinate, cell in fields(state).items()
+        if (point := _point(coordinate)) is not None
+        and point.z == state.position.z and distance(point, state.position) <= 2
+    ]
+    if any(cell.fire for cell in nearby):
+        return f"ADVICE — {speaker}: water removes fire immediately; cutting dry fuel first can stop the next spread."
+    if any(cell.smoke >= 2 for cell in nearby):
+        return f"ADVICE — {speaker}: dense smoke breaks prepared lanes and sight; wind and clear ground determine its useful edge."
+    if any(cell.collapse_due for cell in nearby):
+        return f"ADVICE — {speaker}: a warned support falls only after its shown action; leave, brace, or interrupt before then."
+    from .calendar import calendar_at
+    season = calendar_at(state).season
+    if state.weather == "hard rain":
+        return f"ADVICE — {speaker}: rain checks open flame but slows exposed travel unless clothing, route, or shelter answers it."
+    if "wind" in state.weather or "gust" in state.weather:
+        return f"ADVICE — {speaker}: the named wind shifts smoke and firing value consistently; read it before committing a lane."
+    if season == "winter":
+        return f"ADVICE — {speaker}: fresh shallows can freeze; salt water thaws them, while cleats turn the firm sheet into a route."
+    from .world import build_combinations
+    combo = next(iter(build_combinations(state)), None)
+    if combo:
+        return f"ADVICE — {speaker}: your {combo} is active now; its equipment and footing are already satisfying the combination."
+    return f"ADVICE — {speaker}: inspect with ; before committing; remembered ground never reveals a present actor or reaction."
+
+
+def _point(coordinate: str) -> Position | None:
+    try:
+        return Position(*(int(value) for value in coordinate.split(",")))
+    except (TypeError, ValueError):
+        return None

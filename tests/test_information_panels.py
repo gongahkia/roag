@@ -6,7 +6,7 @@ from jomon.actions import interact
 from jomon.inventory import auto_place, create_item
 from jomon.regional_history import account_for, ledger_lines, network_institution_for_contact
 from jomon.state import Position, create_world
-from jomon.terminal import InputEvent, OverlayView, _handle_overlay_view, _overlay, information_lines
+from jomon.terminal import InputEvent, OverlayView, _handle_overlay_view, _overlay, _overlay_lines, information_lines
 
 
 class PanelSink:
@@ -116,3 +116,16 @@ class InformationPanelTests(unittest.TestCase):
                 "jomon.terminal", fromlist=["dialogue_choices"]
             ).dialogue_choices(state, result.overlay)
         ))
+
+    def test_contacts_teach_one_current_system_without_repeated_prose(self):
+        state = self.state
+        state.location = "region"
+        title, lines = _overlay_lines(state, "contact")
+        self.assertEqual(title, state.contact.name.upper())
+        advice = [line for line in lines if line.startswith("ADVICE")]
+        self.assertEqual(len(advice), 1)
+        self.assertIn(state.contact.name, advice[0])
+        self.assertTrue("inspect with ;" in advice[0] or "is active now" in advice[0])
+
+        _, bartender = _overlay_lines(state, "bartender")
+        self.assertEqual(bartender.count(state.bartender.background), 1)

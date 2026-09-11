@@ -2572,6 +2572,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             if person.id == contact_id
         )
         from .regional_history import network_institution_for_contact
+        from .inspection import contextual_advice
 
         network = network_institution_for_contact(state, contact_id)
         if network:
@@ -2582,11 +2583,13 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
                 f"Service: {network.service}.",
                 f"Opposition: {network.opposition_reason}.",
                 f"Network trust {network.trust:+d}; obligation {network.obligation}; confidence {network.confidence:+d}.",
+                contextual_advice(state, contact.name),
                 *[f"- {memory}" for memory in contact.memories[-3:]],
             ]
         return contact.name.upper(), [
             f"{contact.role}; disposition {contact.disposition:+d}; interest {contact.interest}.",
             "This local worker can mark a cache, teach practical knowledge, or treat an injury.",
+            contextual_advice(state, contact.name),
             *[f"- {memory}" for memory in (contact.memories[-3:] or ["No shared service yet."])],
         ]
     if kind == "contact" or kind.startswith("contact:"):
@@ -2598,9 +2601,11 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
                 if person.id == contact_id
             )
         memories = contact.memories or ["No significant shared event yet."]
+        from .inspection import contextual_advice
         return contact.name.upper(), [
             f"Role: {contact.role}; disposition: {contact.disposition:+d}",
             f"Material interest: {contact.interest}", f"Objective: {state.objective_status}",
+            contextual_advice(state, contact.name),
             "Significant memories:", *[f"- {memory}" for memory in memories], "Escape closes without time.",
         ]
     if kind == "tavern":
@@ -2655,11 +2660,13 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         ]
     if kind == "bartender":
         schedule = state.actor_schedules.get(state.bartender.id)
+        from .inspection import contextual_advice
         return state.bartender.name.upper(), [
             f"Bartender; {schedule.activity if schedule else 'between duties'}.",
             state.bartender.background,
             f"Opinion of courier: {state.bartender.relationships.get(state.active_courier_id or '', 0):+d}",
             "Sena's stock follows region arrivals, counted supplies, and season.",
+            contextual_advice(state, state.bartender.name),
             "D. Browse drinks", "S. Choose crew support", "L. Leave the bar",
         ]
     if kind == "bartender:drinks":
