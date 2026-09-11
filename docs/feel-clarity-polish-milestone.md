@@ -94,6 +94,45 @@ to remeasure rather than conceal.
   format stays 7; combat forecasting will not reveal actors outside courier
   sight; event pacing will preserve the saved message ledger and change only
   bounded delivery/presentation.
-- Remaining: implement each production slice with focused tests, run the build
-  coverage audit and tune its findings, profile, exercise real PTY layouts and
-  close every verification gate above.
+- Movement and inspection: blocked steps now name the physical obstruction and
+  a recovery; `;` opens a zero-time keyboard/mouse look cursor whose FACT,
+  REMEMBERED and UNKNOWN labels prevent information leaks. The compact panel
+  retains health, kit, objective, load, ammunition, danger, status and one
+  current action at 80x24.
+- Combat: one pure forecast projects visible origin, target, path or area,
+  timing and authored counterplay into the map, status, look, targeting and
+  observed-life views. Callers share one FOV snapshot, so the added clarity is
+  bounded and hidden actors remain hidden.
+- Discovery and pacing: contacts give one current systemic lesson; the base
+  legend exposes look, route-following, mastery, aim and actor inspection;
+  routine event runs compact without hiding exact deaths, injuries, losses or
+  collapses; arrivals deliver at most one substantial deferred voyage echo.
+- Balance: the production-derived audit covers all 24 documented builds against
+  steady, strained, critical, elite, voyage and environmental pressure. Every
+  build has a real answer to every family (144 matchups), and all 36 weapon
+  families have a non-damage tactical identity. Frontier ranged kits were
+  separated into sling, longbow and crossbow identities; no blanket damage
+  increase was needed.
+- Performance: an early version exposed a render-path route scan and repeated
+  sight calculations. Removing those and caching immutable enemy definitions
+  produced `docs/performance-feel-clarity-final.json`: movement 8.655 ms median
+  / 12.736 ms p99, input-to-layout 14.225 / 17.177 ms, 80x24 render
+  6.479 / 64.319 ms, enemy-heavy turns 30.524 / 39.876 ms, and boarding
+  input/render 31.579 / 42.116 ms. All normal medians improved over baseline;
+  peak RSS moved from 35,612 to 37,456 KiB (+5.2%) and replay still matches.
+- Verification: the fast suite passed 114 tests in 51.095 seconds and the full
+  suite passed 559 in 368.185 seconds. The 50-seed packaged audit found no
+  failures across content, 450 encounters, 400 region/quest combinations,
+  generation, persistence, living-world state, 50 deterministic replays, 4,800
+  situation opportunities and a 50-leg memory soak. Generation produced 50
+  unique geographies for each of eight regions; the soak grew 6,658 bytes after
+  warm-up. The pre-existing expansion's 1,000-seed audit remains the topology
+  soak; this presentation pass did not change geography.
+- Manual PTY: completed new-world startup, immediate Hearthford departure,
+  keyboard and raw xterm mouse look, material inspection and clean quit at
+  80x24; completed 100x32 rendering, 60x18 below-minimum warning and resize
+  recovery; completed a real POSIX suspend/continue cycle without action-clock
+  movement and clean terminal restoration.
+- Remaining gate: native play was exercised on macOS only. Linux and WSL were
+  not available in this workspace; monochrome and reduced-colour behavior is
+  covered by automated semantic-fallback tests rather than a physical terminal.
