@@ -456,3 +456,112 @@ that leaves energy at zero, once per combat; four copies release two. Generated
 energy cannot trigger another release. Focusing Lens covers the first one or two
 focus-granting techniques per round according to its one/two-copy cap. These rules
 are embedded in new saves; archived rules preserve their original thresholds.
+
+## Expanded crew combinations
+
+The roster remains exactly 25 owners. Each now has four expansion techniques
+with validated roles: direction-A deepener, direction-B deepener, broad
+cross-owner bridge and conditional rare rule breaker. Ordinary rewards exclude
+rule breakers and use owner-, biome- and lane-scoped eligibility. Fifty selected
+signature cards have mutually exclusive ENGINE and COVERAGE masteries; the
+ordinary upgrade ceiling remains one. Sixteen infusions each alter one bounded
+rule on one durable card copy. Copy, transformation, mastery, infusion, removal,
+save/load and owner death all preserve or clear those modifiers explicitly.
+
+Every owner has one optional advanced starter package. Eleven doctrines use
+closed tag/role requirements and each states one strength, one liability and one
+formation/sequencing rule. Thirteen curated squads recommend compatible
+formations and doctrines. Defaults remain available and no package or doctrine
+adds permanent profile power.
+
+## Persistent interaction families and acquisition
+
+The live set contains 36 stackable items, 30 boons and 30 curses. The additions
+include first-copy glue, authored thresholds, refresh/reliability rules,
+converters, rare bounded multipliers/retriggers and biome/Pressure decisions.
+Boons are unique or nearly unique run rules. Curses include penalties and
+exceptional-power contracts rather than undisclosed scalar taxes. The recycler
+consumes an unwanted stack for one deterministic future alternative; its two
+stored targeting credits are bounded and cannot print an arbitrary requested
+reward.
+
+Technique lanes are normal, elite, objective, facility, bargain, guardian,
+finale and loop. Normal combat emphasizes glue and coverage; elites expose
+engines and scarce editing; objectives/facilities carry biome and route identity;
+bargains carry explicit burdens; guardians/finales own signature rules and the
+post-win choice. All card rewards remain skippable. Enabled pack IDs are frozen
+in the run, and custom play validates pack compatibility.
+
+## Threat, encounters and visible mutations
+
+Encounter contracts carry durability, sustained damage, opening burst, control,
+sustain, reach and tempo dimensions plus coordination costs. Normal and elite
+formations must pass both total budget and dimensional ceilings. Candidate
+selection enumerates stable IDs, filters biome/role/rank/vector/spike/repetition
+constraints, scores behavioral novelty, makes one seeded weighted choice and
+then freezes composition, modules, stats, targets and intents. It does not retry
+randomly or scale to current party health/build strength.
+
+The live census is 129 enemies and 168 encounters. Every biome has at least six
+compatible normal participants, two native elite-only participants, one guardian
+and several legal formations. Ninety-seven enemies have at least three actions;
+the remaining 32 intentionally simple generic roles have two. Six coordination
+plans—combo, disrupt, pressure, screen, sustain and the finale-specific overseer
+plan—support distinct target-order and position questions.
+
+Sixteen visible mutation modules change reactions, guards, targeting, movement,
+status relations, sustain or finite reinforcements. Compatibility and exclusions
+are validated; no module makes a broad ordinary build tag universally inert.
+Pressure gradually increases module slots, and high ranks/loops may combine
+compatible modules. Intent markers and conditional normal/empowered values are
+frozen at encounter entry.
+
+## Guardians, finales and phase seals
+
+The first completed objective culminates in exactly one guardian native to that
+biome. This replaces the objective culmination rather than adding all eleven
+guardians to a base route. The second objective freezes one of four finales:
+Overseer Core, Signal Tyrant, Mercy Engine or Breach Oracle. The first objective
+reveals the broad finale profiles; the second reveals the exact encounter.
+
+Every guardian and finale primary has five-line-or-larger ASCII art, a tactical
+thesis, three actions and typed descending phase thresholds. Only one phase seal
+may be crossed per hit. Exact post-mitigation overflow is stored and applied by
+the next damaging hit, so an explosive build keeps its earned output without
+skipping undisclosed boss behavior. Phase IDs, overflow and transitions are
+saved and source-attributed.
+
+## Horizontal progression and expressive modes
+
+Profile schema 2 records local history, discoveries, contracts, the global best
+ladder rank, per-run scores, loop depth and casualties. It contains no health,
+damage, energy, resource or reward-quality modifier. All 25 crew remain available
+on a fresh profile. Searchable terminal views expose cards, items, boons, curses,
+guardians, finales, completed contracts and the graveyard.
+
+Ranks 1–20 are cumulative and global. Each rank has one concise typed change;
+the anchor ranks alter pressure/economy, vector budgets/formation, advanced
+coordination/mutations, objective/hazard/patrol consequences and guardian/finale
+rules. Only four small steps touch bounded enemy health/damage. Winning unlocks
+the next rank; party bests are recognition, not separate progression ladders.
+
+Twenty authored contracts teach or invert real mechanics. Custom expeditions
+freeze seed, party, loadouts, doctrine, biomes, layout, starting Pressure, rank,
+packs and modifiers. `DD1` challenge codes use bounded strict parsing and a
+checksum. The offline daily derives from the calendar date, ruleset version and
+documented fixed salt. There are no accounts, servers or online dependencies.
+
+## Base victory and deterministic descent
+
+A finale clear records the base victory before input and offers EXTRACT or
+DESCEND AGAIN. Extraction ends normally. Descent retains living crew, the
+owner-bound deck, upgrades, masteries, infusions, items, boons, curses and
+casualties, then derives a remixed four-biome world from canonical SHA-256 input.
+Loop 1 begins at Pressure 1100, later loops add 600 to the floor, and only one
+objective signal is required. Each depth adds finite mutation/reinforcement and
+hazard pressure; finale selection avoids repeats until all four have appeared.
+
+Loop death cannot revoke the archived base clear. Exact score, peak state,
+party, broad detected engines, boss sequence, cause and depth remain in local
+history/profile records. Scaling remains integer-safe, saveable and capable of
+ending; no essential unlock requires a deep loop.
