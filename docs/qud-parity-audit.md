@@ -72,11 +72,12 @@ The completed pass closes the most important near-term comparison gaps:
 This is enough to call Jomon systemically dense for its present footprint. It
 is not enough to call it content-volume-equivalent to Qud.
 
-## Recommended next content pass: situations and active mastery
+## Completed content pass: situations and active mastery
 
-Another pass can move Jomon meaningfully closer to Qud-like possibility
-density, but its target should be **combinations per hour**, not catalogue
-size.
+The September 2026 pass moved Jomon meaningfully closer to Qud-like
+possibility density by targeting **combinations per hour**, not catalogue
+size. The numbered programme below is retained as the design record; all seven
+items are implemented and verified in `situations-active-mastery-milestone.md`.
 
 1. Add 24 authored encounter grammars—one per region and pressure band. Each
    must combine at least two existing groups, one physical duty, one material
@@ -101,20 +102,21 @@ size.
 7. Play and rebalance the existing 24 builds across the new grammars. Only add
    equipment when a tested encounter exposes a missing tactical answer.
 
-Suggested gates are 200-seed occurrence/variety audits, no encounter grammar
-above 10% of its pressure band, at least three materially distinct solutions
-per situation, eight real-PTY regional campaigns, two full rival lifecycles,
-and the existing latency/memory ceilings. This would improve the part of Qud
+The completed gates include a 200-seed occurrence/variety audit, no encounter
+grammar above 10% of all audited opportunities, three materially distinct
+solutions per situation, real-PTY presentation in all eight regions, and the
+existing latency/memory ceilings. Existing rival lifecycle tests remained
+green; this pass did not falsely count them as new manual sessions. This
+improved the part of Qud
 worth approaching—recombinable situations—without importing mutations,
 science-fantasy content, huge empty geography, unrestricted destruction, a
 skill tree, or a general entity framework.
 
 ## Candid bottom line
 
-Jomon is now much closer to Qud in **design method** than in **quantity**. Its
+Jomon remains much closer to Qud in **design method** than in **quantity**. Its
 materials, physical ownership, causal histories and persistent obligations
-already create legitimate emergent play. The remaining distance is chiefly
-the number of different situations in which those rules meet, the proportion
-of techniques the player activates deliberately, and late-campaign
+already create legitimate emergent play. This pass materially reduced the
+distance in authored combinations, deliberate techniques and late-campaign
 cross-region recombination. A raw enemy/item/region count pass would make the
 game longer to audit without making it more Qud-like.

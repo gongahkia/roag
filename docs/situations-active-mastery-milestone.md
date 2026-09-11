@@ -120,10 +120,78 @@ They are optional and cannot gate initial or ordinary expedition play.
 
 ## Live ledger
 
-- Planning: repository and production hooks audited; baseline captured;
-  implementation not yet started.
-- Decisions: keep save format 7; reuse existing actors and reducers; bind all
-  added content to ordinary region/voyage/household transitions.
-- Remaining: all implementation, automated audits, PTY verification, balance,
-  final benchmark and closure assessment.
+- Planning: repository and production hooks audited; baseline captured at
+  `2bd5e1692e5a21042b411d8c2bdc727320a0e45f` before implementation.
+- Decisions: save format remains 7; existing actors and reducers remain the
+  authority; new content is bound to ordinary region, pressure, voyage and
+  household transitions. Site locations are computed once during regional
+  generation, persisted as sparse deltas and never searched from the render
+  loop. Voyage echoes are bounded once per variant, not once per trip.
+- Implemented: 24 mixed situations and mutable sites; 12 active manoeuvres;
+  eight two-region interference events; one later echo for every 12 voyage
+  variants; two household developments; one all-region capstone; production
+  overlays, causal records, save validation and focused audits for all of them.
+- Compatibility corrections: situation hazards activate on real departure or
+  pressure transitions, not test-only region switches; untrained couriers do
+  not gain a dead mastery menu entry; hook and shove reducers respect occupied
+  receiving cells; corrupt IDs and malformed sparse records are rejected.
 
+## Final measurements
+
+The final 20-sample machine-readable result is
+`docs/performance-situations-final.json`. Against the same seed and benchmark:
+
+| scenario | baseline median | final median | final p99 |
+|---|---:|---:|---:|
+| ordinary movement | 9.166 ms | 5.956 ms | 6.761 ms |
+| input to 80x24 layout | 12.856 ms | 9.414 ms | 10.397 ms |
+| 80x24 render layout | 5.482 ms | 3.530 ms | 4.655 ms |
+| enemy-heavy turn | 60.086 ms | 24.402 ms | 27.804 ms |
+| environmental-heavy turn | 13.301 ms | 6.473 ms | 7.014 ms |
+| world creation | 711.828 ms | 356.425 ms | 366.065 ms |
+| load | 222.884 ms | 138.550 ms | 162.159 ms |
+| save | 24.378 ms | 16.044 ms | 20.908 ms |
+
+The final save is 374,976 bytes versus 371,564 (+0.9%); peak RSS is 36,736
+KiB versus 34,432 (+6.7%). Deterministic replay matches. Lazy frontier entry
+is 45.951 ms median. Region entry has a 0.019 ms median and a single 1.937 ms
+p99 activation sample: an absolute two-millisecond transition, not recurring
+input work. Every ordinary and heavy target is met.
+
+## Verification closure
+
+- Fast developer suite: 97 tests in 36.071 seconds, passing.
+- Full suite: 541 tests in 277.302 seconds, passing.
+- Situation audit: 200 seeds, 4,800 opportunities, all 24 distinct records,
+  maximum share 4.17%, no failures.
+- Generation audit: 1,000 seeds / 8,000 regions, deterministic duplicate
+  generation and format-7 reconstruction, zero topology/content failures;
+  3,712.878 seconds, worst seed 38.263 seconds. This deliberately exhaustive
+  tier is not part of the fast developer loop.
+- Encounter audit: 200 samples / 1,800 plans, 418 production compositions,
+  zero invalid actors, unreachable actors or unavoidable opening attacks.
+- Quest audit: 50 seeds / 400 regions, 400 unique geographies, 20 regional
+  questlines, five arcs and no unreachable or invalid references.
+- Living-world audit: 200 route graphs, all connected and deterministic; 12
+  schedule samples, no invalid schedules or vessel overlaps.
+- Persistence audit: format-7 round trip and deterministic format-6 migration
+  pass; item identities and existing regions remain exact; corrupt state is
+  rejected. The expanded eight-region audit save is 648,393 bytes.
+- Replay audit: 50 samples of 12 actions match exactly.
+- Memory soak: 100 voyage legs; logs, items, route marks and sparse material
+  cells remain bounded; 8,060 bytes traced post-warmup growth and no failure.
+
+Real curses sessions used isolated temporary state. They covered new-world
+creation and immediate `E` departure, situation/history inspection, return,
+save, clean quit, reload at 100x32, resize to 60x20 and recovery, and all eight
+regional palettes/situation openings at 80x24. Controlled production-UI
+sessions exercised target, field and guard mastery, a tool solution and
+changed-site revisit, and the two-stage witnessed household development. The
+other situation solutions, all interference/echo records, both branches of
+each development and all capstone branches were exercised automatically, not
+claimed as manual play.
+
+Remaining limitations are intentional and candid: the 1,000-seed audit is
+slow; anonymous actors still share bounded cognition profiles beneath their
+different roles; and finite authored situations can repeat across campaigns.
+No gate for this pass remains open.
