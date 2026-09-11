@@ -16,6 +16,7 @@ from jomon.terminal import (
     SEMANTIC_ROLES,
     dialogue_choices,
     dialogue_choice_lines,
+    event_feed_lines,
     event_colour_role,
     _handle_overlay,
     information_colour_role,
@@ -157,6 +158,28 @@ class SemanticColourTests(unittest.TestCase):
         self.assertEqual(status_colour_role("Load 22/30 ready"), "cargo")
         self.assertEqual(status_colour_role("Load 41/30 overloaded"), "warning")
         self.assertEqual(status_colour_role("Combo: smoke hunter"), "technique")
+
+    def test_event_feed_compacts_routine_motion_but_keeps_exact_loss_cause(self):
+        messages = [
+            "The reed runner moves toward your last-known position.",
+            "The bank guard moves toward a clear line.",
+            "The named courier is injured by falling debris at 4,5,0.",
+        ]
+        lines = event_feed_lines(messages, 78, 4)
+        text = " ".join(lines)
+        self.assertIn("ROUTINE MOVEMENT x2", text)
+        self.assertIn(messages[-1], text)
+
+    def test_event_feed_never_groups_death_loss_or_collapse(self):
+        messages = [
+            "The brace collapses after its warned action.",
+            "The sling is destroyed by fire at 8,9,0.",
+            "One paper lot is lost to floodwater.",
+        ]
+        text = " ".join(event_feed_lines(messages, 78, 4))
+        self.assertNotIn("ROUTINE", text)
+        self.assertIn("destroyed by fire", text)
+        self.assertIn("lost to floodwater", text)
 
     def test_remembered_terrain_does_not_leak_moving_actor(self):
         state = create_world("actor memory")

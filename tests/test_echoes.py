@@ -27,7 +27,11 @@ class VoyageEchoTests(unittest.TestCase):
         state.travel_count = 20
         for index, echo in enumerate(ECHOES, 1):
             state.vessel_changes[f"voyage_variant:{index}"] = echo.variant_id
-        applied = apply_later_echoes(state)
+        applied = []
+        for _ in ECHOES:
+            resolved = apply_later_echoes(state)
+            self.assertLessEqual(len(resolved), 1)
+            applied.extend(resolved)
         self.assertEqual(len(applied), 12)
         self.assertEqual(sum(key.startswith("voyage-echo:") for key in state.region.changes), 12)
         self.assertTrue(any(person.memories for person in state.household))

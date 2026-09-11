@@ -576,6 +576,43 @@ def event_colour_role(text: str) -> str:
     return "terrain"
 
 
+def _causal_event(text: str) -> bool:
+    lower = text.lower()
+    return any(word in lower for word in (
+        "dies", "death", "killed", "fell to", "falls to", "injur", "wound",
+        "destroyed", "lost", "collapse", "drown", "defeat", "surrender",
+        "complete", "secured", "stolen", "retreat", "saved", "later echo",
+    ))
+
+
+def _routine_event_kind(text: str) -> str:
+    lower = text.lower()
+    if any(word in lower for word in ("moves toward", "investigates", "circles", "steps toward", "seeks cover")):
+        return "movement"
+    if any(word in lower for word in ("reload", "recovers", "holds without", "watches", "waits for")):
+        return "readiness"
+    if any(word in lower for word in ("smoke drifts", "water flows", "rain wets", "fire consumes")):
+        return "material"
+    return ""
+
+
+def event_feed_lines(messages: Iterable[str], width: int, max_rows: int) -> list[str]:
+    """Compact adjacent routine updates but retain exact causal consequences."""
+    groups: list[tuple[str, int, str]] = []
+    for message in messages:
+        kind = "" if _causal_event(message) else _routine_event_kind(message)
+        if kind and groups and groups[-1][0] == kind:
+            _, count, _ = groups[-1]
+            groups[-1] = (kind, count + 1, message)
+        else:
+            groups.append((kind, 1, message))
+    rendered: list[str] = []
+    for kind, count, message in groups:
+        text = f"ROUTINE {kind.upper()} x{count} — {message}" if kind and count > 1 else message
+        rendered.extend(_wrapped(text, width))
+    return rendered[-max_rows:]
+
+
 def status_colour_role(text: str) -> str:
     """Give the dense status rail visual grouping without hiding its labels."""
     stripped, lower = text.strip(), text.lower()
@@ -892,10 +929,8 @@ def _draw_base(screen: curses.window, state: GameState) -> None:
             attr |= curses.A_BOLD
         _put(screen, 1 + index, map_width + 2, _clip(line, status_width - 4), attr)
     _frame(screen, main_height, 0, event_height, width, "EVENTS")
-    event_lines: list[str] = []
-    for message in state.messages:
-        event_lines.extend(_wrapped(message, width - 4))
-    for index, line in enumerate(event_lines[-(event_height - 2):]):
+    event_lines = event_feed_lines(state.messages, width - 4, event_height - 2)
+    for index, line in enumerate(event_lines):
         _put(screen, main_height + 1 + index, 2, _clip(line, width - 4), _COLOUR_ATTRIBUTES[event_colour_role(line)])
     command_attr = _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_REVERSE
     _put(screen, height - 2, 1, "Move HJKL/arrows E act A aim G guard ; look T follow M mastery", command_attr)

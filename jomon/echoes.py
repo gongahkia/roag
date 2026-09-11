@@ -39,7 +39,7 @@ def _actor(state: GameState, voyage: int):
 
 
 def apply_later_echoes(state: GameState) -> list[VoyageEcho]:
-    """Resolve prior variants on a later arrival; never echo the same voyage."""
+    """Resolve at most one prior variant on an arrival; never echo its voyage."""
     applied = []
     records = sorted(
         (int(key.rsplit(":", 1)[1]), value)
@@ -89,6 +89,10 @@ def apply_later_echoes(state: GameState) -> list[VoyageEcho]:
         state.remember(text)
         state.add_message(text, priority=3)
         applied.append(echo)
+        # One substantial callback per arrival leaves room for the current
+        # voyage consequence, regional situation, and player-authored plans.
+        # Remaining eligible echoes stay in their compact saved records.
+        break
     return applied
 
 
