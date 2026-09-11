@@ -9,29 +9,26 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from dumbest_dungeon.content import load_catalog, load_legacy_catalog
+from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.engine import GameEngine
-from dumbest_dungeon.policies import Command, Policy, canonical_hash, execute_command
+from dumbest_dungeon.policies import Policy, canonical_hash, execute_command
 
 
 class OrderingTests(unittest.TestCase):
-    def test_recorded_calibration_commands_preserve_original_gameplay_and_rng(self) -> None:
+    def test_recorded_calibration_snapshot_migrates_without_rewriting_legacy_state(self) -> None:
         path = Path(__file__).resolve().parents[1] / "docs/evidence/pass3/0-bulkhead_basics-explorer.json.gz"
         with gzip.open(path, "rt") as stream:
             baseline = json.load(stream)
-        engine = GameEngine.new(load_legacy_catalog(), baseline["seed"], start_in_hub=True)
-        engine.select_curated_squad(baseline["squad"])
-        engine.begin_expedition()
-        for row in baseline["commands"]:
-            command = row["command"]
-            execute_command(engine, Command(command["method"], tuple(command["args"])))
+        original = json.loads(json.dumps(baseline["final"]))
+        engine = GameEngine.from_snapshot(load_catalog(), baseline["final"])
+        self.assertEqual(original, baseline["final"])
         current = json.loads(json.dumps(engine.snapshot()))
-        # Schema additions are checked by migration tests. This recorded command
-        # transcript proves that adding durable observations does not alter the
-        # pre-existing simulation or consume RNG.
+        # Pure migrations add durable fields, but must preserve all recorded
+        # version-26 state and the exact continuation stream.
         for field in (
             "ledger", "pressure", "pressure_recent", "pressure_incomplete_before_tick",
-            "encounter_pressure", "encounter_modules", "reinforcement_tickets", "reinforcement_reserve_id",
+            "encounter_pressure", "encounter_budget_version", "encounter_modules",
+            "reinforcement_tickets", "reinforcement_reserve_id",
             "next_card_copy_id", "hub_loadouts", "doctrine_id", "recycler_credits",
             "ladder_rank", "expedition_mode", "active_modifiers", "enabled_packs",
             "base_victory", "base_victory_archived", "loop_depth",

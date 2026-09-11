@@ -316,6 +316,26 @@ class SaveTests(unittest.TestCase):
         with self.assertRaisesRegex(RuleError, "invalid enemy formation"):
             GameEngine.from_snapshot(self.catalog, snapshot)
 
+        snapshot = GameEngine.new(
+            self.catalog,
+            0,
+            _biome_ids=("derelict", "reactor", "flooded", "cryogenic"),
+        ).snapshot()
+        room = next(
+            room for room in snapshot["state"]["rooms"]
+            if room["kind"] == "fight" and room["biome_id"] == "derelict"
+        )
+        room["enemy_ids"] = ["acid_spitter", "acid_spitter", "acid_spitter"]
+        with self.assertRaisesRegex(RuleError, "threat budget"):
+            GameEngine.from_snapshot(self.catalog, snapshot)
+        snapshot["state"]["encounter_budget_version"] = 0
+        self.assertEqual(0, GameEngine.from_snapshot(self.catalog, snapshot).state.encounter_budget_version)
+
+        snapshot = GameEngine.new(self.catalog, 405).snapshot()
+        snapshot["state"]["encounter_budget_version"] = 2
+        with self.assertRaisesRegex(RuleError, "encounter budget version"):
+            GameEngine.from_snapshot(self.catalog, snapshot)
+
     def test_saved_intent_target_is_validated(self) -> None:
         engine = GameEngine.new(self.catalog, 406)
         engine.start_combat("reactor_meter_pack")

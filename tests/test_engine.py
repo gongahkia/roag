@@ -16,6 +16,7 @@ from dumbest_dungeon.engine import (
     WALKABLE_TILES,
     WORLD_LAYOUTS,
 )
+from dumbest_dungeon.threat import formation_threat, threat_budget
 
 
 class EngineTests(unittest.TestCase):
@@ -142,6 +143,11 @@ class EngineTests(unittest.TestCase):
                 total_hp = sum(self.catalog.enemies[enemy_id]["max_hp"] for enemy_id in room.enemy_ids)
                 minimum, maximum = (40, 60) if room.kind == "fight" else (62, 100)
                 self.assertTrue(minimum <= total_hp <= maximum)
+                self.assertTrue(
+                    threat_budget("normal" if room.kind == "fight" else "elite").permits(
+                        formation_threat(self.catalog, room.enemy_ids)
+                    )
+                )
                 self.assertEqual(
                     engine._formation_plan(self.catalog, room.enemy_ids),
                     room.encounter_plan,
@@ -155,6 +161,28 @@ class EngineTests(unittest.TestCase):
             self.assertGreaterEqual(len(selections), 2, biome_id)
             self.assertTrue(any(len(orders) > 1 for orders in selections.values()), biome_id)
         self.assertGreaterEqual(len(plans), 4)
+
+    def test_constraint_pipeline_uses_one_seeded_draw_after_stable_enumeration(self) -> None:
+        class OneDraw:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def choices(self, population, *, weights, k):
+                self.calls += 1
+                self.assertions = (tuple(population), tuple(weights), k)
+                return [population[0]]
+
+        rng = OneDraw()
+        formation = self.engine._compose_enemy_formation(
+            self.catalog, rng, "derelict", "fight", "lost_shift"
+        )
+        population, weights, k = rng.assertions
+        self.assertEqual(1, rng.calls)
+        self.assertEqual(1, k)
+        self.assertEqual(tuple(sorted(population)), population)
+        self.assertEqual(len(population), len(weights))
+        self.assertEqual(list(population[0]), formation)
+        self.assertTrue(threat_budget("normal").permits(formation_threat(self.catalog, formation)))
 
     def test_authored_encounter_families_receive_seeded_arrangements(self) -> None:
         template = list(self.catalog.encounters["ballast_choir"]["enemies"])

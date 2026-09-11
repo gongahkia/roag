@@ -43,6 +43,7 @@ from .combat_triggers import (
 from .contracts import Opcode
 from .passives import persistent_effect, trigger_disclosure
 from .pressure import PressureSource, action_price, pressure_band, pressure_status
+from .threat import formation_threat, threat_budget
 from .triggers import EventType, Phase
 
 
@@ -66,6 +67,10 @@ ACTIVE_MUTATION_EFFECTS = OPENING_MUTATION_EFFECTS | {
     "wide_wound_round",
     "reinforce_once",
 }
+
+_FORMATION_CANDIDATE_CACHE: dict[
+    tuple[str, str, str, str], tuple[tuple[tuple[str, ...], str, int], ...]
+] = {}
 
 
 class RuleError(ValueError):
@@ -1167,59 +1172,91 @@ class GameEngine:
         biome_id: str,
         kind: str,
         encounter_id: str,
+        *,
+        prior_enemy_ids: Counter[str] | None = None,
+        prior_formations: Counter[tuple[str, ...]] | None = None,
+        prior_plans: Counter[str] | None = None,
     ) -> list[str]:
         template = list(catalog.encounters[encounter_id]["enemies"])
         if kind == "boss":
             return template
         encounter_kind = "normal" if kind == "fight" else "elite"
         allowed_kinds = {"normal", "elite"} if encounter_kind == "elite" else {"normal"}
-        weighted_pool = [
-            enemy_id
-            for encounter in catalog.encounters.values()
-            if encounter["kind"] in allowed_kinds
-            and biome_id in encounter.get("biomes", ["derelict"])
-            for enemy_id in encounter["enemies"]
-        ]
-        minimum, maximum = (40, 60) if encounter_kind == "normal" else (62, 100)
-        midpoint = (minimum + maximum) // 2
-        candidates: dict[tuple[str, ...], float] = {}
-        template_hp = sum(catalog.enemies[enemy_id]["max_hp"] for enemy_id in template)
-        if minimum <= template_hp <= maximum:
-            candidates[tuple(template)] = cls._formation_score(catalog, template, midpoint)
-            if 2 <= len(template) <= 4 and rng.random() < 0.5:
-                return cls._arrange_enemy_formation(catalog, rng, template)
-        sizes = (2, 3, 4)
-        weights = (4, 5, 1) if encounter_kind == "normal" else (1, 4, 5)
-        for _ in range(120):
-            size = rng.choices(sizes, weights=weights, k=1)[0]
-            formation = [rng.choice(template if rng.random() < 0.7 else weighted_pool)]
-            formation.extend(rng.choice(weighted_pool) for _ in range(size - 1))
-            total_hp = sum(catalog.enemies[enemy_id]["max_hp"] for enemy_id in formation)
-            if minimum <= total_hp <= maximum:
-                candidates[tuple(formation)] = cls._formation_score(catalog, formation, midpoint)
+        cache_key = (catalog.manifest.fingerprint, biome_id, encounter_kind, encounter_id)
+        cached = _FORMATION_CANDIDATE_CACHE.get(cache_key)
+        if cached is None:
+            authored = sorted(
+                {
+                    tuple(encounter["enemies"])
+                    for encounter in catalog.encounters.values()
+                    if encounter["kind"] in allowed_kinds
+                    and biome_id in encounter.get("biomes", ["derelict"])
+                }
+            )
+            compatible_pool = sorted({enemy_id for formation in authored for enemy_id in formation})
+            minimum, maximum = (40, 60) if encounter_kind == "normal" else (62, 100)
+            enumerated: set[tuple[str, ...]] = set()
+
+            def add_orders(formation: tuple[str, ...]) -> None:
+                if not 2 <= len(formation) <= 4:
+                    return
+                for order in (formation, tuple(reversed(formation))):
+                    for offset in range(len(order)):
+                        enumerated.add(order[offset:] + order[:offset])
+
+            for formation in authored:
+                add_orders(formation)
+            for index in range(len(template)):
+                for replacement in compatible_pool:
+                    variant = list(template)
+                    variant[index] = replacement
+                    add_orders(tuple(variant))
+
+            budget = threat_budget(encounter_kind)
+            prepared: list[tuple[tuple[str, ...], str, int]] = []
+            for formation in sorted(enumerated):
+                if any(
+                    biome_id not in catalog.enemies[enemy_id].get("biomes", ["derelict"])
+                    for enemy_id in formation
+                ):
+                    continue
+                total_hp = sum(catalog.enemies[enemy_id]["max_hp"] for enemy_id in formation)
+                vector = formation_threat(catalog, formation)
+                if not minimum <= total_hp <= maximum or not budget.permits(vector):
+                    continue
+                plan = cls._formation_plan(catalog, list(formation))
+                roles = set().union(
+                    *(cls._definition_roles(catalog.enemies[enemy_id]) for enemy_id in formation)
+                )
+                behaviors = {
+                    (action["target"], effect["op"], effect.get("status"), effect.get("bonus_status"))
+                    for enemy_id in formation
+                    for action in catalog.enemies[enemy_id]["actions"]
+                    for effect in action["effects"]
+                }
+                novelty = 2 + len(roles) + min(5, len(behaviors))
+                prepared.append((formation, plan, novelty))
+            cached = tuple(prepared)
+            _FORMATION_CANDIDATE_CACHE[cache_key] = cached
+
+        candidates: list[tuple[str, ...]] = []
+        weights: list[int] = []
+        enemy_repetition = prior_enemy_ids or Counter()
+        formation_repetition = prior_formations or Counter()
+        plan_repetition = prior_plans or Counter()
+        plan_weights = {"combo": 5, "disrupt": 4, "screen": 4, "sustain": 3, "pressure": 2}
+        for formation, plan, novelty in cached:
+            repetition = (
+                4 * formation_repetition[formation]
+                + 2 * plan_repetition[plan]
+                + sum(enemy_repetition[enemy_id] for enemy_id in set(formation))
+            )
+            candidates.append(formation)
+            weights.append(max(1, plan_weights[plan] * novelty * 8 // (8 + repetition)))
         if not candidates:
-            return cls._arrange_enemy_formation(catalog, rng, template)
-        candidates_by_plan: dict[str, list[tuple[tuple[str, ...], float]]] = {}
-        for enemy_ids, score in candidates.items():
-            plan = cls._formation_plan(catalog, list(enemy_ids))
-            candidates_by_plan.setdefault(plan, []).append((enemy_ids, score))
-        plans = list(candidates_by_plan)
-        plan = rng.choices(
-            plans,
-            weights=[
-                {"combo": 4, "disrupt": 3, "screen": 3, "sustain": 2, "pressure": 1}[item]
-                for item in plans
-            ],
-            k=1,
-        )[0]
-        planned_candidates = dict(candidates_by_plan[plan])
-        best_score = max(planned_candidates.values())
-        shortlist = [
-            list(enemy_ids)
-            for enemy_ids, score in planned_candidates.items()
-            if score >= best_score - 2.0
-        ]
-        return cls._arrange_enemy_formation(catalog, rng, rng.choice(shortlist))
+            raise RuleError(f"{biome_id} has no legal {encounter_kind} threat-vector formation")
+        # Exactly one seeded draw follows stable enumeration and all constraints.
+        return list(rng.choices(candidates, weights=weights, k=1)[0])
 
     @classmethod
     def _generate_rooms(
@@ -1243,6 +1280,9 @@ class GameEngine:
         rooms = [Room(0, "Arrival Threshold", "start", edges[0], True, True, biome_id=start_biome)]
         used_events: set[str] = set()
         used_encounters: set[str] = set()
+        prior_enemy_ids: Counter[str] = Counter()
+        prior_formations: Counter[tuple[str, ...]] = Counter()
+        prior_plans: Counter[str] = Counter()
         for room_id, kind in enumerate(kinds, 1):
             biome_id = room_biomes[room_id]
             content_id = None
@@ -1268,10 +1308,24 @@ class GameEngine:
                 used_events.add(content_id)
             biome_name = catalog.biomes[biome_id]["name"]
             enemy_ids = (
-                cls._compose_enemy_formation(catalog, rng, biome_id, kind, content_id)
+                cls._compose_enemy_formation(
+                    catalog,
+                    rng,
+                    biome_id,
+                    kind,
+                    content_id,
+                    prior_enemy_ids=prior_enemy_ids,
+                    prior_formations=prior_formations,
+                    prior_plans=prior_plans,
+                )
                 if kind in {"fight", "elite"} and content_id
                 else []
             )
+            encounter_plan = cls._formation_plan(catalog, enemy_ids) if enemy_ids else "none"
+            if enemy_ids:
+                prior_enemy_ids.update(enemy_ids)
+                prior_formations[tuple(enemy_ids)] += 1
+                prior_plans[encounter_plan] += 1
             rooms.append(
                 Room(
                     room_id,
@@ -1281,11 +1335,7 @@ class GameEngine:
                     content_id=content_id,
                     biome_id=biome_id,
                     enemy_ids=enemy_ids,
-                    encounter_plan=(
-                        cls._formation_plan(catalog, enemy_ids)
-                        if enemy_ids
-                        else "none"
-                    ),
+                    encounter_plan=encounter_plan,
                 )
             )
         boss_biome = room_biomes[11]
@@ -1872,8 +1922,13 @@ class GameEngine:
                 raise RuleError("save contains a biome-incompatible enemy formation")
             total_hp = sum(catalog.enemies[enemy_id]["max_hp"] for enemy_id in room.enemy_ids)
             minimum, maximum = (40, 60) if room.kind == "fight" else (62, 100)
-            if room.kind != "boss" and not minimum <= total_hp <= maximum:
-                raise RuleError("save contains an enemy formation outside its threat budget")
+            if room.kind != "boss":
+                legacy_valid = minimum <= total_hp <= maximum
+                vector_valid = legacy_valid and threat_budget(
+                    "normal" if room.kind == "fight" else "elite"
+                ).permits(formation_threat(catalog, room.enemy_ids))
+                if not (legacy_valid if state.encounter_budget_version == 0 else vector_valid):
+                    raise RuleError("save contains an enemy formation outside its threat budget")
         actors_by_id = {actor.id: actor for actor in state.heroes + state.enemies}
         for intent in state.intents:
             enemy = actors_by_id.get(intent.get("enemy_id"))
@@ -3576,14 +3631,37 @@ class GameEngine:
         ]
         if not candidates:
             raise RuleError(f"{biome_id} has no {encounter_kind} objective encounter")
-        encounter = self.rng.choice(candidates)
+        prior_families = Counter(
+            record.source_id for record in self.state.ledger.records if record.kind == "encounter_start"
+        )
+        candidates = sorted(candidates, key=lambda item: item["id"])
+        encounter = self.rng.choices(
+            candidates,
+            weights=[max(1, 8 // (1 + prior_families[item["id"]])) for item in candidates],
+            k=1,
+        )[0]
         room_kind = "elite" if encounter_kind == "elite" else "fight"
+        prior_enemy_ids: Counter[str] = Counter()
+        prior_formations: Counter[tuple[str, ...]] = Counter()
+        prior_plans: Counter[str] = Counter()
+        for record in self.state.ledger.records:
+            if record.kind != "encounter_start":
+                continue
+            formation = tuple(record.data.get("enemies", ()))
+            prior_enemy_ids.update(formation)
+            prior_formations[formation] += 1
+            plan = record.data.get("plan")
+            if isinstance(plan, str):
+                prior_plans[plan] += 1
         enemies = self._compose_enemy_formation(
             self.catalog,
             self.rng,
             biome_id,
             room_kind,
             encounter["id"],
+            prior_enemy_ids=prior_enemy_ids,
+            prior_formations=prior_formations,
+            prior_plans=prior_plans,
         )
         self.start_combat(encounter["id"], "objective", enemy_ids=enemies)
         self.add_log("The objective action draws an immediate hostile response.")
