@@ -1155,6 +1155,14 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str], view: Over
 
 
 def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
+    if kind == "station:gathering":
+        from .household_stories import station_choices
+
+        return [ChoiceOption(*row) for row in station_choices(state)]
+    if kind.startswith("household-story:"):
+        from .household_stories import story_choices
+
+        return [ChoiceOption(*row) for row in story_choices(state, kind.split(":", 1)[1])]
     if kind == "mastery":
         from .manoeuvres import choices
 
@@ -2157,6 +2165,11 @@ def _tavern_lines(state: GameState) -> list[str]:
 
 
 def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
+    if kind.startswith("household-story:"):
+        from .household_stories import BY_ID, story_lines
+
+        story_id = kind.split(":", 1)[1]
+        return BY_ID[story_id].name.upper(), story_lines(state, story_id)
     if kind == "mastery":
         from .manoeuvres import lines
 
@@ -2297,6 +2310,10 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         }.get(station, ("JOMON WORK POSITION", "A bounded vessel activity uses this physical position."))
         fitted = [REFITS[refit_id].name for refit_id in STATION_REFITS.get(station, ()) if installed(state, refit_id)]
         lines = [detail]
+        if station == "gathering":
+            from .household_stories import station_choices
+
+            lines.extend(f"{key}. {label} — {'AVAILABLE' if available else 'NEEDS ' + requirement}" for key, label, _, available, requirement in station_choices(state))
         if station in STATION_REFITS:
             lines.append("V. Inspect optional physical refits." + (f" Installed: {', '.join(fitted)}." if fitted else " None installed here."))
         return title, lines + ["Inspection costs no time. Escape closes."]
@@ -2541,6 +2558,22 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
 
 def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, bool]:
     char = chr(key).lower() if 0 <= key < 256 else ""
+    if kind == "station:gathering" and char in "123":
+        from .household_stories import STORIES, eligibility
+
+        story = STORIES[int(char)-1]
+        status = state.vessel_changes.get(f"household-story:{story.id}:status", "unopened")
+        eligible, _ = eligibility(state, story.id)
+        return (f"household-story:{story.id}" if eligible or status in {"active", "completed"} else kind), False
+    if kind.startswith("household-story:") and char in {"o", "d", "w", "p", "c", "h", "r"}:
+        from .actions import _advance_world
+        from .household_stories import resolve
+
+        changed, message, steps = resolve(state, kind.split(":", 1)[1], char)
+        if changed:
+            _advance_world(state, steps=steps)
+        state.add_message(message, priority=3)
+        return (None if changed else kind), False
     if kind == "mastery" and char in "123456789abc":
         from .actions import _advance_world
         from .manoeuvres import known, perform
