@@ -1,7 +1,9 @@
 # Pass 3 verification record
 
-This is a running evidence record, not a declaration that the expansion is done.
-The expansion gate and remaining acceptance tests are in
+This record closes the implemented Pass 3 expansion. It distinguishes automated,
+natural-policy, constructed and real-terminal evidence; none of those categories
+is presented as proof of perfect balance, universal viability or player fun. The
+acceptance gates and their final state are also summarized in
 [the implementation plan](IMPLEMENTATION_PASS_3.md).
 
 ## Milestone 0 — corrected calibration
@@ -769,3 +771,127 @@ key containing seed, layout/world, completed approaches/outcomes and disclosed
 pressure. The room formation and patrol identity are mutated once, serialized,
 and never rerolled after later pressure changes. Census: 129 enemies and 168
 encounters.
+
+## Final completion gate
+
+### Encounter threat and deterministic composition
+
+Commit `22aff7e` added a seven-axis threat estimate: durability, sustained damage,
+opening burst, control/rank denial, sustain, reach/area coverage and tempo. The
+estimate also charges composition interactions including setup/payoff,
+guard/striker, overlapping control and repeated bodies. Normal and elite plans
+have total budgets and per-axis ceilings, so low maximum HP cannot disguise an
+opening spike or denial lock.
+
+Commits `c5cea8e` and `4e5bb35` completed the frozen-generation contract. The
+generator enumerates authored template orders and legal one-body substitutions,
+sorts candidates stably, applies biome/body/HP/vector constraints, scores
+behavioral novelty and repetition across enemy identity, formation and plan,
+then performs exactly one seeded weighted selection. It has no random retry loop.
+Objective contacts use the same history penalties. Save schema 46 stores
+`encounter_budget_version`; migration 45→46 marks old frozen rooms as legacy
+version 0 while newly generated rooms use vector validation version 1. Loop
+worlds retain that version when remixed.
+
+Focused threat/acquisition checks passed 6 tests in 0.549 seconds. A 200-world
+formation-generation check passed in 77.398 seconds. These checks cover budget
+and dimensional ceilings, deterministic candidate ordering, one-draw selection,
+reward lanes and stable freezing.
+
+### Final generated-world coverage
+
+The retained constructed sweep is
+[`final-generation-sweep.json`](evidence/pass3/final-generation-sweep.json). It
+covers 64 base worlds and 64 loop worlds. Across the cohort it reaches all six
+layouts, all eleven biomes, all eleven facilities/objective biomes, all eleven
+guardians, all four finales, all five pressure bands, all six coordination-plan
+families and all sixteen mutation modules. Loop worlds also cover every layout
+and biome. The sweep observed 124 generated room encounter IDs and includes 12
+high-pressure elite selection seeds per biome. This is generation coverage, not
+a claim that a person naturally defeated every boss in the sweep.
+
+The final 64-world static route audit reported the following fastest/median/
+slowest objective-access ticks: branching 138/184/215, clusters 197/206/236,
+fracture 169/180/211, ring 154/191/259, spine 133/170/200 and zigzag
+167/181.5/224. Lowest/best projected light by layout ranged from 14 to 61.5;
+the worst sampled route was seed 0 ring at 14 light and 4 supplies. This audit
+models route resources, not combat or patrol attrition.
+
+### Final natural-policy cohort
+
+The exact ten compact records are retained in
+[`final-natural-cohort.jsonl`](evidence/pass3/final-natural-cohort.jsonl). They
+use normal enemy HP/energy, three shared energy, ordinary rewards and commands,
+and no injected state. Nine base attempts produced seven victories and two fair,
+understood losses; one secured base clear then descended and ended in a fair
+loop wipe. No run sealed a trigger chain; observed maximum automatic depths were
+10–12.
+
+| Seed / party | Policy | Natural result | Key evidence |
+| --- | --- | --- | --- |
+| 0 / Bulkhead Basics | rusher | defeat at Core | 315 ticks, light/supply exhausted, pressure 691, 18 boss rounds |
+| 0 / Bulkhead Basics | explorer | victory | 343 ticks, pressure 687, warden death, 15 boss rounds, 11 mark-payoff activations |
+| 0 / Bulkhead Basics | greedy | victory over Mercy Engine | 540 ticks, pressure 996, 16 boss rounds, multiple detected engines |
+| 4 / Breach Protocol | rusher | victory | 190 ticks, pressure 590, quartermaster casualty |
+| 4 / Breach Protocol | explorer | victory | 317 ticks, pressure 685, hacker and quartermaster casualties |
+| 4 / Breach Protocol | greedy | victory | 328 ticks, pressure 704 |
+| 10 / rear-rank stress party | explorer | fair elite loss | 56 ticks; severe rank clog produced a documented 40-round slog |
+| 11 / rear-rank stress party | explorer | victory | 228 ticks; psion and scout died and survivors completed the run |
+| 12 / rear-rank stress party | explorer | victory | 182 ticks, no casualties, multiple engines |
+| 0 / explorer clear retained | loop 1 | fair loop wipe | base victory remained recorded; ended at 427 ticks and pressure 1256 |
+
+The seed-0 explorer’s 30 mark-engine plays and 11 payoff activations are an
+honestly acquired high-power engine example. The seed-11 and seed-4 clears show
+continued meaningful play after owner death and owned-card removal. The seed-10
+loss is legible but exposes an unresolved tuning concern: an awkward rear-rank
+party can survive without making useful progress for too many rounds.
+
+The earlier real keyboard PTY seed-44 Breach Protocol clear took approximately
+19 minutes including menus and concurrent test delays, with eight Core rounds.
+Together with route and policy evidence, a 30–45-minute deliberate human base
+run remains plausible; it has not been established by a timed human study.
+Policy CPU runtime is not used as human-duration evidence.
+
+### Safety, persistence and terminal evidence
+
+Dedicated checks retained during the pass include 2 deterministic legal-command
+fuzz tests in 25.974 seconds and 3 targeted three-way interaction tests in 14.459
+seconds. The final-code real-PTY rerun passed 8 tests in 23.992 seconds at 80×24
+and 140×60, including profile/challenge/loop screens, scrollable arithmetic and
+state-neutral resize/inspection. The final suite also covers cross-process
+`PYTHONHASHSEED` equality, uninterrupted versus
+checkpointed continuation, historical migrations, pressure boundaries, trigger
+ordering and sealing, stack previews, mastery/infusion/owner-death interactions,
+daily seeds and challenge codes. Animation, resize, inspection and other UI-only
+operations are checked not to consume simulation randomness or pressure.
+
+### Final release suite
+
+The first post-generator full run executed 479 tests in 1515.650 seconds and
+found five test-fixture failures rather than production failures: three synthetic
+historical saves retained the newly introduced version field, one telemetry test
+assumed a particular RNG-selected damaging intent, and one reward-view assertion
+expected stale producer/payoff wording. Commit `f30811d` corrected those fixtures
+and assertions; the five focused regressions then passed in 4.6 seconds.
+
+The clean rerun command was:
+
+```text
+/usr/bin/time -p env PYTHONWARNINGS=error python3 -m unittest discover -s tests
+```
+
+Result: **479 tests passed in 984.640 seconds** (`OK`); wall/user/system time was
+985.48/880.18/14.89 seconds. No tests were skipped or expected to fail.
+
+### Final limitations
+
+- The policy cohorts are deterministic regression instruments, not representative
+  players and not evidence of a robust population win rate.
+- Fun, perfect balance, universal party viability and infinite replayability are
+  deliberately not claimed.
+- The rank-clog loss demonstrates that legal weak formations can still create an
+  overly long combat even though the failure is explainable.
+- Every guardian and finale has deterministic scenario and generation coverage;
+  natural play evidence covers a subset, not every family.
+- Endless loops are designed to become unfair eventually. Integer safety,
+  termination, saves and exact inspection are tested; deep-loop balance is not.
