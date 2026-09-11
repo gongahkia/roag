@@ -1188,7 +1188,10 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         for key, name in zip(keys, carried_preparations(state)):
             available, reason = preparation_status(state, name)
             rows.append(ChoiceOption(key.upper(), f"Use {name}", "commitment", available, reason))
-        rows.append(ChoiceOption("M", "Use a learned active manoeuvre", "commitment", bool(state.combat_active), "requires active danger"))
+        from .manoeuvres import known
+
+        if known(state):
+            rows.append(ChoiceOption("M", "Use a learned active manoeuvre", "commitment", bool(state.combat_active), "requires active danger"))
         rows.append(ChoiceOption("X", "Use the carried bottle, selected relic, or readied gear", "commitment", state.combat_active, "requires active danger"))
         return rows
     if kind == "aftermath":
@@ -1261,7 +1264,10 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
             for contract in contracts_for(state)
         ):
             rows.append(ChoiceOption("A", "Accepted aftermath work at this scar"))
-        rows.append(ChoiceOption("M", "Use a learned active manoeuvre"))
+        from .manoeuvres import known
+
+        if known(state):
+            rows.append(ChoiceOption("M", "Use a learned active manoeuvre"))
         return rows
     if kind == "workline":
         from .worklines import options
@@ -2422,7 +2428,10 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
                 f"[{'READY' if available else 'NEEDS ' + reason}]"
             )
         lines.append("X. Use the carried bottle, selected relic, or ordinary readied gear.")
-        lines.append("M. Open learned active manoeuvres; every entry previews setup and counter.")
+        from .manoeuvres import known
+
+        if known(state):
+            lines.append("M. Open learned active manoeuvres; every entry previews setup and counter.")
         lines.append("Selection previews exact conditions; a failed choice costs no action or item.")
         return "SELECT CONTEXTUAL FIELD USE", lines
     if kind == "tavern:passive":
