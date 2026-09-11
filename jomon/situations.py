@@ -71,7 +71,19 @@ def site_point(state: GameState, row: Situation) -> Position:
     anchor = state.region.landmarks[row.anchor]
     forbidden = {c.position for c in state.region.containers} | set(state.region.landmarks.values())
     forbidden |= {p for link in state.region.vertical_links for p in (link.first, link.second)}
-    candidates = [p for p in region_reachable(state.region) if p.z == anchor.z and p not in forbidden]
+    candidates = [
+        p for p in region_reachable(state.region)
+        if p.z == anchor.z and p not in forbidden
+        and all(
+            other.z != p.z or max(abs(other.x-p.x), abs(other.y-p.y)) > 2
+            for other in state.region.landmarks.values()
+        )
+        and all(
+            other.position.z != p.z
+            or max(abs(other.position.x-p.x), abs(other.position.y-p.y)) > 1
+            for other in state.region.containers
+        )
+    ]
     point = min(candidates, key=lambda p: (abs(p.x-anchor.x)+abs(p.y-anchor.y), (p.x*17+p.y*31+len(row.id)) % 11, p.y, p.x))
     state.region.changes[_key(row, "point")] = f"{point.x},{point.y},{point.z}"
     return point

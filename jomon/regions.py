@@ -739,3 +739,6 @@ def activate_region(state, region_id: str) -> None:
         from .world import pressure
 
         activate_for_band(state, pressure(state).band)
+    from .interference import apply_arrival
+
+    apply_arrival(state, region_id)

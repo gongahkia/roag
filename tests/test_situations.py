@@ -40,6 +40,11 @@ class MixedSituationTests(unittest.TestCase):
             self.assertEqual(len(set(points)), 3)
             self.assertFalse(set(points) & set(region.landmarks.values()))
             self.assertFalse(set(points) & {c.position for c in region.containers})
+            self.assertTrue(all(
+                landmark.z != point.z
+                or max(abs(landmark.x-point.x), abs(landmark.y-point.y)) > 2
+                for point in points for landmark in region.landmarks.values()
+            ))
             self.assertTrue(all(is_walkable(state, point, ignore_threat=True) for point in points))
 
     def test_activation_wakes_two_groups_and_exposes_three_answers(self):

@@ -535,6 +535,9 @@ def ledger_lines(state: GameState) -> list[str]:
                 for contract in contracts
             ],
         ]
+    from .interference import lines_for_region
+
+    lines += lines_for_region(state, state.active_region_id)
     return lines
 
 
