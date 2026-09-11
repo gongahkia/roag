@@ -117,7 +117,7 @@ INVENTORY_HELP_LINES = (
     "Arrows/WASD move  Enter lift/place  R rotate  Space mark  */K all/category",
     "T transfer E equip O pack P pin Z auto [] body D drop C confirm Esc cancel",
 )
-TARGET_HELP_LINE = "Arrows/WASD/HJKL Tab target <> level Enter attack G brace Mouse select Esc"
+TARGET_HELP_LINE = "Arrows/WASD/HJKL Tab target <> level M mastery Enter commit G brace Esc"
 ROUTE_HELP_LINES = (
     "Arrows/WASD/HJKL connected node  Enter preview/confirm  Tab layer  Esc close",
     "Mouse click selects; double-click confirms when reported; keyboard is complete",
@@ -195,6 +195,7 @@ class TargetView:
     target_ids: list[str]
     selected: int = 0
     ammunition: str | None = None
+    mastery_id: str | None = None
 
     @classmethod
     def begin(cls, state: GameState) -> "TargetView":
@@ -910,6 +911,12 @@ def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]
         ready = f"Unready: {2 - state.weapon_ready} reload actions; Escape then G."
     elif state.weapon in {"crossbow", "longbow", "heavy crossbow", "handgonne"}:
         ready = "Aim set: Enter releases one shot." if selected and state.aimed_target == selected.id else "Enter prepares aim (one action); confirm again to release."
+    if view.mastery_id:
+        from .manoeuvres import BY_ID, status
+
+        manoeuvre = BY_ID[view.mastery_id]
+        legal, reason = status(state, view.mastery_id, selected.id if selected else None)
+        ready = f"MASTERY — {manoeuvre.name}: {manoeuvre.effect}; {'READY' if legal else 'NEEDS ' + reason}. Enter commits; M cycles."
     label = f"Target: {selected.name}" if selected else "No presently visible actor at cursor."
     if view.cursor.z != state.position.z:
         label += " [ABOVE]" if view.cursor.z > state.position.z else " [BELOW]"
@@ -1059,6 +1066,14 @@ def _handle_targeting(
         if choices:
             view.ammunition = choices[(choices.index(view.ammunition) + 1) % len(choices)] if view.ammunition in choices else choices[0]
         return False, False
+    if normalized == ord("m"):
+        from .manoeuvres import known
+
+        rows = known(state, "target")
+        ids = [None, *(row.id for row in rows)]
+        current = ids.index(view.mastery_id) if view.mastery_id in ids else 0
+        view.mastery_id = ids[(current + 1) % len(ids)]
+        return False, False
     if normalized == ord("g"):
         target = _target_at_cursor(state, view)
         if target is None:
@@ -1086,6 +1101,18 @@ def _handle_targeting(
         _target_cycle(state, view)
         return False, False
     if key in {10, 13}:
+        if view.mastery_id:
+            from .actions import _advance_world
+            from .manoeuvres import perform
+
+            target = _target_at_cursor(state, view)
+            changed, message, steps = perform(
+                state, view.mastery_id, target.id if target else None
+            )
+            if changed:
+                _advance_world(state, steps=steps)
+            state.add_message(message, priority=3)
+            return changed, changed
         if state.weapon == "pot sling":
             result = attack(state, target_position=view.cursor, ammunition=view.ammunition)
             return result.time_advanced, result.time_advanced
@@ -1128,6 +1155,10 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str], view: Over
 
 
 def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
+    if kind == "mastery":
+        from .manoeuvres import choices
+
+        return [ChoiceOption(*row) for row in choices(state)]
     if kind.startswith("situation:"):
         from .situations import choices
 
@@ -1149,6 +1180,7 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         for key, name in zip(keys, carried_preparations(state)):
             available, reason = preparation_status(state, name)
             rows.append(ChoiceOption(key.upper(), f"Use {name}", "commitment", available, reason))
+        rows.append(ChoiceOption("M", "Use a learned active manoeuvre", "commitment", bool(state.combat_active), "requires active danger"))
         rows.append(ChoiceOption("X", "Use the carried bottle, selected relic, or readied gear", "commitment", state.combat_active, "requires active danger"))
         return rows
     if kind == "aftermath":
@@ -1221,6 +1253,7 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
             for contract in contracts_for(state)
         ):
             rows.append(ChoiceOption("A", "Accepted aftermath work at this scar"))
+        rows.append(ChoiceOption("M", "Use a learned active manoeuvre"))
         return rows
     if kind == "workline":
         from .worklines import options
@@ -2124,6 +2157,10 @@ def _tavern_lines(state: GameState) -> list[str]:
 
 
 def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
+    if kind == "mastery":
+        from .manoeuvres import lines
+
+        return "ACTIVE MASTERY", lines(state)
     if kind.startswith("situation:"):
         from .situations import BY_ID, inspect_lines
 
@@ -2366,6 +2403,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
                 f"[{'READY' if available else 'NEEDS ' + reason}]"
             )
         lines.append("X. Use the carried bottle, selected relic, or ordinary readied gear.")
+        lines.append("M. Open learned active manoeuvres; every entry previews setup and counter.")
         lines.append("Selection previews exact conditions; a failed choice costs no action or item.")
         return "SELECT CONTEXTUAL FIELD USE", lines
     if kind == "tavern:passive":
@@ -2501,6 +2539,19 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
 
 def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, bool]:
     char = chr(key).lower() if 0 <= key < 256 else ""
+    if kind == "mastery" and char in "123456789abc":
+        from .actions import _advance_world
+        from .manoeuvres import known, perform
+
+        rows = known(state)
+        index = "123456789abc".index(char)
+        if 0 <= index < len(rows):
+            changed, message, steps = perform(state, rows[index].id)
+            if changed:
+                _advance_world(state, steps=steps)
+            state.add_message(message, priority=3)
+            return (None if changed else kind), False
+        return kind, False
     if kind.startswith("situation:") and char in {"t", "m", "a"}:
         from .actions import _advance_world
         from .situations import resolve
@@ -2550,6 +2601,8 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         return (
             "aftermath-contract:" + contract.id if contract else kind
         ), False
+    if char == "m" and kind in {"material", "field-use"}:
+        return "mastery", False
     if char == "w" and (kind == "material" or kind.startswith("contact-service:")):
         from .worklines import WORKLINES
         if state.location == "region" and state.active_region_id in WORKLINES:
@@ -2688,6 +2741,8 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         if char == "x":
             result = use_gear(state)
             return (None if result.time_advanced else kind), False
+        if char == "m":
+            return "mastery", False
         return kind, False
     if kind == "tavern:passive" and char in "123456789abc":
         rows = list(state.owned_passives)
@@ -2924,6 +2979,11 @@ def play(screen: curses.window, state: GameState) -> GameState:
             inventory_view = InventoryView.begin(state)
         elif normalized == ord("f"):
             overlay = OverlayView("material")
+        elif normalized == ord("m"):
+            if state.combat_active:
+                overlay = OverlayView("mastery")
+            else:
+                state.add_message("Active mastery is available during expedition or deck danger.")
         elif normalized == ord("z"):
             overlay = OverlayView("regional-ledger")
         elif normalized == ord("o"):
