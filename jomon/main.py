@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 from .save import SaveError, load_game, save_path
 from .state import create_world
-from .terminal import MIN_HEIGHT, MIN_WIDTH, _put, play
+from .terminal import MIN_HEIGHT, MIN_WIDTH, _init_colours, _put, colour_attribute, play
 
 SEED_WORDS = ("reed", "hearth", "quay", "willow", "mill", "rain", "keel", "lantern")
 
@@ -75,21 +75,21 @@ def _draw_notice_landing(
     layout = landing_notice_layout(width, height, notice, str(save_path()))
     title = "J O M O N"
     subtitle = "A vessel-household terminal roguelike"
-    _put(screen, layout.top - 6, _centered_x(width, title), title, curses.A_BOLD)
-    _put(screen, layout.top - 4, _centered_x(width, subtitle), subtitle)
+    _put(screen, layout.top - 6, _centered_x(width, title), title, colour_attribute("ui_heading") | curses.A_BOLD)
+    _put(screen, layout.top - 4, _centered_x(width, subtitle), subtitle, colour_attribute("ui_accent"))
     _frame(screen, layout.top, layout.left, layout.height, layout.width, "SAVE VERSION MISMATCH")
     inner_left = layout.left + 4
     for index, line in enumerate(layout.lines):
-        _put(screen, layout.top + 2 + index, _centered_x(width, line), line, curses.A_BOLD)
+        _put(screen, layout.top + 2 + index, _centered_x(width, line), line, colour_attribute("warning") | curses.A_BOLD)
     path_row = layout.top + 3 + len(layout.lines)
     for index, line in enumerate(layout.path_lines):
         _put(screen, path_row + index, _centered_x(width, line), line, curses.A_DIM)
     option_row = path_row + len(layout.path_lines) + 2
-    _put(screen, option_row, inner_left, "> ", curses.A_BOLD)
-    _put(screen, option_row, inner_left + 2, "N", curses.A_BOLD | curses.A_REVERSE)
-    _put(screen, option_row, inner_left + 4, "Start a new world", curses.A_BOLD)
+    _put(screen, option_row, inner_left, "> ", colour_attribute("ui_accent") | curses.A_BOLD)
+    _put(screen, option_row, inner_left + 2, "N", colour_attribute("success") | curses.A_BOLD | curses.A_REVERSE)
+    _put(screen, option_row, inner_left + 4, "Start a new world", colour_attribute("success") | curses.A_BOLD)
     _put(screen, option_row + 1, inner_left, "  ")
-    _put(screen, option_row + 1, inner_left + 2, "Q", curses.A_BOLD | curses.A_REVERSE)
+    _put(screen, option_row + 1, inner_left + 2, "Q", colour_attribute("warning") | curses.A_BOLD | curses.A_REVERSE)
     _put(screen, option_row + 1, inner_left + 4, "Quit without changing this save")
 
 
@@ -101,8 +101,8 @@ def _generated_seed() -> str:
 def _read_seed(screen: curses.window) -> str:
     height, width = screen.getmaxyx()
     screen.erase()
-    _put(screen, max(1, height // 2 - 2), max(1, width // 2 - 28), "NEW JOMON WORLD", curses.A_BOLD)
-    _put(screen, max(2, height // 2), max(1, width // 2 - 28), "Readable seed (blank generates one): ")
+    _put(screen, max(1, height // 2 - 2), max(1, width // 2 - 28), "NEW JOMON WORLD", colour_attribute("ui_heading") | curses.A_BOLD)
+    _put(screen, max(2, height // 2), max(1, width // 2 - 28), "Readable seed (blank generates one): ", colour_attribute("ui_accent"))
     screen.refresh()
     curses.echo()
     _set_cursor_visibility(1)
@@ -118,6 +118,7 @@ def _read_seed(screen: curses.window) -> str:
 def run(screen: curses.window) -> None:
     _set_cursor_visibility(0)
     screen.keypad(True)
+    _init_colours()
     notice = ""
     while True:
         screen.erase()
@@ -151,15 +152,15 @@ def run(screen: curses.window) -> None:
             continue
         title = "J O M O N"
         subtitle = "A vessel-household terminal roguelike"
-        _put(screen, max(1, height // 2 - 6), _centered_x(width, title), title, curses.A_BOLD)
-        _put(screen, max(2, height // 2 - 4), _centered_x(width, subtitle), subtitle)
+        _put(screen, max(1, height // 2 - 6), _centered_x(width, title), title, colour_attribute("ui_heading") | curses.A_BOLD)
+        _put(screen, max(2, height // 2 - 4), _centered_x(width, subtitle), subtitle, colour_attribute("ui_accent"))
         title_x = max(1, width // 2 - 8)
         row = max(3, height // 2 - 1)
         if has_save:
-            _put(screen, row, title_x, "C  Continue")
+            _put(screen, row, title_x, "C  Continue", colour_attribute("success"))
             row += 1
-        _put(screen, row, title_x, "N  New World")
-        _put(screen, row + 1, title_x, "Q  Quit")
+        _put(screen, row, title_x, "N  New World", colour_attribute("ui_accent"))
+        _put(screen, row + 1, title_x, "Q  Quit", colour_attribute("warning"))
         path_text = f"Save: {save_path()}"
         _put(screen, row + 3, max(1, (width - min(len(path_text), width - 4)) // 2), path_text)
         screen.refresh()

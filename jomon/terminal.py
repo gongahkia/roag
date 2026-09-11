@@ -450,6 +450,11 @@ def semantic_role(glyph: str, *, aboard: bool = False) -> str:
 _COLOUR_ATTRIBUTES: dict[str, int] = {role: 0 for role in SEMANTIC_ROLES}
 
 
+def colour_attribute(role: str) -> int:
+    """Read the active palette without exposing its replaceable dictionary."""
+    return _COLOUR_ATTRIBUTES.get(role, 0)
+
+
 def _put(screen: curses.window, y: int, x: int, text: str, attr: int = 0) -> None:
     height, width = screen.getmaxyx()
     if 0 <= y < height and x < width - 1:
@@ -459,17 +464,21 @@ def _put(screen: curses.window, y: int, x: int, text: str, attr: int = 0) -> Non
             pass
 
 
-def _line(screen: curses.window, y: int, x: int, width: int, title: str = "") -> None:
+def _line(screen: curses.window, y: int, x: int, width: int, title: str = "", attr: int | None = None) -> None:
     label = f" {title} " if title else ""
-    _put(screen, y, x, "+" + label + "-" * max(0, width - len(label) - 2) + "+")
+    if attr is None:
+        attr = _COLOUR_ATTRIBUTES["ui_frame"]
+    _put(screen, y, x, "+" + label + "-" * max(0, width - len(label) - 2) + "+", attr)
 
 
-def _frame(screen: curses.window, y: int, x: int, height: int, width: int, title: str = "") -> None:
-    _line(screen, y, x, width, title)
+def _frame(screen: curses.window, y: int, x: int, height: int, width: int, title: str = "", attr: int | None = None) -> None:
+    if attr is None:
+        attr = _COLOUR_ATTRIBUTES["ui_frame"]
+    _line(screen, y, x, width, title, attr)
     for row in range(y + 1, y + height - 1):
-        _put(screen, row, x, "|")
-        _put(screen, row, x + width - 1, "|")
-    _line(screen, y + height - 1, x, width)
+        _put(screen, row, x, "|", attr)
+        _put(screen, row, x + width - 1, "|", attr)
+    _line(screen, y + height - 1, x, width, attr=attr)
 
 
 def _clip(text: str, width: int) -> str:
@@ -489,6 +498,78 @@ def _wrapped(text: str, width: int) -> list[str]:
     if current:
         lines.append(current)
     return lines or [""]
+
+
+def information_colour_role(text: str) -> str:
+    """Classify provenance-bearing prose; its prefix remains the primary cue."""
+    upper = text.strip().upper()
+    if upper.startswith(("FACT", "OBSERVED", "CURRENTLY VISIBLE", "PHYSICAL KIT", "BODY:")):
+        return "fact"
+    if upper.startswith(("RUMOUR", "RUMOR", "CLAIM", "TESTIMONY", "INFERRED")):
+        return "rumour"
+    if upper.startswith(("FORECAST", "PREDICTION", "WEATHER", "SEASON:")):
+        return "forecast"
+    if upper.startswith(("WARNING", "DANGER", "BLOCKED", "G BLOCKED", "COLLAPSE", "UNLOADED", "UNREADY")):
+        return "warning"
+    if upper.startswith(("SUCCESS", "COMPLETE", "COMPLETED", "REACHABLE", "SAVED", "LEGAL", "G REACTION")):
+        return "success"
+    if upper.startswith(("EFFECT", "COUNTERS", "AIM SET")):
+        return "technique"
+    if upper.startswith(("REMEMBERED", "MEMORY")):
+        return "remembered"
+    if upper and upper == text.strip() and any(character.isalpha() for character in upper):
+        return "ui_heading"
+    return "terrain"
+
+
+def event_colour_role(text: str) -> str:
+    """Colour recent consequences while their full causal text stays visible."""
+    explicit = information_colour_role(text)
+    if explicit != "terrain":
+        return explicit
+    lower = text.lower()
+    if any(word in lower for word in (
+        "complete", "secured", "repaired", "recovers", "holds", "opened",
+        "quenches", "saved", "negotiated", "surrenders", "succeeds",
+    )):
+        return "success"
+    if any(word in lower for word in (
+        "cannot", "blocked", "fails", "failed", "injur", "damage", "burn",
+        "collapse", "destroyed", "drown", "strikes", "attacks", "danger",
+    )):
+        return "warning"
+    return "terrain"
+
+
+def status_colour_role(text: str) -> str:
+    """Give the dense status rail visual grouping without hiding its labels."""
+    stripped, lower = text.strip(), text.lower()
+    if stripped and stripped == stripped.upper() and any(character.isalpha() for character in stripped):
+        return "ui_heading"
+    if lower.startswith("health "):
+        return "success" if any(word in lower for word in ("fit", "hale", "uninjured")) else "warning"
+    if lower.startswith(("date ", "forecast ")) or any(weather in lower for weather in ("rain", "fog", "wind", "storm", "frost", "thaw", "squall")):
+        return "forecast"
+    if lower.startswith(("technique", "combo")):
+        return "technique"
+    if lower.startswith(("ammo", "rope")):
+        return "tool"
+    if lower.startswith("load "):
+        return "warning" if any(word in lower for word in ("encumbered", "overloaded")) else "cargo"
+    if ":" in text and "/" in text:
+        return "commodity"
+    if lower.startswith("hull "):
+        try:
+            return "success" if int(lower.split()[1].split("/", 1)[0]) >= 8 else "warning"
+        except (IndexError, ValueError):
+            return "warning"
+    if any(word in lower for word in ("critical", "strained", "visible threat")):
+        return "warning"
+    if lower.startswith("steady") or "no visible threat" in lower:
+        return "success"
+    if ":" in text and " — " in text:
+        return "warning"
+    return "terrain"
 
 
 def _init_colours() -> None:
@@ -727,16 +808,20 @@ def _draw_base(screen: curses.window, state: GameState) -> None:
     _frame(screen, 0, map_width, main_height, status_width, "STATUS")
     _draw_map(screen, state, 0, 0, main_height, map_width)
     for index, line in enumerate(_status_lines(state)[: main_height - 2]):
-        attr = curses.A_BOLD if line in {"COURIER", "PRESSURE", "HEARTHFORD"} else 0
+        role = status_colour_role(line)
+        attr = _COLOUR_ATTRIBUTES[role]
+        if role == "ui_heading":
+            attr |= curses.A_BOLD
         _put(screen, 1 + index, map_width + 2, _clip(line, status_width - 4), attr)
     _frame(screen, main_height, 0, event_height, width, "EVENTS")
     event_lines: list[str] = []
     for message in state.messages:
         event_lines.extend(_wrapped(message, width - 4))
     for index, line in enumerate(event_lines[-(event_height - 2):]):
-        _put(screen, main_height + 1 + index, 2, _clip(line, width - 4))
-    _put(screen, height - 2, 1, "Move HJKL/arrows E interact A attack G guard X gear F material Z ledger", curses.A_REVERSE)
-    _put(screen, height - 1, 1, "V negotiate  R retreat  I inventory  S save aboard  ? help  Q quit", curses.A_REVERSE)
+        _put(screen, main_height + 1 + index, 2, _clip(line, width - 4), _COLOUR_ATTRIBUTES[event_colour_role(line)])
+    command_attr = _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_REVERSE
+    _put(screen, height - 2, 1, "Move HJKL/arrows E interact A attack G guard X gear F material Z ledger", command_attr)
+    _put(screen, height - 1, 1, "V negotiate  R retreat  I inventory  S save aboard  ? help  Q quit", command_attr)
     screen.refresh()
 
 
@@ -865,8 +950,9 @@ def _draw_targeting(screen: curses.window, state: GameState, view: TargetView) -
         _put(screen, screen_y, screen_x, glyph, _COLOUR_ATTRIBUTES[role] | curses.A_REVERSE)
     lines = targeting_lines(state, view, width - 2)
     for row, line in enumerate(lines, height - 1 - len(lines)):
-        _put(screen, row, 1, line.ljust(width - 2), curses.A_REVERSE | curses.A_BOLD)
-    _put(screen, height - 1, 1, TARGET_HELP_LINE, curses.A_REVERSE)
+        role = information_colour_role(line)
+        _put(screen, row, 1, line.ljust(width - 2), _COLOUR_ATTRIBUTES[role] | curses.A_REVERSE | curses.A_BOLD)
+    _put(screen, height - 1, 1, TARGET_HELP_LINE, _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_REVERSE)
     screen.refresh()
 
 
@@ -1000,10 +1086,13 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str], view: Over
         _put(screen, y, left, " " * box_width, curses.A_REVERSE)
     _frame(screen, top, left, box_height, box_width, title)
     for index, line in enumerate(material[offset:offset + page_rows]):
-        _put(screen, top + 2 + index, left + 2, _clip(line, box_width - 4))
+        _put(
+            screen, top + 2 + index, left + 2, _clip(line, box_width - 4),
+            _COLOUR_ATTRIBUTES[information_colour_role(line)],
+        )
     if view:
         footer = f"Up/Down PgUp/PgDn Home/End; Esc close [{offset + 1}/{len(material)}]"
-        _put(screen, top + box_height - 2, left + 2, _clip(footer, box_width - 4), curses.A_BOLD)
+        _put(screen, top + box_height - 2, left + 2, _clip(footer, box_width - 4), _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_BOLD)
     screen.refresh()
 
 
@@ -1235,7 +1324,7 @@ def _draw_dialogue_overlay(screen: curses.window, state: GameState, view: Overla
     _frame(screen, top, left, box_height, box_width, title)
     row = top + 2
     for line in wrapped[: max(0, box_height - option_line_count - 4)]:
-        _put(screen, row, left + 2, _clip(line, box_width - 4))
+        _put(screen, row, left + 2, _clip(line, box_width - 4), _COLOUR_ATTRIBUTES[information_colour_role(line)])
         row += 1
     view.option_rows = []
     for index, (option, option_lines) in enumerate(zip(options, rendered_options)):
@@ -1448,7 +1537,8 @@ def _draw_route_chart(
         _put(screen, y, x, glyph, attr)
         if node.region_id:
             left, label = chart_label_position(x, node.name, map_width)
-            _put(screen, y, left, label, curses.A_BOLD if known else curses.A_DIM)
+            label_role = REGIONAL_GROUND_ROLES.get(node.region_id, "ui_heading")
+            _put(screen, y, left, label, _COLOUR_ATTRIBUTES[label_role] | (curses.A_BOLD if known else curses.A_DIM))
     if moving:
         mx, my = _chart_screen_point(moving[0], moving[1], map_width, height)
         _put(screen, my, mx, "@", _COLOUR_ATTRIBUTES["player"] | curses.A_REVERSE)
@@ -1456,10 +1546,19 @@ def _draw_route_chart(
     selected = state.route_nodes[view.cursor]
     lines = route_detail_lines(state, view, detail_width - 4)
     for index, line in enumerate(lines[: height - 5]):
-        attr = curses.A_BOLD if index == 0 or line.startswith(">") else curses.A_DIM if "BLOCKED" in line else 0
+        role = information_colour_role(line)
+        if line.startswith("Market:"):
+            role = "commodity"
+        elif line.startswith(("Route:", "Risks:")):
+            role = "warning"
+        attr = _COLOUR_ATTRIBUTES[role]
+        if index == 0 or line.startswith(">"):
+            attr |= curses.A_BOLD
+        if "BLOCKED" in line:
+            attr |= curses.A_DIM
         _put(screen, 2 + index, map_width + 2, line, attr)
     for index, line in enumerate(ROUTE_HELP_LINES):
-        _put(screen, height - 2 + index, 1, line, curses.A_REVERSE)
+        _put(screen, height - 2 + index, 1, line, _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_REVERSE)
     screen.refresh()
 
 
@@ -1583,9 +1682,9 @@ def _inventory_item_at(state: GameState, view: InventoryView):
 def _item_colour(kind: str) -> int:
     category = item_spec(kind).category
     role = {
-        "weapon": "hostile", "armour": "structure", "gear": "interactable",
-        "passive": "cargo", "consumable": "neutral", "cargo": "cargo",
-        "relic": "mystical",
+        "weapon": "weapon", "armour": "armour", "gear": "tool",
+        "passive": "technique", "consumable": "consumable",
+        "cargo": "commodity", "relic": "relic",
     }.get(category, "terrain")
     return _COLOUR_ATTRIBUTES[role]
 
@@ -1624,7 +1723,7 @@ def _draw_inventory(screen: curses.window, state: GameState, view: InventoryView
     _frame(screen, 0, 0, height - 2, width, "SPATIAL INVENTORY")
     pane_name = view.pane.split(":", 1)[0].upper()
     mode = "AUTO-PLACE ON" if state.auto_place_enabled else "AUTO-PLACE OFF"
-    _put(screen, 1, 2, f"{pane_name}  Tab pane  {mode}", curses.A_BOLD)
+    _put(screen, 1, 2, f"{pane_name}  Tab pane  {mode}", _COLOUR_ATTRIBUTES["ui_heading"] | curses.A_BOLD)
     selected = _inventory_item_at(state, view)
     if view.held_id:
         selected = next(item for item in state.items if item.id == view.held_id)
@@ -1666,7 +1765,7 @@ def _draw_inventory(screen: curses.window, state: GameState, view: InventoryView
                     attr |= curses.A_REVERSE
                 _put(screen, origin_y + y, origin_x + x * 2, text[:2].ljust(2), attr)
     else:
-        _put(screen, 3, 2, "Items at this physical source:", curses.A_BOLD)
+        _put(screen, 3, 2, "Items at this physical source:", _COLOUR_ATTRIBUTES["ui_heading"] | curses.A_BOLD)
         rows = _inventory_items(state, view)
         for index, item in enumerate(rows[:10]):
             attr = _item_colour(item.kind) | (curses.A_REVERSE if index == view.cursor_y else 0)
@@ -1675,7 +1774,7 @@ def _draw_inventory(screen: curses.window, state: GameState, view: InventoryView
             _put(screen, 5, 3, "(empty)", curses.A_DIM)
 
     detail_x = min(max(27, width // 2), width - 34)
-    _put(screen, 2, detail_x, "PAPER DOLL  [ / ] selects slot", curses.A_BOLD)
+    _put(screen, 2, detail_x, "PAPER DOLL  [ / ] selects slot", _COLOUR_ATTRIBUTES["ui_heading"] | curses.A_BOLD)
     view.paper_screen = {}
     for index, line in enumerate(paper_doll_layout(state)):
         _put(screen, 3 + index, detail_x, _clip(line, width - detail_x - 2))
@@ -1683,7 +1782,8 @@ def _draw_inventory(screen: curses.window, state: GameState, view: InventoryView
     for index, slot in enumerate(PAPER_SLOTS):
         view.paper_screen[slot] = (detail_x, 3 + min(index, 7))
     burden = load_state(state)
-    _put(screen, 11, detail_x, f"Weight {pack_weight(state)}/{weight_capacity(state)} — {burden}", curses.A_BOLD)
+    burden_role = "warning" if burden in {"encumbered", "overloaded"} else "cargo"
+    _put(screen, 11, detail_x, f"Weight {pack_weight(state)}/{weight_capacity(state)} — {burden}", _COLOUR_ATTRIBUTES[burden_role] | curses.A_BOLD)
     from .inventory import LOAD_EFFECTS
 
     for index, line in enumerate(_wrapped(LOAD_EFFECTS[burden], max(20, width - detail_x - 2))[:2]):
@@ -1696,12 +1796,12 @@ def _draw_inventory(screen: curses.window, state: GameState, view: InventoryView
         spec = effective_spec(state, selected)
         held = "HELD — " if view.held_id else ""
         actual_width, actual_height = (spec.height, spec.width) if view.held_id and view.held_rotated else (spec.width, spec.height)
-        _put(screen, 14, detail_x, _clip(f"{held}{spec.name} {actual_width}x{actual_height} wt {spec.weight}", width - detail_x - 2), curses.A_BOLD)
+        _put(screen, 14, detail_x, _clip(f"{held}{spec.name} {actual_width}x{actual_height} wt {spec.weight}", width - detail_x - 2), _item_colour(selected.kind) | curses.A_BOLD)
         for index, art in enumerate(item_preview(selected.kind)):
             _put(screen, 15 + index, detail_x, _clip(art, width - detail_x - 2), _item_colour(selected.kind))
         fitted = attached(state, selected)
         if fitted:
-            _put(screen, 17, detail_x, _clip("Fitted: " + ", ".join(part.kind.split(":", 1)[1] for part in fitted), width - detail_x - 2), curses.A_BOLD)
+            _put(screen, 17, detail_x, _clip("Fitted: " + ", ".join(part.kind.split(":", 1)[1] for part in fitted), width - detail_x - 2), _COLOUR_ATTRIBUTES["technique"] | curses.A_BOLD)
         for index, line in enumerate(_wrapped(spec.description, max(20, width - detail_x - 2))[:3]):
             _put(screen, 18 + index, detail_x, line)
         _put(screen, min(height - 4, 21), detail_x, _clip(f"Condition {selected.condition}; {'PINNED; ' if selected.pinned else ''}{selected.provenance}", width - detail_x - 2))
@@ -1718,9 +1818,10 @@ def _draw_inventory(screen: curses.window, state: GameState, view: InventoryView
         view.status = f"MARKED {count}; weight {total}; cells {cells}"
     if view.pending_drop:
         view.status = "CONFIRM DROP: Y drops marked/current physical items; N/Esc cancels"
-    _put(screen, height - 3, 2, _clip(view.status, width - 4), curses.A_BOLD)
+    status_role = "warning" if any(word in view.status.lower() for word in ("invalid", "failed", "confirm drop")) else "success" if view.status else "terrain"
+    _put(screen, height - 3, 2, _clip(view.status, width - 4), _COLOUR_ATTRIBUTES[status_role] | curses.A_BOLD)
     for index, line in enumerate(INVENTORY_HELP_LINES):
-        _put(screen, height - 2 + index, 1, line, curses.A_REVERSE)
+        _put(screen, height - 2 + index, 1, line, _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_REVERSE)
     screen.refresh()
 
 

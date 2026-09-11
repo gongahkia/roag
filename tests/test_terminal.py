@@ -16,9 +16,12 @@ from jomon.terminal import (
     SEMANTIC_ROLES,
     dialogue_choices,
     dialogue_choice_lines,
+    event_colour_role,
     _handle_overlay,
+    information_colour_role,
     semantic_colour_plan,
     semantic_role,
+    status_colour_role,
     terrain_colour_role,
     visible_threats,
 )
@@ -112,6 +115,20 @@ class SemanticColourTests(unittest.TestCase):
         self.assertEqual(terrain_colour_role(".", "frostmere", material=MaterialCell(water=1, ice=True)), "ice")
         self.assertEqual(terrain_colour_role(".", "dunmire", material=MaterialCell(water=3)), "deep_water")
         self.assertEqual(terrain_colour_role("@", "dunmire"), "player")
+
+    def test_information_and_status_classifiers_retain_textual_semantics(self):
+        self.assertEqual(information_colour_role("FACT: presently visible."), "fact")
+        self.assertEqual(information_colour_role("RUMOUR: a marked shoal."), "rumour")
+        self.assertEqual(information_colour_role("FORECAST: frost by dusk."), "forecast")
+        self.assertEqual(information_colour_role("BLOCKED: winter ice."), "warning")
+        self.assertEqual(information_colour_role("REACHABLE"), "success")
+        self.assertEqual(event_colour_role("Water quenches the burning cargo."), "success")
+        self.assertEqual(event_colour_role("The support is damaged and may collapse."), "warning")
+        self.assertEqual(status_colour_role("COURIER"), "ui_heading")
+        self.assertEqual(status_colour_role("Date winter 8; dawn"), "forecast")
+        self.assertEqual(status_colour_role("Load 22/30 ready"), "cargo")
+        self.assertEqual(status_colour_role("Load 41/30 overloaded"), "warning")
+        self.assertEqual(status_colour_role("Combo: smoke hunter"), "technique")
 
     def test_remembered_terrain_does_not_leak_moving_actor(self):
         state = create_world("actor memory")
