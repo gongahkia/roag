@@ -428,7 +428,10 @@ for identity, region, name, profile, role, duty, ecology, vision, hearing, reach
         "terrain": region, "counterplay": counterplay, "budget": budget,
         "ecology": ecology, "duty": duty, "glyph": glyph,
         "supplies": 2 if duty in {"heal", "rally"} else 3 if duty in {"brace", "drain", "quench", "kindle", "cut support"} else 0,
-        "ranged_kind": "longbow" if region == "frostmere" else "sling",
+        "ranged_kind": {
+            "dunmire": "sling", "rillscar": "crossbow",
+            "marlbank": "sling", "frostmere": "longbow",
+        }.get(region, "sling"),
     }
 
 # Three further authored roles per region. They use the same bounded ecology,

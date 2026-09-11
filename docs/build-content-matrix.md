@@ -137,3 +137,22 @@ automated demonstrations, not claims of 24 manually completed expeditions.
 | Grounded animal ward | boar spear, Sure Footing and cleat | pin a charge before adjacency | `attack` |
 | Fixed roof marksman | crossbow and roof nail | reposition once without losing aim | `move` |
 | Verified market factor | knife, seals and market weights | convert one dependency lot into extra stock/confidence | `deliver_dependency` |
+# Pressure-family balance audit
+
+The executable `python -m jomon.build_balance --json` audit runs all 24 named
+build demonstrations against six recurring pressure families: steady,
+strained, critical, elite, voyage and environmental. Answers are derived from
+the actual weapon description and range/minimum-range data, secondary gear,
+support, technique, physical passives, combo and named production reducer—not
+from a hand-authored win flag. The audit rejects a build with no answer to any
+family, a family answered by fewer than six builds, or a weapon whose only
+identity is damage.
+
+The first run exposed the controlled floor breaker as having no recognised
+critical-pressure exit. Its existing, tested controlled-breach reducer already
+opens a marked weak floor and therefore supplies a physical escape lane; the
+classifier now recognises that production effect as mobility. No damage value
+was raised to make the matrix pass. Frontier ranged kit was also diversified:
+Rillscar working shooters now use crossbows, Frostmere shooters longbows, and
+the fen/terrace throwers retain slings. This changes reload and wet-weather
+decisions without adding nominal enemy variants.

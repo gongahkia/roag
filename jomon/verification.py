@@ -12,6 +12,7 @@ from pathlib import Path
 from .actions import depart, move
 from .aftermath import AFTERMATH_LINES
 from .build_scenarios import BUILD_SCENARIOS, validate_build_scenarios
+from .build_balance import build_balance_audit, validate_build_balance
 from .content import (
     COMMODITIES, DISCOVERIES, ENEMY_ARCHETYPES, GEAR, MERCHANT_ITEMS,
     PASSIVES, RECRUIT_TEMPLATES, RELICS, ROLE_TECHNIQUE, WEAPONS,
@@ -66,6 +67,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
     state = expanded_world(seed)
     validate_commodity_content()
     validate_build_scenarios()
+    validate_build_balance()
     validate_roster()
     validate_legends(state)
     validate_practices()
@@ -99,6 +101,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
         "persistent_nonhostile_characters": len(state.household) + len(state.visitors) + sum(len(contacts) for contacts in state.contacts.values()) + 2,
         "commodities": len(COMMODITIES), "voyage_families": len(VOYAGES),
         "tactical_voyage_families": len(TACTICAL), "build_scenarios": len(BUILD_SCENARIOS),
+        "build_pressure_families": len(build_balance_audit()["challenge_coverage"]),
         "vessel_refits": len(REFITS),
         "stateful_voyage_variants": len(VARIANTS),
         "mixed_situations": len(SITUATIONS),
@@ -118,6 +121,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
         "institutions": 12, "persistent_nonhostile_characters": 38,
         "voyage_families": 12, "tactical_voyage_families": 6,
         "build_scenarios": 24,
+        "build_pressure_families": 6,
         "vessel_refits": 8,
         "stateful_voyage_variants": 12,
         "mixed_situations": 24, "mutable_micro_sites": 24,
@@ -148,6 +152,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
     return {
         "seed": seed, "counts": counts, "minimums": minima,
         "failures": failures, "roster": roster,
+        "build_balance": build_balance_audit(),
         "ids": {
             "regions": sorted(state.regions), "weapons": sorted(WEAPONS),
             "armour": sorted(armour), "passives": sorted(PASSIVES),
