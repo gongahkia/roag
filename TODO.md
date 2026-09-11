@@ -29,18 +29,16 @@
 
 ## Now
 
-- Close and preserve the Aftermath, Motion and Reciprocity tranche recorded in
-  `docs/aftermath-motion-reciprocity-milestone.md`. Its production systems,
-  bounded content targets, audits and Qud-style possibility comparison are
-  implemented; only evidence discovered by the closing verification may
-  reopen code work.
+- Implement the Situations and Active Mastery tranche recorded in
+  `docs/situations-active-mastery-milestone.md`: 24 mixed situations, 12
+  deliberate manoeuvres, 24 mutable micro-sites, eight cross-region
+  interference events, 12 voyage echoes, two household developments and one
+  all-region capstone.
 
 ## Next
 
-- If another content pass is commissioned, follow
-  `docs/qud-parity-audit.md`: add authored mixed-situation grammars, explicit
-  active manoeuvres, mutable micro-sites and cross-region interference before
-  adding raw enemy, item or map counts.
+- Rebalance the 24 retained build scenarios across the new situations after
+  production and persistence audits pass.
 
 ## Later
 
