@@ -422,6 +422,25 @@ def run_44_to_45(snapshot: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def run_45_to_46(snapshot: dict[str, Any]) -> dict[str, Any]:
+    if type(snapshot.get("save_version")) is not int or snapshot["save_version"] != 45:
+        raise MigrationError("migration 45->46 requires save version 45")
+    manifest = snapshot.get("content_manifest")
+    state = snapshot.get("state")
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("engine") != "1.4.0"
+        or not isinstance(state, dict)
+        or "encounter_budget_version" in state
+    ):
+        raise MigrationError("version-45 save requires the legacy HP-budget engine 1.4.0 contract")
+    result = deepcopy(snapshot)
+    result["state"]["encounter_budget_version"] = 0
+    result["save_version"] = 46
+    result["content_manifest"]["engine"] = "1.5.0"
+    return result
+
+
 RUN_MIGRATIONS = {
     26: run_26_to_27,
     27: run_27_to_28,
@@ -442,6 +461,7 @@ RUN_MIGRATIONS = {
     42: run_42_to_43,
     43: run_43_to_44,
     44: run_44_to_45,
+    45: run_45_to_46,
 }
 
 

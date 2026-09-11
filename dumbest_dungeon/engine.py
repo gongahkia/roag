@@ -246,6 +246,7 @@ class GameState:
     pressure_recent: list[dict[str, Any]] = field(default_factory=list)
     pressure_incomplete_before_tick: int | None = None
     encounter_pressure: int | None = None
+    encounter_budget_version: int = 1
     encounter_modules: list[str] = field(default_factory=list)
     reinforcement_tickets: int = 0
     reinforcement_reserve_id: str | None = None
@@ -1708,6 +1709,7 @@ class GameEngine:
                 pressure_recent=raw["pressure_recent"],
                 pressure_incomplete_before_tick=raw["pressure_incomplete_before_tick"],
                 encounter_pressure=raw["encounter_pressure"],
+                encounter_budget_version=raw["encounter_budget_version"],
                 encounter_modules=raw["encounter_modules"],
                 reinforcement_tickets=raw["reinforcement_tickets"],
                 reinforcement_reserve_id=raw["reinforcement_reserve_id"],
@@ -1775,6 +1777,8 @@ class GameEngine:
             or any(biome_id not in catalog.biomes for biome_id in state.biome_ids)
         ):
             raise RuleError("save contains an invalid four-biome selection")
+        if type(state.encounter_budget_version) is not int or state.encounter_budget_version not in {0, 1}:
+            raise RuleError("save contains an unsupported encounter budget version")
         if (
             not isinstance(state.room_positions, list)
             or len(state.room_positions) != 12
@@ -6530,6 +6534,7 @@ class GameEngine:
         state = self.state
         state.loop_depth = next_depth
         state.rooms = remixed.state.rooms
+        state.encounter_budget_version = remixed.state.encounter_budget_version
         state.world_tiles = remixed.state.world_tiles
         state.world_id = remixed.state.world_id
         state.biome_ids = remixed.state.biome_ids

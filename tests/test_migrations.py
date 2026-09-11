@@ -25,6 +25,7 @@ from dumbest_dungeon.migrations import (
     run_42_to_43,
     run_43_to_44,
     run_44_to_45,
+    run_45_to_46,
 )
 from dumbest_dungeon.policies import Policy, canonical_hash, execute_command
 
@@ -334,6 +335,24 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual(45, migrated["save_version"])
         self.assertFalse(migrated["state"]["base_victory"])
         self.assertEqual([], migrated["state"]["boss_sequence"])
+
+    def test_threat_budget_migration_preserves_frozen_legacy_rooms(self) -> None:
+        current = GameEngine.new(load_catalog(), 55)
+        old = current.snapshot()
+        old["save_version"] = 45
+        old["content_manifest"]["engine"] = "1.4.0"
+        del old["state"]["encounter_budget_version"]
+        before = deepcopy(old)
+        migrated = run_45_to_46(old)
+        self.assertEqual(before, old)
+        self.assertEqual(46, migrated["save_version"])
+        self.assertEqual("1.5.0", migrated["content_manifest"]["engine"])
+        self.assertEqual(0, migrated["state"]["encounter_budget_version"])
+        self.assertEqual(old["state"]["rooms"], migrated["state"]["rooms"])
+        restored = GameEngine.from_snapshot(current.catalog, old)
+        self.assertEqual(0, restored.state.encounter_budget_version)
+        with self.assertRaises(MigrationError):
+            run_45_to_46(migrated)
 
 
 if __name__ == "__main__":
