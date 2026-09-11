@@ -216,6 +216,15 @@ class TargetView:
         )
 
 
+@dataclass
+class LookView:
+    cursor: Position
+
+    @classmethod
+    def begin(cls, state: GameState) -> "LookView":
+        return cls(state.position)
+
+
 @dataclass(frozen=True)
 class InputEvent:
     kind: str
@@ -578,6 +587,10 @@ def status_colour_role(text: str) -> str:
         return "forecast"
     if lower.startswith(("technique", "combo")):
         return "technique"
+    if lower.startswith("action "):
+        return "ui_accent"
+    if lower.startswith(("danger ", "status ")):
+        return "warning" if "fit; no harmful" not in lower else "success"
     if lower.startswith(("ammo", "rope")):
         return "tool"
     if lower.startswith("load "):
@@ -670,6 +683,10 @@ def observed_life_lines(state: GameState) -> list[str]:
             )
         if data:
             lines.extend((f"KNOWN PRACTICE: {data['capability']}.", f"COUNTERS: {data['counterplay']}."))
+        from .combat_forecast import forecast_lines, observed_forecasts
+        forecast = next((row for row in observed_forecasts(state) if row.actor_id == actor.id), None)
+        if forecast:
+            lines.extend(forecast_lines(forecast)[1:])
     if len(lines) == 1:
         lines.append("No actor is presently visible; remembered terrain does not locate them.")
     return lines
@@ -692,20 +709,9 @@ def visible_threats(
 
 
 def visible_danger_marks(state: GameState, visible: set[Position]) -> set[Position]:
-    from .frontier_elites import definition
+    from .combat_forecast import danger_cells
 
-    marks = set()
-    for actor in state.combatants:
-        seen_above_below = actor.position.z != state.position.z and courier_sees(state, actor.position)
-        if actor.status != "engaged" or not (actor.position in visible or seen_above_below):
-            continue
-        point = actor.marked_position or actor.aimed_at
-        if point is None:
-            continue
-        data = definition(actor)
-        offsets = (-1, 0, 1) if data and data["mode"] in {"surge", "firing", "shutters"} else (0,)
-        marks.update(p for dx in offsets if (p := Position(point.x + dx, point.y, point.z)) in visible)
-    return marks
+    return danger_cells(state, visible)
 
 
 def _draw_map(screen: curses.window, state: GameState, top: int, left: int, height: int, width: int) -> None:
@@ -767,7 +773,7 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
             _put(screen, top + 1 + sy, left + 1 + sx, char, attr)
 
 
-def _status_lines(state: GameState) -> list[str]:
+def _status_lines(state: GameState, capacity: int | None = None) -> list[str]:
     courier, p = state.courier, pressure(state)
     if courier:
         identity, health, injury = f"{courier.name}, {courier.role}", f"{courier.health}/{courier.max_health}", courier.injury
@@ -817,7 +823,47 @@ def _status_lines(state: GameState) -> list[str]:
                 25,
             )
         )
-    return lines
+    if capacity is None or capacity >= len(lines):
+        return lines
+
+    from .combat_forecast import observed_forecasts
+    from .inspection import contextual_hints
+
+    forecast = next(iter(observed_forecasts(state)), None)
+    danger = (
+        f"DANGER {forecast.actor_name}: "
+        + (
+            f"target {forecast.target.x},{forecast.target.y}; next"
+            if forecast.target else forecast.action
+        )
+        if forecast else "SAFE: no visible committed threat"
+    )
+    current_status = "STATUS: fit; no harmful condition"
+    if state.terrain_statuses:
+        name, status = next(iter(state.terrain_statuses.items()))
+        current_status = f"STATUS {name} {status.remaining}: {status.consequence}"
+    hint = "ACTION " + contextual_hints(state, limit=1)[0]
+    if state.location == "jomon" and state.combat_active:
+        pressure_line = f"CRISIS {state.voyage_kind}; hull {state.vessel_integrity}/10"
+    else:
+        pressure_line = f"PRESSURE {p.band} {p.score}; T{p.elapsed} D{p.depth}; {state.weather}"
+    compact = [
+        f"COURIER — {identity}",
+        f"Health {health}; {injury}",
+        f"Kit {state.weapon or '-'} / {state.gear or '-'}",
+        f"Technique: {_clip(technique, 16)}",
+        f"Date {calendar_at(state).season} {calendar_at(state).day}; {calendar_at(state).time_of_day}",
+        pressure_line,
+        state.active_region_id.upper() if state.location == "region" else _clip(state.route_nodes.get(state.route_current_node).name if state.route_nodes else state.active_region_id, 25),
+        level_text,
+        f"Objective {state.objective_status}; Q{state.questlines[state.active_region_id].stage}/3",
+        f"Load {pack_weight(state)}/{weight_capacity(state)} {load_state(state)}",
+        f"Ammo {ammunition} {ammunition_label}; oil {state.lamp_oil}",
+        danger,
+        current_status,
+        hint,
+    ]
+    return compact[:capacity]
 
 
 def _draw_base(screen: curses.window, state: GameState) -> None:
@@ -833,13 +879,13 @@ def _draw_base(screen: curses.window, state: GameState) -> None:
     _frame(screen, 0, 0, main_height, map_width, area_name(state).upper())
     _frame(screen, 0, map_width, main_height, status_width, "STATUS")
     _draw_map(screen, state, 0, 0, main_height, map_width)
-    for index, line in enumerate(_status_lines(state)[: main_height - 2]):
+    for index, line in enumerate(_status_lines(state, main_height - 2)):
         role = status_colour_role(line)
-        if index == 1:
+        if line.startswith("COURIER"):
             role = "player"
-        elif index == 3 and state.courier:
+        elif line.startswith("Kit ") or (index == 3 and state.courier):
             role = "weapon"
-        elif index == 10:
+        elif line == state.active_region_id.upper():
             role = REGIONAL_GROUND_ROLES.get(state.active_region_id, "ui_heading")
         attr = _COLOUR_ATTRIBUTES[role]
         if role == "ui_heading":
@@ -852,9 +898,97 @@ def _draw_base(screen: curses.window, state: GameState) -> None:
     for index, line in enumerate(event_lines[-(event_height - 2):]):
         _put(screen, main_height + 1 + index, 2, _clip(line, width - 4), _COLOUR_ATTRIBUTES[event_colour_role(line)])
     command_attr = _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_REVERSE
-    _put(screen, height - 2, 1, "Move HJKL/arrows E interact A attack G guard X gear F material Z ledger", command_attr)
-    _put(screen, height - 1, 1, "V negotiate  R retreat  I inventory  S save aboard  ? help  Q quit", command_attr)
+    _put(screen, height - 2, 1, "Move HJKL/arrows E act A aim G guard ; look T follow M mastery", command_attr)
+    _put(screen, height - 1, 1, "X gear F material V talk R retreat I pack Z ledger O actors ? help Q quit", command_attr)
     screen.refresh()
+
+
+def _cursor_screen_position(
+    state: GameState, point: Position, height: int, width: int
+) -> tuple[int, int, int, int]:
+    status_width, event_height, command_height = 29, 6, 2
+    main_height, map_width = height - event_height - command_height, width - status_width
+    rows = map_rows(state)
+    origin_x, origin_y = camera_origin(
+        state.position, max(map(len, rows)), len(rows), map_width - 2, main_height - 2
+    )
+    return 1 + point.x - origin_x, 1 + point.y - origin_y, main_height, map_width
+
+
+def _draw_look(screen: curses.window, state: GameState, view: LookView) -> None:
+    from .inspection import inspect_lines
+
+    height, width = screen.getmaxyx()
+    screen_x, screen_y, main_height, map_width = _cursor_screen_position(
+        state, view.cursor, height, width
+    )
+    if 1 <= screen_x < map_width - 1 and 1 <= screen_y < main_height - 1:
+        glyph = displayed_tile(state, view.cursor)
+        if view.cursor.z != state.position.z:
+            glyph = "^" if view.cursor.z > state.position.z else "v"
+        _put(screen, screen_y, screen_x, glyph, _COLOUR_ATTRIBUTES["target_cell"] | curses.A_REVERSE | curses.A_BOLD)
+    lines = information_lines(inspect_lines(state, view.cursor), width - 2)
+    shown = lines[-min(len(lines), 8):]
+    for row, line in enumerate(shown, height - len(shown)):
+        _put(screen, row, 1, line.ljust(width - 2), _COLOUR_ATTRIBUTES[information_colour_role(line)] | curses.A_REVERSE)
+    _put(screen, height - 1, 1, "LOOK Arrows/WASD/HJKL move <> level Mouse click Esc/; close — zero time", _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_REVERSE | curses.A_BOLD)
+    screen.refresh()
+
+
+def _handle_look(
+    state: GameState,
+    view: LookView,
+    event: InputEvent | int,
+    *,
+    screen_size: tuple[int, int] = (24, 80),
+) -> bool:
+    if isinstance(event, int):
+        event = InputEvent("key", key=event)
+    height, width = screen_size
+    key = event.key
+    if event.kind == "mouse":
+        if event.button == "right":
+            return True
+        screen_x, screen_y, main_height, map_width = _cursor_screen_position(
+            state, view.cursor, height, width
+        )
+        del screen_x, screen_y
+        if event.button != "left" or not (1 <= event.x < map_width - 1 and 1 <= event.y < main_height - 1):
+            return False
+        rows = map_rows(state)
+        origin_x, origin_y = camera_origin(
+            state.position, max(map(len, rows)), len(rows), map_width - 2, main_height - 2
+        )
+        view.cursor = Position(origin_x + event.x - 1, origin_y + event.y - 1, state.position.z)
+        return False
+    if key in {27, ord(";")}:
+        return True
+    if key in {ord("<"), ord(">")}:
+        levels = (
+            {-1, 0, 1}
+            if state.location == "jomon"
+            else {int(z) for z in state.region.levels}
+        )
+        level = view.cursor.z + (1 if key == ord(">") else -1)
+        if level in levels:
+            view.cursor = Position(view.cursor.x, view.cursor.y, level)
+        return False
+    normalized = ord(chr(key).lower()) if 0 <= key < 256 else key
+    movement = {
+        curses.KEY_LEFT: (-1, 0), curses.KEY_RIGHT: (1, 0),
+        curses.KEY_UP: (0, -1), curses.KEY_DOWN: (0, 1),
+        ord("a"): (-1, 0), ord("d"): (1, 0), ord("w"): (0, -1), ord("s"): (0, 1),
+        ord("h"): (-1, 0), ord("l"): (1, 0), ord("k"): (0, -1), ord("j"): (0, 1),
+    }
+    if normalized in movement:
+        dx, dy = movement[normalized]
+        rows = map_rows(state, view.cursor.z)
+        view.cursor = Position(
+            max(0, min(max(map(len, rows)) - 1, view.cursor.x + dx)),
+            max(0, min(len(rows) - 1, view.cursor.y + dy)),
+            view.cursor.z,
+        )
+    return False
 
 
 def _target_at_cursor(state: GameState, view: TargetView) -> Threat | None:
@@ -946,6 +1080,10 @@ def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]
         )
         if data:
             lines.append(f"COUNTERS — {data['counterplay']}.")
+        from .combat_forecast import forecast_lines, observed_forecasts
+        forecast = next((row for row in observed_forecasts(state) if row.actor_id == selected.id), None)
+        if forecast:
+            lines.extend(forecast_lines(forecast)[1:3])
         brace_ok, brace_reason = brace_target_legality(state, selected)
         if state.weapon in BRACE_REACTION_WEAPONS:
             lines.append(
@@ -2883,6 +3021,7 @@ def play(screen: curses.window, state: GameState) -> GameState:
     inventory_view: InventoryView | None = None
     route_view: RouteChartView | None = None
     target_view: TargetView | None = None
+    look_view: LookView | None = None
     local_route: RoutePlan | None = None
     local_route_index = 0
     while True:
@@ -2894,6 +3033,8 @@ def play(screen: curses.window, state: GameState) -> GameState:
             _draw_route_chart(screen, state, route_view)
         elif target_view and height >= MIN_HEIGHT and width >= MIN_WIDTH:
             _draw_targeting(screen, state, target_view)
+        elif look_view and height >= MIN_HEIGHT and width >= MIN_WIDTH:
+            _draw_look(screen, state, look_view)
         elif overlay and height >= MIN_HEIGHT and width >= MIN_WIDTH:
             if dialogue_choices(state, overlay.kind):
                 _draw_dialogue_overlay(screen, state, overlay)
@@ -2902,7 +3043,7 @@ def play(screen: curses.window, state: GameState) -> GameState:
                 _overlay(screen, title, lines, overlay)
         if (
             local_route
-            and not any((inventory_view, route_view, target_view, overlay))
+            and not any((inventory_view, route_view, target_view, look_view, overlay))
             and height >= MIN_HEIGHT and width >= MIN_WIDTH
         ):
             try:
@@ -2956,6 +3097,10 @@ def play(screen: curses.window, state: GameState) -> GameState:
             if closed:
                 target_view = None
             continue
+        if look_view:
+            if _handle_look(state, look_view, event, screen_size=(height, width)):
+                look_view = None
+            continue
         if overlay:
             closed, should_quit = _handle_overlay_view(state, overlay, event)
             if should_quit:
@@ -2975,8 +3120,24 @@ def play(screen: curses.window, state: GameState) -> GameState:
                         )
             continue
         normalized = ord(chr(key).lower()) if 0 <= key < 256 else key
-        if normalized in MOVES:
+        if event.kind == "mouse" and event.button == "left":
+            _, _, main_height, map_width = _cursor_screen_position(
+                state, state.position, height, width
+            )
+            if 1 <= event.x < map_width - 1 and 1 <= event.y < main_height - 1:
+                rows = map_rows(state)
+                origin_x, origin_y = camera_origin(
+                    state.position, max(map(len, rows)), len(rows), map_width - 2, main_height - 2
+                )
+                look_view = LookView(Position(
+                    origin_x + event.x - 1,
+                    origin_y + event.y - 1,
+                    state.position.z,
+                ))
+        elif normalized in MOVES:
             move(state, *MOVES[normalized])
+        elif normalized == ord(";"):
+            look_view = LookView.begin(state)
         elif normalized in {10, 13, ord("e")}:
             result = interact(state)
             if result.overlay and result.overlay.startswith("inventory:container:"):
