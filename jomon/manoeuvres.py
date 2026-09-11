@@ -160,7 +160,10 @@ def perform(state: GameState, manoeuvre_id: str, target_id: str | None = None) -
     elif row.id == "hook-and-pass":
         old = target.position
         beyond = Position(target.position.x+dx, target.position.y+dy, target.position.z)
-        if is_walkable(state, beyond, ignore_threat=True):
+        # A blocked receiving lane is the manoeuvre's disclosed terrain/ally
+        # counter.  Do not use the pathfinder's actor-ignoring probe here: the
+        # committed reducer must never stack two physical actors in one cell.
+        if is_walkable(state, beyond):
             target.position = beyond
             state.position = old
         target.morale -= 1
@@ -175,7 +178,7 @@ def perform(state: GameState, manoeuvre_id: str, target_id: str | None = None) -
         state.noise = max(0, state.noise-1)
     elif row.id == "porter-shove":
         beyond = Position(target.position.x+dx, target.position.y+dy, target.position.z)
-        if is_walkable(state, beyond, ignore_threat=True):
+        if is_walkable(state, beyond):
             target.position = beyond
         target.morale -= 1
     elif row.id == "high-cast":

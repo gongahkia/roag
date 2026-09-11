@@ -78,6 +78,27 @@ class ActiveMasteryTests(unittest.TestCase):
                 self.assertEqual(steps, 1)
                 self.assertNotEqual((target.position, target.health, target.morale, state.position), before)
 
+    def test_hook_and_shove_never_stack_actors_in_blocked_lane(self):
+        for manoeuvre_id in ("hook-and-pass", "porter-shove"):
+            with self.subTest(manoeuvre=manoeuvre_id):
+                state, target = self.ready(manoeuvre_id)
+                state.weapon = "billhook"
+                if manoeuvre_id == "porter-shove":
+                    burden = create_item(
+                        state, "commodity:grain", "blocked-lane burden",
+                        owner_id=state.active_courier_id, quantity=12,
+                    )
+                    auto_place(state, burden.id, "pack", owner_id=state.active_courier_id)
+                blocker = state.combatants[1]
+                blocker.status = "engaged"
+                blocker.position = Position(target.position.x + 1, target.position.y, target.position.z)
+                before = target.position
+                changed, message, steps = perform(state, manoeuvre_id, target.id)
+                self.assertTrue(changed, message)
+                self.assertEqual(steps, 1)
+                self.assertEqual(target.position, before)
+                self.assertNotEqual(target.position, blocker.position)
+
     def test_guard_manoeuvres_break_intent_or_restore_structure(self):
         for manoeuvre_id in ("shield-bind", "ice-feint", "support-set", "controlled-withdrawal"):
             with self.subTest(manoeuvre=manoeuvre_id):
