@@ -343,6 +343,20 @@ def semantic_colour_plan(colour_count: int, pair_count: int) -> dict[str, Colour
             "magenta": 13, "blue": 12, "white": 15,
         }
         desired = {role: bright[family_for[role]] for role in SEMANTIC_ROLES}
+        desired.update({
+            "hearthford_ground": 10, "greywash_ground": 7,
+            "greenwold_ground": 2, "whitecairn_ground": 15,
+            "dunmire_ground": 3, "rillscar_ground": 1,
+            "marlbank_ground": 11, "frostmere_ground": 14,
+            "vegetation": 2, "road": 11, "earth": 3, "stone": 7,
+            "timber": 3, "structure": 15, "water": 12,
+            "shallow_water": 6, "deep_water": 12, "ice": 14, "mud": 3,
+            "fire": 9, "smoke": 8, "collapse": 1, "salt": 6,
+            "lime": 11, "ash": 8, "resin": 3, "oil": 1,
+            "weapon": 9, "armour": 14, "tool": 10, "technique": 13,
+            "consumable": 2, "commodity": 11, "relic": 5,
+            "ui_frame": 12, "remembered": 8,
+        })
     if colour_count < 8 or pair_count <= 1:
         return {role: ColourStyle(0, None, role in bold_roles) for role in SEMANTIC_ROLES}
     core = [desired[next(role for role in SEMANTIC_ROLES if family_for[role] == family)] for family in ("red", "yellow", "cyan", "green", "magenta", "blue", "white")]
@@ -368,6 +382,12 @@ REGIONAL_GROUND_ROLES = {
     "dunmire": "dunmire_ground", "rillscar": "rillscar_ground",
     "marlbank": "marlbank_ground", "frostmere": "frostmere_ground",
 }
+PHYSICAL_ROLE_OVERRIDES = {
+    "~": "deep_water", "w": "shallow_water", ",": "shallow_water",
+    "_": "ice", "m": "mud", "f": "fire", "s": "smoke",
+    "%": "collapse", "r": "stone", "q": "stone", ":": "earth",
+    "t": "timber",
+}
 
 
 def terrain_colour_role(
@@ -391,21 +411,26 @@ def terrain_colour_role(
             return "deep_water" if material.water >= 2 else "shallow_water"
         if material.coating in {"salt", "lime", "ash", "resin", "oil"}:
             return material.coating
+    # These overwhelmingly common regional cells avoid a second general glyph
+    # classification and keep the colour pass effectively constant-time.
+    if not aboard:
+        if glyph == ".":
+            return REGIONAL_GROUND_ROLES.get(region_id, "terrain")
+        if glyph in {"T", '"', ";"}:
+            return "vegetation"
+        if glyph == "=":
+            return "road"
+        if glyph == "^":
+            return "timber"
+        override = PHYSICAL_ROLE_OVERRIDES.get(glyph)
+        if override:
+            return override
     role = semantic_role(glyph, aboard=aboard)
+    override = PHYSICAL_ROLE_OVERRIDES.get(glyph)
+    if override and role in {"water", "hazard"}:
+        return override
     if role != "terrain" or aboard:
-        return {
-            "water": "deep_water" if glyph == "~" else "shallow_water",
-            "hazard": {
-                "m": "mud", "f": "fire", "s": "smoke", "%": "collapse",
-                "r": "stone", "q": "stone", ":": "earth", "t": "timber",
-            }.get(glyph, "hazard"),
-        }.get(role, role)
-    if glyph in {"T", '"', ";"}:
-        return "vegetation"
-    if glyph == "=":
-        return "road"
-    if glyph == "^":
-        return "timber"
+        return role
     return REGIONAL_GROUND_ROLES.get(region_id, "terrain")
 
 
@@ -547,7 +572,7 @@ def status_colour_role(text: str) -> str:
     if stripped and stripped == stripped.upper() and any(character.isalpha() for character in stripped):
         return "ui_heading"
     if lower.startswith("health "):
-        return "success" if any(word in lower for word in ("fit", "hale", "uninjured")) else "warning"
+        return "success" if any(word in lower for word in ("fit", "hale", "uninjured", "; none")) else "warning"
     if lower.startswith(("date ", "forecast ")) or any(weather in lower for weather in ("rain", "fog", "wind", "storm", "frost", "thaw", "squall")):
         return "forecast"
     if lower.startswith(("technique", "combo")):
@@ -565,7 +590,7 @@ def status_colour_role(text: str) -> str:
             return "warning"
     if any(word in lower for word in ("critical", "strained", "visible threat")):
         return "warning"
-    if lower.startswith("steady") or "no visible threat" in lower:
+    if lower.startswith(("safe", "steady")) or "no visible threat" in lower:
         return "success"
     if ":" in text and " — " in text:
         return "warning"
@@ -809,6 +834,12 @@ def _draw_base(screen: curses.window, state: GameState) -> None:
     _draw_map(screen, state, 0, 0, main_height, map_width)
     for index, line in enumerate(_status_lines(state)[: main_height - 2]):
         role = status_colour_role(line)
+        if index == 1:
+            role = "player"
+        elif index == 3 and state.courier:
+            role = "weapon"
+        elif index == 10:
+            role = REGIONAL_GROUND_ROLES.get(state.active_region_id, "ui_heading")
         attr = _COLOUR_ATTRIBUTES[role]
         if role == "ui_heading":
             attr |= curses.A_BOLD

@@ -101,6 +101,14 @@ class SemanticColourTests(unittest.TestCase):
         self.assertEqual(len({plan[name].foreground for name in ("weapon", "armour", "tool", "technique", "commodity", "relic")}), 6)
         self.assertNotEqual(plan["fact"].foreground, plan["rumour"].foreground)
         self.assertNotEqual(plan["warning"].foreground, plan["success"].foreground)
+        ansi_plan = semantic_colour_plan(16, 256)
+        self.assertEqual(len({
+            ansi_plan[f"{region}_ground"].foreground
+            for region in (
+                "hearthford", "greywash", "greenwold", "whitecairn",
+                "dunmire", "rillscar", "marlbank", "frostmere",
+            )
+        }), 8)
 
     def test_terrain_classifier_uses_region_and_sparse_material_state(self):
         self.assertEqual(terrain_colour_role(".", "dunmire"), "dunmire_ground")
@@ -125,7 +133,9 @@ class SemanticColourTests(unittest.TestCase):
         self.assertEqual(event_colour_role("Water quenches the burning cargo."), "success")
         self.assertEqual(event_colour_role("The support is damaged and may collapse."), "warning")
         self.assertEqual(status_colour_role("COURIER"), "ui_heading")
+        self.assertEqual(status_colour_role("Health 10/10; none"), "success")
         self.assertEqual(status_colour_role("Date winter 8; dawn"), "forecast")
+        self.assertEqual(status_colour_role("safe 0; clear"), "success")
         self.assertEqual(status_colour_role("Load 22/30 ready"), "cargo")
         self.assertEqual(status_colour_role("Load 41/30 overloaded"), "warning")
         self.assertEqual(status_colour_role("Combo: smoke hunter"), "technique")
