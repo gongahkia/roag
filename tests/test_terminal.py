@@ -124,6 +124,24 @@ class SemanticColourTests(unittest.TestCase):
         self.assertEqual(terrain_colour_role(".", "dunmire", material=MaterialCell(water=3)), "deep_water")
         self.assertEqual(terrain_colour_role("@", "dunmire"), "player")
 
+    def test_every_generated_regional_glyph_has_a_palette_role(self):
+        from jomon.frontiers import FRONTIERS, build_frontier
+
+        state = create_world("regional-colour-coverage")
+        regions = dict(state.regions)
+        regions.update({region_id: build_frontier(state.seed, region_id) for region_id in FRONTIERS})
+        self.assertEqual(set(regions), {
+            "hearthford", "greywash", "greenwold", "whitecairn",
+            "dunmire", "rillscar", "marlbank", "frostmere",
+        })
+        for region_id, region in regions.items():
+            glyphs = set("".join(row for rows in region.levels.values() for row in rows))
+            for glyph in glyphs - {" "}:
+                self.assertIn(
+                    terrain_colour_role(glyph, region_id), SEMANTIC_ROLES,
+                    f"{region_id} glyph {glyph!r} lacks a semantic colour role",
+                )
+
     def test_information_and_status_classifiers_retain_textual_semantics(self):
         self.assertEqual(information_colour_role("FACT: presently visible."), "fact")
         self.assertEqual(information_colour_role("RUMOUR: a marked shoal."), "rumour")

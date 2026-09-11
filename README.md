@@ -74,6 +74,25 @@ Opening and inspecting interfaces costs no time. A confirmed field repack and
 accepted in-world actions advance the action clock; idle terminal time never
 does.
 
+## Colour and accessibility
+
+Jomon uses the terminal's reported capabilities rather than assuming one fixed
+palette. A 256-colour terminal receives 46 distinct foregrounds across 57
+semantic roles; a 16-colour terminal receives 14; an 8-colour terminal retains
+the original seven-colour scheme; and a terminal with no colour support uses
+bold, underline, reverse video, glyphs, and explicit labels alone. Pair
+allocation never exceeds the terminal's reported capacity, and Jomon keeps the
+terminal's default background.
+
+The eight regions have separate ground colours, while vegetation, roads,
+timber, stone, mud, shallow and deep water, ice, fire, smoke, collapse, and
+material coatings have consistent physical colours. Actors, item families,
+frames, status groups, recent outcomes, target previews, and factual, rumoured,
+forecast, remembered, or warned information also have distinct accents. Colour
+is never the only cue: actor glyphs and intent, terrain glyphs, material
+inspection, textual provenance prefixes, choice markers, and warning labels
+remain authoritative.
+
 Known-route following is an input convenience, not a separate travel system:
 each tile uses the ordinary movement or climb reducer and advances the same
 action clock as manual play. It only crosses terrain already remembered by the
