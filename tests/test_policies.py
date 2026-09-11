@@ -29,6 +29,17 @@ class PolicyTests(unittest.TestCase):
             execute_command(engine, Command("_damage", ("warden", 999)))
         self.assertEqual(before, canonical_hash(engine))
 
+    def test_policy_loop_limit_chooses_descent_then_extraction(self) -> None:
+        engine = GameEngine.new(self.catalog, 14)
+        engine.state.phase = "post_victory"
+        engine.state.base_victory = True
+        policy = Policy("explorer", loop_limit=1)
+        self.assertEqual(Command("descend_again"), policy.next_command(engine))
+        engine.state.loop_depth = 1
+        self.assertEqual(Command("extract"), policy.next_command(engine))
+        with self.assertRaises(ValueError):
+            Policy(loop_limit=-1)
+
     def test_legal_plays_respect_owner_rank_and_energy(self) -> None:
         engine = GameEngine.new(self.catalog, 42)
         engine.start_combat("lost_shift")

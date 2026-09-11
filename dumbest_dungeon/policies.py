@@ -99,10 +99,13 @@ class Policy:
 
     NAMES = ("rusher", "explorer", "greedy", "offense", "defense", "synergy", "position")
 
-    def __init__(self, name: str = "explorer"):
+    def __init__(self, name: str = "explorer", *, loop_limit: int = 0):
         if name not in self.NAMES:
             raise ValueError("unknown policy")
+        if type(loop_limit) is not int or loop_limit < 0:
+            raise ValueError("loop limit must be a nonnegative integer")
         self.name = name
+        self.loop_limit = loop_limit
         self.destination: tuple[int, int] | None = None
         self.visited: set[tuple[int, int]] = set()
 
@@ -234,7 +237,9 @@ class Policy:
         if state.phase in {"victory", "defeat"}:
             return None
         if state.phase == "post_victory":
-            return Command("extract")
+            return Command(
+                "descend_again" if state.loop_depth < self.loop_limit else "extract"
+            )
         if state.phase == "exploration":
             return self._travel(engine)
         if state.phase == "combat":
@@ -358,6 +363,8 @@ def run_policy(engine: GameEngine, policy: Policy, *, limit: int = 3000,
             "biomes": engine.state.biome_ids, "crew": [asdict(h) for h in engine.state.heroes],
             "ticks": engine.state.travel_ticks, "light": engine.state.light,
             "supplies": engine.state.supplies, "objectives": [asdict(o) for o in engine.state.objectives],
+            "base_victory": engine.state.base_victory, "loop_depth": engine.state.loop_depth,
+            "boss_sequence": list(engine.state.boss_sequence),
             "deck": [asdict(c) for c in engine.state.deck], "items": engine.state.items,
             "boons": engine.state.boons, "curses": engine.state.curses,
             "encounters": encounters, "commands": records, "final": engine.snapshot()}
@@ -371,18 +378,21 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--limit", type=int, default=3000)
     parser.add_argument("--checkpoint-every", type=int, default=0)
+    parser.add_argument("--loops", type=int, default=0,
+                        help="descend this many times after the secured base victory")
     args = parser.parse_args()
-    if not 1 <= args.limit <= 10000 or args.checkpoint_every < 0:
-        parser.error("limit must be 1..10000 and checkpoint interval nonnegative")
+    if not 1 <= args.limit <= 10000 or args.checkpoint_every < 0 or not 0 <= args.loops <= 20:
+        parser.error("limit must be 1..10000, checkpoint interval nonnegative, and loops 0..20")
     engine = GameEngine.new(load_catalog(), args.seed, start_in_hub=True)
     engine.select_curated_squad(args.squad)
     engine.begin_expedition()
-    report = run_policy(engine, Policy(args.policy), limit=args.limit,
+    report = run_policy(engine, Policy(args.policy, loop_limit=args.loops), limit=args.limit,
                         checkpoint_every=args.checkpoint_every)
     report["squad"] = args.squad
     write_save(args.output, report)
     print(json.dumps({k: report[k] for k in ("seed", "squad", "policy", "outcome", "bounded_stop",
-                                             "ticks", "light", "supplies", "elapsed_seconds", "encounters")}))
+                                             "ticks", "light", "supplies", "base_victory", "loop_depth",
+                                             "boss_sequence", "elapsed_seconds", "encounters")}))
 
 
 if __name__ == "__main__":
