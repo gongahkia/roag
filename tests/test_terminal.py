@@ -22,6 +22,7 @@ from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.engine import GameEngine
 from dumbest_dungeon.ui import TerminalUI
 from dumbest_dungeon.history import history_lines, run_report
+from dumbest_dungeon.challenges import ExpeditionConfig, encode_code
 catalog = load_catalog()
 def run(screen):
     ui = TerminalUI(screen, catalog, Path(sys.argv[1]), lambda: None)
@@ -47,6 +48,22 @@ def run(screen):
         before = ui.engine.snapshot()
         ui._pressure_view()
         picked = 1
+    elif sys.argv[2] == 'profile':
+        before = ui.engine.snapshot()
+        ui._profile_compendium()
+        picked = 1
+    elif sys.argv[2] == 'challenge':
+        before = ui.engine.snapshot()
+        code = encode_code(ExpeditionConfig(seed=424242, modifiers=('third_card_reaction',)), catalog)
+        ui._notice('CHALLENGE CODE', code + '\\nLocal, versioned and compatibility checked.')
+        picked = 1
+    elif sys.argv[2] == 'loop':
+        ui.engine.state.phase = 'post_victory'
+        ui.engine.state.base_victory = True
+        ui.engine.state.base_victory_archived = True
+        before = ui.engine.snapshot()
+        ui._post_victory()
+        picked = ui.engine.state.loop_depth
     else:
         before = ui.engine.snapshot()
         picked = ui._menu('PTY LONG CONTRACT', ['Accept', 'Walk away'],
@@ -55,7 +72,7 @@ def run(screen):
     shown = '\\n'.join(screen.instr(row, 0, cols - 1).decode(errors='replace')
                       for row in range(rows))
     return {'picked': picked, 'unchanged': before == ui.engine.snapshot(),
-            'size': [rows, cols], 'shown': shown}
+            'phase': ui.engine.state.phase, 'size': [rows, cols], 'shown': shown}
 result = curses.wrapper(run)
 Path(sys.argv[1]).write_text(json.dumps(result))
 """
@@ -64,7 +81,8 @@ Path(sys.argv[1]).write_text(json.dumps(result))
 @unittest.skipUnless(os.name == "posix", "real PTY checks require a Unix terminal")
 class RealTerminalTests(unittest.TestCase):
     def probe(self, rows: int, columns: int, *, resize: bool = False, history: bool = False,
-              resolution: bool = False, pressure: bool = False) -> dict:
+              resolution: bool = False, pressure: bool = False,
+              profile: bool = False, challenge: bool = False, loop: bool = False) -> dict:
         import fcntl
         import termios
 
@@ -76,7 +94,9 @@ class RealTerminalTests(unittest.TestCase):
                 result_path = Path(directory) / "result.json"
                 process = subprocess.Popen(
                     [sys.executable, "-c", PROBE, str(result_path),
-                     "resolution" if resolution else "history" if history else "pressure" if pressure else "menu"],
+                     "resolution" if resolution else "history" if history else
+                     "pressure" if pressure else "profile" if profile else
+                     "challenge" if challenge else "loop" if loop else "menu"],
                     stdin=slave, stdout=slave, stderr=slave,
                     env={**os.environ, "TERM": "xterm-256color"},
                 )
@@ -88,22 +108,36 @@ class RealTerminalTests(unittest.TestCase):
                     if ready:
                         captured.extend(os.read(master, 65536))
                     marker = (b"COMBAT RESOLUTION" if resolution else b"PTY MORGUE" if history
-                              else b"EXPEDITION PRESSURE" if pressure else b"PTY LONG CONTRACT")
+                              else b"EXPEDITION PRESSURE" if pressure else
+                              b"PROFILE & COMPENDIUM" if profile else b"CHALLENGE CODE" if challenge
+                              else b"THE SIGNAL BREAKS" if loop else b"PTY LONG CONTRACT")
                     if not sent and marker in captured:
                         if resize:
                             fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 60, 140, 0, 0))
                             process.send_signal(signal.SIGWINCH)
-                        os.write(master, b"\x1bOF\n" if history or resolution or pressure else b"\x1b[6~\x1bOFj\n")
+                        if profile:
+                            os.write(master, b"\x1b")
+                        elif loop:
+                            os.write(master, b"j\n")
+                        else:
+                            os.write(master, b"\x1bOF\n" if history or resolution or pressure or challenge
+                                     else b"\x1b[6~\x1bOFj\n")
                         sent = True
                 self.assertIsNotNone(process.poll(), "PTY timed out: " + captured[-1000:].decode(errors="replace"))
                 self.assertEqual(0, process.returncode, captured[-2000:].decode(errors="replace"))
                 result = json.loads(result_path.read_text())
                 self.assertEqual(1, result["picked"])
-                self.assertTrue(result["unchanged"])
+                self.assertEqual(loop, not result["unchanged"])
                 if pressure:
                     self.assertIn("ENEMY ROUND", result["shown"])
                 elif history or resolution:
                     self.assertIn("probe:39", result["shown"])
+                elif profile:
+                    self.assertIn("Base clears 0", result["shown"])
+                elif challenge:
+                    self.assertIn("Local, versioned", result["shown"])
+                elif loop:
+                    self.assertEqual("exploration", result["phase"])
                 else:
                     self.assertIn("Consequence 89", result["shown"])
                     self.assertIn("> Walk away", result["shown"])
@@ -139,6 +173,13 @@ class RealTerminalTests(unittest.TestCase):
         for rows, columns in ((24, 80), (60, 140)):
             result = self.probe(rows, columns, pressure=True)
             self.assertIn("CURRENT QUIET", result["shown"])
+
+    def test_profile_challenge_and_loop_screens_are_keyboard_operable(self) -> None:
+        for rows, columns in ((24, 80), (60, 140)):
+            self.probe(rows, columns, profile=True)
+            self.probe(rows, columns, challenge=True)
+            result = self.probe(rows, columns, loop=True)
+            self.assertEqual(1, result["picked"])
 
 
 if __name__ == "__main__":
