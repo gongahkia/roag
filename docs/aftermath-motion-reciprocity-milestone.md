@@ -278,8 +278,8 @@ from 42,208 to 36,580 KiB. Deterministic replay remained exact.
 
 - The serial suite passed 505 tests in 322.355 seconds immediately before the
   final path-query optimization. After that optimization, 38 navigation,
-  reachability, material, cover and frontier tests passed in 12.909 seconds;
-  the final post-documentation serial result is recorded below.
+  reachability, material, cover and frontier tests passed in 12.909 seconds.
+  The exact committed tree then passed all 506 tests in 384.377 seconds.
 - The fast developer suite passed 61 tests in 28.515 seconds, under its
   90-second target.
 - Four independent, deterministic batches covered seeds 0–999. All 1,000

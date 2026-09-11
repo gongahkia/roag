@@ -11,8 +11,8 @@
   A real save written by the expected format-6 commit was loaded and resaved by
   format 7 with its exact injury, health, market stock and physical identities.
   The final serial run for the Aftermath, Motion and Reciprocity tranche
-  passes more than 500 tests; the exact closing run is recorded in its live
-  assessment. The corrected 1,000-seed audit generated 8,000 regions with zero
+  passed 506 tests in 384.377 seconds. The corrected 1,000-seed audit generated
+  8,000 regions with zero
   failures. See the live
   measurement ledger for exact focused audits, performance and candid
   manual/platform limits.
