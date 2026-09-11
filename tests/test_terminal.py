@@ -6,7 +6,7 @@ from unittest.mock import patch
 from jomon.actions import interact
 from jomon.actions import depart, guard
 from jomon.vessel import BARTENDER_POSITION
-from jomon.state import Position, create_world
+from jomon.state import MaterialCell, Position, create_world
 from jomon.terminal import (
     INVENTORY_HELP_LINES,
     ChoiceOption,
@@ -19,6 +19,7 @@ from jomon.terminal import (
     _handle_overlay,
     semantic_colour_plan,
     semantic_role,
+    terrain_colour_role,
     visible_threats,
 )
 from jomon.main import _centered_x, _set_cursor_visibility, landing_notice_layout
@@ -68,6 +69,49 @@ class SemanticColourTests(unittest.TestCase):
         )
         self.assertTrue(plan["player"].bold)
         self.assertTrue(plan["hostile"].bold)
+
+    def test_palette_tiers_never_exceed_reported_colours_or_pairs(self):
+        for colours, pairs in ((8, 8), (16, 16), (256, 256), (256, 8)):
+            plan = semantic_colour_plan(colours, pairs)
+            self.assertEqual(set(plan), set(SEMANTIC_ROLES))
+            self.assertTrue(all(0 <= style.pair < pairs for style in plan.values()))
+            self.assertTrue(all(
+                style.foreground is None or 0 <= style.foreground < colours
+                for style in plan.values()
+            ))
+            self.assertEqual(
+                len({style.pair for style in plan.values() if style.pair}),
+                len({style.foreground for style in plan.values() if style.foreground is not None}),
+            )
+
+    def test_capable_terminals_distinguish_regions_materials_items_and_information(self):
+        plan = semantic_colour_plan(256, 256)
+        region_colours = {
+            plan[f"{region}_ground"].foreground
+            for region in (
+                "hearthford", "greywash", "greenwold", "whitecairn",
+                "dunmire", "rillscar", "marlbank", "frostmere",
+            )
+        }
+        self.assertEqual(len(region_colours), 8)
+        self.assertEqual(len({plan[name].foreground for name in ("fire", "smoke", "mud", "ice", "deep_water")}), 5)
+        self.assertEqual(len({plan[name].foreground for name in ("weapon", "armour", "tool", "technique", "commodity", "relic")}), 6)
+        self.assertNotEqual(plan["fact"].foreground, plan["rumour"].foreground)
+        self.assertNotEqual(plan["warning"].foreground, plan["success"].foreground)
+
+    def test_terrain_classifier_uses_region_and_sparse_material_state(self):
+        self.assertEqual(terrain_colour_role(".", "dunmire"), "dunmire_ground")
+        self.assertEqual(terrain_colour_role(".", "frostmere"), "frostmere_ground")
+        self.assertEqual(terrain_colour_role("T", "greenwold"), "vegetation")
+        self.assertEqual(terrain_colour_role("=", "rillscar"), "road")
+        self.assertEqual(terrain_colour_role("~", "greywash"), "deep_water")
+        self.assertEqual(terrain_colour_role(",", "marlbank"), "shallow_water")
+        self.assertEqual(terrain_colour_role(".", "marlbank", material=MaterialCell(fire=1)), "fire")
+        self.assertEqual(terrain_colour_role(".", "marlbank", material=MaterialCell(smoke=3)), "smoke")
+        self.assertEqual(terrain_colour_role(".", "rillscar", material=MaterialCell(collapse_due=9)), "collapse")
+        self.assertEqual(terrain_colour_role(".", "frostmere", material=MaterialCell(water=1, ice=True)), "ice")
+        self.assertEqual(terrain_colour_role(".", "dunmire", material=MaterialCell(water=3)), "deep_water")
+        self.assertEqual(terrain_colour_role("@", "dunmire"), "player")
 
     def test_remembered_terrain_does_not_leak_moving_actor(self):
         state = create_world("actor memory")

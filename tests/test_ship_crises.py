@@ -392,7 +392,7 @@ class DeckCrisisTests(unittest.TestCase):
         def write(y, x, text, count, attr=0):
             attributes[y, x] = text[:count], attr
         sink.addnstr = write
-        with patch.dict(_COLOUR_ATTRIBUTES, {"hazard": 777, "interactable": 333}):
+        with patch.dict(_COLOUR_ATTRIBUTES, {"smoke": 777, "interactable": 333}):
             _draw_map(sink, state, 0, 0, 24, 66)
         self.assertEqual(attributes[6, 10], ("s", 777))
 

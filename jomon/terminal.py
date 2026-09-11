@@ -87,7 +87,7 @@ from .navigation import (
     navigation_targets,
     plan_route,
 )
-from .state import GameState, Position, Threat
+from .state import GameState, MaterialCell, Position, Threat
 from .travel import DESTINATIONS, choose_destination, resolve_voyage, travel_animation_frames
 from .route_chart import chart_move, neighbours, route_availability
 from .calendar import calendar_at, seasonal_route_note
@@ -127,9 +127,25 @@ MIN_WIDTH = 80
 MIN_HEIGHT = 24
 
 SEMANTIC_ROLES = (
-    "player", "ally", "neutral", "hostile", "elite", "terrain", "water",
-    "structure", "exit", "cargo", "interactable", "hazard", "mystical",
-    "selected_target", "target_cell",
+    # Actors and tactical selection.
+    "player", "ally", "neutral", "hostile", "elite", "selected_target",
+    "target_cell",
+    # Terrain and construction. Regional ground roles make the eight major
+    # landscapes visually distinct without changing their authoritative glyphs.
+    "terrain", "hearthford_ground", "greywash_ground", "greenwold_ground",
+    "whitecairn_ground", "dunmire_ground", "rillscar_ground",
+    "marlbank_ground", "frostmere_ground", "vegetation", "road", "earth",
+    "stone", "timber", "structure", "exit",
+    # Sparse physical states. `water` and `hazard` remain compatibility roles
+    # for older callers while production rendering uses the specific variants.
+    "water", "shallow_water", "deep_water", "ice", "mud", "fire", "smoke",
+    "collapse", "salt", "lime", "ash", "resin", "oil", "hazard",
+    # Physical objects and services.
+    "cargo", "interactable", "weapon", "armour", "tool", "technique",
+    "consumable", "commodity", "relic", "mystical",
+    # Presentation and provenance. Words and glyphs remain authoritative.
+    "ui_frame", "ui_heading", "ui_accent", "fact", "rumour", "forecast",
+    "warning", "success", "unavailable", "remembered",
 )
 
 
@@ -262,24 +278,135 @@ def _enable_mouse() -> bool:
 
 
 def semantic_colour_plan(colour_count: int, pair_count: int) -> dict[str, ColourStyle]:
-    """Return a safe semantic plan without requiring curses initialization."""
-    desired = {
-        "player": (3, True), "ally": (6, True), "neutral": (2, False),
-        "hostile": (1, True), "elite": (5, True), "terrain": (7, False),
-        "water": (4, False), "structure": (7, False), "exit": (6, True),
-        "cargo": (3, True), "interactable": (2, True), "hazard": (1, True),
-        "mystical": (5, True), "selected_target": (5, True),
-        "target_cell": (3, True),
+    """Return a bounded 256-, 16-, 8-colour, or monochrome semantic plan."""
+    bold_roles = {
+        "player", "ally", "hostile", "elite", "selected_target", "target_cell",
+        "exit", "fire", "collapse", "hazard", "cargo", "interactable", "relic",
+        "mystical", "ui_heading", "ui_accent", "warning", "success",
     }
+    # The seven family colours are deliberately first in allocation order. If
+    # a terminal reports few pairs, later shades fall back to an allocated
+    # family instead of silently losing all colour.
+    families = {
+        "red": 1, "yellow": 3, "cyan": 6, "green": 2,
+        "magenta": 5, "blue": 4, "white": 7,
+    }
+    family_for = {
+        "player": "yellow", "ally": "cyan", "neutral": "green",
+        "hostile": "red", "elite": "magenta", "selected_target": "magenta",
+        "target_cell": "yellow", "terrain": "white",
+        "hearthford_ground": "green", "greywash_ground": "white",
+        "greenwold_ground": "green", "whitecairn_ground": "white",
+        "dunmire_ground": "yellow", "rillscar_ground": "red",
+        "marlbank_ground": "yellow", "frostmere_ground": "cyan",
+        "vegetation": "green", "road": "yellow", "earth": "yellow",
+        "stone": "white", "timber": "yellow", "structure": "white",
+        "exit": "cyan", "water": "blue", "shallow_water": "cyan",
+        "deep_water": "blue", "ice": "cyan", "mud": "yellow",
+        "fire": "red", "smoke": "white", "collapse": "red", "salt": "cyan",
+        "lime": "yellow", "ash": "white", "resin": "yellow", "oil": "red",
+        "hazard": "red", "cargo": "yellow", "interactable": "green",
+        "weapon": "red", "armour": "cyan", "tool": "green",
+        "technique": "magenta", "consumable": "green", "commodity": "yellow",
+        "relic": "magenta", "mystical": "magenta", "ui_frame": "blue",
+        "ui_heading": "cyan", "ui_accent": "yellow", "fact": "cyan",
+        "rumour": "magenta", "forecast": "cyan", "warning": "red",
+        "success": "green", "unavailable": "white", "remembered": "white",
+    }
+    desired = {role: families[family_for[role]] for role in SEMANTIC_ROLES}
+    if colour_count >= 256:
+        desired.update({
+            "player": 220, "ally": 45, "neutral": 114, "hostile": 196,
+            "elite": 201, "selected_target": 207, "target_cell": 226,
+            "terrain": 250, "hearthford_ground": 149, "greywash_ground": 252,
+            "greenwold_ground": 71, "whitecairn_ground": 255,
+            "dunmire_ground": 100, "rillscar_ground": 166,
+            "marlbank_ground": 173, "frostmere_ground": 153,
+            "vegetation": 70, "road": 180, "earth": 137, "stone": 245,
+            "timber": 130, "structure": 250, "exit": 51, "water": 33,
+            "shallow_water": 45, "deep_water": 27, "ice": 117, "mud": 94,
+            "fire": 208, "smoke": 247, "collapse": 202, "salt": 159,
+            "lime": 229, "ash": 244, "resin": 172, "oil": 160,
+            "hazard": 196, "cargo": 221, "interactable": 48,
+            "weapon": 203, "armour": 110, "tool": 84, "technique": 141,
+            "consumable": 213, "commodity": 221, "relic": 207,
+            "mystical": 135, "ui_frame": 60, "ui_heading": 81,
+            "ui_accent": 220, "fact": 117, "rumour": 183, "forecast": 81,
+            "warning": 203, "success": 84, "unavailable": 244,
+            "remembered": 242,
+        })
+    elif colour_count >= 16:
+        # Bright ANSI indices are standardized by the terminal's reported
+        # palette; no colour redefinition is attempted.
+        bright = {
+            "red": 9, "yellow": 11, "cyan": 14, "green": 10,
+            "magenta": 13, "blue": 12, "white": 15,
+        }
+        desired = {role: bright[family_for[role]] for role in SEMANTIC_ROLES}
     if colour_count < 8 or pair_count <= 1:
-        return {role: ColourStyle(0, None, bold) for role, (_, bold) in desired.items()}
-    priority = (1, 3, 6, 2, 5, 4, 7)
-    available = priority[: max(0, min(len(priority), pair_count - 1))]
+        return {role: ColourStyle(0, None, role in bold_roles) for role in SEMANTIC_ROLES}
+    core = [desired[next(role for role in SEMANTIC_ROLES if family_for[role] == family)] for family in ("red", "yellow", "cyan", "green", "magenta", "blue", "white")]
+    priority = tuple(dict.fromkeys([*core, *(desired[role] for role in SEMANTIC_ROLES)]))
+    available = priority[:max(0, min(len(priority), pair_count - 1))]
     pairs = {foreground: index + 1 for index, foreground in enumerate(available)}
-    return {
-        role: ColourStyle(pairs.get(foreground, 0), foreground if foreground in pairs else None, bold)
-        for role, (foreground, bold) in desired.items()
-    }
+    plan = {}
+    for role in SEMANTIC_ROLES:
+        foreground = desired[role]
+        if foreground not in pairs:
+            fallback = desired[next(candidate for candidate in SEMANTIC_ROLES if family_for[candidate] == family_for[role])]
+            foreground = fallback if fallback in pairs else foreground
+        plan[role] = ColourStyle(
+            pairs.get(foreground, 0), foreground if foreground in pairs else None,
+            role in bold_roles,
+        )
+    return plan
+
+
+REGIONAL_GROUND_ROLES = {
+    "hearthford": "hearthford_ground", "greywash": "greywash_ground",
+    "greenwold": "greenwold_ground", "whitecairn": "whitecairn_ground",
+    "dunmire": "dunmire_ground", "rillscar": "rillscar_ground",
+    "marlbank": "marlbank_ground", "frostmere": "frostmere_ground",
+}
+
+
+def terrain_colour_role(
+    glyph: str,
+    region_id: str = "",
+    *,
+    aboard: bool = False,
+    material: MaterialCell | None = None,
+) -> str:
+    """Classify a visible physical cell; glyphs remain the primary cue."""
+    if material:
+        if material.fire:
+            return "fire"
+        if material.collapse_due:
+            return "collapse"
+        if material.smoke >= 2:
+            return "smoke"
+        if material.ice:
+            return "ice"
+        if material.water:
+            return "deep_water" if material.water >= 2 else "shallow_water"
+        if material.coating in {"salt", "lime", "ash", "resin", "oil"}:
+            return material.coating
+    role = semantic_role(glyph, aboard=aboard)
+    if role != "terrain" or aboard:
+        return {
+            "water": "deep_water" if glyph == "~" else "shallow_water",
+            "hazard": {
+                "m": "mud", "f": "fire", "s": "smoke", "%": "collapse",
+                "r": "stone", "q": "stone", ":": "earth", "t": "timber",
+            }.get(glyph, "hazard"),
+        }.get(role, role)
+    if glyph in {"T", '"', ";"}:
+        return "vegetation"
+    if glyph == "=":
+        return "road"
+    if glyph == "^":
+        return "timber"
+    return REGIONAL_GROUND_ROLES.get(region_id, "terrain")
 
 
 def semantic_role(glyph: str, *, aboard: bool = False) -> str:
@@ -368,7 +495,11 @@ def _init_colours() -> None:
     global _COLOUR_ATTRIBUTES
     try:
         if not curses.has_colors():
-            _COLOUR_ATTRIBUTES = {role: curses.A_BOLD if role in {"player", "hostile", "elite", "exit", "hazard"} else 0 for role in SEMANTIC_ROLES}
+            plan = semantic_colour_plan(0, 0)
+            _COLOUR_ATTRIBUTES = {
+                role: curses.A_BOLD if style.bold else 0
+                for role, style in plan.items()
+            }
             return
         curses.start_color()
         curses.use_default_colors()
@@ -511,11 +642,11 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
                 char = "!"
             else:
                 char = displayed_tile(state, position)
-            role = semantic_role(char, aboard=state.location == "jomon")
-            if position != state.position and position not in threats:
-                cell = material_cells.get(key(position))
-                if cell and (cell.fire or cell.smoke >= 2 or cell.collapse_due):
-                    role = "hazard"
+            cell = material_cells.get(key(position)) if position != state.position and position not in threats else None
+            role = terrain_colour_role(
+                char, state.active_region_id,
+                aboard=state.location == "jomon", material=cell,
+            )
             if position in threats and position != state.position:
                 actor = threats[position]
                 role = "elite" if actor.elite else "neutral" if actor.ecology == "prey" else "hostile"
