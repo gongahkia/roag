@@ -69,7 +69,7 @@ and within 20% of this baseline absent a visible justification.
 - [x] Actor identity always outranks terrain/material colour.
 - [x] Items and information classes no longer borrow unrelated actor roles.
 - [x] No gameplay fact is communicated by colour alone.
-- [ ] Tests and render benchmarks pass without material regression.
+- [x] Tests and render benchmarks pass without material regression.
 - [x] 80x24, 100x32, resize recovery, monochrome fallback, and terminal cleanup
       receive explicit verification.
 
@@ -126,13 +126,29 @@ names, code, assets, or visual identity was copied.
 - https://docs.python.org/3/library/curses.html
 - https://invisible-island.net/ncurses/man/curs_color.3x.html
 
-## Performance note
+## Performance and automated verification
 
-The initial benchmark and later full runs occurred under materially different
-machine load, including a concurrent compiler consuming most of one CPU and a
-reported thermal-pressure level of 100.  Raw files are retained rather than
-silently normalized.  A same-machine interleaved 100-render comparison measured
-the old renderer at 8.676 ms median and the completed renderer at 8.485 ms
-median.  A fresh full benchmark after the competing compiler finishes remains
-the final open gate; its machine-readable result will replace the provisional
-`docs/performance-colour-final.json`.
+Early post-change measurements were rejected while a concurrent compiler and
+software update were consuming most of a CPU and thermal pressure was reported
+at 100.  After that work subsided, the same 20-sample benchmark command and seed
+were rerun.  Both raw accepted runs are committed as
+`performance-colour-baseline.json` and `performance-colour-final.json`.
+
+| Scenario | Baseline median / p99 | Final median / p99 | Median change |
+|---|---:|---:|---:|
+| 80x24 render sink | 6.265 / 10.413 ms | 6.208 / 7.084 ms | -0.9% |
+| ordinary input + layout | 18.902 / 21.946 ms | 14.936 / 17.410 ms | -21.0% |
+| boarding input + render | 31.851 / 36.459 ms | 28.709 / 30.128 ms | -9.9% |
+| route chart open | 0.386 / 0.520 ms | 0.373 / 0.524 ms | -3.4% |
+
+An additional alternating warm-render check measured 200 iterations using both
+wall and process CPU clocks: the old renderer was 5.963 ms median CPU time and
+the completed renderer 5.303 ms.  The improvement comes from directly
+classifying common regional glyphs before the general semantic-glyph path.
+
+The fast developer suite passed 66 tests in 25.940 seconds.  Full unittest
+discovery passed 511 tests in 335.011 seconds.  Focused terminal, information
+panel and ship-crisis coverage passed 51 tests; the palette tests cover pair
+exhaustion and 0/8/16/256-colour plans, 57-role completeness, all eight regional
+families, sparse material precedence, status/event/provenance classification,
+and the existing no-moving-actor memory boundary.
