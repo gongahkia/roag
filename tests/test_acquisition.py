@@ -6,10 +6,14 @@ from dataclasses import replace
 from dumbest_dungeon.acquisition import ContentPack, ContentRef, Lane, eligible_techniques, validate_packs
 from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.engine import GameEngine
-from dumbest_dungeon.threat import Threat, ThreatBudget
+from dumbest_dungeon.threat import Threat, ThreatBudget, enemy_threat, formation_threat, threat_budget
 
 
 class AcquisitionContractTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_catalog()
+
     def test_owner_lane_and_pack_filters_are_intersected(self) -> None:
         catalog = load_catalog()
         card = {**catalog.cards["brace"], "lanes": ["elite"]}
@@ -51,6 +55,29 @@ class AcquisitionContractTests(unittest.TestCase):
         self.assertEqual(Threat(burst=3, control=4), Threat(burst=3) + Threat(control=4))
         with self.assertRaises(ValueError):
             Threat(control=True)
+
+    def test_enemy_and_composition_threat_price_three_phase_coordination(self) -> None:
+        plain = enemy_threat(self.catalog.enemies["hollow_crew"])
+        self.assertEqual(self.catalog.enemies["hollow_crew"]["max_hp"], plain.durability)
+        self.assertGreaterEqual(plain.sustained, plain.burst)
+        combo = formation_threat(self.catalog, ["rad_acolyte", "control_rod"])
+        parts = enemy_threat(self.catalog.enemies["rad_acolyte"]) + enemy_threat(
+            self.catalog.enemies["control_rod"]
+        )
+        self.assertGreater(combo.total, parts.total)
+        self.assertTrue(threat_budget("normal").permits(
+            formation_threat(self.catalog, self.catalog.encounters["lost_shift"]["enemies"])
+        ))
+        with self.assertRaises(ValueError):
+            threat_budget("boss")
+
+    def test_all_authored_normal_and_elite_templates_obey_dimensional_ceilings(self) -> None:
+        for encounter in self.catalog.encounters.values():
+            if encounter["kind"] not in {"normal", "elite"}:
+                continue
+            with self.subTest(encounter=encounter["id"]):
+                vector = formation_threat(self.catalog, encounter["enemies"])
+                self.assertTrue(threat_budget(encounter["kind"]).permits(vector), vector)
 
 
 if __name__ == "__main__":
