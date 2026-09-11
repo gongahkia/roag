@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .state import GameState, Position
+from .state import GameState, Position, Region
 
 
 @dataclass(frozen=True)
@@ -62,31 +62,59 @@ def _key(row: Situation, part: str) -> str:
     return f"micro-site:{part}:{row.id}"
 
 
-def site_point(state: GameState, row: Situation) -> Position:
-    stored = state.region.changes.get(_key(row, "point"))
+def _site_point_for_region(region: Region, row: Situation) -> Position:
+    stored = region.changes.get(_key(row, "point"))
     if isinstance(stored, str):
         return Position(*map(int, stored.split(",")))
-    from .regions import region_reachable
+    anchor = region.landmarks[row.anchor]
+    forbidden = {c.position for c in region.containers} | set(region.landmarks.values())
+    forbidden |= {p for link in region.vertical_links for p in (link.first, link.second)}
+    # A bounded local flood from an already validated/reachable landmark is
+    # enough. A whole-region flood fill here made every arrival needlessly
+    # pay generation-scale work for a three-cell authored placement.
+    from collections import deque
 
-    anchor = state.region.landmarks[row.anchor]
-    forbidden = {c.position for c in state.region.containers} | set(state.region.landmarks.values())
-    forbidden |= {p for link in state.region.vertical_links for p in (link.first, link.second)}
-    candidates = [
-        p for p in region_reachable(state.region)
-        if p.z == anchor.z and p not in forbidden
-        and all(
-            other.z != p.z or max(abs(other.x-p.x), abs(other.y-p.y)) > 2
-            for other in state.region.landmarks.values()
-        )
-        and all(
-            other.position.z != p.z
-            or max(abs(other.position.x-p.x), abs(other.position.y-p.y)) > 1
-            for other in state.region.containers
-        )
-    ]
+    rows = region.levels[str(anchor.z)]
+    queue, seen, candidates = deque([anchor]), {anchor}, []
+    while queue and not candidates:
+        layer = len(queue)
+        for _ in range(layer):
+            current = queue.popleft()
+            if (
+                current not in forbidden
+                and abs(current.x-anchor.x)+abs(current.y-anchor.y) >= 3
+                and all(other.z != current.z or max(abs(other.x-current.x), abs(other.y-current.y)) > 2 for other in region.landmarks.values())
+                and all(other.position.z != current.z or max(abs(other.position.x-current.x), abs(other.position.y-current.y)) > 1 for other in region.containers)
+            ):
+                candidates.append(current)
+            for dx, dy in ((0,-1),(1,0),(0,1),(-1,0)):
+                point = Position(current.x+dx, current.y+dy, current.z)
+                if point in seen or not (0 <= point.y < len(rows) and 0 <= point.x < len(rows[point.y])):
+                    continue
+                if region.tile_changes.get(f"{point.x},{point.y},{point.z}", rows[point.y][point.x]) in {" ", "#", "~", "T"}:
+                    continue
+                seen.add(point)
+                queue.append(point)
+        if len(seen) > 256:
+            break
+    if not candidates:
+        raise RuntimeError(f"{row.name} has no safe local site near {row.anchor}")
     point = min(candidates, key=lambda p: (abs(p.x-anchor.x)+abs(p.y-anchor.y), (p.x*17+p.y*31+len(row.id)) % 11, p.y, p.x))
-    state.region.changes[_key(row, "point")] = f"{point.x},{point.y},{point.z}"
+    region.changes[_key(row, "point")] = f"{point.x},{point.y},{point.z}"
+    from .world import position_key
+
+    region.tile_changes[position_key(point)] = "?"
     return point
+
+
+def site_point(state: GameState, row: Situation) -> Position:
+    return _site_point_for_region(state.region, row)
+
+
+def initialise_region_sites(region: Region) -> None:
+    for row in SITUATIONS:
+        if row.region_id == region.id:
+            _site_point_for_region(region, row)
 
 
 def site_at(state: GameState, point: Position, *, adjacent: bool = False) -> Situation | None:
@@ -116,6 +144,43 @@ def _condition(state: GameState) -> str:
     return f"{calendar_at(state).season}; {event}; {aftermath}"
 
 
+def _prepare_material(state: GameState, row: Situation, point: Position) -> None:
+    """Translate authored words and current season/history into sparse play."""
+    from .calendar import calendar_at
+    from .materials import ensure_cell
+
+    cell = ensure_cell(state, point)
+    if cell is None:
+        return
+    words = row.material
+    if any(word in words for word in ("water", "flood", "mud", "brine", "thaw", "shallows")):
+        cell.water = max(cell.water, 2 if any(word in words for word in ("deep", "flood", "fast")) else 1)
+        cell.fluid = "salt" if any(word in words for word in ("salt", "brine")) else "fresh"
+    if any(word in words for word in ("fire", "heat", "smouldering")):
+        cell.material, cell.fuel, cell.fire = ("timber" if "timber" in words else "resin"), 3, 1
+    if "smoke" in words:
+        cell.smoke = max(cell.smoke, 2)
+    if any(word in words for word in ("support", "brittle", "debris", "loose rock", "falling")):
+        cell.support = min(cell.support, 1)
+    if "lime" in words:
+        cell.material, cell.coating = "lime", "lime"
+    elif "resin" in words:
+        cell.material, cell.coating = "resin", "resin"
+    elif any(word in words for word in ("clay", "mud", "peat")):
+        cell.material = "soil"
+    if calendar_at(state).season == "winter" and cell.water and cell.fluid == "fresh":
+        cell.ice = True
+    if state.region.regional_history:
+        last = state.region.regional_history[-1].kind
+        if last == "fire":
+            cell.smoke = max(cell.smoke, 1)
+        elif last == "flood":
+            cell.water = min(3, cell.water + 1)
+    if state.region.changes.get("aftermath_configuration") == "shared":
+        cell.support = min(3, cell.support + 1)
+    state.region.changes[_key(row, "material")] = f"water {cell.water}; fire {cell.fire}; smoke {cell.smoke}; support {cell.support}; ice {cell.ice}"
+
+
 def activate_for_band(state: GameState, band: str) -> Situation | None:
     if state.location != "region" or (state.active_region_id, band) not in BY_REGION_BAND:
         return None
@@ -123,7 +188,17 @@ def activate_for_band(state: GameState, band: str) -> Situation | None:
     point = site_point(state, row)
     if state.region.changes.get(_key(row, "resolved")):
         return row
+    previous_id = state.region.changes.get("situation:active")
+    if isinstance(previous_id, str) and previous_id in BY_ID and previous_id != row.id:
+        previous = BY_ID[previous_id]
+        from .world import position_key
+
+        state.region.tile_changes[position_key(site_point(state, previous))] = "*" if state.region.changes.get(_key(previous, "resolved")) else "?"
     state.region.changes["situation:active"] = row.id
+    from .world import position_key
+
+    state.region.tile_changes[position_key(point)] = "!"
+    _prepare_material(state, row, point)
     state.region.changes.setdefault(_key(row, "condition"), _condition(state))
     candidates = sorted((a for a in state.combatants if a.status in {"watching", "dormant"}), key=lambda a: (a.group, a.id))
     chosen = []
@@ -136,6 +211,7 @@ def activate_for_band(state: GameState, band: str) -> Situation | None:
         actor.status, actor.objective_position = "watching", point
         actor.intent = f"works around {row.name.lower()}; reacts to {row.material}"
         actor.goal_reason = f"{row.groups[index]} have a material stake here"
+    state.region.changes[_key(row, "participants")] = ",".join(actor.id for actor in chosen)
     if not state.region.changes.get(_key(row, "seen")):
         state.region.changes[_key(row, "seen")] = True
         state.add_message(f"SITUATION — {row.name}: {row.duty}; {row.material}. The ! site has three disclosed answers.", priority=3)
@@ -177,6 +253,8 @@ def resolve(state: GameState, situation_id: str, method: str) -> tuple[bool, str
     if method == "t":
         if cell:
             cell.support, cell.collapse_due = 3, 0
+            cell.fire, cell.fuel = 0, 0
+            cell.water = max(0, cell.water - 1)
         for actor in state.combatants:
             if actor.objective_position == point:
                 actor.morale -= 1
@@ -188,11 +266,13 @@ def resolve(state: GameState, situation_id: str, method: str) -> tuple[bool, str
             spent = "rope"
             if cell:
                 cell.support, cell.coating = min(3, cell.support + 1), "wet"
+                cell.fire, cell.smoke = 0, max(0, cell.smoke - 2)
         else:
             state.lamp_oil -= 1
             spent = "oil"
             if cell:
                 cell.material, cell.coating, cell.fuel = "resin", "oil", max(2, cell.fuel)
+                cell.water = max(0, cell.water - 1)
         state.region.changes[f"population-shift:{row.id}"] = f"{row.groups[1]} use the altered margin"
         outcome, steps = f"{row.answers[1]} with {spent}", 1
     else:
@@ -205,11 +285,18 @@ def resolve(state: GameState, situation_id: str, method: str) -> tuple[bool, str
         for actor in state.combatants:
             if actor.objective_position == point and actor.profile != "animal":
                 actor.status, actor.intent = "negotiated", "accepts the bounded account"
+        if cell:
+            cell.fire, cell.smoke = 0, 0
+            cell.water = min(1, cell.water)
+            cell.support = max(2, cell.support)
         outcome, steps = row.answers[2], 1
     state.region.changes[_key(row, "resolved")] = True
     state.region.changes[_key(row, "outcome")] = outcome
     state.region.changes[_key(row, "revisit")] = row.consequence
     state.region.changes.pop("situation:active", None)
+    from .world import position_key
+
+    state.region.tile_changes[position_key(point)] = "*"
     record = f"{row.name} settled by {outcome}; {row.consequence}."
     state.remember(record)
     state.contact.memories.append(record)

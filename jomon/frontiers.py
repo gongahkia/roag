@@ -239,6 +239,9 @@ def ensure_frontier(state, region_id: str) -> None:
 
     initialise_account(state, region_id, new_geography=True)
     reconcile_network(state)
+    from .situations import initialise_region_sites
+
+    initialise_region_sites(region)
 
 
 def frontier_process(state) -> list[str]:

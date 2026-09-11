@@ -792,6 +792,10 @@ def create_world(seed: str) -> GameState:
         initialise_account(state, region_id, new_geography=True)
     reconcile_network(state)
     initialise_living_vessel(state)
+    from .situations import initialise_region_sites
+
+    for existing_region in state.regions.values():
+        initialise_region_sites(existing_region)
     state.add_message(f"Jomon reaches Hearthford. {region.condition}")
     state.add_message(
         f"{state.courier.name} has the courier watch with a basic working kit. "

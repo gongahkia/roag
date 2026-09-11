@@ -102,11 +102,6 @@ def displayed_tile(state: GameState, position: Position) -> str:
         if actor_id:
             return "a" if any(person.id == actor_id for person in state.household) else "v"
     if state.location == "region":
-        from .situations import site_glyph
-
-        situation_glyph = site_glyph(state, position)
-        if situation_glyph:
-            return situation_glyph
         schedule = next(
             (
                 schedule for schedule in state.actor_schedules.values()

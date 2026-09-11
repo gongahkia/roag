@@ -14,6 +14,7 @@ from jomon.situations import (
 )
 from jomon.state import create_world
 from jomon.world import is_walkable
+from jomon.materials import fields, key
 
 
 class MixedSituationTests(unittest.TestCase):
@@ -53,6 +54,8 @@ class MixedSituationTests(unittest.TestCase):
         self.assertEqual(state.region.changes["situation:active"], row.id)
         self.assertEqual(site_glyph(state, site_point(state, row)), "!")
         self.assertEqual(len(choices(state, row.id)), 3)
+        self.assertIn(key(site_point(state, row)), fields(state))
+        self.assertIn(f"micro-site:material:{row.id}", state.region.changes)
         attached = [a for a in state.combatants if a.objective_position == site_point(state, row)]
         self.assertEqual(len(attached), 2)
         self.assertEqual(len({a.group for a in attached}), 2)
