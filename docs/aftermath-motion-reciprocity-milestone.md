@@ -232,6 +232,10 @@ new magic, infinite contracts or additional major region is planned.
   (`provisionnewdesk`) captured the initial variant catalogue and active
   travel marker while integration was in progress and also appeared at
   `origin/main`; this agent did not create or push it.
+- During closing verification, the local remote-tracking reference advanced
+  independently from `b4a7d0f` to the already-existing local documentation
+  commit `80f8761`. It introduced no new commit or file change, required no
+  merge, and this agent performed no push.
 - The first final benchmark exposed pathfinding repeatedly resolving display
   glyphs, scheduled adults and containers for passability. Regional path
   queries now use the equivalent base-terrain, ice and combatant rules while
