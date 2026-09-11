@@ -47,7 +47,7 @@ class LedgerTests(unittest.TestCase):
         for field in (
             "ladder_rank", "expedition_mode", "active_modifiers", "enabled_packs",
             "base_victory", "base_victory_archived", "loop_depth",
-            "archived_loop_depth", "score", "boss_sequence",
+            "archived_loop_depth", "score", "boss_sequence", "encounter_budget_version",
         ):
             del raw["state"][field]
         for zone in ("deck", "hand", "draw_pile", "discard_pile"):
@@ -131,6 +131,16 @@ class LedgerTests(unittest.TestCase):
         engine.start_combat("lost_shift")
         engine.state.hand = [CardInstance("baton_strike")]
         engine.play_card(0, engine.living_enemies()[0].id)
+        enemy = next(item for item in engine.living_enemies() if item.definition_id == "hollow_crew")
+        hero = engine.living_heroes()[0]
+        engine.state.intents = [{
+            "enemy_rank": enemy.rank,
+            "enemy_id": enemy.id,
+            "action": "Pipe Swing",
+            "target_rule": "front",
+            "target_ids": [hero.id],
+            "target_labels": [engine._intent_target_label(hero)],
+        }]
         engine.end_turn()
         sources = {row.source_id for row in engine.state.ledger.records if row.kind == "damage"}
         self.assertIn("baton_strike", sources)

@@ -252,7 +252,7 @@ class AsciiUiTests(unittest.TestCase):
         self.ui._reward()
         rendered = screen.text()
         self.assertIn("SYNERGY", rendered)
-        self.assertIn("Uses deck MARKED setup.", rendered)
+        self.assertRegex(rendered, r"(Uses|Supplies) deck MARKED (setup|payoff)\.")
         self.assertNotIn("CORRECTIVE", rendered)
         self.assertNotIn("WILDCARD", rendered)
 

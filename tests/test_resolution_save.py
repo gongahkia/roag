@@ -22,7 +22,7 @@ class ResolutionSaveTests(unittest.TestCase):
         for field in (
             "ladder_rank", "expedition_mode", "active_modifiers", "enabled_packs",
             "base_victory", "base_victory_archived", "loop_depth",
-            "archived_loop_depth", "score", "boss_sequence",
+            "archived_loop_depth", "score", "boss_sequence", "encounter_budget_version",
         ):
             del raw["state"][field]
         for zone in ("deck", "hand", "draw_pile", "discard_pile"):
@@ -62,6 +62,7 @@ class ResolutionSaveTests(unittest.TestCase):
         restored = GameEngine.from_snapshot(engine.catalog, old).snapshot()
         expected = engine.snapshot()
         expected["state"]["pressure_incomplete_before_tick"] = engine.state.travel_ticks
+        expected["state"]["encounter_budget_version"] = 0
         self.assertEqual(expected, restored)
         with self.assertRaises(MigrationError):
             run_29_to_30(migrated)
@@ -144,6 +145,7 @@ class ResolutionSaveTests(unittest.TestCase):
         loaded = GameEngine.from_snapshot(engine.catalog, raw)
         expected = deepcopy(engine.state)
         expected.pressure_incomplete_before_tick = engine.state.travel_ticks
+        expected.encounter_budget_version = 0
         self.assertEqual(expected, loaded.state)
         self.assertEqual(engine.resolution.snapshot(), loaded.resolution.snapshot())
 
