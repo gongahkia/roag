@@ -2233,7 +2233,9 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
                 lines.append("  Personal practice: +4 weight capacity and a reinforced guard.")
         return "JOMON HOUSEHOLD", lines + ["Escape closes without advancing time."]
     if kind == "chronicle":
-        return "JOMON VESSEL CHRONICLE", [*(state.chronicle[-16:] or ["No vessel incident is recorded yet."]), "Escape closes without advancing time."]
+        from .echoes import lines as echo_lines
+
+        return "JOMON VESSEL CHRONICLE", [*(state.chronicle[-16:] or ["No vessel incident is recorded yet."]), *echo_lines(state)[-6:], "Escape closes without advancing time."]
     if kind == "regional-ledger":
         from .regional_history import ledger_lines
 

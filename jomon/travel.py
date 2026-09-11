@@ -167,6 +167,9 @@ def _finish_travel(state: GameState, consequence: str) -> None:
     state.voyage_status = "resolved" if state.voyage_kind else "none"
     state.voyage_detail = consequence
     state.remember(f"Voyage to {node.name}: {consequence}")
+    from .echoes import apply_later_echoes
+
+    apply_later_echoes(state)
     state.add_message(f"{consequence} Jomon makes {node.name}.", priority=3)
 
 
