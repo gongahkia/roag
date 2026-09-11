@@ -17,6 +17,73 @@ from .versions import ENGINE_VERSION, PROFILE_SCHEMA, RNG_ARCHITECTURE, RUN_SAVE
 
 HISTORY_SCHEMA = 1
 
+BUILD_GRAMMARS = (
+    ("mark_chain", ("setup:marked", "payoff:marked")),
+    ("wound_engine", ("setup:wound", "payoff:wound")),
+    ("vulnerability_chain", ("setup:vulnerable", "payoff:vulnerable")),
+    ("formation_dance", ("mobility", "displacement")),
+    ("guard_riposte", ("guard", "status:riposte")),
+    ("discard_velocity", ("discard", "draw")),
+    ("stress_conversion", ("stress_risk", "stress_relief")),
+    ("deaths_door_recovery", ("payoff:deaths_door", "recovery")),
+    ("energy_cycle", ("energy", "draw")),
+)
+
+
+def detect_build_engines(engine) -> list[dict[str, Any]]:
+    """Describe broad final-deck engines without inventing named-card pairs."""
+    tag_counts: Counter[str] = Counter()
+    card_tags: dict[str, set[str]] = {}
+    for card in engine.state.deck:
+        if card.card_id not in engine.catalog.cards:
+            continue
+        tags = set(engine.card_tags(card.card_id))
+        card_tags[card.card_id] = tags
+        tag_counts.update(tags)
+    for hero_id, boons in engine.state.boons.items():
+        if not any(hero.id == hero_id and hero.alive for hero in engine.state.heroes):
+            continue
+        for boon_id, count in boons.items():
+            tag_counts.update({tag: count for tag in engine.catalog.boons[boon_id]["tags"]})
+
+    played = Counter(
+        row.source_id for row in engine.state.ledger.records if row.kind == "card_play"
+    )
+    picked = Counter(
+        row.data["picked"]
+        for row in engine.state.ledger.records
+        if row.kind == "card_choice" and row.data.get("picked") is not None
+    )
+    payoffs = Counter(
+        row.data["mechanic"]
+        for row in engine.state.ledger.records
+        if row.kind == "payoff"
+    )
+    result = []
+    for identity, requirements in BUILD_GRAMMARS:
+        if not all(tag_counts[tag] for tag in requirements):
+            continue
+        supporting = sorted(
+            card_id for card_id, tags in card_tags.items() if tags & set(requirements)
+        )
+        relevant_plays = sum(played[card_id] for card_id in supporting)
+        relevant_picks = sum(picked[card_id] for card_id in supporting)
+        mechanics = {tag.split(":", 1)[1] for tag in requirements if tag.startswith("payoff:")}
+        activations = sum(payoffs[mechanic] for mechanic in mechanics)
+        result.append(
+            {
+                "id": identity,
+                "requirements": list(requirements),
+                "supporting_cards": supporting,
+                "support_density": min(tag_counts[tag] for tag in requirements),
+                "picked": relevant_picks,
+                "played": relevant_plays,
+                "payoff_activations": activations,
+                "state": "active" if relevant_plays >= 10 or activations >= 3 else "assembled",
+            }
+        )
+    return result
+
 
 def run_report(engine, *, elapsed_seconds: int | None = None, outcome: str | None = None) -> dict[str, Any]:
     state = engine.state
@@ -76,6 +143,7 @@ def run_report(engine, *, elapsed_seconds: int | None = None, outcome: str | Non
         "resolution": {"roots": len(roots), "max_depth": max((step.get("depth", 0) for root in roots for step in root["trace"]), default=0),
                        "chain_seals": engine.resolution.state.seals},
         "encounters": encounters, "decisions": decisions, "payoff_activations": dict(sorted(activations.items())),
+        "build_engines": detect_build_engines(engine),
         "rank_invalid_cards": sum(row["rank_invalid"] for row in turns),
         "owner_disabled_cards": sum(row["owner_disabled"] for row in turns),
         "hands_sampled": len(turns), "cause": state.log[-1] if state.log else "unknown",
@@ -131,6 +199,12 @@ def history_lines(record: dict) -> list[str]:
     lines.extend(f"  {item['id']} / {item['plan']} / {item.get('rounds', '?')} rounds / {item.get('result', 'unfinished')}" for item in record["encounters"])
     lines.append("Cards: offered / picked / skipped / played / edited")
     lines.extend(f"  {identity}: {json.dumps(counts, sort_keys=True)}" for identity, counts in record["cards"].items())
+    lines.append("Final detected build engines:")
+    lines.extend(
+        f"  {engine['id']}: {engine['state']}, density {engine['support_density']}, "
+        f"played {engine['played']}, payoff activations {engine['payoff_activations']}"
+        for engine in record.get("build_engines", [])
+    )
     lines.append("Arithmetic by source:")
     lines.extend(f"  {identity}: {json.dumps(counts, sort_keys=True)}" for identity, counts in record["sources"].items())
     lines.append("Decisions and route:")

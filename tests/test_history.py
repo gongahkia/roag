@@ -7,7 +7,7 @@ from pathlib import Path
 
 from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.engine import GameEngine
-from dumbest_dungeon.history import history_lines, read_history, run_report, write_run
+from dumbest_dungeon.history import detect_build_engines, history_lines, read_history, run_report, write_run
 from dumbest_dungeon.save import read_save
 
 
@@ -51,6 +51,18 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(4, report["sources"]["test:hit"]["damage_hp_loss"])
         self.assertIsNone(report["elapsed_seconds"])
         self.assertEqual("unmeasured", report["duration_basis"])
+
+    def test_final_build_detection_uses_broad_tags_and_surviving_owner_cards(self) -> None:
+        engine = GameEngine.new(load_catalog(), 42)
+        before = {row["id"] for row in detect_build_engines(engine)}
+        self.assertIn("mark_chain", before)
+        self.assertIn("discard_velocity", before)
+        scout = next(hero for hero in engine.state.heroes if hero.id == "scout")
+        engine._hero_died(scout)
+        after = {row["id"] for row in detect_build_engines(engine)}
+        self.assertNotIn("mark_chain", after)
+        self.assertNotIn("discard_velocity", after)
+        self.assertIn("Final detected build engines:", "\n".join(history_lines(run_report(engine))))
 
 
 if __name__ == "__main__":
