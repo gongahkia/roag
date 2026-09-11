@@ -86,6 +86,13 @@ def danger_cells(state: GameState, visible: set[Position]) -> set[Position]:
     return {
         point
         for forecast in observed_forecasts(state)
+        if (
+            forecast.origin in visible
+            or (
+                forecast.origin.z != state.position.z
+                and courier_sees(state, forecast.origin)
+            )
+        )
         for point in forecast.affected
         if point in visible
     }

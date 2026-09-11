@@ -85,6 +85,12 @@ class InspectionAndForecastTests(unittest.TestCase):
         self.assertEqual(observed_forecasts(state), ())
         self.assertNotIn(actor.name, " ".join(inspect_lines(state, state.position)))
 
+    def test_danger_cells_honor_renderers_explicit_visibility_snapshot(self):
+        state = self.state
+        actor = Threat("snapshot", "snapshot bow", "ranged", Position(46, 25), 8, 8, status="engaged", aimed_at=state.position)
+        state.threats.append(actor)
+        self.assertEqual(danger_cells(state, {state.position}), set())
+
     def test_look_keyboard_and_mouse_are_zero_time_and_right_click_closes(self):
         state = self.state
         view = LookView.begin(state)
