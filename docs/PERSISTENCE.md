@@ -1,6 +1,6 @@
 # Persistence contracts
 
-The run save currently uses schema 45, content schema 46, and the existing Python
+The run save currently uses schema 46, content schema 46, and the existing Python
 `random.Random` state. Profile, telemetry, manifest and RNG contracts have independent versions.
 Telemetry, manifests, and the separate local profile are implemented.
 
@@ -295,6 +295,13 @@ boss-sequence state. The pure 44→45 migration initializes a still-active old r
 without claiming a victory. Loop worlds use the first 64 SHA-256 bits of a
 canonical `{domain, seed, depth, rng}` record, then preserve that world's full
 generated state and the continuing simulation RNG in ordinary atomic saves.
+
+Run schema 46 records `encounter_budget_version`. The pure 45→46 migration marks
+already-generated rooms as version 0, preserving their historical HP-only
+acceptance contract and exact formations. Engine 1.5.0 creates version-1 rooms
+through the deterministic multi-axis threat pipeline. New saves validate those
+frozen formations against both their tier HP range and the total plus
+dimensional ceilings; loading never rerolls or upgrades a historical room.
 
 Profile schema 2 is a separate pure 1→2 migration adding best loop depth and
 best exact score. It adds no combat-power field. Re-archiving a later loop does

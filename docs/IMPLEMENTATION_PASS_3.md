@@ -226,3 +226,28 @@ cohort contains eight victories and one fair rusher wipe. Curated per-card lane
 metadata, stack conversion/corruption content and the requested new persistent
 families remain Milestone 5/6 content work rather than blockers to the Pressure
 foundation.
+
+## Completion status
+
+All ten implementation milestones are now closed. The running notes above are
+retained as dated evidence of what was still open at each earlier gate; they are
+not the current status.
+
+| Milestone | Implemented acceptance evidence |
+| --- | --- |
+| 0 | Natural Core reach, victories, explainable losses, Flooded/Breach replay, route audit, and actual 80×24 keyboard clear |
+| 1 | Strict immutable content, fingerprints/packs, synergy diagnostics, atomic history and opt-in local NDJSON |
+| 2 | Six-phase deterministic queue, listener snapshots, limiter-cycle proof, per-root seal/trace, and combat inspection |
+| 3 | Nine integer stack modes, exact current/next previews, scoped acquisition lanes, and deterministic recycling |
+| 4 | Serialized action-only Expedition Pressure, five visible bands, forecasts, frozen director profiles, and policy comparison |
+| 5 | 100 techniques, 50 A/B masteries, 16 infusions, 25 advanced loadouts, 11 doctrines, and 13 squads without a new archetype |
+| 6 | 36 items, 30 boons, and 30 curses with authored scaling, burdens, converters, and corruption |
+| 7 | Seven-axis threat estimation, stable constrained selection, 129 enemies, 168 encounters, biome density floors, and 16 mutations |
+| 8 | Eleven objective-replacing guardians, four finales, forecast/reveal, phase seals, overflow carry, and ASCII presentations |
+| 9 | Atomic profile schema 2, global twenty-rank ladder, twenty contracts, custom/daily/code modes, compendium, and graveyard |
+| 10 | Atomic base-clear record, extract/descent choice, preserved builds, deterministic shortened loops, and loop records |
+
+Final acceptance evidence, exact commands, limitations, and the post-generator
+natural cohort live in `IMPLEMENTATION_PASS_3_VERIFICATION.md` and
+`evidence/pass3/`. Engine 1.5.0/save 46 explicitly separates historical
+HP-budget rooms from new multi-axis generated formations.

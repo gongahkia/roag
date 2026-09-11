@@ -277,9 +277,11 @@ contracts precede authored optional packs.
 `Threat` stores nonnegative integer dimensions for durability, sustained damage,
 burst, control, sustain, reach and tempo. A `ThreatBudget` requires both its total
 and every dimensional ceiling to pass. Cheap durability cannot excuse a burst
-ceiling violation. These contracts are tested independently; deriving calibrated
-two/three-phase estimates and replacing existing HP-only generation budgets
-remains the encounter milestone, not an already-completed balance change.
+ceiling violation. The live estimator prices three expected enemy phases, a
+credible opening burst, target reach, control and sustain, then adds explicit
+setup/payoff, protection, overlapping-control and repeated-body composition
+costs. Authored templates and generated formations are validated against the
+same integer rules.
 
 ## Exact stack-policy arithmetic
 
@@ -497,10 +499,12 @@ in the run, and custom play validates pack compatibility.
 Encounter contracts carry durability, sustained damage, opening burst, control,
 sustain, reach and tempo dimensions plus coordination costs. Normal and elite
 formations must pass both total budget and dimensional ceilings. Candidate
-selection enumerates stable IDs, filters biome/role/rank/vector/spike/repetition
-constraints, scores behavioral novelty, makes one seeded weighted choice and
-then freezes composition, modules, stats, targets and intents. It does not retry
-randomly or scale to current party health/build strength.
+selection enumerates stable template orders and one-body substitutions, filters
+biome, body-count, HP-range, vector and spike constraints, separately scores
+behavioral novelty, penalizes repeated enemies/formations/plans, makes one seeded
+weighted choice and then freezes composition, modules, stats, targets and
+intents. It does not retry randomly or scale to current party health/build
+strength.
 
 The live census is 129 enemies and 168 encounters. Every biome has at least six
 compatible normal participants, two native elite-only participants, one guardian
