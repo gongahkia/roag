@@ -33,6 +33,9 @@ class OrderingTests(unittest.TestCase):
             "ledger", "pressure", "pressure_recent", "pressure_incomplete_before_tick",
             "encounter_pressure", "encounter_modules", "reinforcement_tickets", "reinforcement_reserve_id",
             "next_card_copy_id", "hub_loadouts", "doctrine_id", "recycler_credits",
+            "ladder_rank", "expedition_mode", "active_modifiers", "enabled_packs",
+            "base_victory", "base_victory_archived", "loop_depth",
+            "archived_loop_depth", "score", "boss_sequence",
         ):
             del current["state"][field]
         for zone in ("deck", "hand", "draw_pile", "discard_pile"):

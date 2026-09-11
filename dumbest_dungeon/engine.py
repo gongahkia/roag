@@ -3375,12 +3375,14 @@ class GameEngine:
         frozen = self.finale_encounter_id()
         if frozen is not None:
             return frozen
-        candidates = [
+        candidates = [item for item in (
             "the_core",
             "base:finale_signal_tyrant",
             "base:finale_mercy_engine",
             "base:finale_breach_oracle",
-        ]
+        ) if item in self.catalog.encounters]
+        if not candidates:
+            raise RuleError("the saved ruleset has no finale encounter")
         unseen = [item for item in candidates if item not in self.state.boss_sequence]
         if unseen:
             candidates = unseen
@@ -3644,7 +3646,8 @@ class GameEngine:
         first_guardian = not any(
             item.facts.get("guardian") for item in self.state.objectives if item is not objective
         )
-        if first_guardian and self.state.phase != "defeat":
+        guardian_id = f"base:guardian_{objective.biome_id}"
+        if first_guardian and guardian_id in self.catalog.encounters and self.state.phase != "defeat":
             self._start_guardian_combat(objective)
             guardian_name = self.catalog.enemies[objective.facts["guardian_id"]]["name"]
             message = (
@@ -3653,7 +3656,10 @@ class GameEngine:
             )
             self.add_log(message)
             return message
-        if self.completed_objectives() >= self.state.required_objectives:
+        if (
+            self.catalog.raw["schema_version"] >= 44
+            and self.completed_objectives() >= self.state.required_objectives
+        ):
             self._freeze_finale(objective)
         if self.state.phase != "defeat":
             self.state.phase = "exploration"
@@ -6385,7 +6391,11 @@ class GameEngine:
             actor.rank = next_rank
             if occupant:
                 occupant.rank = old_rank
-        if actor.side == "hero" and actor.rank != starting_rank:
+        if (
+            actor.side == "hero"
+            and actor.rank != starting_rank
+            and "narrow_fire" in self.state.active_modifiers
+        ):
             self.state.effect_counters[f"challenge:moved:{actor.id}:{self.state.round}"] = 1
 
     def _normalize_ranks(self, side: str) -> None:
@@ -6429,6 +6439,14 @@ class GameEngine:
         self._clear_encounter_director()
         if kind == "boss":
             self.room().resolved = True
+            names = " / ".join(
+                self.catalog.enemies[enemy_id]["name"]
+                for enemy_id in self.room().enemy_ids
+            )
+            if self.catalog.raw["schema_version"] < 46:
+                self.state.phase = "victory"
+                self.add_log("The Overseer falls silent. Evacuation is possible.")
+                return
             finale_id = self.finale_encounter_id() or self.room().content_id or ""
             if finale_id:
                 self.state.boss_sequence.append(finale_id)
@@ -6443,10 +6461,6 @@ class GameEngine:
                 score=self.state.score, pressure=self.state.pressure,
             )
             self.state.phase = "post_victory"
-            names = " / ".join(
-                self.catalog.enemies[enemy_id]["name"]
-                for enemy_id in self.room().enemy_ids
-            )
             self.add_log(f"{names} falls silent. Extract, or descend again.")
             return
         if kind == "guardian":

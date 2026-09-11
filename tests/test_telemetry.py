@@ -44,6 +44,12 @@ class LedgerTests(unittest.TestCase):
         del raw["state"]["hub_loadouts"]
         del raw["state"]["doctrine_id"]
         del raw["state"]["recycler_credits"]
+        for field in (
+            "ladder_rank", "expedition_mode", "active_modifiers", "enabled_packs",
+            "base_victory", "base_victory_archived", "loop_depth",
+            "archived_loop_depth", "score", "boss_sequence",
+        ):
+            del raw["state"][field]
         for zone in ("deck", "hand", "draw_pile", "discard_pile"):
             for card in raw["state"][zone]:
                 for field in ("copy_id", "mastery", "infusion_id"):
