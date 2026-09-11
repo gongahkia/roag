@@ -47,7 +47,7 @@ def apply_later_echoes(state: GameState) -> list[VoyageEcho]:
         if key.startswith("voyage_variant:") and key.rsplit(":", 1)[1].isdigit()
     )
     for voyage, variant_id in records:
-        marker = f"voyage_echo:{voyage}:{variant_id}"
+        marker = f"voyage_echo:{variant_id}"
         if voyage >= state.travel_count or marker in state.vessel_changes or variant_id not in BY_VARIANT:
             continue
         echo = BY_VARIANT[str(variant_id)]
@@ -96,7 +96,7 @@ def lines(state: GameState) -> list[str]:
     return [
         f"REMEMBERED VOYAGE — {echo.title}: {echo.consequence}."
         for echo in ECHOES
-        if any(key.startswith("voyage_echo:") and key.endswith(":" + echo.variant_id) for key in state.vessel_changes)
+        if f"voyage_echo:{echo.variant_id}" in state.vessel_changes
     ]
 
 

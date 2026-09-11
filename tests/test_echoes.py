@@ -33,6 +33,15 @@ class VoyageEchoTests(unittest.TestCase):
         self.assertTrue(any(person.memories for person in state.household))
         self.assertTrue(any(key.startswith("deck_scar:") for key in state.vessel_changes))
 
+    def test_repeated_variant_creates_only_one_bounded_echo_key(self):
+        state = create_world("bounded-voyage-echoes")
+        echo = ECHOES[0]
+        state.travel_count = 30
+        for index in range(1, 25):
+            state.vessel_changes[f"voyage_variant:{index}"] = echo.variant_id
+        self.assertEqual(apply_later_echoes(state), [echo])
+        self.assertEqual(sum(key.startswith("voyage_echo:") for key in state.vessel_changes), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

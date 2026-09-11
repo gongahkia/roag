@@ -18,16 +18,21 @@ from .content import (
     validate_commodity_content,
 )
 from .encounters import encounter_audit, roster_audit, validate_roster
+from .echoes import ECHOES, validate_echoes
 from .frontiers import FRONTIERS, ensure_frontier
 from .inventory import BASIC_COURIER_ARMOUR, BASIC_COURIER_LOADOUTS, ITEM_SPECS
 from .legendary import validate_legends
+from .household_stories import STORIES, validate_stories
+from .interference import INTERFERENCES, audit_interference, validate_interference
 from .living_audit import living_audit
 from .practices import PRACTICES, validate_practices
+from .manoeuvres import MANOEUVRES, validate_manoeuvres
 from .preparations import PREPARATIONS, validate_preparations
 from .arc_relics import validate_arc_relics
 from .quests import ADDITIONAL_ARCS, QUESTS, quest_reachability_audit
 from .save import load_game, save_game
 from .ship_crises import TACTICAL, VOYAGES
+from .situations import SITUATIONS, audit_situations, validate_situations
 from .state import HISTORY_LIMIT, MESSAGE_LIMIT, StateError, create_world, game_state_from_dict
 from .travel import choose_destination, resolve_voyage
 from .vessel import DRINKS
@@ -68,6 +73,11 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
     validate_arc_relics()
     validate_refits()
     validate_variants()
+    validate_situations()
+    validate_manoeuvres()
+    validate_interference()
+    validate_echoes()
+    validate_stories()
     roster = roster_audit()
     armour = {kind for kind, spec in ITEM_SPECS.items() if spec.category == "armour"}
     techniques = _techniques()
@@ -91,6 +101,13 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
         "tactical_voyage_families": len(TACTICAL), "build_scenarios": len(BUILD_SCENARIOS),
         "vessel_refits": len(REFITS),
         "stateful_voyage_variants": len(VARIANTS),
+        "mixed_situations": len(SITUATIONS),
+        "mutable_micro_sites": len(SITUATIONS),
+        "active_manoeuvres": len(MANOEUVRES),
+        "cross_region_interferences": len(INTERFERENCES),
+        "voyage_echoes": len(ECHOES),
+        "late_household_stories": len(STORIES) - 1,
+        "all_region_capstones": 1,
     }
     minima = {
         "regions": 8, "standard_enemies": 72, "mechanically_distinct_enemies": 72,
@@ -103,6 +120,10 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
         "build_scenarios": 24,
         "vessel_refits": 8,
         "stateful_voyage_variants": 12,
+        "mixed_situations": 24, "mutable_micro_sites": 24,
+        "active_manoeuvres": 12, "cross_region_interferences": 8,
+        "voyage_echoes": 12, "late_household_stories": 2,
+        "all_region_capstones": 1,
     }
     failures = [f"{key}: {counts[key]} < {minimum}" for key, minimum in minima.items() if counts[key] < minimum]
     source_failures = []
@@ -134,6 +155,11 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
             "preparations": sorted(PREPARATIONS),
             "vessel_refits": sorted(REFITS),
             "voyage_variants": sorted(variant.id for variant in VARIANTS.values()),
+            "situations": sorted(row.id for row in SITUATIONS),
+            "manoeuvres": sorted(row.id for row in MANOEUVRES),
+            "interferences": sorted(row.id for row in INTERFERENCES),
+            "voyage_echoes": sorted(row.variant_id for row in ECHOES),
+            "household_stories": [row.id for row in STORIES],
             "containers": sorted(container.id for region in state.regions.values() for container in region.containers),
             "quests": sorted([
                 *(definition["title"] for definition in QUESTS.values()),
@@ -251,6 +277,21 @@ def generation_verification(samples: int = 1000) -> dict[str, object]:
     return systemic_audit(samples, progress=False)
 
 
+def situations_verification(samples: int = 200) -> dict[str, object]:
+    report = audit_situations(samples)
+    interference = audit_interference()
+    report.update({
+        "interference_events": interference["events"],
+        "interference_kinds": interference["kinds"],
+        "active_manoeuvres": len(MANOEUVRES),
+        "voyage_echoes": len(ECHOES),
+        "household_developments": len(STORIES) - 1,
+        "all_region_capstones": 1,
+    })
+    report["failures"] = [*report["failures"], *interference["failures"]]
+    return report
+
+
 def memory_soak(legs: int = 80) -> dict[str, object]:
     if legs < 4:
         raise ValueError("soak needs at least four route legs")
@@ -302,6 +343,7 @@ AUDITS = {
     "living": living_verification,
     "quest": quest_verification,
     "soak": memory_soak,
+    "situations": situations_verification,
 }
 
 
@@ -317,10 +359,11 @@ def main() -> None:
             "replay": replay_audit(samples), "encounter": encounter_verification(samples),
             "generation": generation_verification(samples), "living": living_verification(samples),
             "quest": quest_verification(samples), "soak": memory_soak(max(8, samples)),
+            "situations": situations_verification(max(200, samples)),
         }
     else:
         function = AUDITS[args.audit]
-        report = function(args.samples) if args.samples is not None and args.audit in {"replay", "encounter", "generation", "living", "quest", "soak"} else function()
+        report = function(args.samples) if args.samples is not None and args.audit in {"replay", "encounter", "generation", "living", "quest", "soak", "situations"} else function()
     print(json.dumps(report, indent=2, sort_keys=True))
     failures = report.get("failures", []) if isinstance(report, dict) else []
     if args.audit == "all":
