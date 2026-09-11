@@ -119,3 +119,40 @@ The immediate calibration result is an empirical design question: all thirty
 greedy runs in the first corrected cohort won, while three other routes lost.
 This does not prove greedy play dominates universally. It does justify testing
 whether the proposed pressure system creates an actual cost for those detours.
+
+### Completed Pass 3 application
+
+The table above preserves the research-time distinction between already-applied
+and then-planned implications. Those planned implications were subsequently
+implemented as follows:
+
+- The four-role technique contract produced exactly four additions for each of
+  the 25 existing owners. Structural comparison rejected expansion duplicates;
+  no new crew or named-pair grammar was added.
+- Offers, picks, skips, plays, edits, casualties, source arithmetic and final
+  broad build engines are now separated in local run records. Identical-seed
+  rusher, explorer and greedy cohorts remain regression instruments, not human
+  win-rate evidence.
+- Expedition Pressure advances only through simulated actions. It changes
+  patrol, hazard, encounter-plan, mutation, reinforcement and reward behavior;
+  menus, reading, resize and animation remain state-neutral.
+- Exceptional bargains and curse contracts disclose burdens, while the finite
+  recycler trades present stacks for a bounded future choice. Reward lanes and
+  enabled packs prevent the entire catalog from becoming one global pool.
+- The deterministic queue, per-trigger limiters and local chain sealing allow
+  strong stacking/retrigger engines without global damage caps or universal
+  tag immunity. Boss phases use disclosed partial timing and exact overflow
+  carry instead of erasing a large hit.
+- Movement bridges, coordinated formations, visible reactions, 16 mutation
+  modules, 11 biome guardians and four finales all reuse shared combat grammar
+  and preserve multiple possible answers.
+- The separate profile, cumulative twenty-rank ladder, twenty expressive
+  contracts, offline daily, challenge codes and optional post-victory descent
+  implement horizontal variety without accounts, networking or permanent
+  combat power.
+- The first objective culminates in one regional guardian and a base run still
+  contains only that guardian plus one finale. Optional loops remix the authored
+  procedural backbone after recording the base clear.
+- Deterministic legal-command fuzzing, three-way matrices and real 80×24 and
+  140×60 PTYs were added. Constructed tests, automated policy play and actual
+  terminal play remain labeled separately; none is presented as proof of fun.
