@@ -1,0 +1,158 @@
+{
+  "auto_pack": {
+    "median_ms": 4.363,
+    "n": 20,
+    "p95_ms": 5.464,
+    "p99_ms": 6.418,
+    "worst_ms": 6.418
+  },
+  "boarding_fov": {
+    "median_ms": 0.026,
+    "n": 20,
+    "p95_ms": 0.064,
+    "p99_ms": 13.846,
+    "worst_ms": 13.846
+  },
+  "boarding_input_render": {
+    "median_ms": 31.851,
+    "n": 20,
+    "p95_ms": 34.274,
+    "p99_ms": 36.459,
+    "worst_ms": 36.459
+  },
+  "boarding_turn": {
+    "median_ms": 14.509,
+    "n": 20,
+    "p95_ms": 16.497,
+    "p99_ms": 18.69,
+    "worst_ms": 18.69
+  },
+  "chart_navigation": {
+    "median_ms": 0.012,
+    "n": 20,
+    "p95_ms": 0.02,
+    "p99_ms": 0.031,
+    "worst_ms": 0.031
+  },
+  "chart_open": {
+    "median_ms": 0.386,
+    "n": 20,
+    "p95_ms": 0.475,
+    "p99_ms": 0.52,
+    "worst_ms": 0.52
+  },
+  "cold_import": {
+    "median_ms": 153.936,
+    "n": 5,
+    "p95_ms": 160.714,
+    "p99_ms": 160.714,
+    "worst_ms": 160.714
+  },
+  "commit": "3969986bd911415631d48f6ef1ecf92d8d84cd26",
+  "enemy_heavy_turn": {
+    "median_ms": 27.137,
+    "n": 20,
+    "p95_ms": 30.749,
+    "p99_ms": 37.565,
+    "worst_ms": 37.565
+  },
+  "environment_heavy_turn": {
+    "median_ms": 0.919,
+    "n": 20,
+    "p95_ms": 1.416,
+    "p99_ms": 1.64,
+    "worst_ms": 1.64
+  },
+  "fov": {
+    "median_ms": 0.085,
+    "n": 20,
+    "p95_ms": 0.098,
+    "p99_ms": 0.136,
+    "worst_ms": 0.136
+  },
+  "input_to_layout": {
+    "median_ms": 18.902,
+    "n": 20,
+    "p95_ms": 21.519,
+    "p99_ms": 21.946,
+    "worst_ms": 21.946
+  },
+  "inventory_open": {
+    "median_ms": 5.195,
+    "n": 20,
+    "p95_ms": 6.842,
+    "p99_ms": 7.229,
+    "worst_ms": 7.229
+  },
+  "lazy_frontier_entry": {
+    "median_ms": 38.748,
+    "n": 5,
+    "p95_ms": 40.803,
+    "p99_ms": 40.803,
+    "worst_ms": 40.803
+  },
+  "load": {
+    "median_ms": 158.097,
+    "n": 20,
+    "p95_ms": 236.071,
+    "p99_ms": 256.419,
+    "worst_ms": 256.419
+  },
+  "movement": {
+    "median_ms": 9.485,
+    "n": 20,
+    "p95_ms": 11.533,
+    "p99_ms": 11.993,
+    "worst_ms": 11.993
+  },
+  "new_world": {
+    "median_ms": 412.247,
+    "n": 5,
+    "p95_ms": 447.808,
+    "p99_ms": 447.808,
+    "worst_ms": 447.808
+  },
+  "pathfinding": {
+    "median_ms": 13.184,
+    "n": 20,
+    "p95_ms": 15.646,
+    "p99_ms": 15.97,
+    "worst_ms": 15.97
+  },
+  "peak_rss_kib": 36336,
+  "platform": "macOS-15.7.7-x86_64-i386-64bit-Mach-O",
+  "python": "3.14.7",
+  "region_entry": {
+    "median_ms": 0.022,
+    "n": 20,
+    "p95_ms": 0.029,
+    "p99_ms": 0.031,
+    "worst_ms": 0.031
+  },
+  "render_80x24": {
+    "median_ms": 6.265,
+    "n": 20,
+    "p95_ms": 10.067,
+    "p99_ms": 10.413,
+    "worst_ms": 10.413
+  },
+  "render_scope": "production layout into a sink; no terminal-driver latency",
+  "replay_equal": true,
+  "save": {
+    "median_ms": 18.112,
+    "n": 20,
+    "p95_ms": 22.19,
+    "p99_ms": 22.265,
+    "worst_ms": 22.265
+  },
+  "save_bytes": 383263,
+  "seed": "colour-variety",
+  "sparse_material_turn": {
+    "median_ms": 12.944,
+    "n": 20,
+    "p95_ms": 14.16,
+    "p99_ms": 14.979,
+    "worst_ms": 14.979
+  },
+  "units": "milliseconds"
+}
