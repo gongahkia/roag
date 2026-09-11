@@ -722,6 +722,10 @@ def observed_life_lines(state: GameState) -> list[str]:
     from .enemy_equipment import actor_items, readied_weapon
     from .inventory import item_spec
 
+    from .combat_forecast import forecast_lines, observed_forecasts
+
+    visible = field_of_view(state, remember=False)
+    forecasts = {row.actor_id: row for row in observed_forecasts(state, visible)}
     lines = ["FACT: only presently visible actors are listed. No inspection advances time."]
     for actor in sorted(state.combatants, key=lambda a: (distance(a.position, state.position), a.id)):
         if not courier_sees(state, actor.position) or actor.status not in {"watching", "engaged"}:
@@ -755,8 +759,7 @@ def observed_life_lines(state: GameState) -> list[str]:
             )
         if data:
             lines.extend((f"KNOWN PRACTICE: {data['capability']}.", f"COUNTERS: {data['counterplay']}."))
-        from .combat_forecast import forecast_lines, observed_forecasts
-        forecast = next((row for row in observed_forecasts(state) if row.actor_id == actor.id), None)
+        forecast = forecasts.get(actor.id)
         if forecast:
             lines.extend(forecast_lines(forecast)[1:])
     if len(lines) == 1:
@@ -901,7 +904,8 @@ def _status_lines(state: GameState, capacity: int | None = None) -> list[str]:
     from .combat_forecast import observed_forecasts
     from .inspection import contextual_hints
 
-    forecast = next(iter(observed_forecasts(state)), None)
+    forecasts = observed_forecasts(state, visible)
+    forecast = next(iter(forecasts), None)
     danger = (
         f"DANGER {forecast.actor_name}: "
         + (
@@ -914,7 +918,7 @@ def _status_lines(state: GameState, capacity: int | None = None) -> list[str]:
     if state.terrain_statuses:
         name, status = next(iter(state.terrain_statuses.items()))
         current_status = f"STATUS {name} {status.remaining}: {status.consequence}"
-    hint = "ACTION " + contextual_hints(state, limit=1)[0]
+    hint = "ACTION " + contextual_hints(state, limit=1, forecasts=forecasts)[0]
     if state.location == "jomon" and state.combat_active:
         pressure_line = f"CRISIS {state.voyage_kind}; hull {state.vessel_integrity}/10"
     else:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import curses
 import unittest
+from unittest.mock import patch
 
 from jomon.combat_forecast import danger_cells, forecast_lines, observed_forecasts
 from jomon.inspection import contextual_hints, inspect_lines, movement_preview
@@ -117,6 +118,30 @@ class InspectionAndForecastTests(unittest.TestCase):
         rendered = " ".join(sink.writes)
         for phrase in ("Ammo", "DANGER urgent bow", "STATUS bogged", "ACTION"):
             self.assertIn(phrase, rendered)
+
+    def test_compact_status_does_not_scan_every_navigation_target(self):
+        state = self.state
+        with patch(
+            "jomon.navigation.navigation_targets",
+            side_effect=AssertionError("route enumeration entered render path"),
+        ):
+            lines = _status_lines(state, 14)
+        self.assertTrue(any(line.startswith("ACTION ") for line in lines))
+
+    def test_forecast_reuses_callers_visibility_snapshot(self):
+        state = self.state
+        actor = Threat(
+            "visible-snapshot", "snapshot bow", "ranged", Position(46, 25),
+            8, 8, status="engaged", aimed_at=state.position,
+        )
+        state.threats.append(actor)
+        visible = field_of_view(state, remember=False)
+        with patch(
+            "jomon.world.field_of_view",
+            side_effect=AssertionError("visibility was recomputed"),
+        ):
+            rows = observed_forecasts(state, visible)
+        self.assertEqual([row.actor_id for row in rows], [actor.id])
 
 
 class _PanelSink:

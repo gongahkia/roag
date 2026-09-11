@@ -178,12 +178,15 @@ def inspect_lines(state: GameState, point: Position) -> list[str]:
     return lines
 
 
-def contextual_hints(state: GameState, limit: int = 2) -> tuple[str, ...]:
+def contextual_hints(
+    state: GameState, limit: int = 2, *, forecasts=None
+) -> tuple[str, ...]:
     """Return a stable, short list of presently useful verbs."""
     hints: list[str] = []
     from .combat_forecast import observed_forecasts
 
-    danger = next((row for row in observed_forecasts(state) if state.position in row.affected), None)
+    forecasts = observed_forecasts(state) if forecasts is None else forecasts
+    danger = next((row for row in forecasts if state.position in row.affected), None)
     if danger:
         hints.append(f"[!] {danger.actor_name}: move/cover/G before next hostile step")
     if state.combat_active:
@@ -198,8 +201,9 @@ def contextual_hints(state: GameState, limit: int = 2) -> tuple[str, ...]:
         verb = "descend" if transition.z < state.position.z else "climb"
         hints.append(f"[E] {verb} to z{transition.z:+d}; one action")
     if state.location == "region" and not state.combat_active:
-        from .navigation import navigation_targets
-        if navigation_targets(state):
+        # Full target enumeration parses every remembered cell and belongs in
+        # the T overlay, not the per-frame status path.
+        if len(state.region.seen) > 1:
             hints.append("[T] follow remembered ground; any key interrupts")
     if not hints:
         hints.append("[;] inspect a cell; no time")
