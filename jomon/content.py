@@ -329,6 +329,7 @@ MERCHANT_ITEMS = {
     "hooked javelin": (3, "weapon"),
     "boar spear": (3, "weapon"),
     "handgonne": (5, "weapon"),
+    "handgonne charges": (2, "consumable"),
     "reed brim": (2, "armour"), "kiln face wrap": (2, "armour"), "ridge visor": (4, "armour"),
     "cork-backed coat": (4, "armour"), "kiln apron": (3, "armour"), "winter felt coat": (4, "armour"),
     "reed splints": (2, "armour"), "quarry sleeves": (3, "armour"), "watch vambraces": (3, "armour"),

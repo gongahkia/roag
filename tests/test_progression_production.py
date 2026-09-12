@@ -4,16 +4,18 @@ import copy
 import unittest
 from unittest.mock import patch
 
-from jomon.actions import attack
-from jomon.chemistry import fill_flask, pour_flask, predicted_reactions
+from jomon.actions import attack, merchant_stock_for, purchase_merchant_item, return_to_jomon
+from jomon.chemistry import fill_flask, pour_flask, predicted_reactions, react_cell
 from jomon.content import WEAPONS
 from jomon.expanded_weapons import ARSENAL, ammunition_for
 from jomon.inventory import AMMUNITION_ITEMS, ITEM_SPECS, auto_place, create_item
 from jomon.magic import SPELLS, cast, restore_at_shrine
-from jomon.materials import fields, key
+from jomon.materials import ensure_cell, fields, key, material_glyph
 from jomon.production import advance_craft_economy, delegate, gather, make, site_position
 from jomon.skill_tree import NODES, buy_node, record_milestone, study_journal, write_journal
 from jomon.state import Position, create_world, game_state_from_dict, validate_state
+from jomon.terminal import InputEvent, OverlayView, _handle_overlay, _handle_overlay_view, _overlay_lines
+from jomon.world import sight_radius
 
 
 class ProgressionProductionTests(unittest.TestCase):
@@ -188,12 +190,74 @@ class ProgressionProductionTests(unittest.TestCase):
         self.assertTrue(buy_node(state, "attunement")[0])
         state.location = "region"
         state.position = state.region.landmarks["cave_entrance"]
+        for threat in state.threats:
+            threat.status = "retreated"
         state.courier.mana = 1
         with patch("jomon.actions._advance_world"):
             changed, message = restore_at_shrine(state)
             self.assertTrue(changed, message)
             self.assertEqual(state.courier.mana, 4)
             self.assertFalse(restore_at_shrine(state)[0])
+        validate_state(state)
+
+    def test_luminous_seal_lights_ground_and_breath_tonic_clears_smoke(self):
+        state = self.state
+        state.location = "region"
+        state.position = Position(30, 23)
+        before = sight_radius(state)
+        cell = ensure_cell(state, state.position)
+        cell.reagents = {"glow spore": 1, "tree resin": 1}
+        self.assertEqual(react_cell(state, state.position, cell), "luminous seal")
+        self.assertEqual(material_glyph(state, state.position), "*")
+        self.assertEqual(sight_radius(state), before + 2)
+        cell.smoke = 4
+        cell.reagents = {"smoke leaf": 1, "spring water": 1}
+        self.assertEqual(react_cell(state, state.position, cell), "breath tonic")
+        self.assertEqual(cell.smoke, 2)
+        self.assertIn("luminous seal", state.courier.known_formulas)
+        self.assertIn("breath tonic", state.courier.known_formulas)
+        state.position = state.region.landmarks["landing"]
+        self.assertTrue(return_to_jomon(state).time_advanced)
+        self.assertIn("luminous seal", state.household_formulas)
+        validate_state(state)
+
+    def test_progression_crafting_and_spellbook_are_navigable_overlays(self):
+        state = self.state
+        for kind in ("skill-tree", "skill-branch:blades", "spellbook", "spell-tier:attunement", "craft-catalog:0"):
+            with self.subTest(overlay=kind):
+                title, lines = _overlay_lines(state, kind)
+                self.assertTrue(title)
+                self.assertTrue(lines)
+        self.assertEqual(_handle_overlay(state, "skill-tree", ord("1"))[0], "skill-branch:blades")
+        self.assertEqual(_handle_overlay(state, "spellbook", ord("1"))[0], "spell-tier:attunement")
+        record_milestone(state, "return:hearthford")
+        self.assertTrue(buy_node(state, "attunement")[0])
+        view = OverlayView("spell-tier:attunement")
+        closed, quit_requested = _handle_overlay_view(state, view, InputEvent("key", key=ord("1")))
+        self.assertTrue(closed)
+        self.assertFalse(quit_requested)
+        self.assertEqual(view.result, "spell:ember-spark")
+
+    def test_visiting_gun_lot_includes_a_counted_charge_bundle(self):
+        state = self.state
+        state.region = state.regions["hearthford"]
+        state.active_region_id = "hearthford"
+        candidate = None
+        for return_number in range(40):
+            state.returned_expeditions = return_number
+            stock = merchant_stock_for(state)
+            if any(name in ARSENAL and ARSENAL[name].family == "gun" for name in stock):
+                candidate = stock
+                break
+        self.assertIsNotNone(candidate)
+        self.assertIn("handgonne charges", candidate)
+        state.merchant_present = True
+        state.merchant_stock = candidate
+        state.trade_credit = 10
+        before = state.consumables.get("handgonne charges", 0)
+        result = purchase_merchant_item(state, "handgonne charges")
+        self.assertTrue(result.changed, result.message)
+        self.assertEqual(state.consumables["handgonne charges"], before + 3)
         validate_state(state)
 
 

@@ -285,6 +285,13 @@ def sight_radius(state: GameState) -> int:
     from .calendar import daylight_modifier
 
     radius += daylight_modifier(state)
+    from .materials import fields
+
+    local_materials = fields(state)
+    if any((cell := local_materials.get(position_key(Position(state.position.x + dx, state.position.y + dy, state.position.z))))
+           and cell.coating == "glow" for dx in range(-2, 3) for dy in range(-2, 3)
+           if max(abs(dx), abs(dy)) <= 2):
+        radius += 2
     from .arc_relics import lee_sheltered
 
     if not lee_sheltered(state):
@@ -319,7 +326,8 @@ def sight_radius(state: GameState) -> int:
         from .skill_tree import has_node
 
         radius += min(2, effective_competency(state.courier, "fieldcraft") // 5)
-        radius += int(state.location == "region" and state.active_region_id in state.route_known and has_node(state.courier, "route-reading"))
+        radius += int(state.location == "region" and state.active_region_id in state.route_known
+                      and position_key(state.position) not in state.smoke and has_node(state.courier, "route-reading"))
         radius += int(state.weather in {"river fog", "hard rain", "coast squall", "forest rain"} and has_node(state.courier, "weather-eye"))
         if state.courier.character_specified:
             radius += attribute_modifier(state.courier, "perception")

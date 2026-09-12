@@ -1,6 +1,8 @@
 # Working weapons
 
-The arsenal now has 24 definitions, not the requested final 36. Six additional
+Historical implementation note: this page describes the earlier six-weapon slice. The current main-Jomon arsenal has 72 weapon definitions; see [courier progression and production](progression-production.md) for the present systems.
+
+At the time of this slice, the arsenal had 24 definitions. Six additional
 actions are direct reducers in `work_weapons.py`, called by ordinary A attacks.
 Their physical weapons appear in the first three containers of newly generated
 frontiers and in bounded visiting merchant stock. Existing opened containers

@@ -12,7 +12,7 @@ TURN_BUDGET = 64
 CHUNK_SIZE = 8
 FLAMMABLE = {"reeds", "timber", "cloth", "resin", "oil", "charcoal"}
 MATERIALS = FLAMMABLE | {"soil", "stone", "lime", "ash", "salt"}
-COATINGS = {"", "salt", "lime", "ash", "resin", "oil", "wet"}
+COATINGS = {"", "salt", "lime", "ash", "resin", "oil", "wet", "glow"}
 VERBS = ("ignite", "extinguish", "pour", "cut", "brace", "lever", "dig", "break", "push", "pull", "redirect")
 
 
@@ -96,6 +96,8 @@ def material_glyph(state: GameState, point: Position) -> str | None:
         return "_"
     if cell.water:
         return ","
+    if cell.coating == "glow":
+        return "*"
     return None
 
 

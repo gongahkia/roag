@@ -130,7 +130,7 @@ def cast(state: GameState, spell_id: str, point: Position) -> tuple[bool, str]:
             add_status(state, "clear-breath", "a finite cleansing spell", spell.power + 1, "fresh smoke cannot be inhaled while the ward lasts")
             detail.append("cleared " + (", ".join(removed) or "no current exposure"))
         elif spell.effect == "quiet":
-            add_status(state, "quiet-veil", "a finite veiling spell", spell.power, "movement sheds one less sound")
+            add_status(state, "quiet-veil", "a finite veiling spell", spell.power + 1, "movement sheds one less sound")
             detail.append(f"quiet for {spell.power} actions")
     elif spell.target == "enemy":
         target = next(actor for actor in state.combatants if actor.position == point and actor.status in {"watching", "engaged"})
@@ -201,22 +201,27 @@ def restore_at_shrine(state: GameState) -> tuple[bool, str]:
     from .actions import _advance_world
     from .world import distance
 
-    if state.location != "region" or state.combat_active or not state.courier.known_spells:
+    if state.location != "region" or state.courier is None or not state.courier.known_spells:
         return False, "shrine restoration needs an attuned courier out of combat"
     entrance = state.region.landmarks.get("cave_entrance")
     if entrance is None or distance(state.position, entrance) > 1:
         return False, "stand beside the marked cave-mouth shrine"
+    if any(threat.status in {"watching", "engaged"} and distance(state.position, threat.position) <= 5
+           for threat in state.combatants):
+        return False, "nearby opponents interrupt the cave-mouth vigil"
     if state.courier.mana >= state.courier.max_mana:
         return False, "mana is already full"
     key = f"shrine:{state.courier.id}"
     today = state.world_time // 36
     if state.region.changes.get(key) == today:
         return False, "this courier has already used the shrine today"
+    courier = state.courier
     state.region.changes[key] = today
+    before = courier.mana
+    courier.mana = min(courier.max_mana, before + 3)
+    restored = courier.mana
     _advance_world(state, steps=3)
-    before = state.courier.mana
-    state.courier.mana = min(state.courier.max_mana, before + 3)
-    message = f"{state.courier.name} keeps a three-action vigil at the cave-mouth shrine; mana {before}→{state.courier.mana}."
+    message = f"{courier.name} keeps a three-action vigil at the cave-mouth shrine; mana {before}→{restored}."
     state.add_message(message, priority=3)
     return True, message
 

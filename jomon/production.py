@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .expanded_weapons import ARSENAL
 from .state import GameState, Position
 
 
@@ -71,8 +72,6 @@ for name, ingredients in (
                 tuple((f"ingredient:{part}", 1) for part in ingredients), "field flask", contents=ingredients))
 _add(Recipe("counted-charges", "Prepare fictional spark-salt charges", "gunworks",
             (("ingredient:spark salt", 1), ("commodity:paper", 1)), "consumable:handgonne charges", 3))
-
-from .expanded_weapons import ARSENAL
 
 for name, weapon in ARSENAL.items():
     station, inputs = {

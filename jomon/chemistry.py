@@ -147,17 +147,18 @@ def drink_flask(state: GameState, flask_id: str) -> tuple[bool, str]:
         return False, "This is not a known drinkable preparation; inspect or pour it instead."
     if any(name not in beneficial for name in reactions):
         return False, "The flask also holds a dangerous reaction; do not drink the mixture."
+    familiar = set(state.courier.known_formulas) | set(state.household_formulas)
     if "healing draft" in reactions:
         bonus = int("substance-sense" in state.courier.skill_nodes) + int("field-triage" in state.courier.skill_nodes)
-        state.courier.health = min(state.courier.max_health, state.courier.health + 3 + bonus)
+        state.courier.health = min(state.courier.max_health, state.courier.health + 3 + bonus + int("healing draft" in familiar))
     if "attunement draft" in reactions:
-        state.courier.mana = min(state.courier.max_mana, state.courier.mana + 3 + int("catalyst-brewing" in state.courier.skill_nodes))
+        state.courier.mana = min(state.courier.max_mana, state.courier.mana + 3 + int("catalyst-brewing" in state.courier.skill_nodes) + int("attunement draft" in familiar))
     if "breath tonic" in reactions:
         state.terrain_statuses.pop("smoke-inhalation", None)
         if "antitoxin" in state.courier.skill_nodes:
             state.terrain_statuses.pop("salt-grit", None)
             state.terrain_statuses.pop("lime-grit", None)
-        add_status(state, "clear-breath", "prepared smoke-leaf tonic", 4, "resists one smoke exposure")
+        add_status(state, "clear-breath", "prepared smoke-leaf tonic", 4 + int("breath tonic" in familiar), "resists fresh smoke exposure")
     flask.contents.clear()
     for name in reactions:
         if name not in state.courier.known_formulas:
@@ -210,13 +211,18 @@ def react_cell(state: GameState, point: Position, cell: MaterialCell) -> str | N
         if state.position == point and state.courier:
             state.courier.mana = min(state.courier.max_mana, state.courier.mana + 1)
     elif effect == "glow":
-        cell.smoke = max(1, cell.smoke)
+        cell.coating = "glow"
     elif effect == "corrode":
         _expose(state, point, "salt", 1)
     elif effect == "seal":
         cell.support = min(3, cell.support + 1)
     elif effect == "breath":
-        cell.smoke = max(1, cell.smoke)
+        cell.smoke = max(0, cell.smoke - 2)
+    if state.courier and name not in state.courier.known_formulas:
+        from .world import courier_sees
+
+        if courier_sees(state, point):
+            state.courier.known_formulas.append(name)
     return name
 
 

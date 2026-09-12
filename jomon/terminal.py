@@ -2523,6 +2523,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return "FREEFORM FIELD FLASKS", [
             *[f"{index + 1}. {flask.id}: {flask.contents or 'empty'} ({sum(flask.contents.values())}/4)"
               for index, flask in enumerate(carried_flasks(state)[:9])],
+            f"Practiced formulas: {', '.join(state.courier.known_formulas) or 'none'}; household journal: {', '.join(state.household_formulas) or 'none'}.",
             "Choose a flask; an ingredient is physically transferred into it. Reactions are inspectable before pouring or drinking.",
             "B. Return to production.",
         ]

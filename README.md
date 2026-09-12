@@ -67,6 +67,9 @@ World controls:
 - `R`: retreat when a physical route remains;
 - `I`: open the spatial pack and nearby source;
 - `F`: inspect and handle nearby materials, with finite supplies and previews;
+- `P`: inspect the active courier's cross-trainable skill tree and spend earned milestone points;
+- `D`: open the personal spellbook, target a learned spell, or keep a vigil at a nearby cave-mouth shrine;
+- `W`: inspect physical recipes, mix carried flask ingredients, and fabricate at an available station;
 - `Z`: read the regional working ledger, evidence and forecast;
 - `C`: open the active courier's scrollable character sheet;
 - `O`: inspect presently visible actors, duties, resources and counterplay;
@@ -74,6 +77,8 @@ World controls:
 - `S`: save while aboard Jomon;
 - `Q`: quit with confirmation; and
 - `Escape`: close or cancel an overlay.
+
+Jomon's main expedition now has a [progression and production guide](docs/progression-production.md) covering its 72 physical weapons, 60-node skill tree, 24 personal spells, regional material sources, reactive flasks, fabrication and witnessed NPC work orders. These systems are separate from the in-tavern Dullest Dungeon card game.
 
 At the tavern's `D` chair immediately south of the large gaming table,
 `Enter` or `E` opens Dullest Dungeon. In its lobby,

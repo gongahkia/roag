@@ -3396,7 +3396,6 @@ def negotiate(state: GameState) -> ActionResult:
     undertaking_terms = evidence_leverage(state, speaker)
     has_terms = (
         state.courier.technique == "measured terms"
-        or "careful-terms" in state.courier.skill_nodes
         or state.gear == "trade seals"
         or state.support == "factor surety"
         or "paper" in state.carried_goods
@@ -3526,12 +3525,16 @@ def merchant_stock_for(state: GameState) -> list[str]:
     implements = [key for key, definition in WORK_WEAPONS.items() if state.active_region_id in definition.regions]
     implements.extend(key for key, definition in ARSENAL.items() if state.active_region_id in definition.regions)
     if implements:
-        stock.append(stage_rng(state.seed, f"working-arms:{state.active_region_id}:{state.returned_expeditions}").choice(implements))
+        selected_arm = stage_rng(state.seed, f"working-arms:{state.active_region_id}:{state.returned_expeditions}").choice(implements)
+        stock.append(selected_arm)
         bombs = [f"{name.split()[0]} bombs" for name, definition in ARSENAL.items()
                  if definition.family == "device" and state.active_region_id in definition.regions]
-        accessory = (stage_rng(state.seed, f"device-stock:{state.active_region_id}:{state.returned_expeditions}").choice(bombs)
-                     if bombs and state.returned_expeditions % 2 else
-                     stage_rng(state.seed, f"pot-stock:{state.active_region_id}:{state.returned_expeditions}").choice(("sealed pitch pot", "sealed lime pot", "sealed brine pot")))
+        accessory = (
+            "handgonne charges" if selected_arm in ARSENAL and ARSENAL[selected_arm].family == "gun" else
+            stage_rng(state.seed, f"device-stock:{state.active_region_id}:{state.returned_expeditions}").choice(bombs)
+            if bombs and state.returned_expeditions % 2 else
+            stage_rng(state.seed, f"pot-stock:{state.active_region_id}:{state.returned_expeditions}").choice(("sealed pitch pot", "sealed lime pot", "sealed brine pot"))
+        )
         stock.append(accessory)
     if state.active_region_id in REGIONAL_ARMOUR:
         clothing = REGIONAL_ARMOUR[state.active_region_id]
@@ -3559,7 +3562,8 @@ def purchase_merchant_item(state: GameState, item: str) -> ActionResult:
         f"consumable:{item}" if kind == "consumable" else
         f"relic:{item}" if kind == "relic" else item
     )
-    physical = create_item(state, physical_kind, "visiting Jomon merchant")
+    quantity = 3 if item == "handgonne charges" else 1
+    physical = create_item(state, physical_kind, "visiting Jomon merchant", quantity=quantity)
     if not auto_place(state, physical.id, "locker"):
         state.items.remove(physical)
         return _plain(state, "Jomon's bounded locker has no clear cells for that lot.")
@@ -3573,7 +3577,7 @@ def purchase_merchant_item(state: GameState, item: str) -> ActionResult:
     elif kind == "gear" and item not in state.owned_gear:
         state.owned_gear.append(item)
     elif kind == "consumable":
-        state.consumables[item] = state.consumables.get(item, 0) + 1
+        state.consumables[item] = state.consumables.get(item, 0) + quantity
     elif kind == "relic":
         state.relics[item] = state.relics.get(item, 0) + 1
     state.remember(
@@ -3638,6 +3642,9 @@ def return_to_jomon(state: GameState) -> ActionResult:
     from .skill_tree import record_milestone
 
     record_milestone(state, f"return:{completed_region}")
+    for formula in courier.known_formulas:
+        if formula not in state.household_formulas:
+            state.household_formulas.append(formula)
     development = record_personal_return(state, courier, completed_region)
     state.merchant_present = merchant_visit_due(
         state.seed, state.returned_expeditions
