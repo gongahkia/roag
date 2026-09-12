@@ -10,8 +10,8 @@ from .content import load_catalog
 from .engine import WALKABLE_TILES
 from .expedition import (
     MAX_ROUNDS, ORDER_TICKS, ORDERS_PER_TURN, _ai_destination, _biome_at,
-    _card_cost, _distance, _file_position, _position, _team, choose_reward,
-    doctrine_compatible, end_turn, finish_match, infusion_compatible,
+    _card_cost, _card_id, _card_upgraded, _distance, _file_position, _position, _team, choose_reward,
+    doctrine_compatible, end_turn, engage_if_touching, finish_match, infusion_compatible,
     move_to, patron_turn, path_to, play_card,
     start_match, valid_targets,
 )
@@ -74,6 +74,10 @@ class ExpeditionUI(TerminalUI):
         for facility in match["facilities"]:
             if not facility["used"]:
                 overlays.append((facility["x"], facility["y"], "H", self._attr(4) | curses.A_BOLD))
+        station_symbols = {"event": "?", "camp": "C", "upgrade": "W", "cache": "$"}
+        for station in match["stations"]:
+            if not station["used"]:
+                overlays.append((station["x"], station["y"], station_symbols[station["kind"]], self._attr(2) | curses.A_BOLD))
         for side in (0, 1):
             file = match["files"][side]
             if file["carrier"] is None:
@@ -87,8 +91,8 @@ class ExpeditionUI(TerminalUI):
                 self._put(4 + y - top, map_column + x - left, symbol, attr)
         route_cost = sum(costs[match["board"][y][x]] for x, y in route)
         legend_row = 4 + viewport_height
-        self._put(legend_row, 2, self._ellipsize(f"@ COURIER  P PATRON  F/f FILES  ^ HAZARD  H FACILITY  ?/$ PICKUP  CURSOR {self.cursor[0]},{self.cursor[1]}  ROUTE {route_cost}T", columns - 3))
-        self._put(legend_row + 1, 2, self._ellipsize(match["log"][-1], columns - 3), self._attr(2))
+        self._put(legend_row, 2, self._ellipsize(f"@ COURIER  P PATRON  F/f FILES  ^ HAZARD  H DESK  C REST  W WORKSHOP  ?/$ CACHE  ROUTE {route_cost}T", columns - 3))
+        self._put(legend_row + 1, 2, self._ellipsize(self.message or match["log"][-1], columns - 3), self._attr(2))
         self._put(legend_row + 2, 2, "Steal their file, return within 2 of your home, hold through their turn. First to 2.")
         self._footer("Arrows aim  Enter auto-path leg  Tab sites  1 home  2 rival file  3 patron  4 own file  E end  S save  Q leave")
 
@@ -107,7 +111,7 @@ class ExpeditionUI(TerminalUI):
         hand = team["hand"]
         self.selected_card = max(0, min(self.selected_card, len(hand) - 1))
         legal_targets = valid_targets(match, self.selected_card) if hand else []
-        active_role = self.catalog.cards[hand[self.selected_card]]["hero"] if hand else None
+        active_role = self.catalog.cards[_card_id(hand[self.selected_card])]["hero"] if hand else None
         for side, column_base in ((0, 29), (1, 43)):
             party = _team(match, side)["actors"]
             for actor in party:
@@ -127,24 +131,24 @@ class ExpeditionUI(TerminalUI):
                 self._put(10, column, f"S{actor['stress']:02} B{actor['block']:02}", attr)
                 if actor["respawn"]:
                     self._put(11, column, f"RETURN {actor['respawn']}", self._attr(3))
-        self._put(12, 2, self._ellipsize(match["log"][-1], self.screen.getmaxyx()[1] - 4), self._attr(2))
+        self._put(12, 2, self._ellipsize(self.message or match["log"][-1], self.screen.getmaxyx()[1] - 4), self._attr(2))
         first = max(0, min(self.selected_card, len(hand) - 5))
-        for slot, card_id in enumerate(hand[first:first + 5]):
+        for slot, card in enumerate(hand[first:first + 5]):
             index = first + slot
-            definition = self.catalog.cards[card_id]
-            legal = bool(valid_targets(match, index)) and _card_cost(match, 0, card_id) <= team["energy"]
-            self._draw_mini_office_card(13, self._combat_column(2 + slot * 15), card_id, index == self.selected_card, legal)
+            legal = bool(valid_targets(match, index)) and _card_cost(match, 0, card) <= team["energy"]
+            self._draw_mini_office_card(13, self._combat_column(2 + slot * 15), card, index == self.selected_card, legal)
         if not hand:
             self._put(17, 28, "HAND EMPTY — PRESS E", curses.A_DIM)
         self._footer("Arrows/H/L card  Enter play  C full card  R roster  E end  S save  Q leave")
 
-    def _draw_mini_office_card(self, row: int, column: int, card_id: str,
+    def _draw_mini_office_card(self, row: int, column: int, instance: str | dict,
                                selected: bool, legal: bool) -> None:
+        card_id = _card_id(instance)
         card = self.catalog.cards[card_id]
         office = office_catalog()[1][card_id]
-        cost = _card_cost(self.match, 0, card_id)
+        cost = _card_cost(self.match, 0, instance)
         initials = "".join(word[0] for word in OFFICE_ROLES[card["hero"]].split())[:2].upper()
-        lines = ["+------------+", f"|{str(cost) + 'E':<12}|", f"|{office.name[:12]:<12}|",
+        lines = ["+------------+", f"|{str(cost) + 'E':<12}|", f"|{(office.name + ('+' if _card_upgraded(instance) else ''))[:12]:<12}|",
                  f"| {initials:^10} |", "|  .----.    |", "|  |____|    |",
                  f"|{card['target'][:12]:<12}|", f"|FROM {','.join(map(str, card['from_ranks']))[:7]:<7}|",
                  "+------------+"]
@@ -159,7 +163,8 @@ class ExpeditionUI(TerminalUI):
         if not hand:
             self._notice("EMPTY HAND", "There are no cards to inspect this turn.")
             return
-        card_id = hand[self.selected_card]
+        instance = hand[self.selected_card]
+        card_id = _card_id(instance)
         definition = self.catalog.cards[card_id]
         office = office_catalog()[1][card_id]
         role = OFFICE_ROLES[definition["hero"]]
@@ -169,8 +174,8 @@ class ExpeditionUI(TerminalUI):
             return "|" + value[:width - 2].ljust(width - 2) + "|"
         summary = textwrap.wrap(office.description, 18)[:4]
         summary += [""] * (4 - len(summary))
-        lines = ["+" + "-" * 20 + "+", framed(f"{_card_cost(match, 0, card_id)} ENERGY"),
-                 framed(office.name.upper().center(20)), framed(role.upper().center(20)),
+        lines = ["+" + "-" * 20 + "+", framed(f"{_card_cost(match, 0, instance)} ENERGY"),
+                 framed((office.name + ('+' if _card_upgraded(instance) else '')).upper().center(20)), framed(role.upper().center(20)),
                  framed("  .----------.  "), framed("  |  OFFICE  |  "),
                  framed("  '----------'  "), framed(),
                  framed("FROM " + ",".join(map(str, definition["from_ranks"]))),
@@ -179,9 +184,9 @@ class ExpeditionUI(TerminalUI):
         for row, line in enumerate(lines, 3):
             self._put(row, 4, line, curses.A_BOLD if row in (3, 5, 16) else 0)
         detail = [f"RANKS: {definition['from_ranks']}  TARGET RANKS: {definition.get('target_ranks', 'any')}",
-                  f"COST: {_card_cost(match, 0, card_id)}  ROLE: {role}",
+                  f"COST: {_card_cost(match, 0, instance)}  ROLE: {role}",
                   "", office.description, "", "EFFECTS:"]
-        detail.extend(str(dict(effect)) for effect in definition["effects"])
+        detail.extend(str(dict(effect)) for effect in (definition["upgrade_effects"] if _card_upgraded(instance) else definition["effects"]))
         col = 30
         row = 3
         for paragraph in detail:
@@ -212,12 +217,19 @@ class ExpeditionUI(TerminalUI):
                        for identity in pending["choices"]]
             title = "CHOOSE A RECIPIENT"
             body = "This company perk belongs to one specialist for the match."
-        else:
-            choices = pending["choices"]
+        elif pending["kind"] == "facility":
+            choices = [*pending["choices"], "Leave without using"]
             facility = next(item for item in match["facilities"] if item["id"] == pending["facility"])
             definition = self.catalog.facilities[facility["definition_id"]]
             title = f"{OFFICE_BIOMES[facility['biome_id']]} SERVICE DESK".upper()
             body = "A neutral company facility can alter the route or restore the party. Choose one procedure."
+        else:
+            choices = pending["choices"][:]
+            if pending["kind"] in {"camp", "upgrade", "event"}:
+                choices.append("Leave without using")
+            title = {"camp": "REST OFFICE", "upgrade": "COPY WORKSHOP", "event": "DEPARTMENT INCIDENT",
+                     "treatment": "TREAT A LIABILITY"}[pending["kind"]]
+            body = "A neutral room from the generated expedition offers a choice."
         selected = self._menu(title, choices, body, allow_cancel=False)
         assert selected is not None
         try:
@@ -267,6 +279,7 @@ class ExpeditionUI(TerminalUI):
             if match["pending"]:
                 self._choose_pending()
                 continue
+            engage_if_touching(match)
             if match["phase"] == "map":
                 self._render_map()
             else:
@@ -305,7 +318,8 @@ class ExpeditionUI(TerminalUI):
                 elif normalized == 9:
                     sites = [tuple(match["files"][1]["home"]),
                              *( (item["x"], item["y"]) for item in match["pickups"] if not item["resolved"] ),
-                             *( (item["x"], item["y"]) for item in match["facilities"] if not item["used"] )]
+                             *( (item["x"], item["y"]) for item in match["facilities"] if not item["used"] ),
+                             *( (item["x"], item["y"]) for item in match["stations"] if not item["used"] )]
                     if sites:
                         self.site = (self.site + 1) % len(sites)
                         self.cursor = sites[self.site]
@@ -355,8 +369,14 @@ def run_expedition(screen: curses.window, state) -> None:
     active = state.tabletop["active_match"]
     if active and active["courier_id"] != state.courier.id:
         owner = next((person for person in state.household if person.id == active["courier_id"]), None)
-        state.add_message(f"{owner.name if owner else 'Another courier'} must finish the open expedition.")
-        return
+        if owner and not owner.alive:
+            active["winner"] = 1
+            finish_match(state)
+            state.add_message(f"{owner.name}'s unfinished expedition is archived as a loss.")
+            active = None
+        else:
+            state.add_message(f"{owner.name if owner else 'Another courier'} must finish the open expedition.")
+            return
     ui = ExpeditionUI(screen, state)
     if active:
         ui.run_match()

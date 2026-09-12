@@ -78,10 +78,12 @@ OFFICE_WORLDS = {
 def office_facility_option(effect_ops: set[str], cost: dict) -> str:
     """Display office-fantasy choices without changing facility costs or effects."""
     priority = (
+        ("card_reward", "Review new techniques"),
         ("suppress_hazard", "File a safety exception"),
         ("reveal_biome", "Review the department floorplan"),
         ("stabilize_terrain", "Mark a safe corridor"),
         ("heal_all", "Arrange a wellness break"),
+        ("heal_weakest", "Send the sickest worker home early"),
         ("cleanse_all", "Purge open complaints"),
         ("remove_random", "Shred a liability"),
         ("item_random", "Claim surplus equipment"),
@@ -91,8 +93,10 @@ def office_facility_option(effect_ops: set[str], cost: dict) -> str:
         ("stress_all", "Accept the overtime burden"),
     )
     label = next((name for op, name in priority if op in effect_ops), "Process the service request")
-    if cost.get("resource") == "supplies" and cost.get("amount"):
-        label += f" ({cost['amount']} supply)"
+    if cost.get("resource") != "none" and cost.get("amount"):
+        unit = {"supplies": "supply", "light": "light", "stress_all": "stress each",
+                "health_all": "HP each"}[cost["resource"]]
+        label += f" ({cost['amount']} {unit})"
     return label
 
 INFUSION_NAMES = (

@@ -21,8 +21,9 @@ python -m jomon
 
 Dullest Dungeon is played from the marked seat at a table in Jomon's tavern.
 It is an in-world office-fantasy card game against named tavern patrons; the
-imported Dullest Dungeon package also launches Jomon rather than a separate
-expedition. See [the game and lore guide](docs/dullest-dungeon.md).
+original generated-map expedition now hosts one competitive file-capture mode.
+The imported Dullest Dungeon package launches Jomon rather than a separate
+campaign. See [the game and lore guide](docs/dullest-dungeon.md).
 
 The terminal must be at least 80 columns by 24 rows. Jomon shows a resize
 message below that size and uses `curses.wrapper()` to restore the terminal on
@@ -54,15 +55,16 @@ World controls:
 At the tavern's `D` seat, `Enter` or `E` opens Dullest Dungeon. In its lobby,
 `J/K` chooses a patron, `1`–`4` selects an office worker, `[` and `]` change
 jobs, `P` changes company policy, `D` edits the deck, and `Enter` starts a
-match. During a match, arrows or `W/A/D/X` move the board cursor, `Tab` selects
-a worker, `1`–`8` selects a hand card, `0` selects the always available Commute
-card, `?` reads the selected card and rules, `Enter` plays, `E` ends the turn,
-`S` saves Jomon and the match, and `Q`
-returns to Jomon with the match still in progress. Starting a match advances
-one Jomon action; tabletop turns do not advance Jomon time.
-Where mouse events are available, a click selects patrons, workers, cards, and
-board cells; a double-click starts a selected patron match or plays at a board
-cell.
+match. On the generated map, arrows or `W/A/D/X` move the cursor, `Tab` cycles
+through neutral sites, `1` aims at your home, `2` at the rival file, `3` at
+the patron party, and `4` at your own file. `Enter` auto-paths one weighted
+18-tick leg toward the cursor; each party has four route orders per turn.
+Contact opens ranked 4v4 card combat. There, arrows or `H/L` select a hand
+card, `Enter` chooses a legal target and plays it, `C` inspects the full card,
+and `R` inspects both rosters. `E` ends a map or combat turn, `S` saves Jomon
+and the match, and `Q` returns to Jomon with the match still in progress.
+Starting a match advances one Jomon action; expedition turns do not advance
+Jomon time.
 
 Spatial-inventory controls:
 

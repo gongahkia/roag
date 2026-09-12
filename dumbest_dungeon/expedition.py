@@ -29,7 +29,7 @@ def _roll(match: dict) -> int:
     return match["rng"]
 
 
-def _shuffle(match: dict, cards: list[str]) -> None:
+def _shuffle(match: dict, cards: list[Any]) -> None:
     for index in range(len(cards) - 1, 0, -1):
         other = _roll(match) % (index + 1)
         cards[index], cards[other] = cards[other], cards[index]
@@ -51,6 +51,14 @@ def _draw(match: dict, side: int, amount: int) -> None:
 def _log(match: dict, message: str) -> None:
     match["log"].append(message)
     del match["log"][:-12]
+
+
+def _card_id(card: str | dict) -> str:
+    return card if isinstance(card, str) else card["id"]
+
+
+def _card_upgraded(card: str | dict) -> bool:
+    return bool(card.get("upgraded")) if isinstance(card, dict) else False
 
 
 def _team(match: dict, side: int) -> dict:
@@ -160,13 +168,17 @@ def _team_state(side: int, roles: list[str], deck: list[str], position: list[int
                "stress": 0, "block": 0, "statuses": {}, "guarded_by": None,
                "guard_turns": 0, "respawn": 0}
               for rank, role in enumerate(roles, 1)]
+    instances = [{"id": card, "copy_id": index, "upgraded": False}
+                 for index, card in enumerate(deck, 1)]
     return {"roles": roles[:], "actors": actors, "position": position[:],
-            "deck": deck[:], "draw": [], "hand": [], "discard": [],
+            "deck": instances, "draw": [], "hand": [], "discard": [],
+            "next_copy_id": len(instances) + 1,
             "energy": 3, "orders": 0, "plays": 0, "supplies": 4, "light": 100,
             "items": {}, "boons": [], "curses": [], "pending_hand": 0,
             "triggers": {},
             "combat_opened": False,
             "combat_used": {},
+            "opening_effects": [],
             "masteries": dict((customization or {}).get("masteries", {})),
             "infusions": dict((customization or {}).get("infusions", {})),
             "doctrine": (customization or {}).get("doctrine", "base:mark_window")}
@@ -208,6 +220,12 @@ def new_match(seed: str, courier_id: str, patron_id: str, roles: list[str],
              "pickups": [asdict(item) for item in generated.pickups],
              "hazards": [asdict(item) for item in generated.hazards],
              "facilities": [asdict(item) for item in generated.facilities],
+             "stations": [{"id": room.id, "kind": room.kind,
+                           "x": generated.room_positions[room.id][0],
+                           "y": generated.room_positions[room.id][1],
+                           "biome_id": room.biome_id, "content_id": room.content_id,
+                           "used": False, "outcome": None}
+                          for room in generated.rooms if room.kind in {"event", "camp", "upgrade", "cache"}],
              "pending": None,
              "log": ["The Company of Necessary Copies opens a disputed expedition."]}
     return match
@@ -238,8 +256,9 @@ def _knockout(match: dict, actor: dict) -> None:
             match["pending_score"] = None
             _log(match, f"{OFFICE_ROLES[actor['role']]} drops the stolen file.")
     _log(match, f"{OFFICE_ROLES[actor['role']]} is sent on two-turn mandatory leave.")
-    if match["phase"] == "combat" and not _living(match, side):
-        match["phase"] = "map"
+    if not _living(match, side):
+        if match["phase"] == "combat":
+            match["phase"] = "map"
         _team(match, side)["position"] = match["files"][side]["home"][:]
         _log(match, "The depleted party regroups at its records office.")
 
@@ -375,7 +394,7 @@ def valid_targets(match: dict, card_index: int) -> list[str]:
     team = _team(match, side)
     if not 0 <= card_index < len(team["hand"]):
         return []
-    definition = load_catalog().cards[team["hand"][card_index]]
+    definition = load_catalog().cards[_card_id(team["hand"][card_index])]
     actor = next(item for item in team["actors"] if item["role"] == definition["hero"])
     ranks = set(definition["from_ranks"])
     infusion = load_catalog().infusions.get(team["infusions"].get(definition["id"]))
@@ -397,12 +416,13 @@ def valid_targets(match: dict, card_index: int) -> list[str]:
     return [item["id"] for item in _living(match, 1 - side) if item["rank"] in definition["target_ranks"]]
 
 
-def _card_cost(match: dict, side: int, card_id: str) -> int:
+def _card_cost(match: dict, side: int, card: str | dict) -> int:
     catalog = load_catalog()
     team = _team(match, side)
+    card_id = _card_id(card)
     definition = catalog.cards[card_id]
     actor = next(item for item in team["actors"] if item["role"] == definition["hero"])
-    cost = int(definition["cost"])
+    cost = int(definition.get("upgrade_cost", definition["cost"]) if _card_upgraded(card) else definition["cost"])
     infusion_id = team["infusions"].get(card_id)
     infusion = catalog.infusions.get(infusion_id)
     if infusion:
@@ -437,24 +457,25 @@ def play_card(match: dict, card_index: int, target_id: str | None = None) -> str
     team = _team(match, side)
     if team["plays"] >= MAX_PLAYS_PER_TURN or not 0 <= card_index < len(team["hand"]):
         raise ValueError("choose a card in the current hand")
-    card_id = team["hand"][card_index]
+    instance = team["hand"][card_index]
+    card_id = _card_id(instance)
     definition = load_catalog().cards[card_id]
     actor = next(item for item in team["actors"] if item["role"] == definition["hero"])
     targets = valid_targets(match, card_index)
     target_id = target_id or (targets[0] if len(targets) == 1 else None)
     if target_id not in targets:
         raise ValueError("choose a legal ranked target")
-    cost = _card_cost(match, side, card_id)
+    cost = _card_cost(match, side, instance)
     if cost > team["energy"]:
         raise ValueError("not enough energy")
     team["energy"] -= cost
     team["hand"].pop(card_index)
     infusion = load_catalog().infusions.get(team["infusions"].get(card_id))
     if not infusion or infusion["mode"] != "exhaust":
-        team["discard"].append(card_id)
+        team["discard"].append(instance)
     main = (_living(match, side) if target_id == "all_allies" else
             _living(match, 1 - side) if target_id == "all_enemies" else [_actor(match, target_id)])
-    effects = [dict(effect) for effect in definition["effects"]]
+    effects = [dict(effect) for effect in (definition["upgrade_effects"] if _card_upgraded(instance) else definition["effects"])]
     doctrine = load_catalog().doctrines[team["doctrine"]]["mode"]
     if infusion and infusion["mode"] == "pressure_bonus" and match["files"][1 - side]["carrier"] == actor["id"]:
         first = next((effect for effect in effects if effect["op"] in {"damage", "block", "heal"}), None)
@@ -597,13 +618,20 @@ def choose_reward(match: dict, choice: int) -> None:
     pending = match["pending"]
     if not pending or pending["side"] != match["turn"]:
         raise ValueError("there is no reward choice")
+    if pending["kind"] in {"facility", "camp", "upgrade", "event"} and choice == len(pending["choices"]):
+        match["pending"] = None
+        _log(match, "The party leaves the neutral room untouched.")
+        return
     if not 0 <= choice < len(pending["choices"]):
         raise ValueError("choose one of the offered rewards")
     side = match["turn"]
     if pending["kind"] == "draft":
         card = pending["choices"][choice]
-        _team(match, side)["deck"].append(card)
-        _team(match, side)["discard"].append(card)
+        team = _team(match, side)
+        instance = {"id": card, "copy_id": team["next_copy_id"], "upgraded": False}
+        team["next_copy_id"] += 1
+        team["deck"].append(instance)
+        team["discard"].append(instance)
         _log(match, f"{office_catalog()[1][card].name} joins the {('courier', 'patron')[side]} deck.")
     elif pending["kind"] == "boon":
         boon = pending["choices"][choice]
@@ -639,6 +667,65 @@ def choose_reward(match: dict, choice: int) -> None:
         facility["used"] = True
         facility["outcome"] = option["id"]
         _log(match, f"{office_facility_option({effect['op'] for effect in option['effects']}, option['cost'])} is complete.")
+    elif pending["kind"] == "camp":
+        station = next(item for item in match["stations"] if item["id"] == pending["station"])
+        team = _team(match, side)
+        if choice == 0:
+            for actor in _living(match, side):
+                actor["hp"] = min(actor["max_hp"], actor["hp"] + 7)
+                actor["stress"] = max(0, actor["stress"] - 10)
+            station["used"] = True
+            station["outcome"] = "recover"
+            _log(match, "The party rests: +7 HP and -10 stress each.")
+        else:
+            if team["supplies"] < 2 or not team["curses"]:
+                raise ValueError("treatment needs a liability and two supplies")
+            choices = [f"{OFFICE_ROLES[_actor(match, entry['owner'])['role']]} — liability {index + 1}"
+                       for index, entry in enumerate(team["curses"])]
+            match["pending"] = {"side": side, "kind": "treatment", "station": station["id"], "choices": choices}
+            return
+    elif pending["kind"] == "treatment":
+        station = next(item for item in match["stations"] if item["id"] == pending["station"])
+        team = _team(match, side)
+        if team["supplies"] < 2:
+            raise ValueError("treatment needs two supplies")
+        team["supplies"] -= 2
+        team["curses"].pop(choice)
+        station["used"] = True
+        station["outcome"] = "treat"
+        _log(match, "The party treats one liability.")
+    elif pending["kind"] == "upgrade":
+        station = next(item for item in match["stations"] if item["id"] == pending["station"])
+        copy_id = pending["copy_ids"][choice]
+        card = next(item for item in _team(match, side)["deck"] if item["copy_id"] == copy_id)
+        card["upgraded"] = True
+        for zone in ("draw", "hand", "discard"):
+            for instance in _team(match, side)[zone]:
+                if instance["copy_id"] == copy_id:
+                    instance["upgraded"] = True
+        station["used"] = True
+        station["outcome"] = "upgrade"
+        _log(match, f"{office_catalog()[1][card['id']].name}+ is authorized by the workshop.")
+    elif pending["kind"] == "event":
+        station = next(item for item in match["stations"] if item["id"] == pending["station"])
+        option = load_catalog().events[station["content_id"]]["choices"][choice]
+        cost = int(option.get("cost_supplies", 0))
+        team = _team(match, side)
+        if team["supplies"] < cost:
+            raise ValueError("not enough supplies for that event choice")
+        team["supplies"] -= cost
+        reward = False
+        for effect in option["effects"]:
+            if effect["op"] == "card_reward":
+                reward = True
+            else:
+                _facility_effect(match, side, station, effect)
+        station["used"] = True
+        station["outcome"] = str(choice)
+        _log(match, "The department incident is resolved.")
+        if reward:
+            _draft(match, side)
+            return
     match["pending"] = None
 
 
@@ -707,6 +794,8 @@ def _arrival(match: dict, side: int) -> None:
             hazard["active"] = False
             hazard["triggered"] = True
         _hazard(match, side, hazard)
+        if not _living(match, side):
+            return
     for pickup in match["pickups"]:
         if pickup["resolved"] or position != (pickup["x"], pickup["y"]):
             continue
@@ -750,6 +839,36 @@ def _arrival(match: dict, side: int) -> None:
                                                 for option in definition["options"]]}
                 _log(match, f"{OFFICE_BIOMES[facility['biome_id']]} service desk offers two procedures.")
                 break
+    if match["pending"] is None:
+        for station in match["stations"]:
+            if station["used"] or position != (station["x"], station["y"]):
+                continue
+            team = _team(match, side)
+            if station["kind"] == "cache":
+                team["supplies"] += 2
+                team["light"] = min(100, team["light"] + 20)
+                station["used"] = True
+                station["outcome"] = "salvage"
+                _log(match, "Emergency office stores yield two supplies and twenty light.")
+            elif station["kind"] == "camp":
+                match["pending"] = {"side": side, "kind": "camp", "station": station["id"],
+                                    "choices": ["Recover all (+7 HP, -10 stress)", "Treat one liability (2 supplies)"]}
+            elif station["kind"] == "upgrade":
+                candidates = [card for card in team["deck"] if not card["upgraded"]]
+                if candidates:
+                    match["pending"] = {"side": side, "kind": "upgrade", "station": station["id"],
+                                        "copy_ids": [card["copy_id"] for card in candidates],
+                                        "choices": [f"{office_catalog()[1][card['id']].name} — copy {card['copy_id']}"
+                                                    for card in candidates]}
+            else:
+                definition = load_catalog().events[station["content_id"]]
+                labels = []
+                for option in definition["choices"]:
+                    cost = {"resource": "supplies" if option.get("cost_supplies") else "none",
+                            "amount": int(option.get("cost_supplies", 0))}
+                    labels.append(office_facility_option({effect["op"] for effect in option["effects"]}, cost))
+                match["pending"] = {"side": side, "kind": "event", "station": station["id"], "choices": labels}
+            break
 
 
 def move_to(match: dict, destination: tuple[int, int]) -> list[tuple[int, int]]:
@@ -776,24 +895,36 @@ def move_to(match: dict, destination: tuple[int, int]) -> list[tuple[int, int]]:
                 and _distance((x, y), rival) <= 1):
             team["position"] = [x, y]
             walked.append((x, y))
-            match["phase"] = "combat"
-            _begin_combat(match)
-            _log(match, "The rival parties make contact. Ranked card combat begins.")
+            engage_if_touching(match)
             break
         team["position"] = [x, y]
         walked.append((x, y))
         _arrival(match, side)
-        if match["pending"] or match["winner"] is not None:
+        if match["pending"] or match["winner"] is not None or not _living(match, side):
             break
     return walked
 
 
+def engage_if_touching(match: dict) -> bool:
+    if (match["phase"] != "map" or match["winner"] is not None or match["pending"] or match["contact_cooldown"]
+            or not _living(match, 0) or not _living(match, 1)
+            or _distance(_position(match, 0), _position(match, 1)) > 1):
+        return False
+    match["phase"] = "combat"
+    _begin_combat(match)
+    _log(match, "The rival parties make contact. Ranked card combat begins.")
+    return True
+
+
 def _begin_combat(match: dict) -> None:
+    initiator = match["turn"]
+    biome = _biome_at(match, *_position(match, initiator))
+    environment = load_catalog().biomes[biome]["mechanics"]["combat"]
     for side in (0, 1):
         team = _team(match, side)
         team["draw"] = team["deck"][:]
         _shuffle(match, team["draw"])
-        prioritized = [card for card in team["draw"] if (infusion := load_catalog().infusions.get(team["infusions"].get(card))) and infusion["mode"] == "opening_priority"]
+        prioritized = [card for card in team["draw"] if (infusion := load_catalog().infusions.get(team["infusions"].get(_card_id(card)))) and infusion["mode"] == "opening_priority"]
         if prioritized:
             for card in prioritized:
                 team["draw"].remove(card)
@@ -803,6 +934,12 @@ def _begin_combat(match: dict) -> None:
         team["plays"] = 0
         team["combat_opened"] = False
         team["combat_used"] = {}
+        team["opening_effects"] = []
+    for effect in environment["effects"]:
+        target = effect["target"]
+        sides = (0, 1) if target == "all" else (initiator,) if target in {"crew", "front_crew", "back_crew"} else (1 - initiator,)
+        for side in sides:
+            _team(match, side)["opening_effects"].append(dict(effect))
     match["combat_turns"] = 0
     _start_turn(match, match["turn"])
 
@@ -870,6 +1007,25 @@ def _start_turn(match: dict, side: int) -> None:
         opening = 5 + team["pending_hand"] + (_passive(match, side, None, "items", "opening_hand") if first_combat_turn else 0)
         if not team["combat_opened"] and load_catalog().doctrines[team["doctrine"]]["mode"] == "discard":
             opening -= 1
+        if first_combat_turn:
+            for effect in team["opening_effects"]:
+                op, amount = effect["op"], int(effect["amount"])
+                if op == "draw":
+                    opening += amount
+                    continue
+                if op == "energy":
+                    team["energy"] = max(0, team["energy"] + amount)
+                    continue
+                living = _living(match, side)
+                target = effect["target"]
+                targets = living[:1] if target.startswith("front_") else living[-1:] if target.startswith("back_") else living
+                if op == "reverse":
+                    for actor in living:
+                        actor["rank"] = len(living) + 1 - actor["rank"]
+                else:
+                    for actor in targets:
+                        _apply_effect(match, actor, [actor], effect)
+            team["opening_effects"] = []
         _draw(match, side, opening)
         team["pending_hand"] = 0
         team["combat_opened"] = True
@@ -883,7 +1039,7 @@ def end_turn(match: dict) -> None:
     side = match["turn"]
     team = _team(match, side)
     if match["phase"] == "combat":
-        retained = [card for card in team["hand"] if (infusion := load_catalog().infusions.get(team["infusions"].get(card))) and infusion["mode"] == "retain"]
+        retained = [card for card in team["hand"] if (infusion := load_catalog().infusions.get(team["infusions"].get(_card_id(card)))) and infusion["mode"] == "retain"]
         team["discard"].extend(card for card in team["hand"] if card not in retained)
         team["hand"] = retained
         match["combat_turns"] += 1
@@ -945,6 +1101,7 @@ def _ai_destination(match: dict, goal: tuple[int, int]) -> tuple[int, int] | Non
 def patron_turn(match: dict) -> None:
     if match["turn"] != 1 or match["winner"] is not None:
         raise ValueError("the patron has no turn")
+    engage_if_touching(match)
     def clear_pending() -> None:
         pending = match["pending"]
         if pending is None:
@@ -961,10 +1118,17 @@ def patron_turn(match: dict) -> None:
                 match["pending"] = None
                 return
             choose_reward(match, choices[0])
+        elif pending["kind"] == "event":
+            station = next(item for item in match["stations"] if item["id"] == pending["station"])
+            options = load_catalog().events[station["content_id"]]["choices"]
+            choices = [index for index, option in enumerate(options)
+                       if _team(match, 1)["supplies"] >= int(option.get("cost_supplies", 0))]
+            choose_reward(match, choices[0] if choices else len(pending["choices"]))
         else:
             choose_reward(match, 0)
     while match["pending"]:
         clear_pending()
+    engage_if_touching(match)
     if match["phase"] == "map":
         for _ in range(ORDERS_PER_TURN):
             if match["phase"] != "map" or match["pending"] or not _living(match, 1):
@@ -987,10 +1151,10 @@ def patron_turn(match: dict) -> None:
             if match["winner"] is not None or _team(match, 1)["energy"] <= 0:
                 break
             choices = []
-            for index, card_id in enumerate(_team(match, 1)["hand"]):
+            for index, card in enumerate(_team(match, 1)["hand"]):
                 targets = valid_targets(match, index)
-                if targets and _card_cost(match, 1, card_id) <= _team(match, 1)["energy"]:
-                    definition = load_catalog().cards[card_id]
+                if targets and _card_cost(match, 1, card) <= _team(match, 1)["energy"]:
+                    definition = load_catalog().cards[_card_id(card)]
                     priority = int(any(effect["op"] == "damage" for effect in definition["effects"])) * 3
                     priority += int(any(effect["op"] == "heal" for effect in definition["effects"]))
                     choices.append((priority, -index, index, targets))
@@ -1114,10 +1278,21 @@ def validate_expedition(state: Any) -> None:
                               for status, value in actor["statuses"].items())
                        for actor in team["actors"])):
             raise ValueError("competitive expedition ranks or statuses are invalid")
-        if any(card not in load_catalog().cards for card in team["deck"] + team["draw"] + team["hand"] + team["discard"]):
-            raise ValueError("competitive expedition deck is invalid")
-        if (not 20 <= len(team["deck"]) <= 60 or any(load_catalog().cards[card]["hero"] not in team["roles"] for card in team["deck"])
-                or not (Counter(team["draw"] + team["hand"] + team["discard"]) <= Counter(team["deck"]))
+        cards = team["deck"] + team["draw"] + team["hand"] + team["discard"]
+        if any(not isinstance(card, dict) or set(card) != {"id", "copy_id", "upgraded"}
+               or card["id"] not in load_catalog().cards
+               or type(card["copy_id"]) is not int or card["copy_id"] < 1
+               or type(card["upgraded"]) is not bool for card in cards):
+            raise ValueError("competitive expedition card copies are invalid")
+        durable = {card["copy_id"]: card for card in team["deck"]}
+        zones = team["draw"] + team["hand"] + team["discard"]
+        if (len(durable) != len(team["deck"])
+                or any(durable.get(card["copy_id"]) != card for card in zones)
+                or type(team["next_copy_id"]) is not int or team["next_copy_id"] <= max(durable, default=0)
+                or team["next_copy_id"] > 1000):
+            raise ValueError("competitive expedition card identity is invalid")
+        if (not 20 <= len(team["deck"]) <= 60 or any(load_catalog().cards[card["id"]]["hero"] not in team["roles"] for card in team["deck"])
+                or not (Counter(card["copy_id"] for card in zones) <= Counter(card["copy_id"] for card in team["deck"]))
                 or type(team["energy"]) is not int or not 0 <= team["energy"] <= 9
                 or type(team["orders"]) is not int or not 0 <= team["orders"] <= ORDERS_PER_TURN
                 or type(team["plays"]) is not int or not 0 <= team["plays"] <= MAX_PLAYS_PER_TURN
@@ -1126,6 +1301,17 @@ def validate_expedition(state: Any) -> None:
                 or not doctrine_compatible(team["roles"], team["doctrine"])
                 or any(not infusion_compatible(card, infusion) for card, infusion in team["infusions"].items())):
             raise ValueError("competitive expedition deck or resources are invalid")
+        actor_ids = {actor["id"] for actor in team["actors"]}
+        if (not isinstance(team["items"], dict)
+                or any(item not in load_catalog().items or type(count) is not int or not 0 < count <= 99
+                       for item, count in team["items"].items())
+                or any(not isinstance(entry, dict) or set(entry) != {"id", "owner"}
+                       or entry["id"] not in getattr(load_catalog(), group)
+                       or entry["owner"] not in actor_ids
+                       for group in ("boons", "curses") for entry in team[group])
+                or not isinstance(team["triggers"], dict) or not isinstance(team["combat_used"], dict)
+                or type(team["combat_opened"]) is not bool or not isinstance(team["opening_effects"], list)):
+            raise ValueError("competitive expedition persistent effects are invalid")
         x, y = team["position"]
         if not (0 <= y < len(match["board"]) and 0 <= x < len(match["board"][y]) and match["board"][y][x] in WALKABLE_TILES):
             raise ValueError("competitive expedition party is off-map")
@@ -1152,7 +1338,73 @@ def validate_expedition(state: Any) -> None:
                 raise ValueError(f"competitive expedition {key} differ from the generated map")
             if key == "hazards" and any(cell not in baseline["cells"] for cell in item["triggered_cells"]):
                 raise ValueError("competitive expedition hazard activation is invalid")
+            if key == "pickups" and type(item.get("resolved")) is not bool:
+                raise ValueError("competitive expedition pickup resolution is invalid")
+            if key == "facilities" and (type(item.get("used")) is not bool or item.get("outcome") not in (None, "unavailable", *(option["id"] for option in load_catalog().facilities[item["definition_id"]]["options"]))):
+                raise ValueError("competitive expedition facility outcome is invalid")
+    expected_stations = {
+        room.id: {"id": room.id, "kind": room.kind,
+                  "x": generated.room_positions[room.id][0], "y": generated.room_positions[room.id][1],
+                  "biome_id": room.biome_id, "content_id": room.content_id}
+        for room in generated.rooms if room.kind in {"event", "camp", "upgrade", "cache"}
+    }
+    stations = match.get("stations")
+    if not isinstance(stations, list) or len(stations) != len(expected_stations):
+        raise ValueError("competitive expedition neutral rooms differ from the generated map")
+    for station in stations:
+        if not isinstance(station, dict) or station.get("id") not in expected_stations:
+            raise ValueError("competitive expedition neutral room is invalid")
+        if any(station.get(key) != value for key, value in expected_stations[station["id"]].items()):
+            raise ValueError("competitive expedition neutral room differs from the generated map")
+        allowed = {"event": {"0", "1"}, "camp": {"recover", "treat"},
+                   "upgrade": {"upgrade"}, "cache": {"salvage"}}[station["kind"]]
+        if (type(station.get("used")) is not bool or station.get("outcome") not in (allowed if station["used"] else {None})):
+            raise ValueError("competitive expedition neutral room outcome is invalid")
     pending = match.get("pending")
     if pending is not None:
-        if not isinstance(pending, dict) or pending.get("side") != match["turn"] or pending.get("kind") not in {"draft", "facility", "boon", "recipient"}:
+        if not isinstance(pending, dict) or pending.get("side") != match["turn"] or pending.get("kind") not in {"draft", "facility", "boon", "recipient", "camp", "treatment", "upgrade", "event"}:
             raise ValueError("competitive expedition reward choice is invalid")
+        choices = pending.get("choices")
+        if not isinstance(choices, list) or not 1 <= len(choices) <= 60 or any(not isinstance(choice, str) for choice in choices) or len(set(choices)) != len(choices):
+            raise ValueError("competitive expedition reward offer is invalid")
+        if pending["kind"] == "draft" and any(card not in load_catalog().cards or load_catalog().cards[card]["hero"] not in match["teams"][match["turn"]]["roles"] for card in choices):
+            raise ValueError("competitive expedition card offer is invalid")
+        if pending["kind"] == "boon" and any(boon not in load_catalog().boons for boon in choices):
+            raise ValueError("competitive expedition perk offer is invalid")
+        if pending["kind"] == "recipient" and (pending.get("boon") not in load_catalog().boons or choices != [actor["id"] for actor in _living(match, match["turn"]) ]):
+            raise ValueError("competitive expedition perk recipient is invalid")
+        if pending["kind"] == "facility":
+            facility = next((item for item in match["facilities"] if item["id"] == pending.get("facility") and not item["used"]), None)
+            if facility is None:
+                raise ValueError("competitive expedition facility offer is invalid")
+            options = load_catalog().facilities[facility["definition_id"]]["options"]
+            expected = [office_facility_option({effect["op"] for effect in option["effects"]}, option["cost"])
+                        for option in options]
+            if choices != expected:
+                raise ValueError("competitive expedition facility choices are invalid")
+        if pending["kind"] in {"camp", "treatment", "upgrade", "event"}:
+            station = next((item for item in stations if item["id"] == pending.get("station") and not item["used"]), None)
+            if station is None or station["kind"] != ("camp" if pending["kind"] == "treatment" else pending["kind"]):
+                raise ValueError("competitive expedition neutral room offer is invalid")
+            if pending["kind"] == "camp" and choices != ["Recover all (+7 HP, -10 stress)", "Treat one liability (2 supplies)"]:
+                raise ValueError("competitive expedition rest offer is invalid")
+            if pending["kind"] == "treatment":
+                expected = [f"{OFFICE_ROLES[_actor(match, entry['owner'])['role']]} — liability {index + 1}"
+                            for index, entry in enumerate(_team(match, match["turn"])["curses"])]
+                if choices != expected:
+                    raise ValueError("competitive expedition treatment offer is invalid")
+            if pending["kind"] == "upgrade":
+                candidates = [card for card in _team(match, match["turn"])["deck"] if not card["upgraded"]]
+                if (pending.get("copy_ids") != [card["copy_id"] for card in candidates]
+                        or choices != [f"{office_catalog()[1][card['id']].name} — copy {card['copy_id']}" for card in candidates]):
+                    raise ValueError("competitive expedition workshop offer is invalid")
+            if pending["kind"] == "event":
+                definition = load_catalog().events[station["content_id"]]
+                expected = [office_facility_option({effect["op"] for effect in option["effects"]},
+                                                   {"resource": "supplies" if option.get("cost_supplies") else "none",
+                                                    "amount": int(option.get("cost_supplies", 0))})
+                            for option in definition["choices"]]
+                if choices != expected:
+                    raise ValueError("competitive expedition incident offer is invalid")
+    if not isinstance(match.get("log"), list) or len(match["log"]) > 12 or any(not isinstance(entry, str) for entry in match["log"]):
+        raise ValueError("competitive expedition log is invalid")

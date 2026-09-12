@@ -10,7 +10,7 @@ from unittest.mock import patch
 from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.engine import GameEngine
 import dumbest_dungeon.expedition as expedition
-from dumbest_dungeon.expedition_ui import run_expedition
+from dumbest_dungeon.expedition_ui import ExpeditionUI, run_expedition
 from dumbest_dungeon.office_content import office_catalog
 from dumbest_dungeon.tabletop import collection_for, patrons
 from jomon.actions import interact
@@ -31,6 +31,49 @@ class ExpeditionRulesTests(unittest.TestCase):
         self.assertEqual(set(cards), set(self.catalog.cards))
         self.assertTrue(all(card.name and card.description and card.role in roles for card in cards.values()))
 
+    def test_all_290_imported_cards_resolve_in_ranked_pvp(self):
+        roster = self.roles
+        played = set()
+        for role in roster:
+            team = [role] + [other for other in roster if other != role][:3]
+            rival = [other for other in roster if other not in team][:4]
+            match = expedition.new_match(role, "crew-1", "crew-2", team, rival)
+            for card_id, definition in self.catalog.cards.items():
+                if definition["hero"] != role:
+                    continue
+                match["phase"] = "combat"
+                match["turn"] = 0
+                match["teams"][0]["hand"] = [card_id]
+                match["teams"][0]["energy"] = 9
+                match["teams"][0]["plays"] = 0
+                match["teams"][0]["triggers"] = {}
+                for side in (0, 1):
+                    for index, actor in enumerate(match["teams"][side]["actors"]):
+                        actor.update(hp=actor["max_hp"], rank=index + 1, stress=0,
+                                     block=0, statuses={}, respawn=0, guarded_by=None,
+                                     guard_turns=0)
+                origin = definition["from_ranks"][0]
+                match["teams"][0]["actors"][0]["rank"] = origin
+                if origin != 1:
+                    match["teams"][0]["actors"][origin - 1]["rank"] = 1
+                targets = expedition.valid_targets(match, 0)
+                self.assertTrue(targets, card_id)
+                expedition.play_card(match, 0, targets[0])
+                played.add(card_id)
+        self.assertEqual(played, set(self.catalog.cards))
+
+    def test_treatments_and_policies_obey_catalog_compatibility(self):
+        self.assertFalse(expedition.doctrine_compatible(self.roles[:4], "base:rolling_dance"))
+        self.assertTrue(expedition.doctrine_compatible(self.roles[:4], "base:mark_window"))
+        self.assertTrue(expedition.infusion_compatible("baton_strike", "base:hinged_grip"))
+        match = self.match
+        match["phase"] = "combat"
+        match["teams"][0]["hand"] = ["baton_strike"]
+        match["teams"][0]["actors"][0]["rank"] = 4
+        match["teams"][0]["actors"][3]["rank"] = 1
+        match["teams"][0]["infusions"]["baton_strike"] = "base:hinged_grip"
+        self.assertTrue(expedition.valid_targets(match, 0))
+
     def test_original_map_and_neutral_features_are_used(self):
         match = self.match
         generated = GameEngine.new(self.catalog, match["world_seed"], start_in_hub=True).state
@@ -40,6 +83,7 @@ class ExpeditionRulesTests(unittest.TestCase):
         self.assertEqual(len(match["hazards"]), len(generated.hazards))
         self.assertEqual(len(match["facilities"]), len(generated.facilities))
         self.assertEqual(len(match["pickups"]), len(generated.pickups))
+        self.assertEqual(len(match["stations"]), sum(room.kind in {"event", "camp", "upgrade", "cache"} for room in generated.rooms))
         self.assertEqual(len(match["teams"]), 2)
         self.assertTrue(all(len(team["actors"]) == 4 for team in match["teams"]))
         self.assertNotIn("patrols", match)
@@ -89,6 +133,7 @@ class ExpeditionRulesTests(unittest.TestCase):
     def test_original_rank_and_target_rules_apply_to_both_sides(self):
         match = self.match
         match["phase"] = "combat"
+        match["teams"][0]["doctrine"] = "base:guard_rotation"
         match["teams"][0]["hand"] = ["baton_strike"]
         targets = expedition.valid_targets(match, 0)
         self.assertEqual(targets, [actor["id"] for actor in match["teams"][1]["actors"][:2]])
@@ -164,6 +209,78 @@ class ExpeditionRulesTests(unittest.TestCase):
         self.assertEqual(match["pending"]["kind"], "facility")
         expedition.choose_reward(match, 0)
         self.assertTrue(facility["used"])
+
+    def test_boon_owner_and_original_start_block_effect(self):
+        match = self.match
+        owner = match["teams"][0]["actors"][0]
+        match["teams"][1]["position"] = [match["teams"][0]["position"][0] + 1, match["teams"][0]["position"][1]]
+        baseline = copy.deepcopy(match)
+        self.assertTrue(expedition.engage_if_touching(baseline))
+        match["teams"][0]["boons"].append({"id": "iron_benediction", "owner": owner["id"]})
+        self.assertTrue(expedition.engage_if_touching(match))
+        self.assertEqual(owner["block"] - baseline["teams"][0]["actors"][0]["block"], 3)
+
+    def test_unaffordable_facility_can_be_left_untouched(self):
+        match = self.match
+        facility = match["facilities"][0]
+        match["teams"][0]["position"] = [facility["x"], facility["y"]]
+        expedition._arrival(match, 0)
+        self.assertEqual(match["pending"]["kind"], "facility")
+        expedition.choose_reward(match, len(match["pending"]["choices"]))
+        self.assertIsNone(match["pending"])
+        self.assertFalse(facility["used"])
+
+    def test_generated_cache_camp_workshop_and_event_are_playable(self):
+        match = self.match
+        team = match["teams"][0]
+        cache = next(station for station in match["stations"] if station["kind"] == "cache")
+        team["supplies"] = 0
+        team["light"] = 50
+        team["position"] = [cache["x"], cache["y"]]
+        expedition._arrival(match, 0)
+        self.assertEqual((team["supplies"], team["light"], cache["used"]), (2, 70, True))
+
+        camp = next(station for station in match["stations"] if station["kind"] == "camp")
+        team["actors"][0]["hp"] -= 8
+        team["actors"][0]["stress"] = 12
+        team["position"] = [camp["x"], camp["y"]]
+        expedition._arrival(match, 0)
+        self.assertEqual(match["pending"]["kind"], "camp")
+        expedition.choose_reward(match, 0)
+        self.assertEqual(team["actors"][0]["hp"], team["actors"][0]["max_hp"] - 1)
+        self.assertEqual(team["actors"][0]["stress"], 2)
+
+        workshop = next(station for station in match["stations"] if station["kind"] == "upgrade")
+        team["position"] = [workshop["x"], workshop["y"]]
+        expedition._arrival(match, 0)
+        self.assertEqual(match["pending"]["kind"], "upgrade")
+        chosen_copy = match["pending"]["copy_ids"][0]
+        expedition.choose_reward(match, 0)
+        upgraded = next(card for card in team["deck"] if card["copy_id"] == chosen_copy)
+        self.assertTrue(upgraded["upgraded"])
+        self.assertTrue(workshop["used"])
+        self.assertEqual(sum(card["upgraded"] for card in team["deck"]), 1)
+
+        event = next(station for station in match["stations"] if station["kind"] == "event")
+        team["position"] = [event["x"], event["y"]]
+        expedition._arrival(match, 0)
+        self.assertEqual(match["pending"]["kind"], "event")
+        expedition.choose_reward(match, len(match["pending"]["choices"]))
+        self.assertFalse(event["used"])
+
+    def test_upgraded_copy_uses_imported_upgrade_damage(self):
+        match = self.match
+        team = match["teams"][0]
+        team["doctrine"] = "base:guard_rotation"
+        upgraded = next(card for card in team["deck"] if card["id"] == "baton_strike")
+        upgraded["upgraded"] = True
+        target = match["teams"][1]["actors"][0]
+        team["hand"] = [upgraded]
+        team["energy"] = 9
+        match["phase"] = "combat"
+        hp = target["hp"]
+        expedition.play_card(match, 0, target["id"])
+        self.assertEqual(target["hp"], hp - 10)
 
 
 class TavernIntegrationTests(unittest.TestCase):
@@ -270,6 +387,42 @@ class TavernIntegrationTests(unittest.TestCase):
         self.assertEqual(len(match["board"][0]), 117)
         self.assertTrue(any("DULLEST DUNGEON" in line for line in screen.drawn))
         self.assertTrue(any("auto-path" in line for line in screen.drawn))
+
+    def test_ranked_screen_draws_both_parties_and_card_frames(self):
+        class Screen:
+            def __init__(self):
+                self.drawn = []
+
+            def getmaxyx(self):
+                return 24, 80
+
+            def erase(self):
+                pass
+
+            def refresh(self):
+                pass
+
+            def keypad(self, enabled):
+                pass
+
+            def addstr(self, y, x, value, attr=0):
+                self.drawn.append(value)
+
+            def getch(self):
+                return ord("q")
+
+        match = expedition.start_match(self.state, patrons(self.state)[0].id)
+        origin = match["teams"][0]["position"]
+        match["teams"][1]["position"] = [origin[0] + 2, origin[1]]
+        expedition.move_to(match, (origin[0] + 1, origin[1]))
+        screen = Screen()
+        with patch("curses.curs_set"), patch("curses.has_colors", return_value=False):
+            ui = ExpeditionUI(screen, self.state)
+            ui._render_combat_match()
+            ui._show_card()
+        self.assertTrue(any("YOUR PARTY" in line for line in screen.drawn))
+        self.assertTrue(any("RIVAL PARTY" in line for line in screen.drawn))
+        self.assertTrue(any("+------------+" in line for line in screen.drawn))
 
 
 if __name__ == "__main__":
