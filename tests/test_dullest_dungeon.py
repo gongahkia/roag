@@ -116,6 +116,38 @@ class ExpeditionRulesTests(unittest.TestCase):
         costs = {terrain["glyph"]: terrain["cost"] for terrain in self.catalog.terrains.values()}
         self.assertLessEqual(sum(costs[match["board"][y][x]] for x, y in walked), expedition.ORDER_TICKS)
 
+    def test_exploration_reveals_nearby_features(self):
+        match = self.match
+        team = match["teams"][0]
+        distant = next(item for item in match["pickups"]
+                       if expedition._distance(tuple(team["position"]), (item["x"], item["y"])) > 5)
+        identity = f"pickups:{distant['id']}"
+        self.assertNotIn(identity, team["known"])
+        team["position"] = [distant["x"], distant["y"]]
+        expedition._reveal_nearby(match, 0)
+        self.assertIn(identity, team["known"])
+
+    def test_contact_tile_resolves_neutral_pickup_before_combat(self):
+        match = self.match
+        path = expedition.path_to(match, 0, tuple(match["files"][1]["home"]))
+        self.assertGreaterEqual(len(path), 2)
+        match["teams"][1]["position"] = list(path[1])
+        for hazard in match["hazards"]:
+            hazard["active"] = False
+        for pickup in match["pickups"]:
+            pickup["resolved"] = True
+        for facility in match["facilities"]:
+            facility["used"] = True
+        for station in match["stations"]:
+            station["used"] = True
+        pickup = next(item for item in match["pickups"] if item["kind"] == "item")
+        pickup.update(x=path[0][0], y=path[0][1], resolved=False)
+        item = pickup["payload"]["item_id"]
+        before = match["teams"][0]["items"].get(item, 0)
+        expedition.move_to(match, path[0])
+        self.assertEqual(match["teams"][0]["items"][item], before + 1)
+        self.assertEqual(match["phase"], "combat")
+
     def test_contact_opens_ranked_combat_and_both_parties_use_cards(self):
         match = self.match
         origin = tuple(match["files"][0]["home"])
@@ -315,6 +347,29 @@ class TavernIntegrationTests(unittest.TestCase):
         expedition.patron_turn(resumed.tabletop["active_match"])
         self.assertEqual(resumed.tabletop["active_match"], self.state.tabletop["active_match"])
 
+    def test_stabilized_generated_terrain_survives_save_roundtrip(self):
+        match = expedition.start_match(self.state, patrons(self.state)[0].id)
+        station = match["stations"][0]
+        expedition._facility_effect(match, 0, station, {"op": "stabilize_terrain", "amount": 4})
+        self.assertTrue(match["stabilized"])
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "jomon.json"
+            save_game(self.state, path)
+            resumed = load_game(path)
+        self.assertEqual(resumed.tabletop["active_match"], match)
+
+    def test_one_enter_auto_walks_remaining_route_orders(self):
+        match = expedition.start_match(self.state, patrons(self.state)[0].id)
+        match["pickups"] = []
+        match["hazards"] = []
+        match["facilities"] = []
+        match["stations"] = []
+        ui = ExpeditionUI(type("Screen", (), {"getmaxyx": lambda self: (24, 80)})(), self.state)
+        with patch.object(ui, "_render_map"), patch("curses.napms"):
+            ui._auto_walk_to(tuple(match["files"][1]["home"]))
+        self.assertEqual(match["teams"][0]["orders"], expedition.ORDERS_PER_TURN)
+        self.assertNotEqual(match["teams"][0]["position"], match["files"][0]["home"])
+
     def test_format_eight_discards_board_game_only(self):
         original = self.state.to_dict()
         original["save_format"] = 8
@@ -386,7 +441,7 @@ class TavernIntegrationTests(unittest.TestCase):
         self.assertIsNotNone(match)
         self.assertEqual(len(match["board"][0]), 117)
         self.assertTrue(any("DULLEST DUNGEON" in line for line in screen.drawn))
-        self.assertTrue(any("auto-path" in line for line in screen.drawn))
+        self.assertTrue(any("auto-walk" in line for line in screen.drawn))
 
     def test_ranked_screen_draws_both_parties_and_card_frames(self):
         class Screen:

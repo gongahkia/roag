@@ -65,18 +65,18 @@ class ExpeditionUI(TerminalUI):
                 break
             overlays.append((x, y, ":", curses.A_DIM))
         for hazard in match["hazards"]:
-            if hazard["active"]:
+            if hazard["active"] and f"hazards:{hazard['id']}" in team["known"]:
                 overlays.extend((x, y, "^", self._attr(3) | curses.A_BOLD)
                                 for x, y in hazard["cells"] if [x, y] not in hazard["triggered_cells"])
         for pickup in match["pickups"]:
-            if not pickup["resolved"]:
+            if not pickup["resolved"] and f"pickups:{pickup['id']}" in team["known"]:
                 overlays.append((pickup["x"], pickup["y"], "$" if pickup["kind"] == "item" else "?", self._attr(2) | curses.A_BOLD))
         for facility in match["facilities"]:
-            if not facility["used"]:
+            if not facility["used"] and f"facilities:{facility['id']}" in team["known"]:
                 overlays.append((facility["x"], facility["y"], "H", self._attr(4) | curses.A_BOLD))
         station_symbols = {"event": "?", "camp": "C", "upgrade": "W", "cache": "$"}
         for station in match["stations"]:
-            if not station["used"]:
+            if not station["used"] and f"stations:{station['id']}" in team["known"]:
                 overlays.append((station["x"], station["y"], station_symbols[station["kind"]], self._attr(2) | curses.A_BOLD))
         for side in (0, 1):
             file = match["files"][side]
@@ -94,7 +94,7 @@ class ExpeditionUI(TerminalUI):
         self._put(legend_row, 2, self._ellipsize(f"@ COURIER  P PATRON  F/f FILES  ^ HAZARD  H DESK  C REST  W WORKSHOP  ?/$ CACHE  ROUTE {route_cost}T", columns - 3))
         self._put(legend_row + 1, 2, self._ellipsize(self.message or match["log"][-1], columns - 3), self._attr(2))
         self._put(legend_row + 2, 2, "Steal their file, return within 2 of your home, hold through their turn. First to 2.")
-        self._footer("Arrows aim  Enter auto-path leg  Tab sites  1 home  2 rival file  3 patron  4 own file  E end  S save  Q leave")
+        self._footer("Arrows aim  Enter auto-walk  Tab sites  1 home  2 rival file  3 patron  4 own file  E end  S save  Q leave")
 
     def _render_combat_match(self, target: str | None = None) -> None:
         match = self.match
@@ -263,6 +263,28 @@ class ExpeditionUI(TerminalUI):
         except SaveError as exc:
             self.message = str(exc)
 
+    def _auto_walk_to(self, destination: tuple[int, int]) -> None:
+        match = self.match
+        assert match is not None
+        if destination == _position(match, 0):
+            raise ValueError("the party is already at that destination")
+        while (match["phase"] == "map" and match["winner"] is None and not match["pending"]
+               and _team(match, 0)["orders"] < ORDERS_PER_TURN
+               and destination != _position(match, 0)):
+            leg = _ai_destination(match, destination)
+            if leg is None:
+                raise ValueError("no route reaches the selected destination")
+            walked = move_to(match, leg)
+            for point in walked[:-1]:
+                self._render_map(point)
+                curses.napms(self.MOVE_FRAME_MS)
+            if (match["phase"] == "map" and not match["pending"]
+                    and _team(match, 0)["orders"] < ORDERS_PER_TURN
+                    and destination != _position(match, 0)
+                    and hasattr(self.screen, "nodelay") and self._route_cancel_requested()):
+                self.message = "Route cancelled before the next leg."
+                break
+
     def run_match(self) -> None:
         match = self.match
         assert match is not None
@@ -317,21 +339,15 @@ class ExpeditionUI(TerminalUI):
                     self.cursor = _file_position(match, 0)
                 elif normalized == 9:
                     sites = [tuple(match["files"][1]["home"]),
-                             *( (item["x"], item["y"]) for item in match["pickups"] if not item["resolved"] ),
-                             *( (item["x"], item["y"]) for item in match["facilities"] if not item["used"] ),
-                             *( (item["x"], item["y"]) for item in match["stations"] if not item["used"] )]
+                             *((item["x"], item["y"]) for item in match["pickups"] if not item["resolved"] and f"pickups:{item['id']}" in _team(match, 0)["known"]),
+                             *((item["x"], item["y"]) for item in match["facilities"] if not item["used"] and f"facilities:{item['id']}" in _team(match, 0)["known"]),
+                             *((item["x"], item["y"]) for item in match["stations"] if not item["used"] and f"stations:{item['id']}" in _team(match, 0)["known"])]
                     if sites:
                         self.site = (self.site + 1) % len(sites)
                         self.cursor = sites[self.site]
                 elif normalized in (10, 13, curses.KEY_ENTER):
                     try:
-                        destination = _ai_destination(match, self.cursor)
-                        if destination is None:
-                            raise ValueError("no route reaches the selected destination")
-                        walked = move_to(match, destination)
-                        for point in walked[:-1]:
-                            self._render_map(point)
-                            curses.napms(self.MOVE_FRAME_MS)
+                        self._auto_walk_to(self.cursor)
                     except ValueError as exc:
                         self._notice("ROUTE NOT AVAILABLE", str(exc))
             else:

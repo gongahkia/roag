@@ -57,8 +57,9 @@ At the tavern's `D` seat, `Enter` or `E` opens Dullest Dungeon. In its lobby,
 jobs, `P` changes company policy, `D` edits the deck, and `Enter` starts a
 match. On the generated map, arrows or `W/A/D/X` move the cursor, `Tab` cycles
 through neutral sites, `1` aims at your home, `2` at the rival file, `3` at
-the patron party, and `4` at your own file. `Enter` auto-paths one weighted
-18-tick leg toward the cursor; each party has four route orders per turn.
+the patron party, and `4` at your own file. `Enter` auto-walks toward the
+cursor for the remaining weighted 18-tick route orders, stopping at a choice
+or rival contact; each party has four route orders per turn.
 Contact opens ranked 4v4 card combat. There, arrows or `H/L` select a hand
 card, `Enter` chooses a legal target and plays it, `C` inspects the full card,
 and `R` inspects both rosters. `E` ends a map or combat turn, `S` saves Jomon

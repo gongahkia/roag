@@ -175,6 +175,7 @@ def _team_state(side: int, roles: list[str], deck: list[str], position: list[int
             "next_copy_id": len(instances) + 1,
             "energy": 3, "orders": 0, "plays": 0, "supplies": 4, "light": 100,
             "items": {}, "boons": [], "curses": [], "pending_hand": 0,
+            "known": [],
             "triggers": {},
             "combat_opened": False,
             "combat_used": {},
@@ -220,6 +221,7 @@ def new_match(seed: str, courier_id: str, patron_id: str, roles: list[str],
              "pickups": [asdict(item) for item in generated.pickups],
              "hazards": [asdict(item) for item in generated.hazards],
              "facilities": [asdict(item) for item in generated.facilities],
+             "stabilized": [],
              "stations": [{"id": room.id, "kind": room.kind,
                            "x": generated.room_positions[room.id][0],
                            "y": generated.room_positions[room.id][1],
@@ -228,6 +230,8 @@ def new_match(seed: str, courier_id: str, patron_id: str, roles: list[str],
                           for room in generated.rooms if room.kind in {"event", "camp", "upgrade", "cache"}],
              "pending": None,
              "log": ["The Company of Necessary Copies opens a disputed expedition."]}
+    for side in (0, 1):
+        _reveal_nearby(match, side)
     return match
 
 
@@ -236,6 +240,17 @@ def _file_position(match: dict, owner: int) -> tuple[int, int]:
     if file["carrier"] is not None:
         return _position(match, 1 - owner)
     return tuple(file["dropped"] or file["home"])
+
+
+def _reveal_nearby(match: dict, side: int) -> None:
+    origin = _position(match, side)
+    known = set(_team(match, side)["known"])
+    for group in ("hazards", "facilities", "pickups", "stations"):
+        for item in match[group]:
+            cells = item.get("cells", [[item["x"], item["y"]]])
+            if min(_distance(origin, tuple(cell)) for cell in cells) <= 5:
+                known.add(f"{group}:{item['id']}")
+    _team(match, side)["known"] = sorted(known)
 
 
 def _knockout(match: dict, actor: dict) -> None:
@@ -765,16 +780,32 @@ def _facility_effect(match: dict, side: int, facility: dict, effect: dict) -> No
         team["items"][item] = team["items"].get(item, 0) + 1
     elif op == "remove_random" and team["curses"]:
         team["curses"].pop(_roll(match) % len(team["curses"]))
+    elif op == "reveal_biome":
+        known = set(team["known"])
+        for group in ("hazards", "facilities", "pickups", "stations"):
+            known.update(f"{group}:{item['id']}" for item in match[group]
+                         if item.get("biome_id", _biome_at(match, item["x"], item["y"])) == facility["biome_id"])
+        team["known"] = sorted(known)
     elif op == "stabilize_terrain":
-        # terrain remains visible; the facility clears nearby hazard pressure instead.
-        for hazard in match["hazards"]:
-            if _distance((facility["x"], facility["y"]), (hazard["x"], hazard["y"])) <= amount:
-                hazard["active"] = False
-    # reveal_biome and patrol-only operations are informational in this PvP mode.
+        protected = {tuple(position) for position in match["room_positions"]}
+        protected |= {(item["x"], item["y"]) for item in match["pickups"] + match["facilities"] + match["stations"]}
+        protected |= {tuple(cell) for hazard in match["hazards"] if hazard["active"] for cell in hazard["cells"]}
+        candidates = sorted(
+            ((x, y) for y, row in enumerate(match["board"]) for x, glyph in enumerate(row)
+             if glyph in WALKABLE_TILES and glyph != "=" and (x, y) not in protected
+             and _biome_at(match, x, y) == facility["biome_id"]),
+            key=lambda position: (_distance(position, (facility["x"], facility["y"])), position),
+        )
+        for x, y in candidates[:max(0, amount)]:
+            row = match["board"][y]
+            match["board"][y] = row[:x] + "=" + row[x + 1:]
+            match["stabilized"].append([x, y])
+    # patrol-only operations have no rival-party equivalent in this mode.
 
 
 def _arrival(match: dict, side: int) -> None:
     position = _position(match, side)
+    _reveal_nearby(match, side)
     for owner, file in enumerate(match["files"]):
         if file["carrier"] is not None or position != _file_position(match, owner):
             continue
@@ -890,17 +921,12 @@ def move_to(match: dict, destination: tuple[int, int]) -> list[tuple[int, int]]:
     team["orders"] += 1
     walked = []
     for x, y in path:
-        rival = _position(match, 1 - side)
-        if (not match["contact_cooldown"] and _living(match, 1 - side)
-                and _distance((x, y), rival) <= 1):
-            team["position"] = [x, y]
-            walked.append((x, y))
-            engage_if_touching(match)
-            break
         team["position"] = [x, y]
         walked.append((x, y))
         _arrival(match, side)
         if match["pending"] or match["winner"] is not None or not _living(match, side):
+            break
+        if engage_if_touching(match):
             break
     return walked
 
@@ -1113,9 +1139,7 @@ def patron_turn(match: dict) -> None:
                        if option["cost"]["resource"] not in {"supplies", "light"}
                        or _team(match, 1)[option["cost"]["resource"]] >= option["cost"]["amount"]]
             if not choices:
-                facility["used"] = True
-                facility["outcome"] = "unavailable"
-                match["pending"] = None
+                choose_reward(match, len(pending["choices"]))
                 return
             choose_reward(match, choices[0])
         elif pending["kind"] == "event":
@@ -1253,7 +1277,21 @@ def validate_expedition(state: Any) -> None:
     if len(match.get("teams", [])) != 2 or len(match.get("files", [])) != 2:
         raise ValueError("competitive expedition parties or files are invalid")
     generated = GameEngine.new(load_catalog(), match["world_seed"], start_in_hub=True).state
-    if (match["world_id"] != generated.world_id or match["board"] != generated.world_tiles
+    expected_board = generated.world_tiles[:]
+    stabilized = match.get("stabilized")
+    if not isinstance(stabilized, list) or len(stabilized) > 32:
+        raise ValueError("competitive expedition terrain changes are invalid")
+    seen_stabilized = set()
+    for position in stabilized:
+        if not isinstance(position, list) or len(position) != 2 or any(type(value) is not int for value in position):
+            raise ValueError("competitive expedition terrain change is invalid")
+        x, y = position
+        if (x, y) in seen_stabilized or not (0 <= y < len(expected_board) and 0 <= x < len(expected_board[y])) or expected_board[y][x] not in WALKABLE_TILES or expected_board[y][x] == "=":
+            raise ValueError("competitive expedition terrain change is off-map")
+        seen_stabilized.add((x, y))
+        row = expected_board[y]
+        expected_board[y] = row[:x] + "=" + row[x + 1:]
+    if (match["world_id"] != generated.world_id or match["board"] != expected_board
             or match["room_positions"] != generated.room_positions or match["biome_ids"] != generated.biome_ids):
         raise ValueError("competitive expedition map differs from its generated seed")
     from collections import Counter
@@ -1301,6 +1339,9 @@ def validate_expedition(state: Any) -> None:
                 or not doctrine_compatible(team["roles"], team["doctrine"])
                 or any(not infusion_compatible(card, infusion) for card, infusion in team["infusions"].items())):
             raise ValueError("competitive expedition deck or resources are invalid")
+        feature_ids = {f"{group}:{item['id']}" for group in ("hazards", "facilities", "pickups", "stations") for item in match[group]}
+        if not isinstance(team["known"], list) or len(team["known"]) != len(set(team["known"])) or any(feature not in feature_ids for feature in team["known"]):
+            raise ValueError("competitive expedition known features are invalid")
         actor_ids = {actor["id"] for actor in team["actors"]}
         if (not isinstance(team["items"], dict)
                 or any(item not in load_catalog().items or type(count) is not int or not 0 < count <= 99
@@ -1349,7 +1390,8 @@ def validate_expedition(state: Any) -> None:
         for room in generated.rooms if room.kind in {"event", "camp", "upgrade", "cache"}
     }
     stations = match.get("stations")
-    if not isinstance(stations, list) or len(stations) != len(expected_stations):
+    if (not isinstance(stations, list) or len(stations) != len(expected_stations)
+            or len({station.get("id") for station in stations if isinstance(station, dict)}) != len(expected_stations)):
         raise ValueError("competitive expedition neutral rooms differ from the generated map")
     for station in stations:
         if not isinstance(station, dict) or station.get("id") not in expected_stations:
