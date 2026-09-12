@@ -629,6 +629,8 @@ def resolve_social_incident(state: GameState, response: str) -> tuple[bool, str]
 
         mediator = state.courier
         delta = 2 if mediator and effective_competency(mediator, "speech") >= 10 else 1
+        if mediator and "mediation" in mediator.skill_nodes:
+            delta += 1
         text = f"You name the disputed work; {first.name} and {second.name} stand down."
         if mediator:
             mediator.speech = min(20, mediator.speech + 1)

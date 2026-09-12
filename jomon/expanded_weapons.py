@@ -118,7 +118,9 @@ def strike(state, target_id=None, *, target_position=None):
         if cell is None:
             return _plain(state, "That landing cannot hold a material reaction.")
         delayed = weapon.effects[0] == "thunder" and has_node(state.courier, "delayed-fuse")
-        if delayed and (len(set(cell.reagents) | {"brine", "spark salt"}) > 4 or sum(cell.reagents.values()) > 6):
+        if delayed and (len(set(cell.reagents) | {"brine", "spark salt"}) > 4
+                        or sum(cell.reagents.values()) > 6
+                        or cell.reagents.get("brine", 0) >= 4 or cell.reagents.get("spark salt", 0) >= 4):
             return _plain(state, "The warned mineral flash needs two free sparse-cell measures.")
         ammunition = ammunition_for(state.weapon)
         if physical_ammunition(state, ammunition) <= 0 or not consume_ammunition(state, ammunition):
@@ -148,6 +150,8 @@ def strike(state, target_id=None, *, target_position=None):
             if effect == "thunder" and not delayed:
                 harm_enemy(state, actor, 1, "warned thunder bomb", damage_kind="blunt")
                 actor.morale -= 1 + int(has_node(state.courier, "controlled-chain"))
+            elif effect == "thunder" and has_node(state.courier, "controlled-chain"):
+                actor.morale -= 1
             elif effect == "resin":
                 actor.intent = "bound by spilled resin; loses a turn pulling free"
             elif effect == "lime":
@@ -179,6 +183,9 @@ def strike(state, target_id=None, *, target_position=None):
     if weapon.family == "gun" and state.weather in {"hard rain", "coast squall", "forest rain"} and not has_node(state.courier, "dry-load"):
         state.aimed_target = None
         return _time_result(state, "Wet weather spoils the exposed gun aim before its finite charge is released.", priority=3)
+    if weapon.family == "bow" and state.weather in {"hard rain", "coast squall", "forest rain"} and not has_node(state.courier, "wind-hold"):
+        state.aimed_target = None
+        return _time_result(state, "Wet weather spoils the drawn bow string before its finite arrow is released.", priority=3)
     if ammunition and not consume_ammunition(state, ammunition):
         return _plain(state, f"No physical {ammunition} remain.")
     if weapon.family == "gun":

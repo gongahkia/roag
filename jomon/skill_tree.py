@@ -39,7 +39,7 @@ BRANCHES = {
         ("shaft-recovery", "Shaft recovery", "recover one spent physical throw"),
         ("called-shot", "Called shot", "bow shots gain one harm against elites"),
         ("wind-hold", "Wind hold", "rain no longer spoils a prepared bow shot"),
-        ("moving-volley", "Moving volley", "a safe step retains bow aim"),
+        ("moving-volley", "Moving volley", "one walkable step retains bow aim"),
     )),
     "gunworks": ("Gunworks", (
         ("charge-handling", "Charge handling", "gun shots gain one harm when fully loaded"),
@@ -70,7 +70,7 @@ BRANCHES = {
         ("fuel-husbandry", "Fuel husbandry", "one charcoal lot is spared in a prepared smelt"),
         ("bloom-sorting", "Bloom sorting", "a prepared smelt yields one extra iron billet"),
         ("armour-fitting", "Armour fitting", "fitted armour gains five condition after installation"),
-        ("gun-assembly", "Gun assembly", "guns can be fabricated at a physical forge"),
+        ("gun-assembly", "Gun assembly", "a physical forge also offers gunworks fabrication"),
         ("masterwork", "Masterwork", "newly made personal weapons gain one harm"),
     )),
     "alchemy": ("Alchemy and medicine", (
@@ -231,6 +231,12 @@ def apply_weapon_skills(state: GameState, target, damage: int, *, weapon_name: s
             if cell:
                 cell.smoke = max(2, cell.smoke)
                 notes.append("target veiled by shot smoke")
+    from .inventory import equipped_item
+
+    readied = equipped_item(state, "readied")
+    if readied and readied.kind == (weapon_name or state.weapon) and readied.provenance.startswith("masterwork:"):
+        damage += 1
+        notes.append("masterwork edge")
     return damage, "; ".join(notes), guards_response
 
 

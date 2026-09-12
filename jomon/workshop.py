@@ -132,7 +132,7 @@ def _finish(state: GameState, message: str) -> tuple[bool, str]:
 
 
 def install(state: GameState, target_id: str, name: str) -> tuple[bool, str]:
-    from .inventory import create_item
+    from .inventory import create_item, item_spec
 
     if not _bench(state) or name not in FITTINGS:
         return False, "Approach the lower workshop with a known fitting."
@@ -148,6 +148,11 @@ def install(state: GameState, target_id: str, name: str) -> tuple[bool, str]:
     part.location, part.owner_id, part.container_id = "fitted", None, None
     part.fitted_to, part.ground_position, part.region_id = target.id, None, None
     state.trade_credit -= cost
+    if target and state.courier and "armour-fitting" in state.courier.skill_nodes and item_spec(target.kind).category == "armour":
+        target.condition = min(100, target.condition + 5)
+    from .skill_tree import record_milestone
+
+    record_milestone(state, "craft:smithing")
     return _finish(state, f"The workshop fits {name} to {target.kind}; {cost} credit and two actions. {FITTINGS[name].effect}")
 
 
@@ -196,7 +201,11 @@ def repair(state: GameState, target_id: str) -> tuple[bool, str]:
     if state.trade_credit < 2:
         return False, "Repair needs two credit for material and two actions."
     craft = effective_competency(state.courier, "craft") if state.courier else 0
-    target.condition = min(100, target.condition + 35 + min(10, (craft // 5) * 5))
+    target.condition = min(100, target.condition + 35 + min(10, (craft // 5) * 5)
+                           + (5 if state.courier and "tool-care" in state.courier.skill_nodes else 0))
+    from .skill_tree import record_milestone
+
+    record_milestone(state, "craft:smithing")
     state.trade_credit -= 2
     if state.courier:
         state.courier.craft = min(20, state.courier.craft + 1)

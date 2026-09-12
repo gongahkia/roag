@@ -127,6 +127,7 @@ def cast(state: GameState, spell_id: str, point: Position) -> tuple[bool, str]:
             detail.append("guard readied")
         elif spell.effect == "cleanse":
             removed = [name for name in ("smoke-inhalation", "salt-grit", "lime-grit", "wet") if state.terrain_statuses.pop(name, None)]
+            add_status(state, "clear-breath", "a finite cleansing spell", spell.power + 1, "fresh smoke cannot be inhaled while the ward lasts")
             detail.append("cleared " + (", ".join(removed) or "no current exposure"))
         elif spell.effect == "quiet":
             add_status(state, "quiet-veil", "a finite veiling spell", spell.power, "movement sheds one less sound")
@@ -192,6 +193,30 @@ def rest_at_berths(state: GameState) -> tuple[bool, str]:
     _advance_world(state, steps=6)
     state.courier.mana = state.courier.max_mana
     message = f"{state.courier.name} rests six actions at a berth; mana returns to {state.courier.mana}."
+    state.add_message(message, priority=3)
+    return True, message
+
+
+def restore_at_shrine(state: GameState) -> tuple[bool, str]:
+    from .actions import _advance_world
+    from .world import distance
+
+    if state.location != "region" or state.combat_active or not state.courier.known_spells:
+        return False, "shrine restoration needs an attuned courier out of combat"
+    entrance = state.region.landmarks.get("cave_entrance")
+    if entrance is None or distance(state.position, entrance) > 1:
+        return False, "stand beside the marked cave-mouth shrine"
+    if state.courier.mana >= state.courier.max_mana:
+        return False, "mana is already full"
+    key = f"shrine:{state.courier.id}"
+    today = state.world_time // 36
+    if state.region.changes.get(key) == today:
+        return False, "this courier has already used the shrine today"
+    state.region.changes[key] = today
+    _advance_world(state, steps=3)
+    before = state.courier.mana
+    state.courier.mana = min(state.courier.max_mana, before + 3)
+    message = f"{state.courier.name} keeps a three-action vigil at the cave-mouth shrine; mana {before}→{state.courier.mana}."
     state.add_message(message, priority=3)
     return True, message
 

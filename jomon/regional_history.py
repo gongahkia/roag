@@ -376,7 +376,7 @@ def deliver_dependency(state: GameState) -> tuple[bool, str]:
     act = f"{state.courier.name} delivered a witnessed {institution.dependency} lot on day {state.world_time // ACTIONS_PER_DAY}."
     institution.witnessed_acts.append(act)
     del institution.witnessed_acts[:-8]
-    state.trade_credit += 1
+    state.trade_credit += 1 + int(bool(state.courier and "guild-broker" in state.courier.skill_nodes))
     from .skill_tree import record_milestone
 
     record_milestone(state, f"trade:{state.active_region_id}")

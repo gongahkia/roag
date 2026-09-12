@@ -131,6 +131,8 @@ def stations_here(state: GameState) -> set[str]:
         ):
             if tile == tile_required and installed(state, refit):
                 stations.add(station)
+    if "forge" in stations and state.courier and "gun-assembly" in state.courier.skill_nodes:
+        stations.add("gunworks")
     return stations
 
 
@@ -189,15 +191,21 @@ def make(state: GameState, recipe_id: str) -> tuple[bool, str]:
     if not legal:
         return False, reason
     recipe = RECIPES[recipe_id]
+    from .skill_tree import has_node
+
     transaction = InventoryTransaction.begin(state)
     for kind, quantity in recipe.inputs:
+        if recipe.id == "iron-billet" and kind == "commodity:charcoal" and has_node(state.courier, "fuel-husbandry"):
+            continue
         _consume_input(state, kind, quantity)
     if recipe.contents:
         flask = next(item for item in state.items if item.kind == "field flask" and item.location == "pack"
                      and item.owner_id == state.active_courier_id and not item.contents)
         flask.contents = {name: recipe.contents.count(name) for name in set(recipe.contents)}
     else:
-        output = create_item(state, recipe.output, f"{state.courier.name}'s {recipe.station} work", quantity=recipe.quantity)
+        quantity = recipe.quantity + int(recipe.id == "iron-billet" and has_node(state.courier, "bloom-sorting"))
+        provenance = ("masterwork: " if recipe.output in ARSENAL and has_node(state.courier, "masterwork") else "") + f"{state.courier.name}'s {recipe.station} work"
+        output = create_item(state, recipe.output, provenance, quantity=quantity)
         if not auto_place(state, output.id, "pack", owner_id=state.active_courier_id):
             if state.location != "jomon" or not auto_place(state, output.id, "locker"):
                 transaction.cancel(state)
@@ -315,17 +323,19 @@ def validate_production(state: GameState) -> None:
     if not isinstance(state.production, dict) or set(state.production) != {"sites", "orders", "records"}:
         raise ValueError("invalid production ledger")
     sites = state.production["sites"]
-    if set(sites) != set(SOURCES):
+    if not isinstance(sites, dict) or set(sites) != set(SOURCES):
         raise ValueError("regional production sites are missing")
     for site in sites.values():
-        if (set(site) != {"stock", "last_day", "draws"}
+        if (not isinstance(site, dict) or set(site) != {"stock", "last_day", "draws"}
                 or any(type(site[key]) is not int or site[key] < 0 for key in site)
                 or site["stock"] > 8):
             raise ValueError("invalid bounded production site")
-    if len(state.production["orders"]) > 6 or len(state.production["records"]) > 20:
+    if (not isinstance(state.production["orders"], list) or not isinstance(state.production["records"], list)
+            or len(state.production["orders"]) > 6 or len(state.production["records"]) > 20
+            or any(not isinstance(record, str) for record in state.production["records"])):
         raise ValueError("unbounded work orders")
     for order in state.production["orders"]:
-        if (set(order) != {"region", "recipe", "ready_day", "worker"}
+        if (not isinstance(order, dict) or set(order) != {"region", "recipe", "ready_day", "worker"}
                 or order["region"] not in SOURCES or order["recipe"] not in RECIPES
                 or type(order["ready_day"]) is not int or order["ready_day"] < 0
                 or order["worker"] not in {contact.id for contact in state.contacts[order["region"]]}):

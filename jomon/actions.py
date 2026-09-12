@@ -1455,6 +1455,7 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
             and state.weather == "crosswind"
         )
         or "surveyed soft-step" in build_combinations(state)
+        or "quiet-veil" in state.terrain_statuses
         or ("smoke spoor" in state.courier.learned_techniques and position_key(target) in state.smoke)
     )
     if state.courier and state.courier.character_specified:
@@ -2732,11 +2733,11 @@ def guard(state: GameState, target_id: str | None = None) -> ActionResult:
     if not state.combat_active:
         return _plain(state, "There is no expedition danger to guard against.")
     expanded = ARSENAL.get(state.weapon)
-    if expanded and expanded.family == "gun" and state.weapon_ready < (1 if "quick" in expanded.effects else 2):
+    if expanded and expanded.family == "gun" and state.weapon_ready < (1 if "quick" in expanded.effects or state.courier and "vent-care" in state.courier.skill_nodes else 2):
         if physical_ammunition(state, "handgonne charges") <= 0:
             return _plain(state, "No wrapped powder charges remain.")
         state.weapon_ready += 1
-        return _time_result(state, f"{state.weapon.title()} loading {state.weapon_ready}/{1 if 'quick' in expanded.effects else 2}.", guarded=state.gear == "buckler", priority=3)
+        return _time_result(state, f"{state.weapon.title()} loading {state.weapon_ready}/{1 if 'quick' in expanded.effects or state.courier and 'vent-care' in state.courier.skill_nodes else 2}.", guarded=state.gear == "buckler", priority=3)
     if state.weapon == "crossbow" and not state.crossbow_loaded:
         if physical_ammunition(state, "bolts") <= 0:
             return _plain(state, "No crossbow ammunition remains.")
@@ -3395,6 +3396,7 @@ def negotiate(state: GameState) -> ActionResult:
     undertaking_terms = evidence_leverage(state, speaker)
     has_terms = (
         state.courier.technique == "measured terms"
+        or "careful-terms" in state.courier.skill_nodes
         or state.gear == "trade seals"
         or state.support == "factor surety"
         or "paper" in state.carried_goods
@@ -3428,7 +3430,8 @@ def negotiate(state: GameState) -> ActionResult:
             threat for threat in humans
             if threat.group == speaker.group
             and distance(speaker.position, threat.position) <= 3
-        ][:3 if effective_competency(state.courier, "speech") >= 5 else 2]
+        ][:2 + int(effective_competency(state.courier, "speech") >= 5)
+          + int("careful-terms" in state.courier.skill_nodes)]
     else:
         heard = [speaker]
     if "paper" in state.carried_goods and state.gear != "trade seals":
@@ -3544,7 +3547,8 @@ def purchase_merchant_item(state: GameState, item: str) -> ActionResult:
     ):
         return _plain(state, "That merchant lot is not available.")
     cost, kind = MERCHANT_ITEMS[item]
-    cost = max(1, cost - (1 if state.support == "factor surety" else 0))
+    cost = max(1, cost - (1 if state.support == "factor surety" else 0)
+               - int(bool(state.courier and "price-sense" in state.courier.skill_nodes)))
     account = state.institutions.get(f"work:{state.active_region_id}")
     cost = max(1, cost - (1 if account and account.trust >= 2 else 0))
     if state.trade_credit < cost:

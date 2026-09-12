@@ -1041,6 +1041,8 @@ def weight_capacity(state: GameState) -> int:
         capacity += 4
     if courier and personal_practice(courier) in courier.learned_techniques:
         capacity += 4
+    if courier and "load-balance" in courier.skill_nodes:
+        capacity += 4
     if state.support == "porter watch":
         capacity += 8
     if state.gear == "cargo harness":

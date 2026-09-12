@@ -82,7 +82,7 @@ def install_refit(state, refit_id: str) -> tuple[bool, str]:
     state.vessel_changes[f"refit-station:{refit_id}"] = refit.station
     from .actions import _advance_world
 
-    _advance_world(state, steps=3)
+    _advance_world(state, steps=2 if state.courier and "station-repair" in state.courier.skill_nodes else 3)
     text = (
         f"{refit.name} is installed at Jomon's {refit.station}: {refit.effect} "
         f"Cost: one {refit.dependency}, {refit.credit} credit and three actions. {refit.drawback}"

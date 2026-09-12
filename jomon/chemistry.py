@@ -60,7 +60,9 @@ def fill_flask(state: GameState, flask_id: str, ingredient_id: str) -> tuple[boo
     if reagent not in REAGENTS or sum(flask.contents.values()) >= 4:
         return False, "That reagent is unknown or the four-measure flask is full."
     before = predicted_reactions(flask.contents)
-    flask.contents[reagent] = flask.contents.get(reagent, 0) + 1
+    measures = min(2 if state.courier and "safe-decant" in state.courier.skill_nodes else 1,
+                   4 - sum(flask.contents.values()), 4 - flask.contents.get(reagent, 0))
+    flask.contents[reagent] = flask.contents.get(reagent, 0) + measures
     ingredient.quantity -= 1
     if ingredient.quantity == 0:
         ingredient.location, ingredient.owner_id = "destroyed", None
@@ -71,9 +73,35 @@ def fill_flask(state: GameState, flask_id: str, ingredient_id: str) -> tuple[boo
     if after:
         record_milestone(state, "craft:alchemy")
     _advance_world(state)
-    message = f"One {reagent} measure enters {flask.id}; contents {flask.contents}."
+    message = f"{measures} {reagent} measure(s) enter {flask.id}; contents {flask.contents}."
     if set(after) - set(before):
         message += " Sealed reaction potential: " + ", ".join(sorted(set(after) - set(before))) + "."
+    state.add_message(message, priority=3)
+    return True, message
+
+
+def distill_flask(state: GameState, flask_id: str, reagent: str) -> tuple[bool, str]:
+    from .actions import _advance_world
+    from .inventory import InventoryTransaction, auto_place, create_item
+    from .production import stations_here
+    from .skill_tree import has_node, record_milestone
+
+    flask = next((item for item in carried_flasks(state) if item.id == flask_id), None)
+    if flask is None or flask.contents.get(reagent, 0) <= 0:
+        return False, "Choose a carried flask that still holds this reagent."
+    if not has_node(state.courier, "controlled-distil") or "still" not in stations_here(state):
+        return False, "Controlled distillation needs its learned node and a physical still."
+    transaction = InventoryTransaction.begin(state)
+    flask.contents[reagent] -= 1
+    if flask.contents[reagent] == 0:
+        del flask.contents[reagent]
+    output = create_item(state, f"ingredient:{reagent}", f"separated from {flask_id} at a counted still")
+    if not auto_place(state, output.id, "pack", owner_id=state.active_courier_id):
+        transaction.cancel(state)
+        return False, "The separated physical measure needs pack space; nothing changed."
+    record_milestone(state, "craft:alchemy")
+    _advance_world(state, steps=2)
+    message = f"{state.courier.name} separates one {reagent} measure from {flask_id} into the pack."
     state.add_message(message, priority=3)
     return True, message
 
@@ -120,11 +148,15 @@ def drink_flask(state: GameState, flask_id: str) -> tuple[bool, str]:
     if any(name not in beneficial for name in reactions):
         return False, "The flask also holds a dangerous reaction; do not drink the mixture."
     if "healing draft" in reactions:
-        state.courier.health = min(state.courier.max_health, state.courier.health + 3)
+        bonus = int("substance-sense" in state.courier.skill_nodes) + int("field-triage" in state.courier.skill_nodes)
+        state.courier.health = min(state.courier.max_health, state.courier.health + 3 + bonus)
     if "attunement draft" in reactions:
-        state.courier.mana = min(state.courier.max_mana, state.courier.mana + 3)
+        state.courier.mana = min(state.courier.max_mana, state.courier.mana + 3 + int("catalyst-brewing" in state.courier.skill_nodes))
     if "breath tonic" in reactions:
         state.terrain_statuses.pop("smoke-inhalation", None)
+        if "antitoxin" in state.courier.skill_nodes:
+            state.terrain_statuses.pop("salt-grit", None)
+            state.terrain_statuses.pop("lime-grit", None)
         add_status(state, "clear-breath", "prepared smoke-leaf tonic", 4, "resists one smoke exposure")
     flask.contents.clear()
     for name in reactions:
@@ -142,6 +174,7 @@ def react_cell(state: GameState, point: Position, cell: MaterialCell) -> str | N
 
     if cell.reaction_due > state.world_time:
         return None
+    warned_flash = cell.reaction_due > 0
     cell.reaction_due = 0
     present = {name for name, quantity in cell.reagents.items() if quantity > 0}
     virtual = set()
@@ -149,7 +182,9 @@ def react_cell(state: GameState, point: Position, cell: MaterialCell) -> str | N
         virtual.add("spring water")
     if cell.fire:
         virtual.add("cinder salt")
-    pair = next((pair for pair in REACTIONS if pair <= present | virtual and pair & present), None)
+    flash_pair = frozenset(("brine", "spark salt"))
+    pair = (flash_pair if warned_flash and flash_pair <= present else
+            next((candidate for candidate in REACTIONS if candidate <= present | virtual and candidate & present), None))
     if pair is None:
         return None
     name, effect = REACTIONS[pair]

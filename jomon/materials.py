@@ -185,7 +185,7 @@ def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, s
                 result = apply_damage(state, severity - protection, f"material {reaction} at {key(origin)}")
                 state.add_message(result, priority=3)
         elif reaction == "smoke":
-            if "smoke-filter" not in worn_tags(state):
+            if "smoke-filter" not in worn_tags(state) and "clear-breath" not in state.terrain_statuses:
                 add_status(state, "smoke-inhalation", "dense material smoke", 4, "guard and ranged reach falter; reach clear air")
                 state.aimed_target = None
         elif reaction == "water":
@@ -198,6 +198,7 @@ def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, s
                 calendar_at(state).season == "winter"
                 and "warm" not in worn_tags(state)
                 and "winter-juniper" not in state.drink_effects
+                and "current-rescue" not in body.skill_nodes
                 and not (state.location == "jomon" and installed(state, "winter-hatch-felt"))
             ):
                 add_status(state, "chilled", "winter floodwater", 8, "aim, treatment, and recovery are slower")

@@ -1146,9 +1146,9 @@ def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]
         expanded = ARSENAL[state.weapon]
         if expanded.family == "device":
             ready = f"Enter throws one physical {state.weapon.split()[0]} bomb at this visible cell; all bodies share its reaction."
-        elif expanded.family == "gun" and state.weapon_ready < (1 if "quick" in expanded.effects else 2):
+        elif expanded.family == "gun" and state.weapon_ready < (1 if "quick" in expanded.effects or state.courier and "vent-care" in state.courier.skill_nodes else 2):
             ready = "Unready: Escape then G loads one guarded action."
-        elif expanded.family in {"bow", "gun"} and "quick" not in expanded.effects:
+        elif expanded.family in {"bow", "gun"} and "quick" not in expanded.effects and not (expanded.family == "bow" and state.courier and "quick-nock" in state.courier.skill_nodes):
             ready = "Aim set: Enter fires." if selected and state.aimed_target == selected.id else "Enter prepares aim; confirm again to fire."
     if state.weapon == "crossbow" and not state.crossbow_loaded:
         ready = "Unloaded: Escape then G reloads; no shot is committed here."
@@ -2526,6 +2526,17 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             "Choose a flask; an ingredient is physically transferred into it. Reactions are inspectable before pouring or drinking.",
             "B. Return to production.",
         ]
+    if kind.startswith("craft-distil:"):
+        from .chemistry import carried_flasks
+
+        flask_id = kind.split(":", 1)[1]
+        flask = next((item for item in carried_flasks(state) if item.id == flask_id), None)
+        return "CONTROLLED DISTILLATION", [
+            f"{flask_id}: {flask.contents if flask else 'no longer carried'}; one physical still and the Controlled distil node are required.",
+            *[f"{index + 1}. Separate one {reagent} measure into the pack."
+              for index, reagent in enumerate(flask.contents if flask else ())],
+            "B. Return to flasks. Separation uses two actions; no measure appears from nothing.",
+        ]
     if kind.startswith("craft-fill:"):
         from .chemistry import carried_ingredients
 
@@ -2535,17 +2546,17 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return "FILL ONE PHYSICAL FLASK", [
             *[f"{index + 1}. {item.id}: {item.kind.split(':', 1)[1]} ×{item.quantity}"
               for index, item in enumerate(ingredients[page * 8:page * 8 + 8])],
-            f"Page {page + 1}/{max(1, (len(ingredients) + 7) // 8)}. N/P pages; B returns to flasks."
+            f"Page {page + 1}/{max(1, (len(ingredients) + 7) // 8)}. N/P pages; D separates a reagent at a still; B returns."
         ]
     if kind == "spellbook":
         from .magic import SPELL_TIERS
         from .skill_tree import NODES
 
         return "PERSONAL SPELLBOOK", [
-            f"{state.courier.name}: mana {state.courier.mana}/{state.courier.max_mana}. Rest at moored berths or use a prepared brew; there is no passive combat recovery.",
+            f"{state.courier.name}: mana {state.courier.mana}/{state.courier.max_mana}. Rest at moored berths, brew, or visit a cave-mouth shrine; no passive combat recovery.",
             *[f"{index + 1}. {NODES[node].name}: {sum(spell in state.courier.known_spells for spell in spells)}/4 learned"
               for index, (node, spells) in enumerate(SPELL_TIERS.items())],
-            "Choose a tier, then a spell, then place its cursor on the world. Escape cancels without mana or time.",
+            "Choose a tier and place a spell cursor. R. Keep a three-action vigil at a nearby cave-mouth shrine; once per courier per day.",
         ]
     if kind.startswith("spell-tier:"):
         from .magic import SPELLS, SPELL_TIERS
@@ -3097,6 +3108,8 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         ingredients = carried_ingredients(state)
         if char == "b":
             return "craft-mix", False
+        if char == "d":
+            return f"craft-distil:{flask_id}", False
         if char == "n":
             return f"craft-fill:{flask_id}:{min(max(0, (len(ingredients) - 1) // 8), page + 1)}", False
         if char == "p":
@@ -3112,6 +3125,13 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         from .magic import SPELL_TIERS
 
         return f"spell-tier:{list(SPELL_TIERS)[int(char) - 1]}", False
+    if kind == "spellbook" and char == "r":
+        from .magic import restore_at_shrine
+
+        changed, message = restore_at_shrine(state)
+        if not changed:
+            state.add_message(message, priority=2)
+        return kind, False
     if kind.startswith("spell-tier:") and char == "b":
         return "spellbook", False
     if kind == "skill-tree" and char in "123456789a":
@@ -3157,6 +3177,20 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
                 _advance_world(state, steps=steps)
             state.add_message(message, priority=3)
             return (None if changed else kind), False
+        return kind, False
+    if kind.startswith("craft-distil:"):
+        from .chemistry import carried_flasks, distill_flask
+
+        flask_id = kind.split(":", 1)[1]
+        flask = next((item for item in carried_flasks(state) if item.id == flask_id), None)
+        if char == "b" or key == 27:
+            return f"craft-fill:{flask_id}:0", False
+        if char in "1234" and flask and int(char) <= len(flask.contents):
+            reagent = list(flask.contents)[int(char) - 1]
+            changed, message = distill_flask(state, flask_id, reagent)
+            if not changed:
+                state.add_message(message, priority=2)
+            return ("craft-mix" if changed else kind), False
         return kind, False
     if kind.startswith("situation:") and char in {"t", "m", "a"}:
         from .actions import _advance_world

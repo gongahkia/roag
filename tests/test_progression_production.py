@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import copy
 import unittest
+from unittest.mock import patch
 
 from jomon.actions import attack
 from jomon.chemistry import fill_flask, pour_flask, predicted_reactions
 from jomon.content import WEAPONS
-from jomon.expanded_weapons import ARSENAL
-from jomon.inventory import ITEM_SPECS, auto_place, create_item
-from jomon.magic import cast
+from jomon.expanded_weapons import ARSENAL, ammunition_for
+from jomon.inventory import AMMUNITION_ITEMS, ITEM_SPECS, auto_place, create_item
+from jomon.magic import SPELLS, cast, restore_at_shrine
 from jomon.materials import fields, key
 from jomon.production import advance_craft_economy, delegate, gather, make, site_position
-from jomon.skill_tree import NODES, buy_node, record_milestone
+from jomon.skill_tree import NODES, buy_node, record_milestone, study_journal, write_journal
 from jomon.state import Position, create_world, game_state_from_dict, validate_state
 
 
@@ -41,6 +42,33 @@ class ProgressionProductionTests(unittest.TestCase):
         self.assertTrue(result.time_advanced, result.message)
         self.assertIsNone(target.aimed_at)
         self.assertLess(target.health, target.max_health)
+
+    def test_every_new_arm_resolves_a_legal_hit_or_spatial_throw(self):
+        base = self.state
+        base.location = "region"
+        base.weather = "clear"
+        base.position = Position(30, 23)
+        for name, weapon in ARSENAL.items():
+            with self.subTest(weapon=name), patch("jomon.actions._advance_world"):
+                state = copy.deepcopy(base)
+                state.weapon = name
+                target = state.threats[0]
+                target.position = Position(30 + weapon.minimum, 23)
+                original_position = target.position
+                target.status = "watching"
+                state.threats = [target]
+                state.weapon_ready = 2
+                ammunition = ammunition_for(name)
+                if ammunition:
+                    physical = create_item(state, AMMUNITION_ITEMS[ammunition], "test shot", quantity=3)
+                    self.assertTrue(auto_place(state, physical.id, "pack", owner_id=state.active_courier_id))
+                result = attack(state, target.id, target_position=target.position)
+                if weapon.family in {"bow", "gun"} and "quick" not in weapon.effects:
+                    self.assertTrue(result.time_advanced, result.message)
+                    result = attack(state, target.id, target_position=target.position)
+                self.assertTrue(result.time_advanced, result.message)
+                self.assertTrue(target.health < target.max_health or target.position != original_position
+                                or target.morale < 2 or weapon.family == "device")
 
     def test_milestone_cross_training_and_spells_round_trip(self):
         state = self.state
@@ -117,6 +145,56 @@ class ProgressionProductionTests(unittest.TestCase):
         self.assertEqual(len(loaded.production["sites"]), 8)
         self.assertTrue(loaded.courier.skill_nodes)
         validate_state(loaded)
+
+    def test_all_twenty_four_spells_have_a_live_spatial_or_personal_effect(self):
+        base = self.state
+        base.location = "region"
+        base.position = Position(30, 23)
+        base.courier.max_mana = base.courier.mana = 40
+        base.courier.known_spells = list(SPELLS)
+        for spell_id, spell in SPELLS.items():
+            with self.subTest(spell=spell_id), patch("jomon.actions._advance_world"):
+                state = copy.deepcopy(base)
+                target = state.threats[0]
+                target.position = Position(32, 23)
+                target.status = "watching"
+                state.threats = [target]
+                point = state.position if spell.target == "self" else target.position
+                changed, message = cast(state, spell_id, point)
+                self.assertTrue(changed, message)
+                self.assertEqual(state.courier.mana, 40 - spell.cost)
+
+    def test_physical_journal_transfers_one_root_without_copying_points(self):
+        state = self.state
+        state.position = Position(56, 5)
+        writer = state.courier
+        node = writer.skill_nodes[0]
+        changed, message = write_journal(state, node)
+        self.assertTrue(changed, message)
+        journal = next(item for item in state.items if item.kind == "skill journal" and item.lesson_node == node)
+        recipient = next(person for person in state.household if person.id != writer.id and node not in person.skill_nodes)
+        state.active_courier_id = recipient.id
+        points = recipient.skill_points
+        changed, message = study_journal(state, journal.id)
+        self.assertTrue(changed, message)
+        self.assertIn(node, recipient.skill_nodes)
+        self.assertEqual(recipient.skill_points, points + 1)  # the first teaching milestone is independent
+        self.assertEqual(recipient.taught_nodes, 1)
+        validate_state(state)
+
+    def test_cave_mouth_shrine_has_a_daily_limit(self):
+        state = self.state
+        record_milestone(state, "return:hearthford")
+        self.assertTrue(buy_node(state, "attunement")[0])
+        state.location = "region"
+        state.position = state.region.landmarks["cave_entrance"]
+        state.courier.mana = 1
+        with patch("jomon.actions._advance_world"):
+            changed, message = restore_at_shrine(state)
+            self.assertTrue(changed, message)
+            self.assertEqual(state.courier.mana, 4)
+            self.assertFalse(restore_at_shrine(state)[0])
+        validate_state(state)
 
 
 if __name__ == "__main__":

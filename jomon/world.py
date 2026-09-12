@@ -316,8 +316,11 @@ def sight_radius(state: GameState) -> int:
         radius = max(3, radius - 2)
     if state.courier:
         from .character import attribute_modifier, effective_competency
+        from .skill_tree import has_node
 
         radius += min(2, effective_competency(state.courier, "fieldcraft") // 5)
+        radius += int(state.location == "region" and state.active_region_id in state.route_known and has_node(state.courier, "route-reading"))
+        radius += int(state.weather in {"river fog", "hard rain", "coast squall", "forest rain"} and has_node(state.courier, "weather-eye"))
         if state.courier.character_specified:
             radius += attribute_modifier(state.courier, "perception")
         if state.courier.ancestry == "Reedfolk" and state.active_region_id == "greywash":
