@@ -74,6 +74,27 @@ OFFICE_WORLDS = {
     "ivory_engine": "The Executive Zigzag", "fracture_field": "The Split-Level Office",
 }
 
+OFFICE_SQUADS = {
+    "bulkhead_basics": "New-Hire Orientation",
+    "breach_protocol": "Calendar Coup",
+    "wound_ward": "Workplace Wellness",
+    "static_choir": "Executive Presentation",
+    "unstable_research": "Quarterly Experiment",
+    "after_action": "Incident Review",
+    "countercurrent": "Counterproposal",
+    "discard_cell": "Inbox Zero",
+    "last_lantern": "Last Person in Office",
+    "marked_vector": "Performance Review",
+    "reactor_broadside": "Budget Broadside",
+    "scar_garden": "Breakroom Garden",
+    "signal_lock": "Network Freeze",
+}
+
+OFFICE_TARGETS = {
+    "enemy": "Rival", "all_enemies": "All rivals", "self": "Self",
+    "ally": "Colleague", "all_allies": "All colleagues",
+}
+
 
 def office_facility_option(effect_ops: set[str], cost: dict) -> str:
     """Display office-fantasy choices without changing facility costs or effects."""
@@ -146,6 +167,12 @@ def _effect_text(effect: dict) -> str:
     }[op]
 
 
+def office_card_description(card_id: str, *, upgraded: bool = False) -> str:
+    card = load_catalog().cards[card_id]
+    effects = card["upgrade_effects"] if upgraded else card["effects"]
+    return f"{OFFICE_TARGETS[card['target']]}: " + "; ".join(_effect_text(effect) for effect in effects) + "."
+
+
 @lru_cache(maxsize=1)
 def office_catalog() -> tuple[dict[str, dict], dict[str, OfficeCard]]:
     source = load_catalog()
@@ -165,11 +192,7 @@ def office_catalog() -> tuple[dict[str, dict], dict[str, OfficeCard]]:
             raise ValueError(f"office action count differs for {hero_id}")
         for original, title in zip(originals, titles):
             effects = tuple(dict(effect) for effect in original["effects"])
-            audience = {
-                "enemy": "Rival", "all_enemies": "All rivals", "self": "Self",
-                "ally": "Colleague", "all_allies": "All colleagues",
-            }[original["target"]]
-            description = f"{audience}: " + "; ".join(_effect_text(effect) for effect in effects) + "."
+            description = office_card_description(original["id"])
             cards[original["id"]] = OfficeCard(
                 original["id"], title, hero_id, original["cost"], original["target"],
                 effects, description,

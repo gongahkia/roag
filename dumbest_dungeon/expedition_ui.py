@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import curses
-from pathlib import Path
 import textwrap
 
 from .content import load_catalog
 from .engine import WALKABLE_TILES
+from .office_art import OFFICE_SPRITES, office_card_glyph, office_costume_name, rival_costumes
 from .expedition import (
     MAX_ROUNDS, ORDER_TICKS, ORDERS_PER_TURN, _ai_destination, _biome_at,
     _card_cost, _card_id, _card_upgraded, _distance, _file_position, _position, _team, choose_reward,
@@ -15,20 +15,18 @@ from .expedition import (
     move_to, patron_turn, path_to, play_card, retreat, retreat_destinations,
     start_match, valid_targets,
 )
-from .office_content import OFFICE_BIOMES, OFFICE_ROLES, OFFICE_WORLDS, office_catalog
+from .office_content import (
+    OFFICE_BIOMES, OFFICE_ROLES, OFFICE_SQUADS, OFFICE_TARGETS, OFFICE_WORLDS,
+    office_card_description, office_catalog,
+)
 from .tabletop import collection_for, patrons
 from .tabletop_ui import _draw_editor, _draw_lobby
-from .ui import TerminalUI
+from .tavern_ui_base import TavernUIBase
 
 
-def _office_sprite(role: str) -> list[str]:
-    initials = "".join(word[0] for word in OFFICE_ROLES[role].split())[:2].upper().ljust(2)
-    return [" .---. ", " |o o| ", f" |{initials} | ", " /|_|\\ ", " /   \\ "]
-
-
-class ExpeditionUI(TerminalUI):
+class ExpeditionUI(TavernUIBase):
     def __init__(self, screen: curses.window, state):
-        super().__init__(screen, load_catalog(), Path("/dev/null"), lambda: None)
+        super().__init__(screen, load_catalog())
         self.jomon_state = state
         self.match = state.tabletop["active_match"]
         self.cursor = _position(self.match, 0) if self.match else (5, 17)
@@ -120,7 +118,7 @@ class ExpeditionUI(TerminalUI):
         active_role = self.catalog.cards[_card_id(hand[self.selected_card])]["hero"] if hand else None
         for side, column_base in ((0, 29), (1, 43)):
             party = _team(match, side)["actors"]
-            for actor in party:
+            for index, actor in enumerate(party):
                 rank = actor["rank"]
                 column = self._combat_column(column_base + ((1 - rank) * 9 if side == 0 else (rank - 1) * 9))
                 attr = self._hp_attr(actor["hp"], actor["max_hp"]) if actor["hp"] else curses.A_DIM
@@ -128,7 +126,9 @@ class ExpeditionUI(TerminalUI):
                     attr |= curses.A_BOLD
                 if actor["id"] == target:
                     attr |= curses.A_REVERSE
-                self._draw_sprite(3, column, _office_sprite(actor["role"]), attr)
+                portrait = (OFFICE_SPRITES[actor["role"]] if side == 0 else
+                            self.catalog.art["enemies"][rival_costumes(match["world_seed"])[index]])
+                self._draw_sprite(3, column, portrait, attr)
                 if actor["id"] == target:
                     self._target_brackets(5, column, attr)
                 label = OFFICE_ROLES[actor["role"]]
@@ -137,6 +137,8 @@ class ExpeditionUI(TerminalUI):
                 self._put(10, column, f"S{actor['stress']:02} B{actor['block']:02}", attr)
                 if actor["respawn"]:
                     self._put(11, column, f"RETURN {actor['respawn']}", self._attr(3))
+                elif side == 1:
+                    self._put(11, column, "COSTUME", curses.A_DIM)
         self._put(12, 2, self._ellipsize(self.message or match["log"][-1], self.screen.getmaxyx()[1] - 4), self._attr(2))
         first = max(0, min(self.selected_card, len(hand) - 5))
         for slot, card in enumerate(hand[first:first + 5]):
@@ -147,20 +149,52 @@ class ExpeditionUI(TerminalUI):
             self._put(17, 28, "HAND EMPTY — PRESS E", curses.A_DIM)
         self._footer("Arrows/H/L card  Enter play  C full card  R retreat  V roster  E end  S save  Q leave")
 
-    def _draw_mini_office_card(self, row: int, column: int, instance: str | dict,
-                               selected: bool, legal: bool) -> None:
+    def _mini_office_card_lines(self, instance: str | dict) -> list[str]:
         card_id = _card_id(instance)
         card = self.catalog.cards[card_id]
         office = office_catalog()[1][card_id]
         cost = _card_cost(self.match, 0, instance)
-        initials = "".join(word[0] for word in OFFICE_ROLES[card["hero"]].split())[:2].upper()
-        lines = ["+------------+", f"|{str(cost) + 'E':<12}|", f"|{(office.name + ('+' if _card_upgraded(instance) else ''))[:12]:<12}|",
-                 f"| {initials:^10} |", "|  .----.    |", "|  |____|    |",
-                 f"|{card['target'][:12]:<12}|", f"|FROM {','.join(map(str, card['from_ranks']))[:7]:<7}|",
-                 "+------------+"]
+        mark = self.catalog.art["card_marks"][card["hero"]]
+        glyph = office_card_glyph(card["hero"])
+        description = textwrap.wrap(office_card_description(card_id, upgraded=_card_upgraded(instance)), 12)[:2]
+        description += [""] * (2 - len(description))
+        def framed(value: str = "") -> str:
+            return "|" + value[:12].ljust(12) + "|"
+        return ["+------------+", framed(f"{cost}E".ljust(11) + mark),
+                framed(office.name.upper() + ("+" if _card_upgraded(instance) else "")),
+                *(framed(line.center(12)) for line in glyph),
+                framed(OFFICE_TARGETS[card["target"]].upper()),
+                framed(description[0]), framed(description[1]), "+------------+"]
+
+    def _draw_mini_office_card(self, row: int, column: int, instance: str | dict,
+                               selected: bool, legal: bool) -> None:
         attr = curses.A_REVERSE | curses.A_BOLD if selected else (0 if legal else curses.A_DIM)
-        for offset, line in enumerate(lines):
+        for offset, line in enumerate(self._mini_office_card_lines(instance)):
             self._put(row + offset, column, line, attr)
+
+    def _full_office_card_lines(self, instance: str | dict) -> list[str]:
+        card_id = _card_id(instance)
+        definition = self.catalog.cards[card_id]
+        office = office_catalog()[1][card_id]
+        role_id = definition["hero"]
+        cost = _card_cost(self.match, 0, instance)
+        mark = self.catalog.art["card_marks"][role_id]
+        glyph = office_card_glyph(role_id)
+        description = textwrap.wrap(office_card_description(card_id, upgraded=_card_upgraded(instance)), 18)[:4]
+        description += [""] * (4 - len(description))
+        def framed(value: str = "") -> str:
+            return "|" + value[:20].ljust(20) + "|"
+        border = "+" + "-" * 20 + "+"
+        ranks = ",".join(map(str, definition["from_ranks"]))
+        return [border, framed(f"{cost} ENERGY".ljust(19) + mark),
+                framed((office.name + ("+" if _card_upgraded(instance) else "")).upper().center(20)),
+                framed(OFFICE_ROLES[role_id].upper().center(20)),
+                framed("COMPANY TECHNIQUE"),
+                *(framed(line.center(20)) for line in glyph),
+                framed(), framed("FROM " + ranks),
+                framed("TARGET " + OFFICE_TARGETS[definition["target"]].upper()),
+                *(framed(line) for line in description),
+                framed(mark + " " * 18 + mark), border]
 
     def _show_card(self) -> None:
         match = self.match
@@ -175,24 +209,13 @@ class ExpeditionUI(TerminalUI):
         office = office_catalog()[1][card_id]
         role = OFFICE_ROLES[definition["hero"]]
         self._begin(f"{office.name.upper()} / {role.upper()}")
-        width = 22
-        def framed(value: str = "") -> str:
-            return "|" + value[:width - 2].ljust(width - 2) + "|"
-        summary = textwrap.wrap(office.description, 18)[:4]
-        summary += [""] * (4 - len(summary))
-        lines = ["+" + "-" * 20 + "+", framed(f"{_card_cost(match, 0, instance)} ENERGY"),
-                 framed((office.name + ('+' if _card_upgraded(instance) else '')).upper().center(20)), framed(role.upper().center(20)),
-                 framed("  .----------.  "), framed("  |  OFFICE  |  "),
-                 framed("  '----------'  "), framed(),
-                 framed("FROM " + ",".join(map(str, definition["from_ranks"]))),
-                 framed("TARGET " + definition["target"].replace("_", " ")),
-                 *(framed(line) for line in summary), "+" + "-" * 20 + "+" ]
+        lines = self._full_office_card_lines(instance)
         for row, line in enumerate(lines, 3):
-            self._put(row, 4, line, curses.A_BOLD if row in (3, 5, 16) else 0)
+            self._put(row, 4, line, curses.A_BOLD if row in (3, 5, 19) else 0)
         detail = [f"RANKS: {definition['from_ranks']}  TARGET RANKS: {definition.get('target_ranks', 'any')}",
                   f"COST: {_card_cost(match, 0, instance)}  ROLE: {role}",
-                  "", office.description, "", "EFFECTS:"]
-        detail.extend(str(dict(effect)) for effect in (definition["upgrade_effects"] if _card_upgraded(instance) else definition["effects"]))
+                  "", office_card_description(card_id, upgraded=_card_upgraded(instance)),
+                  "", "The worker and origin rank must match this card."]
         col = 30
         row = 3
         for paragraph in detail:
@@ -268,6 +291,67 @@ class ExpeditionUI(TerminalUI):
             self.message = f"Saved to {save_game(self.jomon_state)}."
         except SaveError as exc:
             self.message = str(exc)
+
+    def _set_worker(self, collection: dict, slot: int, role: str) -> None:
+        if role in collection["roles"] and collection["roles"][slot] != role:
+            raise ValueError("that job is already in the four-worker party")
+        collection["roles"][slot] = role
+        collection["deck"] = [card for worker in collection["roles"]
+                              for card in office_catalog()[0][worker]["starter_deck"]]
+        for key in ("masteries", "infusions"):
+            collection[key] = {card: value for card, value in collection[key].items()
+                               if self.catalog.cards[card]["hero"] in collection["roles"]}
+        if not doctrine_compatible(collection["roles"], collection["doctrine"]):
+            collection["doctrine"] = next(doctrine for doctrine in self.catalog.doctrines
+                                           if doctrine_compatible(collection["roles"], doctrine))
+
+    def _choose_worker(self, collection: dict, slot: int) -> None:
+        roles = list(OFFICE_ROLES)
+        choices = [f"{OFFICE_ROLES[role]:26} R{','.join(map(str, self.catalog.heroes[role]['preferred_ranks']))}  {self.catalog.heroes[role]['combat_role']}"
+                   for role in roles]
+        selected = self._menu("TWENTY-FIVE COMPANY SPECIALISTS", choices,
+                              "Every job has a distinct portrait, five starter techniques, and an alternate five-card kit. Choose a job for the highlighted party slot.")
+        if selected is not None:
+            self._set_worker(collection, slot, roles[selected])
+
+    def _choose_formation(self, collection: dict) -> None:
+        squads = list(self.catalog.squads.values())
+        choices = [f"{OFFICE_SQUADS[squad['id']]:26} {', '.join(OFFICE_ROLES[role].split()[0] for role in squad['formation'])}"
+                   for squad in squads]
+        selected = self._menu("THIRTEEN COMPANY FORMATIONS", choices,
+                              "Original curated four-specialist formations, adapted as company teams. Each supplies a compatible company policy; individual jobs and cards remain editable afterward.")
+        if selected is None:
+            return
+        squad = squads[selected]
+        plan = str(squad["playstyle"]).replace("enemies", "rivals").replace("enemy", "rival")
+        body = (f"{', '.join(OFFICE_ROLES[role] for role in squad['formation'])}.\n\n"
+                f"PLAN: {plan}\n\nSTRENGTH: {squad['strength']}\n\n"
+                f"LIABILITY: {squad['weakness']}")
+        confirmed = self._menu(OFFICE_SQUADS[squad["id"]].upper(),
+                               ["Use this formation", "Keep current party"], body)
+        if confirmed != 0:
+            return
+        collection["roles"] = list(squad["formation"])
+        collection["deck"] = [card for role in collection["roles"]
+                              for card in office_catalog()[0][role]["starter_deck"]]
+        collection["doctrine"] = squad["doctrine"]
+        for key in ("masteries", "infusions"):
+            collection[key] = {card: value for card, value in collection[key].items()
+                               if self.catalog.cards[card]["hero"] in collection["roles"]}
+
+    def _toggle_loadout(self, collection: dict, slot: int) -> str:
+        role = collection["roles"][slot]
+        current = [card for card in collection["deck"] if self.catalog.cards[card]["hero"] == role]
+        if len(current) != 5:
+            raise ValueError("this worker has a custom card package; edit it in the deck cabinet")
+        starter = list(self.catalog.heroes[role]["starter_deck"])
+        loadout = next(item for item in self.catalog.loadouts.values() if item["hero"] == role)
+        alternate = list(loadout["cards"])
+        replacement = starter if current == alternate else alternate
+        collection["deck"] = [card for card in collection["deck"]
+                              if self.catalog.cards[card]["hero"] != role] + replacement
+        name = "starter" if replacement == starter else "alternate"
+        return f"{OFFICE_ROLES[role]} now carries the {name} five-card kit."
 
     def _auto_walk_to(self, destination: tuple[int, int]) -> None:
         match = self.match
@@ -377,8 +461,11 @@ class ExpeditionUI(TerminalUI):
                         if not match["pending"]:
                             end_turn(match)
                 elif normalized == ord("v"):
-                    body = "\n".join(f"{('COURIER', 'PATRON')[side]} R{actor['rank']} {OFFICE_ROLES[actor['role']]} — {actor['hp']}/{actor['max_hp']} HP, {actor['stress']} stress, return {actor['respawn']}"
-                                      for side in (0, 1) for actor in _team(match, side)["actors"])
+                    body = "\n".join(
+                        f"{('COURIER', 'PATRON')[side]} R{actor['rank']} {OFFICE_ROLES[actor['role']]}"
+                        + (f" / {office_costume_name(rival_costumes(match['world_seed'])[index])} costume" if side else "")
+                        + f" — {actor['hp']}/{actor['max_hp']} HP, {actor['stress']} stress, return {actor['respawn']}"
+                        for side in (0, 1) for index, actor in enumerate(_team(match, side)["actors"]))
                     self._notice("PARTY ROSTERS", body)
                 elif normalized in (10, 13, curses.KEY_ENTER) and hand:
                     targets = valid_targets(match, self.selected_card)
@@ -449,13 +536,22 @@ def run_expedition(screen: curses.window, state) -> None:
                 roles = list(office_catalog()[0])
                 current = roles.index(collection["roles"][slot])
                 step = 1 if normalized == ord("]") else -1
-                collection["roles"][slot] = next(roles[(current + step * offset) % len(roles)] for offset in range(1, len(roles)) if roles[(current + step * offset) % len(roles)] not in collection["roles"])
-                collection["deck"] = [card for role in collection["roles"] for card in office_catalog()[0][role]["starter_deck"]]
-                for key in ("masteries", "infusions"):
-                    collection[key] = {card: value for card, value in collection[key].items()
-                                       if load_catalog().cards[card]["hero"] in collection["roles"]}
-                if not doctrine_compatible(collection["roles"], collection["doctrine"]):
-                    collection["doctrine"] = next(doctrine for doctrine in load_catalog().doctrines if doctrine_compatible(collection["roles"], doctrine))
+                role = next(roles[(current + step * offset) % len(roles)] for offset in range(1, len(roles))
+                            if roles[(current + step * offset) % len(roles)] not in collection["roles"])
+                ui._set_worker(collection, slot, role)
+            elif normalized == ord("v"):
+                collection = collection_for(state, state.courier.id)
+                try:
+                    ui._choose_worker(collection, slot)
+                except ValueError as exc:
+                    message = str(exc)
+            elif normalized == ord("f"):
+                ui._choose_formation(collection_for(state, state.courier.id))
+            elif normalized == ord("l"):
+                try:
+                    message = ui._toggle_loadout(collection_for(state, state.courier.id), slot)
+                except ValueError as exc:
+                    message = str(exc)
             elif normalized == ord("d"):
                 mode = "deck"
             elif normalized == ord("p"):

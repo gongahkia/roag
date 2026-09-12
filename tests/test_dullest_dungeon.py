@@ -11,8 +11,9 @@ from dumbest_dungeon.content import load_catalog
 from dumbest_dungeon.engine import GameEngine
 import dumbest_dungeon.expedition as expedition
 from dumbest_dungeon.expedition_ui import ExpeditionUI, run_expedition
-from dumbest_dungeon.office_content import office_catalog
-from dumbest_dungeon.tabletop import collection_for, patrons
+from dumbest_dungeon.office_art import OFFICE_SPRITES, office_card_glyph, rival_costumes
+from dumbest_dungeon.office_content import OFFICE_ROLES, OFFICE_SQUADS, office_catalog
+from dumbest_dungeon.tabletop import collection_for, initial_collection, patrons
 from jomon.actions import interact
 from jomon.save import SaveError, load_game, save_game
 from jomon.state import Position, SAVE_FORMAT, create_world, game_state_from_dict, validate_state
@@ -31,6 +32,37 @@ class ExpeditionRulesTests(unittest.TestCase):
         self.assertEqual(set(cards), set(self.catalog.cards))
         self.assertTrue(all(card.name and card.description and card.role in roles for card in cards.values()))
         self.assertTrue(all(roles[role]["max_hp"] == hero["max_hp"] for role, hero in self.catalog.heroes.items()))
+
+    def test_office_portraits_and_rival_costumes_cover_the_art_catalog(self):
+        self.assertEqual(set(OFFICE_SPRITES), set(OFFICE_ROLES))
+        self.assertEqual(len({tuple(sprite) for sprite in OFFICE_SPRITES.values()}), 25)
+        self.assertEqual(len({office_card_glyph(role) for role in OFFICE_SPRITES}), 25)
+        self.assertTrue(all(len(sprite) == 5 and all(len(line) == 7 and line.isascii() for line in sprite)
+                            for sprite in OFFICE_SPRITES.values()))
+        seen = {costume for seed in range(800) for costume in rival_costumes(seed)}
+        self.assertEqual(seen, set(self.catalog.art["enemies"]))
+
+    def test_original_formations_and_alternate_kits_are_selectable(self):
+        self.assertEqual(set(OFFICE_SQUADS), set(self.catalog.squads))
+        ui = ExpeditionUI.__new__(ExpeditionUI)
+        ui.catalog = self.catalog
+        for squad in self.catalog.squads.values():
+            collection = initial_collection()
+            with patch.object(ui, "_menu", side_effect=[list(self.catalog.squads).index(squad["id"]), 0]):
+                ui._choose_formation(collection)
+            self.assertEqual(collection["roles"], squad["formation"])
+            self.assertEqual(collection["doctrine"], squad["doctrine"])
+        for role in self.catalog.heroes:
+            collection = initial_collection()
+            other = [item for item in self.catalog.heroes if item != role][:3]
+            collection["roles"] = [role, *other]
+            collection["deck"] = [card for worker in collection["roles"]
+                                  for card in self.catalog.heroes[worker]["starter_deck"]]
+            ui._toggle_loadout(collection, 0)
+            advanced = next(item for item in self.catalog.loadouts.values() if item["hero"] == role)
+            self.assertEqual([card for card in collection["deck"] if self.catalog.cards[card]["hero"] == role], advanced["cards"])
+            ui._toggle_loadout(collection, 0)
+            self.assertEqual([card for card in collection["deck"] if self.catalog.cards[card]["hero"] == role], self.catalog.heroes[role]["starter_deck"])
 
     def test_all_290_imported_cards_resolve_in_ranked_pvp(self):
         roster = self.roles
@@ -634,10 +666,22 @@ class TavernIntegrationTests(unittest.TestCase):
         with patch("curses.curs_set"), patch("curses.has_colors", return_value=False):
             ui = ExpeditionUI(screen, self.state)
             ui._render_combat_match()
+            hand_card = match["teams"][0]["hand"][0]
+            mini = ui._mini_office_card_lines(hand_card)
+            full = ui._full_office_card_lines(hand_card)
             ui._show_card()
         self.assertTrue(any("YOUR PARTY" in line for line in screen.drawn))
         self.assertTrue(any("RIVAL PARTY" in line for line in screen.drawn))
         self.assertTrue(any("+------------+" in line for line in screen.drawn))
+        self.assertEqual((len(mini), len(full)), (10, 17))
+        self.assertTrue(all(len(line) == 14 for line in mini))
+        self.assertTrue(all(len(line) == 22 for line in full))
+        catalog = load_catalog()
+        role = catalog.cards[hand_card["id"]]["hero"]
+        self.assertIn(office_card_glyph(role)[1].strip(), "".join(mini))
+        self.assertTrue(any(OFFICE_SPRITES[match["teams"][0]["actors"][0]["role"]][0] in line for line in screen.drawn))
+        costume = rival_costumes(match["world_seed"])[0]
+        self.assertTrue(any(catalog.art["enemies"][costume][0] in line for line in screen.drawn))
 
     def test_keyboard_selects_a_ranked_target_and_plays_a_card(self):
         class Screen:
