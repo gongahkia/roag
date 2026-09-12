@@ -1,5 +1,10 @@
 # Dullest Dungeon
 
+> Archived upstream documentation. Its former standalone expedition is retained
+> as imported source; the playable office game now opens at the Dullest Dungeon
+> table in Jomon. Use the repository-root README for current launch, controls,
+> and save behavior.
+
 A survival-horror party deckbuilder played entirely in a terminal. Choose four of twenty-five crew archetypes, cross one of six scrolling top-down ASCII worlds, evade or intercept biome-specific patrols, and fight through a shared card deck with visible enemy intents and four-rank positioning.
 
 The game uses only the Python standard library. No installation or third-party package is required.

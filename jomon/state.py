@@ -1278,7 +1278,6 @@ def validate_state(state: GameState) -> None:
     from .worklines import validate as validate_worklines
     from .legendary import validate_legends
     from .aftermath import validate_aftermath
-    from dumbest_dungeon.tabletop import validate_tabletop
 
     try:
         validate_materials(state)
@@ -1287,9 +1286,14 @@ def validate_state(state: GameState) -> None:
         validate_worklines(state)
         validate_legends(state)
         validate_aftermath(state)
-        validate_tabletop(state)
     except ValueError as exc:
         raise StateError(f"invalid material state: {exc}") from exc
+    from dumbest_dungeon.tabletop import validate_tabletop
+
+    try:
+        validate_tabletop(state)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise StateError(f"invalid Dullest Dungeon state: {exc}") from exc
     if len(state.household) < 6 or len({person.id for person in state.household}) != len(state.household):
         raise StateError("save must retain the six-person household and unique recruits")
     if state.active_courier_id is not None and state.courier is None:

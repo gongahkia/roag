@@ -19,6 +19,11 @@ From the repository root:
 python -m jomon
 ```
 
+Dullest Dungeon is played from the marked seat at a table in Jomon's tavern.
+It is an in-world office-fantasy card game against named tavern patrons; the
+imported Dullest Dungeon package also launches Jomon rather than a separate
+expedition. See [the game and lore guide](docs/dullest-dungeon.md).
+
 The terminal must be at least 80 columns by 24 rows. Jomon shows a resize
 message below that size and uses `curses.wrapper()` to restore the terminal on
 normal exit and exceptions.
@@ -45,6 +50,15 @@ World controls:
 - `S`: save while aboard Jomon;
 - `Q`: quit with confirmation; and
 - `Escape`: close or cancel an overlay.
+
+At the tavern's `D` seat, `Enter` or `E` opens Dullest Dungeon. In its lobby,
+`J/K` chooses a patron, `1`–`4` selects an office worker, `[` and `]` change
+jobs, `P` changes company policy, `D` edits the deck, and `Enter` starts a
+match. During a match, arrows or `W/A/D/X` move the board cursor, `Tab` selects
+a worker, `1`–`8` selects a hand card, `0` selects the always available Commute
+card, `Enter` plays, `E` ends the turn, `S` saves Jomon and the match, and `Q`
+returns to Jomon with the match still in progress. Starting a match advances
+one Jomon action; tabletop turns do not advance Jomon time.
 
 Spatial-inventory controls:
 

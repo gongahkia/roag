@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import curses
 
-from .office_content import OFFICE_ROLES, office_catalog
+from .content import load_catalog
+from .office_content import DOCTRINE_NAMES, INFUSION_NAMES, OFFICE_ROLES, office_catalog
 from .tabletop import (
     FALLBACK, HEIGHT, WIDTH, collection_for, end_turn, finish_match,
     patrons, patron_turn, play_card, start_match,
@@ -30,17 +31,20 @@ def _draw_lobby(screen: curses.window, state, selected: int, slot: int, message:
     _put(screen, 3, 2, "Jomon's people wager bragging rights over a world with no river at all.")
     _put(screen, 5, 2, f"Courier: {courier.name}  Strategy: {courier.strategy}/20 (record only)")
     _put(screen, 6, 2, f"Record: {collection['wins']}W {collection['losses']}L {collection['draws']}D   Cards: {len(collection['cards'])}/290")
+    doctrine_ids = list(load_catalog().doctrines)
+    _put(screen, 7, 2, f"Company policy: {DOCTRINE_NAMES[doctrine_ids.index(collection['doctrine'])]}")
     _put(screen, 8, 2, "YOUR FOUR OFFICE WORKERS", curses.A_BOLD)
     for index, role in enumerate(collection["roles"]):
         marker = ">" if slot == index else " "
         _put(screen, 9 + index, 2, f"{marker} {index + 1}. {OFFICE_ROLES[role]}"[:40])
     _put(screen, 14, 2, "PATRONS AT THE TABLE", curses.A_BOLD)
-    for index, person in enumerate(people[:6]):
-        _put(screen, 15 + index, 2, f"{'>' if selected == index else ' '} {person.name[:26]:26} {person.role[:22]}")
+    start = max(0, min(selected - 3, len(people) - 7))
+    for index, person in enumerate(people[start:start + 7]):
+        _put(screen, 15 + index, 2, f"{'>' if selected == start + index else ' '} {person.name[:26]:26} {person.role[:22]}")
     if not people:
         _put(screen, 15, 2, "Nobody is available to play just now.")
     _put(screen, 22, 2, message or "First win against each patron per season: +1 credit and strategy.")
-    _put(screen, 23, 2, "J/K patron  1-4 worker  [/] change job  D deck  Enter play  Q leave")
+    _put(screen, 23, 2, "J/K patron  1-4 worker  [/] job  P policy  D deck  Enter play  Q leave")
     screen.refresh()
     return people
 
@@ -62,8 +66,14 @@ def _draw_editor(screen: curses.window, collection: dict, index: int, message: s
             _put(screen, row, 2, f"{'>' if start + row - 4 == index else ' '} {card.name[:27]:27} {card.cost}E  {used}/{owned}  {OFFICE_ROLES[card.role][:18]}")
         selected = cards[available[index]]
         _put(screen, 20, 2, selected.description[:76])
+        source = load_catalog()
+        mastery = collection["masteries"].get(selected.id, "none")
+        infusion = collection["infusions"].get(selected.id)
+        infusion_ids = list(source.infusions)
+        infusion_name = INFUSION_NAMES[infusion_ids.index(infusion)] if infusion else "none"
+        _put(screen, 21, 2, f"Mastery: {mastery}  /  Card treatment: {infusion_name}"[:76])
     _put(screen, 22, 2, message)
-    _put(screen, 23, 2, "J/K browse  A add copy  X remove copy  Esc return")
+    _put(screen, 23, 2, "J/K browse  A add  X remove  M mastery  I treatment  Esc return")
     screen.refresh()
     return available
 
@@ -73,7 +83,7 @@ def _draw_match(screen: curses.window, match: dict, selected_worker: int,
     screen.erase()
     _, cards = office_catalog()
     _put(screen, 0, 1, f"DULLEST DUNGEON  /  {match['department'].upper()}", curses.A_BOLD)
-    _put(screen, 1, 1, f"Round {match['round']}/{18}  Your turn  Energy {match['energy']}/3  Approval {match['scores'][0]}:{match['scores'][1]}")
+    _put(screen, 1, 1, f"Round {match['round']}/{18}  vs {match.get('patron_name', 'the patron')[:18]}  Energy {match['energy']}/3  Approval {match['scores'][0]}:{match['scores'][1]}")
     board = [list(row) for row in match["board"]]
     for pickup in match["pickups"]:
         board[pickup["y"]][pickup["x"]] = "c" if pickup["kind"] == "coffee" else "s"
@@ -97,6 +107,8 @@ def _draw_match(screen: curses.window, match: dict, selected_worker: int,
     for index, piece in enumerate(match["pieces"][4:]):
         suffix = " FILE" if match["files"][0]["carrier"] == piece["id"] else ""
         _put(screen, 9 + index, 44, f" {chr(ord('a') + index)} {OFFICE_ROLES[piece['role']][:19]} {piece['hp']:2}/{piece['max_hp']}{suffix}")
+    status_line = ", ".join(f"{key}:{value}" for key, value in match["pieces"][selected_worker]["statuses"].items())
+    _put(screen, 13, 44, f"Status: {status_line or 'clear'}"[:35])
     _put(screen, 14, 44, "F/f files; c coffee; s staples")
     _put(screen, 15, 44, "Steal, return, hold one rival turn.")
     _put(screen, 16, 44, "First to 2; 18 rounds + overtime.")
@@ -106,7 +118,7 @@ def _draw_match(screen: curses.window, match: dict, selected_worker: int,
         card = cards[card_id]
         column = 1 if index < 4 else 41
         row = 19 + (index % 4)
-        _put(screen, row, column, f"{'>' if selected_card == index else ' '}{index + 1} {card.name[:24]:24} {card.cost}E")
+        _put(screen, row, column, f"{'>' if selected_card == index else ' '}{index + 1} {OFFICE_ROLES[card.role][:3]} {card.name[:20]:20} {card.cost}E")
     selected = cards[hand[selected_card]] if 0 <= selected_card < len(hand) else None
     _put(screen, 17, 44, (selected.description if selected else "Commute one desk.")[:35])
     _put(screen, 22, 1, (message or match["log"][-1])[:76])
@@ -126,9 +138,19 @@ def _draw_result(screen: curses.window, result: str, match: dict) -> None:
 
 def run_tabletop(screen: curses.window, state) -> None:
     """Return to the ordinary Jomon loop without changing its terminal setup."""
-    if state.courier is None:
-        state.add_message("Choose a courier before opening the game box.")
+    if state.courier is None or not state.courier.alive:
+        state.add_message("Choose a living courier before opening the game box.")
         return
+    active = state.tabletop["active_match"]
+    if active and active["courier_id"] != state.courier.id:
+        owner = next((person for person in state.household if person.id == active["courier_id"]), None)
+        if owner and not owner.alive:
+            active["winner"] = 1
+            finish_match(state)
+            state.add_message(f"{owner.name}'s unfinished table game is archived as a loss.")
+        else:
+            state.add_message(f"{owner.name if owner else 'Another courier'} must finish the open table game.")
+            return
     selected_patron, slot, deck_index = 0, 0, 0
     worker, card_index = 0, -1
     cursor = (5, 5)
@@ -185,6 +207,10 @@ def run_tabletop(screen: curses.window, state) -> None:
                 collection["deck"] = [card for role in collection["roles"] for card in office_catalog()[0][role]["starter_deck"]]
             elif normalized == ord("d"):
                 mode = "deck"
+            elif normalized == ord("p"):
+                collection = collection_for(state, state.courier.id)
+                doctrines = list(load_catalog().doctrines)
+                collection["doctrine"] = doctrines[(doctrines.index(collection["doctrine"]) + 1) % len(doctrines)]
             elif normalized in (10, 13) and people:
                 try:
                     match = start_match(state, people[selected_patron % len(people)].id)
@@ -211,6 +237,24 @@ def run_tabletop(screen: curses.window, state) -> None:
                     message = "Keep at least twenty cards and select one in the deck."
                 else:
                     collection["deck"].remove(card_id)
+            elif normalized == ord("m") and available:
+                card_id = available[deck_index % len(available)]
+                if not any(item["card_id"] == card_id for item in load_catalog().masteries.values()):
+                    message = "This card has no mastery branches."
+                else:
+                    current = collection["masteries"].get(card_id)
+                    if current == "coverage":
+                        collection["masteries"].pop(card_id)
+                    else:
+                        collection["masteries"][card_id] = "engine" if current is None else "coverage"
+            elif normalized == ord("i") and available:
+                card_id = available[deck_index % len(available)]
+                infusions = list(load_catalog().infusions)
+                current = collection["infusions"].get(card_id)
+                if current == infusions[-1]:
+                    collection["infusions"].pop(card_id)
+                else:
+                    collection["infusions"][card_id] = infusions[0] if current is None else infusions[infusions.index(current) + 1]
         else:
             match = state.tabletop["active_match"]
             if normalized in (ord("q"), 27):

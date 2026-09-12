@@ -10,7 +10,7 @@ from jomon.inventory import (
     protection_at, terrain_status_for, worn_tags,
 )
 from jomon.materials import advance_materials, affect_body
-from jomon.state import MaterialCell, Position, TerrainStatus, Threat, create_world, game_state_from_dict
+from jomon.state import MaterialCell, Position, SAVE_FORMAT, TerrainStatus, Threat, create_world, game_state_from_dict
 from jomon.terminal import OverlayView, _draw_dialogue_overlay
 from jomon.world import sight_radius
 from test_information_panels import PanelSink
@@ -261,7 +261,7 @@ class WorkingClothingTests(unittest.TestCase):
         original = self.base.to_dict()
         original["save_format"] = 6
         loaded = game_state_from_dict(original)
-        self.assertEqual(loaded.save_format, 7)
+        self.assertEqual(loaded.save_format, SAVE_FORMAT)
         self.assertEqual(loaded.items, self.base.items)
         self.assertEqual(loaded.region.containers, self.base.region.containers)
 
