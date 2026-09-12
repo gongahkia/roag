@@ -309,7 +309,7 @@ def play_card(match: dict, card_index: int, actor_id: str, target_id: str | None
             if mastery:
                 branch = mastery["branches"][0]
                 effects = tuple({**effect, "amount": effect.get("amount", 0) + (branch["amount"] if index == branch["effect_index"] else 0)} for index, effect in enumerate(effects))
-        if infusion_mode == "front_discount" and actor["x"] >= 15 if side == 0 else actor["x"] <= 25:
+        if infusion_mode == "front_discount" and (actor["x"] >= 15 if side == 0 else actor["x"] <= 25):
             cost = max(0, cost - 1)
         if infusion_mode == "rear_discount" and (actor["x"] <= 15 if side == 0 else actor["x"] >= 25):
             cost = max(0, cost - 1)
