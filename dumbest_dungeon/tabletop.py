@@ -585,7 +585,7 @@ def initial_collection() -> dict:
             cards[card_id] = max(cards.get(card_id, 0), role["starter_deck"].count(card_id))
     selected = list(roles)[:4]
     return {"roles": selected, "cards": cards, "deck": _side_deck(selected),
-            "masteries": {}, "infusions": {}, "doctrine": "base:rolling_dance",
+            "masteries": {}, "infusions": {}, "doctrine": "base:mark_window",
             "wins": 0, "losses": 0, "draws": 0}
 
 

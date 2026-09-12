@@ -28,8 +28,8 @@ def _draw_lobby(screen: curses.window, state, selected: int, slot: int, message:
     courier = state.courier
     collection = collection_for(state, courier.id)
     _put(screen, 0, 1, "DULLEST DUNGEON  /  THE COMPANY OF NECESSARY COPIES", curses.A_BOLD)
-    _put(screen, 2, 2, "A painted board of desks, files and absurdly serious office workers.")
-    _put(screen, 3, 2, "Jomon's people wager bragging rights over a world with no river at all.")
+    _put(screen, 2, 2, "A generated office dungeon, two parties, and rival confidential files.")
+    _put(screen, 3, 2, "You command four specialists; a tavern patron commands the other four.")
     _put(screen, 5, 2, f"Courier: {courier.name}  Strategy: {courier.strategy}/20 (record only)")
     _put(screen, 6, 2, f"Record: {collection['wins']}W {collection['losses']}L {collection['draws']}D   Cards: {len(collection['cards'])}/290")
     doctrine_ids = list(load_catalog().doctrines)

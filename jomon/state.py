@@ -21,7 +21,7 @@ from .content import (
     ROLES,
 )
 
-SAVE_FORMAT = 8
+SAVE_FORMAT = 9
 HISTORY_LIMIT = 40
 MESSAGE_LIMIT = 8
 
@@ -948,6 +948,14 @@ def _migrate_v7(data: dict[str, Any]) -> dict[str, Any]:
     return migrated
 
 
+def _migrate_v8(data: dict[str, Any]) -> dict[str, Any]:
+    """Discard the superseded small-board game without touching Jomon progress."""
+    migrated = copy.deepcopy(data)
+    migrated["save_format"] = 9
+    migrated["tabletop"] = {"collections": {}, "records": [], "active_match": None}
+    return migrated
+
+
 def game_state_from_dict(data: Any) -> GameState:
     if not isinstance(data, dict):
         raise StateError("save root must be an object")
@@ -964,6 +972,8 @@ def game_state_from_dict(data: Any) -> GameState:
         data = _migrate_v6(data)
     if data.get("save_format") == 7:
         data = _migrate_v7(data)
+    if data.get("save_format") == 8:
+        data = _migrate_v8(data)
     if data.get("save_format") != SAVE_FORMAT:
         raise StateError(f"incompatible save format; expected {SAVE_FORMAT}")
     raw_region_threats = data.get(
@@ -1288,10 +1298,10 @@ def validate_state(state: GameState) -> None:
         validate_aftermath(state)
     except ValueError as exc:
         raise StateError(f"invalid material state: {exc}") from exc
-    from dumbest_dungeon.tabletop import validate_tabletop
+    from dumbest_dungeon.expedition import validate_expedition
 
     try:
-        validate_tabletop(state)
+        validate_expedition(state)
     except (KeyError, TypeError, ValueError) as exc:
         raise StateError(f"invalid Dullest Dungeon state: {exc}") from exc
     if len(state.household) < 6 or len({person.id for person in state.household}) != len(state.household):

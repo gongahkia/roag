@@ -3246,9 +3246,9 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
             elif result.overlay == "route-chart":
                 route_view = RouteChartView.begin(state)
             elif result.overlay == "tabletop":
-                from dumbest_dungeon.tabletop_ui import run_tabletop
+                from dumbest_dungeon.expedition_ui import run_expedition
 
-                run_tabletop(screen, state)
+                run_expedition(screen, state)
             else:
                 overlay = OverlayView(result.overlay) if result.overlay else None
         elif normalized == ord("a"):

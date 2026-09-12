@@ -59,6 +59,42 @@ DEPARTMENTS = (
     "Information Technology", "The Boardroom", "The Basement",
 )
 
+OFFICE_BIOMES = dict(zip((
+    "derelict", "cryogenic", "hydroponic", "foundry", "reactor", "fungal",
+    "flooded", "storm", "archive", "void", "ossuary",
+), (
+    "Records Retention", "Climate Control", "Office Garden", "Copier Works",
+    "Accounts Payable", "The Breakroom", "Basement Archive", "Information Technology",
+    "Compliance", "Remote Work Wing", "Ergonomics",
+)))
+
+OFFICE_WORLDS = {
+    "orison": "The Annex", "cinder_ark": "The Filing Spine",
+    "bloom_labyrinth": "The Cubicle Maze", "pelagic_grave": "The Basement Ring",
+    "ivory_engine": "The Executive Zigzag", "fracture_field": "The Split-Level Office",
+}
+
+
+def office_facility_option(effect_ops: set[str], cost: dict) -> str:
+    """Display office-fantasy choices without changing facility costs or effects."""
+    priority = (
+        ("suppress_hazard", "File a safety exception"),
+        ("reveal_biome", "Review the department floorplan"),
+        ("stabilize_terrain", "Mark a safe corridor"),
+        ("heal_all", "Arrange a wellness break"),
+        ("cleanse_all", "Purge open complaints"),
+        ("remove_random", "Shred a liability"),
+        ("item_random", "Claim surplus equipment"),
+        ("status_all", "Circulate a staff memo"),
+        ("supplies", "Requisition office supplies"),
+        ("light", "Restore the office lighting"),
+        ("stress_all", "Accept the overtime burden"),
+    )
+    label = next((name for op, name in priority if op in effect_ops), "Process the service request")
+    if cost.get("resource") == "supplies" and cost.get("amount"):
+        label += f" ({cost['amount']} supply)"
+    return label
+
 INFUSION_NAMES = (
     "Sticky Note", "Shred After Reading", "Long Staple", "Front Desk Pass",
     "Back Office Pass", "Sick-Day Form", "Empty Chair Policy", "Morning Memo",

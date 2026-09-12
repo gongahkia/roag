@@ -1,227 +1,244 @@
-"""The tabletop game is a bounded, resumable part of Jomon."""
+"""The tavern expedition uses the imported map and symmetric ranked card rules."""
 
 import copy
 import curses
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
+from dumbest_dungeon.content import load_catalog
+from dumbest_dungeon.engine import GameEngine
+import dumbest_dungeon.expedition as expedition
+from dumbest_dungeon.expedition_ui import run_expedition
 from dumbest_dungeon.office_content import office_catalog
-from dumbest_dungeon.tabletop import (
-    _board, _knockout, _path, collection_for, end_turn, finish_match, new_match,
-    patron_turn, patrons, play_card, start_match, validate_tabletop,
-)
-from dumbest_dungeon.tabletop_ui import run_tabletop
+from dumbest_dungeon.tabletop import collection_for, patrons
 from jomon.actions import interact
-from jomon.save import load_game, save_game
+from jomon.save import SaveError, load_game, save_game
 from jomon.state import Position, SAVE_FORMAT, create_world, game_state_from_dict, validate_state
 from jomon.world import is_walkable
 
 
-class TabletopRulesTests(unittest.TestCase):
+class ExpeditionRulesTests(unittest.TestCase):
     def setUp(self):
-        self.roles = list(office_catalog()[0])
-        self.match = new_match("tabletop-rules", "crew-1", "crew-2", self.roles[:4], self.roles[4:8])
+        self.catalog = load_catalog()
+        self.roles = list(self.catalog.heroes)
+        self.match = expedition.new_match("expedition-rules", "crew-1", "crew-2", self.roles[:4], self.roles[4:8])
 
-    def test_all_imported_roles_and_cards_have_office_faces(self):
+    def test_all_imported_specialists_and_cards_have_office_faces(self):
         roles, cards = office_catalog()
         self.assertEqual((len(roles), len(cards)), (25, 290))
+        self.assertEqual(set(cards), set(self.catalog.cards))
         self.assertTrue(all(card.name and card.description and card.role in roles for card in cards.values()))
 
-    def test_every_imported_card_resolves_on_the_spatial_board(self):
-        roles, cards = office_catalog()
-        roster = list(roles)
-        failures = []
-        for card in cards.values():
-            team = [card.role] + [role for role in roster if role != card.role][:3]
-            opponents = [role for role in roster if role not in team][:4]
-            match = new_match(card.id, "crew-1", "crew-2", team, opponents)
-            match["patron_name"], match["season"] = "Patron", "1:spring"
-            match["pieces"][0]["x"], match["pieces"][0]["y"] = 20, 7
-            match["pieces"][4]["x"], match["pieces"][4]["y"] = 23, 7
-            match["sides"][0]["hand"] = [card.id]
-            match["sides"][0]["doctrine"] = "base:mark_window"
-            match["energy"] = 5
-            try:
-                play_card(match, 0, "0:0", "1:0" if card.target in ("enemy", "all_enemies") else "0:0", (21, 7))
-                state = SimpleNamespace(household=[SimpleNamespace(id="crew-1")], tabletop={"collections": {}, "records": [], "active_match": match})
-                validate_tabletop(state)
-            except (KeyError, TypeError, ValueError) as exc:
-                failures.append((card.id, str(exc)))
-        self.assertEqual(failures, [])
-
-    def test_six_boards_are_mirrored_and_each_side_can_reach_both_files(self):
-        for layout in range(6):
-            match = new_match(f"layout-{layout}", "crew-1", "crew-2", self.roles[:4], self.roles[4:8])
-            match["board"] = _board(layout)
-            self.assertTrue(all(row == row[::-1] for row in match["board"]))
-            self.assertTrue(all(match["board"][piece["y"]][piece["x"]] != "#" for piece in match["pieces"]))
-            for piece in (match["pieces"][0], match["pieces"][4]):
-                for file in match["files"]:
-                    self.assertTrue(_path(match, (piece["x"], piece["y"]), tuple(file["home"]), piece["id"]))
-
-    def test_commute_is_a_card_action_and_invalid_move_is_atomic(self):
-        before = copy.deepcopy(self.match)
-        with self.assertRaises(ValueError):
-            play_card(self.match, -1, "0:0", destination=(0, 0))
-        self.assertEqual(self.match, before)
-        play_card(self.match, -1, "0:0", destination=(5, 5))
-        self.assertEqual((self.match["pieces"][0]["x"], self.match["energy"]), (5, 2))
-
-    def test_worker_specific_card_mastery_and_treatment_change_real_effects(self):
+    def test_original_map_and_neutral_features_are_used(self):
         match = self.match
-        side = match["sides"][0]
-        side["hand"] = ["crossguard"]
-        side["masteries"]["crossguard"] = "engine"
-        side["infusions"]["crossguard"] = "base:followthrough_ink"
-        before_draw = len(side["draw"])
-        with self.assertRaisesRegex(ValueError, "another office worker"):
-            play_card(match, 0, "0:1", "0:0")
-        play_card(match, 0, "0:0", "0:1")
-        self.assertEqual(match["pieces"][0]["block"], 9)
-        self.assertTrue(match["pieces"][1]["guard"])
-        self.assertEqual(len(side["draw"]), before_draw - 1)
+        generated = GameEngine.new(self.catalog, match["world_seed"], start_in_hub=True).state
+        self.assertEqual(match["board"], generated.world_tiles)
+        self.assertEqual((len(match["board"]), len(match["board"][0])), (35, 117))
+        self.assertEqual(match["room_positions"], generated.room_positions)
+        self.assertEqual(len(match["hazards"]), len(generated.hazards))
+        self.assertEqual(len(match["facilities"]), len(generated.facilities))
+        self.assertEqual(len(match["pickups"]), len(generated.pickups))
+        self.assertEqual(len(match["teams"]), 2)
+        self.assertTrue(all(len(team["actors"]) == 4 for team in match["teams"]))
+        self.assertNotIn("patrols", match)
+        self.assertNotIn("objectives", match)
 
-    def test_group_card_hits_each_rival_and_conditional_card_waits_for_injury(self):
-        match = self.match
-        match["sides"][0]["hand"] = ["suppressing_burst", "last_bulwark"]
-        match["sides"][0]["doctrine"] = "base:mark_window"
-        for index, rival in enumerate(match["pieces"][4:]):
-            rival["x"], rival["y"] = 6 + index, 5
-        play_card(match, 0, "0:0", "1:0")
-        self.assertTrue(all(piece["hp"] < piece["max_hp"] for piece in match["pieces"][4:]))
-        self.assertEqual(match["energy"], 1)
-        play_card(match, 0, "0:0")
-        self.assertEqual(match["pieces"][0]["block"], 0)
+    def test_all_six_original_layouts_remain_reachable(self):
+        layouts = set()
+        for seed in range(80):
+            match = expedition.new_match(str(seed), "crew-1", "crew-2", self.roles[:4], self.roles[4:8])
+            layouts.add(self.catalog.worlds[match["world_id"]]["layout"])
+            self.assertTrue(expedition.path_to(match, 0, tuple(match["files"][1]["home"])))
+            self.assertTrue(expedition.path_to(match, 1, tuple(match["files"][0]["home"])))
+            if len(layouts) == 6:
+                break
+        self.assertEqual(len(layouts), 6)
 
-    def test_steal_hold_scoring_and_knockout_drops_file(self):
+    def test_weighted_destination_order_and_atomic_invalid_move(self):
         match = self.match
-        runner = match["pieces"][0]
-        runner["x"], runner["y"] = 27, 7
-        play_card(match, -1, runner["id"], destination=(28, 7))
-        self.assertEqual(match["files"][1]["carrier"], runner["id"])
-        runner["x"], runner["y"] = 12, 7
-        end_turn(match)
+        destination = tuple(match["files"][1]["home"])
+        before = copy.deepcopy(match)
+        with self.assertRaisesRegex(ValueError, "at most"):
+            expedition.move_to(match, destination)
+        self.assertEqual(match, before)
+        leg = expedition._ai_destination(match, destination)
+        self.assertIsNotNone(leg)
+        walked = expedition.move_to(match, leg)
+        self.assertTrue(walked)
+        self.assertEqual(match["teams"][0]["orders"], 1)
+        self.assertEqual(expedition._position(match, 0), walked[-1])
+        costs = {terrain["glyph"]: terrain["cost"] for terrain in self.catalog.terrains.values()}
+        self.assertLessEqual(sum(costs[match["board"][y][x]] for x, y in walked), expedition.ORDER_TICKS)
+
+    def test_contact_opens_ranked_combat_and_both_parties_use_cards(self):
+        match = self.match
+        origin = tuple(match["files"][0]["home"])
+        match["teams"][1]["position"] = [origin[0] + 2, origin[1]]
+        expedition.move_to(match, (origin[0] + 1, origin[1]))
+        self.assertEqual(match["phase"], "combat")
+        self.assertTrue(match["teams"][0]["hand"])
+        expedition.end_turn(match)
+        self.assertEqual(match["turn"], 1)
+        self.assertTrue(match["teams"][1]["hand"])
+        expedition.patron_turn(match)
+        self.assertEqual(match["phase"], "map")
+        self.assertEqual(match["round"], 2)
+
+    def test_original_rank_and_target_rules_apply_to_both_sides(self):
+        match = self.match
+        match["phase"] = "combat"
+        match["teams"][0]["hand"] = ["baton_strike"]
+        targets = expedition.valid_targets(match, 0)
+        self.assertEqual(targets, [actor["id"] for actor in match["teams"][1]["actors"][:2]])
+        before = copy.deepcopy(match)
+        with self.assertRaisesRegex(ValueError, "ranked target"):
+            expedition.play_card(match, 0, match["teams"][1]["actors"][3]["id"])
+        self.assertEqual(match, before)
+        target = match["teams"][1]["actors"][0]
+        hp = target["hp"]
+        expedition.play_card(match, 0, target["id"])
+        self.assertEqual(target["hp"], hp - 7)
+        match["turn"] = 1
+        match["teams"][1]["actors"][0]["role"] = "warden"
+        match["teams"][1]["hand"] = ["baton_strike"]
+        self.assertTrue(expedition.valid_targets(match, 0))
+
+    def test_file_hold_ko_drop_and_two_turn_return(self):
+        match = self.match
+        carrier = match["teams"][0]["actors"][0]
+        match["files"][1]["carrier"] = carrier["id"]
+        expedition.end_turn(match)
         self.assertEqual(match["pending_score"], 0)
         self.assertEqual(match["scores"], [0, 0])
-        _knockout(match, runner)
-        self.assertEqual(match["files"][1]["dropped"], [12, 7])
-        end_turn(match)
+        expedition._knockout(match, carrier)
+        self.assertEqual(match["files"][1]["dropped"], match["files"][0]["home"])
+        self.assertIsNone(match["pending_score"])
+        expedition.end_turn(match)
         self.assertEqual(match["scores"], [0, 0])
-        self.assertEqual(runner["respawn"], 1)
+        self.assertEqual(carrier["respawn"], 1)
+        expedition.end_turn(match)
+        expedition.end_turn(match)
+        self.assertEqual(carrier["respawn"], 0)
+        self.assertEqual(carrier["hp"], carrier["max_hp"])
 
-    def test_uninterrupted_approval_scores_after_rival_turn(self):
+    def test_uninterrupted_file_scores_after_rival_turn(self):
         match = self.match
-        runner = match["pieces"][0]
-        runner["x"], runner["y"] = 27, 7
-        play_card(match, -1, runner["id"], destination=(28, 7))
-        runner["x"], runner["y"] = 12, 7
-        end_turn(match)
-        end_turn(match)
+        match["files"][1]["carrier"] = match["teams"][0]["actors"][0]["id"]
+        expedition.end_turn(match)
+        self.assertEqual(match["scores"], [0, 0])
+        expedition.end_turn(match)
         self.assertEqual(match["scores"], [1, 0])
         self.assertIsNone(match["files"][1]["carrier"])
 
-    def test_patron_uses_legal_card_actions_and_overtime_finishes(self):
+    def test_first_to_two_and_exact_18_plus_4_limit(self):
         match = self.match
-        while match["winner"] is None:
-            end_turn(match)
-            if match["winner"] is None:
-                patron_turn(match)
-        self.assertIn(match["winner"], (0, 1, "draw"))
-        self.assertLessEqual(match["round"], 23)
-        self.assertTrue(any("files" in line for line in match["log"]) or sum(match["scores"]) > 0)
+        match["scores"][0] = 1
+        match["files"][1]["carrier"] = match["teams"][0]["actors"][0]["id"]
+        expedition.end_turn(match)
+        expedition.end_turn(match)
+        self.assertEqual(match["winner"], 0)
+        draw = expedition.new_match("overtime", "crew-1", "crew-2", self.roles[:4], self.roles[4:8])
+        while draw["winner"] is None:
+            expedition.end_turn(draw)
+        self.assertEqual(draw["winner"], "draw")
+        self.assertEqual(draw["round"], expedition.MAX_ROUNDS + 4 + 1)
+
+    def test_pickups_and_facilities_offer_choices(self):
+        match = self.match
+        pickup = next(item for item in match["pickups"] if item["kind"] in ("boon", "bargain"))
+        match["teams"][0]["position"] = [pickup["x"], pickup["y"]]
+        expedition._arrival(match, 0)
+        if match["pending"]["kind"] == "boon":
+            expedition.choose_reward(match, 0)
+            self.assertEqual(match["pending"]["kind"], "recipient")
+            expedition.choose_reward(match, 0)
+        self.assertEqual(match["pending"]["kind"], "draft")
+        before = len(match["teams"][0]["deck"])
+        expedition.choose_reward(match, 0)
+        self.assertEqual(len(match["teams"][0]["deck"]), before + 1)
+        facility = next(item for item in match["facilities"] if not item["used"])
+        match["teams"][0]["position"] = [facility["x"], facility["y"]]
+        expedition._arrival(match, 0)
+        self.assertEqual(match["pending"]["kind"], "facility")
+        expedition.choose_reward(match, 0)
+        self.assertTrue(facility["used"])
 
 
 class TavernIntegrationTests(unittest.TestCase):
     def setUp(self):
-        self.state = create_world("tabletop-integration")
+        self.state = create_world("expedition-integration")
         self.state.jomon_space = "tavern"
         self.state.position = Position(31, 4)
 
-    def test_table_is_physical_and_start_costs_exactly_one_world_action(self):
+    def test_table_is_physical_and_match_freezes_jomon_time(self):
         self.assertTrue(is_walkable(self.state, self.state.position))
         self.assertEqual(interact(self.state).overlay, "tabletop")
-        self.assertTrue(patrons(self.state))
         before = self.state.world_time
-        match = start_match(self.state, patrons(self.state)[0].id)
+        match = expedition.start_match(self.state, patrons(self.state)[0].id)
         self.assertEqual(self.state.world_time, before + 1)
-        play_card(match, -1, "0:0", destination=(5, 5))
-        end_turn(match)
-        patron_turn(match)
+        expedition.end_turn(match)
+        expedition.patron_turn(match)
         self.assertEqual(self.state.world_time, before + 1)
 
-    def test_atomic_parent_save_resumes_match_rng_and_queue(self):
-        match = start_match(self.state, patrons(self.state)[0].id)
-        play_card(match, -1, "0:0", destination=(5, 5))
+    def test_atomic_jomon_save_resumes_generated_match(self):
+        match = expedition.start_match(self.state, patrons(self.state)[0].id)
+        leg = expedition._ai_destination(match, tuple(match["files"][1]["home"]))
+        self.assertIsNotNone(leg)
+        expedition.move_to(match, leg)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "jomon.json"
             save_game(self.state, path)
             resumed = load_game(path)
         self.assertEqual(resumed.tabletop["active_match"], self.state.tabletop["active_match"])
-        end_turn(self.state.tabletop["active_match"])
-        patron_turn(self.state.tabletop["active_match"])
-        end_turn(resumed.tabletop["active_match"])
-        patron_turn(resumed.tabletop["active_match"])
+        expedition.end_turn(self.state.tabletop["active_match"])
+        expedition.patron_turn(self.state.tabletop["active_match"])
+        expedition.end_turn(resumed.tabletop["active_match"])
+        expedition.patron_turn(resumed.tabletop["active_match"])
         self.assertEqual(resumed.tabletop["active_match"], self.state.tabletop["active_match"])
 
-    def test_format_seven_migrates_without_replacing_jomon_state(self):
+    def test_format_eight_discards_board_game_only(self):
         original = self.state.to_dict()
-        original["save_format"] = 7
-        original.pop("tabletop")
-        for person in original["household"]:
-            person.pop("strategy")
-        original["bartender"].pop("strategy")
-        original["merchant"].pop("strategy")
-        for person in original["visitors"]:
-            person.pop("strategy")
+        original["save_format"] = 8
+        original["tabletop"] = {"collections": {"old": "board"}, "records": ["old"], "active_match": {"version": 1}}
         migrated = game_state_from_dict(original)
         self.assertEqual(migrated.save_format, SAVE_FORMAT)
         self.assertEqual(migrated.region.levels, self.state.region.levels)
         self.assertEqual(migrated.items, self.state.items)
         self.assertEqual(migrated.tabletop, {"collections": {}, "records": [], "active_match": None})
 
-    def test_first_win_per_patron_season_only_grants_bounded_existing_rewards(self):
+    def test_first_win_reward_is_bounded_per_patron_and_season(self):
         patron = patrons(self.state)[0]
         courier = self.state.courier
         initial_credit = self.state.trade_credit
         initial_relation = patron.relationships.get(courier.id, 0)
         collection_for(self.state, courier.id)
-        first = start_match(self.state, patron.id)
-        first["winner"] = 0
-        self.assertEqual(finish_match(self.state), "win")
+        match = expedition.start_match(self.state, patron.id)
+        match["winner"] = 0
+        self.assertEqual(expedition.finish_match(self.state), "win")
         self.assertEqual(self.state.trade_credit, initial_credit + 1)
         self.assertEqual(courier.strategy, 1)
         self.assertEqual(patron.relationships[courier.id], min(3, initial_relation + 1))
-        second = start_match(self.state, patron.id)
-        second["winner"] = 0
-        finish_match(self.state)
+        match = expedition.start_match(self.state, patron.id)
+        match["winner"] = 0
+        expedition.finish_match(self.state)
         self.assertEqual(self.state.trade_credit, initial_credit + 1)
-        self.assertEqual(courier.strategy, 1)
         validate_state(self.state)
+
+    def test_tampered_generated_map_is_rejected_at_load(self):
+        match = expedition.start_match(self.state, patrons(self.state)[0].id)
+        match["board"][17] = " " * 117
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "jomon.json"
             save_game(self.state, path)
-            loaded = load_game(path)
-        self.assertEqual(loaded.courier.strategy, 1)
-        self.assertEqual(loaded.tabletop["records"], self.state.tabletop["records"])
-
-    def test_invalid_office_snapshot_is_rejected_at_load(self):
-        match = start_match(self.state, patrons(self.state)[0].id)
-        match["pieces"][0]["x"] = 0
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "jomon.json"
-            save_game(self.state, path)
-            from jomon.save import SaveError
-
-            with self.assertRaisesRegex(SaveError, "invalid office worker"):
+            with self.assertRaisesRegex(SaveError, "generated seed"):
                 load_game(path)
 
-    def test_keyboard_can_start_play_and_leave_a_resumable_match(self):
+    def test_keyboard_starts_and_leaves_a_resumable_match_with_map(self):
         class Screen:
             def __init__(self):
-                self.keys = iter((13, ord("?"), ord("k"), ord("0"), curses.KEY_MOUSE, 13, ord("q")))
+                self.keys = iter((13, ord("2"), 13, ord("q")))
                 self.drawn = []
 
             def getmaxyx(self):
@@ -233,19 +250,26 @@ class TavernIntegrationTests(unittest.TestCase):
             def refresh(self):
                 pass
 
+            def keypad(self, enabled):
+                pass
+
             def addnstr(self, y, x, value, count, attr=0):
                 self.drawn.append(value[:count])
+
+            def addstr(self, y, x, value, attr=0):
+                self.drawn.append(value)
 
             def getch(self):
                 return next(self.keys)
 
         screen = Screen()
-        with patch("curses.getmouse", return_value=(0, 6, 7, 0, curses.BUTTON1_CLICKED)):
-            run_tabletop(screen, self.state)
-        self.assertIsNotNone(self.state.tabletop["active_match"])
-        self.assertEqual(self.state.tabletop["active_match"]["pieces"][0]["x"], 5)
+        with patch("curses.curs_set"), patch("curses.has_colors", return_value=False), patch("curses.napms"):
+            run_expedition(screen, self.state)
+        match = self.state.tabletop["active_match"]
+        self.assertIsNotNone(match)
+        self.assertEqual(len(match["board"][0]), 117)
         self.assertTrue(any("DULLEST DUNGEON" in line for line in screen.drawn))
-        self.assertTrue(any("CARD AND RULES" in line for line in screen.drawn))
+        self.assertTrue(any("auto-path" in line for line in screen.drawn))
 
 
 if __name__ == "__main__":
