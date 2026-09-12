@@ -21,7 +21,7 @@ from .content import (
     ROLES,
 )
 
-SAVE_FORMAT = 7
+SAVE_FORMAT = 8
 HISTORY_LIMIT = 40
 MESSAGE_LIMIT = 8
 
@@ -58,6 +58,7 @@ class Person:
     available: bool = True
     memories: list[str] = field(default_factory=list)
     recruitment_terms: str = "A free adult may accept or refuse a witnessed berth."
+    strategy: int = 0
 
 
 @dataclass
@@ -488,6 +489,7 @@ class GameState:
     legendary_objects: dict[str, LegendaryObject] = field(default_factory=dict)
     aftermath_quests: dict[str, QuestProgress] = field(default_factory=dict)
     regional_contracts: dict[str, RegionalContract] = field(default_factory=dict)
+    tabletop: dict[str, Any] = field(default_factory=lambda: {"collections": {}, "records": [], "active_match": None})
 
     @property
     def combat_active(self) -> bool:
@@ -939,6 +941,13 @@ def _migrate_v6(data: dict[str, Any]) -> dict[str, Any]:
     return migrated
 
 
+def _migrate_v7(data: dict[str, Any]) -> dict[str, Any]:
+    migrated = copy.deepcopy(data)
+    migrated["save_format"] = 8
+    migrated["tabletop"] = {"collections": {}, "records": [], "active_match": None}
+    return migrated
+
+
 def game_state_from_dict(data: Any) -> GameState:
     if not isinstance(data, dict):
         raise StateError("save root must be an object")
@@ -953,6 +962,8 @@ def game_state_from_dict(data: Any) -> GameState:
         data = _migrate_v5(data)
     if data.get("save_format") == 6:
         data = _migrate_v6(data)
+    if data.get("save_format") == 7:
+        data = _migrate_v7(data)
     if data.get("save_format") != SAVE_FORMAT:
         raise StateError(f"incompatible save format; expected {SAVE_FORMAT}")
     raw_region_threats = data.get(
@@ -1168,6 +1179,7 @@ def game_state_from_dict(data: Any) -> GameState:
                 for key, value in data.get("aftermath_quests", {}).items()
             },
             regional_contracts=regional_contracts,
+            tabletop=data.get("tabletop", {"collections": {}, "records": [], "active_match": None}),
         )
         if migrated_v3:
             from .inventory import initialise_inventory, reconcile_legacy_carried, sync_legacy_load
@@ -1266,6 +1278,7 @@ def validate_state(state: GameState) -> None:
     from .worklines import validate as validate_worklines
     from .legendary import validate_legends
     from .aftermath import validate_aftermath
+    from dumbest_dungeon.tabletop import validate_tabletop
 
     try:
         validate_materials(state)
@@ -1274,6 +1287,7 @@ def validate_state(state: GameState) -> None:
         validate_worklines(state)
         validate_legends(state)
         validate_aftermath(state)
+        validate_tabletop(state)
     except ValueError as exc:
         raise StateError(f"invalid material state: {exc}") from exc
     if len(state.household) < 6 or len({person.id for person in state.household}) != len(state.household):

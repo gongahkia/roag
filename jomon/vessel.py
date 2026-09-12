@@ -103,6 +103,7 @@ def _tavern_map() -> tuple[str, ...]:
         grid[cy][cx] = "t"
         for dx, dy in ((-2, 0), (2, 0), (0, -2), (0, 2)):
             grid[cy + dy][cx + dx] = "_"
+    grid[4][31] = "D"
     return tuple("".join(row) for row in grid)
 
 
