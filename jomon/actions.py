@@ -1926,6 +1926,8 @@ def interact(state: GameState) -> ActionResult:
             return _plain(state, "You step from the common tavern onto Jomon's working deck.", changed=True)
         if state.jomon_space == "tavern" and tile == "D":
             return ActionResult(False, False, "The Dullest Dungeon box opens on the table.", "tabletop")
+        if state.jomon_space == "tavern" and tile == "P":
+            return ActionResult(False, False, "The draw-poker cards and counted stakes are ready.", "tavern-draw")
         if state.jomon_space == "vessel":
             destination = vessel_vertical_destination(state.position)
             if destination:

@@ -494,6 +494,7 @@ class GameState:
     aftermath_quests: dict[str, QuestProgress] = field(default_factory=dict)
     regional_contracts: dict[str, RegionalContract] = field(default_factory=dict)
     tabletop: dict[str, Any] = field(default_factory=lambda: {"collections": {}, "records": [], "active_match": None})
+    tavern_draw: dict[str, Any] = field(default_factory=lambda: {"hand_number": 0, "bankrolls": {}, "active_hand": None, "records": []})
 
     @property
     def combat_active(self) -> bool:
@@ -1194,6 +1195,7 @@ def game_state_from_dict(data: Any) -> GameState:
             },
             regional_contracts=regional_contracts,
             tabletop=data.get("tabletop", {"collections": {}, "records": [], "active_match": None}),
+            tavern_draw=data.get("tavern_draw", {"hand_number": 0, "bankrolls": {}, "active_hand": None, "records": []}),
         )
         if migrated_v3:
             from .inventory import initialise_inventory, reconcile_legacy_carried, sync_legacy_load
@@ -1308,6 +1310,12 @@ def validate_state(state: GameState) -> None:
         validate_expedition(state)
     except (KeyError, TypeError, ValueError) as exc:
         raise StateError(f"invalid Dullest Dungeon state: {exc}") from exc
+    from .tavern_draw import validate_tavern_draw
+
+    try:
+        validate_tavern_draw(state)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise StateError(f"invalid tavern draw state: {exc}") from exc
     if len(state.household) < 6 or len({person.id for person in state.household}) != len(state.household):
         raise StateError("save must retain the six-person household and unique recruits")
     if state.active_courier_id is not None and state.courier is None:

@@ -28,6 +28,12 @@ original generated-map expedition now hosts one competitive file-capture mode.
 The imported Dullest Dungeon package launches Jomon rather than a separate
 campaign. See [the game and lore guide](docs/dullest-dungeon.md).
 
+A separate `P` chair at the left-hand tavern table opens four-seat
+[Tavern Draw](docs/tavern-draw.md): five-card draw against three named adults
+currently in the tavern, with free practice or bounded trade-credit wagers.
+Its cards use a framed presentation adapted within tavern-only code; the
+Dullest Dungeon game is unchanged.
+
 The terminal must be at least 80 columns by 24 rows. Jomon shows a resize
 message below that size and uses `curses.wrapper()` to restore the terminal on
 normal exit and exceptions.

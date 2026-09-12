@@ -3253,6 +3253,10 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
                 from dumbest_dungeon.expedition_ui import run_expedition
 
                 run_expedition(screen, state)
+            elif result.overlay == "tavern-draw":
+                from .tavern_draw_ui import run_tavern_draw
+
+                run_tavern_draw(screen, state)
             else:
                 overlay = OverlayView(result.overlay) if result.overlay else None
         elif normalized == ord("a"):

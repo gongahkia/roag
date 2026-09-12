@@ -11,6 +11,7 @@ from .vessel import (
     JOMON_GANGPLANK,
     TAVERN_MAP,
     TABLE_SURFACE,
+    DRAW_SURFACE,
     VESSEL_LEVELS,
     current_area,
     vessel_rows,
@@ -150,7 +151,7 @@ def is_walkable(state: GameState, position: Position, *, ignore_threat: bool = F
     tile = terrain if state.location == "region" else displayed_tile(state, position)
     if state.location == "jomon":
         blocked |= {"=", "t", "F", "f"}
-        if state.jomon_space == "tavern" and position in TABLE_SURFACE:
+        if state.jomon_space == "tavern" and position in TABLE_SURFACE | DRAW_SURFACE:
             return False
     if tile in blocked:
         return False
