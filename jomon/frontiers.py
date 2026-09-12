@@ -169,6 +169,9 @@ def build_frontier(seed: str, region_id: str) -> Region:
     containers = []
     layers = {-1: below, 0: ground, 1: upper, 2: roof}
     implements = [key for key, definition in WORK_WEAPONS.items() if region_id in definition.regions]
+    from .expanded_weapons import ARSENAL
+
+    new_arms = [key for key, definition in ARSENAL.items() if region_id in definition.regions]
     for index, (suffix, title, point, requirement) in enumerate(sites):
         if point.z == 0:
             _carve(ground, [point, min(anchors, key=lambda anchor: abs(anchor.x - point.x) + abs(anchor.y - point.y))])
@@ -178,6 +181,8 @@ def build_frontier(seed: str, region_id: str) -> Region:
         container.extra_rewards = [clothing[index % len(clothing)], "willow dressing" if index % 3 == 0 else "fletched arrows"]
         if index < len(implements):
             container.extra_rewards.append(implements[index])
+        if index % 2 == 0 and index // 2 < len(new_arms):
+            container.extra_rewards.append(new_arms[index // 2])
         if index < len(FRONTIER_DISCOVERIES[region_id]):
             container.extra_rewards.append(FRONTIER_DISCOVERIES[region_id][index])
         if index < len(FRONTIER_RELICS[region_id]):

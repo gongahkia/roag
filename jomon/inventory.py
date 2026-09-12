@@ -35,8 +35,11 @@ WEAPON_AMMUNITION = {
     "handgonne": "handgonne charges",
 }
 from .work_weapons import POT_AMMUNITION, WORK_WEAPONS
+from .expanded_weapons import ARSENAL, BOMB_AMMUNITION, ammunition_for
 
 AMMUNITION_ITEMS.update(POT_AMMUNITION)
+AMMUNITION_ITEMS.update(BOMB_AMMUNITION)
+WEAPON_AMMUNITION.update({name: ammunition_for(name) for name in ARSENAL if ammunition_for(name)})
 
 
 def release_enemy_possession(state: GameState, threat) -> str:
@@ -217,6 +220,23 @@ REGIONAL_ARMOUR = {
 ITEM_SPECS.update({name: ItemSpec(spec.name, "".join(word[0] for word in name.split()).upper()[:2], *spec.shape,
                                 spec.weight, "weapon", spec.description)
                    for name, spec in WORK_WEAPONS.items()})
+ITEM_SPECS.update({name: ItemSpec(name.title(), "".join(word[0] for word in name.split()).upper()[:2],
+                                2 if spec.family in {"gun", "device", "impact"} else 1,
+                                5 if spec.family in {"reach", "bow"} else 4 if spec.family == "gun" else 3,
+                                8 if spec.family == "gun" else 6 if spec.family in {"reach", "impact"} else 4,
+                                "weapon", spec.description)
+                   for name, spec in ARSENAL.items()})
+ITEM_SPECS.update({kind: ItemSpec(name.title(), "".join(word[0] for word in name.split()).upper()[:2],
+                                  2, 2, 2, "consumable", "One finite thrown payload; reacts at its landing.", stack_limit=3)
+                   for name, kind in BOMB_AMMUNITION.items()})
+from .chemistry import REAGENTS
+
+ITEM_SPECS["field flask"] = ItemSpec("Field flask", "FF", 1, 2, 2, "consumable", "A reusable four-measure physical vessel for freeform reagents.")
+ITEM_SPECS["skill journal"] = ItemSpec("Skill journal", "SJ", 1, 2, 1, "consumable", "A physical written lesson that another courier may study at the common deck.")
+ITEM_SPECS["component:iron billet"] = ItemSpec("Iron billet", "IB", 2, 1, 3, "consumable", "A finite smelted stock for accountable fabrication.", stack_limit=4)
+ITEM_SPECS.update({f"ingredient:{name}": ItemSpec(name.title(), "".join(word[0] for word in name.split()).upper()[:2],
+                                               1, 1, 1, "consumable", "One finite regional production ingredient; can enter a field flask.", stack_limit=4)
+                   for name in REAGENTS})
 for pot in POT_AMMUNITION.values():
     ITEM_SPECS[pot] = ItemSpec(pot.split(":", 1)[1].title(), "P" + pot.split()[1][0].upper(), 2, 2, 3,
                               "consumable", "A finite pot-sling payload; P chooses the packed payload in targeting.", stack_limit=2)
@@ -590,6 +610,17 @@ def item_preview(kind: str) -> tuple[str, str, str]:
     if kind in weapon_art:
         return weapon_art[kind]
     spec = item_spec(kind)
+    if kind in ARSENAL:
+        family = ARSENAL[kind].family
+        mark = spec.abbreviation
+        return {
+            "blade": ("   /==", f"  /{mark} ", " /    "),
+            "reach": ("----->", f"  {mark}  ", "   |  "),
+            "impact": (" [###]", f"  {mark}  ", "   |  "),
+            "bow": (" )--- ", f" ){mark}  ", " )--- "),
+            "gun": ("==[==]", f"  {mark}  ", "   || "),
+            "device": (" .---.", f"({mark:^5})", " `---'"),
+        }[family]
     if kind.startswith("evidence:"):
         return ("+----+", "| /# |", "+----+")
     if spec.category == "armour":
@@ -1246,6 +1277,9 @@ def initialise_inventory(state: GameState) -> None:
         item = create_item(state, kind, "Jomon household stores")
         if not auto_place(state, item.id, "locker"):
             raise RuntimeError("initial Jomon locker is too small")
+    flask = create_item(state, "field flask", "Jomon's counted field chemistry kit")
+    if not auto_place(state, flask.id, "locker"):
+        raise RuntimeError("initial Jomon locker cannot hold a field flask")
     for name, quantity in (
         ("crossbow bolts", 6), ("fletched arrows", 8),
         ("sling shot pouch", 10), ("quarrel case", 4),

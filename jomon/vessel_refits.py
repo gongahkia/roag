@@ -1,4 +1,4 @@
-"""Eight optional, material vessel refits attached to physical Jomon stations."""
+"""Optional material vessel refits attached to physical Jomon stations."""
 
 from __future__ import annotations
 
@@ -27,6 +27,9 @@ REFITS = {
         VesselRefit("winter-hatch-felt", "Winter hatch felt", "berths", "wool", 2, "Winter route exposure falls and aboard floodwater does not chill the courier.", "Felt does not prevent wetness, load, or regional cold."),
         VesselRefit("signal-mast-shutter", "Signal mast shutter", "lookout", "timber", 3, "Named signals answer lure and inspection voyages without specialist support.", "The visible answer records Jomon on the route account."),
         VesselRefit("sickbay-sling-cot", "Sickbay sling cot", "berths", "timber", 3, "A berth treatment can spend wool and six actions to clear one persistent injury.", "Treatment consumes time and material; it does not restore lost health."),
+        VesselRefit("vessel-field-forge", "Vessel field forge", "repair", "ironwork", 5, "The repair station can smelt and forge finite material while Jomon is moored.", "Heavy hot work is unavailable during a voyage or deck crisis."),
+        VesselRefit("vessel-glass-still", "Vessel glass still", "galley", "paper", 5, "The galley can brew and distil finite carried ingredients while moored.", "Its vessels still need gathered reagents and empty physical flasks."),
+        VesselRefit("vessel-gunworks", "Vessel gunworks", "storage", "ironwork", 7, "The storage station can fabricate guns and counted fictional charges while moored.", "Loud work and finite stock never create free ammunition."),
     )
 }
 
@@ -92,8 +95,8 @@ def install_refit(state, refit_id: str) -> tuple[bool, str]:
 
 
 def validate_refits() -> None:
-    if len(REFITS) != 8 or len(set(REFITS)) != 8 or len({refit.name for refit in REFITS.values()}) != 8:
-        raise ValueError("Jomon needs eight distinct vessel refits")
+    if len(REFITS) != 11 or len(set(REFITS)) != 11 or len({refit.name for refit in REFITS.values()}) != 11:
+        raise ValueError("Jomon needs eleven distinct vessel refits")
     valid_stations = {"galley", "bilge", "repair", "storage", "helm", "berths", "lookout"}
     if not set(STATION_REFITS) <= valid_stations:
         raise ValueError("refit references an unknown physical vessel station")

@@ -65,11 +65,13 @@ def ensure_cell(state: GameState, point: Position) -> MaterialCell | None:
 
 def inspect_material(state: GameState, point: Position) -> list[str]:
     from .world import base_tile
+    from .chemistry import predicted_reactions
     cell = fields(state).get(key(point), MaterialCell(material=material_at(state, point)))
     return [
         f"FACT {point.x},{point.y} z{point.z:+d}: {cell.material}; coating {cell.coating or 'none'}.",
         f"Water {cell.water}/3 {cell.fluid}; {'ice' if cell.ice else 'liquid'}; fire {cell.fire}/3; smoke {cell.smoke}/4.",
         f"Support {cell.support}/3; " + (f"COLLAPSE warned for action {cell.collapse_due}." if cell.collapse_due else "no collapse currently scheduled."),
+        f"Mixture: {cell.reagents or 'none'}; next reaction: {', '.join(predicted_reactions(cell.reagents, cell)) or 'none known'}.",
         "PREDICTION Water extinguishes; smoke rises/drifts; weakened supports fall after warning.",
         *(["FACT Loose cover (%) remains passable and turns low shots; height or arcing weapons can answer it."] if base_tile(state, point) == "%" else []),
         "Handling takes one action. Inspection/cancellation takes none. Tools and finite supplies are checked before commitment.",
@@ -82,6 +84,10 @@ def material_glyph(state: GameState, point: Position) -> str | None:
         return None
     if cell.fire:
         return "f"
+    if cell.reagents:
+        from .chemistry import predicted_reactions
+
+        return "!" if predicted_reactions(cell.reagents, cell) else "o"
     if cell.collapse_due:
         return "%"
     if cell.smoke >= 2:
@@ -351,6 +357,14 @@ def advance_materials(state: GameState) -> int:
                 if other:
                     other.smoke = min(4, other.smoke + 1)
             cell.smoke = max(0, cell.smoke - 1)
+        if cell.reagents:
+            from .chemistry import react_cell
+
+            reaction = react_cell(state, point, cell)
+            if reaction:
+                state.add_message(f"{reaction.title()} reacts at {coordinate}; shared ground and nearby bodies change.", priority=3)
+                if initial_place != (state.location, state.active_region_id):
+                    return len(selected)
         if cell.support == 0 and not cell.collapse_due:
             cell.collapse_due = state.world_time + 2
             state.add_message(f"Support cracks at {coordinate}; debris will fall in two actions. Brace it or leave.", priority=3)
@@ -499,6 +513,9 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
 
 
 def validate_materials(state: GameState) -> None:
+    from .chemistry import validate_chemistry
+
+    validate_chemistry(state)
     for region_id, cells in [(key, region.materials) for key, region in state.regions.items()] + [("vessel", state.vessel_materials)]:
         if len(cells) > MAX_CELLS:
             raise ValueError("sparse cell budget exceeded")

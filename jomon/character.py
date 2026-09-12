@@ -181,5 +181,7 @@ def character_sheet(person: Person) -> list[str]:
     else:
         rows.append("This generated adult has no player-assigned starting point buy.")
     rows.append(f"People's practice: {PEOPLE_EFFECTS.get(person.ancestry, 'No listed effect')}.")
+    rows.append(f"Mana: {person.mana}/{person.max_mana}; skill points: {person.skill_points}; milestones: {len(person.skill_milestones)}.")
+    rows.append("Skill tree: " + (", ".join(person.skill_nodes) or "none") + ". Press P outside this page to cross-train.")
     rows.extend((f"Technique: {person.technique}", f"Background: {person.background}"))
     return rows

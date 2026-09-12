@@ -28,7 +28,7 @@ class BuildBalanceTests(unittest.TestCase):
 
     def test_every_weapon_has_a_non_damage_tactical_identity(self):
         validate_build_balance()
-        self.assertEqual(len(WEAPONS), 36)
+        self.assertEqual(len(WEAPONS), 72)
         for weapon in WEAPONS:
             self.assertTrue(set(weapon_tactical_roles(weapon)) - {"damage"}, weapon)
 

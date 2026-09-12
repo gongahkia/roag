@@ -13,7 +13,7 @@ class VerificationCommandTests(unittest.TestCase):
         self.assertEqual(report["counts"]["standard_enemies"], 72)
         self.assertEqual(report["counts"]["elite_situations"], 24)
         self.assertEqual(report["counts"]["named_rivals"], 8)
-        self.assertEqual(report["counts"]["weapons"], 36)
+        self.assertEqual(report["counts"]["weapons"], 72)
         self.assertEqual(report["counts"]["armour"], 36)
         self.assertEqual(report["counts"]["techniques"], 32)
         self.assertEqual(report["counts"]["active_passives_and_techniques"], 80)
@@ -23,7 +23,7 @@ class VerificationCommandTests(unittest.TestCase):
         self.assertEqual(report["counts"]["cross_region_arcs"], 5)
         self.assertEqual(report["counts"]["institutions"], 12)
         self.assertEqual(report["counts"]["persistent_nonhostile_characters"], 38)
-        self.assertEqual(report["counts"]["vessel_refits"], 8)
+        self.assertEqual(report["counts"]["vessel_refits"], 11)
         self.assertEqual(report["counts"]["stateful_voyage_variants"], 12)
 
     def test_persistence_and_replay_audits_are_exact(self):

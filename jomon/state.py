@@ -21,7 +21,7 @@ from .content import (
     ROLES,
 )
 
-SAVE_FORMAT = 9
+SAVE_FORMAT = 10
 HISTORY_LIMIT = 40
 MESSAGE_LIMIT = 8
 ATTRIBUTES = ("strength", "agility", "endurance", "perception", "intellect", "presence")
@@ -69,6 +69,15 @@ class Person:
     origin: str = "hearthford"
     trait: str = "steady"
     character_specified: bool = False
+    skill_nodes: list[str] = field(default_factory=list)
+    skill_milestones: list[str] = field(default_factory=list)
+    skill_points: int = 0
+    taught_nodes: int = 0
+    journal_nodes: list[str] = field(default_factory=list)
+    mana: int = 8
+    max_mana: int = 8
+    known_spells: list[str] = field(default_factory=list)
+    known_formulas: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -127,6 +136,7 @@ class MaterialCell:
     support: int = 3
     collapse_due: int = 0
     ice: bool = False
+    reagents: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -261,6 +271,8 @@ class Item:
     merged_into: str | None = None
     fitted_to: str | None = None
     legendary_id: str | None = None
+    contents: dict[str, int] = field(default_factory=dict)
+    lesson_node: str | None = None
 
 
 @dataclass
@@ -502,6 +514,8 @@ class GameState:
     tabletop: dict[str, Any] = field(default_factory=lambda: {"collections": {}, "records": [], "active_match": None})
     tavern_draw: dict[str, Any] = field(default_factory=lambda: {"hand_number": 0, "bankrolls": {}, "active_hand": None, "records": []})
     tavern_dice: dict[str, Any] = field(default_factory=lambda: {"purse": 24, "match_number": 0, "active_match": None, "records": []})
+    production: dict[str, Any] = field(default_factory=dict)
+    household_formulas: list[str] = field(default_factory=list)
 
     @property
     def combat_active(self) -> bool:
@@ -765,6 +779,10 @@ def create_world(seed: str) -> GameState:
 
     initialise_workshop(state)
     initialise_tavern(state)
+    from .skill_tree import seed_role_nodes
+
+    for person in [*state.household, *state.visitors]:
+        seed_role_nodes(person)
     ensure_household_basics(state)
     sync_legacy_load(state)
     state.threats = _threats(seed, region)
@@ -810,6 +828,9 @@ def create_world(seed: str) -> GameState:
 
     for existing_region in state.regions.values():
         initialise_region_sites(existing_region)
+    from .production import initialise_production
+
+    initialise_production(state)
     state.add_message(f"Jomon reaches Hearthford. {region.condition}")
     state.add_message(
         f"{state.courier.name} has the courier watch with a basic working kit. "
@@ -968,6 +989,15 @@ def _migrate_v8(data: dict[str, Any]) -> dict[str, Any]:
     return migrated
 
 
+def _migrate_v9(data: dict[str, Any]) -> dict[str, Any]:
+    """Add personal progression and production without altering existing world progress."""
+    migrated = copy.deepcopy(data)
+    migrated["save_format"] = 10
+    migrated.setdefault("production", {})
+    migrated.setdefault("household_formulas", [])
+    return migrated
+
+
 def game_state_from_dict(data: Any) -> GameState:
     if not isinstance(data, dict):
         raise StateError("save root must be an object")
@@ -986,6 +1016,9 @@ def game_state_from_dict(data: Any) -> GameState:
         data = _migrate_v7(data)
     if data.get("save_format") == 8:
         data = _migrate_v8(data)
+    migrated_v9 = data.get("save_format") == 9
+    if migrated_v9:
+        data = _migrate_v9(data)
     if data.get("save_format") != SAVE_FORMAT:
         raise StateError(f"incompatible save format; expected {SAVE_FORMAT}")
     raw_region_threats = data.get(
@@ -1204,7 +1237,14 @@ def game_state_from_dict(data: Any) -> GameState:
             tabletop=data.get("tabletop", {"collections": {}, "records": [], "active_match": None}),
             tavern_draw=data.get("tavern_draw", {"hand_number": 0, "bankrolls": {}, "active_hand": None, "records": []}),
             tavern_dice=data.get("tavern_dice", {"purse": 24, "match_number": 0, "active_match": None, "records": []}),
+            production=data.get("production", {}),
+            household_formulas=list(data.get("household_formulas", [])),
         )
+        if migrated_v9:
+            from .skill_tree import seed_role_nodes
+
+            for person in [*state.household, *state.visitors]:
+                seed_role_nodes(person)
         if migrated_v3:
             from .inventory import initialise_inventory, reconcile_legacy_carried, sync_legacy_load
             from .people import initialise_tavern
@@ -1289,6 +1329,9 @@ def game_state_from_dict(data: Any) -> GameState:
         from .aftermath import initialise_aftermath
 
         initialise_aftermath(state)
+        from .production import initialise_production
+
+        initialise_production(state)
     except (AttributeError, KeyError, RuntimeError, TypeError, ValueError) as exc:
         raise StateError(f"malformed save: {exc}") from exc
     validate_state(state)
@@ -1302,6 +1345,8 @@ def validate_state(state: GameState) -> None:
     from .worklines import validate as validate_worklines
     from .legendary import validate_legends
     from .aftermath import validate_aftermath
+    from .skill_tree import validate_skill_journals, validate_skills
+    from .production import validate_production
 
     try:
         validate_materials(state)
@@ -1310,6 +1355,20 @@ def validate_state(state: GameState) -> None:
         validate_worklines(state)
         validate_legends(state)
         validate_aftermath(state)
+        validate_production(state)
+        validate_skill_journals(state)
+        from .chemistry import REACTIONS
+
+        if (not isinstance(state.household_formulas, list)
+                or len(state.household_formulas) != len(set(state.household_formulas))
+                or any(name not in {reaction for reaction, _ in REACTIONS.values()}
+                       for name in state.household_formulas)):
+            raise ValueError("invalid household formula journal")
+        for person in [*state.household, *state.visitors, state.bartender, state.merchant]:
+            validate_skills(person)
+            if (type(person.mana) is not int or type(person.max_mana) is not int
+                    or not 0 <= person.mana <= person.max_mana <= 64):
+                raise ValueError("invalid personal mana reserve")
     except ValueError as exc:
         raise StateError(f"invalid material state: {exc}") from exc
     from dumbest_dungeon.expedition import validate_expedition

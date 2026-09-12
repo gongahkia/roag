@@ -180,6 +180,9 @@ WEAPONS = {
 from .work_weapons import WORK_WEAPONS
 
 WEAPONS.update({name: (spec.name, spec.description) for name, spec in WORK_WEAPONS.items()})
+from .expanded_weapons import ARSENAL, BOMB_AMMUNITION
+
+WEAPONS.update({name: (name.title(), spec.description) for name, spec in ARSENAL.items()})
 
 GEAR = {
     "buckler": ("Buckler", "turns a telegraphed close strike while guarding"),
@@ -334,6 +337,8 @@ MERCHANT_ITEMS = {
     "peat pattens": (2, "armour"), "felt overboots": (2, "armour"), "ice cleats": (3, "armour"),
 }
 MERCHANT_ITEMS.update({key: (4, "weapon") for key in WORK_WEAPONS})
+MERCHANT_ITEMS.update({key: (7 if spec.family == "gun" else 5, "weapon") for key, spec in ARSENAL.items()})
+MERCHANT_ITEMS.update({kind.split(":", 1)[1]: (2, "consumable") for kind in BOMB_AMMUNITION.values()})
 MERCHANT_ITEMS.update({f"sealed {material} pot": (2, "consumable") for material in ("pitch", "lime", "brine")})
 
 # Bounded authored roles. Regional placement and budgets live in encounters.py;

@@ -202,6 +202,11 @@ def choose_weapon(state: GameState, weapon: str) -> ActionResult:
         "staff sling": "sling shot pouch", "hooked javelin": "throwing javelins",
         "handgonne": "handgonne charges",
     }.get(weapon)
+    if weapon in ARSENAL:
+        from .inventory import AMMUNITION_ITEMS, WEAPON_AMMUNITION
+
+        supply = WEAPON_AMMUNITION.get(weapon)
+        supply = supply and AMMUNITION_ITEMS[supply].split(":", 1)[1]
     if supply and not any(
         item.kind == f"consumable:{supply}" and item.owner_id == state.active_courier_id
         and item.location == "pack" for item in state.items
@@ -214,7 +219,7 @@ def choose_weapon(state: GameState, weapon: str) -> ActionResult:
             transaction.cancel(state)
             return _plain(state, "The weapon fits, but its physical ammunition case does not; repack first.")
     state.weapon, state.crossbow_loaded, state.aimed_target = weapon, True, None
-    state.weapon_ready = 2 if weapon in {"heavy crossbow", "handgonne"} else 1
+    state.weapon_ready = 2 if weapon in {"heavy crossbow", "handgonne"} or weapon in ARSENAL and ARSENAL[weapon].family == "gun" else 1
     sync_legacy_load(state)
     return _plain(state, f"Readied {WEAPONS[weapon][0]}.", changed=True)
 
@@ -2250,6 +2255,8 @@ def attack_target_legality(state: GameState, target: Threat) -> tuple[bool, str]
         minimum = 3
     elif state.weapon in WORK_WEAPONS:
         minimum = WORK_WEAPONS[state.weapon].minimum
+    elif state.weapon in ARSENAL:
+        minimum = ARSENAL[state.weapon].minimum
     if gap < minimum:
         return False, f"inside minimum range {minimum}"
     if gap > maximum:
@@ -2300,9 +2307,12 @@ RANGED_WEAPONS = frozenset(
     }
 )
 from .work_weapons import WORK_WEAPONS
+from .expanded_weapons import ARSENAL
 
 WEAPON_RANGES.update({name: spec.reach for name, spec in WORK_WEAPONS.items()})
 RANGED_WEAPONS |= {"pot sling", "throwing axe"}
+WEAPON_RANGES.update({name: spec.reach for name, spec in ARSENAL.items()})
+RANGED_WEAPONS |= {name for name, spec in ARSENAL.items() if spec.family in {"bow", "gun", "device"}}
 
 
 def effective_weapon_range(state: GameState) -> int:
@@ -2359,6 +2369,10 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         from .work_weapons import cast_pot
         target = next((a for a in candidates if a.id == target_id), None) if target_id else next((a for a in candidates if a.ecology != "prey"), None)
         return cast_pot(state, target_position or (target.position if target else None), ammunition)
+    if state.weapon in ARSENAL:
+        from .expanded_weapons import strike
+
+        return strike(state, target_id, target_position=target_position)
     if target_id is not None:
         candidates = [target for target in candidates if target.id == target_id]
     else:
@@ -2664,10 +2678,20 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
             f"The {weapon_text} deals {harm.amount}{armour}{injury}; "
             f"{target.name} has {target.health}/{target.max_health}."
         )
+    used_weapon = state.weapon
     if thrown_item:
         thrown_item.location, thrown_item.owner_id = "ground", None
         thrown_item.region_id, thrown_item.ground_position = state.spatial_id, original_target_position
         state.weapon = None
+    from .skill_tree import record_milestone
+
+    family = (
+        "bows" if ranged and used_weapon != "handgonne" else
+        "gunworks" if used_weapon == "handgonne" else
+        "blades" if used_weapon in {"hand axe", "paired knives", "throwing axe", "long knife", "arming sword", "glaive", "felling axe", "reed sickle"} else
+        "reach"
+    )
+    record_milestone(state, f"combat:{family}")
     return _time_result(
         state,
         " ".join([text, *sounds]),
@@ -2679,6 +2703,12 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
 def guard(state: GameState, target_id: str | None = None) -> ActionResult:
     if not state.combat_active:
         return _plain(state, "There is no expedition danger to guard against.")
+    expanded = ARSENAL.get(state.weapon)
+    if expanded and expanded.family == "gun" and state.weapon_ready < (1 if "quick" in expanded.effects else 2):
+        if physical_ammunition(state, "handgonne charges") <= 0:
+            return _plain(state, "No wrapped powder charges remain.")
+        state.weapon_ready += 1
+        return _time_result(state, f"{state.weapon.title()} loading {state.weapon_ready}/{1 if 'quick' in expanded.effects else 2}.", guarded=state.gear == "buckler", priority=3)
     if state.weapon == "crossbow" and not state.crossbow_loaded:
         if physical_ammunition(state, "bolts") <= 0:
             return _plain(state, "No crossbow ammunition remains.")
@@ -3391,6 +3421,9 @@ def negotiate(state: GameState) -> ActionResult:
     state.remember(memory)
     _remember_contact(state, memory)
     state.courier.speech = min(20, state.courier.speech + 1)
+    from .skill_tree import record_milestone
+
+    record_milestone(state, "social:mediation")
     return _time_result(
         state,
         f"Witnessed material terms settle {len(heard)} nearby member(s) of one group; other actors keep their own goals." + drawback,
@@ -3460,9 +3493,15 @@ def merchant_stock_for(state: GameState) -> list[str]:
     finite = "tide-knot charm" if rare else "willow dressing"
     stock = list(dict.fromkeys((context, regional_weapon, finite)))[:3]
     implements = [key for key, definition in WORK_WEAPONS.items() if state.active_region_id in definition.regions]
+    implements.extend(key for key, definition in ARSENAL.items() if state.active_region_id in definition.regions)
     if implements:
         stock.append(stage_rng(state.seed, f"working-arms:{state.active_region_id}:{state.returned_expeditions}").choice(implements))
-        stock.append(stage_rng(state.seed, f"pot-stock:{state.active_region_id}:{state.returned_expeditions}").choice(("sealed pitch pot", "sealed lime pot", "sealed brine pot")))
+        bombs = [f"{name.split()[0]} bombs" for name, definition in ARSENAL.items()
+                 if definition.family == "device" and state.active_region_id in definition.regions]
+        accessory = (stage_rng(state.seed, f"device-stock:{state.active_region_id}:{state.returned_expeditions}").choice(bombs)
+                     if bombs and state.returned_expeditions % 2 else
+                     stage_rng(state.seed, f"pot-stock:{state.active_region_id}:{state.returned_expeditions}").choice(("sealed pitch pot", "sealed lime pot", "sealed brine pot")))
+        stock.append(accessory)
     if state.active_region_id in REGIONAL_ARMOUR:
         clothing = REGIONAL_ARMOUR[state.active_region_id]
         stock.append(stage_rng(state.seed, f"work-clothing:{state.active_region_id}:{state.returned_expeditions}").choice(clothing))
@@ -3493,6 +3532,9 @@ def purchase_merchant_item(state: GameState, item: str) -> ActionResult:
         state.items.remove(physical)
         return _plain(state, "Jomon's bounded locker has no clear cells for that lot.")
     state.trade_credit -= cost
+    from .skill_tree import record_milestone
+
+    record_milestone(state, f"trade:{state.active_region_id}")
     state.merchant_stock.remove(item)
     if kind == "weapon" and item not in state.owned_weapons:
         state.owned_weapons.append(item)
@@ -3561,6 +3603,9 @@ def return_to_jomon(state: GameState) -> ActionResult:
     )
     state.jomon_space = "vessel"
     state.returned_expeditions += 1
+    from .skill_tree import record_milestone
+
+    record_milestone(state, f"return:{completed_region}")
     development = record_personal_return(state, courier, completed_region)
     state.merchant_present = merchant_visit_due(
         state.seed, state.returned_expeditions
@@ -3628,6 +3673,10 @@ def use_aftermath_contract(
     from .aftermath import resolve_contract
 
     changed, message = resolve_contract(state, contract_id, choice)
+    if changed:
+        from .skill_tree import record_milestone
+
+        record_milestone(state, "social:contract")
     return _time_result(state, message, priority=3) if changed else _plain(state, message)
 
 
@@ -3637,6 +3686,10 @@ def intervene_socially(state: GameState, response: str) -> ActionResult:
     changed, message = resolve_social_incident(state, response)
     if not changed:
         return _plain(state, message)
+    if response == "mediate":
+        from .skill_tree import record_milestone
+
+        record_milestone(state, "social:mediation")
     return _time_result(state, message, priority=3)
 
 
@@ -3666,6 +3719,9 @@ def use_route_stop(state: GameState, response: str) -> ActionResult:
             del state.vessel_cargo[commodity]
         state.trade_credit += 2
         state.vessel_changes[f"market_served:{node.id}"] = True
+        from .skill_tree import record_milestone
+
+        record_milestone(state, "social:market")
         return _time_result(state, f"{node.name} takes one {commodity} lot; Jomon gains two credit.", steps=2, priority=3)
     if response == "sound":
         from .route_chart import neighbours

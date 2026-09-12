@@ -269,7 +269,7 @@ class WorkingWeaponTests(unittest.TestCase):
         for weapon in WORK_WEAPONS:
             self.assertEqual(len(item_preview(weapon)), 3)
         self.assertEqual(len(WORK_WEAPONS), 18)
-        self.assertEqual(len(WEAPONS), 36)
+        self.assertEqual(len(WEAPONS), 72)
 
     def test_normal_opening_preserves_weapon_when_auto_place_is_disabled(self):
         from jomon.regions import activate_region

@@ -125,8 +125,8 @@ ROUTE_HELP_LINES = (
     "Mouse click selects; double-click confirms when reported; keyboard is complete",
 )
 BASE_HELP_LINES = (
-    "Move HJKL/arrows E act A aim G guard ; look T follow M mastery",
-    "X gear F material V talk R retreat I pack Z ledger O actors ? help Q quit",
+    "HJKL/arrows E act A aim G guard ; look T follow M mastery P skills W craft",
+    "X gear F material D spells V talk R retreat I Z ledger O actors ? help Q quit",
 )
 
 MIN_WIDTH = 80
@@ -202,6 +202,7 @@ class TargetView:
     selected: int = 0
     ammunition: str | None = None
     mastery_id: str | None = None
+    spell_id: str | None = None
 
     @classmethod
     def begin(cls, state: GameState) -> "TargetView":
@@ -220,6 +221,16 @@ class TargetView:
             [target.id for target in targets],
             ammunition=pots[0] if pots else None,
         )
+
+    @classmethod
+    def begin_spell(cls, state: GameState, spell_id: str) -> "TargetView":
+        from .magic import SPELLS, spell_status
+
+        spell = SPELLS[spell_id]
+        targets = [actor for actor in state.combatants if spell_status(state, spell_id, actor.position)[0]] if spell.target == "enemy" else []
+        targets.sort(key=lambda actor: (distance(state.position, actor.position), actor.id))
+        return cls(targets[0].position if targets else state.position,
+                   [actor.id for actor in targets], spell_id=spell_id)
 
 
 @dataclass
@@ -1093,6 +1104,11 @@ def _ammunition_status(state: GameState, ammunition: str | None = None) -> tuple
 
 
 def targeting_detail(state: GameState, view: TargetView) -> str:
+    if view.spell_id:
+        from .magic import SPELLS
+
+        spell = SPELLS[view.spell_id]
+        return f"R{distance(state.position, view.cursor)}/{spell.reach} z{view.cursor.z:+d} Mana:{state.courier.mana}/{state.courier.max_mana} Cost:{spell.cost}"
     available, ammo_label = _ammunition_status(state, view.ammunition)
     detail = (
         f"R{distance(state.position, view.cursor)}/{effective_weapon_range(state)} "
@@ -1110,9 +1126,30 @@ def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]
     from .work_weapons import WORK_WEAPONS
 
     selected = _target_at_cursor(state, view)
+    if view.spell_id:
+        from .magic import SPELLS, spell_status
+
+        spell = SPELLS[view.spell_id]
+        legal, reason = spell_status(state, view.spell_id, view.cursor)
+        return information_lines([
+            f"{spell.name.upper()} — {spell.description}",
+            targeting_detail(state, view),
+            ("READY" if legal else "BLOCKED") + f" — {reason}; Enter casts at cursor; Escape cancels without time.",
+            f"Observed target: {selected.name}; {selected.intent}" if selected else "The cursor marks a physical cell.",
+        ], width)
     ready = "Enter commits one cast; Escape costs no time."
     if state.weapon == "pot sling":
         ready = "P changes pot; minimum range 3. Enter throws at the selected cell."
+    from .expanded_weapons import ARSENAL
+
+    if state.weapon in ARSENAL:
+        expanded = ARSENAL[state.weapon]
+        if expanded.family == "device":
+            ready = f"Enter throws one physical {state.weapon.split()[0]} bomb at this visible cell; all bodies share its reaction."
+        elif expanded.family == "gun" and state.weapon_ready < (1 if "quick" in expanded.effects else 2):
+            ready = "Unready: Escape then G loads one guarded action."
+        elif expanded.family in {"bow", "gun"} and "quick" not in expanded.effects:
+            ready = "Aim set: Enter fires." if selected and state.aimed_target == selected.id else "Enter prepares aim; confirm again to fire."
     if state.weapon == "crossbow" and not state.crossbow_loaded:
         ready = "Unloaded: Escape then G reloads; no shot is committed here."
     elif state.weapon in {"heavy crossbow", "handgonne"} and state.weapon_ready < 2:
@@ -1207,6 +1244,14 @@ def _draw_targeting(screen: curses.window, state: GameState, view: TargetView) -
 
 
 def _target_cycle(state: GameState, view: TargetView) -> None:
+    if view.spell_id:
+        from .magic import spell_status
+
+        available = [actor for actor in state.combatants if actor.id in view.target_ids and spell_status(state, view.spell_id, actor.position)[0]]
+        if available:
+            view.selected = (view.selected + 1) % len(available)
+            view.cursor = available[view.selected].position
+        return
     available = [
         threat_id for threat_id in view.target_ids
         if any(
@@ -1313,6 +1358,13 @@ def _handle_targeting(
         _target_cycle(state, view)
         return False, False
     if key in {10, 13}:
+        if view.spell_id:
+            from .magic import cast
+
+            changed, message = cast(state, view.spell_id, view.cursor)
+            if not changed:
+                state.add_message(message, priority=2)
+            return changed, changed
         if view.mastery_id:
             from .actions import _advance_world
             from .manoeuvres import perform
@@ -1327,6 +1379,11 @@ def _handle_targeting(
             return changed, changed
         if state.weapon == "pot sling":
             result = attack(state, target_position=view.cursor, ammunition=view.ammunition)
+            return result.time_advanced, result.time_advanced
+        from .expanded_weapons import ARSENAL
+
+        if state.weapon in ARSENAL and ARSENAL[state.weapon].family == "device":
+            result = attack(state, target_position=view.cursor)
             return result.time_advanced, result.time_advanced
         target = _target_at_cursor(state, view)
         if target is None:
@@ -1369,8 +1426,12 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str], view: Over
 def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
     if kind == "station:gathering":
         from .household_stories import station_choices
+        from .skill_tree import journals_at_hand
 
-        return [ChoiceOption(*row) for row in station_choices(state)]
+        return [ChoiceOption(*row) for row in station_choices(state)] + [
+            ChoiceOption("J", "Write a physical skill journal", "commitment", bool(state.courier and state.courier.skill_nodes), "a learned node and paper"),
+            ChoiceOption("K", "Study a physical skill journal", "commitment", bool(journals_at_hand(state)), "a written journal in the pack or locker"),
+        ]
     if kind.startswith("household-story:"):
         from .household_stories import story_choices
 
@@ -1486,8 +1547,12 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         return [ChoiceOption(key.upper(), label, semantic, available, requirement) for key, label, semantic, available, requirement in options(state)]
     if kind.startswith("material:"):
         from .materials import VERBS
+        from .chemistry import carried_flasks
 
-        return [ChoiceOption(chr(ord("a") + index), verb.title(), "danger" if verb in {"ignite", "break", "cut"} else "commitment") for index, verb in enumerate(VERBS)]
+        return [ChoiceOption(chr(ord("a") + index), verb.title(), "danger" if verb in {"ignite", "break", "cut"} else "commitment") for index, verb in enumerate(VERBS)] + [
+            ChoiceOption("L", "Pour a carried flask here", "danger", bool(carried_flasks(state)), "a filled carried field flask"),
+            ChoiceOption("M", "Drink a carried flask", "commitment", bool(carried_flasks(state)), "a filled carried field flask"),
+        ]
     if kind == "quit":
         return [ChoiceOption("Y", "Quit Jomon", "danger"), ChoiceOption("N", "Continue playing")]
     if kind == "tavern":
@@ -1570,6 +1635,8 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
 
         person = person_by_id(state, kind.split(":", 1)[1])
         options = [ChoiceOption("C", "Open full character sheet")]
+        if person and person.id != state.active_courier_id and state.courier and "teaching" in state.courier.skill_nodes:
+            options.append(ChoiceOption("T", "Teach one known skill node", "commitment"))
         if person in state.household and person and person.id != state.active_courier_id and person.alive and person.available:
             return options + [ChoiceOption("S", "Switch to this courier", "commitment")]
         if person and person not in state.household:
@@ -1641,6 +1708,15 @@ def _handle_overlay_view(state: GameState, view: OverlayView, event: InputEvent)
     if options:
         view.selected %= len(options)
     key = event.key
+    if view.kind.startswith("spell-tier:") and ord("1") <= key <= ord("4"):
+        from .magic import SPELL_TIERS
+
+        spell_id = SPELL_TIERS[view.kind.split(":", 1)[1]][key - ord("1")]
+        if spell_id in state.courier.known_spells:
+            view.result = "spell:" + spell_id
+            return True, False
+        state.add_message("That spell is not yet learned.", priority=2)
+        return False, False
     if not options:
         scrolling = {
             curses.KEY_UP: -1, ord("k"): -1, ord("w"): -1,
@@ -2387,6 +2463,122 @@ def _tavern_lines(state: GameState) -> list[str]:
 
 
 def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
+    if kind.startswith("journal-write:"):
+        from .skill_tree import NODES
+
+        page = int(kind.split(":", 1)[1])
+        nodes = [node for node in state.courier.skill_nodes if node not in state.courier.journal_nodes]
+        return "WRITE A PHYSICAL LESSON", [
+            f"{state.courier.name}: {len(state.courier.journal_nodes)}/3 written; one physical paper lot and two actions per page.",
+            *[f"{index + 1}. {NODES[node].name} — {NODES[node].effect}"
+              for index, node in enumerate(nodes[page * 8:page * 8 + 8])],
+            f"Page {page + 1}/{max(1, (len(nodes) + 7) // 8)}; N/P pages; Escape returns to the common deck.",
+        ]
+    if kind.startswith("journal-study:"):
+        from .skill_tree import NODES, journals_at_hand
+
+        page = int(kind.split(":", 1)[1])
+        journals = journals_at_hand(state)
+        return "STUDY A PHYSICAL LESSON", [
+            f"{state.courier.name}: {state.courier.taught_nodes}/2 inherited lessons; prerequisites still matter.",
+            *[f"{index + 1}. {item.id}: {NODES[item.lesson_node].name} — {item.provenance}"
+              for index, item in enumerate(journals[page * 8:page * 8 + 8])],
+            f"Page {page + 1}/{max(1, (len(journals) + 7) // 8)}; N/P pages; Escape returns to the common deck.",
+        ]
+    if kind.startswith("teach-person:"):
+        from .people import person_by_id
+        from .skill_tree import NODES
+
+        _, recipient_id, page_text = kind.split(":")
+        person = person_by_id(state, recipient_id)
+        page = int(page_text)
+        nodes = [node for node in state.courier.skill_nodes if node not in person.skill_nodes]
+        return f"TEACH {person.name.upper()}", [
+            f"{person.name}: {person.taught_nodes}/2 inherited lessons; teacher {state.courier.name} must remain adjacent.",
+            *[f"{index + 1}. {NODES[node].name} — needs {', '.join(NODES[parent].name for parent in NODES[node].parents) or 'no prerequisites'}"
+              for index, node in enumerate(nodes[page * 8:page * 8 + 8])],
+            f"Page {page + 1}/{max(1, (len(nodes) + 7) // 8)}; N/P pages; Escape returns to this person.",
+        ]
+    if kind.startswith("craft-catalog:"):
+        from .production import RECIPES, SOURCES, at_shore_site, input_count, recipe_status, stations_here
+
+        page = int(kind.split(":", 1)[1])
+        ids = [key for key, recipe in RECIPES.items() if recipe.station in stations_here(state)]
+        page = min(page, max(0, (len(ids) - 1) // 8))
+        rows = [f"Physical stations: {', '.join(sorted(stations_here(state)))}; page {page + 1}/{max(1, (len(ids) + 7) // 8)}."]
+        for index, recipe_id in enumerate(ids[page * 8:page * 8 + 8]):
+            recipe = RECIPES[recipe_id]
+            legal, reason = recipe_status(state, recipe_id)
+            requirements = ", ".join(f"{quantity} {item_kind} ({input_count(state, item_kind)} held)" for item_kind, quantity in recipe.inputs)
+            rows.append(f"{index + 1}. {recipe.name} → {recipe.quantity} {recipe.output} [{reason if not legal else 'READY'}]")
+            rows.append("   " + requirements)
+        rows.append("1-8 make; A-H delegate with Speech 7 or Work order; N/P pages; M fill carried flask.")
+        if at_shore_site(state):
+            first, second = SOURCES[state.active_region_id]
+            rows.append(f"9. Gather {first}; 0. Gather {second}; bounded source stock {state.production['sites'][state.active_region_id]['stock']}.")
+        return "PHYSICAL PRODUCTION", rows
+    if kind == "craft-mix":
+        from .chemistry import carried_flasks
+
+        return "FREEFORM FIELD FLASKS", [
+            *[f"{index + 1}. {flask.id}: {flask.contents or 'empty'} ({sum(flask.contents.values())}/4)"
+              for index, flask in enumerate(carried_flasks(state)[:9])],
+            "Choose a flask; an ingredient is physically transferred into it. Reactions are inspectable before pouring or drinking.",
+            "B. Return to production.",
+        ]
+    if kind.startswith("craft-fill:"):
+        from .chemistry import carried_ingredients
+
+        parts = kind.split(":")
+        flask_id, page = parts[1], int(parts[2])
+        ingredients = carried_ingredients(state)
+        return "FILL ONE PHYSICAL FLASK", [
+            *[f"{index + 1}. {item.id}: {item.kind.split(':', 1)[1]} ×{item.quantity}"
+              for index, item in enumerate(ingredients[page * 8:page * 8 + 8])],
+            f"Page {page + 1}/{max(1, (len(ingredients) + 7) // 8)}. N/P pages; B returns to flasks."
+        ]
+    if kind == "spellbook":
+        from .magic import SPELL_TIERS
+        from .skill_tree import NODES
+
+        return "PERSONAL SPELLBOOK", [
+            f"{state.courier.name}: mana {state.courier.mana}/{state.courier.max_mana}. Rest at moored berths or use a prepared brew; there is no passive combat recovery.",
+            *[f"{index + 1}. {NODES[node].name}: {sum(spell in state.courier.known_spells for spell in spells)}/4 learned"
+              for index, (node, spells) in enumerate(SPELL_TIERS.items())],
+            "Choose a tier, then a spell, then place its cursor on the world. Escape cancels without mana or time.",
+        ]
+    if kind.startswith("spell-tier:"):
+        from .magic import SPELLS, SPELL_TIERS
+        from .skill_tree import NODES
+
+        node = kind.split(":", 1)[1]
+        return NODES[node].name.upper(), [
+            *[f"{index + 1}. {SPELLS[spell_id].name} [{'READY' if spell_id in state.courier.known_spells else 'UNLEARNED'}] — {SPELLS[spell_id].description}"
+              for index, spell_id in enumerate(SPELL_TIERS[node])],
+            "B. Return to spell tiers. Selection opens spatial targeting; it does not cast.",
+        ]
+    if kind == "skill-tree":
+        from .skill_tree import BRANCHES, NODES
+
+        person = state.courier
+        return "COURIER SKILLS", [
+            f"{person.name}: {person.skill_points} unspent milestone point(s); {len(person.skill_nodes)}/60 nodes learned.",
+            *[f"{'123456789a'[index]}. {title} — {sum(node.branch == branch and node.id in person.skill_nodes for node in NODES.values())}/6"
+              for index, (branch, (title, _)) in enumerate(BRANCHES.items())],
+            "Select a branch. All household adults can cross-train; roles grant only starting roots.",
+        ]
+    if kind.startswith("skill-branch:"):
+        from .skill_tree import BRANCHES, NODES
+
+        branch = kind.split(":", 1)[1]
+        title, _ = BRANCHES[branch]
+        person = state.courier
+        rows = [f"{person.name}: {person.skill_points} point(s) available; B returns to all branches."]
+        for index, node in enumerate(node for node in NODES.values() if node.branch == branch):
+            unmet = [NODES[parent].name for parent in node.parents if parent not in person.skill_nodes]
+            status = "LEARNED" if node.id in person.skill_nodes else "needs " + ", ".join(unmet) if unmet else "READY" if person.skill_points else "needs a milestone point"
+            rows.append(f"{index + 1}. {node.name} [{status}] — {node.effect}.")
+        return title.upper(), rows
     if kind.startswith("household-story:"):
         from .household_stories import BY_ID, story_lines
 
@@ -2434,6 +2626,21 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         from .materials import inspect_material, point_at
 
         return "MATERIAL — ONE ACTION PER HANDLING", inspect_material(state, point_at(kind.split(":", 1)[1]))
+    if kind.startswith("flask-pour:") or kind.startswith("flask-drink:"):
+        from .chemistry import carried_flasks, predicted_reactions
+        from .materials import fields, key, point_at
+
+        pouring = kind.startswith("flask-pour:")
+        point = point_at(kind.split(":", 1)[1])
+        cell = fields(state).get(key(point))
+        rows = [f"Target {point.x},{point.y} z{point.z:+d}; B returns to material inspection."]
+        for index, flask in enumerate(carried_flasks(state)[:9]):
+            merged = flask.contents.copy()
+            if pouring and cell:
+                for reagent, quantity in cell.reagents.items():
+                    merged[reagent] = merged.get(reagent, 0) + quantity
+            rows.append(f"{index + 1}. {flask.id} {flask.contents or 'empty'} — predicted {', '.join(predicted_reactions(merged, cell if pouring else None)) or 'none'}")
+        return ("POUR PHYSICAL FLASK" if pouring else "DRINK PHYSICAL FLASK"), rows
     if kind == "help":
         return "HELP", list(HELP_LINES)
     if kind == "inventory":
@@ -2532,10 +2739,13 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         }.get(station, ("JOMON WORK POSITION", "A bounded vessel activity uses this physical position."))
         fitted = [REFITS[refit_id].name for refit_id in STATION_REFITS.get(station, ()) if installed(state, refit_id)]
         lines = [detail]
+        if station == "berths":
+            lines.append(f"R. Rest six actions to restore personal mana ({state.courier.mana}/{state.courier.max_mana}); moored and out of danger only.")
         if station == "gathering":
             from .household_stories import station_choices
 
             lines.extend(f"{key}. {label} — {'AVAILABLE' if available else 'NEEDS ' + requirement}" for key, label, _, available, requirement in station_choices(state))
+            lines.append("J. Write one learned node into a physical paper journal; K. Study an existing journal (two inherited lessons maximum).")
         if station in STATION_REFITS:
             lines.append("V. Inspect optional physical refits." + (f" Installed: {', '.join(fitted)}." if fitted else " None installed here."))
         return title, lines + ["Inspection costs no time. Escape closes."]
@@ -2792,12 +3002,133 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             lines.append("S. Switch to this courier (zero time)")
         elif person not in state.household:
             lines.extend((f"Terms: {person.recruitment_terms}", "R. Offer a voluntary berth", "D. Defer without closing the invitation"))
+        if person.id != state.active_courier_id and state.courier and "teaching" in state.courier.skill_nodes:
+            lines.append("T. Teach one known node face to face; recipient may inherit at most two.")
         return person.name.upper(), lines + ["Escape closes without time."]
     return "INFORMATION", [kind, "Escape closes without advancing time."]
 
 
 def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, bool]:
     char = chr(key).lower() if 0 <= key < 256 else ""
+    if kind == "station:gathering" and char in {"j", "k"}:
+        return ("journal-write:0" if char == "j" else "journal-study:0"), False
+    if kind.startswith(("journal-write:", "journal-study:")):
+        from .skill_tree import journals_at_hand, study_journal, write_journal
+
+        writing = kind.startswith("journal-write:")
+        page = int(kind.split(":", 1)[1])
+        rows = ([node for node in state.courier.skill_nodes if node not in state.courier.journal_nodes]
+                if writing else journals_at_hand(state))
+        if key == 27 or char == "b":
+            return "station:gathering", False
+        if char == "n":
+            return f"{'journal-write' if writing else 'journal-study'}:{min(max(0, (len(rows) - 1) // 8), page + 1)}", False
+        if char == "p":
+            return f"{'journal-write' if writing else 'journal-study'}:{max(0, page - 1)}", False
+        if char in "12345678":
+            index = page * 8 + int(char) - 1
+            if index < len(rows):
+                changed, message = (write_journal(state, rows[index]) if writing else study_journal(state, rows[index].id))
+                if not changed:
+                    state.add_message(message, priority=2)
+                return ("station:gathering" if changed else kind), False
+        return kind, False
+    if kind.startswith("teach-person:"):
+        from .people import person_by_id
+        from .skill_tree import teach_node
+
+        _, recipient_id, page_text = kind.split(":")
+        page = int(page_text)
+        recipient = person_by_id(state, recipient_id)
+        rows = [node for node in state.courier.skill_nodes if node not in recipient.skill_nodes]
+        if key == 27 or char == "b":
+            return f"person:{recipient_id}", False
+        if char == "n":
+            return f"teach-person:{recipient_id}:{min(max(0, (len(rows) - 1) // 8), page + 1)}", False
+        if char == "p":
+            return f"teach-person:{recipient_id}:{max(0, page - 1)}", False
+        if char in "12345678":
+            index = page * 8 + int(char) - 1
+            if index < len(rows):
+                changed, message = teach_node(state, recipient_id, rows[index])
+                if not changed:
+                    state.add_message(message, priority=2)
+                return (f"person:{recipient_id}" if changed else kind), False
+        return kind, False
+    if kind.startswith("craft-catalog:"):
+        from .production import RECIPES, at_shore_site, delegate, gather, make, stations_here
+
+        page = int(kind.split(":", 1)[1])
+        ids = [key for key, recipe in RECIPES.items() if recipe.station in stations_here(state)]
+        max_page = max(0, (len(ids) - 1) // 8)
+        if char == "n":
+            return f"craft-catalog:{min(max_page, page + 1)}", False
+        if char == "p":
+            return f"craft-catalog:{max(0, page - 1)}", False
+        if char == "m":
+            return "craft-mix", False
+        if char in "90" and at_shore_site(state):
+            changed, message = gather(state, 0 if char == "9" else 1)
+            if not changed:
+                state.add_message(message, priority=2)
+            return kind, False
+        if char in "12345678abcdefgh":
+            index = "12345678abcdefgh".index(char) % 8 + page * 8
+            if index < len(ids):
+                changed, message = (delegate(state, ids[index]) if char in "abcdefgh" else make(state, ids[index]))
+                if not changed:
+                    state.add_message(message, priority=2)
+                return kind, False
+    if kind == "craft-mix":
+        if char == "b":
+            return "craft-catalog:0", False
+        if char in "123456789":
+            from .chemistry import carried_flasks
+
+            flasks = carried_flasks(state)
+            index = int(char) - 1
+            if index < len(flasks):
+                return f"craft-fill:{flasks[index].id}:0", False
+    if kind.startswith("craft-fill:"):
+        from .chemistry import carried_ingredients, fill_flask
+
+        parts = kind.split(":")
+        flask_id, page = parts[1], int(parts[2])
+        ingredients = carried_ingredients(state)
+        if char == "b":
+            return "craft-mix", False
+        if char == "n":
+            return f"craft-fill:{flask_id}:{min(max(0, (len(ingredients) - 1) // 8), page + 1)}", False
+        if char == "p":
+            return f"craft-fill:{flask_id}:{max(0, page - 1)}", False
+        if char in "12345678":
+            index = page * 8 + int(char) - 1
+            if index < len(ingredients):
+                changed, message = fill_flask(state, flask_id, ingredients[index].id)
+                if not changed:
+                    state.add_message(message, priority=2)
+                return ("craft-mix" if changed else kind), False
+    if kind == "spellbook" and char in "123456":
+        from .magic import SPELL_TIERS
+
+        return f"spell-tier:{list(SPELL_TIERS)[int(char) - 1]}", False
+    if kind.startswith("spell-tier:") and char == "b":
+        return "spellbook", False
+    if kind == "skill-tree" and char in "123456789a":
+        from .skill_tree import BRANCHES
+
+        return f"skill-branch:{list(BRANCHES)['123456789a'.index(char)]}", False
+    if kind.startswith("skill-branch:"):
+        if char == "b":
+            return "skill-tree", False
+        if char in "123456":
+            from .skill_tree import NODES, buy_node
+
+            branch = kind.split(":", 1)[1]
+            node = [node for node in NODES.values() if node.branch == branch][int(char) - 1]
+            _, message = buy_node(state, node.id)
+            state.add_message(message, priority=3)
+            return kind, False
     if kind == "station:gathering" and char in "123":
         from .household_stories import STORIES, eligibility
 
@@ -2863,6 +3194,24 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         changed, message = handle_material(state, VERBS[key - ord("a")], point_at(kind.split(":", 1)[1]))
         state.add_message(message, priority=3)
         return (None if changed else kind), False
+    if kind.startswith("material:") and char in {"l", "m"}:
+        return ("flask-pour:" if char == "l" else "flask-drink:") + kind.split(":", 1)[1], False
+    if kind.startswith(("flask-pour:", "flask-drink:")):
+        if char == "b":
+            return "material:" + kind.split(":", 1)[1], False
+        if char in "123456789":
+            from .chemistry import carried_flasks, drink_flask, pour_flask
+            from .materials import point_at
+
+            flasks = carried_flasks(state)
+            index = int(char) - 1
+            if index < len(flasks):
+                changed, message = (pour_flask(state, flasks[index].id, point_at(kind.split(":", 1)[1]))
+                                    if kind.startswith("flask-pour:") else drink_flask(state, flasks[index].id))
+                if not changed:
+                    state.add_message(message, priority=2)
+                return (None if changed else kind), False
+        return kind, False
     if kind == "material" and char == "a":
         from .aftermath import contracts_for, near_contract_site
 
@@ -2891,6 +3240,8 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         result = resolve(state, char)
         return (None if result.changed else kind), False
     if key == 27:
+        if kind.startswith("spell-tier:"):
+            return "spellbook", False
         if kind.startswith("workshop:"):
             return "station:workshop", False
         if kind.startswith("vessel-refits:"):
@@ -2912,6 +3263,13 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         if char in "12345678" and equipped_item(state, SLOTS[int(char) - 1]):
             return "workshop:slot:" + SLOTS[int(char) - 1], False
         return ("workshop:store" if char == "p" else kind), False
+    if kind == "station:berths" and char == "r":
+        from .magic import rest_at_berths
+
+        changed, message = rest_at_berths(state)
+        if not changed:
+            state.add_message(message, priority=2)
+        return kind, False
     if kind.startswith("ship-work:"):
         if char == "b":
             return None, False
@@ -3085,6 +3443,8 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         person = person_by_id(state, person_id)
         if char == "c":
             return f"character-sheet:{person_id}", False
+        if char == "t" and state.courier and "teaching" in state.courier.skill_nodes:
+            return f"teach-person:{person_id}:0", False
         if char == "s" and person in state.household:
             result = choose_courier(state, person_id)
             return (None if result.changed else kind), False
@@ -3222,6 +3582,9 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
             if closed:
                 selected_route = overlay.result
                 overlay = None
+                if selected_route and selected_route.startswith("spell:"):
+                    target_view = TargetView.begin_spell(state, selected_route.split(":", 1)[1])
+                    continue
                 if selected_route:
                     try:
                         local_route = plan_route(state, selected_route)
@@ -3319,6 +3682,17 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
             overlay = OverlayView("regional-ledger")
         elif normalized == ord("c") and state.courier:
             overlay = OverlayView(f"character-sheet:{state.courier.id}")
+        elif normalized == ord("p") and state.courier:
+            overlay = OverlayView("skill-tree")
+        elif normalized == ord("d") and state.courier:
+            overlay = OverlayView("spellbook")
+        elif normalized == ord("w") and state.courier:
+            from .production import stations_here
+
+            if stations_here(state):
+                overlay = OverlayView("craft-catalog:0")
+            else:
+                state.add_message("Crafting needs a physical work area outside the tavern.", priority=2)
         elif normalized == ord("o"):
             overlay = OverlayView("observed-life")
         elif normalized == ord("?"):

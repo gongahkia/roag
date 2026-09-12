@@ -36,8 +36,8 @@ class VesselRefitTests(unittest.TestCase):
         state.trade_credit = 20
         return state
 
-    def test_all_eight_refits_install_only_at_their_physical_station_and_round_trip(self):
-        self.assertEqual(len(REFITS), 8)
+    def test_all_eleven_refits_install_only_at_their_physical_station_and_round_trip(self):
+        self.assertEqual(len(REFITS), 11)
         for refit_id, refit in REFITS.items():
             with self.subTest(refit=refit_id):
                 state = self.state_for(refit_id)

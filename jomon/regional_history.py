@@ -350,6 +350,9 @@ def advance_production(state: GameState) -> None:
         region.changes["last_work_account"] = f"Day {today}: {output} {institution.production} output; {institution.dependency} stock {need.stock}; {season}."
         if institution.region_id == state.active_region_id and state.location == "region":
             state.add_message(f"{institution.name}: {output} {institution.production} output; {institution.dependency} {'consumed' if output else 'short'}.", priority=2)
+    from .production import advance_craft_economy
+
+    advance_craft_economy(state)
 
 
 def deliver_dependency(state: GameState) -> tuple[bool, str]:
@@ -374,6 +377,9 @@ def deliver_dependency(state: GameState) -> tuple[bool, str]:
     institution.witnessed_acts.append(act)
     del institution.witnessed_acts[:-8]
     state.trade_credit += 1
+    from .skill_tree import record_milestone
+
+    record_milestone(state, f"trade:{state.active_region_id}")
     state.remember(f"{state.courier.name} delivered {institution.dependency} to {institution.name}; household trust {institution.trust}, remaining obligation {institution.obligation}.")
     return True, (
         "The physical supply settles part of the work account: one credit, household trust, and material for the next shift."

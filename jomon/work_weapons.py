@@ -91,6 +91,9 @@ def cast_pot(state, point, ammunition=None):
     emit_sound(state, 3, point)
     if fitting:
         message += " " + fitting + "; the pot still breaks loudly at its landing."
+    from .skill_tree import record_milestone
+
+    record_milestone(state, "combat:devices")
     return _time_result(state, message, priority=3)
 
 
