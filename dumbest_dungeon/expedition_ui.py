@@ -89,16 +89,18 @@ class ExpeditionUI(TavernUIBase):
                 overlays.append((x, y, "F" if side == 0 else "f", self._attr(2) | curses.A_BOLD))
         overlays.append((*_position(match, 1), "P", self._attr(3) | curses.A_BOLD))
         overlays.append((*(moving or _position(match, 0)), "@", self._attr(4) | curses.A_BOLD))
-        overlays.append((*self.cursor, "+", curses.A_REVERSE | curses.A_BOLD))
+        cursor_symbol = ("@" if self.cursor == _position(match, 0) else
+                         "P" if self.cursor == _position(match, 1) else "+")
+        overlays.append((*self.cursor, cursor_symbol, curses.A_REVERSE | curses.A_BOLD))
         for x, y, symbol, attr in overlays:
             if left <= x < left + viewport_width and top <= y < top + viewport_height:
                 self._put(4 + y - top, map_column + x - left, symbol, attr)
         route_cost = sum(costs[match["board"][y][x]] for x, y in route)
         legend_row = 4 + viewport_height
-        self._put(legend_row, 2, self._ellipsize(f"@ COURIER  P PATRON  F/f FILES  K LANDMARK  ^ HAZARD  H DESK  C REST  W WORKSHOP  ?/$ CACHE  ROUTE {route_cost}T", columns - 3))
+        self._put(legend_row, 2, self._ellipsize(f"@ party P rival F/f files K site ^ hazard H desk C rest W work ?/$ loot R{route_cost}T", columns - 3))
         self._put(legend_row + 1, 2, self._ellipsize(self.message or match["log"][-1], columns - 3), self._attr(2))
-        self._put(legend_row + 2, 2, "Steal their file, return within 2 of your home, hold through their turn. First to 2.")
-        self._footer("Arrows aim  Enter auto-walk  Tab sites  1 home  2 rival file  3 patron  4 own file  E end  S save  Q leave")
+        self._put(legend_row + 2, 2, "Steal rival file, return near home, hold through their turn. First to two.")
+        self._footer("Arrows aim Enter auto-walk Tab 1 home 2 rival 3 patron 4 own E end S save Q")
 
     def _render_combat_match(self, target: str | None = None) -> None:
         match = self.match
@@ -109,8 +111,8 @@ class ExpeditionUI(TavernUIBase):
         label = OFFICE_BIOMES[biome]
         self._begin(f"{label.upper()} / RANKED CARD COMBAT — ROUND {match['round']} — ENERGY {team['energy']} — APPROVAL {match['scores'][0]}:{match['scores'][1]}")
         self._put(1, 2, f"COURIER VS {match.get('patron_name', 'PATRON').upper()}  |  {match['combat_turns']} COMBAT TURNS  |  TWO-TURN RETURNS", self._attr(2) | curses.A_BOLD)
-        self._put(2, self._combat_column(2), "YOUR PARTY < BACK    FORMATION    FRONT >", curses.A_BOLD)
-        self._put(2, self._combat_column(43), "RIVAL PARTY < FRONT   FORMATION  BACK >", curses.A_BOLD)
+        self._put(2, self._combat_column(2), "YOUR PARTY < BACK  FORMATION  FRONT >", curses.A_BOLD)
+        self._put(2, self._combat_column(43), "RIVAL PARTY < FRONT FORMATION BACK >", curses.A_BOLD)
         self._put(3, self._combat_column(39), "||", curses.A_BOLD)
         hand = team["hand"]
         self.selected_card = max(0, min(self.selected_card, len(hand) - 1))
@@ -147,7 +149,7 @@ class ExpeditionUI(TavernUIBase):
             self._draw_mini_office_card(13, self._combat_column(2 + slot * 15), card, index == self.selected_card, legal)
         if not hand:
             self._put(17, 28, "HAND EMPTY — PRESS E", curses.A_DIM)
-        self._footer("Arrows/H/L card  Enter play  C full card  R retreat  V roster  E end  S save  Q leave")
+        self._footer("Arrows card Enter play C details R retreat V roster E end S save Q leave")
 
     def _mini_office_card_lines(self, instance: str | dict) -> list[str]:
         card_id = _card_id(instance)

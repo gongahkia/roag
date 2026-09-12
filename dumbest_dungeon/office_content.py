@@ -95,6 +95,17 @@ OFFICE_TARGETS = {
     "ally": "Colleague", "all_allies": "All colleagues",
 }
 
+OFFICE_STATUSES = {
+    "marked": "flagged", "wound": "paper-cut", "weak": "frazzled",
+    "vulnerable": "under review", "focus": "caffeinated",
+    "riposte": "reply-all", "dodge": "out to lunch", "stun": "meeting-held",
+}
+
+OFFICE_STATES = {
+    "deaths_door": "at critical HP", "healthy": "at half HP or more",
+    "stressed": "at 50 or more stress", "wounded": "wounded by a paper cut",
+}
+
 
 def office_facility_option(effect_ops: set[str], cost: dict) -> str:
     """Display office-fantasy choices without changing facility costs or effects."""
@@ -147,24 +158,37 @@ class OfficeCard:
 def _effect_text(effect: dict) -> str:
     op, amount = effect["op"], effect.get("amount", 0)
     status = effect.get("status", "marked")
-    office_status = {
-        "marked": "flagged", "wound": "paper cut", "weak": "frazzled",
-        "vulnerable": "under review", "focus": "caffeinated",
-        "riposte": "reply-all", "dodge": "out to lunch", "stun": "meeting hold",
-    }.get(status, status)
-    return {
+    description = {
         "damage": f"deal {amount} paperwork pressure",
         "block": f"gain {amount} cover",
         "heal": f"restore {amount} composure",
         "stress": f"add {amount} stress" if amount >= 0 else f"relieve {-amount} stress",
-        "move": f"reposition up to {max(1, min(3, abs(amount)))} desks",
-        "guard": "guard a colleague",
-        "status": f"apply {status} ({office_status})",
+        "move": f"move {abs(amount)} rank(s) toward {'back' if amount > 0 else 'front'}",
+        "guard": f"guard a colleague for {max(1, amount)} turn(s)",
+        "status": f"apply {OFFICE_STATUSES.get(status, status)} for {amount} turn(s)",
         "draw": f"draw {amount} card(s)",
         "discard": f"discard {amount} card(s)",
         "energy": f"gain {amount} energy",
-        "cleanse": "clear a condition",
+        "cleanse": "clear negative conditions",
     }[op]
+    if effect.get("target"):
+        description = f"{OFFICE_TARGETS[effect['target']]}: {description}"
+    if effect.get("bonus_status"):
+        condition = ("has a paper cut" if effect["bonus_status"] == "wound" else
+                     f"is {OFFICE_STATUSES[effect['bonus_status']]}")
+        description += f" (+{effect['bonus']} if target {condition})"
+    conditions = []
+    if effect.get("condition_status"):
+        status = effect["condition_status"]
+        conditions.append("selected target has a paper cut" if status == "wound" else
+                          f"selected target is {OFFICE_STATUSES[status]}")
+    if effect.get("condition_actor_state"):
+        conditions.append(f"worker is {OFFICE_STATES[effect['condition_actor_state']]}")
+    if effect.get("condition_target_state"):
+        conditions.append(f"selected target is {OFFICE_STATES[effect['condition_target_state']]}")
+    if conditions:
+        description += " when " + " and ".join(conditions)
+    return description
 
 
 def office_card_description(card_id: str, *, upgraded: bool = False) -> str:

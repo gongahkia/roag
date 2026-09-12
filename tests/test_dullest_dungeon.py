@@ -33,6 +33,14 @@ class ExpeditionRulesTests(unittest.TestCase):
         self.assertTrue(all(card.name and card.description and card.role in roles for card in cards.values()))
         self.assertTrue(all(roles[role]["max_hp"] == hero["max_hp"] for role, hero in self.catalog.heroes.items()))
 
+    def test_office_card_text_discloses_conditional_and_positional_rules(self):
+        cards = office_catalog()[1]
+        self.assertIn("+6 if target has a paper cut", cards["bone_saw"].description)
+        self.assertIn("toward front", cards["backdoor"].description)
+        self.assertIn("selected target is under review", cards["backdoor"].description)
+        self.assertIn("at critical HP", cards["event_collapse"].description)
+        self.assertIn("Self: gain 4 cover", cards["interpose"].description)
+
     def test_office_portraits_and_rival_costumes_cover_the_art_catalog(self):
         self.assertEqual(set(OFFICE_SPRITES), set(OFFICE_ROLES))
         self.assertEqual(len({tuple(sprite) for sprite in OFFICE_SPRITES.values()}), 25)
@@ -682,6 +690,33 @@ class TavernIntegrationTests(unittest.TestCase):
         self.assertTrue(any(OFFICE_SPRITES[match["teams"][0]["actors"][0]["role"]][0] in line for line in screen.drawn))
         costume = rival_costumes(match["world_seed"])[0]
         self.assertTrue(any(catalog.art["enemies"][costume][0] in line for line in screen.drawn))
+
+    def test_company_archive_opens_every_catalog_section_at_minimum_size(self):
+        class Screen:
+            def getmaxyx(self):
+                return 24, 80
+
+            def erase(self):
+                pass
+
+            def refresh(self):
+                pass
+
+            def keypad(self, enabled):
+                pass
+
+            def addstr(self, y, x, value, attr=0):
+                pass
+
+            def getch(self):
+                return ord("q")
+
+        with patch("curses.curs_set"), patch("curses.has_colors", return_value=False):
+            ui = ExpeditionUI(Screen(), self.state)
+            for category in range(6):
+                choices = [category, None] if category == 5 else [category, 0, None]
+                with self.subTest(category=category), patch.object(ui, "_menu", side_effect=choices), patch.object(ui, "_notice"):
+                    ui._browse_archive()
 
     def test_keyboard_selects_a_ranked_target_and_plays_a_card(self):
         class Screen:

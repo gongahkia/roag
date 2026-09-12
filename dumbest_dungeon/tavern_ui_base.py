@@ -120,6 +120,8 @@ class TavernUIBase:
                 return selected
             elif key == 27 and allow_cancel:
                 return None
+            elif ord("1") <= key <= ord("9") and key - ord("1") < len(choices):
+                return key - ord("1")
 
     def _notice(self, title: str, body: str) -> None:
         width = max(20, self.screen.getmaxyx()[1] - 6)

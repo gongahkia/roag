@@ -48,9 +48,9 @@ OFFICE_COSTUME_WORDS = {
     "Coolant": "Watercooler", "Deck": "Floor", "Dosimeter": "Timecard",
     "Frost": "Freezer", "Gene": "Policy", "Gravity": "Elevator",
     "Ion": "Power", "Nanite": "Toner", "Neural": "Memo",
-    "Plasma": "Ink", "Rad": "Budget", "Reactor": "Budget",
+    "Plasma": "Ink", "Rad": "Budget",
     "Repair": "Staple", "Rime": "Freezer", "Scrap": "Paper",
-    "Signal": "Memo", "Vent": "Duct", "Void": "Absence",
+    "Signal": "Memo", "Vent": "Duct",
 }
 
 
