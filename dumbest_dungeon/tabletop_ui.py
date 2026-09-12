@@ -53,7 +53,8 @@ def _draw_lobby(screen: curses.window, state, selected: int, slot: int, message:
     if not people:
         _put(screen, 15, 2, "Nobody is available to play just now.")
     _put(screen, 22, 2, message or "First win against each patron per season: +1 credit and strategy.")
-    _put(screen, 23, 2, "J/K patron 1-4 slot [/] job V roster F squad L kit P policy D deck Enter Q")
+    _put(screen, 21, 45, "B: company archive")
+    _put(screen, 23, 2, "J/K patron 1-4 slot [/] job V roster F squad L kit B archive P/D Enter Q")
     screen.refresh()
     return people
 

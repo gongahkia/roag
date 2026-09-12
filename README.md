@@ -54,7 +54,9 @@ World controls:
 
 At the tavern's `D` seat, `Enter` or `E` opens Dullest Dungeon. In its lobby,
 `J/K` chooses a patron, `1`–`4` selects an office worker, `[` and `]` change
-jobs, `P` changes company policy, `D` edits the deck, and `Enter` starts a
+jobs, `V` browses all 25 jobs, `F` selects one of 13 formations, `L` switches
+the selected worker's starter or alternate five-card kit, `B` opens the
+company archive, `P` changes company policy, `D` edits the deck, and `Enter` starts a
 match. On the generated map, arrows or `W/A/D/X` move the cursor, `Tab` cycles
 through neutral sites, `1` aims at your home, `2` at the rival file, `3` at
 the patron party, and `4` at your own file. `Enter` auto-walks toward the
@@ -65,6 +67,9 @@ card, `Enter` chooses a legal target and plays it, `C` inspects the full card,
 `R` retreats to an adjacent tile away from the rival, and `V` shows both rosters.
 `E` ends a map or combat turn, `S` saves Jomon and the match, and `Q` returns
 to Jomon with the match still in progress. The 18+4 round clock pauses in combat.
+Each job has distinct office-themed ASCII art and a class-specific card glyph.
+The patron's workers wear rotating rival-department costumes drawn from the
+original 129 enemy sprites; costumes do not grant scripted enemy actions.
 Starting a match advances one Jomon action; expedition turns do not advance
 Jomon time.
 

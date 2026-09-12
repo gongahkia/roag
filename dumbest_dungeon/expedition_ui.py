@@ -16,7 +16,7 @@ from .expedition import (
     start_match, valid_targets,
 )
 from .office_content import (
-    OFFICE_BIOMES, OFFICE_ROLES, OFFICE_SQUADS, OFFICE_TARGETS, OFFICE_WORLDS,
+    DOCTRINE_NAMES, OFFICE_BIOMES, OFFICE_ROLES, OFFICE_SQUADS, OFFICE_TARGETS, OFFICE_WORLDS,
     office_card_description, office_catalog,
 )
 from .tabletop import collection_for, patrons
@@ -153,7 +153,7 @@ class ExpeditionUI(TavernUIBase):
         card_id = _card_id(instance)
         card = self.catalog.cards[card_id]
         office = office_catalog()[1][card_id]
-        cost = _card_cost(self.match, 0, instance)
+        cost = _card_cost(self.match, 0, instance) if self.match else card["cost"]
         mark = self.catalog.art["card_marks"][card["hero"]]
         glyph = office_card_glyph(card["hero"])
         description = textwrap.wrap(office_card_description(card_id, upgraded=_card_upgraded(instance)), 12)[:2]
@@ -177,7 +177,7 @@ class ExpeditionUI(TavernUIBase):
         definition = self.catalog.cards[card_id]
         office = office_catalog()[1][card_id]
         role_id = definition["hero"]
-        cost = _card_cost(self.match, 0, instance)
+        cost = _card_cost(self.match, 0, instance) if self.match else definition["cost"]
         mark = self.catalog.art["card_marks"][role_id]
         glyph = office_card_glyph(role_id)
         description = textwrap.wrap(office_card_description(card_id, upgraded=_card_upgraded(instance)), 18)[:4]
@@ -352,6 +352,97 @@ class ExpeditionUI(TavernUIBase):
                               if self.catalog.cards[card]["hero"] != role] + replacement
         name = "starter" if replacement == starter else "alternate"
         return f"{OFFICE_ROLES[role]} now carries the {name} five-card kit."
+
+    def _browse_archive(self) -> None:
+        while True:
+            category = self._menu("COMPANY ARCHIVE", [
+                "Twenty-five workers and their kits", "Two hundred ninety office techniques",
+                "One hundred twenty-nine rival costumes", "Six floorplans and eleven departments",
+                "Eleven company policies", "Courier match ledger",
+            ], "A single file-capture game uses this catalog. Rival costumes are artwork for the patron's specialists; they do not add scripted enemy turns.")
+            if category is None:
+                return
+            if category == 0:
+                roles = list(OFFICE_ROLES)
+                selected = self._menu("WORKER ARCHIVE", [OFFICE_ROLES[role] for role in roles])
+                if selected is None:
+                    continue
+                role = roles[selected]
+                hero = self.catalog.heroes[role]
+                alternate = next(item for item in self.catalog.loadouts.values() if item["hero"] == role)
+                self._begin(OFFICE_ROLES[role].upper())
+                self._draw_sprite(4, 7, OFFICE_SPRITES[role], curses.A_BOLD)
+                self._put(4, 22, f"{hero['combat_role'].upper()}  HP {hero['max_hp']}  RANKS {','.join(map(str, hero['preferred_ranks']))}")
+                self._put(6, 22, "STARTER KIT")
+                for row, card in enumerate(hero["starter_deck"], 7):
+                    self._put(row, 22, office_catalog()[1][card].name)
+                self._put(13, 22, "ALTERNATE KIT")
+                for row, card in enumerate(alternate["cards"], 14):
+                    self._put(row, 22, office_catalog()[1][card].name)
+                self._footer("Any key returns to the company archive")
+                self.screen.getch()
+            elif category == 1:
+                card_ids = list(office_catalog()[1])
+                selected = self._menu("OFFICE TECHNIQUES", [
+                    f"{office_catalog()[1][card].name} / {OFFICE_ROLES[office_catalog()[1][card].role]}"
+                    for card in card_ids])
+                if selected is None:
+                    continue
+                card_id = card_ids[selected]
+                self._begin(office_catalog()[1][card_id].name.upper())
+                for row, line in enumerate(self._full_office_card_lines(card_id), 3):
+                    self._put(row, 4, line, curses.A_BOLD if row in (3, 5, 19) else 0)
+                for row, line in enumerate(textwrap.wrap(office_card_description(card_id),
+                                                         max(20, self.screen.getmaxyx()[1] - 33)), 4):
+                    self._put(row, 30, line)
+                self._footer("Any key returns to the company archive")
+                self.screen.getch()
+            elif category == 2:
+                enemy_ids = list(self.catalog.art["enemies"])
+                selected = self._menu("RIVAL COSTUME ARCHIVE", [office_costume_name(enemy_id) for enemy_id in enemy_ids],
+                                      "These drawings are corporate costumes worn by patron specialists. The job and card rules under each costume are identical to yours.")
+                if selected is None:
+                    continue
+                enemy_id = enemy_ids[selected]
+                self._begin(office_costume_name(enemy_id).upper())
+                self._draw_sprite(5, 9, self.catalog.art["enemies"][enemy_id], curses.A_BOLD)
+                self._put(6, 23, "RIVAL-DEPARTMENT COSTUME")
+                self._put(8, 23, "Artwork only: no scripted enemy action.")
+                self._footer("Any key returns to the company archive")
+                self.screen.getch()
+            elif category == 3:
+                worlds = list(OFFICE_WORLDS)
+                biomes = list(OFFICE_BIOMES)
+                choices = [f"FLOORPLAN / {OFFICE_WORLDS[world]}" for world in worlds]
+                choices += [f"DEPARTMENT / {OFFICE_BIOMES[biome]}" for biome in biomes]
+                selected = self._menu("FLOORS AND DEPARTMENTS", choices)
+                if selected is None:
+                    continue
+                if selected < len(worlds):
+                    world = worlds[selected]
+                    detail = f"{OFFICE_WORLDS[world]} uses the original {self.catalog.worlds[world]['layout']} generated layout. Each match draws four departments from the full eleven."
+                else:
+                    biome = biomes[selected - len(worlds)]
+                    detail = f"{OFFICE_BIOMES[biome]} retains its original terrain, hazard, facility, and visibility rules in the generated office map."
+                self._notice("COMPANY FLOORPLAN", detail)
+            elif category == 4:
+                doctrines = list(self.catalog.doctrines.values())
+                selected = self._menu("COMPANY POLICIES", [DOCTRINE_NAMES[index] for index in range(len(doctrines))])
+                if selected is not None:
+                    doctrine = doctrines[selected]
+                    strength = doctrine["strength"].replace("crew death", "worker knockout").replace("enemy", "rival")
+                    liability = doctrine["liability"].replace("crew death", "worker knockout").replace("enemy", "rival")
+                    self._notice(DOCTRINE_NAMES[selected].upper(),
+                                 f"BENEFIT: {strength}\n\nLIABILITY: {liability}")
+            else:
+                records = self.jomon_state.tabletop["records"]
+                if not records:
+                    self._notice("COURIER MATCH LEDGER", "No completed company matches yet.")
+                else:
+                    body = "\n".join(
+                        f"{record['season']}  {record['result'].upper()}  {record['score'][0]}:{record['score'][1]}  {record['department']}  vs {record['patron']}"
+                        for record in reversed(records))
+                    self._notice("COURIER MATCH LEDGER", body)
 
     def _auto_walk_to(self, destination: tuple[int, int]) -> None:
         match = self.match
@@ -552,6 +643,8 @@ def run_expedition(screen: curses.window, state) -> None:
                     message = ui._toggle_loadout(collection_for(state, state.courier.id), slot)
                 except ValueError as exc:
                     message = str(exc)
+            elif normalized == ord("b"):
+                ui._browse_archive()
             elif normalized == ord("d"):
                 mode = "deck"
             elif normalized == ord("p"):
