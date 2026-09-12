@@ -6,6 +6,7 @@ from collections import deque
 import hashlib
 from typing import Any
 
+from .content import load_catalog
 from .office_content import DEPARTMENTS, office_catalog
 from .resolution import EventQueue, Payload
 from .triggers import EventType
@@ -79,7 +80,7 @@ def _draw(match: dict, side: int, count: int) -> None:
 
 def new_match(seed: str, courier_id: str, patron_id: str, roles: list[str],
               patron_roles: list[str], deck: list[str] | None = None,
-              match_number: int = 0) -> dict:
+              match_number: int = 0, customization: dict | None = None) -> dict:
     role_catalog, card_catalog = office_catalog()
     if len(roles) != 4 or len(patron_roles) != 4 or any(role not in role_catalog for role in roles + patron_roles):
         raise ValueError("each side needs four known office workers")
@@ -102,14 +103,24 @@ def new_match(seed: str, courier_id: str, patron_id: str, roles: list[str],
                     {"x": WIDTH - 17, "y": 7, "kind": "coffee"},
                     {"x": 20, "y": 3, "kind": "staples"},
                     {"x": 20, "y": 11, "kind": "staples"}],
-        "sides": [{"roles": roles, "draw": player_deck[:], "hand": [], "discard": []},
-                  {"roles": patron_roles, "draw": patron_deck[:], "hand": [], "discard": []}],
+        "sides": [{"roles": roles, "draw": player_deck[:], "hand": [], "discard": [],
+                   "masteries": dict((customization or {}).get("masteries", {})),
+                   "infusions": dict((customization or {}).get("infusions", {})),
+                   "doctrine": (customization or {}).get("doctrine", "base:rolling_dance"), "plays": 0},
+                  {"roles": patron_roles, "draw": patron_deck[:], "hand": [], "discard": [],
+                   "masteries": {}, "infusions": {},
+                   "doctrine": list(load_catalog().doctrines)[shifted_doctrine(seed, patron_id)], "plays": 0}],
         "queue": EventQueue().snapshot(), "log": [f"The {DEPARTMENTS[theme]} department opens for business."],
     }
     for side in (0, 1):
         _shuffle(match, match["sides"][side]["draw"])
         _draw(match, side, 5)
     return match
+
+
+def shifted_doctrine(seed: str, patron_id: str) -> int:
+    count = len(load_catalog().doctrines)
+    return int.from_bytes(hashlib.sha256(f"{seed}:{patron_id}:doctrine".encode()).digest()[:2], "big") % count
 
 
 def _piece(match: dict, identity: str) -> dict:
@@ -192,6 +203,7 @@ def _knockout(match: dict, target: dict) -> None:
 
 def _apply_effect(match: dict, actor: dict, target: dict, destination: tuple[int, int] | None, effect: dict) -> None:
     op, amount = effect["op"], effect.get("amount", 0)
+    doctrine = load_catalog().doctrines[match["sides"][actor["side"]]["doctrine"]]["mode"]
     condition = effect.get("condition_status")
     if condition and not target["statuses"].get(condition):
         return
@@ -206,7 +218,7 @@ def _apply_effect(match: dict, actor: dict, target: dict, destination: tuple[int
             if protector:
                 target = protector
         amount += effect.get("bonus", 0) if effect.get("bonus_status") in target["statuses"] else 0
-        amount = max(0, amount + (2 if actor["statuses"].get("focus") else 0) - (2 if actor["statuses"].get("weak") else 0) + (2 if target["statuses"].get("vulnerable") else 0))
+        amount = max(0, amount + (2 if actor["statuses"].get("focus") else 0) - (2 if actor["statuses"].get("weak") else 0) + (2 if target["statuses"].get("vulnerable") else 0) + (2 if doctrine == "mark" and target["statuses"].get("marked") else 0) + (1 if doctrine == "artillery" else 0))
         if target["statuses"].get("dodge"):
             target["statuses"]["dodge"] -= 1
             amount = 0
@@ -221,9 +233,9 @@ def _apply_effect(match: dict, actor: dict, target: dict, destination: tuple[int
             if actor["hp"] == 0:
                 _knockout(match, actor)
     elif op == "block":
-        target["block"] = min(30, target["block"] + amount)
+        target["block"] = min(30, target["block"] + amount + (1 if doctrine == "guard" else 0))
     elif op == "heal":
-        target["hp"] = min(target["max_hp"], target["hp"] + amount)
+        target["hp"] = min(target["max_hp"], target["hp"] + amount + (2 if doctrine == "triage" else 0))
     elif op == "stress":
         target["statuses"]["stress"] = min(9, target["statuses"].get("stress", 0) + amount)
         if target["statuses"]["stress"] >= 9:
@@ -249,7 +261,7 @@ def _apply_effect(match: dict, actor: dict, target: dict, destination: tuple[int
         target["block"] = min(30, target["block"] + 2)
     elif op == "status":
         status = effect.get("status", "marked")
-        target["statuses"][status] = max(1, amount or 1)
+        target["statuses"][status] = max(1, amount or 1) + (1 if doctrine == "wound" and status == "wound" else 0)
     elif op == "draw":
         _draw(match, actor["side"], amount)
     elif op == "discard":
@@ -273,7 +285,10 @@ def play_card(match: dict, card_index: int, actor_id: str, target_id: str | None
         raise ValueError("choose an active worker on the current side")
     if actor["statuses"].get("stun", 0) > 0:
         raise ValueError("that worker is stunned for this turn")
-    hand = match["sides"][side]["hand"]
+    side_state = match["sides"][side]
+    hand = side_state["hand"]
+    infusion_mode = None
+    mastery_mode = None
     if card_index == -1:
         card_id, cost, target_kind, effects = FALLBACK, 1, "self", ({"op": "move", "amount": 1},)
     else:
@@ -285,16 +300,37 @@ def play_card(match: dict, card_index: int, actor_id: str, target_id: str | None
         if card.role not in match["sides"][side]["roles"]:
             raise ValueError("the worker is not on this team")
         cost, target_kind, effects = card.cost, card.target, card.effects
+        source = load_catalog()
+        infusion_id = side_state["infusions"].get(card_id)
+        infusion_mode = source.infusions[infusion_id]["mode"] if infusion_id else None
+        mastery_mode = side_state["masteries"].get(card_id)
+        if mastery_mode == "engine":
+            mastery = next((item for item in source.masteries.values() if item["card_id"] == card_id), None)
+            if mastery:
+                branch = mastery["branches"][0]
+                effects = tuple({**effect, "amount": effect.get("amount", 0) + (branch["amount"] if index == branch["effect_index"] else 0)} for index, effect in enumerate(effects))
+        if infusion_mode == "front_discount" and actor["x"] >= 15 if side == 0 else actor["x"] <= 25:
+            cost = max(0, cost - 1)
+        if infusion_mode == "rear_discount" and (actor["x"] <= 15 if side == 0 else actor["x"] >= 25):
+            cost = max(0, cost - 1)
+        if infusion_mode == "wounded_discount" and actor["hp"] < actor["max_hp"]:
+            cost = max(0, cost - 1)
+        if infusion_mode == "casualty_discount" and any(piece["side"] == side and piece["hp"] == 0 for piece in match["pieces"]):
+            cost = max(0, cost - 1)
+        if source.doctrines[side_state["doctrine"]]["mode"] == "dance" and side_state["plays"] == 0 and not any(effect["op"] == "move" for effect in effects):
+            cost += 1
     if cost > match["energy"]:
         raise ValueError("not enough energy")
     if target_kind in {"enemy", "all_enemies"}:
         enemies = [piece for piece in match["pieces"] if piece["side"] != side and piece["hp"] > 0]
         target = _piece(match, target_id) if target_id else min(enemies, key=lambda item: _distance((actor["x"], actor["y"]), (item["x"], item["y"])))
-        if target["side"] == side or target["hp"] <= 0 or _distance((actor["x"], actor["y"]), (target["x"], target["y"])) > 5:
+        reach = 5 + int(mastery_mode == "coverage") + int(infusion_mode == "rank_access")
+        if target["side"] == side or target["hp"] <= 0 or _distance((actor["x"], actor["y"]), (target["x"], target["y"])) > reach:
             raise ValueError("select a rival within five desks")
     elif target_kind in {"ally", "all_allies"}:
         target = _piece(match, target_id) if target_id else actor
-        if target["side"] != side or target["hp"] <= 0 or _distance((actor["x"], actor["y"]), (target["x"], target["y"])) > 5:
+        reach = 5 + int(mastery_mode == "coverage") + int(infusion_mode == "rank_access")
+        if target["side"] != side or target["hp"] <= 0 or _distance((actor["x"], actor["y"]), (target["x"], target["y"])) > reach:
             raise ValueError("select a colleague within five desks")
     else:
         target = actor
@@ -306,7 +342,9 @@ def play_card(match: dict, card_index: int, actor_id: str, target_id: str | None
             raise ValueError("the route is blocked")
     match["energy"] -= cost
     if card_index != -1:
-        match["sides"][side]["discard"].append(hand.pop(card_index))
+        played_card = hand.pop(card_index)
+        if infusion_mode != "exhaust":
+            side_state["discard"].append(played_card)
     queue = EventQueue.from_snapshot(match["queue"])
     queue.begin(card_token=card_id, combat_token=1, turn_token=(match["round"] - 1) * 2 + side)
     def targets(effect: dict) -> list[dict]:
@@ -324,6 +362,24 @@ def play_card(match: dict, card_index: int, actor_id: str, target_id: str | None
             queue.submit(EventType.CARD_STEP, actor_id, (recipient["id"],), Payload(actor_id=actor_id, card_id=card_id, effect_index=index))
     queue.drain(lambda event: (), lambda event, queue: _apply_effect(match, actor, _piece(match, event.target_ids[0]), destination, effects[event.payload.effect_index]), lambda listener, event, queue: None)
     match["queue"] = queue.snapshot()
+    if infusion_mode == "echo_first" and side_state["plays"] == 0:
+        for effect in effects:
+            _apply_effect(match, actor, target, destination, effect)
+    if infusion_mode in {"follow_draw", "opening_priority"} and (infusion_mode != "opening_priority" or match["round"] == 1):
+        _draw(match, side, 1)
+    if infusion_mode == "movement_refund" and any(effect["op"] == "move" for effect in effects):
+        match["energy"] = min(5, match["energy"] + 1)
+    if infusion_mode == "self_cleanse":
+        actor["statuses"].clear()
+    if infusion_mode == "point_lead" and actor["x"] in range(15, 26):
+        actor["statuses"]["focus"] = max(1, actor["statuses"].get("focus", 0))
+    if infusion_mode == "mark_after_damage" and any(effect["op"] == "damage" for effect in effects):
+        target["statuses"]["marked"] = max(1, target["statuses"].get("marked", 0))
+    if infusion_mode == "burden_thread" and actor["statuses"].pop("wound", None) and target["id"] != actor["id"]:
+        target["statuses"]["wound"] = max(1, target["statuses"].get("wound", 0))
+    if load_catalog().doctrines[side_state["doctrine"]]["mode"] == "dance" and side_state["plays"] == 0 and any(effect["op"] == "move" for effect in effects):
+        _draw(match, side, 1)
+    side_state["plays"] += 1
     name = "Commute" if card_id == FALLBACK else office_catalog()[1][card_id].name
     _log(match, f"{actor['role']} files {name}.")
     return name
@@ -359,8 +415,9 @@ def end_turn(match: dict) -> None:
     if match["winner"] is not None:
         return
     pile = match["sides"][side]
-    pile["discard"].extend(pile["hand"])
-    pile["hand"].clear()
+    retained = [card for card in pile["hand"] if pile["infusions"].get(card) and load_catalog().infusions[pile["infusions"][card]]["mode"] == "retain"]
+    pile["discard"].extend(card for card in pile["hand"] if card not in retained)
+    pile["hand"] = retained
     for piece in match["pieces"]:
         if piece["side"] == side and piece["hp"] > 0:
             for status in list(piece["statuses"]):
@@ -382,6 +439,7 @@ def end_turn(match: dict) -> None:
             match["winner"] = 0 if match["scores"][0] > match["scores"][1] else 1
             return
     match["energy"] = 3
+    match["sides"][match["turn"]]["plays"] = 0
     for piece in match["pieces"]:
         if piece["side"] != match["turn"]:
             continue
@@ -468,7 +526,9 @@ def initial_collection() -> dict:
         for card_id in role["starter_deck"]:
             cards[card_id] = max(cards.get(card_id, 0), role["starter_deck"].count(card_id))
     selected = list(roles)[:4]
-    return {"roles": selected, "cards": cards, "deck": _side_deck(selected), "wins": 0, "losses": 0, "draws": 0}
+    return {"roles": selected, "cards": cards, "deck": _side_deck(selected),
+            "masteries": {}, "infusions": {}, "doctrine": "base:rolling_dance",
+            "wins": 0, "losses": 0, "draws": 0}
 
 
 def collection_for(state: Any, courier_id: str) -> dict:
@@ -500,7 +560,7 @@ def start_match(state: Any, patron_id: str) -> dict:
     patron_roles = list(role_catalog)
     shift = int.from_bytes(hashlib.sha256(patron_id.encode()).digest()[:2], "big") % len(patron_roles)
     patron_roles = [patron_roles[(shift + index) % len(patron_roles)] for index in range(4)]
-    match = new_match(state.seed, state.courier.id, patron_id, roles, patron_roles, collection["deck"], len(state.tabletop["records"]))
+    match = new_match(state.seed, state.courier.id, patron_id, roles, patron_roles, collection["deck"], len(state.tabletop["records"]), collection)
     _advance_world(state)
     state.tabletop["active_match"] = match
     return match
@@ -547,6 +607,7 @@ def validate_tabletop(state: Any) -> None:
         raise ValueError("invalid Dullest Dungeon collection or record")
     all_ids = {person.id for person in [*state.household, *state.visitors, state.bartender]}
     roles, cards = office_catalog()
+    source = load_catalog()
     for courier_id, collection in data["collections"].items():
         if courier_id not in {person.id for person in state.household}:
             raise ValueError("collection has no household owner")
@@ -556,6 +617,10 @@ def validate_tabletop(state: Any) -> None:
             raise ValueError("invalid card collection")
         if not 20 <= len(collection["deck"]) <= 30 or any(collection["deck"].count(card) > collection["cards"].get(card, 0) or cards[card].role not in collection["roles"] for card in collection["deck"]):
             raise ValueError("invalid office deck")
+        if collection["doctrine"] not in source.doctrines or any(card not in cards or branch not in {"engine", "coverage"} or not any(item["card_id"] == card for item in source.masteries.values()) for card, branch in collection["masteries"].items()):
+            raise ValueError("invalid office mastery or doctrine")
+        if any(card not in cards or infusion not in source.infusions for card, infusion in collection["infusions"].items()):
+            raise ValueError("invalid office infusion")
     match = data["active_match"]
     if match is None:
         return
