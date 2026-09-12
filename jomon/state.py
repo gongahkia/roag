@@ -137,6 +137,7 @@ class MaterialCell:
     collapse_due: int = 0
     ice: bool = False
     reagents: dict[str, int] = field(default_factory=dict)
+    reaction_due: int = 0
 
 
 @dataclass

@@ -101,7 +101,7 @@ def strike(state, target_id=None, *, target_position=None):
     from .enemy_equipment import harm_enemy
     from .inventory import consume_ammunition, physical_ammunition, release_enemy_possession
     from .materials import ensure_cell, material_at
-    from .skill_tree import has_node, record_milestone
+    from .skill_tree import apply_weapon_skills, has_node, record_milestone
     from .world import cover_at, courier_sees, distance
 
     weapon = ARSENAL[state.weapon]
@@ -117,6 +117,9 @@ def strike(state, target_id=None, *, target_position=None):
         cell = ensure_cell(state, point)
         if cell is None:
             return _plain(state, "That landing cannot hold a material reaction.")
+        delayed = weapon.effects[0] == "thunder" and has_node(state.courier, "delayed-fuse")
+        if delayed and (len(set(cell.reagents) | {"brine", "spark salt"}) > 4 or sum(cell.reagents.values()) > 6):
+            return _plain(state, "The warned mineral flash needs two free sparse-cell measures.")
         ammunition = ammunition_for(state.weapon)
         if physical_ammunition(state, ammunition) <= 0 or not consume_ammunition(state, ammunition):
             return _plain(state, f"No physical {ammunition} remain in the pack.")
@@ -124,22 +127,27 @@ def strike(state, target_id=None, *, target_position=None):
         if effect == "smoke":
             cell.smoke = max(cell.smoke, 4)
         elif effect == "pitch":
-            cell.coating, cell.fuel, cell.fire = "oil", max(3, cell.fuel), 0 if cell.water else 1
+            cell.coating, cell.fuel, cell.fire = "oil", max(5 if has_node(state.courier, "adhesive-coat") else 3, cell.fuel), 0 if cell.water else 1
         elif effect == "lime":
             cell.coating, cell.smoke = "lime", max(2, cell.smoke)
         elif effect == "brine":
             cell.water, cell.fluid, cell.fire, cell.ice = 3, "salt", 0, False
         elif effect == "resin":
-            cell.coating, cell.fuel = "resin", max(2, cell.fuel)
+            cell.coating, cell.fuel = "resin", max(4 if has_node(state.courier, "adhesive-coat") else 2, cell.fuel)
         elif effect == "thunder":
-            cell.smoke = max(2, cell.smoke)
+            if delayed:
+                cell.reagents["brine"] = cell.reagents.get("brine", 0) + 1
+                cell.reagents["spark salt"] = cell.reagents.get("spark salt", 0) + 1
+                cell.reaction_due = state.world_time + 2
+            else:
+                cell.smoke = max(2, cell.smoke)
         affected = [actor for actor in state.combatants
-                    if actor.status in {"watching", "engaged"} and distance(actor.position, point) <= (1 if effect == "thunder" else 0)]
+                    if actor.status in {"watching", "engaged"} and distance(actor.position, point) <= (1 if effect == "thunder" or effect == "resin" and has_node(state.courier, "line-trap") else 0)]
         for actor in affected:
             actor.status = "engaged"
-            if effect == "thunder":
+            if effect == "thunder" and not delayed:
                 harm_enemy(state, actor, 1, "warned thunder bomb", damage_kind="blunt")
-                actor.morale -= 1
+                actor.morale -= 1 + int(has_node(state.courier, "controlled-chain"))
             elif effect == "resin":
                 actor.intent = "bound by spilled resin; loses a turn pulling free"
             elif effect == "lime":
@@ -152,7 +160,8 @@ def strike(state, target_id=None, *, target_position=None):
                 second.smoke = max(second.smoke, 2)
         sound = emit_sound(state, weapon.noise, point)
         record_milestone(state, "combat:devices")
-        return _time_result(state, f"{state.courier.name} throws one {ammunition} onto {point.x},{point.y}; {effect} changes the shared ground. " + " ".join(sound), priority=3)
+        warning = " A mineral flash is warned for the next action." if delayed else ""
+        return _time_result(state, f"{state.courier.name} throws one {ammunition} onto {point.x},{point.y}; {effect} changes the shared ground.{warning} " + " ".join(sound), priority=3)
 
     if target is None:
         return _plain(state, "No legal visible hostile is within this weapon's reach.")
@@ -160,12 +169,16 @@ def strike(state, target_id=None, *, target_position=None):
     if ammunition and physical_ammunition(state, ammunition) <= 0:
         return _plain(state, f"No physical {ammunition} remain in the pack.")
     if weapon.family == "gun":
-        required = 1 if "quick" in weapon.effects else 2
+        required = 1 if "quick" in weapon.effects or has_node(state.courier, "vent-care") else 2
         if state.weapon_ready < required:
             return _plain(state, f"{state.weapon} needs {required - state.weapon_ready} guarded loading action(s); press G.")
-    if weapon.family in {"gun", "bow"} and "quick" not in weapon.effects and state.aimed_target != target.id:
+    quick_bow = weapon.family == "bow" and has_node(state.courier, "quick-nock")
+    if weapon.family in {"gun", "bow"} and "quick" not in weapon.effects and not quick_bow and state.aimed_target != target.id:
         state.aimed_target = target.id
         return _time_result(state, f"{state.courier.name} prepares {state.weapon} on {target.name}; firing commits the next action.", priority=3)
+    if weapon.family == "gun" and state.weather in {"hard rain", "coast squall", "forest rain"} and not has_node(state.courier, "dry-load"):
+        state.aimed_target = None
+        return _time_result(state, "Wet weather spoils the exposed gun aim before its finite charge is released.", priority=3)
     if ammunition and not consume_ammunition(state, ammunition):
         return _plain(state, f"No physical {ammunition} remain.")
     if weapon.family == "gun":
@@ -211,9 +224,8 @@ def strike(state, target_id=None, *, target_position=None):
             cell.smoke = max(2, cell.smoke)
         target.morale -= 1
     kind = "pierce" if "pierce" in weapon.effects else "cut" if "cut" in weapon.effects else "blunt"
-    if has_node(state.courier, "called-shot") and weapon.family == "bow" and target.aimed_at:
-        damage += 1
     sound = emit_sound(state, weapon.noise)
+    damage, skill_text, skill_guard = apply_weapon_skills(state, target, damage)
     harm = harm_enemy(state, target, damage, f"{state.courier.name}'s {state.weapon}", damage_kind=kind)
     if harm.defeated or (target.morale <= 0 and target.profile != "machinery"):
         target.status = "defeated" if harm.defeated else "retreated"
@@ -225,7 +237,9 @@ def strike(state, target_id=None, *, target_position=None):
         message = f"{state.weapon.title()} deals {harm.amount} {kind} harm to {target.name}; {target.health}/{target.max_health} remains."
     branch = {"blade": "blades", "reach": "reach", "impact": "reach", "bow": "bows", "gun": "gunworks"}[weapon.family]
     record_milestone(state, f"combat:{branch}")
-    return _time_result(state, " ".join([message, *sound]), guarded="guard" in weapon.effects, priority=3)
+    if skill_text:
+        message += " " + skill_text + "."
+    return _time_result(state, " ".join([message, *sound]), guarded="guard" in weapon.effects or skill_guard, priority=3)
 
 
 if len(ARSENAL) != 36:

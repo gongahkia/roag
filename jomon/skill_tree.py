@@ -18,84 +18,84 @@ class SkillNode:
 
 BRANCHES = {
     "blades": ("Blades", (
-        ("edge-measure", "Edge measure", "guard after a blade strike"),
-        ("guard-feint", "Guard feint", "strip one guarded stance before cutting"),
-        ("slip-cut", "Slip cut", "make a short guarded step after cutting"),
-        ("weapon-bind", "Weapon bind", "interrupt a prepared close weapon"),
-        ("riposte", "Riposte", "counter a committed close attack while guarding"),
-        ("river-duelist", "River duelist", "chain one safe reposition after a counter"),
+        ("edge-measure", "Edge measure", "blade strikes leave a guarded stance"),
+        ("guard-feint", "Guard feint", "blade strikes gain one harm against protectors"),
+        ("slip-cut", "Slip cut", "blade strikes gain one harm after a guarded step"),
+        ("weapon-bind", "Weapon bind", "blade strikes spoil a marked enemy aim"),
+        ("riposte", "Riposte", "guarded blade strikes press one extra morale"),
+        ("river-duelist", "River duelist", "blade strikes gain one harm against wavering morale"),
     )),
     "reach": ("Reach and impact", (
-        ("measured-stance", "Measured stance", "hold one more pace of close threat"),
-        ("countercharge", "Countercharge", "punish an approaching enemy's committed lane"),
-        ("haft-breaker", "Haft breaker", "weaken adjacent timber or protection with impact"),
-        ("hook-haul", "Hook haul", "draw a target across one open pace"),
-        ("line-intercept", "Line intercept", "stop an enemy crossing a guarded lane"),
-        ("ferryman-wall", "Ferryman's wall", "hold a guarded zone against two enemies"),
+        ("measured-stance", "Measured stance", "reach arms gain one maximum pace"),
+        ("countercharge", "Countercharge", "reach strikes gain one harm against engaged enemies"),
+        ("haft-breaker", "Haft breaker", "reach strikes chip timber support beneath targets"),
+        ("hook-haul", "Hook haul", "reach strikes pull the target one open pace"),
+        ("line-intercept", "Line intercept", "reach strikes bind one targeted enemy action"),
+        ("ferryman-wall", "Ferryman's wall", "reach strikes leave a guarded stance"),
     )),
     "bows": ("Bows and throwing", (
-        ("sighted-draw", "Sighted draw", "gain one pace of aimed range"),
-        ("quick-nock", "Quick nock", "shorten one bow reload commitment"),
+        ("sighted-draw", "Sighted draw", "bows gain one pace of maximum range"),
+        ("quick-nock", "Quick nock", "bows fire without a separate aim action"),
         ("shaft-recovery", "Shaft recovery", "recover one spent physical throw"),
-        ("called-shot", "Called shot", "target an exposed body location"),
-        ("wind-hold", "Wind hold", "keep one aimed lane in adverse wind"),
-        ("moving-volley", "Moving volley", "retain one ranged aim across a safe step"),
+        ("called-shot", "Called shot", "bow shots gain one harm against elites"),
+        ("wind-hold", "Wind hold", "rain no longer spoils a prepared bow shot"),
+        ("moving-volley", "Moving volley", "a safe step retains bow aim"),
     )),
     "gunworks": ("Gunworks", (
-        ("charge-handling", "Charge handling", "inspect charge and wet-powder risk"),
-        ("dry-load", "Dry load", "shield one loaded charge from rain"),
-        ("braced-tube", "Braced tube", "extend a rested gun lane by one pace"),
-        ("vent-care", "Vent care", "shorten one gun reload commitment"),
-        ("smoke-shaping", "Smoke shaping", "place powder smoke toward the target"),
-        ("payload-master", "Payload master", "select a compatible physical gun payload"),
+        ("charge-handling", "Charge handling", "gun shots gain one harm when fully loaded"),
+        ("dry-load", "Dry load", "wet weather no longer spoils gun aim"),
+        ("braced-tube", "Braced tube", "guarded gun lanes gain one maximum pace"),
+        ("vent-care", "Vent care", "gun reloads need one fewer guarded action"),
+        ("smoke-shaping", "Smoke shaping", "gun shots also veil their target cell with smoke"),
+        ("payload-master", "Payload master", "gun shots gain one harm against rigid protection"),
     )),
     "devices": ("Devices and fieldcraft", (
-        ("safe-throw", "Safe throw", "preview a device's full danger footprint"),
+        ("safe-throw", "Safe throw", "device throws gain one maximum pace"),
         ("scatter-bank", "Scatter bank", "spread a smoke payload into a second cell"),
-        ("delayed-fuse", "Delayed fuse", "place a warned one-turn device"),
-        ("adhesive-coat", "Adhesive coat", "make a poured coating last one more action"),
-        ("line-trap", "Line trap", "restrain one crossing enemy with a physical line"),
-        ("controlled-chain", "Controlled chain", "limit a reaction to a chosen safe boundary"),
+        ("delayed-fuse", "Delayed fuse", "thunder bombs become warned next-action mineral flashes"),
+        ("adhesive-coat", "Adhesive coat", "pitch and resin bombs leave two more fuel"),
+        ("line-trap", "Line trap", "resin bombs also bind adjacent enemies"),
+        ("controlled-chain", "Controlled chain", "thunder bombs press one more adjacent morale"),
     )),
     "spellcraft": ("Spellcraft", (
         ("attunement", "Attunement", "increase the personal mana reserve by two"),
-        ("elemental-shape", "Elemental shape", "place an elemental spell on a visible cell"),
-        ("ward-script", "Ward script", "protect a marked ally or material cell"),
-        ("veiling", "Veiling", "make one visible decoy or concealment effect"),
-        ("echo-binding", "Echo binding", "sustain a short-lived summoned echo"),
-        ("spell-weave", "Spell weave", "join two learned effects at their summed mana cost"),
+        ("elemental-shape", "Elemental shape", "learn smoke, salt, ice and ash spell forms"),
+        ("ward-script", "Ward script", "learn support, ward, cleanse and lime spell forms"),
+        ("veiling", "Veiling", "learn decoy, quiet, pull and snare spell forms"),
+        ("echo-binding", "Echo binding", "learn sweep, storm, wash and iron spell forms"),
+        ("spell-weave", "Spell weave", "learn four high-cost classic spell forms"),
     )),
     "smithing": ("Smithing and fabrication", (
         ("tool-care", "Tool care", "improve a physical repair by five condition"),
-        ("fuel-husbandry", "Fuel husbandry", "save one fuel in a prepared smelt"),
-        ("bloom-sorting", "Bloom sorting", "recover one usable fragment from slag"),
-        ("armour-fitting", "Armour fitting", "seat a crafted fitting without extra wear"),
-        ("gun-assembly", "Gun assembly", "fit one replaceable gun component"),
-        ("masterwork", "Masterwork", "choose one bounded property for a made weapon"),
+        ("fuel-husbandry", "Fuel husbandry", "one charcoal lot is spared in a prepared smelt"),
+        ("bloom-sorting", "Bloom sorting", "a prepared smelt yields one extra iron billet"),
+        ("armour-fitting", "Armour fitting", "fitted armour gains five condition after installation"),
+        ("gun-assembly", "Gun assembly", "guns can be fabricated at a physical forge"),
+        ("masterwork", "Masterwork", "newly made personal weapons gain one harm"),
     )),
     "alchemy": ("Alchemy and medicine", (
-        ("substance-sense", "Substance sense", "inspect known material properties"),
-        ("safe-decant", "Safe decant", "retain one measure during a careful transfer"),
-        ("field-triage", "Field triage", "prepare a basic finite wound dressing"),
-        ("controlled-distil", "Controlled distil", "separate one contaminant at a still"),
-        ("antitoxin", "Antitoxin", "neutralise one disclosed poison condition"),
-        ("catalyst-brewing", "Catalyst brewing", "stabilise a volatile uncanny mixture"),
+        ("substance-sense", "Substance sense", "healing drafts restore one extra health"),
+        ("safe-decant", "Safe decant", "one ingredient gives two flask measures when room permits"),
+        ("field-triage", "Field triage", "healing drafts restore one more health"),
+        ("controlled-distil", "Controlled distil", "remove one chosen flask reagent at a still"),
+        ("antitoxin", "Antitoxin", "breath tonic also clears salt and lime exposure"),
+        ("catalyst-brewing", "Catalyst brewing", "attunement drafts restore one extra mana"),
     )),
     "navigation": ("Navigation and seamanship", (
-        ("route-reading", "Route reading", "inspect one more route consequence"),
-        ("weather-eye", "Weather eye", "see one additional weather warning"),
+        ("route-reading", "Route reading", "gain one sight radius in known regional ground"),
+        ("weather-eye", "Weather eye", "gain one sight radius in fog and rain"),
         ("load-balance", "Load balance", "carry four more physical weight"),
-        ("current-rescue", "Current rescue", "secure one adjacent water recovery"),
-        ("station-repair", "Station repair", "shorten one vessel work action"),
-        ("deep-pilotage", "Deep pilotage", "open one surveyed route shortcut"),
+        ("current-rescue", "Current rescue", "winter water no longer adds a new chill"),
+        ("station-repair", "Station repair", "vessel refit installations need one fewer action"),
+        ("deep-pilotage", "Deep pilotage", "charted route legs need one fewer travel action"),
     )),
     "diplomacy": ("Diplomacy and trade", (
-        ("careful-terms", "Careful terms", "include one more witness in a negotiation"),
-        ("price-sense", "Price sense", "inspect both market inputs and buyers"),
-        ("mediation", "Mediation", "improve a witnessed social settlement"),
+        ("careful-terms", "Careful terms", "negotiated groups include one more listener"),
+        ("price-sense", "Price sense", "merchant purchases cost one less credit"),
+        ("mediation", "Mediation", "tavern mediation improves relationship settlement"),
         ("teaching", "Teaching", "pass a practiced node to another courier"),
         ("work-order", "Work order", "delegate one physical production job"),
-        ("guild-broker", "Guild broker", "settle one additional regional production term"),
+        ("guild-broker", "Guild broker", "witnessed regional supply deliveries earn one extra credit"),
     )),
 }
 
@@ -136,6 +136,102 @@ MILESTONES = {
 
 def has_node(person: Person | None, node_id: str) -> bool:
     return bool(person and node_id in person.skill_nodes)
+
+
+def weapon_family(name: str | None) -> str | None:
+    from .expanded_weapons import ARSENAL
+
+    if name in ARSENAL:
+        return ARSENAL[name].family
+    if name in {"crossbow", "longbow", "sling", "heavy crossbow", "staff sling", "javelins", "hooked javelin"}:
+        return "bow"
+    if name == "handgonne":
+        return "gun"
+    if name in {"pot sling", "weighted net"}:
+        return "device"
+    if name in {"hand axe", "paired knives", "throwing axe", "long knife", "arming sword", "glaive", "felling axe", "reed sickle", "war flail"}:
+        return "blade"
+    if name in {"billhook", "spear", "pike", "boar spear", "cudgel", "staff", "war hammer", "forked pike", "spade", "shield and hanger", "pollaxe", "boat hook", "flanged mace", "estoc", "quarterstaff", "anchor fluke", "chain hook"}:
+        return "reach"
+    return None
+
+
+def apply_weapon_skills(state: GameState, target, damage: int, *, weapon_name: str | None = None) -> tuple[int, str, bool]:
+    """Apply cross-trainable physical branches at the ordinary strike boundary."""
+    from .actions import _step_toward
+    from .inventory import create_item
+    from .materials import ensure_cell, material_at
+
+    person = state.courier
+    family = weapon_family(weapon_name or state.weapon)
+    if person is None or family is None:
+        return damage, "", False
+    notes = []
+    guarding_before = state.guarded_step
+    guards_response = False
+    if family == "blade":
+        if has_node(person, "guard-feint") and target.role == "protector":
+            damage += 1
+            notes.append("guard feint")
+        if has_node(person, "slip-cut") and guarding_before:
+            damage += 1
+            notes.append("slip cut")
+        if has_node(person, "weapon-bind") and target.aimed_at is not None:
+            target.aimed_at = None
+            target.intent = "marked aim spoiled by a blade bind"
+            notes.append("weapon bind")
+        if has_node(person, "riposte") and guarding_before:
+            target.morale -= 1
+            notes.append("riposte pressure")
+        if has_node(person, "river-duelist") and target.morale <= 2:
+            damage += 1
+            notes.append("duelist's finish")
+        if has_node(person, "edge-measure"):
+            state.guarded_step = guards_response = True
+            notes.append("edge measure guard")
+    elif family in {"reach", "impact"}:
+        if has_node(person, "countercharge") and target.turn > 0:
+            damage += 1
+            notes.append("countercharge")
+        if has_node(person, "haft-breaker") and material_at(state, target.position) == "timber":
+            cell = ensure_cell(state, target.position)
+            if cell:
+                cell.support = max(0, cell.support - 1)
+                notes.append("timber chipped")
+        if has_node(person, "hook-haul"):
+            target.position = _step_toward(state, target, state.position)
+            notes.append("hook haul")
+        if has_node(person, "line-intercept"):
+            target.intent = "entangled by a trained intercept; loses a turn"
+            notes.append("line intercepted")
+        if has_node(person, "ferryman-wall"):
+            state.guarded_step = guards_response = True
+            notes.append("ferryman guard")
+    elif family == "bow":
+        if has_node(person, "called-shot") and target.elite:
+            damage += 1
+            notes.append("called shot")
+        if has_node(person, "shaft-recovery"):
+            from .inventory import AMMUNITION_ITEMS, WEAPON_AMMUNITION
+
+            ammunition = WEAPON_AMMUNITION.get(weapon_name or state.weapon)
+            if ammunition in {"arrows", "bolts", "heavy bolts", "javelins"}:
+                shaft = create_item(state, AMMUNITION_ITEMS[ammunition], "recoverable shaft from learned shot", location="ground")
+                shaft.region_id, shaft.ground_position = state.spatial_id, target.position
+                notes.append("shaft falls recoverably")
+    elif family == "gun":
+        if has_node(person, "charge-handling"):
+            damage += 1
+            notes.append("measured charge")
+        if has_node(person, "payload-master") and (target.elite or target.role == "protector" or target.profile == "machinery"):
+            damage += 1
+            notes.append("matched payload")
+        if has_node(person, "smoke-shaping"):
+            cell = ensure_cell(state, target.position)
+            if cell:
+                cell.smoke = max(2, cell.smoke)
+                notes.append("target veiled by shot smoke")
+    return damage, "; ".join(notes), guards_response
 
 
 def seed_role_nodes(person: Person) -> None:

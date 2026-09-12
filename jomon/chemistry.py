@@ -140,6 +140,9 @@ def react_cell(state: GameState, point: Position, cell: MaterialCell) -> str | N
     """Resolve at most one reaction per selected sparse cell and action."""
     from .materials import _expose
 
+    if cell.reaction_due > state.world_time:
+        return None
+    cell.reaction_due = 0
     present = {name for name, quantity in cell.reagents.items() if quantity > 0}
     virtual = set()
     if cell.water:

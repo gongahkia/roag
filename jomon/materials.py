@@ -532,5 +532,7 @@ def validate_materials(state: GameState) -> None:
                 value = getattr(cell, name)
                 if type(value) is not int or not 0 <= value <= limit:
                     raise ValueError(f"invalid {name}")
-            if type(cell.collapse_due) is not int or cell.collapse_due < 0 or type(cell.ice) is not bool:
+            if (type(cell.collapse_due) is not int or cell.collapse_due < 0
+                    or type(cell.reaction_due) is not int or cell.reaction_due < 0
+                    or type(cell.ice) is not bool):
                 raise ValueError("invalid material event")

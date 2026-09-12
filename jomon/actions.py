@@ -1411,10 +1411,14 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         ):
             return _plain(state, "The diagonal is pinched closed.")
     previous_area = area_name(state)
+    from .skill_tree import weapon_family
+
     kept_roof_aim = bool(
         state.location == "region" and state.aimed_target
         and state.weapon != "war flail"
-        and state.position.z > 0 and "roof nail" in state.carried_passives
+        and (state.position.z > 0 and "roof nail" in state.carried_passives
+             or state.weapon in RANGED_WEAPONS and state.courier and "moving-volley" in state.courier.skill_nodes
+             and weapon_family(state.weapon) == "bow")
     )
     if state.location == "region" and state.aimed_target and not kept_roof_aim:
         state.aimed_target = None
@@ -1427,7 +1431,9 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
             state.noise += 1
     messages: list[str] = []
     if kept_roof_aim:
-        messages.append("The roof nail holds the prepared lane through one careful upper-level move.")
+        messages.append("The trained moving volley holds the bow lane through a safe step."
+                        if state.courier and "moving-volley" in state.courier.skill_nodes
+                        else "The roof nail holds the prepared lane through one careful upper-level move.")
     tile = base_tile(state, target)
     if state.location == "jomon":
         if tile == "+" and target != JOMON_GANGPLANK:
@@ -2321,6 +2327,17 @@ def effective_weapon_range(state: GameState) -> int:
     if state.weapon not in WEAPON_RANGES:
         return 0
     attack_range = WEAPON_RANGES[state.weapon]
+    from .skill_tree import has_node, weapon_family
+
+    family = weapon_family(state.weapon)
+    if family in {"reach", "impact"} and has_node(state.courier, "measured-stance"):
+        attack_range += 1
+    if family == "bow" and has_node(state.courier, "sighted-draw"):
+        attack_range += 1
+    if family == "gun" and state.guarded_step and has_node(state.courier, "braced-tube"):
+        attack_range += 1
+    if family == "device" and has_node(state.courier, "safe-throw"):
+        attack_range += 1
     from .legendary import active_legend
     legend = active_legend(state)
     if legend:
@@ -2409,6 +2426,10 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         state.position = shield_steps[-1]
     ranged = state.weapon in RANGED_WEAPONS
     prepared = state.weapon in {"crossbow", "longbow", "heavy crossbow", "handgonne"}
+    from .skill_tree import has_node
+
+    if state.weapon == "longbow" and has_node(state.courier, "quick-nock"):
+        prepared = False
     ammo_key = {
         "crossbow": "bolts", "longbow": "arrows", "sling": "sling stones",
         "heavy crossbow": "heavy bolts", "javelins": "javelins", "weighted net": "nets",
@@ -2420,8 +2441,9 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
             return _plain(state, "The crossbow is unloaded; reload with G.")
         if state.weapon == "heavy crossbow" and state.weapon_ready < 2:
             return _plain(state, f"The arbalest needs {2 - state.weapon_ready} more guarded reload action(s).")
-        if state.weapon == "handgonne" and state.weapon_ready < 2:
-            return _plain(state, f"The handgonne needs {2 - state.weapon_ready} more guarded loading action(s).")
+        gun_required = 1 if has_node(state.courier, "vent-care") else 2
+        if state.weapon == "handgonne" and state.weapon_ready < gun_required:
+            return _plain(state, f"The handgonne needs {gun_required - state.weapon_ready} more guarded loading action(s).")
         if ammo_key and physical_ammunition(state, ammo_key) <= 0:
             return _plain(state, f"No {ammo_key} remain in the physical load.")
         lane_cover = cover_at(state, state.position, target.position)
@@ -2443,6 +2465,7 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
             and "weatherfast grip" not in build_combinations(state)
             and not active_part(state, "resin seal")
             and not has_lee_shelter(state)
+            and not has_node(state.courier, "wind-hold")
         ):
             state.aimed_target = None
             return _time_result(
@@ -2641,6 +2664,11 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
             weapon_text += "; the smoke braid adds one hidden harm and morale pressure"
     if fitting_text:
         weapon_text += "; " + fitting_text
+    from .skill_tree import apply_weapon_skills
+
+    damage, skill_text, skill_guard = apply_weapon_skills(state, target, damage)
+    if skill_text:
+        weapon_text += "; " + skill_text
     sounds = emit_sound(state, sound)
     from .frontier_elites import guard_interception
     damage, protection_text = guard_interception(state, target, damage)
@@ -2695,7 +2723,7 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
     return _time_result(
         state,
         " ".join([text, *sounds]),
-        guarded=bool(working_effect and working_effect.guarded),
+        guarded=bool(working_effect and working_effect.guarded) or skill_guard,
         priority=3,
     )
 
@@ -2730,14 +2758,14 @@ def guard(state: GameState, target_id: str | None = None) -> ActionResult:
             guarded=state.gear == "buckler",
             priority=3,
         )
-    if state.weapon == "handgonne" and state.weapon_ready < 2:
+    if state.weapon == "handgonne" and state.weapon_ready < (1 if state.courier and "vent-care" in state.courier.skill_nodes else 2):
         if physical_ammunition(state, "handgonne charges") <= 0:
             return _plain(state, "No wrapped powder charges remain.")
         state.weapon_ready += 1
         stage = "powder and wad seated" if state.weapon_ready == 1 else "ball rammed and match sheltered"
         return _time_result(
             state,
-            f"Handgonne loading {state.weapon_ready}/2: {stage}.",
+            f"Handgonne loading {state.weapon_ready}/{1 if state.courier and 'vent-care' in state.courier.skill_nodes else 2}: {stage}.",
             guarded=state.gear == "buckler",
             priority=3,
         )
