@@ -23,3 +23,9 @@ The patron is a named adult presently in Jomon's tavern. They play the same card
 Jomon's tavern regulars argue about the game as if they had held the jobs themselves. One calls the Office Printer a beast of burden; another claims it is the only honest worker in the Company. A first victory over a particular patron in a season earns one Jomon trade credit, one bounded improvement in that patron's opinion, and one point of the courier's recorded Strategy, up to twenty. Strategy is a record of play and has no effect on other Jomon systems. Repeat victories that season earn only the result in the ledger. There is no claim that the fictional Company exists outside the box.
 
 For the competitive handoff between an ensemble game and a distinct match, the design also considered Supergiant's explanation of [Pyre's separate versus mode](https://www.supergiantgames.com/blog/pyre-introducing-head-to-head-versus-mode/). Dullest Dungeon is deliberately local patron-versus-courier play inside Jomon rather than a new main loop.
+
+## Implementation boundary
+
+The imported `dumbest_dungeon` source and its catalog now live in the Jomon repository. `office_content.py` gives the 25 roles and 290 cards their office faces; `tabletop.py` supplies spatial competitive rules and uses the imported event queue; `tabletop_ui.py` runs inside Jomon's existing curses screen. The imported PvE expedition modules remain as source history but are not a second playable campaign. Running `python -m dumbest_dungeon` opens Jomon. The original Dullest Dungeon save format is not loaded or copied; only Jomon's format-8 parent save stores the current table match and per-courier collections. Format-7 Jomon saves migrate by adding an empty table ledger and zero Strategy without changing their Jomon possessions or geography.
+
+Run `python3 -m jomon.checks --pattern test_dullest_dungeon.py` for table rules and save boundaries, then `python3 -m jomon.checks full` for the whole Jomon suite.

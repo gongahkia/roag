@@ -56,9 +56,13 @@ At the tavern's `D` seat, `Enter` or `E` opens Dullest Dungeon. In its lobby,
 jobs, `P` changes company policy, `D` edits the deck, and `Enter` starts a
 match. During a match, arrows or `W/A/D/X` move the board cursor, `Tab` selects
 a worker, `1`–`8` selects a hand card, `0` selects the always available Commute
-card, `Enter` plays, `E` ends the turn, `S` saves Jomon and the match, and `Q`
+card, `?` reads the selected card and rules, `Enter` plays, `E` ends the turn,
+`S` saves Jomon and the match, and `Q`
 returns to Jomon with the match still in progress. Starting a match advances
 one Jomon action; tabletop turns do not advance Jomon time.
+Where mouse events are available, a click selects patrons, workers, cards, and
+board cells; a double-click starts a selected patron match or plays at a board
+cell.
 
 Spatial-inventory controls:
 

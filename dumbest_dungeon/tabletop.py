@@ -259,8 +259,12 @@ def _apply_effect(match: dict, actor: dict, target: dict, destination: tuple[int
     elif op == "heal":
         target["hp"] = min(target["max_hp"], target["hp"] + amount + (2 if doctrine == "triage" else 0))
     elif op == "stress":
-        target["statuses"]["stress"] = min(9, target["statuses"].get("stress", 0) + amount)
-        if target["statuses"]["stress"] >= 9:
+        stress = max(0, min(9, target["statuses"].get("stress", 0) + amount))
+        if stress:
+            target["statuses"]["stress"] = stress
+        else:
+            target["statuses"].pop("stress", None)
+        if stress >= 9:
             _knockout(match, target)
     elif op == "move":
         mover = target
@@ -412,11 +416,11 @@ def play_card(match: dict, card_index: int, actor_id: str, target_id: str | None
         match["energy"] = min(5, match["energy"] + 1)
     if infusion_mode == "self_cleanse":
         actor["statuses"].clear()
-    if infusion_mode == "point_lead" and actor["x"] in range(15, 26):
+    if infusion_mode == "front_focus" and actor["x"] in range(15, 26):
         actor["statuses"]["focus"] = max(1, actor["statuses"].get("focus", 0))
     if infusion_mode == "mark_after_damage" and any(effect["op"] == "damage" for effect in effects):
         target["statuses"]["marked"] = max(1, target["statuses"].get("marked", 0))
-    if infusion_mode == "burden_thread" and actor["statuses"].pop("wound", None) and target["id"] != actor["id"]:
+    if infusion_mode == "wound_transfer" and actor["statuses"].pop("wound", None) and target["id"] != actor["id"]:
         target["statuses"]["wound"] = max(1, target["statuses"].get("wound", 0))
     if load_catalog().doctrines[side_state["doctrine"]]["mode"] == "dance" and side_state["plays"] == 0 and any(effect["op"] == "move" for effect in effects):
         _draw(match, side, 1)
@@ -532,7 +536,7 @@ def patron_turn(match: dict) -> None:
     for _ in range(12):
         if match["energy"] <= 0 or match["winner"] is not None:
             break
-        actors = [piece for piece in match["pieces"] if piece["side"] == 1 and piece["hp"] > 0]
+        actors = [piece for piece in match["pieces"] if piece["side"] == 1 and piece["hp"] > 0 and not piece["statuses"].get("stun")]
         if not actors:
             break
         carrier = next((piece for piece in actors if match["files"][0]["carrier"] == piece["id"]), None)

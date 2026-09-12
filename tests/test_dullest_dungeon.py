@@ -5,16 +5,19 @@ import curses
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from dumbest_dungeon.office_content import office_catalog
 from dumbest_dungeon.tabletop import (
     _board, _knockout, _path, collection_for, end_turn, finish_match, new_match,
-    patron_turn, patrons, play_card, start_match,
+    patron_turn, patrons, play_card, start_match, validate_tabletop,
 )
 from dumbest_dungeon.tabletop_ui import run_tabletop
 from jomon.actions import interact
 from jomon.save import load_game, save_game
 from jomon.state import Position, SAVE_FORMAT, create_world, game_state_from_dict, validate_state
+from jomon.world import is_walkable
 
 
 class TabletopRulesTests(unittest.TestCase):
@@ -26,6 +29,28 @@ class TabletopRulesTests(unittest.TestCase):
         roles, cards = office_catalog()
         self.assertEqual((len(roles), len(cards)), (25, 290))
         self.assertTrue(all(card.name and card.description and card.role in roles for card in cards.values()))
+
+    def test_every_imported_card_resolves_on_the_spatial_board(self):
+        roles, cards = office_catalog()
+        roster = list(roles)
+        failures = []
+        for card in cards.values():
+            team = [card.role] + [role for role in roster if role != card.role][:3]
+            opponents = [role for role in roster if role not in team][:4]
+            match = new_match(card.id, "crew-1", "crew-2", team, opponents)
+            match["patron_name"], match["season"] = "Patron", "1:spring"
+            match["pieces"][0]["x"], match["pieces"][0]["y"] = 20, 7
+            match["pieces"][4]["x"], match["pieces"][4]["y"] = 23, 7
+            match["sides"][0]["hand"] = [card.id]
+            match["sides"][0]["doctrine"] = "base:mark_window"
+            match["energy"] = 5
+            try:
+                play_card(match, 0, "0:0", "1:0" if card.target in ("enemy", "all_enemies") else "0:0", (21, 7))
+                state = SimpleNamespace(household=[SimpleNamespace(id="crew-1")], tabletop={"collections": {}, "records": [], "active_match": match})
+                validate_tabletop(state)
+            except (KeyError, TypeError, ValueError) as exc:
+                failures.append((card.id, str(exc)))
+        self.assertEqual(failures, [])
 
     def test_six_boards_are_mirrored_and_each_side_can_reach_both_files(self):
         for layout in range(6):
@@ -116,6 +141,7 @@ class TavernIntegrationTests(unittest.TestCase):
         self.state.position = Position(31, 4)
 
     def test_table_is_physical_and_start_costs_exactly_one_world_action(self):
+        self.assertTrue(is_walkable(self.state, self.state.position))
         self.assertEqual(interact(self.state).overlay, "tabletop")
         self.assertTrue(patrons(self.state))
         before = self.state.world_time
@@ -174,11 +200,28 @@ class TavernIntegrationTests(unittest.TestCase):
         self.assertEqual(self.state.trade_credit, initial_credit + 1)
         self.assertEqual(courier.strategy, 1)
         validate_state(self.state)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "jomon.json"
+            save_game(self.state, path)
+            loaded = load_game(path)
+        self.assertEqual(loaded.courier.strategy, 1)
+        self.assertEqual(loaded.tabletop["records"], self.state.tabletop["records"])
+
+    def test_invalid_office_snapshot_is_rejected_at_load(self):
+        match = start_match(self.state, patrons(self.state)[0].id)
+        match["pieces"][0]["x"] = 0
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "jomon.json"
+            save_game(self.state, path)
+            from jomon.save import SaveError
+
+            with self.assertRaisesRegex(SaveError, "invalid office worker"):
+                load_game(path)
 
     def test_keyboard_can_start_play_and_leave_a_resumable_match(self):
         class Screen:
             def __init__(self):
-                self.keys = iter((13, ord("0"), curses.KEY_RIGHT, 13, ord("q")))
+                self.keys = iter((13, ord("?"), ord("k"), ord("0"), curses.KEY_MOUSE, 13, ord("q")))
                 self.drawn = []
 
             def getmaxyx(self):
@@ -197,10 +240,12 @@ class TavernIntegrationTests(unittest.TestCase):
                 return next(self.keys)
 
         screen = Screen()
-        run_tabletop(screen, self.state)
+        with patch("curses.getmouse", return_value=(0, 6, 7, 0, curses.BUTTON1_CLICKED)):
+            run_tabletop(screen, self.state)
         self.assertIsNotNone(self.state.tabletop["active_match"])
         self.assertEqual(self.state.tabletop["active_match"]["pieces"][0]["x"], 5)
         self.assertTrue(any("DULLEST DUNGEON" in line for line in screen.drawn))
+        self.assertTrue(any("CARD AND RULES" in line for line in screen.drawn))
 
 
 if __name__ == "__main__":

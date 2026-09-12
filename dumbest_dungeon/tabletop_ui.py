@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import curses
+import textwrap
 
 from .content import load_catalog
 from .office_content import DOCTRINE_NAMES, INFUSION_NAMES, OFFICE_ROLES, office_catalog
@@ -83,7 +84,8 @@ def _draw_match(screen: curses.window, match: dict, selected_worker: int,
     screen.erase()
     _, cards = office_catalog()
     _put(screen, 0, 1, f"DULLEST DUNGEON  /  {match['department'].upper()}", curses.A_BOLD)
-    _put(screen, 1, 1, f"Round {match['round']}/{18}  vs {match.get('patron_name', 'the patron')[:18]}  Energy {match['energy']}/3  Approval {match['scores'][0]}:{match['scores'][1]}")
+    round_label = f"OT {match['round'] - 18}/4" if match["round"] > 18 else f"Round {match['round']}/18"
+    _put(screen, 1, 1, f"{round_label}  vs {match.get('patron_name', 'the patron')[:18]}  Energy {match['energy']}/3  Approval {match['scores'][0]}:{match['scores'][1]}")
     board = [list(row) for row in match["board"]]
     for pickup in match["pickups"]:
         board[pickup["y"]][pickup["x"]] = "c" if pickup["kind"] == "coffee" else "s"
@@ -99,6 +101,7 @@ def _draw_match(screen: curses.window, match: dict, selected_worker: int,
     board[cy][cx] = "@" if board[cy][cx] == "." else board[cy][cx]
     for row, line in enumerate(board):
         _put(screen, row + 2, 1, "".join(line))
+    _put(screen, cy + 2, cx + 1, board[cy][cx], curses.A_REVERSE | curses.A_BOLD)
     _put(screen, 2, 44, "YOUR WORKERS", curses.A_BOLD)
     for index, piece in enumerate(match["pieces"][:4]):
         suffix = " FILE" if match["files"][1]["carrier"] == piece["id"] else ""
@@ -121,8 +124,8 @@ def _draw_match(screen: curses.window, match: dict, selected_worker: int,
         _put(screen, row, column, f"{'>' if selected_card == index else ' '}{index + 1} {OFFICE_ROLES[card.role][:3]} {card.name[:20]:20} {card.cost}E")
     selected = cards[hand[selected_card]] if 0 <= selected_card < len(hand) else None
     _put(screen, 17, 44, (selected.description if selected else "Commute one desk.")[:35])
-    _put(screen, 22, 1, (message or match["log"][-1])[:76])
-    _put(screen, 23, 1, "Arrows cursor  Tab worker  1-8 card/0 commute  Enter file  E end  S save  Q leave")
+    _put(screen, 17, 1, (message or match["log"][-1])[:40])
+    _put(screen, 23, 1, "Arrows cursor  Tab worker  1-8/0 card  Enter play  E end  ? rules  S save  Q exit")
     screen.refresh()
 
 
@@ -133,6 +136,37 @@ def _draw_result(screen: curses.window, result: str, match: dict) -> None:
     _put(screen, 9, 6, f"Department: {match['department']}")
     _put(screen, 11, 6, "The board is folded. Someone insists this counts as work.")
     _put(screen, 23, 2, "Press any key to return to Jomon.")
+    screen.refresh()
+
+
+def _draw_inspect(screen: curses.window, match: dict, card_index: int) -> None:
+    screen.erase()
+    _put(screen, 0, 1, "DULLEST DUNGEON  /  CARD AND RULES", curses.A_BOLD)
+    hand = match["sides"][0]["hand"]
+    if 0 <= card_index < len(hand):
+        card = office_catalog()[1][hand[card_index]]
+        _put(screen, 2, 2, f"{card.name}  /  {OFFICE_ROLES[card.role]}  /  {card.cost} energy", curses.A_BOLD)
+        description = card.description
+        mastery = match["sides"][0]["masteries"].get(card.id, "none")
+        infusion = match["sides"][0]["infusions"].get(card.id)
+        infusion_ids = list(load_catalog().infusions)
+        treatment = INFUSION_NAMES[infusion_ids.index(infusion)] if infusion else "none"
+        _put(screen, 6, 2, f"Mastery: {mastery}; card treatment: {treatment}")
+    else:
+        _put(screen, 2, 2, "Commute  /  any worker  /  1 energy", curses.A_BOLD)
+        description = "Move the chosen worker exactly one clear desk toward the cursor. This fallback card is always available and is never drawn or discarded."
+    for index, line in enumerate(textwrap.wrap(description, 72)):
+        _put(screen, 4 + index, 2, line)
+    _put(screen, 9, 2, "The card's job title must match the chosen worker.")
+    _put(screen, 10, 2, "Move effects follow a clear route toward the cursor, up to their printed range.")
+    _put(screen, 11, 2, "Other targets use the worker under the cursor, or the nearest legal rival.")
+    _put(screen, 13, 2, "F/f are the two files. Steal the rival file and bring it near your own tray.")
+    _put(screen, 14, 2, "Your file must be home. Hold through the patron's next turn to score.")
+    _put(screen, 15, 2, "A knocked-out worker drops the file and returns after two turns.")
+    _put(screen, 16, 2, "c coffee adds one energy; s staples adds cover and a card draw.")
+    _put(screen, 18, 2, "First to two approvals wins; otherwise compare scores after eighteen rounds.")
+    _put(screen, 19, 2, "A tie receives four overtime rounds and may end in a draw.")
+    _put(screen, 23, 2, "Press any key to return to the board.")
     screen.refresh()
 
 
@@ -156,6 +190,7 @@ def run_tabletop(screen: curses.window, state) -> None:
     cursor = (5, 5)
     mode = "match" if state.tabletop["active_match"] else "lobby"
     message = ""
+    inspecting = False
     while True:
         height, width = screen.getmaxyx()
         if height < 24 or width < 80:
@@ -177,18 +212,54 @@ def run_tabletop(screen: curses.window, state) -> None:
                 _draw_result(screen, result, match)
                 screen.getch()
                 return
-            _draw_match(screen, match, worker, card_index, cursor, message)
+            if inspecting:
+                _draw_inspect(screen, match, card_index)
+            else:
+                _draw_match(screen, match, worker, card_index, cursor, message)
         key = screen.getch()
         normalized = ord(chr(key).lower()) if 0 <= key < 256 else key
+        if inspecting:
+            inspecting = False
+            continue
         message = ""
-        if normalized == curses.KEY_MOUSE and mode == "match":
+        if normalized == curses.KEY_MOUSE:
             try:
                 _, x, y, _, button = curses.getmouse()
-                if button & curses.BUTTON1_CLICKED and 1 <= x <= WIDTH and 2 <= y < HEIGHT + 2:
+                double_mask = getattr(curses, "BUTTON1_DOUBLE_CLICKED", 0)
+                left = bool(button & (getattr(curses, "BUTTON1_CLICKED", 0) | getattr(curses, "BUTTON1_PRESSED", 0) | double_mask))
+                double = bool(button & double_mask)
+                if not left:
+                    continue
+                if mode == "lobby" and 15 <= y <= 21:
+                    start = max(0, min(selected_patron - 3, len(people) - 7))
+                    if start + y - 15 < len(people):
+                        selected_patron = start + y - 15
+                        normalized = 13 if double else -1
+                elif mode == "lobby" and 9 <= y <= 12:
+                    slot = y - 9
+                    normalized = -1
+                elif mode == "deck" and 4 <= y <= 18:
+                    start = max(0, min(deck_index - 7, len(available) - 15))
+                    if start + y - 4 < len(available):
+                        deck_index = start + y - 4
+                        normalized = ord("a") if double else -1
+                elif mode == "match" and 1 <= x <= WIDTH and 2 <= y < HEIGHT + 2:
                     cursor = x - 1, y - 2
+                    normalized = 13 if double else -1
+                elif mode == "match" and 44 <= x < 79 and 3 <= y <= 6:
+                    worker = y - 3
+                    piece = match["pieces"][worker]
+                    cursor = piece["x"], piece["y"]
+                    normalized = -1
+                elif mode == "match" and 19 <= y <= 22:
+                    candidate = y - 19 + (4 if x >= 41 else 0)
+                    if candidate < len(match["sides"][0]["hand"]):
+                        card_index = candidate
+                    normalized = -1
+                else:
+                    normalized = -1
             except curses.error:
-                pass
-            continue
+                normalized = -1
         if mode == "lobby":
             if normalized in (ord("q"), 27):
                 return
@@ -259,6 +330,9 @@ def run_tabletop(screen: curses.window, state) -> None:
             match = state.tabletop["active_match"]
             if normalized in (ord("q"), 27):
                 return
+            if normalized == ord("?"):
+                inspecting = True
+                continue
             if normalized == ord("s"):
                 from jomon.save import SaveError, save_game
 

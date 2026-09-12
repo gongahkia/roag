@@ -95,7 +95,7 @@ def _effect_text(effect: dict) -> str:
         "damage": f"deal {amount} paperwork pressure",
         "block": f"gain {amount} cover",
         "heal": f"restore {amount} composure",
-        "stress": f"add {amount} stress",
+        "stress": f"add {amount} stress" if amount >= 0 else f"relieve {-amount} stress",
         "move": f"reposition up to {max(1, min(3, abs(amount)))} desks",
         "guard": "guard a colleague",
         "status": f"apply {status} ({office_status})",
@@ -125,7 +125,11 @@ def office_catalog() -> tuple[dict[str, dict], dict[str, OfficeCard]]:
             raise ValueError(f"office action count differs for {hero_id}")
         for original, title in zip(originals, titles):
             effects = tuple(dict(effect) for effect in original["effects"])
-            description = "; ".join(_effect_text(effect) for effect in effects).capitalize() + "."
+            audience = {
+                "enemy": "Rival", "all_enemies": "All rivals", "self": "Self",
+                "ally": "Colleague", "all_allies": "All colleagues",
+            }[original["target"]]
+            description = f"{audience}: " + "; ".join(_effect_text(effect) for effect in effects) + "."
             cards[original["id"]] = OfficeCard(
                 original["id"], title, hero_id, original["cost"], original["target"],
                 effects, description,
