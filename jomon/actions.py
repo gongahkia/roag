@@ -57,6 +57,8 @@ from .world import (
 from .calendar import record_calendar_crossings
 from .vessel import (
     HOUSEHOLD_SEATS,
+    TABLE_PATRON_SEATS,
+    TABLE_PLAYER_SEAT,
     TAVERN_ENTRANCE,
     TAVERN_EXIT,
     advance_living_world,
@@ -125,11 +127,18 @@ def choose_courier(state: GameState, person_id: str) -> ActionResult:
     schedule = state.actor_schedules.get(person.id)
     seat = schedule.position if schedule and schedule.area == "tavern" else state.tavern_positions.pop(person.id, state.position)
     if previous_id and previous_id != person.id:
-        occupied = set(state.tavern_positions.values())
-        previous_position = old_position if state.jomon_space == "tavern" else next(
-            (point for point in HOUSEHOLD_SEATS if point not in occupied),
-            HOUSEHOLD_SEATS[0],
-        )
+        occupied = {
+            item.position for item in state.actor_schedules.values()
+            if item.area == "tavern" and item.actor_id not in {previous_id, person.id}
+        }
+        if state.jomon_space == "tavern" and old_position != TABLE_PLAYER_SEAT:
+            previous_position = old_position
+        else:
+            chairs = (*TABLE_PATRON_SEATS, *HOUSEHOLD_SEATS) if state.jomon_space == "tavern" else HOUSEHOLD_SEATS
+            previous_position = next(
+                (point for point in chairs if point not in occupied and point != seat),
+                HOUSEHOLD_SEATS[0],
+            )
         state.tavern_positions[previous_id] = previous_position
         previous = state.actor_schedules.get(previous_id)
         if previous:
@@ -3344,7 +3353,7 @@ def negotiate(state: GameState) -> ActionResult:
             threat for threat in humans
             if threat.group == speaker.group
             and distance(speaker.position, threat.position) <= 3
-        ][:2]
+        ][:3 if state.courier.speech >= 5 else 2]
     else:
         heard = [speaker]
     if "paper" in state.carried_goods and state.gear != "trade seals":
@@ -3364,6 +3373,7 @@ def negotiate(state: GameState) -> ActionResult:
     )
     state.remember(memory)
     _remember_contact(state, memory)
+    state.courier.speech = min(20, state.courier.speech + 1)
     return _time_result(
         state,
         f"Witnessed material terms settle {len(heard)} nearby member(s) of one group; other actors keep their own goals." + drawback,

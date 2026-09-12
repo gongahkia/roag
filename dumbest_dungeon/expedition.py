@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from heapq import heappop, heappush
 import hashlib
-from typing import Any
+from typing import Any, Callable
 
 from .content import load_catalog
 from .engine import GameEngine, WALKABLE_TILES
@@ -62,11 +62,21 @@ def _card_upgraded(card: str | dict) -> bool:
 
 
 def _team(match: dict, side: int) -> dict:
-    return match["teams"][side]
+    return match["neutral_team"] if side == 2 else match["teams"][side]
+
+
+def _opponent_side(match: dict, side: int) -> int:
+    return 2 if match["phase"] == "pve" else 1 - side
+
+
+def _actor_label(actor: dict) -> str:
+    from .office_art import office_costume_name
+
+    return OFFICE_ROLES[actor["role"]] if actor["role"] in OFFICE_ROLES else office_costume_name(actor["role"])
 
 
 def _actor(match: dict, identity: str) -> dict:
-    for team in match["teams"]:
+    for team in [*match["teams"], *([match["neutral_team"]] if match.get("neutral_team") else [])]:
         for actor in team["actors"]:
             if actor["id"] == identity:
                 return actor
@@ -203,11 +213,13 @@ def new_match(seed: str, courier_id: str, patron_id: str, roles: list[str],
         raise ValueError("a card treatment is incompatible with its technique")
     digest = hashlib.sha256(f"dullest:expedition:{seed}:{courier_id}:{patron_id}:{match_number}".encode()).digest()
     world_seed = int.from_bytes(digest[:8], "big")
-    generated = GameEngine.new(catalog, world_seed, start_in_hub=True).state
+    generator = GameEngine.new(catalog, world_seed, start_in_hub=True)
+    generator.begin_expedition()
+    generated = generator.state
     base0, base1 = generated.room_positions[0], generated.room_positions[11]
     available = [doctrine for doctrine in catalog.doctrines if doctrine_compatible(patron_roles, doctrine)]
     patron_doctrine = available[shifted_doctrine(seed, patron_id) % len(available)]
-    match = {"version": 3, "courier_id": courier_id, "patron_id": patron_id,
+    match = {"version": 4, "courier_id": courier_id, "patron_id": patron_id,
              "world_seed": world_seed, "world_id": generated.world_id,
              "room_positions": generated.room_positions, "room_biomes": [room.biome_id for room in generated.rooms],
              "biome_ids": generated.biome_ids, "board": generated.world_tiles,
@@ -216,6 +228,7 @@ def new_match(seed: str, courier_id: str, patron_id: str, roles: list[str],
              "retreated_this_turn": False, "turn": 0, "phase": "map", "scores": [0, 0],
              "winner": None, "pending_score": None, "combat_turns": 0,
              "contact_cooldown": 0,
+             "pve_id": None, "neutral_team": None,
              "teams": [_team_state(0, roles, player_deck, base0, customization),
                        _team_state(1, patron_roles, patron_deck, base1, {"doctrine": patron_doctrine})],
              "files": [{"home": base0[:], "carrier": None, "dropped": None},
@@ -233,6 +246,25 @@ def new_match(seed: str, courier_id: str, patron_id: str, roles: list[str],
                           for room in generated.rooms if room.kind in {"event", "camp", "upgrade", "cache"}],
              "pending": None,
              "log": ["The Company of Necessary Copies opens a disputed expedition."]}
+    patrols = []
+    for source in generated.patrols:
+        room = generated.rooms[source.room_id]
+        patrols.append({"id": source.id, "room_id": room.id,
+                        "encounter_id": source.encounter_id, "kind": room.kind,
+                        "biome_id": room.biome_id, "position": [source.x, source.y],
+                        "route": source.route, "route_index": 0,
+                        "direction": 1, "doctrine": source.doctrine,
+                        "active": True, "defeated": False})
+    occupied = {tuple(item["position"]) for item in patrols if item["kind"] != "boss"}
+    route = path_to(match, 0, tuple(base1))
+    midpoint = len(route) // 2
+    boss = next(item for item in patrols if item["kind"] == "boss")
+    boss_position = next(point for point in sorted(route, key=lambda point: abs(route.index(point) - midpoint))
+                         if point not in occupied and point not in (tuple(base0), tuple(base1)))
+    boss["position"] = list(boss_position)
+    boss["route"] = [list(boss_position)]
+    boss["doctrine"] = "sentry"
+    match["patrols"] = patrols
     for side in (0, 1):
         _reveal_nearby(match, side)
     return match
@@ -273,27 +305,52 @@ def _close_combat(match: dict, message: str) -> None:
     _log(match, message)
 
 
+def _close_neutral(match: dict, *, defeated: bool) -> None:
+    patrol = next(item for item in match["patrols"] if item["id"] == match["pve_id"])
+    side = match["turn"]
+    match["phase"] = "map"
+    match["pve_id"] = None
+    team = _team(match, side)
+    team["discard"].extend(team["hand"])
+    team["hand"] = []
+    if defeated:
+        patrol["active"] = False
+        patrol["defeated"] = True
+        team["supplies"] += 2 if patrol["kind"] == "boss" else 1
+        _draft(match, side)
+        _log(match, f"The {patrol['kind']} office patrol is cleared; choose a recovered technique.")
+    else:
+        _log(match, "The party leaves the neutral encounter; the patrol remains on the floor.")
+
+
 def _knockout(match: dict, actor: dict) -> None:
     if actor["respawn"]:
         return
     actor["hp"] = 0
-    actor["respawn"] = 2
+    side = int(actor["id"].split(":", 1)[0])
+    actor["respawn"] = 0 if side == 2 else 2
     actor["block"] = 0
     actor["statuses"] = {}
     actor["guarded_by"] = None
-    side = int(actor["id"].split(":", 1)[0])
     for rank, survivor in enumerate(_living(match, side), 1):
         survivor["rank"] = rank
+    if side == 2:
+        _log(match, f"{_actor_label(actor)} is removed from the patrol.")
+        if not _living(match, 2):
+            _close_neutral(match, defeated=True)
+        return
     for file in match["files"]:
         if file["carrier"] == actor["id"]:
             file["carrier"] = None
             file["dropped"] = _team(match, side)["position"][:]
             match["pending_score"] = None
             _log(match, f"{OFFICE_ROLES[actor['role']]} drops the stolen file.")
-    _log(match, f"{OFFICE_ROLES[actor['role']]} is sent on two-turn mandatory leave.")
+    _log(match, f"{_actor_label(actor)} is sent on two-turn mandatory leave.")
     if not _living(match, side):
         if match["phase"] == "combat":
             _close_combat(match, "The depleted party is routed from ranked combat.")
+        elif match["phase"] == "pve":
+            _close_neutral(match, defeated=False)
         _team(match, side)["position"] = match["files"][side]["home"][:]
         _log(match, "The depleted party regroups at its records office.")
 
@@ -337,14 +394,32 @@ def _damage(match: dict, actor: dict, target: dict, amount: int) -> None:
     amount = max(0, amount)
     absorbed = min(target["block"], max(0, amount))
     target["block"] -= absorbed
-    target["hp"] = max(0, target["hp"] - max(0, amount - absorbed))
+    hp_loss = max(0, amount - absorbed)
+    phase = None
+    if side == 2 and hp_loss:
+        hp_loss += target["overflow"]
+        target["overflow"] = 0
+        for candidate in load_catalog().enemies[target["role"]].get("phases", []):
+            threshold = (target["max_hp"] * candidate["threshold_bp"] + 9999) // 10000
+            if candidate["id"] not in target["phases_triggered"] and target["hp"] > threshold >= target["hp"] - hp_loss:
+                applied = target["hp"] - threshold
+                target["overflow"] = max(0, hp_loss - applied)
+                hp_loss = applied
+                target["phases_triggered"].append(candidate["id"])
+                phase = candidate
+                break
+    target["hp"] = max(0, target["hp"] - hp_loss)
+    if phase:
+        for effect in phase["effects"]:
+            _apply_effect(match, target, [target], effect)
+        _log(match, f"{_actor_label(target)} enters a stricter review phase; {target['overflow']} damage carries.")
     if target["hp"] == 0:
         second_wind = _passive(match, side, target["id"], "boons", "second_wind")
         used = _team(match, side)["combat_used"]
         if second_wind and not used.get(f"second_wind:{target['id']}"):
             used[f"second_wind:{target['id']}"] = True
             target["hp"] = min(target["max_hp"], second_wind)
-            _log(match, f"{OFFICE_ROLES[target['role']]} invokes a second-wind allowance.")
+            _log(match, f"{_actor_label(target)} invokes a second-wind allowance.")
         else:
             _knockout(match, target)
     elif target["statuses"].get("riposte") and side != int(actor["id"].split(":", 1)[0]):
@@ -429,7 +504,7 @@ def _apply_effect(match: dict, actor: dict, targets: list[dict], effect: dict,
 
 
 def valid_targets(match: dict, card_index: int) -> list[str]:
-    if match["phase"] != "combat" or match["winner"] is not None:
+    if match["phase"] not in {"combat", "pve"} or match["winner"] is not None:
         return []
     side = match["turn"]
     team = _team(match, side)
@@ -452,9 +527,10 @@ def valid_targets(match: dict, card_index: int) -> list[str]:
         return [item["id"] for item in _living(match, side)]
     if target == "all_allies":
         return ["all_allies"]
+    opponent = _opponent_side(match, side)
     if target == "all_enemies":
-        return ["all_enemies"] if _living(match, 1 - side) else []
-    return [item["id"] for item in _living(match, 1 - side) if item["rank"] in definition["target_ranks"]]
+        return ["all_enemies"] if _living(match, opponent) else []
+    return [item["id"] for item in _living(match, opponent) if item["rank"] in definition["target_ranks"]]
 
 
 def _card_cost(match: dict, side: int, card: str | dict) -> int:
@@ -492,8 +568,8 @@ def _card_cost(match: dict, side: int, card: str | dict) -> int:
 
 
 def play_card(match: dict, card_index: int, target_id: str | None = None) -> str:
-    if match["phase"] != "combat" or match["winner"] is not None:
-        raise ValueError("cards can only be played during the rival party encounter")
+    if match["phase"] not in {"combat", "pve"} or match["winner"] is not None:
+        raise ValueError("cards can only be played during ranked combat")
     side = match["turn"]
     team = _team(match, side)
     if team["plays"] >= MAX_PLAYS_PER_TURN or not 0 <= card_index < len(team["hand"]):
@@ -514,8 +590,9 @@ def play_card(match: dict, card_index: int, target_id: str | None = None) -> str
     infusion = load_catalog().infusions.get(team["infusions"].get(card_id))
     if not infusion or infusion["mode"] != "exhaust":
         team["discard"].append(instance)
+    opponent = _opponent_side(match, side)
     main = (_living(match, side) if target_id == "all_allies" else
-            _living(match, 1 - side) if target_id == "all_enemies" else [_actor(match, target_id)])
+            _living(match, opponent) if target_id == "all_enemies" else [_actor(match, target_id)])
     effects = [dict(effect) for effect in (definition["upgrade_effects"] if _card_upgraded(instance) else definition["effects"])]
     doctrine = load_catalog().doctrines[team["doctrine"]]["mode"]
     if infusion and infusion["mode"] == "pressure_bonus" and match["files"][1 - side]["carrier"] == actor["id"]:
@@ -555,7 +632,7 @@ def play_card(match: dict, card_index: int, target_id: str | None = None) -> str
     for effect in effects:
         kind = effect.get("target", definition["target"])
         recipients = ([actor] if kind == "self" else _living(match, side) if kind == "all_allies"
-                      else _living(match, 1 - side) if kind == "all_enemies" else main)
+                      else _living(match, opponent) if kind == "all_enemies" else main)
         _apply_effect(match, actor, recipients, effect, main)
     if infusion:
         mode = infusion["mode"]
@@ -956,6 +1033,8 @@ def _arrival(match: dict, side: int) -> None:
                     labels.append(office_facility_option({effect["op"] for effect in option["effects"]}, cost))
                 match["pending"] = {"side": side, "kind": "event", "station": station["id"], "choices": labels}
             break
+    if match["pending"] is None:
+        engage_neutral_if_touching(match)
 
 
 def move_to(match: dict, destination: tuple[int, int]) -> list[tuple[int, int]]:
@@ -985,6 +1064,8 @@ def move_to(match: dict, destination: tuple[int, int]) -> list[tuple[int, int]]:
         _arrival(match, side)
         if match["pending"] or match["winner"] is not None or not _living(match, side):
             break
+        if match["phase"] == "pve":
+            break
         if engage_if_touching(match):
             break
     return walked
@@ -1002,13 +1083,14 @@ def engage_if_touching(match: dict) -> bool:
 
 
 def retreat_destinations(match: dict) -> list[tuple[int, int]]:
-    if match["phase"] != "combat" or match["winner"] is not None:
+    if match["phase"] not in {"combat", "pve"} or match["winner"] is not None:
         return []
     side = match["turn"]
     if not _living(match, side):
         return []
     x, y = _position(match, side)
-    rival = _position(match, 1 - side)
+    rival = (_position(match, 1 - side) if match["phase"] == "combat"
+             else tuple(next(item["position"] for item in match["patrols"] if item["id"] == match["pve_id"])))
     current_distance = _distance((x, y), rival)
     board = match["board"]
     return [(nx, ny) for nx, ny in ((x, y - 1), (x - 1, y), (x + 1, y), (x, y + 1))
@@ -1021,7 +1103,10 @@ def retreat(match: dict, destination: tuple[int, int]) -> None:
     if destination not in retreat_destinations(match):
         raise ValueError("retreat needs a neighboring floor tile away from the rival")
     side = match["turn"]
-    _close_combat(match, f"The {('courier', 'patron')[side]} party retreats from ranked combat.")
+    if match["phase"] == "pve":
+        _close_neutral(match, defeated=False)
+    else:
+        _close_combat(match, f"The {('courier', 'patron')[side]} party retreats from ranked combat.")
     team = _team(match, side)
     team["position"] = list(destination)
     team["orders"] = ORDERS_PER_TURN
@@ -1032,9 +1117,10 @@ def retreat(match: dict, destination: tuple[int, int]) -> None:
 
 def _begin_combat(match: dict) -> None:
     initiator = match["turn"]
+    opponent = _opponent_side(match, initiator)
     biome = _biome_at(match, *_position(match, initiator))
     environment = load_catalog().biomes[biome]["mechanics"]["combat"]
-    for side in (0, 1):
+    for side in (initiator, opponent):
         team = _team(match, side)
         team["draw"] = team["deck"][:]
         _shuffle(match, team["draw"])
@@ -1051,11 +1137,99 @@ def _begin_combat(match: dict) -> None:
         team["opening_effects"] = []
     for effect in environment["effects"]:
         target = effect["target"]
-        sides = (0, 1) if target == "all" else (initiator,) if target in {"crew", "front_crew", "back_crew"} else (1 - initiator,)
+        sides = (initiator, opponent) if target == "all" else (initiator,) if target in {"crew", "front_crew", "back_crew"} else (opponent,)
         for side in sides:
             _team(match, side)["opening_effects"].append(dict(effect))
     match["combat_turns"] = 0
     _start_turn(match, match["turn"], preserve_clock=True)
+
+
+def engage_neutral_if_touching(match: dict) -> bool:
+    if match["phase"] != "map" or match["winner"] is not None or match["pending"]:
+        return False
+    side = match["turn"]
+    if not _living(match, side):
+        return False
+    patrol = next((item for item in match.get("patrols", []) if item["active"]
+                   and tuple(item["position"]) == _position(match, side)), None)
+    if patrol is None:
+        return False
+    encounter = load_catalog().encounters[patrol["encounter_id"]]
+    actors = []
+    for rank, enemy_id in enumerate(encounter["enemies"], 1):
+        definition = load_catalog().enemies[enemy_id]
+        actors.append({"id": f"2:{enemy_id}:{rank}", "role": enemy_id, "rank": rank,
+                       "hp": definition["max_hp"], "max_hp": definition["max_hp"],
+                       "stress": 0, "block": 0, "statuses": {}, "guarded_by": None,
+                       "guard_turns": 0, "respawn": 0, "phases_triggered": [], "overflow": 0})
+    match["neutral_team"] = {"actors": actors, "deck": [], "draw": [], "hand": [], "discard": [],
+                             "infusions": {}, "items": {}, "boons": [], "curses": [],
+                             "pending_hand": 0, "triggers": {}, "combat_opened": False,
+                             "combat_used": {}, "opening_effects": [], "energy": 0}
+    match["pve_id"] = patrol["id"]
+    match["phase"] = "pve"
+    _begin_combat(match)
+    _log(match, f"The {patrol['kind']} office patrol challenges the {('courier', 'patron')[side]} party.")
+    return True
+
+
+def _neutral_targets(match: dict, owner: int, actor: dict, rule: str) -> list[dict]:
+    opponents = _living(match, owner)
+    allies = _living(match, 2)
+    if rule == "self":
+        return [actor]
+    if rule == "all_heroes":
+        return opponents
+    if rule == "front":
+        return opponents[:1]
+    if rule == "back":
+        return opponents[-1:]
+    if rule == "stressed":
+        return [max(opponents, key=lambda item: item["stress"])] if opponents else []
+    if rule in {"deaths_door", "marked", "wounded"}:
+        status = {"deaths_door": None, "marked": "marked", "wounded": "wound"}[rule]
+        candidates = ([item for item in opponents if item["hp"] <= max(3, item["max_hp"] // 5)] if status is None
+                      else [item for item in opponents if item["statuses"].get(status)]) or opponents
+        return [min(candidates, key=lambda item: item["hp"] / item["max_hp"])] if candidates else []
+    if rule in {"weakest_ally", "weakest_enemy"}:
+        candidates = ([item for item in allies if item["id"] != actor["id"]] or allies) if rule == "weakest_ally" else allies
+        return [min(candidates, key=lambda item: item["hp"] / item["max_hp"])] if candidates else []
+    return [opponents[_roll(match) % len(opponents)]] if opponents else []
+
+
+def _neutral_enemy_phase(match: dict) -> None:
+    from .office_art import office_action_name
+
+    owner = match["turn"]
+    for actor in list(_living(match, 2)):
+        if match["phase"] != "pve" or not _living(match, owner):
+            break
+        if actor["statuses"].get("stun"):
+            actor["statuses"].pop("stun")
+            _log(match, f"{_actor_label(actor)} loses its action to a hold order.")
+            continue
+        actions = load_catalog().enemies[actor["role"]]["actions"]
+        weight = _roll(match) % sum(int(action["weight"]) for action in actions)
+        action = actions[0]
+        for candidate in actions:
+            weight -= int(candidate["weight"])
+            if weight < 0:
+                action = candidate
+                break
+        targets = _neutral_targets(match, owner, actor, action["target"])
+        _log(match, f"{_actor_label(actor)} uses {office_action_name(action['name'])}.")
+        for effect in action["effects"]:
+            override = effect.get("target")
+            recipients = ([actor] if override == "self" else _living(match, 2) if override == "all_allies"
+                          else _living(match, owner) if override == "all_enemies" else targets)
+            _apply_effect(match, actor, recipients, effect, targets)
+            if match["phase"] != "pve":
+                break
+    for actor in [*_living(match, 2), *_living(match, owner)]:
+        for status in list(actor["statuses"]):
+            actor["statuses"][status] -= 1
+            if actor["statuses"][status] <= 0:
+                del actor["statuses"][status]
 
 
 def _score_check(match: dict, side: int) -> None:
@@ -1084,7 +1258,7 @@ def _start_turn(match: dict, side: int, *, preserve_clock: bool = False) -> None
     if not preserve_clock:
         match["turn_began_on_map"] = match["phase"] == "map"
         match["retreated_this_turn"] = False
-    first_combat_turn = match["phase"] == "combat" and not team["combat_opened"]
+    first_combat_turn = match["phase"] in {"combat", "pve"} and not team["combat_opened"]
     team["energy"] = int(load_catalog().balance["energy"])
     if first_combat_turn:
         team["energy"] += _passive(match, side, None, "items", "first_round_energy")
@@ -1121,7 +1295,7 @@ def _start_turn(match: dict, side: int, *, preserve_clock: bool = False) -> None
                 if value:
                     actor["statuses"][status] = max(actor["statuses"].get(status, 0), value)
             actor["stress"] = max(0, actor["stress"] - _passive(match, side, actor["id"], "boons", "start_stress_relief"))
-    if match["phase"] == "combat":
+    if match["phase"] in {"combat", "pve"}:
         opening = 5 + team["pending_hand"] + (_passive(match, side, None, "items", "opening_hand") if first_combat_turn else 0)
         if not team["combat_opened"] and load_catalog().doctrines[team["doctrine"]]["mode"] == "discard":
             opening -= 1
@@ -1154,6 +1328,16 @@ def end_turn(match: dict) -> None:
         return
     if match["pending"]:
         raise ValueError("choose a reward or facility procedure before ending the turn")
+    if match["phase"] == "pve":
+        team = _team(match, match["turn"])
+        retained = [card for card in team["hand"] if (infusion := load_catalog().infusions.get(team["infusions"].get(_card_id(card)))) and infusion["mode"] == "retain"]
+        team["discard"].extend(card for card in team["hand"] if card not in retained)
+        team["hand"] = retained
+        match["combat_turns"] += 1
+        _neutral_enemy_phase(match)
+        if match["phase"] == "pve":
+            _start_turn(match, match["turn"], preserve_clock=True)
+        return
     count_map_turn = match["turn_began_on_map"] or match["retreated_this_turn"]
     side = match["turn"]
     team = _team(match, side)
@@ -1189,7 +1373,21 @@ def end_turn(match: dict) -> None:
             and match["scores"][0] != match["scores"][1]):
         match["winner"] = 0 if match["scores"][0] > match["scores"][1] else 1
         return
+    if count_map_turn and match["map_turns"] % 2 == 0:
+        _advance_patrols(match)
     _start_turn(match, match["turn"])
+
+
+def _advance_patrols(match: dict) -> None:
+    for patrol in match.get("patrols", []):
+        if not patrol["active"] or len(patrol["route"]) < 2:
+            continue
+        next_index = patrol["route_index"] + patrol["direction"]
+        if not 0 <= next_index < len(patrol["route"]):
+            patrol["direction"] *= -1
+            next_index = patrol["route_index"] + patrol["direction"]
+        patrol["route_index"] = next_index
+        patrol["position"] = patrol["route"][next_index][:]
 
 
 def _ai_destination(match: dict, goal: tuple[int, int]) -> tuple[int, int] | None:
@@ -1212,10 +1410,11 @@ def _ai_destination(match: dict, goal: tuple[int, int]) -> tuple[int, int] | Non
     return reachable
 
 
-def patron_turn(match: dict) -> None:
+def patron_turn(match: dict, on_move: Callable[[tuple[int, int]], None] | None = None) -> None:
     if match["turn"] != 1 or match["winner"] is not None:
         raise ValueError("the patron has no turn")
     engage_if_touching(match)
+    engage_neutral_if_touching(match)
     def clear_pending() -> None:
         pending = match["pending"]
         if pending is None:
@@ -1241,6 +1440,7 @@ def patron_turn(match: dict) -> None:
     while match["pending"]:
         clear_pending()
     engage_if_touching(match)
+    engage_neutral_if_touching(match)
     if match["phase"] == "map":
         for _ in range(ORDERS_PER_TURN):
             if match["phase"] != "map" or match["pending"] or not _living(match, 1):
@@ -1253,12 +1453,16 @@ def patron_turn(match: dict) -> None:
             if destination is None:
                 break
             try:
-                move_to(match, destination)
+                walked = move_to(match, destination)
             except ValueError:
                 break
+            if on_move:
+                for point in walked:
+                    on_move(point)
             while match["pending"]:
                 clear_pending()
-    if match["phase"] == "combat":
+            engage_neutral_if_touching(match)
+    if match["phase"] in {"combat", "pve"}:
         for _ in range(MAX_PLAYS_PER_TURN):
             if match["winner"] is not None or _team(match, 1)["energy"] <= 0:
                 break
@@ -1274,9 +1478,9 @@ def patron_turn(match: dict) -> None:
                 break
             _, _, index, targets = max(choices)
             play_card(match, index, targets[0])
-            if match["phase"] != "combat":
+            if match["phase"] not in {"combat", "pve"}:
                 break
-        if match["phase"] == "combat":
+        if match["phase"] in {"combat", "pve"}:
             living = _living(match, 1)
             carrying = match["files"][0]["carrier"] is not None
             retreating = carrying or len(living) <= 2 or sum(actor["hp"] for actor in living) * 3 < sum(actor["max_hp"] for actor in living)
@@ -1293,6 +1497,7 @@ def patron_turn(match: dict) -> None:
 def start_match(state: Any, patron_id: str) -> dict:
     from jomon.actions import _advance_world
     from jomon.calendar import calendar_at
+    from jomon.vessel import seat_patron_at_table
 
     if state.location != "jomon" or state.jomon_space != "tavern" or state.courier is None or not state.courier.alive:
         raise ValueError("a living courier must be at the tavern")
@@ -1309,7 +1514,10 @@ def start_match(state: Any, patron_id: str) -> dict:
     match = new_match(state.seed, state.courier.id, patron_id, roles, patron_roles,
                       collection["deck"], len(state.tabletop["records"]), collection)
     match["patron_name"] = patron.name
+    match["teams"][0]["supplies"] += min(2, state.courier.strategy // 5)
+    match["teams"][1]["supplies"] += min(2, patron.strategy // 5)
     _advance_world(state)
+    seat_patron_at_table(state, patron_id)
     date = calendar_at(state)
     match["season"] = f"{date.year}:{date.season}"
     state.tabletop["active_match"] = match
@@ -1332,9 +1540,10 @@ def finish_match(state: Any) -> str:
         patron = next((person for person in [*state.household, *state.visitors, state.bartender] if person.id == match["patron_id"]), None)
         if patron:
             patron.relationships[match["courier_id"]] = min(3, patron.relationships.get(match["courier_id"], 0) + 1)
-        courier = next((person for person in state.household if person.id == match["courier_id"]), None)
-        if courier:
-            courier.strategy = min(20, courier.strategy + 1)
+    winner_id = match["courier_id"] if result == "win" else match["patron_id"] if result == "loss" else None
+    winner = next((person for person in [*state.household, *state.visitors, state.bartender] if person.id == winner_id), None)
+    if winner:
+        winner.strategy = min(20, winner.strategy + 1)
     state.tabletop["records"].append({"courier": match["courier_id"], "patron": match["patron_id"],
                                       "season": match["season"], "result": result,
                                       "score": match["scores"][:],
@@ -1355,11 +1564,11 @@ def validate_expedition(state: Any) -> None:
         state.tabletop = original
     if match is None:
         return
-    if not isinstance(match, dict) or match.get("version") != 3:
+    if not isinstance(match, dict) or match.get("version") not in {3, 4}:
         raise ValueError("invalid competitive expedition version")
     if match.get("courier_id") not in {person.id for person in state.household} or not isinstance(match.get("patron_id"), str):
         raise ValueError("competitive expedition participants are invalid")
-    if match.get("turn") not in (0, 1) or match.get("phase") not in ("map", "combat") or match.get("winner") not in (None, 0, 1, "draw"):
+    if match.get("turn") not in (0, 1) or match.get("phase") not in ("map", "combat", "pve") or match.get("winner") not in (None, 0, 1, "draw"):
         raise ValueError("competitive expedition turn is invalid")
     if (type(match.get("rng")) is not int or not 1 <= match["rng"] < 2**64
             or type(match.get("contact_cooldown")) is not int or not 0 <= match["contact_cooldown"] <= 2
@@ -1377,7 +1586,9 @@ def validate_expedition(state: Any) -> None:
         raise ValueError("competitive expedition score is invalid")
     if len(match.get("teams", [])) != 2 or len(match.get("files", [])) != 2:
         raise ValueError("competitive expedition parties or files are invalid")
-    generated = GameEngine.new(load_catalog(), match["world_seed"], start_in_hub=True).state
+    generator = GameEngine.new(load_catalog(), match["world_seed"], start_in_hub=True)
+    generator.begin_expedition()
+    generated = generator.state
     expected_board = generated.world_tiles[:]
     stabilized = match.get("stabilized")
     if not isinstance(stabilized, list) or len(stabilized) > 32:
@@ -1476,6 +1687,64 @@ def validate_expedition(state: Any) -> None:
             (_distance(_position(match, 0), _position(match, 1)) > 1
              or not _living(match, 0) or not _living(match, 1))):
         raise ValueError("competitive expedition combat has no rival contact")
+    if match["version"] == 4:
+        source_patrols = {patrol.id: patrol for patrol in generated.patrols}
+        patrols = match.get("patrols")
+        if not isinstance(patrols, list) or len(patrols) != len(source_patrols):
+            raise ValueError("competitive expedition patrol roster is invalid")
+        seen_patrols = set()
+        for patrol in patrols:
+            if not isinstance(patrol, dict) or patrol.get("id") not in source_patrols or patrol["id"] in seen_patrols:
+                raise ValueError("competitive expedition patrol identity is invalid")
+            seen_patrols.add(patrol["id"])
+            source = source_patrols[patrol["id"]]
+            room = generated.rooms[source.room_id]
+            if (patrol.get("room_id") != room.id or patrol.get("encounter_id") != source.encounter_id
+                    or patrol.get("kind") != room.kind or patrol.get("biome_id") != room.biome_id
+                    or patrol.get("doctrine") != ("sentry" if room.kind == "boss" else source.doctrine)
+                    or patrol.get("route") != ([patrol.get("position")] if room.kind == "boss" else source.route)
+                    or type(patrol.get("route_index")) is not int
+                    or not 0 <= patrol["route_index"] < len(patrol["route"])
+                    or patrol.get("position") != patrol["route"][patrol["route_index"]]
+                    or patrol.get("direction") not in (-1, 1)
+                    or type(patrol.get("active")) is not bool
+                    or type(patrol.get("defeated")) is not bool
+                    or patrol["active"] == patrol["defeated"]):
+                raise ValueError("competitive expedition patrol differs from its source formation")
+            x, y = patrol["position"]
+            if not (0 <= y < len(match["board"]) and 0 <= x < len(match["board"][y])
+                    and match["board"][y][x] in WALKABLE_TILES):
+                raise ValueError("competitive expedition patrol is off-map")
+        pve_id = match.get("pve_id")
+        neutral = match.get("neutral_team")
+        if match["phase"] == "pve":
+            patrol = next((item for item in patrols if item["id"] == pve_id and item["active"]), None)
+            if patrol is None or not isinstance(neutral, dict) or _position(match, match["turn"]) != tuple(patrol["position"]):
+                raise ValueError("competitive expedition neutral contact is invalid")
+            enemies = load_catalog().encounters[patrol["encounter_id"]]["enemies"]
+            actors = neutral.get("actors")
+            if (not isinstance(actors, list) or len(actors) != len(enemies)
+                    or [actor.get("role") for actor in actors] != enemies
+                    or not _living(match, 2)):
+                raise ValueError("competitive expedition neutral formation is invalid")
+            for index, actor in enumerate(actors, 1):
+                definition = load_catalog().enemies[actor["role"]]
+                if (actor.get("id") != f"2:{actor['role']}:{index}"
+                        or actor.get("max_hp") != definition["max_hp"]
+                        or type(actor.get("hp")) is not int or not 0 <= actor["hp"] <= actor["max_hp"]
+                        or type(actor.get("stress")) is not int or not 0 <= actor["stress"] <= 100
+                        or type(actor.get("block")) is not int or not 0 <= actor["block"] <= 1000
+                        or type(actor.get("respawn")) is not int or actor["respawn"] != 0
+                        or not isinstance(actor.get("statuses"), dict)
+                        or not isinstance(actor.get("phases_triggered"), list)
+                        or type(actor.get("overflow")) is not int or not 0 <= actor["overflow"] <= 10000
+                        or any(phase not in {item["id"] for item in definition.get("phases", [])}
+                               for phase in actor["phases_triggered"])):
+                    raise ValueError("competitive expedition neutral actor is invalid")
+        elif pve_id is not None:
+            raise ValueError("competitive expedition neutral fight has no contact")
+    elif match["phase"] == "pve":
+        raise ValueError("legacy expedition cannot contain a neutral fight")
     for key, source in (("pickups", generated.pickups), ("hazards", generated.hazards), ("facilities", generated.facilities)):
         expected = {item.id: asdict(item) for item in source}
         current = match.get(key)

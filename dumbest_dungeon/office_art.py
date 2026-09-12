@@ -55,8 +55,13 @@ OFFICE_COSTUME_WORDS = {
 
 
 def office_costume_name(enemy_id: str) -> str:
-    """Original enemy drawings are rival-department costumes, not PvE units."""
+    """The source drawing is a costume or a neutral office creature."""
     name = load_catalog().enemies[enemy_id]["name"]
+    return " ".join(OFFICE_COSTUME_WORDS.get(word, word) for word in name.split())
+
+
+def office_action_name(name: str) -> str:
+    """Keep each source action identifiable while translating its setting words."""
     return " ".join(OFFICE_COSTUME_WORDS.get(word, word) for word in name.split())
 
 

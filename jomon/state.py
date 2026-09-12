@@ -59,6 +59,10 @@ class Person:
     memories: list[str] = field(default_factory=list)
     recruitment_terms: str = "A free adult may accept or refuse a witnessed berth."
     strategy: int = 0
+    speech: int = 0
+    wayfinding: int = 0
+    fieldcraft: int = 0
+    craft: int = 0
 
 
 @dataclass
@@ -1311,8 +1315,10 @@ def validate_state(state: GameState) -> None:
     all_people = [*state.household, *state.visitors, state.merchant]
     if len({person.id for person in all_people}) != len(all_people):
         raise StateError("household and visitor identities must be unique")
-    if any(type(person.strategy) is not int or not 0 <= person.strategy <= 20 for person in [*all_people, state.bartender]):
-        raise StateError("invalid recorded strategy")
+    if any(type(getattr(person, skill)) is not int or not 0 <= getattr(person, skill) <= 20
+           for person in [*all_people, state.bartender]
+           for skill in ("strategy", "speech", "wayfinding", "fieldcraft", "craft")):
+        raise StateError("invalid person competency")
     if state.berth_capacity < 6 or len(state.household) > state.berth_capacity:
         raise StateError("invalid Jomon berth occupancy")
     if len(set(state.tavern_positions.values())) != len(state.tavern_positions):

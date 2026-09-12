@@ -10,6 +10,7 @@ from .state import GameState, Position
 from .vessel import (
     JOMON_GANGPLANK,
     TAVERN_MAP,
+    TABLE_SURFACE,
     VESSEL_LEVELS,
     current_area,
     vessel_rows,
@@ -149,6 +150,8 @@ def is_walkable(state: GameState, position: Position, *, ignore_threat: bool = F
     tile = terrain if state.location == "region" else displayed_tile(state, position)
     if state.location == "jomon":
         blocked |= {"=", "t", "F", "f"}
+        if state.jomon_space == "tavern" and position in TABLE_SURFACE:
+            return False
     if tile in blocked:
         return False
     if state.location == "jomon" and tile in {"a", "v", "B"}:
@@ -309,6 +312,8 @@ def sight_radius(state: GameState) -> int:
         radius += 1
     if "reed-tonic" in state.drink_effects:
         radius = max(3, radius - 2)
+    if state.courier:
+        radius += min(2, state.courier.fieldcraft // 5)
     from .worklines import beacon_active
     if state.active_region_id == "greywash" and beacon_active(state) and distance(state.position, state.region.landmarks["elevated"]) <= 20:
         radius += 2
@@ -383,6 +388,8 @@ def _remember_visible(state: GameState, visible: set[Position]) -> None:
     newly_seen = {position_key(position) for position in visible} - known
     if newly_seen:
         state.region.seen = sorted(known | newly_seen)
+        if state.courier and len(known) // 80 < len(state.region.seen) // 80:
+            state.courier.fieldcraft = min(20, state.courier.fieldcraft + 1)
 
 
 def remembered(state: GameState, position: Position) -> bool:

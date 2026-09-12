@@ -1763,7 +1763,9 @@ def route_detail_lines(
             if {edge.first, edge.second} == {state.route_current_node, view.cursor}
         )
         available, reason = route_availability(state, view.cursor)
-        route = f"Route: {edge.hazard}; {edge.travel_time} actions; supplies {edge.supply_cost}"
+        from .route_chart import leg_travel_time
+
+        route = f"Route: {edge.hazard}; {leg_travel_time(state, edge)} actions; supplies {edge.supply_cost}"
         risks = f"Risks: cargo {edge.cargo_risk}/3; weather {edge.weather_exposure}/4"
         season = f"{date.season.title()}: {seasonal_route_note(state)}"
         route_layer = [description, route, risks, "REACHABLE" if available else f"BLOCKED: {reason}"]
@@ -2727,7 +2729,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             for index, region_id in enumerate(DESTINATIONS)
         ]
         return "JOMON ROUTE CHART", lines + [
-            "Travel costs six world measures and can produce a seeded voyage event.",
+            "Travel costs the charted leg's actions and can produce a seeded voyage event.",
             "Number sets course; Escape keeps the current mooring without time.",
         ]
     if kind == "voyage":
@@ -2761,6 +2763,8 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             f"Technique: {person.technique}",
             "Learned practices: " + (", ".join(person.learned_techniques) or "none"),
             f"Health: {person.health}/{person.max_health}; {person.injury}",
+            f"Competencies /20: Strategy {person.strategy}; Speech {person.speech}; Wayfinding {person.wayfinding}",
+            f"Fieldcraft {person.fieldcraft}; Craft {person.craft}",
             f"Equipment affinity: {', '.join(person.equipment)}",
             f"Current physical kit: {', '.join(physical) if physical else 'none'}",
             f"Build tendency: {person.build_tendency}",

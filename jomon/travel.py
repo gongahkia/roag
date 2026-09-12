@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from .regions import activate_region, store_active_region
 from .state import GameState, stage_rng
-from .route_chart import edge_between, route_availability
+from .route_chart import edge_between, leg_travel_time, route_availability
 
 
 DESTINATIONS = ("hearthford", "greywash", "greenwold", "whitecairn")
@@ -114,7 +114,8 @@ def choose_destination(
     state.travel_count += 1
     from .actions import _advance_world
 
-    _advance_world(state, steps=edge.travel_time)
+    travel_time = leg_travel_time(state, edge)
+    _advance_world(state, steps=travel_time)
     state.pending_destination = destination
     if edge.supply_cost >= 2 and state.vessel_cargo.get("grain"):
         state.vessel_cargo["grain"].quantity -= 1
@@ -135,7 +136,7 @@ def choose_destination(
         return True, state.voyage_detail
     state.vessel_changes.pop("active_voyage_variant", None)
     _finish_travel(state, "The voyage remains watchful but uneventful.")
-    return True, f"Jomon reaches {state.route_nodes[destination].name} after {edge.travel_time} action-clock measures."
+    return True, f"Jomon reaches {state.route_nodes[destination].name} after {travel_time} action-clock measures."
 
 
 def _finish_travel(state: GameState, consequence: str) -> None:
@@ -153,6 +154,8 @@ def _finish_travel(state: GameState, consequence: str) -> None:
         state.route_known.sort()
     if edge and edge.id not in state.traversed_route_edges:
         state.traversed_route_edges.append(edge.id)
+        if state.courier:
+            state.courier.wayfinding = min(20, state.courier.wayfinding + 1)
     node = state.route_nodes[destination]
     if node.region_id:
         activate_region(state, node.region_id)

@@ -11,7 +11,8 @@ from .office_art import OFFICE_SPRITES, office_card_glyph, office_costume_name, 
 from .expedition import (
     MAX_ROUNDS, ORDER_TICKS, ORDERS_PER_TURN, _ai_destination, _biome_at,
     _card_cost, _card_id, _card_upgraded, _distance, _file_position, _position, _team, choose_reward,
-    doctrine_compatible, end_turn, engage_if_touching, finish_match, infusion_compatible,
+    _opponent_side, doctrine_compatible, end_turn, engage_if_touching, engage_neutral_if_touching,
+    finish_match, infusion_compatible,
     move_to, patron_turn, path_to, play_card, retreat, retreat_destinations,
     start_match, valid_targets,
 )
@@ -33,7 +34,8 @@ class ExpeditionUI(TavernUIBase):
         self.selected_card = 0
         self.site = 0
 
-    def _render_map(self, moving: tuple[int, int] | None = None) -> None:
+    def _render_map(self, moving: tuple[int, int] | None = None,
+                    rival_moving: tuple[int, int] | None = None) -> None:
         match = self.match
         assert match is not None
         team = _team(match, 0)
@@ -41,20 +43,21 @@ class ExpeditionUI(TavernUIBase):
         title = f"DULLEST DUNGEON  /  COMPANY OF NECESSARY COPIES  /  {OFFICE_WORLDS[match['world_id']].upper()}"
         self._begin(title)
         round_label = f"OT {match['round'] - MAX_ROUNDS}/4" if match["round"] > MAX_ROUNDS else f"ROUND {match['round']}/{MAX_ROUNDS}"
-        self._put(1, 2, f"{round_label}  APPROVAL {match['scores'][0]}:{match['scores'][1]}  VS {match.get('patron_name', 'PATRON')[:20]}  ROUTES {ORDERS_PER_TURN - team['orders']}/{ORDERS_PER_TURN}", curses.A_BOLD)
+        lead = "PATRON ROUTE" if rival_moving else round_label
+        self._put(1, 2, f"{lead}  APPROVAL {match['scores'][0]}:{match['scores'][1]}  VS {match.get('patron_name', 'PATRON')[:20]}  ROUTES {ORDERS_PER_TURN - team['orders']}/{ORDERS_PER_TURN}", curses.A_BOLD)
         biome = _biome_at(match, *team["position"])
         self._put(2, 2, f"{OFFICE_BIOMES[biome].upper()}  LIGHT {team['light']}  SUPPLIES {team['supplies']}  BOONS {len(team['boons'])}  ITEMS {sum(team['items'].values())}")
         rows, columns = self.screen.getmaxyx()
         viewport_width = min(columns - 4, len(match["board"][0]))
         viewport_height = min(rows - 9, len(match["board"]))
         map_column = max(2, (columns - viewport_width) // 2)
-        focus_x, focus_y = self.cursor
+        focus_x, focus_y = rival_moving or self.cursor
         left = max(0, min(len(match["board"][0]) - viewport_width, focus_x - viewport_width // 2))
         top = max(0, min(len(match["board"]) - viewport_height, focus_y - viewport_height // 2))
         for offset in range(viewport_height):
             self._put(4 + offset, map_column, match["board"][top + offset][left:left + viewport_width], curses.A_DIM)
         overlays: list[tuple[int, int, str, int]] = []
-        route = path_to(match, 0, self.cursor) if self.cursor != _position(match, 0) else []
+        route = path_to(match, 0, self.cursor) if rival_moving is None and self.cursor != _position(match, 0) else []
         costs = {terrain["glyph"]: int(terrain["cost"]) for terrain in self.catalog.terrains.values()}
         spent = 0
         for x, y in route:
@@ -82,22 +85,26 @@ class ExpeditionUI(TavernUIBase):
         for station in match["stations"]:
             if not station["used"] and f"stations:{station['id']}" in team["known"]:
                 overlays.append((station["x"], station["y"], station_symbols[station["kind"]], self._attr(2) | curses.A_BOLD))
+        for patrol in match.get("patrols", []):
+            if patrol["active"]:
+                overlays.append((*patrol["position"], {"fight": "e", "elite": "E", "boss": "B"}[patrol["kind"]], self._attr(3) | curses.A_BOLD))
         for side in (0, 1):
             file = match["files"][side]
             if file["carrier"] is None:
                 x, y = _file_position(match, side)
                 overlays.append((x, y, "F" if side == 0 else "f", self._attr(2) | curses.A_BOLD))
-        overlays.append((*_position(match, 1), "P", self._attr(3) | curses.A_BOLD))
+        overlays.append((*(rival_moving or _position(match, 1)), "P", self._attr(3) | curses.A_BOLD))
         overlays.append((*(moving or _position(match, 0)), "@", self._attr(4) | curses.A_BOLD))
-        cursor_symbol = ("@" if self.cursor == _position(match, 0) else
-                         "P" if self.cursor == _position(match, 1) else "+")
-        overlays.append((*self.cursor, cursor_symbol, curses.A_REVERSE | curses.A_BOLD))
+        if rival_moving is None:
+            cursor_symbol = ("@" if self.cursor == _position(match, 0) else
+                             "P" if self.cursor == _position(match, 1) else "+")
+            overlays.append((*self.cursor, cursor_symbol, curses.A_REVERSE | curses.A_BOLD))
         for x, y, symbol, attr in overlays:
             if left <= x < left + viewport_width and top <= y < top + viewport_height:
                 self._put(4 + y - top, map_column + x - left, symbol, attr)
         route_cost = sum(costs[match["board"][y][x]] for x, y in route)
         legend_row = 4 + viewport_height
-        self._put(legend_row, 2, self._ellipsize(f"@ party P rival F/f files K site ^ hazard H desk C rest W work ?/$ loot R{route_cost}T", columns - 3))
+        self._put(legend_row, 2, self._ellipsize(f"@ party P rival e/E patrol B boss F/f files ^ hazard H desk C rest W work ?/$ loot R{route_cost}T", columns - 3))
         self._put(legend_row + 1, 2, self._ellipsize(self.message or match["log"][-1], columns - 3), self._attr(2))
         self._put(legend_row + 2, 2, "Steal rival file, return near home, hold through their turn. First to two.")
         self._footer("Arrows aim Enter auto-walk Tab 1 home 2 rival 3 patron 4 own E end S save Q")
@@ -106,19 +113,22 @@ class ExpeditionUI(TavernUIBase):
         match = self.match
         assert match is not None
         team = _team(match, 0)
-        enemy = _team(match, 1)
+        opponent = _opponent_side(match, 0)
+        neutral = opponent == 2
+        enemy = _team(match, opponent)
         biome = _biome_at(match, *team["position"])
         label = OFFICE_BIOMES[biome]
-        self._begin(f"{label.upper()} / RANKED CARD COMBAT — ROUND {match['round']} — ENERGY {team['energy']} — APPROVAL {match['scores'][0]}:{match['scores'][1]}")
-        self._put(1, 2, f"COURIER VS {match.get('patron_name', 'PATRON').upper()}  |  {match['combat_turns']} COMBAT TURNS  |  TWO-TURN RETURNS", self._attr(2) | curses.A_BOLD)
+        self._begin(f"{label.upper()} / RANKED {'PATROL' if neutral else 'PARTY'} COMBAT — ROUND {match['round']} — ENERGY {team['energy']} — APPROVAL {match['scores'][0]}:{match['scores'][1]}")
+        opponent_name = "NEUTRAL OFFICE PATROL" if neutral else match.get("patron_name", "PATRON").upper()
+        self._put(1, 2, f"COURIER VS {opponent_name}  |  {match['combat_turns']} COMBAT TURNS  |  TWO-TURN RETURNS", self._attr(2) | curses.A_BOLD)
         self._put(2, self._combat_column(2), "YOUR PARTY < BACK  FORMATION  FRONT >", curses.A_BOLD)
-        self._put(2, self._combat_column(43), "RIVAL PARTY < FRONT FORMATION BACK >", curses.A_BOLD)
+        self._put(2, self._combat_column(43), ("PATROL" if neutral else "RIVAL PARTY") + " < FRONT FORMATION BACK >", curses.A_BOLD)
         self._put(3, self._combat_column(39), "||", curses.A_BOLD)
         hand = team["hand"]
         self.selected_card = max(0, min(self.selected_card, len(hand) - 1))
         legal_targets = valid_targets(match, self.selected_card) if hand else []
         active_role = self.catalog.cards[_card_id(hand[self.selected_card])]["hero"] if hand else None
-        for side, column_base in ((0, 29), (1, 43)):
+        for side, column_base in ((0, 29), (opponent, 43)):
             party = _team(match, side)["actors"]
             for index, actor in enumerate(party):
                 rank = actor["rank"]
@@ -129,18 +139,18 @@ class ExpeditionUI(TavernUIBase):
                 if actor["id"] == target:
                     attr |= curses.A_REVERSE
                 portrait = (OFFICE_SPRITES[actor["role"]] if side == 0 else
-                            self.catalog.art["enemies"][rival_costumes(match["world_seed"])[index]])
+                            self.catalog.art["enemies"][actor["role"] if neutral else rival_costumes(match["world_seed"])[index]])
                 self._draw_sprite(3, column, portrait, attr)
                 if actor["id"] == target:
                     self._target_brackets(5, column, attr)
-                label = OFFICE_ROLES[actor["role"]]
+                label = OFFICE_ROLES[actor["role"]] if actor["role"] in OFFICE_ROLES else office_costume_name(actor["role"])
                 self._put(8, column, f"R{rank} {label[:4].upper():4}", attr)
                 self._put(9, column, f"H{actor['hp']:02}/{actor['max_hp']:02}", attr)
                 self._put(10, column, f"S{actor['stress']:02} B{actor['block']:02}", attr)
                 if actor["respawn"]:
                     self._put(11, column, f"RETURN {actor['respawn']}", self._attr(3))
-                elif side == 1:
-                    self._put(11, column, "COSTUME", curses.A_DIM)
+                elif side != 0:
+                    self._put(11, column, "PATROL" if neutral else "COSTUME", curses.A_DIM)
         self._put(12, 2, self._ellipsize(self.message or match["log"][-1], self.screen.getmaxyx()[1] - 4), self._attr(2))
         first = max(0, min(self.selected_card, len(hand) - 5))
         for slot, card in enumerate(hand[first:first + 5]):
@@ -468,6 +478,10 @@ class ExpeditionUI(TavernUIBase):
                 self.message = "Route cancelled before the next leg."
                 break
 
+    def _show_patron_step(self, point: tuple[int, int]) -> None:
+        self._render_map(rival_moving=point)
+        curses.napms(self.MOVE_FRAME_MS)
+
     def run_match(self) -> None:
         match = self.match
         assert match is not None
@@ -479,12 +493,13 @@ class ExpeditionUI(TavernUIBase):
                              f"{result.upper()} — approval {match['scores'][0]}:{match['scores'][1]}. The files are returned to the cabinet.")
                 return
             if match["turn"] == 1:
-                patron_turn(match)
+                patron_turn(match, on_move=self._show_patron_step)
                 continue
             if match["pending"]:
                 self._choose_pending()
                 continue
             engage_if_touching(match)
+            engage_neutral_if_touching(match)
             if match["phase"] == "map":
                 self._render_map()
             else:
@@ -522,6 +537,7 @@ class ExpeditionUI(TavernUIBase):
                     self.cursor = _file_position(match, 0)
                 elif normalized == 9:
                     sites = [tuple(match["files"][1]["home"]),
+                             *(tuple(item["position"]) for item in match.get("patrols", []) if item["active"]),
                              *((item["x"], item["y"]) for item in match["pickups"] if not item["resolved"] and f"pickups:{item['id']}" in _team(match, 0)["known"]),
                              *((item["x"], item["y"]) for item in match["facilities"] if not item["used"] and f"facilities:{item['id']}" in _team(match, 0)["known"]),
                              *((item["x"], item["y"]) for item in match["stations"] if not item["used"] and f"stations:{item['id']}" in _team(match, 0)["known"])]
@@ -544,7 +560,7 @@ class ExpeditionUI(TavernUIBase):
                 elif normalized == ord("r"):
                     options = retreat_destinations(match)
                     if not options:
-                        self._notice("NO ROUTE TO RETREAT", "No neighboring floor tile leads away from the rival party.")
+                        self._notice("NO ROUTE TO RETREAT", "No neighboring floor tile leads away from this encounter.")
                         continue
                     chosen = self._menu("RETREAT FROM RANKED COMBAT",
                                         [f"Withdraw to {x:03},{y:02}" for x, y in options],
@@ -555,10 +571,10 @@ class ExpeditionUI(TavernUIBase):
                             end_turn(match)
                 elif normalized == ord("v"):
                     body = "\n".join(
-                        f"{('COURIER', 'PATRON')[side]} R{actor['rank']} {OFFICE_ROLES[actor['role']]}"
-                        + (f" / {office_costume_name(rival_costumes(match['world_seed'])[index])} costume" if side else "")
+                        f"{('COURIER', 'PATRON', 'PATROL')[side]} R{actor['rank']} {OFFICE_ROLES[actor['role']] if actor['role'] in OFFICE_ROLES else office_costume_name(actor['role'])}"
+                        + (f" / {office_costume_name(rival_costumes(match['world_seed'])[index])} costume" if side == 1 else "")
                         + f" — {actor['hp']}/{actor['max_hp']} HP, {actor['stress']} stress, return {actor['respawn']}"
-                        for side in (0, 1) for index, actor in enumerate(_team(match, side)["actors"]))
+                        for side in (0, _opponent_side(match, 0)) for index, actor in enumerate(_team(match, side)["actors"]))
                     self._notice("PARTY ROSTERS", body)
                 elif normalized in (10, 13, curses.KEY_ENTER) and hand:
                     targets = valid_targets(match, self.selected_card)

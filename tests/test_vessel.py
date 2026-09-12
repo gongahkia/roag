@@ -7,6 +7,7 @@ from pathlib import Path
 from jomon.actions import (
     _advance_world,
     can_alter_objective,
+    choose_courier,
     guard,
     interact,
     move,
@@ -23,17 +24,75 @@ from jomon.vessel import (
     TAVERN_ENTRANCE,
     TAVERN_EXIT,
     TAVERN_MAP,
+    TABLE_PATRON_SEATS,
+    TABLE_PLAYER_SEAT,
+    TABLE_SURFACE,
     UPPER_STAIR,
     VESSEL_HEIGHT,
     VESSEL_LEVELS,
     VESSEL_WIDTH,
     resolve_social_incident,
+    _walkable,
     vessel_vertical_destination,
 )
-from jomon.world import sight_radius
+from jomon.world import displayed_tile, is_walkable, sight_radius
 
 
 class VesselMapAndScheduleTests(unittest.TestCase):
+    def test_gaming_table_has_a_walkable_player_chair_and_blocking_surface(self):
+        state = create_world("gaming furniture")
+        state.jomon_space = "tavern"
+        state.position = TABLE_PLAYER_SEAT
+        self.assertEqual(len(TABLE_SURFACE), 75)
+        self.assertEqual(TAVERN_MAP[TABLE_PLAYER_SEAT.y][TABLE_PLAYER_SEAT.x], "D")
+        self.assertEqual(sum(row.count("D") for row in TAVERN_MAP), 1)
+        self.assertEqual(displayed_tile(state, Position(31, 11)), "d")
+        self.assertTrue(any(displayed_tile(state, seat) in {"a", "v"} for seat in TABLE_PATRON_SEATS))
+        self.assertTrue(is_walkable(state, TABLE_PLAYER_SEAT))
+        self.assertEqual(len(set(TABLE_PATRON_SEATS)), 13)
+        self.assertTrue(all(_walkable("tavern", seat) for seat in TABLE_PATRON_SEATS))
+        self.assertTrue(all(not is_walkable(state, point) for point in TABLE_SURFACE))
+        self.assertEqual(interact(state).overlay, "tabletop")
+
+    def test_off_duty_patron_walks_to_the_gaming_table_chair(self):
+        state = create_world("game table walk")
+        state.jomon_space = "tavern"
+        state.position = TABLE_PLAYER_SEAT
+        schedule = state.actor_schedules[state.household[1].id]
+        schedule.position = Position(31, 4)
+        schedule.next_boundary = state.world_time + 99
+        start = schedule.position
+        _advance_world(state)
+        self.assertEqual(abs(schedule.position.x - start.x) + abs(schedule.position.y - start.y), 1)
+        self.assertNotIn(schedule.position, TABLE_SURFACE)
+        self.assertEqual(schedule.destination_area, "tavern")
+
+    def test_saved_people_inside_new_furniture_are_reseated_without_time(self):
+        state = create_world("old furniture save")
+        state.jomon_space = "tavern"
+        state.position = Position(32, 11)
+        schedule = state.actor_schedules[state.household[1].id]
+        schedule.position = schedule.destination = Position(31, 11)
+        before = state.world_time
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "save.json"
+            save_game(state, path)
+            loaded = load_game(path)
+        self.assertEqual(loaded.world_time, before)
+        self.assertEqual(loaded.position, TABLE_PLAYER_SEAT)
+        self.assertNotIn(loaded.actor_schedules[state.household[1].id].position, TABLE_SURFACE)
+
+    def test_switching_courier_from_game_chair_leaves_it_available(self):
+        state = create_world("switch at table")
+        state.jomon_space = "tavern"
+        state.position = TABLE_PLAYER_SEAT
+        former = state.active_courier_id
+        selected = state.household[1]
+        self.assertTrue(choose_courier(state, selected.id).changed)
+        self.assertIn(state.actor_schedules[former].position, TABLE_PATRON_SEATS)
+        self.assertNotEqual(state.actor_schedules[former].position, TABLE_PLAYER_SEAT)
+        self.assertTrue(is_walkable(state, TABLE_PLAYER_SEAT))
+
     def test_three_decks_and_tavern_have_valid_physical_links(self):
         self.assertEqual(set(VESSEL_LEVELS), {-1, 0, 1})
         self.assertTrue(all(len(rows) == VESSEL_HEIGHT for rows in VESSEL_LEVELS.values()))

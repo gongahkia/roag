@@ -193,8 +193,11 @@ def repair(state: GameState, target_id: str) -> tuple[bool, str]:
         return False, "Choose damaged worn or readied equipment at the workshop."
     if state.trade_credit < 2:
         return False, "Repair needs two credit for material and two actions."
-    target.condition = min(100, target.condition + 35)
+    craft = state.courier.craft if state.courier else 0
+    target.condition = min(100, target.condition + 35 + min(10, (craft // 5) * 5))
     state.trade_credit -= 2
+    if state.courier:
+        state.courier.craft = min(20, state.courier.craft + 1)
     return _finish(state, f"Repair work brings {target.kind} to {target.condition} condition; two credit, two actions. Fitting wear remains separate.")
 
 

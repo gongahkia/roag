@@ -128,8 +128,121 @@ class ExpeditionRulesTests(unittest.TestCase):
         self.assertEqual(len(match["stations"]), sum(room.kind in {"event", "camp", "upgrade", "cache"} for room in generated.rooms))
         self.assertEqual(len(match["teams"]), 2)
         self.assertTrue(all(len(team["actors"]) == 4 for team in match["teams"]))
-        self.assertNotIn("patrols", match)
+        generated_engine = GameEngine.new(self.catalog, match["world_seed"], start_in_hub=True)
+        generated_engine.begin_expedition()
+        self.assertEqual(len(match["patrols"]), len(generated_engine.state.patrols))
         self.assertNotIn("objectives", match)
+
+    def test_either_party_can_fight_a_generated_patrol_or_boss_and_retreat(self):
+        for side in (0, 1):
+            with self.subTest(side=side):
+                match = expedition.new_match(f"patrol-{side}", "crew-1", "crew-2", self.roles[:4], self.roles[4:8])
+                patrol = next(item for item in match["patrols"] if item["kind"] == ("fight" if side == 0 else "boss"))
+                match["turn"] = side
+                match["teams"][side]["position"] = patrol["position"][:]
+                self.assertTrue(expedition.engage_neutral_if_touching(match))
+                self.assertEqual(match["phase"], "pve")
+                self.assertEqual([actor["role"] for actor in match["neutral_team"]["actors"]],
+                                 self.catalog.encounters[patrol["encounter_id"]]["enemies"])
+                before = match["map_turns"]
+                expedition.end_turn(match)
+                self.assertEqual(match["map_turns"], before)
+                self.assertEqual(match["turn"], side)
+                self.assertTrue(any(" uses " in line for line in match["log"]))
+                options = expedition.retreat_destinations(match)
+                self.assertTrue(options)
+                safe = next(option for option in options if not any(item["active"] and tuple(item["position"]) == option
+                                                            for item in match["patrols"] if item["id"] != patrol["id"]))
+                expedition.retreat(match, safe)
+                self.assertEqual(match["phase"], "map")
+                self.assertTrue(patrol["active"])
+                self.assertEqual(match["teams"][side]["orders"], expedition.ORDERS_PER_TURN)
+
+    def test_patrol_wipe_rewards_fighting_party_and_boss_has_source_formation(self):
+        match = self.match
+        boss = next(item for item in match["patrols"] if item["kind"] == "boss")
+        match["teams"][0]["position"] = boss["position"][:]
+        self.assertTrue(expedition.engage_neutral_if_touching(match))
+        self.assertEqual([actor["role"] for actor in match["neutral_team"]["actors"]],
+                         self.catalog.encounters[boss["encounter_id"]]["enemies"])
+        supplies = match["teams"][0]["supplies"]
+        for actor in list(match["neutral_team"]["actors"]):
+            while actor["hp"]:
+                expedition._damage(match, match["teams"][0]["actors"][0], actor, actor["hp"] + 100)
+        self.assertEqual(match["phase"], "map")
+        self.assertTrue(boss["defeated"])
+        self.assertEqual(match["teams"][0]["supplies"], supplies + 2)
+        self.assertIsNotNone(match["pending"])
+
+    def test_neutral_support_target_rules_keep_source_self_in_weakest_enemy(self):
+        match = self.match
+        patrol = next(item for item in match["patrols"] if item["kind"] == "fight")
+        match["teams"][0]["position"] = patrol["position"][:]
+        expedition.engage_neutral_if_touching(match)
+        actors = match["neutral_team"]["actors"]
+        if len(actors) < 2:
+            self.skipTest("this generated formation has no support target")
+        actors[0]["hp"] = 1
+        self.assertEqual(expedition._neutral_targets(match, 0, actors[0], "weakest_enemy"), [actors[0]])
+        self.assertEqual(expedition._neutral_targets(match, 0, actors[0], "weakest_ally"), [actors[1]])
+
+    def test_boss_phase_uses_source_threshold_and_effect(self):
+        match = self.match
+        boss = next(item for item in match["patrols"] if item["kind"] == "boss")
+        match["teams"][0]["position"] = boss["position"][:]
+        expedition.engage_neutral_if_touching(match)
+        core = match["neutral_team"]["actors"][0]
+        expedition._damage(match, match["teams"][0]["actors"][0], core, core["max_hp"] // 2 + 1)
+        self.assertIn("open_kernel", core["phases_triggered"])
+        self.assertEqual(core["hp"], (core["max_hp"] * 5000 + 9999) // 10000)
+        self.assertGreater(core["overflow"], 0)
+        self.assertGreaterEqual(core["block"], 12)
+        expedition._damage(match, match["teams"][0]["actors"][0], core, 13)
+        self.assertEqual(core["overflow"], 0)
+
+    def test_patrons_movement_callback_tracks_walked_cells(self):
+        match = self.match
+        positions = []
+        expedition.end_turn(match)
+        expedition.patron_turn(match, on_move=positions.append)
+        self.assertTrue(positions)
+        self.assertEqual(positions[-1], tuple(match["teams"][1]["position"]))
+
+    def test_patron_camera_frames_focus_each_square(self):
+        ui = ExpeditionUI.__new__(ExpeditionUI)
+        with patch.object(ui, "_render_map") as render, patch("curses.napms") as delay:
+            ui._show_patron_step((18, 7))
+        render.assert_called_once_with(rival_moving=(18, 7))
+        delay.assert_called_once_with(ui.MOVE_FRAME_MS)
+
+    def test_neutral_battle_can_resume_from_jomon_save(self):
+        state = create_world("neutral save")
+        state.jomon_space = "tavern"
+        match = expedition.start_match(state, patrons(state)[0].id)
+        patrol = next(item for item in match["patrols"] if item["kind"] == "fight")
+        match["teams"][0]["position"] = patrol["position"][:]
+        self.assertTrue(expedition.engage_neutral_if_touching(match))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "jomon.json"
+            save_game(state, path)
+            resumed = load_game(path)
+        self.assertEqual(resumed.tabletop["active_match"], match)
+
+    def test_boss_phase_overflow_survives_save(self):
+        state = create_world("boss save")
+        state.jomon_space = "tavern"
+        match = expedition.start_match(state, patrons(state)[0].id)
+        boss = next(item for item in match["patrols"] if item["kind"] == "boss")
+        match["teams"][0]["position"] = boss["position"][:]
+        expedition.engage_neutral_if_touching(match)
+        core = match["neutral_team"]["actors"][0]
+        expedition._damage(match, match["teams"][0]["actors"][0], core, core["max_hp"])
+        self.assertGreater(core["overflow"], 0)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "jomon.json"
+            save_game(state, path)
+            resumed = load_game(path)
+        self.assertEqual(resumed.tabletop["active_match"], match)
 
     def test_all_six_original_layouts_remain_reachable(self):
         layouts = set()
@@ -353,6 +466,8 @@ class ExpeditionRulesTests(unittest.TestCase):
 
     def test_generated_route_can_capture_and_return_a_file(self):
         match = expedition.new_match("score-route", "crew-1", "crew-2", self.roles[:4], self.roles[4:8])
+        for patrol in match["patrols"]:
+            patrol["active"] = False
         route = expedition.path_to(match, 0, tuple(match["files"][1]["home"]))
         floors = [(x, y) for y, row in enumerate(match["board"]) for x, glyph in enumerate(row)
                   if glyph in expedition.WALKABLE_TILES]
@@ -507,7 +622,7 @@ class TavernIntegrationTests(unittest.TestCase):
     def setUp(self):
         self.state = create_world("expedition-integration")
         self.state.jomon_space = "tavern"
-        self.state.position = Position(31, 4)
+        self.state.position = Position(31, 14)
 
     def test_table_is_physical_and_match_freezes_jomon_time(self):
         self.assertTrue(is_walkable(self.state, self.state.position))
@@ -518,6 +633,18 @@ class TavernIntegrationTests(unittest.TestCase):
         expedition.end_turn(match)
         expedition.patron_turn(match)
         self.assertEqual(self.state.world_time, before + 1)
+
+    def test_chosen_bartender_joins_a_physical_chair_for_the_match(self):
+        from jomon.vessel import TABLE_PATRON_SEATS
+
+        bartender_id = self.state.bartender.id
+        self.assertIn(bartender_id, {person.id for person in patrons(self.state)})
+        match = expedition.start_match(self.state, bartender_id)
+        schedule = self.state.actor_schedules[bartender_id]
+        self.assertEqual(match["patron_id"], bartender_id)
+        self.assertIn(schedule.position, TABLE_PATRON_SEATS)
+        self.assertEqual(schedule.activity, "playing Dullest Dungeon")
+        self.assertNotIn(bartender_id, self.state.tavern_positions)
 
     def test_atomic_jomon_save_resumes_generated_match(self):
         match = expedition.start_match(self.state, patrons(self.state)[0].id)
@@ -558,6 +685,8 @@ class TavernIntegrationTests(unittest.TestCase):
 
     def test_one_enter_auto_walks_remaining_route_orders(self):
         match = expedition.start_match(self.state, patrons(self.state)[0].id)
+        for patrol in match["patrols"]:
+            patrol["active"] = False
         match["pickups"] = []
         match["hazards"] = []
         match["facilities"] = []
@@ -690,6 +819,38 @@ class TavernIntegrationTests(unittest.TestCase):
         self.assertTrue(any(OFFICE_SPRITES[match["teams"][0]["actors"][0]["role"]][0] in line for line in screen.drawn))
         costume = rival_costumes(match["world_seed"])[0]
         self.assertTrue(any(catalog.art["enemies"][costume][0] in line for line in screen.drawn))
+
+    def test_neutral_screen_draws_source_enemy_sprites_and_player_cards(self):
+        class Screen:
+            def __init__(self):
+                self.drawn = []
+
+            def getmaxyx(self):
+                return 24, 80
+
+            def erase(self):
+                pass
+
+            def refresh(self):
+                pass
+
+            def keypad(self, enabled):
+                pass
+
+            def addstr(self, y, x, value, attr=0):
+                self.drawn.append(value)
+
+        match = expedition.start_match(self.state, patrons(self.state)[0].id)
+        patrol = next(item for item in match["patrols"] if item["kind"] == "fight")
+        match["teams"][0]["position"] = patrol["position"][:]
+        expedition.engage_neutral_if_touching(match)
+        screen = Screen()
+        with patch("curses.curs_set"), patch("curses.has_colors", return_value=False):
+            ExpeditionUI(screen, self.state)._render_combat_match()
+        enemy = match["neutral_team"]["actors"][0]["role"]
+        self.assertTrue(any("NEUTRAL OFFICE PATROL" in line for line in screen.drawn))
+        self.assertTrue(any(load_catalog().art["enemies"][enemy][0] in line for line in screen.drawn))
+        self.assertTrue(any("+------------+" in line for line in screen.drawn))
 
     def test_company_archive_opens_every_catalog_section_at_minimum_size(self):
         class Screen:

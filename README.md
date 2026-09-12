@@ -19,7 +19,10 @@ From the repository root:
 python -m jomon
 ```
 
-Dullest Dungeon is played from the marked seat at a table in Jomon's tavern.
+Dullest Dungeon is played from the marked `D` chair beside a large, blocking
+15×5 gaming table in Jomon's tavern. Off-duty adults walk to its other chairs;
+choosing any available tavern patron brings that person to a free chair for
+the match.
 It is an in-world office-fantasy card game against named tavern patrons; the
 original generated-map expedition now hosts one competitive file-capture mode.
 The imported Dullest Dungeon package launches Jomon rather than a separate
@@ -52,7 +55,8 @@ World controls:
 - `Q`: quit with confirmation; and
 - `Escape`: close or cancel an overlay.
 
-At the tavern's `D` seat, `Enter` or `E` opens Dullest Dungeon. In its lobby,
+At the tavern's `D` chair immediately south of the large gaming table,
+`Enter` or `E` opens Dullest Dungeon. In its lobby,
 `J/K` chooses a patron, `1`–`4` selects an office worker, `[` and `]` change
 jobs, `V` browses all 25 jobs, `F` selects one of 13 formations, `L` switches
 the selected worker's starter or alternate five-card kit, `B` opens the
@@ -60,18 +64,23 @@ company archive, `P` changes company policy, `D` edits the deck, and `Enter` sta
 match. On the generated map, arrows or `W/A/D/X` move the cursor, `Tab` cycles
 through neutral sites, `1` aims at your home, `2` at the rival file, `3` at
 the patron party, and `4` at your own file. `Enter` auto-walks toward the
-cursor for the remaining weighted 18-tick route orders, stopping at a choice
-or rival contact; each party has four route orders per turn.
-Contact opens ranked 4v4 card combat. There, arrows or `H/L` select a hand
+cursor for the remaining weighted 18-tick route orders, stopping at a choice,
+rival contact, or neutral patrol; each party has four route orders per turn.
+Rival contact opens ranked 4v4 card combat; generated patrols and bosses open
+ranked card combat against their original enemy formations and actions. Either
+party can fight them. After your turn, the camera follows the patron's map
+movement; their fights and choices resolve out of view. In combat, arrows or `H/L` select a hand
 card, `Enter` chooses a legal target and plays it, `C` inspects the full card,
-`R` retreats to an adjacent tile away from the rival, and `V` shows both rosters.
+`R` retreats to an adjacent tile away from the contact, and `V` shows both rosters.
 `E` ends a map or combat turn, `S` saves Jomon and the match, and `Q` returns
 to Jomon with the match still in progress. The 18+4 round clock pauses in combat.
 Each job has distinct office-themed ASCII art and a class-specific card glyph.
 The patron's workers wear rotating rival-department costumes drawn from the
 original 129 enemy sprites; costumes do not grant scripted enemy actions.
 Starting a match advances one Jomon action; expedition turns do not advance
-Jomon time.
+Jomon time. Match winners gain Strategy; Jomon characters also learn Speech,
+Wayfinding, Fieldcraft, and Craft from their corresponding actions. The character
+panel shows all five competencies and the game guide describes their effects.
 
 Spatial-inventory controls:
 
@@ -145,8 +154,9 @@ Removal costs one credit and needs pack room. Repair costs two credit for
 35 condition; fitting or removing takes two action-clock steps. See
 [workshop trade-offs](docs/workshop.md) for the eight finite kit types.
 
-The tavern has a bar, fireplace, serving store, tables, seats, six household
-adults, visible visitors, and persistent bartender Sena Quill. Walk beside a
+The tavern has a bar, fireplace, serving store, small tables, a large Dullest
+Dungeon table with physical chairs, six household adults, visible visitors,
+and persistent bartender Sena Quill. Walk beside a
 person and interact to inspect their role, technique, injuries, equipment
 affinity, memories, and terms. Switching courier or recruiting a willing adult
 happens through that person rather than a portrait menu. Named adults move

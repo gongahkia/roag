@@ -112,6 +112,11 @@ def edge_between(state: GameState, first: str, second: str) -> RouteEdge | None:
     return next((edge for edge in state.route_edges if {edge.first, edge.second} == {first, second}), None)
 
 
+def leg_travel_time(state: GameState, edge: RouteEdge) -> int:
+    guide = state.courier
+    return max(1, edge.travel_time - (min(2, guide.wayfinding // 5) if guide else 0))
+
+
 def neighbours(state: GameState, node_id: str, *, reachable_only: bool = False) -> list[str]:
     result = []
     for edge in state.route_edges:
@@ -155,7 +160,7 @@ def route_preview(state: GameState, destination: str) -> list[str]:
     known = node.description if destination in state.route_known or node.known else "Soundings incomplete; details unknown."
     return [
         f"{node.name}: {known}",
-        f"Leg: {edge.hazard}; {edge.travel_time} actions; supplies {edge.supply_cost}.",
+        f"Leg: {edge.hazard}; {leg_travel_time(state, edge)} actions; supplies {edge.supply_cost}.",
         f"Cargo exposure {edge.cargo_risk}/3; weather exposure {edge.weather_exposure}/4.",
         f"Season: {calendar_at(state).season}; {seasonal_route_note(state)}.",
         f"{market} {contact}",
