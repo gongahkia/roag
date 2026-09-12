@@ -1,0 +1,19 @@
+{
+  "source_commit": "4e5bb35",
+  "base_world_seeds": 64,
+  "high_pressure_elite_seeds_per_biome": 12,
+  "layouts": ["branching", "clusters", "fracture", "ring", "spine", "zigzag"],
+  "biomes": ["archive", "cryogenic", "derelict", "flooded", "foundry", "fungal", "hydroponic", "ossuary", "reactor", "storm", "void"],
+  "facility_definitions_seen": 11,
+  "objective_biomes_seen": 11,
+  "guardians_seen": ["base:guardian_archive", "base:guardian_cryogenic", "base:guardian_derelict", "base:guardian_flooded", "base:guardian_foundry", "base:guardian_fungal", "base:guardian_hydroponic", "base:guardian_ossuary", "base:guardian_reactor", "base:guardian_storm", "base:guardian_void"],
+  "finales_seen": ["base:finale_breach_oracle", "base:finale_mercy_engine", "base:finale_signal_tyrant", "the_core"],
+  "generated_room_encounters_seen": 124,
+  "coordination_plans_seen": ["combo", "disrupt", "overseer", "pressure", "screen", "sustain"],
+  "pressure_bands_seen": ["QUIET", "WATCHFUL", "HUNTED", "LOCKDOWN", "OVERRUN"],
+  "mutations_seen": ["base:barricaded", "base:clean_room", "base:countermesh", "base:death_surge", "base:overclock", "base:phase_skitter", "base:prey_protocol", "base:rank_breaker", "base:reinforcement_call", "base:screen_link", "base:third_bell", "base:triage_node", "biome:rime_shell", "biome:slag_vent", "biome:spore_link", "biome:undertow"],
+  "missing_mutations": [],
+  "loop_layouts_seen": ["branching", "clusters", "fracture", "ring", "spine", "zigzag"],
+  "loop_biomes_seen": 11,
+  "note": "Constructed generation coverage. It does not claim natural completion of every guardian or finale."
+}

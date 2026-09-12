@@ -1,0 +1,1377 @@
+{
+  "audit_version": 1,
+  "balance": {
+    "death_chance": 0.35,
+    "energy": 3,
+    "exploration_steps_per_light": 3,
+    "hand_size": 5,
+    "low_light_ambush_chance": 0.35,
+    "low_light_threshold": 30,
+    "maximum_navigation_distance": 18,
+    "starting_light": 100,
+    "starting_supplies": 4,
+    "stress_limit": 100
+  },
+  "biomes": {
+    "archive": {
+      "elite_compatible_enemies": [
+        "censor_unit",
+        "index_ghost",
+        "margin_eater"
+      ],
+      "elite_only_enemies": [],
+      "formations": [
+        "censor_unit/censor_unit",
+        "censor_unit/index_ghost",
+        "censor_unit/index_ghost/index_ghost/censor_unit",
+        "censor_unit/margin_eater",
+        "censor_unit/margin_eater/index_ghost/margin_eater",
+        "index_ghost/censor_unit",
+        "index_ghost/index_ghost",
+        "overseer_core/repair_spider"
+      ],
+      "normal_enemies": [
+        "censor_unit",
+        "index_ghost",
+        "margin_eater"
+      ],
+      "templates": {
+        "boss": 1,
+        "elite": 2,
+        "normal": 5
+      }
+    },
+    "cryogenic": {
+      "elite_compatible_enemies": [
+        "ice_warden",
+        "rime_surgeon",
+        "thaw_horror"
+      ],
+      "elite_only_enemies": [],
+      "formations": [
+        "frost_thrall/frost_thrall/thaw_horror",
+        "frost_thrall/ice_warden",
+        "ice_warden/frost_thrall",
+        "ice_warden/ice_warden/thaw_horror",
+        "ice_warden/rime_surgeon",
+        "ice_warden/rime_surgeon/rime_surgeon/thaw_horror",
+        "overseer_core/repair_spider",
+        "thaw_horror/thaw_horror"
+      ],
+      "normal_enemies": [
+        "frost_thrall",
+        "ice_warden",
+        "rime_surgeon",
+        "thaw_horror"
+      ],
+      "templates": {
+        "boss": 1,
+        "elite": 2,
+        "normal": 5
+      }
+    },
+    "derelict": {
+      "elite_compatible_enemies": [
+        "arc_executioner",
+        "ballast_priest",
+        "brood_guard",
+        "carrion_porter",
+        "coolant_angel",
+        "deck_gunner",
+        "fuse_swarm",
+        "mirror_wraith",
+        "null_stalker",
+        "phase_hound",
+        "pressure_idol",
+        "rust_duelist",
+        "vent_crawler",
+        "war_machine",
+        "wire_jackal"
+      ],
+      "elite_only_enemies": [
+        "brood_guard",
+        "null_stalker",
+        "war_machine"
+      ],
+      "formations": [
+        "arc_executioner/rust_duelist/ballast_priest",
+        "arc_executioner/wire_jackal",
+        "ballast_priest/fuse_swarm/plasma_leech",
+        "ballast_priest/signal_cultist",
+        "biomass_node/neural_mite",
+        "breach_sapper/deck_gunner",
+        "breach_sapper/wire_jackal/plasma_leech",
+        "brood_guard/vent_crawler",
+        "bulkhead_maw/plasma_leech",
+        "carrion_porter/acid_spitter/neural_mite",
+        "carrion_porter/hollow_crew",
+        "carrion_porter/wire_jackal/deck_gunner",
+        "coolant_angel/breach_sapper/plasma_leech",
+        "deck_gunner/shield_drone",
+        "echo_knight/plasma_leech",
+        "fuse_swarm/fuse_swarm/neural_mite",
+        "gene_brute/voidling",
+        "gravity_eel/gravity_eel",
+        "hollow_crew/hollow_crew",
+        "mimic_crate/neural_mite",
+        "mirror_wraith/mimic_crate",
+        "mirror_wraith/mirror_wraith/ballast_priest",
+        "mirror_wraith/mirror_wraith/phase_hound",
+        "nanite_cloud/shield_drone",
+        "null_stalker",
+        "overseer_core/repair_spider",
+        "phase_hound/phase_hound",
+        "plasma_leech/plasma_leech/neural_mite",
+        "pressure_idol/coolant_angel",
+        "pressure_idol/coolant_angel/fuse_swarm",
+        "pressure_idol/shield_drone",
+        "rust_duelist/gravity_eel",
+        "rust_duelist/wire_jackal",
+        "scrap_drone/scrap_drone/repair_spider",
+        "security_unit/scrap_drone",
+        "signal_cultist/signal_oracle",
+        "vent_crawler/vent_crawler/acid_spitter",
+        "voidling/acid_spitter/vent_crawler",
+        "war_machine"
+      ],
+      "normal_enemies": [
+        "acid_spitter",
+        "arc_executioner",
+        "ballast_priest",
+        "biomass_node",
+        "breach_sapper",
+        "bulkhead_maw",
+        "carrion_porter",
+        "coolant_angel",
+        "deck_gunner",
+        "echo_knight",
+        "fuse_swarm",
+        "gene_brute",
+        "gravity_eel",
+        "hollow_crew",
+        "mimic_crate",
+        "mirror_wraith",
+        "nanite_cloud",
+        "neural_mite",
+        "phase_hound",
+        "plasma_leech",
+        "pressure_idol",
+        "repair_spider",
+        "rust_duelist",
+        "scrap_drone",
+        "security_unit",
+        "shield_drone",
+        "signal_cultist",
+        "signal_oracle",
+        "vent_crawler",
+        "voidling",
+        "wire_jackal"
+      ],
+      "templates": {
+        "boss": 1,
+        "elite": 7,
+        "normal": 31
+      }
+    },
+    "flooded": {
+      "elite_compatible_enemies": [
+        "bilge_siren",
+        "lamprey_clerk",
+        "pressure_crab"
+      ],
+      "elite_only_enemies": [],
+      "formations": [
+        "bilge_siren/bilge_siren",
+        "bilge_siren/pressure_crab",
+        "overseer_core/repair_spider",
+        "pressure_crab/bilge_siren",
+        "pressure_crab/bilge_siren/bilge_siren/pressure_crab",
+        "pressure_crab/bilge_siren/lamprey_clerk/lamprey_clerk",
+        "pressure_crab/lamprey_clerk",
+        "pressure_crab/pressure_crab"
+      ],
+      "normal_enemies": [
+        "bilge_siren",
+        "lamprey_clerk",
+        "pressure_crab"
+      ],
+      "templates": {
+        "boss": 1,
+        "elite": 2,
+        "normal": 5
+      }
+    },
+    "foundry": {
+      "elite_compatible_enemies": [
+        "bellows_imp",
+        "crucible_guard",
+        "ember_mote",
+        "slag_hound"
+      ],
+      "elite_only_enemies": [],
+      "formations": [
+        "crucible_guard/bellows_imp",
+        "crucible_guard/ember_mote",
+        "crucible_guard/slag_hound/bellows_imp/bellows_imp",
+        "crucible_guard/slag_hound/ember_mote",
+        "overseer_core/repair_spider",
+        "slag_hound/crucible_guard",
+        "slag_hound/ember_mote/ember_mote",
+        "slag_hound/slag_hound"
+      ],
+      "normal_enemies": [
+        "bellows_imp",
+        "crucible_guard",
+        "ember_mote",
+        "slag_hound"
+      ],
+      "templates": {
+        "boss": 1,
+        "elite": 2,
+        "normal": 5
+      }
+    },
+    "fungal": {
+      "elite_compatible_enemies": [
+        "cordyceps_drone",
+        "mycelial_host",
+        "puffball_oracle",
+        "sporeling"
+      ],
+      "elite_only_enemies": [],
+      "formations": [
+        "mycelial_host/cordyceps_drone",
+        "mycelial_host/cordyceps_drone/puffball_oracle/cordyceps_drone",
+        "mycelial_host/puffball_oracle/sporeling",
+        "mycelial_host/sporeling",
+        "overseer_core/repair_spider",
+        "puffball_oracle/mycelial_host",
+        "puffball_oracle/sporeling/puffball_oracle",
+        "sporeling/puffball_oracle/sporeling"
+      ],
+      "normal_enemies": [
+        "cordyceps_drone",
+        "mycelial_host",
+        "puffball_oracle",
+        "sporeling"
+      ],
+      "templates": {
+        "boss": 1,
+        "elite": 2,
+        "normal": 5
+      }
+    },
+    "hydroponic": {
+      "elite_compatible_enemies": [
+        "graft_sentinel",
+        "pollen_nurse",
+        "vine_lurker"
+      ],
+      "elite_only_enemies": [],
+      "formations": [
+        "graft_sentinel/pollen_nurse",
+        "graft_sentinel/vine_lurker/pollen_nurse/vine_lurker",
+        "overseer_core/repair_spider",
+        "pollen_nurse/pollen_nurse/pollen_nurse",
+        "vine_lurker/pollen_nurse/pollen_nurse/vine_lurker",
+        "vine_lurker/pollen_nurse/vine_lurker",
+        "vine_lurker/vine_lurker",
+        "vine_lurker/vine_lurker/pollen_nurse"
+      ],
+      "normal_enemies": [
+        "graft_sentinel",
+        "pollen_nurse",
+        "vine_lurker"
+      ],
+      "templates": {
+        "boss": 1,
+        "elite": 2,
+        "normal": 5
+      }
+    },
+    "ossuary": {
+      "elite_compatible_enemies": [
+        "bone_colossus",
+        "choir_skull",
+        "marrow_rat",
+        "reliquary_fiend"
+      ],
+      "elite_only_enemies": [],
+      "formations": [
+        "bone_colossus/choir_skull",
+        "bone_colossus/marrow_rat",
+        "bone_colossus/reliquary_fiend/choir_skull/choir_skull",
+        "bone_colossus/reliquary_fiend/marrow_rat",
+        "marrow_rat/reliquary_fiend/marrow_rat",
+        "overseer_core/repair_spider",
+        "reliquary_fiend/bone_colossus",
+        "reliquary_fiend/marrow_rat/marrow_rat"
+      ],
+      "normal_enemies": [
+        "bone_colossus",
+        "choir_skull",
+        "marrow_rat",
+        "reliquary_fiend"
+      ],
+      "templates": {
+        "boss": 1,
+        "elite": 2,
+        "normal": 5
+      }
+    },
+    "reactor": {
+      "elite_compatible_enemies": [
+        "control_rod",
+        "dosimeter_hound",
+        "rad_acolyte"
+      ],
+      "elite_only_enemies": [],
+      "formations": [
+        "control_rod/control_rod",
+        "control_rod/dosimeter_hound",
+        "control_rod/rad_acolyte",
+        "control_rod/rad_acolyte/dosimeter_hound/rad_acolyte",
+        "control_rod/rad_acolyte/rad_acolyte/control_rod",
+        "overseer_core/repair_spider",
+        "rad_acolyte/control_rod",
+        "rad_acolyte/rad_acolyte"
+      ],
+      "normal_enemies": [
+        "control_rod",
+        "dosimeter_hound",
+        "rad_acolyte"
+      ],
+      "templates": {
+        "boss": 1,
+        "elite": 2,
+        "normal": 5
+      }
+    },
+    "storm": {
+      "elite_compatible_enemies": [
+        "ion_raptor",
+        "lightning_rod",
+        "static_wisp",
+        "surge_mason"
+      ],
+      "elite_only_enemies": [],
+      "formations": [
+        "ion_raptor/ion_raptor",
+        "ion_raptor/ion_raptor/static_wisp",
+        "ion_raptor/static_wisp/static_wisp",
+        "lightning_rod/ion_raptor/ion_raptor/static_wisp",
+        "lightning_rod/static_wisp",
+        "lightning_rod/surge_mason/ion_raptor/static_wisp",
+        "overseer_core/repair_spider",
+        "surge_mason/ion_raptor"
+      ],
+      "normal_enemies": [
+        "ion_raptor",
+        "lightning_rod",
+        "static_wisp",
+        "surge_mason"
+      ],
+      "templates": {
+        "boss": 1,
+        "elite": 2,
+        "normal": 5
+      }
+    },
+    "void": {
+      "elite_compatible_enemies": [
+        "absence_moth",
+        "grief_anchor",
+        "horizon_eye"
+      ],
+      "elite_only_enemies": [],
+      "formations": [
+        "absence_moth/absence_moth/absence_moth",
+        "absence_moth/horizon_eye",
+        "grief_anchor/absence_moth",
+        "grief_anchor/horizon_eye/absence_moth/horizon_eye",
+        "horizon_eye/absence_moth",
+        "horizon_eye/absence_moth/absence_moth/horizon_eye",
+        "horizon_eye/horizon_eye",
+        "overseer_core/repair_spider"
+      ],
+      "normal_enemies": [
+        "absence_moth",
+        "grief_anchor",
+        "horizon_eye"
+      ],
+      "templates": {
+        "boss": 1,
+        "elite": 2,
+        "normal": 5
+      }
+    }
+  },
+  "boss_templates": [
+    "the_core"
+  ],
+  "counts": {
+    "biomes": 11,
+    "boons": 18,
+    "cards": 190,
+    "curses": 18,
+    "encounters": 109,
+    "enemies": 70,
+    "events": 10,
+    "facilities": 11,
+    "heroes": 25,
+    "items": 18,
+    "landmarks": 11,
+    "missions": 11,
+    "squads": 5,
+    "terrain_patterns": 11,
+    "terrains": 13,
+    "worlds": 6
+  },
+  "effect_opcodes": {
+    "block": 64,
+    "cleanse": 5,
+    "damage": 80,
+    "discard": 5,
+    "draw": 32,
+    "energy": 11,
+    "guard": 9,
+    "heal": 22,
+    "move": 43,
+    "status": 81,
+    "stress": 40
+  },
+  "enemy_action_counts": {
+    "2": 67,
+    "3": 3
+  },
+  "normalized_card_groups": [
+    [
+      "arc_lance",
+      "mind_spike",
+      "paper_cut",
+      "spotter_round"
+    ],
+    [
+      "brace",
+      "thermal_shell"
+    ],
+    [
+      "broadside",
+      "shock_grid"
+    ],
+    [
+      "cast_off",
+      "lunge",
+      "ram_charge"
+    ],
+    [
+      "chain_lightning",
+      "scatter_round"
+    ],
+    [
+      "cold_snap",
+      "spore_cloud"
+    ],
+    [
+      "decay_prayer",
+      "ration_pack",
+      "sap_graft"
+    ],
+    [
+      "flash_freeze",
+      "root_access"
+    ],
+    [
+      "hold_the_line",
+      "mirror_skin"
+    ],
+    [
+      "interpose",
+      "last_scaffold"
+    ],
+    [
+      "inventory_audit",
+      "overclock"
+    ],
+    [
+      "painkillers",
+      "regenerative_gel"
+    ],
+    [
+      "pressure_suit",
+      "riposte_stance"
+    ],
+    [
+      "silenced_round",
+      "snap_shot"
+    ]
+  ],
+  "notes": [
+    "elite-only means present in elite templates and absent from normal templates",
+    "structural groups retain energy, ranks, target, signed effects and effect order",
+    "a template count is not a count of distinct tactical questions",
+    "rank access counts legal owner positions, not sampled hand clogging"
+  ],
+  "owners": {
+    "archivist": {
+      "builds": [
+        "Index and mark",
+        "Revision and cycle"
+      ],
+      "nonstarters": [
+        "cross_reference",
+        "errata",
+        "forbidden_index"
+      ],
+      "pool": [
+        "cross_reference",
+        "errata",
+        "footnote",
+        "forbidden_index",
+        "index_weakness",
+        "paper_cut",
+        "redaction",
+        "restore_record"
+      ],
+      "pool_rank_access": {
+        "1": 1,
+        "2": 1,
+        "3": 7,
+        "4": 8
+      },
+      "starter_rank_access": {
+        "1": 1,
+        "2": 1,
+        "3": 5,
+        "4": 5
+      }
+    },
+    "artillerist": {
+      "builds": [
+        "Wound barrage",
+        "Marked overpressure"
+      ],
+      "nonstarters": [
+        "kill_box",
+        "overpressure",
+        "shatter_shell"
+      ],
+      "pool": [
+        "brace_cannon",
+        "kill_box",
+        "overpressure",
+        "rail_slug",
+        "shatter_shell",
+        "shrapnel_arc",
+        "spotter_round"
+      ],
+      "pool_rank_access": {
+        "1": 1,
+        "2": 1,
+        "3": 6,
+        "4": 7
+      },
+      "starter_rank_access": {
+        "1": 2,
+        "2": 2,
+        "3": 5,
+        "4": 5
+      }
+    },
+    "biologist": {
+      "builds": [
+        "Wound cultivation",
+        "Serum and rescue"
+      ],
+      "nonstarters": [
+        "adaptive_serum",
+        "corrosive_culture",
+        "vivisection"
+      ],
+      "pool": [
+        "adaptive_serum",
+        "corrosive_culture",
+        "regenerative_gel",
+        "specimen_scan",
+        "spore_cloud",
+        "toxin_dart",
+        "vivisection"
+      ],
+      "pool_rank_access": {
+        "1": 1,
+        "2": 6,
+        "3": 7,
+        "4": 2
+      },
+      "starter_rank_access": {
+        "1": 2,
+        "2": 5,
+        "3": 5,
+        "4": 2
+      }
+    },
+    "bonewright": {
+      "builds": [
+        "Marrow wounds",
+        "Scaffold guard"
+      ],
+      "nonstarters": [
+        "bone_saw",
+        "borrowed_marrow",
+        "cage_of_ribs"
+      ],
+      "pool": [
+        "bone_saw",
+        "borrowed_marrow",
+        "cage_of_ribs",
+        "field_splint",
+        "last_scaffold",
+        "marrow_blade",
+        "ossify",
+        "rattling_host"
+      ],
+      "pool_rank_access": {
+        "1": 8,
+        "2": 8,
+        "3": 1,
+        "4": 1
+      },
+      "starter_rank_access": {
+        "1": 5,
+        "2": 5,
+        "3": 1,
+        "4": 1
+      }
+    },
+    "breacher": {
+      "builds": [
+        "Rush and displacement",
+        "Stress-fueled demolition"
+      ],
+      "nonstarters": [
+        "blood_rush",
+        "demolition",
+        "point_blank"
+      ],
+      "pool": [
+        "blast_shield",
+        "blood_rush",
+        "demolition",
+        "kick_down",
+        "point_blank",
+        "ram_charge",
+        "shotgun_blast"
+      ],
+      "pool_rank_access": {
+        "1": 6,
+        "2": 5,
+        "3": 2,
+        "4": 2
+      },
+      "starter_rank_access": {
+        "1": 3,
+        "2": 4,
+        "3": 2,
+        "4": 2
+      }
+    },
+    "chaplain": {
+      "builds": [
+        "Cleanse and litany",
+        "Martyr and fervor"
+      ],
+      "nonstarters": [
+        "bear_the_burden",
+        "fervor",
+        "last_rites"
+      ],
+      "pool": [
+        "absolve",
+        "bear_the_burden",
+        "censure",
+        "fervor",
+        "last_rites",
+        "litany",
+        "martyr_guard"
+      ],
+      "pool_rank_access": {
+        "1": 2,
+        "2": 6,
+        "3": 6,
+        "4": 3
+      },
+      "starter_rank_access": {
+        "1": 3,
+        "2": 5,
+        "3": 4,
+        "4": 2
+      }
+    },
+    "cryonaut": {
+      "builds": [
+        "Brittle control",
+        "Emergency preservation"
+      ],
+      "nonstarters": [
+        "brittle_point",
+        "cold_storage",
+        "flash_freeze"
+      ],
+      "pool": [
+        "brittle_point",
+        "cold_snap",
+        "cold_storage",
+        "flash_freeze",
+        "ice_pick",
+        "preserve",
+        "thermal_shell",
+        "whiteout_step"
+      ],
+      "pool_rank_access": {
+        "1": 3,
+        "2": 7,
+        "3": 7,
+        "4": 2
+      },
+      "starter_rank_access": {
+        "1": 2,
+        "2": 5,
+        "3": 4,
+        "4": 1
+      }
+    },
+    "diver": {
+      "builds": [
+        "Pressure and pull",
+        "Lifeline defense"
+      ],
+      "nonstarters": [
+        "crushing_depth",
+        "lifeline",
+        "pressure_lock"
+      ],
+      "pool": [
+        "crushing_depth",
+        "decompress",
+        "drop_ballast",
+        "harpoon_line",
+        "lifeline",
+        "pressure_lock",
+        "pressure_suit",
+        "undertow"
+      ],
+      "pool_rank_access": {
+        "1": 8,
+        "2": 8,
+        "3": 1,
+        "4": 1
+      },
+      "starter_rank_access": {
+        "1": 5,
+        "2": 5,
+        "3": 1,
+        "4": 1
+      }
+    },
+    "duelist": {
+      "builds": [
+        "Dodge and riposte",
+        "Lunge and challenge"
+      ],
+      "nonstarters": [
+        "challenge",
+        "counterclaim",
+        "perfect_form"
+      ],
+      "pool": [
+        "challenge",
+        "counterclaim",
+        "foil_thrust",
+        "lunge",
+        "perfect_form",
+        "riposte_stance",
+        "sidestep"
+      ],
+      "pool_rank_access": {
+        "1": 6,
+        "2": 7,
+        "3": 2,
+        "4": 2
+      },
+      "starter_rank_access": {
+        "1": 4,
+        "2": 5,
+        "3": 2,
+        "4": 2
+      }
+    },
+    "engineer": {
+      "builds": [
+        "Marked feedback",
+        "Gravity and plating"
+      ],
+      "nonstarters": [
+        "feedback_loop",
+        "gravity_clamp",
+        "patch_plating",
+        "shock_grid"
+      ],
+      "pool": [
+        "arc_welder",
+        "feedback_loop",
+        "gravity_clamp",
+        "mag_boots",
+        "overclock",
+        "patch_plating",
+        "reroute",
+        "shock_grid"
+      ],
+      "pool_rank_access": {
+        "1": 2,
+        "2": 8,
+        "3": 7,
+        "4": 1
+      },
+      "starter_rank_access": {
+        "1": 1,
+        "2": 5,
+        "3": 5,
+        "4": 1
+      }
+    },
+    "foundryman": {
+      "builds": [
+        "Tempered guard",
+        "Overheat and smash"
+      ],
+      "nonstarters": [
+        "hammer_fall",
+        "molten_guard",
+        "quench"
+      ],
+      "pool": [
+        "cast_off",
+        "forge_hammer",
+        "hammer_fall",
+        "molten_guard",
+        "overheat",
+        "quench",
+        "slag_armor",
+        "temper_plate"
+      ],
+      "pool_rank_access": {
+        "1": 7,
+        "2": 7,
+        "3": 2,
+        "4": 2
+      },
+      "starter_rank_access": {
+        "1": 4,
+        "2": 5,
+        "3": 2,
+        "4": 2
+      }
+    },
+    "hacker": {
+      "builds": [
+        "Mark and exploit",
+        "Cycle and jam"
+      ],
+      "nonstarters": [
+        "backdoor",
+        "fork_process",
+        "logic_bomb"
+      ],
+      "pool": [
+        "backdoor",
+        "fork_process",
+        "ghost_route",
+        "jam_signal",
+        "logic_bomb",
+        "probe_packet",
+        "root_access"
+      ],
+      "pool_rank_access": {
+        "1": 1,
+        "2": 2,
+        "3": 7,
+        "4": 7
+      },
+      "starter_rank_access": {
+        "1": 2,
+        "2": 3,
+        "3": 5,
+        "4": 5
+      }
+    },
+    "horticulturist": {
+      "builds": [
+        "Thorn attrition",
+        "Grafted sustain"
+      ],
+      "nonstarters": [
+        "grafted_thorns",
+        "pruning_cut",
+        "verdant_cycle"
+      ],
+      "pool": [
+        "canopy",
+        "grafted_thorns",
+        "pruning_cut",
+        "root_snare",
+        "sap_graft",
+        "sunward",
+        "thorn_lash",
+        "verdant_cycle"
+      ],
+      "pool_rank_access": {
+        "1": 2,
+        "2": 7,
+        "3": 7,
+        "4": 2
+      },
+      "starter_rank_access": {
+        "1": 1,
+        "2": 5,
+        "3": 5,
+        "4": 1
+      }
+    },
+    "medic": {
+      "builds": [
+        "Triage and cleanse",
+        "Adrenaline and rescue"
+      ],
+      "nonstarters": [
+        "adrenaline",
+        "cryo_spray",
+        "group_therapy",
+        "painkillers"
+      ],
+      "pool": [
+        "adrenaline",
+        "cryo_spray",
+        "field_dressing",
+        "group_therapy",
+        "painkillers",
+        "sedative_dart",
+        "steady_breathing",
+        "triage"
+      ],
+      "pool_rank_access": {
+        "1": 1,
+        "2": 4,
+        "3": 8,
+        "4": 5
+      },
+      "starter_rank_access": {
+        "1": 2,
+        "2": 2,
+        "3": 5,
+        "4": 5
+      }
+    },
+    "mycologist": {
+      "builds": [
+        "Spore wounds",
+        "Symbiotic cleanse"
+      ],
+      "nonstarters": [
+        "rot_harvest",
+        "spore_exchange",
+        "symbiotic_mesh"
+      ],
+      "pool": [
+        "fruiting_body",
+        "hyphae_needle",
+        "molt",
+        "rot_harvest",
+        "shared_mycelium",
+        "spore_exchange",
+        "spore_sleep",
+        "symbiotic_mesh"
+      ],
+      "pool_rank_access": {
+        "1": 1,
+        "2": 1,
+        "3": 8,
+        "4": 8
+      },
+      "starter_rank_access": {
+        "1": 1,
+        "2": 1,
+        "3": 5,
+        "4": 5
+      }
+    },
+    "operative": {
+      "builds": [
+        "Mark and execute",
+        "Vanish and tempo"
+      ],
+      "nonstarters": [
+        "execution",
+        "vanish_card",
+        "wiretap"
+      ],
+      "pool": [
+        "execution",
+        "exploit_mark",
+        "flank",
+        "silenced_round",
+        "smoke_screen",
+        "vanish_card",
+        "wiretap"
+      ],
+      "pool_rank_access": {
+        "1": 2,
+        "2": 3,
+        "3": 7,
+        "4": 5
+      },
+      "starter_rank_access": {
+        "1": 1,
+        "2": 2,
+        "3": 5,
+        "4": 4
+      }
+    },
+    "pilot": {
+      "builds": [
+        "Formation vector",
+        "Slingshot tempo"
+      ],
+      "nonstarters": [
+        "broadside",
+        "crosswind",
+        "emergency_vector"
+      ],
+      "pool": [
+        "broadside",
+        "crosswind",
+        "emergency_vector",
+        "evasive_burn",
+        "formation_roll",
+        "slingshot",
+        "vector_shot"
+      ],
+      "pool_rank_access": {
+        "1": 3,
+        "2": 7,
+        "3": 7,
+        "4": 2
+      },
+      "starter_rank_access": {
+        "1": 3,
+        "2": 5,
+        "3": 5,
+        "4": 3
+      }
+    },
+    "psion": {
+      "builds": [
+        "Gravity control",
+        "Feedback and focus"
+      ],
+      "nonstarters": [
+        "dread_wave",
+        "feedback",
+        "precognition"
+      ],
+      "pool": [
+        "clarity",
+        "dread_wave",
+        "feedback",
+        "gravity_well",
+        "mind_spike",
+        "neural_guard",
+        "precognition"
+      ],
+      "pool_rank_access": {
+        "1": 1,
+        "2": 1,
+        "3": 7,
+        "4": 7
+      },
+      "starter_rank_access": {
+        "1": 1,
+        "2": 1,
+        "3": 5,
+        "4": 5
+      }
+    },
+    "quartermaster": {
+      "builds": [
+        "Draw and energy",
+        "Cover and recovery"
+      ],
+      "nonstarters": [
+        "contingency",
+        "inventory_audit",
+        "redistribute"
+      ],
+      "pool": [
+        "contingency",
+        "covering_fire",
+        "inventory_audit",
+        "ration_pack",
+        "redistribute",
+        "sidearm",
+        "tactical_cache"
+      ],
+      "pool_rank_access": {
+        "1": 1,
+        "2": 7,
+        "3": 7,
+        "4": 1
+      },
+      "starter_rank_access": {
+        "1": 2,
+        "2": 5,
+        "3": 5,
+        "4": 2
+      }
+    },
+    "reactor_saint": {
+      "builds": [
+        "Critical energy",
+        "Decay and containment"
+      ],
+      "nonstarters": [
+        "chain_reaction",
+        "gamma_sacrament",
+        "scram"
+      ],
+      "pool": [
+        "chain_reaction",
+        "containment_rite",
+        "criticality",
+        "decay_prayer",
+        "gamma_sacrament",
+        "half_life",
+        "isotope_lash",
+        "scram"
+      ],
+      "pool_rank_access": {
+        "1": 1,
+        "2": 7,
+        "3": 8,
+        "4": 2
+      },
+      "starter_rank_access": {
+        "1": 1,
+        "2": 5,
+        "3": 5,
+        "4": 1
+      }
+    },
+    "scout": {
+      "builds": [
+        "Marked sniper",
+        "Reload and disengage"
+      ],
+      "nonstarters": [
+        "called_shot",
+        "deadeye",
+        "disengage",
+        "scatter_round"
+      ],
+      "pool": [
+        "called_shot",
+        "deadeye",
+        "disengage",
+        "evasive_step",
+        "quick_reload",
+        "scan",
+        "scatter_round",
+        "snap_shot"
+      ],
+      "pool_rank_access": {
+        "1": 2,
+        "2": 2,
+        "3": 6,
+        "4": 6
+      },
+      "starter_rank_access": {
+        "1": 1,
+        "2": 1,
+        "3": 5,
+        "4": 4
+      }
+    },
+    "stormcaller": {
+      "builds": [
+        "Marked surge",
+        "Ward and riposte"
+      ],
+      "nonstarters": [
+        "aftershock",
+        "lightning_rod",
+        "surge_path"
+      ],
+      "pool": [
+        "aftershock",
+        "arc_lance",
+        "chain_lightning",
+        "ground_wire",
+        "ion_wind",
+        "lightning_rod",
+        "static_ward",
+        "surge_path"
+      ],
+      "pool_rank_access": {
+        "1": 1,
+        "2": 1,
+        "3": 8,
+        "4": 8
+      },
+      "starter_rank_access": {
+        "1": 1,
+        "2": 1,
+        "3": 5,
+        "4": 5
+      }
+    },
+    "synth": {
+      "builds": [
+        "Hardlight guardian",
+        "Capacitor and focus"
+      ],
+      "nonstarters": [
+        "ion_lance",
+        "mirror_skin",
+        "reboot",
+        "system_surge"
+      ],
+      "pool": [
+        "capacitor",
+        "guardian_protocol",
+        "hardlight",
+        "ion_lance",
+        "mirror_skin",
+        "pulse_fist",
+        "reboot",
+        "system_surge"
+      ],
+      "pool_rank_access": {
+        "1": 6,
+        "2": 8,
+        "3": 4,
+        "4": 1
+      },
+      "starter_rank_access": {
+        "1": 5,
+        "2": 5,
+        "3": 1,
+        "4": 1
+      }
+    },
+    "voidwalker": {
+      "builds": [
+        "Phase mobility",
+        "Vulnerable absence"
+      ],
+      "nonstarters": [
+        "collapse_point",
+        "nothing_to_lose",
+        "phase_exchange"
+      ],
+      "pool": [
+        "absence",
+        "collapse_point",
+        "event_horizon",
+        "inversion",
+        "nothing_to_lose",
+        "null_touch",
+        "phase_exchange",
+        "phase_skin"
+      ],
+      "pool_rank_access": {
+        "1": 1,
+        "2": 2,
+        "3": 8,
+        "4": 8
+      },
+      "starter_rank_access": {
+        "1": 1,
+        "2": 1,
+        "3": 5,
+        "4": 5
+      }
+    },
+    "warden": {
+      "builds": [
+        "Guard and riposte",
+        "Breach and displacement"
+      ],
+      "nonstarters": [
+        "hold_the_line",
+        "last_watch",
+        "shield_rush",
+        "suppressing_burst"
+      ],
+      "pool": [
+        "baton_strike",
+        "brace",
+        "breach",
+        "hold_the_line",
+        "interpose",
+        "last_watch",
+        "shield_rush",
+        "suppressing_burst"
+      ],
+      "pool_rank_access": {
+        "1": 7,
+        "2": 7,
+        "3": 2,
+        "4": 1
+      },
+      "starter_rank_access": {
+        "1": 5,
+        "2": 4,
+        "3": 2,
+        "4": 2
+      }
+    }
+  },
+  "tags": {
+    "affinity:archive": 8,
+    "affinity:cryogenic": 8,
+    "affinity:flooded": 8,
+    "affinity:foundry": 8,
+    "affinity:fungal": 8,
+    "affinity:hydroponic": 8,
+    "affinity:ossuary": 8,
+    "affinity:reactor": 8,
+    "affinity:storm": 8,
+    "affinity:void": 8,
+    "block": 76,
+    "cleanse": 13,
+    "control": 23,
+    "damage": 81,
+    "discard": 5,
+    "displacement": 21,
+    "draw": 40,
+    "energy": 12,
+    "guard": 10,
+    "mobility": 23,
+    "payoff:deaths_door": 5,
+    "payoff:marked": 11,
+    "payoff:vulnerable": 4,
+    "payoff:wound": 7,
+    "recovery": 23,
+    "setup:marked": 17,
+    "setup:vulnerable": 16,
+    "setup:wound": 9,
+    "status:dodge": 9,
+    "status:focus": 19,
+    "status:riposte": 10,
+    "stress_relief": 24,
+    "stress_risk": 20
+  },
+  "versions": {
+    "content_schema": 20,
+    "engine": "0.1.0",
+    "save": 26
+  }
+}
