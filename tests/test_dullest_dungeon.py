@@ -30,6 +30,7 @@ class ExpeditionRulesTests(unittest.TestCase):
         self.assertEqual((len(roles), len(cards)), (25, 290))
         self.assertEqual(set(cards), set(self.catalog.cards))
         self.assertTrue(all(card.name and card.description and card.role in roles for card in cards.values()))
+        self.assertTrue(all(roles[role]["max_hp"] == hero["max_hp"] for role, hero in self.catalog.heroes.items()))
 
     def test_all_290_imported_cards_resolve_in_ranked_pvp(self):
         roster = self.roles
@@ -83,6 +84,7 @@ class ExpeditionRulesTests(unittest.TestCase):
         self.assertEqual(len(match["hazards"]), len(generated.hazards))
         self.assertEqual(len(match["facilities"]), len(generated.facilities))
         self.assertEqual(len(match["pickups"]), len(generated.pickups))
+        self.assertEqual(len(match["landmarks"]), len(generated.landmarks))
         self.assertEqual(len(match["stations"]), sum(room.kind in {"event", "camp", "upgrade", "cache"} for room in generated.rooms))
         self.assertEqual(len(match["teams"]), 2)
         self.assertTrue(all(len(team["actors"]) == 4 for team in match["teams"]))
@@ -114,18 +116,27 @@ class ExpeditionRulesTests(unittest.TestCase):
         self.assertEqual(match["teams"][0]["orders"], 1)
         self.assertEqual(expedition._position(match, 0), walked[-1])
         costs = {terrain["glyph"]: terrain["cost"] for terrain in self.catalog.terrains.values()}
-        self.assertLessEqual(sum(costs[match["board"][y][x]] for x, y in walked), expedition.ORDER_TICKS)
+        spent = sum(costs[match["board"][y][x]] for x, y in walked)
+        self.assertLessEqual(spent, expedition.ORDER_TICKS)
+        self.assertEqual(match["teams"][0]["travel_ticks"], spent)
+        self.assertEqual(match["teams"][0]["exploration_steps"], len(walked))
+        self.assertEqual(match["teams"][0]["light"], 100 - spent // self.catalog.balance["exploration_steps_per_light"])
 
     def test_exploration_reveals_nearby_features(self):
         match = self.match
         team = match["teams"][0]
         distant = next(item for item in match["pickups"]
-                       if expedition._distance(tuple(team["position"]), (item["x"], item["y"])) > 5)
+                       if not item["hidden"] and expedition._distance(tuple(team["position"]), (item["x"], item["y"])) >
+                       self.catalog.biomes[expedition._biome_at(match, item["x"], item["y"])]["mechanics"]["visibility"].get("feature_radius", 5))
         identity = f"pickups:{distant['id']}"
         self.assertNotIn(identity, team["known"])
         team["position"] = [distant["x"], distant["y"]]
         expedition._reveal_nearby(match, 0)
         self.assertIn(identity, team["known"])
+        hidden = next(item for item in match["pickups"] if item["hidden"])
+        team["position"] = [hidden["x"], hidden["y"]]
+        expedition._reveal_nearby(match, 0)
+        self.assertNotIn(f"pickups:{hidden['id']}", team["known"])
 
     def test_contact_tile_resolves_neutral_pickup_before_combat(self):
         match = self.match
@@ -159,8 +170,65 @@ class ExpeditionRulesTests(unittest.TestCase):
         self.assertEqual(match["turn"], 1)
         self.assertTrue(match["teams"][1]["hand"])
         expedition.patron_turn(match)
+        self.assertEqual(match["phase"], "combat")
+        self.assertEqual(match["round"], 1)
+        self.assertEqual(match["map_turns"], 1)
+
+    def test_combat_continues_until_a_party_retreats_or_is_wiped(self):
+        match = self.match
+        path = expedition.path_to(match, 0, tuple(match["files"][1]["home"]))
+        origin = tuple(match["teams"][0]["position"])
+        match["teams"][0]["position"] = list(path[0])
+        match["teams"][1]["position"] = list(path[1])
+        match["phase"] = "combat"
+        expedition._begin_combat(match)
+        expedition.end_turn(match)
+        expedition.end_turn(match)
+        self.assertEqual(match["phase"], "combat")
+        self.assertEqual(match["combat_turns"], 2)
+        self.assertEqual(match["round"], 1)
+        self.assertIn(origin, expedition.retreat_destinations(match))
+        expedition.retreat(match, origin)
         self.assertEqual(match["phase"], "map")
-        self.assertEqual(match["round"], 2)
+        self.assertEqual(match["teams"][0]["orders"], expedition.ORDERS_PER_TURN)
+        self.assertEqual(match["teams"][0]["position"], list(origin))
+
+        other = expedition.new_match("patron-retreat", "crew-1", "crew-2", self.roles[:4], self.roles[4:8])
+        path = expedition.path_to(other, 0, tuple(other["files"][1]["home"]))
+        other["teams"][0]["position"] = list(path[0])
+        other["teams"][1]["position"] = list(path[1])
+        other["turn"] = 1
+        other["phase"] = "combat"
+        self.assertIn(path[2], expedition.retreat_destinations(other))
+        expedition.retreat(other, path[2])
+        self.assertEqual(other["teams"][1]["position"], list(path[2]))
+        self.assertEqual(other["phase"], "map")
+
+    def test_full_combat_exchanges_do_not_advance_the_match_clock(self):
+        match = self.match
+        match["teams"][1]["position"] = list(expedition.path_to(match, 0, tuple(match["files"][1]["home"]))[0])
+        expedition.engage_if_touching(match)
+        for _ in range(6):
+            expedition.end_turn(match)
+        self.assertEqual(match["phase"], "combat")
+        self.assertEqual(match["combat_turns"], 6)
+        self.assertEqual(match["map_turns"], 1)
+        self.assertEqual(match["round"], 1)
+
+    def test_full_party_wipe_ends_combat_and_routes_home(self):
+        match = self.match
+        path = expedition.path_to(match, 0, tuple(match["files"][1]["home"]))
+        match["teams"][0]["position"] = list(path[0])
+        match["teams"][1]["position"] = list(path[1])
+        match["phase"] = "combat"
+        expedition._begin_combat(match)
+        attacker = match["teams"][0]["actors"][0]
+        for target in match["teams"][1]["actors"]:
+            expedition._damage(match, attacker, target, target["max_hp"] + 10)
+        self.assertEqual(match["phase"], "map")
+        self.assertEqual(match["teams"][1]["position"], match["files"][1]["home"])
+        self.assertEqual([actor["respawn"] for actor in match["teams"][1]["actors"]], [2] * 4)
+        self.assertEqual(match["contact_cooldown"], 2)
 
     def test_original_rank_and_target_rules_apply_to_both_sides(self):
         match = self.match
@@ -200,6 +268,23 @@ class ExpeditionRulesTests(unittest.TestCase):
         self.assertEqual(carrier["respawn"], 0)
         self.assertEqual(carrier["hp"], carrier["max_hp"])
 
+    def test_knocked_out_specialists_wait_until_map_turns_to_return(self):
+        match = self.match
+        actor = match["teams"][0]["actors"][0]
+        expedition._knockout(match, actor)
+        match["phase"] = "combat"
+        expedition.end_turn(match)
+        expedition.end_turn(match)
+        self.assertEqual(actor["respawn"], 2)
+        self.assertEqual(actor["hp"], 0)
+        expedition._close_combat(match, "The parties separate.")
+        expedition.end_turn(match)
+        expedition.end_turn(match)
+        self.assertEqual(actor["respawn"], 1)
+        expedition.end_turn(match)
+        expedition.end_turn(match)
+        self.assertEqual(actor["hp"], actor["max_hp"])
+
     def test_uninterrupted_file_scores_after_rival_turn(self):
         match = self.match
         match["files"][1]["carrier"] = match["teams"][0]["actors"][0]["id"]
@@ -208,6 +293,37 @@ class ExpeditionRulesTests(unittest.TestCase):
         expedition.end_turn(match)
         self.assertEqual(match["scores"], [1, 0])
         self.assertIsNone(match["files"][1]["carrier"])
+
+    def test_generated_route_can_capture_and_return_a_file(self):
+        match = expedition.new_match("score-route", "crew-1", "crew-2", self.roles[:4], self.roles[4:8])
+        route = expedition.path_to(match, 0, tuple(match["files"][1]["home"]))
+        floors = [(x, y) for y, row in enumerate(match["board"]) for x, glyph in enumerate(row)
+                  if glyph in expedition.WALKABLE_TILES]
+        away = max(floors, key=lambda cell: min(expedition._distance(cell, step) for step in route))
+        match["teams"][1]["position"] = list(away)
+        for hazard in match["hazards"]:
+            hazard["active"] = False
+        for pickup in match["pickups"]:
+            pickup["resolved"] = True
+        for facility in match["facilities"]:
+            facility["used"] = True
+        for station in match["stations"]:
+            station["used"] = True
+        for _ in range(12):
+            if match["scores"][0]:
+                break
+            if match["turn"] == 0:
+                goal = tuple(match["files"][0]["home"] if match["files"][1]["carrier"] else match["files"][1]["home"])
+                for _ in range(expedition.ORDERS_PER_TURN):
+                    destination = expedition._ai_destination(match, goal)
+                    if destination is None:
+                        break
+                    expedition.move_to(match, destination)
+                expedition.end_turn(match)
+            else:
+                expedition.end_turn(match)
+        self.assertEqual(match["scores"], [1, 0])
+        self.assertLess(match["round"], expedition.MAX_ROUNDS)
 
     def test_first_to_two_and_exact_18_plus_4_limit(self):
         match = self.match
@@ -364,9 +480,11 @@ class TavernIntegrationTests(unittest.TestCase):
         match["hazards"] = []
         match["facilities"] = []
         match["stations"] = []
-        ui = ExpeditionUI(type("Screen", (), {"getmaxyx": lambda self: (24, 80)})(), self.state)
-        with patch.object(ui, "_render_map"), patch("curses.napms"):
-            ui._auto_walk_to(tuple(match["files"][1]["home"]))
+        with patch("curses.curs_set"), patch("curses.has_colors", return_value=False):
+            ui = ExpeditionUI(type("Screen", (), {"getmaxyx": lambda self: (24, 80),
+                                                 "keypad": lambda self, enabled: None})(), self.state)
+            with patch.object(ui, "_render_map"), patch("curses.napms"):
+                ui._auto_walk_to(tuple(match["files"][1]["home"]))
         self.assertEqual(match["teams"][0]["orders"], expedition.ORDERS_PER_TURN)
         self.assertNotEqual(match["teams"][0]["position"], match["files"][0]["home"])
 
@@ -478,6 +596,39 @@ class TavernIntegrationTests(unittest.TestCase):
         self.assertTrue(any("YOUR PARTY" in line for line in screen.drawn))
         self.assertTrue(any("RIVAL PARTY" in line for line in screen.drawn))
         self.assertTrue(any("+------------+" in line for line in screen.drawn))
+
+    def test_keyboard_selects_a_ranked_target_and_plays_a_card(self):
+        class Screen:
+            def __init__(self):
+                self.keys = iter((13, 13, ord("q")))
+
+            def getmaxyx(self):
+                return 24, 80
+
+            def erase(self):
+                pass
+
+            def refresh(self):
+                pass
+
+            def keypad(self, enabled):
+                pass
+
+            def addstr(self, y, x, value, attr=0):
+                pass
+
+            def getch(self):
+                return next(self.keys)
+
+        match = expedition.start_match(self.state, patrons(self.state)[0].id)
+        match["phase"] = "combat"
+        match["teams"][0]["hand"] = [next(card for card in match["teams"][0]["deck"] if card["id"] == "baton_strike")]
+        target = match["teams"][1]["actors"][0]
+        before = target["hp"]
+        with patch("curses.curs_set"), patch("curses.has_colors", return_value=False), patch("curses.napms"):
+            ExpeditionUI(Screen(), self.state).run_match()
+        self.assertLess(target["hp"], before)
+        self.assertIs(self.state.tabletop["active_match"], match)
 
 
 if __name__ == "__main__":

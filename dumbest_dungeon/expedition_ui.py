@@ -12,7 +12,7 @@ from .expedition import (
     MAX_ROUNDS, ORDER_TICKS, ORDERS_PER_TURN, _ai_destination, _biome_at,
     _card_cost, _card_id, _card_upgraded, _distance, _file_position, _position, _team, choose_reward,
     doctrine_compatible, end_turn, engage_if_touching, finish_match, infusion_compatible,
-    move_to, patron_turn, path_to, play_card,
+    move_to, patron_turn, path_to, play_card, retreat, retreat_destinations,
     start_match, valid_targets,
 )
 from .office_content import OFFICE_BIOMES, OFFICE_ROLES, OFFICE_WORLDS, office_catalog
@@ -64,6 +64,12 @@ class ExpeditionUI(TerminalUI):
             if spent > ORDER_TICKS:
                 break
             overlays.append((x, y, ":", curses.A_DIM))
+        for landmark in match["landmarks"]:
+            art = self.catalog.landmarks[landmark["template_id"]]["art"]
+            for index, cell in enumerate(landmark["cells"]):
+                symbol = art[index // 3][index % 3]
+                if symbol != " ":
+                    overlays.append((cell[0], cell[1], symbol, self._attr(6) | curses.A_BOLD))
         for hazard in match["hazards"]:
             if hazard["active"] and f"hazards:{hazard['id']}" in team["known"]:
                 overlays.extend((x, y, "^", self._attr(3) | curses.A_BOLD)
@@ -91,7 +97,7 @@ class ExpeditionUI(TerminalUI):
                 self._put(4 + y - top, map_column + x - left, symbol, attr)
         route_cost = sum(costs[match["board"][y][x]] for x, y in route)
         legend_row = 4 + viewport_height
-        self._put(legend_row, 2, self._ellipsize(f"@ COURIER  P PATRON  F/f FILES  ^ HAZARD  H DESK  C REST  W WORKSHOP  ?/$ CACHE  ROUTE {route_cost}T", columns - 3))
+        self._put(legend_row, 2, self._ellipsize(f"@ COURIER  P PATRON  F/f FILES  K LANDMARK  ^ HAZARD  H DESK  C REST  W WORKSHOP  ?/$ CACHE  ROUTE {route_cost}T", columns - 3))
         self._put(legend_row + 1, 2, self._ellipsize(self.message or match["log"][-1], columns - 3), self._attr(2))
         self._put(legend_row + 2, 2, "Steal their file, return within 2 of your home, hold through their turn. First to 2.")
         self._footer("Arrows aim  Enter auto-walk  Tab sites  1 home  2 rival file  3 patron  4 own file  E end  S save  Q leave")
@@ -139,7 +145,7 @@ class ExpeditionUI(TerminalUI):
             self._draw_mini_office_card(13, self._combat_column(2 + slot * 15), card, index == self.selected_card, legal)
         if not hand:
             self._put(17, 28, "HAND EMPTY — PRESS E", curses.A_DIM)
-        self._footer("Arrows/H/L card  Enter play  C full card  R roster  E end  S save  Q leave")
+        self._footer("Arrows/H/L card  Enter play  C full card  R retreat  V roster  E end  S save  Q leave")
 
     def _draw_mini_office_card(self, row: int, column: int, instance: str | dict,
                                selected: bool, legal: bool) -> None:
@@ -359,6 +365,18 @@ class ExpeditionUI(TerminalUI):
                 elif normalized == ord("c"):
                     self._show_card()
                 elif normalized == ord("r"):
+                    options = retreat_destinations(match)
+                    if not options:
+                        self._notice("NO ROUTE TO RETREAT", "No neighboring floor tile leads away from the rival party.")
+                        continue
+                    chosen = self._menu("RETREAT FROM RANKED COMBAT",
+                                        [f"Withdraw to {x:03},{y:02}" for x, y in options],
+                                        "Retreat one tile away, give up the rest of this turn's route orders, and return to the map.")
+                    if chosen is not None:
+                        retreat(match, options[chosen])
+                        if not match["pending"]:
+                            end_turn(match)
+                elif normalized == ord("v"):
                     body = "\n".join(f"{('COURIER', 'PATRON')[side]} R{actor['rank']} {OFFICE_ROLES[actor['role']]} — {actor['hp']}/{actor['max_hp']} HP, {actor['stress']} stress, return {actor['respawn']}"
                                       for side in (0, 1) for actor in _team(match, side)["actors"])
                     self._notice("PARTY ROSTERS", body)

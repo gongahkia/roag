@@ -155,7 +155,7 @@ def office_catalog() -> tuple[dict[str, dict], dict[str, OfficeCard]]:
         if hero_id not in OFFICE_ROLES:
             continue
         roles[hero_id] = {
-            "name": OFFICE_ROLES[hero_id], "max_hp": 12 + hero["max_hp"] // 7,
+            "name": OFFICE_ROLES[hero_id], "max_hp": hero["max_hp"],
             "starter_deck": list(hero["starter_deck"]),
             "signature": f"A {OFFICE_ROLES[hero_id].lower()} with a deeply implausible authority over paperwork.",
         }

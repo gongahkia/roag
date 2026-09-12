@@ -62,8 +62,9 @@ cursor for the remaining weighted 18-tick route orders, stopping at a choice
 or rival contact; each party has four route orders per turn.
 Contact opens ranked 4v4 card combat. There, arrows or `H/L` select a hand
 card, `Enter` chooses a legal target and plays it, `C` inspects the full card,
-and `R` inspects both rosters. `E` ends a map or combat turn, `S` saves Jomon
-and the match, and `Q` returns to Jomon with the match still in progress.
+`R` retreats to an adjacent tile away from the rival, and `V` shows both rosters.
+`E` ends a map or combat turn, `S` saves Jomon and the match, and `Q` returns
+to Jomon with the match still in progress. The 18+4 round clock pauses in combat.
 Starting a match advances one Jomon action; expedition turns do not advance
 Jomon time.
 
