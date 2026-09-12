@@ -250,6 +250,23 @@ class ExpeditionRulesTests(unittest.TestCase):
         match["teams"][1]["hand"] = ["baton_strike"]
         self.assertTrue(expedition.valid_targets(match, 0))
 
+    def test_group_condition_uses_original_any_target_rule(self):
+        roles = ["warden", "medic", "scout", "cryonaut"]
+        rivals = [role for role in self.roles if role not in roles][:4]
+        match = expedition.new_match("group-condition", "crew-1", "crew-2", roles, rivals)
+        match["phase"] = "combat"
+        match["teams"][0]["hand"] = ["absolute_zero"]
+        match["teams"][1]["actors"][0]["statuses"]["vulnerable"] = 1
+        expedition.play_card(match, 0, "all_enemies")
+        self.assertTrue(all(actor["statuses"].get("stun") for actor in match["teams"][1]["actors"]))
+        actor = match["teams"][0]["actors"][0]
+        actor["hp"] = actor["max_hp"] // 2 + 1
+        self.assertTrue(expedition._matches_state(actor, "healthy"))
+        actor["statuses"]["wound"] = 1
+        self.assertTrue(expedition._matches_state(actor, "wounded"))
+        expedition._apply_effect(match, actor, [actor], {"op": "energy", "amount": 12})
+        self.assertEqual(match["teams"][0]["energy"], 13)
+
     def test_file_hold_ko_drop_and_two_turn_return(self):
         match = self.match
         carrier = match["teams"][0]["actors"][0]
@@ -416,6 +433,21 @@ class ExpeditionRulesTests(unittest.TestCase):
         expedition.choose_reward(match, len(match["pending"]["choices"]))
         self.assertFalse(event["used"])
 
+    def test_facility_redacts_one_card_copy_and_preserves_buffs_on_cleanse(self):
+        match = self.match
+        team = match["teams"][0]
+        team["draw"] = team["deck"][:]
+        actor = team["actors"][0]
+        actor["statuses"] = {"focus": 2, "marked": 2, "wound": 2}
+        facility = match["facilities"][0]
+        expedition._facility_effect(match, 0, facility, {"op": "cleanse_all", "amount": 1})
+        self.assertEqual(actor["statuses"], {"focus": 2})
+        expedition._facility_effect(match, 0, facility, {"op": "remove_random", "amount": 1})
+        self.assertEqual(len(team["deck"]), 19)
+        self.assertEqual(len(team["draw"]), 19)
+        self.assertEqual({card["copy_id"] for card in team["draw"]},
+                         {card["copy_id"] for card in team["deck"]})
+
     def test_upgraded_copy_uses_imported_upgrade_damage(self):
         match = self.match
         team = match["teams"][0]
@@ -468,6 +500,16 @@ class TavernIntegrationTests(unittest.TestCase):
         station = match["stations"][0]
         expedition._facility_effect(match, 0, station, {"op": "stabilize_terrain", "amount": 4})
         self.assertTrue(match["stabilized"])
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "jomon.json"
+            save_game(self.state, path)
+            resumed = load_game(path)
+        self.assertEqual(resumed.tabletop["active_match"], match)
+
+    def test_redacted_shared_deck_survives_save_roundtrip(self):
+        match = expedition.start_match(self.state, patrons(self.state)[0].id)
+        expedition._facility_effect(match, 0, match["facilities"][0], {"op": "remove_random", "amount": 1})
+        self.assertEqual(len(match["teams"][0]["deck"]), 19)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "jomon.json"
             save_game(self.state, path)

@@ -353,9 +353,28 @@ def _damage(match: dict, actor: dict, target: dict, amount: int) -> None:
             _knockout(match, actor)
 
 
-def _apply_effect(match: dict, actor: dict, targets: list[dict], effect: dict, reference: dict | None = None) -> None:
+def _matches_state(actor: dict, state: str) -> bool:
+    if state == "deaths_door":
+        return actor["hp"] <= max(3, actor["max_hp"] // 5)
+    if state == "stressed":
+        return actor["stress"] >= 50
+    if state == "healthy":
+        return actor["hp"] * 2 >= actor["max_hp"]
+    return bool(actor["statuses"].get("wound"))
+
+
+def _effect_condition(effect: dict, actor: dict, main_targets: list[dict]) -> bool:
+    return (not effect.get("condition_status") or any(effect["condition_status"] in target["statuses"] for target in main_targets)) and (
+        not effect.get("condition_actor_state") or _matches_state(actor, effect["condition_actor_state"])) and (
+        not effect.get("condition_target_state") or any(_matches_state(target, effect["condition_target_state"]) for target in main_targets))
+
+
+def _apply_effect(match: dict, actor: dict, targets: list[dict], effect: dict,
+                  reference: list[dict] | None = None) -> None:
     side = int(actor["id"].split(":", 1)[0])
     op, amount = effect["op"], int(effect.get("amount", 0))
+    if not _effect_condition(effect, actor, reference if reference is not None else targets):
+        return
     if op == "draw":
         _draw(match, side, amount)
         return
@@ -366,29 +385,16 @@ def _apply_effect(match: dict, actor: dict, targets: list[dict], effect: dict, r
         return
     if op == "energy":
         team = _team(match, side)
-        team["energy"] = max(0, min(9, team["energy"] + amount))
+        team["energy"] = max(0, team["energy"] + amount)
         return
     for target in targets:
         if target["hp"] <= 0:
-            continue
-        condition = effect.get("condition_status")
-        checked = reference or target
-        if condition and not checked["statuses"].get(condition):
-            continue
-        actor_state = effect.get("condition_actor_state")
-        target_state = effect.get("condition_target_state")
-        def has_state(piece: dict, state: str | None) -> bool:
-            return (state is None or state == "healthy" and piece["hp"] == piece["max_hp"]
-                    or state == "wounded" and piece["hp"] < piece["max_hp"]
-                    or state == "stressed" and piece["stress"] >= 50
-                    or state == "deaths_door" and piece["hp"] <= max(3, piece["max_hp"] // 5))
-        if not has_state(actor, actor_state) or not has_state(checked, target_state):
             continue
         if op == "damage":
             bonus = int(effect.get("bonus", 0)) if effect.get("bonus_status") in target["statuses"] else 0
             _damage(match, actor, target, amount + bonus)
         elif op == "block":
-            target["block"] = min(99, target["block"] + max(0, amount))
+            target["block"] += max(0, amount)
         elif op == "heal":
             bonus = _passive(match, side, actor["id"], "boons", "healing_bonus")
             penalty = _passive(match, int(target["id"].split(":", 1)[0]), target["id"], "curses", "healing_reduction")
@@ -550,7 +556,7 @@ def play_card(match: dict, card_index: int, target_id: str | None = None) -> str
         kind = effect.get("target", definition["target"])
         recipients = ([actor] if kind == "self" else _living(match, side) if kind == "all_allies"
                       else _living(match, 1 - side) if kind == "all_enemies" else main)
-        _apply_effect(match, actor, recipients, effect, main[0] if kind == "self" and main else None)
+        _apply_effect(match, actor, recipients, effect, main)
     if infusion:
         mode = infusion["mode"]
         if mode == "echo_first" and effects:
@@ -585,7 +591,7 @@ def play_card(match: dict, card_index: int, target_id: str | None = None) -> str
         _draw(match, side, 1)
         team["triggers"]["discard"] = True
     elif doctrine == "triage" and "heal" in ops and not team["triggers"].get("triage"):
-        team["energy"] = min(9, team["energy"] + 1)
+        team["energy"] += 1
         team["triggers"]["triage"] = True
         team["triggers"]["triage_tax"] = True
     elif doctrine == "triage" and "damage" in ops:
@@ -818,12 +824,16 @@ def _facility_effect(match: dict, side: int, facility: dict, effect: dict) -> No
             actor["statuses"][effect["status"]] = max(actor["statuses"].get(effect["status"], 0), amount)
     elif op == "cleanse_all":
         for actor in living:
-            actor["statuses"].clear()
+            for status in ("marked", "stun", "vulnerable", "weak", "wound"):
+                actor["statuses"].pop(status, None)
     elif op == "item_random":
         item = sorted(load_catalog().items)[_roll(match) % len(load_catalog().items)]
         team["items"][item] = team["items"].get(item, 0) + 1
-    elif op == "remove_random" and team["curses"]:
-        team["curses"].pop(_roll(match) % len(team["curses"]))
+    elif op == "remove_random" and team["deck"]:
+        card = team["deck"].pop(_roll(match) % len(team["deck"]))
+        for zone in ("draw", "hand", "discard"):
+            team[zone] = [instance for instance in team[zone] if instance["copy_id"] != card["copy_id"]]
+        _log(match, f"{office_catalog()[1][card['id']].name} is redacted from the shared deck.")
     elif op == "reveal_biome":
         known = set(team["known"])
         for group in ("hazards", "facilities", "pickups", "stations"):
@@ -1402,7 +1412,7 @@ def validate_expedition(state: Any) -> None:
             raise ValueError("competitive expedition specialist is invalid")
         if (sorted(actor["rank"] for actor in team["actors"] if actor["hp"] > 0) != list(range(1, len(_living(match, side)) + 1))
                 or any(type(actor["stress"]) is not int or not 0 <= actor["stress"] <= 100
-                       or type(actor["block"]) is not int or not 0 <= actor["block"] <= 99
+                       or type(actor["block"]) is not int or not 0 <= actor["block"] <= 1000
                        or not isinstance(actor["statuses"], dict)
                        or any(status not in {"marked", "wound", "weak", "vulnerable", "focus", "riposte", "dodge", "stun"}
                               or type(value) is not int or not 0 <= value <= 9
@@ -1422,9 +1432,9 @@ def validate_expedition(state: Any) -> None:
                 or type(team["next_copy_id"]) is not int or team["next_copy_id"] <= max(durable, default=0)
                 or team["next_copy_id"] > 1000):
             raise ValueError("competitive expedition card identity is invalid")
-        if (not 20 <= len(team["deck"]) <= 60 or any(load_catalog().cards[card["id"]]["hero"] not in team["roles"] for card in team["deck"])
+        if (not 1 <= len(team["deck"]) <= 60 or any(load_catalog().cards[card["id"]]["hero"] not in team["roles"] for card in team["deck"])
                 or not (Counter(card["copy_id"] for card in zones) <= Counter(card["copy_id"] for card in team["deck"]))
-                or type(team["energy"]) is not int or not 0 <= team["energy"] <= 9
+                or type(team["energy"]) is not int or not 0 <= team["energy"] <= 1000
                 or type(team["orders"]) is not int or not 0 <= team["orders"] <= ORDERS_PER_TURN
                 or type(team["plays"]) is not int or not 0 <= team["plays"] <= MAX_PLAYS_PER_TURN
                 or type(team["light"]) is not int or not 0 <= team["light"] <= 100

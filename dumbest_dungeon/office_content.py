@@ -85,7 +85,7 @@ def office_facility_option(effect_ops: set[str], cost: dict) -> str:
         ("heal_all", "Arrange a wellness break"),
         ("heal_weakest", "Send the sickest worker home early"),
         ("cleanse_all", "Purge open complaints"),
-        ("remove_random", "Shred a liability"),
+        ("remove_random", "Redact a technique"),
         ("item_random", "Claim surplus equipment"),
         ("status_all", "Circulate a staff memo"),
         ("supplies", "Requisition office supplies"),
