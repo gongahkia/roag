@@ -188,12 +188,14 @@ def buy_kit(state: GameState, name: str) -> tuple[bool, str]:
 
 
 def repair(state: GameState, target_id: str) -> tuple[bool, str]:
+    from .character import effective_competency
+
     target = _owned_target(state, target_id)
     if not _bench(state) or target is None or target.condition >= 100:
         return False, "Choose damaged worn or readied equipment at the workshop."
     if state.trade_credit < 2:
         return False, "Repair needs two credit for material and two actions."
-    craft = state.courier.craft if state.courier else 0
+    craft = effective_competency(state.courier, "craft") if state.courier else 0
     target.condition = min(100, target.condition + 35 + min(10, (craft // 5) * 5))
     state.trade_credit -= 2
     if state.courier:

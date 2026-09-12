@@ -315,7 +315,15 @@ def sight_radius(state: GameState) -> int:
     if "reed-tonic" in state.drink_effects:
         radius = max(3, radius - 2)
     if state.courier:
-        radius += min(2, state.courier.fieldcraft // 5)
+        from .character import attribute_modifier, effective_competency
+
+        radius += min(2, effective_competency(state.courier, "fieldcraft") // 5)
+        if state.courier.character_specified:
+            radius += attribute_modifier(state.courier, "perception")
+        if state.courier.ancestry == "Reedfolk" and state.active_region_id == "greywash":
+            radius += 1
+        if state.courier.ancestry == "Tidekin" and state.weather in {"river fog", "coast squall"}:
+            radius += 1
     from .worklines import beacon_active
     if state.active_region_id == "greywash" and beacon_active(state) and distance(state.position, state.region.landmarks["elevated"]) <= 20:
         radius += 2

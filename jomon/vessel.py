@@ -625,8 +625,10 @@ def resolve_social_incident(state: GameState, response: str) -> tuple[bool, str]
     people = {person.id: person for person in state.household}
     first, second = (people[actor_id] for actor_id in incident.participants)
     if response == "mediate":
+        from .character import effective_competency
+
         mediator = state.courier
-        delta = 2 if mediator and mediator.speech >= 10 else 1
+        delta = 2 if mediator and effective_competency(mediator, "speech") >= 10 else 1
         text = f"You name the disputed work; {first.name} and {second.name} stand down."
         if mediator:
             mediator.speech = min(20, mediator.speech + 1)

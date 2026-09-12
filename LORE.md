@@ -16,9 +16,9 @@ Jomon is an original composite setting. Real medieval history may inform tools, 
 4. Jomon is a low-mysticism medieval fantasy world. Rare relics, totems, boons, curses, rites, omens, and other uncanny forces can have real mechanical effects. They must be legible, finite, seeded where random, tied to an in-world source, and integrated with material people, places, labour, trade, and danger.
 5. There is no default mage class or free-form spellcasting profession. Mysticism is exceptional, costly, and embodied in objects, places, conditions, practices, and relationships rather than a generic source of unlimited power. Religions, folk practices, vows, and rituals may exist as original cultures and may sometimes interact with real mysticism, but do not reproduce a real religion.
 6. Trade is physical. Goods occupy space, spoil, break, can be stolen, can be delivered, and change what settlements can do.
-7. Human conflict, wilderness, and operational hazards are equally important sources of danger. None is merely flavour for another.
-8. Every new world’s initial Jomon household is wholly generated from the world seed. Roster, identities, roles, relationships, equipment, and eligibility must reproduce exactly from the same seed and saved state.
-9. At world creation, the player chooses one eligible generated crew member as the initial courier. The choice advances no world time and permits no individual roster rerolls; changing the household requires a different seed or resolved configuration.
+7. Conflict among people, wilderness, and operational hazards are equally important sources of danger. None is merely flavour for another.
+8. Every new world’s initial Jomon household is generated from the world seed. Roster, roles, relationships, equipment, and eligibility reproduce from that seed; the player may explicitly specify the first courier's name, ancestry, origin, trait, attributes, and starting competencies. The resolved specification persists in the save and does not reroll another person.
+9. At world creation, the player chooses one eligible generated crew member as the initial courier and may make that bounded specification. The choice advances no world time; changing the rest of the household requires a different seed or resolved configuration.
 10. The player inhabits one Jomon crew member at a time. Crew members may be switched voluntarily at Jomon’s tavern. When a courier is truly lost, control transfers to an eligible surviving crew member; new playable characters join only by joining Jomon’s household. If no eligible living crew member remains, active play ends and the world is finalized as a read-only, exportable chronicle.
 11. Jomon, surviving crew, cargo losses, debts, market conditions, route damage, relationships, local history, and each persistent person’s individual state survive an expedition failure. A rare, explicit mystical safeguard may avert a death or disaster; the irreversible collapse or loss of Jomon ends active play in that world and finalizes it as a read-only, exportable chronicle.
 12. Combat remains deterministic, turn-based, and grid-based. Its later redesign must be grounded in medieval weapons, injury, positioning, scarcity, and readable intent.
@@ -50,7 +50,7 @@ Jomon is an itinerant household, not the private property of one chosen captain.
 
 ## The player and crew continuity
 
-At world creation, the player chooses an initial courier from the deterministic eligible household roster. The choice neither changes time nor rerolls an individual person. Thereafter, the player’s point of view rotates among Jomon’s crew members only at the tavern: the player may select any eligible living crew member as the active character. People become playable only after joining the household through employment, rescue, family ties, debt, persuasion, defection, contract, or another diegetic relationship. The current character carries their personal skills, injuries, equipment, relationships, obligations, and memories into an expedition.
+At world creation, the player chooses an initial courier from the deterministic eligible household roster and may specify that adult's name, fantasy people, origin, trait, and bounded starting scores. Humans, marsh-adapted Reedfolk, upland Stonefolk, and tide-wise Tidekin live and work along the same river-and-coast routes. Their modest practical strengths have explicit rules, not separate magic systems or copy-pasted cultures. This specification does not change time or reroll the rest of the household. Thereafter, the player’s point of view rotates among Jomon’s crew members only at the tavern: the player may select any eligible living crew member as the active character. People become playable only after joining the household through employment, rescue, family ties, debt, persuasion, defection, contract, or another diegetic relationship. The current character carries their personal skills, injuries, equipment, relationships, obligations, and memories into an expedition.
 
 The active courier normally controls only themself. They can use conversation, trust, standing, shared goals, and material offers to delegate work to other crew and NPCs; people may agree, refuse, negotiate, delay, fail, succeed, or change their minds according to their own circumstances. Delegated tasks include repair, rigging, cooking, treatment, cargo handling, trade research, barter, bookkeeping, scouting, charting, gathering, hunting, guiding, watch duty, guarding, rescue, evacuation, recruitment, correspondence, witness work, and negotiation. These are real jobs with time, risk, cost, and visible outcomes—not free background buffs.
 
@@ -70,7 +70,7 @@ Markets are local and persistent. Shortages, harvests, blockades, tolls, strikes
 
 All three danger families require equal authored and procedural support.
 
-- **Human conflict:** toll collectors, rival carriers, guards, deserters, bandits, soldiers, debt agents, smugglers, guild disputes, and local feuds. People have material goals and can negotiate, flee, deceive, arrest, trade, or fight; civilians are not disposable enemy dressing.
+- **Conflict among people:** toll collectors, rival carriers, guards, deserters, bandits, soldiers, debt agents, smugglers, guild disputes, and local feuds. People have material goals and can negotiate, flee, deceive, arrest, trade, or fight; civilians are not disposable enemy dressing.
 - **Wilderness:** floods, ice, storms, fog, shoals, mud, hunger, disease, exposure, wild animals, insects, difficult terrain, and rare uncanny places. These create route, supply, and positional problems; mystical effects, when present, need specific sources and readable counterplay.
 - **Operational hazards:** snapped lines, collapsing wharves, bad cargo, mill machinery, fire, damaged locks, fouled wells, unstable scaffolds, and neglected vessels. Their causes and counterplay must be legible before severe harm resolves.
 
@@ -86,7 +86,7 @@ Each authored or generated location should declare:
 - water, terrain, and season relationship;
 - local goods and dependencies;
 - authorities and labour groups;
-- human, wilderness, and operational pressures;
+- social, wilderness, and operational pressures;
 - accessible services and physical interaction points;
 - expedition objective, rewards, and later world consequence;
 - readable architecture, props, tools, hazards, and foes.

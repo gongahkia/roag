@@ -183,6 +183,8 @@ def validate_tavern_dice(state: GameState) -> None:
                 or not isinstance(record["winners"], list) or not record["winners"]
                 or any(identity not in record["players"] for identity in record["winners"])
                 or len(record["winners"]) != len(set(record["winners"]))
+                or record["winners"] != [record["players"][seat] for seat, score in enumerate(record["scores"])
+                                          if score == max(record["scores"])]
                 or type(record["prize"]) is not int or not 0 <= record["prize"] <= PRIZE):
             raise ValueError("invalid tavern bones history")
     match = data["active_match"]
@@ -221,8 +223,12 @@ def validate_tavern_dice(state: GameState) -> None:
             or len(match["winners"]) != len(set(match["winners"]))
             or match["phase"] == "rolling" and match["winners"]
             or match["phase"] == "complete" and not match["winners"]
+            or match["phase"] == "complete" and match["winners"] != [seat for seat, score in enumerate(match["scores"])
+                                                                  if score == max(match["scores"])]
+            or match["phase"] == "complete" and (match["turn_total"] or match["roll_count"] or match["forced"])
             or type(match["prize"]) is not int or not 0 <= match["prize"] <= PRIZE
             or match["phase"] == "rolling" and match["prize"]
+            or len(match["winners"]) > 1 and match["prize"]
             or not isinstance(match["log"], list) or len(match["log"]) > 12
             or any(not isinstance(line, str) for line in match["log"])):
         raise ValueError("invalid tavern bones result")

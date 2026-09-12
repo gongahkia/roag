@@ -53,15 +53,16 @@ weather, burn wind, quarry instability, patrol movement, alarm, and material
 timing—rather than one hidden or real-time deadline. Severe ranged attacks must
 provide a readable aim, lane, cover, or setup opportunity before impact.
 
-New worlds must not make system discovery a departure prerequisite. One
-deterministic adult begins on courier watch at the gangplank, and every
+New worlds must not make system discovery a departure prerequisite. The player
+may accept a displayed role preset on the courier-specification page immediately;
+the chosen generated adult begins on courier watch at the gangplank, and every
 eligible courier receives a one-time, role-appropriate basic weapon, secondary
 item, and modest working armour. Issued equipment remains ordinary physical
 state subject to weight, damage, deliberate replacement, dropping, and loss;
 it is not silently recreated after issue.
 
 The immediate first departure remains a product constraint: a new-world
-bargemaster can interact at the gangplank and enter Hearthford without first
+courier can interact at the gangplank and enter Hearthford without first
 opening the tavern, inventory, support, chart, or equipment interfaces.
 
 The active systemic-world milestone expands to eight regional destinations,

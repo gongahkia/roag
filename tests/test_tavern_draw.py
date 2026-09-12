@@ -236,6 +236,8 @@ class TavernDrawTests(unittest.TestCase):
         _draw_hand(screen, self.state, set(), "")
         revealed = " ".join(card_name(card) for card in hand["hands"][1])
         self.assertIn(revealed, " ".join(screen.drawn))
+        self.assertTrue(any("YOUR NET" in line for line in screen.drawn))
+        self.assertTrue(any("[ TAVERN DRAW / SHOWDOWN ]" in line for line in screen.drawn))
 
     def test_keyboard_can_invite_three_and_pause_a_practice_hand(self):
         class Screen:

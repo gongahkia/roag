@@ -488,7 +488,7 @@ def semantic_role(glyph: str, *, aboard: bool = False) -> str:
         return "neutral"
     if aboard and glyph in {"=", "t", "_", "F", "f"}:
         return "structure"
-    if aboard and glyph in {"s", "G", "K", "N", "O", "S", "U", "W"}:
+    if aboard and glyph in {"s", "D", "G", "K", "N", "O", "P", "Q", "S", "U", "W"}:
         return "interactable"
     if glyph in {"M", "c", "$"}:
         return "neutral"
@@ -1569,10 +1569,12 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         from .people import person_by_id
 
         person = person_by_id(state, kind.split(":", 1)[1])
+        options = [ChoiceOption("C", "Open full character sheet")]
         if person in state.household and person and person.id != state.active_courier_id and person.alive and person.available:
-            return [ChoiceOption("S", "Switch to this courier", "commitment")]
+            return options + [ChoiceOption("S", "Switch to this courier", "commitment")]
         if person and person not in state.household:
-            return [ChoiceOption("R", "Offer a voluntary berth", "commitment"), ChoiceOption("D", "Defer the invitation", "refusal")]
+            return options + [ChoiceOption("R", "Offer a voluntary berth", "commitment"), ChoiceOption("D", "Defer the invitation", "refusal")]
+        return options
     return []
 
 
@@ -2459,7 +2461,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             related = next(candidate.name for candidate in state.household if candidate.id == strongest[0])
             learned = ", ".join(person.learned_techniques) or "no expedition technique"
             lines.extend((
-                f"{person.name} — {person.role}; {person.technique}; {person.injury}",
+                f"{person.name} — {person.ancestry} {person.role}; {person.technique}; {person.injury}",
                 f"  {learned}; closest standing: {related} ({strongest[1]:+d})",
             ))
             if personal_practice(person) in person.learned_techniques:
@@ -2745,6 +2747,12 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return "COUNTED VESSEL WORK", lines
     if kind == "quit":
         return "QUIT JOMON?", ["Press Y to quit. Press N or Escape to continue."]
+    if kind.startswith("character-sheet:"):
+        from .character import character_sheet
+        from .people import person_by_id
+
+        person = person_by_id(state, kind.split(":", 1)[1])
+        return (f"{person.name.upper()} / CHARACTER SHEET", character_sheet(person)) if person else ("NO PERSON", ["This person is no longer aboard."])
     if kind.startswith("person:"):
         from .people import person_by_id, personal_practice
 
@@ -2759,7 +2767,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             if item:
                 physical.append(f"{slot}: {item_spec(item.kind).name}")
         lines = [
-            f"{person.name} — {person.role}; {standing}",
+            f"{person.name} — {person.ancestry} {person.role}; {standing}",
             f"Technique: {person.technique}",
             "Learned practices: " + (", ".join(person.learned_techniques) or "none"),
             f"Health: {person.health}/{person.max_health}; {person.injury}",
@@ -3075,6 +3083,8 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         from .people import person_by_id
 
         person = person_by_id(state, person_id)
+        if char == "c":
+            return f"character-sheet:{person_id}", False
         if char == "s" and person in state.household:
             result = choose_courier(state, person_id)
             return (None if result.changed else kind), False
@@ -3307,6 +3317,8 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
                 state.add_message("Active mastery is available during expedition or deck danger.")
         elif normalized == ord("z"):
             overlay = OverlayView("regional-ledger")
+        elif normalized == ord("c") and state.courier:
+            overlay = OverlayView(f"character-sheet:{state.courier.id}")
         elif normalized == ord("o"):
             overlay = OverlayView("observed-life")
         elif normalized == ord("?"):

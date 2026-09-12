@@ -75,6 +75,8 @@ def create_visitors(seed: str) -> list[Person]:
         }
         visitors.append(Person(
             id=template["id"], name=template["name"], role=template["role"],
+            ancestry={"recruit-maelin": "Tidekin", "recruit-orra": "Reedfolk",
+                      "recruit-teren": "Stonefolk"}.get(template["id"], "Human"),
             equipment=list(template["equipment"]), technique=template["technique"],
             relationships=relationships, learned_techniques=[], health=10,
             max_health=10, background=template["background"],

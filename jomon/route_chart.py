@@ -113,8 +113,10 @@ def edge_between(state: GameState, first: str, second: str) -> RouteEdge | None:
 
 
 def leg_travel_time(state: GameState, edge: RouteEdge) -> int:
+    from .character import effective_competency
+
     guide = state.courier
-    return max(1, edge.travel_time - (min(2, guide.wayfinding // 5) if guide else 0))
+    return max(1, edge.travel_time - (min(2, effective_competency(guide, "wayfinding") // 5) if guide else 0))
 
 
 def neighbours(state: GameState, node_id: str, *, reachable_only: bool = False) -> list[str]:

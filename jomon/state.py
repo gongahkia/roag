@@ -24,6 +24,7 @@ from .content import (
 SAVE_FORMAT = 9
 HISTORY_LIMIT = 40
 MESSAGE_LIMIT = 8
+ATTRIBUTES = ("strength", "agility", "endurance", "perception", "intellect", "presence")
 
 
 class StateError(ValueError):
@@ -63,6 +64,11 @@ class Person:
     wayfinding: int = 0
     fieldcraft: int = 0
     craft: int = 0
+    attributes: dict[str, int] = field(default_factory=lambda: {name: 6 for name in ATTRIBUTES})
+    ancestry: str = "Human"
+    origin: str = "hearthford"
+    trait: str = "steady"
+    character_specified: bool = False
 
 
 @dataclass
@@ -1335,6 +1341,19 @@ def validate_state(state: GameState) -> None:
            for person in [*all_people, state.bartender]
            for skill in ("strategy", "speech", "wayfinding", "fieldcraft", "craft")):
         raise StateError("invalid person competency")
+    if any(not isinstance(person.attributes, dict) or set(person.attributes) != set(ATTRIBUTES)
+           or any(type(value) is not int or not 4 <= value <= 12 for value in person.attributes.values())
+           or any(not isinstance(getattr(person, key), str) or not 1 <= len(getattr(person, key)) <= 64
+                  for key in ("ancestry", "origin", "trait"))
+           or type(person.character_specified) is not bool
+           for person in [*all_people, state.bartender]):
+        raise StateError("invalid person profile")
+    from .character import ANCESTRIES, ORIGINS, TRAITS
+
+    if any(person.ancestry not in ANCESTRIES
+           or person.character_specified and (person.origin not in ORIGINS or person.trait not in TRAITS)
+           for person in [*all_people, state.bartender]):
+        raise StateError("invalid character people, origin, or trait")
     if state.berth_capacity < 6 or len(state.household) > state.berth_capacity:
         raise StateError("invalid Jomon berth occupancy")
     if len(set(state.tavern_positions.values())) != len(state.tavern_positions):

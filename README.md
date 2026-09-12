@@ -19,6 +19,14 @@ From the repository root:
 python -m jomon
 ```
 
+On a new world, the courier-specification page lets you choose one of the six
+seeded adults, enter a unique name, and reallocate eight attribute and five
+starting competency points before taking the first watch. `S` accepts the
+displayed role preset immediately; `Q` returns to the landing. The chosen
+adult still begins at the gangplank with their own issued kit and zero elapsed
+world time. Human, Reedfolk, Stonefolk, and Tidekin have distinct practical
+bonuses. See [character specification](docs/character-specification.md).
+
 Dullest Dungeon is played from the marked `D` chair beside a large, blocking
 15×5 gaming table in Jomon's tavern. Off-duty adults walk to its other chairs;
 choosing any available tavern patron brings that person to a free chair for
@@ -33,6 +41,11 @@ A separate `P` chair at the left-hand tavern table opens four-seat
 currently in the tavern, with free practice or bounded trade-credit wagers.
 Its cards use a framed presentation adapted within tavern-only code; the
 Dullest Dungeon game is unchanged.
+
+The `Q` chair at the right-hand table opens [Quay Bones](docs/quay-bones.md),
+a four-seat push-your-luck dice contest with visible two-die rolls and a
+finite, counted tavern prize purse. No credit is required to enter; a clear
+winner can earn credit, while a tied match pays nothing.
 
 The terminal must be at least 80 columns by 24 rows. Jomon shows a resize
 message below that size and uses `curses.wrapper()` to restore the terminal on
@@ -55,6 +68,7 @@ World controls:
 - `I`: open the spatial pack and nearby source;
 - `F`: inspect and handle nearby materials, with finite supplies and previews;
 - `Z`: read the regional working ledger, evidence and forecast;
+- `C`: open the active courier's scrollable character sheet;
 - `O`: inspect presently visible actors, duties, resources and counterplay;
 - `?`: help;
 - `S`: save while aboard Jomon;
@@ -87,6 +101,15 @@ Starting a match advances one Jomon action; expedition turns do not advance
 Jomon time. Match winners gain Strategy; Jomon characters also learn Speech,
 Wayfinding, Fieldcraft, and Craft from their corresponding actions. The character
 panel shows all five competencies and the game guide describes their effects.
+
+At Tavern Draw, framed cards now use suit accents, a full-screen table frame,
+a staged showdown reveal, and a labelled credit result; colour is paired with
+text and shape. At Quay Bones, `J/K` chooses three available adults, `Space`
+invites, and `Enter` starts. During play, `R` or `Enter` rolls two visible
+dice, `H` banks when allowed, and `Q` pauses. Each contest has three rounds
+and no entry fee. One `1` busts a turn; a double forces another roll unless
+the six-roll cap ends the turn. The unique high scorer receives up to two
+credit from Sena's finite purse. Only one tavern game can be active at once.
 
 Spatial-inventory controls:
 

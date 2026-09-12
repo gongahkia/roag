@@ -7,6 +7,7 @@ import random
 import textwrap
 from dataclasses import dataclass
 
+from .character_ui import run_character_creation
 from .save import SaveError, load_game, save_path
 from .state import create_world
 from .terminal import MIN_HEIGHT, MIN_WIDTH, _init_colours, _put, colour_attribute, play
@@ -147,8 +148,9 @@ def run(screen: curses.window) -> None:
                 return
             if char == "n":
                 state = create_world(_read_seed(screen))
-                play(screen, state)
-                return
+                if run_character_creation(screen, state):
+                    play(screen, state)
+                    return
             continue
         title = "J O M O N"
         subtitle = "A vessel-household terminal roguelike"
@@ -176,5 +178,6 @@ def run(screen: curses.window) -> None:
                 notice = str(exc)
         if char == "n":
             state = create_world(_read_seed(screen))
-            play(screen, state)
-            return
+            if run_character_creation(screen, state):
+                play(screen, state)
+                return

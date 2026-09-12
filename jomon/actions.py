@@ -1446,6 +1446,11 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         or "surveyed soft-step" in build_combinations(state)
         or ("smoke spoor" in state.courier.learned_techniques and position_key(target) in state.smoke)
     )
+    if state.courier and state.courier.character_specified:
+        from .character import effective_competency
+
+        quiet = quiet or (effective_competency(state.courier, "fieldcraft") >= 8
+                          and armour_noise(state) == 0)
     from .practices import has_effect as has_practice_effect
 
     practice_mud = (
@@ -3359,11 +3364,13 @@ def negotiate(state: GameState) -> ActionResult:
             "After violence begins, material terms need broken morale or witnessed evidence.",
         )
     if speaker.group:
+        from .character import effective_competency
+
         heard = [
             threat for threat in humans
             if threat.group == speaker.group
             and distance(speaker.position, threat.position) <= 3
-        ][:3 if state.courier.speech >= 5 else 2]
+        ][:3 if effective_competency(state.courier, "speech") >= 5 else 2]
     else:
         heard = [speaker]
     if "paper" in state.carried_goods and state.gear != "trade seals":
