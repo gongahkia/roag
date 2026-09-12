@@ -3257,6 +3257,10 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
                 from .tavern_draw_ui import run_tavern_draw
 
                 run_tavern_draw(screen, state)
+            elif result.overlay == "tavern-dice":
+                from .tavern_dice_ui import run_tavern_dice
+
+                run_tavern_dice(screen, state)
             else:
                 overlay = OverlayView(result.overlay) if result.overlay else None
         elif normalized == ord("a"):

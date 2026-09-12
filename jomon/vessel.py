@@ -29,6 +29,12 @@ DRAW_NPC_SEATS = (
     Position(11, 11, 0), Position(19, 11, 0), Position(8, 16, 0), Position(22, 16, 0),
 )
 DRAW_SURFACE = frozenset(Position(x, y, 0) for y in range(12, 17) for x in range(9, 22))
+DICE_PLAYER_SEAT = Position(50, 18, 0)
+DICE_NPC_SEATS = (
+    Position(50, 12, 0), Position(44, 15, 0), Position(56, 15, 0),
+    Position(46, 12, 0), Position(54, 12, 0), Position(44, 17, 0), Position(56, 17, 0),
+)
+DICE_SURFACE = frozenset(Position(x, y, 0) for y in range(13, 18) for x in range(45, 56))
 LOWER_HATCH = Position(14, 10, -1)
 MAIN_LOWER_HATCH = Position(14, 10, 0)
 MAIN_UPPER_STAIR = Position(48, 10, 0)
@@ -113,7 +119,7 @@ def _tavern_map() -> tuple[str, ...]:
         (47, 9): "_", (51, 9): "_", (55, 9): "_", (59, 9): "_",
     }.items():
         grid[point[1]][point[0]] = glyph
-    for cx, cy in ((16, 6), (44, 16)):
+    for cx, cy in ((16, 6),):
         grid[cy][cx] = "t"
         for dx, dy in ((-2, 0), (2, 0), (0, -2), (0, 2)):
             grid[cy + dy][cx + dx] = "_"
@@ -124,6 +130,11 @@ def _tavern_map() -> tuple[str, ...]:
     for point in DRAW_NPC_SEATS:
         grid[point.y][point.x] = "_"
     grid[DRAW_PLAYER_SEAT.y][DRAW_PLAYER_SEAT.x] = "P"
+    for point in DICE_SURFACE:
+        grid[point.y][point.x] = "=" if point.x in {45, 55} or point.y in {13, 17} else "t"
+    for point in DICE_NPC_SEATS:
+        grid[point.y][point.x] = "_"
+    grid[DICE_PLAYER_SEAT.y][DICE_PLAYER_SEAT.x] = "Q"
     for x, glyph in ((27, "F"), (31, "d"), (35, "f")):
         grid[11][x] = glyph
     for point in TABLE_PATRON_SEATS:
@@ -166,7 +177,7 @@ HOUSEHOLD_SEATS = (
     Position(42, 16),
 )
 VISITOR_SEATS = (
-    Position(46, 16), Position(44, 14), Position(44, 18),
+    Position(42, 18), Position(44, 14), Position(44, 18),
     Position(47, 9), Position(51, 9), Position(55, 9),
 )
 BARTENDER_POSITION = Position(53, 8)
@@ -239,6 +250,10 @@ def _schedule_position(state: GameState, actor_id: str, activity: str) -> tuple[
         people = [*_all_named_people(state), state.bartender]
         seat_index = next(i for i, person in enumerate(people) if person.id == actor_id)
         return "tavern", DRAW_NPC_SEATS[seat_index % len(DRAW_NPC_SEATS)]
+    if activity == "playing Quay Bones":
+        people = [*_all_named_people(state), state.bartender]
+        seat_index = next(i for i, person in enumerate(people) if person.id == actor_id)
+        return "tavern", DICE_NPC_SEATS[seat_index % len(DICE_NPC_SEATS)]
     if activity in {"eating", "drinking", "socialising", "waiting"}:
         seats = HOUSEHOLD_SEATS + VISITOR_SEATS
         return "tavern", seats[index % len(seats)]
@@ -266,11 +281,13 @@ def _activity_for(state: GameState, person: Person, boundary: int) -> str:
     if date.time_of_day == "night":
         return "sleeping"
     if person in state.visitors and state.visitor_status.get(person.id) in {"visiting", "deferred"}:
-        return "playing Tavern Draw" if sum(map(ord, person.id)) % 3 == 0 else "playing Dullest Dungeon"
+        roll = sum(map(ord, person.id)) % 5
+        return "playing Quay Bones" if roll == 0 else "playing Tavern Draw" if roll == 1 else "playing Dullest Dungeon"
     if date.time_of_day == "morning":
         return "eating"
     if date.time_of_day == "evening":
-        return ("playing Tavern Draw" if sum(map(ord, person.id)) % 3 == 0 else
+        return ("playing Quay Bones" if sum(map(ord, person.id)) % 5 == 0 else
+                "playing Tavern Draw" if sum(map(ord, person.id)) % 3 == 0 else
                 "playing Dullest Dungeon" if sum(map(ord, person.id)) % 2 else "socialising")
     by_role = {
         "pilot": "steering", "bargemaster": "consulting chart",
@@ -325,7 +342,7 @@ def initialise_living_vessel(state: GameState, *, migrated: bool = False) -> Non
             point = region.landmarks["contact"] if region else Position(1, 1)
             activity = "working at a regional site"
         else:
-            activity = "playing Tavern Draw" if index in {2, 4} else "playing Dullest Dungeon"
+            activity = "playing Quay Bones" if index == 3 else "playing Tavern Draw" if index in {2, 4} else "playing Dullest Dungeon"
             area, point = _schedule_position(state, person.id, activity)
             point = _nearest_free(area, point, {used for place, used in occupied if place == area})
         occupied.add((area, point))
@@ -367,10 +384,12 @@ def normalise_schedule_work_positions(state: GameState) -> None:
     }
     for schedule in sorted(state.actor_schedules.values(), key=lambda item: item.actor_id):
         replacement = SCHEDULE_WORK_POSITIONS.get((schedule.area, schedule.position))
-        if schedule.area == "tavern" and schedule.position in TABLE_SURFACE | DRAW_SURFACE:
+        if schedule.area == "tavern" and schedule.position in TABLE_SURFACE | DRAW_SURFACE | DICE_SURFACE:
             used_chairs = {point for area, point in occupied if area == "tavern" and point != schedule.position}
-            chairs = TABLE_PATRON_SEATS if schedule.position in TABLE_SURFACE else DRAW_NPC_SEATS
-            fallback = TABLE_PLAYER_SEAT if schedule.position in TABLE_SURFACE else DRAW_PLAYER_SEAT
+            chairs = (TABLE_PATRON_SEATS if schedule.position in TABLE_SURFACE else
+                      DRAW_NPC_SEATS if schedule.position in DRAW_SURFACE else DICE_NPC_SEATS)
+            fallback = (TABLE_PLAYER_SEAT if schedule.position in TABLE_SURFACE else
+                        DRAW_PLAYER_SEAT if schedule.position in DRAW_SURFACE else DICE_PLAYER_SEAT)
             replacement = next((point for point in chairs if point not in used_chairs), fallback)
         if replacement is not None or not _walkable(schedule.area, schedule.position):
             occupied.discard((schedule.area, schedule.position))
@@ -384,12 +403,13 @@ def normalise_schedule_work_positions(state: GameState) -> None:
         )
         if not _walkable(schedule.destination_area, schedule.destination):
             schedule.destination = schedule.position
-    if state.location == "jomon" and state.jomon_space == "tavern" and state.position in TABLE_SURFACE | DRAW_SURFACE:
+    if state.location == "jomon" and state.jomon_space == "tavern" and state.position in TABLE_SURFACE | DRAW_SURFACE | DICE_SURFACE:
         occupied_here = {
             schedule.position for schedule in state.actor_schedules.values()
             if schedule.area == "tavern" and schedule.actor_id != state.active_courier_id
         }
-        seat = TABLE_PLAYER_SEAT if state.position in TABLE_SURFACE else DRAW_PLAYER_SEAT
+        seat = (TABLE_PLAYER_SEAT if state.position in TABLE_SURFACE else
+                DRAW_PLAYER_SEAT if state.position in DRAW_SURFACE else DICE_PLAYER_SEAT)
         state.position = _nearest_free("tavern", seat, occupied_here)
     state.tavern_positions = {
         actor_id: schedule.position for actor_id, schedule in state.actor_schedules.items()
@@ -417,7 +437,7 @@ def _walkable(area: str, point: Position) -> bool:
         0 <= point.y < len(rows)
         and 0 <= point.x < len(rows[point.y])
         and rows[point.y][point.x] not in {"#", "=", "t", "F", "f"}
-        and (area != "tavern" or point not in TABLE_SURFACE | DRAW_SURFACE)
+        and (area != "tavern" or point not in TABLE_SURFACE | DRAW_SURFACE | DICE_SURFACE)
     )
 
 
@@ -458,6 +478,27 @@ def seat_draw_players(state: GameState, opponent_ids: list[str]) -> None:
         schedule.area = schedule.destination_area = "tavern"
         schedule.position = schedule.destination = chair
         schedule.activity = "playing Tavern Draw"
+        schedule.next_boundary = state.world_time + 6
+        if any(person.id == identity for person in _all_named_people(state)):
+            state.tavern_positions[identity] = chair
+        occupied.add(chair)
+
+
+def seat_dice_players(state: GameState, opponent_ids: list[str]) -> None:
+    """Bring the invited adults to the visible bones-table chairs."""
+    occupied = {
+        schedule.position for actor_id, schedule in state.actor_schedules.items()
+        if schedule.area == "tavern" and actor_id not in opponent_ids
+    }
+    occupied.add(state.position)
+    for identity in opponent_ids:
+        chair = next((point for point in DICE_NPC_SEATS if point not in occupied), None)
+        if chair is None:
+            raise ValueError("the bones table has no three free chairs")
+        schedule = state.actor_schedules[identity]
+        schedule.area = schedule.destination_area = "tavern"
+        schedule.position = schedule.destination = chair
+        schedule.activity = "playing Quay Bones"
         schedule.next_boundary = state.world_time + 6
         if any(person.id == identity for person in _all_named_people(state)):
             state.tavern_positions[identity] = chair
@@ -635,11 +676,12 @@ def advance_living_world(state: GameState) -> None:
     }
     crossed_boundary = False
     draw_hand = state.tavern_draw.get("active_hand")
+    dice_match = state.tavern_dice.get("active_match")
     for schedule in sorted(state.actor_schedules.values(), key=lambda item: item.actor_id):
         all_vessel_occupied.discard((schedule.area, schedule.position))
-        if (draw_hand and draw_hand["phase"] != "complete"
-                and schedule.actor_id in draw_hand["players"][1:]
-                and schedule.area == "tavern"):
+        if (schedule.area == "tavern"
+                and (draw_hand and draw_hand["phase"] != "complete" and schedule.actor_id in draw_hand["players"][1:]
+                     or dice_match and dice_match["phase"] != "complete" and schedule.actor_id in dice_match["players"][1:])):
             schedule.next_boundary = state.world_time + 6
             all_vessel_occupied.add((schedule.area, schedule.position))
             continue

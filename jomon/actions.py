@@ -1925,9 +1925,17 @@ def interact(state: GameState) -> ActionResult:
             state.position = Position(TAVERN_ENTRANCE.x - 1, TAVERN_ENTRANCE.y, 0)
             return _plain(state, "You step from the common tavern onto Jomon's working deck.", changed=True)
         if state.jomon_space == "tavern" and tile == "D":
+            if state.tavern_draw["active_hand"] or state.tavern_dice["active_match"]:
+                return ActionResult(False, False, "Finish the other active tavern game before opening Dullest Dungeon.")
             return ActionResult(False, False, "The Dullest Dungeon box opens on the table.", "tabletop")
         if state.jomon_space == "tavern" and tile == "P":
+            if state.tabletop["active_match"] or state.tavern_dice["active_match"]:
+                return ActionResult(False, False, "Finish the other active tavern game before opening Tavern Draw.")
             return ActionResult(False, False, "The draw-poker cards and counted stakes are ready.", "tavern-draw")
+        if state.jomon_space == "tavern" and tile == "Q":
+            if state.tabletop["active_match"] or state.tavern_draw["active_hand"]:
+                return ActionResult(False, False, "Finish the other active tavern game before opening Quay Bones.")
+            return ActionResult(False, False, "Sena's two dice and counted challenge purse are ready.", "tavern-dice")
         if state.jomon_space == "vessel":
             destination = vessel_vertical_destination(state.position)
             if destination:

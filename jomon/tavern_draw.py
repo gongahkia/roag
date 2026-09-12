@@ -103,6 +103,8 @@ def start_hand(state: GameState, opponents: list[str], *, wagering: bool) -> dic
         raise ValueError("sit at the marked draw table chair")
     if state.courier is None or not state.courier.alive or state.tavern_draw["active_hand"] is not None:
         raise ValueError("finish the current hand before dealing another")
+    if state.tabletop["active_match"] is not None or state.tavern_dice["active_match"] is not None:
+        raise ValueError("finish the other active tavern game first")
     if len(opponents) != 3 or len(set(opponents)) != 3:
         raise ValueError("invite three distinct tavern adults")
     available = {person.id: person for person in available_opponents(state)}

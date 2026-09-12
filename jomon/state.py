@@ -495,6 +495,7 @@ class GameState:
     regional_contracts: dict[str, RegionalContract] = field(default_factory=dict)
     tabletop: dict[str, Any] = field(default_factory=lambda: {"collections": {}, "records": [], "active_match": None})
     tavern_draw: dict[str, Any] = field(default_factory=lambda: {"hand_number": 0, "bankrolls": {}, "active_hand": None, "records": []})
+    tavern_dice: dict[str, Any] = field(default_factory=lambda: {"purse": 24, "match_number": 0, "active_match": None, "records": []})
 
     @property
     def combat_active(self) -> bool:
@@ -1196,6 +1197,7 @@ def game_state_from_dict(data: Any) -> GameState:
             regional_contracts=regional_contracts,
             tabletop=data.get("tabletop", {"collections": {}, "records": [], "active_match": None}),
             tavern_draw=data.get("tavern_draw", {"hand_number": 0, "bankrolls": {}, "active_hand": None, "records": []}),
+            tavern_dice=data.get("tavern_dice", {"purse": 24, "match_number": 0, "active_match": None, "records": []}),
         )
         if migrated_v3:
             from .inventory import initialise_inventory, reconcile_legacy_carried, sync_legacy_load
@@ -1316,6 +1318,12 @@ def validate_state(state: GameState) -> None:
         validate_tavern_draw(state)
     except (KeyError, TypeError, ValueError) as exc:
         raise StateError(f"invalid tavern draw state: {exc}") from exc
+    from .tavern_dice import validate_tavern_dice
+
+    try:
+        validate_tavern_dice(state)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise StateError(f"invalid tavern bones state: {exc}") from exc
     if len(state.household) < 6 or len({person.id for person in state.household}) != len(state.household):
         raise StateError("save must retain the six-person household and unique recruits")
     if state.active_courier_id is not None and state.courier is None:
