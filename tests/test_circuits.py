@@ -7,8 +7,8 @@ from jomon.circuits import (
     operate, place, reclaim, validate_circuits,
 )
 from jomon.inventory import auto_place, create_item, item_spec
-from jomon.production import RECIPES
-from jomon.state import CircuitCell, Position, StateError, create_world, game_state_from_dict
+from jomon.production import RECIPES, make, recipe_status
+from jomon.state import CircuitCell, CommodityStack, Position, StateError, create_world, game_state_from_dict
 from jomon.terminal import CircuitView, InputEvent, _handle_circuit
 from jomon.world import displayed_tile, is_walkable, sight_radius
 
@@ -49,6 +49,19 @@ class CircuitTests(unittest.TestCase):
         self.assertIsNone(cell_at(state, point, "buried"))
         self.assertEqual(item_count(state, "trace"), 1)
         self.assertFalse(place(state, point, "surface", "trace")[0])
+
+    def test_workshop_recipe_consumes_real_stock_and_yields_four_traces(self):
+        state = self.state
+        state.location = "jomon"
+        state.jomon_space = "vessel"
+        state.position = Position(39, 5, -1)
+        state.vessel_cargo["ironwork"] = CommodityStack(1, "dry")
+        state.vessel_cargo["wool"] = CommodityStack(1, "dry")
+        self.assertTrue(recipe_status(state, "circuit-trace")[0])
+        self.assertTrue(make(state, "circuit-trace")[0])
+        self.assertEqual(item_count(state, "trace"), 4)
+        self.assertNotIn("ironwork", state.vessel_cargo)
+        self.assertNotIn("wool", state.vessel_cargo)
 
     def test_buried_trace_under_wall_is_hidden_and_vias_bridge_layers(self):
         state = self.state

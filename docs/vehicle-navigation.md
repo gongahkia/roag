@@ -37,8 +37,8 @@ a stand costs one credit and two actions, restoring four frame points. An
 anywhere three-action jury-rig restores one point when no paid repair is
 available. Invalid or blocked commands spend neither charge nor world time.
 
-Vehicle positions, charge, wear, and the tug's outward/return leg are saved in
-Jomon format 11. Format-10 saves gain parked vehicles without changing the
+Vehicle positions, charge, wear, and the tug's outward/return leg were added in
+Jomon format 11 and remain in format 12. Format-10 saves gain parked vehicles without changing the
 courier's existing location or progress. The vehicle catalogue and interior
 art are in `jomon/data/vehicles.json`; traversal and validation live in
 `jomon/vehicles.py`. No Dullest Dungeon or tavern-game rules are changed.

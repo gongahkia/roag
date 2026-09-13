@@ -21,8 +21,8 @@
     "cell": {
       "name": "Galvanic cell",
       "glyph": "c",
-      "description": "A spent-on-use iron and carbon cell, wetted with brine when fitted.",
-      "recipe": {"id": "circuit-cell", "name": "Assemble a galvanic cell", "station": "workshop", "inputs": [["commodity:ironwork", 1], ["commodity:charcoal", 1], ["commodity:paper", 1]], "output": "circuit:cell", "quantity": 1, "contents": []}
+      "description": "A finite iron-carbon and brine pulse cell for the rack.",
+      "recipe": {"id": "circuit-cell", "name": "Assemble a galvanic cell", "station": "workshop", "inputs": [["commodity:ironwork", 1], ["commodity:charcoal", 1], ["commodity:paper", 1], ["ingredient:brine", 1]], "output": "circuit:cell", "quantity": 1, "contents": []}
     },
     "switch": {
       "name": "Knife switch",
@@ -31,10 +31,10 @@
       "recipe": {"id": "circuit-switch", "name": "Fit a knife switch", "station": "workshop", "inputs": [["commodity:ironwork", 1], ["commodity:timber", 1]], "output": "circuit:switch", "quantity": 1, "contents": []}
     },
     "lamp": {
-      "name": "Stormglass lamp",
+      "name": "Shielded arc lamp",
       "glyph": "l",
       "description": "A pulse-lit lamp that widens nearby sight while charged.",
-      "recipe": {"id": "circuit-lamp", "name": "Fit a stormglass lamp", "station": "workshop", "inputs": [["commodity:ironwork", 1], ["commodity:paper", 1]], "output": "circuit:lamp", "quantity": 1, "contents": []}
+      "recipe": {"id": "circuit-lamp", "name": "Fit a shielded arc lamp", "station": "workshop", "inputs": [["commodity:ironwork", 1], ["commodity:paper", 1]], "output": "circuit:lamp", "quantity": 1, "contents": []}
     },
     "gate": {
       "name": "Latch gate",
