@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .catalog import CatalogError, load_catalog
 from .state import GameState, Person
 
 
@@ -16,88 +17,26 @@ class SkillNode:
     effect: str
 
 
-BRANCHES = {
-    "blades": ("Blades", (
-        ("edge-measure", "Edge measure", "blade strikes leave a guarded stance"),
-        ("guard-feint", "Guard feint", "blade strikes gain one harm against protectors"),
-        ("slip-cut", "Slip cut", "blade strikes gain one harm after a guarded step"),
-        ("weapon-bind", "Weapon bind", "blade strikes spoil a marked enemy aim"),
-        ("riposte", "Riposte", "guarded blade strikes press one extra morale"),
-        ("river-duelist", "River duelist", "blade strikes gain one harm against wavering morale"),
-    )),
-    "reach": ("Reach and impact", (
-        ("measured-stance", "Measured stance", "reach arms gain one maximum pace"),
-        ("countercharge", "Countercharge", "reach strikes gain one harm against engaged enemies"),
-        ("haft-breaker", "Haft breaker", "reach strikes chip timber support beneath targets"),
-        ("hook-haul", "Hook haul", "reach strikes pull the target one open pace"),
-        ("line-intercept", "Line intercept", "reach strikes bind one targeted enemy action"),
-        ("ferryman-wall", "Ferryman's wall", "reach strikes leave a guarded stance"),
-    )),
-    "bows": ("Bows and throwing", (
-        ("sighted-draw", "Sighted draw", "bows gain one pace of maximum range"),
-        ("quick-nock", "Quick nock", "bows fire without a separate aim action"),
-        ("shaft-recovery", "Shaft recovery", "recover one spent physical throw"),
-        ("called-shot", "Called shot", "bow shots gain one harm against elites"),
-        ("wind-hold", "Wind hold", "rain no longer spoils a prepared bow shot"),
-        ("moving-volley", "Moving volley", "one walkable step retains bow aim"),
-    )),
-    "gunworks": ("Gunworks", (
-        ("charge-handling", "Charge handling", "gun shots gain one harm when fully loaded"),
-        ("dry-load", "Dry load", "wet weather no longer spoils gun aim"),
-        ("braced-tube", "Braced tube", "guarded gun lanes gain one maximum pace"),
-        ("vent-care", "Vent care", "gun reloads need one fewer guarded action"),
-        ("smoke-shaping", "Smoke shaping", "gun shots also veil their target cell with smoke"),
-        ("payload-master", "Payload master", "gun shots gain one harm against rigid protection"),
-    )),
-    "devices": ("Devices and fieldcraft", (
-        ("safe-throw", "Safe throw", "device throws gain one maximum pace"),
-        ("scatter-bank", "Scatter bank", "spread a smoke payload into a second cell"),
-        ("delayed-fuse", "Delayed fuse", "thunder bombs become warned next-action mineral flashes"),
-        ("adhesive-coat", "Adhesive coat", "pitch and resin bombs leave two more fuel"),
-        ("line-trap", "Line trap", "resin bombs also bind adjacent enemies"),
-        ("controlled-chain", "Controlled chain", "thunder bombs press one more adjacent morale"),
-    )),
-    "spellcraft": ("Spellcraft", (
-        ("attunement", "Attunement", "increase the personal mana reserve by two"),
-        ("elemental-shape", "Elemental shape", "learn smoke, salt, ice and ash spell forms"),
-        ("ward-script", "Ward script", "learn support, ward, cleanse and lime spell forms"),
-        ("veiling", "Veiling", "learn decoy, quiet, pull and snare spell forms"),
-        ("echo-binding", "Echo binding", "learn sweep, storm, wash and iron spell forms"),
-        ("spell-weave", "Spell weave", "learn four high-cost classic spell forms"),
-    )),
-    "smithing": ("Smithing and fabrication", (
-        ("tool-care", "Tool care", "improve a physical repair by five condition"),
-        ("fuel-husbandry", "Fuel husbandry", "one charcoal lot is spared in a prepared smelt"),
-        ("bloom-sorting", "Bloom sorting", "a prepared smelt yields one extra iron billet"),
-        ("armour-fitting", "Armour fitting", "fitted armour gains five condition after installation"),
-        ("gun-assembly", "Gun assembly", "a physical forge also offers gunworks fabrication"),
-        ("masterwork", "Masterwork", "newly made personal weapons gain one harm"),
-    )),
-    "alchemy": ("Alchemy and medicine", (
-        ("substance-sense", "Substance sense", "healing drafts restore one extra health"),
-        ("safe-decant", "Safe decant", "one ingredient gives two flask measures when room permits"),
-        ("field-triage", "Field triage", "healing drafts restore one more health"),
-        ("controlled-distil", "Controlled distil", "remove one chosen flask reagent at a still"),
-        ("antitoxin", "Antitoxin", "breath tonic also clears salt and lime exposure"),
-        ("catalyst-brewing", "Catalyst brewing", "attunement drafts restore one extra mana"),
-    )),
-    "navigation": ("Navigation and seamanship", (
-        ("route-reading", "Route reading", "gain one sight radius in known regional ground"),
-        ("weather-eye", "Weather eye", "gain one sight radius in fog and rain"),
-        ("load-balance", "Load balance", "carry four more physical weight"),
-        ("current-rescue", "Current rescue", "winter water no longer adds a new chill"),
-        ("station-repair", "Station repair", "vessel refit installations need one fewer action"),
-        ("deep-pilotage", "Deep pilotage", "charted route legs need one fewer travel action"),
-    )),
-    "diplomacy": ("Diplomacy and trade", (
-        ("careful-terms", "Careful terms", "negotiated groups include one more listener"),
-        ("price-sense", "Price sense", "merchant purchases cost one less credit"),
-        ("mediation", "Mediation", "tavern mediation improves relationship settlement"),
-        ("teaching", "Teaching", "pass a practiced node to another courier"),
-        ("work-order", "Work order", "delegate one physical production job"),
-        ("guild-broker", "Guild broker", "witnessed regional supply deliveries earn one extra credit"),
-    )),
-}
+_CATALOG = load_catalog("skills.json", ("branches", "role_roots"))
+_raw_branches = _CATALOG["branches"]
+if not isinstance(_raw_branches, dict) or not _raw_branches:
+    raise CatalogError("skills.json must provide branches")
+BRANCHES = {}
+_seen_nodes = set()
+for branch_id, row in _raw_branches.items():
+    if (not isinstance(branch_id, str) or not isinstance(row, list) or len(row) != 2
+            or not isinstance(row[0], str) or not isinstance(row[1], list) or not row[1]):
+        raise CatalogError("skills.json has an invalid branch")
+    definitions = []
+    for node in row[1]:
+        if (not isinstance(node, list) or len(node) != 3
+                or any(not isinstance(part, str) or not part for part in node)
+                or node[0] in _seen_nodes):
+            raise CatalogError("skills.json has an invalid or repeated node")
+        _seen_nodes.add(node[0])
+        definitions.append(tuple(node))
+    BRANCHES[branch_id] = (row[0], tuple(definitions))
+
 
 NODES: dict[str, SkillNode] = {}
 for branch_id, (branch_name, definitions) in BRANCHES.items():
@@ -108,20 +47,13 @@ for branch_id, (branch_name, definitions) in BRANCHES.items():
         )
         NODES[node_id] = SkillNode(node_id, branch_id, name, parents, effect)
 
-ROLE_ROOTS = {
-    "bargemaster": ("route-reading", "careful-terms"),
-    "pilot": ("route-reading", "sighted-draw"),
-    "factor": ("careful-terms", "route-reading"),
-    "carpenter": ("tool-care", "safe-throw"),
-    "guard": ("edge-measure", "measured-stance"),
-    "healer": ("substance-sense", "attunement"),
-    "tide runner": ("route-reading", "safe-throw"),
-    "netwright": ("measured-stance", "tool-care"),
-    "charcoal scout": ("sighted-draw", "safe-throw"),
-    "resin healer": ("substance-sense", "attunement"),
-    "quarry climber": ("measured-stance", "tool-care"),
-    "ridge ward": ("sighted-draw", "route-reading"),
-}
+_raw_roots = _CATALOG["role_roots"]
+if (not isinstance(_raw_roots, dict) or any(not isinstance(role, str) or not isinstance(roots, list)
+                                          or len(roots) != 2 or any(not isinstance(node, str) or node not in NODES for node in roots)
+                                          for role, roots in _raw_roots.items())):
+    raise CatalogError("skills.json has invalid role roots")
+ROLE_ROOTS = {role: tuple(roots) for role, roots in _raw_roots.items()}
+
 
 REGIONS = ("hearthford", "greywash", "greenwold", "whitecairn", "dunmire", "rillscar", "marlbank", "frostmere")
 MILESTONES = {

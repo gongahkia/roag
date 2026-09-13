@@ -12,6 +12,7 @@ from jomon.magic import SPELL_ROWS
 from jomon.production import RECIPES, SHORE_STATIONS, SITE_KEYS, SOURCES
 from jomon.quests import ADDITIONAL_ARCS, ARC_REGIONS, ARC_TITLE, FIELD_REPORT_RESPONSES, QUESTS, QUEST_REWARDS
 from jomon.situations import AFTERWORK_SAMPLES, SITUATIONS, validate_situations
+from jomon.skill_tree import BRANCHES, NODES, ROLE_ROOTS
 
 
 class CatalogTests(unittest.TestCase):
@@ -48,6 +49,9 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(quest_data["arc_regions"], {str(index): region for index, region in ARC_REGIONS.items()})
         self.assertEqual(quest_data["arc_title"], ARC_TITLE)
         self.assertEqual(quest_data["additional_arcs"], json.loads(json.dumps(ADDITIONAL_ARCS)))
+        skill_data = load_catalog("skills.json", ("branches", "role_roots"))
+        self.assertEqual(skill_data["branches"], json.loads(json.dumps(BRANCHES)))
+        self.assertEqual(skill_data["role_roots"], json.loads(json.dumps(ROLE_ROOTS)))
 
     def test_cross_catalog_references_remain_playable(self):
         validate_commodity_content()
@@ -60,3 +64,4 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(len(ENEMY_ARCHETYPES), 95)
         self.assertEqual(len(RECRUIT_TEMPLATES), 6)
         self.assertEqual(len(COMMODITIES), 8)
+        self.assertEqual(len(NODES), 60)

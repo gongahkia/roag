@@ -373,6 +373,11 @@ format-3, format-4 and format-5 paths chain through their
 prior migrations. Physical pack items are authoritative for finite ammunition
 and bottled drinks. Older room-graph and retired browser saves are rejected.
 
+Main-world authored catalogues now live in [`jomon/data/`](jomon/data/README.md).
+The JSON files cover people, goods, actors, situations, recipes, chemistry,
+quests, spells, and skills; Python retains their gameplay rules and generated
+derivations. The data guide records stable-ID and ordering constraints.
+
 ```console
 python -m jomon.checks fast
 python -m unittest discover -s tests -v
