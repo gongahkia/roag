@@ -56,6 +56,11 @@ SITUATIONS = (
 
 BY_ID = {row.id: row for row in SITUATIONS}
 BY_REGION_BAND = {(row.region_id, row.band): row for row in SITUATIONS}
+AFTERWORK_SAMPLES = {
+    "hearthford": "spring water", "greywash": "brine", "greenwold": "tree resin",
+    "whitecairn": "lime dust", "dunmire": "peat oil", "rillscar": "iron ore",
+    "marlbank": "clay", "frostmere": "frostwort",
+}
 
 
 def _key(row: Situation, part: str) -> str:
@@ -222,15 +227,28 @@ def inspect_lines(state: GameState, situation_id: str) -> list[str]:
     row, point = BY_ID[situation_id], site_point(state, BY_ID[situation_id])
     outcome = state.region.changes.get(_key(row, "outcome"))
     if outcome:
-        return [f"FACT {row.name} at {point.x},{point.y},z{point.z:+d} is changed.", f"Outcome: {outcome}.", f"Persistent consequence: {row.consequence}.", f"Revisit: {_condition(state)} now bears the chosen work.", "Inspection costs no time."]
+        afterwork = state.region.changes.get(_key(row, "afterwork"))
+        lines = [f"FACT {row.name} at {point.x},{point.y},z{point.z:+d} is changed.", f"Outcome: {outcome}.", f"Persistent consequence: {row.consequence}.", f"Revisit: {_condition(state)} now bears the chosen work."]
+        if afterwork:
+            lines.append(f"Afterwork: {afterwork}; this site's optional field work is finished.")
+        else:
+            lines.extend(("T. MAINTAIN — brace the changed site and strengthen the working account; two actions.", f"M. SAMPLE — take one physical {AFTERWORK_SAMPLES[row.region_id]} measure; one action. Choose only one."))
+        report = state.region.changes.get(_key(row, "report"))
+        lines.append(f"Local field report: {report or 'unfiled; return to the local worker to publish it or sell a private lead'}.")
+        return lines + ["Inspection costs no time."]
     return [f"VISIBLE {row.name} at {point.x},{point.y},z{point.z:+d}.", f"Groups: {row.groups[0]} and {row.groups[1]}.", f"Duty: {row.duty}.", f"Material: {row.material}.", f"Season/history: {state.region.changes.get(_key(row, 'condition'), _condition(state))}.", f"T. TOOL — {row.answers[0]}; two actions.", f"M. MATERIAL — {row.answers[1]}; spends rope or lamp oil; one action.", f"A. ACCOUNT — {row.answers[2]}; needs standing or cargo; one action.", "Each answer changes actors and another system. Failed choices cost no time."]
 
 
 def choices(state: GameState, situation_id: str) -> list[tuple[str, str, str, bool, str]]:
     row = BY_ID[situation_id]
-    if state.region.changes.get(_key(row, "resolved")) or state.region.changes.get("situation:active") != row.id:
-        return []
     tool = state.gear == "repair tools" or state.weapon in {"spade", "boat hook", "billhook", "hand axe", "felling axe", "war hammer", "cudgel"} or bool(state.courier and state.courier.technique == "lever craft")
+    if state.region.changes.get(_key(row, "resolved")):
+        if state.region.changes.get(_key(row, "afterwork")):
+            return []
+        return [("T", "Maintain the changed site and working account", "commitment", tool, "repair tools, working implement, or lever craft"),
+                ("M", f"Take one {AFTERWORK_SAMPLES[row.region_id]} sample", "commitment", True, "one free pack cell")]
+    if state.region.changes.get("situation:active") != row.id:
+        return []
     material = state.rope_uses > 0 or state.lamp_oil > 0
     account = state.contact.disposition >= 0 or bool(state.carried_goods.get(state.region.objective_commodity))
     return [("T", row.answers[0].title(), "commitment", tool, "repair tools, working implement, or lever craft"), ("M", row.answers[1].title(), "commitment", material, "one rope use or lamp-oil measure"), ("A", row.answers[2].title(), "commitment", account, "non-hostile standing or one relevant cargo lot")]
@@ -247,6 +265,32 @@ def resolve(state: GameState, situation_id: str, method: str) -> tuple[bool, str
     if not okay:
         return False, f"That answer needs {requirement}.", 0
     point = site_point(state, row)
+    if state.region.changes.get(_key(row, "resolved")):
+        from .materials import ensure_cell
+
+        if method == "m":
+            from .inventory import InventoryTransaction, auto_place, create_item
+
+            transaction = InventoryTransaction.begin(state)
+            sample = AFTERWORK_SAMPLES[row.region_id]
+            item = create_item(state, f"ingredient:{sample}", f"{row.name} afterwork sample")
+            if not auto_place(state, item.id, "pack", owner_id=state.active_courier_id):
+                transaction.cancel(state)
+                return False, "The physical sample needs a free pack cell; nothing changed.", 0
+            result, steps = f"sampled one {sample} measure", 1
+        else:
+            cell = ensure_cell(state, point)
+            if cell:
+                cell.support, cell.collapse_due = 3, 0
+                cell.fire, cell.smoke = 0, 0
+            account = state.institutions.get(f"work:{row.region_id}")
+            if account:
+                account.confidence = min(3, account.confidence + 1)
+            result, steps = "maintained the site and strengthened the working account", 2
+        state.region.changes[_key(row, "afterwork")] = "sample" if method == "m" else "maintenance"
+        record = f"{row.name}: {state.courier.name} {result} after the original work ({state.region.changes[_key(row, 'outcome')]})."
+        state.remember(record)
+        return True, record, steps
     from .materials import ensure_cell
     cell = ensure_cell(state, point)
     account = state.institutions.get(f"work:{row.region_id}")
@@ -317,6 +361,10 @@ def validate_situations() -> None:
             raise ValueError(f"{region} needs all pressure bands")
     if len({row.region_id for row in SITUATIONS}) != 8 or any(len(set(row.groups)) != 2 or not all((*row.answers, row.duty, row.material, row.consequence)) for row in SITUATIONS):
         raise ValueError("mixed situation content is incomplete")
+    from .production import SOURCES
+
+    if set(AFTERWORK_SAMPLES) != set(SOURCES) or any(sample not in SOURCES[region] for region, sample in AFTERWORK_SAMPLES.items()):
+        raise ValueError("afterwork samples need a regional physical source")
 
 
 def validate_situation_state(state: GameState) -> None:
@@ -325,6 +373,14 @@ def validate_situation_state(state: GameState) -> None:
         if active is not None and (active not in BY_ID or BY_ID[str(active)].region_id != region_id):
             raise ValueError("active situation does not belong to its region")
         for key_name, value in region.changes.items():
+            for part, valid in (("afterwork", {"sample", "maintenance"}), ("report", {"public", "private"})):
+                prefix = f"micro-site:{part}:"
+                if key_name.startswith(prefix):
+                    situation_id = key_name[len(prefix):]
+                    if (situation_id not in BY_ID or BY_ID[situation_id].region_id != region_id
+                            or not isinstance(value, str) or value not in valid
+                            or not region.changes.get(f"micro-site:resolved:{situation_id}")):
+                        raise ValueError("invalid changed-site follow-up")
             if not key_name.startswith("micro-site:point:"):
                 continue
             situation_id = key_name.split("micro-site:point:", 1)[1]

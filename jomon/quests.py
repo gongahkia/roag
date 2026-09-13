@@ -820,6 +820,26 @@ def resolve_arc_choice(state: GameState, choice: str) -> tuple[bool, str]:
     return True, message
 
 
+FIELD_REPORT_RESPONSES = {
+    "hearthford": ("The mill board posts the crossing under a shared load measure.", "A freight factor buys the crossing note before the public tally is made."),
+    "greywash": ("The salt-house ledger marks the safer shore margin for every crew.", "A salvage factor keeps the dry approach for a private fitting run."),
+    "greenwold": ("The medicine cutters add the refuge margin to their common route.", "A resin buyer reserves the changed trail ahead of the cutters."),
+    "whitecairn": ("The bell watch calls the stable step on its next public interval.", "A private carrier takes first passage over the marked step."),
+    "dunmire": ("The peat crews enter the raised margin in their shared bank account.", "A fuel runner buys the dry-bank measure before the crews hear it."),
+    "rillscar": ("The bridge witness marks the load limit for both banks.", "An iron factor buys the first safe crossing under a private account."),
+    "marlbank": ("The seed court records the changed water turn for all terraces.", "A kiln buyer reserves the altered release for one private firing."),
+    "frostmere": ("The pilots sound the changed braid aloud for the net crews.", "A freight pilot buys the first private sounding through the braid."),
+}
+
+
+def _pending_field_report(state: GameState):
+    from .situations import SITUATIONS
+
+    return next((row for row in SITUATIONS if row.region_id == state.active_region_id
+                 and state.region.changes.get(f"micro-site:resolved:{row.id}")
+                 and not state.region.changes.get(f"micro-site:report:{row.id}")), None)
+
+
 def secondary_service_options(
     state: GameState, contact_id: str | None = None
 ) -> tuple[tuple[str, str, str, bool, str], ...]:
@@ -837,6 +857,12 @@ def secondary_service_options(
         ("t", "Take local practical instruction", "ordinary", True, ""),
         ("h", "Treat one persistent injury", "commitment", injured, "the courier has no persistent injury"),
     ]
+    report = _pending_field_report(state)
+    report_name = report.name if report else "a changed regional site"
+    rows.extend((
+        ("p", f"Publish field report: {report_name}", "commitment", bool(report), "settle an unreported regional situation"),
+        ("r", f"Sell private field lead: {report_name}", "commitment", bool(report), "settle an unreported regional situation"),
+    ))
     from .worklines import WORKLINES
     if state.active_region_id in WORKLINES:
         rows.append(("w", "Discuss the second local undertaking", "ordinary", True, ""))
@@ -887,6 +913,32 @@ def use_secondary_service(
             return open_network_shelter(state, contact_id)
         return teach_network_practice(state, contact_id)
     contact = state.contacts[state.active_region_id][1]
+    if choice in {"p", "r"}:
+        report = _pending_field_report(state)
+        account = state.institutions.get(f"work:{state.active_region_id}")
+        if report is None or account is None:
+            return False, "A completed site and its working account are needed for a report."
+        outcome = state.region.changes.get(f"micro-site:outcome:{report.id}")
+        if not isinstance(outcome, str) or not outcome:
+            return False, "The changed site has no recorded outcome to report."
+        public = choice == "p"
+        state.region.changes[f"micro-site:report:{report.id}"] = "public" if public else "private"
+        if public:
+            account.trust = min(3, account.trust + 1)
+            account.confidence = min(3, account.confidence + 1)
+            contact.disposition = min(3, contact.disposition + 1)
+        else:
+            state.trade_credit += 2
+            account.obligation = min(9, account.obligation + 1)
+            contact.disposition = max(-3, contact.disposition - 1)
+        response = FIELD_REPORT_RESPONSES[state.active_region_id][0 if public else 1]
+        record = f"{contact.name} hears {report.name}: {outcome}. {response}"
+        contact.memories.append(record)
+        del contact.memories[:-8]
+        account.witnessed_acts.append(record)
+        del account.witnessed_acts[:-12]
+        state.remember(record)
+        return True, f"{record} {'Public trust and confidence are recorded.' if public else 'Two credits arrive; the account and local standing carry the cost.'}"
     if choice == "s":
         from .frontier_elites import settle_claimant
         return settle_claimant(state)
