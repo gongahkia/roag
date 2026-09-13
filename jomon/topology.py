@@ -90,7 +90,8 @@ def _ground(seed: str) -> tuple[list[list[str]], dict[str, Position], dict[str, 
     for y in range(HEIGHT):
         grid[y][0] = grid[y][-1] = "T"
     river = _carve_river(grid, seed)
-    landing = Position(river[10] + 3, 10)
+    landing_y = stage_rng(seed, "hearthford:landing").choice((10, 22, 38))
+    landing = Position(river[landing_y] + 3, landing_y)
     settlement = Position(24 + stage_rng(seed, "settlement-x").randrange(3), 12)
     mill = Position(78, 24)
     watch = Position(47, 12)
@@ -99,11 +100,16 @@ def _ground(seed: str) -> tuple[list[list[str]], dict[str, Position], dict[str, 
     # Quay, settlement buildings, and doors share outdoor coordinates.
     for x in range(river[10] + 1, settlement.x + 1):
         grid[10][x] = "="
-    grid[landing.y][landing.x] = "+"
     _rect(grid, settlement.x - 7, 6, settlement.x + 7, 18)
     grid[10][settlement.x - 7] = "+"
-    for x in range(landing.x, settlement.x - 7):
+    for x in range(river[10] + 3, settlement.x - 7):
         grid[10][x] = "="
+    if landing.y != 10:
+        approach = Position(settlement.x - 9, 10)
+        _road(grid, landing, Position(approach.x, landing.y), seed, "landing-bank")
+        _road(grid, Position(approach.x, landing.y), approach, seed, "landing-turn")
+        _road(grid, approach, Position(settlement.x - 7, 10), seed, "landing-door")
+        grid[10][settlement.x - 7] = "+"
     grid[landing.y][landing.x] = "+"
     grid[18][settlement.x] = "+"
     _rect(grid, settlement.x + 10, 8, settlement.x + 18, 15)
@@ -293,7 +299,7 @@ def _reachable(levels: dict[str, list[str]], links: list[VerticalLink], start: P
     return seen
 
 
-def build_region(seed: str) -> dict[str, object]:
+def build_region(seed: str, *, layout: str | None = None) -> dict[str, object]:
     ground, landmarks, zones = _ground(seed)
     other = _upper_levels()
     levels = {str(level): ["".join(row) for row in (ground if level == 0 else other[level])] for level in LEVELS}
@@ -307,7 +313,7 @@ def build_region(seed: str) -> dict[str, object]:
     if not required <= seen:
         raise RuntimeError("Hearthford generation failed required reachability")
     digest = hashlib.sha256(("|".join(levels["0"]) + repr(sorted((p.x, p.y, p.z) for p in required))).encode()).hexdigest()[:16]
-    return {
+    spatial = {
         "width": WIDTH,
         "height": HEIGHT,
         "levels": levels,
@@ -320,3 +326,11 @@ def build_region(seed: str) -> dict[str, object]:
         "seen": [],
         "geography_signature": digest,
     }
+    from .geography import orient_spatial
+
+    orient_spatial(spatial, seed, "hearthford", layout=layout)
+    mapped = set(spatial["landmarks"].values()) | {container.position for container in spatial["containers"]}
+    mapped.update(point for link in spatial["vertical_links"] for point in (link.first, link.second))
+    if not mapped <= _reachable(spatial["levels"], spatial["vertical_links"], spatial["landmarks"]["landing"]):
+        raise RuntimeError("Hearthford macro layout failed required reachability")
+    return spatial

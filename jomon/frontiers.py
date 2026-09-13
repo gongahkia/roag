@@ -34,7 +34,7 @@ FRONTIER_RELICS = {
 def _fen(seed, width, height):
     rng = stage_rng(seed, "dunmire:islands")
     ground = _grid(width, height, "~")
-    centres = [(14, 28), (29, 17), (49, 13), (71, 20), (82, 39), (57, 44), (31, 43), (51, 29)]
+    centres = [(14, rng.choice((14, 28, 41))), (29, 17), (49, 13), (71, 20), (82, 39), (57, 44), (31, 43), (51, 29)]
     centres = [(x + rng.randrange(-3, 4), y + rng.randrange(-3, 4)) for x, y in centres]
     for cx, cy in centres:
         rx, ry = rng.randrange(10, 15), rng.randrange(6, 10)
@@ -62,7 +62,7 @@ def _gorge(seed, width, height):
         for x in range(width):
             gap = abs(x - centre)
             ground[y][x] = "~" if gap < 3 else "q" if gap < 7 else "." if (x + y // 7) % 16 < 10 else "r"
-    points = [Position(12, 26), Position(29, 12), Position(57, 10), Position(91, 17), Position(95, 39), Position(66, 42), Position(32, 40)]
+    points = [Position(12, rng.choice((12, 26, 40))), Position(29, 12), Position(57, 10), Position(91, 17), Position(95, 39), Position(66, 42), Position(32, 40)]
     _road(ground, points + points[:1], seed, "rillscar:two-bridges")
     _road(ground, [points[1], points[6]], seed, "rillscar:western-shelf")
     return ground, points
@@ -78,7 +78,7 @@ def _terraces(seed, width, height):
             ground[y][x] = "," if terrace == 0 else "m" if terrace < 3 else ";" if terrace < 10 else "."
             if x > 65 and terrace == 11 and rng.randrange(6) == 0:
                 ground[y][x] = "T"
-    points = [Position(9, 30), Position(24, 17), Position(50, 11), Position(83, 19), Position(88, 43), Position(58, 49), Position(27, 44)]
+    points = [Position(9, rng.choice((15, 30, 46))), Position(24, 17), Position(50, 11), Position(83, 19), Position(88, 43), Position(58, 49), Position(27, 44)]
     _road(ground, points + points[:1], seed, "marlbank:field-circuit")
     _road(ground, [points[1], Position(45, 31), points[4]], seed, "marlbank:potter-road")
     return ground, points
@@ -95,7 +95,7 @@ def _estuary(seed, width, height):
             ground[y][x] = "~" if gap < 2 else "," if gap < 4 else "r" if gap < 6 else "."
             if gap > 7 and y % 11 == 4 and rng.randrange(4) == 0:
                 ground[y][x] = '"'
-    points = [Position(10, 29), Position(19, 13), Position(48, 10), Position(81, 15), Position(94, 42), Position(62, 47), Position(26, 43)]
+    points = [Position(10, rng.choice((12, 29, 44))), Position(19, 13), Position(48, 10), Position(81, 15), Position(94, 42), Position(62, 47), Position(26, 43)]
     _road(ground, points + points[:1], seed, "frostmere:paired-crossings")
     _road(ground, [points[2], Position(50, 28), points[5]], seed, "frostmere:gravel-spine")
     return ground, points
@@ -208,6 +208,12 @@ def build_frontier(seed: str, region_id: str) -> Region:
     region.materials[f"{scar.x},{scar.y},0"] = MaterialCell(material="timber", support=1)
     region.changes["old_flood_obligation"] = shortage
     region.changes["history_scar"] = f"{scar.x},{scar.y},0"
+    from .geography import orient_region
+
+    orient_region(region, seed)
+    from .discoveries import install_discoveries
+
+    install_discoveries(region, seed)
     validate_region(region)
     return region
 

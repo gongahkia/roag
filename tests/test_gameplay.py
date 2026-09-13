@@ -28,6 +28,7 @@ from jomon.actions import (
 from jomon.content import COMMODITIES, GEAR, PASSIVES, SUPPORTS, WEAPONS
 from jomon.save import SaveError, load_game, save_game
 from jomon.state import CommodityStack, Position, SAVE_FORMAT, Threat, create_world
+from jomon.geography import layout_point
 from jomon.world import JOMON_GANGPLANK, build_combinations, pressure
 
 
@@ -172,10 +173,10 @@ class TimeAndBuildTests(unittest.TestCase):
 
     def test_action_consequence_follows_same_turn_threat_intents(self):
         state = prepared("visible floor fall", weapon="hand axe")
-        state.position = Position(78, 22, 1)
+        state.position = layout_point(state.region, Position(78, 22, 1))
         result = interact(state)
         self.assertTrue(result.time_advanced)
-        self.assertEqual(state.position, Position(78, 22, 0))
+        self.assertEqual(state.position, layout_point(state.region, Position(78, 22, 0)))
         self.assertIn("marked floor breaks", state.messages[-1])
 
 
@@ -238,14 +239,14 @@ class WeaponAndThreatTests(unittest.TestCase):
 
     def test_mill_tooth_wedge_enables_only_cudgel_breach(self):
         state = prepared("wedge staff", weapon="staff")
-        state.position = Position(78, 22, 1)
+        state.position = layout_point(state.region, Position(78, 22, 1))
         state.carried_passives = {"mill-tooth wedge": 1}
         self.assertFalse(interact(state).time_advanced)
         self.assertEqual(state.position.z, 1)
 
         state = prepared("wedge cudgel", weapon="cudgel")
         quiet(state)
-        state.position = Position(78, 22, 1)
+        state.position = layout_point(state.region, Position(78, 22, 1))
         state.carried_passives = {"mill-tooth wedge": 1}
         self.assertTrue(interact(state).time_advanced)
         self.assertEqual(state.position.z, 0)
@@ -301,10 +302,11 @@ class WeaponAndThreatTests(unittest.TestCase):
         state = prepared("mud evade")
         quiet(state)
         animal = Threat(
-            "boar", "reed boar", "animal", Position(54, 38), 5, 5,
+            "boar", "reed boar", "animal", layout_point(state.region, Position(54, 38)), 5, 5,
             status="engaged", intent="lowers its head and charges next turn"
         )
-        state.position, state.threats = Position(54, 39, 0), [animal]
+        state.position, state.threats = layout_point(state.region, Position(54, 39, 0)), [animal]
+        state.region.tile_changes[f"{state.position.x},{state.position.y},0"] = "m"
         _advance_world(state)
         self.assertEqual(animal.status, "evaded")
 
@@ -401,7 +403,7 @@ class PersistenceAndDefeatTests(unittest.TestCase):
         state.carried_goods["paper"] = CommodityStack(1, "dry")
         state.carried_passives["echo bead"] = 1
         state.courier.health = 2
-        result = apply_damage(state, 3, "The bolt")
+        result = apply_damage(state, 8, "The bolt")
         self.assertEqual(state.location, "jomon")
         self.assertEqual(state.courier.injury, "deep cut")
         self.assertFalse(state.carried_passives)

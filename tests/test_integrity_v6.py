@@ -24,6 +24,7 @@ from jomon.inventory import (
 )
 from jomon.regions import activate_region, reconstruct_regional_process
 from jomon.state import Position, SAVE_FORMAT, Threat, create_world, game_state_from_dict
+from jomon.geography import layout_point
 from jomon.world import JOMON_GANGPLANK
 
 
@@ -147,14 +148,16 @@ class PhysicalStateIntegrityTests(unittest.TestCase):
         state.region.process_stage = 2
         state.water.clear()
         reconstruct_regional_process(state)
-        self.assertIn("76,40,0", state.water)
+        greywash_point = layout_point(state.region, Position(76, 40))
+        self.assertIn(f"{greywash_point.x},{greywash_point.y},0", state.water)
         activate_region(state, "greenwold")
         state.region.process_stage = 2
         state.smoke.clear()
         reconstruct_regional_process(state)
-        self.assertIn("80,39,1", state.smoke)
+        greenwold_point = layout_point(state.region, Position(80, 39, 1))
+        self.assertIn(f"{greenwold_point.x},{greenwold_point.y},1", state.smoke)
         restored = game_state_from_dict(state.to_dict())
-        self.assertIn("80,39,1", restored.smoke)
+        self.assertIn(f"{greenwold_point.x},{greenwold_point.y},1", restored.smoke)
 
     def test_physical_ammunition_is_the_only_finite_authority(self):
         state = create_world("physical arrows")
@@ -224,7 +227,7 @@ class PhysicalStateIntegrityTests(unittest.TestCase):
         self.assertEqual(set(first.questlines), set(first.regions))
         self.assertEqual(
             {region_id: len(region.containers) for region_id, region in first.regions.items()},
-            {"hearthford": 9, "greywash": 7, "greenwold": 7, "whitecairn": 7},
+            {"hearthford": 11, "greywash": 9, "greenwold": 9, "whitecairn": 9},
         )
 
 

@@ -702,7 +702,9 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
         if threat.turn % 2:
             threat.intent = "hauls the tide chain; the three marked flats flood next turn"
             return f"The {threat.name} {threat.intent}."
-        points = (Position(88, 28), Position(89, 28), Position(90, 28))
+        from .geography import layout_point
+
+        points = tuple(layout_point(state.region, point) for point in (Position(88, 28), Position(89, 28), Position(90, 28)))
         state.water.update({position_key(point): 8 for point in points})
         if state.position in points and not guarded:
             return apply_damage(state, 3, "The hauled tide chain and current", damage_kind="blunt")
@@ -1105,7 +1107,9 @@ def _weather_and_deadline(state: GameState) -> list[str]:
                 messages.append("White lines advance over the flats: the working tide has turned.")
             elif next_stage == 2:
                 if not state.region.changes.get("tide_held"):
-                    for point in (Position(76, 40), Position(77, 40), Position(78, 40)):
+                    from .geography import layout_point
+
+                    for point in (layout_point(state.region, point) for point in (Position(76, 40), Position(77, 40), Position(78, 40))):
                         state.water[position_key(point)] = 99
                     messages.append("The tide covers the low wreck road; the dune road and chain walk remain.")
                 else:
@@ -1120,7 +1124,9 @@ def _weather_and_deadline(state: GameState) -> list[str]:
                     state.region.changes.get("burn_redirected")
                     or state.region.changes.get("medicine_coppice_saved")
                 ):
-                    for point in (Position(79, 39), Position(80, 39), Position(80, 39, 1)):
+                    from .geography import layout_point
+
+                    for point in (layout_point(state.region, point) for point in (Position(79, 39), Position(80, 39), Position(80, 39, 1))):
                         state.smoke[position_key(point)] = 12
                     messages.append("The shifting wind carries smoke into the raised burnworks and level above.")
                 else:
@@ -1135,7 +1141,9 @@ def _weather_and_deadline(state: GameState) -> list[str]:
                     state.region.changes.get("quarry_braced")
                     or state.region.changes.get("honest_bell")
                 ):
-                    for point in (Position(55, 36), Position(56, 36), Position(57, 36)):
+                    from .geography import layout_point
+
+                    for point in (layout_point(state.region, point) for point in (Position(55, 36), Position(56, 36), Position(57, 36))):
                         state.region.tile_changes[position_key(point)] = "%"
                     messages.append("A bounded rockfall covers the direct quarry stair; the sink loop remains open.")
                 else:
@@ -1451,6 +1459,10 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         if "hearth-ale" in state.drink_effects:
             state.noise += 1
     messages: list[str] = []
+    if state.location == "region":
+        from .discoveries import reveal_nearby
+
+        messages.extend(reveal_nearby(state))
     if kept_roof_aim:
         messages.append("The trained moving volley holds the bow lane through a safe step."
                         if state.courier and "moving-volley" in state.courier.skill_nodes
@@ -1856,11 +1868,13 @@ def _control_interaction(state: GameState) -> ActionResult:
         record_environmental_control(state)
         return _time_result(state, " ".join([text, *sounds]), priority=3)
     state.flood_control = "lowered" if state.flood_control == "raised" else "raised"
-    points = [
+    from .geography import layout_point
+
+    points = [layout_point(state.region, point) for point in [
         Position(58, 42, -1),
         Position(58, 42, 0),
         Position(78, 22, 0),
-    ]
+    ]]
     if state.flood_control == "lowered":
         state.water = {position_key(point): 99 for point in points}
     else:

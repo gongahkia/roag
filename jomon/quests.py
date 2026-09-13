@@ -218,7 +218,7 @@ def mark_elevated_lead(state: GameState) -> bool:
     candidate = next(
         (
             container for container in reversed(state.region.containers)
-            if not container.opened
+            if not container.opened and (not container.hidden or container.discovered)
             and container.id not in state.treasure_marks[state.active_region_id]
         ),
         None,

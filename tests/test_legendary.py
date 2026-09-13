@@ -28,7 +28,7 @@ class LegendaryObjectTests(unittest.TestCase):
         state.location = "region"
         state.threats.clear()
         state.region_threats[region_id] = state.threats
-        cache = state.region.containers[-1]
+        cache = next(box for box in reversed(state.region.containers) if not box.hidden)
         cache.requirement = None
         state.position = cache.position
         state.auto_place_enabled = False
@@ -49,10 +49,11 @@ class LegendaryObjectTests(unittest.TestCase):
         self.assertEqual(self.state.to_dict(), create_expanded("finite working legends").to_dict())
         for region_id, region in self.state.regions.items():
             legend = self.state.legendary_objects[f"legend:{region_id}"]
-            self.assertEqual(region.containers[-1].legendary_id, legend.id)
+            cache = next(box for box in reversed(region.containers) if not box.hidden)
+            self.assertEqual(cache.legendary_id, legend.id)
             self.assertIn(legend.historical_event_id, {event.id for event in region.regional_history})
             self.assertIn(legend.maker, legend.provenance)
-            self.assertIn(region.containers[-1].id, legend.clue)
+            self.assertIn(cache.id, legend.clue)
             self.assertGreaterEqual(len(legend.tags), 2)
 
     def test_recovery_creates_one_named_physical_object_with_inspectable_tradeoff(self):

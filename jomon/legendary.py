@@ -26,7 +26,7 @@ def initialise_region_legend(state: GameState, region_id: str) -> None:
     if not region.regional_history:
         return
     legend_id = f"legend:{region_id}"
-    cache = region.containers[-1]
+    cache = next(container for container in reversed(region.containers) if not container.hidden)
     cache.legendary_id = legend_id
     if legend_id in state.legendary_objects:
         return

@@ -73,7 +73,7 @@ class WorkingClothingTests(unittest.TestCase):
             first = build_frontier("clothing sources", region_id)
             second = build_frontier("clothing sources", region_id)
             self.assertEqual(first.containers, second.containers)
-            stock = {c.extra_rewards[0] for c in first.containers}
+            stock = {c.extra_rewards[0] for c in first.containers if c.extra_rewards}
             self.assertEqual(stock, set(kinds))
             found |= stock
         self.assertEqual(found, set().union(*map(set, REGIONAL_ARMOUR.values())))

@@ -105,6 +105,7 @@ def navigation_targets(state: GameState) -> tuple[NavigationTarget, ...]:
     for container in sorted(state.region.containers, key=lambda item: item.id):
         if (
             container.position == state.position
+            or (container.hidden and not container.discovered and container.id not in marks)
             or container.position in occupied
             or (container.position not in known and container.id not in marks)
         ):
@@ -319,4 +320,3 @@ def advance_route(state: GameState, plan: RoutePlan, index: int) -> RouteAdvance
     if any(origin not in {expected, next_position} for origin, _ in new_sounds):
         return RouteAdvance(next_index, False, "A new sound away from the route interrupts travel.", True)
     return RouteAdvance(next_index, False, "", True)
-

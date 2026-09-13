@@ -126,7 +126,7 @@ def displayed_tile(state: GameState, position: Position) -> str:
     if state.location == "jomon" and tile == "s" and state.merchant_present:
         return ENTITY_GLYPHS["merchant"]
     container = next((item for item in state.region.containers if item.position == position), None) if state.location == "region" else None
-    if container:
+    if container and (not container.hidden or container.discovered):
         return ENTITY_GLYPHS["container_open"] if container.opened else ENTITY_GLYPHS["container_closed"]
     if position_key(position) in state.smoke:
         return ENTITY_GLYPHS["smoke"]

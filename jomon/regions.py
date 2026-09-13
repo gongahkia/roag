@@ -183,7 +183,7 @@ def _signature(levels: dict[str, list[str]], landmarks: dict[str, Position]) -> 
     return hashlib.sha256(material.encode()).hexdigest()[:16]
 
 
-def build_greywash(seed: str) -> Region:
+def build_greywash(seed: str, *, layout: str | None = None) -> Region:
     """Constrained shoreline carving with three tide-parallel route bands."""
     width, height = 104, 56
     ground = _grid(width, height, ".")
@@ -204,7 +204,7 @@ def build_greywash(seed: str) -> Region:
         if x % 3:
             ground[dune_y + 1][x] = "r"
 
-    landing, settlement = Position(4, 27), Position(20, 26)
+    landing, settlement = Position(4, stage_rng(seed, "greywash:landing").choice((20, 27, 35))), Position(20, 26)
     saltworks, dunes = Position(38, 34), Position(59, 17)
     wreck, chain = Position(76, 40), Position(90, 28)
     cave = Position(83, 43)
@@ -299,11 +299,18 @@ def build_greywash(seed: str) -> Region:
         id="greywash", name="Greywash Tidal Reach", process_name="working tide",
         process_thresholds=[28, 55, 82],
     )
+    from .geography import orient_region
+
+    orient_region(region, seed, layout=layout)
+    if layout is None:
+        from .discoveries import install_discoveries
+
+        install_discoveries(region, seed)
     validate_region(region)
     return region
 
 
-def build_greenwold(seed: str) -> Region:
+def build_greenwold(seed: str, *, layout: str | None = None) -> Region:
     """Smoothed tree clusters leave open woodland and interconnected clearings."""
     width, height = 100, 58
     rng = stage_rng(seed, "greenwold:canopy")
@@ -319,7 +326,7 @@ def build_greenwold(seed: str) -> Region:
     for x in range(1, width - 1):
         y = creek_y + ((x // 11) % 3) - 1
         ground[y][x] = "~"
-    landing, village = Position(4, 27), Position(20, 25)
+    landing, village = Position(4, stage_rng(seed, "greenwold:landing").choice((15, 27, 43))), Position(20, 25)
     clearing, resin, burn = Position(48, 27), Position(75, 16), Position(80, 39)
     root, watch = Position(55, 47), Position(64, 10)
     _road(ground, [landing, village, clearing, resin], seed, "greenwold:north-trail")
@@ -436,11 +443,18 @@ def build_greenwold(seed: str) -> Region:
         id="greenwold", name="Greenwold Charcoal March", process_name="shifting burn wind",
         process_thresholds=[32, 62, 92],
     )
+    from .geography import orient_region
+
+    orient_region(region, seed, layout=layout)
+    if layout is None:
+        from .discoveries import install_discoveries
+
+        install_discoveries(region, seed)
     validate_region(region)
     return region
 
 
-def build_whitecairn(seed: str) -> Region:
+def build_whitecairn(seed: str, *, layout: str | None = None) -> Region:
     """Terrace bands and seeded switchbacks emphasize exposed vertical routes."""
     width, height = 98, 60
     ground = _grid(width, height, ".")
@@ -455,7 +469,7 @@ def build_whitecairn(seed: str) -> Region:
                 ground[y + 1][x] = "r"
             if x % 7 == 0:
                 ground[y][x] = "q"
-    landing, village = Position(4, 51), Position(19, 48)
+    landing, village = Position(4, stage_rng(seed, "whitecairn:landing").choice((17, 35, 51))), Position(19, 48)
     quarry, kiln = Position(57, 36), Position(73, 46)
     tower, sink = Position(83, 18), Position(55, 52)
     _road(ground, [landing, village, Position(36, 49), kiln], seed, "whitecairn:lower-road")
@@ -545,6 +559,13 @@ def build_whitecairn(seed: str) -> Region:
         id="whitecairn", name="Whitecairn Limestone Rise", process_name="quarry instability",
         process_thresholds=[30, 60, 88],
     )
+    from .geography import orient_region
+
+    orient_region(region, seed, layout=layout)
+    if layout is None:
+        from .discoveries import install_discoveries
+
+        install_discoveries(region, seed)
     validate_region(region)
     return region
 
@@ -567,6 +588,8 @@ def _contacts(seed: str, region: Region) -> list[Contact]:
 
 
 def _threats(region: Region, seed: str) -> list[Threat]:
+    from .geography import layout_point
+
     placements = {
         "greywash": [
             Position(58, 17), Position(62, 17), Position(74, 39),
@@ -581,6 +604,7 @@ def _threats(region: Region, seed: str) -> list[Threat]:
             Position(46, 39), Position(72, 46), Position(66, 52, -1),
         ],
     }[region.id]
+    placements = [layout_point(region, point) for point in placements]
     reachable = region_reachable(region)
     threats: list[Threat] = []
     groups = production_encounter_groups(seed, region.id)
@@ -608,7 +632,7 @@ def _threats(region: Region, seed: str) -> list[Threat]:
         "greenwold": Position(83, 39, 1),
         "whitecairn": Position(84, 16, 1),
     }
-    elite_position = elite_positions[region.id]
+    elite_position = layout_point(region, elite_positions[region.id])
     if elite_position not in reachable:
         elite_position = min(
             (point for point in reachable if point.z == elite_position.z),
@@ -651,11 +675,15 @@ def add_format_six_containers(state) -> None:
     """Add only new caches to a format-5 map without resetting prior state."""
     from .topology import build_region
 
+    layouts = {
+        region_id: state.regions[region_id].changes.get("macro_layout", "original")
+        for region_id in ("hearthford", "greywash", "greenwold", "whitecairn")
+    }
     generated = {
-        "hearthford": build_region(state.seed)["containers"],
-        "greywash": build_greywash(state.seed).containers,
-        "greenwold": build_greenwold(state.seed).containers,
-        "whitecairn": build_whitecairn(state.seed).containers,
+        "hearthford": build_region(state.seed, layout=layouts["hearthford"])["containers"],
+        "greywash": build_greywash(state.seed, layout=layouts["greywash"]).containers,
+        "greenwold": build_greenwold(state.seed, layout=layouts["greenwold"]).containers,
+        "whitecairn": build_whitecairn(state.seed, layout=layouts["whitecairn"]).containers,
     }
     added_ids = {
         "hearthford": {"compact"},
@@ -686,9 +714,12 @@ def store_active_region(state) -> None:
 
 def reconstruct_regional_process(state) -> None:
     """Reapply persisted process geometry after travel, load, or departure."""
+    from .geography import layout_point
+
     if state.active_region_id == "greywash":
         if state.region.process_stage >= 2 and not state.region.changes.get("tide_held"):
             for point in (Position(76, 40), Position(77, 40), Position(78, 40)):
+                point = layout_point(state.region, point)
                 state.water[f"{point.x},{point.y},{point.z}"] = 99
     elif state.active_region_id == "greenwold":
         if (
@@ -697,6 +728,7 @@ def reconstruct_regional_process(state) -> None:
             and not state.region.changes.get("medicine_coppice_saved")
         ):
             for point in (Position(79, 39), Position(80, 39), Position(80, 39, 1)):
+                point = layout_point(state.region, point)
                 state.smoke[f"{point.x},{point.y},{point.z}"] = 12
     elif (
         state.active_region_id == "whitecairn"
@@ -705,9 +737,11 @@ def reconstruct_regional_process(state) -> None:
         and not state.region.changes.get("honest_bell")
     ):
         for point in (Position(55, 36), Position(56, 36), Position(57, 36)):
+            point = layout_point(state.region, point)
             state.region.tile_changes.setdefault(f"{point.x},{point.y},{point.z}", "%")
     elif state.flood_control == "lowered":
         for point in (Position(58, 42, -1), Position(58, 42), Position(78, 22)):
+            point = layout_point(state.region, point)
             state.water[f"{point.x},{point.y},{point.z}"] = 99
 
 

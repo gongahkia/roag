@@ -13,6 +13,7 @@ from jomon.actions import (
     use_gear,
 )
 from jomon.state import Position, create_world
+from jomon.geography import layout_point
 from jomon.world import (
     JOMON_GANGPLANK,
     camera_origin,
@@ -121,12 +122,12 @@ class VisibilityAndVerticalTests(unittest.TestCase):
 
     def test_cross_level_sight_and_attack_through_ladder(self):
         state = prepared(weapon="spear")
-        state.position = Position(47, 10, 1)
+        state.position = layout_point(state.region, Position(47, 10, 1))
         target = next(threat for threat in state.threats if threat.id == "tower-bow")
-        self.assertEqual(target.position, Position(47, 10, 2))
+        self.assertEqual(target.position, layout_point(state.region, Position(47, 10, 2)))
         blocked = interact(state)
         self.assertFalse(blocked.time_advanced)
-        self.assertEqual(state.position, Position(47, 10, 1))
+        self.assertEqual(state.position, layout_point(state.region, Position(47, 10, 1)))
         target.status, target.health = "engaged", 5
         self.assertTrue(line_of_sight(state, state.position, target.position))
         result = attack(state)
@@ -135,31 +136,31 @@ class VisibilityAndVerticalTests(unittest.TestCase):
 
     def test_destroyed_floor_causes_fall_and_persists(self):
         state = prepared(weapon="hand axe")
-        state.position = Position(78, 22, 1)
+        state.position = layout_point(state.region, Position(78, 22, 1))
         for threat in state.threats:
             threat.status = "defeated"
         health = state.courier.health
         result = interact(state)
         self.assertTrue(result.time_advanced)
-        self.assertEqual(state.position, Position(78, 22, 0))
-        self.assertEqual(state.region.tile_changes["78,22,1"], "O")
+        self.assertEqual(state.position, layout_point(state.region, Position(78, 22, 0)))
+        self.assertEqual(state.region.tile_changes[position_key(layout_point(state.region, Position(78, 22, 1)))], "O")
         self.assertLess(state.courier.health, health)
 
     def test_smoke_sound_and_water_cross_levels_boundedly(self):
         state = prepared(gear="smoke pot")
         state.smoke_charges = 1
-        state.position = Position(78, 22, 0)
-        state.region.tile_changes["78,22,1"] = "O"
+        state.position = layout_point(state.region, Position(78, 22, 0))
+        state.region.tile_changes[position_key(layout_point(state.region, Position(78, 22, 1)))] = "O"
         use_gear(state)
-        self.assertIn("78,22,0", state.smoke)
-        self.assertIn("78,22,1", state.smoke)
+        self.assertIn(position_key(layout_point(state.region, Position(78, 22, 0))), state.smoke)
+        self.assertIn(position_key(layout_point(state.region, Position(78, 22, 1))), state.smoke)
         watcher = next(threat for threat in state.threats if threat.profile == "ranged")
-        watcher.position, watcher.status = Position(78, 22, 1), "watching"
+        watcher.position, watcher.status = layout_point(state.region, Position(78, 22, 1)), "watching"
         emit_sound(state, 2)
         self.assertEqual(watcher.status, "engaged")
-        state.position = Position(82, 42, -1)
+        state.position = layout_point(state.region, Position(82, 42, -1))
         interact(state)
-        self.assertTrue({"58,42,-1", "58,42,0"} <= set(state.water))
+        self.assertTrue({position_key(layout_point(state.region, point)) for point in (Position(58, 42, -1), Position(58, 42, 0))} <= set(state.water))
         self.assertLessEqual(len(state.water), 3)
 
 

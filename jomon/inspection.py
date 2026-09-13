@@ -150,7 +150,10 @@ def inspect_lines(state: GameState, point: Position) -> list[str]:
             lines.extend(forecast_lines(forecast))
     if state.location == "region":
         container = next((row for row in state.region.containers if row.position == point), None)
-        if container:
+        if container and container.hidden and not container.discovered:
+            if max(abs(point.x - state.position.x), abs(point.y - state.position.y)) <= 3:
+                lines.append(f"TRACE: {container.clue}; approach to resolve the buried cache.")
+        elif container:
             lines.append(f"FACT: {container.name}; {'opened' if container.opened else 'closed'} physical store. E from beside it inspects or transfers contents.")
     ground = [
         item for item in state.items

@@ -249,7 +249,7 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
     }
     contacts = state.contacts[region_id]
     witness = contacts[-1]
-    cache = region.containers[-1]
+    cache = next(container for container in reversed(region.containers) if not container.hidden)
     landmark = next((key for key in ("ruin", "works", "mill", "objective") if key in region.landmarks), "objective")
     point = region.landmarks[landmark]
     protected = set(region.landmarks.values()) | {c.position for c in region.containers}

@@ -279,7 +279,7 @@ class SemanticColourTests(unittest.TestCase):
         self.assertIn(threat.position, visible_threats(state, visible))
         old = threat.position
         threat.position = Position(80, 40, 0)
-        state.position = Position(70, 40, 0)
+        state.position = Position(5, 5, 0)
         current = field_of_view(state)
         self.assertNotIn(old, visible_threats(state, current))
         self.assertNotIn(threat.position, visible_threats(state, current))

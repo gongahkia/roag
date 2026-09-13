@@ -134,6 +134,9 @@ class Container:
     item_ids: list[str] = field(default_factory=list)
     extra_rewards: list[str] = field(default_factory=list)
     legendary_id: str | None = None
+    hidden: bool = False
+    discovered: bool = True
+    clue: str = ""
 
 
 @dataclass
@@ -637,6 +640,7 @@ def _household(seed: str) -> list[Person]:
 
 def _threats(seed: str, region: Region) -> list[Threat]:
     from .encounters import threat_from_archetype
+    from .geography import layout_point
     from .regions import region_reachable
 
     alternate_elite = stage_rng(seed, "hearthford-elite-variant").randrange(2) == 1
@@ -644,8 +648,9 @@ def _threats(seed: str, region: Region) -> list[Threat]:
         Position(x, y)
         for y in range(19, 31)
         for x in range(28, 64)
-        if region.levels["0"][y][x] == "="
+        if region.levels["0"][layout_point(region, Position(x, y)).y][layout_point(region, Position(x, y)).x] == "="
     ]
+    road_points = [layout_point(region, point) for point in road_points]
     stride = max(1, len(road_points) // 8)
     patrol = road_points[::stride][:8]
     if len(patrol) < 2:
@@ -661,20 +666,20 @@ def _threats(seed: str, region: Region) -> list[Threat]:
 
     road = standard("hearth-bank-lookout", "road-patrol", patrol[0], 5, "road-watch")
     road.patrol = patrol
-    boar = standard("hearth-reed-boar", "reed-boar", Position(54, 38), 5, "reed-wallow")
-    roof = standard("hearth-roof-keeper", "tower-bow", Position(47, 10, 2), 4, "road-watch")
+    boar = standard("hearth-reed-boar", "reed-boar", layout_point(region, Position(54, 38)), 5, "reed-wallow")
+    roof = standard("hearth-roof-keeper", "tower-bow", layout_point(region, Position(47, 10, 2)), 4, "road-watch")
     roof.ammunition = 5
-    levy = standard("hearth-mill-protector", "mill-spear", Position(74, 24), 5, "mill-levy")
-    gantry = standard("hearth-gantry-suppressor", "gantry-bow", Position(80, 20, 1), 4, "mill-levy")
+    levy = standard("hearth-mill-protector", "mill-spear", layout_point(region, Position(74, 24)), 5, "mill-levy")
+    gantry = standard("hearth-gantry-suppressor", "gantry-bow", layout_point(region, Position(80, 20, 1)), 4, "mill-levy")
     gantry.ammunition = 7
-    reavers = standard("hearth-cargo-reaver", "pressure-reavers", Position(58, 28), 6, "reavers", status="dormant")
+    reavers = standard("hearth-cargo-reaver", "pressure-reavers", layout_point(region, Position(58, 28)), 6, "reavers", status="dormant")
     expanded_key = stage_rng(seed, "hearthford-expanded-role").choice((
         "hearth-sluice-runner", "hearth-rope-cutter", "hearth-meadow-kite",
     ))
     expanded = standard(
         expanded_key,
         f"hearthford-expanded:{expanded_key}",
-        Position(63, 39),
+        layout_point(region, Position(63, 39)),
         4,
         "aftermath-road",
     )
@@ -683,7 +688,7 @@ def _threats(seed: str, region: Region) -> list[Threat]:
         Threat(
             "floodgate-claimant" if alternate_elite else "wheel-train",
             "floodgate claimant" if alternate_elite else "runaway crown wheel",
-            "reach" if alternate_elite else "machinery", Position(82, 27), 7, 7,
+            "reach" if alternate_elite else "machinery", layout_point(region, Position(82, 27)), 7, 7,
             status="dormant", morale=4 if alternate_elite else 99, elite=True,
             role="elite" if alternate_elite else "hazard",
             goal="open disputed sluice" if alternate_elite else "deny lane",
@@ -730,12 +735,16 @@ def _region(seed: str) -> tuple[Region, Contact]:
         disposition=contact_rng.choice((-1, 0, 1)), memories=[], interest=context["commodity"],
         region_id="hearthford", position=spatial["landmarks"]["contact"],
     )
-    return Region(
+    region = Region(
         condition=context["condition"], work=context["work"], pressure=context["pressure"],
         objective_text=context["objective"], objective_commodity=context["commodity"],
         opportunity_commodity=context["opportunity"], hazard=context["hazard"],
         **spatial,
-    ), contact
+    )
+    from .discoveries import install_discoveries
+
+    install_discoveries(region, seed)
+    return region, contact
 
 
 def create_world(seed: str) -> GameState:
