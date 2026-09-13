@@ -94,6 +94,10 @@ SCHEDULE_WORK_POSITIONS: dict[tuple[str, Position], Position] = {
 def vessel_rows(state: GameState, z: int | None = None) -> tuple[str, ...]:
     if state.jomon_space == "tavern":
         return TAVERN_MAP
+    if state.jomon_space == "harbour":
+        from .vehicles import harbour_rows
+
+        return harbour_rows(state.seed)
     level = state.position.z if z is None else z
     original = VESSEL_LEVELS[level]
     if not state.vessel_tiles:
@@ -107,7 +111,12 @@ def vessel_rows(state: GameState, z: int | None = None) -> tuple[str, ...]:
 
 
 def vessel_tile(state: GameState, position: Position) -> str:
-    rows = TAVERN_MAP if state.jomon_space == "tavern" else VESSEL_LEVELS.get(position.z, ())
+    if state.jomon_space == "harbour":
+        from .vehicles import harbour_rows
+
+        rows = harbour_rows(state.seed)
+    else:
+        rows = TAVERN_MAP if state.jomon_space == "tavern" else VESSEL_LEVELS.get(position.z, ())
     if not 0 <= position.y < len(rows) or not 0 <= position.x < len(rows[position.y]):
         return " "
     return state.vessel_tiles.get(f"{position.x},{position.y},{position.z}", rows[position.y][position.x]) if state.jomon_space == "vessel" else rows[position.y][position.x]
@@ -318,6 +327,8 @@ def current_area(state: GameState) -> str:
         return f"region:{state.active_region_id}"
     if state.jomon_space == "tavern":
         return "tavern"
+    if state.jomon_space == "harbour":
+        return "harbour"
     return f"vessel:{state.position.z}"
 
 

@@ -1261,6 +1261,9 @@ def _advance_world(
                 state.add_message(message, priority=3)
         from .frontier_elites import record_outcomes
         record_outcomes(state)
+    if state.active_vehicle_id and state.vehicles[state.active_vehicle_id].position != state.position:
+        state.active_vehicle_id = None
+        state.add_message("You are separated from the vehicle; it remains at its last position.", priority=3)
     if state.location == "region":
         field_of_view(state)
         new_band = pressure(state).band
@@ -1290,8 +1293,13 @@ def _time_result(
 
 
 def depart(state: GameState) -> ActionResult:
-    if state.location != "jomon" or state.position != JOMON_GANGPLANK:
-        return _plain(state, "Departure requires Jomon's gangplank.")
+    from .vehicles import SHORE_DOCK
+
+    by_tug = state.jomon_space == "harbour" and state.position == SHORE_DOCK and state.active_vehicle_id == "tug"
+    if state.location != "jomon" or not (by_tug or state.jomon_space == "vessel" and state.position == JOMON_GANGPLANK):
+        return _plain(state, "Departure requires Jomon's gangplank or the tug's shore mooring.")
+    if state.returning_by_tug:
+        return _plain(state, "Bring the returning tug back to Jomon before starting another expedition.")
     if state.voyage_status == "active":
         return ActionResult(False, False, "Jomon is still on passage; resolve the voyage before landing.", "voyage")
     if state.courier is None or not state.courier.alive:
@@ -1304,6 +1312,9 @@ def depart(state: GameState) -> ActionResult:
     route_node = state.route_nodes.get(state.route_current_node)
     if route_node is None or route_node.region_id != state.active_region_id:
         return ActionResult(False, False, "This is a bounded route stop, not a regional expedition landing.", "route-stop")
+    state.expedition_by_tug = by_tug
+    if by_tug:
+        state.active_vehicle_id = None
     state.location, state.current_room = "region", state.active_region_id
     state.position = state.region.landmarks["landing"]
     state.expedition_count += 1
@@ -1332,9 +1343,10 @@ def depart(state: GameState) -> ActionResult:
     state.remember(
         f"Expedition {state.expedition_count}: {state.courier.name} crossed into {state.region.name}."
     )
+    route_phrase = "moor the tug and step ashore" if by_tug else "cross Jomon's gangplank"
     return _time_result(
         state,
-        f"You cross Jomon's gangplank into {state.region.name}; the region extends beyond the viewport.",
+        f"You {route_phrase} into {state.region.name}; the region extends beyond the viewport.",
         priority=3,
     )
 
@@ -1376,6 +1388,10 @@ def _fall(state: GameState) -> str:
 def move(state: GameState, dx: int, dy: int) -> ActionResult:
     if state.world_ended or (dx == 0 and dy == 0):
         return _plain(state, "No action is possible.")
+    if state.active_vehicle_id:
+        from .vehicles import navigate
+
+        return navigate(state, dx, dy)
     target = Position(
         state.position.x + dx, state.position.y + dy, state.position.z
     )
@@ -1922,6 +1938,25 @@ def _destroy_floor(state: GameState) -> ActionResult:
 
 
 def interact(state: GameState) -> ActionResult:
+    from .vehicles import JOMON_DOCK, SHORE_DOCK, active_vehicle, board_region_vehicle, disembark, vehicle_at
+
+    vehicle = active_vehicle(state)
+    if vehicle is not None:
+        if state.location == "region":
+            return disembark(state)
+        if state.jomon_space == "harbour":
+            if state.position == JOMON_DOCK:
+                if state.returning_by_tug:
+                    state.returning_by_tug = False
+                    state.active_vehicle_id = None
+                    return _finish_expedition_return(state)
+                state.jomon_space, state.position, state.active_vehicle_id = "vessel", JOMON_GANGPLANK, None
+                return _time_result(state, "The tug moors beside Jomon; you step back onto the working deck.")
+            if state.position == SHORE_DOCK:
+                return depart(state)
+            return _plain(state, "Steer to J or L to moor. Tab opens the tug's interior.")
+    if state.location == "region" and vehicle_at(state, state.position):
+        return board_region_vehicle(state)
     tile = base_tile(state, state.position)
     if state.location == "jomon":
         from .people import adjacent_person
@@ -1971,7 +2006,7 @@ def interact(state: GameState) -> ActionResult:
         if state.combat_active and tile == "C":
             return _plain(state, "The tavern shelters off-duty adults during this declared deck crisis.")
         if tile == "+":
-            return depart(state)
+            return ActionResult(False, False, "Choose the gangplank or the steam tug.", "gangplank") if state.position == JOMON_GANGPLANK else depart(state)
         if tile == "C":
             state.jomon_space = "tavern"
             state.position = Position(TAVERN_EXIT.x + 1, TAVERN_EXIT.y, 0)
@@ -3602,6 +3637,20 @@ def return_to_jomon(state: GameState) -> ActionResult:
         or state.position != state.region.landmarks["landing"]
     ):
         return _plain(state, f"Return requires {state.region.name}'s physical landing.")
+    if state.active_vehicle_id:
+        return _plain(state, "Disembark before returning to Jomon.")
+    if state.expedition_by_tug:
+        from .vehicles import SHORE_DOCK
+
+        state.location, state.current_room = "jomon", None
+        state.jomon_space, state.position, state.active_vehicle_id = "harbour", SHORE_DOCK, "tug"
+        state.vehicles["tug"].position = SHORE_DOCK
+        state.expedition_by_tug, state.returning_by_tug = False, True
+        return _time_result(state, "You load the tug at the shore mooring. Steer to Jomon at J to complete the return.")
+    return _finish_expedition_return(state)
+
+
+def _finish_expedition_return(state: GameState) -> ActionResult:
     courier = state.courier
     if state.objective_status in {"accepted", "altered"}:
         state.objective_status = "failed"

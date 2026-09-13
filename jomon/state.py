@@ -21,7 +21,7 @@ from .content import (
     ROLES,
 )
 
-SAVE_FORMAT = 10
+SAVE_FORMAT = 11
 HISTORY_LIMIT = 40
 MESSAGE_LIMIT = 8
 ATTRIBUTES = ("strength", "agility", "endurance", "perception", "intellect", "presence")
@@ -36,6 +36,17 @@ class Position:
     x: int
     y: int
     z: int = 0
+
+
+@dataclass
+class Vehicle:
+    id: str
+    region_id: str
+    home: Position
+    position: Position
+    fuel: int
+    condition: int
+    travelled: int = 0
 
 
 @dataclass
@@ -517,6 +528,10 @@ class GameState:
     tavern_dice: dict[str, Any] = field(default_factory=lambda: {"purse": 24, "match_number": 0, "active_match": None, "records": []})
     production: dict[str, Any] = field(default_factory=dict)
     household_formulas: list[str] = field(default_factory=list)
+    vehicles: dict[str, Vehicle] = field(default_factory=dict)
+    active_vehicle_id: str | None = None
+    expedition_by_tug: bool = False
+    returning_by_tug: bool = False
 
     @property
     def combat_active(self) -> bool:
@@ -829,6 +844,9 @@ def create_world(seed: str) -> GameState:
 
     for existing_region in state.regions.values():
         initialise_region_sites(existing_region)
+    from .vehicles import initialise_vehicles
+
+    initialise_vehicles(state)
     from .production import initialise_production
 
     initialise_production(state)
@@ -999,6 +1017,17 @@ def _migrate_v9(data: dict[str, Any]) -> dict[str, Any]:
     return migrated
 
 
+def _migrate_v10(data: dict[str, Any]) -> dict[str, Any]:
+    """Add parked vehicles without changing a courier's existing location."""
+    migrated = copy.deepcopy(data)
+    migrated["save_format"] = 11
+    migrated["vehicles"] = {}
+    migrated["active_vehicle_id"] = None
+    migrated["expedition_by_tug"] = False
+    migrated["returning_by_tug"] = False
+    return migrated
+
+
 def game_state_from_dict(data: Any) -> GameState:
     if not isinstance(data, dict):
         raise StateError("save root must be an object")
@@ -1020,6 +1049,9 @@ def game_state_from_dict(data: Any) -> GameState:
     migrated_v9 = data.get("save_format") == 9
     if migrated_v9:
         data = _migrate_v9(data)
+    migrated_v10 = data.get("save_format") == 10
+    if migrated_v10:
+        data = _migrate_v10(data)
     if data.get("save_format") != SAVE_FORMAT:
         raise StateError(f"incompatible save format; expected {SAVE_FORMAT}")
     raw_region_threats = data.get(
@@ -1152,6 +1184,12 @@ def game_state_from_dict(data: Any) -> GameState:
             values = dict(raw)
             values["site"] = _position(values["site"], "regional contract site")
             regional_contracts[key] = RegionalContract(**values)
+        vehicles = {}
+        for key, raw in data["vehicles"].items():
+            values = dict(raw)
+            values["home"] = _position(values["home"], "vehicle home")
+            values["position"] = _position(values["position"], "vehicle position")
+            vehicles[key] = Vehicle(**values)
         state = GameState(
             save_format=data["save_format"], seed=data["seed"], world_time=data["world_time"],
             household=household, active_courier_id=data["active_courier_id"], active_region_id=active_region_id, contact=contact,
@@ -1240,6 +1278,10 @@ def game_state_from_dict(data: Any) -> GameState:
             tavern_dice=data.get("tavern_dice", {"purse": 24, "match_number": 0, "active_match": None, "records": []}),
             production=data.get("production", {}),
             household_formulas=list(data.get("household_formulas", [])),
+            vehicles=vehicles,
+            active_vehicle_id=data["active_vehicle_id"],
+            expedition_by_tug=data["expedition_by_tug"],
+            returning_by_tug=data["returning_by_tug"],
         )
         if migrated_v9:
             from .skill_tree import seed_role_nodes
@@ -1273,6 +1315,10 @@ def game_state_from_dict(data: Any) -> GameState:
                 state.contacts[region_id] = new_contacts[region_id]
                 state.region_threats[region_id] = new_threats[region_id]
                 state.regional_markets[region_id] = new_markets[region_id]
+        if migrated_v10:
+            from .vehicles import initialise_vehicles
+
+            initialise_vehicles(state)
         from .route_chart import extend_route_chart
 
         extend_route_chart(state)
@@ -1348,6 +1394,7 @@ def validate_state(state: GameState) -> None:
     from .aftermath import validate_aftermath
     from .skill_tree import validate_skill_journals, validate_skills
     from .production import validate_production
+    from .vehicles import validate_vehicles
 
     try:
         validate_materials(state)
@@ -1357,6 +1404,7 @@ def validate_state(state: GameState) -> None:
         validate_legends(state)
         validate_aftermath(state)
         validate_production(state)
+        validate_vehicles(state)
         validate_skill_journals(state)
         from .chemistry import REACTIONS
 
@@ -1436,7 +1484,7 @@ def validate_state(state: GameState) -> None:
         raise StateError("save commodity catalogue is incomplete")
     if state.location not in {"jomon", "region"}:
         raise StateError("invalid location")
-    if state.jomon_space not in {"vessel", "tavern"}:
+    if state.jomon_space not in {"vessel", "tavern", "harbour"}:
         raise StateError("invalid Jomon space")
     if state.location == "jomon" and state.jomon_space == "vessel":
         rows = VESSEL_LEVELS.get(state.position.z)
@@ -1447,6 +1495,13 @@ def validate_state(state: GameState) -> None:
         and 0 <= state.position.x < len(TAVERN_MAP[state.position.y])
     ):
         raise StateError("invalid tavern position")
+    if state.location == "jomon" and state.jomon_space == "harbour":
+        from .vehicles import harbour_rows
+
+        rows = harbour_rows(state.seed)
+        if not (state.position.z == 0 and 0 <= state.position.y < len(rows)
+                and 0 <= state.position.x < len(rows[state.position.y])):
+            raise StateError("invalid open-water position")
     if state.pending_destination is not None and state.pending_destination not in state.route_nodes:
         raise StateError("invalid pending destination")
     from .ship_crises import VOYAGES, validate_ship

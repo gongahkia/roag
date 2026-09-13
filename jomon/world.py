@@ -442,6 +442,8 @@ def area_name(state: GameState) -> str:
     if state.location == "jomon":
         if state.jomon_space == "tavern":
             return "Jomon — common tavern"
+        if state.jomon_space == "harbour":
+            return "Jomon — open-water approach"
         return {
             -1: "Jomon — hold and lower berths",
             0: "Jomon — working deck",

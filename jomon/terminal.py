@@ -130,6 +130,7 @@ ROUTE_HELP_LINES = (
 BASE_HELP_LINES = (
     "HJKL/arrows E act A aim G guard ; look T follow M mastery P skills W craft",
     "X gear F material D spells V talk R retreat I Z ledger O actors ? help Q quit",
+    "At gangplank E chooses shore/tug; at a vehicle E boards or leaves; Tab shows its interior.",
 )
 
 MIN_WIDTH = 80
@@ -753,6 +754,7 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
     )
     visible = field_of_view(state, remember=False)
     threats = visible_threats(state, visible)
+    from .vehicles import SPECS, vehicle_at
     danger_marks = visible_danger_marks(state, visible)
     known = set(state.region.seen)
     marks = set(state.treasure_marks.get(state.active_region_id, []))
@@ -774,10 +776,13 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
             ):
                 _put(screen, top + 1 + sy, left + 1 + sx, " ")
                 continue
+            vehicle = vehicle_at(state, position)
             if position == state.position:
-                char = ENTITY_GLYPHS["courier"]
+                char = SPECS[vehicle.id]["glyph"] if vehicle and state.active_vehicle_id == vehicle.id else ENTITY_GLYPHS["courier"]
             elif position in threats:
                 char = _threat_glyph(threats[position])
+            elif vehicle:
+                char = SPECS[vehicle.id]["glyph"]
             elif position in danger_marks:
                 char = ENTITY_GLYPHS["danger"]
             else:
@@ -790,6 +795,8 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
             if position in threats and position != state.position:
                 actor = threats[position]
                 role = "elite" if actor.elite else "neutral" if actor.ecology == "prey" else "hostile"
+            elif vehicle:
+                role = "player" if state.active_vehicle_id == vehicle.id and position == state.position else "interactable"
             attr = _COLOUR_ATTRIBUTES[role]
             if position in danger_marks:
                 attr = _COLOUR_ATTRIBUTES["hazard"] | curses.A_BOLD | curses.A_REVERSE
@@ -1278,7 +1285,8 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str], view: Over
     height, width = screen.getmaxyx()
     material = list(lines)
     box_width = min(width - 4, max(44, max((len(line) for line in material), default=20) + 4))
-    material = information_lines(material, box_width - 4)
+    if not view or view.kind != "vehicle-interior":
+        material = information_lines(material, box_width - 4)
     box_height = min(height - 4, len(material) + (5 if view else 4))
     page_rows = max(1, box_height - (5 if view else 3))
     offset = min(view.scroll_offset, max(0, len(material) - page_rows)) if view else 0
@@ -1300,6 +1308,11 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str], view: Over
 
 
 def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
+    if kind == "gangplank":
+        return [
+            ChoiceOption("1", "Walk ashore into the current region"),
+            ChoiceOption("2", "Board Jomon's steam tug and steer across open water"),
+        ]
     if kind == "station:gathering":
         from .household_stories import station_choices
         from .skill_tree import journals_at_hand
@@ -2337,6 +2350,16 @@ def _tavern_lines(state: GameState) -> list[str]:
 
 
 def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
+    if kind == "gangplank":
+        return "JOMON GANGPLANK", [
+            f"1. Walk ashore into {state.region.name} as before.",
+            "2. Board the tug. J is Jomon's mooring; L is the regional shore.",
+            "The water crossing uses fuel, shoal wear, and one action per helm order.",
+        ]
+    if kind == "vehicle-interior":
+        from .vehicles import interior_lines
+
+        return interior_lines(state)
     if kind.startswith("journal-write:"):
         from .skill_tree import NODES
 
@@ -2896,6 +2919,17 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
 
 def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, bool]:
     char = chr(key).lower() if 0 <= key < 256 else ""
+    if kind == "gangplank" and char in {"1", "2"}:
+        from .actions import depart
+        from .vehicles import board_tug
+
+        result = depart(state) if char == "1" else board_tug(state)
+        return (None if result.changed else kind), False
+    if kind == "vehicle-interior" and char in {"r", "f"}:
+        from .vehicles import service
+
+        service(state, repair=char == "f")
+        return kind, False
     if kind == "station:gathering" and char in {"j", "k"}:
         return ("journal-write:0" if char == "j" else "journal-study:0"), False
     if kind.startswith(("journal-write:", "journal-study:")):
@@ -3553,7 +3587,9 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
         elif normalized == ord("g"):
             guard(state)
         elif normalized == ord("t"):
-            if state.location != "region":
+            if state.active_vehicle_id:
+                state.add_message("Disembark before following a walking route; use the helm to steer.")
+            elif state.location != "region":
                 state.add_message("Known-route following is available during regional expeditions.")
             elif not navigation_targets(state):
                 state.add_message("No other seen landmark or marked store is known yet.")
@@ -3604,6 +3640,11 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
                 state.add_message("Crafting needs a physical work area outside the tavern.", priority=2)
         elif normalized == ord("o"):
             overlay = OverlayView("observed-life")
+        elif key == 9:
+            if state.active_vehicle_id:
+                overlay = OverlayView("vehicle-interior")
+            else:
+                state.add_message("Board a vehicle to inspect its interior.")
         elif normalized == ord("?"):
             overlay = OverlayView("help")
         elif normalized == ord("s"):

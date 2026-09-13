@@ -1,0 +1,96 @@
+{
+  "harbour": {
+    "width": 78,
+    "height": 28,
+    "jomon_dock": [4, 14],
+    "shore_dock": [73, 14]
+  },
+  "vehicles": {
+    "tug": {
+      "name": "Jomon's steam tug",
+      "domain": "water",
+      "resource": "coal charge",
+      "glyph": "U",
+      "pace": 3,
+      "capacity": 180,
+      "condition": 12,
+      "interior": [
+        "+----------------------------+",
+        "| BOW  [=] deck   [H] helm  |",
+        "|      +--------------+      |",
+        "|      | boiler  O O  |      |",
+        "|      | coal    ###  |      |",
+        "| stern+--------------+ stern|",
+        "+----------------------------+"
+      ]
+    },
+    "horse_cart": {
+      "name": "Hearthford horse cart",
+      "domain": "road",
+      "resource": "horse stamina",
+      "glyph": "H",
+      "pace": 2,
+      "capacity": 32,
+      "condition": 9,
+      "interior": [
+        "    /^\\  /^\\  team",
+        "+-----------------------+",
+        "| bench  [H] reins      |",
+        "| cargo  [###] [###]     |",
+        "| rear gate     [=]     |",
+        "+---O---------------O---+"
+      ]
+    },
+    "steam_crawler": {
+      "name": "Rillscar steam crawler",
+      "domain": "road",
+      "resource": "coal charge",
+      "glyph": "S",
+      "pace": 2,
+      "capacity": 48,
+      "condition": 14,
+      "interior": [
+        "+--------------------------+",
+        "| pilot [H]  pressure [O] |",
+        "| boiler [###]   vent ^   |",
+        "| drive shaft ====        |",
+        "| cargo rack [=][=]       |",
+        "+-O--------------------O-+"
+      ]
+    },
+    "rootwalker": {
+      "name": "Greenwold rootwalker",
+      "domain": "rough",
+      "resource": "root vigor",
+      "glyph": "W",
+      "pace": 2,
+      "capacity": 28,
+      "condition": 10,
+      "interior": [
+        "    /\\ woven canopy /\\",
+        "+------------------------+",
+        "| living seat   [H]     |",
+        "| sap-heart     {*}     |",
+        "| roots  \\ || /   roots |",
+        "+----\\--||--/----------+"
+      ]
+    },
+    "aether_glider": {
+      "name": "Whitecairn aether glider",
+      "domain": "air",
+      "resource": "aether charge",
+      "glyph": "A",
+      "pace": 3,
+      "capacity": 36,
+      "condition": 8,
+      "interior": [
+        "  /========= wing =========\\",
+        " /  wind vane  [^]         \\",
+        "| pilot [H]  crystal {*}    |",
+        "| harness ===  ballast [o] |",
+        " \\  rudder     [=]        /",
+        "  \\========= wing =======/"
+      ]
+    }
+  }
+}
