@@ -1726,6 +1726,11 @@
     {
       "name": "river sabre",
       "family": "blade",
+      "shape": [
+        1,
+        3
+      ],
+      "weight": 4,
       "reach": 1,
       "minimum": 1,
       "damage": 2,
@@ -1743,6 +1748,11 @@
     {
       "name": "reed cleaver",
       "family": "blade",
+      "shape": [
+        1,
+        3
+      ],
+      "weight": 4,
       "reach": 1,
       "minimum": 1,
       "damage": 3,
@@ -1760,6 +1770,11 @@
     {
       "name": "court rapier",
       "family": "blade",
+      "shape": [
+        1,
+        3
+      ],
+      "weight": 4,
       "reach": 2,
       "minimum": 1,
       "damage": 2,
@@ -1777,6 +1792,11 @@
     {
       "name": "crescent knife",
       "family": "blade",
+      "shape": [
+        1,
+        3
+      ],
+      "weight": 4,
       "reach": 1,
       "minimum": 1,
       "damage": 2,
@@ -1794,6 +1814,11 @@
     {
       "name": "watch backsword",
       "family": "blade",
+      "shape": [
+        1,
+        3
+      ],
+      "weight": 4,
       "reach": 1,
       "minimum": 1,
       "damage": 3,
@@ -1811,6 +1836,11 @@
     {
       "name": "hooked falchion",
       "family": "blade",
+      "shape": [
+        1,
+        3
+      ],
+      "weight": 4,
       "reach": 2,
       "minimum": 1,
       "damage": 2,
@@ -1828,6 +1858,11 @@
     {
       "name": "river partisan",
       "family": "reach",
+      "shape": [
+        1,
+        5
+      ],
+      "weight": 6,
       "reach": 3,
       "minimum": 2,
       "damage": 2,
@@ -1845,6 +1880,11 @@
     {
       "name": "three-prong trident",
       "family": "reach",
+      "shape": [
+        1,
+        5
+      ],
+      "weight": 6,
       "reach": 3,
       "minimum": 2,
       "damage": 1,
@@ -1862,6 +1902,11 @@
     {
       "name": "coppice halberd",
       "family": "reach",
+      "shape": [
+        1,
+        5
+      ],
+      "weight": 6,
       "reach": 3,
       "minimum": 2,
       "damage": 3,
@@ -1879,6 +1924,11 @@
     {
       "name": "recurved naginata",
       "family": "reach",
+      "shape": [
+        1,
+        5
+      ],
+      "weight": 6,
       "reach": 3,
       "minimum": 2,
       "damage": 2,
@@ -1896,6 +1946,11 @@
     {
       "name": "ferry lance",
       "family": "reach",
+      "shape": [
+        1,
+        5
+      ],
+      "weight": 6,
       "reach": 4,
       "minimum": 3,
       "damage": 3,
@@ -1913,6 +1968,11 @@
     {
       "name": "iron-shod pole",
       "family": "reach",
+      "shape": [
+        1,
+        5
+      ],
+      "weight": 6,
       "reach": 2,
       "minimum": 1,
       "damage": 2,
@@ -1930,6 +1990,11 @@
     {
       "name": "quarry morningstar",
       "family": "impact",
+      "shape": [
+        2,
+        3
+      ],
+      "weight": 6,
       "reach": 2,
       "minimum": 1,
       "damage": 2,
@@ -1947,6 +2012,11 @@
     {
       "name": "two-hand maul",
       "family": "impact",
+      "shape": [
+        2,
+        3
+      ],
+      "weight": 6,
       "reach": 1,
       "minimum": 1,
       "damage": 4,
@@ -1964,6 +2034,11 @@
     {
       "name": "watch sap",
       "family": "impact",
+      "shape": [
+        2,
+        3
+      ],
+      "weight": 6,
       "reach": 1,
       "minimum": 1,
       "damage": 1,
@@ -1981,6 +2056,11 @@
     {
       "name": "ore pick",
       "family": "impact",
+      "shape": [
+        2,
+        3
+      ],
+      "weight": 6,
       "reach": 1,
       "minimum": 1,
       "damage": 3,
@@ -1998,6 +2078,11 @@
     {
       "name": "smith's hammer",
       "family": "impact",
+      "shape": [
+        2,
+        3
+      ],
+      "weight": 6,
       "reach": 1,
       "minimum": 1,
       "damage": 2,
@@ -2015,6 +2100,11 @@
     {
       "name": "knotted club",
       "family": "impact",
+      "shape": [
+        2,
+        3
+      ],
+      "weight": 6,
       "reach": 1,
       "minimum": 1,
       "damage": 2,
@@ -2032,6 +2122,11 @@
     {
       "name": "reed shortbow",
       "family": "bow",
+      "shape": [
+        1,
+        5
+      ],
+      "weight": 4,
       "reach": 7,
       "minimum": 2,
       "damage": 2,
@@ -2049,6 +2144,11 @@
     {
       "name": "laminated recurve",
       "family": "bow",
+      "shape": [
+        1,
+        5
+      ],
+      "weight": 4,
       "reach": 10,
       "minimum": 2,
       "damage": 3,
@@ -2066,6 +2166,11 @@
     {
       "name": "horn composite bow",
       "family": "bow",
+      "shape": [
+        1,
+        5
+      ],
+      "weight": 4,
       "reach": 11,
       "minimum": 3,
       "damage": 3,
@@ -2083,6 +2188,11 @@
     {
       "name": "broadhead hunting bow",
       "family": "bow",
+      "shape": [
+        1,
+        5
+      ],
+      "weight": 4,
       "reach": 9,
       "minimum": 2,
       "damage": 3,
@@ -2100,6 +2210,11 @@
     {
       "name": "war yew bow",
       "family": "bow",
+      "shape": [
+        1,
+        5
+      ],
+      "weight": 4,
       "reach": 13,
       "minimum": 3,
       "damage": 4,
@@ -2117,6 +2232,11 @@
     {
       "name": "line-caster bow",
       "family": "bow",
+      "shape": [
+        1,
+        5
+      ],
+      "weight": 4,
       "reach": 6,
       "minimum": 2,
       "damage": 1,
@@ -2134,6 +2254,11 @@
     {
       "name": "matchlock arquebus",
       "family": "gun",
+      "shape": [
+        2,
+        4
+      ],
+      "weight": 8,
       "reach": 10,
       "minimum": 3,
       "damage": 4,
@@ -2151,6 +2276,11 @@
     {
       "name": "deck swivel gun",
       "family": "gun",
+      "shape": [
+        2,
+        4
+      ],
+      "weight": 8,
       "reach": 7,
       "minimum": 3,
       "damage": 5,
@@ -2169,6 +2299,11 @@
     {
       "name": "fowling piece",
       "family": "gun",
+      "shape": [
+        2,
+        4
+      ],
+      "weight": 8,
       "reach": 8,
       "minimum": 2,
       "damage": 3,
@@ -2187,6 +2322,11 @@
     {
       "name": "braced long gun",
       "family": "gun",
+      "shape": [
+        2,
+        4
+      ],
+      "weight": 8,
       "reach": 13,
       "minimum": 4,
       "damage": 5,
@@ -2205,6 +2345,11 @@
     {
       "name": "watch carbine",
       "family": "gun",
+      "shape": [
+        2,
+        4
+      ],
+      "weight": 8,
       "reach": 8,
       "minimum": 2,
       "damage": 3,
@@ -2223,6 +2368,11 @@
     {
       "name": "signal pistol",
       "family": "gun",
+      "shape": [
+        2,
+        4
+      ],
+      "weight": 8,
       "reach": 5,
       "minimum": 1,
       "damage": 2,
@@ -2241,6 +2391,11 @@
     {
       "name": "smoke bomb kit",
       "family": "device",
+      "shape": [
+        2,
+        3
+      ],
+      "weight": 4,
       "reach": 5,
       "minimum": 2,
       "damage": 0,
@@ -2257,6 +2412,11 @@
     {
       "name": "pitch bomb kit",
       "family": "device",
+      "shape": [
+        2,
+        3
+      ],
+      "weight": 4,
       "reach": 5,
       "minimum": 2,
       "damage": 0,
@@ -2273,6 +2433,11 @@
     {
       "name": "lime bomb kit",
       "family": "device",
+      "shape": [
+        2,
+        3
+      ],
+      "weight": 4,
       "reach": 5,
       "minimum": 2,
       "damage": 0,
@@ -2289,6 +2454,11 @@
     {
       "name": "brine bomb kit",
       "family": "device",
+      "shape": [
+        2,
+        3
+      ],
+      "weight": 4,
       "reach": 5,
       "minimum": 2,
       "damage": 0,
@@ -2305,6 +2475,11 @@
     {
       "name": "thunder bomb kit",
       "family": "device",
+      "shape": [
+        2,
+        3
+      ],
+      "weight": 4,
       "reach": 4,
       "minimum": 2,
       "damage": 1,
@@ -2321,6 +2496,11 @@
     {
       "name": "resin bomb kit",
       "family": "device",
+      "shape": [
+        2,
+        3
+      ],
+      "weight": 4,
       "reach": 5,
       "minimum": 2,
       "damage": 0,

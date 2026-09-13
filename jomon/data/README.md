@@ -21,6 +21,10 @@ text: it can be reviewed in diffs and needs no compression tool or dependency.
 | `aftermath.json` | revisit lines and topologies, preparations, household stories, cross-region callbacks |
 | `equipment.json` | physical item specifications, loadouts, ammunition, weapons, fittings, and regional armour |
 
+Arsenal weapon rows own their physical `shape` and `weight`; the inventory
+adapter uses those exact values. Working weapons already have their own shape
+and weight. Choose these per-weapon values with pack and load balance in mind.
+
 Keep existing IDs stable: saves reference them. Array order matters for
 situations, reactions, recipes, spells, and skill branches. Weapon-family
 recipes, spell tiers, skill prerequisites, and encounter behavior are still

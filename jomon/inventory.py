@@ -94,10 +94,7 @@ ITEM_SPECS.update({name: ItemSpec(spec.name, "".join(word[0] for word in name.sp
                                 spec.weight, "weapon", spec.description)
                    for name, spec in WORK_WEAPONS.items()})
 ITEM_SPECS.update({name: ItemSpec(name.title(), "".join(word[0] for word in name.split()).upper()[:2],
-                                2 if spec.family in {"gun", "device", "impact"} else 1,
-                                5 if spec.family in {"reach", "bow"} else 4 if spec.family == "gun" else 3,
-                                8 if spec.family == "gun" else 6 if spec.family in {"reach", "impact"} else 4,
-                                "weapon", spec.description)
+                                *spec.shape, spec.weight, "weapon", spec.description)
                    for name, spec in ARSENAL.items()})
 ITEM_SPECS.update({kind: ItemSpec(name.title(), "".join(word[0] for word in name.split()).upper()[:2],
                                   2, 2, 2, "consumable", "One finite thrown payload; reacts at its landing.", stack_limit=3)

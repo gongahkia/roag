@@ -28,6 +28,16 @@ class ProgressionProductionTests(unittest.TestCase):
         self.assertTrue(auto_place(state, item.id, "pack", owner_id=state.active_courier_id))
         return item
 
+    def test_arsenal_physical_specs_match_authored_rows(self):
+        for name, weapon in ARSENAL.items():
+            with self.subTest(weapon=name):
+                spec = item_spec(name)
+                self.assertEqual((spec.width, spec.height), weapon.shape)
+                self.assertEqual(spec.weight, weapon.weight)
+                self.assertEqual(spec.category, "weapon")
+                self.assertTrue(all(isinstance(size, int) and size > 0 for size in weapon.shape))
+                self.assertGreater(weapon.weight, 0)
+
     def test_thirty_six_additions_are_physical_and_have_live_combat(self):
         state = self.state
         self.assertEqual(len(WEAPONS), 72)

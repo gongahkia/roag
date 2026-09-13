@@ -10,6 +10,8 @@ from .catalog import EQUIPMENT_SECTIONS, load_catalog
 class ArsenalWeapon:
     name: str
     family: str
+    shape: tuple[int, int]
+    weight: int
     reach: int
     minimum: int
     damage: int
@@ -28,7 +30,8 @@ class ArsenalWeapon:
 _EQUIPMENT = load_catalog("equipment.json", EQUIPMENT_SECTIONS)
 ARSENAL: dict[str, ArsenalWeapon] = {
     row["name"]: ArsenalWeapon(**{
-        **row, "effects": tuple(row["effects"]), "regions": tuple(row["regions"]),
+        **row, "shape": tuple(row["shape"]),
+        "effects": tuple(row["effects"]), "regions": tuple(row["regions"]),
     })
     for row in _EQUIPMENT["arsenal"]
 }
