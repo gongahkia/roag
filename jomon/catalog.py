@@ -7,7 +7,10 @@ from importlib.resources import files
 from typing import Any
 
 
-VESSEL_SECTIONS = ("voyages", "hazard_stations", "variants", "echoes", "refits")
+VESSEL_SECTIONS = (
+    "voyages", "hazard_stations", "variants", "echoes", "refits",
+    "region_nodes", "route_nodes", "route_edges", "optional_route_edges",
+)
 AFTERMATH_SECTIONS = (
     "lines", "topologies", "drainage_topologies", "fire_topologies",
     "support_topologies", "recovery_topologies", "preparations",

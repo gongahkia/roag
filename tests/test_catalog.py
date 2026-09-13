@@ -27,6 +27,7 @@ from jomon.magic import SPELL_ROWS
 from jomon.preparations import PREPARATIONS
 from jomon.production import RECIPES, SHORE_STATIONS, SITE_KEYS, SOURCES
 from jomon.quests import ADDITIONAL_ARCS, ARC_REGIONS, ARC_TITLE, FIELD_REPORT_RESPONSES, QUESTS, QUEST_REWARDS
+from jomon.route_chart import REGION_NODES, build_route_graph
 from jomon.ship_crises import HAZARD_STATIONS, VOYAGES
 from jomon.situations import AFTERWORK_SAMPLES, SITUATIONS, validate_situations
 from jomon.skill_tree import BRANCHES, NODES, ROLE_ROOTS
@@ -44,6 +45,15 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(vessel["variants"], [asdict(row) for row in VARIANTS.values()])
         self.assertEqual(vessel["echoes"], [asdict(row) for row in ECHOES])
         self.assertEqual(vessel["refits"], [asdict(row) for row in REFITS.values()])
+        self.assertEqual(vessel["region_nodes"], REGION_NODES)
+        route_nodes, route_edges = build_route_graph("catalogue-rebuild")
+        self.assertEqual(vessel["route_nodes"], {node_id: asdict(node) for node_id, node in route_nodes.items()})
+        self.assertEqual([edge.id for edge in route_edges[:len(vessel["route_edges"])]],
+                         [row[0] for row in vessel["route_edges"]])
+        self.assertEqual(
+            [asdict(edge) for edge in route_edges],
+            [asdict(edge) for edge in build_route_graph("catalogue-rebuild")[1]],
+        )
 
         aftermath = load_catalog("aftermath.json", AFTERMATH_SECTIONS)
         self.assertEqual(aftermath["lines"], json.loads(json.dumps(AFTERMATH_LINES)))

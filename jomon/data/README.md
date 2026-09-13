@@ -17,7 +17,7 @@ text: it can be reviewed in diffs and needs no compression tool or dependency.
 | `quests.json` | regional quests, rewards, and cross-region arcs |
 | `spells.json` | ordered spell rows; every four rows form one skill tier |
 | `skills.json` | ordered skill branches and starting role roots |
-| `vessel.json` | voyage cases, hazard stations, variants, echoes, and refits |
+| `vessel.json` | voyage cases, hazard stations, variants, echoes, refits, and authored route nodes and legs |
 | `aftermath.json` | revisit lines and topologies, preparations, household stories, cross-region callbacks |
 | `equipment.json` | physical item specifications, loadouts, ammunition, weapons, fittings, and regional armour |
 

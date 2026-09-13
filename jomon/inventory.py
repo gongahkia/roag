@@ -104,9 +104,6 @@ ITEM_SPECS.update({kind: ItemSpec(name.title(), "".join(word[0] for word in name
                    for name, kind in BOMB_AMMUNITION.items()})
 from .chemistry import REAGENTS
 
-ITEM_SPECS["field flask"] = ItemSpec("Field flask", "FF", 1, 2, 2, "consumable", "A reusable four-measure physical vessel for freeform reagents.")
-ITEM_SPECS["skill journal"] = ItemSpec("Skill journal", "SJ", 1, 2, 1, "consumable", "A physical written lesson that another courier may study at the common deck.")
-ITEM_SPECS["component:iron billet"] = ItemSpec("Iron billet", "IB", 2, 1, 3, "consumable", "A finite smelted stock for accountable fabrication.", stack_limit=4)
 ITEM_SPECS.update({f"ingredient:{name}": ItemSpec(name.title(), "".join(word[0] for word in name.split()).upper()[:2],
                                                1, 1, 1, "consumable", "One finite regional production ingredient; can enter a field flask.", stack_limit=4)
                    for name in REAGENTS})

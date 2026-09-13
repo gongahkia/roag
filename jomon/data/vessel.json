@@ -343,5 +343,556 @@
       "effect": "The storage station can fabricate guns and counted fictional charges while moored.",
       "drawback": "Loud work and finite stock never create free ammunition."
     }
+  ],
+  "region_nodes": {
+    "hearthford": "hearthford",
+    "greywash": "greywash",
+    "greenwold": "greenwold",
+    "whitecairn": "whitecairn",
+    "dunmire": "dunmire",
+    "rillscar": "rillscar",
+    "marlbank": "marlbank",
+    "frostmere": "frostmere"
+  },
+  "route_nodes": {
+    "hearthford": {
+      "id": "hearthford",
+      "name": "Hearthford",
+      "x": 8,
+      "y": 7,
+      "kind": "region",
+      "description": "mill quay and river market",
+      "region_id": "hearthford",
+      "known": true,
+      "market_interest": "ironwork",
+      "supply": 2,
+      "risk": 0,
+      "integrity_required": 0,
+      "seasonal_note": ""
+    },
+    "reed-anchor": {
+      "id": "reed-anchor",
+      "name": "Reed Anchor",
+      "x": 19,
+      "y": 4,
+      "kind": "anchorage",
+      "description": "sheltered reeds, potable water, little trade",
+      "region_id": null,
+      "known": true,
+      "market_interest": "",
+      "supply": 3,
+      "risk": 1,
+      "integrity_required": 0,
+      "seasonal_note": ""
+    },
+    "charter-market": {
+      "id": "charter-market",
+      "name": "Charter Market",
+      "x": 31,
+      "y": 8,
+      "kind": "market",
+      "description": "a witnessed landing with cargo buyers",
+      "region_id": null,
+      "known": true,
+      "market_interest": "paper",
+      "supply": 2,
+      "risk": 1,
+      "integrity_required": 0,
+      "seasonal_note": ""
+    },
+    "greywash": {
+      "id": "greywash",
+      "name": "Greywash",
+      "x": 46,
+      "y": 4,
+      "kind": "region",
+      "description": "tidal salt reach and wreck road",
+      "region_id": "greywash",
+      "known": true,
+      "market_interest": "timber",
+      "supply": 0,
+      "risk": 2,
+      "integrity_required": 0,
+      "seasonal_note": ""
+    },
+    "ebb-crossing": {
+      "id": "ebb-crossing",
+      "name": "Ebb Crossing",
+      "x": 58,
+      "y": 8,
+      "kind": "hazard",
+      "description": "a fast tidal cut, safest near a turning tide",
+      "region_id": null,
+      "known": true,
+      "market_interest": "",
+      "supply": 0,
+      "risk": 3,
+      "integrity_required": 0,
+      "seasonal_note": "winter storms often close this reach"
+    },
+    "coast-refuge": {
+      "id": "coast-refuge",
+      "name": "Coast Refuge",
+      "x": 70,
+      "y": 5,
+      "kind": "anchorage",
+      "description": "stone lee and a repair crane",
+      "region_id": null,
+      "known": true,
+      "market_interest": "",
+      "supply": 1,
+      "risk": 0,
+      "integrity_required": 4,
+      "seasonal_note": ""
+    },
+    "willow-ferry": {
+      "id": "willow-ferry",
+      "name": "Willow Ferry",
+      "x": 24,
+      "y": 14,
+      "kind": "resupply",
+      "description": "ferry garden and cordage exchange",
+      "region_id": null,
+      "known": true,
+      "market_interest": "grain",
+      "supply": 3,
+      "risk": 0,
+      "integrity_required": 0,
+      "seasonal_note": ""
+    },
+    "greenwold": {
+      "id": "greenwold",
+      "name": "Greenwold",
+      "x": 40,
+      "y": 17,
+      "kind": "region",
+      "description": "forest burnworks and resin trails",
+      "region_id": "greenwold",
+      "known": true,
+      "market_interest": "salt fish",
+      "supply": 0,
+      "risk": 2,
+      "integrity_required": 0,
+      "seasonal_note": ""
+    },
+    "old-lock": {
+      "id": "old-lock",
+      "name": "Old Lock",
+      "x": 52,
+      "y": 14,
+      "kind": "hazard",
+      "description": "damaged gates with a narrow tow",
+      "region_id": null,
+      "known": true,
+      "market_interest": "",
+      "supply": 0,
+      "risk": 3,
+      "integrity_required": 6,
+      "seasonal_note": ""
+    },
+    "chalk-steps": {
+      "id": "chalk-steps",
+      "name": "Chalk Steps",
+      "x": 62,
+      "y": 18,
+      "kind": "unknown",
+      "description": "an incompletely sounded upland landing",
+      "region_id": null,
+      "known": false,
+      "market_interest": "",
+      "supply": 0,
+      "risk": 2,
+      "integrity_required": 0,
+      "seasonal_note": ""
+    },
+    "whitecairn": {
+      "id": "whitecairn",
+      "name": "Whitecairn",
+      "x": 75,
+      "y": 15,
+      "kind": "region",
+      "description": "limestone terraces, quarry, and high bridge",
+      "region_id": "whitecairn",
+      "known": true,
+      "market_interest": "wool",
+      "supply": 0,
+      "risk": 3,
+      "integrity_required": 0,
+      "seasonal_note": ""
+    },
+    "storm-post": {
+      "id": "storm-post",
+      "name": "Storm Post",
+      "x": 64,
+      "y": 11,
+      "kind": "warning",
+      "description": "a staffed signal pole above exposed water",
+      "region_id": null,
+      "known": true,
+      "market_interest": "",
+      "supply": 0,
+      "risk": 2,
+      "integrity_required": 0,
+      "seasonal_note": ""
+    },
+    "dunmire": {
+      "id": "dunmire",
+      "name": "Dunmire",
+      "x": 8,
+      "y": 17,
+      "kind": "region",
+      "description": "peat islands and raised drying racks",
+      "region_id": "dunmire",
+      "known": true,
+      "market_interest": "timber",
+      "supply": 0,
+      "risk": 2,
+      "integrity_required": 0,
+      "seasonal_note": ""
+    },
+    "marlbank": {
+      "id": "marlbank",
+      "name": "Marlbank",
+      "x": 7,
+      "y": 1,
+      "kind": "region",
+      "description": "irrigated grain terraces and clay kilns",
+      "region_id": "marlbank",
+      "known": true,
+      "market_interest": "timber",
+      "supply": 2,
+      "risk": 0,
+      "integrity_required": 0,
+      "seasonal_note": ""
+    },
+    "rillscar": {
+      "id": "rillscar",
+      "name": "Rillscar",
+      "x": 76,
+      "y": 20,
+      "kind": "region",
+      "description": "iron gorge with paired crossings and buried drains",
+      "region_id": "rillscar",
+      "known": true,
+      "market_interest": "charcoal",
+      "supply": 0,
+      "risk": 3,
+      "integrity_required": 0,
+      "seasonal_note": ""
+    },
+    "frostmere": {
+      "id": "frostmere",
+      "name": "Frostmere",
+      "x": 76,
+      "y": 1,
+      "kind": "region",
+      "description": "braided cold-water channels and net lofts",
+      "region_id": "frostmere",
+      "known": true,
+      "market_interest": "wool",
+      "supply": 0,
+      "risk": 3,
+      "integrity_required": 0,
+      "seasonal_note": ""
+    }
+  },
+  "route_edges": [
+    [
+      "h-r",
+      "hearthford",
+      "reed-anchor",
+      4,
+      1,
+      1,
+      1,
+      [],
+      "soft spring bank"
+    ],
+    [
+      "r-m",
+      "reed-anchor",
+      "charter-market",
+      4,
+      1,
+      1,
+      1,
+      [],
+      "reed channel"
+    ],
+    [
+      "m-g",
+      "charter-market",
+      "greywash",
+      5,
+      2,
+      2,
+      2,
+      [],
+      "open estuary"
+    ],
+    [
+      "g-e",
+      "greywash",
+      "ebb-crossing",
+      4,
+      2,
+      3,
+      3,
+      [
+        "winter"
+      ],
+      "tidal cut"
+    ],
+    [
+      "e-c",
+      "ebb-crossing",
+      "coast-refuge",
+      4,
+      1,
+      2,
+      3,
+      [
+        "winter"
+      ],
+      "outer coast"
+    ],
+    [
+      "h-w",
+      "hearthford",
+      "willow-ferry",
+      5,
+      1,
+      1,
+      1,
+      [],
+      "willow backwater"
+    ],
+    [
+      "w-f",
+      "willow-ferry",
+      "greenwold",
+      5,
+      2,
+      1,
+      1,
+      [],
+      "forest water"
+    ],
+    [
+      "f-l",
+      "greenwold",
+      "old-lock",
+      5,
+      1,
+      2,
+      2,
+      [],
+      "burn canal"
+    ],
+    [
+      "l-k",
+      "old-lock",
+      "chalk-steps",
+      5,
+      2,
+      2,
+      2,
+      [
+        "spring"
+      ],
+      "damaged upland lock"
+    ],
+    [
+      "k-u",
+      "chalk-steps",
+      "whitecairn",
+      4,
+      1,
+      2,
+      2,
+      [],
+      "chalk tributary"
+    ],
+    [
+      "m-l",
+      "charter-market",
+      "old-lock",
+      6,
+      2,
+      2,
+      2,
+      [],
+      "long carrier canal"
+    ],
+    [
+      "l-s",
+      "old-lock",
+      "storm-post",
+      4,
+      1,
+      2,
+      3,
+      [],
+      "exposed reach"
+    ],
+    [
+      "s-u",
+      "storm-post",
+      "whitecairn",
+      5,
+      2,
+      3,
+      3,
+      [
+        "winter"
+      ],
+      "ridge water"
+    ],
+    [
+      "h-d",
+      "hearthford",
+      "dunmire",
+      6,
+      1,
+      2,
+      1,
+      [],
+      "raised fen navigation"
+    ],
+    [
+      "d-w",
+      "dunmire",
+      "willow-ferry",
+      4,
+      1,
+      1,
+      1,
+      [
+        "spring"
+      ],
+      "low peat cut"
+    ],
+    [
+      "h-a",
+      "hearthford",
+      "marlbank",
+      5,
+      1,
+      1,
+      1,
+      [],
+      "terrace carrier river"
+    ],
+    [
+      "a-r",
+      "marlbank",
+      "reed-anchor",
+      4,
+      1,
+      2,
+      1,
+      [
+        "autumn"
+      ],
+      "harvest lock"
+    ],
+    [
+      "u-i",
+      "whitecairn",
+      "rillscar",
+      6,
+      2,
+      2,
+      2,
+      [],
+      "sheltered iron tributary"
+    ],
+    [
+      "k-i",
+      "chalk-steps",
+      "rillscar",
+      5,
+      1,
+      2,
+      3,
+      [
+        "winter"
+      ],
+      "gorge shelf tow"
+    ],
+    [
+      "c-f",
+      "coast-refuge",
+      "frostmere",
+      6,
+      2,
+      2,
+      3,
+      [],
+      "marked winter sounding"
+    ],
+    [
+      "g-f",
+      "greywash",
+      "frostmere",
+      8,
+      2,
+      3,
+      4,
+      [
+        "winter"
+      ],
+      "outer braided channel"
+    ],
+    [
+      "s-c",
+      "storm-post",
+      "coast-refuge",
+      6,
+      2,
+      2,
+      2,
+      [],
+      "inner coast refuge passage"
+    ]
+  ],
+  "optional_route_edges": [
+    [
+      "r-w",
+      "reed-anchor",
+      "willow-ferry",
+      5,
+      1,
+      1,
+      1,
+      [],
+      "quiet reed loop"
+    ],
+    [
+      "g-s",
+      "greywash",
+      "storm-post",
+      6,
+      2,
+      3,
+      4,
+      [
+        "winter"
+      ],
+      "weatherward coast"
+    ],
+    [
+      "f-k",
+      "greenwold",
+      "chalk-steps",
+      7,
+      2,
+      2,
+      2,
+      [
+        "spring"
+      ],
+      "timber portage"
+    ]
   ]
 }

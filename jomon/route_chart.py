@@ -6,82 +6,20 @@ from collections import deque
 from dataclasses import dataclass
 
 from .calendar import calendar_at, seasonal_route_note
+from .catalog import VESSEL_SECTIONS, load_catalog
 from .state import GameState, RouteEdge, RouteNode, stage_rng
 
 
-REGION_NODES = {
-    "hearthford": "hearthford",
-    "greywash": "greywash",
-    "greenwold": "greenwold",
-    "whitecairn": "whitecairn",
-    "dunmire": "dunmire",
-    "rillscar": "rillscar",
-    "marlbank": "marlbank",
-    "frostmere": "frostmere",
-}
-
-
-def _node(
-    node_id: str,
-    name: str,
-    point: tuple[int, int],
-    kind: str,
-    description: str,
-    **kwargs,
-) -> RouteNode:
-    return RouteNode(node_id, name, point[0], point[1], kind, description, **kwargs)
+_ROUTES = load_catalog("vessel.json", VESSEL_SECTIONS)
+REGION_NODES = dict(_ROUTES["region_nodes"])
 
 
 def build_route_graph(seed: str) -> tuple[dict[str, RouteNode], list[RouteEdge]]:
     """Build one bounded navigational network; optional links vary by seed."""
-    nodes = {
-        "hearthford": _node("hearthford", "Hearthford", (8, 7), "region", "mill quay and river market", region_id="hearthford", market_interest="ironwork", supply=2),
-        "reed-anchor": _node("reed-anchor", "Reed Anchor", (19, 4), "anchorage", "sheltered reeds, potable water, little trade", supply=3, risk=1),
-        "charter-market": _node("charter-market", "Charter Market", (31, 8), "market", "a witnessed landing with cargo buyers", market_interest="paper", supply=2, risk=1),
-        "greywash": _node("greywash", "Greywash", (46, 4), "region", "tidal salt reach and wreck road", region_id="greywash", market_interest="timber", risk=2),
-        "ebb-crossing": _node("ebb-crossing", "Ebb Crossing", (58, 8), "hazard", "a fast tidal cut, safest near a turning tide", risk=3, seasonal_note="winter storms often close this reach"),
-        "coast-refuge": _node("coast-refuge", "Coast Refuge", (70, 5), "anchorage", "stone lee and a repair crane", supply=1, integrity_required=4),
-        "willow-ferry": _node("willow-ferry", "Willow Ferry", (24, 14), "resupply", "ferry garden and cordage exchange", supply=3, market_interest="grain"),
-        "greenwold": _node("greenwold", "Greenwold", (40, 17), "region", "forest burnworks and resin trails", region_id="greenwold", market_interest="salt fish", risk=2),
-        "old-lock": _node("old-lock", "Old Lock", (52, 14), "hazard", "damaged gates with a narrow tow", risk=3, integrity_required=6),
-        "chalk-steps": _node("chalk-steps", "Chalk Steps", (62, 18), "unknown", "an incompletely sounded upland landing", known=False, risk=2),
-        "whitecairn": _node("whitecairn", "Whitecairn", (75, 15), "region", "limestone terraces, quarry, and high bridge", region_id="whitecairn", market_interest="wool", risk=3),
-        "storm-post": _node("storm-post", "Storm Post", (64, 11), "warning", "a staffed signal pole above exposed water", risk=2),
-        "dunmire": _node("dunmire", "Dunmire", (8, 17), "region", "peat islands and raised drying racks", region_id="dunmire", market_interest="timber", risk=2),
-        "marlbank": _node("marlbank", "Marlbank", (7, 1), "region", "irrigated grain terraces and clay kilns", region_id="marlbank", market_interest="timber", supply=2),
-        "rillscar": _node("rillscar", "Rillscar", (76, 20), "region", "iron gorge with paired crossings and buried drains", region_id="rillscar", market_interest="charcoal", risk=3),
-        "frostmere": _node("frostmere", "Frostmere", (76, 1), "region", "braided cold-water channels and net lofts", region_id="frostmere", market_interest="wool", risk=3),
-    }
-    specifications = [
-        ("h-r", "hearthford", "reed-anchor", 4, 1, 1, 1, [], "soft spring bank"),
-        ("r-m", "reed-anchor", "charter-market", 4, 1, 1, 1, [], "reed channel"),
-        ("m-g", "charter-market", "greywash", 5, 2, 2, 2, [], "open estuary"),
-        ("g-e", "greywash", "ebb-crossing", 4, 2, 3, 3, ["winter"], "tidal cut"),
-        ("e-c", "ebb-crossing", "coast-refuge", 4, 1, 2, 3, ["winter"], "outer coast"),
-        ("h-w", "hearthford", "willow-ferry", 5, 1, 1, 1, [], "willow backwater"),
-        ("w-f", "willow-ferry", "greenwold", 5, 2, 1, 1, [], "forest water"),
-        ("f-l", "greenwold", "old-lock", 5, 1, 2, 2, [], "burn canal"),
-        ("l-k", "old-lock", "chalk-steps", 5, 2, 2, 2, ["spring"], "damaged upland lock"),
-        ("k-u", "chalk-steps", "whitecairn", 4, 1, 2, 2, [], "chalk tributary"),
-        ("m-l", "charter-market", "old-lock", 6, 2, 2, 2, [], "long carrier canal"),
-        ("l-s", "old-lock", "storm-post", 4, 1, 2, 3, [], "exposed reach"),
-        ("s-u", "storm-post", "whitecairn", 5, 2, 3, 3, ["winter"], "ridge water"),
-        ("h-d", "hearthford", "dunmire", 6, 1, 2, 1, [], "raised fen navigation"),
-        ("d-w", "dunmire", "willow-ferry", 4, 1, 1, 1, ["spring"], "low peat cut"),
-        ("h-a", "hearthford", "marlbank", 5, 1, 1, 1, [], "terrace carrier river"),
-        ("a-r", "marlbank", "reed-anchor", 4, 1, 2, 1, ["autumn"], "harvest lock"),
-        ("u-i", "whitecairn", "rillscar", 6, 2, 2, 2, [], "sheltered iron tributary"),
-        ("k-i", "chalk-steps", "rillscar", 5, 1, 2, 3, ["winter"], "gorge shelf tow"),
-        ("c-f", "coast-refuge", "frostmere", 6, 2, 2, 3, [], "marked winter sounding"),
-        ("g-f", "greywash", "frostmere", 8, 2, 3, 4, ["winter"], "outer braided channel"),
-        ("s-c", "storm-post", "coast-refuge", 6, 2, 2, 2, [], "inner coast refuge passage"),
-    ]
+    nodes = {node_id: RouteNode(**row) for node_id, row in _ROUTES["route_nodes"].items()}
+    specifications = list(_ROUTES["route_edges"])
     rng = stage_rng(seed, "route-links")
-    optional = [
-        ("r-w", "reed-anchor", "willow-ferry", 5, 1, 1, 1, [], "quiet reed loop"),
-        ("g-s", "greywash", "storm-post", 6, 2, 3, 4, ["winter"], "weatherward coast"),
-        ("f-k", "greenwold", "chalk-steps", 7, 2, 2, 2, ["spring"], "timber portage"),
-    ]
+    optional = _ROUTES["optional_route_edges"]
     specifications.extend(row for row in optional if rng.randrange(3) != 0)
     edges = [
         RouteEdge(edge_id, first, second, time, supply, cargo, weather, max(0, cargo + weather - 2), list(closed), hazard)
