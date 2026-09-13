@@ -64,6 +64,8 @@ def _techniques() -> set[str]:
 
 
 def content_audit(seed: str = "content-verification") -> dict[str, object]:
+    from .sanctums import SITES
+
     state = expanded_world(seed)
     validate_commodity_content()
     validate_build_scenarios()
@@ -105,6 +107,9 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
         "vessel_refits": len(REFITS),
         "stateful_voyage_variants": len(VARIANTS),
         "mixed_situations": len(SITUATIONS),
+        "sanctum_sites": len(SITES),
+        "sanctum_bosses": len({row["boss"]["name"] for row in SITES.values()}),
+        "sanctum_boss_duties": len({row["boss"]["duty"] for row in SITES.values()}),
         "mutable_micro_sites": len(SITUATIONS),
         "active_manoeuvres": len(MANOEUVRES),
         "cross_region_interferences": len(INTERFERENCES),
@@ -125,6 +130,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
         "vessel_refits": 8,
         "stateful_voyage_variants": 12,
         "mixed_situations": 24, "mutable_micro_sites": 24,
+        "sanctum_sites": 8, "sanctum_bosses": 8, "sanctum_boss_duties": 5,
         "active_manoeuvres": 12, "cross_region_interferences": 8,
         "voyage_echoes": 12, "late_household_stories": 2,
         "all_region_capstones": 1,
@@ -161,6 +167,8 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
             "vessel_refits": sorted(REFITS),
             "voyage_variants": sorted(variant.id for variant in VARIANTS.values()),
             "situations": sorted(row.id for row in SITUATIONS),
+            "sanctums": sorted(SITES),
+            "sanctum_bosses": sorted(row["boss"]["name"] for row in SITES.values()),
             "manoeuvres": sorted(row.id for row in MANOEUVRES),
             "interferences": sorted(row.id for row in INTERFERENCES),
             "voyage_echoes": sorted(row.variant_id for row in ECHOES),

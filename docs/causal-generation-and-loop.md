@@ -79,9 +79,10 @@ physical: one build item, one armour item, and one finite supply. Pack cells and
 weight can force the player to rotate, rearrange, leave, drop, or surrender a
 reward.
 
-Each region also has an authored marked cache and two hidden field caches;
-Hearthford has eleven stores, the other established regions nine each, and the
-four frontier regions ten each, for 78 containers overall. Field traces appear
+Each region also has an authored marked cache, two hidden field caches, and two
+separate sanctum stores. Hearthford has thirteen stores, the other established
+regions eleven each, and the four frontier regions twelve each, for 94
+containers overall. Field traces appear
 when inspected close up, and approaching a hidden site resolves it into a
 physical cache. One first discovery per region trains Wayfinding; the store
 still needs its stated light, rope, or key. Contact testimony, elevation, regional material

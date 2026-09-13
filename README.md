@@ -285,12 +285,25 @@ doors, elevation, smoke, weather, interiors, and caves change sight. Tides,
 burn wind, quarry instability, patrol travel, and Hearthford flooding change
 only after accepted actions.
 
+Each region also has a seed-placed sanctum beside its cave route. Explore the
+undercroft and defeat its warder to read the seal, or use `E` at the nearby `*`
+shrine to offer one physical lot to the linked travelling institution or break
+the seal at a cost to that account. The stair leads through a divided ward
+gallery to a reliquary roof with a named boss. Bosses use regional combat AI,
+finite equipment and material duties; the two new chests are physical stores.
+One site event is drawn when a courier approaches per expedition: witness,
+claimant, warned stonefall, or a physical lost lot. Claimants and parcels are
+bounded per region over a saved world. Shrine standing affects
+the linked institution in both of its regions. Boss victory pays four credits
+and up to one Strategy once, while the reliquary remains separately lootable.
+
 Closed containers use `C`; depleted containers use `o`. Each region also has
 two hidden field caches: inspect nearby terrain for a trace, approach to reveal
 the store, then use its light, rope, or key requirement to open it. The first
-field discovery in a region grants one Wayfinding. Hearthford has eleven
-containers; Greywash, Greenwold and Whitecairn have nine each; each frontier
-has ten, for 78 persistent containers when all destinations have been visited.
+field discovery in a region grants one Wayfinding. With two sanctum stores per
+region, Hearthford has thirteen containers; Greywash, Greenwold and Whitecairn
+have eleven each; each frontier has twelve, for 94 persistent containers when
+all destinations have been visited.
 Contact clues and working records can mark optional treasure in exploration memory.
 Pack shape and weight are independent constraints. Light, laden, encumbered, and
 overloaded states visibly affect noise, pacing, climbing, water, retreat, and

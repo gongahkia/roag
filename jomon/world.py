@@ -463,6 +463,19 @@ def area_name(state: GameState) -> str:
             0: "Jomon — working deck",
             1: "Jomon — helm and weather deck",
         }.get(state.position.z, "Jomon")
+    entry = state.region.landmarks.get("sanctum_entry")
+    if entry and state.position.z in {1, 2} and (
+        entry.x - 2 <= state.position.x <= entry.x + 12
+        and entry.y - 5 <= state.position.y <= entry.y + 5
+    ):
+        from .sanctums import SITES
+
+        tier = "ward gallery" if state.position.z == 1 else "reliquary roof"
+        return f"{SITES[state.active_region_id]['name']} — {tier}"
+    if state.position == state.region.landmarks.get("sanctum_undercroft"):
+        from .sanctums import SITES
+
+        return f"{SITES[state.active_region_id]['name']} — undercroft seal"
     if state.position.z < 0:
         return f"{state.region.name} — below"
     if state.position.z == 2:

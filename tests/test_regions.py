@@ -54,7 +54,7 @@ class FourRegionGenerationTests(unittest.TestCase):
                 with self.subTest(seed=seed, region=region_id):
                     reachable = region_reachable(region)
                     self.assertGreaterEqual(len(region.zones), 5)
-                    self.assertEqual(len(region.containers), 9)
+                    self.assertEqual(len(region.containers), 11)
                     self.assertEqual(sum(container.hidden for container in region.containers), 2)
                     self.assertGreaterEqual(len({point.z for point in reachable}), 4)
                     self.assertTrue(set(region.landmarks.values()) <= reachable)

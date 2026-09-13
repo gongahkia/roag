@@ -25,6 +25,7 @@ TERRAIN_NAMES = {
     "<": "upward connection", ">": "downward connection", "w": "current",
     "&": "working control", "R": "cargo", "C": "closed store",
     "o": "opened store", "M": "regional contact", "c": "local witness",
+    "*": "inscribed shrine",
 }
 
 

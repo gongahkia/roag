@@ -52,8 +52,10 @@ def inspect_world(state):
     validate_ecology(state)
     for region_id, region in state.regions.items():
         reachable = region_reachable(region)
-        required = {point for key, point in region.landmarks.items() if key in {"landing", "contact", "second_contact", "objective", "control", "cave_entrance", "elevated", "high_view"}}
+        required = {point for key, point in region.landmarks.items() if key in {"landing", "contact", "second_contact", "objective", "control", "cave_entrance", "elevated", "high_view", "sanctum_entry", "sanctum_shrine", "sanctum_undercroft", "sanctum_ward", "sanctum_boss"}}
         required.update(container.position for container in region.containers)
+        if len([box for box in region.containers if "-sanctum-" in box.id]) != 2:
+            failures.append(f"{region_id}: incomplete physical sanctum stores")
         if not required <= reachable:
             failures.append(f"{region_id}: unreachable objective, contact or container")
         if len({point.z for point in reachable}) < 3:

@@ -61,6 +61,11 @@ LANDMARK_LABELS = {
     "store": "working store",
     "ruin": "historic scar",
     "far_bank": "far-bank route",
+    "sanctum_entry": "sanctum stair",
+    "sanctum_shrine": "sanctum shrine",
+    "sanctum_undercroft": "undercroft seal",
+    "sanctum_ward": "ward gallery",
+    "sanctum_boss": "reliquary keeper",
 }
 
 

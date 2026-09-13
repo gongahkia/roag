@@ -211,6 +211,9 @@ def build_frontier(seed: str, region_id: str) -> Region:
     from .geography import orient_region
 
     orient_region(region, seed)
+    from .sanctums import install as install_sanctum
+
+    install_sanctum(region, seed)
     from .discoveries import install_discoveries
 
     install_discoveries(region, seed)

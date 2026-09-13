@@ -741,6 +741,9 @@ def _region(seed: str) -> tuple[Region, Contact]:
         opportunity_commodity=context["opportunity"], hazard=context["hazard"],
         **spatial,
     )
+    from .sanctums import install as install_sanctum
+
+    install_sanctum(region, seed)
     from .discoveries import install_discoveries
 
     install_discoveries(region, seed)
@@ -1385,6 +1388,10 @@ def game_state_from_dict(data: Any) -> GameState:
                 state.contacts[region_id] = new_contacts[region_id]
                 state.region_threats[region_id] = new_threats[region_id]
                 state.regional_markets[region_id] = new_markets[region_id]
+        from .sanctums import install as install_sanctum
+
+        for installed_region in state.regions.values():
+            install_sanctum(installed_region, state.seed)
         if migrated_v10:
             from .vehicles import initialise_vehicles
 

@@ -34,7 +34,7 @@ class WorkingHistoryTests(unittest.TestCase):
         self.assertEqual(len(state.institutions), 12)
         self.assertEqual(sum(len(r.regional_history) for r in state.regions.values()), 40)
         for region in state.regions.values():
-            self.assertEqual(region.regional_history[-1].evidence, next(box.id for box in reversed(region.containers) if not box.hidden))
+            self.assertEqual(region.regional_history[-1].evidence, next(box.id for box in reversed(region.containers) if not box.hidden and "-sanctum-" not in box.id))
             self.assertTrue(region.materials)
             self.assertTrue(any("repairs depend on" in n.description for n in state.route_nodes.values() if n.region_id == region.id))
 

@@ -1463,6 +1463,11 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         from .discoveries import reveal_nearby
 
         messages.extend(reveal_nearby(state))
+        from .sanctums import approach as approach_sanctum
+
+        site_event = approach_sanctum(state)
+        if site_event:
+            messages.append(site_event)
     if kept_roof_aim:
         messages.append("The trained moving volley holds the bow lane through a safe step."
                         if state.courier and "moving-volley" in state.courier.skill_nodes
@@ -2070,6 +2075,13 @@ def interact(state: GameState) -> ActionResult:
         return _plain(state, "Nothing here needs handling.")
     if state.position == state.region.landmarks["landing"]:
         return return_to_jomon(state)
+    from .sanctums import undercroft as sanctum_undercroft
+
+    if state.position == state.region.landmarks.get("sanctum_shrine"):
+        return ActionResult(False, False, "Inspect the sanctum shrine and its travelling witness account.", "sanctum")
+    if state.position == state.region.landmarks.get("sanctum_undercroft"):
+        changed, message = sanctum_undercroft(state)
+        return _time_result(state, message, priority=3) if changed else _plain(state, message)
     from .situations import interaction as situation_interaction
 
     situation_overlay = situation_interaction(state)
@@ -2085,6 +2097,9 @@ def interact(state: GameState) -> ActionResult:
         return _control_interaction(state)
     destination = vertical_destination(state, state.position)
     if destination:
+        if (state.position == state.region.landmarks.get("sanctum_entry")
+                and destination.z == 1 and not state.region.changes.get("sanctum:unsealed")):
+            return _plain(state, "The sanctum stair is sealed. Read the nearby cave undercroft or offer a physical lot at its shrine; breaking the seal is another choice.")
         if load_state(state) == "overloaded" and destination.z > state.position.z:
             return _plain(state, "The overloaded pack makes this climb unsafe; repack or leave weight.")
         injured_climb = bool(
@@ -2115,12 +2130,16 @@ def interact(state: GameState) -> ActionResult:
             if state.position in {item.first, item.second}
         )
         state.position = destination
+        from .sanctums import enter_tier
+
+        sanctum_note = enter_tier(state, destination)
         from .quests import mark_elevated_lead
 
         marked_lead = mark_elevated_lead(state)
         return _time_result(
             state,
             f"You use the {link.name}; nearby levels remain spatially aligned."
+            + (f" {sanctum_note}" if sanctum_note else "")
             + (" Lower-limb injury or heavy armour makes the climb slow." if injured_climb or armour_climb else "")
             + (" Height reveals and marks a named treasure lead." if marked_lead else ""),
             steps=2 if injured_climb or armour_climb else 1,

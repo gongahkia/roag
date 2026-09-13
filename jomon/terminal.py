@@ -835,7 +835,7 @@ def _status_lines(state: GameState, capacity: int | None = None) -> list[str]:
         role = courier.role
     else:
         health, name, role = "Health [........] -", ["not chosen"], "-"
-    location = state.region.name if state.location == "region" else area_name(state)
+    location = state.region.name if state.location == "region" and state.position.z == 0 else area_name(state)
     lines = [
         "COURIER", *name, f"Class: {role}", health,
         f"Load {pack_weight(state)}/{weight_capacity(state)} kg",
@@ -2604,6 +2604,10 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
 
         situation_id = kind.split(":", 1)[1]
         return BY_ID[situation_id].name.upper(), inspect_lines(state, situation_id)
+    if kind == "sanctum":
+        from .sanctums import SITES, inspect_lines
+
+        return SITES[state.active_region_id]["name"].upper(), inspect_lines(state)
     if kind == "navigation":
         return "FOLLOW A KNOWN LOCAL ROUTE", [
             "Choose a seen landmark, vertical link, or marked store.",
@@ -3208,6 +3212,15 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         from .situations import resolve
 
         changed, message, steps = resolve(state, kind.split(":", 1)[1], char)
+        if changed:
+            _advance_world(state, steps=steps)
+        state.add_message(message, priority=3)
+        return (None if changed else kind), False
+    if kind == "sanctum" and char in {"o", "b", "s"}:
+        from .actions import _advance_world
+        from .sanctums import shrine_choice
+
+        changed, message, steps = shrine_choice(state, char)
         if changed:
             _advance_world(state, steps=steps)
         state.add_message(message, priority=3)

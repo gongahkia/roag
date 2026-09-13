@@ -170,6 +170,9 @@ def validate_region(region: Region) -> None:
     if elevated:
         required.add(elevated)
     required.update(container.position for container in region.containers)
+    required.update(region.landmarks[key] for key in (
+        "sanctum_entry", "sanctum_shrine", "sanctum_undercroft", "sanctum_ward", "sanctum_boss"
+    ) if key in region.landmarks)
     if not required <= reachable:
         missing = required - reachable
         raise RuntimeError(f"{region.name} generation left required positions unreachable: {missing}")
@@ -303,6 +306,9 @@ def build_greywash(seed: str, *, layout: str | None = None) -> Region:
 
     orient_region(region, seed, layout=layout)
     if layout is None:
+        from .sanctums import install as install_sanctum
+
+        install_sanctum(region, seed)
         from .discoveries import install_discoveries
 
         install_discoveries(region, seed)
@@ -447,6 +453,9 @@ def build_greenwold(seed: str, *, layout: str | None = None) -> Region:
 
     orient_region(region, seed, layout=layout)
     if layout is None:
+        from .sanctums import install as install_sanctum
+
+        install_sanctum(region, seed)
         from .discoveries import install_discoveries
 
         install_discoveries(region, seed)
@@ -563,6 +572,9 @@ def build_whitecairn(seed: str, *, layout: str | None = None) -> Region:
 
     orient_region(region, seed, layout=layout)
     if layout is None:
+        from .sanctums import install as install_sanctum
+
+        install_sanctum(region, seed)
         from .discoveries import install_discoveries
 
         install_discoveries(region, seed)
