@@ -12,7 +12,7 @@ from .json_data import loads
 
 def _load_office_visuals() -> tuple[dict[str, tuple[str, ...]], dict]:
     try:
-        raw = loads(files("dumbest_dungeon").joinpath("data", "office_visuals.json").read_text(encoding="utf-8"))
+        raw = loads(files("jomon.dumbest_dungeon").joinpath("data", "office_visuals.json").read_text(encoding="utf-8"))
     except OSError as exc:
         raise ValueError(f"cannot read office visuals: {exc}") from exc
     if not isinstance(raw, dict) or set(raw) != {"office_sprites", "expedition_map_symbols"}:

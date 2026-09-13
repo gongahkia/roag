@@ -5,8 +5,8 @@ from __future__ import annotations
 import copy
 import unittest
 
-from dumbest_dungeon.expedition import start_match as start_dullest_match
-from dumbest_dungeon.tabletop import patrons
+from jomon.dumbest_dungeon.expedition import start_match as start_dullest_match
+from jomon.dumbest_dungeon.tabletop import patrons
 from jomon.actions import interact
 from jomon.state import StateError, create_world, game_state_from_dict, validate_state
 from jomon.tavern_dice import ROUNDS, close_match, hold, start_match

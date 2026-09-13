@@ -3,8 +3,8 @@
 import unittest
 from unittest.mock import patch
 
-from dumbest_dungeon.expedition import finish_match, start_match
-from dumbest_dungeon.tabletop import patrons
+from jomon.dumbest_dungeon.expedition import finish_match, start_match
+from jomon.dumbest_dungeon.tabletop import patrons
 from jomon.actions import negotiate
 from jomon.inventory import equipped_item
 from jomon.route_chart import route_preview

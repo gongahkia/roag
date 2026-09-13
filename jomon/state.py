@@ -1372,7 +1372,7 @@ def validate_state(state: GameState) -> None:
                 raise ValueError("invalid personal mana reserve")
     except ValueError as exc:
         raise StateError(f"invalid material state: {exc}") from exc
-    from dumbest_dungeon.expedition import validate_expedition
+    from .dumbest_dungeon.expedition import validate_expedition
 
     try:
         validate_expedition(state)

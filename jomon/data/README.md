@@ -46,7 +46,7 @@ references. Invalid JSON stops startup with a named error.
 
 Visual sources are package-local: Jomon's actor-specific hostile glyphs are in
 `actors.json`; the Dullest Dungeon's original portraits, card marks, and title
-remain in `dumbest_dungeon/data/art.json`, while its office-fantasy portraits
-and competitive-map symbols are in `dumbest_dungeon/data/office_visuals.json`.
+remain in `jomon/dumbest_dungeon/data/art.json`, while its office-fantasy portraits
+and competitive-map symbols are in `jomon/dumbest_dungeon/data/office_visuals.json`.
 Generated regional terrain and procedurally drawn UI borders remain rendering
 rules rather than authored entity assets.

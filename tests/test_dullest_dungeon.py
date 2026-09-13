@@ -7,13 +7,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from dumbest_dungeon.content import load_catalog
-from dumbest_dungeon.engine import GameEngine
-import dumbest_dungeon.expedition as expedition
-from dumbest_dungeon.expedition_ui import ExpeditionUI, run_expedition
-from dumbest_dungeon.office_art import OFFICE_SPRITES, office_card_glyph, rival_costumes
-from dumbest_dungeon.office_content import OFFICE_ROLES, OFFICE_SQUADS, office_catalog
-from dumbest_dungeon.tabletop import collection_for, initial_collection, patrons
+from jomon.dumbest_dungeon.content import load_catalog
+from jomon.dumbest_dungeon.engine import GameEngine
+import jomon.dumbest_dungeon.expedition as expedition
+from jomon.dumbest_dungeon.expedition_ui import ExpeditionUI, run_expedition
+from jomon.dumbest_dungeon.office_art import OFFICE_SPRITES, office_card_glyph, rival_costumes
+from jomon.dumbest_dungeon.office_content import OFFICE_ROLES, OFFICE_SQUADS, office_catalog
+from jomon.dumbest_dungeon.tabletop import collection_for, initial_collection, patrons
 from jomon.actions import interact
 from jomon.save import SaveError, load_game, save_game
 from jomon.state import Position, SAVE_FORMAT, create_world, game_state_from_dict, validate_state

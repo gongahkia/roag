@@ -4,9 +4,9 @@ from importlib.resources import files
 import string
 import unittest
 
-from dumbest_dungeon.content import load_catalog as load_dungeon_catalog
-from dumbest_dungeon.json_data import loads
-from dumbest_dungeon.office_art import EXPEDITION_MAP_SYMBOLS, OFFICE_SPRITES, office_card_glyph
+from jomon.dumbest_dungeon.content import load_catalog as load_dungeon_catalog
+from jomon.dumbest_dungeon.json_data import loads
+from jomon.dumbest_dungeon.office_art import EXPEDITION_MAP_SYMBOLS, OFFICE_SPRITES, office_card_glyph
 from jomon.catalog import VISUAL_SECTIONS, load_catalog
 from jomon.tavern_draw_ui import card_frame
 from jomon.tavern_games_ui import dice_face
@@ -34,7 +34,7 @@ class VisualCatalogTests(unittest.TestCase):
         self.assertEqual(card_frame(0, selected=True)[0], frame["selected_edge"])
 
     def test_dungeon_office_portraits_and_map_symbols_are_packaged(self):
-        data = loads(files("dumbest_dungeon").joinpath("data", "office_visuals.json").read_text(encoding="utf-8"))
+        data = loads(files("jomon.dumbest_dungeon").joinpath("data", "office_visuals.json").read_text(encoding="utf-8"))
         self.assertEqual(data["office_sprites"], {role: list(rows) for role, rows in OFFICE_SPRITES.items()})
         self.assertEqual(data["expedition_map_symbols"], EXPEDITION_MAP_SYMBOLS)
         self.assertEqual(set(OFFICE_SPRITES), set(load_dungeon_catalog().heroes))

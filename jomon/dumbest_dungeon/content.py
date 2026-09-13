@@ -492,7 +492,7 @@ def _bundled_catalog() -> Catalog:
 def load_legacy_catalog() -> Catalog:
     from .migrations import LEGACY_20_FINGERPRINT
 
-    root = Path(str(files("dumbest_dungeon.data").joinpath("legacy20")))
+    root = Path(str(files("jomon.dumbest_dungeon.data").joinpath("legacy20")))
     catalog = _load_catalog(root / "game.json", assets=root)
     if catalog.raw["schema_version"] != 20 or catalog.manifest.fingerprint != LEGACY_20_FINGERPRINT:
         raise ContentError("historical content-20 bundle does not match its recorded fingerprint")
@@ -500,7 +500,7 @@ def load_legacy_catalog() -> Catalog:
 
 
 def _load_catalog(path: Path | None, *, assets: Path | None = None) -> Catalog:
-    data_root = files("dumbest_dungeon.data")
+    data_root = files("jomon.dumbest_dungeon.data")
     source = path or Path(str(data_root.joinpath("game.json")))
     try:
         raw = loads(source.read_text(encoding="utf-8"))

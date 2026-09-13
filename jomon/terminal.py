@@ -3532,7 +3532,7 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
             elif result.overlay == "route-chart":
                 route_view = RouteChartView.begin(state)
             elif result.overlay == "tabletop":
-                from dumbest_dungeon.expedition_ui import run_expedition
+                from .dumbest_dungeon.expedition_ui import run_expedition
 
                 run_expedition(screen, state)
             elif result.overlay == "tavern-draw":

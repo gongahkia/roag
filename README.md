@@ -33,8 +33,8 @@ choosing any available tavern patron brings that person to a free chair for
 the match.
 It is an in-world office-fantasy card game against named tavern patrons; the
 original generated-map expedition now hosts one competitive file-capture mode.
-The imported Dullest Dungeon package launches Jomon rather than a separate
-campaign. See [the game and lore guide](docs/dullest-dungeon.md).
+The Dullest Dungeon package lives under `jomon/dumbest_dungeon/` and is played
+through Jomon rather than as a separate campaign. See [the game and lore guide](docs/dullest-dungeon.md).
 
 A separate `P` chair at the left-hand tavern table opens four-seat
 [Tavern Draw](docs/tavern-draw.md): five-card draw against three named adults
