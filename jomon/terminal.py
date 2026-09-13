@@ -753,7 +753,10 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
     )
     visible = field_of_view(state, remember=False)
     threats = visible_threats(state, visible)
-    from .vehicles import SPECS, vehicle_at
+    from .vehicles import SPECS
+
+    vehicle_region = "harbour" if state.location == "jomon" and state.jomon_space == "harbour" else state.active_region_id if state.location == "region" else None
+    vehicle_marks = {vehicle.position: vehicle for vehicle in state.vehicles.values() if vehicle.region_id == vehicle_region}
     danger_marks = visible_danger_marks(state, visible)
     known = set(state.region.seen)
     marks = set(state.treasure_marks.get(state.active_region_id, []))
@@ -775,7 +778,7 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
             ):
                 _put(screen, top + 1 + sy, left + 1 + sx, " ")
                 continue
-            vehicle = vehicle_at(state, position)
+            vehicle = vehicle_marks.get(position)
             if position == state.position:
                 char = SPECS[vehicle.id]["glyph"] if vehicle and state.active_vehicle_id == vehicle.id else ENTITY_GLYPHS["courier"]
             elif position in threats:

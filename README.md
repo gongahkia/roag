@@ -373,7 +373,8 @@ number.
 One atomic JSON save is stored at `$XDG_DATA_HOME/jomon/jomon-save.json`, or
 `~/.local/share/jomon/jomon-save.json` when `XDG_DATA_HOME` is unset. Set
 `JOMON_DATA_DIR` to override the directory for development or tests. Save format
-7 deterministically migrates Python format-6 saves while preserving people,
+11 is current; earlier formats 3–10 migrate in sequence. Format 7's migration
+from Python format 6 preserves people,
 regions, exploration, exact item layouts, cargo, contacts, markets, integrity,
 and voyage history. New sparse material fields, travelling accounts and
 regional witnesses do

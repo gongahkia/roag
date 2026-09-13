@@ -335,6 +335,7 @@ def validate_vehicles(state: GameState) -> None:
         spec = SPECS[vehicle_id]
         if (not isinstance(vehicle, Vehicle) or vehicle.id != vehicle_id
                 or vehicle.region_id != VEHICLE_REGIONS[vehicle_id]
+                or not isinstance(vehicle.home, Position) or not isinstance(vehicle.position, Position)
                 or type(vehicle.fuel) is not int or not 0 <= vehicle.fuel <= spec["capacity"]
                 or type(vehicle.condition) is not int or not 0 <= vehicle.condition <= spec["condition"]
                 or type(vehicle.travelled) is not int or vehicle.travelled < 0
@@ -343,6 +344,8 @@ def validate_vehicles(state: GameState) -> None:
                 or _tile_for_validation(state, vehicle) == " "
                 or vehicle_id == "tug" and not _terrain_ok("water", _tile_for_validation(state, vehicle), regional=False)):
             raise ValueError(f"invalid vehicle state: {vehicle_id}")
+    if state.active_vehicle_id is not None and not isinstance(state.active_vehicle_id, str):
+        raise ValueError("invalid active vehicle id")
     if state.active_vehicle_id is not None:
         active = state.vehicles.get(state.active_vehicle_id)
         area = "harbour" if state.location == "jomon" and state.jomon_space == "harbour" else state.active_region_id if state.location == "region" else None
@@ -354,6 +357,8 @@ def validate_vehicles(state: GameState) -> None:
         raise ValueError("invalid tug expedition flag")
     if state.expedition_by_tug and (state.location != "region" or state.active_vehicle_id == "tug"):
         raise ValueError("invalid shore expedition")
+    if state.expedition_by_tug and state.vehicles["tug"].position != SHORE_DOCK:
+        raise ValueError("the expedition tug left its shore mooring")
     if state.returning_by_tug and (state.location != "jomon" or state.jomon_space != "harbour"):
         raise ValueError("invalid tug return")
 

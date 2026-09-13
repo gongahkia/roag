@@ -7,8 +7,8 @@ from pathlib import Path
 from jomon.actions import interact, move
 from jomon.regions import activate_region
 from jomon.save import load_game, save_game
-from jomon.state import SAVE_FORMAT, Position, create_world, game_state_from_dict, validate_state
-from jomon.terminal import _overlay_lines, dialogue_choices
+from jomon.state import SAVE_FORMAT, Position, StateError, create_world, game_state_from_dict, validate_state
+from jomon.terminal import OverlayView, _draw_map, _overlay, _overlay_lines, dialogue_choices
 from jomon.vehicles import (
     JOMON_DOCK,
     SHORE_DOCK,
@@ -22,6 +22,19 @@ from jomon.world import area_name, map_rows
 
 
 class VehicleNavigationTests(unittest.TestCase):
+    class Screen:
+        def __init__(self):
+            self.writes = []
+
+        def getmaxyx(self):
+            return 30, 80
+
+        def addnstr(self, row, col, value, count, attr=0):
+            self.writes.append((row, col, value[:count]))
+
+        def refresh(self):
+            pass
+
     def test_tug_round_trip_uses_a_real_water_map_and_preserves_return(self):
         state = create_world("tug round trip")
         self.assertEqual([option.key for option in dialogue_choices(state, "gangplank")], ["1", "2"])
@@ -35,6 +48,12 @@ class VehicleNavigationTests(unittest.TestCase):
         self.assertIn("open-water", area_name(state))
         self.assertEqual(map_rows(state)[SHORE_DOCK.y][SHORE_DOCK.x], "L")
         self.assertEqual(harbour_rows(state.seed), harbour_rows(state.seed))
+        screen = self.Screen()
+        _draw_map(screen, state, 0, 0, 18, 51)
+        self.assertTrue(any(glyph == "U" for _, _, glyph in screen.writes))
+        screen.writes.clear()
+        _overlay(screen, *_overlay_lines(state, "vehicle-interior"), OverlayView("vehicle-interior"))
+        self.assertTrue(any("[H] helm" in glyph for _, _, glyph in screen.writes))
         self.assertEqual(move(state, 0, -1).changed, True)
         self.assertEqual(move(state, 0, 1).changed, True)
         for _ in range(25):
@@ -140,6 +159,10 @@ class VehicleNavigationTests(unittest.TestCase):
         self.assertEqual(migrated.save_format, SAVE_FORMAT)
         self.assertEqual(migrated.world_time, state.world_time)
         self.assertEqual(set(migrated.vehicles), set(state.vehicles))
+        corrupt = migrated.to_dict()
+        corrupt["vehicles"]["tug"]["fuel"] = -1
+        with self.assertRaises(StateError):
+            game_state_from_dict(corrupt)
         board_tug(migrated)
         tug = migrated.vehicles["tug"]
         tug.condition = 0
