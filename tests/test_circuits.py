@@ -229,6 +229,9 @@ class CircuitTests(unittest.TestCase):
         self.assertIsNotNone(piston_head_at(state, Position(21, 20, 0)))
         self.assertFalse(is_walkable(state, Position(21, 20, 0)))
         self.assertEqual([cell_at(state, Position(x, 20, 0)).kind for x in (22, 23, 24)], ["crate"] * 3)
+        loaded = game_state_from_dict(state.to_dict())
+        self.assertEqual(loaded.circuits[cell_key("region:hearthford", Position(20, 20, 0), "surface")].sticky, True)
+        self.assertEqual(loaded.circuits[cell_key("region:hearthford", Position(24, 20, 0), "surface")].kind, "crate")
         self.tick(8)
         self.assertIsNone(piston_head_at(state, Position(21, 20, 0)))
         self.assertEqual(cell_at(state, Position(21, 20, 0)).kind, "crate")
@@ -255,6 +258,36 @@ class CircuitTests(unittest.TestCase):
         self.tick(2)
         self.assertEqual(crate.position, Position(21, 20, 0))
         self.assertIn("person or creature", piston.last_event)
+
+    def test_piston_moves_bounded_ground_cargo_with_a_crate(self):
+        state = self.state
+        piston = self.fit("piston", 20)
+        crate = self.fit("crate", 21)
+        self.fit("rack", 19).charge = 1
+        cargo = create_item(state, "component:iron billet", "test freight", location="ground", quantity=2)
+        cargo.region_id = state.active_region_id
+        cargo.ground_position = crate.position
+        self.assertIn("6/12 kg", diagnostic_lines(state, crate)[0])
+        state.position = Position(20, 19, 0)
+        state.world_time = 5
+        self.tick(2)
+        self.assertEqual((crate.position, cargo.ground_position), (Position(22, 20, 0),) * 2)
+        self.assertIn("pushed 1 crate", piston.last_event)
+
+    def test_overloaded_crate_jams_without_moving_contents(self):
+        state = self.state
+        piston = self.fit("piston", 20)
+        crate = self.fit("crate", 21)
+        self.fit("rack", 19).charge = 1
+        for quantity in (4, 1):
+            cargo = create_item(state, "component:iron billet", "test heavy freight", location="ground", quantity=quantity)
+            cargo.region_id = state.active_region_id
+            cargo.ground_position = crate.position
+        state.position = Position(20, 19, 0)
+        state.world_time = 5
+        self.tick(2)
+        self.assertEqual(crate.position, Position(21, 20, 0))
+        self.assertIn("exceeds 12 kg", piston.last_event)
 
     def test_sensor_modes_and_one_way_relay_are_inspectable(self):
         state = self.state
@@ -305,6 +338,28 @@ class CircuitTests(unittest.TestCase):
         self.assertEqual(loaded.save_format, state.save_format)
         self.assertEqual(len(loaded.circuits), len(state.circuits))
         self.assertTrue(all(cell.facing == "east" for cell in loaded.circuits.values()))
+        invalid = state.to_dict()
+        next(iter(invalid["circuits"].values()))["facing"] = "upside-down"
+        with self.assertRaises(StateError):
+            game_state_from_dict(invalid)
+
+    def test_circuit_view_builds_configures_and_steps_a_piston(self):
+        state = self.state
+        part = create_item(state, "circuit:piston", "test stock")
+        self.assertTrue(auto_place(state, part.id, "pack", owner_id=state.active_courier_id))
+        view = CircuitView(Position(21, 20, 0))
+        before = state.world_time
+        self.assertFalse(_handle_circuit(state, view, InputEvent("key", key=ord("P"))))
+        piston = cell_at(state, view.cursor)
+        self.assertEqual(piston.kind, "piston")
+        self.assertEqual(state.world_time, before + 1)
+        self.assertFalse(_handle_circuit(state, view, InputEvent("key", key=ord("E"))))
+        self.assertEqual(piston.facing, "south")
+        self.assertFalse(_handle_circuit(state, view, InputEvent("key", key=ord("T"))))
+        self.assertTrue(piston.sticky)
+        stepped = state.world_time
+        self.assertFalse(_handle_circuit(state, view, InputEvent("key", key=ord("."))))
+        self.assertEqual(state.world_time, stepped + 1)
 
 
 if __name__ == "__main__":

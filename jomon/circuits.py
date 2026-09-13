@@ -11,18 +11,27 @@ from .state import CircuitCell, GameState, Position
 _CATALOG = load_catalog("circuits.json", ("parts", "fixtures"))
 PARTS = _CATALOG["parts"]
 FIXTURES = _CATALOG["fixtures"]
-if not isinstance(PARTS, dict) or set(PARTS) != {
+if not isinstance(PARTS, dict) or not {
     "trace", "via", "rack", "cell", "switch", "lamp", "gate", "drain",
     "sensor", "relay", "counter", "piston", "crate",
-}:
+} <= set(PARTS):
     raise CatalogError("circuits.json has invalid circuit parts")
 BEHAVIORS = {"conductor", "source", "fuel", "gated", "directional", "counter", "block"}
-if any(not isinstance(part, dict) or set(part) != {"name", "glyph", "behavior", "layers", "description"}
-       or part["behavior"] not in BEHAVIORS or not isinstance(part["layers"], list)
-       or any(layer not in {"surface", "buried"} for layer in part["layers"])
+if any(not isinstance(part, dict) or set(part) != {"name", "glyph", "build_key", "behavior", "layers", "description"}
+       or not isinstance(part["name"], str) or not part["name"]
+       or not isinstance(part["description"], str) or not part["description"]
+       or not isinstance(part["glyph"], str) or len(part["glyph"]) != 1
+       or not isinstance(part["behavior"], str) or part["behavior"] not in BEHAVIORS
+       or (part["build_key"] is not None and (not isinstance(part["build_key"], str) or len(part["build_key"]) != 1))
+       or not isinstance(part["layers"], list)
+       or any(not isinstance(layer, str) or layer not in {"surface", "buried"} for layer in part["layers"])
        for part in PARTS.values()):
     raise CatalogError("circuits.json has invalid behavior or layer metadata")
-PLACED_PARTS = set(PARTS) - {"cell"}
+PLACED_PARTS = {kind for kind, part in PARTS.items() if part["behavior"] != "fuel"}
+BUILD_KEYS = {part["build_key"]: kind for kind, part in PARTS.items() if kind in PLACED_PARTS}
+if (None in BUILD_KEYS or len(BUILD_KEYS) != len(PLACED_PARTS)
+        or any(part["behavior"] == "fuel" and part["build_key"] is not None for part in PARTS.values())):
+    raise CatalogError("circuits.json has duplicate or missing build keys")
 DIRECTIONS = {"north": (0, -1), "east": (1, 0), "south": (0, 1), "west": (-1, 0)}
 FACING_GLYPHS = {"north": "^", "east": ">", "south": "v", "west": "<"}
 SENSOR_MODES = ("mass", "water", "threat")
@@ -30,6 +39,7 @@ PULSE_INTERVAL = 6
 CELL_CHARGE = 24
 DEVICE_HOLD = 7
 MAX_CELLS = 4096
+CRATE_LOAD_LIMIT = 12
 
 
 def initialise_circuits(state: GameState) -> None:
@@ -39,7 +49,8 @@ def initialise_circuits(state: GameState) -> None:
     if not isinstance(FIXTURES, list):
         raise CatalogError("circuits.json has invalid fixtures")
     for fixture in FIXTURES:
-        if not isinstance(fixture, dict) or set(fixture) != {"id", "region", "anchor", "cells"}:
+        if (not isinstance(fixture, dict) or set(fixture) != {"id", "region", "anchor", "cells"}
+                or any(not isinstance(fixture[field], str) or not fixture[field] for field in ("id", "region", "anchor"))):
             raise CatalogError("circuits.json has invalid fixture identity")
         region = state.regions.get(fixture["region"])
         anchor = region.landmarks.get(fixture["anchor"]) if region else None
@@ -49,7 +60,8 @@ def initialise_circuits(state: GameState) -> None:
         for row in fixture["cells"]:
             if (not isinstance(row, dict) or not {"kind", "offset", "layer"} <= set(row)
                     or set(row) - {"kind", "offset", "layer", "charge", "mode"}
-                    or row["kind"] not in PLACED_PARTS or row["layer"] not in PARTS[row["kind"]]["layers"]
+                    or not isinstance(row["kind"], str) or row["kind"] not in PLACED_PARTS
+                    or not isinstance(row["layer"], str) or row["layer"] not in PARTS[row["kind"]]["layers"]
                     or not isinstance(row["offset"], list) or len(row["offset"]) != 2
                     or any(type(value) is not int for value in row["offset"])):
                 raise CatalogError("circuits.json has invalid fixture fitting")
@@ -377,7 +389,9 @@ def next_phase(state: GameState, cell: CircuitCell, *, at_time: int | None = Non
 
 def diagnostic_lines(state: GameState, cell: CircuitCell) -> list[str]:
     if cell.kind == "crate":
-        return ["Freight crate: blocks movement; pistons can move up to three in a line.",
+        cargo = _crate_cargo(state, cell)
+        return [f"Freight crate: {len(cargo)} ground item(s), {_crate_weight(state, cell)}/{CRATE_LOAD_LIMIT} kg.",
+                "Pistons move up to three in a line; contents ride with their crate.",
                 "It can cover a buried mass sensor or circuit trace."]
     seen = {cell_key(cell.space, cell.position, cell.layer)}
     queue = deque([cell])
@@ -444,6 +458,18 @@ def _crate_at(state: GameState, space: str, point: Position) -> CircuitCell | No
     return cell if cell and cell.kind == "crate" else None
 
 
+def _crate_cargo(state: GameState, crate: CircuitCell):
+    spatial = crate.space.split(":", 1)[1] if crate.space.startswith("region:") else "jomon"
+    return [item for item in state.items if item.location == "ground" and item.region_id == spatial
+            and item.ground_position == crate.position]
+
+
+def _crate_weight(state: GameState, crate: CircuitCell) -> int:
+    from .inventory import item_spec
+
+    return sum(item_spec(item.kind).weight * item.quantity for item in _crate_cargo(state, crate))
+
+
 def _clear_for_piston(state: GameState, space: str, point: Position) -> tuple[bool, str]:
     tile = _terrain_at(state, space, point)
     blocked = {" ", "#", "~", "T", "+"} | ({"=", "t", "F", "f", "a", "v", "B"} if space == "vessel" else set())
@@ -459,9 +485,12 @@ def _clear_for_piston(state: GameState, space: str, point: Position) -> tuple[bo
 
 
 def _move_crate(state: GameState, crate: CircuitCell, target: Position) -> None:
+    cargo = _crate_cargo(state, crate)
     del state.circuits[cell_key(crate.space, crate.position, "surface")]
     crate.position = target
     state.circuits[cell_key(crate.space, target, "surface")] = crate
+    for item in cargo:
+        item.ground_position = target
 
 
 def _extend_piston(state: GameState, piston: CircuitCell) -> str:
@@ -472,6 +501,8 @@ def _extend_piston(state: GameState, piston: CircuitCell) -> str:
         crates.append(crate)
         if len(crates) > 3:
             return "jammed: more than three freight crates"
+        if _crate_weight(state, crate) > CRATE_LOAD_LIMIT:
+            return f"jammed: crate exceeds {CRATE_LOAD_LIMIT} kg"
         target = offset(target, piston.facing)
     clear, reason = _clear_for_piston(state, piston.space, target)
     if not clear:
@@ -489,6 +520,8 @@ def _retract_piston(state: GameState, piston: CircuitCell) -> str:
     crate = _crate_at(state, piston.space, offset(front, piston.facing))
     if crate is None:
         return "retracted; nothing to pull"
+    if _crate_weight(state, crate) > CRATE_LOAD_LIMIT:
+        return f"retracted; crate exceeds {CRATE_LOAD_LIMIT} kg"
     clear, reason = _clear_for_piston(state, piston.space, front)
     if not clear:
         return f"retracted; pull blocked by {reason}"

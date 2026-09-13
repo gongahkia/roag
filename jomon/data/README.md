@@ -12,7 +12,7 @@ text: it can be reviewed in diffs and needs no compression tool or dependency.
 | `world_text.json` | Jomon map and help copy |
 | `situations.json` | 24 regional situation records and afterwork samples |
 | `production.json` | regional sources, stations, and hand-authored recipes, including circuit parts |
-| `circuits.json` | electrical fitting names, glyphs, and physical descriptions |
+| `circuits.json` | electrical fitting behaviors, glyphs, physical descriptions, and authored installations |
 | `chemistry.json` | reagents and ordered reaction pairs |
 | `field_reports.json` | public and private regional report responses |
 | `quests.json` | regional quests, rewards, and cross-region arcs |

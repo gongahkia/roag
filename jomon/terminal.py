@@ -978,7 +978,7 @@ def _handle_look(
 
 
 def _draw_circuit(screen: curses.window, state: GameState, view: CircuitView) -> None:
-    from .circuits import PARTS, active, cell_at, diagnostic_lines, glyph, item_count, space_id
+    from .circuits import BUILD_KEYS, PARTS, active, cell_at, diagnostic_lines, glyph, item_count, space_id
 
     height, width = screen.getmaxyx()
     visible = field_of_view(state, remember=False)
@@ -997,13 +997,14 @@ def _draw_circuit(screen: curses.window, state: GameState, view: CircuitView) ->
         _put(screen, y, x, mark, _COLOUR_ATTRIBUTES["target_cell"] | curses.A_REVERSE | curses.A_BOLD)
     cell = cell_at(state, view.cursor, view.layer)
     description = PARTS[cell.kind]["name"] if cell else "No fitting on this layer"
+    build_options = list(BUILD_KEYS.items())
+    build_rows = [" ".join(f"{key.upper()} {kind}({item_count(state, kind)})" for key, kind in build_options[index:index + 7])
+                  for index in range(0, len(build_options), 7)]
     lines = (
         f"CIRCUITS {view.layer.upper()}  {view.cursor.x},{view.cursor.y},{view.cursor.z}  {description}",
         *(diagnostic_lines(state, cell) if cell else ["No conductor here. Lay a part or move the cursor to inspect a circuit."]),
-        " ".join(f"{key} {name}({item_count(state, name)})" for key, name in
-                 (("1", "trace"), ("2", "via"), ("3", "rack"), ("4", "switch"), ("5", "lamp"), ("6", "gate"), ("7", "drain"))),
-        " ".join(f"{key} {name}({item_count(state, name)})" for key, name in
-                 (("8", "sensor"), ("9", "relay"), ("0", "counter"), ("P", "piston"), ("B", "crate"), ("cell", "cell"))),
+        *build_rows,
+        f"Galvanic cells in pack: {item_count(state, 'cell')}.",
         "E configure/load  T alternate  . step time  R reclaim  Tab depth  Esc/\\ close",
         (state.messages[-1] if state.messages else "Buried traces stay hidden on the world map; vias link layers."),
     )
@@ -1016,7 +1017,7 @@ def _handle_circuit(
     state: GameState, view: CircuitView, event: InputEvent,
     *, screen_size: tuple[int, int] = (24, 80),
 ) -> bool:
-    from .circuits import operate, place, reclaim
+    from .circuits import BUILD_KEYS, operate, place, reclaim
 
     key = event.key
     if key in {27, ord("\\")}:
@@ -1025,11 +1026,9 @@ def _handle_circuit(
         view.layer = "buried" if view.layer == "surface" else "surface"
         return False
     normalized = ord(chr(key).lower()) if 0 <= key < 256 else key
-    choices = {ord("1"): "trace", ord("2"): "via", ord("3"): "rack", ord("4"): "switch",
-               ord("5"): "lamp", ord("6"): "gate", ord("7"): "drain", ord("8"): "sensor",
-               ord("9"): "relay", ord("0"): "counter", ord("p"): "piston", ord("b"): "crate"}
-    if normalized in choices:
-        changed, message = place(state, view.cursor, view.layer, choices[normalized])
+    build_kind = BUILD_KEYS.get(chr(normalized)) if 0 <= normalized < 256 else None
+    if build_kind:
+        changed, message = place(state, view.cursor, view.layer, build_kind)
         if not changed:
             state.add_message(message, priority=2)
         return False
