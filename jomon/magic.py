@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .catalog import CatalogError, load_catalog
 from .state import GameState, Position
 
 
@@ -23,38 +24,20 @@ class Spell:
         return f"{self.effect.replace('-', ' ')} {self.power}; radius {self.radius}; {self.cost} mana, reach {self.reach}"
 
 
-SPELL_ROWS = (
-    # Attunement: four modest, reliable starting acts.
-    ("ember-spark", "Ember spark", 1, 5, "fire", 1, 0, "cell"),
-    ("rain-bead", "Rain bead", 1, 5, "water", 1, 0, "cell"),
-    ("mender-thread", "Mender's thread", 2, 0, "heal", 2, 0, "self"),
-    ("wind-nudge", "Wind nudge", 1, 5, "push", 1, 0, "enemy"),
-    # Elemental shape: alter more than a single immediate strike.
-    ("smoke-call", "Smoke call", 2, 6, "smoke", 2, 1, "cell"),
-    ("salt-scour", "Salt scour", 2, 5, "salt", 2, 0, "cell"),
-    ("ice-lace", "Ice lace", 2, 5, "ice", 1, 0, "cell"),
-    ("ash-shot", "Ash shot", 2, 6, "blunt", 2, 0, "enemy"),
-    # Ward script: defence and repair are deliberate casts.
-    ("stone-stitch", "Stone stitch", 2, 4, "support", 2, 0, "cell"),
-    ("hearth-ward", "Hearth ward", 2, 0, "ward", 2, 0, "self"),
-    ("clear-breath", "Clear breath", 2, 0, "cleanse", 2, 0, "self"),
-    ("lime-haze", "Lime haze", 2, 5, "lime", 2, 0, "cell"),
-    # Veiling: create line-of-sight and positional decisions.
-    ("echo-decoy", "Echo decoy", 2, 7, "decoy", 3, 0, "cell"),
-    ("quiet-veil", "Quiet veil", 2, 0, "quiet", 3, 0, "self"),
-    ("river-pull", "River pull", 2, 5, "pull", 1, 0, "enemy"),
-    ("reed-snare", "Reed snare", 2, 5, "bind", 1, 0, "enemy"),
-    # Echo binding: forceful but finite, with physical aftermath.
-    ("ember-sweep", "Ember sweep", 3, 5, "fire", 2, 1, "cell"),
-    ("storm-chord", "Storm chord", 3, 6, "thunder", 3, 0, "enemy"),
-    ("deep-wash", "Deep wash", 3, 5, "water", 3, 1, "cell"),
-    ("iron-echo", "Iron echo", 3, 6, "pierce", 3, 0, "enemy"),
-    # Spell weave opens the four familiar high-cost forms.
-    ("fireball", "Fireball", 5, 7, "fire", 3, 1, "cell"),
-    ("frostbolt", "Frostbolt", 3, 7, "ice", 2, 0, "enemy"),
-    ("lightning-bolt", "Lightning bolt", 4, 7, "thunder", 4, 0, "enemy"),
-    ("magic-missile", "Magic missile", 2, 7, "pierce", 2, 0, "enemy"),
-)
+_rows = load_catalog("spells.json", ("spells",))["spells"]
+if not isinstance(_rows, list):
+    raise CatalogError("spells.json must provide spell rows")
+SPELL_ROWS = tuple(tuple(row) for row in _rows if isinstance(row, list) and len(row) == 8)
+if len(SPELL_ROWS) != len(_rows):
+    raise CatalogError("spells.json has invalid spell rows")
+for spell_id, name, cost, reach, effect, power, radius, target in SPELL_ROWS:
+    if (any(not isinstance(part, str) or not part for part in (spell_id, name, effect, target))
+            or any(type(part) is not int or part < 0 for part in (cost, reach, power, radius))
+            or target not in {"cell", "enemy", "self"}):
+        raise CatalogError("spells.json has invalid spell fields")
+if len({row[0] for row in SPELL_ROWS}) != len(SPELL_ROWS):
+    raise CatalogError("spells.json repeats a spell ID")
+
 
 SPELLS = {row[0]: Spell(*row) for row in SPELL_ROWS}
 SPELL_TIERS = {

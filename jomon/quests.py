@@ -8,119 +8,64 @@ from .state import GameState, QuestProgress
 
 REGION_IDS = ("hearthford", "greywash", "greenwold", "whitecairn")
 
-QUESTS = {
-    "hearthford": {
-        "title": "The Mill Race Compact",
-        "cache": "reed",
-        "lead": "Mara's flood marks point to the Flood-islet cache south of the road loop.",
-        "final": (
-            ("l", "Bind the mill labour and sluice as a public compact", "commitment", True, ""),
-            ("r", "Recognise the reeve's faster private repair claim", "danger", True, ""),
-        ),
-    },
-    "greywash": {
-        "title": "The Ledger Beneath the Ebb",
-        "cache": "greywash-wreck",
-        "lead": "Edda names the Distinctive wreck locker on the low road before the tide covers it.",
-        "final": (
-            ("s", "Wait for the safer delayed salt road", "ordinary", True, ""),
-            ("e", "Take the ebb salvage while the chain route is exposed", "danger", False, "open the wreck locker or dog the tide chain"),
-        ),
-    },
-    "greenwold": {
-        "title": "A Fire Kept to Its Bounds",
-        "cache": "greenwold-watch",
-        "lead": "Nera's bird counts mark a Canopy cache above the western clearing.",
-        "final": (
-            ("m", "Save the medicine coppice and narrow the burn", "commitment", True, ""),
-            ("c", "Feed the charcoal contract and accept a wider managed burn", "danger", True, ""),
-        ),
-    },
-    "whitecairn": {
-        "title": "The Honest Bell",
-        "cache": "whitecairn-bridge",
-        "lead": "Pera's load marks identify the Ridge bridge coffer above the quarry hoist.",
-        "final": (
-            ("w", "Ring an honest warning and close the unstable face", "commitment", True, ""),
-            ("x", "Expose the false toll with recovered quarry evidence", "danger", False, "recover the bridge coffer or brace the quarry"),
-        ),
-    },
-    "dunmire": {
-        "title": "The Ground Owed to Water", "cache": "dunmire-deep",
-        "lead": "Deren's drain marks lead from the store cellar to the buried peat strongbox.",
-        "final": (("b", "Breach the drying bank; save the islands, lose this fuel yield", "commitment", True, ""),
-                  ("h", "Hold the drying bank and honour the winter fuel obligation", "danger", False, "brace the drying control or recover the drain record")),
-    },
-    "rillscar": {
-        "title": "A Bridge with Two Owners", "cache": "rillscar-crown",
-        "lead": "Vessa kept the bridge load account in the Weatherward roof coffer, above the cutworks.",
-        "final": (("o", "Open the tailrace and retire the private bridge guard", "commitment", True, ""),
-                  ("b", "Bind the two bridge claims with the recovered load account", "danger", False, "secure the upper coffer or brace the tailrace control")),
-    },
-    "marlbank": {
-        "title": "The Kiln and the Seed Bed", "cache": "marlbank-ledger",
-        "lead": "Odrin's Witnessed market coffer records which kiln water also feeds the seed terraces.",
-        "final": (("f", "Give the release to the fields; cool the working kilns", "commitment", True, ""),
-                  ("k", "Preserve the kiln firing and ration the seed terraces", "danger", False, "read the water account or operate the release")),
-    },
-    "frostmere": {
-        "title": "The Last Marked Channel", "cache": "frostmere-loft",
-        "lead": "Brenna's sounding board rests in the Loft survey cabinet, above the winter nets.",
-        "final": (("l", "Mark the long lee channel; shelter the nets and delay trade", "commitment", True, ""),
-                  ("c", "Open the direct ice cut under a witnessed pilot obligation", "danger", False, "recover the sounding board or secure the ice control")),
-    },
-}
+_QUEST_CATALOG = load_catalog("quests.json", ("quests", "rewards", "arc_regions", "arc_title", "additional_arcs"))
 
-QUEST_REWARDS = {
-    "hearthford": "witness token",
-    "greywash": "storm vane",
-    "greenwold": "ember cloth",
-    "whitecairn": "high tread",
-    "dunmire": "cork float",
-    "rillscar": "quarry brace",
-    "marlbank": "ember cloth",
-    "frostmere": "storm vane",
-}
 
-ARC_REGIONS = {1: "greywash", 2: "greenwold", 3: "whitecairn", 4: "hearthford"}
-ARC_TITLE = "The Four Working Marks"
+def _stage_regions(value: object) -> dict[int, str]:
+    if (not isinstance(value, dict) or any(not isinstance(key, str) or not key.isdecimal()
+                                          or not isinstance(region, str) or not region for key, region in value.items())):
+        raise CatalogError("quests.json has invalid chapter regions")
+    stages = {int(key): region for key, region in value.items()}
+    if len(stages) != len(value) or set(stages) != set(range(1, len(stages) + 1)):
+        raise CatalogError("quests.json has repeated or missing chapters")
+    return stages
 
-ADDITIONAL_ARCS = {
-    "banks": {
-        "title": "Banks That Hold",
-        "start": "hearthford",
-        "regions": {1: "dunmire", 2: "marlbank", 3: "hearthford"},
-        "requires": ("hearthford", "dunmire", "marlbank"),
-        "evidence": "bound bank roll",
-    },
-    "soundings": {
-        "title": "Soundings and Spans",
-        "start": "greywash",
-        "regions": {1: "frostmere", 2: "rillscar", 3: "greywash"},
-        "requires": ("greywash", "frostmere", "rillscar"),
-        "evidence": "sounding chain account",
-    },
-    "repairs": {
-        "title": "Scars Kept in Use",
-        "start": "greenwold",
-        "regions": {1: "hearthford", 2: "rillscar", 3: "greenwold"},
-        "requires": ("greenwold", "hearthford", "rillscar"),
-        "requires_aftermath": True,
-        "evidence": "scar repair folio",
-        "public_openings": ("p",),
-        "environment_choices": ("r", "s"),
-    },
-    "refuges": {
-        "title": "Refuges at Low Water",
-        "start": "greywash",
-        "regions": {1: "dunmire", 2: "frostmere", 3: "greywash"},
-        "requires": ("greywash", "dunmire", "frostmere"),
-        "requires_aftermath": True,
-        "evidence": "ebb refuge chart",
-        "public_openings": ("l",),
-        "environment_choices": ("i", "w"),
-    },
-}
+
+_raw_quests = _QUEST_CATALOG["quests"]
+if not isinstance(_raw_quests, dict) or not _raw_quests:
+    raise CatalogError("quests.json must provide regional quests")
+QUESTS = {}
+for region, row in _raw_quests.items():
+    if (not isinstance(region, str) or not isinstance(row, dict)
+            or set(row) != {"title", "cache", "lead", "final"}
+            or any(not isinstance(row[key], str) or not row[key] for key in ("title", "cache", "lead"))
+            or not isinstance(row["final"], list) or len(row["final"]) != 2
+            or any(not isinstance(option, list) or len(option) != 5 or type(option[3]) is not bool
+                   or any(not isinstance(option[index], str) for index in (0, 1, 2, 4))
+                   for option in row["final"])):
+        raise CatalogError("quests.json has an invalid regional quest")
+    QUESTS[region] = {**row, "final": tuple(tuple(option) for option in row["final"])}
+
+QUEST_REWARDS = _QUEST_CATALOG["rewards"]
+if (not isinstance(QUEST_REWARDS, dict) or set(QUEST_REWARDS) != set(QUESTS)
+        or any(not isinstance(reward, str) or not reward for reward in QUEST_REWARDS.values())):
+    raise CatalogError("quests.json has invalid regional rewards")
+ARC_REGIONS = _stage_regions(_QUEST_CATALOG["arc_regions"])
+ARC_TITLE = _QUEST_CATALOG["arc_title"]
+if not isinstance(ARC_TITLE, str) or not ARC_TITLE:
+    raise CatalogError("quests.json has no arc title")
+
+_raw_arcs = _QUEST_CATALOG["additional_arcs"]
+if not isinstance(_raw_arcs, dict):
+    raise CatalogError("quests.json must provide additional arcs")
+ADDITIONAL_ARCS = {}
+for arc_id, row in _raw_arcs.items():
+    required = {"title", "start", "regions", "requires", "evidence"}
+    optional = {"requires_aftermath", "public_openings", "environment_choices"}
+    if (not isinstance(arc_id, str) or not isinstance(row, dict)
+            or not required <= set(row) or set(row) - required - optional
+            or any(not isinstance(row[key], str) or not row[key] for key in ("title", "start", "evidence"))
+            or not isinstance(row["requires"], list)
+            or any(not isinstance(region, str) or not region for region in row["requires"])
+            or ("requires_aftermath" in row and type(row["requires_aftermath"]) is not bool)):
+        raise CatalogError("quests.json has an invalid cross-region arc")
+    arc = {**row, "regions": _stage_regions(row["regions"]), "requires": tuple(row["requires"])}
+    for key in ("public_openings", "environment_choices"):
+        if key in arc:
+            if not isinstance(arc[key], list) or any(not isinstance(value, str) for value in arc[key]):
+                raise CatalogError("quests.json has invalid arc choices")
+            arc[key] = tuple(arc[key])
+    ADDITIONAL_ARCS[arc_id] = arc
 
 
 def initialise_quests(state: GameState) -> None:
