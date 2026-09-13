@@ -22,6 +22,12 @@ def _tuple_rows(value: object, name: str, width: int) -> tuple[tuple, ...]:
     return tuple(tuple(row) for row in value)
 
 
+def _dict_rows(value: object, name: str) -> tuple[dict, ...]:
+    if not isinstance(value, list) or any(not isinstance(row, dict) for row in value):
+        raise CatalogError(f"{name} has invalid records")
+    return tuple(value)
+
+
 def _tuple_map(value: object, name: str, width: int) -> dict[str, tuple]:
     if (not isinstance(value, dict) or any(not isinstance(key, str) or not isinstance(row, list)
                                           or len(row) != width for key, row in value.items())):
@@ -45,6 +51,11 @@ def _text_map(value: object, name: str) -> dict[str, str]:
 COMMODITIES = _dict_map(_GOODS["COMMODITIES"], "COMMODITIES")
 
 COMMODITY_LOGISTICS = _dict_map(_GOODS["COMMODITY_LOGISTICS"], "COMMODITY_LOGISTICS")
+for logistics in COMMODITY_LOGISTICS.values():
+    buyers = logistics.get("buyers")
+    if not isinstance(buyers, list) or any(not isinstance(buyer, str) for buyer in buyers):
+        raise CatalogError("COMMODITY_LOGISTICS has invalid buyers")
+    logistics["buyers"] = tuple(buyers)
 for commodity, logistics in COMMODITY_LOGISTICS.items():
     COMMODITIES[commodity].update(logistics)
 
@@ -62,7 +73,7 @@ def validate_commodity_content() -> None:
         if not isinstance(definition["buyers"], tuple) or len(definition["buyers"]) < 2:
             raise ValueError(f"commodity {name!r} needs at least two material buyers")
 
-REGIONAL_CONTEXTS = tuple(_dict_map({str(index): row for index, row in enumerate(_PEOPLE["REGIONAL_CONTEXTS"])}, "REGIONAL_CONTEXTS").values())
+REGIONAL_CONTEXTS = _dict_rows(_PEOPLE["REGIONAL_CONTEXTS"], "REGIONAL_CONTEXTS")
 
 FIRST_NAMES = _text_rows(_PEOPLE["FIRST_NAMES"], "FIRST_NAMES")
 FAMILY_NAMES = _text_rows(_PEOPLE["FAMILY_NAMES"], "FAMILY_NAMES")
@@ -70,7 +81,7 @@ ROLES = _text_rows(_PEOPLE["ROLES"], "ROLES")
 ROLE_EQUIPMENT = _tuple_map(_PEOPLE["ROLE_EQUIPMENT"], "ROLE_EQUIPMENT", 2)
 ROLE_TECHNIQUE = _text_map(_PEOPLE["ROLE_TECHNIQUE"], "ROLE_TECHNIQUE")
 
-RECRUIT_TEMPLATES = tuple(_dict_map({str(index): row for index, row in enumerate(_PEOPLE["RECRUIT_TEMPLATES"])}, "RECRUIT_TEMPLATES").values())
+RECRUIT_TEMPLATES = _dict_rows(_PEOPLE["RECRUIT_TEMPLATES"], "RECRUIT_TEMPLATES")
 
 # Behavior stays direct in actions.py rather than becoming an ability schema.
 WEAPONS = _tuple_map(_GOODS["WEAPONS"], "WEAPONS", 2)
