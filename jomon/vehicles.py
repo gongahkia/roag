@@ -16,7 +16,7 @@ VEHICLE_REGIONS = {
     "horse_cart": "hearthford",
     "steam_crawler": "rillscar",
     "rootwalker": "greenwold",
-    "aether_glider": "whitecairn",
+    "aether_glider": "greywash",
 }
 _FIELDS = {"name", "domain", "resource", "glyph", "pace", "capacity", "condition", "interior"}
 if (not isinstance(HARBOUR, dict) or set(HARBOUR) != {"width", "height", "jomon_dock", "shore_dock"}
@@ -103,6 +103,15 @@ def _regional_home(state: GameState, vehicle_id: str) -> Position:
 def initialise_vehicles(state: GameState) -> None:
     state.vehicles = {}
     for vehicle_id, region_id in VEHICLE_REGIONS.items():
+        if region_id != "harbour" and region_id not in state.regions:
+            continue
+        install_for_region(state, region_id)
+
+
+def install_for_region(state: GameState, region_id: str) -> None:
+    for vehicle_id, assigned_region in VEHICLE_REGIONS.items():
+        if assigned_region != region_id or vehicle_id in state.vehicles:
+            continue
         home = JOMON_DOCK if region_id == "harbour" else _regional_home(state, vehicle_id)
         spec = SPECS[vehicle_id]
         state.vehicles[vehicle_id] = Vehicle(
@@ -124,7 +133,7 @@ def _terrain_ok(domain: str, tile: str, *, regional: bool) -> bool:
     if domain == "water":
         return not regional and tile in {"~", "w", "J", "L"}
     if domain == "road":
-        return tile in {"=", ".", ","}
+        return tile in {"=", "."}
     if domain == "rough":
         return tile in {"=", ".", ",", "m", "t", "w", "r", "q"}
     return regional and tile not in {" ", "#", "+", "O"}
@@ -199,6 +208,7 @@ def navigate(state: GameState, dx: int, dy: int):
     current = state.position
     travelled = 0
     strain = 0
+    oars_used = False
     for _ in range(pace):
         target = Position(current.x + dx, current.y + dy, current.z)
         tile = _tile(state, target)
@@ -212,17 +222,19 @@ def navigate(state: GameState, dx: int, dy: int):
             break
         extra = 1 if tile in {"w", ",", "m"} or (spec["domain"] == "air" and state.weather == "crosswind") else 0
         cost = 1 + extra
-        if vehicle.fuel < cost and vehicle.id != "tug":
-            break
-        if vehicle.fuel > 0 and vehicle.fuel < cost:
-            break
+        if vehicle.fuel < cost:
+            if vehicle.id != "tug" or travelled:
+                break
+            oars_used = True
         current = target
         travelled += 1
-        if vehicle.fuel:
+        if not oars_used:
             vehicle.fuel -= cost
+        else:
+            vehicle.fuel = 0
         if extra:
             strain += 1
-        if water and tile in {"J", "L"}:
+        if oars_used or water and tile in {"J", "L"}:
             break
     if not travelled:
         if vehicle.fuel == 0 and vehicle.id != "tug":
@@ -230,23 +242,27 @@ def navigate(state: GameState, dx: int, dy: int):
         return _plain(state, "That heading is blocked by terrain, a shoal, or an actor.")
     state.position = vehicle.position = current
     vehicle.travelled += travelled
-    if strain and vehicle.travelled % 6 < travelled:
-        vehicle.condition = max(0, vehicle.condition - 1)
+    vehicle.strain += strain
+    vehicle.condition = max(0, vehicle.condition - vehicle.strain // 4)
+    vehicle.strain %= 4
+    terrain_message = ""
     if state.location == "region":
         state.last_move_turn = state.world_time
         state.aimed_target = None
         state.noise += 1 if vehicle.id in {"steam_crawler", "rootwalker"} else 0
         # The ordinary world tick still resolves patrols and hazards at the destination.
-        from .world import displayed_tile
         from .inventory import apply_terrain_status
 
-        apply_terrain_status(state, displayed_tile(state, current))
+        if spec["domain"] != "air":
+            terrain_message = apply_terrain_status(state, _tile(state, current))
     message = f"{spec['name']} travels {travelled} tile{'s' if travelled != 1 else ''}; {vehicle.fuel}/{spec['capacity']} {spec['resource']} remains."
+    if terrain_message:
+        message += " " + terrain_message
     if vehicle.id == "tug" and vehicle.fuel == 0:
         message += " Sweep oars keep the tug moving, one tile per two actions."
     if vehicle.condition == 0:
         message += " The frame needs a jury-rig before it can move again."
-    return _time_result(state, message, steps=2 if vehicle.id == "tug" and vehicle.fuel == 0 else 1)
+    return _time_result(state, message, steps=2 if oars_used else 1)
 
 
 def service(state: GameState, *, repair: bool = False):
@@ -298,16 +314,19 @@ def interior_lines(state: GameState) -> tuple[str, list[str]]:
         *spec["interior"],
         f"Reserve: {vehicle.fuel}/{spec['capacity']} {spec['resource']}; frame {vehicle.condition}/{spec['condition']}.",
         f"Location: {state.active_region_id if state.location == 'region' else 'open water'} at {vehicle.position.x},{vehicle.position.y}.",
-        "Arrows/HJKL steer outside. E disembarks only on safe ground or a mooring.",
+        "Arrows/HJKL steer. E disembarks on safe ground or a mooring.",
         "R service reserve; F repair frame; Escape returns to the landscape.",
     ]
     if vehicle.id == "tug":
-        lines.append("J marks Jomon; L marks the regional shore. No fuel: sweep oars remain usable.")
+        lines.append("J marks Jomon; L marks the regional shore.")
+        lines.append("With no coal, sweep oars remain usable at half pace.")
     return spec["name"].upper(), lines
 
 
 def validate_vehicles(state: GameState) -> None:
-    if not isinstance(state.vehicles, dict) or set(state.vehicles) != set(VEHICLE_REGIONS):
+    expected = {vehicle_id for vehicle_id, region_id in VEHICLE_REGIONS.items()
+                if region_id == "harbour" or region_id in state.regions}
+    if not isinstance(state.vehicles, dict) or set(state.vehicles) != expected:
         raise ValueError("invalid vehicle roster")
     for vehicle_id, vehicle in state.vehicles.items():
         spec = SPECS[vehicle_id]
@@ -316,8 +335,10 @@ def validate_vehicles(state: GameState) -> None:
                 or type(vehicle.fuel) is not int or not 0 <= vehicle.fuel <= spec["capacity"]
                 or type(vehicle.condition) is not int or not 0 <= vehicle.condition <= spec["condition"]
                 or type(vehicle.travelled) is not int or vehicle.travelled < 0
+                or type(vehicle.strain) is not int or not 0 <= vehicle.strain < 4
                 or vehicle.home != (JOMON_DOCK if vehicle_id == "tug" else _regional_home(state, vehicle_id))
-                or not _terrain_ok(spec["domain"], _tile_for_validation(state, vehicle), regional=vehicle_id != "tug")):
+                or _tile_for_validation(state, vehicle) == " "
+                or vehicle_id == "tug" and not _terrain_ok("water", _tile_for_validation(state, vehicle), regional=False)):
             raise ValueError(f"invalid vehicle state: {vehicle_id}")
     if state.active_vehicle_id is not None:
         active = state.vehicles.get(state.active_vehicle_id)

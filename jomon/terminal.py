@@ -130,7 +130,6 @@ ROUTE_HELP_LINES = (
 BASE_HELP_LINES = (
     "HJKL/arrows E act A aim G guard ; look T follow M mastery P skills W craft",
     "X gear F material D spells V talk R retreat I Z ledger O actors ? help Q quit",
-    "At gangplank E chooses shore/tug; at a vehicle E boards or leaves; Tab shows its interior.",
 )
 
 MIN_WIDTH = 80

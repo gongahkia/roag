@@ -247,6 +247,9 @@ def ensure_frontier(state, region_id: str) -> None:
     from .situations import initialise_region_sites
 
     initialise_region_sites(region)
+    from .vehicles import install_for_region
+
+    install_for_region(state, region_id)
 
 
 def frontier_process(state) -> list[str]:

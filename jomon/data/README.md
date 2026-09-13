@@ -21,6 +21,7 @@ text: it can be reviewed in diffs and needs no compression tool or dependency.
 | `aftermath.json` | revisit lines and topologies, preparations, household stories, cross-region callbacks |
 | `equipment.json` | physical item specifications, loadouts, ammunition, weapons, fittings, and regional armour |
 | `visuals.json` | Jomon deck/tavern ASCII maps, entity and terrain glyphs, route marks, card frames, dice faces |
+| `vehicles.json` | small-vehicle names, glyphs, interiors, limits, and harbour dimensions/moorings |
 
 Arsenal weapon rows own their physical `shape` and `weight`; the inventory
 adapter uses those exact values. Working weapons already have their own shape

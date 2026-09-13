@@ -61,6 +61,9 @@ World controls:
 - `YUBN`: diagonal movement;
 - `T`: follow a seen local landmark, link, or marked store over remembered ground;
 - `Enter` or `E`: interact, climb, open, speak, or operate;
+- at Jomon's gangplank, `E` chooses walking ashore or boarding the steam tug;
+- in a regional vehicle, arrows or `HJKL` steer, `E` disembarks on safe ground,
+  and `Tab` opens a zoomed interior with service and repair controls;
 - `A`: open the zero-time combat preview and target cursor for any readied
   weapon; `Tab` cycles only legal targets and `Enter` commits the chosen action;
 - `G`: guard, brace, continue a weapon reload, or hold position and listen;
@@ -81,6 +84,12 @@ World controls:
 - `Escape`: close or cancel an overlay.
 
 Jomon's main expedition now has a [progression and production guide](docs/progression-production.md) covering its 72 physical weapons, 60-node skill tree, 24 personal spells, regional material sources, reactive flasks, fabrication and witnessed NPC work orders. These systems are separate from the in-tavern Dullest Dungeon card game.
+
+Small vehicles add a [navigable water approach and regional transport](docs/vehicle-navigation.md).
+The tug crosses a seeded open-water map between Jomon and the current regional
+shore. Horse, steam, root-grown, and aether vehicles persist at their physical
+stands; their terrain, fuel, condition, and interior controls differ. Jomon's
+route chart still handles travel between distant regions.
 
 At the tavern's `D` chair immediately south of the large gaming table,
 `Enter` or `E` opens Dullest Dungeon. In its lobby,

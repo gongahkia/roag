@@ -2006,7 +2006,9 @@ def interact(state: GameState) -> ActionResult:
         if state.combat_active and tile == "C":
             return _plain(state, "The tavern shelters off-duty adults during this declared deck crisis.")
         if tile == "+":
-            return ActionResult(False, False, "Choose the gangplank or the steam tug.", "gangplank") if state.position == JOMON_GANGPLANK else depart(state)
+            if state.position == JOMON_GANGPLANK and state.voyage_status != "active":
+                return ActionResult(False, False, "Choose the gangplank or the steam tug.", "gangplank")
+            return depart(state)
         if tile == "C":
             state.jomon_space = "tavern"
             state.position = Position(TAVERN_EXIT.x + 1, TAVERN_EXIT.y, 0)
