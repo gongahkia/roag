@@ -463,48 +463,6 @@ def seat_patron_at_table(state: GameState, patron_id: str) -> Position:
     return chair
 
 
-def seat_draw_players(state: GameState, opponent_ids: list[str]) -> None:
-    """Move the three invited adults into free chairs around the draw table."""
-    occupied = {
-        schedule.position for actor_id, schedule in state.actor_schedules.items()
-        if schedule.area == "tavern" and actor_id not in opponent_ids
-    }
-    occupied.add(state.position)
-    for identity in opponent_ids:
-        chair = next((point for point in DRAW_NPC_SEATS if point not in occupied), None)
-        if chair is None:
-            raise ValueError("the draw table has no three free chairs")
-        schedule = state.actor_schedules[identity]
-        schedule.area = schedule.destination_area = "tavern"
-        schedule.position = schedule.destination = chair
-        schedule.activity = "playing Tavern Draw"
-        schedule.next_boundary = state.world_time + 6
-        if any(person.id == identity for person in _all_named_people(state)):
-            state.tavern_positions[identity] = chair
-        occupied.add(chair)
-
-
-def seat_dice_players(state: GameState, opponent_ids: list[str]) -> None:
-    """Bring the invited adults to the visible bones-table chairs."""
-    occupied = {
-        schedule.position for actor_id, schedule in state.actor_schedules.items()
-        if schedule.area == "tavern" and actor_id not in opponent_ids
-    }
-    occupied.add(state.position)
-    for identity in opponent_ids:
-        chair = next((point for point in DICE_NPC_SEATS if point not in occupied), None)
-        if chair is None:
-            raise ValueError("the bones table has no three free chairs")
-        schedule = state.actor_schedules[identity]
-        schedule.area = schedule.destination_area = "tavern"
-        schedule.position = schedule.destination = chair
-        schedule.activity = "playing Quay Bones"
-        schedule.next_boundary = state.world_time + 6
-        if any(person.id == identity for person in _all_named_people(state)):
-            state.tavern_positions[identity] = chair
-        occupied.add(chair)
-
-
 def _step_toward(area: str, start: Position, goal: Position, occupied: set[Position]) -> Position:
     if start == goal:
         return start
@@ -679,13 +637,12 @@ def advance_living_world(state: GameState) -> None:
         if schedule.area.startswith(("vessel:", "tavern"))
     }
     crossed_boundary = False
-    draw_hand = state.tavern_draw.get("active_hand")
-    dice_match = state.tavern_dice.get("active_match")
+    from .tavern_games import seated_game_opponents
+
+    seated_players = seated_game_opponents(state)
     for schedule in sorted(state.actor_schedules.values(), key=lambda item: item.actor_id):
         all_vessel_occupied.discard((schedule.area, schedule.position))
-        if (schedule.area == "tavern"
-                and (draw_hand and draw_hand["phase"] != "complete" and schedule.actor_id in draw_hand["players"][1:]
-                     or dice_match and dice_match["phase"] != "complete" and schedule.actor_id in dice_match["players"][1:])):
+        if schedule.area == "tavern" and schedule.actor_id in seated_players:
             schedule.next_boundary = state.world_time + 6
             all_vessel_occupied.add((schedule.area, schedule.position))
             continue

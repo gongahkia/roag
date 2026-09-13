@@ -6,7 +6,10 @@ import hashlib
 from typing import Callable
 
 from .state import GameState, Person
-from .tavern_draw import STARTING_NPC_CREDIT, available_opponents
+from .tavern_games import (
+    another_game_active, available_opponents, change_npc_credit,
+    invited_opponents, npc_credit, seat_opponents,
+)
 
 STARTING_PURSE = 24
 PRIZE = 2
@@ -34,24 +37,15 @@ def _log(match: dict, message: str) -> None:
 
 def start_match(state: GameState, opponents: list[str]) -> dict:
     from .actions import _advance_world
-    from .vessel import DICE_NPC_SEATS, DICE_PLAYER_SEAT, seat_dice_players
+    from .vessel import DICE_NPC_SEATS, DICE_PLAYER_SEAT
 
     if state.location != "jomon" or state.jomon_space != "tavern" or state.position != DICE_PLAYER_SEAT:
         raise ValueError("sit at the marked bones table chair")
     if state.courier is None or not state.courier.alive or state.tavern_dice["active_match"] is not None:
         raise ValueError("finish the current bones contest first")
-    if state.tabletop["active_match"] is not None or state.tavern_draw["active_hand"] is not None:
+    if another_game_active(state, "dice"):
         raise ValueError("finish the other active tavern game first")
-    if len(opponents) != 3 or len(set(opponents)) != 3:
-        raise ValueError("invite three distinct tavern adults")
-    available = {person.id: person for person in available_dice_opponents(state)}
-    if any(identity not in available for identity in opponents):
-        raise ValueError("all three opponents must be in the tavern")
-    occupied = {schedule.position for identity, schedule in state.actor_schedules.items()
-                if schedule.area == "tavern" and identity not in opponents}
-    occupied.add(state.position)
-    if sum(point not in occupied for point in DICE_NPC_SEATS) < 3:
-        raise ValueError("the bones table needs three free opponent chairs")
+    available = invited_opponents(state, opponents, DICE_NPC_SEATS, "bones")
     number = state.tavern_dice["match_number"] + 1
     players = [state.courier.id, *opponents]
     digest = hashlib.sha256(f"quay-bones:{state.seed}:{number}:{':'.join(players)}".encode()).digest()
@@ -63,10 +57,10 @@ def start_match(state: GameState, opponents: list[str]) -> dict:
              "winners": [], "prize": 0,
              "log": ["Three rounds. Roll two bones; hold, or risk the turn's points."]}
     for identity in opponents:
-        state.tavern_draw["bankrolls"].setdefault(identity, STARTING_NPC_CREDIT)
+        npc_credit(state, identity, open_account=True)
     state.tavern_dice["match_number"] = number
     state.tavern_dice["active_match"] = match
-    seat_dice_players(state, opponents)
+    seat_opponents(state, opponents, DICE_NPC_SEATS, "playing Quay Bones", "bones")
     _advance_world(state)
     return match
 
@@ -85,7 +79,7 @@ def _settle(state: GameState, match: dict) -> None:
             state.trade_credit += prize
         else:
             identity = match["players"][winners[0]]
-            state.tavern_draw["bankrolls"][identity] += prize
+            change_npc_credit(state, identity, prize)
     names = ", ".join(match["names"][seat] for seat in winners)
     _log(match, f"{names} finish on {best}. {'Prize: ' + str(match['prize']) + ' credit.' if len(winners) == 1 else 'Tie: no purse leaves the table.'}")
     records = state.tavern_dice["records"]

@@ -6,9 +6,10 @@ import curses
 
 from .state import GameState
 from .tavern_draw import (
-    MAX_EXPOSURE, RANK_NAMES, STARTING_NPC_CREDIT, available_opponents,
+    MAX_EXPOSURE, RANK_NAMES, available_opponents,
     bet_action, close_hand, draw_cards, drive_npcs, evaluate, start_hand,
 )
+from .tavern_games import npc_credit
 from .tavern_games_ui import accent, border, put as _put
 
 RANKS = "23456789TJQKA"
@@ -32,7 +33,6 @@ def _draw_lobby(screen: curses.window, state: GameState, selected: list[str], cu
     screen.erase()
     border(screen, "TAVERN DRAW / FOUR SEATS")
     people = available_opponents(state)
-    bankrolls = state.tavern_draw["bankrolls"]
     _put(screen, 1, 2, "FIVE PRIVATE CARDS  /  ONE DRAW  /  BEST HIGH HAND", accent("ui_heading", curses.A_BOLD))
     _put(screen, 2, 2, "Five-card draw: deal, bet, exchange, bet, showdown.")
     _put(screen, 3, 2, "Free practice pays nothing. Wagered: 1-credit ante, 1-credit bet,")
@@ -44,7 +44,7 @@ def _draw_lobby(screen: curses.window, state: GameState, selected: list[str], cu
     for index in range(first, min(first + 11, len(people))):
         person = people[index]
         mark = "[x]" if person.id in selected else "[ ]"
-        credit = bankrolls.get(person.id, STARTING_NPC_CREDIT)
+        credit = npc_credit(state, person.id)
         _put(screen, 8 + index - first, 2, f"{'>' if index == cursor else ' '} {mark} {person.name[:24]:24} {person.role[:19]:19} {credit:>3} credit",
              accent("ui_accent", curses.A_REVERSE) if index == cursor else 0)
     if len(people) > 11:
@@ -71,7 +71,7 @@ def _draw_hand(screen: curses.window, state: GameState, marked: set[int], messag
     for seat in range(1, 4):
         column = 2 + (seat - 1) * 26
         name = hand["names"][seat][:23]
-        balance = state.tavern_draw["bankrolls"][hand["players"][seat]]
+        balance = npc_credit(state, hand["players"][seat])
         _put(screen, 4, column, f"{name} ({balance})", accent("neutral", curses.A_BOLD))
         if not hand["active"][seat]:
             cards = "FOLDED"

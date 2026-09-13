@@ -1390,6 +1390,12 @@ def validate_state(state: GameState) -> None:
         validate_tavern_dice(state)
     except (KeyError, TypeError, ValueError) as exc:
         raise StateError(f"invalid tavern bones state: {exc}") from exc
+    from .tavern_games import validate_game_occupancy
+
+    try:
+        validate_game_occupancy(state)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise StateError(f"invalid tavern game occupancy: {exc}") from exc
     if len(state.household) < 6 or len({person.id for person in state.household}) != len(state.household):
         raise StateError("save must retain the six-person household and unique recruits")
     if state.active_courier_id is not None and state.courier is None:

@@ -7,12 +7,15 @@ import hashlib
 from typing import Callable
 
 from .state import GameState, Person
+from .tavern_games import (
+    STARTING_NPC_CREDIT as STARTING_NPC_CREDIT, another_game_active, change_npc_credit,
+    invited_opponents, npc_credit, seat_opponents, validate_npc_accounts,
+)
 
 ANTE = 1
 BET = 1
 MAX_RAISES = 1
 MAX_EXPOSURE = ANTE + 2 * (BET + MAX_RAISES)
-STARTING_NPC_CREDIT = 12
 RANK_NAMES = (
     "High card", "One pair", "Two pair", "Three of a kind", "Straight",
     "Flush", "Full house", "Four of a kind", "Straight flush",
@@ -20,11 +23,9 @@ RANK_NAMES = (
 
 
 def available_opponents(state: GameState) -> list[Person]:
-    people = [*state.household, *state.visitors, state.bartender]
-    return [person for person in people if person.id != state.active_courier_id
-            and person.alive and person.available
-            and (schedule := state.actor_schedules.get(person.id)) is not None
-            and schedule.area == "tavern"]
+    from .tavern_games import available_opponents as shared_available_opponents
+
+    return shared_available_opponents(state)
 
 
 def _roll(hand: dict) -> int:
@@ -42,14 +43,14 @@ def _log(hand: dict, message: str) -> None:
 
 
 def _balance(state: GameState, hand: dict, seat: int) -> int:
-    return state.trade_credit if seat == 0 else state.tavern_draw["bankrolls"][hand["players"][seat]]
+    return state.trade_credit if seat == 0 else npc_credit(state, hand["players"][seat])
 
 
 def _change_balance(state: GameState, hand: dict, seat: int, amount: int) -> None:
     if seat == 0:
         state.trade_credit += amount
     else:
-        state.tavern_draw["bankrolls"][hand["players"][seat]] += amount
+        change_npc_credit(state, hand["players"][seat], amount)
 
 
 def _pay(state: GameState, hand: dict, seat: int, amount: int) -> None:
@@ -97,27 +98,17 @@ def evaluate(cards: list[int]) -> tuple[int, ...]:
 
 def start_hand(state: GameState, opponents: list[str], *, wagering: bool) -> dict:
     from .actions import _advance_world
-    from .vessel import DRAW_NPC_SEATS, DRAW_PLAYER_SEAT, seat_draw_players
+    from .vessel import DRAW_NPC_SEATS, DRAW_PLAYER_SEAT
 
     if state.location != "jomon" or state.jomon_space != "tavern" or state.position != DRAW_PLAYER_SEAT:
         raise ValueError("sit at the marked draw table chair")
     if state.courier is None or not state.courier.alive or state.tavern_draw["active_hand"] is not None:
         raise ValueError("finish the current hand before dealing another")
-    if state.tabletop["active_match"] is not None or state.tavern_dice["active_match"] is not None:
+    if another_game_active(state, "draw"):
         raise ValueError("finish the other active tavern game first")
-    if len(opponents) != 3 or len(set(opponents)) != 3:
-        raise ValueError("invite three distinct tavern adults")
-    available = {person.id: person for person in available_opponents(state)}
-    if any(identity not in available for identity in opponents):
-        raise ValueError("all three opponents must be in the tavern")
-    occupied = {schedule.position for identity, schedule in state.actor_schedules.items()
-                if schedule.area == "tavern" and identity not in opponents}
-    occupied.add(state.position)
-    if sum(point not in occupied for point in DRAW_NPC_SEATS) < 3:
-        raise ValueError("the draw table needs three free opponent chairs")
-    bankrolls = state.tavern_draw["bankrolls"]
+    available = invited_opponents(state, opponents, DRAW_NPC_SEATS, "draw")
     if wagering and (state.trade_credit < MAX_EXPOSURE
-                    or any(bankrolls.get(identity, STARTING_NPC_CREDIT) < MAX_EXPOSURE for identity in opponents)):
+                    or any(npc_credit(state, identity) < MAX_EXPOSURE for identity in opponents)):
         raise ValueError(f"each seat needs {MAX_EXPOSURE} credit to cover the capped hand")
     players = [state.courier.id, *opponents]
     names = [state.courier.name, *(available[identity].name for identity in opponents)]
@@ -138,7 +129,7 @@ def start_hand(state: GameState, opponents: list[str], *, wagering: bool) -> dic
         for seat in range(4):
             hand["hands"][seat].append(hand["deck"].pop())
     for identity in opponents:
-        bankrolls.setdefault(identity, STARTING_NPC_CREDIT)
+        npc_credit(state, identity, open_account=True)
     if wagering:
         for seat in range(4):
             _pay(state, hand, seat, ANTE)
@@ -146,7 +137,7 @@ def start_hand(state: GameState, opponents: list[str], *, wagering: bool) -> dic
     hand["turn"] = _first_after_dealer(hand)
     state.tavern_draw["hand_number"] = number
     state.tavern_draw["active_hand"] = hand
-    seat_draw_players(state, opponents)
+    seat_opponents(state, opponents, DRAW_NPC_SEATS, "playing Tavern Draw", "draw")
     _advance_world(state)
     return hand
 
@@ -311,12 +302,10 @@ def validate_tavern_draw(state: GameState) -> None:
     table = state.tavern_draw
     if not isinstance(table, dict) or set(table) != {"hand_number", "bankrolls", "active_hand", "records"}:
         raise ValueError("invalid tavern draw ledger")
-    if type(table["hand_number"]) is not int or table["hand_number"] < 0 or not isinstance(table["bankrolls"], dict):
+    if type(table["hand_number"]) is not int or table["hand_number"] < 0:
         raise ValueError("invalid tavern draw counts")
+    validate_npc_accounts(state)
     named = {person.id for person in [*state.household, *state.visitors, state.bartender]}
-    if any(identity not in named or type(amount) is not int or not 0 <= amount <= 100000
-           for identity, amount in table["bankrolls"].items()):
-        raise ValueError("invalid tavern draw bankroll")
     records = table["records"]
     if not isinstance(records, list) or len(records) > 40:
         raise ValueError("invalid tavern draw history")
