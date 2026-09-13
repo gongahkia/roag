@@ -13,7 +13,7 @@ PLACED_PARTS = set(PARTS) - {"cell"}
 DEVICE_PARTS = {"rack", "switch", "lamp", "gate", "drain"}
 PULSE_INTERVAL = 6
 CELL_CHARGE = 24
-DEVICE_HOLD = 5
+DEVICE_HOLD = 7
 MAX_CELLS = 4096
 
 
@@ -96,7 +96,7 @@ def _target_reason(state: GameState, position: Position, layer: str) -> str | No
 
 def place(state: GameState, position: Position, layer: str, kind: str) -> tuple[bool, str]:
     from .actions import _advance_world
-    from .world import is_walkable
+    from .world import base_tile, is_walkable
 
     reason = _target_reason(state, position, layer)
     if reason:
@@ -107,6 +107,8 @@ def place(state: GameState, position: Position, layer: str, kind: str) -> tuple[
         return False, "The world circuit register is full."
     if layer == "buried" and kind in DEVICE_PARTS:
         return False, "Working devices need a reachable surface fitting."
+    if layer == "surface" and base_tile(state, position) not in {".", ",", "_", "m", "r", "q", "%", "="}:
+        return False, "Keep surface fittings on plain ground; bury a trace beneath a fixture."
     space = space_id(state)
     key = cell_key(space, position, layer)
     if key in state.circuits:
@@ -244,6 +246,9 @@ def validate_circuits(state: GameState) -> None:
     for key, cell in state.circuits.items():
         if not isinstance(cell, CircuitCell) or not isinstance(cell.position, Position):
             raise ValueError("invalid circuit cell")
+        if (not isinstance(cell.space, str) or any(type(axis) is not int for axis in (cell.position.x, cell.position.y, cell.position.z))
+                or any(not isinstance(value, str) for value in (cell.layer, cell.kind, cell.phase))):
+            raise ValueError("invalid circuit coordinate")
         if cell.space != "vessel" and not (cell.space.startswith("region:") and cell.space[7:] in state.regions):
             raise ValueError("invalid circuit space")
         if key != cell_key(cell.space, cell.position, cell.layer):
@@ -259,3 +264,9 @@ def validate_circuits(state: GameState) -> None:
         if region and (str(cell.position.z) not in region.levels or not 0 <= cell.position.x < region.width
                        or not 0 <= cell.position.y < region.height):
             raise ValueError("circuit outside regional bounds")
+        if cell.space == "vessel":
+            from .vessel import VESSEL_LEVELS
+
+            rows = VESSEL_LEVELS.get(cell.position.z)
+            if rows is None or not 0 <= cell.position.y < len(rows) or not 0 <= cell.position.x < len(rows[cell.position.y]):
+                raise ValueError("circuit outside vessel bounds")

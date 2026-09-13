@@ -26,7 +26,7 @@ becomes a head only when one or two neighboring heads are present. Jomon adds
 the layer-via rule and powered devices. A loaded rack injects one pulse every
 six world actions and spends one of its cell's 24 pulses; an empty rack cannot
 inject more. Opening a switch breaks that circuit path. A receiving lamp
-brightens nearby sight for five actions; a latch gate opens for five actions
+brightens nearby sight for seven actions; a latch gate opens for seven actions
 and otherwise blocks movement; a sump pump clears temporary water in its
 surrounding nine squares when a pulse reaches it. The game's pulses are a
 deliberate discrete electrical abstraction, not an analog voltage simulator.

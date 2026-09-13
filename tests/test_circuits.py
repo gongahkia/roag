@@ -8,8 +8,8 @@ from jomon.circuits import (
 )
 from jomon.inventory import auto_place, create_item, item_spec
 from jomon.production import RECIPES, make, recipe_status
-from jomon.state import CircuitCell, CommodityStack, Position, StateError, create_world, game_state_from_dict
-from jomon.terminal import CircuitView, InputEvent, _handle_circuit
+from jomon.state import CircuitCell, CommodityStack, Position, StateError, VerticalLink, create_world, game_state_from_dict
+from jomon.terminal import CircuitView, InputEvent, _draw_circuit, _handle_circuit
 from jomon.world import displayed_tile, is_walkable, sight_radius
 
 
@@ -96,8 +96,25 @@ class CircuitTests(unittest.TestCase):
         state.world_time = 17
         self.tick(4)
         self.assertTrue(is_walkable(state, gate.position))
-        self.tick(6)
+        self.tick(8)
         self.assertFalse(is_walkable(state, gate.position))
+
+    def test_paired_vias_carry_a_pulse_through_a_real_vertical_link(self):
+        state = self.state
+        lower = Position(21, 20, 0)
+        upper = Position(21, 20, 1)
+        state.region.vertical_links.append(VerticalLink(lower, upper, "test riser"))
+        self.fit("rack", 20).charge = 1
+        self.fit("via", 21)
+        state.circuits[cell_key("region:hearthford", upper, "surface")] = CircuitCell(
+            "region:hearthford", upper, "surface", "via"
+        )
+        lamp_position = Position(22, 20, 1)
+        lamp = CircuitCell("region:hearthford", lamp_position, "surface", "lamp")
+        state.circuits[cell_key(lamp.space, lamp_position, lamp.layer)] = lamp
+        state.world_time = 5
+        self.tick(4)
+        self.assertTrue(lamp.active_until >= state.world_time)
 
     def test_lamp_extends_sight_and_drain_clears_only_local_water(self):
         state = self.state
@@ -160,6 +177,23 @@ class CircuitTests(unittest.TestCase):
         self.assertEqual(view.layer, "buried")
         self.assertFalse(_handle_circuit(state, view, InputEvent("key", key=ord("1"))))
         self.assertIsNotNone(cell_at(state, state.position, "buried"))
+        class Screen:
+            def __init__(self):
+                self.writes = []
+
+            def getmaxyx(self):
+                return 30, 100
+
+            def addnstr(self, row, col, value, count, attr=0):
+                self.writes.append(value[:count])
+
+            def refresh(self):
+                pass
+
+        screen = Screen()
+        _draw_circuit(screen, state, view)
+        self.assertIn(":", screen.writes)
+        self.assertTrue(any("CIRCUITS BURIED" in row for row in screen.writes))
         self.assertTrue(_handle_circuit(state, view, InputEvent("key", key=27)))
 
 
