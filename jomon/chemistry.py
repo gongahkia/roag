@@ -24,7 +24,7 @@ for row in _rows:
     pair = row["reagents"]
     if (not isinstance(pair, list) or len(pair) != 2 or any(not isinstance(name, str) or name not in REAGENTS for name in pair)
             or len(set(pair)) != 2 or not isinstance(row["name"], str) or not row["name"]
-            or row["effect"] not in _effects):
+            or not isinstance(row["effect"], str) or row["effect"] not in _effects):
         raise CatalogError("chemistry.json has an invalid reaction")
     key = frozenset(pair)
     if key in REACTIONS or any(name == row["name"] for name, _ in REACTIONS.values()):

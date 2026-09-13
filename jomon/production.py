@@ -4,35 +4,33 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .catalog import CatalogError, load_catalog
 from .expanded_weapons import ARSENAL
 from .state import GameState, Position
 
 
-SOURCES = {
-    "hearthford": ("iron filings", "spring water"),
-    "greywash": ("brine", "clay"),
-    "greenwold": ("tree resin", "healing herb"),
-    "whitecairn": ("iron ore", "lime dust"),
-    "dunmire": ("peat oil", "smoke leaf"),
-    "marlbank": ("clay", "spring water"),
-    "rillscar": ("iron ore", "spark salt"),
-    "frostmere": ("frostwort", "glow spore"),
-}
-SITE_KEYS = {
-    "hearthford": "mill", "greywash": "saltworks", "greenwold": "resin_yard",
-    "whitecairn": "quarry", "dunmire": "works", "marlbank": "works",
-    "rillscar": "works", "frostmere": "works",
-}
-SHORE_STATIONS = {
-    "hearthford": ("workshop", "forge"),
-    "greywash": ("still", "brewery"),
-    "greenwold": ("brewery", "still"),
-    "whitecairn": ("smelter", "forge"),
-    "dunmire": ("brewery", "still"),
-    "marlbank": ("smelter", "forge"),
-    "rillscar": ("smelter", "gunworks"),
-    "frostmere": ("still", "gunworks"),
-}
+_CATALOG = load_catalog("production.json", ("sources", "site_keys", "shore_stations", "recipes"))
+
+
+def _regional_pairs(value: object, name: str) -> dict[str, tuple[str, str]]:
+    if not isinstance(value, dict) or not value:
+        raise CatalogError(f"production.json has invalid {name}")
+    result = {}
+    for region, pair in value.items():
+        if (not isinstance(region, str) or not isinstance(pair, list) or len(pair) != 2
+                or any(not isinstance(part, str) or not part for part in pair)):
+            raise CatalogError(f"production.json has invalid {name}")
+        result[region] = tuple(pair)
+    return result
+
+
+SOURCES = _regional_pairs(_CATALOG["sources"], "sources")
+SHORE_STATIONS = _regional_pairs(_CATALOG["shore_stations"], "shore stations")
+SITE_KEYS = _CATALOG["site_keys"]
+if (not isinstance(SITE_KEYS, dict) or set(SITE_KEYS) != set(SOURCES)
+        or set(SHORE_STATIONS) != set(SOURCES)
+        or any(not isinstance(key, str) or not key for key in SITE_KEYS.values())):
+    raise CatalogError("production.json has mismatched regional sites")
 
 
 @dataclass(frozen=True)
@@ -50,54 +48,35 @@ RECIPES: dict[str, Recipe] = {}
 
 
 def _add(recipe: Recipe) -> None:
+    if recipe.id in RECIPES:
+        raise CatalogError(f"duplicate production recipe: {recipe.id}")
     RECIPES[recipe.id] = recipe
 
 
-_add(Recipe("field-flask", "Shape a field flask", "portable", (("ingredient:clay", 1), ("commodity:timber", 1)), "field flask"))
-_add(Recipe("iron-billet", "Smelt one iron billet", "smelter", (("ingredient:iron ore", 1), ("commodity:charcoal", 1)), "component:iron billet"))
-_add(Recipe("field-dressing", "Prepare a field dressing", "portable", (("ingredient:healing herb", 1), ("commodity:wool", 1)), "consumable:willow dressing"))
-for reagent, second in (
-    ("smoke", "smoke leaf"), ("pitch", "peat oil"), ("lime", "lime dust"),
-    ("brine", "brine"), ("thunder", "spark salt"), ("resin", "tree resin"),
-):
-    other = "ingredient:iron filings" if reagent == "thunder" else "ingredient:tree resin" if reagent == "pitch" else "ingredient:clay"
-    _add(Recipe(f"{reagent}-bombs", f"Pack {reagent} bombs", "portable",
-                ((f"ingredient:{second}", 1), (other, 1)), f"consumable:{reagent} bombs", 2))
-for name, ingredients in (
-    ("healing draft", ("healing herb", "spring water")),
-    ("attunement draft", ("glow spore", "spring water")),
-    ("breath tonic", ("smoke leaf", "spring water")),
-):
-    _add(Recipe(name.replace(" ", "-"), f"Brew {name}", "brewery",
-                tuple((f"ingredient:{part}", 1) for part in ingredients), "field flask", contents=ingredients))
-_add(Recipe("counted-charges", "Prepare fictional spark-salt charges", "gunworks",
-            (("ingredient:spark salt", 1), ("commodity:paper", 1)), "consumable:handgonne charges", 3))
+def _recipe_from_data(row: object) -> Recipe:
+    required = {"id", "name", "station", "inputs", "output", "quantity", "contents"}
+    if not isinstance(row, dict) or set(row) != required:
+        raise CatalogError("production.json has an invalid recipe record")
+    if (any(not isinstance(row[key], str) or not row[key] for key in ("id", "name", "station", "output"))
+            or row["id"].startswith("make:") or type(row["quantity"]) is not int or row["quantity"] < 1):
+        raise CatalogError("production.json has invalid recipe identity or yield")
+    inputs, contents = row["inputs"], row["contents"]
+    if (not isinstance(inputs, list) or not inputs or not isinstance(contents, list)
+            or any(not isinstance(part, list) or len(part) != 2 or not isinstance(part[0], str)
+                   or not part[0] or type(part[1]) is not int or part[1] < 1 for part in inputs)
+            or any(not isinstance(name, str) or not name for name in contents)
+            or (contents and row["output"] != "field flask")):
+        raise CatalogError("production.json has invalid recipe materials")
+    return Recipe(row["id"], row["name"], row["station"],
+                  tuple((kind, quantity) for kind, quantity in inputs),
+                  row["output"], row["quantity"], tuple(contents))
 
-for recipe in (
-    Recipe("hearthford-splints", "Bind Hearthford splinted arms", "forge",
-           (("ingredient:iron filings", 2), ("commodity:timber", 1)), "splinted arms"),
-    Recipe("greywash-gauntlets", "Cure Greywash tarred gauntlets", "brewery",
-           (("ingredient:brine", 1), ("ingredient:peat oil", 1), ("commodity:wool", 1)), "tarred gauntlets"),
-    Recipe("greenwold-vest", "Lacquer a Greenwold reedscale vest", "portable",
-           (("ingredient:tree resin", 2), ("commodity:timber", 1), ("commodity:wool", 1)), "reedscale vest"),
-    Recipe("whitecairn-sleeves", "Stitch Whitecairn quarry sleeves", "portable",
-           (("ingredient:lime dust", 1), ("commodity:wool", 1)), "quarry sleeves"),
-    Recipe("dunmire-pattens", "Oil Dunmire peat pattens", "portable",
-           (("ingredient:peat oil", 1), ("commodity:timber", 1)), "peat pattens"),
-    Recipe("marlbank-apron", "Fire a Marlbank kiln apron", "forge",
-           (("ingredient:clay", 1), ("commodity:wool", 2)), "kiln apron"),
-    Recipe("rillscar-cleats", "Link Rillscar ice cleats", "smelter",
-           (("ingredient:iron ore", 2), ("commodity:charcoal", 1)), "ice cleats"),
-    Recipe("frostmere-coat", "Line a Frostmere winter felt coat", "portable",
-           (("ingredient:frostwort", 1), ("commodity:wool", 2)), "winter felt coat"),
-    Recipe("fletched-arrows", "Fletch three arrows", "workshop",
-           (("commodity:timber", 1), ("commodity:wool", 1)), "consumable:fletched arrows", 3),
-    Recipe("quarrel-case", "Forge three heavy quarrels", "forge",
-           (("component:iron billet", 1), ("commodity:timber", 1)), "consumable:quarrel case", 3),
-    Recipe("sling-shot-pouch", "Pack three sling shot pouches", "portable",
-           (("ingredient:clay", 1), ("commodity:paper", 1)), "consumable:sling shot pouch", 3),
-):
-    _add(recipe)
+
+if not isinstance(_CATALOG["recipes"], list):
+    raise CatalogError("production.json must provide recipes")
+for _recipe_data in _CATALOG["recipes"]:
+    _add(_recipe_from_data(_recipe_data))
+
 
 for name, weapon in ARSENAL.items():
     station, inputs = {

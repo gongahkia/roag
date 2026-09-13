@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .catalog import CatalogError, load_catalog
 from .inventory import auto_place, create_item, record_acquisition
 from .state import GameState, QuestProgress
 
@@ -820,16 +821,14 @@ def resolve_arc_choice(state: GameState, choice: str) -> tuple[bool, str]:
     return True, message
 
 
-FIELD_REPORT_RESPONSES = {
-    "hearthford": ("The mill board posts the crossing under a shared load measure.", "A freight factor buys the crossing note before the public tally is made."),
-    "greywash": ("The salt-house ledger marks the safer shore margin for every crew.", "A salvage factor keeps the dry approach for a private fitting run."),
-    "greenwold": ("The medicine cutters add the refuge margin to their common route.", "A resin buyer reserves the changed trail ahead of the cutters."),
-    "whitecairn": ("The bell watch calls the stable step on its next public interval.", "A private carrier takes first passage over the marked step."),
-    "dunmire": ("The peat crews enter the raised margin in their shared bank account.", "A fuel runner buys the dry-bank measure before the crews hear it."),
-    "rillscar": ("The bridge witness marks the load limit for both banks.", "An iron factor buys the first safe crossing under a private account."),
-    "marlbank": ("The seed court records the changed water turn for all terraces.", "A kiln buyer reserves the altered release for one private firing."),
-    "frostmere": ("The pilots sound the changed braid aloud for the net crews.", "A freight pilot buys the first private sounding through the braid."),
-}
+_REPORT_CATALOG = load_catalog("field_reports.json", ("responses",))
+_responses = _REPORT_CATALOG["responses"]
+if (not isinstance(_responses, dict) or not _responses
+        or any(not isinstance(region, str) or not isinstance(lines, list) or len(lines) != 2
+               or any(not isinstance(line, str) or not line for line in lines)
+               for region, lines in _responses.items())):
+    raise CatalogError("field_reports.json has invalid regional responses")
+FIELD_REPORT_RESPONSES = {region: tuple(lines) for region, lines in _responses.items()}
 
 
 def _pending_field_report(state: GameState):
