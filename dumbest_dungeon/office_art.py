@@ -20,7 +20,7 @@ def _load_office_visuals() -> tuple[dict[str, tuple[str, ...]], dict]:
     sprites = raw["office_sprites"]
     if not isinstance(sprites, dict) or not sprites or any(
         not isinstance(role, str) or not isinstance(lines, list) or len(lines) != 5
-        or any(not isinstance(line, str) or not line.isascii() or len(line) > 9 for line in lines)
+        or any(not isinstance(line, str) or not line.isascii() or not line.isprintable() or len(line) > 9 for line in lines)
         for role, lines in sprites.items()
     ):
         raise ValueError("office_sprites must map roles to five printable ASCII rows")
