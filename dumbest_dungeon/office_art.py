@@ -4,37 +4,42 @@ from __future__ import annotations
 
 from functools import lru_cache
 import hashlib
+from importlib.resources import files
 
 from .content import load_catalog
+from .json_data import loads
 
 
-OFFICE_SPRITES: dict[str, tuple[str, ...]] = {
-    "warden": (" .---. ", " |o o| ", " /|M|\\ ", "  |T|  ", " _/ \\_ "),
-    "engineer": (" .---. ", " |o o|=", "-|(W)| ", "  | |  ", " _/ \\_ "),
-    "medic": (" .-+-. ", " |o o| ", " /|+|\\ ", "  | |  ", " _/ \\_ "),
-    "scout": ("  ___  ", " /o o\\=", "<|@|>  ", "  /|   ", " _/ \\_ "),
-    "breacher": (" .-o-. ", " |o o| ", " /|C|\\ ", "  |:|  ", " _/ \\_ "),
-    "psion": (" .~~~. ", " |o o| ", "~( ? )~", "  | |  ", " _/ \\_ "),
-    "quartermaster": (" .$$$. ", " |o o| ", "/[BOX]\\", "  | |  ", " _/ \\_ "),
-    "operative": (" .---. ", " |. .| ", " /[C]\\ ", "  | |  ", " _/ \\_ "),
-    "biologist": (" .-v-. ", " |o o| ", " /|Y|\\ ", "  | |  ", " _/ \\_ "),
-    "synth": ("[=====]", "|o   o|", "|PRINT|", " |___| ", " _| |_ "),
-    "duelist": (" .-=-. ", " |o o| ", " /|L|\\ ", "  | |  ", " _/ \\_ "),
-    "artillerist": (" .---. ", " |o o| ", "/[PPT]\\", "  | |  ", " _/ \\_ "),
-    "chaplain": ("  ^^^  ", " .o o. ", " /|!|\\ ", "  | |  ", " _/ \\_ "),
-    "hacker": (" .---. ", " |0 0| ", "<[=+]=>", "  | |  ", " _/ \\_ "),
-    "pilot": ("  ^v^  ", " |o o| ", "<|E|>  ", "  | |  ", " _/ \\_ "),
-    "cryonaut": (" .***. ", " |o o| ", " /|*|\\ ", "  | |  ", " _/ \\_ "),
-    "horticulturist": (" .vVv. ", " |o o| ", " /|Y|\\ ", "  /|\\  ", " _/ \\_ "),
-    "foundryman": (" .###. ", " |o o| ", "O|C|O  ", "  | |  ", " _/ \\_ "),
-    "reactor_saint": ("  $$$  ", " .o o. ", " /|%|\\ ", "  | |  ", " _/ \\_ "),
-    "mycologist": (" .ooo. ", "(o o o)", " /|m|\\ ", "  | |  ", " _/ \\_ "),
-    "diver": (" .---. ", "| o o |", "|FILE |", "  | |  ", " _/ \\_ "),
-    "stormcaller": (" \\|+/  ", " .o o. ", "~|!|~  ", "  | |  ", " _/ \\_ "),
-    "archivist": (" .---. ", " |o o| ", " /[A]\\ ", " _|_|_ ", "|_____|"),
-    "voidwalker": (" '   ' ", "  |o|  ", "-/(O)\\-", "  / \\  ", " '   ' "),
-    "bonewright": (" .---. ", " |o o| ", " /|#|\\ ", "  |H|  ", " _/ \\_ "),
-}
+def _load_office_visuals() -> tuple[dict[str, tuple[str, ...]], dict]:
+    try:
+        raw = loads(files("dumbest_dungeon").joinpath("data", "office_visuals.json").read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise ValueError(f"cannot read office visuals: {exc}") from exc
+    if not isinstance(raw, dict) or set(raw) != {"office_sprites", "expedition_map_symbols"}:
+        raise ValueError("office_visuals.json needs office_sprites and expedition_map_symbols")
+    sprites = raw["office_sprites"]
+    if not isinstance(sprites, dict) or not sprites or any(
+        not isinstance(role, str) or not isinstance(lines, list) or len(lines) != 5
+        or any(not isinstance(line, str) or not line.isascii() or len(line) > 9 for line in lines)
+        for role, lines in sprites.items()
+    ):
+        raise ValueError("office_sprites must map roles to five printable ASCII rows")
+
+    def check_symbols(value, context: str) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                check_symbols(child, f"{context}.{key}")
+        elif not isinstance(value, str) or len(value) != 1 or not value.isascii() or not value.isprintable():
+            raise ValueError(f"{context} must be one printable ASCII symbol")
+
+    symbols = raw["expedition_map_symbols"]
+    if not isinstance(symbols, dict):
+        raise ValueError("expedition_map_symbols must be a map")
+    check_symbols(symbols, "expedition_map_symbols")
+    return {role: tuple(lines) for role, lines in sprites.items()}, symbols
+
+
+OFFICE_SPRITES, EXPEDITION_MAP_SYMBOLS = _load_office_visuals()
 
 
 def office_card_glyph(role: str) -> tuple[str, str, str]:
