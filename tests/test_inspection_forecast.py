@@ -102,31 +102,36 @@ class InspectionAndForecastTests(unittest.TestCase):
         self.assertTrue(_handle_look(state, view, InputEvent("mouse", button="right", x=27, y=8)))
         self.assertEqual(state.to_dict(), before)
 
-    def test_minimum_status_keeps_resources_threat_condition_and_action(self):
+    def test_status_shows_only_courier_identity_health_load_and_location(self):
         state = self.state
         actor = Threat("urgent", "urgent bow carrier", "ranged", Position(46, 25), 8, 8, status="engaged", aimed_at=state.position)
         state.threats.append(actor)
         state.terrain_statuses["bogged"] = TerrainStatus("deep mud", 3, "movement is slower")
+        state.courier.health = state.courier.max_health // 2
         lines = _status_lines(state, 14)
-        self.assertEqual(len(lines), 14)
+        self.assertEqual(len(lines), 6)
         text = " ".join(lines)
-        for phrase in ("Ammo", "DANGER urgent bow carrier", "STATUS bogged", "ACTION"):
+        for phrase in (state.courier.name, f"Class: {state.courier.role}", "Health [####....]", "Load ", " kg", "Location: Hearthford"):
             self.assertIn(phrase, text)
+        for phrase in ("Ammo", "DANGER", "no visible threat", "Combo", "STATUS bogged", "ACTION"):
+            self.assertNotIn(phrase, text)
 
         sink = _PanelSink(24, 80)
         _draw_base(sink, state)
         rendered = " ".join(sink.writes)
-        for phrase in ("Ammo", "DANGER urgent bow", "STATUS bogged", "ACTION"):
+        for phrase in (state.courier.name, "Health [####....]", "Load ", "Location: Hearthford"):
             self.assertIn(phrase, rendered)
+        self.assertNotIn("no visible threat", rendered)
+        self.assertNotIn("Combo", rendered)
 
-    def test_compact_status_does_not_scan_every_navigation_target(self):
+    def test_minimal_status_does_not_scan_every_navigation_target(self):
         state = self.state
         with patch(
             "jomon.navigation.navigation_targets",
             side_effect=AssertionError("route enumeration entered render path"),
         ):
             lines = _status_lines(state, 14)
-        self.assertTrue(any(line.startswith("ACTION ") for line in lines))
+        self.assertTrue(any(line.startswith("Location:") for line in lines))
 
     def test_forecast_reuses_callers_visibility_snapshot(self):
         state = self.state

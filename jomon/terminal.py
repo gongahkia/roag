@@ -109,10 +109,8 @@ from .world import (
     map_rows,
     passive_bulk,
     passive_capacity,
-    pressure,
     projectile_path,
     remembered,
-    vertical_destination,
 )
 
 INVENTORY_HELP_LINES = (
@@ -660,37 +658,26 @@ def event_feed_lines(messages: Iterable[str], width: int, max_rows: int) -> list
 
 
 def status_colour_role(text: str) -> str:
-    """Give the dense status rail visual grouping without hiding its labels."""
+    """Give the compact status rail visual grouping without hiding its labels."""
     stripped, lower = text.strip(), text.lower()
     if stripped and stripped == stripped.upper() and any(character.isalpha() for character in stripped):
         return "ui_heading"
     if lower.startswith("health "):
-        return "success" if any(word in lower for word in ("fit", "hale", "uninjured", "; none")) else "warning"
-    if lower.startswith(("date ", "forecast ")) or any(weather in lower for weather in ("rain", "fog", "wind", "storm", "frost", "thaw", "squall")):
-        return "forecast"
-    if lower.startswith(("technique", "combo")):
-        return "technique"
-    if lower.startswith("action "):
-        return "ui_accent"
-    if lower.startswith(("danger ", "status ")):
-        return "warning" if "fit; no harmful" not in lower else "success"
-    if lower.startswith(("ammo", "rope")):
-        return "tool"
-    if lower.startswith("load "):
-        return "warning" if any(word in lower for word in ("encumbered", "overloaded")) else "cargo"
-    if ":" in text and "/" in text:
-        return "commodity"
-    if lower.startswith("hull "):
         try:
-            return "success" if int(lower.split()[1].split("/", 1)[0]) >= 8 else "warning"
-        except (IndexError, ValueError):
+            current, maximum = map(int, lower.rsplit(" ", 1)[-1].split("/"))
+            return "success" if current * 2 >= maximum else "warning"
+        except ValueError:
             return "warning"
-    if any(word in lower for word in ("critical", "strained", "visible threat")):
-        return "warning"
-    if lower.startswith(("safe", "steady")) or "no visible threat" in lower:
-        return "success"
-    if ":" in text and " — " in text:
-        return "warning"
+    if lower.startswith("class:"):
+        return "technique"
+    if lower.startswith("load "):
+        try:
+            current, maximum = map(int, lower.split()[1].split("/"))
+            return "warning" if current > maximum else "cargo"
+        except (IndexError, ValueError):
+            return "cargo"
+    if lower.startswith("location:"):
+        return "ui_heading"
     return "terrain"
 
 
@@ -860,97 +847,22 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
 
 
 def _status_lines(state: GameState, capacity: int | None = None) -> list[str]:
-    courier, p = state.courier, pressure(state)
+    courier = state.courier
     if courier:
-        identity, health, injury = f"{courier.name}, {courier.role}", f"{courier.health}/{courier.max_health}", courier.injury
-        technique = ", ".join([courier.technique, *courier.learned_techniques])
+        maximum = max(1, courier.max_health)
+        filled = min(8, max(0, (courier.health * 8 + maximum - 1) // maximum))
+        health = f"Health [{'#' * filled}{'.' * (8 - filled)}] {courier.health}/{courier.max_health}"
+        name = textwrap.wrap(courier.name, width=25, break_long_words=True) or ["not chosen"]
+        role = courier.role
     else:
-        identity, health, injury, technique = "not chosen", "-", "-", "-"
-    market = state.market[state.region.objective_commodity]
-    visible = field_of_view(state, remember=False)
-    local = [
-        threat for threat in state.combatants
-        if threat.status in {"watching", "engaged"} and threat.position in visible
-    ]
-    threat = local[0].intent if local else "no visible threat"
-    transition = vertical_destination(state, state.position) if state.location == "region" else None
-    level_text = f"{state.position.x},{state.position.y} z{state.position.z:+d}"
-    if transition:
-        level_text += " " + ("v below" if transition.z < state.position.z else "^ above")
-    ammunition, ammunition_label = _ammunition_status(state)
+        health, name, role = "Health [........] -", ["not chosen"], "-"
+    location = state.region.name if state.location == "region" else area_name(state)
     lines = [
-        "COURIER",
-        identity,
-        f"Health {health}; {injury}",
-        f"{state.weapon or '-'} / {state.gear or '-'}",
-        f"Technique: {_clip(technique, 16)}",
-        f"Date {calendar_at(state).season} {calendar_at(state).day}; {calendar_at(state).time_of_day}",
-        "PRESSURE",
-        f"Time {p.elapsed}; depth {p.depth}",
-        f"Noise {p.noise}; value {p.valuables}",
-        f"{p.band} {p.score}; {state.weather}",
-        state.active_region_id.upper() if state.location == "region" else _clip(state.route_nodes.get(state.route_current_node).name if state.route_nodes else state.active_region_id, 25),
-        f"{level_text}; {state.objective_status}; Q{state.questlines[state.active_region_id].stage}/3",
-        f"{state.region.objective_commodity}: {market.stock}/{market.demand}",
-        f"Load {pack_weight(state)}/{weight_capacity(state)} {load_state(state)}",
-        f"Ammo {ammunition} {ammunition_label}; oil {state.lamp_oil}",
-        f"Rope {state.rope_uses}; smoke {state.smoke_charges}",
-        _clip(threat, 25),
+        "COURIER", *name, f"Class: {role}", health,
+        f"Load {pack_weight(state)}/{weight_capacity(state)} kg",
+        *textwrap.wrap(f"Location: {location}", width=25, break_long_words=True),
     ]
-    if state.location == "jomon" and state.combat_active:
-        lines[6:10] = ["VOYAGE CRISIS", f"Hull {state.vessel_integrity}/10", f"Action {state.vessel_changes.get('deck_ticks', 0)}; noise {state.noise}", str(state.voyage_kind)]
-    if build_combinations(state):
-        lines.append(f"Combo: {_clip(build_combinations(state)[0], 20)}")
-    if state.terrain_statuses:
-        name, status = next(iter(state.terrain_statuses.items()))
-        lines.append(
-            _clip(
-                f"{name}: {status.remaining} — {status.consequence}",
-                25,
-            )
-        )
-    if capacity is None or capacity >= len(lines):
-        return lines
-
-    from .combat_forecast import observed_forecasts
-    from .inspection import contextual_hints
-
-    forecasts = observed_forecasts(state, visible)
-    forecast = next(iter(forecasts), None)
-    danger = (
-        f"DANGER {forecast.actor_name}: "
-        + (
-            f"target {forecast.target.x},{forecast.target.y}; next"
-            if forecast.target else forecast.action
-        )
-        if forecast else "SAFE: no visible committed threat"
-    )
-    current_status = "STATUS: fit; no harmful condition"
-    if state.terrain_statuses:
-        name, status = next(iter(state.terrain_statuses.items()))
-        current_status = f"STATUS {name} {status.remaining}: {status.consequence}"
-    hint = "ACTION " + contextual_hints(state, limit=1, forecasts=forecasts)[0]
-    if state.location == "jomon" and state.combat_active:
-        pressure_line = f"CRISIS {state.voyage_kind}; hull {state.vessel_integrity}/10"
-    else:
-        pressure_line = f"PRESSURE {p.band} {p.score}; T{p.elapsed} D{p.depth}; {state.weather}"
-    compact = [
-        f"COURIER — {identity}",
-        f"Health {health}; {injury}",
-        f"Kit {state.weapon or '-'} / {state.gear or '-'}",
-        f"Technique: {_clip(technique, 16)}",
-        f"Date {calendar_at(state).season} {calendar_at(state).day}; {calendar_at(state).time_of_day}",
-        pressure_line,
-        state.active_region_id.upper() if state.location == "region" else _clip(state.route_nodes.get(state.route_current_node).name if state.route_nodes else state.active_region_id, 25),
-        level_text,
-        f"Objective {state.objective_status}; Q{state.questlines[state.active_region_id].stage}/3",
-        f"Load {pack_weight(state)}/{weight_capacity(state)} {load_state(state)}",
-        f"Ammo {ammunition} {ammunition_label}; oil {state.lamp_oil}",
-        danger,
-        current_status,
-        hint,
-    ]
-    return compact[:capacity]
+    return lines if capacity is None else lines[:capacity]
 
 
 def _draw_base(screen: curses.window, state: GameState) -> None:
@@ -961,37 +873,32 @@ def _draw_base(screen: curses.window, state: GameState) -> None:
         _put(screen, max(0, height // 2), 1, f"Current size: {width}x{height}. Resize or press Q to quit.")
         screen.refresh()
         return
-    status_width, event_height, command_height = 29, 6, 2
+    status_width, event_height, command_height = 29, 6, 0
     main_height, map_width = height - event_height - command_height, width - status_width
     _frame(screen, 0, 0, main_height, map_width, area_name(state).upper())
     _frame(screen, 0, map_width, main_height, status_width, "STATUS")
     _draw_map(screen, state, 0, 0, main_height, map_width)
     for index, line in enumerate(_status_lines(state, main_height - 2)):
         role = status_colour_role(line)
-        if line.startswith("COURIER"):
+        if line.startswith("COURIER") or index == 1:
             role = "player"
-        elif line.startswith("Kit ") or (index == 3 and state.courier):
-            role = "weapon"
-        elif line == state.active_region_id.upper():
-            role = REGIONAL_GROUND_ROLES.get(state.active_region_id, "ui_heading")
+        elif line.startswith("Location:"):
+            role = REGIONAL_GROUND_ROLES.get(state.active_region_id, "ui_heading") if state.location == "region" else "ui_heading"
         attr = _COLOUR_ATTRIBUTES[role]
         if role == "ui_heading":
             attr |= curses.A_BOLD
         _put(screen, 1 + index, map_width + 2, _clip(line, status_width - 4), attr)
-    _frame(screen, main_height, 0, event_height, width, "EVENTS")
+    _frame(screen, main_height, 0, event_height, width, "EVENTS  ? HELP")
     event_lines = event_feed_lines(state.messages, width - 4, event_height - 2)
     for index, line in enumerate(event_lines):
         _put(screen, main_height + 1 + index, 2, _clip(line, width - 4), _COLOUR_ATTRIBUTES[event_colour_role(line)])
-    command_attr = _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_REVERSE
-    _put(screen, height - 2, 1, BASE_HELP_LINES[0], command_attr)
-    _put(screen, height - 1, 1, BASE_HELP_LINES[1], command_attr)
     screen.refresh()
 
 
 def _cursor_screen_position(
     state: GameState, point: Position, height: int, width: int
 ) -> tuple[int, int, int, int]:
-    status_width, event_height, command_height = 29, 6, 2
+    status_width, event_height, command_height = 29, 6, 0
     main_height, map_width = height - event_height - command_height, width - status_width
     rows = map_rows(state)
     origin_x, origin_y = camera_origin(
@@ -1206,7 +1113,7 @@ def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]
 
 def _draw_targeting(screen: curses.window, state: GameState, view: TargetView) -> None:
     height, width = screen.getmaxyx()
-    status_width, event_height, command_height = 29, 6, 2
+    status_width, event_height, command_height = 29, 6, 0
     main_height, map_width = height - event_height - command_height, width - status_width
     rows = map_rows(state)
     view_height, view_width = main_height - 2, map_width - 2
@@ -1284,7 +1191,7 @@ def _handle_targeting(
     height, width = screen_size
     key = event.key
     if event.kind == "mouse":
-        status_width, event_height, command_height = 29, 6, 2
+        status_width, event_height, command_height = 29, 6, 0
         main_height, map_width = height - event_height - command_height, width - status_width
         if event.button not in {"left", "right"} or not (
             1 <= event.x < map_width - 1 and 1 <= event.y < main_height - 1
@@ -2654,7 +2561,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             rows.append(f"{index + 1}. {flask.id} {flask.contents or 'empty'} — predicted {', '.join(predicted_reactions(merged, cell if pouring else None)) or 'none'}")
         return ("POUR PHYSICAL FLASK" if pouring else "DRINK PHYSICAL FLASK"), rows
     if kind == "help":
-        return "HELP", list(HELP_LINES)
+        return "HELP", [*BASE_HELP_LINES, "", *HELP_LINES]
     if kind == "inventory":
         goods = [f"{name}: {stack.quantity}, {stack.condition} ({COMMODITIES[name]['bulk']} bulk each)" for name, stack in state.carried_goods.items()]
         statuses = [

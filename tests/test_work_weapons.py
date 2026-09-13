@@ -10,7 +10,7 @@ from jomon.inventory import (
 )
 from jomon.materials import ensure_cell, handle_material, key
 from jomon.state import Position, Threat, create_world, game_state_from_dict
-from jomon.terminal import InputEvent, TargetView, _handle_targeting, targeting_lines
+from jomon.terminal import InputEvent, TargetView, _cursor_screen_position, _handle_targeting, targeting_lines
 from jomon.work_weapons import POT_AMMUNITION, WORK_WEAPONS
 
 
@@ -105,7 +105,8 @@ class WorkingWeaponTests(unittest.TestCase):
         self.wield("pot sling")
         self.supply("brine pots")
         view = TargetView.begin(self.state)
-        _handle_targeting(self.state, view, InputEvent("mouse", button="left", x=29, y=8))
+        screen_x, screen_y, _, _ = _cursor_screen_position(self.state, Position(44, 25), 24, 80)
+        _handle_targeting(self.state, view, InputEvent("mouse", button="left", x=screen_x, y=screen_y))
         self.assertEqual(view.cursor, Position(44, 25))
         self.assertEqual(self.state.world_time, 8)
         self.assertEqual(_handle_targeting(self.state, view, 10), (True, True))

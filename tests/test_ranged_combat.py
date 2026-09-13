@@ -10,6 +10,7 @@ from jomon.terminal import (
     TARGET_HELP_LINE,
     InputEvent,
     TargetView,
+    _cursor_screen_position,
     _handle_targeting,
     targeting_detail,
     targeting_lines,
@@ -143,12 +144,9 @@ class PlayerRangeTests(unittest.TestCase):
         state = armed("sling")
         target = target_at(state, 42)
         view = TargetView.begin(state)
-        # At 80x24 the map viewport is 49x14 and centres on (40, 25).
-        world_left = state.position.x - 49 // 2
-        world_top = state.position.y - 14 // 2
+        screen_x, screen_y, _, _ = _cursor_screen_position(state, target.position, 24, 80)
         event = InputEvent(
-            "mouse", x=1 + target.position.x - world_left,
-            y=1 + target.position.y - world_top, button="left", double=True,
+            "mouse", x=screen_x, y=screen_y, button="left", double=True,
         )
         closed, fired = _handle_targeting(
             state, view, event, screen_size=(24, 80)

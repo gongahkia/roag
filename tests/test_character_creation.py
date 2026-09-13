@@ -10,7 +10,7 @@ from jomon.character import (
     ANCESTRIES, ORIGINS, TRAITS, apply_character_spec, character_sheet,
     clean_name, default_allocation, effective_competency,
 )
-from jomon.character_ui import run_character_creation
+from jomon.character_ui import _draw, _read_name, run_character_creation
 from jomon.inventory import weight_capacity
 from jomon.save import load_game, save_game
 from jomon.state import StateError, create_world, game_state_from_dict, validate_state
@@ -188,6 +188,45 @@ class CharacterCreationTests(unittest.TestCase):
         self.assertEqual(self.state.courier.role, "pilot")
         self.assertEqual(self.state.courier.ancestry, "Reedfolk")
         validate_state(self.state)
+
+    def test_creation_panel_and_name_prompt_center_without_losing_fields(self):
+        class Screen:
+            def __init__(self, height, width):
+                self.height, self.width, self.writes = height, width, []
+                self.name_input = None
+
+            def getmaxyx(self):
+                return self.height, self.width
+
+            def erase(self):
+                self.writes.clear()
+
+            def refresh(self):
+                pass
+
+            def addnstr(self, row, col, value, count, attr=0):
+                self.writes.append((row, col, value[:count]))
+
+            def getstr(self, row, col, count):
+                self.name_input = row, col, count
+                return b"Mira Vale"
+
+        attributes, competencies = default_allocation(self.state.household[0].role)
+        for height, width, top, left in ((24, 80, 0, 1), (40, 120, 7, 21)):
+            screen = Screen(height, width)
+            _draw(screen, self.state, 0, "Mira Vale", "Human", "hearthford", "steady",
+                  attributes, competencies, 1, "")
+            self.assertTrue(any(row == top and col == left and "COURIER SPECIFICATION" in value
+                                for row, col, value in screen.writes))
+            self.assertTrue(any(row == top + 22 and col == left + 3 and "Q back" in value
+                                for row, col, value in screen.writes))
+            self.assertTrue(any(row == top + 19 and "Starting competencies" in value
+                                for row, _, value in screen.writes))
+            self.assertTrue(any(row == top + 18 and "Craft" in value
+                                for row, _, value in screen.writes))
+            with patch("curses.echo"), patch("curses.noecho"), patch("curses.curs_set"):
+                self.assertEqual(_read_name(screen), "Mira Vale")
+            self.assertEqual(screen.name_input, (top + 21, left + 29, 32))
 
 
 if __name__ == "__main__":

@@ -19,7 +19,9 @@ from jomon.terminal import (
     dialogue_choice_lines,
     event_feed_lines,
     event_colour_role,
+    _draw_base,
     _handle_overlay,
+    _overlay_lines,
     information_colour_role,
     semantic_colour_plan,
     semantic_role,
@@ -41,12 +43,39 @@ class InventoryLayoutTests(unittest.TestCase):
         for command in ("Enter", "R rotate", "Space", "T transfer", "E equip", "O pack", "P pin", "Z auto", "[] body", "D drop", "C confirm", "Esc cancel"):
             self.assertIn(command, joined)
 
-    def test_base_legend_exposes_polish_verbs_at_minimum_width(self):
+    def test_controls_are_available_in_help_but_not_the_default_view(self):
         self.assertEqual(len(BASE_HELP_LINES), 2)
         self.assertTrue(all(len(line) <= 78 for line in BASE_HELP_LINES))
         joined = " ".join(BASE_HELP_LINES)
         for command in ("; look", "T follow", "M mastery", "A aim", "O actors"):
             self.assertIn(command, joined)
+        state = create_world("controls behind help")
+        title, help_lines = _overlay_lines(state, "help")
+        self.assertEqual(title, "HELP")
+        self.assertEqual(help_lines[:2], list(BASE_HELP_LINES))
+
+        class Screen:
+            def __init__(self):
+                self.writes = []
+
+            def getmaxyx(self):
+                return 24, 80
+
+            def erase(self):
+                pass
+
+            def refresh(self):
+                pass
+
+            def addnstr(self, row, col, value, count, attr=0):
+                self.writes.append(value[:count])
+
+        screen = Screen()
+        _draw_base(screen, state)
+        rendered = " ".join(screen.writes)
+        self.assertIn("? HELP", rendered)
+        self.assertNotIn(BASE_HELP_LINES[0], rendered)
+        self.assertNotIn(BASE_HELP_LINES[1], rendered)
 
 
 class SemanticColourTests(unittest.TestCase):
@@ -162,12 +191,12 @@ class SemanticColourTests(unittest.TestCase):
         self.assertEqual(event_colour_role("Water quenches the burning cargo."), "success")
         self.assertEqual(event_colour_role("The support is damaged and may collapse."), "warning")
         self.assertEqual(status_colour_role("COURIER"), "ui_heading")
-        self.assertEqual(status_colour_role("Health 10/10; none"), "success")
-        self.assertEqual(status_colour_role("Date winter 8; dawn"), "forecast")
-        self.assertEqual(status_colour_role("safe 0; clear"), "success")
-        self.assertEqual(status_colour_role("Load 22/30 ready"), "cargo")
-        self.assertEqual(status_colour_role("Load 41/30 overloaded"), "warning")
-        self.assertEqual(status_colour_role("Combo: smoke hunter"), "technique")
+        self.assertEqual(status_colour_role("Health [########] 10/10"), "success")
+        self.assertEqual(status_colour_role("Health [##......] 2/10"), "warning")
+        self.assertEqual(status_colour_role("Class: pilot"), "technique")
+        self.assertEqual(status_colour_role("Load 22/30 kg"), "cargo")
+        self.assertEqual(status_colour_role("Load 41/30 kg"), "warning")
+        self.assertEqual(status_colour_role("Location: Hearthford"), "ui_heading")
 
     def test_event_feed_compacts_routine_motion_but_keeps_exact_loss_cause(self):
         messages = [
