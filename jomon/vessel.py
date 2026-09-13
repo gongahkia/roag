@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from .calendar import calendar_at, initial_origin_day, seasonal_stock_modifier
 from .state import ActorSchedule, GameState, Person, Position, SocialIncident, TerrainStatus, stage_rng
+from .visuals import TAVERN_MAP, VESSEL_LEVELS
 
 VESSEL_WIDTH = 64
 VESSEL_HEIGHT = 22
@@ -39,112 +40,6 @@ LOWER_HATCH = Position(14, 10, -1)
 MAIN_LOWER_HATCH = Position(14, 10, 0)
 MAIN_UPPER_STAIR = Position(48, 10, 0)
 UPPER_STAIR = Position(48, 10, 1)
-
-
-def _blank(width: int, height: int) -> list[list[str]]:
-    grid = [["." for _ in range(width)] for _ in range(height)]
-    for x in range(width):
-        grid[0][x] = grid[-1][x] = "#"
-    for y in range(height):
-        grid[y][0] = grid[y][-1] = "#"
-    return grid
-
-
-def _walls(grid: list[list[str]], x1: int, y1: int, x2: int, y2: int) -> None:
-    for x in range(x1, x2 + 1):
-        grid[y1][x] = grid[y2][x] = "#"
-    for y in range(y1, y2 + 1):
-        grid[y][x1] = grid[y][x2] = "#"
-
-
-def _vessel_levels() -> dict[int, tuple[str, ...]]:
-    lower = _blank(VESSEL_WIDTH, VESSEL_HEIGHT)
-    _walls(lower, 3, 3, 20, 8)
-    _walls(lower, 24, 3, 43, 8)
-    _walls(lower, 47, 3, 60, 8)
-    _walls(lower, 3, 13, 25, 18)
-    _walls(lower, 29, 13, 60, 18)
-    for point, glyph in {
-        (7, 5): "H", (17, 5): "L", (28, 5): "p", (39, 5): "W",
-        (53, 5): "b", (57, 5): "b", (8, 15): "U", (20, 15): "R",
-        (36, 15): "H", (52, 15): "S", (14, 10): ">",
-    }.items():
-        lower[point[1]][point[0]] = glyph
-    lower[8][11] = lower[8][33] = lower[13][15] = lower[13][44] = "+"
-
-    main = _blank(VESSEL_WIDTH, VESSEL_HEIGHT)
-    _walls(main, 4, 3, 19, 8)
-    _walls(main, 23, 3, 39, 8)
-    _walls(main, 43, 3, 59, 8)
-    _walls(main, 4, 13, 22, 18)
-    _walls(main, 27, 13, 43, 18)
-    _walls(main, 48, 13, 59, 18)
-    for point, glyph in {
-        (8, 5): "G", (16, 5): "b", (24, 7): "C", (31, 5): "K",
-        (50, 5): "R", (56, 5): "T", (8, 15): "H", (18, 15): "L",
-        (34, 15): "b", (39, 15): "b", (54, 15): "s", (14, 10): "<",
-        (48, 10): ">", (63, 10): "+",
-    }.items():
-        main[point[1]][point[0]] = glyph
-    main[8][12] = main[8][31] = main[8][51] = main[13][13] = main[13][35] = main[13][54] = "+"
-
-    upper = _blank(VESSEL_WIDTH, VESSEL_HEIGHT)
-    for x in range(2, VESSEL_WIDTH - 2):
-        if x % 3:
-            upper[4][x] = "="
-            upper[17][x] = "="
-    _walls(upper, 22, 7, 41, 14)
-    for point, glyph in {
-        (7, 10): "O", (15, 10): "S", (28, 10): "P", (35, 10): "N",
-        (48, 10): "<", (55, 10): "R", (60, 10): "O",
-    }.items():
-        upper[point[1]][point[0]] = glyph
-    upper[10][22] = upper[10][41] = "+"
-    return {
-        -1: tuple("".join(row) for row in lower),
-        0: tuple("".join(row) for row in main),
-        1: tuple("".join(row) for row in upper),
-    }
-
-
-def _tavern_map() -> tuple[str, ...]:
-    grid = _blank(TAVERN_WIDTH, TAVERN_HEIGHT)
-    grid[12][0] = "+"
-    _walls(grid, 44, 2, 61, 7)
-    grid[7][50] = "+"
-    for x in range(45, 61):
-        grid[9][x] = "="
-    for point, glyph in {
-        (7, 5): "F", (8, 5): "f", (12, 17): "S", (53, 5): "k",
-        (47, 9): "_", (51, 9): "_", (55, 9): "_", (59, 9): "_",
-    }.items():
-        grid[point[1]][point[0]] = glyph
-    for cx, cy in ((16, 6),):
-        grid[cy][cx] = "t"
-        for dx, dy in ((-2, 0), (2, 0), (0, -2), (0, 2)):
-            grid[cy + dy][cx + dx] = "_"
-    for point in TABLE_SURFACE:
-        grid[point.y][point.x] = "=" if point.x in {24, 38} or point.y in {9, 13} else "t"
-    for point in DRAW_SURFACE:
-        grid[point.y][point.x] = "=" if point.x in {9, 21} or point.y in {12, 16} else "t"
-    for point in DRAW_NPC_SEATS:
-        grid[point.y][point.x] = "_"
-    grid[DRAW_PLAYER_SEAT.y][DRAW_PLAYER_SEAT.x] = "P"
-    for point in DICE_SURFACE:
-        grid[point.y][point.x] = "=" if point.x in {45, 55} or point.y in {13, 17} else "t"
-    for point in DICE_NPC_SEATS:
-        grid[point.y][point.x] = "_"
-    grid[DICE_PLAYER_SEAT.y][DICE_PLAYER_SEAT.x] = "Q"
-    for x, glyph in ((27, "F"), (31, "d"), (35, "f")):
-        grid[11][x] = glyph
-    for point in TABLE_PATRON_SEATS:
-        grid[point.y][point.x] = "_"
-    grid[TABLE_PLAYER_SEAT.y][TABLE_PLAYER_SEAT.x] = "D"
-    return tuple("".join(row) for row in grid)
-
-
-VESSEL_LEVELS = _vessel_levels()
-TAVERN_MAP = _tavern_map()
 
 
 @dataclass(frozen=True)

@@ -6,6 +6,7 @@ from dataclasses import dataclass, fields
 
 from .catalog import CatalogError, load_catalog
 from .state import GameState, Position, Region
+from .visuals import SITE_SYMBOLS
 
 
 @dataclass(frozen=True)
@@ -126,8 +127,8 @@ def site_glyph(state: GameState, point: Position) -> str | None:
     if not row:
         return None
     if state.region.changes.get(_key(row, "resolved")):
-        return "*"
-    return "!" if state.region.changes.get("situation:active") == row.id else "?"
+        return SITE_SYMBOLS["resolved"]
+    return SITE_SYMBOLS["active"] if state.region.changes.get("situation:active") == row.id else SITE_SYMBOLS["inactive"]
 
 
 def _condition(state: GameState) -> str:

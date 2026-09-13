@@ -22,6 +22,12 @@ EQUIPMENT_SECTIONS = (
     "pot_ammunition", "arsenal", "bomb_ammunition", "fittings",
     "enemy_regional_armour",
 )
+VISUAL_SECTIONS = (
+    "entity_glyphs", "semantic_roles", "regional_ground_roles",
+    "regional_tile_roles", "physical_role_overrides", "route_node_symbols",
+    "material_overlay_symbols", "site_symbols", "tavern_cards",
+    "tavern_dice", "vessel_levels", "tavern_map",
+)
 
 
 class CatalogError(ValueError):

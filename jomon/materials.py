@@ -6,6 +6,7 @@ import copy
 import heapq
 
 from .state import GameState, Item, MaterialCell, Person, Position, Threat
+from .visuals import MATERIAL_OVERLAY_SYMBOLS
 
 MAX_CELLS = 512
 TURN_BUDGET = 64
@@ -83,21 +84,21 @@ def material_glyph(state: GameState, point: Position) -> str | None:
     if cell is None:
         return None
     if cell.fire:
-        return "f"
+        return MATERIAL_OVERLAY_SYMBOLS["fire"]
     if cell.reagents:
         from .chemistry import predicted_reactions
 
-        return "!" if predicted_reactions(cell.reagents, cell) else "o"
+        return MATERIAL_OVERLAY_SYMBOLS["reactive_reagent"] if predicted_reactions(cell.reagents, cell) else MATERIAL_OVERLAY_SYMBOLS["reagent"]
     if cell.collapse_due:
-        return "%"
+        return MATERIAL_OVERLAY_SYMBOLS["collapse"]
     if cell.smoke >= 2:
-        return "s"
+        return MATERIAL_OVERLAY_SYMBOLS["smoke"]
     if cell.ice:
-        return "_"
+        return MATERIAL_OVERLAY_SYMBOLS["ice"]
     if cell.water:
-        return ","
+        return MATERIAL_OVERLAY_SYMBOLS["water"]
     if cell.coating == "glow":
-        return "*"
+        return MATERIAL_OVERLAY_SYMBOLS["glow"]
     return None
 
 

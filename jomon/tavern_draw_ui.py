@@ -11,9 +11,10 @@ from .tavern_draw import (
 )
 from .tavern_games import npc_credit
 from .tavern_games_ui import accent, border, put as _put
+from .visuals import TAVERN_CARDS
 
-RANKS = "23456789TJQKA"
-SUITS = "SHDC"
+RANKS = TAVERN_CARDS["ranks"]
+SUITS = TAVERN_CARDS["suits"]
 
 
 def card_name(card: int) -> str:
@@ -23,9 +24,9 @@ def card_name(card: int) -> str:
 def card_frame(card: int, *, selected: bool = False) -> tuple[str, ...]:
     """Adapt the framed card motif without depending on Dullest Dungeon code."""
     label = card_name(card)
-    edge = "*-------*" if selected else "+-------+"
-    return (edge, f"|{label:<7}|", "|       |", f"|   {label[1]}   |",
-            "|       |", f"|{label:>7}|", edge)
+    edge = TAVERN_CARDS["selected_edge"] if selected else TAVERN_CARDS["edge"]
+    return tuple(row.format(edge=edge, label_left=label, suit=label[1], label_right=label)
+                 for row in TAVERN_CARDS["frame"])
 
 
 def _draw_lobby(screen: curses.window, state: GameState, selected: list[str], cursor: int,

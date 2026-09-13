@@ -94,6 +94,11 @@ from .travel import DESTINATIONS, choose_destination, resolve_voyage, travel_ani
 from .route_chart import chart_move, neighbours, route_availability
 from .calendar import calendar_at, seasonal_route_note
 from .vessel import DRINKS, current_area
+from .visuals import (
+    ENTITY_GLYPHS, PHYSICAL_ROLE_OVERRIDES, REGIONAL_GROUND_ROLES,
+    REGIONAL_TILE_ROLES, ROUTE_NODE_SYMBOLS, SEMANTIC_GLYPH_ROLES,
+    THREAT_PROFILE_GLYPHS,
+)
 from .world import (
     area_name,
     build_combinations,
@@ -430,20 +435,6 @@ def semantic_colour_plan(colour_count: int, pair_count: int) -> dict[str, Colour
     return plan
 
 
-REGIONAL_GROUND_ROLES = {
-    "hearthford": "hearthford_ground", "greywash": "greywash_ground",
-    "greenwold": "greenwold_ground", "whitecairn": "whitecairn_ground",
-    "dunmire": "dunmire_ground", "rillscar": "rillscar_ground",
-    "marlbank": "marlbank_ground", "frostmere": "frostmere_ground",
-}
-PHYSICAL_ROLE_OVERRIDES = {
-    "~": "deep_water", "w": "shallow_water", ",": "shallow_water",
-    "_": "ice", "m": "mud", "f": "fire", "s": "smoke",
-    "%": "collapse", "r": "stone", "q": "stone", ":": "earth",
-    "t": "timber",
-}
-
-
 def terrain_colour_role(
     glyph: str,
     region_id: str = "",
@@ -470,12 +461,9 @@ def terrain_colour_role(
     if not aboard:
         if glyph == ".":
             return REGIONAL_GROUND_ROLES.get(region_id, "terrain")
-        if glyph in {"T", '"', ";"}:
-            return "vegetation"
-        if glyph == "=":
-            return "road"
-        if glyph == "^":
-            return "timber"
+        tile_role = REGIONAL_TILE_ROLES.get(glyph)
+        if tile_role:
+            return tile_role
         override = PHYSICAL_ROLE_OVERRIDES.get(glyph)
         if override:
             return override
@@ -489,41 +477,7 @@ def terrain_colour_role(
 
 
 def semantic_role(glyph: str, *, aboard: bool = False) -> str:
-    if glyph == "@":
-        return "player"
-    if glyph == "a" or (aboard and glyph in {"T", "b"}):
-        return "ally"
-    if glyph in {"v", "B"}:
-        return "neutral"
-    if aboard and glyph in {"=", "t", "_", "F", "f"}:
-        return "structure"
-    if aboard and glyph in {"s", "D", "G", "K", "N", "O", "P", "Q", "S", "U", "W"}:
-        return "interactable"
-    if glyph in {"M", "c", "$"}:
-        return "neutral"
-    if glyph in {"h", "g", "x", "b", "!"}:
-        return "hostile"
-    if glyph == "X":
-        return "elite"
-    if glyph in {"~", "w", ","}:
-        return "water"
-    if glyph == "#":
-        return "structure"
-    if glyph in {"<", ">", "^", "+"}:
-        return "exit"
-    if glyph == "R":
-        return "cargo"
-    if glyph in {"&", "D", "O", "o", "?", "C", "L", "P", "H"}:
-        return "interactable"
-    if glyph in {"m", "%", "r", "q", "t", ":", "s"}:
-        return "hazard"
-    if glyph == "f":
-        return "hazard"
-    if glyph == "_":
-        return "water"
-    if glyph == "*":
-        return "mystical"
-    return "terrain"
+    return SEMANTIC_GLYPH_ROLES["aboard" if aboard else "region"].get(glyph, "terrain")
 
 
 _COLOUR_ATTRIBUTES: dict[str, int] = {role: 0 for role in SEMANTIC_ROLES}
@@ -709,10 +663,10 @@ def _init_colours() -> None:
 
 def _threat_glyph(threat: Threat) -> str:
     if threat.elite:
-        return "X"
+        return ENTITY_GLYPHS["elite"]
     if threat.glyph:
         return threat.glyph
-    return {"pursuer": "h", "reach": "g", "ranged": "x", "animal": "b", "machinery": "!"}[threat.profile]
+    return THREAT_PROFILE_GLYPHS[threat.profile]
 
 
 def observed_life_lines(state: GameState) -> list[str]:
@@ -821,7 +775,7 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
                 _put(screen, top + 1 + sy, left + 1 + sx, " ")
                 continue
             if position == state.position:
-                char = "@"
+                char = ENTITY_GLYPHS["courier"]
             elif position in threats:
                 char = _threat_glyph(threats[position])
             elif position in danger_marks:
@@ -1814,16 +1768,14 @@ def _draw_route_chart(
         for x, y in _chart_line(first, second)[1:-1]:
             glyph = "-" if first[1] == second[1] else "|" if first[0] == second[0] else "."
             _put(screen, y, x, glyph, attr)
-    glyphs = {
-        "region": "R", "anchorage": "A", "market": "$", "resupply": "+",
-        "hazard": "!", "warning": "!", "unknown": "?",
-    }
+    glyphs = ROUTE_NODE_SYMBOLS["kinds"]
     reachable = set(neighbours(state, state.route_current_node, reachable_only=True))
     for node_id, node in state.route_nodes.items():
         x, y = _chart_screen_point(node.x, node.y, map_width, height)
         view.node_screen[node_id] = (x, y)
         known = node_id in state.route_known or node.known
-        glyph = "@" if node_id == state.route_current_node else glyphs.get(node.kind, "o") if known else "?"
+        glyph = (ROUTE_NODE_SYMBOLS["current"] if node_id == state.route_current_node
+                 else glyphs.get(node.kind, ROUTE_NODE_SYMBOLS["default"]) if known else ROUTE_NODE_SYMBOLS["unknown"])
         role = "player" if glyph == "@" else "hazard" if glyph == "!" else "cargo" if glyph == "$" else "exit"
         attr = _COLOUR_ATTRIBUTES[role]
         if node_id in reachable:

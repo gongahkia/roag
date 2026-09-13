@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from .content import COMMODITIES, PASSIVES
 from .state import GameState, Position
+from .visuals import ENTITY_GLYPHS
 from .vessel import (
     JOMON_GANGPLANK,
     TAVERN_MAP,
@@ -101,9 +102,9 @@ def displayed_tile(state: GameState, position: Position) -> str:
             None,
         )
         if actor_id == state.bartender.id:
-            return "B"
+            return ENTITY_GLYPHS["bartender"]
         if actor_id:
-            return "a" if any(person.id == actor_id for person in state.household) else "v"
+            return ENTITY_GLYPHS["household"] if any(person.id == actor_id for person in state.household) else ENTITY_GLYPHS["visitor"]
     if state.location == "region":
         schedule = next(
             (
@@ -115,22 +116,22 @@ def displayed_tile(state: GameState, position: Position) -> str:
         if schedule:
             contacts = state.contacts.get(state.active_region_id, [])
             if schedule.actor_id == state.contact.id:
-                return "M"
+                return ENTITY_GLYPHS["contact"]
             if any(contact.id == schedule.actor_id for contact in contacts):
-                return "c"
+                return ENTITY_GLYPHS["secondary_contact"]
             if any(person.id == schedule.actor_id for person in state.visitors):
-                return "v"
+                return ENTITY_GLYPHS["visitor"]
         if tile in {"M", "c"}:
             tile = "."
     if state.location == "jomon" and tile == "s" and state.merchant_present:
-        return "$"
+        return ENTITY_GLYPHS["merchant"]
     container = next((item for item in state.region.containers if item.position == position), None) if state.location == "region" else None
     if container:
-        return "o" if container.opened else "C"
+        return ENTITY_GLYPHS["container_open"] if container.opened else ENTITY_GLYPHS["container_closed"]
     if position_key(position) in state.smoke:
-        return "s"
+        return ENTITY_GLYPHS["smoke"]
     if position_key(position) in state.water:
-        return ","
+        return ENTITY_GLYPHS["water"]
     return tile
 
 

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import curses
 
+from .visuals import TAVERN_DICE
+
 
 def put(screen: curses.window, row: int, col: int, value: str, attr: int = 0) -> None:
     height, width = screen.getmaxyx()
@@ -40,17 +42,6 @@ def meter(value: int, *, maximum: int = 60, width: int = 14) -> str:
 
 
 def dice_face(value: int) -> tuple[str, ...]:
-    if value not in range(1, 7):
+    if value not in TAVERN_DICE:
         raise ValueError("a six-sided die needs a face from one to six")
-    marks = {
-        1: ((1, 1),),
-        2: ((0, 0), (2, 2)),
-        3: ((0, 0), (1, 1), (2, 2)),
-        4: ((0, 0), (2, 0), (0, 2), (2, 2)),
-        5: ((0, 0), (2, 0), (1, 1), (0, 2), (2, 2)),
-        6: ((0, 0), (1, 0), (2, 0), (0, 2), (1, 2), (2, 2)),
-    }[value]
-    rows = [[" " for _ in range(3)] for _ in range(3)]
-    for x, y in marks:
-        rows[y][x] = "o"
-    return ("+-------+", *("| " + " ".join(row) + " |" for row in rows), "+-------+")
+    return TAVERN_DICE[value]
