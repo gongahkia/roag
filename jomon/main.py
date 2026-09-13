@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from .character_ui import run_character_creation
 from .save import SaveError, load_game, save_path
 from .state import create_world
-from .terminal import MIN_HEIGHT, MIN_WIDTH, _init_colours, _put, colour_attribute, play
+from .terminal import MIN_HEIGHT, MIN_WIDTH, _draw_minimum_size_notice, _init_colours, _put, colour_attribute, play
 
 SEED_WORDS = ("reed", "hearth", "quay", "willow", "mill", "rain", "keel", "lantern")
 
@@ -125,8 +125,7 @@ def run(screen: curses.window) -> None:
         screen.erase()
         height, width = screen.getmaxyx()
         if height < MIN_HEIGHT or width < MIN_WIDTH:
-            _put(screen, max(0, height // 2 - 1), 1, f"Jomon needs at least {MIN_WIDTH}x{MIN_HEIGHT} terminal cells.", curses.A_BOLD)
-            _put(screen, max(0, height // 2), 1, f"Current size: {width}x{height}. Resize or press Q to quit.")
+            _draw_minimum_size_notice(screen)
             screen.refresh()
             key = screen.getch()
             if key in {ord("q"), ord("Q")}:

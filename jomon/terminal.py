@@ -865,12 +865,27 @@ def _status_lines(state: GameState, capacity: int | None = None) -> list[str]:
     return lines if capacity is None else lines[:capacity]
 
 
+def _draw_minimum_size_notice(screen: curses.window) -> None:
+    height, width = screen.getmaxyx()
+    messages = (
+        f"Jomon needs at least {MIN_WIDTH}x{MIN_HEIGHT} terminal cells.",
+        f"Current size: {width}x{height}. Resize or press Q to quit.",
+    )
+    lines = [
+        (part, index == 0)
+        for index, message in enumerate(messages)
+        for part in textwrap.wrap(message, width=max(1, width - 2))
+    ][:height]
+    top = max(0, (height - len(lines)) // 2)
+    for offset, (line, heading) in enumerate(lines):
+        _put(screen, top + offset, max(0, (width - len(line)) // 2), line, curses.A_BOLD if heading else 0)
+
+
 def _draw_base(screen: curses.window, state: GameState) -> None:
     screen.erase()
     height, width = screen.getmaxyx()
     if height < MIN_HEIGHT or width < MIN_WIDTH:
-        _put(screen, max(0, height // 2 - 1), 1, f"Jomon needs at least {MIN_WIDTH}x{MIN_HEIGHT} terminal cells.", curses.A_BOLD)
-        _put(screen, max(0, height // 2), 1, f"Current size: {width}x{height}. Resize or press Q to quit.")
+        _draw_minimum_size_notice(screen)
         screen.refresh()
         return
     status_width, event_height, command_height = 29, 6, 0

@@ -20,6 +20,7 @@ from jomon.terminal import (
     event_feed_lines,
     event_colour_role,
     _draw_base,
+    _draw_minimum_size_notice,
     _handle_overlay,
     _overlay_lines,
     information_colour_role,
@@ -31,8 +32,56 @@ from jomon.terminal import (
     terrain_colour_role,
     visible_threats,
 )
-from jomon.main import _centered_x, _set_cursor_visibility, landing_notice_layout
+from jomon.main import _centered_x, _set_cursor_visibility, landing_notice_layout, run
 from jomon.world import field_of_view, find_tile
+
+
+class MinimumSizeNoticeTests(unittest.TestCase):
+    class Screen:
+        def __init__(self, height, width):
+            self.height, self.width, self.writes = height, width, []
+
+        def getmaxyx(self):
+            return self.height, self.width
+
+        def erase(self):
+            self.writes.clear()
+
+        def refresh(self):
+            pass
+
+        def keypad(self, enabled):
+            pass
+
+        def getch(self):
+            return ord("q")
+
+        def addnstr(self, row, col, value, count, attr=0):
+            self.writes.append((row, col, value[:count]))
+
+    def test_notice_centers_each_line_and_its_block_at_small_sizes(self):
+        for height, width in ((48, 79), (12, 40), (20, 79)):
+            screen = self.Screen(height, width)
+            _draw_minimum_size_notice(screen)
+            self.assertTrue(screen.writes)
+            self.assertTrue(any("Jomon needs" in line for _, _, line in screen.writes))
+            self.assertTrue(any("Current size" in line for _, _, line in screen.writes))
+            first, last = screen.writes[0][0], screen.writes[-1][0]
+            self.assertLessEqual(abs(first + last - (height - 1)), 1)
+            for row, col, line in screen.writes:
+                self.assertTrue(0 <= row < height)
+                self.assertLessEqual(abs(2 * col + len(line) - width), 1)
+        screenshot_size = self.Screen(48, 79)
+        _draw_minimum_size_notice(screenshot_size)
+        self.assertEqual([row for row, _, _ in screenshot_size.writes], [23, 24])
+
+    def test_startup_and_in_game_notices_share_the_centered_layout(self):
+        startup = self.Screen(48, 79)
+        with patch("jomon.main._set_cursor_visibility"), patch("jomon.main._init_colours"):
+            run(startup)
+        in_game = self.Screen(48, 79)
+        _draw_base(in_game, create_world("small screen layout"))
+        self.assertEqual(startup.writes, in_game.writes)
 
 
 class InventoryLayoutTests(unittest.TestCase):
