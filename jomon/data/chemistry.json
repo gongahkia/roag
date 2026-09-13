@@ -1,0 +1,168 @@
+{
+  "reagents": [
+    "cinder salt",
+    "tree resin",
+    "brine",
+    "lime dust",
+    "frostwort",
+    "smoke leaf",
+    "healing herb",
+    "glow spore",
+    "peat oil",
+    "iron filings",
+    "spring water",
+    "spark salt",
+    "iron ore",
+    "clay"
+  ],
+  "reactions": [
+    {
+      "reagents": [
+        "cinder salt",
+        "tree resin"
+      ],
+      "name": "flame bloom",
+      "effect": "fire"
+    },
+    {
+      "reagents": [
+        "cinder salt",
+        "peat oil"
+      ],
+      "name": "oil flare",
+      "effect": "fire"
+    },
+    {
+      "reagents": [
+        "cinder salt",
+        "smoke leaf"
+      ],
+      "name": "smoke bloom",
+      "effect": "smoke"
+    },
+    {
+      "reagents": [
+        "brine",
+        "spark salt"
+      ],
+      "name": "conductive flash",
+      "effect": "shock"
+    },
+    {
+      "reagents": [
+        "lime dust",
+        "spring water"
+      ],
+      "name": "caustic slurry",
+      "effect": "lime"
+    },
+    {
+      "reagents": [
+        "frostwort",
+        "spring water"
+      ],
+      "name": "freezing wash",
+      "effect": "ice"
+    },
+    {
+      "reagents": [
+        "healing herb",
+        "spring water"
+      ],
+      "name": "healing draft",
+      "effect": "heal"
+    },
+    {
+      "reagents": [
+        "glow spore",
+        "spring water"
+      ],
+      "name": "attunement draft",
+      "effect": "mana"
+    },
+    {
+      "reagents": [
+        "glow spore",
+        "tree resin"
+      ],
+      "name": "luminous seal",
+      "effect": "glow"
+    },
+    {
+      "reagents": [
+        "brine",
+        "iron filings"
+      ],
+      "name": "corrosive grit",
+      "effect": "corrode"
+    },
+    {
+      "reagents": [
+        "lime dust",
+        "tree resin"
+      ],
+      "name": "hardening wash",
+      "effect": "seal"
+    },
+    {
+      "reagents": [
+        "smoke leaf",
+        "spring water"
+      ],
+      "name": "breath tonic",
+      "effect": "breath"
+    },
+    {
+      "reagents": [
+        "clay",
+        "tree resin"
+      ],
+      "name": "resin mortar",
+      "effect": "seal"
+    },
+    {
+      "reagents": [
+        "brine",
+        "frostwort"
+      ],
+      "name": "brine rime",
+      "effect": "ice"
+    },
+    {
+      "reagents": [
+        "glow spore",
+        "smoke leaf"
+      ],
+      "name": "phosphor dust",
+      "effect": "glow"
+    },
+    {
+      "reagents": [
+        "iron filings",
+        "spark salt"
+      ],
+      "name": "shrapnel spark",
+      "effect": "shock"
+    },
+    {
+      "reagents": [
+        "peat oil",
+        "smoke leaf"
+      ],
+      "name": "peat haze",
+      "effect": "smoke"
+    },
+    {
+      "reagents": [
+        "brine",
+        "lime dust"
+      ],
+      "name": "salt-lime slurry",
+      "effect": "lime"
+    }
+  ],
+  "environment_reactions": {
+    "water": "spring water",
+    "fire": "cinder salt"
+  }
+}

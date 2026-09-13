@@ -1,0 +1,470 @@
+{
+  "situations": [
+    {
+      "id": "hearthford:steady:reed-tally",
+      "region_id": "hearthford",
+      "band": "steady",
+      "name": "The reed-bank tally",
+      "anchor": "settlement",
+      "groups": [
+        "mill workers",
+        "reed animals"
+      ],
+      "duty": "recover marked grain before the bank softens",
+      "material": "mud and shallow water",
+      "answers": [
+        "lay a tool-marked dry path",
+        "redirect the shallow run",
+        "witness a shared carrying line"
+      ],
+      "consequence": "the bank becomes a witnessed public landing"
+    },
+    {
+      "id": "hearthford:strained:wheel-lane",
+      "region_id": "hearthford",
+      "band": "strained",
+      "name": "The wheel lane",
+      "anchor": "mill",
+      "groups": [
+        "mill levy",
+        "cargo reavers"
+      ],
+      "duty": "hold a moving load clear of the crown wheel",
+      "material": "timber supports and noise",
+      "answers": [
+        "brace the load lane",
+        "wet and slow the wheel apron",
+        "name whose cargo has precedence"
+      ],
+      "consequence": "the mill approach remains open under pressure"
+    },
+    {
+      "id": "hearthford:critical:flood-watch",
+      "region_id": "hearthford",
+      "band": "critical",
+      "name": "The flood watch crossing",
+      "anchor": "watchtower",
+      "groups": [
+        "road watch",
+        "flood wildlife"
+      ],
+      "duty": "carry a warning across the divided meadow",
+      "material": "deepening fresh water",
+      "answers": [
+        "set a raised warning rail",
+        "cut a relief rill",
+        "join the two watch accounts"
+      ],
+      "consequence": "both banks remember the same flood warning"
+    },
+    {
+      "id": "greywash:steady:pan-birds",
+      "region_id": "greywash",
+      "band": "steady",
+      "name": "The pan-bird line",
+      "anchor": "saltworks",
+      "groups": [
+        "salt workers",
+        "shore scavengers"
+      ],
+      "duty": "keep brine out of a nesting strip",
+      "material": "saltwater and loose gravel",
+      "answers": [
+        "raise a carrying trestle",
+        "pour a decoy brine run",
+        "agree a quiet work interval"
+      ],
+      "consequence": "the salt edge keeps a quiet shared lane"
+    },
+    {
+      "id": "greywash:strained:wreck-title",
+      "region_id": "greywash",
+      "band": "strained",
+      "name": "The wreck-title stand",
+      "anchor": "wreck",
+      "groups": [
+        "wreck salvagers",
+        "shore claimants"
+      ],
+      "duty": "move one named fitting above the tide",
+      "material": "rising saltwater and wet timber",
+      "answers": [
+        "rig the fitting above water",
+        "float it along the draining cut",
+        "witness temporary shared title"
+      ],
+      "consequence": "the wreck fitting reaches a marked dry store"
+    },
+    {
+      "id": "greywash:critical:chain-ebb",
+      "region_id": "greywash",
+      "band": "critical",
+      "name": "The last chain ebb",
+      "anchor": "chain_house",
+      "groups": [
+        "chain guards",
+        "tide runners"
+      ],
+      "duty": "hold the road while a link is seated",
+      "material": "wind-driven floodwater",
+      "answers": [
+        "brace the chain cradle",
+        "open a sacrificial drain",
+        "record a common-road claim"
+      ],
+      "consequence": "one final ebb route survives the closing tide"
+    },
+    {
+      "id": "greenwold:steady:coppice-deer",
+      "region_id": "greenwold",
+      "band": "steady",
+      "name": "The coppice feeding edge",
+      "anchor": "clearing",
+      "groups": [
+        "medicine cutters",
+        "woodland grazers"
+      ],
+      "duty": "separate fresh shoots from a working trail",
+      "material": "wet loam and living brush",
+      "answers": [
+        "cut a woven barrier",
+        "lay an ash-scented turn",
+        "set a shared grazing boundary"
+      ],
+      "consequence": "the coppice and trail remain visibly divided"
+    },
+    {
+      "id": "greenwold:strained:resin-smoke",
+      "region_id": "greenwold",
+      "band": "strained",
+      "name": "The resin-yard smoke turn",
+      "anchor": "resin_yard",
+      "groups": [
+        "resin workers",
+        "charcoal runners"
+      ],
+      "duty": "move sealed resin away from the burn wind",
+      "material": "resin, heat and smoke",
+      "answers": [
+        "lever the sealed rack",
+        "dampen a smoke break",
+        "witness priority for medicine stores"
+      ],
+      "consequence": "the resin rack stands behind a readable firebreak"
+    },
+    {
+      "id": "greenwold:critical:burn-refuge",
+      "region_id": "greenwold",
+      "band": "critical",
+      "name": "The burn refuge",
+      "anchor": "burn_walk",
+      "groups": [
+        "burn crew",
+        "displaced predators"
+      ],
+      "duty": "open a retreat without feeding fire",
+      "material": "dry timber and dense smoke",
+      "answers": [
+        "cut a two-sided refuge",
+        "turn water through the ash bed",
+        "call a bounded common withdrawal"
+      ],
+      "consequence": "the burn leaves a maintained refuge"
+    },
+    {
+      "id": "whitecairn:steady:wool-step",
+      "region_id": "whitecairn",
+      "band": "steady",
+      "name": "The wool stair",
+      "anchor": "settlement",
+      "groups": [
+        "upland carriers",
+        "ridge scavengers"
+      ],
+      "duty": "move wet wool without losing the switchback",
+      "material": "slick limestone",
+      "answers": [
+        "pin a handline",
+        "spread grit over the step",
+        "witness staggered right of way"
+      ],
+      "consequence": "the stair keeps a marked passing bay"
+    },
+    {
+      "id": "whitecairn:strained:kiln-scree",
+      "region_id": "whitecairn",
+      "band": "strained",
+      "name": "The kiln scree bargain",
+      "anchor": "lime_kiln",
+      "groups": [
+        "kiln workers",
+        "private toll crew"
+      ],
+      "duty": "keep hot lime below a failing shelf",
+      "material": "lime dust and loose rock",
+      "answers": [
+        "brace the kiln shelf",
+        "wet the lime-dust lane",
+        "record the public load warning"
+      ],
+      "consequence": "the kiln road gains an honest warning bay"
+    },
+    {
+      "id": "whitecairn:critical:bell-span",
+      "region_id": "whitecairn",
+      "band": "critical",
+      "name": "The two-bell span",
+      "anchor": "bell_tower",
+      "groups": [
+        "load witnesses",
+        "false-bell guards"
+      ],
+      "duty": "cross before the face sheds stone",
+      "material": "damaged supports and debris",
+      "answers": [
+        "seat a counterbrace",
+        "break the false echo screen",
+        "make both crews answer one interval"
+      ],
+      "consequence": "the surviving span carries one warning"
+    },
+    {
+      "id": "dunmire:steady:peat-sledge",
+      "region_id": "dunmire",
+      "band": "steady",
+      "name": "The peat-sledge island",
+      "anchor": "settlement",
+      "groups": [
+        "peat cutters",
+        "fen grazers"
+      ],
+      "duty": "move dry fuel beside a nesting edge",
+      "material": "wet peat and reeds",
+      "answers": [
+        "lay a reusable sledge way",
+        "flood a decoy reed cut",
+        "mark alternating work hours"
+      ],
+      "consequence": "the island keeps work and nesting margins"
+    },
+    {
+      "id": "dunmire:strained:bank-fire",
+      "region_id": "dunmire",
+      "band": "strained",
+      "name": "The smoking bank",
+      "anchor": "ruin",
+      "groups": [
+        "bank company",
+        "fuel runners"
+      ],
+      "duty": "stop peat fire without flooding homes",
+      "material": "smouldering peat and shallow flood",
+      "answers": [
+        "cut and brace a trench",
+        "smother the face with wet peat",
+        "call in the raised-bank account"
+      ],
+      "consequence": "the repaired bank holds a named firebreak"
+    },
+    {
+      "id": "dunmire:critical:causeway-claim",
+      "region_id": "dunmire",
+      "band": "critical",
+      "name": "The divided causeway",
+      "anchor": "far_bank",
+      "groups": [
+        "causeway keepers",
+        "opportunist raiders"
+      ],
+      "duty": "recover a plug while water divides the parties",
+      "material": "deep mud and floodwater",
+      "answers": [
+        "lever a dry side passage",
+        "set a temporary peat plug",
+        "trade safe withdrawal for the plug"
+      ],
+      "consequence": "the far bank keeps a second retreat"
+    },
+    {
+      "id": "rillscar:steady:ore-goats",
+      "region_id": "rillscar",
+      "band": "steady",
+      "name": "The ore-shelf herd",
+      "anchor": "settlement",
+      "groups": [
+        "ore carriers",
+        "shelf animals"
+      ],
+      "duty": "clear a narrow load shelf without panic",
+      "material": "loose ironstone",
+      "answers": [
+        "set a low guide rail",
+        "cast gravel toward open shelf",
+        "hold work until the herd crosses"
+      ],
+      "consequence": "the shelf receives an animal bypass"
+    },
+    {
+      "id": "rillscar:strained:charcoal-span",
+      "region_id": "rillscar",
+      "band": "strained",
+      "name": "The charcoal span",
+      "anchor": "ruin",
+      "groups": [
+        "bridge crews",
+        "fuel guards"
+      ],
+      "duty": "carry fuel over a disputed brace",
+      "material": "brittle timber over water",
+      "answers": [
+        "sister the failing brace",
+        "lower the fuel by rope",
+        "witness one provisional crossing"
+      ],
+      "consequence": "the old span holds a light-load route"
+    },
+    {
+      "id": "rillscar:critical:tailrace-convoy",
+      "region_id": "rillscar",
+      "band": "critical",
+      "name": "The tailrace convoy",
+      "anchor": "works",
+      "groups": [
+        "cutworks convoy",
+        "gorge raiders"
+      ],
+      "duty": "protect iron through the fracture",
+      "material": "fast water and damaged stone",
+      "answers": [
+        "brace a covered lane",
+        "release water against the shelf",
+        "offer passage without the iron"
+      ],
+      "consequence": "shipment and fracture enter both accounts"
+    },
+    {
+      "id": "marlbank:steady:seed-birds",
+      "region_id": "marlbank",
+      "band": "steady",
+      "name": "The seed-clay margin",
+      "anchor": "settlement",
+      "groups": [
+        "field workers",
+        "terrace birds"
+      ],
+      "duty": "keep seed above watered clay",
+      "material": "mud and loose seed",
+      "answers": [
+        "lay fired stepping tiles",
+        "draw water into a lower furrow",
+        "mark a tolerated gleaning edge"
+      ],
+      "consequence": "the terrace keeps a gleaning margin"
+    },
+    {
+      "id": "marlbank:strained:kiln-water",
+      "region_id": "marlbank",
+      "band": "strained",
+      "name": "The kiln-water turn",
+      "anchor": "works",
+      "groups": [
+        "potters",
+        "field irrigators"
+      ],
+      "duty": "divide water between firing and shoots",
+      "material": "heat, clay and flowing water",
+      "answers": [
+        "fit a measured gate stop",
+        "seal a side rill with hot spoil",
+        "record a timed half-share"
+      ],
+      "consequence": "the release follows a shared measure"
+    },
+    {
+      "id": "marlbank:critical:terrace-collapse",
+      "region_id": "marlbank",
+      "band": "critical",
+      "name": "The falling terrace",
+      "anchor": "far_bank",
+      "groups": [
+        "seed court",
+        "private carriers"
+      ],
+      "duty": "save grain while the face fails",
+      "material": "saturated clay and debris",
+      "answers": [
+        "brace the upper face",
+        "cut a safe spill channel",
+        "exchange the load for repair"
+      ],
+      "consequence": "the failed face becomes a public stair"
+    },
+    {
+      "id": "frostmere:steady:net-seals",
+      "region_id": "frostmere",
+      "band": "steady",
+      "name": "The net-house shoal",
+      "anchor": "settlement",
+      "groups": [
+        "net workers",
+        "estuary grazers"
+      ],
+      "duty": "free a net without closing the animal channel",
+      "material": "cold shallows and gravel",
+      "answers": [
+        "raise the net on ice pegs",
+        "open a warmer side braid",
+        "suspend work for one sounding"
+      ],
+      "consequence": "the shoal keeps an animal opening"
+    },
+    {
+      "id": "frostmere:strained:wool-thaw",
+      "region_id": "frostmere",
+      "band": "strained",
+      "name": "The thaw-wool crossing",
+      "anchor": "ruin",
+      "groups": [
+        "winter pilots",
+        "wool carriers"
+      ],
+      "duty": "move wool before the ice braid separates",
+      "material": "thinning ice and wet cargo",
+      "answers": [
+        "set a pegged handline",
+        "break a controlled float channel",
+        "join pilot and shelter tallies"
+      ],
+      "consequence": "the crossing retains a thaw detour"
+    },
+    {
+      "id": "frostmere:critical:false-sounding",
+      "region_id": "frostmere",
+      "band": "critical",
+      "name": "The false sounding",
+      "anchor": "works",
+      "groups": [
+        "channel pilots",
+        "wreck claimants"
+      ],
+      "duty": "recover the true marker under a squall",
+      "material": "wind, ice and saltwater",
+      "answers": [
+        "brace a high signal line",
+        "thaw the marker free",
+        "force one public sounding"
+      ],
+      "consequence": "the true channel remains marked"
+    }
+  ],
+  "afterwork_samples": {
+    "hearthford": "spring water",
+    "greywash": "brine",
+    "greenwold": "tree resin",
+    "whitecairn": "lime dust",
+    "dunmire": "peat oil",
+    "rillscar": "iron ore",
+    "marlbank": "clay",
+    "frostmere": "frostwort"
+  }
+}

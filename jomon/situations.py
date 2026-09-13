@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 
+from .catalog import CatalogError, load_catalog
 from .state import GameState, Position, Region
 
 
@@ -21,46 +22,33 @@ class Situation:
     consequence: str
 
 
-def _s(region, band, suffix, name, anchor, groups, duty, material, answers, consequence):
-    return Situation(f"{region}:{band}:{suffix}", region, band, name, anchor, groups, duty, material, answers, consequence)
+_CATALOG = load_catalog("situations.json", ("situations", "afterwork_samples"))
+_SITUATION_FIELDS = {field.name for field in fields(Situation)}
 
 
-# Three authored collisions per region. The records select content; reducers
-# below retain explicit, shared tool/material/account behavior.
-SITUATIONS = (
-    _s("hearthford", "steady", "reed-tally", "The reed-bank tally", "settlement", ("mill workers", "reed animals"), "recover marked grain before the bank softens", "mud and shallow water", ("lay a tool-marked dry path", "redirect the shallow run", "witness a shared carrying line"), "the bank becomes a witnessed public landing"),
-    _s("hearthford", "strained", "wheel-lane", "The wheel lane", "mill", ("mill levy", "cargo reavers"), "hold a moving load clear of the crown wheel", "timber supports and noise", ("brace the load lane", "wet and slow the wheel apron", "name whose cargo has precedence"), "the mill approach remains open under pressure"),
-    _s("hearthford", "critical", "flood-watch", "The flood watch crossing", "watchtower", ("road watch", "flood wildlife"), "carry a warning across the divided meadow", "deepening fresh water", ("set a raised warning rail", "cut a relief rill", "join the two watch accounts"), "both banks remember the same flood warning"),
-    _s("greywash", "steady", "pan-birds", "The pan-bird line", "saltworks", ("salt workers", "shore scavengers"), "keep brine out of a nesting strip", "saltwater and loose gravel", ("raise a carrying trestle", "pour a decoy brine run", "agree a quiet work interval"), "the salt edge keeps a quiet shared lane"),
-    _s("greywash", "strained", "wreck-title", "The wreck-title stand", "wreck", ("wreck salvagers", "shore claimants"), "move one named fitting above the tide", "rising saltwater and wet timber", ("rig the fitting above water", "float it along the draining cut", "witness temporary shared title"), "the wreck fitting reaches a marked dry store"),
-    _s("greywash", "critical", "chain-ebb", "The last chain ebb", "chain_house", ("chain guards", "tide runners"), "hold the road while a link is seated", "wind-driven floodwater", ("brace the chain cradle", "open a sacrificial drain", "record a common-road claim"), "one final ebb route survives the closing tide"),
-    _s("greenwold", "steady", "coppice-deer", "The coppice feeding edge", "clearing", ("medicine cutters", "woodland grazers"), "separate fresh shoots from a working trail", "wet loam and living brush", ("cut a woven barrier", "lay an ash-scented turn", "set a shared grazing boundary"), "the coppice and trail remain visibly divided"),
-    _s("greenwold", "strained", "resin-smoke", "The resin-yard smoke turn", "resin_yard", ("resin workers", "charcoal runners"), "move sealed resin away from the burn wind", "resin, heat and smoke", ("lever the sealed rack", "dampen a smoke break", "witness priority for medicine stores"), "the resin rack stands behind a readable firebreak"),
-    _s("greenwold", "critical", "burn-refuge", "The burn refuge", "burn_walk", ("burn crew", "displaced predators"), "open a retreat without feeding fire", "dry timber and dense smoke", ("cut a two-sided refuge", "turn water through the ash bed", "call a bounded common withdrawal"), "the burn leaves a maintained refuge"),
-    _s("whitecairn", "steady", "wool-step", "The wool stair", "settlement", ("upland carriers", "ridge scavengers"), "move wet wool without losing the switchback", "slick limestone", ("pin a handline", "spread grit over the step", "witness staggered right of way"), "the stair keeps a marked passing bay"),
-    _s("whitecairn", "strained", "kiln-scree", "The kiln scree bargain", "lime_kiln", ("kiln workers", "private toll crew"), "keep hot lime below a failing shelf", "lime dust and loose rock", ("brace the kiln shelf", "wet the lime-dust lane", "record the public load warning"), "the kiln road gains an honest warning bay"),
-    _s("whitecairn", "critical", "bell-span", "The two-bell span", "bell_tower", ("load witnesses", "false-bell guards"), "cross before the face sheds stone", "damaged supports and debris", ("seat a counterbrace", "break the false echo screen", "make both crews answer one interval"), "the surviving span carries one warning"),
-    _s("dunmire", "steady", "peat-sledge", "The peat-sledge island", "settlement", ("peat cutters", "fen grazers"), "move dry fuel beside a nesting edge", "wet peat and reeds", ("lay a reusable sledge way", "flood a decoy reed cut", "mark alternating work hours"), "the island keeps work and nesting margins"),
-    _s("dunmire", "strained", "bank-fire", "The smoking bank", "ruin", ("bank company", "fuel runners"), "stop peat fire without flooding homes", "smouldering peat and shallow flood", ("cut and brace a trench", "smother the face with wet peat", "call in the raised-bank account"), "the repaired bank holds a named firebreak"),
-    _s("dunmire", "critical", "causeway-claim", "The divided causeway", "far_bank", ("causeway keepers", "opportunist raiders"), "recover a plug while water divides the parties", "deep mud and floodwater", ("lever a dry side passage", "set a temporary peat plug", "trade safe withdrawal for the plug"), "the far bank keeps a second retreat"),
-    _s("rillscar", "steady", "ore-goats", "The ore-shelf herd", "settlement", ("ore carriers", "shelf animals"), "clear a narrow load shelf without panic", "loose ironstone", ("set a low guide rail", "cast gravel toward open shelf", "hold work until the herd crosses"), "the shelf receives an animal bypass"),
-    _s("rillscar", "strained", "charcoal-span", "The charcoal span", "ruin", ("bridge crews", "fuel guards"), "carry fuel over a disputed brace", "brittle timber over water", ("sister the failing brace", "lower the fuel by rope", "witness one provisional crossing"), "the old span holds a light-load route"),
-    _s("rillscar", "critical", "tailrace-convoy", "The tailrace convoy", "works", ("cutworks convoy", "gorge raiders"), "protect iron through the fracture", "fast water and damaged stone", ("brace a covered lane", "release water against the shelf", "offer passage without the iron"), "shipment and fracture enter both accounts"),
-    _s("marlbank", "steady", "seed-birds", "The seed-clay margin", "settlement", ("field workers", "terrace birds"), "keep seed above watered clay", "mud and loose seed", ("lay fired stepping tiles", "draw water into a lower furrow", "mark a tolerated gleaning edge"), "the terrace keeps a gleaning margin"),
-    _s("marlbank", "strained", "kiln-water", "The kiln-water turn", "works", ("potters", "field irrigators"), "divide water between firing and shoots", "heat, clay and flowing water", ("fit a measured gate stop", "seal a side rill with hot spoil", "record a timed half-share"), "the release follows a shared measure"),
-    _s("marlbank", "critical", "terrace-collapse", "The falling terrace", "far_bank", ("seed court", "private carriers"), "save grain while the face fails", "saturated clay and debris", ("brace the upper face", "cut a safe spill channel", "exchange the load for repair"), "the failed face becomes a public stair"),
-    _s("frostmere", "steady", "net-seals", "The net-house shoal", "settlement", ("net workers", "estuary grazers"), "free a net without closing the animal channel", "cold shallows and gravel", ("raise the net on ice pegs", "open a warmer side braid", "suspend work for one sounding"), "the shoal keeps an animal opening"),
-    _s("frostmere", "strained", "wool-thaw", "The thaw-wool crossing", "ruin", ("winter pilots", "wool carriers"), "move wool before the ice braid separates", "thinning ice and wet cargo", ("set a pegged handline", "break a controlled float channel", "join pilot and shelter tallies"), "the crossing retains a thaw detour"),
-    _s("frostmere", "critical", "false-sounding", "The false sounding", "works", ("channel pilots", "wreck claimants"), "recover the true marker under a squall", "wind, ice and saltwater", ("brace a high signal line", "thaw the marker free", "force one public sounding"), "the true channel remains marked"),
-)
+def _situation_from_data(row: object) -> Situation:
+    if not isinstance(row, dict) or set(row) != _SITUATION_FIELDS:
+        raise CatalogError("situations.json has an invalid situation record")
+    for key, size in (("groups", 2), ("answers", 3)):
+        if not isinstance(row[key], list) or len(row[key]) != size or any(not isinstance(value, str) for value in row[key]):
+            raise CatalogError(f"situations.json has invalid {key}")
+    if any(not isinstance(value, str) for key, value in row.items() if key not in {"groups", "answers"}):
+        raise CatalogError("situations.json has non-text situation fields")
+    return Situation(**{**row, "groups": tuple(row["groups"]), "answers": tuple(row["answers"])})
+
+
+if not isinstance(_CATALOG["situations"], list):
+    raise CatalogError("situations.json must provide situation records")
+SITUATIONS = tuple(_situation_from_data(row) for row in _CATALOG["situations"])
+if (not isinstance(_CATALOG["afterwork_samples"], dict)
+        or any(not isinstance(region, str) or not isinstance(sample, str)
+               for region, sample in _CATALOG["afterwork_samples"].items())):
+    raise CatalogError("situations.json has invalid afterwork samples")
+AFTERWORK_SAMPLES = _CATALOG["afterwork_samples"]
+
 
 BY_ID = {row.id: row for row in SITUATIONS}
 BY_REGION_BAND = {(row.region_id, row.band): row for row in SITUATIONS}
-AFTERWORK_SAMPLES = {
-    "hearthford": "spring water", "greywash": "brine", "greenwold": "tree resin",
-    "whitecairn": "lime dust", "dunmire": "peat oil", "rillscar": "iron ore",
-    "marlbank": "clay", "frostmere": "frostwort",
-}
 
 
 def _key(row: Situation, part: str) -> str:

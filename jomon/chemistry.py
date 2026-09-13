@@ -2,37 +2,39 @@
 
 from __future__ import annotations
 
+from .catalog import CatalogError, load_catalog
 from .state import GameState, Item, MaterialCell, Position
 
-REAGENTS = (
-    "cinder salt", "tree resin", "brine", "lime dust", "frostwort", "smoke leaf",
-    "healing herb", "glow spore", "peat oil", "iron filings", "spring water", "spark salt",
-    "iron ore", "clay",
-)
-REACTIONS = {
-    frozenset(("cinder salt", "tree resin")): ("flame bloom", "fire"),
-    frozenset(("cinder salt", "peat oil")): ("oil flare", "fire"),
-    frozenset(("smoke leaf", "cinder salt")): ("smoke bloom", "smoke"),
-    frozenset(("brine", "spark salt")): ("conductive flash", "shock"),
-    frozenset(("lime dust", "spring water")): ("caustic slurry", "lime"),
-    frozenset(("frostwort", "spring water")): ("freezing wash", "ice"),
-    frozenset(("healing herb", "spring water")): ("healing draft", "heal"),
-    frozenset(("glow spore", "spring water")): ("attunement draft", "mana"),
-    frozenset(("glow spore", "tree resin")): ("luminous seal", "glow"),
-    frozenset(("iron filings", "brine")): ("corrosive grit", "corrode"),
-    frozenset(("tree resin", "lime dust")): ("hardening wash", "seal"),
-    frozenset(("smoke leaf", "spring water")): ("breath tonic", "breath"),
-    frozenset(("tree resin", "clay")): ("resin mortar", "seal"),
-    frozenset(("frostwort", "brine")): ("brine rime", "ice"),
-    frozenset(("glow spore", "smoke leaf")): ("phosphor dust", "glow"),
-    frozenset(("iron filings", "spark salt")): ("shrapnel spark", "shock"),
-    frozenset(("peat oil", "smoke leaf")): ("peat haze", "smoke"),
-    frozenset(("lime dust", "brine")): ("salt-lime slurry", "lime"),
-}
-ENVIRONMENT_REACTIONS = {
-    "water": "spring water",
-    "fire": "cinder salt",
-}
+_CATALOG = load_catalog("chemistry.json", ("reagents", "reactions", "environment_reactions"))
+_reagents = _CATALOG["reagents"]
+if (not isinstance(_reagents, list) or not _reagents
+        or any(not isinstance(name, str) or not name for name in _reagents)
+        or len(set(_reagents)) != len(_reagents)):
+    raise CatalogError("chemistry.json has invalid reagents")
+REAGENTS = tuple(_reagents)
+
+_rows = _CATALOG["reactions"]
+if not isinstance(_rows, list):
+    raise CatalogError("chemistry.json must provide reactions")
+REACTIONS: dict[frozenset[str], tuple[str, str]] = {}
+_effects = {"fire", "smoke", "shock", "lime", "ice", "heal", "mana", "glow", "corrode", "seal", "breath"}
+for row in _rows:
+    if not isinstance(row, dict) or set(row) != {"reagents", "name", "effect"}:
+        raise CatalogError("chemistry.json has an invalid reaction")
+    pair = row["reagents"]
+    if (not isinstance(pair, list) or len(pair) != 2 or any(not isinstance(name, str) or name not in REAGENTS for name in pair)
+            or len(set(pair)) != 2 or not isinstance(row["name"], str) or not row["name"]
+            or row["effect"] not in _effects):
+        raise CatalogError("chemistry.json has an invalid reaction")
+    key = frozenset(pair)
+    if key in REACTIONS or any(name == row["name"] for name, _ in REACTIONS.values()):
+        raise CatalogError("chemistry.json repeats a reaction pair or name")
+    REACTIONS[key] = (row["name"], row["effect"])
+
+ENVIRONMENT_REACTIONS = _CATALOG["environment_reactions"]
+if (not isinstance(ENVIRONMENT_REACTIONS, dict) or set(ENVIRONMENT_REACTIONS) != {"water", "fire"}
+        or any(not isinstance(name, str) or name not in REAGENTS for name in ENVIRONMENT_REACTIONS.values())):
+    raise CatalogError("chemistry.json has invalid environmental reagents")
 
 
 def carried_flasks(state: GameState) -> list[Item]:
