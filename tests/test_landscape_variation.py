@@ -70,6 +70,13 @@ class LandscapeVariationTests(unittest.TestCase):
         self.assertLessEqual(state.region.changes.get("landform:elites", 0), 1)
         self.assertEqual(game_state_from_dict(state.to_dict()).to_dict(), state.to_dict())
 
+    def test_dense_dunmire_caves_take_a_smaller_but_connected_side_structure(self):
+        region = build_frontier("systemic-audit-0043", "dunmire")
+        validate_region(region)
+        reachable = region_reachable(region)
+        self.assertIn(region.landmarks["field_lower"], reachable)
+        self.assertIn(region.landmarks["field_upper"], reachable)
+
 
 if __name__ == "__main__":
     unittest.main()

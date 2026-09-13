@@ -57,30 +57,40 @@ def _structure(region: Region, seed: str, level: int, ground: list[list[str]],
                reachable: set[tuple[int, int]], protected: set[tuple[int, int]]) -> None:
     key = "field_upper" if level == 1 else "field_lower"
     rows = [list(row) for row in region.levels[str(level)]]
-    near_protected = {(px + dx, py + dy) for px, py in protected
-                      for dx in range(-4, 5) for dy in range(-4, 5)
-                      if abs(dx) + abs(dy) <= 4}
     candidates = []
-    for x, y in reachable:
-        if (not 5 <= x < region.width - 5 or not 5 <= y < region.height - 5
-                or ground[y][x] != "." or (x, y) in near_protected):
-            continue
-        if any(rows[ry][rx] != " " or f"{rx},{ry},{level}" in region.tile_changes
-               for ry in range(y - 2, y + 3) for rx in range(x - 3, x + 4)):
-            continue
-        candidates.append((x, y))
+    half_width = half_height = 0
+    for width, height, clearance in ((3, 2, 4), (2, 2, 3), (2, 1, 2)):
+        near_protected = {(px + dx, py + dy) for px, py in protected
+                          for dx in range(-clearance, clearance + 1)
+                          for dy in range(-clearance, clearance + 1)
+                          if abs(dx) + abs(dy) <= clearance}
+        candidates = []
+        for x, y in reachable:
+            if (not width + 2 <= x < region.width - width - 2
+                    or not height + 2 <= y < region.height - height - 2
+                    or ground[y][x] not in ".,mrqt_:s" or (x, y) in near_protected):
+                continue
+            if any(rows[ry][rx] != " " or f"{rx},{ry},{level}" in region.tile_changes
+                   for ry in range(y - height, y + height + 1)
+                   for rx in range(x - width, x + width + 1)):
+                continue
+            candidates.append((x, y))
+        if candidates:
+            half_width, half_height = width, height
+            break
     if not candidates:
         raise RuntimeError(f"{region.name} has no reachable {key} footprint")
     rng = stage_rng(seed, f"landform:{region.id}:{key}")
     candidates.sort()
     x, y = rng.choice(candidates)
-    for ry in range(y - 2, y + 3):
-        for rx in range(x - 3, x + 4):
-            rows[ry][rx] = "#" if ry in {y - 2, y + 2} or rx in {x - 3, x + 3} else "."
-    divider = x + (-1 if level == 1 else 1)
-    for ry in range(y - 1, y + 2):
-        rows[ry][divider] = "#"
-    rows[y][divider] = "+"
+    for ry in range(y - half_height, y + half_height + 1):
+        for rx in range(x - half_width, x + half_width + 1):
+            rows[ry][rx] = "#" if ry in {y - half_height, y + half_height} or rx in {x - half_width, x + half_width} else "."
+    if half_width == 3:
+        divider = x + (-1 if level == 1 else 1)
+        for ry in range(y - half_height + 1, y + half_height):
+            rows[ry][divider] = "#"
+        rows[y][divider] = "+"
     lower, upper = Position(x, y, min(0, level)), Position(x, y, max(0, level))
     ground[y][x] = ">" if level == 1 else "<"
     rows[y][x] = "<" if level == 1 else ">"
@@ -119,7 +129,9 @@ def install(region: Region, seed: str) -> None:
                     continue
                 ground[ry][rx] = glyph
         region.generation_facts[f"landform:{index}"] = f"{name} near {x},{y}; {glyph} footing"
-    for level in (1, -1):
+    # Underground voids are scarcer in fen and cave-heavy maps; reserve one
+    # before choosing the more flexible upper watch footprint.
+    for level in (-1, 1):
         _structure(region, seed, level, ground, reachable, protected)
     region.levels["0"] = ["".join(row) for row in ground]
     region.geography_signature = hashlib.sha256(
@@ -130,7 +142,7 @@ def install(region: Region, seed: str) -> None:
 def _event_position(state: GameState, anchor: Position) -> Position | None:
     from .world import is_walkable
 
-    offsets = ((2, 0), (-2, 0), (0, 2), (0, -2), (1, 1), (-1, -1))
+    offsets = ((2, 0), (-2, 0), (0, 2), (0, -2), (1, 1), (-1, -1), (1, 0), (-1, 0))
     occupied = {actor.position for actor in state.combatants if actor.status in {"watching", "engaged"}}
     occupied.update(schedule.position for schedule in state.actor_schedules.values()
                     if schedule.area == f"region:{state.active_region_id}")
