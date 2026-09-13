@@ -210,6 +210,7 @@ class BartenderAndIncidentTests(unittest.TestCase):
         state = create_world("drink interactions")
         state.location = "region"
         state.position = state.region.landmarks["landing"]
+        state.region.tile_changes[f"{state.position.x + 1},{state.position.y},0"] = "."
         state.weapon = "staff"
         threat = state.threats[0]
         threat.position = Position(state.position.x + 5, state.position.y)

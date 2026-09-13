@@ -121,6 +121,7 @@ class ActiveMasteryTests(unittest.TestCase):
         state, _ = self.ready("quiet-crossing")
         state.noise = 4
         old = state.position
+        state.region.tile_changes[f"{old.x},{old.y - 1},{old.z}"] = "."
         self.assertTrue(perform(state, "quiet-crossing")[0])
         self.assertNotEqual(state.position, old)
         self.assertLess(state.noise, 4)

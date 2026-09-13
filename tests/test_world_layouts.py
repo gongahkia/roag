@@ -3,9 +3,11 @@ import unittest
 from pathlib import Path
 
 from jomon.actions import interact
+from jomon.content import PASSIVES, RELICS
 from jomon.discoveries import reveal_nearby
 from jomon.frontiers import FRONTIERS, build_frontier
-from jomon.geography import LAYOUTS, layout_point
+from jomon.geography import FIELD_SECRETS, LAYOUTS, layout_point
+from jomon.inventory import item_spec
 from jomon.regions import activate_region, region_reachable, validate_region
 from jomon.save import load_game, save_game
 from jomon.state import Position, create_world
@@ -47,6 +49,23 @@ class WorldLayoutTests(unittest.TestCase):
                         Position(region.width - 13 if "east" in region.changes["macro_layout"] else 12,
                                  region.height - 13 if "south" in region.changes["macro_layout"] else 12),
                     )
+
+    def test_all_regions_have_alternate_landings_and_packable_secret_rewards(self):
+        landings = {region_id: set() for region_id in FIELD_SECRETS}
+        for index in range(12):
+            seed = f"alternate quay {index}"
+            state = create_world(seed)
+            regions = {**state.regions, **{region_id: build_frontier(seed, region_id) for region_id in FRONTIERS}}
+            for region_id, region in regions.items():
+                landings[region_id].add(layout_point(region, region.landmarks["landing"]).y)
+        self.assertTrue(all(len(rows) >= 2 for rows in landings.values()), landings)
+        for rows in FIELD_SECRETS.values():
+            for _, _, _, reward, _, _ in rows:
+                try:
+                    item_spec(reward)
+                except KeyError:
+                    prefix = "passive:" if reward in PASSIVES else "relic:" if reward in RELICS else "consumable:"
+                    item_spec(prefix + reward)
 
     def test_field_trace_reveals_physical_cache_and_survives_save(self):
         state = create_world("field trace persistence")
