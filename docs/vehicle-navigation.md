@@ -2,7 +2,8 @@
 
 The vessel chart remains Jomon's long-distance, crew-scale travel system. A
 small craft now gives the active courier a separate, steerable local journey.
-At the working-deck gangplank, `E` opens a shore-or-tug choice. The tug launches
+At the working-deck gangplank, `E` still walks ashore immediately, while `Tab`
+opens a shore-or-tug choice. The tug launches
 at `J` on a seeded 78×28 water map; `L` marks the shore of Jomon's current
 region. The central sounded lane is connected for every seed, while islands
 and shoals vary the surrounding route. Arrows or `HJKL` steer the tug up to
@@ -24,8 +25,9 @@ rules. The courier remains vulnerable to ordinary regional hazards and actors.
 Each helm order costs one world action and spends finite charge for each cell
 actually travelled. Rough or shallow cells cost an extra charge and accumulate
 frame wear. Road vehicles stop at water, walls, and actors; diagonal moves
-cannot cut a pinched corner. The tug has sweep oars at zero coal: one cell
-for two actions, so fuel exhaustion cannot strand it at sea. `Tab` zooms into
+cannot cut a pinched corner. The tug can row at zero coal, and the glider can
+trim its wings without aether: one cell per two actions, so either can reach a
+landing after its charge is spent. `Tab` zooms into
 the vehicle's ASCII interior. There, `R` services the reserve and `F` repairs
 the frame. A horse or rootwalker rests for three actions; the glider consumes
 two courier mana for twelve charge; tug and crawler use one carried charcoal

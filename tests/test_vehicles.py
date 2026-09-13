@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import unittest
+import tempfile
+from pathlib import Path
 
 from jomon.actions import interact, move
 from jomon.regions import activate_region
+from jomon.save import load_game, save_game
 from jomon.state import SAVE_FORMAT, Position, create_world, game_state_from_dict, validate_state
-from jomon.terminal import _overlay_lines
+from jomon.terminal import _overlay_lines, dialogue_choices
 from jomon.vehicles import (
     JOMON_DOCK,
     SHORE_DOCK,
@@ -21,9 +24,14 @@ from jomon.world import area_name, map_rows
 class VehicleNavigationTests(unittest.TestCase):
     def test_tug_round_trip_uses_a_real_water_map_and_preserves_return(self):
         state = create_world("tug round trip")
-        self.assertEqual(interact(state).overlay, "gangplank")
+        self.assertEqual([option.key for option in dialogue_choices(state, "gangplank")], ["1", "2"])
         self.assertTrue(board_tug(state).changed)
         self.assertEqual((state.jomon_space, state.position, state.active_vehicle_id), ("harbour", JOMON_DOCK, "tug"))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "on-water.json"
+            save_game(state, path)
+            state = load_game(path)
+        self.assertEqual((state.jomon_space, state.active_vehicle_id), ("harbour", "tug"))
         self.assertIn("open-water", area_name(state))
         self.assertEqual(map_rows(state)[SHORE_DOCK.y][SHORE_DOCK.x], "L")
         self.assertEqual(harbour_rows(state.seed), harbour_rows(state.seed))
@@ -39,6 +47,8 @@ class VehicleNavigationTests(unittest.TestCase):
         self.assertTrue(state.expedition_by_tug)
         self.assertTrue(interact(state).changed)
         self.assertEqual((state.location, state.jomon_space, state.position), ("jomon", "harbour", SHORE_DOCK))
+        self.assertTrue(state.returning_by_tug)
+        state = game_state_from_dict(state.to_dict())
         self.assertTrue(state.returning_by_tug)
         for _ in range(25):
             if state.position == JOMON_DOCK:
@@ -80,6 +90,23 @@ class VehicleNavigationTests(unittest.TestCase):
                 self.assertEqual(loaded.vehicles[vehicle_id], vehicle)
                 validate_state(loaded)
 
+    def test_cart_moves_on_a_real_road_and_spends_charge(self):
+        state = create_world("cart road movement")
+        state.location = "region"
+        cart = state.vehicles["horse_cart"]
+        state.position = cart.position
+        self.assertTrue(interact(state).changed)
+        original = state.position
+        fuel = cart.fuel
+        directions = ((1, 0), (-1, 0), (0, 1), (0, -1))
+        heading = next((dx, dy) for dx, dy in directions
+                       if state.region.levels["0"][original.y + dy][original.x + dx] in {"=", "."})
+        self.assertTrue(move(state, *heading).changed)
+        self.assertNotEqual(state.position, original)
+        self.assertEqual(cart.position, state.position)
+        self.assertLess(cart.fuel, fuel)
+        validate_state(game_state_from_dict(state.to_dict()))
+
     def test_glider_crosses_deep_water_but_cannot_disembark_on_it(self):
         state = create_world("glider over estuary")
         activate_region(state, "greywash")
@@ -97,6 +124,10 @@ class VehicleNavigationTests(unittest.TestCase):
         self.assertEqual(state.region.levels["0"][state.position.y][state.position.x], "~")
         self.assertFalse(interact(state).changed)
         self.assertEqual(state.active_vehicle_id, glider.id)
+        glider.fuel = 0
+        before = state.world_time
+        self.assertTrue(move(state, -dx, -dy).changed)
+        self.assertEqual(state.world_time, before + 2)
         validate_state(state)
 
     def test_recovery_and_old_save_migration_are_bounded(self):

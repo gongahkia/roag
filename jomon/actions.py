@@ -1296,7 +1296,8 @@ def depart(state: GameState) -> ActionResult:
     from .vehicles import SHORE_DOCK
 
     by_tug = state.jomon_space == "harbour" and state.position == SHORE_DOCK and state.active_vehicle_id == "tug"
-    if state.location != "jomon" or not (by_tug or state.jomon_space == "vessel" and state.position == JOMON_GANGPLANK):
+    from_gangplank = state.jomon_space != "harbour" and state.position == JOMON_GANGPLANK
+    if state.location != "jomon" or not (by_tug or from_gangplank):
         return _plain(state, "Departure requires Jomon's gangplank or the tug's shore mooring.")
     if state.returning_by_tug:
         return _plain(state, "Bring the returning tug back to Jomon before starting another expedition.")
@@ -2006,8 +2007,6 @@ def interact(state: GameState) -> ActionResult:
         if state.combat_active and tile == "C":
             return _plain(state, "The tavern shelters off-duty adults during this declared deck crisis.")
         if tile == "+":
-            if state.position == JOMON_GANGPLANK and state.voyage_status != "active":
-                return ActionResult(False, False, "Choose the gangplank or the steam tug.", "gangplank")
             return depart(state)
         if tile == "C":
             state.jomon_space = "tavern"

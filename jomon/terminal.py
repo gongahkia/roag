@@ -3642,8 +3642,10 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
         elif key == 9:
             if state.active_vehicle_id:
                 overlay = OverlayView("vehicle-interior")
+            elif state.location == "jomon" and state.jomon_space == "vessel" and state.position == JOMON_GANGPLANK:
+                overlay = OverlayView("gangplank")
             else:
-                state.add_message("Board a vehicle to inspect its interior.")
+                state.add_message("Tab opens the tug choice at the gangplank or a boarded vehicle's interior.")
         elif normalized == ord("?"):
             overlay = OverlayView("help")
         elif normalized == ord("s"):

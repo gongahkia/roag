@@ -854,7 +854,7 @@ def create_world(seed: str) -> GameState:
     state.add_message(f"Jomon reaches Hearthford. {region.condition}")
     state.add_message(
         f"{state.courier.name} has the courier watch with a basic working kit. "
-        "Press E at the gangplank to choose shore or tug, or prepare further aboard.",
+        "Press E at the gangplank to walk ashore; Tab offers the steam tug.",
         priority=3,
     )
     if relics:

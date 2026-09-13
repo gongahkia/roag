@@ -204,11 +204,12 @@ def navigate(state: GameState, dx: int, dy: int):
     water = vehicle.region_id == "harbour"
     if water != (state.location == "jomon" and state.jomon_space == "harbour"):
         return _plain(state, "The vehicle is not in this landscape.")
-    pace = 1 if vehicle.fuel == 0 else spec["pace"]
+    manual_drive = vehicle.id in {"tug", "aether_glider"}
+    pace = 1 if vehicle.fuel == 0 and manual_drive else spec["pace"]
     current = state.position
     travelled = 0
     strain = 0
-    oars_used = False
+    manual_used = False
     for _ in range(pace):
         target = Position(current.x + dx, current.y + dy, current.z)
         tile = _tile(state, target)
@@ -223,21 +224,21 @@ def navigate(state: GameState, dx: int, dy: int):
         extra = 1 if tile in {"w", ",", "m"} or (spec["domain"] == "air" and state.weather == "crosswind") else 0
         cost = 1 + extra
         if vehicle.fuel < cost:
-            if vehicle.id != "tug" or travelled:
+            if not manual_drive or travelled:
                 break
-            oars_used = True
+            manual_used = True
         current = target
         travelled += 1
-        if not oars_used:
+        if not manual_used:
             vehicle.fuel -= cost
         else:
             vehicle.fuel = 0
         if extra:
             strain += 1
-        if oars_used or water and tile in {"J", "L"}:
+        if manual_used or water and tile in {"J", "L"}:
             break
     if not travelled:
-        if vehicle.fuel == 0 and vehicle.id != "tug":
+        if vehicle.fuel == 0 and not manual_drive:
             return _plain(state, "The vehicle has no charge. Open its interior with Tab to service it.")
         return _plain(state, "That heading is blocked by terrain, a shoal, or an actor.")
     state.position = vehicle.position = current
@@ -260,9 +261,11 @@ def navigate(state: GameState, dx: int, dy: int):
         message += " " + terrain_message
     if vehicle.id == "tug" and vehicle.fuel == 0:
         message += " Sweep oars keep the tug moving, one tile per two actions."
+    if vehicle.id == "aether_glider" and vehicle.fuel == 0:
+        message += " Manual wing trim keeps the glider moving, one tile per two actions."
     if vehicle.condition == 0:
         message += " The frame needs a jury-rig before it can move again."
-    return _time_result(state, message, steps=2 if oars_used else 1)
+    return _time_result(state, message, steps=2 if manual_used else 1)
 
 
 def service(state: GameState, *, repair: bool = False):

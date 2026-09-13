@@ -61,7 +61,7 @@ World controls:
 - `YUBN`: diagonal movement;
 - `T`: follow a seen local landmark, link, or marked store over remembered ground;
 - `Enter` or `E`: interact, climb, open, speak, or operate;
-- at Jomon's gangplank, `E` chooses walking ashore or boarding the steam tug;
+- at Jomon's gangplank, `E` walks ashore and `Tab` offers the steam tug;
 - in a regional vehicle, arrows or `HJKL` steer, `E` disembarks on safe ground,
   and `Tab` opens a zoomed interior with service and repair controls;
 - `A`: open the zero-time combat preview and target cursor for any readied
