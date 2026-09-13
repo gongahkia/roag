@@ -8,13 +8,16 @@ from jomon.actions import interact, move
 from jomon.regions import activate_region
 from jomon.save import load_game, save_game
 from jomon.state import SAVE_FORMAT, Position, StateError, create_world, game_state_from_dict, validate_state
-from jomon.terminal import OverlayView, _draw_map, _handle_overlay, _overlay, _overlay_lines, dialogue_choices
+from jomon.terminal import InputEvent, OverlayView, _draw_map, _draw_vehicle_interior, _handle_overlay, _handle_overlay_view, _overlay_lines, dialogue_choices
 from jomon.vehicles import (
     JOMON_DOCK,
     SHORE_DOCK,
     SPECS,
     board_tug,
+    deck_rows,
     harbour_rows,
+    interior_entry,
+    interior_step,
     service,
 )
 from jomon.vessel import JOMON_GANGPLANK
@@ -53,8 +56,11 @@ class VehicleNavigationTests(unittest.TestCase):
         _draw_map(screen, state, 0, 0, 18, 51)
         self.assertTrue(any(glyph == "U" for _, _, glyph in screen.writes))
         screen.writes.clear()
-        _overlay(screen, *_overlay_lines(state, "vehicle-interior"), OverlayView("vehicle-interior"))
-        self.assertTrue(any("[H] helm" in glyph for _, _, glyph in screen.writes))
+        interior = OverlayView("vehicle-interior")
+        _draw_vehicle_interior(screen, state, interior)
+        self.assertTrue(any(glyph == "@" for _, _, glyph in screen.writes))
+        self.assertTrue(any(glyph == "H" for _, _, glyph in screen.writes))
+        self.assertEqual(interior.cursor, interior_entry("tug"))
         self.assertEqual(move(state, 0, -1).changed, True)
         self.assertEqual(move(state, 0, 1).changed, True)
         for _ in range(25):
@@ -79,6 +85,43 @@ class VehicleNavigationTests(unittest.TestCase):
         self.assertEqual((state.jomon_space, state.position, state.active_vehicle_id), ("vessel", JOMON_GANGPLANK, None))
         self.assertEqual(state.returned_expeditions, 1)
         validate_state(state)
+
+    def test_vehicle_decks_are_walkable_and_fixtures_require_position(self):
+        for vehicle_id in SPECS:
+            rows = deck_rows(vehicle_id)
+            self.assertEqual(len({len(row) for row in rows}), 1)
+            start = interior_entry(vehicle_id)
+            self.assertEqual(rows[start.y][start.x], "E")
+            self.assertEqual(interior_step(vehicle_id, start, -100, 0), start)
+            frontier, seen = [start], {start}
+            while frontier:
+                point = frontier.pop()
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    target = interior_step(vehicle_id, point, dx, dy)
+                    if target not in seen:
+                        seen.add(target)
+                        frontier.append(target)
+            self.assertTrue({rows[point.y][point.x] for point in seen} >= set("HRFCE"))
+
+        state = create_world("cabin controls")
+        board_tug(state)
+        tug = state.vehicles["tug"]
+        tug.fuel = 0
+        state.trade_credit = 2
+        view = OverlayView("vehicle-interior")
+        before = state.world_time
+        self.assertFalse(_handle_overlay_view(state, view, InputEvent("key", ord("l")))[0])
+        self.assertEqual(state.world_time, before)
+        self.assertFalse(_handle_overlay_view(state, view, InputEvent("key", ord("e")))[0])
+        self.assertEqual(tug.fuel, 0)
+        reserve = next(Position(x, y) for y, row in enumerate(deck_rows("tug"))
+                       for x, tile in enumerate(row) if tile == "R")
+        view.cursor = reserve
+        self.assertFalse(_handle_overlay_view(state, view, InputEvent("key", ord("e")))[0])
+        self.assertGreater(tug.fuel, 0)
+        self.assertGreater(state.world_time, before)
+        self.assertTrue(_handle_overlay_view(state, view, InputEvent("key", 9))[0])
+        self.assertEqual((state.active_vehicle_id, state.position), ("tug", JOMON_DOCK))
 
     def test_water_tug_has_shoals_fuel_and_a_nonlocking_oar_fallback(self):
         state = create_world("tug oars")

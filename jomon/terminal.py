@@ -275,6 +275,7 @@ class OverlayView:
     page_rows: int = 1
     line_count: int = 0
     result: str | None = None
+    cursor: Position | None = None
 
 
 @dataclass(frozen=True)
@@ -1385,8 +1386,7 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str], view: Over
     height, width = screen.getmaxyx()
     material = list(lines)
     box_width = min(width - 4, max(44, max((len(line) for line in material), default=20) + 4))
-    if not view or view.kind != "vehicle-interior":
-        material = information_lines(material, box_width - 4)
+    material = information_lines(material, box_width - 4)
     box_height = min(height - 4, len(material) + (5 if view else 4))
     page_rows = max(1, box_height - (5 if view else 3))
     offset = min(view.scroll_offset, max(0, len(material) - page_rows)) if view else 0
@@ -1404,6 +1404,42 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str], view: Over
     if view:
         footer = f"Up/Down PgUp/PgDn Home/End; Esc close [{offset + 1}/{len(material)}]"
         _put(screen, top + box_height - 2, left + 2, _clip(footer, box_width - 4), _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_BOLD)
+    screen.refresh()
+
+
+def _draw_vehicle_interior(screen: curses.window, state: GameState, view: OverlayView) -> None:
+    from .vehicles import SPECS, active_vehicle, deck_rows, interior_entry
+
+    vehicle = active_vehicle(state)
+    if vehicle is None:
+        return
+    rows = deck_rows(vehicle.id)
+    if view.cursor is None:
+        view.cursor = interior_entry(vehicle.id)
+    spec = SPECS[vehicle.id]
+    title = spec["name"].upper()
+    height, width = screen.getmaxyx()
+    box_width, box_height = width - 4, height - 4
+    top, left = (height - box_height) // 2, (width - box_width) // 2
+    map_top = top + max(2, (box_height - len(rows)) // 2 - 2)
+    map_left = left + (box_width - len(rows[0])) // 2
+    for y in range(top, top + box_height):
+        _put(screen, y, left, " " * box_width, curses.A_REVERSE)
+    _frame(screen, top, left, box_height, box_width, title)
+    for y, row in enumerate(rows):
+        for x, tile in enumerate(row):
+            shown = "@" if (x, y) == (view.cursor.x, view.cursor.y) else tile
+            role = ("player" if shown == "@" else "structure" if tile in "#+"
+                    else "exit" if tile == "E" else "cargo" if tile == "C"
+                    else "interactable" if tile in "HRF" else "terrain")
+            _put(screen, map_top + y, map_left + x, shown, _COLOUR_ATTRIBUTES[role])
+    status = f"Reserve {vehicle.fuel}/{spec['capacity']} {spec['resource']}; frame {vehicle.condition}/{spec['condition']}"
+    location = f"Outside: {state.active_region_id if state.location == 'region' else 'open water'} at {vehicle.position.x},{vehicle.position.y}"
+    _put(screen, map_top + len(rows) + 1, left + 2, _clip(status, box_width - 4), _COLOUR_ATTRIBUTES["fact"])
+    _put(screen, map_top + len(rows) + 2, left + 2, _clip(location, box_width - 4), _COLOUR_ATTRIBUTES["fact"])
+    _put(screen, top + box_height - 2, left + 2,
+         _clip("Arrows/HJKL walk; E uses the fixture; Tab/Esc returns to steering.", box_width - 4),
+         _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_BOLD)
     screen.refresh()
 
 
@@ -1458,6 +1494,14 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
             rows.append(ChoiceOption("M", "Use a learned active manoeuvre", "commitment", bool(state.combat_active), "requires active danger"))
         rows.append(ChoiceOption("X", "Use the carried bottle, selected relic, or readied gear", "commitment", state.combat_active, "requires active danger"))
         return rows
+    if kind == "field-traveller":
+        return [
+            ChoiceOption("A", "Ask for the upper watch location", "ordinary",
+                         not state.region.changes.get("landform:traveller:clue"), "route already marked"),
+            ChoiceOption("B", f"Buy one physical {state.region.objective_commodity} lot for one credit", "commitment",
+                         state.trade_credit >= 1 and not state.region.changes.get("landform:traveller:lot"),
+                         "one credit and an unsold lot"),
+        ]
     if kind == "aftermath":
         from .aftermath import contracts_for
 
@@ -1695,6 +1739,29 @@ def _draw_dialogue_overlay(screen: curses.window, state: GameState, view: Overla
 
 
 def _handle_overlay_view(state: GameState, view: OverlayView, event: InputEvent) -> tuple[bool, bool]:
+    if view.kind == "vehicle-interior":
+        from .vehicles import active_vehicle, interior_entry, interior_fixture, interior_step, service
+
+        vehicle = active_vehicle(state)
+        if vehicle is None or event.key in {9, 27}:
+            return True, False
+        if view.cursor is None:
+            view.cursor = interior_entry(vehicle.id)
+        normalized = ord(chr(event.key).lower()) if 0 <= event.key < 256 else event.key
+        if normalized in MOVES:
+            dx, dy = MOVES[normalized]
+            view.cursor = interior_step(vehicle.id, view.cursor, dx, dy)
+        elif normalized in {10, 13, ord("e")}:
+            fixture = interior_fixture(vehicle.id, view.cursor)
+            if fixture in {"E", "H"}:
+                return True, False
+            if fixture in {"R", "F"}:
+                service(state, repair=fixture == "F")
+            elif fixture == "C":
+                state.add_message("The cargo rack is part of the cabin; carried lots remain in the courier's pack.")
+            else:
+                state.add_message("Walk to H, R, F, C or E before using a cabin fixture.")
+        return False, False
     options = dialogue_choices(state, view.kind)
     if options:
         view.selected %= len(options)
@@ -2608,6 +2675,14 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         from .sanctums import SITES, inspect_lines
 
         return SITES[state.active_region_id]["name"].upper(), inspect_lines(state)
+    if kind == "field-traveller":
+        from .landscape_variation import VARIANTS
+
+        return VARIANTS[state.active_region_id]["traveller"].upper(), [
+            f"The traveller has sounded {VARIANTS[state.active_region_id]['upper']} and carries one {state.region.objective_commodity} lot.",
+            "A. Mark the upper watch's location (once). B. Buy the physical lot for one trade credit (once).",
+            "Both actions pass the world clock; Escape leaves the conversation.",
+        ]
     if kind == "navigation":
         return "FOLLOW A KNOWN LOCAL ROUTE", [
             "Choose a seen landmark, vertical link, or marked store.",
@@ -3025,17 +3100,17 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
 
 def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, bool]:
     char = chr(key).lower() if 0 <= key < 256 else ""
+    if kind == "field-traveller" and char in {"a", "b"}:
+        from .landscape_variation import traveller_choice
+
+        traveller_choice(state, char)
+        return kind, False
     if kind == "gangplank" and char in {"1", "2"}:
         from .actions import depart
         from .vehicles import board_tug
 
         result = depart(state) if char == "1" else board_tug(state)
         return (None if result.changed else kind), False
-    if kind == "vehicle-interior" and char in {"r", "f"}:
-        from .vehicles import service
-
-        service(state, repair=char == "f")
-        return kind, False
     if kind == "station:gathering" and char in {"j", "k"}:
         return ("journal-write:0" if char == "j" else "journal-study:0"), False
     if kind.startswith(("journal-write:", "journal-study:")):
@@ -3216,7 +3291,7 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
             _advance_world(state, steps=steps)
         state.add_message(message, priority=3)
         return (None if changed else kind), False
-    if kind == "sanctum" and char in {"o", "b", "s"}:
+    if kind == "sanctum" and char in {"o", "b", "s", "h"}:
         from .actions import _advance_world
         from .sanctums import shrine_choice
 
@@ -3545,6 +3620,8 @@ def play(screen: curses.window, state: GameState) -> GameState:
 
 
 def _play_loop(screen: curses.window, state: GameState) -> GameState:
+    from .vessel import JOMON_GANGPLANK
+
     overlay: OverlayView | None = None
     inventory_view: InventoryView | None = None
     route_view: RouteChartView | None = None
@@ -3567,7 +3644,9 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
         elif circuit_view and height >= MIN_HEIGHT and width >= MIN_WIDTH:
             _draw_circuit(screen, state, circuit_view)
         elif overlay and height >= MIN_HEIGHT and width >= MIN_WIDTH:
-            if dialogue_choices(state, overlay.kind):
+            if overlay.kind == "vehicle-interior":
+                _draw_vehicle_interior(screen, state, overlay)
+            elif dialogue_choices(state, overlay.kind):
                 _draw_dialogue_overlay(screen, state, overlay)
             else:
                 title, lines = _overlay_lines(state, overlay.kind)

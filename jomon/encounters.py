@@ -80,14 +80,14 @@ def roster_audit() -> dict[str, object]:
 def validate_roster() -> None:
     report = roster_audit()
     if (
-        report["standard_archetypes"] < 72
-        or report["mechanically_distinct_signatures"] < 72
+        report["standard_archetypes"] < 80
+        or report["mechanically_distinct_signatures"] < 80
         or report["elite_situations"] < 24
         or report["named_recurring_rivals"] < 8
         or report["invalid_standard_rows"]
         or report["duplicate_mechanical_signatures"]
         or report["duplicate_standard_glyphs"]
-        or any(count < 9 for count in report["regions"].values())
+        or any(count < 10 for count in report["regions"].values())
     ):
         raise ValueError(f"enemy roster acceptance failed: {report}")
 

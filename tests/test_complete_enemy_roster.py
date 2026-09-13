@@ -28,14 +28,14 @@ class CompleteEnemyRosterTests(unittest.TestCase):
         state.threats = [actor]
         return state, actor
 
-    def test_roster_has_seventy_two_standards_and_twenty_four_elites(self):
+    def test_roster_has_eighty_standards_and_twenty_four_elites(self):
         validate_roster()
         report = roster_audit()
-        self.assertEqual(report["standard_archetypes"], 72)
-        self.assertEqual(report["mechanically_distinct_signatures"], 72)
+        self.assertEqual(report["standard_archetypes"], 80)
+        self.assertEqual(report["mechanically_distinct_signatures"], 80)
         self.assertEqual(report["elite_situations"], 24)
         self.assertEqual(report["named_recurring_rivals"], 8)
-        self.assertEqual(set(report["regions"].values()), {9})
+        self.assertEqual(set(report["regions"].values()), {10})
         self.assertFalse(report["invalid_standard_rows"])
         self.assertFalse(report["duplicate_standard_glyphs"])
 
@@ -55,7 +55,7 @@ class CompleteEnemyRosterTests(unittest.TestCase):
             if duty != "feed":
                 self.assertIn(duty, retained_duties)
             seen.add(region)
-        self.assertEqual(len(EXPANDED_STANDARD_ACTORS), 24)
+        self.assertEqual(len(EXPANDED_STANDARD_ACTORS), 32)
         self.assertEqual(len(seen), 8)
 
     def test_all_three_new_hearthford_roles_appear_in_ordinary_seeded_worlds(self):

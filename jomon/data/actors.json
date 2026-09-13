@@ -1288,6 +1288,54 @@
       "?",
       "hunts fleeing gravel hares but leaves deep salted current",
       "draw it after prey or break contact across a brined opening"
+    ],
+    [
+      "hearth-sluice-duellist", "hearthford", "sluice-toll duellist", "reach", "controller",
+      "cut support", "raider", 9, 11, 2, 3, "1",
+      "warns before cutting the next ferry brace and holds its reach lane",
+      "brace the marked support or enter inside the long weapon"
+    ],
+    [
+      "coast-shingle-crab", "greywash", "shingle-shell crab", "animal", "territorial",
+      "hunt", "predator", 7, 12, 1, 2, "%",
+      "waits under salt ridges before striking at a crossing shadow",
+      "circle on firm dune ground or leave its feeding ridge"
+    ],
+    [
+      "forest-ash-trapper", "greenwold", "ashfall snare hand", "ranged", "suppressor",
+      "kindle", "raider", 10, 8, 4, 3, ";",
+      "lights a finite cinder line and shoots from root cover",
+      "quench the line or close through an unburnt canopy gap"
+    ],
+    [
+      "cairn-bell-shrike", "whitecairn", "bellwood shrike", "animal", "tracker",
+      "scavenge", "scavenger", 12, 7, 1, 1, "<",
+      "carries exposed scraps toward a high warning bell",
+      "pack the scrap or follow the flight to its exposed roost"
+    ],
+    [
+      "mire-peat-tusker", "dunmire", "peat-bank tusker", "animal", "territorial",
+      "hunt", "predator", 6, 13, 1, 3, ">",
+      "charges when close sound crosses its raised feeding bank",
+      "use reed cover or break sound across the blackwater braid"
+    ],
+    [
+      "gorge-span-harrier", "rillscar", "span-toll harrier", "ranged", "lookout",
+      "scavenge", "raider", 12, 9, 5, 3, "[",
+      "takes an abandoned tool after a warned crossbow shot",
+      "recover the tool first or use the lower fault pocket"
+    ],
+    [
+      "terrace-kiln-slinger", "marlbank", "kiln-cinder slinger", "ranged", "controller",
+      "kindle", "warden", 8, 10, 4, 3, "]",
+      "lights finite kiln fuel then denies the clay-row turn",
+      "quench the fuel or force a close dry-terrace approach"
+    ],
+    [
+      "estuary-glaze-wolf", "frostmere", "glaze-pelt wolf", "animal", "flanker",
+      "hunt", "predator", 10, 12, 1, 3, "{",
+      "tracks a thaw channel and circles on firm ice",
+      "cross salted water or hold a narrow sounding point"
     ]
   ],
   "STANDARD_REACTIONS": {

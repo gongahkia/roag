@@ -18,7 +18,7 @@ VEHICLE_REGIONS = {
     "rootwalker": "greenwold",
     "aether_glider": "greywash",
 }
-_FIELDS = {"name", "domain", "resource", "glyph", "pace", "capacity", "condition", "interior"}
+_FIELDS = {"name", "domain", "resource", "glyph", "pace", "capacity", "condition", "deck"}
 if (not isinstance(HARBOUR, dict) or set(HARBOUR) != {"width", "height", "jomon_dock", "shore_dock"}
         or type(HARBOUR["width"]) is not int or type(HARBOUR["height"]) is not int
         or not 48 <= HARBOUR["width"] <= 120 or not 24 <= HARBOUR["height"] <= 60
@@ -38,10 +38,26 @@ for vehicle_id, spec in SPECS.items():
             or not isinstance(spec["glyph"], str) or len(spec["glyph"]) != 1 or not spec["glyph"].isascii() or not spec["glyph"].isprintable()
             or any(type(spec[key]) is not int or not 1 <= spec[key] <= 200 for key in ("pace", "capacity", "condition"))
             or spec["pace"] > 3
-            or not isinstance(spec["interior"], list) or not 3 <= len(spec["interior"]) <= 12
-            or any(not isinstance(row, str) or not row.isascii() or not row.isprintable() or len(row) > 48
-                   for row in spec["interior"])):
+            or not isinstance(spec["deck"], list) or not 5 <= len(spec["deck"]) <= 12
+            or any(not isinstance(row, str) or not row.isascii() or len(row) != len(spec["deck"][0])
+                   or not 9 <= len(row) <= 48 or set(row) - set("#.+HRFCE")
+                   for row in spec["deck"])
+            or any(sum(row.count(glyph) for row in spec["deck"]) != 1 for glyph in "HRFCE")):
         raise CatalogError(f"invalid vehicle definition: {vehicle_id}")
+    rows = spec["deck"]
+    if any(tile != "#" for tile in rows[0] + rows[-1]) or any(row[0] != "#" or row[-1] != "#" for row in rows):
+        raise CatalogError(f"vehicle deck must have a closed hull: {vehicle_id}")
+    start = next((x, y) for y, row in enumerate(rows) for x, tile in enumerate(row) if tile == "E")
+    seen, frontier = {start}, [start]
+    while frontier:
+        x, y = frontier.pop()
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            other = x + dx, y + dy
+            if other not in seen and rows[other[1]][other[0]] != "#":
+                seen.add(other)
+                frontier.append(other)
+    if any((x, y) not in seen for y, row in enumerate(rows) for x, tile in enumerate(row) if tile in "HRFC"):
+        raise CatalogError(f"vehicle deck has an unreachable fixture: {vehicle_id}")
 if SPECS["tug"]["domain"] != "water":
     raise CatalogError("the tug must navigate water")
 
@@ -325,6 +341,33 @@ def service(state: GameState, *, repair: bool = False):
     return _plain(state, "Bring a charcoal lot, or refuel for one credit at a mooring or vehicle stand.")
 
 
+def deck_rows(vehicle_id: str) -> tuple[str, ...]:
+    return tuple(SPECS[vehicle_id]["deck"])
+
+
+def interior_entry(vehicle_id: str) -> Position:
+    rows = deck_rows(vehicle_id)
+    return next(Position(x, y) for y, row in enumerate(rows)
+                for x, tile in enumerate(row) if tile == "E")
+
+
+def interior_step(vehicle_id: str, point: Position, dx: int, dy: int) -> Position:
+    rows = deck_rows(vehicle_id)
+    target = Position(point.x + dx, point.y + dy)
+    if not 0 <= target.y < len(rows) or not 0 <= target.x < len(rows[0]):
+        return point
+    if rows[target.y][target.x] == "#":
+        return point
+    if dx and dy and rows[point.y + dy][point.x] == "#" and rows[point.y][point.x + dx] == "#":
+        return point
+    return target
+
+
+def interior_fixture(vehicle_id: str, point: Position) -> str:
+    rows = deck_rows(vehicle_id)
+    return rows[point.y][point.x]
+
+
 def interior_lines(state: GameState) -> tuple[str, list[str]]:
     vehicle = active_vehicle(state)
     if vehicle is None:
@@ -332,11 +375,11 @@ def interior_lines(state: GameState) -> tuple[str, list[str]]:
     spec = SPECS[vehicle.id]
     lines = [
         f"{spec['name']} — {spec['domain']} navigation",
-        *spec["interior"],
+        *spec["deck"],
         f"Reserve: {vehicle.fuel}/{spec['capacity']} {spec['resource']}; frame {vehicle.condition}/{spec['condition']}.",
         f"Location: {state.active_region_id if state.location == 'region' else 'open water'} at {vehicle.position.x},{vehicle.position.y}.",
-        "Arrows/HJKL steer. E disembarks on safe ground or a mooring.",
-        "R service reserve; F repair frame; Escape returns to the landscape.",
+        "Tab opens this walkable deck from the landscape; E uses the fixture underfoot.",
+        "H helm, R reserve, F frame, C cargo manifest, E hatch. Tab/Escape returns to steering.",
     ]
     if vehicle.id == "tug":
         lines.append("J marks Jomon; L marks the regional shore.")

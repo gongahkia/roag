@@ -171,7 +171,9 @@ def validate_region(region: Region) -> None:
         required.add(elevated)
     required.update(container.position for container in region.containers)
     required.update(region.landmarks[key] for key in (
-        "sanctum_entry", "sanctum_shrine", "sanctum_undercroft", "sanctum_ward", "sanctum_boss"
+        "sanctum_entry", "sanctum_shrine", "sanctum_undercroft", "sanctum_ward", "sanctum_boss",
+        "sanctum_side_stair", "sanctum_secret", "field_upper", "field_lower",
+        "landform_0", "landform_1", "landform_2",
     ) if key in region.landmarks)
     if not required <= reachable:
         missing = required - reachable

@@ -28,9 +28,14 @@ frame wear. Multi-cell orders stop at an encounter, physical site, or hazardous
 tile so speed does not skip its effects. Road vehicles stop at water, walls, and actors; diagonal moves
 cannot cut a pinched corner. The tug can row at zero coal, and the glider can
 trim its wings without aether: one cell per two actions, so either can reach a
-landing after its charge is spent. `Tab` zooms into
-the vehicle's ASCII interior. There, `R` services the reserve and `F` repairs
-the frame. A horse or rootwalker rests for three actions; the glider consumes
+landing after its charge is spent. `Tab` opens a top-down, walkable cabin
+whose `@` marker is separate from the vehicle's world-map position. Arrows or
+`HJKL` move within its connected rooms without advancing the world clock.
+Stand on `R` and press `E` to service the reserve, or on `F` to repair the
+frame; `H` is the helm, `C` the cargo rack, and `E` the hatch. Press `E` on
+the helm or hatch, or `Tab`/Escape anywhere, to return to steering. Cabin
+service uses the ordinary action clock. A horse or rootwalker rests for three
+actions; the glider consumes
 two courier mana for twelve charge; tug and crawler use one carried charcoal
 lot or buy a counted charge for one credit at a mooring or stand. A repair at
 a stand costs one credit and two actions, restoring four frame points. An
@@ -39,6 +44,6 @@ available. Invalid or blocked commands spend neither charge nor world time.
 
 Vehicle positions, charge, wear, and the tug's outward/return leg were added in
 Jomon format 11 and remain in format 12. Format-10 saves gain parked vehicles without changing the
-courier's existing location or progress. The vehicle catalogue and interior
-art are in `jomon/data/vehicles.json`; traversal and validation live in
+courier's existing location or progress. The vehicle catalogue and deck
+floorplans are in `jomon/data/vehicles.json`; traversal and validation live in
 `jomon/vehicles.py`. No Dullest Dungeon or tavern-game rules are changed.

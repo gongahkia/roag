@@ -205,9 +205,9 @@ def harm_enemy(
 
         dropped = release_enemy_possession(state, actor) + drop_enemy_equipment(state, actor)
         if state.location == "region":
-            from .sanctums import record_boss_defeat
+            from .sanctums import record_site_defeat
 
-            record_boss_defeat(state, actor)
+            record_site_defeat(state, actor)
     return EnemyHarm(dealt, location, protection_name, injury, actor.health == 0, dropped)
 
 

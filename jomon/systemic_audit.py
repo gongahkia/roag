@@ -52,10 +52,12 @@ def inspect_world(state):
     validate_ecology(state)
     for region_id, region in state.regions.items():
         reachable = region_reachable(region)
-        required = {point for key, point in region.landmarks.items() if key in {"landing", "contact", "second_contact", "objective", "control", "cave_entrance", "elevated", "high_view", "sanctum_entry", "sanctum_shrine", "sanctum_undercroft", "sanctum_ward", "sanctum_boss"}}
+        required = {point for key, point in region.landmarks.items() if key in {"landing", "contact", "second_contact", "objective", "control", "cave_entrance", "elevated", "high_view", "sanctum_entry", "sanctum_shrine", "sanctum_undercroft", "sanctum_ward", "sanctum_boss", "sanctum_side_stair", "sanctum_secret", "field_upper", "field_lower", "landform_0", "landform_1", "landform_2"}}
         required.update(container.position for container in region.containers)
         if len([box for box in region.containers if "-sanctum-" in box.id]) != 2:
             failures.append(f"{region_id}: incomplete physical sanctum stores")
+        if any(key not in region.landmarks for key in ("sanctum_secret", "sanctum_side_stair", "field_upper", "field_lower", "landform_0", "landform_1", "landform_2")):
+            failures.append(f"{region_id}: incomplete multi-level side routes or landforms")
         if not required <= reachable:
             failures.append(f"{region_id}: unreachable objective, contact or container")
         if len({point.z for point in reachable}) < 3:
@@ -94,7 +96,9 @@ def inspect_world(state):
                     if not (0 <= point.x < region.width and 0 <= point.y < region.height and str(point.z) in region.levels):
                         failures.append(f"{region_id}: evidence outside region")
         metric = topology(region, reachable)
-        metric.update(containers=len(region.containers), actors=len(actors), histories=len(region.regional_history))
+        metric.update(containers=len(region.containers), actors=len(actors), histories=len(region.regional_history),
+                      landforms=sum(f"landform_{index}" in region.landmarks for index in range(3)),
+                      side_structures=sum(key in region.landmarks for key in ("field_upper", "field_lower")))
         metrics[region_id] = metric
         if metric["ground_open_ratio"] < .1 or not metric["ground_cycle_rank_lower_bound"]:
             failures.append(f"{region_id}: insufficient open ground or loops")

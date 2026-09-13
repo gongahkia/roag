@@ -239,6 +239,8 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
         last_day=state.world_time // ACTIONS_PER_DAY,
     ))
     institution.service, institution.opposition_reason = INSTITUTION_SERVICES[region_id]
+    landforms = {key: value for key, value in region.generation_facts.items()
+                 if key.startswith("landform:") or key in {"field_upper", "field_lower"}}
     region.generation_facts = {
         "version": 1, "watershed": water, "exposure": exposure,
         "geology": geology, "climate": climate,
@@ -246,6 +248,7 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
         "work": production, "dependency": dependency,
         "crisis": crisis, "repair": recovery,
         "evidence_mode": "physical" if new_geography else "inherited testimony",
+        **landforms,
     }
     contacts = state.contacts[region_id]
     witness = contacts[-1]
@@ -525,6 +528,10 @@ def ledger_lines(state: GameState) -> list[str]:
     lines += [str(region.changes.get("last_work_account", "No new shift has been resolved in this account.")), ""]
     for event in region.regional_history:
         lines += [f"TESTIMONY — {event.account}", f"EVIDENCE — {event.evidence}: {event.consequence}", ""]
+    lines.extend(f"LANDFORM — {facts[key]}" for key in (*[f"landform:{index}" for index in range(3)], "field_upper", "field_lower") if key in facts)
+    if region.changes.get("sanctum:cleared"):
+        lines.append(f"SANCTUM — cleared; holding {region.changes.get('sanctum:control', 'unsettled')}; "
+                     f"gallery seam {'open' if region.changes.get('sanctum:secret_open') else 'unopened'}.")
     lines += ["FORECAST — " + forecast(state), "Information and menus cost no action. Supplies and work do."]
     from .worklines import WORKLINES, lines as work_lines
     if state.active_region_id in WORKLINES:

@@ -63,7 +63,8 @@ World controls:
 - `Enter` or `E`: interact, climb, open, speak, or operate;
 - at Jomon's gangplank, `E` walks ashore and `Tab` offers the steam tug;
 - in a regional vehicle, arrows or `HJKL` steer, `E` disembarks on safe ground,
-  and `Tab` opens a zoomed interior with service and repair controls;
+  and `Tab` opens its walkable top-down cabin; move to `R` or `F` and press `E`
+  to service or repair, or return to steering with `Tab`/Escape;
 - `A`: open the zero-time combat preview and target cursor for any readied
   weapon; `Tab` cycles only legal targets and `Enter` commits the chosen action;
 - `G`: guard, brace, continue a weapon reload, or hold position and listen;
@@ -289,13 +290,28 @@ Each region also has a seed-placed sanctum beside its cave route. Explore the
 undercroft and defeat its warder to read the seal, or use `E` at the nearby `*`
 shrine to offer one physical lot to the linked travelling institution or break
 the seal at a cost to that account. The stair leads through a divided ward
-gallery to a reliquary roof with a named boss. Bosses use regional combat AI,
+gallery to a reliquary roof with a named boss. Both upper levels now use seeded
+connected room graphs: a main route, alternative door loops, a side-gallery
+stair between levels, and a scored shortcut revealed by standing on its `*`
+mark and pressing `E` after studying the shrine clue. Bosses use regional combat AI,
 finite equipment and material duties; the two new chests are physical stores.
-One site event is drawn when a courier approaches per expedition: witness,
-claimant, warned stonefall, or a physical lost lot. Claimants and parcels are
-bounded per region over a saved world. Shrine standing affects
-the linked institution in both of its regions. Boss victory pays four credits
-and up to one Strategy once, while the reliquary remains separately lootable.
+One site event is drawn when a courier approaches per expedition: physical
+witness, claimant, elite surveyor, beast, warned stonefall, or a lost lot.
+Claimants, elites, beasts, and parcels are bounded over the saved world.
+After a boss falls, the holding is network, open, or disputed according to the
+shrine history and surviving claimants; later visits can contest it. At a
+network-held cleared site, `H` asks its witness to open the existing one-time
+route shelter in exchange for a recorded obligation. Shrine standing affects
+the linked institution in both of its regions. Boss victory
+pays four credits and up to one Strategy once, while the reliquary remains
+separately lootable.
+
+Three seeded, passable terrain pockets in every region use locally appropriate
+mud, thorns, scree, salt, smoke, shallows, or ice and existing footing effects.
+Each region also has a small reachable upper watch and lower chamber with
+real vertical links. Approaching the pockets or entering those side structures
+can reveal a finite beast, raider, elite, falling-stone hazard, or a physical
+traveller. The traveller can mark the upper watch's location or sell one actual lot.
 
 Closed containers use `C`; depleted containers use `o`. Each region also has
 two hidden field caches: inspect nearby terrain for a trace, approach to reveal

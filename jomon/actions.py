@@ -1468,6 +1468,11 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         site_event = approach_sanctum(state)
         if site_event:
             messages.append(site_event)
+        from .landscape_variation import approach as approach_landform
+
+        field_event = approach_landform(state)
+        if field_event:
+            messages.append(field_event)
     if kept_roof_aim:
         messages.append("The trained moving volley holds the bow lane through a safe step."
                         if state.courier and "moving-volley" in state.courier.skill_nodes
@@ -2082,6 +2087,11 @@ def interact(state: GameState) -> ActionResult:
     if state.position == state.region.landmarks.get("sanctum_undercroft"):
         changed, message = sanctum_undercroft(state)
         return _time_result(state, message, priority=3) if changed else _plain(state, message)
+    if state.position == state.region.landmarks.get("sanctum_secret"):
+        from .sanctums import open_secret
+
+        changed, message = open_secret(state)
+        return _time_result(state, message, priority=2) if changed else _plain(state, message)
     from .situations import interaction as situation_interaction
 
     situation_overlay = situation_interaction(state)
@@ -2133,6 +2143,9 @@ def interact(state: GameState) -> ActionResult:
         from .sanctums import enter_tier
 
         sanctum_note = enter_tier(state, destination)
+        from .landscape_variation import enter_structure
+
+        structure_note = enter_structure(state)
         from .quests import mark_elevated_lead
 
         marked_lead = mark_elevated_lead(state)
@@ -2140,6 +2153,7 @@ def interact(state: GameState) -> ActionResult:
             state,
             f"You use the {link.name}; nearby levels remain spatially aligned."
             + (f" {sanctum_note}" if sanctum_note else "")
+            + (f" {structure_note}" if structure_note else "")
             + (" Lower-limb injury or heavy armour makes the climb slow." if injured_climb or armour_climb else "")
             + (" Height reveals and marks a named treasure lead." if marked_lead else ""),
             steps=2 if injured_climb or armour_climb else 1,
@@ -2218,6 +2232,10 @@ def interact(state: GameState) -> ActionResult:
         None,
     )
     if second:
+        if second.id == f"sanctum:{state.active_region_id}:witness":
+            return ActionResult(False, False, f"{second.name} holds the sanctum account.", "sanctum")
+        if second.id == f"landform:{state.active_region_id}:traveller":
+            return ActionResult(False, False, f"{second.name} offers a route mark and one counted lot.", "field-traveller")
         quest = state.questlines[state.active_region_id]
         if quest.stage == 2 and quest.status == "resolution":
             return ActionResult(

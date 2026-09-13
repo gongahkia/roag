@@ -1392,6 +1392,10 @@ def game_state_from_dict(data: Any) -> GameState:
 
         for installed_region in state.regions.values():
             install_sanctum(installed_region, state.seed)
+        from .landscape_variation import install as install_landforms
+
+        for installed_region in state.regions.values():
+            install_landforms(installed_region, state.seed)
         if migrated_v10:
             from .vehicles import initialise_vehicles
 

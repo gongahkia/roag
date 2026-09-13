@@ -91,6 +91,16 @@ in exploration memory. Each region also forges one finite working object from
 its actual crisis, repair, witness and institutional claim. Marks persist, but
 they do not open or move the physical container.
 
+Three region-specific, passable landform pockets are seeded onto spare ground
+without replacing roads or named anchors. Each region adds one reachable upper
+watch and one lower chamber as separate aligned spaces. Their first approach
+per expedition can bring a finite beast, raider, elite, physical traveller, or
+warned stonefall. The eight sanctums also now carve connected room graphs
+with optional loops, a second inter-tier stair, and an interactable scored
+shortcut. A boss clear records a persistent site holding; later visits draw
+encounters from its network, open, or disputed state. This reuses the existing
+institution account rather than adding a second faction score.
+
 The causal layers have multiple downstream consumers. Geology changes terrain,
 structure damage, work goods, armour and encounter equipment. Flood and fire
 history change current tiles, controls, testimony, stock, duties and cache
