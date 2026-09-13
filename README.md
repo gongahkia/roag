@@ -272,6 +272,12 @@ The latter four are generated on first visit. The systemic expansion's exact
 acceptance and play evidence are recorded in the
 [live assessment](docs/systemic-world-milestone.md).
 
+New worlds choose a seeded landing approach and one of four aligned map
+orientations for each region. A second route and local terrain patches alter
+the approach without moving links, stores, actors, or process effects away from
+their sites. The same seed reproduces the layout; an existing save keeps its
+stored map.
+
 Each uses aligned underground, ground, upper, and roof levels. The camera
 follows the courier. Current line-of-sight is rendered normally, remembered
 terrain is dim, and moving actors never remain in exploration memory. Terrain,
@@ -279,10 +285,13 @@ doors, elevation, smoke, weather, interiors, and caves change sight. Tides,
 burn wind, quarry instability, patrol travel, and Hearthford flooding change
 only after accepted actions.
 
-Closed containers use `C`; depleted containers use `o`. Hearthford has nine;
-Greywash, Greenwold and Whitecairn have seven each; each frontier has eight,
-for 62 persistent containers when all destinations have been visited. Contact
-clues and working records can mark optional treasure in exploration memory.
+Closed containers use `C`; depleted containers use `o`. Each region also has
+two hidden field caches: inspect nearby terrain for a trace, approach to reveal
+the store, then use its light, rope, or key requirement to open it. The first
+field discovery in a region grants one Wayfinding. Hearthford has eleven
+containers; Greywash, Greenwold and Whitecairn have nine each; each frontier
+has ten, for 78 persistent containers when all destinations have been visited.
+Contact clues and working records can mark optional treasure in exploration memory.
 Pack shape and weight are independent constraints. Light, laden, encumbered, and
 overloaded states visibly affect noise, pacing, climbing, water, retreat, and
 fragile footing.
@@ -382,7 +391,7 @@ number.
 One atomic JSON save is stored at `$XDG_DATA_HOME/jomon/jomon-save.json`, or
 `~/.local/share/jomon/jomon-save.json` when `XDG_DATA_HOME` is unset. Set
 `JOMON_DATA_DIR` to override the directory for development or tests. Save format
-11 is current; earlier formats 3–10 migrate in sequence. Format 7's migration
+14 is current; earlier formats 3–13 migrate in sequence. Format 7's migration
 from Python format 6 preserves people,
 regions, exploration, exact item layouts, cargo, contacts, markets, integrity,
 and voyage history. New sparse material fields, travelling accounts and

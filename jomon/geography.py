@@ -5,26 +5,28 @@ from __future__ import annotations
 import hashlib
 import heapq
 
+from .catalog import CatalogError, load_catalog
 from .state import Position, Region, stage_rng
 
 
 LAYOUTS = ("original", "east", "south", "east-south")
-SIDE_ROUTES = {
-    "hearthford": (("watchtower", "mill"), ("settlement", "cave_entrance")),
-    "greywash": (("saltworks", "wreck"), ("dunes", "chain_house")),
-    "greenwold": (("clearing", "root_cellar"), ("watch_tree", "resin_yard")),
-    "whitecairn": (("quarry", "lime_kiln"), ("settlement", "sinkhole")),
-    "dunmire": (("ruin", "store"), ("settlement", "far_bank")),
-    "rillscar": (("ruin", "far_bank"), ("settlement", "store")),
-    "marlbank": (("ruin", "store"), ("settlement", "far_bank")),
-    "frostmere": (("ruin", "far_bank"), ("settlement", "store")),
-}
-GROUND_PATCHES = {
-    "hearthford": ("m", "t"), "greywash": ("m", ","),
-    "greenwold": ("t", "m"), "whitecairn": ("r", "q"),
-    "dunmire": ("m", ","), "rillscar": ("r", "q"),
-    "marlbank": ("m", ","), "frostmere": ("r", ","),
-}
+_CATALOG = load_catalog("geography.json", ("SIDE_ROUTES", "GROUND_PATCHES", "FIELD_SECRETS"))
+SIDE_ROUTES = _CATALOG["SIDE_ROUTES"]
+GROUND_PATCHES = _CATALOG["GROUND_PATCHES"]
+FIELD_SECRETS = _CATALOG["FIELD_SECRETS"]
+if not all(isinstance(section, dict) and set(section) == set(SIDE_ROUTES) for section in (SIDE_ROUTES, GROUND_PATCHES, FIELD_SECRETS)):
+    raise CatalogError("geography sections must cover the same regions")
+for region_id in SIDE_ROUTES:
+    routes, patches, secrets = SIDE_ROUTES[region_id], GROUND_PATCHES[region_id], FIELD_SECRETS[region_id]
+    if (not isinstance(routes, list) or len(routes) != 2
+            or any(not isinstance(row, list) or len(row) != 2 or any(not isinstance(name, str) for name in row) for row in routes)):
+        raise CatalogError(f"{region_id} has invalid side routes")
+    if not isinstance(patches, list) or len(patches) != 2 or any(not isinstance(glyph, str) or len(glyph) != 1 for glyph in patches):
+        raise CatalogError(f"{region_id} has invalid terrain patches")
+    if (not isinstance(secrets, list) or len(secrets) != 2
+            or any(not isinstance(row, list) or len(row) != 6 or any(not isinstance(value, str) or not value for value in row)
+                   or row[4] not in {"light", "key", "rope"} for row in secrets)):
+        raise CatalogError(f"{region_id} has invalid field secrets")
 
 
 def layout_for(seed: str, region_id: str) -> str:

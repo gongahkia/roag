@@ -54,8 +54,11 @@ class WorldLayoutTests(unittest.TestCase):
         cache = next(box for box in state.region.containers if box.hidden)
         self.assertNotEqual(displayed_tile(state, cache.position), "C")
         state.position = cache.position
+        wayfinding = state.courier.wayfinding
         self.assertTrue(reveal_nearby(state))
         self.assertTrue(cache.discovered)
+        self.assertEqual(state.courier.wayfinding, min(20, wayfinding + 1))
+        self.assertIn(f"{cache.position.x},{cache.position.y},{cache.position.z}", state.region.seen)
         state.gear = "repair tools" if cache.requirement == "key" else "rope" if cache.requirement == "rope" else "hooded lantern"
         result = interact(state)
         self.assertTrue(result.time_advanced)
@@ -67,6 +70,7 @@ class WorldLayoutTests(unittest.TestCase):
         restored = next(box for box in loaded.region.containers if box.id == cache.id)
         self.assertTrue(restored.discovered)
         self.assertTrue(restored.opened)
+        self.assertTrue(loaded.region.changes["field_discovery_trained"])
         self.assertEqual(loaded.region.changes["macro_layout"], state.region.changes["macro_layout"])
 
 

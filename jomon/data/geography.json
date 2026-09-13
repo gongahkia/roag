@@ -1,0 +1,56 @@
+{
+  "SIDE_ROUTES": {
+    "hearthford": [["watchtower", "mill"], ["settlement", "cave_entrance"]],
+    "greywash": [["saltworks", "wreck"], ["dunes", "chain_house"]],
+    "greenwold": [["clearing", "root_cellar"], ["watch_tree", "resin_yard"]],
+    "whitecairn": [["quarry", "lime_kiln"], ["settlement", "sinkhole"]],
+    "dunmire": [["ruin", "store"], ["settlement", "far_bank"]],
+    "rillscar": [["ruin", "far_bank"], ["settlement", "store"]],
+    "marlbank": [["ruin", "store"], ["settlement", "far_bank"]],
+    "frostmere": [["ruin", "far_bank"], ["settlement", "store"]]
+  },
+  "GROUND_PATCHES": {
+    "hearthford": ["m", "t"],
+    "greywash": ["m", ","],
+    "greenwold": ["t", "m"],
+    "whitecairn": ["r", "q"],
+    "dunmire": ["m", ","],
+    "rillscar": ["r", "q"],
+    "marlbank": ["m", ","],
+    "frostmere": ["r", ","]
+  },
+  "FIELD_SECRETS": {
+    "hearthford": [
+      ["cave_entrance", "reed-silt", "Reed-silt survey roll", "willow dressing", "light", "fresh reed cuts beside an older silt mark"],
+      ["watchtower", "watch-foundation", "Watch foundation pocket", "boar spear", "key", "a loose foundation stone below the old watch"]
+    ],
+    "greywash": [
+      ["wreck", "ebb-line", "Ebb-line salvage pouch", "brine wash", "light", "a line of dry salt ending at buried tackle"],
+      ["dunes", "dune-pin", "Dune survey pin box", "fletched arrows", "rope", "a marked pin half hidden in wind-cut sand"]
+    ],
+    "greenwold": [
+      ["root_cellar", "root-hollow", "Root-hollow medicine wrap", "pine resin dressing", "light", "a cut root with fresh charcoal below its bark"],
+      ["watch_tree", "canopy-fall", "Canopy-fall hunting bundle", "throwing javelins", "rope", "a snapped cord leading away from the watch tree"]
+    ],
+    "whitecairn": [
+      ["sinkhole", "scree-seam", "Scree-seam brace packet", "limestone wedge", "light", "a seam of pale chips at the sink edge"],
+      ["bell_tower", "bell-shadow", "Bell-shadow tool roll", "splint roll", "key", "a false bell mark scratched into exposed stone"]
+    ],
+    "dunmire": [
+      ["cave_entrance", "peat-print", "Peat-print dry packet", "sealed pitch pot", "light", "a dry boot print crossing wet peat"],
+      ["ruin", "bank-notch", "Bank-notch wicker wrap", "willow dressing", "rope", "an old water notch above the present fen line"]
+    ],
+    "rillscar": [
+      ["far_bank", "span-pin", "Span-pin survey case", "fletched arrows", "rope", "a second bridge pin driven into the rock"],
+      ["cave_entrance", "iron-vein", "Iron-vein bracing bundle", "splint roll", "light", "dark iron dust beneath a fresh stone chip"]
+    ],
+    "marlbank": [
+      ["ruin", "seed-line", "Seed-line lime packet", "sealed lime pot", "light", "seed rows bending around a buried clay lid"],
+      ["store", "kiln-mark", "Kiln-mark tally pouch", "market weights", "key", "a potter's mark on the cool side of the terrace"]
+    ],
+    "frostmere": [
+      ["far_bank", "ice-sounding", "Ice-sounding pilot wrap", "brine wash", "rope", "two winter soundings cut into one gravel bar"],
+      ["cave_entrance", "net-drift", "Net-drift salvage packet", "fletched arrows", "light", "a net weight caught well above the tide"]
+    ]
+  }
+}

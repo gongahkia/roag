@@ -44,6 +44,12 @@ gravel islands, net work, a winter loft and sheltered crossings. These four
 families are generated on first visit and thereafter retain their exact sparse
 changes.
 
+Every new regional map selects one of four seeded horizontal/vertical
+orientations and one of three landing approaches. Side-route anchors and local
+passable terrain patches are chosen by independent seed stages. All map layers,
+landmarks, links, containers, zones, actors, process cells, and frontier scars
+share the same coordinate transform; saved maps do not regenerate on reload.
+
 Each footprint has aligned levels `-1`, `0`, `1`, and `2`. Explicit links join
 caves/cellars, ground, upper works, canopy/gantries, and roofs. Validation checks
 the contact, objective, underground entrance, elevated landmark, every
@@ -73,9 +79,12 @@ physical: one build item, one armour item, and one finite supply. Pack cells and
 weight can force the player to rotate, rearrange, leave, drop, or surrender a
 reward.
 
-Each region also has an authored marked cache; Hearthford has nine stores, the
-other established regions seven each, and the four frontier regions eight each,
-for 62 containers overall. Contact testimony, elevation, regional material
+Each region also has an authored marked cache and two hidden field caches;
+Hearthford has eleven stores, the other established regions nine each, and the
+four frontier regions ten each, for 78 containers overall. Field traces appear
+when inspected close up, and approaching a hidden site resolves it into a
+physical cache. One first discovery per region trains Wayfinding; the store
+still needs its stated light, rope, or key. Contact testimony, elevation, regional material
 signs and five-event histories offer independent ways to mark optional treasure
 in exploration memory. Each region also forges one finite working object from
 its actual crisis, repair, witness and institutional claim. Marks persist, but
