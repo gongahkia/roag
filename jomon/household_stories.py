@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .catalog import AFTERMATH_SECTIONS, load_catalog
 from .state import GameState
 
 
@@ -15,11 +16,7 @@ class HouseholdStory:
     premise: str
 
 
-STORIES = (
-    HouseholdStory("empty-watch", "The watch after an empty place", "four returned expeditions", "The household must name how a missing, injured, succeeded, or simply exhausted watch is carried by the living."),
-    HouseholdStory("repair-share", "The repair share", "four voyages and a damaged or previously repaired Jomon", "The hull account has become personal: timber, injuries, credit and remembered work no longer divide neatly."),
-    HouseholdStory("eight-waters", "Eight waters under one roof", "both household developments and outcomes in four regions", "Jomon's household compares four changed places, institutional accounts and its own scars before naming what kind of carrier it has become."),
-)
+STORIES = tuple(HouseholdStory(**row) for row in load_catalog("aftermath.json", AFTERMATH_SECTIONS)["household_stories"])
 
 BY_ID = {row.id: row for row in STORIES}
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from .catalog import AFTERMATH_SECTIONS, load_catalog
 if TYPE_CHECKING:
     from .state import GameState, Position
 
@@ -18,27 +19,7 @@ class Preparation:
     condition: str
 
 
-PREPARATIONS = {
-    preparation.name: preparation
-    for preparation in (
-        Preparation("race-gate chalk", "flood-mark circuit", "waterline", "Lowers up to three nearby shallow-water layers and records the worked waterline.", "nearby released or material water"),
-        Preparation("tallow gear wrap", "wheel-timber account", "weapon-repair", "Restores 30 condition to the physical readied weapon; the greasy wrap is spent.", "a damaged readied weapon"),
-        Preparation("storm wick", "storm-beacon line", "storm-light", "Restores two lamp measures and clears two nearby smoke fields under a sheltered hood.", "spent lamp oil or nearby smoke"),
-        Preparation("wreck cork sling", "shifted-wreck recovery", "item-recovery", "Floats one nearby loose physical item directly into the pack when space permits.", "a ground item within four paces and pack room"),
-        Preparation("damp ember blanket", "medicine boundary", "fire-blanket", "Smothers up to four nearby fires and burning hostile conditions without creating new water.", "nearby fire or a burning hostile"),
-        Preparation("resin firebrand", "charcoal cut audit", "firebrand", "Ignites one dry adjacent fuel without lamp oil; the flare makes the courier's position known.", "dry adjacent reeds, timber, cloth, resin, oil, or charcoal"),
-        Preparation("stair sounding cord", "warning stair", "high-sounding", "From elevation, marks the nearest unread cache while its sounding alerts nearby listeners.", "an elevated regional position and unread cache"),
-        Preparation("scree binding", "toll-brace recovery", "footing", "Clears poor footing or cut feet and preserves one guarded reposition.", "poor footing or cut-feet status"),
-        Preparation("peat bank plug", "raised peat walk", "bank-plug", "Lowers nearby water and seats one support in the same worked soil or timber cell.", "nearby wet soil or timber"),
-        Preparation("fen ration cake", "submerged fuel mark", "ration", "Clears one fatigue, chill, or smoke-inhalation pressure and restores one health.", "fatigue, chill, smoke inhalation, or lost health"),
-        Preparation("bridge dog pair", "switchback brace", "bridge-dogs", "Seats up to two nearby damaged supports; the hammering reports to listeners.", "nearby damaged timber or stone support"),
-        Preparation("echo muffler", "convoy counterweight", "aim-break", "Breaks up to three visible prepared hostile lanes and dampens accumulated noise.", "a nearby prepared hostile lane or accumulated noise"),
-        Preparation("fired drainage tile", "seed-bed drainage", "drain-tile", "Turns one adjacent mud cell into a dry, ash-marked drainage footing.", "adjacent mud"),
-        Preparation("kiln sand pouch", "abandoned kiln quench", "kiln-sand", "Quenches one adjacent fire, strips three fuel, and leaves concealing ash smoke.", "an adjacent material fire"),
-        Preparation("marked ice peg", "sheltered channel stakes", "ice-peg", "In winter, freezes one adjacent fresh shallow into marked footing and rings once.", "winter and adjacent unfired fresh water"),
-        Preparation("thaw kettle sachet", "broken-ice net recovery", "thaw", "Spends one lamp measure or nearby fire to thaw three ice cells and clear chill.", "nearby ice plus sheltered heat"),
-    )
-}
+PREPARATIONS = {row["name"]: Preparation(**row) for row in load_catalog("aftermath.json", AFTERMATH_SECTIONS)["preparations"]}
 
 TOPOLOGY_PREPARATION = {
     preparation.topology: preparation.name for preparation in PREPARATIONS.values()

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .catalog import VESSEL_SECTIONS, load_catalog
 
 @dataclass(frozen=True)
 class VesselRefit:
@@ -16,22 +17,7 @@ class VesselRefit:
     drawback: str
 
 
-REFITS = {
-    refit.id: refit
-    for refit in (
-        VesselRefit("galley-fire-cover", "Galley fire cover", "galley", "wool", 2, "Galley fire starts with less fuel; emergency work and meals take one fewer action.", "The cover occupies dry wool that cannot be traded."),
-        VesselRefit("twin-bilge-strainers", "Twin bilge strainers", "bilge", "ironwork", 3, "Flood crises admit less initial water and pumping takes one action.", "Strainers do not repair an open hull seam."),
-        VesselRefit("storm-backstay", "Storm backstay", "repair", "timber", 3, "Storm supports start stronger and emergency work no longer requires a readied rope.", "A failing stay still needs the courier at its physical upper-deck station."),
-        VesselRefit("cargo-rail-netting", "Cargo rail netting", "storage", "wool", 3, "The first cargo loss in each voyage is caught and deck thieves start entangled.", "Cut netting makes the next loss ordinary; it does not defeat boarders."),
-        VesselRefit("sounding-keel-shoes", "Sounding keel shoes", "helm", "ironwork", 4, "Careful shoal work takes one fewer action and a forced scrape costs one integrity.", "The extra iron makes severe mineral resonance more conspicuous."),
-        VesselRefit("winter-hatch-felt", "Winter hatch felt", "berths", "wool", 2, "Winter route exposure falls and aboard floodwater does not chill the courier.", "Felt does not prevent wetness, load, or regional cold."),
-        VesselRefit("signal-mast-shutter", "Signal mast shutter", "lookout", "timber", 3, "Named signals answer lure and inspection voyages without specialist support.", "The visible answer records Jomon on the route account."),
-        VesselRefit("sickbay-sling-cot", "Sickbay sling cot", "berths", "timber", 3, "A berth treatment can spend wool and six actions to clear one persistent injury.", "Treatment consumes time and material; it does not restore lost health."),
-        VesselRefit("vessel-field-forge", "Vessel field forge", "repair", "ironwork", 5, "The repair station can smelt and forge finite material while Jomon is moored.", "Heavy hot work is unavailable during a voyage or deck crisis."),
-        VesselRefit("vessel-glass-still", "Vessel glass still", "galley", "paper", 5, "The galley can brew and distil finite carried ingredients while moored.", "Its vessels still need gathered reagents and empty physical flasks."),
-        VesselRefit("vessel-gunworks", "Vessel gunworks", "storage", "ironwork", 7, "The storage station can fabricate guns and counted fictional charges while moored.", "Loud work and finite stock never create free ammunition."),
-    )
-}
+REFITS = {row["id"]: VesselRefit(**row) for row in load_catalog("vessel.json", VESSEL_SECTIONS)["refits"]}
 
 STATION_REFITS = {
     station: tuple(refit.id for refit in REFITS.values() if refit.station == station)

@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 
+from .catalog import EQUIPMENT_SECTIONS, load_catalog
 
 @dataclass(frozen=True)
 class WorkingWeapon:
@@ -25,32 +26,12 @@ class WorkingStrike:
     guarded: bool = False
 
 
+_EQUIPMENT = load_catalog("equipment.json", EQUIPMENT_SECTIONS)
 WORK_WEAPONS = {
-    "pot sling": WorkingWeapon("Cooper's pot sling", (2, 3), 3, 6, 3, 0, 3, "P selects a finite pitch, lime or brine pot; Enter casts at a visible cell three to six paces away. The shared reaction can harm anyone.", ("dunmire", "marlbank")),
-    "throwing axe": WorkingWeapon("Balanced throwing axe", (2, 3), 4, 5, 1, 3, 3, "Throws the actual readied axe onto the impact cell, leaving an empty weapon slot. It weakens timber support and must be physically recovered.", ("rillscar", "frostmere")),
-    "forked pike": WorkingWeapon("Forked ward pike", (2, 5), 7, 3, 2, 1, 2, "Pins the target and one neighbour across its forward line, buying one turn against a pair. Adjacent foes are inside the forks.", ("marlbank", "rillscar")),
-    "war flail": WorkingWeapon("Jointed threshing flail", (2, 4), 6, 2, 1, 2, 4, "One exposed wind-up precedes a sweep through nearby foes. Moving abandons the wind-up; the wide head also harms a nearby convoy escort.", ("marlbank", "dunmire")),
-    "spade": WorkingWeapon("Bank cutter's spade", (2, 4), 5, 1, 1, 1, 2, "Cuts reeds and digs banks with F. A strike from dry soil or ash throws sight-obscuring dust; wet or stone footing gives no dust.", ("dunmire", "frostmere")),
-    "shield and hanger": WorkingWeapon("Boarding shield and hanger", (3, 3), 8, 3, 1, 1, 4, "A clear, dry, same-level approach closes up to two paces under guard before a short cut. An encumbered load or injured leg cannot charge.", ("rillscar", "frostmere")),
-    "glaive": WorkingWeapon("Coppice glaive", (2, 5), 7, 3, 2, 2, 3, "Keeps a two-pace minimum and clips one body beside the target. Close inside the blade or separate the line.", ("greenwold", "marlbank")),
-    "pollaxe": WorkingWeapon("Quarry pollaxe", (2, 4), 8, 2, 1, 3, 4, "The hammer and beak punish protectors, elites and machinery, and the back spike damages timber support.", ("whitecairn", "rillscar")),
-    "arming sword": WorkingWeapon("Watch arming sword", (1, 4), 5, 1, 1, 2, 2, "A measured cut leaves a guarded counter-posture while reducing the target's willingness to press.", ("hearthford", "frostmere")),
-    "long knife": WorkingWeapon("Smokehouse long knife", (1, 3), 2, 1, 1, 1, 0, "A silent close cut interrupts a marked ranged aim. Its small edge is poor for force or reach.", ("greywash", "dunmire")),
-    "boat hook": WorkingWeapon("Long-shafted boat hook", (2, 5), 6, 3, 2, 1, 2, "Pulls a body one pace, or two from flooded ground, turning channels into a rescue or separation tool.", ("greywash", "frostmere")),
-    "flanged mace": WorkingWeapon("Gatewatch flanged mace", (2, 3), 6, 1, 1, 2, 3, "A compact impact breaks three morale; distance and disciplined protection answer it.", ("hearthford", "rillscar")),
-    "estoc": WorkingWeapon("Needle estoc", (1, 5), 5, 2, 1, 2, 2, "A narrow thrust gains two harm against protectors, elites and machinery but has no crowd control.", ("whitecairn", "marlbank")),
-    "felling axe": WorkingWeapon("Charcoal felling axe", (2, 4), 7, 1, 1, 3, 4, "A loud close cut removes two support from timber on the impact cell, opening routes or risking collapse.", ("greenwold", "dunmire")),
-    "quarterstaff": WorkingWeapon("Ferruled quarterstaff", (1, 5), 4, 2, 1, 1, 1, "Drives a target back and leaves a guarded stance, trading harm for space and safety.", ("hearthford", "marlbank")),
-    "reed sickle": WorkingWeapon("Fen reed sickle", (2, 2), 2, 1, 1, 1, 0, "Cuts reeds beneath a target into loose dry fuel and shakes animals; fire can exploit what remains.", ("greenwold", "dunmire")),
-    "anchor fluke": WorkingWeapon("Shingle anchor fluke", (3, 4), 9, 2, 1, 2, 5, "Pulls a target while flooded footing anchors the courier in guard. Weight and noise are its costs.", ("greywash", "frostmere")),
-    "chain hook": WorkingWeapon("Cut-chain hook", (3, 3), 6, 3, 2, 0, 4, "Entangles at reach for no direct harm; the target spends its next action cutting free.", ("whitecairn", "rillscar")),
+    name: WorkingWeapon(**{**row, "shape": tuple(row["shape"]), "regions": tuple(row["regions"])})
+    for name, row in _EQUIPMENT["work_weapons"].items()
 }
-
-POT_AMMUNITION = {
-    "pitch pots": "consumable:sealed pitch pot",
-    "lime pots": "consumable:sealed lime pot",
-    "brine pots": "consumable:sealed brine pot",
-}
+POT_AMMUNITION = dict(_EQUIPMENT["pot_ammunition"])
 
 
 def available_pots(state):

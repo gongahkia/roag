@@ -7,6 +7,20 @@ from importlib.resources import files
 from typing import Any
 
 
+VESSEL_SECTIONS = ("voyages", "hazard_stations", "variants", "echoes", "refits")
+AFTERMATH_SECTIONS = (
+    "lines", "topologies", "drainage_topologies", "fire_topologies",
+    "support_topologies", "recovery_topologies", "preparations",
+    "household_stories", "interferences",
+)
+EQUIPMENT_SECTIONS = (
+    "ammunition_items", "weapon_ammunition", "basic_courier_loadouts",
+    "basic_courier_armour", "item_specs", "regional_armour", "work_weapons",
+    "pot_ammunition", "arsenal", "bomb_ammunition", "fittings",
+    "enemy_regional_armour",
+)
+
+
 class CatalogError(ValueError):
     pass
 

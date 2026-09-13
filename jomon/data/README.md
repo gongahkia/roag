@@ -17,11 +17,15 @@ text: it can be reviewed in diffs and needs no compression tool or dependency.
 | `quests.json` | regional quests, rewards, and cross-region arcs |
 | `spells.json` | ordered spell rows; every four rows form one skill tier |
 | `skills.json` | ordered skill branches and starting role roots |
+| `vessel.json` | voyage cases, hazard stations, variants, echoes, and refits |
+| `aftermath.json` | revisit lines and topologies, preparations, household stories, cross-region callbacks |
+| `equipment.json` | physical item specifications, loadouts, ammunition, weapons, fittings, and regional armour |
 
 Keep existing IDs stable: saves reference them. Array order matters for
 situations, reactions, recipes, spells, and skill branches. Weapon-family
 recipes, spell tiers, skill prerequisites, and encounter behavior are still
-derived in Python. The catalogues load once at import, not during play.
+derived in Python. Route geometry, equipment effects, and aftermath reducers
+also remain Python rules. The catalogues load at import, not during play.
 
 After editing content, run:
 

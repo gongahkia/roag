@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .catalog import EQUIPMENT_SECTIONS, load_catalog
 
 @dataclass(frozen=True)
 class ArsenalWeapon:
@@ -24,65 +25,14 @@ class ArsenalWeapon:
         return f"{self.family.title()} arm; {self.minimum}-{self.reach} pace reach, {self.damage} base harm. {', '.join(self.effects)}.{cost}"
 
 
-ARSENAL: dict[str, ArsenalWeapon] = {}
-
-
-def _register(family: str, ammunition: str | None, rows: tuple[tuple, ...]) -> None:
-    for name, reach, minimum, damage, noise, effects, regions in rows:
-        ARSENAL[name] = ArsenalWeapon(name, family, reach, minimum, damage, noise, effects, regions, ammunition)
-
-
-_register("blade", None, (
-    ("river sabre", 1, 1, 2, 2, ("guard", "cut"), ("hearthford", "greywash")),
-    ("reed cleaver", 1, 1, 3, 3, ("reeds", "cut"), ("greenwold", "dunmire")),
-    ("court rapier", 2, 1, 2, 1, ("armour", "pierce"), ("hearthford", "whitecairn")),
-    ("crescent knife", 1, 1, 2, 0, ("interrupt", "cut"), ("dunmire", "marlbank")),
-    ("watch backsword", 1, 1, 3, 2, ("morale", "cut"), ("rillscar", "frostmere")),
-    ("hooked falchion", 2, 1, 2, 3, ("pull", "cut"), ("greywash", "rillscar")),
-))
-_register("reach", None, (
-    ("river partisan", 3, 2, 2, 2, ("push", "pierce"), ("hearthford", "greywash")),
-    ("three-prong trident", 3, 2, 1, 2, ("bind", "pierce"), ("greywash", "dunmire")),
-    ("coppice halberd", 3, 2, 3, 4, ("timber", "cut"), ("greenwold", "whitecairn")),
-    ("recurved naginata", 3, 2, 2, 2, ("sweep", "cut"), ("greenwold", "marlbank")),
-    ("ferry lance", 4, 3, 3, 4, ("charge", "pierce"), ("rillscar", "frostmere")),
-    ("iron-shod pole", 2, 1, 2, 2, ("guard", "blunt"), ("marlbank", "frostmere")),
-))
-_register("impact", None, (
-    ("quarry morningstar", 2, 1, 2, 4, ("morale", "blunt"), ("whitecairn", "rillscar")),
-    ("two-hand maul", 1, 1, 4, 5, ("timber", "blunt"), ("whitecairn", "marlbank")),
-    ("watch sap", 1, 1, 1, 0, ("interrupt", "blunt"), ("hearthford", "greywash")),
-    ("ore pick", 1, 1, 3, 3, ("armour", "pierce"), ("whitecairn", "frostmere")),
-    ("smith's hammer", 1, 1, 2, 3, ("push", "blunt"), ("marlbank", "rillscar")),
-    ("knotted club", 1, 1, 2, 1, ("bind", "blunt"), ("dunmire", "greenwold")),
-))
-_register("bow", "arrows", (
-    ("reed shortbow", 7, 2, 2, 1, ("quick", "pierce"), ("dunmire", "greywash")),
-    ("laminated recurve", 10, 2, 3, 2, ("aim", "pierce"), ("hearthford", "greenwold")),
-    ("horn composite bow", 11, 3, 3, 2, ("armour", "pierce"), ("rillscar", "frostmere")),
-    ("broadhead hunting bow", 9, 2, 3, 2, ("morale", "pierce"), ("greenwold", "dunmire")),
-    ("war yew bow", 13, 3, 4, 3, ("aim", "pierce"), ("whitecairn", "frostmere")),
-    ("line-caster bow", 6, 2, 1, 1, ("pull", "pierce"), ("greywash", "marlbank")),
-))
-_register("gun", "handgonne charges", (
-    ("matchlock arquebus", 10, 3, 4, 6, ("smoke", "pierce"), ("hearthford", "marlbank")),
-    ("deck swivel gun", 7, 3, 5, 8, ("push", "smoke", "blunt"), ("greywash", "rillscar")),
-    ("fowling piece", 8, 2, 3, 5, ("sweep", "smoke", "pierce"), ("greenwold", "dunmire")),
-    ("braced long gun", 13, 4, 5, 7, ("armour", "smoke", "pierce"), ("whitecairn", "frostmere")),
-    ("watch carbine", 8, 2, 3, 5, ("quick", "smoke", "pierce"), ("hearthford", "rillscar")),
-    ("signal pistol", 5, 1, 2, 6, ("morale", "smoke", "pierce"), ("greywash", "marlbank")),
-))
-_register("device", None, (
-    ("smoke bomb kit", 5, 2, 0, 3, ("smoke",), ("hearthford", "greywash")),
-    ("pitch bomb kit", 5, 2, 0, 4, ("pitch",), ("greenwold", "dunmire")),
-    ("lime bomb kit", 5, 2, 0, 4, ("lime",), ("whitecairn", "marlbank")),
-    ("brine bomb kit", 5, 2, 0, 3, ("brine",), ("greywash", "frostmere")),
-    ("thunder bomb kit", 4, 2, 1, 7, ("thunder",), ("rillscar", "frostmere")),
-    ("resin bomb kit", 5, 2, 0, 3, ("resin",), ("greenwold", "dunmire")),
-))
-
-BOMB_AMMUNITION = {name: f"consumable:{name}"
-                   for name in ("smoke bombs", "pitch bombs", "lime bombs", "brine bombs", "thunder bombs", "resin bombs")}
+_EQUIPMENT = load_catalog("equipment.json", EQUIPMENT_SECTIONS)
+ARSENAL: dict[str, ArsenalWeapon] = {
+    row["name"]: ArsenalWeapon(**{
+        **row, "effects": tuple(row["effects"]), "regions": tuple(row["regions"]),
+    })
+    for row in _EQUIPMENT["arsenal"]
+}
+BOMB_AMMUNITION = dict(_EQUIPMENT["bomb_ammunition"])
 
 
 def ammunition_for(name: str) -> str | None:

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .catalog import EQUIPMENT_SECTIONS, load_catalog
 from .state import GameState, Position, Threat, stage_rng
 
 
@@ -26,15 +27,7 @@ class EnemyHarm:
 
 
 REGIONAL_ARMOUR = {
-    "hearthford": ("boiled cap", "quilted jack"),
-    "greywash": ("reed brim", "reedscale vest"),
-    "greenwold": ("felt hood", "quilted jack"),
-    "whitecairn": ("ridge visor", "riveted coat"),
-    "dunmire": ("reed brim", "cork-backed coat"),
-    "rillscar": ("ridge visor", "riveted coat"),
-    "marlbank": ("kiln face wrap", "kiln apron"),
-    "frostmere": ("felt hood", "winter felt coat"),
-    "jomon": ("boiled cap", "quilted jack"),
+    region: tuple(names) for region, names in load_catalog("equipment.json", EQUIPMENT_SECTIONS)["enemy_regional_armour"].items()
 }
 
 

@@ -2,27 +2,13 @@
 
 from __future__ import annotations
 
+from .catalog import VESSEL_SECTIONS, load_catalog
 from .state import GameState, Position, Threat
 
-VOYAGES = {
-    "raiders": ("Cargo-rail raiders", "Hooked skiffs close on the cargo rail; their goal is theft and escape."),
-    "creature": ("Rudder grazer", "A broad-backed river grazer holds the rudder shoal. Height, bait or spaced strikes can free the vessel."),
-    "lure": ("The answering hull", "Mineral resonance makes familiar voices seem to call from the wrong bank. Chart, chain and named witnesses remain reliable."),
-    "boarders": ("The two-rail boarding", "A bowman holds the upper rail while a hook bearer approaches the stair. Break the lane, divide them across decks or buy passage."),
-    "hold-thieves": ("The loosened hatch", "A hold thief seeks a counted shipment below while a net bearer covers the hatch. Recover the physical lot before it escapes."),
-    "storm": ("A parting stay", "Wind works a cracked upper stay. The rigging at 55,10,+1 needs bracing; leaving it risks the hull and loose cargo."),
-    "shoal": ("The silt shoulder", "Newly deposited silt narrows the sounding. A slower pilot passage saves the hold; forcing it risks the hull."),
-    "driftwood": ("A raft without its rope", "Useful timber drifts past a broken carrier raft. A rope can secure one lot, but exposure delays the route."),
-    "galley-fire": ("The spilled lamp", "Lamp oil catches beside the galley. Water and the galley fire cover can smother it; smoke can reach the hatch."),
-    "split-seam": ("A working hull seam", "A lower seam admits water. The lower repair stores at 20,15,-1 can seat a brace before the hold takes more water."),
-    "flooded-hold": ("The loaded bilge", "Water has followed the cargo hatch below. Work the bilge at 8,15,-1 or accept damage and abandoned cargo."),
-    "inspection": ("A disputed cargo seal", "A river work patrol asks whose claim supports the cargo. Witnesses, paper or a declared payment can settle the inspection."),
-}
+_VESSEL = load_catalog("vessel.json", VESSEL_SECTIONS)
+VOYAGES = {kind: tuple(row) for kind, row in _VESSEL["voyages"].items()}
 TACTICAL = frozenset({"raiders", "creature", "boarders", "hold-thieves", "storm", "galley-fire", "split-seam", "flooded-hold"})
-HAZARD_STATIONS = {
-    "storm": Position(55, 10, 1), "galley-fire": Position(8, 5, 0),
-    "split-seam": Position(20, 15, -1), "flooded-hold": Position(8, 15, -1),
-}
+HAZARD_STATIONS = {kind: Position(**row) for kind, row in _VESSEL["hazard_stations"].items()}
 
 
 def choices(state: GameState) -> list[tuple[str, str, str]]:

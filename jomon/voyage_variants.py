@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .catalog import VESSEL_SECTIONS, load_catalog
 from .state import GameState
 
 
@@ -17,23 +18,7 @@ class VoyageVariant:
     counterplay: str
 
 
-VARIANTS = {
-    row.family: row
-    for row in (
-        VoyageVariant("shortage-skiffs", "raiders", "Shortage skiffs", "A recorded market shortage gives loose cargo an immediate buyer.", "A third lot-caller boards; conceding can cost a second lot.", "Repel the staged group, misdirect it, or let fitted rail netting catch the first loss."),
-        VoyageVariant("displaced-pair", "creature", "Displaced breeding pair", "Altered aftermath work has shifted a territorial pair into the rudder shoal.", "Two animals hold separate deck approaches and bait requires two fish lots.", "Use spaced reach, pilot the narrow water, or pay the disclosed two-lot bait cost."),
-        VoyageVariant("returning-resonance", "lure", "Returning resonance", "A prior answering or Jomon's conspicuous fitted signal gives the mineral echo a remembered pattern.", "Signal navigation takes a second action and leaves a named route account.", "Anchor materially, counsel named crew, or accept the visible signal record."),
-        VoyageVariant("obligation-claim", "boarders", "Obligation claim", "An unsettled institutional obligation has been sold to a boarding company.", "A claimant joins the boarding and offers a finite account settlement.", "Take the decks, surrender cargo, or settle one real obligation before boarding."),
-        VoyageVariant("marked-shortage-lot", "hold-thieves", "Marked shortage lot", "A heavily loaded hold makes one regional shortage worth marking in advance.", "The thief targets the most demanded carried commodity and arrives through net drag if fitted.", "Intercept the physical lot, exploit the fitted net, or abandon the declared claim."),
-        VoyageVariant("crosswind-stay", "storm", "Crosswind stay", "Severe route exposure or present storm weather loads two sides of the upper rig.", "Emergency station work takes an extra exposed action and two supports appear.", "Brace either support directly, fit a backstay, or spend the disclosed longer station work."),
-        VoyageVariant("returning-silt-tongue", "shoal", "Returning silt tongue", "A previously travelled edge now carries a newly legible deposit across its old sounding.", "Careful sounding takes two extra actions; forcing costs one extra hull integrity.", "Use keel shoes to recover one measure, accept delay, or accept the disclosed scrape."),
-        VoyageVariant("fire-marked-raft", "driftwood", "Fire-marked carrier raft", "A recorded regional fire left charcoal lashed among the drifting timbers.", "Rope recovery takes one extra action but yields a wet timber lot and a charcoal lot.", "Claim both physical lots with rope or leave the dangerous salvage unclaimed."),
-        VoyageVariant("grease-soaked-store", "galley-fire", "Grease-soaked galley store", "Carried wool or charcoal has trapped lamp grease and sparks beside the galley.", "A second fire starts and station work takes one extra exposed action.", "Extinguish sparse fires directly or use the fitted cover to recover one action."),
-        VoyageVariant("worked-seam", "split-seam", "Worked seam reopens", "Low integrity or a recorded repair loads an older hull seam instead of clean timber.", "The seam begins wetter and weaker; station work takes an extra exposed action.", "Brace the sparse support, use strainers to recover one action, or repair after passage."),
-        VoyageVariant("thaw-surge", "flooded-hold", "Thaw surge", "Spring high water or winter ice pressure drives water through more than one opening.", "Two lower-deck cells flood and emergency work takes an extra exposed action.", "Pump the whole deck, redirect water, or use strainers to recover one action."),
-        VoyageVariant("counterclaim-inspection", "inspection", "Counterclaim inspection", "An outstanding institution account gives the patrol a second plausible claimant.", "Witness trust needs one additional level and a cash settlement costs three credit.", "Produce stronger trust, a physical paper lot, the signal shutter, or pay the stated account."),
-    )
-}
+VARIANTS = {row["family"]: VoyageVariant(**row) for row in load_catalog("vessel.json", VESSEL_SECTIONS)["variants"]}
 
 VOYAGE_VARIANT_HISTORY_LIMIT = 12
 

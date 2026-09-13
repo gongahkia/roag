@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
+from .catalog import EQUIPMENT_SECTIONS, load_catalog
 from .state import GameState, Item, Position, stage_rng
 
 
@@ -20,14 +21,8 @@ class Fitting:
 
 
 FITTINGS = {
-    "iron heel": Fitting("Iron heel", "structure", (1, 2), 2, ("staff", "spear", "pike", "boar spear", "cudgel"), "Allows F brace, lever and break with the readied shaft; successful work wears the heel.", "Heavy; levering makes two extra noise."),
-    "quiet binding": Fitting("Quiet binding", "structure", (1, 2), 1, ("weapon",), "Cuts committed attack sound by two; each attack wears its felt.", "Cannot share the structural socket with a heel or retrieval cord."),
-    "retrieval cord": Fitting("Retrieval cord", "structure", (1, 3), 2, ("javelins", "hooked javelin", "weighted net"), "Leaves a spent shaft or net as a physical recoverable item; nearby casts reel back if the pack fits.", "Casting range falls by two; ten committed throws wear out the cord."),
-    "resin seal": Fitting("Resin seal", "treatment", (2, 1), 1, ("crossbow", "longbow"), "A sealed string keeps its prepared shot in rain; wet shots wear the treatment.", "Stiff string costs one range; resin accelerates fire damage to the weapon."),
-    "ash wrap": Fitting("Ash wrap", "treatment", (1, 2), 1, ("crossbow", "longbow", "heavy crossbow", "sling", "staff sling", "javelins", "hooked javelin", "weighted net", "handgonne"), "A shot made from smoke retains range despite smoke inhalation; firing from smoke wears the wrap.", "Only the inhalation penalty is relieved: thick smoke still blocks line of fire."),
-    "wool lining": Fitting("Wool lining", "lining", (2, 2), 2, ("armour",), "Warm insulation prevents winter-water chilling.", "Absorbent wool adds four wet weight as well as its dry weight."),
-    "reed lining": Fitting("Reed lining", "lining", (2, 2), 1, ("feet", "legs"), "Sheds bog mud and gives a usable stance in deep current.", "The bulky liner opens a pierce-protection gap at the fitted location."),
-    "iron scales": Fitting("Iron scales", "lining", (2, 2), 3, ("armour",), "Adds local pierce protection and closes a coverage gap.", "One extra noise and mobility burden; no second lining fits."),
+    name: Fitting(**{**row, "shape": tuple(row["shape"]), "targets": tuple(row["targets"])})
+    for name, row in load_catalog("equipment.json", EQUIPMENT_SECTIONS)["fittings"].items()
 }
 WORKBENCH = Position(39, 5, -1)
 SLOTS = ("readied", "secondary", "head", "torso", "arms", "hands", "legs", "feet")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .catalog import AFTERMATH_SECTIONS, load_catalog
 from .state import GameState
 
 
@@ -20,16 +21,7 @@ class Interference:
     destination_change: str
 
 
-INTERFERENCES = tuple(Interference(*row) for row in (
-    ("measured-grain-release", "shipment", "hearthford", "marlbank", "grain", "The measured grain release", "Hearthford's settled bank work releases a witnessed seed shipment", "one mill lot leaves under a named measure", "seed demand eases and a public unloading stair appears"),
-    ("wreck-iron-on-span", "institutional dispute", "greywash", "rillscar", "ironwork", "Wreck iron on the span", "Greywash salvage title follows recovered iron upriver", "the wreck account records an exported fitting", "both bridge claims contest, then mark, the fitting"),
-    ("burn-refuge-migration", "ecological displacement", "greenwold", "dunmire", "charcoal", "The refuge migration", "Greenwold's worked fire margin displaces grazers toward wet islands", "the burn edge gains browsing regrowth", "fen workers open a second animal margin"),
-    ("high-bell-winter-mark", "route warning", "whitecairn", "frostmere", "wool", "The bell carried into winter", "an honest high-road interval is compared with estuary soundings", "the bell account sends one named warning", "the cold route gains a forecast mark and shelter demand"),
-    ("peat-bank-mill-water", "route repair", "dunmire", "hearthford", "timber", "Peat bank, mill water", "a repaired raised bank changes how the mill meadow receives floodwater", "one bank face carries less overtopping pressure", "a relief channel opens beside the public mill approach"),
-    ("gorge-fitting-return", "shipment", "rillscar", "greywash", "ironwork", "The gorge fitting returned", "Rillscar sends a witnessed bridge fitting to the coast account", "the two-span ledger records an outbound repair", "the chain house receives one lower-risk iron fitting"),
-    ("fired-drain-to-burn", "material spillover", "marlbank", "greenwold", "charcoal", "Fired drain at the burn edge", "Marlbank drainage tiles answer a coppice firebreak request", "the kiln court takes a witnessed fuel order", "one burn approach drains rain without feeding the fire"),
-    ("winter-wool-on-ridge", "shipment", "frostmere", "whitecairn", "wool", "Winter wool on the ridge", "Frostmere shelter wool reaches an exposed bell road", "the net-house account marks a protected outgoing lot", "the ridge shelter opens and cold-route confidence rises"),
-))
+INTERFERENCES = tuple(Interference(**row) for row in load_catalog("aftermath.json", AFTERMATH_SECTIONS)["interferences"])
 
 BY_ID = {row.id: row for row in INTERFERENCES}
 

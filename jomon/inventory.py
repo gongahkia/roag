@@ -6,6 +6,7 @@ import copy
 from dataclasses import dataclass, replace
 from typing import Iterable
 
+from .catalog import EQUIPMENT_SECTIONS, load_catalog
 from .state import GameState, Item, Person, Position, TerrainStatus
 
 PACK_WIDTH = 10
@@ -14,26 +15,9 @@ LOCKER_WIDTH = 18
 LOCKER_HEIGHT = 10
 BODY_SLOTS = ("head", "torso", "arms", "hands", "legs", "feet")
 EQUIPPED_LOCATIONS = ("readied", "secondary", *BODY_SLOTS)
-AMMUNITION_ITEMS = {
-    "bolts": "consumable:crossbow bolts",
-    "arrows": "consumable:fletched arrows",
-    "sling stones": "consumable:sling shot pouch",
-    "heavy bolts": "consumable:quarrel case",
-    "javelins": "consumable:throwing javelins",
-    "nets": "consumable:casting net bundle",
-    "handgonne charges": "consumable:handgonne charges",
-}
-WEAPON_AMMUNITION = {
-    "crossbow": "bolts",
-    "longbow": "arrows",
-    "sling": "sling stones",
-    "heavy crossbow": "heavy bolts",
-    "javelins": "javelins",
-    "weighted net": "nets",
-    "staff sling": "sling stones",
-    "hooked javelin": "javelins",
-    "handgonne": "handgonne charges",
-}
+_EQUIPMENT = load_catalog("equipment.json", EQUIPMENT_SECTIONS)
+AMMUNITION_ITEMS = dict(_EQUIPMENT["ammunition_items"])
+WEAPON_AMMUNITION = dict(_EQUIPMENT["weapon_ammunition"])
 from .work_weapons import POT_AMMUNITION, WORK_WEAPONS
 from .expanded_weapons import ARSENAL, BOMB_AMMUNITION, ammunition_for
 
@@ -57,32 +41,10 @@ def release_enemy_possession(state: GameState, threat) -> str:
 # A working issue, not a class or permanent build. These items use the same
 # slots, weight, condition, loss, and replacement rules as discovered gear.
 BASIC_COURIER_LOADOUTS: dict[str, tuple[str, str]] = {
-    "bargemaster": ("billhook", "rope"),
-    "pilot": ("staff", "quiet shoes"),
-    "factor": ("cudgel", "trade seals"),
-    "carpenter": ("hand axe", "repair tools"),
-    "guard": ("spear", "buckler"),
-    "healer": ("staff", "rope"),
-    "tide runner": ("javelins", "rope"),
-    "netwright": ("weighted net", "rope"),
-    "charcoal scout": ("longbow", "smoke pot"),
-    "resin healer": ("staff", "rope"),
-    "quarry climber": ("war hammer", "repair tools"),
-    "ridge ward": ("sling", "quiet shoes"),
+    role: tuple(items) for role, items in _EQUIPMENT["basic_courier_loadouts"].items()
 }
-
 BASIC_COURIER_ARMOUR: dict[str, dict[str, str]] = {
-    "carpenter": {"hands": "work gloves"},
-    "guard": {
-        "head": "boiled cap", "arms": "leather vambraces",
-        "feet": "hobnailed boots",
-    },
-    "healer": {"arms": "linen sleeves"},
-    "tide runner": {"feet": "marsh waders"},
-    "netwright": {"hands": "tarred gauntlets"},
-    "resin healer": {"arms": "linen sleeves"},
-    "quarry climber": {"feet": "hobnailed boots"},
-    "ridge ward": {"legs": "leather leggings"},
+    role: dict(slots) for role, slots in _EQUIPMENT["basic_courier_armour"].items()
 }
 
 
@@ -116,105 +78,16 @@ class PlacementPreview:
     resulting_load: str
 
 
-def _armour(
-    name: str,
-    abbreviation: str,
-    slot: str,
-    shape: tuple[int, int],
-    weight: int,
-    protection: tuple[int, int, int],
-    coverage: int,
-    description: str,
-    *,
-    noise: int = 0,
-    mobility: int = 0,
-    tags: tuple[str, ...] = (),
-) -> ItemSpec:
-    return ItemSpec(
-        name, abbreviation, *shape, weight, "armour", description, slot=slot,
-        cut=protection[0], pierce=protection[1], blunt=protection[2],
-        coverage=coverage, noise=noise, mobility=mobility, tags=tags,
-    )
-
-
 # Capabilities remain implemented directly in actions.py. This table is physical
 # data: shape, mass, body location, protection, and terrain traits.
 ITEM_SPECS: dict[str, ItemSpec] = {
-    "billhook": ItemSpec("Billhook", "BH", 1, 4, 5, "weapon", "Hooks actors, ropes, and machinery."),
-    "spear": ItemSpec("Ash spear", "SP", 1, 5, 4, "weapon", "Braces and attacks at reach."),
-    "cudgel": ItemSpec("Leadwood cudgel", "CU", 1, 3, 4, "weapon", "Dazes and breaks a guarded stance."),
-    "staff": ItemSpec("River staff", "ST", 1, 5, 3, "weapon", "Sweeps space and supports mobile guard."),
-    "hand axe": ItemSpec("Hand axe", "AX", 2, 3, 5, "weapon", "Cleaves guards and selected timber."),
-    "crossbow": ItemSpec("Windlass crossbow", "XB", 3, 2, 7, "weapon", "A prepared ranged shot with reload commitment."),
-    "longbow": ItemSpec("Yew longbow", "LB", 1, 6, 4, "weapon", "Long prepared fire; weather and movement matter."),
-    "sling": ItemSpec("Shepherd's sling", "SL", 2, 1, 1, "weapon", "Quick high-arcing cast with loose shot."),
-    "heavy crossbow": ItemSpec("Trestle arbalest", "AR", 4, 2, 11, "weapon", "A severe long lane with setup and slow reload."),
-    "pike": ItemSpec("Boarding pike", "PK", 1, 6, 6, "weapon", "Brace and control at exceptional reach."),
-    "paired knives": ItemSpec("Paired short knives", "KN", 2, 2, 2, "weapon", "Mobile paired cuts at intimate range."),
-    "javelins": ItemSpec("Bundle of javelins", "JV", 2, 4, 7, "weapon", "Finite throws with a remaining close thrust."),
-    "war hammer": ItemSpec("Quarry war hammer", "WH", 2, 3, 8, "weapon", "Break protection and drive a target backward."),
-    "weighted net": ItemSpec("Weighted net and knife", "NT", 3, 3, 6, "weapon", "Restrain at range before closing with a knife."),
-    "staff sling": ItemSpec("Oak staff sling", "SS", 1, 5, 4, "weapon", "Arcs selected stones over low cover but needs casting room."),
-    "hooked javelin": ItemSpec("Hooked river javelin", "HJ", 1, 5, 5, "weapon", "Pulls a target and leaves a physical recoverable shaft."),
-    "boar spear": ItemSpec("Crossbar boar spear", "BS", 2, 5, 6, "weapon", "Pins a charge at reach; unwieldy when crowded."),
-    "handgonne": ItemSpec("Powder handgonne", "HG", 3, 2, 9, "weapon", "A loud prepared shot that creates powder smoke."),
-    "buckler": ItemSpec("Buckler", "BU", 2, 2, 4, "gear", "Turns one readable close attack."),
-    "rope": ItemSpec("Tarred rope", "RO", 1, 4, 4, "gear", "Climbing, recovery, restraint, and route control."),
-    "quiet shoes": ItemSpec("Reed-soled shoes", "QS", 2, 1, 1, "gear", "A quiet secondary pair for deliberate crossings."),
-    "repair tools": ItemSpec("Repair tools", "RT", 2, 2, 5, "gear", "Alter machinery, structures, and objectives."),
-    "smoke pot": ItemSpec("Smoke pot", "SM", 2, 2, 3, "gear", "Finite sight denial and distraction."),
-    "cargo harness": ItemSpec("Cargo harness", "CH", 2, 3, 6, "gear", "Carries weight securely but occupies pack room."),
-    "trade seals": ItemSpec("Witnessed trade seals", "TS", 2, 1, 1, "gear", "Material proof for negotiation."),
-    "hooded lantern": ItemSpec("Hooded lantern", "HL", 2, 2, 3, "gear", "Finite controlled light and animal deterrence."),
-
-    # Three alternatives at each of the six intentionally coarse body locations.
-    "felt hood": _armour("Felt hood", "FH", "head", (2, 1), 1, (1, 0, 1), 2, "Warm, quiet, and poor against points.", tags=("warm", "smoke-filter")),
-    "boiled cap": _armour("Boiled-leather cap", "BC", "head", (2, 2), 3, (2, 1, 2), 2, "Weatherproof working head protection.", tags=("weatherproof",)),
-    "kettle helm": _armour("Kettle helm", "KH", "head", (3, 2), 6, (3, 3, 3), 3, "Broad coverage, loud and sight-restricting.", noise=1, mobility=1, tags=("face-cover",)),
-    "quilted jack": _armour("Quilted jack", "QJ", "torso", (3, 3), 5, (1, 1, 3), 2, "Flexible blunt protection that absorbs rain.", tags=("warm", "absorbent")),
-    "reedscale vest": _armour("Lacquered reedscale vest", "RV", "torso", (3, 3), 6, (2, 2, 1), 2, "Light cut protection that sheds water.", tags=("weatherproof", "buoyant")),
-    "riveted coat": _armour("Riveted coat", "RC", "torso", (4, 3), 11, (4, 3, 3), 3, "Strong protection; heavy when soaked.", noise=2, mobility=2, tags=("metal", "water-heavy")),
-    "linen sleeves": _armour("Bound linen sleeves", "LS", "arms", (2, 2), 1, (1, 0, 1), 1, "Quiet cover against thorns.", tags=("thornproof",)),
-    "leather vambraces": _armour("Leather vambraces", "LV", "arms", (2, 2), 3, (2, 1, 2), 2, "Tool-friendly arm protection.", tags=("tool-grip",)),
-    "splinted arms": _armour("Splinted armguards", "SA", "arms", (3, 2), 6, (3, 3, 3), 3, "Strong guard support with reduced reach.", noise=1, mobility=1, tags=("brace",)),
-    "work gloves": _armour("Work gloves", "WG", "hands", (2, 1), 1, (1, 0, 1), 2, "Grip rope and rough mechanisms.", tags=("grip", "thornproof")),
-    "mail mitts": _armour("Mail mitts", "MM", "hands", (2, 2), 4, (3, 2, 2), 3, "Excellent cut cover; slow to reload.", noise=1, mobility=1, tags=("metal",)),
-    "tarred gauntlets": _armour("Tarred hide gauntlets", "TG", "hands", (2, 2), 3, (2, 1, 2), 2, "Weatherproof grip around salt and wet rope.", tags=("grip", "weatherproof", "saltproof")),
-    "wool chausses": _armour("Wool chausses", "WC", "legs", (2, 3), 2, (1, 0, 1), 2, "Warm, quiet, and liable to hold water.", tags=("warm", "absorbent")),
-    "leather leggings": _armour("Leather leggings", "LL", "legs", (2, 3), 4, (2, 1, 2), 2, "Thorn and weather protection.", tags=("thornproof", "weatherproof")),
-    "brigandine cuisses": _armour("Brigandine cuisses", "BQ", "legs", (3, 3), 8, (3, 3, 3), 3, "Heavy leg cover that worsens steep footing.", noise=1, mobility=2, tags=("metal",)),
-    "reed shoes": _armour("Reed shoes", "RS", "feet", (2, 1), 1, (0, 0, 1), 1, "Quiet on dry paths, poor on sharp stone.", tags=("quiet",)),
-    "hobnailed boots": _armour("Hobnailed boots", "HB", "feet", (2, 2), 4, (2, 2, 2), 3, "Grip scree and resist sharp ground; noisy on boards.", noise=1, tags=("scree-grip", "sharp-proof")),
-    "marsh waders": _armour("Oiled marsh waders", "MW", "feet", (3, 2), 5, (1, 1, 2), 3, "Stay dry in mud and shallows but slip on rock.", mobility=1, tags=("mudproof", "weatherproof", "deep-water")),
-
-    "reed brim": _armour("Woven reed brim", "RB", "head", (2, 2), 2, (1, 0, 1), 2, "Sheds salt spray; neither warm nor proof against points.", tags=("weatherproof", "saltproof")),
-    "kiln face wrap": _armour("Kiln face wrap", "KF", "head", (2, 1), 1, (0, 0, 1), 1, "Filters smoke; heat-resistant cloth lasts longer in sparks, but offers little impact cover.", tags=("smoke-filter", "heatproof")),
-    "ridge visor": _armour("Slotted ridge visor", "VI", "head", (3, 2), 5, (2, 4, 1), 3, "Turns points and grit; narrow slots cost two paces of sight and ranged reach.", noise=1, tags=("face-cover", "saltproof", "narrow-sight")),
-    "cork-backed coat": _armour("Cork-backed working coat", "CK", "torso", (4, 3), 7, (1, 1, 2), 2, "Floats a light or laden bearer through current; bulky and weak against blades.", tags=("buoyant", "weatherproof")),
-    "kiln apron": _armour("Limewashed kiln apron", "KA", "torso", (3, 3), 6, (2, 0, 3), 2, "Absorbs one fire harm while wearing; lime dust is shed, points are not.", tags=("heatproof", "limeproof")),
-    "winter felt coat": _armour("Winter felt coat", "WF", "torso", (3, 4), 8, (1, 1, 4), 3, "Warm blunt padding; saturated layers add four weight.", tags=("warm", "absorbent", "water-heavy")),
-    "reed splints": _armour("Bound reed splints", "BP", "arms", (3, 2), 3, (1, 1, 3), 2, "Light bracing strengthens a dry guard; vulnerable bindings absorb rain.", tags=("brace", "thornproof", "absorbent")),
-    "quarry sleeves": _armour("Limeworker's sleeves", "QL", "arms", (2, 3), 4, (2, 1, 2), 3, "Broad lime-dust and thorn cover; heavier than plain linen.", tags=("limeproof", "thornproof")),
-    "watch vambraces": _armour("Watch vambraces", "WV", "arms", (2, 2), 3, (1, 3, 1), 2, "Point-facing slats and dry tool grip; poor blunt padding.", tags=("tool-grip", "weatherproof")),
-    "potter mitts": _armour("Padded potter mitts", "PM", "hands", (2, 2), 2, (0, 0, 2), 2, "Heat- and lime-resistant palms; add stiffness without providing wet grip.", mobility=1, tags=("heatproof", "limeproof")),
-    "archer tabs": _armour("Waxed archer tabs", "AT", "hands", (1, 1), 1, (0, 0, 0), 1, "Maintain hand grip when wet; almost no protection against a strike.", tags=("grip", "quiet")),
-    "split-hide palms": _armour("Split-hide palms", "HP", "hands", (2, 1), 2, (2, 0, 1), 2, "Salt-resistant wet grip without metal noise; points pass through.", tags=("grip", "saltproof")),
-    "reed gaiters": _armour("Reed gaiters", "RG", "legs", (2, 3), 2, (1, 0, 2), 1, "Shed spray and thorns; narrow cover only works fully behind guard.", tags=("thornproof", "weatherproof")),
-    "quarry chaps": _armour("Quarry chaps", "QC", "legs", (3, 3), 6, (2, 1, 3), 2, "Lime-resistant broad work cover; stiff on slopes.", mobility=1, tags=("limeproof", "thornproof")),
-    "frost leggings": _armour("Frost-felt leggings", "FL", "legs", (3, 3), 4, (1, 0, 3), 3, "Warm broad padding for long watches; takes water weight.", tags=("warm", "absorbent")),
-    "peat pattens": _armour("Peat-board pattens", "PP", "feet", (3, 2), 3, (0, 0, 2), 2, "Spread load over mud without bogging; leave sharp stone unprotected.", tags=("mudproof", "quiet")),
-    "felt overboots": _armour("Felt overboots", "FO", "feet", (3, 2), 3, (1, 0, 3), 2, "Warm quiet soles; wet felt gains weight and lacks scree grip.", tags=("warm", "quiet", "absorbent")),
-    "ice cleats": _armour("Linked ice cleats", "IC", "feet", (2, 2), 4, (1, 1, 1), 2, "Grip scree and frozen shallows; links ring on dry deck boards.", noise=1, tags=("scree-grip", "ice-grip")),
+    kind: ItemSpec(**{**row, "tags": tuple(row["tags"])})
+    for kind, row in _EQUIPMENT["item_specs"].items()
 }
 
 # Existing saved containers keep their contents; fresh frontier stores draw from
 # the work clothing of that place. Merchants can also bring a counted spare.
-REGIONAL_ARMOUR = {
-    "dunmire": ("reed brim", "cork-backed coat", "reed splints", "split-hide palms", "reed gaiters", "peat pattens"),
-    "rillscar": ("ridge visor", "quarry sleeves", "watch vambraces", "quarry chaps", "ice cleats", "potter mitts"),
-    "marlbank": ("kiln face wrap", "kiln apron", "potter mitts", "quarry sleeves", "quarry chaps", "archer tabs"),
-    "frostmere": ("winter felt coat", "frost leggings", "felt overboots", "ice cleats", "split-hide palms", "reed brim"),
-}
+REGIONAL_ARMOUR = {region: tuple(names) for region, names in _EQUIPMENT["regional_armour"].items()}
 
 
 ITEM_SPECS.update({name: ItemSpec(spec.name, "".join(word[0] for word in name.split()).upper()[:2], *spec.shape,

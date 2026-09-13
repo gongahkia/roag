@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .catalog import VESSEL_SECTIONS, load_catalog
 from .state import GameState
 
 
@@ -15,20 +16,7 @@ class VoyageEcho:
     consequence: str
 
 
-ECHOES = tuple(VoyageEcho(*row) for row in (
-    ("shortage-skiffs", "rival preparation", "Hooks remembered at the next mooring", "a local cargo thief arrives with one extra finite supply, but names the marked shortage lot"),
-    ("displaced-pair", "ecological return", "Tracks beside Jomon's wake", "the receiving region records where the displaced pair settled, changing its population margin"),
-    ("returning-resonance", "crew memory", "The answer repeated correctly", "two household adults compare the false voice with Jomon's named signal and trust the shared watch"),
-    ("obligation-claim", "institutional claim", "The boarding paper comes ashore", "the receiving work account records the settled or refused obligation instead of forgetting it"),
-    ("marked-shortage-lot", "cargo claim", "A cut mark on the surviving lot", "the most demanded local cargo gains a witnessed claim and one point of market confidence"),
-    ("crosswind-stay", "deck scar", "The stay's pale working scar", "the upper rig keeps a visible repair mark and the next storm station estimate is clearer"),
-    ("returning-silt-tongue", "route mark", "A second sounding on the old line", "the destination chart gains the new silt note and one point less hidden shoal risk"),
-    ("fire-marked-raft", "merchant testimony", "Charcoal knots at the landing", "the local contact recognises the fire-marked salvage and records its origin"),
-    ("grease-soaked-store", "deck scar", "The scrubbed galley board", "the galley retains an inspectable smoke scar and a counted fire-cover drill"),
-    ("worked-seam", "repair memory", "The seam entered in the household share", "the carpenter-minded adult records the repair and improves one strained relationship"),
-    ("thaw-surge", "route forecast", "Thaw water in the next account", "the destination receives a visible high-water forecast rather than an untelegraphed penalty"),
-    ("counterclaim-inspection", "institutional claim", "The counterclaim finds a witness", "the destination account records who accepted the inspection and adjusts one obligation"),
-))
+ECHOES = tuple(VoyageEcho(**row) for row in load_catalog("vessel.json", VESSEL_SECTIONS)["echoes"])
 
 BY_VARIANT = {row.variant_id: row for row in ECHOES}
 

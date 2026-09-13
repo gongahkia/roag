@@ -2,47 +2,20 @@
 
 from __future__ import annotations
 
+from .catalog import AFTERMATH_SECTIONS, load_catalog
 from .state import GameState, Position, QuestProgress, RegionalContract
 
 
+_AFTERMATH = load_catalog("aftermath.json", AFTERMATH_SECTIONS)
 AFTERMATH_LINES = {
-    "hearthford": ("The Silt after the Compact", ("Rehang the public flood marks", "Account for the private wheel timber"), "far_bank", "works"),
-    "greywash": ("What the Ebb Returned", ("Relight the storm-scoured dune line", "Recover a shifted wreck title"), "elevated", "wreck"),
-    "greenwold": ("Shoots through the Burn", ("Replant the medicine boundary", "Count charcoal taken beyond the cut"), "burn_walk", "ruin"),
-    "whitecairn": ("Echo beneath the Honest Bell", ("Seat the opened warning stair", "Recover the toll brace account"), "high_view", "works"),
-    "dunmire": ("Islands after the Drain", ("Raise the inhabited peat walk", "Mark fuel cut below the waterline"), "far_bank", "works"),
-    "rillscar": ("The Span that Remained", ("Brace the shared switchback", "Find the convoy's dropped counterweight"), "high_view", "works"),
-    "marlbank": ("Water after Firing", ("Open the seed-bed rill", "Cool the claimant's abandoned kiln"), "far_bank", "works"),
-    "frostmere": ("Soundings after Thaw", ("Restake the sheltered channel", "Recover a net line from broken ice"), "far_bank", "works"),
+    region: (row[0], tuple(row[1]), row[2], row[3])
+    for region, row in _AFTERMATH["lines"].items()
 }
-
-AFTERMATH_TOPOLOGIES = {
-    "hearthford": ("flood-mark circuit", "wheel-timber account"),
-    "greywash": ("storm-beacon line", "shifted-wreck recovery"),
-    "greenwold": ("medicine boundary", "charcoal cut audit"),
-    "whitecairn": ("warning stair", "toll-brace recovery"),
-    "dunmire": ("raised peat walk", "submerged fuel mark"),
-    "rillscar": ("switchback brace", "convoy counterweight"),
-    "marlbank": ("seed-bed drainage", "abandoned kiln quench"),
-    "frostmere": ("sheltered channel stakes", "broken-ice net recovery"),
-}
-
-DRAINAGE_TOPOLOGIES = {
-    "flood-mark circuit", "raised peat walk", "seed-bed drainage",
-    "sheltered channel stakes",
-}
-FIRE_TOPOLOGIES = {
-    "storm-beacon line", "medicine boundary", "charcoal cut audit",
-    "abandoned kiln quench",
-}
-SUPPORT_TOPOLOGIES = {
-    "wheel-timber account", "warning stair", "switchback brace",
-    "convoy counterweight",
-}
-RECOVERY_TOPOLOGIES = {
-    "shifted-wreck recovery", "toll-brace recovery", "submerged fuel mark",
-    "broken-ice net recovery",
-}
+AFTERMATH_TOPOLOGIES = {region: tuple(row) for region, row in _AFTERMATH["topologies"].items()}
+DRAINAGE_TOPOLOGIES = set(_AFTERMATH["drainage_topologies"])
+FIRE_TOPOLOGIES = set(_AFTERMATH["fire_topologies"])
+SUPPORT_TOPOLOGIES = set(_AFTERMATH["support_topologies"])
+RECOVERY_TOPOLOGIES = set(_AFTERMATH["recovery_topologies"])
 
 
 def initialise_aftermath(state: GameState) -> None:
