@@ -8,12 +8,12 @@ from jomon.actions import attack, merchant_stock_for, purchase_merchant_item, re
 from jomon.chemistry import fill_flask, pour_flask, predicted_reactions, react_cell
 from jomon.content import WEAPONS
 from jomon.expanded_weapons import ARSENAL, ammunition_for
-from jomon.inventory import AMMUNITION_ITEMS, ITEM_SPECS, auto_place, create_item
+from jomon.inventory import AMMUNITION_ITEMS, ITEM_SPECS, auto_place, create_item, item_spec
 from jomon.magic import SPELLS, cast, restore_at_shrine
 from jomon.materials import ensure_cell, fields, key, material_glyph
-from jomon.production import advance_craft_economy, delegate, gather, make, site_position
+from jomon.production import RECIPES, SHORE_STATIONS, SOURCES, advance_craft_economy, delegate, gather, make, site_position
 from jomon.skill_tree import NODES, buy_node, record_milestone, study_journal, write_journal
-from jomon.state import Position, create_world, game_state_from_dict, validate_state
+from jomon.state import MaterialCell, Position, create_world, game_state_from_dict, validate_state
 from jomon.terminal import InputEvent, OverlayView, _handle_overlay, _handle_overlay_view, _overlay_lines
 from jomon.world import sight_radius
 
@@ -107,6 +107,58 @@ class ProgressionProductionTests(unittest.TestCase):
         self.assertEqual(flask.contents, {})
         self.assertIn(key(state.position), fields(state))
         validate_state(state)
+
+    def test_regional_mixtures_are_sourced_and_resolve_physical_effects(self):
+        state = self.state
+        state.location = "region"
+        state.position = state.region.landmarks["landing"]
+        sourced = {name for choices in SOURCES.values() for name in choices}
+        cases = (
+            (("tree resin", "clay"), "resin mortar", "support", 2),
+            (("frostwort", "brine"), "brine rime", "ice", True),
+            (("glow spore", "smoke leaf"), "phosphor dust", "coating", "glow"),
+            (("iron filings", "spark salt"), "shrapnel spark", "smoke", 2),
+            (("peat oil", "smoke leaf"), "peat haze", "smoke", 3),
+            (("lime dust", "brine"), "salt-lime slurry", "coating", "lime"),
+        )
+        for pair, name, field, expected in cases:
+            with self.subTest(reaction=name):
+                self.assertTrue(set(pair) <= sourced)
+                cell = MaterialCell(support=1, reagents={reagent: 1 for reagent in pair})
+                self.assertIn(name, predicted_reactions(cell.reagents))
+                self.assertEqual(react_cell(state, state.position, cell), name)
+                self.assertEqual(getattr(cell, field), expected)
+                self.assertFalse(cell.reagents)
+        validate_state(state)
+
+    def test_content_recipes_make_physical_outputs_from_held_inputs(self):
+        routes = {
+            "hearthford": "hearthford-splints", "greywash": "greywash-gauntlets",
+            "greenwold": "greenwold-vest", "whitecairn": "whitecairn-sleeves",
+            "dunmire": "dunmire-pattens", "marlbank": "marlbank-apron",
+            "rillscar": "rillscar-cleats", "frostmere": "frostmere-coat",
+        }
+        ids = (*routes.values(), "fletched-arrows", "quarrel-case", "sling-shot-pouch")
+        for region, recipe_id in routes.items():
+            recipe = RECIPES[recipe_id]
+            self.assertIn(recipe.station, {"portable", *SHORE_STATIONS[region]})
+            self.assertTrue(any(kind == f"ingredient:{source}" for kind, _ in recipe.inputs
+                                for source in SOURCES[region]))
+        for recipe_id in ids:
+            with self.subTest(recipe=recipe_id), patch("jomon.actions._advance_world"):
+                state = copy.deepcopy(self.state)
+                recipe = RECIPES[recipe_id]
+                item_spec(recipe.output)
+                for kind, quantity in recipe.inputs:
+                    item_spec(kind)
+                    ingredient = create_item(state, kind, "content recipe test", quantity=quantity)
+                    self.assertTrue(auto_place(state, ingredient.id, "locker"))
+                with patch("jomon.production.stations_here", return_value={recipe.station}):
+                    changed, message = make(state, recipe_id)
+                self.assertTrue(changed, message)
+                self.assertTrue(any(item.kind == recipe.output and item.quantity == recipe.quantity
+                                    and item.location in {"pack", "locker"} for item in state.items))
+                validate_state(state)
 
     def test_site_gathering_crafting_and_delegated_ground_output(self):
         state = self.state

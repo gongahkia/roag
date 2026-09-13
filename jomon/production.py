@@ -73,6 +73,32 @@ for name, ingredients in (
 _add(Recipe("counted-charges", "Prepare fictional spark-salt charges", "gunworks",
             (("ingredient:spark salt", 1), ("commodity:paper", 1)), "consumable:handgonne charges", 3))
 
+for recipe in (
+    Recipe("hearthford-splints", "Bind Hearthford splinted arms", "forge",
+           (("ingredient:iron filings", 2), ("commodity:timber", 1)), "splinted arms"),
+    Recipe("greywash-gauntlets", "Cure Greywash tarred gauntlets", "brewery",
+           (("ingredient:brine", 1), ("ingredient:peat oil", 1), ("commodity:wool", 1)), "tarred gauntlets"),
+    Recipe("greenwold-vest", "Lacquer a Greenwold reedscale vest", "portable",
+           (("ingredient:tree resin", 2), ("commodity:timber", 1), ("commodity:wool", 1)), "reedscale vest"),
+    Recipe("whitecairn-sleeves", "Stitch Whitecairn quarry sleeves", "portable",
+           (("ingredient:lime dust", 1), ("commodity:wool", 1)), "quarry sleeves"),
+    Recipe("dunmire-pattens", "Oil Dunmire peat pattens", "portable",
+           (("ingredient:peat oil", 1), ("commodity:timber", 1)), "peat pattens"),
+    Recipe("marlbank-apron", "Fire a Marlbank kiln apron", "forge",
+           (("ingredient:clay", 1), ("commodity:wool", 2)), "kiln apron"),
+    Recipe("rillscar-cleats", "Link Rillscar ice cleats", "smelter",
+           (("ingredient:iron ore", 2), ("commodity:charcoal", 1)), "ice cleats"),
+    Recipe("frostmere-coat", "Line a Frostmere winter felt coat", "portable",
+           (("ingredient:frostwort", 1), ("commodity:wool", 2)), "winter felt coat"),
+    Recipe("fletched-arrows", "Fletch three arrows", "workshop",
+           (("commodity:timber", 1), ("commodity:wool", 1)), "consumable:fletched arrows", 3),
+    Recipe("quarrel-case", "Forge three heavy quarrels", "forge",
+           (("component:iron billet", 1), ("commodity:timber", 1)), "consumable:quarrel case", 3),
+    Recipe("sling-shot-pouch", "Pack three sling shot pouches", "portable",
+           (("ingredient:clay", 1), ("commodity:paper", 1)), "consumable:sling shot pouch", 3),
+):
+    _add(recipe)
+
 for name, weapon in ARSENAL.items():
     station, inputs = {
         "blade": ("forge", (("component:iron billet", 1), ("commodity:timber", 1))),

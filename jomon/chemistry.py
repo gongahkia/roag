@@ -22,6 +22,12 @@ REACTIONS = {
     frozenset(("iron filings", "brine")): ("corrosive grit", "corrode"),
     frozenset(("tree resin", "lime dust")): ("hardening wash", "seal"),
     frozenset(("smoke leaf", "spring water")): ("breath tonic", "breath"),
+    frozenset(("tree resin", "clay")): ("resin mortar", "seal"),
+    frozenset(("frostwort", "brine")): ("brine rime", "ice"),
+    frozenset(("glow spore", "smoke leaf")): ("phosphor dust", "glow"),
+    frozenset(("iron filings", "spark salt")): ("shrapnel spark", "shock"),
+    frozenset(("peat oil", "smoke leaf")): ("peat haze", "smoke"),
+    frozenset(("lime dust", "brine")): ("salt-lime slurry", "lime"),
 }
 ENVIRONMENT_REACTIONS = {
     "water": "spring water",
