@@ -129,7 +129,7 @@ ROUTE_HELP_LINES = (
 )
 BASE_HELP_LINES = (
     "HJKL/arrows E act A aim G guard ; look T follow M mastery P skills W craft",
-    "X gear F material D spells V talk R retreat I Z ledger O actors ? help Q quit",
+    "X gear F material D spells V talk R retreat I Z ledger O actors \\ circuits ? Q",
 )
 
 MIN_WIDTH = 80
@@ -242,6 +242,16 @@ class LookView:
 
     @classmethod
     def begin(cls, state: GameState) -> "LookView":
+        return cls(state.position)
+
+
+@dataclass
+class CircuitView:
+    cursor: Position
+    layer: str = "surface"
+
+    @classmethod
+    def begin(cls, state: GameState) -> "CircuitView":
         return cls(state.position)
 
 
@@ -743,6 +753,7 @@ def visible_danger_marks(state: GameState, visible: set[Position]) -> set[Positi
 
 def _draw_map(screen: curses.window, state: GameState, top: int, left: int, height: int, width: int) -> None:
     from .materials import fields, key
+    from .circuits import active as circuit_active, space_id
 
     material_cells = fields(state)
     rows = map_rows(state)
@@ -757,6 +768,8 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
 
     vehicle_region = "harbour" if state.location == "jomon" and state.jomon_space == "harbour" else state.active_region_id if state.location == "region" else None
     vehicle_marks = {vehicle.position: vehicle for vehicle in state.vehicles.values() if vehicle.region_id == vehicle_region}
+    circuit_marks = {cell.position: cell for cell in state.circuits.values()
+                     if cell.space == space_id(state) and cell.layer == "surface" and cell.position.z == state.position.z}
     danger_marks = visible_danger_marks(state, visible)
     known = set(state.region.seen)
     marks = set(state.treasure_marks.get(state.active_region_id, []))
@@ -799,6 +812,9 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
                 role = "elite" if actor.elite else "neutral" if actor.ecology == "prey" else "hostile"
             elif vehicle:
                 role = "player" if state.active_vehicle_id == vehicle.id and position == state.position else "interactable"
+            elif position in circuit_marks and position != state.position and position not in danger_marks:
+                cell = circuit_marks[position]
+                role = "ui_accent" if cell.phase == "head" else "warning" if cell.phase == "tail" else "success" if circuit_active(state, cell) else "interactable"
             attr = _COLOUR_ATTRIBUTES[role]
             if position in danger_marks:
                 attr = _COLOUR_ATTRIBUTES["hazard"] | curses.A_BOLD | curses.A_REVERSE
@@ -958,6 +974,79 @@ def _handle_look(
             max(0, min(len(rows) - 1, view.cursor.y + dy)),
             view.cursor.z,
         )
+    return False
+
+
+def _draw_circuit(screen: curses.window, state: GameState, view: CircuitView) -> None:
+    from .circuits import PARTS, active, cell_at, glyph, item_count, space_id
+
+    height, width = screen.getmaxyx()
+    visible = field_of_view(state, remember=False)
+    for cell in state.circuits.values():
+        if cell.space != space_id(state) or cell.layer != view.layer or cell.position.z != state.position.z:
+            continue
+        if state.location == "region" and cell.position not in visible:
+            continue
+        x, y, main_height, map_width = _cursor_screen_position(state, cell.position, height, width)
+        if 1 <= x < map_width - 1 and 1 <= y < main_height - 1:
+            role = "ui_accent" if cell.phase == "head" else "warning" if cell.phase == "tail" else "success" if active(state, cell) else "interactable"
+            _put(screen, y, x, glyph(state, cell.position, view.layer) or "?", _COLOUR_ATTRIBUTES[role] | curses.A_BOLD)
+    x, y, main_height, map_width = _cursor_screen_position(state, view.cursor, height, width)
+    if 1 <= x < map_width - 1 and 1 <= y < main_height - 1:
+        mark = glyph(state, view.cursor, view.layer) or displayed_tile(state, view.cursor)
+        _put(screen, y, x, mark, _COLOUR_ATTRIBUTES["target_cell"] | curses.A_REVERSE | curses.A_BOLD)
+    cell = cell_at(state, view.cursor, view.layer)
+    description = (
+        f"{PARTS[cell.kind]['name']}: {cell.phase}; "
+        + (f"{cell.charge} pulses" if cell.kind == "rack" else "closed" if cell.kind == "switch" and cell.enabled else "open" if cell.kind == "switch" else "active" if active(state, cell) else "idle")
+        if cell else "No fitting on this layer"
+    )
+    lines = (
+        f"CIRCUITS {view.layer.upper()}  {view.cursor.x},{view.cursor.y},{view.cursor.z}  {description}",
+        "1 trace 2 via 3 rack 4 switch 5 lamp 6 gate 7 drain",
+        "E operate/load cell  R reclaim  Tab surface/buried  Arrows/HJKL move cursor",
+        f"Pack: trace {item_count(state, 'trace')} via {item_count(state, 'via')} rack {item_count(state, 'rack')} cell {item_count(state, 'cell')} switch {item_count(state, 'switch')} lamp {item_count(state, 'lamp')} gate {item_count(state, 'gate')} drain {item_count(state, 'drain')}",
+        (state.messages[-1] if state.messages else "Buried traces stay hidden on the world map; vias link layers."),
+        "Esc/\\ closes. Buried traces stay hidden on the world map.",
+    )
+    for index, line in enumerate(lines, height - len(lines)):
+        _put(screen, index, 0, line[:width].ljust(width), _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_REVERSE)
+    screen.refresh()
+
+
+def _handle_circuit(
+    state: GameState, view: CircuitView, event: InputEvent,
+    *, screen_size: tuple[int, int] = (24, 80),
+) -> bool:
+    from .circuits import operate, place, reclaim
+
+    key = event.key
+    if key in {27, ord("\\")}:
+        return True
+    if key == 9:
+        view.layer = "buried" if view.layer == "surface" else "surface"
+        return False
+    normalized = ord(chr(key).lower()) if 0 <= key < 256 else key
+    choices = {ord("1"): "trace", ord("2"): "via", ord("3"): "rack", ord("4"): "switch",
+               ord("5"): "lamp", ord("6"): "gate", ord("7"): "drain"}
+    if key in choices:
+        changed, message = place(state, view.cursor, view.layer, choices[key])
+        if not changed:
+            state.add_message(message, priority=2)
+        return False
+    if normalized in {ord("e"), 10, 13}:
+        changed, message = operate(state, view.cursor, view.layer)
+        if not changed:
+            state.add_message(message, priority=2)
+        return False
+    if normalized == ord("r"):
+        changed, message = reclaim(state, view.cursor, view.layer)
+        if not changed:
+            state.add_message(message, priority=2)
+        return False
+    look = LookView(view.cursor)
+    _handle_look(state, look, event, screen_size=screen_size)
+    view.cursor = look.cursor
     return False
 
 
@@ -3439,6 +3528,7 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
     route_view: RouteChartView | None = None
     target_view: TargetView | None = None
     look_view: LookView | None = None
+    circuit_view: CircuitView | None = None
     local_route: RoutePlan | None = None
     local_route_index = 0
     while True:
@@ -3452,6 +3542,8 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
             _draw_targeting(screen, state, target_view)
         elif look_view and height >= MIN_HEIGHT and width >= MIN_WIDTH:
             _draw_look(screen, state, look_view)
+        elif circuit_view and height >= MIN_HEIGHT and width >= MIN_WIDTH:
+            _draw_circuit(screen, state, circuit_view)
         elif overlay and height >= MIN_HEIGHT and width >= MIN_WIDTH:
             if dialogue_choices(state, overlay.kind):
                 _draw_dialogue_overlay(screen, state, overlay)
@@ -3460,7 +3552,7 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
                 _overlay(screen, title, lines, overlay)
         if (
             local_route
-            and not any((inventory_view, route_view, target_view, look_view, overlay))
+            and not any((inventory_view, route_view, target_view, look_view, circuit_view, overlay))
             and height >= MIN_HEIGHT and width >= MIN_WIDTH
         ):
             try:
@@ -3522,6 +3614,10 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
             if _handle_look(state, look_view, event, screen_size=(height, width)):
                 look_view = None
             continue
+        if circuit_view:
+            if _handle_circuit(state, circuit_view, event, screen_size=(height, width)):
+                circuit_view = None
+            continue
         if overlay:
             closed, should_quit = _handle_overlay_view(state, overlay, event)
             if should_quit:
@@ -3562,6 +3658,13 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
             move(state, *MOVES[normalized])
         elif normalized == ord(";"):
             look_view = LookView.begin(state)
+        elif key == ord("\\"):
+            from .circuits import space_id
+
+            if space_id(state):
+                circuit_view = CircuitView.begin(state)
+            else:
+                state.add_message("Circuit work is available on Jomon's working decks or in a region.")
         elif normalized in {10, 13, ord("e")}:
             result = interact(state)
             if result.overlay and result.overlay.startswith("inventory:container:"):
