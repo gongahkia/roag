@@ -4,11 +4,12 @@ import unittest
 
 from jomon.circuits import (
     CELL_CHARGE, advance_circuits, cell_at, cell_key, glyph, item_count,
-    operate, place, reclaim, validate_circuits,
+    diagnostic_lines, next_phase, operate, piston_head_at, place, reclaim,
+    sensor_active, validate_circuits,
 )
 from jomon.inventory import auto_place, create_item, item_spec
 from jomon.production import RECIPES, make, recipe_status
-from jomon.state import CircuitCell, CommodityStack, Position, StateError, VerticalLink, create_world, game_state_from_dict
+from jomon.state import CircuitCell, CommodityStack, MaterialCell, Position, StateError, VerticalLink, create_world, game_state_from_dict
 from jomon.terminal import CircuitView, InputEvent, _draw_circuit, _handle_circuit
 from jomon.world import displayed_tile, is_walkable, sight_radius
 
@@ -195,6 +196,115 @@ class CircuitTests(unittest.TestCase):
         self.assertIn(":", screen.writes)
         self.assertTrue(any("CIRCUITS BURIED" in row for row in screen.writes))
         self.assertTrue(_handle_circuit(state, view, InputEvent("key", key=27)))
+
+    def test_authored_mill_relief_responds_to_a_courier_and_drains_material_water(self):
+        state = self.state
+        anchor = state.region.landmarks["mill"]
+        sensor_point = Position(anchor.x - 2, anchor.y, anchor.z)
+        drain_point = Position(anchor.x - 1, anchor.y, anchor.z)
+        sensor = cell_at(state, sensor_point)
+        self.assertEqual(sensor.kind, "sensor")
+        self.assertEqual(cell_at(state, anchor).kind, "lamp")
+        state.region.materials[f"{sensor_point.x},{sensor_point.y},0"] = MaterialCell(water=3)
+        state.position = sensor_point
+        state.world_time = 5
+        self.tick(5)
+        self.assertTrue(cell_at(state, anchor).active_until >= state.world_time)
+        self.assertEqual(state.region.materials[f"{sensor_point.x},{sensor_point.y},0"].water, 1)
+        self.assertIn("drained", cell_at(state, drain_point).last_event)
+
+    def test_piston_pushes_three_crates_and_sticky_retraction_pulls_one(self):
+        state = self.state
+        piston = self.fit("piston", 20)
+        piston.sticky = True
+        self.fit("crate", 21)
+        self.fit("crate", 22)
+        self.fit("crate", 23)
+        rack = self.fit("rack", 19)
+        rack.charge = 1
+        state.position = Position(20, 19, 0)
+        state.world_time = 5
+        self.tick(2)
+        self.assertEqual(piston.last_event, "extended east; pushed 3 crates")
+        self.assertIsNotNone(piston_head_at(state, Position(21, 20, 0)))
+        self.assertFalse(is_walkable(state, Position(21, 20, 0)))
+        self.assertEqual([cell_at(state, Position(x, 20, 0)).kind for x in (22, 23, 24)], ["crate"] * 3)
+        self.tick(8)
+        self.assertIsNone(piston_head_at(state, Position(21, 20, 0)))
+        self.assertEqual(cell_at(state, Position(21, 20, 0)).kind, "crate")
+        self.assertIn("pulled", piston.last_event)
+
+    def test_jammed_piston_does_not_move_crate_or_crush_courier(self):
+        state = self.state
+        piston = self.fit("piston", 20)
+        crate = self.fit("crate", 21)
+        rack = self.fit("rack", 19)
+        rack.charge = 1
+        state.position = Position(20, 19, 0)
+        state.region.tile_changes["22,20,0"] = "#"
+        state.world_time = 5
+        self.tick(2)
+        self.assertEqual(crate.position, Position(21, 20, 0))
+        self.assertIn("jammed: solid terrain", piston.last_event)
+        self.assertEqual(piston.active_until, 0)
+        state.region.tile_changes["22,20,0"] = "."
+        state.position = Position(22, 20, 0)
+        piston.phase = "wire"
+        rack.charge = 1
+        state.world_time = 11
+        self.tick(2)
+        self.assertEqual(crate.position, Position(21, 20, 0))
+        self.assertIn("person or creature", piston.last_event)
+
+    def test_sensor_modes_and_one_way_relay_are_inspectable(self):
+        state = self.state
+        sensor = self.fit("sensor", 21, layer="buried")
+        sensor.mode = "water"
+        sensor.threshold = 2
+        self.assertFalse(sensor_active(state, sensor))
+        state.region.materials["21,20,0"] = MaterialCell(water=2)
+        self.assertTrue(sensor_active(state, sensor))
+        self.assertTrue(operate(state, sensor.position, "buried")[0])
+        self.assertEqual(sensor.mode, "threat")
+        self.assertTrue(operate(state, sensor.position, "buried", "secondary")[0])
+        self.assertEqual(sensor.threshold, 3)
+        relay = self.fit("relay", 24)
+        rear = self.fit("trace", 23)
+        front = self.fit("trace", 25)
+        rear.phase = "head"
+        self.assertEqual(next_phase(state, relay)[0], "head")
+        rear.phase, front.phase = "wire", "head"
+        self.assertEqual(next_phase(state, relay)[0], "wire")
+        relay.phase, front.phase = "head", "wire"
+        self.assertEqual(next_phase(state, front)[0], "head")
+        self.assertEqual(next_phase(state, rear)[0], "wire")
+        self.assertIn("faces east", " ".join(diagnostic_lines(state, relay)))
+
+    def test_counter_passes_every_chosen_input_pulse(self):
+        state = self.state
+        trace = self.fit("trace", 20)
+        counter = self.fit("counter", 21)
+        trace.phase = "head"
+        self.tick()
+        self.assertEqual((counter.phase, counter.count), ("wire", 1))
+        trace.phase = "head"
+        self.tick()
+        self.assertEqual((counter.phase, counter.count), ("head", 0))
+        self.assertEqual(counter.last_pulse, state.world_time)
+        self.assertTrue(operate(state, counter.position, "surface")[0])
+        self.assertEqual(counter.threshold, 3)
+
+    def test_format_twelve_circuits_gain_default_settings_without_loss(self):
+        state = self.state
+        old = state.to_dict()
+        old["save_format"] = 12
+        for cell in old["circuits"].values():
+            for field in ("facing", "mode", "threshold", "count", "sticky", "last_pulse", "last_event"):
+                cell.pop(field)
+        loaded = game_state_from_dict(old)
+        self.assertEqual(loaded.save_format, state.save_format)
+        self.assertEqual(len(loaded.circuits), len(state.circuits))
+        self.assertTrue(all(cell.facing == "east" for cell in loaded.circuits.values()))
 
 
 if __name__ == "__main__":

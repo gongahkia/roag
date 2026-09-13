@@ -2,19 +2,66 @@
 
 from __future__ import annotations
 
+from collections import deque
+
 from .catalog import CatalogError, load_catalog
 from .state import CircuitCell, GameState, Position
 
 
-PARTS = load_catalog("circuits.json", ("parts",))["parts"]
-if not isinstance(PARTS, dict) or set(PARTS) != {"trace", "via", "rack", "cell", "switch", "lamp", "gate", "drain"}:
+_CATALOG = load_catalog("circuits.json", ("parts", "fixtures"))
+PARTS = _CATALOG["parts"]
+FIXTURES = _CATALOG["fixtures"]
+if not isinstance(PARTS, dict) or set(PARTS) != {
+    "trace", "via", "rack", "cell", "switch", "lamp", "gate", "drain",
+    "sensor", "relay", "counter", "piston", "crate",
+}:
     raise CatalogError("circuits.json has invalid circuit parts")
+BEHAVIORS = {"conductor", "source", "fuel", "gated", "directional", "counter", "block"}
+if any(not isinstance(part, dict) or set(part) != {"name", "glyph", "behavior", "layers", "description"}
+       or part["behavior"] not in BEHAVIORS or not isinstance(part["layers"], list)
+       or any(layer not in {"surface", "buried"} for layer in part["layers"])
+       for part in PARTS.values()):
+    raise CatalogError("circuits.json has invalid behavior or layer metadata")
 PLACED_PARTS = set(PARTS) - {"cell"}
-DEVICE_PARTS = {"rack", "switch", "lamp", "gate", "drain"}
+DIRECTIONS = {"north": (0, -1), "east": (1, 0), "south": (0, 1), "west": (-1, 0)}
+FACING_GLYPHS = {"north": "^", "east": ">", "south": "v", "west": "<"}
+SENSOR_MODES = ("mass", "water", "threat")
 PULSE_INTERVAL = 6
 CELL_CHARGE = 24
 DEVICE_HOLD = 7
 MAX_CELLS = 4096
+
+
+def initialise_circuits(state: GameState) -> None:
+    """Install small, authored examples only when a new world is created."""
+    if state.circuits:
+        return
+    if not isinstance(FIXTURES, list):
+        raise CatalogError("circuits.json has invalid fixtures")
+    for fixture in FIXTURES:
+        if not isinstance(fixture, dict) or set(fixture) != {"id", "region", "anchor", "cells"}:
+            raise CatalogError("circuits.json has invalid fixture identity")
+        region = state.regions.get(fixture["region"])
+        anchor = region.landmarks.get(fixture["anchor"]) if region else None
+        if anchor is None or not isinstance(fixture["cells"], list):
+            raise CatalogError("circuits.json has missing fixture anchor")
+        space = f"region:{fixture['region']}"
+        for row in fixture["cells"]:
+            if (not isinstance(row, dict) or not {"kind", "offset", "layer"} <= set(row)
+                    or set(row) - {"kind", "offset", "layer", "charge", "mode"}
+                    or row["kind"] not in PLACED_PARTS or row["layer"] not in PARTS[row["kind"]]["layers"]
+                    or not isinstance(row["offset"], list) or len(row["offset"]) != 2
+                    or any(type(value) is not int for value in row["offset"])):
+                raise CatalogError("circuits.json has invalid fixture fitting")
+            point = Position(anchor.x + row["offset"][0], anchor.y + row["offset"][1], anchor.z)
+            if _terrain_at(state, space, point) in {" ", "#", "~", "T"}:
+                raise CatalogError("circuits.json fixture crosses blocked terrain")
+            key = cell_key(space, point, row["layer"])
+            if key in state.circuits:
+                raise CatalogError("circuits.json has overlapping fixture fittings")
+            state.circuits[key] = CircuitCell(space, point, row["layer"], row["kind"],
+                                              charge=row.get("charge", 0), mode=row.get("mode", "mass"))
+    validate_circuits(state)
 
 
 def space_id(state: GameState) -> str | None:
@@ -34,8 +81,59 @@ def cell_at(state: GameState, position: Position, layer: str = "surface") -> Cir
     return state.circuits.get(cell_key(space, position, layer)) if space else None
 
 
+def offset(position: Position, facing: str, steps: int = 1) -> Position:
+    dx, dy = DIRECTIONS[facing]
+    return Position(position.x + dx * steps, position.y + dy * steps, position.z)
+
+
+def piston_head_at(state: GameState, position: Position) -> CircuitCell | None:
+    space = space_id(state)
+    if space is None:
+        return None
+    return next((cell for cell in state.circuits.values() if cell.space == space and cell.kind == "piston"
+                 and active(state, cell) and offset(cell.position, cell.facing) == position), None)
+
+
+def _threats_in_space(state: GameState, space: str):
+    if not space.startswith("region:"):
+        return state.vessel_threats
+    return state.region_threats.get(space.split(":", 1)[1], [])
+
+
+def sensor_active(state: GameState, cell: CircuitCell) -> bool:
+    point = cell.position
+    if cell.mode == "water":
+        key = f"{point.x},{point.y},{point.z}"
+        if cell.space == space_id(state) and state.water.get(key, 0) >= cell.threshold:
+            return True
+        if cell.space.startswith("region:"):
+            region = state.regions.get(cell.space.split(":", 1)[1])
+            material = region.materials.get(key) if region else None
+            return bool(material and material.water >= cell.threshold)
+        return bool(state.vessel_materials.get(key) and state.vessel_materials[key].water >= cell.threshold)
+    if cell.mode == "threat":
+        return any(threat.status in {"watching", "engaged"} and threat.position.z == point.z
+                   and max(abs(threat.position.x - point.x), abs(threat.position.y - point.y)) <= cell.threshold
+                   for threat in _threats_in_space(state, cell.space))
+    if cell.space == space_id(state) and state.position == point:
+        return True
+    if any(threat.status in {"watching", "engaged"} and threat.position == point
+           for threat in _threats_in_space(state, cell.space)):
+        return True
+    if any(schedule.position == point and (
+           schedule.area == cell.space or cell.space == "vessel" and schedule.area.startswith("vessel:"))
+           for schedule in state.actor_schedules.values()):
+        return True
+    if state.circuits.get(cell_key(cell.space, point, "surface"), None) and (
+            state.circuits[cell_key(cell.space, point, "surface")].kind == "crate"):
+        return True
+    spatial = cell.space.split(":", 1)[1] if cell.space.startswith("region:") else "jomon"
+    return any(item.location == "ground" and item.region_id == spatial
+               and item.ground_position == point for item in state.items)
+
+
 def active(state: GameState, cell: CircuitCell) -> bool:
-    return cell.kind in {"lamp", "gate", "drain"} and 0 < cell.active_until >= state.world_time
+    return cell.kind in {"lamp", "gate", "drain", "piston"} and 0 < cell.active_until >= state.world_time
 
 
 def glyph(state: GameState, position: Position, layer: str = "surface") -> str | None:
@@ -48,6 +146,12 @@ def glyph(state: GameState, position: Position, layer: str = "surface") -> str |
         return "*" if active(state, cell) else "l"
     if cell.kind == "switch":
         return "S" if cell.enabled else "s"
+    if cell.kind in {"piston", "relay"}:
+        return FACING_GLYPHS[cell.facing]
+    if cell.kind == "sensor":
+        return "!" if sensor_active(state, cell) else "?"
+    if cell.kind == "counter" and cell.phase == "wire":
+        return str(cell.count)
     if cell.phase == "head":
         return "@"
     if cell.phase == "tail":
@@ -105,8 +209,8 @@ def place(state: GameState, position: Position, layer: str, kind: str) -> tuple[
         return False, "Choose a buildable circuit part."
     if len(state.circuits) >= MAX_CELLS:
         return False, "The world circuit register is full."
-    if layer == "buried" and kind in DEVICE_PARTS:
-        return False, "Working devices need a reachable surface fitting."
+    if layer not in PARTS[kind]["layers"]:
+        return False, f"A {PARTS[kind]['name'].lower()} cannot be fitted on the {layer} layer."
     if layer == "surface" and base_tile(state, position) not in {".", ",", "_", "m", "r", "q", "%", "="}:
         return False, "Keep surface fittings on plain ground; bury a trace beneath a fixture."
     space = space_id(state)
@@ -115,8 +219,8 @@ def place(state: GameState, position: Position, layer: str, kind: str) -> tuple[
         return False, "That circuit layer is already occupied; reclaim it first."
     if layer == "surface" and not is_walkable(state, position, ignore_threat=True):
         return False, "A surface fitting needs passable ground; bury a trace beneath a wall."
-    if kind == "gate" and position == state.position:
-        return False, "Stand clear of the square before fitting a closed gate."
+    if kind in {"gate", "crate", "piston"} and position == state.position:
+        return False, "Stand clear of the square before fitting a blocking device."
     if _available_item(state, kind) is None:
         return False, f"Carry a crafted {PARTS[kind]['name'].lower()} in your pack."
     _spend_item(state, kind)
@@ -152,7 +256,7 @@ def reclaim(state: GameState, position: Position, layer: str) -> tuple[bool, str
     return True, message
 
 
-def operate(state: GameState, position: Position, layer: str) -> tuple[bool, str]:
+def operate(state: GameState, position: Position, layer: str, action: str = "primary") -> tuple[bool, str]:
     from .actions import _advance_world
 
     reason = _target_reason(state, position, layer)
@@ -161,7 +265,18 @@ def operate(state: GameState, position: Position, layer: str) -> tuple[bool, str
     cell = cell_at(state, position, layer)
     if cell is None:
         return False, "No circuit part occupies that layer."
-    if cell.kind == "switch":
+    if action == "secondary" and cell.kind == "piston":
+        cell.sticky = not cell.sticky
+        message = f"The piston is now {'sticky' if cell.sticky else 'push-only'}."
+    elif action == "secondary" and cell.kind == "counter":
+        cell.count = 0
+        message = "You reset the counted relay."
+    elif action == "secondary" and cell.kind == "sensor":
+        cell.threshold = 1 if cell.threshold == 3 else cell.threshold + 1
+        message = f"The field sensor threshold is now {cell.threshold}."
+    elif action != "primary":
+        return False, "This fitting has no secondary setting."
+    elif cell.kind == "switch":
         cell.enabled = not cell.enabled
         if not cell.enabled:
             cell.phase = "wire"
@@ -174,8 +289,22 @@ def operate(state: GameState, position: Position, layer: str) -> tuple[bool, str
         _spend_item(state, "cell")
         cell.charge += CELL_CHARGE
         message = f"You fit a galvanic cell; the rack holds {cell.charge} pulses."
+    elif cell.kind in {"piston", "relay"}:
+        if cell.kind == "piston" and active(state, cell):
+            return False, "Wait for the piston to retract before rotating its crank."
+        compass = tuple(DIRECTIONS)
+        cell.facing = compass[(compass.index(cell.facing) + 1) % len(compass)]
+        message = f"You turn the {PARTS[cell.kind]['name'].lower()} {cell.facing}."
+    elif cell.kind == "sensor":
+        cell.mode = SENSOR_MODES[(SENSOR_MODES.index(cell.mode) + 1) % len(SENSOR_MODES)]
+        message = f"The field sensor now reads {cell.mode}."
+    elif cell.kind == "counter":
+        cell.threshold = 2 if cell.threshold == 4 else cell.threshold + 1
+        cell.count = 0
+        message = f"The counted relay now passes every {cell.threshold}th pulse."
     else:
-        return False, "Operate a knife switch or load a galvanic rack here."
+        return False, "This fitting has no manual control."
+    cell.last_event = message
     _advance_world(state)
     state.add_message(message, priority=3)
     return True, message
@@ -189,11 +318,11 @@ def _neighbors(state: GameState, cell: CircuitCell) -> list[CircuitCell]:
             if dx == dy == 0:
                 continue
             other = state.circuits.get(cell_key(space, Position(point.x + dx, point.y + dy, point.z), layer))
-            if other is not None:
+            if other is not None and other.kind != "crate":
                 found.append(other)
     other_layer = "buried" if layer == "surface" else "surface"
     other = state.circuits.get(cell_key(space, point, other_layer))
-    if other is not None and (cell.kind == "via" or other.kind == "via"):
+    if other is not None and other.kind != "crate" and (cell.kind == "via" or other.kind == "via"):
         found.append(other)
     if cell.kind == "via" and space.startswith("region:"):
         region = state.regions.get(space.split(":", 1)[1])
@@ -207,37 +336,216 @@ def _neighbors(state: GameState, cell: CircuitCell) -> list[CircuitCell]:
     return found
 
 
+def _heads_into(state: GameState, cell: CircuitCell) -> int:
+    heads = 0
+    for other in _neighbors(state, cell):
+        if other.phase != "head" or other.kind == "switch" and not other.enabled:
+            continue
+        if other.kind == "sensor" and not sensor_active(state, other):
+            continue
+        if other.kind == "relay" and cell.position != offset(other.position, other.facing):
+            continue
+        if cell.kind == "relay" and other.position != offset(cell.position, cell.facing, -1):
+            continue
+        heads += 1
+    return heads
+
+
+def next_phase(state: GameState, cell: CircuitCell, *, at_time: int | None = None) -> tuple[str, int]:
+    behavior = PARTS[cell.kind]["behavior"]
+    if behavior == "block":
+        return "wire", 0
+    if behavior == "source":
+        tick = state.world_time if at_time is None else at_time
+        phase = "head" if tick % PULSE_INTERVAL == 0 and cell.charge > 0 else (
+            "tail" if cell.phase == "head" else "wire")
+        return phase, cell.count
+    if behavior == "gated" and not (cell.enabled if cell.kind == "switch" else sensor_active(state, cell)):
+        return "wire", cell.count
+    if cell.phase == "head":
+        return "tail", cell.count
+    if cell.phase == "tail":
+        return "wire", cell.count
+    heads = _heads_into(state, cell)
+    if heads not in (1, 2):
+        return "wire", cell.count
+    if behavior == "counter":
+        count = cell.count + 1
+        return ("head", 0) if count >= cell.threshold else ("wire", count)
+    return "head", cell.count
+
+
+def diagnostic_lines(state: GameState, cell: CircuitCell) -> list[str]:
+    if cell.kind == "crate":
+        return ["Freight crate: blocks movement; pistons can move up to three in a line.",
+                "It can cover a buried mass sensor or circuit trace."]
+    seen = {cell_key(cell.space, cell.position, cell.layer)}
+    queue = deque([cell])
+    racks = []
+    while queue:
+        current = queue.popleft()
+        if current.kind == "rack":
+            racks.append(current)
+        for neighbor in _neighbors(state, current):
+            key = cell_key(neighbor.space, neighbor.position, neighbor.layer)
+            if key not in seen:
+                seen.add(key)
+                queue.append(neighbor)
+    next_state, next_count = next_phase(state, cell, at_time=state.world_time + 1)
+    inputs = _heads_into(state, cell)
+    status = f"Phase {cell.phase} -> {next_state}; {inputs} live input head(s); {len(_neighbors(state, cell))} physical links."
+    sources = f"Structural network: {len(seen)} fittings; {len(racks)} rack(s), {sum(r.charge > 0 for r in racks)} charged."
+    if cell.kind == "rack":
+        setting = f"Cell charge {cell.charge}/{2 * CELL_CHARGE}; one pulse every {PULSE_INTERVAL} actions."
+    elif cell.kind == "switch":
+        setting = f"Knife switch {'CLOSED' if cell.enabled else 'OPEN'}; E changes it."
+    elif cell.kind == "sensor":
+        setting = f"Sensor {cell.mode} threshold {cell.threshold}: {'DETECTED' if sensor_active(state, cell) else 'clear'}; E mode, T threshold."
+    elif cell.kind == "relay":
+        setting = f"One-way relay faces {cell.facing}; input behind, output ahead; E rotates."
+    elif cell.kind == "counter":
+        setting = f"Counted relay {cell.count}/{cell.threshold}; next count {next_count}; E sets 2-4, T resets."
+    elif cell.kind == "piston":
+        setting = f"Piston faces {cell.facing}; {'sticky' if cell.sticky else 'push-only'}; E rotates, T changes grip."
+    else:
+        setting = f"{'ACTIVE' if active(state, cell) else 'idle'} until action {cell.active_until}." if cell.kind in {"lamp", "gate", "drain"} else "Passive conductor."
+    last = f"Last pulse: {cell.last_pulse or 'never'}. Last event: {cell.last_event or 'none'}."
+    return [status, sources, setting, last]
+
+
+def _terrain_at(state: GameState, space: str, point: Position) -> str:
+    if space == "vessel":
+        from .vessel import VESSEL_LEVELS
+
+        rows = VESSEL_LEVELS.get(point.z, ())
+        changed = state.vessel_tiles.get(f"{point.x},{point.y},{point.z}")
+    else:
+        region = state.regions.get(space.split(":", 1)[1])
+        rows = region.levels.get(str(point.z), ()) if region else ()
+        changed = region.tile_changes.get(f"{point.x},{point.y},{point.z}") if region else None
+    if not 0 <= point.y < len(rows) or not 0 <= point.x < len(rows[point.y]):
+        return " "
+    return changed if changed is not None else rows[point.y][point.x]
+
+
+def _actor_blocks(state: GameState, space: str, point: Position) -> bool:
+    if space == space_id(state) and state.position == point:
+        return True
+    if any(threat.status in {"watching", "engaged"} and threat.position == point
+           for threat in _threats_in_space(state, space)):
+        return True
+    return any(schedule.position == point and (
+        schedule.area == space or space == "vessel" and schedule.area.startswith("vessel:"))
+        for schedule in state.actor_schedules.values())
+
+
+def _crate_at(state: GameState, space: str, point: Position) -> CircuitCell | None:
+    cell = state.circuits.get(cell_key(space, point, "surface"))
+    return cell if cell and cell.kind == "crate" else None
+
+
+def _clear_for_piston(state: GameState, space: str, point: Position) -> tuple[bool, str]:
+    tile = _terrain_at(state, space, point)
+    blocked = {" ", "#", "~", "T", "+"} | ({"=", "t", "F", "f", "a", "v", "B"} if space == "vessel" else set())
+    if tile in blocked:
+        return False, "solid terrain"
+    if state.circuits.get(cell_key(space, point, "surface")) is not None:
+        return False, "another fitting"
+    if _actor_blocks(state, space, point):
+        return False, "a person or creature"
+    if space == space_id(state) and piston_head_at(state, point):
+        return False, "another extended piston"
+    return True, "clear"
+
+
+def _move_crate(state: GameState, crate: CircuitCell, target: Position) -> None:
+    del state.circuits[cell_key(crate.space, crate.position, "surface")]
+    crate.position = target
+    state.circuits[cell_key(crate.space, target, "surface")] = crate
+
+
+def _extend_piston(state: GameState, piston: CircuitCell) -> str:
+    front = offset(piston.position, piston.facing)
+    crates: list[CircuitCell] = []
+    target = front
+    while (crate := _crate_at(state, piston.space, target)) is not None:
+        crates.append(crate)
+        if len(crates) > 3:
+            return "jammed: more than three freight crates"
+        target = offset(target, piston.facing)
+    clear, reason = _clear_for_piston(state, piston.space, target)
+    if not clear:
+        return f"jammed: {reason} ahead"
+    for crate in reversed(crates):
+        _move_crate(state, crate, offset(crate.position, piston.facing))
+    piston.active_until = state.world_time + DEVICE_HOLD
+    return f"extended {piston.facing}; pushed {len(crates)} crate{'s' if len(crates) != 1 else ''}"
+
+
+def _retract_piston(state: GameState, piston: CircuitCell) -> str:
+    if not piston.sticky:
+        return "retracted"
+    front = offset(piston.position, piston.facing)
+    crate = _crate_at(state, piston.space, offset(front, piston.facing))
+    if crate is None:
+        return "retracted; nothing to pull"
+    clear, reason = _clear_for_piston(state, piston.space, front)
+    if not clear:
+        return f"retracted; pull blocked by {reason}"
+    _move_crate(state, crate, front)
+    return "retracted; pulled one crate"
+
+
+def _drain_water(state: GameState, cell: CircuitCell) -> int:
+    removed = 0
+    fields = (state.regions[cell.space.split(":", 1)[1]].materials
+              if cell.space.startswith("region:") else state.vessel_materials)
+    for dy in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            point = Position(cell.position.x + dx, cell.position.y + dy, cell.position.z)
+            key = f"{point.x},{point.y},{point.z}"
+            if cell.space == space_id(state) and key in state.water:
+                removed += 1
+                del state.water[key]
+            material = fields.get(key)
+            if material and material.water:
+                removed += min(2, material.water)
+                material.water = max(0, material.water - 2)
+    return removed
+
+
 def advance_circuits(state: GameState) -> None:
     """Simultaneous Wireworld phases; each rack injects one finite pulse per interval."""
     if not state.circuits:
         return
-    next_phases: dict[str, str] = {}
-    for key, cell in state.circuits.items():
-        if cell.kind == "rack":
-            next_phases[key] = "head" if state.world_time % PULSE_INTERVAL == 0 and cell.charge > 0 else (
-                "tail" if cell.phase == "head" else "wire")
-        elif cell.kind == "switch" and not cell.enabled:
-            next_phases[key] = "wire"
-        elif cell.phase == "head":
-            next_phases[key] = "tail"
-        elif cell.phase == "tail":
-            next_phases[key] = "wire"
-        else:
-            heads = sum(other.phase == "head" and (other.kind != "switch" or other.enabled)
-                        for other in _neighbors(state, cell))
-            next_phases[key] = "head" if heads in (1, 2) else "wire"
-    for key, phase in next_phases.items():
+    transitions = {key: next_phase(state, cell) for key, cell in state.circuits.items() if cell.kind != "crate"}
+    for key, (phase, count) in transitions.items():
         cell = state.circuits[key]
+        old_phase = cell.phase
+        retract_due = cell.kind == "piston" and cell.active_until == state.world_time - 1 and phase != "head"
         cell.phase = phase
+        cell.count = count
         if cell.kind == "rack" and phase == "head":
             cell.charge -= 1
-        if phase == "head" and cell.kind in {"lamp", "gate", "drain"}:
-            cell.active_until = state.world_time + DEVICE_HOLD
-            if cell.kind == "drain" and cell.space == space_id(state):
-                for dy in (-1, 0, 1):
-                    for dx in (-1, 0, 1):
-                        position = Position(cell.position.x + dx, cell.position.y + dy, cell.position.z)
-                        state.water.pop(f"{position.x},{position.y},{position.z}", None)
+            if cell.charge == 0:
+                cell.last_event = "cell depleted; load another galvanic cell"
+        if phase == "head" and old_phase != "head":
+            cell.last_pulse = state.world_time
+            if cell.kind == "piston":
+                if active(state, cell):
+                    cell.active_until = state.world_time + DEVICE_HOLD
+                else:
+                    cell.last_event = _extend_piston(state, cell)
+            elif cell.kind == "drain":
+                cell.active_until = state.world_time + DEVICE_HOLD
+                cell.last_event = f"drained {_drain_water(state, cell)} water measures"
+            elif cell.kind in {"lamp", "gate"}:
+                cell.active_until = state.world_time + DEVICE_HOLD
+                cell.last_event = "powered"
+            elif cell.kind == "counter":
+                cell.last_event = f"passed its {cell.threshold}th input pulse"
+        elif retract_due:
+            cell.last_event = _retract_piston(state, cell)
 
 
 def validate_circuits(state: GameState) -> None:
@@ -255,11 +563,21 @@ def validate_circuits(state: GameState) -> None:
             raise ValueError("mismatched circuit key")
         if cell.layer not in {"surface", "buried"} or cell.kind not in PLACED_PARTS or cell.phase not in {"wire", "head", "tail"}:
             raise ValueError("invalid circuit part or phase")
-        if cell.layer == "buried" and cell.kind in DEVICE_PARTS:
-            raise ValueError("buried circuit device")
+        if cell.layer not in PARTS[cell.kind]["layers"]:
+            raise ValueError("circuit part on unsupported layer")
         if (type(cell.enabled) is not bool or type(cell.charge) is not int or not 0 <= cell.charge <= 2 * CELL_CHARGE
                 or type(cell.active_until) is not int or cell.active_until < 0):
             raise ValueError("invalid circuit control state")
+        if (not isinstance(cell.facing, str) or cell.facing not in DIRECTIONS
+                or not isinstance(cell.mode, str) or cell.mode not in SENSOR_MODES
+                or type(cell.threshold) is not int or not 1 <= cell.threshold <= 4
+                or type(cell.count) is not int or not 0 <= cell.count < cell.threshold
+                or type(cell.sticky) is not bool or type(cell.last_pulse) is not int
+                or not 0 <= cell.last_pulse <= state.world_time
+                or not isinstance(cell.last_event, str) or len(cell.last_event) > 160):
+            raise ValueError("invalid circuit setting or diagnostic")
+        if cell.kind == "crate" and cell.phase != "wire":
+            raise ValueError("movable crate cannot carry an electrical pulse")
         region = state.regions.get(cell.space[7:]) if cell.space.startswith("region:") else None
         if region and (str(cell.position.z) not in region.levels or not 0 <= cell.position.x < region.width
                        or not 0 <= cell.position.y < region.height):

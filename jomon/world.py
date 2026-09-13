@@ -132,17 +132,18 @@ def displayed_tile(state: GameState, position: Position) -> str:
         return ENTITY_GLYPHS["smoke"]
     if position_key(position) in state.water:
         return ENTITY_GLYPHS["water"]
-    from .circuits import glyph
+    from .circuits import glyph, piston_head_at
 
-    return glyph(state, position) or tile
+    return ("=" if piston_head_at(state, position) else glyph(state, position)) or tile
 
 
 def is_walkable(state: GameState, position: Position, *, ignore_threat: bool = False) -> bool:
     from .materials import fields, key
-    from .circuits import active, cell_at
+    from .circuits import active, cell_at, piston_head_at
 
     gate = cell_at(state, position)
-    if gate and gate.kind == "gate" and not active(state, gate):
+    if (gate and (gate.kind in {"crate", "piston"} or gate.kind == "gate" and not active(state, gate))
+            or piston_head_at(state, position)):
         return False
 
     material = fields(state).get(key(position))

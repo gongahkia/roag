@@ -566,6 +566,31 @@
       "id": "circuit-drain", "name": "Assemble a sump pump", "station": "workshop",
       "inputs": [["commodity:ironwork", 1], ["commodity:timber", 1]],
       "output": "circuit:drain", "quantity": 1, "contents": []
+    },
+    {
+      "id": "circuit-sensor", "name": "Fit a field sensor", "station": "workshop",
+      "inputs": [["commodity:ironwork", 1], ["commodity:paper", 1]],
+      "output": "circuit:sensor", "quantity": 1, "contents": []
+    },
+    {
+      "id": "circuit-relay", "name": "Fit two one-way relays", "station": "workshop",
+      "inputs": [["commodity:ironwork", 1], ["commodity:paper", 1]],
+      "output": "circuit:relay", "quantity": 2, "contents": []
+    },
+    {
+      "id": "circuit-counter", "name": "Assemble a counted relay", "station": "workshop",
+      "inputs": [["commodity:ironwork", 1], ["commodity:paper", 1], ["commodity:charcoal", 1]],
+      "output": "circuit:counter", "quantity": 1, "contents": []
+    },
+    {
+      "id": "circuit-piston", "name": "Forge a crank piston", "station": "forge",
+      "inputs": [["component:iron billet", 1], ["commodity:timber", 1], ["commodity:wool", 1]],
+      "output": "circuit:piston", "quantity": 1, "contents": []
+    },
+    {
+      "id": "circuit-crate", "name": "Build two movable freight crates", "station": "workshop",
+      "inputs": [["commodity:timber", 1], ["commodity:wool", 1]],
+      "output": "circuit:crate", "quantity": 2, "contents": []
     }
   ]
 }

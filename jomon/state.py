@@ -21,7 +21,7 @@ from .content import (
     ROLES,
 )
 
-SAVE_FORMAT = 12
+SAVE_FORMAT = 13
 HISTORY_LIMIT = 40
 MESSAGE_LIMIT = 8
 ATTRIBUTES = ("strength", "agility", "endurance", "perception", "intellect", "presence")
@@ -421,6 +421,13 @@ class CircuitCell:
     enabled: bool = True
     charge: int = 0
     active_until: int = 0
+    facing: str = "east"
+    mode: str = "mass"
+    threshold: int = 2
+    count: int = 0
+    sticky: bool = False
+    last_pulse: int = 0
+    last_event: str = ""
 
 
 @dataclass
@@ -864,6 +871,9 @@ def create_world(seed: str) -> GameState:
     from .production import initialise_production
 
     initialise_production(state)
+    from .circuits import initialise_circuits
+
+    initialise_circuits(state)
     state.add_message(f"Jomon reaches Hearthford. {region.condition}")
     state.add_message(
         f"{state.courier.name} has the courier watch with a basic working kit. "
@@ -1049,6 +1059,12 @@ def _migrate_v11(data: dict[str, Any]) -> dict[str, Any]:
     return migrated
 
 
+def _migrate_v12(data: dict[str, Any]) -> dict[str, Any]:
+    migrated = copy.deepcopy(data)
+    migrated["save_format"] = 13
+    return migrated
+
+
 def game_state_from_dict(data: Any) -> GameState:
     if not isinstance(data, dict):
         raise StateError("save root must be an object")
@@ -1075,6 +1091,8 @@ def game_state_from_dict(data: Any) -> GameState:
         data = _migrate_v10(data)
     if data.get("save_format") == 11:
         data = _migrate_v11(data)
+    if data.get("save_format") == 12:
+        data = _migrate_v12(data)
     if data.get("save_format") != SAVE_FORMAT:
         raise StateError(f"incompatible save format; expected {SAVE_FORMAT}")
     raw_region_threats = data.get(

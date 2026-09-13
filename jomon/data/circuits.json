@@ -3,42 +3,107 @@
     "trace": {
       "name": "Lacquered conductor",
       "glyph": ":",
+      "behavior": "conductor",
+      "layers": ["surface", "buried"],
       "description": "An insulated iron trace for a surface or buried circuit run."
     },
     "via": {
       "name": "Insulated via",
       "glyph": "o",
+      "behavior": "conductor",
+      "layers": ["surface", "buried"],
       "description": "A sleeved vertical joint between a floor trace and its buried layer."
     },
     "rack": {
       "name": "Galvanic rack",
       "glyph": "b",
+      "behavior": "source",
+      "layers": ["surface"],
       "description": "Holds a finite galvanic cell and sends a timed electrical pulse."
     },
     "cell": {
       "name": "Galvanic cell",
       "glyph": "c",
+      "behavior": "fuel",
+      "layers": [],
       "description": "A finite iron-carbon and brine pulse cell for the rack."
     },
     "switch": {
       "name": "Knife switch",
       "glyph": "s",
+      "behavior": "gated",
+      "layers": ["surface"],
       "description": "A hand-operated contact that passes pulses only when closed."
     },
     "lamp": {
       "name": "Shielded arc lamp",
       "glyph": "l",
+      "behavior": "conductor",
+      "layers": ["surface"],
       "description": "A pulse-lit lamp that widens nearby sight while charged."
     },
     "gate": {
       "name": "Latch gate",
       "glyph": "#",
+      "behavior": "conductor",
+      "layers": ["surface"],
       "description": "Blocks movement until a pulse releases its latch briefly."
     },
     "drain": {
       "name": "Sump pump",
       "glyph": "p",
-      "description": "A pulsed pump that clears temporary water from nearby cells."
+      "behavior": "conductor",
+      "layers": ["surface"],
+      "description": "A pulsed pump that drains nearby standing water and temporary floods."
+    },
+    "sensor": {
+      "name": "Field sensor",
+      "glyph": "?",
+      "behavior": "gated",
+      "layers": ["surface", "buried"],
+      "description": "Passes pulses only while its chosen condition detects mass, water, or a nearby threat."
+    },
+    "relay": {
+      "name": "One-way relay",
+      "glyph": ">",
+      "behavior": "directional",
+      "layers": ["surface", "buried"],
+      "description": "Receives a pulse from behind and sends it only toward its facing."
+    },
+    "counter": {
+      "name": "Counted relay",
+      "glyph": "c",
+      "behavior": "counter",
+      "layers": ["surface", "buried"],
+      "description": "Passes one pulse after a chosen number of received pulses."
+    },
+    "piston": {
+      "name": "Crank piston",
+      "glyph": ">",
+      "behavior": "conductor",
+      "layers": ["surface"],
+      "description": "A directional actuator that pushes up to three movable crates; a sticky setting pulls one back."
+    },
+    "crate": {
+      "name": "Movable freight crate",
+      "glyph": "B",
+      "behavior": "block",
+      "layers": ["surface"],
+      "description": "A physical blocking crate that a powered piston can shift and a buried sensor can weigh."
     }
-  }
+  },
+  "fixtures": [
+    {
+      "id": "hearthford-mill-relief",
+      "region": "hearthford",
+      "anchor": "mill",
+      "cells": [
+        {"kind": "rack", "offset": [-4, 0], "layer": "surface", "charge": 48},
+        {"kind": "trace", "offset": [-3, 0], "layer": "surface"},
+        {"kind": "sensor", "offset": [-2, 0], "layer": "surface", "mode": "mass"},
+        {"kind": "drain", "offset": [-1, 0], "layer": "surface"},
+        {"kind": "lamp", "offset": [0, 0], "layer": "surface"}
+      ]
+    }
+  ]
 }

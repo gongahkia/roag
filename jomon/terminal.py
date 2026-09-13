@@ -978,7 +978,7 @@ def _handle_look(
 
 
 def _draw_circuit(screen: curses.window, state: GameState, view: CircuitView) -> None:
-    from .circuits import PARTS, active, cell_at, glyph, item_count, space_id
+    from .circuits import PARTS, active, cell_at, diagnostic_lines, glyph, item_count, space_id
 
     height, width = screen.getmaxyx()
     visible = field_of_view(state, remember=False)
@@ -996,18 +996,16 @@ def _draw_circuit(screen: curses.window, state: GameState, view: CircuitView) ->
         mark = glyph(state, view.cursor, view.layer) or displayed_tile(state, view.cursor)
         _put(screen, y, x, mark, _COLOUR_ATTRIBUTES["target_cell"] | curses.A_REVERSE | curses.A_BOLD)
     cell = cell_at(state, view.cursor, view.layer)
-    description = (
-        f"{PARTS[cell.kind]['name']}: {cell.phase}; "
-        + (f"{cell.charge} pulses" if cell.kind == "rack" else "closed" if cell.kind == "switch" and cell.enabled else "open" if cell.kind == "switch" else "active" if active(state, cell) else "idle")
-        if cell else "No fitting on this layer"
-    )
+    description = PARTS[cell.kind]["name"] if cell else "No fitting on this layer"
     lines = (
         f"CIRCUITS {view.layer.upper()}  {view.cursor.x},{view.cursor.y},{view.cursor.z}  {description}",
-        "1 trace 2 via 3 rack 4 switch 5 lamp 6 gate 7 drain",
-        "E operate/load cell  R reclaim  Tab surface/buried  Arrows/HJKL move cursor",
-        f"Pack: trace {item_count(state, 'trace')} via {item_count(state, 'via')} rack {item_count(state, 'rack')} cell {item_count(state, 'cell')} switch {item_count(state, 'switch')} lamp {item_count(state, 'lamp')} gate {item_count(state, 'gate')} drain {item_count(state, 'drain')}",
+        *(diagnostic_lines(state, cell) if cell else ["No conductor here. Lay a part or move the cursor to inspect a circuit."]),
+        " ".join(f"{key} {name}({item_count(state, name)})" for key, name in
+                 (("1", "trace"), ("2", "via"), ("3", "rack"), ("4", "switch"), ("5", "lamp"), ("6", "gate"), ("7", "drain"))),
+        " ".join(f"{key} {name}({item_count(state, name)})" for key, name in
+                 (("8", "sensor"), ("9", "relay"), ("0", "counter"), ("P", "piston"), ("B", "crate"), ("cell", "cell"))),
+        "E configure/load  T alternate  . step time  R reclaim  Tab depth  Esc/\\ close",
         (state.messages[-1] if state.messages else "Buried traces stay hidden on the world map; vias link layers."),
-        "Esc/\\ closes. Buried traces stay hidden on the world map.",
     )
     for index, line in enumerate(lines, height - len(lines)):
         _put(screen, index, 0, line[:width].ljust(width), _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_REVERSE)
@@ -1028,9 +1026,10 @@ def _handle_circuit(
         return False
     normalized = ord(chr(key).lower()) if 0 <= key < 256 else key
     choices = {ord("1"): "trace", ord("2"): "via", ord("3"): "rack", ord("4"): "switch",
-               ord("5"): "lamp", ord("6"): "gate", ord("7"): "drain"}
-    if key in choices:
-        changed, message = place(state, view.cursor, view.layer, choices[key])
+               ord("5"): "lamp", ord("6"): "gate", ord("7"): "drain", ord("8"): "sensor",
+               ord("9"): "relay", ord("0"): "counter", ord("p"): "piston", ord("b"): "crate"}
+    if normalized in choices:
+        changed, message = place(state, view.cursor, view.layer, choices[normalized])
         if not changed:
             state.add_message(message, priority=2)
         return False
@@ -1038,6 +1037,17 @@ def _handle_circuit(
         changed, message = operate(state, view.cursor, view.layer)
         if not changed:
             state.add_message(message, priority=2)
+        return False
+    if normalized == ord("t"):
+        changed, message = operate(state, view.cursor, view.layer, "secondary")
+        if not changed:
+            state.add_message(message, priority=2)
+        return False
+    if key == ord("."):
+        from .actions import _advance_world
+
+        _advance_world(state)
+        state.add_message("You let one world action pass while observing the circuit.")
         return False
     if normalized == ord("r"):
         changed, message = reclaim(state, view.cursor, view.layer)
