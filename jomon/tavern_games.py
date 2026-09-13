@@ -49,6 +49,8 @@ def invited_opponents(state: GameState, opponents: list[str], chairs: tuple[Posi
 
 
 def seat_opponents(state: GameState, opponents: list[str], chairs: tuple[Position, ...], activity: str, table: str) -> None:
+    if len(opponents) != len(set(opponents)) or any(identity not in state.actor_schedules for identity in opponents):
+        raise ValueError("seating needs distinct scheduled tavern adults")
     occupied = {schedule.position for identity, schedule in state.actor_schedules.items()
                 if schedule.area == "tavern" and identity not in opponents}
     occupied.add(state.position)

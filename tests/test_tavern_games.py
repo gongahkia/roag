@@ -5,6 +5,8 @@ from __future__ import annotations
 import copy
 import unittest
 
+from dumbest_dungeon.expedition import start_match as start_dullest_match
+from dumbest_dungeon.tabletop import patrons
 from jomon.actions import interact
 from jomon.state import StateError, create_world, game_state_from_dict, validate_state
 from jomon.tavern_dice import ROUNDS, close_match, hold, start_match
@@ -56,6 +58,17 @@ class TavernGameBoundaryTests(unittest.TestCase):
         loaded = game_state_from_dict(self.state.to_dict())
         self.assertEqual(npc_credit(loaded, self.opponents[0]), 13)
         validate_state(loaded)
+
+    def test_dullest_session_also_excludes_a_saved_draw_hand(self):
+        self.state.position = DRAW_PLAYER_SEAT
+        start_hand(self.state, self.opponents, wagering=False)
+        separate = create_world("shared tavern tables")
+        separate.jomon_space = "tavern"
+        separate.position = TABLE_PLAYER_SEAT
+        start_dullest_match(separate, patrons(separate)[0].id)
+        self.state.tabletop = copy.deepcopy(separate.tabletop)
+        with self.assertRaisesRegex(StateError, "more than one tavern game"):
+            validate_state(self.state)
 
     def test_unavailable_chairs_do_not_mutate_invited_adults(self):
         self.state.position = DICE_PLAYER_SEAT

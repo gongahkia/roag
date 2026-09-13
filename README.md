@@ -47,6 +47,8 @@ a four-seat push-your-luck dice contest with visible two-die rolls and a
 finite, counted tavern prize purse. No credit is required to enter; a clear
 winner can earn credit, while a tied match pays nothing.
 
+For extending these tables, see the [tavern-game code boundary](docs/tavern-game-boundary.md).
+
 The terminal must be at least 80 columns by 24 rows. Jomon shows a resize
 message below that size and uses `curses.wrapper()` to restore the terminal on
 normal exit and exceptions.
