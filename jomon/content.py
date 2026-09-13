@@ -534,6 +534,7 @@ HELP_LINES = (
     "Water ~, wall #, doors +, stairs <> and roof ^, controls &, hole O, weak floor d.",
     "Aboard, speak beside people to switch or recruit; tavern C selects support; chart P sets course.",
     "I opens the spatial pack/locker: move, rotate, transfer, equip, confirm, or cancel safely.",
+    "P opens courier skills; D learned spell targets and shrine vigils; W physical work and flasks.",
     "Pressure is elapsed actions + geographic depth + noise + valuables; all remain visible.",
     "Normal colour is visible now; dim terrain is remembered; blank terrain remains unknown.",
     "Guard readable intent; smoke breaks aim; mud, water, controls, height, and walls matter.",
