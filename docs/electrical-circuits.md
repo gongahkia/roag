@@ -35,25 +35,45 @@ and records the reason.
 The pulse phase follows [Wireworld's four-state automaton](https://mathworld.wolfram.com/WireWorld.html):
 an electron head becomes a tail, a tail becomes a conductor, and a conductor
 becomes a head only when one or two neighboring heads are present. Jomon adds
-the layer-via rule and powered devices. A loaded rack injects one pulse every
-six world actions and spends one of its cell's 24 pulses; an empty rack cannot
-inject more. Opening a switch breaks that circuit path. A receiving lamp
+the layer-via rule and powered devices. This is one unified system: the visible
+pulse is both the control signal and the energy that works a device. There is
+no second power wire, wattage budget, or per-device charge cost. A loaded rack
+sends one pulse every six world actions only while an open path reaches a
+device or counted relay. Each sent pulse spends one of the cell's 24 charges;
+an idle or blocked rack conserves its charge. A pulse can cross at most 64
+fitting links. Branches can work several devices from one pulse, but a loop
+cannot keep working indefinitely after its source is removed or emptied.
+Opening a switch breaks that circuit path. A receiving lamp
 brightens nearby sight for seven actions; a latch gate opens for seven actions
 and otherwise blocks movement; a sump pump clears temporary water and reduces
 standing material water in its surrounding nine squares. Sensors pass pulses
 only while detecting mass on their square, local water, or a nearby threat;
 their threshold is configurable. One-way relays receive from behind and emit
 only ahead. Counted relays pass every second, third, or fourth accepted pulse.
-All fitted settings, counts, phase, charge, last-pulse time, and actuator fault
-are saved. The circuit panel reports the next phase, live input heads, physical
-links, structurally connected racks, charge, and last event. A structural rack
-connection does not imply that an open switch or unsatisfied sensor passes power.
+All fitted settings, counts, phase, charge, remaining pulse span, last-pulse
+time, and actuator fault are saved. The circuit panel reports the next phase,
+live input heads, physical links, connected racks, source readiness, and the
+first blocked switch, sensor, or relay on a route. A physical connection alone
+does not mean that an open switch or clear sensor passes a pulse. Even an open
+route may lose a pulse at a Wireworld junction with too many simultaneous
+inputs; `.` steps time so you can watch the exact point of failure.
 
 In a new world, Hearthford's mill has an authored relief circuit: its finite
 rack feeds a mass sensor, sump pump, and lamp. Standing on the sensor while a
 pulse arrives runs the pump and lights the mill. It can be inspected, altered,
 reclaimed, and recharged like a player-built circuit. Older saves keep their
 existing circuits without receiving a new installation mid-expedition.
+
+Jomon's lower-deck bilge has a second authored circuit near the `U` station at
+8,15,-1. Its rack at 5,15,-1 feeds a knife switch, a paired via, a trace buried
+beneath the work station, and a water sensor at 9,15,-1. When that sensor sees
+one measure of water, pulses reach the sump pump and lamp. The rack saves its
+cell while the hold is dry or the switch is open. A flooded-hold voyage can be
+cleared by the resulting *local* pumping under the same material and crisis
+rules as manual work; the circuit does not repair an open seam, and water beyond
+the pump's nine-square reach still needs another pump or manual bilge work.
+Use `\` near the station and `Tab` to inspect the buried run. The switch can
+be opened to reserve charge, and the rack can be reloaded with a crafted cell.
 
 Useful builds available now include a mill or bilge pump fed through a water
 sensor, a threat-triggered warning lamp, a pressure-operated latch gate, and a
@@ -64,13 +84,15 @@ orders, and terrain-block movement are not connected to circuits yet.
 
 The design borrows the physical push and obstruction limits of
 [Minecraft pistons](https://www.minecraft.net/nb-no/article/block-week-piston),
-the observable sender/condition/receiver pattern of [Factorio's circuit
-network](https://wiki.factorio.com/Circuit_network), and the value of visible
-switch and charge state from [Satisfactory's priority power controls](https://satisfactory.wiki.gg/wiki/Priority_Power_Switch).
+the single source-to-device language of [Minecraft redstone](https://www.minecraft.net/fr-ca/article/redstone-dust),
+the observable state of [Factorio's circuit interface](https://www.factorio.com/blog/post/fff-384),
+and the tangible sensor-to-machine response shown in [Infinifactory](https://www.zachtronics.com/infiniupdate-2/).
 Jomon remains a discrete pulse game, not an analog voltage simulator or a full
 numeric factory network. Pistons do not move world terrain, vehicles, or actors;
 circuits do not yet automate regional production orders or ship navigation.
 
-Circuits persist in save format 13. Format-12 circuits gain the new settings
-without losing their wiring; format-11 saves still load with an empty circuit
-register. Reclaimed racks do not refund spent galvanic cells.
+Circuits persist in save format 14. Format-13 in-flight pulses gain one final
+link during migration; format-12 circuits gain their earlier device settings,
+and format-11 saves still load with an empty circuit register. Existing saves
+do not receive new authored fixtures mid-expedition. Reclaimed racks do not
+refund spent galvanic cells.

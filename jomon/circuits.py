@@ -37,6 +37,7 @@ FACING_GLYPHS = {"north": "^", "east": ">", "south": "v", "west": "<"}
 SENSOR_MODES = ("mass", "water", "threat")
 PULSE_INTERVAL = 6
 CELL_CHARGE = 24
+SIGNAL_SPAN = 64
 DEVICE_HOLD = 7
 MAX_CELLS = 4096
 CRATE_LOAD_LIMIT = 12
@@ -52,18 +53,27 @@ def initialise_circuits(state: GameState) -> None:
         if (not isinstance(fixture, dict) or set(fixture) != {"id", "region", "anchor", "cells"}
                 or any(not isinstance(fixture[field], str) or not fixture[field] for field in ("id", "region", "anchor"))):
             raise CatalogError("circuits.json has invalid fixture identity")
-        region = state.regions.get(fixture["region"])
-        anchor = region.landmarks.get(fixture["anchor"]) if region else None
+        if fixture["region"] == "vessel":
+            from .ship_crises import HAZARD_STATIONS
+
+            anchor = HAZARD_STATIONS.get(fixture["anchor"])
+            space = "vessel"
+        else:
+            region = state.regions.get(fixture["region"])
+            anchor = region.landmarks.get(fixture["anchor"]) if region else None
+            space = f"region:{fixture['region']}"
         if anchor is None or not isinstance(fixture["cells"], list):
             raise CatalogError("circuits.json has missing fixture anchor")
-        space = f"region:{fixture['region']}"
         for row in fixture["cells"]:
             if (not isinstance(row, dict) or not {"kind", "offset", "layer"} <= set(row)
-                    or set(row) - {"kind", "offset", "layer", "charge", "mode"}
+                    or set(row) - {"kind", "offset", "layer", "charge", "mode", "threshold"}
                     or not isinstance(row["kind"], str) or row["kind"] not in PLACED_PARTS
                     or not isinstance(row["layer"], str) or row["layer"] not in PARTS[row["kind"]]["layers"]
                     or not isinstance(row["offset"], list) or len(row["offset"]) != 2
-                    or any(type(value) is not int for value in row["offset"])):
+                    or any(type(value) is not int for value in row["offset"])
+                    or type(row.get("charge", 0)) is not int or not 0 <= row.get("charge", 0) <= 2 * CELL_CHARGE
+                    or row.get("mode", "mass") not in SENSOR_MODES
+                    or type(row.get("threshold", 2)) is not int or not 1 <= row.get("threshold", 2) <= 4):
                 raise CatalogError("circuits.json has invalid fixture fitting")
             point = Position(anchor.x + row["offset"][0], anchor.y + row["offset"][1], anchor.z)
             if _terrain_at(state, space, point) in {" ", "#", "~", "T"}:
@@ -72,7 +82,8 @@ def initialise_circuits(state: GameState) -> None:
             if key in state.circuits:
                 raise CatalogError("circuits.json has overlapping fixture fittings")
             state.circuits[key] = CircuitCell(space, point, row["layer"], row["kind"],
-                                              charge=row.get("charge", 0), mode=row.get("mode", "mass"))
+                                              charge=row.get("charge", 0), mode=row.get("mode", "mass"),
+                                              threshold=row.get("threshold", 2))
     validate_circuits(state)
 
 
@@ -292,6 +303,7 @@ def operate(state: GameState, position: Position, layer: str, action: str = "pri
         cell.enabled = not cell.enabled
         if not cell.enabled:
             cell.phase = "wire"
+            cell.signal_steps = 0
         message = f"You {'close' if cell.enabled else 'open'} the knife switch."
     elif cell.kind == "rack":
         if cell.charge > CELL_CHARGE:
@@ -348,43 +360,115 @@ def _neighbors(state: GameState, cell: CircuitCell) -> list[CircuitCell]:
     return found
 
 
+def _can_transmit(state: GameState, sender: CircuitCell, receiver: CircuitCell) -> bool:
+    if receiver.kind == "rack" or sender.kind == "switch" and not sender.enabled:
+        return False
+    if sender.kind == "sensor" and not sensor_active(state, sender):
+        return False
+    if receiver.kind == "switch" and not receiver.enabled:
+        return False
+    if receiver.kind == "sensor" and not sensor_active(state, receiver):
+        return False
+    if sender.kind == "relay" and receiver.position != offset(sender.position, sender.facing):
+        return False
+    return receiver.kind != "relay" or sender.position == offset(receiver.position, receiver.facing, -1)
+
+
+def _route(state: GameState, start: CircuitCell, goal: set[str], *, open_only: bool = True) -> list[CircuitCell] | None:
+    start_key = cell_key(start.space, start.position, start.layer)
+    parents = {start_key: None}
+    queue = deque([start_key])
+    while queue:
+        current_key = queue.popleft()
+        current = state.circuits[current_key]
+        for neighbor in _neighbors(state, current):
+            key = cell_key(neighbor.space, neighbor.position, neighbor.layer)
+            if key in parents or open_only and not _can_transmit(state, current, neighbor):
+                continue
+            parents[key] = current_key
+            if key in goal:
+                path = [key]
+                while parents[path[-1]] is not None:
+                    path.append(parents[path[-1]])
+                return [state.circuits[part] for part in reversed(path)]
+            queue.append(key)
+    return None
+
+
+def _receivers(state: GameState, space: str) -> set[str]:
+    return {key for key, cell in state.circuits.items()
+            if cell.space == space and cell.kind in {"lamp", "gate", "drain", "piston", "counter"}}
+
+
+def _has_receiver(state: GameState, rack: CircuitCell) -> bool:
+    receivers = _receivers(state, rack.space)
+    route = _route(state, rack, receivers) if receivers else None
+    return route is not None and len(route) - 1 <= SIGNAL_SPAN
+
+
+def _blocked_link(state: GameState, path: list[CircuitCell]) -> str:
+    for sender, receiver in zip(path, path[1:]):
+        if _can_transmit(state, sender, receiver):
+            continue
+        if receiver.kind == "rack":
+            part = receiver
+        elif (sender.kind == "switch" and not sender.enabled
+              or sender.kind == "sensor" and not sensor_active(state, sender)):
+            part = sender
+        elif (receiver.kind == "switch" and not receiver.enabled
+              or receiver.kind == "sensor" and not sensor_active(state, receiver)):
+            part = receiver
+        else:
+            part = sender if sender.kind == "relay" else receiver
+        where = f"{part.position.x},{part.position.y},z{part.position.z:+d}"
+        if part.kind == "switch":
+            return f"Knife switch at {where} is open."
+        if part.kind == "sensor":
+            return f"{part.mode.title()} sensor at {where} is clear (needs {part.threshold})."
+        if part.kind == "relay":
+            return f"Relay at {where} faces {part.facing}; check input and output."
+        return f"Rack at {where} cannot pass another source's pulse."
+    return "No open source route."
+
+
+def _head_inputs(state: GameState, cell: CircuitCell) -> list[CircuitCell]:
+    return [other for other in _neighbors(state, cell)
+            if other.phase == "head" and other.signal_steps > 0
+            and _can_transmit(state, other, cell)]
+
+
 def _heads_into(state: GameState, cell: CircuitCell) -> int:
-    heads = 0
-    for other in _neighbors(state, cell):
-        if other.phase != "head" or other.kind == "switch" and not other.enabled:
-            continue
-        if other.kind == "sensor" and not sensor_active(state, other):
-            continue
-        if other.kind == "relay" and cell.position != offset(other.position, other.facing):
-            continue
-        if cell.kind == "relay" and other.position != offset(cell.position, cell.facing, -1):
-            continue
-        heads += 1
-    return heads
+    return len(_head_inputs(state, cell))
+
+
+def _next_transition(state: GameState, cell: CircuitCell, *, at_time: int | None = None) -> tuple[str, int, int]:
+    behavior = PARTS[cell.kind]["behavior"]
+    if behavior == "block":
+        return "wire", 0, 0
+    if behavior == "source":
+        tick = state.world_time if at_time is None else at_time
+        phase = "head" if tick % PULSE_INTERVAL == 0 and cell.charge > 0 and _has_receiver(state, cell) else (
+            "tail" if cell.phase == "head" else "wire")
+        return phase, cell.count, SIGNAL_SPAN if phase == "head" else 0
+    if behavior == "gated" and not (cell.enabled if cell.kind == "switch" else sensor_active(state, cell)):
+        return "wire", cell.count, 0
+    if cell.phase == "head":
+        return "tail", cell.count, 0
+    if cell.phase == "tail":
+        return "wire", cell.count, 0
+    inputs = _head_inputs(state, cell)
+    if len(inputs) not in (1, 2):
+        return "wire", cell.count, 0
+    steps = max(other.signal_steps for other in inputs) - 1
+    if behavior == "counter":
+        count = cell.count + 1
+        return ("head", 0, steps) if count >= cell.threshold else ("wire", count, 0)
+    return "head", cell.count, steps
 
 
 def next_phase(state: GameState, cell: CircuitCell, *, at_time: int | None = None) -> tuple[str, int]:
-    behavior = PARTS[cell.kind]["behavior"]
-    if behavior == "block":
-        return "wire", 0
-    if behavior == "source":
-        tick = state.world_time if at_time is None else at_time
-        phase = "head" if tick % PULSE_INTERVAL == 0 and cell.charge > 0 else (
-            "tail" if cell.phase == "head" else "wire")
-        return phase, cell.count
-    if behavior == "gated" and not (cell.enabled if cell.kind == "switch" else sensor_active(state, cell)):
-        return "wire", cell.count
-    if cell.phase == "head":
-        return "tail", cell.count
-    if cell.phase == "tail":
-        return "wire", cell.count
-    heads = _heads_into(state, cell)
-    if heads not in (1, 2):
-        return "wire", cell.count
-    if behavior == "counter":
-        count = cell.count + 1
-        return ("head", 0) if count >= cell.threshold else ("wire", count)
-    return "head", cell.count
+    phase, count, _ = _next_transition(state, cell, at_time=at_time)
+    return phase, count
 
 
 def diagnostic_lines(state: GameState, cell: CircuitCell) -> list[str]:
@@ -396,8 +480,10 @@ def diagnostic_lines(state: GameState, cell: CircuitCell) -> list[str]:
     seen = {cell_key(cell.space, cell.position, cell.layer)}
     queue = deque([cell])
     racks = []
+    network = []
     while queue:
         current = queue.popleft()
+        network.append(current)
         if current.kind == "rack":
             racks.append(current)
         for neighbor in _neighbors(state, current):
@@ -407,8 +493,9 @@ def diagnostic_lines(state: GameState, cell: CircuitCell) -> list[str]:
                 queue.append(neighbor)
     next_state, next_count = next_phase(state, cell, at_time=state.world_time + 1)
     inputs = _heads_into(state, cell)
-    status = f"Phase {cell.phase} -> {next_state}; {inputs} live input head(s); {len(_neighbors(state, cell))} physical links."
-    sources = f"Structural network: {len(seen)} fittings; {len(racks)} rack(s), {sum(r.charge > 0 for r in racks)} charged."
+    remaining = f"; pulse can travel {cell.signal_steps} more link(s)" if cell.phase == "head" else ""
+    status = f"Phase {cell.phase} -> {next_state}; {inputs} live input(s); {len(_neighbors(state, cell))} links{remaining}."
+    sources = f"Network: {len(seen)} fittings; {len(racks)} rack(s), {sum(r.charge > 0 for r in racks)} charged."
     if cell.kind == "rack":
         setting = f"Cell charge {cell.charge}/{2 * CELL_CHARGE}; one pulse every {PULSE_INTERVAL} actions."
     elif cell.kind == "switch":
@@ -423,8 +510,46 @@ def diagnostic_lines(state: GameState, cell: CircuitCell) -> list[str]:
         setting = f"Piston faces {cell.facing}; {'sticky' if cell.sticky else 'push-only'}; E rotates, T changes grip."
     else:
         setting = f"{'ACTIVE' if active(state, cell) else 'idle'} until action {cell.active_until}." if cell.kind in {"lamp", "gate", "drain"} else "Passive conductor."
+    charged = [rack for rack in racks if rack.charge > 0]
+    if cell.kind == "rack":
+        if not cell.charge:
+            route = "Source empty: fit a galvanic cell with E."
+        elif not _has_receiver(state, cell):
+            receivers = _receivers(state, cell.space)
+            open_path = _route(state, cell, receivers) if receivers else None
+            physical = _route(state, cell, receivers, open_only=False) if receivers else None
+            if open_path is not None:
+                route = f"Source waiting: device is {len(open_path) - 1} links away; limit {SIGNAL_SPAN}."
+            elif physical is None:
+                route = "Source waiting: no attached device; charge is conserved."
+            else:
+                route = f"Source waiting: {_blocked_link(state, physical)}"
+        else:
+            route = f"Source ready: next pulse in {(-state.world_time) % PULSE_INTERVAL or PULSE_INTERVAL} action(s)."
+    elif cell.kind == "switch" and not cell.enabled:
+        route = "Path blocked here: open knife switch; E closes it."
+    elif cell.kind == "sensor" and not sensor_active(state, cell):
+        route = f"Path blocked here: {cell.mode} below threshold {cell.threshold}."
+    elif not charged:
+        in_flight = any(part.phase == "head" and part.signal_steps > 0 for part in network)
+        if active(state, cell):
+            route = "Device remains active briefly; no charged rack for its next pulse."
+        else:
+            route = "Source depleted: a final pulse is still travelling." if in_flight else "No charged rack in this network."
+    else:
+        target = {cell_key(cell.space, cell.position, cell.layer)}
+        open_paths = [path for rack in charged if (path := _route(state, rack, target))]
+        if open_paths:
+            distance = min(len(path) - 1 for path in open_paths)
+            if distance > SIGNAL_SPAN:
+                route = f"Open route is {distance} links; one pulse reaches {SIGNAL_SPAN}. Add a rack."
+            else:
+                route = "Source route open; waiting for a pulse." if not active(state, cell) else "Powered device is active."
+        else:
+            physical = [path for rack in charged if (path := _route(state, rack, target, open_only=False))]
+            route = _blocked_link(state, min(physical, key=len)) if physical else "No physical route to a charged rack."
     last = f"Last pulse: {cell.last_pulse or 'never'}. Last event: {cell.last_event or 'none'}."
-    return [status, sources, setting, last]
+    return [status, sources, setting, route, last]
 
 
 def _terrain_at(state: GameState, space: str, point: Position) -> str:
@@ -548,16 +673,17 @@ def _drain_water(state: GameState, cell: CircuitCell) -> int:
 
 
 def advance_circuits(state: GameState) -> None:
-    """Simultaneous Wireworld phases; each rack injects one finite pulse per interval."""
+    """Simultaneous finite pulses; an idle rack conserves its cell charge."""
     if not state.circuits:
         return
-    transitions = {key: next_phase(state, cell) for key, cell in state.circuits.items() if cell.kind != "crate"}
-    for key, (phase, count) in transitions.items():
+    transitions = {key: _next_transition(state, cell) for key, cell in state.circuits.items() if cell.kind != "crate"}
+    for key, (phase, count, steps) in transitions.items():
         cell = state.circuits[key]
         old_phase = cell.phase
         retract_due = cell.kind == "piston" and cell.active_until == state.world_time - 1 and phase != "head"
         cell.phase = phase
         cell.count = count
+        cell.signal_steps = steps
         if cell.kind == "rack" and phase == "head":
             cell.charge -= 1
             if cell.charge == 0:
@@ -607,6 +733,8 @@ def validate_circuits(state: GameState) -> None:
                 or type(cell.count) is not int or not 0 <= cell.count < cell.threshold
                 or type(cell.sticky) is not bool or type(cell.last_pulse) is not int
                 or not 0 <= cell.last_pulse <= state.world_time
+                or type(cell.signal_steps) is not int or not 0 <= cell.signal_steps <= SIGNAL_SPAN
+                or cell.phase != "head" and cell.signal_steps != 0
                 or not isinstance(cell.last_event, str) or len(cell.last_event) > 160):
             raise ValueError("invalid circuit setting or diagnostic")
         if cell.kind == "crate" and cell.phase != "wire":

@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 
 from jomon.circuits import (
-    CELL_CHARGE, advance_circuits, cell_at, cell_key, glyph, item_count,
+    CELL_CHARGE, SIGNAL_SPAN, advance_circuits, cell_at, cell_key, glyph, item_count,
     diagnostic_lines, next_phase, operate, piston_head_at, place, reclaim,
     sensor_active, validate_circuits,
 )
@@ -97,6 +97,7 @@ class CircuitTests(unittest.TestCase):
         state.world_time = 17
         self.tick(4)
         self.assertTrue(is_walkable(state, gate.position))
+        self.assertTrue(operate(state, switch.position, "surface")[0])
         self.tick(8)
         self.assertFalse(is_walkable(state, gate.position))
 
@@ -148,10 +149,136 @@ class CircuitTests(unittest.TestCase):
         self.assertTrue(operate(state, rack.position, "surface")[0])
         self.assertEqual(rack.charge, CELL_CHARGE)
         self.assertEqual(item_count(state, "cell"), 0)
+        self.fit("lamp", 22)
         state.world_time = 5
         self.tick()
         self.assertEqual(rack.charge, CELL_CHARGE - 1)
         self.assertEqual(rack.phase, "head")
+
+    def test_idle_rack_conserves_charge_and_diagnostic_names_blocking_switch(self):
+        state = self.state
+        rack = self.fit("rack", 20)
+        rack.charge = 3
+        switch = self.fit("switch", 21)
+        switch.enabled = False
+        lamp = self.fit("lamp", 22)
+        self.tick(18)
+        self.assertEqual(rack.charge, 3)
+        self.assertIn("Source waiting", " ".join(diagnostic_lines(state, rack)))
+        self.assertIn("Knife switch at 21,20,z+0 is open", " ".join(diagnostic_lines(state, lamp)))
+        switch.enabled = True
+        self.tick(8)
+        self.assertEqual(rack.charge, 2)
+        self.assertGreater(lamp.last_pulse, 0)
+
+    def test_one_finite_pulse_can_work_two_devices_without_a_second_power_grid(self):
+        state = self.state
+        rack = self.fit("rack", 20)
+        rack.charge = 1
+        first = self.fit("lamp", 21)
+        second = self.fit("lamp", 20, y=21)
+        state.world_time = 5
+        self.tick(2)
+        self.assertEqual(rack.charge, 0)
+        self.assertTrue(all(lamp.active_until >= state.world_time for lamp in (first, second)))
+
+    def test_diagnostic_names_the_actual_block_after_a_closed_switch(self):
+        state = self.state
+        rack = self.fit("rack", 20)
+        rack.charge = 2
+        self.fit("switch", 21)
+        sensor = self.fit("sensor", 22)
+        sensor.mode = "water"
+        self.fit("lamp", 23)
+        self.assertIn("Water sensor at 22,20,z+0 is clear", " ".join(diagnostic_lines(state, rack)))
+
+    def test_source_free_feedback_expires_after_finite_signal_span(self):
+        state = self.state
+        state.circuits = {}
+        points = [(x, 0) for x in range(4)] + [(3, y) for y in range(1, 4)]
+        points += [(x, 3) for x in range(2, -1, -1)] + [(0, y) for y in range(2, 0, -1)]
+        traces = [self.fit("trace", x + 20, y=y + 19) for x, y in points]
+        traces[0].phase, traces[0].signal_steps = "head", SIGNAL_SPAN
+        traces[-1].phase = "tail"
+        lamp = self.fit("lamp", 22, y=18)
+        self.tick(SIGNAL_SPAN + 12)
+        self.assertGreater(lamp.last_pulse, 0)
+        self.assertFalse(any(cell.phase == "head" for cell in state.circuits.values()))
+        self.assertEqual(sum(cell.kind == "rack" for cell in state.circuits.values()), 0)
+        self.assertLess(lamp.last_pulse, state.world_time - 7)
+
+    def test_bilge_watch_waits_dry_then_pumps_a_real_flooded_hold(self):
+        from jomon.actions import _advance_world
+        from jomon.ship_crises import begin_deck, crisis_lines
+
+        state = self.state
+        rack = state.circuits[cell_key("vessel", Position(5, 15, -1), "surface")]
+        pump = state.circuits[cell_key("vessel", Position(10, 15, -1), "surface")]
+        sensor = state.circuits[cell_key("vessel", Position(9, 15, -1), "buried")]
+        self.assertEqual((sensor.kind, sensor.mode, sensor.threshold, rack.charge),
+                         ("sensor", "water", 1, CELL_CHARGE))
+        self.tick(30)
+        self.assertEqual(rack.charge, CELL_CHARGE)
+        self.assertIn("Water sensor at 9,15,z-1 is clear", " ".join(diagnostic_lines(state, rack)))
+        state.location, state.jomon_space = "jomon", "vessel"
+        state.position = Position(8, 14, -1)
+        state.voyage_kind, state.voyage_status = "flooded-hold", "active"
+        self.assertTrue(begin_deck(state)[0])
+        self.assertTrue(any("bilge pump" in line for line in crisis_lines(state)))
+        for _ in range(30):
+            _advance_world(state)
+            if state.voyage_status == "resolved":
+                break
+        self.assertEqual(state.voyage_status, "resolved")
+        self.assertLess(rack.charge, CELL_CHARGE)
+        self.assertIn("drained", pump.last_event)
+        self.assertLessEqual(sum(cell.water for cell in state.vessel_materials.values()), 1)
+
+    def test_bilge_switch_reserves_charge_and_surge_has_same_physical_counterplay(self):
+        from jomon.actions import _advance_world
+        from jomon.ship_crises import begin_deck
+
+        state = self.state
+        state.location, state.jomon_space = "jomon", "vessel"
+        state.position = Position(7, 15, -1)
+        state.voyage_kind, state.voyage_status = "flooded-hold", "active"
+        state.vessel_changes["active_voyage_variant"] = "thaw-surge"
+        rack = state.circuits[cell_key("vessel", Position(5, 15, -1), "surface")]
+        switch = state.circuits[cell_key("vessel", Position(6, 15, -1), "surface")]
+        self.assertTrue(operate(state, switch.position, "surface")[0])
+        self.assertFalse(switch.enabled)
+        self.assertTrue(begin_deck(state)[0])
+        for _ in range(8):
+            _advance_world(state)
+        self.assertEqual(rack.charge, CELL_CHARGE)
+        self.assertEqual(state.voyage_status, "active")
+        self.assertTrue(operate(state, switch.position, "surface")[0])
+        for _ in range(36):
+            _advance_world(state)
+            if state.voyage_status == "resolved":
+                break
+        self.assertEqual(state.voyage_status, "resolved")
+        self.assertLess(rack.charge, CELL_CHARGE)
+
+    def test_format_thirteen_inflight_pulse_migrates_with_one_step(self):
+        state = self.state
+        trace = self.fit("trace", 21)
+        trace.phase, trace.signal_steps = "head", SIGNAL_SPAN
+        old = state.to_dict()
+        old["save_format"] = 13
+        for cell in old["circuits"].values():
+            cell.pop("signal_steps")
+        loaded = game_state_from_dict(old)
+        self.assertEqual(loaded.circuits[cell_key(trace.space, trace.position, trace.layer)].signal_steps, 1)
+        old["circuits"] = {key: cell for key, cell in old["circuits"].items() if not key.startswith("vessel/")}
+        self.assertFalse(any(cell.space == "vessel" for cell in game_state_from_dict(old).circuits.values()))
+        old["circuits"] = []
+        with self.assertRaises(StateError):
+            game_state_from_dict(old)
+        invalid = state.to_dict()
+        invalid["circuits"][cell_key(trace.space, trace.position, trace.layer)]["signal_steps"] = SIGNAL_SPAN + 1
+        with self.assertRaises(StateError):
+            game_state_from_dict(invalid)
 
     def test_save_round_trip_and_format_eleven_migration_validate(self):
         state = self.state
@@ -305,10 +432,13 @@ class CircuitTests(unittest.TestCase):
         rear = self.fit("trace", 23)
         front = self.fit("trace", 25)
         rear.phase = "head"
+        rear.signal_steps = 2
         self.assertEqual(next_phase(state, relay)[0], "head")
         rear.phase, front.phase = "wire", "head"
+        rear.signal_steps, front.signal_steps = 0, 2
         self.assertEqual(next_phase(state, relay)[0], "wire")
         relay.phase, front.phase = "head", "wire"
+        relay.signal_steps, front.signal_steps = 2, 0
         self.assertEqual(next_phase(state, front)[0], "head")
         self.assertEqual(next_phase(state, rear)[0], "wire")
         self.assertIn("faces east", " ".join(diagnostic_lines(state, relay)))
@@ -318,9 +448,11 @@ class CircuitTests(unittest.TestCase):
         trace = self.fit("trace", 20)
         counter = self.fit("counter", 21)
         trace.phase = "head"
+        trace.signal_steps = 2
         self.tick()
         self.assertEqual((counter.phase, counter.count), ("wire", 1))
         trace.phase = "head"
+        trace.signal_steps = 2
         self.tick()
         self.assertEqual((counter.phase, counter.count), ("head", 0))
         self.assertEqual(counter.last_pulse, state.world_time)

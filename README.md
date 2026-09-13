@@ -95,8 +95,10 @@ route chart still handles travel between distant regions.
 [Working circuits](docs/electrical-circuits.md) add crafted conductive traces,
 buried runs and vias, finite galvanic cells, switches, configurable sensors,
 one-way and counted relays, lamps, latch gates, sump pumps, pistons, and movable
-crates to the main world. A working relief circuit stands at Hearthford's mill.
-Its pulses advance with the normal action clock.
+crates to the main world. Working circuits stand at Hearthford's mill and
+Jomon's lower-deck bilge. A rack saves charge while no open path reaches a
+device; pulses are the single visible control-and-power mechanism and advance
+with the normal action clock.
 
 At the tavern's `D` chair immediately south of the large gaming table,
 `Enter` or `E` opens Dullest Dungeon. In its lobby,

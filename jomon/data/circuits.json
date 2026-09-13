@@ -117,6 +117,22 @@
         {"kind": "drain", "offset": [-1, 0], "layer": "surface"},
         {"kind": "lamp", "offset": [0, 0], "layer": "surface"}
       ]
+    },
+    {
+      "id": "jomon-bilge-watch",
+      "region": "vessel",
+      "anchor": "flooded-hold",
+      "cells": [
+        {"kind": "rack", "offset": [-3, 0], "layer": "surface", "charge": 24},
+        {"kind": "switch", "offset": [-2, 0], "layer": "surface"},
+        {"kind": "via", "offset": [-1, 0], "layer": "surface"},
+        {"kind": "via", "offset": [-1, 0], "layer": "buried"},
+        {"kind": "trace", "offset": [0, 0], "layer": "buried"},
+        {"kind": "sensor", "offset": [1, 0], "layer": "buried", "mode": "water", "threshold": 1},
+        {"kind": "via", "offset": [2, 0], "layer": "buried"},
+        {"kind": "drain", "offset": [2, 0], "layer": "surface"},
+        {"kind": "lamp", "offset": [3, 0], "layer": "surface"}
+      ]
     }
   ]
 }

@@ -51,6 +51,12 @@ def crisis_lines(state: GameState) -> list[str]:
         station = HAZARD_STATIONS.get(kind)
         lines += [f"Integrity {state.vessel_integrity}/10. {sum(a.status in {'watching', 'engaged'} for a in state.vessel_threats)} active deck threats."]
         lines += [f"Work position: {station.x},{station.y},z{station.z:+d}. E previews the intervention."] if station else ["Defeat, negotiate or drive off the boarders. V offers nearby terms; R accepts withdrawal losses."]
+        if kind == "flooded-hold":
+            from .circuits import cell_key
+
+            pump = state.circuits.get(cell_key("vessel", Position(station.x + 2, station.y, station.z), "surface"))
+            if pump and pump.kind == "drain":
+                lines += ["A fitted bilge pump can clear water without repairing a seam. Inspect nearby wiring with \\."]
         lines += ["F inspects materials; A targets visible threats; O reads intent. Hatches take one action under danger."]
     return lines + ["Inspection and Escape cost no time. The event remains pending until resolved."]
 

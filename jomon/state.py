@@ -21,7 +21,7 @@ from .content import (
     ROLES,
 )
 
-SAVE_FORMAT = 13
+SAVE_FORMAT = 14
 HISTORY_LIMIT = 40
 MESSAGE_LIMIT = 8
 ATTRIBUTES = ("strength", "agility", "endurance", "perception", "intellect", "presence")
@@ -428,6 +428,7 @@ class CircuitCell:
     sticky: bool = False
     last_pulse: int = 0
     last_event: str = ""
+    signal_steps: int = 0
 
 
 @dataclass
@@ -1065,6 +1066,17 @@ def _migrate_v12(data: dict[str, Any]) -> dict[str, Any]:
     return migrated
 
 
+def _migrate_v13(data: dict[str, Any]) -> dict[str, Any]:
+    migrated = copy.deepcopy(data)
+    migrated["save_format"] = 14
+    circuits = migrated.get("circuits")
+    if not isinstance(circuits, dict) or any(not isinstance(cell, dict) for cell in circuits.values()):
+        raise StateError("malformed circuit register")
+    for cell in circuits.values():
+        cell["signal_steps"] = 1 if cell.get("phase") == "head" else 0
+    return migrated
+
+
 def game_state_from_dict(data: Any) -> GameState:
     if not isinstance(data, dict):
         raise StateError("save root must be an object")
@@ -1093,6 +1105,8 @@ def game_state_from_dict(data: Any) -> GameState:
         data = _migrate_v11(data)
     if data.get("save_format") == 12:
         data = _migrate_v12(data)
+    if data.get("save_format") == 13:
+        data = _migrate_v13(data)
     if data.get("save_format") != SAVE_FORMAT:
         raise StateError(f"incompatible save format; expected {SAVE_FORMAT}")
     raw_region_threats = data.get(
