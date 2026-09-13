@@ -8,7 +8,7 @@ from jomon.actions import interact, move
 from jomon.regions import activate_region
 from jomon.save import load_game, save_game
 from jomon.state import SAVE_FORMAT, Position, StateError, create_world, game_state_from_dict, validate_state
-from jomon.terminal import OverlayView, _draw_map, _overlay, _overlay_lines, dialogue_choices
+from jomon.terminal import OverlayView, _draw_map, _handle_overlay, _overlay, _overlay_lines, dialogue_choices
 from jomon.vehicles import (
     JOMON_DOCK,
     SHORE_DOCK,
@@ -19,6 +19,7 @@ from jomon.vehicles import (
 )
 from jomon.vessel import JOMON_GANGPLANK
 from jomon.world import area_name, map_rows
+from jomon.world import position_key
 
 
 class VehicleNavigationTests(unittest.TestCase):
@@ -38,7 +39,7 @@ class VehicleNavigationTests(unittest.TestCase):
     def test_tug_round_trip_uses_a_real_water_map_and_preserves_return(self):
         state = create_world("tug round trip")
         self.assertEqual([option.key for option in dialogue_choices(state, "gangplank")], ["1", "2"])
-        self.assertTrue(board_tug(state).changed)
+        self.assertEqual(_handle_overlay(state, "gangplank", ord("2")), (None, False))
         self.assertEqual((state.jomon_space, state.position, state.active_vehicle_id), ("harbour", JOMON_DOCK, "tug"))
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "on-water.json"
@@ -120,11 +121,30 @@ class VehicleNavigationTests(unittest.TestCase):
         directions = ((1, 0), (-1, 0), (0, 1), (0, -1))
         heading = next((dx, dy) for dx, dy in directions
                        if state.region.levels["0"][original.y + dy][original.x + dx] in {"=", "."})
+        first_step = Position(original.x + heading[0], original.y + heading[1])
+        state.water[position_key(first_step)] = 3
         self.assertTrue(move(state, *heading).changed)
-        self.assertNotEqual(state.position, original)
+        self.assertEqual(state.position, first_step)
         self.assertEqual(cart.position, state.position)
         self.assertLess(cart.fuel, fuel)
         validate_state(game_state_from_dict(state.to_dict()))
+
+    def test_rootwalker_crosses_dense_canopy_without_allowing_dismount(self):
+        state = create_world("rootwalker canopy")
+        activate_region(state, "greenwold")
+        state.location = "region"
+        rows = state.region.levels["0"]
+        x, y, dx, dy = next((x, y, dx, dy) for y in range(1, len(rows) - 1)
+                            for x in range(1, len(rows[y]) - 1)
+                            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))
+                            if rows[y][x] in {".", "="} and rows[y + dy][x + dx] == "T")
+        rootwalker = state.vehicles["rootwalker"]
+        state.position = rootwalker.position = Position(x, y)
+        state.active_vehicle_id = rootwalker.id
+        self.assertTrue(move(state, dx, dy).changed)
+        self.assertEqual(state.position, Position(x + dx, y + dy))
+        self.assertFalse(interact(state).changed)
+        validate_state(state)
 
     def test_glider_crosses_deep_water_but_cannot_disembark_on_it(self):
         state = create_world("glider over estuary")

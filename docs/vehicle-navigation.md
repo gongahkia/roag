@@ -15,7 +15,7 @@ An unfinished tug return can be saved and resumed without teleporting home.
 Four local vehicles occupy visible map cells. Walk onto one and press `E` to
 board; press `E` again on walkable ground to leave it there. Hearthford's horse
 cart follows roads and firm floor; Rillscar's steam crawler is another road
-vehicle; Greenwold's living rootwalker handles mud, thicket, and shallow
+vehicle; Greenwold's living rootwalker crosses dense canopy, mud, and shallow
 water; Greywash's aether glider can cross water and vegetation but cannot
 land where a walking courier cannot stand. Rillscar and its crawler are
 generated together on first arrival. These are single map glyphs rather than
@@ -24,7 +24,8 @@ rules. The courier remains vulnerable to ordinary regional hazards and actors.
 
 Each helm order costs one world action and spends finite charge for each cell
 actually travelled. Rough or shallow cells cost an extra charge and accumulate
-frame wear. Road vehicles stop at water, walls, and actors; diagonal moves
+frame wear. Multi-cell orders stop at an encounter, physical site, or hazardous
+tile so speed does not skip its effects. Road vehicles stop at water, walls, and actors; diagonal moves
 cannot cut a pinched corner. The tug can row at zero coal, and the glider can
 trim its wings without aether: one cell per two actions, so either can reach a
 landing after its charge is spent. `Tab` zooms into

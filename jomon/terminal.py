@@ -1311,9 +1311,11 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str], view: Over
 
 def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
     if kind == "gangplank":
+        node = state.route_nodes.get(state.route_current_node)
+        can_land = bool(node and node.region_id == state.active_region_id and state.voyage_status != "active")
         return [
-            ChoiceOption("1", "Walk ashore into the current region"),
-            ChoiceOption("2", "Board Jomon's steam tug and steer across open water"),
+            ChoiceOption("1", "Walk ashore into the current region", "ordinary", can_land, "charted regional mooring"),
+            ChoiceOption("2", "Board Jomon's steam tug and steer across open water", "ordinary", can_land, "charted regional mooring"),
         ]
     if kind == "station:gathering":
         from .household_stories import station_choices

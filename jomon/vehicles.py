@@ -89,9 +89,9 @@ def _regional_home(state: GameState, vehicle_id: str) -> Position:
         for y in range(max(1, landing.y - 8), min(region.height - 1, landing.y + 9))
         for x in range(max(1, landing.x - 8), min(region.width - 1, landing.x + 9))
     )
-    usable = [point for point in candidates if point != landing and _terrain_ok(
-        domain, region.levels["0"][point.y][point.x], regional=True,
-    )]
+    usable = [point for point in candidates if point != landing
+              and region.levels["0"][point.y][point.x] not in {"~", "T", "#", "O"}
+              and _terrain_ok(domain, region.levels["0"][point.y][point.x], regional=True)]
     if not usable:
         raise CatalogError(f"no vehicle stand near {region.name}'s landing")
     return min(usable, key=lambda point: (
@@ -135,7 +135,7 @@ def _terrain_ok(domain: str, tile: str, *, regional: bool) -> bool:
     if domain == "road":
         return tile in {"=", "."}
     if domain == "rough":
-        return tile in {"=", ".", ",", "m", "t", "w", "r", "q"}
+        return tile in {"=", ".", ",", "m", "t", "T", "w", "r", "q"}
     return regional and tile not in {" ", "#", "+", "O"}
 
 
@@ -160,6 +160,9 @@ def board_tug(state: GameState):
         return _plain(state, "Board the tug from Jomon's gangplank.")
     if state.voyage_status == "active" or state.courier is None or not state.courier.alive:
         return _plain(state, "The tug cannot cast off during a voyage crisis or without an able courier.")
+    route_node = state.route_nodes.get(state.route_current_node)
+    if route_node is None or route_node.region_id != state.active_region_id:
+        return _plain(state, "This route stop has no charted regional shore for the tug.")
     if tug.position != JOMON_DOCK:
         return _plain(state, "The tug is not at Jomon's mooring.")
     state.jomon_space, state.position, state.active_vehicle_id = "harbour", JOMON_DOCK, "tug"
@@ -194,6 +197,7 @@ def disembark(state: GameState):
 
 def navigate(state: GameState, dx: int, dy: int):
     from .actions import _plain, _time_result
+    from .world import position_key
 
     vehicle = active_vehicle(state)
     if vehicle is None:
@@ -221,7 +225,9 @@ def navigate(state: GameState, dx: int, dy: int):
                 break
         if not water and any(actor.position == target and actor.status in {"watching", "engaged"} for actor in state.combatants):
             break
-        extra = 1 if tile in {"w", ",", "m"} or (spec["domain"] == "air" and state.weather == "crosswind") else 0
+        extra = 1 if (tile in {"w", ",", "m", "T"}
+                      or not water and position_key(target) in state.water
+                      or spec["domain"] == "air" and state.weather == "crosswind") else 0
         cost = 1 + extra
         if vehicle.fuel < cost:
             if not manual_drive or travelled:
@@ -235,7 +241,18 @@ def navigate(state: GameState, dx: int, dy: int):
             vehicle.fuel = 0
         if extra:
             strain += 1
-        if manual_used or water and tile in {"J", "L"}:
+        if water:
+            stop = tile in {"J", "L", "w"}
+        elif spec["domain"] == "air":
+            stop = False
+        else:
+            stop = (tile in {"w", ",", "m", "T", "r", "q", "f", "%", "O", "&", "C"}
+                    or position_key(target) in state.water or position_key(target) in state.smoke
+                    or position_key(target) in state.region.materials
+                    or any(container.position == target for container in state.region.containers)
+                    or any(schedule.area == f"region:{state.active_region_id}" and schedule.position == target
+                           for schedule in state.actor_schedules.values()))
+        if manual_used or stop:
             break
     if not travelled:
         if vehicle.fuel == 0 and not manual_drive:
@@ -253,9 +270,10 @@ def navigate(state: GameState, dx: int, dy: int):
         state.noise += 1 if vehicle.id in {"steam_crawler", "rootwalker"} else 0
         # The ordinary world tick still resolves patrols and hazards at the destination.
         from .inventory import apply_terrain_status
+        from .world import displayed_tile
 
         if spec["domain"] != "air":
-            terrain_message = apply_terrain_status(state, _tile(state, current))
+            terrain_message = apply_terrain_status(state, displayed_tile(state, current))
     message = f"{spec['name']} travels {travelled} tile{'s' if travelled != 1 else ''}; {vehicle.fuel}/{spec['capacity']} {spec['resource']} remains."
     if terrain_message:
         message += " " + terrain_message
