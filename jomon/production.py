@@ -77,6 +77,9 @@ if not isinstance(_CATALOG["recipes"], list):
 for _recipe_data in _CATALOG["recipes"]:
     _add(_recipe_from_data(_recipe_data))
 
+for _part in load_catalog("circuits.json", ("parts",))["parts"].values():
+    _add(_recipe_from_data(_part["recipe"]))
+
 
 for name, weapon in ARSENAL.items():
     station, inputs = {

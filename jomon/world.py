@@ -132,11 +132,18 @@ def displayed_tile(state: GameState, position: Position) -> str:
         return ENTITY_GLYPHS["smoke"]
     if position_key(position) in state.water:
         return ENTITY_GLYPHS["water"]
-    return tile
+    from .circuits import glyph
+
+    return glyph(state, position) or tile
 
 
 def is_walkable(state: GameState, position: Position, *, ignore_threat: bool = False) -> bool:
     from .materials import fields, key
+    from .circuits import active, cell_at
+
+    gate = cell_at(state, position)
+    if gate and gate.kind == "gate" and not active(state, gate):
+        return False
 
     material = fields(state).get(key(position))
     terrain = base_tile(state, position)
@@ -339,6 +346,12 @@ def sight_radius(state: GameState) -> int:
     from .worklines import beacon_active
     if state.active_region_id == "greywash" and beacon_active(state) and distance(state.position, state.region.landmarks["elevated"]) <= 20:
         radius += 2
+    from .circuits import active, space_id
+
+    circuit_space = space_id(state)
+    if any(cell.space == circuit_space and cell.kind == "lamp" and active(state, cell)
+           and distance(state.position, cell.position) <= 5 for cell in state.circuits.values()):
+        radius += 4
     return max(2, radius - (2 if "narrow-sight" in worn_tags(state, ("head",)) else 0))
 
 

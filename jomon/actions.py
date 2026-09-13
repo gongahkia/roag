@@ -1209,6 +1209,9 @@ def _advance_world(
 
         advance_production(state)
         advance_materials(state)
+        from .circuits import advance_circuits
+
+        advance_circuits(state)
         if state.location == "jomon":
             from .ship_crises import advance_deck
             advance_deck(state)

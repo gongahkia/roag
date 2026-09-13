@@ -84,6 +84,11 @@ ITEM_SPECS: dict[str, ItemSpec] = {
     kind: ItemSpec(**{**row, "tags": tuple(row["tags"])})
     for kind, row in _EQUIPMENT["item_specs"].items()
 }
+for _part_id, _part in load_catalog("circuits.json", ("parts",))["parts"].items():
+    ITEM_SPECS[f"circuit:{_part_id}"] = ItemSpec(
+        _part["name"], _part_id[:2].upper(), 1, 1, 1, "tool",
+        _part["description"], stack_limit=8,
+    )
 
 # Existing saved containers keep their contents; fresh frontier stores draw from
 # the work clothing of that place. Merchants can also bring a counted spare.

@@ -21,7 +21,7 @@ from .content import (
     ROLES,
 )
 
-SAVE_FORMAT = 11
+SAVE_FORMAT = 12
 HISTORY_LIMIT = 40
 MESSAGE_LIMIT = 8
 ATTRIBUTES = ("strength", "agility", "endurance", "perception", "intellect", "presence")
@@ -412,6 +412,18 @@ class RegionalContract:
 
 
 @dataclass
+class CircuitCell:
+    space: str
+    position: Position
+    layer: str
+    kind: str
+    phase: str = "wire"
+    enabled: bool = True
+    charge: int = 0
+    active_until: int = 0
+
+
+@dataclass
 class GameState:
     save_format: int
     seed: str
@@ -533,6 +545,7 @@ class GameState:
     active_vehicle_id: str | None = None
     expedition_by_tug: bool = False
     returning_by_tug: bool = False
+    circuits: dict[str, CircuitCell] = field(default_factory=dict)
 
     @property
     def combat_active(self) -> bool:
@@ -1029,6 +1042,13 @@ def _migrate_v10(data: dict[str, Any]) -> dict[str, Any]:
     return migrated
 
 
+def _migrate_v11(data: dict[str, Any]) -> dict[str, Any]:
+    migrated = copy.deepcopy(data)
+    migrated["save_format"] = 12
+    migrated["circuits"] = {}
+    return migrated
+
+
 def game_state_from_dict(data: Any) -> GameState:
     if not isinstance(data, dict):
         raise StateError("save root must be an object")
@@ -1053,6 +1073,8 @@ def game_state_from_dict(data: Any) -> GameState:
     migrated_v10 = data.get("save_format") == 10
     if migrated_v10:
         data = _migrate_v10(data)
+    if data.get("save_format") == 11:
+        data = _migrate_v11(data)
     if data.get("save_format") != SAVE_FORMAT:
         raise StateError(f"incompatible save format; expected {SAVE_FORMAT}")
     raw_region_threats = data.get(
@@ -1191,6 +1213,11 @@ def game_state_from_dict(data: Any) -> GameState:
             values["home"] = _position(values["home"], "vehicle home")
             values["position"] = _position(values["position"], "vehicle position")
             vehicles[key] = Vehicle(**values)
+        circuits = {}
+        for key, raw in data["circuits"].items():
+            values = dict(raw)
+            values["position"] = _position(values["position"], "circuit position")
+            circuits[key] = CircuitCell(**values)
         state = GameState(
             save_format=data["save_format"], seed=data["seed"], world_time=data["world_time"],
             household=household, active_courier_id=data["active_courier_id"], active_region_id=active_region_id, contact=contact,
@@ -1283,6 +1310,7 @@ def game_state_from_dict(data: Any) -> GameState:
             active_vehicle_id=data["active_vehicle_id"],
             expedition_by_tug=data["expedition_by_tug"],
             returning_by_tug=data["returning_by_tug"],
+            circuits=circuits,
         )
         if migrated_v9:
             from .skill_tree import seed_role_nodes
@@ -1396,6 +1424,7 @@ def validate_state(state: GameState) -> None:
     from .skill_tree import validate_skill_journals, validate_skills
     from .production import validate_production
     from .vehicles import validate_vehicles
+    from .circuits import validate_circuits
 
     try:
         validate_materials(state)
@@ -1406,6 +1435,7 @@ def validate_state(state: GameState) -> None:
         validate_aftermath(state)
         validate_production(state)
         validate_vehicles(state)
+        validate_circuits(state)
         validate_skill_journals(state)
         from .chemistry import REACTIONS
 
