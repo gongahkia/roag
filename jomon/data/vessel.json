@@ -1,0 +1,347 @@
+{
+  "voyages": {
+    "raiders": [
+      "Cargo-rail raiders",
+      "Hooked skiffs close on the cargo rail; their goal is theft and escape."
+    ],
+    "creature": [
+      "Rudder grazer",
+      "A broad-backed river grazer holds the rudder shoal. Height, bait or spaced strikes can free the vessel."
+    ],
+    "lure": [
+      "The answering hull",
+      "Mineral resonance makes familiar voices seem to call from the wrong bank. Chart, chain and named witnesses remain reliable."
+    ],
+    "boarders": [
+      "The two-rail boarding",
+      "A bowman holds the upper rail while a hook bearer approaches the stair. Break the lane, divide them across decks or buy passage."
+    ],
+    "hold-thieves": [
+      "The loosened hatch",
+      "A hold thief seeks a counted shipment below while a net bearer covers the hatch. Recover the physical lot before it escapes."
+    ],
+    "storm": [
+      "A parting stay",
+      "Wind works a cracked upper stay. The rigging at 55,10,+1 needs bracing; leaving it risks the hull and loose cargo."
+    ],
+    "shoal": [
+      "The silt shoulder",
+      "Newly deposited silt narrows the sounding. A slower pilot passage saves the hold; forcing it risks the hull."
+    ],
+    "driftwood": [
+      "A raft without its rope",
+      "Useful timber drifts past a broken carrier raft. A rope can secure one lot, but exposure delays the route."
+    ],
+    "galley-fire": [
+      "The spilled lamp",
+      "Lamp oil catches beside the galley. Water and the galley fire cover can smother it; smoke can reach the hatch."
+    ],
+    "split-seam": [
+      "A working hull seam",
+      "A lower seam admits water. The lower repair stores at 20,15,-1 can seat a brace before the hold takes more water."
+    ],
+    "flooded-hold": [
+      "The loaded bilge",
+      "Water has followed the cargo hatch below. Work the bilge at 8,15,-1 or accept damage and abandoned cargo."
+    ],
+    "inspection": [
+      "A disputed cargo seal",
+      "A river work patrol asks whose claim supports the cargo. Witnesses, paper or a declared payment can settle the inspection."
+    ]
+  },
+  "hazard_stations": {
+    "storm": {
+      "x": 55,
+      "y": 10,
+      "z": 1
+    },
+    "galley-fire": {
+      "x": 8,
+      "y": 5,
+      "z": 0
+    },
+    "split-seam": {
+      "x": 20,
+      "y": 15,
+      "z": -1
+    },
+    "flooded-hold": {
+      "x": 8,
+      "y": 15,
+      "z": -1
+    }
+  },
+  "variants": [
+    {
+      "id": "shortage-skiffs",
+      "family": "raiders",
+      "name": "Shortage skiffs",
+      "cause": "A recorded market shortage gives loose cargo an immediate buyer.",
+      "effect": "A third lot-caller boards; conceding can cost a second lot.",
+      "counterplay": "Repel the staged group, misdirect it, or let fitted rail netting catch the first loss."
+    },
+    {
+      "id": "displaced-pair",
+      "family": "creature",
+      "name": "Displaced breeding pair",
+      "cause": "Altered aftermath work has shifted a territorial pair into the rudder shoal.",
+      "effect": "Two animals hold separate deck approaches and bait requires two fish lots.",
+      "counterplay": "Use spaced reach, pilot the narrow water, or pay the disclosed two-lot bait cost."
+    },
+    {
+      "id": "returning-resonance",
+      "family": "lure",
+      "name": "Returning resonance",
+      "cause": "A prior answering or Jomon's conspicuous fitted signal gives the mineral echo a remembered pattern.",
+      "effect": "Signal navigation takes a second action and leaves a named route account.",
+      "counterplay": "Anchor materially, counsel named crew, or accept the visible signal record."
+    },
+    {
+      "id": "obligation-claim",
+      "family": "boarders",
+      "name": "Obligation claim",
+      "cause": "An unsettled institutional obligation has been sold to a boarding company.",
+      "effect": "A claimant joins the boarding and offers a finite account settlement.",
+      "counterplay": "Take the decks, surrender cargo, or settle one real obligation before boarding."
+    },
+    {
+      "id": "marked-shortage-lot",
+      "family": "hold-thieves",
+      "name": "Marked shortage lot",
+      "cause": "A heavily loaded hold makes one regional shortage worth marking in advance.",
+      "effect": "The thief targets the most demanded carried commodity and arrives through net drag if fitted.",
+      "counterplay": "Intercept the physical lot, exploit the fitted net, or abandon the declared claim."
+    },
+    {
+      "id": "crosswind-stay",
+      "family": "storm",
+      "name": "Crosswind stay",
+      "cause": "Severe route exposure or present storm weather loads two sides of the upper rig.",
+      "effect": "Emergency station work takes an extra exposed action and two supports appear.",
+      "counterplay": "Brace either support directly, fit a backstay, or spend the disclosed longer station work."
+    },
+    {
+      "id": "returning-silt-tongue",
+      "family": "shoal",
+      "name": "Returning silt tongue",
+      "cause": "A previously travelled edge now carries a newly legible deposit across its old sounding.",
+      "effect": "Careful sounding takes two extra actions; forcing costs one extra hull integrity.",
+      "counterplay": "Use keel shoes to recover one measure, accept delay, or accept the disclosed scrape."
+    },
+    {
+      "id": "fire-marked-raft",
+      "family": "driftwood",
+      "name": "Fire-marked carrier raft",
+      "cause": "A recorded regional fire left charcoal lashed among the drifting timbers.",
+      "effect": "Rope recovery takes one extra action but yields a wet timber lot and a charcoal lot.",
+      "counterplay": "Claim both physical lots with rope or leave the dangerous salvage unclaimed."
+    },
+    {
+      "id": "grease-soaked-store",
+      "family": "galley-fire",
+      "name": "Grease-soaked galley store",
+      "cause": "Carried wool or charcoal has trapped lamp grease and sparks beside the galley.",
+      "effect": "A second fire starts and station work takes one extra exposed action.",
+      "counterplay": "Extinguish sparse fires directly or use the fitted cover to recover one action."
+    },
+    {
+      "id": "worked-seam",
+      "family": "split-seam",
+      "name": "Worked seam reopens",
+      "cause": "Low integrity or a recorded repair loads an older hull seam instead of clean timber.",
+      "effect": "The seam begins wetter and weaker; station work takes an extra exposed action.",
+      "counterplay": "Brace the sparse support, use strainers to recover one action, or repair after passage."
+    },
+    {
+      "id": "thaw-surge",
+      "family": "flooded-hold",
+      "name": "Thaw surge",
+      "cause": "Spring high water or winter ice pressure drives water through more than one opening.",
+      "effect": "Two lower-deck cells flood and emergency work takes an extra exposed action.",
+      "counterplay": "Pump the whole deck, redirect water, or use strainers to recover one action."
+    },
+    {
+      "id": "counterclaim-inspection",
+      "family": "inspection",
+      "name": "Counterclaim inspection",
+      "cause": "An outstanding institution account gives the patrol a second plausible claimant.",
+      "effect": "Witness trust needs one additional level and a cash settlement costs three credit.",
+      "counterplay": "Produce stronger trust, a physical paper lot, the signal shutter, or pay the stated account."
+    }
+  ],
+  "echoes": [
+    {
+      "variant_id": "shortage-skiffs",
+      "kind": "rival preparation",
+      "title": "Hooks remembered at the next mooring",
+      "consequence": "a local cargo thief arrives with one extra finite supply, but names the marked shortage lot"
+    },
+    {
+      "variant_id": "displaced-pair",
+      "kind": "ecological return",
+      "title": "Tracks beside Jomon's wake",
+      "consequence": "the receiving region records where the displaced pair settled, changing its population margin"
+    },
+    {
+      "variant_id": "returning-resonance",
+      "kind": "crew memory",
+      "title": "The answer repeated correctly",
+      "consequence": "two household adults compare the false voice with Jomon's named signal and trust the shared watch"
+    },
+    {
+      "variant_id": "obligation-claim",
+      "kind": "institutional claim",
+      "title": "The boarding paper comes ashore",
+      "consequence": "the receiving work account records the settled or refused obligation instead of forgetting it"
+    },
+    {
+      "variant_id": "marked-shortage-lot",
+      "kind": "cargo claim",
+      "title": "A cut mark on the surviving lot",
+      "consequence": "the most demanded local cargo gains a witnessed claim and one point of market confidence"
+    },
+    {
+      "variant_id": "crosswind-stay",
+      "kind": "deck scar",
+      "title": "The stay's pale working scar",
+      "consequence": "the upper rig keeps a visible repair mark and the next storm station estimate is clearer"
+    },
+    {
+      "variant_id": "returning-silt-tongue",
+      "kind": "route mark",
+      "title": "A second sounding on the old line",
+      "consequence": "the destination chart gains the new silt note and one point less hidden shoal risk"
+    },
+    {
+      "variant_id": "fire-marked-raft",
+      "kind": "merchant testimony",
+      "title": "Charcoal knots at the landing",
+      "consequence": "the local contact recognises the fire-marked salvage and records its origin"
+    },
+    {
+      "variant_id": "grease-soaked-store",
+      "kind": "deck scar",
+      "title": "The scrubbed galley board",
+      "consequence": "the galley retains an inspectable smoke scar and a counted fire-cover drill"
+    },
+    {
+      "variant_id": "worked-seam",
+      "kind": "repair memory",
+      "title": "The seam entered in the household share",
+      "consequence": "the carpenter-minded adult records the repair and improves one strained relationship"
+    },
+    {
+      "variant_id": "thaw-surge",
+      "kind": "route forecast",
+      "title": "Thaw water in the next account",
+      "consequence": "the destination receives a visible high-water forecast rather than an untelegraphed penalty"
+    },
+    {
+      "variant_id": "counterclaim-inspection",
+      "kind": "institutional claim",
+      "title": "The counterclaim finds a witness",
+      "consequence": "the destination account records who accepted the inspection and adjusts one obligation"
+    }
+  ],
+  "refits": [
+    {
+      "id": "galley-fire-cover",
+      "name": "Galley fire cover",
+      "station": "galley",
+      "dependency": "wool",
+      "credit": 2,
+      "effect": "Galley fire starts with less fuel; emergency work and meals take one fewer action.",
+      "drawback": "The cover occupies dry wool that cannot be traded."
+    },
+    {
+      "id": "twin-bilge-strainers",
+      "name": "Twin bilge strainers",
+      "station": "bilge",
+      "dependency": "ironwork",
+      "credit": 3,
+      "effect": "Flood crises admit less initial water and pumping takes one action.",
+      "drawback": "Strainers do not repair an open hull seam."
+    },
+    {
+      "id": "storm-backstay",
+      "name": "Storm backstay",
+      "station": "repair",
+      "dependency": "timber",
+      "credit": 3,
+      "effect": "Storm supports start stronger and emergency work no longer requires a readied rope.",
+      "drawback": "A failing stay still needs the courier at its physical upper-deck station."
+    },
+    {
+      "id": "cargo-rail-netting",
+      "name": "Cargo rail netting",
+      "station": "storage",
+      "dependency": "wool",
+      "credit": 3,
+      "effect": "The first cargo loss in each voyage is caught and deck thieves start entangled.",
+      "drawback": "Cut netting makes the next loss ordinary; it does not defeat boarders."
+    },
+    {
+      "id": "sounding-keel-shoes",
+      "name": "Sounding keel shoes",
+      "station": "helm",
+      "dependency": "ironwork",
+      "credit": 4,
+      "effect": "Careful shoal work takes one fewer action and a forced scrape costs one integrity.",
+      "drawback": "The extra iron makes severe mineral resonance more conspicuous."
+    },
+    {
+      "id": "winter-hatch-felt",
+      "name": "Winter hatch felt",
+      "station": "berths",
+      "dependency": "wool",
+      "credit": 2,
+      "effect": "Winter route exposure falls and aboard floodwater does not chill the courier.",
+      "drawback": "Felt does not prevent wetness, load, or regional cold."
+    },
+    {
+      "id": "signal-mast-shutter",
+      "name": "Signal mast shutter",
+      "station": "lookout",
+      "dependency": "timber",
+      "credit": 3,
+      "effect": "Named signals answer lure and inspection voyages without specialist support.",
+      "drawback": "The visible answer records Jomon on the route account."
+    },
+    {
+      "id": "sickbay-sling-cot",
+      "name": "Sickbay sling cot",
+      "station": "berths",
+      "dependency": "timber",
+      "credit": 3,
+      "effect": "A berth treatment can spend wool and six actions to clear one persistent injury.",
+      "drawback": "Treatment consumes time and material; it does not restore lost health."
+    },
+    {
+      "id": "vessel-field-forge",
+      "name": "Vessel field forge",
+      "station": "repair",
+      "dependency": "ironwork",
+      "credit": 5,
+      "effect": "The repair station can smelt and forge finite material while Jomon is moored.",
+      "drawback": "Heavy hot work is unavailable during a voyage or deck crisis."
+    },
+    {
+      "id": "vessel-glass-still",
+      "name": "Vessel glass still",
+      "station": "galley",
+      "dependency": "paper",
+      "credit": 5,
+      "effect": "The galley can brew and distil finite carried ingredients while moored.",
+      "drawback": "Its vessels still need gathered reagents and empty physical flasks."
+    },
+    {
+      "id": "vessel-gunworks",
+      "name": "Vessel gunworks",
+      "station": "storage",
+      "dependency": "ironwork",
+      "credit": 7,
+      "effect": "The storage station can fabricate guns and counted fictional charges while moored.",
+      "drawback": "Loud work and finite stock never create free ammunition."
+    }
+  ]
+}

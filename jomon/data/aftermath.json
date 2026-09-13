@@ -1,0 +1,358 @@
+{
+  "lines": {
+    "hearthford": [
+      "The Silt after the Compact",
+      [
+        "Rehang the public flood marks",
+        "Account for the private wheel timber"
+      ],
+      "far_bank",
+      "works"
+    ],
+    "greywash": [
+      "What the Ebb Returned",
+      [
+        "Relight the storm-scoured dune line",
+        "Recover a shifted wreck title"
+      ],
+      "elevated",
+      "wreck"
+    ],
+    "greenwold": [
+      "Shoots through the Burn",
+      [
+        "Replant the medicine boundary",
+        "Count charcoal taken beyond the cut"
+      ],
+      "burn_walk",
+      "ruin"
+    ],
+    "whitecairn": [
+      "Echo beneath the Honest Bell",
+      [
+        "Seat the opened warning stair",
+        "Recover the toll brace account"
+      ],
+      "high_view",
+      "works"
+    ],
+    "dunmire": [
+      "Islands after the Drain",
+      [
+        "Raise the inhabited peat walk",
+        "Mark fuel cut below the waterline"
+      ],
+      "far_bank",
+      "works"
+    ],
+    "rillscar": [
+      "The Span that Remained",
+      [
+        "Brace the shared switchback",
+        "Find the convoy's dropped counterweight"
+      ],
+      "high_view",
+      "works"
+    ],
+    "marlbank": [
+      "Water after Firing",
+      [
+        "Open the seed-bed rill",
+        "Cool the claimant's abandoned kiln"
+      ],
+      "far_bank",
+      "works"
+    ],
+    "frostmere": [
+      "Soundings after Thaw",
+      [
+        "Restake the sheltered channel",
+        "Recover a net line from broken ice"
+      ],
+      "far_bank",
+      "works"
+    ]
+  },
+  "topologies": {
+    "hearthford": [
+      "flood-mark circuit",
+      "wheel-timber account"
+    ],
+    "greywash": [
+      "storm-beacon line",
+      "shifted-wreck recovery"
+    ],
+    "greenwold": [
+      "medicine boundary",
+      "charcoal cut audit"
+    ],
+    "whitecairn": [
+      "warning stair",
+      "toll-brace recovery"
+    ],
+    "dunmire": [
+      "raised peat walk",
+      "submerged fuel mark"
+    ],
+    "rillscar": [
+      "switchback brace",
+      "convoy counterweight"
+    ],
+    "marlbank": [
+      "seed-bed drainage",
+      "abandoned kiln quench"
+    ],
+    "frostmere": [
+      "sheltered channel stakes",
+      "broken-ice net recovery"
+    ]
+  },
+  "drainage_topologies": [
+    "flood-mark circuit",
+    "raised peat walk",
+    "seed-bed drainage",
+    "sheltered channel stakes"
+  ],
+  "fire_topologies": [
+    "abandoned kiln quench",
+    "charcoal cut audit",
+    "medicine boundary",
+    "storm-beacon line"
+  ],
+  "support_topologies": [
+    "convoy counterweight",
+    "switchback brace",
+    "warning stair",
+    "wheel-timber account"
+  ],
+  "recovery_topologies": [
+    "broken-ice net recovery",
+    "shifted-wreck recovery",
+    "submerged fuel mark",
+    "toll-brace recovery"
+  ],
+  "preparations": [
+    {
+      "name": "race-gate chalk",
+      "topology": "flood-mark circuit",
+      "mode": "waterline",
+      "description": "Lowers up to three nearby shallow-water layers and records the worked waterline.",
+      "condition": "nearby released or material water"
+    },
+    {
+      "name": "tallow gear wrap",
+      "topology": "wheel-timber account",
+      "mode": "weapon-repair",
+      "description": "Restores 30 condition to the physical readied weapon; the greasy wrap is spent.",
+      "condition": "a damaged readied weapon"
+    },
+    {
+      "name": "storm wick",
+      "topology": "storm-beacon line",
+      "mode": "storm-light",
+      "description": "Restores two lamp measures and clears two nearby smoke fields under a sheltered hood.",
+      "condition": "spent lamp oil or nearby smoke"
+    },
+    {
+      "name": "wreck cork sling",
+      "topology": "shifted-wreck recovery",
+      "mode": "item-recovery",
+      "description": "Floats one nearby loose physical item directly into the pack when space permits.",
+      "condition": "a ground item within four paces and pack room"
+    },
+    {
+      "name": "damp ember blanket",
+      "topology": "medicine boundary",
+      "mode": "fire-blanket",
+      "description": "Smothers up to four nearby fires and burning hostile conditions without creating new water.",
+      "condition": "nearby fire or a burning hostile"
+    },
+    {
+      "name": "resin firebrand",
+      "topology": "charcoal cut audit",
+      "mode": "firebrand",
+      "description": "Ignites one dry adjacent fuel without lamp oil; the flare makes the courier's position known.",
+      "condition": "dry adjacent reeds, timber, cloth, resin, oil, or charcoal"
+    },
+    {
+      "name": "stair sounding cord",
+      "topology": "warning stair",
+      "mode": "high-sounding",
+      "description": "From elevation, marks the nearest unread cache while its sounding alerts nearby listeners.",
+      "condition": "an elevated regional position and unread cache"
+    },
+    {
+      "name": "scree binding",
+      "topology": "toll-brace recovery",
+      "mode": "footing",
+      "description": "Clears poor footing or cut feet and preserves one guarded reposition.",
+      "condition": "poor footing or cut-feet status"
+    },
+    {
+      "name": "peat bank plug",
+      "topology": "raised peat walk",
+      "mode": "bank-plug",
+      "description": "Lowers nearby water and seats one support in the same worked soil or timber cell.",
+      "condition": "nearby wet soil or timber"
+    },
+    {
+      "name": "fen ration cake",
+      "topology": "submerged fuel mark",
+      "mode": "ration",
+      "description": "Clears one fatigue, chill, or smoke-inhalation pressure and restores one health.",
+      "condition": "fatigue, chill, smoke inhalation, or lost health"
+    },
+    {
+      "name": "bridge dog pair",
+      "topology": "switchback brace",
+      "mode": "bridge-dogs",
+      "description": "Seats up to two nearby damaged supports; the hammering reports to listeners.",
+      "condition": "nearby damaged timber or stone support"
+    },
+    {
+      "name": "echo muffler",
+      "topology": "convoy counterweight",
+      "mode": "aim-break",
+      "description": "Breaks up to three visible prepared hostile lanes and dampens accumulated noise.",
+      "condition": "a nearby prepared hostile lane or accumulated noise"
+    },
+    {
+      "name": "fired drainage tile",
+      "topology": "seed-bed drainage",
+      "mode": "drain-tile",
+      "description": "Turns one adjacent mud cell into a dry, ash-marked drainage footing.",
+      "condition": "adjacent mud"
+    },
+    {
+      "name": "kiln sand pouch",
+      "topology": "abandoned kiln quench",
+      "mode": "kiln-sand",
+      "description": "Quenches one adjacent fire, strips three fuel, and leaves concealing ash smoke.",
+      "condition": "an adjacent material fire"
+    },
+    {
+      "name": "marked ice peg",
+      "topology": "sheltered channel stakes",
+      "mode": "ice-peg",
+      "description": "In winter, freezes one adjacent fresh shallow into marked footing and rings once.",
+      "condition": "winter and adjacent unfired fresh water"
+    },
+    {
+      "name": "thaw kettle sachet",
+      "topology": "broken-ice net recovery",
+      "mode": "thaw",
+      "description": "Spends one lamp measure or nearby fire to thaw three ice cells and clear chill.",
+      "condition": "nearby ice plus sheltered heat"
+    }
+  ],
+  "household_stories": [
+    {
+      "id": "empty-watch",
+      "name": "The watch after an empty place",
+      "requirement": "four returned expeditions",
+      "premise": "The household must name how a missing, injured, succeeded, or simply exhausted watch is carried by the living."
+    },
+    {
+      "id": "repair-share",
+      "name": "The repair share",
+      "requirement": "four voyages and a damaged or previously repaired Jomon",
+      "premise": "The hull account has become personal: timber, injuries, credit and remembered work no longer divide neatly."
+    },
+    {
+      "id": "eight-waters",
+      "name": "Eight waters under one roof",
+      "requirement": "both household developments and outcomes in four regions",
+      "premise": "Jomon's household compares four changed places, institutional accounts and its own scars before naming what kind of carrier it has become."
+    }
+  ],
+  "interferences": [
+    {
+      "id": "measured-grain-release",
+      "kind": "shipment",
+      "origin": "hearthford",
+      "destination": "marlbank",
+      "cargo": "grain",
+      "title": "The measured grain release",
+      "cause": "Hearthford's settled bank work releases a witnessed seed shipment",
+      "origin_change": "one mill lot leaves under a named measure",
+      "destination_change": "seed demand eases and a public unloading stair appears"
+    },
+    {
+      "id": "wreck-iron-on-span",
+      "kind": "institutional dispute",
+      "origin": "greywash",
+      "destination": "rillscar",
+      "cargo": "ironwork",
+      "title": "Wreck iron on the span",
+      "cause": "Greywash salvage title follows recovered iron upriver",
+      "origin_change": "the wreck account records an exported fitting",
+      "destination_change": "both bridge claims contest, then mark, the fitting"
+    },
+    {
+      "id": "burn-refuge-migration",
+      "kind": "ecological displacement",
+      "origin": "greenwold",
+      "destination": "dunmire",
+      "cargo": "charcoal",
+      "title": "The refuge migration",
+      "cause": "Greenwold's worked fire margin displaces grazers toward wet islands",
+      "origin_change": "the burn edge gains browsing regrowth",
+      "destination_change": "fen workers open a second animal margin"
+    },
+    {
+      "id": "high-bell-winter-mark",
+      "kind": "route warning",
+      "origin": "whitecairn",
+      "destination": "frostmere",
+      "cargo": "wool",
+      "title": "The bell carried into winter",
+      "cause": "an honest high-road interval is compared with estuary soundings",
+      "origin_change": "the bell account sends one named warning",
+      "destination_change": "the cold route gains a forecast mark and shelter demand"
+    },
+    {
+      "id": "peat-bank-mill-water",
+      "kind": "route repair",
+      "origin": "dunmire",
+      "destination": "hearthford",
+      "cargo": "timber",
+      "title": "Peat bank, mill water",
+      "cause": "a repaired raised bank changes how the mill meadow receives floodwater",
+      "origin_change": "one bank face carries less overtopping pressure",
+      "destination_change": "a relief channel opens beside the public mill approach"
+    },
+    {
+      "id": "gorge-fitting-return",
+      "kind": "shipment",
+      "origin": "rillscar",
+      "destination": "greywash",
+      "cargo": "ironwork",
+      "title": "The gorge fitting returned",
+      "cause": "Rillscar sends a witnessed bridge fitting to the coast account",
+      "origin_change": "the two-span ledger records an outbound repair",
+      "destination_change": "the chain house receives one lower-risk iron fitting"
+    },
+    {
+      "id": "fired-drain-to-burn",
+      "kind": "material spillover",
+      "origin": "marlbank",
+      "destination": "greenwold",
+      "cargo": "charcoal",
+      "title": "Fired drain at the burn edge",
+      "cause": "Marlbank drainage tiles answer a coppice firebreak request",
+      "origin_change": "the kiln court takes a witnessed fuel order",
+      "destination_change": "one burn approach drains rain without feeding the fire"
+    },
+    {
+      "id": "winter-wool-on-ridge",
+      "kind": "shipment",
+      "origin": "frostmere",
+      "destination": "whitecairn",
+      "cargo": "wool",
+      "title": "Winter wool on the ridge",
+      "cause": "Frostmere shelter wool reaches an exposed bell road",
+      "origin_change": "the net-house account marks a protected outgoing lot",
+      "destination_change": "the ridge shelter opens and cold-route confidence rises"
+    }
+  ]
+}
