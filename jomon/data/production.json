@@ -526,6 +526,46 @@
       "output": "consumable:sling shot pouch",
       "quantity": 3,
       "contents": []
+    },
+    {
+      "id": "circuit-trace", "name": "Lacquer four conductors", "station": "workshop",
+      "inputs": [["commodity:ironwork", 1], ["commodity:wool", 1]],
+      "output": "circuit:trace", "quantity": 4, "contents": []
+    },
+    {
+      "id": "circuit-via", "name": "Fit two insulated vias", "station": "workshop",
+      "inputs": [["commodity:ironwork", 1], ["commodity:paper", 1]],
+      "output": "circuit:via", "quantity": 2, "contents": []
+    },
+    {
+      "id": "circuit-rack", "name": "Build a cell rack", "station": "workshop",
+      "inputs": [["commodity:ironwork", 1], ["commodity:timber", 1]],
+      "output": "circuit:rack", "quantity": 1, "contents": []
+    },
+    {
+      "id": "circuit-cell", "name": "Assemble a galvanic cell", "station": "workshop",
+      "inputs": [["commodity:ironwork", 1], ["commodity:charcoal", 1], ["commodity:paper", 1], ["ingredient:brine", 1]],
+      "output": "circuit:cell", "quantity": 1, "contents": []
+    },
+    {
+      "id": "circuit-switch", "name": "Fit a knife switch", "station": "workshop",
+      "inputs": [["commodity:ironwork", 1], ["commodity:timber", 1]],
+      "output": "circuit:switch", "quantity": 1, "contents": []
+    },
+    {
+      "id": "circuit-lamp", "name": "Fit a shielded arc lamp", "station": "workshop",
+      "inputs": [["commodity:ironwork", 1], ["commodity:paper", 1]],
+      "output": "circuit:lamp", "quantity": 1, "contents": []
+    },
+    {
+      "id": "circuit-gate", "name": "Forge a latch gate", "station": "forge",
+      "inputs": [["component:iron billet", 1], ["commodity:timber", 1]],
+      "output": "circuit:gate", "quantity": 1, "contents": []
+    },
+    {
+      "id": "circuit-drain", "name": "Assemble a sump pump", "station": "workshop",
+      "inputs": [["commodity:ironwork", 1], ["commodity:timber", 1]],
+      "output": "circuit:drain", "quantity": 1, "contents": []
     }
   ]
 }

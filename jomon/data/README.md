@@ -11,8 +11,8 @@ text: it can be reviewed in diffs and needs no compression tool or dependency.
 | `actors.json` | enemy archetypes, regional actor rows, glyphs, reactions |
 | `world_text.json` | Jomon map and help copy |
 | `situations.json` | 24 regional situation records and afterwork samples |
-| `production.json` | regional sources, stations, and hand-authored recipes |
-| `circuits.json` | electrical fittings, glyphs, and counted fabrication recipes |
+| `production.json` | regional sources, stations, and hand-authored recipes, including circuit parts |
+| `circuits.json` | electrical fitting names, glyphs, and physical descriptions |
 | `chemistry.json` | reagents and ordered reaction pairs |
 | `field_reports.json` | public and private regional report responses |
 | `quests.json` | regional quests, rewards, and cross-region arcs |

@@ -3,50 +3,42 @@
     "trace": {
       "name": "Lacquered conductor",
       "glyph": ":",
-      "description": "An insulated iron trace for a surface or buried circuit run.",
-      "recipe": {"id": "circuit-trace", "name": "Lacquer four conductors", "station": "workshop", "inputs": [["commodity:ironwork", 1], ["commodity:wool", 1]], "output": "circuit:trace", "quantity": 4, "contents": []}
+      "description": "An insulated iron trace for a surface or buried circuit run."
     },
     "via": {
       "name": "Insulated via",
       "glyph": "o",
-      "description": "A sleeved vertical joint between a floor trace and its buried layer.",
-      "recipe": {"id": "circuit-via", "name": "Fit two insulated vias", "station": "workshop", "inputs": [["commodity:ironwork", 1], ["commodity:paper", 1]], "output": "circuit:via", "quantity": 2, "contents": []}
+      "description": "A sleeved vertical joint between a floor trace and its buried layer."
     },
     "rack": {
       "name": "Galvanic rack",
       "glyph": "b",
-      "description": "Holds a finite galvanic cell and sends a timed electrical pulse.",
-      "recipe": {"id": "circuit-rack", "name": "Build a cell rack", "station": "workshop", "inputs": [["commodity:ironwork", 1], ["commodity:timber", 1]], "output": "circuit:rack", "quantity": 1, "contents": []}
+      "description": "Holds a finite galvanic cell and sends a timed electrical pulse."
     },
     "cell": {
       "name": "Galvanic cell",
       "glyph": "c",
-      "description": "A finite iron-carbon and brine pulse cell for the rack.",
-      "recipe": {"id": "circuit-cell", "name": "Assemble a galvanic cell", "station": "workshop", "inputs": [["commodity:ironwork", 1], ["commodity:charcoal", 1], ["commodity:paper", 1], ["ingredient:brine", 1]], "output": "circuit:cell", "quantity": 1, "contents": []}
+      "description": "A finite iron-carbon and brine pulse cell for the rack."
     },
     "switch": {
       "name": "Knife switch",
       "glyph": "s",
-      "description": "A hand-operated contact that passes pulses only when closed.",
-      "recipe": {"id": "circuit-switch", "name": "Fit a knife switch", "station": "workshop", "inputs": [["commodity:ironwork", 1], ["commodity:timber", 1]], "output": "circuit:switch", "quantity": 1, "contents": []}
+      "description": "A hand-operated contact that passes pulses only when closed."
     },
     "lamp": {
       "name": "Shielded arc lamp",
       "glyph": "l",
-      "description": "A pulse-lit lamp that widens nearby sight while charged.",
-      "recipe": {"id": "circuit-lamp", "name": "Fit a shielded arc lamp", "station": "workshop", "inputs": [["commodity:ironwork", 1], ["commodity:paper", 1]], "output": "circuit:lamp", "quantity": 1, "contents": []}
+      "description": "A pulse-lit lamp that widens nearby sight while charged."
     },
     "gate": {
       "name": "Latch gate",
       "glyph": "#",
-      "description": "Blocks movement until a pulse releases its latch briefly.",
-      "recipe": {"id": "circuit-gate", "name": "Forge a latch gate", "station": "forge", "inputs": [["component:iron billet", 1], ["commodity:timber", 1]], "output": "circuit:gate", "quantity": 1, "contents": []}
+      "description": "Blocks movement until a pulse releases its latch briefly."
     },
     "drain": {
       "name": "Sump pump",
       "glyph": "p",
-      "description": "A pulsed pump that clears temporary water from nearby cells.",
-      "recipe": {"id": "circuit-drain", "name": "Assemble a sump pump", "station": "workshop", "inputs": [["commodity:ironwork", 1], ["commodity:timber", 1]], "output": "circuit:drain", "quantity": 1, "contents": []}
+      "description": "A pulsed pump that clears temporary water from nearby cells."
     }
   }
 }
