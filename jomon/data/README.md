@@ -20,6 +20,7 @@ text: it can be reviewed in diffs and needs no compression tool or dependency.
 | `vessel.json` | voyage cases, hazard stations, variants, echoes, refits, and authored route nodes and legs |
 | `aftermath.json` | revisit lines and topologies, preparations, household stories, cross-region callbacks |
 | `equipment.json` | physical item specifications, loadouts, ammunition, weapons, fittings, and regional armour |
+| `visuals.json` | Jomon deck/tavern ASCII maps, entity and terrain glyphs, route marks, card frames, dice faces |
 
 Arsenal weapon rows own their physical `shape` and `weight`; the inventory
 adapter uses those exact values. Working weapons already have their own shape
@@ -42,3 +43,10 @@ python -m unittest discover -s tests
 The loader rejects duplicate keys, non-finite numbers, and missing sections.
 Module adapters reject malformed row shapes; the content audit checks gameplay
 references. Invalid JSON stops startup with a named error.
+
+Visual sources are package-local: Jomon's actor-specific hostile glyphs are in
+`actors.json`; the Dullest Dungeon's original portraits, card marks, and title
+remain in `dumbest_dungeon/data/art.json`, while its office-fantasy portraits
+and competitive-map symbols are in `dumbest_dungeon/data/office_visuals.json`.
+Generated regional terrain and procedurally drawn UI borders remain rendering
+rules rather than authored entity assets.

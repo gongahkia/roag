@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from .visuals import ENTITY_GLYPHS
+
 # These rows identify authored situations; their actions below remain explicit.
 ELITE_ROWS = (
     ("fen-marshal", "dunmire", "Veyra Reedlock", "reach", "surge", "control the drying bank", "Three counted releases flood a marked low lane; higher ground and the spill control remain usable.", "leave the marked lane, use height, or dog the regional spill", "relic:ebbglass spindle"),
@@ -38,7 +40,7 @@ ELITE_DEFINITIONS = {
         "region": region, "name": name, "profile": profile, "role": "elite",
         "goal": goal, "vision": 11, "hearing": 9, "range": 8,
         "capability": capability, "counterplay": counterplay, "terrain": region,
-        "budget": 6, "elite": True, "morale": 5, "glyph": "X",
+        "budget": 6, "elite": True, "morale": 5, "glyph": ENTITY_GLYPHS["elite"],
         "supplies": 3, "mode": mode, "reward": reward,
         "ranged_kind": "sling", "named": identity in NAMED_RIVALS,
         "aftermath": identity in AFTERMATH_ELITES,

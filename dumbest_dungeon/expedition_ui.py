@@ -7,7 +7,7 @@ import textwrap
 
 from .content import load_catalog
 from .engine import WALKABLE_TILES
-from .office_art import OFFICE_SPRITES, office_card_glyph, office_costume_name, rival_costumes
+from .office_art import EXPEDITION_MAP_SYMBOLS, OFFICE_SPRITES, office_card_glyph, office_costume_name, rival_costumes
 from .expedition import (
     MAX_ROUNDS, ORDER_TICKS, ORDERS_PER_TURN, _ai_destination, _biome_at,
     _card_cost, _card_id, _card_upgraded, _distance, _file_position, _position, _team, choose_reward,
@@ -38,6 +38,7 @@ class ExpeditionUI(TavernUIBase):
                     rival_moving: tuple[int, int] | None = None) -> None:
         match = self.match
         assert match is not None
+        symbols = EXPEDITION_MAP_SYMBOLS
         team = _team(match, 0)
         enemy = _team(match, 1)
         title = f"DULLEST DUNGEON  /  COMPANY OF NECESSARY COPIES  /  {OFFICE_WORLDS[match['world_id']].upper()}"
@@ -64,7 +65,7 @@ class ExpeditionUI(TavernUIBase):
             spent += costs[match["board"][y][x]]
             if spent > ORDER_TICKS:
                 break
-            overlays.append((x, y, ":", curses.A_DIM))
+            overlays.append((x, y, symbols["route_preview"], curses.A_DIM))
         for landmark in match["landmarks"]:
             art = self.catalog.landmarks[landmark["template_id"]]["art"]
             for index, cell in enumerate(landmark["cells"]):
@@ -73,38 +74,42 @@ class ExpeditionUI(TavernUIBase):
                     overlays.append((cell[0], cell[1], symbol, self._attr(6) | curses.A_BOLD))
         for hazard in match["hazards"]:
             if hazard["active"] and f"hazards:{hazard['id']}" in team["known"]:
-                overlays.extend((x, y, "^", self._attr(3) | curses.A_BOLD)
+                overlays.extend((x, y, symbols["hazard"], self._attr(3) | curses.A_BOLD)
                                 for x, y in hazard["cells"] if [x, y] not in hazard["triggered_cells"])
         for pickup in match["pickups"]:
             if not pickup["resolved"] and f"pickups:{pickup['id']}" in team["known"]:
-                overlays.append((pickup["x"], pickup["y"], "$" if pickup["kind"] == "item" else "?", self._attr(2) | curses.A_BOLD))
+                overlays.append((pickup["x"], pickup["y"], symbols["pickup"]["item" if pickup["kind"] == "item" else "other"], self._attr(2) | curses.A_BOLD))
         for facility in match["facilities"]:
             if not facility["used"] and f"facilities:{facility['id']}" in team["known"]:
-                overlays.append((facility["x"], facility["y"], "H", self._attr(4) | curses.A_BOLD))
-        station_symbols = {"event": "?", "camp": "C", "upgrade": "W", "cache": "$"}
+                overlays.append((facility["x"], facility["y"], symbols["facility"], self._attr(4) | curses.A_BOLD))
         for station in match["stations"]:
             if not station["used"] and f"stations:{station['id']}" in team["known"]:
-                overlays.append((station["x"], station["y"], station_symbols[station["kind"]], self._attr(2) | curses.A_BOLD))
+                overlays.append((station["x"], station["y"], symbols["station"][station["kind"]], self._attr(2) | curses.A_BOLD))
         for patrol in match.get("patrols", []):
             if patrol["active"]:
-                overlays.append((*patrol["position"], {"fight": "e", "elite": "E", "boss": "B"}[patrol["kind"]], self._attr(3) | curses.A_BOLD))
+                overlays.append((*patrol["position"], symbols["patrol"][patrol["kind"]], self._attr(3) | curses.A_BOLD))
         for side in (0, 1):
             file = match["files"][side]
             if file["carrier"] is None:
                 x, y = _file_position(match, side)
-                overlays.append((x, y, "F" if side == 0 else "f", self._attr(2) | curses.A_BOLD))
-        overlays.append((*(rival_moving or _position(match, 1)), "P", self._attr(3) | curses.A_BOLD))
-        overlays.append((*(moving or _position(match, 0)), "@", self._attr(4) | curses.A_BOLD))
+                overlays.append((x, y, symbols["files"]["courier" if side == 0 else "patron"], self._attr(2) | curses.A_BOLD))
+        overlays.append((*(rival_moving or _position(match, 1)), symbols["parties"]["patron"], self._attr(3) | curses.A_BOLD))
+        overlays.append((*(moving or _position(match, 0)), symbols["parties"]["courier"], self._attr(4) | curses.A_BOLD))
         if rival_moving is None:
-            cursor_symbol = ("@" if self.cursor == _position(match, 0) else
-                             "P" if self.cursor == _position(match, 1) else "+")
+            cursor_symbol = (symbols["parties"]["courier"] if self.cursor == _position(match, 0) else
+                             symbols["parties"]["patron"] if self.cursor == _position(match, 1) else symbols["cursor"])
             overlays.append((*self.cursor, cursor_symbol, curses.A_REVERSE | curses.A_BOLD))
         for x, y, symbol, attr in overlays:
             if left <= x < left + viewport_width and top <= y < top + viewport_height:
                 self._put(4 + y - top, map_column + x - left, symbol, attr)
         route_cost = sum(costs[match["board"][y][x]] for x, y in route)
         legend_row = 4 + viewport_height
-        self._put(legend_row, 2, self._ellipsize(f"@ party P rival e/E patrol B boss F/f files ^ hazard H desk C rest W work ?/$ loot R{route_cost}T", columns - 3))
+        self._put(legend_row, 2, self._ellipsize(
+            f"{symbols['parties']['courier']} party {symbols['parties']['patron']} rival "
+            f"{symbols['patrol']['fight']}/{symbols['patrol']['elite']} patrol {symbols['patrol']['boss']} boss "
+            f"{symbols['files']['courier']}/{symbols['files']['patron']} files {symbols['hazard']} hazard "
+            f"{symbols['facility']} desk {symbols['station']['camp']} rest {symbols['station']['upgrade']} work "
+            f"{symbols['station']['event']}/{symbols['station']['cache']} loot R{route_cost}T", columns - 3))
         self._put(legend_row + 1, 2, self._ellipsize(self.message or match["log"][-1], columns - 3), self._attr(2))
         self._put(legend_row + 2, 2, "Steal rival file, return near home, hold through their turn. First to two.")
         self._footer("Arrows aim Enter auto-walk Tab 1 home 2 rival 3 patron 4 own E end S save Q")

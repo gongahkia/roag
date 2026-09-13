@@ -779,7 +779,7 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
             elif position in threats:
                 char = _threat_glyph(threats[position])
             elif position in danger_marks:
-                char = "!"
+                char = ENTITY_GLYPHS["danger"]
             else:
                 char = displayed_tile(state, position)
             cell = material_cells.get(key(position)) if position != state.position and position not in threats else None
@@ -1789,7 +1789,7 @@ def _draw_route_chart(
             _put(screen, y, left, label, _COLOUR_ATTRIBUTES[label_role] | (curses.A_BOLD if known else curses.A_DIM))
     if moving:
         mx, my = _chart_screen_point(moving[0], moving[1], map_width, height)
-        _put(screen, my, mx, "@", _COLOUR_ATTRIBUTES["player"] | curses.A_REVERSE)
+        _put(screen, my, mx, ENTITY_GLYPHS["courier"], _COLOUR_ATTRIBUTES["player"] | curses.A_REVERSE)
         _put(screen, height - 4, 2, _clip(moving[2], map_width - 4), curses.A_BOLD)
     selected = state.route_nodes[view.cursor]
     lines = route_detail_lines(state, view, detail_width - 4)
