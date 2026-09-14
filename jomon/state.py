@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import deque
 from dataclasses import asdict, dataclass, field
 import copy
 import hashlib

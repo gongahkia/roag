@@ -18,23 +18,59 @@
     "################################################"
   ],
   "HELP_LINES": [
-    ";: look around without passing time; mouse click also inspects a place without acting.",
-    "O: observe visible people, wildlife, duties, supplies and tactical counters.",
-    "F: inspect and handle nearby material; choices commit one action, Escape costs none.",
-    "Z: regional work account, linked history, testimony and likely next changes.",
-    "Move with arrows, HJKL, or YUBN diagonals. Your view follows you across each region.",
-    "T follows a seen local destination one ordinary step at a time; any key stops it.",
-    "Enter/E interacts. A previews and targets any attack. G guards, reloads, or holds to listen.",
-    "At Jomon's gangplank E walks ashore; Tab offers the tug. E boards regional vehicles; Tab opens an interior.",
-    "Map: @ courier, a ally, v visitor, c/M contacts, h/g/x/b hostiles, X elite, R cargo, C cache.",
-    "Reverse ! cells mark an observed prepared attack; @ is reversed when standing in its mark.",
-    "Water ~, wall #, doors +, stairs <> and roof ^, controls &, hole O, weak floor d.",
-    "Aboard, speak beside people to switch or recruit; tavern C selects support; chart P sets course.",
-    "I opens the pack or locker: move, rotate, transfer, equip, confirm, or cancel safely.",
-    "P opens courier skills; D learned spell targets and shrine vigils; W physical work and flasks.",
-    "Time, distance from safety, noise, and valuables draw attention.",
-    "Normal colour is visible now; dim terrain is remembered; blank terrain remains unknown.",
-    "Guard readable intent; smoke breaks aim; mud, water, controls, height, and walls matter.",
-    "Q asks before quitting. Escape closes or backs out of a popup."
-  ]
+    "Lookout's slate: ; studies a place without spending a watch; a pointing hand turns the same glass.",
+    "Witness roll: O records visible workers, beasts, duties, stores, and immediate dangers.",
+    "Quartermaster's hand: F tests nearby material; work spends one watch, while Escape leaves it untouched.",
+    "Regional ledger: Z opens the work account, its testimony, and the changes already gathering.",
+    "Courier's field card: arrows, HJKL, and YUBN carry a traveller across the ground; the sightline travels with them.",
+    "Pathfinder's cord: T follows a witnessed destination one ordinary step at a time; any mark cuts the cord.",
+    "Deck orders: Enter or E handles what is near. A sets an attack line. G braces, reloads, or listens.",
+    "Gangplank order: E steps ashore from Jomon. Tab presents the tug or a nearby interior; E boards a regional conveyance.",
+    "Chart key: @ courier, a ally, v visitor, c/M witnesses, h/g/x/b threats, X claimant, R cargo, C sealed store.",
+    "Warned ground: a reversed ! is an observed prepared blow; a courier standing in it is marked the same way.",
+    "Survey key: ~ water, # wall, + door, <> stair, ^ roof, & working control, O drop, d weak floor.",
+    "Cabin custom: speak beside a person to change courier or invite aid; C consults the tavern support, P sets a chart course.",
+    "Pack ledger: I opens a pack or locker to shift, turn, pass, carry, bind, or set aside a physical thing.",
+    "Courier's marks: P opens learned disciplines; D brings spellwork and shrine vigil to hand; W calls for work and flasks.",
+    "A quiet, near shore and light pack draw little notice; time, distance, noise, and valuables do otherwise.",
+    "Bright ground lies in present sight; dim ground is remembered; blank ground has not yet been witnessed.",
+    "Brace against readable intent. Smoke spoils aim. Mud, water, machinery, height, and walls decide the footing.",
+    "Master's leave book: Q asks for departure. Escape folds the current paper without leaving a mark."
+  ],
+  "interface_ledgers": {
+    "inventory": [
+      "Pack clerk: arrows/WASD move; Enter lift/place; R turn; Space mark; */K sort.",
+      "Body clerk: T pass E equip O pack P pin Z stow [] body D drop C bind Esc fold."
+    ],
+    "target": "Arms slate: arrows/HJKL Tab mark <> deck M lore Enter fire G brace Esc fold.",
+    "route": [
+      "Chart clerk: arrows/WASD/HJKL follow lines; Enter reads; Tab turns; Esc folds.",
+      "Mark a harbour; mark twice to sail when water allows. No crossing is promised."
+    ],
+    "base": [
+      "Courier card: HJKL/arrows walk E handle A aim G brace ; look T follow M lore",
+    "Jomon: P lore W work X gear F stock D spell V speak R return I Z O witness ? Q"
+    ],
+    "look": "Lookout's glass: arrows/HJKL study <> deck point hand Esc/; fold — no watch."
+  },
+  "seed_words": ["reed", "hearth", "quay", "willow", "mill", "rain", "keel", "lantern"],
+  "terrain_names": {
+    " ": "unmapped space", ".": "firm ground", ",": "shallow water", "~": "deep water",
+    "_": "ice", "m": "mud", "r": "scree", "q": "sharp limestone", "t": "dense growth",
+    "T": "standing timber", "#": "stone wall", "+": "closed door", "/": "open doorway",
+    "=": "worked timber", "%": "loose cover", "O": "open drop", "<": "upward connection",
+    ">": "downward connection", "w": "current", "&": "working control", "R": "cargo",
+    "C": "closed store", "o": "opened store", "M": "regional contact", "c": "local witness",
+    "*": "inscribed shrine"
+  },
+  "landmark_labels": {
+    "landing": "return landing", "contact": "primary witness", "second_contact": "secondary witness",
+    "settlement": "settlement work", "objective": "local worksite", "cave_entrance": "below-ground entrance",
+    "elevated": "elevated landmark", "high_view": "high viewpoint", "works": "regional works",
+    "store": "working store", "ruin": "historic scar", "far_bank": "far-bank route",
+    "sanctum_entry": "sanctum stair", "sanctum_shrine": "sanctum shrine",
+    "sanctum_undercroft": "undercroft seal", "sanctum_ward": "ward gallery",
+    "sanctum_boss": "reliquary keeper", "sanctum_side_stair": "side gallery stair",
+    "sanctum_secret": "scored gallery seam"
+  }
 }

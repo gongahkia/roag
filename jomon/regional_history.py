@@ -3,94 +3,66 @@
 from __future__ import annotations
 
 from .calendar import ACTIONS_PER_DAY, calendar_at
+from .catalog import CatalogError, HISTORY_SECTIONS, load_catalog
 from .state import (
     ActorSchedule, Contact, GameState, Institution, MaterialCell, Position,
     RegionalEvent, stage_rng,
 )
 
+_HISTORY = load_catalog("history.json", HISTORY_SECTIONS)
+_working = _HISTORY["working_accounts"]
+_services = _HISTORY["institution_services"]
+_ties = _HISTORY["institution_ties"]
+_networks = _HISTORY["network_accounts"]
+_contacts = _HISTORY["network_contacts"]
 
-# Geology and water name real work, not a universal faction or history engine.
-WORKING_ACCOUNTS = {
-    "hearthford": ("alluvium", "river meadow", "Mill Race Fellowship", "ironwork", "grain", "keep shared water working", "private repair claims"),
-    "greywash": ("salt gravel", "tidal coast", "Greywash Salvage Table", "timber", "salt fish", "recover witnessed wreck cargo", "unwitnessed salvage"),
-    "greenwold": ("woodland loam", "rain woodland", "Coppice Work Circle", "salt fish", "charcoal", "keep burn and medicine boundaries", "fuel against living coppice"),
-    "whitecairn": ("limestone", "exposed ridge", "Whitecairn Load Witnesses", "wool", "ironwork", "keep warning bells honest", "tolls on safe crossings"),
-    "dunmire": ("peat", "fen islands", "Raised Bank Company", "timber", "charcoal", "keep inhabited islands above water", "fuel banks displacing water"),
-    "rillscar": ("ironstone", "sheltered gorge", "Two Bridge Account", "charcoal", "ironwork", "maintain both bridge claims", "fuel debt and private guarding"),
-    "marlbank": ("clay", "flood terraces", "Marlbank Seed Court", "timber", "grain", "divide kiln water and field water", "firing heat against seed growth"),
-    "frostmere": ("glacial gravel", "cold estuary", "Marked Channel Pilots", "wool", "salt fish", "maintain witnessed winter soundings", "fast cuts against sheltered nets"),
-}
+if (not isinstance(_working, dict) or len(_working) != 8
+        or any(not isinstance(region, str) or not isinstance(row, list) or len(row) != 7
+               or any(not isinstance(value, str) or not value for value in row)
+               for region, row in _working.items())):
+    raise CatalogError("history.json has invalid working accounts")
+WORKING_ACCOUNTS = {region: tuple(row) for region, row in _working.items()}
 
-INSTITUTION_SERVICES = {
-    "hearthford": ("shared mill repair and measured grain exchange", "it closes its stores after unwitnessed damage to the mill race"),
-    "greywash": ("witnessed salvage title and a sheltered wreck berth", "it contests cargo taken from a marked wreck without an account"),
-    "greenwold": ("coppice guidance, charcoal lots and field treatment", "it bars crews who burn living medicine plots"),
-    "whitecairn": ("load warnings, crossing shelter and tested ironwork", "it refuses passage to couriers who silence or evade warning bells"),
-    "dunmire": ("raised shelter, peat-cut guidance and bank repair", "it opposes drainage that sends floodwater toward inhabited islands"),
-    "rillscar": ("bridge access, quarry bracing and fitted ironwork", "it withholds crews when a private guard seizes either bridge"),
-    "marlbank": ("seed stores, kiln water and claywork contracts", "it refuses heat or water diversions that ruin the next field yield"),
-    "frostmere": ("winter soundings, net shelter and marked ice routes", "it closes fast channels after false signals or damaged net stakes"),
-}
+if (not isinstance(_services, dict) or set(_services) != set(WORKING_ACCOUNTS)
+        or any(not isinstance(row, list) or len(row) != 2
+               or any(not isinstance(value, str) or not value for value in row)
+               for row in _services.values())):
+    raise CatalogError("history.json has invalid institution services")
+INSTITUTION_SERVICES = {region: tuple(row) for region, row in _services.items()}
 
-# These authored disputes make the sparse production links legible even while
-# the four frontier regions are still generated lazily.
-INSTITUTION_TIES = (
-    ("hearthford", "dunmire", "compares flood-bank timber against the mill water account"),
-    ("hearthford", "marlbank", "compares grain measures and seasonal water releases"),
-    ("whitecairn", "frostmere", "shares cold-route warnings and wool shelter claims"),
-)
+if (not isinstance(_ties, list) or len(_ties) != 3
+        or any(not isinstance(row, list) or len(row) != 3
+               or any(not isinstance(value, str) or not value for value in row)
+               or row[0] not in WORKING_ACCOUNTS or row[1] not in WORKING_ACCOUNTS
+               for row in _ties)):
+    raise CatalogError("history.json has invalid institution ties")
+INSTITUTION_TIES = tuple(tuple(row) for row in _ties)
 
-# Four travelling material interests. Each has two embodied regional witnesses;
-# they aggregate work at day boundaries and never simulate distant people.
+_NETWORK_FIELDS = {"name", "home", "dependency", "production", "goal", "dispute", "presence", "service", "opposition"}
+if (not isinstance(_networks, dict) or len(_networks) != 4
+        or any(not isinstance(identity, str) or not identity.startswith("network:")
+               or not isinstance(row, dict) or set(row) != _NETWORK_FIELDS
+               or any(not isinstance(row[key], str) or not row[key] for key in _NETWORK_FIELDS - {"presence"})
+               or not isinstance(row["presence"], list) or len(row["presence"]) != 2
+               or any(not isinstance(region, str) or region not in WORKING_ACCOUNTS
+                      for region in row["presence"])
+               or len(set(row["presence"])) != 2
+               or row["home"] not in row["presence"]
+               for identity, row in _networks.items())):
+    raise CatalogError("history.json has invalid network accounts")
 NETWORK_ACCOUNTS = {
-    "network:bank-measures": {
-        "name": "Common Bank Measures", "home": "hearthford",
-        "dependency": "paper", "production": "grain",
-        "goal": "keep flood and field measures comparable across two banks",
-        "dispute": "private marks that hide who accepted a water release",
-        "presence": ("hearthford", "marlbank"),
-        "service": "witnessed bank shelter and a lower-risk measured freight edge",
-        "opposition": "it refuses shelter while repeated private obligations remain unpaid",
-    },
-    "network:wreck-and-span": {
-        "name": "Wreck and Span Witnesses", "home": "greywash",
-        "dependency": "timber", "production": "ironwork",
-        "goal": "keep recovered fittings attached to named wreck and bridge accounts",
-        "dispute": "salvage claims that cross an upriver load witness",
-        "presence": ("greywash", "rillscar"),
-        "service": "accounted salvage transfer and a sheltered span approach",
-        "opposition": "it closes its approach after unwitnessed stripping or bridge damage",
-    },
-    "network:burn-shelter": {
-        "name": "Burn Shelter Runners", "home": "greenwold",
-        "dependency": "salt fish", "production": "charcoal",
-        "goal": "carry provisions between managed burn and raised wet refuge",
-        "dispute": "fuel cutting that leaves inhabited peat without a dry shelter",
-        "presence": ("greenwold", "dunmire"),
-        "service": "provisioned fire refuge and a marked cross-weather detour",
-        "opposition": "it withholds refuge from crews that spread fire toward habitation",
-    },
-    "network:cold-road": {
-        "name": "Cold Road Sounders", "home": "whitecairn",
-        "dependency": "wool", "production": "salt fish",
-        "goal": "compare high-road bells with winter channel soundings",
-        "dispute": "fast private crossings that invalidate public warnings",
-        "presence": ("whitecairn", "frostmere"),
-        "service": "cold-route warning, dry shelter and one safer exposed edge",
-        "opposition": "it withdraws warnings after false bells or damaged ice stakes",
-    },
+    identity: {**row, "presence": tuple(row["presence"])}
+    for identity, row in _networks.items()
 }
 
-NETWORK_CONTACTS = (
-    ("network:bank-measures", "hearthford", "network-contact-hearthford", "Adra Silt", "bank-measure runner", "paper"),
-    ("network:bank-measures", "marlbank", "network-contact-marlbank", "Pelen Reed", "field-measure witness", "grain"),
-    ("network:wreck-and-span", "greywash", "network-contact-greywash", "Kellan Shoal", "wreck-span registrar", "timber"),
-    ("network:wreck-and-span", "rillscar", "network-contact-rillscar", "Mora Span", "bridge salvage witness", "ironwork"),
-    ("network:burn-shelter", "greenwold", "network-contact-greenwold", "Tessa Ember", "burn refuge runner", "salt fish"),
-    ("network:burn-shelter", "dunmire", "network-contact-dunmire", "Iren Bank", "raised-shelter keeper", "charcoal"),
-    ("network:cold-road", "whitecairn", "network-contact-whitecairn", "Varo Cairn", "high-road sounder", "wool"),
-    ("network:cold-road", "frostmere", "network-contact-frostmere", "Nella Sound", "winter-braid witness", "salt fish"),
-)
+if (not isinstance(_contacts, list) or len(_contacts) != 8
+        or any(not isinstance(row, list) or len(row) != 6
+               or any(not isinstance(value, str) or not value for value in row)
+               or row[0] not in NETWORK_ACCOUNTS or row[1] not in NETWORK_ACCOUNTS[row[0]]["presence"]
+               for row in _contacts)
+        or len({row[2] for row in _contacts}) != len(_contacts)):
+    raise CatalogError("history.json has invalid network contacts")
+NETWORK_CONTACTS = tuple(tuple(row) for row in _contacts)
 
 
 def network_institution_for_contact(state: GameState, contact_id: str) -> Institution | None:

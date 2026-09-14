@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .state import GameState, Position, Threat
-from .world import base_tile, distance, is_walkable, line_of_sight, position_key
+from .world import base_tile, distance, line_of_sight, position_key
 
 ACTIVE_RADIUS = 24
 ACTOR_BUDGET = 24
@@ -145,7 +145,7 @@ def _move(state: GameState, actor: Threat, target: Position, stop=1) -> bool:
 
 
 def resolve_world_action(state: GameState, actor: Threat, decision) -> str | None:
-    from .inventory import item_spec, release_enemy_possession
+    from .inventory import item_spec
     from .materials import ensure_cell
 
     action, point = decision.action, decision.target

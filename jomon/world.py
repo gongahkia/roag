@@ -10,8 +10,8 @@ from .state import GameState, Position
 from .visuals import ENTITY_GLYPHS
 from .vessel import (
     JOMON_GANGPLANK,
-    TAVERN_MAP,
     TABLE_SURFACE,
+    TAVERN_MAP,
     DRAW_SURFACE,
     DICE_SURFACE,
     VESSEL_LEVELS,
@@ -19,6 +19,8 @@ from .vessel import (
     vessel_rows,
     vessel_tile,
 )
+
+__all__ = ("JOMON_GANGPLANK", "TAVERN_MAP", "VESSEL_LEVELS")
 
 
 @dataclass(frozen=True)

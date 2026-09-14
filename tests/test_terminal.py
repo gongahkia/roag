@@ -33,7 +33,7 @@ from jomon.terminal import (
     visible_threats,
 )
 from jomon.main import _centered_x, _set_cursor_visibility, landing_notice_layout, run
-from jomon.world import field_of_view, find_tile
+from jomon.world import field_of_view
 
 
 class MinimumSizeNoticeTests(unittest.TestCase):
@@ -89,14 +89,14 @@ class InventoryLayoutTests(unittest.TestCase):
         self.assertEqual(len(INVENTORY_HELP_LINES), 2)
         self.assertTrue(all(len(line) <= 78 for line in INVENTORY_HELP_LINES))
         joined = " ".join(INVENTORY_HELP_LINES)
-        for command in ("Enter", "R rotate", "Space", "T transfer", "E equip", "O pack", "P pin", "Z auto", "[] body", "D drop", "C confirm", "Esc cancel"):
+        for command in ("Enter", "R turn", "Space", "T pass", "E equip", "O pack", "P pin", "Z stow", "[] body", "D drop", "C bind", "Esc fold"):
             self.assertIn(command, joined)
 
     def test_controls_are_available_in_help_but_not_the_default_view(self):
         self.assertEqual(len(BASE_HELP_LINES), 2)
         self.assertTrue(all(len(line) <= 78 for line in BASE_HELP_LINES))
         joined = " ".join(BASE_HELP_LINES)
-        for command in ("; look", "T follow", "M mastery", "A aim", "O actors"):
+        for command in ("; look", "T follow", "M lore", "A aim", "O witness"):
             self.assertIn(command, joined)
         state = create_world("controls behind help")
         title, help_lines = _overlay_lines(state, "help")

@@ -6,7 +6,7 @@ import unittest
 
 from jomon.actions import choose_courier, depart, guard, move, recruit_person, return_to_jomon
 from jomon.inventory import basic_courier_kit, equipped_item, weight_capacity
-from jomon.vessel import TAVERN_MAP, VESSEL_LEVELS
+from jomon.vessel import VESSEL_LEVELS
 from jomon.people import RECRUIT_REQUIREMENTS, adjacent_person, person_at
 from jomon.save import load_game, save_game
 from jomon.state import Position, create_world

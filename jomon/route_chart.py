@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import dataclass
 
 from .calendar import calendar_at, seasonal_route_note
 from .catalog import VESSEL_SECTIONS, load_catalog

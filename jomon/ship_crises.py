@@ -89,7 +89,7 @@ def _spawn(state: GameState, name: str, position: Position, role: str, *, weapon
 
 def begin_deck(state: GameState) -> tuple[bool, str]:
     from .inventory import create_item
-    from .materials import ensure_cell, key
+    from .materials import key
     from .state import MaterialCell
 
     if state.voyage_status != "active" or state.voyage_kind not in TACTICAL or state.jomon_space != "vessel":

@@ -103,7 +103,10 @@ def benchmark(samples: int = 12, seed: str = "systemic-benchmark") -> dict:
             raise RuntimeError("benchmark pack fixture does not fit")
     expedition = copy.deepcopy(aboard)
     depart(expedition)
-    clone = lambda _: copy.deepcopy(expedition)
+
+    def clone(_):
+        return copy.deepcopy(expedition)
+
     results["region_entry"] = measure(lambda state: activate_region(state, "greywash"), samples, clone)
     results["lazy_frontier_entry"] = measure(
         lambda state: activate_region(state, "dunmire"), min(samples, 5),

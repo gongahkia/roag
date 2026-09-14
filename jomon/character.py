@@ -4,53 +4,71 @@ from __future__ import annotations
 
 import re
 
+from .catalog import CHARACTER_SECTIONS, CatalogError, load_catalog
 from .state import ATTRIBUTES, GameState, Person
 
-COMPETENCIES = ("strategy", "speech", "wayfinding", "fieldcraft", "craft")
-ATTRIBUTE_POINTS = 8
-COMPETENCY_POINTS = 5
-ANCESTRIES = ("Human", "Reedfolk", "Stonefolk", "Tidekin")
-PEOPLE_EFFECTS = {
-    "Human": "the named trait grants +1 more in its linked competency",
-    "Reedfolk": "+1 Fieldcraft; +1 sight in Greywash",
-    "Stonefolk": "+1 Craft; +4 carrying weight",
-    "Tidekin": "+1 Wayfinding; +1 sight in fog or coastal squalls",
-}
-PEOPLE_COMPETENCIES = {
-    "Reedfolk": "fieldcraft", "Stonefolk": "craft", "Tidekin": "wayfinding",
-}
-ORIGINS = ("hearthford", "greywash", "greenwold", "whitecairn")
-TRAITS = {
-    "steady": ("craft", "Patient hands at exact work"),
-    "observant": ("fieldcraft", "Notices the useful detail"),
-    "diplomatic": ("speech", "Finds a workable term"),
-    "methodical": ("strategy", "Plans around limits"),
-    "wayfarer": ("wayfinding", "Reads routes from experience"),
-}
-ORIGIN_PRACTICE = {
-    "hearthford": "speech", "greywash": "wayfinding",
-    "greenwold": "fieldcraft", "whitecairn": "craft",
-}
-ATTRIBUTE_FOR_COMPETENCY = {
-    "strategy": "intellect", "speech": "presence", "wayfinding": "perception",
-    "fieldcraft": "agility", "craft": "intellect",
-}
-ROLE_ATTRIBUTES = {
-    "bargemaster": ("strength", "endurance", "intellect", "presence"),
-    "pilot": ("agility", "endurance", "perception", "intellect"),
-    "factor": ("presence", "intellect", "perception", "agility"),
-    "carpenter": ("strength", "endurance", "perception", "intellect"),
-    "guard": ("strength", "agility", "endurance", "perception"),
-    "healer": ("endurance", "perception", "intellect", "presence"),
-}
-ROLE_COMPETENCIES = {
-    "bargemaster": ("wayfinding", "speech"),
-    "pilot": ("wayfinding", "fieldcraft"),
-    "factor": ("speech", "strategy"),
-    "carpenter": ("craft", "fieldcraft"),
-    "guard": ("fieldcraft", "strategy"),
-    "healer": ("craft", "speech"),
-}
+_CATALOG = load_catalog("character_profiles.json", CHARACTER_SECTIONS)
+_competencies = _CATALOG["competencies"]
+_points = _CATALOG["starting_points"]
+_ancestries = _CATALOG["ancestries"]
+_origins = _CATALOG["origins"]
+_traits = _CATALOG["traits"]
+_origin_practices = _CATALOG["origin_practices"]
+_attribute_competencies = _CATALOG["attribute_competencies"]
+_role_attributes = _CATALOG["role_attributes"]
+_role_competencies = _CATALOG["role_competencies"]
+
+if (not isinstance(_competencies, list) or len(_competencies) != 5
+        or len(set(_competencies)) != len(_competencies)
+        or any(not isinstance(value, str) or not value for value in _competencies)
+        or not isinstance(_points, dict) or set(_points) != {"attributes", "competencies"}
+        or any(type(value) is not int or value < 0 for value in _points.values())):
+    raise CatalogError("character profiles have invalid competencies or point budgets")
+COMPETENCIES = tuple(_competencies)
+ATTRIBUTE_POINTS = _points["attributes"]
+COMPETENCY_POINTS = _points["competencies"]
+
+if (not isinstance(_ancestries, dict) or len(_ancestries) != 4
+        or any(not isinstance(name, str) or not isinstance(row, dict) or set(row) != {"effect", "competency"}
+               or not isinstance(row["effect"], str) or not row["effect"]
+               or row["competency"] is not None and (
+                   not isinstance(row["competency"], str) or row["competency"] not in COMPETENCIES
+               )
+               for name, row in _ancestries.items())
+        or not isinstance(_origins, list) or len(_origins) != 4 or len(set(_origins)) != len(_origins)
+        or any(not isinstance(origin, str) or not origin for origin in _origins)):
+    raise CatalogError("character profiles have invalid ancestries or origins")
+ANCESTRIES = tuple(_ancestries)
+PEOPLE_EFFECTS = {name: row["effect"] for name, row in _ancestries.items()}
+PEOPLE_COMPETENCIES = {name: row["competency"] for name, row in _ancestries.items() if row["competency"]}
+ORIGINS = tuple(_origins)
+
+if (not isinstance(_traits, dict) or len(_traits) != 5
+        or any(not isinstance(name, str) or not isinstance(row, list) or len(row) != 2
+               or not isinstance(row[0], str) or row[0] not in COMPETENCIES
+               or not isinstance(row[1], str) or not row[1]
+               for name, row in _traits.items())
+        or not isinstance(_origin_practices, dict) or set(_origin_practices) != set(ORIGINS)
+        or any(not isinstance(name, str) or name not in COMPETENCIES for name in _origin_practices.values())
+        or not isinstance(_attribute_competencies, dict) or set(_attribute_competencies) != set(COMPETENCIES)
+        or any(not isinstance(name, str) or name not in ATTRIBUTES for name in _attribute_competencies.values())):
+    raise CatalogError("character profiles have invalid traits or competency links")
+TRAITS = {name: tuple(row) for name, row in _traits.items()}
+ORIGIN_PRACTICE = _origin_practices
+ATTRIBUTE_FOR_COMPETENCY = _attribute_competencies
+
+if (not isinstance(_role_attributes, dict) or set(_role_attributes) != set(_role_competencies)
+        or any(not isinstance(role, str) or not isinstance(values, list) or len(values) != 4
+               or any(not isinstance(name, str) or name not in ATTRIBUTES for name in values)
+               or len(set(values)) != len(values)
+               for role, values in _role_attributes.items())
+        or any(not isinstance(values, list) or len(values) != 2
+               or any(not isinstance(name, str) or name not in COMPETENCIES for name in values)
+               or len(set(values)) != len(values)
+               for values in _role_competencies.values())):
+    raise CatalogError("character profiles have invalid role profiles")
+ROLE_ATTRIBUTES = {role: tuple(values) for role, values in _role_attributes.items()}
+ROLE_COMPETENCIES = {role: tuple(values) for role, values in _role_competencies.items()}
 
 
 def default_allocation(role: str) -> tuple[dict[str, int], dict[str, int]]:

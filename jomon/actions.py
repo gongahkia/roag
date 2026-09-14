@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from .content import COMMODITIES, GEAR, MERCHANT_ITEMS, PASSIVES, RELICS, SUPPORTS, WEAPONS
 from .enemy_ai import next_path_step, raise_group_alert, retreat_step, select_goal
+from .expanded_weapons import ARSENAL
 from .inventory import (
     add_status,
     apply_terrain_status,
@@ -20,7 +21,6 @@ from .inventory import (
     equipped_item,
     load_state,
     lose_matching_carried,
-    pack_weight,
     physical_ammunition,
     prepare_kind,
     protection_at,
@@ -30,11 +30,11 @@ from .inventory import (
     sync_legacy_load,
     tick_statuses,
     transfer_to_grid,
-    weight_capacity,
     worn_tags,
 )
 from .state import CommodityStack, GameState, Person, Position, SoundEvent, Threat, stage_rng
 from .tavern_games import another_game_active
+from .work_weapons import WORK_WEAPONS
 from .world import (
     JOMON_GANGPLANK,
     area_name,
@@ -1241,7 +1241,6 @@ def _advance_world(
         messages = _weather_and_deadline(state) + _patrols(state) if state.location == "region" else []
         from .worklines import apply_local_work
         apply_local_work(state)
-        current = pressure(state)
         from .ecology import active_actors
         from .enemy_ai import sees_courier, heard_position
 
@@ -2302,7 +2301,7 @@ def interact(state: GameState) -> ActionResult:
             state.objective_required,
             COMMODITIES[commodity]["condition"],
         ):
-            return _plain(state, f"The load exceeds bulk or clear pack cells.")
+            return _plain(state, "The load exceeds bulk or clear pack cells.")
         state.region.changes["objective_taken"] = True
         sounds = emit_sound(state, 2)
         return _time_result(
@@ -2404,9 +2403,6 @@ RANGED_WEAPONS = frozenset(
         "weighted net", "staff sling", "hooked javelin", "handgonne",
     }
 )
-from .work_weapons import WORK_WEAPONS
-from .expanded_weapons import ARSENAL
-
 WEAPON_RANGES.update({name: spec.reach for name, spec in WORK_WEAPONS.items()})
 RANGED_WEAPONS |= {"pot sling", "throwing axe"}
 WEAPON_RANGES.update({name: spec.reach for name, spec in ARSENAL.items()})
@@ -3103,7 +3099,7 @@ def use_gear(state: GameState, preparation: str | None = None) -> ActionResult:
             priority=3,
         )
     if state.carried_relic == "flood-mark clasp" and state.relics.get("flood-mark clasp", 0):
-        from .materials import fields as material_fields, key as material_key, point_at
+        from .materials import fields as material_fields, point_at
 
         lowered = steadied = 0
         for coordinate, cell in material_fields(state).items():

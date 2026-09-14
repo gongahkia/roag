@@ -7,12 +7,17 @@ import random
 import textwrap
 from dataclasses import dataclass
 
+from .catalog import CatalogError, WORLD_TEXT_SECTIONS, load_catalog
 from .character_ui import run_character_creation
 from .save import SaveError, load_game, save_path
 from .state import create_world
 from .terminal import MIN_HEIGHT, MIN_WIDTH, _draw_minimum_size_notice, _init_colours, _put, colour_attribute, play
 
-SEED_WORDS = ("reed", "hearth", "quay", "willow", "mill", "rain", "keel", "lantern")
+_SEED_WORDS = load_catalog("world_text.json", WORLD_TEXT_SECTIONS)["seed_words"]
+if (not isinstance(_SEED_WORDS, list) or len(_SEED_WORDS) < 2
+        or any(not isinstance(word, str) or not word for word in _SEED_WORDS)):
+    raise CatalogError("world_text.json has invalid seed words")
+SEED_WORDS = tuple(_SEED_WORDS)
 
 
 @dataclass(frozen=True)

@@ -7,7 +7,7 @@ import json
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from .versions import CONTENT_SCHEMA, ENGINE_VERSION, MANIFEST_SCHEMA, RNG_ARCHITECTURE
+from .versions import ENGINE_VERSION, MANIFEST_SCHEMA, RNG_ARCHITECTURE
 
 
 def canonical_bytes(value: Any) -> bytes:

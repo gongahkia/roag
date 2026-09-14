@@ -5835,8 +5835,8 @@ class GameEngine:
         for actor_id, earlier in before.items():
             later = after[actor_id]
             name = earlier["name"]
-            for field, label in (("hp", "HP"), ("block", "BLOCK"), ("stress", "STRESS")):
-                delta = later[field] - earlier[field]
+            for field_name, label in (("hp", "HP"), ("block", "BLOCK"), ("stress", "STRESS")):
+                delta = later[field_name] - earlier[field_name]
                 if delta:
                     changes.append(f"{name} {delta:+d} {label}")
             if later["rank"] != earlier["rank"]:

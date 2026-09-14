@@ -6,12 +6,16 @@ text: it can be reviewed in diffs and needs no compression tool or dependency.
 
 | File | Authored content |
 | --- | --- |
-| `people.json` | names, roles, regional context, recruits |
+| `people.json` | names, roles, regional context, and recruit identities |
+| `recruitment.json` | witnessed conditions for each recruit invitation |
+| `character_profiles.json` | courier ancestries, origins, traits, point budgets, and role profiles |
 | `goods.json` | commodities, equipment text, discoveries, relics, passives, merchant stock |
 | `actors.json` | enemy archetypes, regional and elite actor rows, glyphs, and reactions |
-| `world_text.json` | Jomon map and help copy |
+| `world_text.json` | Jomon map, in-world clerk slates, seed words, terrain names, and landmark labels |
 | `geography.json` | regional side-route anchors, terrain accents, hidden field caches, and frontier identities, contacts, discoveries, and relic sources |
+| `history.json` | regional work accounts, services, ties, travelling witnesses, undertakings, and legendary provenance |
 | `terrain_variation.json` | regional field pockets, side-structure names, field travellers, and bounded local encounter pools |
+| `practices.json` | learned regional practices and their embodied teaching sources |
 | `situations.json` | 24 regional situation records and afterwork samples |
 | `production.json` | regional sources, stations, and hand-authored recipes, including circuit parts |
 | `circuits.json` | electrical fitting behaviors, glyphs, physical descriptions, and authored installations |
@@ -20,7 +24,8 @@ text: it can be reviewed in diffs and needs no compression tool or dependency.
 | `quests.json` | regional quests, rewards, and cross-region arcs |
 | `spells.json` | ordered spell rows; every four rows form one skill tier |
 | `skills.json` | ordered skill branches and starting role roots |
-| `vessel.json` | voyage cases, hazard stations, variants, echoes, refits, and authored route nodes and legs |
+| `vessel.json` | voyage cases, hazard stations, variants, echoes, refits, bar drinks, and authored route nodes and legs |
+| `arc_relics.json` | ending relic identities and in-world descriptions for the two aftermath arcs |
 | `aftermath.json` | revisit lines and topologies, preparations, household stories, cross-region callbacks |
 | `equipment.json` | physical item specifications, loadouts, ammunition, weapons, fittings, and regional armour |
 | `visuals.json` | Jomon deck/tavern ASCII maps, entity and terrain glyphs, route marks, card frames, dice faces |

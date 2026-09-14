@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import heapq
 from itertools import count
 
+from .catalog import CatalogError, WORLD_TEXT_SECTIONS, load_catalog
 from .inventory import load_state
 from .state import GameState, Position
 from .world import (
@@ -48,27 +49,13 @@ class RouteAdvance:
     time_advanced: bool = False
 
 
-LANDMARK_LABELS = {
-    "landing": "return landing",
-    "contact": "primary witness",
-    "second_contact": "secondary witness",
-    "settlement": "settlement work",
-    "objective": "local worksite",
-    "cave_entrance": "below-ground entrance",
-    "elevated": "elevated landmark",
-    "high_view": "high viewpoint",
-    "works": "regional works",
-    "store": "working store",
-    "ruin": "historic scar",
-    "far_bank": "far-bank route",
-    "sanctum_entry": "sanctum stair",
-    "sanctum_shrine": "sanctum shrine",
-    "sanctum_undercroft": "undercroft seal",
-    "sanctum_ward": "ward gallery",
-    "sanctum_boss": "reliquary keeper",
-    "sanctum_side_stair": "side gallery stair",
-    "sanctum_secret": "scored gallery seam",
-}
+_LANDMARK_LABELS = load_catalog("world_text.json", WORLD_TEXT_SECTIONS)["landmark_labels"]
+if (not isinstance(_LANDMARK_LABELS, dict)
+        or any(not isinstance(key, str) or not key
+               or not isinstance(label, str) or not label
+               for key, label in _LANDMARK_LABELS.items())):
+    raise CatalogError("world_text.json has invalid landmark labels")
+LANDMARK_LABELS = _LANDMARK_LABELS
 
 
 def _parse_key(value: str) -> Position | None:
@@ -165,7 +152,7 @@ def _visible_material_danger(state: GameState) -> set[str]:
     visible = field_of_view(state, remember=False)
     return {
         key for key, cell in fields(state).items()
-        if (point := _parse_key(key)) in visible
+        if _parse_key(key) in visible
         and (cell.fire or cell.smoke >= 2 or cell.collapse_due)
     }
 

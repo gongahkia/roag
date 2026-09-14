@@ -894,5 +894,15 @@
       ],
       "timber portage"
     ]
+  ],
+  "drinks": [
+    {"id": "hearth-ale", "name": "Hearth Ale", "benefit": "guard resists fear", "drawback": "steps make one more noise", "duration": 18, "cost": 1, "incompatible": [], "rare": false},
+    {"id": "winter-juniper", "name": "Winter Juniper", "benefit": "cold and chilling are resisted", "drawback": "fine aim is shortened", "duration": 20, "cost": 2, "incompatible": [], "rare": false},
+    {"id": "willow-bitter", "name": "Willow Bitter", "benefit": "injury pain no longer slows tools", "drawback": "fatigue follows when it clears", "duration": 14, "cost": 2, "incompatible": [], "rare": false},
+    {"id": "miller-small-beer", "name": "Miller's Small Beer", "benefit": "guard persists through one move", "drawback": "movement while guarded is slower", "duration": 16, "cost": 1, "incompatible": [], "rare": false},
+    {"id": "stillroom-cordial", "name": "Stillroom Cordial", "benefit": "material negotiation gains leverage", "drawback": "visible intoxication harms wary contacts", "duration": 12, "cost": 2, "incompatible": ["hearth-ale"], "rare": false},
+    {"id": "smokeleaf-infusion", "name": "Smokeleaf Infusion", "benefit": "smoke inhalation is resisted", "drawback": "thirst makes wet crossings louder", "duration": 18, "cost": 2, "incompatible": [], "rare": false},
+    {"id": "reed-tonic", "name": "Reed Tonic", "benefit": "treatment and bog recovery are faster", "drawback": "awareness is dulled", "duration": 14, "cost": 2, "incompatible": [], "rare": false},
+    {"id": "ebbglass-measure", "name": "Ebbglass Measure", "benefit": "one regional process warning lasts longer", "drawback": "the next remembered voice may be false", "duration": 10, "cost": 4, "incompatible": [], "rare": true}
   ]
 }

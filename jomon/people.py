@@ -2,12 +2,26 @@
 
 from __future__ import annotations
 
+from .catalog import CatalogError, RECRUITMENT_SECTIONS, load_catalog
 from .content import RECRUIT_TEMPLATES
 from .state import GameState, Person, Position, stage_rng
 from .vessel import HOUSEHOLD_SEATS, VISITOR_SEATS, current_area
 
 BERTH_CAPACITY = 9
 PERSONAL_RETURN_MILESTONE = 2
+_TEMPLATE_FIELDS = {
+    "id", "ancestry", "name", "role", "technique", "home_region", "background",
+    "build_tendency", "equipment", "terms", "memory",
+}
+if (len(RECRUIT_TEMPLATES) != 6
+        or any(set(template) != _TEMPLATE_FIELDS
+               or any(not isinstance(template[key], str) or not template[key]
+                      for key in _TEMPLATE_FIELDS - {"equipment"})
+               or not isinstance(template["equipment"], list) or len(template["equipment"]) != 2
+               or any(not isinstance(item, str) or not item for item in template["equipment"])
+               for template in RECRUIT_TEMPLATES)
+        or len({template["id"] for template in RECRUIT_TEMPLATES}) != len(RECRUIT_TEMPLATES)):
+    raise CatalogError("people.json has invalid recruit templates")
 
 
 def personal_practice(person: Person) -> str:
@@ -39,31 +53,19 @@ def record_personal_return(state: GameState, person: Person, region_id: str) -> 
     state.remember(development)
     return development
 
+_requirements = load_catalog("recruitment.json", RECRUITMENT_SECTIONS)["requirements"]
+_REQUIREMENT_FIELDS = {"region", "markers", "witnessed"}
+if (not isinstance(_requirements, dict) or set(_requirements) != {row["id"] for row in RECRUIT_TEMPLATES}
+        or any(not isinstance(visitor_id, str) or not isinstance(row, dict) or set(row) != _REQUIREMENT_FIELDS
+               or not isinstance(row["region"], str) or not row["region"]
+               or not isinstance(row["markers"], list) or not row["markers"]
+               or any(not isinstance(marker, str) or not marker for marker in row["markers"])
+               or not isinstance(row["witnessed"], str) or not row["witnessed"]
+               for visitor_id, row in _requirements.items())):
+    raise CatalogError("recruitment.json has invalid visitor requirements")
 RECRUIT_REQUIREMENTS = {
-    "recruit-maelin": (
-        "greywash", ("tide_held", "safe_salt_delay"),
-        "a tide window was held or deliberately delayed",
-    ),
-    "recruit-jessa": (
-        "greywash", ("quest_cache_opened",),
-        "the named wreck locker was recovered accountably",
-    ),
-    "recruit-orra": (
-        "greenwold", ("medicine_coppice_saved",),
-        "the medicine coppice survived the managed burn",
-    ),
-    "recruit-bran": (
-        "greenwold", ("care_obligation_settled",),
-        "a persistent injury was treated through a witnessed obligation",
-    ),
-    "recruit-teren": (
-        "whitecairn", ("quarry_braced",),
-        "the quarry was materially braced before another crossing",
-    ),
-    "recruit-sava": (
-        "whitecairn", ("honest_bell",),
-        "the false private alarm was replaced by an honest warning",
-    ),
+    visitor_id: (row["region"], tuple(row["markers"]), row["witnessed"])
+    for visitor_id, row in _requirements.items()
 }
 
 def create_visitors(seed: str) -> list[Person]:
@@ -75,8 +77,7 @@ def create_visitors(seed: str) -> list[Person]:
         }
         visitors.append(Person(
             id=template["id"], name=template["name"], role=template["role"],
-            ancestry={"recruit-maelin": "Tidekin", "recruit-orra": "Reedfolk",
-                      "recruit-teren": "Stonefolk"}.get(template["id"], "Human"),
+            ancestry=template["ancestry"],
             equipment=list(template["equipment"]), technique=template["technique"],
             relationships=relationships, learned_techniques=[], health=10,
             max_health=10, background=template["background"],

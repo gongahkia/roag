@@ -5,7 +5,7 @@ import unittest
 from jomon.frontiers import ensure_frontier
 from jomon.household_stories import (
     STORIES, eligibility, outcome_regions, resolve, station_choices,
-    story_choices, story_lines, validate_stories,
+    story_lines, validate_stories,
 )
 from jomon.save import load_game, save_game
 from jomon.situations import BY_REGION_BAND

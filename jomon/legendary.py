@@ -2,23 +2,29 @@
 
 from __future__ import annotations
 
+from .catalog import CatalogError, HISTORY_SECTIONS, load_catalog
 from .state import GameState, LegendaryObject, stage_rng
 
-
-# Each base is existing physical equipment. These small capability records are
-# consumed by inspection, terrain, range, material and wear reducers.
+_HISTORY = load_catalog("history.json", HISTORY_SECTIONS)
+_bases = _HISTORY["legend_bases"]
+_crisis_tags = _HISTORY["crisis_tags"]
+if (not isinstance(_bases, dict) or len(_bases) != 8
+        or any(not isinstance(region, str) or not isinstance(row, list) or len(row) != 5
+               or not isinstance(row[0], str) or not row[0]
+               or not isinstance(row[1], list) or not row[1] or any(not isinstance(tag, str) or not tag for tag in row[1])
+               or type(row[2]) is not int
+               or not isinstance(row[3], list) or not row[3] or any(not isinstance(verb, str) or not verb for verb in row[3])
+               or not isinstance(row[4], str) or not row[4]
+               for region, row in _bases.items())):
+    raise CatalogError("history.json has invalid legendary bases")
 LEGEND_BASES = {
-    "hearthford": ("staff", ("deep-water", "weatherproof"), 0, ("brace", "redirect"), "waterbound"),
-    "greywash": ("weighted net", ("saltproof", "quiet"), 1, ("pull",), "ebb-knotted"),
-    "greenwold": ("hand axe", ("heatproof", "thornproof"), 0, ("cut",), "coppice-marked"),
-    "whitecairn": ("heavy crossbow", ("scree-grip", "face-cover"), 1, ("brace",), "bell-sighted"),
-    "dunmire": ("pike", ("mudproof", "buoyant"), 0, ("brace", "redirect"), "bank-bound"),
-    "rillscar": ("war hammer", ("limeproof", "tool-grip"), 0, ("break", "brace"), "load-proved"),
-    "marlbank": ("staff sling", ("heatproof", "limeproof"), 1, ("lever",), "kiln-measured"),
-    "frostmere": ("spear", ("warm", "ice-grip"), 1, ("break", "brace"), "ice-sounded"),
+    region: (row[0], tuple(row[1]), row[2], tuple(row[3]), row[4])
+    for region, row in _bases.items()
 }
-
-CRISIS_TAG = {"flood": "weatherproof", "fire": "heatproof", "support loss": "brace"}
+if (not isinstance(_crisis_tags, dict) or set(_crisis_tags) != {"flood", "fire", "support loss"}
+        or any(not isinstance(tag, str) or not tag for tag in _crisis_tags.values())):
+    raise CatalogError("history.json has invalid crisis tags")
+CRISIS_TAG = _crisis_tags
 
 
 def initialise_region_legend(state: GameState, region_id: str) -> None:

@@ -117,6 +117,7 @@
   "RECRUIT_TEMPLATES": [
     {
       "id": "recruit-maelin",
+      "ancestry": "Tidekin",
       "name": "Maelin Rook",
       "role": "tide runner",
       "technique": "ebb reader",
@@ -132,6 +133,7 @@
     },
     {
       "id": "recruit-jessa",
+      "ancestry": "Human",
       "name": "Jessa Flint",
       "role": "netwright",
       "technique": "cast bind",
@@ -147,6 +149,7 @@
     },
     {
       "id": "recruit-orra",
+      "ancestry": "Reedfolk",
       "name": "Orra Fen",
       "role": "charcoal scout",
       "technique": "wind listener",
@@ -162,6 +165,7 @@
     },
     {
       "id": "recruit-bran",
+      "ancestry": "Human",
       "name": "Bran Wold",
       "role": "resin healer",
       "technique": "green poultice",
@@ -177,6 +181,7 @@
     },
     {
       "id": "recruit-teren",
+      "ancestry": "Stonefolk",
       "name": "Teren Chalk",
       "role": "quarry climber",
       "technique": "scree step",
@@ -192,6 +197,7 @@
     },
     {
       "id": "recruit-sava",
+      "ancestry": "Human",
       "name": "Sava Bell",
       "role": "ridge ward",
       "technique": "high arc",

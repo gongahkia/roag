@@ -5,10 +5,10 @@ from dataclasses import asdict
 from jomon.actions import _advance_world, _threat_action, apply_damage, attack, emit_sound, interact, move
 from jomon.ecology import resolve_world_action, world_options
 from jomon.enemy_ai import next_path_step, sees_courier
-from jomon.inventory import auto_place, create_item, drop_item, equipped_item, release_enemy_possession
-from jomon.materials import _expose, advance_materials, fields
+from jomon.inventory import auto_place, create_item, equipped_item, release_enemy_possession
+from jomon.materials import _expose, advance_materials
 from jomon.ship_crises import HAZARD_STATIONS, TACTICAL, VOYAGES, abandon_deck, begin_deck, work
-from jomon.state import CommodityStack, MaterialCell, Position, StateError, Threat, create_world, game_state_from_dict
+from jomon.state import CommodityStack, MaterialCell, Position, StateError, create_world, game_state_from_dict
 from jomon.terminal import InputEvent, OverlayView, _draw_dialogue_overlay, _handle_overlay_view, dialogue_choices, visible_threats
 from jomon.travel import choose_destination, resolve_voyage, voyage_for
 from jomon.world import field_of_view, line_of_sight

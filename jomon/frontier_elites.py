@@ -185,7 +185,7 @@ def elite_action(state, actor, guarded):
     from .enemy_ai import higher_access_target, next_path_step, perceive
     from .materials import ensure_cell, fields, key
     from .state import Position
-    from .world import base_tile, distance, is_walkable, line_of_sight
+    from .world import distance, is_walkable, line_of_sight
 
     mode = data["mode"]
     visible, perceived, reason = perceive(state, actor)

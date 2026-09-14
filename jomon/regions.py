@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import OrderedDict, deque
+from collections import OrderedDict
 import copy
 import hashlib
 import weakref
@@ -152,7 +152,8 @@ def region_reachable(region: Region, start: Position | None = None) -> frozenset
     try:
         owner = weakref.ref(region)
     except TypeError:
-        owner = lambda: region
+        def owner():
+            return region
     _REACHABLE_CACHE[cache_key] = (owner, frozen)
     _REACHABLE_CACHE.move_to_end(cache_key)
     while len(_REACHABLE_CACHE) > _REACHABLE_CACHE_LIMIT:

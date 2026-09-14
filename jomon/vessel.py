@@ -6,6 +6,7 @@ from collections import deque
 from dataclasses import dataclass
 
 from .calendar import calendar_at, initial_origin_day, seasonal_stock_modifier
+from .catalog import CatalogError, VESSEL_SECTIONS, load_catalog
 from .state import ActorSchedule, GameState, Person, Position, SocialIncident, TerrainStatus, stage_rng
 from .visuals import TAVERN_MAP, VESSEL_LEVELS
 
@@ -54,16 +55,29 @@ class Drink:
     rare: bool = False
 
 
-DRINKS: dict[str, Drink] = {
-    "hearth-ale": Drink("hearth-ale", "Hearth Ale", "guard resists fear", "steps make one more noise", 18, 1),
-    "winter-juniper": Drink("winter-juniper", "Winter Juniper", "cold and chilling are resisted", "fine aim is shortened", 20, 2),
-    "willow-bitter": Drink("willow-bitter", "Willow Bitter", "injury pain no longer slows tools", "fatigue follows when it clears", 14, 2),
-    "miller-small-beer": Drink("miller-small-beer", "Miller's Small Beer", "guard persists through one move", "movement while guarded is slower", 16, 1),
-    "stillroom-cordial": Drink("stillroom-cordial", "Stillroom Cordial", "material negotiation gains leverage", "visible intoxication harms wary contacts", 12, 2, ("hearth-ale",)),
-    "smokeleaf-infusion": Drink("smokeleaf-infusion", "Smokeleaf Infusion", "smoke inhalation is resisted", "thirst makes wet crossings louder", 18, 2),
-    "reed-tonic": Drink("reed-tonic", "Reed Tonic", "treatment and bog recovery are faster", "awareness is dulled", 14, 2),
-    "ebbglass-measure": Drink("ebbglass-measure", "Ebbglass Measure", "one regional process warning lasts longer", "the next remembered voice may be false", 10, 4, (), True),
+_drink_rows = load_catalog("vessel.json", VESSEL_SECTIONS)["drinks"]
+_DRINK_FIELDS = {"id", "name", "benefit", "drawback", "duration", "cost", "incompatible", "rare"}
+if (not isinstance(_drink_rows, list) or len(_drink_rows) != 8
+        or any(not isinstance(row, dict) or set(row) != _DRINK_FIELDS
+               or any(not isinstance(row[key], str) or not row[key]
+                      for key in ("id", "name", "benefit", "drawback"))
+               or type(row["duration"]) is not int or row["duration"] < 1
+               or type(row["cost"]) is not int or row["cost"] < 0
+               or not isinstance(row["incompatible"], list)
+               or any(not isinstance(item, str) or not item for item in row["incompatible"])
+               or type(row["rare"]) is not bool
+               for row in _drink_rows)
+        or len({row["id"] for row in _drink_rows}) != len(_drink_rows)):
+    raise CatalogError("vessel.json has invalid drinks")
+DRINKS = {
+    row["id"]: Drink(
+        row["id"], row["name"], row["benefit"], row["drawback"], row["duration"], row["cost"],
+        tuple(row["incompatible"]), row["rare"],
+    )
+    for row in _drink_rows
 }
+if any(incompatible not in DRINKS for drink in DRINKS.values() for incompatible in drink.incompatible):
+    raise CatalogError("vessel.json names an unknown incompatible drink")
 
 
 HOUSEHOLD_SEATS = (

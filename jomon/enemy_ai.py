@@ -6,7 +6,7 @@ from collections import deque
 from dataclasses import dataclass
 
 from .state import GameState, GroupAlert, Position, Threat
-from .world import base_tile, distance, is_walkable, line_of_sight, pressure, vertical_destination
+from .world import base_tile, distance, is_walkable, line_of_sight, vertical_destination
 
 
 @dataclass(frozen=True)

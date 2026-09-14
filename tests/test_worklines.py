@@ -1,15 +1,15 @@
 import copy
 import unittest
 
-from jomon.actions import _return_after_defeat, _threat_action, choose_courier, negotiate
+from jomon.actions import _return_after_defeat, choose_courier, negotiate
 from jomon.inventory import auto_place, create_item, item_spec, sync_legacy_load
 from jomon.materials import advance_materials, fields, key
 from jomon.regions import activate_region, region_reachable
 from jomon.state import Position, StateError, create_world, game_state_from_dict
 from jomon.terminal import InputEvent, OverlayView, _handle_overlay_view, _draw_dialogue_overlay, dialogue_choices
 from jomon.worklines import (
-    WORKLINES, apply_local_work, at_witness, carried_evidence, field_site,
-    lines, options, resolve, survey_site,
+    WORKLINES, at_witness, carried_evidence, field_site,
+    options, resolve, survey_site,
 )
 from jomon.world import sight_radius
 from test_information_panels import PanelSink

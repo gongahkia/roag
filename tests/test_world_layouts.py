@@ -8,7 +8,7 @@ from jomon.discoveries import reveal_nearby
 from jomon.frontiers import FRONTIERS, build_frontier
 from jomon.geography import FIELD_SECRETS, LAYOUTS, layout_point
 from jomon.inventory import item_spec
-from jomon.regions import activate_region, region_reachable, validate_region
+from jomon.regions import region_reachable, validate_region
 from jomon.save import load_game, save_game
 from jomon.state import Position, create_world
 from jomon.world import displayed_tile

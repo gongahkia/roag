@@ -1,7 +1,6 @@
 """The tavern expedition uses the imported map and symmetric ranked card rules."""
 
 import copy
-import curses
 import tempfile
 import unittest
 from pathlib import Path

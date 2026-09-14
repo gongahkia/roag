@@ -2,20 +2,18 @@
 
 from __future__ import annotations
 
+from .catalog import ARC_RELIC_SECTIONS, CatalogError, load_catalog
 
-ARC_RELICS = {
-    ("repairs", "m"): "common-work rivet",
-    ("repairs", "j"): "counterclaim lodestone",
-    ("refuges", "p"): "lee-cloth brooch",
-    ("refuges", "c"): "channel-surety shuttle",
-}
-
-ARC_RELIC_DESCRIPTIONS = {
-    "common-work rivet": "A master rivet repairs worn equipment and nearby supports together, but the resisting work leaves the bearer fatigued.",
-    "counterclaim lodestone": "A strange ironstone strips nearby human weapons into one recoverable pile—including the courier's readied weapon—and rings an alarm.",
-    "lee-cloth brooch": "A sailcloth clasp gives eight actions of lee from a storm's push and glare; its snap alerts nearby listeners.",
-    "channel-surety shuttle": "A weighted line carries the courier over a straight marked water lane; the heaviest cargo stays at the launch and the landing is loud.",
-}
+_rows = load_catalog("arc_relics.json", ARC_RELIC_SECTIONS)["relics"]
+if (not isinstance(_rows, list) or len(_rows) != 4
+        or any(not isinstance(row, list) or len(row) != 4
+               or any(not isinstance(value, str) or not value for value in row)
+               for row in _rows)
+        or len({(row[0], row[1]) for row in _rows}) != len(_rows)
+        or len({row[2] for row in _rows}) != len(_rows)):
+    raise CatalogError("arc_relics.json has invalid ending relics")
+ARC_RELICS = {(arc_id, choice): name for arc_id, choice, name, _ in _rows}
+ARC_RELIC_DESCRIPTIONS = {name: description for _, _, name, description in _rows}
 
 
 def lee_sheltered(state) -> bool:

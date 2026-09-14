@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import curses
-import copy
 import os
 import signal
 import textwrap
@@ -19,11 +18,9 @@ from .actions import (
     brace_target_legality,
     can_alter_objective,
     choose_courier,
-    choose_gear,
     choose_passive,
     choose_relic,
     choose_support,
-    choose_weapon,
     decide_objective,
     guard,
     interact,
@@ -49,7 +46,6 @@ from .inventory import (
     InventoryTransaction,
     auto_pack,
     auto_place,
-    can_place,
     drop_item,
     equip_item,
     equipped_item,
@@ -73,8 +69,8 @@ from .inventory import (
 )
 from .content import (
     COMMODITIES,
-    GEAR,
     HELP_LINES,
+    INTERFACE_LEDGERS,
     MERCHANT_ITEMS,
     PASSIVES,
     RELICS,
@@ -93,7 +89,7 @@ from .state import GameState, MaterialCell, Position, Threat
 from .travel import DESTINATIONS, choose_destination, resolve_voyage, travel_animation_frames
 from .route_chart import chart_move, edge_between, neighbours, route_availability
 from .calendar import calendar_at, seasonal_route_note
-from .vessel import DRINKS, current_area
+from .vessel import DRINKS
 from .visuals import (
     ENTITY_GLYPHS, PHYSICAL_ROLE_OVERRIDES, REGIONAL_GROUND_ROLES,
     REGIONAL_TILE_ROLES, ROUTE_NODE_SYMBOLS, SEMANTIC_GLYPH_ROLES,
@@ -110,27 +106,17 @@ from .world import (
     displayed_tile,
     distance,
     field_of_view,
-    line_of_sight,
     map_rows,
     passive_bulk,
     passive_capacity,
     projectile_path,
-    remembered,
 )
 
-INVENTORY_HELP_LINES = (
-    "Arrows/WASD move  Enter lift/place  R rotate  Space mark  */K all/category",
-    "T transfer E equip O pack P pin Z auto [] body D drop C confirm Esc cancel",
-)
-TARGET_HELP_LINE = "Arrows/WASD/HJKL Tab target <> level M mastery Enter commit G brace Esc"
-ROUTE_HELP_LINES = (
-    "Arrows/WASD/HJKL connected node  Enter preview/confirm  Tab layer  Esc close",
-    "Mouse click selects; double-click confirms when reported; keyboard is complete",
-)
-BASE_HELP_LINES = (
-    "HJKL/arrows E act A aim G guard ; look T follow M mastery P skills W craft",
-    "X gear F material D spells V talk R retreat I Z ledger O actors \\ circuits ? Q",
-)
+INVENTORY_HELP_LINES = INTERFACE_LEDGERS["inventory"]
+TARGET_HELP_LINE = INTERFACE_LEDGERS["target"]
+ROUTE_HELP_LINES = INTERFACE_LEDGERS["route"]
+BASE_HELP_LINES = INTERFACE_LEDGERS["base"]
+LOOK_HELP_LINE = INTERFACE_LEDGERS["look"]
 
 MIN_WIDTH = 80
 MIN_HEIGHT = 24
@@ -918,7 +904,7 @@ def _draw_look(screen: curses.window, state: GameState, view: LookView) -> None:
     shown = lines[-min(len(lines), 8):]
     for row, line in enumerate(shown, height - len(shown)):
         _put(screen, row, 1, line.ljust(width - 2), _COLOUR_ATTRIBUTES[information_colour_role(line)] | curses.A_REVERSE)
-    _put(screen, height - 1, 1, "LOOK Arrows/WASD/HJKL move <> level Mouse click Esc/; close — zero time", _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_REVERSE | curses.A_BOLD)
+    _put(screen, height - 1, 1, LOOK_HELP_LINE, _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_REVERSE | curses.A_BOLD)
     screen.refresh()
 
 
@@ -1978,7 +1964,6 @@ def _draw_route_chart(
         mx, my = _chart_screen_point(moving[0], moving[1], map_width, height)
         _put(screen, my, mx, ENTITY_GLYPHS["courier"], _COLOUR_ATTRIBUTES["player"] | curses.A_REVERSE)
         _put(screen, height - 4, 2, _clip(moving[2], map_width - 4), curses.A_BOLD)
-    selected = state.route_nodes[view.cursor]
     lines = route_detail_lines(state, view, detail_width - 4)
     for index, line in enumerate(lines[: height - 5]):
         role = information_colour_role(line)

@@ -7,7 +7,10 @@ from dataclasses import dataclass, replace
 from typing import Iterable
 
 from .catalog import EQUIPMENT_SECTIONS, load_catalog
-from .state import GameState, Item, Person, Position, TerrainStatus
+from .chemistry import REAGENTS
+from .expanded_weapons import ARSENAL, BOMB_AMMUNITION, ammunition_for
+from .state import GameState, Item, Person, TerrainStatus
+from .work_weapons import POT_AMMUNITION, WORK_WEAPONS
 
 PACK_WIDTH = 10
 PACK_HEIGHT = 6
@@ -18,8 +21,6 @@ EQUIPPED_LOCATIONS = ("readied", "secondary", *BODY_SLOTS)
 _EQUIPMENT = load_catalog("equipment.json", EQUIPMENT_SECTIONS)
 AMMUNITION_ITEMS = dict(_EQUIPMENT["ammunition_items"])
 WEAPON_AMMUNITION = dict(_EQUIPMENT["weapon_ammunition"])
-from .work_weapons import POT_AMMUNITION, WORK_WEAPONS
-from .expanded_weapons import ARSENAL, BOMB_AMMUNITION, ammunition_for
 
 AMMUNITION_ITEMS.update(POT_AMMUNITION)
 AMMUNITION_ITEMS.update(BOMB_AMMUNITION)
@@ -104,7 +105,6 @@ ITEM_SPECS.update({name: ItemSpec(name.title(), "".join(word[0] for word in name
 ITEM_SPECS.update({kind: ItemSpec(name.title(), "".join(word[0] for word in name.split()).upper()[:2],
                                   2, 2, 2, "consumable", "One thrown payload; reacts at its landing.", stack_limit=3)
                    for name, kind in BOMB_AMMUNITION.items()})
-from .chemistry import REAGENTS
 
 ITEM_SPECS.update({f"ingredient:{name}": ItemSpec(name.title(), "".join(word[0] for word in name.split()).upper()[:2],
                                                1, 1, 1, "consumable", "One local ingredient; can enter a field flask.", stack_limit=4)

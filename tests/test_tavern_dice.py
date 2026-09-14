@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from jomon.actions import interact
 from jomon.save import load_game, save_game
-from jomon.state import Position, StateError, create_world, game_state_from_dict, validate_state
+from jomon.state import StateError, create_world, game_state_from_dict, validate_state
 from jomon.tavern_dice import (
     MAX_ROLLS, ROUNDS, available_dice_opponents, close_match, drive_npcs,
     hold, roll, start_match,

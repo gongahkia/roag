@@ -160,7 +160,6 @@ def harm_enemy(
     location: str | None = None,
 ) -> EnemyHarm:
     """Apply the same physical protection/injury reducer from any damage source."""
-    from .inventory import item_spec
     from .workshop import effective_spec
 
     location = location or hit_location(state, actor, damage_kind, source)

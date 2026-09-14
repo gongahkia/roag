@@ -15,7 +15,6 @@ from jomon.actions import (
 from jomon.state import Position, create_world
 from jomon.geography import layout_point
 from jomon.world import (
-    JOMON_GANGPLANK,
     camera_origin,
     connected_required_map,
     field_of_view,

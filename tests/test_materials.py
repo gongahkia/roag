@@ -1,10 +1,8 @@
 import copy
 import unittest
 
-from jomon.actions import _advance_world
 from jomon.materials import (
-    MAX_CELLS, TURN_BUDGET, advance_materials, affect_body, ensure_cell,
-    handle_material, inspect_material, key, validate_materials,
+    MAX_CELLS, TURN_BUDGET, advance_materials, affect_body, handle_material, inspect_material, key, validate_materials,
 )
 from jomon.state import MaterialCell, Position, StateError, Threat, VerticalLink, create_world, game_state_from_dict
 

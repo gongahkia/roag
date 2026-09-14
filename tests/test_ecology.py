@@ -2,12 +2,12 @@ import copy
 import unittest
 
 from jomon.actions import _advance_world, _threat_action, attack
-from jomon.content import ENEMY_ARCHETYPES, FRONTIER_ACTORS
-from jomon.ecology import ACTOR_BUDGET, active_actors, opposed, world_options
+from jomon.content import FRONTIER_ACTORS
+from jomon.ecology import ACTOR_BUDGET, active_actors, opposed
 from jomon.encounters import frontier_population, threat_from_archetype
 from jomon.frontiers import FRONTIERS, build_frontier
 from jomon.inventory import create_item, release_enemy_possession
-from jomon.materials import advance_materials, affect_body
+from jomon.materials import affect_body
 from jomon.regions import activate_region, region_reachable
 from jomon.state import MaterialCell, Position, Threat, create_world, game_state_from_dict
 from jomon.terminal import observed_life_lines

@@ -5,15 +5,26 @@ import json
 import unittest
 
 from jomon.catalog import (
-    ACTOR_SECTIONS, AFTERMATH_SECTIONS, EQUIPMENT_SECTIONS, GEOGRAPHY_SECTIONS, VESSEL_SECTIONS,
+    ACTOR_SECTIONS, ARC_RELIC_SECTIONS, AFTERMATH_SECTIONS, CHARACTER_SECTIONS,
+    EQUIPMENT_SECTIONS, GEOGRAPHY_SECTIONS, HISTORY_SECTIONS, PRACTICE_SECTIONS,
+    RECRUITMENT_SECTIONS, VESSEL_SECTIONS, WORLD_TEXT_SECTIONS,
     CatalogError, decode_catalog, load_catalog,
 )
 from jomon.aftermath import (
     AFTERMATH_LINES, AFTERMATH_TOPOLOGIES, DRAINAGE_TOPOLOGIES,
     FIRE_TOPOLOGIES, RECOVERY_TOPOLOGIES, SUPPORT_TOPOLOGIES,
 )
+from jomon.arc_relics import ARC_RELIC_DESCRIPTIONS, ARC_RELICS
+from jomon.character import (
+    ANCESTRIES, ATTRIBUTE_FOR_COMPETENCY, ATTRIBUTE_POINTS, COMPETENCIES,
+    COMPETENCY_POINTS, ORIGINS, ORIGIN_PRACTICE, PEOPLE_COMPETENCIES,
+    PEOPLE_EFFECTS, ROLE_ATTRIBUTES, ROLE_COMPETENCIES, TRAITS,
+)
 from jomon.chemistry import ENVIRONMENT_REACTIONS, REACTIONS, REAGENTS
-from jomon.content import COMMODITIES, ENEMY_ARCHETYPES, RECRUIT_TEMPLATES, validate_commodity_content
+from jomon.content import (
+    COMMODITIES, ENEMY_ARCHETYPES, INTERFACE_LEDGERS, RECRUIT_TEMPLATES,
+    validate_commodity_content,
+)
 from jomon.echoes import ECHOES
 from jomon.enemy_equipment import REGIONAL_ARMOUR as ENEMY_REGIONAL_ARMOUR
 from jomon.expanded_weapons import ARSENAL, BOMB_AMMUNITION
@@ -21,26 +32,96 @@ from jomon.frontier_elites import AFTERMATH_ELITES, ELITE_ROWS, NAMED_RIVALS
 from jomon.frontiers import FRONTIER_DISCOVERIES, FRONTIER_RELICS, FRONTIERS
 from jomon.geography import FIELD_SECRETS
 from jomon.household_stories import STORIES
+from jomon.inspection import TERRAIN_NAMES
 from jomon.interference import INTERFERENCES
 from jomon.inventory import (
     AMMUNITION_ITEMS, BASIC_COURIER_ARMOUR, BASIC_COURIER_LOADOUTS,
     ITEM_SPECS, REGIONAL_ARMOUR, WEAPON_AMMUNITION, item_spec,
 )
 from jomon.magic import SPELL_ROWS
+from jomon.main import SEED_WORDS
+from jomon.navigation import LANDMARK_LABELS
 from jomon.preparations import PREPARATIONS
+from jomon.practices import AFTERMATH_REGION_PRACTICE, NETWORK_CONTACT_PRACTICE, PRACTICES
 from jomon.production import RECIPES, SHORE_STATIONS, SITE_KEYS, SOURCES
 from jomon.quests import ADDITIONAL_ARCS, ARC_REGIONS, ARC_TITLE, FIELD_REPORT_RESPONSES, QUESTS, QUEST_REWARDS
 from jomon.route_chart import REGION_NODES, build_route_graph
 from jomon.ship_crises import HAZARD_STATIONS, VOYAGES
 from jomon.situations import AFTERWORK_SAMPLES, SITUATIONS, validate_situations
 from jomon.skill_tree import BRANCHES, NODES, ROLE_ROOTS
+from jomon.legendary import CRISIS_TAG, LEGEND_BASES
+from jomon.people import RECRUIT_REQUIREMENTS
+from jomon.regional_history import (
+    INSTITUTION_SERVICES, INSTITUTION_TIES, NETWORK_ACCOUNTS, NETWORK_CONTACTS,
+    WORKING_ACCOUNTS,
+)
 from jomon.vessel_refits import REFITS
+from jomon.vessel import DRINKS
+from jomon.vehicles import SPECS as VEHICLE_SPECS, VEHICLE_REGIONS
 from jomon.voyage_variants import VARIANTS
 from jomon.work_weapons import POT_AMMUNITION, WORK_WEAPONS
 from jomon.workshop import FITTINGS
+from jomon.worklines import WORKLINES
 
 
 class CatalogTests(unittest.TestCase):
+    def test_newly_externalized_authoring_rebuilds_runtime_shapes(self):
+        history = load_catalog("history.json", HISTORY_SECTIONS)
+        self.assertEqual(history["working_accounts"], json.loads(json.dumps(WORKING_ACCOUNTS)))
+        self.assertEqual(history["institution_services"], json.loads(json.dumps(INSTITUTION_SERVICES)))
+        self.assertEqual(history["institution_ties"], json.loads(json.dumps(INSTITUTION_TIES)))
+        self.assertEqual(history["network_accounts"], json.loads(json.dumps(NETWORK_ACCOUNTS)))
+        self.assertEqual(history["network_contacts"], json.loads(json.dumps(NETWORK_CONTACTS)))
+        self.assertEqual(history["undertakings"], json.loads(json.dumps(WORKLINES)))
+        self.assertEqual(history["legend_bases"], json.loads(json.dumps(LEGEND_BASES)))
+        self.assertEqual(history["crisis_tags"], CRISIS_TAG)
+
+        practices = load_catalog("practices.json", PRACTICE_SECTIONS)
+        self.assertEqual(practices["practices"], [list(asdict(row).values()) for row in PRACTICES.values()])
+        self.assertEqual(practices["network_contacts"], NETWORK_CONTACT_PRACTICE)
+        self.assertEqual(practices["aftermath_regions"], AFTERMATH_REGION_PRACTICE)
+
+        profiles = load_catalog("character_profiles.json", CHARACTER_SECTIONS)
+        self.assertEqual(profiles["competencies"], list(COMPETENCIES))
+        self.assertEqual(profiles["starting_points"], {"attributes": ATTRIBUTE_POINTS, "competencies": COMPETENCY_POINTS})
+        self.assertEqual(profiles["origins"], list(ORIGINS))
+        self.assertEqual(profiles["traits"], json.loads(json.dumps(TRAITS)))
+        self.assertEqual(profiles["origin_practices"], ORIGIN_PRACTICE)
+        self.assertEqual(profiles["attribute_competencies"], ATTRIBUTE_FOR_COMPETENCY)
+        self.assertEqual(profiles["role_attributes"], json.loads(json.dumps(ROLE_ATTRIBUTES)))
+        self.assertEqual(profiles["role_competencies"], json.loads(json.dumps(ROLE_COMPETENCIES)))
+        self.assertEqual(
+            profiles["ancestries"],
+            {name: {"effect": PEOPLE_EFFECTS[name], "competency": PEOPLE_COMPETENCIES.get(name)} for name in ANCESTRIES},
+        )
+
+        recruitment = load_catalog("recruitment.json", RECRUITMENT_SECTIONS)
+        self.assertEqual(recruitment["requirements"], {
+            person_id: {"region": region, "markers": list(markers), "witnessed": witnessed}
+            for person_id, (region, markers, witnessed) in RECRUIT_REQUIREMENTS.items()
+        })
+        relics = load_catalog("arc_relics.json", ARC_RELIC_SECTIONS)
+        self.assertEqual(relics["relics"], [
+            [arc_id, choice, name, ARC_RELIC_DESCRIPTIONS[name]]
+            for (arc_id, choice), name in ARC_RELICS.items()
+        ])
+        world_text = load_catalog("world_text.json", WORLD_TEXT_SECTIONS)
+        self.assertEqual(world_text["seed_words"], list(SEED_WORDS))
+        self.assertEqual(world_text["terrain_names"], TERRAIN_NAMES)
+        self.assertEqual(world_text["landmark_labels"], LANDMARK_LABELS)
+        self.assertEqual(world_text["interface_ledgers"], {
+            key: list(value) if isinstance(value, tuple) else value
+            for key, value in INTERFACE_LEDGERS.items()
+        })
+        vessel = load_catalog("vessel.json", VESSEL_SECTIONS)
+        self.assertEqual(vessel["drinks"], json.loads(json.dumps([asdict(drink) for drink in DRINKS.values()])))
+        vehicles = load_catalog("vehicles.json", ("harbour", "vehicles"))
+        self.assertEqual(vehicles["vehicles"], VEHICLE_SPECS)
+        self.assertEqual(
+            {vehicle_id: spec["region"] for vehicle_id, spec in vehicles["vehicles"].items()},
+            VEHICLE_REGIONS,
+        )
+
     def test_specialized_catalogues_rebuild_original_runtime_shapes(self):
         actors = load_catalog("actors.json", ACTOR_SECTIONS)
         self.assertEqual(actors["FRONTIER_ELITES"]["rows"], [list(row) for row in ELITE_ROWS])

@@ -6,8 +6,7 @@ import unittest
 from jomon.actions import depart
 from jomon.inventory import auto_place, create_item
 from jomon.manoeuvres import (
-    BY_ID, MANOEUVRES, choices, known, lines, perform, status,
-    validate_manoeuvres,
+    BY_ID, MANOEUVRES, choices, known, lines, perform, validate_manoeuvres,
 )
 from jomon.materials import ensure_cell
 from jomon.save import load_game, save_game

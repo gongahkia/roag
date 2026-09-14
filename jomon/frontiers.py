@@ -6,8 +6,8 @@ import math
 
 from .content import COMMODITIES, PASSIVES
 from .geography import FRONTIER_DISCOVERIES, FRONTIER_RELICS, FRONTIERS
-from .regions import _border, _carve, _grid, _levels, _rect, _road, _signature, region_reachable, validate_region
-from .state import ActorSchedule, Contact, Container, MarketEntry, MaterialCell, Position, Region, Threat, VerticalLink, stage_rng
+from .regions import _border, _carve, _grid, _levels, _rect, _road, _signature, validate_region
+from .state import ActorSchedule, Contact, Container, MarketEntry, MaterialCell, Position, Region, VerticalLink, stage_rng
 from .work_weapons import WORK_WEAPONS
 
 

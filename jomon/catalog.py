@@ -10,6 +10,7 @@ from typing import Any
 VESSEL_SECTIONS = (
     "voyages", "hazard_stations", "variants", "echoes", "refits",
     "region_nodes", "route_nodes", "route_edges", "optional_route_edges",
+    "drinks",
 )
 ACTOR_SECTIONS = (
     "ENEMY_ARCHETYPES", "LEGACY_STANDARD_GLYPHS", "FRONTIER_ACTORS",
@@ -17,6 +18,23 @@ ACTOR_SECTIONS = (
 )
 GEOGRAPHY_SECTIONS = (
     "SIDE_ROUTES", "GROUND_PATCHES", "FIELD_SECRETS", "FRONTIERS",
+)
+HISTORY_SECTIONS = (
+    "working_accounts", "institution_services", "institution_ties",
+    "network_accounts", "network_contacts", "undertakings", "legend_bases",
+    "crisis_tags",
+)
+PRACTICE_SECTIONS = ("practices", "network_contacts", "aftermath_regions")
+CHARACTER_SECTIONS = (
+    "competencies", "starting_points", "ancestries", "origins", "traits",
+    "origin_practices", "attribute_competencies", "role_attributes",
+    "role_competencies",
+)
+ARC_RELIC_SECTIONS = ("relics",)
+RECRUITMENT_SECTIONS = ("requirements",)
+WORLD_TEXT_SECTIONS = (
+    "JOMON_MAP", "HELP_LINES", "seed_words", "terrain_names", "landmark_labels",
+    "interface_ledgers",
 )
 AFTERMATH_SECTIONS = (
     "lines", "topologies", "drainage_topologies", "fire_topologies",

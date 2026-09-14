@@ -6,11 +6,10 @@ import curses
 import textwrap
 
 from .content import load_catalog
-from .engine import WALKABLE_TILES
 from .office_art import EXPEDITION_MAP_SYMBOLS, OFFICE_SPRITES, office_card_glyph, office_costume_name, rival_costumes
 from .expedition import (
     MAX_ROUNDS, ORDER_TICKS, ORDERS_PER_TURN, _ai_destination, _biome_at,
-    _card_cost, _card_id, _card_upgraded, _distance, _file_position, _position, _team, choose_reward,
+    _card_cost, _card_id, _card_upgraded, _file_position, _position, _team, choose_reward,
     _opponent_side, doctrine_compatible, end_turn, engage_if_touching, engage_neutral_if_touching,
     finish_match, infusion_compatible,
     move_to, patron_turn, path_to, play_card, retreat, retreat_destinations,
@@ -20,7 +19,7 @@ from .office_content import (
     DOCTRINE_NAMES, OFFICE_BIOMES, OFFICE_ROLES, OFFICE_SQUADS, OFFICE_TARGETS, OFFICE_WORLDS,
     office_card_description, office_catalog,
 )
-from .tabletop import collection_for, patrons
+from .tabletop import collection_for
 from .tabletop_ui import _draw_editor, _draw_lobby
 from .tavern_ui_base import TavernUIBase
 
@@ -40,7 +39,6 @@ class ExpeditionUI(TavernUIBase):
         assert match is not None
         symbols = EXPEDITION_MAP_SYMBOLS
         team = _team(match, 0)
-        enemy = _team(match, 1)
         title = f"DULLEST DUNGEON  /  COMPANY OF NECESSARY COPIES  /  {OFFICE_WORLDS[match['world_id']].upper()}"
         self._begin(title)
         round_label = f"OT {match['round'] - MAX_ROUNDS}/4" if match["round"] > MAX_ROUNDS else f"ROUND {match['round']}/{MAX_ROUNDS}"
@@ -120,7 +118,6 @@ class ExpeditionUI(TavernUIBase):
         team = _team(match, 0)
         opponent = _opponent_side(match, 0)
         neutral = opponent == 2
-        enemy = _team(match, opponent)
         biome = _biome_at(match, *team["position"])
         label = OFFICE_BIOMES[biome]
         self._begin(f"{label.upper()} / RANKED {'PATROL' if neutral else 'PARTY'} COMBAT — ROUND {match['round']} — ENERGY {team['energy']} — APPROVAL {match['scores'][0]}:{match['scores'][1]}")
@@ -266,7 +263,6 @@ class ExpeditionUI(TavernUIBase):
         elif pending["kind"] == "facility":
             choices = [*pending["choices"], "Leave without using"]
             facility = next(item for item in match["facilities"] if item["id"] == pending["facility"])
-            definition = self.catalog.facilities[facility["definition_id"]]
             title = f"{OFFICE_BIOMES[facility['biome_id']]} SERVICE DESK".upper()
             body = "A neutral company facility can alter the route or restore the party. Choose one procedure."
         else:

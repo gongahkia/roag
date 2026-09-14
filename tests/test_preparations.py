@@ -11,7 +11,6 @@ from jomon.preparations import (
     TOPOLOGY_PREPARATION,
     apply_preparation,
     carried_preparations,
-    preparation_status,
     validate_preparations,
 )
 from jomon.state import MaterialCell, Position, TerrainStatus, Threat, create_world, game_state_from_dict

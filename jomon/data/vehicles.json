@@ -8,6 +8,7 @@
   "vehicles": {
     "tug": {
       "name": "Jomon's steam tug",
+      "region": "harbour",
       "domain": "water",
       "resource": "coal charge",
       "glyph": "U",
@@ -26,6 +27,7 @@
     },
     "horse_cart": {
       "name": "Hearthford horse cart",
+      "region": "hearthford",
       "domain": "road",
       "resource": "horse stamina",
       "glyph": "H",
@@ -44,6 +46,7 @@
     },
     "steam_crawler": {
       "name": "Rillscar steam crawler",
+      "region": "rillscar",
       "domain": "road",
       "resource": "coal charge",
       "glyph": "S",
@@ -62,6 +65,7 @@
     },
     "rootwalker": {
       "name": "Greenwold rootwalker",
+      "region": "greenwold",
       "domain": "rough",
       "resource": "root vigor",
       "glyph": "W",
@@ -80,6 +84,7 @@
     },
     "aether_glider": {
       "name": "Greywash aether glider",
+      "region": "greywash",
       "domain": "air",
       "resource": "aether charge",
       "glyph": "A",

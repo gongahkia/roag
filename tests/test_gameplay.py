@@ -27,7 +27,7 @@ from jomon.actions import (
 )
 from jomon.content import COMMODITIES, GEAR, PASSIVES, SUPPORTS, WEAPONS
 from jomon.save import SaveError, load_game, save_game
-from jomon.state import CommodityStack, Position, SAVE_FORMAT, Threat, create_world
+from jomon.state import CommodityStack, Position, Threat, create_world
 from jomon.geography import layout_point
 from jomon.world import JOMON_GANGPLANK, build_combinations, pressure
 

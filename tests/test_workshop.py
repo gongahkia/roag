@@ -1,5 +1,4 @@
 import copy
-import curses
 import unittest
 
 from jomon.actions import apply_damage, attack, effective_weapon_range, interact

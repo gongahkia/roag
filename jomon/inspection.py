@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .catalog import CatalogError, WORLD_TEXT_SECTIONS, load_catalog
 from .state import GameState, Position
 from .world import (
     base_tile,
@@ -16,17 +17,13 @@ from .world import (
 )
 
 
-TERRAIN_NAMES = {
-    " ": "unmapped space", ".": "firm ground", ",": "shallow water",
-    "~": "deep water", "_": "ice", "m": "mud", "r": "scree",
-    "q": "sharp limestone", "t": "dense growth", "T": "standing timber",
-    "#": "stone wall", "+": "closed door", "/": "open doorway",
-    "=": "worked timber", "%": "loose cover", "O": "open drop",
-    "<": "upward connection", ">": "downward connection", "w": "current",
-    "&": "working control", "R": "cargo", "C": "closed store",
-    "o": "opened store", "M": "regional contact", "c": "local witness",
-    "*": "inscribed shrine",
-}
+_TERRAIN_NAMES = load_catalog("world_text.json", WORLD_TEXT_SECTIONS)["terrain_names"]
+if (not isinstance(_TERRAIN_NAMES, dict)
+        or any(not isinstance(glyph, str) or len(glyph) != 1
+               or not isinstance(name, str) or not name
+               for glyph, name in _TERRAIN_NAMES.items())):
+    raise CatalogError("world_text.json has invalid terrain names")
+TERRAIN_NAMES = _TERRAIN_NAMES
 
 
 @dataclass(frozen=True)

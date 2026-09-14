@@ -2,19 +2,18 @@
 
 from __future__ import annotations
 
+from .catalog import CatalogError, HISTORY_SECTIONS, load_catalog
 from .state import GameState, Position, QuestProgress
 
-
-WORKLINES = {
-    "hearthford": ("The Houses Above the Race", "watch", "flood-height lath", "roof nail",
-                   "h", "Shore the flooded watch-house approach", "s", "Raise dry stores in the mill loft"),
-    "greywash": ("The Light without a Toll", "greywash-cave", "salt lens pattern", "sighting knot",
-                 "l", "Light a public warning above the dunes", "q", "Keep a screened signal for accountable salvage"),
-    "greenwold": ("Root and Ash", "greenwold-root", "coppice root tally", "ember cloth",
-                  "c", "Cut a narrow coppice firebreak", "w", "Dampen the root reserve without cutting trees"),
-    "whitecairn": ("The Load Below the Bell", "whitecairn-bridge", "counterweight rubbing", "quarry brace",
-                   "b", "Brace the lower counterweight and keep the haul", "r", "Release the burden and accept a fallen face"),
-}
+_WORKLINES = load_catalog("history.json", HISTORY_SECTIONS)["undertakings"]
+if (not isinstance(_WORKLINES, dict) or len(_WORKLINES) != 4
+        or any(not isinstance(region, str) or not isinstance(row, list) or len(row) != 8
+               or any(not isinstance(value, str) or not value for value in row)
+               for region, row in _WORKLINES.items())):
+    raise CatalogError("history.json has invalid undertakings")
+WORKLINES = {region: tuple(row) for region, row in _WORKLINES.items()}
+if len({row[2] for row in WORKLINES.values()}) != len(WORKLINES):
+    raise CatalogError("history.json has repeated undertaking evidence")
 
 EVIDENCE = {row[2]: (row[0], region) for region, row in WORKLINES.items()}
 

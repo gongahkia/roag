@@ -104,7 +104,7 @@ def material_glyph(state: GameState, point: Position) -> str | None:
 
 def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, severity: int, origin: Position) -> None:
     """One material event has body-, actor- and possession-specific consequences."""
-    from .inventory import add_status, item_spec, worn_tags
+    from .inventory import add_status, worn_tags
 
     if isinstance(body, Item):
         from .workshop import attached, effective_spec
@@ -270,7 +270,7 @@ def _opening_below(state: GameState, point: Position) -> Position | None:
 def advance_materials(state: GameState) -> int:
     """Advance at most 64 nearby sparse cells; idle/menu time never calls here."""
     from .calendar import calendar_at
-    from .world import base_tile, position_key, vertical_open
+    from .world import base_tile, vertical_open
 
     cells = fields(state)
     if not cells or (state.location == "jomon" and state.jomon_space == "tavern"):

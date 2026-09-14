@@ -11,18 +11,11 @@ from .state import GameState, Position, Vehicle, stage_rng
 _CONTENT = load_catalog("vehicles.json", ("harbour", "vehicles"))
 HARBOUR = _CONTENT["harbour"]
 SPECS = _CONTENT["vehicles"]
-VEHICLE_REGIONS = {
-    "tug": "harbour",
-    "horse_cart": "hearthford",
-    "steam_crawler": "rillscar",
-    "rootwalker": "greenwold",
-    "aether_glider": "greywash",
-}
-_FIELDS = {"name", "domain", "resource", "glyph", "pace", "capacity", "condition", "deck"}
+_FIELDS = {"name", "region", "domain", "resource", "glyph", "pace", "capacity", "condition", "deck"}
 if (not isinstance(HARBOUR, dict) or set(HARBOUR) != {"width", "height", "jomon_dock", "shore_dock"}
         or type(HARBOUR["width"]) is not int or type(HARBOUR["height"]) is not int
         or not 48 <= HARBOUR["width"] <= 120 or not 24 <= HARBOUR["height"] <= 60
-        or not isinstance(SPECS, dict) or set(SPECS) != set(VEHICLE_REGIONS)):
+        or not isinstance(SPECS, dict) or set(SPECS) != {"tug", "horse_cart", "steam_crawler", "rootwalker", "aether_glider"}):
     raise CatalogError("invalid vehicle harbour or roster")
 for dock in ("jomon_dock", "shore_dock"):
     point = HARBOUR[dock]
@@ -34,7 +27,7 @@ for dock in ("jomon_dock", "shore_dock"):
 for vehicle_id, spec in SPECS.items():
     if (not isinstance(spec, dict) or set(spec) != _FIELDS
             or spec["domain"] not in {"water", "road", "rough", "air"}
-            or any(not isinstance(spec[key], str) or not spec[key] for key in ("name", "resource"))
+            or any(not isinstance(spec[key], str) or not spec[key] for key in ("name", "region", "resource"))
             or not isinstance(spec["glyph"], str) or len(spec["glyph"]) != 1 or not spec["glyph"].isascii() or not spec["glyph"].isprintable()
             or any(type(spec[key]) is not int or not 1 <= spec[key] <= 200 for key in ("pace", "capacity", "condition"))
             or spec["pace"] > 3
@@ -60,6 +53,10 @@ for vehicle_id, spec in SPECS.items():
         raise CatalogError(f"vehicle deck has an unreachable fixture: {vehicle_id}")
 if SPECS["tug"]["domain"] != "water":
     raise CatalogError("the tug must navigate water")
+if SPECS["tug"]["region"] != "harbour" or any(
+        spec["region"] == "harbour" for vehicle_id, spec in SPECS.items() if vehicle_id != "tug"):
+    raise CatalogError("vehicle regions must place only the tug in the harbour")
+VEHICLE_REGIONS = {vehicle_id: spec["region"] for vehicle_id, spec in SPECS.items()}
 
 JOMON_DOCK = Position(*HARBOUR["jomon_dock"])
 SHORE_DOCK = Position(*HARBOUR["shore_dock"])

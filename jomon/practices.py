@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .catalog import CatalogError, PRACTICE_SECTIONS, load_catalog
 from .state import GameState
 
 
@@ -16,49 +17,27 @@ class Practice:
     description: str
 
 
-PRACTICES = {
-    practice.name: practice
-    for practice in (
-        Practice("bank-water cadence", "hearthford", "network", "shallow-water-step", "Fresh shallows no longer add a crossing action; deep current still does."),
-        Practice("field-rill measure", "marlbank", "network", "mud-quiet", "Mud no longer adds routine step noise, though deep bogging still slows."),
-        Practice("wreck-title hold", "greywash", "network", "secured-salvage", "The first difficult cache recovery in a region earns one witnessed confidence."),
-        Practice("span-watch stance", "rillscar", "network", "support-guard", "Guarding on a damaged support seats one measure of bracing and cancels its warning."),
-        Practice("ash-refuge breathing", "greenwold", "network", "smoke-sight", "Smoke leaves five paces of sight and inhalation clears sooner."),
-        Practice("island porter relay", "dunmire", "network", "wet-load-step", "A laden pack does not add a second action on mud or shallow water."),
-        Practice("ridge-sounding line", "whitecairn", "network", "elevated-range", "A ranged weapon gains one pace from a higher level."),
-        Practice("winter-braid reading", "frostmere", "network", "ice-step", "Known ice no longer causes poor footing; salt water remains open."),
-        Practice("siltgate hand", "hearthford", "aftermath", "material-dig", "Digging a worked watercourse no longer needs a heavy tool."),
-        Practice("ebb beacon watch", "greywash", "aftermath", "storm-sight", "Coastal rain, fog and squall leave one additional pace of sight."),
-        Practice("living firebreak", "greenwold", "aftermath", "material-cut", "Dry burning reeds and timber can be cut or extinguished without a heavy tool."),
-        Practice("honest stair breath", "whitecairn", "aftermath", "stair-economy", "A lower-limb injury or heavy armour cannot both double a known upward climb."),
-        Practice("peat brace seating", "dunmire", "aftermath", "material-brace", "Wet timber support can be braced without a levering tool."),
-        Practice("two-span withdrawal", "rillscar", "aftermath", "reach-retreat", "A guarded reach weapon preserves one controlled reposition and presses morale."),
-        Practice("seed-clay tread", "marlbank", "aftermath", "clay-step", "Clay mud neither bogs the courier nor adds routine movement noise."),
-        Practice("thaw-net recovery", "frostmere", "aftermath", "net-recover", "A committed weighted net remains as one physical recoverable bundle."),
-    )
-}
+_CATALOG = load_catalog("practices.json", PRACTICE_SECTIONS)
+_rows = _CATALOG["practices"]
+if (not isinstance(_rows, list) or len(_rows) != 16
+        or any(not isinstance(row, list) or len(row) != 5
+               or any(not isinstance(value, str) or not value for value in row)
+               for row in _rows)
+        or len({row[0] for row in _rows}) != len(_rows)):
+    raise CatalogError("practices.json has invalid practice rows")
+PRACTICES = {row[0]: Practice(*row) for row in _rows}
 
-NETWORK_CONTACT_PRACTICE = {
-    "network-contact-hearthford": "bank-water cadence",
-    "network-contact-marlbank": "field-rill measure",
-    "network-contact-greywash": "wreck-title hold",
-    "network-contact-rillscar": "span-watch stance",
-    "network-contact-greenwold": "ash-refuge breathing",
-    "network-contact-dunmire": "island porter relay",
-    "network-contact-whitecairn": "ridge-sounding line",
-    "network-contact-frostmere": "winter-braid reading",
-}
-
-AFTERMATH_REGION_PRACTICE = {
-    "hearthford": "siltgate hand",
-    "greywash": "ebb beacon watch",
-    "greenwold": "living firebreak",
-    "whitecairn": "honest stair breath",
-    "dunmire": "peat brace seating",
-    "rillscar": "two-span withdrawal",
-    "marlbank": "seed-clay tread",
-    "frostmere": "thaw-net recovery",
-}
+_network = _CATALOG["network_contacts"]
+_aftermath = _CATALOG["aftermath_regions"]
+if (not isinstance(_network, dict) or len(_network) != 8
+        or any(not isinstance(contact, str) or not contact.startswith("network-contact-")
+               or not isinstance(name, str) or name not in PRACTICES for contact, name in _network.items())
+        or not isinstance(_aftermath, dict) or len(_aftermath) != 8
+        or any(not isinstance(region, str) or not isinstance(name, str) or name not in PRACTICES
+               for region, name in _aftermath.items())):
+    raise CatalogError("practices.json has invalid sources")
+NETWORK_CONTACT_PRACTICE = _network
+AFTERMATH_REGION_PRACTICE = _aftermath
 
 
 def learned_effects(state: GameState) -> set[str]:

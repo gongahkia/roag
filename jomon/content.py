@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-from .catalog import ACTOR_SECTIONS, CatalogError, load_catalog
+from .arc_relics import ARC_RELIC_DESCRIPTIONS
+from .catalog import ACTOR_SECTIONS, CatalogError, WORLD_TEXT_SECTIONS, load_catalog
+from .expanded_weapons import ARSENAL, BOMB_AMMUNITION
+from .frontier_elites import ELITE_DEFINITIONS
+from .preparations import PREPARATIONS
+from .work_weapons import WORK_WEAPONS
 
 _PEOPLE = load_catalog("people.json", ("REGIONAL_CONTEXTS", "FIRST_NAMES", "FAMILY_NAMES", "ROLES", "ROLE_EQUIPMENT", "ROLE_TECHNIQUE", "RECRUIT_TEMPLATES", "CONTACT_NAMES"))
 _GOODS = load_catalog("goods.json", ("COMMODITIES", "COMMODITY_LOGISTICS", "WEAPONS", "GEAR", "SUPPORTS", "DISCOVERIES", "RELICS", "PASSIVES", "MERCHANT_ITEMS"))
 _ACTORS = load_catalog("actors.json", ACTOR_SECTIONS)
-_WORLD_TEXT = load_catalog("world_text.json", ("JOMON_MAP", "HELP_LINES"))
+_WORLD_TEXT = load_catalog("world_text.json", WORLD_TEXT_SECTIONS)
 
 
 def _text_rows(value: object, name: str) -> tuple[str, ...]:
@@ -48,6 +53,21 @@ def _text_map(value: object, name: str) -> dict[str, str]:
         raise CatalogError(f"{name} has invalid text")
     return value
 
+
+def _interface_ledgers(value: object) -> dict[str, tuple[str, ...] | str]:
+    required = {"inventory", "target", "route", "base", "look"}
+    if not isinstance(value, dict) or set(value) != required:
+        raise CatalogError("interface_ledgers has invalid sections")
+    rows = {"inventory", "route", "base"}
+    if (any(not isinstance(value[key], list) or any(not isinstance(line, str) or not line for line in value[key])
+            for key in rows)
+            or any(not isinstance(value[key], str) or not value[key] for key in required - rows)):
+        raise CatalogError("interface_ledgers has invalid text")
+    return {
+        key: tuple(value[key]) if key in rows else value[key]
+        for key in required
+    }
+
 COMMODITIES = _dict_map(_GOODS["COMMODITIES"], "COMMODITIES")
 
 COMMODITY_LOGISTICS = _dict_map(_GOODS["COMMODITY_LOGISTICS"], "COMMODITY_LOGISTICS")
@@ -86,10 +106,7 @@ RECRUIT_TEMPLATES = _dict_rows(_PEOPLE["RECRUIT_TEMPLATES"], "RECRUIT_TEMPLATES"
 # Behavior stays direct in actions.py rather than becoming an ability schema.
 WEAPONS = _tuple_map(_GOODS["WEAPONS"], "WEAPONS", 2)
 
-from .work_weapons import WORK_WEAPONS
-
 WEAPONS.update({name: (spec.name, spec.description) for name, spec in WORK_WEAPONS.items()})
-from .expanded_weapons import ARSENAL, BOMB_AMMUNITION
 
 WEAPONS.update({name: (name.title(), spec.description) for name, spec in ARSENAL.items()})
 
@@ -105,16 +122,12 @@ DISCOVERIES.update({
     "sealed brine pot": ("ammunition", "One sealed pot of salt water to quench, thaw or flood a place in sight."),
 })
 
-from .preparations import PREPARATIONS
-
 DISCOVERIES.update({
     name: ("preparation", preparation.description)
     for name, preparation in PREPARATIONS.items()
 })
 
 RELICS = _text_map(_GOODS["RELICS"], "RELICS")
-
-from .arc_relics import ARC_RELIC_DESCRIPTIONS
 
 RELICS.update(ARC_RELIC_DESCRIPTIONS)
 
@@ -174,8 +187,6 @@ for identity, region, name, profile, role, duty, ecology, vision, hearing, reach
         "ranged_kind": "sling",
     }
 
-from .frontier_elites import ELITE_DEFINITIONS
-
 ENEMY_ARCHETYPES.update(ELITE_DEFINITIONS)
 
 STANDARD_REACTIONS = _text_map(_ACTORS["STANDARD_REACTIONS"], "STANDARD_REACTIONS")
@@ -188,3 +199,5 @@ CONTACT_NAMES = _text_rows(_PEOPLE["CONTACT_NAMES"], "CONTACT_NAMES")
 JOMON_MAP = _text_rows(_WORLD_TEXT["JOMON_MAP"], "JOMON_MAP")
 
 HELP_LINES = _text_rows(_WORLD_TEXT["HELP_LINES"], "HELP_LINES")
+
+INTERFACE_LEDGERS = _interface_ledgers(_WORLD_TEXT["interface_ledgers"])
