@@ -1,4 +1,4 @@
-# `Jomon`
+# `Jomon` 🛖
 
 Jomon is a fullscreen, keyboard-driven terminal roguelike about a persistent late-medieval vessel-household. One adult courier at a time leaves the vessel to trade, investigate, negotiate, fight, and return with consequences for the household, regional routes, markets, and relationships.
 
@@ -12,20 +12,28 @@ The game is local and deterministic from its seed and saved state, and uses only
 
 ## Usage
 
-From the repository root:
+The below instructions are for locally running `Jomon`.
+
+1. First clone the repository.
 
 ```console
-python -m jomon
+$ git clone https://github.com/gongahkia/jomon && cd jomon
 ```
 
-## Verification
+2. Then run the below from repo root.
 
 ```console
-python -m jomon.checks fast
-python -m unittest discover -s tests -v
-python -m compileall -q jomon tests
-python -m jomon.verification content
-git diff --check
+$ python -m jomon
+```
+
+3. Optionally run the below commands for verification.
+
+```console
+$ python -m jomon.checks fast
+$ python -m unittest discover -s tests -v
+$ python -m compileall -q jomon tests
+$ python -m jomon.verification content
+$ git diff --check
 ```
 
 ## Controls
@@ -47,3 +55,5 @@ git diff --check
 ## Reference
 
 `Jomon` is thoroughly inspired by [Bob Nystrom](https://github.com/munificent)'s [Hauberk](https://github.com/munificent/hauberk).
+
+![](./asset/logo/hauberk.png)
