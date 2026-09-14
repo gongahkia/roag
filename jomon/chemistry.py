@@ -123,15 +123,15 @@ def pour_flask(state: GameState, flask_id: str, point: Position) -> tuple[bool, 
     if flask is None or not flask.contents:
         return False, "Carry a filled field flask before pouring."
     if distance(state.position, point) > 1 or not courier_sees(state, point):
-        return False, "Pour into a visible cell within one pace."
+        return False, "Pour onto a place in sight within one pace."
     cell = ensure_cell(state, point)
     if cell is None:
-        return False, "This cell has no remaining material budget."
+        return False, "This ground cannot take more of the mixture."
     combined = cell.reagents.copy()
     for name, quantity in flask.contents.items():
         combined[name] = combined.get(name, 0) + quantity
     if len(combined) > 4 or sum(combined.values()) > 8 or any(quantity > 4 for quantity in combined.values()):
-        return False, "That sparse cell cannot hold the full mixture."
+        return False, "That patch of ground cannot hold the full mixture."
     warning = predicted_reactions(combined, cell)
     cell.reagents = combined
     flask.contents.clear()

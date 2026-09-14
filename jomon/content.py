@@ -102,7 +102,7 @@ DISCOVERIES = _tuple_map(_GOODS["DISCOVERIES"], "DISCOVERIES", 2)
 DISCOVERIES.update({
     "sealed pitch pot": ("ammunition", "One bulky fire pot for the pot sling; water stops ignition, not fuel loss."),
     "sealed lime pot": ("ammunition", "One abrasive cloud for the pot sling; wet lime remains caustic."),
-    "sealed brine pot": ("ammunition", "One sealed pot of salt water to quench, thaw or flood a visible cell."),
+    "sealed brine pot": ("ammunition", "One sealed pot of salt water to quench, thaw or flood a place in sight."),
 })
 
 from .preparations import PREPARATIONS

@@ -22,7 +22,7 @@ PRACTICES = {
         Practice("bank-water cadence", "hearthford", "network", "shallow-water-step", "Fresh shallows no longer add a crossing action; deep current still does."),
         Practice("field-rill measure", "marlbank", "network", "mud-quiet", "Mud no longer adds routine step noise, though deep bogging still slows."),
         Practice("wreck-title hold", "greywash", "network", "secured-salvage", "The first difficult cache recovery in a region earns one witnessed confidence."),
-        Practice("span-watch stance", "rillscar", "network", "support-guard", "Guarding on a damaged support seats one point and cancels its warning."),
+        Practice("span-watch stance", "rillscar", "network", "support-guard", "Guarding on a damaged support seats one measure of bracing and cancels its warning."),
         Practice("ash-refuge breathing", "greenwold", "network", "smoke-sight", "Smoke leaves five paces of sight and inhalation clears sooner."),
         Practice("island porter relay", "dunmire", "network", "wet-load-step", "A laden pack does not add a second action on mud or shallow water."),
         Practice("ridge-sounding line", "whitecairn", "network", "elevated-range", "A ranged weapon gains one pace from a higher level."),

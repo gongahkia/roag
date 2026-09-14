@@ -65,8 +65,8 @@ def movement_preview(state: GameState, destination: Position) -> MovementPreview
     ), None)
     if occupant:
         if occupant.status == "watching":
-            return MovementPreview(destination, False, "one action", f"wakes {occupant.name}; it occupies the cell", "attack, negotiate, or take another lane")
-        return MovementPreview(destination, False, "no time", f"{occupant.name} holds the cell", "attack, control, or take another lane")
+            return MovementPreview(destination, False, "one action", f"wakes {occupant.name}; they stand in your way", "attack, negotiate, or take another lane")
+        return MovementPreview(destination, False, "no time", f"{occupant.name} holds that place", "attack, control, or take another lane")
     if not is_walkable(state, destination):
         reason, remedy = blocked_step_reason(state, destination)
         return MovementPreview(destination, False, "no time", reason.rstrip("."), remedy.rstrip("."))
@@ -94,7 +94,7 @@ def movement_preview(state: GameState, destination: Position) -> MovementPreview
         if cell.smoke >= 2:
             consequences.append(f"smoke {cell.smoke}/4 obscures sight and strains breath")
         if cell.collapse_due:
-            consequences.append(f"support is warned to collapse at action {cell.collapse_due}")
+            consequences.append(f"support is warned to collapse after {max(0, cell.collapse_due - state.world_time)} more beats")
         if cell.water and not status:
             consequences.append(f"{cell.fluid} water depth {cell.water}/3 wets load")
     if base_tile(state, destination) == "+":
@@ -216,7 +216,7 @@ def contextual_hints(
         if len(state.region.seen) > 1:
             hints.append("[T] follow remembered ground; any key interrupts")
     if not hints:
-        hints.append("[;] inspect a cell; no time")
+        hints.append("[;] inspect a place; no time")
     return tuple(hints[:limit])
 
 

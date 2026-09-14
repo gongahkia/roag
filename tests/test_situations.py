@@ -73,7 +73,7 @@ class MixedSituationTests(unittest.TestCase):
             self.assertTrue(changed, message)
             self.assertEqual(steps, expected_steps)
             self.assertEqual(site_glyph(state, site_point(state, row)), "*")
-            self.assertIn("Persistent consequence", " ".join(inspect_lines(state, row.id)))
+            self.assertIn("Continuing effect", " ".join(inspect_lines(state, row.id)))
             if method == "m":
                 self.assertEqual(state.rope_uses, before_rope - 1)
             if method == "a":

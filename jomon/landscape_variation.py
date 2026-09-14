@@ -253,7 +253,7 @@ def approach(state: GameState) -> str:
             cell.material, cell.support = "stone", 0
             cell.collapse_due = state.world_time + 3
             return f"The {state.region.generation_facts.get(f'landform:{index}', 'landform')} shifts at {place.x},{place.y}; stone falls in three actions."
-        return "The ground sounds unstable, but no exposed cell takes a new fracture."
+        return "The ground sounds unstable, but no exposed footing takes a new fracture."
     return ""
 
 

@@ -317,9 +317,9 @@ def service(state: GameState, *, repair: bool = False):
         if at_stand and state.trade_credit > 0:
             state.trade_credit -= 1
             vehicle.condition = min(spec["condition"], vehicle.condition + 4)
-            return _time_result(state, "A counted repair at the stand restores four frame points.", steps=2)
+            return _time_result(state, "A counted repair at the stand restores four measures of frame soundness.", steps=2)
         vehicle.condition = min(spec["condition"], vehicle.condition + 1)
-        return _time_result(state, "A three-action jury-rig restores one frame point.", steps=3)
+        return _time_result(state, "A three-action jury-rig restores one measure of frame soundness.", steps=3)
     if vehicle.fuel >= spec["capacity"]:
         return _plain(state, "The reserve is already full.")
     if vehicle.id in {"horse_cart", "rootwalker"}:

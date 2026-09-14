@@ -1119,17 +1119,17 @@ def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]
             f"{spell.name.upper()} — {spell.description}",
             targeting_detail(state, view),
             ("READY" if legal else "BLOCKED") + f" — {reason}; Enter casts at cursor; Escape cancels without time.",
-            f"Observed target: {selected.name}; {selected.intent}" if selected else "The cursor marks a physical cell.",
+            f"Observed target: {selected.name}; {selected.intent}" if selected else "The cursor marks a place in sight.",
         ], width)
     ready = "Enter commits one cast; Escape costs no time."
     if state.weapon == "pot sling":
-        ready = "P changes pot; minimum range 3. Enter throws at the selected cell."
+        ready = "P changes pot; minimum range 3. Enter throws at the marked place."
     from .expanded_weapons import ARSENAL
 
     if state.weapon in ARSENAL:
         expanded = ARSENAL[state.weapon]
         if expanded.family == "device":
-            ready = f"Enter throws one physical {state.weapon.split()[0]} bomb at this visible cell; all bodies share its reaction."
+            ready = f"Enter throws one physical {state.weapon.split()[0]} bomb at this visible place; all bodies share its reaction."
         elif expanded.family == "gun" and state.weapon_ready < (1 if "quick" in expanded.effects or state.courier and "vent-care" in state.courier.skill_nodes else 2):
             ready = "Unready: Escape then G loads one guarded action."
         elif expanded.family in {"bow", "gun"} and "quick" not in expanded.effects and not (expanded.family == "bow" and state.courier and "quick-nock" in state.courier.skill_nodes):
@@ -1371,7 +1371,7 @@ def _handle_targeting(
             return result.time_advanced, result.time_advanced
         target = _target_at_cursor(state, view)
         if target is None:
-            state.add_message("No visible hostile occupies the selected cell.", priority=2)
+            state.add_message("No visible hostile stands at the marked place.", priority=2)
             return False, False
         result = attack(state, target.id)
         return result.time_advanced, result.time_advanced
@@ -2640,7 +2640,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
 
         person = state.courier
         return "COURIER SKILLS", [
-            f"{person.name}: {person.skill_points} training point(s) available; {len(person.skill_nodes)} practices learned.",
+            f"{person.name}: {person.skill_points} training mark(s) available; {len(person.skill_nodes)} practices learned.",
             *[f"{'123456789a'[index]}. {title} — {sum(node.branch == branch and node.id in person.skill_nodes for node in NODES.values())}/6"
               for index, (branch, (title, _)) in enumerate(BRANCHES.items())],
             "Select a field of practice. Any household adult may cross-train.",
@@ -2651,10 +2651,10 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         branch = kind.split(":", 1)[1]
         title, _ = BRANCHES[branch]
         person = state.courier
-        rows = [f"{person.name}: {person.skill_points} training point(s) available; B returns to all fields."]
+        rows = [f"{person.name}: {person.skill_points} training mark(s) available; B returns to all fields."]
         for index, node in enumerate(node for node in NODES.values() if node.branch == branch):
             unmet = [NODES[parent].name for parent in node.parents if parent not in person.skill_nodes]
-            status = "LEARNED" if node.id in person.skill_nodes else "needs " + ", ".join(unmet) if unmet else "READY" if person.skill_points else "needs a milestone point"
+            status = "LEARNED" if node.id in person.skill_nodes else "needs " + ", ".join(unmet) if unmet else "READY" if person.skill_points else "needs a training mark"
             rows.append(f"{index + 1}. {node.name} [{status}] — {node.effect}.")
         return title.upper(), rows
     if kind.startswith("household-story:"):
@@ -3859,11 +3859,11 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
             overlay = OverlayView("help")
         elif normalized == ord("s"):
             if state.location != "jomon":
-                state.add_message("Save is available aboard Jomon, outside immediate danger.")
+                state.add_message("The chronicle can be sealed aboard Jomon, beyond immediate danger.")
             else:
                 try:
-                    path = save_game(state)
-                    state.add_message(f"Saved to {path}.")
+                    save_game(state)
+                    state.add_message("Jomon's chronicle is sealed.")
                 except SaveError as exc:
                     state.add_message(str(exc))
         elif normalized == ord("q"):

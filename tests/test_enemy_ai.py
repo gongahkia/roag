@@ -225,7 +225,7 @@ class NavigationAndGroupTests(unittest.TestCase):
         )
         state.threats = [controller]
         first = _threat_action(state, controller, False)
-        self.assertIn("leave the marked cell", first)
+        self.assertIn("leave the marked place", first)
         state.position = Position(42, 26)
         second = _threat_action(state, controller, False)
         self.assertIn("empty ground", second)

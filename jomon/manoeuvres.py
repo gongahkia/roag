@@ -28,7 +28,7 @@ MANOEUVRES = tuple(Manoeuvre(*row) for row in (
     ("high-cast", "High cast", "ridge-sounding line", "target", "a ranged weapon, ammunition, and lower target", "overhead cover, elevation, or closing distance", "make one plunging cast that ignores low cover"),
     ("ice-feint", "Ice-channel feint", "winter-braid reading", "guard", "known ice underfoot and a nearby actor", "saltwater, reach, or leaving the ice", "break its aim and step to stable ice"),
     ("flood-turn", "Siltgate flood turn", "siltgate hand", "field", "adjacent shallow fresh water", "deep current or a sealed stone edge", "redirect one depth into a neighbouring opening"),
-    ("firebreak-cut", "Living firebreak cut", "living firebreak", "field", "adjacent burning reeds or timber", "oil, wind, or fire beyond the cut", "remove fuel, extinguish the cell, and make noise"),
+    ("firebreak-cut", "Living firebreak cut", "living firebreak", "field", "adjacent burning reeds or timber", "oil, wind, or fire beyond the cut", "remove fuel, extinguish that patch, and make noise"),
     ("support-set", "Peat support set", "peat brace seating", "guard", "a wet or weakened adjacent support", "falling debris or a second severed support", "restore support and cancel its warning"),
     ("controlled-withdrawal", "Two-span withdrawal", "two-span withdrawal", "guard", "a reach weapon and a nearby engaged actor", "flanking, blocked retreat, or pinning", "withdraw one safe pace under guard and press morale"),
 ))

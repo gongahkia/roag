@@ -131,7 +131,7 @@
         [
           "smoke-shaping",
           "Smoke shaping",
-          "gun shots also veil their target cell with smoke"
+          "gun shots also veil the struck place with smoke"
         ],
         [
           "payload-master",
@@ -151,12 +151,12 @@
         [
           "scatter-bank",
           "Scatter bank",
-          "spread a smoke payload into a second cell"
+          "spread a smoke payload into a neighbouring place"
         ],
         [
           "delayed-fuse",
           "Delayed fuse",
-          "thunder bombs become warned next-action mineral flashes"
+          "thunder bombs become warned mineral flashes on the next beat"
         ],
         [
           "adhesive-coat",

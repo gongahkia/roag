@@ -305,7 +305,8 @@ class ExpeditionUI(TavernUIBase):
         from jomon.save import SaveError, save_game
 
         try:
-            self.message = f"Saved to {save_game(self.jomon_state)}."
+            save_game(self.jomon_state)
+            self.message = "Jomon's chronicle is sealed."
         except SaveError as exc:
             self.message = str(exc)
 

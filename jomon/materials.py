@@ -71,7 +71,7 @@ def inspect_material(state: GameState, point: Position) -> list[str]:
     return [
         f"FACT {point.x},{point.y} z{point.z:+d}: {cell.material}; coating {cell.coating or 'none'}.",
         f"Water {cell.water}/3 {cell.fluid}; {'ice' if cell.ice else 'liquid'}; fire {cell.fire}/3; smoke {cell.smoke}/4.",
-        f"Support {cell.support}/3; " + (f"COLLAPSE warned for action {cell.collapse_due}." if cell.collapse_due else "no collapse currently scheduled."),
+        f"Support {cell.support}/3; " + (f"COLLAPSE warned after {max(0, cell.collapse_due - state.world_time)} more beats." if cell.collapse_due else "no collapse currently warned."),
         f"Mixture: {cell.reagents or 'none'}; next reaction: {', '.join(predicted_reactions(cell.reagents, cell)) or 'none known'}.",
         "PREDICTION Water extinguishes; smoke rises/drifts; weakened supports fall after warning.",
         *(["FACT Loose cover (%) remains passable and turns low shots; height or arcing weapons can answer it."] if base_tile(state, point) == "%" else []),
@@ -506,7 +506,7 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
     elif verb in {"push", "pull"}:
         container.position = destination
         emit_sound(state, 2, point)
-    message = f"You {verb} {cell.material} at {key(point)}; material consequences advance one action."
+    message = f"You {verb} {cell.material} at {key(point)}; the work takes one action."
     if heel:
         heel.condition = max(0, heel.condition - 5)
         emit_sound(state, 2, point)

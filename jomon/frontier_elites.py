@@ -13,13 +13,13 @@ ELITE_ROWS = (
     ("terrace-reeve", "marlbank", "Elsa Kilnmark", "ranged", "firing", "preserve the disputed firing", "Three charcoal charges ignite a warned crosswind line; wet cells do not light.", "pour on the fuel, move crosswind, or send the release to the kilns", "relic:coalheart seed"),
     ("terrace-shutters", "marlbank", "counterweighted kiln shutters", "machinery", "shutters", "close the exposed kiln lanes", "Alternates loose cover across two marked lanes; the blades themselves telegraph a sweep.", "cross a different lane, brace the linkage, or operate the kiln release", "passive:mill-tooth wedge"),
     ("estuary-pilot", "frostmere", "Tova Frostwake", "reach", "brine", "keep the disputed sounding open", "Counted brine breaks thin ice into current; unfrozen ground instead takes salt slurry.", "leave the marked sheet, use cleats and a light load, or release the ice boom", "relic:stillwater filament"),
-    ("estuary-drum", "frostmere", "loaded net-haul drum", "machinery", "haul", "drag the net load into the cut", "Marks a haul cell, then pulls an unmoved bearer toward deep water; heavy loads suffer longer restraint.", "leave the mark, guard the haul, or cut the material linkage", "passive:load ledger"),
-    ("hearth-lockhand", "hearthford", "Ysolde Lockhand", "reach", "backwash", "reopen the private meadow sluice", "A counted backwash fills a three-cell lane and pushes an unguarded bearer off its marked footing.", "leave the marked lane, guard the release, or dog the public sluice", "passive:tide ledger"),
+    ("estuary-drum", "frostmere", "loaded net-haul drum", "machinery", "haul", "drag the net load into the cut", "Marks a place for the haul, then pulls an unmoved bearer toward deep water; heavy loads suffer longer restraint.", "leave the mark, guard the haul, or cut the material linkage", "passive:load ledger"),
+    ("hearth-lockhand", "hearthford", "Ysolde Lockhand", "reach", "backwash", "reopen the private meadow sluice", "A counted backwash fills three paces of lane and pushes an unguarded bearer off its marked footing.", "leave the marked lane, guard the release, or dog the public sluice", "passive:tide ledger"),
     ("coast-wreckward", "greywash", "Bran Wreckward", "pursuer", "salvage", "remove exposed goods under the old wreck claim", "Marks one physical ground item before taking it; defeat or witnessed settlement releases the same object.", "pack the marked good, block the approach, or present the witnessed wreck account", "passive:wreck key"),
-    ("forest-ashstep", "greenwold", "Mara Ashstep", "ranged", "firebreak", "cut every unlicensed fire line", "A warned three-cell break extinguishes useful flame but leaves obscuring ash where dry fuel stood.", "move the fire, use a wet boundary, or preserve the medicine coppice", "passive:smoke lens"),
+    ("forest-ashstep", "greenwold", "Mara Ashstep", "ranged", "firebreak", "cut every unlicensed fire line", "A warned break across three paces extinguishes useful flame but leaves obscuring ash where dry fuel stood.", "move the fire, use a wet boundary, or preserve the medicine coppice", "passive:smoke lens"),
     ("upland-bellrope", "whitecairn", "Orren Bellrope", "reach", "counterfall", "close the exposed warning stair", "Marks one unprotected floor before dropping loose visible cover; remaining in place risks a guarded blunt fall.", "leave the mark, stand under public structure, or ring the honest bell", "passive:cliff cord"),
-    ("fen-pump-train", "dunmire", "backwater pump train", "machinery", "siphon", "empty the inhabited reed cut", "Drains a warned three-cell water line into its physical pump bed, leaving wet soil as slowing mud.", "flood a second opening, brace the pump bed, or dog the regional spill", "passive:river hooks"),
-    ("gorge-wedge-crane", "rillscar", "cantilever wedge crane", "machinery", "lever", "move the quarry screen across the switchback", "Shifts loose cover onto a warned cell without sealing the alternate bridge.", "take the other span, brace the linkage, or tension the public tailrace", "passive:counterweight ring"),
+    ("fen-pump-train", "dunmire", "backwater pump train", "machinery", "siphon", "empty the inhabited reed cut", "Drains a warned three-pace stretch of water into its pump bed, leaving wet soil as slowing mud.", "flood a second opening, brace the pump bed, or dog the regional spill", "passive:river hooks"),
+    ("gorge-wedge-crane", "rillscar", "cantilever wedge crane", "machinery", "lever", "move the quarry screen across the switchback", "Shifts loose cover onto a warned place without sealing the alternate bridge.", "take the other span, brace the linkage, or tension the public tailrace", "passive:counterweight ring"),
     ("terrace-slip-wheel", "marlbank", "clay-slip spread wheel", "machinery", "slip", "coat the disputed seed-bed crossing", "Spreads shallow clay slurry across a warned line; an unguarded bearer becomes briefly mud-burdened.", "leave the line, guard in place, or operate the kiln release", "passive:cork float"),
     ("estuary-ice-boom", "frostmere", "loaded ice-boom capstan", "machinery", "boom", "close the sheltered winter braid", "Freezes warned fresh shallows or shifts loose timber cover where no water remains.", "salt the water, cut the linkage, or release the public ice boom", "passive:ice awl"),
 )
@@ -271,7 +271,7 @@ def elite_action(state, actor, guarded):
             patch = ensure_cell(state, target)
             if patch:
                 patch.water, patch.fluid = 3, "fresh"
-        message = "The three-cell release becomes flowing water; openings carry it below and wet load now matters."
+        message = "Water surges across three paces; openings carry it below and wet loads now matter."
     elif mode == "smoulder":
         if cell.water:
             actor.status = "disabled"
@@ -362,7 +362,7 @@ def elite_action(state, actor, guarded):
                 broken += int(bool(patch.fire or patch.fuel))
                 patch.fire, patch.fuel = 0, 0
                 patch.coating, patch.smoke = "ash", max(2, patch.smoke)
-        message = f"The warned firebreak clears {broken} fuel cells and leaves a three-cell ash screen."
+        message = f"The warned firebreak clears {broken} patches of fuel and leaves ash across three paces."
     elif mode == "counterfall":
         if not _protected(state, point):
             state.region.tile_changes[key(point)] = "%"
@@ -426,7 +426,7 @@ def elite_action(state, actor, guarded):
             step = Position(point.x + (actor.position.x > point.x) - (actor.position.x < point.x), point.y, point.z)
             if step != actor.position and is_walkable(state, step):
                 state.position = step
-            add_status(state, "net-drag", "a loaded net drum caught the marked cell", 5 if load_state(state) in {"encumbered", "overloaded"} else 2, "guard and movement suffer; move free or wait out the haul")
+            add_status(state, "net-drag", "a loaded net drum caught the marked place", 5 if load_state(state) in {"encumbered", "overloaded"} else 2, "guard and movement suffer; move free or wait out the haul")
             wet = ensure_cell(state, state.position)
             if wet:
                 wet.water = 2

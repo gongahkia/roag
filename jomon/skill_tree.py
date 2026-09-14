@@ -192,7 +192,7 @@ def buy_node(state: GameState, node_id: str) -> tuple[bool, str]:
     if any(parent not in person.skill_nodes for parent in node.parents):
         return False, f"{node.name} needs {', '.join(NODES[parent].name for parent in node.parents)}."
     if person.skill_points < 1:
-        return False, "No unspent milestone point remains."
+        return False, "No unspent training mark remains."
     person.skill_points -= 1
     person.skill_nodes.append(node_id)
     if node_id in {"attunement", "elemental-shape", "ward-script", "veiling", "echo-binding", "spell-weave"}:
@@ -209,7 +209,7 @@ def record_milestone(state: GameState, milestone: str) -> bool:
         return False
     person.skill_milestones.append(milestone)
     person.skill_points += 1
-    state.add_message(f"{person.name} earns one skill point: {milestone.replace(':', ' / ')}.")
+    state.add_message(f"{person.name} earns a training mark: {milestone.replace(':', ' / ')}.")
     return True
 
 

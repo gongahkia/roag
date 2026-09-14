@@ -240,7 +240,7 @@ def gather(state: GameState, choice: int) -> tuple[bool, str]:
     item = create_item(state, f"ingredient:{name}", f"{state.active_region_id} witnessed gathering")
     if not auto_place(state, item.id, "pack", owner_id=state.active_courier_id):
         transaction.cancel(state)
-        return False, "No clear pack cell can hold the gathered measure."
+        return False, "No clear space in the pack can hold the gathered measure."
     site["stock"] -= 1
     site["draws"] += 1
     record_milestone(state, f"production:{state.active_region_id}")

@@ -77,18 +77,18 @@ def story_lines(state: GameState, story_id: str) -> list[str]:
     dead = [person.name for person in state.household if not person.alive]
     lines = [f"FACT — account: {status}.", story.premise, f"To open: {story.requirement}."]
     if story_id == "empty-watch":
-        lines.append("Succession record: " + (", ".join(dead) + " are dead; no one is restored." if dead else "no household death is required; injury, fatigue and prior returns still shape the watch."))
+        lines.append("Succession record: " + (", ".join(dead) + " are mourned as the watch passes to the living." if dead else "all household adults still live; injury, fatigue and prior returns shape the watch."))
     elif story_id == "repair-share":
-        lines.append(f"Jomon integrity {state.vessel_integrity}/10; voyages {state.travel_count}; timber lots {state.vessel_cargo.get('timber').quantity if state.vessel_cargo.get('timber') else 0}.")
+        lines.append(f"Hull soundness {state.vessel_integrity}/10; voyages {state.travel_count}; timber lots {state.vessel_cargo.get('timber').quantity if state.vessel_cargo.get('timber') else 0}.")
     else:
         names = [state.regions[rid].name for rid in outcome_regions(state)]
         lines.append("Changed regions: " + (", ".join(names) or "fewer than four recorded"))
     if branch:
         lines += [f"Household decision: {branch}.", str(state.vessel_changes.get(_key(story_id, "outcome"), "The household keeps the result."))]
     elif status == "active":
-        lines.append("Choose the disclosed household answer; each costs one action and persists.")
+        lines.append("Choose the household's answer; it takes one action and enters the record.")
     else:
-        lines.append("Opening costs one action. Deferral costs none and does not close the story.")
+        lines.append("Opening takes one action. Deferral takes none; the account remains open.")
     return lines
 
 
@@ -117,7 +117,7 @@ def resolve(state: GameState, story_id: str, choice: str) -> tuple[bool, str, in
             first.relationships[second.id] = min(3, first.relationships.get(second.id, 0) + 1)
             second.relationships[first.id] = min(3, second.relationships.get(first.id, 0) + 1)
         dead = [person.name for person in state.household if not person.alive]
-        outcome = ("The living name " + ", ".join(dead) + " without restoring them; the watch passes by witnessed consent." if dead else "Fatigue and injury are named before a shared watch is set; no death is invented.")
+        outcome = ("The living name " + ", ".join(dead) + "; the watch passes by witnessed consent." if dead else "Fatigue and injury are named before a shared watch is set.")
     elif story_id == "repair-share" and choice in {"w", "p"}:
         if choice == "p":
             timber = state.vessel_cargo.get("timber")
@@ -127,7 +127,7 @@ def resolve(state: GameState, story_id: str, choice: str) -> tuple[bool, str, in
             if not timber.quantity:
                 del state.vessel_cargo["timber"]
             state.vessel_integrity = min(10, state.vessel_integrity + 2)
-            branch, outcome = "physical repair share", "One timber lot seats two integrity; the consumed lot does not return."
+            branch, outcome = "physical repair share", "One timber lot closes two measures of hull damage."
         else:
             branch, outcome = "common repair obligation", "The household keeps the scar and shares its next repair duty."
             for account in state.institutions.values():
@@ -150,11 +150,11 @@ def resolve(state: GameState, story_id: str, choice: str) -> tuple[bool, str, in
                     if first.id != second.id:
                         first.relationships[second.id] = min(3, first.relationships.get(second.id, 0) + 1)
             state.vessel_integrity = min(10, state.vessel_integrity + 1)
-            outcome = "Household ties and one careful integrity point take precedence over wider claims."
+            outcome = "Household ties and careful hull repairs take precedence over wider claims."
         else:
             for account in state.institutions.values():
                 account.obligation = max(0, account.obligation - 1)
-            outcome = "Separate accounts reduce obligations but grant no universal trust."
+            outcome = "Separate accounts lighten obligations; each port still judges Jomon for itself."
         state.vessel_changes["campaign:all-region-capstone"] = branch
     else:
         return False, "That answer does not belong to this household account.", 0

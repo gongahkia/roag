@@ -490,7 +490,7 @@
       "vision": 9,
       "hearing": 10,
       "range": 3,
-      "capability": "telegraphs and floods a three-cell mill crossing",
+      "capability": "signals before flooding three paces of the mill crossing",
       "morale": 4,
       "terrain": "mill race",
       "counterplay": "dog the sluice, use the upper gantry, or establish the public compact",

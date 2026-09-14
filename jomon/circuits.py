@@ -270,7 +270,7 @@ def reclaim(state: GameState, position: Position, layer: str) -> tuple[bool, str
     item = create_item(state, f"circuit:{cell.kind}", "reclaimed circuit fitting")
     if not auto_place(state, item.id, "pack", owner_id=state.active_courier_id):
         transaction.cancel(state)
-        return False, "Clear a pack cell before reclaiming the fitting."
+        return False, "Clear space in the pack before reclaiming the fitting."
     del state.circuits[key]
     sync_legacy_load(state)
     _advance_world(state)
@@ -494,7 +494,8 @@ def diagnostic_lines(state: GameState, cell: CircuitCell) -> list[str]:
     next_state, next_count = next_phase(state, cell, at_time=state.world_time + 1)
     inputs = _heads_into(state, cell)
     remaining = f"; pulse can travel {cell.signal_steps} more link(s)" if cell.phase == "head" else ""
-    status = f"Phase {cell.phase} -> {next_state}; {inputs} live input(s); {len(_neighbors(state, cell))} links{remaining}."
+    pulse_names = {"wire": "idle", "head": "arriving", "tail": "fading"}
+    status = f"Pulse {pulse_names[cell.phase]} -> {pulse_names[next_state]}; {inputs} live input(s); {len(_neighbors(state, cell))} links{remaining}."
     sources = f"Network: {len(seen)} fittings; {len(racks)} rack(s), {sum(r.charge > 0 for r in racks)} charged."
     if cell.kind == "rack":
         setting = f"Cell charge {cell.charge}/{2 * CELL_CHARGE}; one pulse every {PULSE_INTERVAL} actions."

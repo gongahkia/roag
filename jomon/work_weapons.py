@@ -124,15 +124,15 @@ def strike_effects(state, target, candidates):
             dust = ensure_cell(state, target.position)
             if dust:
                 dust.coating, dust.smoke = "ash", max(2, dust.smoke)
-                return WorkingStrike("dry bank dust obscures the struck cell and changes the next pursuit")
+                return WorkingStrike("dry bank dust obscures the struck place and changes the next pursuit")
         return WorkingStrike("wet or stone footing gives no dust to throw")
     if state.weapon == "throwing axe":
         if material_at(state, target.position) == "timber":
             cell = ensure_cell(state, target.position)
             if cell:
                 cell.support = max(0, cell.support - 1)
-                return WorkingStrike("the lodged axe weakens timber before falling onto the impact cell")
-        return WorkingStrike("the actual axe falls onto the impact cell; the weapon slot will be empty")
+                return WorkingStrike("the lodged axe weakens timber before falling where it struck")
+        return WorkingStrike("the actual axe falls where it struck; the weapon hand is left empty")
     if state.weapon == "shield and hanger":
         state.guarded_step = True
         return WorkingStrike("the shielded approach trades damage for closing the lane", guarded=True)

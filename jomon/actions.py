@@ -738,7 +738,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             for offset in (-1, 0, 1)
         ]
         state.smoke.update({position_key(point): 5 for point in smoke_line})
-        threat.intent = "drives a three-cell smoke line across your current route"
+        threat.intent = "drives smoke across three paces of your current route"
         return f"The {threat.name} {threat.intent}; climb or move crosswind."
     if threat.elite and state.active_region_id == "whitecairn":
         if threat.name == "bridge-breaker bellward":
@@ -767,13 +767,13 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             return "The seated quarry braces deny the false-bell master's rockfall plan."
         if threat.aimed_at is None:
             threat.aimed_at = state.position
-            threat.intent = f"rings a rockfall warning over {state.position.x},{state.position.y}; leave the marked cell"
+            threat.intent = f"rings a rockfall warning over {state.position.x},{state.position.y}; leave the marked place"
             return f"The {threat.name} {threat.intent}."
         marked, threat.aimed_at = threat.aimed_at, None
         state.region.tile_changes[position_key(marked)] = "%"
         if state.position == marked and not guarded:
             return apply_damage(state, 3, "The false bell's released rockfall", damage_kind="blunt")
-        return "Rockfall strikes the marked cell and leaves unstable scree; your reposition avoids it."
+        return "Rockfall strikes the marked place and leaves unstable scree; your reposition avoids it."
     if threat.profile == "machinery":
         if gap > 7:
             return ""
@@ -808,7 +808,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
     if decision.action == "control":
         if threat.aimed_at is None:
             threat.aimed_at = state.position
-            threat.intent = f"casts a weighted net across {state.position.x},{state.position.y}; leave the marked cell"
+            threat.intent = f"casts a weighted net across {state.position.x},{state.position.y}; leave the marked place"
             return f"The {threat.name} {threat.intent}."
         marked, threat.aimed_at = threat.aimed_at, None
         if state.position == marked:
@@ -817,7 +817,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
                 "guarded reposition, evasion, and current crossings worsen",
             )
             threat.intent = "hauls the marked net line"
-            return f"The {threat.name} hauls the net across the marked cell; movement control worsens."
+            return f"The {threat.name} hauls the net across the marked place; footing worsens."
         threat.intent = "recovers the empty net line"
         return f"The {threat.name}'s net closes on empty ground after your reposition."
     if decision.action == "feed smoke":
@@ -3064,7 +3064,7 @@ def use_gear(state: GameState, preparation: str | None = None) -> ActionResult:
         add_status(state, "coalheart-chill", "spent warm mineral", 8, "wetness and exposed travel become dangerous")
         return _time_result(
             state,
-            "The coalheart consumes every local smoke cell, then leaves a dangerous eight-action chill.",
+            "The coalheart consumes every nearby bank of smoke, then leaves a dangerous chill for eight actions.",
             priority=3,
         )
     if state.carried_relic == "hollow-bell shard" and state.relics.get("hollow-bell shard", 0):

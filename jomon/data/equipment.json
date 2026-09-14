@@ -1421,7 +1421,7 @@
       "minimum": 3,
       "damage": 0,
       "noise": 3,
-      "description": "P selects a carried pitch, lime or brine pot; Enter casts at a visible cell three to six paces away. The burst can harm anyone nearby.",
+      "description": "P selects a carried pitch, lime or brine pot; Enter casts at a place in sight three to six paces away. The burst can harm anyone nearby.",
       "regions": [
         "dunmire",
         "marlbank"
@@ -1438,7 +1438,7 @@
       "minimum": 1,
       "damage": 3,
       "noise": 3,
-      "description": "Throws the actual readied axe onto the impact cell, leaving an empty weapon slot. It weakens timber support and must be physically recovered.",
+      "description": "Throws the readied axe where it strikes, leaving the weapon hand empty. It weakens timber support and must be recovered.",
       "regions": [
         "rillscar",
         "frostmere"
@@ -1642,7 +1642,7 @@
       "minimum": 1,
       "damage": 3,
       "noise": 4,
-      "description": "A loud close cut removes two support from timber on the impact cell, opening routes or risking collapse.",
+      "description": "A loud close cut strips two measures of support from struck timber, opening routes or risking collapse.",
       "regions": [
         "greenwold",
         "dunmire"

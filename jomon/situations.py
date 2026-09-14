@@ -217,15 +217,15 @@ def inspect_lines(state: GameState, situation_id: str) -> list[str]:
     outcome = state.region.changes.get(_key(row, "outcome"))
     if outcome:
         afterwork = state.region.changes.get(_key(row, "afterwork"))
-        lines = [f"FACT {row.name} at {point.x},{point.y},z{point.z:+d} is changed.", f"Outcome: {outcome}.", f"Persistent consequence: {row.consequence}.", f"Revisit: {_condition(state)} now bears the chosen work."]
+        lines = [f"FACT {row.name} at {point.x},{point.y},z{point.z:+d} is changed.", f"Recorded answer: {outcome}.", f"Continuing effect: {row.consequence}.", f"On return: {_condition(state)} now bears the chosen work."]
         if afterwork:
-            lines.append(f"Afterwork: {afterwork}; this site's optional field work is finished.")
+            lines.append(f"Later work: {afterwork}; the site needs no further tending.")
         else:
             lines.extend(("T. MAINTAIN — brace the changed site and strengthen the working account; two actions.", f"M. SAMPLE — take one physical {AFTERWORK_SAMPLES[row.region_id]} measure; one action. Choose only one."))
         report = state.region.changes.get(_key(row, "report"))
         lines.append(f"Local field report: {report or 'unfiled; return to the local worker to publish it or sell a private lead'}.")
         return lines + ["Inspection costs no time."]
-    return [f"VISIBLE {row.name} at {point.x},{point.y},z{point.z:+d}.", f"Groups: {row.groups[0]} and {row.groups[1]}.", f"Duty: {row.duty}.", f"Material: {row.material}.", f"Season/history: {state.region.changes.get(_key(row, 'condition'), _condition(state))}.", f"T. TOOL — {row.answers[0]}; two actions.", f"M. MATERIAL — {row.answers[1]}; spends rope or lamp oil; one action.", f"A. ACCOUNT — {row.answers[2]}; needs standing or cargo; one action.", "Each answer changes actors and another system. Failed choices cost no time."]
+    return [f"VISIBLE {row.name} at {point.x},{point.y},z{point.z:+d}.", f"Groups: {row.groups[0]} and {row.groups[1]}.", f"Duty: {row.duty}.", f"Material: {row.material}.", f"Season and local memory: {state.region.changes.get(_key(row, 'condition'), _condition(state))}.", f"T. TOOL — {row.answers[0]}; two actions.", f"M. MATERIAL — {row.answers[1]}; spends rope or lamp oil; one action.", f"A. ACCOUNT — {row.answers[2]}; needs standing or cargo; one action.", "Workers, ground, and local accounts carry the choice. An impossible attempt costs no time."]
 
 
 def choices(state: GameState, situation_id: str) -> list[tuple[str, str, str, bool, str]]:
@@ -235,7 +235,7 @@ def choices(state: GameState, situation_id: str) -> list[tuple[str, str, str, bo
         if state.region.changes.get(_key(row, "afterwork")):
             return []
         return [("T", "Maintain the changed site and working account", "commitment", tool, "repair tools, working implement, or lever craft"),
-                ("M", f"Take one {AFTERWORK_SAMPLES[row.region_id]} sample", "commitment", True, "one free pack cell")]
+                ("M", f"Take one {AFTERWORK_SAMPLES[row.region_id]} sample", "commitment", True, "one free pack space")]
     if state.region.changes.get("situation:active") != row.id:
         return []
     material = state.rope_uses > 0 or state.lamp_oil > 0
@@ -265,7 +265,7 @@ def resolve(state: GameState, situation_id: str, method: str) -> tuple[bool, str
             item = create_item(state, f"ingredient:{sample}", f"{row.name} afterwork sample")
             if not auto_place(state, item.id, "pack", owner_id=state.active_courier_id):
                 transaction.cancel(state)
-                return False, "The physical sample needs a free pack cell; nothing changed.", 0
+                return False, "The sample needs free space in the pack; nothing changed.", 0
             result, steps = f"sampled one {sample} measure", 1
         else:
             cell = ensure_cell(state, point)

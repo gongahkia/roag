@@ -192,7 +192,7 @@
       "name": "peat bank plug",
       "topology": "raised peat walk",
       "mode": "bank-plug",
-      "description": "Lowers nearby water and seats one support in the same worked soil or timber cell.",
+      "description": "Lowers nearby water and seats one support in the same worked soil or timber footing.",
       "condition": "nearby wet soil or timber"
     },
     {
@@ -220,7 +220,7 @@
       "name": "fired drainage tile",
       "topology": "seed-bed drainage",
       "mode": "drain-tile",
-      "description": "Turns one adjacent mud cell into a dry, ash-marked drainage footing.",
+      "description": "Turns one adjacent patch of mud into a dry, ash-marked drainage footing.",
       "condition": "adjacent mud"
     },
     {

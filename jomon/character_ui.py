@@ -142,11 +142,11 @@ def run_character_creation(screen: curses.window, state: GameState) -> bool:
             if 4 <= proposed <= 10 and 0 <= spent <= ATTRIBUTE_POINTS:
                 attributes[field] = proposed
             else:
-                message = "This attribute is at its bound, or no points remain to allocate."
+                message = "This attribute is at its limit, or the allotment is spent."
         elif field in COMPETENCIES:
             proposed = competencies[field] + step
             spent = sum(competencies.values()) + step
             if 0 <= proposed <= 5 and 0 <= spent <= COMPETENCY_POINTS:
                 competencies[field] = proposed
             else:
-                message = "This competency is at its bound, or no points remain to allocate."
+                message = "This competency is at its limit, or the allotment is spent."

@@ -74,7 +74,7 @@ def strike(state, target_id=None, *, target_position=None):
         if delayed and (len(set(cell.reagents) | {"brine", "spark salt"}) > 4
                         or sum(cell.reagents.values()) > 6
                         or cell.reagents.get("brine", 0) >= 4 or cell.reagents.get("spark salt", 0) >= 4):
-            return _plain(state, "The warned mineral flash needs two free sparse-cell measures.")
+            return _plain(state, "The warned mineral flash needs room for two more measures of reagent.")
         ammunition = ammunition_for(state.weapon)
         if physical_ammunition(state, ammunition) <= 0 or not consume_ammunition(state, ammunition):
             return _plain(state, f"No physical {ammunition} remain in the pack.")

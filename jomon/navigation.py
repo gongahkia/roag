@@ -280,12 +280,12 @@ def advance_route(state: GameState, plan: RoutePlan, index: int) -> RouteAdvance
         return RouteAdvance(index, finished, "Destination reached." if finished else "Your position no longer matches the planned route.")
     next_position = plan.path[index]
     if next_position not in remembered_positions(state):
-        return RouteAdvance(index, False, "The next cell is not part of remembered terrain.")
+        return RouteAdvance(index, False, "The next place is not part of the remembered route.")
     pre_visible = _visible_danger(state)
     if pre_visible:
         return RouteAdvance(index, False, "Visible danger interrupts route following.")
     if _cell_cost(state, next_position) is None:
-        return RouteAdvance(index, False, "The next remembered cell has become unsafe or blocked.")
+        return RouteAdvance(index, False, "The next remembered place has become unsafe or blocked.")
     pre_engaged = {actor.id for actor in state.combatants if actor.status == "engaged"}
     pre_material = _visible_material_danger(state)
     pre_weather = state.weather

@@ -137,7 +137,7 @@ def run(screen: curses.window) -> None:
         except SaveError as exc:
             has_save = False
             if save_path().exists() and not notice:
-                notice = f"This development save cannot be continued: {exc}. The file has not been changed."
+                notice = f"This chronicle cannot be opened: {exc}. The file has not been changed."
         if notice:
             _draw_notice_landing(screen, width, height, notice)
             screen.refresh()

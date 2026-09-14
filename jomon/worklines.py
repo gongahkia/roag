@@ -284,7 +284,7 @@ def _field_work(state):
                 cell.support, cell.collapse_due = 0, state.world_time + 3
             state.region.changes["counterweight_released"] = True
             state.market["lime"].stock = max(0, state.market["lime"].stock - 2)
-            text = "The counterweight is released. Its neighbouring support will fall in three actions; leave the marked cell. Two lime lots are forfeited."
+            text = "The counterweight is released. Its neighbouring support will fall after three more beats; leave the marked place. Two lime lots are forfeited."
     sync_legacy_load(state)
     state.worklines[region].stage, state.worklines[region].status = 3, "resolution"
     return text

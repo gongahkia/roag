@@ -157,15 +157,15 @@
       "family": "flooded-hold",
       "name": "Thaw surge",
       "cause": "Spring high water or winter ice pressure drives water through more than one opening.",
-      "effect": "Two lower-deck cells flood and emergency work takes an extra exposed action.",
-      "counterplay": "Pump the whole deck, redirect water, or use strainers to recover one action."
+      "effect": "Water enters two places below deck, and emergency work takes one more exposed step.",
+      "counterplay": "Pump the whole deck, redirect water, or use strainers to save a step of work."
     },
     {
       "id": "counterclaim-inspection",
       "family": "inspection",
       "name": "Counterclaim inspection",
       "cause": "An outstanding institution account gives the patrol a second plausible claimant.",
-      "effect": "Witness trust needs one additional level and a cash settlement costs three credit.",
+      "effect": "The patrol demands stronger testimony; a cash settlement now costs three credit.",
       "counterplay": "Produce stronger trust, a physical paper lot, the signal shutter, or pay the stated account."
     }
   ],
@@ -180,7 +180,7 @@
       "variant_id": "displaced-pair",
       "kind": "ecological return",
       "title": "Tracks beside Jomon's wake",
-      "consequence": "the receiving region records where the displaced pair settled, changing its population margin"
+      "consequence": "the receiving region records where the displaced pair settled, changing the local count"
     },
     {
       "variant_id": "returning-resonance",
@@ -198,19 +198,19 @@
       "variant_id": "marked-shortage-lot",
       "kind": "cargo claim",
       "title": "A cut mark on the surviving lot",
-      "consequence": "the most demanded local cargo gains a witnessed claim and one point of market confidence"
+      "consequence": "the most demanded local cargo gains a witnessed claim, and traders bid with greater confidence"
     },
     {
       "variant_id": "crosswind-stay",
       "kind": "deck scar",
       "title": "The stay's pale working scar",
-      "consequence": "the upper rig keeps a visible repair mark and the next storm station estimate is clearer"
+      "consequence": "the upper rig keeps a visible repair mark, giving the next storm watch a clearer estimate"
     },
     {
       "variant_id": "returning-silt-tongue",
       "kind": "route mark",
       "title": "A second sounding on the old line",
-      "consequence": "the destination chart gains the new silt note and one point less hidden shoal risk"
+      "consequence": "the destination chart gains the new silt note, making the hidden shoal easier to avoid"
     },
     {
       "variant_id": "fire-marked-raft",

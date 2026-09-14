@@ -69,12 +69,12 @@ def spell_status(state: GameState, spell_id: str, point: Position) -> tuple[bool
     if spell.target == "self":
         return (point == state.position, "self-cast must be placed on the courier")
     if distance(state.position, point) > spell.reach or not courier_sees(state, point):
-        return False, f"needs a visible cell within {spell.reach} paces"
+        return False, f"needs a place in sight within {spell.reach} paces"
     if spell.target == "enemy" and not any(
         actor.position == point and actor.status in {"watching", "engaged"}
         for actor in state.combatants
     ):
-        return False, "needs a visible active opponent at the selected cell"
+        return False, "needs an active opponent at the marked place"
     return True, "ready"
 
 
@@ -95,7 +95,7 @@ def cast(state: GameState, spell_id: str, point: Position) -> tuple[bool, str]:
                  for dx in range(-spell.radius, spell.radius + 1)
                  if max(abs(dx), abs(dy)) <= spell.radius]
     if spell.target == "cell" and any(base_tile(state, place) == " " for place in positions):
-        return False, "one affected cell lies beyond reach of the working ground"
+        return False, "one affected place lies beyond reach of the working ground"
     if spell.target == "cell" and len(fields(state)) + sum(key(place) not in fields(state) for place in positions) > MAX_CELLS:
         return False, "the sparse material budget is full"
     state.courier.mana -= spell.cost
@@ -155,7 +155,7 @@ def cast(state: GameState, spell_id: str, point: Position) -> tuple[bool, str]:
                 cell.coating, cell.smoke = "lime", max(2, cell.smoke)
             elif spell.effect == "decoy":
                 emit_sound(state, spell.power, place)
-        detail.append(f"{len(positions)} material cell(s) altered at {point.x},{point.y}")
+        detail.append(f"{len(positions)} patches altered at {point.x},{point.y}")
     if spell.effect not in {"quiet", "decoy"}:
         emit_sound(state, 1 if spell.cost < 3 else 3, point)
     record_milestone(state, "combat:spellcraft")
