@@ -9,7 +9,7 @@ ELITE_ROWS = (
     ("fen-marshal", "dunmire", "Veyra Reedlock", "reach", "surge", "control the drying bank", "Three counted releases flood a marked low lane; higher ground and the spill control remain usable.", "leave the marked lane, use height, or dog the regional spill", "relic:ebbglass spindle"),
     ("fen-stack", "dunmire", "smouldering peat crown", "machinery", "smoulder", "burn through the drying rack", "Dry rack fuel feeds smoke before a warned support fails; water stops the heat chain.", "quench the rack, shelter below, or cool it through the spill", "passive:ember cloth"),
     ("gorge-cordmaster", "rillscar", "Darrin Splitspan", "ranged", "sever", "take down the private scaffold", "Marks visible floor support before cutting, then moves toward a higher escape stair.", "brace the marked support, interrupt the cut, or tension the tailrace", "relic:hollow-bell shard"),
-    ("gorge-convoy", "rillscar", "counterweight convoy foreman", "reach", "convoy", "bring a guarded load through", "Nearby escort bodies take two harm from strikes on the foreman; a finite hoist signal rallies them.", "pull the escort apart, defeat its helpers, or publish the tailrace control", "passive:quarry brace"),
+    ("gorge-convoy", "rillscar", "counterweight convoy foreman", "reach", "convoy", "bring a guarded load through", "Nearby escort bodies take two harm from strikes on the foreman; one hoist signal rallies them.", "pull the escort apart, defeat its helpers, or publish the tailrace control", "passive:quarry brace"),
     ("terrace-reeve", "marlbank", "Elsa Kilnmark", "ranged", "firing", "preserve the disputed firing", "Three charcoal charges ignite a warned crosswind line; wet cells do not light.", "pour on the fuel, move crosswind, or send the release to the kilns", "relic:coalheart seed"),
     ("terrace-shutters", "marlbank", "counterweighted kiln shutters", "machinery", "shutters", "close the exposed kiln lanes", "Alternates loose cover across two marked lanes; the blades themselves telegraph a sweep.", "cross a different lane, brace the linkage, or operate the kiln release", "passive:mill-tooth wedge"),
     ("estuary-pilot", "frostmere", "Tova Frostwake", "reach", "brine", "keep the disputed sounding open", "Counted brine breaks thin ice into current; unfrozen ground instead takes salt slurry.", "leave the marked sheet, use cleats and a light load, or release the ice boom", "relic:stillwater filament"),
@@ -153,8 +153,8 @@ def install_aftermath_elite(state):
     issue_enemy_equipment(state, actor, region_id)
     state.region.changes[f"enemy_kit:{actor.id}"] = 1
     state.remember(
-        f"{actor.name} now contests the physical aftermath work at "
-        f"{point.x},{point.y}, z{point.z:+d}; its finite mechanism and terms are inspectable."
+        f"{actor.name} now contests the later work at "
+        f"{point.x},{point.y}, z{point.z:+d}; watch its apparatus and learn its terms."
     )
     return actor
 
@@ -218,7 +218,7 @@ def elite_action(state, actor, guarded):
                 step = next_path_step(state, actor, higher, stop_distance=0, limit=350)
                 if step != state.position:
                     actor.position = step
-        actor.intent = "resets a finite working charge; the recovery is an opening"
+        actor.intent = "resets its working charge; the recovery leaves an opening"
         return f"{actor.name} {actor.intent}."
     if actor.supplies <= 0:
         actor.status = "disabled" if actor.profile == "machinery" else "retreated"
@@ -301,7 +301,7 @@ def elite_action(state, actor, guarded):
             helper.objective_position = actor.position
             helper.last_known_position = point
         actor.position = next_path_step(state, actor, point, stop_distance=2, limit=350)
-        message = "The finite hoist signal gathers the visible escort; separate its bodies to expose the foreman."
+        message = "The hoist signal gathers the visible escort; separate its bodies to expose the foreman."
     elif mode == "firing":
         count = 0
         for target in _line(state, point):
