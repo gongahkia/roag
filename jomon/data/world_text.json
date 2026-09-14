@@ -19,9 +19,9 @@
   ],
   "HELP_LINES": [
     ";: look around without passing time; mouse click also inspects a place without acting.",
-    "O: observe visible people, wildlife, duties, supplies and tactical counters (free).",
+    "O: observe visible people, wildlife, duties, supplies and tactical counters.",
     "F: inspect and handle nearby material; choices commit one action, Escape costs none.",
-    "Z: regional work account, linked history, testimony and likely next changes (free).",
+    "Z: regional work account, linked history, testimony and likely next changes.",
     "Move with arrows, HJKL, or YUBN diagonals. Your view follows you across each region.",
     "T follows a seen local destination one ordinary step at a time; any key stops it.",
     "Enter/E interacts. A previews and targets any attack. G guards, reloads, or holds to listen.",

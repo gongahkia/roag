@@ -27,8 +27,9 @@ class LandscapeVariationTests(unittest.TestCase):
                                         for link in region.vertical_links))
                     self.assertTrue(any({link.first, link.second} == {lower, Position(lower.x, lower.y)}
                                         for link in region.vertical_links))
-                    self.assertTrue({region.landmarks[f"landform_{number}"] for number in range(3)} <= reachable)
-                    self.assertTrue(all(f"landform:{number}" in region.generation_facts for number in range(3)))
+                    pocket_count = len(VARIANTS[region.id]["pockets"])
+                    self.assertTrue({region.landmarks[f"landform_{number}"] for number in range(pocket_count)} <= reachable)
+                    self.assertTrue(all(f"landform:{number}" in region.generation_facts for number in range(pocket_count)))
 
     def test_field_traveller_marks_a_route_and_sells_one_physical_lot(self):
         state = create_world("field witness")

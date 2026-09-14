@@ -173,8 +173,8 @@ def validate_region(region: Region) -> None:
     required.update(region.landmarks[key] for key in (
         "sanctum_entry", "sanctum_shrine", "sanctum_undercroft", "sanctum_ward", "sanctum_boss",
         "sanctum_side_stair", "sanctum_secret", "field_upper", "field_lower",
-        "landform_0", "landform_1", "landform_2",
     ) if key in region.landmarks)
+    required.update(point for key, point in region.landmarks.items() if key.startswith("landform_"))
     if not required <= reachable:
         missing = required - reachable
         raise RuntimeError(f"{region.name} generation left required positions unreachable: {missing}")

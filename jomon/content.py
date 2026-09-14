@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from .catalog import CatalogError, load_catalog
+from .catalog import ACTOR_SECTIONS, CatalogError, load_catalog
 
 _PEOPLE = load_catalog("people.json", ("REGIONAL_CONTEXTS", "FIRST_NAMES", "FAMILY_NAMES", "ROLES", "ROLE_EQUIPMENT", "ROLE_TECHNIQUE", "RECRUIT_TEMPLATES", "CONTACT_NAMES"))
 _GOODS = load_catalog("goods.json", ("COMMODITIES", "COMMODITY_LOGISTICS", "WEAPONS", "GEAR", "SUPPORTS", "DISCOVERIES", "RELICS", "PASSIVES", "MERCHANT_ITEMS"))
-_ACTORS = load_catalog("actors.json", ("ENEMY_ARCHETYPES", "LEGACY_STANDARD_GLYPHS", "FRONTIER_ACTORS", "EXPANDED_STANDARD_ACTORS", "STANDARD_REACTIONS"))
+_ACTORS = load_catalog("actors.json", ACTOR_SECTIONS)
 _WORLD_TEXT = load_catalog("world_text.json", ("JOMON_MAP", "HELP_LINES"))
 
 

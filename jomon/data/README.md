@@ -8,9 +8,10 @@ text: it can be reviewed in diffs and needs no compression tool or dependency.
 | --- | --- |
 | `people.json` | names, roles, regional context, recruits |
 | `goods.json` | commodities, equipment text, discoveries, relics, passives, merchant stock |
-| `actors.json` | enemy archetypes, regional actor rows, glyphs, reactions |
+| `actors.json` | enemy archetypes, regional and elite actor rows, glyphs, and reactions |
 | `world_text.json` | Jomon map and help copy |
 | `geography.json` | regional side-route anchors, terrain accents, and hidden field-cache clues and rewards |
+| `terrain_variation.json` | regional field pockets, side-structure names, field travellers, and bounded local encounter pools |
 | `situations.json` | 24 regional situation records and afterwork samples |
 | `production.json` | regional sources, stations, and hand-authored recipes, including circuit parts |
 | `circuits.json` | electrical fitting behaviors, glyphs, physical descriptions, and authored installations |

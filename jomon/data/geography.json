@@ -22,35 +22,43 @@
   "FIELD_SECRETS": {
     "hearthford": [
       ["cave_entrance", "reed-silt", "Reed-silt survey roll", "willow dressing", "light", "fresh reed cuts beside an older silt mark"],
-      ["watchtower", "watch-foundation", "Watch foundation pocket", "boar spear", "key", "a loose foundation stone below the old watch"]
+      ["watchtower", "watch-foundation", "Watch foundation pocket", "boar spear", "key", "a loose foundation stone below the old watch"],
+      ["mill", "tailrace-wrap", "Tailrace repair wrap", "sealed pitch pot", "rope", "willow bark snagged beneath a dry tailrace stone"]
     ],
     "greywash": [
       ["wreck", "ebb-line", "Ebb-line salvage pouch", "brine wash", "light", "a line of dry salt ending at buried tackle"],
-      ["dunes", "dune-pin", "Dune survey pin box", "fletched arrows", "rope", "a marked pin half hidden in wind-cut sand"]
+      ["dunes", "dune-pin", "Dune survey pin box", "fletched arrows", "rope", "a marked pin half hidden in wind-cut sand"],
+      ["saltworks", "pan-shutter", "Salt-pan shutter case", "market weights", "key", "a shutter peg set in a salt pan's lee"]
     ],
     "greenwold": [
       ["root_cellar", "root-hollow", "Root-hollow medicine wrap", "pine resin dressing", "light", "a cut root with fresh charcoal below its bark"],
-      ["watch_tree", "canopy-fall", "Canopy-fall hunting bundle", "throwing javelins", "rope", "a snapped cord leading away from the watch tree"]
+      ["watch_tree", "canopy-fall", "Canopy-fall hunting bundle", "throwing javelins", "rope", "a snapped cord leading away from the watch tree"],
+      ["resin_yard", "pitch-scrape", "Resin-yard pitch roll", "sealed pitch pot", "light", "a fresh pitch scrape under the cooling racks"]
     ],
     "whitecairn": [
       ["sinkhole", "scree-seam", "Scree-seam brace packet", "limestone wedge", "light", "a seam of pale chips at the sink edge"],
-      ["bell_tower", "bell-shadow", "Bell-shadow tool roll", "splint roll", "key", "a false bell mark scratched into exposed stone"]
+      ["bell_tower", "bell-shadow", "Bell-shadow tool roll", "splint roll", "key", "a false bell mark scratched into exposed stone"],
+      ["quarry", "handline-notch", "Quarry handline satchel", "throwing javelins", "rope", "a handline notch cut into the lee of a worked face"]
     ],
     "dunmire": [
       ["cave_entrance", "peat-print", "Peat-print dry packet", "sealed pitch pot", "light", "a dry boot print crossing wet peat"],
-      ["ruin", "bank-notch", "Bank-notch wicker wrap", "willow dressing", "rope", "an old water notch above the present fen line"]
+      ["ruin", "bank-notch", "Bank-notch wicker wrap", "willow dressing", "rope", "an old water notch above the present fen line"],
+      ["far_bank", "reed-roost", "Far-bank reed wrap", "brine wash", "light", "a reed roost tied high above blackwater"]
     ],
     "rillscar": [
       ["far_bank", "span-pin", "Span-pin survey case", "fletched arrows", "rope", "a second bridge pin driven into the rock"],
-      ["cave_entrance", "iron-vein", "Iron-vein bracing bundle", "splint roll", "light", "dark iron dust beneath a fresh stone chip"]
+      ["cave_entrance", "iron-vein", "Iron-vein bracing bundle", "splint roll", "light", "dark iron dust beneath a fresh stone chip"],
+      ["store", "switchback-tally", "Switchback tally tube", "market weights", "key", "a tally notch hidden beneath the lower switchback"]
     ],
     "marlbank": [
       ["ruin", "seed-line", "Seed-line lime packet", "sealed lime pot", "light", "seed rows bending around a buried clay lid"],
-      ["store", "kiln-mark", "Kiln-mark tally pouch", "market weights", "key", "a potter's mark on the cool side of the terrace"]
+      ["store", "kiln-mark", "Kiln-mark tally pouch", "market weights", "key", "a potter's mark on the cool side of the terrace"],
+      ["far_bank", "culvert-roll", "Bank culvert kit", "boar spear", "rope", "a clay plug wedged into a dry culvert mouth"]
     ],
     "frostmere": [
       ["far_bank", "ice-sounding", "Ice-sounding pilot wrap", "brine wash", "rope", "two winter soundings cut into one gravel bar"],
-      ["cave_entrance", "net-drift", "Net-drift salvage packet", "fletched arrows", "light", "a net weight caught well above the tide"]
+      ["cave_entrance", "net-drift", "Net-drift salvage packet", "fletched arrows", "light", "a net weight caught well above the tide"],
+      ["store", "cold-linen", "Cold-store linen roll", "pine resin dressing", "light", "a dry linen twist behind the cold-store sill"]
     ]
   }
 }

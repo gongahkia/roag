@@ -28,7 +28,7 @@ class WorldLayoutTests(unittest.TestCase):
             if index < 4:
                 self.assertEqual(region.changes["macro_layout"], create_world(seed).region.changes["macro_layout"])
             self.assertTrue(set(region.landmarks.values()) <= region_reachable(region))
-            self.assertEqual(len([box for box in region.containers if box.hidden]), 2)
+            self.assertEqual(len([box for box in region.containers if box.hidden]), len(FIELD_SECRETS[region.id]))
         self.assertEqual(layouts, set(LAYOUTS))
         self.assertGreaterEqual(len(landing_routes), 3)
 
@@ -41,7 +41,7 @@ class WorldLayoutTests(unittest.TestCase):
                 with self.subTest(region=region_id, seed=index):
                     validate_region(region)
                     hidden = [box for box in region.containers if box.hidden]
-                    self.assertEqual(len(hidden), 2)
+                    self.assertEqual(len(hidden), len(FIELD_SECRETS[region_id]))
                     self.assertTrue(all(box.position in region_reachable(region) for box in hidden))
                     self.assertTrue(all(not box.discovered and box.clue for box in hidden))
                     self.assertEqual(

@@ -2,38 +2,25 @@
 
 from __future__ import annotations
 
+from .catalog import ACTOR_SECTIONS, CatalogError, load_catalog
 from .visuals import ENTITY_GLYPHS
 
-# These rows identify authored situations; their actions below remain explicit.
-ELITE_ROWS = (
-    ("fen-marshal", "dunmire", "Veyra Reedlock", "reach", "surge", "control the drying bank", "Three counted releases flood a marked low lane; higher ground and the spill control remain usable.", "leave the marked lane, use height, or dog the regional spill", "relic:ebbglass spindle"),
-    ("fen-stack", "dunmire", "smouldering peat crown", "machinery", "smoulder", "burn through the drying rack", "Dry rack fuel feeds smoke before a warned support fails; water stops the heat chain.", "quench the rack, shelter below, or cool it through the spill", "passive:ember cloth"),
-    ("gorge-cordmaster", "rillscar", "Darrin Splitspan", "ranged", "sever", "take down the private scaffold", "Marks visible floor support before cutting, then moves toward a higher escape stair.", "brace the marked support, interrupt the cut, or tension the tailrace", "relic:hollow-bell shard"),
-    ("gorge-convoy", "rillscar", "counterweight convoy foreman", "reach", "convoy", "bring a guarded load through", "Nearby escort bodies take two harm from strikes on the foreman; one hoist signal rallies them.", "pull the escort apart, defeat its helpers, or publish the tailrace control", "passive:quarry brace"),
-    ("terrace-reeve", "marlbank", "Elsa Kilnmark", "ranged", "firing", "preserve the disputed firing", "Three charcoal charges ignite a warned crosswind line; wet cells do not light.", "pour on the fuel, move crosswind, or send the release to the kilns", "relic:coalheart seed"),
-    ("terrace-shutters", "marlbank", "counterweighted kiln shutters", "machinery", "shutters", "close the exposed kiln lanes", "Alternates loose cover across two marked lanes; the blades themselves telegraph a sweep.", "cross a different lane, brace the linkage, or operate the kiln release", "passive:mill-tooth wedge"),
-    ("estuary-pilot", "frostmere", "Tova Frostwake", "reach", "brine", "keep the disputed sounding open", "Counted brine breaks thin ice into current; unfrozen ground instead takes salt slurry.", "leave the marked sheet, use cleats and a light load, or release the ice boom", "relic:stillwater filament"),
-    ("estuary-drum", "frostmere", "loaded net-haul drum", "machinery", "haul", "drag the net load into the cut", "Marks a place for the haul, then pulls an unmoved bearer toward deep water; heavy loads suffer longer restraint.", "leave the mark, guard the haul, or cut the material linkage", "passive:load ledger"),
-    ("hearth-lockhand", "hearthford", "Ysolde Lockhand", "reach", "backwash", "reopen the private meadow sluice", "A counted backwash fills three paces of lane and pushes an unguarded bearer off its marked footing.", "leave the marked lane, guard the release, or dog the public sluice", "passive:tide ledger"),
-    ("coast-wreckward", "greywash", "Bran Wreckward", "pursuer", "salvage", "remove exposed goods under the old wreck claim", "Marks one physical ground item before taking it; defeat or witnessed settlement releases the same object.", "pack the marked good, block the approach, or present the witnessed wreck account", "passive:wreck key"),
-    ("forest-ashstep", "greenwold", "Mara Ashstep", "ranged", "firebreak", "cut every unlicensed fire line", "A warned break across three paces extinguishes useful flame but leaves obscuring ash where dry fuel stood.", "move the fire, use a wet boundary, or preserve the medicine coppice", "passive:smoke lens"),
-    ("upland-bellrope", "whitecairn", "Orren Bellrope", "reach", "counterfall", "close the exposed warning stair", "Marks one unprotected floor before dropping loose visible cover; remaining in place risks a guarded blunt fall.", "leave the mark, stand under public structure, or ring the honest bell", "passive:cliff cord"),
-    ("fen-pump-train", "dunmire", "backwater pump train", "machinery", "siphon", "empty the inhabited reed cut", "Drains a warned three-pace stretch of water into its pump bed, leaving wet soil as slowing mud.", "flood a second opening, brace the pump bed, or dog the regional spill", "passive:river hooks"),
-    ("gorge-wedge-crane", "rillscar", "cantilever wedge crane", "machinery", "lever", "move the quarry screen across the switchback", "Shifts loose cover onto a warned place without sealing the alternate bridge.", "take the other span, brace the linkage, or tension the public tailrace", "passive:counterweight ring"),
-    ("terrace-slip-wheel", "marlbank", "clay-slip spread wheel", "machinery", "slip", "coat the disputed seed-bed crossing", "Spreads shallow clay slurry across a warned line; an unguarded bearer becomes briefly mud-burdened.", "leave the line, guard in place, or operate the kiln release", "passive:cork float"),
-    ("estuary-ice-boom", "frostmere", "loaded ice-boom capstan", "machinery", "boom", "close the sheltered winter braid", "Freezes warned fresh shallows or shifts loose timber cover where no water remains.", "salt the water, cut the linkage, or release the public ice boom", "passive:ice awl"),
-)
-
-AFTERMATH_ELITES = {
-    "hearth-lockhand", "coast-wreckward", "forest-ashstep",
-    "upland-bellrope", "fen-pump-train", "gorge-wedge-crane",
-    "terrace-slip-wheel", "estuary-ice-boom",
-}
-NAMED_RIVALS = {
-    "fen-marshal", "gorge-cordmaster", "terrace-reeve", "estuary-pilot",
-    "hearth-lockhand", "coast-wreckward", "forest-ashstep",
-    "upland-bellrope",
-}
+_CATALOG = load_catalog("actors.json", ACTOR_SECTIONS)["FRONTIER_ELITES"]
+if not isinstance(_CATALOG, dict) or set(_CATALOG) != {"rows", "aftermath", "named"}:
+    raise CatalogError("FRONTIER_ELITES has invalid sections")
+if (not all(isinstance(_CATALOG[key], list) for key in ("rows", "aftermath", "named"))
+        or any(not isinstance(row, list) for row in _CATALOG["rows"])):
+    raise CatalogError("FRONTIER_ELITES must use lists")
+ELITE_ROWS = tuple(tuple(row) for row in _CATALOG["rows"])
+AFTERMATH_ELITES = frozenset(_CATALOG["aftermath"])
+NAMED_RIVALS = frozenset(_CATALOG["named"])
+if (len(ELITE_ROWS) != 16 or any(len(row) != 9 or any(not isinstance(value, str) or not value for value in row)
+                                  for row in ELITE_ROWS)
+        or len({row[0] for row in ELITE_ROWS}) != len(ELITE_ROWS)
+        or len(AFTERMATH_ELITES) != 8 or len(NAMED_RIVALS) != 8
+        or not AFTERMATH_ELITES <= {row[0] for row in ELITE_ROWS}
+        or not NAMED_RIVALS <= {row[0] for row in ELITE_ROWS}):
+    raise CatalogError("FRONTIER_ELITES has invalid rows or identities")
 
 ELITE_DEFINITIONS = {
     identity: {

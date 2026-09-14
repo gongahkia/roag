@@ -11,16 +11,31 @@ from .state import GameState, Position, Region, VerticalLink, stage_rng
 
 VARIANTS = load_catalog("terrain_variation.json", ("regions",))["regions"]
 _TERRAIN = frozenset("mtrq_:ws")
+_ENCOUNTER_KINDS = frozenset({"traveller", "beast", "raider", "stonefall", "elite"})
+
+
+def _valid_encounters(events: object, pockets: object) -> bool:
+    if (not isinstance(events, dict) or set(events) != {"pockets", "upper", "lower"}
+            or not isinstance(pockets, list) or not isinstance(events["pockets"], list)
+            or len(events["pockets"]) != len(pockets)):
+        return False
+    return all(
+        isinstance(pool, list) and pool and all(kind in _ENCOUNTER_KINDS for kind in pool)
+        for pool in (*events["pockets"], events["upper"], events["lower"])
+    )
+
+
 if not isinstance(VARIANTS, dict) or len(VARIANTS) != 8:
     raise CatalogError("terrain_variation.json needs eight regional patterns")
 for region_id, row in VARIANTS.items():
     if (not isinstance(region_id, str) or not isinstance(row, dict)
-            or set(row) != {"pockets", "upper", "lower", "traveller"}
+            or set(row) != {"pockets", "upper", "lower", "traveller", "encounters"}
             or not all(isinstance(row[key], str) and row[key] for key in ("upper", "lower", "traveller"))
-            or not isinstance(row["pockets"], list) or len(row["pockets"]) != 3
+            or not isinstance(row["pockets"], list) or len(row["pockets"]) < 3
             or any(not isinstance(pocket, list) or len(pocket) != 2
                    or not isinstance(pocket[0], str) or not pocket[0]
-                   or pocket[1] not in _TERRAIN for pocket in row["pockets"])):
+                   or pocket[1] not in _TERRAIN for pocket in row["pockets"])
+            or not _valid_encounters(row["encounters"], row["pockets"])):
         raise CatalogError(f"invalid terrain variation for {region_id}")
 
 
@@ -228,7 +243,7 @@ def approach(state: GameState) -> str:
     """One seeded, bounded field encounter per discovered pocket and expedition."""
     if state.location != "region" or state.position.z != 0:
         return ""
-    for index in range(3):
+    for index, pool in enumerate(VARIANTS[state.active_region_id]["encounters"]["pockets"]):
         anchor = state.region.landmarks.get(f"landform_{index}")
         if anchor is None or max(abs(state.position.x - anchor.x), abs(state.position.y - anchor.y)) > 2:
             continue
@@ -237,8 +252,6 @@ def approach(state: GameState) -> str:
             continue
         state.region.changes[marker] = state.expedition_count
         rng = stage_rng(state.seed, f"landform:{state.active_region_id}:{index}:visit:{state.expedition_count}")
-        pool = ("traveller", "beast", "raider", "stonefall", "elite") if index == 2 else (
-            "traveller", "beast", "raider", "stonefall")
         kind = rng.choice(pool)
         state.region.changes[f"landform:{index}:last"] = kind
         if kind == "traveller":
@@ -269,8 +282,7 @@ def enter_structure(state: GameState) -> str:
             return ""
         state.region.changes[marker] = state.expedition_count
         rng = stage_rng(state.seed, f"landform:{state.active_region_id}:{key}:visit:{state.expedition_count}")
-        kind = rng.choice(("raider", "elite", "traveller") if key == "field_upper"
-                          else ("beast", "stonefall", "traveller"))
+        kind = rng.choice(VARIANTS[state.active_region_id]["encounters"]["upper" if key == "field_upper" else "lower"])
         state.region.changes[f"landform:{key}:last"] = kind
         if kind == "traveller":
             return _spawn_traveller(state, anchor)

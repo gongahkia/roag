@@ -134,7 +134,7 @@ class CatalogTests(unittest.TestCase):
         self.assertTrue(all(name in REAGENTS for sources in SOURCES.values() for name in sources))
         self.assertTrue(all(item_spec(recipe.output) and all(item_spec(kind) for kind, _ in recipe.inputs)
                             for recipe in RECIPES.values()))
-        self.assertEqual(len(ENEMY_ARCHETYPES), 103)
+        self.assertEqual(len(ENEMY_ARCHETYPES), 111)
         self.assertEqual(len(RECRUIT_TEMPLATES), 6)
         self.assertEqual(len(COMMODITIES), 8)
         self.assertEqual(len(NODES), 60)

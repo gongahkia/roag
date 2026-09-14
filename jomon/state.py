@@ -674,7 +674,7 @@ def _threats(seed: str, region: Region) -> list[Threat]:
     gantry.ammunition = 7
     reavers = standard("hearth-cargo-reaver", "pressure-reavers", layout_point(region, Position(58, 28)), 6, "reavers", status="dormant")
     expanded_key = stage_rng(seed, "hearthford-expanded-role").choice((
-        "hearth-sluice-runner", "hearth-rope-cutter", "hearth-meadow-kite",
+        "hearth-sluice-runner", "hearth-rope-cutter", "hearth-meadow-kite", "hearth-levee-warden",
     ))
     expanded = standard(
         expanded_key,

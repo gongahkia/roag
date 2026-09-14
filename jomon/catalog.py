@@ -11,6 +11,10 @@ VESSEL_SECTIONS = (
     "voyages", "hazard_stations", "variants", "echoes", "refits",
     "region_nodes", "route_nodes", "route_edges", "optional_route_edges",
 )
+ACTOR_SECTIONS = (
+    "ENEMY_ARCHETYPES", "LEGACY_STANDARD_GLYPHS", "FRONTIER_ACTORS",
+    "EXPANDED_STANDARD_ACTORS", "FRONTIER_ELITES", "STANDARD_REACTIONS",
+)
 AFTERMATH_SECTIONS = (
     "lines", "topologies", "drainage_topologies", "fire_topologies",
     "support_topologies", "recovery_topologies", "preparations",

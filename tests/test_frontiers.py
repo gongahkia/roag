@@ -60,8 +60,8 @@ class FrontierTests(unittest.TestCase):
                     reachable = region_reachable(first)
                     self.assertTrue(set(first.landmarks.values()) <= reachable)
                     self.assertEqual({p.z for p in reachable}, {-1, 0, 1, 2})
-                    self.assertEqual(len(first.containers), 12)
-                    self.assertEqual(sum(container.hidden for container in first.containers), 2)
+                    self.assertEqual(len(first.containers), 13)
+                    self.assertEqual(sum(container.hidden for container in first.containers), 3)
             self.assertGreater(len(signatures), 1)
 
     def test_loading_expanded_world_never_rebuilds_old_geography(self):

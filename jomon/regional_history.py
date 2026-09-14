@@ -528,11 +528,15 @@ def ledger_lines(state: GameState) -> list[str]:
     lines += [str(region.changes.get("last_work_account", "No new shift has been resolved in this account.")), ""]
     for event in region.regional_history:
         lines += [f"TESTIMONY — {event.account}", f"EVIDENCE — {event.evidence}: {event.consequence}", ""]
-    lines.extend(f"LANDFORM — {facts[key]}" for key in (*[f"landform:{index}" for index in range(3)], "field_upper", "field_lower") if key in facts)
+    landform_keys = sorted(
+        (key for key in facts if key.startswith("landform:")),
+        key=lambda key: int(key.partition(":")[2]),
+    )
+    lines.extend(f"LANDFORM — {facts[key]}" for key in (*landform_keys, "field_upper", "field_lower") if key in facts)
     if region.changes.get("sanctum:cleared"):
         lines.append(f"SANCTUM — cleared; holding {region.changes.get('sanctum:control', 'unsettled')}; "
                      f"gallery seam {'open' if region.changes.get('sanctum:secret_open') else 'unopened'}.")
-    lines += ["FORECAST — " + forecast(state), "Information and menus cost no action. Supplies and work do."]
+    lines += ["FORECAST — " + forecast(state), "Reading uses no stores; fieldwork calls for supplies and a shift of daylight."]
     from .worklines import WORKLINES, lines as work_lines
     if state.active_region_id in WORKLINES:
         lines += ["", "UNDERTAKING — optional second regional work", *work_lines(state)]
@@ -595,7 +599,7 @@ def validate_accounts(state: GameState) -> None:
     for region in state.regions.values():
         if not region.regional_history:
             continue
-        if not 3 <= len(region.regional_history) <= 7 or len(region.generation_facts) > 16:
+        if not 3 <= len(region.regional_history) <= 7 or len(region.generation_facts) > 17:
             raise ValueError("regional causal record exceeds its bounds")
         seen = set()
         for event in region.regional_history:
