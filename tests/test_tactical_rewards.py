@@ -136,7 +136,7 @@ class TacticalRewardTests(unittest.TestCase):
         state = create_world("new quest caches")
         self.assertEqual(
             {region_id: len(region.containers) for region_id, region in state.regions.items()},
-            {"hearthford": 13, "greywash": 11, "greenwold": 11, "whitecairn": 11},
+            {"hearthford": 14, "greywash": 12, "greenwold": 12, "whitecairn": 12},
         )
         placed = {
             reward

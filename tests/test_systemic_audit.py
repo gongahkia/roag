@@ -15,7 +15,7 @@ class SystemicAuditTests(unittest.TestCase):
         errors, metrics = inspect_world(self.world)
         self.assertEqual(errors, [])
         self.assertEqual(len(metrics), 8)
-        self.assertEqual(sum(value["containers"] for value in metrics.values()), 94)
+        self.assertEqual(sum(value["containers"] for value in metrics.values()), 102)
         self.assertTrue(all(value["used_levels"] == 4 for value in metrics.values()))
 
     def test_seed_shaped_hearthford_threats_remain_connected(self):
