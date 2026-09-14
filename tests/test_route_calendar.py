@@ -69,6 +69,26 @@ class RouteGraphTests(unittest.TestCase):
         self.assertEqual(mouse_animation, animation)
         self.assertEqual(mouse.to_dict(), keyboard.to_dict())
 
+    def test_distant_chart_selection_is_inspectable_but_cannot_depart(self):
+        state = create_world("distant chart selection")
+        remote = next(node for node in state.route_nodes
+                      if node != state.route_current_node
+                      and node not in neighbours(state, state.route_current_node))
+        view = RouteChartView(remote)
+
+        lines = route_detail_lines(state, view, 23)
+        self.assertTrue(all(len(line) <= 23 for line in lines))
+        self.assertIn("No direct charted leg", " ".join(lines))
+        self.assertEqual(_handle_route_chart(state, view, InputEvent("key", key=10)), (False, None, None))
+        self.assertEqual(state.route_current_node, "hearthford")
+
+        mouse_view = RouteChartView("hearthford", node_screen={remote: (12, 7)})
+        self.assertEqual(
+            _handle_route_chart(state, mouse_view, InputEvent("mouse", x=12, y=7, button="left", double=True)),
+            (False, None, None),
+        )
+        self.assertIn("No direct charted leg", " ".join(route_detail_lines(state, mouse_view, 23)))
+
     def test_travel_frames_are_presentation_only_and_skip_parity_is_exact(self):
         animated = create_world("skip parity")
         skipped = create_world("skip parity")

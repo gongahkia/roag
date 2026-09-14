@@ -91,7 +91,7 @@ from .navigation import (
 )
 from .state import GameState, MaterialCell, Position, Threat
 from .travel import DESTINATIONS, choose_destination, resolve_voyage, travel_animation_frames
-from .route_chart import chart_move, neighbours, route_availability
+from .route_chart import chart_move, edge_between, neighbours, route_availability
 from .calendar import calendar_at, seasonal_route_note
 from .vessel import DRINKS, current_area
 from .visuals import (
@@ -1894,29 +1894,34 @@ def route_detail_lines(
             f"Integrity: {state.vessel_integrity}/10",
         ]
     else:
-        edge = next(
-            edge for edge in state.route_edges
-            if {edge.first, edge.second} == {state.route_current_node, view.cursor}
-        )
-        available, reason = route_availability(state, view.cursor)
-        from .route_chart import leg_travel_time
-
-        route = f"Route: {edge.hazard}; {leg_travel_time(state, edge)} actions; supplies {edge.supply_cost}"
-        risks = f"Risks: cargo {edge.cargo_risk}/3; weather {edge.weather_exposure}/4"
-        season = f"{date.season.title()}: {seasonal_route_note(state)}"
-        route_layer = [description, route, risks, "REACHABLE" if available else f"BLOCKED: {reason}"]
-        market_layer = [description, f"Supplies used: {edge.supply_cost}", market, contact]
-        season_layer = [season, f"Calendar: {date.label}", f"Integrity: {state.vessel_integrity}/10"]
-        chosen_layer = (route_layer, market_layer, season_layer)[view.overlay_mode]
-        raw = [node.name.upper(), f"Type: {node.kind}", *chosen_layer]
-        if view.confirming:
+        edge = edge_between(state, state.route_current_node, view.cursor)
+        if edge is None:
             raw = [
-                node.name.upper(), f"Type: {node.kind}", description, route, risks,
-                season, market, contact,
-                "REACHABLE" if available else f"BLOCKED: {reason}", "",
-                f"> ENTER — {'CONFIRM LEG' if available else 'BLOCKED'}",
-                "  ESC — cancel",
+                node.name.upper(), f"Type: {node.kind}", description,
+                f"No direct charted leg from {state.route_nodes[state.route_current_node].name}.",
+                f"Season: {date.season}", market, contact,
+                "Follow a connected line from Jomon's mooring to set sail.",
             ]
+        else:
+            available, reason = route_availability(state, view.cursor)
+            from .route_chart import leg_travel_time
+
+            route = f"Route: {edge.hazard}; {leg_travel_time(state, edge)} actions; supplies {edge.supply_cost}"
+            risks = f"Risks: cargo {edge.cargo_risk}/3; weather {edge.weather_exposure}/4"
+            season = f"{date.season.title()}: {seasonal_route_note(state)}"
+            route_layer = [description, route, risks, "REACHABLE" if available else f"BLOCKED: {reason}"]
+            market_layer = [description, f"Supplies used: {edge.supply_cost}", market, contact]
+            season_layer = [season, f"Calendar: {date.label}", f"Integrity: {state.vessel_integrity}/10"]
+            chosen_layer = (route_layer, market_layer, season_layer)[view.overlay_mode]
+            raw = [node.name.upper(), f"Type: {node.kind}", *chosen_layer]
+            if view.confirming:
+                raw = [
+                    node.name.upper(), f"Type: {node.kind}", description, route, risks,
+                    season, market, contact,
+                    "REACHABLE" if available else f"BLOCKED: {reason}", "",
+                    f"> ENTER — {'CONFIRM LEG' if available else 'BLOCKED'}",
+                    "  ESC — cancel",
+                ]
     lines: list[str] = []
     for line in raw:
         lines.extend(_wrapped(line, max_width) or [""])
