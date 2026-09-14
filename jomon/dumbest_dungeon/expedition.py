@@ -1078,7 +1078,7 @@ def engage_if_touching(match: dict) -> bool:
         return False
     match["phase"] = "combat"
     _begin_combat(match)
-    _log(match, "The rival parties make contact. Ranked card combat begins.")
+    _log(match, "The rival departments meet; both hands come onto the table.")
     return True
 
 

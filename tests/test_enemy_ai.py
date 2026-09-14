@@ -96,7 +96,7 @@ class GoalSelectionTests(unittest.TestCase):
         )
         state.threats = [threat]
         self.assertEqual(select_goal(state, threat).action, "feed smoke")
-        self.assertIn("bounded smoke lane", _threat_action(state, threat, False))
+        self.assertIn("smoke into a short lane", _threat_action(state, threat, False))
         self.assertTrue(state.smoke)
 
 

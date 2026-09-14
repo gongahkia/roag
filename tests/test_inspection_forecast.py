@@ -111,7 +111,7 @@ class InspectionAndForecastTests(unittest.TestCase):
         lines = _status_lines(state, 14)
         self.assertEqual(len(lines), 6)
         text = " ".join(lines)
-        for phrase in (state.courier.name, f"Class: {state.courier.role}", "Health [####....]", "Load ", " kg", "Location: Hearthford"):
+        for phrase in (state.courier.name, f"Role: {state.courier.role}", "Health [####....]", "Load ", " kg", "Location: Hearthford"):
             self.assertIn(phrase, text)
         for phrase in ("Ammo", "DANGER", "no visible threat", "Combo", "STATUS bogged", "ACTION"):
             self.assertNotIn(phrase, text)

@@ -244,7 +244,7 @@ class BartenderAndIncidentTests(unittest.TestCase):
         )
         changed, text = resolve_social_incident(state, "let-fight")
         self.assertTrue(changed)
-        self.assertIn("bounded", text)
+        self.assertIn("stop before grave harm", text)
         self.assertGreaterEqual(first.health, 2)
         self.assertGreaterEqual(second.health, 2)
         self.assertTrue(state.chronicle)

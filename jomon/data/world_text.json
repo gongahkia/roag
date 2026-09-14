@@ -18,11 +18,11 @@
     "################################################"
   ],
   "HELP_LINES": [
-    ";: move a zero-time look cursor; mouse click also inspects a map cell without acting.",
+    ";: look around without passing time; mouse click also inspects a place without acting.",
     "O: observe visible people, wildlife, duties, supplies and tactical counters (free).",
     "F: inspect and handle nearby material; choices commit one action, Escape costs none.",
-    "Z: regional work account, linked history, testimony and action-clock forecast (free).",
-    "Move with arrows, HJKL, or YUBN diagonals. The camera follows across each seamless region.",
+    "Z: regional work account, linked history, testimony and likely next changes (free).",
+    "Move with arrows, HJKL, or YUBN diagonals. Your view follows you across each region.",
     "T follows a seen local destination one ordinary step at a time; any key stops it.",
     "Enter/E interacts. A previews and targets any attack. G guards, reloads, or holds to listen.",
     "At Jomon's gangplank E walks ashore; Tab offers the tug. E boards regional vehicles; Tab opens an interior.",
@@ -30,9 +30,9 @@
     "Reverse ! cells mark an observed prepared attack; @ is reversed when standing in its mark.",
     "Water ~, wall #, doors +, stairs <> and roof ^, controls &, hole O, weak floor d.",
     "Aboard, speak beside people to switch or recruit; tavern C selects support; chart P sets course.",
-    "I opens the spatial pack/locker: move, rotate, transfer, equip, confirm, or cancel safely.",
+    "I opens the pack or locker: move, rotate, transfer, equip, confirm, or cancel safely.",
     "P opens courier skills; D learned spell targets and shrine vigils; W physical work and flasks.",
-    "Pressure combines elapsed actions, geographic depth, noise, and valuables.",
+    "Time, distance from safety, noise, and valuables draw attention.",
     "Normal colour is visible now; dim terrain is remembered; blank terrain remains unknown.",
     "Guard readable intent; smoke breaks aim; mud, water, controls, height, and walls matter.",
     "Q asks before quitting. Escape closes or backs out of a popup."

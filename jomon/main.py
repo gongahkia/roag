@@ -75,7 +75,7 @@ def _draw_notice_landing(
 
     layout = landing_notice_layout(width, height, notice, str(save_path()))
     title = "J O M O N"
-    subtitle = "A vessel-household terminal roguelike"
+    subtitle = "A household between river and coast"
     _put(screen, layout.top - 6, _centered_x(width, title), title, colour_attribute("ui_heading") | curses.A_BOLD)
     _put(screen, layout.top - 4, _centered_x(width, subtitle), subtitle, colour_attribute("ui_accent"))
     _frame(screen, layout.top, layout.left, layout.height, layout.width, "SAVE VERSION MISMATCH")
@@ -102,8 +102,8 @@ def _generated_seed() -> str:
 def _read_seed(screen: curses.window) -> str:
     height, width = screen.getmaxyx()
     screen.erase()
-    _put(screen, max(1, height // 2 - 2), max(1, width // 2 - 28), "NEW JOMON WORLD", colour_attribute("ui_heading") | curses.A_BOLD)
-    _put(screen, max(2, height // 2), max(1, width // 2 - 28), "Readable seed (blank generates one): ", colour_attribute("ui_accent"))
+    _put(screen, max(1, height // 2 - 2), max(1, width // 2 - 28), "BEGIN JOMON'S CHRONICLE", colour_attribute("ui_heading") | curses.A_BOLD)
+    _put(screen, max(2, height // 2), max(1, width // 2 - 28), "Chronicle mark (blank draws one): ", colour_attribute("ui_accent"))
     screen.refresh()
     curses.echo()
     _set_cursor_visibility(1)
@@ -152,7 +152,7 @@ def run(screen: curses.window) -> None:
                     return
             continue
         title = "J O M O N"
-        subtitle = "A vessel-household terminal roguelike"
+        subtitle = "A household between river and coast"
         _put(screen, max(1, height // 2 - 6), _centered_x(width, title), title, colour_attribute("ui_heading") | curses.A_BOLD)
         _put(screen, max(2, height // 2 - 4), _centered_x(width, subtitle), subtitle, colour_attribute("ui_accent"))
         title_x = max(1, width // 2 - 8)

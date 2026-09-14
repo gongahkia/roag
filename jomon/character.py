@@ -11,7 +11,7 @@ ATTRIBUTE_POINTS = 8
 COMPETENCY_POINTS = 5
 ANCESTRIES = ("Human", "Reedfolk", "Stonefolk", "Tidekin")
 PEOPLE_EFFECTS = {
-    "Human": "specified courier gains +1 more in the trait's competency",
+    "Human": "the named trait grants +1 more in its linked competency",
     "Reedfolk": "+1 Fieldcraft; +1 sight in Greywash",
     "Stonefolk": "+1 Craft; +4 carrying weight",
     "Tidekin": "+1 Wayfinding; +1 sight in fog or coastal squalls",

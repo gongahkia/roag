@@ -80,7 +80,7 @@ class CompetencyTests(unittest.TestCase):
             changed, message = choose_destination(state, "reed-anchor")
         self.assertTrue(changed)
         self.assertEqual(state.world_time - before, 3)
-        self.assertIn("3 action-clock measures", message)
+        self.assertIn("3 measures of travel", message)
         self.assertEqual(state.courier.wayfinding, 6)
 
     def test_fieldcraft_extends_sight_and_new_ground_teaches(self):

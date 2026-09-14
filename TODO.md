@@ -2,48 +2,37 @@
 
 ## Current State
 
-- The expansion in progress has eight persistent regional destinations and a
-  16-node route chart. It remains a standard-library Python 3.11+ `curses`
-  roguelike with aligned z-levels, camera/FOV and action-clock processes.
+- The current game has eight persistent regional destinations and a 16-node
+  route chart. It remains a standard-library Python 3.11+ `curses` roguelike
+  with aligned z-levels, camera/FOV and action-clock processes.
 - Jomon has three 64×22 decks, a dedicated 64×24 tavern, scheduled named adults, bartender and eight drinks, six initial adults, six bounded regional recruits, a paper-doll equipment view, 10×6 courier pack, 18×10 locker, and optional mouse input.
-- Save format 7 migrates Python format 6 without repainting saved geography or
-  replacing lost possessions; supported older Python paths chain forward.
-  A real save written by the expected format-6 commit was loaded and resaved by
-  format 7 with its exact injury, health, market stock and physical identities.
-  The final serial run for the Aftermath, Motion and Reciprocity tranche
-  passed 506 tests in 384.377 seconds. The corrected 1,000-seed audit generated
-  8,000 regions with zero
-  failures. See the live
-  measurement ledger for exact focused audits, performance and candid
-  manual/platform limits.
-- Each region now has a three-stage questline with two endings, and completing
-  any two opens the five-part Working Marks arc. Production generation uses
-  finite mixed groups, four seeded alternative elites, and 62 persistent
-  containers. The expansion now has 36 weapons, 36 armour pieces, 48 passives,
-  32 inherent/learned techniques, 16 relics, eight physical fitting kits,
-  51 secondary tools, supplies and drinks, eight optional vessel refits,
-  sparse materials, five cross-region arcs, twelve bounded voyage families and
-  twelve causally activated voyage variants.
-  Twenty-four executable build scenarios and dedicated production audits cover
-  the numeric gates; exhaustive manual branch/build coverage is not claimed.
+- Save format 14 is current; formats 3–13 migrate forward. The format-6 to
+  format-7 migration preserved recorded geography and physical identities in
+  its historical fixture. Historical milestone checks are recorded under
+  `docs/`; they are not a substitute for checks on the current tree.
+- The current content verifier reports 20 regional lines, five cross-region
+  arcs, 24 mixed situations, eight sanctums, 94 physical containers, 72 weapons,
+  36 armour pieces, 48 passives, 32 techniques, 16 relics, 11 vessel refits,
+  twelve voyage families and twelve stateful variants. Twenty-four executable
+  build scenarios cover the numeric gates; exhaustive manual branch and build
+  coverage is not claimed.
 
 ## Now
 
-- Implement the Situations and Active Mastery tranche recorded in
-  `docs/situations-active-mastery-milestone.md`: 24 mixed situations, 12
-  deliberate manoeuvres, 24 mutable micro-sites, eight cross-region
-  interference events, 12 voyage echoes, two household developments and one
-  all-region capstone.
+- Complete the final content and player-facing language audit on the current
+  tree, including live-terminal and persistence checks.
 
 ## Next
 
-- Rebalance the 24 retained build scenarios across the new situations after
-  production and persistence audits pass.
+- Time complete human playthroughs and at least one replay with different
+  choices. Catalogue counts and automated route checks alone cannot establish
+  the requested ten-hour replayable-play target.
+- Exercise a complete all-region campaign and native macOS/WSL terminals before
+  claiming those paths are release-verified.
 
 ## Later
 
-- Judge all eight current regions before any further geographic expansion;
-  this tranche deepens them in place.
+- Judge all eight current regions before any further geographic expansion.
 - Revisit return-route variation after the present expansion is played.
 - Add capture or rescue only if play exposes a concrete contextual need.
 

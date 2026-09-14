@@ -336,7 +336,7 @@ class ExpeditionUI(TavernUIBase):
         choices = [f"{OFFICE_SQUADS[squad['id']]:26} {', '.join(OFFICE_ROLES[role].split()[0] for role in squad['formation'])}"
                    for squad in squads]
         selected = self._menu("THIRTEEN COMPANY FORMATIONS", choices,
-                              "Original curated four-specialist formations, adapted as company teams. Each supplies a compatible company policy; individual jobs and cards remain editable afterward.")
+                              "Four-worker company formations. Each comes with a compatible policy; jobs and cards can be changed afterward.")
         if selected is None:
             return
         squad = squads[selected]

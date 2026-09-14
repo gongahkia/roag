@@ -633,7 +633,7 @@ def status_colour_role(text: str) -> str:
             return "success" if current * 2 >= maximum else "warning"
         except ValueError:
             return "warning"
-    if lower.startswith("class:"):
+    if lower.startswith("role:"):
         return "technique"
     if lower.startswith("load "):
         try:
@@ -838,7 +838,7 @@ def _status_lines(state: GameState, capacity: int | None = None) -> list[str]:
         health, name, role = "Health [........] -", ["not chosen"], "-"
     location = state.region.name if state.location == "region" and state.position.z == 0 else area_name(state)
     lines = [
-        "COURIER", *name, f"Class: {role}", health,
+        "COURIER", *name, f"Role: {role}", health,
         f"Load {pack_weight(state)}/{weight_capacity(state)} kg",
         *textwrap.wrap(f"Location: {location}", width=25, break_long_words=True),
     ]

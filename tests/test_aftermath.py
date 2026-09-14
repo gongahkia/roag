@@ -156,7 +156,7 @@ class EndingDerivedAftermathTests(unittest.TestCase):
         self.assertIn("learns siltgate hand", message)
         rewards = [
             item.kind for item in state.items
-            if item.provenance.startswith("finite preparation taught by")
+            if item.provenance.startswith("preparation learned from")
         ]
         self.assertEqual(
             set(rewards),

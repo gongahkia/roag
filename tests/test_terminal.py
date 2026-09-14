@@ -242,7 +242,7 @@ class SemanticColourTests(unittest.TestCase):
         self.assertEqual(status_colour_role("COURIER"), "ui_heading")
         self.assertEqual(status_colour_role("Health [########] 10/10"), "success")
         self.assertEqual(status_colour_role("Health [##......] 2/10"), "warning")
-        self.assertEqual(status_colour_role("Class: pilot"), "technique")
+        self.assertEqual(status_colour_role("Role: pilot"), "technique")
         self.assertEqual(status_colour_role("Load 22/30 kg"), "cargo")
         self.assertEqual(status_colour_role("Load 41/30 kg"), "warning")
         self.assertEqual(status_colour_role("Location: Hearthford"), "ui_heading")

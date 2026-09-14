@@ -111,7 +111,7 @@ class CompleteEnemyRosterTests(unittest.TestCase):
         state, slinger = self.state_for("gantry-bow", Position(45, 25, 1))
         state.position = Position(40, 25, 1)
         message = _threat_action(state, slinger, False)
-        self.assertIn("bounded smoke lane", message)
+        self.assertIn("smoke into a short lane", message)
         self.assertTrue(state.smoke)
 
     def test_hearthford_reaver_takes_and_can_drop_exact_physical_item(self):
