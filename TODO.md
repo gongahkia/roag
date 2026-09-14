@@ -19,16 +19,15 @@
 
 ## Now
 
-- Complete the final content and player-facing language audit on the current
-  tree, including live-terminal and persistence checks.
+- Run and time a complete all-region human campaign and one replay with
+  different choices. The [final content audit](docs/final-content-release-audit-2026-09-14.md)
+  records the checked breadth, but automated route and catalogue evidence
+  cannot certify the requested ten-hour replayable-play target.
 
 ## Next
 
-- Time complete human playthroughs and at least one replay with different
-  choices. Catalogue counts and automated route checks alone cannot establish
-  the requested ten-hour replayable-play target.
-- Exercise a complete all-region campaign and native macOS/WSL terminals before
-  claiming those paths are release-verified.
+- Exercise native macOS/WSL terminals before claiming those platforms are
+  release-verified.
 
 ## Later
 

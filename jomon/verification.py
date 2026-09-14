@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import hashlib
 import json
 import tempfile
@@ -322,6 +323,8 @@ def memory_soak(legs: int = 80) -> dict[str, object]:
             raise RuntimeError(reason)
         if index >= legs // 2:
             sizes.append(len(json.dumps(state.to_dict(), sort_keys=True)))
+            # compare retained memory, not garbage awaiting collection.
+            gc.collect()
             current_samples.append(tracemalloc.get_traced_memory()[0])
     current, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
