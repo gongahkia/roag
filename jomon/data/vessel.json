@@ -101,7 +101,7 @@
       "family": "boarders",
       "name": "Obligation claim",
       "cause": "An unsettled institutional obligation has been sold to a boarding company.",
-      "effect": "A claimant joins the boarding and offers a finite account settlement.",
+      "effect": "A claimant joins the boarding and offers terms for one cargo claim.",
       "counterplay": "Take the decks, surrender cargo, or settle one real obligation before boarding."
     },
     {
@@ -174,7 +174,7 @@
       "variant_id": "shortage-skiffs",
       "kind": "rival preparation",
       "title": "Hooks remembered at the next mooring",
-      "consequence": "a local cargo thief arrives with one extra finite supply, but names the marked shortage lot"
+      "consequence": "a local cargo thief arrives with one extra supply, but names the marked shortage lot"
     },
     {
       "variant_id": "displaced-pair",
@@ -322,7 +322,7 @@
       "station": "repair",
       "dependency": "ironwork",
       "credit": 5,
-      "effect": "The repair station can smelt and forge finite material while Jomon is moored.",
+      "effect": "The repair station can smelt and forge carried material while Jomon is moored.",
       "drawback": "Heavy hot work is unavailable during a voyage or deck crisis."
     },
     {
@@ -331,7 +331,7 @@
       "station": "galley",
       "dependency": "paper",
       "credit": 5,
-      "effect": "The galley can brew and distil finite carried ingredients while moored.",
+      "effect": "The galley can brew and distil carried ingredients while moored.",
       "drawback": "Its vessels still need gathered reagents and empty physical flasks."
     },
     {
@@ -341,7 +341,7 @@
       "dependency": "ironwork",
       "credit": 7,
       "effect": "The storage station can fabricate guns and counted fictional charges while moored.",
-      "drawback": "Loud work and finite stock never create free ammunition."
+      "drawback": "Loud work still needs stock for every round of ammunition."
     }
   ],
   "region_nodes": {

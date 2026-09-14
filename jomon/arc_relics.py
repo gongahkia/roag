@@ -11,9 +11,9 @@ ARC_RELICS = {
 }
 
 ARC_RELIC_DESCRIPTIONS = {
-    "common-work rivet": "A finite master rivet repairs worn equipment and nearby supports together, but the resisting work leaves the bearer fatigued.",
+    "common-work rivet": "A master rivet repairs worn equipment and nearby supports together, but the resisting work leaves the bearer fatigued.",
     "counterclaim lodestone": "A strange ironstone strips nearby human weapons into one recoverable pile—including the courier's readied weapon—and rings an alarm.",
-    "lee-cloth brooch": "A finite sailcloth clasp makes an eight-action lee against storm movement, sight and spoiled aim; its snap alerts nearby listeners.",
+    "lee-cloth brooch": "A sailcloth clasp gives brief lee from a storm's push and glare; its snap alerts nearby listeners.",
     "channel-surety shuttle": "A weighted line carries the courier over a straight marked water lane; the heaviest cargo stays at the launch and the landing is loud.",
 }
 
@@ -60,7 +60,7 @@ def _channel_lane(state):
 def use_arc_relic(state, name: str) -> tuple[bool, str]:
     """Apply one selected relic; callers own the ordinary action-clock advance."""
     if state.carried_relic != name or not state.relics.get(name):
-        return False, "That finite arc relic is not physically selected."
+        return False, "That relic is not at hand."
     from .actions import add_status, emit_sound
     from .materials import fields, point_at
     from .world import distance

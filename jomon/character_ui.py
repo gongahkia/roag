@@ -30,7 +30,7 @@ def _draw(screen: curses.window, state: GameState, crew_index: int, name: str,
     top, left = _panel_origin(screen)
     height, width = screen.getmaxyx()
     _frame(screen, top, left, min(PANEL_HEIGHT, height), min(PANEL_WIDTH, width), "COURIER SPECIFICATION / FIRST WATCH")
-    put(screen, top + 1, left + 3, "Choose one generated adult; their role and existing bonds remain.", accent("ui_accent"))
+    put(screen, top + 1, left + 3, "Choose a household adult; their role and existing bonds remain.", accent("ui_accent"))
     put(screen, top + 2, left + 3, "H/L changes the selected field. Enter names your courier. S accepts.")
     crew = state.household[crew_index]
     values = {

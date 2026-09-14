@@ -1456,7 +1456,7 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         from .skill_tree import journals_at_hand
 
         return [ChoiceOption(*row) for row in station_choices(state)] + [
-            ChoiceOption("J", "Write a physical skill journal", "commitment", bool(state.courier and state.courier.skill_nodes), "a learned node and paper"),
+            ChoiceOption("J", "Write a lesson in a paper journal", "commitment", bool(state.courier and state.courier.skill_nodes), "a learned practice and paper"),
             ChoiceOption("K", "Study a physical skill journal", "commitment", bool(journals_at_hand(state)), "a written journal in the pack or locker"),
         ]
     if kind.startswith("household-story:"):
@@ -1508,7 +1508,7 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         return [
             ChoiceOption(
                 str(index + 1),
-                f"{contract.title} — {contract.status}, stage {contract.stage}/3",
+                f"{contract.title} — {contract.status}",
                 "ordinary" if contract.status in {"available", "completed"} else "commitment",
             )
             for index, contract in enumerate(contracts_for(state))
@@ -1655,7 +1655,7 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         return [
             ChoiceOption("M", "Mediate by naming the disputed work", "commitment"),
             ChoiceOption("S", "Support the first speaker", "refusal"),
-            ChoiceOption("F", "Let the bounded fistfight run", "danger"),
+            ChoiceOption("F", "Let the fistfight run its course", "danger"),
         ]
     if kind == "route-stop":
         node = state.route_nodes[state.route_current_node]
@@ -1671,7 +1671,7 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         person = person_by_id(state, kind.split(":", 1)[1])
         options = [ChoiceOption("C", "Open full character sheet")]
         if person and person.id != state.active_courier_id and state.courier and "teaching" in state.courier.skill_nodes:
-            options.append(ChoiceOption("T", "Teach one known skill node", "commitment"))
+            options.append(ChoiceOption("T", "Teach one learned practice", "commitment"))
         if person in state.household and person and person.id != state.active_courier_id and person.alive and person.available:
             return options + [ChoiceOption("S", "Switch to this courier", "commitment")]
         if person and person not in state.household:
@@ -2510,8 +2510,8 @@ def _tavern_lines(state: GameState) -> list[str]:
         "Speak directly to a visible adventurer to switch or recruit.",
         f"S Crew support: {state.support or 'none'}",
         f"Readied: {state.weapon or 'none'} / {state.gear or 'none'} / {state.carried_relic or 'no relic'}",
-        f"Discoveries: {passives} ({passive_bulk(state)}/{passive_capacity(state)} legacy bulk)",
-        f"Build interactions: {combos}", f"Cargo: {goods}; capacity {carried_bulk(state)}/{capacity(state)}",
+        f"Discoveries: {passives} ({passive_bulk(state)}/{passive_capacity(state)} carried bulk)",
+        f"Working strengths: {combos}", f"Cargo: {goods}; capacity {carried_bulk(state)}/{capacity(state)}",
         "", state.region.condition, state.region.objective_text, f"Objective: {state.objective_status}",
         "Use I for the pack, body slots, and Jomon locker.",
         "Enter confirms and closes. Escape cancels without advancing time.",
@@ -2521,7 +2521,7 @@ def _tavern_lines(state: GameState) -> list[str]:
 def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
     if kind == "gangplank":
         return "JOMON GANGPLANK", [
-            f"1. Walk ashore into {state.region.name} as before.",
+            f"1. Walk ashore into {state.region.name}.",
             "2. Board the tug. J is Jomon's mooring; L is the regional shore.",
             "The water crossing uses fuel, shoal wear, and one action per helm order.",
         ]
@@ -2581,17 +2581,17 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         rows.append("1-8 make; A-H delegate with Speech 7 or Work order; N/P pages; M fill carried flask.")
         if at_shore_site(state):
             first, second = SOURCES[state.active_region_id]
-            rows.append(f"9. Gather {first}; 0. Gather {second}; bounded source stock {state.production['sites'][state.active_region_id]['stock']}.")
-        return "PHYSICAL PRODUCTION", rows
+            rows.append(f"9. Gather {first}; 0. Gather {second}; remaining local lots {state.production['sites'][state.active_region_id]['stock']}.")
+        return "WORKING PLANS AND LOCAL SOURCES", rows
     if kind == "craft-mix":
         from .chemistry import carried_flasks
 
-        return "FREEFORM FIELD FLASKS", [
+        return "FIELD FLASKS", [
             *[f"{index + 1}. {flask.id}: {flask.contents or 'empty'} ({sum(flask.contents.values())}/4)"
               for index, flask in enumerate(carried_flasks(state)[:9])],
             f"Practiced formulas: {', '.join(state.courier.known_formulas) or 'none'}; household journal: {', '.join(state.household_formulas) or 'none'}.",
             "Choose a flask; an ingredient is physically transferred into it. Reactions are inspectable before pouring or drinking.",
-            "B. Return to production.",
+            "B. Return to working plans.",
         ]
     if kind.startswith("craft-distil:"):
         from .chemistry import carried_flasks
@@ -2599,7 +2599,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         flask_id = kind.split(":", 1)[1]
         flask = next((item for item in carried_flasks(state) if item.id == flask_id), None)
         return "CONTROLLED DISTILLATION", [
-            f"{flask_id}: {flask.contents if flask else 'no longer carried'}; one physical still and the Controlled distil node are required.",
+            f"{flask_id}: {flask.contents if flask else 'no longer carried'}; needs a still and the Controlled distil practice.",
             *[f"{index + 1}. Separate one {reagent} measure into the pack."
               for index, reagent in enumerate(flask.contents if flask else ())],
             "B. Return to flasks. Separation uses two actions; no measure appears from nothing.",
@@ -2623,7 +2623,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             f"{state.courier.name}: mana {state.courier.mana}/{state.courier.max_mana}. Rest at moored berths, brew, or visit a cave-mouth shrine; no passive combat recovery.",
             *[f"{index + 1}. {NODES[node].name}: {sum(spell in state.courier.known_spells for spell in spells)}/4 learned"
               for index, (node, spells) in enumerate(SPELL_TIERS.items())],
-            "Choose a tier and place a spell cursor. R. Keep a three-action vigil at a nearby cave-mouth shrine; once per courier per day.",
+            "Choose a discipline to place a spell cursor. R keeps a three-action vigil at a nearby cave-mouth shrine, once each day.",
         ]
     if kind.startswith("spell-tier:"):
         from .magic import SPELLS, SPELL_TIERS
@@ -2633,17 +2633,17 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return NODES[node].name.upper(), [
             *[f"{index + 1}. {SPELLS[spell_id].name} [{'READY' if spell_id in state.courier.known_spells else 'UNLEARNED'}] — {SPELLS[spell_id].description}"
               for index, spell_id in enumerate(SPELL_TIERS[node])],
-            "B. Return to spell tiers. Selection opens spatial targeting; it does not cast.",
+            "B. Return to disciplines. Selection opens spatial targeting; it does not cast.",
         ]
     if kind == "skill-tree":
         from .skill_tree import BRANCHES, NODES
 
         person = state.courier
         return "COURIER SKILLS", [
-            f"{person.name}: {person.skill_points} unspent milestone point(s); {len(person.skill_nodes)}/60 nodes learned.",
+            f"{person.name}: {person.skill_points} training point(s) available; {len(person.skill_nodes)} practices learned.",
             *[f"{'123456789a'[index]}. {title} — {sum(node.branch == branch and node.id in person.skill_nodes for node in NODES.values())}/6"
               for index, (branch, (title, _)) in enumerate(BRANCHES.items())],
-            "Select a branch. All household adults can cross-train; roles grant only starting roots.",
+            "Select a field of practice. Any household adult may cross-train.",
         ]
     if kind.startswith("skill-branch:"):
         from .skill_tree import BRANCHES, NODES
@@ -2651,7 +2651,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         branch = kind.split(":", 1)[1]
         title, _ = BRANCHES[branch]
         person = state.courier
-        rows = [f"{person.name}: {person.skill_points} point(s) available; B returns to all branches."]
+        rows = [f"{person.name}: {person.skill_points} training point(s) available; B returns to all fields."]
         for index, node in enumerate(node for node in NODES.values() if node.branch == branch):
             unmet = [NODES[parent].name for parent in node.parents if parent not in person.skill_nodes]
             status = "LEARNED" if node.id in person.skill_nodes else "needs " + ", ".join(unmet) if unmet else "READY" if person.skill_points else "needs a milestone point"
@@ -2665,7 +2665,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
     if kind == "mastery":
         from .manoeuvres import lines
 
-        return "ACTIVE MASTERY", lines(state)
+        return "PRACTISED MANOEUVRES", lines(state)
     if kind.startswith("situation:"):
         from .situations import BY_ID, inspect_lines
 
@@ -2681,13 +2681,13 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return VARIANTS[state.active_region_id]["traveller"].upper(), [
             f"The traveller has sounded {VARIANTS[state.active_region_id]['upper']} and carries one {state.region.objective_commodity} lot.",
             "A. Mark the upper watch's location (once). B. Buy the physical lot for one trade credit (once).",
-            "Both actions pass the world clock; Escape leaves the conversation.",
+            "Either choice takes time; Escape leaves the conversation.",
         ]
     if kind == "navigation":
         return "FOLLOW A KNOWN LOCAL ROUTE", [
             "Choose a seen landmark, vertical link, or marked store.",
-            "Following repeats ordinary action-clock movement over remembered ground; it does not explore.",
-            "Any key cancels. New danger, sound, weather, injury, load change, or material hazard stops you before automation can conceal it.",
+            "You follow remembered ground one pace at a time. Unseen ground needs your own eyes.",
+            "Any key stops the walk. New danger, sound, weather, injury, load change, or a material hazard also stops it.",
             "Selection and cancellation cost no time.",
         ]
     if kind == "aftermath":
@@ -2695,8 +2695,8 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
 
         quest = state.aftermath_quests[state.active_region_id]
         return AFTERMATH_LINES[state.active_region_id][0].upper(), [
-            f"Ending configuration: {quest.branch}; line: {quest.status}, {quest.stage}/2 resolved.",
-            "These are finite contracts caused by the resolved regional state, not random errands.",
+            f"Regional settlement: {quest.branch or 'undecided'}; later work: {quest.status}.",
+            "The witnesses have named work arising from that settlement.",
             *[
                 f"{contract.title}: {contract.cause}."
                 for contract in contracts_for(state)
@@ -2743,7 +2743,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             f"Capacity: {carried_bulk(state)}/{capacity(state)} bulk",
             f"Weapon: {state.weapon or 'none'}; gear: {state.gear or 'none'}; relic: {state.carried_relic or 'none'}",
             f"Passive discoveries: {state.carried_passives or 'none'} ({passive_bulk(state)}/{passive_capacity(state)} bulk)",
-            f"Finite supplies: ammunition {state.ammunition}; oil {state.lamp_oil}; rope {state.rope_uses}; smoke {state.smoke_charges}",
+            f"Supplies on hand: ammunition {state.ammunition}; oil {state.lamp_oil}; rope {state.rope_uses}; smoke {state.smoke_charges}",
             "Goods:", *(goods or ["none"]), f"Consumables: {state.consumables or 'none'}",
             "Current conditions:", *(statuses or ["none"]),
             f"Owned weapons: {', '.join(state.owned_weapons)}", f"Owned gear: {', '.join(state.owned_gear)}",
@@ -2778,7 +2778,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         if kind == "station:workshop":
             return "LOWER WORKSHOP — OPTIONAL FITTINGS", [f"Credit {state.trade_credit}. Choose worn/readied equipment or a loose kit.", "One structural fitting plus one treatment per weapon; one lining per armour piece."]
         if kind == "workshop:store":
-            return "COUNTED WORKSHOP KITS", ["Preview before buying. Kits occupy the pack until fitted.", "Stock is finite; cancelled or unfittable purchases spend nothing."]
+            return "COUNTED WORKSHOP KITS", ["Preview before buying. Kits occupy the pack until fitted.", "Only the listed stock is on hand; cancelled or unfittable purchases spend nothing."]
         if kind.startswith("workshop:slot:"):
             item = equipped_item(state, kind.split(":", 2)[2])
             return "EQUIPMENT WORK", describe(state, item) if item else ["That equipment slot is empty."]
@@ -2817,16 +2817,16 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         title, detail = {
             "galley": ("JOMON GALLEY", "Counted provisions become meals here; seasonal stores affect bar and voyage supplies."),
             "repair": ("REPAIR POSITION", f"Tools, spare timber, and rigging serve Jomon's integrity ({state.vessel_integrity}/10)."),
-            "berths": ("JOMON BERTHS", "Named adults sleep or recover here according to injury and action-clock schedule."),
+            "berths": ("JOMON BERTHS", "Household adults sleep or recover here as their watches and injuries allow."),
             "bilge": ("BALLAST AND BILGE", "Water collects on the lower deck; repair watches inspect hull access during crises."),
             "provisions": ("PROVISION STORE", "Dry grain and sealed fish are physically counted for route legs and emergencies."),
             "workshop": ("LOWER WORKSHOP", "Armour, tools, and damaged possessions are accounted for beside the cargo hold."),
-            "storage": ("SERVING AND DECK STORE", "Bounded working stores support the nearby station; nothing here is unlimited."),
+            "storage": ("SERVING AND DECK STORE", "The counted stores support work at the nearby station."),
             "helm": ("JOMON HELM", "The scheduled pilot steers here; travel changes only at confirmed route legs."),
             "lookout": ("LOOKOUT POSITION", "This exposed upper position improves warning and becomes a defensive voyage station."),
             "gathering": ("COMMON DECK", "Crew gather, train, and dispute work here when schedules and memories align."),
-            "market": ("VISITING BERTH", "Regional merchants use this bounded berth only when a recorded visit is active."),
-        }.get(station, ("JOMON WORK POSITION", "A bounded vessel activity uses this physical position."))
+            "market": ("VISITING BERTH", "A regional merchant trades here during a recorded visit."),
+        }.get(station, ("JOMON WORK POSITION", "Household work is done at this station."))
         fitted = [REFITS[refit_id].name for refit_id in STATION_REFITS.get(station, ()) if installed(state, refit_id)]
         lines = [detail]
         if station == "berths":
@@ -2835,7 +2835,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             from .household_stories import station_choices
 
             lines.extend(f"{key}. {label} — {'AVAILABLE' if available else 'NEEDS ' + requirement}" for key, label, _, available, requirement in station_choices(state))
-            lines.append("J. Write one learned node into a physical paper journal; K. Study an existing journal (two inherited lessons maximum).")
+            lines.append("J. Write one learned practice into a paper journal; K. Study an existing journal (two inherited lessons maximum).")
         if station in STATION_REFITS:
             lines.append("V. Inspect optional physical refits." + (f" Installed: {', '.join(fitted)}." if fitted else " None installed here."))
         return title, lines + ["Inspection costs no time. Escape closes."]
@@ -2868,7 +2868,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         next_region = arc_next_region(state)
         final_stage = 5 if arc is state.cross_region_arc else 4
         return arc_title(state).upper(), [
-            f"Chapter {arc.stage + 1 if arc and arc.stage < final_stage else final_stage}/{final_stage}; account: {arc.branch if arc and arc.branch else 'not yet bound'}.",
+            f"Witnessed account {arc.stage + 1 if arc and arc.stage < final_stage else final_stage}/{final_stage}; terms: {arc.branch if arc and arc.branch else 'not yet bound'}.",
             f"Current witness: {state.region.name}.",
             f"Next required region: {state.regions[next_region].name if next_region else 'ending decision here'}.",
             "The compared record is physical evidence, not a prophecy.",
@@ -2922,7 +2922,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return "SELECT CREW SUPPORT", [f"{index + 1}. {name} — {detail}" for index, (name, detail) in enumerate(SUPPORTS.values())] + ["Number selects; Escape returns."]
     if kind == "tavern:relic":
         rows = [name for name in RELICS if state.relics.get(name, 0)]
-        return "SELECT FINITE RELIC", ["0. Carry none", *[f"{index + 1}. {name} ({state.relics[name]}) — {RELICS[name]}" for index, name in enumerate(rows)], "Number selects; Escape returns."]
+        return "SELECT A RELIC", ["0. Carry none", *[f"{index + 1}. {name} ({state.relics[name]}) — {RELICS[name]}" for index, name in enumerate(rows)], "Number selects; Escape returns."]
     if kind == "relic:select":
         rows = list(dict.fromkeys(
             item.kind.split(":", 1)[1] for item in state.items
@@ -2935,7 +2935,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
                 f"{name} — {RELICS[name]}"
                 for index, name in enumerate(rows)
             ],
-            "Selection costs no time; X then spends the selected finite relic.",
+            "Selection costs no time; X then uses the selected relic.",
         ]
     if kind == "field-use":
         from .preparations import PREPARATIONS, carried_preparations, preparation_status
@@ -2996,7 +2996,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return "TAVERN INCIDENT", [
             f"{names}: {state.pending_incident.kind}.",
             f"Cause: {state.pending_incident.cause}.",
-            "M. Mediate", "S. Support the first speaker", "F. Let the bounded fight run",
+            "M. Mediate", "S. Support the first speaker", "F. Let the fight run its course",
             "No option can cause routine off-screen death.",
         ]
     if kind == "route-stop":
@@ -3027,11 +3027,11 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         lines = [
             f"{index + 1}. {state.regions[region_id].name}"
             + (" — current mooring" if region_id == state.active_region_id else "")
-            + f"; {state.regions[region_id].process_name} stage {state.regions[region_id].process_stage}"
+            + f"; {state.regions[region_id].process_name}, measure {state.regions[region_id].process_stage}"
             for index, region_id in enumerate(DESTINATIONS)
         ]
         return "JOMON ROUTE CHART", lines + [
-            "Travel costs the charted leg's actions and can produce a seeded voyage event.",
+            "Travel takes the charted time; weather, travellers, or cargo claims may interrupt the passage.",
             "Number sets course; Escape keeps the current mooring without time.",
         ]
     if kind == "voyage":
@@ -3093,7 +3093,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         elif person not in state.household:
             lines.extend((f"Terms: {person.recruitment_terms}", "R. Offer a voluntary berth", "D. Defer without closing the invitation"))
         if person.id != state.active_courier_id and state.courier and "teaching" in state.courier.skill_nodes:
-            lines.append("T. Teach one known node face to face; recipient may inherit at most two.")
+            lines.append("T. Teach one learned practice face to face; recipient may inherit at most two.")
         return person.name.upper(), lines + ["Escape closes without time."]
     return "INFORMATION", [kind, "Escape closes without advancing time."]
 
@@ -3492,7 +3492,7 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         index = int(char) - 1
         if 0 <= index < len(rows):
             state.carried_relic = rows[index]
-            state.add_message(f"Selected {rows[index]} for the next finite use.")
+            state.add_message(f"{rows[index]} is ready for its next use.")
             return None, False
     if kind == "field-use":
         from .preparations import carried_preparations

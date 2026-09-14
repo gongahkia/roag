@@ -22,7 +22,7 @@
       "build_key": "3",
       "behavior": "source",
       "layers": ["surface"],
-      "description": "Holds a finite galvanic cell and sends a timed electrical pulse."
+      "description": "Holds one galvanic cell and sends a timed electrical pulse."
     },
     "cell": {
       "name": "Galvanic cell",
@@ -30,7 +30,7 @@
       "build_key": null,
       "behavior": "fuel",
       "layers": [],
-      "description": "A finite iron-carbon and brine pulse cell for the rack."
+      "description": "An iron-carbon and brine pulse cell for the rack."
     },
     "switch": {
       "name": "Knife switch",

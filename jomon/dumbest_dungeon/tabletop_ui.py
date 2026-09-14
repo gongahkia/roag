@@ -25,7 +25,7 @@ def _draw_lobby(screen: curses.window, state, selected: int, slot: int, message:
     courier = state.courier
     collection = collection_for(state, courier.id)
     _put(screen, 0, 1, "DULLEST DUNGEON  /  THE COMPANY OF NECESSARY COPIES", curses.A_BOLD)
-    _put(screen, 2, 2, "A generated office dungeon, two parties, and rival confidential files.")
+    _put(screen, 2, 2, "Two departments enter the maze to contest confidential files.")
     _put(screen, 3, 2, "You command four specialists; a tavern patron commands the other four.")
     _put(screen, 5, 2, f"Courier: {courier.name}  Strategy: {courier.strategy}/20 (+1 supply per 5, max +2)")
     _put(screen, 6, 2, f"Record: {collection['wins']}W {collection['losses']}L {collection['draws']}D   Cards: {len(collection['cards'])}/290")

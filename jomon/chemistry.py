@@ -98,7 +98,7 @@ def distill_flask(state: GameState, flask_id: str, reagent: str) -> tuple[bool, 
     if flask is None or flask.contents.get(reagent, 0) <= 0:
         return False, "Choose a carried flask that still holds this reagent."
     if not has_node(state.courier, "controlled-distil") or "still" not in stations_here(state):
-        return False, "Controlled distillation needs its learned node and a physical still."
+        return False, "Controlled distillation needs its learned practice and a still."
     transaction = InventoryTransaction.begin(state)
     flask.contents[reagent] -= 1
     if flask.contents[reagent] == 0:
@@ -172,7 +172,7 @@ def drink_flask(state: GameState, flask_id: str) -> tuple[bool, str]:
         if name not in state.courier.known_formulas:
             state.courier.known_formulas.append(name)
     _advance_world(state)
-    message = f"{state.courier.name} drinks {', '.join(reactions)} from {flask.id}; the finite measures are spent."
+    message = f"{state.courier.name} drinks {', '.join(reactions)} from {flask.id}; the measures are spent."
     state.add_message(message, priority=3)
     return True, message
 

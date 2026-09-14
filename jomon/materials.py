@@ -75,7 +75,7 @@ def inspect_material(state: GameState, point: Position) -> list[str]:
         f"Mixture: {cell.reagents or 'none'}; next reaction: {', '.join(predicted_reactions(cell.reagents, cell)) or 'none known'}.",
         "PREDICTION Water extinguishes; smoke rises/drifts; weakened supports fall after warning.",
         *(["FACT Loose cover (%) remains passable and turns low shots; height or arcing weapons can answer it."] if base_tile(state, point) == "%" else []),
-        "Handling takes one action. Inspection/cancellation takes none. Tools and finite supplies are checked before commitment.",
+        "Handling takes one action. Inspection and cancellation take none. Tools and supplies must be at hand.",
     ]
 
 
@@ -426,7 +426,7 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
         or (state.lamp_oil <= 0 and not measured_pitch)
         or (existing and existing.water)
     ):
-        return False, "Ignition needs dry fuel and one finite measure of lamp oil."
+        return False, "Ignition needs dry fuel and one measure of lamp oil."
     learned_brace = verb == "brace" and bool({"mill hearing", "bell interval"} & set(state.courier.learned_techniques))
     from .practices import has_effect as has_practice_effect
 

@@ -97,7 +97,7 @@ def route_preview(state: GameState, destination: str) -> list[str]:
         return ["No direct charted leg."]
     available, reason = route_availability(state, destination)
     market = f"Market interest: {node.market_interest}." if node.market_interest else "No known cargo buyer."
-    contact = "Established regional contacts." if node.region_id else "No permanent regional expedition here."
+    contact = "Established regional contacts." if node.region_id else "No settled contact at this mooring."
     known = node.description if destination in state.route_known or node.known else "Soundings incomplete; details unknown."
     return [
         f"{node.name}: {known}",

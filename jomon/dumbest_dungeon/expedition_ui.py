@@ -275,7 +275,7 @@ class ExpeditionUI(TavernUIBase):
                 choices.append("Leave without using")
             title = {"camp": "REST OFFICE", "upgrade": "COPY WORKSHOP", "event": "DEPARTMENT INCIDENT",
                      "treatment": "TREAT A LIABILITY"}[pending["kind"]]
-            body = "A neutral room from the generated expedition offers a choice."
+            body = "This department room offers a choice."
         selected = self._menu(title, choices, body, allow_cancel=False)
         assert selected is not None
         try:
@@ -417,14 +417,14 @@ class ExpeditionUI(TavernUIBase):
             elif category == 2:
                 enemy_ids = list(self.catalog.art["enemies"])
                 selected = self._menu("RIVAL COSTUME ARCHIVE", [office_costume_name(enemy_id) for enemy_id in enemy_ids],
-                                      "These drawings are corporate costumes worn by patron specialists. The job and card rules under each costume are identical to yours.")
+                                      "Patron specialists wear these department costumes. Their training and cards are the same as yours.")
                 if selected is None:
                     continue
                 enemy_id = enemy_ids[selected]
                 self._begin(office_costume_name(enemy_id).upper())
                 self._draw_sprite(5, 9, self.catalog.art["enemies"][enemy_id], curses.A_BOLD)
                 self._put(6, 23, "RIVAL-DEPARTMENT COSTUME")
-                self._put(8, 23, "Artwork only: no scripted enemy action.")
+                self._put(8, 23, "A costume changes no worker's training.")
                 self._footer("Any key returns to the company archive")
                 self.screen.getch()
             elif category == 3:
@@ -437,10 +437,10 @@ class ExpeditionUI(TavernUIBase):
                     continue
                 if selected < len(worlds):
                     world = worlds[selected]
-                    detail = f"{OFFICE_WORLDS[world]} uses the original {self.catalog.worlds[world]['layout']} generated layout. Each match draws four departments from the full eleven."
+                    detail = f"{OFFICE_WORLDS[world]} joins four of the company's eleven departments for each contest. Its corridors follow a {self.catalog.worlds[world]['layout']} plan."
                 else:
                     biome = biomes[selected - len(worlds)]
-                    detail = f"{OFFICE_BIOMES[biome]} retains its original terrain, hazard, facility, and visibility rules in the generated office map."
+                    detail = f"{OFFICE_BIOMES[biome]} has its own corridors, hazards, service desks, and sightlines."
                 self._notice("COMPANY FLOORPLAN", detail)
             elif category == 4:
                 doctrines = list(self.catalog.doctrines.values())

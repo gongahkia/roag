@@ -135,10 +135,10 @@ def strike(state, target_id=None, *, target_position=None):
         return _time_result(state, f"{state.courier.name} prepares {state.weapon} on {target.name}; firing commits the next action.", priority=3)
     if weapon.family == "gun" and state.weather in {"hard rain", "coast squall", "forest rain"} and not has_node(state.courier, "dry-load"):
         state.aimed_target = None
-        return _time_result(state, "Wet weather spoils the exposed gun aim before its finite charge is released.", priority=3)
+        return _time_result(state, "Wet weather spoils the exposed gun aim before the charge is released.", priority=3)
     if weapon.family == "bow" and state.weather in {"hard rain", "coast squall", "forest rain"} and not has_node(state.courier, "wind-hold"):
         state.aimed_target = None
-        return _time_result(state, "Wet weather spoils the drawn bow string before its finite arrow is released.", priority=3)
+        return _time_result(state, "Wet weather spoils the drawn bow string before the arrow is released.", priority=3)
     if ammunition and not consume_ammunition(state, ammunition):
         return _plain(state, f"No physical {ammunition} remain.")
     if weapon.family == "gun":

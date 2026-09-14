@@ -501,7 +501,7 @@ def resolve_social_incident(state: GameState, response: str) -> tuple[bool, str]
     elif response == "side-first":
         delta, text = -1, f"You support {first.name}; {second.name} leaves the table angry."
     elif response == "let-fight":
-        delta, text = -1, "The argument becomes a bounded fistfight; both stop before grave harm."
+        delta, text = -1, "The argument becomes a fistfight; both stop before grave harm."
         for person in (first, second):
             person.health = max(2, person.health - 1)
             person.injury = "bruised torso"

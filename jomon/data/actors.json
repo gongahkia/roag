@@ -117,7 +117,7 @@
       "vision": 11,
       "hearing": 9,
       "range": 8,
-      "capability": "hauls wreck cover out of a telegraphed firing lane",
+      "capability": "hauls wreck cover out of a marked firing lane",
       "morale": 4,
       "terrain": "wreck road",
       "counterplay": "move behind fixed dunes, dog the chain, or present the witnessed wreck account",
@@ -384,7 +384,7 @@
       "vision": 9,
       "hearing": 8,
       "range": 1,
-      "capability": "patrols a finite road circuit and signals only its own watch",
+      "capability": "patrols the same road circuit and signals only its own watch",
       "reaction": "returns to the road after a broken sightline",
       "morale": 2,
       "terrain": "bank road",
@@ -420,7 +420,7 @@
       "hearing": 7,
       "range": 14,
       "capability": "uses aligned ladders and a heavy prepared roof lane",
-      "reaction": "reloads twice after a visible telegraphed shot",
+      "reaction": "reloads twice after a clearly aimed shot",
       "morale": 3,
       "terrain": "watch roof",
       "counterplay": "break line below the roof or climb through the aligned opening; smoke interrupts aim",
@@ -454,7 +454,7 @@
       "vision": 10,
       "hearing": 10,
       "range": 8,
-      "capability": "marks a missile lane and feeds smoke through a bounded gantry vent",
+      "capability": "marks a missile lane and feeds smoke through a short gantry vent",
       "reaction": "holds cover while its paired levy withdraws",
       "morale": 2,
       "terrain": "upper gantry",
@@ -1030,7 +1030,7 @@
       1,
       2,
       "x",
-      "quenches a watched medicine boundary with finite buckets",
+      "quenches a watched medicine boundary with carried buckets",
       "draw the runner downwind or spend its buckets on a decoy fire"
     ],
     [
@@ -1304,7 +1304,7 @@
     [
       "forest-ash-trapper", "greenwold", "ashfall snare hand", "ranged", "suppressor",
       "kindle", "raider", 10, 8, 4, 3, ";",
-      "lights a finite cinder line and shoots from root cover",
+      "lights a short cinder line and shoots from root cover",
       "quench the line or close through an unburnt canopy gap"
     ],
     [
@@ -1328,7 +1328,7 @@
     [
       "terrace-kiln-slinger", "marlbank", "kiln-cinder slinger", "ranged", "controller",
       "kindle", "warden", 8, 10, 4, 3, "]",
-      "lights finite kiln fuel then denies the clay-row turn",
+      "lights its kiln fuel then denies the clay-row turn",
       "quench the fuel or force a close dry-terrace approach"
     ],
     [
@@ -1342,7 +1342,7 @@
     "lookout": "returns to its patrol after an interrupted alarm",
     "flanker": "changes to a side route when the direct lane is held",
     "protector": "covers a wounded ally before resuming pursuit",
-    "shooter": "seeks elevation or reloads after a telegraphed shot",
+    "shooter": "seeks elevation or reloads after a clearly aimed shot",
     "skirmisher": "withdraws when the courier enters its preferred range",
     "suppressor": "marks a lane and feeds smoke before direct pressure",
     "territorial": "returns home when prey or courier leaves its boundary",

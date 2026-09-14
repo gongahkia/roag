@@ -139,7 +139,7 @@ def _assign_regional_duty(state: GameState) -> None:
     state.region.changes["quest_guard_id"] = actor.id
     state.region.changes["quest_guard_reason"] = actor.goal_reason
     state.add_message(
-        f"You learn that the {actor.name} now guards the material objective; its duty can be observed or avoided.",
+        f"You learn that the {actor.name} now guards the worksite; its duty can be observed or avoided.",
         priority=3,
     )
 
@@ -371,7 +371,7 @@ def maybe_unlock_arc(state: GameState) -> bool:
             "Two regional working settlements now trust Jomon enough to compare their route accounts."
         )
         state.add_message(
-            f"Cross-region arc available: {ARC_TITLE}. Speak with a trusted primary contact.",
+            f"The {ARC_TITLE} account can now be opened. Speak with a trusted witness.",
             priority=3,
         )
         changed = True
@@ -386,9 +386,9 @@ def maybe_unlock_arc(state: GameState) -> bool:
             for region_id in definition["requires"]
         ):
             arc.status = "available"
-            state.remember(f"{definition['title']} is available through compared material consequences.")
+            state.remember(f"Witnesses can now compare the material claims behind {definition['title']}.")
             state.add_message(
-                f"Cross-region arc available: {definition['title']}. Begin with {state.regions[definition['start']].name}.",
+                f"The {definition['title']} account can now be opened in {state.regions[definition['start']].name}.",
                 priority=3,
             )
             changed = True
@@ -931,7 +931,7 @@ def use_secondary_service(
     state.courier.injury = next(iter(state.courier.injuries.values()), "treated soreness")
     contact.memories.append(f"Treated {state.courier.name}'s {location} injury for a recorded obligation.")
     state.region.changes["care_obligation_settled"] = True
-    return True, f"{contact.name} treats the {location} injury; time and a finite obligation remain consequential."
+    return True, f"{contact.name} treats the {location} injury; the care takes time and leaves an obligation."
 
 
 def quest_reachability_audit(sample_count: int = 25) -> dict[str, object]:

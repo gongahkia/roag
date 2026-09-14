@@ -317,7 +317,7 @@ def resolve(state: GameState, situation_id: str, method: str) -> tuple[bool, str
         state.market[state.region.objective_commodity].demand = max(0, state.market[state.region.objective_commodity].demand - 1)
         for actor in state.combatants:
             if actor.objective_position == point and actor.profile != "animal":
-                actor.status, actor.intent = "negotiated", "accepts the bounded account"
+                actor.status, actor.intent = "negotiated", "accepts the witnessed terms"
         if cell:
             cell.fire, cell.smoke = 0, 0
             cell.water = min(1, cell.water)

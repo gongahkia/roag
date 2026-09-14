@@ -75,7 +75,7 @@ def story_lines(state: GameState, story_id: str) -> list[str]:
     status = str(state.vessel_changes.get(_key(story_id, "status"), "unopened"))
     branch = state.vessel_changes.get(_key(story_id, "branch"))
     dead = [person.name for person in state.household if not person.alive]
-    lines = [f"FACT — status: {status}.", story.premise, f"Gate: {story.requirement}."]
+    lines = [f"FACT — account: {status}.", story.premise, f"To open: {story.requirement}."]
     if story_id == "empty-watch":
         lines.append("Succession record: " + (", ".join(dead) + " are dead; no one is restored." if dead else "no household death is required; injury, fatigue and prior returns still shape the watch."))
     elif story_id == "repair-share":
@@ -84,7 +84,7 @@ def story_lines(state: GameState, story_id: str) -> list[str]:
         names = [state.regions[rid].name for rid in outcome_regions(state)]
         lines.append("Changed regions: " + (", ".join(names) or "fewer than four recorded"))
     if branch:
-        lines += [f"Outcome branch: {branch}.", str(state.vessel_changes.get(_key(story_id, "outcome"), "The household keeps the result."))]
+        lines += [f"Household decision: {branch}.", str(state.vessel_changes.get(_key(story_id, "outcome"), "The household keeps the result."))]
     elif status == "active":
         lines.append("Choose the disclosed household answer; each costs one action and persists.")
     else:

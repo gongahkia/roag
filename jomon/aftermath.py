@@ -203,10 +203,10 @@ def prepare_aftermath(state: GameState) -> bool:
     quest = state.aftermath_quests[region_id]
     quest.status, quest.stage, quest.branch = "available", 0, branch
     state.remember(
-        f"{state.region.name} aftermath: the {branch} ending altered three sites, one working relationship, and two finite contracts."
+        f"After the {branch} settlement at {state.region.name}, three worksites, a working bond, and two witnessed contracts have changed."
     )
     state.add_message(
-        f"On returning, you find {AFTERMATH_LINES[region_id][0]}: three changed sites and two witnessed contracts are now physical.",
+        f"On returning, you find {AFTERMATH_LINES[region_id][0]}: three worksites have changed, and two contracts await their witnesses.",
         priority=3,
     )
     from .frontier_elites import install_aftermath_elite
@@ -296,7 +296,7 @@ def contract_options(
 ) -> tuple[tuple[str, str, str, bool, str], ...]:
     contract = state.regional_contracts[contract_id]
     if contract.status == "completed":
-        return (("b", "Back to the finite aftermath account", "ordinary", True, ""),)
+        return (("b", "Back to the regional account", "ordinary", True, ""),)
     rows = []
     if contract.stage == 0:
         rows.append((
@@ -321,7 +321,7 @@ def contract_options(
                 f"reach {contract.site.x},{contract.site.y}, z{contract.site.z:+d} with a working or levering tool",
             ),
             (
-                "x", "Abandon the finite account and record the failure", "refusal",
+                "x", "Abandon the account and record the failure", "refusal",
                 near_participant(state, contract), "return to the named witness",
             ),
         ))
@@ -342,7 +342,7 @@ def contract_options(
             "commitment", near_participant(state, contract) and (has_copy or replaceable),
             "return beside the witness with the contract copy, or one credit only if that copy was destroyed or lost",
         ))
-    rows.append(("b", "Back to the finite aftermath account", "ordinary", True, ""))
+    rows.append(("b", "Back to the regional account", "ordinary", True, ""))
     return tuple(rows)
 
 
@@ -395,7 +395,7 @@ def work_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
         return False, "A working or levering tool is required."
     cell = ensure_cell(state, contract.site)
     if cell is None:
-        return False, "The bounded material field cannot accept more work."
+        return False, "The worksite is too crowded with altered material for this task."
     old = (cell.fire, cell.water, cell.support, cell.coating)
     effect = ""
     if contract.topology in DRAINAGE_TOPOLOGIES:
@@ -412,7 +412,7 @@ def work_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
         cell.fuel = max(0, cell.fuel - 2)
         cell.coating = "wet" if contract.topology == "abandoned kiln quench" else "ash"
         state.region.changes["aftermath_firebreak"] = contract.topology
-        effect = "bounded fire work removes flame, smoke and loose fuel"
+        effect = "fire work removes flame, smoke and loose fuel"
     elif contract.topology in SUPPORT_TOPOLOGIES:
         cell.support = min(3, cell.support + 2)
         cell.collapse_due = 0
@@ -503,7 +503,7 @@ def abandon_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
     if contract.stage != 1 or not near_participant(state, contract):
         return False, "Return to the witness before abandoning the accepted account."
     contract.stage, contract.status = 3, "failed"
-    contract.outcome = "The witness records an unmet promise; no replacement contract is generated."
+    contract.outcome = "The witness records an unmet promise and will not offer the work again."
     account = state.institutions[f"work:{contract.region_id}"]
     account.trust = max(-3, account.trust - 1)
     account.witnessed_acts.append(
@@ -537,8 +537,8 @@ def contract_lines(state: GameState, contract_id: str) -> list[str]:
         f"FACT — cause: {contract.cause}.",
         f"Named witness: {participant.name}, {participant.role}.",
         f"Physical site: {contract.site.x},{contract.site.y}, z{contract.site.z:+d}; material: {contract.commodity}.",
-        f"Objective topology: {contract.topology}.",
-        f"State: stage {contract.stage}/3, {contract.status}; approach {contract.approach or 'not chosen'}.",
+        f"Worksite: {contract.topology}.",
+        f"Account: {contract.status}; approach {contract.approach or 'not chosen'}.",
         "DISCLOSED ANSWERS — deliver one real lot at the witness, or use a working tool at the scar.",
         "The accepted paper copy occupies the pack, can be lost or stolen, and is consumed at settlement.",
         *( ["FACT — " + contract.outcome] if contract.outcome else [] ),

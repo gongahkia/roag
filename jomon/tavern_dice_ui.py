@@ -80,7 +80,7 @@ def _draw_match(screen: curses.window, state: GameState, message: str = "",
         put(screen, 17, 3, f"Acting: {match['names'][match['turn']]}", accent("ui_heading"))
         put(screen, 21, 3, "R/Enter roll  H bank when allowed  Q pause contest", accent("ui_accent"))
     put(screen, 19, 3, (message or match["log"][-1])[:72], accent("warning") if message else accent("terrain"))
-    put(screen, 22, 3, "No entry fee. Every paid prize leaves the finite tavern purse.")
+    put(screen, 22, 3, "No entry fee. Sena pays prizes from the purse on the table.")
     screen.refresh()
 
 

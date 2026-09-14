@@ -17,7 +17,7 @@ def choices(state: GameState) -> list[tuple[str, str, str]]:
 
     variant = active_variant(state, kind)
     if state.vessel_changes.get("deck_crisis"):
-        return [("P", "Return to the physical deck; normal actions advance danger", "danger"), ("Y", "Abandon contested cargo and withdraw with hull damage", "refusal")]
+        return [("P", "Return to the deck while danger advances", "danger"), ("Y", "Abandon contested cargo and withdraw with hull damage", "refusal")]
     options = {
         "raiders": [("R", "Repel with readied reach", "danger"), ("D", "Distract with material preparation", "commitment"), ("Y", "Yield one cargo lot", "refusal")],
         "creature": [("R", "Repel with a spaced weapon", "danger"), ("E", "Evade through pilot knowledge", "commitment"), ("B", f"Bait with {'two' if variant else 'one'} salt-fish lot{'s' if variant else ''}", "commitment")],
@@ -35,7 +35,7 @@ def choices(state: GameState) -> list[tuple[str, str, str]]:
     if kind == "inspection" and variant:
         options = [(key, label.replace("two accountable credits", "three accountable credits"), semantic) for key, label, semantic in options]
     if kind in TACTICAL:
-        options = [("P", "Take the physical deck: staged threats, shared combat and tools", "danger"), *options]
+        options = [("P", "Take the deck and face the boarding danger", "danger"), *options]
     return options
 
 
@@ -45,7 +45,7 @@ def crisis_lines(state: GameState) -> list[str]:
 
     variant = active_variant(state, state.voyage_kind)
     if variant:
-        lines += [f"CAUSE {variant.cause}", f"CHANGED RULE {variant.effect}", f"COUNTERS {variant.counterplay}"]
+        lines += [f"CAUSE {variant.cause}", f"WHAT HAS CHANGED {variant.effect}", f"POSSIBLE ANSWERS {variant.counterplay}"]
     if state.vessel_changes.get("deck_crisis"):
         kind = state.voyage_kind
         station = HAZARD_STATIONS.get(kind)
@@ -171,7 +171,7 @@ def begin_deck(state: GameState) -> tuple[bool, str]:
             )
             if variant:
                 state.vessel_materials[key(Position(station.x + 2, station.y, station.z))] = MaterialCell(material="timber", water=2, support=1 if kind == "split-seam" else 2)
-    message = f"Declared deck crisis: {VOYAGES[kind][0]}. Movement now bears time; no actor attacks on entry. " + (f"Work the marked station at {HAZARD_STATIONS[kind]}." if kind in HAZARD_STATIONS else "Watch the boarders' preparation or leave with R.")
+    message = f"Deck alarm: {VOYAGES[kind][0]}. Every move now takes time; the boarders are still preparing. " + (f"Work the marked station at {HAZARD_STATIONS[kind]}." if kind in HAZARD_STATIONS else "Watch the boarders or leave with R.")
     state.remember(message)
     state.add_message(message, priority=3)
     return True, message

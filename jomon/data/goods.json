@@ -92,7 +92,7 @@
       ],
       "environment": "wet lime raises abrasive smoke and coating",
       "quest_use": "repairs masonry and disputed field soil",
-      "equipment_use": "prepares finite lime pots and protective wash"
+      "equipment_use": "prepares counted lime pots and protective wash"
     },
     "paper": {
       "handling": "carry flat in a waxed case",
@@ -186,7 +186,7 @@
     ],
     "javelins": [
       "Bundle of javelins",
-      "finite immediate throws or a close braced thrust"
+      "a bundle of throws or a close braced thrust"
     ],
     "war hammer": [
       "Quarry war hammer",
@@ -216,7 +216,7 @@
   "GEAR": {
     "buckler": [
       "Buckler",
-      "turns a telegraphed close strike while guarding"
+      "turns a clearly read close strike while guarding"
     ],
     "rope": [
       "Tarred rope",
@@ -228,11 +228,11 @@
     ],
     "repair tools": [
       "Repair tools",
-      "quietly alter machinery and the objective"
+      "quietly alter machinery and damaged works"
     ],
     "smoke pot": [
       "Smoke pot",
-      "finite cover that breaks aim and pursuit"
+      "a single cloud that breaks aim and pursuit"
     ],
     "cargo harness": [
       "Cargo harness",
@@ -308,7 +308,7 @@
     ],
     "dry lamp wick": [
       "supply",
-      "Restores two measures of finite sheltered light."
+      "Restores two measures of sheltered light."
     ],
     "fletched arrows": [
       "ammunition",
@@ -336,16 +336,16 @@
     ]
   },
   "RELICS": {
-    "river-glass ward": "A finite cold shard that breaks instead of its bearer.",
+    "river-glass ward": "A cold shard that breaks instead of its bearer.",
     "tide-knot charm": "A specifically knotted river-glass cord that stills one pursuit.",
-    "ebbglass spindle": "A finite glass spindle that holds one receding waterline, then clouds forever.",
+    "ebbglass spindle": "A glass spindle that holds one receding waterline, then clouds forever.",
     "coalheart seed": "A warm mineral seed that consumes smoke once and leaves the bearer painfully chilled.",
     "hollow-bell shard": "A cracked bronze sliver that moves one sound between levels and may call unintended listeners.",
-    "stillwater filament": "A finite pale strand that arrests one local current, but calls listeners to its last motion.",
+    "stillwater filament": "A pale strand that arrests one local current, but calls listeners to its last motion.",
     "flood-mark clasp": "A repaired river clasp lowers nearby water and steadies soaked timber once; the resisting load leaves its bearer fatigued.",
     "ashglass lens": "A fire-clouded lens clears local smoke and exposes one hidden store, while the flare gives nearby groups the courier's position.",
     "quarry echo pin": "A stoneworker's resonant pin seats nearby warned supports once; its report alerts every listener in range.",
-    "winter sounding bead": "A cold sounding bead freezes a bounded set of fresh shallows in winter, then leaves the bearer chilled.",
+    "winter sounding bead": "A cold sounding bead freezes nearby fresh shallows in winter, then leaves the bearer chilled.",
     "red-clay seal": "A fired account seal compels one witnessed local compact; the institution records two obligations for the concession.",
     "wreck-light prism": "A salvaged signal prism spends lamp oil to mark one unopened store and turn animals, but human lookouts see the flash."
   },
@@ -488,7 +488,7 @@
     ],
     "scar salve recipe": [
       1,
-      "finite field dressing restores more health after an injury"
+      "field dressings restore more health after an injury"
     ],
     "load ledger": [
       2,

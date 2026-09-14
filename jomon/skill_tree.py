@@ -186,7 +186,7 @@ def buy_node(state: GameState, node_id: str) -> tuple[bool, str]:
     person = state.courier
     node = NODES.get(node_id)
     if person is None or node is None:
-        return False, "Choose an offered skill node for a living courier."
+        return False, "Choose a practice this courier can learn."
     if node_id in person.skill_nodes:
         return False, f"{person.name} already knows {node.name}."
     if any(parent not in person.skill_nodes for parent in node.parents):
@@ -227,11 +227,11 @@ def teach_node(state: GameState, recipient_id: str, node_id: str) -> tuple[bool,
     if state.location != "jomon" or not schedule or schedule.area != current_area(state) or distance(state.position, schedule.position) > 1:
         return False, "Teach face to face within one pace aboard Jomon."
     if node_id not in teacher.skill_nodes or node_id in recipient.skill_nodes:
-        return False, "The teacher must know a node the recipient has not learned."
+        return False, "The teacher must know a practice the recipient has not learned."
     if recipient.taught_nodes >= 2:
-        return False, "This adult has already inherited two taught nodes."
+        return False, "This adult has already inherited two taught practices."
     if any(parent not in recipient.skill_nodes for parent in NODES[node_id].parents):
-        return False, "The recipient needs the listed prerequisite nodes first."
+        return False, "The recipient needs the listed earlier practices first."
     recipient.skill_nodes.append(node_id)
     recipient.taught_nodes += 1
     if node_id in {"attunement", "elemental-shape", "ward-script", "veiling", "echo-binding", "spell-weave"}:
@@ -266,7 +266,7 @@ def write_journal(state: GameState, node_id: str) -> tuple[bool, str]:
     if not _at_gathering(state) or person is None:
         return False, "Write a lesson at Jomon's physical common deck while moored."
     if node_id not in person.skill_nodes or node_id in person.journal_nodes or len(person.journal_nodes) >= 3:
-        return False, "Choose one learned, unwritten node; each adult can preserve three."
+        return False, "Choose one learned, unwritten practice; each adult can preserve three."
     if input_count(state, "commodity:paper") < 1:
         return False, "A written lesson consumes one physical paper lot."
     transaction = InventoryTransaction.begin(state)
@@ -296,7 +296,7 @@ def study_journal(state: GameState, item_id: str) -> tuple[bool, str]:
     if node_id in person.skill_nodes:
         return False, "This courier already knows the journal's lesson."
     if person.taught_nodes >= 2:
-        return False, "This courier has already inherited two taught or written nodes."
+        return False, "This courier has already inherited two taught or written practices."
     if any(parent not in person.skill_nodes for parent in NODES[node_id].parents):
         return False, "Study the prerequisite lessons before this journal."
     person.skill_nodes.append(node_id)

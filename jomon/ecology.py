@@ -95,7 +95,7 @@ def world_options(state: GameState, actor: Threat, courier_visible: bool):
                 targets.append(point)
         if targets:
             target = min(targets, key=lambda point: (distance(actor.position, point), point.z, point.y, point.x))
-            offer("preserve working ground", actor.duty, 107, f"visible material damage calls for its finite {actor.duty} supplies", target)
+            offer("preserve working ground", actor.duty, 107, f"visible material damage calls for its remaining {actor.duty} supplies", target)
     if actor.duty in {"kindle", "cut support"} and actor.supplies > 0 and actor.objective_position:
         target = actor.objective_position
         if perceives_point(state, actor, target) and (courier_visible or actor.alarmed or actor.reaction):
@@ -209,7 +209,7 @@ def resolve_world_action(state: GameState, actor: Threat, decision) -> str | Non
             ally.injuries.pop(sorted(ally.injuries)[0], None)
         ally.morale = min(3, ally.morale + 1)
         ally.intent = "disrupted while an ally tends the withdrawal"
-        actor.intent = f"spends one finite {'dressing' if action == 'treat ally' else 'signal'} on {ally.name}"
+        actor.intent = f"spends one {'dressing' if action == 'treat ally' else 'signal'} on {ally.name}"
         return f"The {actor.name} {actor.intent}."
     if action == "take ground item":
         item = next((item for item in state.items if item.location == "ground" and item.region_id == state.spatial_id and item.ground_position == point), None)
@@ -231,7 +231,7 @@ def resolve_world_action(state: GameState, actor: Threat, decision) -> str | Non
         if action == "kindle":
             if cell.water or cell.ice:
                 actor.supplies -= 1
-                return f"Water defeats the {actor.name}'s finite fire preparation."
+                return f"Water defeats the {actor.name}'s prepared fire."
             cell.material, cell.fuel, cell.fire = "resin", max(cell.fuel, 3), max(cell.fire, 1)
         else:
             cell.support = max(0, cell.support - 2)
@@ -245,7 +245,7 @@ def resolve_world_action(state: GameState, actor: Threat, decision) -> str | Non
         cell.water = max(0, cell.water - 2)
         state.water.pop(position_key(point), None)
     actor.supplies -= 1
-    actor.intent = f"uses finite {action} supplies at {position_key(point)}"
+    actor.intent = f"uses {action} supplies at {position_key(point)}"
     state.region.changes[f"work:{actor.id}"] = f"{action} at {position_key(point)}"
     return f"The {actor.name} {actor.intent}; the physical change remains."
 

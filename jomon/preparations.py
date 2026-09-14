@@ -332,7 +332,7 @@ def grant_contract_preparation(state: GameState, topology: str) -> str:
     name = TOPOLOGY_PREPARATION[topology]
     item = create_item(
         state, f"consumable:{name}",
-        f"finite preparation taught by the completed {topology}",
+        f"preparation learned from the completed {topology}",
     )
     if auto_place(state, item.id, "pack", owner_id=state.active_courier_id):
         record_acquisition(state, item)

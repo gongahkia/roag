@@ -264,8 +264,8 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
     accounts = [
         ("water and stone", geology, f"{climate.title()} supported {production} work; {dependency} had to arrive by vessel.", f"Water exposure {water} determined the working bank and its supply dependence."),
         (crisis, "timber" if crisis != "flood" else "soil", f"{witness.name} records a {crisis} at the {landmark.replace('_', ' ')}.", f"A scar at {coordinate} and a shortage of {dependency} remain evidence of the same loss."),
-        (recovery, dependency, f"{name} secured a {recovery} after the {crisis}.", "The repair left a private obligation." if institution.obligation else "Shared repair raised market confidence, but output remains bounded by supplies."),
-        ("contested occupation", production, f"Work guards arrived to settle {dispute}; local testimony disagrees about their mandate.", "One finite guard group protects the recorded work; it is not an endlessly renewed population."),
+        (recovery, dependency, f"{name} secured a {recovery} after the {crisis}.", "The repair left a private obligation." if institution.obligation else "Shared repair raised market confidence, but output still depends on supplies."),
+        ("contested occupation", production, f"Work guards arrived to settle {dispute}; local testimony disagrees about their mandate.", "The posted guards protect this work; no relief party has been sighted."),
         ("unsettled account", dependency, f"{witness.name} placed the repair account with {cache.name}.", f"The named cache and the {name} supply account can still be resolved independently."),
     ]
     previous = None
@@ -543,7 +543,7 @@ def ledger_lines(state: GameState) -> list[str]:
         quest = state.aftermath_quests[state.active_region_id]
         lines += [
             "", "AFTERMATH — " + AFTERMATH_LINES[state.active_region_id][0],
-            f"Configuration {quest.branch}; {sum(contract.status == 'completed' for contract in contracts)}/2 contracts settled.",
+            f"Settlement {quest.branch}; {sum(contract.status == 'completed' for contract in contracts)}/2 contracts settled.",
             *[
                 f"{contract.title}: {contract.status}; {contract.cause}."
                 for contract in contracts

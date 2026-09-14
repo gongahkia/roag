@@ -136,7 +136,7 @@ def choose_destination(
         return True, state.voyage_detail
     state.vessel_changes.pop("active_voyage_variant", None)
     _finish_travel(state, "The voyage remains watchful but uneventful.")
-    return True, f"Jomon reaches {state.route_nodes[destination].name} after {travel_time} action-clock measures."
+    return True, f"Jomon reaches {state.route_nodes[destination].name} after {travel_time} measures of travel."
 
 
 def _finish_travel(state: GameState, consequence: str) -> None:

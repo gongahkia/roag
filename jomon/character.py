@@ -179,9 +179,10 @@ def character_sheet(person: Person) -> list[str]:
     if person.character_specified:
         rows.append(f"Origin practice: +1 {ORIGIN_PRACTICE.get(person.origin, 'none')}; trait: {TRAITS[person.trait][1]}.")
     else:
-        rows.append("This generated adult has no player-assigned starting point buy.")
+        rows.append("No first-watch changes to this adult are recorded.")
     rows.append(f"People's practice: {PEOPLE_EFFECTS.get(person.ancestry, 'No listed effect')}.")
     rows.append(f"Mana: {person.mana}/{person.max_mana}; skill points: {person.skill_points}; milestones: {len(person.skill_milestones)}.")
-    rows.append("Skill tree: " + (", ".join(person.skill_nodes) or "none") + ". Press P outside this page to cross-train.")
+    from .skill_tree import NODES
+    rows.append("Learned practices: " + (", ".join(NODES[node].name for node in person.skill_nodes) or "none") + ". Press P outside this page to cross-train.")
     rows.extend((f"Technique: {person.technique}", f"Background: {person.background}"))
     return rows

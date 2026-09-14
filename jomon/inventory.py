@@ -102,16 +102,16 @@ ITEM_SPECS.update({name: ItemSpec(name.title(), "".join(word[0] for word in name
                                 *spec.shape, spec.weight, "weapon", spec.description)
                    for name, spec in ARSENAL.items()})
 ITEM_SPECS.update({kind: ItemSpec(name.title(), "".join(word[0] for word in name.split()).upper()[:2],
-                                  2, 2, 2, "consumable", "One finite thrown payload; reacts at its landing.", stack_limit=3)
+                                  2, 2, 2, "consumable", "One thrown payload; reacts at its landing.", stack_limit=3)
                    for name, kind in BOMB_AMMUNITION.items()})
 from .chemistry import REAGENTS
 
 ITEM_SPECS.update({f"ingredient:{name}": ItemSpec(name.title(), "".join(word[0] for word in name.split()).upper()[:2],
-                                               1, 1, 1, "consumable", "One finite regional production ingredient; can enter a field flask.", stack_limit=4)
+                                               1, 1, 1, "consumable", "One local ingredient; can enter a field flask.", stack_limit=4)
                    for name in REAGENTS})
 for pot in POT_AMMUNITION.values():
     ITEM_SPECS[pot] = ItemSpec(pot.split(":", 1)[1].title(), "P" + pot.split()[1][0].upper(), 2, 2, 3,
-                              "consumable", "A finite pot-sling payload; P chooses the packed payload in targeting.", stack_limit=2)
+                              "consumable", "A packed pot-sling payload; P chooses which pot to cast.", stack_limit=2)
 
 
 def item_spec(kind: str) -> ItemSpec:
@@ -121,7 +121,7 @@ def item_spec(kind: str) -> ItemSpec:
         from .worklines import EVIDENCE
         name = kind.split(":", 1)[1]
         title, _ = EVIDENCE[name]
-        return ItemSpec(name.title(), "EV", 1, 2, 1, "cargo", f"Site testimony for {title}; supports field work and terms with its assigned guard. Recover after loss, or pay for a bounded copy at the survey site.")
+        return ItemSpec(name.title(), "EV", 1, 2, 1, "cargo", f"Site testimony for {title}; supports field work and terms with its assigned guard. Recover after loss, or pay for a replacement copy at the survey site.")
     if kind.startswith("contract:"):
         return ItemSpec(
             "Witnessed contract copy", "WC", 1, 2, 1, "cargo",
@@ -156,7 +156,7 @@ def item_spec(kind: str) -> ItemSpec:
         name = kind.split(":", 1)[1]
         from .content import DISCOVERIES
 
-        description = DISCOVERIES.get(name, ("consumable", "A finite expedition supply."))[1]
+        description = DISCOVERIES.get(name, ("consumable", "A counted expedition supply."))[1]
         return ItemSpec(name.title(), name[:2].upper(), 1, 1, 1, "consumable", description, stack_limit=4)
     if kind.startswith("relic:"):
         name = kind.split(":", 1)[1]

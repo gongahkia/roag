@@ -79,7 +79,7 @@ def _work_requirement(state):
     site = field_site(state)
     possible = {key(Position(site.x + dx, site.y + dy, site.z)) for dx in range(-6, 7) for dy in (0, 1)}
     if len(fields(state)) + len(possible - fields(state).keys()) > MAX_CELLS:
-        return False, "the bounded material field is saturated; existing changes must be resolved before this work"
+        return False, "the worksite is already crowded with altered material; clear it before this work"
     if region_id == "hearthford":
         return (_quantity(state, "commodity:timber") >= 1, "one physical timber lot for the framing")
     if region_id == "greywash":
@@ -137,7 +137,7 @@ def lines(state: GameState):
     row, quest = WORKLINES[region], state.worklines[region]
     witness = state.contacts[region][1]
     survey, site = survey_site(state), field_site(state)
-    result = [row[0], f"Witness {witness.name}. Stage {quest.stage}/4; {quest.status}."]
+    result = [row[0], f"Witness {witness.name}. Account {quest.status}."]
     if quest.stage == 2:
         result += [f"FIELD: {site.x},{site.y} z{site.z:+d}; " + _work_requirement(state)[1] + ".",
                    f"Carry {row[2]}; an existing copy must be recovered, not duplicated."]
@@ -180,7 +180,7 @@ def _assign_guard(state, site):
     state.region.changes["undertaking_guard"] = actor.id
     if state.active_region_id == "whitecairn":
         actor.duty, actor.supplies = "cut support", 2
-    state.add_message(f"{actor.name} is assigned to the worksite, not spawned there. Watch its approach, evade it or show the survey with V.", priority=3)
+    state.add_message(f"{actor.name} approaches the worksite on an assigned watch. Evade the patrol or show the survey with V.", priority=3)
 
 
 def _survey(state):

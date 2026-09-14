@@ -95,7 +95,7 @@ def cast(state: GameState, spell_id: str, point: Position) -> tuple[bool, str]:
                  for dx in range(-spell.radius, spell.radius + 1)
                  if max(abs(dx), abs(dy)) <= spell.radius]
     if spell.target == "cell" and any(base_tile(state, place) == " " for place in positions):
-        return False, "one affected cell lies outside the bounded material field"
+        return False, "one affected cell lies beyond reach of the working ground"
     if spell.target == "cell" and len(fields(state)) + sum(key(place) not in fields(state) for place in positions) > MAX_CELLS:
         return False, "the sparse material budget is full"
     state.courier.mana -= spell.cost
@@ -110,10 +110,10 @@ def cast(state: GameState, spell_id: str, point: Position) -> tuple[bool, str]:
             detail.append("guard readied")
         elif spell.effect == "cleanse":
             removed = [name for name in ("smoke-inhalation", "salt-grit", "lime-grit", "wet") if state.terrain_statuses.pop(name, None)]
-            add_status(state, "clear-breath", "a finite cleansing spell", spell.power + 1, "fresh smoke cannot be inhaled while the ward lasts")
+            add_status(state, "clear-breath", "a cleansing spell", spell.power + 1, "fresh smoke cannot be inhaled while the ward lasts")
             detail.append("cleared " + (", ".join(removed) or "no current exposure"))
         elif spell.effect == "quiet":
-            add_status(state, "quiet-veil", "a finite veiling spell", spell.power + 1, "movement sheds one less sound")
+            add_status(state, "quiet-veil", "a veiling spell", spell.power + 1, "movement sheds one less sound")
             detail.append(f"quiet for {spell.power} actions")
     elif spell.target == "enemy":
         target = next(actor for actor in state.combatants if actor.position == point and actor.status in {"watching", "engaged"})
