@@ -37,7 +37,7 @@ def outcome_regions(state: GameState) -> list[str]:
 
 def eligibility(state: GameState, story_id: str) -> tuple[bool, str]:
     if story_id == "empty-watch":
-        return (state.returned_expeditions >= 4, "four returned expeditions")
+        return (state.returned_expeditions >= 4, "four safe returns to Jomon")
     if story_id == "repair-share":
         damaged = state.vessel_integrity < 10 or bool(state.vessel_changes.get("hull_repairs")) or any(key.startswith("deck_scar:") for key in state.vessel_changes)
         return (state.travel_count >= 4 and damaged, "four voyages and a damaged, repaired, or scarred Jomon")

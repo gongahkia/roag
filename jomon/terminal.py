@@ -1885,7 +1885,7 @@ def route_detail_lines(
     date = calendar_at(state)
     description = f"Place: {node.description}"
     market = f"Market: {node.market_interest or 'none'}"
-    contact = "Contacts: established" if node.region_id else "Contacts: no permanent stop"
+    contact = "Contacts: established" if node.region_id else "Contacts: no settled witness"
     if view.cursor == state.route_current_node:
         raw = [
             node.name.upper(), f"Type: {node.kind}", description,
