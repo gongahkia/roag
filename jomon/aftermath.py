@@ -203,10 +203,10 @@ def prepare_aftermath(state: GameState) -> bool:
     quest = state.aftermath_quests[region_id]
     quest.status, quest.stage, quest.branch = "available", 0, branch
     state.remember(
-        f"After the {branch} settlement at {state.region.name}, three worksites, a working bond, and two witnessed contracts have changed."
+        f"After the {branch} settlement at {state.region.name}, the work scars, the crews, and their witnessed terms have changed."
     )
     state.add_message(
-        f"On returning, you find {AFTERMATH_LINES[region_id][0]}: three worksites have changed, and two contracts await their witnesses.",
+        f"On returning, you find {AFTERMATH_LINES[region_id][0]}: old work has left new scars, and witnesses have new terms to offer.",
         priority=3,
     )
     from .frontier_elites import install_aftermath_elite

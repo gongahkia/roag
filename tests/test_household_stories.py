@@ -75,7 +75,7 @@ class HouseholdStoryTests(unittest.TestCase):
             save_game(state, path)
             loaded = load_game(path)
         self.assertEqual(loaded.vessel_changes["household-story:empty-watch:status"], "completed")
-        self.assertIn("Outcome branch", " ".join(story_lines(loaded, "empty-watch")))
+        self.assertIn("Household decision", " ".join(story_lines(loaded, "empty-watch")))
 
     def test_station_discloses_requirements_before_available(self):
         state = create_world("early-household-stories")

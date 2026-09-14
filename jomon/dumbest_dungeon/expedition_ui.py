@@ -376,7 +376,7 @@ class ExpeditionUI(TavernUIBase):
                 "Twenty-five workers and their kits", "Two hundred ninety office techniques",
                 "One hundred twenty-nine rival costumes", "Six floorplans and eleven departments",
                 "Eleven company policies", "Courier match ledger",
-            ], "A single file-capture game uses this catalog. Rival costumes are artwork for the patron's specialists; they do not add scripted enemy turns.")
+            ], "The company's file-capture contests draw from these ledgers. Rival costumes mark departments; the workers' training stays the same.")
             if category is None:
                 return
             if category == 0:

@@ -38,7 +38,7 @@ def _draw_lobby(screen: curses.window, state: GameState, selected: list[str], cu
     _put(screen, 2, 2, "Five-card draw: deal, bet, exchange, bet, showdown.")
     _put(screen, 3, 2, "Free practice pays nothing. Wagered: 1-credit ante, 1-credit bet,")
     _put(screen, 4, 2, f"one raise per round; maximum loss {MAX_EXPOSURE} credit per seat.")
-    _put(screen, 6, 2, f"Your credit: {state.trade_credit}   Mode: {'WAGERED' if wagering else 'FREE PRACTICE'}",
+    _put(screen, 6, 2, f"Your credit: {state.trade_credit}   Stakes: {'WAGERED' if wagering else 'FREE PRACTICE'}",
          accent("warning" if wagering else "success", curses.A_BOLD))
     _put(screen, 7, 2, f"Invite three adults actually in the tavern ({len(selected)}/3):")
     first = max(0, cursor - 10)
@@ -50,7 +50,7 @@ def _draw_lobby(screen: curses.window, state: GameState, selected: list[str], cu
              accent("ui_accent", curses.A_REVERSE) if index == cursor else 0)
     if len(people) > 11:
         _put(screen, 19, 2, f"Showing {first + 1}-{min(first + 11, len(people))} of {len(people)} tavern adults.")
-    _put(screen, 20, 2, message[:75] if message else "Only named adult NPCs play. Their cards stay hidden until showdown.",
+    _put(screen, 20, 2, message[:75] if message else "Only adults at this table play. Their cards stay hidden until showdown.",
          accent("warning") if message else 0)
     _put(screen, 22, 2, "J/K choose  Space invite  W stakes/free  Enter deal  Q leave", accent("ui_accent", curses.A_BOLD))
     screen.refresh()

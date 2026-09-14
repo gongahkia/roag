@@ -349,7 +349,7 @@ def resolve(state: GameState, choice: str):
         from .regional_history import account_for
         account = account_for(state)
         account.trust = max(-3, account.trust - 1)
-        quest.consequence = "The undertaking is abandoned; the witness records a lost working promise, not a silently unwinnable expedition."
+        quest.consequence = "The undertaking is abandoned; the witness records a broken promise and releases the household from its terms."
         message = quest.consequence
     else:
         message = _settle(state, choice)

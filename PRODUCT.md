@@ -5,7 +5,7 @@ Jomon is a turn-based roguelike about sending one member of a persistent vessel-
 The current product is a fullscreen Python 3.11 terminal game using the standard-library `curses` module. Its eight destinations retain Hearthford, Greywash's tidal coast, Greenwold's open forest, and Whitecairn's limestone uplands, alongside the four frontier families described below. Travel begins from physical Jomon, whose tavern contains visible household members and bounded recruitable visitors. Couriers organise physically shaped items in a rotatable pack grid, wear armour across six readable body locations, and face terrain, weather, ranged fire, and goal-directed enemies whose plans depend on what they can see and hear.
 
 The preceding four-region milestone deepened that established world in place.
-The active systemic expansion adds Dunmire, Rillscar, Marlbank and Frostmere
+The systemic expansion added Dunmire, Rillscar, Marlbank and Frostmere
 without replacing existing geography. Jomon has three aligned functional
 decks plus a dedicated walkable tavern; its chart is now a persistent 16-node
 connected route map; and
@@ -65,17 +65,18 @@ The immediate first departure remains a product constraint: a new-world
 courier can interact at the gangplank and enter Hearthford without first
 opening the tavern, inventory, support, chart, or equipment interfaces.
 
-The active systemic-world milestone expands to eight regional destinations,
+The systemic-world milestone expanded to eight regional destinations,
 bounded causal histories, sparse material reactions, institutions, physical
 equipment fittings, regional stories and tactical voyage encounters. Existing
 content and immediate departure remain intact; optional vessel work must not
 become a preparation checklist. The acceptance ledger and measured status are
-in `docs/systemic-world-milestone.md`; targets are not completed features.
+in `docs/systemic-world-milestone.md`; its measurements describe that milestone,
+not the current release state.
 
 This milestone explicitly excludes infinite or offline world
 simulation, exhaustive needs or anatomy, unrestricted autonomous death,
 generic schedule/GOAP/encounter/quest/narrative languages, real-time travel,
-graphical tiles, generic spellcasting, and unbounded regional or onboard
+graphical tiles, unrestricted spellcasting, and unbounded regional or onboard
 content. Voyage events continue to reuse ordinary people, cargo, inventory,
 and combat rules in twelve sporadic authored families, eight offering physical
 deck play. Counted repairs, meals, pumping and workshop fittings are optional;
