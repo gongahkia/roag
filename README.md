@@ -16,6 +16,11 @@ A [persistent](https://cavesofqud.com/) roguelike where you're a [late-medival m
     <img src="./asset/reference/2.png" width="45%">
 </div>
 
+<div align="center">
+    <img src="./asset/reference/3.png" width="45%">
+    <img src="./asset/reference/4.png" width="45%">
+</div>
+
 ## Usage
 
 > [!NOTE]  
