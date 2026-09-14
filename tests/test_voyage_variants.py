@@ -44,8 +44,8 @@ class StatefulVoyageVariantTests(unittest.TestCase):
                 self.assertIn(expected.name, state.voyage_detail)
                 lines = crisis_lines(state)
                 self.assertTrue(any(line.startswith("CAUSE ") for line in lines))
-                self.assertTrue(any(line.startswith("CHANGED RULE ") for line in lines))
-                self.assertTrue(any(line.startswith("COUNTERS ") for line in lines))
+                self.assertTrue(any(line.startswith("WHAT HAS CHANGED ") for line in lines))
+                self.assertTrue(any(line.startswith("POSSIBLE ANSWERS ") for line in lines))
                 loaded = game_state_from_dict(state.to_dict())
                 self.assertEqual(active_variant(loaded, family), expected)
 
