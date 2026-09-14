@@ -4,6 +4,7 @@ from dataclasses import asdict
 import json
 import re
 import unittest
+from pathlib import Path
 
 from jomon.catalog import (
     ACTOR_SECTIONS, ARC_RELIC_SECTIONS, AFTERMATH_SECTIONS, CHARACTER_SECTIONS,
@@ -131,6 +132,30 @@ class CatalogTests(unittest.TestCase):
             strings.extend(value if isinstance(value, list) else [value])
         forbidden = re.compile(r"\b(?:developer|feature|gameplay|implementation|mechanics?|player|tutorial|ui|ux)\b", re.IGNORECASE)
         self.assertFalse([line for line in strings if forbidden.search(line)])
+
+    def test_authored_copy_avoids_out_of_world_terms(self):
+        forbidden = re.compile(r"\b(?:developer|feature|gameplay|implementation|mechanics?|player|tutorial|ui|ux)\b", re.IGNORECASE)
+
+        def strings(value, path=()):
+            if isinstance(value, str):
+                yield path, value
+            elif isinstance(value, dict):
+                for key, nested in value.items():
+                    yield from strings(nested, (*path, str(key)))
+            elif isinstance(value, list):
+                for index, nested in enumerate(value):
+                    yield from strings(nested, (*path, str(index)))
+
+        data_directory = Path(__file__).parents[1] / "jomon" / "data"
+        matches = [
+            f"{source.name}:{'.'.join(path)}: {value}"
+            for source in sorted(data_directory.glob("*.json"))
+            for path, value in strings(json.loads(source.read_text(encoding="utf-8")))
+            if not (source.name == "visuals.json" and path[:2] == ("semantic_roles", "region"))
+            and not (source.name == "visuals.json" and path[:2] == ("semantic_roles", "aboard"))
+            and forbidden.search(value)
+        ]
+        self.assertFalse(matches)
 
     def test_specialized_catalogues_rebuild_original_runtime_shapes(self):
         actors = load_catalog("actors.json", ACTOR_SECTIONS)
