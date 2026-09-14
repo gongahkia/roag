@@ -7,6 +7,13 @@ A [persistent](https://cavesofqud.com/) roguelike where you're a [late-medival m
 * [Python 3.11](https://www.python.org/) *(but newer is fine)*
 * [curses](https://docs.python.org/3/library/curses.html)
 
+## Screenshots
+
+<div align="center">
+    <img src="./asset/reference/1.png" width="45%">
+    <img src="./asset/reference/2.png" width="45%">
+</div>
+
 ## Usage
 
 > [!NOTE]  
