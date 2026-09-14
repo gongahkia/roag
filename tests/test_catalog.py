@@ -5,7 +5,7 @@ import json
 import unittest
 
 from jomon.catalog import (
-    AFTERMATH_SECTIONS, EQUIPMENT_SECTIONS, VESSEL_SECTIONS,
+    ACTOR_SECTIONS, AFTERMATH_SECTIONS, EQUIPMENT_SECTIONS, GEOGRAPHY_SECTIONS, VESSEL_SECTIONS,
     CatalogError, decode_catalog, load_catalog,
 )
 from jomon.aftermath import (
@@ -17,6 +17,9 @@ from jomon.content import COMMODITIES, ENEMY_ARCHETYPES, RECRUIT_TEMPLATES, vali
 from jomon.echoes import ECHOES
 from jomon.enemy_equipment import REGIONAL_ARMOUR as ENEMY_REGIONAL_ARMOUR
 from jomon.expanded_weapons import ARSENAL, BOMB_AMMUNITION
+from jomon.frontier_elites import AFTERMATH_ELITES, ELITE_ROWS, NAMED_RIVALS
+from jomon.frontiers import FRONTIER_DISCOVERIES, FRONTIER_RELICS, FRONTIERS
+from jomon.geography import FIELD_SECRETS
 from jomon.household_stories import STORIES
 from jomon.interference import INTERFERENCES
 from jomon.inventory import (
@@ -39,6 +42,23 @@ from jomon.workshop import FITTINGS
 
 class CatalogTests(unittest.TestCase):
     def test_specialized_catalogues_rebuild_original_runtime_shapes(self):
+        actors = load_catalog("actors.json", ACTOR_SECTIONS)
+        self.assertEqual(actors["FRONTIER_ELITES"]["rows"], [list(row) for row in ELITE_ROWS])
+        self.assertEqual(set(actors["FRONTIER_ELITES"]["aftermath"]), AFTERMATH_ELITES)
+        self.assertEqual(set(actors["FRONTIER_ELITES"]["named"]), NAMED_RIVALS)
+
+        geography = load_catalog("geography.json", GEOGRAPHY_SECTIONS)
+        self.assertEqual(geography["FIELD_SECRETS"], FIELD_SECRETS)
+        self.assertEqual(set(geography["FRONTIERS"]), set(FRONTIERS))
+        self.assertEqual(
+            {region: tuple(row["discoveries"]) for region, row in geography["FRONTIERS"].items()},
+            FRONTIER_DISCOVERIES,
+        )
+        self.assertEqual(
+            {region: tuple(row["relics"]) for region, row in geography["FRONTIERS"].items()},
+            FRONTIER_RELICS,
+        )
+
         vessel = load_catalog("vessel.json", VESSEL_SECTIONS)
         self.assertEqual(vessel["voyages"], json.loads(json.dumps(VOYAGES)))
         self.assertEqual(vessel["hazard_stations"], {kind: asdict(point) for kind, point in HAZARD_STATIONS.items()})

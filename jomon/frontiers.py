@@ -5,30 +5,10 @@ from __future__ import annotations
 import math
 
 from .content import COMMODITIES, PASSIVES
+from .geography import FRONTIER_DISCOVERIES, FRONTIER_RELICS, FRONTIERS
 from .regions import _border, _carve, _grid, _levels, _rect, _road, _signature, region_reachable, validate_region
 from .state import ActorSchedule, Contact, Container, MarketEntry, MaterialCell, Position, Region, Threat, VerticalLink, stage_rng
 from .work_weapons import WORK_WEAPONS
-
-FRONTIERS = {
-    "dunmire": ("Dunmire Peat Isles", 96, 56, "peat", "charcoal", "timber", "fen overtopping", "Yara Silt", "peat steward", "Deren Wick", "causeway keeper"),
-    "rillscar": ("Rillscar Iron Gorge", 112, 52, "ironstone", "ironwork", "charcoal", "tailrace fracture", "Halen Crag", "cutworks factor", "Vessa Ore", "bridge witness"),
-    "marlbank": ("Marlbank Clay Terraces", 104, 60, "clay", "grain", "timber", "irrigation release", "Mera Loam", "terrace keeper", "Odrin Kiln", "potters' speaker"),
-    "frostmere": ("Frostmere Braided Estuary", 108, 58, "gravel", "salt fish", "wool", "ice-channel breakup", "Sarin Rill", "net-house keeper", "Brenna Floe", "winter pilot"),
-}
-
-FRONTIER_DISCOVERIES = {
-    "dunmire": ("fen sledge", "fire rake tooth", "pitch cup"),
-    "rillscar": ("ice awl", "counterbrace pin", "signal mirror"),
-    "marlbank": ("limewash seal", "smoke braid", "market weights"),
-    "frostmere": ("shingle skids", "salvage tally"),
-}
-
-FRONTIER_RELICS = {
-    "dunmire": ("flood-mark clasp", "ashglass lens"),
-    "rillscar": ("quarry echo pin",),
-    "marlbank": ("red-clay seal",),
-    "frostmere": ("winter sounding bead", "wreck-light prism"),
-}
 
 
 def _fen(seed, width, height):

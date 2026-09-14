@@ -15,6 +15,9 @@ ACTOR_SECTIONS = (
     "ENEMY_ARCHETYPES", "LEGACY_STANDARD_GLYPHS", "FRONTIER_ACTORS",
     "EXPANDED_STANDARD_ACTORS", "FRONTIER_ELITES", "STANDARD_REACTIONS",
 )
+GEOGRAPHY_SECTIONS = (
+    "SIDE_ROUTES", "GROUND_PATCHES", "FIELD_SECRETS", "FRONTIERS",
+)
 AFTERMATH_SECTIONS = (
     "lines", "topologies", "drainage_topologies", "fire_topologies",
     "support_topologies", "recovery_topologies", "preparations",

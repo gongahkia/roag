@@ -60,6 +60,7 @@ class WorldLayoutTests(unittest.TestCase):
                 landings[region_id].add(layout_point(region, region.landmarks["landing"]).y)
         self.assertTrue(all(len(rows) >= 2 for rows in landings.values()), landings)
         for rows in FIELD_SECRETS.values():
+            self.assertEqual(len(rows), 3)
             for _, _, _, reward, _, _ in rows:
                 try:
                     item_spec(reward)

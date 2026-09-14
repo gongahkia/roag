@@ -119,7 +119,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
         "all_region_capstones": 1,
     }
     minima = {
-        "regions": 8, "standard_enemies": 80, "mechanically_distinct_enemies": 80,
+        "regions": 8, "standard_enemies": 88, "mechanically_distinct_enemies": 88,
         "elite_situations": 24, "named_rivals": 8, "weapons": 36,
         "armour": 36, "techniques": 32, "active_passives_and_techniques": 80,
         "secondary_tools_supplies_drinks": 51, "relics": 16,

@@ -60,5 +60,11 @@
       ["cave_entrance", "net-drift", "Net-drift salvage packet", "fletched arrows", "light", "a net weight caught well above the tide"],
       ["store", "cold-linen", "Cold-store linen roll", "pine resin dressing", "light", "a dry linen twist behind the cold-store sill"]
     ]
+  },
+  "FRONTIERS": {
+    "dunmire": {"name": "Dunmire Peat Isles", "width": 96, "height": 56, "geology": "peat", "commodity": "charcoal", "shortage": "timber", "process": "fen overtopping", "contacts": [["Yara Silt", "peat steward"], ["Deren Wick", "causeway keeper"]], "discoveries": ["fen sledge", "fire rake tooth", "pitch cup"], "relics": ["flood-mark clasp", "ashglass lens"]},
+    "rillscar": {"name": "Rillscar Iron Gorge", "width": 112, "height": 52, "geology": "ironstone", "commodity": "ironwork", "shortage": "charcoal", "process": "tailrace fracture", "contacts": [["Halen Crag", "cutworks factor"], ["Vessa Ore", "bridge witness"]], "discoveries": ["ice awl", "counterbrace pin", "signal mirror"], "relics": ["quarry echo pin"]},
+    "marlbank": {"name": "Marlbank Clay Terraces", "width": 104, "height": 60, "geology": "clay", "commodity": "grain", "shortage": "timber", "process": "irrigation release", "contacts": [["Mera Loam", "terrace keeper"], ["Odrin Kiln", "potters' speaker"]], "discoveries": ["limewash seal", "smoke braid", "market weights"], "relics": ["red-clay seal"]},
+    "frostmere": {"name": "Frostmere Braided Estuary", "width": 108, "height": 58, "geology": "gravel", "commodity": "salt fish", "shortage": "wool", "process": "ice-channel breakup", "contacts": [["Sarin Rill", "net-house keeper"], ["Brenna Floe", "winter pilot"]], "discoveries": ["shingle skids", "salvage tally"], "relics": ["winter sounding bead", "wreck-light prism"]}
   }
 }

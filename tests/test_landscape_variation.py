@@ -28,6 +28,7 @@ class LandscapeVariationTests(unittest.TestCase):
                     self.assertTrue(any({link.first, link.second} == {lower, Position(lower.x, lower.y)}
                                         for link in region.vertical_links))
                     pocket_count = len(VARIANTS[region.id]["pockets"])
+                    self.assertEqual(pocket_count, 4)
                     self.assertTrue({region.landmarks[f"landform_{number}"] for number in range(pocket_count)} <= reachable)
                     self.assertTrue(all(f"landform:{number}" in region.generation_facts for number in range(pocket_count)))
 

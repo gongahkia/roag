@@ -5,15 +5,16 @@ from __future__ import annotations
 import hashlib
 import heapq
 
-from .catalog import CatalogError, load_catalog
+from .catalog import CatalogError, GEOGRAPHY_SECTIONS, load_catalog
 from .state import Position, Region, stage_rng
 
 
 LAYOUTS = ("original", "east", "south", "east-south")
-_CATALOG = load_catalog("geography.json", ("SIDE_ROUTES", "GROUND_PATCHES", "FIELD_SECRETS"))
+_CATALOG = load_catalog("geography.json", GEOGRAPHY_SECTIONS)
 SIDE_ROUTES = _CATALOG["SIDE_ROUTES"]
 GROUND_PATCHES = _CATALOG["GROUND_PATCHES"]
 FIELD_SECRETS = _CATALOG["FIELD_SECRETS"]
+_FRONTIER_CATALOG = _CATALOG["FRONTIERS"]
 if not all(isinstance(section, dict) and set(section) == set(SIDE_ROUTES) for section in (SIDE_ROUTES, GROUND_PATCHES, FIELD_SECRETS)):
     raise CatalogError("geography sections must cover the same regions")
 for region_id in SIDE_ROUTES:
@@ -27,6 +28,29 @@ for region_id in SIDE_ROUTES:
             or any(not isinstance(row, list) or len(row) != 6 or any(not isinstance(value, str) or not value for value in row)
                    or row[4] not in {"light", "key", "rope"} for row in secrets)):
         raise CatalogError(f"{region_id} has invalid field secrets")
+
+_FRONTIER_KEYS = {"name", "width", "height", "geology", "commodity", "shortage", "process", "contacts", "discoveries", "relics"}
+if not isinstance(_FRONTIER_CATALOG, dict) or set(_FRONTIER_CATALOG) != {"dunmire", "rillscar", "marlbank", "frostmere"}:
+    raise CatalogError("FRONTIERS must cover the four charted frontier regions")
+for region_id, row in _FRONTIER_CATALOG.items():
+    if (not isinstance(row, dict) or set(row) != _FRONTIER_KEYS
+            or not all(isinstance(row[key], str) and row[key] for key in ("name", "geology", "commodity", "shortage", "process"))
+            or not all(isinstance(row[key], int) and row[key] > 0 for key in ("width", "height"))
+            or not isinstance(row["contacts"], list) or len(row["contacts"]) != 2
+            or any(not isinstance(contact, list) or len(contact) != 2 or any(not isinstance(value, str) or not value for value in contact)
+                   for contact in row["contacts"])
+            or any(not isinstance(row[key], list) or any(not isinstance(value, str) or not value for value in row[key])
+                   for key in ("discoveries", "relics"))):
+        raise CatalogError(f"{region_id} has invalid frontier content")
+FRONTIERS = {
+    region_id: (
+        row["name"], row["width"], row["height"], row["geology"], row["commodity"],
+        row["shortage"], row["process"], *row["contacts"][0], *row["contacts"][1],
+    )
+    for region_id, row in _FRONTIER_CATALOG.items()
+}
+FRONTIER_DISCOVERIES = {region_id: tuple(row["discoveries"]) for region_id, row in _FRONTIER_CATALOG.items()}
+FRONTIER_RELICS = {region_id: tuple(row["relics"]) for region_id, row in _FRONTIER_CATALOG.items()}
 
 
 def layout_for(seed: str, region_id: str) -> str:
