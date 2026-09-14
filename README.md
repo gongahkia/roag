@@ -1,16 +1,16 @@
 # `Jomon` 🛖
 
-Jomon is a fullscreen, keyboard-driven terminal roguelike about a persistent late-medieval vessel-household. One adult courier at a time leaves the vessel to trade, investigate, negotiate, fight, and return with consequences for the household, regional routes, markets, and relationships.
+A [persistent](https://cavesofqud.com/) roguelike where you're a [late-medival mailman](https://en.wikipedia.org/wiki/Jōmon_people), played entirely in the [CLI](https://dwarffortresswiki.org/index.php/Command_line).
 
-The game is local and deterministic from its seed and saved state, and uses only the Python standard library.
+## Stack
 
-## Requirements
-
-- Python 3.11 or newer
-- An 80-column by 24-row terminal
-- Linux or macOS; Windows is supported through WSL
+* [Python 3.11](https://www.python.org/) *(but newer is fine)*
+* [curses](https://docs.python.org/3/library/curses.html)
 
 ## Usage
+
+> [!NOTE]  
+> `Jomon` minimally requires a 80-column by 24-row terminal.
 
 The below instructions are for locally running `Jomon`.
 
