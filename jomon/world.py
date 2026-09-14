@@ -476,6 +476,14 @@ def area_name(state: GameState) -> str:
         from .sanctums import SITES
 
         return f"{SITES[state.active_region_id]['name']} — undercroft seal"
+    from .landscape_variation import VARIANTS
+
+    for key, level in (("field_upper", 1), ("field_lower", -1)):
+        anchor = state.region.landmarks.get(key)
+        if (anchor and state.position.z == level
+                and abs(state.position.x - anchor.x) <= 3
+                and abs(state.position.y - anchor.y) <= 2):
+            return f"{state.region.name} — {VARIANTS[state.active_region_id]['upper' if level == 1 else 'lower']}"
     if state.position.z < 0:
         return f"{state.region.name} — below"
     if state.position.z == 2:

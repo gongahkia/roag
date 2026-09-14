@@ -60,10 +60,11 @@ def _local_ground(region: Region, start: Position) -> set[Position]:
     return seen
 
 
-def _site_location(region: Region, seed: str) -> Position:
+def _site_location(region: Region, seed: str, occupied: tuple[Position, ...] = ()) -> Position:
     cave = region.landmarks["cave_entrance"]
     reachable = _local_ground(region, cave)
     forbidden = set(region.landmarks.values()) | {box.position for box in region.containers}
+    forbidden.update(occupied)
     forbidden.update(point for link in region.vertical_links for point in (link.first, link.second))
     candidates = []
     for point in reachable:
@@ -182,11 +183,16 @@ def _tier(region: Region, entry: Position, z: int, seed: str) -> tuple[Position,
     return secret
 
 
-def install(region: Region, seed: str) -> None:
+def install(region: Region, seed: str, *, occupied: tuple[Position, ...] = ()) -> None:
     """Add only new geography; old region changes, containers and claims survive."""
-    if region.id not in SITES or "sanctum_entry" in region.landmarks:
+    if region.id not in SITES:
         return
-    entry = _site_location(region, seed)
+    old_door = region.landmarks.pop("sanctum_secret_door", None)
+    if old_door is not None:
+        region.changes.setdefault("sanctum:secret_door", f"{old_door.x},{old_door.y},{old_door.z}")
+    if "sanctum_entry" in region.landmarks:
+        return
+    entry = _site_location(region, seed, occupied)
     lower = _undercroft(region, seed)
     x, y = entry.x, entry.y
     secret = _tier(region, entry, 1, seed)
@@ -202,7 +208,9 @@ def install(region: Region, seed: str) -> None:
         "sanctum_boss": boss, "sanctum_side_stair": side_stair,
     })
     if secret:
-        region.landmarks["sanctum_secret"], region.landmarks["sanctum_secret_door"] = secret
+        marker, door = secret
+        region.landmarks["sanctum_secret"] = marker
+        region.changes["sanctum:secret_door"] = f"{door.x},{door.y},{door.z}"
     region.tile_changes[f"{x},{y},0"] = ">"
     region.tile_changes[f"{x + 1},{y},0"] = "*"
     region.tile_changes[f"{lower.x},{lower.y},-1"] = "*"
@@ -240,9 +248,6 @@ def install(region: Region, seed: str) -> None:
     region.geography_signature = hashlib.sha256(
         f"{region.geography_signature}:sanctum:{entry.x},{entry.y}".encode()
     ).hexdigest()[:16]
-    from .landscape_variation import install as install_landforms
-
-    install_landforms(region, seed)
 
 
 def _network(state: GameState):
@@ -431,12 +436,12 @@ def undercroft(state: GameState) -> tuple[bool, str]:
 
 def open_secret(state: GameState) -> tuple[bool, str]:
     marker = state.region.landmarks.get("sanctum_secret")
-    door = state.region.landmarks.get("sanctum_secret_door")
-    if state.position != marker or door is None:
+    door = state.region.changes.get("sanctum:secret_door")
+    if state.position != marker or not isinstance(door, str):
         return False, "No scored gallery seam is here."
     if state.region.changes.get("sanctum:secret_open"):
         return False, "The gallery shortcut is already open."
-    state.region.tile_changes[f"{door.x},{door.y},{door.z}"] = "+"
+    state.region.tile_changes[door] = "+"
     state.region.changes["sanctum:secret_open"] = True
     return True, "The scored stone turns aside. A second route through the ward gallery opens."
 

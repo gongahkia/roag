@@ -3,9 +3,10 @@ import unittest
 from jomon.actions import interact
 from jomon.frontiers import FRONTIERS, build_frontier
 from jomon.landscape_variation import VARIANTS, _spawn_traveller, approach, enter_structure, traveller_choice
+from jomon.navigation import navigation_targets
 from jomon.regions import region_reachable, validate_region
 from jomon.state import Position, create_world, game_state_from_dict
-from jomon.world import position_key
+from jomon.world import area_name, position_key
 
 
 class LandscapeVariationTests(unittest.TestCase):
@@ -48,6 +49,16 @@ class LandscapeVariationTests(unittest.TestCase):
         self.assertFalse(traveller_choice(state, "b").changed)
         self.assertGreater(state.world_time, start)
         self.assertEqual(game_state_from_dict(state.to_dict()).to_dict(), state.to_dict())
+
+    def test_named_landforms_and_side_rooms_appear_in_navigation_and_area(self):
+        state = create_world("named side rooms")
+        state.location = "region"
+        state.position = state.region.landmarks["field_upper"]
+        self.assertIn(VARIANTS["hearthford"]["upper"], area_name(state))
+        target = state.region.landmarks["landform_1"]
+        state.region.seen.append(position_key(target))
+        self.assertIn(VARIANTS["hearthford"]["pockets"][1][0],
+                      [item.label for item in navigation_targets(state)])
 
     def test_field_events_are_bounded_and_structure_visits_do_not_repeat(self):
         state = create_world("field events")

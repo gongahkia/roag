@@ -66,6 +66,8 @@ LANDMARK_LABELS = {
     "sanctum_undercroft": "undercroft seal",
     "sanctum_ward": "ward gallery",
     "sanctum_boss": "reliquary keeper",
+    "sanctum_side_stair": "side gallery stair",
+    "sanctum_secret": "scored gallery seam",
 }
 
 
@@ -104,7 +106,14 @@ def navigation_targets(state: GameState) -> tuple[NavigationTarget, ...]:
     ):
         if point == state.position or point not in known or point in occupied:
             continue
-        label = LANDMARK_LABELS.get(name, name.replace("_", " "))
+        if name.startswith("landform_") or name in {"field_upper", "field_lower"}:
+            from .landscape_variation import VARIANTS
+
+            row = VARIANTS[state.active_region_id]
+            label = (row["pockets"][int(name.rsplit("_", 1)[1])][0]
+                     if name.startswith("landform_") else row["upper" if name == "field_upper" else "lower"])
+        else:
+            label = LANDMARK_LABELS.get(name, name.replace("_", " "))
         targets.append(NavigationTarget(f"landmark:{name}", label, point, "landmark"))
         occupied.add(point)
     for container in sorted(state.region.containers, key=lambda item: item.id):

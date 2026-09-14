@@ -311,6 +311,9 @@ def build_greywash(seed: str, *, layout: str | None = None) -> Region:
         from .sanctums import install as install_sanctum
 
         install_sanctum(region, seed)
+        from .landscape_variation import install as install_landforms
+
+        install_landforms(region, seed)
         from .discoveries import install_discoveries
 
         install_discoveries(region, seed)
@@ -458,6 +461,9 @@ def build_greenwold(seed: str, *, layout: str | None = None) -> Region:
         from .sanctums import install as install_sanctum
 
         install_sanctum(region, seed)
+        from .landscape_variation import install as install_landforms
+
+        install_landforms(region, seed)
         from .discoveries import install_discoveries
 
         install_discoveries(region, seed)
@@ -577,6 +583,9 @@ def build_whitecairn(seed: str, *, layout: str | None = None) -> Region:
         from .sanctums import install as install_sanctum
 
         install_sanctum(region, seed)
+        from .landscape_variation import install as install_landforms
+
+        install_landforms(region, seed)
         from .discoveries import install_discoveries
 
         install_discoveries(region, seed)

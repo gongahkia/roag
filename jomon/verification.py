@@ -14,7 +14,7 @@ from .aftermath import AFTERMATH_LINES
 from .build_scenarios import BUILD_SCENARIOS, validate_build_scenarios
 from .build_balance import build_balance_audit, validate_build_balance
 from .content import (
-    COMMODITIES, DISCOVERIES, ENEMY_ARCHETYPES, GEAR, MERCHANT_ITEMS,
+    COMMODITIES, DISCOVERIES, GEAR, MERCHANT_ITEMS,
     PASSIVES, RECRUIT_TEMPLATES, RELICS, ROLE_TECHNIQUE, WEAPONS,
     validate_commodity_content,
 )

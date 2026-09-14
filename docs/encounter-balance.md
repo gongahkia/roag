@@ -54,8 +54,8 @@ python -m jomon.encounters
 ```
 
 `roster_audit()` additionally validates the live catalogue rather than adding
-direct-map actors to a paper total. It reports **72 standard archetypes: nine
-per major region**, 72 unique mechanics-driving signatures, 72 unique ASCII
+direct-map actors to a paper total. It reports **80 standard archetypes: ten
+per major region**, 80 unique mechanics-driving signatures, 80 unique ASCII
 glyphs, 23 catalogue elites plus Hearthford's map-authored crown wheel for 24
 elite situations, and eight named recurring claimants. A signature comprises
 profile, role, goal, material duty, ecology, ranged kind/range, finite supplies,

@@ -135,12 +135,16 @@ class SanctumTests(unittest.TestCase):
         from jomon.topology import build_region
 
         old = create_world("sanctum retrofit")
+        parked = old.region.landmarks["landform_0"]
+        old.vehicles["horse_cart"].position = parked
         spatial = build_region(old.seed)
         for field in ("levels", "landmarks", "vertical_links", "containers", "changes", "tile_changes", "geography_signature"):
             setattr(old.region, field, spatial[field])
         loaded = game_state_from_dict(old.to_dict())
         self.assertIn("sanctum_entry", loaded.region.landmarks)
         self.assertEqual(len([box for box in loaded.region.containers if "sanctum" in box.id]), 2)
+        self.assertEqual(loaded.vehicles["horse_cart"].position, parked)
+        self.assertEqual(loaded.region.levels["0"][parked.y][parked.x], spatial["levels"]["0"][parked.y][parked.x])
 
     def test_room_graphs_vary_and_a_clued_seam_opens_an_optional_loop(self):
         patterns = set()
@@ -153,13 +157,13 @@ class SanctumTests(unittest.TestCase):
             self.assertEqual(sum("side gallery" in link.name for link in region.vertical_links), 1)
             self.assertEqual(len([box for box in region.containers if "sanctum" in box.id]), 2)
             seam = region.landmarks["sanctum_secret"]
-            door = region.landmarks["sanctum_secret_door"]
+            door = tuple(map(int, region.changes["sanctum:secret_door"].split(",")))
             self.assertEqual(region.levels["1"][seam.y][seam.x], "*")
-            self.assertEqual(region.levels["1"][door.y][door.x], "#")
+            self.assertEqual(region.levels["1"][door[1]][door[0]], "#")
             state.location = "region"
             state.position = seam
             self.assertTrue(interact(state).time_advanced)
-            self.assertEqual(region.tile_changes[f"{door.x},{door.y},1"], "+")
+            self.assertEqual(region.tile_changes[region.changes["sanctum:secret_door"]], "+")
             self.assertFalse(interact(state).changed)
             validate_region(region)
         self.assertGreaterEqual(len(patterns), 6)

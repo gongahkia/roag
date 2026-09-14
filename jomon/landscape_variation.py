@@ -101,12 +101,14 @@ def _structure(region: Region, seed: str, level: int, ground: list[list[str]],
     protected.add((x, y))
 
 
-def install(region: Region, seed: str) -> None:
+def install(region: Region, seed: str, *, occupied: tuple[Position, ...] = ()) -> None:
     """Keep the authored roads and landmarks; add passable terrain and side routes."""
     if region.id not in VARIANTS or "field_upper" in region.landmarks:
         return
     reachable = _connected_ground(region)
     protected = _protected(region)
+    protected.update((point.x + dx, point.y + dy) for point in occupied if point.z == 0
+                     for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)))
     ground = [list(row) for row in region.levels["0"]]
     anchors: list[tuple[int, int]] = []
     for index, (name, glyph) in enumerate(VARIANTS[region.id]["pockets"]):

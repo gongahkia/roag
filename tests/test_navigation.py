@@ -57,6 +57,9 @@ class NavigationTests(unittest.TestCase):
     def test_route_steps_are_exactly_equivalent_to_manual_actions(self):
         automatic = regional_state("route replay parity")
         remember_everything(automatic)
+        for index in range(3):
+            automatic.region.changes[f"landform:{index}:visit"] = automatic.expedition_count
+        automatic.region.changes["sanctum:event_visit"] = automatic.expedition_count
         manual = copy.deepcopy(automatic)
         target_id = "landmark:contact"
         plan = plan_route(automatic, target_id)
@@ -64,7 +67,8 @@ class NavigationTests(unittest.TestCase):
         while index < len(plan.path):
             result = advance_route(automatic, plan, index)
             self.assertTrue(result.time_advanced)
-            self.assertFalse(result.stop_reason and not result.finished)
+            if result.stop_reason and not result.finished:
+                self.assertTrue(result.stop_reason.startswith("New condition:"), result.stop_reason)
             index = result.next_index
         previous = manual.position
         for point in plan.path:

@@ -744,6 +744,9 @@ def _region(seed: str) -> tuple[Region, Contact]:
     from .sanctums import install as install_sanctum
 
     install_sanctum(region, seed)
+    from .landscape_variation import install as install_landforms
+
+    install_landforms(region, seed)
     from .discoveries import install_discoveries
 
     install_discoveries(region, seed)
@@ -1389,13 +1392,15 @@ def game_state_from_dict(data: Any) -> GameState:
                 state.region_threats[region_id] = new_threats[region_id]
                 state.regional_markets[region_id] = new_markets[region_id]
         from .sanctums import install as install_sanctum
-
-        for installed_region in state.regions.values():
-            install_sanctum(installed_region, state.seed)
         from .landscape_variation import install as install_landforms
 
         for installed_region in state.regions.values():
-            install_landforms(installed_region, state.seed)
+            occupied = tuple(vehicle.position for vehicle in state.vehicles.values()
+                             if vehicle.region_id == installed_region.id)
+            if state.location == "region" and state.active_region_id == installed_region.id:
+                occupied += (state.position,)
+            install_sanctum(installed_region, state.seed, occupied=occupied)
+            install_landforms(installed_region, state.seed, occupied=occupied)
         if migrated_v10:
             from .vehicles import initialise_vehicles
 
