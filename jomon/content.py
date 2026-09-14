@@ -68,6 +68,20 @@ def _interface_ledgers(value: object) -> dict[str, tuple[str, ...] | str]:
         for key in required
     }
 
+
+def _interface_labels(value: object) -> dict[str, str]:
+    required = {
+        "watch_log", "chronicle", "charted_passage", "pack_and_stores",
+        "ordered_stowage", "free_stowage", "carried_kit", "placement_mark",
+        "pack_tally", "drop_tally", "household_counsel", "relic_case",
+        "carried_relic", "field_kit", "packed_findings", "leave_book",
+        "courier_record", "vacant_berth",
+    }
+    if (not isinstance(value, dict) or set(value) != required
+            or any(not isinstance(line, str) or not line for line in value.values())):
+        raise CatalogError("interface_labels has invalid text")
+    return value
+
 COMMODITIES = _dict_map(_GOODS["COMMODITIES"], "COMMODITIES")
 
 COMMODITY_LOGISTICS = _dict_map(_GOODS["COMMODITY_LOGISTICS"], "COMMODITY_LOGISTICS")
@@ -201,3 +215,5 @@ JOMON_MAP = _text_rows(_WORLD_TEXT["JOMON_MAP"], "JOMON_MAP")
 HELP_LINES = _text_rows(_WORLD_TEXT["HELP_LINES"], "HELP_LINES")
 
 INTERFACE_LEDGERS = _interface_ledgers(_WORLD_TEXT["interface_ledgers"])
+
+INTERFACE_LABELS = _interface_labels(_WORLD_TEXT["interface_labels"])

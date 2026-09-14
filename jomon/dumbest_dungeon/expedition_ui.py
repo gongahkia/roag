@@ -620,7 +620,7 @@ def run_expedition(screen: curses.window, state) -> None:
         height, width = screen.getmaxyx()
         if height < 24 or width < 80:
             screen.erase()
-            ui._put(1, 1, "Dullest Dungeon needs an 80x24 terminal. Resize or press Q to leave.")
+            ui._put(1, 1, "The tavern board needs an 80x24 slate. Resize or press Q to leave the table.")
             screen.refresh()
             if screen.getch() in (ord("q"), ord("Q"), 27):
                 return

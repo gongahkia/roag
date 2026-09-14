@@ -71,6 +71,7 @@ from .content import (
     COMMODITIES,
     HELP_LINES,
     INTERFACE_LEDGERS,
+    INTERFACE_LABELS,
     MERCHANT_ITEMS,
     PASSIVES,
     RELICS,
@@ -834,8 +835,8 @@ def _status_lines(state: GameState, capacity: int | None = None) -> list[str]:
 def _draw_minimum_size_notice(screen: curses.window) -> None:
     height, width = screen.getmaxyx()
     messages = (
-        f"Jomon needs at least {MIN_WIDTH}x{MIN_HEIGHT} terminal cells.",
-        f"Current size: {width}x{height}. Resize or press Q to quit.",
+        f"Jomon's chart needs at least {MIN_WIDTH}x{MIN_HEIGHT} terminal marks.",
+        f"Present frame: {width}x{height}. Widen it, or Q signs the leave book.",
     )
     lines = [
         (part, index == 0)
@@ -857,7 +858,7 @@ def _draw_base(screen: curses.window, state: GameState) -> None:
     status_width, event_height, command_height = 29, 6, 0
     main_height, map_width = height - event_height - command_height, width - status_width
     _frame(screen, 0, 0, main_height, map_width, area_name(state).upper())
-    _frame(screen, 0, map_width, main_height, status_width, "STATUS")
+    _frame(screen, 0, map_width, main_height, status_width, INTERFACE_LABELS["watch_log"])
     _draw_map(screen, state, 0, 0, main_height, map_width)
     for index, line in enumerate(_status_lines(state, main_height - 2)):
         role = status_colour_role(line)
@@ -869,7 +870,7 @@ def _draw_base(screen: curses.window, state: GameState) -> None:
         if role == "ui_heading":
             attr |= curses.A_BOLD
         _put(screen, 1 + index, map_width + 2, _clip(line, status_width - 4), attr)
-    _frame(screen, main_height, 0, event_height, width, "EVENTS  ? HELP")
+    _frame(screen, main_height, 0, event_height, width, INTERFACE_LABELS["chronicle"])
     event_lines = event_feed_lines(state.messages, width - 4, event_height - 2)
     for index, line in enumerate(event_lines):
         _put(screen, main_height + 1 + index, 2, _clip(line, width - 4), _COLOUR_ATTRIBUTES[event_colour_role(line)])
@@ -1926,7 +1927,7 @@ def _draw_route_chart(
     detail_width = max(27, min(36, width // 3))
     map_width = width - detail_width
     _frame(screen, 0, 0, height - 2, map_width, "JOMON ROUTE CHART")
-    _frame(screen, 0, map_width, height - 2, detail_width, "SELECTED ROUTE")
+    _frame(screen, 0, map_width, height - 2, detail_width, INTERFACE_LABELS["charted_passage"])
     for y in range(3, max(3, height - 4), 4):
         for x in range(4 + (y % 3), max(4, map_width - 3), 9):
             _put(screen, y, x, "~", _COLOUR_ATTRIBUTES["water"] | curses.A_DIM)
@@ -2140,9 +2141,9 @@ def _paper_selected_item(state: GameState, view: InventoryView):
 def _draw_inventory(screen: curses.window, state: GameState, view: InventoryView) -> None:
     height, width = screen.getmaxyx()
     screen.erase()
-    _frame(screen, 0, 0, height - 2, width, "SPATIAL INVENTORY")
+    _frame(screen, 0, 0, height - 2, width, INTERFACE_LABELS["pack_and_stores"])
     pane_name = view.pane.split(":", 1)[0].upper()
-    mode = "AUTO-PLACE ON" if state.auto_place_enabled else "AUTO-PLACE OFF"
+    mode = INTERFACE_LABELS["ordered_stowage"] if state.auto_place_enabled else INTERFACE_LABELS["free_stowage"]
     _put(screen, 1, 2, f"{pane_name}  Tab pane  {mode}", _COLOUR_ATTRIBUTES["ui_heading"] | curses.A_BOLD)
     selected = _inventory_item_at(state, view)
     if view.held_id:
@@ -2194,7 +2195,7 @@ def _draw_inventory(screen: curses.window, state: GameState, view: InventoryView
             _put(screen, 5, 3, "(empty)", curses.A_DIM)
 
     detail_x = min(max(27, width // 2), width - 34)
-    _put(screen, 2, detail_x, "PAPER DOLL  [ / ] selects slot", _COLOUR_ATTRIBUTES["ui_heading"] | curses.A_BOLD)
+    _put(screen, 2, detail_x, INTERFACE_LABELS["carried_kit"], _COLOUR_ATTRIBUTES["ui_heading"] | curses.A_BOLD)
     view.paper_screen = {}
     for index, line in enumerate(paper_doll_layout(state)):
         _put(screen, 3 + index, detail_x, _clip(line, width - detail_x - 2))
@@ -2229,15 +2230,15 @@ def _draw_inventory(screen: curses.window, state: GameState, view: InventoryView
         held_item = next(item for item in state.items if item.id == view.held_id)
         owner = state.active_courier_id if view.pane == "pack" else None
         preview = placement_preview(state, held_item, view.pane, view.cursor_x, view.cursor_y, rotated=view.held_rotated, owner_id=owner)
-        view.status = f"GHOST {preview.reason}; load {preview.resulting_weight}/{weight_capacity(state)} {preview.resulting_load}"
+        view.status = f"{INTERFACE_LABELS['placement_mark']}: {preview.reason}; load {preview.resulting_weight}/{weight_capacity(state)} {preview.resulting_load}"
     count = len(view.selected_ids or ())
     if count:
         marked = [item for item in state.items if item.id in (view.selected_ids or set())]
         total = sum(item_spec(item.kind).weight * item.quantity for item in marked)
         cells = sum(len(occupied_cells(item)) for item in marked)
-        view.status = f"MARKED {count}; weight {total}; cells {cells}"
+        view.status = f"{INTERFACE_LABELS['pack_tally']}: {count}; weight {total}; spaces {cells}"
     if view.pending_drop:
-        view.status = "CONFIRM DROP: Y drops marked/current physical items; N/Esc cancels"
+        view.status = f"{INTERFACE_LABELS['drop_tally']}: Y sets the marked goods down; N/Esc keeps them."
     status_role = "warning" if any(word in view.status.lower() for word in ("invalid", "failed", "confirm drop")) else "success" if view.status else "terrain"
     _put(screen, height - 3, 2, _clip(view.status, width - 4), _COLOUR_ATTRIBUTES[status_role] | curses.A_BOLD)
     for index, line in enumerate(INVENTORY_HELP_LINES):
@@ -2496,15 +2497,15 @@ def _tavern_lines(state: GameState) -> list[str]:
     combos = ", ".join(build_combinations(state)) or "none active"
     passives = ", ".join(state.carried_passives) or "none"
     return [
-        f"Active courier: {identity}",
+        f"Courier on watch: {identity}",
         "Speak directly to a visible adventurer to switch or recruit.",
-        f"S Crew support: {state.support or 'none'}",
+        f"S Household counsel: {state.support or 'none'}",
         f"Readied: {state.weapon or 'none'} / {state.gear or 'none'} / {state.carried_relic or 'no relic'}",
         f"Discoveries: {passives} ({passive_bulk(state)}/{passive_capacity(state)} carried bulk)",
         f"Working strengths: {combos}", f"Cargo: {goods}; capacity {carried_bulk(state)}/{capacity(state)}",
         "", state.region.condition, state.region.objective_text, f"Local work: {state.objective_status}",
-        "Use I for the pack, body slots, and Jomon locker.",
-        "Enter confirms and closes. Escape cancels without advancing time.",
+        "I opens the pack, carried kit, and Jomon locker.",
+        "Enter binds the departure terms and folds this slate. Escape leaves no mark.",
     ]
 
 
@@ -2907,25 +2908,25 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             "Significant memories:", *[f"- {memory}" for memory in memories], "Escape closes without time.",
         ]
     if kind == "tavern":
-        return "TAVERN EXPEDITION PREPARATION", _tavern_lines(state)
+        return "TAVERN DEPARTURE TERMS", _tavern_lines(state)
     if kind == "tavern:support":
-        return "SELECT CREW SUPPORT", [f"{index + 1}. {name} — {detail}" for index, (name, detail) in enumerate(SUPPORTS.values())] + ["Number selects; Escape returns."]
+        return INTERFACE_LABELS["household_counsel"], [f"{index + 1}. {name} — {detail}" for index, (name, detail) in enumerate(SUPPORTS.values())] + ["Name a household aid; Escape folds the slate."]
     if kind == "tavern:relic":
         rows = [name for name in RELICS if state.relics.get(name, 0)]
-        return "SELECT A RELIC", ["0. Carry none", *[f"{index + 1}. {name} ({state.relics[name]}) — {RELICS[name]}" for index, name in enumerate(rows)], "Number selects; Escape returns."]
+        return INTERFACE_LABELS["relic_case"], ["0. Carry none", *[f"{index + 1}. {name} ({state.relics[name]}) — {RELICS[name]}" for index, name in enumerate(rows)], "Name a relic to carry; Escape folds the case."]
     if kind == "relic:select":
         rows = list(dict.fromkeys(
             item.kind.split(":", 1)[1] for item in state.items
             if item.owner_id == state.active_courier_id and item.location == "pack"
             and item.kind.startswith("relic:")
         ))
-        return "SELECT CARRIED RELIC", [
+        return INTERFACE_LABELS["carried_relic"], [
             *[
                 f"{index + 1}. {'>' if state.carried_relic == name else ' '} "
                 f"{name} — {RELICS[name]}"
                 for index, name in enumerate(rows)
             ],
-            "Selection costs no time; X then uses the selected relic.",
+            "Naming a carried relic spends no watch; X puts the named relic to use.",
         ]
     if kind == "field-use":
         from .preparations import PREPARATIONS, carried_preparations, preparation_status
@@ -2943,8 +2944,8 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
 
         if known(state):
             lines.append("M. Open learned active manoeuvres; every entry previews setup and counter.")
-        lines.append("Selection previews exact conditions; a failed choice costs no action or item.")
-        return "SELECT CONTEXTUAL FIELD USE", lines
+        lines.append("The field slate records the needed conditions; a refused use spends neither watch nor carried thing.")
+        return INTERFACE_LABELS["field_kit"], lines
     if kind == "tavern:passive":
         rows = list(state.owned_passives)
         keys = "123456789abc"
@@ -2953,8 +2954,8 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             f"({PASSIVES[name][0]} bulk each) — {PASSIVES[name][1]}"
             for index, name in enumerate(rows[: len(keys)])
         ]
-        return "PACK PASSIVE DISCOVERIES", lines + [
-            f"Load: {passive_bulk(state)}/{passive_capacity(state)} bulk. Key toggles; Escape returns."
+        return INTERFACE_LABELS["packed_findings"], lines + [
+            f"Load: {passive_bulk(state)}/{passive_capacity(state)} bulk. The named mark changes the carry; Escape folds the ledger."
         ]
     if kind == "bartender":
         schedule = state.actor_schedules.get(state.bartender.id)
@@ -2971,7 +2972,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         lines = [f"Credit: {state.trade_credit}; {calendar_at(state).season} stock"]
         for index, (drink_id, drink) in enumerate(DRINKS.items()):
             lines.append(f"{index + 1}. {drink.name} — {drink.benefit}; drawback: {drink.drawback}; stock {state.bartender_stock.get(drink_id, 0)}")
-        return "SENA'S COUNTED DRINKS", lines + ["Select a drink to inspect drinking or bottling."]
+        return "SENA'S COUNTED DRINKS", lines + ["Name a measure to inspect drinking or bottling."]
     if kind.startswith("bartender:drink:"):
         drink = DRINKS[kind.split(":", 2)[2]]
         return drink.name.upper(), [
@@ -2987,7 +2988,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             f"{names}: {state.pending_incident.kind}.",
             f"Cause: {state.pending_incident.cause}.",
             "M. Mediate", "S. Support the first speaker", "F. Let the fight run its course",
-            "No option can cause routine off-screen death.",
+            "Only a witnessed, present struggle can bring mortal harm.",
         ]
     if kind == "route-stop":
         node = state.route_nodes[state.route_current_node]
@@ -3036,13 +3037,13 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             lines.append("V. Inspect optional refits at this physical station; preview costs no time.")
         return "COUNTED VESSEL WORK", lines
     if kind == "quit":
-        return "QUIT JOMON?", ["Press Y to quit. Press N or Escape to continue."]
+        return INTERFACE_LABELS["leave_book"], ["Y signs departure. N or Escape returns to Jomon."]
     if kind.startswith("character-sheet:"):
         from .character import character_sheet
         from .people import person_by_id
 
         person = person_by_id(state, kind.split(":", 1)[1])
-        return (f"{person.name.upper()} / CHARACTER SHEET", character_sheet(person)) if person else ("NO PERSON", ["This person is no longer aboard."])
+        return (f"{person.name.upper()} / {INTERFACE_LABELS['courier_record']}", character_sheet(person)) if person else (INTERFACE_LABELS["vacant_berth"], ["This person is no longer aboard."])
     if kind.startswith("person:"):
         from .people import person_by_id, personal_practice
 

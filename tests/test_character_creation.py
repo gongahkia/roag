@@ -93,7 +93,7 @@ class CharacterCreationTests(unittest.TestCase):
         self.assertTrue(any("Strength" in row and "carrying" in row for row in sheet))
         self.assertTrue(any("Speech" in row and "effective" in row for row in sheet))
         title, rows = _overlay_lines(self.state, f"character-sheet:{self.state.courier.id}")
-        self.assertIn("CHARACTER SHEET", title)
+        self.assertIn("COURIER RECORD", title)
         self.assertEqual(rows, sheet)
         self.assertTrue(any(option.key == "C" for option in dialogue_choices(self.state, f"person:{self.state.household[1].id}")))
         with tempfile.TemporaryDirectory() as directory:

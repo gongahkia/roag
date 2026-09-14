@@ -6797,7 +6797,7 @@ class GameEngine:
         if owner.rank not in card["from_ranks"]:
             ranks = ",".join(str(rank) for rank in card["from_ranks"])
             role = self.catalog.heroes[card["hero"]]["role"]
-            return "POSITION RISK", f"{role} is R{owner.rank}; this plays from R{ranks}."
+            return "TABLE POSITION", f"{role} stands at R{owner.rank}; this technique reaches from R{ranks}."
         desired = {
             f"{counterpart}:{tag.split(':', 1)[1]}"
             for tag in deck_tags
@@ -6807,9 +6807,9 @@ class GameEngine:
         bridges = sorted(tags & desired)
         if bridges:
             mechanic = bridges[0].split(":", 1)[1].replace("_", " ").upper()
-            relationship = "setup" if bridges[0].startswith("payoff:") else "payoff"
-            verb = "Uses" if bridges[0].startswith("payoff:") else "Supplies"
-            return "SYNERGY", f"{verb} deck {mechanic} {relationship}."
+            relationship = "earlier preparation" if bridges[0].startswith("payoff:") else "a later payoff"
+            verb = "Answers" if bridges[0].startswith("payoff:") else "Sets up"
+            return "MATCHED METHOD", f"{verb} {mechanic} with {relationship}."
         meaningful = {
             tag
             for tag in tags
@@ -6819,11 +6819,11 @@ class GameEngine:
         new_tags = sorted(tag for tag in meaningful if deck_tags[tag] == 0)
         if new_tags:
             mechanic = new_tags[0].replace(":", " ").replace("_", " ").upper()
-            return "NEW LINE", f"Introduces {mechanic}; taking it increases deck breadth."
+            return "FRESH METHOD", f"Brings {mechanic} to the table for the first time."
         copies = sum(card.card_id == card_id for card in self.state.deck)
         if copies:
-            return "COMMIT", f"Adds copy {copies + 1}; stronger concentration, less draw variety."
-        return "COVERAGE", "Adds a new card shape without committing to another copy."
+            return "REPEATED PRINTING", f"A {copies + 1}th printing makes this method likelier to reach the hand."
+        return "OPENING HAND", "Adds another method without favoring any existing printing."
 
     def transformation_options(self, card_index: int, count: int = 3) -> list[str]:
         if not 0 <= card_index < len(self.state.deck):

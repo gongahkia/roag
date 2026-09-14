@@ -34,7 +34,7 @@ ARC_RELIC_SECTIONS = ("relics",)
 RECRUITMENT_SECTIONS = ("requirements",)
 WORLD_TEXT_SECTIONS = (
     "JOMON_MAP", "HELP_LINES", "seed_words", "terrain_names", "landmark_labels",
-    "interface_ledgers",
+    "interface_ledgers", "interface_labels",
 )
 AFTERMATH_SECTIONS = (
     "lines", "topologies", "drainage_topologies", "fire_topologies",

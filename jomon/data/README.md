@@ -11,7 +11,7 @@ text: it can be reviewed in diffs and needs no compression tool or dependency.
 | `character_profiles.json` | courier ancestries, origins, traits, point budgets, and role profiles |
 | `goods.json` | commodities, equipment text, discoveries, relics, passives, merchant stock |
 | `actors.json` | enemy archetypes, regional and elite actor rows, glyphs, and reactions |
-| `world_text.json` | Jomon map, in-world clerk slates, seed words, terrain names, and landmark labels |
+| `world_text.json` | Jomon map, in-world clerk slates and HUD labels, seed words, terrain names, and landmark labels |
 | `geography.json` | regional side-route anchors, terrain accents, hidden field caches, and frontier identities, contacts, discoveries, and relic sources |
 | `history.json` | regional work accounts, services, ties, travelling witnesses, undertakings, and legendary provenance |
 | `terrain_variation.json` | regional field pockets, side-structure names, field travellers, and bounded local encounter pools |

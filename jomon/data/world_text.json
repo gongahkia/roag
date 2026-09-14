@@ -53,6 +53,26 @@
     ],
     "look": "Lookout's glass: arrows/HJKL study <> deck point hand Esc/; fold — no watch."
   },
+  "interface_labels": {
+    "watch_log": "WATCH LEDGER",
+    "chronicle": "CHRONICLE  ? CLERK'S SLATE",
+    "charted_passage": "CHARTED PASSAGE",
+    "pack_and_stores": "PACK AND STORES",
+    "ordered_stowage": "ORDERED STOWAGE",
+    "free_stowage": "FREE STOWAGE",
+    "carried_kit": "CARRIED KIT  [ / ] marks a place",
+    "placement_mark": "PLACEMENT MARK",
+    "pack_tally": "PACK TALLY",
+    "drop_tally": "DROP TALLY",
+    "household_counsel": "HOUSEHOLD COUNSEL",
+    "relic_case": "RELIC CASE",
+    "carried_relic": "CARRIED RELIC",
+    "field_kit": "FIELD KIT",
+    "packed_findings": "PACKED FINDINGS",
+    "leave_book": "JOMON LEAVE BOOK",
+    "courier_record": "COURIER RECORD",
+    "vacant_berth": "VACANT BERTH"
+  },
   "seed_words": ["reed", "hearth", "quay", "willow", "mill", "rain", "keel", "lantern"],
   "terrain_names": {
     " ": "unmapped space", ".": "firm ground", ",": "shallow water", "~": "deep water",

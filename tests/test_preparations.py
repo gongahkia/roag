@@ -181,7 +181,7 @@ class FinitePreparationTests(unittest.TestCase):
         sync_legacy_load(state)
         state.lamp_oil = 5
         title, lines = _overlay_lines(state, "field-use")
-        self.assertEqual(title, "SELECT CONTEXTUAL FIELD USE")
+        self.assertEqual(title, "FIELD KIT")
         self.assertIn("READY", " ".join(lines))
         self.assertEqual(len(dialogue_choices(state, "field-use")), 3)
         before = state.world_time

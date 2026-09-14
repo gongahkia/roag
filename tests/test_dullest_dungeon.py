@@ -1,6 +1,7 @@
 """The tavern expedition uses the imported map and symmetric ranked card rules."""
 
 import copy
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -31,6 +32,14 @@ class ExpeditionRulesTests(unittest.TestCase):
         self.assertEqual(set(cards), set(self.catalog.cards))
         self.assertTrue(all(card.name and card.description and card.role in roles for card in cards.values()))
         self.assertTrue(all(roles[role]["max_hp"] == hero["max_hp"] for role, hero in self.catalog.heroes.items()))
+
+    def test_reward_annotations_use_table_language(self):
+        engine = GameEngine.new(self.catalog, 71)
+        forbidden = re.compile(r"\b(?:developer|feature|gameplay|implementation|mechanics?|player|tutorial|ui|ux)\b", re.IGNORECASE)
+        annotations = [text for card_id in self.catalog.cards if self.catalog.cards[card_id]["hero"]
+                       in {hero.role for hero in engine.living_heroes()}
+                       for text in engine.reward_context(card_id)]
+        self.assertFalse([text for text in annotations if forbidden.search(text)])
 
     def test_office_card_text_discloses_conditional_and_positional_rules(self):
         cards = office_catalog()[1]

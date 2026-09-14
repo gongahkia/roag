@@ -64,8 +64,8 @@ class MinimumSizeNoticeTests(unittest.TestCase):
             screen = self.Screen(height, width)
             _draw_minimum_size_notice(screen)
             self.assertTrue(screen.writes)
-            self.assertTrue(any("Jomon needs" in line for _, _, line in screen.writes))
-            self.assertTrue(any("Current size" in line for _, _, line in screen.writes))
+            self.assertTrue(any("Jomon's chart needs" in line for _, _, line in screen.writes))
+            self.assertTrue(any("Present frame" in line for _, _, line in screen.writes))
             first, last = screen.writes[0][0], screen.writes[-1][0]
             self.assertLessEqual(abs(first + last - (height - 1)), 1)
             for row, col, line in screen.writes:
@@ -122,7 +122,7 @@ class InventoryLayoutTests(unittest.TestCase):
         screen = Screen()
         _draw_base(screen, state)
         rendered = " ".join(screen.writes)
-        self.assertIn("? HELP", rendered)
+        self.assertIn("? CLERK'S SLATE", rendered)
         self.assertNotIn(BASE_HELP_LINES[0], rendered)
         self.assertNotIn(BASE_HELP_LINES[1], rendered)
 

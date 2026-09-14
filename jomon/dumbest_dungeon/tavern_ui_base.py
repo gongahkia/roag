@@ -174,7 +174,8 @@ class TavernUIBase:
             if rows >= self.MIN_ROWS and cols >= self.MIN_COLS:
                 return
             self.screen.erase()
-            value = f"Terminal too small ({cols}x{rows}); resize to at least {self.MIN_COLS}x{self.MIN_ROWS}. Q quits."
+            value = (f"The tavern board needs a {self.MIN_COLS}x{self.MIN_ROWS} slate "
+                     f"({cols}x{rows} at hand). Q leaves the table.")
             try:
                 self.screen.addstr(0, 0, value[:max(1, cols - 1)])
             except curses.error:

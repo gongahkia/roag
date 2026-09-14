@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 import json
+import re
 import unittest
 
 from jomon.catalog import (
@@ -22,7 +23,7 @@ from jomon.character import (
 )
 from jomon.chemistry import ENVIRONMENT_REACTIONS, REACTIONS, REAGENTS
 from jomon.content import (
-    COMMODITIES, ENEMY_ARCHETYPES, INTERFACE_LEDGERS, RECRUIT_TEMPLATES,
+    COMMODITIES, ENEMY_ARCHETYPES, INTERFACE_LABELS, INTERFACE_LEDGERS, RECRUIT_TEMPLATES,
     validate_commodity_content,
 )
 from jomon.echoes import ECHOES
@@ -113,6 +114,7 @@ class CatalogTests(unittest.TestCase):
             key: list(value) if isinstance(value, tuple) else value
             for key, value in INTERFACE_LEDGERS.items()
         })
+        self.assertEqual(world_text["interface_labels"], INTERFACE_LABELS)
         vessel = load_catalog("vessel.json", VESSEL_SECTIONS)
         self.assertEqual(vessel["drinks"], json.loads(json.dumps([asdict(drink) for drink in DRINKS.values()])))
         vehicles = load_catalog("vehicles.json", ("harbour", "vehicles"))
@@ -121,6 +123,14 @@ class CatalogTests(unittest.TestCase):
             {vehicle_id: spec["region"] for vehicle_id, spec in vehicles["vehicles"].items()},
             VEHICLE_REGIONS,
         )
+
+    def test_world_text_avoids_out_of_world_terms(self):
+        world_text = load_catalog("world_text.json", WORLD_TEXT_SECTIONS)
+        strings = [*world_text["HELP_LINES"], *world_text["interface_labels"].values()]
+        for value in world_text["interface_ledgers"].values():
+            strings.extend(value if isinstance(value, list) else [value])
+        forbidden = re.compile(r"\b(?:developer|feature|gameplay|implementation|mechanics?|player|tutorial|ui|ux)\b", re.IGNORECASE)
+        self.assertFalse([line for line in strings if forbidden.search(line)])
 
     def test_specialized_catalogues_rebuild_original_runtime_shapes(self):
         actors = load_catalog("actors.json", ACTOR_SECTIONS)
