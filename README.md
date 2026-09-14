@@ -1,3 +1,5 @@
+[![](https://img.shields.io/badge/jomon_1.0.0-passing-light_green)](https://github.com/gongahkia/jomon/releases/tag/1.0.0) 
+
 # `Jomon` 🛖
 
 A [persistent](https://cavesofqud.com/) roguelike where you're a [late-medival mailman](https://en.wikipedia.org/wiki/Jōmon_people), played entirely in the [CLI](https://dwarffortresswiki.org/index.php/Command_line).
