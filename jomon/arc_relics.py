@@ -13,7 +13,7 @@ ARC_RELICS = {
 ARC_RELIC_DESCRIPTIONS = {
     "common-work rivet": "A master rivet repairs worn equipment and nearby supports together, but the resisting work leaves the bearer fatigued.",
     "counterclaim lodestone": "A strange ironstone strips nearby human weapons into one recoverable pile—including the courier's readied weapon—and rings an alarm.",
-    "lee-cloth brooch": "A sailcloth clasp gives brief lee from a storm's push and glare; its snap alerts nearby listeners.",
+    "lee-cloth brooch": "A sailcloth clasp gives eight actions of lee from a storm's push and glare; its snap alerts nearby listeners.",
     "channel-surety shuttle": "A weighted line carries the courier over a straight marked water lane; the heaviest cargo stays at the launch and the landing is loud.",
 }
 

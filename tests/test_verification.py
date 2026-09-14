@@ -29,7 +29,7 @@ class VerificationCommandTests(unittest.TestCase):
     def test_persistence_and_replay_audits_are_exact(self):
         persistence = persistence_audit("focused persistence audit")
         self.assertEqual(persistence["failures"], [])
-        self.assertTrue(persistence["format_7_round_trip"])
+        self.assertTrue(persistence["current_format_round_trip"])
         self.assertTrue(persistence["format_6_item_identities_preserved"])
         self.assertEqual(replay_audit(2)["failures"], [])
 

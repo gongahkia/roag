@@ -2512,7 +2512,7 @@ def _tavern_lines(state: GameState) -> list[str]:
         f"Readied: {state.weapon or 'none'} / {state.gear or 'none'} / {state.carried_relic or 'no relic'}",
         f"Discoveries: {passives} ({passive_bulk(state)}/{passive_capacity(state)} carried bulk)",
         f"Working strengths: {combos}", f"Cargo: {goods}; capacity {carried_bulk(state)}/{capacity(state)}",
-        "", state.region.condition, state.region.objective_text, f"Objective: {state.objective_status}",
+        "", state.region.condition, state.region.objective_text, f"Local work: {state.objective_status}",
         "Use I for the pack, body slots, and Jomon locker.",
         "Enter confirms and closes. Escape cancels without advancing time.",
     ]
@@ -2912,7 +2912,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         from .inspection import contextual_advice
         return contact.name.upper(), [
             f"Role: {contact.role}; disposition: {contact.disposition:+d}",
-            f"Material interest: {contact.interest}", f"Objective: {state.objective_status}",
+            f"Material interest: {contact.interest}", f"Local work: {state.objective_status}",
             contextual_advice(state, contact.name),
             "Significant memories:", *[f"- {memory}" for memory in memories], "Escape closes without time.",
         ]

@@ -220,7 +220,7 @@ def persistence_audit(seed: str = "persistence-verification") -> dict[str, objec
         corruption_rejected = True
     failures = []
     if not round_trip:
-        failures.append("format-7 JSON round trip changed state")
+        failures.append("current-format JSON round trip changed state")
     if identities_after != identities_before:
         failures.append("format-6 migration moved, replaced, or reissued possessions")
     if len(migrated.legendary_objects) != len(migrated.regions):
@@ -229,7 +229,7 @@ def persistence_audit(seed: str = "persistence-verification") -> dict[str, objec
         failures.append("malformed courier reference was accepted")
     return {
         "seed": seed, "format": migrated.save_format, "save_bytes": save_bytes,
-        "format_7_round_trip": round_trip,
+        "current_format_round_trip": round_trip,
         "format_6_item_identities_preserved": identities_after == identities_before,
         "format_6_regions_preserved": set(migrated.regions) == set(legacy["regions"]),
         "corruption_rejected": corruption_rejected, "failures": failures,

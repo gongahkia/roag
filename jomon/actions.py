@@ -1166,7 +1166,7 @@ def _weather_and_deadline(state: GameState) -> list[str]:
         state.region.local_objective_changed = True
         state.region.changes["late_objective"] = True
         state.market[state.region.objective_commodity].demand += 1
-        messages.append(f"{state.region.process_name.title()} changes the objective; local demand worsens.")
+        messages.append(f"{state.region.process_name.title()} changes the worksite; local demand worsens.")
     if pressure(state).band == "critical" and not state.escalation_spawned:
         state.escalation_spawned = True
         state.region.changes["escalation_spawned"] = True
@@ -1664,7 +1664,7 @@ def decide_objective(state: GameState, decision: str) -> ActionResult:
         state.objective_status = "altered"
         text = f"{state.courier.name} alters the request to flood-control work."
     else:
-        return _plain(state, "Unknown objective decision.")
+        return _plain(state, "That decision does not answer the local work.")
     from .quests import record_objective_decision
 
     record_objective_decision(state, decision)
@@ -1862,10 +1862,10 @@ def _control_interaction(state: GameState) -> ActionResult:
         elif state.active_region_id == "greenwold":
             state.smoke.clear()
             state.region.changes["burn_redirected"] = True
-            text = "You turn the burn shutters crosswind; smoke, pursuit, and the objective route change."
+            text = "You turn the burn shutters crosswind; smoke, pursuit, and the work route change."
         elif state.active_region_id == "whitecairn":
             state.region.changes["quarry_braced"] = True
-            text = "You seat the quarry braces; falling stone quiets and the lower objective remains workable."
+            text = "You seat the quarry braces; falling stone quiets and the lower worksite remains open."
         else:
             from .frontiers import control_frontier
 

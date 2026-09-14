@@ -53,7 +53,7 @@ LANDMARK_LABELS = {
     "contact": "primary witness",
     "second_contact": "secondary witness",
     "settlement": "settlement work",
-    "objective": "material objective",
+    "objective": "local worksite",
     "cave_entrance": "below-ground entrance",
     "elevated": "elevated landmark",
     "high_view": "high viewpoint",
