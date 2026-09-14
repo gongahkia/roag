@@ -96,7 +96,7 @@ def _draw_notice_landing(
     _put(screen, option_row, inner_left + 4, "Start a new world", colour_attribute("success") | curses.A_BOLD)
     _put(screen, option_row + 1, inner_left, "  ")
     _put(screen, option_row + 1, inner_left + 2, "Q", colour_attribute("warning") | curses.A_BOLD | curses.A_REVERSE)
-    _put(screen, option_row + 1, inner_left + 4, "Quit without changing this save")
+    _put(screen, option_row + 1, inner_left + 4, "Leave this chronicle unopened")
 
 
 def _generated_seed() -> str:
@@ -165,8 +165,8 @@ def run(screen: curses.window) -> None:
         if has_save:
             _put(screen, row, title_x, "C  Continue", colour_attribute("success"))
             row += 1
-        _put(screen, row, title_x, "N  New World", colour_attribute("ui_accent"))
-        _put(screen, row + 1, title_x, "Q  Quit", colour_attribute("warning"))
+        _put(screen, row, title_x, "N  New Chronicle", colour_attribute("ui_accent"))
+        _put(screen, row + 1, title_x, "Q  Close Book", colour_attribute("warning"))
         path_text = f"Save: {save_path()}"
         _put(screen, row + 3, max(1, (width - min(len(path_text), width - 4)) // 2), path_text)
         screen.refresh()

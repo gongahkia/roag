@@ -100,7 +100,7 @@ class InventoryLayoutTests(unittest.TestCase):
             self.assertIn(command, joined)
         state = create_world("controls behind help")
         title, help_lines = _overlay_lines(state, "help")
-        self.assertEqual(title, "HELP")
+        self.assertEqual(title, "CLERK'S WORKING SLATE")
         self.assertEqual(help_lines[:2], list(BASE_HELP_LINES))
 
         class Screen:

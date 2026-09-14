@@ -71,7 +71,12 @@
     "packed_findings": "PACKED FINDINGS",
     "leave_book": "JOMON LEAVE BOOK",
     "courier_record": "COURIER RECORD",
-    "vacant_berth": "VACANT BERTH"
+    "vacant_berth": "VACANT BERTH",
+    "clerk_slate": "CLERK'S WORKING SLATE",
+    "stores_ledger": "STORES AND CARRIED KIT",
+    "watch_records": "WATCHED FACES, DUTIES AND ACCOUNTS",
+    "field_materials": "FIELD MATERIALS",
+    "recorded_notice": "RECORDED NOTICE"
   },
   "seed_words": ["reed", "hearth", "quay", "willow", "mill", "rain", "keel", "lantern"],
   "terrain_names": {

@@ -1576,7 +1576,7 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
             ChoiceOption("M", "Drink a carried flask", "commitment", bool(carried_flasks(state)), "a filled carried field flask"),
         ]
     if kind == "quit":
-        return [ChoiceOption("Y", "Quit Jomon", "danger"), ChoiceOption("N", "Continue playing")]
+        return [ChoiceOption("Y", "Sign the leave book", "danger"), ChoiceOption("N", "Return to the vessel")]
     if kind == "tavern":
         return [ChoiceOption("S", "Choose crew support"), ChoiceOption("Enter", "Close preparation")]
     if kind == "tavern:support":
@@ -2700,9 +2700,9 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         contract = state.regional_contracts[contract_id]
         return contract.title.upper(), contract_lines(state, contract_id)
     if kind == "observed-life":
-        return "VISIBLE ACTORS, DUTIES AND COUNTERS", observed_life_lines(state)
+        return INTERFACE_LABELS["watch_records"], observed_life_lines(state)
     if kind == "material":
-        return "MATERIAL HANDLING", ["Choose a nearby physical target. No time passes until handling is confirmed."]
+        return INTERFACE_LABELS["field_materials"], ["Choose a nearby physical target. No time passes until handling is confirmed."]
     if kind.startswith("material:"):
         from .materials import inspect_material, point_at
 
@@ -2723,14 +2723,14 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             rows.append(f"{index + 1}. {flask.id} {flask.contents or 'empty'} — predicted {', '.join(predicted_reactions(merged, cell if pouring else None)) or 'none'}")
         return ("POUR PHYSICAL FLASK" if pouring else "DRINK PHYSICAL FLASK"), rows
     if kind == "help":
-        return "HELP", [*BASE_HELP_LINES, "", *HELP_LINES]
+        return INTERFACE_LABELS["clerk_slate"], [*BASE_HELP_LINES, "", *HELP_LINES]
     if kind == "inventory":
         goods = [f"{name}: {stack.quantity}, {stack.condition} ({COMMODITIES[name]['bulk']} bulk each)" for name, stack in state.carried_goods.items()]
         statuses = [
             f"{name}: {status.remaining} actions; from {status.cause}; {status.consequence}"
             for name, status in state.terrain_statuses.items()
         ]
-        return "INVENTORY", [
+        return INTERFACE_LABELS["stores_ledger"], [
             f"Capacity: {carried_bulk(state)}/{capacity(state)} bulk",
             f"Weapon: {state.weapon or 'none'}; gear: {state.gear or 'none'}; relic: {state.carried_relic or 'none'}",
             f"Passive discoveries: {state.carried_passives or 'none'} ({passive_bulk(state)}/{passive_capacity(state)} bulk)",
@@ -3086,7 +3086,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         if person.id != state.active_courier_id and state.courier and "teaching" in state.courier.skill_nodes:
             lines.append("T. Teach one learned practice face to face; recipient may inherit at most two.")
         return person.name.upper(), lines + ["Escape closes without time."]
-    return "INFORMATION", [kind, "Escape closes without advancing time."]
+    return INTERFACE_LABELS["recorded_notice"], [kind, "Escape closes without advancing time."]
 
 
 def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, bool]:

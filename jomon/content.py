@@ -75,7 +75,8 @@ def _interface_labels(value: object) -> dict[str, str]:
         "ordered_stowage", "free_stowage", "carried_kit", "placement_mark",
         "pack_tally", "drop_tally", "household_counsel", "relic_case",
         "carried_relic", "field_kit", "packed_findings", "leave_book",
-        "courier_record", "vacant_berth",
+        "courier_record", "vacant_berth", "clerk_slate", "stores_ledger",
+        "watch_records", "field_materials", "recorded_notice",
     }
     if (not isinstance(value, dict) or set(value) != required
             or any(not isinstance(line, str) or not line for line in value.values())):
