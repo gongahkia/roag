@@ -39,6 +39,31 @@ func TestNotifySendsEvent(t *testing.T) {
 	}
 }
 
+func TestTestCommandSendsStartedAndDone(t *testing.T) {
+	var got []event
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var item event
+		if err := json.NewDecoder(r.Body).Decode(&item); err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, item)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	old := os.Getenv("CODEX_BEACON_URL")
+	defer os.Setenv("CODEX_BEACON_URL", old)
+	if err := os.Setenv("CODEX_BEACON_URL", server.URL); err != nil {
+		t.Fatal(err)
+	}
+	if code := run([]string{"test"}); code != 0 {
+		t.Fatalf("exit code = %d", code)
+	}
+	if len(got) != 2 || got[0].Type != "started" || got[1].Type != "done" {
+		t.Fatalf("events = %+v", got)
+	}
+}
+
 func TestNotifyFailsQuicklyWhenDeviceIsUnreachable(t *testing.T) {
 	old := os.Getenv("CODEX_BEACON_URL")
 	defer os.Setenv("CODEX_BEACON_URL", old)

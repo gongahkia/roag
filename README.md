@@ -145,7 +145,8 @@ unreachable LILYGO as a warning. This repository does not modify
 
 To disable the integration, remove this `Stop` entry (or rename the hooks
 file) and review the change with `/hooks`. The wrapper remains available when
-an explicit completion hook is not desired:
+an explicit completion hook is not desired (disable the `Stop` hook first to
+avoid duplicate notifications):
 
 ```bash
 codex-beacon run -- codex
