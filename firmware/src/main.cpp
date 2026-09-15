@@ -55,8 +55,8 @@ String safeProject(String project) {
   if (project.isEmpty()) {
     return "Codex";
   }
-  if (project.length() > 32) {
-    project = project.substring(0, 32);
+  if (project.length() > 24) {
+    project = project.substring(0, 24);
   }
   return project;
 }
