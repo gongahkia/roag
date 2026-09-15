@@ -151,10 +151,3 @@ mechanisation/build/
 
 logs/
 AGENTS.md
-
-# Codex Beacon / PlatformIO / Go outputs
-firmware/include/secrets.h
-firmware/.pio/
-firmware/.clangd
-host/codex-beacon
-host/*.test
