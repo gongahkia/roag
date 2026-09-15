@@ -40,6 +40,11 @@ func TestNotifySendsEvent(t *testing.T) {
 }
 
 func TestNotifyFailsQuicklyWhenDeviceIsUnreachable(t *testing.T) {
+	old := os.Getenv("CODEX_BEACON_URL")
+	defer os.Setenv("CODEX_BEACON_URL", old)
+	if err := os.Setenv("CODEX_BEACON_URL", "http://127.0.0.1:1"); err != nil {
+		t.Fatal(err)
+	}
 	started := time.Now()
 	err := notify(event{Type: "done", Project: "offline"})
 	if err == nil {
