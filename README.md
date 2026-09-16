@@ -2,7 +2,9 @@
 
 Codex Beacon is a small Wi-Fi notifier for the standard 1.9-inch rectangular
 LILYGO T-Display-S3. A Codex completion sends one HTTP event and the display
-shows a large `DONE` until either physical button is pressed.
+shows a large `DONE` until either physical button is pressed. A code-native
+pixel cat keeps the screen lively: it idles, types during work, and celebrates
+completion without loading image assets or a separate sprite pipeline.
 
 ## Hardware
 
@@ -52,8 +54,8 @@ $EDITOR firmware/include/secrets.h
 
 Set `CODEX_BEACON_WIFI_SSID` to the 2.4 GHz network name and
 `CODEX_BEACON_WIFI_PASSWORD` to its password. `secrets.h` is ignored by Git;
-never commit it. The example fallback lets the project compile before this
-file exists, but the real values are required for a working device.
+never commit it. The firmware intentionally refuses to build until this file
+exists, so placeholder credentials cannot accidentally be flashed.
 
 ## Firmware build and flash
 
@@ -107,8 +109,10 @@ curl -X POST http://DEVICE_IP/event -H 'Content-Type: application/json' \
   -d '{"type":"done","project":"yuho"}'
 ```
 
-Press GPIO 0 (BOOT) or GPIO 14 to return from `DONE` to `READY`. Malformed
-JSON and unknown paths receive a 4xx response without changing the state.
+Press GPIO 0 (BOOT) or GPIO 14 to return from `DONE` to `READY`. While DONE is
+visible, all valid events receive `409 Conflict` and cannot replace it; a
+physical button acknowledgement is the only return to READY. Malformed JSON
+and unknown paths receive a 4xx response without changing the state.
 
 ## Codex completion integration
 
