@@ -1,0 +1,32 @@
+PASS  From-scratch PRNG and noise are repeatable
+PASS  Three seeded generators and valid arrival footprints
+PASS  A powder particle moves at most once per tick
+PASS  Closed particle domain preserves material quantities
+PASS  Lava contact makes steam and rock without destroying water
+PASS  Ice melts on lava contact and remains in the water budget
+PASS  Navigation respects body size, walls, and ladders
+PASS  Supply planning rejects one-way drops until a ladder is present
+PASS  Changed terrain invalidates previously planned movement
+PASS  Excavation yields physical resource piles
+PASS  Construction requires hauling before installation
+PASS  Resource reservations prevent double spending
+PASS  Cancelling partial construction returns escrow without duplication
+PASS  Walls never overwrite liquids or occupied worker bodies
+PASS  Blueprints do not block water; completed walls do
+PASS  Pump transfers actual water and stops at a blocked outlet
+PASS  Crops consume stored water and create only recorded food
+PASS  Workers physically collect and deliver irrigation water
+PASS  Demolition recovers half of costs and preserves stored water
+PASS  Starvation is lethal with no replacement settlers
+PASS  Drowning kills a trapped settler and releases carried inventory
+PASS  Long falls can be fatal without scripted rescue
+PASS  Challenge archive cannot resurrect or edit past states
+PASS  Full colony replay survives checkpoint eviction
+PASS  Practice branching truncates the old future
+PASS  Safe data codec rejects executable and malformed input
+PASS  Save/restore retains pending input and exact simulation state
+PASS  Invalid commands and incompatible save versions are rejected
+PASS  Extreme accepted seeds generate correctly
+PASS  An arrival colony builds and harvests from its finite starting well
+PASS  Multiple presets maintain accounting and finite worker state
+31 test groups; 331 assertions passed.

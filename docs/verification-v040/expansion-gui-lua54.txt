@@ -1,0 +1,2 @@
+PASS expansion GUI: nine-person layout, quota draft/apply, assignment targets, rally/release, charge controls, survey, notes, archive lock and lab content/crew settings.
+NOTE: mocked input and draw commands, not actual LÖVE rendering.

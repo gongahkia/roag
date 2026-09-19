@@ -1,0 +1,2 @@
+PASS map GUI: generation previews, every option, biome view, export/browser/drop import, failed-save rollback, fresh-colony confirmation, and small-window layout.
+NOTE: mocked LÖVE adapter only; no SDL, GPU or actual file-drop delivery.

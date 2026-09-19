@@ -1,0 +1,20 @@
+CPU seconds: 18.572139
+State checksum (diagnostic, not cryptographic): 533651e6
+alive	3
+blocked	0
+changedWater	-26
+farms	1
+food	14
+foodResidual	0
+jobs	0
+lavaCells	13
+mineral	11305
+mineralResidual	0
+readyCrops	0
+structures	3
+water	564
+waterCells	551
+waterResidual	0
+Mara	alive	Idle	No reachable, supplied work
+Oren	alive	Idle	No reachable, supplied work
+Ivo	alive	Fetching irrigation water	
