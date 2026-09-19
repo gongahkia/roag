@@ -1,5 +1,6 @@
 function love.conf(t)
     local c = require('config')
+    -- Legacy save identity retained so existing colonies remain discoverable.
     t.identity = 'deepward_02'
     t.version = '11.5'
     t.console = true

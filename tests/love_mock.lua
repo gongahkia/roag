@@ -2,7 +2,7 @@
 -- It cannot establish GPU behaviour, SDL input delivery or LuaJIT performance.
 local Mock={}
 function Mock.install(directory)
- directory=directory or '/tmp/deepward-mock'
+ directory=directory or '/tmp/cosmonauts-mock'
  assert(directory:match('^[%w%_/%-%.]+$'),'Unsafe mock directory')
  os.execute('mkdir -p '..directory)
  local state={width=1340,height=840,records={},record=false,color={1,1,1,1},font={size=14},held={},mouseX=0,mouseY=0}

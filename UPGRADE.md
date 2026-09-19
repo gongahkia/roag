@@ -1,11 +1,11 @@
 # Upgrade to 0.4.0
 
 1. Close the running game. Copy the source folder and the directory reported by
-   LÖVE's save adapter (`deepward_02`) somewhere safe. On Linux it is commonly under
+   LÖVE's legacy save adapter (deepward_02) somewhere safe. On Linux it is commonly under
    `~/.local/share/love/`; use the actual reported location if environment overrides
    are present. No tool in this delivery modifies your computer's save files.
-2. Extract the complete ZIP into a separate directory and launch its `deepward/`
-   folder. It contains the whole project, not an incremental patch.
+2. Extract the complete ZIP into a separate cosmonauts/ directory. It contains the
+   whole project, not an incremental patch.
 3. Existing readable 0.2/0.3 saves load without regeneration or encounter injection.
    Press End to return to live time if viewing an archive. Press H to manage labour.
 4. N opens the new generation lab. Pick frontier, a layout, biome profile and content

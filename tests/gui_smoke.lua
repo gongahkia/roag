@@ -1,4 +1,4 @@
-local directory=arg and arg[1] or '/tmp/deepward-gui-test'
+local directory=arg and arg[1] or '/tmp/cosmonauts-gui-test'
 local mock=require('tests.love_mock').install(directory)
 os.remove(directory..'/run.dat');os.remove(directory..'/run.tmp')
 local C=require('config');C.width,C.height,C.preset=192,112,'cistern'

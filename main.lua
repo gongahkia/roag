@@ -132,7 +132,7 @@ local function export()
  local runtime=_VERSION..(jit and (' / '..jit.version) or '')
  local loveVersion='unavailable in test adapter'
  if love.getVersion then local major,minor,revision=love.getVersion();loveVersion=major..'.'..minor..'.'..revision end
- local info={'DEEPWARD '..C.version,'Lua: '..runtime,'LOVE: '..loveVersion,
+ local info={C.title..' '..C.version,'Lua: '..runtime,'LOVE: '..loveVersion,
   'Seed: '..w.seed,'Preset: '..w.preset,'Mode: '..w.mode,'Selected tick: '..w.tick,
   'Live frontier: '..app.history.frontier,
   'Generation: '..(w.generation and w.generation.version..' / '..w.generation.layout..' / '..w.generation.climate or 'legacy'),

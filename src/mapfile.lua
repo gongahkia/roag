@@ -7,6 +7,7 @@ local M=require('src.materials')
 local B=require('src.biomes')
 local E=require('src.expedition')
 local Codec=require('src.codec')
+-- Stable legacy wire identifier; changing it would reject existing map templates.
 local Map={format='deepward-map',version=2,maxBytes=J.limits.bytes}
 Map.materialKeys={'air','bedrock','rock','soil','sand','water','ore','lava','steam','ice'}
 local materialByKey={};for i,key in ipairs(Map.materialKeys) do materialByKey[key]=i-1 end

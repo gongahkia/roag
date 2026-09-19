@@ -34,7 +34,7 @@ function B.create(clock,options)
    end
   end end
   return table.concat(lines,'\n')..'\n',table.concat({
-   'DEEPWARD '..C.version..' / generation + map interchange experiment',_VERSION..(jit and (' / '..jit.version) or ''),
+   C.title..' '..C.version..' / generation + map interchange experiment',_VERSION..(jit and (' / '..jit.version) or ''),
    'Default: 11 layouts x 2 sizes x 3 seeds = 66 measured worlds; one warm-up per layout/size.',
    'Clock supplied by caller. Generation includes biome/material fields and starting colony.',
    'Serialization includes RLE packing, validation and JSON encoding. Import includes parsing, validation, cell expansion and starter placement.',

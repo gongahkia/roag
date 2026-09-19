@@ -43,7 +43,7 @@ local function run()
   local a,b=read(arg[2]),read(arg[3]);print(J.encode(Rep.compare(Map.toWorld(a),Map.toWorld(b))))
  else
   assert(command=='help','Unknown command')
-  print([[DEEPWARD map tools (run from the repository root; existing files never overwritten)
+  print([[Cosmonauts map tools (run from the repository root; existing files never overwritten)
   lua tools/map.lua generate out.dwmap.json --seed 12345 --layout hybrid --climate balanced --width 256 --height 160
   lua tools/map.lua inspect in.dwmap.json
   lua tools/map.lua roundtrip in.dwmap.json out.dwmap.json

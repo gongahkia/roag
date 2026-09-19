@@ -44,7 +44,7 @@ function B.create(clock,options)
     end
    end
   end
-  return table.concat(rows,'\n')..'\n', 'DEEPWARD '..C.version..'\n'.._VERSION..'\n'..
+  return table.concat(rows,'\n')..'\n', C.title..' '..C.version..'\n'.._VERSION..'\n'..
    'Clock supplied by caller. Lua heap only, not process RSS or GPU memory.\n'..
    'Timing excludes rendering, history snapshots, yields and post-run evaluation.\n'..
    'Automatic GC stays on; one warm-up per case. p95 uses nearest rank.\n'..

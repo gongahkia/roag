@@ -1,4 +1,4 @@
-local directory=arg and arg[1] or '/tmp/deepward-map-gui'
+local directory=arg and arg[1] or '/tmp/cosmonauts-map-gui'
 local mock=require('tests.love_mock').install(directory)
 os.remove(directory..'/run.dat');os.remove(directory..'/run.tmp')
 local main=require('main');love.load();love.keypressed('f1')

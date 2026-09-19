@@ -1,4 +1,4 @@
-# Terrain templates — schema 2
+# Cosmonauts terrain templates — schema 2
 
 Extension `.dwmap.json`, UTF-8 JSON. The writer emits version2; version1 still reads.
 Map files are data only. Imports do not call a generator or evaluate Lua/bytecode.
@@ -6,7 +6,7 @@ Full colony saves are separate envelopes, not interchangeable with this schema.
 
 ## Top-level fields
 
-`format="deepward-map"`, `version=2`, printable `title`1..96, width/height, seed,
+Legacy wire value format="deepward-map" remains schema 2's compatibility identifier; version=2, printable title 1..96, width/height, seed,
 printable short `preset`, aligned `arrival={left,right,floor}`, material and biome
 layers, optional recipe and optional features. Unknown object keys are rejected.
 Dimensions are multiples of4, width128..512, height80..256. The outer two cells are

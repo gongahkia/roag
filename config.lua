@@ -1,5 +1,5 @@
 return {
-    version = '0.4.0', saveVersion = '0.4.0', stateVersion = '0.2.0', title = 'DEEPWARD', -- Working title, not a novelty claim.
+    version = '0.4.0', saveVersion = '0.4.0', stateVersion = '0.2.0', title = 'Cosmonauts', -- Working title, not a novelty claim.
     width = 256, height = 160, block = 4, seed = 12345, preset = 'frontier',
     mode = 'challenge', ticksPerSecond = 20, dayTicks = 3600,
     historyEvery = 200, historyLimit = 10, maxCommands = 20000,

@@ -281,7 +281,7 @@ function R:help(app)
  if not app.help then return end
  box(0,0,self.sw,self.sh,colors.bg,0.85)
  local x,y=self.sw/2-370,self.sh/2-285
- box(x,y,740,570,colors.panel);text('DEEPWARD / FIELD MANUAL',x+28,y+24,colors.amber,self.title)
+ box(x,y,740,570,colors.panel);text(C.title..' / FIELD MANUAL',x+28,y+24,colors.amber,self.title)
  local lines={
   'A living frontier. Colonists eat, sleep, work, explore, and can die.',
   '1. Drag C Farm over empty, supported blocks in the arrival chamber.',
@@ -377,7 +377,7 @@ function R:draw(app)
  self:layout(app)
  love.graphics.clear(colors.bg)
  local w=app.history.view
- text('DEEPWARD',18,16,colors.text,self.title)
+ text(C.title,18,16,colors.text,self.title)
  text('A SETTLEMENT UNDER PRESSURE',196,24,colors.muted,self.small)
  if self.metricsWorld~=w or not self.metricsTick or math.abs(w.tick-self.metricsTick)>=20 then
   self.metrics=Metrics.measure(w);self.metricsTick=w.tick;self.metricsWorld=w

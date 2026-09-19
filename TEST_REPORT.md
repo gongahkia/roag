@@ -1,4 +1,4 @@
-# DEEPWARD 0.4.0 — verification report
+# Cosmonauts 0.4.0 — verification report
 
 ## Execution boundary
 

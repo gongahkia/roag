@@ -1,4 +1,4 @@
-# DEEPWARD 0.4.0 — the living frontier
+# Cosmonauts 0.4.0 — the living frontier
 
 A from-scratch Lua/LÖVE side-view material colony prototype. Keep a settlement
 functioning while excavation, water, food, labour, ruins and living things interact.
@@ -11,7 +11,7 @@ Your surviving crew may have no viable way forward.
 
 ## Install and run
 
-Keep your existing source folder and back up your `deepward_02` save directory.
+Keep your existing source folder and back up the legacy deepward_02 save directory.
 Extract this complete release into a separate folder. Do not merge a handful of
 files into the old project. From the directory containing `main.lua`:
 
@@ -32,7 +32,7 @@ image is not a game screenshot. See `TEST_REPORT.md` for exact executed checks.
 
 ## Existing colony or fresh frontier?
 
-The save identity remains `deepward_02`. Readable v0.2 and v0.3 colonies continue;
+Cosmonauts retains the legacy save identity deepward_02 so readable v0.2 and v0.3 colonies continue;
 their terrain is not regenerated and no creatures are retroactively injected.
 Crew controls and new construction are available in those worlds.
 

@@ -1,5 +1,5 @@
 -- Mock-contract input/render test, NOT real SDL, LÖVE, GPU or LuaJIT validation.
-local directory=arg and arg[1] or '/tmp/deepward-expansion-gui'
+local directory=arg and arg[1] or '/tmp/cosmonauts-expansion-gui'
 local mock=require('tests.love_mock').install(directory)
 os.remove(directory..'/run.dat');os.remove(directory..'/run.tmp')
 local C=require('config');C.width,C.height,C.crew=192,112,9

@@ -1,6 +1,6 @@
 # Package notes
 
-The ZIP has one top-level folder: `deepward/`. Extract into a new location and run
+The ZIP has one top-level folder: cosmonauts/. Extract into a new location and run
 `love .` inside it. This is the entire project; no prior download or manual merge is
 needed. It deliberately excludes personal saves, .git, binaries, fonts and build-host
 tools. Example maps and regression fixtures are included.

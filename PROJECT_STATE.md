@@ -1,4 +1,4 @@
-# Project state — DEEPWARD 0.4.0
+# Project state — Cosmonauts 0.4.0
 
 ## Intent
 
@@ -27,7 +27,7 @@ A water-consuming ward interacts with ecology. All states and commands replay/sa
 
 Application/save envelope 0.4.0; base world 0.2.0; optional feature template 1;
 map schema 2 (reads 1); current generator frontier-v2, preserved frontier-v1 path.
-Save identity deepward_02. Actual local user edits were not available; this tree was
+Legacy save identity deepward_02 is retained for compatibility. Actual local user edits were not available; this tree was
 built on the shared v0.3.0 ZIP. The earlier top-down Terrain Lab was not modified.
 
 ## Known constraints
