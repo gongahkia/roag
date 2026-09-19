@@ -93,10 +93,17 @@ function W.validate(w)
   assert(slot==W.slot(w,s.gx,s.gy),'Misplaced structure')
  end
  for _,p in ipairs(w.items) do U.integer(p.n,'stack',0,1000000) end
+ if w.frontier then
+  assert(type(w.frontier)=='table' and w.frontier.version==1,'Unsupported campaign world marker')
+  for key in pairs(w.frontier) do assert(key=='version' or key=='siteId','Unknown campaign world marker key') end
+  U.integer(w.frontier.siteId,'campaign site ID',1,100000000)
+ end
  for _,a in ipairs(w.workers) do
   U.integer(a.x,'worker x',1,w.width); U.integer(a.y,'worker y',1,w.height)
   for _,key in ipairs({'hp','hunger','fatigue','breath'}) do assert(U.finite(a[key]) and a[key]>=0 and a[key]<=100,'Invalid worker '..key) end
   assert(type(a.alive)=='boolean' and type(a.name)=='string','Invalid worker identity')
+  if w.frontier then U.integer(a.personId,'campaign person ID',1,100000000)
+  else assert(a.personId==nil,'Campaign person ID requires campaign world marker') end
   if a.task then
    assert(type(a.task.path)=='table','Missing task path')
    for _,index in ipairs(a.task.path) do U.integer(index,'path cell',1,w.n) end

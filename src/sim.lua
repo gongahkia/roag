@@ -4,11 +4,12 @@ local S=require('src.structures')
 local A=require('src.colonists')
 local Cmd=require('src.commands')
 local Sim={}
-function Sim.step(w,commands,clock)
- local timings={};local start=clock and clock()
+function Sim.begin(w)
  w.tick=w.tick+1
- for _,c in ipairs(commands or {}) do Cmd.apply(w,c) end
- if clock then timings.commands=clock()-start;start=clock() end
+ return w.tick
+end
+function Sim.body(w,clock,timings)
+ timings=timings or {};local start=clock and clock()
  require('src.labor').refresh(w)
  require('src.blasts').step(w)
  P.step(w)
@@ -27,5 +28,12 @@ function Sim.step(w,commands,clock)
   if #w.jobs>512 then local jobs={} for _,j in ipairs(w.jobs) do if j.state=='open' then jobs[#jobs+1]=j end end w.jobs=jobs end
  end
  return timings
+end
+function Sim.step(w,commands,clock)
+ local timings={};local start=clock and clock()
+ Sim.begin(w)
+ for _,c in ipairs(commands or {}) do Cmd.apply(w,c) end
+ if clock then timings.commands=clock()-start end
+ return Sim.body(w,clock,timings)
 end
 return Sim
