@@ -8,7 +8,9 @@ local Campaign={format='cosmonauts-campaign-state',version=1,ruleset='frontier-c
 
 local function exact(t,allowed,label)
  assert(type(t)=='table',label..' must be a table')
- for key in pairs(t) do assert(allowed[key],'Unknown '..label..' key '..tostring(key)) end
+ for key in pairs(t) do
+  if type(key)~='string' or key:sub(1,1)~='_' then assert(allowed[key],'Unknown '..label..' key '..tostring(key)) end
+ end
  for key in pairs(allowed) do assert(t[key]~=nil,'Missing '..label..' key '..key) end
 end
 
@@ -35,6 +37,12 @@ function Campaign.sites(campaign)
  for i=1,dense(campaign.sites,'campaign sites',1) do out[i]=campaign.sites[i] end
  table.sort(out,function(a,b) return a.id<b.id end)
  return out
+end
+
+local function orderedSites(campaign)
+ local sites=campaign._orderedSites
+ if not sites then sites=Campaign.sites(campaign);campaign._orderedSites=sites end
+ return sites
 end
 
 function Campaign.site(campaign,siteId)
@@ -79,16 +87,31 @@ function Campaign.validate(campaign)
   assert(world.frontier and world.frontier.version==1 and world.frontier.siteId==site.id,'Campaign site marker mismatch')
   assert(world.tick==campaign.tick,'Campaign and site ticks differ')
   assert(world.mode==campaign.mode and world.seed==campaign.seed,'Campaign and site identity differ')
-  local localIds={}
+  dense(world.jobs,'jobs',1024);dense(world.items,'items',10000);dense(world.events,'events',240)
+  local localIds,maxLocal={},0
+  local function localId(record,label)
+   assert(type(record)=='table','Malformed '..label)
+   U.integer(record.id,label..' ID',1,world.nextId-1)
+   assert(not localIds[record.id],'Duplicate local entity ID')
+   localIds[record.id]=true
+   if record.id>maxLocal then maxLocal=record.id end
+  end
   for _,worker in ipairs(sortedWorkers(world)) do
-   U.integer(worker.id,'worker ID',1,100000000)
-   assert(not localIds[worker.id],'Duplicate local worker ID')
-   localIds[worker.id]=true
+   localId(worker,'worker')
    U.integer(worker.personId,'campaign person ID',1,100000000)
    assert(not seenPeople[worker.personId],'Duplicate campaign person ID')
    seenPeople[worker.personId]=true
    if worker.personId>maxPerson then maxPerson=worker.personId end
   end
+  for _,job in ipairs(world.jobs) do localId(job,'job') end
+  for _,item in ipairs(world.items) do localId(item,'item') end
+  for _,slot in ipairs(U.keys(world.structures)) do localId(world.structures[slot],'structure') end
+  if world.content then
+   for _,kind in ipairs({'flora','fauna','sites'}) do
+    for _,record in ipairs(world.content[kind]) do localId(record,kind) end
+   end
+  end
+  assert(world.nextId>maxLocal,'Next local ID was already allocated')
  end
  assert(campaign.nextPersonId>maxPerson,'Next person ID was already allocated')
  return true
@@ -119,13 +142,16 @@ end
 
 function Campaign.step(campaign,commands,clock)
  local start=clock and clock();campaign.tick=campaign.tick+1
- local sites=Campaign.sites(campaign)
+ local sites=orderedSites(campaign)
  for _,site in ipairs(sites) do
   Sim.begin(site.world)
   assert(site.world.tick==campaign.tick,'Campaign site tick diverged')
  end
- local Command=require('src.campaign_commands')
- for _,command in ipairs(commands or {}) do Command.apply(campaign,command) end
+ if commands and #commands>0 then
+  local Command=require('src.campaign_commands')
+  for _,command in ipairs(commands) do Command.apply(campaign,command) end
+ end
+ if not clock and #sites==1 then return Sim.body(sites[1].world) end
  local timings={}
  if clock then timings.commands=clock()-start end
  for _,site in ipairs(sites) do timings[site.id]=Sim.body(site.world,clock,{}) end

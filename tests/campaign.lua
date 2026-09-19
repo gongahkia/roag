@@ -47,7 +47,10 @@ function T.run()
   local legacy=require('src.history').fromText(text)
   check(legacy.live.frontier==nil,'Campaign metadata leaked into legacy fixture')
   check(legacy.live.workers[1].personId==nil,'Campaign person ID leaked into legacy fixture')
-  reject(function() Campaign.new(legacy.live) end,'Campaign must not accept old world ticks without campaign initialization only when source invalid')
+  check(W.validate(legacy.live),'Legacy world validator changed')
+  local expected=assert(io.open('tests/data/legacy-v020-expected.txt','rb'));local hash=expected:read('*a'):gsub('%s+$','');expected:close()
+  for _=1,80 do legacy:advance() end
+  eq(Codec.hash(legacy.live),hash,'Legacy canonical trace changed')
  end)
 
  group('P01-B equivalent one-site and local traces match after only campaign projection removal',function()
@@ -78,7 +81,7 @@ function T.run()
    check(history:advance())
    if tick==37 or tick==211 then snapshots[tick]=CampaignCodec.encode(history.live) end
   end
-  check(history:queue(envelope({type='paint',x=16,y=12,material=M.SAND}))))
+  check(history:queue(envelope({type='paint',x=16,y=12,material=M.SAND})))
   local restored=History.fromText(history:saveText())
   eq(CampaignCodec.encode(restored.live),CampaignCodec.encode(history.live),'Campaign load changed live state')
   for _,tick in ipairs({37,211}) do
@@ -95,14 +98,16 @@ function T.run()
   local history=History.new(Campaign.new(campaignWorld('practice')))
   local before=CampaignCodec.encode(history.live)
   check(history:queue(envelope({type='paint',x=12,y=12,material=M.WATER})))
-  check(history:advance());eq(history.live.tick,1);eq(W.get(history.live.sites[1].world,12,12),M.WATER)
-  check(history:advance());eq(history.live.tick,2);eq(W.get(history.live.sites[1].world,12,12),M.WATER,'Command ran twice')
+  check(history:advance());eq(history.live.tick,1);eq(history.live.sites[1].world.ledger.waterMade,1)
+  check(history:advance());eq(history.live.tick,2);eq(history.live.sites[1].world.ledger.waterMade,1,'Command ran twice')
   local after=CampaignCodec.encode(history.live)
   local ok=history:queue({scope='site',siteId=2,payload={type='paint',x=12,y=12,material=M.AIR}});check(not ok)
   ok=history:queue({scope='site',siteId=1,payload={type='unknown'}});check(not ok)
   eq(CampaignCodec.encode(history.live),after,'Rejected routing mutated live campaign')
   local unsupported=Campaign.clone(history.live);unsupported.features.core=2
   reject(function() Campaign.validate(unsupported) end,'Unknown campaign feature accepted')
+  unsupported=Campaign.clone(history.live);unsupported.version=2
+  reject(function() Campaign.validate(unsupported) end,'Unknown campaign version accepted')
   check(before~=after,'Expected executed command to alter baseline comparison')
  end)
 
@@ -115,12 +120,14 @@ function T.run()
 
   local practice=History.new(Campaign.new(campaignWorld('practice')))
   check(practice:queue(envelope({type='order',kind='dig',gx=6,gy=6})))
-  for _=1,30 do practice:advance() end
+  for _=1,20 do practice:advance() end
+  check(practice:queue(envelope({type='order',kind='dig',gx=7,gy=6})))
+  for _=1,10 do practice:advance() end
   local futureId=practice.live.sites[1].world.nextId
   practice:seek(10);while practice.seekTarget do practice:updateSeek(9) end
   local branchId=practice.view.sites[1].world.nextId
-  check(practice:queue(envelope({type='order',kind='dig',gx=7,gy=6})))
-  eq(practice.frontier,10);check(practice.commands[31]==nil,'Practice future commands survived branch')
+  check(practice:queue(envelope({type='order',kind='dig',gx=8,gy=6})))
+  eq(practice.frontier,10);check(practice.commands[21]==nil,'Practice future commands survived branch')
   eq(practice.live.sites[1].world.nextId,branchId,'Future IDs leaked into branch')
   check(branchId<=futureId)
  end)
@@ -140,8 +147,8 @@ function T.run()
  end)
 
  group('P01-G campaign validation rejects duplicate IDs, holes, nonfinite values and tick mismatch',function()
-  local campaign=Campaign.new(campaignWorld())
-  local duplicatePerson=Campaign.clone(campaign);duplicatePerson.sites[1].world.workers[1].personId=2
+  local source=campaignWorld();F.worker(source,13,24,'Second campaign tester');local campaign=Campaign.new(source)
+  local duplicatePerson=Campaign.clone(campaign);duplicatePerson.sites[1].world.workers[1].personId=duplicatePerson.sites[1].world.workers[2].personId
   reject(function() Campaign.validate(duplicatePerson) end)
   local duplicateSite=Campaign.clone(campaign);duplicateSite.sites[2]=U.deep(duplicateSite.sites[1]);duplicateSite.sites[2].id=2
   reject(function() Campaign.validate(duplicateSite) end)
@@ -151,6 +158,11 @@ function T.run()
   reject(function() Campaign.validate(nonfinite) end)
   local mismatch=Campaign.clone(campaign);mismatch.sites[1].world.tick=1
   reject(function() Campaign.validate(mismatch) end)
+  local counter=Campaign.clone(campaign);counter.sites[1].world.nextId=1
+  reject(function() Campaign.validate(counter) end,'Allocated local ID counter accepted')
+  local resumed=campaignWorld('practice');Sim.step(resumed);local resumedHistory=History.new(Campaign.new(resumed));local badHistory=resumedHistory:bundle()
+  badHistory.commands[1]={envelope({type='paint',x=12,y=12,material=M.WATER})}
+  reject(function() History.restore(badHistory) end,'Command before campaign initial state accepted')
  end)
 
  group('P01-H validation and derived campaign inspection are non-mutating',function()
@@ -175,35 +187,28 @@ function T.run()
   saved=Store.saveCampaign({saveText=function() return string.rep('x',CampaignCodec.limit+1) end})
   check(not saved,'Oversize campaign save passed')
   eq(assert(love.filesystem.read('campaign.run.dat')),original,'Oversize campaign save replaced prior bytes')
+  local rename=os.rename;os.rename=function() return nil,'injected campaign rename failure' end
+  saved=Store.saveCampaign(history);os.rename=rename
+  check(not saved,'Injected campaign rename failure passed')
+  eq(assert(love.filesystem.read('campaign.run.dat')),original,'Rename failure replaced prior bytes')
+  check(history:advance())
+  saved=Store.saveCampaign(history);check(saved,'Campaign replacement save failed')
+  check(assert(love.filesystem.read('campaign.run.dat'))~=original,'Successful campaign replacement kept old bytes')
+  eq(assert(love.filesystem.read('run.dat')),legacy,'Campaign replacement touched legacy save')
   check(Store.loadCampaign()~=nil,'Saved campaign did not load')
  end)
 
  group('P01-J checkpoints remain bounded and old seeks rebuild from the campaign initial state',function()
   local history=History.new(Campaign.new(campaignWorld('practice')));local reference={}
   for tick=1,2200 do
-   if tick==37 then reference[tick]=CampaignCodec.encode(history.live) end
    check(history:advance())
+   if tick==37 then reference[tick]=CampaignCodec.encode(history.live) end
   end
   check(#history.checkpoints<=8,'Campaign checkpoint cap exceeded')
   history:seek(37);while history.seekTarget do history:updateSeek(17) end
   eq(CampaignCodec.encode(history.view),reference[37],'Campaign seek before retained checkpoints diverged')
  end)
 
- local function median(values)
-  table.sort(values);return values[math.floor((#values+1)/2)]
- end
- local localTimes,campaignTimes={},{}
- for sample=1,5 do
-  local localWorld=campaignWorld();local start=os.clock()
-  for _=1,300 do Sim.step(localWorld) end
-  localTimes[sample]=os.clock()-start
-  local campaign=Campaign.new(campaignWorld());start=os.clock()
-  for _=1,300 do Campaign.step(campaign) end
-  campaignTimes[sample]=os.clock()-start
- end
- local localMedian,campaignMedian=median(localTimes),median(campaignTimes)
- print(string.format('P01 timing: local median %.6f CPU s; campaign median %.6f CPU s; wrapper delta %.1f%% over 300 ticks.',
-  localMedian,campaignMedian,(campaignMedian/localMedian-1)*100))
  print(report.groups..' campaign groups; '..report.assertions..' assertions passed.')
  return report
 end

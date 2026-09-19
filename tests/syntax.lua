@@ -64,6 +64,7 @@ local paths={
  'tests/suite.lua',
  'tests/syntax.lua',
  'tools/benchmark.lua',
+ 'tools/campaign_benchmark.lua',
  'tools/expansion_soak.lua',
  'tools/generation_benchmark.lua',
  'tools/headless.lua',

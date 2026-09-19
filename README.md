@@ -124,6 +124,10 @@ The world is finite, generated in advance, with closed borders. There is no infi
 extension, off-screen freezing or fog of war. Larger maps and crews cost more; no
 interactive frame rate is promised for 512x256 or nine workers.
 
+The current UI operates one local settlement at a time. The finite local map is a
+prototype boundary, not a permanent one-world design decision: the headless campaign
+foundation can preserve one site now without claiming travel or multi-settlement UI.
+
 ## Ruins, creatures and a strange ecology
 
 Seeded multi-room compounds include cisterns, ossuaries, archives, forges and

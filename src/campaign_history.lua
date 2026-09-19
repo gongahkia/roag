@@ -92,7 +92,7 @@ local function validateCommands(bundle)
  assert(type(bundle.commands)=='table','Malformed campaign command history')
  local count=0
  for _,tick in ipairs(U.keys(bundle.commands)) do
-  U.integer(tick,'campaign command tick',1,bundle.live.tick+1)
+  U.integer(tick,'campaign command tick',bundle.initial.tick+1,bundle.live.tick+1)
   local list=bundle.commands[tick]
   assert(type(list)=='table','Malformed campaign command list')
   local entries,max=0,0
