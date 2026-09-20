@@ -46,6 +46,7 @@ local paths={
  'src/sim.lua',
  'src/storage.lua',
  'src/structures.lua',
+ 'src/travel.lua',
  'src/ui/crew.lua',
  'src/ui/fieldnotes.lua',
  'src/ui/world_content.lua',
@@ -58,6 +59,8 @@ local paths={
  'tests/region_gui.lua',
  'tests/logistics.lua',
  'tests/logistics_gui.lua',
+ 'tests/travel.lua',
+ 'tests/travel_gui.lua',
  'tests/expansion.lua',
  'tests/expansion_gui.lua',
  'tests/fixtures.lua',
@@ -78,6 +81,7 @@ local paths={
  'tools/headless.lua',
  'tools/map.lua',
  'tools/replay.lua',
+ 'tools/travel_soak.lua',
 }
 for _,p in ipairs(paths) do assert(loadfile(p)) end
 print("PASS syntax: "..#paths.." Lua files compile.")

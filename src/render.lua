@@ -15,6 +15,7 @@ local Notes=require('src.ui.fieldnotes')
 local ContentView=require('src.ui.world_content')
 local Campaign=require('src.campaign')
 local Logistics=require('src.logistics')
+local Travel=require('src.travel')
 local R={};R.__index=R
 local colors={bg={0.039,0.053,0.067},panel={0.070,0.085,0.103},edge={0.19,0.23,0.26},
  text={0.86,0.88,0.86},muted={0.49,0.56,0.59},amber={0.89,0.66,0.35},
@@ -418,7 +419,8 @@ function R:drawRegion(app)
  box(0,0,self.sw,self.sh,colors.bg,0.95)
  local pw,ph=math.min(820,self.sw-48),math.min(590,self.sh-48);local x,y=(self.sw-pw)/2,(self.sh-ph)/2
  box(x,y,pw,ph,colors.panel);heading('REGION / SETTLEMENTS',x+24,y+20,colors.amber,self.title)
- wrap(app.history.view.features.logistics==1 and 'One campaign clock advances every generated landing region. A docked shuttle can be prepared, but departure and founding are pending.' or 'One campaign clock advances every generated landing region. Transport and founding are pending; switching a site changes only this view.',x+24,y+58,pw-152,colors.muted,self.small)
+ local travel=campaign.features.travel==1
+ wrap(travel and 'One campaign clock advances every generated landing region. Docked shuttles can be prepared and launched; travelling crews remain under this same clock.' or campaign.features.logistics==1 and 'One campaign clock advances every generated landing region. A docked shuttle can be prepared, but departure and founding are pending.' or 'One campaign clock advances every generated landing region. Transport and founding are pending; switching a site changes only this view.',x+24,y+58,pw-152,colors.muted,self.small)
  app.regionButtons={{action='close',x=x+pw-118,y=y+18,w=92,h=28}}
  box(x+pw-118,y+18,92,28,colors.edge);text('ESC close',x+pw-108,y+25,colors.cyan,self.small)
  local sites={};for _,site in ipairs(Campaign.sites(campaign)) do sites[site.id]=site end
@@ -445,6 +447,21 @@ function R:drawRegion(app)
    box(x+pw-172,yy+31,124,32,colors.edge);text('Summary only',x+pw-160,yy+40,colors.cyan,self.small)
   end
  end
+ if travel then
+  local yy=y+470
+  for _,craft in ipairs(campaign.logistics.crafts) do
+   local journey=craft.journey
+   if journey then
+    local fromId,toId=journey.leg=='outbound' and journey.originSiteId or journey.destinationSiteId,journey.leg=='outbound' and journey.destinationSiteId or journey.originSiteId
+    local from,to=Campaign.body(campaign,fromId),Campaign.body(campaign,toId)
+    local label=journey.status=='holding' and ('Holding at '..(to and to.name or ('site '..toId))) or ('Travelling '..(from and from.name or ('site '..fromId))..' -> '..(to and to.name or ('site '..toId))..' / '..journey.remainingTicks..' ticks')
+    text('Craft '..craft.id..': '..label,x+24,yy,journey.status=='holding' and colors.amber or colors.cyan,self.small)
+    app.regionButtons[#app.regionButtons+1]={action='expedition',siteId=journey.originSiteId,craftId=craft.id,x=x+pw-156,y=yy-5,w=108,h=24}
+    box(x+pw-156,yy-5,108,24,colors.edge);text('View craft',x+pw-144,yy+1,colors.cyan,self.small)
+    yy=yy+26
+   end
+  end
+ end
  text('Shift+F7 toggles this overlay. Space controls the global campaign clock.',x+24,y+ph-30,colors.muted,self.small)
 end
 function R:drawExpedition(app)
@@ -460,6 +477,28 @@ function R:drawExpedition(app)
   d.buttons[#d.buttons+1]=record;box(bx,by,bw,26,colors.edge);text(label,bx+8,by+6,colors.cyan,self.small)
  end
  button('close','ESC close',x+pw-112,y+18,88)
+ local journey=vehicle.journey
+ if journey then
+  local fromId,toId=journey.leg=='outbound' and journey.originSiteId or journey.destinationSiteId,journey.leg=='outbound' and journey.destinationSiteId or journey.originSiteId
+  local from,to=Campaign.body(campaign,fromId),Campaign.body(campaign,toId)
+  heading(journey.status=='holding' and 'CRAFT HOLDING' or 'CRAFT IN TRANSIT',x+24,y+58,journey.status=='holding' and colors.amber or colors.cyan,self.sub)
+  text('Craft '..vehicle.id..': '..(from and from.name or ('Site '..fromId))..' -> '..(to and to.name or ('Site '..toId)),x+24,y+102,colors.text,self.normal)
+  text(journey.status=='holding' and ('Landing blocked: '..journey.holdingReason) or ('Remaining: '..journey.remainingTicks..' campaign ticks'),x+24,y+130,journey.status=='holding' and colors.amber or colors.muted,self.normal)
+  local living,total=0,#vehicle.passengers;for _,passenger in ipairs(vehicle.passengers) do if passenger.alive then living=living+1 end end
+  text('Passengers: '..living..' living / '..total..' total',x+24,y+164,colors.text,self.normal)
+  local cargo={};for _,kind in ipairs(Logistics.resources()) do if (vehicle.cargo[kind] or 0)>0 then cargo[#cargo+1]=kind..' '..vehicle.cargo[kind] end end
+  wrap('Transit cargo: '..(#cargo>0 and table.concat(cargo,', ') or 'empty')..'. Docked cargo remains unavailable to ordinary settlement work until physically unloaded.',x+24,y+194,pw-48,colors.muted,self.small)
+  local canEdit=app.history:atPresent() or campaign.mode=='practice'
+  if journey.status=='holding' and journey.leg=='outbound' then
+   local ok,reason=Travel.valid(campaign,{scope='campaign',type='return_to_origin',craftId=vehicle.id,journeyId=journey.id,expectedLeg='outbound'})
+   text(ok and 'Return to origin costs one metal aboard.' or ('Return unavailable: '..reason),x+24,y+258,ok and colors.amber or colors.muted,self.normal)
+   if canEdit and ok then button('return','Return to origin',x+24,y+292,146,{journeyId=journey.id}) end
+  elseif journey.status=='holding' then
+   text('This craft has already used its one allowed reversal.',x+24,y+258,colors.amber,self.normal)
+  end
+  if not canEdit then text('Challenge archive: inspection only.',x+24,y+ph-42,colors.amber,self.normal) end
+  return
+ end
  local destination=Campaign.site(campaign,d.destinationSiteId);local sourceBody=Campaign.body(campaign,source.bodyId);local destinationBody=destination and Campaign.body(campaign,destination.bodyId)
  text('Craft '..vehicle.id..' at '..(sourceBody and sourceBody.name or ('Site '..source.id)),x+24,y+64,colors.text,self.normal)
  text('Destination: '..(destinationBody and destinationBody.name or 'Choose destination'),x+24,y+91,colors.text,self.normal)
@@ -487,7 +526,10 @@ function R:drawExpedition(app)
   local ready,reason=Logistics.readiness(campaign,manifest)
   text(ready and 'PREPARATION READY' or ('BLOCKED: '..reason),x+24,statusY,ready and colors.green or colors.amber,self.normal)
   text('Manifest '..manifest.id..' revision '..manifest.revision..' / source '..manifest.sourceSiteId..' -> destination '..manifest.destinationSiteId,x+24,statusY+25,colors.muted,self.small)
-  if canEdit then button('prepare','Apply changes',x+24,statusY+58,112);button('assemble','Assemble crew',x+142,statusY+58,112,{manifestId=manifest.id});button('cancel','Cancel preparation',x+260,statusY+58,132,{manifestId=manifest.id}) end
+  if canEdit then
+   button('prepare','Apply changes',x+24,statusY+58,112);button('assemble','Assemble crew',x+142,statusY+58,112,{manifestId=manifest.id});button('cancel','Cancel preparation',x+260,statusY+58,132,{manifestId=manifest.id})
+   if campaign.features.travel==1 then button('launch','Launch',x+398,statusY+58,86,{manifestId=manifest.id,revision=manifest.revision}) end
+  end
  else
   text('Set passengers and cargo, then prepare physical loading work.',x+24,statusY,colors.muted,self.normal)
   if canEdit then button('prepare','Prepare expedition',x+24,statusY+42,142) end
@@ -497,7 +539,7 @@ function R:drawExpedition(app)
   if canEdit then button('cancelUnload','Cancel unloading',x+220,statusY+94,120,{operationId=op.id}) end
  end end
  if not canEdit then text('Challenge archive: inspection only.',x+24,y+ph-42,colors.amber,self.normal) end
- text('Departure becomes available in the next implementation tranche. Cargo aboard is not a settlement stockpile.',x+24,y+ph-24,colors.muted,self.small)
+ text(campaign.features.travel==1 and 'Launch checks the applied revision, assembled crew, exact cargo, and one metal aboard. Cargo aboard is not a settlement stockpile.' or 'Departure becomes available in the next implementation tranche. Cargo aboard is not a settlement stockpile.',x+24,y+ph-24,colors.muted,self.small)
 end
 function R:draw(app)
  self:layout(app)

@@ -18,6 +18,7 @@ local Biomes=require('src.biomes')
 local Crew=require('src.ui.crew')
 local Content=require('src.content')
 local Logistics=require('src.logistics')
+local Travel=require('src.travel')
 local app={paused=true,speed=1,tool='inspect',priority=2,view=1,grid=false,accumulator=0}
 local renderer
 local function notify(s) app.toast=tostring(s);app.toastTime=8 end
@@ -115,7 +116,7 @@ local function startNew()
 end
 local function campaignOptions(n)
  return {preset=n.preset,mode=n.mode,width=n.width,height=n.height,layout=n.layout,climate=n.climate,
-  openness=n.openness,biomeScale=n.biomeScale,features=n.features,density=n.density,crew=n.crew,logistics=true}
+  openness=n.openness,biomeScale=n.biomeScale,features=n.features,density=n.density,crew=n.crew,logistics=true,travel=true}
 end
 local function startCampaign()
  local n=app.newRun;local seed=tonumber(n.seed)
@@ -130,7 +131,7 @@ local function startCampaign()
  app.history=n.campaignCandidate;app.campaign=true;app.siteId=1;app.newRun=nil;app.mapBrowser=nil;app.paused=true;app.accumulator=0;app.saveBlocked=false
  app.selectedWorker=nil;app.selectedCell=nil;app.port=nil;app.drag=nil;app.benchmark=nil;app.stepBudget=0;app.crew=nil;app.fieldnotes=nil;app.orderWorker=nil;app.rallyWorker=nil;app.panning=false;app.expedition=nil
  renderer.zoom,renderer.panX,renderer.panY=1,0,0
- notify('New frontier campaign. Prepare the parked shuttle from Region; departure is pending.')
+ notify('New frontier campaign. Prepare, assemble, and launch the parked shuttle from Region.')
 end
 local function continueCampaign()
  local n=app.newRun;local history,why=Store.loadCampaign()
@@ -258,6 +259,9 @@ end
 local function hasLogistics()
  return hasRegion() and app.history.view.features.logistics==1
 end
+local function hasTravel()
+ return hasLogistics() and app.history.view.features.travel==1
+end
 local function selectSite(siteId)
  if not hasRegion() then return false end
  local site=Campaign.site(app.history.view,siteId)
@@ -266,13 +270,14 @@ local function selectSite(siteId)
  renderer.zoom,renderer.panX,renderer.panY=1,0,0
  return true
 end
-local function openExpedition(siteId)
+local function openExpedition(siteId,craftId)
  if not hasLogistics() then notify('Logistics unavailable in this older campaign. Start a new frontier campaign to prepare a shuttle.');return false end
- local campaign=app.history.view;local source=Campaign.site(campaign,siteId or app.siteId)
+ local campaign=app.history.view;local source=Campaign.site(campaign,siteId or app.siteId);local craft=craftId and Logistics.craft(campaign,craftId) or nil
+ if not craft and source then local crafts=Logistics.craftsAt(campaign,source.id);craft=crafts[1] end
+ if craft and craft.journey then source=Campaign.site(campaign,craft.journey.originSiteId) end
  if not source or source.ownerSocietyId~=campaign.society.id then notify('Choose an owned source settlement.');return false end
- local crafts=Logistics.craftsAt(campaign,source.id);local craft=crafts[1]
  if not craft then notify('No docked craft is available at this settlement.');return false end
- local destination=source.id==1 and 2 or 1
+ local destination=craft.journey and craft.journey.destinationSiteId or (source.id==1 and 2 or 1)
  app.expedition={sourceSiteId=source.id,craftId=craft.id,destinationSiteId=destination,passengers={},cargo={food=1,metal=1},buttons={}}
  app.drag=nil;app.port=nil;return true
 end
@@ -446,7 +451,9 @@ function love.mousepressed(mx,my,button)
     elseif b.action=='assemble' then queueCampaign({scope='campaign',type='assemble_expedition',sourceSiteId=d.sourceSiteId,craftId=d.craftId,manifestId=b.manifestId})
     elseif b.action=='cancel' then queueCampaign({scope='campaign',type='cancel_expedition',sourceSiteId=d.sourceSiteId,craftId=d.craftId,manifestId=b.manifestId})
     elseif b.action=='unload' then queueCampaign({scope='campaign',type='unload_cargo',sourceSiteId=d.sourceSiteId,craftId=d.craftId,resource=b.resource,amount=1})
-    elseif b.action=='cancelUnload' then queueCampaign({scope='campaign',type='cancel_cargo_unload',sourceSiteId=d.sourceSiteId,craftId=d.craftId,operationId=b.operationId}) end
+    elseif b.action=='cancelUnload' then queueCampaign({scope='campaign',type='cancel_cargo_unload',sourceSiteId=d.sourceSiteId,craftId=d.craftId,operationId=b.operationId})
+    elseif b.action=='launch' then queueCampaign({scope='campaign',type='launch_expedition',sourceSiteId=d.sourceSiteId,craftId=d.craftId,manifestId=b.manifestId,expectedManifestRevision=b.revision})
+    elseif b.action=='return' then queueCampaign({scope='campaign',type='return_to_origin',craftId=d.craftId,journeyId=b.journeyId,expectedLeg='outbound'}) end
     return
    end end
   end
@@ -456,7 +463,7 @@ function love.mousepressed(mx,my,button)
   if button==1 then
    for _,b in ipairs(app.regionButtons or {}) do
     if contains(b,mx,my) then
-     if b.action=='close' then app.region=nil elseif b.action=='site' then selectSite(b.siteId) elseif b.action=='unvisited' then app.regionSelected=b.siteId elseif b.action=='expedition' then openExpedition(b.siteId) end
+     if b.action=='close' then app.region=nil elseif b.action=='site' then selectSite(b.siteId) elseif b.action=='unvisited' then app.regionSelected=b.siteId elseif b.action=='expedition' then openExpedition(b.siteId,b.craftId) end
      return
     end
    end
