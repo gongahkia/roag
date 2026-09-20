@@ -62,8 +62,13 @@ local function queue(c)
  return ok
 end
 local function queueCampaign(c)
+ local branching=not app.history:atPresent()
  local ok,why=app.history:queue(c)
- if not ok then notify(why) else notify(app.paused and 'Campaign action queued. Space runs; Right advances one tick.' or 'Campaign action issued.') end
+ if not ok then notify(why)
+ else
+  if branching then app.expedition=nil;app.drag=nil;app.port=nil end
+  notify(app.paused and 'Campaign action queued. Space runs; Right advances one tick.' or 'Campaign action issued.')
+ end
  return ok
 end
 local function archive()

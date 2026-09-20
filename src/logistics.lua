@@ -352,10 +352,12 @@ function L.apply(c,command)
   return true,'Expedition preparation cancelled; loaded cargo remains aboard'
  elseif command.type=='assemble_expedition' then
   local m=plan.manifest
-  assert(cargoExact(plan.vehicle,m),'Cargo does not match the manifest target')
-  assert((plan.vehicle.cargo.metal or 0)>=plan.logistics.rules.maintenanceMetal,'Future departure needs one metal unit aboard')
-  assert(not outstanding(c,plan.vehicle),'Finish or cancel cargo operations before assembling')
-  local positions=posesFor(c,m);local source=plan.source;local J=require('src.jobs')
+  if not cargoExact(plan.vehicle,m) then return false,'Cargo does not match the manifest target' end
+  if (plan.vehicle.cargo.metal or 0)<plan.logistics.rules.maintenanceMetal then return false,'Future departure needs one metal unit aboard' end
+  if outstanding(c,plan.vehicle) then return false,'Finish or cancel cargo operations before assembling' end
+  local posed,positions=pcall(posesFor,c,m)
+  if not posed then return false,tostring(positions) end
+  local source=plan.source;local J=require('src.jobs')
   local unchanged=#positions==#m.assembly
   if unchanged then for i,pose in ipairs(positions) do local old=m.assembly[i];if not old or old.personId~=pose.personId or old.x~=pose.x or old.y~=pose.y then unchanged=false;break end end end
   if unchanged then

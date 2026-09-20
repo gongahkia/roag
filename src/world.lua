@@ -98,12 +98,14 @@ function W.validate(w)
   for key in pairs(w.frontier) do assert(key=='version' or key=='siteId','Unknown campaign world marker key') end
   U.integer(w.frontier.siteId,'campaign site ID',1,100000000)
  end
+ for _,job in ipairs(w.jobs) do if job.logistics then assert(w.frontier,'Cargo jobs require a campaign world marker') end end
  for _,a in ipairs(w.workers) do
   U.integer(a.x,'worker x',1,w.width); U.integer(a.y,'worker y',1,w.height)
   for _,key in ipairs({'hp','hunger','fatigue','breath'}) do assert(U.finite(a[key]) and a[key]>=0 and a[key]<=100,'Invalid worker '..key) end
   assert(type(a.alive)=='boolean' and type(a.name)=='string','Invalid worker identity')
   if w.frontier then U.integer(a.personId,'campaign person ID',1,100000000)
   else assert(a.personId==nil,'Campaign person ID requires campaign world marker') end
+  if a.directive and a.directive.kind=='assembly' then assert(w.frontier,'Assembly directives require a campaign world marker') end
   if a.task then
    assert(type(a.task.path)=='table','Missing task path')
    for _,index in ipairs(a.task.path) do U.integer(index,'path cell',1,w.n) end

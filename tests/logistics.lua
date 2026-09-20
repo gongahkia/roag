@@ -82,6 +82,13 @@ function T.run()
   local vehicle=craft(h.live);eq(vehicle.cargo.water or 0,0,'Loading created water without a physical item source');eq(vehicle.cargo.metal,1)
   local waiting=false;for _,job in ipairs(h.live.sites[1].world.jobs) do if job.kind=='load' and job.logistics and job.logistics.resource=='water' then waiting=job.reason:match('accessible')~=nil end end
   check(waiting,'Unavailable local water did not remain a blocked physical load job')
+  local routed=history(1031);prepare(routed,{1},{food=8,metal=1});local w=routed.live.sites[1].world;local carrier
+  for _=1,160 do
+   advance(routed,1);for _,a in ipairs(w.workers) do if a.carry and a.task and a.task.kind=='cargo' and a.task.path[a.task.next] then carrier=a;break end end
+   if carrier then break end
+  end
+  check(carrier,'Fixture did not reach a routed cargo carry stage');local nx,ny=W.xy(w,carrier.task.path[carrier.task.next]);local before=resourceTotals(routed.live);W.put(w,nx,ny-1,M.WATER);require('src.jobs').act(w,carrier,{campaign=routed.live,siteId=1})
+  local after=resourceTotals(routed.live);eq(after.food,before.food);eq(after.metal,before.metal);check(not carrier.carry,'Flooded route did not release carried cargo through the existing drop path')
  end)
 
  group('P03-D malformed and cross-source logistics commands reject without mutation',function()
@@ -94,6 +101,10 @@ function T.run()
   }
   for _,command in ipairs(bad) do check(not h:queue(command),'Invalid logistics command queued') end
   eq(Codec.encode(h.live),before)
+  prepare(h,{1},{food=2,metal=1});advance(h,280);local m=manifest(h.live)
+  assert(h:queue(campaignCommand('prepare_expedition',{sourceSiteId=1,craftId=1,destinationSiteId=2,passengers=m.passengers,cargo={food=1,metal=1}})))
+  assert(h:queue(campaignCommand('assemble_expedition',{sourceSiteId=1,craftId=1,manifestId=m.id})))
+  advance(h,1);eq(manifest(h.live).cargo.food,1,'Earlier same-tick edit was not applied safely')
  end)
 
  group('P03-E repeated plans are idempotent and cancellation preserves completed custody',function()

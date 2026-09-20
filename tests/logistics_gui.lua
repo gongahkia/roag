@@ -10,6 +10,12 @@ love.keypressed('f1')
 love.keypressed('n');love.keypressed('c');assert(app.newRun.action=='campaign_new')
 love.keypressed('return');assert(app.newRun.campaignCandidate and not app.campaign)
 love.keypressed('return');assert(app.campaign and app.history.live.features.logistics==1,'New frontier campaign did not opt into logistics explicitly')
+-- This fixture exercises the authorised practice-only archive branch; production
+-- challenge archives remain inspection-only.
+for _,state in ipairs({app.history.live,app.history.initial}) do
+ state.mode='practice'
+ for _,site in ipairs(Campaign.sites(state)) do site.world.mode='practice' end
+end
 mock.held.lshift=true;love.keypressed('f7');mock.held.lshift=nil;assert(app.region,'Region overlay did not open')
 love.draw();local prepare
 for _,button in ipairs(app.regionButtons) do if button.action=='expedition' then prepare=button;break end end
@@ -31,5 +37,12 @@ local wrong={scope='campaign',type='prepare_expedition',sourceSiteId=2,craftId=1
 local state=Codec.encode(app.history.live);assert(not app.history:queue(wrong));assert(Codec.encode(app.history.live)==state,'Wrong-source craft command mutated state')
 love.keypressed('escape');assert(not app.expedition and app.region,'Escape did not return from expedition panel to Region')
 love.keypressed('escape');assert(not app.region,'Escape did not close Region')
+assert(app.history:advance());app.history:seek(0);assert(not app.history:atPresent(),'Seek did not create an archive view')
+mock.held.lshift=true;love.keypressed('f7');mock.held.lshift=nil;love.draw();prepare=nil
+for _,button in ipairs(app.regionButtons) do if button.action=='expedition' then prepare=button;break end end
+assert(prepare);love.mousepressed(prepare.x+2,prepare.y+2,1);love.draw();passenger=nil;prepareButton=nil
+for _,button in ipairs(app.expedition.buttons) do if button.action=='passenger' and not passenger then passenger=button elseif button.action=='prepare' then prepareButton=button end end
+love.mousepressed(passenger.x+2,passenger.y+2,1);love.mousepressed(prepareButton.x+2,prepareButton.y+2,1)
+assert(app.history:atPresent() and app.history.frontier==0 and not app.expedition,'Practice archive action did not clear stale expedition draft while branching')
 love.quit()
 print('PASS P03-N GUI adapter: source-bound expedition drafts, modal isolation, pure inspection and Region return path.')

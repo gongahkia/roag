@@ -71,6 +71,7 @@ local paths={
  'tests/syntax.lua',
  'tools/benchmark.lua',
  'tools/campaign_benchmark.lua',
+ 'tools/logistics_benchmark.lua',
  'tools/region_benchmark.lua',
  'tools/expansion_soak.lua',
  'tools/generation_benchmark.lua',

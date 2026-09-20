@@ -1,8 +1,10 @@
 # Frontier campaign contract
 
 COS-P01 introduced a headless campaign root above the established local world.
-COS-P02 adds a feature-gated, three-site regional campaign. It is not travel,
-automatic lunar founding, a galaxy simulation, or cross-site inventory.
+COS-P02 adds a feature-gated, three-site regional campaign. COS-P03 adds a
+feature-gated parked craft and physical expedition preparation. Neither tranche
+implements travel, automatic lunar founding, a galaxy simulation, or cross-site
+inventory.
 
 ## State and identity
 
@@ -51,6 +53,34 @@ pressure, oxygen, temperature, radiation, shuttle, flight, or founding mechanics
 Three full-detail maps are a provisional verification/performance bound, not a
 permanent one-world or three-world design limit.
 
+P03 new campaigns additionally have `features.logistics=1`, which requires
+`region=1`. P01/P02 histories do not gain it at load time. Its bounded data-only
+state is campaign-owned, never a world back-reference:
+
+```lua
+logistics={version=1,
+ rules={version=1,seats=3,cargoCapacity=24,maintenanceMetal=1,assemblyRadius=8},
+ nextCraftId=2,nextManifestId=1,nextOperationId=1,
+ crafts={{id=1,ownerSocietyId=1,seats=3,capacity=24,dockedSiteId=1,
+          anchor={x=...,y=...},cargo={},activeManifestId=nil}},
+ manifests={},operations={}}
+```
+
+The parked craft has three seats, 24 abstract resource slots, and an empty hold.
+It does not add people, starter resources, hull physics, construction, damage,
+boarding, stasis, fuel, launch, flight, or a remotely usable stockpile. Its cargo
+is one exclusive owner. A local `load`/`unload` job and an assembly directive hold
+only validated references (`craftId`, manifest/revision or operation ID); workers
+remain their source world's bodies, identified locally by `worker.id` and globally
+by `personId`.
+
+An active manifest has a monotonic `id` and `revision`, source/destination site
+IDs, craft ID, sorted unique passenger `personId`s, positive target cargo map, and
+reserved assembly poses. Target cargo is a desired final amount, not inventory or
+an additive request. Actual cargo persists through edits/cancellation; a lower
+target creates physical surplus that must be unloaded. One active manifest per
+craft and one unload operation per craft/resource are bounded and validated.
+
 ## Tick, commands, and notices
 
 `Sim.step(world, commands)` preserves the local order: `Sim.begin` increments the
@@ -58,12 +88,42 @@ world tick, existing local commands apply, then `Sim.body` runs labour, blasts,
 materials, loose items, structures, ecology, colonists, and cleanup.
 
 `Campaign.step` increments campaign tick, begins sites by ascending site ID, applies
-the one global command array in recorded order, then runs each site body in that
-same order. The envelope remains:
+the one global command array in recorded order, runs logistics reconciliation once
+when the feature is present, then runs each site body in that same order. Local
+legacy envelopes remain:
 
 ```lua
 {scope='site',siteId=1,payload=existingLocalCommand}
 ```
+
+P03 adds source-bound campaign envelopes:
+
+```lua
+{scope='campaign',type='prepare_expedition',sourceSiteId=1,craftId=1,
+ destinationSiteId=2,passengers={personId},cargo={food=2,metal=1}}
+{scope='campaign',type='assemble_expedition',sourceSiteId=1,craftId=1,manifestId=1}
+{scope='campaign',type='cancel_expedition',sourceSiteId=1,craftId=1,manifestId=1}
+{scope='campaign',type='unload_cargo',sourceSiteId=1,craftId=1,resource='food',amount=1}
+```
+
+Queueing checks structure, ownership and current state without mutation;
+application rechecks current preconditions and returns a deterministic rejection
+when an earlier same-tick command made one inapplicable. Repeated identical
+preparation and unload requests are idempotent. A changed plan validates before it
+cancels stale jobs/directives, then increments its revision. Cargo jobs are offered
+after commands and before local worker actions, use the existing `haul` duty and
+body-aware navigation, and move only through pile -> carry -> craft or craft ->
+carry -> local pile. Need/hazard interruptions and task release use the normal
+drop path. Requested amounts and reservations are never a second resource count.
+
+`assemble_expedition` is deliberately separate from preparation. It only succeeds
+with exact target cargo, one metal unit for a future flight, no cargo operations,
+and living source passengers. Poses are selected in ascending `personId` within an
+eight-cell Manhattan radius, then distance/y/x order, through non-mutating
+body-aware reachability checks. Hunger, fatigue and hazards still interrupt them.
+The latest explicit movement directive wins: a later rally replaces assembly;
+cancellation clears only a matching assembly directive. Readiness is a pure
+calculation, not launch permission or a latched state.
 
 Queueing and application reject non-owned/unknown sites and malformed payloads;
 application rechecks local state. P02 runs all three worlds every tick whether
@@ -96,8 +156,10 @@ Campaign files retain the distinct bounded 32 MiB envelope:
 `campaign.run.dat`; `run.dat` is untouched. This is replacement, not an fsync-backed
 database transaction. Region records, sites, ownership, people, notices, and
 recipes participate in initial/live state, checkpoints, saves, seeks, branches, and
-explicit replay verification. Map export is still only the selected local map; it
-does not export campaign ownership, people, history, or future transport state.
+explicit replay verification. When present, P03 rules, crafts, actual cargo,
+manifests/revisions, operations, cargo jobs and assembly directives participate too.
+Map export is still only the selected local map; it does not export campaign
+ownership, people, history, craft cargo, manifests, directives, or transport state.
 
 ## UI and current boundary
 
@@ -120,7 +182,18 @@ ones. Switching cancels unfinished drags, changes UI view only, and never retarg
 queued orders. Archive views use the viewed campaign's ownership/notices rather
 than the live frontier.
 
-P02 therefore supports simultaneous generated local maps and site-scoped management
-fixtures, not transport, loading, flight, lunar founding, global stockpiles,
-factions, or a remote simulation abstraction. Finite local maps remain a prototype
-boundary, not a permanent one-world restriction.
+P03 new frontier campaigns initialize logistics only after their three sites have
+generated and validated. The Region home card exposes **Prepare craft**. Its modal
+has an editable UI-only draft for destination, passengers and target cargo, shows
+actual/target cargo, physical-operation progress and pure readiness reasons, and
+submits source-bound commands only after a click. Escape returns to Region; Space
+remains the global clock; clicks and focused draft input do not leak into world
+tools. It says `Departure becomes available in the next implementation tranche`.
+Older campaigns explicitly report logistics as unavailable rather than receiving a
+shuttle. A parked craft marker is presentation only.
+
+P03 therefore supports simultaneous generated local maps, site-scoped management,
+and pre-flight physical loading/assembly. It does not support departure, transit,
+landing, founding, resupply, passenger custody off-map, hull damage, new planetary
+physics, global stockpiles, factions, or a remote simulation abstraction. Finite
+local maps remain a prototype boundary, not a permanent one-world restriction.
