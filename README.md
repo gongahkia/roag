@@ -25,6 +25,9 @@ Target: **LÖVE 11.5**, Lua 5.1-compatible source. On macOS the direct invocatio
 No LuaRocks packages, downloaded art, shaders, physics engines or external libraries
 are required. Ordinary `lua` is for tests/tools, not `lua main.lua`.
 
+For a disposable real-window session that cannot use normal saves, follow
+[the isolated first-frontier playtest guide](docs/PLAYTEST_FIRST_FRONTIER.md).
+
 **Actual verification boundaries:** the core was executed against native Lua 5.4.
 Input and graphics calls were tested with a mock adapter. Real LÖVE, LuaJIT, SDL,
 GPU rendering and actual desktop file dropping were not available here. A mock
