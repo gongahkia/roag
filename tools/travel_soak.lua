@@ -21,14 +21,22 @@ local function prepare(source,destination,cargo)
  assert(h:queue(command('prepare_expedition',{sourceSiteId=source,craftId=1,destinationSiteId=destination,passengers={person},cargo=cargo})));advance(480)
  local m=assert(Logistics.manifest(h.live,Logistics.craft(h.live,1).activeManifestId));assert(h:queue(command('assemble_expedition',{sourceSiteId=source,craftId=1,manifestId=m.id})));advance(180);m=assert(Logistics.manifest(h.live,Logistics.craft(h.live,1).activeManifestId))
  local ready,why=Logistics.readiness(h.live,m);assert(ready,why);assert(h:queue(command('launch_expedition',{sourceSiteId=source,craftId=1,manifestId=m.id,expectedManifestRevision=m.revision})));advance(1)
+ local craft=Logistics.craft(h.live,1)
+ return {tick=h.live.tick,personId=person,food=craft.cargo.food or 0,metal=craft.cargo.metal or 0}
 end
-prepare(1,2,{food=4,metal=3});advance(399)
+local outbound=prepare(1,2,{food=4,metal=3});advance(399)
 local craft=Logistics.craft(h.live,1);assert(craft.dockedSiteId==2 and h.live.sites[2].ownerSocietyId==1,'Outbound founding did not complete')
+local outboundArrival={tick=h.live.tick,personId=h.live.sites[2].world.workers[1].personId,food=craft.cargo.food or 0,metal=craft.cargo.metal or 0}
 assert(h:queue(command('unload_cargo',{sourceSiteId=2,craftId=1,resource='food',amount=2})));advance(220)
-prepare(2,1,{food=2,metal=2});advance(399);assert(craft.dockedSiteId==1,'Return did not complete')
-prepare(1,2,{food=2,metal=1});advance(399);assert(craft.dockedSiteId==2,'Resupply did not complete')
+local afterUnload={tick=h.live.tick,food=craft.cargo.food or 0,metal=craft.cargo.metal or 0}
+local returned=prepare(2,1,{food=2,metal=2});advance(399);assert(craft.dockedSiteId==1,'Return did not complete')
+local returnArrival={tick=h.live.tick,personId=h.live.sites[1].world.workers[3].personId,food=craft.cargo.food or 0,metal=craft.cargo.metal or 0}
+local resupply=prepare(1,2,{food=2,metal=1});advance(399);assert(craft.dockedSiteId==2,'Resupply did not complete')
+local resupplyArrival={tick=h.live.tick,food=craft.cargo.food or 0,metal=craft.cargo.metal or 0}
 local saved=h:saveText();local restored=History.fromText(saved);assert(Codec.encode(restored.live)==Codec.encode(h.live),'Soak save/load changed campaign')
 while h.frontier<ticks do advance(1) end
 local verified,why=History.fromText(h:saveText()):verifyReplay(20000);assert(verified,why)
 local metrics=Campaign.metrics(h.live);print(string.format('PASS COS-P04 travel soak: seed=%d ticks=%d site2Owned=%s craftSite=%d receipts=%d encoded=%d bytes checkpoints=%d',seed,h.live.tick,tostring(h.live.sites[2].ownerSocietyId==1),craft.dockedSiteId,#h.live.travel.receipts,#h:saveText(),#h.checkpoints))
 print(string.format('Transit cargo food=%d metal=%d; campaign measured food=%d mineral=%d.',metrics.transit.cargo.food,metrics.transit.cargo.metal,metrics.totals.food,metrics.totals.mineral))
+print(string.format('TRACE outbound depart t=%d person=%d cargo food=%d metal=%d; land t=%d person=%d cargo food=%d metal=%d; unload t=%d cargo food=%d metal=%d.',outbound.tick,outbound.personId,outbound.food,outbound.metal,outboundArrival.tick,outboundArrival.personId,outboundArrival.food,outboundArrival.metal,afterUnload.tick,afterUnload.food,afterUnload.metal))
+print(string.format('TRACE return depart t=%d person=%d cargo food=%d metal=%d; land t=%d person=%d cargo food=%d metal=%d; resupply depart t=%d person=%d cargo food=%d metal=%d; land t=%d cargo food=%d metal=%d.',returned.tick,returned.personId,returned.food,returned.metal,returnArrival.tick,returnArrival.personId,returnArrival.food,returnArrival.metal,resupply.tick,resupply.personId,resupply.food,resupply.metal,resupplyArrival.tick,resupplyArrival.food,resupplyArrival.metal))
