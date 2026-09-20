@@ -2,10 +2,11 @@
 
 ## Status
 
-Completed locally without a commit or push. The work started from
-`7a36f499bbeeb9ea65c5fa2138a4f1c4569ebe8e`; all changes in this tranche remain
-in the working tree. P04's reported implementation was preserved. No real LÖVE
-window session was run.
+Completed locally. The work started from
+`7a36f499bbeeb9ea65c5fa2138a4f1c4569ebe8e` and was initially left uncommitted;
+the shared branch later advanced through owner-side commits while final
+verification was running. No agent commit or push was made. P04's implementation
+was preserved. No real LÖVE window session was run.
 
 ## Implemented contract
 
@@ -82,16 +83,27 @@ luajit tests/syntax.lua
 luajit tests/run.lua
 luajit tests/knowledge_gui.lua <fresh disposable directory>
 luajit tools/knowledge_soak.lua 9051 10000
+luajit tests/benchmark_smoke.lua
+luajit tools/headless.lua 12345 frontier 2000
+luajit tools/expansion_soak.lua
+luajit tests/maximum_size.lua
+luajit tools/travel_soak.lua 73421 10000
+luajit tools/travel_benchmark.lua 200 3
 git diff --check
+git diff --cached --check
 ```
 
-The P05-focused suite passed 16 headless groups / 52 assertions. The mocked GUI
-case passed separately. The 10,000-tick trace passed with seed 9051: effects at
-ticks 20 and 40, study completion at tick 510, Moon I founding at tick 1650, eight
+The P05-focused suite passed 16 headless groups / 52 assertions. The full normal
+suite passed 131 groups / 121,026 assertions; the mocked GUI case passed
+separately. The 10,000-tick knowledge trace passed with seed 9051: effects at ticks
+20 and 40, study completion at tick 510, Moon I founding at tick 1650, eight
 retained checkpoints, two retained personal facts, and a 3,196,934-byte campaign
-history. It creates controlled test ecology before its history starts, then verifies
-the full recorded survey/study/transport continuation; this is a fixture, not an
-ordinary generated landing claim.
+history. The seeded initial knowledge campaign encoded to 1,588,549 bytes. The
+P04 regression soak also passed at tick 10,000 with Moon I owned, the craft docked
+there, ten retained receipts, eight checkpoints, and a 3,157,886-byte save. The
+knowledge trace creates controlled test ecology before its history starts, then
+verifies the full recorded survey/study/transport continuation; this is a fixture,
+not an ordinary generated landing claim.
 
 ## Boundaries and remaining verification
 
