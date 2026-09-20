@@ -293,3 +293,64 @@ mid-flight aborts/diversions, hull damage, orbital physics, extra spacecraft,
 vacuum/gravity/temperature systems, long-range relic travel, new cultures,
 discoveries, schools, or a remote simulation abstraction. Finite local maps remain
 a prototype boundary, not a permanent one-world restriction.
+
+## P05 personal field knowledge
+
+P05 adds `features.knowledge=1`, requiring campaign core identity. New frontier
+campaigns choose it alongside the already implemented region/logistics/travel
+features. Older local and P01--P04 campaigns retain their original field-note and
+shared-discovery behavior; loading does not populate personal facts or reinterpret
+old observations.
+
+Knowledge-enabled campaigns carry a bounded versioned root:
+
+```lua
+knowledge={version=1,rulesVersion=1,registryVersion=1,nextHistoryId=1,history={}}
+```
+
+Each campaign world marks `frontier.knowledge=1`. Every worker and transit
+passenger has the portable data-only extension
+`frontier={version=1,knowledge={version=1,observations={},facts={},studies={},lastStudyActionTick=...}}`.
+It is copied by the explicit P04 portable-person adapter, not inferred from local
+labour policy. Observations, facts and studies are capped at 64 each; an observation
+retains at most four effect samples and facts/studies retain at most four provenance
+samples. The campaign's acquisition-history ring holds at most 128 typed entries.
+
+Stable identification fact IDs are `identify/<flora|fauna|sites>/<catalog-key>/v1`
+for the existing authored encounter registries. The only P05 operational facts are:
+
+```text
+operational/flora/filter/steam-to-water/v1
+operational/flora/thorn/sand-to-rock/v1
+```
+
+The ecology stage runs a knowledge-only passive-sighting scan before it mutates
+ecology. It orders living local workers by `personId` and encounter categories/IDs
+stably, uses an eight-cell Manhattan range and the existing clear-line helper, and
+never changes materials or random streams. The actual glass-reed `steam -> water`
+and iron-thorn `sand -> rock` mutation branches synchronously capture eligible
+witnesses before changing a cell. Successful effects alone receive a typed event
+identity `(siteId,tick,ordinal)` and immutable before/after sample; failed attempts,
+later arrivals, cameras and repeated inspection add nothing.
+
+`field` adds the feature-gated generic kind `study`. A normal site-bound field
+command names only its target and optional local worker; it does not accept a hidden
+fact ID. Survey grants its acting worker's identification fact. Study requires that
+same living worker's identification plus two distinct-tick successful observations
+of that exact current specimen. It gains one unit only on an eligible fieldwork
+action, at most once per person per campaign tick, and completes at 120 units.
+Progress and qualifying evidence belong to the person/fact record, so another
+worker cannot take over progress. A matching new specimen requires new firsthand
+evidence before a suspended study can resume; local target/jobs/paths never travel.
+
+The F4 field-notes modal is observer-specific in knowledge campaigns. Left/Right
+selects a living local observer; the visible **Study** tool submits the generic
+field command. Unknown encounters use neutral physical descriptions until that
+observer surveys them. A fact may be historically recorded after its expert leaves
+or dies, but history is not a capability, evidence source, or teaching system. New
+text uses the existing shared Cozette font instances. This remains mocked-interface
+evidence, not a real LÖVE-window layout claim.
+
+P05 deliberately does not add schools, records that teach, XP, global research,
+automatic knowledge sharing, generated languages/cultures, new ecological
+mechanisms, or P06 functionality.
