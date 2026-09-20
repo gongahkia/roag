@@ -35,6 +35,10 @@ function Mock.install(directory)
  end
  function graphics.rectangle(mode,x,y,w,h) record('rect',{mode=mode,x=x,y=y,w=w,h=h}) end
  function graphics.line(...) record('line',{points={...}}) end
+ function graphics.push() end
+ function graphics.pop() end
+ function graphics.translate() end
+ function graphics.scale() end
  function graphics.print(s,x,y) record('text',{text=tostring(s),x=x,y=y}) end
  function graphics.printf(s,x,y,width,align) record('text',{text=tostring(s),x=x,y=y,width=width,align=align}) end
  function graphics.setLineWidth(v) state.lineWidth=v end

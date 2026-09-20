@@ -163,11 +163,14 @@ CPU seconds and P03 0.664153 (reported delta -2.6%). This is a noisy, CPU-only,
 host-specific observation—not GPU FPS, RSS, a cargo-loaded benchmark, or a portable
 overhead guarantee.
 
-LÖVE 11.5 loaded the bundled Cozette OTB in a minimal auto-closing temporary
-project under an isolated `XDG_DATA_HOME`; Fontconfig also identified it as Cozette
-Medium at 13px. The game itself was not manually played in a real window. The
-temporary font-check directory remains under `/tmp/cosmonauts-cozette-font.FtvYii`
-because the environment rejected its removal; it contains no game save.
+Correction after a real-window report: Cozette OTB is a fixed 13px bitmap strike,
+not a scalable outline. LÖVE 11.5 rejects 12px, 14px, 18px and 26px requests with
+`FT_Set_Pixel_Sizes ... invalid size`; the earlier renderer therefore chose its
+fallback. `src/render.lua` now loads Cozette only at 13px and scales display
+headings while drawing. An isolated LÖVE check confirmed its 13px load. Fontconfig
+also identifies it as Cozette Medium at 13px. The game itself was not manually
+played in a real window. The temporary font-check directories remain under `/tmp`
+because the environment rejected their removal; they contain no game save.
 
 ## Manual isolated-play checklist
 

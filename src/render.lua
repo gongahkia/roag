@@ -27,15 +27,20 @@ local function color(c,a) love.graphics.setColor(c[1],c[2],c[3],a or 1) end
 local function box(x,y,w,h,c,a) color(c,a);love.graphics.rectangle('fill',x,y,w,h) end
 local function text(s,x,y,c,font) if font then love.graphics.setFont(font) end color(c or colors.text);love.graphics.print(tostring(s),x,y) end
 local function wrap(s,x,y,width,c,font) if font then love.graphics.setFont(font) end color(c or colors.text);love.graphics.printf(tostring(s),x,y,width,'left') end
-local function font(size)
- local ok,value=pcall(love.graphics.newFont,'assets/fonts/cozette.otb',size)
+local function heading(s,x,y,c,font)
+ love.graphics.setFont(font);color(c or colors.text);love.graphics.push();love.graphics.translate(x,y);love.graphics.scale(2,2);love.graphics.print(tostring(s),0,0);love.graphics.pop()
+end
+local function font()
+ -- Cozette is a fixed 13-pixel bitmap strike. LÖVE rejects every other size.
+ local ok,value=pcall(love.graphics.newFont,'assets/fonts/cozette.otb',13)
  if ok then return value end
  -- The bundled bitmap file is the normal runtime path.  The fallback keeps a
  -- missing/corrupt install readable instead of making an error screen unreadable.
- return love.graphics.newFont(size)
+ return love.graphics.newFont(13)
 end
 function R.new()
- return setmetatable({small=font(12),normal=font(14),title=font(26),sub=font(18),zoom=1,panX=0,panY=0},R)
+ local native=font()
+ return setmetatable({small=native,normal=native,title=native,sub=native,zoom=1,panX=0,panY=0},R)
 end
 function R:layout(app)
  local sw,sh=love.graphics.getDimensions()
@@ -311,7 +316,7 @@ function R:help(app)
  if not app.help then return end
  box(0,0,self.sw,self.sh,colors.bg,0.85)
  local x,y=self.sw/2-370,self.sh/2-285
- box(x,y,740,570,colors.panel);text(C.title..' / FIELD MANUAL',x+28,y+24,colors.amber,self.title)
+ box(x,y,740,570,colors.panel);heading(C.title..' / FIELD MANUAL',x+28,y+24,colors.amber,self.title)
  local lines={
   'A living frontier. Colonists eat, sleep, work, explore, and can die.',
   '1. Drag C Farm over empty, supported blocks in the arrival chamber.',
@@ -342,7 +347,7 @@ function R:drawLab(app)
  local pw,ph=math.min(1140,self.sw-40),math.min(738,self.sh-40)
  local x,y=(self.sw-pw)/2,(self.sh-ph)/2
  box(x,y,pw,ph,colors.panel)
- text(n.imported and 'IMPORT TERRAIN TEMPLATE' or 'GENERATION LAB',x+24,y+20,colors.amber,self.title)
+ heading(n.imported and 'IMPORT TERRAIN TEMPLATE' or 'GENERATION LAB',x+24,y+20,colors.amber,self.title)
  local action=n.action or 'local_run'
  local actionLabel=action=='campaign_new' and 'NEW FRONTIER CAMPAIGN' or action=='campaign_continue' and 'CONTINUE FRONTIER CAMPAIGN' or 'NEW LOCAL EXPEDITION'
  text('Action: '..actionLabel..'  [C cycles actions]',x+24,y+58,colors.muted,self.small)
@@ -395,7 +400,7 @@ function R:drawMapBrowser(app)
  local pw,ph=math.min(850,self.sw-48),math.min(600,self.sh-48)
  local x,y=(self.sw-pw)/2,(self.sh-ph)/2
  box(x,y,pw,ph,colors.panel)
- text('MAP LIBRARY',x+24,y+22,colors.amber,self.title)
+ heading('MAP LIBRARY',x+24,y+22,colors.amber,self.title)
  wrap('Up / Down selects. Enter validates and previews; Escape cancels. You may also drag a .dwmap.json file onto the window.',x+24,y+68,pw-48,colors.muted,self.normal)
  local visible=math.floor((ph-180)/27);local start=math.max(1,b.index-visible+1)
  for i=start,math.min(#b.entries,start+visible-1) do
@@ -412,7 +417,7 @@ function R:drawRegion(app)
  if not region then return end
  box(0,0,self.sw,self.sh,colors.bg,0.95)
  local pw,ph=math.min(820,self.sw-48),math.min(590,self.sh-48);local x,y=(self.sw-pw)/2,(self.sh-ph)/2
- box(x,y,pw,ph,colors.panel);text('REGION / SETTLEMENTS',x+24,y+20,colors.amber,self.title)
+ box(x,y,pw,ph,colors.panel);heading('REGION / SETTLEMENTS',x+24,y+20,colors.amber,self.title)
  wrap(app.history.view.features.logistics==1 and 'One campaign clock advances every generated landing region. A docked shuttle can be prepared, but departure and founding are pending.' or 'One campaign clock advances every generated landing region. Transport and founding are pending; switching a site changes only this view.',x+24,y+58,pw-152,colors.muted,self.small)
  app.regionButtons={{action='close',x=x+pw-118,y=y+18,w=92,h=28}}
  box(x+pw-118,y+18,92,28,colors.edge);text('ESC close',x+pw-108,y+25,colors.cyan,self.small)
@@ -448,7 +453,7 @@ function R:drawExpedition(app)
  if not source or not vehicle then return end
  box(0,0,self.sw,self.sh,colors.bg,0.94)
  local pw,ph=math.min(900,self.sw-44),math.min(680,self.sh-44);local x,y=(self.sw-pw)/2,(self.sh-ph)/2
- box(x,y,pw,ph,colors.panel);text('PREPARE EXPEDITION',x+24,y+20,colors.amber,self.title)
+ box(x,y,pw,ph,colors.panel);heading('PREPARE EXPEDITION',x+24,y+20,colors.amber,self.title)
  d.buttons={}
  local function button(action,label,bx,by,bw,extra)
   local record={action=action,x=bx,y=by,w=bw,h=26};if extra then for key,value in pairs(extra) do record[key]=value end end
@@ -498,7 +503,7 @@ function R:draw(app)
  self:layout(app)
  love.graphics.clear(colors.bg)
  local w=app.currentWorld()
- text(C.title,18,16,colors.text,self.title)
+ heading(C.title,18,16,colors.text,self.title)
  text('A SETTLEMENT UNDER PRESSURE',196,24,colors.muted,self.small)
  if self.metricsWorld~=w or not self.metricsTick or math.abs(w.tick-self.metricsTick)>=20 then
   self.metrics=Metrics.measure(w);self.metricsTick=w.tick;self.metricsWorld=w
