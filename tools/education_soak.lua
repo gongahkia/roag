@@ -11,8 +11,21 @@ local Knowledge=require('src.knowledge')
 
 local seed=tonumber(arg[1]) or 9051
 local ticks=tonumber(arg[2]) or 20000
+local fixtureDir=arg[3]
 assert(seed and seed%1==0 and seed>=1 and seed<=2147483646,'Usage: luajit tools/education_soak.lua [seed] [ticks]')
 assert(ticks and ticks%1==0 and ticks>=20000 and ticks<=100000,'Ticks must be 20000..100000')
+if fixtureDir then
+ local root=os.getenv('COSMONAUTS_PLAYTEST_ROOT')
+ assert(root and fixtureDir==root..'/fixtures','Fixture output must be the marked playtest root fixtures directory')
+ local marker=assert(io.open(root..'/.cosmonauts-playtest-root','rb'),'Missing playtest root marker')
+ local text=marker:read('*a');marker:close();assert(text:find('format=cosmonauts-playtest-root-v1',1,true),'Invalid playtest root marker')
+end
+local function fixture(name,text)
+ if not fixtureDir then return end
+ local path=fixtureDir..'/'..name..'.campaign';local prior=io.open(path,'rb')
+ assert(not prior,'Refusing to overwrite fixture '..path)
+ local f=assert(io.open(path,'wb'));assert(f:write(text));assert(f:close())
+end
 local options={preset='frontier',mode='practice',width=128,height=80,layout='hybrid',climate='balanced',openness=.48,biomeScale=1,crew=3,logistics=true,travel=true,knowledge=true,education=true}
 local c=Campaign.newRegion(seed,options)
 local home=c.sites[1].world
@@ -33,6 +46,7 @@ W.stack(home,'metal',2,home.home.left+31,home.home.floor-1)
 W.stack(home,'food',4,home.home.left+12,home.home.floor-1)
 W.stack(home,'metal',4,home.home.left+13,home.home.floor-1)
 local h=History.new(c)
+local initialFixture=h:saveText()
 local function advance(n) for _=1,n do assert(h:advance()) end end
 local function world(siteId) return h.live.sites[siteId].world end
 local function worker(siteId,index) return world(siteId).workers[index] end
@@ -58,14 +72,12 @@ local function schoolPolicy(enabled,mode,topic,version)
  queue({type='school_policy',slot=slot,schoolId=school.education.id,expectedPolicyRevision=school.education.policyRevision,enabled=enabled,mode=mode,topicId=topic or false,topicVersion=version or 0,priority=3})
 end
 local identity='identify/flora/filter/v1';local operation='operational/flora/filter/steam-to-water/v1'
-schoolPolicy(true,'record',identity,1);advance(520);school=world(1).structures[slot];assert(#school.education.records==1,'Identity record did not complete')
-local partialCopy=h:saveText()
+schoolPolicy(true,'record',identity,1);advance(60);local partialCopy=h:saveText();advance(460);school=world(1).structures[slot];assert(#school.education.records==1,'Identity record did not complete')
 schoolPolicy(true,'record',operation,1);advance(520);school=world(1).structures[slot];assert(#school.education.records==2,'Operational record did not complete')
 local b,cPerson=worker(1,2),worker(1,3)
 local bId,cId=b.personId,cPerson.personId
 queue({type='rally',worker=cPerson.id,x=cPerson.x,y=cPerson.y});advance(1)
-schoolPolicy(true,'teach',identity,1);advance(1500);b=worker(1,2);assert(Knowledge.fact(b,identity),'B did not learn the identity through attended teaching')
-local partialLesson=h:saveText()
+schoolPolicy(true,'teach',identity,1);advance(200);local partialLesson=h:saveText();advance(1300);b=worker(1,2);assert(Knowledge.fact(b,identity),'B did not learn the identity through attended teaching')
 schoolPolicy(true,'teach',operation,1);advance(1500);b=worker(1,2);assert(Knowledge.fact(b,operation),'B did not learn the operational fact through attended teaching')
 local bFact=Knowledge.fact(b,operation)
 expert=assert(personAt(1,expertId));local expertFieldworkXP=expert.frontier.education.fieldworkXP;local expertTeachingXP=expert.frontier.education.teachingXP
@@ -91,5 +103,10 @@ local checkpoints={copy=#partialCopy,lesson=#partialLesson,transit=#transit,reco
 while h.live.tick<ticks do advance(1) end
 local verified,reason=h:verifyReplay(30000);assert(verified,reason)
 local encoded=h:saveText();local homeSchool=world(1).structures[slot]
+fixture('initial',initialFixture)
+fixture('partial-copy',partialCopy)
+fixture('partial-lesson',partialLesson)
+fixture('transit',transit)
+fixture('partial-record-study',partialRecordStudy)
 print(string.format('PASS COS-P06 education soak: seed=%d tick=%d study=%d school=%d records=%d checkpoints=%d,%d,%d,%d bytes=%d heapKiB=%.1f',seed,h.live.tick,studyTick,homeSchool.education.id,#homeSchool.education.records,checkpoints.copy,checkpoints.lesson,checkpoints.transit,checkpoints.recordStudy,#encoded,collectgarbage('count')))
 print(string.format('TRACE A person=%d departure/arrival=%d/%d; B person=%d fact=%s tick=%d method=%s; C person=%d fact=%s tick=%d method=%s.',expertId,departureTick,arrivalTick,b.personId,bFact.id,bFact.tick,bFact.method,cPerson.personId,cFact.id,cFact.tick,cFact.method))
