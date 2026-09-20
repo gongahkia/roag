@@ -1,4 +1,6 @@
 local Cat=require('src.catalog')
+local W=require('src.world')
+local Knowledge=require('src.knowledge')
 local UI={}
 local function box(x,y,w,h,c)love.graphics.setColor(c);love.graphics.rectangle('fill',x,y,w,h)end
 local function ring(x,y,r,c)
@@ -24,7 +26,9 @@ function UI.draw(w,point,sc,app,r)
    box(x-sc*0.5,y-sc*0.5,sc*2,sc,{0.06,0.08,0.10})
    if sc>=3 then
     love.graphics.setFont(r.small);love.graphics.setColor(color)
-    love.graphics.print(w.content.discoveries['sites:'..p.kind] and p.kind:sub(1,1):upper() or '?',x-sc/2,y-sc)
+    local worker=app.selectedWorker and W.find(w.workers,app.selectedWorker)
+    local known=w.frontier and w.frontier.knowledge==1 and Knowledge.identified(worker,'sites',p.kind) or w.content.discoveries['sites:'..p.kind]
+    love.graphics.print(known and p.kind:sub(1,1):upper() or '?',x-sc/2,y-sc)
    end
    if p.pulseUntil and p.pulseUntil>=w.tick then ring(x,y,sc*5,{color[1],color[2],color[3],0.5}) end
   end end

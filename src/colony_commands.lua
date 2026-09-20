@@ -8,10 +8,11 @@ function C.valid(w,c)
  local ok,why=pcall(function()
   if c.type=='labor' then L.validate(w,c.plan)
   elseif c.type=='field' then
-   assert(c.kind=='survey' or c.kind=='salvage' or c.kind=='cull','Unknown field order')
+   assert(c.kind=='survey' or c.kind=='salvage' or c.kind=='cull' or c.kind=='study','Unknown field order')
    U.integer(c.target,'target',1,w.nextId-1);local p,category=Content.find(w,c.target);assert(p,'Select an existing encounter')
    assert(c.kind~='cull' or category=='fauna','Cull needs a creature')
    assert(c.kind~='salvage' or category~='fauna','Use cull for a creature')
+   assert(c.kind~='study' or category=='flora','Study needs a living growth')
    if c.worker and c.worker~=0 then local a=W.find(w.workers,c.worker);assert(a and a.alive,'Select a living worker') end
   elseif c.type=='arm' then
    U.integer(c.slot,'charge slot',1,w.cols*w.rows);local s=w.structures[c.slot]

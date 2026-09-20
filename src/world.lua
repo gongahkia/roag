@@ -95,8 +95,9 @@ function W.validate(w)
  for _,p in ipairs(w.items) do U.integer(p.n,'stack',0,1000000) end
  if w.frontier then
   assert(type(w.frontier)=='table' and w.frontier.version==1,'Unsupported campaign world marker')
-  for key in pairs(w.frontier) do assert(key=='version' or key=='siteId','Unknown campaign world marker key') end
+  for key in pairs(w.frontier) do assert(key=='version' or key=='siteId' or key=='knowledge','Unknown campaign world marker key') end
   U.integer(w.frontier.siteId,'campaign site ID',1,100000000)
+  if w.frontier.knowledge~=nil then assert(w.frontier.knowledge==1,'Unsupported campaign world knowledge marker') end
  end
  for _,job in ipairs(w.jobs) do if job.logistics then assert(w.frontier,'Cargo jobs require a campaign world marker') end end
  for _,a in ipairs(w.workers) do
@@ -105,6 +106,10 @@ function W.validate(w)
   assert(type(a.alive)=='boolean' and type(a.name)=='string','Invalid worker identity')
   if w.frontier then U.integer(a.personId,'campaign person ID',1,100000000)
   else assert(a.personId==nil,'Campaign person ID requires campaign world marker') end
+  if w.frontier and w.frontier.knowledge==1 then
+   assert(a.frontier,'Knowledge-enabled worker lacks personal frontier state')
+   require('src.knowledge').validatePersonal(a.frontier,w.tick)
+  else assert(a.frontier==nil,'Personal frontier state requires campaign knowledge') end
   if a.directive and a.directive.kind=='assembly' then assert(w.frontier,'Assembly directives require a campaign world marker') end
   if a.task then
    assert(type(a.task.path)=='table','Missing task path')

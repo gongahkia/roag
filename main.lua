@@ -115,7 +115,7 @@ local function startNew()
 end
 local function campaignOptions(n)
  return {preset=n.preset,mode=n.mode,width=n.width,height=n.height,layout=n.layout,climate=n.climate,
-  openness=n.openness,biomeScale=n.biomeScale,features=n.features,density=n.density,crew=n.crew,logistics=true,travel=true}
+  openness=n.openness,biomeScale=n.biomeScale,features=n.features,density=n.density,crew=n.crew,logistics=true,travel=true,knowledge=true}
 end
 local function startCampaign()
  local n=app.newRun;local seed=tonumber(n.seed)
@@ -294,7 +294,9 @@ function love.keypressed(key)
  if app.fieldnotes then
   if key=='escape' or key=='f4' then app.fieldnotes=nil
   elseif key=='up' then app.fieldnotes.scroll=math.max(1,app.fieldnotes.scroll-1)
-  elseif key=='down' then app.fieldnotes.scroll=app.fieldnotes.scroll+1 end
+  elseif key=='down' then app.fieldnotes.scroll=app.fieldnotes.scroll+1
+  elseif key=='left' then require('src.ui.fieldnotes').cycleObserver(app,-1)
+  elseif key=='right' then require('src.ui.fieldnotes').cycleObserver(app,1) end
   return
  end
  if app.region then
@@ -359,7 +361,7 @@ function love.keypressed(key)
  if key=='escape' then app.benchmark=nil;app.port=nil;app.drag=nil;app.tool='inspect'
  elseif key=='f1' then app.help=true;app.paused=true
  elseif key=='h' then Crew.open(app)
- elseif key=='f4' then app.fieldnotes={scroll=1};app.paused=true;app.accumulator=0;app.stepBudget=0;app.drag=nil
+ elseif key=='f4' then app.fieldnotes={scroll=1,observerId=app.selectedWorker};app.paused=true;app.accumulator=0;app.stepBudget=0;app.drag=nil
  elseif key=='y' then
   if love.keyboard.isDown('lshift','rshift') then
    local cell=app.selectedCell or app.hover
@@ -486,7 +488,7 @@ function love.mousepressed(mx,my,button)
   for _,a in ipairs(w.workers) do if math.abs(x-a.x)<=2 and y>=a.y-3 and y<=a.y+1 then app.selectedWorker=a.id;break end end
  elseif app.tool=='rally' then
   queue({type='rally',worker=app.rallyWorker or 0,x=x,y=y});app.tool='inspect'
- elseif app.tool=='survey' or app.tool=='salvage' or app.tool=='cull' then
+ elseif app.tool=='survey' or app.tool=='study' or app.tool=='salvage' or app.tool=='cull' then
   local p=Content.at(w,x,y)
   if p then queue({type='field',kind=app.tool,target=p.id,worker=app.orderWorker or 0,priority=app.priority})
   else notify('No living encounter at that cell. Inspect a growth, creature or ruin object.') end

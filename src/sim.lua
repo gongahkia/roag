@@ -18,7 +18,7 @@ function Sim.body(w,clock,timings,context)
  for _,p in ipairs(w.items) do if p.n>0 and not W.solid(w,p.x,p.y+1) and p.y<w.height-2 then p.y=p.y+1 end end
  S.step(w)
  if clock then timings.infrastructure=clock()-start;start=clock() end
- if w.content then require('src.ecology').step(w) end
+ if w.content then require('src.ecology').step(w,context) end
  if clock then timings.ecology=clock()-start;start=clock() end
  A.step(w,context)
  if clock then timings.colonists=clock()-start end

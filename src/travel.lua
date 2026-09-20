@@ -62,17 +62,21 @@ local function sortedCrafts(c)
  local out={};for i,record in ipairs(c.logistics.crafts) do out[i]=record end;table.sort(out,function(a,b) return a.id<b.id end);return out
 end
 local function portable(worker)
- return {personId=worker.personId,name=worker.name,alive=worker.alive,hp=worker.hp,hunger=worker.hunger,
+ local record={personId=worker.personId,name=worker.name,alive=worker.alive,hp=worker.hp,hunger=worker.hunger,
   fatigue=worker.fatigue,breath=worker.breath,mine=worker.mine,build=worker.build,status=worker.status,
   reason=worker.reason,fall=0,worked=false,progress=0}
+ if worker.frontier then record.frontier=U.deep(worker.frontier) end
+ return record
 end
-local function validatePassenger(record)
- allowed(record,{personId=true,name=true,alive=true,hp=true,hunger=true,fatigue=true,breath=true,mine=true,build=true,status=true,reason=true,fall=true,worked=true,progress=true,deathTick=true},'Transit passenger')
+local function validatePassenger(record,knowledge,tick)
+ allowed(record,{personId=true,name=true,alive=true,hp=true,hunger=true,fatigue=true,breath=true,mine=true,build=true,status=true,reason=true,fall=true,worked=true,progress=true,deathTick=true,frontier=true},'Transit passenger')
  for _,key in ipairs({'personId','name','alive','hp','hunger','fatigue','breath','mine','build','status','reason','fall','worked','progress'}) do assert(record[key]~=nil,'Missing transit passenger key '..key) end
  U.integer(record.personId,'Transit person ID',1,100000000);assert(type(record.name)=='string' and type(record.alive)=='boolean' and type(record.status)=='string' and type(record.reason)=='string','Malformed transit identity')
  for _,key in ipairs({'hp','hunger','fatigue','breath'}) do assert(U.finite(record[key]) and record[key]>=0 and record[key]<=100,'Invalid transit '..key) end
  assert(U.finite(record.mine) and record.mine>0 and record.mine<=100 and U.finite(record.build) and record.build>0 and record.build<=100,'Invalid transit aptitude')
  U.integer(record.fall,'Transit fall',0,100000);assert(type(record.worked)=='boolean','Invalid transit worked flag');U.integer(record.progress,'Transit progress',0,100000000)
+ if knowledge then assert(record.frontier,'Knowledge-enabled passenger lacks personal frontier state');require('src.knowledge').validatePersonal(record.frontier,tick)
+ else assert(record.frontier==nil,'Personal frontier state requires campaign knowledge') end
  if record.alive then assert(record.deathTick==nil,'Living transit passenger has a death tick') else assert(record.hp==0,'Dead transit passenger has HP');U.integer(record.deathTick,'Transit death tick',0,10000000) end
 end
 local function notice(c,siteId,kind,text,ordinal)
@@ -141,6 +145,7 @@ local function addArrivalWorker(world,passenger,pose)
  local worker={id=W.id(world),personId=passenger.personId,name=passenger.name,alive=passenger.alive,hp=passenger.hp,hunger=passenger.hunger,
   fatigue=passenger.fatigue,breath=passenger.breath,mine=passenger.mine,build=passenger.build,status=passenger.status,reason=passenger.reason,
   fall=0,worked=false,job=nil,carry=nil,thinkAt=world.tick+1,progress=0}
+ if passenger.frontier then worker.frontier=U.deep(passenger.frontier) end
  worker.x,worker.y=pose.x,pose.y
  if not worker.alive then worker.hp=0;worker.status='Dead';worker.deathTick=passenger.deathTick end
  world.workers[#world.workers+1]=worker
@@ -227,7 +232,7 @@ function T.validate(c)
   else assert(vehicle.dockedSiteId~=nil and #vehicle.passengers==0,'Docked craft has transit state') end
   local priorPerson=0
   for _,passenger in ipairs(vehicle.passengers) do
-   validatePassenger(passenger);assert(passenger.personId>priorPerson,'Craft passengers are not ordered');priorPerson=passenger.personId;assert(not seenPeople[passenger.personId],'Duplicate portable person');seenPeople[passenger.personId]=true;maxPerson=math.max(maxPerson,passenger.personId)
+   validatePassenger(passenger,c.features.knowledge==1,c.tick);assert(passenger.personId>priorPerson,'Craft passengers are not ordered');priorPerson=passenger.personId;assert(not seenPeople[passenger.personId],'Duplicate portable person');seenPeople[passenger.personId]=true;maxPerson=math.max(maxPerson,passenger.personId)
    for _,localSite in ipairs(c.sites) do for _,worker in ipairs(localSite.world.workers) do assert(worker.personId~=passenger.personId,'Portable person still exists locally') end end
   end
  end

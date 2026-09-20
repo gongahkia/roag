@@ -22,7 +22,8 @@ function E.warded(w,x,y)
  end
  return false
 end
-function E.observe(w,p,category)
+function E.observe(w,p,category,context)
+ if require('src.knowledge').enabled(context) then return end
  local key=category..':'..p.kind
  if not w.content.observed[key] then
   w.content.observed[key]={tick=w.tick,category=category,kind=p.kind}
@@ -83,7 +84,7 @@ function E.spawn(w,kind,x,y,food)
  if not E.occupy(w,c,x,y) then return nil end
  c.id=W.id(w);w.content.fauna[#w.content.fauna+1]=c;return c
 end
-local function plants(w)
+local function plants(w,context)
  local count=#w.content.flora
  for n=1,count do local p=w.content.flora[n]
   if p.alive then
@@ -92,11 +93,20 @@ local function plants(w)
    else
     if p.kind=='filter' then
      for _,d in ipairs(adjacent) do local x,y=p.x+d[1],p.y+d[2]
-      if W.get(w,x,y)==M.STEAM and not W.blocked(w,x,y) then W.put(w,x,y,M.WATER) end
+      if W.get(w,x,y)==M.STEAM and not W.blocked(w,x,y) then
+       local Knowledge=require('src.knowledge');local source=Knowledge.enabled(context) and Knowledge.source(context.siteId,'flora',p) or nil
+       local witnesses=source and Knowledge.witnesses(w,context,p,'flora',x,y) or nil
+       if W.put(w,x,y,M.WATER) and source then Knowledge.creditEffect(context,witnesses,source,'filter_steam_to_water',x,y,M.STEAM,M.WATER) end
+      end
      end
     elseif p.kind=='thorn' and due(w,p,240) then
      for _,d in ipairs(adjacent) do local x,y=p.x+d[1],p.y+d[2]
-      if W.get(w,x,y)==M.SAND then W.put(w,x,y,M.ROCK);break end
+      if W.get(w,x,y)==M.SAND then
+       local Knowledge=require('src.knowledge');local source=Knowledge.enabled(context) and Knowledge.source(context.siteId,'flora',p) or nil
+       local witnesses=source and Knowledge.witnesses(w,context,p,'flora',x,y) or nil
+       if W.put(w,x,y,M.ROCK) and source then Knowledge.creditEffect(context,witnesses,source,'thorn_sand_to_rock',x,y,M.SAND,M.ROCK) end
+       break
+      end
      end
     end
     if p.water<6 and due(w,p,120) then
@@ -230,12 +240,12 @@ local function feedAndFight(w,c)
   end end
  end
 end
-local function fauna(w)
+local function fauna(w,context)
  local count=#w.content.fauna
  for i=1,count do local c=w.content.fauna[i]
   if c.alive then
    for _,a in ipairs(w.workers) do if a.alive and math.abs(c.x-a.x)+math.abs(c.y-a.y)<=11 and E.clear(w,c.x,c.y,a.x,a.y-1) then
-    c.observed=true;E.observe(w,c,'fauna');break
+    c.observed=true;E.observe(w,c,'fauna',context);break
    end end
    if c.kind=='sentinel' and not c.awake then
     for _,s in ipairs(w.content.signals) do
@@ -254,7 +264,7 @@ local function fauna(w)
   end
  end
 end
-local function sites(w)
+local function sites(w,context)
  for _,s in ipairs(w.content.sites) do if s.alive then
   if s.kind=='resonator' then
    if not s.active then
@@ -267,7 +277,7 @@ local function sites(w)
    end end
    s.pulseUntil=w.tick+20
   end
-  for _,a in ipairs(w.workers) do if a.alive and math.abs(s.x-a.x)+math.abs(s.y-a.y)<=10 and E.clear(w,s.x,s.y,a.x,a.y-1) then E.observe(w,s,'sites');break end end
+  for _,a in ipairs(w.workers) do if a.alive and math.abs(s.x-a.x)+math.abs(s.y-a.y)<=10 and E.clear(w,s.x,s.y,a.x,a.y-1) then E.observe(w,s,'sites',context);break end end
  end end
 end
 function E.salvage(w,p,category)
@@ -283,15 +293,30 @@ function E.salvage(w,p,category)
   p.alive=false;p.status='Salvaged';p.deathTick=w.tick
  end
 end
-function E.step(w)
- if not w.content then return end
- if w.tick%20==0 then
-  Signals.prune(w);plants(w);sites(w)
-  for _,p in ipairs(w.content.flora) do if p.alive then
-   for _,a in ipairs(w.workers) do if a.alive and math.abs(p.x-a.x)+math.abs(p.y-a.y)<=10 and E.clear(w,p.x,p.y,a.x,a.y-1) then E.observe(w,p,'flora');break end end
+local function passiveSightings(w,context)
+ if not require('src.knowledge').enabled(context) then return end
+ local Knowledge=require('src.knowledge');local people={}
+ for _,worker in ipairs(w.workers) do if worker.alive then people[#people+1]=worker end end
+ table.sort(people,function(a,b) return a.personId<b.personId end)
+ for _,category in ipairs({'flora','fauna','sites'}) do
+  local records={};for _,record in ipairs(w.content[category]) do if record.alive then records[#records+1]=record end end
+  table.sort(records,function(a,b) return a.id<b.id end)
+  for _,worker in ipairs(people) do for _,record in ipairs(records) do
+   local headY=worker.y-1
+   if math.abs(record.x-worker.x)+math.abs(record.y-headY)<=Knowledge.sightRange and E.clear(w,worker.x,headY,record.x,record.y) then Knowledge.sighting(context,worker,Knowledge.source(context.siteId,category,record)) end
   end end
  end
- exposure(w);fauna(w)
+end
+function E.step(w,context)
+ if not w.content then return end
+ passiveSightings(w,context)
+ if w.tick%20==0 then
+  Signals.prune(w);plants(w,context);sites(w,context)
+  for _,p in ipairs(w.content.flora) do if p.alive then
+   for _,a in ipairs(w.workers) do if a.alive and math.abs(p.x-a.x)+math.abs(p.y-a.y)<=10 and E.clear(w,p.x,p.y,a.x,a.y-1) then E.observe(w,p,'flora',context);break end end
+  end end
+ end
+ exposure(w);fauna(w,context)
  if w.tick%400==0 then
   for _,key in ipairs({'flora','fauna'}) do
    local keep={};for _,p in ipairs(w.content[key]) do if p.alive or w.tick-(p.deathTick or w.tick)<200 then keep[#keep+1]=p end end

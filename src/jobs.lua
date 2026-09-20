@@ -209,7 +209,7 @@ function J.plan(w,a,context)
    end
   end
  end end
- Field.offer(w,a,f,closest,offer)
+ Field.offer(w,a,f,closest,offer,context)
  table.sort(choices,function(x,y)
   if x.score~=y.score then return x.score>y.score end
   return (x.job or 100000+(x.slot or x.item or 0))<(y.job or 100000+(y.slot or y.item or 0))
@@ -289,7 +289,7 @@ function J.act(w,a,context)
    local delivered,why=Logistics.unloadDeliver(context.campaign,context.siteId,j,a)
    if not delivered then blocked(w,a,why) else finish(w,a,'Unloaded craft cargo') end
   else blocked(w,a,'Cargo task state changed') end
- elseif t.kind=='field' then Field.act(w,a,t,finish,blocked,reRoute)
+ elseif t.kind=='field' then Field.act(w,a,t,finish,blocked,reRoute,context)
  elseif t.kind=='rally' then a.worked=false;a.status='Rally / holding';a.reason='J releases this worker to normal duties'
  elseif t.kind=='escape' then finish(w,a,'Reached safety')
  elseif t.kind=='eat' then

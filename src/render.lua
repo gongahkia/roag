@@ -10,6 +10,7 @@ local Layouts=require('src.generation.layouts')
 local Labor=require('src.labor')
 local Content=require('src.content')
 local Catalog=require('src.catalog')
+local Knowledge=require('src.knowledge')
 local Crew=require('src.ui.crew')
 local Notes=require('src.ui.fieldnotes')
 local ContentView=require('src.ui.world_content')
@@ -23,7 +24,7 @@ local colors={bg={0.039,0.053,0.067},panel={0.070,0.085,0.103},edge={0.19,0.23,0
 local tools={{'inspect','Q Inspect'},{'dig','D Dig'},{'ladder','L Ladder'},{'platform','F Floor'},
  {'wall','W Wall'},{'bed','B Bed'},{'store','S Store'},{'farm','C Farm'},
  {'pump','P Pump'},{'remove','X Remove'},{'cancel','E Cancel'},
- {'charge','A Charge'},{'ward','F9 Ward'},{'survey','U Survey'},{'salvage','Z Salvage'},{'cull','K Cull'},{'rally','M Rally'}}
+ {'charge','A Charge'},{'ward','F9 Ward'},{'survey','U Survey'},{'study','Study'},{'salvage','Z Salvage'},{'cull','K Cull'},{'rally','M Rally'}}
 local function color(c,a) love.graphics.setColor(c[1],c[2],c[3],a or 1) end
 local function box(x,y,w,h,c,a) color(c,a);love.graphics.rectangle('fill',x,y,w,h) end
 local function text(s,x,y,c,font) if font then love.graphics.setFont(font) end color(c or colors.text);love.graphics.print(tostring(s),x,y) end
@@ -284,10 +285,11 @@ function R:sidebar(app)
   text(region.name,x+16,y,region.color,self.small);y=y+21
   local encounter,category=Content.at(w,cell.x,cell.y)
   if encounter then
-   local known=w.content.discoveries[category..':'..encounter.kind]
+   local personal=w.frontier and w.frontier.knowledge==1
+   local known=personal and Knowledge.identified(a,category,encounter.kind) or w.content.discoveries[category..':'..encounter.kind]
    local registry=category=='flora' and Catalog.flora or category=='fauna' and Catalog.fauna or Catalog.sites
-   wrap(known and registry[encounter.kind].name or 'Unclassified '..category,x+16,y,pw-32,colors.amber,self.small);y=y+22
-   wrap(category=='fauna' and 'U survey / K cull / F4 field notes' or 'U survey / Z salvage / F4 field notes',x+16,y,pw-32,colors.cyan,self.small);y=y+26
+   wrap(known and registry[encounter.kind].name or ('Unidentified '..(category=='flora' and 'growth' or category=='fauna' and 'creature' or 'site')),x+16,y,pw-32,colors.amber,self.small);y=y+22
+   wrap(category=='fauna' and 'U survey / K cull / F4 field notes' or 'U survey / Study / Z salvage / F4 field notes',x+16,y,pw-32,colors.cyan,self.small);y=y+26
   elseif w.biomes then wrap(region.note,x+16,y,pw-32,colors.muted,self.small);y=y+36 end
   if s then
    wrap(s.status or 'Ready',x+16,y,pw-32,colors.muted,self.small);y=y+24
@@ -329,7 +331,7 @@ function R:help(app)
   '',
   'A: build charge, then select it and T to order arming. No disarm.',
   'Left/Right: step or inspect    Shift+arrows: 20 ticks    Home/End: past/live',
-  'U survey / Z salvage / K cull / F4 field notes / F9 ward' ,
+  'U survey / visible Study tool / Z salvage / K cull / F4 field notes / F9 ward' ,
   'N: generation lab (C selects local/campaign action) / F2 export / F3 maps / F7 biomes',
   'Frontier campaigns: Shift+F7 or Region opens settlements; transport is pending.',
   'F5: save   F6: diagnostics   F8: benchmark   F10: tests   F12: screenshot',
