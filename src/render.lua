@@ -17,6 +17,7 @@ local ContentView=require('src.ui.world_content')
 local Campaign=require('src.campaign')
 local Logistics=require('src.logistics')
 local Travel=require('src.travel')
+local Education=require('src.education')
 local R={};R.__index=R
 local colors={bg={0.039,0.053,0.067},panel={0.070,0.085,0.103},edge={0.19,0.23,0.26},
  text={0.86,0.88,0.86},muted={0.49,0.56,0.59},amber={0.89,0.66,0.35},
@@ -24,7 +25,7 @@ local colors={bg={0.039,0.053,0.067},panel={0.070,0.085,0.103},edge={0.19,0.23,0
 local tools={{'inspect','Q Inspect'},{'dig','D Dig'},{'ladder','L Ladder'},{'platform','F Floor'},
  {'wall','W Wall'},{'bed','B Bed'},{'store','S Store'},{'farm','C Farm'},
  {'pump','P Pump'},{'remove','X Remove'},{'cancel','E Cancel'},
- {'charge','A Charge'},{'ward','F9 Ward'},{'survey','U Survey'},{'study','Study'},{'salvage','Z Salvage'},{'cull','K Cull'},{'rally','M Rally'}}
+ {'charge','A Charge'},{'ward','F9 Ward'},{'survey','U Survey'},{'study','Study'},{'field_school','Field school'},{'salvage','Z Salvage'},{'cull','K Cull'},{'rally','M Rally'}}
 local function color(c,a) love.graphics.setColor(c[1],c[2],c[3],a or 1) end
 local function box(x,y,w,h,c,a) color(c,a);love.graphics.rectangle('fill',x,y,w,h) end
 local function text(s,x,y,c,font) if font then love.graphics.setFont(font) end color(c or colors.text);love.graphics.print(tostring(s),x,y) end
@@ -49,13 +50,15 @@ function R:layout(app)
  self.sw,self.sh=sw,sh;self.panelX=sw-326
  app.buttons={};local x,y=18,72
  for _,t in ipairs(tools) do
+  if t[1]~='field_school' or (app.campaign and app.history and app.history.view.features.education==1) then
   local bw=self.small:getWidth(t[2])+20
   if x+bw>self.panelX-18 then x=18;y=y+32 end
   app.buttons[#app.buttons+1]={kind=t[1],label=t[2],x=x,y=y,w=bw,h=27};x=x+bw+5
+  end
  end
  self.viewport={x=18,y=y+40,w=self.panelX-36,h=sh-y-138}
  self.timeline={x=24,y=sh-65,w=self.panelX-48,h=15}
- app.regionButton=nil;app.siteButtons={}
+ app.regionButton=nil;app.siteButtons={};app.schoolButton=nil
  if app.campaign and app.history and app.history.view.features.region==1 then
   app.regionButton={x=650,y=14,w=78,h=26}
   local x=738
@@ -168,6 +171,11 @@ function R:drawMap(app)
     color(colors.cyan,0.5);love.graphics.line(ix+sc/2,iy+sc/2,px+size/2,py+size/2,ox+sc/2,oy+sc/2)
     box(ix,iy,sc,sc,colors.cyan);color(colors.amber);love.graphics.rectangle('line',ox,oy,sc,sc)
     box(px+sc,py+sc,2*sc,3*sc,colors.amber);color(colors.text);love.graphics.line(px+sc,py+sc,px+size,py)
+   elseif s.kind=='field_school' then
+    box(px,py+size-sc,size,sc,{0.43,0.31,0.18})
+    box(px+sc,py+sc,2*sc,2*sc,colors.cyan)
+    color(colors.amber);love.graphics.rectangle('line',px+sc,py+sc,2*sc,2*sc)
+    if sc>=4 then text('F',px+sc*1.2,py+sc*1.2,colors.bg,self.small) end
    end
   end
  end
@@ -297,6 +305,14 @@ function R:sidebar(app)
    if s.kind=='pump' then wrap('I intake / O outlet / T toggle\nHose range: 20 cells.',x+16,y,pw-32,colors.cyan,self.small);y=y+36 end
    if s.kind=='charge' then wrap(s.fuseAt and ('ARMED: '..math.max(0,s.fuseAt-w.tick)..' ticks. No disarm.') or 'T: order a field worker to arm. An 80-tick fuse follows.',x+16,y,pw-32,colors.red,self.small);y=y+36 end
    if s.kind=='ward' then text('Stored water '..s.tank..' / T toggle',x+16,y,colors.cyan,self.small);y=y+24 end
+   if s.kind=='field_school' and s.education then
+    local data=s.education
+    text((data.enabled and 'Enabled' or 'Disabled')..' / '..data.mode..' / priority '..data.priority,x+16,y,colors.cyan,self.small);y=y+20
+    local topic=data.topicId and Knowledge.spec(data.topicId)
+    wrap(topic and topic.label or 'No school topic selected.',x+16,y,pw-32,colors.muted,self.small);y=y+24
+    app.schoolButton={slot=W.slot(w,s.gx,s.gy),schoolId=data.id,x=x+16,y=y,w=146,h=25}
+    box(x+16,y,146,25,colors.edge);text('School policy',x+25,y+6,colors.cyan,self.small);y=y+34
+   end
   end
   for _,j in ipairs(w.jobs) do if j.gx==gx and j.gy==gy and j.state=='open' then
    local owner=j.owner and W.find(w.workers,j.owner)
@@ -543,6 +559,53 @@ function R:drawExpedition(app)
  if not canEdit then text('Challenge archive: inspection only.',x+24,y+ph-42,colors.amber,self.normal) end
  text(campaign.features.travel==1 and 'Launch checks the applied revision, assembled crew, exact cargo, and one metal aboard. Cargo aboard is not a settlement stockpile.' or 'Departure becomes available in the next implementation tranche. Cargo aboard is not a settlement stockpile.',x+24,y+ph-24,colors.muted,self.small)
 end
+function R:drawSchool(app)
+ local d=app.school;if not d then return end
+ local campaign=app.history.view;local site=Campaign.site(campaign,d.siteId)
+ local structure=site and site.world.structures[d.slot]
+ if not structure or structure.kind~='field_school' or not structure.education or structure.education.id~=d.schoolId then
+  return
+ end
+ local data=structure.education;local sw,sh=love.graphics.getDimensions();local pw,ph=math.min(850,sw-44),math.min(640,sh-44);local x,y=(sw-pw)/2,(sh-ph)/2
+ box(0,0,sw,sh,colors.bg,0.94);box(x,y,pw,ph,colors.panel);heading('FIELD SCHOOL',x+24,y+20,colors.amber,self.title)
+ d.buttons={}
+ local function button(action,label,bx,by,bw,extra)
+  local record={action=action,x=bx,y=by,w=bw,h=26};if extra then for key,value in pairs(extra) do record[key]=value end end
+  d.buttons[#d.buttons+1]=record;box(bx,by,bw,26,colors.edge);text(label,bx+8,by+6,colors.cyan,self.small)
+ end
+ button('close','ESC close',x+pw-112,y+18,88)
+ local draft=d.draft or {enabled=data.enabled,mode=data.mode,topicId=data.topicId,topicVersion=data.topicVersion,priority=data.priority,expectedPolicyRevision=data.policyRevision}
+ d.draft=draft
+ local topics=Education.sourceTopics(site.world,structure)
+ local selected
+ for _,topic in ipairs(topics) do if topic.id==draft.topicId and topic.version==draft.topicVersion then selected=topic end end
+ if not selected and #topics>0 and not draft.topicId then selected=topics[1];draft.topicId,draft.topicVersion=selected.id,selected.version end
+ local spec=selected and Knowledge.spec(selected.id) or draft.topicId and Knowledge.spec(draft.topicId)
+ text('This installed surface is local: its records do not travel with an expert.',x+24,y+66,colors.muted,self.normal)
+ text((draft.enabled and 'Policy enabled' or 'Policy disabled')..' / '..draft.mode..' / ordinary priority '..draft.priority,x+24,y+101,draft.enabled and colors.cyan or colors.amber,self.normal)
+ button('enabled',draft.enabled and 'Disable' or 'Enable',x+24,y+128,96)
+ button('mode','Mode: '..draft.mode,x+128,y+128,138)
+ button('topic',spec and spec.label or (#topics>0 and 'Choose local source' or 'No local source'),x+274,y+128,252)
+ button('priority','Priority '..draft.priority,x+534,y+128,104)
+ local infoY=y+174
+ local modeText=draft.mode=='record' and 'Record: one qualified local worker copies a known fact. A new topic or mode abandons unfinished copy work.' or draft.mode=='teach' and 'Teach: one qualified teacher and one distinct learner must both attend. Progress is checked every ten campaign ticks.' or 'Study record: one learner works from a completed record physically installed in this school.'
+ wrap(modeText,x+24,infoY,pw-48,colors.text,self.normal);infoY=infoY+52
+ if data.draft then text('Unreadable recording draft: '..data.draft.progress..'/120',x+24,infoY,colors.amber,self.normal);infoY=infoY+27 end
+ if data.session then text('Active '..data.session.mode..' session '..data.session.id..' / evaluation '..data.session.lastEvaluationTick,x+24,infoY,colors.cyan,self.normal);infoY=infoY+27 end
+ text('Completed records '..#data.records..' / '..Education.maxRecords,x+24,infoY,colors.text,self.normal);infoY=infoY+25
+ for _,record in ipairs(data.records) do
+  local rs=Knowledge.spec(record.topicId);text((rs and rs.label or record.topicId)..' / record '..record.id..' / tick '..record.tick,x+36,infoY,colors.muted,self.small);infoY=infoY+20
+ end
+ if #data.records==0 then text('No completed records at this site.',x+36,infoY,colors.muted,self.small);infoY=infoY+20 end
+ local experts={}
+ for _,worker in ipairs(site.world.workers) do
+  if worker.alive and spec and Knowledge.fact(worker,spec.id) then experts[#experts+1]=worker.name..' / field '..worker.frontier.education.fieldworkXP..' / teach '..worker.frontier.education.teachingXP end
+ end
+ wrap(#experts>0 and ('Living local source: '..table.concat(experts,', ')) or 'No living local expert for the selected topic. Historical findings and remote experts are not sources.',x+24,infoY+12,pw-48,#experts>0 and colors.green or colors.muted,self.small)
+ local canEdit=app.history:atPresent() or campaign.mode=='practice'
+ if canEdit then button('apply','Apply policy',x+24,y+ph-58,126) else text('Challenge archive: inspection only.',x+24,y+ph-48,colors.amber,self.normal) end
+ text('F4 distinguishes personal notes from school records. Study, teaching and recording need actual worker actions.',x+172,y+ph-50,colors.muted,self.small)
+end
 function R:draw(app)
  self:layout(app)
  love.graphics.clear(colors.bg)
@@ -589,6 +652,7 @@ function R:draw(app)
  self:drawMapBrowser(app)
  self:drawRegion(app)
  self:drawExpedition(app)
+ self:drawSchool(app)
  Crew.draw(app,self)
  Notes.draw(app,self)
  self:help(app)

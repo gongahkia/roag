@@ -74,6 +74,18 @@ local function copyProvenance(record)
  for i=1,math.min(4,#(record.provenance or {})) do out[#out+1]=U.deep(record.provenance[i]) end
  return out
 end
+local function validateContributors(values,label,tick)
+ dense(values,label,E.maxContributors)
+ local prior={}
+ for _,entry in ipairs(values) do
+  exact(entry,{kind=true,id=true,firstTick=true,lastTick=true},label..' entry')
+  assert(entry.kind=='person' or entry.kind=='record','Invalid '..label..' contributor kind')
+  U.integer(entry.id,label..' contributor ID',1,100000000)
+  U.integer(entry.firstTick,label..' contributor first tick',0,tick)
+  U.integer(entry.lastTick,label..' contributor last tick',entry.firstTick,tick)
+  local marker=entry.kind..':'..entry.id;assert(not prior[marker],'Duplicate '..label..' contributor');prior[marker]=true
+ end
+end
 
 function E.enabled(context)
  return context and context.campaign and context.campaign.features and context.campaign.features.education==1
@@ -100,9 +112,8 @@ function E.validatePersonal(state,tick)
   assert(not seen[key(topic.id,topic.version)],'Duplicate personal tuition topic');seen[key(topic.id,topic.version)]=true
   U.integer(topic.progress,'Tuition progress',1,E.tuitionWork-1);U.integer(topic.firstTick,'Tuition first tick',0,tick);U.integer(topic.lastTick,'Tuition last tick',topic.firstTick,tick)
   U.integer(topic.teachUnits,'Tuition teaching units',0,E.tuitionWork);U.integer(topic.recordUnits,'Tuition record units',0,E.tuitionWork);assert(topic.progress==topic.teachUnits+topic.recordUnits,'Tuition method totals disagree')
-  assert(type(topic.subject)=='table' and topic.subject.category==spec.category and topic.subject.kind==spec.subject,'Tuition subject mismatch')
-  dense(topic.contributors,'Tuition contributors',E.maxContributors)
-  for _,entry in ipairs(topic.contributors) do exact(entry,{kind=true,id=true,firstTick=true,lastTick=true},'Tuition contributor');assert(entry.kind=='person' or entry.kind=='record','Invalid tuition contributor');U.integer(entry.id,'Tuition contributor ID',1,100000000);U.integer(entry.firstTick,'Tuition contributor first tick',0,tick);U.integer(entry.lastTick,'Tuition contributor last tick',entry.firstTick,tick) end
+  Knowledge.validateSource(topic.subject,'Tuition subject');assert(topic.subject.category==spec.category and topic.subject.kind==spec.subject,'Tuition subject mismatch')
+  validateContributors(topic.contributors,'Tuition contributors',tick)
  end
  return true
 end
@@ -118,20 +129,24 @@ function E.validateWorld(world,tick)
    U.integer(data.id,'Field school ID',1,world.education.nextSchoolId-1);assert(not schools[data.id],'Duplicate field school ID');schools[data.id]=true;maxSchool=math.max(maxSchool,data.id)
    U.integer(data.policyRevision,'School policy revision',1,100000000);assert(type(data.enabled)=='boolean' and (data.mode=='record' or data.mode=='teach' or data.mode=='study'),'Invalid school policy');U.integer(data.priority,'School priority',1,3);U.integer(data.nextRecordId,'Next school record ID',1,100000000)
    if data.topicId then local spec=Knowledge.spec(data.topicId);assert(spec and data.topicVersion==spec.version,'Invalid school policy topic') else assert(data.topicVersion==0,'Empty school policy must use version zero') end
-   dense(data.records,'School records',E.maxRecords);local records,maxRecord={},0
+   dense(data.records,'School records',E.maxRecords);local records,topics,maxRecord={}, {},0
    for _,record in ipairs(data.records) do
     exact(record,{id=true,topicId=true,topicVersion=true,subject=true,tick=true,contributors=true,provenance=true},'School record')
     U.integer(record.id,'School record ID',1,data.nextRecordId-1);assert(not records[record.id],'Duplicate school record ID');records[record.id]=true;maxRecord=math.max(maxRecord,record.id)
-    local spec=Knowledge.spec(record.topicId);assert(spec and record.topicVersion==spec.version,'Invalid school record topic');assert(type(record.subject)=='table' and record.subject.category==spec.category and record.subject.kind==spec.subject,'School record subject mismatch');U.integer(record.tick,'School record tick',0,tick);dense(record.contributors,'School record contributors',E.maxContributors);dense(record.provenance,'School record provenance',4)
+    local spec=Knowledge.spec(record.topicId);assert(spec and record.topicVersion==spec.version,'Invalid school record topic');assert(not topics[key(record.topicId,record.topicVersion)],'Duplicate school record topic');topics[key(record.topicId,record.topicVersion)]=true;Knowledge.validateSource(record.subject,'School record subject');assert(record.subject.category==spec.category and record.subject.kind==spec.subject,'School record subject mismatch');U.integer(record.tick,'School record tick',0,tick);validateContributors(record.contributors,'School record contributors',tick);Knowledge.validateProvenance(record.provenance,'School record provenance',tick)
    end
    assert(data.nextRecordId>maxRecord,'Next school record ID was already allocated')
    if data.draft then
     local draft=data.draft;exact(draft,{topicId=true,topicVersion=true,subject=true,progress=true,firstTick=true,lastTick=true,contributors=true,provenance=true},'School recording draft')
-    local spec=Knowledge.spec(draft.topicId);assert(spec and draft.topicVersion==spec.version and not recordFor(s,draft.topicId,draft.topicVersion),'Invalid or duplicate school recording draft');U.integer(draft.progress,'School recording progress',0,E.recordWork-1);U.integer(draft.firstTick,'School draft first tick',0,tick);U.integer(draft.lastTick,'School draft last tick',draft.firstTick,tick);dense(draft.contributors,'School draft contributors',E.maxContributors);dense(draft.provenance,'School draft provenance',4)
+    local spec=Knowledge.spec(draft.topicId);assert(spec and draft.topicVersion==spec.version and not recordFor(s,draft.topicId,draft.topicVersion),'Invalid or duplicate school recording draft');Knowledge.validateSource(draft.subject,'School draft subject');assert(draft.subject.category==spec.category and draft.subject.kind==spec.subject,'School draft subject mismatch');U.integer(draft.progress,'School recording progress',0,E.recordWork-1);U.integer(draft.firstTick,'School draft first tick',0,tick);U.integer(draft.lastTick,'School draft last tick',draft.firstTick,tick);validateContributors(draft.contributors,'School draft contributors',tick);Knowledge.validateProvenance(draft.provenance,'School draft provenance',tick)
    end
    if data.session then
     local session=data.session;exact(session,{id=true,policyRevision=true,mode=true,topicId=true,topicVersion=true,teacherPersonId=true,learnerPersonId=true,recorderPersonId=true,poses=true,lastEvaluationTick=true},'School session')
     U.integer(session.id,'School session ID',1,world.education.nextSessionId-1);maxSession=math.max(maxSession,session.id);assert(session.policyRevision==data.policyRevision and session.mode==data.mode and session.topicId==data.topicId and session.topicVersion==data.topicVersion,'Stale school session');U.integer(session.lastEvaluationTick,'School session evaluation tick',0,tick);dense(session.poses,'School session poses',2)
+    U.integer(session.teacherPersonId,'School teacher ID',0,100000000);U.integer(session.learnerPersonId,'School learner ID',0,100000000);U.integer(session.recorderPersonId,'School recorder ID',0,100000000)
+    if session.mode=='record' then assert(session.recorderPersonId>0 and session.teacherPersonId==0 and session.learnerPersonId==0,'Invalid recording participants')
+    elseif session.mode=='teach' then assert(session.teacherPersonId>0 and session.learnerPersonId>0 and session.teacherPersonId~=session.learnerPersonId and session.recorderPersonId==0,'Invalid lesson participants')
+    else assert(session.learnerPersonId>0 and session.teacherPersonId==0 and session.recorderPersonId==0,'Invalid record-study participants') end
    end
   elseif s and s.education then error('Non-school structure has education state') end
  end
@@ -182,10 +197,13 @@ end
 function E.policyValid(campaign,site,payload)
  local ok,result=pcall(function()
   assert(campaign.features.education==1 and site.world.frontier.education==1,'Education unavailable in this older campaign')
+  U.integer(payload.slot,'Field school slot',1,site.world.cols*site.world.rows);U.integer(payload.schoolId,'Field school ID',1,100000000);U.integer(payload.expectedPolicyRevision,'Field school policy revision',1,100000000)
   local structure=site.world.structures[payload.slot];local data=school(structure);assert(data and data.id==payload.schoolId,'School no longer exists at that site')
   assert(data.policyRevision==payload.expectedPolicyRevision,'School policy changed before this command')
   assert(type(payload.enabled)=='boolean' and (payload.mode=='record' or payload.mode=='teach' or payload.mode=='study'),'Invalid school policy')
   U.integer(payload.priority,'School policy priority',1,3)
+  if payload.topicId~=nil and payload.topicId~=false then assert(type(payload.topicId)=='string','Invalid school topic') end
+  if payload.topicVersion~=nil then U.integer(payload.topicVersion,'School topic version',0,100000000) end
   if not payload.enabled then return {structure=structure,data=data} end
   local spec=Knowledge.spec(payload.topicId);assert(spec and payload.topicVersion==spec.version,'Unknown school topic')
   local source=false
@@ -202,6 +220,7 @@ function E.applyPolicy(campaign,site,payload)
  local topicId=payload.topicId or false
  local topicVersion=payload.topicVersion or 0
  if data.enabled==payload.enabled and data.mode==payload.mode and data.topicId==topicId and data.topicVersion==topicVersion and data.priority==payload.priority then return true,'School policy already applied' end
+ if data.policyRevision>=100000000 then return false,'Field school policy revision capacity reached' end
  if data.session then E.releaseSession(site.world,plan.structure) end
  if data.draft and (data.mode~=payload.mode or data.topicId~=topicId or data.topicVersion~=topicVersion) then data.draft=nil end
  data.enabled=payload.enabled;data.mode=payload.mode;data.topicId=topicId;data.topicVersion=topicVersion;data.priority=payload.priority;data.policyRevision=data.policyRevision+1

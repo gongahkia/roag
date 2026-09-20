@@ -63,7 +63,7 @@ local function validateFact(record,label,tick)
  U.integer(record.tick,label..' tick',0,tick);assert(record.method=='survey' or record.method=='study' or record.method=='taught' or record.method=='record' or record.method=='mixed','Invalid '..label..' method')
  validateSource(record.subject,label..' subject');assert(record.subject.category==spec.category and record.subject.kind==spec.subject and record.subject.definitionVersion==spec.version,'Mismatched '..label..' subject')
  dense(record.provenance,label..' provenance',K.maxSamples)
- if spec.kind=='identification' then assert((record.method=='survey' or record.method=='taught' or record.method=='record' or record.method=='mixed') and #record.provenance<=K.maxSamples,'Invalid identification provenance')
+ if spec.kind=='identification' then assert((record.method=='survey' or record.method=='taught' or record.method=='record' or record.method=='mixed') and #record.provenance==0,'Invalid identification provenance')
  else
   assert((record.method=='study' and #record.provenance>=2) or ((record.method=='taught' or record.method=='record' or record.method=='mixed') and #record.provenance<=K.maxSamples),'Invalid operational provenance')
   local prior={};for _,sample in ipairs(record.provenance) do validateSample(sample,label..' provenance sample',tick);assert(sample.effect==spec.effect,'Mismatched study effect');assert(not prior[sampleKey(sample)],'Duplicate study provenance');prior[sampleKey(sample)]=true end
@@ -140,6 +140,15 @@ function K.source(siteId,category,record)
 end
 function K.sameSource(a,b) return sameSource(a,b) end
 function K.spec(id) return registry[id] end
+function K.validateSource(source,label)
+ validateSource(source,label or 'Knowledge source')
+ return true
+end
+function K.validateProvenance(samples,label,tick)
+ dense(samples,label or 'Knowledge provenance',K.maxSamples)
+ for _,sample in ipairs(samples) do validateSample(sample,label or 'Knowledge provenance sample',tick) end
+ return true
+end
 function K.identificationId(category,kind) return 'identify/'..category..'/'..kind..'/v1' end
 function K.operationalId(category,kind)
  for _,spec in pairs(effectSpecs) do if spec.category==category and spec.kind==kind then return spec.fact end end
