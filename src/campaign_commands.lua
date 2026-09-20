@@ -13,6 +13,7 @@ local fields={
  rally={type=true,worker=true,x=true,y=true},releaserally={type=true,worker=true},
  field={type=true,kind=true,target=true,worker=true,priority=true},arm={type=true,slot=true,worker=true,priority=true},
  target_order={type=true,gx=true,gy=true,worker=true},
+ school_policy={type=true,slot=true,schoolId=true,expectedPolicyRevision=true,enabled=true,mode=true,topicId=true,topicVersion=true,priority=true},
 }
 local campaignFields={
  prepare_expedition={scope=true,type=true,sourceSiteId=true,craftId=true,destinationSiteId=true,passengers=true,cargo=true},
@@ -89,7 +90,9 @@ function Command.valid(campaign,envelope)
    local site=Campaign.site(campaign,envelope.siteId)
    assert(site,'Unknown campaign site')
    assert(site.ownerSocietyId==campaign.society.id,'Site is not owned by this society')
-   local valid,reason=Cmd.valid(site.world,envelope.payload)
+   local valid,reason
+   if envelope.payload.type=='school_policy' then valid,reason=require('src.education').policyValid(campaign,site,envelope.payload)
+   else valid,reason=Cmd.valid(site.world,envelope.payload) end
    assert(valid,reason)
   end
  end)
@@ -106,12 +109,16 @@ function Command.apply(campaign,envelope)
  local site=Campaign.site(campaign,envelope.siteId)
  if not site then return false,'Unknown campaign site' end
  if site.ownerSocietyId~=campaign.society.id then return false,'Site is not owned by this society' end
- local valid,why=Cmd.valid(site.world,envelope.payload)
+ local valid,why
+ if envelope.payload.type=='school_policy' then valid,why=require('src.education').policyValid(campaign,site,envelope.payload)
+ else valid,why=Cmd.valid(site.world,envelope.payload) end
  if not valid then
   W.event(site.world,'rejected',why)
   return false,why
  end
- local applied=Cmd.apply(site.world,envelope.payload)
+ local applied
+ if envelope.payload.type=='school_policy' then applied=require('src.education').applyPolicy(campaign,site,envelope.payload)
+ else applied=Cmd.apply(site.world,envelope.payload) end
  return applied,applied and nil or 'Site command was rejected'
 end
 

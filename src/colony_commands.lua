@@ -3,10 +3,11 @@ local U=require('src.util')
 local L=require('src.labor')
 local J=require('src.jobs')
 local Content=require('src.content')
-local C={types={labor=true,rally=true,releaserally=true,field=true,arm=true,target_order=true}}
+local C={types={labor=true,rally=true,releaserally=true,field=true,arm=true,target_order=true,school_policy=true}}
 function C.valid(w,c)
  local ok,why=pcall(function()
-  if c.type=='labor' then L.validate(w,c.plan)
+  if c.type=='school_policy' then assert(false,'Field school policies require a campaign education context')
+  elseif c.type=='labor' then L.validate(w,c.plan)
   elseif c.type=='field' then
    assert(c.kind=='survey' or c.kind=='salvage' or c.kind=='cull' or c.kind=='study','Unknown field order')
    U.integer(c.target,'target',1,w.nextId-1);local p,category=Content.find(w,c.target);assert(p,'Select an existing encounter')

@@ -12,7 +12,29 @@ S.def={
  pump={label='Hand pump',cost=8,resource='metal',work=50},
  charge={label='Demolition charge',cost=4,resource='metal',work=35},
  ward={label='Resonance ward',cost=10,resource='metal',work=45},
+ field_school={label='Field school',cost=6,resource='stone',materials={stone=4,metal=2},work=60},
 }
+function S.materials(kind)
+ local def=assert(S.def[kind],'Unknown structure')
+ return def.materials or {[def.resource]=def.cost}
+end
+function S.complete(kind,delivered)
+ local materials=S.materials(kind)
+ if type(delivered)=='number' then return delivered>=assert(S.def[kind]).cost end
+ for resource,amount in pairs(materials) do if (delivered[resource] or 0)<amount then return false end end
+ return true
+end
+function S.missing(kind,delivered)
+ local materials=S.materials(kind);local out={}
+ if type(delivered)=='number' then
+  local def=assert(S.def[kind]);if delivered<def.cost then out[#out+1]={resource=def.resource,amount=def.cost-delivered} end
+ else
+  for _,resource in ipairs({'stone','soil','metal','food','water'}) do
+   local amount=materials[resource];if amount and (delivered[resource] or 0)<amount then out[#out+1]={resource=resource,amount=amount-(delivered[resource] or 0)} end
+  end
+ end
+ return out
+end
 function S.siteClear(w,gx,gy,kind)
  if w.structures[W.slot(w,gx,gy)] then return false,'Structure already present' end
  local x1,y1,x2,y2=W.rect(gx,gy)
@@ -39,6 +61,7 @@ function S.install(w,gx,gy,kind)
   s.outlet={x=gx*4+6,y=gy*4-5}
  end
  w.structures[W.slot(w,gx,gy)]=s
+ if kind=='field_school' then require('src.education').install(w,s) end
  w.navRevision=w.navRevision+1
  return s
 end

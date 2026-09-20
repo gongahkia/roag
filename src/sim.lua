@@ -20,7 +20,9 @@ function Sim.body(w,clock,timings,context)
  if clock then timings.infrastructure=clock()-start;start=clock() end
  if w.content then require('src.ecology').step(w,context) end
  if clock then timings.ecology=clock()-start;start=clock() end
+ if context and context.campaign and context.campaign.features.education==1 then require('src.education').begin(w,context) end
  A.step(w,context)
+ if context and context.campaign and context.campaign.features.education==1 then require('src.education').finalize(w,context) end
  if clock then timings.colonists=clock()-start end
  if w.tick%200==0 then
   local items={} for _,p in ipairs(w.items) do if p.n>0 or p.reserved then items[#items+1]=p end end w.items=items

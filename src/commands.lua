@@ -14,6 +14,7 @@ function C.valid(w,c)
   if c.worker~=nil and c.worker~=0 then local a=W.find(w.workers,c.worker);if not a or not a.alive then return false,'Select a living worker' end end
   if c.kind~='dig' and c.kind~='build' and c.kind~='remove' then return false,'Unknown job' end
   if c.kind=='build' and not S.def[c.build] then return false,'Unknown structure' end
+  if c.kind=='build' and c.build=='field_school' and not (w.frontier and w.frontier.education==1) then return false,'Field schools require a new education frontier campaign' end
   if c.priority~=nil and c.priority~=1 and c.priority~=2 and c.priority~=3 then return false,'Priority must be 1, 2 or 3' end
  elseif c.type=='priority' then
   if c.value~=1 and c.value~=2 and c.value~=3 then return false,'Priority must be 1, 2 or 3' end

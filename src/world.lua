@@ -95,9 +95,10 @@ function W.validate(w)
  for _,p in ipairs(w.items) do U.integer(p.n,'stack',0,1000000) end
  if w.frontier then
   assert(type(w.frontier)=='table' and w.frontier.version==1,'Unsupported campaign world marker')
-  for key in pairs(w.frontier) do assert(key=='version' or key=='siteId' or key=='knowledge','Unknown campaign world marker key') end
+  for key in pairs(w.frontier) do assert(key=='version' or key=='siteId' or key=='knowledge' or key=='education','Unknown campaign world marker key') end
   U.integer(w.frontier.siteId,'campaign site ID',1,100000000)
   if w.frontier.knowledge~=nil then assert(w.frontier.knowledge==1,'Unsupported campaign world knowledge marker') end
+  if w.frontier.education~=nil then assert(w.frontier.education==1 and w.frontier.knowledge==1,'Education requires campaign knowledge') end
  end
  for _,job in ipairs(w.jobs) do if job.logistics then assert(w.frontier,'Cargo jobs require a campaign world marker') end end
  for _,a in ipairs(w.workers) do
@@ -108,7 +109,7 @@ function W.validate(w)
   else assert(a.personId==nil,'Campaign person ID requires campaign world marker') end
   if w.frontier and w.frontier.knowledge==1 then
    assert(a.frontier,'Knowledge-enabled worker lacks personal frontier state')
-   require('src.knowledge').validatePersonal(a.frontier,w.tick)
+   require('src.knowledge').validatePersonal(a.frontier,w.tick,w.frontier.education==1)
   else assert(a.frontier==nil,'Personal frontier state requires campaign knowledge') end
   if a.directive and a.directive.kind=='assembly' then assert(w.frontier,'Assembly directives require a campaign world marker') end
   if a.task then
@@ -116,6 +117,7 @@ function W.validate(w)
    for _,index in ipairs(a.task.path) do U.integer(index,'path cell',1,w.n) end
   end
  end
+ if w.frontier and w.frontier.education==1 then require('src.education').validateWorld(w,w.tick) else assert(w.education==nil,'Education state requires campaign education') end
  if w.labor then require('src.labor').validate(w,w.labor) end
  require('src.content').validate(w)
  if w.biomes then

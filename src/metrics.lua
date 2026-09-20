@@ -15,7 +15,7 @@ function Metrics.measure(w)
  for _,kind in ipairs({'stone','soil','metal'}) do r.mineral=r.mineral+W.totalResource(w,kind) end
  r.water=r.water+W.totalResource(w,'water')
  for _,j in ipairs(w.jobs) do
-  r.mineral=r.mineral+(j.delivered or 0)
+  if type(j.delivered)=='table' then for _,amount in pairs(j.delivered) do r.mineral=r.mineral+amount end else r.mineral=r.mineral+(j.delivered or 0) end
   if j.state=='open' then r.jobs=r.jobs+1;if not j.assigned then r.blocked=r.blocked+1 end end
  end
  for slot=1,w.cols*w.rows do local s=w.structures[slot]

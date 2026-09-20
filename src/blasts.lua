@@ -19,10 +19,12 @@ local function destroyStructure(w,slot,s,charge)
  for _,a in ipairs(w.workers) do if a.task and (a.task.slot==slot or a.task.store==slot) then J.release(w,a,true) end end
  for _,j in ipairs(w.jobs) do if j.state=='open' and W.slot(w,j.gx,j.gy)==slot then J.cancel(w,j) end end
  local def=S.def[s.kind];local salvage=charge and 0 or math.floor(def.cost/4)
- if salvage>0 then W.stack(w,def.resource,salvage,s.gx*4-2,s.gy*4) end
+ if salvage>0 then
+  if s.kind=='field_school' then W.stack(w,'stone',1,s.gx*4-2,s.gy*4) else W.stack(w,def.resource,salvage,s.gx*4-2,s.gy*4) end
+ end
  w.ledger.demolitionWaste=w.ledger.demolitionWaste+def.cost-salvage
  if (s.tank or 0)>0 then W.stack(w,'water',s.tank,s.gx*4-2,s.gy*4) end
- w.structures[slot]=nil;w.navRevision=w.navRevision+1
+ require('src.education').destroy(w,s);w.structures[slot]=nil;w.navRevision=w.navRevision+1
 end
 function B.detonate(w,slot)
  local source=w.structures[slot];if not source or source.kind~='charge' then return end

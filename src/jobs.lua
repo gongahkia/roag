@@ -7,6 +7,18 @@ local C=require('config')
 local Labor=require('src.labor')
 local Field=require('src.fieldwork')
 local J={}
+local function deliveredTotal(value)
+ if type(value)=='number' then return value end
+ local total=0;for _,amount in pairs(value or {}) do total=total+amount end;return total
+end
+local function returnDelivered(w,j)
+ if type(j.delivered)=='number' then
+  if j.delivered>0 then W.stack(w,S.def[j.build].resource,j.delivered,j.gx*4-2,j.gy*4) end
+ else
+  for _,resource in ipairs({'stone','soil','metal','food','water'}) do if (j.delivered[resource] or 0)>0 then W.stack(w,resource,j.delivered[resource],j.gx*4-2,j.gy*4) end end
+ end
+ j.delivered=type(j.delivered)=='number' and 0 or {}
+end
 local function releaseClaim(w,a)
  if a.task then
   local t=a.task
@@ -23,15 +35,14 @@ local function releaseClaim(w,a)
  a.task=nil
 end
 function J.release(w,a,drop)
+ if a.task and a.task.kind=='school' then require('src.education').releaseTask(w,a.task) end
  releaseClaim(w,a)
  if drop and a.carry then W.stack(w,a.carry.kind,a.carry.n,a.x,a.y) a.carry=nil end
 end
 function J.cancel(w,j)
  if j.state=='done' or j.state=='cancelled' then return end
  for _,a in ipairs(w.workers) do if a.task and a.task.job==j.id then J.release(w,a,true) end end
- if (j.delivered or 0)>0 then
-  W.stack(w,S.def[j.build].resource,j.delivered,j.gx*4-2,j.gy*4); j.delivered=0
- end
+ if j.kind=='build' and deliveredTotal(j.delivered)>0 then returnDelivered(w,j) end
  j.state='cancelled'; j.assigned=nil
  W.event(w,'order','Cancelled '..j.kind..' order.',j.id)
 end
@@ -39,7 +50,7 @@ function J.add(w,kind,gx,gy,build,priority)
  if #w.jobs>=1024 then return nil,'Job limit reached' end
  for _,j in ipairs(w.jobs) do if j.gx==gx and j.gy==gy and j.state=='open' then return nil,'Order already present' end end
  local j={id=W.id(w),kind=kind,gx=gx,gy=gy,build=build,priority=priority or 2,
-  state='open',delivered=0,progress=0,reason='Waiting for a worker'}
+  state='open',delivered=kind=='build' and build=='field_school' and {} or 0,progress=0,reason='Waiting for a worker'}
  w.jobs[#w.jobs+1]=j return j
 end
 function J.digCell(w,j,x,y)
@@ -156,10 +167,11 @@ function J.plan(w,a,context)
    if valid then path,node,dist=closest(w,a,f,function(x,y) return workPose(w,j,x,y) end) end
    if not valid then j.reason=reason
    elseif not path then j.reason='No reachable work position'
-   elseif j.kind=='build' and j.delivered<S.def[j.build].cost then
-    local p,pp,nn,dd=itemChoice(w,a,f,S.def[j.build].resource,true)
+   elseif j.kind=='build' and not S.complete(j.build,j.delivered) then
+    local missing=S.missing(j.build,j.delivered)[1]
+    local p,pp,nn,dd=itemChoice(w,a,f,missing.resource,true)
     if p then offer({kind='work',job=j.id,stage='fetch',item=p.id,path=pp,node=nn,label='Fetching '..p.kind},j.priority*100,dist+dd)
-    else j.reason='Needs accessible '..S.def[j.build].resource end
+    else j.reason='Needs accessible '..missing.resource end
    else offer({kind='work',job=j.id,stage='work',path=path,node=node,label=j.kind=='build' and 'Building '..j.build or j.kind},j.priority*100,dist) end
   end
  end end
@@ -246,6 +258,8 @@ local function routeDestination(w,a,context)
  if t.kind=='work' then
   local j=W.find(w.jobs,t.job)
   return j and reRoute(w,a,function(x,y) return workPose(w,j,x,y) end)
+ elseif t.kind=='school' then
+  return reRoute(w,a,function(x,y) return x==t.x and y==t.y end)
  elseif t.kind=='cargo' then
   local j=W.find(w.jobs,t.job)
   return j and context and require('src.logistics').routeToCraft(context.campaign,context.siteId,w,a,j,reRoute)
@@ -290,6 +304,9 @@ function J.act(w,a,context)
    if not delivered then blocked(w,a,why) else finish(w,a,'Unloaded craft cargo') end
   else blocked(w,a,'Cargo task state changed') end
  elseif t.kind=='field' then Field.act(w,a,t,finish,blocked,reRoute,context)
+ elseif t.kind=='school' then
+  local ok,why=require('src.education').act(w,a,t,context)
+  if not ok then blocked(w,a,why) end
  elseif t.kind=='rally' then a.worked=false;a.status='Rally / holding';a.reason='J releases this worker to normal duties'
  elseif t.kind=='escape' then finish(w,a,'Reached safety')
  elseif t.kind=='eat' then
@@ -305,7 +322,7 @@ function J.act(w,a,context)
    local p=W.find(w.items,t.item)
    if not p or p.n<=0 or p.reserved~=a.id or not N.reach(w,a.x,a.y,p.x,p.y,4) then blocked(w,a,'Supply moved or became inaccessible') return end
    local capacity=t.kind=='irrigate' and 6 or 12
-   if t.kind=='work' then local j=W.find(w.jobs,t.job);capacity=math.min(capacity,S.def[j.build].cost-j.delivered) end
+   if t.kind=='work' then local j=W.find(w.jobs,t.job);local missing=S.missing(j.build,j.delivered)[1];capacity=math.min(capacity,missing and missing.amount or 0) end
    local count=math.min(p.n,capacity)
    a.carry={kind=p.kind,n=count}; p.n=p.n-count;p.reserved=nil;t.item=nil
   else
@@ -323,8 +340,8 @@ function J.act(w,a,context)
   if t.kind=='work' then
    local j=W.find(w.jobs,t.job)
    if not workPose(w,j,a.x,a.y) then blocked(w,a,'Work position invalid') return end
-   j.delivered=j.delivered+a.carry.n;a.carry=nil
-   if j.delivered<S.def[j.build].cost then finish(w,a,'Delivered partial materials') return end
+   if type(j.delivered)=='number' then j.delivered=j.delivered+a.carry.n else j.delivered[a.carry.kind]=(j.delivered[a.carry.kind] or 0)+a.carry.n end;a.carry=nil
+   if not S.complete(j.build,j.delivered) then finish(w,a,'Delivered partial materials') return end
    t.stage='work'
   elseif t.kind=='irrigate' then
    local s=w.structures[t.slot]
@@ -365,7 +382,7 @@ function J.act(w,a,context)
    if not workPose(w,j,a.x,a.y) then blocked(w,a,'Work position invalid') return end
    j.progress=j.progress+a.build
    if j.progress>=S.def[j.build].work then
-    S.install(w,j.gx,j.gy,j.build);w.ledger.built=w.ledger.built+j.delivered;j.delivered=0
+    S.install(w,j.gx,j.gy,j.build);w.ledger.built=w.ledger.built+deliveredTotal(j.delivered);j.delivered=type(j.delivered)=='number' and 0 or {}
     j.state='done';j.reason='Completed';w.stats.jobsDone=w.stats.jobsDone+1
     W.event(w,'build',a.name..' completed '..S.def[j.build].label..'.',j.id);finish(w,a)
    end
@@ -376,10 +393,12 @@ function J.act(w,a,context)
    j.progress=j.progress+1
    if j.progress>=20 then
     local def=S.def[s.kind];local recovered=math.floor(def.cost/2)
-    W.stack(w,def.resource,recovered,a.x,a.y)
+    if s.kind=='field_school' then
+     W.stack(w,'stone',2,a.x,a.y);W.stack(w,'metal',1,a.x,a.y)
+    else W.stack(w,def.resource,recovered,a.x,a.y) end
     w.ledger.demolitionWaste=w.ledger.demolitionWaste+def.cost-recovered
     if s.tank and s.tank>0 then W.stack(w,'water',s.tank,a.x,a.y) end
-    w.structures[slot]=nil;w.navRevision=w.navRevision+1;j.state='done';w.stats.jobsDone=w.stats.jobsDone+1
+    require('src.education').destroy(w,s);w.structures[slot]=nil;w.navRevision=w.navRevision+1;j.state='done';w.stats.jobsDone=w.stats.jobsDone+1
     W.event(w,'remove',a.name..' dismantled '..def.label..'; half the construction material was lost.',j.id)
     finish(w,a)
    end

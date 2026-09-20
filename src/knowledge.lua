@@ -60,12 +60,12 @@ end
 local function validateFact(record,label,tick)
  exact(record,{id=true,version=true,tick=true,method=true,subject=true,provenance=true},label)
  local spec=registry[record.id];assert(spec and record.version==spec.version,'Unknown '..label..' definition')
- U.integer(record.tick,label..' tick',0,tick);assert(record.method=='survey' or record.method=='study','Invalid '..label..' method')
+ U.integer(record.tick,label..' tick',0,tick);assert(record.method=='survey' or record.method=='study' or record.method=='taught' or record.method=='record' or record.method=='mixed','Invalid '..label..' method')
  validateSource(record.subject,label..' subject');assert(record.subject.category==spec.category and record.subject.kind==spec.subject and record.subject.definitionVersion==spec.version,'Mismatched '..label..' subject')
  dense(record.provenance,label..' provenance',K.maxSamples)
- if spec.kind=='identification' then assert(record.method=='survey' and #record.provenance==0,'Invalid identification provenance')
+ if spec.kind=='identification' then assert((record.method=='survey' or record.method=='taught' or record.method=='record' or record.method=='mixed') and #record.provenance<=K.maxSamples,'Invalid identification provenance')
  else
-  assert(record.method=='study' and #record.provenance>=2,'Invalid operational provenance')
+  assert((record.method=='study' and #record.provenance>=2) or ((record.method=='taught' or record.method=='record' or record.method=='mixed') and #record.provenance<=K.maxSamples),'Invalid operational provenance')
   local prior={};for _,sample in ipairs(record.provenance) do validateSample(sample,label..' provenance sample',tick);assert(sample.effect==spec.effect,'Mismatched study effect');assert(not prior[sampleKey(sample)],'Duplicate study provenance');prior[sampleKey(sample)]=true end
  end
 end
@@ -104,8 +104,9 @@ end
 function K.attach(worker)
  worker.frontier={version=1,knowledge=K.newPersonal()}
 end
-function K.validatePersonal(frontier,tick)
- exact(frontier,{version=true,knowledge=true},'Personal frontier')
+function K.validatePersonal(frontier,tick,education)
+ local fields={version=true,knowledge=true};if education then fields.education=true end
+ exact(frontier,fields,'Personal frontier')
  assert(frontier.version==1,'Unsupported personal frontier version')
  local knowledge=frontier.knowledge;exact(knowledge,{version=true,observations=true,facts=true,studies=true,lastStudyActionTick=true},'Personal knowledge')
  assert(knowledge.version==K.version,'Unsupported personal knowledge version');U.integer(knowledge.lastStudyActionTick,'Last study action tick',0,tick)
@@ -114,6 +115,7 @@ function K.validatePersonal(frontier,tick)
  for _,record in ipairs(knowledge.observations) do validateObservation(record,'Personal observation',tick);local key=record.source.siteId..':'..record.source.category..':'..record.source.id;assert(not sources[key],'Duplicate personal observation');sources[key]=true end
  for _,record in ipairs(knowledge.facts) do validateFact(record,'Personal fact',tick);assert(not facts[record.id],'Duplicate personal fact');facts[record.id]=true end
  for _,record in ipairs(knowledge.studies) do validateStudy(record,'Personal study',tick);assert(not studies[record.id] and not facts[record.id],'Duplicate/completed personal study');studies[record.id]=true end
+ if education then require('src.education').validatePersonal(frontier.education,tick) end
  return true
 end
 function K.newCampaign()
@@ -127,7 +129,7 @@ function K.validateCampaign(state,tick)
   exact(entry,{id=true,tick=true,siteId=true,personId=true,name=true,fact=true,version=true,method=true,subject=true},'Knowledge history entry')
   U.integer(entry.id,'Knowledge history ID',1,state.nextHistoryId-1);assert(entry.id>prior,'Knowledge history is unordered');prior=entry.id;max=entry.id
   U.integer(entry.tick,'Knowledge history tick',0,tick);U.integer(entry.siteId,'Knowledge history site ID',1,3);U.integer(entry.personId,'Knowledge history person ID',1,100000000)
-  assert(type(entry.name)=='string' and #entry.name<=80 and registry[entry.fact] and entry.version==registry[entry.fact].version and (entry.method=='survey' or entry.method=='study'),'Malformed knowledge history')
+  assert(type(entry.name)=='string' and #entry.name<=80 and registry[entry.fact] and entry.version==registry[entry.fact].version and (entry.method=='survey' or entry.method=='study' or entry.method=='taught' or entry.method=='record' or entry.method=='mixed'),'Malformed knowledge history')
   validateSource(entry.subject,'Knowledge history subject')
  end
  assert(state.nextHistoryId>max,'Next knowledge history ID was already allocated')
@@ -148,6 +150,7 @@ end
 local function fact(worker,id)
  for _,record in ipairs((personal(worker) or {}).facts or {}) do if record.id==id then return record end end
 end
+function K.fact(worker,id) return fact(worker,id) end
 function K.identified(worker,category,kind) return fact(worker,K.identificationId(category,kind))~=nil end
 function K.supports(worker,category,kind)
  local id=K.operationalId(category,kind);return id and fact(worker,id) or nil
@@ -244,6 +247,11 @@ local function addFact(context,worker,id,method,source,provenance)
  knowledge.facts[#knowledge.facts+1]=record;table.sort(knowledge.facts,function(a,b) return a.id<b.id end);addHistory(context,worker,record,source.siteId)
  return true,record
 end
+function K.learn(context,worker,id,method,source,provenance)
+ if not K.enabled(context) then return false,'Knowledge is unavailable' end
+ local spec=registry[id];if not spec then return false,'Unknown supported fact' end
+ return addFact(context,worker,id,method,source,provenance)
+end
 function K.survey(context,worker,source)
  if not K.enabled(context) then return false,'Knowledge is unavailable' end
  local id=K.identificationId(source.category,source.kind);return addFact(context,worker,id,'survey',source,{})
@@ -275,8 +283,14 @@ function K.studyAction(context,worker,source)
  local ok,effect,id=K.canStudy(context,worker,source);if not ok then return false,effect end
  local knowledge=personal(worker)
  if knowledge.lastStudyActionTick==context.campaign.tick then return false,'Already performed field study this tick' end
+ local added=1
+ if context.campaign.features.education==1 then
+  local value,why=require('src.education').analysis(context,worker);if not value then return false,why end;added=value
+ end
  local study
  for _,record in ipairs(knowledge.studies) do if record.id==id then study=record;break end end
+ local previous=study and study.progress or 0
+ if previous+added>=K.studyWork and #knowledge.facts>=K.maxFacts then return false,'Personal fact limit reached' end
  local provenance=copyQualifying(source,effect)
  if not study then
   if #knowledge.studies>=K.maxStudies then return false,'Personal study limit reached' end
@@ -287,8 +301,8 @@ function K.studyAction(context,worker,source)
   if not sameSource(study.source,source) then study.source=U.deep(source) end
   study.provenance=mergeProvenance(study.provenance,provenance)
  end
- if study.progress==K.studyWork-1 and #knowledge.facts>=K.maxFacts then return false,'Personal fact limit reached' end
- knowledge.lastStudyActionTick=context.campaign.tick;study.progress=study.progress+1;study.lastTick=context.campaign.tick
+ knowledge.lastStudyActionTick=context.campaign.tick;study.progress=math.min(K.studyWork,study.progress+added);study.lastTick=context.campaign.tick
+ if context.campaign.features.education==1 then require('src.education').finishAnalysis(context,worker) end
  if study.progress<K.studyWork then return true,{complete=false,progress=study.progress} end
  local learned,record=addFact(context,worker,id,'study',source,study.provenance);assert(learned,record)
  for index,value in ipairs(knowledge.studies) do if value==study then table.remove(knowledge.studies,index);break end end

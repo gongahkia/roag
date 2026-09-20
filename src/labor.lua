@@ -97,7 +97,7 @@ function L.roleForTask(w,t)
   local j=W.find(w.jobs,t.job)
   return j and (j.kind=='dig' and 'dig' or 'build') or 'build'
  end
- return ({haul='haul',irrigate='farm',harvest='farm',pump='pump',field='field'})[t.kind]
+ return ({haul='haul',irrigate='farm',harvest='farm',pump='pump',field='field',school='field'})[t.kind]
 end
 function L.score(w,a,t)
  local role=L.roleForTask(w,t);if not role then return 0 end
