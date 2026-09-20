@@ -104,6 +104,24 @@ class ContentPackTests(unittest.TestCase):
         # the test process or another test module.
         self.assertNotEqual(os.environ.get("JOMON_CONTENT_PACK"), str(root))
 
+    def test_selected_pack_reports_its_catalog_schema_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            (root / "data" / "world_text.json").write_text("{}\n", encoding="utf-8")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            result = subprocess.run(
+                [sys.executable, "-c", "import jomon.main"],
+                cwd=ROOT,
+                env=environment,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("invalid world_text.json in content pack 'fixture-alternate'", result.stderr)
+        self.assertIn("must contain exactly", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
