@@ -723,6 +723,7 @@ def _threats(seed: str, region: Region) -> list[Threat]:
 
 
 def _region(seed: str) -> tuple[Region, Contact]:
+    from .region_presentation import region_display_name
     from .topology import build_region
 
     context = dict(stage_rng(seed, "regional-context").choice(REGIONAL_CONTEXTS))
@@ -738,6 +739,7 @@ def _region(seed: str) -> tuple[Region, Contact]:
         condition=context["condition"], work=context["work"], pressure=context["pressure"],
         objective_text=context["objective"], objective_commodity=context["commodity"],
         opportunity_commodity=context["opportunity"], hazard=context["hazard"],
+        name=region_display_name("hearthford"),
         **spatial,
     )
     from .sanctums import install as install_sanctum

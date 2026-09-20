@@ -83,6 +83,7 @@ def _estuary(seed, width, height):
 
 def build_frontier(seed: str, region_id: str) -> Region:
     from .inventory import REGIONAL_ARMOUR
+    from .region_presentation import region_display_name
 
     name, width, height, geology, commodity, shortage, process, *_ = FRONTIERS[region_id]
     ground, anchors = {"dunmire": _fen, "rillscar": _gorge, "marlbank": _terraces, "frostmere": _estuary}[region_id](seed, width, height)
@@ -180,7 +181,7 @@ def build_frontier(seed: str, region_id: str) -> Region:
         commodity, shortage, process, width, height, levels, landmarks,
         {"inhabited court": (settlement.x - 6, settlement.y - 4, settlement.x + 16, settlement.y + 6), "old scar": (ruin.x - 6, ruin.y - 5, ruin.x + 6, ruin.y + 5), "industrial works": (works.x - wx, works.y - wy, works.x + wx, works.y + wy), "far shore": (far_bank.x - 6, far_bank.y - 5, far_bank.x + 6, far_bank.y + 5), "buried drain": (cave.x, cave.y - 5, store.x, store.y)},
         links, containers, {}, {}, [], _signature(levels, landmarks),
-        id=region_id, name=name, process_name=process,
+        id=region_id, name=region_display_name(region_id), process_name=process,
         process_thresholds=[65, 115, 170],
     )
     # History leaves both a physical hazard and a current market obligation.

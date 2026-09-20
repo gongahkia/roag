@@ -6,6 +6,7 @@ from collections import deque
 
 from .calendar import calendar_at, seasonal_route_note
 from .catalog import VESSEL_SECTIONS, load_catalog
+from .region_presentation import region_presentation
 from .state import GameState, RouteEdge, RouteNode, stage_rng
 
 
@@ -15,7 +16,14 @@ REGION_NODES = dict(_ROUTES["region_nodes"])
 
 def build_route_graph(seed: str) -> tuple[dict[str, RouteNode], list[RouteEdge]]:
     """Build one bounded navigational network; optional links vary by seed."""
-    nodes = {node_id: RouteNode(**row) for node_id, row in _ROUTES["route_nodes"].items()}
+    nodes = {}
+    for node_id, row in _ROUTES["route_nodes"].items():
+        values = dict(row)
+        if values["region_id"]:
+            presentation = region_presentation(values["region_id"])
+            values["name"] = presentation.route_label
+            values["description"] = presentation.short_description
+        nodes[node_id] = RouteNode(**values)
     specifications = list(_ROUTES["route_edges"])
     rng = stage_rng(seed, "route-links")
     optional = _ROUTES["optional_route_edges"]

@@ -60,6 +60,8 @@ VISUAL_SECTIONS = (
 
 CONTENT_PACK_FORMAT = 1
 CONTENT_PACK_ENVIRONMENT = "JOMON_CONTENT_PACK"
+REGION_CONTRACT_FORMAT = 1
+REGION_PRESENTATION_FILE = "regions.json"
 
 # Main-world modules load these files into module constants. Selecting a pack
 # therefore validates that it is complete before any one catalog is consumed.
@@ -82,6 +84,25 @@ class ContentPackError(CatalogError):
 
 
 @dataclass(frozen=True)
+class RegionContractSlot:
+    """One engine-owned semantic slot for regional presentation."""
+
+    id: str
+    engine_id: str
+
+
+@dataclass(frozen=True)
+class RegionPresentation:
+    """Immutable authored presentation for one engine-owned regional slot."""
+
+    id: str
+    engine_id: str
+    display_name: str
+    route_label: str
+    short_description: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -90,9 +111,16 @@ class ContentPack:
     format_version: int
     root: Path
     catalog_root: Path
+    region_presentations: tuple[RegionPresentation, ...]
 
     def catalog_path(self, name: str) -> Path:
         return self.catalog_root / name
+
+    def region_presentation(self, engine_id: str) -> RegionPresentation:
+        for presentation in self.region_presentations:
+            if presentation.engine_id == engine_id:
+                return presentation
+        raise KeyError(f"unknown engine region id: {engine_id}")
 
 
 _selected_pack: ContentPack | None = None
@@ -114,6 +142,99 @@ def _reject_constant(value: str) -> None:
 
 def _package_path(*parts: str) -> Path:
     return Path(str(files("jomon").joinpath(*parts)))
+
+
+def _region_contract() -> tuple[RegionContractSlot, ...]:
+    """Load the small engine-owned regional identity contract."""
+    source = _package_path("content_packs", "contract.json")
+    try:
+        text = source.read_text(encoding="utf-8")
+        document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise RuntimeError(f"invalid engine region content contract at {source}: {exc}") from exc
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions"}:
+        raise RuntimeError(f"invalid engine region content contract at {source}: expected format_version and regions")
+    if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
+        raise RuntimeError(f"invalid engine region content contract at {source}: unsupported format_version")
+    regions = document["regions"]
+    if not isinstance(regions, list) or not regions:
+        raise RuntimeError(f"invalid engine region content contract at {source}: regions must be a non-empty list")
+    slots: list[RegionContractSlot] = []
+    for index, row in enumerate(regions):
+        if not isinstance(row, dict) or set(row) != {"id", "engine_id"}:
+            raise RuntimeError(f"invalid engine region content contract at {source}: regions[{index}] must contain id and engine_id")
+        semantic_id, engine_id = row["id"], row["engine_id"]
+        if (not isinstance(semantic_id, str) or re.fullmatch(r"region\.family_[1-9][0-9]*", semantic_id) is None
+                or not isinstance(engine_id, str) or re.fullmatch(r"[a-z][a-z0-9_-]*", engine_id) is None):
+            raise RuntimeError(f"invalid engine region content contract at {source}: regions[{index}] has invalid ids")
+        slots.append(RegionContractSlot(semantic_id, engine_id))
+    if len({slot.id for slot in slots}) != len(slots) or len({slot.engine_id for slot in slots}) != len(slots):
+        raise RuntimeError(f"invalid engine region content contract at {source}: region ids must be unique")
+    return tuple(slots)
+
+
+def region_contract() -> tuple[RegionContractSlot, ...]:
+    """Return the ordered engine-owned regional presentation contract."""
+    return _region_contract()
+
+
+def _region_presentations(root: Path, pack_id: str) -> tuple[RegionPresentation, ...]:
+    source = root / REGION_PRESENTATION_FILE
+    try:
+        text = source.read_text(encoding="utf-8")
+        document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(
+            f"invalid regional presentation for content pack {pack_id!r} at {source}: {exc}"
+        ) from exc
+    if not isinstance(document, dict) or set(document) != {"regions"}:
+        raise ContentPackError(
+            f"invalid regional presentation for content pack {pack_id!r} at {source}: expected regions"
+        )
+    rows = document["regions"]
+    if not isinstance(rows, dict):
+        raise ContentPackError(
+            f"invalid regional presentation for content pack {pack_id!r} at {source}: regions must be an object"
+        )
+    slots = region_contract()
+    expected = {slot.id for slot in slots}
+    actual = set(rows)
+    if actual != expected:
+        missing, unknown = sorted(expected - actual), sorted(actual - expected)
+        details = []
+        if missing:
+            details.append("missing required region slots " + ", ".join(missing))
+        if unknown:
+            details.append("unknown region slots " + ", ".join(unknown))
+        raise ContentPackError(
+            f"invalid regional presentation for content pack {pack_id!r} at {source}: " + "; ".join(details)
+        )
+    required = {"display_name", "route_label", "short_description"}
+    presentations: list[RegionPresentation] = []
+    for slot in slots:
+        row = rows[slot.id]
+        path = f"regions.{slot.id}"
+        if not isinstance(row, dict) or set(row) != required:
+            missing, unknown = (required - set(row), set(row) - required) if isinstance(row, dict) else (required, set())
+            details = []
+            if missing:
+                details.append("missing " + ", ".join(sorted(missing)))
+            if unknown:
+                details.append("unknown " + ", ".join(sorted(unknown)))
+            if not details:
+                details.append("must be an object")
+            raise ContentPackError(
+                f"invalid regional presentation for content pack {pack_id!r} at {source}: {path} "
+                + "; ".join(details)
+            )
+        for field in required:
+            if not isinstance(row[field], str) or not row[field].strip():
+                raise ContentPackError(
+                    f"invalid regional presentation for content pack {pack_id!r} at {source}: "
+                    f"{path}.{field} must be a non-empty string"
+                )
+        presentations.append(RegionPresentation(slot.id, slot.engine_id, **row))
+    return tuple(presentations)
 
 
 def _manifest_document(root: Path) -> dict[str, Any]:
@@ -179,7 +300,10 @@ def load_content_pack(path: str | Path) -> ContentPack:
             f"content pack {pack_id!r} at {root}: missing required catalog "
             + ", ".join(missing_catalogs)
         )
-    return ContentPack(pack_id, display_name, format_version, root, catalog_root)
+    return ContentPack(
+        pack_id, display_name, format_version, root, catalog_root,
+        _region_presentations(root, pack_id),
+    )
 
 
 def bundled_default_pack() -> ContentPack:

@@ -1,0 +1,13 @@
+{
+  "format_version": 1,
+  "regions": [
+    {"id": "region.family_1", "engine_id": "hearthford"},
+    {"id": "region.family_2", "engine_id": "greywash"},
+    {"id": "region.family_3", "engine_id": "greenwold"},
+    {"id": "region.family_4", "engine_id": "whitecairn"},
+    {"id": "region.family_5", "engine_id": "dunmire"},
+    {"id": "region.family_6", "engine_id": "rillscar"},
+    {"id": "region.family_7", "engine_id": "marlbank"},
+    {"id": "region.family_8", "engine_id": "frostmere"}
+  ]
+}

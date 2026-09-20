@@ -190,6 +190,8 @@ def _signature(levels: dict[str, list[str]], landmarks: dict[str, Position]) -> 
 
 
 def build_greywash(seed: str, *, layout: str | None = None) -> Region:
+    from .region_presentation import region_display_name
+
     """Constrained shoreline carving with three tide-parallel route bands."""
     width, height = 104, 56
     ground = _grid(width, height, ".")
@@ -302,7 +304,7 @@ def build_greywash(seed: str, *, layout: str | None = None) -> Region:
         "ironwork", "salt fish", "closing tide", width, height, levels, landmarks,
         {"Greywash village": (10, 19, 31, 33), "Salt pans": (30, 28, 47, 40), "Dune road": (47, 9, 70, 23), "Wreck flats": (63, 34, 84, 45), "Tide-chain house": (83, 19, 98, 35)},
         links, containers, {}, {}, [], _signature(levels, landmarks),
-        id="greywash", name="Greywash Tidal Reach", process_name="working tide",
+        id="greywash", name=region_display_name("greywash"), process_name="working tide",
         process_thresholds=[28, 55, 82],
     )
     from .geography import orient_region
@@ -324,6 +326,8 @@ def build_greywash(seed: str, *, layout: str | None = None) -> Region:
 
 def build_greenwold(seed: str, *, layout: str | None = None) -> Region:
     """Smoothed tree clusters leave open woodland and interconnected clearings."""
+    from .region_presentation import region_display_name
+
     width, height = 100, 58
     rng = stage_rng(seed, "greenwold:canopy")
     growth = [[rng.random() < 0.34 for _ in range(width)] for _ in range(height)]
@@ -452,7 +456,7 @@ def build_greenwold(seed: str, *, layout: str | None = None) -> Region:
         "charcoal", "timber", "spreading burn smoke", width, height, levels, landmarks,
         {"Greenwold clearing village": (10, 18, 30, 32), "Open woodland": (30, 16, 64, 43), "Resin yard": (68, 9, 84, 23), "Raised burnworks": (73, 32, 90, 46), "Root hollows": (44, 40, 67, 55)},
         links, containers, {}, {}, [], _signature(levels, landmarks),
-        id="greenwold", name="Greenwold Charcoal March", process_name="shifting burn wind",
+        id="greenwold", name=region_display_name("greenwold"), process_name="shifting burn wind",
         process_thresholds=[32, 62, 92],
     )
     from .geography import orient_region
@@ -474,6 +478,8 @@ def build_greenwold(seed: str, *, layout: str | None = None) -> Region:
 
 def build_whitecairn(seed: str, *, layout: str | None = None) -> Region:
     """Terrace bands and seeded switchbacks emphasize exposed vertical routes."""
+    from .region_presentation import region_display_name
+
     width, height = 98, 60
     ground = _grid(width, height, ".")
     _border(ground, "#")
@@ -574,7 +580,7 @@ def build_whitecairn(seed: str, *, layout: str | None = None) -> Region:
         "lime", "wool", "scree and rockfall", width, height, levels, landmarks,
         {"Whitecairn terrace village": (9, 42, 29, 55), "Lower switchbacks": (27, 35, 50, 53), "Quarry face": (49, 28, 66, 43), "Lime kilns": (66, 39, 81, 53), "Bell ridge": (70, 10, 92, 31)},
         links, containers, {}, {}, [], _signature(levels, landmarks),
-        id="whitecairn", name="Whitecairn Limestone Rise", process_name="quarry instability",
+        id="whitecairn", name=region_display_name("whitecairn"), process_name="quarry instability",
         process_thresholds=[30, 60, 88],
     )
     from .geography import orient_region
