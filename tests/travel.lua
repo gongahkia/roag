@@ -183,7 +183,7 @@ function T.run()
    table.sort(record.passengers,function(a,b) return a.personId<b.personId end)
   end
   h.live.nextPersonId=nextPerson;h.live.logistics.nextCraftId=5;travel.nextJourneyId=5
-  for _=1,11 do for _,record in ipairs(h.live.logistics.crafts) do for _,passenger in ipairs(record.passengers) do passenger.hunger=60 end end;advance(h,1) end
+  for _=1,11 do for _,record in ipairs(h.live.logistics.crafts) do record.cargo.food=24;for _,passenger in ipairs(record.passengers) do passenger.hunger=60 end end;advance(h,1) end
   Campaign.validate(h.live);eq(#travel.receipts,128);check(travel.receipts[1].id>1,'Oldest receipt was not pruned by real transit consumption');check(travel.nextReceiptId>128,'Receipt allocator regressed after pruning')
  end)
 

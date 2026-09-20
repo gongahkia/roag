@@ -25,8 +25,8 @@ end
 prepare(1,2,{food=4,metal=3});advance(399)
 local craft=Logistics.craft(h.live,1);assert(craft.dockedSiteId==2 and h.live.sites[2].ownerSocietyId==1,'Outbound founding did not complete')
 assert(h:queue(command('unload_cargo',{sourceSiteId=2,craftId=1,resource='food',amount=2})));advance(220)
-prepare(2,1,{food=2,metal=1});advance(399);assert(craft.dockedSiteId==1,'Return did not complete')
-prepare(1,2,{food=1,metal=1});advance(399);assert(craft.dockedSiteId==2,'Resupply did not complete')
+prepare(2,1,{food=2,metal=2});advance(399);assert(craft.dockedSiteId==1,'Return did not complete')
+prepare(1,2,{food=2,metal=1});advance(399);assert(craft.dockedSiteId==2,'Resupply did not complete')
 local saved=h:saveText();local restored=History.fromText(saved);assert(Codec.encode(restored.live)==Codec.encode(h.live),'Soak save/load changed campaign')
 while h.frontier<ticks do advance(1) end
 local verified,why=History.fromText(h:saveText()):verifyReplay(20000);assert(verified,why)

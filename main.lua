@@ -18,7 +18,6 @@ local Biomes=require('src.biomes')
 local Crew=require('src.ui.crew')
 local Content=require('src.content')
 local Logistics=require('src.logistics')
-local Travel=require('src.travel')
 local app={paused=true,speed=1,tool='inspect',priority=2,view=1,grid=false,accumulator=0}
 local renderer
 local function notify(s) app.toast=tostring(s);app.toastTime=8 end
@@ -258,9 +257,6 @@ local function hasRegion()
 end
 local function hasLogistics()
  return hasRegion() and app.history.view.features.logistics==1
-end
-local function hasTravel()
- return hasLogistics() and app.history.view.features.travel==1
 end
 local function selectSite(siteId)
  if not hasRegion() then return false end
