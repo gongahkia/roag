@@ -192,8 +192,104 @@ tools. It says `Departure becomes available in the next implementation tranche`.
 Older campaigns explicitly report logistics as unavailable rather than receiving a
 shuttle. A parked craft marker is presentation only.
 
-P03 therefore supports simultaneous generated local maps, site-scoped management,
-and pre-flight physical loading/assembly. It does not support departure, transit,
-landing, founding, resupply, passenger custody off-map, hull damage, new planetary
-physics, global stockpiles, factions, or a remote simulation abstraction. Finite
-local maps remain a prototype boundary, not a permanent one-world restriction.
+P04 adds travel only to campaigns created with `features.travel=1`; it requires
+both `region=1` and `logistics=1`. P01/P02/P03 and legacy histories retain their
+old feature sets when loaded. There is no in-place activation or migration editor.
+New frontier campaigns created through the lab choose all currently implemented
+features, including travel.
+
+## P04 travel, landing, and accounting
+
+Travel campaigns add this data-only record and extend each craft with
+`passengers={}` and `journey=nil` while docked:
+
+```lua
+travel={version=1,
+ rules={version=1,routes={
+   {from=1,to=2,duration=400}, {from=1,to=3,duration=600},
+   {from=2,to=3,duration=800},
+ }},
+ nextJourneyId=1,nextReceiptId=1,receipts={},
+ accounts={sites={...},transit={imports=...,exports=...,consumed=...}}}
+```
+
+Routes are symmetric. A craft is either `DOCKED` with no passengers and a site ID,
+or has one `journey` and an off-map passenger array. A journey holds its monotonic
+ID, immutable origin/destination site IDs, `outbound` or `return` leg,
+`travelling` or `holding` status, start tick, route duration, remaining ticks,
+safe-cabin physiology parameters, and a bounded holding reason. A holding craft
+may reverse only an outbound leg, once, to its original site; it consumes an
+actual metal unit held in cargo. A blocked return stays holding rather than
+ping-ponging or receiving terrain repair.
+
+`launch_expedition` is source-, craft-, manifest- and revision-bound:
+
+```lua
+{scope='campaign',type='launch_expedition',sourceSiteId=1,craftId=1,
+ manifestId=1,expectedManifestRevision=1}
+{scope='campaign',type='return_to_origin',craftId=1,journeyId=1,
+ expectedLeg='outbound'}
+```
+
+Launch rechecks P03 readiness, exact cargo, assembly, route, ownership, active
+operation absence, and a metal part. It then consumes one metal in source custody,
+closes the manifest, releases site-local task/job/labour references, transfers
+people to the craft, and records the remaining cargo as a transit export/import.
+A stale or duplicate command has no partial effect. `personId`, name, life state,
+HP, needs, and current implemented aptitude/status fields are portable; local worker
+ID, coordinates, path/task/job/carry/directive and local labour roster state are
+not. Arrival allocates new destination-local IDs in person-ID order and normal
+AUTO labour entries. Departure is not death; a retained dead passenger can arrive
+once as an inert local dead worker without a second death event.
+
+Every campaign tick still begins every local world, applies ordered commands,
+runs logistics offering and all local bodies in stable site-ID order, then updates
+off-map crafts in craft-ID/person-ID order and resolves due arrivals. A departure
+at tick `t` with duration `D` receives its first cabin update/decrement at `t` and
+can arrive after the local bodies at `t + D - 1`; an arrival first runs local work
+on the following tick. Cabin use is the ground resting-rate subset in
+`Colonists.transitStep`: hunger increases by the world rule, fatigue falls by
+`0.035`, breath recovers by `1.6`, starvation damage is applied before eating, and
+one craft-food unit may reduce hunger by `48` at the existing threshold. It is a
+safe resting cabin, not stasis, healing, a remote ground stockpile, or a new oxygen
+model. Living transit passengers count toward campaign survival.
+
+Landing checks the persistent destination anchor and legal full-body standing poses
+in the established Manhattan radius of eight. It neither digs, clears liquid,
+spawns supplies/people nor exposes an unvisited underground map. An unowned moon
+becomes owned only after a successful landing with a living passenger. Unsafe
+geometry, capacity exhaustion, or an all-dead party at an unowned destination is a
+valid serialized holding state. Docked cargo remains in the craft and must be
+unloaded through the existing physical P03 jobs.
+
+Travel accounting extends `Campaign.metrics` rather than creating a second ledger.
+Docked cargo counts with its site, and travelling/holding cargo counts in transit.
+Departure, arrival, maintenance parts, and cabin meals produce one monotonic
+receipt with a per-resource vector and matching account debit/credit; at most 128
+recent receipts are retained while cumulative accounts and next IDs persist.
+Targets/reservations remain nonphysical. Existing local production/consumption is
+unchanged, so resource reconciliation distinguishes local ledgers, docked cargo,
+transit cargo, and transfer/consumption accounts.
+
+## P04 presentation and current boundary
+
+The existing Region and expedition modal now expose Launch for an applied,
+ready manifest and show travelling/holding route, remaining ticks, passenger count,
+cargo, landing obstruction, and the one eligible Return action. A successful first
+landing adds the owned settlement to the normal selector without forcing a camera
+switch. The modal uses the viewed history state; archive mutations still reject or
+practice-branch at the campaign layer. Travel status does not reveal unvisited
+terrain, resources, species, or ruins.
+
+All renderer text continues to use the bundled Cozette bitmap font through the
+shared 13px font instance in `src/render.lua`; headings are drawn with graphics
+scaling rather than requesting unsupported bitmap strike sizes. The fallback font
+is only for a missing/corrupt bundled asset. This is not a broad typography or
+real-window usability guarantee.
+
+P04 supports one craft, the fixed local planet--moon routes, actual passenger and
+cargo custody, founding, physical unloading, return, and resupply. It does not add
+mid-flight aborts/diversions, hull damage, orbital physics, extra spacecraft,
+vacuum/gravity/temperature systems, long-range relic travel, new cultures,
+discoveries, schools, or a remote simulation abstraction. Finite local maps remain
+a prototype boundary, not a permanent one-world restriction.

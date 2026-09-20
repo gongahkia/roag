@@ -81,6 +81,7 @@ local paths={
  'tools/headless.lua',
  'tools/map.lua',
  'tools/replay.lua',
+ 'tools/travel_benchmark.lua',
  'tools/travel_soak.lua',
 }
 for _,p in ipairs(paths) do assert(loadfile(p)) end

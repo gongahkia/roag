@@ -87,6 +87,14 @@ function T.run()
   vehicle.journey.remainingTicks=1;advance(h,1);local arrived=worker(h.live,1,2);eq(arrived.hunger,hunger+rate*2,'Arrival tick also ran local physiology')
   advance(h,1);eq(arrived.hunger,hunger+rate*3,'First local physiology was not deferred until the following tick')
   local a={alive=true,hp=.01,hunger=100,fatigue=5,breath=20};local died,reason=Colonists.transitStep(a,{hungerRate=0,fatigueRate=.04},function() return true end);check(died and reason=='starvation','Cabin starvation ordering changed before food consumption')
+  local function durationFixture(duration)
+   local fixture=history(7300+duration);prepare(fixture,{food=3,metal=2},{1},2);advance(fixture,460);local plan=manifest(fixture.live);assert(fixture:queue(command('assemble_expedition',{sourceSiteId=1,craftId=1,manifestId=plan.id})));advance(fixture,180);plan=manifest(fixture.live)
+   local launched,why=Travel.apply(fixture.live,command('launch_expedition',{sourceSiteId=1,craftId=1,manifestId=plan.id,expectedManifestRevision=plan.revision}));assert(launched,why)
+   local craftState=craft(fixture.live);local start=craftState.passengers[1].hunger;craftState.journey.duration=duration;craftState.journey.remainingTicks=duration
+   for _=1,duration do Travel.step(fixture.live) end
+   local landed=worker(fixture.live,1,2);eq(landed.hunger,start+duration*fixture.live.sites[1].world.rules.hungerRate,'Controlled D='..duration..' journey did not use exactly D transit updates')
+  end
+  durationFixture(1);durationFixture(2)
  end)
 
  group('P04-C travellers count toward campaign survival while empty owned settlements remain manageable',function()
