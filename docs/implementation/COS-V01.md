@@ -14,6 +14,9 @@ storage guard/probe, fixture emission/loading, tests, and this guide. No commit,
 push, dependency installation, real-save access, or system setting change was
 performed.
 
+Owner-side commits advanced the shared branch during this pass. Ending observed
+HEAD: `0d33f55af263f1f6b8fb6d0b4fc3073d50478014`; I made no commit or push.
+
 The bounded tested-source fingerprint is recorded by SHA-256 in the V01 handoff
 command output and covers `conf.lua`, `main.lua`, `src/storage.lua`,
 `src/mapstore.lua`, `src/playtest.lua`, `src/render.lua`, and `tools/playtest.sh`.
@@ -103,13 +106,20 @@ performance claim or a procedural-balance result.
 | V01-I playthrough readiness | PASS for launcher/guide; HUMAN GAMEPLAY NOT RUN. |
 | V01-J repair evidence | PASS — no pre-existing gameplay defect was claimed; the narrow repair is launch isolation before save discovery. |
 
+Fresh final checks were `luajit tests/syntax.lua` (93 Lua files),
+`tests/playtest_launcher.sh`, the full `luajit tests/run.lua` suite under the
+bounded child scope (150 groups / 121,079 assertions), all existing GUI mocks,
+and both diff checks. All passed. The core suite used a 300-second timeout with
+50% CPU, 2 GiB `MemoryMax`, and 1.5 GiB `MemoryHigh`; it completed normally.
+
 ## Evidence categories and remaining work
 
 `HEADLESS`: fixture generation, replay, codec, and existing suite. `MOCK UI`:
 existing GUI adapters including the contextual HUD. `NATIVE RENDER / SCRIPTED
-WINDOW`: a fresh isolated `--new` session opened with DISPLAY/Wayland available,
-ran for eight seconds, generated only root-local Mesa cache/log files, and was
-terminated; it was not human input validation. `HUMAN GAMEPLAY`: **NOT RUN**.
+WINDOW`: fresh `--new` and marked-root `--resume` sessions opened with
+DISPLAY/Wayland available. Each was bounded to a few seconds; no LÖVE process was
+left running and generated cache/log data remained root-local. This was not human
+input validation. `HUMAN GAMEPLAY`: **NOT RUN**.
 
 No conclusion about the earlier host shutdown follows from this pass. The scope
 used a verified child resource limit for heavy automation; that is a workload
