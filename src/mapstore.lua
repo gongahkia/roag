@@ -1,5 +1,6 @@
 -- LÖVE file adapter. Parse and validate before offering a replacement expedition.
 local Map=require('src.mapfile')
+local Playtest=require('src.playtest')
 local Store={}
 local function validPath(path)
  return type(path)=='string' and path:match('^maps/[%w%._/%-]+%.dwmap%.json$') and not path:find('..',1,true)
@@ -34,6 +35,7 @@ function Store.dropped(file)
  file:close();if not ok then error(result,0) end;return result
 end
 function Store.write(d)
+ local allowed,why=Playtest.writeAllowed();assert(allowed,why)
  local text=Map.encode(d)
  assert(love.filesystem.createDirectory('maps'),'Could not create maps directory')
  local base='maps/map-'..d.seed..'-'..Map.fingerprint(d)..'-'..os.time()

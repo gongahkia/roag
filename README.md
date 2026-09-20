@@ -183,10 +183,11 @@ falling or bombs. T toggles a completed ward.
 | Control | Action |
 |---|---|
 | Space / 1–3 | Pause or run / 1x, 2x, 4x scheduling |
-| Q / right click | Inspect |
-| D / L / F / W | Dig / ladder / floor / wall |
-| B / S / C / P | Bed / stockpile / farm / pump |
-| X / E / +/- | Dismantle / cancel / job priority |
+| Left click / Q | Select target / inspect compatibility shortcut |
+| Right click | Open the selected block, structure, encounter, or settler's delegate action HUD |
+| D / L / F / W | Keyboard-compatible dig / ladder / floor / wall tools; drag still designates multiple blocks |
+| B / S / C / P | Keyboard-compatible bed / stockpile / farm / pump tools |
+| X / E / +/- | Keyboard-compatible dismantle / cancel / job priority |
 | H / Y / Shift+Y | Workforce panel / target new orders / reassign a block |
 | M / J | Rally / release (Shift applies to all) |
 | U / Z / K | Survey / salvage / cull |

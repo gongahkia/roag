@@ -18,14 +18,11 @@ local Campaign=require('src.campaign')
 local Logistics=require('src.logistics')
 local Travel=require('src.travel')
 local Education=require('src.education')
+local ActionHud=require('src.ui.action_hud')
 local R={};R.__index=R
 local colors={bg={0.039,0.053,0.067},panel={0.070,0.085,0.103},edge={0.19,0.23,0.26},
  text={0.86,0.88,0.86},muted={0.49,0.56,0.59},amber={0.89,0.66,0.35},
  cyan={0.35,0.72,0.74},red={0.88,0.35,0.29},green={0.48,0.71,0.42}}
-local tools={{'inspect','Q Inspect'},{'dig','D Dig'},{'ladder','L Ladder'},{'platform','F Floor'},
- {'wall','W Wall'},{'bed','B Bed'},{'store','S Store'},{'farm','C Farm'},
- {'pump','P Pump'},{'remove','X Remove'},{'cancel','E Cancel'},
- {'charge','A Charge'},{'ward','F9 Ward'},{'survey','U Survey'},{'study','Study'},{'field_school','Field school'},{'salvage','Z Salvage'},{'cull','K Cull'},{'rally','M Rally'}}
 local function color(c,a) love.graphics.setColor(c[1],c[2],c[3],a or 1) end
 local function box(x,y,w,h,c,a) color(c,a);love.graphics.rectangle('fill',x,y,w,h) end
 local function text(s,x,y,c,font) if font then love.graphics.setFont(font) end color(c or colors.text);love.graphics.print(tostring(s),x,y) end
@@ -47,16 +44,8 @@ function R.new()
 end
 function R:layout(app)
  local sw,sh=love.graphics.getDimensions()
- self.sw,self.sh=sw,sh;self.panelX=sw-326
- app.buttons={};local x,y=18,72
- for _,t in ipairs(tools) do
-  if t[1]~='field_school' or (app.campaign and app.history and app.history.view.features.education==1) then
-  local bw=self.small:getWidth(t[2])+20
-  if x+bw>self.panelX-18 then x=18;y=y+32 end
-  app.buttons[#app.buttons+1]={kind=t[1],label=t[2],x=x,y=y,w=bw,h=27};x=x+bw+5
-  end
- end
- self.viewport={x=18,y=y+40,w=self.panelX-36,h=sh-y-138}
+ self.sw,self.sh=sw,sh;self.panelX=sw-326;app.buttons={}
+ self.viewport={x=18,y=72,w=self.panelX-36,h=sh-210}
  self.timeline={x=24,y=sh-65,w=self.panelX-48,h=15}
  app.regionButton=nil;app.siteButtons={};app.schoolButton=nil
  if app.campaign and app.history and app.history.view.features.region==1 then
@@ -69,6 +58,26 @@ function R:layout(app)
     app.siteButtons[#app.siteButtons+1]={siteId=site.id,label=label,x=x,y=14,w=width,h=26};x=x+width+4
    end
   end
+ end
+end
+
+function R:drawActionHud(app)
+ local hud=app.hud;if not hud then return end
+ local model=ActionHud.model(app,app.currentWorld())
+ if not model or #model.actions==0 then app.hud=nil;return end
+ local columns=#model.actions>7 and 2 or 1
+ local bw=columns==2 and 184 or 278;local rows=math.ceil(#model.actions/columns)
+ local pw,ph=columns*bw+36,rows*30+70
+ local v=self.viewport;local x=U.clamp(hud.x or v.x,v.x,v.x+v.w-pw);local y=U.clamp(hud.y or v.y,v.y,v.y+v.h-ph)
+ hud.buttons={};hud.model=model
+ box(x,y,pw,ph,colors.bg,0.94);box(x+2,y+2,pw-4,ph-4,colors.panel)
+ text('DELEGATE / '..model.title,x+14,y+12,colors.amber,self.normal)
+ text(string.format('block %d,%d — actions queue ordinary work',model.gx,model.gy),x+14,y+35,colors.muted,self.small)
+ for index,action in ipairs(model.actions) do
+  local column=(index-1)%columns;local row=math.floor((index-1)/columns)
+  local bx,by=x+14+column*bw,y+56+row*30;local record={action=action.id,x=bx,y=by,w=bw-10,h=25,hint=action.hint}
+  hud.buttons[#hud.buttons+1]=record
+  box(bx,by,record.w,record.h,colors.edge);text(action.label,bx+8,by+6,colors.cyan,self.small)
  end
 end
 function R:mapRect(w)
@@ -282,7 +291,7 @@ function R:sidebar(app)
  if a then
   text(a.name,x+16,y,colors.text,self.normal);y=y+21
   wrap(a.status..' / '..(a.reason~='' and a.reason or (a.task and a.task.kind or 'No active task')),x+16,y,pw-32,colors.muted,self.small);y=y+38
-  wrap('Y: reserve new orders for this worker\nM: rally here / J: release hold\nH: duties and workforce percentages',x+16,y,pw-32,colors.cyan,self.small);y=y+52
+  wrap('Right-click a target to delegate actions.\nY: reserve new orders / M: rally / J: release\nH: duties and workforce percentages',x+16,y,pw-32,colors.cyan,self.small);y=y+52
  end
  local cell=not a and (app.selectedCell or app.hover)
  if cell then
@@ -297,7 +306,7 @@ function R:sidebar(app)
    local known=personal and Knowledge.identified(a,category,encounter.kind) or w.content.discoveries[category..':'..encounter.kind]
    local registry=category=='flora' and Catalog.flora or category=='fauna' and Catalog.fauna or Catalog.sites
    wrap(known and registry[encounter.kind].name or ('Unidentified '..(category=='flora' and 'growth' or category=='fauna' and 'creature' or 'site')),x+16,y,pw-32,colors.amber,self.small);y=y+22
-   wrap(category=='fauna' and 'U survey / K cull / F4 field notes' or 'U survey / Study / Z salvage / F4 field notes',x+16,y,pw-32,colors.cyan,self.small);y=y+26
+   wrap(category=='fauna' and 'Right-click: survey or cull / F4 field notes' or 'Right-click: survey, study, or salvage / F4 field notes',x+16,y,pw-32,colors.cyan,self.small);y=y+26
   elseif w.biomes then wrap(region.note,x+16,y,pw-32,colors.muted,self.small);y=y+36 end
   if s then
    wrap(s.status or 'Ready',x+16,y,pw-32,colors.muted,self.small);y=y+24
@@ -319,7 +328,7 @@ function R:sidebar(app)
    wrap('Order: '..j.kind..(owner and (' / '..owner.name) or '')..'\n'..j.reason,x+16,y,pw-32,colors.amber,self.small);y=y+42;break
   end end
  end
- if not cell and not a then wrap('H: assign duties and quotas. Click a worker, then Y to reserve new orders. F4 opens field notes.',x+16,y,pw-32,colors.muted,self.normal);y=y+76 end
+ if not cell and not a then wrap('H: assign duties and quotas. Select a block or worker, then right-click to delegate actions. F4 opens field notes.',x+16,y,pw-32,colors.muted,self.normal);y=y+76 end
  y=math.max(y+12,500)
  local available=math.max(0,math.floor((self.sh-y-75)/42))
  if available>0 then
@@ -343,11 +352,11 @@ function R:help(app)
   '3. D Dig exposes material cell by cell. Inspect reservoirs before mining.',
   '4. L Ladders traverse shafts. F Floors and W Walls stop liquids.',
   '5. H assigns individual duties and whole-worker percentage quotas.',
-  '6. Select a worker: Y reserves orders, M rallies, J releases the hold.',
+  '6. Select a block or worker, then right-click to open its delegate actions. Y/M/J remain keyboard shortcuts.',
   '',
   'A: build charge, then select it and T to order arming. No disarm.',
-  'Left/Right: step or inspect    Shift+arrows: 20 ticks    Home/End: past/live',
-  'U survey / visible Study tool / Z salvage / K cull / F4 field notes / F9 ward' ,
+  'Right-click: delegate selected actions    Left/Right: select or step    Shift+arrows: 20 ticks    Home/End: past/live',
+  'Encounter HUD: survey / study / salvage / cull. F4 field notes / F9 ward.',
   'N: generation lab (C selects local/campaign action) / F2 export / F3 maps / F7 biomes',
   'Frontier campaigns: Shift+F7 or Region opens settlements; transport is pending.',
   'F5: save   F6: diagnostics   F8: benchmark   F10: tests   F12: screenshot',
@@ -621,10 +630,9 @@ function R:draw(app)
  text(string.format('%s  |  %s  |  seed %d',w.mode:upper(),w.preset,w.seed),470,39,colors.muted,self.small)
  text(string.format('SURVIVORS %d/%d   FOOD %d   FARMS %d',met.alive,#w.workers,met.food,met.farms),self.panelX-10,18,colors.text,self.normal)
  text(string.format('tick %d    day %.2f    %dx speed',w.tick,w.tick/C.dayTicks,app.speed),self.panelX-10,41,colors.muted,self.small)
- for _,b in ipairs(app.buttons) do
-  box(b.x,b.y,b.w,b.h,app.tool==b.kind and colors.edge or colors.panel)
-  text(b.label,b.x+10,b.y+6,app.tool==b.kind and colors.amber or colors.text,self.small)
- end
+ local hint='Select a block or settler, then right-click to delegate an action.'
+ if app.playtest then hint='ISOLATED PLAYTEST — saves: '..app.playtest.saveDir end
+ text(hint,18,51,app.playtest and colors.amber or colors.muted,self.small)
  if app.regionButton then
   box(app.regionButton.x,app.regionButton.y,app.regionButton.w,app.regionButton.h,app.region and colors.cyan or colors.edge)
   text('Region',app.regionButton.x+12,app.regionButton.y+6,colors.bg,self.small)
@@ -633,7 +641,7 @@ function R:draw(app)
    text(b.label,b.x+10,b.y+6,colors.bg,self.small)
   end
  end
- self:drawMap(app);self:sidebar(app)
+ self:drawMap(app);self:sidebar(app);self:drawActionHud(app)
  local t=self.timeline
  box(t.x,t.y,t.w,t.h,colors.edge)
  local ratio=app.history.frontier>0 and w.tick/app.history.frontier or 0

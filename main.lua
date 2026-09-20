@@ -18,7 +18,8 @@ local Biomes=require('src.biomes')
 local Crew=require('src.ui.crew')
 local Content=require('src.content')
 local Logistics=require('src.logistics')
-local app={paused=true,speed=1,tool='inspect',priority=2,view=1,grid=false,accumulator=0}
+local Playtest=require('src.playtest')
+local app={paused=true,speed=1,tool='inspect',priority=2,view=1,grid=false,accumulator=0,hud=nil}
 local renderer
 local function notify(s) app.toast=tostring(s);app.toastTime=8 end
 local function currentWorld(history)
@@ -108,7 +109,7 @@ local function startNew()
  end)
  if not ok then n.error='Previous colony retained: '..tostring(result);return end
  app.history=result;app.campaign=false;app.siteId=nil;app.newRun=nil;app.mapBrowser=nil;app.paused=true;app.accumulator=0;app.saveBlocked=false
- app.selectedWorker=nil;app.selectedCell=nil;app.port=nil;app.drag=nil;app.benchmark=nil;app.stepBudget=0
+ app.selectedWorker=nil;app.selectedCell=nil;app.port=nil;app.drag=nil;app.hud=nil;app.benchmark=nil;app.stepBudget=0
  app.crew=nil;app.fieldnotes=nil;app.school=nil;app.orderWorker=nil;app.rallyWorker=nil;app.panning=false;app.expedition=nil
  renderer.zoom,renderer.panX,renderer.panY=1,0,0
  notify('New '..result.live.mode..' expedition. The previous run is archived. F7 shows biomes.')
@@ -128,7 +129,7 @@ local function startCampaign()
  local ok,why=Store.saveCampaign(n.campaignCandidate)
  if not ok then n.error='Previous session retained: '..tostring(why);return end
  app.history=n.campaignCandidate;app.campaign=true;app.siteId=1;app.newRun=nil;app.mapBrowser=nil;app.paused=true;app.accumulator=0;app.saveBlocked=false
- app.selectedWorker=nil;app.selectedCell=nil;app.port=nil;app.drag=nil;app.benchmark=nil;app.stepBudget=0;app.crew=nil;app.fieldnotes=nil;app.school=nil;app.orderWorker=nil;app.rallyWorker=nil;app.panning=false;app.expedition=nil
+ app.selectedWorker=nil;app.selectedCell=nil;app.port=nil;app.drag=nil;app.hud=nil;app.benchmark=nil;app.stepBudget=0;app.crew=nil;app.fieldnotes=nil;app.school=nil;app.orderWorker=nil;app.rallyWorker=nil;app.panning=false;app.expedition=nil
  renderer.zoom,renderer.panX,renderer.panY=1,0,0
  notify('New frontier campaign. Prepare, assemble, and launch the parked shuttle from Region.')
 end
@@ -136,7 +137,7 @@ local function continueCampaign()
  local n=app.newRun;local history,why=Store.loadCampaign()
  if not history then n.error=why or 'No campaign save.';return end
  app.history=history;app.campaign=true;app.siteId=1;app.newRun=nil;app.mapBrowser=nil;app.paused=true;app.accumulator=0;app.saveBlocked=false
- app.selectedWorker=nil;app.selectedCell=nil;app.port=nil;app.drag=nil;app.benchmark=nil;app.stepBudget=0;app.crew=nil;app.fieldnotes=nil;app.school=nil;app.orderWorker=nil;app.rallyWorker=nil;app.panning=false;app.expedition=nil
+ app.selectedWorker=nil;app.selectedCell=nil;app.port=nil;app.drag=nil;app.hud=nil;app.benchmark=nil;app.stepBudget=0;app.crew=nil;app.fieldnotes=nil;app.school=nil;app.orderWorker=nil;app.rallyWorker=nil;app.panning=false;app.expedition=nil
  renderer.zoom,renderer.panX,renderer.panY=1,0,0
  notify('Frontier campaign restored. Structural load did not replay its history.')
 end
@@ -176,6 +177,11 @@ function love.filedropped(file)
  else notify('Map rejected; current colony unchanged: '..tostring(d)) end
 end
 function love.load()
+ app.playtest=Playtest.activate()
+ if Playtest.probeRequested() then
+  local report=Playtest.writeProbe();print('COSMONAUTS_PLAYTEST_PROBE='..report)
+  app.probe=true;love.event.quit(0);return
+ end
  renderer=R.new()
  local h,err=Store.load()
  app.history=h or H.new(G.make(C.seed,C.preset,C.mode));app.campaign=false;app.siteId=nil
@@ -211,6 +217,7 @@ local function export()
  notify('Exported to '..love.filesystem.getSaveDirectory()..'/exports')
 end
 function love.update(dt)
+ if app.probe then return end
  if app.toastTime then app.toastTime=app.toastTime-dt;if app.toastTime<=0 then app.toast=nil;app.toastTime=nil end end
  if app.help or app.newRun or app.mapBrowser or app.crew or app.fieldnotes or app.school then return end
  local h=app.history
@@ -247,7 +254,7 @@ function love.update(dt)
  -- Avoid an unbounded wall-clock backlog; never increase the model step.
  app.accumulator=math.min(app.accumulator,C.maxStepsPerFrame)
 end
-function love.draw() renderer:draw(app) end
+function love.draw() if not app.probe then renderer:draw(app) end end
 function love.textinput(s)
  if app.newRun and not app.mapBrowser and not app.newRun.imported and s:match('^%d+$') and #app.newRun.seed+#s<=10 then app.newRun.seed=app.newRun.seed..s;app.newRun.preview=nil;app.newRun.campaignCandidate=nil end
 end
@@ -262,7 +269,7 @@ local function selectSite(siteId)
  if not hasRegion() then return false end
  local site=Campaign.site(app.history.view,siteId)
  if not site or site.ownerSocietyId~=app.history.view.society.id then return false end
- app.siteId=siteId;app.drag=nil;app.port=nil;app.selectedWorker=nil;app.selectedCell=nil;app.hover=nil;app.orderWorker=nil;app.rallyWorker=nil;app.expedition=nil
+ app.siteId=siteId;app.drag=nil;app.port=nil;app.hud=nil;app.selectedWorker=nil;app.selectedCell=nil;app.hover=nil;app.orderWorker=nil;app.rallyWorker=nil;app.expedition=nil
  renderer.zoom,renderer.panX,renderer.panY=1,0,0
  return true
 end
@@ -275,18 +282,67 @@ local function openExpedition(siteId,craftId)
  if not craft then notify('No docked craft is available at this settlement.');return false end
  local destination=craft.journey and craft.journey.destinationSiteId or (source.id==1 and 2 or 1)
  app.expedition={sourceSiteId=source.id,craftId=craft.id,destinationSiteId=destination,passengers={},cargo={food=1,metal=1},buttons={}}
- app.drag=nil;app.port=nil;return true
+ app.drag=nil;app.port=nil;app.hud=nil;return true
 end
 local function openSchool(slot,schoolId)
  if not (app.campaign and app.history.view.features.education==1) then notify('Field schools are available only in new education-enabled frontier campaigns.');return false end
  local world=currentWorld();local structure=world.structures[slot]
  if not structure or structure.kind~='field_school' or not structure.education or structure.education.id~=schoolId then notify('That field school is no longer installed.');return false end
- app.school={siteId=app.siteId,slot=slot,schoolId=schoolId};app.drag=nil;app.port=nil;return true
+ app.school={siteId=app.siteId,slot=slot,schoolId=schoolId};app.drag=nil;app.port=nil;app.hud=nil;return true
 end
 local function toggleRegion()
  if not hasRegion() then return false end
- app.region=not app.region;app.drag=nil;app.port=nil
+ app.region=not app.region;app.drag=nil;app.port=nil;app.hud=nil
  return true
+end
+local function delegatedWorker()
+ return app.orderWorker or app.selectedWorker or 0
+end
+local function delegateHudAction(action)
+ local hud=app.hud;if not hud or not hud.cell then return false end
+ local cell=hud.cell;local w=currentWorld();local gx,gy=W.tile(w,cell.x,cell.y)
+ local function issued(payload)
+  local ok=queue(payload);if ok then app.hud=nil end;return ok
+ end
+ if action=='delegate_worker' then
+  local worker=app.selectedWorker and W.find(w.workers,app.selectedWorker)
+  if not worker then notify('Select a living settler before reserving delegated orders.');return false end
+  app.orderWorker=app.orderWorker==worker.id and nil or worker.id
+  app.hud=nil;notify(app.orderWorker and ('New delegated orders prefer '..worker.name..'.') or 'New delegated orders are available to any eligible worker.')
+  return true
+ elseif action=='rally_worker' then return issued({type='rally',worker=app.selectedWorker or 0,x=cell.x,y=cell.y})
+ elseif action=='release_rally' then return issued({type='releaserally',worker=app.selectedWorker or 0})
+ elseif action=='school' then
+  local structure=W.structureAt(w,cell.x,cell.y)
+  if structure and structure.education then app.hud=nil;return openSchool(W.slot(w,structure.gx,structure.gy),structure.education.id) end
+ elseif action=='pump:intake' or action=='pump:outlet' then
+  local structure=W.structureAt(w,cell.x,cell.y)
+  if structure and structure.kind=='pump' then
+   app.port=action:sub(6);app.portSlot=W.slot(w,structure.gx,structure.gy);app.hud=nil
+   notify('Click the pump '..app.port..' position. The hose must stay within 20 cells.');return true
+  end
+ elseif action=='arm' then
+  local structure=W.structureAt(w,cell.x,cell.y)
+  if structure then return issued({type='arm',slot=W.slot(w,structure.gx,structure.gy),worker=delegatedWorker(),priority=app.priority}) end
+ elseif action=='toggle' then return issued({type='toggle',gx=gx,gy=gy})
+ elseif action=='remove' then return issued({type='order',kind='remove',gx=gx,gy=gy,priority=app.priority,worker=delegatedWorker()})
+ elseif action=='cancel' then return issued({type='cancel',gx=gx,gy=gy})
+ elseif action=='priority:down' or action=='priority:up' then
+  local delta=action=='priority:down' and -1 or 1
+  return issued({type='priority',gx=gx,gy=gy,value=U.clamp(app.priority+delta,1,3)})
+ elseif action=='paint' then return issued({type='paint',x=cell.x,y=cell.y,material=app.brush or M.WATER})
+ end
+ local field=action:match('^field:(.+)$')
+ if field then
+  local target=Content.at(w,cell.x,cell.y)
+  if target then return issued({type='field',kind=field,target=target.id,worker=delegatedWorker(),priority=app.priority}) end
+  notify('No living encounter remains at that block.');return false
+ end
+ local build=action:match('^build:(.+)$')
+ if build then
+  return issued({type='order',kind=build=='dig' and 'dig' or 'build',build=build=='dig' and nil or build,gx=gx,gy=gy,priority=app.priority,worker=delegatedWorker()})
+ end
+ notify('That delegated action is no longer available.');return false
 end
 function love.keypressed(key)
  if app.school then
@@ -371,10 +427,10 @@ function love.keypressed(key)
   return
  end
  local h=app.history
- if key=='escape' then app.benchmark=nil;app.port=nil;app.drag=nil;app.tool='inspect'
- elseif key=='f1' then app.help=true;app.paused=true
- elseif key=='h' then Crew.open(app)
- elseif key=='f4' then app.fieldnotes={scroll=1,observerId=app.selectedWorker};app.paused=true;app.accumulator=0;app.stepBudget=0;app.drag=nil
+ if key=='escape' then app.benchmark=nil;app.port=nil;app.drag=nil;app.hud=nil;app.tool='inspect'
+ elseif key=='f1' then app.help=true;app.paused=true;app.hud=nil
+ elseif key=='h' then app.hud=nil;Crew.open(app)
+ elseif key=='f4' then app.fieldnotes={scroll=1,observerId=app.selectedWorker};app.paused=true;app.accumulator=0;app.stepBudget=0;app.drag=nil;app.hud=nil
  elseif key=='y' then
   if love.keyboard.isDown('lshift','rshift') then
    local cell=app.selectedCell or app.hover
@@ -390,7 +446,7 @@ function love.keypressed(key)
   else notify('Archive is inspection-only during playback. End returns to the live frontier.') end
  elseif key=='1' or key=='2' or key=='3' then app.speed=({['1']=1,['2']=2,['3']=4})[key]
  elseif key=='n' then
-  app.paused=true;app.accumulator=0;app.stepBudget=0;app.drag=nil
+  app.paused=true;app.accumulator=0;app.stepBudget=0;app.drag=nil;app.hud=nil
   local g=liveWorld().generation or {}
   -- 'frontier' is selected so existing colonies can discover the new generation lab.
   app.newRun={seed=tostring((h.live.seed+1)%2147483647),preset='frontier',mode=h.live.mode,
@@ -438,7 +494,7 @@ function love.keypressed(key)
  elseif key=='f12' then
   love.filesystem.createDirectory('exports');love.graphics.captureScreenshot('exports/screenshot-'..os.time()..'.png');notify('Screenshot saved in exports.')
  elseif hotkeys[key] then
-  app.tool=hotkeys[key];app.port=nil
+  app.tool=hotkeys[key];app.port=nil;app.hud=nil
   if app.tool=='rally' then app.rallyWorker=love.keyboard.isDown('lshift','rshift') and 0 or app.selectedWorker or 0;notify(app.rallyWorker==0 and 'Click a rally point for ALL workers. J releases.' or 'Click a rally point for the selected worker. J releases.') end
  end
 end
@@ -501,17 +557,20 @@ function love.mousepressed(mx,my,button)
      return
     end
    end
-  end
-  return
+ end
+ return
  end
  if app.help or app.newRun or app.mapBrowser or app.benchmark or app.fieldnotes then return end
+ if app.hud and button==1 then
+  for _,entry in ipairs(app.hud.buttons or {}) do if contains(entry,mx,my) then delegateHudAction(entry.action);return end end
+  app.hud=nil
+ end
  if button==3 then app.panning=true;return end
  if button~=1 and button~=2 then return end
  if button==1 then
   if app.regionButton and contains(app.regionButton,mx,my) then toggleRegion();return end
   for _,b in ipairs(app.siteButtons or {}) do if contains(b,mx,my) then selectSite(b.siteId);return end end
-  for _,b in ipairs(app.buttons) do if contains(b,mx,my) then app.tool=b.kind;app.port=nil;if b.kind=='rally' then app.rallyWorker=app.selectedWorker or 0 end;return end end
-  for _,b in ipairs(app.crewButtons or {}) do if contains(b,mx,my) then app.selectedWorker=b.id;app.selectedCell=nil;return end end
+  for _,b in ipairs(app.crewButtons or {}) do if contains(b,mx,my) then app.selectedWorker=b.id;app.selectedCell=nil;app.hud=nil;return end end
   if app.schoolButton and contains(app.schoolButton,mx,my) then openSchool(app.schoolButton.slot,app.schoolButton.schoolId);return end
   local t=renderer.timeline
   if contains(t,mx,my) then app.paused=true;app.accumulator=0;app.stepBudget=0;app.history:seek(math.floor(U.clamp((mx-t.x)/t.w)*app.history.frontier));return end
@@ -519,10 +578,14 @@ function love.mousepressed(mx,my,button)
  local x,y=renderer:cell(mx,my);if not x then return end
  local w=currentWorld()
  app.selectedCell={x=x,y=y};app.selectedWorker=nil
- if button==2 then app.tool='inspect';app.port=nil;return end
+ for _,worker in ipairs(w.workers) do if math.abs(x-worker.x)<=2 and y>=worker.y-3 and y<=worker.y+1 then app.selectedWorker=worker.id;break end end
+ if button==2 then
+  app.tool='inspect';app.port=nil;app.drag=nil;app.hud={x=mx+12,y=my+12,cell={x=x,y=y}}
+  return
+ end
  if app.port then queue({type='port',slot=app.portSlot,port=app.port,x=x,y=y});app.port=nil;return end
  if app.tool=='inspect' then
-  for _,a in ipairs(w.workers) do if math.abs(x-a.x)<=2 and y>=a.y-3 and y<=a.y+1 then app.selectedWorker=a.id;break end end
+  return
  elseif app.tool=='rally' then
   queue({type='rally',worker=app.rallyWorker or 0,x=x,y=y});app.tool='inspect'
  elseif app.tool=='survey' or app.tool=='study' or app.tool=='salvage' or app.tool=='cull' then
@@ -539,7 +602,7 @@ function love.mousemoved(mx,my,dx,dy)
 end
 function love.mousereleased(mx,my,button)
  if button==3 then app.panning=false end
- if button~=1 or not app.drag or app.crew or app.fieldnotes or app.newRun or app.mapBrowser then return end
+ if button~=1 or not app.drag or app.crew or app.fieldnotes or app.newRun or app.mapBrowser or app.hud then return end
  local d=app.drag;app.drag=nil
  local x,y=renderer:cell(mx,my);if not x then return end
  local ex,ey=W.tile(currentWorld(),x,y);local count=0

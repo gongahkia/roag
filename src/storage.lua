@@ -2,8 +2,11 @@
 local H=require('src.history')
 local CampaignHistory=require('src.campaign_history')
 local CampaignCodec=require('src.campaign_codec')
+local Playtest=require('src.playtest')
 local Store={}
 function Store.save(h)
+ local allowed,why=Playtest.writeAllowed()
+ if not allowed then return false,why end
  local ok,text=pcall(function() return h:saveText() end)
  if not ok then return false,tostring(text) end
  local good,err=love.filesystem.write('run.tmp',text)
@@ -15,6 +18,8 @@ function Store.save(h)
  return true
 end
 function Store.load()
+ local allowed,why=Playtest.saveCandidateAllowed('run.dat')
+ if not allowed then return nil,why end
  if not love.filesystem.getInfo('run.dat') then return nil end
  local text,err=love.filesystem.read('run.dat')
  if not text then return nil,err end
@@ -23,6 +28,8 @@ function Store.load()
  return h
 end
 function Store.saveCampaign(h)
+ local allowed,why=Playtest.writeAllowed()
+ if not allowed then return false,why end
  local ok,text=pcall(function() return h:saveText() end)
  if not ok then return false,tostring(text) end
  if type(text)~='string' or #text>CampaignCodec.limit then return false,'Campaign save size limit' end
@@ -34,6 +41,8 @@ function Store.saveCampaign(h)
  return true
 end
 function Store.loadCampaign()
+ local allowed,why=Playtest.saveCandidateAllowed('campaign.run.dat')
+ if not allowed then return nil,why end
  if not love.filesystem.getInfo('campaign.run.dat') then return nil end
  local text,err=love.filesystem.read('campaign.run.dat')
  if not text then return nil,err end
