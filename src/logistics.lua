@@ -197,13 +197,16 @@ function L.validate(c)
   for _,job in ipairs(record.world.jobs) do if job.logistics then
    allowed(job.logistics,{craftId=true,manifestId=true,revision=true,resource=true,remaining=true,operationId=true},'Cargo job reference')
    for _,key in ipairs({'craftId','resource','remaining'}) do assert(job.logistics[key]~=nil,'Missing Cargo job reference key '..key) end
-   local vehicle=craft(logistics,job.logistics.craftId);assert(vehicle and vehicle.dockedSiteId==record.id,'Cargo job craft/site mismatch')
-   local m=job.logistics.manifestId and manifest(logistics,job.logistics.manifestId) or nil
-   local op=job.logistics.operationId and operation(logistics,job.logistics.operationId) or nil
-   assert((job.kind=='load' and m and not op) or (job.kind=='unload' and op and not m),'Invalid cargo job kind/reference')
-   if m then assert(m.sourceSiteId==record.id and m.revision==job.logistics.revision,'Stale cargo job manifest reference') end
-   if op then assert(op.sourceSiteId==record.id and op.craftId==vehicle.id,'Cargo job operation reference mismatch') end
+   local vehicle=craft(logistics,job.logistics.craftId);assert(vehicle,'Cargo job craft is missing')
    assert(validResource(job.logistics.resource),'Unknown cargo job resource');U.integer(job.logistics.remaining,'Cargo job remaining',0,vehicle.capacity)
+   if job.state=='open' then
+    assert(vehicle.dockedSiteId==record.id,'Cargo job craft/site mismatch')
+    local m=job.logistics.manifestId and manifest(logistics,job.logistics.manifestId) or nil
+    local op=job.logistics.operationId and operation(logistics,job.logistics.operationId) or nil
+    assert((job.kind=='load' and m and not op) or (job.kind=='unload' and op and not m),'Invalid cargo job kind/reference')
+    if m then assert(m.sourceSiteId==record.id and m.revision==job.logistics.revision,'Stale cargo job manifest reference') end
+    if op then assert(op.sourceSiteId==record.id and op.craftId==vehicle.id,'Cargo job operation reference mismatch') end
+   else assert(job.kind=='load' or job.kind=='unload','Invalid terminal cargo job kind') end
   end end
  end
  return true
@@ -300,10 +303,11 @@ local function posesFor(c,m)
  local used,out={},{}
  for _,personId in ipairs(sortedPeople(m)) do
   local worker=workerByPerson(w,personId);assert(worker and worker.alive,'Assembly needs a living source passenger')
+  local reachable=N.flood(w,worker.x,worker.y,true)
   local selected
   for _,candidate in ipairs(candidates) do
    local key=candidate.x..':'..candidate.y
-   if not used[key] and N.reach(w,worker.x,worker.y,candidate.x,candidate.y,4) then selected=candidate;used[key]=true;break end
+   if not used[key] and reachable.parent[W.index(w,candidate.x,candidate.y)]~=nil then selected=candidate;used[key]=true;break end
   end
   assert(selected,'No adequate safe, reachable assembly pose')
   out[#out+1]={personId=personId,x=selected.x,y=selected.y}

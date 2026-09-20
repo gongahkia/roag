@@ -14,6 +14,7 @@ local Crew=require('src.ui.crew')
 local Notes=require('src.ui.fieldnotes')
 local ContentView=require('src.ui.world_content')
 local Campaign=require('src.campaign')
+local Logistics=require('src.logistics')
 local R={};R.__index=R
 local colors={bg={0.039,0.053,0.067},panel={0.070,0.085,0.103},edge={0.19,0.23,0.26},
  text={0.86,0.88,0.86},muted={0.49,0.56,0.59},amber={0.89,0.66,0.35},
@@ -161,6 +162,15 @@ function R:drawMap(app)
     box(ix,iy,sc,sc,colors.cyan);color(colors.amber);love.graphics.rectangle('line',ox,oy,sc,sc)
     box(px+sc,py+sc,2*sc,3*sc,colors.amber);color(colors.text);love.graphics.line(px+sc,py+sc,px+size,py)
    end
+  end
+ end
+ if app.campaign and app.history.view.features.logistics==1 then
+  for _,craft in ipairs(Logistics.craftsAt(app.history.view,app.siteId)) do
+   local px,py=point(craft.anchor.x,craft.anchor.y)
+   box(px-sc*1.5,py-sc*2.8,sc*5,sc*1.7,colors.edge)
+   box(px-sc,py-sc*2.4,sc*4,sc*1.2,colors.cyan)
+   box(px+sc*0.3,py-sc*3.2,sc*1.2,sc*0.8,colors.amber)
+   if sc>=3 then text('S',px+sc*0.5,py-sc*2.5,colors.bg,self.small) end
   end
  end
  for _,j in ipairs(w.jobs) do if j.state=='open' then
@@ -403,7 +413,7 @@ function R:drawRegion(app)
  box(0,0,self.sw,self.sh,colors.bg,0.95)
  local pw,ph=math.min(820,self.sw-48),math.min(590,self.sh-48);local x,y=(self.sw-pw)/2,(self.sh-ph)/2
  box(x,y,pw,ph,colors.panel);text('REGION / SETTLEMENTS',x+24,y+20,colors.amber,self.title)
- wrap('One campaign clock advances every generated landing region. Transport and founding are pending; switching a site changes only this view.',x+24,y+58,pw-152,colors.muted,self.small)
+ wrap(app.history.view.features.logistics==1 and 'One campaign clock advances every generated landing region. A docked shuttle can be prepared, but departure and founding are pending.' or 'One campaign clock advances every generated landing region. Transport and founding are pending; switching a site changes only this view.',x+24,y+58,pw-152,colors.muted,self.small)
  app.regionButtons={{action='close',x=x+pw-118,y=y+18,w=92,h=28}}
  box(x+pw-118,y+18,92,28,colors.edge);text('ESC close',x+pw-108,y+25,colors.cyan,self.small)
  local sites={};for _,site in ipairs(Campaign.sites(campaign)) do sites[site.id]=site end
@@ -419,6 +429,10 @@ function R:drawRegion(app)
    text(#alerts>0 and ('Alerts @ '..body.name..': '..table.concat(alerts,', ')) or 'No current campaign notices.',x+250,yy+67,#alerts>0 and colors.amber or colors.muted,self.small)
    app.regionButtons[#app.regionButtons+1]={action='site',siteId=site.id,x=x+pw-156,y=yy+31,w=108,h=32}
    box(x+pw-156,yy+31,108,32,site.id==app.siteId and colors.cyan or colors.edge);text(site.id==app.siteId and 'Viewing' or 'View site',x+pw-145,yy+40,colors.bg,self.small)
+   if campaign.features.logistics==1 and #Logistics.craftsAt(campaign,site.id)>0 then
+    app.regionButtons[#app.regionButtons+1]={action='expedition',siteId=site.id,x=x+pw-156,y=yy+63,w=108,h=24}
+    box(x+pw-156,yy+63,108,24,colors.edge);text('Prepare craft',x+pw-145,yy+69,colors.cyan,self.small)
+   end
   else
    text('Unvisited — Transport pending',x+250,yy+42,colors.amber,self.normal)
    text('Orbital identity only; underground details remain unavailable.',x+250,yy+67,colors.muted,self.small)
@@ -427,6 +441,58 @@ function R:drawRegion(app)
   end
  end
  text('Shift+F7 toggles this overlay. Space controls the global campaign clock.',x+24,y+ph-30,colors.muted,self.small)
+end
+function R:drawExpedition(app)
+ local d=app.expedition;if not d then return end
+ local campaign=app.history.view;local source=Campaign.site(campaign,d.sourceSiteId);local vehicle=campaign.logistics and Logistics.craft(campaign,d.craftId)
+ if not source or not vehicle then return end
+ box(0,0,self.sw,self.sh,colors.bg,0.94)
+ local pw,ph=math.min(900,self.sw-44),math.min(680,self.sh-44);local x,y=(self.sw-pw)/2,(self.sh-ph)/2
+ box(x,y,pw,ph,colors.panel);text('PREPARE EXPEDITION',x+24,y+20,colors.amber,self.title)
+ d.buttons={}
+ local function button(action,label,bx,by,bw,extra)
+  local record={action=action,x=bx,y=by,w=bw,h=26};if extra then for key,value in pairs(extra) do record[key]=value end end
+  d.buttons[#d.buttons+1]=record;box(bx,by,bw,26,colors.edge);text(label,bx+8,by+6,colors.cyan,self.small)
+ end
+ button('close','ESC close',x+pw-112,y+18,88)
+ local destination=Campaign.site(campaign,d.destinationSiteId);local sourceBody=Campaign.body(campaign,source.bodyId);local destinationBody=destination and Campaign.body(campaign,destination.bodyId)
+ text('Craft '..vehicle.id..' at '..(sourceBody and sourceBody.name or ('Site '..source.id)),x+24,y+64,colors.text,self.normal)
+ text('Destination: '..(destinationBody and destinationBody.name or 'Choose destination'),x+24,y+91,colors.text,self.normal)
+ button('destination','Previous',x+360,y+84,86,{delta=-1});button('destination','Next',x+452,y+84,68,{delta=1})
+ local cargoCount=0;for _,kind in ipairs(Logistics.resources()) do cargoCount=cargoCount+(vehicle.cargo[kind] or 0) end
+ text(string.format('Cargo %d / %d slots',cargoCount,vehicle.capacity),x+24,y+122,colors.amber,self.normal)
+ local manifest=vehicle.activeManifestId and Logistics.manifest(campaign,vehicle.activeManifestId) or nil
+ local yy=y+154;text('PASSENGERS (selection does not assemble them)',x+24,yy,colors.muted,self.small);yy=yy+24
+ local selected={};for _,id in ipairs(d.passengers) do selected[id]=true end
+ for _,worker in ipairs(source.world.workers) do
+  local label=(selected[worker.personId] and '[x] ' or '[ ] ')..worker.name..' / person '..worker.personId..(worker.alive and '' or ' / DEAD')
+  button('passenger',label,x+24,yy,250,{personId=worker.personId});yy=yy+30
+ end
+ local cargoY=y+154;text('CARGO TARGET / ACTUAL ABOARD',x+350,cargoY,colors.muted,self.small);cargoY=cargoY+25
+ for _,resource in ipairs(Logistics.resources()) do
+  local target=manifest and (manifest.cargo[resource] or 0) or (d.cargo[resource] or 0);local actual=vehicle.cargo[resource] or 0
+  text(resource..': '..actual..' / '..target,x+350,cargoY+5,colors.text,self.normal)
+  button('cargo','-',x+490,cargoY,26,{resource=resource,delta=-1});button('cargo','+',x+522,cargoY,26,{resource=resource,delta=1})
+  if actual>0 and (not manifest or actual>(manifest.cargo[resource] or 0)) then button('unload','Unload 1',x+555,cargoY,76,{resource=resource}) end
+  cargoY=cargoY+34
+ end
+ local canEdit=app.history:atPresent() or campaign.mode=='practice'
+ local statusY=y+390
+ if manifest then
+  local ready,reason=Logistics.readiness(campaign,manifest)
+  text(ready and 'PREPARATION READY' or ('BLOCKED: '..reason),x+24,statusY,ready and colors.green or colors.amber,self.normal)
+  text('Manifest '..manifest.id..' revision '..manifest.revision..' / source '..manifest.sourceSiteId..' -> destination '..manifest.destinationSiteId,x+24,statusY+25,colors.muted,self.small)
+  if canEdit then button('prepare','Apply changes',x+24,statusY+58,112);button('assemble','Assemble crew',x+142,statusY+58,112,{manifestId=manifest.id});button('cancel','Cancel preparation',x+260,statusY+58,132,{manifestId=manifest.id}) end
+ else
+  text('Set passengers and cargo, then prepare physical loading work.',x+24,statusY,colors.muted,self.normal)
+  if canEdit then button('prepare','Prepare expedition',x+24,statusY+42,142) end
+ end
+ for _,op in ipairs(campaign.logistics.operations) do if op.craftId==vehicle.id then
+  text('Unloading '..op.resource..': '..(op.amount-op.remaining)..' / '..op.amount,x+24,statusY+100,colors.muted,self.small)
+  if canEdit then button('cancelUnload','Cancel unloading',x+220,statusY+94,120,{operationId=op.id}) end
+ end end
+ if not canEdit then text('Challenge archive: inspection only.',x+24,y+ph-42,colors.amber,self.normal) end
+ text('Departure becomes available in the next implementation tranche. Cargo aboard is not a settlement stockpile.',x+24,y+ph-24,colors.muted,self.small)
 end
 function R:draw(app)
  self:layout(app)
@@ -473,6 +539,7 @@ function R:draw(app)
  self:drawLab(app)
  self:drawMapBrowser(app)
  self:drawRegion(app)
+ self:drawExpedition(app)
  Crew.draw(app,self)
  Notes.draw(app,self)
  self:help(app)

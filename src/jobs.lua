@@ -127,7 +127,8 @@ function J.plan(w,a,context)
   local d=a.directive
   local assembly=d.kind=='assembly'
   local path,node=closest(w,a,f,function(x,y)
-   return assembly and x==d.x and y==d.y or math.abs(x-d.x)+math.abs(y-d.y)<=3
+   if assembly then return x==d.x and y==d.y end
+   return math.abs(x-d.x)+math.abs(y-d.y)<=3
   end)
   if path then assign(w,a,{kind='rally',path=path,node=node,label=assembly and 'Assembling expedition' or 'Rally / hold'})
   else a.status=assembly and 'Assembly blocked' or 'Rally blocked';a.reason=assembly and 'No safe reachable assembly pose' or 'No reachable standing position near the destination' end

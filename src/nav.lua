@@ -43,7 +43,7 @@ function N.edge(w,x,y,nx,ny)
  return false
 end
 -- One deterministic BFS per planning pass, reused for all candidate jobs.
-function N.flood(w,x,y)
+function N.flood(w,x,y,quiet)
  local start=W.index(w,x,y)
  local q,head,parent,distance={start},1,{[start]=0},{[start]=0}
  while head<=#q do
@@ -53,7 +53,7 @@ function N.flood(w,x,y)
    parent[j]=i; distance[j]=distance[i]+1; q[#q+1]=j
   end end
  end
- w.stats.plans=w.stats.plans+1
+ if not quiet then w.stats.plans=w.stats.plans+1 end
  return {start=start,queue=q,parent=parent,distance=distance}
 end
 -- Directed walking graphs can contain one-way drops. Supply trips must be able
