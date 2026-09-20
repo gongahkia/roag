@@ -232,7 +232,7 @@ local function poses(world,structure)
  local cx,cy=structure.gx*4-2,structure.gy*4;local out={}
  for y=math.max(1,cy-4),math.min(world.height,cy+4) do for x=math.max(1,cx-4),math.min(world.width,cx+4) do
   local distance=math.abs(x-cx)+math.abs(y-cy)
-  if distance<=4 and N.stand(world,x,y,true) then out[#out+1]={x=x,y=y,distance=distance} end
+  if distance<=4 and N.stand(world,x,y,true) and (not world.workClaims or not world.workClaims[W.index(world,x,y)]) then out[#out+1]={x=x,y=y,distance=distance} end
  end end
  table.sort(out,function(a,b)if a.distance~=b.distance then return a.distance<b.distance end;if a.y~=b.y then return a.y<b.y end;return a.x<b.x end)
  return out

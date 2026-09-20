@@ -307,7 +307,7 @@ local function posesFor(c,m)
  local candidates={}
  for y=math.max(1,vehicle.anchor.y-radius),math.min(w.height,vehicle.anchor.y+radius) do for x=math.max(1,vehicle.anchor.x-radius),math.min(w.width,vehicle.anchor.x+radius) do
   local distance=math.abs(x-vehicle.anchor.x)+math.abs(y-vehicle.anchor.y)
-  if distance<=radius and N.stand(w,x,y,true) then candidates[#candidates+1]={x=x,y=y,distance=distance} end
+  if distance<=radius and N.stand(w,x,y,true) and (not w.workClaims or not w.workClaims[W.index(w,x,y)]) then candidates[#candidates+1]={x=x,y=y,distance=distance} end
  end end
  table.sort(candidates,function(a,b) if a.distance~=b.distance then return a.distance<b.distance end;if a.y~=b.y then return a.y<b.y end;return a.x<b.x end)
  local used,out={},{}
