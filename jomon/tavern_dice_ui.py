@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import curses
 
+from .character_presentation import role_display_name
 from .state import GameState
 from .tavern_dice import (
     MAX_ROLLS, ROUNDS, available_dice_opponents, close_match, drive_npcs,
@@ -16,7 +17,8 @@ def _draw_lobby(screen: curses.window, state: GameState, selected: list[str], cu
                 message: str) -> list:
     people = available_dice_opponents(state)
     screen.erase()
-    border(screen, "QUAY BONES / SENA'S CHALLENGE")
+    bartender_name = state.bartender.name.split()[0]
+    border(screen, f"QUAY BONES / {bartender_name.upper()}'S CHALLENGE")
     put(screen, 2, 3, "Four adults, two carved bones, three rounds.", accent("ui_accent"))
     put(screen, 3, 3, "Roll or bank. One 1 busts; doubles force another roll.")
     put(screen, 4, 3, "Six rolls maximum per turn. Best score wins; a tie pays nothing.")
@@ -28,11 +30,11 @@ def _draw_lobby(screen: curses.window, state: GameState, selected: list[str], cu
         person = people[index]
         mark = "[x]" if person.id in selected else "[ ]"
         put(screen, 8 + index - first, 3,
-            f"{'>' if index == cursor else ' '} {mark} {person.name[:24]:24} {person.role[:22]}",
+            f"{'>' if index == cursor else ' '} {mark} {person.name[:24]:24} {role_display_name(person.role)[:22]}",
             accent("ui_accent", curses.A_REVERSE) if index == cursor else 0)
     if len(people) > 11:
         put(screen, 19, 3, f"Showing {first + 1}-{min(first + 11, len(people))} of {len(people)}.")
-    put(screen, 20, 3, message[:73] if message else "Sena keeps the prize purse on the table, not in an endless machine.",
+    put(screen, 20, 3, message[:73] if message else f"{bartender_name} keeps the prize purse on the table, not in an endless machine.",
         accent("warning") if message else accent("terrain"))
     put(screen, 22, 3, "J/K choose  Space invite  Enter begin  Q leave", accent("ui_accent", curses.A_BOLD))
     screen.refresh()
@@ -80,7 +82,7 @@ def _draw_match(screen: curses.window, state: GameState, message: str = "",
         put(screen, 17, 3, f"Acting: {match['names'][match['turn']]}", accent("ui_heading"))
         put(screen, 21, 3, "R/Enter roll  H bank when allowed  Q pause contest", accent("ui_accent"))
     put(screen, 19, 3, (message or match["log"][-1])[:72], accent("warning") if message else accent("terrain"))
-    put(screen, 22, 3, "No entry fee. Sena pays prizes from the purse on the table.")
+    put(screen, 22, 3, f"No entry fee. {state.bartender.name.split()[0]} pays prizes from the purse on the table.")
     screen.refresh()
 
 

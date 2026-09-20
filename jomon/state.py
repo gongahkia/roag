@@ -755,11 +755,14 @@ def _region(seed: str) -> tuple[Region, Contact]:
 
 
 def create_world(seed: str) -> GameState:
+    from .character_presentation import character_presentation
     from .vessel import JOMON_GANGPLANK
 
     seed = normalize_seed(seed)
     household = _household(seed)
     region, contact = _region(seed)
+    bartender_presentation = character_presentation("npc.ship_bartender")
+    merchant_presentation = character_presentation("npc.ship_merchant")
     market = {name: MarketEntry(stock=2, demand=1) for name in COMMODITIES}
     market[region.objective_commodity] = MarketEntry(stock=0, demand=4)
     vessel_cargo = {
@@ -803,21 +806,18 @@ def create_world(seed: str) -> GameState:
         route_known=[], traversed_route_edges=[], auto_place_enabled=True,
         actor_schedules={},
         bartender=Person(
-            id="bartender-sena", name="Sena Quill", role="bartender",
+            id="bartender-sena", name=bartender_presentation.display_name, role="bartender",
             equipment=["cellar key", "measuring cup"], technique="measured pour",
-            relationships={}, background="Keeps Jomon's common room and knows which regional casks travel safely.",
-            build_tendency="material hospitality and firm limits",
-            memories=["Sena took the bar on witnessed household shares."],
+            relationships={}, background=bartender_presentation.short_description,
+            build_tendency=bartender_presentation.build_tendency,
+            memories=[bartender_presentation.initial_memory],
         ),
         merchant=Person(
-            id="merchant-veyra", name="Veyra Bale", role="itinerant deck factor",
+            id="merchant-veyra", name=merchant_presentation.display_name, role=merchant_presentation.role_label,
             equipment=["oilskin account", "sample hook"], technique="regional lots",
-            relationships={}, background=(
-                "A coast-and-river factor who visits Jomon only when a recorded "
-                "route cycle and regional stock justify the mooring."
-            ),
-            build_tendency="bounded tools, witnessed exchange, and regional shortages",
-            memories=["Veyra first heard Jomon's name in four working markets."],
+            relationships={}, background=merchant_presentation.short_description,
+            build_tendency=merchant_presentation.build_tendency,
+            memories=[merchant_presentation.initial_memory],
             available=False,
         ),
         bartender_stock={}, drink_effects={}, calendar_origin_day=0,

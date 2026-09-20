@@ -154,7 +154,9 @@ def choose_courier(state: GameState, person_id: str) -> ActionResult:
     secondary = equipped_item(state, "secondary", person.id)
     state.weapon = readied.kind if readied else None
     state.gear = secondary.kind if secondary else None
-    return _plain(state, f"{person.name}, {person.role}, will carry this expedition.", changed=True)
+    from .character_presentation import role_display_name
+
+    return _plain(state, f"{person.name}, {role_display_name(person.role)}, will carry this expedition.", changed=True)
 
 
 def recruit_person(state: GameState, person_id: str) -> ActionResult:
@@ -2015,7 +2017,7 @@ def interact(state: GameState) -> ActionResult:
         if state.jomon_space == "tavern" and tile == "Q":
             if another_game_active(state, "dice"):
                 return ActionResult(False, False, "Finish the other active tavern game before opening Quay Bones.")
-            return ActionResult(False, False, "Sena's two dice and counted challenge purse are ready.", "tavern-dice")
+            return ActionResult(False, False, f"{state.bartender.name.split()[0]}'s two dice and counted challenge purse are ready.", "tavern-dice")
         if state.jomon_space == "vessel":
             destination = vessel_vertical_destination(state.position)
             if destination:

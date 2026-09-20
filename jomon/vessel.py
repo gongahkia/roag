@@ -655,12 +655,12 @@ def buy_drink(state: GameState, drink_id: str, *, bottle: bool) -> tuple[bool, s
     if drink is None or state.bartender_stock.get(drink_id, 0) <= 0:
         return False, "That drink is not in the current counted stock."
     if state.bartender.relationships.get(state.active_courier_id or "", 0) <= -3:
-        return False, "Sena refuses further credit after the remembered dispute."
+        return False, f"{state.bartender.name.split()[0]} refuses further credit after the remembered dispute."
     if state.trade_credit < drink.cost:
         return False, f"{drink.name} requires {drink.cost} credit."
     for incompatible in drink.incompatible:
         if incompatible in state.drink_effects:
-            return False, f"Sena will not mix {drink.name} with {DRINKS[incompatible].name}."
+            return False, f"{state.bartender.name.split()[0]} will not mix {drink.name} with {DRINKS[incompatible].name}."
     if bottle:
         from .inventory import auto_place, create_item
 

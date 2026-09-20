@@ -8,6 +8,7 @@ from .character import (
     ANCESTRIES, ATTRIBUTE_POINTS, COMPETENCIES, COMPETENCY_POINTS, ORIGINS, PEOPLE_EFFECTS,
     TRAITS, apply_character_spec, default_allocation,
 )
+from .character_presentation import role_display_name
 from .state import ATTRIBUTES, GameState
 from .tavern_games_ui import accent, meter, put
 
@@ -34,7 +35,7 @@ def _draw(screen: curses.window, state: GameState, crew_index: int, name: str,
     put(screen, top + 2, left + 3, "H/L changes the selected field. Enter names your courier. S accepts.")
     crew = state.household[crew_index]
     values = {
-        "crew": f"{crew.name}  /  {crew.role}", "name": name,
+        "crew": f"{crew.name}  /  {role_display_name(crew.role)}", "name": name,
         "ancestry": ancestry, "origin": origin.title(), "trait": trait,
         **{key: str(value) for key, value in attributes.items()},
         **{key: str(value) for key, value in competencies.items()},

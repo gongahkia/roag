@@ -40,6 +40,7 @@ from .actions import (
     use_gear,
     use_route_stop,
 )
+from .character_presentation import role_display_name
 from .inventory import (
     BODY_SLOTS,
     WEAPON_AMMUNITION,
@@ -820,7 +821,9 @@ def _status_lines(state: GameState, capacity: int | None = None) -> list[str]:
         filled = min(8, max(0, (courier.health * 8 + maximum - 1) // maximum))
         health = f"Health [{'#' * filled}{'.' * (8 - filled)}] {courier.health}/{courier.max_health}"
         name = textwrap.wrap(courier.name, width=25, break_long_words=True) or ["not chosen"]
-        role = courier.role
+        from .character_presentation import role_display_name
+
+        role = role_display_name(courier.role)
     else:
         health, name, role = "Health [........] -", ["not chosen"], "-"
     location = state.region.name if state.location == "region" and state.position.z == 0 else area_name(state)
@@ -2491,8 +2494,10 @@ def _handle_inventory(state: GameState, view: InventoryView, event: InputEvent |
 
 
 def _tavern_lines(state: GameState) -> list[str]:
+    from .character_presentation import role_display_name
+
     courier = state.courier
-    identity = f"{courier.name}, {courier.role}; health {courier.health}/{courier.max_health}; {courier.injury}; {courier.technique}" if courier else "none selected"
+    identity = f"{courier.name}, {role_display_name(courier.role)}; health {courier.health}/{courier.max_health}; {courier.injury}; {courier.technique}" if courier else "none selected"
     goods = ", ".join(f"{name} {stack.quantity}" for name, stack in state.carried_goods.items()) or "none"
     combos = ", ".join(build_combinations(state)) or "none active"
     passives = ", ".join(state.carried_passives) or "none"
@@ -2749,7 +2754,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             related = next(candidate.name for candidate in state.household if candidate.id == strongest[0])
             learned = ", ".join(person.learned_techniques) or "no expedition technique"
             lines.extend((
-                f"{person.name} — {person.ancestry} {person.role}; {person.technique}; {person.injury}",
+                f"{person.name} — {person.ancestry} {role_display_name(person.role)}; {person.technique}; {person.injury}",
                 f"  {learned}; closest standing: {related} ({strongest[1]:+d})",
             ))
             if personal_practice(person) in person.learned_techniques:
@@ -2961,10 +2966,10 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         schedule = state.actor_schedules.get(state.bartender.id)
         from .inspection import contextual_advice
         return state.bartender.name.upper(), [
-            f"Bartender; {schedule.activity if schedule else 'between duties'}.",
+            f"{role_display_name(state.bartender.role).title()}; {schedule.activity if schedule else 'between duties'}.",
             state.bartender.background,
             f"Opinion of courier: {state.bartender.relationships.get(state.active_courier_id or '', 0):+d}",
-            "Sena's stock follows region arrivals, counted supplies, and season.",
+            f"{state.bartender.name.split()[0]}'s stock follows region arrivals, counted supplies, and season.",
             contextual_advice(state, state.bartender.name),
             "D. Browse drinks", "S. Choose crew support", "L. Leave the bar",
         ]
@@ -2972,7 +2977,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         lines = [f"Credit: {state.trade_credit}; {calendar_at(state).season} stock"]
         for index, (drink_id, drink) in enumerate(DRINKS.items()):
             lines.append(f"{index + 1}. {drink.name} — {drink.benefit}; drawback: {drink.drawback}; stock {state.bartender_stock.get(drink_id, 0)}")
-        return "SENA'S COUNTED DRINKS", lines + ["Name a measure to inspect drinking or bottling."]
+        return f"{state.bartender.name.split()[0].upper()}'S COUNTED DRINKS", lines + ["Name a measure to inspect drinking or bottling."]
     if kind.startswith("bartender:drink:"):
         drink = DRINKS[kind.split(":", 2)[2]]
         return drink.name.upper(), [
@@ -3058,7 +3063,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             if item:
                 physical.append(f"{slot}: {item_spec(item.kind).name}")
         lines = [
-            f"{person.name} — {person.ancestry} {person.role}; {standing}",
+            f"{person.name} — {person.ancestry} {role_display_name(person.role)}; {standing}",
             f"Technique: {person.technique}",
             "Learned practices: " + (", ".join(person.learned_techniques) or "none"),
             f"Health: {person.health}/{person.max_health}; {person.injury}",
