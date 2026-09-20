@@ -26,9 +26,15 @@ local function color(c,a) love.graphics.setColor(c[1],c[2],c[3],a or 1) end
 local function box(x,y,w,h,c,a) color(c,a);love.graphics.rectangle('fill',x,y,w,h) end
 local function text(s,x,y,c,font) if font then love.graphics.setFont(font) end color(c or colors.text);love.graphics.print(tostring(s),x,y) end
 local function wrap(s,x,y,width,c,font) if font then love.graphics.setFont(font) end color(c or colors.text);love.graphics.printf(tostring(s),x,y,width,'left') end
+local function font(size)
+ local ok,value=pcall(love.graphics.newFont,'assets/fonts/cozette.otb',size)
+ if ok then return value end
+ -- The bundled bitmap file is the normal runtime path.  The fallback keeps a
+ -- missing/corrupt install readable instead of making an error screen unreadable.
+ return love.graphics.newFont(size)
+end
 function R.new()
- return setmetatable({small=love.graphics.newFont(12),normal=love.graphics.newFont(14),
-  title=love.graphics.newFont(26),sub=love.graphics.newFont(18),zoom=1,panX=0,panY=0},R)
+ return setmetatable({small=font(12),normal=font(14),title=font(26),sub=font(18),zoom=1,panX=0,panY=0},R)
 end
 function R:layout(app)
  local sw,sh=love.graphics.getDimensions()

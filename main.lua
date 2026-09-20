@@ -17,6 +17,7 @@ local Layouts=require('src.generation.layouts')
 local Biomes=require('src.biomes')
 local Crew=require('src.ui.crew')
 local Content=require('src.content')
+local Logistics=require('src.logistics')
 local app={paused=true,speed=1,tool='inspect',priority=2,view=1,grid=false,accumulator=0}
 local renderer
 local function notify(s) app.toast=tostring(s);app.toastTime=8 end
@@ -60,6 +61,11 @@ local function queue(c)
  if not ok then notify(why) else notify(app.paused and 'Order queued. Space runs; Right advances one tick.' or 'Order issued.') end
  return ok
 end
+local function queueCampaign(c)
+ local ok,why=app.history:queue(c)
+ if not ok then notify(why) else notify(app.paused and 'Campaign action queued. Space runs; Right advances one tick.' or 'Campaign action issued.') end
+ return ok
+end
 local function archive()
  assert(love.filesystem.createDirectory('archives'),'Could not create archive directory')
  local base='archives/run-'..app.history.live.seed..'-'..os.time()
@@ -98,13 +104,13 @@ local function startNew()
  if not ok then n.error='Previous colony retained: '..tostring(result);return end
  app.history=result;app.campaign=false;app.siteId=nil;app.newRun=nil;app.mapBrowser=nil;app.paused=true;app.accumulator=0;app.saveBlocked=false
  app.selectedWorker=nil;app.selectedCell=nil;app.port=nil;app.drag=nil;app.benchmark=nil;app.stepBudget=0
- app.crew=nil;app.fieldnotes=nil;app.orderWorker=nil;app.rallyWorker=nil;app.panning=false
+ app.crew=nil;app.fieldnotes=nil;app.orderWorker=nil;app.rallyWorker=nil;app.panning=false;app.expedition=nil
  renderer.zoom,renderer.panX,renderer.panY=1,0,0
  notify('New '..result.live.mode..' expedition. The previous run is archived. F7 shows biomes.')
 end
 local function campaignOptions(n)
  return {preset=n.preset,mode=n.mode,width=n.width,height=n.height,layout=n.layout,climate=n.climate,
-  openness=n.openness,biomeScale=n.biomeScale,features=n.features,density=n.density,crew=n.crew}
+  openness=n.openness,biomeScale=n.biomeScale,features=n.features,density=n.density,crew=n.crew,logistics=true}
 end
 local function startCampaign()
  local n=app.newRun;local seed=tonumber(n.seed)
@@ -117,15 +123,15 @@ local function startCampaign()
  local ok,why=Store.saveCampaign(n.campaignCandidate)
  if not ok then n.error='Previous session retained: '..tostring(why);return end
  app.history=n.campaignCandidate;app.campaign=true;app.siteId=1;app.newRun=nil;app.mapBrowser=nil;app.paused=true;app.accumulator=0;app.saveBlocked=false
- app.selectedWorker=nil;app.selectedCell=nil;app.port=nil;app.drag=nil;app.benchmark=nil;app.stepBudget=0;app.crew=nil;app.fieldnotes=nil;app.orderWorker=nil;app.rallyWorker=nil;app.panning=false
+ app.selectedWorker=nil;app.selectedCell=nil;app.port=nil;app.drag=nil;app.benchmark=nil;app.stepBudget=0;app.crew=nil;app.fieldnotes=nil;app.orderWorker=nil;app.rallyWorker=nil;app.panning=false;app.expedition=nil
  renderer.zoom,renderer.panX,renderer.panY=1,0,0
- notify('New frontier campaign. Home Planet is active; moon transport is pending.')
+ notify('New frontier campaign. Prepare the parked shuttle from Region; departure is pending.')
 end
 local function continueCampaign()
  local n=app.newRun;local history,why=Store.loadCampaign()
  if not history then n.error=why or 'No campaign save.';return end
  app.history=history;app.campaign=true;app.siteId=1;app.newRun=nil;app.mapBrowser=nil;app.paused=true;app.accumulator=0;app.saveBlocked=false
- app.selectedWorker=nil;app.selectedCell=nil;app.port=nil;app.drag=nil;app.benchmark=nil;app.stepBudget=0;app.crew=nil;app.fieldnotes=nil;app.orderWorker=nil;app.rallyWorker=nil;app.panning=false
+ app.selectedWorker=nil;app.selectedCell=nil;app.port=nil;app.drag=nil;app.benchmark=nil;app.stepBudget=0;app.crew=nil;app.fieldnotes=nil;app.orderWorker=nil;app.rallyWorker=nil;app.panning=false;app.expedition=nil
  renderer.zoom,renderer.panX,renderer.panY=1,0,0
  notify('Frontier campaign restored. Structural load did not replay its history.')
 end
@@ -244,13 +250,26 @@ local hotkeys={q='inspect',d='dig',l='ladder',f='platform',w='wall',b='bed',s='s
 local function hasRegion()
  return app.campaign and app.history and app.history.view.features.region==1
 end
+local function hasLogistics()
+ return hasRegion() and app.history.view.features.logistics==1
+end
 local function selectSite(siteId)
  if not hasRegion() then return false end
  local site=Campaign.site(app.history.view,siteId)
  if not site or site.ownerSocietyId~=app.history.view.society.id then return false end
- app.siteId=siteId;app.drag=nil;app.port=nil;app.selectedWorker=nil;app.selectedCell=nil;app.hover=nil;app.orderWorker=nil;app.rallyWorker=nil
+ app.siteId=siteId;app.drag=nil;app.port=nil;app.selectedWorker=nil;app.selectedCell=nil;app.hover=nil;app.orderWorker=nil;app.rallyWorker=nil;app.expedition=nil
  renderer.zoom,renderer.panX,renderer.panY=1,0,0
  return true
+end
+local function openExpedition(siteId)
+ if not hasLogistics() then notify('Logistics unavailable in this older campaign. Start a new frontier campaign to prepare a shuttle.');return false end
+ local campaign=app.history.view;local source=Campaign.site(campaign,siteId or app.siteId)
+ if not source or source.ownerSocietyId~=campaign.society.id then notify('Choose an owned source settlement.');return false end
+ local crafts=Logistics.craftsAt(campaign,source.id);local craft=crafts[1]
+ if not craft then notify('No docked craft is available at this settlement.');return false end
+ local destination=source.id==1 and 2 or 1
+ app.expedition={sourceSiteId=source.id,craftId=craft.id,destinationSiteId=destination,passengers={},cargo={food=1,metal=1},buttons={}}
+ app.drag=nil;app.port=nil;return true
 end
 local function toggleRegion()
  if not hasRegion() then return false end
@@ -258,6 +277,13 @@ local function toggleRegion()
  return true
 end
 function love.keypressed(key)
+ if app.expedition then
+  if key=='escape' then app.expedition=nil
+  elseif key=='space' then
+   if app.history:atPresent() then app.paused=not app.paused;app.accumulator=0 else notify('Archive is inspection-only during playback. End returns to the live frontier.') end
+  end
+  return
+ end
  if app.crew then Crew.key(app,key,queue);return end
  if app.fieldnotes then
   if key=='escape' or key=='f4' then app.fieldnotes=nil
@@ -398,11 +424,34 @@ end
 local function contains(b,x,y) return x>=b.x and y>=b.y and x<=b.x+b.w and y<=b.y+b.h end
 function love.mousepressed(mx,my,button)
  if app.crew then if button==1 then Crew.mouse(app,mx,my,queue) end return end
+ if app.expedition then
+  if button==1 then
+   for _,b in ipairs(app.expedition.buttons or {}) do if contains(b,mx,my) then
+    local d=app.expedition
+    if b.action=='close' then app.expedition=nil
+    elseif b.action=='destination' then
+     local ids={};for _,candidate in ipairs(Campaign.sites(app.history.view)) do if candidate.id~=d.sourceSiteId then ids[#ids+1]=candidate.id end end
+     table.sort(ids);local at=1;for i,id in ipairs(ids) do if id==d.destinationSiteId then at=i end end;d.destinationSiteId=ids[(at-1+(b.delta or 1))%#ids+1]
+    elseif b.action=='passenger' then
+     local found;for i,id in ipairs(d.passengers) do if id==b.personId then table.remove(d.passengers,i);found=true;break end end
+     if not found then d.passengers[#d.passengers+1]=b.personId;table.sort(d.passengers) end
+    elseif b.action=='cargo' then
+     local n=math.max(0,(d.cargo[b.resource] or 0)+(b.delta or 0));if n==0 then d.cargo[b.resource]=nil else d.cargo[b.resource]=n end
+    elseif b.action=='prepare' then queueCampaign({scope='campaign',type='prepare_expedition',sourceSiteId=d.sourceSiteId,craftId=d.craftId,destinationSiteId=d.destinationSiteId,passengers=d.passengers,cargo=d.cargo})
+    elseif b.action=='assemble' then queueCampaign({scope='campaign',type='assemble_expedition',sourceSiteId=d.sourceSiteId,craftId=d.craftId,manifestId=b.manifestId})
+    elseif b.action=='cancel' then queueCampaign({scope='campaign',type='cancel_expedition',sourceSiteId=d.sourceSiteId,craftId=d.craftId,manifestId=b.manifestId})
+    elseif b.action=='unload' then queueCampaign({scope='campaign',type='unload_cargo',sourceSiteId=d.sourceSiteId,craftId=d.craftId,resource=b.resource,amount=1})
+    elseif b.action=='cancelUnload' then queueCampaign({scope='campaign',type='cancel_cargo_unload',sourceSiteId=d.sourceSiteId,craftId=d.craftId,operationId=b.operationId}) end
+    return
+   end end
+  end
+  return
+ end
  if app.region then
   if button==1 then
    for _,b in ipairs(app.regionButtons or {}) do
     if contains(b,mx,my) then
-     if b.action=='close' then app.region=nil elseif b.action=='site' then selectSite(b.siteId) elseif b.action=='unvisited' then app.regionSelected=b.siteId end
+     if b.action=='close' then app.region=nil elseif b.action=='site' then selectSite(b.siteId) elseif b.action=='unvisited' then app.regionSelected=b.siteId elseif b.action=='expedition' then openExpedition(b.siteId) end
      return
     end
    end
@@ -437,7 +486,7 @@ function love.mousepressed(mx,my,button)
  else local gx,gy=W.tile(w,x,y);app.drag={gx=gx,gy=gy,tool=app.tool} end
 end
 function love.mousemoved(mx,my,dx,dy)
- if app.crew or app.fieldnotes or app.newRun or app.mapBrowser or app.help or app.region then return end
+ if app.crew or app.fieldnotes or app.newRun or app.mapBrowser or app.help or app.region or app.expedition then return end
  if app.panning then renderer.panX=renderer.panX+dx;renderer.panY=renderer.panY+dy end
  local x,y=renderer:cell(mx,my);app.hover=x and {x=x,y=y} or nil
 end
@@ -457,7 +506,7 @@ function love.mousereleased(mx,my,button)
  end end
  if count==256 then notify('Selection limited to 256 blocks.') end
 end
-function love.wheelmoved(_,dy) if not app.newRun and not app.mapBrowser and not app.help and not app.crew and not app.fieldnotes and not app.region then renderer.zoom=U.clamp(renderer.zoom+dy*0.25,0.5,6) end end
+function love.wheelmoved(_,dy) if not app.newRun and not app.mapBrowser and not app.help and not app.crew and not app.fieldnotes and not app.region and not app.expedition then renderer.zoom=U.clamp(renderer.zoom+dy*0.25,0.5,6) end end
 function love.resize() renderer:layout(app) end
 function love.quit()
  if app.history and not app.saveBlocked and not save() then return true end

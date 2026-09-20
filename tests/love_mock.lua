@@ -18,7 +18,9 @@ function Mock.install(directory)
   f:write(text);f:close();return true
  end
  local graphics={}
- function graphics.newFont(size)
+ function graphics.newFont(path,size)
+  if size==nil then size=path end
+  assert(type(size)=='number' and size>0,'Mock font size must be numeric')
   return {size=size,getHeight=function() return size end,
    getWidth=function(_,s) return #tostring(s)*size*0.54 end}
  end
