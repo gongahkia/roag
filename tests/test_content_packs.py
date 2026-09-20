@@ -58,12 +58,14 @@ def alternate_pack(root: Path) -> Path:
         "display_name": "Fixture Host",
         "short_description": "Keeps the fixture common room supplied.",
         "initial_memory": "Fixture Host took the fixture bar.",
+        "build_tendency": "fixture hospitality",
     }
     characters["characters"]["npc.ship_merchant"] = {
         "display_name": "Fixture Trader",
         "role_label": "fixture deck trader",
         "short_description": "Visits on the fixture route cycle.",
         "initial_memory": "Fixture Trader knows the fixture markets.",
+        "build_tendency": "fixture exchange",
     }
     characters["roles"]["role.household_bargemaster"] = {"display_label": "fixture navigator"}
     source.write_text(json.dumps(characters, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")

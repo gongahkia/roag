@@ -129,6 +129,7 @@ class CharacterPresentation:
     display_name: str
     short_description: str
     initial_memory: str
+    build_tendency: str
     role_label: str = ""
 
 
@@ -389,7 +390,7 @@ def _character_presentations(
     presentations: list[CharacterPresentation] = []
     for slot in character_slots:
         row = characters[slot.id]
-        required = {"display_name", "short_description", "initial_memory"}
+        required = {"display_name", "short_description", "initial_memory", "build_tendency"}
         if slot.role_id is None:
             required.add("role_label")
         path = f"characters.{slot.id}"

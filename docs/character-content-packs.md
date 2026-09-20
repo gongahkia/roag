@@ -12,7 +12,8 @@ Authors may edit the non-empty string values in this shape:
     "npc.ship_bartender": {
       "display_name": "Sena Quill",
       "short_description": "Keeps Jomon's common room and knows which regional casks travel safely.",
-      "initial_memory": "Sena took the bar on witnessed household shares."
+      "initial_memory": "Sena took the bar on witnessed household shares.",
+      "build_tendency": "material hospitality and firm limits"
     },
     "npc.ship_merchant": {
       "display_name": "Veyra Bale",
