@@ -13,6 +13,7 @@ local Catalog=require('src.catalog')
 local Crew=require('src.ui.crew')
 local Notes=require('src.ui.fieldnotes')
 local ContentView=require('src.ui.world_content')
+local Campaign=require('src.campaign')
 local R={};R.__index=R
 local colors={bg={0.039,0.053,0.067},panel={0.070,0.085,0.103},edge={0.19,0.23,0.26},
  text={0.86,0.88,0.86},muted={0.49,0.56,0.59},amber={0.89,0.66,0.35},
@@ -40,6 +41,18 @@ function R:layout(app)
  end
  self.viewport={x=18,y=y+40,w=self.panelX-36,h=sh-y-138}
  self.timeline={x=24,y=sh-65,w=self.panelX-48,h=15}
+ app.regionButton=nil;app.siteButtons={}
+ if app.campaign and app.history and app.history.view.features.region==1 then
+  app.regionButton={x=650,y=14,w=78,h=26}
+  local x=738
+  for _,site in ipairs(Campaign.sites(app.history.view)) do
+   if site.ownerSocietyId==app.history.view.society.id then
+    local body=Campaign.body(app.history.view,site.bodyId)
+    local label=body and body.name or ('Site '..site.id);local width=math.max(96,self.small:getWidth(label)+22)
+    app.siteButtons[#app.siteButtons+1]={siteId=site.id,label=label,x=x,y=14,w=width,h=26};x=x+width+4
+   end
+  end
+ end
 end
 function R:mapRect(w)
  local v=self.viewport
@@ -99,7 +112,7 @@ local function dashed(x,y,w,h,c)
  for py=y,y+h,7 do love.graphics.line(x,py,x,math.min(py+3,y+h));love.graphics.line(x+w,py,x+w,math.min(py+3,y+h)) end
 end
 function R:drawMap(app)
- local w=app.history.view;local rect=self:mapRect(w);local sc=rect.scale
+ local w=app.currentWorld();local rect=self:mapRect(w);local sc=rect.scale
  local function point(x,y) return rect.x+(x-1)*sc,rect.y+(y-1)*sc end
  local v=self.viewport
  box(v.x,v.y,v.w,v.h,colors.panel)
@@ -151,7 +164,8 @@ function R:drawMap(app)
   if sc>=4 then text(j.kind=='dig' and '/' or j.kind=='remove' and 'x' or '+',x+1,y,c,self.small) end
  end end
  for _,cmd in ipairs(app.history.commands[app.history.live.tick+1] or {}) do
-  if app.history:atPresent() and cmd.type=='order' then local x,y=point(cmd.gx*4-3,cmd.gy*4-3);dashed(x,y,4*sc,4*sc,colors.cyan) end
+  local payload=app.campaign and cmd.siteId==app.siteId and cmd.payload or cmd
+  if app.history:atPresent() and payload and payload.type=='order' then local x,y=point(payload.gx*4-3,payload.gy*4-3);dashed(x,y,4*sc,4*sc,colors.cyan) end
  end
  for _,p in ipairs(w.items) do if p.n>0 then
   local x,y=point(p.x,p.y)
@@ -212,7 +226,7 @@ local function bar(x,y,width,value,c)
  box(x,y,width,3,colors.edge);box(x,y,width*U.clamp(value,0,1),3,c)
 end
 function R:sidebar(app)
- local w=app.history.view;local x=self.panelX;local pw=308
+ local w=app.currentWorld();local x=self.panelX;local pw=308
  box(x,72,pw,self.sh-90,colors.panel)
  text('SETTLERS / H assigns duties',x+16,86,colors.muted,self.small)
  app.crewButtons={}
@@ -294,7 +308,8 @@ function R:help(app)
   'A: build charge, then select it and T to order arming. No disarm.',
   'Left/Right: step or inspect    Shift+arrows: 20 ticks    Home/End: past/live',
   'U survey / Z salvage / K cull / F4 field notes / F9 ward' ,
-  'N: generation lab (K crew, F contents) / F2 export / F3 maps / F7 biomes',
+  'N: generation lab (C selects local/campaign action) / F2 export / F3 maps / F7 biomes',
+  'Frontier campaigns: Shift+F7 or Region opens settlements; transport is pending.',
   'F5: save   F6: diagnostics   F8: benchmark   F10: tests   F12: screenshot',
   '',
   'CHALLENGE: no resurrection, no historical edits, no replacement settlers.',
@@ -312,7 +327,9 @@ function R:drawLab(app)
  local x,y=(self.sw-pw)/2,(self.sh-ph)/2
  box(x,y,pw,ph,colors.panel)
  text(n.imported and 'IMPORT TERRAIN TEMPLATE' or 'GENERATION LAB',x+24,y+20,colors.amber,self.title)
- text('Preview is isolated. Enter confirms a NEW expedition; the current colony is archived.',x+24,y+58,colors.muted,self.small)
+ local action=n.action or 'local_run'
+ local actionLabel=action=='campaign_new' and 'NEW FRONTIER CAMPAIGN' or action=='campaign_continue' and 'CONTINUE FRONTIER CAMPAIGN' or 'NEW LOCAL EXPEDITION'
+ text('Action: '..actionLabel..'  [C cycles actions]',x+24,y+58,colors.muted,self.small)
  local lx=x+24;local yy=y+94
  text('Seed: '..n.seed..(n.imported and '' or '_'),lx,yy,colors.text,self.sub);yy=yy+29
  text('Scenario: '..n.preset,lx,yy,colors.text,self.normal);yy=yy+28
@@ -324,7 +341,7 @@ function R:drawLab(app)
   text(string.format('Regions: %.2f / density %.1f',n.biomeScale,n.density or 1),lx,yy,colors.text,self.normal);yy=yy+25
   text('Contents: '..(n.features or 'living')..' / crew '..(n.crew or 3),lx,yy,colors.cyan,self.normal);yy=yy+25
   text('Mode: '..n.mode:upper(),lx,yy,colors.amber,self.normal);yy=yy+32
-  local controls={'Digits / Backspace: seed','Left/Right scenario; Up/Down layout','B profile / S size / K crew','F contents / X encounter density','O openness / G region scale','Tab: challenge / practice','Space preview / V biomes','F2 export / F3 maps / Enter starts'}
+  local controls={'Digits / Backspace: seed','Left/Right scenario; Up/Down layout','B profile / S size / K crew','F contents / X encounter density','O openness / G region scale','Tab: challenge / practice','Space: local preview / V biomes','C action / F2 export / F3 maps / Enter confirms'}
   for _,line in ipairs(controls) do text(line,lx,yy,colors.muted,self.small);yy=yy+19 end
   if n.preset~='frontier' then wrap('Legacy scenario: layout, content, crew and geology settings are ignored.',lx,yy+6,280,colors.amber,self.small) end
  else
@@ -350,9 +367,9 @@ function R:drawLab(app)
   text(string.format('Water %d   Ice %d   Lava %d   Ore %d',r.water,r.ice,r.lava,r.ore),px,py+pvh+34,colors.muted,self.small)
   local timing=p.generationMs and string.format('Generation only: %.2f ms',p.generationMs) or 'Loaded exact cells; no generation'
   text(timing,px,py+pvh+56,colors.muted,self.small)
-  text('Enter starts THIS preview. Escape keeps your current colony.',px,py+pvh+82,colors.amber,self.small)
+  text(action=='local_run' and 'Enter starts THIS local preview. Escape keeps your current colony.' or 'This is a LOCAL preview only; campaign terrain uses derived seeds.',px,py+pvh+82,colors.amber,self.small)
  else
-  wrap('Press Space or Enter to generate a preview.\n\nNothing here replaces your live settlement until you confirm the preview.',px+24,py+42,pvw-48,colors.muted,self.normal)
+  wrap(action=='campaign_continue' and 'Enter loads only campaign.run.dat. A missing, corrupt, or unsupported campaign save leaves this session unchanged.' or 'Press Space to generate a local preview.\n\nNothing here replaces your live settlement until you confirm the selected action.',px+24,py+42,pvw-48,colors.muted,self.normal)
  end
  if n.error then wrap(n.error,x+24,y+ph-40,pw-48,colors.amber,self.small) end
 end
@@ -373,10 +390,42 @@ function R:drawMapBrowser(app)
  if #b.entries==0 then wrap('No maps found. F2 exports to maps/ in the save directory. Example maps ship in maps/examples/.',x+24,y+140,pw-48,colors.amber,self.normal) end
  if b.error then wrap(b.error,x+24,y+ph-48,pw-48,colors.red,self.small) end
 end
+function R:drawRegion(app)
+ if not app.region then return end
+ local campaign=app.history.view;local region=campaign.region
+ if not region then return end
+ box(0,0,self.sw,self.sh,colors.bg,0.95)
+ local pw,ph=math.min(820,self.sw-48),math.min(590,self.sh-48);local x,y=(self.sw-pw)/2,(self.sh-ph)/2
+ box(x,y,pw,ph,colors.panel);text('REGION / SETTLEMENTS',x+24,y+20,colors.amber,self.title)
+ wrap('One campaign clock advances every generated landing region. Transport and founding are pending; switching a site changes only this view.',x+24,y+58,pw-152,colors.muted,self.small)
+ app.regionButtons={{action='close',x=x+pw-118,y=y+18,w=92,h=28}}
+ box(x+pw-118,y+18,92,28,colors.edge);text('ESC close',x+pw-108,y+25,colors.cyan,self.small)
+ local sites={};for _,site in ipairs(Campaign.sites(campaign)) do sites[site.id]=site end
+ for _,body in ipairs(Campaign.bodies(campaign)) do
+  local site=sites[body.siteId];local yy=y+120+(body.id-1)*115;local owned=site.ownerSocietyId==campaign.society.id
+  box(x+24,yy,pw-48,94,owned and colors.edge or colors.bg)
+  text(body.kind=='planet' and 'PLANET' or 'MOON',x+40,yy+14,colors.muted,self.small)
+  text(body.name,x+40,yy+34,owned and colors.cyan or colors.text,self.sub)
+  if body.parentBodyId then text('orbits '..Campaign.body(campaign,body.parentBodyId).name,x+250,yy+16,colors.muted,self.small) end
+  if owned then
+   text(string.format('Owned / %d living crew',W.alive(site.world)),x+250,yy+42,colors.text,self.normal)
+   local alerts={};for _,notice in ipairs(region.notices) do if notice.siteId==site.id then alerts[#alerts+1]=notice.kind..(notice.count>1 and (' x'..notice.count) or '') end end
+   text(#alerts>0 and ('Alerts @ '..body.name..': '..table.concat(alerts,', ')) or 'No current campaign notices.',x+250,yy+67,#alerts>0 and colors.amber or colors.muted,self.small)
+   app.regionButtons[#app.regionButtons+1]={action='site',siteId=site.id,x=x+pw-156,y=yy+31,w=108,h=32}
+   box(x+pw-156,yy+31,108,32,site.id==app.siteId and colors.cyan or colors.edge);text(site.id==app.siteId and 'Viewing' or 'View site',x+pw-145,yy+40,colors.bg,self.small)
+  else
+   text('Unvisited — Transport pending',x+250,yy+42,colors.amber,self.normal)
+   text('Orbital identity only; underground details remain unavailable.',x+250,yy+67,colors.muted,self.small)
+   app.regionButtons[#app.regionButtons+1]={action='unvisited',siteId=site.id,x=x+pw-172,y=yy+31,w=124,h=32}
+   box(x+pw-172,yy+31,124,32,colors.edge);text('Summary only',x+pw-160,yy+40,colors.cyan,self.small)
+  end
+ end
+ text('Shift+F7 toggles this overlay. Space controls the global campaign clock.',x+24,y+ph-30,colors.muted,self.small)
+end
 function R:draw(app)
  self:layout(app)
  love.graphics.clear(colors.bg)
- local w=app.history.view
+ local w=app.currentWorld()
  text(C.title,18,16,colors.text,self.title)
  text('A SETTLEMENT UNDER PRESSURE',196,24,colors.muted,self.small)
  if self.metricsWorld~=w or not self.metricsTick or math.abs(w.tick-self.metricsTick)>=20 then
@@ -391,6 +440,14 @@ function R:draw(app)
  for _,b in ipairs(app.buttons) do
   box(b.x,b.y,b.w,b.h,app.tool==b.kind and colors.edge or colors.panel)
   text(b.label,b.x+10,b.y+6,app.tool==b.kind and colors.amber or colors.text,self.small)
+ end
+ if app.regionButton then
+  box(app.regionButton.x,app.regionButton.y,app.regionButton.w,app.regionButton.h,app.region and colors.cyan or colors.edge)
+  text('Region',app.regionButton.x+12,app.regionButton.y+6,colors.bg,self.small)
+  for _,b in ipairs(app.siteButtons) do
+   box(b.x,b.y,b.w,b.h,b.siteId==app.siteId and colors.cyan or colors.edge)
+   text(b.label,b.x+10,b.y+6,colors.bg,self.small)
+  end
  end
  self:drawMap(app);self:sidebar(app)
  local t=self.timeline
@@ -409,6 +466,7 @@ function R:draw(app)
  text(status,24,self.sh-91,colors.amber,self.small)
  self:drawLab(app)
  self:drawMapBrowser(app)
+ self:drawRegion(app)
  Crew.draw(app,self)
  Notes.draw(app,self)
  self:help(app)

@@ -7,7 +7,7 @@ local function box(x,y,w,h,c) love.graphics.setColor(c);love.graphics.rectangle(
 local function text(s,x,y,c,font)love.graphics.setColor(c or colors.text);love.graphics.setFont(font);love.graphics.print(s,x,y)end
 local function wrap(s,x,y,width,c,font)love.graphics.setColor(c);love.graphics.setFont(font);love.graphics.printf(s,x,y,width,'left')end
 function UI.open(app)
- app.crew={draft=L.snapshot(app.history.view),section='people',row=1,col=0,buttons={},readonly=not app.history:atPresent() and app.history.live.mode=='challenge'}
+ app.crew={draft=L.snapshot(app.currentWorld()),section='people',row=1,col=0,buttons={},readonly=not app.history:atPresent() and app.liveWorld().mode=='challenge'}
  app.paused=true;app.accumulator=0;app.stepBudget=0;app.drag=nil
 end
 local function cycleRole(person)
@@ -71,7 +71,7 @@ function UI.mouse(app,x,y,queue)
 end
 function UI.draw(app,r)
  local c=app.crew;if not c then return end
- local w=app.history.view;local sw,sh=love.graphics.getDimensions()
+ local w=app.currentWorld();local sw,sh=love.graphics.getDimensions()
  local pw,ph=math.min(1060,sw-40),math.min(670,sh-40);local x,y=(sw-pw)/2,(sh-ph)/2
  box(0,0,sw,sh,colors.bg);box(x,y,pw,ph,colors.panel)
  text('CREW / '..(c.section=='people' and 'INDIVIDUAL DUTIES' or 'WORKFORCE SPLIT'),x+22,y+18,colors.amber,r.sub)

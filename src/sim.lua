@@ -8,7 +8,7 @@ function Sim.begin(w)
  w.tick=w.tick+1
  return w.tick
 end
-function Sim.body(w,clock,timings)
+function Sim.body(w,clock,timings,context)
  timings=timings or {};local start=clock and clock()
  require('src.labor').refresh(w)
  require('src.blasts').step(w)
@@ -20,7 +20,7 @@ function Sim.body(w,clock,timings)
  if clock then timings.infrastructure=clock()-start;start=clock() end
  if w.content then require('src.ecology').step(w) end
  if clock then timings.ecology=clock()-start;start=clock() end
- A.step(w)
+ A.step(w,context)
  if clock then timings.colonists=clock()-start end
  if w.tick%200==0 then
   local items={} for _,p in ipairs(w.items) do if p.n>0 or p.reserved then items[#items+1]=p end end w.items=items

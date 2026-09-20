@@ -92,6 +92,7 @@ function L.allocate(w,p)
  return result,counts
 end
 function L.roleForTask(w,t)
+ if t.kind=='cargo' then return 'haul' end
  if t.kind=='work' then
   local j=W.find(w.jobs,t.job)
   return j and (j.kind=='dig' and 'dig' or 'build') or 'build'

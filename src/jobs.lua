@@ -93,7 +93,7 @@ local function assign(w,a,t)
  if t.node then w.workClaims=w.workClaims or {}; w.workClaims[t.node]=a.id end
  t.next=1; t.progress=0; a.task=t; a.reason=''; a.status=t.label or t.kind
 end
-function J.plan(w,a)
+function J.plan(w,a,context)
  J.release(w,a,true)
  local f=N.flood(w,a.x,a.y)
  if a.evacuate then
@@ -125,9 +125,12 @@ function J.plan(w,a)
  end
  if a.directive then
   local d=a.directive
-  local path,node=closest(w,a,f,function(x,y)return math.abs(x-d.x)+math.abs(y-d.y)<=3 end)
-  if path then assign(w,a,{kind='rally',path=path,node=node,label='Rally / hold'})
-  else a.status='Rally blocked';a.reason='No reachable standing position near the destination' end
+  local assembly=d.kind=='assembly'
+  local path,node=closest(w,a,f,function(x,y)
+   return assembly and x==d.x and y==d.y or math.abs(x-d.x)+math.abs(y-d.y)<=3
+  end)
+  if path then assign(w,a,{kind='rally',path=path,node=node,label=assembly and 'Assembling expedition' or 'Rally / hold'})
+  else a.status=assembly and 'Assembly blocked' or 'Rally blocked';a.reason=assembly and 'No safe reachable assembly pose' or 'No reachable standing position near the destination' end
   return
  end
  local choices={}
@@ -135,8 +138,11 @@ function J.plan(w,a)
   local bias=Labor.score(w,a,t);if bias==nil then return end
   t.score=score+bias-(distance or 0)*0.05;choices[#choices+1]=t
  end
+ if context then require('src.logistics').offer(w,a,context,f,closest,itemChoice,offer) end
  for _,j in ipairs(w.jobs) do if j.state=='open' and not j.assigned and not Field.kinds[j.kind] and (not j.owner or j.owner==a.id) then
-  if j.kind=='dig' and not J.digRemaining(w,j) then j.state='done';j.reason='Already clear'
+  if j.logistics then
+   -- Cargo jobs are offered by the campaign logistics context above.
+  elseif j.kind=='dig' and not J.digRemaining(w,j) then j.state='done';j.reason='Already clear'
   else
    local valid,reason=true,nil
    if j.kind=='build' then valid,reason=S.siteClear(w,j.gx,j.gy,j.build) end
@@ -234,17 +240,20 @@ local function blocked(w,a,reason)
  end
  finish(w,a,'Blocked');a.reason=reason;a.thinkAt=w.tick+20
 end
-local function routeDestination(w,a)
+local function routeDestination(w,a,context)
  local t=a.task
  if t.kind=='work' then
   local j=W.find(w.jobs,t.job)
   return j and reRoute(w,a,function(x,y) return workPose(w,j,x,y) end)
+ elseif t.kind=='cargo' then
+  local j=W.find(w.jobs,t.job)
+  return j and context and require('src.logistics').routeToCraft(context.campaign,context.siteId,w,a,j,reRoute)
  else
   local s=w.structures[t.slot or t.store]
   return s and reRoute(w,a,function(x,y) return N.reachRect(w,x,y,s.gx,s.gy) end)
  end
 end
-function J.act(w,a)
+function J.act(w,a,context)
  local t=a.task
  if not t then return end
  if t.job then local j=W.find(w.jobs,t.job) if not j or j.state~='open' then finish(w,a) return end end
@@ -258,7 +267,28 @@ function J.act(w,a)
   return
  end
  a.worked=true
- if t.kind=='field' then Field.act(w,a,t,finish,blocked,reRoute)
+ if t.kind=='cargo' then
+  local j=W.find(w.jobs,t.job);local Logistics=require('src.logistics')
+  if not context or not j then blocked(w,a,'Cargo context is unavailable') return end
+  if t.stage=='fetch' and j.kind=='load' then
+   local p=W.find(w.items,t.item)
+   if not p or p.n<=0 or p.reserved~=a.id or not N.reach(w,a.x,a.y,p.x,p.y,4) then blocked(w,a,'Supply moved or became inaccessible') return end
+   local n,why=Logistics.loadFetch(context.campaign,context.siteId,j,p,a)
+   if not n then blocked(w,a,why) return end
+   a.carry={kind=p.kind,n=n};p.n=p.n-n;p.reserved=nil;t.item=nil;t.stage='deliver';a.status='Delivering '..a.carry.kind..' to craft'
+   if not routeDestination(w,a,context) then blocked(w,a,'Craft is no longer reachable') end
+  elseif t.stage=='fetch' and j.kind=='unload' then
+   local n,why=Logistics.unloadFetch(context.campaign,context.siteId,j,a)
+   if not n then blocked(w,a,why) return end
+   a.carry={kind=j.logistics.resource,n=n};t.stage='deliver';t.path={};t.next=1;a.status='Carrying cargo to ground'
+  elseif t.stage=='deliver' and j.kind=='load' then
+   local delivered,why=Logistics.loadDeliver(context.campaign,context.siteId,j,a)
+   if not delivered then blocked(w,a,why) else finish(w,a,'Loaded craft cargo') end
+  elseif t.stage=='deliver' and j.kind=='unload' then
+   local delivered,why=Logistics.unloadDeliver(context.campaign,context.siteId,j,a)
+   if not delivered then blocked(w,a,why) else finish(w,a,'Unloaded craft cargo') end
+  else blocked(w,a,'Cargo task state changed') end
+ elseif t.kind=='field' then Field.act(w,a,t,finish,blocked,reRoute)
  elseif t.kind=='rally' then a.worked=false;a.status='Rally / holding';a.reason='J releases this worker to normal duties'
  elseif t.kind=='escape' then finish(w,a,'Reached safety')
  elseif t.kind=='eat' then
@@ -286,7 +316,7 @@ function J.act(w,a)
    a.carry={kind='water',n=n}
   end
   t.stage='deliver';a.status='Delivering '..a.carry.kind
-  if not routeDestination(w,a) then blocked(w,a,'Destination no longer reachable') end
+  if not routeDestination(w,a,context) then blocked(w,a,'Destination no longer reachable') end
  elseif t.stage=='deliver' then
   if not a.carry then blocked(w,a,'Missing carried supply') return end
   if t.kind=='work' then
@@ -315,7 +345,7 @@ function J.act(w,a)
    local c=J.digCell(w,j,a.x,a.y)
    if not c then
     if not J.digRemaining(w,j) then j.state='done';j.reason='Completed';w.stats.jobsDone=w.stats.jobsDone+1;finish(w,a)
-    elseif not routeDestination(w,a) then blocked(w,a,'No reachable excavation face') end
+    elseif not routeDestination(w,a,context) then blocked(w,a,'No reachable excavation face') end
     return
    end
    t.progress=t.progress+a.mine

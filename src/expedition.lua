@@ -23,6 +23,17 @@ function E.validateStart(w,home,crew)
  end
  return true
 end
+function E.validateLanding(w,home)
+ assert(type(home)=='table','Landing needs an arrival marker')
+ local left=home.left or 9;U.integer(left,'landing left',5,w.width-64)
+ U.integer(home.right,'landing right',left+39,w.width-4);U.integer(home.floor,'landing floor',25,w.height-6)
+ for n=1,3 do
+  local x=left+11+(n-1)*5
+  for yy=home.floor-3,home.floor-1 do for xx=x,x+1 do assert(W.get(w,xx,yy)==M.AIR,'Landing worker footprint is not empty') end end
+  assert(M.def[W.get(w,x,home.floor)].solid and M.def[W.get(w,x+1,home.floor)].solid,'Landing workers need footing')
+ end
+ return true
+end
 function E.populate(w,home,crew)
  crew=crew or 3
  E.validateStart(w,home,crew)
@@ -45,7 +56,7 @@ function E.populate(w,home,crew)
  W.event(w,'arrival',(crew==3 and 'Three settlers' or tostring(crew)..' settlers')..' enter a finite underground frontier. There are no reinforcements.')
  W.event(w,'warning','Survey all directions. Biomes contain different materials; no safe route or recovery is promised.')
 end
-function E.stamp(w,crew)
+function E.landing(w)
  local floorY=math.floor(w.height*0.46/4)*4+1
  local left=math.floor((w.width/2-32)/4)*4+1;local right=left+63
  local function fill(x1,y1,x2,y2,m)
@@ -57,7 +68,17 @@ function E.stamp(w,crew)
  fill(well-1,floorY,well+12,floorY+2,M.ROCK)
  fill(well,floorY,well+11,floorY+1,M.WATER)
  -- A small starter well, never an infinite source. The surrounding geology is not repaired.
- local home={left=left,right=right,floor=floorY}
- E.populate(w,home,crew)
+ return {left=left,right=right,floor=floorY}
+end
+function E.stamp(w,crew)
+ E.populate(w,E.landing(w),crew)
+end
+function E.unpopulated(w)
+ local home=E.landing(w)
+ E.validateLanding(w,home)
+ -- The marker records a usable physical landing clearing but does not create
+ -- a stockpile, structure, worker, or arrival event.
+ w.home={left=home.left,x=home.left+7,y=home.floor-1,right=home.right,floor=home.floor}
+ return w.home
 end
 return E

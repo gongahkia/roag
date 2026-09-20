@@ -61,7 +61,7 @@ local function pockets(w)
   if W.get(w,x,y)==M.AIR and W.get(w,x,y-1)==M.ICE and R.hash(w.seed+221,x,y)<0.11 then W.put(w,x,y,M.ICE) end
  end end
 end
-function F.make(seed,mode,width,height,options)
+local function make(seed,mode,width,height,options,populated)
  local o=F.options(options)
  local w=W.new(width,height,seed,'frontier',mode)
  assert(width>=128 and height>=80,'Frontier generation needs at least 128 x 80 cells')
@@ -72,10 +72,16 @@ function F.make(seed,mode,width,height,options)
   if x<=2 or x>=width-1 or y<=2 or y>=height-1 then W.put(w,x,y,M.BEDROCK) end
  end end
  local features=require('src.generation.wonders').place(w,o)
- E.stamp(w,o.crew)
+ if populated then E.stamp(w,o.crew) else E.unpopulated(w) end
  require('src.content').install(w,features)
  w.generation={version=F.version,layout=o.layout,climate=o.climate,openness=o.openness,biomeScale=o.biomeScale,features=o.features,density=o.density,crew=o.crew}
  w.mapTitle='Frontier / '..o.layout..' / '..o.climate..' / '..seed
  return w
+end
+function F.make(seed,mode,width,height,options)
+ return make(seed,mode,width,height,options,true)
+end
+function F.makeUnpopulated(seed,mode,width,height,options)
+ return make(seed,mode,width,height,options,false)
 end
 return F

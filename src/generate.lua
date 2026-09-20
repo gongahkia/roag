@@ -12,4 +12,9 @@ function G.make(seed,preset,mode,width,height,options)
  end
  return Legacy.make(seed,preset,mode,width,height)
 end
+-- Campaign moons use the current Frontier terrain/content pipeline but must
+-- arrive without an implicit local expedition.
+function G.makeUnpopulated(seed,mode,width,height,options)
+ return Frontier.makeUnpopulated(seed,mode,width,height,options)
+end
 return G

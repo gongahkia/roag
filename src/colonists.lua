@@ -10,7 +10,7 @@ function A.kill(w,a,reason)
  J.release(w,a,true);a.alive=false;a.hp=0;a.status='Dead';a.reason=reason;a.deathTick=w.tick
  W.event(w,'death',a.name..' died: '..reason..'. No replacement will arrive.',a.id)
 end
-function A.step(w)
+function A.step(w,context)
  for _,a in ipairs(w.workers) do if a.alive then
   a.hunger=math.min(100,a.hunger+w.rules.hungerRate)
   local sleeping=a.task and a.task.kind=='rest' and not a.task.path[a.task.next]
@@ -56,9 +56,9 @@ function A.step(w)
         or (a.fatigue>=95 and a.task.kind~='rest' and a.task.kind~='eat')) then
       J.release(w,a,true);a.thinkAt=w.tick
      end
-     if not a.task and w.tick>=a.thinkAt then J.plan(w,a);a.thinkAt=w.tick+w.rules.planEvery end
+     if not a.task and w.tick>=a.thinkAt then J.plan(w,a,context);a.thinkAt=w.tick+w.rules.planEvery end
      local interval=w.rules.moveEvery+(a.hp<45 and 1 or 0)+(a.fatigue>85 and 1 or 0)
-     if w.tick%interval==0 then J.act(w,a) end
+     if w.tick%interval==0 then J.act(w,a,context) end
     end
    end
   end

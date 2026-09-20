@@ -3,7 +3,7 @@ local Cat=require('src.catalog')
 local UI={}
 function UI.draw(app,r)
  if not app.fieldnotes then return end
- local w=app.history.view;local sw,sh=love.graphics.getDimensions()
+ local w=app.currentWorld();local sw,sh=love.graphics.getDimensions()
  local pw,ph=math.min(960,sw-40),math.min(640,sh-40);local x,y=(sw-pw)/2,(sh-ph)/2
  love.graphics.setColor(0.035,0.048,0.06,0.96);love.graphics.rectangle('fill',0,0,sw,sh)
  love.graphics.setColor(0.07,0.09,0.105,1);love.graphics.rectangle('fill',x,y,pw,ph)

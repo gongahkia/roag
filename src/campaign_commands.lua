@@ -14,6 +14,13 @@ local fields={
  field={type=true,kind=true,target=true,worker=true,priority=true},arm={type=true,slot=true,worker=true,priority=true},
  target_order={type=true,gx=true,gy=true,worker=true},
 }
+local campaignFields={
+ prepare_expedition={scope=true,type=true,sourceSiteId=true,craftId=true,destinationSiteId=true,passengers=true,cargo=true},
+ assemble_expedition={scope=true,type=true,sourceSiteId=true,craftId=true,manifestId=true},
+ cancel_expedition={scope=true,type=true,sourceSiteId=true,craftId=true,manifestId=true},
+ unload_cargo={scope=true,type=true,sourceSiteId=true,craftId=true,resource=true,amount=true},
+ cancel_cargo_unload={scope=true,type=true,sourceSiteId=true,craftId=true,operationId=true},
+}
 
 local function exact(t,allowed,label)
  assert(type(t)=='table',label..' must be a table')
@@ -39,13 +46,24 @@ end
 
 local function shape(envelope)
  assert(type(envelope)=='table','Malformed campaign command')
- for key in pairs(envelope) do assert(key=='scope' or key=='siteId' or key=='payload','Unknown campaign command key') end
- assert(envelope.scope=='site','Unsupported campaign command scope')
- U.integer(envelope.siteId,'campaign command site ID',1,100000000)
- assert(type(envelope.payload)=='table' and type(envelope.payload.type)=='string','Malformed site command payload')
- local allowed=fields[envelope.payload.type];assert(allowed,'Unknown site command')
- for key in pairs(envelope.payload) do assert(allowed[key],'Unknown '..envelope.payload.type..' command key '..tostring(key)) end
- if envelope.payload.type=='labor' then laborShape(envelope.payload.plan) end
+ if envelope.scope=='site' then
+  for key in pairs(envelope) do assert(key=='scope' or key=='siteId' or key=='payload','Unknown campaign command key') end
+  U.integer(envelope.siteId,'campaign command site ID',1,100000000)
+  assert(type(envelope.payload)=='table' and type(envelope.payload.type)=='string','Malformed site command payload')
+  local allowed=fields[envelope.payload.type];assert(allowed,'Unknown site command')
+  for key in pairs(envelope.payload) do assert(allowed[key],'Unknown '..envelope.payload.type..' command key '..tostring(key)) end
+  if envelope.payload.type=='labor' then laborShape(envelope.payload.plan) end
+ elseif envelope.scope=='campaign' then
+  assert(type(envelope.type)=='string','Malformed campaign command type')
+  local allowed=campaignFields[envelope.type];assert(allowed,'Unknown campaign command')
+  for key in pairs(envelope) do assert(allowed[key],'Unknown '..envelope.type..' command key '..tostring(key)) end
+  U.integer(envelope.sourceSiteId,'campaign command source site ID',1,100000000);U.integer(envelope.craftId,'campaign craft ID',1,100000000)
+  if envelope.type=='prepare_expedition' then
+   U.integer(envelope.destinationSiteId,'campaign destination site ID',1,100000000);assert(type(envelope.passengers)=='table' and type(envelope.cargo)=='table','Malformed expedition plan')
+  elseif envelope.type=='assemble_expedition' or envelope.type=='cancel_expedition' then U.integer(envelope.manifestId,'campaign manifest ID',1,100000000)
+  elseif envelope.type=='unload_cargo' then assert(type(envelope.resource)=='string','Malformed cargo resource');U.integer(envelope.amount,'campaign unload amount',1,1000)
+  else U.integer(envelope.operationId,'campaign cargo operation ID',1,100000000) end
+ else error('Unsupported campaign command scope') end
  require('src.campaign_codec').encode(envelope)
  return true
 end
@@ -58,10 +76,15 @@ end
 function Command.valid(campaign,envelope)
  local ok,why=pcall(function()
   shape(envelope)
-  local site=Campaign.site(campaign,envelope.siteId)
-  assert(site,'Unknown campaign site')
-  local valid,reason=Cmd.valid(site.world,envelope.payload)
-  assert(valid,reason)
+  if envelope.scope=='campaign' then
+   local valid,reason=require('src.logistics').valid(campaign,envelope);assert(valid,reason)
+  else
+   local site=Campaign.site(campaign,envelope.siteId)
+   assert(site,'Unknown campaign site')
+   assert(site.ownerSocietyId==campaign.society.id,'Site is not owned by this society')
+   local valid,reason=Cmd.valid(site.world,envelope.payload)
+   assert(valid,reason)
+  end
  end)
  return ok,ok and nil or tostring(why)
 end
@@ -69,8 +92,10 @@ end
 function Command.apply(campaign,envelope)
  local structural,reason=Command.shape(envelope)
  if not structural then return false,reason end
+ if envelope.scope=='campaign' then return require('src.logistics').apply(campaign,envelope) end
  local site=Campaign.site(campaign,envelope.siteId)
  if not site then return false,'Unknown campaign site' end
+ if site.ownerSocietyId~=campaign.society.id then return false,'Site is not owned by this society' end
  local valid,why=Cmd.valid(site.world,envelope.payload)
  if not valid then
   W.event(site.world,'rejected',why)
