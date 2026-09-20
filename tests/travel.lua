@@ -59,7 +59,9 @@ local function countResource(c,kind)
 end
 local function fillLanding(world)
  local home=assert(world.home)
- for y=home.y-2,home.y do for x=home.x,home.x+1 do W.put(world,x,y,M.ROCK) end end
+ for y=math.max(1,home.y-10),math.min(world.height,home.y+10) do
+  for x=math.max(1,home.x-10),math.min(world.width,home.x+10) do W.put(world,x,y,M.ROCK) end
+ end
 end
 
 function T.run()
@@ -149,9 +151,9 @@ function T.run()
  end)
 
  group('P04-K return reoccupies an existing world without regeneration or starter grants',function()
-  local h=history(7211);local mat=Codec.encode(h.live.sites[1].world.mat);local vehicle=readyLaunch(h,{food=2,metal=2},{1},2);landSoon(h)
+  local h=history(7211);local home=h.live.sites[1].world;local generation=Codec.encode(home.generation);local sentinel=home.mat[1];local vehicle=readyLaunch(h,{food=2,metal=2},{1},2);landSoon(h)
   local person=worker(h.live,1,2).personId;prepare(h,{food=2,metal=1},{1},1,2);advance(h,1);local m=manifest(h.live);assert(h:queue(command('assemble_expedition',{sourceSiteId=2,craftId=1,manifestId=m.id})));advance(h,170);m=manifest(h.live);assert(h:queue(command('launch_expedition',{sourceSiteId=2,craftId=1,manifestId=m.id,expectedManifestRevision=m.revision})));advance(h,1);landSoon(h)
-  eq(Codec.encode(h.live.sites[1].world.mat),mat,'Return regenerated or reset the home terrain');check(#h.live.sites[1].world.workers==3,'Return granted a replacement crew');check(personAt(h.live,person,1),'Returned person was replaced')
+  eq(Codec.encode(h.live.sites[1].world.generation),generation,'Return regenerated or reset home generation metadata');eq(h.live.sites[1].world.mat[1],sentinel,'Return replaced the persistent home terrain');check(#h.live.sites[1].world.workers==3,'Return granted a replacement crew');check(personAt(h.live,person,1),'Returned person was replaced')
  end)
 
  group('P04-L stale and duplicate launch or return identities have one deterministic effect',function()
@@ -161,7 +163,7 @@ function T.run()
  end)
 
  group('P04-M cabin physiology consumes actual food once and has no hidden ground source',function()
-  local h=history(7213);local vehicle=readyLaunch(h,{food=1,metal=2},{1},2);local passenger=vehicle.passengers[1];passenger.hunger=60;local food=vehicle.cargo.food;advance(h,1);eq(vehicle.cargo.food,food-1);check(passenger.hunger<60,'Cabin passenger did not eat its actual craft food')
+  local h=history(7213);local vehicle=readyLaunch(h,{food=1,metal=2},{1},2);local passenger=vehicle.passengers[1];passenger.hunger=60;local food=vehicle.cargo.food;advance(h,1);eq(vehicle.cargo.food or 0,food-1);check(passenger.hunger<60,'Cabin passenger did not eat its actual craft food')
   vehicle.cargo.food=nil;passenger.hunger=99.99;passenger.hp=.01;advance(h,1);check(not passenger.alive,'Passenger ate a hidden settlement food source')
  end)
 
@@ -172,9 +174,17 @@ function T.run()
  end)
 
  group('P04-O receipt retention is bounded and allocation counters stay monotonic',function()
-  local h=history(7216);local vehicle=readyLaunch(h,{food=2,metal=2},{1},2);local travel=h.live.travel
-  for id=1,129 do travel.receipts[#travel.receipts+1]={id=id,tick=h.live.tick,kind='meal',sourceDomain='transit',sourceSiteId=0,destinationDomain='sink',destinationSiteId=0,craftId=1,journeyId=vehicle.journey.id,cargo={food=1,water=0,stone=0,soil=0,metal=0}} end
-  while #travel.receipts>128 do table.remove(travel.receipts,1) end;travel.nextReceiptId=130;Campaign.validate(h.live);eq(#travel.receipts,128);eq(travel.receipts[1].id,2);eq(travel.nextReceiptId,130)
+  local h=history(7216);local vehicle=readyLaunch(h,{food=2,metal=2},{1},2);local travel=h.live.travel;local exemplar=U.deep(vehicle.passengers[1]);vehicle.cargo={food=24}
+  local nextPerson=h.live.nextPersonId
+  for index=1,4 do
+   local record=index==1 and vehicle or {id=index,ownerSocietyId=1,seats=3,capacity=24,dockedSiteId=nil,anchor=U.deep(vehicle.anchor),cargo={food=24},activeManifestId=nil,passengers={},journey=U.deep(vehicle.journey)}
+   if index>1 then record.journey.id=index;h.live.logistics.crafts[#h.live.logistics.crafts+1]=record end
+   while #record.passengers<3 do local passenger=U.deep(exemplar);passenger.personId=nextPerson;passenger.name='Fixture '..nextPerson;nextPerson=nextPerson+1;record.passengers[#record.passengers+1]=passenger end
+   table.sort(record.passengers,function(a,b) return a.personId<b.personId end)
+  end
+  h.live.nextPersonId=nextPerson;h.live.logistics.nextCraftId=5;travel.nextJourneyId=5
+  for _=1,11 do for _,record in ipairs(h.live.logistics.crafts) do for _,passenger in ipairs(record.passengers) do passenger.hunger=60 end end;advance(h,1) end
+  Campaign.validate(h.live);eq(#travel.receipts,128);check(travel.receipts[1].id>1,'Oldest receipt was not pruned by real transit consumption');check(travel.nextReceiptId>128,'Receipt allocator regressed after pruning')
  end)
 
  group('P04-Q feature-off histories and templates remain outside travel state',function()
