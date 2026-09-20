@@ -7,6 +7,7 @@ local Campaign=require('src.campaign')
 local History=require('src.campaign_history')
 local Codec=require('src.campaign_codec')
 local Commands=require('src.campaign_commands')
+local Logistics=require('src.logistics')
 local Knowledge=require('src.knowledge')
 local Education=require('src.education')
 local T={}
@@ -24,6 +25,14 @@ local function newCampaign(people)
  local w=F.world('practice')
  for i=1,people or 3 do F.worker(w,8+(i-1)*7,24,string.char(64+i)) end
  return Campaign.new(w,{knowledge=true,education=true})
+end
+local function newTravelCampaign(seed)
+ local c=Campaign.newRegion(seed,{preset='frontier',mode='practice',width=128,height=80,layout='hybrid',climate='balanced',openness=.48,biomeScale=1,features='living',density=1,crew=3,logistics=true,travel=true,knowledge=true,education=true})
+ for _,site in ipairs(c.sites) do
+  local content=site.world.content
+  content.flora={};content.fauna={};content.sites={};content.ruins={};content.signals={};content.discoveries={};content.observed={}
+ end
+ return c
 end
 local function grantIdentify(c,index)
  local w=c.sites[1].world
@@ -108,12 +117,23 @@ function T.run()
   check(learned and learned.method=='taught','Lesson did not create taught provenance');eq(#learner.frontier.knowledge.observations,0,'Lesson copied teacher eyewitness observations')
  end)
 
- group('P06-H portable education state survives campaign cloning without local school references',function()
+ group('P06-H portable education state survives campaign cloning and actual travel without local school references',function()
   local c=newCampaign(2);grantIdentify(c,1);local slot=installSchool(c);local h=History.new(c);policy(h,slot,school(h,slot).education,true,'teach',identify,1,3)
   advance(h,60);local learner=world(h).workers[2];local progress=assert(learner.frontier.education.tuition[1]).progress
   local copied=Campaign.clone(h.live);local cloneLearner=copied.sites[1].world.workers[2]
   eq(cloneLearner.frontier.education.tuition[1].progress,progress);cloneLearner.frontier.education.tuition[1].progress=1
   eq(learner.frontier.education.tuition[1].progress,progress,'Portable education clone aliases live personal state')
+  local travel=newTravelCampaign(9686);grantIdentify(travel,1);local travelWorld=travel.sites[1].world
+  local gx,gy=W.tile(travelWorld,travelWorld.home.left+28,travelWorld.home.floor-1);local travelSlot=W.slot(travelWorld,gx,gy);S.install(travelWorld,gx,gy,'field_school')
+  local travelHistory=History.new(travel);policy(travelHistory,travelSlot,school(travelHistory,travelSlot).education,true,'record',identify,1,3);advance(travelHistory,520)
+  policy(travelHistory,travelSlot,school(travelHistory,travelSlot).education,true,'study',identify,1,3);advance(travelHistory,200)
+  local traveller=world(travelHistory).workers[2];local unfinished=assert(traveller.frontier.education.tuition[1]).progress
+  assert(travelHistory:queue({scope='site',siteId=1,payload={type='rally',worker=traveller.id,x=traveller.x,y=traveller.y}}));advance(travelHistory,1)
+  assert(travelHistory:queue({scope='campaign',type='prepare_expedition',sourceSiteId=1,craftId=1,destinationSiteId=2,passengers={traveller.personId},cargo={food=2,metal=2}}));advance(travelHistory,900)
+  local manifest=assert(Logistics.manifest(travelHistory.live,1));assert(travelHistory:queue({scope='campaign',type='assemble_expedition',sourceSiteId=1,craftId=1,manifestId=manifest.id}));advance(travelHistory,600)
+  manifest=assert(Logistics.manifest(travelHistory.live,1));local ready,why=Logistics.readiness(travelHistory.live,manifest);assert(ready,why)
+  assert(travelHistory:queue({scope='campaign',type='launch_expedition',sourceSiteId=1,craftId=1,manifestId=manifest.id,expectedManifestRevision=manifest.revision}));advance(travelHistory,1)
+  local passenger=assert(Logistics.craft(travelHistory.live,1).passengers[1]);eq(passenger.personId,traveller.personId);eq(passenger.frontier.education.tuition[1].progress,unfinished,'Actual travel changed unfinished tuition');check(passenger.task==nil and passenger.frontier.education.tuition[1].id==identify,'Actual travel retained a local task reference or changed tuition topic')
  end)
 
  group('P06-I save, replay, seek, and branch retain partial school work',function()

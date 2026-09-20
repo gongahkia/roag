@@ -354,3 +354,82 @@ evidence, not a real LÖVE-window layout claim.
 P05 deliberately does not add schools, records that teach, XP, global research,
 automatic knowledge sharing, generated languages/cultures, new ecological
 mechanisms, or P06 functionality.
+
+## P06 field schools and communicated knowledge
+
+P06 adds `features.education=1`, which requires `knowledge=1`. New frontier
+campaigns opt into it with the previously implemented core, region, logistics,
+travel and knowledge features; earlier histories keep their recorded feature set
+and have neither `campaign.education`, `world.education`, personal expertise nor
+school structures.
+
+An education-enabled world has a monotonic school/session allocator and each
+person has this portable extension beside P05 knowledge:
+
+```lua
+education={version=1,fieldworkXP=0..400,teachingXP=0..400,
+           tuition={},lastLearningActionTick=...}
+```
+
+The two initial expertise values use independent P02 RNG namespaces
+`person/<personId>/expertise/fieldworkXP/v1` and
+`person/<personId>/expertise/teachingXP/v1`, each in 0..149. They persist through
+save/load and the P04 portable-person adapter. P05 operational analysis retains
+its evidence requirements; under education it uses pre-action
+`1 + floor(fieldworkXP / 100)` work, then awards one capped fieldwork XP. In a
+feature-off history it remains one unit with no expertise state.
+
+`field_school` is a normal nonblocking one-block construction. Its real recipe is
+four `stone` and two `metal`; construction still uses physical hauling/escrow and
+the usual destruction path. A newly installed school has a lifetime-stable local
+school ID, revision 1, disabled record policy, no topic, no draft, no active
+session and no records. It holds at most 16 distinct immutable records, one draft
+and one active session. School/session/record IDs are monotonic and are never
+reused for a rebuilt structure.
+
+The site-bound, revision-bound `school_policy` command selects enabled state,
+record/teach/study mode, fact/version and normal priority. The command checks the
+actual school ID and policy revision when queued and applied. A topic must have a
+living local knowledgeable person or a completed record at that school; disabled
+policies remain valid even if their former source later disappears. A real policy
+change releases the complete previous session. Changing topic or mode discards an
+unfinished local recording draft; disabling with the same topic/mode and changing
+only priority retains it.
+
+Recording requires 120 ordinary Field-duty attendance actions by a current local
+expert. It creates one school-local record with fact/version/subject, copy tick,
+bounded contributor summaries and flat copied provenance. It does not create a
+portable book or grant a nearby worker knowledge. A repeated topic record performs
+no additional copy work.
+
+Teaching and record study share a learner-owned 200-unit tuition record; its
+separate teaching and record-study unit totals always sum to progress. Teaching
+forms an atomic teacher/learner pair only after both Field-eligible people have
+reachable distinct school poses. Record study reserves one eligible learner and a
+surviving record at that exact school. An operational topic additionally requires
+the learner's corresponding personal identification. Sessions report attendance
+during ordinary work and finalize once after worker updates; live teaching and
+record study evaluate only at positive ticks divisible by ten. A policy revision,
+task release, need/hazard precedence or departure releases the entire session,
+while personal earned tuition and expertise remain with the person.
+
+At an eligible evaluation, live teaching adds
+`2 * (1 + floor(teacherTeachingXP / 100))` normalized units, grants the teacher
+one teaching XP and learner one fieldwork XP; record study adds
+`1 + floor(learnerFieldworkXP / 100)` and grants the learner one fieldwork XP.
+The calculation uses pre-reward XP and all values cap at 400. Recording earns no
+XP. A person has at most one P05/P06 learning-progress action per campaign tick.
+At 200 units one knowledge acquisition is made with `taught`, `record`, or
+`mixed` method, and the tuition entry is removed. Communicated facts carry bounded
+flat contributor/provenance summaries but do not copy another person's eyewitness
+observation array.
+
+The build selector and selected-structure inspector expose **Field school** and a
+revision-bound School panel with policy controls, available local topics, record
+count, expertise and local expert information. This extends the shared Cozette
+13px renderer path. The P06 presentation test is mock-only; it is not evidence of
+real-window font layout, hitboxes or input delivery.
+
+P06 does not add remote instruction, portable books, a general research graph,
+new facts/reactions, automatic teaching, schools in transit, social simulation,
+language/culture systems, relic travel or a P07 tranche.
