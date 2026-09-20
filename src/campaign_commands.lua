@@ -20,6 +20,8 @@ local campaignFields={
  cancel_expedition={scope=true,type=true,sourceSiteId=true,craftId=true,manifestId=true},
  unload_cargo={scope=true,type=true,sourceSiteId=true,craftId=true,resource=true,amount=true},
  cancel_cargo_unload={scope=true,type=true,sourceSiteId=true,craftId=true,operationId=true},
+ launch_expedition={scope=true,type=true,sourceSiteId=true,craftId=true,manifestId=true,expectedManifestRevision=true},
+ return_to_origin={scope=true,type=true,craftId=true,journeyId=true,expectedLeg=true},
 }
 
 local function exact(t,allowed,label)
@@ -57,12 +59,16 @@ local function shape(envelope)
   assert(type(envelope.type)=='string','Malformed campaign command type')
   local allowed=campaignFields[envelope.type];assert(allowed,'Unknown campaign command')
   for key in pairs(envelope) do assert(allowed[key],'Unknown '..envelope.type..' command key '..tostring(key)) end
-  U.integer(envelope.sourceSiteId,'campaign command source site ID',1,100000000);U.integer(envelope.craftId,'campaign craft ID',1,100000000)
+  U.integer(envelope.craftId,'campaign craft ID',1,100000000)
   if envelope.type=='prepare_expedition' then
+   U.integer(envelope.sourceSiteId,'campaign command source site ID',1,100000000)
    U.integer(envelope.destinationSiteId,'campaign destination site ID',1,100000000);assert(type(envelope.passengers)=='table' and type(envelope.cargo)=='table','Malformed expedition plan')
   elseif envelope.type=='assemble_expedition' or envelope.type=='cancel_expedition' then U.integer(envelope.manifestId,'campaign manifest ID',1,100000000)
-  elseif envelope.type=='unload_cargo' then assert(type(envelope.resource)=='string','Malformed cargo resource');U.integer(envelope.amount,'campaign unload amount',1,1000)
-  else U.integer(envelope.operationId,'campaign cargo operation ID',1,100000000) end
+   ;U.integer(envelope.sourceSiteId,'campaign command source site ID',1,100000000)
+  elseif envelope.type=='unload_cargo' then U.integer(envelope.sourceSiteId,'campaign command source site ID',1,100000000);assert(type(envelope.resource)=='string','Malformed cargo resource');U.integer(envelope.amount,'campaign unload amount',1,1000)
+  elseif envelope.type=='cancel_cargo_unload' then U.integer(envelope.sourceSiteId,'campaign command source site ID',1,100000000);U.integer(envelope.operationId,'campaign cargo operation ID',1,100000000)
+  elseif envelope.type=='launch_expedition' then U.integer(envelope.sourceSiteId,'campaign command source site ID',1,100000000);U.integer(envelope.manifestId,'campaign manifest ID',1,100000000);U.integer(envelope.expectedManifestRevision,'campaign manifest revision',1,100000000)
+  else U.integer(envelope.journeyId,'campaign journey ID',1,100000000);assert(envelope.expectedLeg=='outbound' or envelope.expectedLeg=='return','Malformed expected journey leg') end
  else error('Unsupported campaign command scope') end
  require('src.campaign_codec').encode(envelope)
  return true
@@ -77,7 +83,8 @@ function Command.valid(campaign,envelope)
  local ok,why=pcall(function()
   shape(envelope)
   if envelope.scope=='campaign' then
-   local valid,reason=require('src.logistics').valid(campaign,envelope);assert(valid,reason)
+   local handler=(envelope.type=='launch_expedition' or envelope.type=='return_to_origin') and require('src.travel') or require('src.logistics')
+   local valid,reason=handler.valid(campaign,envelope);assert(valid,reason)
   else
    local site=Campaign.site(campaign,envelope.siteId)
    assert(site,'Unknown campaign site')
@@ -92,7 +99,10 @@ end
 function Command.apply(campaign,envelope)
  local structural,reason=Command.shape(envelope)
  if not structural then return false,reason end
- if envelope.scope=='campaign' then return require('src.logistics').apply(campaign,envelope) end
+ if envelope.scope=='campaign' then
+  local handler=(envelope.type=='launch_expedition' or envelope.type=='return_to_origin') and require('src.travel') or require('src.logistics')
+  return handler.apply(campaign,envelope)
+ end
  local site=Campaign.site(campaign,envelope.siteId)
  if not site then return false,'Unknown campaign site' end
  if site.ownerSocietyId~=campaign.society.id then return false,'Site is not owned by this society' end
