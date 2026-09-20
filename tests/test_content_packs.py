@@ -13,9 +13,11 @@ from jomon.catalog import (
     ContentPackError,
     WORLD_TEXT_SECTIONS,
     bundled_default_pack,
+    character_contract,
     load_catalog,
     load_content_pack,
     region_contract,
+    role_contract,
 )
 
 
@@ -33,6 +35,7 @@ def alternate_pack(root: Path) -> Path:
     """Build a complete external fixture without committing copied game data."""
     shutil.copytree(DATA_ROOT, root / "data")
     shutil.copy(DEFAULT_PACK_ROOT / "regions.json", root / "regions.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "characters.json", root / "characters.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -49,6 +52,21 @@ def alternate_pack(root: Path) -> Path:
         "short_description": "fixture river presentation",
     }
     source.write_text(json.dumps(regions, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "characters.json"
+    characters = json.loads(source.read_text(encoding="utf-8"))
+    characters["characters"]["npc.ship_bartender"] = {
+        "display_name": "Fixture Host",
+        "short_description": "Keeps the fixture common room supplied.",
+        "initial_memory": "Fixture Host took the fixture bar.",
+    }
+    characters["characters"]["npc.ship_merchant"] = {
+        "display_name": "Fixture Trader",
+        "role_label": "fixture deck trader",
+        "short_description": "Visits on the fixture route cycle.",
+        "initial_memory": "Fixture Trader knows the fixture markets.",
+    }
+    characters["roles"]["role.household_bargemaster"] = {"display_label": "fixture navigator"}
+    source.write_text(json.dumps(characters, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
 
 
@@ -81,6 +99,33 @@ def world_presentation_snapshot(environment: dict[str, str]) -> dict[str, object
     return json.loads(result.stdout)
 
 
+def character_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.state import create_world; from jomon.terminal import _overlay_lines, _status_lines; "
+            "state = create_world('character-pack-proof'); bartender = state.bartender; merchant = state.merchant; "
+            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
+            "'bartender': [bartender.id, bartender.name, bartender.role, bartender.equipment, bartender.technique, bartender.background, bartender.memories], "
+            "'merchant': [merchant.id, merchant.name, merchant.role, merchant.equipment, merchant.technique, merchant.background, merchant.memories], "
+            "'household': [(person.id, person.role, person.equipment, person.technique) for person in state.household], "
+            "'bartender_schedule': [state.actor_schedules[bartender.id].area, state.actor_schedules[bartender.id].position.x, state.actor_schedules[bartender.id].position.y, state.actor_schedules[bartender.id].activity], "
+            "'merchant_schedule': [state.actor_schedules[merchant.id].area, state.actor_schedules[merchant.id].position.x, state.actor_schedules[merchant.id].position.y, state.actor_schedules[merchant.id].activity], "
+            "'stock': state.bartender_stock, 'signature': state.region.geography_signature, "
+            "'bartender_overlay': _overlay_lines(state, 'bartender'), 'merchant_overlay': _overlay_lines(state, 'merchant'), 'status': _status_lines(state)}))",
+        ],
+        cwd=ROOT,
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
 class ContentPackTests(unittest.TestCase):
     def test_default_pack_keeps_existing_catalog_root_and_data(self):
         pack = bundled_default_pack()
@@ -99,6 +144,25 @@ class ContentPackTests(unittest.TestCase):
                 ("region.family_6", "rillscar"),
                 ("region.family_7", "marlbank"),
                 ("region.family_8", "frostmere"),
+            ],
+        )
+        self.assertEqual(
+            [(slot.id, slot.engine_id, slot.role_id) for slot in character_contract()],
+            [
+                ("npc.ship_bartender", "bartender-sena", "bartender"),
+                ("npc.ship_merchant", "merchant-veyra", None),
+            ],
+        )
+        self.assertEqual(
+            [(slot.id, slot.engine_id) for slot in role_contract()],
+            [
+                ("role.household_bargemaster", "bargemaster"),
+                ("role.household_pilot", "pilot"),
+                ("role.household_factor", "factor"),
+                ("role.household_carpenter", "carpenter"),
+                ("role.household_guard", "guard"),
+                ("role.household_healer", "healer"),
+                ("role.ship_bartender", "bartender"),
             ],
         )
 
@@ -167,6 +231,44 @@ class ContentPackTests(unittest.TestCase):
                 with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*regions\.json"):
                     load_content_pack(root)
 
+    def test_character_presentation_contract_rejects_invalid_pack_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            source = root / "characters.json"
+            cases = {
+                "missing required character": lambda value: value["characters"].pop("npc.ship_merchant"),
+                "unknown character": lambda value: value["characters"].update({"npc.ship_extra": value["characters"].pop("npc.ship_merchant")}),
+                "missing display field": lambda value: value["characters"]["npc.ship_bartender"].pop("display_name"),
+                "wrong display field type": lambda value: value["characters"]["npc.ship_bartender"].update({"display_name": 1}),
+                "empty display field": lambda value: value["characters"]["npc.ship_bartender"].update({"display_name": ""}),
+                "unknown field": lambda value: value["characters"]["npc.ship_bartender"].update({"biography": "extra"}),
+                "missing merchant role label": lambda value: value["characters"]["npc.ship_merchant"].pop("role_label"),
+                "unknown role": lambda value: value["roles"].update({"role.ship_extra": value["roles"].pop("role.ship_bartender")}),
+            }
+            for name, mutate in cases.items():
+                with self.subTest(name):
+                    content = json.loads((DEFAULT_PACK_ROOT / "characters.json").read_text(encoding="utf-8"))
+                    mutate(content)
+                    source.write_text(json.dumps(content), encoding="utf-8")
+                    with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*characters\.json"):
+                        load_content_pack(root)
+
+            with self.subTest("duplicate semantic character"):
+                content = (DEFAULT_PACK_ROOT / "characters.json").read_text(encoding="utf-8")
+                source.write_text(content.replace('"npc.ship_merchant"', '"npc.ship_bartender"', 1), encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*npc\.ship_bartender"):
+                    load_content_pack(root)
+
+            with self.subTest("malformed JSON"):
+                source.write_text("{", encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*characters\.json"):
+                    load_content_pack(root)
+
+            with self.subTest("missing presentation file"):
+                source.unlink()
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*characters\.json"):
+                    load_content_pack(root)
+
     def test_environment_selects_complete_alternate_pack_before_main_import(self):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
@@ -215,6 +317,30 @@ class ContentPackTests(unittest.TestCase):
         self.assertEqual(default["region"][1], "Hearthford")
         self.assertEqual(default["route"][:2], ["hearthford", "Hearthford"])
 
+    def test_alternate_pack_changes_static_character_presentation_not_services(self):
+        default = character_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = character_presentation_snapshot(environment)
+
+        self.assertEqual(default["pack"], "default")
+        self.assertEqual(alternate["pack"], "fixture-alternate")
+        self.assertEqual(default["bartender"][:1], alternate["bartender"][:1])
+        self.assertEqual(default["merchant"][:1], alternate["merchant"][:1])
+        self.assertEqual(alternate["bartender"][1], "Fixture Host")
+        self.assertEqual(alternate["merchant"][1:3], ["Fixture Trader", "fixture deck trader"])
+        self.assertIn("FIXTURE HOST", " ".join(alternate["bartender_overlay"][0:1]))
+        self.assertIn("Fixture Host", " ".join(alternate["bartender_overlay"][1]))
+        self.assertIn("FIXTURE TRADER", " ".join(alternate["merchant_overlay"][0:1]))
+        self.assertIn("fixture deck trader", " ".join(alternate["merchant_overlay"][1]))
+        self.assertIn("fixture navigator", " ".join(alternate["status"]))
+        for field in ("household", "bartender_schedule", "merchant_schedule", "stock", "signature"):
+            self.assertEqual(default[field], alternate[field], field)
+        self.assertEqual(default["bartender"][1], "Sena Quill")
+        self.assertEqual(default["merchant"][1:3], ["Veyra Bale", "itinerant deck factor"])
+
     def test_alternate_pack_loads_legacy_saved_region_names_without_rewriting_them(self):
         default_environment = dict(os.environ)
         default_environment.pop("JOMON_CONTENT_PACK", None)
@@ -239,7 +365,8 @@ class ContentPackTests(unittest.TestCase):
                     "-c",
                     "import json, sys; from jomon.state import game_state_from_dict; "
                     "state = game_state_from_dict(json.load(open(sys.argv[1], encoding='utf-8'))); "
-                    "print(json.dumps([state.region.name, state.route_nodes['hearthford'].name]))",
+                    "print(json.dumps([state.region.name, state.route_nodes['hearthford'].name, "
+                    "state.bartender.name, state.merchant.name, state.merchant.role]))",
                     str(save),
                 ],
                 cwd=ROOT,
@@ -249,7 +376,10 @@ class ContentPackTests(unittest.TestCase):
                 check=False,
             )
         self.assertEqual(loaded.returncode, 0, loaded.stderr)
-        self.assertEqual(json.loads(loaded.stdout), ["Hearthford", "Hearthford"])
+        self.assertEqual(
+            json.loads(loaded.stdout),
+            ["Hearthford", "Hearthford", "Sena Quill", "Veyra Bale", "itinerant deck factor"],
+        )
 
     def test_selected_pack_reports_its_catalog_schema_failure(self):
         with tempfile.TemporaryDirectory() as directory:

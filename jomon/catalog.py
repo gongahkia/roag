@@ -62,6 +62,7 @@ CONTENT_PACK_FORMAT = 1
 CONTENT_PACK_ENVIRONMENT = "JOMON_CONTENT_PACK"
 REGION_CONTRACT_FORMAT = 1
 REGION_PRESENTATION_FILE = "regions.json"
+CHARACTER_PRESENTATION_FILE = "characters.json"
 
 # Main-world modules load these files into module constants. Selecting a pack
 # therefore validates that it is complete before any one catalog is consumed.
@@ -103,6 +104,44 @@ class RegionPresentation:
 
 
 @dataclass(frozen=True)
+class CharacterContractSlot:
+    """One engine-owned slot for a persistent static character."""
+
+    id: str
+    engine_id: str
+    role_id: str | None
+
+
+@dataclass(frozen=True)
+class RoleContractSlot:
+    """One engine-owned role whose ID remains mechanical."""
+
+    id: str
+    engine_id: str
+
+
+@dataclass(frozen=True)
+class CharacterPresentation:
+    """Immutable selected-pack presentation for one static character."""
+
+    id: str
+    engine_id: str
+    display_name: str
+    short_description: str
+    initial_memory: str
+    role_label: str = ""
+
+
+@dataclass(frozen=True)
+class RolePresentation:
+    """Immutable selected-pack label for one mechanical role ID."""
+
+    id: str
+    engine_id: str
+    display_label: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -112,6 +151,9 @@ class ContentPack:
     root: Path
     catalog_root: Path
     region_presentations: tuple[RegionPresentation, ...]
+    character_presentations: tuple[CharacterPresentation, ...]
+    role_presentations: tuple[RolePresentation, ...]
+    household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
         return self.catalog_root / name
@@ -121,6 +163,18 @@ class ContentPack:
             if presentation.engine_id == engine_id:
                 return presentation
         raise KeyError(f"unknown engine region id: {engine_id}")
+
+    def character_presentation(self, semantic_id: str) -> CharacterPresentation:
+        for presentation in self.character_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown character semantic id: {semantic_id}")
+
+    def role_presentation(self, engine_id: str) -> RolePresentation:
+        for presentation in self.role_presentations:
+            if presentation.engine_id == engine_id:
+                return presentation
+        raise KeyError(f"unknown engine role id: {engine_id}")
 
 
 _selected_pack: ContentPack | None = None
@@ -144,18 +198,23 @@ def _package_path(*parts: str) -> Path:
     return Path(str(files("jomon").joinpath(*parts)))
 
 
-def _region_contract() -> tuple[RegionContractSlot, ...]:
-    """Load the small engine-owned regional identity contract."""
+def _content_contract_document() -> tuple[Path, dict[str, Any]]:
     source = _package_path("content_packs", "contract.json")
     try:
         text = source.read_text(encoding="utf-8")
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
-        raise RuntimeError(f"invalid engine region content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions"}:
-        raise RuntimeError(f"invalid engine region content contract at {source}: expected format_version and regions")
+        raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, and roles")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
-        raise RuntimeError(f"invalid engine region content contract at {source}: unsupported format_version")
+        raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
+    return source, document
+
+
+def _region_contract() -> tuple[RegionContractSlot, ...]:
+    """Load the small engine-owned regional identity contract."""
+    source, document = _content_contract_document()
     regions = document["regions"]
     if not isinstance(regions, list) or not regions:
         raise RuntimeError(f"invalid engine region content contract at {source}: regions must be a non-empty list")
@@ -176,6 +235,60 @@ def _region_contract() -> tuple[RegionContractSlot, ...]:
 def region_contract() -> tuple[RegionContractSlot, ...]:
     """Return the ordered engine-owned regional presentation contract."""
     return _region_contract()
+
+
+def _character_contract() -> tuple[CharacterContractSlot, ...]:
+    source, document = _content_contract_document()
+    characters = document["characters"]
+    if not isinstance(characters, list) or not characters:
+        raise RuntimeError(f"invalid engine character content contract at {source}: characters must be a non-empty list")
+    slots: list[CharacterContractSlot] = []
+    for index, row in enumerate(characters):
+        if not isinstance(row, dict) or set(row) != {"id", "engine_id", "role_id"}:
+            raise RuntimeError(
+                f"invalid engine character content contract at {source}: characters[{index}] must contain id, engine_id, and role_id"
+            )
+        semantic_id, engine_id, role_id = row["id"], row["engine_id"], row["role_id"]
+        if (not isinstance(semantic_id, str) or re.fullmatch(r"npc\.[a-z][a-z0-9_.-]*", semantic_id) is None
+                or not isinstance(engine_id, str) or re.fullmatch(r"[a-z][a-z0-9_-]*", engine_id) is None
+                or role_id is not None and (not isinstance(role_id, str) or re.fullmatch(r"[a-z][a-z0-9_-]*", role_id) is None)):
+            raise RuntimeError(f"invalid engine character content contract at {source}: characters[{index}] has invalid ids")
+        slots.append(CharacterContractSlot(semantic_id, engine_id, role_id))
+    if len({slot.id for slot in slots}) != len(slots) or len({slot.engine_id for slot in slots}) != len(slots):
+        raise RuntimeError(f"invalid engine character content contract at {source}: character ids must be unique")
+    return tuple(slots)
+
+
+def character_contract() -> tuple[CharacterContractSlot, ...]:
+    """Return engine-owned static-character slots."""
+    return _character_contract()
+
+
+def _role_contract() -> tuple[RoleContractSlot, ...]:
+    source, document = _content_contract_document()
+    roles = document["roles"]
+    if not isinstance(roles, list) or not roles:
+        raise RuntimeError(f"invalid engine role content contract at {source}: roles must be a non-empty list")
+    slots: list[RoleContractSlot] = []
+    for index, row in enumerate(roles):
+        if not isinstance(row, dict) or set(row) != {"id", "engine_id"}:
+            raise RuntimeError(f"invalid engine role content contract at {source}: roles[{index}] must contain id and engine_id")
+        semantic_id, engine_id = row["id"], row["engine_id"]
+        if (not isinstance(semantic_id, str) or re.fullmatch(r"role\.[a-z][a-z0-9_.-]*", semantic_id) is None
+                or not isinstance(engine_id, str) or re.fullmatch(r"[a-z][a-z0-9_-]*", engine_id) is None):
+            raise RuntimeError(f"invalid engine role content contract at {source}: roles[{index}] has invalid ids")
+        slots.append(RoleContractSlot(semantic_id, engine_id))
+    if len({slot.id for slot in slots}) != len(slots) or len({slot.engine_id for slot in slots}) != len(slots):
+        raise RuntimeError(f"invalid engine role content contract at {source}: role ids must be unique")
+    character_roles = {slot.role_id for slot in _character_contract() if slot.role_id is not None}
+    if not character_roles <= {slot.engine_id for slot in slots}:
+        raise RuntimeError(f"invalid engine role content contract at {source}: character role reference is unknown")
+    return tuple(slots)
+
+
+def role_contract() -> tuple[RoleContractSlot, ...]:
+    """Return engine-owned household/service role slots."""
+    return _role_contract()
 
 
 def _region_presentations(root: Path, pack_id: str) -> tuple[RegionPresentation, ...]:
@@ -235,6 +348,100 @@ def _region_presentations(root: Path, pack_id: str) -> tuple[RegionPresentation,
                 )
         presentations.append(RegionPresentation(slot.id, slot.engine_id, **row))
     return tuple(presentations)
+
+
+def _character_presentations(
+    root: Path, pack_id: str,
+) -> tuple[tuple[CharacterPresentation, ...], tuple[RolePresentation, ...], str]:
+    source = root / CHARACTER_PRESENTATION_FILE
+    try:
+        text = source.read_text(encoding="utf-8")
+        document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(
+            f"invalid character presentation for content pack {pack_id!r} at {source}: {exc}"
+        ) from exc
+    if not isinstance(document, dict) or set(document) != {"characters", "roles", "household"}:
+        raise ContentPackError(
+            f"invalid character presentation for content pack {pack_id!r} at {source}: "
+            "expected characters, roles, and household"
+        )
+    characters, roles, household = document["characters"], document["roles"], document["household"]
+    if not isinstance(characters, dict) or not isinstance(roles, dict) or not isinstance(household, dict):
+        raise ContentPackError(
+            f"invalid character presentation for content pack {pack_id!r} at {source}: "
+            "characters, roles, and household must be objects"
+        )
+    character_slots, role_slots = character_contract(), role_contract()
+    expected_characters, expected_roles = {slot.id for slot in character_slots}, {slot.id for slot in role_slots}
+    for label, rows, expected in (("characters", characters, expected_characters), ("roles", roles, expected_roles)):
+        if set(rows) == expected:
+            continue
+        missing, unknown = sorted(expected - set(rows)), sorted(set(rows) - expected)
+        details = []
+        if missing:
+            details.append("missing required " + label + " " + ", ".join(missing))
+        if unknown:
+            details.append("unknown " + label + " " + ", ".join(unknown))
+        raise ContentPackError(
+            f"invalid character presentation for content pack {pack_id!r} at {source}: " + "; ".join(details)
+        )
+    presentations: list[CharacterPresentation] = []
+    for slot in character_slots:
+        row = characters[slot.id]
+        required = {"display_name", "short_description", "initial_memory"}
+        if slot.role_id is None:
+            required.add("role_label")
+        path = f"characters.{slot.id}"
+        if not isinstance(row, dict) or set(row) != required:
+            missing, unknown = (required - set(row), set(row) - required) if isinstance(row, dict) else (required, set())
+            details = []
+            if missing:
+                details.append("missing " + ", ".join(sorted(missing)))
+            if unknown:
+                details.append("unknown " + ", ".join(sorted(unknown)))
+            if not details:
+                details.append("must be an object")
+            raise ContentPackError(
+                f"invalid character presentation for content pack {pack_id!r} at {source}: {path} "
+                + "; ".join(details)
+            )
+        if any(not isinstance(value, str) or not value.strip() for value in row.values()):
+            raise ContentPackError(
+                f"invalid character presentation for content pack {pack_id!r} at {source}: "
+                f"{path} fields must be non-empty strings"
+            )
+        presentations.append(CharacterPresentation(slot.id, slot.engine_id, **row))
+    role_presentations: list[RolePresentation] = []
+    for slot in role_slots:
+        row = roles[slot.id]
+        path = f"roles.{slot.id}"
+        if not isinstance(row, dict) or set(row) != {"display_label"}:
+            raise ContentPackError(
+                f"invalid character presentation for content pack {pack_id!r} at {source}: "
+                f"{path} must contain exactly display_label"
+            )
+        display_label = row["display_label"]
+        if not isinstance(display_label, str) or not display_label.strip():
+            raise ContentPackError(
+                f"invalid character presentation for content pack {pack_id!r} at {source}: "
+                f"{path}.display_label must be a non-empty string"
+            )
+        role_presentations.append(RolePresentation(slot.id, slot.engine_id, display_label))
+    if set(household) != {"character_creation_background"}:
+        raise ContentPackError(
+            f"invalid character presentation for content pack {pack_id!r} at {source}: "
+            "household must contain exactly character_creation_background"
+        )
+    template = household["character_creation_background"]
+    fields = {"ancestry", "origin", "role_label"}
+    if (not isinstance(template, str) or not template.strip()
+            or {field for field in fields if "{" + field + "}" not in template}):
+        raise ContentPackError(
+            f"invalid character presentation for content pack {pack_id!r} at {source}: "
+            "household.character_creation_background must contain ancestry, origin, and role_label placeholders"
+        )
+    return tuple(presentations), tuple(role_presentations), template
 
 
 def _manifest_document(root: Path) -> dict[str, Any]:
@@ -300,9 +507,10 @@ def load_content_pack(path: str | Path) -> ContentPack:
             f"content pack {pack_id!r} at {root}: missing required catalog "
             + ", ".join(missing_catalogs)
         )
+    characters, roles, household_template = _character_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id),
+        _region_presentations(root, pack_id), characters, roles, household_template,
     )
 
 

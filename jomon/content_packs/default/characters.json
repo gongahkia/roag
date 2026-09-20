@@ -1,0 +1,27 @@
+{
+  "characters": {
+    "npc.ship_bartender": {
+      "display_name": "Sena Quill",
+      "short_description": "Keeps Jomon's common room and knows which regional casks travel safely.",
+      "initial_memory": "Sena took the bar on witnessed household shares."
+    },
+    "npc.ship_merchant": {
+      "display_name": "Veyra Bale",
+      "role_label": "itinerant deck factor",
+      "short_description": "A coast-and-river factor who visits Jomon only when a recorded route cycle and regional stock justify the mooring.",
+      "initial_memory": "Veyra first heard Jomon's name in four working markets."
+    }
+  },
+  "roles": {
+    "role.household_bargemaster": {"display_label": "bargemaster"},
+    "role.household_pilot": {"display_label": "pilot"},
+    "role.household_factor": {"display_label": "factor"},
+    "role.household_carpenter": {"display_label": "carpenter"},
+    "role.household_guard": {"display_label": "guard"},
+    "role.household_healer": {"display_label": "healer"},
+    "role.ship_bartender": {"display_label": "bartender"}
+  },
+  "household": {
+    "character_creation_background": "A {ancestry} adult raised in {origin}; now Jomon's {role_label}."
+  }
+}

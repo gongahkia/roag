@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from .character_presentation import household_background, role_display_name
 from .catalog import CHARACTER_SECTIONS, CatalogError, load_catalog
 from .state import ATTRIBUTES, GameState, Person
 
@@ -155,7 +156,7 @@ def apply_character_spec(state: GameState, *, crew_index: int, name: str, ancest
     person.trait = trait
     person.character_specified = True
     person.home_region = origin
-    person.background = f"A {ancestry} adult raised in {origin.title()}; now Jomon's {person.role}."
+    person.background = household_background(ancestry, origin.title(), person.role)
     person.attributes = attributes.copy()
     for skill, value in competencies.items():
         setattr(person, skill, value)
@@ -175,7 +176,7 @@ def apply_character_spec(state: GameState, *, crew_index: int, name: str, ancest
 
 def character_sheet(person: Person) -> list[str]:
     rows = [
-        f"{person.name} — {person.role}",
+        f"{person.name} — {role_display_name(person.role)}",
         f"People: {person.ancestry}; origin: {person.origin.title()}; trait: {person.trait}",
         f"Health: {person.health}/{person.max_health}; injury: {person.injury}",
         "ATTRIBUTES / 4-12 (6 is an ordinary baseline)",

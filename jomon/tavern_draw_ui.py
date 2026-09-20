@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import curses
 
+from .character_presentation import role_display_name
 from .state import GameState
 from .tavern_draw import (
     MAX_EXPOSURE, RANK_NAMES, available_opponents,
@@ -46,7 +47,7 @@ def _draw_lobby(screen: curses.window, state: GameState, selected: list[str], cu
         person = people[index]
         mark = "[x]" if person.id in selected else "[ ]"
         credit = npc_credit(state, person.id)
-        _put(screen, 8 + index - first, 2, f"{'>' if index == cursor else ' '} {mark} {person.name[:24]:24} {person.role[:19]:19} {credit:>3} credit",
+        _put(screen, 8 + index - first, 2, f"{'>' if index == cursor else ' '} {mark} {person.name[:24]:24} {role_display_name(person.role)[:19]:19} {credit:>3} credit",
              accent("ui_accent", curses.A_REVERSE) if index == cursor else 0)
     if len(people) > 11:
         _put(screen, 19, 2, f"Showing {first + 1}-{min(first + 11, len(people))} of {len(people)} tavern adults.")

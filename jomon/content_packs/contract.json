@@ -9,5 +9,18 @@
     {"id": "region.family_6", "engine_id": "rillscar"},
     {"id": "region.family_7", "engine_id": "marlbank"},
     {"id": "region.family_8", "engine_id": "frostmere"}
+  ],
+  "characters": [
+    {"id": "npc.ship_bartender", "engine_id": "bartender-sena", "role_id": "bartender"},
+    {"id": "npc.ship_merchant", "engine_id": "merchant-veyra", "role_id": null}
+  ],
+  "roles": [
+    {"id": "role.household_bargemaster", "engine_id": "bargemaster"},
+    {"id": "role.household_pilot", "engine_id": "pilot"},
+    {"id": "role.household_factor", "engine_id": "factor"},
+    {"id": "role.household_carpenter", "engine_id": "carpenter"},
+    {"id": "role.household_guard", "engine_id": "guard"},
+    {"id": "role.household_healer", "engine_id": "healer"},
+    {"id": "role.ship_bartender", "engine_id": "bartender"}
   ]
 }
