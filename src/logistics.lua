@@ -101,13 +101,15 @@ function L.craftsAt(c,siteId)
  table.sort(out,function(a,b) return a.id<b.id end);return out
 end
 
-function L.new(homeSite)
+function L.new(homeSite,travel)
  local w=homeSite.world;assert(w.home,'Campaign home needs a landing marker')
  local anchor={x=w.home.x,y=w.home.y}
  assert(N.stand(w,anchor.x,anchor.y,true),'Campaign home craft anchor is not a safe standing pose')
+ local craft={id=1,ownerSocietyId=1,seats=3,capacity=24,dockedSiteId=homeSite.id,anchor=anchor,cargo={},activeManifestId=nil}
+ if travel then craft.passengers={};craft.journey=nil end
  return {version=L.version,rules={version=1,seats=3,cargoCapacity=24,maintenanceMetal=1,assemblyRadius=8},
   nextCraftId=2,nextManifestId=1,nextOperationId=1,
-  crafts={{id=1,ownerSocietyId=1,seats=3,capacity=24,dockedSiteId=homeSite.id,anchor=anchor,cargo={},activeManifestId=nil}},manifests={},operations={}}
+  crafts={craft},manifests={},operations={}}
 end
 
 local function validateCargo(cargo,capacity,label)
@@ -133,6 +135,7 @@ end
 
 function L.validate(c)
  local logistics=c.logistics
+ local travel=c.features and c.features.travel==1
  exact(logistics,{version=true,rules=true,nextCraftId=true,nextManifestId=true,nextOperationId=true,crafts=true,manifests=true,operations=true},'Campaign logistics')
  assert(logistics.version==L.version,'Unsupported campaign logistics version')
  exact(logistics.rules,{version=true,seats=true,cargoCapacity=true,maintenanceMetal=true,assemblyRadius=true},'Campaign logistics rules')
@@ -144,13 +147,20 @@ function L.validate(c)
  local seenCraft,maxCraft={},0
  for i=1,craftCount do
   local record=logistics.crafts[i]
-  allowed(record,{id=true,ownerSocietyId=true,seats=true,capacity=true,dockedSiteId=true,anchor=true,cargo=true,activeManifestId=true},'Campaign craft')
-  for _,key in ipairs({'id','ownerSocietyId','seats','capacity','dockedSiteId','anchor','cargo'}) do assert(record[key]~=nil,'Missing Campaign craft key '..key) end
+  local craftKeys={id=true,ownerSocietyId=true,seats=true,capacity=true,dockedSiteId=true,anchor=true,cargo=true,activeManifestId=true}
+  if travel then craftKeys.passengers=true;craftKeys.journey=true end
+  allowed(record,craftKeys,'Campaign craft')
+  for _,key in ipairs({'id','ownerSocietyId','seats','capacity','anchor','cargo'}) do assert(record[key]~=nil,'Missing Campaign craft key '..key) end
   U.integer(record.id,'Craft ID',1,logistics.nextCraftId-1);assert(not seenCraft[record.id],'Duplicate craft ID');seenCraft[record.id]=true;maxCraft=math.max(maxCraft,record.id)
   assert(record.ownerSocietyId==c.society.id,'Invalid craft ownership');U.integer(record.seats,'Craft seats',1,32);U.integer(record.capacity,'Craft capacity',1,1000)
   assert(record.seats==logistics.rules.seats and record.capacity==logistics.rules.cargoCapacity,'Craft rules differ from campaign rules')
-  local dock=site(c,record.dockedSiteId);assert(dock and dock.ownerSocietyId==c.society.id,'Craft is not docked at an owned site')
-  exact(record.anchor,{x=true,y=true},'Craft anchor');U.integer(record.anchor.x,'Craft anchor x',1,dock.world.width);U.integer(record.anchor.y,'Craft anchor y',1,dock.world.height)
+  local dock=record.dockedSiteId and site(c,record.dockedSiteId) or nil
+  if travel then
+   assert(type(record.passengers)=='table','Travel craft passengers are missing')
+   assert((record.journey==nil)==(record.dockedSiteId~=nil),'Craft dock/journey state mismatch')
+  else assert(dock,'Craft docking site is missing') end
+  if dock then assert(dock.ownerSocietyId==c.society.id,'Craft is not docked at an owned site') end
+  exact(record.anchor,{x=true,y=true},'Craft anchor');U.integer(record.anchor.x,'Craft anchor x',1,(dock and dock.world.width) or 512);U.integer(record.anchor.y,'Craft anchor y',1,(dock and dock.world.height) or 256)
   validateCargo(record.cargo,record.capacity,'Craft cargo')
   if record.activeManifestId~=nil then U.integer(record.activeManifestId,'Active manifest ID',1,logistics.nextManifestId-1) end
  end
@@ -162,7 +172,7 @@ function L.validate(c)
   U.integer(record.id,'Manifest ID',1,logistics.nextManifestId-1);assert(not seenManifest[record.id],'Duplicate manifest ID');seenManifest[record.id]=true;maxManifest=math.max(maxManifest,record.id)
   U.integer(record.revision,'Manifest revision',1,100000000);local source=site(c,record.sourceSiteId);local destination=site(c,record.destinationSiteId)
   assert(source and destination and source.id~=destination.id,'Invalid expedition route');assert(source.ownerSocietyId==c.society.id,'Manifest source is not owned')
-  local vehicle=craft(logistics,record.craftId);assert(vehicle and vehicle.dockedSiteId==source.id and vehicle.ownerSocietyId==c.society.id,'Manifest craft/source mismatch')
+  local vehicle=craft(logistics,record.craftId);assert(vehicle and vehicle.dockedSiteId==source.id and vehicle.ownerSocietyId==c.society.id and not vehicle.journey,'Manifest craft/source mismatch')
   assert(not manifestByCraft[record.craftId],'Multiple active manifests for one craft');manifestByCraft[record.craftId]=record.id
   dense(record.passengers,'Manifest passengers',record.seats or 32);local prior=0
   for _,personId in ipairs(record.passengers) do
@@ -331,7 +341,13 @@ function L.readiness(c,m)
   if not d or d.kind~='assembly' or d.manifestId~=m.id or d.revision~=m.revision or d.x~=pose.x or d.y~=pose.y then return false,'Assembly directive changed' end
   if not N.stand(source.world,worker.x,worker.y,true) then return false,'Assembly pose is no longer safe' end
  end
- return true,'Preparation ready; departure is not implemented'
+ return true,c.features.travel==1 and 'Preparation ready' or 'Preparation ready; departure is not implemented'
+end
+
+function L.closeManifest(c,m)
+ local vehicle=craft(c.logistics,m.craftId);assert(vehicle and vehicle.activeManifestId==m.id,'Manifest is not active')
+ cancelManifestJobs(c,m);vehicle.activeManifestId=nil;removeRecord(c.logistics.manifests,m)
+ return true
 end
 
 function L.apply(c,command)
@@ -348,7 +364,7 @@ function L.apply(c,command)
   plan.logistics.manifests[#plan.logistics.manifests+1]=m;plan.vehicle.activeManifestId=id
   return true,'Expedition plan prepared'
  elseif command.type=='cancel_expedition' then
-  cancelManifestJobs(c,plan.manifest);plan.vehicle.activeManifestId=nil;removeRecord(plan.logistics.manifests,plan.manifest)
+  L.closeManifest(c,plan.manifest)
   return true,'Expedition preparation cancelled; loaded cargo remains aboard'
  elseif command.type=='assemble_expedition' then
   local m=plan.manifest

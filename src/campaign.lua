@@ -32,6 +32,7 @@ local function sortedWorkers(w)
  table.sort(out,function(a,b) return a.id<b.id end);return out
 end
 local function isRegion(c) return c.features and c.features.region==1 end
+local function isTravel(c) return c.features and c.features.travel==1 end
 
 function Campaign.sites(c)
  local out={};local limit=isRegion(c) and 3 or 1
@@ -59,6 +60,7 @@ function Campaign.bodies(c)
 end
 function Campaign.extinct(c)
  local living=0;for _,site in ipairs(Campaign.sites(c)) do living=living+W.alive(site.world) end
+ if isTravel(c) then living=living+require('src.travel').living(c) end
  return living==0
 end
 
@@ -105,15 +107,18 @@ local function validateRegion(c)
 end
 
 function Campaign.validate(c)
- allowed(c,{format=true,version=true,ruleset=true,features=true,tick=true,mode=true,seed=true,society=true,nextPersonId=true,sites=true,region=true,logistics=true},'campaign')
+ allowed(c,{format=true,version=true,ruleset=true,features=true,tick=true,mode=true,seed=true,society=true,nextPersonId=true,sites=true,region=true,logistics=true,travel=true},'campaign')
  for _,key in ipairs({'format','version','ruleset','features','tick','mode','seed','society','nextPersonId','sites'}) do assert(c[key]~=nil,'Missing campaign key '..key) end
  assert(c.format==Campaign.format,'Incompatible campaign state format');assert(c.version==Campaign.version,'Unsupported campaign state version');assert(c.ruleset==Campaign.ruleset,'Unsupported campaign ruleset')
- allowed(c.features,{core=true,region=true,logistics=true},'campaign features');assert(c.features.core==1,'Unsupported campaign core feature version')
+ allowed(c.features,{core=true,region=true,logistics=true,travel=true},'campaign features');assert(c.features.core==1,'Unsupported campaign core feature version')
  if c.features.region~=nil then assert(c.features.region==1,'Unsupported campaign region feature version') end
  if c.features.logistics~=nil then assert(c.features.logistics==1,'Unsupported campaign logistics feature version') end
+ if c.features.travel~=nil then assert(c.features.travel==1,'Unsupported campaign travel feature version') end
  assert((c.features.region==1)==(c.region~=nil),'Campaign region feature/state mismatch')
  assert((c.features.logistics==1)==(c.logistics~=nil),'Campaign logistics feature/state mismatch')
+ assert((c.features.travel==1)==(c.travel~=nil),'Campaign travel feature/state mismatch')
  assert(c.features.logistics==nil or c.features.region==1,'Campaign logistics requires region')
+ assert(c.features.travel==nil or (c.features.region==1 and c.features.logistics==1),'Campaign travel requires region logistics')
  U.integer(c.tick,'campaign tick',0,10000000);assert(c.mode=='challenge' or c.mode=='practice','Invalid campaign mode');U.integer(c.seed,'campaign seed',0,2147483646)
  exact(c.society,{id=true,origin=true,independent=true},'campaign society');U.integer(c.society.id,'society ID',1,100000000)
  assert(c.society.id==1 and c.society.origin=='abandoned_convicts' and c.society.independent==true,'Unsupported campaign society');U.integer(c.nextPersonId,'next person ID',1,100000000)
@@ -140,6 +145,7 @@ function Campaign.validate(c)
  end
  assert(c.nextPersonId>maxPerson,'Next person ID was already allocated')
  if c.features.logistics==1 then require('src.logistics').validate(c) end
+ if isTravel(c) then require('src.travel').validate(c) end
  return true
 end
 
@@ -162,7 +168,7 @@ local function recipeFrom(o,populated)
  return {version=1,preset=o.preset,layout=o.layout,climate=o.climate,openness=o.openness,biomeScale=o.biomeScale,features=o.features,density=o.density,crew=o.crew,width=o.width,height=o.height,populated=populated}
 end
 local function regionOptions(options)
- local o=options or {};local base={preset=o.preset or 'frontier',layout=o.layout or C.layout,climate=o.climate or C.climate,openness=o.openness or C.openness,biomeScale=o.biomeScale or C.biomeScale,features=o.features or C.features,density=o.density or C.density,crew=o.crew or C.crew,width=o.width or C.width,height=o.height or C.height,mode=o.mode or C.mode,logistics=o.logistics==true}
+ local o=options or {};local base={preset=o.preset or 'frontier',layout=o.layout or C.layout,climate=o.climate or C.climate,openness=o.openness or C.openness,biomeScale=o.biomeScale or C.biomeScale,features=o.features or C.features,density=o.density or C.density,crew=o.crew or C.crew,width=o.width or C.width,height=o.height or C.height,mode=o.mode or C.mode,logistics=o.logistics==true,travel=o.travel==true}
  for key in pairs(o) do assert(base[key]~=nil or key=='bodyOrder','Unknown campaign region option '..tostring(key)) end;assert(base.mode=='challenge' or base.mode=='practice','Invalid campaign region mode');return base
 end
 local function bodyOrder(order)
@@ -187,12 +193,15 @@ function Campaign.newRegion(master,options)
   sitesById[id]={id=id,bodyId=id,ownerSocietyId=id==1 and 1 or nil,world=world}
  end
  local sites={sitesById[1],sitesById[2],sitesById[3]};local nextPerson=1;for _,site in ipairs(sites) do nextPerson=attach(site.world,site.id,nextPerson) end
+ assert(not home.travel or home.logistics,'Travel campaigns require logistics')
  local c={format=Campaign.format,version=Campaign.version,ruleset=Campaign.ruleset,features={core=1,region=1},tick=0,mode=home.mode,seed=master,society={id=1,origin='abandoned_convicts',independent=true},nextPersonId=nextPerson,sites=sites,region={version=1,bodies={bodies[1],bodies[2],bodies[3]},notices={}}}
- if home.logistics then c.features.logistics=1;c.logistics=require('src.logistics').new(c.sites[1]) end
+ if home.logistics then c.features.logistics=1;c.logistics=require('src.logistics').new(c.sites[1],home.travel) end
+ if home.travel then c.features.travel=1;c.travel=require('src.travel').new() end
  Campaign.validate(c);return c
 end
 function Campaign.metrics(c)
  Campaign.validate(c);local totals,sites={},{}
+ local Travel=isTravel(c) and require('src.travel') or nil
  for _,site in ipairs(Campaign.sites(c)) do
   local measured=Metrics.measure(site.world)
   if c.features.logistics==1 then
@@ -206,14 +215,31 @@ function Campaign.metrics(c)
     measured.foodResidual=(measured.foodBudget or measured.food)+site.world.ledger.foodEaten-site.world.ledger.foodGrown-(site.world.baseline.foodBudget or site.world.baseline.food)
    end
   end
+  if Travel then
+   local account=Travel.account(c,site.id);measured.travel={imports=account.imports,exports=account.exports,consumed=account.consumed}
+   local mineralExport=account.exports.stone+account.exports.soil+account.exports.metal
+   local mineralImport=account.imports.stone+account.imports.soil+account.imports.metal
+   local mineralConsumed=account.consumed.stone+account.consumed.soil+account.consumed.metal
+   measured.foodResidual=measured.foodResidual+account.exports.food-account.imports.food+account.consumed.food
+   measured.waterResidual=measured.waterResidual+account.exports.water-account.imports.water+account.consumed.water
+   measured.mineralResidual=measured.mineralResidual+mineralExport-mineralImport+mineralConsumed
+  end
   sites[#sites+1]={siteId=site.id,metrics=measured};for _,key in ipairs(U.keys(measured)) do if type(measured[key])=='number' then totals[key]=(totals[key] or 0)+measured[key] end end
  end
- return {sites=sites,totals=totals}
+ if Travel then
+  local transit=Travel.reconciliation(c).transit;totals.food=(totals.food or 0)+transit.cargo.food;totals.water=(totals.water or 0)+transit.cargo.water
+  totals.mineral=(totals.mineral or 0)+transit.cargo.stone+transit.cargo.soil+transit.cargo.metal
+ end
+ return {sites=sites,totals=totals,transit=Travel and Travel.reconciliation(c).transit or nil}
 end
 local function appendNotice(c,site,event,ordinal)
  if not isRegion(c) then return end;local notices=c.region.notices;local prior=notices[#notices]
  if prior and prior.siteId==site.id and prior.kind==event.kind and prior.text==event.text then prior.count=prior.count+1;return end
  notices[#notices+1]={tick=c.tick,siteId=site.id,ordinal=ordinal,kind=event.kind,text=event.text,count=1};while #notices>128 do table.remove(notices,1) end
+end
+function Campaign.addNotice(c,siteId,kind,text,ordinal)
+ local record=Campaign.site(c,siteId);assert(record,'Unknown notice site')
+ appendNotice(c,record,{kind=kind,text=text},ordinal or 0)
 end
 local function noticesForSite(c,site)
  if not isRegion(c) then return end;local start=1
@@ -230,8 +256,10 @@ function Campaign.step(c,commands,clock)
  local timings={};if clock then timings.commands=clock()-start end
  for _,site in ipairs(sites) do
   local context=c.features.logistics==1 and {campaign=c,siteId=site.id} or nil
-  timings[site.id]=Sim.body(site.world,clock,{},context);noticesForSite(c,site)
+  timings[site.id]=Sim.body(site.world,clock,{},context)
  end
+ if isTravel(c) then require('src.travel').step(c) end
+ for _,site in ipairs(sites) do noticesForSite(c,site) end
  if not clock and #sites==1 then return timings[1] end;return timings
 end
 return Campaign

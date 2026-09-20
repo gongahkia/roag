@@ -5,6 +5,21 @@ local M=require('src.materials')
 local J=require('src.jobs')
 local C=require('config')
 local A={}
+
+-- The cabin is deliberately the local ground-rest rule without terrain exposure,
+-- navigation, a bed bonus, or health recovery.  Travel supplies the food callback
+-- so the same hunger threshold and starvation ordering remain explicit.
+function A.transitStep(a,rules,consumeFood)
+ if not a.alive then return false end
+ a.hunger=math.min(100,a.hunger+rules.hungerRate)
+ a.fatigue=math.max(0,a.fatigue-0.035)
+ a.breath=math.min(100,a.breath+1.6)
+ if a.hunger>=100 then a.hp=a.hp-0.06 end
+ if a.hp<=0 then return true,'starvation' end
+ if a.hunger>=60 and consumeFood and consumeFood() then a.hunger=math.max(0,a.hunger-48) end
+ return false
+end
+
 function A.kill(w,a,reason)
  if not a.alive then return end
  J.release(w,a,true);a.alive=false;a.hp=0;a.status='Dead';a.reason=reason;a.deathTick=w.tick
