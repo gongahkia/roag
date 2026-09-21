@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .item_presentation import item_display_name
 from .regions import activate_region, store_active_region
 from .state import GameState, stage_rng
 from .route_chart import edge_between, leg_travel_time, route_availability
@@ -190,7 +191,7 @@ def _lose_vessel_cargo(state: GameState) -> str:
     state.vessel_cargo[name].quantity -= 1
     if state.vessel_cargo[name].quantity == 0:
         del state.vessel_cargo[name]
-    return f"one {name} lot is lost"
+    return f"one {item_display_name(name)} lot is lost"
 
 
 def resolve_voyage(state: GameState, response: str) -> tuple[bool, str]:

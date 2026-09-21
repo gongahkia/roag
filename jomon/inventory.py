@@ -9,6 +9,7 @@ from typing import Iterable
 from .catalog import EQUIPMENT_SECTIONS, load_catalog
 from .chemistry import REAGENTS
 from .expanded_weapons import ARSENAL, BOMB_AMMUNITION, ammunition_for
+from .item_presentation import contracted_item_presentation, item_presentation
 from .state import GameState, Item, Person, TerrainStatus
 from .work_weapons import POT_AMMUNITION, WORK_WEAPONS
 
@@ -85,6 +86,11 @@ ITEM_SPECS: dict[str, ItemSpec] = {
     kind: ItemSpec(**{**row, "tags": tuple(row["tags"])})
     for kind, row in _EQUIPMENT["item_specs"].items()
 }
+for _kind, _spec in tuple(ITEM_SPECS.items()):
+    _presentation = item_presentation(_kind)
+    ITEM_SPECS[_kind] = replace(
+        _spec, name=_presentation.display_name, description=_presentation.description,
+    )
 for _part_id, _part in load_catalog("circuits.json", ("parts", "fixtures"))["parts"].items():
     ITEM_SPECS[f"circuit:{_part_id}"] = ItemSpec(
         _part["name"], _part_id[:2].upper(), 1, 1, 1, "tool",
@@ -139,30 +145,32 @@ def item_spec(kind: str) -> ItemSpec:
 
         cargo = COMMODITIES[name]
         bulk = cargo["bulk"]
-        description = (
-            f"Physical {name} cargo from {cargo['source']}, used for {cargo['use']}. "
-            f"Handling: {cargo['handling']}. Failure: {cargo['failure']}. "
-            f"Material behavior: {cargo['environment']}. Contract use: {cargo['quest_use']}. "
-            f"Equipment use: {cargo['equipment_use']}. Buyers: {', '.join(cargo['buyers'])}."
-        )
-        return ItemSpec(name.title(), name[:2].upper(), min(4, bulk), 1, bulk * 2, "cargo", description, stack_limit=4)
+        presentation = item_presentation(name)
+        return ItemSpec(presentation.display_name, name[:2].upper(), min(4, bulk), 1, bulk * 2,
+                        "cargo", presentation.description, stack_limit=4)
     if kind.startswith("passive:"):
         name = kind.split(":", 1)[1]
         from .content import PASSIVES
 
         bulk, description = PASSIVES[name]
-        return ItemSpec(name.title(), name[:2].upper(), max(1, bulk), 1, bulk, "passive", description, stack_limit=3)
+        presentation = item_presentation(name)
+        return ItemSpec(presentation.display_name, name[:2].upper(), max(1, bulk), 1, bulk,
+                        "passive", description, stack_limit=3)
     if kind.startswith("consumable:"):
         name = kind.split(":", 1)[1]
         from .content import DISCOVERIES
 
         description = DISCOVERIES.get(name, ("consumable", "A counted expedition supply."))[1]
-        return ItemSpec(name.title(), name[:2].upper(), 1, 1, 1, "consumable", description, stack_limit=4)
+        presentation = contracted_item_presentation(name)
+        return ItemSpec(presentation.display_name if presentation else name.title(), name[:2].upper(), 1, 1, 1,
+                        "consumable", description, stack_limit=4)
     if kind.startswith("relic:"):
         name = kind.split(":", 1)[1]
         from .content import RELICS
 
-        return ItemSpec(name.title(), "RL", 2, 2, 2, "relic", RELICS[name])
+        presentation = contracted_item_presentation(name)
+        return ItemSpec(presentation.display_name if presentation else name.title(), "RL", 2, 2, 2,
+                        "relic", RELICS[name])
     raise KeyError(f"unknown item kind {kind!r}")
 
 

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from .content import COMMODITIES, GEAR, MERCHANT_ITEMS, PASSIVES, RELICS, SUPPORTS, WEAPONS
 from .enemy_ai import next_path_step, raise_group_alert, retreat_step, select_goal
 from .expanded_weapons import ARSENAL
+from .item_presentation import item_display_name, item_display_name_or_legacy
 from .inventory import (
     add_status,
     apply_terrain_status,
@@ -106,7 +107,7 @@ def inspect(state: GameState, subject: str = "area") -> ActionResult:
         text = f"Household: {living}/6 living; active courier {active}."
     elif subject == "cargo":
         goods = ", ".join(
-            f"{name} {stack.quantity}" for name, stack in state.vessel_cargo.items()
+            f"{item_display_name(name)} {stack.quantity}" for name, stack in state.vessel_cargo.items()
         )
         text = f"Jomon hold: {goods}. {state.region.pressure}"
     else:
@@ -259,7 +260,7 @@ def choose_relic(state: GameState, relic: str | None) -> ActionResult:
     if state.location != "jomon" or (relic is not None and state.relics.get(relic, 0) <= 0):
         return _plain(state, "That relic is not at hand.")
     state.carried_relic = relic
-    return _plain(state, f"Carried relic: {relic or 'none'}.", changed=True)
+    return _plain(state, f"Carried relic: {item_display_name_or_legacy(relic) if relic else 'none'}.", changed=True)
 
 
 def choose_passive(state: GameState, passive: str) -> ActionResult:
@@ -280,7 +281,7 @@ def choose_passive(state: GameState, passive: str) -> ActionResult:
         )
         if physical:
             transfer_to_grid(state, physical.id, "locker")
-        return _plain(state, f"Stowed all {passive} aboard.", changed=True)
+        return _plain(state, f"Stowed all {item_display_name(passive)} aboard.", changed=True)
     if passive_bulk(state) + PASSIVES[passive][0] > passive_capacity(state):
         return _plain(state, f"Discovery load exceeds {passive_capacity(state)} bulk.")
     state.carried_passives[passive] = carried + 1
@@ -296,7 +297,7 @@ def choose_passive(state: GameState, passive: str) -> ActionResult:
             del state.carried_passives[passive]
         return _plain(state, "The discovery has bulk allowance but no clear pack cells.")
     return _plain(
-        state, f"Packed {passive} ({state.carried_passives[passive]}).", changed=True
+        state, f"Packed {item_display_name(passive)} ({state.carried_passives[passive]}).", changed=True
     )
 
 
@@ -586,7 +587,7 @@ def _resolve_brace_reaction(state: GameState, threat: Threat) -> str | None:
         "glaive": 2, "quarterstaff": 1,
     }[state.weapon]
     harm = harm_enemy(
-        state, threat, damage, f"{state.courier.name}'s prepared {state.weapon}",
+        state, threat, damage, f"{state.courier.name}'s prepared {item_display_name_or_legacy(state.weapon)}",
         damage_kind="cut" if state.weapon == "glaive" else "pierce",
     )
     threat.morale -= 2 if threat.profile == "animal" else 1
@@ -600,7 +601,7 @@ def _resolve_brace_reaction(state: GameState, threat: Threat) -> str | None:
         if harm.protection != "uncovered" else f" {harm.location} is uncovered."
     )
     return (
-        f"Prepared {state.weapon} reaction {outcome} the {threat.name} as it enters "
+        f"Prepared {item_display_name_or_legacy(state.weapon)} reaction {outcome} the {threat.name} as it enters "
         f"the lane.{protection}{harm.dropped}"
     )
 
@@ -2543,7 +2544,7 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
             state.aimed_target = target.id
             return _time_result(
                 state,
-                f"You prepare {state.weapon} on the {target.name}; range {distance(state.position, target.position)}, {lane_cover} cover. Firing commits the next action.",
+                f"You prepare {item_display_name_or_legacy(state.weapon)} on the {target.name}; range {distance(state.position, target.position)}, {lane_cover} cover. Firing commits the next action.",
                 priority=3,
             )
         from .arc_relics import lee_sheltered as has_lee_shelter
@@ -2772,7 +2773,7 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         else "blunt"
     )
     harm = harm_enemy(
-        state, target, damage, f"{state.courier.name}'s {state.weapon}",
+        state, target, damage, f"{state.courier.name}'s {item_display_name_or_legacy(state.weapon)}",
         damage_kind=damage_kind,
     )
     if harm.defeated or (
@@ -2783,7 +2784,7 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         from .inventory import release_enemy_possession
         recovered = harm.dropped if harm.defeated else release_enemy_possession(state, target)
         outcome = "defeated" if harm.defeated else "drove off"
-        memory = f"{state.courier.name} {outcome} {target.name} with {state.weapon}."
+        memory = f"{state.courier.name} {outcome} {target.name} with {item_display_name_or_legacy(state.weapon)}."
         state.remember(memory)
         _remember_contact(state, memory)
         uncovered_verb = "were" if harm.location in {"arms", "hands", "legs", "feet"} else "was"
@@ -2826,7 +2827,7 @@ def guard(state: GameState, target_id: str | None = None) -> ActionResult:
         if physical_ammunition(state, "handgonne charges") <= 0:
             return _plain(state, "No wrapped powder charges remain.")
         state.weapon_ready += 1
-        return _time_result(state, f"{state.weapon.title()} loading {state.weapon_ready}/{1 if 'quick' in expanded.effects or state.courier and 'vent-care' in state.courier.skill_nodes else 2}.", guarded=state.gear == "buckler", priority=3)
+        return _time_result(state, f"{item_display_name_or_legacy(state.weapon)} loading {state.weapon_ready}/{1 if 'quick' in expanded.effects or state.courier and 'vent-care' in state.courier.skill_nodes else 2}.", guarded=state.gear == "buckler", priority=3)
     if state.weapon == "crossbow" and not state.crossbow_loaded:
         if physical_ammunition(state, "bolts") <= 0:
             return _plain(state, "No crossbow ammunition remains.")
@@ -2962,7 +2963,7 @@ def guard(state: GameState, target_id: str | None = None) -> ActionResult:
     if brace_target:
         state.aimed_target = brace_target.id
         text += (
-            f" You visibly brace {state.weapon} on {brace_target.name}; it triggers "
+            f" You visibly brace {item_display_name_or_legacy(state.weapon)} on {brace_target.name}; it triggers "
             "only if that actor enters or attacks through the valid lane this action."
         )
     result = _time_result(state, text, guarded=True, priority=3)
@@ -3680,7 +3681,7 @@ def purchase_merchant_item(state: GameState, item: str) -> ActionResult:
         3, state.merchant.relationships.get(state.active_courier_id, 0) + 1
     )
     return _time_result(
-        state, f"Purchased {item}; it persists aboard Jomon.", priority=3
+        state, f"Purchased {item_display_name_or_legacy(item)}; it persists aboard Jomon.", priority=3
     )
 
 

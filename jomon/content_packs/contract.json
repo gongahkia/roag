@@ -1,28 +1,1518 @@
 {
   "format_version": 1,
   "regions": [
-    {"id": "region.family_1", "engine_id": "hearthford"},
-    {"id": "region.family_2", "engine_id": "greywash"},
-    {"id": "region.family_3", "engine_id": "greenwold"},
-    {"id": "region.family_4", "engine_id": "whitecairn"},
-    {"id": "region.family_5", "engine_id": "dunmire"},
-    {"id": "region.family_6", "engine_id": "rillscar"},
-    {"id": "region.family_7", "engine_id": "marlbank"},
-    {"id": "region.family_8", "engine_id": "frostmere"}
+    {
+      "id": "region.family_1",
+      "engine_id": "hearthford"
+    },
+    {
+      "id": "region.family_2",
+      "engine_id": "greywash"
+    },
+    {
+      "id": "region.family_3",
+      "engine_id": "greenwold"
+    },
+    {
+      "id": "region.family_4",
+      "engine_id": "whitecairn"
+    },
+    {
+      "id": "region.family_5",
+      "engine_id": "dunmire"
+    },
+    {
+      "id": "region.family_6",
+      "engine_id": "rillscar"
+    },
+    {
+      "id": "region.family_7",
+      "engine_id": "marlbank"
+    },
+    {
+      "id": "region.family_8",
+      "engine_id": "frostmere"
+    }
   ],
   "characters": [
-    {"id": "npc.ship_bartender", "engine_id": "bartender-sena", "role_id": "bartender", "presentation_fields": ["display_name", "short_description", "initial_memory", "build_tendency"]},
-    {"id": "npc.ship_merchant", "engine_id": "merchant-veyra", "role_id": "merchant", "presentation_fields": ["display_name", "short_description", "initial_memory", "build_tendency"]},
-    {"id": "npc.hearthford_second_contact", "engine_id": "hearthford-contact-2", "role_id": null, "presentation_fields": ["display_name", "role_label"]}
+    {
+      "id": "npc.ship_bartender",
+      "engine_id": "bartender-sena",
+      "role_id": "bartender",
+      "presentation_fields": [
+        "display_name",
+        "short_description",
+        "initial_memory",
+        "build_tendency"
+      ]
+    },
+    {
+      "id": "npc.ship_merchant",
+      "engine_id": "merchant-veyra",
+      "role_id": "merchant",
+      "presentation_fields": [
+        "display_name",
+        "short_description",
+        "initial_memory",
+        "build_tendency"
+      ]
+    },
+    {
+      "id": "npc.hearthford_second_contact",
+      "engine_id": "hearthford-contact-2",
+      "role_id": null,
+      "presentation_fields": [
+        "display_name",
+        "role_label"
+      ]
+    }
   ],
   "roles": [
-    {"id": "role.household_bargemaster", "engine_id": "bargemaster"},
-    {"id": "role.household_pilot", "engine_id": "pilot"},
-    {"id": "role.household_factor", "engine_id": "factor"},
-    {"id": "role.household_carpenter", "engine_id": "carpenter"},
-    {"id": "role.household_guard", "engine_id": "guard"},
-    {"id": "role.household_healer", "engine_id": "healer"},
-    {"id": "role.ship_bartender", "engine_id": "bartender"},
-    {"id": "role.ship_merchant", "engine_id": "merchant"}
+    {
+      "id": "role.household_bargemaster",
+      "engine_id": "bargemaster"
+    },
+    {
+      "id": "role.household_pilot",
+      "engine_id": "pilot"
+    },
+    {
+      "id": "role.household_factor",
+      "engine_id": "factor"
+    },
+    {
+      "id": "role.household_carpenter",
+      "engine_id": "carpenter"
+    },
+    {
+      "id": "role.household_guard",
+      "engine_id": "guard"
+    },
+    {
+      "id": "role.household_healer",
+      "engine_id": "healer"
+    },
+    {
+      "id": "role.ship_bartender",
+      "engine_id": "bartender"
+    },
+    {
+      "id": "role.ship_merchant",
+      "engine_id": "merchant"
+    }
+  ],
+  "items": [
+    {
+      "id": "item.equipment_001",
+      "engine_id": "billhook",
+      "authoring_context": "base weapon equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_002",
+      "engine_id": "spear",
+      "authoring_context": "base weapon equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_003",
+      "engine_id": "cudgel",
+      "authoring_context": "base weapon equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_004",
+      "engine_id": "staff",
+      "authoring_context": "base weapon equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_005",
+      "engine_id": "hand axe",
+      "authoring_context": "base weapon equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_006",
+      "engine_id": "crossbow",
+      "authoring_context": "base weapon equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_007",
+      "engine_id": "longbow",
+      "authoring_context": "base weapon equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_008",
+      "engine_id": "sling",
+      "authoring_context": "base weapon equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_009",
+      "engine_id": "heavy crossbow",
+      "authoring_context": "base weapon equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_010",
+      "engine_id": "pike",
+      "authoring_context": "base weapon equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_011",
+      "engine_id": "paired knives",
+      "authoring_context": "base weapon equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_012",
+      "engine_id": "javelins",
+      "authoring_context": "base weapon equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_013",
+      "engine_id": "war hammer",
+      "authoring_context": "base weapon equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_014",
+      "engine_id": "weighted net",
+      "authoring_context": "base weapon equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_015",
+      "engine_id": "staff sling",
+      "authoring_context": "base weapon equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_016",
+      "engine_id": "hooked javelin",
+      "authoring_context": "base weapon equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_017",
+      "engine_id": "boar spear",
+      "authoring_context": "base weapon equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_018",
+      "engine_id": "handgonne",
+      "authoring_context": "base weapon equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_019",
+      "engine_id": "buckler",
+      "authoring_context": "base gear equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_020",
+      "engine_id": "rope",
+      "authoring_context": "base gear equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_021",
+      "engine_id": "quiet shoes",
+      "authoring_context": "base gear equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_022",
+      "engine_id": "repair tools",
+      "authoring_context": "base gear equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_023",
+      "engine_id": "smoke pot",
+      "authoring_context": "base gear equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_024",
+      "engine_id": "cargo harness",
+      "authoring_context": "base gear equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_025",
+      "engine_id": "trade seals",
+      "authoring_context": "base gear equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_026",
+      "engine_id": "hooded lantern",
+      "authoring_context": "base gear equipment",
+      "presentation_fields": [
+        "display_name",
+        "description",
+        "short_description"
+      ]
+    },
+    {
+      "id": "item.equipment_027",
+      "engine_id": "felt hood",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_028",
+      "engine_id": "boiled cap",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_029",
+      "engine_id": "kettle helm",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_030",
+      "engine_id": "quilted jack",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_031",
+      "engine_id": "reedscale vest",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_032",
+      "engine_id": "riveted coat",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_033",
+      "engine_id": "linen sleeves",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_034",
+      "engine_id": "leather vambraces",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_035",
+      "engine_id": "splinted arms",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_036",
+      "engine_id": "work gloves",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_037",
+      "engine_id": "mail mitts",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_038",
+      "engine_id": "tarred gauntlets",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_039",
+      "engine_id": "wool chausses",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_040",
+      "engine_id": "leather leggings",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_041",
+      "engine_id": "brigandine cuisses",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_042",
+      "engine_id": "reed shoes",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_043",
+      "engine_id": "hobnailed boots",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_044",
+      "engine_id": "marsh waders",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_045",
+      "engine_id": "reed brim",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_046",
+      "engine_id": "kiln face wrap",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_047",
+      "engine_id": "ridge visor",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_048",
+      "engine_id": "cork-backed coat",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_049",
+      "engine_id": "kiln apron",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_050",
+      "engine_id": "winter felt coat",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_051",
+      "engine_id": "reed splints",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_052",
+      "engine_id": "quarry sleeves",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_053",
+      "engine_id": "watch vambraces",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_054",
+      "engine_id": "potter mitts",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_055",
+      "engine_id": "archer tabs",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_056",
+      "engine_id": "split-hide palms",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_057",
+      "engine_id": "reed gaiters",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_058",
+      "engine_id": "quarry chaps",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_059",
+      "engine_id": "frost leggings",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_060",
+      "engine_id": "peat pattens",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_061",
+      "engine_id": "felt overboots",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_062",
+      "engine_id": "ice cleats",
+      "authoring_context": "base armour equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_063",
+      "engine_id": "field flask",
+      "authoring_context": "base consumable equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_064",
+      "engine_id": "skill journal",
+      "authoring_context": "base consumable equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.equipment_065",
+      "engine_id": "component:iron billet",
+      "authoring_context": "base consumable equipment",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_001",
+      "engine_id": "charcoal",
+      "authoring_context": "base trade commodity",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_002",
+      "engine_id": "grain",
+      "authoring_context": "base trade commodity",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_003",
+      "engine_id": "ironwork",
+      "authoring_context": "base trade commodity",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_004",
+      "engine_id": "lime",
+      "authoring_context": "base trade commodity",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_005",
+      "engine_id": "paper",
+      "authoring_context": "base trade commodity",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_006",
+      "engine_id": "salt fish",
+      "authoring_context": "base trade commodity",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_007",
+      "engine_id": "timber",
+      "authoring_context": "base trade commodity",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_008",
+      "engine_id": "wool",
+      "authoring_context": "base trade commodity",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_009",
+      "engine_id": "route survey",
+      "authoring_context": "household expedition support",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_010",
+      "engine_id": "field care",
+      "authoring_context": "household expedition support",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_011",
+      "engine_id": "porter watch",
+      "authoring_context": "household expedition support",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_012",
+      "engine_id": "carpenter rig",
+      "authoring_context": "household expedition support",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_013",
+      "engine_id": "factor surety",
+      "authoring_context": "household expedition support",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_014",
+      "engine_id": "willow dressing",
+      "authoring_context": "base consumable supply",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_015",
+      "engine_id": "dry smoke charge",
+      "authoring_context": "base consumable supply",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_016",
+      "engine_id": "sealed tally",
+      "authoring_context": "base trade supply",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_017",
+      "engine_id": "pine resin dressing",
+      "authoring_context": "base consumable supply",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_018",
+      "engine_id": "brine wash",
+      "authoring_context": "base consumable supply",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_019",
+      "engine_id": "splint roll",
+      "authoring_context": "base consumable supply",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_020",
+      "engine_id": "tide pin",
+      "authoring_context": "base tool supply",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_021",
+      "engine_id": "charcoal key",
+      "authoring_context": "base tool supply",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_022",
+      "engine_id": "limestone wedge",
+      "authoring_context": "base tool supply",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_023",
+      "engine_id": "dry lamp wick",
+      "authoring_context": "base supply supply",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_024",
+      "engine_id": "fletched arrows",
+      "authoring_context": "base ammunition supply",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_025",
+      "engine_id": "sling shot pouch",
+      "authoring_context": "base ammunition supply",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_026",
+      "engine_id": "quarrel case",
+      "authoring_context": "base ammunition supply",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_027",
+      "engine_id": "casting net bundle",
+      "authoring_context": "base ammunition supply",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_028",
+      "engine_id": "salt-house chit",
+      "authoring_context": "base trade supply",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_029",
+      "engine_id": "handgonne charges",
+      "authoring_context": "base ammunition supply",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_030",
+      "engine_id": "river-glass ward",
+      "authoring_context": "base relic",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_031",
+      "engine_id": "tide-knot charm",
+      "authoring_context": "base relic",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_032",
+      "engine_id": "ebbglass spindle",
+      "authoring_context": "base relic",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_033",
+      "engine_id": "coalheart seed",
+      "authoring_context": "base relic",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_034",
+      "engine_id": "hollow-bell shard",
+      "authoring_context": "base relic",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_035",
+      "engine_id": "stillwater filament",
+      "authoring_context": "base relic",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_036",
+      "engine_id": "flood-mark clasp",
+      "authoring_context": "base relic",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_037",
+      "engine_id": "ashglass lens",
+      "authoring_context": "base relic",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_038",
+      "engine_id": "quarry echo pin",
+      "authoring_context": "base relic",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_039",
+      "engine_id": "winter sounding bead",
+      "authoring_context": "base relic",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_040",
+      "engine_id": "red-clay seal",
+      "authoring_context": "base relic",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_041",
+      "engine_id": "wreck-light prism",
+      "authoring_context": "base relic",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_042",
+      "engine_id": "reed sole wraps",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_043",
+      "engine_id": "counterweight ring",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_044",
+      "engine_id": "waxed bowstring",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_045",
+      "engine_id": "mill-tooth wedge",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_046",
+      "engine_id": "cliff cord",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_047",
+      "engine_id": "smoke lens",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_048",
+      "engine_id": "river hooks",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_049",
+      "engine_id": "witness token",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_050",
+      "engine_id": "rain cape",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_051",
+      "engine_id": "echo bead",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_052",
+      "engine_id": "salted dressing",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_053",
+      "engine_id": "high tread",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_054",
+      "engine_id": "tide ledger",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_055",
+      "engine_id": "cork float",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_056",
+      "engine_id": "salt veil",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_057",
+      "engine_id": "wreck key",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_058",
+      "engine_id": "gull cord",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_059",
+      "engine_id": "storm vane",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_060",
+      "engine_id": "charcoal mask",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_061",
+      "engine_id": "resin grip",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_062",
+      "engine_id": "bird whistle",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_063",
+      "engine_id": "coppice map",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_064",
+      "engine_id": "thorn weave",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_065",
+      "engine_id": "ember cloth",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_066",
+      "engine_id": "limestone cleat",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_067",
+      "engine_id": "echo slate",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_068",
+      "engine_id": "quarry brace",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_069",
+      "engine_id": "sling cup",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_070",
+      "engine_id": "chalk cipher",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_071",
+      "engine_id": "fall sail",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_072",
+      "engine_id": "sighting knot",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_073",
+      "engine_id": "gullbone reel",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_074",
+      "engine_id": "sluice token",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_075",
+      "engine_id": "cache bell",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_076",
+      "engine_id": "scar salve recipe",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_077",
+      "engine_id": "load ledger",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_078",
+      "engine_id": "roof nail",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_079",
+      "engine_id": "fen sledge",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_080",
+      "engine_id": "ice awl",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_081",
+      "engine_id": "fire rake tooth",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_082",
+      "engine_id": "limewash seal",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_083",
+      "engine_id": "smoke braid",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_084",
+      "engine_id": "salvage tally",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_085",
+      "engine_id": "counterbrace pin",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_086",
+      "engine_id": "pitch cup",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_087",
+      "engine_id": "shingle skids",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_088",
+      "engine_id": "signal mirror",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    },
+    {
+      "id": "item.goods_089",
+      "engine_id": "market weights",
+      "authoring_context": "base carried passive",
+      "presentation_fields": [
+        "display_name",
+        "description"
+      ]
+    }
   ]
 }

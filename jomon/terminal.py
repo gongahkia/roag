@@ -41,6 +41,7 @@ from .actions import (
     use_route_stop,
 )
 from .character_presentation import role_display_name
+from .item_presentation import item_display_name, item_display_name_or_legacy
 from .inventory import (
     BODY_SLOTS,
     WEAPON_AMMUNITION,
@@ -1605,7 +1606,7 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         return [ChoiceOption(key.upper(), label, semantic, available, requirement) for key, label, semantic, available, requirement in secondary_service_options(state, contact_id)]
     if kind == "merchant":
         return [
-            ChoiceOption(str(index + 1), f"Buy {item} — {max(1, MERCHANT_ITEMS[item][0] - (1 if state.support == 'factor surety' else 0))} credit", "commitment", state.trade_credit >= max(1, MERCHANT_ITEMS[item][0] - (1 if state.support == "factor surety" else 0)), "sufficient credit")
+            ChoiceOption(str(index + 1), f"Buy {item_display_name_or_legacy(item)} — {max(1, MERCHANT_ITEMS[item][0] - (1 if state.support == 'factor surety' else 0))} credit", "commitment", state.trade_credit >= max(1, MERCHANT_ITEMS[item][0] - (1 if state.support == "factor surety" else 0)), "sufficient credit")
             for index, item in enumerate(state.merchant_stock)
         ]
     if kind == "voyage":
@@ -2498,15 +2499,15 @@ def _tavern_lines(state: GameState) -> list[str]:
 
     courier = state.courier
     identity = f"{courier.name}, {role_display_name(courier.role)}; health {courier.health}/{courier.max_health}; {courier.injury}; {courier.technique}" if courier else "none selected"
-    goods = ", ".join(f"{name} {stack.quantity}" for name, stack in state.carried_goods.items()) or "none"
+    goods = ", ".join(f"{item_display_name(name)} {stack.quantity}" for name, stack in state.carried_goods.items()) or "none"
     combos = ", ".join(build_combinations(state)) or "none active"
     passives = ", ".join(state.carried_passives) or "none"
     return [
         f"Courier on watch: {identity}",
         "Speak directly to a visible adventurer to switch or recruit.",
-        f"S Household counsel: {state.support or 'none'}",
-        f"Readied: {state.weapon or 'none'} / {state.gear or 'none'} / {state.carried_relic or 'no relic'}",
-        f"Discoveries: {passives} ({passive_bulk(state)}/{passive_capacity(state)} carried bulk)",
+        f"S Household counsel: {item_display_name_or_legacy(state.support) if state.support else 'none'}",
+        f"Readied: {item_display_name_or_legacy(state.weapon) if state.weapon else 'none'} / {item_display_name_or_legacy(state.gear) if state.gear else 'none'} / {item_display_name(state.carried_relic) if state.carried_relic else 'no relic'}",
+        f"Discoveries: {', '.join(item_display_name(name) for name in state.carried_passives) or 'none'} ({passive_bulk(state)}/{passive_capacity(state)} carried bulk)",
         f"Working strengths: {combos}", f"Cargo: {goods}; capacity {carried_bulk(state)}/{capacity(state)}",
         "", state.region.condition, state.region.objective_text, f"Local work: {state.objective_status}",
         "I opens the pack, carried kit, and Jomon locker.",
@@ -2571,7 +2572,10 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         for index, recipe_id in enumerate(ids[page * 8:page * 8 + 8]):
             recipe = RECIPES[recipe_id]
             legal, reason = recipe_status(state, recipe_id)
-            requirements = ", ".join(f"{quantity} {item_kind} ({input_count(state, item_kind)} held)" for item_kind, quantity in recipe.inputs)
+            requirements = ", ".join(
+                f"{quantity} {item_display_name_or_legacy(item_kind)} ({input_count(state, item_kind)} held)"
+                for item_kind, quantity in recipe.inputs
+            )
             rows.append(f"{index + 1}. {recipe.name} → {recipe.quantity} {recipe.output} [{reason if not legal else 'READY'}]")
             rows.append("   " + requirements)
         rows.append("1-8 make; A-H delegate with Speech 7 or Work order; N/P pages; M fill carried flask.")
@@ -2730,19 +2734,23 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
     if kind == "help":
         return INTERFACE_LABELS["clerk_slate"], [*BASE_HELP_LINES, "", *HELP_LINES]
     if kind == "inventory":
-        goods = [f"{name}: {stack.quantity}, {stack.condition} ({COMMODITIES[name]['bulk']} bulk each)" for name, stack in state.carried_goods.items()]
+        goods = [f"{item_display_name(name)}: {stack.quantity}, {stack.condition} ({COMMODITIES[name]['bulk']} bulk each)" for name, stack in state.carried_goods.items()]
         statuses = [
             f"{name}: {status.remaining} actions; from {status.cause}; {status.consequence}"
             for name, status in state.terrain_statuses.items()
         ]
         return INTERFACE_LABELS["stores_ledger"], [
             f"Capacity: {carried_bulk(state)}/{capacity(state)} bulk",
-            f"Weapon: {state.weapon or 'none'}; gear: {state.gear or 'none'}; relic: {state.carried_relic or 'none'}",
-            f"Passive discoveries: {state.carried_passives or 'none'} ({passive_bulk(state)}/{passive_capacity(state)} bulk)",
+            f"Weapon: {item_display_name_or_legacy(state.weapon) if state.weapon else 'none'}; "
+            f"gear: {item_display_name_or_legacy(state.gear) if state.gear else 'none'}; "
+            f"relic: {item_display_name_or_legacy(state.carried_relic) if state.carried_relic else 'none'}",
+            f"Passive discoveries: {', '.join(item_display_name(name) for name in state.carried_passives) or 'none'} "
+            f"({passive_bulk(state)}/{passive_capacity(state)} bulk)",
             f"Supplies on hand: ammunition {state.ammunition}; oil {state.lamp_oil}; rope {state.rope_uses}; smoke {state.smoke_charges}",
-            "Goods:", *(goods or ["none"]), f"Consumables: {state.consumables or 'none'}",
+            "Goods:", *(goods or ["none"]),
+            f"Consumables: {', '.join(item_display_name(name) for name in state.consumables) or 'none'}",
             "Current conditions:", *(statuses or ["none"]),
-            f"Owned weapons: {', '.join(state.owned_weapons)}", f"Owned gear: {', '.join(state.owned_gear)}",
+            f"Owned weapons: {', '.join(item_display_name(name) for name in state.owned_weapons)}", f"Owned gear: {', '.join(item_display_name(name) for name in state.owned_gear)}",
             "Escape closes without advancing time.",
         ]
     if kind == "household":
@@ -2836,11 +2844,11 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             lines.append("V. Inspect optional physical refits." + (f" Installed: {', '.join(fitted)}." if fitted else " None installed here."))
         return title, lines + ["Inspection costs no time. Escape closes."]
     if kind == "hold":
-        cargo = [f"{name}: {stack.quantity}, {stack.condition}" for name, stack in state.vessel_cargo.items()]
+        cargo = [f"{item_display_name(name)}: {stack.quantity}, {stack.condition}" for name, stack in state.vessel_cargo.items()]
         return "HOLD AND LOCAL PROBLEM", cargo + ["", state.region.condition, state.region.pressure, state.region.objective_text, f"Trade credit: {state.trade_credit}"]
     if kind == "equipment":
         return "STORES — PREPARE AT TAVERN C", [
-            "Weapons: " + ", ".join(state.owned_weapons), "Secondary gear: " + ", ".join(state.owned_gear),
+            "Weapons: " + ", ".join(item_display_name(name) for name in state.owned_weapons), "Secondary gear: " + ", ".join(item_display_name(name) for name in state.owned_gear),
             "These physical stores remain aboard; all expedition selection happens at tavern C.", "Escape closes without time.",
         ]
     if kind == "quest:regional":
@@ -2918,7 +2926,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return INTERFACE_LABELS["household_counsel"], [f"{index + 1}. {name} — {detail}" for index, (name, detail) in enumerate(SUPPORTS.values())] + ["Name a household aid; Escape folds the slate."]
     if kind == "tavern:relic":
         rows = [name for name in RELICS if state.relics.get(name, 0)]
-        return INTERFACE_LABELS["relic_case"], ["0. Carry none", *[f"{index + 1}. {name} ({state.relics[name]}) — {RELICS[name]}" for index, name in enumerate(rows)], "Name a relic to carry; Escape folds the case."]
+        return INTERFACE_LABELS["relic_case"], ["0. Carry none", *[f"{index + 1}. {item_display_name_or_legacy(name)} ({state.relics[name]}) — {RELICS[name]}" for index, name in enumerate(rows)], "Name a relic to carry; Escape folds the case."]
     if kind == "relic:select":
         rows = list(dict.fromkeys(
             item.kind.split(":", 1)[1] for item in state.items
@@ -2928,7 +2936,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return INTERFACE_LABELS["carried_relic"], [
             *[
                 f"{index + 1}. {'>' if state.carried_relic == name else ' '} "
-                f"{name} — {RELICS[name]}"
+                f"{item_display_name_or_legacy(name)} — {RELICS[name]}"
                 for index, name in enumerate(rows)
             ],
             "Naming a carried relic spends no watch; X puts the named relic to use.",
@@ -2955,7 +2963,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         rows = list(state.owned_passives)
         keys = "123456789abc"
         lines = [
-            f"{keys[index]}. [{state.carried_passives.get(name, 0)}/{state.owned_passives[name]}] {name} "
+            f"{keys[index]}. [{state.carried_passives.get(name, 0)}/{state.owned_passives[name]}] {item_display_name(name)} "
             f"({PASSIVES[name][0]} bulk each) — {PASSIVES[name][1]}"
             for index, name in enumerate(rows[: len(keys)])
         ]
@@ -3017,7 +3025,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         ]
         for index, item in enumerate(state.merchant_stock):
             cost = max(1, MERCHANT_ITEMS[item][0] - (1 if state.support == "factor surety" else 0))
-            lines.append(f"{index + 1}. {item} — {cost} credit")
+            lines.append(f"{index + 1}. {item_display_name_or_legacy(item)} — {cost} credit")
         return state.merchant.name.upper(), lines + ["Number buys; Escape closes. Stock leaves on departure."]
     if kind == "destination":
         lines = [

@@ -14,6 +14,7 @@ from jomon.catalog import (
     WORLD_TEXT_SECTIONS,
     bundled_default_pack,
     character_contract,
+    item_contract,
     load_catalog,
     load_content_pack,
     region_contract,
@@ -36,6 +37,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copytree(DATA_ROOT, root / "data")
     shutil.copy(DEFAULT_PACK_ROOT / "regions.json", root / "regions.json")
     shutil.copy(DEFAULT_PACK_ROOT / "characters.json", root / "characters.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "items.json", root / "items.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -73,6 +75,13 @@ def alternate_pack(root: Path) -> Path:
     characters["roles"]["role.household_bargemaster"] = {"display_label": "fixture navigator"}
     characters["roles"]["role.ship_merchant"] = {"display_label": "fixture deck trader"}
     source.write_text(json.dumps(characters, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "items.json"
+    items = json.loads(source.read_text(encoding="utf-8"))
+    items["items"]["item.equipment_002"]["display_name"] = "Fixture Spear"
+    items["items"]["item.equipment_044"]["display_name"] = "Fixture Waders"
+    items["items"]["item.goods_014"]["display_name"] = "Fixture Dressing"
+    items["items"]["item.goods_050"]["display_name"] = "Fixture Rain Cape"
+    source.write_text(json.dumps(items, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
 
 
@@ -133,6 +142,38 @@ def character_presentation_snapshot(environment: dict[str, str]) -> dict[str, ob
     return json.loads(result.stdout)
 
 
+def item_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import copy, json; from jomon.actions import choose_weapon, move, purchase_merchant_item; "
+            "from jomon.inventory import create_item, item_spec; "
+            "from jomon.state import Position, create_world, game_state_from_dict; from jomon.terminal import _overlay_lines; from jomon.world import base_tile, is_walkable; "
+            "state = create_world('item-pack-proof'); initial_items = sorted((item.kind, item.quantity, item.location, item.owner_id, item.x, item.y) for item in state.items); initial_stock = list(state.merchant_stock); state.location = 'jomon'; state.jomon_space = 'vessel'; "
+            "state.trade_credit = 10; state.merchant_present = True; state.merchant_stock = ['willow dressing']; merchant = _overlay_lines(state, 'merchant')[1]; "
+            "rain = create_item(state, 'passive:rain cape', 'item pack proof'); chosen = choose_weapon(state, 'spear'); purchased = purchase_merchant_item(state, 'willow dressing'); "
+            "state.location = 'region'; state.weather = 'hard rain'; start, dx, dy = next((Position(x, y, 0), dx, dy) for y in range(state.region.height) for x in range(state.region.width) for dx, dy in ((1, 0), (0, 1)) if is_walkable(state, Position(x, y, 0)) and is_walkable(state, Position(x + dx, y + dy, 0)) and base_tile(state, Position(x + dx, y + dy, 0)) not in {'m', 'r', 'q', 't', 'w', ','}); "
+            "cape, bare = copy.deepcopy(state), copy.deepcopy(state); cape.position = bare.position = start; cape.carried_passives = {'rain cape': 1}; bare.carried_passives = {}; cape_before, bare_before = cape.world_time, bare.world_time; move(cape, dx, dy); move(bare, dx, dy); "
+            "saved = game_state_from_dict(state.to_dict()); state.location = 'jomon'; state.jomon_space = 'vessel'; "
+            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
+            "'names': [item_spec('spear').name, item_spec('marsh waders').name, item_spec('consumable:willow dressing').name, item_spec('passive:rain cape').name], "
+            "'kinds': [next(item.kind for item in state.items if item.kind == 'spear'), rain.kind, next(item.kind for item in state.items if item.kind == 'consumable:willow dressing')], 'initial_items': initial_items, 'initial_stock': initial_stock, "
+            "'equip': [chosen.changed, state.weapon], 'purchase': [purchased.changed, state.merchant_stock], "
+            "'weather_steps': [cape.world_time - cape_before, bare.world_time - bare_before], 'saved_kinds': sorted(set(item.kind for item in saved.items if item.kind in {'spear', 'passive:rain cape', 'consumable:willow dressing'})), "
+            "'merchant': merchant, 'inventory': _overlay_lines(state, 'inventory')[1]}))",
+        ],
+        cwd=ROOT,
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
 class ContentPackTests(unittest.TestCase):
     def test_default_pack_keeps_existing_catalog_root_and_data(self):
         pack = bundled_default_pack()
@@ -174,6 +215,82 @@ class ContentPackTests(unittest.TestCase):
                 ("role.ship_merchant", "merchant"),
             ],
         )
+        slots = item_contract()
+        self.assertEqual(len(slots), 154)
+        self.assertEqual(
+            [(slot.id, slot.engine_id) for slot in slots if slot.engine_id in {
+                "spear", "marsh waders", "willow dressing", "rain cape",
+            }],
+            [
+                ("item.equipment_002", "spear"),
+                ("item.equipment_044", "marsh waders"),
+                ("item.goods_014", "willow dressing"),
+                ("item.goods_050", "rain cape"),
+            ],
+        )
+
+    def test_item_presentation_contract_rejects_invalid_pack_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            source = root / "items.json"
+            cases = {
+                "missing required item": lambda value: value["items"].pop("item.goods_050"),
+                "unknown item": lambda value: value["items"].update({"item.goods_999": value["items"].pop("item.goods_050")} ),
+                "missing display field": lambda value: value["items"]["item.equipment_002"].pop("display_name"),
+                "wrong display field type": lambda value: value["items"]["item.equipment_002"].update({"display_name": 1}),
+                "empty display field": lambda value: value["items"]["item.equipment_002"].update({"display_name": ""}),
+                "unknown mechanical field": lambda value: value["items"]["item.equipment_002"].update({"engine_id": "renamed-spear"}),
+            }
+            for name, mutate in cases.items():
+                with self.subTest(name):
+                    content = json.loads((DEFAULT_PACK_ROOT / "items.json").read_text(encoding="utf-8"))
+                    mutate(content)
+                    source.write_text(json.dumps(content), encoding="utf-8")
+                    with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*items\.json"):
+                        load_content_pack(root)
+
+            with self.subTest("duplicate semantic item"):
+                content = (DEFAULT_PACK_ROOT / "items.json").read_text(encoding="utf-8")
+                source.write_text(content.replace('"item.goods_050"', '"item.goods_049"', 1), encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*item\.goods_049"):
+                    load_content_pack(root)
+
+            with self.subTest("malformed JSON"):
+                source.write_text("{", encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*items\.json"):
+                    load_content_pack(root)
+
+            with self.subTest("missing presentation file"):
+                source.unlink()
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*items\.json"):
+                    load_content_pack(root)
+
+    def test_default_item_presentation_matches_legacy_base_catalog_text(self):
+        from jomon.content import SUPPORTS
+        from jomon.inventory import item_spec
+
+        goods = json.loads((DATA_ROOT / "goods.json").read_text(encoding="utf-8"))
+        equipment = json.loads((DATA_ROOT / "equipment.json").read_text(encoding="utf-8"))
+        for engine_id, row in equipment["item_specs"].items():
+            with self.subTest(engine_id=engine_id):
+                self.assertEqual((item_spec(engine_id).name, item_spec(engine_id).description), (row["name"], row["description"]))
+        for engine_id, row in goods["SUPPORTS"].items():
+            self.assertEqual(SUPPORTS[engine_id], tuple(row))
+        for engine_id, row in goods["DISCOVERIES"].items():
+            self.assertEqual((item_spec(f"consumable:{engine_id}").name, item_spec(f"consumable:{engine_id}").description), (engine_id.title(), row[1]))
+        for engine_id, description in goods["RELICS"].items():
+            self.assertEqual((item_spec(f"relic:{engine_id}").name, item_spec(f"relic:{engine_id}").description), (engine_id.title(), description))
+        for engine_id, row in goods["PASSIVES"].items():
+            self.assertEqual((item_spec(f"passive:{engine_id}").name, item_spec(f"passive:{engine_id}").description), (engine_id.title(), row[1]))
+        for engine_id, row in goods["COMMODITIES"].items():
+            logistics = goods["COMMODITY_LOGISTICS"][engine_id]
+            description = (
+                f"Physical {engine_id} cargo from {row['source']}, used for {row['use']}. "
+                f"Handling: {logistics['handling']}. Failure: {logistics['failure']}. "
+                f"Material behavior: {logistics['environment']}. Contract use: {logistics['quest_use']}. "
+                f"Equipment use: {logistics['equipment_use']}. Buyers: {', '.join(logistics['buyers'])}."
+            )
+            self.assertEqual((item_spec(f"commodity:{engine_id}").name, item_spec(f"commodity:{engine_id}").description), (engine_id.title(), description))
 
     def test_invalid_pack_manifests_and_missing_catalogs_name_the_failure(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -359,6 +476,69 @@ class ContentPackTests(unittest.TestCase):
         self.assertEqual(default["merchant"][1:3], ["Veyra Bale", "merchant"])
         self.assertIn("itinerant deck factor", " ".join(default["merchant_overlay"][1]))
         self.assertEqual(default["second_contact"][1:3], ["Tomas Reed", "millwright speaker"])
+
+    def test_alternate_pack_changes_base_item_presentation_not_identity_or_rules(self):
+        default = item_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = item_presentation_snapshot(environment)
+
+        self.assertEqual(default["pack"], "default")
+        self.assertEqual(alternate["pack"], "fixture-alternate")
+        self.assertEqual(default["names"], ["Ash spear", "Oiled marsh waders", "Willow Dressing", "Rain Cape"])
+        self.assertEqual(alternate["names"], ["Fixture Spear", "Fixture Waders", "Fixture Dressing", "Fixture Rain Cape"])
+        self.assertEqual(default["kinds"], alternate["kinds"])
+        self.assertEqual(alternate["kinds"], ["spear", "passive:rain cape", "consumable:willow dressing"])
+        self.assertEqual(default["initial_items"], alternate["initial_items"])
+        self.assertEqual(default["initial_stock"], alternate["initial_stock"])
+        self.assertEqual(default["equip"], alternate["equip"])
+        self.assertEqual(default["purchase"], alternate["purchase"])
+        self.assertEqual(default["weather_steps"], alternate["weather_steps"])
+        self.assertEqual(alternate["weather_steps"], [1, 2])
+        self.assertEqual(default["saved_kinds"], alternate["saved_kinds"])
+        self.assertEqual(alternate["saved_kinds"], ["consumable:willow dressing", "passive:rain cape", "spear"])
+        self.assertIn("Fixture Dressing", " ".join(alternate["merchant"]))
+        self.assertIn("Fixture Spear", " ".join(alternate["inventory"]))
+        self.assertIn("Fixture Dressing", " ".join(alternate["inventory"]))
+        self.assertIn("Fixture Rain Cape", alternate["names"])
+        self.assertIn("Ash spear", " ".join(default["inventory"]))
+
+    def test_old_item_save_keeps_kind_and_renders_through_selected_pack(self):
+        environment = dict(os.environ)
+        environment.pop("JOMON_CONTENT_PACK", None)
+        generated = subprocess.run(
+            [sys.executable, "-c", "import json; from jomon.state import create_world; print(json.dumps(create_world('legacy item save').to_dict()))"],
+            cwd=ROOT,
+            env=environment,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(generated.returncode, 0, generated.stderr)
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            save = Path(directory) / "legacy.json"
+            save.write_text(generated.stdout, encoding="utf-8")
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            loaded = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    "import json, sys; from jomon.inventory import item_spec; from jomon.state import game_state_from_dict; "
+                    "state = game_state_from_dict(json.load(open(sys.argv[1], encoding='utf-8'))); "
+                    "item = next(item for item in state.items if item.kind == 'spear'); print(json.dumps([item.kind, item_spec(item.kind).name]))",
+                    str(save),
+                ],
+                cwd=ROOT,
+                env=environment,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+        self.assertEqual(loaded.returncode, 0, loaded.stderr)
+        self.assertEqual(json.loads(loaded.stdout), ["spear", "Fixture Spear"])
 
     def test_alternate_pack_loads_legacy_saved_region_names_without_rewriting_them(self):
         default_environment = dict(os.environ)

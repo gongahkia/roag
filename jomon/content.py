@@ -5,6 +5,7 @@ from __future__ import annotations
 from .arc_relics import ARC_RELIC_DESCRIPTIONS
 from .catalog import ACTOR_SECTIONS, CatalogError, WORLD_TEXT_SECTIONS, load_catalog
 from .expanded_weapons import ARSENAL, BOMB_AMMUNITION
+from .item_presentation import item_description, item_display_name, item_short_description
 from .frontier_elites import ELITE_DEFINITIONS
 from .preparations import PREPARATIONS
 from .work_weapons import WORK_WEAPONS
@@ -120,16 +121,24 @@ RECRUIT_TEMPLATES = _dict_rows(_PEOPLE["RECRUIT_TEMPLATES"], "RECRUIT_TEMPLATES"
 
 # Behavior stays direct in actions.py rather than becoming an ability schema.
 WEAPONS = _tuple_map(_GOODS["WEAPONS"], "WEAPONS", 2)
+for name in _GOODS["WEAPONS"]:
+    WEAPONS[name] = (item_display_name(name), item_short_description(name))
 
 WEAPONS.update({name: (spec.name, spec.description) for name, spec in WORK_WEAPONS.items()})
 
 WEAPONS.update({name: (name.title(), spec.description) for name, spec in ARSENAL.items()})
 
 GEAR = _tuple_map(_GOODS["GEAR"], "GEAR", 2)
+for name in _GOODS["GEAR"]:
+    GEAR[name] = (item_display_name(name), item_short_description(name))
 
 SUPPORTS = _tuple_map(_GOODS["SUPPORTS"], "SUPPORTS", 2)
+for name in _GOODS["SUPPORTS"]:
+    SUPPORTS[name] = (item_display_name(name), item_description(name))
 
 DISCOVERIES = _tuple_map(_GOODS["DISCOVERIES"], "DISCOVERIES", 2)
+for name, (kind, _description) in tuple(DISCOVERIES.items()):
+    DISCOVERIES[name] = (kind, item_description(name))
 
 DISCOVERIES.update({
     "sealed pitch pot": ("ammunition", "One bulky fire pot for the pot sling; water stops ignition, not fuel loss."),
@@ -143,10 +152,14 @@ DISCOVERIES.update({
 })
 
 RELICS = _text_map(_GOODS["RELICS"], "RELICS")
+for name in _GOODS["RELICS"]:
+    RELICS[name] = item_description(name)
 
 RELICS.update(ARC_RELIC_DESCRIPTIONS)
 
 PASSIVES = _tuple_map(_GOODS["PASSIVES"], "PASSIVES", 2)
+for name, (bulk, _description) in tuple(PASSIVES.items()):
+    PASSIVES[name] = (bulk, item_description(name))
 
 TREASURE_REWARDS = tuple(PASSIVES) + (
     "willow dressing", "dry smoke charge", "sealed tally",

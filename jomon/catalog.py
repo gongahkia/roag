@@ -63,6 +63,7 @@ CONTENT_PACK_ENVIRONMENT = "JOMON_CONTENT_PACK"
 REGION_CONTRACT_FORMAT = 1
 REGION_PRESENTATION_FILE = "regions.json"
 CHARACTER_PRESENTATION_FILE = "characters.json"
+ITEM_PRESENTATION_FILE = "items.json"
 
 # Main-world modules load these files into module constants. Selecting a pack
 # therefore validates that it is complete before any one catalog is consumed.
@@ -144,6 +145,27 @@ class RolePresentation:
 
 
 @dataclass(frozen=True)
+class ItemContractSlot:
+    """One engine-owned presentation slot for a stable base item identity."""
+
+    id: str
+    engine_id: str
+    authoring_context: str
+    presentation_fields: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ItemPresentation:
+    """Immutable selected-pack presentation for one base item identity."""
+
+    id: str
+    engine_id: str
+    display_name: str
+    description: str
+    short_description: str | None = None
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -155,6 +177,7 @@ class ContentPack:
     region_presentations: tuple[RegionPresentation, ...]
     character_presentations: tuple[CharacterPresentation, ...]
     role_presentations: tuple[RolePresentation, ...]
+    item_presentations: tuple[ItemPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -177,6 +200,12 @@ class ContentPack:
             if presentation.engine_id == engine_id:
                 return presentation
         raise KeyError(f"unknown engine role id: {engine_id}")
+
+    def item_presentation(self, engine_id: str) -> ItemPresentation:
+        for presentation in self.item_presentations:
+            if presentation.engine_id == engine_id:
+                return presentation
+        raise KeyError(f"unknown engine item id: {engine_id}")
 
 
 _selected_pack: ContentPack | None = None
@@ -207,8 +236,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, and roles")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, and items")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -302,6 +331,43 @@ def _role_contract() -> tuple[RoleContractSlot, ...]:
 def role_contract() -> tuple[RoleContractSlot, ...]:
     """Return engine-owned household/service role slots."""
     return _role_contract()
+
+
+def _item_contract() -> tuple[ItemContractSlot, ...]:
+    source, document = _content_contract_document()
+    items = document["items"]
+    if not isinstance(items, list) or not items:
+        raise RuntimeError(f"invalid engine item content contract at {source}: items must be a non-empty list")
+    slots: list[ItemContractSlot] = []
+    for index, row in enumerate(items):
+        required = {"id", "engine_id", "authoring_context", "presentation_fields"}
+        if not isinstance(row, dict) or set(row) != required:
+            raise RuntimeError(
+                f"invalid engine item content contract at {source}: items[{index}] must contain "
+                "id, engine_id, authoring_context, and presentation_fields"
+            )
+        semantic_id = row["id"]
+        engine_id = row["engine_id"]
+        authoring_context = row["authoring_context"]
+        presentation_fields = row["presentation_fields"]
+        allowed_fields = {"display_name", "description", "short_description"}
+        if (not isinstance(semantic_id, str) or re.fullmatch(r"item\.(?:goods|equipment)_[0-9]{3}", semantic_id) is None
+                or not isinstance(engine_id, str) or not engine_id.strip()
+                or not isinstance(authoring_context, str) or not authoring_context.strip()
+                or not isinstance(presentation_fields, list) or not presentation_fields
+                or any(not isinstance(field, str) or field not in allowed_fields for field in presentation_fields)
+                or len(set(presentation_fields)) != len(presentation_fields)
+                or not {"display_name", "description"} <= set(presentation_fields)):
+            raise RuntimeError(f"invalid engine item content contract at {source}: items[{index}] has invalid fields")
+        slots.append(ItemContractSlot(semantic_id, engine_id, authoring_context, tuple(presentation_fields)))
+    if len({slot.id for slot in slots}) != len(slots) or len({slot.engine_id for slot in slots}) != len(slots):
+        raise RuntimeError(f"invalid engine item content contract at {source}: item ids must be unique")
+    return tuple(slots)
+
+
+def item_contract() -> tuple[ItemContractSlot, ...]:
+    """Return the ordered engine-owned base-item presentation contract."""
+    return _item_contract()
 
 
 def _region_presentations(root: Path, pack_id: str) -> tuple[RegionPresentation, ...]:
@@ -458,6 +524,61 @@ def _character_presentations(
     return tuple(presentations), tuple(role_presentations), template
 
 
+def _item_presentations(root: Path, pack_id: str) -> tuple[ItemPresentation, ...]:
+    source = root / ITEM_PRESENTATION_FILE
+    try:
+        text = source.read_text(encoding="utf-8")
+        document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(
+            f"invalid item presentation for content pack {pack_id!r} at {source}: {exc}"
+        ) from exc
+    if not isinstance(document, dict) or set(document) != {"items"} or not isinstance(document["items"], dict):
+        raise ContentPackError(
+            f"invalid item presentation for content pack {pack_id!r} at {source}: items must be an object"
+        )
+    rows = document["items"]
+    slots = item_contract()
+    expected, actual = {slot.id for slot in slots}, set(rows)
+    if actual != expected:
+        missing, unknown = sorted(expected - actual), sorted(actual - expected)
+        details = []
+        if missing:
+            details.append("missing required item slots " + ", ".join(missing))
+        if unknown:
+            details.append("unknown item slots " + ", ".join(unknown))
+        raise ContentPackError(
+            f"invalid item presentation for content pack {pack_id!r} at {source}: " + "; ".join(details)
+        )
+    presentations: list[ItemPresentation] = []
+    for slot in slots:
+        row = rows[slot.id]
+        required = set(slot.presentation_fields)
+        path = f"items.{slot.id}"
+        if not isinstance(row, dict) or set(row) != required:
+            missing, unknown = (required - set(row), set(row) - required) if isinstance(row, dict) else (required, set())
+            details = []
+            if missing:
+                details.append("missing " + ", ".join(sorted(missing)))
+            if unknown:
+                details.append("unknown " + ", ".join(sorted(unknown)))
+            if not details:
+                details.append("must be an object")
+            raise ContentPackError(
+                f"invalid item presentation for content pack {pack_id!r} at {source}: {path} "
+                + "; ".join(details)
+            )
+        if any(not isinstance(value, str) or not value.strip() for value in row.values()):
+            raise ContentPackError(
+                f"invalid item presentation for content pack {pack_id!r} at {source}: "
+                f"{path} fields must be non-empty strings"
+            )
+        presentations.append(ItemPresentation(
+            slot.id, slot.engine_id, row["display_name"], row["description"], row.get("short_description"),
+        ))
+    return tuple(presentations)
+
+
 def _manifest_document(root: Path) -> dict[str, Any]:
     source = root / "manifest.json"
     try:
@@ -522,9 +643,10 @@ def load_content_pack(path: str | Path) -> ContentPack:
             + ", ".join(missing_catalogs)
         )
     characters, roles, household_template = _character_presentations(root, pack_id)
+    items = _item_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, household_template,
     )
 
 

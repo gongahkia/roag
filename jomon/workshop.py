@@ -148,7 +148,7 @@ def install(state: GameState, target_id: str, name: str) -> tuple[bool, str]:
     from .skill_tree import record_milestone
 
     record_milestone(state, "craft:smithing")
-    return _finish(state, f"The workshop fits {name} to {target.kind}; {cost} credit and two actions. {FITTINGS[name].effect}")
+    return _finish(state, f"The workshop fits {name} to {item_spec(target.kind).name}; {cost} credit and two actions. {FITTINGS[name].effect}")
 
 
 def remove(state: GameState, target_id: str, socket: str) -> tuple[bool, str]:
@@ -189,6 +189,7 @@ def buy_kit(state: GameState, name: str) -> tuple[bool, str]:
 
 def repair(state: GameState, target_id: str) -> tuple[bool, str]:
     from .character import effective_competency
+    from .inventory import item_spec
 
     target = _owned_target(state, target_id)
     if not _bench(state) or target is None or target.condition >= 100:
@@ -204,7 +205,7 @@ def repair(state: GameState, target_id: str) -> tuple[bool, str]:
     state.trade_credit -= 2
     if state.courier:
         state.courier.craft = min(20, state.courier.craft + 1)
-    return _finish(state, f"Repair work brings {target.kind} to {target.condition} condition; two credit, two actions. Fitting wear remains separate.")
+    return _finish(state, f"Repair work brings {item_spec(target.kind).name} to {target.condition} condition; two credit, two actions. Fitting wear remains separate.")
 
 
 def describe(state: GameState, target: Item) -> list[str]:

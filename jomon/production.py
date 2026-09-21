@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from .catalog import CatalogError, load_catalog
 from .expanded_weapons import ARSENAL
+from .item_presentation import item_display_name_or_legacy
 from .state import GameState, Position
 
 
@@ -178,7 +179,7 @@ def recipe_status(state: GameState, recipe_id: str) -> tuple[bool, str]:
                                    if flask.kind == "field flask" and flask.location == "pack"
                                    and flask.owner_id == state.active_courier_id):
         return False, "requires one carried empty field flask"
-    missing = [f"{quantity - input_count(state, kind)} {kind}" for kind, quantity in recipe.inputs
+    missing = [f"{quantity - input_count(state, kind)} {item_display_name_or_legacy(kind)}" for kind, quantity in recipe.inputs
                if input_count(state, kind) < quantity]
     return (False, "needs " + ", ".join(missing)) if missing else (True, "ready")
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .catalog import VESSEL_SECTIONS, load_catalog
+from .item_presentation import item_display_name_or_legacy
 from .state import GameState, Position, Threat
 
 _VESSEL = load_catalog("vessel.json", VESSEL_SECTIONS)
@@ -289,9 +290,12 @@ def work_lines(state: GameState, task: str) -> list[str]:
         "bait": "One salt-fish lot and one exposed action draw the rudder grazer clear. Fish is consumed; no animal is summoned or slain.",
         "treat": "With a fitted sickbay sling cot, one wool lot and six action-clock steps clear one persistent injury. Lost health and other injuries remain.",
     }
-    cargo = "; ".join(f"{name}: {state.vessel_cargo[name].quantity if name in state.vessel_cargo else 0}" for name in ("timber", "grain", "salt fish"))
+    cargo = "; ".join(
+        f"{item_display_name_or_legacy(name)}: {state.vessel_cargo[name].quantity if name in state.vessel_cargo else 0}"
+        for name in ("timber", "grain", "salt fish")
+    )
     lines = [f"Hull {state.vessel_integrity}/10; {state.voyage_detail if state.combat_active else 'moored work'}", details[task],
-             f"Counted hold — {cargo}. Readied: {state.gear or 'none'}."]
+             f"Counted hold — {cargo}. Readied: {item_display_name_or_legacy(state.gear) if state.gear else 'none'}."]
     from .voyage_variants import active_variant
 
     variant = active_variant(state, state.voyage_kind)
