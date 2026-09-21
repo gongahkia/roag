@@ -8,6 +8,7 @@ from .content import COMMODITIES, GEAR, MERCHANT_ITEMS, PASSIVES, RELICS, SUPPOR
 from .enemy_ai import next_path_step, raise_group_alert, retreat_step, select_goal
 from .expanded_weapons import ARSENAL
 from .item_presentation import item_display_name, item_display_name_or_legacy
+from .action_presentation import action_format
 from .inventory import (
     add_status,
     apply_terrain_status,
@@ -309,27 +310,30 @@ def _step_away(state: GameState, threat: Threat) -> Position:
     return retreat_step(state, threat)
 
 
+def _set_combat_intent(threat: Threat, semantic_id: str, **values: object) -> str:
+    """Persist rendered intent while mechanics retain a display-independent key."""
+    threat.intent_id = semantic_id
+    threat.intent = action_format(semantic_id, **values)
+    return threat.intent
+
+
 def _activate(threat: Threat) -> str:
     from .frontier_elites import definition
 
     threat.status = "engaged"
-    threat.intent = {
-        "pursuer": "rushes directly toward you",
-        "reach": "levels a spear and holds two paces",
-        "ranged": "takes aim; a bolt follows one clear turn",
-        "animal": "scrapes the mud before a territorial charge",
-        "machinery": "sweeps marked mill aisles on alternating turns",
-    }.get(threat.profile, "turns toward the disturbance")
+    key = {"pursuer": "combat.intent.activate.pursuer", "reach": "combat.intent.activate.reach", "ranged": "combat.intent.activate.ranged", "animal": "combat.intent.activate.animal", "machinery": "combat.intent.activate.machinery"}.get(threat.profile, "combat.intent.activate.default")
+    _set_combat_intent(threat, key)
     special = definition(threat)
     if special:
-        threat.intent = f"checks its {special['mode']} mechanism; a marked warning precedes each of {threat.supplies} charges"
+        _set_combat_intent(threat, "combat.intent.activate.elite", mode=special["mode"], charges=threat.supplies)
     elif threat.ecology == "prey":
-        threat.intent = "raises its head and looks for a route away from the disturbance"
+        _set_combat_intent(threat, "combat.intent.activate.prey")
     elif threat.ecology == "predator":
-        threat.intent = "watches for prey and exposed movement"
+        _set_combat_intent(threat, "combat.intent.activate.predator")
     elif threat.duty:
-        threat.intent = f"weighs the disturbance against its {threat.duty} duty"
-    return f"The {threat.name} notices you: {threat.intent}."
+        _set_combat_intent(threat, "combat.intent.activate.duty", duty=threat.duty)
+    return action_format("combat.threat.notice", threat=threat.name, intent=threat.intent)
+
 def emit_sound(
     state: GameState, amount: int, origin: Position | None = None
 ) -> list[str]:
@@ -537,10 +541,10 @@ def apply_damage(
             if courier.health <= courier.max_health // 2 or amount >= 2:
                 courier.injuries[location] = injury
                 courier.injury = injury
-        protection_text = f" {armour_name} absorbs {absorbed}." if absorbed else f" {location} is exposed."
-        return f"{source} hits {location} for {amount} harm.{protection_text}"
+        protection_text = action_format("combat.damage.absorbed", armour=armour_name, absorbed=absorbed) if absorbed else action_format("combat.damage.exposed", location=location)
+        return action_format("combat.damage.hit", source=source, location=location, damage=amount, protection=protection_text)
     fatal = already_hurt or pressure(state).band == "critical" or "crown wheel" in source
-    return _return_after_defeat(state, f"{source} overwhelms {courier.name}.", fatal)
+    return _return_after_defeat(state, action_format("combat.damage.defeated", source=source, courier=courier.name), fatal)
 
 
 BRACE_REACTION_WEAPONS = frozenset(
@@ -597,13 +601,10 @@ def _resolve_brace_reaction(state: GameState, threat: Threat) -> str | None:
         threat.intent = "checked by the courier's visible prepared lane"
     outcome = "removes" if harm.defeated else f"deals {harm.amount} and checks"
     protection = (
-        f" {harm.protection} covers {harm.location}."
-        if harm.protection != "uncovered" else f" {harm.location} is uncovered."
+        action_format("combat.brace.protected", protection=harm.protection, location=harm.location)
+        if harm.protection != "uncovered" else action_format("combat.brace.uncovered", location=harm.location)
     )
-    return (
-        f"Prepared {item_display_name_or_legacy(state.weapon)} reaction {outcome} the {threat.name} as it enters "
-        f"the lane.{protection}{harm.dropped}"
-    )
+    return action_format("combat.brace.reaction", weapon=item_display_name_or_legacy(state.weapon), outcome=outcome, threat=threat.name, protection=protection, dropped=harm.dropped)
 
 
 def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:

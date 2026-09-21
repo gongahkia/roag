@@ -4649,5 +4649,499 @@
       "id": "topology.frontier.process.held",
       "placeholders": []
     }
+  ],
+  "actions": [
+    {
+      "id": "combat.threat.notice",
+      "placeholders": [
+        "threat",
+        "intent"
+      ]
+    },
+    {
+      "id": "combat.intent.activate.pursuer",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.activate.reach",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.activate.ranged",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.activate.animal",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.activate.machinery",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.activate.default",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.activate.elite",
+      "placeholders": [
+        "mode",
+        "charges"
+      ]
+    },
+    {
+      "id": "combat.intent.activate.prey",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.activate.predator",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.activate.duty",
+      "placeholders": [
+        "duty"
+      ]
+    },
+    {
+      "id": "combat.damage.hit",
+      "placeholders": [
+        "source",
+        "location",
+        "damage",
+        "protection"
+      ]
+    },
+    {
+      "id": "combat.damage.absorbed",
+      "placeholders": [
+        "armour",
+        "absorbed"
+      ]
+    },
+    {
+      "id": "combat.damage.exposed",
+      "placeholders": [
+        "location"
+      ]
+    },
+    {
+      "id": "combat.damage.defeated",
+      "placeholders": [
+        "source",
+        "courier"
+      ]
+    },
+    {
+      "id": "combat.brace.reaction",
+      "placeholders": [
+        "weapon",
+        "outcome",
+        "threat",
+        "protection",
+        "dropped"
+      ]
+    },
+    {
+      "id": "combat.brace.protected",
+      "placeholders": [
+        "protection",
+        "location"
+      ]
+    },
+    {
+      "id": "combat.brace.uncovered",
+      "placeholders": [
+        "location"
+      ]
+    },
+    {
+      "id": "combat.threat.intent",
+      "placeholders": [
+        "threat",
+        "intent"
+      ]
+    },
+    {
+      "id": "combat.threat.loses_turn",
+      "placeholders": [
+        "threat",
+        "intent"
+      ]
+    },
+    {
+      "id": "combat.threat.alarm",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.net_hit",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.net_miss",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.smoke",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.retreat_blocked",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.escape",
+      "placeholders": [
+        "threat",
+        "loss"
+      ]
+    },
+    {
+      "id": "combat.threat.escape_lost",
+      "placeholders": [
+        "item"
+      ]
+    },
+    {
+      "id": "combat.threat.escape_memory",
+      "placeholders": [
+        "threat",
+        "region",
+        "item"
+      ]
+    },
+    {
+      "id": "combat.threat.cargo",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.steal",
+      "placeholders": [
+        "threat",
+        "item"
+      ]
+    },
+    {
+      "id": "combat.threat.investigate_empty",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.investigate_blocked",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.investigate",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.route_blocked",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.wait",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.cross_level",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.firing_blocked",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.firing_line",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.shot_empty",
+      "placeholders": [
+        "threat",
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "combat.threat.shot_cover",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.shot_guard",
+      "placeholders": [
+        "cover",
+        "weapon"
+      ]
+    },
+    {
+      "id": "combat.threat.skirmish",
+      "placeholders": []
+    },
+    {
+      "id": "combat.threat.animal_mud",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.animal_guard",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.animal_warning",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.guard_denied",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.attack_warning",
+      "placeholders": [
+        "threat",
+        "marker"
+      ]
+    },
+    {
+      "id": "combat.threat.no_route",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.attack.unready",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.no_target",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.throwing_axe",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.flail_prepare",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.crossbow_unloaded",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.arbalest_reload",
+      "placeholders": [
+        "remaining"
+      ]
+    },
+    {
+      "id": "combat.attack.handgonne_load",
+      "placeholders": [
+        "remaining"
+      ]
+    },
+    {
+      "id": "combat.attack.no_ammunition",
+      "placeholders": [
+        "ammunition"
+      ]
+    },
+    {
+      "id": "combat.attack.path_blocked",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.prepare",
+      "placeholders": [
+        "weapon",
+        "threat",
+        "range",
+        "cover"
+      ]
+    },
+    {
+      "id": "combat.attack.weather_spoiled",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.defeat_memory",
+      "placeholders": [
+        "courier",
+        "outcome",
+        "threat",
+        "weapon"
+      ]
+    },
+    {
+      "id": "combat.attack.defeat_armour",
+      "placeholders": [
+        "protection",
+        "location"
+      ]
+    },
+    {
+      "id": "combat.attack.defeat_uncovered",
+      "placeholders": [
+        "location",
+        "verb"
+      ]
+    },
+    {
+      "id": "combat.attack.defeated",
+      "placeholders": [
+        "threat",
+        "weapon",
+        "armour",
+        "recovered"
+      ]
+    },
+    {
+      "id": "combat.attack.hit_armour",
+      "placeholders": [
+        "protection",
+        "location"
+      ]
+    },
+    {
+      "id": "combat.attack.hit_uncovered",
+      "placeholders": [
+        "location"
+      ]
+    },
+    {
+      "id": "combat.attack.hit_injury",
+      "placeholders": [
+        "injury"
+      ]
+    },
+    {
+      "id": "combat.attack.hit",
+      "placeholders": [
+        "weapon",
+        "damage",
+        "armour",
+        "injury",
+        "threat",
+        "health",
+        "maximum"
+      ]
+    },
+    {
+      "id": "combat.guard.no_danger",
+      "placeholders": []
+    },
+    {
+      "id": "combat.guard.no_powder",
+      "placeholders": []
+    },
+    {
+      "id": "combat.guard.gun_loading",
+      "placeholders": [
+        "weapon",
+        "current",
+        "required"
+      ]
+    },
+    {
+      "id": "combat.guard.no_crossbow_ammo",
+      "placeholders": []
+    },
+    {
+      "id": "combat.guard.crossbow_reload",
+      "placeholders": []
+    },
+    {
+      "id": "combat.guard.no_heavy_bolts",
+      "placeholders": []
+    },
+    {
+      "id": "combat.guard.arbalest_reload",
+      "placeholders": [
+        "current",
+        "stage"
+      ]
+    },
+    {
+      "id": "combat.guard.no_brace_target",
+      "placeholders": [
+        "reason"
+      ]
+    },
+    {
+      "id": "combat.guard.base.shielded",
+      "placeholders": []
+    },
+    {
+      "id": "combat.guard.base.strong",
+      "placeholders": []
+    },
+    {
+      "id": "combat.guard.base.normal",
+      "placeholders": []
+    },
+    {
+      "id": "combat.guard.wet.strong",
+      "placeholders": []
+    },
+    {
+      "id": "combat.guard.wet.weak",
+      "placeholders": []
+    },
+    {
+      "id": "combat.guard.counterbrace",
+      "placeholders": []
+    },
+    {
+      "id": "combat.guard.support",
+      "placeholders": []
+    },
+    {
+      "id": "combat.guard.brace",
+      "placeholders": [
+        "weapon",
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.guard.brace_expired",
+      "placeholders": [
+        "threat"
+      ]
+    }
   ]
 }

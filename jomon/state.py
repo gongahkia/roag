@@ -232,6 +232,7 @@ class Threat:
     max_health: int
     status: str = "watching"
     intent: str = "has not noticed you"
+    intent_id: str = ""
     turn: int = 0
     morale: int = 2
     elite: bool = False

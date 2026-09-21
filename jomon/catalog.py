@@ -72,6 +72,7 @@ WORKLINE_PRESENTATION_FILE = "worklines.json"
 INTERFERENCE_PRESENTATION_FILE = "interference_text.json"
 LEGENDARY_PRESENTATION_FILE = "legendary_text.json"
 TOPOLOGY_PRESENTATION_FILE = "topology_text.json"
+ACTION_PRESENTATION_FILE = "action_text.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -161,6 +162,23 @@ _INTERFERENCE_TEMPLATE_CONTRACT = {
     "interference.notice": ("title", "origin"),
     "interference.ledger.arrival": ("title", "destination_change"),
     "interference.ledger.departure": ("title", "origin_change"),
+}
+
+_ACTION_TEMPLATE_CONTRACT = {
+    "combat.threat.notice": ("threat", "intent"),
+    "combat.intent.activate.pursuer": (), "combat.intent.activate.reach": (), "combat.intent.activate.ranged": (), "combat.intent.activate.animal": (), "combat.intent.activate.machinery": (), "combat.intent.activate.default": (),
+    "combat.intent.activate.elite": ("mode", "charges"), "combat.intent.activate.prey": (), "combat.intent.activate.predator": (), "combat.intent.activate.duty": ("duty",),
+    "combat.damage.hit": ("source", "location", "damage", "protection"), "combat.damage.absorbed": ("armour", "absorbed"), "combat.damage.exposed": ("location",), "combat.damage.defeated": ("source", "courier"),
+    "combat.brace.reaction": ("weapon", "outcome", "threat", "protection", "dropped"), "combat.brace.protected": ("protection", "location"), "combat.brace.uncovered": ("location",),
+    "combat.threat.intent": ("threat", "intent"), "combat.threat.loses_turn": ("threat", "intent"),
+    "combat.threat.alarm": ("threat",), "combat.threat.net_hit": ("threat",), "combat.threat.net_miss": ("threat",), "combat.threat.smoke": ("threat",), "combat.threat.retreat_blocked": ("threat",),
+    "combat.threat.escape": ("threat", "loss"), "combat.threat.escape_lost": ("item",), "combat.threat.escape_memory": ("threat", "region", "item"), "combat.threat.cargo": ("threat",), "combat.threat.steal": ("threat", "item"),
+    "combat.threat.investigate_empty": ("threat",), "combat.threat.investigate_blocked": ("threat",), "combat.threat.investigate": ("threat",), "combat.threat.route_blocked": ("threat",), "combat.threat.wait": ("threat",),
+    "combat.threat.cross_level": ("threat",), "combat.threat.firing_blocked": ("threat",), "combat.threat.firing_line": ("threat",), "combat.threat.shot_empty": ("threat", "x", "y"), "combat.threat.shot_cover": ("threat",), "combat.threat.shot_guard": ("cover", "weapon"), "combat.threat.skirmish": (),
+    "combat.threat.animal_mud": ("threat",), "combat.threat.animal_guard": ("threat",), "combat.threat.animal_warning": ("threat",), "combat.threat.guard_denied": ("threat",), "combat.threat.attack_warning": ("threat", "marker"), "combat.threat.no_route": ("threat",),
+    "combat.attack.unready": (), "combat.attack.no_target": (), "combat.attack.throwing_axe": (), "combat.attack.flail_prepare": (), "combat.attack.crossbow_unloaded": (), "combat.attack.arbalest_reload": ("remaining",), "combat.attack.handgonne_load": ("remaining",), "combat.attack.no_ammunition": ("ammunition",), "combat.attack.path_blocked": (), "combat.attack.prepare": ("weapon", "threat", "range", "cover"), "combat.attack.weather_spoiled": (),
+    "combat.attack.defeat_memory": ("courier", "outcome", "threat", "weapon"), "combat.attack.defeat_armour": ("protection", "location"), "combat.attack.defeat_uncovered": ("location", "verb"), "combat.attack.defeated": ("threat", "weapon", "armour", "recovered"), "combat.attack.hit_armour": ("protection", "location"), "combat.attack.hit_uncovered": ("location",), "combat.attack.hit_injury": ("injury",), "combat.attack.hit": ("weapon", "damage", "armour", "injury", "threat", "health", "maximum"),
+    "combat.guard.no_danger": (), "combat.guard.no_powder": (), "combat.guard.gun_loading": ("weapon", "current", "required"), "combat.guard.no_crossbow_ammo": (), "combat.guard.crossbow_reload": (), "combat.guard.no_heavy_bolts": (), "combat.guard.arbalest_reload": ("current", "stage"), "combat.guard.no_brace_target": ("reason",), "combat.guard.base.shielded": (), "combat.guard.base.strong": (), "combat.guard.base.normal": (), "combat.guard.wet.strong": (), "combat.guard.wet.weak": (), "combat.guard.counterbrace": (), "combat.guard.support": (), "combat.guard.brace": ("weapon", "threat"), "combat.guard.brace_expired": ("threat",),
 }
 
 _ARC_RELIC_IDS = ("common-work-rivet", "counterclaim-lodestone", "lee-cloth-brooch", "channel-surety-shuttle")
@@ -571,6 +589,12 @@ class TopologyPresentation:
 
 
 @dataclass(frozen=True)
+class ActionPresentation:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -595,6 +619,7 @@ class ContentPack:
     interference_presentations: tuple[InterferencePresentation, ...]
     legendary_presentations: tuple[LegendaryPresentation, ...]
     topology_presentations: tuple[TopologyPresentation, ...]
+    action_presentations: tuple[ActionPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -647,6 +672,12 @@ class ContentPack:
             if presentation.id == semantic_id:
                 return presentation
         raise KeyError(f"unknown history presentation id: {semantic_id}")
+
+    def action_presentation(self, semantic_id: str) -> ActionPresentation:
+        for presentation in self.action_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown action presentation id: {semantic_id}")
 
     def aftermath_presentation(self, semantic_id: str) -> AftermathPresentation:
         for presentation in self.aftermath_presentations:
@@ -731,8 +762,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, and topology")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, and actions")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -1478,6 +1509,27 @@ def _legendary_presentations(root: Path, pack_id: str) -> tuple[LegendaryPresent
     return tuple(LegendaryPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)) for key, placeholders in _LEGENDARY_TEMPLATE_CONTRACT.items())
 
 
+
+def _action_presentations(root: Path, pack_id: str) -> tuple[ActionPresentation, ...]:
+    source = root / ACTION_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid action presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected_contract = [{"id": key, "placeholders": list(placeholders)} for key, placeholders in _ACTION_TEMPLATE_CONTRACT.items()]
+    if engine_contract.get("actions") != expected_contract:
+        raise RuntimeError(f"invalid engine action content contract at {contract_source}: actions does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid action presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_ACTION_TEMPLATE_CONTRACT):
+        missing, unknown = set(_ACTION_TEMPLATE_CONTRACT) - set(rows), set(rows) - set(_ACTION_TEMPLATE_CONTRACT)
+        details = ([] if not missing else ["missing required action keys " + ", ".join(sorted(missing))]) + ([] if not unknown else ["unknown action keys " + ", ".join(sorted(unknown))])
+        raise ContentPackError(f"invalid action presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(ActionPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)) for key, placeholders in _ACTION_TEMPLATE_CONTRACT.items())
+
+
 def _topology_presentations(root: Path, pack_id: str) -> tuple[TopologyPresentation, ...]:
     source = root / TOPOLOGY_PRESENTATION_FILE
     try:
@@ -1642,10 +1694,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     interference = _interference_presentations(root, pack_id)
     legendary = _legendary_presentations(root, pack_id)
     topology = _topology_presentations(root, pack_id)
+    actions = _action_presentations(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, household_template,
     )
 
 
