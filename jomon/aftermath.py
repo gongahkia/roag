@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .catalog import AFTERMATH_SECTIONS, load_catalog
+from .aftermath_presentation import aftermath_contract_cause, aftermath_contract_title, aftermath_opening, aftermath_opening_format
 from .state import GameState, Position, QuestProgress, RegionalContract
 
 
@@ -151,7 +152,6 @@ def _change_population_and_service(state: GameState, branch: str) -> None:
 
 def _create_contracts(state: GameState, sites: tuple[Position, Position, Position]) -> None:
     region_id = state.active_region_id
-    title, contract_titles, _, _ = AFTERMATH_LINES[region_id]
     account = state.institutions[f"work:{region_id}"]
     witness = state.contacts[region_id][1]
     crisis = str(state.region.generation_facts.get("crisis", state.region.hazard))
@@ -159,14 +159,14 @@ def _create_contracts(state: GameState, sites: tuple[Position, Position, Positio
     topologies = AFTERMATH_TOPOLOGIES[region_id]
     definitions = (
         (
-            f"contract:{region_id}:supply", contract_titles[0], topologies[0],
+            f"contract:{region_id}:supply", aftermath_contract_title(f"contract:{region_id}:supply"), topologies[0],
             sites[0], account.dependency,
-            f"{account.dependency} stock is {state.market[account.dependency].stock} after {title}; the next scheduled shift consumes a real lot at {_position_text(sites[0])}",
+            aftermath_contract_cause(f"contract:{region_id}:supply", dependency=account.dependency, stock=state.market[account.dependency].stock, aftermath_title=aftermath_opening(region_id), site=_position_text(sites[0])),
         ),
         (
-            f"contract:{region_id}:scar", contract_titles[1], topologies[1],
+            f"contract:{region_id}:scar", aftermath_contract_title(f"contract:{region_id}:scar"), topologies[1],
             sites[1], account.production,
-            f"the recorded {crisis} and {branch} ending left a physical work scar at {_position_text(sites[1])}",
+            aftermath_contract_cause(f"contract:{region_id}:scar", crisis=crisis, branch=branch, site=_position_text(sites[1])),
         ),
     )
     for contract_id, contract_title, topology, site, commodity, cause in definitions:
@@ -203,10 +203,10 @@ def prepare_aftermath(state: GameState) -> bool:
     quest = state.aftermath_quests[region_id]
     quest.status, quest.stage, quest.branch = "available", 0, branch
     state.remember(
-        f"After the {branch} settlement at {state.region.name}, the work scars, the crews, and their witnessed terms have changed."
+        aftermath_opening_format(region_id, "memory", branch=branch, region=state.region.name)
     )
     state.add_message(
-        f"On returning, you find {AFTERMATH_LINES[region_id][0]}: old work has left new scars, and witnesses have new terms to offer.",
+        aftermath_opening_format(region_id, "notice", title=aftermath_opening(region_id)),
         priority=3,
     )
     from .frontier_elites import install_aftermath_elite

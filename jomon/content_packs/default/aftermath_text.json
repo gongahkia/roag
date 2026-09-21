@@ -1,0 +1,110 @@
+{
+  "contracts": {
+    "aftermath.contract.hearthford.supply": {
+      "title": "Rehang the public flood marks",
+      "cause": "{dependency} stock is {stock} after {aftermath_title}; the next scheduled shift consumes a real lot at {site}"
+    },
+    "aftermath.contract.hearthford.scar": {
+      "title": "Account for the private wheel timber",
+      "cause": "the recorded {crisis} and {branch} ending left a physical work scar at {site}"
+    },
+    "aftermath.contract.greywash.supply": {
+      "title": "Relight the storm-scoured dune line",
+      "cause": "{dependency} stock is {stock} after {aftermath_title}; the next scheduled shift consumes a real lot at {site}"
+    },
+    "aftermath.contract.greywash.scar": {
+      "title": "Recover a shifted wreck title",
+      "cause": "the recorded {crisis} and {branch} ending left a physical work scar at {site}"
+    },
+    "aftermath.contract.greenwold.supply": {
+      "title": "Replant the medicine boundary",
+      "cause": "{dependency} stock is {stock} after {aftermath_title}; the next scheduled shift consumes a real lot at {site}"
+    },
+    "aftermath.contract.greenwold.scar": {
+      "title": "Count charcoal taken beyond the cut",
+      "cause": "the recorded {crisis} and {branch} ending left a physical work scar at {site}"
+    },
+    "aftermath.contract.whitecairn.supply": {
+      "title": "Seat the opened warning stair",
+      "cause": "{dependency} stock is {stock} after {aftermath_title}; the next scheduled shift consumes a real lot at {site}"
+    },
+    "aftermath.contract.whitecairn.scar": {
+      "title": "Recover the toll brace account",
+      "cause": "the recorded {crisis} and {branch} ending left a physical work scar at {site}"
+    },
+    "aftermath.contract.dunmire.supply": {
+      "title": "Raise the inhabited peat walk",
+      "cause": "{dependency} stock is {stock} after {aftermath_title}; the next scheduled shift consumes a real lot at {site}"
+    },
+    "aftermath.contract.dunmire.scar": {
+      "title": "Mark fuel cut below the waterline",
+      "cause": "the recorded {crisis} and {branch} ending left a physical work scar at {site}"
+    },
+    "aftermath.contract.rillscar.supply": {
+      "title": "Brace the shared switchback",
+      "cause": "{dependency} stock is {stock} after {aftermath_title}; the next scheduled shift consumes a real lot at {site}"
+    },
+    "aftermath.contract.rillscar.scar": {
+      "title": "Find the convoy's dropped counterweight",
+      "cause": "the recorded {crisis} and {branch} ending left a physical work scar at {site}"
+    },
+    "aftermath.contract.marlbank.supply": {
+      "title": "Open the seed-bed rill",
+      "cause": "{dependency} stock is {stock} after {aftermath_title}; the next scheduled shift consumes a real lot at {site}"
+    },
+    "aftermath.contract.marlbank.scar": {
+      "title": "Cool the claimant's abandoned kiln",
+      "cause": "the recorded {crisis} and {branch} ending left a physical work scar at {site}"
+    },
+    "aftermath.contract.frostmere.supply": {
+      "title": "Restake the sheltered channel",
+      "cause": "{dependency} stock is {stock} after {aftermath_title}; the next scheduled shift consumes a real lot at {site}"
+    },
+    "aftermath.contract.frostmere.scar": {
+      "title": "Recover a net line from broken ice",
+      "cause": "the recorded {crisis} and {branch} ending left a physical work scar at {site}"
+    }
+  },
+  "openings": {
+    "hearthford": {
+      "title": "The Silt after the Compact",
+      "notice": "On returning, you find {title}: old work has left new scars, and witnesses have new terms to offer.",
+      "memory": "After the {branch} settlement at {region}, the work scars, the crews, and their witnessed terms have changed."
+    },
+    "greywash": {
+      "title": "What the Ebb Returned",
+      "notice": "On returning, you find {title}: old work has left new scars, and witnesses have new terms to offer.",
+      "memory": "After the {branch} settlement at {region}, the work scars, the crews, and their witnessed terms have changed."
+    },
+    "greenwold": {
+      "title": "Shoots through the Burn",
+      "notice": "On returning, you find {title}: old work has left new scars, and witnesses have new terms to offer.",
+      "memory": "After the {branch} settlement at {region}, the work scars, the crews, and their witnessed terms have changed."
+    },
+    "whitecairn": {
+      "title": "Echo beneath the Honest Bell",
+      "notice": "On returning, you find {title}: old work has left new scars, and witnesses have new terms to offer.",
+      "memory": "After the {branch} settlement at {region}, the work scars, the crews, and their witnessed terms have changed."
+    },
+    "dunmire": {
+      "title": "Islands after the Drain",
+      "notice": "On returning, you find {title}: old work has left new scars, and witnesses have new terms to offer.",
+      "memory": "After the {branch} settlement at {region}, the work scars, the crews, and their witnessed terms have changed."
+    },
+    "rillscar": {
+      "title": "The Span that Remained",
+      "notice": "On returning, you find {title}: old work has left new scars, and witnesses have new terms to offer.",
+      "memory": "After the {branch} settlement at {region}, the work scars, the crews, and their witnessed terms have changed."
+    },
+    "marlbank": {
+      "title": "Water after Firing",
+      "notice": "On returning, you find {title}: old work has left new scars, and witnesses have new terms to offer.",
+      "memory": "After the {branch} settlement at {region}, the work scars, the crews, and their witnessed terms have changed."
+    },
+    "frostmere": {
+      "title": "Soundings after Thaw",
+      "notice": "On returning, you find {title}: old work has left new scars, and witnesses have new terms to offer.",
+      "memory": "After the {branch} settlement at {region}, the work scars, the crews, and their witnessed terms have changed."
+    }
+  }
+}

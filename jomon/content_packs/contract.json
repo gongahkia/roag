@@ -2593,5 +2593,23 @@
         "stage"
       ]
     }
+  ],
+  "aftermath": [
+    "aftermath.contract.hearthford.supply",
+    "aftermath.contract.hearthford.scar",
+    "aftermath.contract.greywash.supply",
+    "aftermath.contract.greywash.scar",
+    "aftermath.contract.greenwold.supply",
+    "aftermath.contract.greenwold.scar",
+    "aftermath.contract.whitecairn.supply",
+    "aftermath.contract.whitecairn.scar",
+    "aftermath.contract.dunmire.supply",
+    "aftermath.contract.dunmire.scar",
+    "aftermath.contract.rillscar.supply",
+    "aftermath.contract.rillscar.scar",
+    "aftermath.contract.marlbank.supply",
+    "aftermath.contract.marlbank.scar",
+    "aftermath.contract.frostmere.supply",
+    "aftermath.contract.frostmere.scar"
   ]
 }

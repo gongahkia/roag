@@ -67,6 +67,13 @@ ITEM_PRESENTATION_FILE = "items.json"
 UI_PRESENTATION_FILE = "ui_text.json"
 QUEST_PRESENTATION_FILE = "quests.json"
 HISTORY_PRESENTATION_FILE = "history_text.json"
+AFTERMATH_PRESENTATION_FILE = "aftermath_text.json"
+
+_AFTERMATH_CONTRACT = tuple(
+    f"aftermath.contract.{region}.{kind}"
+    for region in ("hearthford", "greywash", "greenwold", "whitecairn", "dunmire", "rillscar", "marlbank", "frostmere")
+    for kind in ("supply", "scar")
+)
 
 _HISTORY_TEMPLATE_CONTRACT = {
     'history.event.water_and_stone.account': ('climate', 'production', 'dependency'),
@@ -320,6 +327,13 @@ class HistoryPresentation:
 
 
 @dataclass(frozen=True)
+class AftermathPresentation:
+    id: str
+    title: str
+    cause: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -336,6 +350,8 @@ class ContentPack:
     quest_presentations: tuple[QuestPresentation, ...]
     quest_service_presentations: tuple[QuestServicePresentation, ...]
     history_presentations: tuple[HistoryPresentation, ...]
+    aftermath_presentations: tuple[AftermathPresentation, ...]
+    aftermath_openings: tuple[tuple[str, str, str, str], ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -389,6 +405,24 @@ class ContentPack:
                 return presentation
         raise KeyError(f"unknown history presentation id: {semantic_id}")
 
+    def aftermath_presentation(self, semantic_id: str) -> AftermathPresentation:
+        for presentation in self.aftermath_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown aftermath presentation id: {semantic_id}")
+
+    def aftermath_opening(self, region_id: str) -> str:
+        for region, text, _notice, _memory in self.aftermath_openings:
+            if region == region_id:
+                return text
+        raise KeyError(f"unknown aftermath opening region: {region_id}")
+
+    def aftermath_opening_text(self, region_id: str, field: str) -> str:
+        for region, title, notice, memory in self.aftermath_openings:
+            if region == region_id:
+                return {"title": title, "notice": notice, "memory": memory}[field]
+        raise KeyError(f"unknown aftermath opening region: {region_id}")
+
 
 _selected_pack: ContentPack | None = None
 _catalogs_loaded = False
@@ -418,8 +452,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, and history")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, and aftermath")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -1083,6 +1117,45 @@ def _history_presentations(root: Path, pack_id: str) -> tuple[HistoryPresentatio
     ) for key, placeholders in _HISTORY_TEMPLATE_CONTRACT.items())
 
 
+def _aftermath_presentations(root: Path, pack_id: str) -> tuple[tuple[AftermathPresentation, ...], tuple[tuple[str, str, str, str], ...]]:
+    source = root / AFTERMATH_PRESENTATION_FILE
+    contract_source, engine_contract = _content_contract_document()
+    if engine_contract["aftermath"] != list(_AFTERMATH_CONTRACT):
+        raise RuntimeError(f"invalid engine aftermath content contract at {contract_source}: aftermath must contain exactly stable contract slots")
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid aftermath presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    if not isinstance(document, dict) or set(document) != {"contracts", "openings"} or not isinstance(document["contracts"], dict) or not isinstance(document["openings"], dict):
+        raise ContentPackError(f"invalid aftermath presentation for content pack {pack_id!r} at {source}: expected contracts and openings objects")
+    rows = document["contracts"]
+    if set(rows) != set(_AFTERMATH_CONTRACT):
+        missing, unknown = set(_AFTERMATH_CONTRACT) - set(rows), set(rows) - set(_AFTERMATH_CONTRACT)
+        details = []
+        if missing:
+            details.append("missing required contract slots " + ", ".join(sorted(missing)))
+        if unknown:
+            details.append("unknown contract slots " + ", ".join(sorted(unknown)))
+        raise ContentPackError(f"invalid aftermath presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    presentations = []
+    for key in _AFTERMATH_CONTRACT:
+        row = rows[key]
+        if not isinstance(row, dict) or set(row) != {"title", "cause"} or any(not isinstance(row[field], str) or not row[field].strip() for field in row):
+            raise ContentPackError(f"invalid aftermath presentation for content pack {pack_id!r} at {source}: contracts.{key} must contain non-empty title and cause only")
+        placeholders = ("dependency", "stock", "aftermath_title", "site") if key.endswith(".supply") else ("crisis", "branch", "site")
+        cause = _validate_quest_service_template(source, pack_id, f"contracts.{key}.cause", row["cause"], placeholders)
+        presentations.append(AftermathPresentation(key, row["title"], cause))
+    regions = {key.split(".")[2] for key in _AFTERMATH_CONTRACT}
+    if (set(document["openings"]) != regions or any(not isinstance(value, dict) or set(value) != {"title", "notice", "memory"}
+            or any(not isinstance(text, str) or not text.strip() for text in value.values())
+            for value in document["openings"].values())):
+        raise ContentPackError(f"invalid aftermath presentation for content pack {pack_id!r} at {source}: openings must contain every contracted region")
+    for region in regions:
+        for field, placeholders in {"notice": {"title"}, "memory": {"branch", "region"}}.items():
+            _validate_quest_service_template(source, pack_id, f"openings.{region}.{field}", document["openings"][region][field], tuple(sorted(placeholders)))
+    return tuple(presentations), tuple((region, document["openings"][region]["title"], document["openings"][region]["notice"], document["openings"][region]["memory"]) for region in sorted(regions))
+
+
 def _manifest_document(root: Path) -> dict[str, Any]:
     source = root / "manifest.json"
     try:
@@ -1151,9 +1224,10 @@ def load_content_pack(path: str | Path) -> ContentPack:
     ui = _ui_presentations(root, pack_id)
     quests, services = _quest_presentations(root, pack_id)
     history = _history_presentations(root, pack_id)
+    aftermath, aftermath_openings = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, household_template,
     )
 
 

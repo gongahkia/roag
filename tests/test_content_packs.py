@@ -42,6 +42,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "ui_text.json", root / "ui_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "quests.json", root / "quests.json")
     shutil.copy(DEFAULT_PACK_ROOT / "history_text.json", root / "history_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "aftermath_text.json", root / "aftermath_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -123,6 +124,11 @@ def alternate_pack(root: Path) -> Path:
     history_text["text"]["history.event.crisis.account"] = "Fixture witness {witness} records {crisis} at the {landmark}."
     history_text["text"]["history.network_service.shelter.label"] = "Open the fixture shelter route"
     source.write_text(json.dumps(history_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "aftermath_text.json"
+    aftermath = json.loads(source.read_text(encoding="utf-8"))
+    aftermath["contracts"]["aftermath.contract.hearthford.supply"]["title"] = "Fixture Flood Marks"
+    aftermath["contracts"]["aftermath.contract.greywash.scar"]["title"] = "Fixture Wreck Title"
+    source.write_text(json.dumps(aftermath, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
 
 
@@ -507,6 +513,18 @@ class ContentPackTests(unittest.TestCase):
         self.assertEqual(
             pack.history_presentation("history.network_service.shelter.label").text,
             "Open the fixture shelter route",
+        )
+
+    def test_alternate_pack_changes_aftermath_contract_titles(self):
+        with tempfile.TemporaryDirectory() as directory:
+            pack = load_content_pack(alternate_pack(Path(directory) / "fixture"))
+        self.assertEqual(
+            pack.aftermath_presentation("aftermath.contract.hearthford.supply").title,
+            "Fixture Flood Marks",
+        )
+        self.assertEqual(
+            pack.aftermath_presentation("aftermath.contract.hearthford.supply").cause,
+            "{dependency} stock is {stock} after {aftermath_title}; the next scheduled shift consumes a real lot at {site}",
         )
 
     def test_default_quest_presentation_matches_existing_catalog_copy(self):
