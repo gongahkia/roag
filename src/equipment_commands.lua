@@ -11,7 +11,7 @@ function C.valid(c,site,payload)
   assert(E.enabled(c) and E.safe(c),'Equipment is unavailable in this older campaign')
   local w=site.world
   if payload.type=='fabricate' then
-   U.integer(payload.slot,'Tool bench slot',1,w.cols*w.rows);assert(payload.kind=='pickaxe' or payload.kind=='rope_coil','Unknown tool recipe')
+   U.integer(payload.slot,'Tool bench slot',1,w.cols*w.rows);assert(payload.kind=='pickaxe' or payload.kind=='rope_coil' or payload.kind=='component','Unknown tool recipe')
    local s=w.structures[payload.slot];assert(s and s.kind=='tool_bench','Select a completed tool bench')
    assert(not s.fabrication,'Tool bench is busy')
    if payload.priority~=nil then U.integer(payload.priority,'Fabrication priority',1,3) end

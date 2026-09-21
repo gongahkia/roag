@@ -5,7 +5,7 @@ local W=require('src.world')
 local N=require('src.nav')
 local S=require('src.structures')
 local L={version=1,maxCrafts=4,maxManifests=4,maxOperations=16}
-local resources={'food','metal','soil','stone','water'}
+local resources={'food','metal','component','soil','stone','water'}
 local known={};for _,kind in ipairs(resources) do known[kind]=true end
 
 local function exact(t,keys,label)

@@ -24,7 +24,7 @@ local function returnDelivered(w,j)
  if type(j.delivered)=='number' then
   if j.delivered>0 then W.stack(w,S.def[j.build].resource,j.delivered,j.gx*4-2,j.gy*4) end
  else
-  for _,resource in ipairs({'stone','soil','metal','food','water'}) do if (j.delivered[resource] or 0)>0 then W.stack(w,resource,j.delivered[resource],j.gx*4-2,j.gy*4) end end
+  for _,resource in ipairs({'stone','soil','metal','component','food','water'}) do if (j.delivered[resource] or 0)>0 then W.stack(w,resource,j.delivered[resource],j.gx*4-2,j.gy*4) end end
  end
  j.delivered=type(j.delivered)=='number' and 0 or {}
 end
@@ -61,7 +61,7 @@ function J.add(w,kind,gx,gy,build,priority)
  if #w.jobs>=1024 then return nil,'Job limit reached' end
  for _,j in ipairs(w.jobs) do if j.gx==gx and j.gy==gy and j.state=='open' then return nil,'Order already present' end end
  local j={id=W.id(w),kind=kind,gx=gx,gy=gy,build=build,priority=priority or 2,
-  state='open',delivered=kind=='build' and (build=='field_school' or build=='tool_bench') and {} or 0,progress=0,reason='Waiting for a worker'}
+  state='open',delivered=kind=='build' and S.def[build] and S.def[build].materials and {} or 0,progress=0,reason='Waiting for a worker'}
  w.jobs[#w.jobs+1]=j return j
 end
 local function feature(context) return context and context.campaign and Equipment.safe(context.campaign) end
@@ -320,6 +320,27 @@ function J.plan(w,a,context)
    end
   end
  end
+ if context and context.campaign and context.campaign.features.industry==1 then
+  local Industry=require('src.industry')
+  for slot=1,w.cols*w.rows do local s=w.structures[slot]
+   if s and not s.user and W.supportedStructure(w,s) then
+    local path,node,dist=closest(w,a,f,function(x,y) return N.reachRect(w,x,y,s.gx,s.gy) end)
+    if path and Industry.needsMaintenance(s) then
+     local p,pp,nn,dd=itemChoice(w,a,f,'component',true)
+     if p then offer({kind='industry',stage='fetch',purpose='maintenance',structureId=s.id,slot=slot,item=p.id,amount=1,path=pp,node=nn,label='Fetching component for maintenance'},250,dist+dd) end
+    elseif path and (s.kind=='fabricator' or s.kind=='industrial_bin') then
+     local kind,need=Industry.inputNeed(s)
+     if s.kind=='industrial_bin' and s.mode=='receive' then
+      for _,p in ipairs(w.items) do if p.n>0 and not p.reserved and (not s.filter or p.kind==s.filter) then kind,need=p.kind,math.min(p.n,12);break end end
+     end
+     if kind and need and need>0 then
+      local p,pp,nn,dd=itemChoice(w,a,f,kind,true)
+      if p then offer({kind='industry',stage='fetch',purpose='feed',structureId=s.id,slot=slot,item=p.id,amount=math.min(need,12),path=pp,node=nn,label='Feeding '..S.def[s.kind].label},120,dist+dd) end
+     end
+    end
+   end
+  end
+ end
  -- Hauling is real transport. Storage labels don't teleport resources.
  for _,p in ipairs(w.items) do if p.n>0 and not p.reserved then
   local at=W.structureAt(w,p.x,p.y)
@@ -378,6 +399,9 @@ local function routeDestination(w,a,context)
  elseif t.kind=='cargo' then
   local j=W.find(w.jobs,t.job)
   return j and context and require('src.logistics').routeToCraft(context.campaign,context.siteId,w,a,j,reRoute)
+ elseif t.kind=='industry' then
+  local s=require('src.industry').find(w,t.structureId)
+  return s and reRoute(w,a,function(x,y) return N.reachRect(w,x,y,s.gx,s.gy) end)
  else
   local s=w.structures[t.slot or t.store]
   return s and reRoute(w,a,function(x,y) return N.reachRect(w,x,y,s.gx,s.gy) end)
@@ -438,6 +462,31 @@ function J.act(w,a,context)
  elseif t.kind=='rest' then
   a.worked=false;a.status=t.slot and 'Sleeping in bed' or 'Sleeping on ground'
   if a.fatigue<=25 then finish(w,a,'Rested') end
+ elseif t.kind=='industry' then
+  local Industry=require('src.industry');local s=Industry.find(w,t.structureId)
+  if not s or not N.reachRect(w,a.x,a.y,s.gx,s.gy) then blocked(w,a,'Industrial structure changed or is unreachable') return end
+  if t.stage=='fetch' then
+   local p=W.find(w.items,t.item)
+   if not p or p.n<=0 or p.reserved~=a.id or not N.reach(w,a.x,a.y,p.x,p.y,4) then blocked(w,a,'Industrial supply moved or became inaccessible') return end
+   local n=math.min(p.n,t.amount or 1);a.carry={kind=p.kind,n=n};p.n=p.n-n;p.reserved=nil;t.item=nil;t.stage='deliver'
+   if not routeDestination(w,a,context) then blocked(w,a,'Industrial destination is unreachable') end
+  elseif t.stage=='deliver' then
+   if not a.carry then blocked(w,a,'Industrial carried supply is missing') return end
+   if t.purpose=='maintenance' then
+    if a.carry.kind~='component' or a.carry.n<1 or not Industry.needsMaintenance(s) then blocked(w,a,'Maintenance requirement changed') return end
+    t.stage='work';t.progress=0;a.status='Maintaining '..S.def[s.kind].label
+   elseif t.purpose=='feed' then
+    if not Industry.deposit(s,a.carry) then blocked(w,a,'Machine or bin cannot accept this supply') return end
+    a.carry=nil;finish(w,a,'Fed '..S.def[s.kind].label)
+   else blocked(w,a,'Unknown industrial task') end
+  elseif t.stage=='work' then
+   if not Industry.needsMaintenance(s) or not a.carry or a.carry.kind~='component' then blocked(w,a,'Maintenance state changed') return end
+   t.progress=t.progress+contribution(w,a,context,t,1)
+   if t.progress>=60 then
+    a.carry.n=a.carry.n-1;if a.carry.n<=0 then a.carry=nil end
+    Industry.completeMaintenance(w,s);finish(w,a,'Maintained '..S.def[s.kind].label)
+   end
+  else blocked(w,a,'Industrial task state changed') end
  elseif t.stage=='fetch' then
   if t.item then
    local p=W.find(w.items,t.item)
@@ -593,9 +642,15 @@ function J.act(w,a,context)
    s.fabrication={jobId=j.id,kind=j.recipe,progress=j.progress,work=Equipment.recipe(j.recipe).work}
    j.progress=j.progress+contribution(w,a,context,t,1);s.fabrication.progress=j.progress
    if j.progress>=Equipment.recipe(j.recipe).work then
-    local ok,item=pcall(Equipment.create,context.campaign,currentSite(context),j.recipe,s.gx*4-2,s.gy*4-3)
-    if not ok then blocked(w,a,'No valid tool-bench output space') return end
-    s.fabrication=nil;j.state='done';j.reason='Completed';w.stats.jobsDone=w.stats.jobsDone+1;W.event(w,'fabricate',a.name..' fabricated '..j.recipe..'.',item.id);finish(w,a)
+    local outputId
+    if j.recipe=='component' then
+     local pile=W.stack(w,'component',1,s.gx*4-2,s.gy*4-3);outputId=pile.id
+    else
+     local ok,item=pcall(Equipment.create,context.campaign,currentSite(context),j.recipe,s.gx*4-2,s.gy*4-3)
+     if not ok then blocked(w,a,'No valid tool-bench output space') return end
+     outputId=item.id
+    end
+    s.fabrication=nil;j.state='done';j.reason='Completed';w.stats.jobsDone=w.stats.jobsDone+1;W.event(w,'fabricate',a.name..' fabricated '..j.recipe..'.',outputId);finish(w,a)
    end
   elseif j.kind=='arm' then
    if feature(context) and a.panic then blocked(w,a,'Panicked workers cannot arm demolition charges') return end
@@ -623,6 +678,7 @@ function J.act(w,a,context)
     else W.stack(w,def.resource,recovered,a.x,a.y) end
     w.ledger.demolitionWaste=w.ledger.demolitionWaste+def.cost-recovered
     if s.tank and s.tank>0 then W.stack(w,'water',s.tank,a.x,a.y) end
+    require('src.industry').destroy(w,s,context,a.x,a.y,false)
     require('src.education').destroy(w,s);w.structures[slot]=nil;w.navRevision=w.navRevision+1;j.state='done';w.stats.jobsDone=w.stats.jobsDone+1
     W.event(w,'remove',a.name..' dismantled '..def.label..'; half the construction material was lost.',j.id)
     finish(w,a)

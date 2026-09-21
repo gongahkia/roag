@@ -15,7 +15,7 @@ function B.arm(w,s,worker)
  W.event(w,'warning',(worker and worker.name or 'A chain reaction')..' armed a charge. '..B.fuse..' ticks remain; no disarm.',s.id)
  return true
 end
-local function destroyStructure(w,slot,s,charge)
+local function destroyStructure(w,slot,s,charge,context)
  local J=require('src.jobs')
  for _,a in ipairs(w.workers) do if a.task and (a.task.slot==slot or a.task.store==slot) then J.release(w,a,true) end end
  for _,j in ipairs(w.jobs) do if j.state=='open' and W.slot(w,j.gx,j.gy)==slot then J.cancel(w,j) end end
@@ -25,9 +25,10 @@ local function destroyStructure(w,slot,s,charge)
  end
  w.ledger.demolitionWaste=w.ledger.demolitionWaste+def.cost-salvage
  if (s.tank or 0)>0 then W.stack(w,'water',s.tank,s.gx*4-2,s.gy*4) end
+ require('src.industry').destroy(w,s,context,s.gx*4-2,s.gy*4,charge)
  require('src.education').destroy(w,s);w.structures[slot]=nil;w.navRevision=w.navRevision+1
 end
-function B.detonate(w,slot)
+function B.detonate(w,slot,context)
  local source=w.structures[slot];if not source or source.kind~='charge' then return end
  local cx,cy=source.gx*4-2,source.gy*4-2
  -- Compute a deterministic attenuated wave BEFORE changing its obstacles.
@@ -68,7 +69,7 @@ function B.detonate(w,slot)
   if s then
    if s.kind=='charge' and key~=slot then
     s.fuseAt=math.min(s.fuseAt or (w.tick+1),w.tick+1);s.status='CHAIN REACTION'
-   else destroyStructure(w,key,s,s.kind=='charge') end
+   else destroyStructure(w,key,s,s.kind=='charge',context) end
   end
  end end
  local destroyedRopes={}
@@ -80,7 +81,7 @@ function B.detonate(w,slot)
   if hit then destroyedRopes[#destroyedRopes+1]=rope.id end
  end
  if #destroyedRopes>0 then w.destroyedRopes=destroyedRopes end
- if w.structures[slot] then destroyStructure(w,slot,source,true) end
+ if w.structures[slot] then destroyStructure(w,slot,source,true,context) end
  for _,a in ipairs(w.workers) do if a.alive then
   local hit=0
   Body.occupied(w,a.x,a.y,function(x,y) hit=math.max(hit,wave[W.index(w,x,y)] or 0) end)
@@ -101,12 +102,12 @@ function B.detonate(w,slot)
  if #w.blastEffects>12 then table.remove(w.blastEffects,1) end
  W.event(w,'blast','A demolition charge ruptured the surrounding terrain. Supplies and workers may be lost.',source.id)
 end
-function B.step(w)
+function B.step(w,context)
  local due={}
  for slot=1,w.cols*w.rows do local s=w.structures[slot]
   if s and s.kind=='charge' and s.fuseAt and w.tick>=s.fuseAt then due[#due+1]=slot end
  end
- for _,slot in ipairs(due) do B.detonate(w,slot) end
+ for _,slot in ipairs(due) do B.detonate(w,slot,context) end
  if w.blastEffects then
   local keep={};for _,e in ipairs(w.blastEffects) do if w.tick-e.tick<=12 then keep[#keep+1]=e end end
   w.blastEffects=keep

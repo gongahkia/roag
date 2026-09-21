@@ -54,6 +54,31 @@ local function count(list,kind)
  local n=0;for _,r in ipairs(list or {}) do if r.kind==kind then n=n+units(r) end end;return n
 end
 I.capacity=capacity;I.addCargo=add;I.takeCargo=take;I.countCargo=count
+function I.inputNeed(s)
+ local recipe=s and s.recipe and I.recipes[s.recipe]
+ if not recipe or s.inprocess then return nil end
+ for kind,n in pairs(recipe.input) do
+  local have=count(s.input,kind)
+  if have<n then return kind,n-have end
+ end
+end
+function I.deposit(s,record)
+ assert(s and record,'Industrial destination is missing')
+ if s.kind=='fabricator' then
+  local recipe=s.recipe and I.recipes[s.recipe]
+  if not recipe or not recipe.input[record.kind] then return false end
+  return add(s.input,record,16)
+ elseif s.kind=='industrial_bin' then
+  if s.mode~='receive' or (s.filter and s.filter~=record.kind) then return false end
+  return add(s.cargo,record,32)
+ end
+ return false
+end
+function I.needsMaintenance(s) return s and (s.kind=='fabricator' or s.kind=='mining_rig') and s.wear>=600 end
+function I.completeMaintenance(w,s)
+ assert(I.needsMaintenance(s),'Machine does not require maintenance')
+ s.wear=0;s.status='Maintained';w.ledger.demolitionWaste=w.ledger.demolitionWaste+2
+end
 local function center(s,block)
  return s.gx+(block or 0),s.gy
 end
@@ -238,21 +263,44 @@ end
 function I.lightSources(w)
  local out={};for _,s in pairs(w.structures) do if s.kind=='electric_lamp' and s.enabled and s._powerGranted then out[#out+1]={x=s.gx*4-2,y=s.gy*4-2,radius=18,id=s.id} end end;table.sort(out,function(a,b)return a.id<b.id end);return out
 end
+function I.validConfig(s,payload)
+ assert(s and industrial[s.kind],'Industrial structure is unavailable')
+ assert(type(payload)=='table','Malformed industrial configuration')
+ if payload.recipe then assert(I.recipes[payload.recipe],'Unknown industrial recipe');assert(s.kind=='fabricator','Only fabricators use recipes') end
+ if payload.priority then assert(type(payload.priority)=='number' and payload.priority%1==0 and payload.priority>=1 and payload.priority<=3,'Invalid power priority');assert(consumer[s.kind],'Structure has no power priority') end
+ if payload.direction then assert(dirs[payload.direction],'Invalid industrial direction');assert(s.kind=='conveyor' or s.kind=='industrial_bin','Structure has no direction') end
+ if payload.mode then assert(payload.mode=='receive' or payload.mode=='supply','Invalid bin mode');assert(s.kind=='industrial_bin','Structure has no bin mode') end
+ if payload.filter~=nil then assert(resources[payload.filter] or payload.filter=='pickaxe' or payload.filter=='rope_coil','Invalid bin filter');assert(s.kind=='industrial_bin','Structure has no bin filter') end
+ if payload.enabled~=nil then assert(type(payload.enabled)=='boolean','Enabled must be boolean') end
+ return true
+end
 function I.configure(w,s,payload)
- if payload.recipe then assert(I.recipes[payload.recipe],'Unknown industrial recipe');assert(s.kind=='fabricator','Only fabricators use recipes');s.recipe=payload.recipe;s.progress=0;s.inprocess=nil end
- if payload.priority then assert(payload.priority>=1 and payload.priority<=3,'Invalid power priority');assert(consumer[s.kind],'Structure has no power priority');s.powerPriority=payload.priority end
- if payload.direction then assert(dirs[payload.direction],'Invalid industrial direction');assert(s.kind=='conveyor' or s.kind=='industrial_bin','Structure has no direction');s.direction=payload.direction end
- if payload.mode then assert(payload.mode=='receive' or payload.mode=='supply','Invalid bin mode');assert(s.kind=='industrial_bin','Structure has no bin mode');s.mode=payload.mode end
- if payload.filter~=nil then assert(resources[payload.filter] or payload.filter=='pickaxe' or payload.filter=='rope_coil','Invalid bin filter');assert(s.kind=='industrial_bin','Structure has no bin filter');s.filter=payload.filter end
+ I.validConfig(s,payload)
+ if payload.recipe then s.recipe=payload.recipe;s.progress=0;s.inprocess=nil end
+ if payload.priority then s.powerPriority=payload.priority end
+ if payload.direction then s.direction=payload.direction end
+ if payload.mode then s.mode=payload.mode end
+ if payload.filter~=nil then s.filter=payload.filter end
  if payload.enabled~=nil then s.enabled=payload.enabled end
  return true
 end
-function I.destroy(w,s,context,x,y)
+function I.destroy(w,s,context,x,y,blast)
  if not industrial[s.kind] then return end
- for _,list in ipairs({s.input,s.output,s.inprocess,s.cargo}) do for _,r in ipairs(list or {}) do
+ for _,list in ipairs({s.input,s.output,s.cargo}) do for _,r in ipairs(list or {}) do
   if r.equipmentId and context then local item=require('src.equipment').find(context.campaign,r.equipmentId);if item then require('src.equipment').drop(context.campaign,item,context.siteId,x,y) end
   elseif r.n then W.stack(w,r.kind,r.n,x,y) end
  end end
+ if s.inprocess then
+  if blast then
+   for _,r in ipairs(s.inprocess) do if r.equipmentId and context then
+    local item=require('src.equipment').find(context.campaign,r.equipmentId)
+    if item then for i,v in ipairs(context.campaign.equipment.items) do if v==item then table.remove(context.campaign.equipment.items,i);break end end end
+   elseif r.n then w.ledger.demolitionWaste=w.ledger.demolitionWaste+(r.kind=='component' and r.n*2 or r.n) end end
+  else for _,r in ipairs(s.inprocess) do
+   if r.equipmentId and context then local item=require('src.equipment').find(context.campaign,r.equipmentId);if item then require('src.equipment').drop(context.campaign,item,context.siteId,x,y) end
+   elseif r.n then W.stack(w,r.kind,r.n,x,y) end
+  end end
+ end
  s.input={};s.output={};s.inprocess={};s.cargo={};if w.industry then w.industry.topologyRevision=w.industry.topologyRevision+1;w._industryTopology=nil end
 end
 function I.validateWorld(w)

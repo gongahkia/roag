@@ -20,6 +20,7 @@ function C.valid(w,c)
    if not (w.frontier and w.frontier.visibility==1) then return false,'Torches require a visibility-enabled frontier campaign' end
    if S.torchCount(w)>=128 then return false,'This site already has 128 torches' end
   end
+  if c.kind=='build' and S.def[c.build] and S.def[c.build].industry and not (w.frontier and w.frontier.industry==1) then return false,'Industrial structures require an industry frontier campaign' end
   if c.priority~=nil and c.priority~=1 and c.priority~=2 and c.priority~=3 then return false,'Priority must be 1, 2 or 3' end
  elseif c.type=='priority' then
   if c.value~=1 and c.value~=2 and c.value~=3 then return false,'Priority must be 1, 2 or 3' end

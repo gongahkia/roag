@@ -11,13 +11,14 @@ end
 function Sim.body(w,clock,timings,context)
  timings=timings or {};local start=clock and clock()
  require('src.labor').refresh(w)
- require('src.blasts').step(w)
+ require('src.blasts').step(w,context)
  if context and context.campaign and context.campaign.features.equipment==1 then require('src.equipment').destroyPending(context.campaign,w) end
  P.step(w)
  if clock then timings.materials=clock()-start;start=clock() end
  -- Resource piles are discrete objects, not duplicate terrain particles.
  for _,p in ipairs(w.items) do if p.n>0 and not W.solid(w,p.x,p.y+1) and p.y<w.height-2 then p.y=p.y+1 end end
  S.step(w)
+ if context and context.campaign and context.campaign.features.industry==1 then require('src.industry').step(w,context) end
  if clock then timings.infrastructure=clock()-start;start=clock() end
  if context and context.campaign and context.campaign.features.visibility==1 then require('src.visibility').update(w,context) end
  if w.content then require('src.ecology').step(w,context) end

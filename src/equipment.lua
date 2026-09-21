@@ -7,7 +7,7 @@ local N=require('src.nav')
 
 local E={version=1,maxSiteItems=128,maxTransitItems=64,maxRopes=128}
 local value={pickaxe=2,rope_coil=1}
-local recipes={pickaxe={metal=2,work=120},rope_coil={metal=1,work=60}}
+local recipes={pickaxe={metal=2,work=120},rope_coil={metal=1,work=60},component={metal=2,work=120}}
 
 local function dense(t,label,limit)
  assert(type(t)=='table',label..' must be an array')
@@ -53,6 +53,11 @@ end
 function E.drop(c,item,siteId,x,y)
  assert(item and value[item.kind],'Invalid equipment')
  item.state='loose';item.siteId=siteId;item.x=x;item.y=y;item.personId=nil;item.craftId=nil;item.ropeId=nil;item.reservedBy=nil
+ return item
+end
+function E.toIndustry(item,siteId,structureId,owner)
+ assert(item and value[item.kind],'Invalid equipment')
+ item.state='industry';item.siteId=siteId;item.structureId=structureId;item.owner=owner;item.personId=nil;item.craftId=nil;item.ropeId=nil;item.x=nil;item.y=nil;item.reservedBy=nil
  return item
 end
 function E.equip(c,item,worker)
@@ -186,16 +191,18 @@ function E.validate(c)
  U.integer(state.nextId,'Next equipment ID',1,100000000);dense(state.items,'Equipment',E.maxSiteItems*3+E.maxTransitItems)
  local seen,max,siteCount,transit,equipped={},0,{},0,{}
  for _,item in ipairs(state.items) do
-  assert(type(item)=='table','Malformed equipment item');for key in pairs(item) do assert(({id=true,kind=true,state=true,siteId=true,x=true,y=true,personId=true,craftId=true,ropeId=true,reservedBy=true})[key],'Unknown equipment key') end
+  assert(type(item)=='table','Malformed equipment item');for key in pairs(item) do assert(({id=true,kind=true,state=true,siteId=true,x=true,y=true,personId=true,craftId=true,ropeId=true,reservedBy=true,structureId=true,owner=true})[key],'Unknown equipment key') end
   U.integer(item.id,'Equipment ID',1,state.nextId-1);assert(not seen[item.id],'Duplicate equipment ID');seen[item.id]=true;max=math.max(max,item.id);assert(value[item.kind],'Unknown equipment kind')
-  assert(item.state=='loose' or item.state=='carried' or item.state=='equipped' or item.state=='craft' or item.state=='rope','Unknown equipment state')
+  assert(item.state=='loose' or item.state=='carried' or item.state=='equipped' or item.state=='craft' or item.state=='rope' or item.state=='industry','Unknown equipment state')
   if item.state=='loose' then local s=site(c,item.siteId);assert(s,'Loose equipment site missing');U.integer(item.x,'Equipment x',1,s.world.width);U.integer(item.y,'Equipment y',1,s.world.height);siteCount[item.siteId]=(siteCount[item.siteId] or 0)+1
   elseif item.state=='carried' or item.state=='equipped' then
    local _,a=person(c,item.personId);assert(a,'Equipment person is missing');if item.state=='equipped' then assert(item.kind=='pickaxe','Only pickaxes can be equipped');assert(not equipped[item.personId],'More than one equipped tool');equipped[item.personId]=true end
   elseif item.state=='craft' then
    local found=false;for _,craft in ipairs(c.logistics and c.logistics.crafts or {}) do if craft.id==item.craftId then found=true end end;assert(found,'Equipment craft is missing');transit=transit+1
-  else
+  elseif item.state=='rope' then
    local s=site(c,item.siteId);assert(s,'Rope equipment site missing');local found=false;for _,rope in ipairs(s.world.ropes or {}) do if rope.id==item.ropeId and rope.itemId==item.id then found=true end end;assert(found,'Installed rope is missing')
+  else
+   local s=site(c,item.siteId);assert(s and c.features.industry==1,'Industrial equipment state is invalid');U.integer(item.structureId,'Industrial equipment structure',1,100000000);assert(item.owner=='input' or item.owner=='output' or item.owner=='belt' or item.owner=='bin','Invalid industrial equipment owner')
   end
  end
  for _,n in pairs(siteCount) do assert(n<=E.maxSiteItems,'Equipment site limit exceeded') end

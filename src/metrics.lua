@@ -2,6 +2,9 @@ local W=require('src.world')
 local M=require('src.materials')
 local S=require('src.structures')
 local Metrics={}
+local function mineralValue(kind,n)
+ return (kind=='component' and 2 or 1)*(n or 0)
+end
 function Metrics.measure(w)
  local r={water=0,mineral=0,food=W.totalResource(w,'food'),alive=W.alive(w),jobs=0,
   blocked=0,farms=0,readyCrops=0,structures=0,waterCells=0,lavaCells=0,materialCounts={}}
@@ -12,16 +15,27 @@ function Metrics.measure(w)
   if m==M.ROCK or m==M.SOIL or m==M.SAND or m==M.ORE or m==M.LAVA then r.mineral=r.mineral+1 end
  end
  r.waterCells=r.materialCounts[M.WATER];r.lavaCells=r.materialCounts[M.LAVA]
- for _,kind in ipairs({'stone','soil','metal'}) do r.mineral=r.mineral+W.totalResource(w,kind) end
+ for _,kind in ipairs({'stone','soil','metal','component'}) do r.mineral=r.mineral+mineralValue(kind,W.totalResource(w,kind)) end
  r.water=r.water+W.totalResource(w,'water')
  for _,j in ipairs(w.jobs) do
-  if type(j.delivered)=='table' then for _,amount in pairs(j.delivered) do r.mineral=r.mineral+amount end else r.mineral=r.mineral+(j.delivered or 0) end
+  if type(j.delivered)=='table' then for kind,amount in pairs(j.delivered) do r.mineral=r.mineral+mineralValue(kind,amount) end else r.mineral=r.mineral+(j.delivered or 0) end
   if j.state=='open' then r.jobs=r.jobs+1;if not j.assigned then r.blocked=r.blocked+1 end end
  end
  for slot=1,w.cols*w.rows do local s=w.structures[slot]
   if s then
-   r.structures=r.structures+1;r.mineral=r.mineral+S.def[s.kind].cost;r.water=r.water+(s.tank or 0)
+   r.structures=r.structures+1
+   for kind,amount in pairs(S.materials(s.kind)) do r.mineral=r.mineral+mineralValue(kind,amount) end
+   r.water=r.water+(s.tank or 0)
    if s.kind=='farm' then r.farms=r.farms+1;if s.growth>=w.rules.cropTicks then r.readyCrops=r.readyCrops+1 end end
+   if w.industry then
+    for _,list in ipairs({s.input,s.output,s.inprocess,s.cargo}) do
+     for _,record in ipairs(list or {}) do
+      if not record.equipmentId and (record.kind=='stone' or record.kind=='soil' or record.kind=='metal' or record.kind=='component') then r.mineral=r.mineral+mineralValue(record.kind,record.n) end
+      if not record.equipmentId and record.kind=='water' then r.water=r.water+(record.n or 0) end
+      if not record.equipmentId and record.kind=='food' then r.food=r.food+(record.n or 0);if r.foodBudget then r.foodBudget=r.foodBudget+(record.n or 0) end end
+     end
+    end
+   end
   end
  end
  if w.content then

@@ -109,6 +109,11 @@ local function sourceMasks(w,context,light)
  for _,s in pairs(w.structures) do if s.kind=='torch' and s.enabled and S.supported(w,s) then
   local x,y=s.gx*4-2,s.gy*4-2;mergeLight(w,light,V.fov(w,x,y,V.torchRadius),x,y,V.torchRadius)
  end end
+ if w.frontier and w.frontier.industry==1 then
+  for _,source in ipairs(require('src.industry').lightSources(w)) do
+   mergeLight(w,light,V.fov(w,source.x,source.y,source.radius),source.x,source.y,source.radius)
+  end
+ end
  if context and context.campaign and context.campaign.features.logistics==1 then
   for _,craft in ipairs(require('src.logistics').craftsAt(context.campaign,context.siteId)) do
    local x,y=craft.anchor.x,craft.anchor.y;mergeLight(w,light,V.fov(w,x,y,V.shuttleRadius),x,y,V.shuttleRadius)
@@ -119,7 +124,7 @@ function V.derive(w,context)
  if not V.enabled(w) then return nil end
  local signature={tostring(w.tick),tostring(w.navRevision)}
  for _,worker in ipairs(w.workers) do signature[#signature+1]=worker.id..':'..worker.x..':'..worker.y..':'..(worker.alive and '1' or '0') end
- for slot=1,w.cols*w.rows do local s=w.structures[slot];if s and s.kind=='torch' then signature[#signature+1]='T'..slot..':'..(s.enabled and '1' or '0') end end
+ for slot=1,w.cols*w.rows do local s=w.structures[slot];if s and (s.kind=='torch' or s.kind=='electric_lamp') then signature[#signature+1]=(s.kind=='torch' and 'T' or 'L')..slot..':'..(s.enabled and '1' or '0')..':'..(s._powerGranted and '1' or '0') end end
  if context and context.campaign and context.campaign.features.logistics==1 then
   for _,craft in ipairs(require('src.logistics').craftsAt(context.campaign,context.siteId)) do signature[#signature+1]='C'..craft.id..':'..craft.anchor.x..':'..craft.anchor.y end
  end

@@ -98,12 +98,13 @@ function W.validate(w)
   U.integer(slot,'structure slot',1,w.cols*w.rows)
   assert(type(s)=='table' and require('src.structures').def[s.kind],'Unknown structure')
   U.integer(s.gx,'structure x',1,w.cols);U.integer(s.gy,'structure y',1,w.rows)
+  U.integer(s.width or 1,'structure width',1,2);assert(s.gx+(s.width or 1)-1<=w.cols,'Structure footprint exceeds map bounds')
   assert(slot==W.slot(w,s.gx,s.gy),'Misplaced structure')
  end
  for _,p in ipairs(w.items) do U.integer(p.n,'stack',0,1000000) end
  if w.frontier then
   assert(type(w.frontier)=='table' and w.frontier.version==1,'Unsupported campaign world marker')
-  for key in pairs(w.frontier) do assert(key=='version' or key=='siteId' or key=='knowledge' or key=='education' or key=='body' or key=='visibility' or key=='equipment' or key=='safe_excavation' or key=='psychology','Unknown campaign world marker key') end
+  for key in pairs(w.frontier) do assert(key=='version' or key=='siteId' or key=='knowledge' or key=='education' or key=='body' or key=='visibility' or key=='equipment' or key=='safe_excavation' or key=='psychology' or key=='industry','Unknown campaign world marker key') end
   U.integer(w.frontier.siteId,'campaign site ID',1,100000000)
   if w.frontier.knowledge~=nil then assert(w.frontier.knowledge==1,'Unsupported campaign world knowledge marker') end
   if w.frontier.education~=nil then assert(w.frontier.education==1 and w.frontier.knowledge==1,'Education requires campaign knowledge') end
@@ -112,6 +113,7 @@ function W.validate(w)
   if w.frontier.equipment~=nil then assert(w.frontier.equipment==1 and w.frontier.visibility==1 and w.frontier.body==1,'Equipment requires current body and visibility') end
   if w.frontier.safe_excavation~=nil then assert(w.frontier.safe_excavation==1 and w.frontier.equipment==1,'Safe excavation requires equipment') end
   if w.frontier.psychology~=nil then assert(w.frontier.psychology==1 and w.frontier.safe_excavation==1 and w.frontier.knowledge==1,'Psychology requires safe excavation and knowledge') end
+  if w.frontier.industry~=nil then assert(w.frontier.industry==1 and w.frontier.equipment==1 and w.frontier.safe_excavation==1,'Industry requires current equipment and safe excavation') end
  end
  for _,job in ipairs(w.jobs) do if job.logistics then assert(w.frontier,'Cargo jobs require a campaign world marker') end end
  for _,a in ipairs(w.workers) do
@@ -140,6 +142,7 @@ function W.validate(w)
   assert(type(w.ropes)=='table','Safe-excavation world lacks rope state');U.integer(w.nextRopeId,'Next rope ID',1,100000000)
  else assert(w.ropes==nil and w.nextRopeId==nil,'Legacy world gained rope state') end
  if w.frontier and w.frontier.education==1 then require('src.education').validateWorld(w,w.tick) else assert(w.education==nil,'Education state requires campaign education') end
+ require('src.industry').validateWorld(w)
  require('src.visibility').validate(w)
  if w.labor then require('src.labor').validate(w,w.labor) end
  require('src.content').validate(w)
