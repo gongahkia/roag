@@ -26,6 +26,10 @@ S.def={
  electric_lamp={label='Electric lamp',cost=2,resource='metal',materials={metal=1,component=1},work=35,industry=true},
  signal_relay={label='Signal relay',cost=5,resource='metal',materials={stone=2,metal=2,component=1},work=60,industry=true,factions=true},
  trade_depot={label='Trade depot',cost=10,resource='metal',materials={stone=4,metal=4,component=2},work=90,width=2,solid=true,factions=true},
+ training_target={label='Training target',cost=2,resource='stone',materials={stone=2,metal=1},work=35,security=true},
+ -- A barricade stays walkable; security's fine-cell ray test gives its lower
+ -- half physical cover without introducing a percentage cover roll.
+ barricade={label='Barricade',cost=2,resource='stone',work=24,security=true},
 }
 function S.width(kind) return assert(S.def[kind],'Unknown structure').width or 1 end
 function S.footprint(s)

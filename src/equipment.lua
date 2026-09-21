@@ -6,7 +6,7 @@ local W=require('src.world')
 local N=require('src.nav')
 
 local E={version=1,maxSiteItems=128,maxTransitItems=64,maxRopes=128}
-local value={pickaxe=2,rope_coil=1}
+local value={pickaxe=2,rope_coil=1,frontier_carbine=4,shock_baton=3,protective_vest=4}
 local recipes={pickaxe={metal=2,work=120},rope_coil={metal=1,work=60},component={metal=2,work=120}}
 
 local function dense(t,label,limit)
@@ -39,8 +39,8 @@ function E.forSite(c,siteId,kind,state)
  end
  table.sort(out,function(a,b)return a.id<b.id end);return out
 end
-function E.equipped(c,personId)
- for _,item in ipairs(c.equipment.items) do if item.state=='equipped' and item.personId==personId then return item end end
+function E.equipped(c,personId,slot)
+ for _,item in ipairs(c.equipment.items) do if item.state=='equipped' and item.personId==personId and (not slot or item.slot==slot or (not item.slot and slot=='tool')) then return item end end
 end
 function E.create(c,siteId,kind,x,y)
  assert(E.enabled(c),'Equipment is unavailable in this older campaign')
@@ -60,14 +60,16 @@ function E.toIndustry(item,siteId,structureId,owner)
  item.state='industry';item.siteId=siteId;item.structureId=structureId;item.owner=owner;item.personId=nil;item.craftId=nil;item.ropeId=nil;item.x=nil;item.y=nil;item.reservedBy=nil
  return item
 end
-function E.equip(c,item,worker)
- assert(item and item.state=='loose','Tool is no longer loose');assert(item.kind=='pickaxe','Only a pickaxe can be equipped')
- assert(not E.equipped(c,worker.personId),'Worker already has an equipped hand tool')
- item.state='equipped';item.personId=worker.personId;item.siteId=nil;item.x=nil;item.y=nil;item.structureId=nil;item.owner=nil;item.reservedBy=nil
+function E.equip(c,item,worker,slot)
+ assert(item and item.state=='loose','Equipment is no longer loose')
+ slot=slot or (item.kind=='pickaxe' and 'tool' or item.kind=='protective_vest' and 'armor' or 'weapon')
+ assert((slot=='tool' and item.kind=='pickaxe') or (slot=='weapon' and (item.kind=='frontier_carbine' or item.kind=='shock_baton')) or (slot=='armor' and item.kind=='protective_vest'),'Invalid equipment slot')
+ assert(not E.equipped(c,worker.personId,slot),'Worker already has equipped '..slot)
+ item.state='equipped';item.slot=slot;item.personId=worker.personId;item.siteId=nil;item.x=nil;item.y=nil;item.structureId=nil;item.owner=nil;item.reservedBy=nil
  return item
 end
 function E.pickFor(c,worker)
- local item=E.equipped(c,worker.personId)
+ local item=E.equipped(c,worker.personId,'tool')
  return item and item.kind=='pickaxe' and item or nil
 end
 function E.digWork(c,worker,material)
@@ -101,7 +103,7 @@ function E.release(item,worker)
 end
 function E.carry(c,item,worker)
  assert(item and item.state=='loose' and item.reservedBy==worker.personId,'Equipment pickup changed')
- item.state='carried';item.personId=worker.personId;item.siteId=nil;item.x=nil;item.y=nil;item.structureId=nil;item.owner=nil;item.reservedBy=nil
+ item.state='carried';item.slot=nil;item.personId=worker.personId;item.siteId=nil;item.x=nil;item.y=nil;item.structureId=nil;item.owner=nil;item.reservedBy=nil
 end
 function E.carried(c,worker,kind)
  for _,item in ipairs(c.equipment.items) do if item.state=='carried' and item.personId==worker.personId and (not kind or item.kind==kind) then return item end end
@@ -191,12 +193,15 @@ function E.validate(c)
  U.integer(state.nextId,'Next equipment ID',1,100000000);dense(state.items,'Equipment',E.maxSiteItems*3+E.maxTransitItems)
  local seen,max,siteCount,transit,equipped={},0,{},0,{}
  for _,item in ipairs(state.items) do
-  assert(type(item)=='table','Malformed equipment item');for key in pairs(item) do assert(({id=true,kind=true,state=true,siteId=true,x=true,y=true,personId=true,craftId=true,ropeId=true,reservedBy=true,structureId=true,owner=true})[key],'Unknown equipment key') end
+  assert(type(item)=='table','Malformed equipment item');for key in pairs(item) do assert(({id=true,kind=true,state=true,siteId=true,x=true,y=true,personId=true,craftId=true,ropeId=true,reservedBy=true,structureId=true,owner=true,slot=true})[key],'Unknown equipment key') end
   U.integer(item.id,'Equipment ID',1,state.nextId-1);assert(not seen[item.id],'Duplicate equipment ID');seen[item.id]=true;max=math.max(max,item.id);assert(value[item.kind],'Unknown equipment kind')
   assert(item.state=='loose' or item.state=='carried' or item.state=='equipped' or item.state=='craft' or item.state=='rope' or item.state=='industry','Unknown equipment state')
   if item.state=='loose' then local s=site(c,item.siteId);assert(s,'Loose equipment site missing');U.integer(item.x,'Equipment x',1,s.world.width);U.integer(item.y,'Equipment y',1,s.world.height);siteCount[item.siteId]=(siteCount[item.siteId] or 0)+1
   elseif item.state=='carried' or item.state=='equipped' then
-   local _,a=person(c,item.personId);assert(a,'Equipment person is missing');if item.state=='equipped' then assert(item.kind=='pickaxe','Only pickaxes can be equipped');assert(not equipped[item.personId],'More than one equipped tool');equipped[item.personId]=true end
+   local _,a=person(c,item.personId);assert(a,'Equipment person is missing');if item.state=='equipped' then
+    local slot=item.slot or 'tool';assert((slot=='tool' and item.kind=='pickaxe') or (slot=='weapon' and (item.kind=='frontier_carbine' or item.kind=='shock_baton')) or (slot=='armor' and item.kind=='protective_vest'),'Invalid equipped item')
+    local key=item.personId..':'..slot;assert(not equipped[key],'More than one equipped '..slot);equipped[key]=true
+   end
   elseif item.state=='craft' then
    local found=false;for _,craft in ipairs(c.logistics and c.logistics.crafts or {}) do if craft.id==item.craftId then found=true end end;assert(found,'Equipment craft is missing');transit=transit+1
   elseif item.state=='rope' then

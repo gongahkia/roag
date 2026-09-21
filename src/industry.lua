@@ -11,11 +11,15 @@ I.recipes={
  component={id='component/v1',input={metal=2},output={component=1},ticks=40},
  pickaxe={id='pickaxe/v1',input={metal=2},output={pickaxe=1},ticks=50},
  rope_coil={id='rope-coil/v1',input={metal=1},output={rope_coil=1},ticks=30},
+ frontier_carbine={id='frontier-carbine/v1',input={metal=2,component=1},output={frontier_carbine=1},ticks=180},
+ shock_baton={id='shock-baton/v1',input={metal=1,component=1},output={shock_baton=1},ticks=100},
+ protective_vest={id='protective-vest/v1',input={metal=2,component=1},output={protective_vest=1},ticks=150},
+ ammunition={id='ammunition/v1',input={metal=1},output={ammunition=6},ticks=60},
 }
 local industrial={solar_array=true,power_pole=true,battery=true,fabricator=true,mining_rig=true,industrial_bin=true,conveyor=true,electric_lamp=true,signal_relay=true}
 local consumer={fabricator=2,mining_rig=3,electric_lamp=1,signal_relay=1}
-local unique={pickaxe=true,rope_coil=true}
-local resources={metal=true,component=true,stone=true,soil=true,food=true,water=true}
+local unique={pickaxe=true,rope_coil=true,frontier_carbine=true,shock_baton=true,protective_vest=true}
+local resources={metal=true,component=true,stone=true,soil=true,food=true,water=true,ammunition=true}
 
 function I.enabled(c) return c and c.features and c.features.industry==1 end
 function I.attach(w)
