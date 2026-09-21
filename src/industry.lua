@@ -167,6 +167,7 @@ local function rigReady(w,s)
  return s.enabled and s.wear<600 and (not s.sabotagedUntil or s.sabotagedUntil<w.tick) and capacity(s.output)<16 and rigTarget(w,s)~=nil
 end
 local function consumerReady(w,s)
+ if s.sabotagedUntil and s.sabotagedUntil>=w.tick then return false end
  if s.kind=='fabricator' then return recipeReady(s) end
  if s.kind=='mining_rig' then return rigReady(w,s) end
  if s.kind=='electric_lamp' then return s.enabled end
@@ -179,8 +180,8 @@ local function allocation(w)
  for _,net in ipairs(top.networks) do
   local solarPower=0;local batteries={};local users={}
   for _,s in ipairs(net.members) do
-   if s.kind=='solar_array' and s.enabled then solarPower=solarPower+solar(w,s)
-   elseif s.kind=='battery' and s.enabled then batteries[#batteries+1]=s
+   if s.kind=='solar_array' and s.enabled and (not s.sabotagedUntil or s.sabotagedUntil<w.tick) then solarPower=solarPower+solar(w,s)
+   elseif s.kind=='battery' and s.enabled and (not s.sabotagedUntil or s.sabotagedUntil<w.tick) then batteries[#batteries+1]=s
    elseif consumer[s.kind] and consumerReady(w,s) then users[#users+1]=s end
   end
   table.sort(batteries,function(a,b)return a.id<b.id end);table.sort(users,function(a,b) if (a.powerPriority or 2)~=(b.powerPriority or 2) then return (a.powerPriority or 2)<(b.powerPriority or 2) end;return a.id<b.id end)
@@ -293,7 +294,8 @@ function I.step(w,context)
  for _,s in ipairs(sorted(w)) do s._tick=w.tick end
  allocation(w)
  for _,s in ipairs(sorted(w)) do
-  if s.kind=='fabricator' then fabricate(w,s,context)
+  if s.sabotagedUntil and s.sabotagedUntil>=w.tick then s.status='Sabotaged / '..math.max(0,s.sabotagedUntil-w.tick)..' ticks'
+  elseif s.kind=='fabricator' then fabricate(w,s,context)
   elseif s.kind=='mining_rig' then mine(w,s)
   elseif s.kind=='electric_lamp' then s.status=s._powerGranted and 'Lighting work area' or 'No power' end
   if (s.kind=='fabricator' or s.kind=='mining_rig') and s.wear>=600 then s.status='Maintenance required' end

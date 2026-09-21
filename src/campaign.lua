@@ -343,6 +343,7 @@ function Campaign.step(c,commands,clock)
  local timings={};if clock then timings.commands=clock()-start end
  for _,site in ipairs(sites) do
   local context=(c.features.logistics==1 or c.features.knowledge==1 or c.features.education==1 or c.features.visibility==1 or c.features.equipment==1 or c.features.psychology==1) and {campaign=c,siteId=site.id} or nil
+  if isSecurity(c) then require('src.security').preStep(c,site) end
   timings[site.id]=Sim.body(site.world,clock,{},context)
  end
  if isPsychology(c) then require('src.psychology').social(c) end

@@ -118,7 +118,7 @@ function F.install(w,s)
  elseif s.kind=='trade_depot' then s.trade={cargo={},revision=1} end
 end
 function F.relay(w)
- for _,s in pairs(w.structures) do if s.kind=='signal_relay' and s.enabled and s._powerGranted then return s end end
+ for _,s in pairs(w.structures) do if s.kind=='signal_relay' and s.enabled and s._powerGranted and (not s.sabotagedUntil or s.sabotagedUntil<w.tick) then return s end end
 end
 function F.depot(w,id)
  for _,s in pairs(w.structures) do if s.kind=='trade_depot' and (not id or s.id==id) then return s end end

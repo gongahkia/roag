@@ -139,6 +139,18 @@ function P.memory(c,worker,kind,data)
  local m={id=id,kind=kind,createdTick=c.tick,lastRecalledTick=c.tick,siteId=data.siteId or 0,participants=participants,valence=valence,intensity=intensity,salience=salience,interpretation=data.interpretation or d.interpretation,source=data.source or ('memory:'..worker.personId..':'..id),recallCount=0,core=salience>=80 or kind=='abandoned_together',pinned=kind=='abandoned_together'}
  s.memories[#s.memories+1]=m;evict(s,c.tick)
  if data.stress then P.changeStress(c,worker,data.stress,c.tick) end
+ if c.features and c.features.security==1 and worker.security then
+  local Security=require('src.security');local source=data.source or ('memory:'..worker.personId..':'..id)
+  if kind=='nearly_starved' then Security.grieve(c,worker,'severe_hunger',6,source)
+  elseif kind=='seriously_injured' and worker.task and worker.task.kind=='work' then Security.grieve(c,worker,'ordinary_job_injury',8,source)
+  elseif kind=='panic_episode' then Security.grieve(c,worker,'panic',3,source)
+  elseif kind=='completed_ambition' then Security.grieve(c,worker,'completed_ambition',-10,source)
+  elseif kind=='good_conversation' then Security.grieve(c,worker,'positive_social',-2,source)
+  elseif kind=='argument' then
+   local other=(data.participants or {})[1];local r=other and relation(worker,other,false)
+   if r and r.resentment>=60 then Security.grieve(c,worker,'severe_argument',4,source) end
+  end
+ end
  local adaptation=data.adaptation
  if adaptation then for name,amount in pairs(adaptation) do
    s.adaptation[name]=clamp((s.adaptation[name] or 0)+amount,-12,12)
@@ -210,6 +222,7 @@ function P.death(c,w,victim,reason,context)
    local grief=math.min(70,20+math.floor(state(observer).facets.empathy/4)+math.floor(closeness/4))
    P.memory(c,observer,'witnessed_death',{stress=grief,source='death:'..victim.personId..':'..w.tick,participants={victim.personId},siteId=w.frontier.siteId})
    if closeness>=80 then P.memory(c,observer,'lost_trusted_person',{stress=15,source='lost:'..victim.personId..':'..w.tick,participants={victim.personId},siteId=w.frontier.siteId}) end
+   if c.features and c.features.security==1 and observer.security and r and r.affection>=50 then require('src.security').grieve(c,observer,'close_death',10,'death-grievance:'..victim.personId..':'..w.tick) end
   end
  end end
 end

@@ -162,11 +162,17 @@ function Command.apply(campaign,envelope)
  if envelope.payload.type=='school_policy' then applied=require('src.education').applyPolicy(campaign,site,envelope.payload)
  elseif envelope.payload.type=='fabricate' or envelope.payload.type=='place_rope' or envelope.payload.type=='remove_rope' or envelope.payload.type=='drop_tool' or envelope.payload.type=='load_tool' or envelope.payload.type=='unload_tool' then applied=require('src.equipment_commands').apply(campaign,site,envelope.payload)
  elseif envelope.payload.type=='industry_config' then applied=require('src.industry').configure(site.world,require('src.industry').find(site.world,envelope.payload.structureId),envelope.payload)
- elseif envelope.payload.type=='security_posture' then applied=require('src.security').configure(site.world,envelope.payload,envelope.payload.expectedPolicyRevision)
- elseif envelope.payload.type=='security_policy' then applied=require('src.security').setPosts(site.world,envelope.payload.posts,envelope.payload.refuge,envelope.payload.expectedPolicyRevision)
- elseif envelope.payload.type=='security_guard' then applied=require('src.security').toggleGuard(campaign,envelope.siteId,envelope.payload.personId,envelope.payload.enabled)
- elseif envelope.payload.type=='security_equip' then applied=require('src.security').equip(campaign,envelope.siteId,envelope.payload.personId,envelope.payload.equipmentId)
- elseif envelope.payload.type=='security_reload' then applied=require('src.security').reload(campaign,envelope.siteId,envelope.payload.personId,envelope.payload.amount)
+ elseif envelope.payload.type=='security_posture' then
+  local ok,result=pcall(require('src.security').configure,site.world,envelope.payload,envelope.payload.expectedPolicyRevision);if not ok then return false,tostring(result) end;applied=result
+ elseif envelope.payload.type=='security_policy' then
+  local ok,result=pcall(require('src.security').setPosts,site.world,envelope.payload.posts,envelope.payload.refuge,envelope.payload.expectedPolicyRevision,{campaign=campaign,siteId=site.id});if not ok then return false,tostring(result) end;applied=result
+ elseif envelope.payload.type=='security_guard' or envelope.payload.type=='security_equip' or envelope.payload.type=='security_reload' then
+  local Security=require('src.security');local fn=envelope.payload.type=='security_guard' and Security.toggleGuard or envelope.payload.type=='security_equip' and Security.equip or Security.reload
+  local ok,result,why
+  if envelope.payload.type=='security_guard' then ok,result,why=pcall(fn,campaign,envelope.siteId,envelope.payload.personId,envelope.payload.enabled)
+  elseif envelope.payload.type=='security_equip' then ok,result,why=pcall(fn,campaign,envelope.siteId,envelope.payload.personId,envelope.payload.equipmentId)
+  else ok,result,why=pcall(fn,campaign,envelope.siteId,envelope.payload.personId,envelope.payload.amount) end
+  if not ok then return false,tostring(result) end;applied=result
  elseif envelope.payload.type=='faction_contact' then applied=require('src.factions').beginContact(campaign,envelope.siteId,envelope.payload.factionId,envelope.payload.personId)
  elseif envelope.payload.type=='faction_protocol' then applied=require('src.factions').resolveProtocol(campaign,envelope.siteId,envelope.payload.factionId,envelope.payload.personId,envelope.payload.action)
  elseif envelope.payload.type=='faction_accept_offer' then applied=require('src.factions').acceptOffer(campaign,envelope.siteId,envelope.payload.structureId,envelope.payload.offerId,envelope.payload.representativeId)

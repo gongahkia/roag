@@ -229,6 +229,10 @@ function R:drawMap(app)
     else
      box(px+sc*1.7,py+sc,sc*.6,sc*2.5,colors.amber);box(px+sc*1.3,py+sc*.5,sc*1.4,sc,colors.amber)
     end
+   elseif s.kind=='training_target' then
+    box(px+sc*1.8,py+sc,sc*.4,2.5*sc,colors.amber);box(px+sc,py+sc*.4,2*sc,1.2*sc,colors.red)
+   elseif s.kind=='barricade' then
+    box(px,py+size*.5,size,size*.5,{0.43,0.31,0.18});color(colors.amber);love.graphics.line(px,py+size*.5,px+size,py+size*.5)
    elseif s.kind=='solar_array' then
     box(px,py+sc,wide,2*sc,{0.20,0.48,0.52});box(px+sc,py,wide-2*sc,sc,colors.cyan)
    elseif s.kind=='power_pole' then
@@ -298,6 +302,14 @@ function R:drawMap(app)
    if app.selectedWorker==a.id then color(colors.text);love.graphics.rectangle('line',x-2,y-2,2*sc+4,bodyHeight+4) end
   else
    color(colors.red);love.graphics.line(x,y+bodyHeight-sc,x+2*sc,y+bodyHeight);love.graphics.line(x,y+bodyHeight,x+2*sc,y+bodyHeight-sc)
+  end
+ end
+ if app.campaign and app.history.view.features.security==1 then
+  for _,a in ipairs(require('src.security').visibleRaiders(app.history.view,w)) do
+   local x1,y1,_,y2=Body.rect(w,a.x,a.y);local x,y=point(x1,y1);local bodyHeight=(y2-y1+1)*sc
+   box(x+sc*.25,y,sc*1.5,sc,colors.red);box(x,y+sc,sc*2,sc*1.4,{0.48,0.12,0.10})
+   box(x,y+bodyHeight-sc*.7,sc*.7,sc*.7,colors.red);box(x+sc*1.3,y+bodyHeight-sc*.7,sc*.7,sc*.7,colors.red)
+   box(x,y-sc,2*sc,2,colors.red);box(x,y-sc,2*sc*a.hp/100,2,colors.amber)
   end
  end
  if app.hover then

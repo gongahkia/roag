@@ -27,6 +27,9 @@ function A.kill(w,a,reason,context)
  if context and context.campaign and context.campaign.features.equipment==1 then
   require('src.equipment').dropPerson(context.campaign,a.personId,context.siteId,a.x,a.y)
  end
+ if context and context.campaign and context.campaign.features.security==1 and a.security and a.security.ammo>0 then
+  W.stack(w,'ammunition',a.security.ammo,a.x,a.y);a.security.ammo=0
+ end
  J.release(w,a,true);a.alive=false;a.hp=0;a.status='Dead';a.reason=reason;a.deathTick=w.tick
  W.event(w,'death',a.name..' died: '..reason..'. No replacement will arrive.',a.id)
  if context and context.campaign and context.campaign.features.psychology==1 then require('src.psychology').death(context.campaign,w,a,reason,context) end

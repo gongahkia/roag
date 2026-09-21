@@ -33,10 +33,14 @@ local function addBlockActions(world,actions)
   add(actions,'build:industrial_bin','Build industrial bin','Physical belt-accessible storage.')
   add(actions,'build:conveyor','Build conveyor','Floor-level physical item transport.')
  add(actions,'build:electric_lamp','Build electric lamp','Powered light without fuel.')
-  if world.frontier and world.frontier.factions==1 then
+ if world.frontier and world.frontier.factions==1 then
    add(actions,'build:signal_relay','Build signal relay','Powered contact scanning; does not reveal terrain.')
    add(actions,'build:trade_depot','Build trade depot','Physical barter buffer for off-map courier trade.')
   end
+ end
+ if world.frontier and world.frontier.security==1 then
+  add(actions,'build:training_target','Build training target','Two stone and one metal; Guards train here without ammunition.')
+  add(actions,'build:barricade','Build barricade','Two stone; walkable lower-cell projectile cover.')
  end
  if world.frontier and world.frontier.safe_excavation==1 then
   add(actions,'rope:down','Unfurl rope downward','Fetches one real rope coil and deploys a climb lane below the selected anchor.')
@@ -98,6 +102,12 @@ function H.model(app,world)
    add(actions,'industry:recipe:component','Set component recipe','Consumes two metal in 40 powered ticks.')
    add(actions,'industry:recipe:pickaxe','Set pickaxe recipe','Consumes two metal in 50 powered ticks.')
    add(actions,'industry:recipe:rope_coil','Set rope coil recipe','Consumes one metal in 30 powered ticks.')
+   if world.frontier and world.frontier.security==1 then
+    add(actions,'industry:recipe:frontier_carbine','Set carbine recipe','Consumes two metal and one machine component in 180 powered ticks.')
+    add(actions,'industry:recipe:shock_baton','Set baton recipe','Consumes one metal and one machine component in 100 powered ticks.')
+    add(actions,'industry:recipe:protective_vest','Set vest recipe','Consumes two metal and one machine component in 150 powered ticks.')
+    add(actions,'industry:recipe:ammunition','Set ammunition recipe','Consumes one metal and produces six physical rounds in 60 powered ticks.')
+   end
    add(actions,'industry:priority','Cycle power priority','Sets local consumer priority from 1 through 3.')
   elseif structure.kind=='mining_rig' or structure.kind=='electric_lamp' then add(actions,'industry:priority','Cycle power priority','Sets local consumer priority from 1 through 3.')
   elseif structure.kind=='conveyor' then add(actions,'industry:direction','Rotate conveyor','Cycles north, east, south and west.')
