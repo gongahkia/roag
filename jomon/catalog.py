@@ -231,6 +231,15 @@ _REGIONAL_GENERATOR_SLOTS = {
         "links": ("sinkhole_ladder", "quarry_hoist_ladder", "ridge_climbing_pegs", "bell_tower_stair", "bell_parapet_ladder"),
         "containers": ("village", "quarry", "cave", "kiln", "bridge", "tower", "sink_account"),
     },
+    **{
+        region: {
+            "zones": ("inhabited_court", "old_scar", "industrial_works", "far_shore", "buried_drain"),
+            "landmarks": ("landing", "contact", "second_contact", "settlement", "ruin", "works", "far_bank", "store", "cave_entrance", "objective", "control", "elevated"),
+            "links": ("work_stair", "roof_ladder", "excavated_drain_stair", "store_cellar_ladder"),
+            "containers": ("quay", "ledger", "ruin", "bank", "cellar", "deep", "loft", "crown"),
+        }
+        for region in ("dunmire", "rillscar", "marlbank", "frostmere")
+    },
 }
 
 _TOPOLOGY_TEMPLATE_CONTRACT.update({
@@ -250,6 +259,17 @@ _TOPOLOGY_TEMPLATE_CONTRACT.update({
     for index in (1, 2)
     for field in ("name", "role")
 })
+_TOPOLOGY_TEMPLATE_CONTRACT.update({
+    f"topology.{region}.contact.{index}.memory": ("shortage",)
+    for region in ("dunmire", "rillscar", "marlbank", "frostmere")
+    for index in (1, 2)
+})
+_TOPOLOGY_TEMPLATE_CONTRACT.update({
+    f"topology.{region}.process.{result}": ()
+    for region in ("dunmire", "rillscar", "marlbank", "frostmere")
+    for result in ("stage_one", "applied", "controlled")
+})
+_TOPOLOGY_TEMPLATE_CONTRACT["topology.frontier.process.held"] = ()
 
 _HISTORY_TEMPLATE_CONTRACT = {
     'history.event.water_and_stone.account': ('climate', 'production', 'dependency'),

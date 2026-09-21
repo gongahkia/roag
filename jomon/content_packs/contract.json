@@ -3538,6 +3538,102 @@
       "placeholders": []
     },
     {
+      "id": "topology.dunmire.condition",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.work",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.pressure",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.objective",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.process",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.condition",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.work",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.pressure",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.objective",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.process",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.condition",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.work",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.pressure",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.objective",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.process",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.condition",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.work",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.pressure",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.objective",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.process",
+      "placeholders": []
+    },
+    {
       "id": "topology.greywash.zone.village",
       "placeholders": []
     },
@@ -3878,6 +3974,470 @@
       "placeholders": []
     },
     {
+      "id": "topology.dunmire.zone.inhabited_court",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.zone.old_scar",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.zone.industrial_works",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.zone.far_shore",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.zone.buried_drain",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.landmark.landing",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.landmark.contact",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.landmark.second_contact",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.landmark.settlement",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.landmark.ruin",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.landmark.works",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.landmark.far_bank",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.landmark.store",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.landmark.cave_entrance",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.landmark.objective",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.landmark.control",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.landmark.elevated",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.link.work_stair",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.link.roof_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.link.excavated_drain_stair",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.link.store_cellar_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.container.quay",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.container.ledger",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.container.ruin",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.container.bank",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.container.cellar",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.container.deep",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.container.loft",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.container.crown",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.zone.inhabited_court",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.zone.old_scar",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.zone.industrial_works",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.zone.far_shore",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.zone.buried_drain",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.landmark.landing",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.landmark.contact",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.landmark.second_contact",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.landmark.settlement",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.landmark.ruin",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.landmark.works",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.landmark.far_bank",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.landmark.store",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.landmark.cave_entrance",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.landmark.objective",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.landmark.control",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.landmark.elevated",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.link.work_stair",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.link.roof_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.link.excavated_drain_stair",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.link.store_cellar_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.container.quay",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.container.ledger",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.container.ruin",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.container.bank",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.container.cellar",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.container.deep",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.container.loft",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.container.crown",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.zone.inhabited_court",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.zone.old_scar",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.zone.industrial_works",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.zone.far_shore",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.zone.buried_drain",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.landmark.landing",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.landmark.contact",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.landmark.second_contact",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.landmark.settlement",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.landmark.ruin",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.landmark.works",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.landmark.far_bank",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.landmark.store",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.landmark.cave_entrance",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.landmark.objective",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.landmark.control",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.landmark.elevated",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.link.work_stair",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.link.roof_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.link.excavated_drain_stair",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.link.store_cellar_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.container.quay",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.container.ledger",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.container.ruin",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.container.bank",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.container.cellar",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.container.deep",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.container.loft",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.container.crown",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.zone.inhabited_court",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.zone.old_scar",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.zone.industrial_works",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.zone.far_shore",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.zone.buried_drain",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.landmark.landing",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.landmark.contact",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.landmark.second_contact",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.landmark.settlement",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.landmark.ruin",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.landmark.works",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.landmark.far_bank",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.landmark.store",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.landmark.cave_entrance",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.landmark.objective",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.landmark.control",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.landmark.elevated",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.link.work_stair",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.link.roof_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.link.excavated_drain_stair",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.link.store_cellar_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.container.quay",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.container.ledger",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.container.ruin",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.container.bank",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.container.cellar",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.container.deep",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.container.loft",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.container.crown",
+      "placeholders": []
+    },
+    {
       "id": "topology.greywash.contact.1.name",
       "placeholders": []
     },
@@ -3923,6 +4483,170 @@
     },
     {
       "id": "topology.whitecairn.contact.2.role",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.contact.1.name",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.contact.1.role",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.contact.2.name",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.contact.2.role",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.contact.1.name",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.contact.1.role",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.contact.2.name",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.contact.2.role",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.contact.1.name",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.contact.1.role",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.contact.2.name",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.contact.2.role",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.contact.1.name",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.contact.1.role",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.contact.2.name",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.contact.2.role",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.contact.1.memory",
+      "placeholders": [
+        "shortage"
+      ]
+    },
+    {
+      "id": "topology.dunmire.contact.2.memory",
+      "placeholders": [
+        "shortage"
+      ]
+    },
+    {
+      "id": "topology.rillscar.contact.1.memory",
+      "placeholders": [
+        "shortage"
+      ]
+    },
+    {
+      "id": "topology.rillscar.contact.2.memory",
+      "placeholders": [
+        "shortage"
+      ]
+    },
+    {
+      "id": "topology.marlbank.contact.1.memory",
+      "placeholders": [
+        "shortage"
+      ]
+    },
+    {
+      "id": "topology.marlbank.contact.2.memory",
+      "placeholders": [
+        "shortage"
+      ]
+    },
+    {
+      "id": "topology.frostmere.contact.1.memory",
+      "placeholders": [
+        "shortage"
+      ]
+    },
+    {
+      "id": "topology.frostmere.contact.2.memory",
+      "placeholders": [
+        "shortage"
+      ]
+    },
+    {
+      "id": "topology.dunmire.process.stage_one",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.process.applied",
+      "placeholders": []
+    },
+    {
+      "id": "topology.dunmire.process.controlled",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.process.stage_one",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.process.applied",
+      "placeholders": []
+    },
+    {
+      "id": "topology.rillscar.process.controlled",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.process.stage_one",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.process.applied",
+      "placeholders": []
+    },
+    {
+      "id": "topology.marlbank.process.controlled",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.process.stage_one",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.process.applied",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frostmere.process.controlled",
+      "placeholders": []
+    },
+    {
+      "id": "topology.frontier.process.held",
       "placeholders": []
     }
   ]

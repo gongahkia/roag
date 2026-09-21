@@ -8,6 +8,11 @@ from .content import COMMODITIES, PASSIVES
 from .geography import FRONTIER_DISCOVERIES, FRONTIER_RELICS, FRONTIERS
 from .regions import _border, _carve, _grid, _levels, _rect, _road, _signature, validate_region
 from .state import ActorSchedule, Contact, Container, MarketEntry, MaterialCell, Position, Region, VerticalLink, stage_rng
+from .topology_presentation import (
+    regional_contact_memory, regional_contact_name, regional_contact_role,
+    regional_container_name, regional_generator_text, regional_link_name,
+    regional_zone_name,
+)
 from .work_weapons import WORK_WEAPONS
 
 
@@ -85,7 +90,7 @@ def build_frontier(seed: str, region_id: str) -> Region:
     from .inventory import REGIONAL_ARMOUR
     from .region_presentation import region_display_name
 
-    name, width, height, geology, commodity, shortage, process, *_ = FRONTIERS[region_id]
+    _legacy_name, width, height, _legacy_geology, commodity, shortage, _legacy_process, *_ = FRONTIERS[region_id]
     ground, anchors = {"dunmire": _fen, "rillscar": _gorge, "marlbank": _terraces, "frostmere": _estuary}[region_id](seed, width, height)
     _border(ground, "#")
     below, upper, roof = (_grid(width, height) for _ in range(3))
@@ -112,7 +117,10 @@ def build_frontier(seed: str, region_id: str) -> Region:
     roof_ladder = Position(works.x + 1, works.y, 1)
     upper[roof_ladder.y][roof_ladder.x] = ">"
     roof[roof_ladder.y][roof_ladder.x] = "<"
-    links = [VerticalLink(works, Position(works.x, works.y, 1), "work stair"), VerticalLink(roof_ladder, Position(roof_ladder.x, roof_ladder.y, 2), "roof ladder")]
+    links = [
+        VerticalLink(works, Position(works.x, works.y, 1), regional_link_name(region_id, "work_stair"), f"{region_id}:work_stair"),
+        VerticalLink(roof_ladder, Position(roof_ladder.x, roof_ladder.y, 2), regional_link_name(region_id, "roof_ladder"), f"{region_id}:roof_ladder"),
+    ]
 
     rng = stage_rng(seed, f"{region_id}:excavation")
     underground_points = [Position(cave.x, cave.y), Position(cave.x + 8, cave.y - 5), Position(store.x, store.y - 3), Position(works.x, works.y)]
@@ -123,11 +131,11 @@ def build_frontier(seed: str, region_id: str) -> Region:
                 if rng.randrange(6) or (x, y) == (point.x, point.y):
                     below[y][x] = "."
     ground[cave.y][cave.x], below[cave.y][cave.x] = "<", ">"
-    links.append(VerticalLink(cave, Position(cave.x, cave.y, -1), "excavated drain stair"))
+    links.append(VerticalLink(cave, Position(cave.x, cave.y, -1), regional_link_name(region_id, "excavated_drain_stair"), f"{region_id}:excavated_drain_stair"))
     # A second drain entrance creates an actual underground reconnecting route.
     ground[store.y][store.x], below[store.y][store.x] = "<", ">"
     _carve(below, [Position(store.x, store.y), underground_points[2]])
-    links.append(VerticalLink(store, Position(store.x, store.y, -1), "store cellar ladder"))
+    links.append(VerticalLink(store, Position(store.x, store.y, -1), regional_link_name(region_id, "store_cellar_ladder"), f"{region_id}:store_cellar_ladder"))
     objective = Position(works.x + 2, works.y + 1, 1)
     control = Position(works.x - 2, works.y + 1)
     ground[control.y][control.x] = "&"
@@ -136,14 +144,14 @@ def build_frontier(seed: str, region_id: str) -> Region:
     ground[second.y][second.x] = "c"
     elevated = Position(works.x + 2, works.y, 2)
     sites = [
-        ("quay", "Quay tool chest", Position(landing.x + 2, landing.y), None),
-        ("ledger", "Witnessed market coffer", Position(settlement.x + 2, settlement.y + 2), None),
-        ("ruin", "Old flood-mark store", ruin, None),
-        ("bank", "Far-bank cargo cache", far_bank, None),
-        ("cellar", "Sunken cellar chest", Position(store.x, store.y, -1), None),
-        ("deep", "Buried drain strongbox", Position(cave.x + 8, cave.y - 5, -1), "rope"),
-        ("loft", "Loft survey cabinet", Position(works.x - 2, works.y, 1), None),
-        ("crown", "Weatherward roof coffer", Position(works.x - 1, works.y, 2), None),
+        ("quay", Position(landing.x + 2, landing.y), None),
+        ("ledger", Position(settlement.x + 2, settlement.y + 2), None),
+        ("ruin", ruin, None),
+        ("bank", far_bank, None),
+        ("cellar", Position(store.x, store.y, -1), None),
+        ("deep", Position(cave.x + 8, cave.y - 5, -1), "rope"),
+        ("loft", Position(works.x - 2, works.y, 1), None),
+        ("crown", Position(works.x - 1, works.y, 2), None),
     ]
     rewards = list(PASSIVES)
     stage_rng(seed, f"{region_id}:physical-rewards").shuffle(rewards)
@@ -153,11 +161,11 @@ def build_frontier(seed: str, region_id: str) -> Region:
     from .expanded_weapons import ARSENAL
 
     new_arms = [key for key, definition in ARSENAL.items() if region_id in definition.regions]
-    for index, (suffix, title, point, requirement) in enumerate(sites):
+    for index, (suffix, point, requirement) in enumerate(sites):
         if point.z == 0:
             _carve(ground, [point, min(anchors, key=lambda anchor: abs(anchor.x - point.x) + abs(anchor.y - point.y))])
         layers[point.z][point.y][point.x] = "C"
-        container = Container(f"{region_id}-{suffix}", f"{name.split()[0]} {title}", point, rewards[index], requirement)
+        container = Container(f"{region_id}-{suffix}", regional_container_name(region_id, suffix), point, rewards[index], requirement)
         clothing = REGIONAL_ARMOUR[region_id]
         container.extra_rewards = [clothing[index % len(clothing)], "willow dressing" if index % 3 == 0 else "fletched arrows"]
         if index < len(implements):
@@ -174,14 +182,20 @@ def build_frontier(seed: str, region_id: str) -> Region:
     levels = _levels(ground, {-1: below, 1: upper, 2: roof})
     landmarks = {"landing": landing, "contact": settlement, "second_contact": second, "settlement": settlement, "ruin": ruin, "works": works, "far_bank": far_bank, "store": store, "cave_entrance": cave, "objective": objective, "control": control, "elevated": elevated}
     region = Region(
-        f"{geology.title()} and seasonal water shape {name}.",
-        f"The workers send {commodity} downstream but depend on {shortage}.",
-        f"{process.title()} threatens the accountable stores.",
-        f"Recover two {commodity} lots from the upper works or secure its material control.",
-        commodity, shortage, process, width, height, levels, landmarks,
-        {"inhabited court": (settlement.x - 6, settlement.y - 4, settlement.x + 16, settlement.y + 6), "old scar": (ruin.x - 6, ruin.y - 5, ruin.x + 6, ruin.y + 5), "industrial works": (works.x - wx, works.y - wy, works.x + wx, works.y + wy), "far shore": (far_bank.x - 6, far_bank.y - 5, far_bank.x + 6, far_bank.y + 5), "buried drain": (cave.x, cave.y - 5, store.x, store.y)},
+        regional_generator_text(region_id, "condition"),
+        regional_generator_text(region_id, "work"),
+        regional_generator_text(region_id, "pressure"),
+        regional_generator_text(region_id, "objective"),
+        commodity, shortage, regional_generator_text(region_id, "hazard"), width, height, levels, landmarks,
+        {
+            regional_zone_name(region_id, "inhabited_court"): (settlement.x - 6, settlement.y - 4, settlement.x + 16, settlement.y + 6),
+            regional_zone_name(region_id, "old_scar"): (ruin.x - 6, ruin.y - 5, ruin.x + 6, ruin.y + 5),
+            regional_zone_name(region_id, "industrial_works"): (works.x - wx, works.y - wy, works.x + wx, works.y + wy),
+            regional_zone_name(region_id, "far_shore"): (far_bank.x - 6, far_bank.y - 5, far_bank.x + 6, far_bank.y + 5),
+            regional_zone_name(region_id, "buried_drain"): (cave.x, cave.y - 5, store.x, store.y),
+        },
         links, containers, {}, {}, [], _signature(levels, landmarks),
-        id=region_id, name=region_display_name(region_id), process_name=process,
+        id=region_id, name=region_display_name(region_id), process_name=regional_generator_text(region_id, "process"),
         process_thresholds=[65, 115, 170],
     )
     # History leaves both a physical hazard and a current market obligation.
@@ -211,11 +225,19 @@ def ensure_frontier(state, region_id: str) -> None:
     if region_id not in FRONTIERS:
         raise ValueError("unknown regional mooring")
     region = build_frontier(state.seed, region_id)
-    spec = FRONTIERS[region_id]
-    contacts = [Contact(f"{region_id}-contact-{index + 1}", spec[7 + index * 2], spec[8 + index * 2], 0, [f"The old flood left a {spec[5]} obligation at the raised store."], spec[5], region_id, region.landmarks["contact" if index == 0 else "second_contact"]) for index in range(2)]
+    _legacy_name, _width, _height, _geology, commodity, shortage, _process, *_ = FRONTIERS[region_id]
+    contacts = [
+        Contact(
+            f"{region_id}-contact-{index}",
+            regional_contact_name(region_id, index), regional_contact_role(region_id, index), 0,
+            [regional_contact_memory(region_id, index, shortage=shortage)], shortage, region_id,
+            region.landmarks["contact" if index == 1 else "second_contact"],
+        )
+        for index in (1, 2)
+    ]
     market = {name: MarketEntry(2, 1) for name in COMMODITIES}
-    market[spec[4]] = MarketEntry(1, 3)
-    market[spec[5]] = MarketEntry(0, 4)
+    market[commodity] = MarketEntry(1, 3)
+    market[shortage] = MarketEntry(0, 4)
     from .encounters import frontier_population
 
     actors = frontier_population(state.seed, region)
@@ -249,14 +271,9 @@ def frontier_process(state) -> list[str]:
     """One persistent landscape intervention, never an endlessly refilled hazard."""
     region = state.region
     if region.process_stage == 1:
-        return [{
-            "dunmire": "Water laps the drying piles; the raised circuit stays above the peat cut.",
-            "rillscar": "The tailrace jars its timber support; two bridges give different approaches.",
-            "marlbank": "Kiln steam dries the upper seed beds; the field release will soon be needed.",
-            "frostmere": "Ice plates knock against the net loft; pilots mark the sheltered channel.",
-        }[region.id]]
+        return [regional_generator_text(region.id, "process.stage_one")]
     if region.changes.get("frontier_process_applied") or region.changes.get("environment_control_used"):
-        return ["The recorded material work holds; the alternate circuit remains available."]
+        return [regional_generator_text("frontier", "process.held")]
     region.changes["frontier_process_applied"] = True
     point = region.landmarks["ruin"]
     # Hazards use the same sparse cells as courier handling. The container itself
@@ -272,12 +289,7 @@ def frontier_process(state) -> list[str]:
         else:
             cell.water, cell.ice, cell.fluid = 1, True, "salt"
         region.materials[f"{point.x + dx},{point.y},0"] = cell
-    return [{
-        "dunmire": "Peat water overtops the old store bank. The raised circuit and buried drain remain.",
-        "rillscar": "The old tailrace piles bend: debris will fall in three actions. Both bridges remain.",
-        "marlbank": "The unattended charcoal bed flares beside the flood-mark store; smoke travels with the wind.",
-        "frostmere": "Shallow sheets gather by the abandoned net store; thaw and load now change footing.",
-    }[region.id]]
+    return [regional_generator_text(region.id, "process.applied")]
 
 
 def control_frontier(state) -> str:
@@ -290,12 +302,7 @@ def control_frontier(state) -> str:
             cell.water = 0
             cell.fire = cell.smoke = 0
             cell.support, cell.collapse_due, cell.ice = 3, 0, False
-    return {
-        "dunmire": "You open the drying-bank spill. Peat water drains; the winter fuel account needs a new settlement.",
-        "rillscar": "You tension the tailrace brace. The warned supports hold, protecting both bridge approaches.",
-        "marlbank": "You send the kiln release along the seed ditch. Fire and smoke subside, but the firing loses heat.",
-        "frostmere": "You swing the ice boom clear of the net loft. Load can move safely under the marked sounding.",
-    }[region.id]
+    return regional_generator_text(region.id, "process.controlled")
 
 
 def settle_frontier_claim(state, choice: str) -> str:

@@ -193,6 +193,14 @@ def alternate_pack(root: Path) -> Path:
         "topology.whitecairn.zone.quarry_face": "Fixture stone shelf",
         "topology.whitecairn.container.tower": "Fixture bell cache",
         "topology.whitecairn.landmark.bell_tower": "fixture signal tower",
+        "topology.dunmire.zone.old_scar": "Fixture peat scar",
+        "topology.dunmire.container.quay": "Fixture fen coffer",
+        "topology.rillscar.landmark.works": "fixture span works",
+        "topology.rillscar.link.work_stair": "fixture cliff ascent",
+        "topology.marlbank.zone.industrial_works": "Fixture firing court",
+        "topology.marlbank.contact.1.role": "fixture terrace steward",
+        "topology.frostmere.zone.far_shore": "Fixture ice channel",
+        "topology.frostmere.condition": "Fixture gravel and water preserve the same estuary geometry.",
     })
     source.write_text(json.dumps(topology, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
@@ -377,6 +385,22 @@ def regional_generator_presentation_snapshot(environment: dict[str, str]) -> dic
             "import json; from jomon.navigation import navigation_targets; from jomon.regions import activate_region; from jomon.state import create_world; "
             "state=create_world('regional-generator-pack-proof'); mechanics={}; presentation={}; "
             "[(activate_region(state, region_id), setattr(state, 'location', 'region'), setattr(state, 'position', state.region.landmarks['landing']), setattr(state.region, 'seen', [f'{point.x},{point.y},{point.z}' for point in state.region.landmarks.values()] + [f'{box.position.x},{box.position.y},{box.position.z}' for box in state.region.containers] + [f'{point.x},{point.y},{point.z}' for link in state.region.vertical_links for point in (link.first, link.second)]), mechanics.update({region_id: [state.region.id, state.region.width, state.region.height, state.region.levels, sorted((key, point.x, point.y, point.z) for key, point in state.region.landmarks.items()), sorted((link.id, link.first.x, link.first.y, link.first.z, link.second.x, link.second.y, link.second.z) for link in state.region.vertical_links), sorted((box.id, box.position.x, box.position.y, box.position.z, box.reward, box.requirement, tuple(box.extra_rewards)) for box in state.region.containers), sorted((contact.id, contact.disposition, contact.interest, contact.position.x, contact.position.y, contact.position.z) for contact in state.contacts[region_id]), sorted((threat.id, threat.profile, threat.position.x, threat.position.y, threat.position.z, threat.health, threat.elite, threat.group) for threat in state.region_threats[region_id]), state.region.geography_signature]}), presentation.update({region_id: [[state.region.condition, state.region.work, state.region.pressure, state.region.objective_text, state.region.hazard, state.region.process_name], list(state.region.zones), [(link.id, link.name) for link in state.region.vertical_links if link.id.startswith(region_id + ':')], [(box.id, box.name) for box in state.region.containers], [(contact.id, contact.name, contact.role) for contact in state.contacts[region_id]], [(target.id, target.label) for target in navigation_targets(state) if target.id.startswith('landmark:')] ]})) for region_id in ('greywash', 'greenwold', 'whitecairn')]; "
+            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, 'mechanics': mechanics, 'presentation': presentation}))",
+        ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+def frontier_generator_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.frontiers import ensure_frontier; from jomon.navigation import navigation_targets; from jomon.regions import activate_region; from jomon.state import create_world; "
+            "state=create_world('frontier-generator-pack-proof'); mechanics={}; presentation={}; "
+            "[(ensure_frontier(state, region_id), activate_region(state, region_id), setattr(state, 'location', 'region'), setattr(state, 'position', state.region.landmarks['landing']), setattr(state.region, 'seen', [f'{point.x},{point.y},{point.z}' for point in state.region.landmarks.values()] + [f'{box.position.x},{box.position.y},{box.position.z}' for box in state.region.containers] + [f'{point.x},{point.y},{point.z}' for link in state.region.vertical_links for point in (link.first, link.second)]), mechanics.update({region_id: [state.region.id, state.region.width, state.region.height, state.region.levels, sorted((key, point.x, point.y, point.z) for key, point in state.region.landmarks.items()), sorted((link.id, link.first.x, link.first.y, link.first.z, link.second.x, link.second.y, link.second.z) for link in state.region.vertical_links), sorted((box.id, box.position.x, box.position.y, box.position.z, box.reward, box.requirement, tuple(box.extra_rewards)) for box in state.region.containers), sorted((contact.id, contact.disposition, contact.interest, contact.position.x, contact.position.y, contact.position.z) for contact in state.contacts[region_id]), sorted((threat.id, threat.profile, threat.position.x, threat.position.y, threat.position.z, threat.health, threat.elite, threat.group) for threat in state.region_threats[region_id]), state.region.geography_signature]}), presentation.update({region_id: [[state.region.condition, state.region.work, state.region.pressure, state.region.objective_text, state.region.hazard, state.region.process_name], list(state.region.zones), [(link.id, link.name) for link in state.region.vertical_links if link.id.startswith(region_id + ':')], [(box.id, box.name) for box in state.region.containers], [(contact.id, contact.name, contact.role, contact.memories) for contact in state.contacts[region_id]], [(target.id, target.label) for target in navigation_targets(state) if target.id.startswith('landmark:')] ]})) for region_id in ('dunmire', 'rillscar', 'marlbank', 'frostmere')]; "
             "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, 'mechanics': mechanics, 'presentation': presentation}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
@@ -910,6 +934,46 @@ class ContentPackTests(unittest.TestCase):
         self.assertIn(["whitecairn-tower", "Fixture bell cache"], alternate["presentation"]["whitecairn"][3])
         self.assertIn("fixture signal tower", " ".join(label for _id, label in alternate["presentation"]["whitecairn"][5]))
 
+    def test_default_frontier_generator_presentation_preserves_existing_text(self):
+        from jomon.frontiers import ensure_frontier
+        from jomon.state import create_world
+
+        state = create_world("frontier-generator-default-text")
+        expected = {
+            "dunmire": ("Peat and seasonal water shape Dunmire Peat Isles.", "fen overtopping", "Dunmire Quay tool chest", "Yara Silt", "peat steward"),
+            "rillscar": ("Ironstone and seasonal water shape Rillscar Iron Gorge.", "tailrace fracture", "Rillscar Quay tool chest", "Halen Crag", "cutworks factor"),
+            "marlbank": ("Clay and seasonal water shape Marlbank Clay Terraces.", "irrigation release", "Marlbank Quay tool chest", "Mera Loam", "terrace keeper"),
+            "frostmere": ("Gravel and seasonal water shape Frostmere Braided Estuary.", "ice-channel breakup", "Frostmere Quay tool chest", "Sarin Rill", "net-house keeper"),
+        }
+        for region_id, (condition, process, container, contact_name, role) in expected.items():
+            with self.subTest(region_id=region_id):
+                ensure_frontier(state, region_id)
+                region = state.regions[region_id]
+                self.assertEqual(region.condition, condition)
+                self.assertEqual(region.process_name, process)
+                self.assertIn(container, [box.name for box in region.containers])
+                self.assertEqual((state.contacts[region_id][0].name, state.contacts[region_id][0].role), (contact_name, role))
+
+    def test_alternate_pack_changes_frontier_generator_presentation_not_generation(self):
+        default = frontier_generator_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = frontier_generator_presentation_snapshot(environment)
+
+        self.assertEqual(default["pack"], "default")
+        self.assertEqual(alternate["pack"], "fixture-alternate")
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+        self.assertIn("Fixture peat scar", alternate["presentation"]["dunmire"][1])
+        self.assertIn(["dunmire-quay", "Fixture fen coffer"], alternate["presentation"]["dunmire"][3])
+        self.assertIn(["rillscar:work_stair", "fixture cliff ascent"], alternate["presentation"]["rillscar"][2])
+        self.assertIn("fixture span works", " ".join(label for _id, label in alternate["presentation"]["rillscar"][5]))
+        self.assertIn("Fixture firing court", alternate["presentation"]["marlbank"][1])
+        self.assertIn("fixture terrace steward", " ".join(row[2] for row in alternate["presentation"]["marlbank"][4]))
+        self.assertIn("Fixture ice channel", alternate["presentation"]["frostmere"][1])
+        self.assertEqual(alternate["presentation"]["frostmere"][0][0], "Fixture gravel and water preserve the same estuary geometry.")
+
     def test_topology_presentation_validation_rejects_invalid_authoring(self):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
@@ -923,6 +987,8 @@ class ContentPackTests(unittest.TestCase):
                 "unknown placeholder": lambda value: value["text"].update({"topology.hearthford.zone.millworks": "{zone}"}),
                 "missing regional slot": lambda value: value["text"].pop("topology.greywash.container.quay"),
                 "wrong regional type": lambda value: value["text"].update({"topology.greenwold.contact.1.name": 1}),
+                "missing frontier slot": lambda value: value["text"].pop("topology.dunmire.contact.1.memory"),
+                "wrong frontier type": lambda value: value["text"].update({"topology.frostmere.process.applied": 1}),
             }
             for name, mutate in cases.items():
                 with self.subTest(name):
