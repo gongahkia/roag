@@ -38,6 +38,30 @@ function S.missing(kind,delivered)
  end
  return out
 end
+-- Torches can stand on a floor or mount to a solid face behind their build
+-- block.  This is deliberately a placement/support query rather than saved
+-- orientation state: if the backing wall is demolished, the installed torch
+-- loses support through the same structure lifecycle as every other build.
+function S.torchMount(w,gx,gy)
+ local x1,y1,x2,y2=W.rect(gx,gy)
+ local floor=true
+ for x=x1,x2 do if not W.solid(w,x,y2+1) then floor=false;break end end
+ if floor then return 'floor' end
+ local function face(x,slot)
+  local wall=slot and w.structures[slot]
+  if wall and wall.kind=='wall' then return true end
+  if x<1 or x>w.width then return false end
+  for y=y1,y2 do if not W.solid(w,x,y) then return false end end
+  return true
+ end
+ if face(x1-1,gx>1 and W.slot(w,gx-1,gy) or nil) then return 'left' end
+ if face(x2+1,gx<w.cols and W.slot(w,gx+1,gy) or nil) then return 'right' end
+ return nil,'Requires a solid floor or wall face'
+end
+function S.supported(w,s)
+ if s.kind=='torch' then return S.torchMount(w,s.gx,s.gy)~=nil end
+ return W.supportedStructure(w,s)
+end
 function S.siteClear(w,gx,gy,kind)
  if w.structures[W.slot(w,gx,gy)] then return false,'Structure already present' end
  local x1,y1,x2,y2=W.rect(gx,gy)
@@ -52,7 +76,10 @@ function S.siteClear(w,gx,gy,kind)
    return false,'Haul loose items off the site'
   end end
  end
- if kind~='ladder' and kind~='wall' and kind~='platform' then
+ if kind=='torch' then
+  local mount,reason=S.torchMount(w,gx,gy)
+  if not mount then return false,reason end
+ elseif kind~='ladder' and kind~='wall' and kind~='platform' then
   for x=x1,x2 do if not W.solid(w,x,y2+1) then return false,'Requires solid support' end end
  end
  return true
@@ -93,7 +120,7 @@ function S.step(w)
  for slot=1,w.cols*w.rows do
   local s=w.structures[slot]
   if s then
-   if not W.supportedStructure(w,s) then s.status='Unsupported'
+   if not S.supported(w,s) then s.status='Unsupported'
    elseif s.kind=='farm' then
     if S.wet(w,s)>=4 then s.growth=math.max(0,s.growth-25); s.status='Flooded: crop rotting'
     elseif s.growth>=w.rules.cropTicks then s.status='Ready to harvest'

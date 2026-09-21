@@ -22,6 +22,13 @@ local ActionHud=require('src.ui.action_hud')
 local Body=require('src.body')
 local Visibility=require('src.visibility')
 local R={};R.__index=R
+-- Presentation-only ordered stipple for remembered fog. Simulation memory
+-- remains the authoritative last-seen snapshot in src.visibility.
+local fogBayer={0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5}
+local function rememberedFogFactor(x,y)
+ local rank=fogBayer[((y-1)%4)*4+((x-1)%4)+1]
+ return rank<8 and 0.035 or 0.16
+end
 local colors={bg={0.039,0.053,0.067},panel={0.070,0.085,0.103},edge={0.19,0.23,0.26},
  text={0.86,0.88,0.86},muted={0.49,0.56,0.59},amber={0.89,0.66,0.35},
  cyan={0.35,0.72,0.74},red={0.88,0.35,0.29},green={0.48,0.71,0.42}}
@@ -145,7 +152,7 @@ function R:refresh(w,view,context)
   end
   if sight then
    local light=sight.light[i] or 0
-   local factor=current and (light>0 and U.clamp(0.22+light/(Visibility.shuttleRadius+1)*0.78,0.22,1) or 0.20) or 0.16
+   local factor=current and (light>0 and U.clamp(0.22+light/(Visibility.shuttleRadius+1)*0.78,0.22,1) or 0.20) or rememberedFogFactor(x,y)
    r,g,b=r*factor,g*factor,b*factor
   end
   self.data:setPixel(x-1,y-1,U.clamp(r),U.clamp(g),U.clamp(b),1)
@@ -214,7 +221,14 @@ function R:drawMap(app)
     color(colors.amber);love.graphics.rectangle('line',px+sc,py+sc,2*sc,2*sc)
     if sc>=4 then text('F',px+sc*1.2,py+sc*1.2,colors.bg,self.small) end
    elseif s.kind=='torch' then
-    box(px+sc*1.7,py+sc,sc*.6,sc*2.5,colors.amber);box(px+sc*1.3,py+sc*.5,sc*1.4,sc,colors.amber)
+    local mount=S.torchMount(w,s.gx,s.gy)
+    if mount=='left' then
+     box(px+sc*.45,py+sc*1.2,sc*.6,sc*1.8,colors.amber);box(px+sc*.7,py+sc*.7,sc*1.35,sc,colors.amber)
+    elseif mount=='right' then
+     box(px+size-sc*1.05,py+sc*1.2,sc*.6,sc*1.8,colors.amber);box(px+size-sc*2.05,py+sc*.7,sc*1.35,sc,colors.amber)
+    else
+     box(px+sc*1.7,py+sc,sc*.6,sc*2.5,colors.amber);box(px+sc*1.3,py+sc*.5,sc*1.4,sc,colors.amber)
+    end
    end
    end
   end
@@ -418,12 +432,12 @@ function R:help(app)
   '1. Drag C Farm over empty, supported blocks in the arrival chamber.',
   '2. Build B Beds. Settlers fetch materials, irrigate, harvest and eat.',
   '3. D Dig exposes material cell by cell. Inspect reservoirs before mining.',
-  '4. L Ladders traverse shafts. F Floors and W Walls stop liquids.',
+  '4. L unfurls rope downward; Shift+L unfurls upward. F Floors and W Walls stop liquids.',
   '5. H assigns individual duties and whole-worker percentage quotas.',
   '6. Left-drag selects blocks. Right-click inside them for batch actions; click a selected block or Escape clears it.',
   '',
   'A: build charge, then select it and T to order arming. No disarm.',
-  'Middle-drag pans the camera. Wheel zooms; R fits the map. Left/Right: select or step    Shift+arrows: 20 ticks',
+  'Shift+drag pans the camera. Wheel zooms; R fits the map. Left/Right: select or step    Shift+arrows: 20 ticks',
   'Encounter HUD: survey / study / salvage / cull. F4 field notes / F9 ward.',
   'N: generation lab (C selects local/campaign action) / F2 export / F3 maps / F7 biomes',
   'Frontier campaigns: Shift+F7 or Region opens settlements; transport is pending.',
@@ -717,7 +731,7 @@ function R:draw(app)
  text(string.format('%s  |  %s  |  seed %d',w.mode:upper(),w.preset,w.seed),470,39,colors.muted,self.small)
  text(string.format('SURVIVORS %d/%d   FOOD %d   FARMS %d',met.alive,#w.workers,met.food,met.farms),self.panelX-10,18,colors.text,self.normal)
  text(string.format('tick %d    day %.2f    %dx speed',w.tick,w.tick/C.dayTicks,app.speed),self.panelX-10,41,colors.muted,self.small)
- local hint='Middle-drag pans. Left-drag selects blocks; right-click a selection to delegate actions.'
+ local hint='Shift+drag pans. Left-drag selects blocks; right-click a selection to delegate actions.'
  if app.playtest then hint='ISOLATED PLAYTEST — saves: '..app.playtest.saveDir end
  text(hint,18,51,app.playtest and colors.amber or colors.muted,self.small)
  if app.regionButton then

@@ -14,7 +14,7 @@ end
 
 local function addBlockActions(world,actions)
  add(actions,'build:dig','Delegate dig','Marks selected build blocks for ordinary excavation.')
- add(actions,'build:ladder','Delegate ladder','Build from physically delivered materials.')
+ if not (world.frontier and world.frontier.safe_excavation==1) then add(actions,'build:ladder','Delegate ladder','Build from physically delivered materials.') end
  add(actions,'build:platform','Delegate floor','Build from physically delivered materials.')
  add(actions,'build:wall','Delegate wall','Build from physically delivered materials.')
  add(actions,'build:bed','Delegate bed','Build from physically delivered materials.')
@@ -23,8 +23,11 @@ local function addBlockActions(world,actions)
  add(actions,'build:pump','Delegate pump','Build from physically delivered materials.')
  if world.frontier and world.frontier.education==1 then add(actions,'build:field_school','Delegate field school','Requires four stone and two metal through ordinary construction.') end
  if world.frontier and world.frontier.equipment==1 then add(actions,'build:tool_bench','Delegate tool bench','Requires four stone and two metal through ordinary construction.') end
- if world.frontier and world.frontier.visibility==1 then add(actions,'build:torch','Delegate torch','Requires one metal through ordinary construction and lights exploration.') end
- if world.frontier and world.frontier.safe_excavation==1 then add(actions,'rope','Delegate rope','Fetches one real rope coil and installs a climb lane.') end
+ if world.frontier and world.frontier.visibility==1 then add(actions,'build:torch','Delegate torch','Requires one metal; mount it on a floor or a solid wall face.') end
+ if world.frontier and world.frontier.safe_excavation==1 then
+  add(actions,'rope:down','Unfurl rope downward','Fetches one real rope coil and deploys a climb lane below the selected anchor.')
+  add(actions,'rope:up','Unfurl rope upward','Fetches one real rope coil and deploys a climb lane upward to climb from below.')
+ end
 end
 
 local function selectedWorker(world,app)

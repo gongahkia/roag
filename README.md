@@ -62,9 +62,11 @@ mean more mouths, labour demand and water consumption; they are not free difficu
 reduction. Only starting food scales with the selected initial crew. Stone, metal,
 soil and the well remain finite and unchanged.
 
-Dig with **D**, and build ladders **L** for vertical access. Construction footprints
-are 4x4 fine cells; settlers occupy 2x3 cells. A water opening may not fit a person.
-Floors and walls block fluids; ladders do not. Most functional buildings require
+Dig with **D**. Current frontiers use **L** to unfurl a rope downward and
+**Shift+L** to unfurl one upward for vertical access; older histories retain their
+existing ladders. Construction footprints are 4x4 fine cells; current-frontier
+settlers occupy 2x4 cells. A water opening may not fit a person. Floors and walls
+block fluids; ladders and ropes do not. Most functional buildings require
 supported, empty footprints. Construction does not silently delete water.
 
 ## Directing people: H, Y, M and J
@@ -188,7 +190,7 @@ falling or bombs. T toggles a completed ward.
 | Space / 1–3 | Pause or run / 1x, 2x, 4x scheduling |
 | Left click / left drag / Q | Select a target / select build blocks / inspect compatibility shortcut |
 | Right click | Open the target's delegate HUD, or batch-delegate inside a selected block area |
-| D / L / F / W | Keyboard-compatible dig / ladder / floor / wall tools; drag still designates multiple blocks |
+| D / L / Shift+L / F / W | Dig / rope downward / rope upward / floor / wall tools; drag still designates multiple blocks. Older histories retain ladder controls. |
 | B / S / C / P | Keyboard-compatible bed / stockpile / farm / pump tools |
 | X / E / +/- | Keyboard-compatible dismantle / cancel / job priority |
 | H / Y / Shift+Y | Workforce panel / target new orders / reassign a block |
@@ -198,7 +200,7 @@ falling or bombs. T toggles a completed ward.
 | I / O | Selected pump intake/outlet; range 20 cells |
 | F4 | Field notes |
 | Tab / F7 / G | Layers / biome survey / building grid |
-| Wheel / middle drag / R | Zoom / pan the independent camera / fit map |
+| Wheel / Shift + drag / R | Zoom / pan the independent camera / fit map |
 | Left / Right / Shift+arrows | Inspect or step / 20-tick batch |
 | Home / End | Initial state / live frontier |
 | N / F2 / Shift+F2 / F3 | Map lab / initial map / current terrain template / maps |
@@ -252,6 +254,6 @@ costs or elapsed-time results. Lua-heap deltas are not process RSS or peak memor
 
 Start future repository-based development with **`AGENTS.md`**, **`HANDOFF.md`**,
 **`PROJECT_STATE.md`**, and **`docs/ARCHITECTURE.md`**. This is a tested prototype,
-not a finished colony game: there is no equipment economy, ranged combat, diplomacy,
+not a finished colony game: there is no broad equipment economy, ranged combat, diplomacy,
 procedural narrative generator, advanced social simulation, pressure solver or
 structural collapse engine. Preserve the functioning loops before widening scope.

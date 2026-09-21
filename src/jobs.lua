@@ -72,19 +72,27 @@ end
 -- it does not inspect undiscovered terrain or predict a whole dig plan.
 local function digSafety(w,a,c,context,t)
  if not feature(context) then return true end
+ -- A coil fetched for the final supporting cell is attached atomically with
+ -- that cell's actual removal. Until then it is carried at the reachable
+ -- anchor, so the miner never spends an intervening physics tick unsupported.
+ if t.stage=='rope_ready' and t.ropePendingX==c.x and t.ropePendingY==c.y then return true end
  local holds=false;for xx=a.x,a.x+Body.width(w)-1 do if xx==c.x and a.y+1==c.y then holds=true end end
  if not holds or N.rope(w,a.x,a.y) then return true end
  local path,node=safeAlternate(w,a,c)
  if path then t.path,t.node,t.next=path,node,1;a.status='Repositioning for safe excavation';return false,'reposition' end
  local campaign=context.campaign;local f=N.flood(w,a.x,a.y);local coil,fetchPath,fetchNode=Equipment.nearestLoose(campaign,currentSite(context),'rope_coil',w,a,f,N.returnable(w,f))
- local lane
- for lx=math.max(1,a.x-4),math.min(w.width-1,a.x+4) do
-  local clear=0
-  for y=a.y,math.min(w.height,a.y+23) do if W.solid(w,lx,y) or W.solid(w,lx+1,y) then break end;clear=clear+1 end
-  if clear>=4 and N.reach(w,a.x,a.y,lx,a.y,4) then lane={x=lx,length=clear};break end
+ -- The rope's body-wide lane is the miner's current lane. The selected last
+ -- supporting cell is the only temporary obstruction allowed: it is removed
+ -- and the carried line becomes support in the same successful mutation.
+ local lane={x=a.x,startY=a.y,length=0}
+ for y=a.y,math.min(w.height,a.y+23) do
+  local target=y==c.y and (c.x==a.x or c.x==a.x+1)
+  if (W.solid(w,a.x,y) or W.solid(w,a.x+1,y)) and not target then break end
+  lane.length=lane.length+1
  end
+ if lane.length<4 or not N.reach(w,a.x,a.y,a.x,a.y,4) then lane=nil end
  if coil and lane and Equipment.reserve(coil,a) then
-  t.stage='rope_fetch';t.equipmentId=coil.id;t.anchorX=a.x;t.anchorY=a.y;t.ropeLaneX=lane.x;t.ropeLength=lane.length;t.path=fetchPath;t.node=fetchNode;t.next=1
+  t.stage='rope_fetch';t.equipmentId=coil.id;t.anchorX=a.x;t.anchorY=a.y;t.ropeLaneX=lane.x;t.ropeLength=lane.length;t.ropePendingX=c.x;t.ropePendingY=c.y;t.path=fetchPath;t.node=fetchNode;t.next=1
   a.status='Fetching rope coil for safe descent';return false,'rope'
  end
  return false,'Unsafe descent — rope required'
@@ -229,7 +237,12 @@ function J.plan(w,a,context)
     if not path then j.reason='Tool or craft is unreachable' else offer({kind='work',job=j.id,stage=j.cargoMode=='load' and 'tool_fetch' or 'tool_unload',path=path,node=node,label=(j.cargoMode=='load' and 'Loading ' or 'Unloading ')..item.kind},200,dist) end
    end
   elseif j.kind=='rope' then
-   local anchorX,anchorY=j.gx*4-3,j.gy*4-3
+   local direction=j.ropeDirection or 'down'
+   local anchorX= j.gx*4-3
+   -- Downward ropes start at the top edge of the selected block.  Upward
+   -- ropes are thrown/unfurled from the selected lower edge, then stored in
+   -- the same canonical top-to-bottom rope representation.
+   local anchorY=direction=='up' and j.gy*4 or j.gy*4-3
    local path,node,dist=closest(w,a,f,function(x,y) return N.reach(w,x,y,anchorX,anchorY,4) end)
    if not path then j.reason='Rope anchor is unreachable'
    elseif not feature(context) then j.reason='Ropes require a safe-excavation frontier'
@@ -237,7 +250,7 @@ function J.plan(w,a,context)
     local coil,pp,nn,dd=Equipment.nearestLoose(context.campaign,currentSite(context),'rope_coil',w,a,f,N.returnable(w,f))
     if coil then
      local px,py=W.xy(w,node)
-     offer({kind='work',job=j.id,stage='rope_fetch',equipmentId=coil.id,path=pp,node=nn,anchorX=px,anchorY=py,ropeLaneX=anchorX,ropeStartY=anchorY,label='Fetching rope coil'},j.priority*100,dist+dd)
+     offer({kind='work',job=j.id,stage='rope_fetch',equipmentId=coil.id,path=pp,node=nn,anchorX=px,anchorY=py,ropeLaneX=anchorX,ropeStartY=anchorY,ropeDirection=direction,label=direction=='up' and 'Fetching rope coil to unfurl upward' or 'Fetching rope coil to unfurl downward'},j.priority*100,dist+dd)
     else j.reason='Needs accessible rope coil' end
    end
   elseif j.kind=='remove_rope' then
@@ -492,16 +505,31 @@ function J.act(w,a,context)
    t.stage='rope_deploy';t.path={};t.next=1;return
   elseif t.stage=='rope_deploy' then
    local item=feature(context) and Equipment.find(context.campaign,t.equipmentId) or nil
+   if t.ropePendingX then
+    -- A support cell still occupies part of the lane.  Keep the real coil in
+    -- the worker's custody until the existing dig progress reaches its normal
+    -- terrain-mutation boundary.
+    t.stage='rope_ready';t.path={};t.next=1;a.status='Rope ready for controlled descent';return
+   end
    local length=0
    local startY=t.ropeStartY or t.anchorY;local lane=t.ropeLaneX or t.anchorX
-   for y=startY,math.min(w.height,startY+23) do
-    if W.solid(w,lane,y) or W.solid(w,lane+1,y) then break end
-    length=length+1
+   local direction=t.ropeDirection or j.ropeDirection or 'down'
+   local topY=startY
+   if direction=='up' then
+    for y=startY,math.max(1,startY-23),-1 do
+     if W.solid(w,lane,y) or W.solid(w,lane+1,y) then break end
+     length=length+1;topY=y
+    end
+   else
+    for y=startY,math.min(w.height,startY+23) do
+     if W.solid(w,lane,y) or W.solid(w,lane+1,y) then break end
+     length=length+1
+    end
    end
-   local ok,rope=pcall(Equipment.installRope,context.campaign,w,currentSite(context),item,lane,startY,length)
+   local ok,rope=pcall(Equipment.installRope,context.campaign,w,currentSite(context),item,lane,topY,length)
    if not ok then blocked(w,a,'Rope path is obstructed') return end
    w.navRevision=w.navRevision+1
-   if j.kind=='rope' then j.state='done';j.reason='Installed';w.stats.jobsDone=w.stats.jobsDone+1;finish(w,a,'Installed rope')
+   if j.kind=='rope' then j.state='done';j.reason='Installed';w.stats.jobsDone=w.stats.jobsDone+1;finish(w,a,direction=='up' and 'Unfurled rope upward' or 'Unfurled rope downward')
    else t.stage='work';t.path={};t.next=1;a.status='Rope installed' end
    return
   end
@@ -515,18 +543,32 @@ function J.act(w,a,context)
    end
    local safe,why=digSafety(w,a,c,context,t)
    if not safe then
-    if why=='reposition' then return end
+    -- `digSafety` converts a controllable descent into a physical rope-fetch
+    -- substage.  It remains the same player designation; releasing it here
+    -- would make the automatic safety repair impossible.
+    if why=='reposition' or why=='rope' then return end
     blocked(w,a,why);return
    end
    t.progress=t.progress+a.mine*Equipment.digWork(context and context.campaign,a,c.m)
    if t.progress>=M.def[c.m].work then
     t.progress=0
-    if c.m==M.ICE then W.put(w,c.x,c.y,M.WATER)
-    else
-     W.put(w,c.x,c.y,M.AIR);W.stack(w,M.def[c.m].resource,1,a.x,a.y)
-     w.ledger.mined=w.ledger.mined+1
-     require('src.signals').emit(w,'mining',c.x,c.y,4)
+   if c.m==M.ICE then W.put(w,c.x,c.y,M.WATER)
+   else
+    W.put(w,c.x,c.y,M.AIR);W.stack(w,M.def[c.m].resource,1,a.x,a.y)
+    w.ledger.mined=w.ledger.mined+1
+    require('src.signals').emit(w,'mining',c.x,c.y,4)
+   end
+   if t.stage=='rope_ready' then
+    local item=Equipment.find(context.campaign,t.equipmentId);local length=0
+    for y=t.anchorY,math.min(w.height,t.anchorY+23) do
+     if W.solid(w,t.ropeLaneX,y) or W.solid(w,t.ropeLaneX+1,y) then break end
+     length=length+1
     end
+    local ok=pcall(Equipment.installRope,context.campaign,w,currentSite(context),item,t.ropeLaneX,t.anchorY,length)
+    if not ok then blocked(w,a,'Rope attachment changed before descent') return end
+    w.navRevision=w.navRevision+1;t.stage='work';t.ropePendingX=nil;t.ropePendingY=nil
+    a.status='Rope controls descent'
+   end
    end
   elseif j.kind=='build' then
    local clear,why=S.siteClear(w,j.gx,j.gy,j.build)

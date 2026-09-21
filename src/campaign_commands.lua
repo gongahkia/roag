@@ -28,7 +28,7 @@ local fields={
  field={type=true,kind=true,target=true,worker=true,priority=true},arm={type=true,slot=true,worker=true,priority=true},
  target_order={type=true,gx=true,gy=true,worker=true},
  school_policy={type=true,slot=true,schoolId=true,expectedPolicyRevision=true,enabled=true,mode=true,topicId=true,topicVersion=true,priority=true},
- fabricate={type=true,slot=true,kind=true,priority=true},place_rope={type=true,gx=true,gy=true,priority=true},remove_rope={type=true,ropeId=true,priority=true},drop_tool={type=true,equipmentId=true,worker=true},load_tool={type=true,equipmentId=true,craftId=true,priority=true},unload_tool={type=true,equipmentId=true,craftId=true,priority=true},
+ fabricate={type=true,slot=true,kind=true,priority=true},place_rope={type=true,gx=true,gy=true,priority=true,direction=true},remove_rope={type=true,ropeId=true,priority=true},drop_tool={type=true,equipmentId=true,worker=true},load_tool={type=true,equipmentId=true,craftId=true,priority=true},unload_tool={type=true,equipmentId=true,craftId=true,priority=true},
 }
 local campaignFields={
  prepare_expedition={scope=true,type=true,sourceSiteId=true,craftId=true,destinationSiteId=true,passengers=true,cargo=true},

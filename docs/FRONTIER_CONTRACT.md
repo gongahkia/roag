@@ -22,7 +22,10 @@ remembered and current states. Current visibility is the union of living local
 settlers' 20-cell shadowcast sight from their 2×4 eyes, subject to 3-cell dark
 vision or source illumination. Solid terrain and walls are opaque; boundary walls
 remain visible. A torch is a normal transparent one-block structure costing one
-metal and lighting radius 16, capped at 128 installed torches per site. A docked
+metal and lighting radius 16, capped at 128 installed torches per site. It may
+stand on solid floor or mount to a solid terrain face/completed wall behind its
+build block; removing that backing support disables its normal structure/light
+support. A docked
 shuttle lights radius 20; a travelling shuttle lights no site. Fog memory is
 campaign/history state but templates exclude it. New spatial commands and P05
 environmental witnessing use this same local visibility boundary.
@@ -45,7 +48,11 @@ each loose tool consumes one of the craft's ordinary 24 shared cargo slots.
 A rope coil creates one two-cell-wide, 1–24-cell-long local climb lane. It needs
 an ordinary reachable anchor and physical fetch/deploy work, grants no light or
 map information, and returns its same coil only when intact and deliberately
-removed. Ropes destroyed by ordinary blasts are lost. The Tool bench is a
+removed. A current frontier's Delegate panel and `L`/`Shift+L` controls unfurl
+the lane downward/upward respectively; both use the same physical coil and
+climb behavior. New ladders are no longer offered in current-frontier controls,
+while existing ladders and historical command replay remain valid. Ropes
+destroyed by ordinary blasts are lost. The Tool bench is a
 one-block normal construction costing four stone and two metal. It fabricates a
 pickaxe from two metal in 120 work actions or a rope coil from one metal in 60;
 inputs remain real escrow until output placement.

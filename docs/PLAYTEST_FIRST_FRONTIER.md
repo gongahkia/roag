@@ -59,8 +59,9 @@ survivable.
    expedition and School panels are live: opening them must not pause the colony.
 4. New frontiers begin under fog. Black cells are unexplored; dim terrain is only
    last known. The docked shuttle lights the first work area. Build a **Torch**
-   through the Delegate panel using one real metal, then verify it reveals more
-   terrain without exposing an unvisited area behind solid walls. Middle-dragging
+   through the Delegate panel using one real metal on a floor or an empty block
+   directly beside a solid terrain/completed wall face. Verify it reveals more
+   terrain without exposing an unvisited area behind solid walls. Shift-dragging
    the camera into darkness must not reveal it.
 5. Right-click a currently lit local encounter and use Survey. F4 opens personal field notes;
    record whether unknown descriptions stay neutral and whether another worker
@@ -131,7 +132,7 @@ travels. At each checkpoint inspect these visible/authoritative outcomes:
 | Travel | Preparation, assembly, revision-bound launch, maintenance/cargo, person IDs, and no source ghost worker are visible. |
 | Continuity | A's facts/XP persist on Moon I; B remains knowledgeable at home; home records stay there. |
 | Record study | C gains no eyewitness observations and learns only after work at the installed record. |
-| Save/history/layout | F5/Ctrl+Q/resume does not duplicate state; archive has no future record; middle-drag pans the camera; left-drag selection batch-delegates only after a right-click; Cozette text, long blocked reasons, Escape, focus, scrolling and global pause remain usable. |
+| Save/history/layout | F5/Ctrl+Q/resume does not duplicate state; archive has no future record; Shift-drag pans the camera; left-drag selection batch-delegates only after a right-click; Cozette text, long blocked reasons, Escape, focus, scrolling and global pause remain usable. |
 | G01 geometry/fog | A settler is visibly half a build block wide and one full block tall; its top cell selects it, a just-above cell does not. Panels stay live, black cells remain unknown, remembered terrain does not update off-screen, and a torch consumes one metal. |
 
 ## G02 safe excavation, ropes, and tools
@@ -146,8 +147,12 @@ upgrade old campaign histories.
 2. Designate a vertical downward dig that would remove a miner's support. The
    designated block remains pending instead of making the worker fall. With no
    coil, the worker reports **Unsafe descent — rope required**. With a loose coil
-   at a reachable anchor, right-click the visible anchor and choose **Delegate
-   rope**. Watch a real coil get fetched and a finite climb lane appear.
+   at a reachable anchor, right-click the visible anchor and choose **Unfurl
+   rope downward**. Watch a real coil get fetched and a finite climb lane appear.
+   From a lower ledge, choose **Unfurl rope upward** to throw the same kind of
+   physical line toward an upper climb route. `L` selects downward rope and
+   `Shift+L` selects upward rope for drag designation. New current-frontier
+   controls no longer offer ladder construction; pre-existing ladders still work.
 3. Select the Crew panel while the colony runs. Each G02 settler shows steady or
    panicked stress. Trigger a controlled existing danger and confirm a panicked
    person abandons ordinary work to escape; do not expect panic to make a miner

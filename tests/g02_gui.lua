@@ -16,13 +16,14 @@ app.history=History.new(campaign);app.campaign=true;app.siteId=1;app.help=nil;ap
 local function has(actions,id) for _,action in ipairs(actions) do if action.id==id then return true end end end
 local function frame(n) for _=1,n do love.update(1/60);love.draw() end end
 local w=app.currentWorld();local gx,gy
+love.keypressed('l');assert(app.tool=='rope_down','L did not select downward rope in a current frontier');app.tool='inspect'
 for y=2,w.rows-1 do for x=2,w.cols-1 do
  local cx,cy=x*4-2,y*4-2
  if Visibility.currentlyVisible(w,cx,cy,{campaign=app.history.view,siteId=1}) and S.siteClear(w,x,y,'tool_bench') then gx,gy=x,y;break end
 end if gx then break end end
 assert(gx,'No visible tool-bench presentation block in mock fixture')
 app.hud={cell={x=gx*4-2,y=gy*4-2}}
-local model=assert(HUD.model(app,w));assert(has(model.actions,'rope'),'Visible G02 block omitted Rope action');assert(has(model.actions,'build:tool_bench'),'Visible G02 block omitted Tool bench action')
+local model=assert(HUD.model(app,w));assert(has(model.actions,'rope:down') and has(model.actions,'rope:up'),'Visible G02 block omitted directional rope actions');assert(not has(model.actions,'build:ladder'),'Current G02 block still offered new ladders');assert(has(model.actions,'build:tool_bench'),'Visible G02 block omitted Tool bench action')
 S.install(w,gx,gy,'tool_bench');app.hud={cell={x=gx*4-2,y=gy*4-2}}
 model=assert(HUD.model(app,w));assert(has(model.actions,'fabricate:pickaxe') and has(model.actions,'fabricate:rope_coil'),'Tool bench omitted fabrication actions')
 local start=app.history.live.tick;love.keypressed('h');frame(12);assert(app.history.live.tick>start and not app.paused,'G02 crew/stress panel paused the live campaign');love.keypressed('escape')
@@ -31,5 +32,5 @@ main.getRenderer():drawExpedition(app)
 local load=false;for _,button in ipairs(app.expedition.buttons) do if button.action=='loadTool' then load=true end end
 assert(load,'Expedition panel omitted physical loose-tool loading controls')
 love.quit()
-print('PASS G02-Q MOCK UI: rope/tool-bench actions, live crew panel and physical craft-tool loading control.')
+print('PASS G02-Q MOCK UI: directional rope/tool-bench actions, live crew panel and physical craft-tool loading control.')
 print('NOTE: mocked LÖVE graphics/input only; native rendering and human gameplay remain untested.')

@@ -18,6 +18,7 @@ function C.valid(c,site,payload)
   elseif payload.type=='place_rope' then
    U.integer(payload.gx,'Rope block X',2,w.cols-1);U.integer(payload.gy,'Rope block Y',2,w.rows-1)
    if payload.priority~=nil then U.integer(payload.priority,'Rope priority',1,3) end
+   assert(payload.direction==nil or payload.direction=='down' or payload.direction=='up','Rope direction must be down or up')
   elseif payload.type=='remove_rope' then
    U.integer(payload.ropeId,'Rope ID',1,w.nextRopeId-1);if payload.priority~=nil then U.integer(payload.priority,'Rope priority',1,3) end
    local found=false;for _,rope in ipairs(w.ropes) do if rope.id==payload.ropeId then found=true end end;assert(found,'Rope no longer exists')
@@ -46,7 +47,8 @@ function C.apply(c,site,payload)
   j.slot=payload.slot;j.recipe=payload.kind;s.fabrication={jobId=j.id,kind=payload.kind,progress=0,work=E.recipe(payload.kind).work};return true
  elseif payload.type=='place_rope' then
   local j,why=J.add(w,'rope',payload.gx,payload.gy,nil,payload.priority)
-  if not j then W.event(w,'rejected',why);return false end;return true
+  if not j then W.event(w,'rejected',why);return false end
+  j.ropeDirection=payload.direction or 'down';return true
  elseif payload.type=='remove_rope' then
   local rope;for _,r in ipairs(w.ropes) do if r.id==payload.ropeId then rope=r end end
   local gx,gy=W.tile(w,rope.laneLeftX,rope.anchorY);local j,why=J.add(w,'remove_rope',gx,gy,nil,payload.priority)

@@ -60,8 +60,11 @@ cellClick(58,row*4-1);assert(not app.selection,'Clicking a selected block did no
 -- Panning is camera-local and bounded by the zoomed map, rather than worker movement.
 love.wheelmoved(0,2);love.draw();local renderer=main.getRenderer();local panX,panY=renderer.panX,renderer.panY
 local r=renderer.rect;local px,py=r.x+r.w/2,r.y+r.h/2
-love.mousepressed(px,py,3);love.mousemoved(px+40,py+20,40,20);love.mousereleased(px+40,py+20,3)
-assert(renderer.panX~=panX or renderer.panY~=panY,'Middle-drag did not pan the zoomed camera')
+mock.held.lshift=true;love.mousepressed(px,py,1);love.mousemoved(px+40,py+20,40,20);love.mousereleased(px+40,py+20,1);mock.held.lshift=nil
+assert(renderer.panX~=panX or renderer.panY~=panY,'Shift-drag did not pan the zoomed camera')
+local shiftedX,shiftedY=renderer.panX,renderer.panY
+love.mousepressed(px,py,3);love.mousemoved(px-40,py-20,-40,-20);love.mousereleased(px-40,py-20,3)
+assert(renderer.panX==shiftedX and renderer.panY==shiftedY,'Middle drag still moved the camera')
 love.keypressed('r')
 mock.record=true;mock.records={};love.draw()
 local f=assert(io.open(directory..'/draw.dw','wb'));f:write(require('src.codec').encode(mock.records));f:close()

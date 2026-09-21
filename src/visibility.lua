@@ -4,6 +4,7 @@ local W=require('src.world')
 local M=require('src.materials')
 local Body=require('src.body')
 local U=require('src.util')
+local S=require('src.structures')
 local V={version=1,sightRadius=20,darkRadius=3,torchRadius=16,shuttleRadius=20,maxTorches=128}
 
 function V.enabled(w) return w and w.frontier and w.frontier.visibility==1 end
@@ -105,7 +106,7 @@ local function mergeLight(w,light,mask,x,y,radius)
  end
 end
 local function sourceMasks(w,context,light)
- for _,s in pairs(w.structures) do if s.kind=='torch' and s.enabled and W.supportedStructure(w,s) then
+ for _,s in pairs(w.structures) do if s.kind=='torch' and s.enabled and S.supported(w,s) then
   local x,y=s.gx*4-2,s.gy*4-2;mergeLight(w,light,V.fov(w,x,y,V.torchRadius),x,y,V.torchRadius)
  end end
  if context and context.campaign and context.campaign.features.logistics==1 then

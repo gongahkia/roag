@@ -315,11 +315,13 @@ end
 local function delegateSelection(hud,action)
  local selection=hud.selection
  local build=action:match('^build:(.+)$')
- if not selection or (not build and action~='cancel') then return false end
+ local ropeDirection=action=='rope:down' and 'down' or action=='rope:up' and 'up' or nil
+ if not selection or (not build and not ropeDirection and action~='cancel') then return false end
  local issued,total=0,0
  for gy=selection.gy1,selection.gy2 do for gx=selection.gx1,selection.gx2 do
   if total<selectionLimit then
-   local payload=action=='cancel' and {type='cancel',gx=gx,gy=gy} or
+   local payload=action=='cancel' and {type='cancel',gx=gx,gy=gy} or ropeDirection and
+    {type='place_rope',gx=gx,gy=gy,direction=ropeDirection,priority=app.priority} or
     {type='order',kind=build=='dig' and 'dig' or 'build',build=build=='dig' and nil or build,gx=gx,gy=gy,priority=app.priority,worker=delegatedWorker()}
    if queue(payload) then issued=issued+1 end
    total=total+1
@@ -358,7 +360,7 @@ local function delegateHudAction(action)
  elseif action=='arm' then
   local structure=W.structureAt(w,cell.x,cell.y)
   if structure then return issued({type='arm',slot=W.slot(w,structure.gx,structure.gy),worker=delegatedWorker(),priority=app.priority}) end
- elseif action=='rope' then return issued({type='place_rope',gx=gx,gy=gy,priority=app.priority})
+ elseif action=='rope:down' or action=='rope:up' then return issued({type='place_rope',gx=gx,gy=gy,direction=action:match(':(.+)$'),priority=app.priority})
  elseif action=='fabricate:pickaxe' or action=='fabricate:rope_coil' then
   local structure=W.structureAt(w,cell.x,cell.y)
   if structure and structure.kind=='tool_bench' then return issued({type='fabricate',slot=W.slot(w,structure.gx,structure.gy),kind=action:match(':(.+)$'),priority=app.priority}) end
@@ -538,7 +540,13 @@ function love.keypressed(key)
  elseif key=='f12' then
   love.filesystem.createDirectory('exports');love.graphics.captureScreenshot('exports/screenshot-'..os.time()..'.png');notify('Screenshot saved in exports.')
  elseif hotkeys[key] then
-  app.tool=hotkeys[key];app.port=nil;app.hud=nil
+  local nextTool=hotkeys[key]
+  if nextTool=='ladder' and currentWorld().frontier and currentWorld().frontier.safe_excavation==1 then
+   app.tool=love.keyboard.isDown('lshift','rshift') and 'rope_up' or 'rope_down';app.port=nil;app.hud=nil
+   notify(app.tool=='rope_up' and 'Rope tool: drag from a lower anchor to unfurl upward.' or 'Rope tool: drag from an upper anchor to unfurl downward.')
+   return
+  end
+  app.tool=nextTool;app.port=nil;app.hud=nil
   if app.tool=='rally' then app.rallyWorker=love.keyboard.isDown('lshift','rshift') and 0 or app.selectedWorker or 0;notify(app.rallyWorker==0 and 'Click a rally point for ALL workers. J releases.' or 'Click a rally point for the selected worker. J releases.') end
  end
 end
@@ -612,7 +620,9 @@ function love.mousepressed(mx,my,button)
   for _,entry in ipairs(app.hud.buttons or {}) do if contains(entry,mx,my) then delegateHudAction(entry.action);return end end
   app.hud=nil
  end
- if button==3 then app.panning=true;app.selectionDrag=nil;return end
+ -- Shift + left drag owns camera movement. Plain left drag remains the block
+ -- selection gesture, and middle click deliberately has no camera side effect.
+ if button==1 and love.keyboard.isDown('lshift','rshift') then app.panning=true;app.selectionDrag=nil;app.drag=nil;return end
  if button~=1 and button~=2 then return end
  if button==1 then
   if app.regionButton and contains(app.regionButton,mx,my) then toggleRegion();return end
@@ -653,7 +663,8 @@ function love.mousemoved(mx,my,dx,dy)
  local x,y=renderer:cell(mx,my);app.hover=x and {x=x,y=y} or nil
 end
 function love.mousereleased(mx,my,button)
- if button==3 then app.panning=false;return end
+ if button==1 and app.panning then app.panning=false;return end
+ if button==3 then return end
  if button==1 and app.selectionDrag and not app.crew and not app.fieldnotes and not app.newRun and not app.mapBrowser and not app.hud then
   local drag=app.selectionDrag;app.selectionDrag=nil
   local x,y=renderer:cell(mx,my);if not x then return end
@@ -676,6 +687,7 @@ function love.mousereleased(mx,my,button)
  for gy=math.min(d.gy,ey),math.max(d.gy,ey) do for gx=math.min(d.gx,ex),math.max(d.gx,ex) do
   if count<256 then
    if d.tool=='cancel' then queue({type='cancel',gx=gx,gy=gy})
+   elseif d.tool=='rope_down' or d.tool=='rope_up' then queue({type='place_rope',gx=gx,gy=gy,direction=d.tool=='rope_up' and 'up' or 'down',priority=app.priority})
    else queue({type='order',kind=(d.tool=='dig' or d.tool=='remove') and d.tool or 'build',
      build=(d.tool~='dig' and d.tool~='remove') and d.tool or nil,gx=gx,gy=gy,priority=app.priority,worker=app.orderWorker or 0}) end
    count=count+1

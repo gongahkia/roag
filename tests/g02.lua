@@ -27,14 +27,36 @@ function Suite.run()
   local c=one();local w=c.sites[1].world;local j=J.add(w,'dig',3,7,nil,3);advance(c,100)
   check(j.state=='open','Unsafe dig was cancelled instead of retained');eq(W.get(w,12,25),M.ROCK,'Miner removed its own support');check(j.reason:match('Unsafe descent'),'Unsafe dig did not explain its rope requirement');Campaign.validate(c)
  end)
+ group('G02-B automatic rope attachment preserves the original downward dig',function()
+  local c=one();local w=c.sites[1].world;local a=w.workers[1]
+  -- Only the right foot remains supported. The shaft below is deliberately
+  -- deeper than a controlled drop, so there is no alternate safe pose.
+  for y=25,55 do for x=9,16 do W.put(w,x,y,M.AIR) end end
+  W.put(w,13,25,M.ROCK);E.create(c,1,'rope_coil',12,24)
+  local j=J.add(w,'dig',4,7,nil,3);advance(c,180)
+  eq(j.state,'done');eq(W.get(w,13,25),M.AIR,'Original downward dig did not resume after rope assist');eq(#w.ropes,1,'Automatic descent did not install a physical rope')
+  check(E.find(c,w.ropes[1].itemId).state=='rope','Automatic rope duplicated or lost its physical coil');eq(a.fall,0,'Ordinary rope-assisted dig produced an uncontrolled fall');Campaign.validate(c)
+ end)
  group('G02-D ropes are physical two-cell climb lanes with bounded recovery',function()
   local c=one();local w=c.sites[1].world;local a=w.workers[1];a.x=12
   for y=21,44 do W.put(w,9,y,M.AIR);W.put(w,10,y,M.AIR) end
   E.create(c,1,'rope_coil',12,24);local j=J.add(w,'rope',3,6,nil,3);advance(c,150)
   eq(j.state,'done');eq(#w.ropes,1);eq(w.ropes[1].length,24);check(N.ladder(w,9,30),'Rope did not create a climb lane');check(not N.ladder(w,11,30),'Rope widened beyond its two-cell lane')
-  local remove={type='remove_rope',ropeId=w.ropes[1].id,priority=3};assert(EC.valid(c,c.sites[1],remove));assert(EC.apply(c,c.sites[1],remove));advance(c,120);eq(#w.ropes,0);eq(E.forSite(c,1,'rope_coil','loose')[1].kind,'rope_coil');Campaign.validate(c)
+ local remove={type='remove_rope',ropeId=w.ropes[1].id,priority=3};assert(EC.valid(c,c.sites[1],remove));assert(EC.apply(c,c.sites[1],remove));advance(c,120);eq(#w.ropes,0);eq(E.forSite(c,1,'rope_coil','loose')[1].kind,'rope_coil');Campaign.validate(c)
+end)
+ group('G02 ropes can be unfurled upward from a lower anchor',function()
+  local c=one();local w=c.sites[1].world;local a=w.workers[1]
+  -- The first, already-installed line is fixture infrastructure that gives the
+  -- worker a real safe way down to the lower ledge. The command under test
+  -- fetches a second physical coil there and unfurls it upward.
+  for y=21,44 do for x=12,21 do W.put(w,x,y,M.AIR) end end
+  for x=12,21 do W.put(w,x,45,M.ROCK) end
+  local access=E.create(c,1,'rope_coil',12,24);assert(E.reserve(access,a));E.carry(c,access,a);E.installRope(c,w,1,access,12,25,20)
+  E.create(c,1,'rope_coil',18,44)
+  local payload={type='place_rope',gx=5,gy=11,direction='up',priority=3};assert(EC.valid(c,c.sites[1],payload));assert(EC.apply(c,c.sites[1],payload));advance(c,180)
+  eq(#w.ropes,2);local rope=w.ropes[2];eq(rope.anchorY,21);eq(rope.length,24);check(N.ladder(w,17,30),'Upward rope did not create the shared climb lane');Campaign.validate(c)
  end)
- group('G02-E pickaxe contribution is fixed by physical material class',function()
+group('G02-E pickaxe contribution is fixed by physical material class',function()
   local c=one();local a=c.sites[1].world.workers[1];eq(E.digWork(c,a,M.ROCK),1)
   local pick=E.create(c,1,'pickaxe',a.x,a.y);E.equip(c,pick,a)
   eq(E.digWork(c,a,M.SOIL),2);eq(E.digWork(c,a,M.SAND),2);eq(E.digWork(c,a,M.ICE),2);eq(E.digWork(c,a,M.ROCK),3);eq(E.digWork(c,a,M.ORE),3)
