@@ -812,8 +812,28 @@ def _quest_presentations(root: Path, pack_id: str) -> tuple[QuestPresentation, .
             arc_choices = tuple((choice_id, *flat[choice_id]) for choice_id in slot.choice_ids)
             result = result_rows[slot.engine_id]
             final_keys = {choice_id.split(".", 1)[1] for choice_id in slot.choice_ids if choice_id.startswith(("4." if slot.engine_id == "marks" else "3."))}
-            if not isinstance(result, dict) or set(result) != final_keys or any(not isinstance(value, str) or not value.strip() for value in result.values()):
+            lifecycle_keys = {"__unavailable_chapter", "__missing_record", "__replacement", "__start", "__transition", "__settled", "__completed"}
+            if slot.engine_id == "marks":
+                lifecycle_keys.add("__unavailable_arc")
+            if (not isinstance(result, dict) or set(result) != final_keys | lifecycle_keys
+                    or any(not isinstance(value, str) or not value.strip() for value in result.values())):
                 raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: arc_results.{slot.engine_id} must contain exactly final result keys")
+            allowed_lifecycle_fields = {
+                "__unavailable_chapter": set(), "__unavailable_arc": set(), "__missing_record": set(),
+                "__replacement": {"evidence"},
+                "__start": {"arc_title", "next_region"}, "__transition": {"chapter", "current_region", "next_region"},
+                "__settled": {"arc_title", "consequence"}, "__completed": {"arc_title", "consequence"},
+            }
+            if slot.engine_id == "marks":
+                allowed_lifecycle_fields["__start"] = set()
+            formatter = string.Formatter()
+            for key in lifecycle_keys:
+                try:
+                    fields = {field for _, field, spec, conversion in formatter.parse(result[key]) if field is not None and not spec and not conversion and re.fullmatch(r"[a-z][a-z0-9_]*", field)}
+                except ValueError as exc:
+                    raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: arc_results.{slot.engine_id}.{key} has malformed template: {exc}") from exc
+                if fields != allowed_lifecycle_fields[key]:
+                    raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: arc_results.{slot.engine_id}.{key} has invalid placeholders")
             results = tuple((key, result[key]) for key in sorted(result))
         presentations.append(QuestPresentation(
             slot.id, slot.engine_id, slot.kind, row.get("title", ""), row.get("lead"),

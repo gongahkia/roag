@@ -374,23 +374,59 @@
     "marks": {
       "c": "Open compact: safer known routes and lower demand, but no single household controls the credit.",
       "h": "Household surety: Jomon gains credit and obligation while regional route risks remain.",
-      "l": "Local marks: contacts gain authority and markets remain distinct, but chart risks do not ease."
+      "l": "Local marks: contacts gain authority and markets remain distinct, but chart risks do not ease.",
+      "__unavailable_chapter": "That is not an available chapter decision.",
+      "__missing_record": "Recover the physical record or fund a two-credit witnessed copy.",
+      "__start": "Jomon binds the first compared accounts; Greywash holds the next salt measure.",
+      "__transition": "Chapter {chapter} is witnessed in {current_region}; the physical account now requires {next_region}.",
+      "__settled": "{arc_title} settled: {consequence}",
+      "__completed": "{arc_title} ended. {consequence}",
+      "__unavailable_arc": "The compared regional account is not available here.",
+      "__replacement": "Two credits funded a witnessed replacement for the lost {evidence}."
     },
     "banks": {
       "o": "Shared banks: flood routes and food demand ease; institutions retain local control.",
-      "b": "Bonded banks: repair stocks and household credit rise, while private fuel obligations remain."
+      "b": "Bonded banks: repair stocks and household credit rise, while private fuel obligations remain.",
+      "__unavailable_chapter": "That is not an available chapter decision.",
+      "__missing_record": "Recover the physical record or fund a two-credit witnessed copy.",
+      "__start": "{arc_title} begins with a physical witnessed record; {next_region} holds the next account.",
+      "__transition": "Chapter {chapter} is witnessed at {current_region}; the record now names {next_region}.",
+      "__settled": "{arc_title} settled: {consequence}",
+      "__completed": "{arc_title} ended. {consequence}",
+      "__replacement": "Two credits funded a witnessed replacement for the lost {evidence}."
     },
     "soundings": {
       "s": "Sheltered soundings: winter exposure falls and the marked lee routes remain public.",
-      "r": "Rapid soundings: freight time falls and Jomon gains credit, but exposed cargo risk rises."
+      "r": "Rapid soundings: freight time falls and Jomon gains credit, but exposed cargo risk rises.",
+      "__unavailable_chapter": "That is not an available chapter decision.",
+      "__missing_record": "Recover the physical record or fund a two-credit witnessed copy.",
+      "__start": "{arc_title} begins with a physical witnessed record; {next_region} holds the next account.",
+      "__transition": "Chapter {chapter} is witnessed at {current_region}; the record now names {next_region}.",
+      "__settled": "{arc_title} settled: {consequence}",
+      "__completed": "{arc_title} ended. {consequence}",
+      "__replacement": "Two credits funded a witnessed replacement for the lost {evidence}."
     },
     "repairs": {
       "m": "Common repairs: worked scars stay braced and connected cargo approaches become safer.",
-      "j": "Salvage surety: repair stock and household credit rise, but each work account records an obligation."
+      "j": "Salvage surety: repair stock and household credit rise, but each work account records an obligation.",
+      "__unavailable_chapter": "That is not an available chapter decision.",
+      "__missing_record": "Recover the physical record or fund a two-credit witnessed copy.",
+      "__start": "{arc_title} begins with a physical witnessed record; {next_region} holds the next account.",
+      "__transition": "Chapter {chapter} is witnessed at {current_region}; the record now names {next_region}.",
+      "__settled": "{arc_title} settled: {consequence}",
+      "__completed": "{arc_title} ended. {consequence}",
+      "__replacement": "Two credits funded a witnessed replacement for the lost {evidence}."
     },
     "refuges": {
       "p": "Public refuges: storm and thaw shelter opens without toll, easing weather exposure and local trust.",
-      "c": "Channel surety: marked refuge cuts shorten freight passage and pay Jomon, while exposed cargo risk rises."
+      "c": "Channel surety: marked refuge cuts shorten freight passage and pay Jomon, while exposed cargo risk rises.",
+      "__unavailable_chapter": "That is not an available chapter decision.",
+      "__missing_record": "Recover the physical record or fund a two-credit witnessed copy.",
+      "__start": "{arc_title} begins with a physical witnessed record; {next_region} holds the next account.",
+      "__transition": "Chapter {chapter} is witnessed at {current_region}; the record now names {next_region}.",
+      "__settled": "{arc_title} settled: {consequence}",
+      "__completed": "{arc_title} ended. {consequence}",
+      "__replacement": "Two credits funded a witnessed replacement for the lost {evidence}."
     }
   }
 }

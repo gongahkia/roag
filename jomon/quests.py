@@ -594,7 +594,7 @@ def _settle_arc_record(state: GameState, arc_id: str) -> bool:
     )
     if record and record.location in {"lost", "destroyed"} and state.trade_credit >= 2:
         state.trade_credit -= 2
-        state.remember(f"Two credits funded a witnessed replacement for the lost {evidence}.")
+        state.remember(arc_result_text(arc_id, "__replacement").format(evidence=evidence))
         return True
     return False
 
@@ -613,7 +613,7 @@ def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple
     arc = state.cross_region_arcs[arc_id]
     option = next((row for row in _additional_arc_options(state, arc_id) if row[0] == choice), None)
     if option is None:
-        return False, "That is not an available chapter decision."
+        return False, arc_result_text(arc_id, "__unavailable_chapter")
     if not option[3]:
         return False, option[4]
     definition = ADDITIONAL_ARCS[arc_id]
@@ -626,7 +626,7 @@ def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple
         )
         _give_arc_record(state, arc_id)
         next_region = definition["regions"][1]
-        message = f"{presented_arc_title(arc_id)} begins with a physical witnessed record; {state.regions[next_region].name} holds the next account."
+        message = arc_result_text(arc_id, "__start").format(arc_title=presented_arc_title(arc_id), next_region=state.regions[next_region].name)
     elif arc.stage < 3:
         if choice in definition.get("environment_choices", {"r", "s", "i", "w"}):
             state.region.changes[f"arc:{arc_id}:environmental"] = True
@@ -637,10 +637,10 @@ def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple
         current = arc.stage
         arc.stage += 1
         next_region = definition["regions"][arc.stage]
-        message = f"Chapter {current} is witnessed at {state.region.name}; the record now names {state.regions[next_region].name}."
+        message = arc_result_text(arc_id, "__transition").format(chapter=current, current_region=state.region.name, next_region=state.regions[next_region].name)
     else:
         if not _settle_arc_record(state, arc_id):
-            return False, "Recover the physical record or fund a two-credit witnessed copy."
+            return False, arc_result_text(arc_id, "__missing_record")
         arc.stage, arc.status = 4, "completed"
         involved = set(definition["requires"])
         if arc_id == "banks" and choice == "o":
@@ -723,14 +723,14 @@ def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple
         state.vessel_changes[f"arc:{arc_id}:outcome"] = choice
         for region_id in involved:
             account = state.institutions[f"work:{region_id}"]
-            account.witnessed_acts.append(f"{presented_arc_title(arc_id)} settled: {arc.consequence}")
+            account.witnessed_acts.append(arc_result_text(arc_id, "__settled").format(arc_title=presented_arc_title(arc_id), consequence=arc.consequence))
             del account.witnessed_acts[:-8]
         message = arc.consequence
         if arc_id in {"repairs", "refuges"}:
             from .arc_relics import grant_arc_relic
 
             message += grant_arc_relic(state, arc_id, choice)
-        state.remember(f"{presented_arc_title(arc_id)} ended. {arc.consequence}")
+        state.remember(arc_result_text(arc_id, "__completed").format(arc_title=presented_arc_title(arc_id), consequence=arc.consequence))
     return True, message
 
 
@@ -740,10 +740,10 @@ def resolve_arc_choice(state: GameState, choice: str) -> tuple[bool, str]:
         return _resolve_additional_arc(state, key, choice)
     arc = state.cross_region_arc
     if not arc_available_here(state):
-        return False, "The compared regional account is not available here."
+        return False, arc_result_text("marks", "__unavailable_arc")
     option = next((row for row in arc_options(state) if row[0] == choice), None)
     if option is None:
-        return False, "That is not an available chapter decision."
+        return False, arc_result_text("marks", "__unavailable_chapter")
     if not option[3]:
         return False, option[4]
     arc.decisions.append(f"chapter-{arc.stage}:{choice}")
@@ -751,15 +751,12 @@ def resolve_arc_choice(state: GameState, choice: str) -> tuple[bool, str]:
         arc.status, arc.stage = "active", 1
         arc.branch = "open" if choice == "o" else "surety"
         state.objective_evidence.append("four-region:bound-working-marks")
-        message = "Jomon binds the first compared accounts; Greywash holds the next salt measure."
+        message = arc_result_text("marks", "__start")
     elif arc.stage < 4:
         current = arc.stage
         arc.stage += 1
         next_region = ARC_REGIONS[arc.stage]
-        message = (
-            f"Chapter {current} is witnessed in {state.region.name}; "
-            f"the physical account now requires {state.regions[next_region].name}."
-        )
+        message = arc_result_text("marks", "__transition").format(chapter=current, current_region=state.region.name, next_region=state.regions[next_region].name)
     else:
         arc.stage, arc.status = 5, "completed"
         if choice == "c":
@@ -780,7 +777,7 @@ def resolve_arc_choice(state: GameState, choice: str) -> tuple[bool, str]:
                 contacts[0].disposition = min(3, contacts[0].disposition + 1)
             state.vessel_changes["route_reputation"] = "local marks"
         message = arc.consequence
-        state.remember(f"{presented_arc_title('marks')} ended. {arc.consequence}")
+        state.remember(arc_result_text("marks", "__completed").format(arc_title=presented_arc_title("marks"), consequence=arc.consequence))
     return True, message
 
 
