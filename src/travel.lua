@@ -81,7 +81,7 @@ local function validatePassenger(record,knowledge,education,psychology,tick)
  else assert(record.frontier==nil,'Personal frontier state requires campaign knowledge') end
  if record.alive then assert(record.deathTick==nil,'Living transit passenger has a death tick') else assert(record.hp==0,'Dead transit passenger has HP');U.integer(record.deathTick,'Transit death tick',0,10000000) end
  if record.stress~=nil then U.integer(record.stress,'Transit stress',0,100);assert(type(record.panic)=='boolean','Invalid transit panic');U.integer(record.lastStressTick,'Transit stress tick',0,tick) end
- if psychology then require('src.psychology').validatePersonal(record.psychology,tick) else assert(record.psychology==nil,'Transit psychology requires feature') end
+ if psychology then require('src.psychology').validatePersonal(record.psychology,tick,record.personId) else assert(record.psychology==nil,'Transit psychology requires feature') end
 end
 local function notice(c,siteId,kind,text,ordinal)
  local Campaign=require('src.campaign')

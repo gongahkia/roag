@@ -67,6 +67,27 @@ function Suite.run(verbose)
   for gy=6,9 do S.install(w,5,gy,'ladder') end
   check(N.flood(w,17,24).parent[W.index(w,17,34)]~=nil,'Ladder reaches shaft')
  end)
+ group('Current settlers jump only short clear horizontal gaps',function()
+  local w=F.world();w.body=1
+  eq(w.rules.moveEvery,1,'New-world movement cadence is responsive')
+  eq(w.rules.planEvery,8,'New-world idle replanning is responsive')
+  -- A 2x4 body stands on the single left support at x=12, then clears a
+  -- two-cell gap and lands on a supported two-cell footprint at x=15.
+  F.fill(w,8,20,22,24,M.AIR);F.fill(w,8,25,22,25,M.AIR)
+  W.put(w,12,25,M.ROCK);W.put(w,16,25,M.ROCK)
+  check(N.edge(w,12,24,15,24),'Two-cell gap has a clear jump edge')
+  local a=F.worker(w,12,24);a.task={path={W.index(w,15,24)},next=1}
+  J.act(w,a);eq(a.x,15,'Movement executes the jump as one body-aware edge');eq(a.y,24)
+  -- A three-cell gap is not a jump, and low clearance blocks an otherwise
+  -- valid short jump.
+  F.fill(w,8,20,22,25,M.AIR);W.put(w,12,25,M.ROCK);W.put(w,17,25,M.ROCK);W.put(w,18,25,M.ROCK)
+  check(not N.edge(w,12,24,17,24),'Three-cell gap is beyond jump range')
+  W.put(w,16,25,M.ROCK);W.put(w,13,20,M.ROCK)
+  check(not N.edge(w,12,24,15,24),'A low ceiling blocks the jump')
+  W.put(w,13,20,M.AIR);w.rules.jumpVersion=nil
+  check(not N.edge(w,12,24,15,24),'Pre-jump world must not gain a new navigation edge')
+  w.rules.jumpVersion=1;check(N.edge(w,12,24,15,24),'Current movement rules restore the legal jump')
+ end)
  group('Supply planning rejects one-way drops until a ladder is present',function()
   local w=F.world();local a=F.worker(w,12,24)
   F.fill(w,17,25,32,28,M.AIR)

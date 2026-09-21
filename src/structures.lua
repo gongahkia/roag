@@ -16,7 +16,20 @@ S.def={
  field_school={label='Field school',cost=6,resource='stone',materials={stone=4,metal=2},work=60},
  torch={label='Torch',cost=1,resource='metal',work=12},
  tool_bench={label='Tool bench',cost=6,resource='stone',materials={stone=4,metal=2},work=60},
+ solar_array={label='Small solar array',cost=7,resource='metal',materials={stone=2,metal=4,component=1},work=80,width=2,solid=true,industry=true},
+ power_pole={label='Power pole',cost=1,resource='metal',work=20,industry=true},
+ battery={label='Battery',cost=10,resource='metal',materials={stone=2,metal=4,component=2},work=70,solid=true,industry=true},
+ fabricator={label='Fabricator',cost=12,resource='metal',materials={stone=4,metal=4,component=2},work=100,width=2,solid=true,industry=true},
+ mining_rig={label='Mining rig',cost=12,resource='metal',materials={stone=4,metal=4,component=2},work=100,width=2,solid=true,industry=true},
+ industrial_bin={label='Industrial bin',cost=5,resource='metal',materials={stone=2,metal=2,component=1},work=65,solid=true,industry=true},
+ conveyor={label='Conveyor',cost=1,resource='metal',work=20,industry=true},
+ electric_lamp={label='Electric lamp',cost=2,resource='metal',materials={metal=1,component=1},work=35,industry=true},
 }
+function S.width(kind) return assert(S.def[kind],'Unknown structure').width or 1 end
+function S.footprint(s)
+ local x1,y1,_,y2=W.rect(s.gx,s.gy)
+ return x1,y1,(s.gx+(s.width or S.width(s.kind))-1)*4,y2
+end
 function S.materials(kind)
  local def=assert(S.def[kind],'Unknown structure')
  return def.materials or {[def.resource]=def.cost}
@@ -32,7 +45,7 @@ function S.missing(kind,delivered)
  if type(delivered)=='number' then
   local def=assert(S.def[kind]);if delivered<def.cost then out[#out+1]={resource=def.resource,amount=def.cost-delivered} end
  else
-  for _,resource in ipairs({'stone','soil','metal','food','water'}) do
+  for _,resource in ipairs({'stone','soil','metal','component','food','water'}) do
    local amount=materials[resource];if amount and (delivered[resource] or 0)<amount then out[#out+1]={resource=resource,amount=amount-(delivered[resource] or 0)} end
   end
  end
@@ -63,8 +76,14 @@ function S.supported(w,s)
  return W.supportedStructure(w,s)
 end
 function S.siteClear(w,gx,gy,kind)
- if w.structures[W.slot(w,gx,gy)] then return false,'Structure already present' end
- local x1,y1,x2,y2=W.rect(gx,gy)
+ local width=S.width(kind)
+ if gx+width-1>w.cols then return false,'Structure footprint exceeds map bounds' end
+ local x1,y1,_,y2=W.rect(gx,gy);local x2=(gx+width-1)*4
+ for blockX=gx,gx+width-1 do if w.structures[W.slot(w,blockX,gy)] then return false,'Structure already present' end end
+ for blockX=gx,gx+width-1 do
+  local occupied=W.structureAt(w,(blockX-1)*4+1,y1)
+  if occupied then return false,'Structure footprint overlaps '..S.def[occupied.kind].label end
+ end
  for y=y1,y2 do for x=x1,x2 do
   if W.get(w,x,y)~=M.AIR then return false,'Site occupied: dig or drain it first' end
  end end
@@ -79,20 +98,23 @@ function S.siteClear(w,gx,gy,kind)
  if kind=='torch' then
   local mount,reason=S.torchMount(w,gx,gy)
   if not mount then return false,reason end
- elseif kind~='ladder' and kind~='wall' and kind~='platform' then
+ elseif kind~='ladder' and kind~='wall' and kind~='platform' and kind~='power_pole' and kind~='conveyor' and kind~='electric_lamp' then
   for x=x1,x2 do if not W.solid(w,x,y2+1) then return false,'Requires solid support' end end
  end
  return true
 end
 function S.install(w,gx,gy,kind)
- local s={id=W.id(w),gx=gx,gy=gy,kind=kind,enabled=true,growth=0,tank=0,status='Ready'}
+ local def=assert(S.def[kind],'Unknown structure')
+ local s={id=W.id(w),gx=gx,gy=gy,kind=kind,width=def.width or 1,solid=def.solid or false,enabled=true,growth=0,tank=0,status='Ready'}
  if kind=='pump' then
   s.intake={x=gx*4-6,y=gy*4+2}
   s.outlet={x=gx*4+6,y=gy*4-5}
  end
  w.structures[W.slot(w,gx,gy)]=s
  if kind=='field_school' then require('src.education').install(w,s) end
+ if def.industry then require('src.industry').install(w,s) end
  w.navRevision=w.navRevision+1
+ if w.industry then w.industry.topologyRevision=w.industry.topologyRevision+1 end
  return s
 end
 function S.torchCount(w)
@@ -140,7 +162,12 @@ function S.step(w)
    elseif s.kind=='charge' then s.status=s.fuseAt and ('ARMED / '..math.max(0,s.fuseAt-w.tick)..' ticks') or 'Inert: T orders worker arming'
    elseif s.kind=='tool_bench' then
     local f=s.fabrication
-    s.status=f and ('Fabricating '..(f.kind=='pickaxe' and 'pickaxe' or 'rope coil')..' '..f.progress..'/'..f.work) or 'Ready for tool fabrication'
+    local label=f and (f.kind=='pickaxe' and 'pickaxe' or f.kind=='rope_coil' and 'rope coil' or 'machine component')
+    s.status=f and ('Fabricating '..label..' '..f.progress..'/'..f.work) or 'Ready for tool fabrication'
+   elseif S.def[s.kind].industry then
+    -- The industrial phase gives a more precise live status after power and
+    -- logistics have been resolved. Keep this fallback for an unpowered tick.
+    s.status=s.status or 'Industrial structure ready'
    elseif s.kind=='pump' then
     local ok,reason=S.pumpReady(w,s); s.status=ok and 'Needs an operator' or reason
    else s.status='Ready' end

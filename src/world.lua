@@ -29,12 +29,18 @@ function W.slot(w,gx,gy) return (gy-1)*w.cols+gx end
 function W.rect(gx,gy) return (gx-1)*4+1,(gy-1)*4+1,gx*4,gy*4 end
 function W.structureAt(w,x,y)
  if not W.inside(w,x,y) then return nil end
- local gx,gy=W.tile(w,x,y) return w.structures[W.slot(w,gx,gy)]
+ local gx,gy=W.tile(w,x,y);local direct=w.structures[W.slot(w,gx,gy)]
+ if direct then return direct end
+ -- Wide structures are stored only at their lifetime-stable left/base slot.
+ -- Checking the immediately preceding block keeps lookup bounded while the
+ -- current industrial slice uses at most two blocks of width.
+ local left=gx>1 and w.structures[W.slot(w,gx-1,gy)] or nil
+ if left and (left.width or 1)>=2 then return left end
 end
 function W.blocked(w,x,y)
  if not W.inside(w,x,y) then return true end
  local s=W.structureAt(w,x,y)
- return s and (s.kind=='wall' or (s.kind=='platform' and y==s.gy*4)) or false
+ return s and (s.solid or s.kind=='wall' or (s.kind=='platform' and y==s.gy*4)) or false
 end
 function W.solid(w,x,y) return W.blocked(w,x,y) or M.def[W.get(w,x,y)].solid or false end
 function W.put(w,x,y,m)
@@ -66,7 +72,7 @@ end
 function W.alive(w) local n=0 for _,a in ipairs(w.workers) do if a.alive then n=n+1 end end return n end
 function W.supportedStructure(w,s)
  if s.kind=='ladder' or s.kind=='wall' or s.kind=='platform' then return true end
- local x1,_,x2,y2=W.rect(s.gx,s.gy)
+ local x1,_,_,y2=W.rect(s.gx,s.gy);local x2=(s.gx+(s.width or 1)-1)*4
  for x=x1,x2 do if not W.solid(w,x,y2+1) then return false end end
  return true
 end
@@ -86,6 +92,7 @@ function W.validate(w)
  if w.body~=nil then assert(w.body==1,'Unsupported settler body profile') end
  for _,key in ipairs({'hungerRate','fatigueRate'}) do assert(U.finite(w.rules[key]) and w.rules[key]>=0 and w.rules[key]<=1,'Invalid need rate') end
  for _,key in ipairs({'cropTicks','cropYield','moveEvery','planEvery','irrigationCapacity'}) do U.integer(w.rules[key],key,1,100000) end
+ if w.rules.jumpVersion~=nil then assert(w.rules.jumpVersion==1,'Unsupported movement jump version') end
  U.integer(w.nextId,'next id',1,100000000)
  for slot,s in pairs(w.structures) do
   U.integer(slot,'structure slot',1,w.cols*w.rows)
@@ -122,7 +129,7 @@ function W.validate(w)
    U.integer(a.stress or 0,'Worker stress',0,100);assert(type(a.panic or false)=='boolean','Invalid worker panic state')
    if a.lastStressTick~=nil then U.integer(a.lastStressTick,'Worker stress tick',0,w.tick) end
   else assert(a.stress==nil and a.panic==nil and a.lastStressTick==nil,'Legacy worker gained stress state') end
-  if w.frontier and w.frontier.psychology==1 then require('src.psychology').validatePersonal(a.psychology,w.tick)
+  if w.frontier and w.frontier.psychology==1 then require('src.psychology').validatePersonal(a.psychology,w.tick,a.personId)
   else assert(a.psychology==nil,'Psychology state requires psychology feature') end
   if a.task then
    assert(type(a.task.path)=='table','Missing task path')

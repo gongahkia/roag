@@ -501,3 +501,41 @@ real-window font layout, hitboxes or input delivery.
 P06 does not add remote instruction, portable books, a general research graph,
 new facts/reactions, automatic teaching, schools in transit, social simulation,
 language/culture systems, relic travel or a P07 tranche.
+
+## G03 minds, memories, and relationships
+
+`features.psychology=1` is a new-frontier-only feature that requires knowledge
+and safe excavation. It preserves G02's serialized `stress` and `panic` fields,
+but adds a bounded portable personal state: six stable facets, six mutable
+values, duty dispositions, one background and ambition, up to 32 memories (eight
+core), and up to 64 directional relationships. Every generated value is derived
+from campaign seed plus persistent person ID; no camera, UI draw, local worker ID
+or mutable terrain RNG influences personality.
+
+Player authority remains absolute. Psychology adds no generic order refusal.
+Reluctance can make ordinary disfavoured or strained work slower and occasionally
+lose a work beat to a harmless correction. It cannot change the job target,
+consume extra matter, bypass an OFF duty, outrank an existing higher priority, or
+weaken G02 support/fall safety.
+
+Newly created worlds set `rules.moveEvery=1` and `rules.planEvery=8`, making
+ordinary movement and idle route selection more responsive. Those values remain
+serialized per world, so existing campaigns retain their recorded pacing. The
+body-aware navigation graph additionally permits a level horizontal jump over
+one or two unsupported fine cells only when its full raised flight footprint is
+clear and its landing body has normal support. It does not jump shafts, climb
+height changes, pass low ceilings or hazards, or replace ropes.
+
+Typed danger, knowledge, school, arrival and death seams create explainable
+personal memories. Local, eligible idle pairs can form a bounded positive
+conversation or argument. Memory reaction, relationships and slow value
+adaptation affect stress and social outlook. Psychology maintenance runs once per
+campaign tick after site work and travel processing boundaries are resolved;
+rendering and ordinary live panels never mutate it.
+
+The Crew panel exposes the state in plain language: mental condition, current
+work explanation, personal style, recent/lasting memories, ambition, and
+relationship tone. Raw values and score calculations remain backend state.
+Existing feature-off histories do not gain psychology fields or reinterpret their
+old stress timeline. Industry and automation are the next planned content
+direction; factions and cultures follow that work.

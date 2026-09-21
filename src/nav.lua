@@ -34,6 +34,20 @@ function N.rope(w,x,y)
  for _,rope in ipairs(ropes) do if x==rope.laneLeftX and y>=rope.anchorY and y<rope.anchorY+rope.length then return rope end end
 end
 function N.stand(w,x,y,safe) return N.occupy(w,x,y,safe) and N.support(w,x,y) end
+-- A short horizontal jump crosses an actual unsupported gap while keeping the
+-- same landing height. Flight has to clear the full body one row above the
+-- ground, so this cannot pass through a low ceiling, a wall, water, steam, or
+-- lava. The two-cell maximum keeps ropes and ordinary vertical routing
+-- meaningful for real shafts.
+local function jumpLanding(w,x,y,dx,gap)
+ local nx=x+dx*(gap+1)
+ if not N.stand(w,nx,y,true) then return nil end
+ for step=1,gap do
+  local px=x+dx*step
+  if N.support(w,px,y) or not N.occupy(w,px,y-1,true) then return nil end
+ end
+ return nx
+end
 function N.neighbours(w,x,y)
  local out={}
  local function add(nx,ny) out[#out+1]=W.index(w,nx,ny) end
@@ -41,10 +55,19 @@ function N.neighbours(w,x,y)
   if N.stand(w,x+dx,y,true) then add(x+dx,y)
   elseif N.occupy(w,x,y-1,true) and N.stand(w,x+dx,y-1,true) then add(x+dx,y-1)
   elseif N.occupy(w,x+dx,y,true) then
-   -- Controlled drops of up to four cells; cannot path through intervening solid/water.
-   for drop=1,4 do
-    if not N.occupy(w,x+dx,y+drop,true) then break end
-    if N.support(w,x+dx,y+drop) then add(x+dx,y+drop) break end
+   local landing
+   if w.rules and w.rules.jumpVersion==1 then
+    for gap=1,2 do
+     landing=jumpLanding(w,x,y,dx,gap)
+     if landing then add(landing,y) break end
+    end
+   end
+   if not landing then
+    -- Controlled drops of up to four cells; cannot path through intervening solid/water.
+    for drop=1,4 do
+     if not N.occupy(w,x+dx,y+drop,true) then break end
+     if N.support(w,x+dx,y+drop) then add(x+dx,y+drop) break end
+    end
    end
   end
  end

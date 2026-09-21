@@ -228,7 +228,8 @@ function P.social(c)
   local people={};for _,a in ipairs(site.world.workers) do if a.alive and not a.panic and not a.task and a.hunger<60 and a.fatigue<75 then people[#people+1]=a end end;table.sort(people,function(a,b)return a.personId<b.personId end)
   local used={}
   for i=1,#people do for j=i+1,#people do local a,b=people[i],people[j]
-   if not used[a.personId] and not used[b.personId] and (a.x-b.x)^2+(a.y-b.y)^2<=64 then
+   local clear=require('src.visibility').fov(site.world,a.x,a.y,8)[require('src.world').index(site.world,b.x,b.y)]==true
+   if not used[a.personId] and not used[b.personId] and (a.x-b.x)^2+(a.y-b.y)^2<=64 and clear then
     local drive=state(a).facets.sociability+state(b).facets.sociability;local threshold=randint(c.seed,'social/'..a.personId..'/'..b.personId..'/'..math.floor(c.tick/200)..'/v1',201)-1
     if drive>=threshold then
      local kind=socialOutcome(a,b,c.tick);local topic='cooperation';local highest=-1;for _,name in ipairs(values) do local d=math.abs(state(a).values[name]-state(b).values[name]);if d>highest then highest=d;topic=name end end
@@ -266,10 +267,15 @@ function P.work(c,worker,role,amount)
  if factor<.78 and (c.tick+worker.personId*13+#role*7)%23==0 then return 0,'Reluctant — correcting a small mistake' end
  return amount*factor,reason
 end
-function P.validatePersonal(s,tick)
+function P.validatePersonal(s,tick,selfId)
  assert(type(s)=='table','Missing psychology state')
  for key in pairs(s) do assert(({version=true,facets=true,values=true,disposition=true,background=true,ambition=true,memories=true,nextMemoryId=true,relations=true,adaptation=true,lastRecoveryTick=true})[key],'Unknown psychology state key') end
- assert(s.version==P.version,'Unsupported psychology version');for _,name in ipairs(facets) do U.integer(s.facets[name],'Psychology facet '..name,0,100) end;for _,name in ipairs(values) do U.integer(s.values[name],'Psychology value '..name,-50,50);U.integer(s.adaptation[name],'Psychology adaptation '..name,-12,12) end;for _,role in ipairs(duties) do U.integer(s.disposition[role],'Psychology disposition '..role,-2,2) end
+ assert(s.version==P.version,'Unsupported psychology version');assert(type(s.facets)=='table' and type(s.values)=='table' and type(s.adaptation)=='table' and type(s.disposition)=='table','Malformed psychology dimensions')
+ for key in pairs(s.facets) do local known=false;for _,name in ipairs(facets) do known=known or key==name end;assert(known,'Unknown psychology facet') end
+ for key in pairs(s.values) do local known=false;for _,name in ipairs(values) do known=known or key==name end;assert(known,'Unknown psychology value') end
+ for key in pairs(s.adaptation) do local known=false;for _,name in ipairs(values) do known=known or key==name end;assert(known,'Unknown psychology adaptation') end
+ for key in pairs(s.disposition) do local known=false;for _,role in ipairs(duties) do known=known or key==role end;assert(known,'Unknown psychology disposition') end
+ for _,name in ipairs(facets) do U.integer(s.facets[name],'Psychology facet '..name,0,100) end;for _,name in ipairs(values) do U.integer(s.values[name],'Psychology value '..name,-50,50);U.integer(s.adaptation[name],'Psychology adaptation '..name,-12,12) end;for _,role in ipairs(duties) do U.integer(s.disposition[role],'Psychology disposition '..role,-2,2) end
  assert(type(s.background)=='table' and s.background.origin=='abandoned_convict' and type(s.background.role)=='string' and type(s.background.exile)=='string','Invalid psychology background')
  assert(type(s.ambition)=='table' and type(s.ambition.kind)=='string' and type(s.ambition.completed)=='boolean','Invalid psychology ambition');local valid=false;for _,kind in ipairs(ambitions) do valid=valid or s.ambition.kind==kind end;assert(valid,'Unknown psychology ambition');if s.ambition.completed then U.integer(s.ambition.completedTick,'Psychology ambition completion',0,tick);assert(type(s.ambition.source)=='string') end
  U.integer(s.nextMemoryId,'Psychology memory allocator',1,100000000);U.integer(s.lastRecoveryTick,'Psychology recovery tick',0,tick);assert(type(s.memories)=='table' and #s.memories<=P.maxMemories,'Psychology memory limit');assert(type(s.relations)=='table' and #s.relations<=P.maxRelations,'Psychology relation limit')
@@ -279,7 +285,7 @@ function P.validatePersonal(s,tick)
   U.integer(m.id,'Psychology memory ID',1,s.nextMemoryId-1);assert(not ids[m.id],'Duplicate psychology memory ID');ids[m.id]=true;max=math.max(max,m.id);assert(memoryKinds[m.kind] and interpretations[m.interpretation],'Unknown psychology memory enum');U.integer(m.createdTick,'Psychology memory tick',0,tick);U.integer(m.lastRecalledTick,'Psychology recall tick',m.createdTick,tick);U.integer(m.siteId,'Psychology memory site',0,100000000);assert(type(m.participants)=='table' and #m.participants<=8,'Invalid psychology participants');local seen={};for _,id in ipairs(m.participants) do U.integer(id,'Psychology participant',1,100000000);assert(not seen[id],'Duplicate psychology participant');seen[id]=true end;U.integer(m.valence,'Psychology memory valence',-100,100);U.integer(m.intensity,'Psychology memory intensity',1,100);U.integer(m.salience,'Psychology memory salience',1,100);assert(type(m.source)=='string' and #m.source<=160,'Invalid psychology memory source');U.integer(m.recallCount,'Psychology recall count',0,1000000);assert(type(m.core)=='boolean' and type(m.pinned)=='boolean','Invalid psychology core marker');if m.core then cores=cores+1 end
  end
  assert(s.nextMemoryId>max and cores<=P.maxCore,'Psychology memory allocator/core limit')
- local seen={};for _,r in ipairs(s.relations) do for key in pairs(r) do assert(({personId=true,trust=true,respect=true,affection=true,resentment=true,lastInteractionTick=true,interactionCount=true})[key],'Unknown psychology relation key') end;U.integer(r.personId,'Psychology relation person',1,100000000);assert(not seen[r.personId],'Duplicate psychology relation');seen[r.personId]=true;U.integer(r.trust,'Psychology trust',-100,100);U.integer(r.respect,'Psychology respect',-100,100);U.integer(r.affection,'Psychology affection',-100,100);U.integer(r.resentment,'Psychology resentment',0,100);U.integer(r.lastInteractionTick,'Psychology interaction tick',0,tick);U.integer(r.interactionCount,'Psychology interaction count',0,1000000) end
+ local seen={};for _,r in ipairs(s.relations) do for key in pairs(r) do assert(({personId=true,trust=true,respect=true,affection=true,resentment=true,lastInteractionTick=true,interactionCount=true})[key],'Unknown psychology relation key') end;U.integer(r.personId,'Psychology relation person',1,100000000);assert(not seen[r.personId] and r.personId~=selfId,'Duplicate/self psychology relation');seen[r.personId]=true;U.integer(r.trust,'Psychology trust',-100,100);U.integer(r.respect,'Psychology respect',-100,100);U.integer(r.affection,'Psychology affection',-100,100);U.integer(r.resentment,'Psychology resentment',0,100);U.integer(r.lastInteractionTick,'Psychology interaction tick',0,tick);U.integer(r.interactionCount,'Psychology interaction count',0,1000000) end
  return true
 end
 return P

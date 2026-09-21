@@ -172,6 +172,43 @@ Record the worker, tool and rope IDs, the blocked reason if any, cargo slots, an
 the actual effect of a panic or blast. These checks remain **NOT RUN** until a
 human completes them in a native isolated LÖVE session.
 
+## Movement responsiveness and short jumps
+
+New campaigns move settlers every simulation tick and refresh an idle route more
+quickly. They can jump a one- or two-cell horizontal gap only when the complete
+body has clear overhead space and a supported landing at the same height. A
+deeper/wider gap, low ceiling, liquid or hazard does not become jumpable: use a
+rope or the existing safe route instead. Existing saved campaigns retain their
+recorded movement cadence.
+
+## G03 minds, memories, and relationships
+
+Begin a **new** frontier campaign so its people have the G03 Mind state; old
+campaigns deliberately keep their recorded behaviour. Press `H`, then press
+`Tab` twice to open **Mind and relationships**. The colony should continue while
+this page is open.
+
+1. Read a person's current condition, work explanation, personal style, memory,
+   personal aim, and relationship tone. These should be ordinary descriptions,
+   not opaque score readouts.
+2. Give a worker a normal mining or construction order they appear reluctant to
+   perform. The order must remain active and safe, while their explanation can
+   say they are working slowly or correcting a small mistake. They must not
+   refuse the order or mine away their own support.
+3. Let two free nearby colonists spend time together. Reopen Mind pages to see
+   whether a positive conversation or disagreement affected their remembered
+   relationship. Direction matters: one person can trust another more than the
+   feeling is returned.
+4. Complete a real study, teaching session, useful build, or journey. Confirm a
+   personal memory or ambition changes only for the people who did the work.
+5. Travel with a selected person, then inspect them at the destination. Their
+   memory, relationships, ambition, condition, and work style must follow the
+   same person. People left home must not socialize with them remotely.
+
+Write down anything that feels arbitrary, too frequent, too slow, or hard to
+understand. These checks remain **NOT RUN** until a person completes them in a
+native isolated LÖVE session.
+
 ## Evidence labels
 
 `HEADLESS` means real simulation, commands, save, and replay without a window.

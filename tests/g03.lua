@@ -4,6 +4,8 @@ local F=require('tests.fixtures')
 local Campaign=require('src.campaign')
 local Psychology=require('src.psychology')
 local Labor=require('src.labor')
+local W=require('src.world')
+local M=require('src.materials')
 local U=require('src.util')
 local Suite={}
 local function options()
@@ -41,7 +43,8 @@ function Suite.run()
  group(r,'G03-E directional relationships and deterministic social disagreement',function()
   local c=campaign();local w=c.sites[1].world;local a,b=w.workers[1],w.workers[2]
   for _,name in ipairs({'exploration','safety','cooperation','knowledge','industry','preservation'}) do a.psychology.values[name]=-50;b.psychology.values[name]=50 end
-  a.psychology.facets.sociability=100;b.psychology.facets.sociability=100;a.task=nil;b.task=nil;a.x,b.x=12,16;a.y,b.y=24,24;c.tick=200
+  a.psychology.facets.sociability=100;b.psychology.facets.sociability=100;a.task=nil;b.task=nil;a.x,b.x=12,16;a.y,b.y=24,24
+  for y=20,24 do for x=9,19 do W.put(w,x,y,M.AIR) end end;for x=9,19 do W.put(w,x,25,M.ROCK) end;c.tick=200
   Psychology.social(c);local ar=Psychology.relation(a,b.personId,false);local br=Psychology.relation(b,a.personId,false)
   check(ar.resentment>0 and br.resentment>0,'Value conflict did not create an argument');ar.trust=50;check(br.trust~=ar.trust,'Relationships are not directional')
  end)
