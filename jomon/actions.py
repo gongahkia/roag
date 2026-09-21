@@ -2472,7 +2472,7 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
     from .workshop import active_part, attack_effects
 
     if not state.combat_active or state.weapon is None:
-        return _plain(state, "No readied attack is possible.")
+        return _plain(state, action_format("combat.attack.unready"))
     candidates = _attack_targets(state, effective_weapon_range(state))
     if state.weapon == "pot sling":
         from .work_weapons import cast_pot
@@ -2496,7 +2496,7 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
     if not candidates:
         if state.weapon == "hand axe" and base_tile(state, state.position) == "d":
             return _destroy_floor(state)
-        return _plain(state, "No visible hostile is within this weapon's reach.")
+        return _plain(state, action_format("combat.attack.no_target"))
     target = candidates[0]
     original_target_position = target.position
     shield_steps = []
@@ -2507,11 +2507,11 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
             return _plain(state, reason)
     thrown_item = equipped_item(state, "readied") if state.weapon == "throwing axe" else None
     if state.weapon == "throwing axe" and (not thrown_item or thrown_item.kind != state.weapon):
-        return _plain(state, "The throwing axe must be physically readied.")
+        return _plain(state, action_format("combat.attack.throwing_axe"))
     target.status = "engaged"
     if state.weapon == "war flail" and state.aimed_target != target.id:
         state.aimed_target = target.id
-        return _time_result(state, "You wind the flail in an exposed stance; moving abandons this preparation.", priority=3)
+        return _time_result(state, action_format("combat.attack.flail_prepare"), priority=3)
     if state.weapon == "war flail":
         state.aimed_target = None
     if shield_steps:
@@ -2530,22 +2530,22 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
     }.get(state.weapon)
     if ranged:
         if state.weapon == "crossbow" and not state.crossbow_loaded:
-            return _plain(state, "The crossbow is unloaded; reload with G.")
+            return _plain(state, action_format("combat.attack.crossbow_unloaded"))
         if state.weapon == "heavy crossbow" and state.weapon_ready < 2:
-            return _plain(state, f"The arbalest needs {2 - state.weapon_ready} more guarded reload action(s).")
+            return _plain(state, action_format("combat.attack.arbalest_reload", remaining=2 - state.weapon_ready))
         gun_required = 1 if has_node(state.courier, "vent-care") else 2
         if state.weapon == "handgonne" and state.weapon_ready < gun_required:
-            return _plain(state, f"The handgonne needs {gun_required - state.weapon_ready} more guarded loading action(s).")
+            return _plain(state, action_format("combat.attack.handgonne_load", remaining=gun_required - state.weapon_ready))
         if ammo_key and physical_ammunition(state, ammo_key) <= 0:
-            return _plain(state, f"No {ammo_key} remain in the physical load.")
+            return _plain(state, action_format("combat.attack.no_ammunition", ammunition=ammo_key))
         lane_cover = cover_at(state, state.position, target.position)
         if lane_cover == "full":
-            return _plain(state, "Structure fully blocks that projectile path.")
+            return _plain(state, action_format("combat.attack.path_blocked"))
         if prepared and state.aimed_target != target.id:
             state.aimed_target = target.id
             return _time_result(
                 state,
-                f"You prepare {item_display_name_or_legacy(state.weapon)} on the {target.name}; range {distance(state.position, target.position)}, {lane_cover} cover. Firing commits the next action.",
+                action_format("combat.attack.prepare", weapon=item_display_name_or_legacy(state.weapon), threat=target.name, range=distance(state.position, target.position), cover=lane_cover),
                 priority=3,
             )
         from .arc_relics import lee_sheltered as has_lee_shelter
@@ -2562,7 +2562,7 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
             state.aimed_target = None
             return _time_result(
                 state,
-                "Wet weather spoils the committed string before release.",
+                action_format("combat.attack.weather_spoiled"),
                 priority=3,
             )
         if ammo_key:
@@ -2785,19 +2785,16 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         from .inventory import release_enemy_possession
         recovered = harm.dropped if harm.defeated else release_enemy_possession(state, target)
         outcome = "defeated" if harm.defeated else "drove off"
-        memory = f"{state.courier.name} {outcome} {target.name} with {item_display_name_or_legacy(state.weapon)}."
+        memory = action_format("combat.attack.defeat_memory", courier=state.courier.name, outcome=outcome, threat=target.name, weapon=item_display_name_or_legacy(state.weapon))
         state.remember(memory)
         _remember_contact(state, memory)
         uncovered_verb = "were" if harm.location in {"arms", "hands", "legs", "feet"} else "was"
-        armour = f" {harm.protection} covers {harm.location}." if harm.protection != "uncovered" else f" {harm.location} {uncovered_verb} uncovered."
-        text = f"The strike removes the {target.name} from the route: {weapon_text}.{armour}{recovered}"
+        armour = action_format("combat.attack.defeat_armour", protection=harm.protection, location=harm.location) if harm.protection != "uncovered" else action_format("combat.attack.defeat_uncovered", location=harm.location, verb=uncovered_verb)
+        text = action_format("combat.attack.defeated", threat=target.name, weapon=weapon_text, armour=armour, recovered=recovered)
     else:
-        armour = f" after {harm.protection} covers {harm.location}" if harm.protection != "uncovered" else f" to uncovered {harm.location}"
-        injury = f"; {harm.injury}" if harm.injury else ""
-        text = (
-            f"The {weapon_text} deals {harm.amount}{armour}{injury}; "
-            f"{target.name} has {target.health}/{target.max_health}."
-        )
+        armour = action_format("combat.attack.hit_armour", protection=harm.protection, location=harm.location) if harm.protection != "uncovered" else action_format("combat.attack.hit_uncovered", location=harm.location)
+        injury = action_format("combat.attack.hit_injury", injury=harm.injury) if harm.injury else ""
+        text = action_format("combat.attack.hit", weapon=weapon_text, damage=harm.amount, armour=armour, injury=injury, threat=target.name, health=target.health, maximum=target.max_health)
     used_weapon = state.weapon
     if thrown_item:
         thrown_item.location, thrown_item.owner_id = "ground", None
@@ -2822,37 +2819,37 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
 
 def guard(state: GameState, target_id: str | None = None) -> ActionResult:
     if not state.combat_active:
-        return _plain(state, "There is no expedition danger to guard against.")
+        return _plain(state, action_format("combat.guard.no_danger"))
     expanded = ARSENAL.get(state.weapon)
     if expanded and expanded.family == "gun" and state.weapon_ready < (1 if "quick" in expanded.effects or state.courier and "vent-care" in state.courier.skill_nodes else 2):
         if physical_ammunition(state, "handgonne charges") <= 0:
-            return _plain(state, "No wrapped powder charges remain.")
+            return _plain(state, action_format("combat.guard.no_powder"))
         state.weapon_ready += 1
-        return _time_result(state, f"{item_display_name_or_legacy(state.weapon)} loading {state.weapon_ready}/{1 if 'quick' in expanded.effects or state.courier and 'vent-care' in state.courier.skill_nodes else 2}.", guarded=state.gear == "buckler", priority=3)
+        return _time_result(state, action_format("combat.guard.gun_loading", weapon=item_display_name_or_legacy(state.weapon), current=state.weapon_ready, required=1 if "quick" in expanded.effects or state.courier and "vent-care" in state.courier.skill_nodes else 2), guarded=state.gear == "buckler", priority=3)
     if state.weapon == "crossbow" and not state.crossbow_loaded:
         if physical_ammunition(state, "bolts") <= 0:
-            return _plain(state, "No crossbow ammunition remains.")
+            return _plain(state, action_format("combat.guard.no_crossbow_ammo"))
         state.crossbow_loaded = True
         return _time_result(
             state,
-            "You reload the crossbow behind a committed guarded posture.",
+            action_format("combat.guard.crossbow_reload"),
             guarded=state.gear == "buckler",
             priority=3,
         )
     if state.weapon == "heavy crossbow" and state.weapon_ready < 2:
         if physical_ammunition(state, "heavy bolts") <= 0:
-            return _plain(state, "No heavy bolts remain.")
+            return _plain(state, action_format("combat.guard.no_heavy_bolts"))
         state.weapon_ready += 1
         stage = "windlass set" if state.weapon_ready == 1 else "bolt seated and ready"
         return _time_result(
             state,
-            f"Arbalest reload {state.weapon_ready}/2: {stage}.",
+            action_format("combat.guard.arbalest_reload", current=state.weapon_ready, stage=stage),
             guarded=state.gear == "buckler",
             priority=3,
         )
     if state.weapon == "handgonne" and state.weapon_ready < (1 if state.courier and "vent-care" in state.courier.skill_nodes else 2):
         if physical_ammunition(state, "handgonne charges") <= 0:
-            return _plain(state, "No wrapped powder charges remain.")
+            return _plain(state, action_format("combat.guard.no_powder"))
         state.weapon_ready += 1
         stage = "powder and wad seated" if state.weapon_ready == 1 else "ball rammed and match sheltered"
         return _time_result(
@@ -2892,7 +2889,7 @@ def guard(state: GameState, target_id: str | None = None) -> ActionResult:
             brace_target_legality(state, chosen)[1]
             if chosen else "that actor is no longer present"
         )
-        return _plain(state, "Cannot prepare that reaction: " + reason + ".")
+        return _plain(state, action_format("combat.guard.no_brace_target", reason=reason))
     from .people import personal_practice
 
     strong = (
@@ -2938,13 +2935,13 @@ def guard(state: GameState, target_id: str | None = None) -> ActionResult:
         or has_practice_effect(state, "reach-retreat")
     )
     if "shielded set stance" in build_combinations(state):
-        text = "Buckler and set stance deny the attack and press hostile morale."
+        text = action_format("combat.guard.base.shielded")
     elif strong:
-        text = "You set a reinforced guard; the next reposition preserves control."
+        text = action_format("combat.guard.base.strong")
     else:
-        text = "You guard and yield space deliberately."
+        text = action_format("combat.guard.base.normal")
     if "wet" in state.terrain_statuses:
-        text += " Working grip holds the wet guard." if {"grip", "tool-grip"} & worn_tags(state, ("hands", "arms")) else " Wet hands weaken the guard; grip coverings or dry ground restore it."
+        text += action_format("combat.guard.wet.strong") if {"grip", "tool-grip"} & worn_tags(state, ("hands", "arms")) else action_format("combat.guard.wet.weak")
     if "counterbrace pin" in state.carried_passives:
         from .materials import fields as material_fields, key as material_key
 
@@ -2952,7 +2949,7 @@ def guard(state: GameState, target_id: str | None = None) -> ActionResult:
         if support and (support.support < 3 or support.collapse_due):
             support.support = min(3, support.support + 1)
             support.collapse_due = 0
-            text += " The counterbrace pin restores one support and cancels its warned collapse."
+            text += action_format("combat.guard.counterbrace")
     if has_practice_effect(state, "support-guard"):
         from .materials import fields as material_fields, key as material_key
 
@@ -2960,18 +2957,15 @@ def guard(state: GameState, target_id: str | None = None) -> ActionResult:
         if support and (support.support < 3 or support.collapse_due):
             support.support = min(3, support.support + 1)
             support.collapse_due = 0
-            text += " Span-watch stance seats one support and cancels its warning."
+            text += action_format("combat.guard.support")
     if brace_target:
         state.aimed_target = brace_target.id
-        text += (
-            f" You visibly brace {item_display_name_or_legacy(state.weapon)} on {brace_target.name}; it triggers "
-            "only if that actor enters or attacks through the valid lane this action."
-        )
+        text += action_format("combat.guard.brace", weapon=item_display_name_or_legacy(state.weapon), threat=brace_target.name)
     result = _time_result(state, text, guarded=True, priority=3)
     if brace_target and state.aimed_target == brace_target.id:
         state.aimed_target = None
         state.add_message(
-            f"The {brace_target.name} does not enter the prepared lane; the brace expires.",
+            action_format("combat.guard.brace_expired", threat=brace_target.name),
             priority=2,
         )
     return result
