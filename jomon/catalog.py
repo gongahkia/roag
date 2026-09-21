@@ -74,6 +74,7 @@ LEGENDARY_PRESENTATION_FILE = "legendary_text.json"
 TOPOLOGY_PRESENTATION_FILE = "topology_text.json"
 ACTION_PRESENTATION_FILE = "action_text.json"
 VESSEL_PRESENTATION_FILE = "vessel_text.json"
+TRAVEL_PRESENTATION_FILE = "travel_text.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -255,6 +256,25 @@ _VESSEL_TEMPLATE_CONTRACT = {
     "vessel.bar.detail.benefit": ("benefit",), "vessel.bar.detail.drawback": ("drawback",),
     "vessel.bar.detail.duration": ("duration", "cost"), "vessel.bar.detail.stock": ("stock",),
     "vessel.bar.detail.drink": (), "vessel.bar.detail.bottle": (),
+}
+
+_TRAVEL_TEMPLATE_CONTRACT = {
+    "travel.frame.depart": ("origin",), "travel.frame.arrive": ("destination",), "travel.frame.underway": ("hazard",),
+    "travel.destination.invalid": (), "travel.destination.active": (), "travel.destination.current": ("destination",),
+    "travel.destination.uneventful": (), "travel.destination.arrival": ("destination", "duration"),
+    "travel.variant.detail": ("name", "cause", "effect"), "travel.boarders.memory": ("voyage",),
+    "travel.finish.memory": ("destination", "consequence"), "travel.finish.message": ("consequence", "destination"),
+    "travel.cargo.netting": (), "travel.cargo.empty": (), "travel.cargo.lost": ("cargo",),
+    "travel.resolve.none": (), "travel.resolve.deck_required": (), "travel.resolve.obligation_settled": (),
+    "travel.result.boarders.counsel": ("institution",), "travel.result.shoal.navigate": ("cost",), "travel.result.shoal.yield": ("damage",),
+    "travel.result.driftwood.repel": ("extra",), "travel.result.driftwood.extra": (), "travel.result.driftwood.yield": (),
+    "travel.requirement.inspection": ("threshold",), "travel.result.inspection.navigate": (), "travel.result.inspection.signal": (),
+    "travel.result.inspection.counsel": ("payment",), "travel.result.inspection.yield": ("loss",), "travel.resolve.response_invalid": (),
+    "travel.result.raiders.repel": (), "travel.result.raiders.distract": (), "travel.result.raiders.yield": ("loss", "extra"), "travel.result.raiders.failure": ("loss", "extra"), "travel.result.raiders.extra": ("loss",),
+    "travel.result.creature.repel": (), "travel.result.creature.evade": (), "travel.result.creature.bait.single": (), "travel.result.creature.bait.pair": ("required",), "travel.result.creature.failure": (),
+    "travel.result.lure.anchor": (), "travel.result.lure.counsel": (), "travel.result.lure.navigate": (), "travel.result.lure.signal": (), "travel.result.lure.failure": (),
+    "travel.resolve.memory": ("family", "response", "success"),
+    "travel.route.no_leg": (), "travel.route.closed": ("hazard", "season"), "travel.route.integrity": ("required", "current"), "travel.route.reachable": (),
 }
 
 _ACTION_TEMPLATE_CONTRACT.update({'combat.attack.effect.partial_cover': (), 'combat.attack.effect.injury': (), 'combat.attack.effect.thorn': (), 'combat.attack.effect.billhook': (), 'combat.attack.effect.spear': (), 'combat.attack.effect.cudgel': (), 'combat.attack.effect.staff': (), 'combat.attack.effect.axe': (), 'combat.attack.effect.pike': (), 'combat.attack.effect.boar_spear': (), 'combat.attack.effect.knives': (), 'combat.attack.effect.hammer': (), 'combat.attack.effect.net': (), 'combat.attack.effect.net_bind': (), 'combat.attack.effect.net_recover': (), 'combat.attack.effect.hooked_javelin': (), 'combat.attack.effect.retrieval': (), 'combat.attack.effect.handgonne': (), 'combat.attack.effect.high_arc': (), 'combat.attack.effect.high_arc_daze': (), 'combat.attack.effect.smoke_braid': (), 'combat.attack.no_physical_ammunition': ('ammunition',), 'combat.guard.handgonne_loading': ('current', 'required', 'stage'), 'combat.guard.no_engaged': ()})
@@ -710,6 +730,12 @@ class VesselPresentation:
 
 
 @dataclass(frozen=True)
+class TravelPresentation:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -736,6 +762,7 @@ class ContentPack:
     topology_presentations: tuple[TopologyPresentation, ...]
     action_presentations: tuple[ActionPresentation, ...]
     vessel_presentations: tuple[VesselPresentation, ...]
+    travel_presentations: tuple[TravelPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -800,6 +827,12 @@ class ContentPack:
             if presentation.id == semantic_id:
                 return presentation
         raise KeyError(f"unknown vessel presentation id: {semantic_id}")
+
+    def travel_presentation(self, semantic_id: str) -> TravelPresentation:
+        for presentation in self.travel_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown travel presentation id: {semantic_id}")
 
     def aftermath_presentation(self, semantic_id: str) -> AftermathPresentation:
         for presentation in self.aftermath_presentations:
@@ -884,8 +917,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, and vessel")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, and travel")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -1672,6 +1705,26 @@ def _vessel_presentations(root: Path, pack_id: str) -> tuple[VesselPresentation,
     return tuple(VesselPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)) for key, placeholders in _VESSEL_TEMPLATE_CONTRACT.items())
 
 
+def _travel_presentations(root: Path, pack_id: str) -> tuple[TravelPresentation, ...]:
+    source = root / TRAVEL_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid travel presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected_contract = [{"id": key, "placeholders": list(placeholders)} for key, placeholders in _TRAVEL_TEMPLATE_CONTRACT.items()]
+    if engine_contract.get("travel") != expected_contract:
+        raise RuntimeError(f"invalid engine travel content contract at {contract_source}: travel does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid travel presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_TRAVEL_TEMPLATE_CONTRACT):
+        missing, unknown = set(_TRAVEL_TEMPLATE_CONTRACT) - set(rows), set(rows) - set(_TRAVEL_TEMPLATE_CONTRACT)
+        details = ([] if not missing else ["missing required travel keys " + ", ".join(sorted(missing))]) + ([] if not unknown else ["unknown travel keys " + ", ".join(sorted(unknown))])
+        raise ContentPackError(f"invalid travel presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(TravelPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)) for key, placeholders in _TRAVEL_TEMPLATE_CONTRACT.items())
+
+
 def _topology_presentations(root: Path, pack_id: str) -> tuple[TopologyPresentation, ...]:
     source = root / TOPOLOGY_PRESENTATION_FILE
     try:
@@ -1838,10 +1891,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     topology = _topology_presentations(root, pack_id)
     actions = _action_presentations(root, pack_id)
     vessel = _vessel_presentations(root, pack_id)
+    travel = _travel_presentations(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, household_template,
     )
 
 

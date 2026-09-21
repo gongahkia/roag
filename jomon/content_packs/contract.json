@@ -7954,5 +7954,266 @@
       "id": "vessel.bar.detail.bottle",
       "placeholders": []
     }
+  ],
+  "travel": [
+    {
+      "id": "travel.frame.depart",
+      "placeholders": [
+        "origin"
+      ]
+    },
+    {
+      "id": "travel.frame.arrive",
+      "placeholders": [
+        "destination"
+      ]
+    },
+    {
+      "id": "travel.frame.underway",
+      "placeholders": [
+        "hazard"
+      ]
+    },
+    {
+      "id": "travel.destination.invalid",
+      "placeholders": []
+    },
+    {
+      "id": "travel.destination.active",
+      "placeholders": []
+    },
+    {
+      "id": "travel.destination.current",
+      "placeholders": [
+        "destination"
+      ]
+    },
+    {
+      "id": "travel.destination.uneventful",
+      "placeholders": []
+    },
+    {
+      "id": "travel.destination.arrival",
+      "placeholders": [
+        "destination",
+        "duration"
+      ]
+    },
+    {
+      "id": "travel.variant.detail",
+      "placeholders": [
+        "name",
+        "cause",
+        "effect"
+      ]
+    },
+    {
+      "id": "travel.boarders.memory",
+      "placeholders": [
+        "voyage"
+      ]
+    },
+    {
+      "id": "travel.finish.memory",
+      "placeholders": [
+        "destination",
+        "consequence"
+      ]
+    },
+    {
+      "id": "travel.finish.message",
+      "placeholders": [
+        "consequence",
+        "destination"
+      ]
+    },
+    {
+      "id": "travel.cargo.netting",
+      "placeholders": []
+    },
+    {
+      "id": "travel.cargo.empty",
+      "placeholders": []
+    },
+    {
+      "id": "travel.cargo.lost",
+      "placeholders": [
+        "cargo"
+      ]
+    },
+    {
+      "id": "travel.resolve.none",
+      "placeholders": []
+    },
+    {
+      "id": "travel.resolve.deck_required",
+      "placeholders": []
+    },
+    {
+      "id": "travel.resolve.obligation_settled",
+      "placeholders": []
+    },
+    {
+      "id": "travel.result.boarders.counsel",
+      "placeholders": [
+        "institution"
+      ]
+    },
+    {
+      "id": "travel.result.shoal.navigate",
+      "placeholders": [
+        "cost"
+      ]
+    },
+    {
+      "id": "travel.result.shoal.yield",
+      "placeholders": [
+        "damage"
+      ]
+    },
+    {
+      "id": "travel.result.driftwood.repel",
+      "placeholders": [
+        "extra"
+      ]
+    },
+    {
+      "id": "travel.result.driftwood.extra",
+      "placeholders": []
+    },
+    {
+      "id": "travel.result.driftwood.yield",
+      "placeholders": []
+    },
+    {
+      "id": "travel.requirement.inspection",
+      "placeholders": [
+        "threshold"
+      ]
+    },
+    {
+      "id": "travel.result.inspection.navigate",
+      "placeholders": []
+    },
+    {
+      "id": "travel.result.inspection.signal",
+      "placeholders": []
+    },
+    {
+      "id": "travel.result.inspection.counsel",
+      "placeholders": [
+        "payment"
+      ]
+    },
+    {
+      "id": "travel.result.inspection.yield",
+      "placeholders": [
+        "loss"
+      ]
+    },
+    {
+      "id": "travel.resolve.response_invalid",
+      "placeholders": []
+    },
+    {
+      "id": "travel.result.raiders.repel",
+      "placeholders": []
+    },
+    {
+      "id": "travel.result.raiders.distract",
+      "placeholders": []
+    },
+    {
+      "id": "travel.result.raiders.yield",
+      "placeholders": [
+        "loss",
+        "extra"
+      ]
+    },
+    {
+      "id": "travel.result.raiders.failure",
+      "placeholders": [
+        "loss",
+        "extra"
+      ]
+    },
+    {
+      "id": "travel.result.raiders.extra",
+      "placeholders": [
+        "loss"
+      ]
+    },
+    {
+      "id": "travel.result.creature.repel",
+      "placeholders": []
+    },
+    {
+      "id": "travel.result.creature.evade",
+      "placeholders": []
+    },
+    {
+      "id": "travel.result.creature.bait.single",
+      "placeholders": []
+    },
+    {
+      "id": "travel.result.creature.bait.pair",
+      "placeholders": [
+        "required"
+      ]
+    },
+    {
+      "id": "travel.result.creature.failure",
+      "placeholders": []
+    },
+    {
+      "id": "travel.result.lure.anchor",
+      "placeholders": []
+    },
+    {
+      "id": "travel.result.lure.counsel",
+      "placeholders": []
+    },
+    {
+      "id": "travel.result.lure.navigate",
+      "placeholders": []
+    },
+    {
+      "id": "travel.result.lure.signal",
+      "placeholders": []
+    },
+    {
+      "id": "travel.result.lure.failure",
+      "placeholders": []
+    },
+    {
+      "id": "travel.resolve.memory",
+      "placeholders": [
+        "family",
+        "response",
+        "success"
+      ]
+    },
+    {
+      "id": "travel.route.no_leg",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.closed",
+      "placeholders": [
+        "hazard",
+        "season"
+      ]
+    },
+    {
+      "id": "travel.route.integrity",
+      "placeholders": [
+        "required",
+        "current"
+      ]
+    },
+    {
+      "id": "travel.route.reachable",
+      "placeholders": []
+    }
   ]
 }

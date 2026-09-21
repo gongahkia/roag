@@ -8,6 +8,7 @@ from .item_presentation import item_display_name
 from .regions import activate_region, store_active_region
 from .state import GameState, stage_rng
 from .route_chart import edge_between, leg_travel_time, route_availability
+from .travel_presentation import travel_format
 
 
 DESTINATIONS = ("hearthford", "greywash", "greenwold", "whitecairn")
@@ -41,7 +42,7 @@ def travel_animation_frames(
         paused = interrupted and step == max(1, count // 2)
         frames.append(TravelFrame(
             step, count, x, y, "~" * min(3, step),
-            f"Jomon {'departs '+first.name if step == 0 else 'reaches '+second.name if step == count else 'works the '+(edge_between(state, origin, destination).hazard if edge_between(state, origin, destination) else 'route')}",
+            travel_format("travel.frame.depart", origin=first.name) if step == 0 else travel_format("travel.frame.arrive", destination=second.name) if step == count else travel_format("travel.frame.underway", hazard=edge_between(state, origin, destination).hazard if edge_between(state, origin, destination) else "route"),
             paused,
         ))
         if paused:
@@ -97,11 +98,11 @@ def choose_destination(
 ) -> tuple[bool, str]:
     """Compatibility name: normal play now confirms one adjacent route leg."""
     if state.location != "jomon" or destination not in state.route_nodes:
-        return False, "That destination cannot be set from here."
+        return False, travel_format("travel.destination.invalid")
     if state.voyage_status == "active":
-        return False, "Resolve the current voyage danger before changing course."
+        return False, travel_format("travel.destination.active")
     if destination == state.route_current_node:
-        return False, f"Jomon is already at {state.route_nodes[destination].name}."
+        return False, travel_format("travel.destination.current", destination=state.route_nodes[destination].name)
     available, reason = route_availability(state, destination)
     if not available:
         return False, reason
@@ -132,12 +133,12 @@ def choose_destination(
             state.vessel_changes.pop("active_voyage_variant", None)
         state.voyage_detail = VOYAGES[event][1]
         if variant:
-            state.voyage_detail += f" VARIANT — {variant.name}: {variant.cause} {variant.effect}"
+            state.voyage_detail += travel_format("travel.variant.detail", name=variant.name, cause=variant.cause, effect=variant.effect)
         state.add_message(state.voyage_detail, priority=3)
         return True, state.voyage_detail
     state.vessel_changes.pop("active_voyage_variant", None)
-    _finish_travel(state, "The voyage remains watchful but uneventful.")
-    return True, f"Jomon reaches {state.route_nodes[destination].name} after {travel_time} measures of travel."
+    _finish_travel(state, travel_format("travel.destination.uneventful"))
+    return True, travel_format("travel.destination.arrival", destination=state.route_nodes[destination].name, duration=travel_time)
 
 
 def _finish_travel(state: GameState, consequence: str) -> None:
@@ -170,11 +171,11 @@ def _finish_travel(state: GameState, consequence: str) -> None:
     state.pending_destination = None
     state.voyage_status = "resolved" if state.voyage_kind else "none"
     state.voyage_detail = consequence
-    state.remember(f"Voyage to {node.name}: {consequence}")
+    state.remember(travel_format("travel.finish.memory", destination=node.name, consequence=consequence))
     from .echoes import apply_later_echoes
 
     apply_later_echoes(state)
-    state.add_message(f"{consequence} Jomon makes {node.name}.", priority=3)
+    state.add_message(travel_format("travel.finish.message", consequence=consequence, destination=node.name), priority=3)
 
 
 def _lose_vessel_cargo(state: GameState) -> str:
@@ -183,21 +184,21 @@ def _lose_vessel_cargo(state: GameState) -> str:
     net_marker = "refit_net_catch_voyage"
     if installed(state, "cargo-rail-netting") and state.vessel_changes.get(net_marker) != state.travel_count:
         state.vessel_changes[net_marker] = state.travel_count
-        return "fitted cargo-rail netting catches the first loose lot"
+        return travel_format("travel.cargo.netting")
     available = [name for name, stack in state.vessel_cargo.items() if stack.quantity]
     if not available:
-        return "The hold is too bare to yield material cargo."
+        return travel_format("travel.cargo.empty")
     name = sorted(available)[0]
     state.vessel_cargo[name].quantity -= 1
     if state.vessel_cargo[name].quantity == 0:
         del state.vessel_cargo[name]
-    return f"one {item_display_name(name)} lot is lost"
+    return travel_format("travel.cargo.lost", cargo=item_display_name(name))
 
 
 def resolve_voyage(state: GameState, response: str) -> tuple[bool, str]:
     """Resolve a whole aboard crisis as one accepted, time-bearing action."""
     if state.location != "jomon" or state.voyage_status != "active" or not state.voyage_kind:
-        return False, "No voyage crisis is active."
+        return False, travel_format("travel.resolve.none")
     response = response.lower()
     from .ship_crises import TACTICAL, begin_deck, abandon_deck, _finish
     from .vessel_refits import installed
@@ -208,7 +209,7 @@ def resolve_voyage(state: GameState, response: str) -> tuple[bool, str]:
         return begin_deck(state)
     if state.vessel_changes.get("deck_crisis"):
         if response != "yield":
-            return False, "Continue the physical deck action or explicitly withdraw."
+            return False, travel_format("travel.resolve.deck_required")
         consequence = abandon_deck(state)
         from .actions import _advance_world
         _advance_world(state)
@@ -222,18 +223,18 @@ def resolve_voyage(state: GameState, response: str) -> tuple[bool, str]:
         if kind == "boarders" and response == "counsel" and variant:
             account = next((row for row in sorted(state.institutions.values(), key=lambda row: row.id) if row.obligation > 0), None)
             if account is None:
-                return False, "The named obligation was settled before the claimant could present it."
+                return False, travel_format("travel.resolve.obligation_settled")
             account.obligation -= 1
-            account.witnessed_acts.append(f"Jomon settled a boarding claim on voyage {state.travel_count}")
+            account.witnessed_acts.append(travel_format("travel.boarders.memory", voyage=state.travel_count))
             del account.witnessed_acts[:-12]
-            cost, consequence = 2, f"{account.name} accepts one recorded obligation; the boarding company breaks off without taking cargo."
+            cost, consequence = 2, travel_format("travel.result.boarders.counsel", institution=account.name)
         elif kind == "shoal" and response == "navigate":
             cost = (3 if installed(state, "sounding-keel-shoes") else 4) + (2 if variant else 0)
-            consequence = f"Soundings find a slower silt channel; {cost} measured actions preserve the hull."
+            consequence = travel_format("travel.result.shoal.navigate", cost=cost)
         elif kind == "shoal" and response == "yield":
             damage = (1 if installed(state, "sounding-keel-shoes") else 2) + int(bool(variant))
             state.vessel_integrity = max(1, state.vessel_integrity - damage)
-            consequence = f"The forced shoal passage scrapes {damage} integrity from the hull."
+            consequence = travel_format("travel.result.shoal.yield", damage=damage)
         elif kind == "driftwood" and response == "repel" and state.rope_uses > 0:
             from .state import CommodityStack
             state.rope_uses -= 1
@@ -241,32 +242,32 @@ def resolve_voyage(state: GameState, response: str) -> tuple[bool, str]:
             if variant:
                 state.vessel_cargo.setdefault("charcoal", CommodityStack(0, "dry but fire-marked")).quantity += 1
             cost = 4 if variant else 3
-            consequence = "One rope arrangement catches one wet timber lot" + (" and one fire-marked charcoal lot" if variant else "") + " from the broken raft."
+            consequence = travel_format("travel.result.driftwood.repel", extra=travel_format("travel.result.driftwood.extra") if variant else "")
         elif kind == "driftwood" and response == "yield":
-            consequence = "The household lets the broken raft pass without claiming its cargo."
+            consequence = travel_format("travel.result.driftwood.yield")
         elif kind == "inspection" and response == "navigate":
             signal = installed(state, "signal-mast-shutter")
             threshold = (1 if signal else 2) + int(bool(variant))
             trusted = any(account.trust >= threshold for account in state.institutions.values())
             paper = state.vessel_cargo.get("paper")
             if not trusted and (not paper or paper.quantity <= 0):
-                return False, f"Inspection needs {threshold} institutional trust or one counted paper lot."
+                return False, travel_format("travel.requirement.inspection", threshold=threshold)
             if not trusted:
                 paper.quantity -= 1
                 if not paper.quantity:
                     del state.vessel_cargo["paper"]
-            consequence = "Witnessed working claims satisfy the inspection; its memory follows this route."
+            consequence = travel_format("travel.result.inspection.navigate")
             if signal:
-                consequence += " The fitted signal shutter supplies the named visible answer."
+                consequence += travel_format("travel.result.inspection.signal")
             state.vessel_changes["inspection_witnessed"] = True
         elif kind == "inspection" and response == "counsel" and state.trade_credit >= (3 if variant else 2):
             payment = 3 if variant else 2
             state.trade_credit -= payment
-            consequence = f"The patrol records {payment} credit against its inspection account."
+            consequence = travel_format("travel.result.inspection.counsel", payment=payment)
         elif kind == "inspection" and response == "yield":
-            consequence = "Refused inspection: " + _lose_vessel_cargo(state)
+            consequence = travel_format("travel.result.inspection.yield", loss=_lose_vessel_cargo(state))
         else:
-            return False, "That response lacks the disclosed material or does not address this voyage."
+            return False, travel_format("travel.resolve.response_invalid")
         _advance_world(state, steps=cost)
         _finish(state, consequence)
         return True, consequence
@@ -274,51 +275,51 @@ def resolve_voyage(state: GameState, response: str) -> tuple[bool, str]:
     consequence = ""
     if state.voyage_kind == "raiders":
         if response == "repel" and state.weapon in {"pike", "billhook", "crossbow", "longbow", "staff"}:
-            success, consequence = True, "readied reach drives the cargo thieves back before they can disengage"
+            success, consequence = True, travel_format("travel.result.raiders.repel")
         elif response == "distract" and (state.gear in {"smoke pot", "trade seals"} or state.support == "factor surety"):
-            success, consequence = True, "a material decoy draws the skiffs away from the accountable hold"
+            success, consequence = True, travel_format("travel.result.raiders.distract")
         elif response == "yield":
-            success, consequence = True, _lose_vessel_cargo(state) + "; the thieves escape without pressing the crew"
-            if variant:
-                consequence += "; " + _lose_vessel_cargo(state)
+            loss = _lose_vessel_cargo(state)
+            extra = travel_format("travel.result.raiders.extra", loss=_lose_vessel_cargo(state)) if variant else ""
+            success, consequence = True, travel_format("travel.result.raiders.yield", loss=loss, extra=extra)
         else:
-            consequence = _lose_vessel_cargo(state) + "; an exposed crew member suffers a cut arm"
-            if variant:
-                consequence += "; " + _lose_vessel_cargo(state)
+            loss = _lose_vessel_cargo(state)
+            extra = travel_format("travel.result.raiders.extra", loss=_lose_vessel_cargo(state)) if variant else ""
+            consequence = travel_format("travel.result.raiders.failure", loss=loss, extra=extra)
             if state.courier:
                 state.courier.health = max(2, state.courier.health - 2)
                 state.courier.injury = "cut arm"
                 state.courier.injuries["arms"] = "cut arm"
     elif state.voyage_kind == "creature":
         if response == "repel" and state.weapon in {"pike", "spear", "billhook", "javelins"}:
-            success, consequence = True, "spaced strikes turn the animal from the rudder without pursuit"
+            success, consequence = True, travel_format("travel.result.creature.repel")
         elif response == "evade" and (state.support == "route survey" or (state.courier and state.courier.technique in {"ebb reader", "sure footing"})):
-            success, consequence = True, "the pilot crosses the narrow shoal before the animal can brace"
+            success, consequence = True, travel_format("travel.result.creature.evade")
         elif response == "bait" and state.vessel_cargo.get("salt fish") and state.vessel_cargo["salt fish"].quantity >= (2 if variant else 1):
             required = 2 if variant else 1
             state.vessel_cargo["salt fish"].quantity -= required
             if state.vessel_cargo["salt fish"].quantity == 0:
                 del state.vessel_cargo["salt fish"]
-            success, consequence = True, f"{required} salt-fish lot{'s' if required > 1 else ''} draw the territorial {'pair' if variant else 'animal'} clear"
+            success, consequence = True, travel_format("travel.result.creature.bait.pair", required=required) if variant else travel_format("travel.result.creature.bait.single")
         else:
-            consequence = "the household endures the strike; a timber lot or two health is lost"
+            consequence = travel_format("travel.result.creature.failure")
             if state.vessel_cargo.get("timber"):
                 state.vessel_cargo["timber"].quantity -= 1
             elif state.courier:
                 state.courier.health = max(2, state.courier.health - 2)
     else:
         if response == "anchor" and (state.support == "carpenter rig" or (state.courier and state.courier.role == "carpenter")):
-            success, consequence = True, "measured anchor chain fixes the real bank while the resonance passes"
+            success, consequence = True, travel_format("travel.result.lure.anchor")
         elif response == "counsel" and (state.support == "factor surety" or (state.courier and state.courier.role in {"factor", "healer"})):
-            success, consequence = True, "named crew answer one another until the false familiar voices lose force"
+            success, consequence = True, travel_format("travel.result.lure.counsel")
         elif response == "navigate" and (state.support == "route survey" or (state.courier and state.courier.role == "pilot") or installed(state, "signal-mast-shutter")):
-            success, consequence = True, "lead line and chart hold a material course through the lure"
+            success, consequence = True, travel_format("travel.result.lure.navigate")
             if installed(state, "signal-mast-shutter"):
-                consequence += "; the shutter answers with Jomon's named signal"
+                consequence += travel_format("travel.result.lure.signal")
                 if variant:
                     state.vessel_changes["signal_account_voyage"] = state.travel_count
         else:
-            consequence = "the lure costs six more action-clock measures and leaves the courier disoriented"
+            consequence = travel_format("travel.result.lure.failure")
             from .actions import _advance_world
 
             _advance_world(state, steps=6)
@@ -334,5 +335,5 @@ def resolve_voyage(state: GameState, response: str) -> tuple[bool, str]:
     family = state.voyage_kind
     _finish_travel(state, consequence)
     state.voyage_kind = None
-    state.remember(f"Jomon resolved a {family} voyage by {response}; success {success}.")
+    state.remember(travel_format("travel.resolve.memory", family=family, response=response, success=success))
     return True, consequence

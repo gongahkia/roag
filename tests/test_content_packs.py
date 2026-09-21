@@ -49,6 +49,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "topology_text.json", root / "topology_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "action_text.json", root / "action_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "vessel_text.json", root / "vessel_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "travel_text.json", root / "travel_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -215,6 +216,16 @@ def alternate_pack(root: Path) -> Path:
         "vessel.drink.served": "Fixture drink {drink}: {benefit}; drawback: {drawback}.",
     })
     source.write_text(json.dumps(vessel_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "travel_text.json"
+    travel_text = json.loads(source.read_text(encoding="utf-8"))
+    travel_text["text"].update({
+        "travel.frame.depart": "FIXTURE VESSEL leaves {origin}",
+        "travel.destination.arrival": "FIXTURE ARRIVES {destination} after {duration} measures.",
+        "travel.requirement.inspection": "FIXTURE INSPECTION needs {threshold} trust or paper.",
+        "travel.result.raiders.repel": "FIXTURE REACH repels the same cargo thieves.",
+        "travel.finish.message": "FIXTURE {consequence} reaches {destination}.",
+    })
+    source.write_text(json.dumps(travel_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "action_text.json"
     action_text = json.loads(source.read_text(encoding="utf-8"))
     action_text["text"].update({

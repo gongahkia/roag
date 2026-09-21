@@ -8,6 +8,7 @@ from .calendar import calendar_at, seasonal_route_note
 from .catalog import VESSEL_SECTIONS, load_catalog
 from .region_presentation import region_presentation
 from .state import GameState, RouteEdge, RouteNode, stage_rng
+from .travel_presentation import travel_format
 
 
 _ROUTES = load_catalog("vessel.json", VESSEL_SECTIONS)
@@ -80,13 +81,13 @@ def neighbours(state: GameState, node_id: str, *, reachable_only: bool = False) 
 def route_availability(state: GameState, destination: str) -> tuple[bool, str]:
     edge = edge_between(state, state.route_current_node, destination)
     if edge is None:
-        return False, "No charted leg joins those nodes."
+        return False, travel_format("travel.route.no_leg")
     season = calendar_at(state).season
     if season in edge.closed_seasons:
-        return False, f"{edge.hazard.title()} is closed in {season}."
+        return False, travel_format("travel.route.closed", hazard=edge.hazard.title(), season=season)
     if state.vessel_integrity < edge.integrity_required:
-        return False, f"Jomon needs integrity {edge.integrity_required}; current {state.vessel_integrity}."
-    return True, "reachable"
+        return False, travel_format("travel.route.integrity", required=edge.integrity_required, current=state.vessel_integrity)
+    return True, travel_format("travel.route.reachable")
 
 
 def route_preview(state: GameState, destination: str) -> list[str]:
