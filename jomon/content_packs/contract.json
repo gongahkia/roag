@@ -3020,5 +3020,165 @@
         "title"
       ]
     }
+  ],
+  "interference": [
+    {
+      "id": "interference.measured-grain-release.title",
+      "placeholders": []
+    },
+    {
+      "id": "interference.measured-grain-release.cause",
+      "placeholders": []
+    },
+    {
+      "id": "interference.measured-grain-release.origin_change",
+      "placeholders": []
+    },
+    {
+      "id": "interference.measured-grain-release.destination_change",
+      "placeholders": []
+    },
+    {
+      "id": "interference.wreck-iron-on-span.title",
+      "placeholders": []
+    },
+    {
+      "id": "interference.wreck-iron-on-span.cause",
+      "placeholders": []
+    },
+    {
+      "id": "interference.wreck-iron-on-span.origin_change",
+      "placeholders": []
+    },
+    {
+      "id": "interference.wreck-iron-on-span.destination_change",
+      "placeholders": []
+    },
+    {
+      "id": "interference.burn-refuge-migration.title",
+      "placeholders": []
+    },
+    {
+      "id": "interference.burn-refuge-migration.cause",
+      "placeholders": []
+    },
+    {
+      "id": "interference.burn-refuge-migration.origin_change",
+      "placeholders": []
+    },
+    {
+      "id": "interference.burn-refuge-migration.destination_change",
+      "placeholders": []
+    },
+    {
+      "id": "interference.high-bell-winter-mark.title",
+      "placeholders": []
+    },
+    {
+      "id": "interference.high-bell-winter-mark.cause",
+      "placeholders": []
+    },
+    {
+      "id": "interference.high-bell-winter-mark.origin_change",
+      "placeholders": []
+    },
+    {
+      "id": "interference.high-bell-winter-mark.destination_change",
+      "placeholders": []
+    },
+    {
+      "id": "interference.peat-bank-mill-water.title",
+      "placeholders": []
+    },
+    {
+      "id": "interference.peat-bank-mill-water.cause",
+      "placeholders": []
+    },
+    {
+      "id": "interference.peat-bank-mill-water.origin_change",
+      "placeholders": []
+    },
+    {
+      "id": "interference.peat-bank-mill-water.destination_change",
+      "placeholders": []
+    },
+    {
+      "id": "interference.gorge-fitting-return.title",
+      "placeholders": []
+    },
+    {
+      "id": "interference.gorge-fitting-return.cause",
+      "placeholders": []
+    },
+    {
+      "id": "interference.gorge-fitting-return.origin_change",
+      "placeholders": []
+    },
+    {
+      "id": "interference.gorge-fitting-return.destination_change",
+      "placeholders": []
+    },
+    {
+      "id": "interference.fired-drain-to-burn.title",
+      "placeholders": []
+    },
+    {
+      "id": "interference.fired-drain-to-burn.cause",
+      "placeholders": []
+    },
+    {
+      "id": "interference.fired-drain-to-burn.origin_change",
+      "placeholders": []
+    },
+    {
+      "id": "interference.fired-drain-to-burn.destination_change",
+      "placeholders": []
+    },
+    {
+      "id": "interference.winter-wool-on-ridge.title",
+      "placeholders": []
+    },
+    {
+      "id": "interference.winter-wool-on-ridge.cause",
+      "placeholders": []
+    },
+    {
+      "id": "interference.winter-wool-on-ridge.origin_change",
+      "placeholders": []
+    },
+    {
+      "id": "interference.winter-wool-on-ridge.destination_change",
+      "placeholders": []
+    },
+    {
+      "id": "interference.record",
+      "placeholders": [
+        "title",
+        "cause",
+        "origin_change",
+        "destination_change"
+      ]
+    },
+    {
+      "id": "interference.notice",
+      "placeholders": [
+        "title",
+        "origin"
+      ]
+    },
+    {
+      "id": "interference.ledger.arrival",
+      "placeholders": [
+        "title",
+        "destination_change"
+      ]
+    },
+    {
+      "id": "interference.ledger.departure",
+      "placeholders": [
+        "title",
+        "origin_change"
+      ]
+    }
   ]
 }

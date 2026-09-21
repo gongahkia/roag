@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .catalog import AFTERMATH_SECTIONS, load_catalog
+from .interference_presentation import interference_event_text, interference_format
 from .state import GameState
 
 
@@ -49,8 +50,12 @@ def apply_arrival(state: GameState, destination: str) -> list[Interference]:
         receiving = state.regions.get(row.destination)
         if not origin or not receiving:
             continue
-        origin.changes[f"interference-out:{row.id}"] = row.origin_change
-        receiving.changes[f"interference-in:{row.id}"] = row.destination_change
+        title = interference_event_text(row.id, "title")
+        cause = interference_event_text(row.id, "cause")
+        origin_change = interference_event_text(row.id, "origin_change")
+        destination_change = interference_event_text(row.id, "destination_change")
+        origin.changes[f"interference-out:{row.id}"] = origin_change
+        receiving.changes[f"interference-in:{row.id}"] = destination_change
         state.vessel_changes[_record_key(row)] = state.world_time
         source_market = state.regional_markets[row.origin][row.cargo]
         destination_market = state.regional_markets[row.destination][row.cargo]
@@ -59,7 +64,10 @@ def apply_arrival(state: GameState, destination: str) -> list[Interference]:
         destination_market.demand = max(0, destination_market.demand - 1)
         source_account = state.institutions.get(f"work:{row.origin}")
         destination_account = state.institutions.get(f"work:{row.destination}")
-        evidence = f"{row.title}: {row.cause}; {row.origin_change}; {row.destination_change}."
+        evidence = interference_format(
+            "interference.record", title=title, cause=cause,
+            origin_change=origin_change, destination_change=destination_change,
+        )
         for account in (source_account, destination_account):
             if account:
                 account.witnessed_acts.append(evidence)
@@ -70,11 +78,11 @@ def apply_arrival(state: GameState, destination: str) -> list[Interference]:
             if node.region_id == row.destination:
                 node.risk = max(0, node.risk - int(row.kind in {"route repair", "route warning"}))
                 if row.kind == "route warning":
-                    node.seasonal_note = row.destination_change
+                    node.seasonal_note = destination_change
         state.chronicle.append(evidence)
         del state.chronicle[:-24]
         state.remember(evidence)
-        state.add_message(f"INTERFERENCE — {row.title}: work from {state.regions[row.origin].name} changes this arrival.", priority=3)
+        state.add_message(interference_format("interference.notice", title=title, origin=state.regions[row.origin].name), priority=3)
         applied.append(row)
     return applied
 
@@ -84,9 +92,15 @@ def lines_for_region(state: GameState, region_id: str) -> list[str]:
     region = state.regions[region_id]
     for row in INTERFERENCES:
         if region.changes.get(f"interference-in:{row.id}"):
-            result.append(f"FACT ARRIVAL — {row.title}: {row.destination_change}.")
+            result.append(interference_format(
+                "interference.ledger.arrival", title=interference_event_text(row.id, "title"),
+                destination_change=interference_event_text(row.id, "destination_change"),
+            ))
         if region.changes.get(f"interference-out:{row.id}"):
-            result.append(f"REMEMBERED DEPARTURE — {row.title}: {row.origin_change}.")
+            result.append(interference_format(
+                "interference.ledger.departure", title=interference_event_text(row.id, "title"),
+                origin_change=interference_event_text(row.id, "origin_change"),
+            ))
     return result
 
 

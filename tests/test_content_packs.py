@@ -44,6 +44,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "history_text.json", root / "history_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "aftermath_text.json", root / "aftermath_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "worklines.json", root / "worklines.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "interference_text.json", root / "interference_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -150,6 +151,18 @@ def alternate_pack(root: Path) -> Path:
         "workline.settle.public": "Fixture commons preserve the same trust and route effects.",
     })
     source.write_text(json.dumps(worklines, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "interference_text.json"
+    interference = json.loads(source.read_text(encoding="utf-8"))
+    interference["text"].update({
+        "interference.measured-grain-release.title": "Fixture Grain Passage",
+        "interference.measured-grain-release.cause": "Fixture settled work releases the same seed shipment",
+        "interference.measured-grain-release.origin_change": "fixture mill lot leaves under the same measure",
+        "interference.measured-grain-release.destination_change": "fixture seed demand eases at the same unloading stair",
+        "interference.notice": "FIXTURE INTERFERENCE — {title}: work from {origin} reaches this arrival.",
+        "interference.record": "FIXTURE RECORD: {title}; {cause}; {origin_change}; {destination_change}.",
+        "interference.ledger.arrival": "FIXTURE ARRIVAL — {title}: {destination_change}.",
+    })
+    source.write_text(json.dumps(interference, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
 
 
@@ -258,6 +271,26 @@ def workline_presentation_snapshot(environment: dict[str, str]) -> dict[str, obj
             "'opening': opening.message, 'survey': survey.message, 'work': work.message, 'settlement': settlement.message, 'lines': lines(state), 'opening_lines': opening_lines, 'survey_lines': survey_lines, "
             "'opening_options': [(row[0], row[2], row[3]) for row in opening_options], "
             "'mechanics': [quest.stage, quest.status, quest.branch, state.region.changes.get('raised_watch_approach'), state.trade_credit, state.market['grain'].stock, state.items[-1].kind, state.items[-1].location, bool(carried_evidence(state))]}))",
+        ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+def interference_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.frontiers import ensure_frontier; from jomon.interference import INTERFERENCES, lines_for_region; "
+            "from jomon.regions import activate_region; from jomon.situations import BY_REGION_BAND; from jomon.state import create_world; "
+            "state = create_world('interference-pack-proof'); ensure_frontier(state, 'marlbank'); row = next(row for row in INTERFERENCES if row.id == 'measured-grain-release'); "
+            "situation = BY_REGION_BAND[row.origin, 'steady']; state.regions[row.origin].changes['micro-site:resolved:' + situation.id] = True; "
+            "source = state.regional_markets[row.origin][row.cargo]; destination = state.regional_markets[row.destination][row.cargo]; before = [source.stock, destination.stock, destination.demand]; activate_region(state, row.destination); "
+            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
+            "'notice': state.messages[-1], 'chronicle': state.chronicle[-1], 'ledger': lines_for_region(state, row.destination), "
+            "'mechanics': [row.id, row.kind, row.origin, row.destination, row.cargo, before, source.stock, destination.stock, destination.demand, state.vessel_changes['interference:' + row.id], state.institutions['work:' + row.destination].confidence, sorted(key for key in state.regions[row.origin].changes if key.startswith('interference-out:')), sorted(key for key in state.regions[row.destination].changes if key.startswith('interference-in:'))]}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -626,6 +659,46 @@ class ContentPackTests(unittest.TestCase):
                 document["text"]["workline.line.witness"] = "Witness {witness.name}."
                 source.write_text(json.dumps(document), encoding="utf-8")
                 with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*workline\.line\.witness.*malformed template"):
+                    load_content_pack(root)
+
+    def test_alternate_pack_changes_interference_presentation_not_arrival_mechanics(self):
+        default = interference_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = interference_presentation_snapshot(environment)
+
+        self.assertEqual(default["pack"], "default")
+        self.assertEqual(alternate["pack"], "fixture-alternate")
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+        self.assertIn("FIXTURE INTERFERENCE", alternate["notice"])
+        self.assertIn("FIXTURE RECORD", alternate["chronicle"])
+        self.assertIn("FIXTURE ARRIVAL", " ".join(alternate["ledger"]))
+        self.assertIn("INTERFERENCE — The measured grain release", default["notice"])
+        self.assertIn("The measured grain release: Hearthford's settled bank work", default["chronicle"])
+
+    def test_interference_presentation_validation_rejects_invalid_authoring(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            source = root / "interference_text.json"
+            original = source.read_text(encoding="utf-8")
+            with self.subTest("missing file"):
+                source.unlink()
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*interference_text\.json"):
+                    load_content_pack(root)
+                source.write_text(original, encoding="utf-8")
+            with self.subTest("unknown key"):
+                document = json.loads(original)
+                document["text"]["interference.unknown"] = "unexpected"
+                source.write_text(json.dumps(document), encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*unknown interference keys"):
+                    load_content_pack(root)
+            with self.subTest("invalid placeholder"):
+                document = json.loads(original)
+                document["text"]["interference.notice"] = "Warning {title.name}."
+                source.write_text(json.dumps(document), encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*interference\.notice.*malformed template"):
                     load_content_pack(root)
 
     def test_default_quest_presentation_matches_existing_catalog_copy(self):

@@ -69,6 +69,7 @@ QUEST_PRESENTATION_FILE = "quests.json"
 HISTORY_PRESENTATION_FILE = "history_text.json"
 AFTERMATH_PRESENTATION_FILE = "aftermath_text.json"
 WORKLINE_PRESENTATION_FILE = "worklines.json"
+INTERFERENCE_PRESENTATION_FILE = "interference_text.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -143,6 +144,21 @@ _WORKLINE_TEMPLATE_CONTRACT = {
     "workline.beacon.lit": (), "workline.beacon.dark": (),
     "workline.ui.material_entry": (), "workline.ui.ledger_heading": (),
     "workline.item.evidence.description": ("title",),
+}
+
+_INTERFERENCE_EVENT_IDS = (
+    "measured-grain-release", "wreck-iron-on-span", "burn-refuge-migration",
+    "high-bell-winter-mark", "peat-bank-mill-water", "gorge-fitting-return",
+    "fired-drain-to-burn", "winter-wool-on-ridge",
+)
+_INTERFERENCE_TEMPLATE_CONTRACT = {
+    **{f"interference.{event_id}.{field}": ()
+       for event_id in _INTERFERENCE_EVENT_IDS
+       for field in ("title", "cause", "origin_change", "destination_change")},
+    "interference.record": ("title", "cause", "origin_change", "destination_change"),
+    "interference.notice": ("title", "origin"),
+    "interference.ledger.arrival": ("title", "destination_change"),
+    "interference.ledger.departure": ("title", "origin_change"),
 }
 
 _HISTORY_TEMPLATE_CONTRACT = {
@@ -425,6 +441,14 @@ class WorklinePresentation:
 
 
 @dataclass(frozen=True)
+class InterferencePresentation:
+    """Immutable selected-pack wording for a stable interference key."""
+
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -446,6 +470,7 @@ class ContentPack:
     aftermath_action_presentations: tuple[AftermathActionPresentation, ...]
     aftermath_result_presentations: tuple[AftermathResultPresentation, ...]
     workline_presentations: tuple[WorklinePresentation, ...]
+    interference_presentations: tuple[InterferencePresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -535,6 +560,12 @@ class ContentPack:
                 return presentation
         raise KeyError(f"unknown workline presentation id: {semantic_id}")
 
+    def interference_presentation(self, semantic_id: str) -> InterferencePresentation:
+        for presentation in self.interference_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown interference presentation id: {semantic_id}")
+
 
 _selected_pack: ContentPack | None = None
 _catalogs_loaded = False
@@ -564,8 +595,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, and worklines")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, and interference")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -1258,6 +1289,35 @@ def _workline_presentations(root: Path, pack_id: str) -> tuple[WorklinePresentat
     ) for key, placeholders in _WORKLINE_TEMPLATE_CONTRACT.items())
 
 
+def _interference_presentations(root: Path, pack_id: str) -> tuple[InterferencePresentation, ...]:
+    source = root / INTERFERENCE_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid interference presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected_contract = [
+        {"id": key, "placeholders": list(placeholders)}
+        for key, placeholders in _INTERFERENCE_TEMPLATE_CONTRACT.items()
+    ]
+    if engine_contract.get("interference") != expected_contract:
+        raise RuntimeError(f"invalid engine interference content contract at {contract_source}: interference does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid interference presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_INTERFERENCE_TEMPLATE_CONTRACT):
+        missing, unknown = set(_INTERFERENCE_TEMPLATE_CONTRACT) - set(rows), set(rows) - set(_INTERFERENCE_TEMPLATE_CONTRACT)
+        details = []
+        if missing:
+            details.append("missing required interference keys " + ", ".join(sorted(missing)))
+        if unknown:
+            details.append("unknown interference keys " + ", ".join(sorted(unknown)))
+        raise ContentPackError(f"invalid interference presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(InterferencePresentation(
+        key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)
+    ) for key, placeholders in _INTERFERENCE_TEMPLATE_CONTRACT.items())
+
+
 def _aftermath_presentations(root: Path, pack_id: str) -> tuple[tuple[AftermathPresentation, ...], tuple[tuple[str, str, str, str], ...], tuple[AftermathActionPresentation, ...], tuple[AftermathResultPresentation, ...]]:
     source = root / AFTERMATH_PRESENTATION_FILE
     contract_source, engine_contract = _content_contract_document()
@@ -1385,10 +1445,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     quests, services = _quest_presentations(root, pack_id)
     history = _history_presentations(root, pack_id)
     worklines = _workline_presentations(root, pack_id)
+    interference = _interference_presentations(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, household_template,
     )
 
 
