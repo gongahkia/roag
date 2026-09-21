@@ -110,6 +110,7 @@ class CharacterContractSlot:
     id: str
     engine_id: str
     role_id: str | None
+    presentation_fields: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -127,10 +128,10 @@ class CharacterPresentation:
     id: str
     engine_id: str
     display_name: str
-    short_description: str
-    initial_memory: str
-    build_tendency: str
-    role_label: str = ""
+    short_description: str | None = None
+    initial_memory: str | None = None
+    build_tendency: str | None = None
+    role_label: str | None = None
 
 
 @dataclass(frozen=True)
@@ -245,16 +246,27 @@ def _character_contract() -> tuple[CharacterContractSlot, ...]:
         raise RuntimeError(f"invalid engine character content contract at {source}: characters must be a non-empty list")
     slots: list[CharacterContractSlot] = []
     for index, row in enumerate(characters):
-        if not isinstance(row, dict) or set(row) != {"id", "engine_id", "role_id"}:
+        if not isinstance(row, dict) or set(row) != {"id", "engine_id", "role_id", "presentation_fields"}:
             raise RuntimeError(
-                f"invalid engine character content contract at {source}: characters[{index}] must contain id, engine_id, and role_id"
+                f"invalid engine character content contract at {source}: characters[{index}] must contain id, engine_id, role_id, and presentation_fields"
             )
-        semantic_id, engine_id, role_id = row["id"], row["engine_id"], row["role_id"]
+        semantic_id, engine_id, role_id, presentation_fields = (
+            row["id"], row["engine_id"], row["role_id"], row["presentation_fields"]
+        )
         if (not isinstance(semantic_id, str) or re.fullmatch(r"npc\.[a-z][a-z0-9_.-]*", semantic_id) is None
                 or not isinstance(engine_id, str) or re.fullmatch(r"[a-z][a-z0-9_-]*", engine_id) is None
                 or role_id is not None and (not isinstance(role_id, str) or re.fullmatch(r"[a-z][a-z0-9_-]*", role_id) is None)):
             raise RuntimeError(f"invalid engine character content contract at {source}: characters[{index}] has invalid ids")
-        slots.append(CharacterContractSlot(semantic_id, engine_id, role_id))
+        allowed_fields = {"display_name", "role_label", "short_description", "initial_memory", "build_tendency"}
+        if (not isinstance(presentation_fields, list) or not presentation_fields
+                or any(not isinstance(field, str) or field not in allowed_fields for field in presentation_fields)
+                or len(set(presentation_fields)) != len(presentation_fields)
+                or "display_name" not in presentation_fields
+                or (role_id is not None and "role_label" in presentation_fields)):
+            raise RuntimeError(
+                f"invalid engine character content contract at {source}: characters[{index}] has invalid presentation_fields"
+            )
+        slots.append(CharacterContractSlot(semantic_id, engine_id, role_id, tuple(presentation_fields)))
     if len({slot.id for slot in slots}) != len(slots) or len({slot.engine_id for slot in slots}) != len(slots):
         raise RuntimeError(f"invalid engine character content contract at {source}: character ids must be unique")
     return tuple(slots)
@@ -390,9 +402,7 @@ def _character_presentations(
     presentations: list[CharacterPresentation] = []
     for slot in character_slots:
         row = characters[slot.id]
-        required = {"display_name", "short_description", "initial_memory", "build_tendency"}
-        if slot.role_id is None:
-            required.add("role_label")
+        required = set(slot.presentation_fields)
         path = f"characters.{slot.id}"
         if not isinstance(row, dict) or set(row) != required:
             missing, unknown = (required - set(row), set(row) - required) if isinstance(row, dict) else (required, set())
@@ -412,7 +422,10 @@ def _character_presentations(
                 f"invalid character presentation for content pack {pack_id!r} at {source}: "
                 f"{path} fields must be non-empty strings"
             )
-        presentations.append(CharacterPresentation(slot.id, slot.engine_id, **row))
+        values = {field: row.get(field) for field in {
+            "display_name", "short_description", "initial_memory", "build_tendency", "role_label",
+        }}
+        presentations.append(CharacterPresentation(slot.id, slot.engine_id, **values))
     role_presentations: list[RolePresentation] = []
     for slot in role_slots:
         row = roles[slot.id]

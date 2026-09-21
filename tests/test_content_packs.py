@@ -62,12 +62,16 @@ def alternate_pack(root: Path) -> Path:
     }
     characters["characters"]["npc.ship_merchant"] = {
         "display_name": "Fixture Trader",
-        "role_label": "fixture deck trader",
         "short_description": "Visits on the fixture route cycle.",
         "initial_memory": "Fixture Trader knows the fixture markets.",
         "build_tendency": "fixture exchange",
     }
+    characters["characters"]["npc.hearthford_second_contact"] = {
+        "display_name": "Fixture Miller",
+        "role_label": "fixture mill speaker",
+    }
     characters["roles"]["role.household_bargemaster"] = {"display_label": "fixture navigator"}
+    characters["roles"]["role.ship_merchant"] = {"display_label": "fixture deck trader"}
     source.write_text(json.dumps(characters, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
 
@@ -111,6 +115,7 @@ def character_presentation_snapshot(environment: dict[str, str]) -> dict[str, ob
             "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
             "'bartender': [bartender.id, bartender.name, bartender.role, bartender.equipment, bartender.technique, bartender.background, bartender.memories, bartender.build_tendency], "
             "'merchant': [merchant.id, merchant.name, merchant.role, merchant.equipment, merchant.technique, merchant.background, merchant.memories, merchant.build_tendency], "
+            "'second_contact': [(contact.id, contact.name, contact.role, contact.disposition, contact.interest) for contact in state.contacts['hearthford'] if contact.id == 'hearthford-contact-2'][0], "
             "'household': [(person.id, person.role, person.equipment, person.technique) for person in state.household], "
             "'bartender_schedule': [state.actor_schedules[bartender.id].area, state.actor_schedules[bartender.id].position.x, state.actor_schedules[bartender.id].position.y, state.actor_schedules[bartender.id].activity], "
             "'merchant_schedule': [state.actor_schedules[merchant.id].area, state.actor_schedules[merchant.id].position.x, state.actor_schedules[merchant.id].position.y, state.actor_schedules[merchant.id].activity], "
@@ -152,7 +157,8 @@ class ContentPackTests(unittest.TestCase):
             [(slot.id, slot.engine_id, slot.role_id) for slot in character_contract()],
             [
                 ("npc.ship_bartender", "bartender-sena", "bartender"),
-                ("npc.ship_merchant", "merchant-veyra", None),
+                ("npc.ship_merchant", "merchant-veyra", "merchant"),
+                ("npc.hearthford_second_contact", "hearthford-contact-2", None),
             ],
         )
         self.assertEqual(
@@ -165,6 +171,7 @@ class ContentPackTests(unittest.TestCase):
                 ("role.household_guard", "guard"),
                 ("role.household_healer", "healer"),
                 ("role.ship_bartender", "bartender"),
+                ("role.ship_merchant", "merchant"),
             ],
         )
 
@@ -245,7 +252,7 @@ class ContentPackTests(unittest.TestCase):
                 "wrong display field type": lambda value: value["characters"]["npc.ship_bartender"].update({"display_name": 1}),
                 "empty display field": lambda value: value["characters"]["npc.ship_bartender"].update({"display_name": ""}),
                 "unknown field": lambda value: value["characters"]["npc.ship_bartender"].update({"biography": "extra"}),
-                "missing merchant role label": lambda value: value["characters"]["npc.ship_merchant"].pop("role_label"),
+                "missing contact role label": lambda value: value["characters"]["npc.hearthford_second_contact"].pop("role_label"),
                 "unknown role": lambda value: value["roles"].update({"role.ship_extra": value["roles"].pop("role.ship_bartender")}),
             }
             for name, mutate in cases.items():
@@ -334,8 +341,11 @@ class ContentPackTests(unittest.TestCase):
         self.assertEqual(default["merchant"][:1], alternate["merchant"][:1])
         self.assertEqual(default["bartender"][2:5], alternate["bartender"][2:5])
         self.assertEqual(default["merchant"][3:5], alternate["merchant"][3:5])
+        self.assertEqual(default["second_contact"][0], alternate["second_contact"][0])
+        self.assertEqual(default["second_contact"][3:], alternate["second_contact"][3:])
         self.assertEqual(alternate["bartender"][1], "Fixture Host")
-        self.assertEqual(alternate["merchant"][1:3], ["Fixture Trader", "fixture deck trader"])
+        self.assertEqual(alternate["merchant"][1:3], ["Fixture Trader", "merchant"])
+        self.assertEqual(alternate["second_contact"][1:3], ["Fixture Miller", "fixture mill speaker"])
         self.assertIn("FIXTURE HOST", " ".join(alternate["bartender_overlay"][0:1]))
         self.assertIn("Fixture Host", " ".join(alternate["bartender_overlay"][1]))
         self.assertIn("FIXTURE TRADER", " ".join(alternate["merchant_overlay"][0:1]))
@@ -346,7 +356,9 @@ class ContentPackTests(unittest.TestCase):
         for field in ("household", "bartender_schedule", "merchant_schedule", "stock", "signature"):
             self.assertEqual(default[field], alternate[field], field)
         self.assertEqual(default["bartender"][1], "Sena Quill")
-        self.assertEqual(default["merchant"][1:3], ["Veyra Bale", "itinerant deck factor"])
+        self.assertEqual(default["merchant"][1:3], ["Veyra Bale", "merchant"])
+        self.assertIn("itinerant deck factor", " ".join(default["merchant_overlay"][1]))
+        self.assertEqual(default["second_contact"][1:3], ["Tomas Reed", "millwright speaker"])
 
     def test_alternate_pack_loads_legacy_saved_region_names_without_rewriting_them(self):
         default_environment = dict(os.environ)
@@ -363,7 +375,9 @@ class ContentPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             save = Path(directory) / "legacy.json"
-            save.write_text(generated.stdout, encoding="utf-8")
+            legacy = json.loads(generated.stdout)
+            legacy["merchant"]["role"] = "itinerant deck factor"
+            save.write_text(json.dumps(legacy), encoding="utf-8")
             environment = dict(os.environ)
             environment["JOMON_CONTENT_PACK"] = str(root)
             loaded = subprocess.run(

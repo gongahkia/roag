@@ -3009,7 +3009,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
     if kind == "merchant":
         schedule = state.actor_schedules.get(state.merchant.id)
         lines = [
-            f"{state.merchant.name}, {state.merchant.role}; "
+            f"{state.merchant.name}, {role_display_name(state.merchant.role)}; "
             f"{schedule.activity if schedule else 'between recorded routes'}.",
             state.merchant.background,
             f"Opinion of courier: {state.merchant.relationships.get(state.active_courier_id or '', 0):+d}.",

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import curses
 
+from ..character_presentation import role_display_name
 from .content import load_catalog
 from .office_art import OFFICE_SPRITES
 from .office_content import DOCTRINE_NAMES, INFUSION_NAMES, OFFICE_ROLES, office_catalog
@@ -49,7 +50,8 @@ def _draw_lobby(screen: curses.window, state, selected: int, slot: int, message:
     _put(screen, 14, 2, "TAVERN PATRONS — JOIN WHEN CHOSEN", curses.A_BOLD)
     start = max(0, min(selected - 3, len(people) - 7))
     for index, person in enumerate(people[start:start + 7]):
-        _put(screen, 15 + index, 2, f"{'>' if selected == start + index else ' '} {person.name[:26]:26} {person.role[:22]}")
+        _put(screen, 15 + index, 2,
+             f"{'>' if selected == start + index else ' '} {person.name[:26]:26} {role_display_name(person.role)[:22]}")
     if not people:
         _put(screen, 15, 2, "Nobody is available to play just now.")
     _put(screen, 22, 2, message or "Each match win: +1 Strategy. First win against each patron each season: +1 credit.")

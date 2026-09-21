@@ -11,8 +11,9 @@
     {"id": "region.family_8", "engine_id": "frostmere"}
   ],
   "characters": [
-    {"id": "npc.ship_bartender", "engine_id": "bartender-sena", "role_id": "bartender"},
-    {"id": "npc.ship_merchant", "engine_id": "merchant-veyra", "role_id": null}
+    {"id": "npc.ship_bartender", "engine_id": "bartender-sena", "role_id": "bartender", "presentation_fields": ["display_name", "short_description", "initial_memory", "build_tendency"]},
+    {"id": "npc.ship_merchant", "engine_id": "merchant-veyra", "role_id": "merchant", "presentation_fields": ["display_name", "short_description", "initial_memory", "build_tendency"]},
+    {"id": "npc.hearthford_second_contact", "engine_id": "hearthford-contact-2", "role_id": null, "presentation_fields": ["display_name", "role_label"]}
   ],
   "roles": [
     {"id": "role.household_bargemaster", "engine_id": "bargemaster"},
@@ -21,6 +22,7 @@
     {"id": "role.household_carpenter", "engine_id": "carpenter"},
     {"id": "role.household_guard", "engine_id": "guard"},
     {"id": "role.household_healer", "engine_id": "healer"},
-    {"id": "role.ship_bartender", "engine_id": "bartender"}
+    {"id": "role.ship_bartender", "engine_id": "bartender"},
+    {"id": "role.ship_merchant", "engine_id": "merchant"}
   ]
 }

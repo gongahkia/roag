@@ -763,6 +763,7 @@ def create_world(seed: str) -> GameState:
     region, contact = _region(seed)
     bartender_presentation = character_presentation("npc.ship_bartender")
     merchant_presentation = character_presentation("npc.ship_merchant")
+    second_contact_presentation = character_presentation("npc.hearthford_second_contact")
     market = {name: MarketEntry(stock=2, demand=1) for name in COMMODITIES}
     market[region.objective_commodity] = MarketEntry(stock=0, demand=4)
     vessel_cargo = {
@@ -813,7 +814,7 @@ def create_world(seed: str) -> GameState:
             memories=[bartender_presentation.initial_memory],
         ),
         merchant=Person(
-            id="merchant-veyra", name=merchant_presentation.display_name, role=merchant_presentation.role_label,
+            id="merchant-veyra", name=merchant_presentation.display_name, role="merchant",
             equipment=["oilskin account", "sample hook"], technique="regional lots",
             relationships={}, background=merchant_presentation.short_description,
             build_tendency=merchant_presentation.build_tendency,
@@ -856,7 +857,8 @@ def create_world(seed: str) -> GameState:
     initialise_enemy_equipment(state, fresh=True)
     state.contacts["hearthford"].append(
         Contact(
-            "hearthford-contact-2", "Tomas Reed", "millwright speaker",
+            "hearthford-contact-2", second_contact_presentation.display_name,
+            second_contact_presentation.role_label or "",
             stage_rng(seed, "hearthford:second-contact").choice((-1, 0, 1)),
             [], region.opportunity_commodity, "hearthford",
             region.landmarks["second_contact"],
