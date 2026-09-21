@@ -5388,6 +5388,416 @@
       "placeholders": []
     },
     {
+      "id": "social.courier.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "social.courier.ready",
+      "placeholders": [
+        "courier"
+      ]
+    },
+    {
+      "id": "social.courier.selected",
+      "placeholders": [
+        "courier",
+        "role"
+      ]
+    },
+    {
+      "id": "social.recruit.face_to_face",
+      "placeholders": []
+    },
+    {
+      "id": "social.recruit.kit",
+      "placeholders": []
+    },
+    {
+      "id": "social.recruit.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "social.recruit.berths_full",
+      "placeholders": [
+        "capacity"
+      ]
+    },
+    {
+      "id": "social.recruit.joined_memory",
+      "placeholders": [
+        "visitor",
+        "witnessed"
+      ]
+    },
+    {
+      "id": "social.recruit.accepted",
+      "placeholders": [
+        "visitor"
+      ]
+    },
+    {
+      "id": "social.recruit.defer.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "social.recruit.defer.success",
+      "placeholders": []
+    },
+    {
+      "id": "social.objective.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "social.objective.alter_unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "social.objective.invalid_decision",
+      "placeholders": []
+    },
+    {
+      "id": "social.objective.accepted",
+      "placeholders": [
+        "courier"
+      ]
+    },
+    {
+      "id": "social.objective.refused",
+      "placeholders": [
+        "courier",
+        "region"
+      ]
+    },
+    {
+      "id": "social.objective.altered",
+      "placeholders": [
+        "courier"
+      ]
+    },
+    {
+      "id": "social.objective.completed_memory",
+      "placeholders": [
+        "courier",
+        "region",
+        "method"
+      ]
+    },
+    {
+      "id": "social.objective.completed",
+      "placeholders": [
+        "region",
+        "method"
+      ]
+    },
+    {
+      "id": "social.objective.reduced_account",
+      "placeholders": [
+        "courier",
+        "condition",
+        "commodity"
+      ]
+    },
+    {
+      "id": "social.objective.reduced_result",
+      "placeholders": [
+        "condition",
+        "loss"
+      ]
+    },
+    {
+      "id": "social.negotiate.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "social.negotiate.no_human",
+      "placeholders": []
+    },
+    {
+      "id": "social.negotiate.no_terms",
+      "placeholders": []
+    },
+    {
+      "id": "social.negotiate.elite_evidence",
+      "placeholders": []
+    },
+    {
+      "id": "social.negotiate.violence_evidence",
+      "placeholders": []
+    },
+    {
+      "id": "intent.social.negotiated",
+      "placeholders": []
+    },
+    {
+      "id": "social.negotiate.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "social.negotiate.memory",
+      "placeholders": [
+        "courier",
+        "count"
+      ]
+    },
+    {
+      "id": "social.negotiate.success",
+      "placeholders": [
+        "count",
+        "drawback"
+      ]
+    },
+    {
+      "id": "social.contact.objective",
+      "placeholders": [
+        "contact"
+      ]
+    },
+    {
+      "id": "social.contact.inspect",
+      "placeholders": [
+        "contact"
+      ]
+    },
+    {
+      "id": "social.contact.speak",
+      "placeholders": [
+        "contact"
+      ]
+    },
+    {
+      "id": "social.contact.regional_ready",
+      "placeholders": [
+        "contact"
+      ]
+    },
+    {
+      "id": "social.contact.arc_ready",
+      "placeholders": [
+        "contact"
+      ]
+    },
+    {
+      "id": "social.contact.sanctum",
+      "placeholders": [
+        "contact"
+      ]
+    },
+    {
+      "id": "social.contact.traveller",
+      "placeholders": [
+        "contact"
+      ]
+    },
+    {
+      "id": "social.incident.pending",
+      "placeholders": [
+        "first",
+        "second",
+        "cause"
+      ]
+    },
+    {
+      "id": "social.incident.record",
+      "placeholders": [
+        "first",
+        "second",
+        "kind",
+        "cause"
+      ]
+    },
+    {
+      "id": "social.incident.none",
+      "placeholders": []
+    },
+    {
+      "id": "social.incident.mediate",
+      "placeholders": [
+        "first",
+        "second"
+      ]
+    },
+    {
+      "id": "social.incident.side_first",
+      "placeholders": [
+        "first",
+        "second"
+      ]
+    },
+    {
+      "id": "social.incident.fight",
+      "placeholders": []
+    },
+    {
+      "id": "social.incident.invalid_response",
+      "placeholders": []
+    },
+    {
+      "id": "social.incident.resolved_record",
+      "placeholders": [
+        "kind",
+        "text",
+        "cause"
+      ]
+    },
+    {
+      "id": "social.incident.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "social.merchant.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "social.merchant.insufficient_credit",
+      "placeholders": [
+        "cost",
+        "credit"
+      ]
+    },
+    {
+      "id": "social.merchant.memory",
+      "placeholders": [
+        "cost",
+        "item",
+        "merchant"
+      ]
+    },
+    {
+      "id": "social.merchant.sold_memory",
+      "placeholders": [
+        "item",
+        "courier",
+        "region"
+      ]
+    },
+    {
+      "id": "social.merchant.purchased",
+      "placeholders": [
+        "item"
+      ]
+    },
+    {
+      "id": "social.claimant.none",
+      "placeholders": []
+    },
+    {
+      "id": "social.claimant.requirements",
+      "placeholders": []
+    },
+    {
+      "id": "intent.social.claimant_settled",
+      "placeholders": []
+    },
+    {
+      "id": "social.claimant.contact_memory",
+      "placeholders": [
+        "actor"
+      ]
+    },
+    {
+      "id": "social.claimant.settled",
+      "placeholders": [
+        "contact",
+        "actor"
+      ]
+    },
+    {
+      "id": "social.move.person_occupies",
+      "placeholders": [
+        "person"
+      ]
+    },
+    {
+      "id": "social.interact.person",
+      "placeholders": [
+        "person"
+      ]
+    },
+    {
+      "id": "social.interact.bartender",
+      "placeholders": [
+        "bartender"
+      ]
+    },
+    {
+      "id": "social.incident.cause.assistance_known",
+      "placeholders": [
+        "helper",
+        "injured",
+        "injury"
+      ]
+    },
+    {
+      "id": "social.incident.cause.argument",
+      "placeholders": [
+        "standing"
+      ]
+    },
+    {
+      "id": "social.incident.cause.assistance",
+      "placeholders": []
+    },
+    {
+      "id": "social.incident.cause.shared_meal",
+      "placeholders": []
+    },
+    {
+      "id": "social.recruit.terms.recruit-maelin",
+      "placeholders": []
+    },
+    {
+      "id": "social.recruit.terms.recruit-jessa",
+      "placeholders": []
+    },
+    {
+      "id": "social.recruit.terms.recruit-orra",
+      "placeholders": []
+    },
+    {
+      "id": "social.recruit.terms.recruit-bran",
+      "placeholders": []
+    },
+    {
+      "id": "social.recruit.terms.recruit-teren",
+      "placeholders": []
+    },
+    {
+      "id": "social.recruit.terms.recruit-sava",
+      "placeholders": []
+    },
+    {
+      "id": "social.incident.response_required",
+      "placeholders": []
+    },
+    {
+      "id": "social.depart.courier_required",
+      "placeholders": []
+    },
+    {
+      "id": "social.merchant.open_stock",
+      "placeholders": []
+    },
+    {
+      "id": "social.objective.replacement_memory",
+      "placeholders": [
+        "courier"
+      ]
+    },
+    {
+      "id": "social.objective.replacement_released",
+      "placeholders": []
+    },
+    {
+      "id": "social.objective.no_replacement",
+      "placeholders": []
+    },
+    {
+      "id": "social.objective.accept_required",
+      "placeholders": [
+        "region"
+      ]
+    },
+    {
       "id": "intent.brace.retreated",
       "placeholders": []
     },

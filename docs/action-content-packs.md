@@ -16,3 +16,11 @@ For example, an alternate pack can rewrite
 `intent.elite.floodgate.sluice_telegraph` as `marks fixture sluice {x},{y}`.
 That changes only the warning shown to the player; the marked coordinates,
 sluice effect, and deterministic hit-location seed remain the same.
+
+## Social action text
+
+The `social.*` entries in `action_text.json` describe courier selection, recruitment,
+regional requests, negotiation, contact prompts, tavern incidents, merchant exchanges,
+and claimant settlements. They may be rewritten, including only the placeholders declared
+by `contract.json`. They never change contact IDs, evidence, availability, relationship
+or disposition values, costs, rewards, state changes, or turn use.

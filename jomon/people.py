@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .catalog import CatalogError, RECRUITMENT_SECTIONS, load_catalog
+from .action_presentation import action_format
 from .content import RECRUIT_TEMPLATES
 from .state import GameState, Person, Position, stage_rng
 from .vessel import HOUSEHOLD_SEATS, VISITOR_SEATS, current_area
@@ -144,13 +145,13 @@ def adjacent_person(state: GameState) -> Person | None:
 def recruit_visitor(state: GameState, person_id: str) -> tuple[bool, str]:
     visitor = next((person for person in state.visitors if person.id == person_id), None)
     if visitor is None or state.visitor_status.get(person_id) not in {"visiting", "deferred"}:
-        return False, "That visitor is not available aboard Jomon."
+        return False, action_format("social.recruit.unavailable")
     if len(state.household) >= state.berth_capacity:
-        return False, f"Jomon's {state.berth_capacity} adult berths are full; the invitation can be deferred."
+        return False, action_format("social.recruit.berths_full", capacity=state.berth_capacity)
     region_id, markers, witnessed = RECRUIT_REQUIREMENTS[person_id]
     changes = state.regions[region_id].changes
     if not any(changes.get(marker, False) for marker in markers):
-        return False, visitor.recruitment_terms
+        return False, action_format(f"social.recruit.terms.{visitor.id}")
     state.visitors.remove(visitor)
     for member in state.household:
         standing = visitor.relationships.get(member.id, 0)
@@ -159,19 +160,19 @@ def recruit_visitor(state: GameState, person_id: str) -> tuple[bool, str]:
     visitor.recruited = True
     state.visitor_status[person_id] = "joined"
     visitor.memories.append(
-        f"{visitor.name} voluntarily joined Jomon after {witnessed}."
+        action_format("social.recruit.joined_memory", visitor=visitor.name, witnessed=witnessed)
     )
     state.remember(visitor.memories[-1])
     if visitor.id in state.actor_schedules:
         state.actor_schedules[visitor.id].activity = "socialising"
-    return True, f"{visitor.name} accepts a berth aboard Jomon."
+    return True, action_format("social.recruit.accepted", visitor=visitor.name)
 
 
 def defer_visitor(state: GameState, person_id: str) -> tuple[bool, str]:
     if state.visitor_status.get(person_id) != "visiting":
-        return False, "No invitation is open."
+        return False, action_format("social.recruit.defer.unavailable")
     state.visitor_status[person_id] = "deferred"
-    return True, "The invitation remains open for a later return."
+    return True, action_format("social.recruit.defer.success")
 
 
 def unlock_region_visitors(state: GameState, region_id: str) -> list[str]:

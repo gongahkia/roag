@@ -122,13 +122,13 @@ def inspect(state: GameState, subject: str = "area") -> ActionResult:
 def choose_courier(state: GameState, person_id: str) -> ActionResult:
     person = next((candidate for candidate in state.household if candidate.id == person_id), None)
     if state.location != "jomon" or person is None or not person.alive:
-        return _plain(state, "That household member cannot serve as courier.")
+        return _plain(state, action_format("social.courier.unavailable"))
     ensure_courier_basics(state, person)
     previous_id = state.active_courier_id
     if previous_id == person.id:
         state.support = state.support or "route survey"
         sync_legacy_load(state)
-        return _plain(state, f"{person.name} remains ready for the courier watch.")
+        return _plain(state, action_format("social.courier.ready", courier=person.name))
     old_position = state.position
     schedule = state.actor_schedules.get(person.id)
     seat = schedule.position if schedule and schedule.area == "tavern" else state.tavern_positions.pop(person.id, state.position)
@@ -161,19 +161,19 @@ def choose_courier(state: GameState, person_id: str) -> ActionResult:
     state.gear = secondary.kind if secondary else None
     from .character_presentation import role_display_name
 
-    return _plain(state, f"{person.name}, {role_display_name(person.role)}, will carry this expedition.", changed=True)
+    return _plain(state, action_format("social.courier.selected", courier=person.name, role=role_display_name(person.role)), changed=True)
 
 
 def recruit_person(state: GameState, person_id: str) -> ActionResult:
     if state.location != "jomon":
-        return _plain(state, "Recruitment terms are settled face to face aboard Jomon.")
+        return _plain(state, action_format("social.recruit.face_to_face"))
     from .people import recruit_visitor
 
     changed, message = recruit_visitor(state, person_id)
     if changed:
         person = next(candidate for candidate in state.household if candidate.id == person_id)
         ensure_courier_basics(state, person)
-        message += " Jomon issues a basic role-appropriate expedition kit."
+        message += action_format("social.recruit.kit")
     return _plain(state, message, changed=changed)
 
 
@@ -1105,7 +1105,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             )
             return action_format("combat.threat.intent", threat=threat.name, intent=threat.intent)
     if threat.profile == "animal" and gap <= 3:
-        if base_tile(state, state.position) == "m" and _intent_identity(threat) == "combat.intent.lowers_its_head_and_charges_next_turn":
+        if base_tile(state, state.position) == "m" and _intent_identity(threat) in {"combat.intent.lowers_its_head_and_charges_next_turn", "intent.animal.charge_warning"}:
             threat.status = "evaded"
             _set_combat_intent(threat, "combat.intent.bogged_in_mud")
             state.remember(action_format(
@@ -1113,7 +1113,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
                 courier=state.courier.name, threat=threat.name,
             ))
             return action_format("combat.threat.animal_mud", threat=threat.name)
-        if gap <= 1 and _intent_identity(threat) == "combat.intent.lowers_its_head_and_charges_next_turn":
+        if gap <= 1 and _intent_identity(threat) in {"combat.intent.lowers_its_head_and_charges_next_turn", "intent.animal.charge_warning"}:
             _set_combat_intent(threat, "combat.intent.circles_before_another_charge")
             if guarded:
                 return action_format("combat.threat.animal_guard", threat=threat.name)
@@ -1418,7 +1418,7 @@ def depart(state: GameState) -> ActionResult:
     if state.voyage_status == "active":
         return ActionResult(False, False, "Jomon is still on passage; resolve the voyage before landing.", "voyage")
     if state.courier is None or not state.courier.alive:
-        return _plain(state, "Choose an eligible courier by speaking to them in the tavern.")
+        return _plain(state, action_format("social.depart.courier_required"))
     if state.weapon is None or state.gear is None or state.support is None:
         return _plain(
             state,
@@ -1515,7 +1515,7 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
 
         person = person_at(state, target)
         if person:
-            return _plain(state, f"{person.name} occupies that place; interact from beside them.")
+            return _plain(state, action_format("social.move.person_occupies", person=person.name))
     occupant = next(
         (
             threat
@@ -1753,21 +1753,21 @@ def decide_objective(state: GameState, decision: str) -> ActionResult:
         and state.objective_status in {"unoffered", "failed"}
     )
     if not available:
-        return _plain(state, "No open material request can be decided here.")
+        return _plain(state, action_format("social.objective.unavailable"))
     if decision == "alter" and not can_alter_objective(state):
-        return _plain(state, "Alteration needs tools, route support, lever craft, or trust.")
+        return _plain(state, action_format("social.objective.alter_unavailable"))
     if decision == "accept":
         state.objective_status = "accepted"
-        text = f"{state.courier.name} accepts the material recovery."
+        text = action_format("social.objective.accepted", courier=state.courier.name)
     elif decision == "refuse":
         state.objective_status = "refused"
         state.contact.disposition = max(-3, state.contact.disposition - 1)
-        text = f"{state.courier.name} refuses {state.region.name}'s difficult request."
+        text = action_format("social.objective.refused", courier=state.courier.name, region=state.region.name)
     elif decision == "alter":
         state.objective_status = "altered"
-        text = f"{state.courier.name} alters the request to flood-control work."
+        text = action_format("social.objective.altered", courier=state.courier.name)
     else:
-        return _plain(state, "That decision does not answer the local work.")
+        return _plain(state, action_format("social.objective.invalid_decision"))
     from .quests import record_objective_decision
 
     record_objective_decision(state, decision)
@@ -1815,13 +1815,13 @@ def _complete_objective(state: GameState, altered: bool) -> str:
         method = "late cargo delivery"
     else:
         method = "accountable delivery"
-    memory = f"{state.courier.name} completed {state.region.name}'s request by {method}."
+    memory = action_format("social.objective.completed_memory", courier=state.courier.name, region=state.region.name, method=method)
     _remember_contact(state, memory)
     state.remember(memory)
     from .quests import record_objective_completion
 
     record_objective_completion(state, altered)
-    return f"{state.region.name} records the {method}; stock and demand visibly change."
+    return action_format("social.objective.completed", region=state.region.name, method=method)
 
 
 def _open_container(state: GameState) -> ActionResult:
@@ -2100,7 +2100,7 @@ def interact(state: GameState) -> ActionResult:
                 and state.actor_schedules[actor_id].area == "tavern"
             ]
             if any(max(abs(point.x - state.position.x), abs(point.y - state.position.y)) <= 2 for point in participant_positions):
-                return ActionResult(False, False, "A causal tavern incident needs a response.", "incident")
+                return ActionResult(False, False, action_format("social.incident.response_required"), "incident")
         # A courier standing on a physical control operates it even when its
         # scheduled worker is adjacent. Conversations remain available from
         # ordinary floor cells beside that worker.
@@ -2154,7 +2154,7 @@ def interact(state: GameState) -> ActionResult:
         if tile == "H":
             return ActionResult(False, False, "Inspect hold and local problem.", "hold")
         if tile == "s" and state.merchant_present:
-            return ActionResult(False, False, "The deck merchant opens the counted visiting stock.", "merchant")
+            return ActionResult(False, False, action_format("social.merchant.open_stock"), "merchant")
         if tile == "K":
             return ActionResult(False, False, "Read Jomon's vessel chronicle.", "chronicle")
         station = {
@@ -2169,7 +2169,7 @@ def interact(state: GameState) -> ActionResult:
             )
         person = adjacent_person(state)
         if person:
-            return ActionResult(False, False, f"Speak with {person.name}.", f"person:{person.id}")
+            return ActionResult(False, False, action_format("social.interact.person", person=person.name), f"person:{person.id}")
         bartender_schedule = state.actor_schedules.get(state.bartender.id)
         if (
             bartender_schedule
@@ -2179,7 +2179,7 @@ def interact(state: GameState) -> ActionResult:
                 abs(bartender_schedule.position.y - state.position.y),
             ) <= 1
         ):
-            return ActionResult(False, False, f"Speak with {state.bartender.name}.", "bartender")
+            return ActionResult(False, False, action_format("social.interact.bartender", bartender=state.bartender.name), "bartender")
         return _plain(state, "Nothing here needs handling.")
     if state.position == state.region.landmarks["landing"]:
         return return_to_jomon(state)
@@ -2273,18 +2273,18 @@ def interact(state: GameState) -> ActionResult:
         if quest.stage == 2 and quest.status == "resolution":
             return ActionResult(
                 False, False,
-                f"{state.contact.name} is ready to settle the regional consequence.",
+                action_format("social.contact.regional_ready", contact=state.contact.name),
                 "quest:regional",
             )
         if arc_available_here(state):
             return ActionResult(
                 False, False,
-                f"{state.contact.name} opens the compared regional account.",
+                action_format("social.contact.arc_ready", contact=state.contact.name),
                 "quest:arc",
             )
         if state.objective_status in {"unoffered", "failed"}:
             return ActionResult(
-                False, False, f"{state.contact.name} explains the shortage.", "objective"
+                False, False, action_format("social.contact.objective", contact=state.contact.name), "objective"
             )
         commodity = state.region.objective_commodity
         quantity = state.carried_goods.get(
@@ -2305,9 +2305,9 @@ def interact(state: GameState) -> ActionResult:
                 account = state.institutions.get(f"work:{state.active_region_id}")
                 if account:
                     account.confidence = max(-3, account.confidence - 1)
-                    account.witnessed_acts.append(f"{state.courier.name} delivered {cargo_condition} {commodity}; the work accepted it with a reduced account.")
+                    account.witnessed_acts.append(action_format("social.objective.reduced_account", courier=state.courier.name, condition=cargo_condition, commodity=commodity))
                     del account.witnessed_acts[:-8]
-                result += f" The {cargo_condition} cargo is accepted under pressure, but loses {loss} credit and one useful stock."
+                result += action_format("social.objective.reduced_result", condition=cargo_condition, loss=loss)
             return _time_result(state, result, priority=3)
         if (
             state.objective_status == "altered"
@@ -2320,7 +2320,7 @@ def interact(state: GameState) -> ActionResult:
                 state, _complete_objective(state, True), priority=3
             )
         return ActionResult(
-            False, False, f"Inspect {state.contact.name}'s standing.", "contact"
+            False, False, action_format("social.contact.inspect", contact=state.contact.name), "contact"
         )
     second = next(
         (
@@ -2336,18 +2336,18 @@ def interact(state: GameState) -> ActionResult:
     )
     if second:
         if second.id == f"sanctum:{state.active_region_id}:witness":
-            return ActionResult(False, False, f"{second.name} holds the sanctum account.", "sanctum")
+            return ActionResult(False, False, action_format("social.contact.sanctum", contact=second.name), "sanctum")
         if second.id == f"landform:{state.active_region_id}:traveller":
-            return ActionResult(False, False, f"{second.name} offers a route mark and one counted lot.", "field-traveller")
+            return ActionResult(False, False, action_format("social.contact.traveller", contact=second.name), "field-traveller")
         quest = state.questlines[state.active_region_id]
         if quest.stage == 2 and quest.status == "resolution":
             return ActionResult(
                 False, False,
-                f"{second.name} is ready to settle the regional consequence.",
+                action_format("social.contact.regional_ready", contact=second.name),
                 "quest:regional",
             )
         return ActionResult(
-            False, False, f"Speak with {second.name}.",
+            False, False, action_format("social.contact.speak", contact=second.name),
             f"contact-service:{second.id}",
         )
     if tile == "R":
@@ -2385,19 +2385,19 @@ def interact(state: GameState) -> ActionResult:
                 state.contact.disposition = max(-3, state.contact.disposition - 1)
                 _remember_contact(
                     state,
-                    f"{state.courier.name} needed the worksite's last replacement load.",
+                    action_format("social.objective.replacement_memory", courier=state.courier.name),
                 )
                 state.add_message(
-                    "The worksite releases one inferior replacement; another loss must be resolved by control work or accepted failure.",
+                    action_format("social.objective.replacement_released"),
                     priority=3,
                 )
             else:
                 return _plain(
                     state,
-                    "No replacement remains. Return to the contact and alter the work, or return without it and accept failure.",
+                    action_format("social.objective.no_replacement"),
                 )
         if state.objective_status != "accepted":
-            return _plain(state, f"Accept {state.region.name}'s request before taking the cargo.")
+            return _plain(state, action_format("social.objective.accept_required", region=state.region.name))
         commodity = state.region.objective_commodity
         if not _add_goods(
             state,
@@ -3575,7 +3575,7 @@ def use_gear(state: GameState, preparation: str | None = None) -> ActionResult:
 
 def negotiate(state: GameState) -> ActionResult:
     if not state.combat_active or state.courier is None:
-        return _plain(state, "No negotiation is possible here.")
+        return _plain(state, action_format("social.negotiate.unavailable"))
     humans = sorted([
         threat for threat in state.combatants
         if threat.status == "engaged"
@@ -3583,7 +3583,7 @@ def negotiate(state: GameState) -> ActionResult:
         and distance(state.position, threat.position) <= 4
     ], key=lambda threat: (distance(state.position, threat.position), threat.id))
     if not humans:
-        return _plain(state, "No human obstruction is close enough to hear terms.")
+        return _plain(state, action_format("social.negotiate.no_human"))
     from .worklines import evidence_leverage
     speaker = humans[0]
     undertaking_terms = evidence_leverage(state, speaker)
@@ -3599,7 +3599,7 @@ def negotiate(state: GameState) -> ActionResult:
     if not has_terms:
         return _plain(
             state,
-            "You lack witnessed seals, material surety, paper, or valuable leverage.",
+            action_format("social.negotiate.no_terms"),
         )
     witnessed = undertaking_terms or bool(state.objective_evidence) or state.objective_status in {
         "altered", "completed",
@@ -3607,13 +3607,13 @@ def negotiate(state: GameState) -> ActionResult:
     if speaker.elite and not witnessed:
         return _plain(
             state,
-            "This leader will not accept broad terms without witnessed regional evidence.",
+            action_format("social.negotiate.elite_evidence"),
         )
     violence_started = any(threat.health < threat.max_health for threat in humans)
     if violence_started and speaker.morale > 2 and not witnessed:
         return _plain(
             state,
-            "After violence begins, material terms need broken morale or witnessed evidence.",
+            action_format("social.negotiate.violence_evidence"),
         )
     if speaker.group:
         from .character import effective_competency
@@ -3632,15 +3632,13 @@ def negotiate(state: GameState) -> ActionResult:
             if state.carried_goods["paper"].quantity == 0:
                 del state.carried_goods["paper"]
     for threat in heard:
-        threat.status, threat.intent = "negotiated", "accepts witnessed terms"
+        threat.status = "negotiated"
+        _set_combat_intent(threat, "intent.social.negotiated")
     drawback = ""
     if state.location == "region" and "stillroom-cordial" in state.drink_effects and state.contact.disposition <= 0:
         state.contact.disposition = max(-3, state.contact.disposition - 1)
-        drawback = " The wary contact remembers the visible intoxication."
-    memory = (
-        f"{state.courier.name} settled {len(heard)} nearby group obstruction(s) "
-        "through material terms."
-    )
+        drawback = action_format("social.negotiate.drawback")
+    memory = action_format("social.negotiate.memory", courier=state.courier.name, count=len(heard))
     state.remember(memory)
     _remember_contact(state, memory)
     state.courier.speech = min(20, state.courier.speech + 1)
@@ -3649,7 +3647,7 @@ def negotiate(state: GameState) -> ActionResult:
     record_milestone(state, "social:mediation")
     return _time_result(
         state,
-        f"Witnessed material terms settle {len(heard)} nearby member(s) of one group; other actors keep their own goals." + drawback,
+        action_format("social.negotiate.success", count=len(heard), drawback=drawback),
         priority=3,
     )
 
@@ -3741,7 +3739,7 @@ def purchase_merchant_item(state: GameState, item: str) -> ActionResult:
         or not state.merchant_present
         or item not in state.merchant_stock
     ):
-        return _plain(state, "That merchant lot is not available.")
+        return _plain(state, action_format("social.merchant.unavailable"))
     cost, kind = MERCHANT_ITEMS[item]
     cost = max(1, cost - (1 if state.support == "factor surety" else 0)
                - int(bool(state.courier and "price-sense" in state.courier.skill_nodes)))
@@ -3749,7 +3747,7 @@ def purchase_merchant_item(state: GameState, item: str) -> ActionResult:
     cost = max(1, cost - (1 if account and account.trust >= 2 else 0))
     if state.trade_credit < cost:
         return _plain(
-            state, f"The lot needs {cost} credit; Jomon has {state.trade_credit}."
+            state, action_format("social.merchant.insufficient_credit", cost=cost, credit=state.trade_credit)
         )
     physical_kind = (
         f"consumable:{item}" if kind == "consumable" else
@@ -3774,17 +3772,17 @@ def purchase_merchant_item(state: GameState, item: str) -> ActionResult:
     elif kind == "relic":
         state.relics[item] = state.relics.get(item, 0) + 1
     state.remember(
-        f"Jomon exchanged {cost} credit for {item} from {state.merchant.name}."
+        action_format("social.merchant.memory", cost=cost, item=item, merchant=state.merchant.name)
     )
     state.merchant.memories.append(
-        f"Sold {item} to {state.courier.name} after {state.active_region_id}'s recorded outcome."
+        action_format("social.merchant.sold_memory", item=item, courier=state.courier.name, region=state.active_region_id)
     )
     del state.merchant.memories[:-8]
     state.merchant.relationships[state.active_courier_id] = min(
         3, state.merchant.relationships.get(state.active_courier_id, 0) + 1
     )
     return _time_result(
-        state, f"Purchased {item_display_name_or_legacy(item)}; it persists aboard Jomon.", priority=3
+        state, action_format("social.merchant.purchased", item=item_display_name_or_legacy(item)), priority=3
     )
 
 
@@ -3928,7 +3926,7 @@ def use_aftermath_contract(
 
 def intervene_socially(state: GameState, response: str) -> ActionResult:
     if state.location != "jomon" or state.jomon_space != "tavern":
-        return _plain(state, "Intervention requires the physical tavern.")
+        return _plain(state, action_format("social.incident.unavailable"))
     changed, message = resolve_social_incident(state, response)
     if not changed:
         return _plain(state, message)

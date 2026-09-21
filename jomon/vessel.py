@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from .calendar import calendar_at, initial_origin_day, seasonal_stock_modifier
 from .catalog import CatalogError, VESSEL_SECTIONS, load_catalog
 from .state import ActorSchedule, GameState, Person, Position, SocialIncident, TerrainStatus, stage_rng
+from .action_presentation import action_format
 from .visuals import TAVERN_MAP, VESSEL_LEVELS
 
 VESSEL_WIDTH = 64
@@ -470,13 +471,13 @@ def _social_incident(state: GameState, boundary: int) -> None:
     second = people[(people.index(first) + 1 + rng.randrange(len(people) - 1)) % len(people)]
     standing = first.relationships.get(second.id, 0)
     if first.injury != "none" and second.role == "healer":
-        kind, cause = "assistance", f"{second.name} noticed {first.name}'s {first.injury} after the last expedition"
+        kind, cause = "assistance", action_format("social.incident.cause.assistance_known", helper=second.name, injured=first.name, injury=first.injury)
     elif standing < 0:
-        kind, cause = "argument", f"their standing is {standing:+d} after remembered work disagreements"
+        kind, cause = "argument", action_format("social.incident.cause.argument", standing=f"{standing:+d}")
     elif first.injury != "none" or second.injury != "none":
-        kind, cause = "assistance", "one returned injured and the other was available"
+        kind, cause = "assistance", action_format("social.incident.cause.assistance")
     else:
-        kind, cause = "shared meal", "their non-hostile standing and common watch aligned"
+        kind, cause = "shared meal", action_format("social.incident.cause.shared_meal")
     incident = SocialIncident(
         f"incident-{boundary}", kind, [first.id, second.id], cause,
         "pending" if current_area(state) == "tavern" and kind == "argument" else "resolved",
@@ -484,12 +485,12 @@ def _social_incident(state: GameState, boundary: int) -> None:
     )
     if incident.status == "pending":
         state.pending_incident = incident
-        state.add_message(f"{first.name} and {second.name} argue: {cause}. You may intervene.", priority=3)
+        state.add_message(action_format("social.incident.pending", first=first.name, second=second.name, cause=cause), priority=3)
         return
     delta = 1 if kind in {"assistance", "shared meal"} else -1
     first.relationships[second.id] = max(-3, min(3, standing + delta))
     second.relationships[first.id] = max(-3, min(3, second.relationships.get(first.id, 0) + delta))
-    text = f"{first.name} and {second.name}: {kind}, because {cause}."
+    text = action_format("social.incident.record", first=first.name, second=second.name, kind=kind, cause=cause)
     first.memories.append(text)
     second.memories.append(text)
     state.chronicle.append(text)
@@ -499,7 +500,7 @@ def _social_incident(state: GameState, boundary: int) -> None:
 def resolve_social_incident(state: GameState, response: str) -> tuple[bool, str]:
     incident = state.pending_incident
     if incident is None or incident.status != "pending":
-        return False, "No unresolved incident needs intervention."
+        return False, action_format("social.incident.none")
     people = {person.id: person for person in state.household}
     first, second = (people[actor_id] for actor_id in incident.participants)
     if response == "mediate":
@@ -509,24 +510,24 @@ def resolve_social_incident(state: GameState, response: str) -> tuple[bool, str]
         delta = 2 if mediator and effective_competency(mediator, "speech") >= 10 else 1
         if mediator and "mediation" in mediator.skill_nodes:
             delta += 1
-        text = f"You name the disputed work; {first.name} and {second.name} stand down."
+        text = action_format("social.incident.mediate", first=first.name, second=second.name)
         if mediator:
             mediator.speech = min(20, mediator.speech + 1)
     elif response == "side-first":
-        delta, text = -1, f"You support {first.name}; {second.name} leaves the table angry."
+        delta, text = -1, action_format("social.incident.side_first", first=first.name, second=second.name)
     elif response == "let-fight":
-        delta, text = -1, "The argument becomes a fistfight; both stop before grave harm."
+        delta, text = -1, action_format("social.incident.fight")
         for person in (first, second):
             person.health = max(2, person.health - 1)
             person.injury = "bruised torso"
             person.injuries["torso"] = "bruised torso"
     else:
-        return False, "That response does not address the incident."
+        return False, action_format("social.incident.invalid_response")
     first.relationships[second.id] = max(-3, min(3, first.relationships.get(second.id, 0) + delta))
     second.relationships[first.id] = max(-3, min(3, second.relationships.get(first.id, 0) + delta))
     incident.status = "resolved"
     state.pending_incident = None
-    record = f"{incident.kind.title()} resolved: {text} Cause: {incident.cause}."
+    record = action_format("social.incident.resolved_record", kind=incident.kind.title(), text=text, cause=incident.cause)
     first.memories.append(record)
     second.memories.append(record)
     state.chronicle.append(record)

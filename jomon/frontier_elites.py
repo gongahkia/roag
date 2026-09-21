@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .catalog import ACTOR_SECTIONS, CatalogError, load_catalog
+from .action_presentation import action_format
 from .visuals import ENTITY_GLYPHS
 
 _CATALOG = load_catalog("actors.json", ACTOR_SECTIONS)["FRONTIER_ELITES"]
@@ -491,14 +492,14 @@ def claimant_terms(state):
 def settle_claimant(state):
     actor = claimant_terms(state)
     if actor is None:
-        return False, "No living claimant remains to settle with."
+        return False, action_format("social.claimant.none")
     if state.questlines[state.active_region_id].stage < 2 or state.trade_credit < 2:
-        return False, "A witnessed regional material result and two credits are required."
+        return False, action_format("social.claimant.requirements")
     state.trade_credit -= 2
-    actor.status, actor.intent = "negotiated", "accepts the witnessed working settlement; no further return"
+    actor.status, actor.intent_id, actor.intent = "negotiated", "intent.social.claimant_settled", action_format("intent.social.claimant_settled")
     contact = state.contacts[state.active_region_id][1]
     contact.disposition = min(3, contact.disposition + 1)
-    contact.memories.append(f"Carried Jomon's counted settlement to {actor.name}.")
+    contact.memories.append(action_format("social.claimant.contact_memory", actor=actor.name))
     contact.memories[:] = contact.memories[-12:]
     record_outcomes(state)
-    return True, f"{contact.name} witnesses two credits to {actor.name}; the claim ends without another fight."
+    return True, action_format("social.claimant.settled", contact=contact.name, actor=actor.name)

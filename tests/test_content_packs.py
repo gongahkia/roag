@@ -214,6 +214,11 @@ def alternate_pack(root: Path) -> Path:
         "combat.machinery.telegraph": "FIXTURE MACHINE {threat}: {lane}.",
         "intent.controller.net_telegraph": "casts FIXTURE net at {x},{y}",
         "combat.threat.net_miss": "FIXTURE NET {threat} misses the same repositioned courier.",
+        "social.negotiate.success": "FIXTURE TERMS settle {count}; other groups stay independent.{drawback}",
+        "social.negotiate.no_terms": "FIXTURE TERMS REQUIRE MATERIAL LEVERAGE.",
+        "social.objective.refused": "FIXTURE {courier} declines {region}'s request.",
+        "social.recruit.accepted": "FIXTURE {visitor} takes a berth.",
+        "social.incident.mediate": "FIXTURE mediation seats {first} and {second}.",
     })
     source.write_text(json.dumps(action_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
@@ -455,6 +460,23 @@ def quest_presentation_snapshot(environment: dict[str, str]) -> dict[str, object
             "'arc': arc_title('banks'), 'evidence': [evidence_display_name('banks'), item_spec('consumable:bound bank roll').name], "
             "'engine': [QUESTS['hearthford']['cache'], ADDITIONAL_ARCS['banks']['evidence']], 'choices': regional_resolution_options(state), "
             "'bank_options': bank_options, 'bank_result': [bank_result, state.cross_region_arcs['banks'].stage, state.cross_region_arcs['banks'].branch], 'overlay': _overlay_lines(state, 'quest:regional')[0], 'seed': state.seed}))",
+        ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+def social_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.actions import choose_courier, decide_objective, intervene_socially, negotiate, recruit_person; from jomon.state import Position, SocialIncident, Threat, create_world; "
+            "state=create_world('social-pack-proof'); courier=next(p for p in state.household if p.role == 'factor'); choose_courier(state,courier.id); visitor=next(p for p in state.visitors if state.visitor_status[p.id]=='visiting'); region,markers,_=__import__('jomon.people',fromlist=['RECRUIT_REQUIREMENTS']).RECRUIT_REQUIREMENTS[visitor.id]; state.regions[region].changes[markers[0]]=True; recruit=recruit_person(state,visitor.id); "
+            "state.location='region'; state.position=state.region.landmarks['contact']; refused=decide_objective(state,'refuse'); state.objective_status='unoffered'; state.position=Position(40,25); threat=Threat('terms','toll runner','pursuer',Position(41,25),4,4,status='engaged'); state.threats=[threat]; negotiated=negotiate(state); "
+            "state.location='jomon'; state.jomon_space='tavern'; first,second=state.household[:2]; state.pending_incident=SocialIncident('fixture-incident','argument',[first.id,second.id],'fixture cause','pending',0); mediated=intervene_socially(state,'mediate'); "
+            "print(json.dumps({'pack': __import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'mechanics': {'recruit':[visitor.id,state.visitor_status[visitor.id]], 'objective':state.objective_status, 'negotiation':[threat.id,threat.status,threat.intent_id,state.courier.speech], 'incident':[first.relationships.get(second.id,0),second.relationships.get(first.id,0),state.pending_incident]}, 'messages':[recruit.message,refused.message,negotiated.message,mediated.message], 'intent':threat.intent}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -1058,6 +1080,30 @@ class ContentPackTests(unittest.TestCase):
         self.assertEqual(topology_text("topology.whitecairn.container.tower"), "Bell parapet chest")
         self.assertEqual(topology_text("topology.greywash.contact.1.name"), "Edda Marr")
 
+    def test_default_social_action_presentation_preserves_existing_text(self):
+        from jomon.action_presentation import action_format, action_text
+
+        self.assertEqual(action_text("social.negotiate.no_terms"), "You lack witnessed seals, material surety, paper, or valuable leverage.")
+        self.assertEqual(action_format("social.objective.refused", courier="Iris", region="Hearthford"), "Iris refuses Hearthford's difficult request.")
+        self.assertEqual(action_format("social.recruit.accepted", visitor="Mara"), "Mara accepts a berth aboard Jomon.")
+
+    def test_alternate_pack_changes_social_presentation_not_mechanics(self):
+        default = social_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = social_presentation_snapshot(environment)
+
+        self.assertEqual(default["pack"], "default")
+        self.assertEqual(alternate["pack"], "fixture-alternate")
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+        self.assertEqual(default["intent"], alternate["intent"])
+        self.assertIn("FIXTURE", alternate["messages"][0])
+        self.assertIn("FIXTURE", alternate["messages"][1])
+        self.assertIn("FIXTURE TERMS", alternate["messages"][2])
+        self.assertIn("FIXTURE mediation", alternate["messages"][3])
+
     def test_default_action_presentation_preserves_specialized_combat_text(self):
         from jomon.action_presentation import action_format, action_text
 
@@ -1087,6 +1133,8 @@ class ContentPackTests(unittest.TestCase):
                 "unknown placeholder": lambda value: value["text"].update({"intent.controller.net_telegraph": "{other}"}),
                 "missing placeholder": lambda value: value["text"].update({"intent.controller.net_telegraph": "fixture net"}),
                 "unknown key": lambda value: value["text"].update({"combat.elite.extra": "unexpected"}),
+                "missing social key": lambda value: value["text"].pop("social.negotiate.success"),
+                "invalid social placeholder": lambda value: value["text"].update({"social.negotiate.success": "terms {other}"}),
             }
             for name, mutate in cases.items():
                 with self.subTest(name):
