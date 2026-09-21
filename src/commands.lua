@@ -15,6 +15,11 @@ function C.valid(w,c)
   if c.kind~='dig' and c.kind~='build' and c.kind~='remove' then return false,'Unknown job' end
   if c.kind=='build' and not S.def[c.build] then return false,'Unknown structure' end
   if c.kind=='build' and c.build=='field_school' and not (w.frontier and w.frontier.education==1) then return false,'Field schools require a new education frontier campaign' end
+  if c.kind=='build' and c.build=='tool_bench' and not (w.frontier and w.frontier.equipment==1) then return false,'Tool benches require an equipment frontier campaign' end
+  if c.kind=='build' and c.build=='torch' then
+   if not (w.frontier and w.frontier.visibility==1) then return false,'Torches require a visibility-enabled frontier campaign' end
+   if S.torchCount(w)>=128 then return false,'This site already has 128 torches' end
+  end
   if c.priority~=nil and c.priority~=1 and c.priority~=2 and c.priority~=3 then return false,'Priority must be 1, 2 or 3' end
  elseif c.type=='priority' then
   if c.value~=1 and c.value~=2 and c.value~=3 then return false,'Priority must be 1, 2 or 3' end

@@ -5,6 +5,20 @@ local Cmd=require('src.commands')
 local Campaign=require('src.campaign')
 local Command={}
 
+local function visibleTarget(campaign,site,payload)
+ local world=site.world
+ if not (world.frontier and world.frontier.visibility==1) then return true end
+ local x,y
+ if payload.type=='order' or payload.type=='cancel' or payload.type=='priority' or payload.type=='toggle' or payload.type=='target_order' or payload.type=='place_rope' then x,y=payload.gx*4-2,payload.gy*4-2
+ elseif payload.type=='port' then x,y=payload.x,payload.y
+ elseif payload.type=='rally' then x,y=payload.x,payload.y
+ elseif payload.type=='arm' then local s=world.structures[payload.slot];if s then x,y=s.gx*4-2,s.gy*4-2 end
+ elseif payload.type=='field' then local p=require('src.content').find(world,payload.target);if p then x,y=p.x,p.y end
+ end
+ if not x then return true end
+ return require('src.visibility').currentlyVisible(world,x,y,{campaign=campaign,siteId=site.id}),'Target is not currently visible'
+end
+
 local fields={
  order={type=true,kind=true,gx=true,gy=true,build=true,priority=true,worker=true},
  cancel={type=true,gx=true,gy=true},priority={type=true,gx=true,gy=true,value=true},
@@ -14,6 +28,7 @@ local fields={
  field={type=true,kind=true,target=true,worker=true,priority=true},arm={type=true,slot=true,worker=true,priority=true},
  target_order={type=true,gx=true,gy=true,worker=true},
  school_policy={type=true,slot=true,schoolId=true,expectedPolicyRevision=true,enabled=true,mode=true,topicId=true,topicVersion=true,priority=true},
+ fabricate={type=true,slot=true,kind=true,priority=true},place_rope={type=true,gx=true,gy=true,priority=true},remove_rope={type=true,ropeId=true,priority=true},drop_tool={type=true,equipmentId=true,worker=true},load_tool={type=true,equipmentId=true,craftId=true,priority=true},unload_tool={type=true,equipmentId=true,craftId=true,priority=true},
 }
 local campaignFields={
  prepare_expedition={scope=true,type=true,sourceSiteId=true,craftId=true,destinationSiteId=true,passengers=true,cargo=true},
@@ -92,7 +107,8 @@ function Command.valid(campaign,envelope)
    assert(site.ownerSocietyId==campaign.society.id,'Site is not owned by this society')
    local valid,reason
    if envelope.payload.type=='school_policy' then valid,reason=require('src.education').policyValid(campaign,site,envelope.payload)
-   else valid,reason=Cmd.valid(site.world,envelope.payload) end
+   elseif envelope.payload.type=='fabricate' or envelope.payload.type=='place_rope' or envelope.payload.type=='remove_rope' or envelope.payload.type=='drop_tool' or envelope.payload.type=='load_tool' or envelope.payload.type=='unload_tool' then valid,reason=visibleTarget(campaign,site,envelope.payload);if valid then valid,reason=require('src.equipment_commands').valid(campaign,site,envelope.payload) end
+   else valid,reason=visibleTarget(campaign,site,envelope.payload);if valid then valid,reason=Cmd.valid(site.world,envelope.payload) end end
    assert(valid,reason)
   end
  end)
@@ -111,13 +127,16 @@ function Command.apply(campaign,envelope)
  if site.ownerSocietyId~=campaign.society.id then return false,'Site is not owned by this society' end
  local valid,why
  if envelope.payload.type=='school_policy' then valid,why=require('src.education').policyValid(campaign,site,envelope.payload)
- else valid,why=Cmd.valid(site.world,envelope.payload) end
+ elseif envelope.payload.type=='fabricate' or envelope.payload.type=='place_rope' or envelope.payload.type=='remove_rope' or envelope.payload.type=='drop_tool' or envelope.payload.type=='load_tool' or envelope.payload.type=='unload_tool' then
+  valid,why=require('src.equipment_commands').valid(campaign,site,envelope.payload)
+ else valid,why=visibleTarget(campaign,site,envelope.payload);if valid then valid,why=Cmd.valid(site.world,envelope.payload) end end
  if not valid then
   W.event(site.world,'rejected',why)
   return false,why
  end
  local applied
  if envelope.payload.type=='school_policy' then applied=require('src.education').applyPolicy(campaign,site,envelope.payload)
+ elseif envelope.payload.type=='fabricate' or envelope.payload.type=='place_rope' or envelope.payload.type=='remove_rope' or envelope.payload.type=='drop_tool' or envelope.payload.type=='load_tool' or envelope.payload.type=='unload_tool' then applied=require('src.equipment_commands').apply(campaign,site,envelope.payload)
  else applied=Cmd.apply(site.world,envelope.payload) end
  return applied,applied and nil or 'Site command was rejected'
 end

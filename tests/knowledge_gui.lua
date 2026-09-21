@@ -8,7 +8,15 @@ love.load();love.keypressed('f1');love.keypressed('n');love.keypressed('c')
 assert(app.newRun.action=='campaign_new');love.keypressed('return');love.keypressed('return')
 assert(app.campaign and app.history.live.features.knowledge==1,'New frontier campaign did not opt into personal knowledge')
 love.draw();assert(#app.buttons==0,'Fixed action bar remained after the contextual HUD refactor')
-local world=app.currentWorld();local plant=assert(world.content.flora[1],'Frontier fixture did not provide a growth for the Study HUD path')
+local world=app.currentWorld();local plant
+for _,candidate in ipairs(world.content.flora) do
+ if candidate.alive and require('src.visibility').currentlyVisible(world,candidate.x,candidate.y,{campaign=app.history.view,siteId=app.siteId}) then plant=candidate;break end
+end
+if not plant then
+ plant=assert(world.content.flora[1],'Frontier fixture did not provide a growth for the Study HUD path')
+ plant.x,plant.y=world.workers[1].x,world.workers[1].y
+ require('src.visibility').derive(world,{campaign=app.history.view,siteId=app.siteId})
+end
 local rect=main.getRenderer().rect;local sx=rect.x+(plant.x-.5)*rect.scale;local sy=rect.y+(plant.y-.5)*rect.scale
 love.mousepressed(sx,sy,2);assert(app.hud,'Right-click did not open the contextual delegate HUD')
 love.draw();local study

@@ -2,6 +2,7 @@
 -- A map never supplies workers, needs, inventory, jobs or executable rules.
 local W=require('src.world')
 local M=require('src.materials')
+local Body=require('src.body')
 local C=require('config')
 local U=require('src.util')
 local E={}
@@ -14,8 +15,10 @@ function E.validateStart(w,home,crew)
  assert((left-1)%4==0 and home.right%4==0 and (home.floor-1)%4==0,'Arrival must align to the 4-cell building grid')
  local starts={};for n=1,(crew or 3) do starts[#starts+1]=left+(crew==9 and 9+(n-1)*4 or 11+(n-1)*5) end
  for _,x in ipairs(starts) do
-  for yy=home.floor-3,home.floor-1 do for xx=x,x+1 do assert(W.get(w,xx,yy)==M.AIR,'Arrival worker footprint is not empty') end end
-  assert(M.def[W.get(w,x,home.floor)].solid and M.def[W.get(w,x+1,home.floor)].solid,'Arrival workers need initial footing')
+  local x1,y1,x2=Body.rect(w,x,home.floor-1)
+  for yy=y1,home.floor-1 do for xx=x1,x2 do assert(W.get(w,xx,yy)==M.AIR,'Arrival worker footprint is not empty') end end
+  local supported=false;for xx=x1,x2 do if M.def[W.get(w,xx,home.floor)].solid then supported=true end end
+  assert(supported,'Arrival workers need initial footing')
  end
  for x=left+4,left+8 do
   for y=home.floor-4,home.floor-1 do assert(W.get(w,x,y)==M.AIR,'Starting stockpile footprint is not empty') end
@@ -29,8 +32,10 @@ function E.validateLanding(w,home)
  U.integer(home.right,'landing right',left+39,w.width-4);U.integer(home.floor,'landing floor',25,w.height-6)
  for n=1,3 do
   local x=left+11+(n-1)*5
-  for yy=home.floor-3,home.floor-1 do for xx=x,x+1 do assert(W.get(w,xx,yy)==M.AIR,'Landing worker footprint is not empty') end end
-  assert(M.def[W.get(w,x,home.floor)].solid and M.def[W.get(w,x+1,home.floor)].solid,'Landing workers need footing')
+  local x1,y1,x2=Body.rect(w,x,home.floor-1)
+  for yy=y1,home.floor-1 do for xx=x1,x2 do assert(W.get(w,xx,yy)==M.AIR,'Landing worker footprint is not empty') end end
+  local supported=false;for xx=x1,x2 do if M.def[W.get(w,xx,home.floor)].solid then supported=true end end
+  assert(supported,'Landing workers need footing')
  end
  return true
 end

@@ -71,11 +71,20 @@ function B.detonate(w,slot)
    else destroyStructure(w,key,s,s.kind=='charge') end
   end
  end end
+ local destroyedRopes={}
+ for _,rope in ipairs(w.ropes or {}) do
+  local hit=false
+  for y=rope.anchorY,rope.anchorY+rope.length-1 do
+   if wave[W.index(w,rope.laneLeftX,y)] or wave[W.index(w,rope.laneLeftX+1,y)] then hit=true;break end
+  end
+  if hit then destroyedRopes[#destroyedRopes+1]=rope.id end
+ end
+ if #destroyedRopes>0 then w.destroyedRopes=destroyedRopes end
  if w.structures[slot] then destroyStructure(w,slot,source,true) end
  for _,a in ipairs(w.workers) do if a.alive then
   local hit=0
   Body.occupied(w,a.x,a.y,function(x,y) hit=math.max(hit,wave[W.index(w,x,y)] or 0) end)
-  if hit>0 then a.hp=math.max(0,a.hp-hit*9);a.injuryCause='blast trauma' end
+  if hit>0 then a.hp=math.max(0,a.hp-hit*9);a.injuryCause='blast trauma';a.blastDangerTick=w.tick end
  end end
  if w.content then
   local E=require('src.ecology')

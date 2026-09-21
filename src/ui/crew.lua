@@ -8,7 +8,7 @@ local function text(s,x,y,c,font)love.graphics.setColor(c or colors.text);love.g
 local function wrap(s,x,y,width,c,font)love.graphics.setColor(c);love.graphics.setFont(font);love.graphics.printf(s,x,y,width,'left')end
 function UI.open(app)
  app.crew={draft=L.snapshot(app.currentWorld()),section='people',row=1,col=0,buttons={},readonly=not app.history:atPresent() and app.liveWorld().mode=='challenge'}
- app.paused=true;app.accumulator=0;app.stepBudget=0;app.drag=nil
+ app.drag=nil
 end
 local function cycleRole(person)
  local list={'auto','general','dig','build','haul','farm','pump','field'};local at=1
@@ -75,7 +75,7 @@ function UI.draw(app,r)
  local pw,ph=math.min(1060,sw-40),math.min(670,sh-40);local x,y=(sw-pw)/2,(sh-ph)/2
  box(0,0,sw,sh,colors.bg);box(x,y,pw,ph,colors.panel)
  text('CREW / '..(c.section=='people' and 'INDIVIDUAL DUTIES' or 'WORKFORCE SPLIT'),x+22,y+18,colors.amber,r.sub)
- text('Enter queues changes   Escape cancels   Tab changes page   Simulation paused',x+24,y+57,colors.muted,r.small)
+ text('Enter queues changes   Escape cancels   Tab changes page   Simulation continues',x+24,y+57,colors.muted,r.small)
  c.buttons={{action='tab',x=x+pw-170,y=y+20,w=145,h=28},{action='apply',x=x+pw-140,y=y+ph-45,w=115,h=28}}
  box(x+pw-170,y+20,145,28,colors.edge);text('TAB / switch',x+pw-160,y+26,colors.cyan,r.small)
  if c.section=='people' then
@@ -85,7 +85,8 @@ function UI.draw(app,r)
   for row,p in ipairs(c.draft.people) do
    local a=W.find(w.workers,p.id);local yy=y+130+(row-1)*34
    if row==c.row then box(x+16,yy-3,pw-32,32,colors.edge) end
-   text(a.name..(a.alive and '' or ' [dead]'),x+24,yy+4,a.alive and colors.text or colors.red,r.small)
+   local mental=a.stress~=nil and (' ['..(a.panic and 'PANICKED ' or 'steady ')..a.stress..']') or ''
+   text(a.name..(a.alive and '' or ' [dead]')..mental,x+24,yy+4,a.alive and colors.text or colors.red,r.small)
    text(p.role,x+124,yy+4,c.col==0 and row==c.row and colors.amber or colors.cyan,r.small)
    c.buttons[#c.buttons+1]={action='cell',row=row,col=0,x=x+116,y=yy,w=96,h=29}
    for col,role in ipairs(L.duties) do

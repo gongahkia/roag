@@ -7,6 +7,7 @@ local C=require('config')
 local Labor=require('src.labor')
 local Field=require('src.fieldwork')
 local Body=require('src.body')
+local Equipment=require('src.equipment')
 local J={}
 local function deliveredTotal(value)
  if type(value)=='number' then return value end
@@ -43,7 +44,9 @@ end
 function J.cancel(w,j)
  if j.state=='done' or j.state=='cancelled' then return end
  for _,a in ipairs(w.workers) do if a.task and a.task.job==j.id then J.release(w,a,true) end end
- if j.kind=='build' and deliveredTotal(j.delivered)>0 then returnDelivered(w,j) end
+ if (j.kind=='build' or j.kind=='fabricate') and deliveredTotal(j.delivered)>0 then
+  if j.kind=='fabricate' then W.stack(w,'metal',j.delivered,j.gx*4-2,j.gy*4);j.delivered=0 else returnDelivered(w,j) end
+ end
  j.state='cancelled'; j.assigned=nil
  W.event(w,'order','Cancelled '..j.kind..' order.',j.id)
 end
@@ -51,8 +54,40 @@ function J.add(w,kind,gx,gy,build,priority)
  if #w.jobs>=1024 then return nil,'Job limit reached' end
  for _,j in ipairs(w.jobs) do if j.gx==gx and j.gy==gy and j.state=='open' then return nil,'Order already present' end end
  local j={id=W.id(w),kind=kind,gx=gx,gy=gy,build=build,priority=priority or 2,
-  state='open',delivered=kind=='build' and build=='field_school' and {} or 0,progress=0,reason='Waiting for a worker'}
+  state='open',delivered=kind=='build' and (build=='field_school' or build=='tool_bench') and {} or 0,progress=0,reason='Waiting for a worker'}
  w.jobs[#w.jobs+1]=j return j
+end
+local function feature(context) return context and context.campaign and Equipment.safe(context.campaign) end
+local function currentSite(context) return context and context.siteId end
+local function safeAlternate(w,a,c)
+ local f=N.flood(w,a.x,a.y)
+ for _,i in ipairs(f.queue) do
+  local x,y=W.xy(w,i);local holds=false
+  for xx=x,x+Body.width(w)-1 do if xx==c.x and y+1==c.y then holds=true end end
+  if not holds and N.reach(w,x,y,c.x,c.y,4) then return N.path(f,i),i end
+ end
+end
+-- This post-action check is intentionally local. It establishes whether the
+-- miner can keep a supported or rope-controlled body after this one mutation;
+-- it does not inspect undiscovered terrain or predict a whole dig plan.
+local function digSafety(w,a,c,context,t)
+ if not feature(context) then return true end
+ local holds=false;for xx=a.x,a.x+Body.width(w)-1 do if xx==c.x and a.y+1==c.y then holds=true end end
+ if not holds or N.rope(w,a.x,a.y) then return true end
+ local path,node=safeAlternate(w,a,c)
+ if path then t.path,t.node,t.next=path,node,1;a.status='Repositioning for safe excavation';return false,'reposition' end
+ local campaign=context.campaign;local f=N.flood(w,a.x,a.y);local coil,fetchPath,fetchNode=Equipment.nearestLoose(campaign,currentSite(context),'rope_coil',w,a,f,N.returnable(w,f))
+ local lane
+ for lx=math.max(1,a.x-4),math.min(w.width-1,a.x+4) do
+  local clear=0
+  for y=a.y,math.min(w.height,a.y+23) do if W.solid(w,lx,y) or W.solid(w,lx+1,y) then break end;clear=clear+1 end
+  if clear>=4 and N.reach(w,a.x,a.y,lx,a.y,4) then lane={x=lx,length=clear};break end
+ end
+ if coil and lane and Equipment.reserve(coil,a) then
+  t.stage='rope_fetch';t.equipmentId=coil.id;t.anchorX=a.x;t.anchorY=a.y;t.ropeLaneX=lane.x;t.ropeLength=lane.length;t.path=fetchPath;t.node=fetchNode;t.next=1
+  a.status='Fetching rope coil for safe descent';return false,'rope'
+ end
+ return false,'Unsafe descent — rope required'
 end
 function J.digCell(w,j,x,y)
  local x1,y1,x2,y2=W.rect(j.gx,j.gy); local best,dist
@@ -122,6 +157,18 @@ function J.plan(w,a,context)
   if p then assign(w,a,{kind='escape',path=p,node=n,label='Escaping danger'}) return end
   a.status='Trapped';a.reason='No safe escape route'; return
  end
+ if feature(context) and a.panic then
+  for _,j in ipairs(w.jobs) do if j.state=='open' and j.kind=='arm' and (not j.owner or j.owner==a.id) then j.reason='Panicked workers cannot arm demolition charges' end end
+  local Visibility=require('src.visibility')
+  local p,n=closest(w,a,f,function(x,y)
+   if not N.stand(w,x,y,true) then return false end
+   return not w.frontier.visibility or Visibility.currentlyVisible(w,x,y,context)
+  end)
+  if not p then p,n=closest(w,a,f,function(x,y) return N.stand(w,x,y,true) end) end
+  if p then assign(w,a,{kind='panic_escape',path=p,node=n,label='Panicked — seeking safety'})
+  else a.status='Panicked / trapped';a.reason='No safe escape route' end
+  return
+ end
  if a.hunger>=60 then
   local p,path,node=itemChoice(w,a,f,'food')
   if p then assign(w,a,{kind='eat',item=p.id,path=path,node=node,label='Going to food'}) return end
@@ -157,6 +204,46 @@ function J.plan(w,a,context)
   if j.logistics then
    -- Cargo jobs are offered by the campaign logistics context above.
   elseif j.kind=='dig' and not J.digRemaining(w,j) then j.state='done';j.reason='Already clear'
+  elseif j.kind=='fabricate' then
+   local s=w.structures[j.slot];local path,node,dist
+   if not s or s.kind~='tool_bench' then j.reason='Tool bench no longer exists'
+   elseif s.fabrication and s.fabrication.jobId~=j.id then j.reason='Tool bench is busy'
+   else
+    path,node,dist=closest(w,a,f,function(x,y) return N.reachRect(w,x,y,s.gx,s.gy) end)
+    if not path then j.reason='Tool bench is unreachable'
+    elseif j.delivered<Equipment.recipe(j.recipe).metal then
+     local p,pp,nn,dd=itemChoice(w,a,f,'metal',true)
+     if p then offer({kind='work',job=j.id,stage='fetch',item=p.id,path=pp,node=nn,label='Fetching metal for '..j.recipe},j.priority*100,dist+dd) else j.reason='Needs accessible metal' end
+    else offer({kind='work',job=j.id,stage='work',path=path,node=node,label='Fabricating '..j.recipe},j.priority*100,dist) end
+   end
+  elseif j.kind=='tool_cargo' then
+   local craft=context and require('src.logistics').craft(context.campaign,j.craftId);local item=feature(context) and Equipment.find(context.campaign,j.equipmentId) or nil
+   if not craft or craft.dockedSiteId~=currentSite(context) then j.reason='Craft is no longer docked here'
+   elseif not item then j.reason='Tool no longer exists'
+   elseif j.cargoMode=='load' and item.state~='loose' then j.reason='Tool is no longer loose'
+   elseif j.cargoMode=='unload' and item.state~='craft' then j.reason='Tool is no longer in craft'
+   else
+    local path,node,dist
+    if j.cargoMode=='load' then path,node,dist=closest(w,a,f,function(x,y) return N.reach(w,x,y,item.x,item.y,4) end)
+    else path,node,dist=closest(w,a,f,function(x,y) return N.reach(w,x,y,craft.anchor.x,craft.anchor.y,4) end) end
+    if not path then j.reason='Tool or craft is unreachable' else offer({kind='work',job=j.id,stage=j.cargoMode=='load' and 'tool_fetch' or 'tool_unload',path=path,node=node,label=(j.cargoMode=='load' and 'Loading ' or 'Unloading ')..item.kind},200,dist) end
+   end
+  elseif j.kind=='rope' then
+   local anchorX,anchorY=j.gx*4-3,j.gy*4-3
+   local path,node,dist=closest(w,a,f,function(x,y) return N.reach(w,x,y,anchorX,anchorY,4) end)
+   if not path then j.reason='Rope anchor is unreachable'
+   elseif not feature(context) then j.reason='Ropes require a safe-excavation frontier'
+   else
+    local coil,pp,nn,dd=Equipment.nearestLoose(context.campaign,currentSite(context),'rope_coil',w,a,f,N.returnable(w,f))
+    if coil then
+     local px,py=W.xy(w,node)
+     offer({kind='work',job=j.id,stage='rope_fetch',equipmentId=coil.id,path=pp,node=nn,anchorX=px,anchorY=py,ropeLaneX=anchorX,ropeStartY=anchorY,label='Fetching rope coil'},j.priority*100,dist+dd)
+    else j.reason='Needs accessible rope coil' end
+   end
+  elseif j.kind=='remove_rope' then
+   local rope;for _,r in ipairs(w.ropes or {}) do if r.id==j.ropeId then rope=r end end
+   local path,node,dist=rope and closest(w,a,f,function(x,y) return N.reach(w,x,y,rope.laneLeftX,rope.anchorY,4) end) or nil
+   if not rope then j.reason='Rope no longer exists' elseif not path then j.reason='Rope is unreachable' else offer({kind='work',job=j.id,stage='work',path=path,node=node,label='Recovering rope'},j.priority*100,dist) end
   else
    local valid,reason=true,nil
    if j.kind=='build' then valid,reason=S.siteClear(w,j.gx,j.gy,j.build) end
@@ -174,7 +261,13 @@ function J.plan(w,a,context)
     local p,pp,nn,dd=itemChoice(w,a,f,missing.resource,true)
     if p then offer({kind='work',job=j.id,stage='fetch',item=p.id,path=pp,node=nn,label='Fetching '..p.kind},j.priority*100,dist+dd)
     else j.reason='Needs accessible '..missing.resource end
-   else offer({kind='work',job=j.id,stage='work',path=path,node=node,label=j.kind=='build' and 'Building '..j.build or j.kind},j.priority*100,dist) end
+   else
+    if j.kind=='dig' and feature(context) and not Equipment.pickFor(context.campaign,a) then
+     local pick,pp,nn,dd=Equipment.nearestLoose(context.campaign,currentSite(context),'pickaxe',w,a,f,N.returnable(w,f))
+     if pick then offer({kind='equipment',equipmentId=pick.id,path=pp,node=nn,label='Fetching pickaxe'},j.priority*100+15,dist+dd) end
+    end
+    offer({kind='work',job=j.id,stage='work',path=path,node=node,label=j.kind=='build' and 'Building '..j.build or j.kind},j.priority*100,dist)
+   end
   end
  end end
  for slot=1,w.cols*w.rows do local s=w.structures[slot]
@@ -305,12 +398,18 @@ function J.act(w,a,context)
    local delivered,why=Logistics.unloadDeliver(context.campaign,context.siteId,j,a)
    if not delivered then blocked(w,a,why) else finish(w,a,'Unloaded craft cargo') end
   else blocked(w,a,'Cargo task state changed') end
+ elseif t.kind=='equipment' then
+  if not feature(context) then blocked(w,a,'Equipment is unavailable') return end
+  local item=Equipment.find(context.campaign,t.equipmentId)
+  if not item or item.state~='loose' or not N.reach(w,a.x,a.y,item.x,item.y,4) then blocked(w,a,'Pickaxe moved or became inaccessible') return end
+  if not Equipment.reserve(item,a) then blocked(w,a,'Pickaxe is reserved') return end
+  Equipment.equip(context.campaign,item,a);finish(w,a,'Equipped pickaxe')
  elseif t.kind=='field' then Field.act(w,a,t,finish,blocked,reRoute,context)
  elseif t.kind=='school' then
   local ok,why=require('src.education').act(w,a,t,context)
   if not ok then blocked(w,a,why) end
  elseif t.kind=='rally' then a.worked=false;a.status='Rally / holding';a.reason='J releases this worker to normal duties'
- elseif t.kind=='escape' then finish(w,a,'Reached safety')
+ elseif t.kind=='escape' or t.kind=='panic_escape' then finish(w,a,t.kind=='panic_escape' and 'Panicked but safe' or 'Reached safety')
  elseif t.kind=='eat' then
   local p=W.find(w.items,t.item)
   if not p or p.n<1 or not N.reach(w,a.x,a.y,p.x,p.y,4) then blocked(w,a,'Food unavailable') return end
@@ -324,7 +423,11 @@ function J.act(w,a,context)
    local p=W.find(w.items,t.item)
    if not p or p.n<=0 or p.reserved~=a.id or not N.reach(w,a.x,a.y,p.x,p.y,4) then blocked(w,a,'Supply moved or became inaccessible') return end
    local capacity=t.kind=='irrigate' and 6 or 12
-   if t.kind=='work' then local j=W.find(w.jobs,t.job);local missing=S.missing(j.build,j.delivered)[1];capacity=math.min(capacity,missing and missing.amount or 0) end
+   if t.kind=='work' then
+    local j=W.find(w.jobs,t.job)
+    if j.kind=='fabricate' then capacity=math.min(capacity,Equipment.recipe(j.recipe).metal-j.delivered)
+    else local missing=S.missing(j.build,j.delivered)[1];capacity=math.min(capacity,missing and missing.amount or 0) end
+   end
    local count=math.min(p.n,capacity)
    a.carry={kind=p.kind,n=count}; p.n=p.n-count;p.reserved=nil;t.item=nil
   else
@@ -343,7 +446,9 @@ function J.act(w,a,context)
    local j=W.find(w.jobs,t.job)
    if not workPose(w,j,a.x,a.y) then blocked(w,a,'Work position invalid') return end
    if type(j.delivered)=='number' then j.delivered=j.delivered+a.carry.n else j.delivered[a.carry.kind]=(j.delivered[a.carry.kind] or 0)+a.carry.n end;a.carry=nil
-   if not S.complete(j.build,j.delivered) then finish(w,a,'Delivered partial materials') return end
+   if j.kind=='fabricate' then
+    if j.delivered<Equipment.recipe(j.recipe).metal then finish(w,a,'Delivered partial fabrication metal') return end
+   elseif not S.complete(j.build,j.delivered) then finish(w,a,'Delivered partial materials') return end
    t.stage='work'
   elseif t.kind=='irrigate' then
    local s=w.structures[t.slot]
@@ -360,6 +465,46 @@ function J.act(w,a,context)
   end
  elseif t.kind=='work' then
   local j=W.find(w.jobs,t.job)
+  if t.stage=='tool_fetch' then
+   local item=feature(context) and Equipment.find(context.campaign,j.equipmentId) or nil
+   if not item or item.state~='loose' or not N.reach(w,a.x,a.y,item.x,item.y,4) or not Equipment.reserve(item,a) then blocked(w,a,'Tool moved or became inaccessible') return end
+   Equipment.carry(context.campaign,item,a);t.stage='tool_deliver'
+   local craft=require('src.logistics').craft(context.campaign,j.craftId)
+   if not reRoute(w,a,function(x,y) return N.reach(w,x,y,craft.anchor.x,craft.anchor.y,4) end) then blocked(w,a,'Craft is unreachable') end
+   return
+  elseif t.stage=='tool_deliver' then
+   local item=feature(context) and Equipment.find(context.campaign,j.equipmentId) or nil;local craft=context and require('src.logistics').craft(context.campaign,j.craftId)
+   local total=0;for _,n in pairs(craft and craft.cargo or {}) do total=total+n end
+   if not item or item.state~='carried' or item.personId~=a.personId or not craft or craft.dockedSiteId~=currentSite(context) or total+Equipment.craftCount(context.campaign,craft.id)>=craft.capacity then blocked(w,a,'Craft cargo changed') return end
+   Equipment.loadCraft(context.campaign,item,craft.id);j.state='done';j.reason='Loaded';w.stats.jobsDone=w.stats.jobsDone+1;finish(w,a,'Loaded tool into craft');return
+  elseif t.stage=='tool_unload' then
+   local item=feature(context) and Equipment.find(context.campaign,j.equipmentId) or nil;local craft=context and require('src.logistics').craft(context.campaign,j.craftId)
+   if not item or item.state~='craft' or not craft or craft.dockedSiteId~=currentSite(context) or not N.reach(w,a.x,a.y,craft.anchor.x,craft.anchor.y,4) then blocked(w,a,'Craft tool cargo changed') return end
+   Equipment.unloadCraft(context.campaign,item,currentSite(context),a.x,a.y);j.state='done';j.reason='Unloaded';w.stats.jobsDone=w.stats.jobsDone+1;finish(w,a,'Unloaded tool from craft');return
+  elseif t.stage=='rope_fetch' then
+   if not feature(context) then blocked(w,a,'Ropes are unavailable') return end
+   local item=Equipment.find(context.campaign,t.equipmentId)
+   if not item or item.state~='loose' or not N.reach(w,a.x,a.y,item.x,item.y,4) or not Equipment.reserve(item,a) then blocked(w,a,'Rope coil moved or became inaccessible') return end
+   Equipment.carry(context.campaign,item,a);t.stage='rope_return'
+   if not reRoute(w,a,function(x,y) return x==t.anchorX and y==t.anchorY end) then blocked(w,a,'Rope anchor is unreachable') end
+   return
+  elseif t.stage=='rope_return' then
+   t.stage='rope_deploy';t.path={};t.next=1;return
+  elseif t.stage=='rope_deploy' then
+   local item=feature(context) and Equipment.find(context.campaign,t.equipmentId) or nil
+   local length=0
+   local startY=t.ropeStartY or t.anchorY;local lane=t.ropeLaneX or t.anchorX
+   for y=startY,math.min(w.height,startY+23) do
+    if W.solid(w,lane,y) or W.solid(w,lane+1,y) then break end
+    length=length+1
+   end
+   local ok,rope=pcall(Equipment.installRope,context.campaign,w,currentSite(context),item,lane,startY,length)
+   if not ok then blocked(w,a,'Rope path is obstructed') return end
+   w.navRevision=w.navRevision+1
+   if j.kind=='rope' then j.state='done';j.reason='Installed';w.stats.jobsDone=w.stats.jobsDone+1;finish(w,a,'Installed rope')
+   else t.stage='work';t.path={};t.next=1;a.status='Rope installed' end
+   return
+  end
   if j.kind~='dig' and not workPose(w,j,a.x,a.y) then blocked(w,a,'Work position invalid') return end
   if j.kind=='dig' then
    local c=J.digCell(w,j,a.x,a.y)
@@ -368,7 +513,12 @@ function J.act(w,a,context)
     elseif not routeDestination(w,a,context) then blocked(w,a,'No reachable excavation face') end
     return
    end
-   t.progress=t.progress+a.mine
+   local safe,why=digSafety(w,a,c,context,t)
+   if not safe then
+    if why=='reposition' then return end
+    blocked(w,a,why);return
+   end
+   t.progress=t.progress+a.mine*Equipment.digWork(context and context.campaign,a,c.m)
    if t.progress>=M.def[c.m].work then
     t.progress=0
     if c.m==M.ICE then W.put(w,c.x,c.y,M.WATER)
@@ -388,6 +538,30 @@ function J.act(w,a,context)
     j.state='done';j.reason='Completed';w.stats.jobsDone=w.stats.jobsDone+1
     W.event(w,'build',a.name..' completed '..S.def[j.build].label..'.',j.id);finish(w,a)
    end
+  elseif j.kind=='fabricate' then
+   local s=w.structures[j.slot]
+   if not s or s.kind~='tool_bench' or j.delivered<Equipment.recipe(j.recipe).metal then blocked(w,a,'Tool bench state changed') return end
+   s.fabrication={jobId=j.id,kind=j.recipe,progress=j.progress,work=Equipment.recipe(j.recipe).work}
+   j.progress=j.progress+1;s.fabrication.progress=j.progress
+   if j.progress>=Equipment.recipe(j.recipe).work then
+    local ok,item=pcall(Equipment.create,context.campaign,currentSite(context),j.recipe,s.gx*4-2,s.gy*4-3)
+    if not ok then blocked(w,a,'No valid tool-bench output space') return end
+    s.fabrication=nil;j.state='done';j.reason='Completed';w.stats.jobsDone=w.stats.jobsDone+1;W.event(w,'fabricate',a.name..' fabricated '..j.recipe..'.',item.id);finish(w,a)
+   end
+  elseif j.kind=='arm' then
+   if feature(context) and a.panic then blocked(w,a,'Panicked workers cannot arm demolition charges') return end
+   local s=w.structures[W.slot(w,j.gx,j.gy)]
+   if not s or s.kind~='charge' or s.fuseAt then blocked(w,a,'Charge state changed') return end
+   local f=N.flood(w,a.x,a.y);local escape=false
+   for _,i in ipairs(f.queue) do local x,y=W.xy(w,i);if math.abs(x-(s.gx*4-2))+math.abs(y-(s.gy*4-2))>require('src.blasts').radius+3 then escape=true;break end end
+   if not escape then blocked(w,a,'No safe evacuation route for charge arming') return end
+   j.progress=j.progress+1
+   if j.progress>=20 then require('src.blasts').arm(w,s,a);j.state='done';j.reason='Armed';w.stats.jobsDone=w.stats.jobsDone+1;finish(w,a,'Armed demolition charge') end
+  elseif j.kind=='remove_rope' then
+   local rope;for _,r in ipairs(w.ropes or {}) do if r.id==j.ropeId then rope=r end end
+   if not rope or not feature(context) then blocked(w,a,'Rope no longer exists') return end
+   j.progress=j.progress+1
+   if j.progress>=20 then Equipment.removeRope(context.campaign,w,currentSite(context),rope,a.x,a.y);j.state='done';j.reason='Recovered';w.stats.jobsDone=w.stats.jobsDone+1;finish(w,a,'Recovered rope coil') end
   else
    local slot=W.slot(w,j.gx,j.gy);local s=w.structures[slot]
    if not s then j.state='done';finish(w,a) return end

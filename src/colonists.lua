@@ -5,6 +5,7 @@ local M=require('src.materials')
 local J=require('src.jobs')
 local C=require('config')
 local B=require('src.body')
+local Equipment=require('src.equipment')
 local A={}
 
 -- The cabin is deliberately the local ground-rest rule without terrain exposure,
@@ -28,7 +29,8 @@ function A.kill(w,a,reason)
 end
 function A.step(w,context)
  for _,a in ipairs(w.workers) do if a.alive then
-  a.hunger=math.min(100,a.hunger+w.rules.hungerRate)
+ a.hunger=math.min(100,a.hunger+w.rules.hungerRate)
+  local hpBefore=a.hp;local criticalBefore=a.criticalBreath==true
   local sleeping=a.task and a.task.kind=='rest' and not a.task.path[a.task.next]
   if sleeping then
    a.fatigue=math.max(0,a.fatigue-(a.task.slot and 0.12 or 0.035))
@@ -60,10 +62,20 @@ function A.step(w,context)
     if a.task then J.release(w,a,true) end
     a.y=a.y+1;a.fall=a.fall+1;a.status='Falling';a.thinkAt=w.tick+1
    else
-    if a.fall>0 then
-     local damage=math.max(0,a.fall-5)*3
+     if a.fall>0 then
+     local damage
+     if context and Equipment.safe(context.campaign) then
+      local blocks=math.max(0,math.ceil((a.fall-4)/4));damage=math.min(90,math.ceil(blocks*15))
+     else damage=math.max(0,a.fall-5)*3 end
      if damage>0 then a.hp=a.hp-damage;W.event(w,'injury',a.name..' fell '..a.fall..' cells and took '..damage..' damage.',a.id) end
      a.fall=0
+    end
+    if context and Equipment.safe(context.campaign) then
+     local critical=a.breath<=0
+     if a.blastDangerTick==w.tick then Equipment.stress(context.campaign,a,25,w.tick)
+     elseif a.hp<hpBefore then Equipment.stress(context.campaign,a,20,w.tick)
+     elseif critical and not criticalBefore then Equipment.stress(context.campaign,a,25,w.tick) end
+     a.criticalBreath=critical;Equipment.recover(context.campaign,a,w)
     end
     if a.hp<=0 then A.kill(w,a,'fall injuries')
     else
@@ -71,6 +83,7 @@ function A.step(w,context)
      if a.evacuate and w.tick<=a.evacuate.untilTick and a.task and a.task.kind~='escape' then J.release(w,a,true);a.thinkAt=w.tick end
      if a.task and ((unsafe and a.task.kind~='escape') or (a.hunger>=82 and a.task.kind~='eat' and w.tick%100==a.id%100 and J.canEat(w,a))
         or (a.fatigue>=95 and a.task.kind~='rest' and a.task.kind~='eat')) then
+      if unsafe and context and Equipment.safe(context.campaign) and a.task.kind=='work' then Equipment.stress(context.campaign,a,15,w.tick) end
       J.release(w,a,true);a.thinkAt=w.tick
      end
      if not a.task and w.tick>=a.thinkAt then J.plan(w,a,context);a.thinkAt=w.tick+w.rules.planEvery end

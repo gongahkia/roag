@@ -15,12 +15,23 @@ function N.occupy(w,x,y,safe)
 end
 function N.ladder(w,x,y)
  local s=W.structureAt(w,x,y)
- return s and s.kind=='ladder' or false
+ if s and s.kind=='ladder' then return true end
+ local ropes=w.ropes
+ if ropes then
+  for _,rope in ipairs(ropes) do
+   if x==rope.laneLeftX and y>=rope.anchorY and y<rope.anchorY+rope.length then return true end
+  end
+ end
+ return false
 end
 function N.support(w,x,y)
  local width=B.width(w)
  for xx=x,x+width-1 do if W.solid(w,xx,y+1) then return true end end
  return N.ladder(w,x,y)
+end
+function N.rope(w,x,y)
+ local ropes=w.ropes or {}
+ for _,rope in ipairs(ropes) do if x==rope.laneLeftX and y>=rope.anchorY and y<rope.anchorY+rope.length then return rope end end
 end
 function N.stand(w,x,y,safe) return N.occupy(w,x,y,safe) and N.support(w,x,y) end
 function N.neighbours(w,x,y)

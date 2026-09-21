@@ -25,7 +25,9 @@ function F.offer(w,a,f,closest,offer,context)
   if not p then j.state='done';j.reason=category
   else
    local eligible=true
-   if j.kind=='study' then
+   if j.kind~='arm' and require('src.visibility').enabled(w) and not require('src.visibility').visible(w,a,p.x,p.y,context) then eligible=false;j.reason='Too dark to examine target' end
+   if j.kind=='arm' and context and context.campaign and context.campaign.features.safe_excavation==1 and a.panic then eligible=false;j.reason='Panicked workers cannot arm demolition charges' end
+   if eligible and j.kind=='study' then
     local source=require('src.knowledge').source(context and context.siteId or 1,category or 'flora',p)
     local ok,reason=require('src.knowledge').canStudy(context,a,source)
     eligible=ok;if not eligible then j.reason=reason end
@@ -42,6 +44,13 @@ function F.act(w,a,t,finish,blocked,reRoute,context)
  local j=W.find(w.jobs,t.job)
  local p,category=F.destination(w,j)
  if not p then j.state='done';finish(w,a,'Target gone');return end
+ if j.kind~='arm' and require('src.visibility').enabled(w) and not require('src.visibility').visible(w,a,p.x,p.y,context) then blocked(w,a,'Too dark to examine target');return end
+ if j.kind=='arm' and context and context.campaign and context.campaign.features.safe_excavation==1 then
+  if a.panic then blocked(w,a,'Panicked workers cannot arm demolition charges');return end
+  local f=N.flood(w,a.x,a.y);local escape=false
+  for _,i in ipairs(f.queue) do local x,y=W.xy(w,i);if math.abs(x-p.x)+math.abs(y-p.y)>require('src.blasts').radius+3 then escape=true;break end end
+  if not escape then blocked(w,a,'No safe evacuation route for charge arming');return end
+ end
  if not N.reach(w,a.x,a.y,p.x,p.y,4) then
   if not reRoute(w,a,function(x,y) return N.reach(w,x,y,p.x,p.y,4) end) then blocked(w,a,'Field target no longer reachable') end
   return

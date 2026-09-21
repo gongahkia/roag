@@ -14,6 +14,8 @@ S.def={
  charge={label='Demolition charge',cost=4,resource='metal',work=35},
  ward={label='Resonance ward',cost=10,resource='metal',work=45},
  field_school={label='Field school',cost=6,resource='stone',materials={stone=4,metal=2},work=60},
+ torch={label='Torch',cost=1,resource='metal',work=12},
+ tool_bench={label='Tool bench',cost=6,resource='stone',materials={stone=4,metal=2},work=60},
 }
 function S.materials(kind)
  local def=assert(S.def[kind],'Unknown structure')
@@ -66,6 +68,9 @@ function S.install(w,gx,gy,kind)
  w.navRevision=w.navRevision+1
  return s
 end
+function S.torchCount(w)
+ local count=0;for _,s in pairs(w.structures) do if s.kind=='torch' then count=count+1 end end;return count
+end
 function S.wet(w,s)
  local x1,y1,x2,y2=W.rect(s.gx,s.gy); local n=0
  for y=y1,y2 do for x=x1,x2 do if W.get(w,x,y)==M.WATER then n=n+1 end end end
@@ -106,6 +111,9 @@ function S.step(w)
      if w.tick%120==0 then s.tank=s.tank-1;w.ledger.waterUsed=w.ledger.waterUsed+1 end
     end
    elseif s.kind=='charge' then s.status=s.fuseAt and ('ARMED / '..math.max(0,s.fuseAt-w.tick)..' ticks') or 'Inert: T orders worker arming'
+   elseif s.kind=='tool_bench' then
+    local f=s.fabrication
+    s.status=f and ('Fabricating '..(f.kind=='pickaxe' and 'pickaxe' or 'rope coil')..' '..f.progress..'/'..f.work) or 'Ready for tool fabrication'
    elseif s.kind=='pump' then
     local ok,reason=S.pumpReady(w,s); s.status=ok and 'Needs an operator' or reason
    else s.status='Ready' end

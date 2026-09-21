@@ -208,8 +208,14 @@ falling or bombs. T toggles a completed ward.
 | Ctrl+Q | Quit through the normal save-on-quit path |
 
 Orders entered while paused wait for the next tick. Right single-steps. A worker
-panel is a draft, not an out-of-tick simulation mutation. Practice-only V retains
-the fine-cell material brush. Challenge archive rejects all new command families.
+panel is a draft, not an out-of-tick simulation mutation. Ordinary Crew, Field
+Notes, Region, expedition, School, inspector and help panels stay live; only Space
+changes the normal campaign clock. New frontier campaigns use a 2×4 settler body
+and fog of war: black is unexplored, dim terrain is remembered, and current map
+truth needs a living local observer with light or close dark vision. Delegate a
+one-metal Torch to illuminate a 16-cell area; the docked shuttle lights the first
+landing area. Practice-only V retains the fine-cell material brush. Challenge
+archive rejects all new command families.
 
 ## Maps and saves
 

@@ -19,6 +19,8 @@ local Logistics=require('src.logistics')
 local Travel=require('src.travel')
 local Education=require('src.education')
 local ActionHud=require('src.ui.action_hud')
+local Body=require('src.body')
+local Visibility=require('src.visibility')
 local R={};R.__index=R
 local colors={bg={0.039,0.053,0.067},panel={0.070,0.085,0.103},edge={0.19,0.23,0.26},
  text={0.86,0.88,0.86},muted={0.49,0.56,0.59},amber={0.89,0.66,0.35},
@@ -105,16 +107,21 @@ function R:cell(mx,my)
  if x<1 or x>r.w/r.scale or y<1 or y>r.h/r.scale then return end
  return x,y
 end
-function R:refresh(w,view)
- if self.lastWorld==w and self.lastTick==w.tick and self.lastView==view then return end
+function R:refresh(w,view,context)
+ if self.lastWorld==w and self.lastTick==w.tick and self.lastView==view and self.lastVisibility==w.visibility then return end
  if not self.data or self.width~=w.width or self.height~=w.height then
   if self.image then self.image:release();self.data:release() end
   self.data=love.image.newImageData(w.width,w.height,'rgba8')
   self.image=love.graphics.newImage(self.data);self.image:setFilter('nearest','nearest')
   self.width,self.height=w.width,w.height
  end
+ local sight=Visibility.enabled(w) and Visibility.derive(w,context) or nil
  for y=1,w.height do for x=1,w.width do
-  local i=W.index(w,x,y);local m=w.mat[i];local c=M.def[m].color
+  local i=W.index(w,x,y);local current=not sight or sight.current[i];local remembered=nil
+  local m=current and w.mat[i] or Visibility.memoryAt(w,x,y)
+  if not m then self.data:setPixel(x-1,y-1,0.006,0.009,0.012,1)
+  else
+  local c=M.def[m].color
   local shade=0.85+((x*13+y*7+x*y)%19)/100
   if m==M.AIR then shade=0.55+y/w.height*0.35
   elseif m==M.ROCK or m==M.ORE or m==M.SOIL then
@@ -127,19 +134,25 @@ function R:refresh(w,view)
    if m==M.ROCK then r,g,b=tint[1]*shade,tint[2]*shade,tint[3]*shade
    elseif m==M.AIR then r,g,b=0.018+tint[1]*0.09,0.022+tint[2]*0.09,0.028+tint[3]*0.09 end
   end
-  if view==4 then
+  if current and view==4 then
    local tint=(region or B.def[0]).color
    local light=m==M.AIR and 0.38 or m==M.BEDROCK and 0.20 or 0.92
    r,g,b=tint[1]*light,tint[2]*light,tint[3]*light
-  elseif view==2 then
+  elseif current and view==2 then
    if m==M.WATER or m==M.ICE or m==M.STEAM then r,g,b=c[1],c[2],c[3]
    elseif m==M.LAVA then r,g,b=0.9,0.18,0.05
    else r,g,b=r*0.26,g*0.26,b*0.26 end
   end
+  if sight then
+   local light=sight.light[i] or 0
+   local factor=current and (light>0 and U.clamp(0.22+light/(Visibility.shuttleRadius+1)*0.78,0.22,1) or 0.20) or 0.16
+   r,g,b=r*factor,g*factor,b*factor
+  end
   self.data:setPixel(x-1,y-1,U.clamp(r),U.clamp(g),U.clamp(b),1)
+  end
  end end
  self.image:replacePixels(self.data)
- self.lastWorld,self.lastTick,self.lastView=w,w.tick,view
+ self.lastWorld,self.lastTick,self.lastView,self.lastVisibility=w,w.tick,view,w.visibility
 end
 local function dashed(x,y,w,h,c)
  color(c)
@@ -152,7 +165,8 @@ function R:drawMap(app)
  local v=self.viewport
  box(v.x,v.y,v.w,v.h,colors.panel)
  love.graphics.setScissor(v.x,v.y,v.w,v.h)
- self:refresh(w,app.view)
+ local visibilityContext=app.campaign and {campaign=app.history.view,siteId=app.siteId} or nil
+ self:refresh(w,app.view,visibilityContext)
  color({1,1,1});love.graphics.draw(self.image,rect.x,rect.y,0,sc,sc)
  if app.grid and sc>=3 then
   color(colors.edge,0.25)
@@ -161,8 +175,13 @@ function R:drawMap(app)
  end
  for slot=1,w.cols*w.rows do local s=w.structures[slot]
   if s then
-   local px,py=point(s.gx*4-3,s.gy*4-3);local size=4*sc
-   if s.kind=='wall' then
+   local visible=not Visibility.enabled(w) or Visibility.currentlyVisible(w,s.gx*4-2,s.gy*4-2,visibilityContext)
+   local remembered=Visibility.enabled(w) and not visible and w.visibility.structures[slot]
+   if visible or remembered then
+   local shown=visible and s or remembered
+   local px,py=point(shown.gx*4-3,shown.gy*4-3);local size=4*sc
+   if not visible then box(px,py,size,size,colors.muted,0.15)
+   elseif s.kind=='wall' then
     box(px,py,size,size,{0.37,0.37,0.36})
     color({0.20,0.23,0.23});love.graphics.rectangle('line',px,py,size,size)
     love.graphics.line(px,py+size/2,px+size,py+size/2);love.graphics.line(px+size/2,py,px+size/2,py+size/2)
@@ -194,37 +213,45 @@ function R:drawMap(app)
     box(px+sc,py+sc,2*sc,2*sc,colors.cyan)
     color(colors.amber);love.graphics.rectangle('line',px+sc,py+sc,2*sc,2*sc)
     if sc>=4 then text('F',px+sc*1.2,py+sc*1.2,colors.bg,self.small) end
+   elseif s.kind=='torch' then
+    box(px+sc*1.7,py+sc,sc*.6,sc*2.5,colors.amber);box(px+sc*1.3,py+sc*.5,sc*1.4,sc,colors.amber)
+   end
    end
   end
  end
  if app.campaign and app.history.view.features.logistics==1 then
   for _,craft in ipairs(Logistics.craftsAt(app.history.view,app.siteId)) do
+   if not Visibility.enabled(w) or Visibility.currentlyVisible(w,craft.anchor.x,craft.anchor.y,visibilityContext) then
    local px,py=point(craft.anchor.x,craft.anchor.y)
    box(px-sc*1.5,py-sc*2.8,sc*5,sc*1.7,colors.edge)
    box(px-sc,py-sc*2.4,sc*4,sc*1.2,colors.cyan)
    box(px+sc*0.3,py-sc*3.2,sc*1.2,sc*0.8,colors.amber)
    if sc>=3 then text('S',px+sc*0.5,py-sc*2.5,colors.bg,self.small) end
+   end
   end
  end
  for _,j in ipairs(w.jobs) do if j.state=='open' then
+  if not Visibility.enabled(w) or Visibility.currentlyVisible(w,j.gx*4-2,j.gy*4-2,visibilityContext) then
   local x,y=point(j.gx*4-3,j.gy*4-3);local sz=4*sc
   local c=j.assigned and colors.cyan or colors.amber
   box(x,y,sz,sz,c,0.12);dashed(x,y,sz,sz,c)
   if sc>=4 then text(j.kind=='dig' and '/' or j.kind=='remove' and 'x' or '+',x+1,y,c,self.small) end
+  end
  end end
  for _,cmd in ipairs(app.history.commands[app.history.live.tick+1] or {}) do
   local payload=app.campaign and cmd.siteId==app.siteId and cmd.payload or cmd
   if app.history:atPresent() and payload and payload.type=='order' then local x,y=point(payload.gx*4-3,payload.gy*4-3);dashed(x,y,4*sc,4*sc,colors.cyan) end
  end
- for _,p in ipairs(w.items) do if p.n>0 then
+ for _,p in ipairs(w.items) do if p.n>0 and (not Visibility.enabled(w) or Visibility.currentlyVisible(w,p.x,p.y,visibilityContext)) then
   local x,y=point(p.x,p.y)
   local c=p.kind=='food' and colors.green or p.kind=='water' and colors.cyan or colors.amber
   box(x,y+sc*0.4,sc*1.2,sc*0.6,c)
  end end
- ContentView.draw(w,point,sc,app,self)
+ ContentView.draw(w,point,sc,app,self,visibilityContext)
  for index,a in ipairs(w.workers) do
-  local x,y=point(a.x,a.y-2)
-  if a.alive then
+  local x1,y1,_,y2=Body.rect(w,a.x,a.y)
+  local x,y=point(x1,y1);local bodyHeight=(y2-y1+1)*sc
+  if a.alive and (not Visibility.enabled(w) or Visibility.currentlyVisible(w,a.x,a.y,visibilityContext)) then
    local c=({colors.amber,colors.cyan,colors.green})[(index-1)%3+1]
    if app.view==3 and a.task and a.task.path then
     color(c,0.55);local lastX,lastY=x+sc,y+2*sc
@@ -235,12 +262,12 @@ function R:drawMap(app)
    end
    box(x+sc*0.25,y,sc*1.5,sc,colors.text)
    box(x,y+sc,sc*2,sc*1.4,c)
-   box(x,y+sc*2.3,sc*0.7,sc*0.7,c);box(x+sc*1.3,y+sc*2.3,sc*0.7,sc*0.7,c)
+   box(x,y+bodyHeight-sc*0.7,sc*0.7,sc*0.7,c);box(x+sc*1.3,y+bodyHeight-sc*0.7,sc*0.7,sc*0.7,c)
    if a.carry then box(x+sc*1.7,y+sc,sc,sc,colors.amber) end
    box(x,y-sc,2*sc,2,colors.red);box(x,y-sc,2*sc*a.hp/100,2,colors.green)
-   if app.selectedWorker==a.id then color(colors.text);love.graphics.rectangle('line',x-2,y-2,2*sc+4,3*sc+4) end
+   if app.selectedWorker==a.id then color(colors.text);love.graphics.rectangle('line',x-2,y-2,2*sc+4,bodyHeight+4) end
   else
-   color(colors.red);love.graphics.line(x,y+sc*2,x+2*sc,y+sc*3);love.graphics.line(x,y+sc*3,x+2*sc,y+sc*2)
+   color(colors.red);love.graphics.line(x,y+bodyHeight-sc,x+2*sc,y+bodyHeight);love.graphics.line(x,y+bodyHeight,x+2*sc,y+bodyHeight-sc)
   end
  end
  if app.hover then
@@ -321,8 +348,16 @@ function R:sidebar(app)
  end
  local cell=not a and (app.selectedCell or app.hover)
  if cell then
-  local gx,gy=W.tile(w,cell.x,cell.y);local s=W.structureAt(w,cell.x,cell.y)
+  local context=app.campaign and {campaign=app.history.view,siteId=app.siteId} or nil
+  local current=not Visibility.enabled(w) or Visibility.currentlyVisible(w,cell.x,cell.y,context)
+  local remembered=Visibility.memoryAt(w,cell.x,cell.y)
+  local gx,gy=W.tile(w,cell.x,cell.y)
   text(string.format('Cell %d,%d / block %d,%d',cell.x,cell.y,gx,gy),x+16,y,colors.cyan,self.small);y=y+20
+  if not current then
+   text(remembered and ('Last known: '..M.def[remembered].name) or 'Unexplored',x+16,y,remembered and colors.muted or colors.amber,self.normal);y=y+24
+   text('Current terrain and structures are not visible.',x+16,y,colors.muted,self.small);y=y+21
+  else
+  local s=W.structureAt(w,cell.x,cell.y)
   text(M.def[W.get(w,cell.x,cell.y)].name..(s and ' + '..S.def[s.kind].label or ''),x+16,y,colors.text,self.normal);y=y+24
   local region=B.get(w,cell.x,cell.y)
   text(region.name,x+16,y,region.color,self.small);y=y+21
@@ -353,6 +388,13 @@ function R:sidebar(app)
    local owner=j.owner and W.find(w.workers,j.owner)
    wrap('Order: '..j.kind..(owner and (' / '..owner.name) or '')..'\n'..j.reason,x+16,y,pw-32,colors.amber,self.small);y=y+42;break
   end end
+ for _,rope in ipairs(w.ropes or {}) do
+  local visible=not Visibility.enabled(w) or Visibility.currentlyVisible(w,rope.laneLeftX,rope.anchorY,visibilityContext)
+  if visible then
+   local px,py=point(rope.laneLeftX,rope.anchorY);color(colors.amber);love.graphics.setLineWidth(math.max(1,sc/3));love.graphics.line(px+sc,py,px+sc,py+rope.length*sc)
+  end
+ end
+  end
  end
  if not cell and not a and not app.selection then wrap('H: assign duties and quotas. Select a block or worker, then right-click to delegate actions. F4 opens field notes.',x+16,y,pw-32,colors.muted,self.normal);y=y+76 end
  y=math.max(y+12,500)

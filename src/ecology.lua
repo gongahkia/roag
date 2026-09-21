@@ -5,6 +5,7 @@ local M=require('src.materials')
 local R=require('src.random')
 local Cat=require('src.catalog')
 local Signals=require('src.signals')
+local Body=require('src.body')
 local E={}
 local adjacent={{-1,0},{1,0},{0,-1},{0,1}}
 function E.clear(w,x,y,tx,ty)
@@ -302,8 +303,8 @@ local function passiveSightings(w,context)
   local records={};for _,record in ipairs(w.content[category]) do if record.alive then records[#records+1]=record end end
   table.sort(records,function(a,b) return a.id<b.id end)
   for _,worker in ipairs(people) do for _,record in ipairs(records) do
-   local headY=worker.y-1
-   if math.abs(record.x-worker.x)+math.abs(record.y-headY)<=Knowledge.sightRange and E.clear(w,worker.x,headY,record.x,record.y) then Knowledge.sighting(context,worker,Knowledge.source(context.siteId,category,record)) end
+  local eyeX,eyeY=Body.eye(w,worker)
+   if (require('src.visibility').enabled(w) and require('src.visibility').visible(w,worker,record.x,record.y,context)) or (not require('src.visibility').enabled(w) and math.abs(record.x-worker.x)+math.abs(record.y-eyeY)<=Knowledge.sightRange and E.clear(w,worker.x,eyeY,record.x,record.y)) then Knowledge.sighting(context,worker,Knowledge.source(context.siteId,category,record)) end
   end end
  end
 end

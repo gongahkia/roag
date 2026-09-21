@@ -65,11 +65,12 @@ local function portable(worker)
  local record={personId=worker.personId,name=worker.name,alive=worker.alive,hp=worker.hp,hunger=worker.hunger,
   fatigue=worker.fatigue,breath=worker.breath,mine=worker.mine,build=worker.build,status=worker.status,
   reason=worker.reason,fall=0,worked=false,progress=0}
+ if worker.stress~=nil then record.stress=worker.stress;record.panic=worker.panic or false;record.lastStressTick=worker.lastStressTick or 0 end
  if worker.frontier then record.frontier=U.deep(worker.frontier) end
  return record
 end
 local function validatePassenger(record,knowledge,education,tick)
- allowed(record,{personId=true,name=true,alive=true,hp=true,hunger=true,fatigue=true,breath=true,mine=true,build=true,status=true,reason=true,fall=true,worked=true,progress=true,deathTick=true,frontier=true},'Transit passenger')
+ allowed(record,{personId=true,name=true,alive=true,hp=true,hunger=true,fatigue=true,breath=true,mine=true,build=true,status=true,reason=true,fall=true,worked=true,progress=true,deathTick=true,frontier=true,stress=true,panic=true,lastStressTick=true},'Transit passenger')
  for _,key in ipairs({'personId','name','alive','hp','hunger','fatigue','breath','mine','build','status','reason','fall','worked','progress'}) do assert(record[key]~=nil,'Missing transit passenger key '..key) end
  U.integer(record.personId,'Transit person ID',1,100000000);assert(type(record.name)=='string' and type(record.alive)=='boolean' and type(record.status)=='string' and type(record.reason)=='string','Malformed transit identity')
  for _,key in ipairs({'hp','hunger','fatigue','breath'}) do assert(U.finite(record[key]) and record[key]>=0 and record[key]<=100,'Invalid transit '..key) end
@@ -78,6 +79,7 @@ local function validatePassenger(record,knowledge,education,tick)
  if knowledge then assert(record.frontier,'Knowledge-enabled passenger lacks personal frontier state');require('src.knowledge').validatePersonal(record.frontier,tick,education)
  else assert(record.frontier==nil,'Personal frontier state requires campaign knowledge') end
  if record.alive then assert(record.deathTick==nil,'Living transit passenger has a death tick') else assert(record.hp==0,'Dead transit passenger has HP');U.integer(record.deathTick,'Transit death tick',0,10000000) end
+ if record.stress~=nil then U.integer(record.stress,'Transit stress',0,100);assert(type(record.panic)=='boolean','Invalid transit panic');U.integer(record.lastStressTick,'Transit stress tick',0,tick) end
 end
 local function notice(c,siteId,kind,text,ordinal)
  local Campaign=require('src.campaign')
@@ -145,6 +147,7 @@ local function addArrivalWorker(world,passenger,pose)
  local worker={id=W.id(world),personId=passenger.personId,name=passenger.name,alive=passenger.alive,hp=passenger.hp,hunger=passenger.hunger,
   fatigue=passenger.fatigue,breath=passenger.breath,mine=passenger.mine,build=passenger.build,status=passenger.status,reason=passenger.reason,
   fall=0,worked=false,job=nil,carry=nil,thinkAt=world.tick+1,progress=0}
+ if passenger.stress~=nil then worker.stress,worker.panic,worker.lastStressTick=passenger.stress,passenger.panic,passenger.lastStressTick end
  if passenger.frontier then worker.frontier=U.deep(passenger.frontier) end
  worker.x,worker.y=pose.x,pose.y
  if not worker.alive then worker.hp=0;worker.status='Dead';worker.deathTick=passenger.deathTick end

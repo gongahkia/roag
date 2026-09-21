@@ -55,19 +55,25 @@ survivable.
 3. Select a reachable map block with left click, then right-click it. The
    **DELEGATE** panel should offer context-appropriate ordinary work. Queue a
    dig or build order; Space runs the campaign and the worker/sidebar shows the
-   resulting assignment. H opens workforce controls.
-4. Right-click a local encounter and use Survey. F4 opens personal field notes;
+   resulting assignment. H opens workforce controls. Crew, F4, Region,
+   expedition and School panels are live: opening them must not pause the colony.
+4. New frontiers begin under fog. Black cells are unexplored; dim terrain is only
+   last known. The docked shuttle lights the first work area. Build a **Torch**
+   through the Delegate panel using one real metal, then verify it reveals more
+   terrain without exposing an unvisited area behind solid walls. Middle-dragging
+   the camera into darkness must not reveal it.
+5. Right-click a currently lit local encounter and use Survey. F4 opens personal field notes;
    record whether unknown descriptions stay neutral and whether another worker
-   remains untrained.
-5. Press Shift+F7 or select Region. Choose **Prepare craft** at Home Planet.
+   remains untrained. A hidden/dark ecological change is not personal evidence.
+6. Press Shift+F7 or select Region. Choose **Prepare craft** at Home Planet.
    Select passengers, choose cargo targets, Apply changes, wait for physical
    loading, Assemble crew, and Launch only when the displayed manifest is
    ready. The panel must show the bound revision, cargo, and crew.
-6. Keep the global clock running while the craft travels. Region should show
+7. Keep the global clock running while the craft travels. Region should show
    transit, and home work must continue while the moon is viewed. At landing,
    select the owned outpost, inspect people/cargo, and use the expedition panel
    to physically unload cargo.
-7. Press F5, use **Ctrl+Q** to save and close the game, then use the exact `--resume` command. Press N,
+8. Press F5, use **Ctrl+Q** to save and close the game, then use the exact `--resume` command. Press N,
    select **Continue frontier campaign** with C, and Enter. Confirm the same
    people, craft, cargo, and history are present once only.
 
@@ -126,6 +132,7 @@ travels. At each checkpoint inspect these visible/authoritative outcomes:
 | Continuity | A's facts/XP persist on Moon I; B remains knowledgeable at home; home records stay there. |
 | Record study | C gains no eyewitness observations and learns only after work at the installed record. |
 | Save/history/layout | F5/Ctrl+Q/resume does not duplicate state; archive has no future record; middle-drag pans the camera; left-drag selection batch-delegates only after a right-click; Cozette text, long blocked reasons, Escape, focus, scrolling and global pause remain usable. |
+| G01 geometry/fog | A settler is visibly half a build block wide and one full block tall; its top cell selects it, a just-above cell does not. Panels stay live, black cells remain unknown, remembered terrain does not update off-screen, and a torch consumes one metal. |
 
 ## Evidence labels
 

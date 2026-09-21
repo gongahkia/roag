@@ -19,21 +19,29 @@ function B.occupied(world,x,y,visit)
  local x1,y1,x2,y2=B.rect(world,x,y)
  for yy=y1,y2 do for xx=x1,x2 do visit(xx,yy) end end
 end
-function B.eye(world,worker)
+local function anchor(value,y)
+ if type(value)=='table' then return value.x,value.y end
+ return value,y
+end
+function B.eye(world,value,y)
  local p=B.profile(world)
- return worker.x,worker.y-p.height+1
+ local x,foot=anchor(value,y)
+ return x,foot-p.height+1
 end
-function B.eyes(world,worker)
- local p=B.profile(world);local y=worker.y-p.height+1
- return {{x=worker.x,y=y},{x=worker.x+p.width-1,y=y}}
+function B.eyes(world,value,y)
+ local x,foot=anchor(value,y);local p=B.profile(world);local top=foot-p.height+1
+ return {{x=x,y=top},{x=x+p.width-1,y=top}}
 end
-function B.hand(world,worker)
+function B.hand(world,value,y)
  local p=B.profile(world)
- return worker.x+(p.width-1)/2,worker.y-p.handOffset
+ local x,foot=anchor(value,y)
+ return x+(p.width-1)/2,foot-p.handOffset
 end
-function B.contains(world,worker,x,y)
- local x1,y1,x2,y2=B.rect(world,worker.x,worker.y)
- return x>=x1 and x<=x2 and y>=y1 and y<=y2
+function B.contains(world,value,y,targetX,targetY)
+ local x,foot,tx,ty
+ if type(value)=='table' then x,foot=value.x,value.y;tx,ty=y,targetX else x,foot,tx,ty=value,y,targetX,targetY end
+ local x1,y1,x2,y2=B.rect(world,x,foot)
+ return tx>=x1 and tx<=x2 and ty>=y1 and ty<=y2
 end
 
 return B

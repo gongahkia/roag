@@ -161,7 +161,8 @@ function L.validate(c)
   else assert(dock,'Craft docking site is missing') end
   if dock then assert(dock.ownerSocietyId==c.society.id,'Craft is not docked at an owned site') end
   exact(record.anchor,{x=true,y=true},'Craft anchor');U.integer(record.anchor.x,'Craft anchor x',1,(dock and dock.world.width) or 512);U.integer(record.anchor.y,'Craft anchor y',1,(dock and dock.world.height) or 256)
-  validateCargo(record.cargo,record.capacity,'Craft cargo')
+  local packed=validateCargo(record.cargo,record.capacity,'Craft cargo')
+  if c.features and c.features.equipment==1 then assert(packed+require('src.equipment').craftCount(c,record.id)<=record.capacity,'Craft equipment exceeds cargo capacity') end
   if record.activeManifestId~=nil then U.integer(record.activeManifestId,'Active manifest ID',1,logistics.nextManifestId-1) end
  end
  assert(logistics.nextCraftId>maxCraft,'Next craft ID was already allocated')
@@ -180,7 +181,8 @@ function L.validate(c)
    local personSite=select(1,findPerson(c,personId));assert(personSite and personSite.id==source.id,'Manifest passenger is not at its source site')
   end
   if destination.ownerSocietyId~=c.society.id then assert(#record.passengers>0,'Unowned destination needs a passenger') end
-  validateCargo(record.cargo,vehicle.capacity,'Manifest cargo')
+  local planned=validateCargo(record.cargo,vehicle.capacity,'Manifest cargo')
+  if c.features and c.features.equipment==1 then assert(planned+require('src.equipment').craftCount(c,vehicle.id)<=vehicle.capacity,'Manifest plus equipment exceeds cargo capacity') end
   dense(record.assembly,'Assembly positions',32);local seenAssembly={}
   for _,pose in ipairs(record.assembly) do
    exact(pose,{personId=true,x=true,y=true},'Assembly position');U.integer(pose.personId,'Assembly person ID',1,100000000);assert(not seenAssembly[pose.personId],'Duplicate assembly person');seenAssembly[pose.personId]=true
@@ -232,7 +234,7 @@ local function preparePlan(c,command)
  local logistics,source,vehicle=commandPlan(c,command);local destination=site(c,command.destinationSiteId)
  assert(destination and destination.id~=source.id,'Invalid expedition destination')
  local passengers,cargo=normalizePeople(command.passengers),normalizeCargo(command.cargo)
- assert(cargoTotal(cargo)<=vehicle.capacity,'Cargo exceeds craft capacity')
+ assert(cargoTotal(cargo)+(c.features.equipment==1 and require('src.equipment').craftCount(c,vehicle.id) or 0)<=vehicle.capacity,'Cargo exceeds craft capacity')
  local current=currentManifestForCraft(logistics,vehicle)
  local same=current and current.destinationSiteId==destination.id and samePeople(current.passengers,passengers) and sameCargo(current.cargo,cargo)
  if same then return {kind='same',logistics=logistics,source=source,vehicle=vehicle,manifest=current,passengers=passengers,cargo=cargo,destination=destination} end
@@ -500,7 +502,7 @@ function L.loadDeliver(c,siteId,job,a)
  if not carry or carry.kind~=job.logistics.resource or carry.n<=0 then return false,'Missing carried cargo' end
  if not N.reach(site(c,siteId).world,a.x,a.y,vehicle.anchor.x,vehicle.anchor.y,4) then return false,'Craft is no longer reachable' end
  local current=vehicle.cargo[carry.kind] or 0
- if carry.n>job.logistics.remaining or current+carry.n>(m.cargo[carry.kind] or 0) or cargoTotal(vehicle.cargo)+carry.n>vehicle.capacity then return false,'Craft cargo target changed' end
+ if carry.n>job.logistics.remaining or current+carry.n>(m.cargo[carry.kind] or 0) or cargoTotal(vehicle.cargo)+carry.n+((c.features.equipment==1 and require('src.equipment').craftCount(c,vehicle.id)) or 0)>vehicle.capacity then return false,'Craft cargo target changed' end
  vehicle.cargo[carry.kind]=current+carry.n;job.logistics.remaining=job.logistics.remaining-carry.n;a.carry=nil
  if job.logistics.remaining==0 then job.state='done';job.reason='Loaded';site(c,siteId).world.stats.jobsDone=site(c,siteId).world.stats.jobsDone+1 end
  return true

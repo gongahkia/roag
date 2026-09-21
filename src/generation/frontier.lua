@@ -64,6 +64,9 @@ end
 local function make(seed,mode,width,height,options,populated)
  local o=F.options(options)
  local w=W.new(width,height,seed,'frontier',mode)
+ -- A local frontier is the current lab/new-session geometry. Campaigns decide
+ -- whether to record that profile as a versioned production feature.
+ w.body=1
  assert(width>=128 and height>=80,'Frontier generation needs at least 128 x 80 cells')
  w.biomes=B.generateLiving(seed,width,height,o.climate,o.biomeScale)
  local open=L.make(o.layout,seed,width,height,o.openness,w.biomes)

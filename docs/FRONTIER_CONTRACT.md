@@ -6,6 +6,27 @@ feature-gated parked craft and physical expedition preparation. Neither tranche
 implements travel, automatic lunar founding, a galaxy simulation, or cross-site
 inventory.
 
+COS-G01 adds two explicit current-frontier versions: `features.body=1` means
+`settler-2x4-v1` (two fine cells wide by four high, left-foot anchor), and
+`features.visibility=1` means fog/illumination. Visibility requires body. Each
+new-feature campaign world carries matching `frontier.body=1`,
+`frontier.visibility=1`, `body=1`, and compact per-row explored-memory state.
+Campaigns without those markers retain 2×3 geometry, omniscient old map rendering,
+and the P05 visibility behavior they recorded. Unknown/mismatched versions reject;
+there is no migration.
+
+G01 ordinary panels are live: Crew, F4 notes, Region, expedition, School,
+inspector, help and block selection never implicitly pause or resume the campaign.
+Space remains the deliberate normal clock control. Visibility has unseen,
+remembered and current states. Current visibility is the union of living local
+settlers' 20-cell shadowcast sight from their 2×4 eyes, subject to 3-cell dark
+vision or source illumination. Solid terrain and walls are opaque; boundary walls
+remain visible. A torch is a normal transparent one-block structure costing one
+metal and lighting radius 16, capped at 128 installed torches per site. A docked
+shuttle lights radius 20; a travelling shuttle lights no site. Fog memory is
+campaign/history state but templates exclude it. New spatial commands and P05
+environmental witnessing use this same local visibility boundary.
+
 ## State and identity
 
 P01 campaigns remain valid exactly as before:

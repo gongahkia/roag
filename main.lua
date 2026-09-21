@@ -19,6 +19,7 @@ local Crew=require('src.ui.crew')
 local Content=require('src.content')
 local Logistics=require('src.logistics')
 local Playtest=require('src.playtest')
+local Body=require('src.body')
 local app={paused=true,speed=1,tool='inspect',priority=2,view=1,grid=false,accumulator=0,hud=nil,selection=nil,selectionDrag=nil}
 local renderer
 local function notify(s) app.toast=tostring(s);app.toastTime=8 end
@@ -116,7 +117,7 @@ local function startNew()
 end
 local function campaignOptions(n)
  return {preset=n.preset,mode=n.mode,width=n.width,height=n.height,layout=n.layout,climate=n.climate,
-  openness=n.openness,biomeScale=n.biomeScale,features=n.features,density=n.density,crew=n.crew,logistics=true,travel=true,knowledge=true,education=true}
+ openness=n.openness,biomeScale=n.biomeScale,features=n.features,density=n.density,crew=n.crew,logistics=true,travel=true,knowledge=true,education=true,body=true,visibility=true,equipment=true,safe_excavation=true}
 end
 local function startCampaign()
  local n=app.newRun;local seed=tonumber(n.seed)
@@ -219,7 +220,7 @@ end
 function love.update(dt)
  if app.probe then return end
  if app.toastTime then app.toastTime=app.toastTime-dt;if app.toastTime<=0 then app.toast=nil;app.toastTime=nil end end
- if app.help or app.newRun or app.mapBrowser or app.crew or app.fieldnotes or app.school then return end
+ if app.newRun or app.mapBrowser then return end
  local h=app.history
  if app.benchmark then
   local ok,message,manifest=coroutine.resume(app.benchmark)
@@ -308,7 +309,7 @@ end
 local function selectCell(w,x,y)
  app.selectedCell={x=x,y=y};app.selectedWorker=nil
  for _,worker in ipairs(w.workers) do
-  if math.abs(x-worker.x)<=2 and y>=worker.y-3 and y<=worker.y+1 then app.selectedWorker=worker.id;break end
+  if Body.contains(w,worker.x,worker.y,x,y) then app.selectedWorker=worker.id;break end
  end
 end
 local function delegateSelection(hud,action)
@@ -357,6 +358,10 @@ local function delegateHudAction(action)
  elseif action=='arm' then
   local structure=W.structureAt(w,cell.x,cell.y)
   if structure then return issued({type='arm',slot=W.slot(w,structure.gx,structure.gy),worker=delegatedWorker(),priority=app.priority}) end
+ elseif action=='rope' then return issued({type='place_rope',gx=gx,gy=gy,priority=app.priority})
+ elseif action=='fabricate:pickaxe' or action=='fabricate:rope_coil' then
+  local structure=W.structureAt(w,cell.x,cell.y)
+  if structure and structure.kind=='tool_bench' then return issued({type='fabricate',slot=W.slot(w,structure.gx,structure.gy),kind=action:match(':(.+)$'),priority=app.priority}) end
  elseif action=='toggle' then return issued({type='toggle',gx=gx,gy=gy})
  elseif action=='remove' then return issued({type='order',kind='remove',gx=gx,gy=gy,priority=app.priority,worker=delegatedWorker()})
  elseif action=='cancel' then return issued({type='cancel',gx=gx,gy=gy})
@@ -396,6 +401,7 @@ function love.keypressed(key)
  if app.crew then Crew.key(app,key,queue);return end
  if app.fieldnotes then
   if key=='escape' or key=='f4' then app.fieldnotes=nil
+  elseif key=='space' then if app.history:atPresent() then app.paused=not app.paused;app.accumulator=0 end
   elseif key=='up' then app.fieldnotes.scroll=math.max(1,app.fieldnotes.scroll-1)
   elseif key=='down' then app.fieldnotes.scroll=app.fieldnotes.scroll+1
   elseif key=='left' then require('src.ui.fieldnotes').cycleObserver(app,-1)
@@ -412,7 +418,11 @@ function love.keypressed(key)
   end
   return
  end
- if app.help then if key=='f1' or key=='escape' then app.help=false end return end
+ if app.help then
+  if key=='f1' or key=='escape' then app.help=false
+  elseif key=='space' and app.history:atPresent() then app.paused=not app.paused;app.accumulator=0 end
+  return
+ end
  if app.mapBrowser then
   local b=app.mapBrowser
   if key=='escape' then app.mapBrowser=nil
@@ -462,9 +472,9 @@ function love.keypressed(key)
  end
  local h=app.history
  if key=='escape' then app.benchmark=nil;app.port=nil;app.drag=nil;app.selection=nil;app.selectionDrag=nil;app.hud=nil;app.tool='inspect'
- elseif key=='f1' then app.help=true;app.paused=true;app.hud=nil
+ elseif key=='f1' then app.help=true;app.hud=nil
  elseif key=='h' then app.hud=nil;Crew.open(app)
- elseif key=='f4' then app.fieldnotes={scroll=1,observerId=app.selectedWorker};app.paused=true;app.accumulator=0;app.stepBudget=0;app.drag=nil;app.hud=nil
+ elseif key=='f4' then app.fieldnotes={scroll=1,observerId=app.selectedWorker};app.drag=nil;app.hud=nil
  elseif key=='y' then
   if love.keyboard.isDown('lshift','rshift') then
    local cell=app.selectedCell or app.hover

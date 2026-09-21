@@ -3,6 +3,8 @@
 local W=require('src.world')
 local S=require('src.structures')
 local Content=require('src.content')
+local Body=require('src.body')
+local Visibility=require('src.visibility')
 
 local H={}
 
@@ -20,6 +22,9 @@ local function addBlockActions(world,actions)
  add(actions,'build:farm','Delegate farm','Build from physically delivered materials.')
  add(actions,'build:pump','Delegate pump','Build from physically delivered materials.')
  if world.frontier and world.frontier.education==1 then add(actions,'build:field_school','Delegate field school','Requires four stone and two metal through ordinary construction.') end
+ if world.frontier and world.frontier.equipment==1 then add(actions,'build:tool_bench','Delegate tool bench','Requires four stone and two metal through ordinary construction.') end
+ if world.frontier and world.frontier.visibility==1 then add(actions,'build:torch','Delegate torch','Requires one metal through ordinary construction and lights exploration.') end
+ if world.frontier and world.frontier.safe_excavation==1 then add(actions,'rope','Delegate rope','Fetches one real rope coil and installs a climb lane.') end
 end
 
 local function selectedWorker(world,app)
@@ -28,7 +33,7 @@ end
 
 local function workerAt(world,cell)
  for _,worker in ipairs(world.workers) do
-  if math.abs(cell.x-worker.x)<=2 and cell.y>=worker.y-3 and cell.y<=worker.y+1 then return worker end
+  if Body.contains(world,worker.x,worker.y,cell.x,cell.y) then return worker end
  end
 end
 
@@ -46,6 +51,9 @@ function H.model(app,world)
  end
  local cell=hud and hud.cell or app.selectedCell
  if not cell then return nil end
+ if Visibility.enabled(world) and not Visibility.currentlyVisible(world,cell.x,cell.y,app.campaign and {campaign=app.history.view,siteId=app.siteId} or nil) then
+  return {cell=cell,gx=W.tile(world,cell.x,cell.y),title='Unexplored',actions={}}
+ end
  local gx,gy=W.tile(world,cell.x,cell.y)
  local worker=selectedWorker(world,app) or workerAt(world,cell)
  local structure=W.structureAt(world,cell.x,cell.y)
@@ -68,6 +76,7 @@ function H.model(app,world)
  if structure then
   local label=S.def[structure.kind].label
   if structure.kind=='field_school' and structure.education then add(actions,'school','Open '..label,'Configure records, teaching, or record study.')
+  elseif structure.kind=='tool_bench' then add(actions,'fabricate:pickaxe','Fabricate pickaxe','Consumes two metal and 120 work actions.');add(actions,'fabricate:rope_coil','Fabricate rope coil','Consumes one metal and 60 work actions.')
   elseif structure.kind=='pump' then
    add(actions,'pump:intake','Delegate pump intake','Choose the next material cell as the intake.')
    add(actions,'pump:outlet','Delegate pump outlet','Choose the next material cell as the outlet.')

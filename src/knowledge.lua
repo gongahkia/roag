@@ -2,6 +2,7 @@
 -- what a person saw and supported; it is not a colony-wide unlock table.
 local U=require('src.util')
 local Cat=require('src.catalog')
+local Body=require('src.body')
 local K={version=1,maxObservations=64,maxFacts=64,maxStudies=64,maxSamples=4,maxHistory=128,sightRange=8,studyWork=120}
 
 local categories={'flora','fauna','sites'}
@@ -226,10 +227,12 @@ function K.witnesses(w,context,record,category,x,y)
  table.sort(out,function(a,b) return a.personId<b.personId end)
  local eligible={}
  for _,worker in ipairs(out) do
-  local headY=worker.y-1
-  if math.abs(record.x-worker.x)+math.abs(record.y-headY)<=K.sightRange
-   and math.abs(x-worker.x)+math.abs(y-headY)<=K.sightRange
-   and clear(w,worker.x,headY,record.x,record.y) and clear(w,worker.x,headY,x,y) then eligible[#eligible+1]=worker end
+  local eyeX,eyeY=Body.eye(w,worker)
+  if require('src.visibility').enabled(w) then
+   if require('src.visibility').visible(w,worker,record.x,record.y,context) and require('src.visibility').visible(w,worker,x,y,context) then eligible[#eligible+1]=worker end
+  elseif math.abs(record.x-worker.x)+math.abs(record.y-eyeY)<=K.sightRange
+   and math.abs(x-worker.x)+math.abs(y-eyeY)<=K.sightRange
+   and clear(w,worker.x,eyeY,record.x,record.y) and clear(w,worker.x,eyeY,x,y) then eligible[#eligible+1]=worker end
  end
  return eligible
 end
@@ -263,6 +266,11 @@ function K.learn(context,worker,id,method,source,provenance)
 end
 function K.survey(context,worker,source)
  if not K.enabled(context) then return false,'Knowledge is unavailable' end
+ if require('src.visibility').enabled(context and context.campaign and require('src.campaign').site(context.campaign,context.siteId).world) then
+  local world=require('src.campaign').site(context.campaign,context.siteId).world
+  local Content=require('src.content');local record=Content.find(world,source.id)
+  if not record or not require('src.visibility').visible(world,worker,record.x,record.y,context) then return false,'Too dark to examine target' end
+ end
  local id=K.identificationId(source.category,source.kind);return addFact(context,worker,id,'survey',source,{})
 end
 local function copyQualifying(source,effect)
@@ -289,6 +297,11 @@ function K.canStudy(context,worker,source)
  return true,effect,id
 end
 function K.studyAction(context,worker,source)
+ if require('src.visibility').enabled(context and context.campaign and require('src.campaign').site(context.campaign,context.siteId).world) then
+  local world=require('src.campaign').site(context.campaign,context.siteId).world
+  local Content=require('src.content');local record=Content.find(world,source.id)
+  if not record or not require('src.visibility').visible(world,worker,record.x,record.y,context) then return false,'Too dark to examine target' end
+ end
  local ok,effect,id=K.canStudy(context,worker,source);if not ok then return false,effect end
  local knowledge=personal(worker)
  if knowledge.lastStudyActionTick==context.campaign.tick then return false,'Already performed field study this tick' end
