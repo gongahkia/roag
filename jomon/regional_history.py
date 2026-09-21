@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .calendar import ACTIONS_PER_DAY, calendar_at
 from .catalog import CatalogError, HISTORY_SECTIONS, load_catalog
+from .history_presentation import history_format
 from .state import (
     ActorSchedule, Contact, GameState, Institution, MaterialCell, Position,
     RegionalEvent, stage_rng,
@@ -112,7 +113,7 @@ def _ensure_network_contacts(state: GameState) -> None:
             )
             contact = Contact(
                 contact_id, name, role, 0,
-                [f"Represents {state.institutions[institution_id].name} in {region.name}; material transfers and shelter are witnessed."],
+                [history_format("history.network.contact_memory", institution=state.institutions[institution_id].name, region=region.name)],
                 interest, region_id, point,
             )
             contacts.append(contact)
@@ -162,17 +163,17 @@ def reconcile_network(state: GameState) -> None:
             account.opposition_reason = definition["opposition"]
         aftermath = state.regions[account.region_id].changes.get("aftermath_configuration")
         if aftermath == "shared":
-            account.service += "; aftermath crews now maintain one firm marked approach"
+            account.service += history_format("history.aftermath.shared")
         elif aftermath == "claimed":
-            account.service += "; claimed aftermath work is available only against a recorded obligation"
+            account.service += history_format("history.aftermath.claimed")
         account.relationships = {}
     for first in accounts:
         for second in accounts:
             if first.id == second.id:
                 continue
             if first.production == second.dependency:
-                first.relationships[second.id] = f"supplies {first.production} to {second.name}"
-                second.relationships[first.id] = f"depends on {first.name} for {first.production}"
+                first.relationships[second.id] = history_format("history.relationship.supplies", production=first.production, institution=second.name)
+                second.relationships[first.id] = history_format("history.relationship.depends", institution=first.name, production=first.production)
     for first_region, second_region, dispute in INSTITUTION_TIES:
         if first_region not in local_accounts or second_region not in local_accounts:
             continue
@@ -187,8 +188,8 @@ def reconcile_network(state: GameState) -> None:
             local = local_accounts.get(region_id)
             if local is None:
                 continue
-            network.relationships[local.id] = f"maintains an embodied witness beside {local.name}"
-            local.relationships[network.id] = f"shares material accounts with {network.name}"
+            network.relationships[local.id] = history_format("history.relationship.witness", institution=local.name)
+            local.relationships[network.id] = history_format("history.relationship.shared", institution=network.name)
     from .legendary import initialise_region_legend
     for region_id in local_accounts:
         initialise_region_legend(state, region_id)
@@ -234,11 +235,11 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
     scar = next((p for p in candidates if p not in protected and 0 <= p.x < region.width and 0 <= p.y < region.height and region.levels[str(p.z)][p.y][p.x] not in {" ", "#", "~"}), point)
     coordinate = f"{scar.x},{scar.y},{scar.z}"
     accounts = [
-        ("water and stone", geology, f"{climate.title()} supported {production} work; {dependency} had to arrive by vessel.", f"Water exposure {water} determined the working bank and its supply dependence."),
-        (crisis, "timber" if crisis != "flood" else "soil", f"{witness.name} records a {crisis} at the {landmark.replace('_', ' ')}.", f"A scar at {coordinate} and a shortage of {dependency} remain evidence of the same loss."),
-        (recovery, dependency, f"{name} secured a {recovery} after the {crisis}.", "The repair left a private obligation." if institution.obligation else "Shared repair raised market confidence, but output still depends on supplies."),
-        ("contested occupation", production, f"Work guards arrived to settle {dispute}; local testimony disagrees about their mandate.", "The posted guards protect this work; no relief party has been sighted."),
-        ("unsettled account", dependency, f"{witness.name} placed the repair account with {cache.name}.", f"The named cache and the {name} supply account can still be resolved independently."),
+        ("water and stone", geology, history_format("history.event.water_and_stone.account", climate=climate.title(), production=production, dependency=dependency), history_format("history.event.water_and_stone.consequence", water=water)),
+        (crisis, "timber" if crisis != "flood" else "soil", history_format("history.event.crisis.account", witness=witness.name, crisis=crisis, landmark=landmark.replace("_", " ")), history_format("history.event.crisis.consequence", coordinate=coordinate, dependency=dependency)),
+        (recovery, dependency, history_format("history.event.recovery.account", institution=name, recovery=recovery, crisis=crisis), history_format("history.event.recovery.private_consequence" if institution.obligation else "history.event.recovery.shared_consequence")),
+        ("contested occupation", production, history_format("history.event.contested_occupation.account", dispute=dispute), history_format("history.event.contested_occupation.consequence")),
+        ("unsettled account", dependency, history_format("history.event.unsettled_account.account", witness=witness.name, cache=cache.name), history_format("history.event.unsettled_account.consequence", institution=name)),
     ]
     previous = None
     for index, (kind, material, account, consequence) in enumerate(accounts):
@@ -264,7 +265,7 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
     market[production].stock = min(8, market[production].stock + (1 if recovery == "shared repair" else 0))
     institution.confidence = 1 if recovery == "shared repair" else -1
     for contact in contacts:
-        contact.memories.append(f"{name}: {crisis}, then {recovery}; {dispute} remains unsettled.")
+        contact.memories.append(history_format("history.contact_memory", institution=name, crisis=crisis, recovery=recovery, dispute=dispute))
         del contact.memories[:-8]
     guards = [actor for actor in state.region_threats[region_id] if not actor.elite and actor.profile != "animal"]
     # witnesses recruit one compatible local guard detail, not opposed claims.
@@ -272,7 +273,7 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
     detail = [actor for actor in guards if preferred and actor.allegiance == preferred.allegiance]
     for actor in detail[:2]:
         actor.group = institution_id
-        actor.goal_reason = f"witnessed {crisis} left {name} guarding its {production} account"
+        actor.goal_reason = history_format("history.guard_reason", crisis=crisis, institution=name, production=production)
         if not actor.duty:
             actor.objective_position = region.landmarks["objective"]
     for actor in state.region_threats[region_id]:
@@ -280,7 +281,7 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
             actor.home_position = region.landmarks.get("far_bank", actor.position)
     # The history is attached to a real, finite existing cache. Its reward has
     # the normal passive reducer and bulk, not a second invisible item system.
-    cache.name = f"{witness.name.split()[0]}'s {('Flood Binding' if crisis == 'flood' else 'Ash Account' if crisis == 'fire' else 'Load Witness')} coffer"
+    cache.name = history_format(f"history.cache_name.{crisis.replace(' ', '_')}", witness=witness.name.split()[0])
     reward = {"flood": "rain cape", "fire": "ember cloth", "support loss": "quarry brace"}[crisis]
     if reward not in [cache.reward, *cache.extra_rewards]:
         cache.extra_rewards.append(reward)
@@ -289,7 +290,7 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
             edge.cargo_risk = min(3, edge.cargo_risk + (1 if institution.obligation else 0))
     node = state.route_nodes.get(region_id)
     if node:
-        node.description += f"; {crisis} repairs depend on {dependency}"
+        node.description += history_format("history.route_dependency", crisis=crisis, dependency=dependency)
         node.market_interest = dependency
 
 
@@ -323,9 +324,9 @@ def advance_production(state: GameState) -> None:
         else:
             need.demand = min(8, need.demand + 1)
             product.stock = max(0, product.stock - 1)
-        region.changes["last_work_account"] = f"Day {today}: {output} {institution.production} output; {institution.dependency} stock {need.stock}; {season}."
+        region.changes["last_work_account"] = history_format("history.production.record", day=today, output=output, production=institution.production, dependency=institution.dependency, stock=need.stock, season=season)
         if institution.region_id == state.active_region_id and state.location == "region":
-            state.add_message(f"{institution.name}: {output} {institution.production} output; {institution.dependency} {'consumed' if output else 'short'}.", priority=2)
+            state.add_message(history_format("history.production.notice", institution=institution.name, output=output, production=institution.production, status=f"{institution.dependency} {'consumed' if output else 'short'}"), priority=2)
     from .production import advance_craft_economy
 
     advance_craft_economy(state)
@@ -336,30 +337,29 @@ def deliver_dependency(state: GameState) -> tuple[bool, str]:
 
     institution = account_for(state)
     if institution is None:
-        return False, "This place has no witnessed working account."
+        return False, history_format("history.local_delivery.no_account")
     market = state.market[institution.dependency]
     if market.stock >= 5:
-        return False, "The association has enough supplies for now; it offers no empty contract."
+        return False, history_format("history.local_delivery.supplied")
     kind = f"commodity:{institution.dependency}"
     if not consume_carried(state, kind):
-        return False, f"Bring one physical {institution.dependency} lot; the store is short."
+        return False, history_format("history.local_delivery.missing", dependency=institution.dependency)
     weighed = "market weights" in state.carried_passives
     market.stock = min(10, market.stock + (3 if weighed else 2))
     market.demand = max(0, market.demand - 1)
     institution.trust = min(3, institution.trust + 1)
     institution.obligation = max(0, institution.obligation - 1)
     institution.confidence = min(3, institution.confidence + (2 if weighed else 1))
-    act = f"{state.courier.name} delivered a witnessed {institution.dependency} lot on day {state.world_time // ACTIONS_PER_DAY}."
+    act = history_format("history.local_delivery.act", courier=state.courier.name, dependency=institution.dependency, day=state.world_time // ACTIONS_PER_DAY)
     institution.witnessed_acts.append(act)
     del institution.witnessed_acts[:-8]
     state.trade_credit += 1 + int(bool(state.courier and "guild-broker" in state.courier.skill_nodes))
     from .skill_tree import record_milestone
 
     record_milestone(state, f"trade:{state.active_region_id}")
-    state.remember(f"{state.courier.name} delivered {institution.dependency} to {institution.name}; household trust {institution.trust}, remaining obligation {institution.obligation}.")
+    state.remember(history_format("history.local_delivery.memory", courier=state.courier.name, dependency=institution.dependency, institution=institution.name, trust=institution.trust, obligation=institution.obligation))
     return True, (
-        "The physical supply settles part of the work account: one credit, household trust, and material for the next shift."
-        + (" Calibrated market weights verify one additional stock and confidence." if weighed else "")
+        history_format("history.local_delivery.result", weighed=history_format("history.local_delivery.weighed") if weighed else "")
     )
 
 
@@ -369,19 +369,18 @@ def deliver_network_dependency(state: GameState, contact_id: str) -> tuple[bool,
 
     institution = network_institution_for_contact(state, contact_id)
     if institution is None:
-        return False, "No travelling material account is represented here."
+        return False, history_format("history.network_delivery.no_account")
     if institution.obligation >= 3:
-        return False, f"{institution.name} requires its existing obligations settled before another transfer."
+        return False, history_format("history.network_delivery.obligations", institution=institution.name)
     if not consume_carried(state, f"commodity:{institution.dependency}"):
-        return False, f"Bring one physical {institution.dependency} lot for the compared account."
+        return False, history_format("history.network_delivery.missing", dependency=institution.dependency)
     local_market = state.market[institution.dependency]
     local_market.stock = min(10, local_market.stock + 1)
     local_market.demand = max(0, local_market.demand - 1)
     institution.trust = min(3, institution.trust + 1)
     institution.confidence = min(3, institution.confidence + 1)
     act = (
-        f"{state.courier.name} transferred one {institution.dependency} lot "
-        f"through {contact_id} on day {state.world_time // ACTIONS_PER_DAY}."
+        history_format("history.network_delivery.act", courier=state.courier.name, dependency=institution.dependency, contact_id=contact_id, day=state.world_time // ACTIONS_PER_DAY)
     )
     institution.witnessed_acts.append(act)
     del institution.witnessed_acts[:-8]
@@ -394,12 +393,10 @@ def deliver_network_dependency(state: GameState, contact_id: str) -> tuple[bool,
     contact.memories.append(act)
     del contact.memories[:-8]
     state.remember(
-        f"{institution.name} received physical {institution.dependency} at "
-        f"{state.region.name}; network trust {institution.trust}."
+        history_format("history.network_delivery.memory", institution=institution.name, dependency=institution.dependency, region=state.region.name, trust=institution.trust)
     )
     return True, (
-        f"{contact.name} witnesses the physical lot into {institution.name}: "
-        "one credit, local stock and network trust remain on the account."
+        history_format("history.network_delivery.result", contact=contact.name, institution=institution.name)
     )
 
 
@@ -407,12 +404,12 @@ def open_network_shelter(state: GameState, contact_id: str) -> tuple[bool, str]:
     """Spend earned trust on one persistent regional route concession."""
     institution = network_institution_for_contact(state, contact_id)
     if institution is None:
-        return False, "No travelling shelter account is represented here."
+        return False, history_format("history.network_shelter.no_account")
     marker = f"network-shelter:{institution.id}:{state.active_region_id}"
     if state.vessel_changes.get(marker):
-        return False, "This witnessed shelter and route mark is already open."
+        return False, history_format("history.network_shelter.open")
     if institution.trust < 1 or institution.obligation >= 3:
-        return False, "One witnessed material transfer and fewer than three obligations are required."
+        return False, history_format("history.network_shelter.requirement")
     changed_edges = 0
     for edge in state.route_edges:
         if state.active_region_id in {edge.first, edge.second}:
@@ -426,8 +423,7 @@ def open_network_shelter(state: GameState, contact_id: str) -> tuple[bool, str]:
         "region": state.active_region_id,
     }
     act = (
-        f"Opened witnessed shelter at {state.region.name}; {changed_edges} "
-        "connected route edges now carry less cargo or weather exposure."
+        history_format("history.network_shelter.act", region=state.region.name, edges=changed_edges)
     )
     institution.witnessed_acts.append(act)
     del institution.witnessed_acts[:-8]
@@ -437,8 +433,8 @@ def open_network_shelter(state: GameState, contact_id: str) -> tuple[bool, str]:
     )
     contact.memories.append(act)
     del contact.memories[:-8]
-    state.remember(f"{institution.name}: {act} One obligation remains physical in the account.")
-    return True, f"{contact.name} opens the shelter mark; {changed_edges} connected route edges become safer, and one obligation is recorded."
+    state.remember(history_format("history.network_shelter.memory", institution=institution.name, act=act))
+    return True, history_format("history.network_shelter.result", contact=contact.name, edges=changed_edges)
 
 
 def network_service_options(
@@ -456,19 +452,19 @@ def network_service_options(
     )
     return (
         (
-            "d", f"Transfer one {institution.dependency} into the travelling account",
+            "d", history_format("history.network_service.delivery.label", dependency=institution.dependency),
             "commitment", institution.obligation < 3,
-            "three unresolved network obligations block another transfer",
+            history_format("history.network_service.delivery.requirement"),
         ),
         (
-            "c", "Open the witnessed shelter and safer connected route",
+            "c", history_format("history.network_service.shelter.label"),
             "commitment", institution.trust >= 1 and not state.vessel_changes.get(marker),
-            "needs one network trust; each regional shelter opens once",
+            history_format("history.network_service.shelter.requirement"),
         ),
         (
-            "t", f"Learn {practice}", "ordinary",
+            "t", history_format("history.network_service.practice.label", practice=practice), "ordinary",
             institution.trust >= 1 and not learned,
-            "needs one network trust; this courier may learn the practice once",
+            history_format("history.network_service.practice.requirement"),
         ),
     )
 
@@ -476,12 +472,12 @@ def network_service_options(
 def ledger_lines(state: GameState) -> list[str]:
     institution = account_for(state)
     if not institution:
-        return ["No working account has been witnessed here yet."]
+        return [history_format("history.ledger.no_account")]
     region = state.region
     facts = region.generation_facts
-    lines = [f"FACT — {region.name}: {facts['geology']}, {facts['climate']}.", f"FACT — work: {institution.production}; dependency: {institution.dependency}.", f"{institution.name}: {institution.goal}.", f"Service: {institution.service}.", f"Dispute: {institution.dispute}; opposition: {institution.opposition_reason}.", f"Household trust {institution.trust:+d}; obligation {institution.obligation}; confidence {institution.confidence:+d}."]
-    lines.extend(f"RELATION — {text}." for text in institution.relationships.values())
-    lines.extend(f"WITNESSED — {text}" for text in institution.witnessed_acts[-3:])
+    lines = [history_format("history.ledger.fact_region", region=region.name, geology=facts["geology"], climate=facts["climate"]), history_format("history.ledger.fact_work", production=institution.production, dependency=institution.dependency), history_format("history.ledger.institution", institution=institution.name, goal=institution.goal), history_format("history.ledger.service", service=institution.service), history_format("history.ledger.dispute", dispute=institution.dispute, opposition=institution.opposition_reason), history_format("history.ledger.standing", trust=f"{institution.trust:+d}", obligation=institution.obligation, confidence=f"{institution.confidence:+d}")]
+    lines.extend(history_format("history.ledger.relation", text=text) for text in institution.relationships.values())
+    lines.extend(history_format("history.ledger.witnessed", text=text) for text in institution.witnessed_acts[-3:])
     present_networks = [
         state.institutions[institution_id]
         for institution_id, definition in NETWORK_ACCOUNTS.items()
@@ -490,25 +486,25 @@ def ledger_lines(state: GameState) -> list[str]:
     ]
     for network in present_networks:
         lines += [
-            f"NETWORK — {network.name}: {network.goal}.",
-            f"SERVICE — {network.service}; trust {network.trust:+d}, obligation {network.obligation}.",
-            f"OPPOSITION — {network.opposition_reason}.",
+            history_format("history.ledger.network", institution=network.name, goal=network.goal),
+            history_format("history.ledger.network_service", service=network.service, trust=f"{network.trust:+d}", obligation=network.obligation),
+            history_format("history.ledger.opposition", opposition=network.opposition_reason),
         ]
     legend = state.legendary_objects.get(f"legend:{state.active_region_id}")
     if legend:
         lines.append(f"RUMOR — {legend.clue}")
-    lines += [str(region.changes.get("last_work_account", "No new shift has been resolved in this account.")), ""]
+    lines += [str(region.changes.get("last_work_account", history_format("history.ledger.no_recent"))), ""]
     for event in region.regional_history:
-        lines += [f"TESTIMONY — {event.account}", f"EVIDENCE — {event.evidence}: {event.consequence}", ""]
+        lines += [history_format("history.ledger.testimony", account=event.account), history_format("history.ledger.evidence", evidence=event.evidence, consequence=event.consequence), ""]
     landform_keys = sorted(
         (key for key in facts if key.startswith("landform:")),
         key=lambda key: int(key.partition(":")[2]),
     )
-    lines.extend(f"LANDFORM — {facts[key]}" for key in (*landform_keys, "field_upper", "field_lower") if key in facts)
+    lines.extend(history_format("history.ledger.landform", text=facts[key]) for key in (*landform_keys, "field_upper", "field_lower") if key in facts)
     if region.changes.get("sanctum:cleared"):
         lines.append(f"SANCTUM — cleared; holding {region.changes.get('sanctum:control', 'unsettled')}; "
                      f"gallery seam {'open' if region.changes.get('sanctum:secret_open') else 'unopened'}.")
-    lines += ["FORECAST — " + forecast(state), "Reading uses no stores; fieldwork calls for supplies and a shift of daylight."]
+    lines += ["FORECAST — " + forecast(state), history_format("history.ledger.reading")]
     from .worklines import WORKLINES, lines as work_lines
     if state.active_region_id in WORKLINES:
         lines += ["", "UNDERTAKING — optional second regional work", *work_lines(state)]
@@ -534,8 +530,8 @@ def ledger_lines(state: GameState) -> list[str]:
 def forecast(state: GameState) -> str:
     exposure = int(state.region.generation_facts.get("exposure", 0))
     remaining = next((t - state.pressure_elapsed for t in state.region.process_thresholds if t > state.pressure_elapsed), None)
-    stage = f"{remaining} more working actions to the next {state.region.process_name} sign" if remaining is not None else f"the {state.region.process_name} has changed; inspect its material aftermath"
-    return f"{calendar_at(state).season}; {'exposed' if exposure == 2 else 'partly sheltered'} water; {stage}."
+    stage = history_format("history.forecast.next", remaining=remaining, process=state.region.process_name) if remaining is not None else history_format("history.forecast.changed", process=state.region.process_name)
+    return history_format("history.forecast", season=calendar_at(state).season, exposure="exposed" if exposure == 2 else "partly sheltered", stage=stage)
 
 
 def validate_accounts(state: GameState) -> None:

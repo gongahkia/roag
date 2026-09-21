@@ -66,6 +66,81 @@ CHARACTER_PRESENTATION_FILE = "characters.json"
 ITEM_PRESENTATION_FILE = "items.json"
 UI_PRESENTATION_FILE = "ui_text.json"
 QUEST_PRESENTATION_FILE = "quests.json"
+HISTORY_PRESENTATION_FILE = "history_text.json"
+
+_HISTORY_TEMPLATE_CONTRACT = {
+    'history.event.water_and_stone.account': ('climate', 'production', 'dependency'),
+    'history.event.water_and_stone.consequence': ('water',),
+    'history.event.crisis.account': ('witness', 'crisis', 'landmark'),
+    'history.event.crisis.consequence': ('coordinate', 'dependency'),
+    'history.event.recovery.account': ('institution', 'recovery', 'crisis'),
+    'history.event.recovery.private_consequence': (),
+    'history.event.recovery.shared_consequence': (),
+    'history.event.contested_occupation.account': ('dispute',),
+    'history.event.contested_occupation.consequence': (),
+    'history.event.unsettled_account.account': ('witness', 'cache'),
+    'history.event.unsettled_account.consequence': ('institution',),
+    'history.contact_memory': ('institution', 'crisis', 'recovery', 'dispute'),
+    'history.guard_reason': ('crisis', 'institution', 'production'),
+    'history.cache_name.flood': ('witness',),
+    'history.cache_name.fire': ('witness',),
+    'history.cache_name.support_loss': ('witness',),
+    'history.route_dependency': ('crisis', 'dependency'),
+    'history.network.contact_memory': ('institution', 'region'),
+    'history.local_delivery.no_account': (),
+    'history.local_delivery.supplied': (),
+    'history.local_delivery.missing': ('dependency',),
+    'history.local_delivery.act': ('courier', 'dependency', 'day'),
+    'history.local_delivery.memory': ('courier', 'dependency', 'institution', 'trust', 'obligation'),
+    'history.local_delivery.result': ('weighed',),
+    'history.local_delivery.weighed': (),
+    'history.network_delivery.no_account': (),
+    'history.network_delivery.obligations': ('institution',),
+    'history.network_delivery.missing': ('dependency',),
+    'history.network_delivery.act': ('courier', 'dependency', 'contact_id', 'day'),
+    'history.network_delivery.memory': ('institution', 'dependency', 'region', 'trust'),
+    'history.network_delivery.result': ('contact', 'institution'),
+    'history.network_shelter.no_account': (),
+    'history.network_shelter.open': (),
+    'history.network_shelter.requirement': (),
+    'history.network_shelter.act': ('region', 'edges'),
+    'history.network_shelter.memory': ('institution', 'act'),
+    'history.network_shelter.result': ('contact', 'edges'),
+    'history.network_service.delivery.label': ('dependency',),
+    'history.network_service.delivery.requirement': (),
+    'history.network_service.shelter.label': (),
+    'history.network_service.shelter.requirement': (),
+    'history.network_service.practice.label': ('practice',),
+    'history.network_service.practice.requirement': (),
+    'history.aftermath.shared': (),
+    'history.aftermath.claimed': (),
+    'history.relationship.supplies': ('production', 'institution'),
+    'history.relationship.depends': ('institution', 'production'),
+    'history.relationship.witness': ('institution',),
+    'history.relationship.shared': ('institution',),
+    'history.production.record': ('day', 'output', 'production', 'dependency', 'stock', 'season'),
+    'history.production.notice': ('institution', 'output', 'production', 'status'),
+    'history.ledger.no_account': (),
+    'history.ledger.fact_region': ('region', 'geology', 'climate'),
+    'history.ledger.fact_work': ('production', 'dependency'),
+    'history.ledger.institution': ('institution', 'goal'),
+    'history.ledger.service': ('service',),
+    'history.ledger.dispute': ('dispute', 'opposition'),
+    'history.ledger.standing': ('trust', 'obligation', 'confidence'),
+    'history.ledger.relation': ('text',),
+    'history.ledger.witnessed': ('text',),
+    'history.ledger.network': ('institution', 'goal'),
+    'history.ledger.network_service': ('service', 'trust', 'obligation'),
+    'history.ledger.opposition': ('opposition',),
+    'history.ledger.no_recent': (),
+    'history.ledger.testimony': ('account',),
+    'history.ledger.evidence': ('evidence', 'consequence'),
+    'history.ledger.landform': ('text',),
+    'history.ledger.reading': (),
+    'history.forecast.next': ('remaining', 'process'),
+    'history.forecast.changed': ('process',),
+    'history.forecast': ('season', 'exposure', 'stage'),
+}
 
 # Stable engine service keys and their permitted presentation templates.  These
 # are deliberately separate from the human-readable text in quests.json.
@@ -239,6 +314,12 @@ class QuestServicePresentation:
 
 
 @dataclass(frozen=True)
+class HistoryPresentation:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -254,6 +335,7 @@ class ContentPack:
     ui_presentations: tuple[UiPresentation, ...]
     quest_presentations: tuple[QuestPresentation, ...]
     quest_service_presentations: tuple[QuestServicePresentation, ...]
+    history_presentations: tuple[HistoryPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -301,6 +383,12 @@ class ContentPack:
                 return presentation
         raise KeyError(f"unknown quest service semantic id: {semantic_id}")
 
+    def history_presentation(self, semantic_id: str) -> HistoryPresentation:
+        for presentation in self.history_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown history presentation id: {semantic_id}")
+
 
 _selected_pack: ContentPack | None = None
 _catalogs_loaded = False
@@ -330,8 +418,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, and services")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, and history")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -965,6 +1053,36 @@ def _quest_presentations(root: Path, pack_id: str) -> tuple[tuple[QuestPresentat
     return tuple(presentations), _quest_service_presentations(root, pack_id, document["services"])
 
 
+def _history_presentations(root: Path, pack_id: str) -> tuple[HistoryPresentation, ...]:
+    source = root / HISTORY_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid history presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    source_contract, engine_contract = _content_contract_document()
+    contract_rows = engine_contract["history"]
+    expected_contract = [
+        {"id": key, "placeholders": list(placeholders)}
+        for key, placeholders in _HISTORY_TEMPLATE_CONTRACT.items()
+    ]
+    if contract_rows != expected_contract:
+        raise RuntimeError(f"invalid engine history content contract at {source_contract}: history does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid history presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_HISTORY_TEMPLATE_CONTRACT):
+        missing, unknown = set(_HISTORY_TEMPLATE_CONTRACT) - set(rows), set(rows) - set(_HISTORY_TEMPLATE_CONTRACT)
+        details = []
+        if missing:
+            details.append("missing required history keys " + ", ".join(sorted(missing)))
+        if unknown:
+            details.append("unknown history keys " + ", ".join(sorted(unknown)))
+        raise ContentPackError(f"invalid history presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(HistoryPresentation(
+        key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)
+    ) for key, placeholders in _HISTORY_TEMPLATE_CONTRACT.items())
+
+
 def _manifest_document(root: Path) -> dict[str, Any]:
     source = root / "manifest.json"
     try:
@@ -1032,9 +1150,10 @@ def load_content_pack(path: str | Path) -> ContentPack:
     items = _item_presentations(root, pack_id)
     ui = _ui_presentations(root, pack_id)
     quests, services = _quest_presentations(root, pack_id)
+    history = _history_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, household_template,
     )
 
 

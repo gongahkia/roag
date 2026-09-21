@@ -2148,5 +2148,450 @@
       "id": "quest.service.frontier_claim",
       "engine_id": "s"
     }
+  ],
+  "history": [
+    {
+      "id": "history.event.water_and_stone.account",
+      "placeholders": [
+        "climate",
+        "production",
+        "dependency"
+      ]
+    },
+    {
+      "id": "history.event.water_and_stone.consequence",
+      "placeholders": [
+        "water"
+      ]
+    },
+    {
+      "id": "history.event.crisis.account",
+      "placeholders": [
+        "witness",
+        "crisis",
+        "landmark"
+      ]
+    },
+    {
+      "id": "history.event.crisis.consequence",
+      "placeholders": [
+        "coordinate",
+        "dependency"
+      ]
+    },
+    {
+      "id": "history.event.recovery.account",
+      "placeholders": [
+        "institution",
+        "recovery",
+        "crisis"
+      ]
+    },
+    {
+      "id": "history.event.recovery.private_consequence",
+      "placeholders": []
+    },
+    {
+      "id": "history.event.recovery.shared_consequence",
+      "placeholders": []
+    },
+    {
+      "id": "history.event.contested_occupation.account",
+      "placeholders": [
+        "dispute"
+      ]
+    },
+    {
+      "id": "history.event.contested_occupation.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "history.event.unsettled_account.account",
+      "placeholders": [
+        "witness",
+        "cache"
+      ]
+    },
+    {
+      "id": "history.event.unsettled_account.consequence",
+      "placeholders": [
+        "institution"
+      ]
+    },
+    {
+      "id": "history.contact_memory",
+      "placeholders": [
+        "institution",
+        "crisis",
+        "recovery",
+        "dispute"
+      ]
+    },
+    {
+      "id": "history.guard_reason",
+      "placeholders": [
+        "crisis",
+        "institution",
+        "production"
+      ]
+    },
+    {
+      "id": "history.cache_name.flood",
+      "placeholders": [
+        "witness"
+      ]
+    },
+    {
+      "id": "history.cache_name.fire",
+      "placeholders": [
+        "witness"
+      ]
+    },
+    {
+      "id": "history.cache_name.support_loss",
+      "placeholders": [
+        "witness"
+      ]
+    },
+    {
+      "id": "history.route_dependency",
+      "placeholders": [
+        "crisis",
+        "dependency"
+      ]
+    },
+    {
+      "id": "history.network.contact_memory",
+      "placeholders": [
+        "institution",
+        "region"
+      ]
+    },
+    {
+      "id": "history.local_delivery.no_account",
+      "placeholders": []
+    },
+    {
+      "id": "history.local_delivery.supplied",
+      "placeholders": []
+    },
+    {
+      "id": "history.local_delivery.missing",
+      "placeholders": [
+        "dependency"
+      ]
+    },
+    {
+      "id": "history.local_delivery.act",
+      "placeholders": [
+        "courier",
+        "dependency",
+        "day"
+      ]
+    },
+    {
+      "id": "history.local_delivery.memory",
+      "placeholders": [
+        "courier",
+        "dependency",
+        "institution",
+        "trust",
+        "obligation"
+      ]
+    },
+    {
+      "id": "history.local_delivery.result",
+      "placeholders": [
+        "weighed"
+      ]
+    },
+    {
+      "id": "history.local_delivery.weighed",
+      "placeholders": []
+    },
+    {
+      "id": "history.network_delivery.no_account",
+      "placeholders": []
+    },
+    {
+      "id": "history.network_delivery.obligations",
+      "placeholders": [
+        "institution"
+      ]
+    },
+    {
+      "id": "history.network_delivery.missing",
+      "placeholders": [
+        "dependency"
+      ]
+    },
+    {
+      "id": "history.network_delivery.act",
+      "placeholders": [
+        "courier",
+        "dependency",
+        "contact_id",
+        "day"
+      ]
+    },
+    {
+      "id": "history.network_delivery.memory",
+      "placeholders": [
+        "institution",
+        "dependency",
+        "region",
+        "trust"
+      ]
+    },
+    {
+      "id": "history.network_delivery.result",
+      "placeholders": [
+        "contact",
+        "institution"
+      ]
+    },
+    {
+      "id": "history.network_shelter.no_account",
+      "placeholders": []
+    },
+    {
+      "id": "history.network_shelter.open",
+      "placeholders": []
+    },
+    {
+      "id": "history.network_shelter.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "history.network_shelter.act",
+      "placeholders": [
+        "region",
+        "edges"
+      ]
+    },
+    {
+      "id": "history.network_shelter.memory",
+      "placeholders": [
+        "institution",
+        "act"
+      ]
+    },
+    {
+      "id": "history.network_shelter.result",
+      "placeholders": [
+        "contact",
+        "edges"
+      ]
+    },
+    {
+      "id": "history.network_service.delivery.label",
+      "placeholders": [
+        "dependency"
+      ]
+    },
+    {
+      "id": "history.network_service.delivery.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "history.network_service.shelter.label",
+      "placeholders": []
+    },
+    {
+      "id": "history.network_service.shelter.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "history.network_service.practice.label",
+      "placeholders": [
+        "practice"
+      ]
+    },
+    {
+      "id": "history.network_service.practice.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "history.aftermath.shared",
+      "placeholders": []
+    },
+    {
+      "id": "history.aftermath.claimed",
+      "placeholders": []
+    },
+    {
+      "id": "history.relationship.supplies",
+      "placeholders": [
+        "production",
+        "institution"
+      ]
+    },
+    {
+      "id": "history.relationship.depends",
+      "placeholders": [
+        "institution",
+        "production"
+      ]
+    },
+    {
+      "id": "history.relationship.witness",
+      "placeholders": [
+        "institution"
+      ]
+    },
+    {
+      "id": "history.relationship.shared",
+      "placeholders": [
+        "institution"
+      ]
+    },
+    {
+      "id": "history.production.record",
+      "placeholders": [
+        "day",
+        "output",
+        "production",
+        "dependency",
+        "stock",
+        "season"
+      ]
+    },
+    {
+      "id": "history.production.notice",
+      "placeholders": [
+        "institution",
+        "output",
+        "production",
+        "status"
+      ]
+    },
+    {
+      "id": "history.ledger.no_account",
+      "placeholders": []
+    },
+    {
+      "id": "history.ledger.fact_region",
+      "placeholders": [
+        "region",
+        "geology",
+        "climate"
+      ]
+    },
+    {
+      "id": "history.ledger.fact_work",
+      "placeholders": [
+        "production",
+        "dependency"
+      ]
+    },
+    {
+      "id": "history.ledger.institution",
+      "placeholders": [
+        "institution",
+        "goal"
+      ]
+    },
+    {
+      "id": "history.ledger.service",
+      "placeholders": [
+        "service"
+      ]
+    },
+    {
+      "id": "history.ledger.dispute",
+      "placeholders": [
+        "dispute",
+        "opposition"
+      ]
+    },
+    {
+      "id": "history.ledger.standing",
+      "placeholders": [
+        "trust",
+        "obligation",
+        "confidence"
+      ]
+    },
+    {
+      "id": "history.ledger.relation",
+      "placeholders": [
+        "text"
+      ]
+    },
+    {
+      "id": "history.ledger.witnessed",
+      "placeholders": [
+        "text"
+      ]
+    },
+    {
+      "id": "history.ledger.network",
+      "placeholders": [
+        "institution",
+        "goal"
+      ]
+    },
+    {
+      "id": "history.ledger.network_service",
+      "placeholders": [
+        "service",
+        "trust",
+        "obligation"
+      ]
+    },
+    {
+      "id": "history.ledger.opposition",
+      "placeholders": [
+        "opposition"
+      ]
+    },
+    {
+      "id": "history.ledger.no_recent",
+      "placeholders": []
+    },
+    {
+      "id": "history.ledger.testimony",
+      "placeholders": [
+        "account"
+      ]
+    },
+    {
+      "id": "history.ledger.evidence",
+      "placeholders": [
+        "evidence",
+        "consequence"
+      ]
+    },
+    {
+      "id": "history.ledger.landform",
+      "placeholders": [
+        "text"
+      ]
+    },
+    {
+      "id": "history.ledger.reading",
+      "placeholders": []
+    },
+    {
+      "id": "history.forecast.next",
+      "placeholders": [
+        "remaining",
+        "process"
+      ]
+    },
+    {
+      "id": "history.forecast.changed",
+      "placeholders": [
+        "process"
+      ]
+    },
+    {
+      "id": "history.forecast",
+      "placeholders": [
+        "season",
+        "exposure",
+        "stage"
+      ]
+    }
   ]
 }

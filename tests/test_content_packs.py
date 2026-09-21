@@ -41,6 +41,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "items.json", root / "items.json")
     shutil.copy(DEFAULT_PACK_ROOT / "ui_text.json", root / "ui_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "quests.json", root / "quests.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "history_text.json", root / "history_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -117,6 +118,11 @@ def alternate_pack(root: Path) -> Path:
     quests["services"]["quest.service.treatment"]["results"]["completed"] = "Fixture healer {contact} treats the {location} injury; the care takes time and leaves an obligation."
     quests["services"]["quest.service.public_field_report"]["results"]["completed"] = "{record} Fixture trust is recorded."
     source.write_text(json.dumps(quests, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "history_text.json"
+    history_text = json.loads(source.read_text(encoding="utf-8"))
+    history_text["text"]["history.event.crisis.account"] = "Fixture witness {witness} records {crisis} at the {landmark}."
+    history_text["text"]["history.network_service.shelter.label"] = "Open the fixture shelter route"
+    source.write_text(json.dumps(history_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
 
 
@@ -490,6 +496,18 @@ class ContentPackTests(unittest.TestCase):
         self.assertEqual(cache.label, "Fixture cache service")
         self.assertIn(("completed", "Fixture tutor {contact} grants {technique}: {effect}."), training.results)
         self.assertIn(("completed", "Fixture healer {contact} treats the {location} injury; the care takes time and leaves an obligation."), treatment.results)
+
+    def test_alternate_pack_changes_history_presentation_with_stable_templates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            pack = load_content_pack(alternate_pack(Path(directory) / "fixture"))
+        self.assertEqual(
+            pack.history_presentation("history.event.crisis.account").text,
+            "Fixture witness {witness} records {crisis} at the {landmark}.",
+        )
+        self.assertEqual(
+            pack.history_presentation("history.network_service.shelter.label").text,
+            "Open the fixture shelter route",
+        )
 
     def test_default_quest_presentation_matches_existing_catalog_copy(self):
         from jomon.quest_presentation import regional_choice_presentation, regional_quest_lead, regional_quest_title
