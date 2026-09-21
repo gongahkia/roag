@@ -24,3 +24,14 @@ regional requests, negotiation, contact prompts, tavern incidents, merchant exch
 and claimant settlements. They may be rewritten, including only the placeholders declared
 by `contract.json`. They never change contact IDs, evidence, availability, relationship
 or disposition values, costs, rewards, state changes, or turn use.
+
+## Remaining action text
+
+The `action.*` entries describe action execution outside combat and social
+interactions: equipment preparation, local movement, containers, environmental
+controls, material interventions, consumables and relics, returns, and route-stop
+work. Authors may rewrite only those visible messages and their declared templates.
+They may not alter item kinds, inventory quantities, terrain or world state, routes,
+coordinates, rewards, costs, checks, RNG, turn use, status IDs, or result identities.
+Text returned directly from quests, sanctums, regional history, aftermath, worklines,
+interference, vessels, preparations, and arc relics remains owned by those systems.

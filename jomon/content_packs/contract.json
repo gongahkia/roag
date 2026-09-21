@@ -5798,6 +5798,1054 @@
       ]
     },
     {
+      "id": "action.setup.weapon.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "action.setup.weapon.courier_required",
+      "placeholders": []
+    },
+    {
+      "id": "action.setup.weapon.locker_full",
+      "placeholders": []
+    },
+    {
+      "id": "action.setup.weapon.pack_full",
+      "placeholders": []
+    },
+    {
+      "id": "action.setup.weapon.ammunition_pack_full",
+      "placeholders": []
+    },
+    {
+      "id": "action.setup.weapon.readied",
+      "placeholders": [
+        "weapon"
+      ]
+    },
+    {
+      "id": "action.setup.gear.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "action.setup.gear.courier_required",
+      "placeholders": []
+    },
+    {
+      "id": "action.setup.gear.locker_full",
+      "placeholders": []
+    },
+    {
+      "id": "action.setup.gear.pack_full",
+      "placeholders": []
+    },
+    {
+      "id": "action.setup.gear.packed",
+      "placeholders": [
+        "gear"
+      ]
+    },
+    {
+      "id": "action.setup.support.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "action.setup.support.prepared",
+      "placeholders": [
+        "support"
+      ]
+    },
+    {
+      "id": "action.setup.relic.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "action.setup.relic.carried",
+      "placeholders": [
+        "relic"
+      ]
+    },
+    {
+      "id": "action.setup.passive.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "action.setup.passive.stowed",
+      "placeholders": [
+        "passive"
+      ]
+    },
+    {
+      "id": "action.setup.passive.capacity",
+      "placeholders": [
+        "capacity"
+      ]
+    },
+    {
+      "id": "action.setup.passive.cells",
+      "placeholders": []
+    },
+    {
+      "id": "action.setup.passive.packed",
+      "placeholders": [
+        "passive",
+        "quantity"
+      ]
+    },
+    {
+      "id": "action.depart.invalid",
+      "placeholders": []
+    },
+    {
+      "id": "action.depart.returning_tug",
+      "placeholders": []
+    },
+    {
+      "id": "action.depart.voyage_active",
+      "placeholders": []
+    },
+    {
+      "id": "action.depart.preparation",
+      "placeholders": []
+    },
+    {
+      "id": "action.depart.no_landing",
+      "placeholders": []
+    },
+    {
+      "id": "action.depart.memory",
+      "placeholders": [
+        "count",
+        "courier",
+        "region"
+      ]
+    },
+    {
+      "id": "action.fall.no_landing",
+      "placeholders": []
+    },
+    {
+      "id": "action.fall.sail",
+      "placeholders": []
+    },
+    {
+      "id": "action.fall.gull_cord",
+      "placeholders": []
+    },
+    {
+      "id": "action.fall.cliff_cord",
+      "placeholders": []
+    },
+    {
+      "id": "action.fall.cargo",
+      "placeholders": [
+        "item"
+      ]
+    },
+    {
+      "id": "action.fall.result",
+      "placeholders": [
+        "damage",
+        "cargo"
+      ]
+    },
+    {
+      "id": "action.movement.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "action.movement.threat_blocks",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "action.movement.blocked",
+      "placeholders": [
+        "reason",
+        "remedy"
+      ]
+    },
+    {
+      "id": "action.movement.diagonal_blocked",
+      "placeholders": []
+    },
+    {
+      "id": "action.movement.moving_volley",
+      "placeholders": []
+    },
+    {
+      "id": "action.movement.roof_nail",
+      "placeholders": []
+    },
+    {
+      "id": "action.movement.open_door",
+      "placeholders": []
+    },
+    {
+      "id": "action.movement.mud",
+      "placeholders": []
+    },
+    {
+      "id": "action.movement.armour_noise",
+      "placeholders": []
+    },
+    {
+      "id": "action.movement.injury_delay",
+      "placeholders": []
+    },
+    {
+      "id": "action.movement.water_delay",
+      "placeholders": []
+    },
+    {
+      "id": "action.movement.smokeleaf_water",
+      "placeholders": []
+    },
+    {
+      "id": "action.movement.area_discovered",
+      "placeholders": [
+        "area"
+      ]
+    },
+    {
+      "id": "action.movement.coppice_shortcut",
+      "placeholders": []
+    },
+    {
+      "id": "action.container.none",
+      "placeholders": []
+    },
+    {
+      "id": "action.container.open",
+      "placeholders": [
+        "container"
+      ]
+    },
+    {
+      "id": "action.container.empty",
+      "placeholders": []
+    },
+    {
+      "id": "action.container.requirement.rope",
+      "placeholders": []
+    },
+    {
+      "id": "action.container.requirement.light",
+      "placeholders": []
+    },
+    {
+      "id": "action.container.requirement.key",
+      "placeholders": []
+    },
+    {
+      "id": "action.container.rope_exhausted",
+      "placeholders": []
+    },
+    {
+      "id": "action.container.tally",
+      "placeholders": []
+    },
+    {
+      "id": "action.container.practice_tally",
+      "placeholders": []
+    },
+    {
+      "id": "action.container.memory",
+      "placeholders": [
+        "courier",
+        "container",
+        "rewards"
+      ]
+    },
+    {
+      "id": "action.container.opened",
+      "placeholders": [
+        "container",
+        "rewards",
+        "tally"
+      ]
+    },
+    {
+      "id": "action.container.packed",
+      "placeholders": [
+        "items"
+      ]
+    },
+    {
+      "id": "action.container.left",
+      "placeholders": [
+        "items"
+      ]
+    },
+    {
+      "id": "action.environment.greywash.control",
+      "placeholders": []
+    },
+    {
+      "id": "action.environment.greenwold.control",
+      "placeholders": []
+    },
+    {
+      "id": "action.environment.whitecairn.control",
+      "placeholders": []
+    },
+    {
+      "id": "action.environment.hearthford.control",
+      "placeholders": [
+        "control"
+      ]
+    },
+    {
+      "id": "action.environment.furnace.fire",
+      "placeholders": []
+    },
+    {
+      "id": "action.environment.furnace.braked",
+      "placeholders": []
+    },
+    {
+      "id": "action.environment.furnace.smoke",
+      "placeholders": []
+    },
+    {
+      "id": "action.environment.floor.none",
+      "placeholders": []
+    },
+    {
+      "id": "action.environment.floor.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "action.environment.floor.braced",
+      "placeholders": []
+    },
+    {
+      "id": "action.environment.floor.broken",
+      "placeholders": [
+        "fall",
+        "sounds"
+      ]
+    },
+    {
+      "id": "action.interact.tug_returned",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.tug_mooring",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.tavern_exit",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.hatch_occupied",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.crisis_tavern",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.tavern_enter",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.voyage_danger",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.route_destination",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.stores",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.hold",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.chronicle",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.nothing",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.sanctum_shrine",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.situation",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.sanctum_sealed",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.climb_overloaded",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.field_only",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.tide_knot",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.ebbglass.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.ebbglass.used",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.coalheart.used",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.hollow_bell.used",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.stillwater.used",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.flood_mark.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.flood_mark.used",
+      "placeholders": [
+        "lowered",
+        "steadied"
+      ]
+    },
+    {
+      "id": "action.item.ashglass.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.ashglass.mark",
+      "placeholders": [
+        "cache",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    {
+      "id": "action.item.ashglass.used",
+      "placeholders": [
+        "cleared",
+        "store",
+        "revealed"
+      ]
+    },
+    {
+      "id": "action.item.quarry_pin.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.quarry_pin.used",
+      "placeholders": [
+        "supports"
+      ]
+    },
+    {
+      "id": "action.item.winter_bead.season",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.winter_bead.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.winter_bead.used",
+      "placeholders": [
+        "count"
+      ]
+    },
+    {
+      "id": "action.item.red_clay.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.red_clay.memory",
+      "placeholders": [
+        "courier",
+        "institution"
+      ]
+    },
+    {
+      "id": "action.item.red_clay.used",
+      "placeholders": [
+        "count",
+        "institution"
+      ]
+    },
+    {
+      "id": "action.item.wreck_light.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.wreck_light.mark",
+      "placeholders": [
+        "cache",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    {
+      "id": "action.item.wreck_light.used",
+      "placeholders": [
+        "cache",
+        "animals",
+        "humans"
+      ]
+    },
+    {
+      "id": "action.item.signal_mirror.used",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.smoke_pot.used",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.bird_whistle.used",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.cache_bell.mark",
+      "placeholders": [
+        "cache",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    {
+      "id": "action.item.cache_bell.used",
+      "placeholders": [
+        "cache"
+      ]
+    },
+    {
+      "id": "action.item.lantern.memory",
+      "placeholders": [
+        "courier"
+      ]
+    },
+    {
+      "id": "action.item.lantern.used",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.willow_dressing.used",
+      "placeholders": [
+        "amount",
+        "method"
+      ]
+    },
+    {
+      "id": "action.item.willow_dressing.method",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.smoke_charge.used",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.lamp_wick.used",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.brine_wash.used",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.splint.used",
+      "placeholders": [
+        "location"
+      ]
+    },
+    {
+      "id": "action.item.green_poultice.used",
+      "placeholders": [
+        "location"
+      ]
+    },
+    {
+      "id": "action.item.none",
+      "placeholders": []
+    },
+    {
+      "id": "action.retreat.none",
+      "placeholders": []
+    },
+    {
+      "id": "action.retreat.blocked",
+      "placeholders": []
+    },
+    {
+      "id": "action.retreat.used",
+      "placeholders": []
+    },
+    {
+      "id": "action.merchant.locker_full",
+      "placeholders": []
+    },
+    {
+      "id": "action.return.landing",
+      "placeholders": [
+        "region"
+      ]
+    },
+    {
+      "id": "action.return.disembark",
+      "placeholders": []
+    },
+    {
+      "id": "action.return.tug",
+      "placeholders": []
+    },
+    {
+      "id": "action.return.objective_failed",
+      "placeholders": [
+        "courier"
+      ]
+    },
+    {
+      "id": "action.return.memory",
+      "placeholders": [
+        "courier"
+      ]
+    },
+    {
+      "id": "action.return.merchant",
+      "placeholders": []
+    },
+    {
+      "id": "action.return.completed",
+      "placeholders": [
+        "merchant",
+        "visitors",
+        "development"
+      ]
+    },
+    {
+      "id": "action.drink.tavern_required",
+      "placeholders": []
+    },
+    {
+      "id": "action.route.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "action.route.resupply.exhausted",
+      "placeholders": []
+    },
+    {
+      "id": "action.route.resupply.credit",
+      "placeholders": []
+    },
+    {
+      "id": "action.route.resupply.used",
+      "placeholders": [
+        "node"
+      ]
+    },
+    {
+      "id": "action.route.trade.unavailable",
+      "placeholders": [
+        "node",
+        "commodity"
+      ]
+    },
+    {
+      "id": "action.route.trade.used",
+      "placeholders": [
+        "node",
+        "commodity"
+      ]
+    },
+    {
+      "id": "action.route.sound.complete",
+      "placeholders": []
+    },
+    {
+      "id": "action.route.sound.used",
+      "placeholders": [
+        "nodes"
+      ]
+    },
+    {
+      "id": "action.route.invalid",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.vertical_blocked",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "action.interact.vertical_used",
+      "placeholders": [
+        "link",
+        "sanctum",
+        "structure",
+        "slow",
+        "marked"
+      ]
+    },
+    {
+      "id": "action.interact.vertical.slow",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.vertical.marked",
+      "placeholders": []
+    },
+    {
+      "id": "action.objective.load_full",
+      "placeholders": []
+    },
+    {
+      "id": "action.objective.secured",
+      "placeholders": [
+        "commodity"
+      ]
+    },
+    {
+      "id": "action.objective.lost_ground",
+      "placeholders": [
+        "commodity",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    {
+      "id": "action.objective.lost_enemy",
+      "placeholders": [
+        "carrier",
+        "commodity"
+      ]
+    },
+    {
+      "id": "intent.item.tide_knot",
+      "placeholders": []
+    },
+    {
+      "id": "intent.item.ashglass",
+      "placeholders": []
+    },
+    {
+      "id": "intent.item.red_clay",
+      "placeholders": []
+    },
+    {
+      "id": "intent.item.wreck_light",
+      "placeholders": []
+    },
+    {
+      "id": "intent.item.signal_mirror",
+      "placeholders": []
+    },
+    {
+      "id": "intent.item.smoke_pot",
+      "placeholders": []
+    },
+    {
+      "id": "intent.item.lantern",
+      "placeholders": []
+    },
+    {
+      "id": "action.weather.clear",
+      "placeholders": []
+    },
+    {
+      "id": "action.weather.river_fog",
+      "placeholders": []
+    },
+    {
+      "id": "action.weather.hard_rain",
+      "placeholders": []
+    },
+    {
+      "id": "action.weather.coast_squall",
+      "placeholders": []
+    },
+    {
+      "id": "action.weather.salt_wind",
+      "placeholders": []
+    },
+    {
+      "id": "action.weather.forest_rain",
+      "placeholders": []
+    },
+    {
+      "id": "action.weather.crosswind",
+      "placeholders": []
+    },
+    {
+      "id": "action.weather.ridge_gust",
+      "placeholders": []
+    },
+    {
+      "id": "action.process.greywash.1",
+      "placeholders": []
+    },
+    {
+      "id": "action.process.greywash.2",
+      "placeholders": []
+    },
+    {
+      "id": "action.process.greywash.2_held",
+      "placeholders": []
+    },
+    {
+      "id": "action.process.greywash.3",
+      "placeholders": []
+    },
+    {
+      "id": "action.process.greenwold.1",
+      "placeholders": []
+    },
+    {
+      "id": "action.process.greenwold.2",
+      "placeholders": []
+    },
+    {
+      "id": "action.process.greenwold.2_safe",
+      "placeholders": []
+    },
+    {
+      "id": "action.process.greenwold.3",
+      "placeholders": []
+    },
+    {
+      "id": "action.process.whitecairn.1",
+      "placeholders": []
+    },
+    {
+      "id": "action.process.whitecairn.2",
+      "placeholders": []
+    },
+    {
+      "id": "action.process.whitecairn.2_safe",
+      "placeholders": []
+    },
+    {
+      "id": "action.process.whitecairn.3",
+      "placeholders": []
+    },
+    {
+      "id": "action.process.hearthford",
+      "placeholders": []
+    },
+    {
+      "id": "action.process.objective_changed",
+      "placeholders": [
+        "process"
+      ]
+    },
+    {
+      "id": "action.process.escalation",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "action.status.coalheart.cause",
+      "placeholders": []
+    },
+    {
+      "id": "action.status.coalheart.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "action.status.flood_mark.cause",
+      "placeholders": []
+    },
+    {
+      "id": "action.status.flood_mark.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "action.status.winter_bead.cause",
+      "placeholders": []
+    },
+    {
+      "id": "action.status.winter_bead.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "action.status.brine.cause",
+      "placeholders": []
+    },
+    {
+      "id": "action.status.brine.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.origin.household",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.origin.returned",
+      "placeholders": []
+    },
+    {
+      "id": "action.item.origin.container",
+      "placeholders": [
+        "container",
+        "region"
+      ]
+    },
+    {
+      "id": "action.item.origin.merchant",
+      "placeholders": []
+    },
+    {
+      "id": "action.fall.source",
+      "placeholders": []
+    },
+    {
+      "id": "action.depart.merchant_away",
+      "placeholders": []
+    },
+    {
+      "id": "action.return.merchant_present",
+      "placeholders": []
+    },
+    {
+      "id": "action.sound.echo_bead",
+      "placeholders": [
+        "level"
+      ]
+    },
+    {
+      "id": "action.damage.no_courier",
+      "placeholders": []
+    },
+    {
+      "id": "combat.damage.river_glass_ward",
+      "placeholders": []
+    },
+    {
+      "id": "action.vehicle.separated",
+      "placeholders": []
+    },
+    {
+      "id": "action.pressure.increased",
+      "placeholders": [
+        "band"
+      ]
+    },
+    {
+      "id": "action.interact.tavern_draw.busy",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.tavern_draw.ready",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.quay_bones.busy",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.quay_bones.ready",
+      "placeholders": [
+        "bartender"
+      ]
+    },
+    {
+      "id": "action.depart.started.tug",
+      "placeholders": [
+        "region"
+      ]
+    },
+    {
+      "id": "action.depart.started.gangplank",
+      "placeholders": [
+        "region"
+      ]
+    },
+    {
+      "id": "action.interact.vertical.combat.down",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.vertical.combat.up",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.vertical.down",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.vertical.up",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.station.G",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.station.R",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.station.b",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.station.U",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.station.p",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.station.W",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.station.S",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.station.N",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.station.O",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.station.T",
+      "placeholders": []
+    },
+    {
+      "id": "action.interact.station.s",
+      "placeholders": []
+    },
+    {
       "id": "intent.brace.retreated",
       "placeholders": []
     },

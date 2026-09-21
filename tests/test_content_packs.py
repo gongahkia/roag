@@ -219,6 +219,10 @@ def alternate_pack(root: Path) -> Path:
         "social.objective.refused": "FIXTURE {courier} declines {region}'s request.",
         "social.recruit.accepted": "FIXTURE {visitor} takes a berth.",
         "social.incident.mediate": "FIXTURE mediation seats {first} and {second}.",
+        "action.setup.support.prepared": "FIXTURE PREPARED {support}.",
+        "action.item.willow_dressing.used": "FIXTURE DRESSING restores {amount}{method}.",
+        "action.environment.hearthford.control": "FIXTURE CONTROL is {control}.",
+        "action.route.unavailable": "FIXTURE ROUTE SERVICE is unavailable.",
     })
     source.write_text(json.dumps(action_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
@@ -477,6 +481,21 @@ def social_presentation_snapshot(environment: dict[str, str]) -> dict[str, objec
             "state.location='region'; state.position=state.region.landmarks['contact']; refused=decide_objective(state,'refuse'); state.objective_status='unoffered'; state.position=Position(40,25); threat=Threat('terms','toll runner','pursuer',Position(41,25),4,4,status='engaged'); state.threats=[threat]; negotiated=negotiate(state); "
             "state.location='jomon'; state.jomon_space='tavern'; first,second=state.household[:2]; state.pending_incident=SocialIncident('fixture-incident','argument',[first.id,second.id],'fixture cause','pending',0); mediated=intervene_socially(state,'mediate'); "
             "print(json.dumps({'pack': __import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'mechanics': {'recruit':[visitor.id,state.visitor_status[visitor.id]], 'objective':state.objective_status, 'negotiation':[threat.id,threat.status,threat.intent_id,state.courier.speech], 'incident':[first.relationships.get(second.id,0),second.relationships.get(first.id,0),state.pending_incident]}, 'messages':[recruit.message,refused.message,negotiated.message,mediated.message], 'intent':threat.intent}))",
+        ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+def remaining_action_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.actions import choose_courier, choose_support, use_gear, _control_interaction, use_route_stop; from jomon.state import Position, Threat, create_world; "
+            "state=create_world('remaining-action-pack-proof'); courier=state.household[0]; choose_courier(state,courier.id); prepared=choose_support(state,'porter watch'); state.location='region'; state.position=Position(42,25); state.threats=[Threat('fixture','fixture threat','pursuer',Position(43,25),4,4,status='engaged')]; state.courier.injury='wounded foot'; state.consumables['willow dressing']=1; dressed=use_gear(state); control=_control_interaction(state); state.location='jomon'; state.route_current_node='jomon'; routes=use_route_stop(state,'sound'); "
+            "print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[prepared.message,dressed.message,control.message,routes.message], 'mechanics':{'support':state.support,'health':state.courier.health,'injury':state.courier.injury,'flood':state.flood_control,'routes':list(state.route_known),'consumables':dict(state.consumables),'time':state.world_time}}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -1135,6 +1154,8 @@ class ContentPackTests(unittest.TestCase):
                 "unknown key": lambda value: value["text"].update({"combat.elite.extra": "unexpected"}),
                 "missing social key": lambda value: value["text"].pop("social.negotiate.success"),
                 "invalid social placeholder": lambda value: value["text"].update({"social.negotiate.success": "terms {other}"}),
+                "missing remaining-action key": lambda value: value["text"].pop("action.item.lamp_wick.used"),
+                "invalid remaining-action placeholder": lambda value: value["text"].update({"action.item.flood_mark.used": "fixture {other}"}),
             }
             for name, mutate in cases.items():
                 with self.subTest(name):
@@ -1170,6 +1191,26 @@ class ContentPackTests(unittest.TestCase):
         self.assertIn("FIXTURE FLOODGATE", alternate["messages"][0])
         self.assertIn("FIXTURE MACHINE", alternate["messages"][2])
         self.assertIn("FIXTURE NET", alternate["messages"][5])
+
+    def test_default_remaining_action_presentation_preserves_existing_text(self):
+        from jomon.action_presentation import action_format
+
+        self.assertEqual(action_format("action.item.lamp_wick.used"), "A dry wick restores two measures of sheltered light.")
+        self.assertEqual(action_format("action.environment.hearthford.control", control="lowered"), "The sluice is lowered; water crosses culvert and ground openings, changing route safety.")
+
+    def test_alternate_pack_changes_remaining_action_presentation_not_mechanics(self):
+        default = remaining_action_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = remaining_action_presentation_snapshot(environment)
+
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+        self.assertIn("FIXTURE PREPARED", alternate["messages"][0])
+        self.assertIn("FIXTURE DRESSING", alternate["messages"][1])
+        self.assertIn("FIXTURE CONTROL", alternate["messages"][2])
+        self.assertIn("FIXTURE ROUTE SERVICE", alternate["messages"][3])
 
     def test_default_quest_presentation_matches_existing_catalog_copy(self):
         from jomon.quest_presentation import regional_choice_presentation, regional_quest_lead, regional_quest_title
