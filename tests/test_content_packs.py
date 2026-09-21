@@ -40,6 +40,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "characters.json", root / "characters.json")
     shutil.copy(DEFAULT_PACK_ROOT / "items.json", root / "items.json")
     shutil.copy(DEFAULT_PACK_ROOT / "ui_text.json", root / "ui_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "quests.json", root / "quests.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -95,6 +96,17 @@ def alternate_pack(root: Path) -> Path:
         "ui.tavern.draw.title": "FIXTURE DRAW",
     })
     source.write_text(json.dumps(ui, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "quests.json"
+    quests = json.loads(source.read_text(encoding="utf-8"))
+    quests["quests"]["quest.regional.hearthford"]["title"] = "Fixture Water Claim"
+    quests["quests"]["quest.regional.hearthford"]["lead"] = "Fixture witness marks the fixture cache beneath the fixture road."
+    quests["quests"]["quest.regional.hearthford"]["choices"]["l"]["label"] = "Make the fixture public settlement"
+    quests["quests"]["quest.arc.banks"] = {"title": "Fixture Bank Accord"}
+    quests["quests"]["quest.evidence.banks"] = {
+        "evidence_name": "fixture bank record",
+        "evidence_description": "A fixture physical record that keeps the same evidence mechanics.",
+    }
+    source.write_text(json.dumps(quests, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
 
 
@@ -199,6 +211,27 @@ def ui_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
             "'kinds': [notice_kind('RUMOUR: old save claim'), notice_kind('WARNING: old save risk')], "
             "'roles': [information_colour_role('RUMOUR: old save claim'), information_colour_role('WARNING: old save risk')], "
             "'mechanics': [state.seed, state.household[0].role, state.weapon]}))",
+        ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+def quest_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.inventory import item_spec; from jomon.quests import QUESTS, ADDITIONAL_ARCS, regional_resolution_options; "
+            "from jomon.quest_presentation import regional_quest_lead, regional_quest_title, arc_title, evidence_display_name; "
+            "from jomon.state import create_world; from jomon.terminal import _overlay_lines; "
+            "state=create_world('quest-pack-proof'); state.location='region'; "
+            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
+            "'title': regional_quest_title('hearthford'), 'lead': regional_quest_lead('hearthford'), "
+            "'arc': arc_title('banks'), 'evidence': [evidence_display_name('banks'), item_spec('consumable:bound bank roll').name], "
+            "'engine': [QUESTS['hearthford']['cache'], ADDITIONAL_ARCS['banks']['evidence']], 'choices': regional_resolution_options(state), "
+            "'overlay': _overlay_lines(state, 'quest:regional')[0], 'seed': state.seed}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -333,6 +366,39 @@ class ContentPackTests(unittest.TestCase):
                 with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*ui_text\.json"):
                     load_content_pack(root)
 
+    def test_quest_presentation_contract_rejects_invalid_pack_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            source = root / "quests.json"
+            cases = {
+                "missing quest": lambda value: value["quests"].pop("quest.regional.hearthford"),
+                "unknown quest": lambda value: value["quests"].update({"quest.regional.extra": {"title": "x", "lead": "y"}}),
+                "missing lead": lambda value: value["quests"]["quest.regional.hearthford"].pop("lead"),
+                "wrong title type": lambda value: value["quests"]["quest.regional.hearthford"].update({"title": 1}),
+                "empty evidence": lambda value: value["quests"]["quest.evidence.banks"].update({"evidence_name": ""}),
+                "mechanical field": lambda value: value["quests"]["quest.arc.banks"].update({"engine_id": "other"}),
+            }
+            for name, mutate in cases.items():
+                with self.subTest(name):
+                    content = json.loads((DEFAULT_PACK_ROOT / "quests.json").read_text(encoding="utf-8"))
+                    mutate(content)
+                    source.write_text(json.dumps(content), encoding="utf-8")
+                    with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*quests\.json"):
+                        load_content_pack(root)
+            with self.subTest("duplicate semantic slot"):
+                content = (DEFAULT_PACK_ROOT / "quests.json").read_text(encoding="utf-8")
+                source.write_text(content.replace('"quest.arc.banks"', '"quest.arc.marks"', 1), encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*quest\.arc\.marks"):
+                    load_content_pack(root)
+            with self.subTest("malformed JSON"):
+                source.write_text("{", encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*quests\.json"):
+                    load_content_pack(root)
+            with self.subTest("missing file"):
+                source.unlink()
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*quests\.json"):
+                    load_content_pack(root)
+
     def test_default_item_presentation_matches_legacy_base_catalog_text(self):
         from jomon.content import SUPPORTS
         from jomon.inventory import item_spec
@@ -378,6 +444,36 @@ class ContentPackTests(unittest.TestCase):
         self.assertEqual(default["kinds"], alternate["kinds"])
         self.assertEqual(default["roles"], alternate["roles"])
         self.assertEqual(default["mechanics"], alternate["mechanics"])
+
+    def test_alternate_pack_changes_quest_presentation_not_quest_keys(self):
+        default = quest_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = quest_presentation_snapshot(environment)
+        self.assertEqual(default["pack"], "default")
+        self.assertEqual(alternate["pack"], "fixture-alternate")
+        self.assertEqual(default["title"], "The Mill Race Compact")
+        self.assertEqual(alternate["title"], "Fixture Water Claim")
+        self.assertIn("Fixture witness", alternate["lead"])
+        self.assertEqual(alternate["arc"], "Fixture Bank Accord")
+        self.assertEqual(alternate["evidence"], ["fixture bank record", "fixture bank record"])
+        self.assertEqual(default["engine"], alternate["engine"])
+        self.assertEqual(default["seed"], alternate["seed"])
+        self.assertEqual([(row[0], row[2:]) for row in default["choices"]], [(row[0], row[2:]) for row in alternate["choices"]])
+        self.assertEqual(alternate["choices"][0][1], "Make the fixture public settlement")
+        self.assertEqual(alternate["overlay"], "FIXTURE WATER CLAIM")
+
+    def test_default_quest_presentation_matches_existing_catalog_copy(self):
+        from jomon.quest_presentation import regional_choice_presentation, regional_quest_lead, regional_quest_title
+
+        catalog = json.loads((DATA_ROOT / "quests.json").read_text(encoding="utf-8"))
+        for region_id, row in catalog["quests"].items():
+            self.assertEqual(regional_quest_title(region_id), row["title"])
+            self.assertEqual(regional_quest_lead(region_id), row["lead"])
+            for choice, label, _semantic, _available, requirement in row["final"]:
+                self.assertEqual(regional_choice_presentation(region_id, choice), (label, requirement))
 
     def test_ui_formatter_accepts_only_the_engine_placeholder_contract(self):
         from jomon.ui_presentation import ui_format

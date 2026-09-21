@@ -22,6 +22,7 @@ from jomon.quests import (
     quest_reachability_audit,
     record_container_opened,
 )
+from jomon.quest_presentation import regional_quest_title
 from jomon.regions import activate_region, region_reachable
 from jomon.save import load_game, save_game
 from jomon.state import Position, create_world, game_state_from_dict
@@ -77,7 +78,7 @@ class RegionalQuestlineTests(unittest.TestCase):
                 self.assertEqual((quest.stage, quest.status), (3, "completed"))
                 self.assertTrue(quest.consequence)
                 consequences[region_id].add(quest.consequence)
-                self.assertTrue(any(item.provenance.startswith(QUESTS[region_id]["title"]) for item in state.items))
+                self.assertTrue(any(item.provenance.startswith(regional_quest_title(region_id)) for item in state.items))
             self.assertEqual(len(consequences[region_id]), 2)
 
     def test_refusal_is_a_real_first_decision_not_a_dead_end(self):
@@ -102,7 +103,7 @@ class RegionalQuestlineTests(unittest.TestCase):
             self.assertIn(guard.id, before_ids)
             self.assertFalse(guard.elite)
             self.assertEqual(guard.home_position, state.region.landmarks["objective"])
-            self.assertIn(QUESTS[region_id]["title"], guard.goal_reason)
+            self.assertIn(regional_quest_title(region_id), guard.goal_reason)
 
     def test_permanent_defeat_during_a_quest_preserves_progress_and_succession(self):
         state = create_world("quest succession")

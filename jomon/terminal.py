@@ -2862,10 +2862,10 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             "These physical stores remain aboard; all expedition selection happens at tavern C.", "Escape closes without time.",
         ]
     if kind == "quest:regional":
-        from .quests import QUESTS
+        from .quest_presentation import regional_quest_title
 
         quest = state.questlines[state.active_region_id]
-        return QUESTS[state.active_region_id]["title"].upper(), [
+        return regional_quest_title(state.active_region_id).upper(), [
             f"Opening decision: {quest.branch or 'none'}.",
             f"Material work: {state.objective_status}; optional lead: {'completed' if quest.optional_done else 'open'}.",
             "This decision changes people, work, hazards, and later visits.",

@@ -251,11 +251,17 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(reports["responses"], {region: list(lines) for region, lines in FIELD_REPORT_RESPONSES.items()})
         self.assertEqual(load_catalog("spells.json", ("spells",))["spells"], json.loads(json.dumps(SPELL_ROWS)))
         quest_data = load_catalog("quests.json", ("quests", "rewards", "arc_regions", "arc_title", "additional_arcs"))
-        self.assertEqual(quest_data["quests"], json.loads(json.dumps(QUESTS)))
+        self.assertEqual(
+            {region: {"cache": row["cache"], "final": row["final"]} for region, row in quest_data["quests"].items()},
+            json.loads(json.dumps(QUESTS)),
+        )
         self.assertEqual(quest_data["rewards"], QUEST_REWARDS)
         self.assertEqual(quest_data["arc_regions"], {str(index): region for index, region in ARC_REGIONS.items()})
         self.assertEqual(quest_data["arc_title"], ARC_TITLE)
-        self.assertEqual(quest_data["additional_arcs"], json.loads(json.dumps(ADDITIONAL_ARCS)))
+        self.assertEqual(
+            {arc_id: {key: value for key, value in row.items() if key != "title"} for arc_id, row in quest_data["additional_arcs"].items()},
+            json.loads(json.dumps(ADDITIONAL_ARCS)),
+        )
         skill_data = load_catalog("skills.json", ("branches", "role_roots"))
         self.assertEqual(skill_data["branches"], json.loads(json.dumps(BRANCHES)))
         self.assertEqual(skill_data["role_roots"], json.loads(json.dumps(ROLE_ROOTS)))

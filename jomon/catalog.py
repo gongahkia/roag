@@ -65,6 +65,7 @@ REGION_PRESENTATION_FILE = "regions.json"
 CHARACTER_PRESENTATION_FILE = "characters.json"
 ITEM_PRESENTATION_FILE = "items.json"
 UI_PRESENTATION_FILE = "ui_text.json"
+QUEST_PRESENTATION_FILE = "quests.json"
 
 # Main-world modules load these files into module constants. Selecting a pack
 # therefore validates that it is complete before any one catalog is consumed.
@@ -184,6 +185,30 @@ class UiPresentation:
 
 
 @dataclass(frozen=True)
+class QuestContractSlot:
+    """One engine-owned quest, arc, or evidence presentation identity."""
+
+    id: str
+    engine_id: str
+    kind: str
+    choice_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class QuestPresentation:
+    """Immutable selected-pack prose for one quest-facing engine identity."""
+
+    id: str
+    engine_id: str
+    kind: str
+    title: str
+    lead: str | None = None
+    evidence_name: str | None = None
+    evidence_description: str | None = None
+    choices: tuple[tuple[str, str, str], ...] = ()
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -197,6 +222,7 @@ class ContentPack:
     role_presentations: tuple[RolePresentation, ...]
     item_presentations: tuple[ItemPresentation, ...]
     ui_presentations: tuple[UiPresentation, ...]
+    quest_presentations: tuple[QuestPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -232,6 +258,12 @@ class ContentPack:
                 return presentation
         raise KeyError(f"unknown UI semantic id: {semantic_id}")
 
+    def quest_presentation(self, semantic_id: str) -> QuestPresentation:
+        for presentation in self.quest_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown quest semantic id: {semantic_id}")
+
 
 _selected_pack: ContentPack | None = None
 _catalogs_loaded = False
@@ -261,8 +293,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, and ui")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, and quests")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -419,6 +451,34 @@ def _ui_contract() -> tuple[UiContractSlot, ...]:
 def ui_contract() -> tuple[UiContractSlot, ...]:
     """Return engine-owned UI wording and formatting requirements."""
     return _ui_contract()
+
+
+def _quest_contract() -> tuple[QuestContractSlot, ...]:
+    source, document = _content_contract_document()
+    rows = document["quests"]
+    if not isinstance(rows, list) or not rows:
+        raise RuntimeError(f"invalid engine quest content contract at {source}: quests must be a non-empty list")
+    slots: list[QuestContractSlot] = []
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict) or set(row) != {"id", "engine_id", "kind", "choice_ids"}:
+            raise RuntimeError(f"invalid engine quest content contract at {source}: quests[{index}] must contain id, engine_id, kind, and choice_ids")
+        semantic_id, engine_id, kind, choice_ids = row["id"], row["engine_id"], row["kind"], row["choice_ids"]
+        if (not isinstance(semantic_id, str) or re.fullmatch(r"quest\.[a-z][a-z0-9_.-]*", semantic_id) is None
+                or not isinstance(engine_id, str) or not engine_id
+                or kind not in {"regional", "arc", "evidence"}
+                or not isinstance(choice_ids, list) or len(set(choice_ids)) != len(choice_ids)
+                or any(not isinstance(choice_id, str) or re.fullmatch(r"[a-z]", choice_id) is None for choice_id in choice_ids)
+                or (kind == "regional" and len(choice_ids) != 2) or (kind != "regional" and choice_ids)):
+            raise RuntimeError(f"invalid engine quest content contract at {source}: quests[{index}] has invalid fields")
+        slots.append(QuestContractSlot(semantic_id, engine_id, kind, tuple(choice_ids)))
+    if len({slot.id for slot in slots}) != len(slots) or len({(slot.kind, slot.engine_id) for slot in slots}) != len(slots):
+        raise RuntimeError(f"invalid engine quest content contract at {source}: quest ids must be unique")
+    return tuple(slots)
+
+
+def quest_contract() -> tuple[QuestContractSlot, ...]:
+    """Return engine-owned quest-facing presentation slots."""
+    return _quest_contract()
 
 
 def _region_presentations(root: Path, pack_id: str) -> tuple[RegionPresentation, ...]:
@@ -672,6 +732,66 @@ def _ui_presentations(root: Path, pack_id: str) -> tuple[UiPresentation, ...]:
     return tuple(presentations)
 
 
+def _quest_presentations(root: Path, pack_id: str) -> tuple[QuestPresentation, ...]:
+    source = root / QUEST_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    if not isinstance(document, dict) or set(document) != {"quests"} or not isinstance(document["quests"], dict):
+        raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: quests must be an object")
+    rows = document["quests"]
+    slots = quest_contract()
+    expected, actual = {slot.id for slot in slots}, set(rows)
+    if actual != expected:
+        details = []
+        if expected - actual:
+            details.append("missing required quest slots " + ", ".join(sorted(expected - actual)))
+        if actual - expected:
+            details.append("unknown quest slots " + ", ".join(sorted(actual - expected)))
+        raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    presentations: list[QuestPresentation] = []
+    for slot in slots:
+        row = rows[slot.id]
+        path = f"quests.{slot.id}"
+        required = {"title", "lead", "choices"} if slot.kind == "regional" else ({"title"} if slot.kind == "arc" else {"evidence_name", "evidence_description"})
+        if not isinstance(row, dict) or set(row) != required:
+            missing, unknown = (required - set(row), set(row) - required) if isinstance(row, dict) else (required, set())
+            details = []
+            if missing:
+                details.append("missing " + ", ".join(sorted(missing)))
+            if unknown:
+                details.append("unknown " + ", ".join(sorted(unknown)))
+            if not details:
+                details.append("must be an object")
+            raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {path} " + "; ".join(details))
+        text_fields = required - {"choices"}
+        if any(not isinstance(row[field], str) or not row[field].strip() for field in text_fields):
+            raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {path} fields must be non-empty strings")
+        choices: tuple[tuple[str, str, str], ...] = ()
+        if slot.kind == "regional":
+            choice_rows = row["choices"]
+            expected_choices = slot.choice_ids
+            if not isinstance(choice_rows, dict) or set(choice_rows) != set(expected_choices):
+                raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {path}.choices must contain exactly {', '.join(expected_choices)}")
+            validated = []
+            for choice in expected_choices:
+                choice_row = choice_rows[choice]
+                if not isinstance(choice_row, dict) or set(choice_row) != {"label", "requirement"} or any(
+                    not isinstance(value, str) for value in choice_row.values()
+                ):
+                    raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {path}.choices.{choice} must contain string label and requirement")
+                if not choice_row["label"].strip():
+                    raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {path}.choices.{choice}.label must be a non-empty string")
+                validated.append((choice, choice_row["label"], choice_row["requirement"]))
+            choices = tuple(validated)
+        presentations.append(QuestPresentation(
+            slot.id, slot.engine_id, slot.kind, row.get("title", ""), row.get("lead"),
+            row.get("evidence_name"), row.get("evidence_description"), choices,
+        ))
+    return tuple(presentations)
+
+
 def _manifest_document(root: Path) -> dict[str, Any]:
     source = root / "manifest.json"
     try:
@@ -738,9 +858,10 @@ def load_content_pack(path: str | Path) -> ContentPack:
     characters, roles, household_template = _character_presentations(root, pack_id)
     items = _item_presentations(root, pack_id)
     ui = _ui_presentations(root, pack_id)
+    quests = _quest_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, household_template,
     )
 
 

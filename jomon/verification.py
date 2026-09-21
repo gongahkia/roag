@@ -32,6 +32,7 @@ from .manoeuvres import MANOEUVRES, validate_manoeuvres
 from .preparations import PREPARATIONS, validate_preparations
 from .arc_relics import validate_arc_relics
 from .quests import ADDITIONAL_ARCS, QUESTS, quest_reachability_audit
+from .quest_presentation import arc_title as presented_arc_title, regional_quest_title
 from .save import load_game, save_game
 from .ship_crises import TACTICAL, VOYAGES
 from .situations import SITUATIONS, audit_situations, validate_situations
@@ -176,11 +177,11 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
             "household_stories": [row.id for row in STORIES],
             "containers": sorted(container.id for region in state.regions.values() for container in region.containers),
             "quests": sorted([
-                *(definition["title"] for definition in QUESTS.values()),
+                *(regional_quest_title(region_id) for region_id in QUESTS),
                 *(row[0] for row in WORKLINES.values()),
                 *(row[0] for row in AFTERMATH_LINES.values()),
             ]),
-            "arcs": ["The Four Working Marks", *(str(row["title"]) for row in ADDITIONAL_ARCS.values())],
+            "arcs": [presented_arc_title("marks"), *(presented_arc_title(arc_id) for arc_id in ADDITIONAL_ARCS)],
             "commodities": sorted(COMMODITIES), "voyages": sorted(VOYAGES),
         },
     }

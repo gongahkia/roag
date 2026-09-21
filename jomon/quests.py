@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .catalog import CatalogError, load_catalog
 from .inventory import auto_place, create_item, record_acquisition
+from .quest_presentation import arc_title as presented_arc_title, regional_choice_presentation, regional_quest_lead, regional_quest_title
 from .state import GameState, QuestProgress
 
 REGION_IDS = ("hearthford", "greywash", "greenwold", "whitecairn")
@@ -34,7 +35,7 @@ for region, row in _raw_quests.items():
                    or any(not isinstance(option[index], str) for index in (0, 1, 2, 4))
                    for option in row["final"])):
         raise CatalogError("quests.json has an invalid regional quest")
-    QUESTS[region] = {**row, "final": tuple(tuple(option) for option in row["final"])}
+    QUESTS[region] = {"cache": row["cache"], "final": tuple(tuple(option) for option in row["final"])}
 
 QUEST_REWARDS = _QUEST_CATALOG["rewards"]
 if (not isinstance(QUEST_REWARDS, dict) or set(QUEST_REWARDS) != set(QUESTS)
@@ -65,6 +66,7 @@ for arc_id, row in _raw_arcs.items():
             if not isinstance(arc[key], list) or any(not isinstance(value, str) for value in arc[key]):
                 raise CatalogError("quests.json has invalid arc choices")
             arc[key] = tuple(arc[key])
+    arc.pop("title")
     ADDITIONAL_ARCS[arc_id] = arc
 
 
@@ -133,7 +135,7 @@ def _assign_regional_duty(state: GameState) -> None:
         "frostmere": "keep the winter soundings",
     }[state.active_region_id]
     actor.goal_reason = (
-        f"the opening decision in {QUESTS[state.active_region_id]['title']} "
+        f"the opening decision in {regional_quest_title(state.active_region_id)} "
         "gave this existing patrol a material duty"
     )
     state.region.changes["quest_guard_id"] = actor.id
@@ -156,7 +158,7 @@ def record_objective_decision(state: GameState, decision: str) -> None:
         quest.stage, quest.status = 1, "active"
     definition = QUESTS[state.active_region_id]
     quest.cache_marked = mark_treasure(
-        state, state.active_region_id, definition["cache"], definition["lead"]
+        state, state.active_region_id, definition["cache"], regional_quest_lead(state.active_region_id)
     )
     _assign_regional_duty(state)
 
@@ -189,7 +191,7 @@ def record_container_opened(state: GameState, container_id: str) -> None:
         if "optional-cache" not in quest.decisions:
             quest.decisions.append("optional-cache")
         state.add_message(
-            f"Optional lead completed for {QUESTS[state.active_region_id]['title']}.",
+            f"Optional lead completed for {regional_quest_title(state.active_region_id)}.",
             priority=3,
         )
 
@@ -243,13 +245,17 @@ def regional_resolution_options(state: GameState) -> tuple[tuple[str, str, str, 
     elif state.active_region_id not in REGION_IDS:
         available = quest.optional_done or state.region.changes.get("environment_control_used", False)
         rows[1] = (*rows[1][:3], bool(available), rows[1][4])
-    return tuple(rows)
+    return tuple(
+        (key, regional_choice_presentation(state.active_region_id, key)[0], semantic, available,
+         regional_choice_presentation(state.active_region_id, key)[1])
+        for key, _legacy_label, semantic, available, _legacy_requirement in rows
+    )
 
 
 def _grant_passive_reward(state: GameState, passive: str) -> None:
     item = create_item(
         state, f"passive:{passive}",
-        f"{QUESTS[state.active_region_id]['title']} consequence",
+        f"{regional_quest_title(state.active_region_id)} consequence",
     )
     if not auto_place(
         state, item.id, "pack", owner_id=state.active_courier_id
@@ -353,7 +359,7 @@ def resolve_regional_quest(state: GameState, choice: str) -> tuple[bool, str]:
         account.trust = min(3, account.trust + 1)
         account.confidence = min(3, account.confidence + 1)
     _grant_passive_reward(state, QUEST_REWARDS[region_id])
-    memory = f"{state.courier.name} completed {QUESTS[region_id]['title']}: {consequence}"
+    memory = f"{state.courier.name} completed {regional_quest_title(region_id)}: {consequence}"
     state.remember(memory)
     for contact in state.contacts[region_id]:
         contact.memories.append(memory)
@@ -371,7 +377,7 @@ def maybe_unlock_arc(state: GameState) -> bool:
             "Two regional working settlements now trust Jomon enough to compare their route accounts."
         )
         state.add_message(
-            f"The {ARC_TITLE} account can now be opened. Speak with a trusted witness.",
+            f"The {presented_arc_title('marks')} account can now be opened. Speak with a trusted witness.",
             priority=3,
         )
         changed = True
@@ -386,9 +392,9 @@ def maybe_unlock_arc(state: GameState) -> bool:
             for region_id in definition["requires"]
         ):
             arc.status = "available"
-            state.remember(f"Witnesses can now compare the material claims behind {definition['title']}.")
+            state.remember(f"Witnesses can now compare the material claims behind {presented_arc_title(arc_id)}.")
             state.add_message(
-                f"The {definition['title']} account can now be opened in {state.regions[definition['start']].name}.",
+                f"The {presented_arc_title(arc_id)} account can now be opened in {state.regions[definition['start']].name}.",
                 priority=3,
             )
             changed = True
@@ -419,7 +425,7 @@ def current_arc(state: GameState) -> QuestProgress | None:
 
 def arc_title(state: GameState) -> str:
     key = current_arc_key(state)
-    return ARC_TITLE if key == "marks" else str(ADDITIONAL_ARCS[key]["title"]) if key else "Compared Accounts"
+    return presented_arc_title("marks") if key == "marks" else presented_arc_title(key) if key else "Compared Accounts"
 
 
 def arc_next_region(state: GameState) -> str | None:
@@ -556,7 +562,7 @@ def _additional_arc_options(state: GameState, arc_id: str) -> tuple[tuple[str, s
 
 def _give_arc_record(state: GameState, arc_id: str) -> None:
     evidence = str(ADDITIONAL_ARCS[arc_id]["evidence"])
-    item = create_item(state, f"consumable:{evidence}", f"{ADDITIONAL_ARCS[arc_id]['title']} witnessed opening")
+    item = create_item(state, f"consumable:{evidence}", f"{presented_arc_title(arc_id)} witnessed opening")
     if not auto_place(state, item.id, "pack", owner_id=state.active_courier_id):
         item.location, item.region_id, item.ground_position = "ground", state.active_region_id, state.position
     marker = f"arc:{arc_id}:{evidence}"
@@ -608,14 +614,14 @@ def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple
         )
         _give_arc_record(state, arc_id)
         next_region = definition["regions"][1]
-        message = f"{definition['title']} begins with a physical witnessed record; {state.regions[next_region].name} holds the next account."
+        message = f"{presented_arc_title(arc_id)} begins with a physical witnessed record; {state.regions[next_region].name} holds the next account."
     elif arc.stage < 3:
         if choice in definition.get("environment_choices", {"r", "s", "i", "w"}):
             state.region.changes[f"arc:{arc_id}:environmental"] = True
             state.region.changes["environment_control_used"] = True
         else:
             state.region.changes[f"arc:{arc_id}:armed_claim"] = True
-            _wake_arc_opposition(state, f"{definition['title']} armed claim")
+            _wake_arc_opposition(state, f"{presented_arc_title(arc_id)} armed claim")
         current = arc.stage
         arc.stage += 1
         next_region = definition["regions"][arc.stage]
@@ -705,14 +711,14 @@ def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple
         state.vessel_changes[f"arc:{arc_id}:outcome"] = choice
         for region_id in involved:
             account = state.institutions[f"work:{region_id}"]
-            account.witnessed_acts.append(f"{definition['title']} settled: {arc.consequence}")
+            account.witnessed_acts.append(f"{presented_arc_title(arc_id)} settled: {arc.consequence}")
             del account.witnessed_acts[:-8]
         message = arc.consequence
         if arc_id in {"repairs", "refuges"}:
             from .arc_relics import grant_arc_relic
 
             message += grant_arc_relic(state, arc_id, choice)
-        state.remember(f"{definition['title']} ended. {arc.consequence}")
+        state.remember(f"{presented_arc_title(arc_id)} ended. {arc.consequence}")
     return True, message
 
 
@@ -762,7 +768,7 @@ def resolve_arc_choice(state: GameState, choice: str) -> tuple[bool, str]:
                 contacts[0].disposition = min(3, contacts[0].disposition + 1)
             state.vessel_changes["route_reputation"] = "local marks"
         message = arc.consequence
-        state.remember(f"{ARC_TITLE} ended. {arc.consequence}")
+        state.remember(f"{presented_arc_title('marks')} ended. {arc.consequence}")
     return True, message
 
 
