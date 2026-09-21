@@ -7,6 +7,11 @@ from collections import deque
 
 from .content import TREASURE_REWARDS
 from .state import Container, Position, VerticalLink, stage_rng
+from .topology_presentation import (
+    hearthford_container_name,
+    hearthford_link_name,
+    hearthford_zone_name,
+)
 
 WIDTH = 96
 HEIGHT = 54
@@ -185,11 +190,11 @@ def _ground(seed: str) -> tuple[list[list[str]], dict[str, Position], dict[str, 
         "objective": Position(84, 20, 1),
     }
     zones = {
-        "Hearthford settlement": (16, 5, 43, 20),
-        "Reedwood floodplain": (32, 27, 65, 51),
-        "Old watch": (43, 7, 52, 18),
-        "Hearthford millworks": (66, 12, 92, 36),
-        "River road": (12, 19, 65, 29),
+        hearthford_zone_name("settlement"): (16, 5, 43, 20),
+        hearthford_zone_name("floodplain"): (32, 27, 65, 51),
+        hearthford_zone_name("watch"): (43, 7, 52, 18),
+        hearthford_zone_name("millworks"): (66, 12, 92, 36),
+        hearthford_zone_name("river_road"): (12, 19, 65, 29),
     }
     return grid, landmarks, zones
 
@@ -238,35 +243,35 @@ def _upper_levels() -> dict[int, list[list[str]]]:
 
 def _links() -> list[VerticalLink]:
     return [
-        VerticalLink(Position(58, 42, 0), Position(58, 42, -1), "culvert steps"),
-        VerticalLink(Position(72, 26, 0), Position(72, 26, 1), "mill ladder"),
-        VerticalLink(Position(84, 16, 1), Position(84, 16, 2), "roof ladder"),
-        VerticalLink(Position(47, 13, 0), Position(47, 13, 1), "watch ladder"),
-        VerticalLink(Position(47, 10, 1), Position(47, 10, 2), "watch roof ladder"),
+        VerticalLink(Position(58, 42, 0), Position(58, 42, -1), hearthford_link_name("culvert_steps"), "hearthford:culvert_steps"),
+        VerticalLink(Position(72, 26, 0), Position(72, 26, 1), hearthford_link_name("mill_ladder"), "hearthford:mill_ladder"),
+        VerticalLink(Position(84, 16, 1), Position(84, 16, 2), hearthford_link_name("roof_ladder"), "hearthford:roof_ladder"),
+        VerticalLink(Position(47, 13, 0), Position(47, 13, 1), hearthford_link_name("watch_ladder"), "hearthford:watch_ladder"),
+        VerticalLink(Position(47, 10, 1), Position(47, 10, 2), hearthford_link_name("watch_roof_ladder"), "hearthford:watch_roof_ladder"),
     ]
 
 
 def _containers(seed: str) -> list[Container]:
     positions = (
-        ("ruin", "Collapsed cottage coffer", Position(49, 37), None),
-        ("reed", "Flood-islet cache", Position(55, 38), "rope"),
-        ("road", "Abandoned carrier chest", Position(60, 25), None),
-        ("cave", "Culvert mason's box", Position(70, 42, -1), "light"),
-        ("cellar", "Buried mill strongbox", Position(78, 41, -1), "key"),
-        ("gantry", "Gantry tool chest", Position(86, 18, 1), None),
-        ("watch", "Watch-roof coffer", Position(49, 9, 2), None),
-        ("roof", "Mill roof cache", Position(87, 16, 2), "rope"),
-        ("compact", "Mill compact archive chest", Position(75, 20, 1), None),
+        ("ruin", Position(49, 37), None),
+        ("reed", Position(55, 38), "rope"),
+        ("road", Position(60, 25), None),
+        ("cave", Position(70, 42, -1), "light"),
+        ("cellar", Position(78, 41, -1), "key"),
+        ("gantry", Position(86, 18, 1), None),
+        ("watch", Position(49, 9, 2), None),
+        ("roof", Position(87, 16, 2), "rope"),
+        ("compact", Position(75, 20, 1), None),
     )
     rewards = list(TREASURE_REWARDS)
     stage_rng(seed, "treasure-rewards").shuffle(rewards)
     containers = [
-        Container(key, name, position, rewards[index], requirement)
-        for index, (key, name, position, requirement) in enumerate(positions[:-1])
+        Container(key, hearthford_container_name(key), position, rewards[index], requirement)
+        for index, (key, position, requirement) in enumerate(positions[:-1])
     ]
-    key, name, position, requirement = positions[-1]
+    key, position, requirement = positions[-1]
     containers.append(Container(
-        key, name, position, "sluice token", requirement,
+        key, hearthford_container_name(key), position, "sluice token", requirement,
         extra_rewards=["boar spear", "load ledger"],
     ))
     return containers

@@ -100,7 +100,13 @@ def navigation_targets(state: GameState) -> tuple[NavigationTarget, ...]:
             label = (row["pockets"][int(name.rsplit("_", 1)[1])][0]
                      if name.startswith("landform_") else row["upper" if name == "field_upper" else "lower"])
         else:
-            label = LANDMARK_LABELS.get(name, name.replace("_", " "))
+            from .topology_presentation import hearthford_landmark_label
+
+            label = (
+                hearthford_landmark_label(name)
+                if state.active_region_id == "hearthford"
+                else None
+            ) or LANDMARK_LABELS.get(name, name.replace("_", " "))
         targets.append(NavigationTarget(f"landmark:{name}", label, point, "landmark"))
         occupied.add(point)
     for container in sorted(state.region.containers, key=lambda item: item.id):
@@ -124,7 +130,7 @@ def navigation_targets(state: GameState) -> tuple[NavigationTarget, ...]:
             if point == state.position or point not in known or point in occupied:
                 continue
             targets.append(NavigationTarget(
-                f"link:{link.name}:{point.x},{point.y},{point.z}",
+                f"link:{link.id or link.name}:{point.x},{point.y},{point.z}",
                 f"{link.name} on level {point.z:+d}",
                 point,
                 "vertical link",

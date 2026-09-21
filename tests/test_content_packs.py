@@ -46,6 +46,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "worklines.json", root / "worklines.json")
     shutil.copy(DEFAULT_PACK_ROOT / "interference_text.json", root / "interference_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "legendary_text.json", root / "legendary_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "topology_text.json", root / "topology_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -176,6 +177,15 @@ def alternate_pack(root: Path) -> Path:
         "legendary.arc.common-work-rivet.result": "Fixture rivet repairs {equipment} items and seats {supports} supports with the same fatigue.",
     })
     source.write_text(json.dumps(legendary, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "topology_text.json"
+    topology = json.loads(source.read_text(encoding="utf-8"))
+    topology["text"].update({
+        "topology.hearthford.zone.millworks": "Fixture Waterworks",
+        "topology.hearthford.landmark.mill": "fixture engine house",
+        "topology.hearthford.link.mill_ladder": "fixture service climb",
+        "topology.hearthford.container.cellar": "Fixture submerged strongbox",
+    })
+    source.write_text(json.dumps(topology, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
 
 
@@ -324,6 +334,25 @@ def legendary_presentation_snapshot(environment: dict[str, str]) -> dict[str, ob
             "state.location = 'region'; state.position = Position(40, 24); item = create_item(state, 'relic:common-work rivet', 'legendary fixture'); auto_place(state, item.id, 'pack', owner_id=state.active_courier_id); state.relics['common-work rivet'] = 1; state.carried_relic = 'common-work rivet'; sync_legacy_load(state); state.carried_relic = 'common-work rivet'; "
             "worn = next(item for item in state.items if item.location == 'readied' and item.owner_id == state.active_courier_id); worn.condition = 50; fields(state)['41,24,0'] = MaterialCell(material='timber', support=1, collapse_due=10); used = use_arc_relic(state, 'common-work rivet'); "
             "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, 'legends': legends, 'presented': presented, 'relic': [item_spec('relic:common-work rivet').name, item_spec('relic:common-work rivet').description, used[1]], 'mechanics': [used[0], worn.condition, fields(state)['41,24,0'].support, fields(state)['41,24,0'].collapse_due, state.relics, state.carried_relic, state.legendary_objects['legend:hearthford'].base_kind]}))",
+        ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+def topology_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.navigation import navigation_targets; from jomon.state import create_world; "
+            "state=create_world('topology-pack-proof'); region=state.region; state.location='region'; state.position=region.landmarks['landing']; "
+            "state.region.seen=[f'{point.x},{point.y},{point.z}' for point in region.landmarks.values()] + [f'{box.position.x},{box.position.y},{box.position.z}' for box in region.containers] + [f'{point.x},{point.y},{point.z}' for link in region.vertical_links for point in (link.first, link.second)]; "
+            "targets=navigation_targets(state); "
+            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
+            "'mechanics': [region.id, region.width, region.height, region.levels, sorted((key, point.x, point.y, point.z) for key, point in region.landmarks.items()), sorted((link.id, link.first.x, link.first.y, link.first.z, link.second.x, link.second.y, link.second.z) for link in region.vertical_links), sorted((box.id, box.position.x, box.position.y, box.position.z, box.reward, box.requirement, tuple(box.extra_rewards)) for box in region.containers), region.geography_signature], "
+            "'presentation': [list(region.zones), [(link.id, link.name) for link in region.vertical_links], [(box.id, box.name) for box in region.containers], [(target.id, target.label) for target in targets if target.id.startswith(('landmark:mill', 'link:hearthford:mill_ladder', 'container:cellar'))]]}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -792,6 +821,68 @@ class ContentPackTests(unittest.TestCase):
             ARC_RELIC_DESCRIPTIONS["common-work rivet"],
             "A master rivet repairs worn equipment and nearby supports together, but the resisting work leaves the bearer fatigued.",
         )
+
+    def test_alternate_pack_changes_hearthford_topology_presentation_not_generation(self):
+        default = topology_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = topology_presentation_snapshot(environment)
+
+        self.assertEqual(default["pack"], "default")
+        self.assertEqual(alternate["pack"], "fixture-alternate")
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+        self.assertIn("Fixture Waterworks", alternate["presentation"][0])
+        self.assertIn(["hearthford:mill_ladder", "fixture service climb"], alternate["presentation"][1])
+        self.assertIn(["cellar", "Fixture submerged strongbox"], alternate["presentation"][2])
+        self.assertIn("fixture engine house", " ".join(label for _id, label in alternate["presentation"][3]))
+        self.assertIn("Hearthford millworks", default["presentation"][0])
+
+    def test_topology_presentation_validation_rejects_invalid_authoring(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            source = root / "topology_text.json"
+            original = source.read_text(encoding="utf-8")
+            cases = {
+                "missing key": lambda value: value["text"].pop("topology.hearthford.container.cellar"),
+                "wrong type": lambda value: value["text"].update({"topology.hearthford.container.cellar": 1}),
+                "empty value": lambda value: value["text"].update({"topology.hearthford.container.cellar": ""}),
+                "malformed template": lambda value: value["text"].update({"topology.hearthford.zone.millworks": "{"}),
+                "unknown placeholder": lambda value: value["text"].update({"topology.hearthford.zone.millworks": "{zone}"}),
+            }
+            for name, mutate in cases.items():
+                with self.subTest(name):
+                    document = json.loads(original)
+                    mutate(document)
+                    source.write_text(json.dumps(document), encoding="utf-8")
+                    with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*topology_text\.json"):
+                        load_content_pack(root)
+            with self.subTest("missing file"):
+                source.unlink()
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*topology_text\.json"):
+                    load_content_pack(root)
+                source.write_text(original, encoding="utf-8")
+            with self.subTest("unknown key"):
+                document = json.loads(original)
+                document["text"]["topology.hearthford.extra"] = "unexpected"
+                source.write_text(json.dumps(document), encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*unknown topology keys"):
+                    load_content_pack(root)
+            with self.subTest("duplicate key"):
+                source.write_text(
+                    original.replace('"topology.hearthford.zone.millworks"', '"topology.hearthford.zone.settlement"', 1),
+                    encoding="utf-8",
+                )
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*topology_text\.json"):
+                    load_content_pack(root)
+
+    def test_default_topology_presentation_preserves_existing_text(self):
+        from jomon.topology_presentation import topology_text
+
+        self.assertEqual(topology_text("topology.hearthford.zone.millworks"), "Hearthford millworks")
+        self.assertEqual(topology_text("topology.hearthford.link.mill_ladder"), "mill ladder")
+        self.assertEqual(topology_text("topology.hearthford.container.cellar"), "Buried mill strongbox")
 
     def test_default_quest_presentation_matches_existing_catalog_copy(self):
         from jomon.quest_presentation import regional_choice_presentation, regional_quest_lead, regional_quest_title

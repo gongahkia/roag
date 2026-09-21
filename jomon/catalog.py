@@ -71,6 +71,7 @@ AFTERMATH_PRESENTATION_FILE = "aftermath_text.json"
 WORKLINE_PRESENTATION_FILE = "worklines.json"
 INTERFERENCE_PRESENTATION_FILE = "interference_text.json"
 LEGENDARY_PRESENTATION_FILE = "legendary_text.json"
+TOPOLOGY_PRESENTATION_FILE = "topology_text.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -185,6 +186,30 @@ _LEGENDARY_TEMPLATE_CONTRACT = {
     "legendary.arc.grant.provenance": ("arc", "choice"), "legendary.arc.grant.packed": (),
     "legendary.arc.grant.ground": (), "legendary.arc.grant.memory": ("courier", "name", "arc", "where"),
     "legendary.arc.grant.result": ("name", "where"),
+}
+
+_HEARTHFORD_TOPOLOGY_TEMPLATE_CONTRACT = {
+    "topology.hearthford.zone.settlement": (),
+    "topology.hearthford.zone.floodplain": (),
+    "topology.hearthford.zone.watch": (),
+    "topology.hearthford.zone.millworks": (),
+    "topology.hearthford.zone.river_road": (),
+    "topology.hearthford.landmark.watchtower": (),
+    "topology.hearthford.landmark.mill": (),
+    "topology.hearthford.link.culvert_steps": (),
+    "topology.hearthford.link.mill_ladder": (),
+    "topology.hearthford.link.roof_ladder": (),
+    "topology.hearthford.link.watch_ladder": (),
+    "topology.hearthford.link.watch_roof_ladder": (),
+    "topology.hearthford.container.ruin": (),
+    "topology.hearthford.container.reed": (),
+    "topology.hearthford.container.road": (),
+    "topology.hearthford.container.cave": (),
+    "topology.hearthford.container.cellar": (),
+    "topology.hearthford.container.gantry": (),
+    "topology.hearthford.container.watch": (),
+    "topology.hearthford.container.roof": (),
+    "topology.hearthford.container.compact": (),
 }
 
 _HISTORY_TEMPLATE_CONTRACT = {
@@ -481,6 +506,12 @@ class LegendaryPresentation:
 
 
 @dataclass(frozen=True)
+class TopologyPresentation:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -504,6 +535,7 @@ class ContentPack:
     workline_presentations: tuple[WorklinePresentation, ...]
     interference_presentations: tuple[InterferencePresentation, ...]
     legendary_presentations: tuple[LegendaryPresentation, ...]
+    topology_presentations: tuple[TopologyPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -605,6 +637,12 @@ class ContentPack:
                 return presentation
         raise KeyError(f"unknown legendary presentation id: {semantic_id}")
 
+    def topology_presentation(self, semantic_id: str) -> TopologyPresentation:
+        for presentation in self.topology_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown topology presentation id: {semantic_id}")
+
 
 _selected_pack: ContentPack | None = None
 _catalogs_loaded = False
@@ -634,8 +672,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, and legendary")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, and topology")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -1381,6 +1419,40 @@ def _legendary_presentations(root: Path, pack_id: str) -> tuple[LegendaryPresent
     return tuple(LegendaryPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)) for key, placeholders in _LEGENDARY_TEMPLATE_CONTRACT.items())
 
 
+def _topology_presentations(root: Path, pack_id: str) -> tuple[TopologyPresentation, ...]:
+    source = root / TOPOLOGY_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid topology presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected_contract = [
+        {"id": key, "placeholders": list(placeholders)}
+        for key, placeholders in _HEARTHFORD_TOPOLOGY_TEMPLATE_CONTRACT.items()
+    ]
+    if engine_contract.get("topology") != expected_contract:
+        raise RuntimeError(f"invalid engine topology content contract at {contract_source}: topology does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid topology presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_HEARTHFORD_TOPOLOGY_TEMPLATE_CONTRACT):
+        missing = set(_HEARTHFORD_TOPOLOGY_TEMPLATE_CONTRACT) - set(rows)
+        unknown = set(rows) - set(_HEARTHFORD_TOPOLOGY_TEMPLATE_CONTRACT)
+        details = []
+        if missing:
+            details.append("missing required topology keys " + ", ".join(sorted(missing)))
+        if unknown:
+            details.append("unknown topology keys " + ", ".join(sorted(unknown)))
+        raise ContentPackError(f"invalid topology presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(
+        TopologyPresentation(
+            key,
+            _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders),
+        )
+        for key, placeholders in _HEARTHFORD_TOPOLOGY_TEMPLATE_CONTRACT.items()
+    )
+
+
 def _aftermath_presentations(root: Path, pack_id: str) -> tuple[tuple[AftermathPresentation, ...], tuple[tuple[str, str, str, str], ...], tuple[AftermathActionPresentation, ...], tuple[AftermathResultPresentation, ...]]:
     source = root / AFTERMATH_PRESENTATION_FILE
     contract_source, engine_contract = _content_contract_document()
@@ -1510,10 +1582,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     worklines = _workline_presentations(root, pack_id)
     interference = _interference_presentations(root, pack_id)
     legendary = _legendary_presentations(root, pack_id)
+    topology = _topology_presentations(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, household_template,
     )
 
 

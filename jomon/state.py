@@ -120,6 +120,7 @@ class VerticalLink:
     first: Position
     second: Position
     name: str
+    id: str = ""
 
 
 @dataclass
@@ -1149,7 +1150,11 @@ def game_state_from_dict(data: Any) -> GameState:
             values["landmarks"] = {key: _position(value, f"{key} landmark") for key, value in values["landmarks"].items()}
             values["zones"] = {key: tuple(value) for key, value in values["zones"].items()}
             values["vertical_links"] = [
-                VerticalLink(_position(link["first"], "link first"), _position(link["second"], "link second"), link["name"])
+                VerticalLink(
+                    _position(link["first"], "link first"),
+                    _position(link["second"], "link second"),
+                    link["name"], link.get("id", ""),
+                )
                 for link in values["vertical_links"]
             ]
             containers: list[Container] = []

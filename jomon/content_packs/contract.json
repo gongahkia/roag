@@ -3379,5 +3379,91 @@
         "where"
       ]
     }
+  ],
+  "topology": [
+    {
+      "id": "topology.hearthford.zone.settlement",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.zone.floodplain",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.zone.watch",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.zone.millworks",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.zone.river_road",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.landmark.watchtower",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.landmark.mill",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.link.culvert_steps",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.link.mill_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.link.roof_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.link.watch_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.link.watch_roof_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.container.ruin",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.container.reed",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.container.road",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.container.cave",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.container.cellar",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.container.gantry",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.container.watch",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.container.roof",
+      "placeholders": []
+    },
+    {
+      "id": "topology.hearthford.container.compact",
+      "placeholders": []
+    }
   ]
 }
