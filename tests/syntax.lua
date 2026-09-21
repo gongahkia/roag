@@ -74,6 +74,7 @@ local paths={
  'tests/g01.lua',
  'tests/g01_gui.lua',
  'tests/g02.lua',
+ 'tests/g02_gui.lua',
  'tests/travel.lua',
  'tests/travel_gui.lua',
  'tests/expansion.lua',

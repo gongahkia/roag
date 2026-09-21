@@ -581,6 +581,9 @@ function love.mousepressed(mx,my,button)
      if not found then d.passengers[#d.passengers+1]=b.personId;table.sort(d.passengers) end
     elseif b.action=='cargo' then
      local n=math.max(0,(d.cargo[b.resource] or 0)+(b.delta or 0));if n==0 then d.cargo[b.resource]=nil else d.cargo[b.resource]=n end
+    elseif b.action=='loadTool' then
+     if app.siteId~=d.sourceSiteId then notify('View the tool\'s source settlement before loading it.')
+     else queue({type='load_tool',equipmentId=b.equipmentId,craftId=d.craftId,priority=app.priority}) end
     elseif b.action=='prepare' then queueCampaign({scope='campaign',type='prepare_expedition',sourceSiteId=d.sourceSiteId,craftId=d.craftId,destinationSiteId=d.destinationSiteId,passengers=d.passengers,cargo=d.cargo})
     elseif b.action=='assemble' then queueCampaign({scope='campaign',type='assemble_expedition',sourceSiteId=d.sourceSiteId,craftId=d.craftId,manifestId=b.manifestId})
     elseif b.action=='cancel' then queueCampaign({scope='campaign',type='cancel_expedition',sourceSiteId=d.sourceSiteId,craftId=d.craftId,manifestId=b.manifestId})

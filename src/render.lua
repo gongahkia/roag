@@ -598,7 +598,9 @@ function R:drawExpedition(app)
  text('Craft '..vehicle.id..' at '..(sourceBody and sourceBody.name or ('Site '..source.id)),x+24,y+64,colors.text,self.normal)
  text('Destination: '..(destinationBody and destinationBody.name or 'Choose destination'),x+24,y+91,colors.text,self.normal)
  button('destination','Previous',x+360,y+84,86,{delta=-1});button('destination','Next',x+452,y+84,68,{delta=1})
+ local Equipment=require('src.equipment')
  local cargoCount=0;for _,kind in ipairs(Logistics.resources()) do cargoCount=cargoCount+(vehicle.cargo[kind] or 0) end
+ cargoCount=cargoCount+Equipment.craftCount(campaign,vehicle.id)
  text(string.format('Cargo %d / %d slots',cargoCount,vehicle.capacity),x+24,y+122,colors.amber,self.normal)
  local manifest=vehicle.activeManifestId and Logistics.manifest(campaign,vehicle.activeManifestId) or nil
  local yy=y+154;text('PASSENGERS (selection does not assemble them)',x+24,yy,colors.muted,self.small);yy=yy+24
@@ -614,6 +616,23 @@ function R:drawExpedition(app)
   button('cargo','-',x+490,cargoY,26,{resource=resource,delta=-1});button('cargo','+',x+522,cargoY,26,{resource=resource,delta=1})
   if actual>0 and (not manifest or actual>(manifest.cargo[resource] or 0)) then button('unload','Unload 1',x+555,cargoY,76,{resource=resource}) end
   cargoY=cargoY+34
+ end
+ if campaign.features.equipment==1 then
+  local loose=Equipment.forSite(campaign,source.id,nil,'loose')
+  local aboard={};for _,item in ipairs(campaign.equipment.items) do if item.state=='craft' and item.craftId==vehicle.id then aboard[#aboard+1]=item end end
+  table.sort(aboard,function(a,b)return a.id<b.id end)
+  local function itemLabel(item) return (item.kind=='pickaxe' and 'Pickaxe' or 'Rope coil')..' #'..item.id end
+  local held={};for _,item in ipairs(aboard) do held[#held+1]=itemLabel(item) end
+  text('TOOLS / ACTUAL CUSTODY',x+630,y+154,colors.muted,self.small)
+  wrap(#held>0 and ('Aboard: '..table.concat(held,', ')) or 'Aboard: none.',x+630,y+178,pw-650,colors.text,self.small)
+  local toolY=y+220
+  for i,item in ipairs(loose) do
+   if i>3 then break end
+   text(itemLabel(item),x+630,toolY+5,colors.text,self.small)
+   if app.siteId==source.id then button('loadTool','Load',x+770,toolY,58,{equipmentId=item.id}) end
+   toolY=toolY+29
+  end
+  if #loose==0 then text('No loose local tools.',x+630,toolY+5,colors.muted,self.small) end
  end
  local canEdit=app.history:atPresent() or campaign.mode=='practice'
  local statusY=y+390

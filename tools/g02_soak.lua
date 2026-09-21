@@ -93,10 +93,23 @@ assert(Knowledge.identified(pupil,'flora','filter'),string.format('2x4 school pa
 local cargoCoil=Equipment.forSite(h.live,1,'rope_coil','loose')[1]
 if cargoCoil then queue({type='load_tool',equipmentId=cargoCoil.id,craftId=1,priority=3});advance(500);assert(cargoCoil.state=='craft','Loose tool did not become craft custody') end
 expert=worker(1,1);local expertId=expert.personId
-local passengers=expertId==minerId and {expertId} or {expertId,minerId}
+local pupilId=worker(1,2).personId
+local passengers={expertId,minerId}
+if pupilId~=expertId and pupilId~=minerId then passengers[#passengers+1]=pupilId end
 assert(h:queue({scope='campaign',type='prepare_expedition',sourceSiteId=1,craftId=1,destinationSiteId=2,passengers=passengers,cargo={food=2,metal=2}}));advance(900)
 local manifest=assert(Logistics.manifest(h.live,1));assert(h:queue({scope='campaign',type='assemble_expedition',sourceSiteId=1,craftId=1,manifestId=manifest.id}));advance(700)
 manifest=assert(Logistics.manifest(h.live,1));local ready,why=Logistics.readiness(h.live,manifest);assert(ready,why)
+-- Arm the established charge only after every person who participated in the
+-- school chain is assembled.  The actual fuse continues at the unviewed empty
+-- home site during flight, exercising the existing charge rather than adding
+-- another explosive system or arranging a fake detonation.
+queue({type='order',kind='arm',gx=chargeGX,gy=chargeGY,priority=3,worker=0})
+local armed=false
+for _=1,180 do
+ advance(1)
+ if charge.fuseAt then armed=true;break end
+end
+assert(armed,'Existing demolition charge did not arm through real field work')
 assert(h:queue({scope='campaign',type='launch_expedition',sourceSiteId=1,craftId=1,manifestId=manifest.id,expectedManifestRevision=manifest.revision}));local departure=h.live.tick;advance(400)
 local arrival,minerArrival;for _,a in ipairs(world(2).workers) do if a.personId==expertId then arrival=a end;if a.personId==minerId then minerArrival=a end end
 assert(arrival and Knowledge.supports(arrival,'flora','filter'),'P05 fact did not survive travel');assert(minerArrival and Equipment.pickFor(h.live,minerArrival),'Equipped pickaxe did not follow the persistent person through P04 travel')
@@ -105,5 +118,5 @@ advance(math.max(0,ticks-h.live.tick));for _=restored.live.tick+1,ticks do asser
 assert(Codec.encode(h.live)==Codec.encode(restored.live),'G02 save/reload continuation diverged')
 local checked,reason=h:verifyReplay(ticks+1000);assert(checked,reason)
 local final=world(1);local equipment=h.live.equipment.items;local panics=0;for _,a in ipairs(final.workers) do if a.panic then panics=panics+1 end end
-print(string.format('PASS G02 soak: seed=%d tick=%d rope=%d/%d bench=%d charge=%s pick=%d cargoTools=%d departure/arrival=%d/%d bytes=%d checkpoints=%d',seed,h.live.tick,rope.id,rope.length,bench.id,tostring(charge and charge.fuseAt~=nil),Equipment.pickFor(h.live,minerArrival).id,Equipment.craftCount(h.live,1),departure,h.live.tick,#h:saveText(),#h.checkpoints))
+print(string.format('PASS G02 soak: seed=%d tick=%d rope=%d/%d bench=%d chargeArmed=%s pick=%d cargoTools=%d departure/arrival=%d/%d bytes=%d checkpoints=%d',seed,h.live.tick,rope.id,rope.length,bench.id,tostring(armed),Equipment.pickFor(h.live,minerArrival).id,Equipment.craftCount(h.live,1),departure,h.live.tick,#h:saveText(),#h.checkpoints))
 print(string.format('TRACE expert=%d miner=%d pupil=%d fact=operational/flora/filter/steam-to-water/v1 stress=%d panic=%d body=2x4 equipment=%d safe_excavation=%d.',expertId,minerId,worker(1,2).personId,arrival.stress or 0,panics,h.live.features.equipment,h.live.features.safe_excavation))
