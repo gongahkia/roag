@@ -42,6 +42,7 @@ local function isSafeExcavation(c) return c.features and c.features.safe_excavat
 local function isPsychology(c) return c.features and c.features.psychology==1 end
 local function isIndustry(c) return c.features and c.features.industry==1 end
 local function isFactions(c) return c.features and c.features.factions==1 end
+local function isSecurity(c) return c.features and c.features.security==1 end
 
 function Campaign.sites(c)
  local out={};local limit=isRegion(c) and 3 or 1
@@ -116,10 +117,10 @@ local function validateRegion(c)
 end
 
 function Campaign.validate(c)
- allowed(c,{format=true,version=true,ruleset=true,features=true,tick=true,mode=true,seed=true,society=true,nextPersonId=true,sites=true,region=true,logistics=true,travel=true,knowledge=true,education=true,equipment=true,factions=true},'campaign')
+ allowed(c,{format=true,version=true,ruleset=true,features=true,tick=true,mode=true,seed=true,society=true,nextPersonId=true,sites=true,region=true,logistics=true,travel=true,knowledge=true,education=true,equipment=true,factions=true,security=true},'campaign')
  for _,key in ipairs({'format','version','ruleset','features','tick','mode','seed','society','nextPersonId','sites'}) do assert(c[key]~=nil,'Missing campaign key '..key) end
  assert(c.format==Campaign.format,'Incompatible campaign state format');assert(c.version==Campaign.version,'Unsupported campaign state version');assert(c.ruleset==Campaign.ruleset,'Unsupported campaign ruleset')
- allowed(c.features,{core=true,region=true,logistics=true,travel=true,knowledge=true,education=true,body=true,visibility=true,equipment=true,safe_excavation=true,psychology=true,industry=true,factions=true},'campaign features');assert(c.features.core==1,'Unsupported campaign core feature version')
+ allowed(c.features,{core=true,region=true,logistics=true,travel=true,knowledge=true,education=true,body=true,visibility=true,equipment=true,safe_excavation=true,psychology=true,industry=true,factions=true,security=true},'campaign features');assert(c.features.core==1,'Unsupported campaign core feature version')
  if c.features.region~=nil then assert(c.features.region==1,'Unsupported campaign region feature version') end
  if c.features.logistics~=nil then assert(c.features.logistics==1,'Unsupported campaign logistics feature version') end
  if c.features.travel~=nil then assert(c.features.travel==1,'Unsupported campaign travel feature version') end
@@ -132,6 +133,7 @@ function Campaign.validate(c)
  if c.features.psychology~=nil then assert(c.features.psychology==1,'Unsupported campaign psychology feature version') end
  if c.features.industry~=nil then assert(c.features.industry==1,'Unsupported campaign industry feature version') end
  if c.features.factions~=nil then assert(c.features.factions==1,'Unsupported campaign factions feature version') end
+ if c.features.security~=nil then assert(c.features.security==1,'Unsupported campaign security feature version') end
  assert((c.features.region==1)==(c.region~=nil),'Campaign region feature/state mismatch')
  assert((c.features.logistics==1)==(c.logistics~=nil),'Campaign logistics feature/state mismatch')
  assert((c.features.travel==1)==(c.travel~=nil),'Campaign travel feature/state mismatch')
@@ -147,6 +149,7 @@ function Campaign.validate(c)
  assert(c.features.psychology==nil or (c.features.safe_excavation==1 and c.features.knowledge==1),'Psychology requires safe excavation and personal knowledge')
  assert(c.features.industry==nil or (c.features.equipment==1 and c.features.safe_excavation==1),'Industry requires the current physical equipment and safety features')
  assert(c.features.factions==nil or (c.features.industry==1 and c.features.psychology==1 and c.features.knowledge==1),'Factions require industry, psychology and knowledge')
+ assert(c.features.security==nil or (c.features.factions==1 and c.features.industry==1 and c.features.psychology==1),'Security requires factions, industry and psychology')
  assert((c.features.factions==1)==(c.factions~=nil),'Campaign factions feature/state mismatch')
  U.integer(c.tick,'campaign tick',0,10000000);assert(c.mode=='challenge' or c.mode=='practice','Invalid campaign mode');U.integer(c.seed,'campaign seed',0,2147483646)
  exact(c.society,{id=true,origin=true,independent=true},'campaign society');U.integer(c.society.id,'society ID',1,100000000)
@@ -179,6 +182,7 @@ function Campaign.validate(c)
  if c.features.logistics==1 then require('src.logistics').validate(c) end
  if isTravel(c) then require('src.travel').validate(c) end
  if isFactions(c) then require('src.factions').validate(c) end
+ if isSecurity(c) then require('src.security').validate(c) end
  return true
 end
 
