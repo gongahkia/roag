@@ -24,6 +24,16 @@ local function addBlockActions(world,actions)
  if world.frontier and world.frontier.education==1 then add(actions,'build:field_school','Delegate field school','Requires four stone and two metal through ordinary construction.') end
  if world.frontier and world.frontier.equipment==1 then add(actions,'build:tool_bench','Delegate tool bench','Requires four stone and two metal through ordinary construction.') end
  if world.frontier and world.frontier.visibility==1 then add(actions,'build:torch','Delegate torch','Requires one metal; mount it on a floor or a solid wall face.') end
+ if world.frontier and world.frontier.industry==1 then
+  add(actions,'build:solar_array','Build small solar array','Two supported blocks; 2 stone, 4 metal and one component.')
+  add(actions,'build:power_pole','Build power pole','One metal; connects nearby industry.')
+  add(actions,'build:battery','Build battery','Stores local solar power.')
+  add(actions,'build:fabricator','Build fabricator','Powered manufacturing with physical buffers.')
+  add(actions,'build:mining_rig','Build mining rig','Powered designated excavation.')
+  add(actions,'build:industrial_bin','Build industrial bin','Physical belt-accessible storage.')
+  add(actions,'build:conveyor','Build conveyor','Floor-level physical item transport.')
+  add(actions,'build:electric_lamp','Build electric lamp','Powered light without fuel.')
+ end
  if world.frontier and world.frontier.safe_excavation==1 then
   add(actions,'rope:down','Unfurl rope downward','Fetches one real rope coil and deploys a climb lane below the selected anchor.')
   add(actions,'rope:up','Unfurl rope upward','Fetches one real rope coil and deploys a climb lane upward to climb from below.')
@@ -79,7 +89,15 @@ function H.model(app,world)
  if structure then
   local label=S.def[structure.kind].label
   if structure.kind=='field_school' and structure.education then add(actions,'school','Open '..label,'Configure records, teaching, or record study.')
-  elseif structure.kind=='tool_bench' then add(actions,'fabricate:pickaxe','Fabricate pickaxe','Consumes two metal and 120 work actions.');add(actions,'fabricate:rope_coil','Fabricate rope coil','Consumes one metal and 60 work actions.')
+  elseif structure.kind=='tool_bench' then add(actions,'fabricate:pickaxe','Fabricate pickaxe','Consumes two metal and 120 work actions.');add(actions,'fabricate:rope_coil','Fabricate rope coil','Consumes one metal and 60 work actions.');if world.frontier and world.frontier.industry==1 then add(actions,'fabricate:component','Fabricate machine component','Consumes two metal and 120 work actions.') end
+  elseif structure.kind=='fabricator' then
+   add(actions,'industry:recipe:component','Set component recipe','Consumes two metal in 40 powered ticks.')
+   add(actions,'industry:recipe:pickaxe','Set pickaxe recipe','Consumes two metal in 50 powered ticks.')
+   add(actions,'industry:recipe:rope_coil','Set rope coil recipe','Consumes one metal in 30 powered ticks.')
+   add(actions,'industry:priority','Cycle power priority','Sets local consumer priority from 1 through 3.')
+  elseif structure.kind=='mining_rig' or structure.kind=='electric_lamp' then add(actions,'industry:priority','Cycle power priority','Sets local consumer priority from 1 through 3.')
+  elseif structure.kind=='conveyor' then add(actions,'industry:direction','Rotate conveyor','Cycles north, east, south and west.')
+  elseif structure.kind=='industrial_bin' then add(actions,'industry:direction','Rotate bin output','Cycles north, east, south and west.');add(actions,'industry:mode','Toggle bin mode','Switches between receive and supply.')
   elseif structure.kind=='pump' then
    add(actions,'pump:intake','Delegate pump intake','Choose the next material cell as the intake.')
    add(actions,'pump:outlet','Delegate pump outlet','Choose the next material cell as the outlet.')

@@ -52,7 +52,7 @@ function E.create(c,siteId,kind,x,y)
 end
 function E.drop(c,item,siteId,x,y)
  assert(item and value[item.kind],'Invalid equipment')
- item.state='loose';item.siteId=siteId;item.x=x;item.y=y;item.personId=nil;item.craftId=nil;item.ropeId=nil;item.reservedBy=nil
+ item.state='loose';item.siteId=siteId;item.x=x;item.y=y;item.personId=nil;item.craftId=nil;item.ropeId=nil;item.structureId=nil;item.owner=nil;item.reservedBy=nil
  return item
 end
 function E.toIndustry(item,siteId,structureId,owner)
@@ -63,7 +63,7 @@ end
 function E.equip(c,item,worker)
  assert(item and item.state=='loose','Tool is no longer loose');assert(item.kind=='pickaxe','Only a pickaxe can be equipped')
  assert(not E.equipped(c,worker.personId),'Worker already has an equipped hand tool')
- item.state='equipped';item.personId=worker.personId;item.siteId=nil;item.x=nil;item.y=nil;item.reservedBy=nil
+ item.state='equipped';item.personId=worker.personId;item.siteId=nil;item.x=nil;item.y=nil;item.structureId=nil;item.owner=nil;item.reservedBy=nil
  return item
 end
 function E.pickFor(c,worker)
@@ -101,7 +101,7 @@ function E.release(item,worker)
 end
 function E.carry(c,item,worker)
  assert(item and item.state=='loose' and item.reservedBy==worker.personId,'Equipment pickup changed')
- item.state='carried';item.personId=worker.personId;item.siteId=nil;item.x=nil;item.y=nil;item.reservedBy=nil
+ item.state='carried';item.personId=worker.personId;item.siteId=nil;item.x=nil;item.y=nil;item.structureId=nil;item.owner=nil;item.reservedBy=nil
 end
 function E.carried(c,worker,kind)
  for _,item in ipairs(c.equipment.items) do if item.state=='carried' and item.personId==worker.personId and (not kind or item.kind==kind) then return item end end
@@ -132,7 +132,7 @@ function E.transitMineral(c)
  return n
 end
 function E.loadCraft(c,item,craftId)
- assert(item and item.state=='carried','A carried item is required for craft loading');item.state='craft';item.craftId=craftId;item.personId=nil;item.siteId=nil;item.x=nil;item.y=nil;item.reservedBy=nil
+ assert(item and item.state=='carried','A carried item is required for craft loading');item.state='craft';item.craftId=craftId;item.personId=nil;item.siteId=nil;item.x=nil;item.y=nil;item.structureId=nil;item.owner=nil;item.reservedBy=nil
 end
 function E.unloadCraft(c,item,siteId,x,y)
  assert(item and item.state=='craft','Craft item is missing');E.drop(c,item,siteId,x,y)
@@ -203,6 +203,9 @@ function E.validate(c)
    local s=site(c,item.siteId);assert(s,'Rope equipment site missing');local found=false;for _,rope in ipairs(s.world.ropes or {}) do if rope.id==item.ropeId and rope.itemId==item.id then found=true end end;assert(found,'Installed rope is missing')
   else
    local s=site(c,item.siteId);assert(s and c.features.industry==1,'Industrial equipment state is invalid');U.integer(item.structureId,'Industrial equipment structure',1,100000000);assert(item.owner=='input' or item.owner=='output' or item.owner=='belt' or item.owner=='bin','Invalid industrial equipment owner')
+   local structure=require('src.industry').find(s.world,item.structureId);assert(structure,'Industrial equipment owner is missing')
+   local list=item.owner=='input' and structure.input or item.owner=='output' and structure.output or structure.cargo
+   local found=false;for _,record in ipairs(list or {}) do if record.equipmentId==item.id then found=true end end;assert(found,'Industrial equipment is absent from its owner')
   end
  end
  for _,n in pairs(siteCount) do assert(n<=E.maxSiteItems,'Equipment site limit exceeded') end

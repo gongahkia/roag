@@ -186,8 +186,8 @@ function R:drawMap(app)
    local remembered=Visibility.enabled(w) and not visible and w.visibility.structures[slot]
    if visible or remembered then
    local shown=visible and s or remembered
-   local px,py=point(shown.gx*4-3,shown.gy*4-3);local size=4*sc
-   if not visible then box(px,py,size,size,colors.muted,0.15)
+   local px,py=point(shown.gx*4-3,shown.gy*4-3);local size=4*sc;local wide=size*(shown.width or 1)
+   if not visible then box(px,py,wide,size,colors.muted,0.15)
    elseif s.kind=='wall' then
     box(px,py,size,size,{0.37,0.37,0.36})
     color({0.20,0.23,0.23});love.graphics.rectangle('line',px,py,size,size)
@@ -229,6 +229,22 @@ function R:drawMap(app)
     else
      box(px+sc*1.7,py+sc,sc*.6,sc*2.5,colors.amber);box(px+sc*1.3,py+sc*.5,sc*1.4,sc,colors.amber)
     end
+   elseif s.kind=='solar_array' then
+    box(px,py+sc,wide,2*sc,{0.20,0.48,0.52});box(px+sc,py,wide-2*sc,sc,colors.cyan)
+   elseif s.kind=='power_pole' then
+    box(px+size*.45,py+sc,size*.12,size-2*sc,colors.amber);box(px+size*.2,py+sc,size*.6,sc*.25,colors.cyan)
+   elseif s.kind=='battery' then
+    box(px+sc,py+sc,2*sc,2*sc,{0.27,0.54,0.44});box(px+sc*1.7,py+sc*.35,sc*.6,sc*.7,colors.amber)
+   elseif s.kind=='fabricator' then
+    box(px,py+sc,wide,3*sc,{0.48,0.34,0.24});box(px+wide*.35,py+sc*1.5,sc*2,sc,colors.cyan)
+   elseif s.kind=='mining_rig' then
+    box(px,py+sc,wide,3*sc,{0.42,0.38,0.48});color(colors.amber);love.graphics.line(px+wide*.5,py+sc,px+wide*.5,py+size)
+   elseif s.kind=='industrial_bin' then
+    box(px+sc*.5,py+sc,3*sc,2.5*sc,{0.36,0.40,0.44});if sc>=4 then text('I',px+sc*1.5,py+sc*1.4,colors.text,self.small) end
+   elseif s.kind=='conveyor' then
+    box(px,py+size-sc,wide,sc,{0.38,0.45,0.46});color(colors.cyan);love.graphics.line(px+sc,py+size-sc*.5,px+size*3,py+size-sc*.5)
+   elseif s.kind=='electric_lamp' then
+    box(px+sc*1.8,py+sc,sc*.4,2*sc,colors.amber);box(px+sc*1.25,py+sc*.3,sc*1.5,sc*.8,s._powerGranted and colors.cyan or colors.muted)
    end
    end
   end
@@ -389,6 +405,15 @@ function R:sidebar(app)
    if s.kind=='pump' then wrap('I intake / O outlet / T toggle\nHose range: 20 cells.',x+16,y,pw-32,colors.cyan,self.small);y=y+36 end
    if s.kind=='charge' then wrap(s.fuseAt and ('ARMED: '..math.max(0,s.fuseAt-w.tick)..' ticks. No disarm.') or 'T: order a field worker to arm. An 80-tick fuse follows.',x+16,y,pw-32,colors.red,self.small);y=y+36 end
    if s.kind=='ward' then text('Stored water '..s.tank..' / T toggle',x+16,y,colors.cyan,self.small);y=y+24 end
+   if s.kind=='solar_array' or s.kind=='power_pole' or s.kind=='battery' or s.kind=='fabricator' or s.kind=='mining_rig' or s.kind=='industrial_bin' or s.kind=='conveyor' or s.kind=='electric_lamp' then
+    local Industry=require('src.industry');local top=Industry.topology(w);local net=top.byStructure[s.id]
+    local network=net and ('Network '..net.poles[1].id..' / solar '..(net.generation or 0)) or 'No power pole network'
+    wrap(network,x+16,y,pw-32,colors.cyan,self.small);y=y+20
+    if s.kind=='battery' then text('Charge '..(s.charge or 0)..' / 200',x+16,y,colors.cyan,self.small);y=y+20
+    elseif s.kind=='fabricator' then wrap('Recipe: '..(s.recipe or 'none')..' / input '..Industry.capacity(s.input)..'/16 / output '..Industry.capacity(s.output)..'/16 / wear '..(s.wear or 0)..'/600',x+16,y,pw-32,colors.muted,self.small);y=y+35
+    elseif s.kind=='mining_rig' then wrap('Output '..Industry.capacity(s.output)..'/16 / wear '..(s.wear or 0)..'/600',x+16,y,pw-32,colors.muted,self.small);y=y+24
+    elseif s.kind=='industrial_bin' or s.kind=='conveyor' then text('Cargo '..Industry.capacity(s.cargo)..' / '..(s.kind=='industrial_bin' and '32' or '8')..' / '..(s.direction or 'east'),x+16,y,colors.muted,self.small);y=y+20 end
+   end
    if s.kind=='field_school' and s.education then
     local data=s.education
     text((data.enabled and 'Enabled' or 'Disabled')..' / '..data.mode..' / priority '..data.priority,x+16,y,colors.cyan,self.small);y=y+20

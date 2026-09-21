@@ -539,3 +539,59 @@ relationship tone. Raw values and score calculations remain backend state.
 Existing feature-off histories do not gain psychology fields or reinterpret their
 old stress timeline. Industry and automation are the next planned content
 direction; factions and cultures follow that work.
+
+## G04 industry, power, machines, and conveyors
+
+`features.industry=1` is a new-frontier-only extension requiring the current
+equipment and safe-excavation features. It creates no starter components or
+industrial structures, and feature-off campaigns retain their existing mining,
+tool, map, and accounting behavior. A **Machine Component** is a stackable,
+physical resource worth two units of mineral-equivalent metal. The existing Tool
+bench can turn two metal into one component in 120 real work actions; a powered
+Fabricator can make components, pickaxes, and rope coils from physical buffers.
+
+All industrial ownership is site-local: a component can be loose, carried,
+in normal build escrow, craft cargo, a machine/bin/belt buffer, or its one
+ordinary physical owner. Components use one existing craft cargo slot. Industry
+does not add a shared stockpile, cross-site electrical network, remote drawing,
+or instant manufacture.
+
+Small Solar Arrays generate three integer power units for each of two
+sky-exposed block columns. Power Poles connect within six build blocks; a
+producer, battery, Fabricator, Mining Rig, or Electric Lamp connects to a pole
+within three. Derived topology is a revisioned disposable cache, never saved
+truth. A Battery stores 0–200 charge and changes by at most six per tick.
+Consumers receive full power or none in priority then stable structure-ID order:
+lamp 1, rig 3, Fabricator 2. Solar serves consumers first, batteries discharge
+only to make a complete grant, and leftover solar charges batteries.
+
+Fabricators have 16-unit input/output buffers, one recipe, an in-process escrow,
+productive-tick progress, priority, and wear. They consume a complete recipe at
+cycle start and commit output only when final output space exists. A Mining Rig
+works only an existing legal player dig designation within twelve fine cells of
+its outward drill mouth; it contributes four work units per powered tick and
+cannot mine its own floor support. It never creates designations or reveals fog.
+
+Conveyors are supported, non-body-blocking one-block structures with an
+eight-unit directional buffer. On even ticks, a unit advances at most one
+automatic conveyor segment. They can feed a compatible Fabricator input or an
+Industrial Bin. Bins hold 32 units and use receive/supply mode, a direction, and
+an optional item filter. Fabricator/Rig output may enter an adjacent outward
+conveyor. Transfer ordering is stable and source/destination capacities retain
+blocked cargo rather than deleting it.
+
+Fabricators and Mining Rigs gain one wear on each committed productive tick and
+block after their 600th. Ordinary maintenance fetches and consumes one Machine
+Component through 60 real work actions, resetting wear. Solar arrays, poles,
+batteries, bins, belts, and lamps do not wear in G04. An enabled, fully powered
+Electric Lamp supplies G01-compatible light radius 18, but still needs a living
+local observer for current visibility and P05 witnessing.
+
+Industrial construction is ordinary Build work with these costs: Solar Array
+2 rock/4 metal/1 component; Pole 1 metal; Battery 2 rock/4 metal/2 components;
+Fabricator and Rig 4 rock/4 metal/2 components; Bin 2 rock/2 metal/1 component;
+Conveyor 1 metal; Lamp 1 metal/1 component. Existing removal/blast lifecycle
+releases buffers under normal drop rules and makes mid-cycle Fabricator escrow
+demolition waste rather than duplicate input/output. Battery charge is not a
+mineral, food, or water ledger value; components, tools, industrial buffers, and
+construction material are counted exactly once.

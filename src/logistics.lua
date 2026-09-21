@@ -512,7 +512,9 @@ function L.unloadFetch(c,siteId,job,a)
  local available=vehicle.cargo[job.logistics.resource] or 0;local n=math.min(available,12,job.logistics.remaining,op.remaining)
  if n<=0 then return nil,'Craft cargo is no longer available' end
  if not N.reach(site(c,siteId).world,a.x,a.y,vehicle.anchor.x,vehicle.anchor.y,4) then return nil,'Craft is no longer reachable' end
- vehicle.cargo[job.logistics.resource]=available-n;job.logistics.remaining=job.logistics.remaining-n;op.remaining=op.remaining-n
+ local left=available-n
+ vehicle.cargo[job.logistics.resource]=left>0 and left or nil
+ job.logistics.remaining=job.logistics.remaining-n;op.remaining=op.remaining-n
  return n
 end
 function L.unloadDeliver(c,siteId,job,a)

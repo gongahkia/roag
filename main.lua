@@ -361,9 +361,20 @@ local function delegateHudAction(action)
   local structure=W.structureAt(w,cell.x,cell.y)
   if structure then return issued({type='arm',slot=W.slot(w,structure.gx,structure.gy),worker=delegatedWorker(),priority=app.priority}) end
  elseif action=='rope:down' or action=='rope:up' then return issued({type='place_rope',gx=gx,gy=gy,direction=action:match(':(.+)$'),priority=app.priority})
- elseif action=='fabricate:pickaxe' or action=='fabricate:rope_coil' then
+ elseif action=='fabricate:pickaxe' or action=='fabricate:rope_coil' or action=='fabricate:component' then
   local structure=W.structureAt(w,cell.x,cell.y)
   if structure and structure.kind=='tool_bench' then return issued({type='fabricate',slot=W.slot(w,structure.gx,structure.gy),kind=action:match(':(.+)$'),priority=app.priority}) end
+ elseif action:match('^industry:') then
+  local structure=W.structureAt(w,cell.x,cell.y)
+  if not structure then notify('Select a completed industrial structure.');return false end
+  local part,value=action:match('^industry:([^:]+):?(.*)$')
+  local payload={type='industry_config',structureId=structure.id}
+  if part=='recipe' then payload.recipe=value
+  elseif part=='priority' then payload.priority=(structure.powerPriority or 1)%3+1
+  elseif part=='direction' then local order={north='east',east='south',south='west',west='north'};payload.direction=order[structure.direction or 'east']
+  elseif part=='mode' then payload.mode=structure.mode=='receive' and 'supply' or 'receive'
+  else notify('That industrial action is unavailable.');return false end
+  return issued(payload)
  elseif action=='toggle' then return issued({type='toggle',gx=gx,gy=gy})
  elseif action=='remove' then return issued({type='order',kind='remove',gx=gx,gy=gy,priority=app.priority,worker=delegatedWorker()})
  elseif action=='cancel' then return issued({type='cancel',gx=gx,gy=gy})

@@ -209,6 +209,39 @@ Write down anything that feels arbitrary, too frequent, too slow, or hard to
 understand. These checks remain **NOT RUN** until a person completes them in a
 native isolated LÖVE session.
 
+## G04 industry and automation
+
+Begin a **new** frontier campaign. Industry adds no free parts: the first
+Machine Components come from a built Tool bench using two metal each.
+
+1. Build a Tool bench, make one **Machine Component**, then inspect it as a
+   physical local resource. It should not appear in a global inventory.
+2. Build a Small Solar Array, Power Pole, Battery, and Electric Lamp on a
+   supported visible shelf. Inspect the pole and lamp while the colony is
+   running: the lamp should say whether it is connected and powered; opening
+   the inspector must not pause the clock.
+3. Cover one solar panel column with terrain, then uncover it. Generation and
+   battery charge should change on later simulation ticks. The lamp should
+   make nearby terrain visible only while a living settler is present; it does
+   not reveal a remote or empty site.
+4. Build a Fabricator, set its recipe from its inspector, and watch actual
+   metal enter its input buffer. When power and inputs exist, progress advances
+   in whole productive ticks. Put a Conveyor facing an Industrial Bin at its
+   output and watch one physical item move per eligible belt tick.
+5. Place a Mining Rig beside a visible dig designation. It should work only
+   that designation, leave ordinary miners subject to rope safety, and stop
+   with a plain reason for no power, no reachable designated dig, full output,
+   unsupported footing, or maintenance.
+6. Let a Fabricator or Rig reach **Maintenance required**. A colonist must
+   fetch a real component and work on it; power alone never resets wear.
+7. Load a loose manufactured component or tool through Region → Prepare craft.
+   It must consume one ordinary cargo slot and appear at the destination only
+   after physical unloading.
+
+Record pole/network state, battery charge, buffer contents, blocked reasons,
+and any belt route that feels hard to read. These checks remain **NOT RUN**
+until a person completes them in a native isolated LÖVE session.
+
 ## Evidence labels
 
 `HEADLESS` means real simulation, commands, save, and replay without a window.

@@ -180,7 +180,7 @@ end
 local function attach(world,siteId,nextPerson,knowledge,education,body,visibility,equipment,safeExcavation,psychology,industry,seed)
  if not world.baseline then world.baseline=Metrics.measure(world) end
  world.frontier={version=1,siteId=siteId};if knowledge then world.frontier.knowledge=1 end;if education then world.frontier.education=1;world.education=require('src.education').newWorld() end
- if body then world.body=1;world.frontier.body=1 else world.body=nil end
+ if body then world.body=1;world.frontier.body=1;world.rules.jumpVersion=C.jumpVersion else world.body=nil end
  if visibility then world.frontier.visibility=1;world.visibility=require('src.visibility').new(world) end
  if equipment then world.frontier.equipment=1 end
  if safeExcavation then world.frontier.safe_excavation=1;world.ropes={};world.nextRopeId=1 end

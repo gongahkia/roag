@@ -335,8 +335,11 @@ function J.plan(w,a,context)
      end
      if kind and need and need>0 then
       local p,pp,nn,dd=itemChoice(w,a,f,kind,true)
-      if p then offer({kind='industry',stage='fetch',purpose='feed',structureId=s.id,slot=slot,item=p.id,amount=math.min(need,12),path=pp,node=nn,label='Feeding '..S.def[s.kind].label},120,dist+dd) end
+     if p then offer({kind='industry',stage='fetch',purpose='feed',structureId=s.id,slot=slot,item=p.id,amount=math.min(need,12),path=pp,node=nn,label='Feeding '..S.def[s.kind].label},120,dist+dd) end
      end
+    end
+    if path and ((s.kind=='fabricator' or s.kind=='mining_rig') and s.output and s.output[1] or s.kind=='industrial_bin' and s.cargo and s.cargo[1] and s.mode=='supply') then
+     offer({kind='industry',stage='withdraw',purpose='withdraw',structureId=s.id,slot=slot,path=path,node=node,label='Unloading '..S.def[s.kind].label},90,dist)
     end
    end
   end
@@ -470,6 +473,17 @@ function J.act(w,a,context)
    if not p or p.n<=0 or p.reserved~=a.id or not N.reach(w,a.x,a.y,p.x,p.y,4) then blocked(w,a,'Industrial supply moved or became inaccessible') return end
    local n=math.min(p.n,t.amount or 1);a.carry={kind=p.kind,n=n};p.n=p.n-n;p.reserved=nil;t.item=nil;t.stage='deliver'
    if not routeDestination(w,a,context) then blocked(w,a,'Industrial destination is unreachable') end
+  elseif t.stage=='withdraw' then
+   local record=Industry.withdrawOne(s)
+   if not record then finish(w,a,'Industrial output already moved') return end
+   if record.equipmentId then
+    local item=Equipment.find(context.campaign,record.equipmentId)
+    if not item then blocked(w,a,'Industrial tool custody changed') return end
+    Equipment.drop(context.campaign,item,currentSite(context),a.x,a.y)
+    finish(w,a,'Unloaded '..record.kind)
+   else
+    a.carry={kind=record.kind,n=record.n};finish(w,a,'Unloaded '..record.kind)
+   end
   elseif t.stage=='deliver' then
    if not a.carry then blocked(w,a,'Industrial carried supply is missing') return end
    if t.purpose=='maintenance' then

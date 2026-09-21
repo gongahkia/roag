@@ -98,14 +98,15 @@ function S.siteClear(w,gx,gy,kind)
  if kind=='torch' then
   local mount,reason=S.torchMount(w,gx,gy)
   if not mount then return false,reason end
- elseif kind~='ladder' and kind~='wall' and kind~='platform' and kind~='power_pole' and kind~='conveyor' and kind~='electric_lamp' then
+ elseif kind~='ladder' and kind~='wall' and kind~='platform' and kind~='power_pole' and kind~='electric_lamp' then
   for x=x1,x2 do if not W.solid(w,x,y2+1) then return false,'Requires solid support' end end
  end
  return true
 end
 function S.install(w,gx,gy,kind)
  local def=assert(S.def[kind],'Unknown structure')
- local s={id=W.id(w),gx=gx,gy=gy,kind=kind,width=def.width or 1,solid=def.solid or false,enabled=true,growth=0,tank=0,status='Ready'}
+ local s={id=W.id(w),gx=gx,gy=gy,kind=kind,enabled=true,growth=0,tank=0,status='Ready'}
+ if def.industry then s.width=def.width or 1;s.solid=def.solid or false end
  if kind=='pump' then
   s.intake={x=gx*4-6,y=gy*4+2}
   s.outlet={x=gx*4+6,y=gy*4-5}

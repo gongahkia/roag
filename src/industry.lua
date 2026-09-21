@@ -74,6 +74,15 @@ function I.deposit(s,record)
  end
  return false
 end
+function I.withdrawOne(s)
+ local list=s and (s.output or s.cargo)
+ local record=list and list[1]
+ if not record then return nil end
+ if record.equipmentId then table.remove(list,1);return {kind=record.kind,equipmentId=record.equipmentId} end
+ record.n=record.n-1;local out={kind=record.kind,n=1}
+ if record.n==0 then table.remove(list,1) end
+ return out
+end
 function I.needsMaintenance(s) return s and (s.kind=='fabricator' or s.kind=='mining_rig') and s.wear>=600 end
 function I.completeMaintenance(w,s)
  assert(I.needsMaintenance(s),'Machine does not require maintenance')
@@ -124,22 +133,31 @@ local function recipeReady(s)
  if not s.inprocess then for kind,n in pairs(r.input) do if count(s.input,kind)<n then return false end end end
  return true
 end
-local function lineClear(w,x,y,tx,ty)
+local function lineClear(w,x,y,tx,ty,ignore)
  local steps=math.max(math.abs(tx-x),math.abs(ty-y))*2
  for k=1,math.max(0,steps-1) do local xx=math.floor(x+(tx-x)*k/steps+.5);local yy=math.floor(y+(ty-y)*k/steps+.5)
-  if k>0 and W.solid(w,xx,yy) then return false end
+  local insideIgnore=ignore and xx>=ignore.x1 and xx<=ignore.x2 and yy>=ignore.y1 and yy<=ignore.y2
+  -- The designated solid endpoint is the thing being drilled, not an
+  -- intervening blocker.  Rounding a short vertical segment can otherwise
+  -- visit that endpoint on its penultimate sample.
+  if k>0 and not (xx==tx and yy==ty) and not insideIgnore and W.solid(w,xx,yy) then return false end
  end;return true
 end
 local function rigTarget(w,s)
- local ox,oy=s.gx*4-2,s.gy*4-2;local best
+ -- The drill mouth is just beyond the rig's right face.  Starting its segment
+ -- at the visual centre made the rig's own floor support block every downward
+ -- line before it could reach a designated side face.
+ local x1,y1,x2,y2=S.footprint(s)
+ local ox,oy=x2+1,math.floor((y1+y2)/2);local best
+ local own={x1=x1,y1=y1,x2=x2,y2=y2}
  for _,j in ipairs(w.jobs) do if j.state=='open' and j.kind=='dig' then
   local x1,y1,x2,y2=W.rect(j.gx,j.gy)
   for y=y1,y2 do for x=x1,x2 do local m=W.get(w,x,y);local d=math.abs(x-ox)+math.abs(y-oy)
-   if M.def[m].work and not W.blocked(w,x,y) and d<=12 and lineClear(w,ox,oy,x,y) then
+   if M.def[m].work and not W.blocked(w,x,y) and d<=12 and lineClear(w,ox,oy,x,y,own) then
     local item={job=j,x=x,y=y,m=m,d=d};if not best or j.priority<best.job.priority or (j.priority==best.job.priority and (d<best.d or (d==best.d and (y<best.y or (y==best.y and x<best.x))))) then best=item end
    end
   end end
- end;return best
+ end end;return best
 end
 local function rigReady(w,s)
  return s.enabled and s.wear<600 and capacity(s.output)<16 and rigTarget(w,s)~=nil
@@ -199,7 +217,12 @@ end
 local function mine(w,s)
  if not s._powerGranted or not rigReady(w,s) then return end
  local t=rigTarget(w,s);if not t then return end
- if t.y>=s.gy*4+1 then s.status='Support would fail';return end
+ -- A rig cannot mine the exact floor cells that carry its own footprint, but
+ -- it may work a designated face beside that footing.  Comparing only y here
+ -- would wrongly reject every low side-wall target and make a properly
+ -- installed rig unable to excavate at all.
+ local x1,_,x2,y2=S.footprint(s)
+ if t.y==y2+1 and t.x>=x1 and t.x<=x2 then s.status='Support would fail';return end
  local key=W.index(w,t.x,t.y);local p=(s.rigProgress[key] or 0)+4;s.rigProgress[key]=p
  if p>=M.def[t.m].work then
   if capacity(s.output)>=16 then s.status='Output full';return end
@@ -226,27 +249,38 @@ local function accepts(dest,r)
  end
  return false
 end
-local function moveOne(from,to)
+local function ownerFor(s)
+ if s.kind=='fabricator' then return 'input' end
+ if s.kind=='conveyor' then return 'belt' end
+ if s.kind=='industrial_bin' then return 'bin' end
+ return 'output'
+end
+local function moveOne(from,to,context)
  local r=from[1];if not r then return false end
  local piece={kind=r.kind,n=r.equipmentId and nil or 1,equipmentId=r.equipmentId}
  if not accepts(to,piece) then return false end
  if r.equipmentId then table.remove(from,1) else r.n=r.n-1;if r.n==0 then table.remove(from,1) end end
- return add(to.kind=='fabricator' and to.input or to.cargo,piece,to.kind=='fabricator' and 16 or to.kind=='industrial_bin' and 32 or 8)
+ local ok=add(to.kind=='fabricator' and to.input or to.cargo,piece,to.kind=='fabricator' and 16 or to.kind=='industrial_bin' and 32 or 8)
+ if ok and piece.equipmentId and context then
+  local item=require('src.equipment').find(context.campaign,piece.equipmentId)
+  if item then require('src.equipment').toIndustry(item,context.siteId,to.id,ownerFor(to)) end
+ end
+ return ok
 end
-local function transfers(w)
+local function transfers(w,context)
  if w.tick%2~=0 then return end
  local all=sorted(w);local beltStarts={}
  for _,s in ipairs(all) do if s.kind=='conveyor' and s.enabled then beltStarts[s.id]=s.cargo[1] and {kind=s.cargo[1].kind,n=s.cargo[1].n,equipmentId=s.cargo[1].equipmentId} or nil end end
  -- Existing belts move first from a snapshot; a newly injected item cannot
  -- travel again in this tick.
- for _,s in ipairs(all) do if s.kind=='conveyor' and beltStarts[s.id] then moveOne(s.cargo,neighbor(w,s,s.direction)) end end
+ for _,s in ipairs(all) do if s.kind=='conveyor' and beltStarts[s.id] then moveOne(s.cargo,neighbor(w,s,s.direction),context) end end
  for _,s in ipairs(all) do
   if (s.kind=='fabricator' or s.kind=='mining_rig') and s.output[1] then
    local best;for _,b in ipairs(all) do if b.kind=='conveyor' and b.enabled then
-    local adjacent=math.abs(b.gx-s.gx)<=s.width and math.abs(b.gy-s.gy)<=1
-    if adjacent and neighbor(w,s,b.direction)==b then best=not best or b.id<best.id and b or best end
-   end end;if best then moveOne(s.output,best) end
-  elseif s.kind=='industrial_bin' and s.mode=='supply' and s.cargo[1] then moveOne(s.cargo,neighbor(w,s,s.direction)) end
+    local outward=(b.gy==s.gy and b.gx==s.gx-1 and b.direction=='west') or (b.gy==s.gy and b.gx==s.gx+(s.width or 1) and b.direction=='east') or (b.gx>=s.gx and b.gx<s.gx+(s.width or 1) and b.gy==s.gy-1 and b.direction=='north') or (b.gx>=s.gx and b.gx<s.gx+(s.width or 1) and b.gy==s.gy+1 and b.direction=='south')
+    if outward and (not best or b.id<best.id) then best=b end
+   end end;if best then moveOne(s.output,best,context) end
+  elseif s.kind=='industrial_bin' and s.mode=='supply' and s.cargo[1] then moveOne(s.cargo,neighbor(w,s,s.direction),context) end
  end
 end
 function I.step(w,context)
@@ -258,7 +292,7 @@ function I.step(w,context)
   elseif s.kind=='electric_lamp' then s.status=s._powerGranted and 'Lighting work area' or 'No power' end
   if (s.kind=='fabricator' or s.kind=='mining_rig') and s.wear>=600 then s.status='Maintenance required' end
  end
- transfers(w)
+ transfers(w,context)
 end
 function I.lightSources(w)
  local out={};for _,s in pairs(w.structures) do if s.kind=='electric_lamp' and s.enabled and s._powerGranted then out[#out+1]={x=s.gx*4-2,y=s.gy*4-2,radius=18,id=s.id} end end;table.sort(out,function(a,b)return a.id<b.id end);return out
@@ -307,13 +341,22 @@ function I.validateWorld(w)
  if not (w.frontier and w.frontier.industry==1) then assert(w.industry==nil,'Industry state requires industry feature');return true end
  assert(type(w.industry)=='table' and w.industry.version==I.version and type(w.industry.rules)=='table','Invalid industry state')
  U.integer(w.industry.topologyRevision,'Industry topology revision',1,100000000)
+ local seenEquipment={}
+ local function validateCargo(list,limit,label)
+  assert(type(list)=='table',label..' cargo is missing');assert(capacity(list)<=limit,label..' capacity exceeded')
+  for _,record in ipairs(list) do
+   assert(type(record)=='table' and (record.kind=='metal' or record.kind=='component' or record.kind=='stone' or record.kind=='soil' or record.kind=='food' or record.kind=='water' or unique[record.kind]),'Unknown '..label..' cargo')
+   if record.equipmentId then U.integer(record.equipmentId,label..' equipment ID',1,100000000);assert(record.n==nil,'Unique '..label..' cargo has a stack count');assert(not seenEquipment[record.equipmentId],'Duplicated industrial equipment cargo');seenEquipment[record.equipmentId]=true
+   else U.integer(record.n,label..' quantity',1,limit) end
+  end
+ end
  for _,s in pairs(w.structures) do if industrial[s.kind] then
   assert((s.width or 1)==S.width(s.kind),'Industrial footprint mismatch')
   if s.kind=='battery' then U.integer(s.charge,'Battery charge',0,200)
-  elseif s.kind=='fabricator' then assert(type(s.input)=='table' and type(s.output)=='table' and type(s.wear)=='number' and I.recipes[s.recipe] or s.recipe==nil,'Invalid fabricator');U.integer(s.wear,'Fabricator wear',0,600);U.integer(s.progress,'Fabricator progress',0,1000000);U.integer(s.powerPriority,'Fabricator priority',1,3);assert(capacity(s.input)<=16 and capacity(s.output)<=16,'Fabricator buffer limit')
-  elseif s.kind=='mining_rig' then U.integer(s.wear,'Rig wear',0,600);U.integer(s.powerPriority,'Rig priority',1,3);assert(type(s.output)=='table' and capacity(s.output)<=16 and type(s.rigProgress)=='table','Invalid mining rig')
-  elseif s.kind=='industrial_bin' then assert(type(s.cargo)=='table' and capacity(s.cargo)<=32 and (s.mode=='receive' or s.mode=='supply') and dirs[s.direction],'Invalid industrial bin')
-  elseif s.kind=='conveyor' then assert(type(s.cargo)=='table' and capacity(s.cargo)<=8 and dirs[s.direction],'Invalid conveyor')
+  elseif s.kind=='fabricator' then assert(type(s.input)=='table' and type(s.output)=='table' and type(s.wear)=='number' and (s.recipe==nil or I.recipes[s.recipe]),'Invalid fabricator');U.integer(s.wear,'Fabricator wear',0,600);U.integer(s.progress,'Fabricator progress',0,1000000);U.integer(s.powerPriority,'Fabricator priority',1,3);validateCargo(s.input,16,'Fabricator input');validateCargo(s.output,16,'Fabricator output');if s.inprocess then validateCargo(s.inprocess,16,'Fabricator in-process') end
+  elseif s.kind=='mining_rig' then U.integer(s.wear,'Rig wear',0,600);U.integer(s.powerPriority,'Rig priority',1,3);assert(type(s.output)=='table' and type(s.rigProgress)=='table','Invalid mining rig');validateCargo(s.output,16,'Mining rig output')
+  elseif s.kind=='industrial_bin' then assert((s.mode=='receive' or s.mode=='supply') and dirs[s.direction],'Invalid industrial bin');validateCargo(s.cargo,32,'Industrial bin')
+  elseif s.kind=='conveyor' then assert(dirs[s.direction],'Invalid conveyor');validateCargo(s.cargo,8,'Conveyor')
   elseif s.kind=='electric_lamp' then U.integer(s.powerPriority,'Lamp priority',1,3) end
  end end;return true
 end

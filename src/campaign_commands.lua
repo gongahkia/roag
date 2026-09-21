@@ -136,6 +136,7 @@ function Command.apply(campaign,envelope)
   valid,why=require('src.equipment_commands').valid(campaign,site,envelope.payload)
  elseif envelope.payload.type=='industry_config' then
   local s=require('src.industry').find(site.world,envelope.payload.structureId);valid=s and site.world.frontier and site.world.frontier.industry==1,'Industrial structure is unavailable'
+  if valid then valid,why=pcall(require('src.industry').validConfig,s,envelope.payload) end
  else valid,why=visibleTarget(campaign,site,envelope.payload);if valid then valid,why=Cmd.valid(site.world,envelope.payload) end end
  if not valid then
   W.event(site.world,'rejected',why)

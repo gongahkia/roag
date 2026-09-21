@@ -68,7 +68,7 @@ function Suite.run(verbose)
   check(N.flood(w,17,24).parent[W.index(w,17,34)]~=nil,'Ladder reaches shaft')
  end)
  group('Current settlers jump only short clear horizontal gaps',function()
-  local w=F.world();w.body=1
+  local w=F.world();w.body=1;w.rules.jumpVersion=1
   eq(w.rules.moveEvery,1,'New-world movement cadence is responsive')
   eq(w.rules.planEvery,8,'New-world idle replanning is responsive')
   -- A 2x4 body stands on the single left support at x=12, then clears a

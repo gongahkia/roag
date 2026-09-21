@@ -18,7 +18,10 @@ assert(ticks and ticks%1==0 and ticks>=15000 and ticks<=100000,'Ticks must be 15
 -- An explicit third argument lets COS-G03 reuse this real integrated route
 -- without changing the normal G02 compatibility trace.
 local psychology=arg[3]=='psychology'
-local options={preset='frontier',mode='practice',width=128,height=80,layout='hybrid',climate='balanced',openness=.48,biomeScale=1,features='living',density=1,crew=3,logistics=true,travel=true,knowledge=true,education=true,body=true,visibility=true,equipment=true,safe_excavation=true,psychology=psychology}
+-- G04 reuses this real route with its own explicitly versioned feature enabled;
+-- ordinary G02/G03 invocations retain their original feature set.
+local industry=arg[4]=='industry'
+local options={preset='frontier',mode='practice',width=128,height=80,layout='hybrid',climate='balanced',openness=.48,biomeScale=1,features='living',density=1,crew=3,logistics=true,travel=true,knowledge=true,education=true,body=true,visibility=true,equipment=true,safe_excavation=true,psychology=psychology,industry=industry}
 local c=Campaign.newRegion(seed,options);local home=c.sites[1].world
 home.content.flora={};home.content.fauna={};home.content.sites={};home.content.ruins={};home.content.signals={};home.content.discoveries={};home.content.observed={}
 local sx=((home.home.left+3-1)%4==0 and home.home.left+3 or (math.floor((home.home.left+3-1)/4)*4+1));local sy=home.home.floor
@@ -41,6 +44,14 @@ local function effect(tick,subject,expect)
 end
 effect(20,dark,false);effect(40,plant,true);effect(60,plant,true)
 W.stack(home,'stone',40,home.home.left+20,sy);W.stack(home,'metal',40,home.home.left+21,sy);W.stack(home,'food',6,home.home.left+22,sy)
+-- The G04 continuation is a labelled controlled fixture.  It adds only raw
+-- stock at tick zero so its component/bootstrap/factory milestones still use
+-- normal Tool Bench, construction, hauling, and machine work.
+if industry then
+ W.stack(home,'stone',160,home.home.left+23,sy)
+ W.stack(home,'metal',160,home.home.left+24,sy)
+ W.stack(home,'food',60,home.home.left+25,sy)
+end
 local h=History.new(c)
 local function advance(n) for _=1,n do assert(h:advance()) end end
 local function world(id) return h.live.sites[id].world end
@@ -73,6 +84,10 @@ queue({type='order',kind='build',build='tool_bench',gx=benchGX,gy=benchGY,priori
 local bench=assert(world(1).structures[W.slot(world(1),benchGX,benchGY)],'Tool bench construction did not complete')
 queue({type='fabricate',slot=W.slot(world(1),benchGX,benchGY),kind='rope_coil',priority=3});advance(500)
 local coils=Equipment.forSite(h.live,1,'rope_coil','loose');assert(#coils>=3,'Tool bench did not fabricate a physical replacement coil')
+if industry then
+ queue({type='fabricate',slot=W.slot(world(1),benchGX,benchGY),kind='component',priority=3});advance(500)
+ assert(W.totalResource(world(1),'component')>=1,'G04 bootstrap did not create a physical machine component')
+end
 
 local chargeGX,chargeGY=buildSpot('charge')
 queue({type='order',kind='build',build='charge',gx=chargeGX,gy=chargeGY,priority=3,worker=0});advance(500)
@@ -103,8 +118,13 @@ if cargoCoil then queue({type='load_tool',equipmentId=cargoCoil.id,craftId=1,pri
 expert=worker(1,1);local expertId=expert.personId
 -- Leave the instructed pupil at home so an ordinary non-passenger can arm and
 -- evacuate from the established charge after the expedition has assembled.
-local passengers=expertId==minerId and {expertId} or {expertId,minerId}
-assert(h:queue({scope='campaign',type='prepare_expedition',sourceSiteId=1,craftId=1,destinationSiteId=2,passengers=passengers,cargo={food=2,metal=2}}));advance(900)
+-- Keep one second worker at home in the industry continuation: the first G04
+-- factory is built by a real surviving local workforce after the existing
+-- charge/flight route, rather than by a magically restored colonist.
+local passengers=industry and {expertId} or (expertId==minerId and {expertId} or {expertId,minerId})
+local expeditionCargo={food=2,metal=2}
+if industry then expeditionCargo.component=1 end
+assert(h:queue({scope='campaign',type='prepare_expedition',sourceSiteId=1,craftId=1,destinationSiteId=2,passengers=passengers,cargo=expeditionCargo}));advance(900)
 local manifest=assert(Logistics.manifest(h.live,1));assert(h:queue({scope='campaign',type='assemble_expedition',sourceSiteId=1,craftId=1,manifestId=manifest.id}));advance(700)
 manifest=assert(Logistics.manifest(h.live,1));local ready,why=Logistics.readiness(h.live,manifest);assert(ready,why)
 -- Arm the established charge after the travelling expert/miner are assembled.
@@ -126,7 +146,13 @@ local armWorkers={};for _,a in ipairs(world(1).workers) do armWorkers[#armWorker
 assert(armed,'Existing demolition charge did not arm through real field work: '..tostring(armReason)..' / '..table.concat(armWorkers,' | '))
 assert(h:queue({scope='campaign',type='launch_expedition',sourceSiteId=1,craftId=1,manifestId=manifest.id,expectedManifestRevision=manifest.revision}));local departure=h.live.tick;advance(400)
 local arrival,minerArrival;for _,a in ipairs(world(2).workers) do if a.personId==expertId then arrival=a end;if a.personId==minerId then minerArrival=a end end
-assert(arrival and Knowledge.supports(arrival,'flora','filter'),'P05 fact did not survive travel');assert(minerArrival and Equipment.pickFor(h.live,minerArrival),'Equipped pickaxe did not follow the persistent person through P04 travel')
+assert(arrival and Knowledge.supports(arrival,'flora','filter'),'P05 fact did not survive travel')
+if industry then
+ for _,a in ipairs(world(1).workers) do if a.personId==minerId then minerArrival=a end end
+ assert(minerArrival and Equipment.pickFor(h.live,minerArrival),'Industry continuation lost the home miner or their equipped pickaxe')
+else
+ assert(minerArrival and Equipment.pickFor(h.live,minerArrival),'Equipped pickaxe did not follow the persistent person through P04 travel')
+end
 local saved=h:saveText();local restored=History.fromText(saved)
 advance(math.max(0,ticks-h.live.tick));for _=restored.live.tick+1,ticks do assert(restored:advance()) end
 assert(Codec.encode(h.live)==Codec.encode(restored.live),'G02 save/reload continuation diverged')
@@ -134,3 +160,7 @@ local checked,reason=h:verifyReplay(ticks+1000);assert(checked,reason)
 local final=world(1);local equipment=h.live.equipment.items;local panics=0;for _,a in ipairs(final.workers) do if a.panic then panics=panics+1 end end
 print(string.format('PASS G02 soak: seed=%d tick=%d rope=%d/%d bench=%d chargeArmed=%s pick=%d cargoTools=%d departure/arrival=%d/%d bytes=%d checkpoints=%d',seed,h.live.tick,rope.id,rope.length,bench.id,tostring(armed),Equipment.pickFor(h.live,minerArrival).id,Equipment.craftCount(h.live,1),departure,h.live.tick,#h:saveText(),#h.checkpoints))
 print(string.format('TRACE expert=%d miner=%d pupil=%d fact=operational/flora/filter/steam-to-water/v1 stress=%d panic=%d body=2x4 equipment=%d safe_excavation=%d psychology=%s.',expertId,minerId,pupilId,arrival.stress or 0,panics,h.live.features.equipment,h.live.features.safe_excavation,tostring(h.live.features.psychology==1)))
+-- A caller may continue this controlled real-history route with a later
+-- feature-on scenario. It is intentionally assigned only after all G02
+-- assertions/replay checks have passed.
+_G.COSMONAUTS_G02_LAST_HISTORY=h
