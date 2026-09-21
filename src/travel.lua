@@ -68,10 +68,11 @@ local function portable(worker)
  if worker.stress~=nil then record.stress=worker.stress;record.panic=worker.panic or false;record.lastStressTick=worker.lastStressTick or 0 end
  if worker.frontier then record.frontier=U.deep(worker.frontier) end
  if worker.psychology then record.psychology=U.deep(worker.psychology) end
+ if worker.factions then record.factions=U.deep(worker.factions) end
  return record
 end
 local function validatePassenger(record,knowledge,education,psychology,tick)
- allowed(record,{personId=true,name=true,alive=true,hp=true,hunger=true,fatigue=true,breath=true,mine=true,build=true,status=true,reason=true,fall=true,worked=true,progress=true,deathTick=true,frontier=true,stress=true,panic=true,lastStressTick=true,psychology=true},'Transit passenger')
+ allowed(record,{personId=true,name=true,alive=true,hp=true,hunger=true,fatigue=true,breath=true,mine=true,build=true,status=true,reason=true,fall=true,worked=true,progress=true,deathTick=true,frontier=true,stress=true,panic=true,lastStressTick=true,psychology=true,factions=true},'Transit passenger')
  for _,key in ipairs({'personId','name','alive','hp','hunger','fatigue','breath','mine','build','status','reason','fall','worked','progress'}) do assert(record[key]~=nil,'Missing transit passenger key '..key) end
  U.integer(record.personId,'Transit person ID',1,100000000);assert(type(record.name)=='string' and type(record.alive)=='boolean' and type(record.status)=='string' and type(record.reason)=='string','Malformed transit identity')
  for _,key in ipairs({'hp','hunger','fatigue','breath'}) do assert(U.finite(record[key]) and record[key]>=0 and record[key]<=100,'Invalid transit '..key) end
@@ -152,6 +153,7 @@ local function addArrivalWorker(world,passenger,pose)
  if passenger.stress~=nil then worker.stress,worker.panic,worker.lastStressTick=passenger.stress,passenger.panic,passenger.lastStressTick end
  if passenger.frontier then worker.frontier=U.deep(passenger.frontier) end
  if passenger.psychology then worker.psychology=U.deep(passenger.psychology) end
+ if passenger.factions then worker.factions=U.deep(passenger.factions) end
  worker.x,worker.y=pose.x,pose.y
  if not worker.alive then worker.hp=0;worker.status='Dead';worker.deathTick=passenger.deathTick end
  world.workers[#world.workers+1]=worker

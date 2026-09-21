@@ -30,6 +30,12 @@ local fields={
  school_policy={type=true,slot=true,schoolId=true,expectedPolicyRevision=true,enabled=true,mode=true,topicId=true,topicVersion=true,priority=true},
  fabricate={type=true,slot=true,kind=true,priority=true},place_rope={type=true,gx=true,gy=true,priority=true,direction=true},remove_rope={type=true,ropeId=true,priority=true},drop_tool={type=true,equipmentId=true,worker=true},load_tool={type=true,equipmentId=true,craftId=true,priority=true},unload_tool={type=true,equipmentId=true,craftId=true,priority=true},
  industry_config={type=true,structureId=true,recipe=true,priority=true,direction=true,mode=true,filter=true,enabled=true},
+ faction_contact={type=true,factionId=true,personId=true},
+ faction_protocol={type=true,factionId=true,personId=true,action=true},
+ faction_accept_offer={type=true,structureId=true,offerId=true,representativeId=true},
+ faction_depot_load={type=true,structureId=true,itemId=true,amount=true},
+ faction_dispatch={type=true,structureId=true,offerId=true},
+ faction_rebind={type=true,shipmentId=true,structureId=true},
 }
 local campaignFields={
  prepare_expedition={scope=true,type=true,sourceSiteId=true,craftId=true,destinationSiteId=true,passengers=true,cargo=true},
@@ -113,6 +119,8 @@ function Command.valid(campaign,envelope)
     local s=require('src.industry').find(site.world,envelope.payload.structureId)
     valid=s and site.world.frontier and site.world.frontier.industry==1,'Industrial structure is unavailable'
     if valid then valid,reason=pcall(require('src.industry').validConfig,s,envelope.payload) end
+   elseif envelope.payload.type:sub(1,8)=='faction_' then
+    valid=campaign.features.factions==1;reason='Factions are unavailable'
    else valid,reason=visibleTarget(campaign,site,envelope.payload);if valid then valid,reason=Cmd.valid(site.world,envelope.payload) end end
    assert(valid,reason)
   end
@@ -137,6 +145,7 @@ function Command.apply(campaign,envelope)
  elseif envelope.payload.type=='industry_config' then
   local s=require('src.industry').find(site.world,envelope.payload.structureId);valid=s and site.world.frontier and site.world.frontier.industry==1,'Industrial structure is unavailable'
   if valid then valid,why=pcall(require('src.industry').validConfig,s,envelope.payload) end
+ elseif envelope.payload.type:sub(1,8)=='faction_' then valid,why=campaign.features.factions==1,'Factions are unavailable'
  else valid,why=visibleTarget(campaign,site,envelope.payload);if valid then valid,why=Cmd.valid(site.world,envelope.payload) end end
  if not valid then
   W.event(site.world,'rejected',why)
@@ -146,6 +155,12 @@ function Command.apply(campaign,envelope)
  if envelope.payload.type=='school_policy' then applied=require('src.education').applyPolicy(campaign,site,envelope.payload)
  elseif envelope.payload.type=='fabricate' or envelope.payload.type=='place_rope' or envelope.payload.type=='remove_rope' or envelope.payload.type=='drop_tool' or envelope.payload.type=='load_tool' or envelope.payload.type=='unload_tool' then applied=require('src.equipment_commands').apply(campaign,site,envelope.payload)
  elseif envelope.payload.type=='industry_config' then applied=require('src.industry').configure(site.world,require('src.industry').find(site.world,envelope.payload.structureId),envelope.payload)
+ elseif envelope.payload.type=='faction_contact' then applied=require('src.factions').beginContact(campaign,envelope.siteId,envelope.payload.factionId,envelope.payload.personId)
+ elseif envelope.payload.type=='faction_protocol' then applied=require('src.factions').resolveProtocol(campaign,envelope.siteId,envelope.payload.factionId,envelope.payload.personId,envelope.payload.action)
+ elseif envelope.payload.type=='faction_accept_offer' then applied=require('src.factions').acceptOffer(campaign,envelope.siteId,envelope.payload.structureId,envelope.payload.offerId,envelope.payload.representativeId)
+ elseif envelope.payload.type=='faction_depot_load' then applied=require('src.factions').deposit(campaign,envelope.siteId,envelope.payload.structureId,envelope.payload.itemId,envelope.payload.amount)
+ elseif envelope.payload.type=='faction_dispatch' then applied=require('src.factions').dispatch(campaign,envelope.siteId,envelope.payload.structureId,envelope.payload.offerId)
+ elseif envelope.payload.type=='faction_rebind' then applied=require('src.factions').rebindShipment(campaign,envelope.payload.shipmentId,envelope.siteId,envelope.payload.structureId)
  else applied=Cmd.apply(site.world,envelope.payload) end
  return applied,applied and nil or 'Site command was rejected'
 end

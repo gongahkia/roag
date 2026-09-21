@@ -32,7 +32,11 @@ local function addBlockActions(world,actions)
   add(actions,'build:mining_rig','Build mining rig','Powered designated excavation.')
   add(actions,'build:industrial_bin','Build industrial bin','Physical belt-accessible storage.')
   add(actions,'build:conveyor','Build conveyor','Floor-level physical item transport.')
-  add(actions,'build:electric_lamp','Build electric lamp','Powered light without fuel.')
+ add(actions,'build:electric_lamp','Build electric lamp','Powered light without fuel.')
+  if world.frontier and world.frontier.factions==1 then
+   add(actions,'build:signal_relay','Build signal relay','Powered contact scanning; does not reveal terrain.')
+   add(actions,'build:trade_depot','Build trade depot','Physical barter buffer for off-map courier trade.')
+  end
  end
  if world.frontier and world.frontier.safe_excavation==1 then
   add(actions,'rope:down','Unfurl rope downward','Fetches one real rope coil and deploys a climb lane below the selected anchor.')

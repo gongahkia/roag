@@ -595,3 +595,7 @@ releases buffers under normal drop rules and makes mid-cycle Fabricator escrow
 demolition waste rather than duplicate input/output. Battery charge is not a
 mineral, food, or water ledger value; components, tools, industrial buffers, and
 construction material are counted exactly once.
+
+## COS-G05 — factions and contact
+
+`factions=1` is a new-campaign-only campaign feature requiring industry, psychology, and personal knowledge. It generates exactly four bounded external societies using isolated campaign-random namespaces. Their culture values, norms, prehistory, coarse stocks, relations, offers, and incidents are authoritative campaign state; they never run local material simulation. Signal Relay scanning, protocol contact, representative familiarity, Trade Depot custody, and courier shipments are deterministic campaign stages. A foreign shipment is outside player inventory until atomically delivered to its bound local Trade Depot. Older feature-off histories do not generate or receive faction state.

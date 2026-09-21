@@ -117,7 +117,7 @@ local function startNew()
 end
 local function campaignOptions(n)
  return {preset=n.preset,mode=n.mode,width=n.width,height=n.height,layout=n.layout,climate=n.climate,
- openness=n.openness,biomeScale=n.biomeScale,features=n.features,density=n.density,crew=n.crew,logistics=true,travel=true,knowledge=true,education=true,body=true,visibility=true,equipment=true,safe_excavation=true,psychology=true,industry=true}
+ openness=n.openness,biomeScale=n.biomeScale,features=n.features,density=n.density,crew=n.crew,logistics=true,travel=true,knowledge=true,education=true,body=true,visibility=true,equipment=true,safe_excavation=true,psychology=true,industry=true,factions=true}
 end
 local function startCampaign()
  local n=app.newRun;local seed=tonumber(n.seed)

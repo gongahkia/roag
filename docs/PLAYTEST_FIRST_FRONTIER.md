@@ -249,3 +249,7 @@ until a person completes them in a native isolated LÖVE session.
 means the actual LÖVE process opened, but no person completed the route.
 `HUMAN GAMEPLAY` requires a person to perform and record the above route. Do not
 upgrade an automated result to a human result.
+
+## G05 — contact and trade
+
+Build a powered Signal Relay beside a solar/pole network and allow the campaign to advance. A signal appears after 300 powered ticks. Select a local, steady colonist as representative to begin contact; ordinary panels remain live while the 60-action audience progresses. Resolve the three concrete protocol actions and inspect that colonist's familiarity. After formal contact, build a Trade Depot, inspect an offer, load the requested local goods into its buffer, then dispatch with a powered Relay. The off-map courier arrives after 400 ticks, or waits if its original Depot is gone. A hostile result is diplomatic only in G05: combat is not implemented.

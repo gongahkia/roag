@@ -28,7 +28,7 @@ function Metrics.measure(w)
    r.water=r.water+(s.tank or 0)
    if s.kind=='farm' then r.farms=r.farms+1;if s.growth>=w.rules.cropTicks then r.readyCrops=r.readyCrops+1 end end
    if w.industry then
-    for _,list in ipairs({s.input,s.output,s.inprocess,s.cargo}) do
+    for _,list in ipairs({s.input,s.output,s.inprocess,s.cargo,s.trade and s.trade.cargo}) do
      for _,record in ipairs(list or {}) do
       if not record.equipmentId and (record.kind=='stone' or record.kind=='soil' or record.kind=='metal' or record.kind=='component') then r.mineral=r.mineral+mineralValue(record.kind,record.n) end
       if not record.equipmentId and record.kind=='water' then r.water=r.water+(record.n or 0) end

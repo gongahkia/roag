@@ -41,6 +41,7 @@ local function isEquipment(c) return c.features and c.features.equipment==1 end
 local function isSafeExcavation(c) return c.features and c.features.safe_excavation==1 end
 local function isPsychology(c) return c.features and c.features.psychology==1 end
 local function isIndustry(c) return c.features and c.features.industry==1 end
+local function isFactions(c) return c.features and c.features.factions==1 end
 
 function Campaign.sites(c)
  local out={};local limit=isRegion(c) and 3 or 1
@@ -115,10 +116,10 @@ local function validateRegion(c)
 end
 
 function Campaign.validate(c)
- allowed(c,{format=true,version=true,ruleset=true,features=true,tick=true,mode=true,seed=true,society=true,nextPersonId=true,sites=true,region=true,logistics=true,travel=true,knowledge=true,education=true,equipment=true},'campaign')
+ allowed(c,{format=true,version=true,ruleset=true,features=true,tick=true,mode=true,seed=true,society=true,nextPersonId=true,sites=true,region=true,logistics=true,travel=true,knowledge=true,education=true,equipment=true,factions=true},'campaign')
  for _,key in ipairs({'format','version','ruleset','features','tick','mode','seed','society','nextPersonId','sites'}) do assert(c[key]~=nil,'Missing campaign key '..key) end
  assert(c.format==Campaign.format,'Incompatible campaign state format');assert(c.version==Campaign.version,'Unsupported campaign state version');assert(c.ruleset==Campaign.ruleset,'Unsupported campaign ruleset')
- allowed(c.features,{core=true,region=true,logistics=true,travel=true,knowledge=true,education=true,body=true,visibility=true,equipment=true,safe_excavation=true,psychology=true,industry=true},'campaign features');assert(c.features.core==1,'Unsupported campaign core feature version')
+ allowed(c.features,{core=true,region=true,logistics=true,travel=true,knowledge=true,education=true,body=true,visibility=true,equipment=true,safe_excavation=true,psychology=true,industry=true,factions=true},'campaign features');assert(c.features.core==1,'Unsupported campaign core feature version')
  if c.features.region~=nil then assert(c.features.region==1,'Unsupported campaign region feature version') end
  if c.features.logistics~=nil then assert(c.features.logistics==1,'Unsupported campaign logistics feature version') end
  if c.features.travel~=nil then assert(c.features.travel==1,'Unsupported campaign travel feature version') end
@@ -130,6 +131,7 @@ function Campaign.validate(c)
  if c.features.safe_excavation~=nil then assert(c.features.safe_excavation==1,'Unsupported campaign safe-excavation feature version') end
  if c.features.psychology~=nil then assert(c.features.psychology==1,'Unsupported campaign psychology feature version') end
  if c.features.industry~=nil then assert(c.features.industry==1,'Unsupported campaign industry feature version') end
+ if c.features.factions~=nil then assert(c.features.factions==1,'Unsupported campaign factions feature version') end
  assert((c.features.region==1)==(c.region~=nil),'Campaign region feature/state mismatch')
  assert((c.features.logistics==1)==(c.logistics~=nil),'Campaign logistics feature/state mismatch')
  assert((c.features.travel==1)==(c.travel~=nil),'Campaign travel feature/state mismatch')
@@ -144,6 +146,8 @@ function Campaign.validate(c)
  assert(c.features.safe_excavation==nil or (c.features.equipment==1 and c.features.body==1 and c.features.visibility==1),'Safe excavation requires equipment, body and visibility')
  assert(c.features.psychology==nil or (c.features.safe_excavation==1 and c.features.knowledge==1),'Psychology requires safe excavation and personal knowledge')
  assert(c.features.industry==nil or (c.features.equipment==1 and c.features.safe_excavation==1),'Industry requires the current physical equipment and safety features')
+ assert(c.features.factions==nil or (c.features.industry==1 and c.features.psychology==1 and c.features.knowledge==1),'Factions require industry, psychology and knowledge')
+ assert((c.features.factions==1)==(c.factions~=nil),'Campaign factions feature/state mismatch')
  U.integer(c.tick,'campaign tick',0,10000000);assert(c.mode=='challenge' or c.mode=='practice','Invalid campaign mode');U.integer(c.seed,'campaign seed',0,2147483646)
  exact(c.society,{id=true,origin=true,independent=true},'campaign society');U.integer(c.society.id,'society ID',1,100000000)
  assert(c.society.id==1 and c.society.origin=='abandoned_convicts' and c.society.independent==true,'Unsupported campaign society');U.integer(c.nextPersonId,'next person ID',1,100000000)
@@ -158,7 +162,7 @@ function Campaign.validate(c)
   if isRegion(c) then U.integer(site.bodyId,'site body ID',1,3);assert(site.id==site.bodyId and bodiesBySite[site.id],'Site/body mismatch');assert(site.ownerSocietyId==nil or site.ownerSocietyId==c.society.id,'Invalid site ownership');if site.id==1 then assert(site.ownerSocietyId==c.society.id,'Home site must be owned') end
   else assert(site.id==1 and site.ownerSocietyId==c.society.id,'Invalid core site ownership') end
   W.validate(site.world);local world=site.world
-  assert(world.frontier and world.frontier.version==1 and world.frontier.siteId==site.id and (world.frontier.knowledge==1)==isKnowledge(c) and (world.frontier.education==1)==isEducation(c) and (world.frontier.body==1)==isBody(c) and (world.frontier.visibility==1)==isVisibility(c) and (world.frontier.equipment==1)==isEquipment(c) and (world.frontier.safe_excavation==1)==isSafeExcavation(c) and (world.frontier.psychology==1)==isPsychology(c) and (world.frontier.industry==1)==isIndustry(c),'Campaign site marker mismatch');assert(world.tick==c.tick,'Campaign and site ticks differ');assert(world.mode==c.mode,'Campaign and site modes differ')
+  assert(world.frontier and world.frontier.version==1 and world.frontier.siteId==site.id and (world.frontier.knowledge==1)==isKnowledge(c) and (world.frontier.education==1)==isEducation(c) and (world.frontier.body==1)==isBody(c) and (world.frontier.visibility==1)==isVisibility(c) and (world.frontier.equipment==1)==isEquipment(c) and (world.frontier.safe_excavation==1)==isSafeExcavation(c) and (world.frontier.psychology==1)==isPsychology(c) and (world.frontier.industry==1)==isIndustry(c) and (world.frontier.factions==1)==isFactions(c),'Campaign site marker mismatch');assert(world.tick==c.tick,'Campaign and site ticks differ');assert(world.mode==c.mode,'Campaign and site modes differ')
   if isRegion(c) then assert(world.seed==bodiesBySite[site.id].terrainSeed,'Campaign terrain seed differs') else assert(world.seed==c.seed,'Campaign and site identity differ') end
   dense(world.jobs,'jobs',1024);dense(world.items,'items',10000);dense(world.events,'events',240)
   local localIds,maxLocal={},0
@@ -174,10 +178,11 @@ function Campaign.validate(c)
  require('src.equipment').validate(c)
  if c.features.logistics==1 then require('src.logistics').validate(c) end
  if isTravel(c) then require('src.travel').validate(c) end
+ if isFactions(c) then require('src.factions').validate(c) end
  return true
 end
 
-local function attach(world,siteId,nextPerson,knowledge,education,body,visibility,equipment,safeExcavation,psychology,industry,seed)
+local function attach(world,siteId,nextPerson,knowledge,education,body,visibility,equipment,safeExcavation,psychology,industry,factions,seed)
  if not world.baseline then world.baseline=Metrics.measure(world) end
  world.frontier={version=1,siteId=siteId};if knowledge then world.frontier.knowledge=1 end;if education then world.frontier.education=1;world.education=require('src.education').newWorld() end
  if body then world.body=1;world.frontier.body=1;world.rules.jumpVersion=C.jumpVersion else world.body=nil end
@@ -186,6 +191,7 @@ local function attach(world,siteId,nextPerson,knowledge,education,body,visibilit
  if safeExcavation then world.frontier.safe_excavation=1;world.ropes={};world.nextRopeId=1 end
  if psychology then world.frontier.psychology=1 end
  if industry then world.frontier.industry=1;require('src.industry').attach(world) end
+ if factions then world.frontier.factions=1;require('src.factions').attach(world) end
  for _,worker in ipairs(sortedWorkers(world)) do
   worker.personId=nextPerson;nextPerson=nextPerson+1
  if knowledge then require('src.knowledge').attach(worker) end
@@ -197,10 +203,10 @@ local function attach(world,siteId,nextPerson,knowledge,education,body,visibilit
 end
 function Campaign.new(source,options)
  assert(type(source)=='table','Campaign needs a local world');W.validate(source);assert(source.frontier==nil,'Local world is already attached to a campaign')
- local knowledge=options and options.knowledge==true;local education=options and options.education==true;local body=options and options.body==true;local visibility=options and options.visibility==true;local equipment=options and options.equipment==true;local safeExcavation=options and options.safe_excavation==true;local psychology=options and options.psychology==true;local industry=options and options.industry==true
- if options then for key in pairs(options) do assert(key=='knowledge' or key=='education' or key=='body' or key=='visibility' or key=='equipment' or key=='safe_excavation' or key=='psychology' or key=='industry','Unknown campaign option '..tostring(key)) end end
- assert(not education or knowledge,'Education campaigns require knowledge');assert(not visibility or body,'Visibility campaigns require body');assert(not equipment or (body and visibility),'Equipment campaigns require body and visibility');assert(not safeExcavation or equipment,'Safe excavation requires equipment');assert(not psychology or (safeExcavation and knowledge),'Psychology campaigns require safe excavation and knowledge');assert(not industry or (equipment and safeExcavation),'Industry requires equipment and safe excavation')
- local world=U.deep(source);local nextPerson=attach(world,1,1,knowledge,education,body,visibility,equipment,safeExcavation,psychology,industry,world.seed)
+ local knowledge=options and options.knowledge==true;local education=options and options.education==true;local body=options and options.body==true;local visibility=options and options.visibility==true;local equipment=options and options.equipment==true;local safeExcavation=options and options.safe_excavation==true;local psychology=options and options.psychology==true;local industry=options and options.industry==true;local factions=options and options.factions==true
+ if options then for key in pairs(options) do assert(key=='knowledge' or key=='education' or key=='body' or key=='visibility' or key=='equipment' or key=='safe_excavation' or key=='psychology' or key=='industry' or key=='factions','Unknown campaign option '..tostring(key)) end end
+ assert(not education or knowledge,'Education campaigns require knowledge');assert(not visibility or body,'Visibility campaigns require body');assert(not equipment or (body and visibility),'Equipment campaigns require body and visibility');assert(not safeExcavation or equipment,'Safe excavation requires equipment');assert(not psychology or (safeExcavation and knowledge),'Psychology campaigns require safe excavation and knowledge');assert(not industry or (equipment and safeExcavation),'Industry requires equipment and safe excavation');assert(not factions or (industry and psychology and knowledge),'Factions require industry, psychology and knowledge')
+ local world=U.deep(source);local nextPerson=attach(world,1,1,knowledge,education,body,visibility,equipment,safeExcavation,psychology,industry,factions,world.seed)
  local c={format=Campaign.format,version=Campaign.version,ruleset=Campaign.ruleset,features={core=1},tick=world.tick,mode=world.mode,seed=world.seed,society={id=1,origin='abandoned_convicts',independent=true},nextPersonId=nextPerson,sites={{id=1,ownerSocietyId=1,world=world}}}
  if knowledge then c.features.knowledge=1;c.knowledge=require('src.knowledge').newCampaign() end
  if education then c.features.education=1;c.education=require('src.education').newCampaign() end
@@ -210,6 +216,7 @@ function Campaign.new(source,options)
  if safeExcavation then c.features.safe_excavation=1 end
  if psychology then c.features.psychology=1;require('src.psychology').initialise(c) end
  if industry then c.features.industry=1 end
+ if factions then c.features.factions=1;c.factions=require('src.factions').new(c) end
  Campaign.validate(c);return c
 end
 
@@ -220,7 +227,7 @@ local function recipeFrom(o,populated)
  return {version=1,preset=o.preset,layout=o.layout,climate=o.climate,openness=o.openness,biomeScale=o.biomeScale,features=o.features,density=o.density,crew=o.crew,width=o.width,height=o.height,populated=populated}
 end
 local function regionOptions(options)
- local o=options or {};local base={preset=o.preset or 'frontier',layout=o.layout or C.layout,climate=o.climate or C.climate,openness=o.openness or C.openness,biomeScale=o.biomeScale or C.biomeScale,features=o.features or C.features,density=o.density or C.density,crew=o.crew or C.crew,width=o.width or C.width,height=o.height or C.height,mode=o.mode or C.mode,logistics=o.logistics==true,travel=o.travel==true,knowledge=o.knowledge==true,education=o.education==true,body=o.body==true,visibility=o.visibility==true,equipment=o.equipment==true,safe_excavation=o.safe_excavation==true,psychology=o.psychology==true,industry=o.industry==true}
+ local o=options or {};local base={preset=o.preset or 'frontier',layout=o.layout or C.layout,climate=o.climate or C.climate,openness=o.openness or C.openness,biomeScale=o.biomeScale or C.biomeScale,features=o.features or C.features,density=o.density or C.density,crew=o.crew or C.crew,width=o.width or C.width,height=o.height or C.height,mode=o.mode or C.mode,logistics=o.logistics==true,travel=o.travel==true,knowledge=o.knowledge==true,education=o.education==true,body=o.body==true,visibility=o.visibility==true,equipment=o.equipment==true,safe_excavation=o.safe_excavation==true,psychology=o.psychology==true,industry=o.industry==true,factions=o.factions==true}
  for key in pairs(o) do assert(base[key]~=nil or key=='bodyOrder','Unknown campaign region option '..tostring(key)) end;assert(base.mode=='challenge' or base.mode=='practice','Invalid campaign region mode');return base
 end
 local function bodyOrder(order)
@@ -244,7 +251,7 @@ function Campaign.newRegion(master,options)
   if id>1 then bodies[id].parentBodyId=1 end
   sitesById[id]={id=id,bodyId=id,ownerSocietyId=id==1 and 1 or nil,world=world}
  end
- local sites={sitesById[1],sitesById[2],sitesById[3]};local nextPerson=1;for _,site in ipairs(sites) do nextPerson=attach(site.world,site.id,nextPerson,home.knowledge,home.education,home.body,home.visibility,home.equipment,home.safe_excavation,home.psychology,home.industry,master) end
+ local sites={sitesById[1],sitesById[2],sitesById[3]};local nextPerson=1;for _,site in ipairs(sites) do nextPerson=attach(site.world,site.id,nextPerson,home.knowledge,home.education,home.body,home.visibility,home.equipment,home.safe_excavation,home.psychology,home.industry,home.factions,master) end
  assert(not home.travel or home.logistics,'Travel campaigns require logistics')
  local c={format=Campaign.format,version=Campaign.version,ruleset=Campaign.ruleset,features={core=1,region=1},tick=0,mode=home.mode,seed=master,society={id=1,origin='abandoned_convicts',independent=true},nextPersonId=nextPerson,sites=sites,region={version=1,bodies={bodies[1],bodies[2],bodies[3]},notices={}}}
  if home.logistics then c.features.logistics=1;c.logistics=require('src.logistics').new(c.sites[1],home.travel) end
@@ -257,6 +264,7 @@ function Campaign.newRegion(master,options)
  if home.safe_excavation then assert(home.equipment,'Safe excavation requires equipment');c.features.safe_excavation=1 end
  if home.psychology then assert(home.safe_excavation and home.knowledge,'Psychology requires safe excavation and knowledge');c.features.psychology=1;require('src.psychology').initialise(c) end
  if home.industry then assert(home.equipment and home.safe_excavation,'Industry requires equipment and safe excavation');c.features.industry=1 end
+ if home.factions then assert(home.industry and home.psychology and home.knowledge,'Factions require industry, psychology and knowledge');c.features.factions=1;c.factions=require('src.factions').new(c) end
  if home.equipment then
   local w=c.sites[1].world;local x,y=w.home.x,w.home.y
   local E=require('src.equipment')
@@ -332,6 +340,7 @@ function Campaign.step(c,commands,clock)
  if isPsychology(c) then require('src.psychology').social(c) end
  if isTravel(c) then require('src.travel').step(c) end
  if isPsychology(c) then require('src.psychology').maintenance(c) end
+ if isFactions(c) then require('src.factions').step(c) end
  for _,site in ipairs(sites) do noticesForSite(c,site) end
  if not clock and #sites==1 then return timings[1] end;return timings
 end

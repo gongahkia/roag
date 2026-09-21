@@ -12,8 +12,8 @@ I.recipes={
  pickaxe={id='pickaxe/v1',input={metal=2},output={pickaxe=1},ticks=50},
  rope_coil={id='rope-coil/v1',input={metal=1},output={rope_coil=1},ticks=30},
 }
-local industrial={solar_array=true,power_pole=true,battery=true,fabricator=true,mining_rig=true,industrial_bin=true,conveyor=true,electric_lamp=true}
-local consumer={fabricator=2,mining_rig=3,electric_lamp=1}
+local industrial={solar_array=true,power_pole=true,battery=true,fabricator=true,mining_rig=true,industrial_bin=true,conveyor=true,electric_lamp=true,signal_relay=true}
+local consumer={fabricator=2,mining_rig=3,electric_lamp=1,signal_relay=1}
 local unique={pickaxe=true,rope_coil=true}
 local resources={metal=true,component=true,stone=true,soil=true,food=true,water=true}
 
@@ -27,7 +27,7 @@ function I.install(w,s)
  elseif s.kind=='mining_rig' then s.output={};s.wear=0;s.powerPriority=2;s.rigProgress={}
  elseif s.kind=='industrial_bin' then s.cargo={};s.mode='receive';s.filter=nil;s.direction='east'
  elseif s.kind=='conveyor' then s.cargo={};s.direction='east'
- elseif s.kind=='electric_lamp' then s.powerPriority=1 end
+ elseif s.kind=='electric_lamp' or s.kind=='signal_relay' then s.powerPriority=1 end
 end
 function I.recipe(kind) return I.recipes[kind] end
 function I.find(w,id)
@@ -166,6 +166,7 @@ local function consumerReady(w,s)
  if s.kind=='fabricator' then return recipeReady(s) end
  if s.kind=='mining_rig' then return rigReady(w,s) end
  if s.kind=='electric_lamp' then return s.enabled end
+ if s.kind=='signal_relay' then return s.enabled end
  return false
 end
 local function allocation(w)
@@ -357,7 +358,8 @@ function I.validateWorld(w)
   elseif s.kind=='mining_rig' then U.integer(s.wear,'Rig wear',0,600);U.integer(s.powerPriority,'Rig priority',1,3);assert(type(s.output)=='table' and type(s.rigProgress)=='table','Invalid mining rig');validateCargo(s.output,16,'Mining rig output')
   elseif s.kind=='industrial_bin' then assert((s.mode=='receive' or s.mode=='supply') and dirs[s.direction],'Invalid industrial bin');validateCargo(s.cargo,32,'Industrial bin')
   elseif s.kind=='conveyor' then assert(dirs[s.direction],'Invalid conveyor');validateCargo(s.cargo,8,'Conveyor')
-  elseif s.kind=='electric_lamp' then U.integer(s.powerPriority,'Lamp priority',1,3) end
+  elseif s.kind=='electric_lamp' then U.integer(s.powerPriority,'Lamp priority',1,3)
+  elseif s.kind=='signal_relay' then U.integer(s.powerPriority,'Relay priority',1,3) end
  end end;return true
 end
 return I

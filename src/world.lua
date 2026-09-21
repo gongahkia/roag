@@ -104,7 +104,7 @@ function W.validate(w)
  for _,p in ipairs(w.items) do U.integer(p.n,'stack',0,1000000) end
  if w.frontier then
   assert(type(w.frontier)=='table' and w.frontier.version==1,'Unsupported campaign world marker')
-  for key in pairs(w.frontier) do assert(key=='version' or key=='siteId' or key=='knowledge' or key=='education' or key=='body' or key=='visibility' or key=='equipment' or key=='safe_excavation' or key=='psychology' or key=='industry','Unknown campaign world marker key') end
+  for key in pairs(w.frontier) do assert(key=='version' or key=='siteId' or key=='knowledge' or key=='education' or key=='body' or key=='visibility' or key=='equipment' or key=='safe_excavation' or key=='psychology' or key=='industry' or key=='factions','Unknown campaign world marker key') end
   U.integer(w.frontier.siteId,'campaign site ID',1,100000000)
   if w.frontier.knowledge~=nil then assert(w.frontier.knowledge==1,'Unsupported campaign world knowledge marker') end
   if w.frontier.education~=nil then assert(w.frontier.education==1 and w.frontier.knowledge==1,'Education requires campaign knowledge') end
@@ -114,6 +114,7 @@ function W.validate(w)
   if w.frontier.safe_excavation~=nil then assert(w.frontier.safe_excavation==1 and w.frontier.equipment==1,'Safe excavation requires equipment') end
   if w.frontier.psychology~=nil then assert(w.frontier.psychology==1 and w.frontier.safe_excavation==1 and w.frontier.knowledge==1,'Psychology requires safe excavation and knowledge') end
   if w.frontier.industry~=nil then assert(w.frontier.industry==1 and w.frontier.equipment==1 and w.frontier.safe_excavation==1,'Industry requires current equipment and safe excavation') end
+  if w.frontier.factions~=nil then assert(w.frontier.factions==1 and w.frontier.industry==1 and w.frontier.psychology==1,'Factions require industry and psychology') end
  end
  for _,job in ipairs(w.jobs) do if job.logistics then assert(w.frontier,'Cargo jobs require a campaign world marker') end end
  for _,a in ipairs(w.workers) do
@@ -133,6 +134,10 @@ function W.validate(w)
   else assert(a.stress==nil and a.panic==nil and a.lastStressTick==nil,'Legacy worker gained stress state') end
   if w.frontier and w.frontier.psychology==1 then require('src.psychology').validatePersonal(a.psychology,w.tick,a.personId)
   else assert(a.psychology==nil,'Psychology state requires psychology feature') end
+  if w.frontier and w.frontier.factions==1 then
+   assert(a.factions==nil or type(a.factions)=='table','Invalid personal faction familiarity')
+   local count=0;for factionId,record in pairs(a.factions or {}) do count=count+1;U.integer(tonumber(factionId),'Personal faction ID',2,5);assert(type(record)=='table','Invalid familiarity record');U.integer(record.familiarity,'Personal familiarity',0,100);if record.firstContactTick then U.integer(record.firstContactTick,'First contact tick',0,w.tick) end;U.integer(record.lastInteractionTick or 0,'Faction interaction tick',0,w.tick);U.integer(record.protocolExperienceCount or 0,'Protocol experience',0,1000);U.integer(record.tradeExperienceCount or 0,'Trade experience',0,1000) end;assert(count<=4,'Too many faction familiarity records')
+  else assert(a.factions==nil,'Faction familiarity requires factions feature') end
   if a.task then
    assert(type(a.task.path)=='table','Missing task path')
    for _,index in ipairs(a.task.path) do U.integer(index,'path cell',1,w.n) end

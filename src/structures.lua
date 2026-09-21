@@ -24,6 +24,8 @@ S.def={
  industrial_bin={label='Industrial bin',cost=5,resource='metal',materials={stone=2,metal=2,component=1},work=65,solid=true,industry=true},
  conveyor={label='Conveyor',cost=1,resource='metal',work=20,industry=true},
  electric_lamp={label='Electric lamp',cost=2,resource='metal',materials={metal=1,component=1},work=35,industry=true},
+ signal_relay={label='Signal relay',cost=5,resource='metal',materials={stone=2,metal=2,component=1},work=60,industry=true,factions=true},
+ trade_depot={label='Trade depot',cost=10,resource='metal',materials={stone=4,metal=4,component=2},work=90,width=2,solid=true,factions=true},
 }
 function S.width(kind) return assert(S.def[kind],'Unknown structure').width or 1 end
 function S.footprint(s)
@@ -98,7 +100,7 @@ function S.siteClear(w,gx,gy,kind)
  if kind=='torch' then
   local mount,reason=S.torchMount(w,gx,gy)
   if not mount then return false,reason end
- elseif kind~='ladder' and kind~='wall' and kind~='platform' and kind~='power_pole' and kind~='electric_lamp' then
+ elseif kind~='ladder' and kind~='wall' and kind~='platform' and kind~='power_pole' and kind~='electric_lamp' and kind~='signal_relay' then
   for x=x1,x2 do if not W.solid(w,x,y2+1) then return false,'Requires solid support' end end
  end
  return true
@@ -114,6 +116,7 @@ function S.install(w,gx,gy,kind)
  w.structures[W.slot(w,gx,gy)]=s
  if kind=='field_school' then require('src.education').install(w,s) end
  if def.industry then require('src.industry').install(w,s) end
+ if def.factions then require('src.factions').install(w,s) end
  w.navRevision=w.navRevision+1
  if w.industry then w.industry.topologyRevision=w.industry.topologyRevision+1 end
  return s
