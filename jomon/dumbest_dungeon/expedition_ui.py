@@ -282,7 +282,10 @@ class ExpeditionUI(TavernUIBase):
     def _select_target(self, choices: list[str]) -> str | None:
         if len(choices) == 1:
             return choices[0]
-        actors = {actor["id"]: actor for team in self.match["teams"] for actor in team["actors"]}
+        teams = [*self.match["teams"]]
+        if self.match.get("neutral_team"):
+            teams.append(self.match["neutral_team"])
+        actors = {actor["id"]: actor for team in teams for actor in team["actors"]}
         ordered = sorted(choices, key=lambda identity: (int(identity.split(":", 1)[0]), actors[identity]["rank"]))
         selected = 0
         while True:

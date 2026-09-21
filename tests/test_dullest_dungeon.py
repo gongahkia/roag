@@ -33,6 +33,16 @@ class ExpeditionRulesTests(unittest.TestCase):
         self.assertTrue(all(card.name and card.description and card.role in roles for card in cards.values()))
         self.assertTrue(all(roles[role]["max_hp"] == hero["max_hp"] for role, hero in self.catalog.heroes.items()))
 
+    def test_target_picker_accepts_neutral_patrol_identity(self):
+        match = expedition.new_match("neutral-target", "crew-1", "crew-2", self.roles[:4], self.roles[4:8])
+        match["neutral_team"] = {"actors": [{"id": "2:ice_warden:1", "rank": 1}]}
+        ui = ExpeditionUI.__new__(ExpeditionUI)
+        ui.match = match
+        keys = iter((ord("j"), 10))
+        ui.screen = type("Screen", (), {"getch": lambda self: next(keys)})()
+        ui._render_combat_match = lambda target: None
+        self.assertEqual(ui._select_target(["2:ice_warden:1", match["teams"][1]["actors"][0]["id"]]), "2:ice_warden:1")
+
     def test_reward_annotations_use_table_language(self):
         engine = GameEngine.new(self.catalog, 71)
         forbidden = re.compile(r"\b(?:developer|feature|gameplay|implementation|mechanics?|player|tutorial|ui|ux)\b", re.IGNORECASE)
