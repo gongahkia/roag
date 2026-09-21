@@ -1,0 +1,25 @@
+{
+  "text": {
+    "topology.hearthford.zone.settlement": "Hearthford settlement",
+    "topology.hearthford.zone.floodplain": "Reedwood floodplain",
+    "topology.hearthford.zone.watch": "Old watch",
+    "topology.hearthford.zone.millworks": "Hearthford millworks",
+    "topology.hearthford.zone.river_road": "River road",
+    "topology.hearthford.landmark.watchtower": "watchtower",
+    "topology.hearthford.landmark.mill": "mill",
+    "topology.hearthford.link.culvert_steps": "culvert steps",
+    "topology.hearthford.link.mill_ladder": "mill ladder",
+    "topology.hearthford.link.roof_ladder": "roof ladder",
+    "topology.hearthford.link.watch_ladder": "watch ladder",
+    "topology.hearthford.link.watch_roof_ladder": "watch roof ladder",
+    "topology.hearthford.container.ruin": "Collapsed cottage coffer",
+    "topology.hearthford.container.reed": "Flood-islet cache",
+    "topology.hearthford.container.road": "Abandoned carrier chest",
+    "topology.hearthford.container.cave": "Culvert mason's box",
+    "topology.hearthford.container.cellar": "Buried mill strongbox",
+    "topology.hearthford.container.gantry": "Gantry tool chest",
+    "topology.hearthford.container.watch": "Watch-roof coffer",
+    "topology.hearthford.container.roof": "Mill roof cache",
+    "topology.hearthford.container.compact": "Mill compact archive chest"
+  }
+}
