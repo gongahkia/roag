@@ -288,7 +288,7 @@ class FrontierEliteTests(unittest.TestCase):
     def test_disruption_cancels_prepared_material_action(self):
         actor = self.actor("terrace-reeve")
         _threat_action(self.state, actor, False)
-        actor.intent = "disrupted by a hook"
+        actor.intent, actor.intent_id = "disrupted by a hook", "intent.disrupted.hook"
         _threat_action(self.state, actor, False)
         self.assertIsNone(actor.marked_position)
         self.assertEqual(actor.supplies, 3)

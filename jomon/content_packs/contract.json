@@ -5142,6 +5142,895 @@
       "placeholders": [
         "threat"
       ]
+    },
+    {
+      "id": "combat.attack.effect.partial_cover",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.injury",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.thorn",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.billhook",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.spear",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.cudgel",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.staff",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.axe",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.pike",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.boar_spear",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.knives",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.hammer",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.net",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.net_bind",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.net_recover",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.hooked_javelin",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.retrieval",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.handgonne",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.high_arc",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.high_arc_daze",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.effect.smoke_braid",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.no_physical_ammunition",
+      "placeholders": [
+        "ammunition"
+      ]
+    },
+    {
+      "id": "combat.guard.handgonne_loading",
+      "placeholders": [
+        "current",
+        "required",
+        "stage"
+      ]
+    },
+    {
+      "id": "combat.guard.no_engaged",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.favors_an_injured_lower_limb_and_loses_ground",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.cuts_free_of_the_net_before_acting_again",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.cannot_claim_a_publicly_witnessed_and_dogged_sluice",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.cannot_claim_witnessed_wreck_property",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.cannot_close_the_dogged_tide_chain",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.hauls_the_tide_chain_the_three_marked_flats_flood_next_turn",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.will_not_burn_the_witnessed_medicine_stand",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.loses_control_of_the_crosswind_burn",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.drives_smoke_across_three_paces_of_your_current_route",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.cannot_break_a_crossing_under_the_honest_warning",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.cannot_release_the_braced_rock_face",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.signals_allies_toward_your_last_known_position",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.hauls_the_marked_net_line",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.recovers_the_empty_net_line",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.feeds_smoke_into_a_short_lane_from_its_station",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.covers_a_wounded_ally_s_marked_withdrawal",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.withdraws_toward_cover",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.retreated",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.escapes_with_visible_stolen_cargo",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.watching",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.investigates_a_last_known_position",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.holds_without_a_perceived_courier_position",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.moves_for_a_clear_line",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.evaded",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.circles_before_another_charge",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.lowers_its_head_and_charges_next_turn",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.recovers_before_another_attack",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.holds_where_the_route_is_blocked",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.recovers_position_before_acting_again",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.breaks_contact",
+      "placeholders": [
+        "reason"
+      ]
+    },
+    {
+      "id": "combat.intent.escaped_with_stolen_cargo",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.finds_no_courier",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.bogged_in_mud",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.attack_warning_reach",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.attack_warning_melee",
+      "placeholders": []
+    },
+    {
+      "id": "intent.brace.retreated",
+      "placeholders": []
+    },
+    {
+      "id": "intent.brace.checked",
+      "placeholders": []
+    },
+    {
+      "id": "intent.weapon.recover",
+      "placeholders": [
+        "weapon"
+      ]
+    },
+    {
+      "id": "intent.elite.floodgate.sluice_telegraph",
+      "placeholders": [
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "intent.elite.reeve.cover_telegraph",
+      "placeholders": [
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "intent.elite.tracker.resin_telegraph",
+      "placeholders": [
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "intent.elite.bellward.floor_telegraph",
+      "placeholders": [
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    {
+      "id": "intent.elite.false_bell.rockfall_telegraph",
+      "placeholders": [
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "intent.machinery.sweep_telegraph",
+      "placeholders": [
+        "lane"
+      ]
+    },
+    {
+      "id": "intent.controller.net_telegraph",
+      "placeholders": [
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "intent.ranged.reloading",
+      "placeholders": [
+        "weapon",
+        "remaining"
+      ]
+    },
+    {
+      "id": "intent.ranged.reloaded",
+      "placeholders": [
+        "weapon"
+      ]
+    },
+    {
+      "id": "intent.ai.intercept",
+      "placeholders": []
+    },
+    {
+      "id": "intent.ai.patrol",
+      "placeholders": []
+    },
+    {
+      "id": "intent.ai.return",
+      "placeholders": []
+    },
+    {
+      "id": "intent.ai.approach",
+      "placeholders": []
+    },
+    {
+      "id": "intent.ai.flank",
+      "placeholders": []
+    },
+    {
+      "id": "intent.ai.seek_elevation",
+      "placeholders": []
+    },
+    {
+      "id": "intent.ranged.tracks_sound",
+      "placeholders": []
+    },
+    {
+      "id": "intent.ranged.must_reload",
+      "placeholders": [
+        "weapon"
+      ]
+    },
+    {
+      "id": "intent.ranged.aim_telegraph",
+      "placeholders": [
+        "weapon",
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "intent.advance.fast",
+      "placeholders": []
+    },
+    {
+      "id": "intent.advance.normal",
+      "placeholders": []
+    },
+    {
+      "id": "combat.elite.floodgate.leverage_denied",
+      "placeholders": []
+    },
+    {
+      "id": "combat.elite.floodgate.telegraph",
+      "placeholders": [
+        "threat",
+        "intent"
+      ]
+    },
+    {
+      "id": "combat.elite.floodgate.sluice_source",
+      "placeholders": []
+    },
+    {
+      "id": "combat.elite.floodgate.safe",
+      "placeholders": []
+    },
+    {
+      "id": "combat.elite.reeve.leverage_denied",
+      "placeholders": []
+    },
+    {
+      "id": "combat.elite.reeve.telegraph",
+      "placeholders": [
+        "threat",
+        "intent"
+      ]
+    },
+    {
+      "id": "combat.elite.reeve.sling_source",
+      "placeholders": []
+    },
+    {
+      "id": "combat.elite.reeve.safe",
+      "placeholders": []
+    },
+    {
+      "id": "combat.elite.tide_chain.leverage_denied",
+      "placeholders": []
+    },
+    {
+      "id": "combat.elite.tide_chain.source",
+      "placeholders": []
+    },
+    {
+      "id": "combat.elite.tide_chain.safe",
+      "placeholders": []
+    },
+    {
+      "id": "combat.elite.tracker.leverage_denied",
+      "placeholders": []
+    },
+    {
+      "id": "combat.elite.tracker.resin_result",
+      "placeholders": []
+    },
+    {
+      "id": "combat.elite.ash_cloak.leverage_denied",
+      "placeholders": []
+    },
+    {
+      "id": "combat.elite.ash_cloak.smoke",
+      "placeholders": [
+        "threat",
+        "intent"
+      ]
+    },
+    {
+      "id": "combat.elite.bellward.leverage_denied",
+      "placeholders": []
+    },
+    {
+      "id": "combat.elite.bellward.telegraph",
+      "placeholders": [
+        "threat",
+        "intent"
+      ]
+    },
+    {
+      "id": "combat.elite.bellward.floor_break",
+      "placeholders": [
+        "fall"
+      ]
+    },
+    {
+      "id": "combat.elite.bellward.floor_safe",
+      "placeholders": []
+    },
+    {
+      "id": "combat.elite.false_bell.leverage_denied",
+      "placeholders": []
+    },
+    {
+      "id": "combat.elite.false_bell.rockfall_source",
+      "placeholders": []
+    },
+    {
+      "id": "combat.elite.false_bell.safe",
+      "placeholders": []
+    },
+    {
+      "id": "combat.machinery.telegraph",
+      "placeholders": [
+        "threat",
+        "lane"
+      ]
+    },
+    {
+      "id": "combat.machinery.crown_wheel_source",
+      "placeholders": []
+    },
+    {
+      "id": "combat.machinery.sweep_source",
+      "placeholders": []
+    },
+    {
+      "id": "combat.machinery.safe",
+      "placeholders": [
+        "lane"
+      ]
+    },
+    {
+      "id": "combat.threat.ranged_source",
+      "placeholders": [
+        "threat",
+        "weapon"
+      ]
+    },
+    {
+      "id": "combat.threat.animal_charge_source",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.melee_source",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.attack_warning.reach",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.threat.attack_warning.melee",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.defeat.loss.porter_watch",
+      "placeholders": []
+    },
+    {
+      "id": "combat.defeat.loss.protected_cargo",
+      "placeholders": [
+        "protection",
+        "kept"
+      ]
+    },
+    {
+      "id": "combat.defeat.loss.cargo",
+      "placeholders": [
+        "cargo"
+      ]
+    },
+    {
+      "id": "combat.defeat.loss.items",
+      "placeholders": [
+        "items"
+      ]
+    },
+    {
+      "id": "combat.defeat.loss.preserved_cargo",
+      "placeholders": [
+        "item"
+      ]
+    },
+    {
+      "id": "combat.defeat.objective_failed",
+      "placeholders": [
+        "courier",
+        "region"
+      ]
+    },
+    {
+      "id": "combat.defeat.memory.died",
+      "placeholders": [
+        "courier",
+        "hazard"
+      ]
+    },
+    {
+      "id": "combat.defeat.no_successor",
+      "placeholders": [
+        "text",
+        "loss"
+      ]
+    },
+    {
+      "id": "combat.defeat.successor",
+      "placeholders": [
+        "text",
+        "loss",
+        "successor"
+      ]
+    },
+    {
+      "id": "combat.defeat.memory.escaped",
+      "placeholders": [
+        "courier"
+      ]
+    },
+    {
+      "id": "combat.defeat.injured",
+      "placeholders": [
+        "text",
+        "loss"
+      ]
+    },
+    {
+      "id": "combat.damage.field_care",
+      "placeholders": []
+    },
+    {
+      "id": "combat.brace.reason.weapon",
+      "placeholders": []
+    },
+    {
+      "id": "combat.brace.reason.not_visible",
+      "placeholders": []
+    },
+    {
+      "id": "combat.brace.reason.cross_levels",
+      "placeholders": []
+    },
+    {
+      "id": "combat.brace.reason.minimum_range",
+      "placeholders": [
+        "minimum"
+      ]
+    },
+    {
+      "id": "combat.brace.reason.too_far",
+      "placeholders": []
+    },
+    {
+      "id": "combat.brace.reason.ready",
+      "placeholders": []
+    },
+    {
+      "id": "combat.brace.outcome.defeated",
+      "placeholders": []
+    },
+    {
+      "id": "combat.brace.outcome.checked",
+      "placeholders": [
+        "damage"
+      ]
+    },
+    {
+      "id": "combat.goal.break_contact.weapon_lost",
+      "placeholders": []
+    },
+    {
+      "id": "combat.goal.cover_retreat",
+      "placeholders": []
+    },
+    {
+      "id": "combat.status.resin.cause",
+      "placeholders": []
+    },
+    {
+      "id": "combat.status.resin.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "combat.status.net.cause",
+      "placeholders": []
+    },
+    {
+      "id": "combat.status.net.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "combat.status.lane.marked.cause",
+      "placeholders": []
+    },
+    {
+      "id": "combat.status.lane.marked.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "combat.status.lane.cover.cause",
+      "placeholders": []
+    },
+    {
+      "id": "combat.status.lane.cover.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "combat.threat.animal_mud.memory",
+      "placeholders": [
+        "courier",
+        "threat"
+      ]
+    },
+    {
+      "id": "combat.machinery.lane.default",
+      "placeholders": []
+    },
+    {
+      "id": "combat.machinery.lane.outer",
+      "placeholders": []
+    },
+    {
+      "id": "combat.machinery.lane.inner",
+      "placeholders": []
+    },
+    {
+      "id": "intent.disrupted.billhook",
+      "placeholders": []
+    },
+    {
+      "id": "intent.disrupted.spear_spacing",
+      "placeholders": []
+    },
+    {
+      "id": "intent.dazed.cudgel",
+      "placeholders": []
+    },
+    {
+      "id": "intent.disrupted.pike_brace",
+      "placeholders": []
+    },
+    {
+      "id": "intent.pinned.crossbar",
+      "placeholders": []
+    },
+    {
+      "id": "intent.entangled.net",
+      "placeholders": []
+    },
+    {
+      "id": "intent.disrupted.hooked_shaft",
+      "placeholders": []
+    },
+    {
+      "id": "intent.dazed.sling",
+      "placeholders": []
+    },
+    {
+      "id": "intent.route.removed",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.crossbow",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.longbow",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.sling",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.heavy_crossbow",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.javelins",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.weighted_net",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.staff_sling",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.hooked_javelin",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.handgonne",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.throwing_axe",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.billhook",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.spear",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.cudgel",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.staff",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.hand_axe",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.pike",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.paired_knives",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.war_hammer",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.boar_spear",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.anchor_fluke",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.arming_sword",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.boat_hook",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.chain_hook",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.estoc",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.felling_axe",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.flanged_mace",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.forked_pike",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.glaive",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.long_knife",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.pollaxe",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.pot_sling",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.quarterstaff",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.reed_sickle",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.shield_and_hanger",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.spade",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.weapon.war_flail",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.legendary_weapon",
+      "placeholders": [
+        "legend",
+        "weapon"
+      ]
+    },
+    {
+      "id": "combat.attack.outcome.defeated",
+      "placeholders": []
+    },
+    {
+      "id": "combat.attack.outcome.drove_off",
+      "placeholders": []
     }
   ]
 }

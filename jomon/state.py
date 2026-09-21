@@ -269,6 +269,59 @@ class Threat:
     uses_physical_equipment: bool = False
 
 
+# Legacy saves persisted rendered intent only. These mappings are intentionally
+# default-wording compatibility, never selected-pack presentation.
+LEGACY_THREAT_INTENT_IDS = {
+    "has not noticed you": "intent.unaware",
+    "holds without a perceived courier position": "intent.wait.unseen",
+    "lowers its head and charges next turn": "intent.animal.charge_warning",
+    "circles before another charge": "intent.animal.charge_recover",
+    "bogged in the mud channel": "intent.animal.bogged",
+    "thrusts next turn": "intent.reach.warning",
+    "strikes next turn": "intent.melee.warning",
+    "recovers before another attack": "intent.attack.recover",
+    "moves for a clear line": "intent.ranged.seek_line",
+    "holds where the route is blocked": "intent.route.blocked",
+    "disrupted by a hook": "intent.disrupted.hook",
+    "disrupted by the billhook": "intent.disrupted.billhook",
+    "disrupted by spear spacing": "intent.disrupted.spear_spacing",
+    "disrupted by the pike brace": "intent.disrupted.pike_brace",
+    "disrupted by the hooked shaft": "intent.disrupted.hooked_shaft",
+    "dazed by the cudgel": "intent.dazed.cudgel",
+    "dazed by a plunging sling cast": "intent.dazed.sling",
+    "entangled; loses a turn cutting free": "intent.entangled.net",
+    "entangled in the cut chain; loses a turn cutting free": "intent.entangled.chain",
+    "pinned outside close range by the crossbar brace": "intent.pinned.crossbar",
+    "pinned between the fork tines": "intent.pinned.fork",
+    "pinned across the forked guard line": "intent.pinned.fork_line",
+}
+
+def legacy_threat_intent_id(intent: str) -> str:
+    """Return a stable compatibility identity without interpreting new prose."""
+    return LEGACY_THREAT_INTENT_IDS.get(intent, "intent.legacy.unknown")
+
+
+# These are historical deterministic hit-location seeds.  They deliberately
+# stay separate from selected-pack narration so rewritten prose cannot alter
+# an RNG stage.
+_LEGACY_COMBAT_DAMAGE_SEEDS = {
+    "elite.floodgate.sluice": "The claimant's sluice surge",
+    "elite.reeve.sling": "The wreck-chain reeve's plunging sling",
+    "elite.tide_chain": "The hauled tide chain and current",
+    "elite.false_bell.rockfall": "The false bell's released rockfall",
+    "machinery.crown_wheel": "The runaway crown wheel",
+    "machinery.sweep": "The mill sweep",
+    "threat.ranged": "The {threat}'s {weapon}",
+    "threat.animal_charge": "The {threat}'s charge",
+    "threat.melee": "The {threat}'s attack",
+}
+
+
+def legacy_combat_damage_seed(source_id: str, **values: str) -> str:
+    """Return the historical seed for a stable combat source identity."""
+    return _LEGACY_COMBAT_DAMAGE_SEEDS[source_id].format(**values)
+
+
 @dataclass
 class Item:
     id: str
@@ -1169,6 +1222,7 @@ def game_state_from_dict(data: Any) -> GameState:
         def parse_threat(raw: dict[str, Any]) -> Threat:
             values = dict(raw)
             values["position"] = _position(values["position"], "threat position")
+            values.setdefault("intent_id", legacy_threat_intent_id(str(values.get("intent", ""))))
             values["patrol"] = [_position(value, "patrol position") for value in values.get("patrol", [])]
             for key in ("last_known_position", "home_position", "objective_position", "aimed_at", "marked_position"):
                 if values.get(key) is not None:

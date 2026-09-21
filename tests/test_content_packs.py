@@ -47,6 +47,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "interference_text.json", root / "interference_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "legendary_text.json", root / "legendary_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "topology_text.json", root / "topology_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "action_text.json", root / "action_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -203,6 +204,18 @@ def alternate_pack(root: Path) -> Path:
         "topology.frostmere.condition": "Fixture gravel and water preserve the same estuary geometry.",
     })
     source.write_text(json.dumps(topology, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "action_text.json"
+    action_text = json.loads(source.read_text(encoding="utf-8"))
+    action_text["text"].update({
+        "intent.elite.floodgate.sluice_telegraph": "marks FIXTURE sluice {x},{y}",
+        "combat.elite.floodgate.telegraph": "FIXTURE FLOODGATE {threat}: {intent}.",
+        "combat.elite.floodgate.safe": "FIXTURE SURGE misses the same moved courier.",
+        "intent.machinery.sweep_telegraph": "marks FIXTURE sweep {lane}",
+        "combat.machinery.telegraph": "FIXTURE MACHINE {threat}: {lane}.",
+        "intent.controller.net_telegraph": "casts FIXTURE net at {x},{y}",
+        "combat.threat.net_miss": "FIXTURE NET {threat} misses the same repositioned courier.",
+    })
+    source.write_text(json.dumps(action_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
 
 
@@ -442,6 +455,24 @@ def quest_presentation_snapshot(environment: dict[str, str]) -> dict[str, object
             "'arc': arc_title('banks'), 'evidence': [evidence_display_name('banks'), item_spec('consumable:bound bank roll').name], "
             "'engine': [QUESTS['hearthford']['cache'], ADDITIONAL_ARCS['banks']['evidence']], 'choices': regional_resolution_options(state), "
             "'bank_options': bank_options, 'bank_result': [bank_result, state.cross_region_arcs['banks'].stage, state.cross_region_arcs['banks'].branch], 'overlay': _overlay_lines(state, 'quest:regional')[0], 'seed': state.seed}))",
+        ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+def combat_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.actions import _threat_action; from jomon.state import Position, Threat, create_world; "
+            "state=create_world('combat-pack-proof'); state.location='region'; state.position=Position(42,25); "
+            "flood=Threat('floodgate-claimant','floodgate claimant','reach',Position(45,25),8,8,status='engaged',elite=True); state.threats=[flood]; flood_warning=_threat_action(state,flood,False); state.position=Position(42,26); flood_result=_threat_action(state,flood,False); flood_mechanics=[flood.id,flood.intent_id,flood.turn,sorted(state.water.items())]; "
+            "machine=Threat('wheel','runaway crown wheel','machinery',Position(45,22),7,7,status='engaged',elite=True,morale=99); state.threats=[machine]; state.position=Position(42,22); machine_warning=_threat_action(state,machine,False); state.position=Position(42,23); machine_result=_threat_action(state,machine,False); machine_mechanics=[machine.id,machine.intent_id,machine.turn,machine.health,machine.status]; "
+            "net=Threat('net','mudflat netter','reach',Position(45,25),5,5,status='engaged',role='controller'); state.threats=[net]; state.position=Position(42,25); net_warning=_threat_action(state,net,False); state.position=Position(42,26); net_result=_threat_action(state,net,False); net_mechanics=[net.id,net.intent_id,net.turn,net.aimed_at,sorted(state.terrain_statuses)]; "
+            "print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id,'messages':[flood_warning,flood_result,machine_warning,machine_result,net_warning,net_result],'mechanics':[flood_mechanics,machine_mechanics,net_mechanics]}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -1026,6 +1057,71 @@ class ContentPackTests(unittest.TestCase):
         self.assertEqual(topology_text("topology.greenwold.link.canopy_ladder"), "canopy ladder")
         self.assertEqual(topology_text("topology.whitecairn.container.tower"), "Bell parapet chest")
         self.assertEqual(topology_text("topology.greywash.contact.1.name"), "Edda Marr")
+
+    def test_default_action_presentation_preserves_specialized_combat_text(self):
+        from jomon.action_presentation import action_format, action_text
+
+        self.assertEqual(
+            action_format("intent.elite.floodgate.sluice_telegraph", x=42, y=25),
+            "marks the mill crossing at 42,25 for a sluice surge",
+        )
+        self.assertEqual(
+            action_format(
+                "combat.elite.floodgate.telegraph",
+                threat="floodgate claimant", intent="marks the mill crossing at 42,25 for a sluice surge",
+            ),
+            "The floodgate claimant marks the mill crossing at 42,25 for a sluice surge; climb, move, guard, or dog the control.",
+        )
+        self.assertEqual(action_text("combat.machinery.sweep_source"), "The mill sweep")
+
+    def test_action_presentation_contract_rejects_invalid_pack_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            source = root / "action_text.json"
+            original = source.read_text(encoding="utf-8")
+            cases = {
+                "missing key": lambda value: value["text"].pop("combat.elite.floodgate.telegraph"),
+                "wrong type": lambda value: value["text"].update({"combat.elite.floodgate.safe": 1}),
+                "empty text": lambda value: value["text"].update({"combat.machinery.safe": ""}),
+                "malformed template": lambda value: value["text"].update({"intent.controller.net_telegraph": "{"}),
+                "unknown placeholder": lambda value: value["text"].update({"intent.controller.net_telegraph": "{other}"}),
+                "missing placeholder": lambda value: value["text"].update({"intent.controller.net_telegraph": "fixture net"}),
+                "unknown key": lambda value: value["text"].update({"combat.elite.extra": "unexpected"}),
+            }
+            for name, mutate in cases.items():
+                with self.subTest(name):
+                    content = json.loads(original)
+                    mutate(content)
+                    source.write_text(json.dumps(content), encoding="utf-8")
+                    with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*action_text\.json"):
+                        load_content_pack(root)
+            with self.subTest("duplicate key"):
+                source.write_text(
+                    original.replace('"combat.elite.floodgate.safe"', '"combat.elite.floodgate.telegraph"', 1),
+                    encoding="utf-8",
+                )
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*action_text\.json"):
+                    load_content_pack(root)
+            with self.subTest("missing file"):
+                source.unlink()
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*action_text\.json"):
+                    load_content_pack(root)
+
+    def test_alternate_pack_changes_specialized_combat_presentation_not_mechanics(self):
+        default = combat_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = combat_presentation_snapshot(environment)
+
+        self.assertEqual(default["pack"], "default")
+        self.assertEqual(alternate["pack"], "fixture-alternate")
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+        self.assertNotEqual(default["messages"], alternate["messages"])
+        self.assertIn("FIXTURE FLOODGATE", alternate["messages"][0])
+        self.assertIn("FIXTURE MACHINE", alternate["messages"][2])
+        self.assertIn("FIXTURE NET", alternate["messages"][5])
 
     def test_default_quest_presentation_matches_existing_catalog_copy(self):
         from jomon.quest_presentation import regional_choice_presentation, regional_quest_lead, regional_quest_title

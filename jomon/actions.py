@@ -34,7 +34,10 @@ from .inventory import (
     transfer_to_grid,
     worn_tags,
 )
-from .state import CommodityStack, GameState, Person, Position, SoundEvent, Threat, stage_rng
+from .state import (
+    CommodityStack, GameState, Person, Position, SoundEvent, Threat,
+    legacy_combat_damage_seed, legacy_threat_intent_id, stage_rng,
+)
 from .tavern_games import another_game_active
 from .work_weapons import WORK_WEAPONS
 from .world import (
@@ -310,8 +313,14 @@ def _step_away(state: GameState, threat: Threat) -> Position:
     return retreat_step(state, threat)
 
 
+def _intent_identity(threat: Threat) -> str:
+    if not threat.intent_id:
+        threat.intent_id = legacy_threat_intent_id(threat.intent)
+    return threat.intent_id
+
+
 def _set_combat_intent(threat: Threat, semantic_id: str, **values: object) -> str:
-    """Persist rendered intent while mechanics retain a display-independent key."""
+    """Persist display text while all combat identity stays engine-owned."""
     threat.intent_id = semantic_id
     threat.intent = action_format(semantic_id, **values)
     return threat.intent
@@ -368,7 +377,7 @@ def _lose_goods(state: GameState) -> str:
     if not state.carried_goods:
         return ""
     if state.support == "porter watch":
-        return " The porter's watch preserves the accountable load."
+        return action_format("combat.defeat.loss.porter_watch")
     names = sorted(state.carried_goods)
     if (
         state.gear == "cargo harness"
@@ -390,10 +399,12 @@ def _lose_goods(state: GameState) -> str:
             and "current" in state.terrain_statuses
             else "harness"
         )
-        return f" The {protection} keeps {kept}; other cargo is lost."
+        return action_format(
+            "combat.defeat.loss.protected_cargo", protection=protection, kept=kept,
+        )
     lose_matching_carried(state, {f"commodity:{name}" for name in names})
     state.carried_goods.clear()
-    return f" The {', '.join(names)} is lost."
+    return action_format("combat.defeat.loss.cargo", cargo=", ".join(names))
 
 
 def _successor(state: GameState, dead: Person) -> Person | None:
@@ -438,16 +449,18 @@ def _return_after_defeat(state: GameState, text: str, permanent: bool) -> str:
         )
         lost_names.append(item_spec(item.kind).name)
     sync_legacy_load(state)
-    loss = (
-        f" {', '.join(lost_names)} remains at the defeat site."
-        if lost_names else ""
-    )
+    loss = action_format("combat.defeat.loss.items", items=", ".join(lost_names)) if lost_names else ""
     if preserved_cargo:
-        loss += f" The cork-floated {item_spec(preserved_cargo.kind).name} stays on the harness."
+        loss += action_format(
+            "combat.defeat.loss.preserved_cargo",
+            item=item_spec(preserved_cargo.kind).name,
+        )
     if state.objective_status in {"accepted", "altered"}:
         state.objective_status = "failed"
         state.contact.disposition = max(-3, state.contact.disposition - 1)
-        _remember_contact(state, f"{courier.name} failed to return with {state.region.name}'s need.")
+        _remember_contact(state, action_format(
+            "combat.defeat.objective_failed", courier=courier.name, region=state.region.name,
+        ))
     from .regions import store_active_region
 
     store_active_region(state)
@@ -455,12 +468,12 @@ def _return_after_defeat(state: GameState, text: str, permanent: bool) -> str:
     if permanent:
         courier.alive, courier.health, courier.injury = False, 0, "dead"
         successor = _successor(state, courier)
-        state.remember(
-            f"{courier.name} died in {state.region.hazard}; their physical load remains at the defeat site."
-        )
+        state.remember(action_format(
+            "combat.defeat.memory.died", courier=courier.name, hazard=state.region.hazard,
+        ))
         if successor is None:
             state.active_courier_id, state.world_ended = None, True
-            return f"{text}{loss} No eligible adult survives; this world ends."
+            return action_format("combat.defeat.no_successor", text=text, loss=loss)
         state.active_courier_id = successor.id
         successor.relationships[courier.id] = min(
             3, successor.relationships.get(courier.id, 0) + 1
@@ -468,23 +481,23 @@ def _return_after_defeat(state: GameState, text: str, permanent: bool) -> str:
         ensure_courier_basics(state, successor)
         state.support = "route survey"
         sync_legacy_load(state)
-        return f"{text}{loss} {successor.name} succeeds the dead courier with their own working kit."
+        return action_format(
+            "combat.defeat.successor", text=text, loss=loss, successor=successor.name,
+        )
     courier.health, courier.injury = max(2, courier.max_health // 3), "deep cut"
-    state.remember(
-        f"{courier.name} escaped to Jomon injured; their pack remains at the defeat site."
-    )
-    return f"{text}{loss} The courier reaches Jomon with a deep cut."
+    state.remember(action_format("combat.defeat.memory.escaped", courier=courier.name))
+    return action_format("combat.defeat.injured", text=text, loss=loss)
 
 
-def _hit_location(state: GameState, damage_kind: str, source: str) -> str:
+def _hit_location(state: GameState, damage_kind: str, source_seed: str) -> str:
     exposed = ["torso", "arms", "legs", "head", "hands", "feet"]
-    if "fall" in source.lower():
+    if "fall" in source_seed.lower():
         exposed = ["legs", "feet", "arms", "head"]
-    elif "bolt" in source.lower() or damage_kind == "pierce":
+    elif "bolt" in source_seed.lower() or damage_kind == "pierce":
         exposed = ["torso", "arms", "head", "legs"]
     elif state.guarded_step:
         exposed = ["arms", "hands", "legs", "feet"]
-    rng = stage_rng(state.seed, f"hit:{state.world_time}:{source}:{state.position}")
+    rng = stage_rng(state.seed, f"hit:{state.world_time}:{source_seed}:{state.position}")
     return exposed[rng.randrange(len(exposed))]
 
 
@@ -495,6 +508,7 @@ def apply_damage(
     *,
     damage_kind: str = "blunt",
     location: str | None = None,
+    source_seed: str | None = None,
 ) -> str:
     courier = state.courier
     if courier is None:
@@ -504,7 +518,7 @@ def apply_damage(
         reduction = 3 if "deep field binding" in build_combinations(state) else 2
         amount = max(0, amount - reduction)
         if amount == 0:
-            return "Prepared field care absorbs the injury."
+            return action_format("combat.damage.field_care")
     if (
         amount >= courier.health
         and state.carried_relic == "river-glass ward"
@@ -520,7 +534,8 @@ def apply_damage(
         )
         consume_carried(state, "relic:river-glass ward")
         return "The river-glass ward breaks instead of its bearer."
-    location = location or _hit_location(state, damage_kind, source)
+    source_seed = source if source_seed is None else source_seed
+    location = location or _hit_location(state, damage_kind, source_seed)
     protection, armour_name = protection_at(state, location, damage_kind)
     absorbed = min(max(0, amount - 1), protection)
     if absorbed:
@@ -543,7 +558,7 @@ def apply_damage(
                 courier.injury = injury
         protection_text = action_format("combat.damage.absorbed", armour=armour_name, absorbed=absorbed) if absorbed else action_format("combat.damage.exposed", location=location)
         return action_format("combat.damage.hit", source=source, location=location, damage=amount, protection=protection_text)
-    fatal = already_hurt or pressure(state).band == "critical" or "crown wheel" in source
+    fatal = already_hurt or pressure(state).band == "critical" or "crown wheel" in source_seed
     return _return_after_defeat(state, action_format("combat.damage.defeated", source=source, courier=courier.name), fatal)
 
 
@@ -556,20 +571,20 @@ def brace_target_legality(state: GameState, threat: Threat) -> tuple[bool, str]:
     from .world import courier_sees
 
     if state.weapon not in BRACE_REACTION_WEAPONS:
-        return False, "the readied weapon has no prepared lane reaction"
+        return False, action_format("combat.brace.reason.weapon")
     if threat.status != "engaged" or not courier_sees(
         state, threat.position
     ):
-        return False, "the actor is not presently visible and engaged"
+        return False, action_format("combat.brace.reason.not_visible")
     if threat.position.z != state.position.z:
-        return False, "a brace cannot cross levels"
+        return False, action_format("combat.brace.reason.cross_levels")
     gap = distance(state.position, threat.position)
     minimum = 2 if state.weapon in {"pike", "boar spear", "forked pike", "glaive"} else 1
     if gap < minimum:
-        return False, f"the actor is inside the brace's minimum range {minimum}"
+        return False, action_format("combat.brace.reason.minimum_range", minimum=minimum)
     if gap > effective_weapon_range(state) + 2:
-        return False, "the actor is too far to enter the lane this action"
-    return True, "guard prepares one visible one-action intercept"
+        return False, action_format("combat.brace.reason.too_far")
+    return True, action_format("combat.brace.reason.ready")
 
 
 def _resolve_brace_reaction(state: GameState, threat: Threat) -> str | None:
@@ -596,10 +611,13 @@ def _resolve_brace_reaction(state: GameState, threat: Threat) -> str | None:
     )
     threat.morale -= 2 if threat.profile == "animal" else 1
     if not harm.defeated and threat.morale <= 0 and threat.profile != "machinery":
-        threat.status, threat.intent = "retreated", "breaks from the prepared lane"
+        threat.status = "retreated"
+        _set_combat_intent(threat, "intent.brace.retreated")
     elif not harm.defeated:
-        threat.intent = "checked by the courier's visible prepared lane"
-    outcome = "removes" if harm.defeated else f"deals {harm.amount} and checks"
+        _set_combat_intent(threat, "intent.brace.checked")
+    outcome = action_format("combat.brace.outcome.defeated") if harm.defeated else action_format(
+        "combat.brace.outcome.checked", damage=harm.amount,
+    )
     protection = (
         action_format("combat.brace.protected", protection=harm.protection, location=harm.location)
         if harm.protection != "uncovered" else action_format("combat.brace.uncovered", location=harm.location)
@@ -636,18 +654,22 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             threat.position = next_path_step(
                 state, threat, replacement.ground_position, stop_distance=1,
             )
-            threat.intent = f"moves toward a visible fallen {item_spec(replacement.kind).name}"
-            return f"The {threat.name} {threat.intent}." if threat.position != old else ""
+            _set_combat_intent(
+                threat, "intent.weapon.recover",
+                weapon=item_spec(replacement.kind).name,
+            )
+            return action_format("combat.threat.intent", threat=threat.name, intent=threat.intent) if threat.position != old else ""
         threat.morale = min(0, threat.morale)
-        threat.goal, threat.goal_reason = "break contact", "its physical weapon is lost or broken"
+        threat.goal = "break contact"
+        threat.goal_reason = action_format("combat.goal.break_contact.weapon_lost")
     if ({"legs", "feet"} & set(threat.injuries)) and threat.turn % 2 == 0:
-        threat.intent = "favors an injured lower limb and loses ground"
-        return f"The {threat.name} {threat.intent}."
-    if threat.intent.startswith(("disrupted", "dazed", "entangled", "pinned")):
-        was_entangled = threat.intent.startswith("entangled")
-        threat.intent = "cuts free of the net before acting again" if was_entangled else "recovers position before acting again"
+        _set_combat_intent(threat, "combat.intent.favors_an_injured_lower_limb_and_loses_ground")
+        return action_format("combat.threat.intent", threat=threat.name, intent=threat.intent)
+    if _intent_identity(threat).startswith(("intent.disrupted", "intent.dazed", "intent.entangled", "intent.pinned")):
+        was_entangled = _intent_identity(threat).startswith("intent.entangled")
+        _set_combat_intent(threat, "combat.intent.cuts_free_of_the_net_before_acting_again") if was_entangled else _set_combat_intent(threat, "combat.intent.recovers_position_before_acting_again")
         threat.reaction, threat.marked_position = "", None
-        return f"The {threat.name} loses a turn {threat.intent}."
+        return action_format("combat.threat.loses_turn", threat=threat.name, intent=threat.intent)
     from .frontier_elites import elite_action
     special = elite_action(state, threat, guarded)
     if special is not None:
@@ -658,14 +680,17 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             or state.region.changes.get("flood_control_used")
         ):
             threat.morale -= 2
-            threat.intent = "cannot claim a publicly witnessed and dogged sluice"
+            _set_combat_intent(threat, "combat.intent.cannot_claim_a_publicly_witnessed_and_dogged_sluice")
             if threat.morale <= 0:
                 threat.status = "retreated"
-            return "The witnessed sluice control strips the floodgate claimant's leverage."
+            return action_format("combat.elite.floodgate.leverage_denied")
         if threat.aimed_at is None:
             threat.aimed_at = state.position
-            threat.intent = f"marks the mill crossing at {state.position.x},{state.position.y} for a sluice surge"
-            return f"The {threat.name} {threat.intent}; climb, move, guard, or dog the control."
+            _set_combat_intent(
+                threat, "intent.elite.floodgate.sluice_telegraph",
+                x=state.position.x, y=state.position.y,
+            )
+            return action_format("combat.elite.floodgate.telegraph", threat=threat.name, intent=threat.intent)
         marked, threat.aimed_at = threat.aimed_at, None
         points = (
             Position(marked.x - 1, marked.y, marked.z), marked,
@@ -673,8 +698,12 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
         )
         state.water.update({position_key(point): 7 for point in points})
         if state.position in points and not guarded:
-            return apply_damage(state, 3, "The claimant's sluice surge", damage_kind="blunt")
-        return "The sluice surge crosses three marked mill cells; the gantry and moved position remain safe."
+            return apply_damage(
+                state, 3, action_format("combat.elite.floodgate.sluice_source"),
+                damage_kind="blunt",
+                source_seed=legacy_combat_damage_seed("elite.floodgate.sluice"),
+            )
+        return action_format("combat.elite.floodgate.safe")
     if threat.elite and state.active_region_id == "greywash":
         if threat.name == "wreck-chain reeve":
             if (
@@ -682,119 +711,156 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
                 or state.questlines["greywash"].optional_done
             ):
                 threat.morale -= 2
-                threat.intent = "cannot claim witnessed wreck property"
+                _set_combat_intent(threat, "combat.intent.cannot_claim_witnessed_wreck_property")
                 if threat.morale <= 0:
                     threat.status = "retreated"
-                return "The dogged chain or witnessed wreck account denies the reeve's salvage claim."
+                return action_format("combat.elite.reeve.leverage_denied")
             if threat.aimed_at is None:
                 threat.aimed_at = state.position
-                threat.intent = f"hooks loose wreck cover from lane {state.position.x},{state.position.y} before a sling cast"
-                return f"The {threat.name} {threat.intent}; fixed dune cover and movement remain answers."
+                _set_combat_intent(
+                    threat, "intent.elite.reeve.cover_telegraph",
+                    x=state.position.x, y=state.position.y,
+                )
+                return action_format("combat.elite.reeve.telegraph", threat=threat.name, intent=threat.intent)
             marked, threat.aimed_at = threat.aimed_at, None
             cover = Position(marked.x - 1, marked.y, marked.z)
             if is_walkable(state, cover, ignore_threat=True):
                 state.region.tile_changes[position_key(cover)] = "."
             if state.position == marked and not guarded:
-                return apply_damage(state, 2, "The wreck-chain reeve's plunging sling", damage_kind="blunt")
-            return "The reeve hauls loose wreck cover from the telegraphed lane; your new position avoids the cast."
+                return apply_damage(
+                    state, 2, action_format("combat.elite.reeve.sling_source"),
+                    damage_kind="blunt",
+                    source_seed=legacy_combat_damage_seed("elite.reeve.sling"),
+                )
+            return action_format("combat.elite.reeve.safe")
         if state.region.changes.get("tide_held"):
             threat.morale -= 2
-            threat.intent = "cannot close the dogged tide chain"
+            _set_combat_intent(threat, "combat.intent.cannot_close_the_dogged_tide_chain")
             if threat.morale <= 0:
                 threat.status = "retreated"
-            return "The dogged windlass denies the storm-chain captain's route-changing goal."
+            return action_format("combat.elite.tide_chain.leverage_denied")
         if threat.turn % 2:
-            threat.intent = "hauls the tide chain; the three marked flats flood next turn"
-            return f"The {threat.name} {threat.intent}."
+            _set_combat_intent(threat, "combat.intent.hauls_the_tide_chain_the_three_marked_flats_flood_next_turn")
+            return action_format("combat.threat.intent", threat=threat.name, intent=threat.intent)
         from .geography import layout_point
 
         points = tuple(layout_point(state.region, point) for point in (Position(88, 28), Position(89, 28), Position(90, 28)))
         state.water.update({position_key(point): 8 for point in points})
         if state.position in points and not guarded:
-            return apply_damage(state, 3, "The hauled tide chain and current", damage_kind="blunt")
-        return "The tide chain floods three marked flats; higher chain-house floor remains safe."
+            return apply_damage(
+                state, 3, action_format("combat.elite.tide_chain.source"),
+                damage_kind="blunt",
+                source_seed=legacy_combat_damage_seed("elite.tide_chain"),
+            )
+        return action_format("combat.elite.tide_chain.safe")
     if threat.elite and state.active_region_id == "greenwold":
         if threat.name == "resin-fire tracker":
             if state.region.changes.get("medicine_coppice_saved"):
                 threat.morale -= 2
-                threat.intent = "will not burn the witnessed medicine stand"
+                _set_combat_intent(threat, "combat.intent.will_not_burn_the_witnessed_medicine_stand")
                 if threat.morale <= 0:
                     threat.status = "retreated"
-                return "The preserved medicine boundary denies the resin-fire tracker's burn."
+                return action_format("combat.elite.tracker.leverage_denied")
             if threat.aimed_at is None:
                 threat.aimed_at = state.position
-                threat.intent = f"marks resin under {state.position.x},{state.position.y}; water or movement breaks the trap"
-                return f"The {threat.name} {threat.intent}."
+                _set_combat_intent(
+                    threat, "intent.elite.tracker.resin_telegraph",
+                    x=state.position.x, y=state.position.y,
+                )
+                return action_format("combat.threat.intent", threat=threat.name, intent=threat.intent)
             marked, threat.aimed_at = threat.aimed_at, None
             smoke_points = (marked, Position(marked.x, marked.y, min(2, marked.z + 1)))
             state.smoke.update({position_key(point): 6 for point in smoke_points})
             if state.position == marked:
-                add_status(state, "smoke-inhalation", "ignited resin underfoot", 5, "sight and ranged preparation worsen")
-            return "Marked resin ignites and smoke rises through the aligned opening; water and crosswind ground remain clear."
+                add_status(
+                    state, "smoke-inhalation",
+                    action_format("combat.status.resin.cause"), 5,
+                    action_format("combat.status.resin.consequence"),
+                )
+            return action_format("combat.elite.tracker.resin_result")
         if state.region.changes.get("burn_redirected"):
             threat.morale -= 2
-            threat.intent = "loses control of the crosswind burn"
+            _set_combat_intent(threat, "combat.intent.loses_control_of_the_crosswind_burn")
             if threat.morale <= 0:
                 threat.status = "retreated"
-            return "Redirected burn shutters strip the ash-cloak warden of smoke control."
+            return action_format("combat.elite.ash_cloak.leverage_denied")
         smoke_line = [
             Position(state.position.x + offset, state.position.y, state.position.z)
             for offset in (-1, 0, 1)
         ]
         state.smoke.update({position_key(point): 5 for point in smoke_line})
-        threat.intent = "drives smoke across three paces of your current route"
-        return f"The {threat.name} {threat.intent}; climb or move crosswind."
+        _set_combat_intent(threat, "combat.intent.drives_smoke_across_three_paces_of_your_current_route")
+        return action_format("combat.elite.ash_cloak.smoke", threat=threat.name, intent=threat.intent)
     if threat.elite and state.active_region_id == "whitecairn":
         if threat.name == "bridge-breaker bellward":
             if state.region.changes.get("honest_bell"):
                 threat.morale -= 2
-                threat.intent = "cannot break a crossing under the honest warning"
+                _set_combat_intent(threat, "combat.intent.cannot_break_a_crossing_under_the_honest_warning")
                 if threat.morale <= 0:
                     threat.status = "retreated"
-                return "The honest bell exposes the bridge-breaker's private order and breaks its morale."
+                return action_format("combat.elite.bellward.leverage_denied")
             if threat.aimed_at is None:
                 threat.aimed_at = state.position
-                threat.intent = f"marks floor brace {state.position.x},{state.position.y},{state.position.z:+d} for a heavy bolt"
-                return f"The {threat.name} {threat.intent}; move levels, shelter, or brace the quarry."
+                _set_combat_intent(
+                    threat, "intent.elite.bellward.floor_telegraph",
+                    x=state.position.x, y=state.position.y, z=f"{state.position.z:+d}",
+                )
+                return action_format("combat.elite.bellward.telegraph", threat=threat.name, intent=threat.intent)
             marked, threat.aimed_at = threat.aimed_at, None
             if base_tile(state, marked) not in {"#", " ", "~"}:
                 state.region.tile_changes[position_key(marked)] = "O"
             if state.position == marked:
                 fall = _fall(state)
-                return f"The heavy bolt breaks the marked floor. {fall}"
-            return "The heavy bolt opens a hole in the marked crossing; the lower switchback remains a return route."
+                return action_format("combat.elite.bellward.floor_break", fall=fall)
+            return action_format("combat.elite.bellward.floor_safe")
         if state.region.changes.get("quarry_braced"):
             threat.morale -= 2
-            threat.intent = "cannot release the braced rock face"
+            _set_combat_intent(threat, "combat.intent.cannot_release_the_braced_rock_face")
             if threat.morale <= 0:
                 threat.status = "retreated"
-            return "The seated quarry braces deny the false-bell master's rockfall plan."
+            return action_format("combat.elite.false_bell.leverage_denied")
         if threat.aimed_at is None:
             threat.aimed_at = state.position
-            threat.intent = f"rings a rockfall warning over {state.position.x},{state.position.y}; leave the marked place"
-            return f"The {threat.name} {threat.intent}."
+            _set_combat_intent(
+                threat, "intent.elite.false_bell.rockfall_telegraph",
+                x=state.position.x, y=state.position.y,
+            )
+            return action_format("combat.threat.intent", threat=threat.name, intent=threat.intent)
         marked, threat.aimed_at = threat.aimed_at, None
         state.region.tile_changes[position_key(marked)] = "%"
         if state.position == marked and not guarded:
-            return apply_damage(state, 3, "The false bell's released rockfall", damage_kind="blunt")
-        return "Rockfall strikes the marked place and leaves unstable scree; your reposition avoids it."
+            return apply_damage(
+                state, 3, action_format("combat.elite.false_bell.rockfall_source"),
+                damage_kind="blunt",
+                source_seed=legacy_combat_damage_seed("elite.false_bell.rockfall"),
+            )
+        return action_format("combat.elite.false_bell.safe")
     if threat.profile == "machinery":
         if gap > 7:
             return ""
         swept_rows = {22, 24, 26, 28}
-        lane = "marked mill aisles"
+        lane_id = "default"
         if threat.elite:
             outer = ((threat.turn - 1) // 2) % 2 == 0
             swept_rows = {22, 28} if outer else {24, 26}
-            lane = "outer aisles 22/28" if outer else "inner aisles 24/26"
+            lane_id = "outer" if outer else "inner"
+        lane = action_format(f"combat.machinery.lane.{lane_id}")
         threatened = state.position.y in swept_rows
         if threat.turn % 2:
-            threat.intent = f"sweeps {lane} next turn"
-            return f"The {threat.name} shudders: {lane} sweep next turn."
+            _set_combat_intent(threat, "intent.machinery.sweep_telegraph", lane=lane)
+            return action_format("combat.machinery.telegraph", threat=threat.name, lane=lane)
         if threatened and not guarded:
-            source = "The runaway crown wheel" if threat.elite else "The mill sweep"
-            return apply_damage(state, 3 if threat.elite else 2, source)
-        return f"The mill sweep passes through {lane}; your position is safe."
+            source = action_format(
+                "combat.machinery.crown_wheel_source"
+                if threat.elite else "combat.machinery.sweep_source"
+            )
+            source_seed = legacy_combat_damage_seed(
+                "machinery.crown_wheel" if threat.elite else "machinery.sweep",
+            )
+            return apply_damage(
+                state, 3 if threat.elite else 2, source, source_seed=source_seed,
+            )
+        return action_format("combat.machinery.safe", lane=lane)
     decision = select_goal(state, threat)
     from .ecology import resolve_world_action
 
@@ -807,23 +873,26 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             return reaction
     if decision.action == "alarm":
         raise_group_alert(state, threat)
-        threat.intent = "signals allies toward your last-known position"
-        return f"The {threat.name} raises an alarm; nearby allies converge on a shared position."
+        _set_combat_intent(threat, "combat.intent.signals_allies_toward_your_last_known_position")
+        return action_format("combat.threat.alarm", threat=threat.name)
     if decision.action == "control":
         if threat.aimed_at is None:
             threat.aimed_at = state.position
-            threat.intent = f"casts a weighted net across {state.position.x},{state.position.y}; leave the marked place"
-            return f"The {threat.name} {threat.intent}."
+            _set_combat_intent(
+                threat, "intent.controller.net_telegraph",
+                x=state.position.x, y=state.position.y,
+            )
+            return action_format("combat.threat.intent", threat=threat.name, intent=threat.intent)
         marked, threat.aimed_at = threat.aimed_at, None
         if state.position == marked:
             add_status(
-                state, "net-drag", "a weighted shore net", 3,
-                "guarded reposition, evasion, and current crossings worsen",
+                state, "net-drag", action_format("combat.status.net.cause"), 3,
+                action_format("combat.status.net.consequence"),
             )
-            threat.intent = "hauls the marked net line"
-            return f"The {threat.name} hauls the net across the marked place; footing worsens."
-        threat.intent = "recovers the empty net line"
-        return f"The {threat.name}'s net closes on empty ground after your reposition."
+            _set_combat_intent(threat, "combat.intent.hauls_the_marked_net_line")
+            return action_format("combat.threat.net_hit", threat=threat.name)
+        _set_combat_intent(threat, "combat.intent.recovers_the_empty_net_line")
+        return action_format("combat.threat.net_miss", threat=threat.name)
     if decision.action == "feed smoke":
         points = (
             threat.position,
@@ -836,8 +905,8 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
                 if is_walkable(state, point, ignore_threat=True)
             }
         )
-        threat.intent = "feeds smoke into a short lane from its station"
-        return f"The {threat.name} {threat.intent}; wind, height, or the control can answer it."
+        _set_combat_intent(threat, "combat.intent.feeds_smoke_into_a_short_lane_from_its_station")
+        return action_format("combat.threat.smoke", threat=threat.name)
     if decision.action == "cover retreat" and decision.target:
         wounded = next(
             (
@@ -854,27 +923,28 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
         if wounded:
             wounded.morale = min(3, wounded.morale + 1)
             wounded.goal = "break contact"
-            wounded.goal_reason = "an ally opened a withdrawal lane"
-        threat.intent = "covers a wounded ally's marked withdrawal"
+            wounded.goal_reason = action_format("combat.goal.cover_retreat")
+        _set_combat_intent(threat, "combat.intent.covers_a_wounded_ally_s_marked_withdrawal")
         if threat.position == previous and not wounded:
             return ""
-        return f"The {threat.name} {threat.intent}."
+        return action_format("combat.threat.intent", threat=threat.name, intent=threat.intent)
     if decision.action in {"retreat", "withdraw"}:
         previous = threat.position
         if state.location == "jomon" and decision.action == "retreat" and threat.home_position:
             threat.position = next_path_step(state, threat, threat.home_position, stop_distance=1)
         else:
             threat.position = retreat_step(state, threat)
-        threat.intent = "withdraws toward cover" if decision.action == "withdraw" else f"breaks contact: {decision.reason}"
+        _set_combat_intent(threat, "combat.intent.withdraws_toward_cover") if decision.action == "withdraw" else _set_combat_intent(threat, "combat.intent.breaks_contact", reason=decision.reason)
         if threat.position == previous:
             threat.stalled_turns += 1
-            return "" if threat.stalled_turns > 1 else f"The {threat.name} cannot find a safe retreat."
+            return "" if threat.stalled_turns > 1 else action_format("combat.threat.retreat_blocked", threat=threat.name)
         threat.stalled_turns = 0
-        return f"The {threat.name} {threat.intent}."
+        return action_format("combat.threat.intent", threat=threat.name, intent=threat.intent)
     if decision.action == "escape":
         target = threat.home_position or threat.position
         if distance(threat.position, target) <= 1:
-            threat.status, threat.intent = "retreated", "escaped with stolen cargo"
+            threat.status = "retreated"
+            _set_combat_intent(threat, "combat.intent.escaped_with_stolen_cargo")
             loss = ""
             if threat.carrying_item_id:
                 stolen = next(
@@ -887,16 +957,16 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
                     stolen.region_id = state.spatial_id
                     stolen.ground_position = None
                     stolen.container_id = None
-                    loss = f" The {item_spec(stolen.kind).name} is now recorded as lost beyond the regional route."
+                    loss = action_format("combat.threat.escape_lost", item=item_display_name_or_legacy(stolen.kind))
                     state.remember(
-                        f"{threat.name.title()} escaped {state.spatial_id} with {item_spec(stolen.kind).name}; the physical item was lost."
+                        action_format("combat.threat.escape_memory", threat=threat.name.title(), region=state.spatial_id, item=item_display_name_or_legacy(stolen.kind))
                     )
                 threat.carrying_item_id = None
                 sync_legacy_load(state)
-            return f"The {threat.name} escapes the encounter with stolen cargo.{loss}"
+            return action_format("combat.threat.escape", threat=threat.name, loss=loss)
         previous = threat.position
         threat.position = next_path_step(state, threat, target, stop_distance=0)
-        return "" if threat.position == previous else f"The {threat.name} carries stolen cargo toward its escape route."
+        return "" if threat.position == previous else action_format("combat.threat.cargo", threat=threat.name)
     if decision.action == "steal":
         candidates = [
             item for item in state.items
@@ -908,28 +978,32 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             stolen.location, stolen.owner_id = "enemy", None
             threat.carrying_item_id = stolen.id
             sync_legacy_load(state)
-            threat.intent = "escapes with visible stolen cargo"
-            return f"The {threat.name} takes {item_spec(stolen.kind).name} and turns for an escape route."
+            _set_combat_intent(threat, "combat.intent.escapes_with_visible_stolen_cargo")
+            return action_format("combat.threat.steal", threat=threat.name, item=item_display_name_or_legacy(stolen.kind))
     if decision.action == "investigate" and decision.target:
         previous = threat.position
         threat.position = next_path_step(state, threat, decision.target, stop_distance=0)
         if threat.position == previous:
             if threat.position == decision.target:
                 threat.last_known_position = None
-                threat.status, threat.intent = "watching", "finds no courier at the last-known position"
-                return f"The {threat.name} reaches the sound's origin and finds it empty."
+                threat.status = "watching"
+                _set_combat_intent(threat, "combat.intent.finds_no_courier")
+                return action_format("combat.threat.investigate_empty", threat=threat.name)
             threat.stalled_turns += 1
-            return "" if threat.stalled_turns > 1 else f"The {threat.name} pauses where the investigation route is blocked."
+            return "" if threat.stalled_turns > 1 else action_format("combat.threat.investigate_blocked", threat=threat.name)
         threat.stalled_turns = 0
-        threat.intent = "investigates a last-known position"
-        return f"The {threat.name} investigates without knowing your current position."
+        _set_combat_intent(threat, "combat.intent.investigates_a_last_known_position")
+        return action_format("combat.threat.investigate", threat=threat.name)
     if decision.action == "reload":
         threat.reload_turns = max(0, threat.reload_turns - 1)
         if threat.reload_turns:
-            threat.intent = f"reloads {threat.ranged_kind}; {threat.reload_turns} turn remains"
+            _set_combat_intent(
+                threat, "intent.ranged.reloading",
+                weapon=threat.ranged_kind, remaining=threat.reload_turns,
+            )
         else:
-            threat.intent = f"finishes reloading {threat.ranged_kind}"
-        return f"The {threat.name} {threat.intent}."
+            _set_combat_intent(threat, "intent.ranged.reloaded", weapon=threat.ranged_kind)
+        return action_format("combat.threat.intent", threat=threat.name, intent=threat.intent)
     if decision.action in {"intercept", "patrol", "return", "approach", "flank", "seek elevation"} and decision.target:
         stop_distance = 1 if decision.action in {"intercept", "approach"} else 0
         previous = threat.position
@@ -941,18 +1015,10 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             if next_position == state.position:
                 break
             threat.position = next_position
-        descriptions = {
-            "intercept": "moves between you and its ranged ally",
-            "patrol": "resumes its assigned patrol without knowing your position",
-            "return": "returns to its guarded position",
-            "approach": "pursues your last visible position",
-            "flank": "moves toward a visible side approach rather than your exact position",
-            "seek elevation": "takes a physical stair or climb toward a higher firing lane",
-        }
-        threat.intent = descriptions[decision.action]
+        _set_combat_intent(threat, f"intent.ai.{decision.action.replace(' ', '_')}")
         if threat.position == previous:
             threat.stalled_turns += 1
-            return "" if threat.stalled_turns > 1 else f"The {threat.name} holds; its selected route is blocked."
+            return "" if threat.stalled_turns > 1 else action_format("combat.threat.route_blocked", threat=threat.name)
         threat.stalled_turns = 0
         if decision.action == "patrol" and threat.patrol:
             next_index = (threat.patrol_index + 1) % len(threat.patrol)
@@ -961,30 +1027,29 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
         reaction = _resolve_brace_reaction(state, threat)
         if reaction is not None:
             return reaction
-        return f"The {threat.name} {threat.intent}."
+        return action_format("combat.threat.intent", threat=threat.name, intent=threat.intent)
     if decision.action == "wait":
-        if threat.intent == "holds without a perceived courier position":
+        if _intent_identity(threat) == "combat.intent.holds_without_a_perceived_courier_position":
             return ""
-        threat.intent = "holds without a perceived courier position"
-        return f"The {threat.name} holds its duty; it does not know where you are."
+        _set_combat_intent(threat, "combat.intent.holds_without_a_perceived_courier_position")
+        return action_format("combat.threat.wait", threat=threat.name)
     if threat.profile == "ranged":
         if threat.position.z != state.position.z and not line_of_sight(
             state, threat.position, state.position
         ):
-            message = "tracks the sound across the levels"
-            if threat.intent == message:
+            if _intent_identity(threat) == "intent.ranged.tracks_sound":
                 return ""
-            threat.intent = message
-            return f"The {threat.name} hears you on another level."
+            _set_combat_intent(threat, "intent.ranged.tracks_sound")
+            return action_format("combat.threat.cross_level", threat=threat.name)
         if not line_of_sight(state, threat.position, state.position):
             previous = threat.position
             threat.position = _step_toward(state, threat, state.position)
-            threat.intent = "moves for a clear line"
+            _set_combat_intent(threat, "combat.intent.moves_for_a_clear_line")
             if threat.position == previous:
                 threat.stalled_turns += 1
-                return "" if threat.stalled_turns > 1 else f"The {threat.name} cannot find a firing line."
+                return "" if threat.stalled_turns > 1 else action_format("combat.threat.firing_blocked", threat=threat.name)
             threat.stalled_turns = 0
-            return f"The {threat.name} shifts for a firing line."
+            return action_format("combat.threat.firing_line", threat=threat.name)
         effective_range = {"longbow": 12, "sling": 9, "heavy crossbow": 14, "crossbow": 8}.get(threat.ranged_kind, 8)
         if gap <= effective_range:
             if threat.aimed_at is not None:
@@ -993,18 +1058,26 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
                 threat.ammunition = max(0, threat.ammunition - 1)
                 wear_readied_weapon(state, threat)
                 threat.reload_turns = {"heavy crossbow": 2, "crossbow": 1, "longbow": 1, "sling": 0}.get(threat.ranged_kind, 1)
-                threat.intent = f"must reload {threat.ranged_kind}"
+                _set_combat_intent(threat, "intent.ranged.must_reload", weapon=threat.ranged_kind)
                 if aimed != state.position:
                     if threat.role == "suppressor":
-                        add_status(state, "lane-denied", "missiles striking the marked lane", 2, "crossing the lane adds noise")
-                    return f"The {threat.name} releases along {aimed.x},{aimed.y}; your movement leaves the lane empty."
+                        add_status(
+                            state, "lane-denied",
+                            action_format("combat.status.lane.marked.cause"), 2,
+                            action_format("combat.status.lane.marked.consequence"),
+                        )
+                    return action_format("combat.threat.shot_empty", threat=threat.name, x=aimed.x, y=aimed.y)
                 lane_cover = cover_at(state, threat.position, state.position)
                 if lane_cover == "full":
-                    return f"The {threat.name}'s shot strikes full cover."
+                    return action_format("combat.threat.shot_cover", threat=threat.name)
                 if guarded or lane_cover == "partial":
                     if threat.role == "suppressor":
-                        add_status(state, "lane-denied", "missiles striking cover", 2, "leaving cover adds noise")
-                    return f"Guard and {lane_cover} cover turn the {threat.ranged_kind} shot."
+                        add_status(
+                            state, "lane-denied",
+                            action_format("combat.status.lane.cover.cause"), 2,
+                            action_format("combat.status.lane.cover.consequence"),
+                        )
+                    return action_format("combat.threat.shot_guard", cover=lane_cover, weapon=threat.ranged_kind)
                 harm = {"sling": 1, "longbow": 2, "crossbow": 2, "heavy crossbow": 4}.get(threat.ranged_kind, 2)
                 if pressure(state).band == "critical":
                     harm += 1
@@ -1015,53 +1088,80 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
                 if threat.role == "skirmisher":
                     old = threat.position
                     threat.position = retreat_step(state, threat)
-                    movement = " It releases while withdrawing." if threat.position != old else ""
+                    movement = action_format("combat.threat.skirmish") if threat.position != old else ""
                 kind = "blunt" if threat.ranged_kind == "sling" else "pierce"
-                return apply_damage(state, harm, f"The {threat.name}'s {threat.ranged_kind}", damage_kind=kind) + movement
+                source_seed = legacy_combat_damage_seed(
+                    "threat.ranged", threat=threat.name, weapon=threat.ranged_kind,
+                )
+                return apply_damage(
+                    state, harm,
+                    action_format("combat.threat.ranged_source", threat=threat.name, weapon=threat.ranged_kind),
+                    damage_kind=kind, source_seed=source_seed,
+                ) + movement
             threat.aimed_at = state.position
-            threat.intent = f"aims {threat.ranged_kind} along lane {state.position.x},{state.position.y}; move, cover, smoke, or guard"
-            return f"The {threat.name} {threat.intent}."
+            _set_combat_intent(
+                threat, "intent.ranged.aim_telegraph", weapon=threat.ranged_kind,
+                x=state.position.x, y=state.position.y,
+            )
+            return action_format("combat.threat.intent", threat=threat.name, intent=threat.intent)
     if threat.profile == "animal" and gap <= 3:
-        if base_tile(state, state.position) == "m" and "charge" in threat.intent:
-            threat.status, threat.intent = "evaded", "bogged in the mud channel"
-            state.remember(f"{state.courier.name} used deep mud to evade {threat.name}.")
-            return f"The {threat.name} charges into deep mud: a positional evasion."
-        if gap <= 1 and "charge" in threat.intent:
-            threat.intent = "circles before another charge"
+        if base_tile(state, state.position) == "m" and _intent_identity(threat) == "combat.intent.lowers_its_head_and_charges_next_turn":
+            threat.status = "evaded"
+            _set_combat_intent(threat, "combat.intent.bogged_in_mud")
+            state.remember(action_format(
+                "combat.threat.animal_mud.memory",
+                courier=state.courier.name, threat=threat.name,
+            ))
+            return action_format("combat.threat.animal_mud", threat=threat.name)
+        if gap <= 1 and _intent_identity(threat) == "combat.intent.lowers_its_head_and_charges_next_turn":
+            _set_combat_intent(threat, "combat.intent.circles_before_another_charge")
             if guarded:
-                return f"Your guarded footing turns the {threat.name}'s charge."
-            return apply_damage(state, 3, f"The {threat.name}'s charge")
-        threat.intent = "lowers its head and charges next turn"
-        return f"The {threat.name} lowers its head: mud, light, or distance can redirect it."
+                return action_format("combat.threat.animal_guard", threat=threat.name)
+            source_seed = legacy_combat_damage_seed("threat.animal_charge", threat=threat.name)
+            return apply_damage(
+                state, 3,
+                action_format("combat.threat.animal_charge_source", threat=threat.name),
+                source_seed=source_seed,
+            )
+        _set_combat_intent(threat, "combat.intent.lowers_its_head_and_charges_next_turn")
+        return action_format("combat.threat.animal_warning", threat=threat.name)
     preferred = 2 if threat.profile == "reach" else 1
     if gap <= preferred:
         if guarded:
             threat.morale -= 1
-            return f"Your guard denies the {threat.name}'s distance."
-        marker = "thrusts next turn" if threat.profile == "reach" else "strikes next turn"
-        if marker in threat.intent:
-            threat.intent = "recovers before another attack"
+            return action_format("combat.threat.guard_denied", threat=threat.name)
+        if _intent_identity(threat) == ("combat.intent.attack_warning_reach" if threat.profile == "reach" else "combat.intent.attack_warning_melee"):
+            _set_combat_intent(threat, "combat.intent.recovers_before_another_attack")
             wear_readied_weapon(state, threat)
             harm = max(1, 3 - enemy_attack_penalty(state, threat))
-            return apply_damage(state, harm, f"The {threat.name}'s attack")
-        threat.intent = marker
-        return f"The {threat.name} {marker}."
+            source_seed = legacy_combat_damage_seed("threat.melee", threat=threat.name)
+            return apply_damage(
+                state, harm,
+                action_format("combat.threat.melee_source", threat=threat.name),
+                source_seed=source_seed,
+            )
+        _set_combat_intent(threat, "combat.intent.attack_warning_reach" if threat.profile == "reach" else "combat.intent.attack_warning_melee")
+        return action_format(
+            "combat.threat.attack_warning.reach"
+            if threat.profile == "reach" else "combat.threat.attack_warning.melee",
+            threat=threat.name,
+        )
     previous = threat.position
     for _ in range(pressure(state).pursuit_steps):
         threat.position = _step_toward(state, threat, state.position)
     if threat.position == previous:
         threat.stalled_turns += 1
-        threat.intent = "holds where the route is blocked"
-        return "" if threat.stalled_turns > 1 else f"The {threat.name} holds; no route currently reaches you."
+        _set_combat_intent(threat, "combat.intent.holds_where_the_route_is_blocked")
+        return "" if threat.stalled_turns > 1 else action_format("combat.threat.no_route", threat=threat.name)
     threat.stalled_turns = 0
-    threat.intent = (
-        "pursues quickly" if pressure(state).pursuit_steps == 2
-        else "closes through the terrain"
+    _set_combat_intent(
+        threat,
+        "intent.advance.fast" if pressure(state).pursuit_steps == 2 else "intent.advance.normal",
     )
     reaction = _resolve_brace_reaction(state, threat)
     if reaction is not None:
         return reaction
-    return f"The {threat.name} {threat.intent}."
+    return action_format("combat.threat.intent", threat=threat.name, intent=threat.intent)
 
 
 def _weather_and_deadline(state: GameState) -> list[str]:
@@ -2567,7 +2667,7 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
             )
         if ammo_key:
             if not consume_ammunition(state, ammo_key):
-                return _plain(state, f"No physical {ammo_key} remain.")
+                return _plain(state, action_format("combat.attack.no_physical_ammunition", ammunition=ammo_key))
         if state.weapon == "crossbow":
             state.crossbow_loaded = False
         if state.weapon == "heavy crossbow":
@@ -2575,18 +2675,19 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         if state.weapon == "handgonne":
             state.weapon_ready = 0
         state.aimed_target = None
-        damage, weapon_text, sound = {
-            "crossbow": (3, "crossbow bolt", 3),
-            "longbow": (3, "longbow arrow", 2),
-            "sling": (1, "sling stone arcs over the lane", 2),
-            "heavy crossbow": (5, "arbalest bolt tears through the lane", 5),
-            "javelins": (2, "thrown javelin", 3),
-            "weighted net": (0, "weighted net", 2),
-            "staff sling": (2, "staff-sling stone arcs over low cover", 2),
-            "hooked javelin": (2, "hooked javelin", 3),
-            "handgonne": (4, "handgonne ball tears through smoke and cover", 6),
-            "throwing axe": (3, "thrown physical axe", 3),
+        damage, weapon_key, sound = {
+            "crossbow": (3, "crossbow", 3),
+            "longbow": (3, "longbow", 2),
+            "sling": (1, "sling", 2),
+            "heavy crossbow": (5, "heavy_crossbow", 5),
+            "javelins": (2, "javelins", 3),
+            "weighted net": (0, "weighted_net", 2),
+            "staff sling": (2, "staff_sling", 2),
+            "hooked javelin": (2, "hooked_javelin", 3),
+            "handgonne": (4, "handgonne", 6),
+            "throwing axe": (3, "throwing_axe", 3),
         }[state.weapon]
+        weapon_text = action_format(f"combat.attack.weapon.{weapon_key}")
         ignores_partial = state.weapon in {"heavy crossbow", "staff sling", "handgonne"} or (
             state.weapon == "sling"
             and (
@@ -2596,10 +2697,10 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         )
         if lane_cover == "partial" and not ignores_partial:
             damage = max(0, damage - 1)
-            weapon_text += " glances from partial cover"
+            weapon_text += action_format("combat.attack.effect.partial_cover")
         if state.courier and ({"head", "hands"} & set(state.courier.injuries)):
             damage = max(0, damage - 1)
-            weapon_text += " wavers through injury"
+            weapon_text += action_format("combat.attack.effect.injury")
     else:
         damage = work_weapon.damage if work_weapon else {
             "billhook": 2,
@@ -2612,32 +2713,34 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
             "war hammer": 3,
             "boar spear": 2,
         }[state.weapon]
-        weapon_text = state.weapon
+        weapon_text = action_format(
+            f"combat.attack.weapon.{state.weapon.replace(' ', '_')}",
+        )
         sound = 1 if state.weapon in {"cudgel", "staff"} else 2
         if work_weapon:
             sound = work_weapon.noise
         if "thorn-held momentum" in build_combinations(state):
             damage += 1
             target.morale -= 1
-            weapon_text += " carries guarded thorn momentum"
+            weapon_text += action_format("combat.attack.effect.thorn")
             state.guarded_step = False
     if state.weapon == "billhook":
         target.morale -= 1
         old_position = target.position
         target.position = _step_toward(state, target, state.position)
-        weapon_text += " pulls the target out of position"
+        weapon_text += action_format("combat.attack.effect.billhook")
         if "mobile hook" in build_combinations(state):
             state.position = old_position
-        target.intent = "disrupted by the billhook"
+        _set_combat_intent(target, "intent.disrupted.billhook")
     elif state.weapon == "spear":
         target.position = _step_away(state, target)
-        weapon_text += " controls spacing"
-        target.intent = "disrupted by spear spacing"
+        weapon_text += action_format("combat.attack.effect.spear")
+        _set_combat_intent(target, "intent.disrupted.spear_spacing")
     elif state.weapon == "cudgel":
         target.morale -= 2
         target.position = _step_away(state, target)
-        weapon_text += " dazes and knocks back"
-        target.intent = "dazed by the cudgel"
+        weapon_text += action_format("combat.attack.effect.cudgel")
+        _set_combat_intent(target, "intent.dazed.cudgel")
     elif state.weapon == "staff":
         adjacent = [
             other for other in candidates
@@ -2648,37 +2751,37 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         for other in adjacent[1:]:
             harm_enemy(state, other, 1, "river staff sweep", damage_kind="blunt")
         state.guarded_step = True
-        weapon_text += " sweeps nearby space and readies movement"
+        weapon_text += action_format("combat.attack.effect.staff")
     elif state.weapon == "hand axe":
         target.morale -= 1
-        weapon_text += " breaks guard"
+        weapon_text += action_format("combat.attack.effect.axe")
     elif state.weapon == "pike":
         target.position = _step_away(state, target)
         target.position = _step_away(state, target)
         state.guarded_step = True
-        weapon_text += " braces a four-pace lane and drives the target back"
-        target.intent = "disrupted by the pike brace"
+        weapon_text += action_format("combat.attack.effect.pike")
+        _set_combat_intent(target, "intent.disrupted.pike_brace")
     elif state.weapon == "boar spear":
-        target.intent = "pinned outside close range by the crossbar brace"
+        _set_combat_intent(target, "intent.pinned.crossbar")
         target.morale -= 2 if target.profile == "animal" else 1
-        weapon_text += " sets a crossbar brace and pins the approach"
+        weapon_text += action_format("combat.attack.effect.boar_spear")
     elif state.weapon == "paired knives":
         state.guarded_step = True
         target.morale -= 1
-        weapon_text += " cut twice before a mobile guarded step"
+        weapon_text += action_format("combat.attack.effect.knives")
     elif state.weapon == "war hammer":
         target.morale -= 2
         target.position = _step_away(state, target)
-        weapon_text += " crushes guard and knocks back"
+        weapon_text += action_format("combat.attack.effect.hammer")
         emit_sound(state, 2)
     elif state.weapon == "weighted net":
-        target.intent = "entangled; loses a turn cutting free"
+        _set_combat_intent(target, "intent.entangled.net")
         target.morale -= 1
-        weapon_text += " entangles movement without dealing harm"
+        weapon_text += action_format("combat.attack.effect.net")
         if state.courier and state.courier.technique == "cast bind":
             target.morale -= 1
             target.position = _step_toward(state, target, state.position)
-            weapon_text += "; Cast Bind hauls the restrained target one pace"
+            weapon_text += action_format("combat.attack.effect.net_bind")
         from .practices import has_effect as has_practice_effect
 
         if has_practice_effect(state, "net-recover"):
@@ -2688,24 +2791,24 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
             )
             recovered.region_id = state.spatial_id
             recovered.ground_position = target.position
-            weapon_text += "; Thaw-net Recovery leaves the physical net at the target"
+            weapon_text += action_format("combat.attack.effect.net_recover")
     elif state.weapon == "hooked javelin":
         old_position = target.position
         target.position = _step_toward(state, target, state.position)
-        target.intent = "disrupted by the hooked shaft"
+        _set_combat_intent(target, "intent.disrupted.hooked_shaft")
         recovered = create_item(
             state, "consumable:throwing javelins",
             "recoverable hooked shaft from a committed throw", location="ground",
         )
         recovered.region_id = state.spatial_id
         recovered.ground_position = old_position
-        weapon_text += " pulls the target and leaves its shaft visibly recoverable"
+        weapon_text += action_format("combat.attack.effect.hooked_javelin")
         if "retrieval cast" in build_combinations(state):
             if auto_place(
                 state, recovered.id, "pack", owner_id=state.active_courier_id
             ):
                 sync_legacy_load(state)
-                weapon_text += "; rope and gullbone reel recover it immediately"
+                weapon_text += action_format("combat.attack.effect.retrieval")
     elif state.weapon == "handgonne":
         smoke_points = (
             state.position,
@@ -2713,15 +2816,15 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         )
         state.smoke.update({position_key(point): 4 for point in smoke_points})
         target.morale -= 2
-        weapon_text += " fills the firing place with powder smoke"
+        weapon_text += action_format("combat.attack.effect.handgonne")
     elif state.weapon == "sling" and state.position.z > target.position.z:
         target.morale -= 1
-        weapon_text += " from a high arc"
+        weapon_text += action_format("combat.attack.effect.high_arc")
         if "high sling arc" in build_combinations(state) or (
             state.courier and state.courier.technique == "high arc"
         ):
-            target.intent = "dazed by a plunging sling cast"
-            weapon_text += " that ignores low cover and dazes"
+            _set_combat_intent(target, "intent.dazed.sling")
+            weapon_text += action_format("combat.attack.effect.high_arc_daze")
     if (
         "high-ground drive" in build_combinations(state)
         and target.position.z < state.position.z
@@ -2731,7 +2834,9 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
     legend = active_legend(state)
     if legend:
         sound += 1
-        weapon_text = f"{legend.name} ({weapon_text})"
+        weapon_text = action_format(
+            "combat.attack.legendary_weapon", legend=legend.name, weapon=weapon_text,
+        )
     sound, fitting_text = attack_effects(state, original_target_position, sound, ammo_key)
     working_effect = None
     if work_weapon:
@@ -2753,7 +2858,7 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         if smoke_cover:
             damage += 1
             target.morale -= 1
-            weapon_text += "; the smoke braid adds one hidden harm and morale pressure"
+            weapon_text += action_format("combat.attack.effect.smoke_braid")
     if fitting_text:
         weapon_text += "; " + fitting_text
     from .skill_tree import apply_weapon_skills
@@ -2781,10 +2886,13 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         target.morale <= 0 and target.profile != "machinery"
     ):
         target.status = "defeated" if harm.defeated else "retreated"
-        target.intent = "removed from the route"
+        _set_combat_intent(target, "intent.route.removed")
         from .inventory import release_enemy_possession
         recovered = harm.dropped if harm.defeated else release_enemy_possession(state, target)
-        outcome = "defeated" if harm.defeated else "drove off"
+        outcome = action_format(
+            "combat.attack.outcome.defeated"
+            if harm.defeated else "combat.attack.outcome.drove_off",
+        )
         memory = action_format("combat.attack.defeat_memory", courier=state.courier.name, outcome=outcome, threat=target.name, weapon=item_display_name_or_legacy(state.weapon))
         state.remember(memory)
         _remember_contact(state, memory)
@@ -2854,7 +2962,7 @@ def guard(state: GameState, target_id: str | None = None) -> ActionResult:
         stage = "powder and wad seated" if state.weapon_ready == 1 else "ball rammed and match sheltered"
         return _time_result(
             state,
-            f"Handgonne loading {state.weapon_ready}/{1 if state.courier and 'vent-care' in state.courier.skill_nodes else 2}: {stage}.",
+            action_format("combat.guard.handgonne_loading", current=state.weapon_ready, required=1 if state.courier and "vent-care" in state.courier.skill_nodes else 2, stage=stage),
             guarded=state.gear == "buckler",
             priority=3,
         )
@@ -2866,7 +2974,7 @@ def guard(state: GameState, target_id: str | None = None) -> ActionResult:
     if not engaged:
         return _time_result(
             state,
-            "You hold position and listen; the world advances while you keep your bearings.",
+            action_format("combat.guard.no_engaged"),
             priority=2,
         )
     brace_candidates = [

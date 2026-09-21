@@ -234,3 +234,33 @@ class NavigationAndGroupTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class ThreatIntentIdentityTests(unittest.TestCase):
+    def test_rendered_intent_is_not_the_combat_identity(self):
+        state = active_region("intent identity")
+        threat = Threat("boar", "territorial tusker", "animal", Position(42, 25), 5, 5, status="engaged")
+        state.threats = [threat]
+        _threat_action(state, threat, False)
+        _threat_action(state, threat, False)
+        self.assertEqual(threat.intent_id, "combat.intent.lowers_its_head_and_charges_next_turn")
+        threat.intent = "fixture wording does not affect charging"
+        _threat_action(state, threat, False)
+        self.assertEqual(threat.intent_id, "combat.intent.circles_before_another_charge")
+
+    def test_old_rendered_intent_save_gets_legacy_identity(self):
+        from jomon.state import game_state_from_dict
+        state = active_region("legacy intent")
+        threat = state.threats[0]
+        threat.intent, threat.intent_id = "lowers its head and charges next turn", ""
+        data = state.to_dict()
+        raw = next(row for row in data["region_threats"][state.active_region_id] if row["id"] == threat.id)
+        raw.pop("intent_id", None)
+        loaded = game_state_from_dict(data)
+        self.assertEqual(next(row for row in loaded.threats if row.id == threat.id).intent_id, "intent.animal.charge_warning")
+
+    def test_specialized_telegraph_has_stable_identity(self):
+        state = active_region("elite intent")
+        threat = Threat("floodgate-claimant", "floodgate claimant", "reach", Position(42, 25), 8, 8, status="engaged", elite=True)
+        state.threats = [threat]
+        _threat_action(state, threat, False)
+        self.assertEqual(threat.intent_id, "intent.elite.floodgate.sluice_telegraph")

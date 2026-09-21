@@ -181,6 +181,11 @@ _ACTION_TEMPLATE_CONTRACT = {
     "combat.guard.no_danger": (), "combat.guard.no_powder": (), "combat.guard.gun_loading": ("weapon", "current", "required"), "combat.guard.no_crossbow_ammo": (), "combat.guard.crossbow_reload": (), "combat.guard.no_heavy_bolts": (), "combat.guard.arbalest_reload": ("current", "stage"), "combat.guard.no_brace_target": ("reason",), "combat.guard.base.shielded": (), "combat.guard.base.strong": (), "combat.guard.base.normal": (), "combat.guard.wet.strong": (), "combat.guard.wet.weak": (), "combat.guard.counterbrace": (), "combat.guard.support": (), "combat.guard.brace": ("weapon", "threat"), "combat.guard.brace_expired": ("threat",),
 }
 
+_ACTION_TEMPLATE_CONTRACT.update({'combat.attack.effect.partial_cover': (), 'combat.attack.effect.injury': (), 'combat.attack.effect.thorn': (), 'combat.attack.effect.billhook': (), 'combat.attack.effect.spear': (), 'combat.attack.effect.cudgel': (), 'combat.attack.effect.staff': (), 'combat.attack.effect.axe': (), 'combat.attack.effect.pike': (), 'combat.attack.effect.boar_spear': (), 'combat.attack.effect.knives': (), 'combat.attack.effect.hammer': (), 'combat.attack.effect.net': (), 'combat.attack.effect.net_bind': (), 'combat.attack.effect.net_recover': (), 'combat.attack.effect.hooked_javelin': (), 'combat.attack.effect.retrieval': (), 'combat.attack.effect.handgonne': (), 'combat.attack.effect.high_arc': (), 'combat.attack.effect.high_arc_daze': (), 'combat.attack.effect.smoke_braid': (), 'combat.attack.no_physical_ammunition': ('ammunition',), 'combat.guard.handgonne_loading': ('current', 'required', 'stage'), 'combat.guard.no_engaged': ()})
+
+_ACTION_TEMPLATE_CONTRACT.update({'combat.intent.favors_an_injured_lower_limb_and_loses_ground': (), 'combat.intent.cuts_free_of_the_net_before_acting_again': (), 'combat.intent.cannot_claim_a_publicly_witnessed_and_dogged_sluice': (), 'combat.intent.cannot_claim_witnessed_wreck_property': (), 'combat.intent.cannot_close_the_dogged_tide_chain': (), 'combat.intent.hauls_the_tide_chain_the_three_marked_flats_flood_next_turn': (), 'combat.intent.will_not_burn_the_witnessed_medicine_stand': (), 'combat.intent.loses_control_of_the_crosswind_burn': (), 'combat.intent.drives_smoke_across_three_paces_of_your_current_route': (), 'combat.intent.cannot_break_a_crossing_under_the_honest_warning': (), 'combat.intent.cannot_release_the_braced_rock_face': (), 'combat.intent.signals_allies_toward_your_last_known_position': (), 'combat.intent.hauls_the_marked_net_line': (), 'combat.intent.recovers_the_empty_net_line': (), 'combat.intent.feeds_smoke_into_a_short_lane_from_its_station': (), 'combat.intent.covers_a_wounded_ally_s_marked_withdrawal': (), 'combat.intent.withdraws_toward_cover': (), 'combat.intent.retreated': (), 'combat.intent.escapes_with_visible_stolen_cargo': (), 'combat.intent.watching': (), 'combat.intent.investigates_a_last_known_position': (), 'combat.intent.holds_without_a_perceived_courier_position': (), 'combat.intent.moves_for_a_clear_line': (), 'combat.intent.evaded': (), 'combat.intent.circles_before_another_charge': (), 'combat.intent.lowers_its_head_and_charges_next_turn': (), 'combat.intent.recovers_before_another_attack': (), 'combat.intent.holds_where_the_route_is_blocked': ()})
+
+_ACTION_TEMPLATE_CONTRACT.update({'combat.intent.recovers_position_before_acting_again': (), 'combat.intent.breaks_contact': ('reason',), 'combat.intent.escaped_with_stolen_cargo': (), 'combat.intent.finds_no_courier': (), 'combat.intent.bogged_in_mud': (), 'combat.intent.attack_warning_reach': (), 'combat.intent.attack_warning_melee': ()})
 _ARC_RELIC_IDS = ("common-work-rivet", "counterclaim-lodestone", "lee-cloth-brooch", "channel-surety-shuttle")
 _LEGENDARY_TEMPLATE_CONTRACT = {
     "legendary.object.noun.0": (), "legendary.object.noun.1": (), "legendary.object.noun.2": (),
@@ -1760,3 +1765,123 @@ def load_catalog(name: str, sections: tuple[str, ...]) -> dict[str, Any]:
         return decode_catalog(text, name, sections)
     except CatalogError as exc:
         raise CatalogError(f"invalid {name} in content pack {pack.id!r} at {source}: {exc}") from exc
+
+_ACTION_TEMPLATE_CONTRACT.update({
+    "intent.brace.retreated": (), "intent.brace.checked": (),
+    "intent.weapon.recover": ("weapon",),
+    "intent.elite.floodgate.sluice_telegraph": ("x", "y"),
+    "intent.elite.reeve.cover_telegraph": ("x", "y"),
+    "intent.elite.tracker.resin_telegraph": ("x", "y"),
+    "intent.elite.bellward.floor_telegraph": ("x", "y", "z"),
+    "intent.elite.false_bell.rockfall_telegraph": ("x", "y"),
+    "intent.machinery.sweep_telegraph": ("lane",),
+    "intent.controller.net_telegraph": ("x", "y"),
+    "intent.ranged.reloading": ("weapon", "remaining"),
+    "intent.ranged.reloaded": ("weapon",),
+    "intent.ai.intercept": (), "intent.ai.patrol": (), "intent.ai.return": (),
+    "intent.ai.approach": (), "intent.ai.flank": (), "intent.ai.seek_elevation": (),
+    "intent.ranged.tracks_sound": (), "intent.ranged.must_reload": ("weapon",),
+    "intent.ranged.aim_telegraph": ("weapon", "x", "y"),
+    "intent.advance.fast": (), "intent.advance.normal": (),
+    "combat.elite.floodgate.leverage_denied": (),
+    "combat.elite.floodgate.telegraph": ("threat", "intent"),
+    "combat.elite.floodgate.sluice_source": (), "combat.elite.floodgate.safe": (),
+    "combat.elite.reeve.leverage_denied": (),
+    "combat.elite.reeve.telegraph": ("threat", "intent"),
+    "combat.elite.reeve.sling_source": (), "combat.elite.reeve.safe": (),
+    "combat.elite.tide_chain.leverage_denied": (), "combat.elite.tide_chain.source": (),
+    "combat.elite.tide_chain.safe": (), "combat.elite.tracker.leverage_denied": (),
+    "combat.elite.tracker.resin_result": (), "combat.elite.ash_cloak.leverage_denied": (),
+    "combat.elite.ash_cloak.smoke": ("threat", "intent"),
+    "combat.elite.bellward.leverage_denied": (),
+    "combat.elite.bellward.telegraph": ("threat", "intent"),
+    "combat.elite.bellward.floor_break": ("fall",), "combat.elite.bellward.floor_safe": (),
+    "combat.elite.false_bell.leverage_denied": (),
+    "combat.elite.false_bell.rockfall_source": (), "combat.elite.false_bell.safe": (),
+    "combat.machinery.telegraph": ("threat", "lane"),
+    "combat.machinery.crown_wheel_source": (), "combat.machinery.sweep_source": (),
+    "combat.machinery.safe": ("lane",),
+    "combat.threat.ranged_source": ("threat", "weapon"),
+    "combat.threat.animal_charge_source": ("threat",),
+    "combat.threat.melee_source": ("threat",),
+    "combat.threat.attack_warning.reach": ("threat",),
+    "combat.threat.attack_warning.melee": ("threat",),
+})
+
+_ACTION_TEMPLATE_CONTRACT.update({
+    "combat.defeat.loss.porter_watch": (),
+    "combat.defeat.loss.protected_cargo": ("protection", "kept"),
+    "combat.defeat.loss.cargo": ("cargo",), "combat.defeat.loss.items": ("items",),
+    "combat.defeat.loss.preserved_cargo": ("item",),
+    "combat.defeat.objective_failed": ("courier", "region"),
+    "combat.defeat.memory.died": ("courier", "hazard"),
+    "combat.defeat.no_successor": ("text", "loss"),
+    "combat.defeat.successor": ("text", "loss", "successor"),
+    "combat.defeat.memory.escaped": ("courier",),
+    "combat.defeat.injured": ("text", "loss"),
+    "combat.damage.field_care": (),
+    "combat.brace.reason.weapon": (), "combat.brace.reason.not_visible": (),
+    "combat.brace.reason.cross_levels": (), "combat.brace.reason.minimum_range": ("minimum",),
+    "combat.brace.reason.too_far": (), "combat.brace.reason.ready": (),
+    "combat.brace.outcome.defeated": (), "combat.brace.outcome.checked": ("damage",),
+})
+
+_ACTION_TEMPLATE_CONTRACT.update({
+    "combat.goal.break_contact.weapon_lost": (), "combat.goal.cover_retreat": (),
+    "combat.status.resin.cause": (), "combat.status.resin.consequence": (),
+    "combat.status.net.cause": (), "combat.status.net.consequence": (),
+    "combat.status.lane.marked.cause": (), "combat.status.lane.marked.consequence": (),
+    "combat.status.lane.cover.cause": (), "combat.status.lane.cover.consequence": (),
+    "combat.threat.animal_mud.memory": ("courier", "threat"),
+})
+
+_ACTION_TEMPLATE_CONTRACT.update({
+    "combat.machinery.lane.default": (), "combat.machinery.lane.outer": (),
+    "combat.machinery.lane.inner": (),
+})
+
+_ACTION_TEMPLATE_CONTRACT.update({
+    "intent.disrupted.billhook": (), "intent.disrupted.spear_spacing": (),
+    "intent.dazed.cudgel": (), "intent.disrupted.pike_brace": (),
+    "intent.pinned.crossbar": (), "intent.entangled.net": (),
+    "intent.disrupted.hooked_shaft": (), "intent.dazed.sling": (),
+    "intent.route.removed": (),
+})
+
+_ACTION_TEMPLATE_CONTRACT.update({
+    "combat.attack.weapon.crossbow": (), "combat.attack.weapon.longbow": (),
+    "combat.attack.weapon.sling": (), "combat.attack.weapon.heavy_crossbow": (),
+    "combat.attack.weapon.javelins": (), "combat.attack.weapon.weighted_net": (),
+    "combat.attack.weapon.staff_sling": (), "combat.attack.weapon.hooked_javelin": (),
+    "combat.attack.weapon.handgonne": (), "combat.attack.weapon.throwing_axe": (),
+    "combat.attack.weapon.billhook": (), "combat.attack.weapon.spear": (),
+    "combat.attack.weapon.cudgel": (), "combat.attack.weapon.staff": (),
+    "combat.attack.weapon.hand_axe": (), "combat.attack.weapon.pike": (),
+    "combat.attack.weapon.paired_knives": (), "combat.attack.weapon.war_hammer": (),
+    "combat.attack.weapon.boar_spear": (),
+})
+
+_ACTION_TEMPLATE_CONTRACT.update({
+    "combat.attack.weapon.anchor_fluke": (),
+    "combat.attack.weapon.arming_sword": (),
+    "combat.attack.weapon.boat_hook": (),
+    "combat.attack.weapon.chain_hook": (),
+    "combat.attack.weapon.estoc": (),
+    "combat.attack.weapon.felling_axe": (),
+    "combat.attack.weapon.flanged_mace": (),
+    "combat.attack.weapon.forked_pike": (),
+    "combat.attack.weapon.glaive": (),
+    "combat.attack.weapon.long_knife": (),
+    "combat.attack.weapon.pollaxe": (),
+    "combat.attack.weapon.pot_sling": (),
+    "combat.attack.weapon.quarterstaff": (),
+    "combat.attack.weapon.reed_sickle": (),
+    "combat.attack.weapon.shield_and_hanger": (),
+    "combat.attack.weapon.spade": (),
+    "combat.attack.weapon.war_flail": (),
+})
+
+_ACTION_TEMPLATE_CONTRACT.update({
+    "combat.attack.legendary_weapon": ("legend", "weapon"),
+    "combat.attack.outcome.defeated": (), "combat.attack.outcome.drove_off": (),
+})
