@@ -368,7 +368,9 @@ function E.finalize(world,context)
     if draft.topicId==session.topicId and draft.topicVersion==session.topicVersion then
      markAction(recorder,world.tick);draft.progress=draft.progress+1;draft.lastTick=world.tick;contributor(draft.contributors,{kind='person',id=recorder.personId,firstTick=world.tick,lastTick=world.tick})
      if draft.progress>=E.recordWork then
-      local id=data.nextRecordId;data.nextRecordId=id+1;data.records[#data.records+1]={id=id,topicId=draft.topicId,topicVersion=draft.topicVersion,subject=U.deep(draft.subject),tick=world.tick,contributors=U.deep(draft.contributors),provenance=U.deep(draft.provenance)};data.draft=nil;W.event(world,'school_record',recorder.name..' completed a field school record.',structure.id);E.releaseSession(world,structure)
+      local id=data.nextRecordId;data.nextRecordId=id+1;data.records[#data.records+1]={id=id,topicId=draft.topicId,topicVersion=draft.topicVersion,subject=U.deep(draft.subject),tick=world.tick,contributors=U.deep(draft.contributors),provenance=U.deep(draft.provenance)};data.draft=nil;W.event(world,'school_record',recorder.name..' completed a field school record.',structure.id)
+      if context.campaign.features.psychology==1 then require('src.psychology').memory(context.campaign,recorder,'completed_record',{source='record:'..structure.id..':'..id,siteId=context.siteId,adaptation={industry=1}}) end
+      E.releaseSession(world,structure)
      end
     end
    elseif (session.mode=='teach' or session.mode=='study') and world.tick>0 and world.tick%10==0 and session.lastEvaluationTick~=world.tick then
@@ -388,6 +390,7 @@ function E.finalize(world,context)
        if teacher then markAction(teacher,world.tick);personal(teacher).teachingXP=math.min(400,personal(teacher).teachingXP+1) end
        contributor(record.contributors,{kind=session.mode=='teach' and 'person' or 'record',id=session.mode=='teach' and teacher.personId or source.id,firstTick=world.tick,lastTick=world.tick})
        session.lastEvaluationTick=world.tick
+       if session.mode=='teach' and context.campaign.features.psychology==1 then require('src.psychology').teaching(context.campaign,teacher,learner,session.topicId,record.progress>=E.tuitionWork) end
        if record.progress>=E.tuitionWork then
         local complete,why=finishTuition(context,learner,record,source,session.mode);if complete then W.event(world,'school_learning',learner.name..' completed field school learning.',structure.id);E.releaseSession(world,structure) else learner.reason=why end
        end

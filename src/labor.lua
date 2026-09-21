@@ -73,12 +73,15 @@ function L.allocate(w,p)
  -- Specialists are placed before generalists. Disabled duties leave vacancies.
  for _,r in ipairs(L.duties) do
   for _=1,counts[r] do
-   local best,score
+  local best,score,bestBias
    for _,a in ipairs(auto) do if not result[a.id] then
     local person=L.person(p,a.id);local pref=person.prefs[r]
     local skill=r=='dig' and a.mine or r=='build' and a.build or 1
     local s=pref*10+skill
-    if pref>0 and (not score or s>score) then best,score=a,s end
+    local bias=(a.psychology and require('src.psychology').autoBias(a,r)) or 0
+    -- Personal taste resolves equal ordinary AUTO candidates. It cannot
+    -- overturn a quota, an OFF policy, or a stronger aptitude/priority score.
+    if pref>0 and (not score or s>score or (s==score and (not bestBias or bias>bestBias)) or (s==score and bias==bestBias and a.id<best.id)) then best,score,bestBias=a,s,bias end
    end end
    if best then result[best.id]=r end
   end
@@ -109,7 +112,8 @@ function L.score(w,a,t)
  local assigned=assignments[a.id] or 'general'
  -- A named order overrides a quota/role, but NOT an explicitly disabled duty.
  if not (j and j.owner==a.id) and assigned~='general' and assigned~=role then return nil end
- return (person.prefs[role]-2)*140
+ local bias=(a.psychology and require('src.psychology').autoBias(a,role)) or 0
+ return (person.prefs[role]-2)*140+bias
 end
 function L.apply(w,p)
  L.validate(w,p)

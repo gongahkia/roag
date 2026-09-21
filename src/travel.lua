@@ -63,14 +63,15 @@ local function sortedCrafts(c)
 end
 local function portable(worker)
  local record={personId=worker.personId,name=worker.name,alive=worker.alive,hp=worker.hp,hunger=worker.hunger,
-  fatigue=worker.fatigue,breath=worker.breath,mine=worker.mine,build=worker.build,status=worker.status,
+ fatigue=worker.fatigue,breath=worker.breath,mine=worker.mine,build=worker.build,status=worker.status,
   reason=worker.reason,fall=0,worked=false,progress=0}
  if worker.stress~=nil then record.stress=worker.stress;record.panic=worker.panic or false;record.lastStressTick=worker.lastStressTick or 0 end
  if worker.frontier then record.frontier=U.deep(worker.frontier) end
+ if worker.psychology then record.psychology=U.deep(worker.psychology) end
  return record
 end
-local function validatePassenger(record,knowledge,education,tick)
- allowed(record,{personId=true,name=true,alive=true,hp=true,hunger=true,fatigue=true,breath=true,mine=true,build=true,status=true,reason=true,fall=true,worked=true,progress=true,deathTick=true,frontier=true,stress=true,panic=true,lastStressTick=true},'Transit passenger')
+local function validatePassenger(record,knowledge,education,psychology,tick)
+ allowed(record,{personId=true,name=true,alive=true,hp=true,hunger=true,fatigue=true,breath=true,mine=true,build=true,status=true,reason=true,fall=true,worked=true,progress=true,deathTick=true,frontier=true,stress=true,panic=true,lastStressTick=true,psychology=true},'Transit passenger')
  for _,key in ipairs({'personId','name','alive','hp','hunger','fatigue','breath','mine','build','status','reason','fall','worked','progress'}) do assert(record[key]~=nil,'Missing transit passenger key '..key) end
  U.integer(record.personId,'Transit person ID',1,100000000);assert(type(record.name)=='string' and type(record.alive)=='boolean' and type(record.status)=='string' and type(record.reason)=='string','Malformed transit identity')
  for _,key in ipairs({'hp','hunger','fatigue','breath'}) do assert(U.finite(record[key]) and record[key]>=0 and record[key]<=100,'Invalid transit '..key) end
@@ -80,6 +81,7 @@ local function validatePassenger(record,knowledge,education,tick)
  else assert(record.frontier==nil,'Personal frontier state requires campaign knowledge') end
  if record.alive then assert(record.deathTick==nil,'Living transit passenger has a death tick') else assert(record.hp==0,'Dead transit passenger has HP');U.integer(record.deathTick,'Transit death tick',0,10000000) end
  if record.stress~=nil then U.integer(record.stress,'Transit stress',0,100);assert(type(record.panic)=='boolean','Invalid transit panic');U.integer(record.lastStressTick,'Transit stress tick',0,tick) end
+ if psychology then require('src.psychology').validatePersonal(record.psychology,tick) else assert(record.psychology==nil,'Transit psychology requires feature') end
 end
 local function notice(c,siteId,kind,text,ordinal)
  local Campaign=require('src.campaign')
@@ -149,6 +151,7 @@ local function addArrivalWorker(world,passenger,pose)
   fall=0,worked=false,job=nil,carry=nil,thinkAt=world.tick+1,progress=0}
  if passenger.stress~=nil then worker.stress,worker.panic,worker.lastStressTick=passenger.stress,passenger.panic,passenger.lastStressTick end
  if passenger.frontier then worker.frontier=U.deep(passenger.frontier) end
+ if passenger.psychology then worker.psychology=U.deep(passenger.psychology) end
  worker.x,worker.y=pose.x,pose.y
  if not worker.alive then worker.hp=0;worker.status='Dead';worker.deathTick=passenger.deathTick end
  world.workers[#world.workers+1]=worker
@@ -169,6 +172,15 @@ local function arrive(c,vehicle,journey,plan)
  transfer(c,'transit',nil,'site',destination.id,'arrival',vehicle,journey,vehicle.cargo)
  vehicle.dockedSiteId=destination.id;vehicle.anchor=plan.anchor;vehicle.journey=nil;vehicle.passengers={}
  W.event(destination.world,wasOwned and 'arrival' or 'foundation',(wasOwned and 'Craft returned with ' or 'A lunar outpost was founded by ')..#created..' passenger records.',vehicle.id)
+ if c.features.psychology==1 then
+  local Psychology=require('src.psychology')
+  for _,worker in ipairs(created) do if worker.alive then
+   if not wasOwned then
+    Psychology.memory(c,worker,'first_moon_landing',{source='landing:'..journey.id..':'..worker.personId,siteId=destination.id,adaptation={exploration=2}})
+    if worker.psychology.ambition.kind=='reach_another_world' then Psychology.completeAmbition(c,worker,'landing:'..journey.id) end
+   elseif journey.leg=='return' then Psychology.memory(c,worker,'returned_from_expedition',{source='return:'..journey.id..':'..worker.personId,siteId=destination.id}) end
+  end end
+ end
 end
 local function hold(c,vehicle,journey,reason)
  journey.status='holding';journey.remainingTicks=0
@@ -235,7 +247,7 @@ function T.validate(c)
   else assert(vehicle.dockedSiteId~=nil and #vehicle.passengers==0,'Docked craft has transit state') end
   local priorPerson=0
   for _,passenger in ipairs(vehicle.passengers) do
-   validatePassenger(passenger,c.features.knowledge==1,c.features.education==1,c.tick);assert(passenger.personId>priorPerson,'Craft passengers are not ordered');priorPerson=passenger.personId;assert(not seenPeople[passenger.personId],'Duplicate portable person');seenPeople[passenger.personId]=true;maxPerson=math.max(maxPerson,passenger.personId)
+   validatePassenger(passenger,c.features.knowledge==1,c.features.education==1,c.features.psychology==1,c.tick);assert(passenger.personId>priorPerson,'Craft passengers are not ordered');priorPerson=passenger.personId;assert(not seenPeople[passenger.personId],'Duplicate portable person');seenPeople[passenger.personId]=true;maxPerson=math.max(maxPerson,passenger.personId)
    for _,localSite in ipairs(c.sites) do for _,worker in ipairs(localSite.world.workers) do assert(worker.personId~=passenger.personId,'Portable person still exists locally') end end
   end
  end

@@ -9,6 +9,13 @@ local Field=require('src.fieldwork')
 local Body=require('src.body')
 local Equipment=require('src.equipment')
 local J={}
+local function contribution(w,a,context,t,amount)
+ if not (context and context.campaign and context.campaign.features.psychology==1) then return amount end
+ local role=Labor.roleForTask(w,t) or (t.kind=='harvest' and 'farm') or (t.kind=='pump' and 'pump') or 'build'
+ local value,reason=require('src.psychology').work(context.campaign,a,role,amount)
+ a.reason=reason
+ return value
+end
 local function deliveredTotal(value)
  if type(value)=='number' then return value end
  local total=0;for _,amount in pairs(value or {}) do total=total+amount end;return total
@@ -549,7 +556,7 @@ function J.act(w,a,context)
     if why=='reposition' or why=='rope' then return end
     blocked(w,a,why);return
    end
-   t.progress=t.progress+a.mine*Equipment.digWork(context and context.campaign,a,c.m)
+   t.progress=t.progress+contribution(w,a,context,t,a.mine*Equipment.digWork(context and context.campaign,a,c.m))
    if t.progress>=M.def[c.m].work then
     t.progress=0
    if c.m==M.ICE then W.put(w,c.x,c.y,M.WATER)
@@ -574,7 +581,7 @@ function J.act(w,a,context)
    local clear,why=S.siteClear(w,j.gx,j.gy,j.build)
    if not clear then blocked(w,a,why) return end
    if not workPose(w,j,a.x,a.y) then blocked(w,a,'Work position invalid') return end
-   j.progress=j.progress+a.build
+   j.progress=j.progress+contribution(w,a,context,t,a.build)
    if j.progress>=S.def[j.build].work then
     S.install(w,j.gx,j.gy,j.build);w.ledger.built=w.ledger.built+deliveredTotal(j.delivered);j.delivered=type(j.delivered)=='number' and 0 or {}
     j.state='done';j.reason='Completed';w.stats.jobsDone=w.stats.jobsDone+1
@@ -584,7 +591,7 @@ function J.act(w,a,context)
    local s=w.structures[j.slot]
    if not s or s.kind~='tool_bench' or j.delivered<Equipment.recipe(j.recipe).metal then blocked(w,a,'Tool bench state changed') return end
    s.fabrication={jobId=j.id,kind=j.recipe,progress=j.progress,work=Equipment.recipe(j.recipe).work}
-   j.progress=j.progress+1;s.fabrication.progress=j.progress
+   j.progress=j.progress+contribution(w,a,context,t,1);s.fabrication.progress=j.progress
    if j.progress>=Equipment.recipe(j.recipe).work then
     local ok,item=pcall(Equipment.create,context.campaign,currentSite(context),j.recipe,s.gx*4-2,s.gy*4-3)
     if not ok then blocked(w,a,'No valid tool-bench output space') return end
@@ -597,18 +604,18 @@ function J.act(w,a,context)
    local f=N.flood(w,a.x,a.y);local escape=false
    for _,i in ipairs(f.queue) do local x,y=W.xy(w,i);if math.abs(x-(s.gx*4-2))+math.abs(y-(s.gy*4-2))>require('src.blasts').radius+3 then escape=true;break end end
    if not escape then blocked(w,a,'No safe evacuation route for charge arming') return end
-   j.progress=j.progress+1
+   j.progress=j.progress+contribution(w,a,context,t,1)
    if j.progress>=20 then require('src.blasts').arm(w,s,a);j.state='done';j.reason='Armed';w.stats.jobsDone=w.stats.jobsDone+1;finish(w,a,'Armed demolition charge') end
   elseif j.kind=='remove_rope' then
    local rope;for _,r in ipairs(w.ropes or {}) do if r.id==j.ropeId then rope=r end end
    if not rope or not feature(context) then blocked(w,a,'Rope no longer exists') return end
-   j.progress=j.progress+1
+   j.progress=j.progress+contribution(w,a,context,t,1)
    if j.progress>=20 then Equipment.removeRope(context.campaign,w,currentSite(context),rope,a.x,a.y);j.state='done';j.reason='Recovered';w.stats.jobsDone=w.stats.jobsDone+1;finish(w,a,'Recovered rope coil') end
   else
    local slot=W.slot(w,j.gx,j.gy);local s=w.structures[slot]
    if not s then j.state='done';finish(w,a) return end
    if s.kind=='charge' and s.fuseAt then blocked(w,a,'Armed charge cannot be dismantled') return end
-   j.progress=j.progress+1
+   j.progress=j.progress+contribution(w,a,context,t,1)
    if j.progress>=20 then
     local def=S.def[s.kind];local recovered=math.floor(def.cost/2)
     if s.kind=='field_school' then
@@ -624,7 +631,7 @@ function J.act(w,a,context)
  elseif t.kind=='harvest' then
   local s=w.structures[t.slot]
   if not N.reachRect(w,a.x,a.y,s.gx,s.gy) or not W.supportedStructure(w,s) or s.growth<w.rules.cropTicks or S.wet(w,s)>=4 then blocked(w,a,'Crop no longer harvestable') return end
-  t.progress=t.progress+1
+  t.progress=t.progress+contribution(w,a,context,t,1)
   if t.progress>=20 then
    W.stack(w,'food',w.rules.cropYield,s.gx*4-2,s.gy*4)
    s.growth=0;w.ledger.foodGrown=w.ledger.foodGrown+w.rules.cropYield
@@ -633,7 +640,7 @@ function J.act(w,a,context)
  elseif t.kind=='pump' then
   local s=w.structures[t.slot]
   if not N.reachRect(w,a.x,a.y,s.gx,s.gy) or not S.pump(w,s) then finish(w,a,'Pump stopped')
-  else s.status='Pumping: '..a.name;t.progress=t.progress+1
+  else s.status='Pumping: '..a.name;t.progress=t.progress+contribution(w,a,context,t,1)
    if t.progress>=120 then finish(w,a,'Operator rotation') end
   end
  end

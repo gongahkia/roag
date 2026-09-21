@@ -22,10 +22,11 @@ function A.transitStep(a,rules,consumeFood)
  return false
 end
 
-function A.kill(w,a,reason)
+function A.kill(w,a,reason,context)
  if not a.alive then return end
  J.release(w,a,true);a.alive=false;a.hp=0;a.status='Dead';a.reason=reason;a.deathTick=w.tick
  W.event(w,'death',a.name..' died: '..reason..'. No replacement will arrive.',a.id)
+ if context and context.campaign and context.campaign.features.psychology==1 then require('src.psychology').death(context.campaign,w,a,reason,context) end
 end
 function A.step(w,context)
  for _,a in ipairs(w.workers) do if a.alive then
@@ -56,7 +57,7 @@ function A.step(w,context)
   else a.breath=math.min(100,a.breath+1.6) end
   if not N.occupy(w,a.x,a.y,false) then hurt(0.45,'buried in solid material') end
   if a.hunger>=100 then hurt(0.06,'starvation') end
-  if a.hp<=0 then A.kill(w,a,reason or 'injuries')
+  if a.hp<=0 then A.kill(w,a,reason or 'injuries',context)
   else
    if not N.support(w,a.x,a.y) and N.occupy(w,a.x,a.y+1,false) then
     if a.task then J.release(w,a,true) end
@@ -72,18 +73,18 @@ function A.step(w,context)
     end
     if context and Equipment.safe(context.campaign) then
      local critical=a.breath<=0
-     if a.blastDangerTick==w.tick then Equipment.stress(context.campaign,a,25,w.tick)
-     elseif a.hp<hpBefore then Equipment.stress(context.campaign,a,20,w.tick)
-     elseif critical and not criticalBefore then Equipment.stress(context.campaign,a,25,w.tick) end
+     if a.blastDangerTick==w.tick then Equipment.stress(context.campaign,a,25,w.tick,'blast_danger')
+     elseif a.hp<hpBefore then Equipment.stress(context.campaign,a,20,w.tick,a.fall>4 and 'dangerous_fall' or 'seriously_injured')
+     elseif critical and not criticalBefore then Equipment.stress(context.campaign,a,25,w.tick,'critical_breath') end
      a.criticalBreath=critical;Equipment.recover(context.campaign,a,w)
     end
-    if a.hp<=0 then A.kill(w,a,'fall injuries')
+    if a.hp<=0 then A.kill(w,a,'fall injuries',context)
     else
      local unsafe=not N.occupy(w,a.x,a.y,true)
      if a.evacuate and w.tick<=a.evacuate.untilTick and a.task and a.task.kind~='escape' then J.release(w,a,true);a.thinkAt=w.tick end
      if a.task and ((unsafe and a.task.kind~='escape') or (a.hunger>=82 and a.task.kind~='eat' and w.tick%100==a.id%100 and J.canEat(w,a))
         or (a.fatigue>=95 and a.task.kind~='rest' and a.task.kind~='eat')) then
-      if unsafe and context and Equipment.safe(context.campaign) and a.task.kind=='work' then Equipment.stress(context.campaign,a,15,w.tick) end
+      if unsafe and context and Equipment.safe(context.campaign) and a.task.kind=='work' then Equipment.stress(context.campaign,a,15,w.tick,'unsafe_abort') end
       J.release(w,a,true);a.thinkAt=w.tick
      end
      if not a.task and w.tick>=a.thinkAt then J.plan(w,a,context);a.thinkAt=w.tick+w.rules.planEvery end

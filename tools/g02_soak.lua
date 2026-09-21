@@ -15,7 +15,10 @@ local Codec=require('src.campaign_codec')
 local seed=tonumber(arg[1]) or 9602;local ticks=tonumber(arg[2]) or 15000
 assert(seed and seed%1==0 and seed>=1 and seed<=2147483646,'Usage: luajit tools/g02_soak.lua [seed] [ticks]')
 assert(ticks and ticks%1==0 and ticks>=15000 and ticks<=100000,'Ticks must be 15000..100000')
-local options={preset='frontier',mode='practice',width=128,height=80,layout='hybrid',climate='balanced',openness=.48,biomeScale=1,features='living',density=1,crew=3,logistics=true,travel=true,knowledge=true,education=true,body=true,visibility=true,equipment=true,safe_excavation=true}
+-- An explicit third argument lets COS-G03 reuse this real integrated route
+-- without changing the normal G02 compatibility trace.
+local psychology=arg[3]=='psychology'
+local options={preset='frontier',mode='practice',width=128,height=80,layout='hybrid',climate='balanced',openness=.48,biomeScale=1,features='living',density=1,crew=3,logistics=true,travel=true,knowledge=true,education=true,body=true,visibility=true,equipment=true,safe_excavation=true,psychology=psychology}
 local c=Campaign.newRegion(seed,options);local home=c.sites[1].world
 home.content.flora={};home.content.fauna={};home.content.sites={};home.content.ruins={};home.content.signals={};home.content.discoveries={};home.content.observed={}
 local sx=((home.home.left+3-1)%4==0 and home.home.left+3 or (math.floor((home.home.left+3-1)/4)*4+1));local sy=home.home.floor
@@ -130,4 +133,4 @@ assert(Codec.encode(h.live)==Codec.encode(restored.live),'G02 save/reload contin
 local checked,reason=h:verifyReplay(ticks+1000);assert(checked,reason)
 local final=world(1);local equipment=h.live.equipment.items;local panics=0;for _,a in ipairs(final.workers) do if a.panic then panics=panics+1 end end
 print(string.format('PASS G02 soak: seed=%d tick=%d rope=%d/%d bench=%d chargeArmed=%s pick=%d cargoTools=%d departure/arrival=%d/%d bytes=%d checkpoints=%d',seed,h.live.tick,rope.id,rope.length,bench.id,tostring(armed),Equipment.pickFor(h.live,minerArrival).id,Equipment.craftCount(h.live,1),departure,h.live.tick,#h:saveText(),#h.checkpoints))
-print(string.format('TRACE expert=%d miner=%d pupil=%d fact=operational/flora/filter/steam-to-water/v1 stress=%d panic=%d body=2x4 equipment=%d safe_excavation=%d.',expertId,minerId,pupilId,arrival.stress or 0,panics,h.live.features.equipment,h.live.features.safe_excavation))
+print(string.format('TRACE expert=%d miner=%d pupil=%d fact=operational/flora/filter/steam-to-water/v1 stress=%d panic=%d body=2x4 equipment=%d safe_excavation=%d psychology=%s.',expertId,minerId,pupilId,arrival.stress or 0,panics,h.live.features.equipment,h.live.features.safe_excavation,tostring(h.live.features.psychology==1)))

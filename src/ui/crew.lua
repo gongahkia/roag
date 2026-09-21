@@ -32,7 +32,10 @@ function UI.key(app,key,queue)
   if queue({type='labor',plan=c.draft}) then app.crew=nil end
   return
  end
- if key=='tab' then c.section=c.section=='people' and 'quotas' or 'people';c.row=1;return end
+ if key=='tab' then
+  local psychology=app.currentWorld().frontier and app.currentWorld().frontier.psychology==1
+  c.section=c.section=='people' and 'quotas' or c.section=='quotas' and psychology and 'mind' or 'people';c.row=1;return
+ end
  if c.readonly then return end
  if c.section=='people' then
   if key=='up' then c.row=math.max(1,c.row-1)
@@ -44,7 +47,7 @@ function UI.key(app,key,queue)
   elseif key=='r' then
    local a=c.draft.people[c.row];a.role='auto';for _,r in ipairs(L.duties) do a.prefs[r]=2 end
   end
- else
+ elseif c.section=='quotas' then
   if key=='up' then c.row=math.max(1,c.row-1)
   elseif key=='down' then c.row=math.min(#L.roles,c.row+1)
   elseif key=='=' or key=='+' or key=='right' then c.draft.weights=L.adjust(c.draft.weights,L.roles[c.row],5)
@@ -54,6 +57,9 @@ function UI.key(app,key,queue)
    local p=({{34,33,33,0,0,0,0},{0,50,25,25,0,0,0},{25,0,0,0,50,25,0},{40,0,0,0,0,0,60}})[tonumber(key)]
    for i,r in ipairs(L.roles) do c.draft.weights[r]=p[i] end;c.draft.quotas=true
   end
+ else
+  if key=='up' then c.row=math.max(1,c.row-1)
+  elseif key=='down' then c.row=math.min(#c.draft.people,c.row+1) end
  end
 end
 function UI.mouse(app,x,y,queue)
@@ -74,7 +80,7 @@ function UI.draw(app,r)
  local w=app.currentWorld();local sw,sh=love.graphics.getDimensions()
  local pw,ph=math.min(1060,sw-40),math.min(670,sh-40);local x,y=(sw-pw)/2,(sh-ph)/2
  box(0,0,sw,sh,colors.bg);box(x,y,pw,ph,colors.panel)
- text('CREW / '..(c.section=='people' and 'INDIVIDUAL DUTIES' or 'WORKFORCE SPLIT'),x+22,y+18,colors.amber,r.sub)
+ text('CREW / '..(c.section=='people' and 'INDIVIDUAL DUTIES' or c.section=='quotas' and 'WORKFORCE SPLIT' or 'MIND AND RELATIONSHIPS'),x+22,y+18,colors.amber,r.sub)
  text('Enter queues changes   Escape cancels   Tab changes page   Simulation continues',x+24,y+57,colors.muted,r.small)
  c.buttons={{action='tab',x=x+pw-170,y=y+20,w=145,h=28},{action='apply',x=x+pw-140,y=y+ph-45,w=115,h=28}}
  box(x+pw-170,y+20,145,28,colors.edge);text('TAB / switch',x+pw-160,y+26,colors.cyan,r.small)
@@ -85,7 +91,7 @@ function UI.draw(app,r)
   for row,p in ipairs(c.draft.people) do
    local a=W.find(w.workers,p.id);local yy=y+130+(row-1)*34
    if row==c.row then box(x+16,yy-3,pw-32,32,colors.edge) end
-   local mental=a.stress~=nil and (' ['..(a.panic and 'PANICKED ' or 'steady ')..a.stress..']') or ''
+   local mental=a.psychology and (' ['..require('src.psychology').band(a)..']') or ''
    text(a.name..(a.alive and '' or ' [dead]')..mental,x+24,yy+4,a.alive and colors.text or colors.red,r.small)
    text(p.role,x+124,yy+4,c.col==0 and row==c.row and colors.amber or colors.cyan,r.small)
    c.buttons[#c.buttons+1]={action='cell',row=row,col=0,x=x+116,y=yy,w=96,h=29}
@@ -99,7 +105,7 @@ function UI.draw(app,r)
   end
   local yy=y+145+#c.draft.people*34
   wrap('Click a cell or use arrows and Space. 0-3 sets priority. Shift-click a duty pins that role. R resets the selected worker. Auto workers enter the quota pool; pinned workers stay outside it.',x+24,yy,pw-48,colors.muted,r.small)
- else
+ elseif c.section=='quotas' then
   box(x+22,y+93,260,30,colors.edge);text('Q: quotas '..(c.draft.quotas and 'ENABLED' or 'DISABLED'),x+32,y+100,c.draft.quotas and colors.cyan or colors.amber,r.normal)
   c.buttons[#c.buttons+1]={action='toggle',x=x+22,y=y+93,w=260,h=30}
   local assignments,counts=L.allocate(w,c.draft)
@@ -115,6 +121,39 @@ function UI.draw(app,r)
    end
   end
   wrap('Up/Down selects; +/- moves five percentage points. Total stays 100. Q enables quotas. Presets: 1 balanced, 2 expansion, 3 subsistence, 4 field expedition. Percentages apply only to living AUTO workers. Disabled duties can leave a slot unfilled.',x+24,y+421,pw-48,colors.muted,r.small)
+ else
+  local p=c.draft.people[c.row];local a=p and W.find(w.workers,p.id)
+  if a and a.psychology then
+   local Psychology=require('src.psychology');local mind=Psychology.describe(a)
+   text(a.name..(a.alive and '' or ' [dead]'),x+24,y+102,a.alive and colors.text or colors.red,r.normal)
+   text('Currently '..mind.mind..'.',x+24,y+136,mind.mind=='Panicked' and colors.red or mind.mind=='Steady' and colors.cyan or colors.amber,r.normal)
+   local current=a.reason and a.reason~='' and a.reason or 'No immediate concern.'
+   wrap('Right now: '..current,x+24,y+166,pw-48,colors.muted,r.small)
+   text('PERSONAL STYLE',x+24,y+214,colors.amber,r.small)
+   wrap(table.concat(mind.traits,', ')..'.',x+24,y+238,pw-48,colors.text,r.small)
+   local ambition=mind.ambition:gsub('_',' ')
+   wrap('Personal aim: '..ambition..(mind.complete and ' (fulfilled).' or '.'),x+24,y+278,pw-48,colors.cyan,r.small)
+   text('RECENT MEMORIES',x+24,y+326,colors.amber,r.small)
+   local yy=y+350;local shown=0
+   for i=#a.psychology.memories,1,-1 do local m=a.psychology.memories[i];shown=shown+1
+    local label=m.kind:gsub('_',' ')
+    wrap((m.core and 'Lasting: ' or '')..label..'.',x+30,yy,pw*.52, m.valence<0 and colors.amber or colors.cyan,r.small);yy=yy+27
+    if shown>=5 then break end
+   end
+   if shown==0 then text('No lasting memories yet.',x+30,yy,colors.muted,r.small) end
+   text('RELATIONSHIPS',x+pw*.60,y+326,colors.amber,r.small)
+   local ry=y+350;local relationShown=0
+   for _,rel in ipairs(a.psychology.relations) do
+    local other
+    for _,candidate in ipairs(w.workers) do if candidate.personId==rel.personId then other=candidate end end
+    local name=other and other.name or ('Person '..rel.personId)
+    local feeling=rel.resentment>=45 and 'feels wary of' or rel.trust>=35 and 'trusts' or rel.affection>=35 and 'cares about' or rel.respect>=35 and 'respects' or 'knows'
+    wrap(name..': '..feeling..' them.',x+pw*.60,ry,pw*.34,colors.text,r.small);ry=ry+27;relationShown=relationShown+1
+    if relationShown>=5 then break end
+   end
+   if relationShown==0 then text('Still getting to know the crew.',x+pw*.60,ry,colors.muted,r.small) end
+   wrap('Use Up/Down to view another person. These are personal explanations; management orders remain yours to give.',x+24,y+ph-112,pw-48,colors.amber,r.small)
+  else wrap('This recorded campaign predates the Mind system. Its people keep their original behaviour.',x+24,y+110,pw-48,colors.muted,r.normal) end
  end
  local allocation=L.allocate(w,c.draft);local line={}
  for _,a in ipairs(w.workers) do if a.alive then line[#line+1]=a.name..': '..(L.labels[allocation[a.id]] or allocation[a.id] or 'General') end end

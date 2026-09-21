@@ -257,6 +257,7 @@ local function addFact(context,worker,id,method,source,provenance)
  if #knowledge.facts>=K.maxFacts then return false,'Personal fact limit reached' end
  local spec=registry[id];local record={id=id,version=spec.version,tick=context.campaign.tick,method=method,subject=U.deep(source),provenance=U.deep(provenance or {})}
  knowledge.facts[#knowledge.facts+1]=record;table.sort(knowledge.facts,function(a,b) return a.id<b.id end);addHistory(context,worker,record,source.siteId)
+ if context.campaign.features.psychology==1 then require('src.psychology').discovery(context.campaign,worker,record) end
  return true,record
 end
 function K.learn(context,worker,id,method,source,provenance)

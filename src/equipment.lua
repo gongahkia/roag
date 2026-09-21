@@ -167,13 +167,15 @@ function E.ropeAt(w,x,y)
   if x==rope.laneLeftX and y>=rope.anchorY and y<rope.anchorY+rope.length then return rope end
  end
 end
-function E.stress(c,a,amount,tick)
+function E.stress(c,a,amount,tick,kind)
  if not E.safe(c) or not a.alive then return end
+ if c.features.psychology==1 then return require('src.psychology').physical(c,a,amount,tick,kind) end
  a.stress=math.min(100,(a.stress or 0)+amount);a.lastStressTick=tick
  if a.stress>=80 then a.panic=true end
 end
 function E.recover(c,a,w)
  if not E.safe(c) or not a.alive then return end
+ if c.features.psychology==1 then return require('src.psychology').recover(c,a,w) end
  a.stress=a.stress or 0
  if w.tick%20==0 and not a.evacuate and a.hunger<82 and a.fatigue<95 and a.breath>0 then a.stress=math.max(0,a.stress-1) end
  if a.panic and a.stress<=50 and not a.evacuate then a.panic=false end
