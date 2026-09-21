@@ -82,6 +82,18 @@ _AFTERMATH_ACTION_CONTRACT = {
     "aftermath.action.abandon": ({}, {"near_witness": (), "unavailable": ()}),
     "aftermath.action.settle": ({"replacement": ()}, {"near_witness_copy": (), "missing_copy": (), "unavailable": ()}),
 }
+_AFTERMATH_RESULT_CONTRACT = {
+    "accepted_copy": ("title",), "accepted": ("title", "copy_state", "commodity", "site"),
+    "copy_packed": (), "copy_ground": (), "replacement_suffix": (),
+    "delivered": ("commodity",), "work_drainage": (), "work_fire": (), "work_support": (),
+    "work_recovery_marked": (), "work_recovery_exhausted": (), "work_record": ("topology", "effect", "fire_before", "fire_after", "water_before", "water_after", "support_before", "support_after", "coating_before", "coating_after"),
+    "worked": ("topology", "effect", "fire_before", "fire_after", "water_before", "water_after", "support_before", "support_after"),
+    "settled_supply": (), "settled_field": ("physical",), "settled_witness": ("courier", "title", "approach"),
+    "paid": (), "replacement_paid": (), "abandoned": (), "abandoned_witness": ("courier", "title"),
+    "remember": ("title", "outcome"), "missing_contract": (), "invalid_action": (),
+    "ledger_cause": ("cause",), "ledger_witness": ("name", "role"), "ledger_site": ("site", "commodity"), "ledger_worksite": ("topology",), "ledger_account": ("status", "approach"), "ledger_answers": (), "ledger_copy": (), "ledger_outcome": ("outcome",),
+    "service_shared": (), "service_claimed": (), "actor_shared_goal": (), "actor_shared_reason": (), "actor_claimed_goal": (), "actor_claimed_reason": (),
+}
 
 _HISTORY_TEMPLATE_CONTRACT = {
     'history.event.water_and_stone.account': ('climate', 'production', 'dependency'),
@@ -349,6 +361,12 @@ class AftermathActionPresentation:
 
 
 @dataclass(frozen=True)
+class AftermathResultPresentation:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -368,6 +386,7 @@ class ContentPack:
     aftermath_presentations: tuple[AftermathPresentation, ...]
     aftermath_openings: tuple[tuple[str, str, str, str], ...]
     aftermath_action_presentations: tuple[AftermathActionPresentation, ...]
+    aftermath_result_presentations: tuple[AftermathResultPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -444,6 +463,12 @@ class ContentPack:
             if presentation.id == semantic_id:
                 return presentation
         raise KeyError(f"unknown aftermath action id: {semantic_id}")
+
+    def aftermath_result_presentation(self, semantic_id: str) -> AftermathResultPresentation:
+        for presentation in self.aftermath_result_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown aftermath result id: {semantic_id}")
 
 
 _selected_pack: ContentPack | None = None
@@ -1139,7 +1164,7 @@ def _history_presentations(root: Path, pack_id: str) -> tuple[HistoryPresentatio
     ) for key, placeholders in _HISTORY_TEMPLATE_CONTRACT.items())
 
 
-def _aftermath_presentations(root: Path, pack_id: str) -> tuple[tuple[AftermathPresentation, ...], tuple[tuple[str, str, str, str], ...], tuple[AftermathActionPresentation, ...]]:
+def _aftermath_presentations(root: Path, pack_id: str) -> tuple[tuple[AftermathPresentation, ...], tuple[tuple[str, str, str, str], ...], tuple[AftermathActionPresentation, ...], tuple[AftermathResultPresentation, ...]]:
     source = root / AFTERMATH_PRESENTATION_FILE
     contract_source, engine_contract = _content_contract_document()
     if engine_contract["aftermath"] != list(_AFTERMATH_CONTRACT):
@@ -1148,8 +1173,8 @@ def _aftermath_presentations(root: Path, pack_id: str) -> tuple[tuple[AftermathP
         document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise ContentPackError(f"invalid aftermath presentation for content pack {pack_id!r} at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"contracts", "openings", "actions"} or not isinstance(document["contracts"], dict) or not isinstance(document["openings"], dict) or not isinstance(document["actions"], dict):
-        raise ContentPackError(f"invalid aftermath presentation for content pack {pack_id!r} at {source}: expected contracts, openings, and actions objects")
+    if not isinstance(document, dict) or set(document) != {"contracts", "openings", "actions", "results"} or not isinstance(document["contracts"], dict) or not isinstance(document["openings"], dict) or not isinstance(document["actions"], dict) or not isinstance(document["results"], dict):
+        raise ContentPackError(f"invalid aftermath presentation for content pack {pack_id!r} at {source}: expected contracts, openings, actions, and results objects")
     rows = document["contracts"]
     if set(rows) != set(_AFTERMATH_CONTRACT):
         missing, unknown = set(_AFTERMATH_CONTRACT) - set(rows), set(rows) - set(_AFTERMATH_CONTRACT)
@@ -1188,7 +1213,13 @@ def _aftermath_presentations(root: Path, pack_id: str) -> tuple[tuple[AftermathP
             raise ContentPackError(f"invalid aftermath presentation for content pack {pack_id!r} at {source}: actions.{action_id}.requirements has missing or unknown reasons")
         requirements = tuple((reason, _validate_quest_service_template(source, pack_id, f"actions.{action_id}.requirements.{reason}", row["requirements"][reason], fields)) for reason, fields in requirement_fields.items())
         actions.append(AftermathActionPresentation(action_id, label, requirements))
-    return tuple(presentations), tuple((region, document["openings"][region]["title"], document["openings"][region]["notice"], document["openings"][region]["memory"]) for region in sorted(regions)), tuple(actions)
+    result_rows = document["results"]
+    if set(result_rows) != set(_AFTERMATH_RESULT_CONTRACT):
+        raise ContentPackError(f"invalid aftermath presentation for content pack {pack_id!r} at {source}: results has missing or unknown result slots")
+    results = tuple(AftermathResultPresentation(
+        key, _validate_quest_service_template(source, pack_id, f"results.{key}", result_rows[key], fields)
+    ) for key, fields in _AFTERMATH_RESULT_CONTRACT.items())
+    return tuple(presentations), tuple((region, document["openings"][region]["title"], document["openings"][region]["notice"], document["openings"][region]["memory"]) for region in sorted(regions)), tuple(actions), results
 
 
 def _manifest_document(root: Path) -> dict[str, Any]:
@@ -1259,10 +1290,10 @@ def load_content_pack(path: str | Path) -> ContentPack:
     ui = _ui_presentations(root, pack_id)
     quests, services = _quest_presentations(root, pack_id)
     history = _history_presentations(root, pack_id)
-    aftermath, aftermath_openings, aftermath_actions = _aftermath_presentations(root, pack_id)
+    aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, household_template,
     )
 
 

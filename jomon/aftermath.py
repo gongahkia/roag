@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .catalog import AFTERMATH_SECTIONS, load_catalog
-from .aftermath_presentation import aftermath_action_text, aftermath_contract_cause, aftermath_contract_title, aftermath_opening, aftermath_opening_format
+from .aftermath_presentation import aftermath_action_text, aftermath_result_text, aftermath_contract_cause, aftermath_contract_title, aftermath_opening, aftermath_opening_format
 from .state import GameState, Position, QuestProgress, RegionalContract
 
 
@@ -125,7 +125,7 @@ def _change_population_and_service(state: GameState, branch: str) -> None:
     if branch == "shared":
         account.trust = min(3, account.trust + 1)
         account.confidence = min(3, account.confidence + 1)
-        account.service += "; aftermath crews now maintain one firm marked approach"
+        account.service += aftermath_result_text("service_shared")
         product = state.market[account.production]
         product.stock = min(10, product.stock + 1)
         for edge in state.route_edges:
@@ -133,11 +133,11 @@ def _change_population_and_service(state: GameState, branch: str) -> None:
                 edge.cargo_risk = max(0, edge.cargo_risk - 1)
         if candidates:
             actor = candidates[0]
-            actor.status, actor.goal = "negotiated", "maintain the witnessed aftermath work"
-            actor.goal_reason = "the public ending replaced its former material claim"
+            actor.status, actor.goal = "negotiated", aftermath_result_text("actor_shared_goal")
+            actor.goal_reason = aftermath_result_text("actor_shared_reason")
     else:
         account.obligation = min(9, account.obligation + 1)
-        account.service += "; claimed aftermath work is available only against a recorded obligation"
+        account.service += aftermath_result_text("service_claimed")
         state.market[account.dependency].demand = min(
             9, state.market[account.dependency].demand + 1
         )
@@ -145,8 +145,8 @@ def _change_population_and_service(state: GameState, branch: str) -> None:
             actor = candidates[0]
             actor.status = "watching"
             actor.group = f"aftermath:{state.active_region_id}:claim"
-            actor.goal = "hold the altered aftermath worksite"
-            actor.goal_reason = "the private ending left a material claim unsettled"
+            actor.goal = aftermath_result_text("actor_claimed_goal")
+            actor.goal_reason = aftermath_result_text("actor_claimed_reason")
             actor.home_position = state.region.landmarks.get("works", actor.position)
 
 
@@ -338,7 +338,7 @@ def contract_options(
             and state.trade_credit >= 1
         )
         rows.append((
-            "s", aftermath_action_text("s", replacement=" (one-credit replacement copy)" if replaceable and not has_copy else ""),
+            "s", aftermath_action_text("s", replacement=aftermath_result_text("replacement_suffix") if replaceable and not has_copy else ""),
             "commitment", near_participant(state, contract) and (has_copy or replaceable),
             aftermath_action_text("s", "near_witness_copy"),
         ))
@@ -354,7 +354,7 @@ def accept_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
         return False, aftermath_action_text("a", "unavailable")
     item = create_item(
         state, contract.id,
-        f"{contract.title}: witnessed physical copy",
+        aftermath_result_text("accepted_copy", title=contract.title),
         location="ground",
     )
     item.region_id, item.ground_position = state.active_region_id, state.position
@@ -365,9 +365,7 @@ def accept_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
     contract.stage, contract.status = 1, "active"
     state.aftermath_quests[contract.region_id].status = "active"
     return True, (
-        f"{contract.title} is accepted from a named witness. The physical copy is "
-        + ("packed." if packed else "left at your feet; use I to pack it.")
-        + f" Supply {contract.commodity} here, or work the marked scar at {contract.site.x},{contract.site.y}, z{contract.site.z:+d}."
+        aftermath_result_text("accepted", title=contract.title, copy_state=aftermath_result_text("copy_packed") if packed else aftermath_result_text("copy_ground"), commodity=contract.commodity, site=f"{contract.site.x},{contract.site.y}, z{contract.site.z:+d}")
     )
 
 
@@ -381,7 +379,7 @@ def supply_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
         return False, aftermath_action_text("d", "missing_supply", commodity=contract.commodity)
     contract.stage, contract.status, contract.approach = 2, "worked", "supply"
     return True, (
-        f"One {contract.commodity} lot enters the actual local stock. The physical contract copy must still be settled."
+        aftermath_result_text("delivered", commodity=contract.commodity)
     )
 
 
@@ -405,19 +403,19 @@ def work_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
         state.market[contract.commodity].demand = max(
             0, state.market[contract.commodity].demand - 1
         )
-        effect = "opened drainage lowers water and local material demand"
+        effect = aftermath_result_text("work_drainage")
     elif contract.topology in FIRE_TOPOLOGIES:
         cell.fire = 0
         cell.smoke = 0
         cell.fuel = max(0, cell.fuel - 2)
         cell.coating = "wet" if contract.topology == "abandoned kiln quench" else "ash"
         state.region.changes["aftermath_firebreak"] = contract.topology
-        effect = "fire work removes flame, smoke and loose fuel"
+        effect = aftermath_result_text("work_fire")
     elif contract.topology in SUPPORT_TOPOLOGIES:
         cell.support = min(3, cell.support + 2)
         cell.collapse_due = 0
         state.region.changes["aftermath_supported_route"] = contract.topology
-        effect = "structural work restores support and cancels warned collapse"
+        effect = aftermath_result_text("work_support")
     else:
         cell.coating = ""
         cell.water = max(0, cell.water - 1)
@@ -426,18 +424,14 @@ def work_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
 
         marked = mark_secondary_lead(state)
         effect = (
-            "physical recovery clears contamination and exposes a named store clue"
-            if marked else "physical recovery clears contamination at the exhausted store line"
+            aftermath_result_text("work_recovery_marked") if marked else aftermath_result_text("work_recovery_exhausted")
         )
     contract.stage, contract.status, contract.approach = 2, "worked", "field"
     state.region.changes[f"contract-work:{contract.id}"] = (
-        f"{contract.topology}: {effect}; fire {old[0]}→{cell.fire}; "
-        f"water {old[1]}→{cell.water}; support {old[2]}→{cell.support}; "
-        f"coating {old[3] or 'none'}→{cell.coating or 'none'}"
+        aftermath_result_text("work_record", topology=contract.topology, effect=effect, fire_before=old[0], fire_after=cell.fire, water_before=old[1], water_after=cell.water, support_before=old[2], support_after=cell.support, coating_before=old[3] or "none", coating_after=cell.coating or "none")
     )
     return True, (
-        f"The {contract.topology} changes physically: {effect}. Fire {old[0]}→{cell.fire}, "
-        f"water {old[1]}→{cell.water}, support {old[2]}→{cell.support}. Return the witnessed copy."
+        aftermath_result_text("worked", topology=contract.topology, effect=effect, fire_before=old[0], fire_after=cell.fire, water_before=old[1], water_after=cell.water, support_before=old[2], support_after=cell.support)
     )
 
 
@@ -465,7 +459,7 @@ def settle_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
         market.stock = min(10, market.stock + 2)
         market.demand = max(0, market.demand - 1)
         account.trust = min(3, account.trust + 1)
-        contract.outcome = "A delivered lot restores two stock and lowers one demand; the witness records household trust."
+        contract.outcome = aftermath_result_text("settled_supply")
     else:
         account.confidence = min(3, account.confidence + 1)
         for edge in state.route_edges:
@@ -477,8 +471,7 @@ def settle_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
             )
         )
         contract.outcome = (
-            f"{physical}. The field account raises institutional confidence and "
-            "eases connected cargo risk."
+            aftermath_result_text("settled_field", physical=physical)
         )
     contract.stage, contract.status = 3, "completed"
     from .preparations import grant_contract_preparation
@@ -490,12 +483,12 @@ def settle_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
 
         maybe_unlock_arc(state)
     account.witnessed_acts.append(
-        f"{state.courier.name} settled {contract.title} by {contract.approach}."
+        aftermath_result_text("settled_witness", courier=state.courier.name, title=contract.title, approach=contract.approach)
     )
     del account.witnessed_acts[:-8]
     state.trade_credit += 1
-    state.remember(f"{contract.title}: {contract.outcome}")
-    return True, contract.outcome + " One credit is paid." + (" One credit first funded the replacement copy." if copied else "") + preparation_text + practice_text
+    state.remember(aftermath_result_text("remember", title=contract.title, outcome=contract.outcome))
+    return True, contract.outcome + aftermath_result_text("paid") + (aftermath_result_text("replacement_paid") if copied else "") + preparation_text + practice_text
 
 
 def abandon_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
@@ -503,28 +496,28 @@ def abandon_contract(state: GameState, contract_id: str) -> tuple[bool, str]:
     if contract.stage != 1 or not near_participant(state, contract):
         return False, aftermath_action_text("x", "unavailable")
     contract.stage, contract.status = 3, "failed"
-    contract.outcome = "The witness records an unmet promise and will not offer the work again."
+    contract.outcome = aftermath_result_text("abandoned")
     account = state.institutions[f"work:{contract.region_id}"]
     account.trust = max(-3, account.trust - 1)
     account.witnessed_acts.append(
-        f"{state.courier.name} abandoned {contract.title} after accepting it."
+        aftermath_result_text("abandoned_witness", courier=state.courier.name, title=contract.title)
     )
     del account.witnessed_acts[:-8]
     _update_line_progress(state, contract.region_id)
-    state.remember(f"{contract.title}: {contract.outcome}")
+    state.remember(aftermath_result_text("remember", title=contract.title, outcome=contract.outcome))
     return True, contract.outcome
 
 
 def resolve_contract(state: GameState, contract_id: str, choice: str) -> tuple[bool, str]:
     if contract_id not in state.regional_contracts:
-        return False, "That aftermath account no longer exists."
+        return False, aftermath_result_text("missing_contract")
     return {
         "a": accept_contract,
         "d": supply_contract,
         "w": work_contract,
         "s": settle_contract,
         "x": abandon_contract,
-    }.get(choice, lambda *_: (False, "That is not a contract action."))(state, contract_id)
+    }.get(choice, lambda *_: (False, aftermath_result_text("invalid_action")))(state, contract_id)
 
 
 def contract_lines(state: GameState, contract_id: str) -> list[str]:
@@ -534,14 +527,14 @@ def contract_lines(state: GameState, contract_id: str) -> list[str]:
         if contact.id == contract.participant_id
     )
     return [
-        f"FACT — cause: {contract.cause}.",
-        f"Named witness: {participant.name}, {participant.role}.",
-        f"Physical site: {contract.site.x},{contract.site.y}, z{contract.site.z:+d}; material: {contract.commodity}.",
-        f"Worksite: {contract.topology}.",
-        f"Account: {contract.status}; approach {contract.approach or 'not chosen'}.",
-        "DISCLOSED ANSWERS — deliver one real lot at the witness, or use a working tool at the scar.",
-        "The accepted paper copy occupies the pack, can be lost or stolen, and is consumed at settlement.",
-        *( ["FACT — " + contract.outcome] if contract.outcome else [] ),
+        aftermath_result_text("ledger_cause", cause=contract.cause),
+        aftermath_result_text("ledger_witness", name=participant.name, role=participant.role),
+        aftermath_result_text("ledger_site", site=f"{contract.site.x},{contract.site.y}, z{contract.site.z:+d}", commodity=contract.commodity),
+        aftermath_result_text("ledger_worksite", topology=contract.topology),
+        aftermath_result_text("ledger_account", status=contract.status, approach=contract.approach or "not chosen"),
+        aftermath_result_text("ledger_answers"),
+        aftermath_result_text("ledger_copy"),
+        *([aftermath_result_text("ledger_outcome", outcome=contract.outcome)] if contract.outcome else []),
     ]
 
 

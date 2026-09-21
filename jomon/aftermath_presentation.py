@@ -38,3 +38,9 @@ def aftermath_action_text(action: str, field: str = "label", /, **values: object
     else:
         text = dict(presentation.requirements)[field]
     return text.format(**values)
+
+
+def aftermath_result_text(result_id: str, /, **values: object) -> str:
+    return selected_content_pack().aftermath_result_presentation(
+        result_id
+    ).text.format(**values)

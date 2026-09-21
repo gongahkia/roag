@@ -132,6 +132,11 @@ def alternate_pack(root: Path) -> Path:
     aftermath["actions"]["aftermath.action.deliver"]["requirements"]["missing_supply"] = "Fixture needs {commodity}."
     aftermath["actions"]["aftermath.action.work"]["requirements"]["field_site"] = "Fixture work at {site}."
     aftermath["actions"]["aftermath.action.settle"]["requirements"]["missing_copy"] = "Fixture replacement copy required."
+    aftermath["results"]["accepted"] = "Fixture accepts {title}: {copy_state} Supply {commodity} at {site}."
+    aftermath["results"]["delivered"] = "Fixture delivery of {commodity} awaits settlement."
+    aftermath["results"]["settled_supply"] = "Fixture settlement restores the same stock and demand."
+    aftermath["results"]["ledger_cause"] = "FIXTURE CAUSE — {cause}."
+    aftermath["results"]["abandoned"] = "Fixture witness records the same failed promise."
     source.write_text(json.dumps(aftermath, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
 
@@ -535,6 +540,14 @@ class ContentPackTests(unittest.TestCase):
         self.assertEqual(
             dict(pack.aftermath_action_presentation("aftermath.action.deliver").requirements)["missing_supply"],
             "Fixture needs {commodity}.",
+        )
+        self.assertEqual(
+            pack.aftermath_result_presentation("accepted").text,
+            "Fixture accepts {title}: {copy_state} Supply {commodity} at {site}.",
+        )
+        self.assertEqual(
+            pack.aftermath_result_presentation("ledger_cause").text,
+            "FIXTURE CAUSE — {cause}.",
         )
 
     def test_default_quest_presentation_matches_existing_catalog_copy(self):
