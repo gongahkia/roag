@@ -72,7 +72,8 @@ function R:drawActionHud(app)
  hud.buttons={};hud.model=model
  box(x,y,pw,ph,colors.bg,0.94);box(x+2,y+2,pw-4,ph-4,colors.panel)
  text('DELEGATE / '..model.title,x+14,y+12,colors.amber,self.normal)
- text(string.format('block %d,%d — actions queue ordinary work',model.gx,model.gy),x+14,y+35,colors.muted,self.small)
+ local detail=model.area and string.format('%d blocks — batch actions queue ordinary work%s',model.count,model.count>model.limit and ('; first '..model.limit..' only') or '') or string.format('block %d,%d — actions queue ordinary work',model.gx,model.gy)
+ text(detail,x+14,y+35,colors.muted,self.small)
  for index,action in ipairs(model.actions) do
   local column=(index-1)%columns;local row=math.floor((index-1)/columns)
   local bx,by=x+14+column*bw,y+56+row*30;local record={action=action.id,x=bx,y=by,w=bw-10,h=25,hint=action.hint}
@@ -84,10 +85,18 @@ function R:mapRect(w)
  local v=self.viewport
  local fit=math.min(v.w/w.width,v.h/w.height)
  local scale=(fit>=1 and math.floor(fit) or fit)*self.zoom
+ local maxX=math.max(0,(w.width*scale-v.w)/2);local maxY=math.max(0,(w.height*scale-v.h)/2)
+ self.panX=U.clamp(self.panX,-maxX,maxX);self.panY=U.clamp(self.panY,-maxY,maxY)
  local x=v.x+(v.w-w.width*scale)/2+self.panX
  local y=v.y+(v.h-w.height*scale)/2+self.panY
  self.rect={x=x,y=y,scale=scale,w=w.width*scale,h=w.height*scale}
  return self.rect
+end
+function R:pan(w,dx,dy)
+ local v=self.viewport;local fit=math.min(v.w/w.width,v.h/w.height)
+ local scale=(fit>=1 and math.floor(fit) or fit)*self.zoom
+ local maxX=math.max(0,(w.width*scale-v.w)/2);local maxY=math.max(0,(w.height*scale-v.h)/2)
+ self.panX=U.clamp(self.panX+dx,-maxX,maxX);self.panY=U.clamp(self.panY+dy,-maxY,maxY)
 end
 function R:cell(mx,my)
  local r,v=self.rect,self.viewport
@@ -238,11 +247,23 @@ function R:drawMap(app)
   local gx,gy=W.tile(w,app.hover.x,app.hover.y);local x,y=point(gx*4-3,gy*4-3)
   color(colors.text,0.55);love.graphics.rectangle('line',x,y,4*sc,4*sc)
  end
+ local function drawBlockArea(gx1,gy1,gx2,gy2,c,alpha)
+  local x,y=point(math.min(gx1,gx2)*4-3,math.min(gy1,gy2)*4-3)
+  local width,height=(math.abs(gx2-gx1)+1)*4*sc,(math.abs(gy2-gy1)+1)*4*sc
+  box(x,y,width,height,c,alpha);dashed(x,y,width,height,c)
+ end
+ if app.selection then
+  local s=app.selection;drawBlockArea(s.gx1,s.gy1,s.gx2,s.gy2,colors.green,0.16)
+ end
+ if app.selectionDrag then
+  local d=app.selectionDrag;local ex,ey=d.gx,d.gy
+  if app.hover then ex,ey=W.tile(w,app.hover.x,app.hover.y) end
+  drawBlockArea(d.gx,d.gy,ex,ey,colors.cyan,0.13)
+ end
  if app.drag then
   local gx,gy=app.drag.gx,app.drag.gy;local ex,ey=gx,gy
   if app.hover then ex,ey=W.tile(w,app.hover.x,app.hover.y) end
-  local x,y=point(math.min(gx,ex)*4-3,math.min(gy,ey)*4-3)
-  box(x,y,(math.abs(ex-gx)+1)*4*sc,(math.abs(ey-gy)+1)*4*sc,colors.cyan,0.17)
+  drawBlockArea(gx,gy,ex,ey,colors.cyan,0.17)
  end
  love.graphics.setScissor()
  color(colors.edge);love.graphics.rectangle('line',v.x,v.y,v.w,v.h)
@@ -293,6 +314,11 @@ function R:sidebar(app)
   wrap(a.status..' / '..(a.reason~='' and a.reason or (a.task and a.task.kind or 'No active task')),x+16,y,pw-32,colors.muted,self.small);y=y+38
   wrap('Right-click a target to delegate actions.\nY: reserve new orders / M: rally / J: release\nH: duties and workforce percentages',x+16,y,pw-32,colors.cyan,self.small);y=y+52
  end
+ if app.selection and not a then
+  local s=app.selection
+  text(string.format('%d BLOCKS SELECTED',s.count or (s.gx2-s.gx1+1)*(s.gy2-s.gy1+1)),x+16,y,colors.green,self.normal);y=y+23
+  wrap('Right-click inside the selection to queue one build or cancel action for each block. Left-click a selected block or Escape clears it.',x+16,y,pw-32,colors.cyan,self.small);y=y+53
+ end
  local cell=not a and (app.selectedCell or app.hover)
  if cell then
   local gx,gy=W.tile(w,cell.x,cell.y);local s=W.structureAt(w,cell.x,cell.y)
@@ -328,7 +354,7 @@ function R:sidebar(app)
    wrap('Order: '..j.kind..(owner and (' / '..owner.name) or '')..'\n'..j.reason,x+16,y,pw-32,colors.amber,self.small);y=y+42;break
   end end
  end
- if not cell and not a then wrap('H: assign duties and quotas. Select a block or worker, then right-click to delegate actions. F4 opens field notes.',x+16,y,pw-32,colors.muted,self.normal);y=y+76 end
+ if not cell and not a and not app.selection then wrap('H: assign duties and quotas. Select a block or worker, then right-click to delegate actions. F4 opens field notes.',x+16,y,pw-32,colors.muted,self.normal);y=y+76 end
  y=math.max(y+12,500)
  local available=math.max(0,math.floor((self.sh-y-75)/42))
  if available>0 then
@@ -352,19 +378,19 @@ function R:help(app)
   '3. D Dig exposes material cell by cell. Inspect reservoirs before mining.',
   '4. L Ladders traverse shafts. F Floors and W Walls stop liquids.',
   '5. H assigns individual duties and whole-worker percentage quotas.',
-  '6. Select a block or worker, then right-click to open its delegate actions. Y/M/J remain keyboard shortcuts.',
+  '6. Left-drag selects blocks. Right-click inside them for batch actions; click a selected block or Escape clears it.',
   '',
   'A: build charge, then select it and T to order arming. No disarm.',
-  'Right-click: delegate selected actions    Left/Right: select or step    Shift+arrows: 20 ticks    Home/End: past/live',
+  'Middle-drag pans the camera. Wheel zooms; R fits the map. Left/Right: select or step    Shift+arrows: 20 ticks',
   'Encounter HUD: survey / study / salvage / cull. F4 field notes / F9 ward.',
   'N: generation lab (C selects local/campaign action) / F2 export / F3 maps / F7 biomes',
   'Frontier campaigns: Shift+F7 or Region opens settlements; transport is pending.',
-  'F5: save   F6: diagnostics   F8: benchmark   F10: tests   F12: screenshot',
+  'F5: save   Ctrl+Q: quit   F6: diagnostics   F8: benchmark   F10: tests   F12: screenshot',
   '',
   'CHALLENGE: no resurrection, no historical edits, no replacement settlers.',
   'Archive rewind is inspection only. A fresh PRACTICE run permits branching.',
   'Practice only: V cycles a material brush; click places its cells.',
-  'Space play/pause / 1-3 speed / wheel zoom / middle pan / README.md',
+  'Space play/pause / 1-3 speed / camera pan and block selection / README.md',
  }
  for i,line in ipairs(lines) do text(line,x+30,y+80+(i-1)*24,i>=15 and colors.amber or colors.text,self.normal) end
  text('F1 or Escape closes this page.',x+30,y+535,colors.muted,self.small)
@@ -630,7 +656,7 @@ function R:draw(app)
  text(string.format('%s  |  %s  |  seed %d',w.mode:upper(),w.preset,w.seed),470,39,colors.muted,self.small)
  text(string.format('SURVIVORS %d/%d   FOOD %d   FARMS %d',met.alive,#w.workers,met.food,met.farms),self.panelX-10,18,colors.text,self.normal)
  text(string.format('tick %d    day %.2f    %dx speed',w.tick,w.tick/C.dayTicks,app.speed),self.panelX-10,41,colors.muted,self.small)
- local hint='Select a block or settler, then right-click to delegate an action.'
+ local hint='Middle-drag pans. Left-drag selects blocks; right-click a selection to delegate actions.'
  if app.playtest then hint='ISOLATED PLAYTEST — saves: '..app.playtest.saveDir end
  text(hint,18,51,app.playtest and colors.amber or colors.muted,self.small)
  if app.regionButton then

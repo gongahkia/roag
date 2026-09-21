@@ -78,8 +78,10 @@ run_fixtures() {
   command -v luajit >/dev/null 2>&1 || { printf 'LuaJIT runtime not found for fixture generation.\n' >&2; exit 1; }
   command -v systemd-run >/dev/null 2>&1 || { printf 'Fixture generation requires an available user systemd scope for bounded execution.\n' >&2; exit 1; }
   local available max high
-  available=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)
-  [[ $available =~ ^[0-9]+$ ]] || { printf 'Cannot determine available memory for fixture generation.\n' >&2; exit 1; }
+  while IFS=' :' read -r label value unit; do
+    if [[ $label == MemAvailable ]]; then available=$value; break; fi
+  done < /proc/meminfo
+  [[ ${available:-} =~ ^[0-9]+$ ]] || { printf 'Cannot determine available memory for fixture generation.\n' >&2; exit 1; }
   max=$(( available / 4 )); (( max > 2097152 )) && max=2097152
   (( max >= 524288 )) || { printf 'Available-memory budget is below 512 MiB; fixture generation deferred.\n' >&2; exit 1; }
   high=$(( max * 3 / 4 ))

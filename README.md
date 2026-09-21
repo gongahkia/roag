@@ -186,8 +186,8 @@ falling or bombs. T toggles a completed ward.
 | Control | Action |
 |---|---|
 | Space / 1–3 | Pause or run / 1x, 2x, 4x scheduling |
-| Left click / Q | Select target / inspect compatibility shortcut |
-| Right click | Open the selected block, structure, encounter, or settler's delegate action HUD |
+| Left click / left drag / Q | Select a target / select build blocks / inspect compatibility shortcut |
+| Right click | Open the target's delegate HUD, or batch-delegate inside a selected block area |
 | D / L / F / W | Keyboard-compatible dig / ladder / floor / wall tools; drag still designates multiple blocks |
 | B / S / C / P | Keyboard-compatible bed / stockpile / farm / pump tools |
 | X / E / +/- | Keyboard-compatible dismantle / cancel / job priority |
@@ -198,13 +198,14 @@ falling or bombs. T toggles a completed ward.
 | I / O | Selected pump intake/outlet; range 20 cells |
 | F4 | Field notes |
 | Tab / F7 / G | Layers / biome survey / building grid |
-| Wheel / middle drag / R | Zoom / pan / fit map |
+| Wheel / middle drag / R | Zoom / pan the independent camera / fit map |
 | Left / Right / Shift+arrows | Inspect or step / 20-tick batch |
 | Home / End | Initial state / live frontier |
 | N / F2 / Shift+F2 / F3 | Map lab / initial map / current terrain template / maps |
 | F5 / F6 | Save live colony / diagnostic export with full replay |
 | F8 / Shift+F8 | Colony benchmark / generation and map benchmark |
 | F10 / F12 / F1 | Regression tests / actual screenshot / manual |
+| Ctrl+Q | Quit through the normal save-on-quit path |
 
 Orders entered while paused wait for the next tick. Right single-steps. A worker
 panel is a draft, not an out-of-tick simulation mutation. Practice-only V retains

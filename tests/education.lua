@@ -134,6 +134,17 @@ function T.run()
   manifest=assert(Logistics.manifest(travelHistory.live,1));local ready,why=Logistics.readiness(travelHistory.live,manifest);assert(ready,why)
   assert(travelHistory:queue({scope='campaign',type='launch_expedition',sourceSiteId=1,craftId=1,manifestId=manifest.id,expectedManifestRevision=manifest.revision}));advance(travelHistory,1)
   local passenger=assert(Logistics.craft(travelHistory.live,1).passengers[1]);eq(passenger.personId,traveller.personId);eq(passenger.frontier.education.tuition[1].progress,unfinished,'Actual travel changed unfinished tuition');check(passenger.task==nil and passenger.frontier.education.tuition[1].id==identify,'Actual travel retained a local task reference or changed tuition topic')
+  local departureTick=travelHistory.live.tick;local arrived,arrivalTick
+  for _=1,400 do
+   advance(travelHistory,1)
+   for _,candidate in ipairs(travelHistory.live.sites[2].world.workers) do if candidate.personId==traveller.personId then arrived=candidate;arrivalTick=travelHistory.live.tick;break end end
+   if arrived then break end
+  end
+  check(arrived,'Actual P04 journey did not arrive at the destination')
+  eq(arrivalTick,departureTick+399,'Actual P04 journey used the wrong inclusive arrival tick')
+  eq(arrived.frontier.education.tuition[1].progress,unfinished,'Arrival changed unfinished tuition')
+  check(arrived.task==nil and arrived.frontier.education.tuition[1].id==identify,'Arrival retained a local school task or changed tuition topic')
+  print(string.format('TRACE P06-H tuition transport: person=%d progress=%d departure=%d arrival=%d.',traveller.personId,unfinished,departureTick,arrivalTick))
  end)
 
  group('P06-I save, replay, seek, and branch retain partial school work',function()

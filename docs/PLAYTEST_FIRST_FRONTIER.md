@@ -16,6 +16,10 @@ bash tools/playtest.sh --check
 The command prints `PLAYTEST_ROOT`, `EFFECTIVE_SAVE_DIRECTORY`, and the probe
 report. Keep that root. It is deliberately not removed on exit.
 
+The probe needs the `love` executable. If it reports `LÖVE runtime not found`, it
+has created no playtest root and the native/human route is **NOT RUN** until a
+LÖVE 11.5 runtime is available; do not substitute a normal game launch.
+
 For a new ordinary session:
 
 ```sh
@@ -33,6 +37,9 @@ The game displays `ISOLATED PLAYTEST` and the effective LÖVE save directory alo
 the top of the window. If that label/path is absent, stop: this is not an
 isolated playtest. A malformed, symlinked, foreign-checkout, conflicting, or
 already-populated fixture target is rejected rather than followed or overwritten.
+
+Press **Ctrl+Q** to quit through the normal save-on-quit handler. If that save
+cannot be committed, the game stays open.
 
 ## Route A — ordinary new frontier
 
@@ -60,7 +67,7 @@ survivable.
    transit, and home work must continue while the moon is viewed. At landing,
    select the owned outpost, inspect people/cargo, and use the expedition panel
    to physically unload cargo.
-7. Press F5, close the game, then use the exact `--resume` command. Press N,
+7. Press F5, use **Ctrl+Q** to save and close the game, then use the exact `--resume` command. Press N,
    select **Continue frontier campaign** with C, and Enter. Confirm the same
    people, craft, cargo, and history are present once only.
 
@@ -118,7 +125,7 @@ travels. At each checkpoint inspect these visible/authoritative outcomes:
 | Travel | Preparation, assembly, revision-bound launch, maintenance/cargo, person IDs, and no source ghost worker are visible. |
 | Continuity | A's facts/XP persist on Moon I; B remains knowledgeable at home; home records stay there. |
 | Record study | C gains no eyewitness observations and learns only after work at the installed record. |
-| Save/history/layout | F5/resume does not duplicate state; archive has no future record; Cozette text, long blocked reasons, Escape, focus, scrolling and global pause remain usable. |
+| Save/history/layout | F5/Ctrl+Q/resume does not duplicate state; archive has no future record; middle-drag pans the camera; left-drag selection batch-delegates only after a right-click; Cozette text, long blocked reasons, Escape, focus, scrolling and global pause remain usable. |
 
 ## Evidence labels
 

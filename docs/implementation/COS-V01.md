@@ -2,8 +2,10 @@
 
 ## Status and worktree
 
-**Status: automated tooling complete; human gameplay pending.** This pass adds no
-gameplay system and makes no balance/rate/capacity change.
+**Status: headless and mocked-UI verification complete; current native-window and
+human gameplay remain pending because this checkout environment has no `love`
+executable.** This pass adds no gameplay system and makes no balance/rate/capacity
+change.
 
 Starting checkout: `aac4cbca6cd90d2edce6d24884929c5f11bc65ae`. It differs from the
 relayed `df5b2eb`; no reset was performed. The starting tree already contained the
@@ -20,6 +22,125 @@ HEAD: `0d33f55af263f1f6b8fb6d0b4fc3073d50478014`; I made no commit or push.
 The bounded tested-source fingerprint is recorded by SHA-256 in the V01 handoff
 command output and covers `conf.lua`, `main.lua`, `src/storage.lua`,
 `src/mapstore.lua`, `src/playtest.lua`, `src/render.lua`, and `tools/playtest.sh`.
+
+## Current verification addendum — 2026-09-21
+
+This follow-up began at clean `317a919b84024c5253484c40b235d0c055e216cc`.
+`df5b2eb..317a919b` changes the earlier reported source only through committed
+documentation. The current working-tree delta is deliberately limited to this
+handoff, the human guide, `README.md`, `main.lua`, `src/render.lua`,
+`src/ui/action_hud.lua`, `tools/playtest.sh`, `tests/education.lua`, and
+`tests/gui_smoke.lua`; no owner change was present to preserve at the start, and
+no commit or push was made.
+
+The 18-file simulation/tool/test fingerprint is
+`9294287077d84944071cb73be8273a48a04e03b3736dd2d514e504037ef5f782`.
+It includes the campaign, history, logistics, travel, knowledge, education,
+storage, renderer, launcher, soak and P06 test seams.
+
+The launcher fixture path no longer relies on `awk`: its Bash code reads
+`MemAvailable` directly from `/proc/meminfo`. On this host the final runs used a
+child-only 50% CPU quota, 1,615,897 KiB `MemoryMax`, 1,211,922 KiB `MemoryHigh`,
+and a 300-second timeout. The final core suite passed in 126.83 seconds with
+78,804 KiB maximum RSS. No LuaJIT or LÖVE process remained after the checks.
+
+### Current P06 evidence matrix
+
+All headless entries below are named groups in `tests/education.lua`; P06-P also
+uses `tests/education_gui.lua`.
+
+| ID | Current evidence and outcome |
+| --- | --- |
+| P06-A | Physical four-stone/two-metal construction and feature-off rejection — PASS. |
+| P06-B | Local living source and ordinary Field-duty policy — PASS. |
+| P06-C | 120 attended recording actions and immutable local record — PASS. |
+| P06-D | Complete pair reservation and interruption release — PASS. |
+| P06-E | Pre-reward XP arithmetic and ten-tick evaluation — PASS. |
+| P06-F | Record study, source loss, and retained earned tuition — PASS. |
+| P06-G | Communicated provenance without eyewitness copying — PASS. |
+| P06-H | Actual prepare/load/assemble/launch/400-tick arrival preserves tuition — PASS. |
+| P06-I | Save, replay, seek, and branch with partial school work — PASS. |
+| P06-J | Unviewed education progression — PASS. |
+| P06-K | No partial teacher reservation without a learner — PASS. |
+| P06-L | Stale school revision/rebuild command rejection — PASS. |
+| P06-M | Learner-owned tuition and school-local draft ownership — PASS. |
+| P06-N | Same-tick finalizer guard — PASS. |
+| P06-O | Malformed expertise and duplicate-record bounds — PASS. |
+| P06-P | Revision-bound school policy UI command — PASS, MOCK UI. |
+| P06-Q | Physical record then attended teaching — PASS. |
+| P06-R | Per-person deterministic expertise and feature-off boundary — PASS. |
+| P06-S | Repeated policy churn stays bounded — PASS. |
+
+P06-H was strengthened in this pass. Its real traveller, person 2, kept exactly
+17/200 personal tuition units from departure at tick 2,222 through destination
+arrival at tick 2,621; the newly created destination worker has no local school
+task. This adds four arrival assertions to the existing regression rather than
+changing simulation behavior.
+
+### Fresh controlled trace and retained artifacts
+
+The real 20,000-tick education trace passed under that guard. Its private marked
+root is `/tmp/cosmonauts-v01-final-evidence.n1C6L0Oc`; the log is
+`logs/education-soak.log`, and `fixtures/index.sha256` covers its five campaign
+artifacts. The root contains no normal save, credentials, or bundled font asset.
+
+| Fixture | Tick | Bytes | Relevant verified state |
+| --- | ---: | ---: | --- |
+| `initial` | 40 | 3,177,845 | No tested fact, school, tuition, record, or craft cargo. |
+| `partial-copy` | 1,540 | 3,199,800 | A has two facts; school 1 has a 23/120 record draft. |
+| `partial-lesson` | 2,721 | 3,202,703 | B has 64/200 teaching tuition; both records exist. |
+| `transit` | 7,221 | 3,203,114 | A is aboard outbound craft 1 with food=2, metal=1 after maintenance. |
+| `partial-record-study` | 9,002 | 3,205,267 | C has 16/200 record tuition; A is on Moon I; two home records remain. |
+
+A (person 1) receives identification at tick 102 and the operational fact at
+tick 410, then gains fieldwork XP 12→116. School 1 consumes four stone and two
+metal (home ground becomes stone=80, metal=20), records identification at tick
+1,734 and the operational fact at tick 2,240, and A's teaching XP rises
+145→230. B (person 2) has 64 teaching units at the partial-lesson milestone and
+later receives identification at tick 3,060 and the operational fact at tick
+4,370 by `taught` provenance. A departs/arrives at ticks 7,022/7,421 while B
+remains at Home Planet. C (person 3) gains identification from a record at tick
+8,700, has 16 record units at tick 9,002, and receives the operational fact at
+tick 9,670 by `record` provenance with no copied eyewitness observations. The
+final 20,000-tick history is 3,206,041 bytes, has two records/eight checkpoints,
+and reports a 104,869.2 KiB Lua heap sample; all saves are below 32 MiB.
+
+### Current V01 outcomes
+
+| Check | Outcome |
+| --- | --- |
+| V01-A | PASS — the matrix above and the real P04 tuition-arrival regression run in the current core suite. |
+| V01-B | HEADLESS fixture guard PASS; launcher shell syntax PASS. Fresh LÖVE probe/launcher suite NOT RUN because `love` is absent; the unchanged launcher has the earlier historical pass. |
+| V01-C | PASS — normal feature-off and default mock paths remain in the 150-group core suite. |
+| V01-D | PASS — five real-path, SHA-256-indexed milestones were generated below a fresh marked root. |
+| V01-E | PASS — discovery, records, teaching, flight, record study, save/reload, and replay pass in the fresh trace. |
+| V01-F | HEADLESS and all eight MOCK UI adapters PASS; NATIVE RENDER / SCRIPTED WINDOW and HUMAN GAMEPLAY NOT RUN. |
+| V01-G | PASS — physical construction/cargo values and bounded save/state counts above reconcile. |
+| V01-H | PASS — runs were serial, scoped, timed, logged below private roots, and left no task process. |
+| V01-I | Guide and exact launcher commands are ready; current execution is NOT RUN until LÖVE is installed. |
+| V01-J | PASS — no simulation-rule repair. Tool portability, P06-H regression coverage, Ctrl+Q quit, bounded camera panning, and block-area delegation were the narrow interaction changes. |
+
+Fresh commands: `luajit tests/syntax.lua` (93 files), the 19-group/57-assertion
+P06 suite, all eight mocked GUI adapters, the guarded `luajit tests/run.lua`
+(150 groups / 121,083 assertions), the guarded education soak, and both diff
+checks all passed. Ctrl+Q now requests LÖVE's ordinary save-on-quit event from
+every in-game overlay. Inspect-mode left drag selects bounded build blocks,
+right-clicking inside them applies one ordinary order per block, and middle-drag
+pans only a zoomed camera view; `tests/gui_smoke.lua` covers each path. `bash
+tools/playtest.sh --check` correctly exited 1 with
+`LÖVE runtime not found: love`; that is an environment limitation, not a passed
+isolation probe. No source changed during the final guarded core run.
+
+### Current implementation map
+
+`src/campaign.lua`, `src/campaign_history.lua`, and `src/campaign_codec.lua` own
+campaign state, timeline, and persistence. `main.lua`, `src/render.lua`, and
+`src/ui/*` own session/view/input. `src/logistics.lua` and `src/travel.lua` own
+physical custody and journeys. `src/knowledge.lua` and `src/education.lua` own
+personal facts and field schools. `src/playtest.lua`, `src/storage.lua`,
+`src/mapstore.lua`, and `tools/playtest.sh` are the isolated-playtest seam.
+Culture, industry, additional ecology, physics, relic progression, and P07 remain
+deferred.
 
 ## Isolation and launch contract
 

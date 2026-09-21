@@ -10,6 +10,18 @@ local function add(actions,id,label,hint)
  actions[#actions+1]={id=id,label=label,hint=hint}
 end
 
+local function addBlockActions(world,actions)
+ add(actions,'build:dig','Delegate dig','Marks selected build blocks for ordinary excavation.')
+ add(actions,'build:ladder','Delegate ladder','Build from physically delivered materials.')
+ add(actions,'build:platform','Delegate floor','Build from physically delivered materials.')
+ add(actions,'build:wall','Delegate wall','Build from physically delivered materials.')
+ add(actions,'build:bed','Delegate bed','Build from physically delivered materials.')
+ add(actions,'build:store','Delegate stockpile','Build from physically delivered materials.')
+ add(actions,'build:farm','Delegate farm','Build from physically delivered materials.')
+ add(actions,'build:pump','Delegate pump','Build from physically delivered materials.')
+ if world.frontier and world.frontier.education==1 then add(actions,'build:field_school','Delegate field school','Requires four stone and two metal through ordinary construction.') end
+end
+
 local function selectedWorker(world,app)
  return app.selectedWorker and W.find(world.workers,app.selectedWorker) or nil
 end
@@ -26,6 +38,12 @@ end
 
 function H.model(app,world)
  local hud=app.hud
+ if hud and hud.selection then
+  local selection=hud.selection;local count=selection.count or (selection.gx2-selection.gx1+1)*(selection.gy2-selection.gy1+1)
+  local actions={};addBlockActions(world,actions)
+  add(actions,'cancel','Cancel delegated orders','Cancels open orders in the selected blocks safely.')
+  return {area=true,selection=selection,count=count,limit=selection.limit or 256,cell=hud.cell,gx=selection.gx1,gy=selection.gy1,title=count..' selected blocks',actions=actions}
+ end
  local cell=hud and hud.cell or app.selectedCell
  if not cell then return nil end
  local gx,gy=W.tile(world,cell.x,cell.y)
@@ -57,15 +75,7 @@ function H.model(app,world)
   elseif structure.kind=='ward' then add(actions,'toggle','Toggle ward','Changes only the selected installed ward.') end
   add(actions,'remove','Delegate dismantle '..label,'Uses the ordinary removal job and recovery rules.')
  else
-  add(actions,'build:dig','Delegate dig','Marks this build block for ordinary excavation.')
-  add(actions,'build:ladder','Delegate ladder','Build from physically delivered materials.')
-  add(actions,'build:platform','Delegate floor','Build from physically delivered materials.')
-  add(actions,'build:wall','Delegate wall','Build from physically delivered materials.')
-  add(actions,'build:bed','Delegate bed','Build from physically delivered materials.')
-  add(actions,'build:store','Delegate stockpile','Build from physically delivered materials.')
-  add(actions,'build:farm','Delegate farm','Build from physically delivered materials.')
-  add(actions,'build:pump','Delegate pump','Build from physically delivered materials.')
-  if world.frontier and world.frontier.education==1 then add(actions,'build:field_school','Delegate field school','Requires four stone and two metal through ordinary construction.') end
+  addBlockActions(world,actions)
   if world.mode=='practice' then add(actions,'paint','Practice brush','Places only the current practice material.') end
  end
 

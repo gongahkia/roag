@@ -19,7 +19,7 @@ local Crew=require('src.ui.crew')
 local Content=require('src.content')
 local Logistics=require('src.logistics')
 local Playtest=require('src.playtest')
-local app={paused=true,speed=1,tool='inspect',priority=2,view=1,grid=false,accumulator=0,hud=nil}
+local app={paused=true,speed=1,tool='inspect',priority=2,view=1,grid=false,accumulator=0,hud=nil,selection=nil,selectionDrag=nil}
 local renderer
 local function notify(s) app.toast=tostring(s);app.toastTime=8 end
 local function currentWorld(history)
@@ -109,7 +109,7 @@ local function startNew()
  end)
  if not ok then n.error='Previous colony retained: '..tostring(result);return end
  app.history=result;app.campaign=false;app.siteId=nil;app.newRun=nil;app.mapBrowser=nil;app.paused=true;app.accumulator=0;app.saveBlocked=false
- app.selectedWorker=nil;app.selectedCell=nil;app.port=nil;app.drag=nil;app.hud=nil;app.benchmark=nil;app.stepBudget=0
+ app.selectedWorker=nil;app.selectedCell=nil;app.port=nil;app.drag=nil;app.selection=nil;app.selectionDrag=nil;app.hud=nil;app.benchmark=nil;app.stepBudget=0
  app.crew=nil;app.fieldnotes=nil;app.school=nil;app.orderWorker=nil;app.rallyWorker=nil;app.panning=false;app.expedition=nil
  renderer.zoom,renderer.panX,renderer.panY=1,0,0
  notify('New '..result.live.mode..' expedition. The previous run is archived. F7 shows biomes.')
@@ -129,7 +129,7 @@ local function startCampaign()
  local ok,why=Store.saveCampaign(n.campaignCandidate)
  if not ok then n.error='Previous session retained: '..tostring(why);return end
  app.history=n.campaignCandidate;app.campaign=true;app.siteId=1;app.newRun=nil;app.mapBrowser=nil;app.paused=true;app.accumulator=0;app.saveBlocked=false
- app.selectedWorker=nil;app.selectedCell=nil;app.port=nil;app.drag=nil;app.hud=nil;app.benchmark=nil;app.stepBudget=0;app.crew=nil;app.fieldnotes=nil;app.school=nil;app.orderWorker=nil;app.rallyWorker=nil;app.panning=false;app.expedition=nil
+ app.selectedWorker=nil;app.selectedCell=nil;app.port=nil;app.drag=nil;app.selection=nil;app.selectionDrag=nil;app.hud=nil;app.benchmark=nil;app.stepBudget=0;app.crew=nil;app.fieldnotes=nil;app.school=nil;app.orderWorker=nil;app.rallyWorker=nil;app.panning=false;app.expedition=nil
  renderer.zoom,renderer.panX,renderer.panY=1,0,0
  notify('New frontier campaign. Prepare, assemble, and launch the parked shuttle from Region.')
 end
@@ -137,7 +137,7 @@ local function continueCampaign()
  local n=app.newRun;local history,why=Store.loadCampaign()
  if not history then n.error=why or 'No campaign save.';return end
  app.history=history;app.campaign=true;app.siteId=1;app.newRun=nil;app.mapBrowser=nil;app.paused=true;app.accumulator=0;app.saveBlocked=false
- app.selectedWorker=nil;app.selectedCell=nil;app.port=nil;app.drag=nil;app.hud=nil;app.benchmark=nil;app.stepBudget=0;app.crew=nil;app.fieldnotes=nil;app.school=nil;app.orderWorker=nil;app.rallyWorker=nil;app.panning=false;app.expedition=nil
+ app.selectedWorker=nil;app.selectedCell=nil;app.port=nil;app.drag=nil;app.selection=nil;app.selectionDrag=nil;app.hud=nil;app.benchmark=nil;app.stepBudget=0;app.crew=nil;app.fieldnotes=nil;app.school=nil;app.orderWorker=nil;app.rallyWorker=nil;app.panning=false;app.expedition=nil
  renderer.zoom,renderer.panX,renderer.panY=1,0,0
  notify('Frontier campaign restored. Structural load did not replay its history.')
 end
@@ -269,7 +269,7 @@ local function selectSite(siteId)
  if not hasRegion() then return false end
  local site=Campaign.site(app.history.view,siteId)
  if not site or site.ownerSocietyId~=app.history.view.society.id then return false end
- app.siteId=siteId;app.drag=nil;app.port=nil;app.hud=nil;app.selectedWorker=nil;app.selectedCell=nil;app.hover=nil;app.orderWorker=nil;app.rallyWorker=nil;app.expedition=nil
+ app.siteId=siteId;app.drag=nil;app.selection=nil;app.selectionDrag=nil;app.port=nil;app.hud=nil;app.selectedWorker=nil;app.selectedCell=nil;app.hover=nil;app.orderWorker=nil;app.rallyWorker=nil;app.expedition=nil
  renderer.zoom,renderer.panX,renderer.panY=1,0,0
  return true
 end
@@ -298,8 +298,41 @@ end
 local function delegatedWorker()
  return app.orderWorker or app.selectedWorker or 0
 end
+local selectionLimit=256
+local function selectionContains(selection,gx,gy)
+ return selection and gx>=selection.gx1 and gx<=selection.gx2 and gy>=selection.gy1 and gy<=selection.gy2
+end
+local function selectionCount(selection)
+ return (selection.gx2-selection.gx1+1)*(selection.gy2-selection.gy1+1)
+end
+local function selectCell(w,x,y)
+ app.selectedCell={x=x,y=y};app.selectedWorker=nil
+ for _,worker in ipairs(w.workers) do
+  if math.abs(x-worker.x)<=2 and y>=worker.y-3 and y<=worker.y+1 then app.selectedWorker=worker.id;break end
+ end
+end
+local function delegateSelection(hud,action)
+ local selection=hud.selection
+ local build=action:match('^build:(.+)$')
+ if not selection or (not build and action~='cancel') then return false end
+ local issued,total=0,0
+ for gy=selection.gy1,selection.gy2 do for gx=selection.gx1,selection.gx2 do
+  if total<selectionLimit then
+   local payload=action=='cancel' and {type='cancel',gx=gx,gy=gy} or
+    {type='order',kind=build=='dig' and 'dig' or 'build',build=build=='dig' and nil or build,gx=gx,gy=gy,priority=app.priority,worker=delegatedWorker()}
+   if queue(payload) then issued=issued+1 end
+   total=total+1
+  end
+ end end
+ app.hud=nil
+ if issued>0 then
+  notify(string.format('%d block order%s queued%s.',issued,issued==1 and '' or 's',selectionCount(selection)>selectionLimit and ('; first '..selectionLimit..' selected blocks only') or ''))
+ else notify('No selected block orders could be queued.') end
+ return true
+end
 local function delegateHudAction(action)
  local hud=app.hud;if not hud or not hud.cell then return false end
+ if delegateSelection(hud,action) then return true end
  local cell=hud.cell;local w=currentWorld();local gx,gy=W.tile(w,cell.x,cell.y)
  local function issued(payload)
   local ok=queue(payload);if ok then app.hud=nil end;return ok
@@ -345,6 +378,7 @@ local function delegateHudAction(action)
  notify('That delegated action is no longer available.');return false
 end
 function love.keypressed(key)
+ if key=='q' and love.keyboard.isDown('lctrl','rctrl','lgui','rgui') then love.event.quit(0);return end
  if app.school then
   if key=='escape' then app.school=nil
   elseif key=='space' then
@@ -427,7 +461,7 @@ function love.keypressed(key)
   return
  end
  local h=app.history
- if key=='escape' then app.benchmark=nil;app.port=nil;app.drag=nil;app.hud=nil;app.tool='inspect'
+ if key=='escape' then app.benchmark=nil;app.port=nil;app.drag=nil;app.selection=nil;app.selectionDrag=nil;app.hud=nil;app.tool='inspect'
  elseif key=='f1' then app.help=true;app.paused=true;app.hud=nil
  elseif key=='h' then app.hud=nil;Crew.open(app)
  elseif key=='f4' then app.fieldnotes={scroll=1,observerId=app.selectedWorker};app.paused=true;app.accumulator=0;app.stepBudget=0;app.drag=nil;app.hud=nil
@@ -565,7 +599,7 @@ function love.mousepressed(mx,my,button)
   for _,entry in ipairs(app.hud.buttons or {}) do if contains(entry,mx,my) then delegateHudAction(entry.action);return end end
   app.hud=nil
  end
- if button==3 then app.panning=true;return end
+ if button==3 then app.panning=true;app.selectionDrag=nil;return end
  if button~=1 and button~=2 then return end
  if button==1 then
   if app.regionButton and contains(app.regionButton,mx,my) then toggleRegion();return end
@@ -576,13 +610,18 @@ function love.mousepressed(mx,my,button)
   if contains(t,mx,my) then app.paused=true;app.accumulator=0;app.stepBudget=0;app.history:seek(math.floor(U.clamp((mx-t.x)/t.w)*app.history.frontier));return end
  end
  local x,y=renderer:cell(mx,my);if not x then return end
- local w=currentWorld()
- app.selectedCell={x=x,y=y};app.selectedWorker=nil
- for _,worker in ipairs(w.workers) do if math.abs(x-worker.x)<=2 and y>=worker.y-3 and y<=worker.y+1 then app.selectedWorker=worker.id;break end end
+ local w=currentWorld();local gx,gy=W.tile(w,x,y)
  if button==2 then
-  app.tool='inspect';app.port=nil;app.drag=nil;app.hud={x=mx+12,y=my+12,cell={x=x,y=y}}
+  selectCell(w,x,y)
+  app.tool='inspect';app.port=nil;app.drag=nil
+  app.hud={x=mx+12,y=my+12,cell={x=x,y=y},selection=selectionContains(app.selection,gx,gy) and app.selection or nil}
   return
  end
+ if app.tool=='inspect' and not app.port then
+  app.selectionDrag={gx=gx,gy=gy}
+  return
+ end
+ app.selection=nil;app.selectionDrag=nil;selectCell(w,x,y)
  if app.port then queue({type='port',slot=app.portSlot,port=app.port,x=x,y=y});app.port=nil;return end
  if app.tool=='inspect' then
   return
@@ -593,15 +632,30 @@ function love.mousepressed(mx,my,button)
   if p then queue({type='field',kind=app.tool,target=p.id,worker=app.orderWorker or 0,priority=app.priority})
   else notify('No living encounter at that cell. Inspect a growth, creature or ruin object.') end
  elseif app.tool=='paint' then queue({type='paint',x=x,y=y,material=app.brush or M.WATER})
- else local gx,gy=W.tile(w,x,y);app.drag={gx=gx,gy=gy,tool=app.tool} end
+ else app.drag={gx=gx,gy=gy,tool=app.tool} end
 end
 function love.mousemoved(mx,my,dx,dy)
  if app.crew or app.fieldnotes or app.school or app.newRun or app.mapBrowser or app.help or app.region or app.expedition then return end
- if app.panning then renderer.panX=renderer.panX+dx;renderer.panY=renderer.panY+dy end
+ if app.panning then renderer:pan(currentWorld(),dx,dy) end
  local x,y=renderer:cell(mx,my);app.hover=x and {x=x,y=y} or nil
 end
 function love.mousereleased(mx,my,button)
- if button==3 then app.panning=false end
+ if button==3 then app.panning=false;return end
+ if button==1 and app.selectionDrag and not app.crew and not app.fieldnotes and not app.newRun and not app.mapBrowser and not app.hud then
+  local drag=app.selectionDrag;app.selectionDrag=nil
+  local x,y=renderer:cell(mx,my);if not x then return end
+  local w=currentWorld();local gx,gy=W.tile(w,x,y)
+  if gx~=drag.gx or gy~=drag.gy then
+   app.selection={gx1=math.min(drag.gx,gx),gy1=math.min(drag.gy,gy),gx2=math.max(drag.gx,gx),gy2=math.max(drag.gy,gy),limit=selectionLimit}
+   app.selection.count=selectionCount(app.selection);app.selectedCell=nil;app.selectedWorker=nil;app.hud=nil
+   notify(string.format('%d blocks selected. Right-click inside the selection to delegate; left-click a selected block or Escape to clear.',app.selection.count))
+  elseif selectionContains(app.selection,gx,gy) then
+   app.selection=nil;app.selectedCell=nil;app.selectedWorker=nil;app.hud=nil;notify('Block selection cleared.')
+  else
+   app.selection=nil;selectCell(w,x,y)
+  end
+  return
+ end
  if button~=1 or not app.drag or app.crew or app.fieldnotes or app.newRun or app.mapBrowser or app.hud then return end
  local d=app.drag;app.drag=nil
  local x,y=renderer:cell(mx,my);if not x then return end

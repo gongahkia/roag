@@ -1,5 +1,6 @@
 local directory=arg and arg[1] or '/tmp/cosmonauts-gui-test'
 local mock=require('tests.love_mock').install(directory)
+love.event={quit=function(code) mock.quitCode=code end}
 os.remove(directory..'/run.dat');os.remove(directory..'/run.tmp')
 local C=require('config');C.width,C.height,C.preset=192,112,'cistern'
 local main=require('main');love.load();local app=main.app
@@ -11,6 +12,11 @@ local function cellClick(x,y,dragToX,dragToY)
  love.mousemoved(sx,sy,0,0);love.mousepressed(sx,sy,1)
  local ex,ey=r.x+((dragToX or x)-0.5)*r.scale,r.y+((dragToY or y)-0.5)*r.scale
  love.mousemoved(ex,ey,ex-sx,ey-sy);love.mousereleased(ex,ey,1)
+end
+local function cellRightClick(x,y)
+ love.draw();local r=main.getRenderer().rect
+ local sx,sy=r.x+(x-0.5)*r.scale,r.y+(y-0.5)*r.scale
+ love.mousemoved(sx,sy,0,0);love.mousepressed(sx,sy,2)
 end
 local row=(app.history.live.home.floor-1)/4
 love.keypressed('c');cellClick(34,row*4-1)
@@ -39,8 +45,27 @@ love.keypressed('n');assert(app.newRun);love.keypressed('tab');love.keypressed('
 -- Save always takes the live frontier, even while browsing the past.
 love.keypressed('home');love.keypressed('f5');restored=require('src.storage').load();assert(restored.live.tick==before)
 love.keypressed('end');app.tool='inspect';app.selectedWorker=nil;app.selectedCell=nil;app.hover=nil;app.toast=nil
+-- Inspect-mode left drag selects build blocks. The contextual HUD batches only
+-- ordinary per-block orders, and a click inside the area clears it.
+cellClick(58,row*4-1,62,row*4-1);assert(app.selection and app.selection.count==2,'Inspect drag did not select two blocks')
+cellRightClick(58,row*4-1);love.draw();assert(app.hud and app.hud.model and app.hud.model.area,'Right-click inside a block selection did not open the batch HUD')
+local batch
+for _,button in ipairs(app.hud.buttons) do if button.action=='build:ladder' then batch=button;break end end
+assert(batch,'Batch HUD did not offer ordinary block build actions')
+local pending=#(app.history.commands[app.history.live.tick+1] or {})
+love.mousepressed(batch.x+1,batch.y+1,1)
+assert(#(app.history.commands[app.history.live.tick+1] or {})==pending+2,'Batch delegation did not queue one order per selected block')
+assert(app.selection,'Batch delegation unexpectedly cleared the selection')
+cellClick(58,row*4-1);assert(not app.selection,'Clicking a selected block did not clear the area')
+-- Panning is camera-local and bounded by the zoomed map, rather than worker movement.
+love.wheelmoved(0,2);love.draw();local renderer=main.getRenderer();local panX,panY=renderer.panX,renderer.panY
+local r=renderer.rect;local px,py=r.x+r.w/2,r.y+r.h/2
+love.mousepressed(px,py,3);love.mousemoved(px+40,py+20,40,20);love.mousereleased(px+40,py+20,3)
+assert(renderer.panX~=panX or renderer.panY~=panY,'Middle-drag did not pan the zoomed camera')
+love.keypressed('r')
 mock.record=true;mock.records={};love.draw()
 local f=assert(io.open(directory..'/draw.dw','wb'));f:write(require('src.codec').encode(mock.records));f:close()
+love.keypressed('f1');mock.held.lctrl=true;love.keypressed('q');mock.held.lctrl=nil;assert(mock.quitCode==0,'Ctrl+Q did not request a game quit from the Field Manual');love.keypressed('f1')
 love.quit()
-print('PASS GUI adapter: 420 gameplay frames, mouse construction, layers, resize, timeline, save/load, exports and modal input.')
+print('PASS GUI adapter: 420 gameplay frames, mouse construction, block selection, camera panning, layers, resize, timeline, save/load, exports and modal input.')
 print('NOTE: this is a mock-contract test, NOT real LÖVE, SDL, LuaJIT, or GPU validation.')
